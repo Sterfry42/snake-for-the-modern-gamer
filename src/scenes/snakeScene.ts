@@ -12,6 +12,7 @@ graphics!: Phaser.GameObjects.Graphics;
   apple = new Phaser.Math.Vector2(10, 10);
   score = 0;
   paused = true;
+  isDirty = true;
   teleport = true; // can be toggled by features
   flags: Record<string, unknown> = {};
 
@@ -40,6 +41,7 @@ graphics!: Phaser.GameObjects.Graphics;
     this.dir.set(1,0); this.nextDir.set(1,0);
     this.score = 0; this.flags = {};
     this.spawnApple();
+    this.isDirty = true;
   }
   setDir(x:number,y:number){
     if (x + this.dir.x === 0 && y + this.dir.y === 0) return;
@@ -56,6 +58,7 @@ graphics!: Phaser.GameObjects.Graphics;
   gameOver(reason?:string){
     callFeatureHooks("onGameOver", this);
     this.initGame(); this.paused = true;
+    this.isDirty = true;
     console.log("Game over:", reason);
   }
 
@@ -76,23 +79,34 @@ graphics!: Phaser.GameObjects.Graphics;
     else this.snake.pop();
 
     callFeatureHooks("onTick", this);
+    this.isDirty = true;
   }
 
   addScore(n:number){ this.score += n; }
 
- update() {
+  update() {
+    if (this.isDirty)
+    {
+      this.draw();
+      this.isDirty = false;
+    }
+  }
+
+  draw() {
     this.graphics.clear();
+    this.graphics.clearMask();
 
     // draw grid
     this.graphics.lineStyle(1, 0x122030, 1);
     for (let x = 0; x <= this.grid.cols; x++) {
-      this.graphics.lineBetween(
-        x * this.grid.cell,
-        0,
-        x * this.grid.cell,
-        this.grid.rows * this.grid.cell
-      );
+      this.graphics.moveTo(x * this.grid.cell, 0);
+      this.graphics.lineTo(x * this.grid.cell, this.grid.rows * this.grid.cell);
     }
+    for (let y = 0; y <= this.grid.rows; y++) {
+      this.graphics.moveTo(0, y * this.grid.cell);
+      this.graphics.lineTo(this.grid.cols * this.grid.cell, y * this.grid.cell);
+    }
+    this.graphics.strokePath();
 
     // draw apple
     this.graphics.fillStyle(0xff6b6b, 1);
@@ -113,5 +127,7 @@ graphics!: Phaser.GameObjects.Graphics;
         this.grid.cell
       );
     });
+
+    callFeatureHooks("onRender", this, this.graphics);
   }
-}   
+}
