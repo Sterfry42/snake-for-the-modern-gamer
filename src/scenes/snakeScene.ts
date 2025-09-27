@@ -18,7 +18,7 @@ graphics!: Phaser.GameObjects.Graphics;
 
   constructor(){ super("SnakeScene"); }
 
-  create(){
+  async create(){
     this.graphics = this.add.graphics();
     this.input.keyboard!.on("keydown", (e: KeyboardEvent)=>{
       const k = e.key.toLowerCase();
@@ -30,8 +30,13 @@ graphics!: Phaser.GameObjects.Graphics;
     });
 
     this.initGame();
-    registerBuiltInFeatures(this);
+    await registerBuiltInFeatures(this);
     callFeatureHooks("onRegister", this);
+
+    // Ensure the main graphics are at the bottom and the score text is on top.
+    this.graphics.setDepth(0);
+    const scoreText = this.flags["scoreText"] as Phaser.GameObjects.Text;
+    scoreText?.setDepth(10);
 
     this.time.addEvent({ loop: true, delay: 100, callback: ()=>{ if(!this.paused) this.step(); }});
   }
@@ -56,8 +61,8 @@ graphics!: Phaser.GameObjects.Graphics;
     while (this.snake.some(s=>s.equals(this.apple)));
   }
   gameOver(reason?:string){
+    this.initGame();
     callFeatureHooks("onGameOver", this);
-    this.initGame(); this.paused = true;
     this.isDirty = true;
     console.log("Game over:", reason);
   }
@@ -82,7 +87,10 @@ graphics!: Phaser.GameObjects.Graphics;
     this.isDirty = true;
   }
 
-  addScore(n:number){ this.score += n; }
+  addScore(n:number){ 
+    this.score += n;
+    this.isDirty = true;
+  }
 
   update() {
     if (this.isDirty)

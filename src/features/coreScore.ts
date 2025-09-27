@@ -1,16 +1,22 @@
-// AI Generated, Replace
-
 import { registerFeature } from "../systems/features";
+
+// This variable is in the module scope, so it persists across game resets.
+let scoreText: Phaser.GameObjects.Text | null = null;
+
 registerFeature({
   id: "score",
   label: "Score HUD",
+  onRegister(s) {
+    // Create the text object only if it doesn't exist.
+    if (!scoreText) {
+      scoreText = s.add.text(10, 8, "Score: 0", { fontFamily: "monospace", fontSize: "16px", color: "#9ad1ff" });
+    }
+  },
   onAppleEaten(s){ s.addScore(1); },
-  onRender(s, g){
-    const txt = `Score: ${s.score}`;
-    const style = s.add.text(10, 8, txt, { fontFamily: "monospace", fontSize: "16px", color: "#9ad1ff" });
-    style.setDepth(10);
-    style.once(Phaser.GameObjects.Events.DESTROY, ()=>{});
-    // destroy at end of render cycle
-    s.events.once("postrender", ()=> style.destroy());
+  onGameOver(s) {
+    scoreText?.setText("Score: 0");
+  },
+  onRender(s) {
+    scoreText?.setText(`Score: ${s.score}`);
   }
 });
