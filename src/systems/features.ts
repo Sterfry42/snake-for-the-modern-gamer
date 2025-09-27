@@ -1,6 +1,6 @@
 // AI Generated, replace
 
-import type SnakeScene from "../scenes/SnakeScene";
+import type SnakeScene from "../scenes/snakeScene";
 import Phaser from "phaser";
 
 export type Feature = {
@@ -19,8 +19,10 @@ export function callFeatureHooks<K extends keyof Feature>(hook: K, ...args: any[
   for(const f of features){ (f[hook] as any)?.(...args); }
 }
 
-// Built-ins for demo
-import "../features/coreScore";
-import "../features/wrapWall";
-import "../features/bonusApple";
-export function registerBuiltInFeatures(_s: SnakeScene){ /* side effects already registered */ }
+export function registerBuiltInFeatures(_s: SnakeScene){
+  // Built-ins for demo
+  // We import them here to prevent circular dependency issues
+  import("../features/coreScore");
+  import("../features/wrapWall");
+  import("../features/bonusApple");
+}
