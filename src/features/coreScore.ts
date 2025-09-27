@@ -12,7 +12,10 @@ registerFeature({
       scoreText = s.add.text(10, 8, "Score: 0", { fontFamily: "monospace", fontSize: "16px", color: "#9ad1ff" });
     }
   },
-  onAppleEaten(s){ s.addScore(1); },
+  onAppleEaten(s){
+    s.addScore(1);
+    s.flags["applesEaten"] = ((s.flags["applesEaten"] || 0) as number) + 1;
+  },
   onGameOver(s) {
     scoreText?.setText("Score: 0");
   },

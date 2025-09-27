@@ -25,4 +25,5 @@ export async function registerBuiltInFeatures(_s: SnakeScene){
   await import("../features/coreScore");
   await import("../features/wrapWall");
   await import("../features/bonusApple");
+  await import("../features/hungerTimer.js");
 }
