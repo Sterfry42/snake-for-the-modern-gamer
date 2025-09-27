@@ -4,7 +4,7 @@ import Phaser from "phaser";
 import { callFeatureHooks, registerBuiltInFeatures } from "../systems/features.js";
 import { getAvailableQuests, type Quest } from "../../quests.js";
 import { registerBuiltInQuests } from "../systems/quests.js";
-import { getRoom, type Room, clearWorld } from "../systems/world.js";
+import { getRoom, type Room } from "../systems/world.js";
 
 export default class SnakeScene extends Phaser.Scene {
 graphics!: Phaser.GameObjects.Graphics;
@@ -63,7 +63,6 @@ graphics!: Phaser.GameObjects.Graphics;
   }
 
   initGame(){
-    clearWorld();
     this.snake = [new Phaser.Math.Vector2(5,12), new Phaser.Math.Vector2(4,12), new Phaser.Math.Vector2(3,12)];
     this.dir.set(1,0); this.nextDir.set(1,0);
     this.score = 0;
@@ -116,26 +115,38 @@ graphics!: Phaser.GameObjects.Graphics;
     this.dir.copy(this.nextDir);
     const head = this.snake[0].clone().add(this.dir);
 
+    const [roomX, roomY, roomZ = 0] = this.currentRoomId.split(',').map(Number);
     let roomTransition = false;
 
-    // Determine the head's position relative to the current room for portal checks.
-    const [currentRoomX, currentRoomY, currentRoomZ] = this.currentRoomId.split(',').map(Number);
-    const localHeadX = head.x - (currentRoomX * this.grid.cols);
-    const localHeadY = head.y - (currentRoomY * this.grid.rows);
-    const room = getRoom(this.currentRoomId, this.grid);
-
-    // Check for portal (ladder) collision
-    const portal = room.portals.find(p => p.x === localHeadX && p.y === localHeadY);
-    if (portal) {
-      this.currentRoomId = portal.destRoomId;
+    // World boundary transitions
+    if (head.x < 0) { // Go West
+      this.currentRoomId = `${roomX - 1},${roomY},${roomZ}`;
+      head.x = this.grid.cols - 1;
+      roomTransition = true;
+    } else if (head.x >= this.grid.cols) { // Go East
+      this.currentRoomId = `${roomX + 1},${roomY},${roomZ}`;
+      head.x = 0;
+      roomTransition = true;
+    } else if (head.y < 0) { // Go North
+      this.currentRoomId = `${roomX},${roomY - 1},${roomZ}`;
+      head.y = this.grid.rows - 1;
+      roomTransition = true;
+    } else if (head.y >= this.grid.rows) { // Go South
+      this.currentRoomId = `${roomX},${roomY + 1},${roomZ}`;
+      head.y = 0;
       roomTransition = true;
     }
 
-    // Update currentRoomId based on the head's new global position (for edge transitions)
-    const newRoomX = Math.floor(head.x / this.grid.cols);
-    const newRoomY = Math.floor(head.y / this.grid.rows);
-    if (newRoomX !== currentRoomX || newRoomY !== currentRoomY) {
-      this.currentRoomId = `${newRoomX},${newRoomY},${currentRoomZ}`;
+    const room = getRoom(this.currentRoomId, this.grid);
+
+    // Check for portal (ladder) collision
+    const portal = room.portals.find(p => p.x === head.x && p.y === head.y);
+    if (portal) {
+      this.currentRoomId = portal.destRoomId;
+      // Keep the snake's body when using a ladder
+      this.snake.unshift(head);
+      this.snake.pop(); // Move as normal
+      // No return, continue to wall/self collision check
       roomTransition = true;
     }
 
@@ -143,23 +154,18 @@ graphics!: Phaser.GameObjects.Graphics;
       this.ensureAppleInCurrentRoom();
     }
 
-    // Now that the room is finalized, get its data for collision checks
+    // Re-fetch room in case we transitioned
     const currentRoom = getRoom(this.currentRoomId, this.grid);
-    const finalLocalHeadX = head.x - (Math.floor(head.x / this.grid.cols) * this.grid.cols);
-    const finalLocalHeadY = head.y - (Math.floor(head.y / this.grid.rows) * this.grid.rows);
 
     // Check for wall collision
-    const tile = currentRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
+    const tile = currentRoom.layout[head.y]?.[head.x];
     if (tile === '#') return this.gameOver("wall");
 
     // Check for self collision
     if (this.snake.some(s=>s.equals(head))) return this.gameOver("self");
 
     this.snake.unshift(head);
-
-    // Use the local head position for the apple collision check
-    const localHead = new Phaser.Math.Vector2(finalLocalHeadX, finalLocalHeadY);
-    if (currentRoom.apple && localHead.equals(currentRoom.apple)) {
+    if (currentRoom.apple && head.equals(currentRoom.apple)) {
       callFeatureHooks("onAppleEaten", this); this.spawnApple();
     }
     else this.snake.pop();
@@ -299,15 +305,7 @@ graphics!: Phaser.GameObjects.Graphics;
         }
       }
     }
-
-    // draw grid lines over the floor
-    this.graphics.lineStyle(1, 0x000000, 0.2); // Subtle black lines for the grid
-    for (let x = 0; x <= this.grid.cols; x++) {
-      this.graphics.lineBetween(x * this.grid.cell, 0, x * this.grid.cell, this.grid.rows * this.grid.cell);
-    }
-    for (let y = 0; y <= this.grid.rows; y++) {
-      this.graphics.lineBetween(0, y * this.grid.cell, this.grid.cols * this.grid.cell, y * this.grid.cell);
-    }
+    this.graphics.strokePath();
 
     // draw apple for the current room
     const apple = room.apple;
@@ -323,21 +321,24 @@ graphics!: Phaser.GameObjects.Graphics;
 
     // draw snake
     this.snake.forEach((s, i) => {
-      // Determine the segment's position relative to the current room's origin
+      // Determine the correct drawing position for each segment, even if it's "out of bounds"
+      const drawPos = s.clone();
       const [currentRoomX, currentRoomY] = this.currentRoomId.split(',').map(Number);
-      const localX = s.x - (currentRoomX * this.grid.cols);
-      const localY = s.y - (currentRoomY * this.grid.rows);
+      const segmentRoomX = Math.floor(s.x / this.grid.cols);
+      const segmentRoomY = Math.floor(s.y / this.grid.rows);
 
-      // Only draw the segment if it's within the bounds of the current room's grid
-      if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
-        this.graphics.fillStyle(0x5dd6a2, Math.max(0.5, 1 - i * 0.015));
-        this.graphics.fillRect(
-          localX * this.grid.cell,
-          localY * this.grid.cell,
-          this.grid.cell,
-          this.grid.cell
-        );
+      // This segment is in a different room, so don't draw it.
+      if (segmentRoomX !== currentRoomX || segmentRoomY !== currentRoomY) {
+        return;
       }
+
+      this.graphics.fillStyle(0x5dd6a2, Math.max(0.5, 1 - i * 0.015));
+      this.graphics.fillRect(
+        drawPos.x * this.grid.cell,
+        drawPos.y * this.grid.cell,
+        this.grid.cell,
+        this.grid.cell
+      );
     });
 
     // draw quests
