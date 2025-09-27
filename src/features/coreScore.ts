@@ -9,7 +9,7 @@ registerFeature({
   onRegister(s) {
     // Create the text object only if it doesn't exist.
     if (!scoreText) {
-      scoreText = s.add.text(10, 8, "Score: 0", { fontFamily: "monospace", fontSize: "16px", color: "#9ad1ff" });
+      scoreText = s.add.text(10, 8, "Score: 0", { fontFamily: "monospace", fontSize: "16px", color: "#9ad1ff" }).setDepth(10);
     }
   },
   onAppleEaten(s){

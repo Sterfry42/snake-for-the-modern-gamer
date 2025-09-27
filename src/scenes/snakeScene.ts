@@ -19,6 +19,7 @@ graphics!: Phaser.GameObjects.Graphics;
   activeQuests: Quest[] = [];
   completedQuests: string[] = [];
   questText!: Phaser.GameObjects.Text;
+  scoreText!: Phaser.GameObjects.Text;
   questPopupContainer!: Phaser.GameObjects.Container;
   offeredQuest: Quest | null = null;
   flags: Record<string, unknown> = {};
@@ -40,20 +41,20 @@ graphics!: Phaser.GameObjects.Graphics;
       if (["arrowright","d"].includes(k)) this.setDir(1, 0);
     });
 
-    this.initGame();
-    await registerBuiltInFeatures(this);
-    registerBuiltInQuests();
-    callFeatureHooks("onRegister", this);
-    this.assignNewQuests(3);
-
+    // Create all game objects before any async operations
     this.questText = this.add.text(0, 0, '', { fontFamily: "monospace", fontSize: "14px", color: "#e6e6e6", align: 'right', lineSpacing: 4 }).setOrigin(1, 0);
     this.createQuestPopup();
 
-    // Ensure the main graphics are at the bottom and the score text is on top.
+    // Ensure the main graphics are at the bottom. Other UI elements will render on top by default or with their own depth settings.
     this.graphics.setDepth(0);
-    const scoreText = this.flags["scoreText"] as Phaser.GameObjects.Text;
-    scoreText?.setDepth(10);
 
+    // Now perform async setup
+    await registerBuiltInFeatures(this);
+    registerBuiltInQuests();
+    callFeatureHooks("onRegister", this);
+
+    // Initialize game state and trigger the first draw
+    this.initGame();
     this.time.addEvent({ loop: true, delay: 100, callback: ()=>{ if(!this.paused) this.step(); }});
   }
 
