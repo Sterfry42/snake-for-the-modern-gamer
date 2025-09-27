@@ -1,0 +1,1 @@
+import{r as l}from"./index-CXGu6Z5N.js";l({id:"bonus",label:"Bonus apple timer bar",onAppleEaten(e){e.flags.bonusActive&&e.addScore(4),e.flags.bonusActive=!1},onTick(e){!e.flags.bonusActive&&Math.random()<.005&&(e.flags.bonusActive=!0)},onRender(e,i){i.beginPath(),e.flags.bonusActive&&(i.fillStyle(5570458,1),i.fillRect(0,0,e.grid.cols*e.grid.cell*.5,4))}});

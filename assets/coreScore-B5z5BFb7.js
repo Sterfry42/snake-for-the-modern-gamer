@@ -1,0 +1,1 @@
+import{r as t}from"./index-CXGu6Z5N.js";let o=null;t({id:"score",label:"Score HUD",onRegister(e){o||(o=e.add.text(10,8,"Score: 0",{fontFamily:"monospace",fontSize:"16px",color:"#9ad1ff"}).setDepth(10))},onAppleEaten(e){e.addScore(1),e.flags.applesEaten=(e.flags.applesEaten||0)+1},onGameOver(e){o?.setText("Score: 0")},onRender(e){o?.setText(`Score: ${e.score}`)}});
