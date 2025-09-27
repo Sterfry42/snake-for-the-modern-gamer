@@ -1,4 +1,4 @@
-import type SnakeScene from "../scenes/snakeScene";
+import type SnakeScene from "./src/scenes/snakeScene";
 
 const quests: Quest[] = [];
 
@@ -20,4 +20,9 @@ export function registerQuest(q: Quest) {
 
 export function getAvailableQuests(completedQuestIds: string[]): Quest[] {
     return quests.filter(q => !completedQuestIds.includes(q.id));
+}
+
+// Helper for testing purposes to reset the quests array
+export function _clearQuests() {
+    quests.length = 0;
 }
