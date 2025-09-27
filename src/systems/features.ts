@@ -19,11 +19,11 @@ export function callFeatureHooks<K extends keyof Feature>(hook: K, ...args: any[
   for(const f of features){ (f[hook] as any)?.(...args); }
 }
 
-export function registerBuiltInFeatures(_s: SnakeScene){
+export async function registerBuiltInFeatures(_s: SnakeScene){
   // Built-ins for demo
   // We import them here to prevent circular dependency issues
-  import("../features/coreScore");
-  import("../features/wrapWall");
-  import("../features/bonusApple");
-  import("../features/hungerTimer.js");
+  await import("../features/coreScore");
+  await import("../features/wrapWall");
+  await import("../features/bonusApple");
+  await import("../features/hungerTimer.js");
 }
