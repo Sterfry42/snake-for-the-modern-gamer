@@ -25,4 +25,5 @@ export function registerBuiltInFeatures(_s: SnakeScene){
   import("../features/coreScore");
   import("../features/wrapWall");
   import("../features/bonusApple");
+  import("../features/hungerTimer.js");
 }
