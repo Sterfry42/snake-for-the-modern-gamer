@@ -9,11 +9,12 @@ import {
   advanceSnake,
   type SnakeState,
 } from "../systems/snakeState.js";
-import { ensureAppleInRoom, spawnAppleInRoom } from "../systems/apple.js";
+import { AppleManager } from "../systems/appleManager.js";
 import { QuestController } from "../systems/questController.js";
 import { QuestHud } from "../ui/questHud.js";
 import { QuestPopup } from "../ui/questPopup.js";
 import { SnakeRenderer } from "../ui/snakeRenderer.js";
+import { JuiceManager } from "../ui/juice.js";
 import type { Quest } from "../../quests.js";
 
 export default class SnakeScene extends Phaser.Scene {
@@ -25,6 +26,8 @@ export default class SnakeScene extends Phaser.Scene {
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private snakeRenderer!: SnakeRenderer;
+  private juice!: JuiceManager;
+  private apples = new AppleManager(this.grid);
 
   paused = true;
   isDirty = false;
@@ -96,6 +99,7 @@ export default class SnakeScene extends Phaser.Scene {
   async create() {
     this.graphics = this.add.graphics();
     this.snakeRenderer = new SnakeRenderer(this.graphics, this.grid);
+    this.juice = new JuiceManager(this);
 
     this.input.keyboard!.on("keydown", (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
@@ -140,6 +144,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (resetWorld) {
       clearWorld();
     }
+    this.apples.resetAll();
     resetSnakeState(this.state);
     this.questController.reset();
     this.questPopup.hide();
@@ -152,25 +157,48 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   spawnApple() {
-    spawnAppleInRoom(this.currentRoomId, this.grid, this.snake);
+    const { changed } = this.apples.spawnCurrent(this.currentRoomId, this.snake, this.score);
+    if (changed) {
+      this.isDirty = true;
+    }
   }
 
   ensureAppleInCurrentRoom() {
-    ensureAppleInRoom(this.currentRoomId, this.grid, this.snake);
+    const { changed } = this.apples.ensureCurrent(this.currentRoomId, this.snake, this.score);
+    if (changed) {
+      this.isDirty = true;
+    }
   }
 
   gameOver(reason?: string) {
-    this.initGame(true);
+    this.juice?.gameOver();
+    this.initGame();
     callFeatureHooks("onGameOver", this);
     this.paused = true;
     this.isDirty = true;
     console.log("Game over:", reason);
   }
 
+  private updateSkittishApple() {
+    const { changed } = this.apples.updateSkittish(this.currentRoomId, this.snake);
+    if (changed) {
+      this.isDirty = true;
+    }
+  }
+
   step() {
+    this.updateSkittishApple();
+
+    const appleBeforeStep = this.apples.getCurrent();
+
     const outcome = advanceSnake(this.state, {
       getRoom: (roomId: string) => getRoom(roomId, this.grid),
-      ensureApple: (roomId: string) => ensureAppleInRoom(roomId, this.grid, this.snake),
+      ensureApple: (roomId: string) => {
+        const { changed } = this.apples.ensureRoom(roomId, this.snake, this.score);
+        if (changed) {
+          this.isDirty = true;
+        }
+      },
     });
 
     if (outcome.status === "dead") {
@@ -178,12 +206,59 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    if (outcome.appleEaten) {
-      callFeatureHooks("onAppleEaten", this);
-      this.spawnApple();
+    const { changed: roomChanged } = this.apples.setCurrentRoom(this.currentRoomId);
+    const { changed: ensuredCurrent } = this.apples.ensureCurrent(
+      this.currentRoomId,
+      this.snake,
+      this.score
+    );
+    if (roomChanged || ensuredCurrent) {
+      this.isDirty = true;
     }
 
-    callFeatureHooks("onTick", this);
+    if (outcome.appleEaten) {
+      const consumption = this.apples.handleConsumption(appleBeforeStep, this.dir);
+      if (consumption.fatal) {
+        this.gameOver("shielded apple");
+        return;
+      }
+
+      callFeatureHooks("onAppleEaten", this);
+
+      const { growth, bonusScore } = consumption.rewards;
+      if (bonusScore > 0) {
+        this.addScore(bonusScore);
+      }
+
+      const extraGrowth = Math.max(0, growth - 1);
+      if (extraGrowth > 0) {
+        const tail = this.snake[this.snake.length - 1];
+        if (tail) {
+          for (let i = 0; i < extraGrowth; i++) {
+            this.snake.push(tail.clone());
+          }
+        }
+      }
+
+      if (consumption.worldPosition) {
+        this.juice?.appleChomp(consumption.worldPosition.x, consumption.worldPosition.y);
+      }
+
+      if (consumption.changed) {
+        this.isDirty = true;
+      }
+
+      const { changed: spawnChanged } = this.apples.spawnCurrent(
+        this.currentRoomId,
+        this.snake,
+        this.score
+      );
+      if (spawnChanged) {
+        this.isDirty = true;
+      }
+    }
+
+    this.juice?.movementTick();
 
     const offered = this.questController.maybeCreateOffer(this.paused);
     if (offered) {
@@ -192,15 +267,20 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (this.questController.handleCompletions(this)) {
       this.isDirty = true;
+      this.juice?.questCompleted();
     }
 
     this.isDirty = true;
   }
 
+
   offerQuest(quest: Quest) {
     this.paused = true;
+    this.juice?.questOffered();
+
     this.questPopup.show(quest, {
       onAccept: () => {
+        this.juice?.questAccepted();
         const accepted = this.questController.acceptOfferedQuest();
         if (accepted) {
           this.isDirty = true;
@@ -208,6 +288,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.closeQuestPopup();
       },
       onReject: () => {
+        this.juice?.questRejected();
         this.questController.rejectOfferedQuest();
         this.closeQuestPopup();
       },
@@ -234,11 +315,11 @@ export default class SnakeScene extends Phaser.Scene {
 
   draw() {
     const room = getRoom(this.currentRoomId, this.grid);
-    this.snakeRenderer.render(room, this.state);
+    const renderApple = this.apples.getCurrent();
+    this.snakeRenderer.render(room, this.state, renderApple);
     this.questHud.update(this.activeQuests, this.grid.cols * this.grid.cell);
 
     callFeatureHooks("onRender", this, this.graphics);
   }
+
 }
-
-

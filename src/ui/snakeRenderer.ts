@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import { paletteConfig, darkenColor } from "../config/palette.js";
 import type { GridConfig, SnakeState } from "../systems/snakeState.js";
 import type { Room } from "../systems/world.js";
+import type { AppleInfo } from "../systems/apple.js";
 
 const SNAKE_OUTLINE_ALPHA = 0.9;
 const SNAKE_OUTLINE_WIDTH = 1;
@@ -16,13 +17,13 @@ export class SnakeRenderer {
     private readonly grid: GridConfig
   ) {}
 
-  render(room: Room, state: SnakeState): void {
+  render(room: Room, state: SnakeState, appleInfo?: AppleInfo | null): void {
     this.graphics.clear();
     this.graphics.clearMask();
 
     this.drawRoom(room);
     this.drawGrid();
-    this.drawApple(room);
+    this.drawApple(room, appleInfo ?? undefined);
     this.drawSnake(room, state);
   }
 
@@ -74,11 +75,11 @@ export class SnakeRenderer {
     }
   }
 
-  private drawApple(room: Room): void {
+  private drawApple(room: Room, appleInfo?: AppleInfo): void {
     const apple = room.apple;
     if (!apple) return;
 
-    const appleColor = paletteConfig.apple.color;
+    const appleColor = appleInfo?.color ?? paletteConfig.apple.colors.normal;
     const appleOutlineColor = darkenColor(appleColor, paletteConfig.apple.outlineDarkenFactor);
 
     const x = apple.x * this.grid.cell;
@@ -88,6 +89,27 @@ export class SnakeRenderer {
 
     this.graphics.lineStyle(APPLE_OUTLINE_WIDTH, appleOutlineColor, APPLE_OUTLINE_ALPHA);
     this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+
+    if (appleInfo?.type === "shielded" && appleInfo.protectedDirs) {
+      this.drawShieldIndicators(x, y, appleInfo.protectedDirs);
+    }
+  }
+
+  private drawShieldIndicators(originX: number, originY: number, dirs: Phaser.Math.Vector2[]) {
+    const size = this.grid.cell;
+    const shieldColor = 0xffffff;
+    this.graphics.fillStyle(shieldColor, 0.6);
+    dirs.forEach((dir) => {
+      if (dir.x === 1 && dir.y === 0) {
+        this.graphics.fillRect(originX + 1, originY + 2, 3, size - 4);
+      } else if (dir.x === -1 && dir.y === 0) {
+        this.graphics.fillRect(originX + size - 4, originY + 2, 3, size - 4);
+      } else if (dir.x === 0 && dir.y === 1) {
+        this.graphics.fillRect(originX + 2, originY + 1, size - 4, 3);
+      } else if (dir.x === 0 && dir.y === -1) {
+        this.graphics.fillRect(originX + 2, originY + size - 4, size - 4, 3);
+      }
+    });
   }
 
   private drawSnake(room: Room, state: SnakeState): void {
