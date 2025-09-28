@@ -1,351 +1,244 @@
-// AI Generated - replace
-
 import Phaser from "phaser";
 import { callFeatureHooks, registerBuiltInFeatures } from "../systems/features.js";
-import { getAvailableQuests, type Quest } from "../../quests.js";
 import { registerBuiltInQuests } from "../systems/quests.js";
-import { getRoom, type Room, clearWorld } from "../systems/world.js";
+import { getRoom, clearWorld } from "../systems/world.js";
+import {
+  createSnakeState,
+  resetSnakeState,
+  setSnakeDirection,
+  advanceSnake,
+  type SnakeState,
+} from "../systems/snakeState.js";
+import { ensureAppleInRoom, spawnAppleInRoom } from "../systems/apple.js";
+import { QuestController } from "../systems/questController.js";
+import { QuestHud } from "../ui/questHud.js";
+import { QuestPopup } from "../ui/questPopup.js";
+import { SnakeRenderer } from "../ui/snakeRenderer.js";
+import type { Quest } from "../../quests.js";
 
 export default class SnakeScene extends Phaser.Scene {
-graphics!: Phaser.GameObjects.Graphics;
+  graphics!: Phaser.GameObjects.Graphics;
   grid = { cols: 32, rows: 24, cell: 24 };
-  snake: Phaser.Math.Vector2[] = [];
-  dir = new Phaser.Math.Vector2(1, 0);
-  nextDir = new Phaser.Math.Vector2(1, 0);
-  score = 0;
+
+  private state: SnakeState = createSnakeState(this.grid);
+  private questController = new QuestController();
+  private questHud!: QuestHud;
+  private questPopup!: QuestPopup;
+  private snakeRenderer!: SnakeRenderer;
+
   paused = true;
-  isDirty = true;
-  teleport = false; // We are no longer wrapping, so this is false.
-  currentRoomId = "0,0,0";
-  activeQuests: Quest[] = [];
-  completedQuests: string[] = [];
-  questText!: Phaser.GameObjects.Text;
-  scoreText!: Phaser.GameObjects.Text;
-  questPopupContainer!: Phaser.GameObjects.Container;
-  offeredQuest: Quest | null = null;
-  flags: Record<string, unknown> = {};
+  isDirty = false;
 
-  constructor(){ super("SnakeScene"); }
+  constructor() {
+    super("SnakeScene");
+  }
 
-  async create(){
+  get snake(): Phaser.Math.Vector2[] {
+    return this.state.body;
+  }
+
+  set snake(value: Phaser.Math.Vector2[]) {
+    this.state.body = value;
+  }
+
+  get dir(): Phaser.Math.Vector2 {
+    return this.state.dir;
+  }
+
+  get nextDir(): Phaser.Math.Vector2 {
+    return this.state.nextDir;
+  }
+
+  get score(): number {
+    return this.state.score;
+  }
+
+  set score(value: number) {
+    this.state.score = value;
+  }
+
+  get flags(): Record<string, unknown> {
+    return this.state.flags;
+  }
+
+  set flags(value: Record<string, unknown>) {
+    this.state.flags = value;
+  }
+
+  get teleport(): boolean {
+    return this.state.teleport;
+  }
+
+  set teleport(value: boolean) {
+    this.state.teleport = value;
+  }
+
+  get currentRoomId(): string {
+    return this.state.currentRoomId;
+  }
+
+  set currentRoomId(value: string) {
+    this.state.currentRoomId = value;
+  }
+
+  get activeQuests(): Quest[] {
+    return this.questController.getActiveQuests();
+  }
+
+  get completedQuests(): string[] {
+    return this.questController.getCompletedQuestIds();
+  }
+
+  get offeredQuest(): Quest | null {
+    return this.questController.getOfferedQuest();
+  }
+
+  async create() {
     this.graphics = this.add.graphics();
-    this.input.keyboard!.on("keydown", (e: KeyboardEvent)=>{
+    this.snakeRenderer = new SnakeRenderer(this.graphics, this.grid);
+
+    this.input.keyboard!.on("keydown", (e: KeyboardEvent) => {
       const k = e.key.toLowerCase();
       if (k === " ") {
-        // Don't allow unpausing via spacebar if a quest pop-up is active
         if (this.offeredQuest) return;
         this.paused = !this.paused;
       }
-      if (["arrowup","w"].includes(k)) this.setDir(0,-1);
-      if (["arrowdown","s"].includes(k)) this.setDir(0, 1);
-      if (["arrowleft","a"].includes(k)) this.setDir(-1,0);
-      if (["arrowright","d"].includes(k)) this.setDir(1, 0);
+      if (["arrowup", "w"].includes(k)) this.setDir(0, -1);
+      if (["arrowdown", "s"].includes(k)) this.setDir(0, 1);
+      if (["arrowleft", "a"].includes(k)) this.setDir(-1, 0);
+      if (["arrowright", "d"].includes(k)) this.setDir(1, 0);
     });
 
-    // Create all game objects before any async operations
-    this.questText = this.add.text(0, 0, '', { fontFamily: "monospace", fontSize: "14px", color: "#e6e6e6", align: 'right', lineSpacing: 4 }).setOrigin(1, 0);
-    this.createQuestPopup();
-
-    // Ensure the main graphics are at the bottom. Other UI elements will render on top by default or with their own depth settings.
+    this.questHud = new QuestHud(this, {
+      position: { x: this.grid.cols * this.grid.cell - 10, y: 8 },
+    });
+    this.questPopup = new QuestPopup(this);
     this.graphics.setDepth(0);
 
-    // Now perform async setup
     await registerBuiltInFeatures(this);
     registerBuiltInQuests();
     callFeatureHooks("onRegister", this);
 
-    // Initialize game state and trigger the first draw
-    this.initGame();
-    this.time.addEvent({ loop: true, delay: 100, callback: ()=>{ if(!this.paused) this.step(); }});
+    this.initGame(false);
+    this.time.addEvent({
+      loop: true,
+      delay: 100,
+      callback: () => {
+        if (!this.paused) this.step();
+      },
+    });
 
-    // Setup camera
-    this.cameras.main.setBounds(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell);
+    this.cameras.main.setBounds(
+      0,
+      0,
+      this.grid.cols * this.grid.cell,
+      this.grid.rows * this.grid.cell
+    );
   }
 
-  initGame(){
-    clearWorld();
-    this.snake = [new Phaser.Math.Vector2(5,12), new Phaser.Math.Vector2(4,12), new Phaser.Math.Vector2(3,12)];
-    this.dir.set(1,0); this.nextDir.set(1,0);
-    this.score = 0;
-    this.flags = {};
-    this.currentRoomId = "0,0,0";
-    this.activeQuests = [];
-    this.completedQuests = [];
-    this.assignNewQuests(3);
+  initGame(resetWorld = true) {
+    if (resetWorld) {
+      clearWorld();
+    }
+    resetSnakeState(this.state);
+    this.questController.reset();
+    this.questPopup.hide();
     this.ensureAppleInCurrentRoom();
     this.isDirty = true;
   }
-  setDir(x:number,y:number){
-    if (x + this.dir.x === 0 && y + this.dir.y === 0) return;
-    this.nextDir.set(x,y);
-  }
-  spawnApple(){
-    const room = getRoom(this.currentRoomId, this.grid); // Ensure current room is generated
-    const validSpawns: Phaser.Math.Vector2[] = [];
-    for (let y = 0; y < room.layout.length; y++) {
-      for (let x = 0; x < room.layout[y].length; x++) {
-        if (room.layout[y][x] === '.') {
-          validSpawns.push(new Phaser.Math.Vector2(x, y));
-        }
-      }
-    }
 
-    const rand = () => new Phaser.Math.Vector2(
-      validSpawns[Math.floor(Math.random() * validSpawns.length)]
-    );
-    let applePos;
-    do { applePos = rand(); }
-    while (this.snake.some(s=>s.equals(applePos)));
-    room.apple = applePos;
+  setDir(x: number, y: number) {
+    setSnakeDirection(this.state, x, y);
   }
+
+  spawnApple() {
+    spawnAppleInRoom(this.currentRoomId, this.grid, this.snake);
+  }
+
   ensureAppleInCurrentRoom() {
-    const room = getRoom(this.currentRoomId, this.grid);
-    if (!room.apple) {
-      this.spawnApple();
-    }
+    ensureAppleInRoom(this.currentRoomId, this.grid, this.snake);
   }
-  gameOver(reason?:string){
-    this.initGame();
+
+  gameOver(reason?: string) {
+    this.initGame(true);
     callFeatureHooks("onGameOver", this);
     this.paused = true;
     this.isDirty = true;
     console.log("Game over:", reason);
   }
 
-  step(){
-    this.dir.copy(this.nextDir);
-    const head = this.snake[0].clone().add(this.dir);
-
-    let roomTransition = false;
-
-    // Determine the head's position relative to the current room for portal checks.
-    const [currentRoomX, currentRoomY, currentRoomZ] = this.currentRoomId.split(',').map(Number);
-    const localHeadX = head.x - (currentRoomX * this.grid.cols);
-    const localHeadY = head.y - (currentRoomY * this.grid.rows);
-    const room = getRoom(this.currentRoomId, this.grid);
-
-    // Check for portal (ladder) collision
-    const portal = room.portals.find(p => p.x === localHeadX && p.y === localHeadY);
-    if (portal) {
-      this.currentRoomId = portal.destRoomId;
-      roomTransition = true;
-    }
-
-    // Update currentRoomId based on the head's new global position (for edge transitions)
-    const newRoomX = Math.floor(head.x / this.grid.cols);
-    const newRoomY = Math.floor(head.y / this.grid.rows);
-    if (newRoomX !== currentRoomX || newRoomY !== currentRoomY) {
-      this.currentRoomId = `${newRoomX},${newRoomY},${currentRoomZ}`;
-      roomTransition = true;
-    }
-
-    if (roomTransition) {
-      this.ensureAppleInCurrentRoom();
-    }
-
-    // Now that the room is finalized, get its data for collision checks
-    const currentRoom = getRoom(this.currentRoomId, this.grid);
-    const finalLocalHeadX = head.x - (Math.floor(head.x / this.grid.cols) * this.grid.cols);
-    const finalLocalHeadY = head.y - (Math.floor(head.y / this.grid.rows) * this.grid.rows);
-
-    // Check for wall collision
-    const tile = currentRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
-    if (tile === '#') return this.gameOver("wall");
-
-    // Check for self collision
-    if (this.snake.some(s=>s.equals(head))) return this.gameOver("self");
-
-    this.snake.unshift(head);
-
-    // Use the local head position for the apple collision check
-    const localHead = new Phaser.Math.Vector2(finalLocalHeadX, finalLocalHeadY);
-    if (currentRoom.apple && localHead.equals(currentRoom.apple)) {
-      callFeatureHooks("onAppleEaten", this); this.spawnApple();
-    }
-    else this.snake.pop();
-
-    callFeatureHooks("onTick", this);
-    this.maybeOfferQuest();
-    this.checkQuests();
-    this.isDirty = true;
-  }
-
-  checkQuests() {
-    const justCompleted: Quest[] = [];
-    this.activeQuests = this.activeQuests.filter(quest => {
-      if (!this.completedQuests.includes(quest.id) && quest.isCompleted(this)) {
-        justCompleted.push(quest);
-        this.completedQuests.push(quest.id);
-        return false; // remove from active list
-      }
-      return true;
+  step() {
+    const outcome = advanceSnake(this.state, {
+      getRoom: (roomId: string) => getRoom(roomId, this.grid),
+      ensureApple: (roomId: string) => ensureAppleInRoom(roomId, this.grid, this.snake),
     });
 
-    if (justCompleted.length > 0) {
-      for (const quest of justCompleted) {
-        quest.onReward?.(this);
-        console.log(`Quest completed: ${quest.label}`);
-      }
-      this.assignNewQuests(justCompleted.length);
-      this.isDirty = true;
-    }
-  }
-
-  assignNewQuests(count: number) {
-    const available = getAvailableQuests(this.completedQuests.concat(this.activeQuests.map(q => q.id)));
-    for (let i = 0; i < count && available.length > 0; i++) {
-      const questIndex = Math.floor(Math.random() * available.length);
-      this.activeQuests.push(available.splice(questIndex, 1)[0]);
-    }
-    this.isDirty = true;
-  }
-
-  maybeOfferQuest() {
-    // Don't offer a quest if one is already offered, game is paused, or we have max quests
-    if (this.offeredQuest || this.paused || this.activeQuests.length >= 5) {
+    if (outcome.status === "dead") {
+      this.gameOver(outcome.reason);
       return;
     }
 
-    if (Math.random() < 0.002) { // 0.2% chance per tick
-      const available = getAvailableQuests(
-        this.completedQuests.concat(this.activeQuests.map(q => q.id))
-      );
-      if (available.length > 0) {
-        const quest = available[Math.floor(Math.random() * available.length)];
-        this.offerQuest(quest);
-      }
+    if (outcome.appleEaten) {
+      callFeatureHooks("onAppleEaten", this);
+      this.spawnApple();
     }
+
+    callFeatureHooks("onTick", this);
+
+    const offered = this.questController.maybeCreateOffer(this.paused);
+    if (offered) {
+      this.offerQuest(offered);
+    }
+
+    if (this.questController.handleCompletions(this)) {
+      this.isDirty = true;
+    }
+
+    this.isDirty = true;
   }
 
   offerQuest(quest: Quest) {
     this.paused = true;
-    this.offeredQuest = quest;
-
-    // Update text elements
-    (this.questPopupContainer.getByName('title') as Phaser.GameObjects.Text).setText('New Quest!');
-    (this.questPopupContainer.getByName('description') as Phaser.GameObjects.Text).setText(quest.description);
-
-    this.questPopupContainer.setVisible(true);
-  }
-
-  createQuestPopup() {
-    const width = 400;
-    const height = 150;
-    const x = (this.grid.cols * this.grid.cell - width) / 2;
-    const y = (this.grid.rows * this.grid.cell - height) / 2;
-
-    const bg = this.add.graphics().fillStyle(0x122030, 0.9).fillRect(0, 0, width, height).lineStyle(2, 0x9ad1ff).strokeRect(0, 0, width, height);
-    const title = this.add.text(width / 2, 20, '', { fontFamily: 'monospace', fontSize: '20px', color: '#9ad1ff' }).setOrigin(0.5);
-    const description = this.add.text(width / 2, 60, '', { fontFamily: 'monospace', fontSize: '16px', color: '#e6e6e6' }).setOrigin(0.5);
-    const acceptBtn = this.add.text(width / 2 - 70, height - 30, 'Accept', { fontFamily: 'monospace', fontSize: '18px', color: '#5dd6a2', backgroundColor: '#224433', padding: { left: 10, right: 10, top: 5, bottom: 5 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-    const rejectBtn = this.add.text(width / 2 + 70, height - 30, 'Reject', { fontFamily: 'monospace', fontSize: '18px', color: '#ff6b6b', backgroundColor: '#442222', padding: { left: 10, right: 10, top: 5, bottom: 5 } }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-    title.setName('title');
-    description.setName('description');
-
-    acceptBtn.on('pointerdown', () => {
-      if (this.offeredQuest) {
-        this.activeQuests.push(this.offeredQuest);
-      }
-      this.closeQuestPopup();
+    this.questPopup.show(quest, {
+      onAccept: () => {
+        const accepted = this.questController.acceptOfferedQuest();
+        if (accepted) {
+          this.isDirty = true;
+        }
+        this.closeQuestPopup();
+      },
+      onReject: () => {
+        this.questController.rejectOfferedQuest();
+        this.closeQuestPopup();
+      },
     });
-
-    rejectBtn.on('pointerdown', () => {
-      this.closeQuestPopup();
-    });
-
-    this.questPopupContainer = this.add.container(x, y, [bg, title, description, acceptBtn, rejectBtn]).setDepth(20).setVisible(false);
   }
 
   closeQuestPopup() {
-    this.questPopupContainer.setVisible(false);
-    this.offeredQuest = null;
+    this.questPopup.hide();
     this.paused = false;
     this.isDirty = true;
   }
 
-  addScore(n:number){ 
-    this.score += n;
+  addScore(n: number) {
+    this.score = this.score + n;
     this.isDirty = true;
   }
 
   update() {
-    if (this.isDirty)
-    {
+    if (this.isDirty) {
       this.draw();
       this.isDirty = false;
     }
   }
 
   draw() {
-    this.graphics.clear();
-    this.graphics.clearMask();
-
     const room = getRoom(this.currentRoomId, this.grid);
-
-    // Draw the current room layout
-    for (let y = 0; y < room.layout.length; y++) {
-      for (let x = 0; x < room.layout[y].length; x++) {
-        const tile = room.layout[y][x];
-        if (tile === '#') { // Wall
-          this.graphics.fillStyle(0x122030, 1);
-          this.graphics.fillRect(x * this.grid.cell, y * this.grid.cell, this.grid.cell, this.grid.cell);
-        } else if (tile === 'H') { // Ladder
-          this.graphics.fillStyle(0x8B4513, 1); // Brown for ladder
-          this.graphics.fillRect(x * this.grid.cell, y * this.grid.cell, this.grid.cell, this.grid.cell);
-        } else { // Floor
-          this.graphics.fillStyle(room.backgroundColor, 1); // Use the room's background color
-          this.graphics.fillRect(x * this.grid.cell, y * this.grid.cell, this.grid.cell, this.grid.cell);
-        }
-      }
-    }
-
-    // draw grid lines over the floor
-    this.graphics.lineStyle(1, 0x000000, 0.2); // Subtle black lines for the grid
-    for (let x = 0; x <= this.grid.cols; x++) {
-      this.graphics.lineBetween(x * this.grid.cell, 0, x * this.grid.cell, this.grid.rows * this.grid.cell);
-    }
-    for (let y = 0; y <= this.grid.rows; y++) {
-      this.graphics.lineBetween(0, y * this.grid.cell, this.grid.cols * this.grid.cell, y * this.grid.cell);
-    }
-
-    // draw apple for the current room
-    const apple = room.apple;
-    if (apple) {
-      this.graphics.fillStyle(0xff6b6b, 1);
-      this.graphics.fillRect(
-        apple.x * this.grid.cell,
-        apple.y * this.grid.cell,
-        this.grid.cell,
-        this.grid.cell
-      );
-    }
-
-    // draw snake
-    this.snake.forEach((s, i) => {
-      // Determine the segment's position relative to the current room's origin
-      const [currentRoomX, currentRoomY] = this.currentRoomId.split(',').map(Number);
-      const localX = s.x - (currentRoomX * this.grid.cols);
-      const localY = s.y - (currentRoomY * this.grid.rows);
-
-      // Only draw the segment if it's within the bounds of the current room's grid
-      if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
-        this.graphics.fillStyle(0x5dd6a2, Math.max(0.5, 1 - i * 0.015));
-        this.graphics.fillRect(
-          localX * this.grid.cell,
-          localY * this.grid.cell,
-          this.grid.cell,
-          this.grid.cell
-        );
-      }
-    });
-
-    // draw quests
-    const questDisplay = this.activeQuests.map(q => `[ ] ${q.description}`).join('\n');
-    this.questText.setText(`Quests:\n${questDisplay}`);
-    this.questText.setPosition(this.grid.cols * this.grid.cell - 10, 8);
-    this.questText.setDepth(10);
+    this.snakeRenderer.render(room, this.state);
+    this.questHud.update(this.activeQuests, this.grid.cols * this.grid.cell);
 
     callFeatureHooks("onRender", this, this.graphics);
   }
 }
+
+
