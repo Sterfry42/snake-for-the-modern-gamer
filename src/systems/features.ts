@@ -1,29 +1,20 @@
-// AI Generated, replace
+import { FeatureRegistry } from "../features/featureRegistry.js";
+import type { Feature } from "../features/feature.js";
+import type SnakeScene from "../scenes/snakeScene.js";
 
-import type SnakeScene from "../scenes/snakeScene";
-import Phaser from "phaser";
+export class FeatureManager {
+  private readonly registry = new FeatureRegistry();
 
-export type Feature = {
-  id: string;
-  label: string;
-  onRegister?(s: SnakeScene): void;
-  onTick?(s: SnakeScene): void;
-  onRender?(s: SnakeScene, g: Phaser.GameObjects.Graphics): void;
-  onAppleEaten?(s: SnakeScene): void;
-  onGameOver?(s: SnakeScene): void;
-};
+  async load(scene: SnakeScene, enabledFeatures: string[]): Promise<void> {
+    await this.registry.loadBuiltIns(enabledFeatures);
+    this.call("onRegister", scene);
+  }
 
-const features: Feature[] = [];
-export function registerFeature(f: Feature){ features.push(f); }
-export function callFeatureHooks<K extends keyof Feature>(hook: K, ...args: any[]){
-  for(const f of features){ (f[hook] as any)?.(...args); }
-}
+  call(hook: keyof Feature, scene: SnakeScene, ...args: any[]): void {
+    this.registry.invoke(hook, scene, ...args);
+  }
 
-export async function registerBuiltInFeatures(_s: SnakeScene){
-  // Built-ins for demo
-  // We import them here to prevent circular dependency issues
-  await import("../features/coreScore");
-  await import("../features/wrapWall");
-  await import("../features/bonusApple");
-  await import("../features/hungerTimer.js");
+  clear(): void {
+    this.registry.clear();
+  }
 }

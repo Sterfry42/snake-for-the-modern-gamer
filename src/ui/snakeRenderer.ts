@@ -1,8 +1,9 @@
 import Phaser from "phaser";
 import { paletteConfig, darkenColor } from "../config/palette.js";
-import type { GridConfig, SnakeState } from "../systems/snakeState.js";
-import type { Room } from "../systems/world.js";
-import type { AppleInfo } from "../systems/apple.js";
+import type { GridConfig } from "../config/gameConfig.js";
+import type { Vector2Like } from "../core/math.js";
+import type { RoomSnapshot } from "../world/types.js";
+import type { AppleSnapshot } from "../apples/types.js";
 
 const SNAKE_OUTLINE_ALPHA = 0.9;
 const SNAKE_OUTLINE_WIDTH = 1;
@@ -17,17 +18,22 @@ export class SnakeRenderer {
     private readonly grid: GridConfig
   ) {}
 
-  render(room: Room, state: SnakeState, appleInfo?: AppleInfo | null): void {
+  render(
+    room: RoomSnapshot,
+    snakeBody: readonly Vector2Like[],
+    currentRoomId: string,
+    appleInfo?: AppleSnapshot | null
+  ): void {
     this.graphics.clear();
     this.graphics.clearMask();
 
     this.drawRoom(room);
     this.drawGrid();
     this.drawApple(room, appleInfo ?? undefined);
-    this.drawSnake(room, state);
+    this.drawSnake(room, snakeBody, currentRoomId);
   }
 
-  private drawRoom(room: Room): void {
+  private drawRoom(room: RoomSnapshot): void {
     const ladderOutlineColor = darkenColor(
       paletteConfig.ladder.color,
       paletteConfig.ladder.outlineDarkenFactor
@@ -75,7 +81,7 @@ export class SnakeRenderer {
     }
   }
 
-  private drawApple(room: Room, appleInfo?: AppleInfo): void {
+  private drawApple(room: RoomSnapshot, appleInfo?: AppleSnapshot): void {
     const apple = room.apple;
     if (!apple) return;
 
@@ -90,12 +96,21 @@ export class SnakeRenderer {
     this.graphics.lineStyle(APPLE_OUTLINE_WIDTH, appleOutlineColor, APPLE_OUTLINE_ALPHA);
     this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
 
-    if (appleInfo?.type === "shielded" && appleInfo.protectedDirs) {
-      this.drawShieldIndicators(x, y, appleInfo.protectedDirs);
+    const shieldDirs = this.extractShieldDirs(appleInfo);
+    if (shieldDirs) {
+      this.drawShieldIndicators(x, y, shieldDirs);
     }
   }
 
-  private drawShieldIndicators(originX: number, originY: number, dirs: Phaser.Math.Vector2[]) {
+  private extractShieldDirs(appleInfo?: AppleSnapshot): Vector2Like[] | undefined {
+    if (!appleInfo || appleInfo.typeId !== "shielded") {
+      return undefined;
+    }
+    const dirs = appleInfo.metadata?.protectedDirs as Vector2Like[] | undefined;
+    return dirs?.map((dir) => ({ x: dir.x, y: dir.y }));
+  }
+
+  private drawShieldIndicators(originX: number, originY: number, dirs: Vector2Like[]) {
     const size = this.grid.cell;
     const shieldColor = 0xffffff;
     this.graphics.fillStyle(shieldColor, 0.6);
@@ -112,15 +127,15 @@ export class SnakeRenderer {
     });
   }
 
-  private drawSnake(room: Room, state: SnakeState): void {
-    const [currentRoomX, currentRoomY] = state.currentRoomId.split(",").map(Number);
+  private drawSnake(room: RoomSnapshot, snakeBody: readonly Vector2Like[], currentRoomId: string): void {
+    const [roomX, roomY] = currentRoomId.split(",").map(Number);
     const outlineColor = darkenColor(
       paletteConfig.snake.bodyColor,
       paletteConfig.snake.outlineDarkenFactor
     );
-    state.body.forEach((segment, index) => {
-      const localX = segment.x - currentRoomX * this.grid.cols;
-      const localY = segment.y - currentRoomY * this.grid.rows;
+    snakeBody.forEach((segment, index) => {
+      const localX = segment.x - roomX * this.grid.cols;
+      const localY = segment.y - roomY * this.grid.rows;
       if (localX < 0 || localX >= this.grid.cols || localY < 0 || localY >= this.grid.rows) {
         return;
       }

@@ -1,28 +1,23 @@
-import type SnakeScene from "./src/scenes/snakeScene";
+import { Quest } from "./src/quests/quest.js";
+import { QuestRegistry } from "./src/quests/questRegistry.js";
 
-const quests: Quest[] = [];
+const globalRegistry = new QuestRegistry();
 
-export type Quest = {
-  id:string;
-  label: string;
-  description: string;
-  isCompleted(s: SnakeScene): boolean;
-  onReward?(s: SnakeScene): void;
-};
+export { Quest };
+export type { QuestRuntime } from "./src/quests/quest.js";
 
-export function registerQuest(q: Quest) {
-  if (quests.find(existing => existing.id === q.id)) {
-    console.warn(`Quest with id "${q.id}" is already registered. Skipping.`);
-    return;
-  }
-  quests.push(q);
+export function registerQuest(quest: Quest): void {
+  globalRegistry.register(quest);
+}
+
+export function getQuestRegistry(): QuestRegistry {
+  return globalRegistry;
 }
 
 export function getAvailableQuests(completedQuestIds: string[]): Quest[] {
-    return quests.filter(q => !completedQuestIds.includes(q.id));
+  return globalRegistry.getAvailable(completedQuestIds);
 }
 
-// Helper for testing purposes to reset the quests array
-export function _clearQuests() {
-    quests.length = 0;
+export function _clearQuests(): void {
+  globalRegistry.clear();
 }
