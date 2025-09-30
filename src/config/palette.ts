@@ -22,7 +22,12 @@ export type PaletteConfig = {
     outlineDarkenFactor: number;
   };
   apple: {
-    color: number;
+    colors: {
+      normal: number;
+      shielded: number;
+      gold: number;
+      skittish: number;
+    };
     outlineDarkenFactor: number;
   };
   snake: {
@@ -56,7 +61,12 @@ export const paletteConfig: PaletteConfig = {
     outlineDarkenFactor: 0.4,
   },
   apple: {
-    color: 0xff6b6b,
+    colors: {
+      normal: 0xff6b6b,
+      shielded: 0xff3f3f,
+      gold: 0xffd700,
+      skittish: 0xff8578,
+    },
     outlineDarkenFactor: 0.45,
   },
   snake: {

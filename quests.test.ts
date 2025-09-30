@@ -29,7 +29,7 @@ describe('Quest System', () => {
 
     beforeEach(async () => {
         // Isolate modules for each test to ensure a clean state
-        questSystem = await vi.importActual('../quests.ts');
+        questSystem = await vi.importActual('./quests.ts');
         // This is a helper to reset the internal state of the module
         questSystem._clearQuests();
     });

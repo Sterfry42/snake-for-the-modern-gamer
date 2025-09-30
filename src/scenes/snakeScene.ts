@@ -1,113 +1,58 @@
 import Phaser from "phaser";
-import { callFeatureHooks, registerBuiltInFeatures } from "../systems/features.js";
-import { registerBuiltInQuests } from "../systems/quests.js";
-import { getRoom, clearWorld } from "../systems/world.js";
-import {
-  createSnakeState,
-  resetSnakeState,
-  setSnakeDirection,
-  advanceSnake,
-  type SnakeState,
-} from "../systems/snakeState.js";
-import { ensureAppleInRoom, spawnAppleInRoom } from "../systems/apple.js";
-import { QuestController } from "../systems/questController.js";
+import { defaultGameConfig } from "../config/gameConfig.js";
+import { SnakeGame } from "../game/snakeGame.js";
+import { FeatureManager } from "../systems/features.js";
+import { createQuestRegistry } from "../systems/quests.js";
 import { QuestHud } from "../ui/questHud.js";
 import { QuestPopup } from "../ui/questPopup.js";
 import { SnakeRenderer } from "../ui/snakeRenderer.js";
+import { JuiceManager } from "../ui/juice.js";
 import type { Quest } from "../../quests.js";
+import type { AppleSnapshot } from "../apples/types.js";
+import type { Vector2Like } from "../core/math.js";
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
-  grid = { cols: 32, rows: 24, cell: 24 };
+  readonly grid = defaultGameConfig.grid;
 
-  private state: SnakeState = createSnakeState(this.grid);
-  private questController = new QuestController();
+  private game!: SnakeGame;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private snakeRenderer!: SnakeRenderer;
+  private juice!: JuiceManager;
+  private readonly featureManager = new FeatureManager();
 
-  paused = true;
-  isDirty = false;
+  private paused = true;
+  private isDirty = false;
+  private currentApple: AppleSnapshot | null = null;
+  private pendingFlags: Record<string, unknown> = {};
+  private readonly flagsProxy: Record<string, unknown>;
 
   constructor() {
     super("SnakeScene");
-  }
-
-  get snake(): Phaser.Math.Vector2[] {
-    return this.state.body;
-  }
-
-  set snake(value: Phaser.Math.Vector2[]) {
-    this.state.body = value;
-  }
-
-  get dir(): Phaser.Math.Vector2 {
-    return this.state.dir;
-  }
-
-  get nextDir(): Phaser.Math.Vector2 {
-    return this.state.nextDir;
-  }
-
-  get score(): number {
-    return this.state.score;
-  }
-
-  set score(value: number) {
-    this.state.score = value;
-  }
-
-  get flags(): Record<string, unknown> {
-    return this.state.flags;
-  }
-
-  set flags(value: Record<string, unknown>) {
-    this.state.flags = value;
-  }
-
-  get teleport(): boolean {
-    return this.state.teleport;
-  }
-
-  set teleport(value: boolean) {
-    this.state.teleport = value;
-  }
-
-  get currentRoomId(): string {
-    return this.state.currentRoomId;
-  }
-
-  set currentRoomId(value: string) {
-    this.state.currentRoomId = value;
-  }
-
-  get activeQuests(): Quest[] {
-    return this.questController.getActiveQuests();
-  }
-
-  get completedQuests(): string[] {
-    return this.questController.getCompletedQuestIds();
-  }
-
-  get offeredQuest(): Quest | null {
-    return this.questController.getOfferedQuest();
+    this.flagsProxy = new Proxy<Record<string, unknown>>({} as Record<string, unknown>, {
+      get: (_target, prop) => (typeof prop === "string" ? this.getFlag(prop) : undefined),
+      set: (_target, prop, value) => {
+        if (typeof prop === "string") {
+          this.setFlag(prop, value);
+        }
+        return true;
+      },
+      deleteProperty: (_target, prop) => {
+        if (typeof prop === "string") {
+          this.setFlag(prop, undefined);
+        }
+        return true;
+      },
+    });
   }
 
   async create() {
     this.graphics = this.add.graphics();
     this.snakeRenderer = new SnakeRenderer(this.graphics, this.grid);
+    this.juice = new JuiceManager(this);
 
-    this.input.keyboard!.on("keydown", (e: KeyboardEvent) => {
-      const k = e.key.toLowerCase();
-      if (k === " ") {
-        if (this.offeredQuest) return;
-        this.paused = !this.paused;
-      }
-      if (["arrowup", "w"].includes(k)) this.setDir(0, -1);
-      if (["arrowdown", "s"].includes(k)) this.setDir(0, 1);
-      if (["arrowleft", "a"].includes(k)) this.setDir(-1, 0);
-      if (["arrowright", "d"].includes(k)) this.setDir(1, 0);
-    });
+    this.setupInputHandlers();
 
     this.questHud = new QuestHud(this, {
       position: { x: this.grid.cols * this.grid.cell - 10, y: 8 },
@@ -115,130 +60,213 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup = new QuestPopup(this);
     this.graphics.setDepth(0);
 
-    await registerBuiltInFeatures(this);
-    registerBuiltInQuests();
-    callFeatureHooks("onRegister", this);
+    const registry = await createQuestRegistry();
+    this.game = new SnakeGame(defaultGameConfig, registry);
+
+    await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
     this.initGame(false);
+
     this.time.addEvent({
       loop: true,
       delay: 100,
       callback: () => {
-        if (!this.paused) this.step();
+        if (!this.paused) {
+          this.step();
+        }
       },
     });
-
-    this.cameras.main.setBounds(
-      0,
-      0,
-      this.grid.cols * this.grid.cell,
-      this.grid.rows * this.grid.cell
-    );
   }
 
-  initGame(resetWorld = true) {
-    if (resetWorld) {
-      clearWorld();
-    }
-    resetSnakeState(this.state);
-    this.questController.reset();
-    this.questPopup.hide();
-    this.ensureAppleInCurrentRoom();
-    this.isDirty = true;
-  }
-
-  setDir(x: number, y: number) {
-    setSnakeDirection(this.state, x, y);
-  }
-
-  spawnApple() {
-    spawnAppleInRoom(this.currentRoomId, this.grid, this.snake);
-  }
-
-  ensureAppleInCurrentRoom() {
-    ensureAppleInRoom(this.currentRoomId, this.grid, this.snake);
-  }
-
-  gameOver(reason?: string) {
-    this.initGame(true);
-    callFeatureHooks("onGameOver", this);
-    this.paused = true;
-    this.isDirty = true;
-    console.log("Game over:", reason);
-  }
-
-  step() {
-    const outcome = advanceSnake(this.state, {
-      getRoom: (roomId: string) => getRoom(roomId, this.grid),
-      ensureApple: (roomId: string) => ensureAppleInRoom(roomId, this.grid, this.snake),
+  private setupInputHandlers(): void {
+    this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (key === " ") {
+        if (this.offeredQuest) return;
+        this.paused = !this.paused;
+        return;
+      }
+      if (["arrowup", "w"].includes(key)) this.setDir(0, -1);
+      if (["arrowdown", "s"].includes(key)) this.setDir(0, 1);
+      if (["arrowleft", "a"].includes(key)) this.setDir(-1, 0);
+      if (["arrowright", "d"].includes(key)) this.setDir(1, 0);
     });
+  }
 
-    if (outcome.status === "dead") {
-      this.gameOver(outcome.reason);
+  private initGame(startPaused = true): void {
+    this.game.reset();
+    if (Object.keys(this.pendingFlags).length > 0) {
+      for (const [key, value] of Object.entries(this.pendingFlags)) {
+        this.game.setFlag(key, value);
+      }
+    }
+    this.currentApple = this.game.getApple(this.game.getCurrentRoom().id);
+    this.paused = startPaused;
+    this.isDirty = true;
+    this.questPopup.hide();
+  }
+
+  private step(): void {
+    const result = this.game.step(this.paused);
+
+    if (result.status === "dead") {
+      this.gameOver(result.deathReason);
       return;
     }
 
-    if (outcome.appleEaten) {
-      callFeatureHooks("onAppleEaten", this);
-      this.spawnApple();
+    this.featureManager.call("onTick", this);
+
+    this.currentApple = result.apple.current ?? null;
+
+    if (result.apple.eaten) {
+      this.featureManager.call("onAppleEaten", this);
+      if (result.apple.worldPosition) {
+        this.juice?.appleChomp(result.apple.worldPosition.x, result.apple.worldPosition.y);
+      }
     }
 
-    callFeatureHooks("onTick", this);
-
-    const offered = this.questController.maybeCreateOffer(this.paused);
-    if (offered) {
-      this.offerQuest(offered);
-    }
-
-    if (this.questController.handleCompletions(this)) {
+    if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
       this.isDirty = true;
+    }
+
+    this.juice?.movementTick();
+
+    if (result.questOffer) {
+      this.offerQuest(result.questOffer);
+    }
+
+    if (result.questsCompleted.length > 0) {
+      this.isDirty = true;
+      this.juice?.questCompleted();
     }
 
     this.isDirty = true;
   }
 
-  offerQuest(quest: Quest) {
+  private offerQuest(quest: Quest) {
     this.paused = true;
+    this.juice?.questOffered();
+
     this.questPopup.show(quest, {
       onAccept: () => {
-        const accepted = this.questController.acceptOfferedQuest();
+        this.juice?.questAccepted();
+        const accepted = this.game.acceptOfferedQuest();
         if (accepted) {
           this.isDirty = true;
         }
         this.closeQuestPopup();
       },
       onReject: () => {
-        this.questController.rejectOfferedQuest();
+        this.juice?.questRejected();
+        this.game.rejectOfferedQuest();
         this.closeQuestPopup();
       },
     });
   }
 
-  closeQuestPopup() {
+  private closeQuestPopup() {
     this.questPopup.hide();
     this.paused = false;
     this.isDirty = true;
   }
 
-  addScore(n: number) {
-    this.score = this.score + n;
+  private gameOver(reason?: string | null) {
+    this.juice?.gameOver();
+    this.featureManager.call("onGameOver", this);
+    this.initGame();
+    this.paused = true;
+    console.log("Game over:", reason);
+  }
+
+  setDir(x: number, y: number) {
+    this.game.setDirection(x, y);
+  }
+
+  addScore(amount: number) {
+    this.game.addScore(amount);
     this.isDirty = true;
   }
 
-  update() {
+  setFlag(key: string, value: unknown): void {
+    if (this.game) {
+      this.game.setFlag(key, value);
+    } else {
+      if (value === undefined) {
+        delete this.pendingFlags[key];
+      } else {
+        this.pendingFlags[key] = value;
+      }
+    }
+  }
+
+  getFlag<T = unknown>(key: string): T | undefined {
+    if (this.game) {
+      const value = this.game.getFlag<T>(key);
+      if (value !== undefined) {
+        return value;
+      }
+    }
+    return this.pendingFlags[key] as T | undefined;
+  }
+
+  random(): number {
+    return this.game ? this.game.random() : Math.random();
+  }
+
+  setTeleport(flag: boolean): void {
+    this.game.enableTeleport(flag);
+  }
+
+  get teleport(): boolean {
+    return this.game.getTeleport();
+  }
+
+  get flags(): Record<string, unknown> {
+    return this.flagsProxy;
+  }
+
+  set flags(value: Record<string, unknown>) {
+    for (const [key, val] of Object.entries(value)) {
+      this.setFlag(key, val);
+    }
+  }
+
+  get score(): number {
+    return this.game.getScore();
+  }
+
+  get snake(): readonly Vector2Like[] {
+    return this.game.getSnakeBody();
+  }
+
+  get currentRoomId(): string {
+    return this.game.getCurrentRoom().id;
+  }
+
+  get activeQuests(): Quest[] {
+    return this.game.getActiveQuests();
+  }
+
+  get completedQuests(): string[] {
+    return this.game.getCompletedQuestIds();
+  }
+
+  get offeredQuest(): Quest | null {
+    return this.game.getOfferedQuest();
+  }
+
+  update(): void {
     if (this.isDirty) {
       this.draw();
       this.isDirty = false;
     }
   }
 
-  draw() {
-    const room = getRoom(this.currentRoomId, this.grid);
-    this.snakeRenderer.render(room, this.state);
-    this.questHud.update(this.activeQuests, this.grid.cols * this.grid.cell);
+  private draw(): void {
+    const room = this.game.getCurrentRoom();
+    this.snakeRenderer.render(room, this.game.getSnakeBody(), room.id, this.currentApple);
+    this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
 
-    callFeatureHooks("onRender", this, this.graphics);
+    this.featureManager.call("onRender", this, this.graphics);
   }
 }
-
-
