@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-DRIAweOL.js";class a extends t{constructor(){super("eat-5-apples","Novice Eater","Eat 5 apples")}isCompleted(e){return(e.getFlag("applesEaten")??0)>=5}onReward(e){e.addScore(10)}}const r=new a;export{r as default};

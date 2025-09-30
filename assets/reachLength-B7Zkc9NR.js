@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-DRIAweOL.js";class r extends t{constructor(){super("reach-length-10","Stretch Goal","Grow your snake to length 10")}isCompleted(e){return e.getSnakeLength()>=10}onReward(e){e.addScore(15)}}const a=new r;export{a as default};

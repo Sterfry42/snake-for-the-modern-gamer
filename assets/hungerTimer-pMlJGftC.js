@@ -1,1 +1,0 @@
-import{r as i}from"./index-CXGu6Z5N.js";i({id:"hunger-timer",label:"Hunger Timer",onRegister:e=>{e.flags.timeSinceEat=0},onTick:e=>{e.flags.timeSinceEat=(e.flags.timeSinceEat||0)+1},onAppleEaten:e=>{e.flags.timeSinceEat=0}});

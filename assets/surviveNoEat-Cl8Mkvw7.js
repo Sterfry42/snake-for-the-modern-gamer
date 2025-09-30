@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-DRIAweOL.js";const s=200;class o extends t{constructor(){super("survive-20s-no-eat","Fasting","Survive for 20s without eating")}isCompleted(e){return(e.getFlag("timeSinceEat")??0)>=s}onReward(e){e.addScore(20)}}const i=new o;export{i as default};
