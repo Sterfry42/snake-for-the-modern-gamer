@@ -29,6 +29,72 @@ export class JuiceManager {
     this.spawnBurst(worldX, worldY, { colors: [0xfff3a8, 0xffc25f], count: 6, radius: 14 });
   }
 
+  skillTreeOpened() {
+    this.playTone({ frequency: 240, duration: 0.14, type: "triangle", volume: 0.06 });
+  }
+
+  skillTreeClosed() {
+    this.playTone({ frequency: 180, duration: 0.1, type: "sine", volume: 0.05 });
+  }
+
+  perkPurchased() {
+    this.playTone({ frequency: 540, frequencyEnd: 780, duration: 0.22, type: "sine", volume: 0.14 });
+    this.scene.cameras.main.flash(130, 130, 255, 160, true);
+  }
+
+  perkPurchaseFailed() {
+    this.playTone({ frequency: 160, duration: 0.16, type: "sawtooth", volume: 0.08 });
+  }
+
+  extraLifeGained() {
+    this.playTone({ frequency: 440, frequencyEnd: 660, duration: 0.3, type: "triangle", volume: 0.16 });
+    this.scene.cameras.main.flash(180, 90, 255, 150, false);
+  }
+
+  extraLifeSpent() {
+    this.playTone({ frequency: 260, frequencyEnd: 140, duration: 0.26, type: "square", volume: 0.12 });
+    this.kickCamera(0.02, 140);
+  }
+
+  scoreMultiplierBoost(multiplier: number) {
+    const base = 520;
+    this.playTone({ frequency: base, duration: 0.14, type: "sine", volume: 0.1 });
+    this.playTone({ frequency: base * Math.min(multiplier, 2.5), duration: 0.22, type: "square", volume: 0.1 });
+    this.scene.cameras.main.flash(110, 110, 210, 255, true);
+  }
+
+  manaUnlocked() {
+    this.playTone({ frequency: 320, duration: 0.18, type: "sine", volume: 0.08 });
+    this.playTone({ frequency: 520, duration: 0.28, type: "triangle", volume: 0.07 });
+  }
+
+  arcaneSpellUnlocked() {
+    this.playTone({ frequency: 420, frequencyEnd: 680, duration: 0.24, type: "sine", volume: 0.12 });
+    this.scene.cameras.main.flash(140, 160, 110, 255, true);
+  }
+
+  arcaneVeilPrimed() {
+    this.playTone({ frequency: 360, duration: 0.2, type: "triangle", volume: 0.09 });
+    this.playTone({ frequency: 180, duration: 0.3, type: "sine", volume: 0.05 });
+  }
+
+  arcanePulse(worldX: number, worldY: number) {
+    this.playTone({ frequency: 600, frequencyEnd: 820, duration: 0.28, type: "sine", volume: 0.16 });
+    this.spawnBurst(worldX, worldY, { colors: [0xc27dff, 0x7ad1ff, 0x4dfbff], count: 12, radius: 24 });
+    this.kickCamera(0.018, 110);
+  }
+
+  arcaneVeilBurst() {
+    this.playTone({ frequency: 500, frequencyEnd: 220, duration: 0.4, type: "sawtooth", volume: 0.18 });
+    this.scene.cameras.main.flash(220, 140, 255, 210, true);
+    this.kickCamera(0.028, 160);
+  }
+
+  spellFailed() {
+    this.playTone({ frequency: 140, duration: 0.12, type: "triangle", volume: 0.06 });
+  }
+
+
   questOffered() {
     this.playTone({ frequency: 660, duration: 0.16, type: "triangle", volume: 0.12 });
     this.scene.cameras.main.flash(120, 80, 130, 255, true);

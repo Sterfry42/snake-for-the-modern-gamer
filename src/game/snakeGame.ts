@@ -191,6 +191,9 @@ export class SnakeGame implements QuestRuntime {
     return this.snake.bodySegments.length;
   }
 
+  growSnake(extraSegments: number): void {
+    this.snake.grow(extraSegments);
+  }
   setDirection(x: number, y: number): void {
     this.snake.setDirection(x, y);
   }

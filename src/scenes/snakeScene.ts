@@ -1,8 +1,9 @@
-import Phaser from "phaser";
+﻿import Phaser from "phaser";
 import { defaultGameConfig } from "../config/gameConfig.js";
 import { SnakeGame } from "../game/snakeGame.js";
 import { FeatureManager } from "../systems/features.js";
 import { createQuestRegistry } from "../systems/quests.js";
+import { SkillTreeManager } from "../systems/skillTreeManager.js";
 import { QuestHud } from "../ui/questHud.js";
 import { QuestPopup } from "../ui/questPopup.js";
 import { SnakeRenderer } from "../ui/snakeRenderer.js";
@@ -20,7 +21,11 @@ export default class SnakeScene extends Phaser.Scene {
   private questPopup!: QuestPopup;
   private snakeRenderer!: SnakeRenderer;
   private juice!: JuiceManager;
+  private skillTree!: SkillTreeManager;
   private readonly featureManager = new FeatureManager();
+  private readonly baseTickDelay = 100;
+  private tickDelay = this.baseTickDelay;
+  private tickEvent!: Phaser.Time.TimerEvent;
 
   private paused = true;
   private isDirty = false;
@@ -51,6 +56,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics = this.add.graphics();
     this.snakeRenderer = new SnakeRenderer(this.graphics, this.grid);
     this.juice = new JuiceManager(this);
+    this.skillTree = new SkillTreeManager(this, this.juice, { baseTickDelay: this.baseTickDelay });
 
     this.setupInputHandlers();
 
@@ -65,17 +71,14 @@ export default class SnakeScene extends Phaser.Scene {
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
-    this.initGame(false);
-
-    this.time.addEvent({
+    this.tickEvent = this.time.addEvent({
       loop: true,
-      delay: 100,
-      callback: () => {
-        if (!this.paused) {
-          this.step();
-        }
-      },
+      delay: this.tickDelay,
+      callback: this.handleTick,
+      callbackScope: this,
     });
+
+    this.initGame(false);
   }
 
   private setupInputHandlers(): void {
@@ -84,8 +87,19 @@ export default class SnakeScene extends Phaser.Scene {
       if (key === " ") {
         if (this.offeredQuest) return;
         this.paused = !this.paused;
+        this.skillTree.toggleOverlay(this.paused ? true : false);
+        if (this.paused) {
+          this.juice.skillTreeOpened();
+        } else {
+          this.juice.skillTreeClosed();
+        }
         return;
       }
+
+      if (this.skillTree.handleKeyDown(key, this.paused)) {
+        return;
+      }
+
       if (["arrowup", "w"].includes(key)) this.setDir(0, -1);
       if (["arrowdown", "s"].includes(key)) this.setDir(0, 1);
       if (["arrowleft", "a"].includes(key)) this.setDir(-1, 0);
@@ -93,7 +107,14 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
+  private handleTick(): void {
+    if (!this.paused) {
+      this.step();
+    }
+  }
+
   private initGame(startPaused = true): void {
+    this.skillTree.reset(startPaused);
     this.game.reset();
     if (Object.keys(this.pendingFlags).length > 0) {
       for (const [key, value] of Object.entries(this.pendingFlags)) {
@@ -110,6 +131,11 @@ export default class SnakeScene extends Phaser.Scene {
     const result = this.game.step(this.paused);
 
     if (result.status === "dead") {
+      if (this.skillTree.tryConsumeExtraLife()) {
+        this.paused = true;
+        this.isDirty = true;
+        return;
+      }
       this.gameOver(result.deathReason);
       return;
     }
@@ -121,7 +147,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (result.apple.eaten) {
       this.featureManager.call("onAppleEaten", this);
       if (result.apple.worldPosition) {
-        this.juice?.appleChomp(result.apple.worldPosition.x, result.apple.worldPosition.y);
+        this.juice.appleChomp(result.apple.worldPosition.x, result.apple.worldPosition.y);
       }
     }
 
@@ -129,7 +155,8 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
     }
 
-    this.juice?.movementTick();
+    this.juice.movementTick();
+    this.skillTree.tick();
 
     if (result.questOffer) {
       this.offerQuest(result.questOffer);
@@ -137,7 +164,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (result.questsCompleted.length > 0) {
       this.isDirty = true;
-      this.juice?.questCompleted();
+      this.juice.questCompleted();
     }
 
     this.isDirty = true;
@@ -145,11 +172,12 @@ export default class SnakeScene extends Phaser.Scene {
 
   private offerQuest(quest: Quest) {
     this.paused = true;
-    this.juice?.questOffered();
+    this.skillTree.hideOverlay();
+    this.juice.questOffered();
 
     this.questPopup.show(quest, {
       onAccept: () => {
-        this.juice?.questAccepted();
+        this.juice.questAccepted();
         const accepted = this.game.acceptOfferedQuest();
         if (accepted) {
           this.isDirty = true;
@@ -157,7 +185,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.closeQuestPopup();
       },
       onReject: () => {
-        this.juice?.questRejected();
+        this.juice.questRejected();
         this.game.rejectOfferedQuest();
         this.closeQuestPopup();
       },
@@ -166,14 +194,16 @@ export default class SnakeScene extends Phaser.Scene {
 
   private closeQuestPopup() {
     this.questPopup.hide();
+    this.skillTree.hideOverlay();
     this.paused = false;
     this.isDirty = true;
   }
 
   private gameOver(reason?: string | null) {
-    this.juice?.gameOver();
+    this.juice.gameOver();
     this.featureManager.call("onGameOver", this);
     this.initGame();
+    this.skillTree.hideOverlay();
     this.paused = true;
     console.log("Game over:", reason);
   }
@@ -183,8 +213,20 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   addScore(amount: number) {
+    const applied = this.skillTree ? this.skillTree.modifyScoreGain(amount) : amount;
+    this.addScoreDirect(applied);
+  }
+
+  addScoreDirect(amount: number): void {
     this.game.addScore(amount);
     this.isDirty = true;
+  }
+
+  growSnake(extraSegments: number): void {
+    if (extraSegments > 0) {
+      this.game.growSnake(extraSegments);
+      this.isDirty = true;
+    }
   }
 
   setFlag(key: string, value: unknown): void {
@@ -215,6 +257,18 @@ export default class SnakeScene extends Phaser.Scene {
 
   setTeleport(flag: boolean): void {
     this.game.enableTeleport(flag);
+  }
+
+  setTickDelay(delay: number): void {
+    this.tickDelay = Math.max(20, delay);
+    if (this.tickEvent) {
+      this.tickEvent.reset({
+        delay: this.tickDelay,
+        callback: this.handleTick,
+        callbackScope: this,
+        loop: true,
+      });
+    }
   }
 
   get teleport(): boolean {
