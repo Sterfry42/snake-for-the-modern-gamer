@@ -2,7 +2,7 @@
 Snaked. Revised. Revamped.
 
 ## Play now
-🎮 **Play Now:** [Snake for the Modern Gamer](https://yourusername.github.io/snake-for-the-modern-gamer/) 🐍🔥
+🎮 **Play Now:** [Snake for the Modern Gamer](https://sterfry42.github.io/snake-for-the-modern-gamer/) 🐍🔥
 
 ## Installation
 ```
