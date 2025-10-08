@@ -50,6 +50,23 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   handleKeyDown(key: string, paused: boolean): boolean {
+    if (key === "i") {
+      if (!this.overlay.isVisible()) {
+        return false;
+      }
+
+      const hovered = this.overlay.getHoveredPerkId();
+      if (!hovered) {
+        this.overlay.announce("Hover a skill node and press I to inspect it.", "#9ad1ff", 2000);
+        return true;
+      }
+
+      if (!this.overlay.showPerkDetails(hovered)) {
+        this.overlay.announce("Unable to display that skill yet.", "#ff6b6b", 2000);
+      }
+      return true;
+    }
+
     if (key !== "q") {
       return false;
     }
@@ -102,6 +119,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   adjustBonusScore(baseValue: number): number {
     return this.system.modifyScoreGain(baseValue);
+  }
+
+  setFlag(key: string, value: unknown): void {
+    this.scene.setFlag(key, value);
   }
 
   getStats(): SkillTreeStats {

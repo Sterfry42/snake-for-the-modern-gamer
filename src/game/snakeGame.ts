@@ -95,6 +95,25 @@ export class SnakeGame implements QuestRuntime {
       };
     }
 
+    const updatedSnake = Array.from(this.snake.bodySegments);
+    const currentHead = updatedSnake[0];
+
+    const lastTail = this.getFlag<{ x: number; y: number; roomId?: string }>("internal.lastRemovedTail");
+    if (lastTail && this.getFlag<boolean>("geometry.masonryEnabled")) {
+      this.applyMasonry(lastTail, updatedSnake, roomsChanged);
+    }
+    this.setFlag("internal.lastRemovedTail", undefined);
+
+    const wallEaten = this.getFlag<{ x: number; y: number; roomId: string }>("geometry.wallEaten");
+    if (wallEaten) {
+      this.handleWallEaten(wallEaten, roomsChanged);
+      this.setFlag("geometry.wallEaten", undefined);
+    }
+
+    if (this.getFlag<boolean>("geometry.faultLineEnabled") && currentHead) {
+      this.applyFaultLine(currentHead, roomsChanged);
+    }
+
     let appleStateChanged = roomsChanged.has(this.snake.currentRoomId);
     let appleSnapshot = this.apples.getSnapshot(this.snake.currentRoomId);
     let appleRewards: AppleConsumptionResult["rewards"] | undefined;
@@ -138,6 +157,16 @@ export class SnakeGame implements QuestRuntime {
         appleStateChanged = true;
       }
       appleSnapshot = spawn.snapshot;
+
+      const seismicRadius = this.getFlag<number>("geometry.seismicPulseRadius") ?? 0;
+      if (seismicRadius > 0 && currentHead) {
+        this.triggerSeismicPulse(currentHead, seismicRadius, roomsChanged);
+      }
+      if (this.getFlag<boolean>("geometry.collapseControlEnabled") && currentHead) {
+        this.triggerCollapseControl(currentHead, updatedSnake, roomsChanged);
+      }
+      this.rechargeTerraShield();
+
     }
 
     if (appleStateChanged) {
@@ -241,4 +270,211 @@ export class SnakeGame implements QuestRuntime {
   rejectOfferedQuest(): void {
     this.questController.rejectOffered();
   }
-}
+
+  private applyMasonry(
+    lastTail: { x: number; y: number; roomId?: string },
+    snake: readonly Vector2Like[],
+    roomsChanged: Set<string>
+  ): void {
+    const info = this.resolveRoomPosition(lastTail);
+    if (!info) {
+      return;
+    }
+    const { roomId, localX, localY } = info;
+    if (this.isSnakeOccupying(lastTail, snake)) {
+      return;
+    }
+    const room = this.world.getRoom(roomId);
+    const tile = room.layout[localY]?.[localX];
+    if (!tile || tile === '#' || tile === 'H') {
+      return;
+    }
+    if (room.apple && room.apple.x === localX && room.apple.y === localY) {
+      this.world.setApple(roomId, undefined);
+    }
+    if (this.setRoomTile(roomId, localX, localY, '#')) {
+      roomsChanged.add(roomId);
+    }
+  }
+
+  private applyFaultLine(head: Vector2Like, roomsChanged: Set<string>): void {
+    const info = this.resolveRoomPosition(head);
+    if (!info) {
+      return;
+    }
+    const { roomId, localY } = info;
+    const room = this.world.getRoom(roomId);
+    const row = room.layout[localY];
+    if (!row) {
+      return;
+    }
+    const chars = row.split('');
+    let changed = false;
+    for (let x = 0; x < chars.length; x++) {
+      if (chars[x] === '#') {
+        chars[x] = '.';
+        changed = true;
+      }
+    }
+    if (changed) {
+      room.layout[localY] = chars.join('');
+      roomsChanged.add(roomId);
+    }
+  }
+
+  private triggerSeismicPulse(head: Vector2Like, radius: number, roomsChanged: Set<string>): void {
+    if (radius <= 0) {
+      return;
+    }
+    const info = this.resolveRoomPosition(head);
+    if (!info) {
+      return;
+    }
+    const { roomId, localX, localY } = info;
+    const room = this.world.getRoom(roomId);
+    let changed = false;
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const targetX = localX + dx;
+        const targetY = localY + dy;
+        if (targetX < 0 || targetX >= this.config.grid.cols || targetY < 0 || targetY >= this.config.grid.rows) {
+          continue;
+        }
+        const tile = room.layout[targetY]?.[targetX];
+        if (tile !== '#') {
+          continue;
+        }
+        if (this.setRoomTile(roomId, targetX, targetY, '.')) {
+          changed = true;
+        }
+      }
+    }
+    if (changed) {
+      roomsChanged.add(roomId);
+    }
+  }
+
+  private triggerCollapseControl(
+    head: Vector2Like,
+    snake: readonly Vector2Like[],
+    roomsChanged: Set<string>
+  ): void {
+    const info = this.resolveRoomPosition(head);
+    if (!info) {
+      return;
+    }
+    const { roomId, localX, localY } = info;
+    const room = this.world.getRoom(roomId);
+    const offsets: Vector2Like[] = [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ];
+    let changed = false;
+    for (const offset of offsets) {
+      const targetX = localX + offset.x;
+      const targetY = localY + offset.y;
+      const worldPos = { x: head.x + offset.x, y: head.y + offset.y };
+      if (
+        targetX < 0 ||
+        targetX >= this.config.grid.cols ||
+        targetY < 0 ||
+        targetY >= this.config.grid.rows ||
+        this.isSnakeOccupying(worldPos, snake)
+      ) {
+        continue;
+      }
+      const tile = room.layout[targetY]?.[targetX];
+      if (!tile || tile === '#' || tile === 'H') {
+        continue;
+      }
+      if (room.apple && room.apple.x === targetX && room.apple.y === targetY) {
+        this.world.setApple(roomId, undefined);
+      }
+      if (this.setRoomTile(roomId, targetX, targetY, '#')) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      roomsChanged.add(roomId);
+    }
+  }
+
+  private handleWallEaten(
+    info: { x: number; y: number; roomId: string },
+    roomsChanged: Set<string>
+  ): void {
+    roomsChanged.add(info.roomId);
+    const reward = this.getFlag<{ score?: number; growth?: number }>("geometry.worldEaterReward");
+    const bonusScore = reward?.score ?? 1;
+    const bonusGrowth = reward?.growth ?? 0;
+    if (bonusScore !== 0) {
+      this.addScore(bonusScore);
+    }
+    if (bonusGrowth > 0) {
+      this.snake.grow(bonusGrowth);
+    }
+  }
+
+  private rechargeTerraShield(): void {
+    const shield = this.getFlag<{ charges: number; max?: number; recharge?: number }>("geometry.terraShield");
+    if (!shield) {
+      return;
+    }
+    const max = shield.max ?? shield.charges;
+    if (shield.charges >= max) {
+      return;
+    }
+    const recharge = shield.recharge ?? 1;
+    const updated = {
+      charges: Math.min(max, shield.charges + recharge),
+      max,
+      recharge,
+    };
+    this.setFlag("geometry.terraShield", updated);
+  }
+
+  private resolveRoomPosition(position: { x: number; y: number; roomId?: string }): {
+    roomId: string;
+    localX: number;
+    localY: number;
+  } | null {
+    const roomId = position.roomId ?? this.getRoomIdForPosition(position);
+    const [roomX, roomY] = roomId.split(",").map(Number);
+    const localX = position.x - roomX * this.config.grid.cols;
+    const localY = position.y - roomY * this.config.grid.rows;
+    if (
+      localX < 0 ||
+      localY < 0 ||
+      localX >= this.config.grid.cols ||
+      localY >= this.config.grid.rows
+    ) {
+      return null;
+    }
+    return { roomId, localX, localY };
+  }
+
+  private setRoomTile(roomId: string, localX: number, localY: number, tile: string): boolean {
+    const room = this.world.getRoom(roomId);
+    const row = room.layout[localY];
+    if (!row || row[localX] === undefined || row[localX] === tile) {
+      return false;
+    }
+    const chars = row.split('');
+    chars[localX] = tile;
+    room.layout[localY] = chars.join('');
+    return true;
+  }
+
+  private isSnakeOccupying(position: Vector2Like, snake: readonly Vector2Like[]): boolean {
+    return snake.some((segment) => segment.x === position.x && segment.y === position.y);
+  }
+
+  private getRoomIdForPosition(position: Vector2Like): string {
+    const roomX = Math.floor(position.x / this.config.grid.cols);
+    const roomY = Math.floor(position.y / this.config.grid.rows);
+    const [, , roomZ = "0"] = this.snake.currentRoomId.split(",");
+    return `${roomX},${roomY},${roomZ}`;
+  }
+}

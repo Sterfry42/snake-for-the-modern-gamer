@@ -36,6 +36,10 @@ const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
 
 const TREE_PADDING = { top: 140, bottom: 80, horizontal: 80 };
 
+const DETAIL_PANEL_WIDTH = 220;
+const DETAIL_PANEL_MARGIN = 24;
+const DETAIL_PANEL_PADDING = 16;
+
 type TabId = "skills" | "quests" | "stats";
 
 interface TabDefinition {
@@ -60,6 +64,16 @@ export class SkillTreeOverlay {
   private readonly nodeVisuals: Map<string, NodeVisual> = new Map();
   private readonly tabLabels: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private readonly stubText: Phaser.GameObjects.Text | null;
+  private readonly detailPanel: Phaser.GameObjects.Rectangle;
+  private readonly detailTitle: Phaser.GameObjects.Text;
+  private readonly detailSubtitle: Phaser.GameObjects.Text;
+  private readonly detailRankText: Phaser.GameObjects.Text;
+  private readonly detailBody: Phaser.GameObjects.Text;
+
+  private hoveredPerkId: string | null = null;
+  private detailPerkId: string | null = null;
+  private detailPinned = false;
+
 
   private visible = false;
   private activeTab: TabId = "skills";
@@ -122,6 +136,62 @@ export class SkillTreeOverlay {
       })
       .setOrigin(0.5, 0.5);
 
+    const detailPanelX = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN;
+    const detailPanelY = TREE_PADDING.top - 28;
+    const detailPanelHeight = this.options.height - detailPanelY - TREE_PADDING.bottom + 12;
+    const detailTextX = detailPanelX + DETAIL_PANEL_PADDING;
+    const detailTextWidth = DETAIL_PANEL_WIDTH - DETAIL_PANEL_PADDING * 2;
+
+    this.detailPanel = this.scene.add
+      .rectangle(detailPanelX, detailPanelY, DETAIL_PANEL_WIDTH, detailPanelHeight, 0x0b1622, 0.92)
+      .setStrokeStyle(1, 0x244155)
+      .setOrigin(0, 0);
+
+    const titleY = detailPanelY + 14;
+    const subtitleY = titleY + 22;
+    const rankY = subtitleY + 20;
+    const bodyY = rankY + 22;
+
+    this.detailTitle = this.scene.add
+      .text(detailTextX, titleY, "", {
+        fontFamily: "monospace",
+        fontSize: "18px",
+        color: "#ffffff",
+        wordWrap: { width: detailTextWidth },
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+
+    this.detailSubtitle = this.scene.add
+      .text(detailTextX, subtitleY, "", {
+        fontFamily: "monospace",
+        fontSize: "14px",
+        color: "#5dd6a2",
+        wordWrap: { width: detailTextWidth },
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+
+    this.detailRankText = this.scene.add
+      .text(detailTextX, rankY, "", {
+        fontFamily: "monospace",
+        fontSize: "13px",
+        color: "#9ad1ff",
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+
+    this.detailBody = this.scene.add
+      .text(detailTextX, bodyY, "", {
+        fontFamily: "monospace",
+        fontSize: "14px",
+        color: "#c8ffe1",
+        wordWrap: { width: detailTextWidth },
+        lineSpacing: 4,
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+
     this.stubText = TAB_DEFINITIONS.length > 1
       ? this.scene.add
           .text(this.options.width / 2, this.options.height / 2 + 20, "", {
@@ -129,7 +199,7 @@ export class SkillTreeOverlay {
             fontSize: "18px",
             color: "#9ad1ff",
             align: "center",
-            wordWrap: { width: this.options.width - 160 },
+            wordWrap: { width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - 160 },
           })
           .setOrigin(0.5, 0.5)
           .setVisible(false)
@@ -138,9 +208,14 @@ export class SkillTreeOverlay {
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
       this.connectionGraphics,
+      this.detailPanel,
       this.title,
       this.scoreText,
       this.manaText,
+      this.detailTitle,
+      this.detailSubtitle,
+      this.detailRankText,
+      this.detailBody,
       this.hintText,
     ];
     if (this.stubText) {
@@ -161,6 +236,8 @@ export class SkillTreeOverlay {
     this.visible = true;
     this.container.setVisible(true);
     this.scene.time.delayedCall(0, () => this.container.setDepth(this.options.depth));
+    this.clearPerkDetails(true);
+    this.hoveredPerkId = null;
     this.refresh();
   }
 
@@ -170,6 +247,8 @@ export class SkillTreeOverlay {
     }
     this.visible = false;
     this.container.setVisible(false);
+    this.hoveredPerkId = null;
+    this.clearPerkDetails(true);
   }
 
   toggle(force?: boolean): void {
@@ -322,6 +401,11 @@ export class SkillTreeOverlay {
         visual.button.input.cursor = state.status === "available" ? "pointer" : "default";
       }
     }
+    if (this.detailPinned && this.detailPerkId) {
+      if (!this.populatePerkDetails(this.detailPerkId)) {
+        this.clearPerkDetails(true);
+      }
+    }
   }
 
   private buildTabs(): void {
@@ -363,7 +447,7 @@ export class SkillTreeOverlay {
 
   private buildNodes(): void {
     const perks = this.system.getPerks();
-    const width = this.options.width - TREE_PADDING.horizontal * 2;
+    const width = this.options.width - TREE_PADDING.horizontal * 2 - (DETAIL_PANEL_WIDTH + DETAIL_PANEL_MARGIN);
     const height = this.options.height - TREE_PADDING.top - TREE_PADDING.bottom;
     const radius = 30;
 
@@ -404,9 +488,25 @@ export class SkillTreeOverlay {
 
       button.on("pointerover", () => {
         nodeContainer.setScale(1.05);
+        this.hoveredPerkId = perk.id;
+        if (!this.hintSticky) {
+          this.hintText.setText("Press I to inspect " + perk.title);
+          this.hintText.setColor("#9ad1ff");
+        }
       });
       button.on("pointerout", () => {
         nodeContainer.setScale(1);
+        if (this.hoveredPerkId === perk.id) {
+          this.hoveredPerkId = null;
+        }
+        if (!this.detailPinned) {
+          this.clearPerkDetails();
+        } else if (this.detailPerkId === perk.id) {
+          this.clearPerkDetails(true);
+        }
+        if (!this.hintSticky) {
+          this.updateDefaultHint(this.system.getStats());
+        }
       });
       button.on("pointerdown", () => {
         try {
@@ -489,6 +589,97 @@ export class SkillTreeOverlay {
     }
   }
 
+  getHoveredPerkId(): string | null {
+    return this.hoveredPerkId;
+  }
+
+  showPerkDetails(perkId: string): boolean {
+    if (!this.populatePerkDetails(perkId)) {
+      return false;
+    }
+    this.detailPinned = true;
+    this.detailPerkId = perkId;
+    if (!this.hintSticky) {
+      const definition = this.system.getDefinition(perkId);
+      const label = definition?.title ?? "skill";
+      this.hintText.setText("Inspecting " + label);
+      this.hintText.setColor("#9ad1ff");
+    }
+    return true;
+  }
+
+  private populatePerkDetails(perkId: string): boolean {
+    const definition = this.system.getDefinition(perkId);
+    if (!definition) {
+      return false;
+    }
+
+    let state: SkillPerkState | undefined;
+    try {
+      state = this.system.getPurchaseState(perkId);
+    } catch {
+      state = undefined;
+    }
+
+    const rank = state?.rank ?? 0;
+    const maxRank = Math.max(1, definition.costByRank.length);
+    const clampedRank = Math.min(rank, maxRank);
+    const status = state?.status ?? "unavailable";
+    const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
+
+    const lines: string[] = [definition.description];
+
+    if (rank > 0 && definition.rankDescriptions.length > 0) {
+      const currentIndex = Math.min(rank - 1, definition.rankDescriptions.length - 1);
+      if (currentIndex >= 0) {
+        lines.push("Current: " + definition.rankDescriptions[currentIndex]);
+      }
+    }
+
+    if (rank < maxRank && definition.rankDescriptions.length > 0) {
+      const nextIndex = Math.min(rank, definition.rankDescriptions.length - 1);
+      const nextDescription = definition.rankDescriptions[nextIndex];
+      const nextCost = definition.costByRank[rank];
+      let nextLine = "Next: " + nextDescription;
+      if (Number.isFinite(nextCost)) {
+        nextLine += " (Cost " + nextCost + ")";
+      }
+      lines.push(nextLine);
+    } else {
+      lines.push("Next: Fully mastered.");
+    }
+
+    if (state?.status === "locked" && (state.missing?.length ?? 0) > 0) {
+      const missingTitles = state.missing
+        ?.map((reqId) => this.system.getDefinition(reqId)?.title ?? reqId) ?? [];
+      if (missingTitles.length > 0) {
+        lines.push("Requires: " + missingTitles.join(", "));
+      }
+    }
+
+    this.detailTitle.setText(definition.title).setVisible(true);
+    this.detailSubtitle.setText(definition.branch).setVisible(true);
+    this.detailRankText
+      .setText("Rank " + clampedRank + "/" + maxRank + " - " + statusLabel)
+      .setVisible(true);
+    this.detailBody.setText(lines.join("\n\n")).setVisible(true);
+
+    return true;
+  }
+
+  private clearPerkDetails(force = false): void {
+    if (!force && this.detailPinned) {
+      return;
+    }
+    this.detailPinned = false;
+    this.detailPerkId = null;
+    this.detailTitle.setVisible(false).setText("");
+    this.detailSubtitle.setVisible(false).setText("");
+    this.detailRankText.setVisible(false).setText("");
+    this.detailBody.setVisible(false).setText("");
+  }
+
+
   private updateDefaultHint(stats: SkillTreeStats): void {
     if (this.activeTab !== "skills") {
       if (this.stubText) {
@@ -501,18 +692,15 @@ export class SkillTreeOverlay {
     }
 
     if (stats.arcanePulseUnlocked) {
-      this.hintText.setText("Arcane Pulse ready - press Q (20 mana)");
+      this.hintText.setText("Arcane Pulse ready - press Q (20 mana). Press I over a skill for details.");
       this.hintText.setColor("#ffbdfd");
     } else if (stats.manaMax > 0) {
-      this.hintText.setText("Mana blooms while you slither - spend it wisely");
+      this.hintText.setText("Mana blooms while you slither - spend it wisely. Press I over a skill for details.");
       this.hintText.setColor("#5dd6a2");
     } else {
-      this.hintText.setText("Pause with Space and invest score to unlock branches");
+      this.hintText.setText("Hover a skill node and press I for details.");
       this.hintText.setColor("#5dd6a2");
     }
   }
 }
-
-
-
 

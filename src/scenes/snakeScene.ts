@@ -318,7 +318,10 @@ export default class SnakeScene extends Phaser.Scene {
 
   private draw(): void {
     const room = this.game.getCurrentRoom();
-    this.snakeRenderer.render(room, this.game.getSnakeBody(), room.id, this.currentApple);
+    const wallSenseRadius = (this.getFlag<number>("geometry.wallSenseRadius") ?? 0);
+    this.snakeRenderer.render(room, this.game.getSnakeBody(), room.id, this.currentApple, {
+      wallSenseRadius,
+    });
     this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
 
     this.featureManager.call("onRender", this, this.graphics);

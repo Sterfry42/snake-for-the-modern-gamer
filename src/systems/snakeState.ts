@@ -113,6 +113,17 @@ export class SnakeState {
 
   step(deps: SnakeStepDependencies): SnakeStepOutcome {
     this.direction = { ...this.nextDirection };
+
+    const previousHead = this.body[0];
+    if (previousHead) {
+      this.flags["internal.previousHead"] = { x: previousHead.x, y: previousHead.y };
+    } else {
+      delete this.flags["internal.previousHead"];
+    }
+    delete this.flags["internal.lastRemovedTail"];
+    delete this.flags["geometry.wallEaten"];
+    delete this.flags["geometry.terraShieldTriggered"];
+
     const head = addVectors(this.body[0], this.direction);
 
     let roomChanged = false;
@@ -147,7 +158,11 @@ export class SnakeState {
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
     if (tile === "#") {
-      return { status: "dead", reason: "wall" };
+      if (this.tryConsumeWall(finalizedRoom, finalLocalHeadX, finalLocalHeadY, head)) {
+        this.flags["geometry.wallEaten"] = { x: head.x, y: head.y, roomId: this.roomId };
+      } else {
+        return { status: "dead", reason: "wall" };
+      }
     }
 
     if (this.body.some((segment) => segment.x === head.x && segment.y === head.y)) {
@@ -155,6 +170,7 @@ export class SnakeState {
     }
 
     this.body.unshift({ x: head.x, y: head.y });
+    this.flags["internal.currentHead"] = { x: head.x, y: head.y };
 
     const appleEaten = Boolean(
       finalizedRoom.apple &&
@@ -163,9 +179,72 @@ export class SnakeState {
     );
 
     if (!appleEaten) {
-      this.body.pop();
+      const removed = this.body.pop();
+      if (removed) {
+        const tailRoomX = Math.floor(removed.x / this.grid.cols);
+        const tailRoomY = Math.floor(removed.y / this.grid.rows);
+        const [, , roomZ = "0"] = this.roomId.split(",");
+        this.flags["internal.lastRemovedTail"] = {
+          x: removed.x,
+          y: removed.y,
+          roomId: `${tailRoomX},${tailRoomY},${roomZ}`,
+        };
+      } else {
+        delete this.flags["internal.lastRemovedTail"];
+      }
+    } else {
+      delete this.flags["internal.lastRemovedTail"];
     }
 
     return { status: "alive", appleEaten };
+  }
+
+  private tryConsumeWall(
+    room: RoomSnapshot,
+    localX: number,
+    localY: number,
+    _head: Vector2Like
+  ): boolean {
+    const canEatWalls = Boolean(this.flags["geometry.canEatWalls"]);
+    const shieldState = this.flags["geometry.terraShield"] as
+      | { charges: number; max?: number; recharge?: number }
+      | undefined;
+
+    let usingShield = false;
+
+    if (!canEatWalls) {
+      const charges = shieldState?.charges ?? 0;
+      if (charges <= 0) {
+        return false;
+      }
+      const max = shieldState?.max ?? charges;
+      const nextShield = {
+        charges: Math.max(0, charges - 1),
+        max,
+        recharge: shieldState?.recharge,
+      };
+      this.flags["geometry.terraShield"] = nextShield;
+      const [roomX, roomY] = this.roomId.split(",").map(Number);
+      const worldX = roomX * this.grid.cols + localX;
+      const worldY = roomY * this.grid.rows + localY;
+      this.flags["geometry.terraShieldTriggered"] = { x: worldX, y: worldY, roomId: this.roomId };
+      usingShield = true;
+    }
+
+    this.clearWallTile(room, localX, localY);
+    return canEatWalls || usingShield;
+  }
+
+  private clearWallTile(room: RoomSnapshot, localX: number, localY: number): void {
+    const row = room.layout[localY];
+    if (!row || row[localX] === undefined) {
+      return;
+    }
+    if (row[localX] === "#") {
+      room.layout[localY] = row.substring(0, localX) + "." + row.substring(localX + 1);
+    }
+    if (room.apple && room.apple.x === localX && room.apple.y === localY) {
+      delete room.apple;
+    }
   }
 }
