@@ -4,6 +4,7 @@ import { createRng, type RandomGenerator } from "../core/rng.js";
 import { AppleService, type AppleConsumptionResult } from "../apples/appleService.js";
 import type { AppleSnapshot } from "../apples/types.js";
 import { SnakeState, type SnakeStepDependencies } from "../systems/snakeState.js";
+import { BossManager } from "../systems/boss.js";
 import { WorldService } from "../world/worldService.js";
 import { QuestController } from "../systems/questController.js";
 import type { Quest } from "../quests/quest.js";
@@ -12,7 +13,7 @@ import type { QuestRuntime } from "../quests/quest.js";
 
 export interface StepResult {
   status: "alive" | "dead";
-  deathReason?: "wall" | "self" | "shielded";
+  deathReason?: "wall" | "self" | "shielded" | "boss";
   apple: {
     eaten: boolean;
     rewards?: AppleConsumptionResult["rewards"];
@@ -33,7 +34,9 @@ export class SnakeGame implements QuestRuntime {
   private readonly world: WorldService;
   private readonly apples: AppleService;
   private readonly snake: SnakeState;
+  private readonly bosses: BossManager;
   private readonly questController: QuestController;
+  private readonly visitedRooms: Set<string>;
 
   constructor(config: GameConfig = defaultGameConfig, registry: QuestRegistry, rng?: RandomGenerator) {
     this.config = config;
@@ -41,19 +44,30 @@ export class SnakeGame implements QuestRuntime {
     this.world = new WorldService(config.grid, config.world, this.rng);
     this.apples = new AppleService(config.apples, config.grid, this.world, this.rng);
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
+    this.bosses = new BossManager(config.grid);
     this.questController = new QuestController(registry, {
       initialQuestCount: config.quests.initialQuestCount,
       maxActiveQuests: config.quests.maxActiveQuests,
       questOfferChance: config.quests.questOfferChance,
       rng: this.rng,
     });
+    this.visitedRooms = new Set([this.snake.currentRoomId]);
   }
 
   reset(): void {
     this.world.clear();
     this.apples.clearAll();
     this.snake.reset(this.config.world.originRoomId);
+    this.bosses.clearAll();
     this.questController.reset(this);
+    this.visitedRooms.clear();
+    this.visitedRooms.add(this.snake.currentRoomId);
+
+    // TODO: Make this configurable
+    if (this.rng() < 0.05) { // 5% chance to spawn a boss on reset
+      this.bosses.spawnBoss(this.snake.currentRoomId, "freak-dennis");
+    }
+
     this.apples.ensureApple(this.snake.currentRoomId, Array.from(this.snake.bodySegments), this.snake.score);
   }
 
@@ -65,6 +79,12 @@ export class SnakeGame implements QuestRuntime {
     const skittishRooms = this.apples.moveApples(snakeSegments);
     skittishRooms.forEach((roomId) => roomsChanged.add(roomId));
 
+    this.bosses.step({
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      getSnakeBody: () => this.snake.bodySegments,
+    });
+
+
     const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
 
     const dependencies: SnakeStepDependencies = {
@@ -75,9 +95,22 @@ export class SnakeGame implements QuestRuntime {
           roomsChanged.add(roomId);
         }
       },
+      getBossManager: () => this.bosses,
     };
 
     const outcome = this.snake.step(dependencies);
+
+    const roomHasChanged = previousRoom !== this.snake.currentRoomId;
+    if (roomHasChanged) {
+      const newRoomId = this.snake.currentRoomId;
+      if (!this.visitedRooms.has(newRoomId)) {
+        this.visitedRooms.add(newRoomId);
+        // TODO: Make this configurable
+        if (this.rng() < 0.05) { // 5% chance to spawn Freak Dennis in a new room
+          this.bosses.spawnBoss(newRoomId, "freak-dennis");
+        }
+      }
+    }
 
     if (outcome.status === "dead") {
       return {
@@ -89,7 +122,7 @@ export class SnakeGame implements QuestRuntime {
           stateChanged: roomsChanged.has(previousRoom),
         },
         roomsChanged,
-        roomChanged: previousRoom !== this.snake.currentRoomId,
+        roomChanged: roomHasChanged,
         questOffer: null,
         questsCompleted: [],
       };
@@ -186,7 +219,7 @@ export class SnakeGame implements QuestRuntime {
         stateChanged: appleStateChanged,
       },
       roomsChanged,
-      roomChanged: previousRoom !== this.snake.currentRoomId,
+      roomChanged: roomHasChanged,
       questOffer,
       questsCompleted,
     };
@@ -269,6 +302,10 @@ export class SnakeGame implements QuestRuntime {
 
   rejectOfferedQuest(): void {
     this.questController.rejectOffered();
+  }
+
+  getBosses(roomId: string) {
+    return this.bosses.getBossesInRoom(roomId);
   }
 
   private applyMasonry(
@@ -476,5 +513,5 @@ export class SnakeGame implements QuestRuntime {
     const roomY = Math.floor(position.y / this.config.grid.rows);
     const [, , roomZ = "0"] = this.snake.currentRoomId.split(",");
     return `${roomX},${roomY},${roomZ}`;
-  }
-}
+  }
+}

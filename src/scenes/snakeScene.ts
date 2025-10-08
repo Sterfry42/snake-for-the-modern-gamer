@@ -1,4 +1,4 @@
-﻿import Phaser from "phaser";
+﻿﻿import Phaser from "phaser";
 import { defaultGameConfig } from "../config/gameConfig.js";
 import { SnakeGame } from "../game/snakeGame.js";
 import { FeatureManager } from "../systems/features.js";
@@ -323,6 +323,20 @@ export default class SnakeScene extends Phaser.Scene {
       wallSenseRadius,
     });
     this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
+
+    // Render bosses
+    const bosses = this.game.getBosses(room.id);
+    for (const boss of bosses) {
+      for (const segment of boss.body) {
+        const [roomX, roomY] = room.id.split(",").map(Number);
+        const localX = segment.x - roomX * this.grid.cols;
+        const localY = segment.y - roomY * this.grid.rows;
+        if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
+          const { x, y } = this.snakeRenderer.getWorldPosition(segment, room.id);
+          this.graphics.fillStyle(0xff00ff, 0.8).fillRect(x, y, this.grid.cell, this.grid.cell);
+        }
+      }
+    }
 
     this.featureManager.call("onRender", this, this.graphics);
   }

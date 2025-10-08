@@ -1,17 +1,19 @@
 import type { GridConfig, SnakeConfig } from "../config/gameConfig.js";
 import type { Vector2Like } from "../core/math.js";
 import { addVectors } from "../core/math.js";
+import type { BossManager } from "./boss.js";
 import type { RoomSnapshot } from "../world/types.js";
 
 export interface SnakeStepOutcome {
   status: "alive" | "dead";
-  reason?: "wall" | "self";
+  reason?: "wall" | "self" | "boss";
   appleEaten?: boolean;
 }
 
 export interface SnakeStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   ensureApple(roomId: string, snake: readonly Vector2Like[], score: number): void;
+  getBossManager(): BossManager;
 }
 
 export class SnakeState {
@@ -112,7 +114,14 @@ export class SnakeState {
   }
 
   step(deps: SnakeStepDependencies): SnakeStepOutcome {
-    this.direction = { ...this.nextDirection };
+    const bossManager = deps.getBossManager();
+    const pullDirection = bossManager.getPullFor(this.body[0], this.roomId, Math.random);
+
+    if (pullDirection) {
+      this.direction = pullDirection;
+    } else {
+      this.direction = { ...this.nextDirection };
+    }
 
     const previousHead = this.body[0];
     if (previousHead) {
@@ -167,6 +176,10 @@ export class SnakeState {
 
     if (this.body.some((segment) => segment.x === head.x && segment.y === head.y)) {
       return { status: "dead", reason: "self" };
+    }
+
+    if (bossManager.isCollidingWithBoss(head, this.roomId)) {
+      return { status: "dead", reason: "boss" };
     }
 
     this.body.unshift({ x: head.x, y: head.y });
