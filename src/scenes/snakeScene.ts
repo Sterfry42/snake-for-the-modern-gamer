@@ -167,6 +167,8 @@ export default class SnakeScene extends Phaser.Scene {
       this.juice.questCompleted();
     }
 
+    this.handlePredationFeedback();
+
     this.isDirty = true;
   }
 
@@ -315,7 +317,39 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = false;
     }
   }
+  private tileToWorld(position?: Vector2Like | null): { x: number; y: number } {
+    const cell = this.grid.cell;
+    const fallback = this.game.getSnakeBody()[0] ?? { x: this.grid.cols / 2, y: this.grid.rows / 2 };
+    const point = position ?? fallback;
+    return { x: point.x * cell + cell / 2, y: point.y * cell + cell / 2 };
+  }
 
+  private handlePredationFeedback(): void {
+    if (!this.game) {
+      return;
+    }
+
+    const frenzy = this.game.getFlag<{ head?: Vector2Like | null }>("predation.frenzyTriggered");
+    if (frenzy) {
+      const world = this.tileToWorld(frenzy.head ?? null);
+      this.juice.predationFrenzy(world.x, world.y);
+      this.game.setFlag("predation.frenzyTriggered", undefined);
+    }
+
+    const rend = this.game.getFlag<{ head?: Vector2Like | null }>("predation.rendConsumed");
+    if (rend) {
+      const world = this.tileToWorld(rend.head ?? null);
+      this.juice.predationRend(world.x, world.y);
+      this.game.setFlag("predation.rendConsumed", undefined);
+    }
+
+    const apex = this.game.getFlag<{ head?: Vector2Like | null }>("predation.apexTriggered");
+    if (apex) {
+      const world = this.tileToWorld(apex.head ?? null);
+      this.juice.predationApex(world.x, world.y);
+      this.game.setFlag("predation.apexTriggered", undefined);
+    }
+  }
   private draw(): void {
     const room = this.game.getCurrentRoom();
     const wallSenseRadius = (this.getFlag<number>("geometry.wallSenseRadius") ?? 0);
@@ -324,8 +358,26 @@ export default class SnakeScene extends Phaser.Scene {
     });
     this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
 
+    // Render bosses
+    const bosses = this.game.getBosses(room.id);
+    for (const boss of bosses) {
+      for (const segment of boss.body) {
+        const [roomX, roomY] = room.id.split(",").map(Number);
+        const localX = segment.x - roomX * this.grid.cols;
+        const localY = segment.y - roomY * this.grid.rows;
+        if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
+          const { x, y } = this.snakeRenderer.getWorldPosition(segment, room.id);
+          this.graphics.fillStyle(0xff00ff, 0.8).fillRect(x, y, this.grid.cell, this.grid.cell);
+        }
+      }
+    }
+
     this.featureManager.call("onRender", this, this.graphics);
   }
 }
+
+
+
+
 
 

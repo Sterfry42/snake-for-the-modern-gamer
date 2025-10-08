@@ -22,6 +22,17 @@ export class SnakeRenderer {
     private readonly grid: GridConfig
   ) {}
 
+  getWorldPosition(position: Vector2Like, currentRoomId: string): { x: number; y: number } {
+    const [roomX, roomY] = currentRoomId.split(",").map(Number);
+    const localX = position.x - roomX * this.grid.cols;
+    const localY = position.y - roomY * this.grid.rows;
+
+    return {
+      x: localX * this.grid.cell,
+      y: localY * this.grid.cell,
+    };
+  }
+
   render(
     room: RoomSnapshot,
     snakeBody: readonly Vector2Like[],

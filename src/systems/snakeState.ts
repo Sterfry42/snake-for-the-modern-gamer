@@ -1,17 +1,19 @@
 import type { GridConfig, SnakeConfig } from "../config/gameConfig.js";
 import type { Vector2Like } from "../core/math.js";
 import { addVectors } from "../core/math.js";
+import type { BossManager } from "./boss.js";
 import type { RoomSnapshot } from "../world/types.js";
 
 export interface SnakeStepOutcome {
   status: "alive" | "dead";
-  reason?: "wall" | "self";
+  reason?: "wall" | "self" | "boss";
   appleEaten?: boolean;
 }
 
 export interface SnakeStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   ensureApple(roomId: string, snake: readonly Vector2Like[], score: number): void;
+  getBossManager(): BossManager;
 }
 
 export class SnakeState {
@@ -120,9 +122,19 @@ export class SnakeState {
     };
     this.flags["internal.previousSnapshot"] = previousSnapshot;
 
-    this.direction = { ...this.nextDirection };
+    const bossManager = deps.getBossManager();
+    const currentHeadBeforeMove = this.body[0];
+    const pullDirection = currentHeadBeforeMove
+      ? bossManager.getPullFor(currentHeadBeforeMove, this.roomId, Math.random)
+      : null;
 
-    const previousHead = this.body[0];
+    if (pullDirection) {
+      this.direction = pullDirection;
+    } else {
+      this.direction = { ...this.nextDirection };
+    }
+
+    const previousHead = currentHeadBeforeMove;
     if (previousHead) {
       this.flags["internal.previousHead"] = { x: previousHead.x, y: previousHead.y };
     } else {
@@ -185,6 +197,10 @@ export class SnakeState {
       }
     }
 
+    if (bossManager.isCollidingWithBoss(head, this.roomId) && invulnTicks <= 0) {
+      return { status: "dead", reason: "boss" };
+    }
+
     this.body.unshift({ x: head.x, y: head.y });
     this.flags["internal.currentHead"] = { x: head.x, y: head.y };
 
@@ -203,7 +219,7 @@ export class SnakeState {
         this.flags["internal.lastRemovedTail"] = {
           x: removed.x,
           y: removed.y,
-          roomId: `${tailRoomX},${tailRoomY},${roomZ}`,
+          roomId: `${tailRoomX},${tailRoomY},${roomZ}`
         };
       } else {
         delete this.flags["internal.lastRemovedTail"];
@@ -214,7 +230,6 @@ export class SnakeState {
 
     return { status: "alive", appleEaten };
   }
-
   restorePreviousSnapshot(): void {
     const snapshot = this.flags["internal.previousSnapshot"] as
       | {
@@ -324,3 +339,7 @@ export class SnakeState {
     }
   }
 }
+
+
+
+
