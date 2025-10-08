@@ -13,6 +13,7 @@ export class JuiceManager {
   private readonly ctx: AudioContext;
   private readonly masterGain: GainNode;
   private readonly particleLayer: Phaser.GameObjects.Layer;
+  private bossMusic?: { id: string; gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
 
   constructor(private readonly scene: SnakeScene) {
     this.ctx = this.scene.sound.context;
@@ -101,18 +102,117 @@ export class JuiceManager {
     this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffa36c], count: 10, radius: 18 });
   }
 
-  predationApex(worldX: number, worldY: number) {
-    this.playTone({ frequency: 680, frequencyEnd: 320, duration: 0.32, type: "square", volume: 0.18 });
-    this.spawnBurst(worldX, worldY, { colors: [0xffd166, 0xff7d4d, 0xffffff], count: 22, radius: 32 });
-    this.scene.cameras.main.flash(200, 120, 255, 140, true);
-    this.kickCamera(0.024, 150);
+
+  startBossMusic(bossId: string) {
+    if (this.bossMusic?.id === bossId) {
+      return;
+    }
+    this.stopBossMusic();
+
+    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const primary = this.ctx.createOscillator();
+    primary.type = "sawtooth";
+    primary.frequency.setValueAtTime(58, now);
+    const primaryGain = this.ctx.createGain();
+    primaryGain.gain.value = 0.5;
+    primary.connect(primaryGain);
+    primaryGain.connect(gain);
+
+    const secondary = this.ctx.createOscillator();
+    secondary.type = "triangle";
+    secondary.frequency.setValueAtTime(93, now);
+    const secondaryGain = this.ctx.createGain();
+    secondaryGain.gain.value = 0.35;
+    secondary.connect(secondaryGain);
+    secondaryGain.connect(gain);
+
+    const sub = this.ctx.createOscillator();
+    sub.type = "square";
+    sub.frequency.setValueAtTime(32, now);
+    const subGain = this.ctx.createGain();
+    subGain.gain.value = 0.25;
+    sub.connect(subGain);
+    subGain.connect(gain);
+
+    const lfo = this.ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.setValueAtTime(0.35, now);
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 14;
+    lfo.connect(lfoGain);
+    lfoGain.connect(primary.frequency);
+
+    primary.start(now);
+    secondary.start(now);
+    sub.start(now);
+    lfo.start(now);
+
+    gain.gain.exponentialRampToValueAtTime(0.25, now + 0.6);
+
+    this.bossMusic = {
+      id: bossId,
+      gain,
+      sources: [primary, secondary, sub, lfo],
+      cleanup: [primaryGain, secondaryGain, subGain, lfoGain],
+    };
+  }
+
+  stopBossMusic(): void {
+    if (!this.bossMusic) {
+      return;
+    }
+
+    const { gain, sources, cleanup } = this.bossMusic;
+    const now = this.ctx.currentTime;
+
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+
+    for (const source of sources) {
+      try {
+        source.stop(now + 0.45);
+      } catch {
+        // ignore
+      }
+    }
+
+    globalThis.setTimeout(() => {
+      for (const source of sources) {
+        try {
+          source.disconnect();
+        } catch {
+          // ignore
+        }
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {
+          // ignore
+        }
+      }
+      try {
+        gain.disconnect();
+      } catch {
+        // ignore
+      }
+    }, 500);
+
+    this.bossMusic = undefined;
   }
 
   spellFailed() {
     this.playTone({ frequency: 140, duration: 0.12, type: "triangle", volume: 0.06 });
   }
-
-
   questOffered() {
     this.playTone({ frequency: 660, duration: 0.16, type: "triangle", volume: 0.12 });
     this.scene.cameras.main.flash(120, 80, 130, 255, true);
@@ -137,10 +237,10 @@ export class JuiceManager {
   }
 
   gameOver() {
+    this.stopBossMusic();
     this.playTone({ frequency: 200, frequencyEnd: 40, duration: 0.6, type: "sawtooth", volume: 0.18 });
     this.scene.cameras.main.shake(200, 0.01);
   }
-
   private playTone({ frequency, duration = 0.15, type = "sine", volume = 0.1, frequencyEnd }: ToneOptions) {
     if (!this.scene.sound.locked && this.ctx.state === "suspended") {
       void this.ctx.resume();
@@ -191,4 +291,17 @@ export class JuiceManager {
     }
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
 
