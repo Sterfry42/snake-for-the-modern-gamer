@@ -12,6 +12,10 @@ const LADDER_OUTLINE_WIDTH = 1;
 const APPLE_OUTLINE_ALPHA = 0.85;
 const APPLE_OUTLINE_WIDTH = 1;
 
+interface SnakeRenderOptions {
+  wallSenseRadius?: number;
+}
+
 export class SnakeRenderer {
   constructor(
     private readonly graphics: Phaser.GameObjects.Graphics,
@@ -22,12 +26,16 @@ export class SnakeRenderer {
     room: RoomSnapshot,
     snakeBody: readonly Vector2Like[],
     currentRoomId: string,
-    appleInfo?: AppleSnapshot | null
+    appleInfo?: AppleSnapshot | null,
+    options: SnakeRenderOptions = {}
   ): void {
     this.graphics.clear();
     this.graphics.clearMask();
 
+    const opts = options ?? {};
+
     this.drawRoom(room);
+    this.highlightWalls(room, snakeBody, currentRoomId, opts.wallSenseRadius ?? 0);
     this.drawGrid();
     this.drawApple(room, appleInfo ?? undefined);
     this.drawSnake(room, snakeBody, currentRoomId);
@@ -57,6 +65,60 @@ export class SnakeRenderer {
           this.graphics.fillStyle(room.backgroundColor, 1);
           this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
         }
+      }
+    }
+  }
+
+  private highlightWalls(
+    room: RoomSnapshot,
+    snakeBody: readonly Vector2Like[],
+    currentRoomId: string,
+    radius: number
+  ): void {
+    if (radius <= 0 || snakeBody.length === 0) {
+      return;
+    }
+    const head = snakeBody[0];
+    const [roomX, roomY] = currentRoomId.split(",").map(Number);
+    const localHeadX = head.x - roomX * this.grid.cols;
+    const localHeadY = head.y - roomY * this.grid.rows;
+    if (
+      localHeadX < 0 ||
+      localHeadX >= this.grid.cols ||
+      localHeadY < 0 ||
+      localHeadY >= this.grid.rows
+    ) {
+      return;
+    }
+
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        const targetX = localHeadX + dx;
+        const targetY = localHeadY + dy;
+        if (
+          targetX < 0 ||
+          targetX >= this.grid.cols ||
+          targetY < 0 ||
+          targetY >= this.grid.rows
+        ) {
+          continue;
+        }
+        const tile = room.layout[targetY]?.[targetX];
+        if (tile !== "#") {
+          continue;
+        }
+        const distance = Math.abs(dx) + Math.abs(dy);
+        if (distance > radius) {
+          continue;
+        }
+        const alpha = Math.max(0.12, 0.28 - 0.05 * distance);
+        this.graphics.fillStyle(0x4da3ff, alpha);
+        this.graphics.fillRect(
+          targetX * this.grid.cell,
+          targetY * this.grid.cell,
+          this.grid.cell,
+          this.grid.cell
+        );
       }
     }
   }
