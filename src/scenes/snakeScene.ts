@@ -1,4 +1,4 @@
-﻿import Phaser from "phaser";
+import Phaser from "phaser";
 import { defaultGameConfig } from "../config/gameConfig.js";
 import { SnakeGame } from "../game/snakeGame.js";
 import { FeatureManager } from "../systems/features.js";
@@ -327,3 +327,5 @@ export default class SnakeScene extends Phaser.Scene {
     this.featureManager.call("onRender", this, this.graphics);
   }
 }
+
+

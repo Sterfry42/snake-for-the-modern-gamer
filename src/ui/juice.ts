@@ -90,6 +90,24 @@ export class JuiceManager {
     this.kickCamera(0.028, 160);
   }
 
+  predationFrenzy(worldX: number, worldY: number) {
+    this.playTone({ frequency: 540, frequencyEnd: 780, duration: 0.26, type: "square", volume: 0.16 });
+    this.spawnBurst(worldX, worldY, { colors: [0xff8450, 0xffc857, 0xfff3a8], count: 18, radius: 28 });
+    this.kickCamera(0.02, 140);
+  }
+
+  predationRend(worldX: number, worldY: number) {
+    this.playTone({ frequency: 320, frequencyEnd: 180, duration: 0.18, type: "sawtooth", volume: 0.12 });
+    this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffa36c], count: 10, radius: 18 });
+  }
+
+  predationApex(worldX: number, worldY: number) {
+    this.playTone({ frequency: 680, frequencyEnd: 320, duration: 0.32, type: "square", volume: 0.18 });
+    this.spawnBurst(worldX, worldY, { colors: [0xffd166, 0xff7d4d, 0xffffff], count: 22, radius: 32 });
+    this.scene.cameras.main.flash(200, 120, 255, 140, true);
+    this.kickCamera(0.024, 150);
+  }
+
   spellFailed() {
     this.playTone({ frequency: 140, duration: 0.12, type: "triangle", volume: 0.06 });
   }
@@ -173,3 +191,4 @@ export class JuiceManager {
     }
   }
 }
+

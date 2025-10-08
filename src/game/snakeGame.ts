@@ -26,6 +26,98 @@ export interface StepResult {
   questsCompleted: Quest[];
 }
 
+interface PredationComputedConfig {
+  enabled: boolean;
+  window: number;
+  decayHold: number;
+  decayStep: number;
+  maxStacks: number;
+  stackGain: number;
+  scorePerStack: number;
+  quickEatWindow: number;
+  bonusStacksOnQuickEat: number;
+  stackGainOnRoomEnter: number;
+  scentDuration: number;
+  frenzyThreshold: number;
+  frenzyDuration: number;
+  frenzyScoreBonus: number;
+  rend: {
+    enabled: boolean;
+    gainThreshold: number;
+    maxCharges: number;
+    growthPerCharge: number;
+    scorePerCharge: number;
+  };
+  apex: {
+    enabled: boolean;
+    requiredStacks: number;
+    score: number;
+    growth: number;
+    cooldown: number;
+  };
+}
+
+interface PredationRuntimeState {
+  stacks: number;
+  timer: number;
+  decayHold: number;
+  frenzyTicks: number;
+  frenzyCooldown: number;
+  rendCharges: number;
+  apexCooldown: number;
+  scentTicks: number;
+  ticksSinceLastApple: number;
+  lastRoomId: string;
+}
+
+function createDefaultPredationConfig(): PredationComputedConfig {
+  return {
+    enabled: false,
+    window: 0,
+    decayHold: 0,
+    decayStep: 1,
+    maxStacks: 0,
+    stackGain: 1,
+    scorePerStack: 0,
+    quickEatWindow: 0,
+    bonusStacksOnQuickEat: 0,
+    stackGainOnRoomEnter: 0,
+    scentDuration: 0,
+    frenzyThreshold: Number.POSITIVE_INFINITY,
+    frenzyDuration: 0,
+    frenzyScoreBonus: 0,
+    rend: {
+      enabled: false,
+      gainThreshold: Number.POSITIVE_INFINITY,
+      maxCharges: 0,
+      growthPerCharge: 0,
+      scorePerCharge: 0,
+    },
+    apex: {
+      enabled: false,
+      requiredStacks: Number.POSITIVE_INFINITY,
+      score: 0,
+      growth: 0,
+      cooldown: 0,
+    },
+  };
+}
+
+function createDefaultPredationState(): PredationRuntimeState {
+  return {
+    stacks: 0,
+    timer: 0,
+    decayHold: 0,
+    frenzyTicks: 0,
+    frenzyCooldown: 0,
+    rendCharges: 0,
+    apexCooldown: 0,
+    scentTicks: 0,
+    ticksSinceLastApple: Number.POSITIVE_INFINITY,
+    lastRoomId: '',
+  };
+}
+
 export class SnakeGame implements QuestRuntime {
   readonly config: GameConfig;
 
@@ -34,6 +126,9 @@ export class SnakeGame implements QuestRuntime {
   private readonly apples: AppleService;
   private readonly snake: SnakeState;
   private readonly questController: QuestController;
+
+  private predationConfig: PredationComputedConfig = createDefaultPredationConfig();
+  private predationState: PredationRuntimeState = createDefaultPredationState();
 
   constructor(config: GameConfig = defaultGameConfig, registry: QuestRegistry, rng?: RandomGenerator) {
     this.config = config;
@@ -54,6 +149,7 @@ export class SnakeGame implements QuestRuntime {
     this.apples.clearAll();
     this.snake.reset(this.config.world.originRoomId);
     this.questController.reset(this);
+    this.resetPredation();
     this.apples.ensureApple(this.snake.currentRoomId, Array.from(this.snake.bodySegments), this.snake.score);
   }
 
@@ -61,6 +157,10 @@ export class SnakeGame implements QuestRuntime {
     const roomsChanged = new Set<string>();
     const previousRoom = this.snake.currentRoomId;
     const snakeSegments = Array.from(this.snake.bodySegments);
+
+    this.hydratePredationConfig();
+    const predationState = this.ensurePredationState();
+    predationState.lastRoomId = previousRoom;
 
     const skittishRooms = this.apples.moveApples(snakeSegments);
     skittishRooms.forEach((roomId) => roomsChanged.add(roomId));
@@ -77,22 +177,25 @@ export class SnakeGame implements QuestRuntime {
       },
     };
 
-    const outcome = this.snake.step(dependencies);
+    let outcome = this.snake.step(dependencies);
 
     if (outcome.status === "dead") {
-      return {
-        status: "dead",
-        deathReason: outcome.reason,
-        apple: {
-          eaten: false,
-          current: appleBeforeStep,
-          stateChanged: roomsChanged.has(previousRoom),
-        },
-        roomsChanged,
-        roomChanged: previousRoom !== this.snake.currentRoomId,
-        questOffer: null,
-        questsCompleted: [],
-      };
+      if (!this.tryFortitudePhoenix(outcome, roomsChanged, previousRoom)) {
+        return {
+          status: "dead",
+          deathReason: outcome.reason,
+          apple: {
+            eaten: false,
+            current: appleBeforeStep,
+            stateChanged: roomsChanged.has(previousRoom),
+          },
+          roomsChanged,
+          roomChanged: previousRoom !== this.snake.currentRoomId,
+          questOffer: null,
+          questsCompleted: [],
+        };
+      }
+      outcome = { status: "alive", reason: undefined, appleEaten: false };
     }
 
     const updatedSnake = Array.from(this.snake.bodySegments);
@@ -166,12 +269,16 @@ export class SnakeGame implements QuestRuntime {
         this.triggerCollapseControl(currentHead, updatedSnake, roomsChanged);
       }
       this.rechargeTerraShield();
+      this.handleFortitudeOnApple(roomsChanged);
 
     }
 
     if (appleStateChanged) {
       roomsChanged.add(this.snake.currentRoomId);
     }
+
+    this.tickPredationTimers();
+    this.tickFortitudeStates();
 
     const questsCompleted = this.questController.handleCompletions(this);
     const questOffer = this.questController.maybeCreateOffer(paused, this) ?? undefined;
@@ -271,6 +378,598 @@ export class SnakeGame implements QuestRuntime {
     this.questController.rejectOffered();
   }
 
+  private tickFortitudeStates(): void {
+    const invuln = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
+    if (invuln > 0) {
+      this.setFlag("fortitude.invulnerabilityTicks", Math.max(0, invuln - 1));
+    }
+  }
+
+  private handleFortitudeRegenerator(roomsChanged: Set<string>): void {
+    const config = this.getFlag<{ interval?: number; amount?: number }>("fortitude.regenerator");
+    if (!config || !config.interval || config.interval <= 0) {
+      return;
+    }
+    const counter = (this.getFlag<number>("fortitude.regeneratorCounter") ?? 0) + 1;
+    if (counter >= config.interval) {
+      const amount = Math.max(1, config.amount ?? 1);
+      for (let i = 0; i < amount; i += 1) {
+        this.snake.grow(1);
+      }
+      roomsChanged.add(this.snake.currentRoomId);
+      this.setFlag("fortitude.regeneratorCounter", 0);
+    } else {
+      this.setFlag("fortitude.regeneratorCounter", counter);
+    }
+  }
+
+  private handleFortitudeOnApple(roomsChanged: Set<string>): void {
+    this.activateFortitudeInvulnerability();
+    this.processFortitudeBloodBank(roomsChanged);
+  }
+
+  private processFortitudeBloodBank(roomsChanged: Set<string>): void {
+    const bank = this.getFlag<{ stored?: number; capacity?: number; reward?: { score?: number; growth?: number } }>(
+      "fortitude.bloodBank"
+    );
+    if (!bank) {
+      return;
+    }
+    const capacity = Math.max(1, bank.capacity ?? 1);
+    const stored = Math.min(capacity, (bank.stored ?? 0) + 1);
+    bank.stored = stored;
+
+    if (stored >= capacity) {
+      const reward = bank.reward ?? {};
+      if (reward.score && reward.score !== 0) {
+        this.addScore(reward.score);
+      }
+      if (reward.growth && reward.growth > 0) {
+        for (let i = 0; i < reward.growth; i += 1) {
+          this.snake.grow(1);
+        }
+        roomsChanged.add(this.snake.currentRoomId);
+      }
+      bank.stored = 0;
+    }
+
+    this.setFlag("fortitude.bloodBank", bank);
+  }
+
+  private activateFortitudeInvulnerability(): void {
+    const base = this.getFlag<{ duration?: number }>("fortitude.invulnerability");
+    if (!base) {
+      return;
+    }
+    const bonus = this.getFlag<number>("fortitude.invulnerabilityBonus") ?? 0;
+    const duration = Math.max(0, (base.duration ?? 0) + bonus);
+    if (duration <= 0) {
+      return;
+    }
+    const current = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
+    const updated = Math.max(current, duration + 1);
+    this.setFlag("fortitude.invulnerabilityTicks", updated);
+  }
+
+  private tryFortitudePhoenix(
+    outcome: SnakeStepOutcome,
+    roomsChanged: Set<string>,
+    previousRoomId: string
+  ): boolean {
+    const state = this.getFlag<{ charges?: number }>("fortitude.phoenix");
+    const charges = state?.charges ?? 0;
+    if (charges <= 0) {
+      return false;
+    }
+
+    const remaining = charges - 1;
+    this.setFlag("fortitude.phoenix", { ...state, charges: remaining });
+    this.snake.restorePreviousSnapshot();
+    roomsChanged.add(previousRoomId);
+    this.setFlag("fortitude.phoenixTriggered", { reason: outcome.reason ?? "unknown" });
+
+    const base = this.getFlag<{ duration?: number }>("fortitude.invulnerability");
+    const bonus = this.getFlag<number>("fortitude.invulnerabilityBonus") ?? 0;
+    if (base && (base.duration ?? 0) + bonus > 0) {
+      const current = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
+      const refreshed = Math.max(current, (base.duration ?? 0) + bonus + 1);
+      this.setFlag("fortitude.invulnerabilityTicks", refreshed);
+    }
+
+    return true;
+  }
+
+  private handlePredationOnApple(
+    consumption: AppleConsumptionResult,
+    roomsChanged: Set<string>,
+    head: Vector2Like | undefined
+  ): { score: number; growth: number } {
+    const config = this.predationConfig;
+    if (!config.enabled) {
+      return { score: 0, growth: 0 };
+    }
+
+    this.setFlag("predation.rendConsumed", undefined);
+    this.setFlag("predation.apexTriggered", undefined);
+
+    const state = this.ensurePredationState();
+    const quickWindow = config.quickEatWindow;
+    const quickEligible = quickWindow > 0 && state.ticksSinceLastApple <= quickWindow;
+    const maxStacks = Math.max(config.maxStacks, state.stacks + Math.max(config.stackGain, 1));
+    let stackGain = Math.max(1, config.stackGain);
+    if (quickEligible && config.bonusStacksOnQuickEat > 0) {
+      stackGain += config.bonusStacksOnQuickEat;
+    }
+
+    state.ticksSinceLastApple = 0;
+    state.stacks = Math.min(maxStacks, state.stacks + stackGain);
+    state.timer = config.window;
+    state.decayHold = config.decayHold;
+    state.lastRoomId = this.snake.currentRoomId;
+
+    if (config.scentDuration > 0) {
+      state.scentTicks = config.scentDuration;
+    }
+
+    const bonus = { score: 0, growth: 0 };
+
+    if (config.scorePerStack > 0 && state.stacks > 0) {
+      const scoreGain = Math.ceil(config.scorePerStack * state.stacks);
+      if (scoreGain > 0) {
+        this.addScore(scoreGain);
+        bonus.score += scoreGain;
+      }
+    }
+
+    if (config.rend.enabled) {
+      const maxCharges = Math.max(0, config.rend.maxCharges);
+      if (state.stacks >= config.rend.gainThreshold && maxCharges > 0) {
+        state.rendCharges = Math.min(maxCharges, state.rendCharges + 1);
+      }
+      if (state.rendCharges > 0 && (config.rend.scorePerCharge > 0 || config.rend.growthPerCharge > 0)) {
+        state.rendCharges -= 1;
+        if (config.rend.scorePerCharge > 0) {
+          this.addScore(config.rend.scorePerCharge);
+          bonus.score += config.rend.scorePerCharge;
+        }
+        if (config.rend.growthPerCharge > 0) {
+          for (let i = 0; i < config.rend.growthPerCharge; i += 1) {
+            this.snake.grow(1);
+          }
+          bonus.growth += config.rend.growthPerCharge;
+          roomsChanged.add(this.snake.currentRoomId);
+        }
+        this.setFlag("predation.rendConsumed", {
+          roomId: this.snake.currentRoomId,
+          head: head ? { x: head.x, y: head.y } : undefined,
+        });
+      }
+    }
+
+    const frenzyAvailable = Number.isFinite(config.frenzyThreshold) && state.stacks >= config.frenzyThreshold;
+    if (frenzyAvailable && config.frenzyDuration > 0 && state.frenzyTicks <= 0) {
+      state.frenzyTicks = config.frenzyDuration;
+      this.setFlag("predation.frenzyTriggered", {
+        roomId: this.snake.currentRoomId,
+        stacks: state.stacks,
+      });
+    }
+
+    if (config.apex.enabled && state.frenzyTicks > 0 && state.stacks >= config.apex.requiredStacks && state.apexCooldown <= 0) {
+      state.apexCooldown = config.apex.cooldown;
+      if (config.apex.score > 0) {
+        this.addScore(config.apex.score);
+        bonus.score += config.apex.score;
+      }
+      if (config.apex.growth > 0) {
+        for (let i = 0; i < config.apex.growth; i += 1) {
+          this.snake.grow(1);
+        }
+        bonus.growth += config.apex.growth;
+        roomsChanged.add(this.snake.currentRoomId);
+      }
+      state.stacks = Math.max(0, state.stacks - config.apex.requiredStacks);
+      this.setFlag("predation.apexTriggered", {
+        roomId: this.snake.currentRoomId,
+        stacks: state.stacks,
+      });
+    }
+
+    this.syncPredationFlags();
+    return bonus;
+  }
+
+  private handlePredationOnRoomChange(newRoomId: string): void {
+    const config = this.predationConfig;
+    const state = this.ensurePredationState();
+    state.lastRoomId = newRoomId;
+    if (!config.enabled || config.stackGainOnRoomEnter <= 0) {
+      this.syncPredationFlags();
+      return;
+    }
+    const maxStacks = Math.max(config.maxStacks, state.stacks + config.stackGainOnRoomEnter);
+    state.stacks = Math.min(maxStacks, state.stacks + config.stackGainOnRoomEnter);
+    if (state.stacks > 0) {
+      if (config.window > 0) {
+        state.timer = Math.max(state.timer, config.window);
+      }
+      state.decayHold = config.decayHold;
+    }
+    this.syncPredationFlags();
+  }
+  private resetPredation(): void {
+    this.predationConfig = createDefaultPredationConfig();
+    this.predationState = createDefaultPredationState();
+    this.predationState.lastRoomId = this.snake.currentRoomId;
+    this.syncPredationFlags();
+    this.setFlag("predation.scentTicks", undefined);
+    this.setFlag("predation.frenzyTriggered", undefined);
+    this.setFlag("predation.rendConsumed", undefined);
+    this.setFlag("predation.apexTriggered", undefined);
+  }
+
+  private hydratePredationConfig(): void {
+    const contributions = Object.entries(this.snake.flags)
+      .filter(([key]) => key.startsWith("predation.config."))
+      .map(([, value]) => value)
+      .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
+
+    if (contributions.length === 0) {
+      this.predationConfig = createDefaultPredationConfig();
+      this.syncPredationFlags();
+      return;
+    }
+
+    let enabled = false;
+    let baseWindow = 0;
+    let windowBonus = 0;
+    let baseDecayHold = 0;
+    let decayHoldBonus = 0;
+    let decayStep = 1;
+    let decayStepBonus = 0;
+    let baseMaxStacks = 0;
+    let maxStacksBonus = 0;
+    let stackGain = 1;
+    let stackGainBonus = 0;
+    let baseScorePerStack = 0;
+    let scorePerStackBonus = 0;
+    let baseQuickWindow = 0;
+    let quickWindowBonus = 0;
+    let bonusStacksOnQuick = 0;
+    let stackGainOnRoomEnter = 0;
+    let scentDuration = 0;
+
+    let frenzyThresholdBase = Number.POSITIVE_INFINITY;
+    let frenzyThresholdBonus = 0;
+    let frenzyDurationBase = 0;
+    let frenzyDurationBonus = 0;
+    let frenzyScoreBonus = 0;
+
+    let rendEnabled = false;
+    let rendGainThreshold = Number.POSITIVE_INFINITY;
+    let rendMaxChargesBase = 0;
+    let rendMaxChargesBonus = 0;
+    let rendGrowthPerCharge = 0;
+    let rendScorePerCharge = 0;
+
+    let apexEnabled = false;
+    let apexRequiredStacks = Number.POSITIVE_INFINITY;
+    let apexScore = 0;
+    let apexGrowth = 0;
+    let apexCooldown = 0;
+
+    for (const contribution of contributions) {
+      if ((contribution as { enabled?: boolean }).enabled) {
+        enabled = true;
+      }
+
+      const windowValue = (contribution as { window?: unknown }).window;
+      if (typeof windowValue === "number" && windowValue > baseWindow) {
+        baseWindow = windowValue;
+      }
+      const windowBonusValue = (contribution as { windowBonus?: unknown }).windowBonus;
+      if (typeof windowBonusValue === "number") {
+        windowBonus += windowBonusValue;
+      }
+
+      const decayHoldValue = (contribution as { decayHold?: unknown }).decayHold;
+      if (typeof decayHoldValue === "number" && decayHoldValue > baseDecayHold) {
+        baseDecayHold = decayHoldValue;
+      }
+      const decayHoldBonusValue = (contribution as { decayHoldBonus?: unknown }).decayHoldBonus;
+      if (typeof decayHoldBonusValue === "number") {
+        decayHoldBonus += decayHoldBonusValue;
+      }
+
+      const decayStepValue = (contribution as { decayStep?: unknown }).decayStep;
+      if (typeof decayStepValue === "number" && decayStepValue > 0) {
+        decayStep = Math.max(decayStep, Math.floor(decayStepValue));
+      }
+      const decayStepBonusValue = (contribution as { decayStepBonus?: unknown }).decayStepBonus;
+      if (typeof decayStepBonusValue === "number") {
+        decayStepBonus += decayStepBonusValue;
+      }
+
+      const stackGainValue = (contribution as { stackGain?: unknown }).stackGain;
+      if (typeof stackGainValue === "number" && stackGainValue > stackGain) {
+        stackGain = stackGainValue;
+      }
+      const stackGainBonusValue = (contribution as { stackGainBonus?: unknown }).stackGainBonus;
+      if (typeof stackGainBonusValue === "number") {
+        stackGainBonus += stackGainBonusValue;
+      }
+
+      const maxStacksValue = (contribution as { maxStacks?: unknown }).maxStacks;
+      if (typeof maxStacksValue === "number" && maxStacksValue > baseMaxStacks) {
+        baseMaxStacks = maxStacksValue;
+      }
+      const maxStacksBonusValue = (contribution as { maxStacksBonus?: unknown }).maxStacksBonus;
+      if (typeof maxStacksBonusValue === "number") {
+        maxStacksBonus += maxStacksBonusValue;
+      }
+
+      const scorePerStackValue = (contribution as { scorePerStack?: unknown }).scorePerStack;
+      if (typeof scorePerStackValue === "number") {
+        baseScorePerStack += scorePerStackValue;
+      }
+      const scorePerStackBonusValue = (contribution as { scorePerStackBonus?: unknown }).scorePerStackBonus;
+      if (typeof scorePerStackBonusValue === "number") {
+        scorePerStackBonus += scorePerStackBonusValue;
+      }
+
+      const quickEatWindowValue = (contribution as { quickEatWindow?: unknown }).quickEatWindow;
+      if (typeof quickEatWindowValue === "number" && quickEatWindowValue > baseQuickWindow) {
+        baseQuickWindow = quickEatWindowValue;
+      }
+      const quickEatWindowBonusValue = (contribution as { quickEatWindowBonus?: unknown }).quickEatWindowBonus;
+      if (typeof quickEatWindowBonusValue === "number") {
+        quickWindowBonus += quickEatWindowBonusValue;
+      }
+
+      const bonusStacksValue = (contribution as { bonusStacksOnQuickEat?: unknown }).bonusStacksOnQuickEat;
+      if (typeof bonusStacksValue === "number") {
+        bonusStacksOnQuick += bonusStacksValue;
+      }
+
+      const stackGainOnRoomEnterValue = (contribution as { stackGainOnRoomEnter?: unknown }).stackGainOnRoomEnter;
+      if (typeof stackGainOnRoomEnterValue === "number") {
+        stackGainOnRoomEnter += stackGainOnRoomEnterValue;
+      }
+
+      const scentDurationValue = (contribution as { scentDuration?: unknown }).scentDuration;
+      if (typeof scentDurationValue === "number" && scentDurationValue > scentDuration) {
+        scentDuration = scentDurationValue;
+      }
+
+      const frenzyValue = (contribution as { frenzy?: unknown }).frenzy;
+      if (frenzyValue && typeof frenzyValue === "object") {
+        const frenzy = frenzyValue as Record<string, unknown>;
+        const threshold = frenzy.threshold;
+        if (typeof threshold === "number" && threshold < frenzyThresholdBase) {
+          frenzyThresholdBase = threshold;
+        }
+        const thresholdBonus = frenzy.thresholdBonus;
+        if (typeof thresholdBonus === "number") {
+          frenzyThresholdBonus += thresholdBonus;
+        }
+        const duration = frenzy.duration;
+        if (typeof duration === "number" && duration > frenzyDurationBase) {
+          frenzyDurationBase = duration;
+        }
+        const durationBonus = frenzy.durationBonus;
+        if (typeof durationBonus === "number") {
+          frenzyDurationBonus += durationBonus;
+        }
+        const scoreBonus = frenzy.scoreBonus;
+        if (typeof scoreBonus === "number") {
+          frenzyScoreBonus += scoreBonus;
+        }
+      }
+
+      const rendValue = (contribution as { rend?: unknown }).rend;
+      if (rendValue && typeof rendValue === "object") {
+        const rend = rendValue as Record<string, unknown>;
+        if (rend.enabled === true) {
+          rendEnabled = true;
+        }
+        const gainThreshold = rend.gainThreshold;
+        if (typeof gainThreshold === "number" && gainThreshold < rendGainThreshold) {
+          rendGainThreshold = gainThreshold;
+        }
+        const maxCharges = rend.maxCharges;
+        if (typeof maxCharges === "number" && maxCharges > rendMaxChargesBase) {
+          rendMaxChargesBase = maxCharges;
+        }
+        const maxChargesBonusValue = rend.maxChargesBonus;
+        if (typeof maxChargesBonusValue === "number") {
+          rendMaxChargesBonus += maxChargesBonusValue;
+        }
+        const growthPerCharge = rend.growthPerCharge;
+        if (typeof growthPerCharge === "number" && growthPerCharge > rendGrowthPerCharge) {
+          rendGrowthPerCharge = growthPerCharge;
+        }
+        const scorePerChargeValue = rend.scorePerCharge;
+        if (typeof scorePerChargeValue === "number" && scorePerChargeValue > rendScorePerCharge) {
+          rendScorePerCharge = scorePerChargeValue;
+        }
+      }
+
+      const apexValue = (contribution as { apex?: unknown }).apex;
+      if (apexValue && typeof apexValue === "object") {
+        const apex = apexValue as Record<string, unknown>;
+        apexEnabled = true;
+        const requiredStacks = apex.requiredStacks;
+        if (typeof requiredStacks === "number" && requiredStacks < apexRequiredStacks) {
+          apexRequiredStacks = requiredStacks;
+        }
+        const apexScoreValue = apex.score;
+        if (typeof apexScoreValue === "number" && apexScoreValue > apexScore) {
+          apexScore = apexScoreValue;
+        }
+        const apexGrowthValue = apex.growth;
+        if (typeof apexGrowthValue === "number" && apexGrowthValue > apexGrowth) {
+          apexGrowth = apexGrowthValue;
+        }
+        const apexCooldownValue = apex.cooldown;
+        if (typeof apexCooldownValue === "number" && apexCooldownValue > apexCooldown) {
+          apexCooldown = apexCooldownValue;
+        }
+      }
+    }
+
+    const config = createDefaultPredationConfig();
+    config.enabled = enabled || baseWindow > 0 || baseScorePerStack > 0 || rendEnabled || apexEnabled;
+
+    config.window = Math.max(0, Math.round(baseWindow + windowBonus));
+    config.decayHold = Math.max(0, Math.round(baseDecayHold + decayHoldBonus));
+    config.decayStep = Math.max(1, Math.round(decayStep + decayStepBonus));
+    config.maxStacks = Math.max(0, Math.floor(baseMaxStacks + maxStacksBonus));
+    config.stackGain = Math.max(1, Math.floor(stackGain + stackGainBonus));
+    config.scorePerStack = Math.max(0, baseScorePerStack + scorePerStackBonus);
+    config.quickEatWindow = Math.max(0, Math.round(baseQuickWindow + quickWindowBonus));
+    config.bonusStacksOnQuickEat = Math.max(0, Math.floor(bonusStacksOnQuick));
+    config.stackGainOnRoomEnter = Math.max(0, Math.floor(stackGainOnRoomEnter));
+    config.scentDuration = Math.max(0, Math.round(scentDuration));
+
+    const frenzyThreshold = frenzyThresholdBase + frenzyThresholdBonus;
+    if (Number.isFinite(frenzyThreshold) && frenzyThreshold > 0) {
+      config.frenzyThreshold = Math.max(1, Math.round(frenzyThreshold));
+      config.frenzyDuration = Math.max(0, Math.round(frenzyDurationBase + frenzyDurationBonus));
+      config.frenzyScoreBonus = Math.max(0, frenzyScoreBonus);
+    }
+
+    if (rendEnabled) {
+      config.rend.enabled = true;
+      config.rend.gainThreshold = Math.max(1, Math.round(Number.isFinite(rendGainThreshold) ? rendGainThreshold : 2));
+      config.rend.maxCharges = Math.max(0, Math.floor(rendMaxChargesBase + rendMaxChargesBonus));
+      config.rend.growthPerCharge = Math.max(0, Math.floor(rendGrowthPerCharge));
+      config.rend.scorePerCharge = Math.max(0, rendScorePerCharge);
+    }
+
+    if (apexEnabled) {
+      config.apex.enabled = true;
+      config.apex.requiredStacks = Math.max(1, Math.round(Number.isFinite(apexRequiredStacks) ? apexRequiredStacks : 6));
+      config.apex.score = Math.max(0, apexScore);
+      config.apex.growth = Math.max(0, Math.floor(apexGrowth));
+      config.apex.cooldown = Math.max(0, Math.round(apexCooldown));
+    }
+
+    if (config.maxStacks === 0 && config.enabled) {
+      config.maxStacks = 1;
+    }
+
+    this.predationConfig = config;
+    this.syncPredationFlags();
+  }
+
+  private ensurePredationState(): PredationRuntimeState {
+    if (!this.predationState.lastRoomId) {
+      this.predationState.lastRoomId = this.snake.currentRoomId;
+    }
+    return this.predationState;
+  }
+
+  private syncPredationFlags(): void {
+    const state = this.predationState;
+    const config = this.predationConfig;
+
+    if (!config.enabled && state.stacks === 0 && state.rendCharges === 0 && state.frenzyTicks === 0 && state.scentTicks === 0) {
+      this.setFlag("predation.state", undefined);
+      this.setFlag("predation.scentTicks", undefined);
+      this.setFlag("predation.frenzyActive", undefined);
+      return;
+    }
+
+    this.setFlag("predation.state", {
+      stacks: state.stacks,
+      timer: state.timer,
+      decayHold: state.decayHold,
+      frenzyTicks: state.frenzyTicks,
+      frenzyCooldown: state.frenzyCooldown,
+      rendCharges: state.rendCharges,
+      apexCooldown: state.apexCooldown,
+      scentTicks: state.scentTicks,
+    });
+
+    if (state.scentTicks > 0) {
+      this.setFlag("predation.scentTicks", state.scentTicks);
+    } else {
+      this.setFlag("predation.scentTicks", undefined);
+    }
+
+    if (state.frenzyTicks > 0) {
+      this.setFlag("predation.frenzyActive", state.frenzyTicks);
+    } else {
+      this.setFlag("predation.frenzyActive", undefined);
+    }
+  }
+
+  private tickPredationTimers(): void {
+    const config = this.predationConfig;
+    const state = this.ensurePredationState();
+
+    if (config.enabled && state.frenzyTicks > 0 && config.frenzyScoreBonus > 0) {
+      this.addScore(config.frenzyScoreBonus);
+    }
+
+    if (!config.enabled) {
+      if (state.stacks !== 0 || state.rendCharges !== 0 || state.frenzyTicks !== 0 || state.scentTicks !== 0) {
+        this.predationState = createDefaultPredationState();
+        this.predationState.lastRoomId = this.snake.currentRoomId;
+        this.syncPredationFlags();
+      }
+      return;
+    }
+
+    state.ticksSinceLastApple = Math.min(state.ticksSinceLastApple + 1, Number.MAX_SAFE_INTEGER);
+
+    if (state.frenzyTicks > 0) {
+      state.frenzyTicks -= 1;
+    } else if (state.frenzyCooldown > 0) {
+      state.frenzyCooldown -= 1;
+    }
+
+    if (state.apexCooldown > 0) {
+      state.apexCooldown -= 1;
+    }
+
+    if (state.scentTicks > 0) {
+      state.scentTicks -= 1;
+    }
+
+    if (state.stacks <= 0) {
+      state.timer = 0;
+      state.decayHold = 0;
+      this.syncPredationFlags();
+      return;
+    }
+
+    if (state.timer > 0) {
+      state.timer -= 1;
+      this.syncPredationFlags();
+      return;
+    }
+
+    if (state.decayHold > 0) {
+      state.decayHold -= 1;
+      this.syncPredationFlags();
+      return;
+    }
+
+    const loss = Math.max(1, config.decayStep);
+    state.stacks = Math.max(0, state.stacks - loss);
+    if (state.stacks > 0) {
+      state.timer = config.window;
+      state.decayHold = config.decayHold;
+    } else {
+      state.timer = 0;
+      state.decayHold = 0;
+      state.frenzyTicks = 0;
+      this.setFlag("predation.frenzyActive", undefined);
+    }
+
+    this.syncPredationFlags();
+  }
   private applyMasonry(
     lastTail: { x: number; y: number; roomId?: string },
     snake: readonly Vector2Like[],
@@ -476,5 +1175,21 @@ export class SnakeGame implements QuestRuntime {
     const roomY = Math.floor(position.y / this.config.grid.rows);
     const [, , roomZ = "0"] = this.snake.currentRoomId.split(",");
     return `${roomX},${roomY},${roomZ}`;
-  }
-}
+  }
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

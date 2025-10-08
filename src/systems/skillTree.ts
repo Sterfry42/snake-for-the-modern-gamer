@@ -193,12 +193,18 @@ const FORTITUDE_BRANCH: BranchConfig = {
       id: "regenerator",
       title: "Regenerator",
       shortLabel: "REG",
-      description: "Vital currents now refill your mana pool steadily.",
+      description: "Regenerate new scales over time while you slither.",
       ranks: [
         {
-          description: "+15 max mana, +0.3 regen.",
+          description: "Grow +1 segment every 48 ticks.",
           cost: 38,
-          effects: [{ type: "manaUpgrade", maxBonus: 15, regenBonus: 0.3 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "fortitude.regenerator",
+              value: { interval: 48, amount: 1 },
+            },
+          ],
         },
       ],
     },
@@ -206,12 +212,18 @@ const FORTITUDE_BRANCH: BranchConfig = {
       id: "hardenedScales",
       title: "Hardened Scales",
       shortLabel: "HARD",
-      description: "Temper your scales into an extra life buffer.",
+      description: "Deflect one self-collision with tempered scales.",
       ranks: [
         {
-          description: "Gain +1 extra life.",
+          description: "Gain 1 self-collision charge.",
           cost: 52,
-          effects: [{ type: "extraLifeCharge", count: 1 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "fortitude.hardened",
+              value: { charges: 1 },
+            },
+          ],
         },
       ],
     },
@@ -219,12 +231,18 @@ const FORTITUDE_BRANCH: BranchConfig = {
       id: "bloodBank",
       title: "Blood Bank",
       shortLabel: "BANK",
-      description: "Convert stored vitality into a deeper mana reservoir.",
+      description: "Store apple vitality and redeem it in bursts.",
       ranks: [
         {
-          description: "+25 max mana, +0.5 regen.",
+          description: "Bank apple energy. Redeem 4 stacks for +5 score.",
           cost: 68,
-          effects: [{ type: "manaUpgrade", maxBonus: 25, regenBonus: 0.5 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "fortitude.bloodBank",
+              value: { stored: 0, capacity: 4, reward: { score: 5, growth: 0 } },
+            },
+          ],
         },
       ],
     },
@@ -232,12 +250,18 @@ const FORTITUDE_BRANCH: BranchConfig = {
       id: "shieldMatron",
       title: "Shield Matron",
       shortLabel: "SHLD",
-      description: "Summon auxiliary ward serpents to take the hit.",
+      description: "Evade danger for a few beats after every feast.",
       ranks: [
         {
-          description: "Gain +1 extra life",
+          description: "Gain 4 ticks of invulnerability after eating.",
           cost: 82,
-          effects: [{ type: "extraLifeCharge", count: 1 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "fortitude.invulnerability",
+              value: { duration: 4 },
+            },
+          ],
         },
       ],
     },
@@ -245,12 +269,19 @@ const FORTITUDE_BRANCH: BranchConfig = {
       id: "wardedStride",
       title: "Warded Stride",
       shortLabel: "WARD",
-      description: "Stride with wards that bank another safety charge.",
+      description: "Extend the stride of your protective wards.",
       ranks: [
         {
-          description: "Gain +1 extra life.",
+          description: "+3 invulnerability ticks after each apple.",
           cost: 96,
-          effects: [{ type: "extraLifeCharge", count: 1 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "fortitude.invulnerabilityBonus",
+              value: 3,
+              resetValue: 0,
+            },
+          ],
         },
       ],
     },
@@ -258,12 +289,18 @@ const FORTITUDE_BRANCH: BranchConfig = {
       id: "starlitBeacon",
       title: "Starlit Beacon",
       shortLabel: "BEAC",
-      description: "Anchor celestial wards that feed your mana pool.",
+      description: "Radiant wards accelerate your regeneration.",
       ranks: [
         {
-          description: "+20 max mana, +0.5 regen",
+          description: "Regenerate +2 segments every 24 ticks.",
           cost: 112,
-          effects: [{ type: "manaUpgrade", maxBonus: 20, regenBonus: 0.5 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "fortitude.regenerator",
+              value: { interval: 24, amount: 2 },
+            },
+          ],
         },
       ],
     },
@@ -271,17 +308,24 @@ const FORTITUDE_BRANCH: BranchConfig = {
       id: "phoenixFrame",
       title: "Phoenix Frame",
       shortLabel: "PHNX",
-      description: "Fuse a phoenix frame to return from oblivion once more.",
+      description: "Rise from certain defeat in a blaze of light.",
       ranks: [
         {
-          description: "Gain +1 extra life.",
+          description: "Store 1 phoenix rebirth charge.",
           cost: 132,
-          effects: [{ type: "extraLifeCharge", count: 1 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "fortitude.phoenix",
+              value: { charges: 1 },
+            },
+          ],
         },
       ],
     },
   ],
 };
+
 const ARCANA_BRANCH: BranchConfig = {
   id: "arcana",
   label: "Arcana",
@@ -513,17 +557,40 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "scoreFlow",
       title: "Score Flow",
       shortLabel: "SCOR",
-      description: "Milk bonus score from every apple chain.",
+      description: "Kick off the hunt – chain feasts to build Hunt Momentum.",
       ranks: [
         {
-          description: "+25% score from apples",
+          description: "Unlock Hunt Momentum (combo window 28 ticks, +15% score per stack, max 4 stacks).",
           cost: 18,
-          effects: [{ type: "scoreMultiplier", multiplier: 1.25 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.scoreFlow",
+              value: {
+                enabled: true,
+                window: 28,
+                decayHold: 6,
+                decayStep: 1,
+                maxStacks: 4,
+                stackGain: 1,
+                scorePerStack: 0.15,
+              },
+            },
+          ],
         },
         {
-          description: "+50% score from apples",
+          description: "+1 max stack and Hunt Momentum now grants +5% extra score per stack.",
           cost: 40,
-          effects: [{ type: "scoreMultiplier", multiplier: 1.5 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.scoreFlow.rank2",
+              value: {
+                maxStacksBonus: 1,
+                scorePerStackBonus: 0.05,
+              },
+            },
+          ],
         },
       ],
     },
@@ -531,12 +598,29 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "doubleBite",
       title: "Double Bite",
       shortLabel: "DBTE",
-      description: "Slip in a second strike before prey can react.",
+      description: "Quick kills bank Rend charges for bonus growth.",
       ranks: [
         {
-          description: "Score multiplier set to 1.65",
+          description: "Rapid apples (<8 ticks) grant +1 stack and charge Rend.",
           cost: 55,
-          effects: [{ type: "scoreMultiplier", multiplier: 1.65 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.doubleBite",
+              value: {
+                quickEatWindow: 8,
+                bonusStacksOnQuickEat: 1,
+                maxStacksBonus: 1,
+                scorePerStackBonus: 0.05,
+                rend: {
+                  enabled: true,
+                  gainThreshold: 2,
+                  maxCharges: 1,
+                  growthPerCharge: 1,
+                },
+              },
+            },
+          ],
         },
       ],
     },
@@ -544,12 +628,23 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "huntress",
       title: "Huntress",
       shortLabel: "HNTR",
-      description: "Stretch apple chain windows to keep the feast alive.",
+      description: "Stretch the hunt window and mark fresh prey with scent.",
       ranks: [
         {
-          description: "Score multiplier set to 1.75",
+          description: "+6 combo window ticks, +6 decay grace, +5% score per stack, scent lasts 10 ticks.",
           cost: 66,
-          effects: [{ type: "scoreMultiplier", multiplier: 1.75 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.huntress",
+              value: {
+                windowBonus: 6,
+                decayHoldBonus: 6,
+                scorePerStackBonus: 0.05,
+                scentDuration: 10,
+              },
+            },
+          ],
         },
       ],
     },
@@ -557,12 +652,25 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "ambushSense",
       title: "Ambush Sense",
       shortLabel: "AMB",
-      description: "Anticipate prey to spike combo payouts.",
+      description: "Stacks fuel Feral Frenzy for explosive payouts.",
       ranks: [
         {
-          description: "Set apple score multiplier to 1.9x.",
+          description: "Frenzy triggers at 5 stacks for 6 ticks (+4 score each tick).",
           cost: 78,
-          effects: [{ type: "scoreMultiplier", multiplier: 1.9 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.ambushSense",
+              value: {
+                quickEatWindowBonus: 4,
+                frenzy: {
+                  threshold: 5,
+                  duration: 6,
+                  scoreBonus: 4,
+                },
+              },
+            },
+          ],
         },
       ],
     },
@@ -570,12 +678,26 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "devourer",
       title: "Devourer",
       shortLabel: "DEVR",
-      description: "Rend foes and convert them into raw tempo.",
+      description: "Rend spikes now rip extra score from prey.",
       ranks: [
         {
-          description: "Score multiplier set to 1.85",
+          description: "Rend holds +1 charge and yields +2 score when spent.",
           cost: 92,
-          effects: [{ type: "scoreMultiplier", multiplier: 1.85 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.devourer",
+              value: {
+                rend: {
+                  maxChargesBonus: 1,
+                  scorePerCharge: 2,
+                },
+                frenzy: {
+                  scoreBonus: 3,
+                },
+              },
+            },
+          ],
         },
       ],
     },
@@ -583,12 +705,27 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "bloodMoon",
       title: "Blood Moon",
       shortLabel: "BLOOD",
-      description: "Hunt under a crimson moon for even richer trophies.",
+      description: "Hunt under crimson light; momentum carries longer.",
       ranks: [
         {
-          description: "Set apple score multiplier to 2.05x.",
+          description: "+2 max stacks, +4 window ticks, +6 decay grace, Frenzy lasts +4 ticks and triggers at one fewer stack.",
           cost: 108,
-          effects: [{ type: "scoreMultiplier", multiplier: 2.05 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.bloodMoon",
+              value: {
+                maxStacksBonus: 2,
+                windowBonus: 4,
+                decayHoldBonus: 6,
+                scorePerStackBonus: 0.05,
+                frenzy: {
+                  durationBonus: 4,
+                  thresholdBonus: -1,
+                },
+              },
+            },
+          ],
         },
       ],
     },
@@ -596,12 +733,24 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "packInstinct",
       title: "Pack Instinct",
       shortLabel: "PACK",
-      description: "Call spectral packmates to elevate every hunt.",
+      description: "Spectral packmates keep the hunt rolling between rooms.",
       ranks: [
         {
-          description: "Set apple score multiplier to 2.2x.",
+          description: "Gain +1 stack when entering a room and decay drops more slowly; Frenzy lasts +4 ticks.",
           cost: 126,
-          effects: [{ type: "scoreMultiplier", multiplier: 2.2 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.packInstinct",
+              value: {
+                stackGainOnRoomEnter: 1,
+                decayStepBonus: -1,
+                frenzy: {
+                  durationBonus: 4,
+                },
+              },
+            },
+          ],
         },
       ],
     },
@@ -609,19 +758,34 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "apexPounce",
       title: "Apex Pounce",
       shortLabel: "APEX",
-      description: "Finish hunts as the unquestioned apex predator.",
+      description: "Cash in Frenzy for an apex finisher when the hunt peaks.",
       ranks: [
         {
-          description: "Set apple score multiplier to 2.35x.",
+          description: "Finisher unlock: spend 6 stacks during Frenzy for +10 score, +2 growth (18 tick cooldown).",
           cost: 148,
-          effects: [{ type: "scoreMultiplier", multiplier: 2.35 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "predation.config.apexPounce",
+              value: {
+                apex: {
+                  requiredStacks: 6,
+                  score: 10,
+                  growth: 2,
+                  cooldown: 18,
+                },
+                frenzy: {
+                  durationBonus: 6,
+                  scoreBonus: 5,
+                },
+              },
+            },
+          ],
         },
       ],
     },
   ],
-};
-
-const TRAVERSAL_BRANCH: BranchConfig = {
+};const TRAVERSAL_BRANCH: BranchConfig = {
   id: "traversal",
   label: "Traversal",
   nodes: [
@@ -1390,4 +1554,5 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     return true;
   }
 }
+
 

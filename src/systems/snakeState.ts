@@ -112,6 +112,14 @@ export class SnakeState {
   }
 
   step(deps: SnakeStepDependencies): SnakeStepOutcome {
+    const previousSnapshot = {
+      body: this.body.map((segment) => ({ x: segment.x, y: segment.y })),
+      roomId: this.roomId,
+      direction: { ...this.direction },
+      nextDirection: { ...this.nextDirection },
+    };
+    this.flags["internal.previousSnapshot"] = previousSnapshot;
+
     this.direction = { ...this.nextDirection };
 
     const previousHead = this.body[0];
@@ -157,16 +165,24 @@ export class SnakeState {
     const finalLocalHeadY = head.y - baseRoomY;
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
+    const invulnTicks = Number(this.flags["fortitude.invulnerabilityTicks"] ?? 0);
     if (tile === "#") {
-      if (this.tryConsumeWall(finalizedRoom, finalLocalHeadX, finalLocalHeadY, head)) {
+      if (invulnTicks > 0) {
+        // Invulnerability lets us phase through the wall.
+      } else if (this.tryConsumeWall(finalizedRoom, finalLocalHeadX, finalLocalHeadY, head)) {
         this.flags["geometry.wallEaten"] = { x: head.x, y: head.y, roomId: this.roomId };
       } else {
         return { status: "dead", reason: "wall" };
       }
     }
 
-    if (this.body.some((segment) => segment.x === head.x && segment.y === head.y)) {
-      return { status: "dead", reason: "self" };
+    const selfCollisionIndex = this.body.findIndex((segment) => segment.x === head.x && segment.y === head.y);
+    if (selfCollisionIndex !== -1) {
+      if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
+        this.sliceSnakeAtIndex(selfCollisionIndex);
+      } else {
+        return { status: "dead", reason: "self" };
+      }
     }
 
     this.body.unshift({ x: head.x, y: head.y });
@@ -197,6 +213,66 @@ export class SnakeState {
     }
 
     return { status: "alive", appleEaten };
+  }
+
+  restorePreviousSnapshot(): void {
+    const snapshot = this.flags["internal.previousSnapshot"] as
+      | {
+          body: Vector2Like[];
+          roomId: string;
+          direction: Vector2Like;
+          nextDirection: Vector2Like;
+        }
+      | undefined;
+    if (!snapshot) {
+      return;
+    }
+    this.body = snapshot.body.map((segment) => ({ x: segment.x, y: segment.y }));
+    this.roomId = snapshot.roomId;
+    this.direction = { ...snapshot.direction };
+    this.nextDirection = { ...snapshot.nextDirection };
+    const currentHead = this.body[0];
+    if (currentHead) {
+      this.flags["internal.currentHead"] = { x: currentHead.x, y: currentHead.y };
+    }
+    delete this.flags["internal.previousSnapshot"];
+  }
+
+  private resolveSelfCollision(head: Vector2Like, collisionIndex: number, invulnTicks: number): boolean {
+    if (invulnTicks > 0) {
+      return true;
+    }
+    return this.tryConsumeSelfCollision(head);
+  }
+
+  private sliceSnakeAtIndex(index: number): void {
+    if (index <= 0) {
+      return;
+    }
+    this.body.splice(index);
+  }
+
+  private tryConsumeSelfCollision(head: Vector2Like): boolean {
+    const state = this.flags["fortitude.hardened"] as { charges?: number } | undefined;
+    const charges = state?.charges ?? 0;
+    if (charges <= 0) {
+      return false;
+    }
+    const next = Math.max(0, charges - 1);
+    this.flags["fortitude.hardened"] = { ...state, charges: next };
+    this.flags["fortitude.hardenedTriggered"] = {
+      x: head.x,
+      y: head.y,
+      roomId: this.getRoomIdForPosition(head),
+    };
+    return true;
+  }
+
+  private getRoomIdForPosition(position: Vector2Like): string {
+    const roomX = Math.floor(position.x / this.grid.cols);
+    const roomY = Math.floor(position.y / this.grid.rows);
+    const [, , roomZ = "0"] = this.roomId.split(",");
+    return `${roomX},${roomY},${roomZ}`;
   }
 
   private tryConsumeWall(
