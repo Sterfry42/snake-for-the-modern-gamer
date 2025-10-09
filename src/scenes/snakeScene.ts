@@ -1,4 +1,4 @@
-﻿﻿import Phaser from "phaser";
+import Phaser from "phaser";
 import { defaultGameConfig } from "../config/gameConfig.js";
 import { SnakeGame } from "../game/snakeGame.js";
 import { FeatureManager } from "../systems/features.js";
@@ -8,6 +8,7 @@ import { QuestHud } from "../ui/questHud.js";
 import { QuestPopup } from "../ui/questPopup.js";
 import { SnakeRenderer } from "../ui/snakeRenderer.js";
 import { JuiceManager } from "../ui/juice.js";
+import { BossHud } from "../ui/bossHud.js";
 import type { Quest } from "../../quests.js";
 import type { AppleSnapshot } from "../apples/types.js";
 import type { Vector2Like } from "../core/math.js";
@@ -22,6 +23,8 @@ export default class SnakeScene extends Phaser.Scene {
   private snakeRenderer!: SnakeRenderer;
   private juice!: JuiceManager;
   private skillTree!: SkillTreeManager;
+  private bossHud!: BossHud;
+  private activeBossId: string | null = null;
   private readonly featureManager = new FeatureManager();
   private readonly baseTickDelay = 100;
   private tickDelay = this.baseTickDelay;
@@ -57,6 +60,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeRenderer = new SnakeRenderer(this.graphics, this.grid);
     this.juice = new JuiceManager(this);
     this.skillTree = new SkillTreeManager(this, this.juice, { baseTickDelay: this.baseTickDelay });
+    this.bossHud = new BossHud(this);
 
     this.setupInputHandlers();
 
@@ -116,6 +120,11 @@ export default class SnakeScene extends Phaser.Scene {
   private initGame(startPaused = true): void {
     this.skillTree.reset(startPaused);
     this.game.reset();
+    this.juice.stopBossMusic();
+    if (this.bossHud) {
+      this.bossHud.hide();
+    }
+    this.activeBossId = null;
     if (Object.keys(this.pendingFlags).length > 0) {
       for (const [key, value] of Object.entries(this.pendingFlags)) {
         this.game.setFlag(key, value);
@@ -143,6 +152,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.featureManager.call("onTick", this);
 
     this.currentApple = result.apple.current ?? null;
+    this.updateBossEncounter();
 
     if (result.apple.eaten) {
       this.featureManager.call("onAppleEaten", this);
@@ -166,6 +176,8 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
       this.juice.questCompleted();
     }
+
+    this.handlePredationFeedback();
 
     this.isDirty = true;
   }
@@ -315,7 +327,61 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = false;
     }
   }
+  private updateBossEncounter(): void {
+    const bosses = this.game.getBosses(this.currentRoomId);
+    const boss = bosses[0];
 
+    if (boss) {
+      this.bossHud.show({
+        name: boss.name ?? "Nameless Horror",
+        health: boss.health ?? 0,
+        maxHealth: boss.maxHealth ?? Math.max(1, boss.health ?? 1),
+      });
+      if (this.activeBossId !== boss.id) {
+        this.juice.startBossMusic(boss.id);
+        this.activeBossId = boss.id;
+      }
+    } else {
+      if (this.activeBossId) {
+        this.juice.stopBossMusic();
+        this.activeBossId = null;
+      }
+      this.bossHud.hide();
+    }
+  }
+  private tileToWorld(position?: Vector2Like | null): { x: number; y: number } {
+    const cell = this.grid.cell;
+    const fallback = this.game.getSnakeBody()[0] ?? { x: this.grid.cols / 2, y: this.grid.rows / 2 };
+    const point = position ?? fallback;
+    return { x: point.x * cell + cell / 2, y: point.y * cell + cell / 2 };
+  }
+
+  private handlePredationFeedback(): void {
+    if (!this.game) {
+      return;
+    }
+
+    const frenzy = this.game.getFlag<{ head?: Vector2Like | null }>("predation.frenzyTriggered");
+    if (frenzy) {
+      const world = this.tileToWorld(frenzy.head ?? null);
+      this.juice.predationFrenzy(world.x, world.y);
+      this.game.setFlag("predation.frenzyTriggered", undefined);
+    }
+
+    const rend = this.game.getFlag<{ head?: Vector2Like | null }>("predation.rendConsumed");
+    if (rend) {
+      const world = this.tileToWorld(rend.head ?? null);
+      this.juice.predationRend(world.x, world.y);
+      this.game.setFlag("predation.rendConsumed", undefined);
+    }
+
+    const apex = this.game.getFlag<{ head?: Vector2Like | null }>("predation.apexTriggered");
+    if (apex) {
+      const world = this.tileToWorld(apex.head ?? null);
+      this.juice.predationApex(world.x, world.y);
+      this.game.setFlag("predation.apexTriggered", undefined);
+    }
+  }
   private draw(): void {
     const room = this.game.getCurrentRoom();
     const wallSenseRadius = (this.getFlag<number>("geometry.wallSenseRadius") ?? 0);
@@ -341,3 +407,19 @@ export default class SnakeScene extends Phaser.Scene {
     this.featureManager.call("onRender", this, this.graphics);
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
