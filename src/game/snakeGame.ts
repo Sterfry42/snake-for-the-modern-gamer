@@ -9,6 +9,8 @@ import { WorldService } from "../world/worldService.js";
 import { QuestController } from "../systems/questController.js";
 import type { Quest } from "../quests/quest.js";
 import type { QuestRegistry } from "../quests/questRegistry.js";
+import { InventorySystem } from "../inventory/inventory.js";
+import { ITEMS } from "../inventory/itemRegistry.js";
 import type { QuestRuntime } from "../quests/quest.js";
 
 export interface StepResult {
@@ -235,6 +237,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly snake: SnakeState;
   private readonly bosses: BossManager;
   private readonly questController: QuestController;
+  private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
 
   private predationConfig: PredationComputedConfig = createDefaultPredationConfig();
@@ -253,6 +256,7 @@ export class SnakeGame implements QuestRuntime {
       questOfferChance: config.quests.questOfferChance,
       rng: this.rng,
     });
+    this.inventory = new InventorySystem();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
   }
 
@@ -262,6 +266,7 @@ export class SnakeGame implements QuestRuntime {
     this.snake.reset(this.config.world.originRoomId);
     this.bosses.clearAll();
     this.questController.reset(this);
+    this.inventory.clear();
     this.visitedRooms.clear();
     this.visitedRooms.add(this.snake.currentRoomId);
 
@@ -342,7 +347,7 @@ export class SnakeGame implements QuestRuntime {
     const currentHead = updatedSnake[0];
 
     const lastTail = this.getFlag<{ x: number; y: number; roomId?: string }>("internal.lastRemovedTail");
-    if (lastTail && this.getFlag<boolean>("geometry.masonryEnabled")) {
+    if (lastTail && (this.getFlag<boolean>("geometry.masonryEnabled") || this.getFlag<boolean>("equipment.masonryEnabled"))) {
       this.applyMasonry(lastTail, updatedSnake, roomsChanged);
     }
     this.setFlag("internal.lastRemovedTail", undefined);
@@ -401,16 +406,40 @@ export class SnakeGame implements QuestRuntime {
       }
       appleSnapshot = spawn.snapshot;
 
-      const seismicRadius = this.getFlag<number>("geometry.seismicPulseRadius") ?? 0;
+      const seismicRadius = (this.getFlag<number>("geometry.seismicPulseRadius") ?? 0)
+        + (this.getFlag<number>("equipment.seismicPulseRadiusBonus") ?? 0);
       if (seismicRadius > 0 && currentHead) {
         this.triggerSeismicPulse(currentHead, seismicRadius, roomsChanged);
       }
-      if (this.getFlag<boolean>("geometry.collapseControlEnabled") && currentHead) {
+      if ((this.getFlag<boolean>("geometry.collapseControlEnabled") || this.getFlag<boolean>("equipment.collapseControlEnabled")) && currentHead) {
         this.triggerCollapseControl(currentHead, updatedSnake, roomsChanged);
       }
       this.rechargeTerraShield();
       this.handleFortitudeOnApple(roomsChanged);
 
+    }
+
+    // Treasure pickup: collect and grant a random item
+    if (currentHead) {
+      const room = this.world.getRoom(this.snake.currentRoomId);
+      const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+      const localX = currentHead.x - roomX * this.config.grid.cols;
+      const localY = currentHead.y - roomY * this.config.grid.rows;
+      if (room.treasure && room.treasure.x === localX && room.treasure.y === localY) {
+        let awardedName: string | undefined;
+        if (ITEMS.length > 0) {
+          const idx = Math.floor(this.rng() * ITEMS.length);
+          const awarded = ITEMS[Math.max(0, Math.min(ITEMS.length - 1, idx))];
+          this.inventory.addItem(awarded.id, 1);
+          awardedName = awarded.name;
+        }
+        // Score bonus for treasure pickup
+        this.addScore(5);
+        this.world.setTreasure(this.snake.currentRoomId, undefined);
+        roomsChanged.add(this.snake.currentRoomId);
+        // Notify UI for juice + hint
+        this.setFlag("loot.itemPicked", { head: currentHead, itemName: awardedName });
+      }
     }
 
     if (appleStateChanged) {
@@ -522,6 +551,9 @@ export class SnakeGame implements QuestRuntime {
     return this.bosses.getBossesInRoom(roomId);
   }
 
+  getInventory(): InventorySystem {
+    return this.inventory;
+  }
 
   private tickFortitudeStates(): void {
     const invuln = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
@@ -531,13 +563,19 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private handleFortitudeRegenerator(roomsChanged: Set<string>): void {
-    const config = this.getFlag<{ interval?: number; amount?: number }>("fortitude.regenerator");
-    if (!config || !config.interval || config.interval <= 0) {
+    const base = this.getFlag<{ interval?: number; amount?: number }>("fortitude.regenerator");
+    const equip = this.getFlag<{ interval?: number; amount?: number }>("equipment.regenerator");
+    const interval = Math.min(
+      base?.interval && base.interval > 0 ? base.interval : Number.POSITIVE_INFINITY,
+      equip?.interval && equip.interval > 0 ? equip.interval : Number.POSITIVE_INFINITY,
+    );
+    const amount = (base?.amount ?? 0) + (equip?.amount ?? 0);
+    if (!Number.isFinite(interval) || interval <= 0 || amount <= 0) {
       return;
     }
     const counter = (this.getFlag<number>("fortitude.regeneratorCounter") ?? 0) + 1;
-    if (counter >= config.interval) {
-      const amount = Math.max(1, config.amount ?? 1);
+    if (counter >= interval) {
+      const growAmount = Math.max(1, amount);
       for (let i = 0; i < amount; i += 1) {
         this.snake.grow(1);
       }
@@ -584,9 +622,12 @@ export class SnakeGame implements QuestRuntime {
   private activateFortitudeInvulnerability(): void {
     const base = this.getFlag<{ duration?: number }>("fortitude.invulnerability");
     if (!base) {
+      // Still allow equipment-only bonus to have no effect without a base
+      // invulnerability flag; so early return if no base present
       return;
     }
-    const bonus = this.getFlag<number>("fortitude.invulnerabilityBonus") ?? 0;
+    const bonus = (this.getFlag<number>("fortitude.invulnerabilityBonus") ?? 0)
+      + (this.getFlag<number>("equipment.invulnerabilityBonus") ?? 0);
     const duration = Math.max(0, (base.duration ?? 0) + bonus);
     if (duration <= 0) {
       return;
@@ -602,13 +643,18 @@ export class SnakeGame implements QuestRuntime {
     previousRoomId: string
   ): boolean {
     const state = this.getFlag<{ charges?: number }>("fortitude.phoenix");
-    const charges = state?.charges ?? 0;
+    const eqCharges = this.getFlag<number>("equipment.phoenixCharges") ?? 0;
+    const charges = (state?.charges ?? 0) + eqCharges;
     if (charges <= 0) {
       return false;
     }
 
-    const remaining = charges - 1;
-    this.setFlag("fortitude.phoenix", { ...state, charges: remaining });
+    if ((state?.charges ?? 0) > 0) {
+      const remaining = (state?.charges ?? 0) - 1;
+      this.setFlag("fortitude.phoenix", { ...state, charges: remaining });
+    } else {
+      this.setFlag("equipment.phoenixCharges", Math.max(0, eqCharges - 1));
+    }
     this.snake.restorePreviousSnapshot();
     roomsChanged.add(previousRoomId);
     this.setFlag("fortitude.phoenixTriggered", { reason: outcome.reason ?? "unknown" });
@@ -2140,16 +2186,3 @@ export class SnakeGame implements QuestRuntime {
     return `${roomX},${roomY},${roomZ}`;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-

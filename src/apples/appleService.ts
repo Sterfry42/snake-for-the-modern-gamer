@@ -305,6 +305,8 @@ export class AppleService {
       const row = layout[y];
       for (let x = 0; x < row.length; x++) {
         if (row[x] !== ".") continue;
+        // Avoid spawning on treasure chests
+        if (this.world.hasTreasureAt(roomId, x, y)) continue;
         if (occupant && occupant.position.x === x && occupant.position.y === y) continue;
         const globalX = roomX * this.grid.cols + x;
         const globalY = roomY * this.grid.rows + y;

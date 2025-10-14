@@ -13,6 +13,7 @@ export interface RoomSnapshot {
   layout: string[];
   portals: PortalConfig[];
   apple?: Vector2Like;
+  treasure?: Vector2Like;
   backgroundColor: number;
   wallColor: number;
   wallOutlineColor: number;

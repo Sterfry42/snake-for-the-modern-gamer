@@ -49,6 +49,7 @@ export class SnakeRenderer {
     this.highlightWalls(room, snakeBody, currentRoomId, opts.wallSenseRadius ?? 0);
     this.drawGrid();
     this.drawApple(room, appleInfo ?? undefined);
+    this.drawTreasure(room);
     this.drawSnake(room, snakeBody, currentRoomId);
   }
 
@@ -173,6 +174,17 @@ export class SnakeRenderer {
     if (shieldDirs) {
       this.drawShieldIndicators(x, y, shieldDirs);
     }
+  }
+
+  private drawTreasure(room: RoomSnapshot): void {
+    const spot = room.treasure;
+    if (!spot) return;
+    const x = spot.x * this.grid.cell;
+    const y = spot.y * this.grid.cell;
+    const color = 0x9ad1ff; // bright blue for treasure
+    const outline = darkenColor(color, 0.35);
+    this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
+    this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private extractShieldDirs(appleInfo?: AppleSnapshot): Vector2Like[] | undefined {

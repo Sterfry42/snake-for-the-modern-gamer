@@ -6,6 +6,8 @@ import type {
   SkillTreeStats,
   SkillPerkState,
 } from "../systems/skillTree.js";
+import { getItem } from "../inventory/itemRegistry.js";
+import type { EquipmentSlot } from "../inventory/item.js";
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -40,7 +42,7 @@ const DETAIL_PANEL_WIDTH = 220;
 const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
 
-type TabId = "skills" | "quests" | "stats";
+type TabId = "skills" | "inventory" | "quests" | "stats";
 
 interface TabDefinition {
   id: TabId;
@@ -50,6 +52,7 @@ interface TabDefinition {
 
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "skills", label: "Skill Tree" },
+  { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
 ];
 
 export class SkillTreeOverlay {
@@ -69,6 +72,10 @@ export class SkillTreeOverlay {
   private readonly detailSubtitle: Phaser.GameObjects.Text;
   private readonly detailRankText: Phaser.GameObjects.Text;
   private readonly detailBody: Phaser.GameObjects.Text;
+  private readonly inventoryItemsText: Phaser.GameObjects.Text;
+  private inventoryIndex: string[] = [];
+  private selectedInventoryItemId: string | null = null;
+  private inventoryHighlight?: Phaser.GameObjects.Rectangle;
 
   private hoveredPerkId: string | null = null;
   private detailPerkId: string | null = null;
@@ -205,6 +212,58 @@ export class SkillTreeOverlay {
           .setVisible(false)
       : null;
 
+    this.inventoryItemsText = this.scene.add.text(TREE_PADDING.horizontal, TREE_PADDING.top, "", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#ffffff",
+      lineSpacing: 8,
+    }).setInteractive({ useHandCursor: true });
+
+    this.inventoryItemsText.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== "inventory") return;
+      const localY = pointer.worldY - this.container.y - this.inventoryItemsText.y;
+      const lineHeight = 24; // approx fontSize 16 + lineSpacing 8
+      const index = Math.floor(localY / lineHeight);
+      const itemId = this.inventoryIndex[index];
+      if (!itemId) {
+        this.selectedInventoryItemId = null;
+        this.clearPerkDetails(true);
+        return;
+      }
+      if (itemId.startsWith("unequip:")) {
+        const slot = itemId.split(":")[1] as EquipmentSlot;
+        const ok = this.scene.unequipSlot(slot);
+        if (ok) {
+          this.announce(`Unequipped ${slot}.`, "#9ad1ff", 1600);
+          this.refresh();
+        }
+        return;
+      }
+      this.selectedInventoryItemId = itemId;
+      const item = getItem(itemId) as any;
+      if (item && item.kind === "equipment") {
+        const currentlyEquipped = this.scene.inventory.getEquipped(item.slot as EquipmentSlot);
+        if (currentlyEquipped === itemId) {
+          const ok = this.scene.unequipSlot(item.slot as EquipmentSlot);
+          if (ok) {
+            this.announce(`${item.name} unequipped.`, "#9ad1ff", 1600);
+            this.refresh();
+            this.highlightInventoryItem(this.selectedInventoryItemId ?? itemId);
+          }
+          return;
+        }
+
+        const ok = this.scene.equipItem(itemId);
+        if (ok) {
+          this.announce(`${item.name} equipped.`, "#5dd6a2", 1600);
+          this.refresh();
+          this.highlightInventoryItem(this.selectedInventoryItemId ?? itemId);
+        } else {
+          this.announce(`Cannot equip ${item.name}.`, "#ff6b6b", 1600);
+        }
+      }
+    });
+
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
       this.connectionGraphics,
@@ -217,6 +276,7 @@ export class SkillTreeOverlay {
       this.detailRankText,
       this.detailBody,
       this.hintText,
+      this.inventoryItemsText,
     ];
     if (this.stubText) {
       children.push(this.stubText);
@@ -271,6 +331,30 @@ export class SkillTreeOverlay {
     return this.visible;
   }
 
+  isInventoryTabActive(): boolean {
+    return this.activeTab === "inventory";
+  }
+
+  showInventoryDetailsAtPointer(): boolean {
+    if (!this.visible || this.activeTab !== "inventory") {
+      return false;
+    }
+    const pointer = this.scene.input.activePointer;
+    if (!pointer) {
+      return false;
+    }
+    const localY = pointer.worldY - this.container.y - this.inventoryItemsText.y;
+    const lineHeight = 24;
+    const index = Math.floor(localY / lineHeight);
+    const id = this.inventoryIndex[index];
+    if (!id || id.startsWith("unequip:")) {
+      this.clearPerkDetails(true);
+      return false;
+    }
+    this.selectedInventoryItemId = id;
+    return this.showInventoryItemDetails();
+  }
+
   announce(message: string, color = "#5dd6a2", duration = 2200): void {
     this.hintSticky = true;
     this.hintText.setText(message);
@@ -282,6 +366,54 @@ export class SkillTreeOverlay {
         this.hintSticky = false;
         this.updateDefaultHint(this.system.getStats());
       },
+    });
+  }
+
+  showInventoryItemDetails(): boolean {
+    if (!this.selectedInventoryItemId) {
+      this.announce("Click an item, then press I to inspect.", "#9ad1ff", 2200);
+      return false;
+    }
+    const item = getItem(this.selectedInventoryItemId);
+    if (!item) {
+      this.announce("Unknown item.", "#ff6b6b", 1600);
+      return false;
+    }
+    const title = item.name ?? this.selectedInventoryItemId;
+    const subtitle = (item as any).kind === "equipment" ? `Equipment · Slot: ${(item as any).slot}` : "Item";
+    const body = item.description ?? "";
+
+    this.detailTitle.setText(title).setVisible(true);
+    this.detailSubtitle.setText(subtitle).setVisible(true);
+    this.detailRankText.setText("").setVisible(false);
+    this.detailBody.setText(body).setVisible(true);
+    return true;
+  }
+
+  private highlightInventoryItem(itemId: string): void {
+    if (!this.visible || this.activeTab !== "inventory") return;
+    const index = this.inventoryIndex.indexOf(itemId);
+    if (index < 0) return;
+    const lineHeight = 24;
+    const x = TREE_PADDING.horizontal;
+    const y = TREE_PADDING.top + index * lineHeight - 2;
+    const width = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const height = 20;
+
+    // Cleanup old highlight
+    if (this.inventoryHighlight) {
+      this.inventoryHighlight.destroy();
+    }
+
+    const rect = this.scene.add.rectangle(x, y, width, height, 0x4da3ff, 0.22).setOrigin(0, 0);
+    this.container.add(rect);
+    this.inventoryHighlight = rect;
+    this.scene.tweens.add({
+      targets: rect,
+      alpha: 0,
+      duration: 520,
+      ease: "Cubic.easeOut",
+      onComplete: () => rect.destroy(),
     });
   }
 
@@ -309,17 +441,61 @@ export class SkillTreeOverlay {
     }
 
     const skillsActive = this.activeTab === "skills";
+    const inventoryActive = this.activeTab === "inventory";
     this.connectionGraphics.setVisible(skillsActive);
+    this.inventoryItemsText.setVisible(inventoryActive);
+
     if (this.stubText) {
-      this.stubText.setVisible(!skillsActive);
-      if (!skillsActive) {
+      this.stubText.setVisible(!skillsActive && !inventoryActive);
+      if (!skillsActive && !inventoryActive) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
         this.stubText.setText(tab?.placeholder ?? "More modules are coming soon.");
       }
     }
 
+    if (inventoryActive) {
+      const items = this.scene.inventory.getAllItems();
+      if (items.length === 0) {
+        this.inventoryItemsText.setText("No items in inventory.");
+        this.inventoryIndex = [];
+      } else {
+        const lines: string[] = [];
+        const index: string[] = [];
+        const slots: EquipmentSlot[] = ["boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
+        for (const slot of slots) {
+          const current = this.scene.inventory.getEquipped(slot as EquipmentSlot);
+          if (current) {
+            const label = (slot as string).charAt(0).toUpperCase() + (slot as string).slice(1);
+            lines.push(`[Unequip ${label}]`);
+            index.push(`unequip:${slot}`);
+          }
+        }
+        for (const [itemId, count] of items) {
+          const item = getItem(itemId) as any;
+          const name = item?.name ?? itemId;
+          let suffix = "";
+          if (item && item.kind === "equipment") {
+            const isEq = this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
+            if (isEq) suffix = " (equipped)";
+          }
+          const prefix = item?.kind === "equipment" ? "[E] " : "";
+          lines.push(`${prefix}${name} x${count}${suffix}`);
+          index.push(itemId);
+        }
+        this.inventoryItemsText.setText(lines.join("\n"));
+        this.inventoryIndex = index;
+        if (!this.hintSticky) {
+          this.hintText.setText("Inventory: click to equip/unequip items.");
+          this.hintText.setColor("#9ad1ff");
+        }
+      }
+    }
+
     if (!skillsActive) {
       this.connectionGraphics.clear();
+      for (const visual of this.nodeVisuals.values()) {
+        visual.container.setVisible(false);
+      }
       return;
     }
 
@@ -703,5 +879,3 @@ export class SkillTreeOverlay {
     }
   }
 }
-
-

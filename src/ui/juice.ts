@@ -165,6 +165,30 @@ export class JuiceManager {
     };
   }
 
+  itemPickup(worldX: number, worldY: number) {
+    // Short uplifting jingle (Zelda-like) + sparkles
+    const notes = [660, 880, 1175]; // E5, A5, D6-ish
+    const durations = [0.12, 0.12, 0.16];
+    const types: OscillatorType[] = ["triangle", "sine", "triangle"];
+    let delay = 0;
+    notes.forEach((freq, i) => {
+      globalThis.setTimeout(() => this.playTone({ frequency: freq, duration: durations[i], type: types[i], volume: 0.14 }), delay * 1000);
+      delay += durations[i] * 0.7; // slight overlap
+    });
+    this.spawnBurst(worldX, worldY, { colors: [0x9ad1ff, 0x5dd6a2, 0xfff3a8], count: 14, radius: 22 });
+  }
+
+  equipmentEquip() {
+    // Soft confirm: quick rising interval
+    this.playTone({ frequency: 420, duration: 0.08, type: "triangle", volume: 0.08 });
+    globalThis.setTimeout(() => this.playTone({ frequency: 560, duration: 0.1, type: "sine", volume: 0.08 }), 60);
+  }
+
+  equipmentUnequip() {
+    // Soft release: gentle falling tone
+    this.playTone({ frequency: 320, frequencyEnd: 200, duration: 0.12, type: "sine", volume: 0.07 });
+  }
+
   stopBossMusic(): void {
     if (!this.bossMusic) {
       return;

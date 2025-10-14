@@ -12,6 +12,9 @@ import { BossHud } from "../ui/bossHud.js";
 import type { Quest } from "../../quests.js";
 import type { AppleSnapshot } from "../apples/types.js";
 import type { Vector2Like } from "../core/math.js";
+import type { InventorySystem } from "../inventory/inventory.js";
+import type { EquipmentSlot } from "../inventory/item.js";
+import { getItem } from "../inventory/itemRegistry.js";
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
@@ -108,6 +111,8 @@ export default class SnakeScene extends Phaser.Scene {
       if (["arrowdown", "s"].includes(key)) this.setDir(0, 1);
       if (["arrowleft", "a"].includes(key)) this.setDir(-1, 0);
       if (["arrowright", "d"].includes(key)) this.setDir(1, 0);
+
+      // Item equip/test keys removed; equipping is handled in the menu
     });
   }
 
@@ -119,6 +124,8 @@ export default class SnakeScene extends Phaser.Scene {
 
   private initGame(startPaused = true): void {
     this.skillTree.reset(startPaused);
+    // Reset equipment effects (no equipment contributes to tick delay until equipped)
+    this.skillTree.applyTickDelayScalar(1, "equipment:boots");
     this.game.reset();
     this.juice.stopBossMusic();
     if (this.bossHud) {
@@ -321,6 +328,91 @@ export default class SnakeScene extends Phaser.Scene {
     return this.game.getOfferedQuest();
   }
 
+  get inventory(): InventorySystem {
+    return this.game.getInventory();
+  }
+
+  // Equips an item by id from the menu and applies effects
+  equipItem(itemId: string): boolean {
+    const item = getItem(itemId);
+    if (!item) return false;
+    if (this.game.getInventory().getItemCount(itemId) <= 0) return false;
+    const success = this.game.getInventory().equip(item);
+    if (success) {
+      this.applyEquipmentEffects();
+      this.juice.equipmentEquip();
+    }
+    return success;
+  }
+
+  // Unequip a slot and apply effects
+  unequipSlot(slot: EquipmentSlot): boolean {
+    const success = this.game.getInventory().unequip(slot);
+    if (success) {
+      this.applyEquipmentEffects();
+      this.juice.equipmentUnequip();
+    }
+    return success;
+  }
+
+  private applyEquipmentEffects(): void {
+    if (!this.game) return;
+    const inv = this.game.getInventory();
+    const equipped = inv.getAllEquipped();
+    let tickScalar = 1;
+    let wallSenseBonus = 0;
+    let seismicBonus = 0;
+    let masonry = false;
+    let invulnBonus = 0;
+    let regen: { interval: number; amount: number } | null = null;
+    let phoenix = 0;
+
+    for (const [, itemId] of equipped) {
+      const item = getItem(itemId) as any;
+      const mods = item?.modifiers ?? {};
+      if (typeof mods.tickDelayScalar === "number") {
+        tickScalar *= mods.tickDelayScalar;
+      }
+      if (typeof mods.wallSenseBonus === "number") {
+        wallSenseBonus += mods.wallSenseBonus;
+      }
+      if (typeof mods.seismicPulseBonus === "number") {
+        seismicBonus += mods.seismicPulseBonus;
+      }
+      if (mods.masonryEnabled) {
+        masonry = true;
+      }
+      if (typeof mods.invulnerabilityBonus === "number") {
+        invulnBonus += mods.invulnerabilityBonus;
+      }
+      if (mods.regenerator) {
+        if (!regen) {
+          regen = { interval: mods.regenerator.interval, amount: mods.regenerator.amount };
+        } else {
+          regen.interval = Math.min(regen.interval, mods.regenerator.interval);
+          regen.amount += mods.regenerator.amount;
+        }
+      }
+      if (typeof mods.phoenixCharges === "number") {
+        phoenix += mods.phoenixCharges;
+      }
+    }
+
+    // Apply speed scalar via skill system
+    this.skillTree.applyTickDelayScalar(tickScalar, "equipment:boots");
+
+    // Set equipment flags for game logic to combine with skill-based flags
+    this.setFlag("equipment.wallSenseRadiusBonus", wallSenseBonus > 0 ? wallSenseBonus : undefined);
+    this.setFlag("equipment.seismicPulseRadiusBonus", seismicBonus > 0 ? seismicBonus : undefined);
+    this.setFlag("equipment.masonryEnabled", masonry ? true : undefined);
+    this.setFlag("equipment.invulnerabilityBonus", invulnBonus > 0 ? invulnBonus : undefined);
+    this.setFlag("equipment.regenerator", regen ?? undefined);
+    this.setFlag("equipment.phoenixCharges", phoenix > 0 ? phoenix : undefined);
+
+    // Refresh overlay to reflect any equipped status in inventory view
+    this.skillTree.getOverlay().refresh();
+  }
+
   update(): void {
     if (this.isDirty) {
       this.draw();
@@ -381,10 +473,36 @@ export default class SnakeScene extends Phaser.Scene {
       this.juice.predationApex(world.x, world.y);
       this.game.setFlag("predation.apexTriggered", undefined);
     }
+
+    const loot = this.game.getFlag<{ head?: Vector2Like | null; itemName?: string }>("loot.itemPicked");
+    if (loot) {
+      const world = this.tileToWorld(loot.head ?? null);
+      this.juice.itemPickup(world.x, world.y);
+      // Also surface a hint if overlay is visible
+      const name = loot.itemName ? `: ${loot.itemName}` : "";
+      this.skillTree.getOverlay().announce(`Item acquired${name}`, "#5dd6a2", 1800);
+      // Floating popup text at pickup location
+      const popup = this.add.text(world.x, world.y - 14, `+ Item${name}`, {
+        fontFamily: "monospace",
+        fontSize: "14px",
+        color: "#9ad1ff",
+      }).setDepth(26).setOrigin(0.5, 1);
+      this.tweens.add({
+        targets: popup,
+        y: world.y - 40,
+        alpha: 0,
+        duration: 640,
+        ease: "Cubic.easeOut",
+        onComplete: () => popup.destroy(),
+      });
+      this.game.setFlag("loot.itemPicked", undefined);
+    }
   }
   private draw(): void {
     const room = this.game.getCurrentRoom();
-    const wallSenseRadius = (this.getFlag<number>("geometry.wallSenseRadius") ?? 0);
+    const baseSense = this.getFlag<number>("geometry.wallSenseRadius") ?? 0;
+    const equipSense = this.getFlag<number>("equipment.wallSenseRadiusBonus") ?? 0;
+    const wallSenseRadius = Math.max(0, baseSense + equipSense);
     this.snakeRenderer.render(room, this.game.getSnakeBody(), room.id, this.currentApple, {
       wallSenseRadius,
     });
@@ -407,19 +525,3 @@ export default class SnakeScene extends Phaser.Scene {
     this.featureManager.call("onRender", this, this.graphics);
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
