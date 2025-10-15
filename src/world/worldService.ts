@@ -28,6 +28,14 @@ export class WorldService {
           room.treasure = spot;
         }
       }
+      // Powerups: 10% chance to spawn in new rooms
+      if (this.rng() < 0.10) {
+        const spot = this.findRandomEmptySpot(room);
+        if (spot) {
+          const kind: "phase" | "smite" = this.rng() < 0.5 ? "phase" : "smite";
+          room.powerup = { x: spot.x, y: spot.y, kind };
+        }
+      }
       this.rooms.set(roomId, room);
     }
     return this.rooms.get(roomId)!;
@@ -49,6 +57,30 @@ export class WorldService {
     } else {
       delete room.treasure;
     }
+  }
+
+  setPowerup(
+    roomId: string,
+    powerup: { x: number; y: number; kind: "phase" | "smite" } | undefined
+  ): void {
+    const room = this.getRoom(roomId);
+    if (powerup) {
+      room.powerup = { x: powerup.x, y: powerup.y, kind: powerup.kind };
+    } else {
+      delete room.powerup;
+    }
+  }
+
+  hasPowerupAt(
+    roomId: string,
+    x: number,
+    y: number
+  ): { present: boolean; kind?: "phase" | "smite" } {
+    const room = this.getRoom(roomId);
+    if (room.powerup && room.powerup.x === x && room.powerup.y === y) {
+      return { present: true, kind: room.powerup.kind };
+    }
+    return { present: false };
   }
 
   hasTreasureAt(roomId: string, x: number, y: number): boolean {

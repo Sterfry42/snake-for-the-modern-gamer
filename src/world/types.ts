@@ -14,6 +14,7 @@ export interface RoomSnapshot {
   portals: PortalConfig[];
   apple?: Vector2Like;
   treasure?: Vector2Like;
+  powerup?: { x: number; y: number; kind: "phase" | "smite" };
   backgroundColor: number;
   wallColor: number;
   wallOutlineColor: number;

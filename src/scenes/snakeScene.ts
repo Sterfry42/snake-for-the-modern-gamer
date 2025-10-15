@@ -29,6 +29,7 @@ export default class SnakeScene extends Phaser.Scene {
   private bossHud!: BossHud;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
+  private powerupMusicActive = false;
   private readonly featureManager = new FeatureManager();
   private readonly baseTickDelay = 100;
   private tickDelay = this.baseTickDelay;
@@ -131,6 +132,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyTickDelayScalar(1, "equipment:boots");
     this.game.reset();
     this.juice.stopBossMusic();
+    (this.juice as any).stopPowerupMusic?.();
     if (this.bossHud) {
       this.bossHud.hide();
     }
@@ -197,6 +199,44 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
     }
 
+    // Powerup pickup FX and music start
+    const pfx = this.game.getFlag<{ x: number; y: number; roomId: string; kind: "phase" | "smite" }>("ui.powerupPickup");
+    if (pfx) {
+      const world = this.tileToWorldInRoom({ x: pfx.x, y: pfx.y }, pfx.roomId);
+      (this.juice as any).powerupPickup?.(world.x, world.y, pfx.kind);
+      // Start powerup music with duration derived from active ticks if available
+      const active = this.game.getFlag<{ kind: string; remaining: number; total: number }>("powerup.active");
+      if (active && typeof active.total === "number") {
+        const durationMs = Math.max(1, active.total) * this.tickDelay;
+        (this.juice as any).startPowerupMusic?.(durationMs);
+        this.powerupMusicActive = true;
+      }
+      // Popup text announcing the powerup
+      const name = pfx.kind === "phase" ? "Phase" : "Smite";
+      const text = this.add.text(world.x, world.y - 12, `+ Powerup: ${name}` , {
+        fontFamily: "monospace",
+        fontSize: "20px",
+        color: "#9b5de5",
+      }).setDepth(26).setOrigin(0.5, 1).setAlpha(0.98).setScale(1.0);
+      this.tweens.add({
+        targets: text,
+        y: world.y - 60,
+        alpha: 0,
+        scale: 1.15,
+        duration: 1600,
+        ease: "Cubic.easeOut",
+        onComplete: () => text.destroy(),
+      });
+      this.game.setFlag("ui.powerupPickup", undefined);
+    }
+
+    // Stop powerup music when effect ends
+    const active = this.game.getFlag<{ kind: string; remaining: number; total: number }>("powerup.active");
+    if (!active && this.powerupMusicActive) {
+      (this.juice as any).stopPowerupMusic?.();
+      this.powerupMusicActive = false;
+    }
+
     // Room transition pulse from snake head
     if (result.roomChanged) {
       const currHead = this.getFlag<{ x: number; y: number }>("internal.currentHead");
@@ -240,6 +280,14 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.handlePredationFeedback();
+
+    // Boss smite FX on collision
+    const smite = this.game.getFlag<{ x: number; y: number; roomId: string }>("ui.bossSmite");
+    if (smite) {
+      const world = this.tileToWorldInRoom({ x: smite.x, y: smite.y }, smite.roomId);
+      (this.juice as any).bossHit?.(world.x, world.y);
+      this.game.setFlag("ui.bossSmite", undefined);
+    }
 
     this.isDirty = true;
   }
@@ -671,8 +719,12 @@ export default class SnakeScene extends Phaser.Scene {
     const baseSense = this.getFlag<number>("geometry.wallSenseRadius") ?? 0;
     const equipSense = this.getFlag<number>("equipment.wallSenseRadiusBonus") ?? 0;
     const wallSenseRadius = Math.max(0, baseSense + equipSense);
+    const pActive = this.getFlag<{ kind: string; remaining: number }>("powerup.active");
+    const snakeColor = pActive ? 0x9b5de5 : undefined;
     this.snakeRenderer.render(room, this.game.getSnakeBody(), room.id, this.currentApple, {
       wallSenseRadius,
+      snakeColor,
+      poweredUp: Boolean(pActive),
     });
     this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
 

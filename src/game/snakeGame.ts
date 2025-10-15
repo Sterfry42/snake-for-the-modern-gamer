@@ -243,6 +243,8 @@ export class SnakeGame implements QuestRuntime {
   private predationConfig: PredationComputedConfig = createDefaultPredationConfig();
   private predationState: PredationRuntimeState = createDefaultPredationState();
 
+  private powerupState: { kind: "phase" | "smite"; remaining: number; total: number } | null = null;
+
   constructor(config: GameConfig = defaultGameConfig, registry: QuestRegistry, rng?: RandomGenerator) {
     this.config = config;
     this.rng = rng ?? createRng(config.rng.seed);
@@ -269,6 +271,7 @@ export class SnakeGame implements QuestRuntime {
     this.inventory.clear();
     this.visitedRooms.clear();
     this.visitedRooms.add(this.snake.currentRoomId);
+    this.powerupState = null;
 
     // TODO: Make this configurable
     if (this.rng() < 0.05) { // 5% chance to spawn a boss on reset
@@ -477,6 +480,23 @@ export class SnakeGame implements QuestRuntime {
         // Treasure-specific pickup FX at the pickup tile
         this.setFlag("ui.treasurePickup", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId });
       }
+      // Powerup pickup: instant short effect
+      if (room.powerup && room.powerup.x === localX && room.powerup.y === localY) {
+        const kind = room.powerup.kind;
+        const duration = 300; // ~30s at 100ms base tick
+        this.world.setPowerup(this.snake.currentRoomId, undefined);
+        roomsChanged.add(this.snake.currentRoomId);
+        if (kind === "phase") {
+          const bonus = Number(this.getFlag<number>("equipment.invulnerabilityBonus") ?? 0);
+          const inv = Math.max(Number(this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0), duration + Math.max(0, Math.floor(bonus)));
+          this.setFlag("fortitude.invulnerabilityTicks", inv);
+        } else if (kind === "smite") {
+          this.setFlag("powerup.smiteTicks", duration);
+        }
+        this.powerupState = { kind, remaining: duration, total: duration };
+        this.setFlag("powerup.active", { kind, remaining: duration, total: duration });
+        this.setFlag("ui.powerupPickup", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId, kind });
+      }
     }
 
     if (appleStateChanged) {
@@ -485,6 +505,7 @@ export class SnakeGame implements QuestRuntime {
 
     this.tickPredationTimers();
     this.tickFortitudeStates();
+    this.tickPowerupState();
 
     const questsCompleted = this.questController.handleCompletions(this);
     const questOffer = this.questController.maybeCreateOffer(paused, this) ?? undefined;
@@ -603,6 +624,32 @@ export class SnakeGame implements QuestRuntime {
     const invuln = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
     if (invuln > 0) {
       this.setFlag("fortitude.invulnerabilityTicks", Math.max(0, invuln - 1));
+    }
+  }
+
+  private tickPowerupState(): void {
+    // Sync active state
+    const active = this.powerupState;
+    if (active && active.remaining > 0) {
+      active.remaining -= 1;
+      this.setFlag("powerup.active", { kind: active.kind, remaining: active.remaining, total: active.total });
+      // Decrement smite runtime ticks mirror flag if present
+      if (active.kind === "smite") {
+        const sm = Number(this.getFlag<number>("powerup.smiteTicks") ?? 0);
+        if (sm > 0) {
+          this.setFlag("powerup.smiteTicks", sm - 1);
+        } else {
+          this.setFlag("powerup.smiteTicks", undefined);
+        }
+      }
+    } else if (active && active.remaining <= 0) {
+      // Clear state
+      this.powerupState = null;
+      this.setFlag("powerup.active", undefined);
+      this.setFlag("powerup.smiteTicks", undefined);
+    } else {
+      // Ensure flag cleared when no powerup
+      this.setFlag("powerup.active", undefined);
     }
   }
 

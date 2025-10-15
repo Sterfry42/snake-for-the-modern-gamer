@@ -15,6 +15,7 @@ export class JuiceManager {
   private readonly particleLayer: Phaser.GameObjects.Layer;
   private readonly overlayLayer: Phaser.GameObjects.Layer;
   private bossMusic?: { id: string; gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
@@ -280,6 +281,93 @@ export class JuiceManager {
     this.ringPulse(worldX, worldY, 0xffd700, 10, 2, 240);
     globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xfff3a8, 14, 2, 220), 60);
     this.punchZoom(1.015, 120);
+  }
+
+  // Powerup pickup: heavy juice
+  powerupPickup(worldX: number, worldY: number, _kind: "phase" | "smite") {
+    // Unified purple juice for all powerups
+    const colors = [0x9b5de5, 0xc77dff, 0x7ad1ff];
+    this.playTone({ frequency: 560, frequencyEnd: 920, duration: 0.34, type: "sine", volume: 0.24 });
+    this.spawnBurst(worldX, worldY, { colors, count: 36, radius: 40 });
+    this.kickCamera(0.038, 220);
+    this.punchZoom(1.085, 220);
+    // purple flash
+    this.scene.cameras.main.flash(200, 155, 110, 255, true);
+    this.blastWave(worldX, worldY, colors, 42);
+    this.ringPulse(worldX, worldY, 0x9b5de5, 16, 2, 300);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 20, 2, 280), 100);
+  }
+
+  startPowerupMusic(durationMs: number) {
+    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+    this.stopPowerupMusic();
+    const now = this.ctx.currentTime;
+    const total = Math.max(0.2, durationMs / 1000);
+
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const tri = this.ctx.createOscillator();
+    tri.type = "triangle";
+    tri.frequency.setValueAtTime(180, now);
+    tri.frequency.exponentialRampToValueAtTime(520, now + total);
+    const triGain = this.ctx.createGain();
+    triGain.gain.value = 0.18;
+    tri.connect(triGain);
+    triGain.connect(gain);
+
+    const sq = this.ctx.createOscillator();
+    sq.type = "square";
+    sq.frequency.setValueAtTime(90, now);
+    sq.frequency.exponentialRampToValueAtTime(220, now + total);
+    const sqGain = this.ctx.createGain();
+    sqGain.gain.value = 0.12;
+    sq.connect(sqGain);
+    sqGain.connect(gain);
+
+    // Gentle tremolo that speeds up
+    const lfo = this.ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.setValueAtTime(3, now);
+    lfo.frequency.linearRampToValueAtTime(9, now + total);
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 0.4;
+    lfo.connect(lfoGain);
+    lfoGain.connect(triGain.gain);
+
+    tri.start(now);
+    sq.start(now);
+    lfo.start(now);
+    gain.gain.exponentialRampToValueAtTime(0.24, now + 0.18);
+
+    this.powerupMusic = {
+      gain,
+      sources: [tri, sq, lfo],
+      cleanup: [triGain, sqGain, lfoGain],
+    };
+  }
+
+  stopPowerupMusic(): void {
+    if (!this.powerupMusic) return;
+    const { gain, sources, cleanup } = this.powerupMusic;
+    const now = this.ctx.currentTime;
+    try {
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+    } catch {}
+    for (const src of sources) {
+      try { src.stop(now + 0.28); } catch {}
+    }
+    globalThis.setTimeout(() => {
+      for (const src of sources) { try { src.disconnect(); } catch {} }
+      for (const node of cleanup) { try { node.disconnect(); } catch {} }
+      try { gain.disconnect(); } catch {}
+    }, 340);
+    this.powerupMusic = undefined;
   }
 
   // Treasure beacon: slim vertical beam rising from the treasure to the top

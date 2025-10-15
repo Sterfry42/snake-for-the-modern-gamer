@@ -198,7 +198,18 @@ export class SnakeState {
     }
 
     if (bossManager.isCollidingWithBoss(head, this.roomId) && invulnTicks <= 0) {
-      return { status: "dead", reason: "boss" };
+      const smite = Number(this.flags["powerup.smiteTicks"] ?? 0);
+      if (smite > 0) {
+        // Kill the boss we collided with instead of dying
+        bossManager.killBossAtPosition(head, this.roomId);
+        this.flags["ui.bossSmite"] = {
+          x: head.x,
+          y: head.y,
+          roomId: this.getRoomIdForPosition(head),
+        };
+      } else {
+        return { status: "dead", reason: "boss" };
+      }
     }
 
     this.body.unshift({ x: head.x, y: head.y });

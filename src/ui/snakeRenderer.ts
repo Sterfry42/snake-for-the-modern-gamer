@@ -14,6 +14,8 @@ const APPLE_OUTLINE_WIDTH = 1;
 
 interface SnakeRenderOptions {
   wallSenseRadius?: number;
+  snakeColor?: number;
+  poweredUp?: boolean;
 }
 
 export class SnakeRenderer {
@@ -50,7 +52,8 @@ export class SnakeRenderer {
     this.drawGrid();
     this.drawApple(room, appleInfo ?? undefined);
     this.drawTreasure(room);
-    this.drawSnake(room, snakeBody, currentRoomId);
+    this.drawPowerup(room);
+    this.drawSnake(room, snakeBody, currentRoomId, opts.snakeColor, opts.poweredUp ?? false);
   }
 
   private drawRoom(room: RoomSnapshot): void {
@@ -183,6 +186,18 @@ export class SnakeRenderer {
     this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
+  private drawPowerup(room: RoomSnapshot): void {
+    const p = room.powerup;
+    if (!p) return;
+    const x = p.x * this.grid.cell;
+    const y = p.y * this.grid.cell;
+    // Unified purple color for all powerups
+    const color = 0x9b5de5;
+    const outline = darkenColor(color, 0.35);
+    this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
+    this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
   private extractShieldDirs(appleInfo?: AppleSnapshot): Vector2Like[] | undefined {
     if (!appleInfo || appleInfo.typeId !== "shielded") {
       return undefined;
@@ -208,12 +223,20 @@ export class SnakeRenderer {
     });
   }
 
-  private drawSnake(room: RoomSnapshot, snakeBody: readonly Vector2Like[], currentRoomId: string): void {
+  private drawSnake(
+    room: RoomSnapshot,
+    snakeBody: readonly Vector2Like[],
+    currentRoomId: string,
+    overrideColor?: number,
+    poweredUp: boolean = false
+  ): void {
     const [roomX, roomY] = currentRoomId.split(",").map(Number);
-    const outlineColor = darkenColor(
-      paletteConfig.snake.bodyColor,
-      paletteConfig.snake.outlineDarkenFactor
-    );
+    const bodyColor = typeof overrideColor === "number" ? overrideColor : paletteConfig.snake.bodyColor;
+    // Keep outline based on original snake color, even when tinted
+    const outlineBase = paletteConfig.snake.bodyColor;
+    const outlineColor = darkenColor(outlineBase, paletteConfig.snake.outlineDarkenFactor);
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const pulse = poweredUp ? (0.85 + 0.15 * Math.sin(now / 180)) : 1;
     snakeBody.forEach((segment, index) => {
       const localX = segment.x - roomX * this.grid.cols;
       const localY = segment.y - roomY * this.grid.rows;
@@ -227,10 +250,10 @@ export class SnakeRenderer {
       const x = localX * this.grid.cell;
       const y = localY * this.grid.cell;
 
-      this.graphics.fillStyle(paletteConfig.snake.bodyColor, alpha);
+      this.graphics.fillStyle(bodyColor, alpha);
       this.graphics.fillRect(x, y, this.grid.cell, this.grid.cell);
 
-      this.graphics.lineStyle(SNAKE_OUTLINE_WIDTH, outlineColor, SNAKE_OUTLINE_ALPHA);
+      this.graphics.lineStyle(SNAKE_OUTLINE_WIDTH, outlineColor, SNAKE_OUTLINE_ALPHA * pulse);
       this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
     });
   }
