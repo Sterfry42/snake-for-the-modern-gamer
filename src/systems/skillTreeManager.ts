@@ -308,6 +308,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
     this.juice.perkPurchased();
     this.overlay.refresh();
+    this.overlay.pulsePerk(perkId);
     this.overlay.announce(state.definition.title + " - Rank " + purchase.rank + " unlocked!", "#5dd6a2");
   }
 

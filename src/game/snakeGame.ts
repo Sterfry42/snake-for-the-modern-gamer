@@ -345,6 +345,12 @@ export class SnakeGame implements QuestRuntime {
 
     const updatedSnake = Array.from(this.snake.bodySegments);
     const currentHead = updatedSnake[0];
+    // UI: Turn skid when direction changes
+    const previous = this.getFlag<{ direction?: Vector2Like }>("internal.previousSnapshot");
+    const currDir = this.snake.directionVector;
+    if (previous?.direction && (previous.direction.x !== currDir.x || previous.direction.y !== currDir.y) && currentHead) {
+      this.setFlag("ui.turnSkid", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId, dx: currDir.x, dy: currDir.y });
+    }
 
     const lastTail = this.getFlag<{ x: number; y: number; roomId?: string }>("internal.lastRemovedTail");
     if (lastTail && (this.getFlag<boolean>("geometry.masonryEnabled") || this.getFlag<boolean>("equipment.masonryEnabled"))) {
@@ -360,6 +366,33 @@ export class SnakeGame implements QuestRuntime {
 
     if (this.getFlag<boolean>("geometry.faultLineEnabled") && currentHead) {
       this.applyFaultLine(currentHead, roomsChanged);
+    }
+
+    // UI: Wall graze — spark if moving adjacent to a wall in move direction
+    if (currentHead) {
+      const dir = this.snake.directionVector;
+      const info = this.resolveRoomPosition({ x: currentHead.x, y: currentHead.y });
+      if (info) {
+        const { roomId, localX, localY } = info;
+        const room = this.world.getRoom(roomId);
+        let nx = 0, ny = 0;
+        if (dir.x !== 0) {
+          const tx = localX + dir.x;
+          if (tx >= 0 && tx < this.config.grid.cols) {
+            const t = room.layout[localY]?.[tx];
+            if (t === '#') { nx = dir.x; ny = 0; }
+          }
+        } else if (dir.y !== 0) {
+          const ty = localY + dir.y;
+          if (ty >= 0 && ty < this.config.grid.rows) {
+            const t = room.layout[ty]?.[localX];
+            if (t === '#') { nx = 0; ny = dir.y; }
+          }
+        }
+        if (nx !== 0 || ny !== 0) {
+          this.setFlag("ui.wallGraze", { x: currentHead.x, y: currentHead.y, roomId, nx, ny });
+        }
+      }
     }
 
     let appleStateChanged = roomsChanged.has(this.snake.currentRoomId);
@@ -427,18 +460,22 @@ export class SnakeGame implements QuestRuntime {
       const localY = currentHead.y - roomY * this.config.grid.rows;
       if (room.treasure && room.treasure.x === localX && room.treasure.y === localY) {
         let awardedName: string | undefined;
+        let awardedId: string | undefined;
         if (ITEMS.length > 0) {
           const idx = Math.floor(this.rng() * ITEMS.length);
           const awarded = ITEMS[Math.max(0, Math.min(ITEMS.length - 1, idx))];
           this.inventory.addItem(awarded.id, 1);
           awardedName = awarded.name;
+          awardedId = awarded.id;
         }
         // Score bonus for treasure pickup
         this.addScore(5);
         this.world.setTreasure(this.snake.currentRoomId, undefined);
         roomsChanged.add(this.snake.currentRoomId);
         // Notify UI for juice + hint
-        this.setFlag("loot.itemPicked", { head: currentHead, itemName: awardedName });
+        this.setFlag("loot.itemPicked", { head: currentHead, itemName: awardedName, itemId: awardedId });
+        // Treasure-specific pickup FX at the pickup tile
+        this.setFlag("ui.treasurePickup", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId });
       }
     }
 
@@ -2027,6 +2064,8 @@ export class SnakeGame implements QuestRuntime {
     if (changed) {
       room.layout[localY] = chars.join('');
       roomsChanged.add(roomId);
+      // UI: horizontal sweep at the affected row
+      this.setFlag("ui.faultLine", { roomId, y: localY });
     }
   }
 
@@ -2059,6 +2098,8 @@ export class SnakeGame implements QuestRuntime {
     }
     if (changed) {
       roomsChanged.add(roomId);
+      // UI: seismic pulse burst at head position
+      this.setFlag("ui.seismicPulse", { x: head.x, y: head.y, roomId, radius });
     }
   }
 
@@ -2106,6 +2147,8 @@ export class SnakeGame implements QuestRuntime {
     }
     if (changed) {
       roomsChanged.add(roomId);
+      // UI: construction sparks at head
+      this.setFlag("ui.collapseControl", { x: head.x, y: head.y, roomId });
     }
   }
 
@@ -2123,6 +2166,8 @@ export class SnakeGame implements QuestRuntime {
     if (bonusGrowth > 0) {
       this.snake.grow(bonusGrowth);
     }
+    // UI: debris burst
+    this.setFlag("ui.wallChomp", { x: info.x, y: info.y, roomId: info.roomId });
   }
 
   private rechargeTerraShield(): void {

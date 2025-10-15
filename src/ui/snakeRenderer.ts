@@ -103,6 +103,8 @@ export class SnakeRenderer {
       return;
     }
 
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const pulse = 0.8 + 0.2 * Math.sin(now / 240);
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         const targetX = localHeadX + dx;
@@ -123,7 +125,7 @@ export class SnakeRenderer {
         if (distance > radius) {
           continue;
         }
-        const alpha = Math.max(0.12, 0.28 - 0.05 * distance);
+        const alpha = Math.max(0.1, (0.28 - 0.05 * distance) * pulse);
         this.graphics.fillStyle(0x4da3ff, alpha);
         this.graphics.fillRect(
           targetX * this.grid.cell,
@@ -137,21 +139,15 @@ export class SnakeRenderer {
 
   private drawGrid(): void {
     this.graphics.lineStyle(1, paletteConfig.grid.color, paletteConfig.grid.alpha);
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
     for (let x = 0; x <= this.grid.cols; x++) {
-      this.graphics.lineBetween(
-        x * this.grid.cell,
-        0,
-        x * this.grid.cell,
-        this.grid.rows * this.grid.cell
-      );
+      const px = Math.min(width - 0.5, x * this.grid.cell + 0.5);
+      this.graphics.lineBetween(px, 0.5, px, height - 0.5);
     }
     for (let y = 0; y <= this.grid.rows; y++) {
-      this.graphics.lineBetween(
-        0,
-        y * this.grid.cell,
-        this.grid.cols * this.grid.cell,
-        y * this.grid.cell
-      );
+      const py = Math.min(height - 0.5, y * this.grid.cell + 0.5);
+      this.graphics.lineBetween(0.5, py, width - 0.5, py);
     }
   }
 

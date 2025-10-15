@@ -53,6 +53,7 @@ interface TabDefinition {
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "skills", label: "Skill Tree" },
   { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
+  { id: "equipment", label: "Equipment", placeholder: "Manage gear across your slots." },
 ];
 
 export class SkillTreeOverlay {
@@ -64,6 +65,7 @@ export class SkillTreeOverlay {
   private readonly manaText: Phaser.GameObjects.Text;
   private readonly hintText: Phaser.GameObjects.Text;
   private readonly connectionGraphics: Phaser.GameObjects.Graphics;
+  private readonly connectionHighlight: Phaser.GameObjects.Graphics;
   private readonly nodeVisuals: Map<string, NodeVisual> = new Map();
   private readonly tabLabels: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private readonly stubText: Phaser.GameObjects.Text | null;
@@ -76,6 +78,11 @@ export class SkillTreeOverlay {
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
   private inventoryHighlight?: Phaser.GameObjects.Rectangle;
+  private readonly equipmentContainer: Phaser.GameObjects.Container;
+  private readonly equipmentBackground: Phaser.GameObjects.Rectangle;
+  private readonly equipmentTitle: Phaser.GameObjects.Text;
+  private readonly equipmentLines: Map<string, Phaser.GameObjects.Text> = new Map();
+  private wasEquipmentVisible = false;
 
   private hoveredPerkId: string | null = null;
   private detailPerkId: string | null = null;
@@ -86,6 +93,8 @@ export class SkillTreeOverlay {
   private activeTab: TabId = "skills";
   private hintSticky = false;
   private hintTimer?: Phaser.Time.TimerEvent;
+  private glintTimer?: Phaser.Time.TimerEvent;
+  private hoverTip?: { container: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text; targetX: number; targetY: number; ticker?: Phaser.Time.TimerEvent };
 
   constructor(
     private readonly scene: SnakeScene,
@@ -108,6 +117,7 @@ export class SkillTreeOverlay {
       .setOrigin(0, 0);
 
     this.connectionGraphics = this.scene.add.graphics();
+    this.connectionHighlight = this.scene.add.graphics();
 
     this.title = this.scene.add
       .text(this.options.width / 2, 24, "Pause Menu", {
@@ -267,6 +277,7 @@ export class SkillTreeOverlay {
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
       this.connectionGraphics,
+      this.connectionHighlight,
       this.detailPanel,
       this.title,
       this.scoreText,
@@ -278,6 +289,51 @@ export class SkillTreeOverlay {
       this.hintText,
       this.inventoryItemsText,
     ];
+    // Build equipment panel (hidden by default)
+    const equipX = TREE_PADDING.horizontal;
+    const equipY = TREE_PADDING.top - 8;
+    const equipW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const equipH = this.options.height - equipY - TREE_PADDING.bottom + 4;
+    this.equipmentBackground = this.scene.add
+      .rectangle(equipX, equipY, equipW, equipH, 0x0b1622, 0.72)
+      .setStrokeStyle(1, 0x244155)
+      .setOrigin(0, 0)
+      .setVisible(false);
+    this.equipmentTitle = this.scene.add.text(equipX + 10, equipY + 8, "Equipment", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#9ad1ff",
+    }).setVisible(false);
+
+    const equipChildren: Phaser.GameObjects.GameObject[] = [this.equipmentBackground, this.equipmentTitle];
+    this.equipmentContainer = this.scene.add.container(0, 0, equipChildren).setVisible(false);
+
+    const equipSlots = ["boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as const;
+    equipSlots.forEach((slot, idx) => {
+      const lineY = equipY + 40 + idx * 28;
+      const text = this.scene.add.text(equipX + 14, lineY, "", {
+        fontFamily: "monospace",
+        fontSize: "15px",
+        color: "#ffffff",
+      }).setVisible(false).setInteractive({ useHandCursor: true });
+      text.on("pointerdown", () => {
+        const equipped = this.scene.inventory.getEquipped(slot as unknown as EquipmentSlot);
+        if (equipped) {
+          void this.scene.unequipSlot(slot as unknown as EquipmentSlot);
+          this.refresh();
+          // Soft sparkle at the line
+          const cx = this.container.x + equipX + equipW / 2;
+          const cy = this.container.y + lineY - 6;
+          if ((this.scene as any).juice?.uiSparkle) {
+            (this.scene as any).juice.uiSparkle(cx, cy);
+          }
+        }
+      });
+      this.equipmentLines.set(slot, text);
+      this.equipmentContainer.add(text);
+    });
+
+    children.push(this.equipmentContainer);
     if (this.stubText) {
       children.push(this.stubText);
     }
@@ -295,10 +351,39 @@ export class SkillTreeOverlay {
     }
     this.visible = true;
     this.container.setVisible(true);
+    // Pop-in animation
+    this.container.setAlpha(0).setScale(0.96);
+    this.scene.tweens.add({
+      targets: this.container,
+      alpha: 1,
+      scale: 1,
+      duration: 180,
+      ease: "Cubic.easeOut",
+    });
     this.scene.time.delayedCall(0, () => this.container.setDepth(this.options.depth));
     this.clearPerkDetails(true);
     this.hoveredPerkId = null;
     this.refresh();
+    // Start background glints
+    this.glintTimer?.remove(false);
+    this.glintTimer = this.scene.time.addEvent({
+      delay: 900,
+      loop: true,
+      callback: () => {
+        const x = this.container.x + Phaser.Math.Between(40, this.options.width - 40);
+        const y = this.container.y + Phaser.Math.Between(120, this.options.height - 80);
+        (this.scene as any).juice?.uiSparkle?.(x, y);
+      },
+    });
+
+    // Pointer-follow tick for hover tooltip
+    if (this.hoverTip && !this.hoverTip.ticker) {
+      this.hoverTip.ticker = this.scene.time.addEvent({
+        delay: 16,
+        loop: true,
+        callback: () => this.updateHoverTipPosition(),
+      });
+    }
   }
 
   hide(): void {
@@ -306,9 +391,22 @@ export class SkillTreeOverlay {
       return;
     }
     this.visible = false;
-    this.container.setVisible(false);
+    // Fade-out then hide
+    this.scene.tweens.add({
+      targets: this.container,
+      alpha: 0,
+      scale: 0.98,
+      duration: 140,
+      ease: "Cubic.easeIn",
+      onComplete: () => {
+        this.container.setVisible(false).setAlpha(1).setScale(1);
+      },
+    });
     this.hoveredPerkId = null;
     this.clearPerkDetails(true);
+    this.glintTimer?.remove(false);
+    this.glintTimer = undefined;
+    this.hideHoverTip();
   }
 
   toggle(force?: boolean): void {
@@ -442,8 +540,12 @@ export class SkillTreeOverlay {
 
     const skillsActive = this.activeTab === "skills";
     const inventoryActive = this.activeTab === "inventory";
+    const equipmentActive = this.activeTab === "equipment";
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
+    this.equipmentContainer.setVisible(equipmentActive);
+    this.equipmentBackground.setVisible(equipmentActive);
+    this.equipmentTitle.setVisible(equipmentActive);
 
     if (this.stubText) {
       this.stubText.setVisible(!skillsActive && !inventoryActive);
@@ -490,6 +592,39 @@ export class SkillTreeOverlay {
         }
       }
     }
+
+    if (equipmentActive) {
+      // Populate equipment panel
+      const slots: EquipmentSlot[] = ["boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
+      for (const slot of slots) {
+        const text = this.equipmentLines.get(slot as unknown as string);
+        if (!text) continue;
+        const equipped = this.scene.inventory.getEquipped(slot);
+        const label = (slot as unknown as string).charAt(0).toUpperCase() + (slot as unknown as string).slice(1);
+        if (equipped) {
+          const item = getItem(equipped);
+          text.setText(`${label}: ${item?.name ?? equipped}  [click to unequip]`).setVisible(true).setColor("#c8ffe1");
+        } else {
+          text.setText(`${label}: — empty —`).setVisible(true).setColor("#7895b4");
+        }
+      }
+      if (!this.wasEquipmentVisible) {
+        // Simple tab jingle + sparkle burst
+        const centerX = this.container.x + this.options.width / 2 - DETAIL_PANEL_WIDTH / 2 - DETAIL_PANEL_MARGIN / 2;
+        const centerY = this.container.y + this.options.height / 2 + 10;
+        if ((this.scene as any).juice?.uiTabSwitch) {
+          (this.scene as any).juice.uiTabSwitch();
+        }
+        if ((this.scene as any).juice?.uiSparkle) {
+          (this.scene as any).juice.uiSparkle(centerX, centerY);
+        }
+      }
+    } else {
+      // Hide equipment texts when not active
+      for (const t of this.equipmentLines.values()) t.setVisible(false);
+    }
+
+    this.wasEquipmentVisible = equipmentActive;
 
     if (!skillsActive) {
       this.connectionGraphics.clear();
@@ -665,10 +800,18 @@ export class SkillTreeOverlay {
       button.on("pointerover", () => {
         nodeContainer.setScale(1.05);
         this.hoveredPerkId = perk.id;
+        const absX = this.container.x + px;
+        const absY = this.container.y + py;
+        (this.scene as any).juice?.uiSparkle?.(absX, absY);
+        this.showConnectionHighlight(perk.id);
         if (!this.hintSticky) {
           this.hintText.setText("Press I to inspect " + perk.title);
           this.hintText.setColor("#9ad1ff");
         }
+        const state = this.system.getPurchaseState(perk.id);
+        const cost = state?.cost;
+        const label = perk.title + (Number.isFinite(cost) ? `  (Cost ${cost})` : "");
+        this.showHoverTip(label);
       });
       button.on("pointerout", () => {
         nodeContainer.setScale(1);
@@ -683,6 +826,8 @@ export class SkillTreeOverlay {
         if (!this.hintSticky) {
           this.updateDefaultHint(this.system.getStats());
         }
+        this.hideHoverTip();
+        this.clearConnectionHighlight();
       });
       button.on("pointerdown", () => {
         try {
@@ -705,6 +850,114 @@ export class SkillTreeOverlay {
         position: new Phaser.Math.Vector2(px, py),
       });
     }
+  }
+
+  private showConnectionHighlight(perkId: string): void {
+    this.connectionHighlight.clear();
+    const perk = this.system.getDefinition(perkId);
+    if (!perk) return;
+    const reqs = perk.requires ?? [];
+    const fromVisual = this.nodeVisuals.get(perkId);
+    if (!fromVisual) return;
+    for (const reqId of reqs) {
+      const reqVisual = this.nodeVisuals.get(reqId);
+      if (!reqVisual) continue;
+      this.connectionHighlight
+        .lineStyle(3, 0x9ad1ff, 0.9)
+        .beginPath()
+        .moveTo(reqVisual.position.x, reqVisual.position.y)
+        .lineTo(fromVisual.position.x, fromVisual.position.y)
+        .strokePath();
+    }
+  }
+
+  private clearConnectionHighlight(): void {
+    this.connectionHighlight.clear();
+  }
+
+  private ensureHoverTip(): void {
+    if (this.hoverTip) return;
+    const bg = this.scene.add.rectangle(0, 0, 180, 26, 0x0b1622, 0.9).setStrokeStyle(1, 0x244155).setOrigin(0.5);
+    const text = this.scene.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: "#cfe5ff" }).setOrigin(0.5);
+    const container = this.scene.add.container(0, 0, [bg, text]).setDepth(this.options.depth + 2).setVisible(false);
+    this.container.add(container);
+    this.hoverTip = { container, bg, text, targetX: 0, targetY: 0 };
+  }
+
+  private showHoverTip(text: string): void {
+    this.ensureHoverTip();
+    if (!this.hoverTip) return;
+    this.hoverTip.text.setText(text);
+    const pad = 12;
+    const width = Math.max(120, this.hoverTip.text.width + pad * 2);
+    this.hoverTip.bg.setSize(width, 26);
+    this.hoverTip.container.setVisible(true).setAlpha(1);
+    // Prime target to current pointer
+    const p = this.scene.input.activePointer;
+    const localX = p.worldX - this.container.x + 14;
+    const localY = p.worldY - this.container.y - 14;
+    this.hoverTip.targetX = localX;
+    this.hoverTip.targetY = localY;
+    this.hoverTip.container.setPosition(localX, localY);
+    if (!this.hoverTip.ticker) {
+      this.hoverTip.ticker = this.scene.time.addEvent({ delay: 16, loop: true, callback: () => this.updateHoverTipPosition() });
+    }
+  }
+
+  private updateHoverTipPosition(): void {
+    if (!this.hoverTip || !this.hoverTip.container.visible) return;
+    const p = this.scene.input.activePointer;
+    const targetX = p.worldX - this.container.x + 14;
+    const targetY = p.worldY - this.container.y - 14;
+    // Parallax: bias a touch toward center
+    const centerX = this.options.width / 2;
+    const centerY = this.options.height / 2;
+    const parX = (targetX - centerX) * 0.02;
+    const parY = (targetY - centerY) * 0.02;
+    this.hoverTip.targetX = targetX - parX;
+    this.hoverTip.targetY = targetY - parY;
+    const cur = this.hoverTip.container;
+    // Smooth follow
+    cur.x += (this.hoverTip.targetX - cur.x) * 0.18;
+    cur.y += (this.hoverTip.targetY - cur.y) * 0.18;
+  }
+
+  private hideHoverTip(): void {
+    if (!this.hoverTip) return;
+    if (this.hoverTip.ticker) {
+      this.hoverTip.ticker.remove(false);
+      this.hoverTip.ticker = undefined;
+    }
+    this.hoverTip.container.setVisible(false);
+  }
+
+  // Visual pulse for a purchased perk node
+  pulsePerk(perkId: string): void {
+    const visual = this.nodeVisuals.get(perkId);
+    if (!visual) return;
+    const target = visual.container;
+    // Scale bounce
+    this.scene.tweens.add({ targets: target, scale: 1.12, duration: 120, ease: "Cubic.easeOut", yoyo: true });
+    // Ring pulse around node
+    const absX = this.container.x + target.x;
+    const absY = this.container.y + target.y;
+    const g = this.scene.add.graphics().setDepth(this.options.depth + 1);
+    this.container.add(g);
+    const state = { r: 16, a: 0.9 } as any;
+    this.scene.tweens.add({
+      targets: state,
+      r: 36,
+      a: 0,
+      duration: 240,
+      ease: "Cubic.easeOut",
+      onUpdate: () => {
+        g.clear();
+        g.lineStyle(2, 0x9ad1ff, state.a);
+        g.strokeCircle(absX, absY, state.r);
+      },
+      onComplete: () => g.destroy(),
+    });
+    (this.scene as any).juice?.uiSparkle?.(absX, absY);
   }
 
   private drawConnections(perks: SkillPerkDefinition[]): void {
@@ -739,6 +992,7 @@ export class SkillTreeOverlay {
       return;
     }
     this.activeTab = tabId;
+    (this.scene as any).juice?.uiTabSwitch?.();
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();
