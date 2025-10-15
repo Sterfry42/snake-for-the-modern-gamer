@@ -42,7 +42,7 @@ const DETAIL_PANEL_WIDTH = 220;
 const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
 
-type TabId = "skills" | "inventory" | "quests" | "stats";
+type TabId = "skills" | "inventory" | "map";
 
 interface TabDefinition {
   id: TabId;
@@ -53,7 +53,7 @@ interface TabDefinition {
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "skills", label: "Skill Tree" },
   { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
-  { id: "equipment", label: "Equipment", placeholder: "Manage gear across your slots." },
+  { id: "map", label: "Map", placeholder: "Explore to reveal more rooms." },
 ];
 
 export class SkillTreeOverlay {
@@ -66,6 +66,10 @@ export class SkillTreeOverlay {
   private readonly hintText: Phaser.GameObjects.Text;
   private readonly connectionGraphics: Phaser.GameObjects.Graphics;
   private readonly connectionHighlight: Phaser.GameObjects.Graphics;
+  private readonly mapGraphics: Phaser.GameObjects.Graphics;
+  private readonly mapBackground: Phaser.GameObjects.Rectangle;
+  private readonly mapTitle: Phaser.GameObjects.Text;
+  private readonly mapContainer: Phaser.GameObjects.Container;
   private readonly nodeVisuals: Map<string, NodeVisual> = new Map();
   private readonly tabLabels: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private readonly stubText: Phaser.GameObjects.Text | null;
@@ -118,6 +122,23 @@ export class SkillTreeOverlay {
 
     this.connectionGraphics = this.scene.add.graphics();
     this.connectionHighlight = this.scene.add.graphics();
+    // Map container and elements
+    const mapX = TREE_PADDING.horizontal;
+    const mapY = TREE_PADDING.top - 8;
+    const mapW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const mapH = this.options.height - mapY - TREE_PADDING.bottom + 4;
+    this.mapBackground = this.scene.add
+      .rectangle(mapX, mapY, mapW, mapH, 0x0b1622, 0.72)
+      .setStrokeStyle(1, 0x244155)
+      .setOrigin(0, 0)
+      .setVisible(false);
+    this.mapTitle = this.scene.add.text(mapX + 10, mapY + 8, "Map", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#9ad1ff",
+    }).setVisible(false);
+    this.mapGraphics = this.scene.add.graphics();
+    this.mapContainer = this.scene.add.container(0, 0, [this.mapBackground, this.mapTitle, this.mapGraphics]).setVisible(false);
 
     this.title = this.scene.add
       .text(this.options.width / 2, 24, "Pause Menu", {
@@ -278,6 +299,7 @@ export class SkillTreeOverlay {
       this.background,
       this.connectionGraphics,
       this.connectionHighlight,
+      this.mapContainer,
       this.detailPanel,
       this.title,
       this.scoreText,
@@ -543,13 +565,25 @@ export class SkillTreeOverlay {
     const equipmentActive = this.activeTab === "equipment";
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
-    this.equipmentContainer.setVisible(equipmentActive);
-    this.equipmentBackground.setVisible(equipmentActive);
-    this.equipmentTitle.setVisible(equipmentActive);
+    this.equipmentContainer.setVisible(false);
+    this.equipmentBackground.setVisible(false);
+    this.equipmentTitle.setVisible(false);
+    const mapActive = this.activeTab === "map";
+    this.mapContainer.setVisible(mapActive);
+    this.mapBackground.setVisible(mapActive);
+    this.mapTitle.setVisible(mapActive);
+    this.mapGraphics.setVisible(mapActive);
+    if (mapActive) {
+      this.drawMapPanel();
+    } else {
+      this.mapGraphics.clear();
+    }
 
     if (this.stubText) {
-      this.stubText.setVisible(!skillsActive && !inventoryActive);
-      if (!skillsActive && !inventoryActive) {
+      const mapActive = this.activeTab === "map";
+      const showStub = !skillsActive && !inventoryActive && !mapActive;
+      this.stubText.setVisible(showStub);
+      if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
         this.stubText.setText(tab?.placeholder ?? "More modules are coming soon.");
       }
@@ -716,6 +750,44 @@ export class SkillTreeOverlay {
       if (!this.populatePerkDetails(this.detailPerkId)) {
         this.clearPerkDetails(true);
       }
+    }
+  }
+
+  private drawMapPanel(): void {
+    this.mapGraphics.clear();
+    const getter: any = (this.scene as any);
+    const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel ? getter.getGeneratedRoomsOnCurrentLevel() : [];
+    const current: string = (this.scene as any).currentRoomId ?? "0,0,0";
+    if (rooms.length === 0) {
+      this.mapGraphics.lineStyle(1, 0x244155, 0.8).strokeRect(this.mapBackground.x + 8, this.mapBackground.y + 32, this.mapBackground.width - 16, this.mapBackground.height - 40);
+      this.mapGraphics.fillStyle(0x9ad1ff, 0.8);
+      this.mapGraphics.fillCircle(this.mapBackground.x + this.mapBackground.width / 2, this.mapBackground.y + this.mapBackground.height / 2, 2);
+      return;
+    }
+    const coords = rooms.map((id) => id.split(",").map((n) => Number(n)) as number[]);
+    const level = Number((current.split(",")[2] ?? 0));
+    const filtered: number[][] = coords.filter((c) => (c[2] ?? 0) === level);
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (const [x, y] of filtered) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+    if (!isFinite(minX)) { return; }
+    const margin = 16;
+    const areaW = this.mapBackground.width - margin * 2;
+    const areaH = this.mapBackground.height - margin * 2 - 24;
+    const spanX = Math.max(1, maxX - minX + 1);
+    const spanY = Math.max(1, maxY - minY + 1);
+    const cellSize = Math.floor(Math.min(areaW / spanX, areaH / spanY));
+    const originX = this.mapBackground.x + margin + (areaW - cellSize * spanX) / 2;
+    const originY = this.mapBackground.y + 24 + margin + (areaH - cellSize * spanY) / 2;
+
+    // Draw grid of discovered rooms
+    for (const [x, y] of filtered) {
+      const gx = originX + (x - minX) * cellSize;
+      const gy = originY + (y - minY) * cellSize;
+      const id = `${x},${y},${level}`;
+      const isCurrent = id === current;
+      this.mapGraphics.fillStyle(isCurrent ? 0x5dd6a2 : 0x4da3ff, isCurrent ? 0.9 : 0.7);
+      this.mapGraphics.fillRect(gx + 1, gy + 1, cellSize - 2, cellSize - 2);
+      this.mapGraphics.lineStyle(1, 0x244155, 0.9).strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
     }
   }
 

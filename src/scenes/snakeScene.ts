@@ -391,6 +391,14 @@ export default class SnakeScene extends Phaser.Scene {
     return this.game.getCurrentRoom().id;
   }
 
+  getGeneratedRoomsOnCurrentLevel(): string[] {
+    const fn: any = (this.game as any).getGeneratedRooms;
+    if (typeof fn === "function") {
+      return fn.call(this.game);
+    }
+    return [];
+  }
+
   get activeQuests(): Quest[] {
     return this.game.getActiveQuests();
   }

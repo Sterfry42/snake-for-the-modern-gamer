@@ -517,6 +517,13 @@ export class SnakeGame implements QuestRuntime {
     return this.snake.bodySegments;
   }
 
+  // Map support: expose generated rooms on the current Z level
+  getGeneratedRooms(levelZ?: number): string[] {
+    const all = Array.from(this.world.snapshot().keys());
+    const z = levelZ ?? Number((this.snake.currentRoomId.split(",")[2] ?? 0));
+    return all.filter((id) => Number((id.split(",")[2] ?? 0)) === z);
+  }
+
   getDirection(): Vector2Like {
     return this.snake.directionVector;
   }
