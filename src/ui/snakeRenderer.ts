@@ -14,6 +14,8 @@ const APPLE_OUTLINE_WIDTH = 1;
 
 interface SnakeRenderOptions {
   wallSenseRadius?: number;
+  snakeColor?: number;
+  poweredUp?: boolean;
 }
 
 export class SnakeRenderer {
@@ -49,7 +51,9 @@ export class SnakeRenderer {
     this.highlightWalls(room, snakeBody, currentRoomId, opts.wallSenseRadius ?? 0);
     this.drawGrid();
     this.drawApple(room, appleInfo ?? undefined);
-    this.drawSnake(room, snakeBody, currentRoomId);
+    this.drawTreasure(room);
+    this.drawPowerup(room);
+    this.drawSnake(room, snakeBody, currentRoomId, opts.snakeColor, opts.poweredUp ?? false);
   }
 
   private drawRoom(room: RoomSnapshot): void {
@@ -102,6 +106,8 @@ export class SnakeRenderer {
       return;
     }
 
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const pulse = 0.8 + 0.2 * Math.sin(now / 240);
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
         const targetX = localHeadX + dx;
@@ -122,7 +128,7 @@ export class SnakeRenderer {
         if (distance > radius) {
           continue;
         }
-        const alpha = Math.max(0.12, 0.28 - 0.05 * distance);
+        const alpha = Math.max(0.1, (0.28 - 0.05 * distance) * pulse);
         this.graphics.fillStyle(0x4da3ff, alpha);
         this.graphics.fillRect(
           targetX * this.grid.cell,
@@ -136,21 +142,15 @@ export class SnakeRenderer {
 
   private drawGrid(): void {
     this.graphics.lineStyle(1, paletteConfig.grid.color, paletteConfig.grid.alpha);
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
     for (let x = 0; x <= this.grid.cols; x++) {
-      this.graphics.lineBetween(
-        x * this.grid.cell,
-        0,
-        x * this.grid.cell,
-        this.grid.rows * this.grid.cell
-      );
+      const px = Math.min(width - 0.5, x * this.grid.cell + 0.5);
+      this.graphics.lineBetween(px, 0.5, px, height - 0.5);
     }
     for (let y = 0; y <= this.grid.rows; y++) {
-      this.graphics.lineBetween(
-        0,
-        y * this.grid.cell,
-        this.grid.cols * this.grid.cell,
-        y * this.grid.cell
-      );
+      const py = Math.min(height - 0.5, y * this.grid.cell + 0.5);
+      this.graphics.lineBetween(0.5, py, width - 0.5, py);
     }
   }
 
@@ -173,6 +173,29 @@ export class SnakeRenderer {
     if (shieldDirs) {
       this.drawShieldIndicators(x, y, shieldDirs);
     }
+  }
+
+  private drawTreasure(room: RoomSnapshot): void {
+    const spot = room.treasure;
+    if (!spot) return;
+    const x = spot.x * this.grid.cell;
+    const y = spot.y * this.grid.cell;
+    const color = 0x9ad1ff; // bright blue for treasure
+    const outline = darkenColor(color, 0.35);
+    this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
+    this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
+  private drawPowerup(room: RoomSnapshot): void {
+    const p = room.powerup;
+    if (!p) return;
+    const x = p.x * this.grid.cell;
+    const y = p.y * this.grid.cell;
+    // Unified purple color for all powerups
+    const color = 0x9b5de5;
+    const outline = darkenColor(color, 0.35);
+    this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
+    this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private extractShieldDirs(appleInfo?: AppleSnapshot): Vector2Like[] | undefined {
@@ -200,12 +223,20 @@ export class SnakeRenderer {
     });
   }
 
-  private drawSnake(room: RoomSnapshot, snakeBody: readonly Vector2Like[], currentRoomId: string): void {
+  private drawSnake(
+    room: RoomSnapshot,
+    snakeBody: readonly Vector2Like[],
+    currentRoomId: string,
+    overrideColor?: number,
+    poweredUp: boolean = false
+  ): void {
     const [roomX, roomY] = currentRoomId.split(",").map(Number);
-    const outlineColor = darkenColor(
-      paletteConfig.snake.bodyColor,
-      paletteConfig.snake.outlineDarkenFactor
-    );
+    const bodyColor = typeof overrideColor === "number" ? overrideColor : paletteConfig.snake.bodyColor;
+    // Keep outline based on original snake color, even when tinted
+    const outlineBase = paletteConfig.snake.bodyColor;
+    const outlineColor = darkenColor(outlineBase, paletteConfig.snake.outlineDarkenFactor);
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const pulse = poweredUp ? (0.85 + 0.15 * Math.sin(now / 180)) : 1;
     snakeBody.forEach((segment, index) => {
       const localX = segment.x - roomX * this.grid.cols;
       const localY = segment.y - roomY * this.grid.rows;
@@ -219,10 +250,10 @@ export class SnakeRenderer {
       const x = localX * this.grid.cell;
       const y = localY * this.grid.cell;
 
-      this.graphics.fillStyle(paletteConfig.snake.bodyColor, alpha);
+      this.graphics.fillStyle(bodyColor, alpha);
       this.graphics.fillRect(x, y, this.grid.cell, this.grid.cell);
 
-      this.graphics.lineStyle(SNAKE_OUTLINE_WIDTH, outlineColor, SNAKE_OUTLINE_ALPHA);
+      this.graphics.lineStyle(SNAKE_OUTLINE_WIDTH, outlineColor, SNAKE_OUTLINE_ALPHA * pulse);
       this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
     });
   }

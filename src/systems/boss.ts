@@ -96,6 +96,18 @@ export class BossManager {
     return false;
   }
 
+  public killBossAtPosition(position: Vector2Like, roomId: string): boolean {
+    // Remove the first boss that contains the position
+    for (const [id, boss] of this.bosses) {
+      if (boss.roomId.split(",")[2] !== roomId.split(",")[2]) continue;
+      if (boss.body.some((segment) => segment.x === position.x && segment.y === position.y)) {
+        this.bosses.delete(id);
+        return true;
+      }
+    }
+    return false;
+  }
+
   public getPullFor(snakeHead: Vector2Like, roomId: string, rng: () => number): Vector2Like | null {
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {

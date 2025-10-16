@@ -54,22 +54,69 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "swiftScales",
       title: "Swift Scales",
       shortLabel: "SPD",
-      description: "Train every coil to glide with relentless tempo.",
+      description: "Harness a momentum gauge that builds on straightaways.",
       ranks: [
         {
-          description: "-8% tick delay",
+          description: "Unlock the momentum gauge and gain surges at 5 stacks.",
           cost: 12,
-          effects: [{ type: "tickDelayScalar", factor: 0.92, sourceId: "momentum.swiftScales" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.swiftScales",
+              value: {
+                enabled: true,
+                maxStacks: 5,
+                baseGain: 1,
+                decayDelay: 4,
+                decayLoss: 1,
+                turnRetention: 0.25,
+                surgeThreshold: 5,
+                surgeDuration: 3,
+                surgeCooldown: 10,
+                surgeConsume: 3,
+                surgeInvulnerability: 2,
+                phaseTicksOnSurge: 0,
+                scorePerStack: 0,
+                surgeScore: 0,
+                trailTicks: 0,
+                trailScorePerTick: 0,
+              },
+            },
+          ],
         },
         {
-          description: "-16% total tick delay",
+          description: "Momentum stacks grow faster and linger longer.",
           cost: 28,
-          effects: [{ type: "tickDelayScalar", factor: 0.84, sourceId: "momentum.swiftScales" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.swiftScales.rank2",
+              value: {
+                maxStacksBonus: 2,
+                gainBonus: 1,
+                decayDelayBonus: 2,
+                turnRetentionBonus: 0.1,
+                scorePerStackBonus: 0.1,
+              },
+            },
+          ],
         },
         {
-          description: "-24% total tick delay",
+          description: "Surges trigger sooner and refresh more often.",
           cost: 52,
-          effects: [{ type: "tickDelayScalar", factor: 0.76, sourceId: "momentum.swiftScales" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.swiftScales.rank3",
+              value: {
+                maxStacksBonus: 3,
+                surgeThresholdBonus: -1,
+                surgeDurationBonus: 1,
+                surgeCooldownBonus: -2,
+                scorePerStackBonus: 0.1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -77,12 +124,24 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "windShear",
       title: "Wind Shear",
       shortLabel: "WND",
-      description: "Cut through slipstreams and keep momentum on tap.",
+      description: "Turns bleed less speed and surges toughen your hide.",
       ranks: [
         {
-          description: "-6% additional tick delay",
+          description: "Lose fewer stacks on turns and gain +1 surge armor tick.",
           cost: 45,
-          effects: [{ type: "tickDelayScalar", factor: 0.9, sourceId: "momentum.windShear" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.windShear",
+              value: {
+                turnRetentionBonus: 0.25,
+                decayDelayBonus: 3,
+                decayLossBonus: -0.5,
+                surgeInvulnerabilityBonus: 1,
+                scorePerStackBonus: 0.1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -90,12 +149,22 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "hyperReflex",
       title: "Hyper Reflex",
       shortLabel: "REF",
-      description: "Sharpen reflex loops to squeeze more speed from each turn.",
+      description: "Reflex buffers hold speed through sharp pivots.",
       ranks: [
         {
-          description: "Sharpen reflex loops: -6% tick delay.",
+          description: "Gain momentum faster and keep a buffer through one quick pivot.",
           cost: 58,
-          effects: [{ type: "tickDelayScalar", factor: 0.94, sourceId: "momentum.hyperReflex" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.hyperReflex",
+              value: {
+                gainBonus: 1,
+                turnForgiveness: 2,
+                phaseTicksOnSurgeBonus: 1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -103,12 +172,21 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "phaseStride",
       title: "Phase Stride",
       shortLabel: "PHSE",
-      description: "Bank a momentum surge that saves you once more.",
+      description: "Surges briefly let you drift through hazards.",
       ranks: [
         {
-          description: "Gain +1 extra life.",
+          description: "Surges grant +3 phasing ticks.",
           cost: 68,
-          effects: [{ type: "extraLifeCharge", count: 1 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.phaseStride",
+              value: {
+                phaseTicksOnSurgeBonus: 3,
+                surgeInvulnerabilityBonus: 1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -116,12 +194,23 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "overclock",
       title: "Overclock",
       shortLabel: "CLK",
-      description: "Push your tempo into unsafe overclocked territory.",
+      description: "Ride longer surges at fiercer pace.",
       ranks: [
         {
-          description: "Drop tick delay by another 8%.",
+          description: "+2 surge ticks, -3 surge cooldown, consume 1 fewer stack.",
           cost: 78,
-          effects: [{ type: "tickDelayScalar", factor: 0.92, sourceId: "momentum.overclock" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.overclock",
+              value: {
+                surgeDurationBonus: 2,
+                surgeCooldownBonus: -3,
+                surgeConsumeBonus: -1,
+                scorePerStackBonus: 0.15,
+              },
+            },
+          ],
         },
       ],
     },
@@ -129,12 +218,21 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "rashMomentum",
       title: "Rash Momentum",
       shortLabel: "RASH",
-      description: "Ride reckless momentum for richer apple payouts.",
+      description: "Cashing surges rains extra score.",
       ranks: [
         {
-          description: "+4% score from apples (multiplicative bonus).",
+          description: "Surges grant +4 score and stacks pay +0.2 each.",
           cost: 90,
-          effects: [{ type: "scoreMultiplierBonus", bonus: 1.04 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.rashMomentum",
+              value: {
+                surgeScoreBonus: 4,
+                scorePerStackBonus: 0.2,
+              },
+            },
+          ],
         },
       ],
     },
@@ -142,12 +240,22 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "quantumTrail",
       title: "Quantum Trail",
       shortLabel: "QTR",
-      description: "Leave ghost trails that keep the score climbing.",
+      description: "Drifting leaves energy trails that pulse score.",
       ranks: [
         {
-          description: "+4% score from apples (multiplicative bonus).",
+          description: "Turns spawn 4-tick trails that drip +1 score per tick.",
           cost: 104,
-          effects: [{ type: "scoreMultiplierBonus", bonus: 1.04 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.quantumTrail",
+              value: {
+                trailTicks: 4,
+                trailScorePerTick: 1,
+                scorePerStackBonus: 0.1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -155,17 +263,29 @@ const MOMENTUM_BRANCH: BranchConfig = {
       id: "chronoSurge",
       title: "Chrono Surge",
       shortLabel: "CHR",
-      description: "Bend time further to quicken every heartbeat.",
+      description: "Tighten the surge cycle even further.",
       ranks: [
         {
-          description: "Reduce tick delay by 10%.",
+          description: "Surges trigger sooner, last +1 tick, and grant +1 armor tick.",
           cost: 122,
-          effects: [{ type: "tickDelayScalar", factor: 0.9, sourceId: "momentum.chronoSurge" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "momentum.config.chronoSurge",
+              value: {
+                surgeThresholdBonus: -1,
+                surgeDurationBonus: 1,
+                surgeInvulnerabilityBonus: 1,
+                phaseTicksOnSurgeBonus: 1,
+              },
+            },
+          ],
         },
       ],
     },
   ],
 };
+
 
 const FORTITUDE_BRANCH: BranchConfig = {
   id: "fortitude",
@@ -793,12 +913,29 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "riftWalker",
       title: "Rift Walker",
       shortLabel: "RIFT",
-      description: "Feel the seams between rooms to move quicker.",
+      description: "Open corridors each time you breach a new room.",
       ranks: [
         {
-          description: "Reduce tick delay by 4%.",
+          description: "Clears a 3-tile lane and grants +1 score on room entry.",
           cost: 32,
-          effects: [{ type: "tickDelayScalar", factor: 0.96, sourceId: "traversal.riftWalker" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.riftWalker",
+              value: {
+                enabled: true,
+                corridorWidth: 3,
+                phaseTicksOnEnter: 0,
+                growthOnEnter: 0,
+                scoreOnEnter: 1,
+                ghostShieldCharges: 0,
+                extendForwardRooms: 0,
+                echoTicks: 0,
+                echoScore: 0,
+                pullAppleIntoCorridor: false,
+              },
+            },
+          ],
         },
       ],
     },
@@ -806,12 +943,22 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "portalSense",
       title: "Portal Sense",
       shortLabel: "SENSE",
-      description: "Attune to portal currents to deepen your mana.",
+      description: "Widen lanes and tug apples toward them.",
       ranks: [
         {
-          description: "+10 max mana, +0.2 regen.",
+          description: "+1 lane width, +1 score on entry, apples prefer the lane.",
           cost: 44,
-          effects: [{ type: "manaUpgrade", maxBonus: 10, regenBonus: 0.2 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.portalSense",
+              value: {
+                corridorWidthBonus: 1,
+                scoreOnEnterBonus: 1,
+                pullAppleIntoCorridor: true,
+              },
+            },
+          ],
         },
       ],
     },
@@ -819,12 +966,20 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "phaseSlip",
       title: "Phase Slip",
       shortLabel: "SLIP",
-      description: "Hold phase energy as another life charge.",
+      description: "Room transitions briefly let you phase through hazards.",
       ranks: [
         {
-          description: "Gain +1 extra life.",
+          description: "Gain +4 phase ticks on room entry.",
           cost: 58,
-          effects: [{ type: "extraLifeCharge", count: 1 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.phaseSlip",
+              value: {
+                phaseTicksOnEnterBonus: 4,
+              },
+            },
+          ],
         },
       ],
     },
@@ -832,12 +987,22 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "echoStep",
       title: "Echo Step",
       shortLabel: "ECHO",
-      description: "Echo steps through time to shave delay.",
+      description: "Echoes trail behind, dripping score after a jump.",
       ranks: [
         {
-          description: "Reduce tick delay by 6%.",
+          description: "+2 phase ticks and 4-tick echoes worth +1 score each.",
           cost: 72,
-          effects: [{ type: "tickDelayScalar", factor: 0.94, sourceId: "traversal.echoStep" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.echoStep",
+              value: {
+                phaseTicksOnEnterBonus: 2,
+                echoTicks: 4,
+                echoScore: 1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -845,12 +1010,20 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "mirrorImage",
       title: "Mirror Image",
       shortLabel: "MIRR",
-      description: "Mirrored images add instant length.",
+      description: "Room entries leave mirrored coils behind.",
       ranks: [
         {
-          description: "Gain +2 segments instantly.",
+          description: "Grow +1 segment whenever you enter a new room.",
           cost: 88,
-          effects: [{ type: "instantGrow", segments: 2 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.mirrorImage",
+              value: {
+                growthOnEnterBonus: 1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -858,12 +1031,20 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "ghostSkin",
       title: "Ghost Skin",
       shortLabel: "GHO",
-      description: "A ghostly hide grants another safety charge.",
+      description: "Carry a spectral shield that soaks one wall crash per room.",
       ranks: [
         {
-          description: "Gain +1 extra life.",
+          description: "+1 ghost shield charge on entry.",
           cost: 104,
-          effects: [{ type: "extraLifeCharge", count: 1 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.ghostSkin",
+              value: {
+                ghostShieldChargesBonus: 1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -871,12 +1052,21 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "planarLattice",
       title: "Planar Lattice",
       shortLabel: "GRID",
-      description: "Lay planar lattices to widen mana channels.",
+      description: "Projected lanes stretch into the next room.",
       ranks: [
         {
-          description: "+20 max mana, +0.4 regen.",
+          description: "+1 lane width and extend lanes one room ahead.",
           cost: 126,
-          effects: [{ type: "manaUpgrade", maxBonus: 20, regenBonus: 0.4 }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.planarLattice",
+              value: {
+                corridorWidthBonus: 1,
+                extendForwardRoomsBonus: 1,
+              },
+            },
+          ],
         },
       ],
     },
@@ -884,17 +1074,28 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "eventHorizon",
       title: "Event Horizon",
       shortLabel: "VOID",
-      description: "Fold space around you to further hasten ticks.",
+      description: "Crossing rooms pulls the arena inward.",
       ranks: [
         {
-          description: "Reduce tick delay by 8%.",
+          description: "+2 lane width, +2 score on entry, apples collapse into the lane.",
           cost: 150,
-          effects: [{ type: "tickDelayScalar", factor: 0.92, sourceId: "traversal.eventHorizon" }],
+          effects: [
+            {
+              type: "setFlag",
+              key: "traversal.config.eventHorizon",
+              value: {
+                corridorWidthBonus: 2,
+                scoreOnEnterBonus: 2,
+                pullAppleIntoCorridor: true,
+              },
+            },
+          ],
         },
       ],
     },
   ],
 };
+
 const GEOMETRY_BRANCH: BranchConfig = {
   id: "geometry",
   label: "Geometry",
@@ -1554,5 +1755,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     return true;
   }
 }
+
+
 
 

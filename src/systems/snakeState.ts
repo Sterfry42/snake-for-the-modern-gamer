@@ -198,7 +198,18 @@ export class SnakeState {
     }
 
     if (bossManager.isCollidingWithBoss(head, this.roomId) && invulnTicks <= 0) {
-      return { status: "dead", reason: "boss" };
+      const smite = Number(this.flags["powerup.smiteTicks"] ?? 0);
+      if (smite > 0) {
+        // Kill the boss we collided with instead of dying
+        bossManager.killBossAtPosition(head, this.roomId);
+        this.flags["ui.bossSmite"] = {
+          x: head.x,
+          y: head.y,
+          roomId: this.getRoomIdForPosition(head),
+        };
+      } else {
+        return { status: "dead", reason: "boss" };
+      }
     }
 
     this.body.unshift({ x: head.x, y: head.y });
@@ -300,26 +311,41 @@ export class SnakeState {
     const shieldState = this.flags["geometry.terraShield"] as
       | { charges: number; max?: number; recharge?: number }
       | undefined;
+    const traversalShield = this.flags["traversal.ghostShield"] as { charges?: number } | undefined;
 
     let usingShield = false;
 
     if (!canEatWalls) {
-      const charges = shieldState?.charges ?? 0;
-      if (charges <= 0) {
-        return false;
+      const traversalCharges = traversalShield?.charges ?? 0;
+      if (traversalCharges > 0) {
+        const nextTraversal = {
+          ...traversalShield,
+          charges: Math.max(0, traversalCharges - 1),
+        };
+        this.flags["traversal.ghostShield"] = nextTraversal;
+        const [roomX, roomY] = this.roomId.split(",").map(Number);
+        const worldX = roomX * this.grid.cols + localX;
+        const worldY = roomY * this.grid.rows + localY;
+        this.flags["traversal.ghostShieldTriggered"] = { x: worldX, y: worldY, roomId: this.roomId };
+        usingShield = true;
+      } else {
+        const charges = shieldState?.charges ?? 0;
+        if (charges <= 0) {
+          return false;
+        }
+        const max = shieldState?.max ?? charges;
+        const nextShield = {
+          charges: Math.max(0, charges - 1),
+          max,
+          recharge: shieldState?.recharge,
+        };
+        this.flags["geometry.terraShield"] = nextShield;
+        const [roomX, roomY] = this.roomId.split(",").map(Number);
+        const worldX = roomX * this.grid.cols + localX;
+        const worldY = roomY * this.grid.rows + localY;
+        this.flags["geometry.terraShieldTriggered"] = { x: worldX, y: worldY, roomId: this.roomId };
+        usingShield = true;
       }
-      const max = shieldState?.max ?? charges;
-      const nextShield = {
-        charges: Math.max(0, charges - 1),
-        max,
-        recharge: shieldState?.recharge,
-      };
-      this.flags["geometry.terraShield"] = nextShield;
-      const [roomX, roomY] = this.roomId.split(",").map(Number);
-      const worldX = roomX * this.grid.cols + localX;
-      const worldY = roomY * this.grid.rows + localY;
-      this.flags["geometry.terraShieldTriggered"] = { x: worldX, y: worldY, roomId: this.roomId };
-      usingShield = true;
     }
 
     this.clearWallTile(room, localX, localY);
@@ -339,6 +365,10 @@ export class SnakeState {
     }
   }
 }
+
+
+
+
 
 
 

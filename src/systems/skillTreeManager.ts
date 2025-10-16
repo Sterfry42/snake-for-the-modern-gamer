@@ -55,6 +55,13 @@ export class SkillTreeManager implements SkillTreeRuntime {
         return false;
       }
 
+      if (this.overlay.isInventoryTabActive()) {
+        if (!this.overlay.showInventoryDetailsAtPointer()) {
+          // If not over a valid item, clear details
+        }
+        return true;
+      }
+
       const hovered = this.overlay.getHoveredPerkId();
       if (!hovered) {
         this.overlay.announce("Hover a skill node and press I to inspect it.", "#9ad1ff", 2000);
@@ -301,7 +308,15 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
     this.juice.perkPurchased();
     this.overlay.refresh();
+    this.overlay.pulsePerk(perkId);
     this.overlay.announce(state.definition.title + " - Rank " + purchase.rank + " unlocked!", "#5dd6a2");
+  }
+
+  // External helpers
+  applyTickDelayScalar(factor: number, sourceId: string): void {
+    // Pass through to the underlying system so other modules (e.g., equipment)
+    // can contribute to the tick delay calculation as named sources.
+    this.system.applyTickDelayScalar(factor, sourceId);
   }
 }
 
