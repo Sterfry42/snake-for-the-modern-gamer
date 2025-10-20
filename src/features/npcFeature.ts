@@ -5,6 +5,7 @@ import { getAllNpcs, type Npc } from "../npcs.js";
 import { DialogueBox } from "../ui/dialogueBox.js";
 
 class NpcFeature implements Feature {
+  public readonly id = "npcs";
   private npcSprites = new Map<string, Phaser.GameObjects.Text>();
   private dialogueBox?: DialogueBox;
   private interactionCooldown = 0;

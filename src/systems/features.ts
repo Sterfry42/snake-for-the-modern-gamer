@@ -14,6 +14,10 @@ export class FeatureManager {
     this.registry.invoke(hook, scene, ...args);
   }
 
+  register(feature: Feature): void {
+    this.registry.register(feature);
+  }
+
   clear(): void {
     this.registry.clear();
   }
