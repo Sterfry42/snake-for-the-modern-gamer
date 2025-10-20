@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { defaultGameConfig } from "../config/gameConfig.js";
 import { SnakeGame } from "../game/snakeGame.js";
+import { npcFeature } from "../features/npcFeature.js";
 import { FeatureManager } from "../systems/features.js";
 import { createQuestRegistry } from "../systems/quests.js";
 import { SkillTreeManager } from "../systems/skillTreeManager.js";
@@ -11,6 +12,7 @@ import { JuiceManager } from "../ui/juice.js";
 import { BossHud } from "../ui/bossHud.js";
 import type { Quest } from "../../quests.js";
 import type { AppleSnapshot } from "../apples/types.js";
+import type { DialogueBox } from "../ui/dialogueBox.js";
 import type { Vector2Like } from "../core/math.js";
 import type { InventorySystem } from "../inventory/inventory.js";
 import type { EquipmentSlot } from "../inventory/item.js";
@@ -27,6 +29,7 @@ export default class SnakeScene extends Phaser.Scene {
   private juice!: JuiceManager;
   private skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
+  private dialogueBox?: DialogueBox; // This will be managed by the npcFeature
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private powerupMusicActive = false;
@@ -80,6 +83,7 @@ export default class SnakeScene extends Phaser.Scene {
     const registry = await createQuestRegistry();
     this.game = new SnakeGame(defaultGameConfig, registry);
 
+    this.featureManager.register("npcs", npcFeature);
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
     this.tickEvent = this.time.addEvent({
@@ -95,6 +99,14 @@ export default class SnakeScene extends Phaser.Scene {
   private setupInputHandlers(): void {
     this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
+
+      // Allow dialogue to advance with spacebar even when paused
+      const npcFeature = (this.featureManager as any).registry.features.get("npcs");
+      if (key === " " && (npcFeature as any)?.dialogueBox?.isVisible()) {
+        (npcFeature as any).dialogueBox.next();
+        return;
+      }
+
       if (key === " ") {
         if (this.offeredQuest) return;
         this.paused = !this.paused;
@@ -328,6 +340,14 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.hideOverlay();
     this.paused = true;
     console.log("Game over:", reason);
+  }
+
+  /** Pauses or unpauses the game, hiding the skill tree overlay when paused by a non-player action. */
+  pauseGame(pause: boolean): void {
+    if (this.paused !== pause) {
+      this.paused = pause;
+      this.skillTree.hideOverlay();
+    }
   }
 
   setDir(x: number, y: number) {
