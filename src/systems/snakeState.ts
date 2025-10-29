@@ -134,6 +134,40 @@ export class SnakeState {
       this.direction = { ...this.nextDirection };
     }
 
+    // If we're in the house, gently steer away from walls instead of dying
+    if (this.currentRoomId === "0,-1,0") {
+      const currentRoom = deps.getRoom(this.roomId);
+      const tryDirs = [
+        this.direction,
+        { x: -this.direction.y, y: this.direction.x }, // left
+        { x: this.direction.y, y: -this.direction.x }, // right
+        { x: -this.direction.x, y: -this.direction.y }, // reverse
+      ];
+      const head0 = this.body[0];
+      const isBlocked = (dir: Vector2Like): boolean => {
+        const candidate = addVectors(head0, dir);
+        const [roomX, roomY] = this.roomId.split(",").map(Number);
+        const localX = candidate.x - roomX * this.grid.cols;
+        const localY = candidate.y - roomY * this.grid.rows;
+        // Allow leaving the room freely; only block on solid wall tiles
+        if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows) return false;
+        const tile = currentRoom.layout[localY]?.[localX];
+        if (!tile) return true;
+        if (tile === '#') return true;
+        // Avoid stepping into own body if possible
+        return this.body.some((seg) => seg.x === candidate.x && seg.y === candidate.y);
+      };
+      if (isBlocked(this.direction)) {
+        for (let i = 1; i < tryDirs.length; i++) {
+          if (!isBlocked(tryDirs[i])) {
+            this.direction = { ...tryDirs[i] };
+            this.nextDirection = { ...tryDirs[i] };
+            break;
+          }
+        }
+      }
+    }
+
     const previousHead = currentHeadBeforeMove;
     if (previousHead) {
       this.flags["internal.previousHead"] = { x: previousHead.x, y: previousHead.y };

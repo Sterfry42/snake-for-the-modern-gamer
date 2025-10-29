@@ -23,6 +23,9 @@ class BonusAppleFeature extends Feature {
   }
 
   override onRender(scene: SnakeScene, graphics: Phaser.GameObjects.Graphics): void {
+    if (scene.getFlag<boolean>("ui.suppressHud")) {
+      return;
+    }
     if (!scene.getFlag<boolean>("bonusActive")) {
       return;
     }
