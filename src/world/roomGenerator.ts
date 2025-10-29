@@ -3,6 +3,7 @@ import type { GridConfig, WorldConfig } from "../config/gameConfig.js";
 import { vectorKey } from "../core/math.js";
 import type { RandomGenerator } from "../core/rng.js";
 import type { RoomSnapshot } from "./types.js";
+import { createHouseRoom } from "./houseRoom.js";
 
 export class RoomGenerator {
   constructor(
@@ -11,6 +12,10 @@ export class RoomGenerator {
   ) {}
 
   generate(roomId: string, grid: GridConfig): RoomSnapshot {
+    // Override: special house room at (0,-1,0)
+    if (roomId === "0,-1,0") {
+      return createHouseRoom(roomId, grid);
+    }
     const layout = Array.from({ length: grid.rows }, () => Array(grid.cols).fill("."));
     const portals: RoomSnapshot["portals"] = [];
     const backgroundColor = randomBackgroundColor(this.rng);

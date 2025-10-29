@@ -30,10 +30,14 @@ export default class SnakeScene extends Phaser.Scene {
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private powerupMusicActive = false;
+  private houseMusicActive = false;
   private readonly featureManager = new FeatureManager();
   private readonly baseTickDelay = 100;
   private tickDelay = this.baseTickDelay;
   private tickEvent!: Phaser.Time.TimerEvent;
+  private houseHud!: Phaser.GameObjects.Text;
+  private housePanel!: Phaser.GameObjects.Rectangle;
+  private houseRestCounter = 0;
 
   private paused = true;
   private isDirty = false;
@@ -90,6 +94,18 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     this.initGame(false);
+
+    // House HUD overlay (hidden by default)
+    this.houseHud = this.add
+      .text(8, 8, "", { fontFamily: "monospace", fontSize: "14px", color: "#f5f5f5" })
+      .setDepth(30)
+      .setVisible(false);
+    this.housePanel = this.add
+      .rectangle(0, 0, 160, 70, 0x000000, 0.35)
+      .setOrigin(0, 0)
+      .setDepth(29)
+      .setVisible(false)
+      .setStrokeStyle(1, 0xcfa77a, 0.6);
   }
 
   private setupInputHandlers(): void {
@@ -117,6 +133,16 @@ export default class SnakeScene extends Phaser.Scene {
       if (["arrowright", "d"].includes(key)) this.setDir(1, 0);
 
       // Item equip/test keys removed; equipping is handled in the menu
+
+      // House shop hotkeys (only when in house and not paused)
+      if (!this.paused && this.isInHouse()) {
+        if (key === "1") this.tryBuyHouse("couch");
+        if (key === "2") this.tryBuyHouse("kitchen");
+        if (key === "3") this.tryBuyHouse("expand");
+        if (key === "4") this.tryBuyHouse("bed");
+        if (key === "5") this.tryBuyHouse("plant");
+        if (key === "6") this.tryBuyHouse("lamp");
+      }
     });
   }
 
@@ -150,6 +176,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private step(): void {
     const result = this.game.step(this.paused);
+    this.updateHouseAmbience();
 
     if (result.status === "dead") {
       if (this.skillTree.tryConsumeExtraLife()) {
@@ -171,6 +198,48 @@ export default class SnakeScene extends Phaser.Scene {
       if (result.apple.worldPosition) {
         this.juice.appleChomp(result.apple.worldPosition.x, result.apple.worldPosition.y);
       }
+    }
+
+    // House rest effects and ambience particles
+    if (this.isInHouse()) {
+      // reset hunger timer while inside
+      this.setFlag("timeSinceEat", 0);
+      this.houseRestCounter++;
+      if (this.houseRestCounter >= 30) {
+        this.houseRestCounter = 0;
+        // gentle rest reward: +1 score, +1 growth and pulse
+        this.addScoreDirect(1);
+        this.growSnake(1);
+        const cam = this.cameras.main;
+        (this.juice as any).houseRestPulse?.(cam.midPoint.x, cam.midPoint.y + 10);
+      }
+      // random dust motes
+      const w = this.grid.cols * this.grid.cell;
+      const h = this.grid.rows * this.grid.cell;
+      const room = this.game.getCurrentRoom();
+      // bias motes near lamp if present
+      let lampCenter: { x: number; y: number } | null = null;
+      outer: for (let yy = 0; yy < room.layout.length; yy++) {
+        for (let xx = 0; xx < room.layout[yy].length; xx++) {
+          if (room.layout[yy][xx] === 'L') {
+            lampCenter = this.tileToWorldInRoom({ x: xx, y: yy }, room.id);
+            break outer;
+          }
+        }
+      }
+      if (this.random() < 0.1) {
+        let x: number; let y: number;
+        if (lampCenter && this.random() < 0.7) {
+          x = lampCenter.x + (Math.random() - 0.5) * 40;
+          y = lampCenter.y - Math.random() * 40;
+        } else {
+          x = 20 + Math.random() * (w - 40);
+          y = h - 30 - Math.random() * (h * 0.6);
+        }
+        (this.juice as any).houseMote?.(x, y);
+      }
+    } else {
+      this.houseRestCounter = 0;
     }
 
     // Idle apple sparkle
@@ -715,6 +784,8 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
   private draw(): void {
+    // Suppress generic HUDs in house
+    this.setFlag("ui.suppressHud", this.isInHouse());
     const room = this.game.getCurrentRoom();
     const baseSense = this.getFlag<number>("geometry.wallSenseRadius") ?? 0;
     const equipSense = this.getFlag<number>("equipment.wallSenseRadiusBonus") ?? 0;
@@ -727,6 +798,7 @@ export default class SnakeScene extends Phaser.Scene {
       poweredUp: Boolean(pActive),
     });
     this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
+    this.questHud.setVisible(!this.isInHouse());
 
     // Render bosses
     const bosses = this.game.getBosses(room.id);
@@ -743,5 +815,88 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.featureManager.call("onRender", this, this.graphics);
+
+    // Update simple house HUD
+    if (this.isInHouse()) {
+      const purchases = (this.game.getFlag<Record<string, unknown>>("house.purchases") ?? {}) as Record<string, unknown>;
+      const expandLevel = Number(this.game.getFlag<number>("house.expandLevel") ?? 0);
+      const expandCap = 5;
+      const lines = [
+        `House Shop — Score: ${this.score}`,
+        `1) Couch (10) ${purchases["couch"] ? "✓" : ""}`,
+        `2) Kitchen (15) ${purchases["kitchen"] ? "✓" : ""}`,
+        `3) Expand (20) level ${expandLevel}/${expandCap}`,
+        `4) Bed (12) ${purchases["bed"] ? "✓" : ""}`,
+        `5) Plant (8) ${purchases["plant"] ? "✓" : ""}`,
+        `6) Lamp (14) ${purchases["lamp"] ? "✓" : ""}`,
+        `Press 1, 2, or 3 to buy`,
+      ];
+      this.houseHud.setText(lines.join("\n"));
+      this.houseHud.setVisible(true);
+      const b = this.houseHud.getBounds();
+      this.housePanel.setPosition(b.x - 6, b.y - 6);
+      this.housePanel.setSize(b.width + 12, b.height + 12);
+      this.housePanel.setVisible(true);
+    } else {
+      this.houseHud.setVisible(false);
+      this.housePanel.setVisible(false);
+    }
+  }
+
+
+  private isInHouse(): boolean {
+    return this.currentRoomId === "0,-1,0";
+  }
+
+  private tryBuyHouse(kind: "couch" | "kitchen" | "expand"): void {
+    const ok = this.game.purchaseHouseItem(kind);
+    if (ok) {
+      this.isDirty = true;
+      // Small confirmation popup near top-left
+      const popup = this.add
+        .text(120, 8, `${kind} purchased`, { fontFamily: "monospace", fontSize: "14px", color: "#9ad1ff" })
+        .setDepth(31)
+        .setOrigin(0, 0)
+        .setAlpha(0.95);
+      this.tweens.add({ targets: popup, y: 26, alpha: 0, duration: 700, ease: "Cubic.easeOut", onComplete: () => popup.destroy() });
+    } else {
+      // Error popup
+      const popup = this.add
+        .text(120, 8, `Cannot purchase ${kind}`, { fontFamily: "monospace", fontSize: "14px", color: "#ff8578" })
+        .setDepth(31)
+        .setOrigin(0, 0)
+        .setAlpha(0.95);
+      this.tweens.add({ targets: popup, y: 26, alpha: 0, duration: 700, ease: "Cubic.easeOut", onComplete: () => popup.destroy() });
+    }
+  }
+
+  // Monitor room transitions to start/stop house ambience
+  private updateHouseAmbience(): void {
+    const inHouse = this.isInHouse();
+    if (inHouse && !this.houseMusicActive) {
+      (this.juice as any).startHouseAmbience?.();
+      this.houseMusicActive = true;
+    } else if (!inHouse && this.houseMusicActive) {
+      (this.juice as any).stopHouseAmbience?.();
+      this.houseMusicActive = false;
+    }
+    // Apply slowdown only when snake is actually inside the interior (not just in the room)
+    const slowInside = this.isInHouseInterior();
+    this.skillTree.applyTickDelayScalar(slowInside ? 1.6 : 1.0, "house");
+  }
+
+  private isInHouseInterior(): boolean {
+    if (!this.isInHouse()) return false;
+    const head = this.game.getSnakeBody()[0];
+    if (!head) return false;
+    const room = this.game.getCurrentRoom();
+    const [rx, ry] = room.id.split(",").map(Number);
+    const lx = head.x - rx * this.grid.cols;
+    const ly = head.y - ry * this.grid.rows;
+    if (lx < 0 || ly < 0 || lx >= this.grid.cols || ly >= this.grid.rows) return false;
+    const tile = room.layout[ly]?.[lx];
+    if (!tile) return false;
+    // Interior tiles (wood, rug, trim, and furniture)
+    return "WETCKBPL".includes(tile);
   }
 }

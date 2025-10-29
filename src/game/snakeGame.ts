@@ -620,6 +620,155 @@ export class SnakeGame implements QuestRuntime {
     return this.inventory;
   }
 
+  // --- House decoration API ---
+  purchaseHouseItem(kind: "couch" | "kitchen" | "expand" | "bed" | "plant" | "lamp"): boolean {
+    const houseId = "0,-1,0";
+    const room = this.world.getRoom(houseId);
+    const cols = this.config.grid.cols;
+    const rows = this.config.grid.rows;
+
+    const purchases = (this.getFlag<Record<string, unknown>>("house.purchases") ?? {}) as Record<
+      string,
+      unknown
+    >;
+
+    const costs: Record<string, number> = {
+      couch: 10,
+      kitchen: 15,
+      expand: 20,
+      bed: 12,
+      plant: 8,
+      lamp: 14,
+    } as const as Record<string, number>;
+
+    const cost = costs[kind];
+    if (this.snake.score < cost) {
+      return false;
+    }
+
+    function setChar(x: number, y: number, ch: string) {
+      const row = room.layout[y];
+      if (!row) return;
+      const chars = row.split("");
+      if (x < 0 || x >= chars.length) return;
+      if (chars[x] === ch) return;
+      chars[x] = ch;
+      room.layout[y] = chars.join("");
+    }
+
+    if (kind === "couch") {
+      if (purchases[kind]) return false;
+      // Place couch near lower-left inside the house cube
+      const bbox = this.getHouseBoundingBox(room);
+      if (!bbox) return false;
+      const y = bbox.bottom - 2;
+      const startX = bbox.left + 2;
+      for (let x = startX; x < startX + 3; x++) setChar(x, y, "C");
+      purchases[kind] = true;
+    } else if (kind === "kitchen") {
+      if (purchases[kind]) return false;
+      // Kitchen block on upper-right inside the house cube
+      const bbox = this.getHouseBoundingBox(room);
+      if (!bbox) return false;
+      const startY = bbox.top + 2;
+      const startX = bbox.right - 4;
+      for (let y = startY; y < startY + 2; y++) for (let x = startX; x < startX + 3; x++) setChar(x, y, "K");
+      purchases[kind] = true;
+    } else if (kind === "expand") {
+      // Recompute cube larger by one step; max 3 expansions
+      const level = Number((this.getFlag<number>("house.expandLevel") ?? 0));
+      const cap = 5;
+      if (level >= cap) return false;
+      this.expandHouseCube(room, level + 1);
+      this.setFlag("house.expandLevel", level + 1);
+    } else if (kind === "bed") {
+      if (purchases[kind]) return false;
+      const bbox = this.getHouseBoundingBox(room);
+      if (!bbox) return false;
+      const startX = bbox.left + 3;
+      const startY = bbox.top + Math.floor((bbox.bottom - bbox.top) / 2);
+      for (let x = startX; x < startX + 2; x++) setChar(x, startY, "B");
+      purchases[kind] = true;
+    } else if (kind === "plant") {
+      if (purchases[kind]) return false;
+      const bbox = this.getHouseBoundingBox(room);
+      if (!bbox) return false;
+      setChar(bbox.left + 2, bbox.top + 2, "P");
+      purchases[kind] = true;
+    } else if (kind === "lamp") {
+      if (purchases[kind]) return false;
+      const bbox = this.getHouseBoundingBox(room);
+      if (!bbox) return false;
+      setChar(bbox.right - 2, bbox.bottom - 2, "L");
+      purchases[kind] = true;
+    }
+
+    // Deduct points and persist state
+    this.addScore(-cost);
+    this.setFlag("house.purchases", purchases);
+    return true;
+  }
+
+  private getHouseBoundingBox(room: { layout: string[] }): { left: number; right: number; top: number; bottom: number } | null {
+    // Find the first wood tile to infer the cube, then expand to borders '#'
+    for (let y = 0; y < room.layout.length; y++) {
+      for (let x = 0; x < room.layout[y].length; x++) {
+        if (room.layout[y][x] === 'W') {
+          // expand left
+          let left = x; while (left > 0 && room.layout[y][left] !== '#') left--;
+          let right = x; while (right < room.layout[y].length && room.layout[y][right] !== '#') right++;
+          // expand top/bottom by scanning columns within bounds
+          let top = y; while (top > 0 && room.layout[top].slice(left + 1, right).includes('W')) top--;
+          let bottom = y; while (bottom < room.layout.length - 1 && room.layout[bottom].slice(left + 1, right).includes('W')) bottom++;
+          return { left, right, top, bottom };
+        }
+      }
+    }
+    return null;
+  }
+
+  private expandHouseCube(room: { layout: string[] }, level: number): void {
+    // Recreate a centered cube, grown by 2 cells per expansion in each dimension
+    const cols = this.config.grid.cols;
+    const rows = this.config.grid.rows;
+    const prev = room.layout.map((r) => r.split(''));
+    const layout = Array.from({ length: rows }, () => Array(cols).fill('.')) as string[][];
+
+    const baseW = Math.min(14, Math.max(10, Math.floor(cols * 0.45)));
+    const baseH = Math.min(10, Math.max(8, Math.floor(rows * 0.42)));
+    const add = Math.min(3, Math.max(0, level)) * 2; // +2 width/height per level
+    const width = Math.min(cols - 4, baseW + add);
+    const height = Math.min(rows - 4, baseH + add);
+    const left = Math.floor(cols / 2 - width / 2);
+    const top = Math.floor(rows / 2 - height / 2);
+    for (let y = top; y < top + height; y++) {
+      for (let x = left; x < left + width; x++) {
+        const isBorder = x === left || x === left + width - 1 || y === top || y === top + height - 1;
+        layout[y][x] = isBorder ? '#' : 'W';
+      }
+    }
+
+    // Carve south door and add rug inside
+    const bottom = top + height - 1;
+    const cx = Math.floor(left + width / 2);
+    const doorHalf = Math.max(1, Math.floor(Math.min(3, Math.floor(width / 6)) / 2));
+    for (let x = cx - doorHalf; x <= cx + doorHalf; x++) {
+      layout[bottom][x] = '.';
+      if (bottom - 1 > top) layout[bottom - 1][x] = 'E';
+    }
+
+    // Re-apply furniture if still inside
+    const tryPlace = (ch: string) => {
+      for (let y = 0; y < prev.length; y++) for (let x = 0; x < prev[y].length; x++) if (prev[y][x] === ch) {
+        if (x > left && x < left + width - 1 && y > top && y < top + height - 1) layout[y][x] = ch;
+      }
+    };
+    tryPlace('C');
+    tryPlace('K');
+
+    room.layout = layout.map((r) => r.join(''));
+  }
+
   private tickFortitudeStates(): void {
     const invuln = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
     if (invuln > 0) {

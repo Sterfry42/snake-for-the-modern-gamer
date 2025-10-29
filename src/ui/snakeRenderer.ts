@@ -76,6 +76,54 @@ export class SnakeRenderer {
           this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
           this.graphics.lineStyle(LADDER_OUTLINE_WIDTH, ladderOutlineColor, LADDER_OUTLINE_ALPHA);
           this.graphics.strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "W") {
+          // Wooden floor for house interior
+          const color = 0x6d5845;
+          const outline = darkenColor(color, 0.35);
+          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "T") {
+          // Door trim/frame accent
+          const color = 0xcfa77a;
+          const outline = darkenColor(color, 0.35);
+          this.graphics.fillStyle(color, 0.9).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.6).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "C") {
+          // Couch: warm orange
+          const color = 0xffa657;
+          const outline = darkenColor(color, 0.35);
+          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.9).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "K") {
+          // Kitchen block: cool teal
+          const color = 0x5ac8c0;
+          const outline = darkenColor(color, 0.35);
+          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.9).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "B") {
+          // Bed: soft pink
+          const color = 0xffb3c1;
+          const outline = darkenColor(color, 0.35);
+          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.9).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "P") {
+          // Plant: green
+          const color = 0x62d96b;
+          const outline = darkenColor(color, 0.35);
+          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.9).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "L") {
+          // Lamp: warm yellow
+          const color = 0xffe58a;
+          const outline = darkenColor(color, 0.35);
+          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.9).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "E") {
+          // Expansion/rug: light accent tile
+          const color = 0x8ea1ff;
+          const outline = darkenColor(color, 0.45);
+          this.graphics.fillStyle(color, 0.75).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics.lineStyle(1, outline, 0.6).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
         } else {
           this.graphics.fillStyle(room.backgroundColor, 1);
           this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);

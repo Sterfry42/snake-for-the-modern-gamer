@@ -758,36 +758,96 @@ export class SkillTreeOverlay {
     const getter: any = (this.scene as any);
     const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel ? getter.getGeneratedRoomsOnCurrentLevel() : [];
     const current: string = (this.scene as any).currentRoomId ?? "0,0,0";
-    if (rooms.length === 0) {
+
+    const level = Number((current.split(",")[2] ?? 0));
+    const coords = rooms.map((id) => id.split(",").map((n) => Number(n)) as number[]).filter((c) => (c[2] ?? 0) === level);
+
+    // Ensure bounds include house and origin on their level for icon placement
+    const markerCoords: number[][] = [];
+    if (level === 0) {
+      markerCoords.push([0, 0, 0]); // origin/spawn
+      markerCoords.push([0, -1, 0]); // house
+    }
+
+    const allBounds = coords.concat(markerCoords);
+    if (allBounds.length === 0) {
       this.mapGraphics.lineStyle(1, 0x244155, 0.8).strokeRect(this.mapBackground.x + 8, this.mapBackground.y + 32, this.mapBackground.width - 16, this.mapBackground.height - 40);
       this.mapGraphics.fillStyle(0x9ad1ff, 0.8);
       this.mapGraphics.fillCircle(this.mapBackground.x + this.mapBackground.width / 2, this.mapBackground.y + this.mapBackground.height / 2, 2);
       return;
     }
-    const coords = rooms.map((id) => id.split(",").map((n) => Number(n)) as number[]);
-    const level = Number((current.split(",")[2] ?? 0));
-    const filtered: number[][] = coords.filter((c) => (c[2] ?? 0) === level);
+
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const [x, y] of filtered) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
-    if (!isFinite(minX)) { return; }
+    for (const [x, y] of allBounds) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+
     const margin = 16;
     const areaW = this.mapBackground.width - margin * 2;
     const areaH = this.mapBackground.height - margin * 2 - 24;
     const spanX = Math.max(1, maxX - minX + 1);
     const spanY = Math.max(1, maxY - minY + 1);
-    const cellSize = Math.floor(Math.min(areaW / spanX, areaH / spanY));
+    const cellSize = Math.max(6, Math.floor(Math.min(areaW / spanX, areaH / spanY)));
     const originX = this.mapBackground.x + margin + (areaW - cellSize * spanX) / 2;
     const originY = this.mapBackground.y + 24 + margin + (areaH - cellSize * spanY) / 2;
 
-    // Draw grid of discovered rooms
-    for (const [x, y] of filtered) {
+    const drawCell = (x: number, y: number, style: { fill: number; alpha: number; stroke?: number; strokeA?: number }, outline = true) => {
       const gx = originX + (x - minX) * cellSize;
       const gy = originY + (y - minY) * cellSize;
+      this.mapGraphics.fillStyle(style.fill, style.alpha).fillRect(gx + 1, gy + 1, cellSize - 2, cellSize - 2);
+      if (outline) this.mapGraphics.lineStyle(1, style.stroke ?? 0x244155, style.strokeA ?? 0.9).strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
+      return { gx, gy };
+    };
+
+    // Draw known rooms
+    const knownSet = new Set(coords.map((c) => `${c[0]},${c[1]},${level}`));
+    for (const [x, y] of coords) {
       const id = `${x},${y},${level}`;
       const isCurrent = id === current;
-      this.mapGraphics.fillStyle(isCurrent ? 0x5dd6a2 : 0x4da3ff, isCurrent ? 0.9 : 0.7);
-      this.mapGraphics.fillRect(gx + 1, gy + 1, cellSize - 2, cellSize - 2);
-      this.mapGraphics.lineStyle(1, 0x244155, 0.9).strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
+      drawCell(x, y, { fill: isCurrent ? 0x5dd6a2 : 0x4da3ff, alpha: isCurrent ? 0.9 : 0.7 });
+    }
+
+    // Draw faint cells for markers if not already present
+    for (const [mx, my] of markerCoords) {
+      const id = `${mx},${my},${level}`;
+      if (!knownSet.has(id)) {
+        drawCell(mx, my, { fill: 0x203245, alpha: 0.35, stroke: 0x244155, strokeA: 0.6 });
+      }
+    }
+
+    // Icons
+    const iconPos = (x: number, y: number) => {
+      const gx = originX + (x - minX) * cellSize;
+      const gy = originY + (y - minY) * cellSize;
+      return { x: gx + 1, y: gy + 1, cx: gx + cellSize / 2, cy: gy + cellSize / 2 };
+    };
+    if (level === 0) {
+      // House icon at (0,-1,0) — small, centered, white
+      const h = iconPos(0, -1);
+      // 3x smaller than the previous icon: ~18% of cell size
+      const size = Math.max(3, Math.floor(cellSize * 0.18));
+      const baseH = Math.max(2, Math.floor(size * 0.55));
+      const baseW = size;
+      const baseX = h.cx - baseW / 2;
+      const baseY = h.cy + size * 0.1 - baseH / 2;
+      const roofTopX = h.cx;
+      const roofTopY = baseY - Math.max(1, Math.floor(size * 0.45));
+      const roofLeftX = baseX;
+      const roofRightX = baseX + baseW;
+      const roofBaseY = baseY;
+      this.mapGraphics.fillStyle(0xffffff, 0.95);
+      // roof
+      this.mapGraphics.fillTriangle(roofLeftX, roofBaseY, roofRightX, roofBaseY, roofTopX, roofTopY);
+      // base
+      this.mapGraphics.fillRect(baseX, baseY, baseW, baseH);
+
+      // Spawn icon at (0,0,0)
+      const s = iconPos(0, 0);
+      this.mapGraphics.lineStyle(1, 0xfff3a8, 0.95);
+      this.mapGraphics.beginPath();
+      this.mapGraphics.moveTo(s.cx - 2, s.cy);
+      this.mapGraphics.lineTo(s.cx + 2, s.cy);
+      this.mapGraphics.moveTo(s.cx, s.cy - 2);
+      this.mapGraphics.lineTo(s.cx, s.cy + 2);
+      this.mapGraphics.strokePath();
     }
   }
 

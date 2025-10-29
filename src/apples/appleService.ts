@@ -37,12 +37,20 @@ export class AppleService {
     this.registry = new AppleRegistry(config);
   }
 
+  private isHouse(roomId: string): boolean {
+    return roomId === "0,-1,0";
+  }
+
   getSnapshot(roomId: string): AppleSnapshot | null {
     const apple = this.apples.get(roomId);
     return apple ? apple.getSnapshot() : null;
   }
 
   ensureApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
+    if (this.isHouse(roomId)) {
+      // Never spawn in the house
+      return { snapshot: null, changed: false };
+    }
     const existing = this.apples.get(roomId);
     if (existing) {
       return { snapshot: existing.getSnapshot(), changed: false };
@@ -51,6 +59,9 @@ export class AppleService {
   }
 
   spawnApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
+    if (this.isHouse(roomId)) {
+      return { snapshot: null, changed: false };
+    }
     const room = this.world.getRoom(roomId);
     const spawnOptions = this.collectSpawnOptions(roomId, room.layout, snake);
     if (spawnOptions.length === 0) {
@@ -180,6 +191,9 @@ export class AppleService {
     position: Vector2Like,
     snake: Vector2Like[]
   ): { from: string; to: string } | null {
+    if (this.isHouse(roomId)) {
+      return null;
+    }
     const fromRoom = apple.roomId;
 
     const occupant = this.apples.get(roomId);
@@ -232,6 +246,9 @@ export class AppleService {
     }
 
     const targetRoomId = `${roomX},${roomY},${roomZ}`;
+    if (this.isHouse(targetRoomId)) {
+      return null;
+    }
     const targetRoom = this.world.getRoom(targetRoomId);
     const tile = targetRoom.layout[localY]?.[localX];
     if (tile !== ".") {

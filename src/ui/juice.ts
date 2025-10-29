@@ -16,6 +16,7 @@ export class JuiceManager {
   private readonly overlayLayer: Phaser.GameObjects.Layer;
   private bossMusic?: { id: string; gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private houseMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
@@ -368,6 +369,99 @@ export class JuiceManager {
       try { gain.disconnect(); } catch {}
     }, 340);
     this.powerupMusic = undefined;
+  }
+
+  // Gentle house ambience
+  startHouseAmbience(): void {
+    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+    this.stopHouseAmbience();
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const s1 = this.ctx.createOscillator();
+    s1.type = "sine";
+    s1.frequency.value = 196; // G3
+    const g1 = this.ctx.createGain();
+    g1.gain.value = 0.06;
+    s1.connect(g1); g1.connect(gain);
+
+    const s2 = this.ctx.createOscillator();
+    s2.type = "triangle";
+    s2.frequency.value = 261.63; // C4
+    const g2 = this.ctx.createGain();
+    g2.gain.value = 0.05;
+    s2.connect(g2); g2.connect(gain);
+
+    const lfo = this.ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.2;
+    const lfoGain = this.ctx.createGain();
+    lfoGain.gain.value = 0.06;
+    lfo.connect(lfoGain);
+    lfoGain.connect(g1.gain);
+
+    const lfo2 = this.ctx.createOscillator();
+    lfo2.type = "sine";
+    lfo2.frequency.value = 0.13;
+    const lfoGain2 = this.ctx.createGain();
+    lfoGain2.gain.value = 0.05;
+    lfo2.connect(lfoGain2);
+    lfoGain2.connect(g2.gain);
+
+    s1.start(now);
+    s2.start(now);
+    lfo.start(now);
+    lfo2.start(now);
+    try { gain.gain.exponentialRampToValueAtTime(0.2, now + 0.25); } catch {}
+
+    this.houseMusic = { gain, sources: [s1, s2, lfo, lfo2], cleanup: [g1, g2, lfoGain, lfoGain2] };
+  }
+
+  stopHouseAmbience(): void {
+    if (!this.houseMusic) return;
+    const { gain, sources, cleanup } = this.houseMusic;
+    const now = this.ctx.currentTime;
+    try {
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+    } catch {}
+    for (const s of sources) { try { s.stop(now + 0.28); } catch {} }
+    globalThis.setTimeout(() => {
+      for (const s of sources) { try { s.disconnect(); } catch {} }
+      for (const n of cleanup) { try { n.disconnect(); } catch {} }
+      try { gain.disconnect(); } catch {}
+    }, 340);
+    this.houseMusic = undefined;
+  }
+
+  // Soft glow pulse to indicate restful tick
+  houseRestPulse(x: number, y: number): void {
+    const c = 0xffe2b0;
+    this.ringPulse(x, y, c, 18, 2, 320);
+    this.spawnBurst(x, y, { colors: [0xfff3a8, 0xffe2b0], count: 8, radius: 18 });
+  }
+
+  // Ambient mote drifting upward
+  houseMote(x: number, y: number): void {
+    const rect = this.scene.add.rectangle(x, y, 2, 2, 0xfff3a8, 0.6);
+    rect.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(rect);
+    const dx = (Math.random() - 0.5) * 10;
+    const dy = -20 - Math.random() * 20;
+    this.scene.tweens.add({
+      targets: rect,
+      x: x + dx,
+      y: y + dy,
+      alpha: 0,
+      duration: 1600 + Math.random() * 900,
+      ease: "Sine.easeOut",
+      onComplete: () => rect.destroy(),
+    });
   }
 
   // Treasure beacon: slim vertical beam rising from the treasure to the top

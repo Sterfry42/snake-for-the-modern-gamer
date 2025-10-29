@@ -33,7 +33,11 @@ class ScoreFeature extends Feature {
   }
 
   override onRender(scene: SnakeScene): void {
-    this.scoreText?.setText(this.composeLabel(scene));
+    const suppressed = !!scene.getFlag<boolean>("ui.suppressHud");
+    this.scoreText?.setVisible(!suppressed);
+    if (!suppressed) {
+      this.scoreText?.setText(this.composeLabel(scene));
+    }
   }
 
   private composeLabel(scene: SnakeScene, scoreOverride?: number): string {
