@@ -15,6 +15,7 @@ export interface RoomSnapshot {
   apple?: Vector2Like;
   treasure?: Vector2Like;
   powerup?: { x: number; y: number; kind: "phase" | "smite" };
+  questGiver?: { x: number; y: number; name?: string; portraitId?: string };
   backgroundColor: number;
   wallColor: number;
   wallOutlineColor: number;

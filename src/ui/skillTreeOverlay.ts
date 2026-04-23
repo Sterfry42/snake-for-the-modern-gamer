@@ -41,8 +41,10 @@ const TREE_PADDING = { top: 140, bottom: 80, horizontal: 80 };
 const DETAIL_PANEL_WIDTH = 220;
 const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
+const CLICK_ROW_TOP_BIAS = 8;
 
-type TabId = "skills" | "inventory" | "map";
+type TabId = "skills" | "inventory" | "customize" | "map";
+type SnakeThemeId = "classic" | "sunset" | "midnight" | "bone";
 
 interface TabDefinition {
   id: TabId;
@@ -53,6 +55,7 @@ interface TabDefinition {
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "skills", label: "Skill Tree" },
   { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
+  { id: "customize", label: "CUSTOMIZE MY SNAKE", placeholder: "Buy palettes and swagger." },
   { id: "map", label: "Map", placeholder: "Explore to reveal more rooms." },
 ];
 
@@ -82,11 +85,15 @@ export class SkillTreeOverlay {
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
   private inventoryHighlight?: Phaser.GameObjects.Rectangle;
+  private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
   private readonly equipmentContainer: Phaser.GameObjects.Container;
   private readonly equipmentBackground: Phaser.GameObjects.Rectangle;
   private readonly equipmentTitle: Phaser.GameObjects.Text;
   private readonly equipmentLines: Map<string, Phaser.GameObjects.Text> = new Map();
   private wasEquipmentVisible = false;
+  private readonly customizationText: Phaser.GameObjects.Text;
+  private customizationIndex: string[] = [];
+  private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
   private hoveredPerkId: string | null = null;
   private detailPerkId: string | null = null;
@@ -249,12 +256,17 @@ export class SkillTreeOverlay {
       color: "#ffffff",
       lineSpacing: 8,
     }).setInteractive({ useHandCursor: true });
+    this.customizationText = this.scene.add.text(TREE_PADDING.horizontal, TREE_PADDING.top, "", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#ffffff",
+      lineSpacing: 8,
+      wordWrap: { width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 },
+    }).setInteractive({ useHandCursor: true }).setVisible(false);
 
     this.inventoryItemsText.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== "inventory") return;
-      const localY = pointer.worldY - this.container.y - this.inventoryItemsText.y;
-      const lineHeight = 24; // approx fontSize 16 + lineSpacing 8
-      const index = Math.floor(localY / lineHeight);
+      const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y);
       const itemId = this.inventoryIndex[index];
       if (!itemId) {
         this.selectedInventoryItemId = null;
@@ -294,6 +306,44 @@ export class SkillTreeOverlay {
         }
       }
     });
+    this.customizationText.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== "customize") return;
+      const actionId = this.getCustomizationActionId(pointer);
+      if (!actionId) return;
+
+      if (actionId.startsWith("theme:")) {
+        const themeId = actionId.split(":")[1] as SnakeThemeId;
+        const result = this.scene.purchaseOrApplySnakeTheme(themeId);
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+        return;
+      }
+
+      if (actionId === "hat") {
+        const result = this.scene.purchaseOrToggleCowboyHat();
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+        return;
+      }
+
+      if (actionId === "walking-noise") {
+        const result = this.scene.toggleDisableWalkingNoise();
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+      }
+    });
+    this.customizationText.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== "customize") return;
+      const hovered = this.getCustomizationHoveredRow(pointer);
+      if (!hovered) {
+        this.clearCustomizationHover();
+        return;
+      }
+      this.highlightCustomizationRow(hovered.row);
+    });
+    this.customizationText.on("pointerout", () => {
+      this.clearCustomizationHover();
+    });
 
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
@@ -310,6 +360,7 @@ export class SkillTreeOverlay {
       this.detailBody,
       this.hintText,
       this.inventoryItemsText,
+      this.customizationText,
     ];
     // Build equipment panel (hidden by default)
     const equipX = TREE_PADDING.horizontal;
@@ -429,6 +480,7 @@ export class SkillTreeOverlay {
     this.glintTimer?.remove(false);
     this.glintTimer = undefined;
     this.hideHoverTip();
+    this.clearCustomizationHover();
   }
 
   toggle(force?: boolean): void {
@@ -463,9 +515,7 @@ export class SkillTreeOverlay {
     if (!pointer) {
       return false;
     }
-    const localY = pointer.worldY - this.container.y - this.inventoryItemsText.y;
-    const lineHeight = 24;
-    const index = Math.floor(localY / lineHeight);
+    const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y);
     const id = this.inventoryIndex[index];
     if (!id || id.startsWith("unequip:")) {
       this.clearPerkDetails(true);
@@ -537,6 +587,61 @@ export class SkillTreeOverlay {
     });
   }
 
+  private getTextRowIndex(pointer: Phaser.Input.Pointer, textY: number, topBias = CLICK_ROW_TOP_BIAS): number {
+    const lineHeight = 24;
+    const localY = pointer.worldY - this.container.y - textY - topBias;
+    return Math.floor(localY / lineHeight);
+  }
+
+  private highlightCustomizationRow(row: number): void {
+    if (!this.visible || this.activeTab !== "customize") return;
+    const lineHeight = 24;
+    const x = TREE_PADDING.horizontal - 4;
+    const y = TREE_PADDING.top + row * lineHeight - 1;
+    const width = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 + 8;
+    const height = 20;
+
+    if (!this.customizationHoverHighlight) {
+      this.customizationHoverHighlight = this.scene.add
+        .rectangle(x, y, width, height, 0x5dd6a2, 0.16)
+        .setOrigin(0, 0);
+      this.container.add(this.customizationHoverHighlight);
+    }
+
+    this.customizationHoverHighlight
+      .setPosition(x, y)
+      .setSize(width, height)
+      .setVisible(true);
+  }
+
+  private clearCustomizationHover(): void {
+    this.customizationHoverHighlight?.setVisible(false);
+  }
+
+  private getCustomizationHoveredRow(
+    pointer: Phaser.Input.Pointer
+  ): { row: number; actionId: string } | null {
+    const visualRow = this.getTextRowIndex(pointer, this.customizationText.y);
+    for (const entry of this.customizationRowMap) {
+      if (entry.row === visualRow) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
+  private getCustomizationActionId(pointer: Phaser.Input.Pointer): string | null {
+    return this.getCustomizationHoveredRow(pointer)?.actionId ?? null;
+  }
+
+  private countRenderedLines(value: string): number {
+    if (!value) {
+      return 1;
+    }
+    const wrapped = this.customizationText.getWrappedText(value);
+    return Math.max(1, wrapped.length);
+  }
+
   refresh(): void {
     const stats = this.system.getStats();
     const perks = this.system.getPerks();
@@ -562,9 +667,14 @@ export class SkillTreeOverlay {
 
     const skillsActive = this.activeTab === "skills";
     const inventoryActive = this.activeTab === "inventory";
-    const equipmentActive = this.activeTab === "equipment";
+    const customizationActive = this.activeTab === "customize";
+    const equipmentActive = false;
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
+    this.customizationText.setVisible(customizationActive);
+    if (!customizationActive) {
+      this.clearCustomizationHover();
+    }
     this.equipmentContainer.setVisible(false);
     this.equipmentBackground.setVisible(false);
     this.equipmentTitle.setVisible(false);
@@ -581,7 +691,7 @@ export class SkillTreeOverlay {
 
     if (this.stubText) {
       const mapActive = this.activeTab === "map";
-      const showStub = !skillsActive && !inventoryActive && !mapActive;
+      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive;
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
@@ -625,6 +735,65 @@ export class SkillTreeOverlay {
           this.hintText.setColor("#9ad1ff");
         }
       }
+    }
+
+    if (customizationActive) {
+      const state = this.scene.getSnakeCustomizationState();
+      const lines: string[] = ["Click a style to buy or equip it.", ""];
+      const index: string[] = ["", ""];
+      const rowMap: Array<{ row: number; actionId: string }> = [];
+      let visualRow = 0;
+      visualRow += this.countRenderedLines(lines[0]);
+      visualRow += 1;
+      for (const theme of this.scene.getSnakeThemeDefinitions()) {
+        const unlocked = state.unlockedThemes.includes(theme.id);
+        const active = state.activeTheme === theme.id;
+        const price = unlocked ? (active ? "equipped" : "owned") : `${theme.cost} score`;
+        const line = `${active ? "> " : ""}${theme.label} [${price}]`;
+        lines.push(line);
+        index.push(`theme:${theme.id}`);
+        rowMap.push({ row: visualRow, actionId: `theme:${theme.id}` });
+        visualRow += this.countRenderedLines(line);
+      }
+      const hatStatus = !state.cowboyHatUnlocked
+        ? `${36} score`
+        : state.cowboyHatEquipped
+          ? "equipped"
+          : "owned";
+      lines.push("");
+      index.push("");
+      visualRow += 1;
+      const hatLine = `Cowboy Hat [${hatStatus}]`;
+      lines.push(hatLine);
+      index.push("hat");
+      rowMap.push({ row: visualRow, actionId: "hat" });
+      visualRow += this.countRenderedLines(hatLine);
+      lines.push("");
+      index.push("");
+      visualRow += 1;
+      const walkingNoiseStatus = !state.loudWalkingNoiseUnlocked
+        ? "100 score"
+        : state.loudWalkingNoiseEnabled
+          ? "enabled"
+          : "owned";
+      const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
+      lines.push(walkingNoiseLine);
+      index.push("walking-noise");
+      rowMap.push({ row: visualRow, actionId: "walking-noise" });
+      this.customizationText.setText(lines.join("\n"));
+      this.customizationIndex = index;
+      this.customizationRowMap = rowMap;
+      this.detailTitle.setText("Snake Style").setVisible(true);
+      this.detailSubtitle.setText("Cosmetics").setVisible(true);
+      this.detailRankText.setText("").setVisible(false);
+      this.detailBody.setText("Spend score on new palettes and a cowboy hat. Active cosmetics apply immediately in play.").setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText("Customize your serpent's colors and hat.");
+        this.hintText.setColor("#9ad1ff");
+      }
+    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills") {
+      this.customizationRowMap = [];
+      this.clearPerkDetails(true);
     }
 
     if (equipmentActive) {

@@ -24,6 +24,7 @@ export class SnakeState {
   private body: Vector2Like[] = [];
   private direction: Vector2Like;
   private nextDirection: Vector2Like;
+  private bufferedDirection: Vector2Like | null = null;
   private scoreValue = 0;
   private teleportEnabled = false;
   private roomId: string;
@@ -41,6 +42,7 @@ export class SnakeState {
     this.body = this.config.initialBody.map((segment) => ({ x: segment.x, y: segment.y }));
     this.direction = { ...this.config.initialDirection };
     this.nextDirection = { ...this.config.initialDirection };
+    this.bufferedDirection = null;
     this.scoreValue = 0;
     this.teleportEnabled = false;
     this.roomId = originRoomId;
@@ -86,10 +88,28 @@ export class SnakeState {
   }
 
   setDirection(x: number, y: number): void {
-    if (x + this.direction.x === 0 && y + this.direction.y === 0) {
+    const candidate = { x, y };
+    if (this.isSameDirection(candidate, this.nextDirection)) {
       return;
     }
-    this.nextDirection = { x, y };
+    if (this.isOppositeDirection(candidate, this.nextDirection)) {
+      return;
+    }
+
+    if (this.isSameDirection(this.nextDirection, this.direction)) {
+      this.nextDirection = candidate;
+      this.bufferedDirection = null;
+      return;
+    }
+
+    if (this.isSameDirection(candidate, this.bufferedDirection)) {
+      return;
+    }
+    if (this.bufferedDirection && this.isOppositeDirection(candidate, this.nextDirection)) {
+      return;
+    }
+
+    this.bufferedDirection = candidate;
   }
 
   enableTeleport(flag: boolean): void {
@@ -119,6 +139,7 @@ export class SnakeState {
       roomId: this.roomId,
       direction: { ...this.direction },
       nextDirection: { ...this.nextDirection },
+      bufferedDirection: this.bufferedDirection ? { ...this.bufferedDirection } : null,
     };
     this.flags["internal.previousSnapshot"] = previousSnapshot;
 
@@ -134,9 +155,11 @@ export class SnakeState {
       this.direction = { ...this.nextDirection };
     }
 
-    // If we're in the house, gently steer away from walls instead of dying
-    if (this.currentRoomId === "0,-1,0") {
-      const currentRoom = deps.getRoom(this.roomId);
+    const currentRoom = deps.getRoom(this.roomId);
+    const safeZoneActive = this.isInSafeZone(currentRoom, currentHeadBeforeMove);
+
+    // If we're in a safe zone, gently steer away from walls instead of dying
+    if (safeZoneActive) {
       const tryDirs = [
         this.direction,
         { x: -this.direction.y, y: this.direction.x }, // left
@@ -185,8 +208,6 @@ export class SnakeState {
     const [roomX, roomY, roomZ = 0] = this.roomId.split(",").map(Number);
     const localHeadX = head.x - roomX * this.grid.cols;
     const localHeadY = head.y - roomY * this.grid.rows;
-    const currentRoom = deps.getRoom(this.roomId);
-
     const portal = currentRoom.portals.find((p) => p.x === localHeadX && p.y === localHeadY);
     if (portal) {
       this.roomId = portal.destRoomId;
@@ -211,7 +232,7 @@ export class SnakeState {
     const finalLocalHeadY = head.y - baseRoomY;
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
-    const invulnTicks = Number(this.flags["fortitude.invulnerabilityTicks"] ?? 0);
+    const invulnTicks = Math.max(Number(this.flags["fortitude.invulnerabilityTicks"] ?? 0), safeZoneActive ? 1 : 0);
     if (tile === "#") {
       if (invulnTicks > 0) {
         // Invulnerability lets us phase through the wall.
@@ -273,7 +294,40 @@ export class SnakeState {
       delete this.flags["internal.lastRemovedTail"];
     }
 
+    if (this.bufferedDirection && !this.isOppositeDirection(this.bufferedDirection, this.direction)) {
+      this.nextDirection = { ...this.bufferedDirection };
+    } else {
+      this.nextDirection = { ...this.direction };
+    }
+    this.bufferedDirection = null;
+
     return { status: "alive", appleEaten };
+  }
+
+  private isSafeRoom(roomId: string): boolean {
+    return roomId === "0,-1,0";
+  }
+
+  private isSafeTile(tile?: string): boolean {
+    if (!tile) return false;
+    return "WETCKBPLG".includes(tile);
+  }
+
+  private isInSafeZone(room: RoomSnapshot, head?: Vector2Like): boolean {
+    if (this.isSafeRoom(this.roomId)) {
+      return true;
+    }
+    if (!head) {
+      return false;
+    }
+    const [roomX, roomY] = this.roomId.split(",").map(Number);
+    const localX = head.x - roomX * this.grid.cols;
+    const localY = head.y - roomY * this.grid.rows;
+    if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows) {
+      return false;
+    }
+    const tile = room.layout[localY]?.[localX];
+    return this.isSafeTile(tile);
   }
   restorePreviousSnapshot(): void {
     const snapshot = this.flags["internal.previousSnapshot"] as
@@ -282,6 +336,7 @@ export class SnakeState {
           roomId: string;
           direction: Vector2Like;
           nextDirection: Vector2Like;
+          bufferedDirection: Vector2Like | null;
         }
       | undefined;
     if (!snapshot) {
@@ -291,6 +346,7 @@ export class SnakeState {
     this.roomId = snapshot.roomId;
     this.direction = { ...snapshot.direction };
     this.nextDirection = { ...snapshot.nextDirection };
+    this.bufferedDirection = snapshot.bufferedDirection ? { ...snapshot.bufferedDirection } : null;
     const currentHead = this.body[0];
     if (currentHead) {
       this.flags["internal.currentHead"] = { x: currentHead.x, y: currentHead.y };
@@ -397,6 +453,14 @@ export class SnakeState {
     if (room.apple && room.apple.x === localX && room.apple.y === localY) {
       delete room.apple;
     }
+  }
+
+  private isOppositeDirection(a: Vector2Like, b: Vector2Like | null): boolean {
+    return Boolean(b) && a.x + b.x === 0 && a.y + b.y === 0;
+  }
+
+  private isSameDirection(a: Vector2Like, b: Vector2Like | null): boolean {
+    return Boolean(b) && a.x === b.x && a.y === b.y;
   }
 }
 

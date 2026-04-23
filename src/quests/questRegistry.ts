@@ -24,6 +24,10 @@ export class QuestRegistry {
     return this.getAll().filter((quest) => !excludeSet.has(quest.id));
   }
 
+  getById(id: string): Quest | undefined {
+    return this.quests.get(id);
+  }
+
   async loadBuiltIns(): Promise<void> {
     const modules = import.meta.glob("./definitions/*.ts");
     const entries = Object.entries(modules);
