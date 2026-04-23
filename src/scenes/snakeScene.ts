@@ -15,6 +15,7 @@ import {
   type QuestGiverSpritePalette,
 } from "../ui/spriteRecipes/questGiverRecipe.js";
 import { getQuestDialogue } from "../quests/questDialogue.js";
+import { createMobileControls, type MobileControls } from "../ui/mobileControls.js";
 import type { Quest } from "../../quests.js";
 import type { AppleSnapshot } from "../apples/types.js";
 import type { Vector2Like } from "../core/math.js";
@@ -105,6 +106,7 @@ export default class SnakeScene extends Phaser.Scene {
   private juice!: JuiceManager;
   private skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
+  private mobileControls: MobileControls | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private powerupMusicActive = false;
@@ -174,6 +176,18 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.setupInputHandlers();
 
+    this.mobileControls = createMobileControls({
+      onDirection: (x, y) => {
+        this.setDir(x, y);
+      },
+      onTogglePause: () => {
+        this.togglePauseMenu();
+      },
+    });
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
+    this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+
     this.questHud = new QuestHud(this, {
       position: { x: this.grid.cols * this.grid.cell - 10, y: 8 },
     });
@@ -224,14 +238,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if (key === " ") {
-        if (this.offeredQuest) return;
-        this.paused = !this.paused;
-        this.skillTree.toggleOverlay(this.paused ? true : false);
-        if (this.paused) {
-          this.juice.skillTreeOpened();
-        } else {
-          this.juice.skillTreeClosed();
-        }
+        this.togglePauseMenu();
         return;
       }
 
@@ -594,6 +601,27 @@ export default class SnakeScene extends Phaser.Scene {
 
   setDir(x: number, y: number) {
     this.game.setDirection(x, y);
+  }
+
+  private togglePauseMenu(force?: boolean): void {
+    if (this.offeredQuest) return;
+    const nextState = typeof force === "boolean" ? force : !this.paused;
+    if (nextState === this.paused) {
+      return;
+    }
+
+    this.paused = nextState;
+    this.skillTree.toggleOverlay(this.paused ? true : false);
+    if (this.paused) {
+      this.juice.skillTreeOpened();
+    } else {
+      this.juice.skillTreeClosed();
+    }
+  }
+
+  private handleShutdown(): void {
+    this.mobileControls?.destroy();
+    this.mobileControls = null;
   }
 
   addScore(amount: number) {

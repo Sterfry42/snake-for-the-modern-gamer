@@ -167,7 +167,7 @@ export const defaultGameConfig: GameConfig = {
     questOfferChance: 0,
   },
   features: {
-    enabled: ["coreScore", "wrapWall", "bonusApple", "hungerTimer", "religionChoice"],
+    enabled: ["coreScore", "wrapWall", "bonusApple", "hungerTimer", "religionChoice", "killstreakArsenal"],
   },
 };
 
