@@ -5,8 +5,10 @@ import { AppleService, type AppleConsumptionResult } from "../apples/appleServic
 import type { AppleSnapshot } from "../apples/types.js";
 import { SnakeState, type SnakeStepDependencies } from "../systems/snakeState.js";
 import { BossManager } from "../systems/boss.js";
+import { EnemyManager } from "../systems/enemies.js";
 import { WorldService } from "../world/worldService.js";
 import { QuestController } from "../systems/questController.js";
+import type { QuestGiverRequest } from "../systems/questController.js";
 import type { Quest } from "../quests/quest.js";
 import type { QuestRegistry } from "../quests/questRegistry.js";
 import { InventorySystem } from "../inventory/inventory.js";
@@ -15,7 +17,7 @@ import type { QuestRuntime } from "../quests/quest.js";
 
 export interface StepResult {
   status: "alive" | "dead";
-  deathReason?: "wall" | "self" | "shielded" | "boss";
+  deathReason?: "wall" | "self" | "shielded" | "boss" | "bullet";
   apple: {
     eaten: boolean;
     rewards?: AppleConsumptionResult["rewards"];
@@ -236,6 +238,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly apples: AppleService;
   private readonly snake: SnakeState;
   private readonly bosses: BossManager;
+  private readonly enemies: EnemyManager;
   private readonly questController: QuestController;
   private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
@@ -252,8 +255,10 @@ export class SnakeGame implements QuestRuntime {
     this.apples = new AppleService(config.apples, config.grid, this.world, this.rng);
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid);
+    this.enemies = new EnemyManager(config.grid, this.rng);
     this.questController = new QuestController(registry, {
       initialQuestCount: config.quests.initialQuestCount,
+      initialQuestIds: config.quests.initialQuestIds ?? [],
       maxActiveQuests: config.quests.maxActiveQuests,
       questOfferChance: config.quests.questOfferChance,
       rng: this.rng,
@@ -267,11 +272,28 @@ export class SnakeGame implements QuestRuntime {
     this.apples.clearAll();
     this.snake.reset(this.config.world.originRoomId);
     this.bosses.clearAll();
+    this.enemies.clearAll();
     this.questController.reset(this);
     this.inventory.clear();
     this.visitedRooms.clear();
     this.visitedRooms.add(this.snake.currentRoomId);
     this.powerupState = null;
+    this.setFlag("timeMs", 0);
+    this.setFlag("treasurePicked", 0);
+    this.setFlag("powerupsPicked", 0);
+    this.setFlag("roomsVisited", 1);
+    this.setFlag("house.itemsPurchased", 0);
+    this.setFlag("appleStreak", 0);
+    this.setFlag("appleStreakMax", 0);
+    this.setFlag("lastAppleTimeMs", undefined);
+    this.setFlag("roomEntryTimeMs", 0);
+    const head = this.snake.bodySegments[0];
+    if (head) {
+      const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+      this.setFlag("roomEntryLocalPos", { x: head.x - roomX * this.config.grid.cols, y: head.y - roomY * this.config.grid.rows });
+    } else {
+      this.setFlag("roomEntryLocalPos", undefined);
+    }
 
     // TODO: Make this configurable
     if (this.rng() < 0.05) { // 5% chance to spawn a boss on reset
@@ -280,6 +302,11 @@ export class SnakeGame implements QuestRuntime {
 
     this.resetPredation();
     this.apples.ensureApple(this.snake.currentRoomId, Array.from(this.snake.bodySegments), this.snake.score);
+    this.enemies.ensureEnemy(
+      this.snake.currentRoomId,
+      this.world.getRoom(this.snake.currentRoomId),
+      this.config.snake.initialBody
+    );
   }
 
   step(paused: boolean): StepResult {
@@ -324,7 +351,36 @@ export class SnakeGame implements QuestRuntime {
         if (this.rng() < 0.05) { // 5% chance to spawn Freak Dennis in a new room
           this.bosses.spawnBoss(newRoomId, "freak-dennis");
         }
+        this.enemies.ensureEnemy(
+          newRoomId,
+          this.world.getRoom(newRoomId),
+          []
+        );
       }
+      const timeMs = Number(this.getFlag<number>("timeMs") ?? 0);
+      const entryTimeMs = Number(this.getFlag<number>("roomEntryTimeMs") ?? timeMs);
+      const entryPos = this.getFlag<{ x: number; y: number }>("roomEntryLocalPos");
+      const previousHead = this.getFlag<{ x: number; y: number }>("internal.previousHead");
+      if (entryPos && previousHead) {
+        const [prevRoomX, prevRoomY] = previousRoom.split(",").map(Number);
+        const prevLocalX = previousHead.x - prevRoomX * this.config.grid.cols;
+        const prevLocalY = previousHead.y - prevRoomY * this.config.grid.rows;
+        const distance = Math.abs(prevLocalX - entryPos.x) + Math.abs(prevLocalY - entryPos.y);
+        this.setFlag("roomTravelDistance", distance);
+        this.setFlag("roomTravelMs", Math.max(0, timeMs - entryTimeMs));
+      } else {
+        this.setFlag("roomTravelDistance", undefined);
+        this.setFlag("roomTravelMs", undefined);
+      }
+      const head = this.snake.bodySegments[0];
+      if (head) {
+        const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+        this.setFlag("roomEntryLocalPos", { x: head.x - roomX * this.config.grid.cols, y: head.y - roomY * this.config.grid.rows });
+      } else {
+        this.setFlag("roomEntryLocalPos", undefined);
+      }
+      this.setFlag("roomEntryTimeMs", timeMs);
+      this.setFlag("roomsVisited", this.visitedRooms.size);
     }
 
     if (outcome.status === "dead") {
@@ -427,6 +483,17 @@ export class SnakeGame implements QuestRuntime {
       appleWorldPosition = consumption.worldPosition ?? null;
       appleStateChanged = appleStateChanged || consumption.changed;
 
+      const nowMs = Number(this.getFlag<number>("timeMs") ?? 0);
+      const lastAppleMs = Number(this.getFlag<number>("lastAppleTimeMs") ?? Number.NEGATIVE_INFINITY);
+      const streakWindowMs = 1500;
+      const streak = nowMs - lastAppleMs <= streakWindowMs
+        ? Number(this.getFlag<number>("appleStreak") ?? 0) + 1
+        : 1;
+      const best = Math.max(Number(this.getFlag<number>("appleStreakMax") ?? 0), streak);
+      this.setFlag("appleStreak", streak);
+      this.setFlag("appleStreakMax", best);
+      this.setFlag("lastAppleTimeMs", nowMs);
+
       if (consumption.rewards.bonusScore > 0) {
         this.addScore(consumption.rewards.bonusScore);
       }
@@ -475,6 +542,8 @@ export class SnakeGame implements QuestRuntime {
         this.addScore(5);
         this.world.setTreasure(this.snake.currentRoomId, undefined);
         roomsChanged.add(this.snake.currentRoomId);
+        const treasureCount = Number(this.getFlag<number>("treasurePicked") ?? 0);
+        this.setFlag("treasurePicked", treasureCount + 1);
         // Notify UI for juice + hint
         this.setFlag("loot.itemPicked", { head: currentHead, itemName: awardedName, itemId: awardedId });
         // Treasure-specific pickup FX at the pickup tile
@@ -486,6 +555,8 @@ export class SnakeGame implements QuestRuntime {
         const duration = 300; // ~30s at 100ms base tick
         this.world.setPowerup(this.snake.currentRoomId, undefined);
         roomsChanged.add(this.snake.currentRoomId);
+        const powerupCount = Number(this.getFlag<number>("powerupsPicked") ?? 0);
+        this.setFlag("powerupsPicked", powerupCount + 1);
         if (kind === "phase") {
           const bonus = Number(this.getFlag<number>("equipment.invulnerabilityBonus") ?? 0);
           const inv = Math.max(Number(this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0), duration + Math.max(0, Math.floor(bonus)));
@@ -501,6 +572,42 @@ export class SnakeGame implements QuestRuntime {
 
     if (appleStateChanged) {
       roomsChanged.add(this.snake.currentRoomId);
+    }
+
+    if (currentHead) {
+      const enemyEat = this.enemies.consumeEnemyAt(this.snake.currentRoomId, currentHead);
+      if (enemyEat.eaten) {
+        this.addScore(3);
+        this.snake.grow(1);
+        this.setFlag("ui.enemyEaten", {
+          x: currentHead.x,
+          y: currentHead.y,
+          roomId: this.snake.currentRoomId,
+        });
+      }
+    }
+
+    const enemyStep = this.enemies.step({
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      snake: this.snake.bodySegments,
+      currentRoomId: this.snake.currentRoomId,
+    });
+    if (enemyStep.bulletHit) {
+      return {
+        status: "dead",
+        deathReason: "bullet",
+        apple: {
+          eaten: appleEaten,
+          rewards: appleRewards,
+          worldPosition: appleWorldPosition,
+          current: appleSnapshot,
+          stateChanged: appleStateChanged,
+        },
+        roomsChanged,
+        roomChanged: roomHasChanged,
+        questOffer: null,
+        questsCompleted: [],
+      };
     }
 
     this.tickPredationTimers();
@@ -605,15 +712,27 @@ export class SnakeGame implements QuestRuntime {
   }
 
   acceptOfferedQuest(): Quest | null {
-    return this.questController.acceptOffered();
+    return this.questController.acceptOffered(this);
   }
 
   rejectOfferedQuest(): void {
     this.questController.rejectOffered();
   }
 
+  requestQuestFromGiver(roomId: string): QuestGiverRequest {
+    return this.questController.getQuestForGiver(roomId, this);
+  }
+
   getBosses(roomId: string) {
     return this.bosses.getBossesInRoom(roomId);
+  }
+
+  getEnemies(roomId: string) {
+    return this.enemies.getEnemiesInRoom(roomId);
+  }
+
+  getEnemyBullets(roomId: string) {
+    return this.enemies.getBulletsInRoom(roomId);
   }
 
   getInventory(): InventorySystem {
@@ -706,6 +825,8 @@ export class SnakeGame implements QuestRuntime {
     // Deduct points and persist state
     this.addScore(-cost);
     this.setFlag("house.purchases", purchases);
+    const purchaseCount = Number(this.getFlag<number>("house.itemsPurchased") ?? 0);
+    this.setFlag("house.itemsPurchased", purchaseCount + 1);
     return true;
   }
 

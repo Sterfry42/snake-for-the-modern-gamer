@@ -9,12 +9,90 @@ import { QuestPopup } from "../ui/questPopup.js";
 import { SnakeRenderer } from "../ui/snakeRenderer.js";
 import { JuiceManager } from "../ui/juice.js";
 import { BossHud } from "../ui/bossHud.js";
+import { RuntimeSpriteFactory } from "../ui/runtimeSpriteFactory.js";
+import {
+  questGiverSpriteRecipe,
+  type QuestGiverSpritePalette,
+} from "../ui/spriteRecipes/questGiverRecipe.js";
+import { getQuestDialogue } from "../quests/questDialogue.js";
 import type { Quest } from "../../quests.js";
 import type { AppleSnapshot } from "../apples/types.js";
 import type { Vector2Like } from "../core/math.js";
 import type { InventorySystem } from "../inventory/inventory.js";
 import type { EquipmentSlot } from "../inventory/item.js";
 import { getItem } from "../inventory/itemRegistry.js";
+import type { SnakeSpritePalette } from "../ui/spriteRecipes/snakeRecipe.js";
+
+type SnakeThemeId = "classic" | "sunset" | "midnight" | "bone";
+
+type SnakeCosmeticState = {
+  unlockedThemes: SnakeThemeId[];
+  activeTheme: SnakeThemeId;
+  cowboyHatUnlocked: boolean;
+  cowboyHatEquipped: boolean;
+  loudWalkingNoiseUnlocked: boolean;
+  loudWalkingNoiseEnabled: boolean;
+};
+
+type SnakeThemeDefinition = {
+  id: SnakeThemeId;
+  label: string;
+  cost: number;
+  palette: SnakeSpritePalette;
+};
+
+const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
+  {
+    id: "classic",
+    label: "Classic Green",
+    cost: 0,
+    palette: {
+      baseColor: "#5dd6a2",
+      bellyColor: "#c8ffe1",
+      patternColor: "#2e8b68",
+      outlineColor: "#3c8a69",
+      eyeColor: "#f8ffef",
+    },
+  },
+  {
+    id: "sunset",
+    label: "Sunset Coral",
+    cost: 18,
+    palette: {
+      baseColor: "#ff8a5b",
+      bellyColor: "#ffe2b8",
+      patternColor: "#b84c2f",
+      outlineColor: "#7c2f22",
+      eyeColor: "#fff7ef",
+    },
+  },
+  {
+    id: "midnight",
+    label: "Midnight Coil",
+    cost: 30,
+    palette: {
+      baseColor: "#4f69ff",
+      bellyColor: "#d4dcff",
+      patternColor: "#26358f",
+      outlineColor: "#18204a",
+      eyeColor: "#f5f7ff",
+    },
+  },
+  {
+    id: "bone",
+    label: "Bone White",
+    cost: 44,
+    palette: {
+      baseColor: "#f0e7d8",
+      bellyColor: "#fffaf0",
+      patternColor: "#a99574",
+      outlineColor: "#665744",
+      eyeColor: "#221b15",
+    },
+  },
+];
+
+const COWBOY_HAT_COST = 36;
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
@@ -37,11 +115,31 @@ export default class SnakeScene extends Phaser.Scene {
   private tickEvent!: Phaser.Time.TimerEvent;
   private houseHud!: Phaser.GameObjects.Text;
   private housePanel!: Phaser.GameObjects.Rectangle;
+  private questHint!: Phaser.GameObjects.Text;
+  private questHintPanel!: Phaser.GameObjects.Rectangle;
+  private questGiverSprite!: Phaser.GameObjects.Sprite;
+  private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
+  // Religion choice state
+  private chosenReligionId: string | null = null;
+  private religionMods: { tickDelayScalar?: number; wallSenseBonus?: number; seismicPulseBonus?: number; invulnerabilityBonus?: number; regenerator?: { interval: number; amount: number } | null; phoenixCharges?: number; masonryEnabled?: boolean } = {};
+  // Background and Class choice state
+  private chosenBackgroundId: string | null = null;
+  private backgroundMods: { tickDelayScalar?: number; wallSenseBonus?: number; seismicPulseBonus?: number; invulnerabilityBonus?: number; regenerator?: { interval: number; amount: number } | null; phoenixCharges?: number; masonryEnabled?: boolean } = {};
+  private chosenClassId: string | null = null;
+  private classMods: { tickDelayScalar?: number; wallSenseBonus?: number; seismicPulseBonus?: number; invulnerabilityBonus?: number; regenerator?: { interval: number; amount: number } | null; phoenixCharges?: number; masonryEnabled?: boolean } = {};
 
   private paused = true;
   private isDirty = false;
   private currentApple: AppleSnapshot | null = null;
+  private snakeCosmetics: SnakeCosmeticState = {
+    unlockedThemes: ["classic"],
+    activeTheme: "classic",
+    cowboyHatUnlocked: false,
+    cowboyHatEquipped: false,
+    loudWalkingNoiseUnlocked: false,
+    loudWalkingNoiseEnabled: false,
+  };
   private pendingFlags: Record<string, unknown> = {};
   private readonly flagsProxy: Record<string, unknown>;
 
@@ -68,7 +166,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics = this.add.graphics();
     // Reduce subpixel jitter and keep lines crisp during shake/zoom
     this.cameras.main.setRoundPixels(true);
-    this.snakeRenderer = new SnakeRenderer(this.graphics, this.grid);
+    this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
+    this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.grid);
     this.juice = new JuiceManager(this);
     this.skillTree = new SkillTreeManager(this, this.juice, { baseTickDelay: this.baseTickDelay });
     this.bossHud = new BossHud(this);
@@ -106,6 +205,19 @@ export default class SnakeScene extends Phaser.Scene {
       .setDepth(29)
       .setVisible(false)
       .setStrokeStyle(1, 0xcfa77a, 0.6);
+
+    this.questHint = this.add
+      .text(8, 8, "", { fontFamily: "monospace", fontSize: "14px", color: "#e8ffe8" })
+      .setDepth(28)
+      .setVisible(false);
+    this.questHintPanel = this.add
+      .rectangle(0, 0, 160, 40, 0x000000, 0.35)
+      .setOrigin(0, 0)
+      .setDepth(27)
+      .setVisible(false)
+      .setStrokeStyle(1, 0x6fd9b7, 0.6);
+
+    this.initQuestGiverSprite();
   }
 
   private setupInputHandlers(): void {
@@ -127,10 +239,39 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
 
+      if (this.isManualHouseMovementActive()) {
+        if (["arrowup", "w"].includes(key)) {
+          this.setDir(0, -1);
+          this.step();
+          return;
+        }
+        if (["arrowdown", "s"].includes(key)) {
+          this.setDir(0, 1);
+          this.step();
+          return;
+        }
+        if (["arrowleft", "a"].includes(key)) {
+          this.setDir(-1, 0);
+          this.step();
+          return;
+        }
+        if (["arrowright", "d"].includes(key)) {
+          this.setDir(1, 0);
+          this.step();
+          return;
+        }
+      }
+
       if (["arrowup", "w"].includes(key)) this.setDir(0, -1);
       if (["arrowdown", "s"].includes(key)) this.setDir(0, 1);
       if (["arrowleft", "a"].includes(key)) this.setDir(-1, 0);
       if (["arrowright", "d"].includes(key)) this.setDir(1, 0);
+
+      if (key === "e") {
+        if (this.tryInteractQuestGiver()) {
+          return;
+        }
+      }
 
       // Item equip/test keys removed; equipping is handled in the menu
 
@@ -148,6 +289,17 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleTick(): void {
     if (!this.paused) {
+      if (this.isManualHouseMovementActive()) {
+        const elapsed = Number(this.getFlag<number>("timeMs") ?? 0) + this.tickDelay;
+        this.setFlag("timeMs", elapsed);
+        this.updateHouseAmbience();
+        this.tickHouseAmbientEffects();
+        this.skillTree.tick();
+        this.isDirty = true;
+        return;
+      }
+      const elapsed = Number(this.getFlag<number>("timeMs") ?? 0) + this.tickDelay;
+      this.setFlag("timeMs", elapsed);
       this.step();
     }
   }
@@ -169,6 +321,15 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
     this.currentApple = this.game.getApple(this.game.getCurrentRoom().id);
+    this.snakeCosmetics = {
+      unlockedThemes: ["classic"],
+      activeTheme: "classic",
+      cowboyHatUnlocked: false,
+      cowboyHatEquipped: false,
+      loudWalkingNoiseUnlocked: false,
+      loudWalkingNoiseEnabled: false,
+    };
+    this.juice.setMovementNoiseMultiplier(1);
     this.paused = startPaused;
     this.isDirty = true;
     this.questPopup.hide();
@@ -200,47 +361,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
 
-    // House rest effects and ambience particles
-    if (this.isInHouse()) {
-      // reset hunger timer while inside
-      this.setFlag("timeSinceEat", 0);
-      this.houseRestCounter++;
-      if (this.houseRestCounter >= 30) {
-        this.houseRestCounter = 0;
-        // gentle rest reward: +1 score, +1 growth and pulse
-        this.addScoreDirect(1);
-        this.growSnake(1);
-        const cam = this.cameras.main;
-        (this.juice as any).houseRestPulse?.(cam.midPoint.x, cam.midPoint.y + 10);
-      }
-      // random dust motes
-      const w = this.grid.cols * this.grid.cell;
-      const h = this.grid.rows * this.grid.cell;
-      const room = this.game.getCurrentRoom();
-      // bias motes near lamp if present
-      let lampCenter: { x: number; y: number } | null = null;
-      outer: for (let yy = 0; yy < room.layout.length; yy++) {
-        for (let xx = 0; xx < room.layout[yy].length; xx++) {
-          if (room.layout[yy][xx] === 'L') {
-            lampCenter = this.tileToWorldInRoom({ x: xx, y: yy }, room.id);
-            break outer;
-          }
-        }
-      }
-      if (this.random() < 0.1) {
-        let x: number; let y: number;
-        if (lampCenter && this.random() < 0.7) {
-          x = lampCenter.x + (Math.random() - 0.5) * 40;
-          y = lampCenter.y - Math.random() * 40;
-        } else {
-          x = 20 + Math.random() * (w - 40);
-          y = h - 30 - Math.random() * (h * 0.6);
-        }
-        (this.juice as any).houseMote?.(x, y);
-      }
-    } else {
-      this.houseRestCounter = 0;
-    }
+    this.tickHouseAmbientEffects();
 
     // Idle apple sparkle
     if (this.currentApple && !result.apple.eaten) {
@@ -388,6 +509,78 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.hideOverlay();
     this.paused = false;
     this.isDirty = true;
+  }
+
+  private tickHouseAmbientEffects(): void {
+    if (!this.isInHouse()) {
+      this.houseRestCounter = 0;
+      return;
+    }
+
+    this.setFlag("timeSinceEat", 0);
+    this.houseRestCounter++;
+    if (this.houseRestCounter >= 30) {
+      this.houseRestCounter = 0;
+      this.addScoreDirect(1);
+      this.growSnake(1);
+      const cam = this.cameras.main;
+      (this.juice as any).houseRestPulse?.(cam.midPoint.x, cam.midPoint.y + 10);
+    }
+
+    const w = this.grid.cols * this.grid.cell;
+    const h = this.grid.rows * this.grid.cell;
+    const room = this.game.getCurrentRoom();
+    let lampCenter: { x: number; y: number } | null = null;
+    outer: for (let yy = 0; yy < room.layout.length; yy++) {
+      for (let xx = 0; xx < room.layout[yy].length; xx++) {
+        if (room.layout[yy][xx] === "L") {
+          lampCenter = this.tileToWorldLocalInRoom({ x: xx, y: yy });
+          break outer;
+        }
+      }
+    }
+
+    if (this.random() < 0.1) {
+      let x: number;
+      let y: number;
+      if (lampCenter && this.random() < 0.7) {
+        x = lampCenter.x + (Math.random() - 0.5) * 40;
+        y = lampCenter.y - Math.random() * 40;
+      } else {
+        x = 20 + Math.random() * (w - 40);
+        y = h - 30 - Math.random() * (h * 0.6);
+      }
+      (this.juice as any).houseMote?.(x, y);
+    }
+  }
+
+  private showQuestDialogue(
+    title: string,
+    pages: string[],
+    callbacks: { onAccept?: () => void; onReject?: () => void; onClose?: () => void },
+    labels?: { acceptLabel?: string; rejectLabel?: string; nextLabel?: string; closeLabel?: string },
+    speaker?: { portraitId?: string }
+  ): void {
+    this.paused = true;
+    this.skillTree.hideOverlay();
+    this.questPopup.showDialogue(title, pages, callbacks, labels, speaker);
+    this.isDirty = true;
+  }
+
+  private showQuestHintPopup(message: string, color = "#ffe58a"): void {
+    const popup = this.add
+      .text(120, 8, message, { fontFamily: "monospace", fontSize: "14px", color })
+      .setDepth(31)
+      .setOrigin(0, 0)
+      .setAlpha(0.95);
+    this.tweens.add({
+      targets: popup,
+      y: 26,
+      alpha: 0,
+      duration: 700,
+      ease: "Cubic.easeOut",
+      onComplete: () => popup.destroy(),
+    });
   }
 
   private gameOver(reason?: string | null) {
@@ -598,6 +791,65 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
 
+    // Apply religion bonuses
+    if (this.religionMods) {
+      if (typeof this.religionMods.tickDelayScalar === "number") {
+        tickScalar *= this.religionMods.tickDelayScalar;
+      }
+      if (typeof this.religionMods.wallSenseBonus === "number") {
+        wallSenseBonus += this.religionMods.wallSenseBonus;
+      }
+      if (typeof this.religionMods.seismicPulseBonus === "number") {
+        seismicBonus += this.religionMods.seismicPulseBonus;
+      }
+      if (typeof this.religionMods.invulnerabilityBonus === "number") {
+        invulnBonus += this.religionMods.invulnerabilityBonus;
+      }
+      if (this.religionMods.regenerator) {
+        const r = this.religionMods.regenerator;
+        if (!regen) {
+          regen = { interval: r.interval, amount: r.amount };
+        } else {
+          regen.interval = Math.min(regen.interval, r.interval);
+          regen.amount += r.amount;
+        }
+      }
+      if (this.religionMods.masonryEnabled) {
+        masonry = true;
+      }
+      if (typeof this.religionMods.phoenixCharges === "number") {
+        phoenix += this.religionMods.phoenixCharges;
+      }
+    }
+
+    // Background bonuses
+    if (this.backgroundMods) {
+      if (typeof this.backgroundMods.tickDelayScalar === "number") tickScalar *= this.backgroundMods.tickDelayScalar;
+      if (typeof this.backgroundMods.wallSenseBonus === "number") wallSenseBonus += this.backgroundMods.wallSenseBonus;
+      if (typeof this.backgroundMods.seismicPulseBonus === "number") seismicBonus += this.backgroundMods.seismicPulseBonus;
+      if (typeof this.backgroundMods.invulnerabilityBonus === "number") invulnBonus += this.backgroundMods.invulnerabilityBonus;
+      if (this.backgroundMods.regenerator) {
+        const r = this.backgroundMods.regenerator;
+        if (!regen) regen = { interval: r.interval, amount: r.amount }; else { regen.interval = Math.min(regen.interval, r.interval); regen.amount += r.amount; }
+      }
+      if (this.backgroundMods.masonryEnabled) masonry = true;
+      if (typeof this.backgroundMods.phoenixCharges === "number") phoenix += this.backgroundMods.phoenixCharges;
+    }
+
+    // Class bonuses
+    if (this.classMods) {
+      if (typeof this.classMods.tickDelayScalar === "number") tickScalar *= this.classMods.tickDelayScalar;
+      if (typeof this.classMods.wallSenseBonus === "number") wallSenseBonus += this.classMods.wallSenseBonus;
+      if (typeof this.classMods.seismicPulseBonus === "number") seismicBonus += this.classMods.seismicPulseBonus;
+      if (typeof this.classMods.invulnerabilityBonus === "number") invulnBonus += this.classMods.invulnerabilityBonus;
+      if (this.classMods.regenerator) {
+        const r = this.classMods.regenerator;
+        if (!regen) regen = { interval: r.interval, amount: r.amount }; else { regen.interval = Math.min(regen.interval, r.interval); regen.amount += r.amount; }
+      }
+      if (this.classMods.masonryEnabled) masonry = true;
+      if (typeof this.classMods.phoenixCharges === "number") phoenix += this.classMods.phoenixCharges;
+    }
+
     // Apply speed scalar via skill system
     this.skillTree.applyTickDelayScalar(tickScalar, "equipment:boots");
 
@@ -671,6 +923,11 @@ export default class SnakeScene extends Phaser.Scene {
     const localX = position.x - roomX * this.grid.cols;
     const localY = position.y - roomY * this.grid.rows;
     return { x: localX * cell + cell / 2, y: localY * cell + cell / 2 };
+  }
+
+  private tileToWorldLocalInRoom(position: Vector2Like): { x: number; y: number } {
+    const cell = this.grid.cell;
+    return { x: position.x * cell + cell / 2, y: position.y * cell + cell / 2 };
   }
 
   private handlePredationFeedback(): void {
@@ -782,6 +1039,25 @@ export default class SnakeScene extends Phaser.Scene {
       (this.juice as any).wallGraze?.(world.x, world.y, graze.nx, graze.ny);
       this.game.setFlag("ui.wallGraze", undefined);
     }
+
+    const enemyEaten = this.game.getFlag<{ x: number; y: number; roomId: string }>("ui.enemyEaten");
+    if (enemyEaten) {
+      const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
+      const popup = this.add.text(world.x, world.y - 14, "+ Enemy", {
+        fontFamily: "monospace",
+        fontSize: "14px",
+        color: "#ffcf8a",
+      }).setDepth(26).setOrigin(0.5, 1);
+      this.tweens.add({
+        targets: popup,
+        y: world.y - 40,
+        alpha: 0,
+        duration: 620,
+        ease: "Cubic.easeOut",
+        onComplete: () => popup.destroy(),
+      });
+      this.game.setFlag("ui.enemyEaten", undefined);
+    }
   }
   private draw(): void {
     // Suppress generic HUDs in house
@@ -796,6 +1072,11 @@ export default class SnakeScene extends Phaser.Scene {
       wallSenseRadius,
       snakeColor,
       poweredUp: Boolean(pActive),
+      direction: this.game.getDirection(),
+      snakePalette: this.getActiveSnakeTheme().palette,
+      cowboyHat: this.snakeCosmetics.cowboyHatEquipped,
+      enemies: this.game.getEnemies(room.id),
+      bullets: this.game.getEnemyBullets(room.id),
     });
     this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
@@ -841,6 +1122,145 @@ export default class SnakeScene extends Phaser.Scene {
       this.houseHud.setVisible(false);
       this.housePanel.setVisible(false);
     }
+
+    this.updateQuestGiverSprite();
+
+    const hint = this.getQuestGiverHint();
+    if (hint) {
+      this.questHint.setText(hint.text);
+      this.questHint.setVisible(true);
+      const b = this.questHint.getBounds();
+      this.questHintPanel.setPosition(b.x - 6, b.y - 6);
+      this.questHintPanel.setSize(b.width + 12, b.height + 12);
+      this.questHintPanel.setVisible(true);
+    } else {
+      this.questHint.setVisible(false);
+      this.questHintPanel.setVisible(false);
+    }
+  }
+
+  // Called by the religion feature to persist the choice for this run
+  setReligionChoice(id: string, mods: Partial<typeof this.religionMods>): void {
+    this.chosenReligionId = id;
+    this.religionMods = { ...mods } as any;
+    this.applyEquipmentEffects();
+    this.skillTree.getOverlay().announce(`Chosen faith: ${id}`, "#fff3a8", 2000);
+  }
+
+  // Called by character creation flow
+  setBackgroundChoice(id: string, mods: Partial<typeof this.backgroundMods>): void {
+    this.chosenBackgroundId = id;
+    this.backgroundMods = { ...mods } as any;
+    this.applyEquipmentEffects();
+    this.skillTree.getOverlay().announce(`Background: ${id}`, "#9ad1ff", 1800);
+  }
+
+  setClassChoice(id: string, mods: Partial<typeof this.classMods>): void {
+    this.chosenClassId = id;
+    this.classMods = { ...mods } as any;
+    this.applyEquipmentEffects();
+    this.skillTree.getOverlay().announce(`Class: ${id}`, "#c8ffe1", 1800);
+  }
+
+  getSnakeCustomizationState(): SnakeCosmeticState {
+    return {
+      unlockedThemes: [...this.snakeCosmetics.unlockedThemes],
+      activeTheme: this.snakeCosmetics.activeTheme,
+      cowboyHatUnlocked: this.snakeCosmetics.cowboyHatUnlocked,
+      cowboyHatEquipped: this.snakeCosmetics.cowboyHatEquipped,
+      loudWalkingNoiseUnlocked: this.snakeCosmetics.loudWalkingNoiseUnlocked,
+      loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
+    };
+  }
+
+  getSnakeThemeDefinitions(): readonly SnakeThemeDefinition[] {
+    return SNAKE_THEME_DEFINITIONS;
+  }
+
+  purchaseOrApplySnakeTheme(themeId: SnakeThemeId): { ok: boolean; message: string; color: string } {
+    const theme = SNAKE_THEME_DEFINITIONS.find((entry) => entry.id === themeId);
+    if (!theme) {
+      return { ok: false, message: "Unknown snake palette.", color: "#ff6b6b" };
+    }
+
+    const unlocked = this.snakeCosmetics.unlockedThemes.includes(themeId);
+    if (!unlocked) {
+      if (this.score < theme.cost) {
+        return {
+          ok: false,
+          message: `${theme.label} costs ${theme.cost} score.`,
+          color: "#ff6b6b",
+        };
+      }
+      this.addScoreDirect(-theme.cost);
+      this.snakeCosmetics.unlockedThemes = [...this.snakeCosmetics.unlockedThemes, themeId];
+    }
+
+    this.snakeCosmetics.activeTheme = themeId;
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: unlocked ? `${theme.label} equipped.` : `${theme.label} unlocked.`,
+      color: "#5dd6a2",
+    };
+  }
+
+  purchaseOrToggleCowboyHat(): { ok: boolean; message: string; color: string } {
+    if (!this.snakeCosmetics.cowboyHatUnlocked) {
+      if (this.score < COWBOY_HAT_COST) {
+        return {
+          ok: false,
+          message: `Cowboy hat costs ${COWBOY_HAT_COST} score.`,
+          color: "#ff6b6b",
+        };
+      }
+      this.addScoreDirect(-COWBOY_HAT_COST);
+      this.snakeCosmetics.cowboyHatUnlocked = true;
+      this.snakeCosmetics.cowboyHatEquipped = true;
+      this.isDirty = true;
+      return { ok: true, message: "Cowboy hat unlocked.", color: "#5dd6a2" };
+    }
+
+    this.snakeCosmetics.cowboyHatEquipped = !this.snakeCosmetics.cowboyHatEquipped;
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: this.snakeCosmetics.cowboyHatEquipped ? "Cowboy hat equipped." : "Cowboy hat stowed.",
+      color: "#9ad1ff",
+    };
+  }
+
+  toggleDisableWalkingNoise(): { ok: boolean; message: string; color: string } {
+    const cost = 100;
+    if (!this.snakeCosmetics.loudWalkingNoiseUnlocked) {
+      if (this.score < cost) {
+        return {
+          ok: false,
+          message: `Disable Walking Noise costs ${cost} score.`,
+          color: "#ff6b6b",
+        };
+      }
+      this.addScoreDirect(-cost);
+      this.snakeCosmetics.loudWalkingNoiseUnlocked = true;
+    }
+
+    this.snakeCosmetics.loudWalkingNoiseEnabled = !this.snakeCosmetics.loudWalkingNoiseEnabled;
+    this.juice.setMovementNoiseMultiplier(this.snakeCosmetics.loudWalkingNoiseEnabled ? 5 : 1);
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: this.snakeCosmetics.loudWalkingNoiseEnabled
+        ? "Walking noise disabled."
+        : "Walking noise restored.",
+      color: "#9ad1ff",
+    };
+  }
+
+  private getActiveSnakeTheme(): SnakeThemeDefinition {
+    return (
+      SNAKE_THEME_DEFINITIONS.find((entry) => entry.id === this.snakeCosmetics.activeTheme) ??
+      SNAKE_THEME_DEFINITIONS[0]
+    );
   }
 
 
@@ -898,5 +1318,171 @@ export default class SnakeScene extends Phaser.Scene {
     if (!tile) return false;
     // Interior tiles (wood, rug, trim, and furniture)
     return "WETCKBPL".includes(tile);
+  }
+
+  private isManualHouseMovementActive(): boolean {
+    return !this.paused && this.isInHouseInterior() && !this.offeredQuest;
+  }
+
+  private getQuestGiverHint(): { text: string } | null {
+    if (this.isInHouse() || this.paused || this.offeredQuest) {
+      return null;
+    }
+    const room = this.game.getCurrentRoom();
+    const giver = room.questGiver;
+    if (!giver) {
+      return null;
+    }
+    const head = this.game.getSnakeBody()[0];
+    if (!head) {
+      return null;
+    }
+    const [roomX, roomY] = room.id.split(",").map(Number);
+    const localX = head.x - roomX * this.grid.cols;
+    const localY = head.y - roomY * this.grid.rows;
+    const dist = Math.abs(localX - giver.x) + Math.abs(localY - giver.y);
+    if (dist > 1) {
+      return null;
+    }
+    const name = giver.name ? `Talk to ${giver.name}` : "Talk to quest giver";
+    return { text: `${name} (press E)` };
+  }
+
+  private tryInteractQuestGiver(): boolean {
+    if (this.paused || this.offeredQuest) {
+      return false;
+    }
+    const room = this.game.getCurrentRoom();
+    const giver = room.questGiver;
+    if (!giver) {
+      return false;
+    }
+    const head = this.game.getSnakeBody()[0];
+    if (!head) {
+      return false;
+    }
+    const [roomX, roomY] = room.id.split(",").map(Number);
+    const localX = head.x - roomX * this.grid.cols;
+    const localY = head.y - roomY * this.grid.rows;
+    const dist = Math.abs(localX - giver.x) + Math.abs(localY - giver.y);
+    if (dist > 1) {
+      return false;
+    }
+    const request = this.game.requestQuestFromGiver(room.id);
+    const giverName = giver.name ?? "Quest Giver";
+    const speaker = { portraitId: giver.portraitId };
+
+    if (request.state === "available" && request.quest) {
+      const dialogue = getQuestDialogue(request.quest);
+      this.juice.questOffered();
+      this.showQuestDialogue(
+        giverName,
+        dialogue.pages,
+        {
+          onAccept: () => {
+            this.juice.questAccepted();
+            const accepted = this.game.acceptOfferedQuest();
+            if (accepted) {
+              this.isDirty = true;
+            }
+            this.closeQuestPopup();
+          },
+          onReject: () => {
+            this.juice.questRejected();
+            this.game.rejectOfferedQuest();
+            this.closeQuestPopup();
+          },
+        },
+        {
+          acceptLabel: "Yes",
+          rejectLabel: "Beat it",
+          nextLabel: "Next",
+        },
+        speaker
+      );
+      return true;
+    }
+
+    if (request.state === "active" && request.quest) {
+      const dialogue = getQuestDialogue(request.quest);
+      this.showQuestDialogue(
+        giverName,
+        [
+          ...dialogue.pages.slice(0, 1),
+          `You already carry this charge: ${request.quest.label}. Finish it, then come slither back to me.`,
+        ],
+        {
+          onClose: () => this.closeQuestPopup(),
+        },
+        {
+          closeLabel: "Close",
+        },
+        speaker
+      );
+      return true;
+    }
+
+    if (request.state === "completed" && request.quest) {
+      this.showQuestDialogue(
+        giverName,
+        [
+          `That task is already behind us: ${request.quest.label}.`,
+          "Come back when the tunnels have another favor to ask of your scales.",
+        ],
+        {
+          onClose: () => this.closeQuestPopup(),
+        },
+        {
+          closeLabel: "Close",
+        },
+        speaker
+      );
+      return true;
+    }
+
+    this.showQuestHintPopup("No quests right now");
+    return true;
+  }
+
+  private initQuestGiverSprite(): void {
+    const size = Math.max(14, Math.floor(this.grid.cell * 0.75));
+    const palette: QuestGiverSpritePalette = {
+      robeColor: "#2f7f5f",
+      trimColor: "#5dd6a2",
+      outlineColor: "#1e3a2d",
+      eyeColor: "#e8ffe8",
+    };
+    const textures = this.runtimeSpriteFactory.ensureRecipe(questGiverSpriteRecipe, size, palette);
+
+    if (!this.anims.exists("quest-giver-idle")) {
+      this.anims.create({
+        key: "quest-giver-idle",
+        frames: [{ key: textures.idle }, { key: textures.blink }],
+        frameRate: 2,
+        repeat: -1,
+      });
+    }
+
+    this.questGiverSprite = this.add
+      .sprite(0, 0, textures.idle)
+      .setDepth(25)
+      .setVisible(false);
+    this.questGiverSprite.play("quest-giver-idle");
+  }
+
+  private updateQuestGiverSprite(): void {
+    if (!this.questGiverSprite) {
+      return;
+    }
+    const room = this.game.getCurrentRoom();
+    const giver = room.questGiver;
+    if (!giver) {
+      this.questGiverSprite.setVisible(false);
+      return;
+    }
+    const world = this.tileToWorldLocalInRoom({ x: giver.x, y: giver.y });
+    const bobOffset = Math.sin(this.time.now / 260) * 2;
+    this.questGiverSprite.setPosition(world.x, world.y - 2 + bobOffset);
+    this.questGiverSprite.setVisible(true);
   }
 }

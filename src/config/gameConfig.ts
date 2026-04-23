@@ -61,6 +61,7 @@ export interface AppleSystemConfig {
 
 export interface QuestSystemConfig {
   initialQuestCount: number;
+  initialQuestIds?: string[];
   maxActiveQuests: number;
   questOfferChance: number;
 }
@@ -161,10 +162,12 @@ export const defaultGameConfig: GameConfig = {
   },
   quests: {
     initialQuestCount: 3,
+    initialQuestIds: ["eat-5-apples", "reach-length-10", "survive-20s-no-eat"],
     maxActiveQuests: 5,
-    questOfferChance: 0.002,
+    questOfferChance: 0,
   },
   features: {
-    enabled: ["coreScore", "wrapWall", "bonusApple", "hungerTimer"],
+    enabled: ["coreScore", "wrapWall", "bonusApple", "hungerTimer", "religionChoice"],
   },
 };
+

@@ -32,6 +32,9 @@ export type PaletteConfig = {
   };
   snake: {
     bodyColor: number;
+    bellyColor: number;
+    patternColor: number;
+    eyeColor: number;
     minAlpha: number;
     fadeStep: number;
     outlineDarkenFactor: number;
@@ -71,6 +74,9 @@ export const paletteConfig: PaletteConfig = {
   },
   snake: {
     bodyColor: 0x5dd6a2,
+    bellyColor: 0xc8ffe1,
+    patternColor: 0x2e8b68,
+    eyeColor: 0xf8ffef,
     minAlpha: 0.6,
     fadeStep: 0.015,
     outlineDarkenFactor: 0.35,

@@ -4,6 +4,7 @@ import { vectorKey } from "../core/math.js";
 import type { RandomGenerator } from "../core/rng.js";
 import type { RoomSnapshot } from "./types.js";
 import { createHouseRoom } from "./houseRoom.js";
+import { tryPlaceQuestHouse } from "./questHouse.js";
 
 export class RoomGenerator {
   constructor(
@@ -18,6 +19,7 @@ export class RoomGenerator {
     }
     const layout = Array.from({ length: grid.rows }, () => Array(grid.cols).fill("."));
     const portals: RoomSnapshot["portals"] = [];
+    let questGiver: RoomSnapshot["questGiver"] | undefined;
     const backgroundColor = randomBackgroundColor(this.rng);
     const wallColor = darkenColor(backgroundColor, paletteConfig.wall.darkenFactor);
     const wallOutlineColor = darkenColor(wallColor, paletteConfig.wall.outlineDarkenFactor);
@@ -58,6 +60,13 @@ export class RoomGenerator {
       }
     }
 
+    if (roomId !== this.config.originRoomId && this.rng() < 0.12) {
+      const questHouse = tryPlaceQuestHouse(layout, grid, this.rng);
+      if (questHouse) {
+        questGiver = questHouse.questGiver;
+      }
+    }
+
     if (this.config.ladder.enabled && this.rng() < this.config.ladder.chance) {
       let ladderPlaced = false;
       for (let attempts = 0; attempts < 50 && !ladderPlaced; attempts++) {
@@ -83,6 +92,7 @@ export class RoomGenerator {
       id: roomId,
       layout: layout.map((row) => row.join("")),
       portals,
+      questGiver,
       backgroundColor,
       wallColor,
       wallOutlineColor,

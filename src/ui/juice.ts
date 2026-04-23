@@ -14,6 +14,7 @@ export class JuiceManager {
   private readonly masterGain: GainNode;
   private readonly particleLayer: Phaser.GameObjects.Layer;
   private readonly overlayLayer: Phaser.GameObjects.Layer;
+  private movementNoiseMultiplier = 1;
   private bossMusic?: { id: string; gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private houseMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
@@ -226,6 +227,10 @@ export class JuiceManager {
 
   uiSparkle(worldX: number, worldY: number) {
     this.spawnBurst(worldX, worldY, { colors: [0x4da3ff, 0x9ad1ff, 0xcfe5ff], count: 12, radius: 28 });
+  }
+
+  setMovementNoiseMultiplier(multiplier: number) {
+    this.movementNoiseMultiplier = Math.max(0, multiplier);
   }
 
   // Soft idle sparkle for apples
@@ -667,7 +672,7 @@ export class JuiceManager {
 
   // Optional subtle trail at the snake head position if provided
   movementTick(worldX?: number, worldY?: number) {
-    this.playTone({ frequency: 60, duration: 0.05, type: "square", volume: 0.04 });
+    this.playTone({ frequency: 60, duration: 0.05, type: "square", volume: 0.04 * this.movementNoiseMultiplier });
 
     if (worldX !== undefined && worldY !== undefined) {
       // spawn a tiny fading dot to suggest motion
