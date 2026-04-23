@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-DRIAweOL.js";class t extends r{constructor(){super("buy-4-upgrades","Furniture Fanatic","Buy 4 house upgrades")}isCompleted(e){return(e.getFlag("house.itemsPurchased")??0)>=4}onReward(e){e.addScore(35)}}const a=new t;export{a as default};

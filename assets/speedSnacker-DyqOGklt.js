@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-DRIAweOL.js";class a extends s{constructor(){super("speed-snacker","Speed Snacker","Eat 3 apples in quick succession")}isCompleted(e){return(e.getFlag("appleStreakMax")??0)>=3}onReward(e){e.addScore(25)}}const c=new a;export{c as default};

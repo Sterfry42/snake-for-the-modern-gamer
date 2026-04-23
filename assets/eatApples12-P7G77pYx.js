@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-DRIAweOL.js";class s extends t{constructor(){super("eat-12-apples","Hungry","Eat 12 apples")}isCompleted(e){return(e.getFlag("applesEaten")??0)>=12}onReward(e){e.addScore(25)}}const r=new s;export{r as default};

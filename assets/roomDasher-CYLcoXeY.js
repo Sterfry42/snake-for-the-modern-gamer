@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-DRIAweOL.js";const t=26,a=1500;class n extends s{constructor(){super("room-dasher","Room Dasher","Cross a room in under 1.5s")}isCompleted(o){const e=Number(o.getFlag("roomTravelDistance")??0),r=Number(o.getFlag("roomTravelMs")??Number.POSITIVE_INFINITY);return e>=t&&r<=a}onReward(o){o.addScore(35)}}const d=new n;export{d as default};

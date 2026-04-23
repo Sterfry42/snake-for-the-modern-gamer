@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-DRIAweOL.js";class t extends r{constructor(){super("treasure-hunter","Treasure Hunter","Pick up 2 treasure chests")}isCompleted(e){return(e.getFlag("treasurePicked")??0)>=2}onReward(e){e.addScore(25)}}const a=new t;export{a as default};
