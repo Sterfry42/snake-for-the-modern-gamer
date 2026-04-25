@@ -32,7 +32,11 @@ export class WorldService {
       if (this.rng() < 0.10) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
-          const kind: "phase" | "smite" = this.rng() < 0.5 ? "phase" : "smite";
+          const roll = this.rng();
+          const kind: "phase" | "smite" | "gun" =
+            roll < 0.4 ? "phase" :
+            roll < 0.8 ? "smite" :
+            "gun";
           room.powerup = { x: spot.x, y: spot.y, kind };
         }
       }
@@ -61,7 +65,7 @@ export class WorldService {
 
   setPowerup(
     roomId: string,
-    powerup: { x: number; y: number; kind: "phase" | "smite" } | undefined
+    powerup: { x: number; y: number; kind: "phase" | "smite" | "gun" } | undefined
   ): void {
     const room = this.getRoom(roomId);
     if (powerup) {
@@ -75,7 +79,7 @@ export class WorldService {
     roomId: string,
     x: number,
     y: number
-  ): { present: boolean; kind?: "phase" | "smite" } {
+  ): { present: boolean; kind?: "phase" | "smite" | "gun" } {
     const room = this.getRoom(roomId);
     if (room.powerup && room.powerup.x === x && room.powerup.y === y) {
       return { present: true, kind: room.powerup.kind };

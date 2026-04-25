@@ -5,6 +5,7 @@ import type { Vector2Like } from "../core/math.js";
 import type { RoomSnapshot } from "../world/types.js";
 import type { AppleSnapshot } from "../apples/types.js";
 import { RuntimeSpriteFactory } from "./runtimeSpriteFactory.js";
+import { getBiomeDefinition } from "../world/biomes.js";
 import {
   snakeSpriteRecipe,
   type SnakeSpritePalette,
@@ -136,6 +137,7 @@ export class SnakeRenderer {
     const opts = options ?? {};
 
     this.drawRoom(room);
+    this.drawTemperatureReliefs(room);
     this.drawFurniture(room);
     this.highlightWalls(room, snakeBody, currentRoomId, opts.wallSenseRadius ?? 0);
     this.drawGrid();
@@ -161,6 +163,7 @@ export class SnakeRenderer {
       paletteConfig.ladder.color,
       paletteConfig.ladder.outlineDarkenFactor
     );
+    const biome = getBiomeDefinition(room.biomeId);
     for (let y = 0; y < room.layout.length; y++) {
       for (let x = 0; x < room.layout[y].length; x++) {
         const tile = room.layout[y][x];
@@ -228,8 +231,59 @@ export class SnakeRenderer {
         } else {
           this.graphics.fillStyle(room.backgroundColor, 1);
           this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.drawBiomeAccent(biome.id, biome.accentColor, x, y, rectX, rectY);
         }
       }
+    }
+  }
+
+  private drawBiomeAccent(
+    biomeId: string,
+    accentColor: number,
+    tileX: number,
+    tileY: number,
+    rectX: number,
+    rectY: number
+  ): void {
+    switch (biomeId) {
+      case "ember-waste":
+        if ((tileX + tileY) % 5 === 0) {
+          this.graphics.fillStyle(accentColor, 0.07);
+          this.graphics.fillCircle(rectX + this.grid.cell * 0.72, rectY + this.grid.cell * 0.28, 2);
+        }
+        break;
+      case "moonlit-parish":
+        if ((tileX * 2 + tileY) % 6 === 0) {
+          this.graphics.lineStyle(1, accentColor, 0.08);
+          this.graphics.strokeRect(rectX + 3, rectY + 3, this.grid.cell - 6, this.grid.cell - 6);
+        }
+        break;
+      case "sable-depths":
+        if ((tileX + tileY * 2) % 4 === 0) {
+          this.graphics.fillStyle(accentColor, 0.05);
+          this.graphics.fillRect(rectX + 2, rectY + this.grid.cell - 4, this.grid.cell - 4, 2);
+        }
+        break;
+      case "gloam-garden":
+        if ((tileX * 3 + tileY) % 7 === 0) {
+          this.graphics.fillStyle(accentColor, 0.06);
+          this.graphics.fillCircle(rectX + this.grid.cell * 0.35, rectY + this.grid.cell * 0.4, 2);
+          this.graphics.fillCircle(rectX + this.grid.cell * 0.58, rectY + this.grid.cell * 0.62, 1.5);
+        }
+        break;
+      case "home-hearth":
+        if ((tileX + tileY) % 6 === 0) {
+          this.graphics.fillStyle(accentColor, 0.04);
+          this.graphics.fillRect(rectX + 2, rectY + 2, this.grid.cell - 4, this.grid.cell - 4);
+        }
+        break;
+      case "verdigris-basin":
+      default:
+        if ((tileX + tileY) % 6 === 0) {
+          this.graphics.fillStyle(accentColor, 0.05);
+          this.graphics.fillRect(rectX + 2, rectY + 2, this.grid.cell - 4, 2);
+        }
+        break;
     }
   }
 
@@ -358,13 +412,31 @@ export class SnakeRenderer {
     this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
+  private drawTemperatureReliefs(room: RoomSnapshot): void {
+    const reliefs = room.temperatureReliefs ?? [];
+    for (const relief of reliefs) {
+      const x = relief.x * this.grid.cell;
+      const y = relief.y * this.grid.cell;
+      const color = relief.kind === "warm" ? 0xffc27a : 0x8fd8ff;
+      const outline = darkenColor(color, 0.45);
+      this.graphics.fillStyle(color, 0.55);
+      this.graphics.fillCircle(x + this.grid.cell / 2, y + this.grid.cell / 2, Math.max(4, this.grid.cell * 0.28));
+      this.graphics.lineStyle(1, outline, 0.85);
+      this.graphics.strokeCircle(x + this.grid.cell / 2, y + this.grid.cell / 2, Math.max(4, this.grid.cell * 0.28));
+      this.graphics.lineStyle(1, color, 0.28);
+      this.graphics.strokeCircle(x + this.grid.cell / 2, y + this.grid.cell / 2, Math.max(6, this.grid.cell * 0.4));
+    }
+  }
+
   private drawPowerup(room: RoomSnapshot): void {
     const p = room.powerup;
     if (!p) return;
     const x = p.x * this.grid.cell;
     const y = p.y * this.grid.cell;
-    // Unified purple color for all powerups
-    const color = 0x9b5de5;
+    const color =
+      p.kind === "gun" ? 0xf6bd60 :
+      p.kind === "smite" ? 0xd7263d :
+      0x9b5de5;
     const outline = darkenColor(color, 0.35);
     this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
     this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
@@ -614,8 +686,13 @@ export class SnakeRenderer {
     enemies.forEach((enemy, index) => {
       const sprite = this.ensureEnemySprite(index);
       const variant = this.resolveEnemyVariant(enemy);
+      const textureKeys = this.spriteFactory.ensureRecipe(
+        enemySpriteRecipe,
+        this.grid.cell,
+        this.paletteForEnemy(enemy)
+      );
       sprite
-        .setTexture(this.enemyTextureKeys[variant])
+        .setTexture(textureKeys[variant])
         .setPosition(
           enemy.position.x * this.grid.cell + this.grid.cell / 2,
           enemy.position.y * this.grid.cell + this.grid.cell / 2
@@ -630,8 +707,13 @@ export class SnakeRenderer {
     const bulletSize = Math.max(this.grid.cell * 0.7, this.grid.cell - 4);
     bullets.forEach((bullet, index) => {
       const sprite = this.ensureBulletSprite(index);
+      const textureKeys = this.spriteFactory.ensureRecipe(
+        enemySpriteRecipe,
+        this.grid.cell,
+        this.paletteForBullet(bullet)
+      );
       sprite
-        .setTexture(this.enemyTextureKeys["bullet"])
+        .setTexture(textureKeys["bullet"])
         .setPosition(
           bullet.position.x * this.grid.cell + this.grid.cell / 2,
           bullet.position.y * this.grid.cell + this.grid.cell / 2
@@ -691,6 +773,84 @@ export class SnakeRenderer {
       "down";
 
     return (enemy.flashTicks > 0 ? `enemy-flash-${suffix}` : `enemy-${suffix}`) as EnemySpriteVariant;
+  }
+
+  private paletteForEnemy(enemy: EnemyInstance): EnemySpritePalette {
+    if (enemy.encounterKind === "npc-hostile") {
+      return {
+        bodyColor: "#a82d3d",
+        accentColor: "#ff9f8b",
+        outlineColor: "#30070e",
+        eyeColor: "#fff0ea",
+        bulletColor: "#ffb36b",
+        bulletOutlineColor: "#6a2c1a",
+      };
+    }
+    if (enemy.encounterKind === "duelist") {
+      if (enemy.id === "freak-joey") {
+        return {
+          bodyColor: "#7a2430",
+          accentColor: "#f4b46a",
+          outlineColor: "#23060a",
+          eyeColor: "#fff0d4",
+          bulletColor: "#ffd27d",
+          bulletOutlineColor: "#5a2a12",
+        };
+      }
+      return {
+        bodyColor: "#5d3d7d",
+        accentColor: "#f0da8a",
+        outlineColor: "#1c1026",
+        eyeColor: "#fff8e2",
+        bulletColor: "#e2c8ff",
+        bulletOutlineColor: "#4a315f",
+      };
+    }
+    return this.buildEnemyPalette();
+  }
+
+  private paletteForBullet(bullet: BulletInstance): EnemySpritePalette {
+    switch (bullet.style) {
+      case "player":
+        return {
+          bodyColor: "#f6bd60",
+          accentColor: "#ffe0a3",
+          outlineColor: "#7a4d1d",
+          eyeColor: "#fff8ef",
+          bulletColor: "#ffe0a3",
+          bulletOutlineColor: "#7a4d1d",
+        };
+      case "npc-hostile":
+        return {
+          bodyColor: "#a82d3d",
+          accentColor: "#ff9f8b",
+          outlineColor: "#30070e",
+          eyeColor: "#fff0ea",
+          bulletColor: "#ff8e7a",
+          bulletOutlineColor: "#5a1620",
+        };
+      case "freak-joey":
+        return {
+          bodyColor: "#7a2430",
+          accentColor: "#f4b46a",
+          outlineColor: "#23060a",
+          eyeColor: "#fff0d4",
+          bulletColor: "#ffd27d",
+          bulletOutlineColor: "#5a2a12",
+        };
+      case "duelist":
+        return {
+          bodyColor: "#5d3d7d",
+          accentColor: "#f0da8a",
+          outlineColor: "#1c1026",
+          eyeColor: "#fff8e2",
+          bulletColor: "#e2c8ff",
+          bulletOutlineColor: "#4a315f",
+        };
+      case "enemy":
+      default:
+        return this.buildEnemyPalette();
+    }
   }
 
   private furnitureVariantForTile(tile: string): FurnitureSpriteVariant | null {

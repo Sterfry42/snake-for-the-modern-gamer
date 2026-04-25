@@ -290,18 +290,185 @@ export class JuiceManager {
   }
 
   // Powerup pickup: heavy juice
-  powerupPickup(worldX: number, worldY: number, _kind: "phase" | "smite") {
-    // Unified purple juice for all powerups
-    const colors = [0x9b5de5, 0xc77dff, 0x7ad1ff];
-    this.playTone({ frequency: 560, frequencyEnd: 920, duration: 0.34, type: "sine", volume: 0.24 });
+  powerupPickup(worldX: number, worldY: number, kind: "phase" | "smite" | "gun") {
+    const colors =
+      kind === "gun" ? [0xf6bd60, 0xffe0a3, 0xff8c42] :
+      [0x9b5de5, 0xc77dff, 0x7ad1ff];
+    this.playTone({
+      frequency: kind === "gun" ? 420 : 560,
+      frequencyEnd: kind === "gun" ? 680 : 920,
+      duration: 0.34,
+      type: kind === "gun" ? "square" : "sine",
+      volume: 0.24,
+    });
     this.spawnBurst(worldX, worldY, { colors, count: 36, radius: 40 });
     this.kickCamera(0.038, 220);
     this.punchZoom(1.085, 220);
-    // purple flash
-    this.scene.cameras.main.flash(200, 155, 110, 255, true);
+    this.scene.cameras.main.flash(
+      200,
+      kind === "gun" ? 246 : 155,
+      kind === "gun" ? 189 : 110,
+      kind === "gun" ? 96 : 255,
+      true
+    );
     this.blastWave(worldX, worldY, colors, 42);
-    this.ringPulse(worldX, worldY, 0x9b5de5, 16, 2, 300);
-    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 20, 2, 280), 100);
+    this.ringPulse(worldX, worldY, kind === "gun" ? 0xf6bd60 : 0x9b5de5, 16, 2, 300);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, kind === "gun" ? 0xffe0a3 : 0xc77dff, 20, 2, 280), 100);
+  }
+
+  wandererReveal(worldX: number, worldY: number) {
+    this.playTone({ frequency: 240, duration: 0.18, type: "triangle", volume: 0.11 });
+    this.playTone({ frequency: 480, duration: 0.24, type: "sine", volume: 0.09 });
+    this.scene.cameras.main.flash(140, 185, 130, 255, true);
+    this.kickCamera(0.016, 130);
+    this.spawnBurst(worldX, worldY, { colors: [0x8c6fff, 0xcfb8ff, 0x90e0ff], count: 18, radius: 24 });
+    this.ringPulse(worldX, worldY, 0xcfb8ff, 12, 2, 260);
+  }
+
+  wandererApproach(worldX: number, worldY: number) {
+    this.playTone({ frequency: 300, frequencyEnd: 220, duration: 0.22, type: "sawtooth", volume: 0.1 });
+    this.blastWave(worldX, worldY, [0xb89cff, 0xe8ddff], 20);
+    this.punchZoom(1.025, 140);
+  }
+
+  wandererAura(worldX: number, worldY: number, colorCss: string) {
+    const circle = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(2, 3), Phaser.Display.Color.HexStringToColor(colorCss).color);
+    circle.setDepth(26).setAlpha(0.45).setBlendMode(Phaser.BlendModes.ADD);
+    this.particleLayer.add(circle);
+    this.scene.tweens.add({
+      targets: circle,
+      y: worldY - Phaser.Math.Between(10, 16),
+      alpha: 0,
+      scale: 0.4,
+      duration: Phaser.Math.Between(420, 680),
+      ease: "Cubic.easeOut",
+      onComplete: () => circle.destroy(),
+    });
+  }
+
+  duelAccepted(worldX: number, worldY: number) {
+    this.playTone({ frequency: 220, duration: 0.14, type: "square", volume: 0.12 });
+    this.playTone({ frequency: 440, duration: 0.18, type: "sawtooth", volume: 0.16 });
+    this.playTone({ frequency: 660, duration: 0.24, type: "triangle", volume: 0.12 });
+    this.kickCamera(0.028, 180);
+    this.punchZoom(1.06, 180);
+    this.scene.cameras.main.flash(160, 255, 90, 90, true);
+    this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffd166, 0xfff3a8], count: 24, radius: 28 });
+    this.blastWave(worldX, worldY, [0xff6b6b, 0xffd166], 24);
+  }
+
+  villageReveal(worldX: number, worldY: number) {
+    this.playTone({ frequency: 196, duration: 0.24, type: "triangle", volume: 0.1 });
+    globalThis.setTimeout(() => this.playTone({ frequency: 293, duration: 0.3, type: "sine", volume: 0.08 }), 90);
+    globalThis.setTimeout(() => this.playTone({ frequency: 392, duration: 0.36, type: "triangle", volume: 0.08 }), 180);
+    this.scene.cameras.main.flash(220, 246, 214, 164, true);
+    this.kickCamera(0.02, 180);
+    this.punchZoom(1.05, 200);
+    this.spawnBurst(worldX, worldY, { colors: [0xffe8b6, 0xf6bd60, 0xcde7ff], count: 28, radius: 34 });
+    this.blastWave(worldX, worldY, [0xffe8b6, 0xf6bd60, 0xcde7ff], 34);
+    this.fillPulse(worldX, worldY, 10, 72, 0xf6e7c1, 0.12, 500);
+  }
+
+  biomeReveal(worldX: number, worldY: number, color: number) {
+    this.playTone({ frequency: 164, duration: 0.24, type: "triangle", volume: 0.08 });
+    globalThis.setTimeout(() => this.playTone({ frequency: 246, duration: 0.28, type: "sine", volume: 0.07 }), 80);
+    globalThis.setTimeout(() => this.playTone({ frequency: 328, duration: 0.34, type: "triangle", volume: 0.07 }), 160);
+    this.kickCamera(0.014, 150);
+    this.punchZoom(1.04, 180);
+    this.fillPulse(worldX, worldY, 10, 86, color, 0.12, 520);
+    this.ringPulse(worldX, worldY, color, 16, 2, 320);
+    this.spawnBurst(worldX, worldY, { colors: [color, 0xf6e7c1, 0xcfe5ff], count: 20, radius: 28 });
+  }
+
+  villageLantern(worldX: number, worldY: number) {
+    const colors = [0xffe8b6, 0xffc857, 0xfff4d6];
+    const count = 3;
+    for (let i = 0; i < count; i++) {
+      const cx = worldX + Phaser.Math.Between(-3, 3);
+      const cy = worldY - Phaser.Math.Between(6, 10);
+      const dot = this.scene.add.circle(cx, cy, Phaser.Math.Between(2, 3), Phaser.Utils.Array.GetRandom(colors));
+      dot.setDepth(27).setAlpha(0.8).setBlendMode(Phaser.BlendModes.ADD);
+      this.overlayLayer.add(dot);
+      this.scene.tweens.add({
+        targets: dot,
+        y: cy - Phaser.Math.Between(10, 18),
+        alpha: 0,
+        scale: 0.5,
+        duration: Phaser.Math.Between(900, 1400),
+        ease: "Sine.easeOut",
+        onComplete: () => dot.destroy(),
+      });
+    }
+    if (Math.random() < 0.18) {
+      this.ringPulse(worldX, worldY, 0xffe8b6, 4, 1, 320);
+    }
+  }
+
+  villageBreath(worldX: number, worldY: number) {
+    const ring = this.scene.add.circle(worldX, worldY, 8, 0xf6e7c1, 0.08);
+    ring.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(ring);
+    this.scene.tweens.add({
+      targets: ring,
+      scale: 3,
+      alpha: 0,
+      duration: 1200,
+      ease: "Cubic.easeOut",
+      onComplete: () => ring.destroy(),
+    });
+    this.fillPulse(worldX, worldY, 10, 56, 0xf6e7c1, 0.06, 1000);
+    for (let i = 0; i < 4; i++) {
+      const mote = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-10, 10),
+        worldY + Phaser.Math.Between(-8, 8),
+        Phaser.Math.Between(2, 3),
+        Phaser.Utils.Array.GetRandom([0xffe8b6, 0xcde7ff, 0xf6bd60]),
+        0.35
+      );
+      mote.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
+      this.overlayLayer.add(mote);
+      this.scene.tweens.add({
+        targets: mote,
+        y: mote.y - Phaser.Math.Between(14, 24),
+        alpha: 0,
+        scale: 0.4,
+        duration: 900 + Math.random() * 300,
+        ease: "Sine.easeOut",
+        onComplete: () => mote.destroy(),
+      });
+    }
+  }
+
+  playerShot(worldX: number, worldY: number, dx: number, dy: number) {
+    this.playTone({ frequency: 520, frequencyEnd: 240, duration: 0.08, type: "square", volume: 0.13 });
+    const muzzleX = worldX + dx * 10;
+    const muzzleY = worldY + dy * 10;
+    this.spawnBurst(muzzleX, muzzleY, { colors: [0xfff3a8, 0xffc857, 0xff8c42], count: 8, radius: 12 });
+    this.ringPulse(muzzleX, muzzleY, 0xffc857, 6, 1, 120);
+    this.flashLine(muzzleX, muzzleY, muzzleX + dx * 26, muzzleY + dy * 26, 0xffd166, 2, 90);
+    this.kickCamera(0.006, 50);
+  }
+
+  playerHit(
+    worldX: number,
+    worldY: number,
+    health: number,
+    maxHealth: number,
+    source?: "enemy" | "npc-hostile" | "duelist" | "freak-joey" | "player"
+  ) {
+    const colors =
+      source === "npc-hostile" ? [0xff8e7a, 0xa82d3d] :
+      source === "freak-joey" ? [0xffd27d, 0x7a2430] :
+      source === "duelist" ? [0xe2c8ff, 0x5d3d7d] :
+      [0xff6b6b, 0xff9e7a];
+    this.playTone({ frequency: 180, frequencyEnd: 90, duration: 0.18, type: "sawtooth", volume: 0.12 });
+    this.scene.cameras.main.flash(120, 255, 70, 70, true);
+    this.kickCamera(0.024, 150);
+    this.spawnBurst(worldX, worldY, { colors, count: 14, radius: 18 });
+    this.ringPulse(worldX, worldY, colors[0], 10, 2, 180);
+    if (health <= Math.ceil(maxHealth / 3)) {
+      this.punchZoom(1.045, 170);
+    }
   }
 
   startPowerupMusic(durationMs: number) {
@@ -449,6 +616,8 @@ export class JuiceManager {
     const c = 0xffe2b0;
     this.ringPulse(x, y, c, 18, 2, 320);
     this.spawnBurst(x, y, { colors: [0xfff3a8, 0xffe2b0], count: 8, radius: 18 });
+    this.fillPulse(x, y, 8, 34, 0xffe2b0, 0.12, 300);
+    this.punchZoom(1.02, 140);
   }
 
   // Ambient mote drifting upward
@@ -467,6 +636,20 @@ export class JuiceManager {
       ease: "Sine.easeOut",
       onComplete: () => rect.destroy(),
     });
+    if (Math.random() < 0.35) {
+      const ember = this.scene.add.circle(x + Phaser.Math.Between(-3, 3), y + Phaser.Math.Between(-3, 3), Phaser.Math.Between(2, 3), 0xffd79a, 0.35);
+      ember.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
+      this.overlayLayer.add(ember);
+      this.scene.tweens.add({
+        targets: ember,
+        y: ember.y - Phaser.Math.Between(8, 14),
+        alpha: 0,
+        scale: 0.4,
+        duration: 900 + Math.random() * 400,
+        ease: "Sine.easeOut",
+        onComplete: () => ember.destroy(),
+      });
+    }
   }
 
   // Treasure beacon: slim vertical beam rising from the treasure to the top
@@ -675,7 +858,7 @@ export class JuiceManager {
     this.playTone({ frequency: 60, duration: 0.05, type: "square", volume: 0.04 * this.movementNoiseMultiplier });
 
     if (worldX !== undefined && worldY !== undefined) {
-      // spawn a tiny fading dot to suggest motion
+      // Spawn a tiny fading dot and occasional spark to suggest momentum.
       const dot = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(2, 3), 0x5dd6a2).setAlpha(0.9);
       dot.setDepth(21);
       this.particleLayer.add(dot);
@@ -689,6 +872,25 @@ export class JuiceManager {
         ease: "Cubic.easeOut",
         onComplete: () => dot.destroy(),
       });
+      if (Math.random() < 0.45) {
+        const spark = this.scene.add.circle(
+          worldX + Phaser.Math.Between(-5, 5),
+          worldY + Phaser.Math.Between(-5, 5),
+          Phaser.Math.Between(1, 2),
+          Phaser.Utils.Array.GetRandom([0xc8ffe1, 0x9ad1ff, 0x5dd6a2])
+        ).setAlpha(0.65);
+        spark.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+        this.particleLayer.add(spark);
+        this.scene.tweens.add({
+          targets: spark,
+          y: spark.y - Phaser.Math.Between(4, 8),
+          alpha: 0,
+          scale: 0.4,
+          duration: 160,
+          ease: "Cubic.easeOut",
+          onComplete: () => spark.destroy(),
+        });
+      }
     }
   }
 
@@ -859,11 +1061,90 @@ export class JuiceManager {
   // Room transition pulse
   roomTransition(worldX: number, worldY: number) {
     this.playTone({ frequency: 300, duration: 0.12, type: "sine", volume: 0.08 });
+    this.kickCamera(0.01, 90);
+    this.fillPulse(worldX, worldY, 8, 40, 0x4da3ff, 0.12, 240);
+    this.spawnBurst(worldX, worldY, { colors: [0x4da3ff, 0x9ad1ff, 0xcfe5ff], count: 10, radius: 16 });
     // Small ring highlight from entry side
     this.ringPulse(worldX, worldY, 0x4da3ff, 12, 2, 240);
     // Subtle echo ring for style
     globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0x9ad1ff, 8, 2, 220), 60);
-    this.punchZoom(1.01, 120);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xcfe5ff, 18, 1, 220), 100);
+    this.punchZoom(1.02, 120);
+  }
+
+  interiorPulse(worldX: number, worldY: number) {
+    const mote = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(2, 3), Phaser.Utils.Array.GetRandom([0xffe8b6, 0xffd79a, 0xf6e7c1]), 0.32);
+    mote.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(mote);
+    this.scene.tweens.add({
+      targets: mote,
+      y: worldY - Phaser.Math.Between(10, 18),
+      alpha: 0,
+      scale: 0.4,
+      duration: 800 + Math.random() * 400,
+      ease: "Sine.easeOut",
+      onComplete: () => mote.destroy(),
+    });
+  }
+
+  villageResidentMurmur(worldX: number, worldY: number, color: number) {
+    this.ringPulse(worldX, worldY, color, 4, 1, 260);
+    this.fillPulse(worldX, worldY, 4, 18, color, 0.08, 260);
+  }
+
+  snowDrift(worldX: number, worldY: number) {
+    const flake = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(1, 2), Phaser.Utils.Array.GetRandom([0xe8f4ff, 0xcfe5ff, 0xffffff]), 0.8);
+    flake.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(flake);
+    this.scene.tweens.add({
+      targets: flake,
+      x: worldX + Phaser.Math.Between(-12, 12),
+      y: worldY + Phaser.Math.Between(12, 24),
+      alpha: 0,
+      duration: 1000 + Math.random() * 700,
+      ease: "Sine.easeInOut",
+      onComplete: () => flake.destroy(),
+    });
+  }
+
+  heatHaze(worldX: number, worldY: number) {
+    const haze = this.scene.add.ellipse(worldX, worldY, Phaser.Math.Between(8, 14), Phaser.Math.Between(14, 22), 0xffb36b, 0.14);
+    haze.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(haze);
+    this.scene.tweens.add({
+      targets: haze,
+      y: worldY - Phaser.Math.Between(10, 18),
+      x: worldX + Phaser.Math.Between(-6, 6),
+      alpha: 0,
+      scaleX: 1.3,
+      scaleY: 0.7,
+      duration: 700 + Math.random() * 400,
+      ease: "Sine.easeOut",
+      onComplete: () => haze.destroy(),
+    });
+  }
+
+  temperatureReliefPulse(worldX: number, worldY: number, kind: "warm" | "cool") {
+    const color = kind === "warm" ? 0xffc27a : 0x8fd8ff;
+    this.ringPulse(worldX, worldY, color, 6, 1, 220);
+    this.fillPulse(worldX, worldY, 4, 18, color, 0.08, 240);
+  }
+
+  private flashLine(x1: number, y1: number, x2: number, y2: number, color: number, width: number, duration: number) {
+    const g = this.scene.add.graphics().setDepth(28);
+    this.overlayLayer.add(g);
+    g.lineStyle(width, color, 0.95);
+    g.beginPath();
+    g.moveTo(x1, y1);
+    g.lineTo(x2, y2);
+    g.strokePath();
+    this.scene.tweens.add({
+      targets: g,
+      alpha: 0,
+      duration,
+      ease: "Cubic.easeOut",
+      onComplete: () => g.destroy(),
+    });
   }
 }
 
