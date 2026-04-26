@@ -40,6 +40,7 @@ interface EnemyStepParams {
   getRoom(roomId: string): RoomSnapshot;
   snake: readonly Vector2Like[];
   currentRoomId: string;
+  snakeDirection: Vector2Like;
 }
 
 interface EnemyStepResult {
@@ -208,7 +209,7 @@ export class EnemyManager {
   }
 
   step(params: EnemyStepParams): EnemyStepResult {
-    const { getRoom, snake, currentRoomId } = params;
+    const { getRoom, snake, currentRoomId, snakeDirection } = params;
     let bulletHits = 0;
     let hitStyle: BulletInstance["style"] | undefined;
 
@@ -296,14 +297,18 @@ export class EnemyManager {
       let aimDirection = enemy.aimDirection;
       let flashTicks = Math.max(0, enemy.flashTicks - 1);
 
+      const snakeCharging = this.isSnakeChargingEnemy(enemy.position, headLocal, snakeDirection);
+
       if (moveCooldown <= 0) {
-        position = this.tryMoveEnemy(enemy, room, headLocal);
+        position = snakeCharging
+          ? this.tryMoveEnemyAway(enemy, room, headLocal)
+          : this.tryMoveEnemy(enemy, room, headLocal);
         moveCooldown = enemy.encounterKind === "duelist"
-          ? 2 + Math.floor(this.rng() * 2)
-          : 5 + Math.floor(this.rng() * 5);
+          ? (snakeCharging ? 4 : 2) + Math.floor(this.rng() * 2)
+          : (snakeCharging ? 7 : 5) + Math.floor(this.rng() * 5);
       }
 
-      if (nextCooldown <= 0) {
+      if (nextCooldown <= 0 && !snakeCharging) {
         const shot = this.tryCreateShot({ ...enemy, position }, headLocal, room);
         if (shot) {
           const bullets = this.bullets.get(currentRoomId) ?? [];
@@ -333,7 +338,7 @@ export class EnemyManager {
         moveCooldown,
         aimDirection: trackedAim,
         flashTicks,
-        fireCooldown: Math.max(0, nextCooldown),
+        fireCooldown: snakeCharging ? Math.max(2, nextCooldown) : Math.max(0, nextCooldown),
       });
     }
 
@@ -610,6 +615,65 @@ export class EnemyManager {
     }
 
     return enemy.position;
+  }
+
+  private tryMoveEnemyAway(
+    enemy: EnemyInstance,
+    room: RoomSnapshot,
+    headLocal: Vector2Like
+  ): Vector2Like {
+    const dx = Math.sign(enemy.position.x - headLocal.x);
+    const dy = Math.sign(enemy.position.y - headLocal.y);
+    const preferred: Vector2Like[] = [];
+    if (Math.abs(enemy.position.x - headLocal.x) >= Math.abs(enemy.position.y - headLocal.y) && dx !== 0) {
+      preferred.push({ x: dx, y: 0 });
+    }
+    if (dy !== 0) {
+      preferred.push({ x: 0, y: dy });
+    }
+    if (dx !== 0 && !preferred.some((dir) => dir.x === dx && dir.y === 0)) {
+      preferred.push({ x: dx, y: 0 });
+    }
+    preferred.push(...[
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ].sort(() => this.rng() - 0.5));
+
+    let best = enemy.position;
+    let bestDistance = Math.abs(enemy.position.x - headLocal.x) + Math.abs(enemy.position.y - headLocal.y);
+    for (const direction of preferred) {
+      const next = {
+        x: enemy.position.x + direction.x,
+        y: enemy.position.y + direction.y,
+      };
+      if (
+        next.x < 0 ||
+        next.x >= this.grid.cols ||
+        next.y < 0 ||
+        next.y >= this.grid.rows ||
+        room.layout[next.y]?.[next.x] === "#"
+      ) {
+        continue;
+      }
+      const distance = Math.abs(next.x - headLocal.x) + Math.abs(next.y - headLocal.y);
+      if (distance > bestDistance) {
+        best = next;
+        bestDistance = distance;
+      }
+    }
+    return best;
+  }
+
+  private isSnakeChargingEnemy(enemyPosition: Vector2Like, headLocal: Vector2Like, snakeDirection: Vector2Like): boolean {
+    if (snakeDirection.x !== 0 && headLocal.y === enemyPosition.y) {
+      return Math.sign(enemyPosition.x - headLocal.x) === snakeDirection.x;
+    }
+    if (snakeDirection.y !== 0 && headLocal.x === enemyPosition.x) {
+      return Math.sign(enemyPosition.y - headLocal.y) === snakeDirection.y;
+    }
+    return false;
   }
 
   private resolveAimDirection(

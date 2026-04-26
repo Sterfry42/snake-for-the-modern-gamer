@@ -26,6 +26,9 @@ export interface EquipableItem extends BaseItem {
     phoenixCharges?: number;
     // Enables player shooting when equipped.
     gunEnabled?: boolean;
+    // Reduces exposure in temperature hazard biomes.
+    heatResistance?: number;
+    coldResistance?: number;
   };
 }
 

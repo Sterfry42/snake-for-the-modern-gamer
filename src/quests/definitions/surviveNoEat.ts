@@ -9,7 +9,11 @@ class SurviveNoEatQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return (runtime.getFlag<number>("timeSinceEat") ?? 0) >= SURVIVAL_TIME_TICKS;
+    return this.progressSinceAccept(runtime, "timeSinceEat") >= SURVIVAL_TIME_TICKS;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["timeSinceEat"];
   }
 
   override onReward(runtime: QuestRuntime): void {

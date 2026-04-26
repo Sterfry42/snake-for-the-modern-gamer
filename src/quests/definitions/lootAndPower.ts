@@ -7,9 +7,13 @@ class LootAndPowerQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    const treasure = Number(runtime.getFlag<number>("treasurePicked") ?? 0);
-    const powerups = Number(runtime.getFlag<number>("powerupsPicked") ?? 0);
+    const treasure = this.progressSinceAccept(runtime, "treasurePicked");
+    const powerups = this.progressSinceAccept(runtime, "powerupsPicked");
     return treasure >= 1 && powerups >= 1;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["treasurePicked", "powerupsPicked"];
   }
 
   override onReward(runtime: QuestRuntime): void {

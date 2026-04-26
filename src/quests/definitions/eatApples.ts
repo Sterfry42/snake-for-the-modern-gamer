@@ -7,7 +7,11 @@ class EatApplesQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return (runtime.getFlag<number>("applesEaten") ?? 0) >= 5;
+    return this.progressSinceAccept(runtime, "applesEaten") >= 5;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["applesEaten"];
   }
 
   override onReward(runtime: QuestRuntime): void {

@@ -31,6 +31,7 @@ export interface AppleMoveContext {
 
 export interface AppleConsumptionContext {
   direction: Vector2Like;
+  phasing?: boolean;
 }
 
 export abstract class AppleInstance {

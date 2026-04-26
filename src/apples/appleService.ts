@@ -111,7 +111,7 @@ export class AppleService {
     return affectedRooms;
   }
 
-  handleConsumption(roomId: string, direction: Vector2Like): AppleConsumptionResult {
+  handleConsumption(roomId: string, direction: Vector2Like, phasing = false): AppleConsumptionResult {
     const apple = this.apples.get(roomId) ?? null;
     if (!apple) {
       return {
@@ -123,7 +123,7 @@ export class AppleService {
       };
     }
 
-    const context: AppleConsumptionContext = { direction };
+    const context: AppleConsumptionContext = { direction, phasing };
     const fatal = apple.isFatalApproach(context);
     if (fatal) {
       return {

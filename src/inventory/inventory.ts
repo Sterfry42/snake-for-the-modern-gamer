@@ -17,6 +17,11 @@ export class InventorySystem {
     this.items.set(itemId, currentCount - count);
     if (this.items.get(itemId) === 0) {
       this.items.delete(itemId);
+      for (const [slot, equippedId] of this.equipped) {
+        if (equippedId === itemId) {
+          this.equipped.delete(slot);
+        }
+      }
     }
     return true;
   }

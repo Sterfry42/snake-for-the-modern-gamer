@@ -302,6 +302,8 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag("timeMs", 0);
     this.setFlag("player.health", 3);
     this.setFlag("player.maxHealth", 3);
+    this.setFlag("ui.healthRevealed", undefined);
+    this.setFlag("ui.livesRevealed", undefined);
     this.setFlag("player.bulletInvulnTicks", 0);
     this.setFlag("player.temperatureExposureMs", 0);
     this.setFlag("player.temperatureThresholdMs", 10000);
@@ -310,6 +312,9 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag("player.temperatureLastTickMs", 0);
     this.setFlag("player.temperatureHazard", undefined);
     this.setFlag("equipment.gunEnabled", undefined);
+    this.setFlag("equipment.itemPhoenixCharges", undefined);
+    this.setFlag("equipment.heatResistance", undefined);
+    this.setFlag("equipment.coldResistance", undefined);
     this.setFlag("treasurePicked", 0);
     this.setFlag("powerupsPicked", 0);
     this.setFlag("roomsVisited", 1);
@@ -388,6 +393,11 @@ export class SnakeGame implements QuestRuntime {
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
       const newRoomId = this.snake.currentRoomId;
+      const previousDepth = Number(previousRoom.split(",")[2] ?? 0);
+      const newDepth = Number(newRoomId.split(",")[2] ?? 0);
+      if (previousDepth !== newDepth) {
+        this.setFlag("traversal.manualResumePending", true);
+      }
       if (!this.visitedRooms.has(newRoomId)) {
         this.visitedRooms.add(newRoomId);
         // TODO: Make this configurable
@@ -544,8 +554,22 @@ export class SnakeGame implements QuestRuntime {
 
     if (outcome.appleEaten) {
       appleEaten = true;
-      const consumption = this.apples.handleConsumption(this.snake.currentRoomId, this.snake.directionVector);
+      const phasePowerupActive = Boolean(this.powerupState?.kind === "phase" && this.powerupState.remaining > 0);
+      const consumption = this.apples.handleConsumption(
+        this.snake.currentRoomId,
+        this.snake.directionVector,
+        phasePowerupActive
+      );
       if (consumption.fatal) {
+        if (this.tryFortitudePhoenix({ status: "dead", reason: "shielded" }, roomsChanged, previousRoom)) {
+          return this.createAliveStepResult({
+            appleEaten: true,
+            appleSnapshot: appleBeforeStep,
+            appleStateChanged: true,
+            roomsChanged,
+            roomHasChanged,
+          });
+        }
         return {
           status: "dead",
           deathReason: "shielded",
@@ -668,6 +692,17 @@ export class SnakeGame implements QuestRuntime {
 
     if (currentHead) {
       if (this.enemies.hasHarmfulOccupantAt(this.snake.currentRoomId, currentHead)) {
+        if (this.tryFortitudePhoenix({ status: "dead", reason: "boss" }, roomsChanged, previousRoom)) {
+          return this.createAliveStepResult({
+            appleEaten,
+            appleRewards,
+            appleWorldPosition,
+            appleSnapshot,
+            appleStateChanged,
+            roomsChanged,
+            roomHasChanged,
+          });
+        }
         return {
           status: "dead",
           deathReason: "boss",
@@ -700,8 +735,20 @@ export class SnakeGame implements QuestRuntime {
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.snake.bodySegments,
       currentRoomId: this.snake.currentRoomId,
+      snakeDirection: this.snake.directionVector,
     });
     if (enemyStep.bulletHits > 0 && this.applyBulletDamage(enemyStep.bulletHits, enemyStep.hitStyle)) {
+      if (this.tryFortitudePhoenix({ status: "dead", reason: "bullet" }, roomsChanged, previousRoom)) {
+        return this.createAliveStepResult({
+          appleEaten,
+          appleRewards,
+          appleWorldPosition,
+          appleSnapshot,
+          appleStateChanged,
+          roomsChanged,
+          roomHasChanged,
+        });
+      }
       return {
         status: "dead",
         deathReason: "bullet",
@@ -736,6 +783,17 @@ export class SnakeGame implements QuestRuntime {
     this.tickFortitudeStates();
     this.tickPlayerStates();
     if (this.tickTemperatureState()) {
+      if (this.tryFortitudePhoenix({ status: "dead", reason: "temperature" }, roomsChanged, previousRoom)) {
+        return this.createAliveStepResult({
+          appleEaten,
+          appleRewards,
+          appleWorldPosition,
+          appleSnapshot,
+          appleStateChanged,
+          roomsChanged,
+          roomHasChanged,
+        });
+      }
       return {
         status: "dead",
         deathReason: "temperature",
@@ -1050,6 +1108,31 @@ export class SnakeGame implements QuestRuntime {
     return this.inventory;
   }
 
+  private createAliveStepResult(options: {
+    appleEaten: boolean;
+    appleRewards?: AppleConsumptionResult["rewards"];
+    appleWorldPosition?: Vector2Like | null;
+    appleSnapshot: AppleSnapshot | null;
+    appleStateChanged: boolean;
+    roomsChanged: Set<string>;
+    roomHasChanged: boolean;
+  }): StepResult {
+    return {
+      status: "alive",
+      apple: {
+        eaten: options.appleEaten,
+        rewards: options.appleRewards,
+        worldPosition: options.appleWorldPosition,
+        current: options.appleSnapshot,
+        stateChanged: options.appleStateChanged,
+      },
+      roomsChanged: options.roomsChanged,
+      roomChanged: options.roomHasChanged,
+      questOffer: null,
+      questsCompleted: [],
+    };
+  }
+
   // --- House decoration API ---
   purchaseHouseItem(kind: "couch" | "kitchen" | "expand" | "bed" | "plant" | "lamp"): boolean {
     const houseId = "0,-1,0";
@@ -1234,7 +1317,10 @@ export class SnakeGame implements QuestRuntime {
     const onRelief = room.temperatureReliefs?.find((relief) => relief.x === localX && relief.y === localY);
     const thresholdMs = Math.max(1000, Number(this.getFlag<number>("player.temperatureThresholdMs") ?? 10000));
     const damageIntervalMs = Math.max(1000, Number(this.getFlag<number>("player.temperatureDamageIntervalMs") ?? 5000));
-    const exposureRate = Math.max(0.25, biome.temperatureRate || 1);
+    const heatResistance = Math.max(0, Number(this.getFlag<number>("equipment.heatResistance") ?? 0));
+    const coldResistance = Math.max(0, Number(this.getFlag<number>("equipment.coldResistance") ?? 0));
+    const resistance = biome.temperatureHazard === "hot" ? heatResistance : biome.temperatureHazard === "cold" ? coldResistance : 0;
+    const exposureRate = Math.max(0.05, (biome.temperatureRate || 1) * Math.max(0, 1 - resistance));
     let exposureMs = Math.max(0, Number(this.getFlag<number>("player.temperatureExposureMs") ?? 0));
     let damageProgressMs = Math.max(0, Number(this.getFlag<number>("player.temperatureDamageProgressMs") ?? 0));
 
@@ -1281,6 +1367,7 @@ export class SnakeGame implements QuestRuntime {
     }
     this.setFlag("player.temperatureDamageProgressMs", damageProgressMs);
     this.setFlag("player.health", Math.max(0, currentHealth));
+    this.setFlag("ui.healthRevealed", true);
     this.setFlag("ui.playerHit", {
       x: head.x,
       y: head.y,
@@ -1329,6 +1416,7 @@ export class SnakeGame implements QuestRuntime {
     const current = Number(this.getFlag<number>("player.health") ?? max);
     const next = Math.max(0, current - 1);
     this.setFlag("player.health", next);
+    this.setFlag("ui.healthRevealed", true);
     this.setFlag("player.bulletInvulnTicks", 10);
     const head = this.snake.bodySegments[0];
     if (head) {
@@ -1607,10 +1695,16 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag("fortitude.phoenix", { ...state, charges: remaining });
     } else {
       this.setFlag("equipment.phoenixCharges", Math.max(0, eqCharges - 1));
+      this.consumeEquippedPhoenixItem();
     }
     this.snake.restorePreviousSnapshot();
+    const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
+    this.setFlag("player.health", maxHealth);
+    this.setFlag("player.bulletInvulnTicks", 12);
+    this.setFlag("ui.healthRevealed", true);
     roomsChanged.add(previousRoomId);
     this.setFlag("fortitude.phoenixTriggered", { reason: outcome.reason ?? "unknown" });
+    this.setFlag("traversal.manualResumePending", true);
 
     const base = this.getFlag<{ duration?: number }>("fortitude.invulnerability");
     const bonus = this.getFlag<number>("fortitude.invulnerabilityBonus") ?? 0;
@@ -1621,6 +1715,30 @@ export class SnakeGame implements QuestRuntime {
     }
 
     return true;
+  }
+
+  reviveAfterExtraLife(reason?: string | null): void {
+    this.snake.restorePreviousSnapshot();
+    const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
+    this.setFlag("player.health", maxHealth);
+    this.setFlag("player.bulletInvulnTicks", 12);
+    this.setFlag("ui.healthRevealed", true);
+    this.setFlag("fortitude.phoenixTriggered", { reason: reason ?? "extra-life" });
+    this.setFlag("traversal.manualResumePending", true);
+  }
+
+  private consumeEquippedPhoenixItem(): void {
+    for (const [slot, itemId] of this.inventory.getAllEquipped()) {
+      const item = getItem(itemId);
+      const charges = item?.kind === "equipment" ? item.modifiers?.phoenixCharges ?? 0 : 0;
+      if (charges <= 0) {
+        continue;
+      }
+      this.inventory.removeItem(itemId, 1);
+      this.inventory.unequip(slot);
+      this.setFlag("equipment.itemPhoenixConsumed", { itemId, slot });
+      return;
+    }
   }
 
   private resetMomentum(): void {

@@ -72,6 +72,7 @@ export class QuestController {
     if (!this.accepted.includes(quest.id)) {
       this.accepted.push(quest.id);
     }
+    quest.onAccept(runtime);
     if (quest.isCompleted(runtime)) {
       if (!this.completed.includes(quest.id)) {
         this.completed.push(quest.id);
@@ -104,9 +105,7 @@ export class QuestController {
       return quest;
     }
     if (quest.isCompleted(runtime)) {
-      this.completed.push(quest.id);
-      quest.onReward(runtime);
-      return quest;
+      return null;
     }
     this.offered = quest;
     return quest;
@@ -191,6 +190,10 @@ export class QuestController {
     for (let i = 0; i < maxAssignable && available.length > 0; i++) {
       const questIndex = Math.floor(this.rng() * available.length);
       const quest = available.splice(questIndex, 1)[0];
+      quest.onAccept(runtime);
+      if (!this.accepted.includes(quest.id)) {
+        this.accepted.push(quest.id);
+      }
       this.active.push(quest);
       if (quest.isCompleted(runtime)) {
         this.completed.push(quest.id);
@@ -214,6 +217,10 @@ export class QuestController {
           continue;
         }
         this.active.push(quest);
+        quest.onAccept(runtime);
+        if (!this.accepted.includes(quest.id)) {
+          this.accepted.push(quest.id);
+        }
         remaining -= 1;
         if (quest.isCompleted(runtime)) {
           this.completed.push(quest.id);

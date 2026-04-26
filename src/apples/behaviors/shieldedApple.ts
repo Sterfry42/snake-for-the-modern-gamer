@@ -23,6 +23,9 @@ export class ShieldedApple extends AppleInstance {
   }
 
   override isFatalApproach(context: AppleConsumptionContext): boolean {
+    if (context.phasing) {
+      return false;
+    }
     return this.protectedDirs.some((shield) => shield.x === context.direction.x && shield.y === context.direction.y);
   }
 

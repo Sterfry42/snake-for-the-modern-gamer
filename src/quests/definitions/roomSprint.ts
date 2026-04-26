@@ -12,7 +12,11 @@ class RoomSprintQuest extends Quest {
   override isCompleted(runtime: QuestRuntime): boolean {
     const distance = Number(runtime.getFlag<number>("roomTravelDistance") ?? 0);
     const travelMs = Number(runtime.getFlag<number>("roomTravelMs") ?? Number.POSITIVE_INFINITY);
-    return distance >= MIN_DISTANCE && travelMs <= MAX_TRAVEL_MS;
+    return this.progressSinceAccept(runtime, "roomsVisited") >= 1 && distance >= MIN_DISTANCE && travelMs <= MAX_TRAVEL_MS;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["roomsVisited"];
   }
 
   override onReward(runtime: QuestRuntime): void {

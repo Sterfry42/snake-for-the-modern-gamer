@@ -466,10 +466,34 @@ export class SnakeRenderer {
     if (!spot) return;
     const x = spot.x * this.grid.cell;
     const y = spot.y * this.grid.cell;
-    const color = 0x9ad1ff; // bright blue for treasure
-    const outline = darkenColor(color, 0.35);
-    this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
-    this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    const cell = this.grid.cell;
+    const pad = Math.max(2, Math.floor(cell * 0.08));
+    const left = x + pad;
+    const top = y + pad;
+    const width = cell - pad * 2;
+    const height = cell - pad * 2;
+    const lidHeight = Math.max(7, Math.floor(height * 0.42));
+    const bodyTop = top + Math.floor(height * 0.38);
+    const bodyHeight = height - Math.floor(height * 0.38);
+    const bandWidth = Math.max(3, Math.floor(width * 0.16));
+    const lockSize = Math.max(4, Math.floor(cell * 0.18));
+
+    this.graphics.fillStyle(0x7a4a24, 1);
+    this.graphics.fillRoundedRect(left, bodyTop, width, bodyHeight, 3);
+    this.graphics.fillStyle(0xb87532, 1);
+    this.graphics.fillRoundedRect(left, top, width, lidHeight, 5);
+
+    this.graphics.fillStyle(0xffd166, 1);
+    this.graphics.fillRect(x + cell / 2 - bandWidth / 2, top, bandWidth, height);
+    this.graphics.fillRect(left, bodyTop - 1, width, Math.max(2, Math.floor(cell * 0.1)));
+
+    this.graphics.fillStyle(0xfff3a8, 1);
+    this.graphics.fillRect(x + cell / 2 - lockSize / 2, bodyTop + 2, lockSize, lockSize);
+
+    this.graphics.lineStyle(1, 0x3b2112, 0.95);
+    this.graphics.strokeRoundedRect(left + 0.5, top + 0.5, width - 1, height - 1, 4);
+    this.graphics.lineStyle(1, 0xffe58a, 0.45);
+    this.graphics.strokeRect(left + 2, top + 2, width - 4, Math.max(3, lidHeight - 3));
   }
 
   private drawTemperatureReliefs(room: RoomSnapshot): void {

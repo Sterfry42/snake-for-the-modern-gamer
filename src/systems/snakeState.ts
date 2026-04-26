@@ -239,9 +239,10 @@ export class SnakeState {
     }
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
-    const invulnTicks = Math.max(Number(this.flags["fortitude.invulnerabilityTicks"] ?? 0), safeZoneActive ? 1 : 0);
+    const invulnTicks = Number(this.flags["fortitude.invulnerabilityTicks"] ?? 0);
+    const wallInvulnTicks = Math.max(invulnTicks, safeZoneActive ? 1 : 0);
     if (tile === "#") {
-      if (invulnTicks > 0) {
+      if (wallInvulnTicks > 0) {
         // Invulnerability lets us phase through the wall.
       } else if (this.tryConsumeWall(finalizedRoom, finalLocalHeadX, finalLocalHeadY, head)) {
         this.flags["geometry.wallEaten"] = { x: head.x, y: head.y, roomId: this.roomId };
