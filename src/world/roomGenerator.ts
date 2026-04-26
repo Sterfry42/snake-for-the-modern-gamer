@@ -1,10 +1,11 @@
-import { paletteConfig, darkenColor, randomBackgroundColor } from "../config/palette.js";
 import type { GridConfig, WorldConfig } from "../config/gameConfig.js";
 import { vectorKey } from "../core/math.js";
 import type { RandomGenerator } from "../core/rng.js";
 import type { RoomSnapshot } from "./types.js";
 import { createHouseRoom } from "./houseRoom.js";
 import { tryPlaceQuestHouse } from "./questHouse.js";
+import { tryPlaceVillage } from "./village.js";
+import { createBiomePalette } from "./biomes.js";
 
 export class RoomGenerator {
   constructor(
@@ -20,9 +21,9 @@ export class RoomGenerator {
     const layout = Array.from({ length: grid.rows }, () => Array(grid.cols).fill("."));
     const portals: RoomSnapshot["portals"] = [];
     let questGiver: RoomSnapshot["questGiver"] | undefined;
-    const backgroundColor = randomBackgroundColor(this.rng);
-    const wallColor = darkenColor(backgroundColor, paletteConfig.wall.darkenFactor);
-    const wallOutlineColor = darkenColor(wallColor, paletteConfig.wall.outlineDarkenFactor);
+    let village: RoomSnapshot["village"] | undefined;
+    let temperatureReliefs: RoomSnapshot["temperatureReliefs"] | undefined;
+    const palette = createBiomePalette(roomId);
 
     const spawnGuard = this.createSpawnGuard(roomId);
 
@@ -60,11 +61,23 @@ export class RoomGenerator {
       }
     }
 
-    if (roomId !== this.config.originRoomId && this.rng() < 0.12) {
+    if (roomId !== this.config.originRoomId && this.rng() < 0.07) {
+      const villagePlacement = tryPlaceVillage(layout, grid, this.rng, palette.biomeId);
+      if (villagePlacement) {
+        questGiver = villagePlacement.questGiver;
+        village = villagePlacement.village;
+      }
+    }
+
+    if (!village && roomId !== this.config.originRoomId && this.rng() < 0.12) {
       const questHouse = tryPlaceQuestHouse(layout, grid, this.rng);
       if (questHouse) {
         questGiver = questHouse.questGiver;
       }
+    }
+
+    if (!village && !questGiver) {
+      temperatureReliefs = this.placeTemperatureReliefs(layout, grid, palette.biomeId);
     }
 
     if (this.config.ladder.enabled && this.rng() < this.config.ladder.chance) {
@@ -93,9 +106,13 @@ export class RoomGenerator {
       layout: layout.map((row) => row.join("")),
       portals,
       questGiver,
-      backgroundColor,
-      wallColor,
-      wallOutlineColor,
+      village,
+      temperatureReliefs,
+      biomeId: palette.biomeId,
+      biomeTitle: palette.biomeTitle,
+      backgroundColor: palette.backgroundColor,
+      wallColor: palette.wallColor,
+      wallOutlineColor: palette.wallOutlineColor,
     };
   }
 
@@ -143,5 +160,34 @@ export class RoomGenerator {
         }
       },
     };
+  }
+
+  private placeTemperatureReliefs(
+    layout: string[][],
+    grid: GridConfig,
+    biomeId: RoomSnapshot["biomeId"]
+  ): RoomSnapshot["temperatureReliefs"] | undefined {
+    const kind =
+      biomeId === "sable-depths" ? "warm" :
+      biomeId === "ember-waste" ? "cool" :
+      null;
+    if (!kind) {
+      return undefined;
+    }
+
+    const count = 2;
+    const reliefs: NonNullable<RoomSnapshot["temperatureReliefs"]> = [];
+    for (let attempt = 0; attempt < 60 && reliefs.length < count; attempt++) {
+      const x = this.randomInt(grid.cols);
+      const y = this.randomInt(grid.rows);
+      if (layout[y]?.[x] !== ".") {
+        continue;
+      }
+      if (reliefs.some((relief) => Math.abs(relief.x - x) + Math.abs(relief.y - y) < 5)) {
+        continue;
+      }
+      reliefs.push({ x, y, kind });
+    }
+    return reliefs.length > 0 ? reliefs : undefined;
   }
 }

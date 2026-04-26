@@ -2,6 +2,7 @@ import type { GridConfig } from "../config/gameConfig.js";
 import type { Vector2Like } from "../core/math.js";
 import type { RandomGenerator } from "../core/rng.js";
 import type { RoomSnapshot } from "../world/types.js";
+import { getBiomeDefinition, getBiomeEnemySpawnChance } from "../world/biomes.js";
 
 export interface EnemyInstance {
   id: string;
@@ -11,6 +12,10 @@ export interface EnemyInstance {
   moveCooldown: number;
   aimDirection: Vector2Like;
   flashTicks: number;
+  name?: string;
+  currentHearts?: number;
+  maxHearts?: number;
+  encounterKind?: "enemy" | "duelist" | "npc-hostile";
 }
 
 export interface BulletInstance {
@@ -18,6 +23,17 @@ export interface BulletInstance {
   roomId: string;
   position: Vector2Like;
   direction: Vector2Like;
+  owner: "enemy" | "player";
+  style?: "enemy" | "npc-hostile" | "duelist" | "freak-joey" | "player";
+}
+
+export interface DuelBossDisplay {
+  id: string;
+  name: string;
+  health: number;
+  maxHealth: number;
+  roomId: string;
+  body: Vector2Like[];
 }
 
 interface EnemyStepParams {
@@ -27,7 +43,8 @@ interface EnemyStepParams {
 }
 
 interface EnemyStepResult {
-  bulletHit: boolean;
+  bulletHits: number;
+  hitStyle?: BulletInstance["style"];
 }
 
 function localToGlobal(roomId: string, position: Vector2Like, grid: GridConfig): Vector2Like {
@@ -66,10 +83,14 @@ export class EnemyManager {
     if (roomId === "0,-1,0") {
       return;
     }
+    if (room.village) {
+      return;
+    }
     if ((this.enemies.get(roomId)?.length ?? 0) > 0) {
       return;
     }
-    if (this.rng() > 0.18) {
+    const biome = getBiomeDefinition(room.biomeId);
+    if (this.rng() > getBiomeEnemySpawnChance(biome)) {
       return;
     }
 
@@ -95,16 +116,101 @@ export class EnemyManager {
       id: `enemy-${this.idCounter++}`,
       roomId,
       position,
-      fireCooldown: 8 + Math.floor(this.rng() * 5),
-      moveCooldown: 4 + Math.floor(this.rng() * 4),
+      fireCooldown: Math.max(4, 8 + biome.enemyFireBias + Math.floor(this.rng() * 5)),
+      moveCooldown: Math.max(2, 4 + biome.enemyMoveBias + Math.floor(this.rng() * 4)),
       aimDirection: { x: 0, y: 1 },
       flashTicks: 0,
+      currentHearts: 1,
+      maxHearts: 1,
+      encounterKind: "enemy",
     };
     this.enemies.set(roomId, [enemy]);
   }
 
+  spawnHostileNpc(roomId: string, position: Vector2Like, name: string, hearts: number): EnemyInstance {
+    const id = `npc-hostile:${roomId}`;
+    const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === id);
+    if (existing) {
+      return existing;
+    }
+    const hostileNpc: EnemyInstance = {
+      id,
+      roomId,
+      position,
+      fireCooldown: 7,
+      moveCooldown: 3,
+      aimDirection: { x: 0, y: 1 },
+      flashTicks: 0,
+      name,
+      currentHearts: hearts,
+      maxHearts: hearts,
+      encounterKind: "npc-hostile",
+    };
+    const current = this.enemies.get(roomId) ?? [];
+    current.push(hostileNpc);
+    this.enemies.set(roomId, current);
+    return hostileNpc;
+  }
+
+  spawnDuelist(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+    options: { id: string; name: string; hearts: number }
+  ): EnemyInstance | null {
+    const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === options.id);
+    if (existing) {
+      return existing;
+    }
+
+    const candidates: Vector2Like[] = [];
+    for (let y = 0; y < this.grid.rows; y++) {
+      for (let x = 0; x < this.grid.cols; x++) {
+        if (room.layout[y]?.[x] === "#") continue;
+        if (room.apple && room.apple.x === x && room.apple.y === y) continue;
+        if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
+        if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
+        if (room.questGiver && room.questGiver.x === x && room.questGiver.y === y) continue;
+        if (occupied.some((segment) => segment.x === x && segment.y === y)) continue;
+        candidates.push({ x, y });
+      }
+    }
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const position = candidates[Math.floor(this.rng() * candidates.length)];
+    const duelist: EnemyInstance = {
+      id: options.id,
+      roomId,
+      position,
+      fireCooldown: 6,
+      moveCooldown: 2,
+      aimDirection: { x: -1, y: 0 },
+      flashTicks: 0,
+      name: options.name,
+      currentHearts: options.hearts,
+      maxHearts: options.hearts,
+      encounterKind: "duelist",
+    };
+    const current = this.enemies.get(roomId) ?? [];
+    current.push(duelist);
+    this.enemies.set(roomId, current);
+    return duelist;
+  }
+
+  spawnFreakJoey(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): EnemyInstance | null {
+    return this.spawnDuelist(roomId, room, occupied, {
+      id: "freak-joey",
+      name: "Freak Joey",
+      hearts: 15,
+    });
+  }
+
   step(params: EnemyStepParams): EnemyStepResult {
     const { getRoom, snake, currentRoomId } = params;
+    let bulletHits = 0;
+    let hitStyle: BulletInstance["style"] | undefined;
 
     for (const [roomId, bullets] of this.bullets) {
       const room = getRoom(roomId);
@@ -130,8 +236,21 @@ export class EnemyManager {
         }
 
         const bulletGlobal = localToGlobal(roomId, nextPosition, this.grid);
-        if (snake.some((segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y)) {
-          return { bulletHit: true };
+        if (bullet.owner === "enemy") {
+          if (snake.some((segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y)) {
+            bulletHits += 1;
+            hitStyle ??= bullet.style;
+            continue;
+          }
+        } else {
+          const enemies = this.enemies.get(roomId) ?? [];
+          const hitEnemy = enemies.find(
+            (enemy) => enemy.position.x === nextPosition.x && enemy.position.y === nextPosition.y
+          );
+          if (hitEnemy) {
+            this.damageEnemyById(roomId, hitEnemy.id, 1);
+            continue;
+          }
         }
 
         nextBullets.push({ ...bullet, position: nextPosition });
@@ -146,12 +265,12 @@ export class EnemyManager {
 
     const head = snake[0];
     if (!head) {
-      return { bulletHit: false };
+      return { bulletHits, hitStyle };
     }
 
     const roomEnemies = this.enemies.get(currentRoomId) ?? [];
     if (roomEnemies.length === 0) {
-      return { bulletHit: false };
+      return { bulletHits, hitStyle };
     }
 
     const room = getRoom(currentRoomId);
@@ -160,6 +279,11 @@ export class EnemyManager {
 
     for (const enemy of roomEnemies) {
       if (enemy.position.x === headLocal.x && enemy.position.y === headLocal.y) {
+        nextEnemies.push({
+          ...enemy,
+          fireCooldown: Math.max(0, enemy.fireCooldown - 1),
+          flashTicks: Math.max(0, enemy.flashTicks - 1),
+        });
         continue;
       }
 
@@ -171,14 +295,16 @@ export class EnemyManager {
 
       if (moveCooldown <= 0) {
         position = this.tryMoveEnemy(enemy, room, headLocal);
-        moveCooldown = 5 + Math.floor(this.rng() * 5);
+        moveCooldown = enemy.encounterKind === "duelist"
+          ? 2 + Math.floor(this.rng() * 2)
+          : 5 + Math.floor(this.rng() * 5);
       }
 
       if (nextCooldown <= 0) {
         const shot = this.tryCreateShot({ ...enemy, position }, headLocal, room);
         if (shot) {
           const bullets = this.bullets.get(currentRoomId) ?? [];
-          bullets.push(shot);
+          bullets.push(shot, ...this.createBonusShots(enemy, shot, room));
           this.bullets.set(currentRoomId, bullets);
           aimDirection = shot.direction;
           flashTicks = 2;
@@ -188,7 +314,9 @@ export class EnemyManager {
             moveCooldown,
             aimDirection,
             flashTicks,
-            fireCooldown: 12 + Math.floor(this.rng() * 6),
+            fireCooldown: enemy.encounterKind === "duelist"
+              ? 4 + Math.floor(this.rng() * 3)
+              : 12 + Math.floor(this.rng() * 6),
           });
           continue;
         }
@@ -212,7 +340,7 @@ export class EnemyManager {
       this.enemies.delete(currentRoomId);
     }
 
-    return { bulletHit: false };
+    return { bulletHits, hitStyle };
   }
 
   consumeEnemyAt(roomId: string, head: Vector2Like): { eaten: boolean } {
@@ -222,9 +350,13 @@ export class EnemyManager {
     }
 
     const headLocal = globalToLocal(roomId, head, this.grid);
-    const remaining = enemies.filter(
-      (enemy) => enemy.position.x !== headLocal.x || enemy.position.y !== headLocal.y
+    const target = enemies.find(
+      (enemy) => enemy.position.x === headLocal.x && enemy.position.y === headLocal.y
     );
+    if (!target || target.encounterKind !== "enemy") {
+      return { eaten: false };
+    }
+    const remaining = enemies.filter((enemy) => enemy.id !== target.id);
 
     if (remaining.length === enemies.length) {
       return { eaten: false };
@@ -245,6 +377,89 @@ export class EnemyManager {
 
   getBulletsInRoom(roomId: string): readonly BulletInstance[] {
     return this.bullets.get(roomId) ?? [];
+  }
+
+  hasHarmfulOccupantAt(roomId: string, worldPosition: Vector2Like): boolean {
+    const local = globalToLocal(roomId, worldPosition, this.grid);
+    return (this.enemies.get(roomId) ?? []).some(
+      (enemy) =>
+        enemy.position.x === local.x &&
+        enemy.position.y === local.y &&
+        enemy.encounterKind !== "enemy"
+    );
+  }
+
+  firePlayerBullet(roomId: string, origin: Vector2Like, direction: Vector2Like): boolean {
+    const spawnX = origin.x + direction.x;
+    const spawnY = origin.y + direction.y;
+    if (
+      spawnX < 0 ||
+      spawnX >= this.grid.cols ||
+      spawnY < 0 ||
+      spawnY >= this.grid.rows
+    ) {
+      return false;
+    }
+
+    const directHit = (this.enemies.get(roomId) ?? []).find(
+      (enemy) => enemy.position.x === spawnX && enemy.position.y === spawnY
+    );
+    if (directHit) {
+      this.damageEnemyById(roomId, directHit.id, 1);
+      return true;
+    }
+
+    const bullets = this.bullets.get(roomId) ?? [];
+    bullets.push({
+      id: `bullet-${this.idCounter++}`,
+      roomId,
+      position: { x: spawnX, y: spawnY },
+      direction,
+      owner: "player",
+      style: "player",
+    });
+    this.bullets.set(roomId, bullets);
+    return true;
+  }
+
+  damageEnemyAt(roomId: string, worldPosition: Vector2Like, damage = 1): { hit: boolean; defeated?: EnemyInstance } {
+    const local = globalToLocal(roomId, worldPosition, this.grid);
+    const target = (this.enemies.get(roomId) ?? []).find(
+      (enemy) => enemy.position.x === local.x && enemy.position.y === local.y
+    );
+    if (!target) {
+      return { hit: false };
+    }
+    const defeated = this.damageEnemyById(roomId, target.id, damage);
+    return { hit: true, defeated };
+  }
+
+  getDuelBossInRoom(roomId: string): DuelBossDisplay | null {
+    const duelist = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.encounterKind === "duelist");
+    if (!duelist || duelist.currentHearts === undefined || duelist.maxHearts === undefined) {
+      return null;
+    }
+    const [roomX, roomY] = roomId.split(",").map(Number);
+    return {
+      id: duelist.id,
+      name: duelist.name ?? "Nameless Horror",
+      health: duelist.currentHearts,
+      maxHealth: duelist.maxHearts,
+      roomId,
+      body: [{
+        x: roomX * this.grid.cols + duelist.position.x,
+        y: roomY * this.grid.rows + duelist.position.y,
+      }],
+    };
+  }
+
+  hasEnemyWithId(id: string): boolean {
+    for (const enemies of this.enemies.values()) {
+      if (enemies.some((enemy) => enemy.id === id)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private tryCreateShot(
@@ -299,7 +514,57 @@ export class EnemyManager {
       roomId: enemy.roomId,
       position: { x: spawnX, y: spawnY },
       direction,
+      owner: "enemy",
+      style:
+        enemy.encounterKind === "npc-hostile" ? "npc-hostile" :
+        enemy.encounterKind === "duelist" && enemy.id === "freak-joey" ? "freak-joey" :
+        enemy.encounterKind === "duelist" ? "duelist" :
+        "enemy",
     };
+  }
+
+  private createBonusShots(
+    enemy: EnemyInstance,
+    shot: BulletInstance,
+    room: RoomSnapshot
+  ): BulletInstance[] {
+    if (enemy.encounterKind !== "duelist") {
+      return [];
+    }
+
+    const origin = shot.position;
+    const orthogonal =
+      shot.direction.x !== 0
+        ? [{ x: 0, y: -1 }, { x: 0, y: 1 }]
+        : [{ x: -1, y: 0 }, { x: 1, y: 0 }];
+
+    const candidates = orthogonal.filter((direction) => {
+      const nx = origin.x + direction.x;
+      const ny = origin.y + direction.y;
+      return (
+        nx >= 0 &&
+        nx < this.grid.cols &&
+        ny >= 0 &&
+        ny < this.grid.rows &&
+        room.layout[ny]?.[nx] !== "#"
+      );
+    });
+
+    const selected =
+      enemy.id === "freak-joey"
+        ? candidates
+        : candidates.length > 0
+          ? [candidates[Math.floor(this.rng() * candidates.length)]]
+          : [];
+
+    return selected.map((direction) => ({
+      id: `bullet-${this.idCounter++}`,
+      roomId: enemy.roomId,
+      position: origin,
+      direction,
+      owner: "enemy" as const,
+      style: enemy.id === "freak-joey" ? "freak-joey" : "duelist",
+    }));
   }
 
   private tryMoveEnemy(
@@ -357,5 +622,26 @@ export class EnemyManager {
       return { x: 0, y: dy > 0 ? 1 : -1 };
     }
     return null;
+  }
+
+  private damageEnemyById(roomId: string, enemyId: string, damage: number): EnemyInstance | undefined {
+    const enemies = this.enemies.get(roomId) ?? [];
+    const target = enemies.find((enemy) => enemy.id === enemyId);
+    if (!target) {
+      return undefined;
+    }
+    const currentHearts = target.currentHearts ?? 1;
+    const nextHearts = Math.max(0, currentHearts - Math.max(1, damage));
+    target.currentHearts = nextHearts;
+    if (nextHearts > 0) {
+      return undefined;
+    }
+    const remaining = enemies.filter((enemy) => enemy.id !== enemyId);
+    if (remaining.length > 0) {
+      this.enemies.set(roomId, remaining);
+    } else {
+      this.enemies.delete(roomId);
+    }
+    return target;
   }
 }

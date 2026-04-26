@@ -86,6 +86,8 @@ export interface GameConfig {
   features: FeatureSystemConfig;
 }
 
+export type PowerupKind = "phase" | "smite" | "gun";
+
 const initialSnakeBody: Vector2Like[] = [
   { x: 5, y: 12 },
   { x: 4, y: 12 },

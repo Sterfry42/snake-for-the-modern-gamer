@@ -1,6 +1,6 @@
-import { paletteConfig, darkenColor } from "../config/palette.js";
 import type { GridConfig } from "../config/gameConfig.js";
 import type { RoomSnapshot } from "./types.js";
+import { createBiomePalette } from "./biomes.js";
 
 // Creates a calm, open "house" room layout that we can decorate.
 // Layout uses '.' for floor. Decorations will use custom letters and are non-colliding.
@@ -10,9 +10,7 @@ export function createHouseRoom(roomId: string, grid: GridConfig): RoomSnapshot 
   const layout: string[] = [];
 
   // Soft, slightly brighter background for a cozy vibe
-  const backgroundColor = 0x2a2a34;
-  const wallColor = darkenColor(backgroundColor, paletteConfig.wall.darkenFactor - 0.2);
-  const wallOutlineColor = darkenColor(wallColor, paletteConfig.wall.outlineDarkenFactor);
+  const palette = createBiomePalette(roomId);
 
   // Start with open floor (.)
   for (let y = 0; y < rows; y++) layout.push(".".repeat(cols));
@@ -29,9 +27,11 @@ export function createHouseRoom(roomId: string, grid: GridConfig): RoomSnapshot 
     id: roomId,
     layout,
     portals: [],
-    backgroundColor,
-    wallColor,
-    wallOutlineColor,
+    biomeId: palette.biomeId,
+    biomeTitle: palette.biomeTitle,
+    backgroundColor: palette.backgroundColor,
+    wallColor: palette.wallColor,
+    wallOutlineColor: palette.wallOutlineColor,
   };
 }
 

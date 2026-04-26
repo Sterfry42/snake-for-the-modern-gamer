@@ -1,4 +1,4 @@
-import { defaultGameConfig, type GameConfig } from "../config/gameConfig.js";
+import { defaultGameConfig, type GameConfig, type PowerupKind } from "../config/gameConfig.js";
 import type { Vector2Like } from "../core/math.js";
 import { createRng, type RandomGenerator } from "../core/rng.js";
 import { AppleService, type AppleConsumptionResult } from "../apples/appleService.js";
@@ -14,10 +14,19 @@ import type { QuestRegistry } from "../quests/questRegistry.js";
 import { InventorySystem } from "../inventory/inventory.js";
 import { ITEMS } from "../inventory/itemRegistry.js";
 import type { QuestRuntime } from "../quests/quest.js";
+import {
+  chooseWandererEncounter,
+  getEncounterPages,
+  getEncounterStatsNote,
+  getRoomEncounterTags,
+  type EncounterHistoryEntry,
+  type WandererEncounter,
+} from "../npcs/encounters.js";
+import { getBiomeDefinition } from "../world/biomes.js";
 
 export interface StepResult {
   status: "alive" | "dead";
-  deathReason?: "wall" | "self" | "shielded" | "boss" | "bullet";
+  deathReason?: "wall" | "self" | "shielded" | "boss" | "bullet" | "temperature";
   apple: {
     eaten: boolean;
     rewards?: AppleConsumptionResult["rewards"];
@@ -242,11 +251,15 @@ export class SnakeGame implements QuestRuntime {
   private readonly questController: QuestController;
   private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
+  private readonly npcDisposition = new Map<string, { anger: number; hostility: "friendly" | "warning" | "hostile" }>();
+  private readonly resolvedWandererEncounters = new Set<string>();
+  private readonly wandererHistory = new Map<string, EncounterHistoryEntry>();
+  private lastWandererEncounterRoomCount = -999;
 
   private predationConfig: PredationComputedConfig = createDefaultPredationConfig();
   private predationState: PredationRuntimeState = createDefaultPredationState();
 
-  private powerupState: { kind: "phase" | "smite"; remaining: number; total: number } | null = null;
+  private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
 
   constructor(config: GameConfig = defaultGameConfig, registry: QuestRegistry, rng?: RandomGenerator) {
     this.config = config;
@@ -276,9 +289,19 @@ export class SnakeGame implements QuestRuntime {
     this.questController.reset(this);
     this.inventory.clear();
     this.visitedRooms.clear();
+    this.npcDisposition.clear();
+    this.resolvedWandererEncounters.clear();
+    this.wandererHistory.clear();
+    this.lastWandererEncounterRoomCount = -999;
     this.visitedRooms.add(this.snake.currentRoomId);
     this.powerupState = null;
     this.setFlag("timeMs", 0);
+    this.setFlag("player.health", 3);
+    this.setFlag("player.maxHealth", 3);
+    this.setFlag("player.bulletInvulnTicks", 0);
+    this.setFlag("player.temperatureMeter", 0);
+    this.setFlag("player.temperatureMax", 12);
+    this.setFlag("player.temperatureHazard", undefined);
     this.setFlag("treasurePicked", 0);
     this.setFlag("powerupsPicked", 0);
     this.setFlag("roomsVisited", 1);
@@ -286,6 +309,16 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag("appleStreak", 0);
     this.setFlag("appleStreakMax", 0);
     this.setFlag("lastAppleTimeMs", undefined);
+    this.setFlag("npc.randomEncounter", undefined);
+    this.setFlag("npc.randomEncounter.prompted", undefined);
+    this.setFlag("ui.wandererReveal", undefined);
+    this.setFlag("ui.playerShot", undefined);
+    this.setFlag("ui.playerHit", undefined);
+    this.setFlag("ui.villageReveal", undefined);
+    this.setFlag("ui.biomeReveal", undefined);
+    this.setFlag("ui.lastBiomeId", undefined);
+    this.setFlag("npc.freakJoey.active", undefined);
+    this.setFlag("npc.freakJoey.defeated", undefined);
     this.setFlag("roomEntryTimeMs", 0);
     const head = this.snake.bodySegments[0];
     if (head) {
@@ -356,6 +389,45 @@ export class SnakeGame implements QuestRuntime {
           this.world.getRoom(newRoomId),
           []
         );
+        this.maybeQueueFreakJoeyEncounter(newRoomId);
+        const newRoom = this.world.getRoom(newRoomId);
+        const lastBiomeId = this.getFlag<string>("ui.lastBiomeId");
+        if (lastBiomeId !== newRoom.biomeId) {
+          const biome = getBiomeDefinition(newRoom.biomeId);
+          this.setFlag("ui.biomeReveal", {
+            roomId: newRoomId,
+            biomeId: newRoom.biomeId,
+            title: newRoom.biomeTitle,
+            temperature: biome.temperature,
+            dangerLevel: biome.dangerLevel,
+          });
+          this.setFlag("ui.lastBiomeId", newRoom.biomeId);
+        }
+        if (newRoom.village) {
+          const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
+          this.setFlag("player.health", maxHealth);
+          this.addScore(3);
+          this.setFlag("ui.villageReveal", {
+            roomId: newRoomId,
+            name: newRoom.village.name,
+            x: newRoom.village.center.x,
+            y: newRoom.village.center.y,
+          });
+        }
+      } else {
+        const newRoom = this.world.getRoom(newRoomId);
+        const lastBiomeId = this.getFlag<string>("ui.lastBiomeId");
+        if (lastBiomeId !== newRoom.biomeId) {
+          const biome = getBiomeDefinition(newRoom.biomeId);
+          this.setFlag("ui.biomeReveal", {
+            roomId: newRoomId,
+            biomeId: newRoom.biomeId,
+            title: newRoom.biomeTitle,
+            temperature: biome.temperature,
+            dangerLevel: biome.dangerLevel,
+          });
+          this.setFlag("ui.lastBiomeId", newRoom.biomeId);
+        }
       }
       const timeMs = Number(this.getFlag<number>("timeMs") ?? 0);
       const entryTimeMs = Number(this.getFlag<number>("roomEntryTimeMs") ?? timeMs);
@@ -575,6 +647,23 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (currentHead) {
+      if (this.enemies.hasHarmfulOccupantAt(this.snake.currentRoomId, currentHead)) {
+        return {
+          status: "dead",
+          deathReason: "boss",
+          apple: {
+            eaten: appleEaten,
+            rewards: appleRewards,
+            worldPosition: appleWorldPosition,
+            current: appleSnapshot,
+            stateChanged: appleStateChanged,
+          },
+          roomsChanged,
+          roomChanged: roomHasChanged,
+          questOffer: null,
+          questsCompleted: [],
+        };
+      }
       const enemyEat = this.enemies.consumeEnemyAt(this.snake.currentRoomId, currentHead);
       if (enemyEat.eaten) {
         this.addScore(3);
@@ -592,7 +681,7 @@ export class SnakeGame implements QuestRuntime {
       snake: this.snake.bodySegments,
       currentRoomId: this.snake.currentRoomId,
     });
-    if (enemyStep.bulletHit) {
+    if (enemyStep.bulletHits > 0 && this.applyBulletDamage(enemyStep.bulletHits, enemyStep.hitStyle)) {
       return {
         status: "dead",
         deathReason: "bullet",
@@ -609,9 +698,40 @@ export class SnakeGame implements QuestRuntime {
         questsCompleted: [],
       };
     }
+    if (this.getFlag<boolean>("npc.freakJoey.active") && !this.enemies.hasEnemyWithId("freak-joey")) {
+      this.setFlag("npc.freakJoey.active", undefined);
+      this.setFlag("npc.freakJoey.defeated", true);
+      this.resolvedWandererEncounters.add("freak-joey");
+      this.addScore(25);
+    }
+    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>("npc.activeDuel");
+    if (activeDuel && !this.enemies.hasEnemyWithId(activeDuel.id)) {
+      if (activeDuel.id !== "freak-joey" && activeDuel.rewardScore) {
+        this.addScore(activeDuel.rewardScore);
+      }
+      this.setFlag("npc.activeDuel", undefined);
+    }
 
     this.tickPredationTimers();
     this.tickFortitudeStates();
+    this.tickPlayerStates();
+    if (this.tickTemperatureState()) {
+      return {
+        status: "dead",
+        deathReason: "temperature",
+        apple: {
+          eaten: appleEaten,
+          rewards: appleRewards,
+          worldPosition: appleWorldPosition,
+          current: appleSnapshot,
+          stateChanged: appleStateChanged,
+        },
+        roomsChanged,
+        roomChanged: roomHasChanged,
+        questOffer: null,
+        questsCompleted: [],
+      };
+    }
     this.tickPowerupState();
 
     const questsCompleted = this.questController.handleCompletions(this);
@@ -724,7 +844,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getBosses(roomId: string) {
-    return this.bosses.getBossesInRoom(roomId);
+    const bosses = this.bosses.getBossesInRoom(roomId);
+    const duelBoss = this.enemies.getDuelBossInRoom(roomId);
+    return duelBoss ? [...bosses, duelBoss] : bosses;
   }
 
   getEnemies(roomId: string) {
@@ -733,6 +855,154 @@ export class SnakeGame implements QuestRuntime {
 
   getEnemyBullets(roomId: string) {
     return this.enemies.getBulletsInRoom(roomId);
+  }
+
+  getPlayerHealth(): { current: number; max: number } {
+    return {
+      current: Number(this.getFlag<number>("player.health") ?? 3),
+      max: Number(this.getFlag<number>("player.maxHealth") ?? 3),
+    };
+  }
+
+  getPlayerTemperature(): {
+    current: number;
+    max: number;
+    hazard: "hot" | "cold" | null;
+    active: boolean;
+  } {
+    const currentRoom = this.getCurrentRoom();
+    const biome = getBiomeDefinition(currentRoom.biomeId);
+    const hazard = biome.temperatureHazard;
+    return {
+      current: Number(this.getFlag<number>("player.temperatureMeter") ?? 0),
+      max: Number(this.getFlag<number>("player.temperatureMax") ?? 12),
+      hazard,
+      active: hazard !== null,
+    };
+  }
+
+  resolveRandomEncounter(accept: boolean): { kind: "quest" | "duel" | "flavor" | "none"; accepted: boolean } {
+    const encounter = this.getFlag<(WandererEncounter & { roomId: string; statsNote: string })>("npc.randomEncounter");
+    if (!encounter) {
+      return { kind: "none", accepted: false };
+    }
+    this.setFlag("npc.randomEncounter", undefined);
+    this.setFlag("npc.randomEncounter.prompted", undefined);
+    this.recordWandererOutcome(encounter.id, accept);
+    if (!accept) {
+      if (encounter.oneShot) {
+        this.resolvedWandererEncounters.add(encounter.id);
+      }
+      return { kind: encounter.kind, accepted: false };
+    }
+
+    if (encounter.kind === "duel") {
+      const started = this.startNamedDuel(encounter.id, encounter.name, encounter.rewardScore);
+      if (started) {
+        if (encounter.oneShot) {
+          this.resolvedWandererEncounters.add(encounter.id);
+        }
+        return { kind: "duel", accepted: true };
+      }
+      return { kind: "duel", accepted: false };
+    }
+
+    if (encounter.kind === "quest" && encounter.questId) {
+      const quest = this.questController.offerSpecificQuestById(encounter.questId, this);
+      if (quest) {
+        if (encounter.oneShot) {
+          this.resolvedWandererEncounters.add(encounter.id);
+        }
+        return { kind: "quest", accepted: true };
+      }
+      if (encounter.rewardScore) {
+        this.addScore(encounter.rewardScore);
+      }
+      return { kind: "quest", accepted: false };
+    }
+
+    if (encounter.rewardScore) {
+      this.addScore(encounter.rewardScore);
+    }
+    if (encounter.oneShot) {
+      this.resolvedWandererEncounters.add(encounter.id);
+    }
+    return { kind: encounter.kind, accepted: true };
+  }
+
+  startFreakJoeyDuel(): boolean {
+    if (this.getFlag<boolean>("npc.freakJoey.defeated")) {
+      return false;
+    }
+    return this.startNamedDuel("freak-joey", "Freak Joey", 25, 15);
+  }
+
+  startNamedDuel(encounterId: string, name: string, rewardScore?: number, hearts?: number): boolean {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+    const occupied = this.snake.bodySegments.map((segment) => ({
+      x: segment.x - roomX * this.config.grid.cols,
+      y: segment.y - roomY * this.config.grid.rows,
+    }));
+    const maxHearts = hearts ?? Math.max(8, Math.ceil((this.getFlag<number>("roomsVisited") ?? this.visitedRooms.size) * 1.5));
+    const duelist = this.enemies.spawnDuelist(this.snake.currentRoomId, room, occupied, {
+      id: encounterId,
+      name,
+      hearts: maxHearts,
+    });
+    if (!duelist) {
+      return false;
+    }
+    if (encounterId === "freak-joey") {
+      this.setFlag("npc.freakJoey.active", true);
+    }
+    this.setFlag("npc.activeDuel", { id: encounterId, rewardScore });
+    return true;
+  }
+
+  firePlayerShot(direction: Vector2Like): boolean {
+    const active = this.powerupState;
+    if (!active || active.kind !== "gun" || active.remaining <= 0) {
+      return false;
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return false;
+    }
+    const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+    const localHead = {
+      x: head.x - roomX * this.config.grid.cols,
+      y: head.y - roomY * this.config.grid.rows,
+    };
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const giver = room.questGiver;
+    if (
+      giver &&
+      this.isNpcInLineOfFire(room, localHead, direction, { x: giver.x, y: giver.y })
+    ) {
+      this.angerNpc(this.snake.currentRoomId, "shot");
+      this.setFlag("ui.playerShot", { x: head.x, y: head.y, roomId: this.snake.currentRoomId, dx: direction.x, dy: direction.y });
+      return true;
+    }
+    const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
+    if (fired) {
+      this.setFlag("ui.playerShot", { x: head.x, y: head.y, roomId: this.snake.currentRoomId, dx: direction.x, dy: direction.y });
+    }
+    return fired;
+  }
+
+  getNpcDisposition(roomId: string): { anger: number; hostility: "friendly" | "warning" | "hostile" } {
+    return this.npcDisposition.get(roomId) ?? { anger: 0, hostility: "friendly" };
+  }
+
+  insultNpc(roomId: string): { anger: number; hostility: "friendly" | "warning" | "hostile"; name: string } | null {
+    const room = this.world.getRoom(roomId);
+    const giver = room.questGiver;
+    if (!giver) {
+      return null;
+    }
+    const disposition = this.angerNpc(roomId, "insult");
+    return disposition ? { ...disposition, name: giver.name } : null;
   }
 
   getInventory(): InventorySystem {
@@ -897,6 +1167,50 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  private tickPlayerStates(): void {
+    const invuln = Number(this.getFlag<number>("player.bulletInvulnTicks") ?? 0);
+    if (invuln > 0) {
+      this.setFlag("player.bulletInvulnTicks", invuln - 1);
+    }
+  }
+
+  private tickTemperatureState(): boolean {
+    const room = this.getCurrentRoom();
+    const biome = getBiomeDefinition(room.biomeId);
+    const max = Number(this.getFlag<number>("player.temperatureMax") ?? 12);
+    const current = Number(this.getFlag<number>("player.temperatureMeter") ?? 0);
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return false;
+    }
+    const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+    const localX = head.x - roomX * this.config.grid.cols;
+    const localY = head.y - roomY * this.config.grid.rows;
+    const tile = room.layout[localY]?.[localX] ?? ".";
+    const sheltered = "WETCKBPLG".includes(tile);
+    const onRelief = room.temperatureReliefs?.find((relief) => relief.x === localX && relief.y === localY);
+    let next = current;
+
+    if (onRelief) {
+      next = Math.max(0, current - 4);
+      this.setFlag("player.temperatureMeter", next);
+      this.setFlag("player.temperatureHazard", biome.temperatureHazard ?? undefined);
+      return false;
+    }
+
+    if (biome.temperatureHazard && !sheltered) {
+      next = Math.min(max, current + biome.temperatureRate);
+      this.setFlag("player.temperatureHazard", biome.temperatureHazard);
+      this.setFlag("player.temperatureMeter", next);
+      return next >= max;
+    }
+
+    next = Math.max(0, current - 2);
+    this.setFlag("player.temperatureMeter", next);
+    this.setFlag("player.temperatureHazard", biome.temperatureHazard ?? undefined);
+    return false;
+  }
+
   private tickPowerupState(): void {
     // Sync active state
     const active = this.powerupState;
@@ -921,6 +1235,201 @@ export class SnakeGame implements QuestRuntime {
       // Ensure flag cleared when no powerup
       this.setFlag("powerup.active", undefined);
     }
+  }
+
+  private applyBulletDamage(hits: number, style?: "enemy" | "npc-hostile" | "duelist" | "freak-joey" | "player"): boolean {
+    if (hits <= 0) {
+      return false;
+    }
+    const invuln = Number(this.getFlag<number>("player.bulletInvulnTicks") ?? 0);
+    if (invuln > 0) {
+      return false;
+    }
+    const max = Number(this.getFlag<number>("player.maxHealth") ?? 3);
+    const current = Number(this.getFlag<number>("player.health") ?? max);
+    const next = Math.max(0, current - 1);
+    this.setFlag("player.health", next);
+    this.setFlag("player.bulletInvulnTicks", 10);
+    const head = this.snake.bodySegments[0];
+    if (head) {
+      this.setFlag("ui.playerHit", {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        health: next,
+        maxHealth: max,
+        source: style,
+      });
+    }
+    return next <= 0;
+  }
+
+  private maybeQueueFreakJoeyEncounter(roomId: string): void {
+    if (this.getFlag<boolean>("npc.freakJoey.defeated")) {
+      return;
+    }
+    if (this.enemies.hasEnemyWithId("freak-joey")) {
+      return;
+    }
+    const room = this.world.getRoom(roomId);
+    if (room.questGiver) {
+      return;
+    }
+    if (this.rng() > 0.09) {
+      return;
+    }
+    if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 2) {
+      return;
+    }
+    const roomsVisited = Number(this.getFlag<number>("roomsVisited") ?? this.visitedRooms.size);
+    const encounter = chooseWandererEncounter(this.rng, {
+      roomsVisited,
+      zoneTags: getRoomEncounterTags(roomId),
+      biomeId: room.biomeId,
+      excludedIds: this.resolvedWandererEncounters,
+      history: this.wandererHistory,
+    });
+    if (!encounter) {
+      return;
+    }
+    const spawn = this.findEncounterSpawn(roomId);
+    if (!spawn) {
+      return;
+    }
+    const history = this.wandererHistory.get(encounter.id);
+    this.recordWandererSeen(encounter.id);
+    this.lastWandererEncounterRoomCount = this.visitedRooms.size;
+    this.setFlag("npc.randomEncounter", {
+      ...encounter,
+      pages: getEncounterPages(encounter, history),
+      roomId,
+      x: spawn.x,
+      y: spawn.y,
+      statsNote: getEncounterStatsNote(encounter.name),
+    });
+    this.setFlag("ui.wandererReveal", {
+      x: spawn.x,
+      y: spawn.y,
+      roomId,
+      id: encounter.id,
+    });
+  }
+
+  getWandererEncounterHistory(id: string): EncounterHistoryEntry | undefined {
+    const history = this.wandererHistory.get(id);
+    return history ? { ...history } : undefined;
+  }
+
+  private angerNpc(
+    roomId: string,
+    reason: "insult" | "shot"
+  ): { anger: number; hostility: "friendly" | "warning" | "hostile" } | null {
+    const room = this.world.getRoom(roomId);
+    const giver = room.questGiver;
+    if (!giver) {
+      return null;
+    }
+    const current = this.npcDisposition.get(roomId) ?? { anger: 0, hostility: "friendly" as const };
+    const anger = reason === "shot" ? 99 : current.anger + 1;
+    const hostility =
+      anger >= 2 || reason === "shot" ? "hostile" :
+      anger >= 1 ? "warning" :
+      "friendly";
+    const next = { anger, hostility };
+    this.npcDisposition.set(roomId, next);
+    if (hostility === "hostile") {
+      this.enemies.spawnHostileNpc(
+        roomId,
+        { x: giver.x, y: giver.y },
+        giver.name,
+        Math.max(3, giver.maxHearts)
+      );
+    }
+    return next;
+  }
+
+  private isNpcInLineOfFire(
+    room: ReturnType<WorldService["getRoom"]>,
+    origin: Vector2Like,
+    direction: Vector2Like,
+    target: Vector2Like
+  ): boolean {
+    if (direction.x !== 0) {
+      if (origin.y !== target.y) {
+        return false;
+      }
+      if ((target.x - origin.x) * direction.x <= 0) {
+        return false;
+      }
+    } else {
+      if (origin.x !== target.x) {
+        return false;
+      }
+      if ((target.y - origin.y) * direction.y <= 0) {
+        return false;
+      }
+    }
+
+    let x = origin.x + direction.x;
+    let y = origin.y + direction.y;
+    while (x >= 0 && x < this.config.grid.cols && y >= 0 && y < this.config.grid.rows) {
+      if (room.layout[y]?.[x] === "#") {
+        return false;
+      }
+      if (x === target.x && y === target.y) {
+        return true;
+      }
+      x += direction.x;
+      y += direction.y;
+    }
+    return false;
+  }
+
+  private recordWandererSeen(id: string): void {
+    const current = this.wandererHistory.get(id) ?? { seen: 0, accepted: 0, rejected: 0 };
+    this.wandererHistory.set(id, {
+      ...current,
+      seen: current.seen + 1,
+    });
+  }
+
+  private recordWandererOutcome(id: string, accepted: boolean): void {
+    const current = this.wandererHistory.get(id) ?? { seen: 0, accepted: 0, rejected: 0 };
+    this.wandererHistory.set(id, {
+      seen: Math.max(1, current.seen),
+      accepted: current.accepted + (accepted ? 1 : 0),
+      rejected: current.rejected + (accepted ? 0 : 1),
+    });
+  }
+
+  private findEncounterSpawn(roomId: string): Vector2Like | null {
+    const room = this.world.getRoom(roomId);
+    const [roomX, roomY] = roomId.split(",").map(Number);
+    const head = this.snake.bodySegments[0];
+    const headLocal = head
+      ? {
+          x: head.x - roomX * this.config.grid.cols,
+          y: head.y - roomY * this.config.grid.rows,
+        }
+      : { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
+    let best: Vector2Like | null = null;
+    let bestDistance = -1;
+    for (let y = 0; y < this.config.grid.rows; y++) {
+      for (let x = 0; x < this.config.grid.cols; x++) {
+        if (room.layout[y]?.[x] === "#") continue;
+        if (room.apple && room.apple.x === x && room.apple.y === y) continue;
+        if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
+        if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
+        if (room.questGiver && room.questGiver.x === x && room.questGiver.y === y) continue;
+        const distance = Math.abs(x - headLocal.x) + Math.abs(y - headLocal.y);
+        if (distance < 5) continue;
+        if (distance > bestDistance) {
+          bestDistance = distance;
+          best = { x, y };
+        }
+      }
+    }
+    return best;
   }
 
   private handleFortitudeRegenerator(roomsChanged: Set<string>): void {

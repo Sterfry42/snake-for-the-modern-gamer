@@ -1,11 +1,10 @@
 import type { GridConfig } from "../config/gameConfig.js";
 import type { RandomGenerator } from "../core/rng.js";
+import { buildHouseNpcProfile, type NpcProfile } from "../npcs/profiles.js";
 
-export interface QuestGiverInfo {
+export interface QuestGiverInfo extends NpcProfile {
   x: number;
   y: number;
-  name?: string;
-  portraitId?: string;
 }
 
 export interface QuestHouseResult {
@@ -91,7 +90,11 @@ export function tryPlaceQuestHouse(
     const portraitId = SAGE_PORTRAITS[Math.floor(rng() * SAGE_PORTRAITS.length)];
 
     return {
-      questGiver: { x: centerX, y: centerY, name, portraitId },
+      questGiver: {
+        ...buildHouseNpcProfile(name, portraitId),
+        x: centerX,
+        y: centerY,
+      },
       bounds: { left, top, width, height },
     };
   }

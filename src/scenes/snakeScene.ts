@@ -23,6 +23,7 @@ import type { InventorySystem } from "../inventory/inventory.js";
 import type { EquipmentSlot } from "../inventory/item.js";
 import { getItem } from "../inventory/itemRegistry.js";
 import type { SnakeSpritePalette } from "../ui/spriteRecipes/snakeRecipe.js";
+import type { WandererEncounter } from "../npcs/encounters.js";
 
 type SnakeThemeId = "classic" | "sunset" | "midnight" | "bone";
 
@@ -99,7 +100,7 @@ export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
 
-  private game!: SnakeGame;
+  private snakeGame!: SnakeGame;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private snakeRenderer!: SnakeRenderer;
@@ -119,7 +120,13 @@ export default class SnakeScene extends Phaser.Scene {
   private housePanel!: Phaser.GameObjects.Rectangle;
   private questHint!: Phaser.GameObjects.Text;
   private questHintPanel!: Phaser.GameObjects.Rectangle;
+  private heartsHud!: Phaser.GameObjects.Text;
+  private temperatureHud!: Phaser.GameObjects.Text;
+  private villageHud!: Phaser.GameObjects.Text;
+  private biomeHud!: Phaser.GameObjects.Text;
   private questGiverSprite!: Phaser.GameObjects.Sprite;
+  private wandererSprite!: Phaser.GameObjects.Sprite;
+  private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
   // Religion choice state
@@ -144,6 +151,7 @@ export default class SnakeScene extends Phaser.Scene {
   };
   private pendingFlags: Record<string, unknown> = {};
   private readonly flagsProxy: Record<string, unknown>;
+  private activeWandererTextureKey: string | null = null;
 
   constructor() {
     super("SnakeScene");
@@ -195,7 +203,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics.setDepth(0);
 
     const registry = await createQuestRegistry();
-    this.game = new SnakeGame(defaultGameConfig, registry);
+    this.snakeGame = new SnakeGame(defaultGameConfig, registry);
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
@@ -230,8 +238,47 @@ export default class SnakeScene extends Phaser.Scene {
       .setDepth(27)
       .setVisible(false)
       .setStrokeStyle(1, 0x6fd9b7, 0.6);
+    this.heartsHud = this.add
+      .text(8, this.grid.rows * this.grid.cell - 26, "", {
+        fontFamily: "monospace",
+        fontSize: "16px",
+        color: "#ff8f8f",
+      })
+      .setDepth(28)
+      .setVisible(true);
+    this.temperatureHud = this.add
+      .text(8, this.grid.rows * this.grid.cell - 48, "", {
+        fontFamily: "monospace",
+        fontSize: "14px",
+        color: "#9ad1ff",
+      })
+      .setDepth(28)
+      .setVisible(false);
+    this.villageHud = this.add
+      .text(this.grid.cols * this.grid.cell / 2, 18, "", {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: "20px",
+        color: "#f6e7c1",
+        stroke: "#21140d",
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(32)
+      .setVisible(false);
+    this.biomeHud = this.add
+      .text(this.grid.cols * this.grid.cell / 2, 42, "", {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: "18px",
+        color: "#dfe8ff",
+        stroke: "#140d21",
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(32)
+      .setVisible(false);
 
     this.initQuestGiverSprite();
+    this.initWandererSprite();
   }
 
   private setupInputHandlers(): void {
@@ -292,6 +339,28 @@ export default class SnakeScene extends Phaser.Scene {
         if (key === "6") this.tryBuyHouse("lamp");
       }
     });
+
+    this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (this.paused || this.questPopup.isVisible()) {
+        return;
+      }
+      const head = this.snakeGame?.getSnakeBody?.()[0];
+      if (!head) {
+        return;
+      }
+      const headWorld = this.tileToWorld(head);
+      const dx = pointer.worldX - headWorld.x;
+      const dy = pointer.worldY - headWorld.y;
+      if (dx === 0 && dy === 0) {
+        return;
+      }
+      const direction = Math.abs(dx) >= Math.abs(dy)
+        ? { x: dx >= 0 ? 1 : -1, y: 0 }
+        : { x: 0, y: dy >= 0 ? 1 : -1 };
+      if (this.snakeGame.firePlayerShot(direction)) {
+        this.isDirty = true;
+      }
+    });
   }
 
   private handleTick(): void {
@@ -315,7 +384,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.reset(startPaused);
     // Reset equipment effects (no equipment contributes to tick delay until equipped)
     this.skillTree.applyTickDelayScalar(1, "equipment:boots");
-    this.game.reset();
+    this.snakeGame.reset();
     this.juice.stopBossMusic();
     (this.juice as any).stopPowerupMusic?.();
     if (this.bossHud) {
@@ -324,10 +393,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.activeBossId = null;
     if (Object.keys(this.pendingFlags).length > 0) {
       for (const [key, value] of Object.entries(this.pendingFlags)) {
-        this.game.setFlag(key, value);
+        this.snakeGame.setFlag(key, value);
       }
     }
-    this.currentApple = this.game.getApple(this.game.getCurrentRoom().id);
+    this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
     this.snakeCosmetics = {
       unlockedThemes: ["classic"],
       activeTheme: "classic",
@@ -343,7 +412,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private step(): void {
-    const result = this.game.step(this.paused);
+    const result = this.snakeGame.step(this.paused);
     this.updateHouseAmbience();
 
     if (result.status === "dead") {
@@ -360,6 +429,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.currentApple = result.apple.current ?? null;
     this.updateBossEncounter();
+    this.maybePresentRandomEncounter();
 
     if (result.apple.eaten) {
       this.featureManager.call("onAppleEaten", this);
@@ -379,7 +449,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Idle treasure sparkle
-    const roomForTreasure = this.game.getCurrentRoom();
+    const roomForTreasure = this.snakeGame.getCurrentRoom();
     if (roomForTreasure.treasure) {
       const cell = this.grid.cell;
       const tx = roomForTreasure.treasure.x * cell + cell / 2;
@@ -397,19 +467,19 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Powerup pickup FX and music start
-    const pfx = this.game.getFlag<{ x: number; y: number; roomId: string; kind: "phase" | "smite" }>("ui.powerupPickup");
+    const pfx = this.snakeGame.getFlag<{ x: number; y: number; roomId: string; kind: "phase" | "smite" | "gun" }>("ui.powerupPickup");
     if (pfx) {
       const world = this.tileToWorldInRoom({ x: pfx.x, y: pfx.y }, pfx.roomId);
       (this.juice as any).powerupPickup?.(world.x, world.y, pfx.kind);
       // Start powerup music with duration derived from active ticks if available
-      const active = this.game.getFlag<{ kind: string; remaining: number; total: number }>("powerup.active");
+      const active = this.snakeGame.getFlag<{ kind: string; remaining: number; total: number }>("powerup.active");
       if (active && typeof active.total === "number") {
         const durationMs = Math.max(1, active.total) * this.tickDelay;
         (this.juice as any).startPowerupMusic?.(durationMs);
         this.powerupMusicActive = true;
       }
       // Popup text announcing the powerup
-      const name = pfx.kind === "phase" ? "Phase" : "Smite";
+      const name = pfx.kind === "phase" ? "Phase" : pfx.kind === "smite" ? "Smite" : "Gun";
       const text = this.add.text(world.x, world.y - 12, `+ Powerup: ${name}` , {
         fontFamily: "monospace",
         fontSize: "20px",
@@ -424,11 +494,11 @@ export default class SnakeScene extends Phaser.Scene {
         ease: "Cubic.easeOut",
         onComplete: () => text.destroy(),
       });
-      this.game.setFlag("ui.powerupPickup", undefined);
+      this.snakeGame.setFlag("ui.powerupPickup", undefined);
     }
 
     // Stop powerup music when effect ends
-    const active = this.game.getFlag<{ kind: string; remaining: number; total: number }>("powerup.active");
+    const active = this.snakeGame.getFlag<{ kind: string; remaining: number; total: number }>("powerup.active");
     if (!active && this.powerupMusicActive) {
       (this.juice as any).stopPowerupMusic?.();
       this.powerupMusicActive = false;
@@ -458,7 +528,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Movement tick juice with optional head world position for trails
-    const head = this.game.getSnakeBody()[0];
+    const head = this.snakeGame.getSnakeBody()[0];
     if (head) {
       const world = this.tileToWorld(head);
       this.juice.movementTick(world.x, world.y);
@@ -479,11 +549,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.handlePredationFeedback();
 
     // Boss smite FX on collision
-    const smite = this.game.getFlag<{ x: number; y: number; roomId: string }>("ui.bossSmite");
+    const smite = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>("ui.bossSmite");
     if (smite) {
       const world = this.tileToWorldInRoom({ x: smite.x, y: smite.y }, smite.roomId);
       (this.juice as any).bossHit?.(world.x, world.y);
-      this.game.setFlag("ui.bossSmite", undefined);
+      this.snakeGame.setFlag("ui.bossSmite", undefined);
     }
 
     this.isDirty = true;
@@ -497,7 +567,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup.show(quest, {
       onAccept: () => {
         this.juice.questAccepted();
-        const accepted = this.game.acceptOfferedQuest();
+        const accepted = this.snakeGame.acceptOfferedQuest();
         if (accepted) {
           this.isDirty = true;
         }
@@ -505,7 +575,7 @@ export default class SnakeScene extends Phaser.Scene {
       },
       onReject: () => {
         this.juice.questRejected();
-        this.game.rejectOfferedQuest();
+        this.snakeGame.rejectOfferedQuest();
         this.closeQuestPopup();
       },
     });
@@ -519,24 +589,29 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private tickHouseAmbientEffects(): void {
-    if (!this.isInHouse()) {
+    const insideInterior = this.isInHouseInterior();
+    if (!insideInterior) {
       this.houseRestCounter = 0;
       return;
     }
 
-    this.setFlag("timeSinceEat", 0);
-    this.houseRestCounter++;
-    if (this.houseRestCounter >= 30) {
+    if (this.isInHouse()) {
+      this.setFlag("timeSinceEat", 0);
+      this.houseRestCounter++;
+      if (this.houseRestCounter >= 30) {
+        this.houseRestCounter = 0;
+        this.addScoreDirect(1);
+        this.growSnake(1);
+        const cam = this.cameras.main;
+        (this.juice as any).houseRestPulse?.(cam.midPoint.x, cam.midPoint.y + 10);
+      }
+    } else {
       this.houseRestCounter = 0;
-      this.addScoreDirect(1);
-      this.growSnake(1);
-      const cam = this.cameras.main;
-      (this.juice as any).houseRestPulse?.(cam.midPoint.x, cam.midPoint.y + 10);
     }
 
     const w = this.grid.cols * this.grid.cell;
     const h = this.grid.rows * this.grid.cell;
-    const room = this.game.getCurrentRoom();
+    const room = this.snakeGame.getCurrentRoom();
     let lampCenter: { x: number; y: number } | null = null;
     outer: for (let yy = 0; yy < room.layout.length; yy++) {
       for (let xx = 0; xx < room.layout[yy].length; xx++) {
@@ -558,6 +633,10 @@ export default class SnakeScene extends Phaser.Scene {
         y = h - 30 - Math.random() * (h * 0.6);
       }
       (this.juice as any).houseMote?.(x, y);
+    }
+    if (this.random() < 0.045) {
+      const pulseOrigin = lampCenter ?? { x: w / 2, y: h / 2 };
+      (this.juice as any).interiorPulse?.(pulseOrigin.x, pulseOrigin.y);
     }
   }
 
@@ -600,7 +679,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   setDir(x: number, y: number) {
-    this.game.setDirection(x, y);
+    this.snakeGame.setDirection(x, y);
   }
 
   private togglePauseMenu(force?: boolean): void {
@@ -630,10 +709,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   addScoreDirect(amount: number): void {
-    this.game.addScore(amount);
+    this.snakeGame.addScore(amount);
     this.isDirty = true;
     // Floating score popup at head
-    const head = this.game.getSnakeBody()[0];
+    const head = this.snakeGame.getSnakeBody()[0];
     if (head && amount !== 0) {
       const world = this.tileToWorld(head);
       const color = amount > 0 ? "#fff3a8" : "#ff6b6b";
@@ -656,14 +735,14 @@ export default class SnakeScene extends Phaser.Scene {
 
   growSnake(extraSegments: number): void {
     if (extraSegments > 0) {
-      this.game.growSnake(extraSegments);
+      this.snakeGame.growSnake(extraSegments);
       this.isDirty = true;
     }
   }
 
   setFlag(key: string, value: unknown): void {
-    if (this.game) {
-      this.game.setFlag(key, value);
+    if (this.snakeGame) {
+      this.snakeGame.setFlag(key, value);
     } else {
       if (value === undefined) {
         delete this.pendingFlags[key];
@@ -674,8 +753,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   getFlag<T = unknown>(key: string): T | undefined {
-    if (this.game) {
-      const value = this.game.getFlag<T>(key);
+    if (this.snakeGame) {
+      const value = this.snakeGame.getFlag<T>(key);
       if (value !== undefined) {
         return value;
       }
@@ -684,11 +763,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   random(): number {
-    return this.game ? this.game.random() : Math.random();
+    return this.snakeGame ? this.snakeGame.random() : Math.random();
   }
 
   setTeleport(flag: boolean): void {
-    this.game.enableTeleport(flag);
+    this.snakeGame.enableTeleport(flag);
   }
 
   setTickDelay(delay: number): void {
@@ -704,7 +783,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   get teleport(): boolean {
-    return this.game.getTeleport();
+    return this.snakeGame.getTeleport();
   }
 
   get flags(): Record<string, unknown> {
@@ -718,47 +797,47 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   get score(): number {
-    return this.game.getScore();
+    return this.snakeGame.getScore();
   }
 
   get snake(): readonly Vector2Like[] {
-    return this.game.getSnakeBody();
+    return this.snakeGame.getSnakeBody();
   }
 
   get currentRoomId(): string {
-    return this.game.getCurrentRoom().id;
+    return this.snakeGame.getCurrentRoom().id;
   }
 
   getGeneratedRoomsOnCurrentLevel(): string[] {
-    const fn: any = (this.game as any).getGeneratedRooms;
+    const fn: any = (this.snakeGame as any).getGeneratedRooms;
     if (typeof fn === "function") {
-      return fn.call(this.game);
+      return fn.call(this.snakeGame);
     }
     return [];
   }
 
   get activeQuests(): Quest[] {
-    return this.game.getActiveQuests();
+    return this.snakeGame.getActiveQuests();
   }
 
   get completedQuests(): string[] {
-    return this.game.getCompletedQuestIds();
+    return this.snakeGame.getCompletedQuestIds();
   }
 
   get offeredQuest(): Quest | null {
-    return this.game.getOfferedQuest();
+    return this.snakeGame.getOfferedQuest();
   }
 
   get inventory(): InventorySystem {
-    return this.game.getInventory();
+    return this.snakeGame.getInventory();
   }
 
   // Equips an item by id from the menu and applies effects
   equipItem(itemId: string): boolean {
     const item = getItem(itemId);
     if (!item) return false;
-    if (this.game.getInventory().getItemCount(itemId) <= 0) return false;
-    const success = this.game.getInventory().equip(item);
+    if (this.snakeGame.getInventory().getItemCount(itemId) <= 0) return false;
+    const success = this.snakeGame.getInventory().equip(item);
     if (success) {
       this.applyEquipmentEffects();
       this.juice.equipmentEquip();
@@ -768,7 +847,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   // Unequip a slot and apply effects
   unequipSlot(slot: EquipmentSlot): boolean {
-    const success = this.game.getInventory().unequip(slot);
+    const success = this.snakeGame.getInventory().unequip(slot);
     if (success) {
       this.applyEquipmentEffects();
       this.juice.equipmentUnequip();
@@ -777,8 +856,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private applyEquipmentEffects(): void {
-    if (!this.game) return;
-    const inv = this.game.getInventory();
+    if (!this.snakeGame) return;
+    const inv = this.snakeGame.getInventory();
     const equipped = inv.getAllEquipped();
     let tickScalar = 1;
     let wallSenseBonus = 0;
@@ -894,13 +973,17 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   update(): void {
+    this.updateWandererSprite();
+    this.updateVillageResidentSprites();
+    this.tickVillageJuice();
+    this.tickBiomeHazardJuice();
     if (this.isDirty) {
       this.draw();
       this.isDirty = false;
     }
   }
   private updateBossEncounter(): void {
-    const bosses = this.game.getBosses(this.currentRoomId);
+    const bosses = this.snakeGame.getBosses(this.currentRoomId);
     const boss = bosses[0];
 
     if (boss) {
@@ -937,7 +1020,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
   private tileToWorld(position?: Vector2Like | null): { x: number; y: number } {
     const cell = this.grid.cell;
-    const fallback = this.game.getSnakeBody()[0] ?? { x: this.grid.cols / 2, y: this.grid.rows / 2 };
+    const fallback = this.snakeGame.getSnakeBody()[0] ?? { x: this.grid.cols / 2, y: this.grid.rows / 2 };
     const point = position ?? fallback;
     const [roomX, roomY] = this.currentRoomId.split(",").map(Number);
     const localX = point.x - roomX * this.grid.cols;
@@ -959,36 +1042,36 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handlePredationFeedback(): void {
-    if (!this.game) {
+    if (!this.snakeGame) {
       return;
     }
 
-    const frenzy = this.game.getFlag<{ head?: Vector2Like | null }>("predation.frenzyTriggered");
+    const frenzy = this.snakeGame.getFlag<{ head?: Vector2Like | null }>("predation.frenzyTriggered");
     if (frenzy) {
       const world = this.tileToWorld(frenzy.head ?? null);
       this.juice.predationFrenzy(world.x, world.y);
-      this.game.setFlag("predation.frenzyTriggered", undefined);
+      this.snakeGame.setFlag("predation.frenzyTriggered", undefined);
     }
 
-    const rend = this.game.getFlag<{ head?: Vector2Like | null }>("predation.rendConsumed");
+    const rend = this.snakeGame.getFlag<{ head?: Vector2Like | null }>("predation.rendConsumed");
     if (rend) {
       const world = this.tileToWorld(rend.head ?? null);
       this.juice.predationRend(world.x, world.y);
-      this.game.setFlag("predation.rendConsumed", undefined);
+      this.snakeGame.setFlag("predation.rendConsumed", undefined);
     }
 
-    const apex = this.game.getFlag<{ head?: Vector2Like | null }>("predation.apexTriggered");
+    const apex = this.snakeGame.getFlag<{ head?: Vector2Like | null }>("predation.apexTriggered");
     if (apex) {
       const world = this.tileToWorld(apex.head ?? null);
       this.juice.predationApex(world.x, world.y);
-      this.game.setFlag("predation.apexTriggered", undefined);
+      this.snakeGame.setFlag("predation.apexTriggered", undefined);
     }
 
-    const loot = this.game.getFlag<{ head?: Vector2Like | null; itemName?: string }>("loot.itemPicked");
+    const loot = this.snakeGame.getFlag<{ head?: Vector2Like | null; itemName?: string }>("loot.itemPicked");
     if (loot) {
       const world = this.tileToWorld(loot.head ?? null);
       this.juice.itemPickup(world.x, world.y);
-      const enriched = this.game.getFlag<{ itemId?: string }>("loot.itemPicked");
+      const enriched = this.snakeGame.getFlag<{ itemId?: string }>("loot.itemPicked");
       if (enriched?.itemId) {
         (this.juice as any).itemRarityJingle?.(enriched.itemId);
       }
@@ -1009,66 +1092,66 @@ export default class SnakeScene extends Phaser.Scene {
         ease: "Cubic.easeOut",
         onComplete: () => popup.destroy(),
       });
-      this.game.setFlag("loot.itemPicked", undefined);
+      this.snakeGame.setFlag("loot.itemPicked", undefined);
     }
 
     // Treasure pickup FX
-    const treasureFx = this.game.getFlag<{ x: number; y: number; roomId: string }>("ui.treasurePickup");
+    const treasureFx = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>("ui.treasurePickup");
     if (treasureFx) {
       const world = this.tileToWorldInRoom({ x: treasureFx.x, y: treasureFx.y }, treasureFx.roomId);
       (this.juice as any).treasurePickup?.(world.x, world.y);
-      this.game.setFlag("ui.treasurePickup", undefined);
+      this.snakeGame.setFlag("ui.treasurePickup", undefined);
     }
 
     // Geometry feedback
-    const seismic = this.game.getFlag<{ x: number; y: number; roomId: string; radius: number }>("ui.seismicPulse");
+    const seismic = this.snakeGame.getFlag<{ x: number; y: number; roomId: string; radius: number }>("ui.seismicPulse");
     if (seismic) {
       const world = this.tileToWorldInRoom({ x: seismic.x, y: seismic.y }, seismic.roomId);
       (this.juice as any).seismicPulse?.(world.x, world.y, seismic.radius);
-      this.game.setFlag("ui.seismicPulse", undefined);
+      this.snakeGame.setFlag("ui.seismicPulse", undefined);
     }
 
-    const collapse = this.game.getFlag<{ x: number; y: number; roomId: string }>("ui.collapseControl");
+    const collapse = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>("ui.collapseControl");
     if (collapse) {
       const world = this.tileToWorldInRoom({ x: collapse.x, y: collapse.y }, collapse.roomId);
       (this.juice as any).collapseControl?.(world.x, world.y);
-      this.game.setFlag("ui.collapseControl", undefined);
+      this.snakeGame.setFlag("ui.collapseControl", undefined);
     }
 
-    const chomp = this.game.getFlag<{ x: number; y: number; roomId: string }>("ui.wallChomp");
+    const chomp = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>("ui.wallChomp");
     if (chomp) {
       const world = this.tileToWorldInRoom({ x: chomp.x, y: chomp.y }, chomp.roomId);
       (this.juice as any).wallChomp?.(world.x, world.y);
-      this.game.setFlag("ui.wallChomp", undefined);
+      this.snakeGame.setFlag("ui.wallChomp", undefined);
     }
 
-    const fault = this.game.getFlag<{ roomId: string; y: number }>("ui.faultLine");
+    const fault = this.snakeGame.getFlag<{ roomId: string; y: number }>("ui.faultLine");
     if (fault) {
       const cell = this.grid.cell;
       const y = fault.y * cell + cell / 2;
       const x1 = cell / 2;
       const x2 = this.grid.cols * cell - cell / 2;
       (this.juice as any).faultLineSweep?.(x1, y, x2);
-      this.game.setFlag("ui.faultLine", undefined);
+      this.snakeGame.setFlag("ui.faultLine", undefined);
     }
 
     // Turn skid dust
-    const skid = this.game.getFlag<{ x: number; y: number; roomId: string; dx: number; dy: number }>("ui.turnSkid");
+    const skid = this.snakeGame.getFlag<{ x: number; y: number; roomId: string; dx: number; dy: number }>("ui.turnSkid");
     if (skid) {
       const world = this.tileToWorldInRoom({ x: skid.x, y: skid.y }, skid.roomId);
       (this.juice as any).turnSkid?.(world.x, world.y, skid.dx, skid.dy);
-      this.game.setFlag("ui.turnSkid", undefined);
+      this.snakeGame.setFlag("ui.turnSkid", undefined);
     }
 
     // Wall graze sparks
-    const graze = this.game.getFlag<{ x: number; y: number; roomId: string; nx: number; ny: number }>("ui.wallGraze");
+    const graze = this.snakeGame.getFlag<{ x: number; y: number; roomId: string; nx: number; ny: number }>("ui.wallGraze");
     if (graze) {
       const world = this.tileToWorldInRoom({ x: graze.x, y: graze.y }, graze.roomId);
       (this.juice as any).wallGraze?.(world.x, world.y, graze.nx, graze.ny);
-      this.game.setFlag("ui.wallGraze", undefined);
+      this.snakeGame.setFlag("ui.wallGraze", undefined);
     }
 
-    const enemyEaten = this.game.getFlag<{ x: number; y: number; roomId: string }>("ui.enemyEaten");
+    const enemyEaten = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>("ui.enemyEaten");
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
       const popup = this.add.text(world.x, world.y - 14, "+ Enemy", {
@@ -1084,33 +1167,146 @@ export default class SnakeScene extends Phaser.Scene {
         ease: "Cubic.easeOut",
         onComplete: () => popup.destroy(),
       });
-      this.game.setFlag("ui.enemyEaten", undefined);
+      this.snakeGame.setFlag("ui.enemyEaten", undefined);
+    }
+
+    const wandererReveal = this.snakeGame.getFlag<{ x: number; y: number; roomId: string; id: string }>("ui.wandererReveal");
+    if (wandererReveal) {
+      const world = this.tileToWorldInRoom({ x: wandererReveal.x, y: wandererReveal.y }, wandererReveal.roomId);
+      (this.juice as any).wandererReveal?.(world.x, world.y);
+      this.snakeGame.setFlag("ui.wandererReveal", undefined);
+    }
+
+    const playerShot = this.snakeGame.getFlag<{ x: number; y: number; roomId: string; dx: number; dy: number }>("ui.playerShot");
+    if (playerShot) {
+      const world = this.tileToWorldInRoom({ x: playerShot.x, y: playerShot.y }, playerShot.roomId);
+      (this.juice as any).playerShot?.(world.x, world.y, playerShot.dx, playerShot.dy);
+      this.snakeGame.setFlag("ui.playerShot", undefined);
+    }
+
+    const playerHit = this.snakeGame.getFlag<{
+      x: number;
+      y: number;
+      roomId: string;
+      health: number;
+      maxHealth: number;
+      source?: "enemy" | "npc-hostile" | "duelist" | "freak-joey" | "player";
+    }>("ui.playerHit");
+    if (playerHit) {
+      const world = this.tileToWorldInRoom({ x: playerHit.x, y: playerHit.y }, playerHit.roomId);
+      (this.juice as any).playerHit?.(world.x, world.y, playerHit.health, playerHit.maxHealth, playerHit.source);
+      this.snakeGame.setFlag("ui.playerHit", undefined);
+    }
+
+    const villageReveal = this.snakeGame.getFlag<{ roomId: string; name: string; x: number; y: number }>("ui.villageReveal");
+    if (villageReveal) {
+      const world = this.tileToWorldInRoom({ x: villageReveal.x, y: villageReveal.y }, villageReveal.roomId);
+      (this.juice as any).villageReveal?.(world.x, world.y);
+      this.villageHud
+        .setText(villageReveal.name.toUpperCase())
+        .setAlpha(0)
+        .setY(12)
+        .setVisible(true);
+      this.tweens.add({
+        targets: this.villageHud,
+        alpha: 1,
+        y: 18,
+        duration: 320,
+        ease: "Cubic.easeOut",
+      });
+      this.tweens.add({
+        targets: this.villageHud,
+        alpha: 0,
+        y: 26,
+        delay: 1700,
+        duration: 900,
+        ease: "Cubic.easeIn",
+        onComplete: () => this.villageHud.setVisible(false),
+      });
+      this.showQuestHintPopup(`${villageReveal.name} stirs around you.`, "#f6e7c1");
+      this.snakeGame.setFlag("ui.villageReveal", undefined);
+    }
+    const biomeReveal = this.snakeGame.getFlag<{
+      roomId: string;
+      biomeId: string;
+      title: string;
+      temperature: string;
+      dangerLevel: number;
+    }>("ui.biomeReveal");
+    if (biomeReveal) {
+      const room = this.snakeGame.getCurrentRoom();
+      const color = room.backgroundColor;
+      const center = { x: (this.grid.cols * this.grid.cell) / 2, y: (this.grid.rows * this.grid.cell) / 2 };
+      (this.juice as any).biomeReveal?.(center.x, center.y, color);
+      this.biomeHud
+        .setText(
+          `${biomeReveal.title.toUpperCase()}\nTemp: ${biomeReveal.temperature}  Danger: ${biomeReveal.dangerLevel}/10`
+        )
+        .setAlpha(0)
+        .setY(36)
+        .setVisible(true);
+      this.tweens.add({
+        targets: this.biomeHud,
+        alpha: 1,
+        y: 42,
+        duration: 340,
+        ease: "Cubic.easeOut",
+      });
+      this.tweens.add({
+        targets: this.biomeHud,
+        alpha: 0,
+        y: 50,
+        delay: 1500,
+        duration: 900,
+        ease: "Cubic.easeIn",
+        onComplete: () => this.biomeHud.setVisible(false),
+      });
+      this.showQuestHintPopup(
+        `You cross into ${biomeReveal.title}. Temp ${biomeReveal.temperature}. Danger ${biomeReveal.dangerLevel}/10.`,
+        "#dfe8ff"
+      );
+      this.snakeGame.setFlag("ui.biomeReveal", undefined);
     }
   }
   private draw(): void {
     // Suppress generic HUDs in house
     this.setFlag("ui.suppressHud", this.isInHouse());
-    const room = this.game.getCurrentRoom();
+    const room = this.snakeGame.getCurrentRoom();
     const baseSense = this.getFlag<number>("geometry.wallSenseRadius") ?? 0;
     const equipSense = this.getFlag<number>("equipment.wallSenseRadiusBonus") ?? 0;
     const wallSenseRadius = Math.max(0, baseSense + equipSense);
     const pActive = this.getFlag<{ kind: string; remaining: number }>("powerup.active");
     const snakeColor = pActive ? 0x9b5de5 : undefined;
-    this.snakeRenderer.render(room, this.game.getSnakeBody(), room.id, this.currentApple, {
+    this.snakeRenderer.render(room, this.snakeGame.getSnakeBody(), room.id, this.currentApple, {
       wallSenseRadius,
       snakeColor,
       poweredUp: Boolean(pActive),
-      direction: this.game.getDirection(),
+      direction: this.snakeGame.getDirection(),
       snakePalette: this.getActiveSnakeTheme().palette,
       cowboyHat: this.snakeCosmetics.cowboyHatEquipped,
-      enemies: this.game.getEnemies(room.id),
-      bullets: this.game.getEnemyBullets(room.id),
+      enemies: this.snakeGame.getEnemies(room.id),
+      bullets: this.snakeGame.getEnemyBullets(room.id),
     });
-    this.questHud.update(this.game.getActiveQuests(), this.grid.cols * this.grid.cell);
+    this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
+    const health = this.snakeGame.getPlayerHealth();
+    this.heartsHud.setText(`Hearts: ${"♥".repeat(Math.max(0, health.current))}${"♡".repeat(Math.max(0, health.max - health.current))}`);
+    this.heartsHud.setVisible(!this.isInHouse());
+    const temperature = this.snakeGame.getPlayerTemperature();
+    if (!this.isInHouse() && temperature.active) {
+      const filled = Math.max(0, Math.min(temperature.max, temperature.current));
+      const empty = Math.max(0, temperature.max - filled);
+      const label = temperature.hazard === "hot" ? "HEAT" : "COLD";
+      const color = temperature.hazard === "hot" ? "#ffb36b" : "#9ad1ff";
+      this.temperatureHud.setColor(color);
+      this.temperatureHud.setText(`${label}: ${"■".repeat(filled)}${"□".repeat(empty)}`);
+      this.temperatureHud.setVisible(true);
+    } else {
+      this.temperatureHud.setVisible(false);
+    }
 
     // Render bosses
-    const bosses = this.game.getBosses(room.id);
+    const bosses = this.snakeGame.getBosses(room.id);
     for (const boss of bosses) {
       for (const segment of boss.body) {
         const [roomX, roomY] = room.id.split(",").map(Number);
@@ -1127,8 +1323,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Update simple house HUD
     if (this.isInHouse()) {
-      const purchases = (this.game.getFlag<Record<string, unknown>>("house.purchases") ?? {}) as Record<string, unknown>;
-      const expandLevel = Number(this.game.getFlag<number>("house.expandLevel") ?? 0);
+      const purchases = (this.snakeGame.getFlag<Record<string, unknown>>("house.purchases") ?? {}) as Record<string, unknown>;
+      const expandLevel = Number(this.snakeGame.getFlag<number>("house.expandLevel") ?? 0);
       const expandCap = 5;
       const lines = [
         `House Shop — Score: ${this.score}`,
@@ -1297,7 +1493,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private tryBuyHouse(kind: "couch" | "kitchen" | "expand"): void {
-    const ok = this.game.purchaseHouseItem(kind);
+    const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
       this.isDirty = true;
       // Small confirmation popup near top-left
@@ -1320,31 +1516,29 @@ export default class SnakeScene extends Phaser.Scene {
 
   // Monitor room transitions to start/stop house ambience
   private updateHouseAmbience(): void {
-    const inHouse = this.isInHouse();
-    if (inHouse && !this.houseMusicActive) {
+    const insideInterior = this.isInHouseInterior();
+    if (insideInterior && !this.houseMusicActive) {
       (this.juice as any).startHouseAmbience?.();
       this.houseMusicActive = true;
-    } else if (!inHouse && this.houseMusicActive) {
+    } else if (!insideInterior && this.houseMusicActive) {
       (this.juice as any).stopHouseAmbience?.();
       this.houseMusicActive = false;
     }
-    // Apply slowdown only when snake is actually inside the interior (not just in the room)
-    const slowInside = this.isInHouseInterior();
-    this.skillTree.applyTickDelayScalar(slowInside ? 1.6 : 1.0, "house");
+    // Apply slowdown only when snake is actually inside an interior.
+    this.skillTree.applyTickDelayScalar(insideInterior ? 1.6 : 1.0, "house");
   }
 
   private isInHouseInterior(): boolean {
-    if (!this.isInHouse()) return false;
-    const head = this.game.getSnakeBody()[0];
+    const head = this.snakeGame.getSnakeBody()[0];
     if (!head) return false;
-    const room = this.game.getCurrentRoom();
+    const room = this.snakeGame.getCurrentRoom();
     const [rx, ry] = room.id.split(",").map(Number);
     const lx = head.x - rx * this.grid.cols;
     const ly = head.y - ry * this.grid.rows;
     if (lx < 0 || ly < 0 || lx >= this.grid.cols || ly >= this.grid.rows) return false;
     const tile = room.layout[ly]?.[lx];
     if (!tile) return false;
-    // Interior tiles (wood, rug, trim, and furniture)
+    // Interior tiles (wood, rug, trim, and furniture) across any generated house.
     return "WETCKBPL".includes(tile);
   }
 
@@ -1356,12 +1550,12 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.isInHouse() || this.paused || this.offeredQuest) {
       return null;
     }
-    const room = this.game.getCurrentRoom();
+    const room = this.snakeGame.getCurrentRoom();
     const giver = room.questGiver;
     if (!giver) {
       return null;
     }
-    const head = this.game.getSnakeBody()[0];
+    const head = this.snakeGame.getSnakeBody()[0];
     if (!head) {
       return null;
     }
@@ -1371,6 +1565,10 @@ export default class SnakeScene extends Phaser.Scene {
     const dist = Math.abs(localX - giver.x) + Math.abs(localY - giver.y);
     if (dist > 1) {
       return null;
+    }
+    const disposition = this.snakeGame.getNpcDisposition(room.id);
+    if (disposition.hostility === "hostile") {
+      return { text: `${giver.name ?? "NPC"} is hostile` };
     }
     const name = giver.name ? `Talk to ${giver.name}` : "Talk to quest giver";
     return { text: `${name} (press E)` };
@@ -1380,12 +1578,12 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused || this.offeredQuest) {
       return false;
     }
-    const room = this.game.getCurrentRoom();
+    const room = this.snakeGame.getCurrentRoom();
     const giver = room.questGiver;
     if (!giver) {
       return false;
     }
-    const head = this.game.getSnakeBody()[0];
+    const head = this.snakeGame.getSnakeBody()[0];
     if (!head) {
       return false;
     }
@@ -1396,7 +1594,25 @@ export default class SnakeScene extends Phaser.Scene {
     if (dist > 1) {
       return false;
     }
-    const request = this.game.requestQuestFromGiver(room.id);
+    const disposition = this.snakeGame.getNpcDisposition(room.id);
+    if (disposition.hostility === "hostile") {
+      this.showQuestDialogue(
+        giver.name ?? "Quest Giver",
+        [
+          `"You had your warning."`,
+          `${giver.name ?? "They"} reaches for a weapon instead of another conversation.`,
+        ],
+        {
+          onClose: () => this.closeQuestPopup(),
+        },
+        {
+          closeLabel: "Run",
+        },
+        { portraitId: giver.portraitId }
+      );
+      return true;
+    }
+    const request = this.snakeGame.requestQuestFromGiver(room.id);
     const giverName = giver.name ?? "Quest Giver";
     const speaker = { portraitId: giver.portraitId };
 
@@ -1409,7 +1625,7 @@ export default class SnakeScene extends Phaser.Scene {
         {
           onAccept: () => {
             this.juice.questAccepted();
-            const accepted = this.game.acceptOfferedQuest();
+            const accepted = this.snakeGame.acceptOfferedQuest();
             if (accepted) {
               this.isDirty = true;
             }
@@ -1417,8 +1633,8 @@ export default class SnakeScene extends Phaser.Scene {
           },
           onReject: () => {
             this.juice.questRejected();
-            this.game.rejectOfferedQuest();
-            this.closeQuestPopup();
+            this.snakeGame.rejectOfferedQuest();
+            this.handleNpcInsult(room.id, giverName, speaker.portraitId);
           },
         },
         {
@@ -1472,15 +1688,116 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
-  private initQuestGiverSprite(): void {
-    const size = Math.max(14, Math.floor(this.grid.cell * 0.75));
-    const palette: QuestGiverSpritePalette = {
-      robeColor: "#2f7f5f",
-      trimColor: "#5dd6a2",
-      outlineColor: "#1e3a2d",
-      eyeColor: "#e8ffe8",
+  private handleNpcInsult(roomId: string, giverName: string, portraitId?: string): void {
+    const insult = this.snakeGame.insultNpc(roomId);
+    if (!insult) {
+      this.closeQuestPopup();
+      return;
+    }
+    if (insult.hostility === "warning") {
+      this.showQuestDialogue(
+        giverName,
+        [
+          "The air around them hardens. Even the room seems to draw back a little, as if it has seen this turn before and remembers the cost of it.",
+          `"Mind your tongue, snake. I have buried kinder creatures for less, and the ground did not trouble itself to call me unjust."`,
+          `"Slight me again and this conversation will have to continue in the uglier language kept by powder, blood, and ringing tile."`,
+        ],
+        {
+          onClose: () => this.closeQuestPopup(),
+        },
+        {
+          closeLabel: "Back off",
+        },
+        { portraitId }
+      );
+      return;
+    }
+    if (insult.hostility === "hostile") {
+      this.showQuestDialogue(
+        giverName,
+        [
+          `${giverName} goes still in the way a drawn blade is still: not restful, only decided.`,
+          `"That is enough. I offered you the dignity of words first. Do not complain now that the lesson has been translated into something your nerves can understand."`,
+          "Their hand moves toward the weapon with the grim familiarity of ritual.",
+        ],
+        {
+          onClose: () => this.closeQuestPopup(),
+        },
+        {
+          closeLabel: "Fight",
+        },
+        { portraitId }
+      );
+      return;
+    }
+    this.closeQuestPopup();
+  }
+
+  private maybePresentRandomEncounter(): void {
+    if (this.paused || this.questPopup.isVisible()) {
+      return;
+    }
+    const encounter = this.snakeGame.getFlag<(WandererEncounter & { roomId: string; x: number; y: number; statsNote: string })>("npc.randomEncounter");
+    if (!encounter || encounter.roomId !== this.currentRoomId) {
+      return;
+    }
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (!head) {
+      return;
+    }
+    const [roomX, roomY] = this.currentRoomId.split(",").map(Number);
+    const localHead = {
+      x: head.x - roomX * this.grid.cols,
+      y: head.y - roomY * this.grid.rows,
     };
-    const textures = this.runtimeSpriteFactory.ensureRecipe(questGiverSpriteRecipe, size, palette);
+    const distance = Math.abs(localHead.x - encounter.x) + Math.abs(localHead.y - encounter.y);
+    if (distance > 3) {
+      return;
+    }
+    if (this.snakeGame.getFlag<boolean>("npc.randomEncounter.prompted")) {
+      return;
+    }
+    this.snakeGame.setFlag("npc.randomEncounter.prompted", true);
+    (this.juice as any).wandererApproach?.(
+      this.tileToWorldInRoom({ x: encounter.x, y: encounter.y }, encounter.roomId).x,
+      this.tileToWorldInRoom({ x: encounter.x, y: encounter.y }, encounter.roomId).y
+    );
+    this.showQuestDialogue(
+      encounter.name,
+      [...encounter.pages, encounter.statsNote],
+      {
+        onAccept: () => {
+          const result = this.snakeGame.resolveRandomEncounter(true);
+          const world = this.tileToWorldInRoom({ x: encounter.x, y: encounter.y }, encounter.roomId);
+          if (result.kind === "duel" && result.accepted) {
+            (this.juice as any).duelAccepted?.(world.x, world.y);
+          }
+          this.closeQuestPopup();
+          if (result.kind === "quest" && result.accepted) {
+            const offered = this.snakeGame.getOfferedQuest();
+            if (offered) {
+              this.offerQuest(offered);
+            }
+          } else if (result.kind === "flavor" && result.accepted) {
+            this.showQuestHintPopup(`${encounter.name} leaves you with a little hard-won advice.`, "#9ad1ff");
+          }
+        },
+        onReject: () => {
+          this.snakeGame.resolveRandomEncounter(false);
+          this.closeQuestPopup();
+        },
+      },
+      {
+        acceptLabel: encounter.acceptLabel ?? "Accept",
+        rejectLabel: encounter.rejectLabel ?? "Refuse",
+        nextLabel: "Next",
+      },
+      { portraitId: encounter.portraitId }
+    );
+  }
+
+  private initQuestGiverSprite(): void {
+    const textures = this.getDefaultNpcTextures(Math.max(14, Math.floor(this.grid.cell * 0.75)));
 
     if (!this.anims.exists("quest-giver-idle")) {
       this.anims.create({
@@ -1498,19 +1815,308 @@ export default class SnakeScene extends Phaser.Scene {
     this.questGiverSprite.play("quest-giver-idle");
   }
 
+  private initWandererSprite(): void {
+    const textures = this.getDefaultNpcTextures(Math.max(14, Math.floor(this.grid.cell * 0.78)));
+    this.wandererSprite = this.add
+      .sprite(0, 0, textures.idle)
+      .setDepth(25)
+      .setVisible(false);
+  }
+
+  private ensureVillageResidentSprite(index: number): Phaser.GameObjects.Sprite {
+    let sprite = this.villageResidentSprites[index];
+    if (sprite) {
+      return sprite;
+    }
+    const textures = this.getDefaultNpcTextures(Math.max(12, Math.floor(this.grid.cell * 0.7)));
+    sprite = this.add.sprite(0, 0, textures.idle).setDepth(24).setVisible(false);
+    this.villageResidentSprites[index] = sprite;
+    return sprite;
+  }
+
+  private getDefaultNpcTextures(size: number): Record<"idle" | "blink", string> {
+    const palette: QuestGiverSpritePalette = {
+      robeColor: "#2f7f5f",
+      trimColor: "#5dd6a2",
+      outlineColor: "#1e3a2d",
+      eyeColor: "#e8ffe8",
+    };
+    return this.runtimeSpriteFactory.ensureRecipe(questGiverSpriteRecipe, size, palette);
+  }
+
   private updateQuestGiverSprite(): void {
     if (!this.questGiverSprite) {
       return;
     }
-    const room = this.game.getCurrentRoom();
+    const room = this.snakeGame.getCurrentRoom();
     const giver = room.questGiver;
     if (!giver) {
       this.questGiverSprite.setVisible(false);
       return;
     }
+    const disposition = this.snakeGame.getNpcDisposition(room.id);
+    const palette = this.paletteForQuestGiverDisposition(disposition.hostility);
+    const textures = this.runtimeSpriteFactory.ensureRecipe(
+      questGiverSpriteRecipe,
+      Math.max(14, Math.floor(this.grid.cell * 0.75)),
+      palette
+    );
+    const animKey = `quest-giver-${disposition.hostility}-idle`;
+    if (!this.anims.exists(animKey)) {
+      this.anims.create({
+        key: animKey,
+        frames: [{ key: textures.idle }, { key: textures.blink }],
+        frameRate: disposition.hostility === "hostile" ? 4 : 2,
+        repeat: -1,
+      });
+    }
+    if (this.questGiverSprite.anims.currentAnim?.key !== animKey) {
+      this.questGiverSprite.play(animKey);
+    }
+    this.questGiverSprite.setTexture(textures.idle);
     const world = this.tileToWorldLocalInRoom({ x: giver.x, y: giver.y });
-    const bobOffset = Math.sin(this.time.now / 260) * 2;
-    this.questGiverSprite.setPosition(world.x, world.y - 2 + bobOffset);
-    this.questGiverSprite.setVisible(true);
+    const bobSpeed = disposition.hostility === "hostile" ? 110 : disposition.hostility === "warning" ? 180 : 260;
+    const bobAmount = disposition.hostility === "hostile" ? 3 : 2;
+    const bobOffset = Math.sin(this.time.now / bobSpeed) * bobAmount;
+    const hostileJitterX = disposition.hostility === "hostile" ? Math.sin(this.time.now / 45) * 0.9 : 0;
+    const hostileAlpha = disposition.hostility === "hostile" ? 0.82 + 0.18 * Math.sin(this.time.now / 95) : 1;
+    const head = this.snakeGame.getSnakeBody()[0];
+    let flipX = false;
+    if (head) {
+      const [roomX, roomY] = room.id.split(",").map(Number);
+      const headLocalX = head.x - roomX * this.grid.cols;
+      if (disposition.hostility !== "friendly" && headLocalX !== giver.x) {
+        flipX = headLocalX < giver.x;
+      }
+    }
+    this.questGiverSprite
+      .setPosition(world.x + hostileJitterX, world.y - 2 + bobOffset)
+      .setAlpha(hostileAlpha)
+      .setFlipX(flipX)
+      .setVisible(true);
+  }
+
+  private updateWandererSprite(): void {
+    if (!this.wandererSprite || !this.snakeGame) {
+      return;
+    }
+    const encounter = this.snakeGame.getFlag<(WandererEncounter & { roomId: string; x: number; y: number; statsNote: string })>("npc.randomEncounter");
+    if (!encounter || encounter.roomId !== this.currentRoomId || this.questPopup.isVisible()) {
+      this.wandererSprite.setVisible(false);
+      return;
+    }
+    const palette = this.paletteForEncounter(encounter.id);
+    const textures = this.runtimeSpriteFactory.ensureRecipe(
+      questGiverSpriteRecipe,
+      Math.max(14, Math.floor(this.grid.cell * 0.78)),
+      palette
+    );
+    const animKey = `wanderer-${encounter.id}-idle`;
+    if (!this.anims.exists(animKey)) {
+      this.anims.create({
+        key: animKey,
+        frames: [{ key: textures.idle }, { key: textures.blink }],
+        frameRate: 2,
+        repeat: -1,
+      });
+    }
+    const texture = textures.idle;
+    if (this.activeWandererTextureKey !== texture) {
+      this.wandererSprite.setTexture(texture);
+      this.activeWandererTextureKey = texture;
+    }
+    if (this.wandererSprite.anims.currentAnim?.key !== animKey) {
+      this.wandererSprite.play(animKey);
+    }
+    const world = this.tileToWorldLocalInRoom({ x: encounter.x, y: encounter.y });
+    const bobOffset = Math.sin(this.time.now / 210) * 2.4;
+    this.wandererSprite.setPosition(world.x, world.y - 3 + bobOffset).setVisible(true);
+    if (Math.random() < 0.08) {
+      (this.juice as any).wandererAura?.(world.x, world.y - 6, palette.trimColor);
+    }
+  }
+
+  private updateVillageResidentSprites(): void {
+    this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
+    if (!this.snakeGame) {
+      return;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const residents = room.village?.residents ?? [];
+    if (residents.length === 0 || this.questPopup.isVisible()) {
+      return;
+    }
+    residents.forEach((resident, index) => {
+      const sprite = this.ensureVillageResidentSprite(index);
+      const palette = this.paletteForResident(resident.name, index);
+      const textures = this.runtimeSpriteFactory.ensureRecipe(
+        questGiverSpriteRecipe,
+        Math.max(12, Math.floor(this.grid.cell * 0.7)),
+        palette
+      );
+      const animKey = `village-resident-${resident.id}-${index}`;
+      if (!this.anims.exists(animKey)) {
+        this.anims.create({
+          key: animKey,
+          frames: [{ key: textures.idle }, { key: textures.blink }],
+          frameRate: 2,
+          repeat: -1,
+        });
+      }
+      const world = this.tileToWorldLocalInRoom({ x: resident.x, y: resident.y });
+      const bobOffset = Math.sin(this.time.now / (220 + index * 17)) * 1.8;
+      sprite.setTexture(textures.idle).setPosition(world.x, world.y - 2 + bobOffset).setVisible(true);
+      if (sprite.anims.currentAnim?.key !== animKey) {
+        sprite.play(animKey);
+      }
+      if (Math.random() < 0.04) {
+        (this.juice as any).wandererAura?.(world.x, world.y - 4, palette.trimColor);
+      }
+      if (Math.random() < 0.02) {
+        (this.juice as any).villageResidentMurmur?.(world.x, world.y - 2, Phaser.Display.Color.HexStringToColor(palette.trimColor).color);
+      }
+    });
+  }
+
+  private tickVillageJuice(): void {
+    if (!this.snakeGame || this.paused) {
+      return;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    if (!room.village) {
+      return;
+    }
+    if (Math.random() < 0.08) {
+      const lantern = room.village.lanterns[Math.floor(Math.random() * room.village.lanterns.length)];
+      if (lantern) {
+        const world = this.tileToWorldLocalInRoom(lantern);
+        (this.juice as any).villageLantern?.(world.x, world.y);
+      }
+    }
+    if (Math.random() < 0.03) {
+      const world = this.tileToWorldLocalInRoom(room.village.center);
+      (this.juice as any).villageBreath?.(world.x, world.y);
+    }
+  }
+
+  private tickBiomeHazardJuice(): void {
+    if (!this.snakeGame || this.paused) {
+      return;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    if (room.biomeId === "sable-depths" && Math.random() < 0.16) {
+      (this.juice as any).snowDrift?.(
+        Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
+        Phaser.Math.Between(0, this.grid.rows * this.grid.cell / 2)
+      );
+    } else if (room.biomeId === "ember-waste" && Math.random() < 0.12) {
+      (this.juice as any).heatHaze?.(
+        Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
+        Phaser.Math.Between(this.grid.rows * this.grid.cell / 2, this.grid.rows * this.grid.cell - 12)
+      );
+    }
+
+    if (room.temperatureReliefs && Math.random() < 0.08) {
+      const relief = room.temperatureReliefs[Math.floor(Math.random() * room.temperatureReliefs.length)];
+      if (relief) {
+        const world = this.tileToWorldLocalInRoom({ x: relief.x, y: relief.y });
+        (this.juice as any).temperatureReliefPulse?.(world.x, world.y, relief.kind);
+      }
+    }
+  }
+
+  private paletteForEncounter(encounterId: string): QuestGiverSpritePalette {
+    switch (encounterId) {
+      case "freak-joey":
+        return {
+          robeColor: "#7a2430",
+          trimColor: "#f4b46a",
+          outlineColor: "#23060a",
+          eyeColor: "#fff0d4",
+        };
+      case "lindsey-wanderer":
+        return {
+          robeColor: "#466fb7",
+          trimColor: "#cde4ff",
+          outlineColor: "#142239",
+          eyeColor: "#f7fbff",
+        };
+      case "ryan-wanderer":
+        return {
+          robeColor: "#7b6c52",
+          trimColor: "#d9c2a0",
+          outlineColor: "#2d2417",
+          eyeColor: "#fff2dd",
+        };
+      case "aurex-wanderer":
+        return {
+          robeColor: "#6d8f63",
+          trimColor: "#d7efba",
+          outlineColor: "#1f311d",
+          eyeColor: "#fbfff4",
+        };
+      case "belisar-wanderer":
+        return {
+          robeColor: "#5d3d7d",
+          trimColor: "#f0da8a",
+          outlineColor: "#1c1026",
+          eyeColor: "#fff8e2",
+        };
+      case "cyrene-wanderer":
+        return {
+          robeColor: "#2f7c77",
+          trimColor: "#a5f0ea",
+          outlineColor: "#0d2a28",
+          eyeColor: "#f1fffd",
+        };
+      default:
+        return {
+          robeColor: "#2f7f5f",
+          trimColor: "#5dd6a2",
+          outlineColor: "#1e3a2d",
+          eyeColor: "#e8ffe8",
+        };
+    }
+  }
+
+  private paletteForResident(name: string, offset: number): QuestGiverSpritePalette {
+    const palettes: QuestGiverSpritePalette[] = [
+      { robeColor: "#536d94", trimColor: "#d4e4ff", outlineColor: "#182338", eyeColor: "#fffdf5" },
+      { robeColor: "#6d5a48", trimColor: "#e7c89a", outlineColor: "#241a12", eyeColor: "#fff4e0" },
+      { robeColor: "#4d7b5e", trimColor: "#cfeec8", outlineColor: "#163020", eyeColor: "#f4fff0" },
+      { robeColor: "#7a4e82", trimColor: "#f0d8a0", outlineColor: "#25132d", eyeColor: "#fff8e5" },
+    ];
+    const index = Math.abs(name.length + offset) % palettes.length;
+    return palettes[index];
+  }
+
+  private paletteForQuestGiverDisposition(
+    hostility: "friendly" | "warning" | "hostile"
+  ): QuestGiverSpritePalette {
+    switch (hostility) {
+      case "warning":
+        return {
+          robeColor: "#8b6a2b",
+          trimColor: "#ffd27d",
+          outlineColor: "#35240c",
+          eyeColor: "#fff6d6",
+        };
+      case "hostile":
+        return {
+          robeColor: "#8a2430",
+          trimColor: "#ff8e7a",
+          outlineColor: "#26070c",
+          eyeColor: "#fff0ea",
+        };
+      case "friendly":
+      default:
+        return {
+          robeColor: "#2f7f5f",
+          trimColor: "#5dd6a2",
+          outlineColor: "#1e3a2d",
+          eyeColor: "#e8ffe8",
+        };
+    }
   }
 }
+

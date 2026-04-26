@@ -81,6 +81,29 @@ export class QuestController {
     this.offered = null;
   }
 
+  offerSpecificQuestById(id: string, runtime: QuestRuntime): Quest | null {
+    const quest = this.registry.getById(id);
+    if (!quest) {
+      return null;
+    }
+    if (this.completed.includes(quest.id)) {
+      return null;
+    }
+    if (this.active.some((activeQuest) => activeQuest.id === quest.id)) {
+      return quest;
+    }
+    if (this.offered?.id === quest.id) {
+      return quest;
+    }
+    if (quest.isCompleted(runtime)) {
+      this.completed.push(quest.id);
+      quest.onReward(runtime);
+      return quest;
+    }
+    this.offered = quest;
+    return quest;
+  }
+
   offerNow(_runtime: QuestRuntime): Quest | null {
     return null;
   }
