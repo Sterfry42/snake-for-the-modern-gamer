@@ -979,6 +979,7 @@ export class SkillTreeOverlay {
     const current: string = (this.scene as any).currentRoomId ?? "0,0,0";
 
     const level = Number((current.split(",")[2] ?? 0));
+    this.mapTitle.setText(`Map - Depth ${level}`);
     const coords = rooms.map((id) => id.split(",").map((n) => Number(n)) as number[]).filter((c) => (c[2] ?? 0) === level);
 
     // Ensure bounds include house and origin on their level for icon placement

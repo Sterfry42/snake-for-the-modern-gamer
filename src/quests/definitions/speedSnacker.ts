@@ -7,7 +7,11 @@ class SpeedSnackerQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return (runtime.getFlag<number>("appleStreakMax") ?? 0) >= 3;
+    return this.progressSinceAccept(runtime, "applesEaten") >= 3 && (runtime.getFlag<number>("appleStreak") ?? 0) >= 3;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["applesEaten"];
   }
 
   override onReward(runtime: QuestRuntime): void {

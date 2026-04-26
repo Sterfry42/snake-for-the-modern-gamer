@@ -7,7 +7,11 @@ class TreasureHunterQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return (runtime.getFlag<number>("treasurePicked") ?? 0) >= 2;
+    return this.progressSinceAccept(runtime, "treasurePicked") >= 2;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["treasurePicked"];
   }
 
   override onReward(runtime: QuestRuntime): void {

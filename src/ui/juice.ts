@@ -30,11 +30,18 @@ export class JuiceManager {
     this.overlayLayer = this.scene.add.layer().setDepth(30);
   }
 
-  appleChomp(worldX: number, worldY: number) {
-    this.playTone({ frequency: 420, frequencyEnd: 300, duration: 0.18, type: "square", volume: 0.18 });
-    this.kickCamera(0.01, 60);
-    this.spawnBurst(worldX, worldY, { colors: [0xfff3a8, 0xffc25f], count: 6, radius: 14 });
-    this.ringPulse(worldX, worldY, 0xffc25f, 10, 2, 180);
+  appleChomp(worldX: number, worldY: number, violenceLevel = 0) {
+    const level = Math.max(0, Math.min(3, Math.floor(violenceLevel)));
+    const volume = 0.18 + level * 0.04;
+    const shake = 0.01 + level * 0.006;
+    const burstCount = 6 + level * 5;
+    this.playTone({ frequency: 420 - level * 35, frequencyEnd: 300 - level * 28, duration: 0.18 + level * 0.03, type: level > 1 ? "sawtooth" : "square", volume });
+    if (level > 0) {
+      this.playTone({ frequency: 95 + level * 18, frequencyEnd: 55, duration: 0.12 + level * 0.03, type: "sawtooth", volume: 0.05 + level * 0.025 });
+    }
+    this.kickCamera(shake, 60 + level * 35);
+    this.spawnBurst(worldX, worldY, { colors: [0xfff3a8, 0xffc25f, 0xff5f57], count: burstCount, radius: 14 + level * 7 });
+    this.ringPulse(worldX, worldY, level > 1 ? 0xff5f57 : 0xffc25f, 10 + level * 5, 2 + level, 180 + level * 45);
   }
 
   skillTreeOpened() {
@@ -207,6 +214,39 @@ export class JuiceManager {
     });
     this.spawnBurst(worldX, worldY, { colors: [0x9ad1ff, 0x5dd6a2, 0xfff3a8], count: 14, radius: 22 });
     this.ringPulse(worldX, worldY, 0x9ad1ff, 18, 2, 220);
+    this.spawnTreasureChest(worldX, worldY);
+  }
+
+  private spawnTreasureChest(worldX: number, worldY: number): void {
+    const g = this.scene.add.graphics().setDepth(31);
+    this.overlayLayer.add(g);
+    const drawChest = (x: number, y: number, scale: number, alpha: number) => {
+      g.clear();
+      g.setAlpha(alpha);
+      g.lineStyle(2, 0x3b2112, 1);
+      g.fillStyle(0x7a4a24, 1);
+      g.fillRoundedRect(x - 12 * scale, y - 7 * scale, 24 * scale, 15 * scale, 2 * scale);
+      g.fillStyle(0xb87532, 1);
+      g.fillRoundedRect(x - 12 * scale, y - 13 * scale, 24 * scale, 12 * scale, 5 * scale);
+      g.fillStyle(0xffd166, 1);
+      g.fillRect(x - 2 * scale, y - 13 * scale, 4 * scale, 21 * scale);
+      g.fillRect(x - 12 * scale, y - 2 * scale, 24 * scale, 3 * scale);
+      g.fillStyle(0xfff3a8, 1);
+      g.fillRect(x - 3 * scale, y - 3 * scale, 6 * scale, 6 * scale);
+      g.strokeRoundedRect(x - 12 * scale, y - 13 * scale, 24 * scale, 21 * scale, 3 * scale);
+    };
+    const state = { y: worldY, scale: 1, alpha: 1 };
+    drawChest(worldX, state.y, state.scale, state.alpha);
+    this.scene.tweens.add({
+      targets: state,
+      y: worldY - 34,
+      scale: 1.2,
+      alpha: 0,
+      duration: 720,
+      ease: "Cubic.easeOut",
+      onUpdate: () => drawChest(worldX, state.y, state.scale, state.alpha),
+      onComplete: () => g.destroy(),
+    });
   }
 
   equipmentEquip() {

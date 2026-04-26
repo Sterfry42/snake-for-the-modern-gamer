@@ -15,5 +15,26 @@ export abstract class Quest {
 
   abstract isCompleted(runtime: QuestRuntime): boolean;
 
+  onAccept(runtime: QuestRuntime): void {
+    const baseline: Record<string, number> = {};
+    for (const key of this.baselineKeys()) {
+      baseline[key] = Number(runtime.getFlag<number>(key) ?? 0);
+    }
+    runtime.setFlag(this.baselineFlagKey(), baseline);
+  }
+
   onReward(_runtime: QuestRuntime): void {}
+
+  protected baselineKeys(): readonly string[] {
+    return [];
+  }
+
+  protected progressSinceAccept(runtime: QuestRuntime, key: string): number {
+    const baseline = runtime.getFlag<Record<string, number>>(this.baselineFlagKey()) ?? {};
+    return Number(runtime.getFlag<number>(key) ?? 0) - Number(baseline[key] ?? 0);
+  }
+
+  private baselineFlagKey(): string {
+    return `quest.baseline.${this.id}`;
+  }
 }

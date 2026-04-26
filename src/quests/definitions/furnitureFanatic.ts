@@ -7,7 +7,11 @@ class FurnitureFanaticQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return (runtime.getFlag<number>("house.itemsPurchased") ?? 0) >= 4;
+    return this.progressSinceAccept(runtime, "house.itemsPurchased") >= 4;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["house.itemsPurchased"];
   }
 
   override onReward(runtime: QuestRuntime): void {

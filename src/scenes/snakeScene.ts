@@ -121,6 +121,7 @@ export default class SnakeScene extends Phaser.Scene {
   private questHint!: Phaser.GameObjects.Text;
   private questHintPanel!: Phaser.GameObjects.Rectangle;
   private heartsHud!: Phaser.GameObjects.Text;
+  private livesHud!: Phaser.GameObjects.Text;
   private temperatureHud!: Phaser.GameObjects.Text;
   private villageHud!: Phaser.GameObjects.Text;
   private biomeHud!: Phaser.GameObjects.Text;
@@ -153,6 +154,7 @@ export default class SnakeScene extends Phaser.Scene {
   private pendingFlags: Record<string, unknown> = {};
   private readonly flagsProxy: Record<string, unknown>;
   private activeWandererTextureKey: string | null = null;
+  private lastVisibleLifeCharges = 0;
 
   constructor() {
     super("SnakeScene");
@@ -188,6 +190,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.mobileControls = createMobileControls({
       onDirection: (x, y) => {
         this.setDir(x, y);
+        if (this.isManualHouseMovementActive()) {
+          this.consumeManualResumePause();
+          this.step();
+        }
       },
       onTogglePause: () => {
         this.togglePauseMenu();
@@ -246,9 +252,17 @@ export default class SnakeScene extends Phaser.Scene {
         color: "#ff8f8f",
       })
       .setDepth(28)
-      .setVisible(true);
-    this.temperatureHud = this.add
+      .setVisible(false);
+    this.livesHud = this.add
       .text(8, this.grid.rows * this.grid.cell - 48, "", {
+        fontFamily: "monospace",
+        fontSize: "16px",
+        color: "#fff3a8",
+      })
+      .setDepth(28)
+      .setVisible(false);
+    this.temperatureHud = this.add
+      .text(8, this.grid.rows * this.grid.cell - 70, "", {
         fontFamily: "monospace",
         fontSize: "14px",
         color: "#9ad1ff",
@@ -301,21 +315,25 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.isManualHouseMovementActive()) {
         if (["arrowup", "w"].includes(key)) {
           this.setDir(0, -1);
+          this.consumeManualResumePause();
           this.step();
           return;
         }
         if (["arrowdown", "s"].includes(key)) {
           this.setDir(0, 1);
+          this.consumeManualResumePause();
           this.step();
           return;
         }
         if (["arrowleft", "a"].includes(key)) {
           this.setDir(-1, 0);
+          this.consumeManualResumePause();
           this.step();
           return;
         }
         if (["arrowright", "d"].includes(key)) {
           this.setDir(1, 0);
+          this.consumeManualResumePause();
           this.step();
           return;
         }
@@ -414,6 +432,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = startPaused;
     this.isDirty = true;
     this.questPopup.hide();
+    this.lastVisibleLifeCharges = 0;
   }
 
   private step(): void {
@@ -422,7 +441,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (result.status === "dead") {
       if (this.skillTree.tryConsumeExtraLife()) {
-        this.paused = true;
+        this.snakeGame.reviveAfterExtraLife(result.deathReason);
+        this.paused = false;
+        this.skillTree.hideOverlay();
         this.isDirty = true;
         return;
       }
@@ -439,11 +460,21 @@ export default class SnakeScene extends Phaser.Scene {
     if (result.apple.eaten) {
       this.featureManager.call("onAppleEaten", this);
       if (result.apple.worldPosition) {
-        this.juice.appleChomp(result.apple.worldPosition.x, result.apple.worldPosition.y);
+        const violenceLevel = Number(this.getFlag<number>("killstreak.appleJuiceLevel") ?? 0);
+        this.juice.appleChomp(result.apple.worldPosition.x, result.apple.worldPosition.y, violenceLevel);
+        this.setFlag("killstreak.appleJuiceLevel", undefined);
       }
     }
 
     this.tickHouseAmbientEffects();
+
+    const consumedPhoenix = this.snakeGame.getFlag<{ itemId: string }>("equipment.itemPhoenixConsumed");
+    if (consumedPhoenix) {
+      this.applyEquipmentEffects();
+      const item = getItem(consumedPhoenix.itemId);
+      this.showQuestHintPopup(`${item?.name ?? "Phoenix charm"} burned away.`, "#fff3a8");
+      this.snakeGame.setFlag("equipment.itemPhoenixConsumed", undefined);
+    }
 
     // Idle apple sparkle
     if (this.currentApple && !result.apple.eaten) {
@@ -891,7 +922,10 @@ export default class SnakeScene extends Phaser.Scene {
     let invulnBonus = 0;
     let regen: { interval: number; amount: number } | null = null;
     let phoenix = 0;
+    let itemPhoenix = 0;
     let gunEnabled = false;
+    let heatResistance = 0;
+    let coldResistance = 0;
 
     for (const [, itemId] of equipped) {
       const item = getItem(itemId) as any;
@@ -921,9 +955,16 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (typeof mods.phoenixCharges === "number") {
         phoenix += mods.phoenixCharges;
+        itemPhoenix += mods.phoenixCharges;
       }
       if (mods.gunEnabled) {
         gunEnabled = true;
+      }
+      if (typeof mods.heatResistance === "number") {
+        heatResistance += mods.heatResistance;
+      }
+      if (typeof mods.coldResistance === "number") {
+        coldResistance += mods.coldResistance;
       }
     }
 
@@ -996,7 +1037,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag("equipment.invulnerabilityBonus", invulnBonus > 0 ? invulnBonus : undefined);
     this.setFlag("equipment.regenerator", regen ?? undefined);
     this.setFlag("equipment.phoenixCharges", phoenix > 0 ? phoenix : undefined);
+    this.setFlag("equipment.itemPhoenixCharges", itemPhoenix > 0 ? itemPhoenix : undefined);
     this.setFlag("equipment.gunEnabled", gunEnabled ? true : undefined);
+    this.setFlag("equipment.heatResistance", heatResistance > 0 ? Math.min(0.9, heatResistance) : undefined);
+    this.setFlag("equipment.coldResistance", coldResistance > 0 ? Math.min(0.9, coldResistance) : undefined);
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
@@ -1320,8 +1364,22 @@ export default class SnakeScene extends Phaser.Scene {
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
     const health = this.snakeGame.getPlayerHealth();
+    const healthRevealed = Boolean(this.getFlag<boolean>("ui.healthRevealed")) || health.current < health.max;
+    if (health.current < health.max) {
+      this.setFlag("ui.healthRevealed", true);
+    }
     this.heartsHud.setText(`Hearts: ${"♥".repeat(Math.max(0, health.current))}${"♡".repeat(Math.max(0, health.max - health.current))}`);
-    this.heartsHud.setVisible(!this.isInHouse());
+    this.heartsHud.setVisible(!this.isInHouse() && healthRevealed);
+    const lifeCharges = this.getVisibleLifeCharges();
+    if (lifeCharges > 0) {
+      this.setFlag("ui.livesRevealed", true);
+    }
+    if (this.lastVisibleLifeCharges > 0 && lifeCharges < this.lastVisibleLifeCharges) {
+      this.juice.extraLifeSpent();
+    }
+    this.lastVisibleLifeCharges = lifeCharges;
+    this.livesHud.setText(`Lives: ${lifeCharges + 1}`);
+    this.livesHud.setVisible(!this.isInHouse() && Boolean(this.getFlag<boolean>("ui.livesRevealed")));
     const temperature = this.snakeGame.getPlayerTemperature();
     if (!this.isInHouse() && temperature.active) {
       const filled = Math.max(0, Math.min(temperature.max, temperature.current));
@@ -1531,6 +1589,12 @@ export default class SnakeScene extends Phaser.Scene {
     return this.currentRoomId === "0,-1,0";
   }
 
+  private getVisibleLifeCharges(): number {
+    const skillLives = Math.max(0, Number(this.skillTree?.getStats().extraLives ?? 0));
+    const phoenixLives = Math.max(0, Number(this.getFlag<number>("equipment.phoenixCharges") ?? 0));
+    return skillLives + phoenixLives;
+  }
+
   private tryBuyHouse(kind: "couch" | "kitchen" | "expand"): void {
     const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
@@ -1582,7 +1646,13 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private isManualHouseMovementActive(): boolean {
-    return !this.paused && this.isInHouseInterior() && !this.offeredQuest;
+    return !this.paused && !this.offeredQuest && (this.isInHouseInterior() || Boolean(this.getFlag<boolean>("traversal.manualResumePending")));
+  }
+
+  private consumeManualResumePause(): void {
+    if (this.getFlag<boolean>("traversal.manualResumePending")) {
+      this.setFlag("traversal.manualResumePending", undefined);
+    }
   }
 
   private getQuestGiverHint(): { text: string } | null {
@@ -1635,20 +1705,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const disposition = this.snakeGame.getNpcDisposition(room.id);
     if (disposition.hostility === "hostile") {
-      this.showQuestDialogue(
-        giver.name ?? "Quest Giver",
-        [
-          `"You had your warning."`,
-          `${giver.name ?? "They"} reaches for a weapon instead of another conversation.`,
-        ],
-        {
-          onClose: () => this.closeQuestPopup(),
-        },
-        {
-          closeLabel: "Run",
-        },
-        { portraitId: giver.portraitId }
-      );
       return true;
     }
     const request = this.snakeGame.requestQuestFromGiver(room.id);
@@ -1828,7 +1884,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private initQuestGiverSprite(): void {
-    const textures = this.getDefaultNpcTextures(Math.max(14, Math.floor(this.grid.cell * 0.75)));
+    const textures = this.getDefaultNpcTextures(Math.max(18, Math.floor(this.grid.cell * 0.92)));
 
     if (!this.anims.exists("quest-giver-idle")) {
       this.anims.create({
@@ -1847,7 +1903,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private initWandererSprite(): void {
-    const textures = this.getDefaultNpcTextures(Math.max(14, Math.floor(this.grid.cell * 0.78)));
+    const textures = this.getDefaultNpcTextures(Math.max(19, Math.floor(this.grid.cell * 0.98)));
     this.wandererSprite = this.add
       .sprite(0, 0, textures.idle)
       .setDepth(25)
@@ -1859,7 +1915,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (sprite) {
       return sprite;
     }
-    const textures = this.getDefaultNpcTextures(Math.max(12, Math.floor(this.grid.cell * 0.7)));
+    const textures = this.getDefaultNpcTextures(Math.max(16, Math.floor(this.grid.cell * 0.84)));
     sprite = this.add.sprite(0, 0, textures.idle).setDepth(24).setVisible(false);
     this.villageResidentSprites[index] = sprite;
     return sprite;
@@ -1886,10 +1942,14 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const disposition = this.snakeGame.getNpcDisposition(room.id);
+    if (disposition.hostility === "hostile" && this.snakeGame.getEnemies(room.id).some((enemy) => enemy.encounterKind === "npc-hostile")) {
+      this.questGiverSprite.setVisible(false);
+      return;
+    }
     const palette = this.paletteForQuestGiverDisposition(disposition.hostility);
     const textures = this.runtimeSpriteFactory.ensureRecipe(
       questGiverSpriteRecipe,
-      Math.max(14, Math.floor(this.grid.cell * 0.75)),
+      Math.max(18, Math.floor(this.grid.cell * 0.92)),
       palette
     );
     const animKey = `quest-giver-${disposition.hostility}-idle`;
@@ -1939,7 +1999,7 @@ export default class SnakeScene extends Phaser.Scene {
     const palette = this.paletteForEncounter(encounter.id);
     const textures = this.runtimeSpriteFactory.ensureRecipe(
       questGiverSpriteRecipe,
-      Math.max(14, Math.floor(this.grid.cell * 0.78)),
+      Math.max(19, Math.floor(this.grid.cell * 0.98)),
       palette
     );
     const animKey = `wanderer-${encounter.id}-idle`;
@@ -2004,7 +2064,7 @@ export default class SnakeScene extends Phaser.Scene {
       const palette = this.paletteForResident(resident.name, index);
       const textures = this.runtimeSpriteFactory.ensureRecipe(
         questGiverSpriteRecipe,
-        Math.max(12, Math.floor(this.grid.cell * 0.7)),
+        Math.max(16, Math.floor(this.grid.cell * 0.84)),
         palette
       );
       const animKey = `village-resident-${resident.id}-${index}`;
@@ -2057,15 +2117,26 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
-    if (room.biomeId === "sable-depths" && Math.random() < 0.16) {
+    if (room.biomeId === "sable-depths" && Math.random() < 0.28) {
       (this.juice as any).snowDrift?.(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
-        Phaser.Math.Between(0, this.grid.rows * this.grid.cell / 2)
+        Phaser.Math.Between(0, this.grid.rows * this.grid.cell)
       );
-    } else if (room.biomeId === "ember-waste" && Math.random() < 0.12) {
+    } else if (room.biomeId === "ember-waste" && Math.random() < 0.24) {
       (this.juice as any).heatHaze?.(
         Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
         Phaser.Math.Between(this.grid.rows * this.grid.cell / 2, this.grid.rows * this.grid.cell - 12)
+      );
+    } else if (room.biomeId === "moonlit-parish" && Math.random() < 0.12) {
+      (this.juice as any).snowDrift?.(
+        Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
+        Phaser.Math.Between(0, this.grid.rows * this.grid.cell)
+      );
+    } else if (room.biomeId === "gloam-garden" && Math.random() < 0.1) {
+      (this.juice as any).temperatureReliefPulse?.(
+        Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
+        Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
+        Math.random() < 0.5 ? "warm" : "cool"
       );
     }
 

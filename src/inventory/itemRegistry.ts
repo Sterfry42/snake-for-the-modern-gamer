@@ -72,6 +72,26 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: "cloak-frostguard",
+    name: "Frostguard Cloak",
+    description: "A lined travel cloak that keeps frigid depths from biting so quickly.",
+    kind: "equipment",
+    slot: "cloak",
+    modifiers: {
+      coldResistance: 0.75,
+    },
+  },
+  {
+    id: "helm-sunshade",
+    name: "Sunshade Helm",
+    description: "A broad-brimmed helm that cuts the worst of scorching heat.",
+    kind: "equipment",
+    slot: "helm",
+    modifiers: {
+      heatResistance: 0.75,
+    },
+  },
+  {
     id: "belt-regenerator",
     name: "Belt of Renewal",
     description: "Slow, steady growth over time.",

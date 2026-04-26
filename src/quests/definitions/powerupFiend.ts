@@ -7,7 +7,11 @@ class PowerupFiendQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return (runtime.getFlag<number>("powerupsPicked") ?? 0) >= 2;
+    return this.progressSinceAccept(runtime, "powerupsPicked") >= 2;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["powerupsPicked"];
   }
 
   override onReward(runtime: QuestRuntime): void {

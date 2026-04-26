@@ -7,7 +7,11 @@ class ExplorerQuest extends Quest {
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return (runtime.getFlag<number>("roomsVisited") ?? 0) >= 6;
+    return this.progressSinceAccept(runtime, "roomsVisited") >= 6;
+  }
+
+  protected override baselineKeys(): readonly string[] {
+    return ["roomsVisited"];
   }
 
   override onReward(runtime: QuestRuntime): void {

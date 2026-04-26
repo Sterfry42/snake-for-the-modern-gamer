@@ -46,7 +46,7 @@ const TIER_CONFIGS: TierConfig[] = [
   },
 ];
 
-const STREAK_TIMEOUT_TICKS = 200;
+const STREAK_TIMEOUT_TICKS = 80;
 const QUEST_FONT_SIZE = 14;
 const QUEST_LINE_SPACING = 4;
 const QUEST_TOP_MARGIN = 8;
@@ -152,6 +152,7 @@ class KillstreakArsenalFeature extends Feature {
       scene.addScore(this.state.multiplier - 1);
     }
 
+    scene.setFlag("killstreak.appleJuiceLevel", Math.max(0, this.state.tier));
     if (this.isHudActive()) {
       this.spawnKillConfirm(scene);
     }
