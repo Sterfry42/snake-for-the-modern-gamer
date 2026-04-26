@@ -204,7 +204,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   onArcanePulseCast(): void {
-    const head = this.scene.game.getSnakeBody()[0];
+    const head = this.scene.snakeGame.getSnakeBody()[0];
     const cell = this.scene.grid.cell;
     const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
     const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;
@@ -235,7 +235,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
   onArcaneVeilTriggered(): void {
     this.juice.arcaneVeilBurst();
 
-    const head = this.scene.game.getSnakeBody()[0];
+    const head = this.scene.snakeGame.getSnakeBody()[0];
     const cell = this.scene.grid.cell;
     const worldX = head ? head.x * cell + cell / 2 : (this.scene.grid.cols * cell) / 2;
     const worldY = head ? head.y * cell + cell / 2 : (this.scene.grid.rows * cell) / 2;

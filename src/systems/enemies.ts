@@ -237,7 +237,10 @@ export class EnemyManager {
 
         const bulletGlobal = localToGlobal(roomId, nextPosition, this.grid);
         if (bullet.owner === "enemy") {
-          if (snake.some((segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y)) {
+          if (
+            roomId === currentRoomId &&
+            snake.some((segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y)
+          ) {
             bulletHits += 1;
             hitStyle ??= bullet.style;
             continue;

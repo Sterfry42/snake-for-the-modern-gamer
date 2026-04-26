@@ -126,6 +126,7 @@ export default class SnakeScene extends Phaser.Scene {
   private biomeHud!: Phaser.GameObjects.Text;
   private questGiverSprite!: Phaser.GameObjects.Sprite;
   private wandererSprite!: Phaser.GameObjects.Sprite;
+  private choicePopupVisible = false;
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
@@ -285,6 +286,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       if (key === " ") {
+        if (this.isModalPopupVisible()) {
+          event.preventDefault();
+          return;
+        }
         this.togglePauseMenu();
         return;
       }
@@ -683,7 +688,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private togglePauseMenu(force?: boolean): void {
-    if (this.offeredQuest) return;
+    if (this.offeredQuest || this.isModalPopupVisible()) return;
     const nextState = typeof force === "boolean" ? force : !this.paused;
     if (nextState === this.paused) {
       return;
@@ -824,6 +829,26 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getCompletedQuestIds();
   }
 
+  setChoicePopupVisible(visible: boolean): void {
+    this.choicePopupVisible = visible;
+  }
+
+  private isModalPopupVisible(): boolean {
+    return Boolean(this.questPopup?.isVisible() || this.choicePopupVisible);
+  }
+
+  get acceptedQuests(): string[] {
+    return this.snakeGame.getAcceptedQuestIds();
+  }
+
+  getAllQuests(): Quest[] {
+    return this.snakeGame.getAllQuests();
+  }
+
+  getAcceptedQuestList(): Quest[] {
+    return this.snakeGame.getAcceptedQuests();
+  }
+
   get offeredQuest(): Quest | null {
     return this.snakeGame.getOfferedQuest();
   }
@@ -866,6 +891,7 @@ export default class SnakeScene extends Phaser.Scene {
     let invulnBonus = 0;
     let regen: { interval: number; amount: number } | null = null;
     let phoenix = 0;
+    let gunEnabled = false;
 
     for (const [, itemId] of equipped) {
       const item = getItem(itemId) as any;
@@ -895,6 +921,9 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (typeof mods.phoenixCharges === "number") {
         phoenix += mods.phoenixCharges;
+      }
+      if (mods.gunEnabled) {
+        gunEnabled = true;
       }
     }
 
@@ -967,6 +996,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag("equipment.invulnerabilityBonus", invulnBonus > 0 ? invulnBonus : undefined);
     this.setFlag("equipment.regenerator", regen ?? undefined);
     this.setFlag("equipment.phoenixCharges", phoenix > 0 ? phoenix : undefined);
+    this.setFlag("equipment.gunEnabled", gunEnabled ? true : undefined);
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
@@ -1386,6 +1416,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.getOverlay().announce(`Class: ${id}`, "#c8ffe1", 1800);
   }
 
+  resetStartingChoices(): void {
+    this.chosenReligionId = null;
+    this.chosenBackgroundId = null;
+    this.chosenClassId = null;
+    this.religionMods = {};
+    this.backgroundMods = {};
+    this.classMods = {};
+  }
+
   getSnakeCustomizationState(): SnakeCosmeticState {
     return {
       unlockedThemes: [...this.snakeCosmetics.unlockedThemes],
@@ -1741,20 +1780,12 @@ export default class SnakeScene extends Phaser.Scene {
     if (!encounter || encounter.roomId !== this.currentRoomId) {
       return;
     }
-    const head = this.snakeGame.getSnakeBody()[0];
-    if (!head) {
-      return;
-    }
-    const [roomX, roomY] = this.currentRoomId.split(",").map(Number);
-    const localHead = {
-      x: head.x - roomX * this.grid.cols,
-      y: head.y - roomY * this.grid.rows,
-    };
-    const distance = Math.abs(localHead.x - encounter.x) + Math.abs(localHead.y - encounter.y);
-    if (distance > 3) {
-      return;
-    }
     if (this.snakeGame.getFlag<boolean>("npc.randomEncounter.prompted")) {
+      return;
+    }
+    const triggerAtMs = Number(this.snakeGame.getFlag<number>("npc.randomEncounter.triggerAtMs") ?? 0);
+    const nowMs = Number(this.getFlag<number>("timeMs") ?? 0);
+    if (nowMs < triggerAtMs) {
       return;
     }
     this.snakeGame.setFlag("npc.randomEncounter.prompted", true);
@@ -1928,9 +1959,31 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.wandererSprite.anims.currentAnim?.key !== animKey) {
       this.wandererSprite.play(animKey);
     }
-    const world = this.tileToWorldLocalInRoom({ x: encounter.x, y: encounter.y });
+    const revealAtMs = Number(this.snakeGame.getFlag<number>("npc.randomEncounter.revealAtMs") ?? 0);
+    const triggerAtMs = Number(this.snakeGame.getFlag<number>("npc.randomEncounter.triggerAtMs") ?? revealAtMs + 1);
+    const nowMs = Number(this.getFlag<number>("timeMs") ?? triggerAtMs);
+    const head = this.snakeGame.getSnakeBody()[0];
+    let renderLocal = { x: encounter.x, y: encounter.y };
+    let flipX = false;
+    if (head && triggerAtMs > revealAtMs) {
+      const [roomX, roomY] = this.currentRoomId.split(",").map(Number);
+      const headLocal = {
+        x: head.x - roomX * this.grid.cols,
+        y: head.y - roomY * this.grid.rows,
+      };
+      const progress = Phaser.Math.Clamp((nowMs - revealAtMs) / (triggerAtMs - revealAtMs), 0, 1);
+      const approach = Math.min(0.72, progress * 0.82);
+      renderLocal = {
+        x: Phaser.Math.Linear(encounter.x, headLocal.x, approach),
+        y: Phaser.Math.Linear(encounter.y, headLocal.y, approach),
+      };
+      if (Math.abs(headLocal.x - renderLocal.x) > 0.1) {
+        flipX = headLocal.x < renderLocal.x;
+      }
+    }
+    const world = this.tileToWorldLocalInRoom(renderLocal);
     const bobOffset = Math.sin(this.time.now / 210) * 2.4;
-    this.wandererSprite.setPosition(world.x, world.y - 3 + bobOffset).setVisible(true);
+    this.wandererSprite.setPosition(world.x, world.y - 3 + bobOffset).setFlipX(flipX).setVisible(true);
     if (Math.random() < 0.08) {
       (this.juice as any).wandererAura?.(world.x, world.y - 6, palette.trimColor);
     }

@@ -8,6 +8,7 @@ import type {
 } from "../systems/skillTree.js";
 import { getItem } from "../inventory/itemRegistry.js";
 import type { EquipmentSlot } from "../inventory/item.js";
+import type { Quest } from "../../quests.js";
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -36,14 +37,14 @@ const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
   depth: 30,
 };
 
-const TREE_PADDING = { top: 140, bottom: 80, horizontal: 80 };
+const TREE_PADDING = { top: 140, bottom: 80, horizontal: 48 };
 
 const DETAIL_PANEL_WIDTH = 220;
 const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
 const CLICK_ROW_TOP_BIAS = 8;
 
-type TabId = "skills" | "inventory" | "customize" | "map";
+type TabId = "skills" | "inventory" | "customize" | "map" | "info";
 type SnakeThemeId = "classic" | "sunset" | "midnight" | "bone";
 
 interface TabDefinition {
@@ -55,8 +56,9 @@ interface TabDefinition {
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "skills", label: "Skill Tree" },
   { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
-  { id: "customize", label: "CUSTOMIZE MY SNAKE", placeholder: "Buy palettes and swagger." },
+  { id: "customize", label: "Style", placeholder: "Buy palettes and swagger." },
   { id: "map", label: "Map", placeholder: "Explore to reveal more rooms." },
+  { id: "info", label: "Info" },
 ];
 
 export class SkillTreeOverlay {
@@ -92,6 +94,7 @@ export class SkillTreeOverlay {
   private readonly equipmentLines: Map<string, Phaser.GameObjects.Text> = new Map();
   private wasEquipmentVisible = false;
   private readonly customizationText: Phaser.GameObjects.Text;
+  private readonly questListText: Phaser.GameObjects.Text;
   private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
@@ -263,6 +266,13 @@ export class SkillTreeOverlay {
       lineSpacing: 8,
       wordWrap: { width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 },
     }).setInteractive({ useHandCursor: true }).setVisible(false);
+    this.questListText = this.scene.add.text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, "", {
+      fontFamily: "monospace",
+      fontSize: "13px",
+      color: "#e6f3ff",
+      lineSpacing: 3,
+      wordWrap: { width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 },
+    }).setVisible(false);
 
     this.inventoryItemsText.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== "inventory") return;
@@ -361,6 +371,7 @@ export class SkillTreeOverlay {
       this.hintText,
       this.inventoryItemsText,
       this.customizationText,
+      this.questListText,
     ];
     // Build equipment panel (hidden by default)
     const equipX = TREE_PADDING.horizontal;
@@ -381,7 +392,7 @@ export class SkillTreeOverlay {
     const equipChildren: Phaser.GameObjects.GameObject[] = [this.equipmentBackground, this.equipmentTitle];
     this.equipmentContainer = this.scene.add.container(0, 0, equipChildren).setVisible(false);
 
-    const equipSlots = ["boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as const;
+    const equipSlots = ["weapon", "boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as const;
     equipSlots.forEach((slot, idx) => {
       const lineY = equipY + 40 + idx * 28;
       const text = this.scene.add.text(equipX + 14, lineY, "", {
@@ -668,10 +679,12 @@ export class SkillTreeOverlay {
     const skillsActive = this.activeTab === "skills";
     const inventoryActive = this.activeTab === "inventory";
     const customizationActive = this.activeTab === "customize";
+    const infoActive = this.activeTab === "info";
     const equipmentActive = false;
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
     this.customizationText.setVisible(customizationActive);
+    this.questListText.setVisible(infoActive);
     if (!customizationActive) {
       this.clearCustomizationHover();
     }
@@ -691,7 +704,7 @@ export class SkillTreeOverlay {
 
     if (this.stubText) {
       const mapActive = this.activeTab === "map";
-      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive;
+      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive && !infoActive;
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
@@ -707,7 +720,7 @@ export class SkillTreeOverlay {
       } else {
         const lines: string[] = [];
         const index: string[] = [];
-        const slots: EquipmentSlot[] = ["boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
+        const slots: EquipmentSlot[] = ["weapon", "boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
         for (const slot of slots) {
           const current = this.scene.inventory.getEquipped(slot as EquipmentSlot);
           if (current) {
@@ -734,6 +747,20 @@ export class SkillTreeOverlay {
           this.hintText.setText("Inventory: click to equip/unequip items.");
           this.hintText.setColor("#9ad1ff");
         }
+      }
+    }
+
+    if (infoActive) {
+      this.questListText.setText(this.formatQuestInfo(this.scene.getAcceptedQuestList()));
+      this.detailTitle.setText("Quests").setVisible(true);
+      this.detailSubtitle.setText("Accepted Tasks").setVisible(true);
+      this.detailRankText.setText("").setVisible(false);
+      this.detailBody
+        .setText("Only quests accepted during this run appear here. Accepted or completed quests are not offered again.")
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText("Accepted quests are listed here.");
+        this.hintText.setColor("#9ad1ff");
       }
     }
 
@@ -791,14 +818,14 @@ export class SkillTreeOverlay {
         this.hintText.setText("Customize your serpent's colors and hat.");
         this.hintText.setColor("#9ad1ff");
       }
-    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills") {
+    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills" && this.activeTab !== "info") {
       this.customizationRowMap = [];
       this.clearPerkDetails(true);
     }
 
     if (equipmentActive) {
       // Populate equipment panel
-      const slots: EquipmentSlot[] = ["boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
+      const slots: EquipmentSlot[] = ["weapon", "boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
       for (const slot of slots) {
         const text = this.equipmentLines.get(slot as unknown as string);
         if (!text) continue;
@@ -920,6 +947,29 @@ export class SkillTreeOverlay {
         this.clearPerkDetails(true);
       }
     }
+  }
+
+  private formatQuestInfo(quests: Quest[]): string {
+    if (quests.length === 0) {
+      return "No accepted quests.";
+    }
+
+    const activeIds = new Set(this.scene.activeQuests.map((quest) => quest.id));
+    const completedIds = new Set(this.scene.completedQuests);
+    const acceptedIds = new Set(this.scene.acceptedQuests);
+
+    return quests
+      .map((quest) => {
+        const marker = completedIds.has(quest.id)
+          ? "[x]"
+          : activeIds.has(quest.id)
+            ? "[>]"
+            : acceptedIds.has(quest.id)
+              ? "[-]"
+              : "[ ]";
+        return `${marker} ${quest.label}: ${quest.description}`;
+      })
+      .join("\n");
   }
 
   private drawMapPanel(): void {
@@ -1061,7 +1111,7 @@ export class SkillTreeOverlay {
     const perks = this.system.getPerks();
     const width = this.options.width - TREE_PADDING.horizontal * 2 - (DETAIL_PANEL_WIDTH + DETAIL_PANEL_MARGIN);
     const height = this.options.height - TREE_PADDING.top - TREE_PADDING.bottom;
-    const radius = 30;
+    const radius = 18;
 
     for (const perk of perks) {
       const px = TREE_PADDING.horizontal + perk.position.x * width;
@@ -1074,23 +1124,23 @@ export class SkillTreeOverlay {
       const label = this.scene.add
         .text(0, -4, perk.shortLabel, {
           fontFamily: "monospace",
-          fontSize: "16px",
+          fontSize: "12px",
           color: "#9ad1ff",
         })
         .setOrigin(0.5);
 
       const rankText = this.scene.add
-        .text(0, 22, "Rank 0/0", {
+        .text(0, 17, "Rank 0/0", {
           fontFamily: "monospace",
-          fontSize: "13px",
+          fontSize: "10px",
           color: "#7d9bb8",
         })
         .setOrigin(0.5, 0);
 
       const costText = this.scene.add
-        .text(0, 40, "Cost", {
+        .text(0, 30, "Cost", {
           fontFamily: "monospace",
-          fontSize: "12px",
+          fontSize: "10px",
           color: "#7d9bb8",
         })
         .setOrigin(0.5, 0);

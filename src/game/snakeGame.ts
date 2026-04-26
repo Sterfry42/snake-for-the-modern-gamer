@@ -12,7 +12,7 @@ import type { QuestGiverRequest } from "../systems/questController.js";
 import type { Quest } from "../quests/quest.js";
 import type { QuestRegistry } from "../quests/questRegistry.js";
 import { InventorySystem } from "../inventory/inventory.js";
-import { ITEMS } from "../inventory/itemRegistry.js";
+import { ITEMS, getItem } from "../inventory/itemRegistry.js";
 import type { QuestRuntime } from "../quests/quest.js";
 import {
   chooseWandererEncounter,
@@ -261,7 +261,11 @@ export class SnakeGame implements QuestRuntime {
 
   private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
 
-  constructor(config: GameConfig = defaultGameConfig, registry: QuestRegistry, rng?: RandomGenerator) {
+  constructor(
+    config: GameConfig = defaultGameConfig,
+    private readonly registry: QuestRegistry,
+    rng?: RandomGenerator
+  ) {
     this.config = config;
     this.rng = rng ?? createRng(config.rng.seed);
     this.world = new WorldService(config.grid, config.world, this.rng);
@@ -299,9 +303,13 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag("player.health", 3);
     this.setFlag("player.maxHealth", 3);
     this.setFlag("player.bulletInvulnTicks", 0);
-    this.setFlag("player.temperatureMeter", 0);
-    this.setFlag("player.temperatureMax", 12);
+    this.setFlag("player.temperatureExposureMs", 0);
+    this.setFlag("player.temperatureThresholdMs", 10000);
+    this.setFlag("player.temperatureDamageIntervalMs", 5000);
+    this.setFlag("player.temperatureDamageProgressMs", 0);
+    this.setFlag("player.temperatureLastTickMs", 0);
     this.setFlag("player.temperatureHazard", undefined);
+    this.setFlag("equipment.gunEnabled", undefined);
     this.setFlag("treasurePicked", 0);
     this.setFlag("powerupsPicked", 0);
     this.setFlag("roomsVisited", 1);
@@ -311,6 +319,8 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag("lastAppleTimeMs", undefined);
     this.setFlag("npc.randomEncounter", undefined);
     this.setFlag("npc.randomEncounter.prompted", undefined);
+    this.setFlag("npc.randomEncounter.triggerAtMs", undefined);
+    this.setFlag("npc.randomEncounter.revealAtMs", undefined);
     this.setFlag("ui.wandererReveal", undefined);
     this.setFlag("ui.playerShot", undefined);
     this.setFlag("ui.playerHit", undefined);
@@ -545,7 +555,7 @@ export class SnakeGame implements QuestRuntime {
             stateChanged: true,
           },
           roomsChanged,
-          roomChanged: roomChanged,
+          roomChanged: roomHasChanged,
           questOffer: null,
           questsCompleted: [],
         };
@@ -629,15 +639,25 @@ export class SnakeGame implements QuestRuntime {
         roomsChanged.add(this.snake.currentRoomId);
         const powerupCount = Number(this.getFlag<number>("powerupsPicked") ?? 0);
         this.setFlag("powerupsPicked", powerupCount + 1);
-        if (kind === "phase") {
+        if (kind === "gun") {
+          this.inventory.addItem("weapon-revolver", 1);
+          const gunItem = getItem("weapon-revolver");
+          if (gunItem && !this.inventory.getEquipped("weapon")) {
+            this.inventory.equip(gunItem);
+          }
+          this.setFlag("equipment.gunEnabled", true);
+          this.setFlag("loot.itemPicked", { head: currentHead, itemName: "Pilgrim Revolver", itemId: "weapon-revolver" });
+        } else if (kind === "phase") {
           const bonus = Number(this.getFlag<number>("equipment.invulnerabilityBonus") ?? 0);
           const inv = Math.max(Number(this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0), duration + Math.max(0, Math.floor(bonus)));
           this.setFlag("fortitude.invulnerabilityTicks", inv);
         } else if (kind === "smite") {
           this.setFlag("powerup.smiteTicks", duration);
         }
-        this.powerupState = { kind, remaining: duration, total: duration };
-        this.setFlag("powerup.active", { kind, remaining: duration, total: duration });
+        if (kind !== "gun") {
+          this.powerupState = { kind, remaining: duration, total: duration };
+          this.setFlag("powerup.active", { kind, remaining: duration, total: duration });
+        }
         this.setFlag("ui.powerupPickup", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId, kind });
       }
     }
@@ -827,6 +847,19 @@ export class SnakeGame implements QuestRuntime {
     return this.questController.getCompletedIds();
   }
 
+  getAcceptedQuestIds(): string[] {
+    return this.questController.getAcceptedIds();
+  }
+
+  getAcceptedQuests(): Quest[] {
+    const acceptedIds = new Set(this.questController.getAcceptedIds());
+    return this.registry.getAll().filter((quest) => acceptedIds.has(quest.id));
+  }
+
+  getAllQuests(): Quest[] {
+    return this.registry.getAll();
+  }
+
   getOfferedQuest(): Quest | null {
     return this.questController.getOffered();
   }
@@ -873,9 +906,13 @@ export class SnakeGame implements QuestRuntime {
     const currentRoom = this.getCurrentRoom();
     const biome = getBiomeDefinition(currentRoom.biomeId);
     const hazard = biome.temperatureHazard;
+    const thresholdMs = Math.max(1, Number(this.getFlag<number>("player.temperatureThresholdMs") ?? 10000));
+    const exposureMs = Math.max(0, Number(this.getFlag<number>("player.temperatureExposureMs") ?? 0));
+    const max = 10;
+    const current = Math.max(0, Math.min(max, Math.ceil((exposureMs / thresholdMs) * max)));
     return {
-      current: Number(this.getFlag<number>("player.temperatureMeter") ?? 0),
-      max: Number(this.getFlag<number>("player.temperatureMax") ?? 12),
+      current,
+      max,
       hazard,
       active: hazard !== null,
     };
@@ -888,6 +925,8 @@ export class SnakeGame implements QuestRuntime {
     }
     this.setFlag("npc.randomEncounter", undefined);
     this.setFlag("npc.randomEncounter.prompted", undefined);
+    this.setFlag("npc.randomEncounter.triggerAtMs", undefined);
+    this.setFlag("npc.randomEncounter.revealAtMs", undefined);
     this.recordWandererOutcome(encounter.id, accept);
     if (!accept) {
       if (encounter.oneShot) {
@@ -962,7 +1001,9 @@ export class SnakeGame implements QuestRuntime {
 
   firePlayerShot(direction: Vector2Like): boolean {
     const active = this.powerupState;
-    if (!active || active.kind !== "gun" || active.remaining <= 0) {
+    const hasGunEquipped = Boolean(this.getFlag<boolean>("equipment.gunEnabled"));
+    const hasLegacyGunPowerup = Boolean(active && active.kind === "gun" && active.remaining > 0);
+    if (!hasGunEquipped && !hasLegacyGunPowerup) {
       return false;
     }
     const head = this.snake.bodySegments[0];
@@ -1177,38 +1218,77 @@ export class SnakeGame implements QuestRuntime {
   private tickTemperatureState(): boolean {
     const room = this.getCurrentRoom();
     const biome = getBiomeDefinition(room.biomeId);
-    const max = Number(this.getFlag<number>("player.temperatureMax") ?? 12);
-    const current = Number(this.getFlag<number>("player.temperatureMeter") ?? 0);
     const head = this.snake.bodySegments[0];
     if (!head) {
       return false;
     }
+    const timeMs = Number(this.getFlag<number>("timeMs") ?? 0);
+    const lastTickMs = Number(this.getFlag<number>("player.temperatureLastTickMs") ?? 0);
+    const deltaMs = Math.max(0, lastTickMs > 0 ? timeMs - lastTickMs : 0);
+    this.setFlag("player.temperatureLastTickMs", timeMs);
     const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
     const localX = head.x - roomX * this.config.grid.cols;
     const localY = head.y - roomY * this.config.grid.rows;
     const tile = room.layout[localY]?.[localX] ?? ".";
     const sheltered = "WETCKBPLG".includes(tile);
     const onRelief = room.temperatureReliefs?.find((relief) => relief.x === localX && relief.y === localY);
-    let next = current;
+    const thresholdMs = Math.max(1000, Number(this.getFlag<number>("player.temperatureThresholdMs") ?? 10000));
+    const damageIntervalMs = Math.max(1000, Number(this.getFlag<number>("player.temperatureDamageIntervalMs") ?? 5000));
+    const exposureRate = Math.max(0.25, biome.temperatureRate || 1);
+    let exposureMs = Math.max(0, Number(this.getFlag<number>("player.temperatureExposureMs") ?? 0));
+    let damageProgressMs = Math.max(0, Number(this.getFlag<number>("player.temperatureDamageProgressMs") ?? 0));
 
-    if (onRelief) {
-      next = Math.max(0, current - 4);
-      this.setFlag("player.temperatureMeter", next);
-      this.setFlag("player.temperatureHazard", biome.temperatureHazard ?? undefined);
+    if (!biome.temperatureHazard) {
+      exposureMs = Math.max(0, exposureMs - deltaMs * 2.5);
+      damageProgressMs = 0;
+      this.setFlag("player.temperatureExposureMs", exposureMs);
+      this.setFlag("player.temperatureDamageProgressMs", damageProgressMs);
+      this.setFlag("player.temperatureHazard", undefined);
       return false;
     }
 
-    if (biome.temperatureHazard && !sheltered) {
-      next = Math.min(max, current + biome.temperatureRate);
-      this.setFlag("player.temperatureHazard", biome.temperatureHazard);
-      this.setFlag("player.temperatureMeter", next);
-      return next >= max;
+    this.setFlag("player.temperatureHazard", biome.temperatureHazard);
+
+    if (onRelief) {
+      exposureMs = Math.max(0, exposureMs - deltaMs * 3.5);
+      damageProgressMs = Math.max(0, damageProgressMs - deltaMs * 2);
+    } else if (sheltered) {
+      exposureMs = Math.max(0, exposureMs - deltaMs * 2);
+      damageProgressMs = Math.max(0, damageProgressMs - deltaMs * 2);
+    } else {
+      exposureMs = Math.min(thresholdMs, exposureMs + deltaMs * exposureRate);
+      if (exposureMs >= thresholdMs) {
+        damageProgressMs += deltaMs;
+      }
     }
 
-    next = Math.max(0, current - 2);
-    this.setFlag("player.temperatureMeter", next);
-    this.setFlag("player.temperatureHazard", biome.temperatureHazard ?? undefined);
-    return false;
+    this.setFlag("player.temperatureExposureMs", exposureMs);
+    this.setFlag("player.temperatureDamageProgressMs", damageProgressMs);
+
+    if (exposureMs < thresholdMs) {
+      return false;
+    }
+
+    if (damageProgressMs < damageIntervalMs) {
+      return false;
+    }
+
+    const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
+    let currentHealth = Number(this.getFlag<number>("player.health") ?? maxHealth);
+    while (damageProgressMs >= damageIntervalMs && currentHealth > 0) {
+      damageProgressMs -= damageIntervalMs;
+      currentHealth -= 1;
+    }
+    this.setFlag("player.temperatureDamageProgressMs", damageProgressMs);
+    this.setFlag("player.health", Math.max(0, currentHealth));
+    this.setFlag("ui.playerHit", {
+      x: head.x,
+      y: head.y,
+      roomId: this.snake.currentRoomId,
+      health: Math.max(0, currentHealth),
+      maxHealth,
+    });
+    return currentHealth <= 0;
   }
 
   private tickPowerupState(): void {
@@ -1275,10 +1355,10 @@ export class SnakeGame implements QuestRuntime {
     if (room.questGiver) {
       return;
     }
-    if (this.rng() > 0.09) {
+    if (this.rng() > 1 / 15) {
       return;
     }
-    if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 2) {
+    if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 5) {
       return;
     }
     const roomsVisited = Number(this.getFlag<number>("roomsVisited") ?? this.visitedRooms.size);
@@ -1307,6 +1387,9 @@ export class SnakeGame implements QuestRuntime {
       y: spawn.y,
       statsNote: getEncounterStatsNote(encounter.name),
     });
+    const revealAtMs = Number(this.getFlag<number>("timeMs") ?? 0);
+    this.setFlag("npc.randomEncounter.revealAtMs", revealAtMs);
+    this.setFlag("npc.randomEncounter.triggerAtMs", revealAtMs + 2200);
     this.setFlag("ui.wandererReveal", {
       x: spawn.x,
       y: spawn.y,

@@ -1,4 +1,4 @@
-export type EquipmentSlot = "boots" | "helm" | "ring" | "gloves" | "cloak" | "belt" | "amulet";
+export type EquipmentSlot = "weapon" | "boots" | "helm" | "ring" | "gloves" | "cloak" | "belt" | "amulet";
 
 export interface BaseItem {
   id: string;
@@ -24,6 +24,8 @@ export interface EquipableItem extends BaseItem {
     regenerator?: { interval: number; amount: number };
     // Extra life effect for one revive
     phoenixCharges?: number;
+    // Enables player shooting when equipped.
+    gunEnabled?: boolean;
   };
 }
 

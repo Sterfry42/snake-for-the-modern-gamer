@@ -21,6 +21,7 @@ export class WorldService {
   getRoom(roomId: string): RoomSnapshot {
     if (!this.rooms.has(roomId)) {
       const room = this.generator.generate(roomId, this.grid);
+      this.addReciprocalPortalsFromExistingRooms(room);
       // Small chance to spawn a treasure chest in new rooms
       if (this.rng() < 0.10) {
         const spot = this.findRandomEmptySpot(room);
@@ -33,14 +34,14 @@ export class WorldService {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           const roll = this.rng();
-          const kind: "phase" | "smite" | "gun" =
+          const kind: "phase" | "smite" =
             roll < 0.4 ? "phase" :
-            roll < 0.8 ? "smite" :
-            "gun";
+            "smite";
           room.powerup = { x: spot.x, y: spot.y, kind };
         }
       }
       this.rooms.set(roomId, room);
+      this.addReciprocalPortalsForRoom(room);
     }
     return this.rooms.get(roomId)!;
   }
@@ -98,6 +99,59 @@ export class WorldService {
 
   snapshot(): Map<string, RoomSnapshot> {
     return new Map(this.rooms);
+  }
+
+  private addReciprocalPortalsFromExistingRooms(room: RoomSnapshot): void {
+    for (const sourceRoom of this.rooms.values()) {
+      for (const portal of sourceRoom.portals) {
+        if (portal.destRoomId === room.id) {
+          this.ensureReciprocalPortal(room, sourceRoom.id, portal.x, portal.y);
+        }
+      }
+    }
+  }
+
+  private addReciprocalPortalsForRoom(room: RoomSnapshot): void {
+    for (const portal of room.portals) {
+      const destination = this.rooms.get(portal.destRoomId);
+      if (!destination) {
+        continue;
+      }
+      this.ensureReciprocalPortal(destination, room.id, portal.x, portal.y);
+    }
+  }
+
+  private ensureReciprocalPortal(room: RoomSnapshot, destinationRoomId: string, x: number, y: number): void {
+    if (x < 0 || y < 0 || x >= this.grid.cols || y >= this.grid.rows) {
+      return;
+    }
+
+    const row = room.layout[y];
+    if (!row) {
+      return;
+    }
+
+    const chars = row.split("");
+    chars[x] = "H";
+    room.layout[y] = chars.join("");
+    room.portals = room.portals.filter((portal) => portal.x !== x || portal.y !== y);
+    room.portals.push({
+      x,
+      y,
+      destRoomId: destinationRoomId,
+      destX: x,
+      destY: y,
+    });
+
+    if (room.treasure?.x === x && room.treasure.y === y) {
+      delete room.treasure;
+    }
+    if (room.powerup?.x === x && room.powerup.y === y) {
+      delete room.powerup;
+    }
+    if (room.apple?.x === x && room.apple.y === y) {
+      delete room.apple;
+    }
   }
 
   private findRandomEmptySpot(room: RoomSnapshot): Vector2Like | null {

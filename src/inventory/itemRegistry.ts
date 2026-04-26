@@ -2,6 +2,16 @@ import type { Item } from "./item.js";
 
 export const ITEMS: readonly Item[] = [
   {
+    id: "weapon-revolver",
+    name: "Pilgrim Revolver",
+    description: "A worn sidearm for formal disagreements. Equip it in your weapon slot to fire.",
+    kind: "equipment",
+    slot: "weapon",
+    modifiers: {
+      gunEnabled: true,
+    },
+  },
+  {
     id: "boots-quick",
     name: "Quick Boots",
     description: "Lightweight boots that quicken your stride.",

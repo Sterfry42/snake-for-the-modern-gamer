@@ -20,9 +20,13 @@ const DEFAULT_OPTIONS: Required<QuestHudOptions> = {
   depth: 10,
 };
 
+const MAX_VISIBLE_QUESTS = 3;
+
 export class QuestHud {
   private readonly text: Phaser.GameObjects.Text;
   private options: Required<QuestHudOptions>;
+  private hasContent = false;
+  private requestedVisible = true;
 
   constructor(
     private readonly scene: SnakeScene,
@@ -50,14 +54,24 @@ export class QuestHud {
   }
 
   update(quests: Quest[], gridWidth: number): void {
-    const lines = quests.map((quest) => `[ ] ${quest.description}`);
+    const visibleQuests = quests.slice(0, MAX_VISIBLE_QUESTS);
+    this.hasContent = visibleQuests.length > 0;
+    if (!this.hasContent) {
+      this.text.setText("");
+      this.text.setVisible(false);
+      return;
+    }
+
+    const lines = visibleQuests.map((quest) => `[ ] ${quest.description}`);
     const content = [`Quests:`, ...lines].join("\n");
 
     this.text.setText(content);
     this.text.setPosition(gridWidth - 10, this.options.position.y);
+    this.text.setVisible(this.requestedVisible);
   }
 
   setVisible(visible: boolean): void {
-    this.text.setVisible(visible);
+    this.requestedVisible = visible;
+    this.text.setVisible(visible && this.hasContent);
   }
 }
