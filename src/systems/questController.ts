@@ -17,6 +17,7 @@ export interface QuestControllerOptions {
 export class QuestController {
   private active: Quest[] = [];
   private completed: string[] = [];
+  private accepted: string[] = [];
   private offered: Quest | null = null;
   private giverAssignments = new Map<string, string>();
 
@@ -40,6 +41,7 @@ export class QuestController {
   reset(runtime: QuestRuntime): void {
     this.active = [];
     this.completed = [];
+    this.accepted = [];
     this.offered = null;
     this.giverAssignments.clear();
     this.assignInitialQuests(runtime);
@@ -53,6 +55,10 @@ export class QuestController {
     return this.completed.slice();
   }
 
+  getAcceptedIds(): string[] {
+    return this.accepted.slice();
+  }
+
   getOffered(): Quest | null {
     return this.offered;
   }
@@ -63,11 +69,13 @@ export class QuestController {
     }
     const quest = this.offered;
     this.offered = null;
+    if (!this.accepted.includes(quest.id)) {
+      this.accepted.push(quest.id);
+    }
     if (quest.isCompleted(runtime)) {
       if (!this.completed.includes(quest.id)) {
         this.completed.push(quest.id);
         quest.onReward(runtime);
-        this.assignNewQuests(runtime, 1);
       }
       return quest;
     }
@@ -86,7 +94,7 @@ export class QuestController {
     if (!quest) {
       return null;
     }
-    if (this.completed.includes(quest.id)) {
+    if (this.accepted.includes(quest.id) || this.completed.includes(quest.id)) {
       return null;
     }
     if (this.active.some((activeQuest) => activeQuest.id === quest.id)) {
@@ -127,7 +135,7 @@ export class QuestController {
       this.giverAssignments.set(roomId, quest.id);
     }
 
-    if (this.completed.includes(quest.id)) {
+    if (this.accepted.includes(quest.id) || this.completed.includes(quest.id)) {
       this.giverAssignments.delete(roomId);
       const available = this.collectEligibleQuests();
       const nextQuest = available[0] ?? null;
@@ -173,7 +181,6 @@ export class QuestController {
       quest.onReward(runtime);
     }
 
-    this.assignNewQuests(runtime, completedNow.length);
     return completedNow;
   }
 
@@ -220,7 +227,7 @@ export class QuestController {
   }
 
   private collectEligibleQuests(): Quest[] {
-    const exclude = new Set<string>([...this.completed, ...this.active.map((q) => q.id)]);
+    const exclude = new Set<string>([...this.accepted, ...this.completed, ...this.active.map((q) => q.id)]);
     if (this.offered) {
       exclude.add(this.offered.id);
     }

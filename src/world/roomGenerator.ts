@@ -145,13 +145,29 @@ export class RoomGenerator {
       return null;
     }
 
-    const protectedCells = new Set<string>(
-      this.config.spawnGuard.safeCells.map((cell) => vectorKey(cell))
-    );
+    const protectedCells = new Set<string>();
+    const rowsToClear = new Set<number>();
+
+    for (const cell of this.config.spawnGuard.safeCells) {
+      protectedCells.add(vectorKey(cell));
+      rowsToClear.add(cell.y - 1);
+      rowsToClear.add(cell.y);
+      rowsToClear.add(cell.y + 1);
+    }
 
     return {
       protected: protectedCells,
       clear(layout: string[][]) {
+        for (const row of rowsToClear) {
+          if (!layout[row]) {
+            continue;
+          }
+          for (let col = 0; col < layout[row].length; col += 1) {
+            if (layout[row][col] === "#") {
+              layout[row][col] = ".";
+            }
+          }
+        }
         for (const key of protectedCells) {
           const [col, row] = key.split(",").map(Number);
           if (layout[row]?.[col] === "#") {

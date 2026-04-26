@@ -5,8 +5,25 @@ import type SnakeScene from "../../scenes/snakeScene.js";
 const ACTIVATION_CHANCE = 0.005;
 
 class BonusAppleFeature extends Feature {
+  private statusText: Phaser.GameObjects.Text | null = null;
+
   constructor() {
     super("bonusApple", "Bonus apple timer bar");
+  }
+
+  override onRegister(scene: SnakeScene): void {
+    if (!this.statusText) {
+      this.statusText = scene.add
+        .text(10, 48, "Bonus apple ready", {
+          fontFamily: "monospace",
+          fontSize: "14px",
+          color: "#54ff9a",
+          stroke: "#06140b",
+          strokeThickness: 3,
+        })
+        .setDepth(10)
+        .setVisible(false);
+    }
   }
 
   override onAppleEaten(scene: SnakeScene): void {
@@ -22,16 +39,13 @@ class BonusAppleFeature extends Feature {
     }
   }
 
-  override onRender(scene: SnakeScene, graphics: Phaser.GameObjects.Graphics): void {
-    if (scene.getFlag<boolean>("ui.suppressHud")) {
-      return;
-    }
-    if (!scene.getFlag<boolean>("bonusActive")) {
-      return;
-    }
-    graphics.beginPath();
-    graphics.fillStyle(0x54ff9a, 1);
-    graphics.fillRect(0, 0, scene.grid.cols * scene.grid.cell * 0.5, 4);
+  override onRender(scene: SnakeScene): void {
+    const visible = Boolean(
+      scene.getFlag<boolean>("bonusActive") &&
+      !scene.getFlag<boolean>("ui.suppressHud") &&
+      !(scene as any).paused
+    );
+    this.statusText?.setVisible(visible);
   }
 }
 

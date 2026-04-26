@@ -47,6 +47,7 @@ const CLASSES: ClassSpec[] = [
 
 class ReligionChoiceFeature extends Feature {
   private popup?: ChoicePopup;
+  private flowActive = false;
 
   constructor() {
     super("religionChoice", "Starting Religion");
@@ -58,6 +59,30 @@ class ReligionChoiceFeature extends Feature {
       return;
     }
     this.popup = new ChoicePopup(scene);
+    this.scheduleChoiceFlow(scene);
+  }
+
+  override onGameOver(scene: SnakeScene): void {
+    this.flowActive = false;
+    this.popup?.hide();
+    (scene as any).resetStartingChoices?.();
+    this.scheduleChoiceFlow(scene);
+  }
+
+  private scheduleChoiceFlow(scene: SnakeScene): void {
+    scene.time.delayedCall(30, () => {
+      scene.paused = true;
+      scene.skillTree.hideOverlay();
+      this.showChoiceFlow(scene);
+    });
+  }
+
+  private showChoiceFlow(scene: SnakeScene): void {
+    if (this.flowActive) {
+      return;
+    }
+    this.flowActive = true;
+    this.popup ??= new ChoicePopup(scene);
     const rng = (scene.random?.bind(scene) ?? Math.random) as () => number;
     const showReligion = () => {
       const candidates = pickN(RELIGIONS, 3, rng);
@@ -94,16 +119,12 @@ class ReligionChoiceFeature extends Feature {
           (scene as any).setClassChoice?.(chosen.id, chosen.mods);
           scene.juice.skillTreeOpened();
           scene.paused = false;
+          this.flowActive = false;
           this.popup?.hide();
         }
       });
     };
-
-    scene.time.delayedCall(30, () => {
-      scene.paused = true;
-      scene.skillTree.hideOverlay();
-      showReligion();
-    });
+    showReligion();
   }
 }
 

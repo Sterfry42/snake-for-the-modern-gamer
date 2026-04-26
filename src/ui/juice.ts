@@ -1014,7 +1014,7 @@ export class JuiceManager {
 
   // Item rarity jingle based on id mapping
   itemRarityJingle(itemId?: string) {
-    const rare = new Set(["amulet-phoenix"]);
+    const rare = new Set(["amulet-phoenix", "weapon-revolver"]);
     const uncommon = new Set(["helm-seer", "ring-seismic", "cloak-veil", "belt-regenerator"]);
     let tier: "common" | "uncommon" | "rare" = "common";
     if (itemId && rare.has(itemId)) tier = "rare";

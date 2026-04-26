@@ -20,6 +20,7 @@ export class ChoicePopup {
 
   show(title: string, options: ChoiceOption[], onPick: (id: string) => void): void {
     this.onPick = onPick;
+    this.scene.setChoicePopupVisible(true);
     this.titleText?.setText(title);
     // Clear old
     for (const t of this.optionTexts) t.destroy();
@@ -51,7 +52,12 @@ export class ChoicePopup {
 
   hide(): void {
     this.container?.setVisible(false);
+    this.scene.setChoicePopupVisible(false);
     this.onPick = undefined;
+  }
+
+  isVisible(): boolean {
+    return Boolean(this.container?.visible);
   }
 
   private pick(id: string): void {
@@ -80,4 +86,3 @@ export class ChoicePopup {
     this.container = this.scene.add.container(x, y, [this.background, this.titleText]).setVisible(false);
   }
 }
-

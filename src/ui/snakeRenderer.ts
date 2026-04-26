@@ -175,10 +175,15 @@ export class SnakeRenderer {
           this.graphics.lineStyle(2, room.wallOutlineColor, 0.85);
           this.graphics.strokeRect(rectX, rectY, this.grid.cell, this.grid.cell);
         } else if (tile === "H") {
-          this.graphics.fillStyle(paletteConfig.ladder.color, 1);
-          this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(LADDER_OUTLINE_WIDTH, ladderOutlineColor, LADDER_OUTLINE_ALPHA);
-          this.graphics.strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          const portal = room.portals.find((entry) => entry.x === x && entry.y === y);
+          const [, , currentZ = "0"] = room.id.split(",");
+          const [, , destZ = currentZ] = portal?.destRoomId.split(",") ?? [];
+          this.drawLadderTile(
+            rectX,
+            rectY,
+            Number(destZ) >= Number(currentZ) ? "up" : "down",
+            ladderOutlineColor
+          );
         } else if (tile === "W") {
           // Wooden floor for house interior
           const color = 0x6d5845;
@@ -234,6 +239,61 @@ export class SnakeRenderer {
           this.drawBiomeAccent(biome.id, biome.accentColor, x, y, rectX, rectY);
         }
       }
+    }
+  }
+
+  private drawLadderTile(
+    rectX: number,
+    rectY: number,
+    direction: "up" | "down",
+    outlineColor: number
+  ): void {
+    const cell = this.grid.cell;
+    const inner = Math.max(4, Math.floor(cell * 0.18));
+    const railInset = Math.max(5, Math.floor(cell * 0.24));
+    const rungInset = Math.max(4, Math.floor(cell * 0.18));
+    const arrowColor = direction === "up" ? 0xbef7ff : 0xffe0a3;
+    const floorColor = direction === "up" ? 0x17364a : 0x3c2a1d;
+    const railColor = direction === "up" ? 0x78d8ff : 0xffc46b;
+    const shadowColor = direction === "up" ? 0x071822 : 0x21140c;
+
+    this.graphics.fillStyle(floorColor, 1);
+    this.graphics.fillRect(rectX, rectY, cell, cell);
+    this.graphics.lineStyle(LADDER_OUTLINE_WIDTH, outlineColor, LADDER_OUTLINE_ALPHA);
+    this.graphics.strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+
+    this.graphics.fillStyle(shadowColor, 0.45);
+    this.graphics.fillRect(rectX + inner, rectY + inner, cell - inner * 2, cell - inner * 2);
+
+    const leftRailX = rectX + railInset;
+    const rightRailX = rectX + cell - railInset;
+    const topY = rectY + inner + 1;
+    const bottomY = rectY + cell - inner - 1;
+
+    this.graphics.lineStyle(2, railColor, 0.95);
+    this.graphics.beginPath();
+    this.graphics.moveTo(leftRailX, topY);
+    this.graphics.lineTo(leftRailX, bottomY);
+    this.graphics.moveTo(rightRailX, topY);
+    this.graphics.lineTo(rightRailX, bottomY);
+    this.graphics.strokePath();
+
+    this.graphics.lineStyle(2, arrowColor, 0.9);
+    for (let y = rectY + rungInset + 3; y < rectY + cell - rungInset; y += Math.max(5, Math.floor(cell * 0.22))) {
+      this.graphics.beginPath();
+      this.graphics.moveTo(leftRailX, y);
+      this.graphics.lineTo(rightRailX, y);
+      this.graphics.strokePath();
+    }
+
+    const centerX = rectX + cell / 2;
+    const arrowTop = direction === "up" ? rectY + 4 : rectY + cell - 4;
+    const arrowBase = direction === "up" ? rectY + 10 : rectY + cell - 10;
+    this.graphics.fillStyle(arrowColor, 0.95);
+    if (direction === "up") {
+      this.graphics.fillTriangle(centerX, arrowTop, centerX - 4, arrowBase, centerX + 4, arrowBase);
+    } else {
+      this.graphics.fillTriangle(centerX, arrowTop, centerX - 4, arrowBase, centerX + 4, arrowBase);
     }
   }
 

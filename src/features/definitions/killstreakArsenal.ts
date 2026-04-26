@@ -51,6 +51,7 @@ const QUEST_FONT_SIZE = 14;
 const QUEST_LINE_SPACING = 4;
 const QUEST_TOP_MARGIN = 8;
 const QUEST_BOTTOM_MARGIN = 16;
+const QUEST_HUD_VISIBLE_CAP = 3;
 
 interface KillstreakState {
   streak: number;
@@ -76,6 +77,7 @@ function estimateSeconds(ticks: number, tickDelay: number): number {
 
 class KillstreakArsenalFeature extends Feature {
   private hud: Phaser.GameObjects.Text | null = null;
+  private barGraphics: Phaser.GameObjects.Graphics | null = null;
   private callout: Phaser.GameObjects.Text | null = null;
   private state: KillstreakState = this.createInitialState();
   private barTop = 0;
@@ -98,6 +100,9 @@ class KillstreakArsenalFeature extends Feature {
         })
         .setOrigin(1, 0)
         .setDepth(26);
+    }
+    if (!this.barGraphics) {
+      this.barGraphics = scene.add.graphics().setDepth(26);
     }
     this.state = this.createInitialState();
     this.lastQuestCount = -1;
@@ -147,7 +152,9 @@ class KillstreakArsenalFeature extends Feature {
       scene.addScore(this.state.multiplier - 1);
     }
 
-    this.spawnKillConfirm(scene);
+    if (this.isHudActive()) {
+      this.spawnKillConfirm(scene);
+    }
     this.updateHud(scene);
   }
 
@@ -157,8 +164,13 @@ class KillstreakArsenalFeature extends Feature {
     this.updateHud(scene);
   }
 
-  override onRender(scene: SnakeScene, graphics: Phaser.GameObjects.Graphics): void {
-    if (!this.hud) {
+  override onRender(scene: SnakeScene): void {
+    if (!this.hud || !this.barGraphics) {
+      return;
+    }
+
+    this.barGraphics.clear();
+    if (!this.isHudActive() || scene.getFlag<boolean>("ui.suppressHud")) {
       return;
     }
 
@@ -167,23 +179,27 @@ class KillstreakArsenalFeature extends Feature {
     const x = width - barWidth - 16;
     const y = this.barTop;
 
-    if (this.state.streak > 0) {
+    if (this.isHudActive() && this.state.streak > 0) {
       const timeoutRatio = 1 - Math.min(this.state.timer / STREAK_TIMEOUT_TICKS, 1);
-      graphics.fillStyle(0x0d1119, 0.7);
-      graphics.fillRect(x, y, barWidth, 6);
-      graphics.fillStyle(0x4cc9f0, 0.95);
-      graphics.fillRect(x, y, barWidth * timeoutRatio, 6);
+      this.barGraphics.fillStyle(0x0d1119, 0.7);
+      this.barGraphics.fillRect(x, y, barWidth, 6);
+      this.barGraphics.fillStyle(0x4cc9f0, 0.95);
+      this.barGraphics.fillRect(x, y, barWidth * timeoutRatio, 6);
     }
 
     if (this.state.tier > 0) {
       const config = TIER_CONFIGS[this.state.tier - 1];
       const ratio = Math.max(0, Math.min(1, this.state.buffTicks / config.duration));
       const barY = y + 10;
-      graphics.fillStyle(0x141824, 0.7);
-      graphics.fillRect(x, barY, barWidth, 6);
-      graphics.fillStyle(config.color, 0.95);
-      graphics.fillRect(x, barY, barWidth * ratio, 6);
+      this.barGraphics.fillStyle(0x141824, 0.7);
+      this.barGraphics.fillRect(x, barY, barWidth, 6);
+      this.barGraphics.fillStyle(config.color, 0.95);
+      this.barGraphics.fillRect(x, barY, barWidth * ratio, 6);
     }
+  }
+
+  private isHudActive(): boolean {
+    return this.state.streak >= TIER_CONFIGS[0].threshold || this.state.tier > 0;
   }
 
   private createInitialState(): KillstreakState {
@@ -218,7 +234,10 @@ class KillstreakArsenalFeature extends Feature {
   }
 
   private computeQuestBlockHeight(scene: SnakeScene): number {
-    const questCount = scene.activeQuests?.length ?? 0;
+    const questCount = Math.min(scene.activeQuests?.length ?? 0, QUEST_HUD_VISIBLE_CAP);
+    if (questCount <= 0) {
+      return 0;
+    }
     const totalLines = questCount + 1; // Include the "Quests:" header
     const lineHeight = QUEST_FONT_SIZE;
     const spacingTotal = Math.max(0, totalLines - 1) * QUEST_LINE_SPACING;
@@ -227,7 +246,7 @@ class KillstreakArsenalFeature extends Feature {
 
   private computeHudY(scene: SnakeScene): number {
     const questHeight = this.computeQuestBlockHeight(scene);
-    return QUEST_TOP_MARGIN + questHeight + QUEST_BOTTOM_MARGIN;
+    return questHeight > 0 ? QUEST_TOP_MARGIN + questHeight + QUEST_BOTTOM_MARGIN : 10;
   }
 
   private ensureHudSpacing(scene: SnakeScene): void {
@@ -275,7 +294,7 @@ class KillstreakArsenalFeature extends Feature {
   }
 
   private clearStreak(scene: SnakeScene, reason?: "timeout" | "death"): void {
-    if (this.state.streak > 0 && reason) {
+    if (this.isHudActive() && reason) {
       this.spawnDropText(scene, reason);
     }
 
@@ -391,6 +410,15 @@ class KillstreakArsenalFeature extends Feature {
 
   private updateHud(scene: SnakeScene): void {
     if (!this.hud) {
+      return;
+    }
+
+    const active = this.isHudActive();
+    this.hud.setVisible(active && !scene.getFlag<boolean>("ui.suppressHud"));
+    if (!active) {
+      this.hud.setText("");
+      this.barGraphics?.clear();
+      this.lastQuestCount = scene.activeQuests?.length ?? 0;
       return;
     }
 

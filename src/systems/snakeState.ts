@@ -204,12 +204,15 @@ export class SnakeState {
     const head = addVectors(this.body[0], this.direction);
 
     let roomChanged = false;
+    let verticalRoomChanged = false;
 
     const [roomX, roomY, roomZ = 0] = this.roomId.split(",").map(Number);
     const localHeadX = head.x - roomX * this.grid.cols;
     const localHeadY = head.y - roomY * this.grid.rows;
     const portal = currentRoom.portals.find((p) => p.x === localHeadX && p.y === localHeadY);
     if (portal) {
+      const [, , destZ = "0"] = portal.destRoomId.split(",");
+      verticalRoomChanged = Number(destZ) !== roomZ;
       this.roomId = portal.destRoomId;
       roomChanged = true;
     }
@@ -231,6 +234,10 @@ export class SnakeState {
     const finalLocalHeadX = head.x - baseRoomX;
     const finalLocalHeadY = head.y - baseRoomY;
 
+    if (verticalRoomChanged) {
+      this.clearLandingZone(finalizedRoom, finalLocalHeadX, finalLocalHeadY);
+    }
+
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
     const invulnTicks = Math.max(Number(this.flags["fortitude.invulnerabilityTicks"] ?? 0), safeZoneActive ? 1 : 0);
     if (tile === "#") {
@@ -243,7 +250,9 @@ export class SnakeState {
       }
     }
 
-    const selfCollisionIndex = this.body.findIndex((segment) => segment.x === head.x && segment.y === head.y);
+    const selfCollisionIndex = verticalRoomChanged
+      ? -1
+      : this.body.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1) {
       if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
@@ -291,6 +300,11 @@ export class SnakeState {
         delete this.flags["internal.lastRemovedTail"];
       }
     } else {
+      delete this.flags["internal.lastRemovedTail"];
+    }
+
+    if (verticalRoomChanged) {
+      this.body = this.body.map(() => ({ x: head.x, y: head.y }));
       delete this.flags["internal.lastRemovedTail"];
     }
 
@@ -452,6 +466,17 @@ export class SnakeState {
     }
     if (room.apple && room.apple.x === localX && room.apple.y === localY) {
       delete room.apple;
+    }
+  }
+
+  private clearLandingZone(room: RoomSnapshot, centerX: number, centerY: number): void {
+    for (let y = centerY - 1; y <= centerY + 1; y += 1) {
+      for (let x = centerX - 1; x <= centerX + 1; x += 1) {
+        if (x < 0 || y < 0 || x >= this.grid.cols || y >= this.grid.rows) {
+          continue;
+        }
+        this.clearWallTile(room, x, y);
+      }
     }
   }
 
