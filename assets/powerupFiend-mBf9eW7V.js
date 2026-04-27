@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-Bpr_u20u.js";class s extends r{constructor(){super("powerup-fiend","Powerup Fiend","Collect 2 powerups")}isCompleted(e){return this.progressSinceAccept(e,"powerupsPicked")>=2}baselineKeys(){return["powerupsPicked"]}onReward(e){e.addScore(20)}}const t=new s;export{t as default};

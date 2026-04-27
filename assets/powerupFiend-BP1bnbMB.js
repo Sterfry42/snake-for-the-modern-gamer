@@ -1,1 +1,0 @@
-import{Q as o}from"./quest-DRIAweOL.js";class r extends o{constructor(){super("powerup-fiend","Powerup Fiend","Collect 2 powerups")}isCompleted(e){return(e.getFlag("powerupsPicked")??0)>=2}onReward(e){e.addScore(20)}}const t=new r;export{t as default};

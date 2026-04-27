@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-Bpr_u20u.js";class a extends s{constructor(){super("speed-snacker","Speed Snacker","Eat 3 apples in quick succession")}isCompleted(e){return this.progressSinceAccept(e,"applesEaten")>=3&&(e.getFlag("appleStreak")??0)>=3}baselineKeys(){return["applesEaten"]}onReward(e){e.addScore(25)}}const t=new a;export{t as default};

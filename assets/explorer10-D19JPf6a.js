@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-Bpr_u20u.js";class s extends r{constructor(){super("explore-10-rooms","Trailblazer","Visit 10 unique rooms")}isCompleted(e){return this.progressSinceAccept(e,"roomsVisited")>=10}baselineKeys(){return["roomsVisited"]}onReward(e){e.addScore(35)}}const i=new s;export{i as default};

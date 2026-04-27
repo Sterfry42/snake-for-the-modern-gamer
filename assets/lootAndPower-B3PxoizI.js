@@ -1,1 +1,0 @@
-import{Q as t}from"./quest-DRIAweOL.js";class s extends t{constructor(){super("loot-and-power","Loot & Power","Grab a treasure and a powerup")}isCompleted(e){const o=Number(e.getFlag("treasurePicked")??0),r=Number(e.getFlag("powerupsPicked")??0);return o>=1&&r>=1}onReward(e){e.addScore(25)}}const d=new s;export{d as default};

@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-Bpr_u20u.js";class r extends s{constructor(){super("buy-4-upgrades","Furniture Fanatic","Buy 4 house upgrades")}isCompleted(e){return this.progressSinceAccept(e,"house.itemsPurchased")>=4}baselineKeys(){return["house.itemsPurchased"]}onReward(e){e.addScore(35)}}const a=new r;export{a as default};

@@ -1,1 +1,0 @@
-import{Q as r}from"./quest-DRIAweOL.js";class o extends r{constructor(){super("explore-10-rooms","Trailblazer","Visit 10 unique rooms")}isCompleted(e){return(e.getFlag("roomsVisited")??0)>=10}onReward(e){e.addScore(35)}}const a=new o;export{a as default};
