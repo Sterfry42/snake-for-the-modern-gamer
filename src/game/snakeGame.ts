@@ -1108,6 +1108,91 @@ export class SnakeGame implements QuestRuntime {
     return this.inventory;
   }
 
+  /**
+   * Serialize the game state to a JSON-serializable object
+   * @returns {Object} Serialized game state
+   */
+  serialize(): any {
+    return {
+      // Snake state
+      snake: {
+        bodySegments: Array.from(this.snake.bodySegments),
+        directionVector: this.snake.directionVector,
+        score: this.snake.score,
+        flags: this.snake.flags,
+      },
+      // World state
+      world: this.world.snapshot(),
+      // Apple state
+      apples: this.apples.snapshot(),
+      // Boss state
+      bosses: this.bosses.snapshot(),
+      // Enemy state
+      enemies: this.enemies.snapshot(),
+      // Quest state
+      questController: this.questController.snapshot(),
+      // Inventory state
+      inventory: this.inventory.snapshot(),
+      // Game state
+      visitedRooms: Array.from(this.visitedRooms),
+      npcDisposition: Array.from(this.npcDisposition.entries()),
+      resolvedWandererEncounters: Array.from(this.resolvedWandererEncounters),
+      wandererHistory: Array.from(this.wandererHistory.entries()),
+      lastWandererEncounterRoomCount: this.lastWandererEncounterRoomCount,
+      // Powerup state
+      powerupState: this.powerupState,
+    };
+  }
+
+  /**
+   * Deserialize the game state from a JSON-serializable object
+   * @param {Object} data - The serialized game state
+   */
+  deserialize(data: any): void {
+    // Restore snake state
+    this.snake.bodySegments = data.snake.bodySegments as Vector2Like[];
+    this.snake.directionVector = data.snake.directionVector;
+    this.snake.score = data.snake.score;
+    this.snake.flags = data.snake.flags;
+
+    // Restore world state
+    this.world.restoreSnapshot(data.world);
+
+    // Restore apple state
+    this.apples.restoreSnapshot(data.apples);
+
+    // Restore boss state
+    this.bosses.restoreSnapshot(data.bosses);
+
+    // Restore enemy state
+    this.enemies.restoreSnapshot(data.enemies);
+
+    // Restore quest state
+    this.questController.restoreSnapshot(data.questController);
+
+    // Restore inventory state
+    this.inventory.restoreSnapshot(data.inventory);
+
+    // Restore game state
+    this.visitedRooms = new Set(data.visitedRooms);
+    this.npcDisposition.clear();
+    for (const [key, value] of data.npcDisposition) {
+      this.npcDisposition.set(key, value);
+    }
+    this.resolvedWandererEncounters.clear();
+    for (const encounter of data.resolvedWandererEncounters) {
+      this.resolvedWandererEncounters.add(encounter);
+    }
+    this.wandererHistory.clear();
+    for (const [key, value] of data.wandererHistory) {
+      this.wandererHistory.set(key, value);
+    }
+    this.lastWandererEncounterRoomCount = data.lastWandererEncounterRoomCount;
+
+    // Restore powerup state
+    this.powerupState = data.powerupState;
+  }
+
   private createAliveStepResult(options: {
     appleEaten: boolean;
     appleRewards?: AppleConsumptionResult["rewards"];
@@ -3263,5 +3348,52 @@ export class SnakeGame implements QuestRuntime {
     const roomY = Math.floor(position.y / this.config.grid.rows);
     const [, , roomZ = "0"] = this.snake.currentRoomId.split(",");
     return `${roomX},${roomY},${roomZ}`;
+  }
+
+  // Getters for serialization
+  getSnakeBody(): Vector2Like[] {
+    return this.snake.bodySegments;
+  }
+
+  getApples(): Record<string, AppleSnapshot | null> {
+    // This would be implemented if we had a method to get all apples
+    // For now, we'll use the snapshot method for this specific room
+    return {};
+  }
+
+  getActiveQuests(): Quest[] {
+    return this.questController.getActive();
+  }
+
+  getCompletedQuestIds(): string[] {
+    return this.questController.getCompletedIds();
+  }
+
+  getInventory(): InventorySystem {
+    return this.inventory;
+  }
+
+  getVisitedRooms(): Set<string> {
+    return this.visitedRooms;
+  }
+
+  getNpcDisposition(): Map<string, { anger: number; hostility: "friendly" | "warning" | "hostile" }> {
+    return this.npcDisposition;
+  }
+
+  getPowerupState(): { kind: PowerupKind; remaining: number; total: number } | null {
+    return this.powerupState;
+  }
+
+  getResolvedWandererEncounters(): Set<string> {
+    return this.resolvedWandererEncounters;
+  }
+
+  getWandererHistory(): Map<string, EncounterHistoryEntry> {
+    return this.wandererHistory;
+  }
+
+  getLastWandererEncounterRoomCount(): number {
+    return this.lastWandererEncounterRoomCount;
   }
 }

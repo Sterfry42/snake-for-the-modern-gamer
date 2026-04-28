@@ -24,6 +24,7 @@ import type { EquipmentSlot } from "../inventory/item.js";
 import { getItem } from "../inventory/itemRegistry.js";
 import type { SnakeSpritePalette } from "../ui/spriteRecipes/snakeRecipe.js";
 import type { WandererEncounter } from "../npcs/encounters.js";
+import { SaveLoadManager } from "../systems/saveLoadManager.js";
 
 type SnakeThemeId = "classic" | "sunset" | "midnight" | "bone";
 
@@ -155,9 +156,11 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly flagsProxy: Record<string, unknown>;
   private activeWandererTextureKey: string | null = null;
   private lastVisibleLifeCharges = 0;
+  private saveLoadManager: SaveLoadManager;
 
   constructor() {
     super("SnakeScene");
+    this.saveLoadManager = new SaveLoadManager();
     this.flagsProxy = new Proxy<Record<string, unknown>>({} as Record<string, unknown>, {
       get: (_target, prop) => (typeof prop === "string" ? this.getFlag(prop) : undefined),
       set: (_target, prop, value) => {
@@ -202,6 +205,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+    
+    // Load saved game state if it exists
+    this.loadSavedGame();
 
     this.questHud = new QuestHud(this, {
       position: { x: this.grid.cols * this.grid.cell - 10, y: 8 },
@@ -737,6 +743,57 @@ export default class SnakeScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.mobileControls?.destroy();
     this.mobileControls = null;
+    
+    // Save game state when shutting down
+    this.saveGame();
+  }
+
+  private loadSavedGame(): void {
+    const savedState = this.saveLoadManager.loadGame();
+    if (savedState) {
+      try {
+        // Restore game state from save using deserialize method
+        this.snakeGame = new SnakeGame(defaultGameConfig, this.snakeGame.getQuestRegistry());
+        this.snakeGame.deserialize(savedState);
+        
+        // Update UI elements
+        this.updateHud();
+        this.isDirty = true;
+        
+        console.log("Game loaded successfully");
+      } catch (error) {
+        console.error("Failed to load saved game:", error);
+        // Initialize new game if load fails
+        this.initGame(true);
+      }
+    } else {
+      // No save exists, start new game
+      this.initGame(true);
+    }
+  }
+
+private saveGame(): void {
+    if (this.snakeGame) {
+      try {
+        // Create a serializable game state using serialize method
+        const gameState = this.snakeGame.serialize();
+        
+        // Save the game state
+        const result = this.saveLoadManager.saveGame(gameState);
+        if (result.success) {
+          console.log("Game saved successfully");
+        } else {
+          console.error("Failed to save game:", result.message);
+        }
+      } catch (error) {
+        console.error("Error during save:", error);
+      }
+    }
+  }
+      } catch (error) {
+        console.error("Error during save:", error);
+      }
+    }
   }
 
   addScore(amount: number) {
