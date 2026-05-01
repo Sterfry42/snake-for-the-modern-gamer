@@ -369,6 +369,28 @@ export class SnakeState {
     delete this.flags["internal.previousSnapshot"];
   }
 
+  restoreFromSave(body: Vector2Like[], direction: Vector2Like, roomId: string, length: number): void {
+    console.log(`[SnakeState] Restoring from save with ${body.length} segments`);
+    this.body = body.map((segment) => ({ x: segment.x, y: segment.y }));
+    this.direction = { ...direction };
+    this.nextDirection = { ...direction };
+    this.roomId = roomId;
+
+    // Ensure the snake length is correct
+    while (this.body.length < length) {
+      const tail = this.body[this.body.length - 1];
+      if (tail) {
+        this.body.push({ x: tail.x, y: tail.y });
+      }
+    }
+
+    const currentHead = this.body[0];
+    if (currentHead) {
+      this.flags["internal.currentHead"] = { x: currentHead.x, y: currentHead.y };
+    }
+    console.log(`[SnakeState] After restore - snake length: ${this.body.length}`);
+  }
+
   private resolveSelfCollision(head: Vector2Like, collisionIndex: number, invulnTicks: number): boolean {
     if (invulnTicks > 0) {
       return true;

@@ -9,6 +9,7 @@ import { QuestPopup } from "../ui/questPopup.js";
 import { SnakeRenderer } from "../ui/snakeRenderer.js";
 import { JuiceManager } from "../ui/juice.js";
 import { BossHud } from "../ui/bossHud.js";
+import { SaveUI } from "../ui/saveUI.js";
 import { RuntimeSpriteFactory } from "../ui/runtimeSpriteFactory.js";
 import {
   questGiverSpriteRecipe,
@@ -107,6 +108,7 @@ export default class SnakeScene extends Phaser.Scene {
   private juice!: JuiceManager;
   private skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
+  private saveUI!: SaveUI;
   private mobileControls: MobileControls | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
@@ -184,6 +186,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.juice = new JuiceManager(this);
     this.skillTree = new SkillTreeManager(this, this.juice, { baseTickDelay: this.baseTickDelay });
     this.bossHud = new BossHud(this);
+    console.log("[SnakeScene] About to create SaveUI");
+    this.saveUI = new SaveUI(this);
+    console.log("[SnakeScene] SaveUI created:", this.saveUI);
+    console.log("[SnakeScene] saveUI exists:", !!this.saveUI);
 
     this.setupInputHandlers();
 
@@ -344,6 +350,9 @@ export default class SnakeScene extends Phaser.Scene {
       if (["arrowleft", "a"].includes(key)) this.setDir(-1, 0);
       if (["arrowright", "d"].includes(key)) this.setDir(1, 0);
 
+      if (key === "t") this.showSaveUI();
+      if (key === "y") this.hideSaveUI();
+
       if (key === "e") {
         if (this.tryInteractQuestGiver()) {
           return;
@@ -433,6 +442,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
     this.questPopup.hide();
     this.lastVisibleLifeCharges = 0;
+    this.showSaveUI();
   }
 
   private step(): void {
@@ -597,6 +607,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private offerQuest(quest: Quest) {
     this.paused = true;
+    this.hideSaveUI();
     this.skillTree.hideOverlay();
     this.juice.questOffered();
 
@@ -621,6 +632,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup.hide();
     this.skillTree.hideOverlay();
     this.paused = false;
+    this.showSaveUI();
     this.isDirty = true;
   }
 
@@ -728,8 +740,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = nextState;
     this.skillTree.toggleOverlay(this.paused ? true : false);
     if (this.paused) {
+      this.hideSaveUI();
       this.juice.skillTreeOpened();
     } else {
+      this.showSaveUI();
       this.juice.skillTreeClosed();
     }
   }
@@ -862,6 +876,14 @@ export default class SnakeScene extends Phaser.Scene {
 
   setChoicePopupVisible(visible: boolean): void {
     this.choicePopupVisible = visible;
+  }
+
+  showSaveUI(): void {
+    this.saveUI.show();
+  }
+
+  hideSaveUI(): void {
+    this.saveUI.hide();
   }
 
   private isModalPopupVisible(): boolean {

@@ -1108,6 +1108,158 @@ export class SnakeGame implements QuestRuntime {
     return this.inventory;
   }
 
+  getSaveData(): GameSaveData {
+    const data: GameSaveData = {
+      version: "1.0.0",
+      timestamp: Date.now(),
+      snakeLength: this.getSnakeLength(),
+      score: this.getScore(),
+      snakeBody: Array.from(this.getSnakeBody()),
+      snakeDirection: this.getDirection(),
+      snakeRoomId: this.snake.currentRoomId,
+      playerHealth: this.getPlayerHealth().current,
+      playerMaxHealth: this.getPlayerHealth().max,
+      questsActive: this.getActiveQuests().map((q) => q.id),
+      questsCompleted: this.getCompletedQuestIds(),
+      questsAccepted: this.getAcceptedQuestIds(),
+      inventory: Object.fromEntries(this.inventory.getAllItems()),
+      equipment: Object.fromEntries(this.inventory.getAllEquipped()),
+      flags: { ...this.snake.flags },
+    };
+
+    const religionId = this.getFlag<string>("religion.id");
+    const religionMods = this.getFlag<Record<string, unknown>>("religion.mods");
+
+    if (religionId || religionMods) {
+      data.religionId = religionId;
+      data.religionMods = religionMods;
+    }
+
+    const classId = this.getFlag<string>("class.id");
+    const classMods = this.getFlag<Record<string, unknown>>("class.mods");
+
+    if (classId || classMods) {
+      data.classId = classId;
+      data.classMods = classMods;
+    }
+
+    const backgroundId = this.getFlag<string>("background.id");
+    const backgroundMods = this.getFlag<Record<string, unknown>>("background.mods");
+
+    if (backgroundId || backgroundMods) {
+      data.backgroundId = backgroundId;
+      data.backgroundMods = backgroundMods;
+    }
+
+    return data;
+  }
+
+  saveGame(): void {
+    try {
+      const data = this.getSaveData();
+      this.setFlag("timeMs", Date.now());
+      localStorage.setItem("snakeGameSave", JSON.stringify(data));
+    } catch (error) {
+      console.error("Failed to save game:", error);
+    }
+  }
+
+  loadGame(getReligionChoice?: () => any, getClassChoice?: () => any, getBackgroundChoice?: () => any): boolean {
+    try {
+      const saved = localStorage.getItem("snakeGameSave");
+      if (!saved) {
+        return false;
+      }
+
+      const data = JSON.parse(saved) as GameSaveData;
+
+      console.log(`[SnakeGame] Loading game with save data:`, {
+        snakeLength: data.snakeLength,
+        snakeBodyLength: data.snakeBody?.length,
+        snakeDirection: data.snakeDirection,
+        snakeRoomId: data.snakeRoomId,
+        score: data.score,
+      });
+
+      this.reset();
+
+      // Restore snake body, direction, position, and length
+      if (data.snakeBody && data.snakeBody.length > 0 && data.snakeDirection && data.snakeRoomId) {
+        console.log(`[SnakeGame] Restoring snake from save`);
+        this.snake.restoreFromSave(data.snakeBody, data.snakeDirection, data.snakeRoomId, data.snakeLength);
+      }
+
+      console.log(`[SnakeGame] After loading - snake length: ${this.snake.bodySegments.length}, room: ${this.snake.currentRoomId}`);
+
+      this.setFlag("timeMs", data.timestamp);
+      this.setFlag("player.health", data.playerHealth);
+      this.setFlag("player.maxHealth", data.playerMaxHealth);
+
+      for (const [key, value] of Object.entries(data.inventory)) {
+        this.inventory.addItem(key, value);
+      }
+
+      for (const [slot, itemId] of Object.entries(data.equipment)) {
+        this.inventory.equip(itemId);
+      }
+
+      for (const [key, value] of Object.entries(data.flags)) {
+        if (value !== undefined) {
+          this.setFlag(key, value);
+        }
+      }
+
+      const getReligion = getReligionChoice || (() => null);
+      const getClass = getClassChoice || (() => null);
+      const getBackground = getBackgroundChoice || (() => null);
+
+      if (data.religionId) {
+        const religion = getReligion();
+        if (religion && religion.id === data.religionId) {
+          this.setFlag("religion.id", data.religionId);
+          this.setFlag("religion.mods", data.religionMods);
+        }
+      }
+
+      if (data.classId) {
+        const cls = getClass();
+        if (cls && cls.id === data.classId) {
+          this.setFlag("class.id", data.classId);
+          this.setFlag("class.mods", data.classMods);
+        }
+      }
+
+      if (data.backgroundId) {
+        const bg = getBackground();
+        if (bg && bg.id === data.backgroundId) {
+          this.setFlag("background.id", data.backgroundId);
+          this.setFlag("background.mods", data.backgroundMods);
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to load game:", error);
+      return false;
+    }
+  }
+
+  hasSaveFile(): boolean {
+    try {
+      return Boolean(localStorage.getItem("snakeGameSave"));
+    } catch {
+      return false;
+    }
+  }
+
+  clearSaveFile(): void {
+    try {
+      localStorage.removeItem("snakeGameSave");
+    } catch (error) {
+      console.error("Failed to clear save file:", error);
+    }
+  }
+
   private createAliveStepResult(options: {
     appleEaten: boolean;
     appleRewards?: AppleConsumptionResult["rewards"];
