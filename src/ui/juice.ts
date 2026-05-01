@@ -759,6 +759,39 @@ export class JuiceManager {
   spellFailed() {
     this.playTone({ frequency: 140, duration: 0.12, type: "triangle", volume: 0.06 });
   }
+
+  announce(message: string, color: string, duration: number = 1500): void {
+    const overlay = this.scene.add.rectangle(this.scene.scale.width / 2, 60, this.scene.scale.width, 40, 0x000000, 0.85);
+    overlay.setDepth(32).setOrigin(0, 0);
+    this.overlayLayer.add(overlay);
+
+    const text = this.scene.add.text(this.scene.scale.width / 2, 60, message, {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: color,
+      align: "center",
+    }).setDepth(33).setOrigin(0.5, 0.5);
+    this.overlayLayer.add(text);
+
+    const state = { opacity: 1, y: 60 };
+
+    const fadeOut = () => {
+      text.setAlpha(state.opacity);
+      text.setY(state.y);
+    };
+
+    this.scene.tweens.add({
+      targets: state,
+      opacity: 0,
+      y: 50,
+      duration: duration * 0.3,
+      ease: "Cubic.easeOut",
+      onComplete: () => {
+        overlay.destroy();
+        text.destroy();
+      },
+    });
+  }
   questOffered() {
     this.playTone({ frequency: 660, duration: 0.16, type: "triangle", volume: 0.12 });
     this.scene.cameras.main.flash(120, 80, 130, 255, true);
