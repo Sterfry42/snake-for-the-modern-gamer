@@ -6,6 +6,8 @@ export type BiomeId =
   | "moonlit-parish"
   | "sable-depths"
   | "gloam-garden"
+  | "elderwood-maze"
+  | "sunken-ocean"
   | "home-hearth";
 
 export interface BiomeDefinition {
@@ -100,6 +102,36 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 0,
     enemyMoveBias: -1,
   },
+  "elderwood-maze": {
+    id: "elderwood-maze",
+    title: "Elderwood Maze",
+    temperature: "Canopied",
+    dangerLevel: 5,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 132,
+    saturation: 0.28,
+    lightness: 0.16,
+    tintVariance: 0.018,
+    accentColor: 0x7ed77c,
+    enemyFireBias: 1,
+    enemyMoveBias: -1,
+  },
+  "sunken-ocean": {
+    id: "sunken-ocean",
+    title: "Sunken Ocean",
+    temperature: "Briny",
+    dangerLevel: 5,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 204,
+    saturation: 0.34,
+    lightness: 0.2,
+    tintVariance: 0.02,
+    accentColor: 0x74d4ff,
+    enemyFireBias: 0,
+    enemyMoveBias: 1,
+  },
   "home-hearth": {
     id: "home-hearth",
     title: "Home Hearth",
@@ -141,7 +173,13 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
   if (z <= -1 || y >= 2) {
     return BIOMES["sable-depths"];
   }
-  if (x >= 3) {
+  if (y <= -9) {
+    return BIOMES["sunken-ocean"];
+  }
+  if (x >= 3 && y <= -1 && y >= -6) {
+    return BIOMES["elderwood-maze"];
+  }
+  if (x >= 6) {
     return BIOMES["moonlit-parish"];
   }
   if (x <= -3) {

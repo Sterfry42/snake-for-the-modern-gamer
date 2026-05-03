@@ -6,7 +6,7 @@ import type { RoomSnapshot } from "../world/types.js";
 
 export interface SnakeStepOutcome {
   status: "alive" | "dead";
-  reason?: "wall" | "self" | "boss";
+  reason?: "wall" | "self" | "boss" | "water";
   appleEaten?: boolean;
 }
 
@@ -247,8 +247,13 @@ export class SnakeState {
       } else if (this.tryConsumeWall(finalizedRoom, finalLocalHeadX, finalLocalHeadY, head)) {
         this.flags["geometry.wallEaten"] = { x: head.x, y: head.y, roomId: this.roomId };
       } else {
+        this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
         return { status: "dead", reason: "wall" };
       }
+    }
+    if (tile === "~" && !this.flags["equipment.swimmingEnabled"]) {
+      this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
+      return { status: "dead", reason: "water" };
     }
 
     const selfCollisionIndex = verticalRoomChanged
@@ -258,21 +263,28 @@ export class SnakeState {
       if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
+        this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
         return { status: "dead", reason: "self" };
       }
     }
 
-    if (bossManager.isCollidingWithBoss(head, this.roomId) && invulnTicks <= 0) {
+    const collidedBoss = bossManager.getBossAtPosition(head, this.roomId);
+    if (collidedBoss && invulnTicks <= 0) {
       const smite = Number(this.flags["powerup.smiteTicks"] ?? 0);
       if (smite > 0) {
         // Kill the boss we collided with instead of dying
         bossManager.killBossAtPosition(head, this.roomId);
+        this.flags["internal.killedByBossKind"] = undefined;
+        this.flags["internal.killedByBossName"] = undefined;
         this.flags["ui.bossSmite"] = {
           x: head.x,
           y: head.y,
           roomId: this.getRoomIdForPosition(head),
         };
       } else {
+        this.flags["internal.killedByBossKind"] = collidedBoss.kind;
+        this.flags["internal.killedByBossName"] = collidedBoss.name;
+        this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
         return { status: "dead", reason: "boss" };
       }
     }
@@ -317,6 +329,21 @@ export class SnakeState {
     this.bufferedDirection = null;
 
     return { status: "alive", appleEaten };
+  }
+
+  private markDeathPosition(
+    worldPosition: Vector2Like,
+    roomId: string,
+    localPosition: Vector2Like,
+    tile?: string
+  ): void {
+    this.flags["internal.lastDeathPosition"] = {
+      world: { x: worldPosition.x, y: worldPosition.y },
+      local: { x: localPosition.x, y: localPosition.y },
+      roomId,
+      tile,
+      direction: { ...this.direction },
+    };
   }
 
   private isSafeRoom(roomId: string): boolean {

@@ -29,6 +29,8 @@ export interface EquipableItem extends BaseItem {
     // Reduces exposure in temperature hazard biomes.
     heatResistance?: number;
     coldResistance?: number;
+    // Allows safe traversal over water tiles.
+    swimmingEnabled?: boolean;
   };
 }
 

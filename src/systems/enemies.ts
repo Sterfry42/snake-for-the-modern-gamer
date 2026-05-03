@@ -15,7 +15,7 @@ export interface EnemyInstance {
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
-  encounterKind?: "enemy" | "duelist" | "npc-hostile";
+  encounterKind?: "enemy" | "duelist" | "npc-hostile" | "shark";
 }
 
 export interface BulletInstance {
@@ -90,6 +90,10 @@ export class EnemyManager {
     if ((this.enemies.get(roomId)?.length ?? 0) > 0) {
       return;
     }
+    if (room.biomeId === "sunken-ocean") {
+      this.ensureShark(roomId, room, occupied);
+      return;
+    }
     const biome = getBiomeDefinition(room.biomeId);
     if (this.rng() > getBiomeEnemySpawnChance(biome)) {
       return;
@@ -98,7 +102,7 @@ export class EnemyManager {
     const candidates: Vector2Like[] = [];
     for (let y = 0; y < this.grid.rows; y++) {
       for (let x = 0; x < this.grid.cols; x++) {
-        if (room.layout[y]?.[x] === "#") continue;
+        if (!this.isDryEnemyTile(room.layout[y]?.[x])) continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
         if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
@@ -126,6 +130,45 @@ export class EnemyManager {
       encounterKind: "enemy",
     };
     this.enemies.set(roomId, [enemy]);
+  }
+
+  private ensureShark(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
+    if (this.rng() > 0.32) {
+      return;
+    }
+    const occupiedLocals = this.toLocalOccupied(roomId, occupied);
+    const candidates: Vector2Like[] = [];
+    for (let y = 0; y < this.grid.rows; y++) {
+      for (let x = 0; x < this.grid.cols; x++) {
+        if (room.layout[y]?.[x] !== "~") continue;
+        if (room.apple && room.apple.x === x && room.apple.y === y) continue;
+        if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
+        if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
+        if (room.questGiver && room.questGiver.x === x && room.questGiver.y === y) continue;
+        if (occupiedLocals.some((segment) => segment.x === x && segment.y === y)) continue;
+        candidates.push({ x, y });
+      }
+    }
+
+    if (candidates.length === 0) {
+      return;
+    }
+
+    const position = candidates[Math.floor(this.rng() * candidates.length)];
+    const shark: EnemyInstance = {
+      id: `shark-${this.idCounter++}`,
+      roomId,
+      position,
+      fireCooldown: 999,
+      moveCooldown: 2 + Math.floor(this.rng() * 2),
+      aimDirection: { x: 0, y: 1 },
+      flashTicks: 0,
+      name: "Shark",
+      currentHearts: 2,
+      maxHearts: 2,
+      encounterKind: "shark",
+    };
+    this.enemies.set(roomId, [shark]);
   }
 
   spawnHostileNpc(roomId: string, position: Vector2Like, name: string, hearts: number): EnemyInstance {
@@ -167,7 +210,7 @@ export class EnemyManager {
     const candidates: Vector2Like[] = [];
     for (let y = 0; y < this.grid.rows; y++) {
       for (let x = 0; x < this.grid.cols; x++) {
-        if (room.layout[y]?.[x] === "#") continue;
+        if (!this.isDryEnemyTile(room.layout[y]?.[x])) continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
         if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
@@ -300,15 +343,21 @@ export class EnemyManager {
       const snakeCharging = this.isSnakeChargingEnemy(enemy.position, headLocal, snakeDirection);
 
       if (moveCooldown <= 0) {
-        position = snakeCharging
-          ? this.tryMoveEnemyAway(enemy, room, headLocal)
-          : this.tryMoveEnemy(enemy, room, headLocal);
-        moveCooldown = enemy.encounterKind === "duelist"
+        if (enemy.encounterKind === "shark") {
+          position = this.tryMoveShark(enemy, room, headLocal);
+        } else {
+          position = snakeCharging
+            ? this.tryMoveEnemyAway(enemy, room, headLocal)
+            : this.tryMoveEnemy(enemy, room, headLocal);
+        }
+        moveCooldown = enemy.encounterKind === "shark"
+          ? 2 + Math.floor(this.rng() * 2)
+          : enemy.encounterKind === "duelist"
           ? (snakeCharging ? 4 : 2) + Math.floor(this.rng() * 2)
           : (snakeCharging ? 7 : 5) + Math.floor(this.rng() * 5);
       }
 
-      if (nextCooldown <= 0 && !snakeCharging) {
+      if (nextCooldown <= 0 && !snakeCharging && enemy.encounterKind !== "shark") {
         const shot = this.tryCreateShot({ ...enemy, position }, headLocal, room);
         if (shot) {
           const bullets = this.bullets.get(currentRoomId) ?? [];
@@ -388,13 +437,17 @@ export class EnemyManager {
   }
 
   hasHarmfulOccupantAt(roomId: string, worldPosition: Vector2Like): boolean {
+    return this.getHarmfulOccupantAt(roomId, worldPosition) !== null;
+  }
+
+  getHarmfulOccupantAt(roomId: string, worldPosition: Vector2Like): EnemyInstance | null {
     const local = globalToLocal(roomId, worldPosition, this.grid);
-    return (this.enemies.get(roomId) ?? []).some(
+    return (this.enemies.get(roomId) ?? []).find(
       (enemy) =>
         enemy.position.x === local.x &&
         enemy.position.y === local.y &&
         enemy.encounterKind !== "enemy"
-    );
+    ) ?? null;
   }
 
   firePlayerBullet(roomId: string, origin: Vector2Like, direction: Vector2Like): boolean {
@@ -605,7 +658,7 @@ export class EnemyManager {
       ) {
         continue;
       }
-      if (room.layout[next.y]?.[next.x] === "#") {
+      if (!this.isDryEnemyTile(room.layout[next.y]?.[next.x])) {
         continue;
       }
       if (next.x === headLocal.x && next.y === headLocal.y) {
@@ -653,7 +706,7 @@ export class EnemyManager {
         next.x >= this.grid.cols ||
         next.y < 0 ||
         next.y >= this.grid.rows ||
-        room.layout[next.y]?.[next.x] === "#"
+        !this.isDryEnemyTile(room.layout[next.y]?.[next.x])
       ) {
         continue;
       }
@@ -664,6 +717,74 @@ export class EnemyManager {
       }
     }
     return best;
+  }
+
+  private tryMoveShark(
+    enemy: EnemyInstance,
+    room: RoomSnapshot,
+    headLocal: Vector2Like
+  ): Vector2Like {
+    const dx = Math.sign(headLocal.x - enemy.position.x);
+    const dy = Math.sign(headLocal.y - enemy.position.y);
+    const preferred: Vector2Like[] = [];
+    if (Math.abs(headLocal.x - enemy.position.x) >= Math.abs(headLocal.y - enemy.position.y) && dx !== 0) {
+      preferred.push({ x: dx, y: 0 });
+    }
+    if (dy !== 0) {
+      preferred.push({ x: 0, y: dy });
+    }
+    if (dx !== 0 && !preferred.some((dir) => dir.x === dx && dir.y === 0)) {
+      preferred.push({ x: dx, y: 0 });
+    }
+    preferred.push(...[
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ].sort(() => this.rng() - 0.5));
+
+    for (const direction of preferred) {
+      const next = {
+        x: enemy.position.x + direction.x,
+        y: enemy.position.y + direction.y,
+      };
+      if (
+        next.x < 0 ||
+        next.x >= this.grid.cols ||
+        next.y < 0 ||
+        next.y >= this.grid.rows
+      ) {
+        continue;
+      }
+      if (next.x === headLocal.x && next.y === headLocal.y) {
+        return next;
+      }
+      if (room.layout[next.y]?.[next.x] !== "~") {
+        continue;
+      }
+      return next;
+    }
+
+    return enemy.position;
+  }
+
+  private isDryEnemyTile(tile: string | undefined): boolean {
+    return tile === "." || tile === "O";
+  }
+
+  private toLocalOccupied(roomId: string, occupied: readonly Vector2Like[]): Vector2Like[] {
+    const [roomX, roomY] = roomId.split(",").map(Number);
+    return occupied.map((segment) => {
+      if (
+        segment.x >= roomX * this.grid.cols &&
+        segment.x < (roomX + 1) * this.grid.cols &&
+        segment.y >= roomY * this.grid.rows &&
+        segment.y < (roomY + 1) * this.grid.rows
+      ) {
+        return globalToLocal(roomId, segment, this.grid);
+      }
+      return segment;
+    });
   }
 
   private isSnakeChargingEnemy(enemyPosition: Vector2Like, headLocal: Vector2Like, snakeDirection: Vector2Like): boolean {

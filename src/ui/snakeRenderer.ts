@@ -170,10 +170,14 @@ export class SnakeRenderer {
         const rectX = x * this.grid.cell;
         const rectY = y * this.grid.cell;
         if (tile === "#") {
-          this.graphics.fillStyle(room.wallColor, 1);
-          this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(2, room.wallOutlineColor, 0.85);
-          this.graphics.strokeRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          if (room.biomeId === "elderwood-maze") {
+            this.drawTreeTile(rectX, rectY, x, y);
+          } else {
+            this.graphics.fillStyle(room.wallColor, 1);
+            this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(2, room.wallOutlineColor, 0.85);
+            this.graphics.strokeRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          }
         } else if (tile === "H") {
           const portal = room.portals.find((entry) => entry.x === x && entry.y === y);
           const [, , currentZ = "0"] = room.id.split(",");
@@ -184,6 +188,10 @@ export class SnakeRenderer {
             Number(destZ) >= Number(currentZ) ? "up" : "down",
             ladderOutlineColor
           );
+        } else if (tile === "~") {
+          this.drawWaterTile(rectX, rectY, x, y, room.biomeId === "sunken-ocean");
+        } else if (tile === "O") {
+          this.drawBoatTile(rectX, rectY, x, y);
         } else if (tile === "W") {
           // Wooden floor for house interior
           const color = 0x6d5845;
@@ -240,6 +248,52 @@ export class SnakeRenderer {
         }
       }
     }
+  }
+
+  private drawWaterTile(rectX: number, rectY: number, tileX: number, tileY: number, ocean: boolean): void {
+    const base = ocean ? 0x0b4f7a : 0x176b8f;
+    const deep = ocean ? 0x07344f : 0x0d4a66;
+    const foam = ocean ? 0xa7e8ff : 0x8bdcff;
+    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+    this.graphics.fillStyle(deep, 0.42).fillRect(rectX, rectY + this.grid.cell * 0.52, this.grid.cell, this.grid.cell * 0.48);
+    if ((tileX * 3 + tileY * 5) % 4 === 0) {
+      const y = rectY + Math.floor(this.grid.cell * 0.38);
+      this.graphics.lineStyle(2, foam, 0.55);
+      this.graphics.beginPath();
+      this.graphics.moveTo(rectX + 4, y);
+      this.graphics.lineTo(rectX + this.grid.cell * 0.4, y - 2);
+      this.graphics.lineTo(rectX + this.grid.cell - 4, y + 1);
+      this.graphics.strokePath();
+    }
+    this.graphics.lineStyle(1, deep, 0.45).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
+  private drawBoatTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    const base = (tileX + tileY) % 2 === 0 ? 0x8a5a2f : 0x76502f;
+    const edge = darkenColor(base, 0.45);
+    const highlight = 0xc79356;
+    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+    this.graphics.lineStyle(1, edge, 0.65).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    this.graphics.lineStyle(1, highlight, 0.35);
+    this.graphics.beginPath();
+    this.graphics.moveTo(rectX + 3, rectY + this.grid.cell * 0.36);
+    this.graphics.lineTo(rectX + this.grid.cell - 3, rectY + this.grid.cell * 0.36);
+    this.graphics.moveTo(rectX + 3, rectY + this.grid.cell * 0.68);
+    this.graphics.lineTo(rectX + this.grid.cell - 3, rectY + this.grid.cell * 0.68);
+    this.graphics.strokePath();
+  }
+
+  private drawTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    const base = (tileX + tileY) % 2 === 0 ? 0x174f2a : 0x1d5f31;
+    const shadow = 0x0b2414;
+    const leaf = (tileX * 5 + tileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
+    const trunk = 0x5c3a23;
+    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+    this.graphics.fillStyle(shadow, 0.45).fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
+    this.graphics.fillStyle(trunk, 0.95).fillRect(rectX + this.grid.cell * 0.43, rectY + this.grid.cell * 0.48, this.grid.cell * 0.14, this.grid.cell * 0.34);
+    this.graphics.fillStyle(leaf, 0.95).fillCircle(rectX + this.grid.cell * 0.5, rectY + this.grid.cell * 0.38, this.grid.cell * 0.32);
+    this.graphics.fillStyle(0x9ddd76, 0.16).fillCircle(rectX + this.grid.cell * 0.4, rectY + this.grid.cell * 0.28, this.grid.cell * 0.12);
+    this.graphics.lineStyle(1, shadow, 0.8).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private drawLadderTile(
@@ -329,6 +383,18 @@ export class SnakeRenderer {
           this.graphics.fillStyle(accentColor, 0.06);
           this.graphics.fillCircle(rectX + this.grid.cell * 0.35, rectY + this.grid.cell * 0.4, 2);
           this.graphics.fillCircle(rectX + this.grid.cell * 0.58, rectY + this.grid.cell * 0.62, 1.5);
+        }
+        break;
+      case "elderwood-maze":
+        if ((tileX + tileY * 3) % 5 === 0) {
+          this.graphics.fillStyle(accentColor, 0.08);
+          this.graphics.fillCircle(rectX + this.grid.cell * 0.5, rectY + this.grid.cell * 0.5, 2);
+        }
+        break;
+      case "sunken-ocean":
+        if ((tileX + tileY * 2) % 5 === 0) {
+          this.graphics.fillStyle(accentColor, 0.12);
+          this.graphics.fillRect(rectX + 5, rectY + 9, this.grid.cell - 10, 2);
         }
         break;
       case "home-hearth":
@@ -757,6 +823,7 @@ export class SnakeRenderer {
       case "shielded":
         return "shielded";
       case "gold":
+      case "pearl":
         return "gold";
       case "skittish":
         return "skittish";
@@ -888,6 +955,16 @@ export class SnakeRenderer {
         eyeColor: "#fff8e2",
         bulletColor: "#e2c8ff",
         bulletOutlineColor: "#4a315f",
+      };
+    }
+    if (enemy.encounterKind === "shark") {
+      return {
+        bodyColor: "#3f6f87",
+        accentColor: "#b9e8f5",
+        outlineColor: "#092534",
+        eyeColor: "#fff6e8",
+        bulletColor: "#9ed8e8",
+        bulletOutlineColor: "#123746",
       };
     }
     return this.buildEnemyPalette();

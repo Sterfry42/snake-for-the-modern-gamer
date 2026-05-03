@@ -44,6 +44,20 @@ type SnakeThemeDefinition = {
   palette: SnakeSpritePalette;
 };
 
+type DeathCutsceneMode = "revive" | "game-over";
+
+type DeathCutsceneState = {
+  mode: DeathCutsceneMode;
+  reason?: string | null;
+  container: Phaser.GameObjects.Container;
+  canAdvance: boolean;
+  completed: boolean;
+  reviveOnComplete: boolean;
+  taunts: number;
+  angelBossOnRevive: boolean;
+  slainByAngel: boolean;
+};
+
 const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
   {
     id: "classic",
@@ -96,6 +110,121 @@ const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
 ];
 
 const COWBOY_HAT_COST = 36;
+const ANGEL_TEXTURE_KEY = "death-angel-pixel";
+
+const DEATH_DIALOGUE_BRANCHES: readonly string[][] = [
+  [
+    "Thou hast come ashore upon a sea with no water.",
+    "The body is a small oath. Death is the hand that collects it.",
+  ],
+  [
+    "Behold the bright wound between one breath and the next.",
+    "All crawling things learn, in time, the weight of stillness.",
+  ],
+  [
+    "Little pilgrim, thy path was narrow, and yet thou filled it with hunger.",
+    "Life is not spared because it is loved. It is spent because it was given.",
+  ],
+  [
+    "The dark has counted thee and found thee present.",
+    "Fear not the ending. Fear only the life that noticed nothing before it.",
+  ],
+];
+
+const DEATH_REASON_DIALOGUE: Partial<Record<string, readonly string[]>> = {
+  water: [
+    "Water is a quiet executioner.",
+    "Thou mistook depth for floor, and the lake accepted the compliment.",
+  ],
+  wall: [
+    "The wall did not hate thee. It merely stood where truth had always stood.",
+    "A soft body may argue with stone only once.",
+  ],
+  self: [
+    "Few creatures are granted the honor of becoming their own calamity.",
+    "Thou didst close the circle, and the circle answered.",
+  ],
+  boss: [
+    "A greater hunger found thee.",
+    "Predator and prey are titles the living borrow until the teeth arrive.",
+  ],
+  shark: [
+    "The sea grew teeth and named thee supper.",
+    "Thou crossed the blue chapel, and its oldest mouth opened.",
+  ],
+  bullet: [
+    "A small piece of metal made a brief sermon of thy body.",
+    "So ends many a proud pilgrimage: loudly, and from a distance.",
+  ],
+  temperature: [
+    "The air itself judged thee wanting.",
+    "Heat and cold are old gods. They do not need faces to be cruel.",
+  ],
+  shielded: [
+    "Even protection has its appetite.",
+    "Thou reached for safety and found its hidden blade.",
+  ],
+};
+
+const REVIVE_DIALOGUE_BRANCHES: readonly string[][] = [
+  [
+    "Yet a coal remains beneath the ash.",
+    "Return now. Let the living world learn what it failed to finish.",
+  ],
+  [
+    "One thread still binds thee to the warm and ruinous place.",
+    "Go back through it. Spend thy mercy with greater care.",
+  ],
+  [
+    "Thy grave has opened its mouth, but not yet swallowed.",
+    "Rise, and carry this interruption like a scar.",
+  ],
+];
+
+const FINAL_DIALOGUE_BRANCHES: readonly string[][] = [
+  [
+    "Well done, little serpent. Thy work is ended.",
+    "Lay down thy score, thy hungers, and thy bright foolish errands.",
+  ],
+  [
+    "The ledger closes, and it does not do so in anger.",
+    "What was taken has been counted. What was learned may travel onward.",
+  ],
+  [
+    "Thou didst serve life by moving through it until movement failed.",
+    "May the next life greet thee with kinder walls and stranger fruit.",
+  ],
+];
+
+const ANGEL_TAUNT_DIALOGUE: readonly string[][] = [
+  [
+    "Boldness is common among the recently dead.",
+    "Mistake it not for courage. Courage requires the possibility of wisdom.",
+  ],
+  [
+    "Thou barkest at the gate as though noise were a key.",
+    "I have buried kings who made richer music with fewer teeth.",
+  ],
+  [
+    "Again? Very well. Let mercy put on armor.",
+    "Return to the living, little serpent. I shall meet thee there with hands unsoftened.",
+  ],
+];
+
+const ANGEL_EXECUTION_DIALOGUE: readonly string[][] = [
+  [
+    "There. The mouth closes.",
+    "I have taken thy borrowed lives, every last bright coin of them.",
+  ],
+  [
+    "Look upon thy little score and call it a monument, if it comforts thee.",
+    "The stone will not remember. I barely shall.",
+  ],
+  [
+    "So much length, and still no reach.",
+    "Go now to the next life. Try arriving with less noise.",
+  ],
+];
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
@@ -157,6 +286,7 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly flagsProxy: Record<string, unknown>;
   private activeWandererTextureKey: string | null = null;
   private lastVisibleLifeCharges = 0;
+  private deathCutscene: DeathCutsceneState | null = null;
 
   constructor() {
     super("SnakeScene");
@@ -305,6 +435,17 @@ export default class SnakeScene extends Phaser.Scene {
   private setupInputHandlers(): void {
     this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
+      if (this.deathCutscene) {
+        if (this.questPopup.isVisible()) {
+          return;
+        }
+        if ([" ", "enter", "e"].includes(key)) {
+          event.preventDefault();
+          this.advanceDeathCutscene();
+        }
+        return;
+      }
+
       if (key === " ") {
         if (this.isModalPopupVisible()) {
           event.preventDefault();
@@ -373,6 +514,13 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     this.input.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
+      if (this.deathCutscene) {
+        if (this.questPopup.isVisible()) {
+          return;
+        }
+        this.advanceDeathCutscene();
+        return;
+      }
       if (this.paused || this.questPopup.isVisible()) {
         return;
       }
@@ -418,6 +566,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyTickDelayScalar(1, "equipment:boots");
     this.snakeGame.reset();
     this.juice.stopBossMusic();
+    this.juice.stopHeavenMusic();
     (this.juice as any).stopPowerupMusic?.();
     if (this.bossHud) {
       this.bossHud.hide();
@@ -450,14 +599,25 @@ export default class SnakeScene extends Phaser.Scene {
     this.updateHouseAmbience();
 
     if (result.status === "dead") {
-      if (this.skillTree.tryConsumeExtraLife()) {
-        this.snakeGame.reviveAfterExtraLife(result.deathReason);
-        this.paused = false;
-        this.skillTree.hideOverlay();
-        this.isDirty = true;
+      this.reportDeathDebug(result.deathReason);
+      if (this.wasKilledByInsultedAngel(result.deathReason)) {
+        this.clearAllLifeSources();
+        this.startDeathSequence("game-over", result.deathReason, { slainByAngel: true });
         return;
       }
-      this.gameOver(result.deathReason);
+      if (this.skillTree.tryConsumeExtraLife()) {
+        this.skillTree.hideOverlay();
+        this.startDeathSequence("revive", result.deathReason, { reviveOnComplete: true });
+        return;
+      }
+      this.startDeathSequence("game-over", result.deathReason);
+      return;
+    }
+
+    const phoenixTriggered = this.snakeGame.getFlag<{ reason?: string | null }>("fortitude.phoenixTriggered");
+    if (phoenixTriggered) {
+      this.snakeGame.setFlag("fortitude.phoenixTriggered", undefined);
+      this.startDeathSequence("revive", phoenixTriggered.reason ?? "extra-life", { reviveOnComplete: false });
       return;
     }
 
@@ -688,6 +848,26 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private reportDeathDebug(reason?: string | null): void {
+    const snapshot = this.snakeGame.createDeathDebugSnapshot(reason);
+    this.snakeGame.setFlag("debug.lastDeathSnapshot", snapshot);
+    console.groupCollapsed(
+      `[Death Debug] ${snapshot.reason ?? "unknown"} at ${snapshot.roomId} local (${snapshot.local.x}, ${snapshot.local.y}) world (${snapshot.world.x}, ${snapshot.world.y}) tile "${snapshot.tile ?? "?"}"`
+    );
+    console.log("summary", {
+      reason: snapshot.reason,
+      roomId: snapshot.roomId,
+      world: snapshot.world,
+      local: snapshot.local,
+      tile: snapshot.tile,
+      direction: snapshot.direction,
+    });
+    for (const room of snapshot.rooms) {
+      console.log(`${room.roomId} ${room.biomeTitle} (${room.biomeId})\n${room.layout.join("\n")}`);
+    }
+    console.groupEnd();
+  }
+
   private showQuestDialogue(
     title: string,
     pages: string[],
@@ -724,6 +904,381 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.hideOverlay();
     this.paused = true;
     console.log("Game over:", reason);
+  }
+
+  private startDeathSequence(
+    mode: DeathCutsceneMode,
+    reason?: string | null,
+    options: { reviveOnComplete?: boolean; slainByAngel?: boolean } = {}
+  ): void {
+    if (reason === "water") {
+      this.playDrowningAnimation(() => this.startDeathCutscene(mode, reason, options));
+      return;
+    }
+    this.startDeathCutscene(mode, reason, options);
+  }
+
+  private playDrowningAnimation(onComplete: () => void): void {
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+
+    const head = this.snakeGame.getSnakeBody()[0] ?? null;
+    const world = this.tileToWorld(head);
+    const puddle = this.add
+      .ellipse(world.x + this.grid.cell / 2, world.y + this.grid.cell / 2, this.grid.cell * 0.2, this.grid.cell * 0.1, 0x7edcff, 0.75)
+      .setDepth(70)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const ring = this.add
+      .ellipse(world.x + this.grid.cell / 2, world.y + this.grid.cell / 2, this.grid.cell * 0.7, this.grid.cell * 0.26, 0x0b4f7a, 0)
+      .setDepth(69)
+      .setStrokeStyle(2, 0xa7e8ff, 0.85);
+    const bubbles: Phaser.GameObjects.Ellipse[] = [];
+
+    for (let i = 0; i < 7; i += 1) {
+      const bubble = this.add
+        .ellipse(
+          world.x + this.grid.cell / 2 + (this.random() - 0.5) * this.grid.cell * 0.7,
+          world.y + this.grid.cell / 2 + (this.random() - 0.5) * this.grid.cell * 0.35,
+          3,
+          3,
+          0xd8fbff,
+          0.85
+        )
+        .setDepth(71);
+      bubbles.push(bubble);
+      this.tweens.add({
+        targets: bubble,
+        y: bubble.y - 18 - this.random() * 12,
+        alpha: 0,
+        scale: 1.8,
+        duration: 520 + i * 65,
+        delay: i * 55,
+        ease: "Sine.easeOut",
+      });
+    }
+
+    this.tweens.add({
+      targets: puddle,
+      scaleX: 4.2,
+      scaleY: 2.6,
+      alpha: 0.95,
+      duration: 360,
+      ease: "Back.easeOut",
+    });
+    this.tweens.add({
+      targets: ring,
+      scaleX: 1.8,
+      scaleY: 1.45,
+      alpha: 0,
+      duration: 720,
+      ease: "Sine.easeOut",
+    });
+    this.time.delayedCall(780, () => {
+      puddle.destroy();
+      ring.destroy();
+      bubbles.forEach((bubble) => bubble.destroy());
+      onComplete();
+    });
+  }
+
+  private startDeathCutscene(
+    mode: DeathCutsceneMode,
+    reason?: string | null,
+    options: { reviveOnComplete?: boolean; slainByAngel?: boolean } = {}
+  ): void {
+    if (this.deathCutscene) {
+      return;
+    }
+
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    this.ensureAngelTexture();
+    this.juice.startHeavenMusic();
+
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+    const container = this.add.container(0, 0).setDepth(80);
+    const fade = this.add.rectangle(0, 0, width, height, 0xffffff, 1).setOrigin(0, 0).setAlpha(0);
+    const angel = this.add
+      .image(width / 2, height * 0.38, ANGEL_TEXTURE_KEY)
+      .setOrigin(0.5)
+      .setScale(8.5)
+      .setAlpha(0)
+      .setTint(0xfffbdf);
+    const halo = this.add
+      .ellipse(width / 2, height * 0.17, width * 0.42, 44, 0xfff4a8, 0.35)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    container.add([fade, halo, angel]);
+    this.deathCutscene = {
+      mode,
+      reason,
+      container,
+      canAdvance: false,
+      completed: false,
+      reviveOnComplete: options.reviveOnComplete ?? mode === "revive",
+      taunts: 0,
+      angelBossOnRevive: false,
+      slainByAngel: options.slainByAngel ?? false,
+    };
+
+    this.tweens.add({ targets: fade, alpha: 1, duration: 650, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: halo, alpha: 1, duration: 900, delay: 350, ease: "Sine.easeOut" });
+    this.tweens.add({
+      targets: angel,
+      alpha: 1,
+      scale: 9.25,
+      y: height * 0.35,
+      duration: 1100,
+      delay: 420,
+      ease: "Cubic.easeOut",
+    });
+    this.time.delayedCall(1250, () => this.showAngelDeathDialogue());
+  }
+
+  private advanceDeathCutscene(): void {
+    const cutscene = this.deathCutscene;
+    if (!cutscene || !cutscene.canAdvance || cutscene.completed) {
+      return;
+    }
+
+    cutscene.completed = true;
+    this.questPopup.hide();
+    this.tweens.add({
+      targets: cutscene.container,
+      alpha: 0,
+      duration: 260,
+      ease: "Sine.easeIn",
+      onComplete: () => {
+        cutscene.container.destroy(true);
+        this.deathCutscene = null;
+        this.questPopup.setDepth(20);
+        this.juice.stopHeavenMusic();
+        if (cutscene.mode === "revive") {
+          if (cutscene.reviveOnComplete) {
+            this.snakeGame.reviveAfterExtraLife(cutscene.reason);
+            this.snakeGame.setFlag("fortitude.phoenixTriggered", undefined);
+          }
+          if (cutscene.angelBossOnRevive) {
+            this.snakeGame.spawnInsultedAngelBoss();
+            this.updateBossEncounter();
+          }
+          this.paused = false;
+          this.showSaveUI();
+          this.isDirty = true;
+          return;
+        }
+        this.gameOver(cutscene.reason);
+      },
+    });
+  }
+
+  private showAngelDeathDialogue(): void {
+    const cutscene = this.deathCutscene;
+    if (!cutscene || cutscene.completed) {
+      return;
+    }
+
+    this.questPopup.setDepth(90);
+    cutscene.canAdvance = false;
+
+    const pages = cutscene.slainByAngel
+      ? this.composeAngelExecutionDialogue()
+      : this.composeDeathDialogue(
+          cutscene.mode,
+          cutscene.mode === "game-over" ? this.composeRunSummary() : []
+        );
+
+    if (cutscene.mode === "revive") {
+      this.questPopup.showDialogue(
+        "The Angel",
+        pages,
+        {
+          onAccept: () => {
+            cutscene.canAdvance = true;
+            this.advanceDeathCutscene();
+          },
+          onReject: () => this.tauntAngel(),
+        },
+        { acceptLabel: "Return", rejectLabel: "Taunt", nextLabel: "Listen" },
+        { portraitId: "sage-3" }
+      );
+      return;
+    }
+
+    this.questPopup.showDialogue(
+      "The Angel",
+      pages,
+      {
+        onClose: () => {
+          cutscene.canAdvance = true;
+          this.advanceDeathCutscene();
+        },
+      },
+      { nextLabel: "Listen", closeLabel: "Begin again" },
+      { portraitId: "sage-3" }
+    );
+  }
+
+  private tauntAngel(): void {
+    const cutscene = this.deathCutscene;
+    if (!cutscene || cutscene.mode !== "revive" || cutscene.completed) {
+      return;
+    }
+
+    cutscene.taunts += 1;
+    const tauntIndex = Math.min(cutscene.taunts - 1, ANGEL_TAUNT_DIALOGUE.length - 1);
+    const pages = ANGEL_TAUNT_DIALOGUE[tauntIndex] ?? ANGEL_TAUNT_DIALOGUE[0];
+
+    if (cutscene.taunts >= ANGEL_TAUNT_DIALOGUE.length) {
+      cutscene.angelBossOnRevive = true;
+      this.questPopup.showDialogue(
+        "The Angel",
+        [...pages],
+        {
+          onClose: () => {
+            cutscene.canAdvance = true;
+            this.advanceDeathCutscene();
+          },
+        },
+        { nextLabel: "Listen", closeLabel: "Return" },
+        { portraitId: "sage-2" }
+      );
+      return;
+    }
+
+    this.questPopup.showDialogue(
+      "The Angel",
+      [...pages],
+      {
+        onAccept: () => {
+          cutscene.canAdvance = true;
+          this.advanceDeathCutscene();
+        },
+        onReject: () => this.tauntAngel(),
+      },
+      { acceptLabel: "Return", rejectLabel: "Taunt again", nextLabel: "Listen" },
+      { portraitId: "sage-2" }
+    );
+  }
+
+  private clearAllLifeSources(): void {
+    this.skillTree.clearExtraLifeCharges();
+    this.setFlag("equipment.phoenixCharges", 0);
+    this.setFlag("fortitude.phoenix", { charges: 0 });
+    this.setFlag("fortitude.phoenixTriggered", undefined);
+    this.setFlag("ui.livesRevealed", true);
+    this.lastVisibleLifeCharges = 0;
+  }
+
+  private wasKilledByInsultedAngel(reason?: string | null): boolean {
+    if (this.getFlag<boolean>("boss.insultedAngel")) {
+      return true;
+    }
+    if (this.getFlag<string>("internal.killedByBossKind") === "angel") {
+      return true;
+    }
+    return reason === "boss" && this.snakeGame.getBosses(this.currentRoomId).some((boss) => boss.kind === "angel");
+  }
+
+  private composeAngelExecutionDialogue(): string[] {
+    const score = this.score;
+    const length = this.snakeGame.getSnakeLength();
+    return [
+      ...this.pickDialogueBranch(ANGEL_EXECUTION_DIALOGUE),
+      `Score ${score}. A number small enough to fit in a beggar's palm.`,
+      `Length ${length}. So much body, so little consequence.`,
+    ];
+  }
+
+  private composeDeathDialogue(mode: DeathCutsceneMode, runSummary: readonly string[]): string[] {
+    const opening = this.pickDialogueBranch(DEATH_DIALOGUE_BRANCHES);
+    const reasonLines = this.getDeathReasonDialogue(this.deathCutscene?.reason);
+    if (mode === "revive") {
+      return [...opening, ...reasonLines, ...this.pickDialogueBranch(REVIVE_DIALOGUE_BRANCHES)];
+    }
+    return [...opening, ...reasonLines, ...this.pickDialogueBranch(FINAL_DIALOGUE_BRANCHES), ...runSummary];
+  }
+
+  private getDeathReasonDialogue(reason?: string | null): string[] {
+    if (!reason) {
+      return [];
+    }
+    return [...(DEATH_REASON_DIALOGUE[reason] ?? [])];
+  }
+
+  private pickDialogueBranch(branches: readonly (readonly string[])[]): string[] {
+    const index = Math.floor(this.random() * branches.length);
+    return [...(branches[index] ?? branches[0])];
+  }
+
+  private composeRunSummary(): string[] {
+    const length = this.snakeGame.getSnakeLength();
+    const rooms = Math.max(
+      this.getGeneratedRoomsOnCurrentLevel().length,
+      Number(this.getFlag<number>("roomsVisited") ?? 1)
+    );
+    const quests = this.completedQuests;
+    const treasure = Number(this.getFlag<number>("treasurePicked") ?? 0);
+    const powerups = Number(this.getFlag<number>("powerupsPicked") ?? 0);
+    const streak = Number(this.getFlag<number>("appleStreakMax") ?? 0);
+    const summary = [`Score ${this.score}. Length ${length}. Rooms crossed ${rooms}.`];
+
+    if (quests.length > 0) {
+      summary.push(`Vows fulfilled: ${quests.slice(0, 3).join(", ")}${quests.length > 3 ? ", and more" : ""}.`);
+    }
+    if (treasure > 0 || powerups > 0) {
+      summary.push(`Relics claimed ${treasure}; brief miracles taken ${powerups}.`);
+    }
+    if (streak > 1) {
+      summary.push(`Longest hunger-chain: ${streak}.`);
+    }
+    if (summary.length === 1) {
+      summary.push("No great deed is wasted merely because it was small.");
+    }
+
+    return summary;
+  }
+
+  private ensureAngelTexture(): void {
+    if (this.textures.exists(ANGEL_TEXTURE_KEY)) {
+      return;
+    }
+
+    const texture = this.textures.createCanvas(ANGEL_TEXTURE_KEY, 48, 48);
+    const context = texture.getContext();
+    context.imageSmoothingEnabled = false;
+
+    const px = (x: number, y: number, w: number, h: number, color: string): void => {
+      context.fillStyle = color;
+      context.fillRect(x, y, w, h);
+    };
+    const mirror = (points: readonly [number, number, number, number][], color: string): void => {
+      for (const [x, y, w, h] of points) {
+        px(x, y, w, h, color);
+        px(48 - x - w, y, w, h, color);
+      }
+    };
+
+    context.clearRect(0, 0, 48, 48);
+    px(17, 2, 14, 3, "#f8d76a");
+    px(14, 5, 20, 2, "#fff2a8");
+    mirror([[9, 9, 9, 4], [6, 13, 13, 5], [3, 18, 16, 7], [0, 25, 17, 8], [5, 33, 12, 5]], "#eef8ff");
+    mirror([[12, 13, 7, 4], [9, 19, 9, 5], [5, 27, 11, 4]], "#cfe4ff");
+    px(18, 10, 12, 10, "#f4d0a3");
+    px(16, 18, 16, 4, "#d8a97f");
+    px(14, 22, 20, 18, "#fff7dc");
+    px(17, 24, 14, 13, "#eadfac");
+    px(20, 13, 2, 2, "#1c1920");
+    px(26, 13, 2, 2, "#1c1920");
+    px(22, 17, 4, 1, "#6f4f52");
+    px(20, 40, 3, 6, "#e7dca8");
+    px(25, 40, 3, 6, "#e7dca8");
+    mirror([[12, 24, 3, 12], [9, 29, 3, 8]], "#fffaf0");
+    texture.refresh();
   }
 
   setDir(x: number, y: number) {
@@ -948,6 +1503,7 @@ export default class SnakeScene extends Phaser.Scene {
     let gunEnabled = false;
     let heatResistance = 0;
     let coldResistance = 0;
+    let swimmingEnabled = false;
 
     for (const [, itemId] of equipped) {
       const item = getItem(itemId) as any;
@@ -987,6 +1543,9 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (typeof mods.coldResistance === "number") {
         coldResistance += mods.coldResistance;
+      }
+      if (mods.swimmingEnabled) {
+        swimmingEnabled = true;
       }
     }
 
@@ -1063,6 +1622,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag("equipment.gunEnabled", gunEnabled ? true : undefined);
     this.setFlag("equipment.heatResistance", heatResistance > 0 ? Math.min(0.9, heatResistance) : undefined);
     this.setFlag("equipment.coldResistance", coldResistance > 0 ? Math.min(0.9, coldResistance) : undefined);
+    this.setFlag("equipment.swimmingEnabled", swimmingEnabled ? true : undefined);
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
@@ -1418,13 +1978,15 @@ export default class SnakeScene extends Phaser.Scene {
     // Render bosses
     const bosses = this.snakeGame.getBosses(room.id);
     for (const boss of bosses) {
+      const bossColor = boss.kind === "angel" ? 0xfff2a8 : 0xff00ff;
+      const bossAlpha = boss.kind === "angel" ? 0.92 : 0.8;
       for (const segment of boss.body) {
         const [roomX, roomY] = room.id.split(",").map(Number);
         const localX = segment.x - roomX * this.grid.cols;
         const localY = segment.y - roomY * this.grid.rows;
         if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
           const { x, y } = this.snakeRenderer.getWorldPosition(segment, room.id);
-          this.graphics.fillStyle(0xff00ff, 0.8).fillRect(x, y, this.grid.cell, this.grid.cell);
+          this.graphics.fillStyle(bossColor, bossAlpha).fillRect(x, y, this.grid.cell, this.grid.cell);
         }
       }
     }

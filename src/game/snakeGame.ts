@@ -23,10 +23,11 @@ import {
   type WandererEncounter,
 } from "../npcs/encounters.js";
 import { getBiomeDefinition } from "../world/biomes.js";
+import type { RoomSnapshot } from "../world/types.js";
 
 export interface StepResult {
   status: "alive" | "dead";
-  deathReason?: "wall" | "self" | "shielded" | "boss" | "bullet" | "temperature";
+  deathReason?: "wall" | "self" | "shielded" | "boss" | "bullet" | "temperature" | "water" | "shark";
   apple: {
     eaten: boolean;
     rewards?: AppleConsumptionResult["rewards"];
@@ -38,6 +39,23 @@ export interface StepResult {
   roomChanged: boolean;
   questOffer?: Quest | null;
   questsCompleted: Quest[];
+}
+
+export interface DeathDebugRoomSnapshot {
+  roomId: string;
+  biomeId: RoomSnapshot["biomeId"];
+  biomeTitle: string;
+  layout: string[];
+}
+
+export interface DeathDebugSnapshot {
+  reason?: StepResult["deathReason"] | string | null;
+  roomId: string;
+  world: Vector2Like;
+  local: Vector2Like;
+  tile?: string;
+  direction?: Vector2Like;
+  rooms: DeathDebugRoomSnapshot[];
 }
 
 interface MomentumComputedConfig {
@@ -315,6 +333,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag("equipment.itemPhoenixCharges", undefined);
     this.setFlag("equipment.heatResistance", undefined);
     this.setFlag("equipment.coldResistance", undefined);
+    this.setFlag("equipment.swimmingEnabled", undefined);
     this.setFlag("treasurePicked", 0);
     this.setFlag("powerupsPicked", 0);
     this.setFlag("roomsVisited", 1);
@@ -376,6 +395,28 @@ export class SnakeGame implements QuestRuntime {
 
 
     const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
+    const headBeforeSnakeStep = this.snake.bodySegments[0];
+    const bossOnHead = headBeforeSnakeStep
+      ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
+      : null;
+    if (bossOnHead?.kind === "angel") {
+      this.setFlag("internal.killedByBossKind", bossOnHead.kind);
+      this.setFlag("internal.killedByBossName", bossOnHead.name);
+      this.markDeathAtCurrentHead("boss");
+      return {
+        status: "dead",
+        deathReason: "boss",
+        apple: {
+          eaten: false,
+          current: appleBeforeStep,
+          stateChanged: roomsChanged.has(previousRoom),
+        },
+        roomsChanged,
+        roomChanged: false,
+        questOffer: null,
+        questsCompleted: [],
+      };
+    }
 
     const dependencies: SnakeStepDependencies = {
       getRoom: (roomId: string) => this.world.getRoom(roomId),
@@ -476,7 +517,9 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (outcome.status === "dead") {
-      if (!this.tryFortitudePhoenix(outcome, roomsChanged, previousRoom)) {
+      const killedByAngel = this.getFlag<string>("internal.killedByBossKind") === "angel";
+      const insultedAngelActive = Boolean(this.getFlag<boolean>("boss.insultedAngel"));
+      if (killedByAngel || insultedAngelActive || !this.tryFortitudePhoenix(outcome, roomsChanged, previousRoom)) {
         return {
           status: "dead",
           deathReason: outcome.reason,
@@ -570,6 +613,7 @@ export class SnakeGame implements QuestRuntime {
             roomHasChanged,
           });
         }
+        this.markDeathAtCurrentHead("shielded");
         return {
           status: "dead",
           deathReason: "shielded",
@@ -691,8 +735,10 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (currentHead) {
-      if (this.enemies.hasHarmfulOccupantAt(this.snake.currentRoomId, currentHead)) {
-        if (this.tryFortitudePhoenix({ status: "dead", reason: "boss" }, roomsChanged, previousRoom)) {
+      const harmfulEnemy = this.enemies.getHarmfulOccupantAt(this.snake.currentRoomId, currentHead);
+      if (harmfulEnemy) {
+        const deathReason = harmfulEnemy.encounterKind === "shark" ? "shark" : "boss";
+        if (this.tryFortitudePhoenix({ status: "dead", reason: deathReason === "shark" ? "boss" : deathReason }, roomsChanged, previousRoom)) {
           return this.createAliveStepResult({
             appleEaten,
             appleRewards,
@@ -703,9 +749,10 @@ export class SnakeGame implements QuestRuntime {
             roomHasChanged,
           });
         }
+        this.markDeathAtCurrentHead(deathReason);
         return {
           status: "dead",
-          deathReason: "boss",
+          deathReason,
           apple: {
             eaten: appleEaten,
             rewards: appleRewards,
@@ -749,6 +796,7 @@ export class SnakeGame implements QuestRuntime {
           roomHasChanged,
         });
       }
+      this.markDeathAtCurrentHead("bullet");
       return {
         status: "dead",
         deathReason: "bullet",
@@ -794,6 +842,7 @@ export class SnakeGame implements QuestRuntime {
           roomHasChanged,
         });
       }
+      this.markDeathAtCurrentHead("temperature");
       return {
         status: "dead",
         deathReason: "temperature",
@@ -835,12 +884,78 @@ export class SnakeGame implements QuestRuntime {
     return this.world.getRoom(this.snake.currentRoomId);
   }
 
+  private markDeathAtCurrentHead(reason?: StepResult["deathReason"] | string): void {
+    const head = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
+    const roomId = this.snake.currentRoomId;
+    const [roomX = 0, roomY = 0] = roomId.split(",").map(Number);
+    const local = {
+      x: head.x - roomX * this.config.grid.cols,
+      y: head.y - roomY * this.config.grid.rows,
+    };
+    const room = this.world.getRoom(roomId);
+    this.setFlag("internal.lastDeathPosition", {
+      world: { x: head.x, y: head.y },
+      local,
+      roomId,
+      tile: room.layout[local.y]?.[local.x],
+      direction: this.snake.directionVector,
+      reason,
+    });
+  }
+
+  getRoom(roomId: string) {
+    return this.world.getRoom(roomId);
+  }
+
   getApple(roomId: string): AppleSnapshot | null {
     return this.apples.getSnapshot(roomId);
   }
 
   getSnakeBody(): readonly Vector2Like[] {
     return this.snake.bodySegments;
+  }
+
+  createDeathDebugSnapshot(reason?: StepResult["deathReason"] | string | null): DeathDebugSnapshot {
+    const death = this.getFlag<{
+      world?: Vector2Like;
+      local?: Vector2Like;
+      roomId?: string;
+      tile?: string;
+      direction?: Vector2Like;
+    }>("internal.lastDeathPosition");
+    const fallbackHead = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
+    const fallbackRoomId = this.snake.currentRoomId;
+    const roomId = death?.roomId ?? fallbackRoomId;
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const world = death?.world ?? fallbackHead;
+    const local = death?.local ?? {
+      x: world.x - roomX * this.config.grid.cols,
+      y: world.y - roomY * this.config.grid.rows,
+    };
+    const room = this.world.getRoom(roomId);
+    const tile = death?.tile ?? room.layout[local.y]?.[local.x];
+    const rooms: DeathDebugRoomSnapshot[] = [];
+    for (let dy = -1; dy <= 1; dy += 1) {
+      for (let dx = -1; dx <= 1; dx += 1) {
+        const neighborId = `${roomX + dx},${roomY + dy},${roomZ}`;
+        const neighbor = this.world.getRoom(neighborId);
+        rooms.push({
+          roomId: neighbor.id,
+          biomeId: neighbor.biomeId,
+          biomeTitle: neighbor.biomeTitle,
+          layout: neighbor.layout,
+        });
+      }
+    }
+    return {
+      reason,
+      roomId,
+      world,
+      local,
+      tile,
+      direction: death?.direction ?? this.snake.directionVector,
+      rooms,
+    };
   }
 
   // Map support: expose generated rooms on the current Z level
@@ -938,6 +1053,11 @@ export class SnakeGame implements QuestRuntime {
     const bosses = this.bosses.getBossesInRoom(roomId);
     const duelBoss = this.enemies.getDuelBossInRoom(roomId);
     return duelBoss ? [...bosses, duelBoss] : bosses;
+  }
+
+  spawnInsultedAngelBoss(): void {
+    this.bosses.spawnBoss(this.snake.currentRoomId, "fallen-angel");
+    this.setFlag("boss.insultedAngel", true);
   }
 
   getEnemies(roomId: string) {

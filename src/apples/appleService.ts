@@ -24,6 +24,10 @@ export interface AppleConsumptionResult {
   snapshot: AppleSnapshot | null;
 }
 
+interface AppleSpawnOption extends Vector2Like {
+  tile: string;
+}
+
 export class AppleService {
   private readonly registry: AppleRegistry;
   private readonly apples = new Map<string, AppleInstance>();
@@ -68,13 +72,13 @@ export class AppleService {
       return { snapshot: null, changed: false };
     }
 
-    const appleType = this.chooseAppleType(score);
+    const spawnIndex = Math.floor(this.rng() * spawnOptions.length);
+    const position = spawnOptions[spawnIndex];
+    const appleType = this.chooseAppleType(score, position.tile === "~");
     if (!appleType) {
       return { snapshot: null, changed: false };
     }
 
-    const spawnIndex = Math.floor(this.rng() * spawnOptions.length);
-    const position = spawnOptions[spawnIndex];
     const instance = this.registry.createInstance(appleType, roomId, position);
     instance.initialize({ rng: this.rng });
 
@@ -284,10 +288,19 @@ export class AppleService {
     };
   }
 
-  private chooseAppleType(score: number): AppleTypeConfig | null {
+  private chooseAppleType(score: number, waterOnly = false): AppleTypeConfig | null {
+    if (waterOnly) {
+      return (
+        this.registry.getTypes().find((type) => type.id === "pearl") ??
+        this.registry.getTypes().find((type) => type.id === "gold") ??
+        this.registry.getTypes().find((type) => type.id === "normal") ??
+        null
+      );
+    }
+
     const eligible = this.registry
       .getTypes()
-      .filter((type) => (type.spawn.scoreThreshold ?? 0) <= score);
+      .filter((type) => type.id !== "pearl" && (type.spawn.scoreThreshold ?? 0) <= score);
 
     if (eligible.length === 0) {
       return this.registry.getTypes().find((t) => t.id === "normal") ?? null;
@@ -313,22 +326,23 @@ export class AppleService {
     roomId: string,
     layout: string[],
     snake: Vector2Like[]
-  ): Vector2Like[] {
-    const options: Vector2Like[] = [];
+  ): AppleSpawnOption[] {
+    const options: AppleSpawnOption[] = [];
     const [roomX, roomY] = roomId.split(",").map(Number);
     const occupant = this.apples.get(roomId);
 
     for (let y = 0; y < layout.length; y++) {
       const row = layout[y];
       for (let x = 0; x < row.length; x++) {
-        if (row[x] !== ".") continue;
+        const tile = row[x];
+        if (tile !== "." && tile !== "~") continue;
         // Avoid spawning on treasure chests
         if (this.world.hasTreasureAt(roomId, x, y)) continue;
         if (occupant && occupant.position.x === x && occupant.position.y === y) continue;
         const globalX = roomX * this.grid.cols + x;
         const globalY = roomY * this.grid.rows + y;
         if (this.isSnakeAtGlobal(snake, globalX, globalY)) continue;
-        options.push({ x, y });
+        options.push({ x, y, tile });
       }
     }
     return options;
