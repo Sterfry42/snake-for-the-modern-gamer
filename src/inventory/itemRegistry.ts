@@ -32,6 +32,17 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: "boots-swim-fins",
+    name: "Swim Fins",
+    description: "Flexible fins that let you cross lakes and ocean water.",
+    kind: "equipment",
+    slot: "boots",
+    modifiers: {
+      swimmingEnabled: true,
+      tickDelayScalar: 1.05,
+    },
+  },
+  {
     id: "helm-seer",
     name: "Seer's Helm",
     description: "Attuned senses reveal nearby walls.",

@@ -124,6 +124,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
     this.system.addExtraLives(count);
   }
 
+  clearExtraLifeCharges(): void {
+    (this.system as any).extraLifeCharges = 0;
+  }
+
   adjustBonusScore(baseValue: number): number {
     return this.system.modifyScoreGain(baseValue);
   }

@@ -152,6 +152,14 @@ export const defaultGameConfig: GameConfig = {
         behavior: "gold",
       },
       {
+        id: "pearl",
+        label: "Pearl Apple",
+        color: 0x9df7ff,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0 },
+        behavior: "gold",
+      },
+      {
         id: "skittish",
         label: "Skittish Apple",
         color: 0xff8578,

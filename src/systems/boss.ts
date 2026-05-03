@@ -6,6 +6,7 @@ import type { RoomSnapshot } from "../world/types.js";
 export interface Boss {
   id: string;
   name: string;
+  kind?: "freak-dennis" | "revenant" | "angel";
   body: Vector2Like[];
   health: number;
   maxHealth: number;
@@ -30,13 +31,17 @@ export class BossManager {
     this.grid = grid;
   }
 
-  public spawnBoss(roomId: string, bossType: "freak-dennis" | "random" = "random"): void {
+  public spawnBoss(roomId: string, bossType: "freak-dennis" | "random" | "fallen-angel" = "random"): void {
     const [roomX, roomY] = roomId.split(",").map(Number);
     const roomOffsetX = roomX * this.grid.cols;
     const roomOffsetY = roomY * this.grid.rows;
 
     const id = `boss-${Date.now()}`;
-    const name = bossType === "freak-dennis" ? "Freak Dennis" : "Dread Revenant";
+    const name =
+      bossType === "freak-dennis" ? "Freak Dennis" :
+      bossType === "fallen-angel" ? "The Angel, Insulted" :
+      "Dread Revenant";
+    const kind = bossType === "fallen-angel" ? "angel" : bossType === "freak-dennis" ? "freak-dennis" : "revenant";
 
     const centerX = roomOffsetX + this.grid.cols / 2 + 5;
     const centerY = roomOffsetY + this.grid.rows / 2;
@@ -52,14 +57,15 @@ export class BossManager {
     const boss: Boss = {
       id,
       name,
+      kind,
       body,
-      health: 100,
-      maxHealth: 100,
+      health: bossType === "fallen-angel" ? 140 : 100,
+      maxHealth: bossType === "fallen-angel" ? 140 : 100,
       roomId,
       direction: { x: 1, y: 0 },
       pull: {
-        radius: 8,
-        strength: 0.4,
+        radius: bossType === "fallen-angel" ? 10 : 8,
+        strength: bossType === "fallen-angel" ? 0.55 : 0.4,
       },
     };
     this.bosses.set(id, boss);
@@ -87,13 +93,17 @@ export class BossManager {
   }
 
   public isCollidingWithBoss(position: Vector2Like, roomId: string): boolean {
+    return Boolean(this.getBossAtPosition(position, roomId));
+  }
+
+  public getBossAtPosition(position: Vector2Like, roomId: string): Boss | null {
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {
       if (boss.body.some((segment) => segment.x === position.x && segment.y === position.y)) {
-        return true;
+        return boss;
       }
     }
-    return false;
+    return null;
   }
 
   public killBossAtPosition(position: Vector2Like, roomId: string): boolean {
@@ -137,6 +147,11 @@ export class BossManager {
   }
 
   private moveBoss(boss: Boss, deps: BossStepDependencies): void {
+    if (boss.kind === "angel") {
+      this.moveAngelBoss(boss, deps);
+      return;
+    }
+
     if (Math.random() < 0.2) {
       const directions = [
         { x: 1, y: 0 },
@@ -181,6 +196,49 @@ export class BossManager {
     const moveVector = boss.direction;
     boss.body = boss.body.map((segment) => addVectors(segment, moveVector));
     boss.roomId = targetRoomId;
+  }
+
+  private moveAngelBoss(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (!snakeHead || !bossHead) {
+      return;
+    }
+
+    const dx = snakeHead.x - bossHead.x;
+    const dy = snakeHead.y - bossHead.y;
+    const preferred =
+      Math.abs(dx) >= Math.abs(dy)
+        ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }]
+        : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
+
+    const directions = preferred.filter((direction) => direction.x !== 0 || direction.y !== 0);
+    for (const direction of directions) {
+      if (this.tryMoveBoss(boss, direction, deps)) {
+        return;
+      }
+    }
+  }
+
+  private tryMoveBoss(boss: Boss, direction: Vector2Like, deps: BossStepDependencies): boolean {
+    const nextHead = addVectors(boss.body[0], direction);
+    const [, , roomZ = 0] = boss.roomId.split(",").map(Number);
+    const targetRoomX = Math.floor(nextHead.x / this.grid.cols);
+    const targetRoomY = Math.floor(nextHead.y / this.grid.rows);
+    const baseRoomX = targetRoomX * this.grid.cols;
+    const baseRoomY = targetRoomY * this.grid.rows;
+    const localHeadX = nextHead.x - baseRoomX;
+    const localHeadY = nextHead.y - baseRoomY;
+    const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
+    const targetRoom = deps.getRoom(targetRoomId);
+    if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === "#") {
+      return false;
+    }
+
+    boss.direction = direction;
+    boss.body = boss.body.map((segment) => addVectors(segment, direction));
+    boss.roomId = targetRoomId;
+    return true;
   }
 
   public clearAll(): void {

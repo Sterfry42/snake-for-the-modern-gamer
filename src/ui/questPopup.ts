@@ -145,6 +145,11 @@ export class QuestPopup {
     return Boolean(this.container?.visible);
   }
 
+  setDepth(depth: number): void {
+    this.options.depth = depth;
+    this.container?.setDepth(depth);
+  }
+
   private build(): void {
     const { size, backgroundColor, backgroundAlpha, borderColor, depth, buttonSpacing } =
       this.options;

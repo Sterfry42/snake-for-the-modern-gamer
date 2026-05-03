@@ -18,6 +18,7 @@ export class JuiceManager {
   private bossMusic?: { id: string; gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private houseMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private heavenMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
@@ -649,6 +650,106 @@ export class JuiceManager {
       try { gain.disconnect(); } catch {}
     }, 340);
     this.houseMusic = undefined;
+  }
+
+  startHeavenMusic(): void {
+    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+
+    this.stopBossMusic();
+    this.stopPowerupMusic();
+    this.stopHeavenMusic();
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 2400;
+    filter.Q.value = 0.45;
+    filter.connect(gain);
+
+    const chord: Array<{ frequency: number; type: OscillatorType; volume: number; drift: number }> = [
+      { frequency: 261.63, type: "sine", volume: 0.08, drift: 0.08 },
+      { frequency: 329.63, type: "triangle", volume: 0.055, drift: 0.06 },
+      { frequency: 392.0, type: "sine", volume: 0.05, drift: 0.045 },
+      { frequency: 523.25, type: "sine", volume: 0.035, drift: 0.035 },
+    ];
+
+    const sources: OscillatorNode[] = [];
+    const cleanup: AudioNode[] = [filter];
+
+    for (const note of chord) {
+      const osc = this.ctx.createOscillator();
+      osc.type = note.type;
+      osc.frequency.setValueAtTime(note.frequency, now);
+
+      const noteGain = this.ctx.createGain();
+      noteGain.gain.value = note.volume;
+      osc.connect(noteGain);
+      noteGain.connect(filter);
+
+      const lfo = this.ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.value = note.drift;
+      const lfoGain = this.ctx.createGain();
+      lfoGain.gain.value = note.frequency * 0.006;
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+
+      osc.start(now);
+      lfo.start(now);
+      sources.push(osc, lfo);
+      cleanup.push(noteGain, lfoGain);
+    }
+
+    const shimmer = this.ctx.createOscillator();
+    shimmer.type = "sine";
+    shimmer.frequency.value = 1046.5;
+    const shimmerGain = this.ctx.createGain();
+    shimmerGain.gain.value = 0.018;
+    const shimmerLfo = this.ctx.createOscillator();
+    shimmerLfo.type = "sine";
+    shimmerLfo.frequency.value = 0.11;
+    const shimmerLfoGain = this.ctx.createGain();
+    shimmerLfoGain.gain.value = 0.014;
+    shimmerLfo.connect(shimmerLfoGain);
+    shimmerLfoGain.connect(shimmerGain.gain);
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(filter);
+    shimmer.start(now);
+    shimmerLfo.start(now);
+    sources.push(shimmer, shimmerLfo);
+    cleanup.push(shimmerGain, shimmerLfoGain);
+
+    try {
+      gain.gain.exponentialRampToValueAtTime(0.32, now + 1.2);
+    } catch {}
+
+    this.heavenMusic = { gain, sources, cleanup };
+  }
+
+  stopHeavenMusic(): void {
+    if (!this.heavenMusic) return;
+    const { gain, sources, cleanup } = this.heavenMusic;
+    const now = this.ctx.currentTime;
+    try {
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    } catch {}
+    for (const source of sources) {
+      try { source.stop(now + 0.55); } catch {}
+    }
+    globalThis.setTimeout(() => {
+      for (const source of sources) { try { source.disconnect(); } catch {} }
+      for (const node of cleanup) { try { node.disconnect(); } catch {} }
+      try { gain.disconnect(); } catch {}
+    }, 650);
+    this.heavenMusic = undefined;
   }
 
   // Soft glow pulse to indicate restful tick
