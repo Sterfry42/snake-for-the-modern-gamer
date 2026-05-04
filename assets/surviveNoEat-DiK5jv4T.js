@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";const s=200;class r extends t{constructor(){super("survive-20s-no-eat","Fasting","Survive for 20s without eating")}isCompleted(e){return this.progressSinceAccept(e,"timeSinceEat")>=s}baselineKeys(){return["timeSinceEat"]}onReward(e){e.addScore(20),e.addCosmeticReward("hat","market-cap")}}const i=new r;export{i as default};

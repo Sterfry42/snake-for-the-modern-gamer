@@ -1,1 +1,0 @@
-import{Q as r}from"./quest-Bpr_u20u.js";class s extends r{constructor(){super("treasure-hunter","Treasure Hunter","Pick up 2 treasure chests")}isCompleted(e){return this.progressSinceAccept(e,"treasurePicked")>=2}baselineKeys(){return["treasurePicked"]}onReward(e){e.addScore(25)}}const a=new s;export{a as default};

@@ -1,0 +1,1 @@
+import{Q as o}from"./quest-Bpr_u20u.js";class s extends o{constructor(){super("score-50","Rookie Points","Reach a score of 50")}isCompleted(e){return e.getScore()>=50}onReward(e){e.addScore(15),e.addCosmeticReward("style","charcoal-silk")}}const c=new s;export{c as default};
