@@ -1,17 +1,9 @@
-import type { Quest } from "./quest.js";
-import { i18n } from "../i18n/i18nManager.js";
-
-export interface QuestDialogue {
-  title: string;
-  pages: string[];
-}
-
-const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
+export const QUEST_DIALOGUE_EN: QuestTranslations = {
   "explore-6-rooms": {
     title: "The First Survey",
     pages: [
       "I buried my clutch-brother in the sixth chamber east of here. The walls closed over him by morning, as if the stone were ashamed to have witnessed it.",
-      "Since then I have learned this place feeds on the uncounted. Rooms unvisited become rumor, and rumor becomes grave-dust. We survive by naming what would rather stay unnamed.",
+      "Since then I have learned this place feeds on the uncountable. Rooms unvisited become rumor, and rumor becomes grave-dust. We survive by naming what would rather stay unnamed.",
       "Go and mark six rooms with your passing. Bring me proof that the dark can still be measured, even if the map is written in fear.",
     ],
   },
@@ -135,23 +127,4 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
       "Recover two treasures. We owe the buried at least the courtesy of admitting their offerings were never answered.",
     ],
   },
-};
-
-export function getQuestDialogue(quest: Quest): QuestDialogue {
-  const translation = i18n.getQuestDialogue(quest.id);
-
-  if (translation) {
-    return translation;
-  }
-
-  return (
-    CUSTOM_DIALOGUES[quest.id] ?? {
-      title: quest.label,
-      pages: [
-        `There is work to be done: ${quest.description}.`,
-        "I have outlived too many companions to mistake errands for small things. Every task here leans against some older sorrow.",
-        "Take the burden if you mean to, but do not insult it by calling it simple.",
-      ],
-    }
-  );
-}
+} as const;

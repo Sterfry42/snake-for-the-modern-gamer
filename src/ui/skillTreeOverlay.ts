@@ -9,6 +9,8 @@ import type {
 import { getItem } from "../inventory/itemRegistry.js";
 import type { EquipmentSlot } from "../inventory/item.js";
 import type { Quest } from "../../quests.js";
+import { saveManager } from "../game/saveManager.js";
+import { i18n } from "../i18n/i18nManager.js";
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -338,6 +340,12 @@ export class SkillTreeOverlay {
 
       if (actionId === "walking-noise") {
         const result = this.scene.toggleDisableWalkingNoise();
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+      }
+
+      if (actionId === "language") {
+        const result = this.scene.toggleLanguage();
         this.announce(result.message, result.color, 1800);
         this.refresh();
       }
@@ -807,13 +815,31 @@ export class SkillTreeOverlay {
       lines.push(walkingNoiseLine);
       index.push("walking-noise");
       rowMap.push({ row: visualRow, actionId: "walking-noise" });
+      visualRow += this.countRenderedLines(walkingNoiseLine);
+      lines.push("");
+      index.push("");
+      visualRow += 1;
+      const languageStatus = !state.languageSelected
+        ? `${200} score`
+        : state.languageSet
+          ? i18n.getCurrentLanguage() === 'es'
+            ? "Spanish (enabled)"
+            : "Spanish (disabled)"
+          : "Spanish (enabled)";
+      const languageLine = `Spanish Language [${languageStatus}]`;
+      lines.push(languageLine);
+      index.push("language");
+      rowMap.push({ row: visualRow, actionId: "language" });
       this.customizationText.setText(lines.join("\n"));
       this.customizationIndex = index;
       this.customizationRowMap = rowMap;
       this.detailTitle.setText("Snake Style").setVisible(true);
       this.detailSubtitle.setText("Cosmetics").setVisible(true);
       this.detailRankText.setText("").setVisible(false);
-      this.detailBody.setText("Spend score on new palettes and a cowboy hat. Active cosmetics apply immediately in play.").setVisible(true);
+      const languageDesc = state.languageSelected
+        ? "Set your game language to Spanish."
+        : "Unlock Spanish language for 200 score.";
+      this.detailBody.setText(`Spend score on new palettes, a cowboy hat, and language options. ${languageDesc}`).setVisible(true);
       if (!this.hintSticky) {
         this.hintText.setText("Customize your serpent's colors and hat.");
         this.hintText.setColor("#9ad1ff");
