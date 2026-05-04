@@ -24,6 +24,8 @@ import {
 } from "../npcs/encounters.js";
 import { getBiomeDefinition } from "../world/biomes.js";
 import type { RoomSnapshot } from "../world/types.js";
+import { i18n } from "../i18n/i18nManager.js";
+import { loadLanguagePreference, saveLanguagePreference } from "../i18n/storage.js";
 
 export interface StepResult {
   status: "alive" | "dead";
@@ -300,6 +302,8 @@ export class SnakeGame implements QuestRuntime {
     });
     this.inventory = new InventorySystem();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
+
+    this.loadLanguagePreference();
   }
 
   reset(): void {
@@ -374,6 +378,17 @@ export class SnakeGame implements QuestRuntime {
       this.world.getRoom(this.snake.currentRoomId),
       this.config.snake.initialBody
     );
+  }
+
+  loadLanguagePreference(): void {
+    const savedLanguage = loadLanguagePreference();
+    if (savedLanguage) {
+      i18n.setLanguage(savedLanguage);
+    }
+  }
+
+  saveLanguagePreference(languageId: string): void {
+    saveLanguagePreference(languageId);
   }
 
   step(paused: boolean): StepResult {

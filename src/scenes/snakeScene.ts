@@ -16,6 +16,7 @@ import {
   type QuestGiverSpritePalette,
 } from "../ui/spriteRecipes/questGiverRecipe.js";
 import { getQuestDialogue } from "../quests/questDialogue.js";
+import { i18n } from "../i18n/i18nManager.js";
 import { createMobileControls, type MobileControls } from "../ui/mobileControls.js";
 import type { Quest } from "../../quests.js";
 import type { AppleSnapshot } from "../apples/types.js";
@@ -226,6 +227,8 @@ const ANGEL_EXECUTION_DIALOGUE: readonly string[][] = [
   ],
 ];
 
+const LANGUAGE_SELECTOR_COST = 200;
+
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
@@ -281,6 +284,8 @@ export default class SnakeScene extends Phaser.Scene {
     cowboyHatEquipped: false,
     loudWalkingNoiseUnlocked: false,
     loudWalkingNoiseEnabled: false,
+    languageSelected: false,
+    languageSet: false,
   };
   private pendingFlags: Record<string, unknown> = {};
   private readonly flagsProxy: Record<string, unknown>;
@@ -585,6 +590,8 @@ export default class SnakeScene extends Phaser.Scene {
       cowboyHatEquipped: false,
       loudWalkingNoiseUnlocked: false,
       loudWalkingNoiseEnabled: false,
+      languageSelected: false,
+      languageSet: false,
     };
     this.juice.setMovementNoiseMultiplier(1);
     this.paused = startPaused;
@@ -2075,6 +2082,8 @@ export default class SnakeScene extends Phaser.Scene {
       cowboyHatEquipped: this.snakeCosmetics.cowboyHatEquipped,
       loudWalkingNoiseUnlocked: this.snakeCosmetics.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
+      languageSelected: this.snakeCosmetics.languageSelected,
+      languageSet: this.snakeCosmetics.languageSet,
     };
   }
 
@@ -2317,8 +2326,8 @@ export default class SnakeScene extends Phaser.Scene {
           },
         },
         {
-          acceptLabel: "Yes",
-          rejectLabel: "Beat it",
+          acceptLabel: i18n.getCommon("quest.accept"),
+          rejectLabel: i18n.getCommon("quest.refuse"),
           nextLabel: "Next",
         },
         speaker
@@ -2459,8 +2468,8 @@ export default class SnakeScene extends Phaser.Scene {
         },
       },
       {
-        acceptLabel: encounter.acceptLabel ?? "Accept",
-        rejectLabel: encounter.rejectLabel ?? "Refuse",
+        acceptLabel: encounter.acceptLabel ?? i18n.getCommon("quest.accept"),
+        rejectLabel: encounter.rejectLabel ?? i18n.getCommon("quest.refuse"),
         nextLabel: "Next",
       },
       { portraitId: encounter.portraitId }
@@ -2826,5 +2835,34 @@ export default class SnakeScene extends Phaser.Scene {
         };
     }
   }
-}
 
+  toggleLanguage(): { ok: boolean; message: string; color: string } {
+    const cost = LANGUAGE_SELECTOR_COST;
+    if (!this.snakeCosmetics.languageSelected) {
+      if (this.score < cost) {
+        return {
+          ok: false,
+          message: `Spanish language costs ${cost} score.`,
+          color: "#ff6b6b",
+        };
+      }
+      this.addScoreDirect(-cost);
+      this.snakeCosmetics.languageSelected = true;
+      this.isDirty = true;
+    }
+
+    if (!this.snakeCosmetics.languageSet) {
+      i18n.setLanguage('es');
+      this.snakeGame.saveLanguagePreference('es');
+      this.snakeCosmetics.languageSet = true;
+    }
+
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: "Language set to Spanish.",
+      color: "#5dd6a2",
+    };
+  }
+
+}

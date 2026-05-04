@@ -1,5 +1,6 @@
 import { buildNpcStats } from "./profiles.js";
 import type { BiomeId } from "../world/biomes.js";
+import { i18n } from "../i18n/i18nManager.js";
 
 export type WandererEncounterKind = "duel" | "quest" | "flavor";
 export type EncounterZoneTag = "surface" | "depths" | "upper" | "lower" | "east" | "west";
@@ -213,6 +214,12 @@ export function getEncounterPages(
   encounter: WandererEncounter,
   history: EncounterHistoryEntry | undefined
 ): string[] {
+  const translation = i18n.getNpcEncounter(encounter.id);
+
+  if (translation && history && translation.pages) {
+    return translation.pages;
+  }
+
   if ((history?.seen ?? 0) > 0 && encounter.repeatPages && encounter.repeatPages.length > 0) {
     return encounter.repeatPages;
   }
