@@ -124,6 +124,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
     this.system.addExtraLives(count);
   }
 
+  handleTextInput(event: KeyboardEvent): boolean {
+    return this.overlay.handleCheatKeyDown(event);
+  }
+
   clearExtraLifeCharges(): void {
     (this.system as any).extraLifeCharges = 0;
   }

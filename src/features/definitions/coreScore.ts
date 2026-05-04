@@ -23,7 +23,8 @@ class ScoreFeature extends Feature {
   }
 
   override onAppleEaten(scene: SnakeScene): void {
-    scene.addScore(1);
+    const multiplier = Math.max(1, Number(scene.getFlag<number>("cheat.appleScoreMultiplier") ?? 1));
+    scene.addScore(multiplier);
     const apples = (scene.getFlag<number>("applesEaten") ?? 0) + 1;
     scene.setFlag("applesEaten", apples);
   }

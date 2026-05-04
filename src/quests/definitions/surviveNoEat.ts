@@ -18,6 +18,7 @@ class SurviveNoEatQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(20);
+    runtime.addCosmeticReward("hat", "market-cap");
   }
 }
 

@@ -16,6 +16,7 @@ class ExplorerTenQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(35);
+    runtime.addItem("boots-lead-flippers", 1);
   }
 }
 

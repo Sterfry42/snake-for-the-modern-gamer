@@ -12,6 +12,17 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: "weapon-market-revolver",
+    name: "Market Revolver",
+    description: "A discounted revolver with an honest cylinder and a dishonest weight.",
+    kind: "equipment",
+    slot: "weapon",
+    modifiers: {
+      gunEnabled: true,
+      tickDelayScalar: 1.08,
+    },
+  },
+  {
     id: "boots-quick",
     name: "Quick Boots",
     description: "Lightweight boots that quicken your stride.",
@@ -40,6 +51,17 @@ export const ITEMS: readonly Item[] = [
     modifiers: {
       swimmingEnabled: true,
       tickDelayScalar: 1.05,
+    },
+  },
+  {
+    id: "boots-lead-flippers",
+    name: "Lead Flippers",
+    description: "Village-grade flippers. They cross water and make every tile feel farther away.",
+    kind: "equipment",
+    slot: "boots",
+    modifiers: {
+      swimmingEnabled: true,
+      tickDelayScalar: 1.12,
     },
   },
   {
@@ -90,6 +112,17 @@ export const ITEMS: readonly Item[] = [
     slot: "cloak",
     modifiers: {
       coldResistance: 0.75,
+    },
+  },
+  {
+    id: "cloak-firebreak",
+    name: "Firebreak Cape",
+    description: "A patched cape that keeps ember heat off your scales while slowing your swagger.",
+    kind: "equipment",
+    slot: "cloak",
+    modifiers: {
+      heatResistance: 0.75,
+      tickDelayScalar: 1.04,
     },
   },
   {
