@@ -6,6 +6,7 @@ import { createQuestRegistry } from "../systems/quests.js";
 import { SkillTreeManager } from "../systems/skillTreeManager.js";
 import { QuestHud } from "../ui/questHud.js";
 import { QuestPopup } from "../ui/questPopup.js";
+import { ChoicePopup, type ChoiceOption } from "../ui/choicePopup.js";
 import { SnakeRenderer } from "../ui/snakeRenderer.js";
 import { JuiceManager } from "../ui/juice.js";
 import { BossHud } from "../ui/bossHud.js";
@@ -26,16 +27,26 @@ import type { EquipmentSlot } from "../inventory/item.js";
 import { getItem } from "../inventory/itemRegistry.js";
 import type { SnakeSpritePalette } from "../ui/spriteRecipes/snakeRecipe.js";
 import type { WandererEncounter } from "../npcs/encounters.js";
+import {
+  getVillageShopDefinition,
+  type VillageShopDefinition,
+  type VillageShopHatId,
+  type VillageShopStyleId,
+} from "../shops/villageShop.js";
 
-type SnakeThemeId = "classic" | "sunset" | "midnight" | "bone";
+type SnakeThemeId = VillageShopStyleId;
 
 type SnakeCosmeticState = {
   unlockedThemes: SnakeThemeId[];
   activeTheme: SnakeThemeId;
+  unlockedHats: VillageShopHatId[];
+  activeHat: VillageShopHatId | null;
   cowboyHatUnlocked: boolean;
   cowboyHatEquipped: boolean;
   loudWalkingNoiseUnlocked: boolean;
   loudWalkingNoiseEnabled: boolean;
+  languageSelected: boolean;
+  languageSet: boolean;
 };
 
 type SnakeThemeDefinition = {
@@ -111,6 +122,7 @@ const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
 ];
 
 const COWBOY_HAT_COST = 36;
+const LEGACY_COWBOY_HAT_ID: VillageShopHatId = "cowboy";
 const ANGEL_TEXTURE_KEY = "death-angel-pixel";
 
 const DEATH_DIALOGUE_BRANCHES: readonly string[][] = [
@@ -236,6 +248,7 @@ export default class SnakeScene extends Phaser.Scene {
   private snakeGame!: SnakeGame;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
+  private villageShopPopup!: ChoicePopup;
   private snakeRenderer!: SnakeRenderer;
   private juice!: JuiceManager;
   private skillTree!: SkillTreeManager;
@@ -280,6 +293,8 @@ export default class SnakeScene extends Phaser.Scene {
   private snakeCosmetics: SnakeCosmeticState = {
     unlockedThemes: ["classic"],
     activeTheme: "classic",
+    unlockedHats: [],
+    activeHat: null,
     cowboyHatUnlocked: false,
     cowboyHatEquipped: false,
     loudWalkingNoiseUnlocked: false,
@@ -348,6 +363,7 @@ export default class SnakeScene extends Phaser.Scene {
       position: { x: this.grid.cols * this.grid.cell - 10, y: 8 },
     });
     this.questPopup = new QuestPopup(this);
+    this.villageShopPopup = new ChoicePopup(this);
     this.graphics.setDepth(0);
 
     const registry = await createQuestRegistry();
@@ -451,6 +467,11 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
 
+      if (this.skillTree.handleTextInput(event)) {
+        event.preventDefault();
+        return;
+      }
+
       if (key === " ") {
         if (this.isModalPopupVisible()) {
           event.preventDefault();
@@ -500,6 +521,9 @@ export default class SnakeScene extends Phaser.Scene {
       if (key === "y") this.hideSaveUI();
 
       if (key === "e") {
+        if (this.tryInteractVillageShopkeeper()) {
+          return;
+        }
         if (this.tryInteractQuestGiver()) {
           return;
         }
@@ -586,6 +610,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeCosmetics = {
       unlockedThemes: ["classic"],
       activeTheme: "classic",
+      unlockedHats: [],
+      activeHat: null,
       cowboyHatUnlocked: false,
       cowboyHatEquipped: false,
       loudWalkingNoiseUnlocked: false,
@@ -757,6 +783,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (result.questsCompleted.length > 0) {
       this.isDirty = true;
       this.juice.questCompleted();
+      this.applyPendingQuestCosmeticRewards();
     }
 
     this.handlePredationFeedback();
@@ -784,6 +811,7 @@ export default class SnakeScene extends Phaser.Scene {
         const accepted = this.snakeGame.acceptOfferedQuest();
         if (accepted) {
           this.isDirty = true;
+          this.applyPendingQuestCosmeticRewards();
         }
         this.closeQuestPopup();
       },
@@ -1343,6 +1371,25 @@ export default class SnakeScene extends Phaser.Scene {
         onComplete: () => text.destroy(),
       });
     }
+  }
+
+  applyCheatCode(rawCode: string): { ok: boolean; message: string; color: string } {
+    const code = rawCode.trim().toLowerCase().replace(/\s+/g, " ");
+    if (!code) {
+      return { ok: false, message: "Enter a cheat string.", color: "#ff6b6b" };
+    }
+    if (code === "investingincrypto") {
+      this.setFlag("cheat.appleScoreMultiplier", 100);
+      this.isDirty = true;
+      return { ok: true, message: "Cheat active: apple score x100.", color: "#5dd6a2" };
+    }
+    if (code === "imawiddlebabywhoneedshelp") {
+      this.skillTree.addExtraLifeCharge(100);
+      this.setFlag("ui.livesRevealed", true);
+      this.isDirty = true;
+      return { ok: true, message: "Cheat active: +100 lives.", color: "#5dd6a2" };
+    }
+    return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: "#ff6b6b" };
   }
 
   growSnake(extraSegments: number): void {
@@ -1946,7 +1993,7 @@ export default class SnakeScene extends Phaser.Scene {
       poweredUp: Boolean(pActive),
       direction: this.snakeGame.getDirection(),
       snakePalette: this.getActiveSnakeTheme().palette,
-      cowboyHat: this.snakeCosmetics.cowboyHatEquipped,
+      cowboyHat: this.snakeCosmetics.activeHat !== null,
       enemies: this.snakeGame.getEnemies(room.id),
       bullets: this.snakeGame.getEnemyBullets(room.id),
     });
@@ -2078,6 +2125,8 @@ export default class SnakeScene extends Phaser.Scene {
     return {
       unlockedThemes: [...this.snakeCosmetics.unlockedThemes],
       activeTheme: this.snakeCosmetics.activeTheme,
+      unlockedHats: [...this.snakeCosmetics.unlockedHats],
+      activeHat: this.snakeCosmetics.activeHat,
       cowboyHatUnlocked: this.snakeCosmetics.cowboyHatUnlocked,
       cowboyHatEquipped: this.snakeCosmetics.cowboyHatEquipped,
       loudWalkingNoiseUnlocked: this.snakeCosmetics.loudWalkingNoiseUnlocked,
@@ -2088,11 +2137,40 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   getSnakeThemeDefinitions(): readonly SnakeThemeDefinition[] {
-    return SNAKE_THEME_DEFINITIONS;
+    const merged = new Map<SnakeThemeId, SnakeThemeDefinition>();
+    for (const theme of SNAKE_THEME_DEFINITIONS) {
+      merged.set(theme.id, theme);
+    }
+    const unlocked = new Set(this.snakeCosmetics.unlockedThemes);
+    const villageStyles = getVillageShopDefinition(this.snakeGame.getCurrentRoom().biomeId).styles;
+    for (const style of villageStyles.filter((entry) => unlocked.has(entry.id))) {
+      merged.set(style.id, {
+        id: style.id,
+        label: style.label,
+        cost: style.price,
+        palette: style.palette,
+      });
+    }
+    return Array.from(merged.values());
+  }
+
+  getSnakeHatDefinitions(): readonly { id: VillageShopHatId; label: string; price: number }[] {
+    const shopHats = getVillageShopDefinition(this.snakeGame.getCurrentRoom().biomeId).hats;
+    const unlocked = new Set(this.snakeCosmetics.unlockedHats);
+    const hats = shopHats.filter((hat) => hat.id === LEGACY_COWBOY_HAT_ID || unlocked.has(hat.id));
+    return hats.length > 0 ? hats : [{ id: LEGACY_COWBOY_HAT_ID, label: "Cowboy Hat", price: COWBOY_HAT_COST }];
+  }
+
+  getCurrentVillageShop(): VillageShopDefinition | null {
+    const room = this.snakeGame.getCurrentRoom();
+    if (!room.village) {
+      return null;
+    }
+    return getVillageShopDefinition(room.biomeId);
   }
 
   purchaseOrApplySnakeTheme(themeId: SnakeThemeId): { ok: boolean; message: string; color: string } {
-    const theme = SNAKE_THEME_DEFINITIONS.find((entry) => entry.id === themeId);
+    const theme = this.getSnakeThemeDefinitions().find((entry) => entry.id === themeId);
     if (!theme) {
       return { ok: false, message: "Unknown snake palette.", color: "#ff6b6b" };
     }
@@ -2119,29 +2197,115 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  purchaseOrToggleCowboyHat(): { ok: boolean; message: string; color: string } {
-    if (!this.snakeCosmetics.cowboyHatUnlocked) {
-      if (this.score < COWBOY_HAT_COST) {
-        return {
-          ok: false,
-          message: `Cowboy hat costs ${COWBOY_HAT_COST} score.`,
-          color: "#ff6b6b",
-        };
+  purchaseVillageEquipment(itemId: string): { ok: boolean; message: string; color: string } {
+    const shop = this.getCurrentVillageShop();
+    if (!shop) {
+      return { ok: false, message: "Village shops only open in villages.", color: "#ff6b6b" };
+    }
+    const offer = shop.equipment.find((entry) => entry.itemId === itemId);
+    if (!offer) {
+      return { ok: false, message: "That gear is not stocked here.", color: "#ff6b6b" };
+    }
+    const item = getItem(itemId) as any;
+    if (!item || item.kind !== "equipment") {
+      return { ok: false, message: "That gear does not exist.", color: "#ff6b6b" };
+    }
+    if (this.snakeGame.getInventory().getItemCount(itemId) > 0) {
+      return { ok: false, message: `${item.name} is already in your pack.`, color: "#9ad1ff" };
+    }
+    if (this.score < offer.price) {
+      return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: "#ff6b6b" };
+    }
+    this.addScoreDirect(-offer.price);
+    this.snakeGame.addItem(itemId, 1);
+    this.equipItem(itemId);
+    this.isDirty = true;
+    return { ok: true, message: `${item.name} bought and equipped.`, color: "#5dd6a2" };
+  }
+
+  purchaseVillageStyle(styleId: VillageShopStyleId): { ok: boolean; message: string; color: string } {
+    const shop = this.getCurrentVillageShop();
+    if (!shop) {
+      return { ok: false, message: "Village styles are sold by village shopkeepers.", color: "#ff6b6b" };
+    }
+    const offer = shop.styles.find((entry) => entry.id === styleId);
+    if (!offer) {
+      return { ok: false, message: "That style is not stocked here.", color: "#ff6b6b" };
+    }
+    const unlocked = this.snakeCosmetics.unlockedThemes.includes(styleId);
+    if (!unlocked) {
+      if (this.score < offer.price) {
+        return { ok: false, message: `${offer.label} costs ${offer.price} score.`, color: "#ff6b6b" };
       }
-      this.addScoreDirect(-COWBOY_HAT_COST);
-      this.snakeCosmetics.cowboyHatUnlocked = true;
-      this.snakeCosmetics.cowboyHatEquipped = true;
-      this.isDirty = true;
-      return { ok: true, message: "Cowboy hat unlocked.", color: "#5dd6a2" };
+      this.addScoreDirect(-offer.price);
+      this.snakeCosmetics.unlockedThemes = [...this.snakeCosmetics.unlockedThemes, styleId];
+    }
+    this.snakeCosmetics.activeTheme = styleId;
+    this.isDirty = true;
+    return { ok: true, message: unlocked ? `${offer.label} equipped.` : `${offer.label} bought and equipped.`, color: "#5dd6a2" };
+  }
+
+  purchaseOrToggleVillageHat(hatId: VillageShopHatId): { ok: boolean; message: string; color: string } {
+    const shop = this.getCurrentVillageShop();
+    const offer = shop?.hats.find((entry) => entry.id === hatId);
+    if (!offer && hatId !== LEGACY_COWBOY_HAT_ID) {
+      return { ok: false, message: "That hat is not sold here.", color: "#ff6b6b" };
+    }
+    const label = offer?.label ?? "Cowboy Hat";
+    const price = offer?.price ?? COWBOY_HAT_COST;
+    const unlocked = this.snakeCosmetics.unlockedHats.includes(hatId);
+    if (!unlocked) {
+      if (!shop && hatId !== LEGACY_COWBOY_HAT_ID) {
+        return { ok: false, message: "Village hats are sold in villages.", color: "#ff6b6b" };
+      }
+      if (this.score < price) {
+        return { ok: false, message: `${label} costs ${price} score.`, color: "#ff6b6b" };
+      }
+      this.addScoreDirect(-price);
+      this.snakeCosmetics.unlockedHats = [...this.snakeCosmetics.unlockedHats, hatId];
     }
 
-    this.snakeCosmetics.cowboyHatEquipped = !this.snakeCosmetics.cowboyHatEquipped;
+    this.snakeCosmetics.activeHat = this.snakeCosmetics.activeHat === hatId ? null : hatId;
+    this.snakeCosmetics.cowboyHatUnlocked = this.snakeCosmetics.unlockedHats.includes(LEGACY_COWBOY_HAT_ID);
+    this.snakeCosmetics.cowboyHatEquipped = this.snakeCosmetics.activeHat === LEGACY_COWBOY_HAT_ID;
     this.isDirty = true;
     return {
       ok: true,
-      message: this.snakeCosmetics.cowboyHatEquipped ? "Cowboy hat equipped." : "Cowboy hat stowed.",
-      color: "#9ad1ff",
+      message: this.snakeCosmetics.activeHat === hatId ? `${label} equipped.` : `${label} stowed.`,
+      color: unlocked ? "#9ad1ff" : "#5dd6a2",
     };
+  }
+
+  purchaseOrToggleCowboyHat(): { ok: boolean; message: string; color: string } {
+    return this.purchaseOrToggleVillageHat(LEGACY_COWBOY_HAT_ID);
+  }
+
+  private applyPendingQuestCosmeticRewards(): void {
+    const rewards = this.snakeGame.getFlag<Array<{ type: "style" | "hat"; id: SnakeThemeId | VillageShopHatId }>>("quest.pendingCosmeticRewards");
+    if (!Array.isArray(rewards) || rewards.length === 0) {
+      return;
+    }
+    const themes = this.getSnakeThemeDefinitions();
+    const shop = this.getCurrentVillageShop() ?? getVillageShopDefinition(this.snakeGame.getCurrentRoom().biomeId);
+    const hatOffers = shop.hats;
+    for (const reward of rewards) {
+      if (reward.type === "style") {
+        const styleId = reward.id as SnakeThemeId;
+        if (themes.some((theme) => theme.id === styleId) && !this.snakeCosmetics.unlockedThemes.includes(styleId)) {
+          this.snakeCosmetics.unlockedThemes = [...this.snakeCosmetics.unlockedThemes, styleId];
+          this.snakeCosmetics.activeTheme = styleId;
+        }
+      } else {
+        const hatId = reward.id as VillageShopHatId;
+        if (hatOffers.some((hat) => hat.id === hatId) && !this.snakeCosmetics.unlockedHats.includes(hatId)) {
+          this.snakeCosmetics.unlockedHats = [...this.snakeCosmetics.unlockedHats, hatId];
+          this.snakeCosmetics.activeHat = hatId;
+        }
+      }
+    }
+    this.snakeCosmetics.cowboyHatUnlocked = this.snakeCosmetics.unlockedHats.includes(LEGACY_COWBOY_HAT_ID);
+    this.snakeCosmetics.cowboyHatEquipped = this.snakeCosmetics.activeHat === LEGACY_COWBOY_HAT_ID;
+    this.snakeGame.setFlag("quest.pendingCosmeticRewards", undefined);
   }
 
   toggleDisableWalkingNoise(): { ok: boolean; message: string; color: string } {
@@ -2172,7 +2336,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private getActiveSnakeTheme(): SnakeThemeDefinition {
     return (
-      SNAKE_THEME_DEFINITIONS.find((entry) => entry.id === this.snakeCosmetics.activeTheme) ??
+      this.getSnakeThemeDefinitions().find((entry) => entry.id === this.snakeCosmetics.activeTheme) ??
       SNAKE_THEME_DEFINITIONS[0]
     );
   }
@@ -2253,18 +2417,15 @@ export default class SnakeScene extends Phaser.Scene {
       return null;
     }
     const room = this.snakeGame.getCurrentRoom();
+    const shopkeeper = room.village?.shopkeeper;
+    if (shopkeeper && this.distanceFromHeadToLocal(shopkeeper) <= 1) {
+      return { text: `Shop with ${shopkeeper.name ?? "shopkeeper"} (press E)` };
+    }
     const giver = room.questGiver;
     if (!giver) {
       return null;
     }
-    const head = this.snakeGame.getSnakeBody()[0];
-    if (!head) {
-      return null;
-    }
-    const [roomX, roomY] = room.id.split(",").map(Number);
-    const localX = head.x - roomX * this.grid.cols;
-    const localY = head.y - roomY * this.grid.rows;
-    const dist = Math.abs(localX - giver.x) + Math.abs(localY - giver.y);
+    const dist = this.distanceFromHeadToLocal(giver);
     if (dist > 1) {
       return null;
     }
@@ -2274,6 +2435,114 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const name = giver.name ? `Talk to ${giver.name}` : "Talk to quest giver";
     return { text: `${name} (press E)` };
+  }
+
+  private distanceFromHeadToLocal(target: { x: number; y: number }): number {
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (!head) {
+      return Number.POSITIVE_INFINITY;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const [roomX, roomY] = room.id.split(",").map(Number);
+    const localX = head.x - roomX * this.grid.cols;
+    const localY = head.y - roomY * this.grid.rows;
+    return Math.abs(localX - target.x) + Math.abs(localY - target.y);
+  }
+
+  private tryInteractVillageShopkeeper(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const shopkeeper = room.village?.shopkeeper;
+    if (!shopkeeper || this.distanceFromHeadToLocal(shopkeeper) > 1) {
+      return false;
+    }
+    this.showVillageShopRoot(shopkeeper.name ?? "Village Shopkeeper");
+    return true;
+  }
+
+  private showVillageShopRoot(shopkeeperName: string): void {
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    const options: ChoiceOption[] = [
+      { id: "equipment", title: "Equipment", description: "Weapons, flippers, and weather gear." },
+      { id: "styles", title: "Styles", description: "Local palettes for your snake." },
+      { id: "hats", title: "Hats", description: "Village headwear with no tactical justification." },
+      { id: "leave", title: "Leave", description: "Step away from the counter." },
+    ];
+    this.villageShopPopup.show(shopkeeperName, options, (id) => {
+      if (id === "leave") {
+        this.closeVillageShop();
+        return;
+      }
+      if (id === "equipment" || id === "styles" || id === "hats") {
+        this.showVillageShopCategory(shopkeeperName, id);
+      }
+    });
+  }
+
+  private showVillageShopCategory(shopkeeperName: string, category: "equipment" | "styles" | "hats"): void {
+    this.paused = true;
+    const shop = this.getCurrentVillageShop();
+    if (!shop) {
+      this.closeVillageShop();
+      return;
+    }
+    const options: ChoiceOption[] = [];
+    if (category === "equipment") {
+      for (const offer of shop.equipment) {
+        const item = getItem(offer.itemId) as any;
+        const owned = this.snakeGame.getInventory().getItemCount(offer.itemId) > 0;
+        options.push({
+          id: `equipment:${offer.itemId}`,
+          title: `${item?.name ?? offer.itemId} - ${owned ? "owned" : `${offer.price} score`}`,
+          description: offer.note,
+        });
+      }
+    } else if (category === "styles") {
+      for (const style of shop.styles) {
+        const owned = this.snakeCosmetics.unlockedThemes.includes(style.id);
+        options.push({
+          id: `style:${style.id}`,
+          title: `${style.label} - ${owned ? "owned" : `${style.price} score`}`,
+          description: owned ? "Equip this village style." : "Buy and equip this village style.",
+        });
+      }
+    } else {
+      for (const hat of shop.hats) {
+        const owned = this.snakeCosmetics.unlockedHats.includes(hat.id);
+        const equipped = this.snakeCosmetics.activeHat === hat.id;
+        options.push({
+          id: `hat:${hat.id}`,
+          title: `${hat.label} - ${owned ? (equipped ? "equipped" : "owned") : `${hat.price} score`}`,
+          description: owned ? "Toggle this hat." : "Buy and equip this hat.",
+        });
+      }
+    }
+    options.push({ id: "back", title: "Back", description: "Return to the shop counter." });
+    this.villageShopPopup.show(shopkeeperName, options, (id) => {
+      if (id === "back") {
+        this.showVillageShopRoot(shopkeeperName);
+        return;
+      }
+      const [kind, value] = id.split(":");
+      const result =
+        kind === "equipment" ? this.purchaseVillageEquipment(value) :
+        kind === "style" ? this.purchaseVillageStyle(value as VillageShopStyleId) :
+        kind === "hat" ? this.purchaseOrToggleVillageHat(value as VillageShopHatId) :
+        null;
+      if (result) {
+        this.showQuestHintPopup(result.message, result.color);
+        this.showVillageShopCategory(shopkeeperName, category);
+      }
+    });
+  }
+
+  private closeVillageShop(): void {
+    this.villageShopPopup.hide();
+    this.paused = false;
   }
 
   private tryInteractQuestGiver(): boolean {
@@ -2316,6 +2585,7 @@ export default class SnakeScene extends Phaser.Scene {
             const accepted = this.snakeGame.acceptOfferedQuest();
             if (accepted) {
               this.isDirty = true;
+              this.applyPendingQuestCosmeticRewards();
             }
             this.closeQuestPopup();
           },
@@ -2648,7 +2918,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
-    const residents = room.village?.residents ?? [];
+    const residents = room.village ? [...room.village.residents, room.village.shopkeeper] : [];
     if (residents.length === 0 || this.questPopup.isVisible()) {
       return;
     }

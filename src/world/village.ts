@@ -74,6 +74,7 @@ const VILLAGER_NAMES = [
 ] as const;
 
 const VILLAGER_PORTRAITS = ["sage-1", "sage-2", "sage-3"] as const;
+const SHOPKEEPER_NAMES = ["Marlow", "Penny Coil", "Brindle", "Tillia"] as const;
 
 function setChar(layout: string[][], x: number, y: number, ch: string): void {
   if (y < 0 || y >= layout.length) return;
@@ -139,6 +140,7 @@ export function tryPlaceVillage(
 
   const questSpot = { x: plaza.left + Math.floor(plaza.width / 2), y: plaza.top + Math.floor(plaza.height / 2) };
   setChar(layout, questSpot.x, questSpot.y, "G");
+  const shopSpot = { x: plaza.left - 5, y: plaza.top + 3 };
 
   const residentSpots = [
     { x: plaza.left + 2, y: plaza.top + 2 },
@@ -160,6 +162,8 @@ export function tryPlaceVillage(
       y: spot.y,
     };
   });
+  const shopkeeperName = SHOPKEEPER_NAMES[Math.floor(rng() * SHOPKEEPER_NAMES.length)];
+  const shopkeeperPortrait = VILLAGER_PORTRAITS[Math.floor(rng() * VILLAGER_PORTRAITS.length)];
 
   return {
     questGiver: {
@@ -172,6 +176,11 @@ export function tryPlaceVillage(
       center: { x: questSpot.x, y: questSpot.y },
       lanterns,
       residents,
+      shopkeeper: {
+        ...buildHouseNpcProfile(shopkeeperName, shopkeeperPortrait),
+        x: shopSpot.x,
+        y: shopSpot.y,
+      },
     },
   };
 }

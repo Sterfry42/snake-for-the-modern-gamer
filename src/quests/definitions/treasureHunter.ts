@@ -16,6 +16,7 @@ class TreasureHunterQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(25);
+    runtime.addItem("cloak-firebreak", 1);
   }
 }
 

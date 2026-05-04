@@ -12,6 +12,7 @@ class ScoreFiftyQuest extends Quest {
 
   override onReward(runtime: QuestRuntime): void {
     runtime.addScore(15);
+    runtime.addCosmeticReward("style", "charcoal-silk");
   }
 }
 

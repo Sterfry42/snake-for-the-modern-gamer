@@ -11,6 +11,7 @@ import type { EquipmentSlot } from "../inventory/item.js";
 import type { Quest } from "../../quests.js";
 import { saveManager } from "../game/saveManager.js";
 import { i18n } from "../i18n/i18nManager.js";
+import type { VillageShopHatId, VillageShopStyleId } from "../shops/villageShop.js";
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -46,8 +47,8 @@ const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
 const CLICK_ROW_TOP_BIAS = 8;
 
-type TabId = "skills" | "inventory" | "customize" | "map" | "info";
-type SnakeThemeId = "classic" | "sunset" | "midnight" | "bone";
+type TabId = "skills" | "inventory" | "customize" | "map" | "cheats" | "info";
+type SnakeThemeId = VillageShopStyleId;
 
 interface TabDefinition {
   id: TabId;
@@ -60,6 +61,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
   { id: "customize", label: "Style", placeholder: "Buy palettes and swagger." },
   { id: "map", label: "Map", placeholder: "Explore to reveal more rooms." },
+  { id: "cheats", label: "Cheats", placeholder: "Enter cheat strings." },
   { id: "info", label: "Info" },
 ];
 
@@ -77,6 +79,13 @@ export class SkillTreeOverlay {
   private readonly mapBackground: Phaser.GameObjects.Rectangle;
   private readonly mapTitle: Phaser.GameObjects.Text;
   private readonly mapContainer: Phaser.GameObjects.Container;
+  private readonly cheatContainer: Phaser.GameObjects.Container;
+  private readonly cheatBackground: Phaser.GameObjects.Rectangle;
+  private readonly cheatTitle: Phaser.GameObjects.Text;
+  private readonly cheatInputText: Phaser.GameObjects.Text;
+  private readonly cheatApplyButton: Phaser.GameObjects.Text;
+  private cheatInputFocused = false;
+  private cheatCode = "";
   private readonly nodeVisuals: Map<string, NodeVisual> = new Map();
   private readonly tabLabels: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private readonly stubText: Phaser.GameObjects.Text | null;
@@ -90,11 +99,6 @@ export class SkillTreeOverlay {
   private selectedInventoryItemId: string | null = null;
   private inventoryHighlight?: Phaser.GameObjects.Rectangle;
   private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
-  private readonly equipmentContainer: Phaser.GameObjects.Container;
-  private readonly equipmentBackground: Phaser.GameObjects.Rectangle;
-  private readonly equipmentTitle: Phaser.GameObjects.Text;
-  private readonly equipmentLines: Map<string, Phaser.GameObjects.Text> = new Map();
-  private wasEquipmentVisible = false;
   private readonly customizationText: Phaser.GameObjects.Text;
   private readonly questListText: Phaser.GameObjects.Text;
   private customizationIndex: string[] = [];
@@ -151,6 +155,49 @@ export class SkillTreeOverlay {
     }).setVisible(false);
     this.mapGraphics = this.scene.add.graphics();
     this.mapContainer = this.scene.add.container(0, 0, [this.mapBackground, this.mapTitle, this.mapGraphics]).setVisible(false);
+
+    const cheatX = TREE_PADDING.horizontal;
+    const cheatY = TREE_PADDING.top - 8;
+    const cheatW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const cheatH = this.options.height - cheatY - TREE_PADDING.bottom + 4;
+    this.cheatBackground = this.scene.add
+      .rectangle(cheatX, cheatY, cheatW, cheatH, 0x0b1622, 0.72)
+      .setStrokeStyle(1, 0x244155)
+      .setOrigin(0, 0)
+      .setVisible(false);
+    this.cheatTitle = this.scene.add.text(cheatX + 10, cheatY + 8, "Cheat Menu", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#9ad1ff",
+    }).setVisible(false);
+    this.cheatInputText = this.scene.add.text(cheatX + 14, cheatY + 54, "", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#ffffff",
+      backgroundColor: "#071019",
+      padding: { left: 10, right: 10, top: 8, bottom: 8 },
+      fixedWidth: cheatW - 28,
+    }).setVisible(false).setInteractive({ useHandCursor: true });
+    this.cheatInputText.on("pointerdown", () => {
+      if (!this.visible || this.activeTab !== "cheats") return;
+      this.cheatInputFocused = true;
+      this.refreshCheatInputText();
+      this.announce("Type a cheat, then press Enter.", "#9ad1ff", 1600);
+    });
+    this.cheatApplyButton = this.scene.add.text(cheatX + 14, cheatY + 110, "Apply", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#5dd6a2",
+      backgroundColor: "#224433",
+      padding: { left: 12, right: 12, top: 6, bottom: 6 },
+    }).setVisible(false).setInteractive({ useHandCursor: true });
+    this.cheatApplyButton.on("pointerdown", () => {
+      if (!this.visible || this.activeTab !== "cheats") return;
+      this.applyCheatCode();
+    });
+    this.cheatContainer = this.scene.add
+      .container(0, 0, [this.cheatBackground, this.cheatTitle, this.cheatInputText, this.cheatApplyButton])
+      .setVisible(false);
 
     this.title = this.scene.add
       .text(this.options.width / 2, 24, "Pause Menu", {
@@ -338,6 +385,14 @@ export class SkillTreeOverlay {
         return;
       }
 
+      if (actionId.startsWith("hat:")) {
+        const hatId = actionId.split(":")[1] as VillageShopHatId;
+        const result = this.scene.purchaseOrToggleVillageHat(hatId);
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+        return;
+      }
+
       if (actionId === "walking-noise") {
         const result = this.scene.toggleDisableWalkingNoise();
         this.announce(result.message, result.color, 1800);
@@ -368,6 +423,7 @@ export class SkillTreeOverlay {
       this.connectionGraphics,
       this.connectionHighlight,
       this.mapContainer,
+      this.cheatContainer,
       this.detailPanel,
       this.title,
       this.scoreText,
@@ -381,51 +437,6 @@ export class SkillTreeOverlay {
       this.customizationText,
       this.questListText,
     ];
-    // Build equipment panel (hidden by default)
-    const equipX = TREE_PADDING.horizontal;
-    const equipY = TREE_PADDING.top - 8;
-    const equipW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
-    const equipH = this.options.height - equipY - TREE_PADDING.bottom + 4;
-    this.equipmentBackground = this.scene.add
-      .rectangle(equipX, equipY, equipW, equipH, 0x0b1622, 0.72)
-      .setStrokeStyle(1, 0x244155)
-      .setOrigin(0, 0)
-      .setVisible(false);
-    this.equipmentTitle = this.scene.add.text(equipX + 10, equipY + 8, "Equipment", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#9ad1ff",
-    }).setVisible(false);
-
-    const equipChildren: Phaser.GameObjects.GameObject[] = [this.equipmentBackground, this.equipmentTitle];
-    this.equipmentContainer = this.scene.add.container(0, 0, equipChildren).setVisible(false);
-
-    const equipSlots = ["weapon", "boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as const;
-    equipSlots.forEach((slot, idx) => {
-      const lineY = equipY + 40 + idx * 28;
-      const text = this.scene.add.text(equipX + 14, lineY, "", {
-        fontFamily: "monospace",
-        fontSize: "15px",
-        color: "#ffffff",
-      }).setVisible(false).setInteractive({ useHandCursor: true });
-      text.on("pointerdown", () => {
-        const equipped = this.scene.inventory.getEquipped(slot as unknown as EquipmentSlot);
-        if (equipped) {
-          void this.scene.unequipSlot(slot as unknown as EquipmentSlot);
-          this.refresh();
-          // Soft sparkle at the line
-          const cx = this.container.x + equipX + equipW / 2;
-          const cy = this.container.y + lineY - 6;
-          if ((this.scene as any).juice?.uiSparkle) {
-            (this.scene as any).juice.uiSparkle(cx, cy);
-          }
-        }
-      });
-      this.equipmentLines.set(slot, text);
-      this.equipmentContainer.add(text);
-    });
-
-    children.push(this.equipmentContainer);
     if (this.stubText) {
       children.push(this.stubText);
     }
@@ -579,6 +590,52 @@ export class SkillTreeOverlay {
     return true;
   }
 
+  handleCheatKeyDown(event: KeyboardEvent): boolean {
+    if (!this.visible || this.activeTab !== "cheats") {
+      return false;
+    }
+
+    this.cheatInputFocused = true;
+    const key = event.key;
+    if (key === "Enter") {
+      this.applyCheatCode();
+      return true;
+    }
+    if (key === "Backspace") {
+      this.cheatCode = this.cheatCode.slice(0, -1);
+      this.refreshCheatInputText();
+      return true;
+    }
+    if (key === "Escape") {
+      this.cheatInputFocused = false;
+      this.refreshCheatInputText();
+      return true;
+    }
+    if (key.length === 1 && this.cheatCode.length < 64) {
+      this.cheatCode += key;
+      this.refreshCheatInputText();
+      return true;
+    }
+    return key === " " || key === "Tab";
+  }
+
+  private applyCheatCode(): void {
+    const result = this.scene.applyCheatCode(this.cheatCode);
+    this.announce(result.message, result.color, 2200);
+    if (result.ok) {
+      this.cheatCode = "";
+    }
+    this.refreshCheatInputText();
+    this.refresh();
+  }
+
+  private refreshCheatInputText(): void {
+    const placeholder = this.cheatInputFocused ? "" : "click here and type a cheat";
+    const value = this.cheatCode || placeholder;
+    const cursor = this.cheatInputFocused ? "_" : "";
+    this.cheatInputText.setText(`> ${value}${cursor}`);
+  }
+
   private highlightInventoryItem(itemId: string): void {
     if (!this.visible || this.activeTab !== "inventory") return;
     const index = this.inventoryIndex.indexOf(itemId);
@@ -687,8 +744,8 @@ export class SkillTreeOverlay {
     const skillsActive = this.activeTab === "skills";
     const inventoryActive = this.activeTab === "inventory";
     const customizationActive = this.activeTab === "customize";
+    const cheatsActive = this.activeTab === "cheats";
     const infoActive = this.activeTab === "info";
-    const equipmentActive = false;
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
     this.customizationText.setVisible(customizationActive);
@@ -696,9 +753,6 @@ export class SkillTreeOverlay {
     if (!customizationActive) {
       this.clearCustomizationHover();
     }
-    this.equipmentContainer.setVisible(false);
-    this.equipmentBackground.setVisible(false);
-    this.equipmentTitle.setVisible(false);
     const mapActive = this.activeTab === "map";
     this.mapContainer.setVisible(mapActive);
     this.mapBackground.setVisible(mapActive);
@@ -709,10 +763,20 @@ export class SkillTreeOverlay {
     } else {
       this.mapGraphics.clear();
     }
+    this.cheatContainer.setVisible(cheatsActive);
+    this.cheatBackground.setVisible(cheatsActive);
+    this.cheatTitle.setVisible(cheatsActive);
+    this.cheatInputText.setVisible(cheatsActive);
+    this.cheatApplyButton.setVisible(cheatsActive);
+    if (cheatsActive) {
+      this.refreshCheatInputText();
+    } else {
+      this.cheatInputFocused = false;
+    }
 
     if (this.stubText) {
       const mapActive = this.activeTab === "map";
-      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive && !infoActive;
+      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive && !cheatsActive && !infoActive;
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
@@ -772,9 +836,22 @@ export class SkillTreeOverlay {
       }
     }
 
+    if (cheatsActive) {
+      this.detailTitle.setText("Cheats").setVisible(true);
+      this.detailSubtitle.setText("String Input").setVisible(true);
+      this.detailRankText.setText("").setVisible(false);
+      this.detailBody
+        .setText("Supported cheats:\n\ninvestingincrypto\nimawiddlebabywhoneedshelp")
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText("Type a cheat string and press Enter.");
+        this.hintText.setColor("#9ad1ff");
+      }
+    }
+
     if (customizationActive) {
       const state = this.scene.getSnakeCustomizationState();
-      const lines: string[] = ["Click a style to buy or equip it.", ""];
+      const lines: string[] = ["Style", ""];
       const index: string[] = ["", ""];
       const rowMap: Array<{ row: number; actionId: string }> = [];
       let visualRow = 0;
@@ -790,19 +867,23 @@ export class SkillTreeOverlay {
         rowMap.push({ row: visualRow, actionId: `theme:${theme.id}` });
         visualRow += this.countRenderedLines(line);
       }
-      const hatStatus = !state.cowboyHatUnlocked
-        ? `${36} score`
-        : state.cowboyHatEquipped
-          ? "equipped"
-          : "owned";
-      lines.push("");
-      index.push("");
-      visualRow += 1;
-      const hatLine = `Cowboy Hat [${hatStatus}]`;
-      lines.push(hatLine);
-      index.push("hat");
-      rowMap.push({ row: visualRow, actionId: "hat" });
-      visualRow += this.countRenderedLines(hatLine);
+      lines.push("", "Hats");
+      index.push("", "");
+      visualRow += 2;
+      const hats = this.scene.getSnakeHatDefinitions();
+      for (const hat of hats) {
+        const owned = state.unlockedHats.includes(hat.id);
+        const equipped = state.activeHat === hat.id;
+        const price = owned ? (equipped ? "equipped" : "owned") : `${hat.price} score`;
+        const line = `${equipped ? "> " : ""}${hat.label} [${price}]`;
+        lines.push(line);
+        index.push(`hat:${hat.id}`);
+        rowMap.push({ row: visualRow, actionId: `hat:${hat.id}` });
+        visualRow += this.countRenderedLines(line);
+      }
+      lines.push("", "Village shopkeepers sell more hats and local palettes.");
+      index.push("", "");
+      visualRow += 2;
       lines.push("");
       index.push("");
       visualRow += 1;
@@ -839,48 +920,15 @@ export class SkillTreeOverlay {
       const languageDesc = state.languageSelected
         ? "Set your game language to Spanish."
         : "Unlock Spanish language for 200 score.";
-      this.detailBody.setText(`Spend score on new palettes, a cowboy hat, and language options. ${languageDesc}`).setVisible(true);
+      this.detailBody.setText(`Equip owned palettes and hats. Village shopkeepers sell the broader catalog. ${languageDesc}`).setVisible(true);
       if (!this.hintSticky) {
         this.hintText.setText("Customize your serpent's colors and hat.");
         this.hintText.setColor("#9ad1ff");
       }
-    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills" && this.activeTab !== "info") {
+    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills" && this.activeTab !== "info" && this.activeTab !== "cheats") {
       this.customizationRowMap = [];
       this.clearPerkDetails(true);
     }
-
-    if (equipmentActive) {
-      // Populate equipment panel
-      const slots: EquipmentSlot[] = ["weapon", "boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
-      for (const slot of slots) {
-        const text = this.equipmentLines.get(slot as unknown as string);
-        if (!text) continue;
-        const equipped = this.scene.inventory.getEquipped(slot);
-        const label = (slot as unknown as string).charAt(0).toUpperCase() + (slot as unknown as string).slice(1);
-        if (equipped) {
-          const item = getItem(equipped);
-          text.setText(`${label}: ${item?.name ?? equipped}  [click to unequip]`).setVisible(true).setColor("#c8ffe1");
-        } else {
-          text.setText(`${label}: — empty —`).setVisible(true).setColor("#7895b4");
-        }
-      }
-      if (!this.wasEquipmentVisible) {
-        // Simple tab jingle + sparkle burst
-        const centerX = this.container.x + this.options.width / 2 - DETAIL_PANEL_WIDTH / 2 - DETAIL_PANEL_MARGIN / 2;
-        const centerY = this.container.y + this.options.height / 2 + 10;
-        if ((this.scene as any).juice?.uiTabSwitch) {
-          (this.scene as any).juice.uiTabSwitch();
-        }
-        if ((this.scene as any).juice?.uiSparkle) {
-          (this.scene as any).juice.uiSparkle(centerX, centerY);
-        }
-      }
-    } else {
-      // Hide equipment texts when not active
-      for (const t of this.equipmentLines.values()) t.setVisible(false);
-    }
-
-    this.wasEquipmentVisible = equipmentActive;
 
     if (!skillsActive) {
       this.connectionGraphics.clear();

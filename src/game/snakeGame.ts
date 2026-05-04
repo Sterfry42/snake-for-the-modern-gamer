@@ -659,8 +659,9 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag("appleStreakMax", best);
       this.setFlag("lastAppleTimeMs", nowMs);
 
+      const appleScoreMultiplier = Math.max(1, Number(this.getFlag<number>("cheat.appleScoreMultiplier") ?? 1));
       if (consumption.rewards.bonusScore > 0) {
-        this.addScore(consumption.rewards.bonusScore);
+        this.addScore(consumption.rewards.bonusScore * appleScoreMultiplier);
       }
 
       const extraGrowth = Math.max(0, consumption.rewards.growth - 1);
@@ -1241,6 +1242,19 @@ export class SnakeGame implements QuestRuntime {
 
   getInventory(): InventorySystem {
     return this.inventory;
+  }
+
+  addItem(itemId: string, count = 1): void {
+    if (!getItem(itemId)) {
+      return;
+    }
+    this.inventory.addItem(itemId, count);
+    this.setFlag("ui.itemReward", { itemId, count });
+  }
+
+  addCosmeticReward(type: "style" | "hat", id: string): void {
+    const pending = this.getFlag<Array<{ type: "style" | "hat"; id: string }>>("quest.pendingCosmeticRewards") ?? [];
+    this.setFlag("quest.pendingCosmeticRewards", [...pending, { type, id }]);
   }
 
   getSaveData(): GameSaveData {

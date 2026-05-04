@@ -23,6 +23,7 @@ export interface RoomSnapshot {
     center: Vector2Like;
     lanterns: Vector2Like[];
     residents: Array<NpcProfile & { x: number; y: number }>;
+    shopkeeper: NpcProfile & { x: number; y: number };
   };
   temperatureReliefs?: Array<{ x: number; y: number; kind: "warm" | "cool" }>;
   biomeId: BiomeId;
