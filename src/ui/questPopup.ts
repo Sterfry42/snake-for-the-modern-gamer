@@ -2,6 +2,7 @@ import Phaser from "phaser";
 import type SnakeScene from "../scenes/snakeScene.js";
 import type { Quest } from "../../quests.js";
 import { RuntimeSpriteFactory } from "./runtimeSpriteFactory.js";
+import { i18n } from "../i18n/i18nManager.js";
 import {
   questPortraitRecipe,
   type QuestPortraitPalette,
@@ -108,7 +109,7 @@ export class QuestPopup {
         onAccept: callbacks.onAccept,
         onReject: callbacks.onReject,
       },
-      { acceptLabel: "Accept", rejectLabel: "Reject" }
+      { acceptLabel: i18n.getCommon("quest.accept"), rejectLabel: i18n.getCommon("quest.refuse") }
     );
   }
 
@@ -125,8 +126,8 @@ export class QuestPopup {
     this.pageIndex = 0;
     this.title?.setText(title);
     this.portrait?.setTexture(this.resolvePortraitKey(speaker.portraitId)).setVisible(true);
-    this.acceptButton?.setText(labels.acceptLabel ?? "Yes");
-    this.rejectButton?.setText(labels.rejectLabel ?? "Beat it");
+    this.acceptButton?.setText(labels.acceptLabel ?? i18n.getCommon("quest.accept"));
+    this.rejectButton?.setText(labels.rejectLabel ?? i18n.getCommon("quest.refuse"));
     this.nextButton?.setText(labels.nextLabel ?? (callbacks.onAccept || callbacks.onReject ? "Next" : labels.closeLabel ?? "Close"));
     this.refreshDialoguePage();
     this.container?.setVisible(true);

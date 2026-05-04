@@ -16,6 +16,7 @@ import {
   type QuestGiverSpritePalette,
 } from "../ui/spriteRecipes/questGiverRecipe.js";
 import { getQuestDialogue } from "../quests/questDialogue.js";
+import { i18n } from "../i18n/i18nManager.js";
 import { createMobileControls, type MobileControls } from "../ui/mobileControls.js";
 import type { Quest } from "../../quests.js";
 import type { AppleSnapshot } from "../apples/types.js";
@@ -120,111 +121,12 @@ const DEATH_DIALOGUE_BRANCHES: readonly string[][] = [
   [
     "Behold the bright wound between one breath and the next.",
     "All crawling things learn, in time, the weight of stillness.",
-  ],
-  [
-    "Little pilgrim, thy path was narrow, and yet thou filled it with hunger.",
-    "Life is not spared because it is loved. It is spent because it was given.",
-  ],
-  [
-    "The dark has counted thee and found thee present.",
-    "Fear not the ending. Fear only the life that noticed nothing before it.",
-  ],
-];
-
-const DEATH_REASON_DIALOGUE: Partial<Record<string, readonly string[]>> = {
-  water: [
-    "Water is a quiet executioner.",
-    "Thou mistook depth for floor, and the lake accepted the compliment.",
-  ],
-  wall: [
-    "The wall did not hate thee. It merely stood where truth had always stood.",
-    "A soft body may argue with stone only once.",
-  ],
-  self: [
-    "Few creatures are granted the honor of becoming their own calamity.",
-    "Thou didst close the circle, and the circle answered.",
-  ],
-  boss: [
-    "A greater hunger found thee.",
-    "Predator and prey are titles the living borrow until the teeth arrive.",
-  ],
-  shark: [
-    "The sea grew teeth and named thee supper.",
-    "Thou crossed the blue chapel, and its oldest mouth opened.",
-  ],
-  bullet: [
-    "A small piece of metal made a brief sermon of thy body.",
-    "So ends many a proud pilgrimage: loudly, and from a distance.",
-  ],
-  temperature: [
-    "The air itself judged thee wanting.",
-    "Heat and cold are old gods. They do not need faces to be cruel.",
-  ],
-  shielded: [
-    "Even protection has its appetite.",
-    "Thou reached for safety and found its hidden blade.",
-  ],
-};
-
-const REVIVE_DIALOGUE_BRANCHES: readonly string[][] = [
-  [
-    "Yet a coal remains beneath the ash.",
-    "Return now. Let the living world learn what it failed to finish.",
-  ],
-  [
-    "One thread still binds thee to the warm and ruinous place.",
-    "Go back through it. Spend thy mercy with greater care.",
-  ],
-  [
-    "Thy grave has opened its mouth, but not yet swallowed.",
-    "Rise, and carry this interruption like a scar.",
-  ],
-];
-
-const FINAL_DIALOGUE_BRANCHES: readonly string[][] = [
-  [
-    "Well done, little serpent. Thy work is ended.",
-    "Lay down thy score, thy hungers, and thy bright foolish errands.",
-  ],
-  [
-    "The ledger closes, and it does not do so in anger.",
-    "What was taken has been counted. What was learned may travel onward.",
-  ],
-  [
-    "Thou didst serve life by moving through it until movement failed.",
-    "May the next life greet thee with kinder walls and stranger fruit.",
-  ],
-];
-
-const ANGEL_TAUNT_DIALOGUE: readonly string[][] = [
-  [
-    "Boldness is common among the recently dead.",
-    "Mistake it not for courage. Courage requires the possibility of wisdom.",
-  ],
-  [
-    "Thou barkest at the gate as though noise were a key.",
-    "I have buried kings who made richer music with fewer teeth.",
-  ],
-  [
-    "Again? Very well. Let mercy put on armor.",
-    "Return to the living, little serpent. I shall meet thee there with hands unsoftened.",
-  ],
-];
-
-const ANGEL_EXECUTION_DIALOGUE: readonly string[][] = [
-  [
-    "There. The mouth closes.",
-    "I have taken thy borrowed lives, every last bright coin of them.",
-  ],
-  [
-    "Look upon thy little score and call it a monument, if it comforts thee.",
-    "The stone will not remember. I barely shall.",
-  ],
-  [
     "So much length, and still no reach.",
     "Go now to the next life. Try arriving with less noise.",
   ],
 ];
+
+const LANGUAGE_SELECTOR_COST = 200;
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
@@ -281,6 +183,8 @@ export default class SnakeScene extends Phaser.Scene {
     cowboyHatEquipped: false,
     loudWalkingNoiseUnlocked: false,
     loudWalkingNoiseEnabled: false,
+    languageSelected: false,
+    languageSet: false,
   };
   private pendingFlags: Record<string, unknown> = {};
   private readonly flagsProxy: Record<string, unknown>;
@@ -585,6 +489,8 @@ export default class SnakeScene extends Phaser.Scene {
       cowboyHatEquipped: false,
       loudWalkingNoiseUnlocked: false,
       loudWalkingNoiseEnabled: false,
+      languageSelected: false,
+      languageSet: false,
     };
     this.juice.setMovementNoiseMultiplier(1);
     this.paused = startPaused;
@@ -2075,6 +1981,8 @@ export default class SnakeScene extends Phaser.Scene {
       cowboyHatEquipped: this.snakeCosmetics.cowboyHatEquipped,
       loudWalkingNoiseUnlocked: this.snakeCosmetics.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
+      languageSelected: this.snakeCosmetics.languageSelected,
+      languageSet: this.snakeCosmetics.languageSet,
     };
   }
 
@@ -2317,8 +2225,8 @@ export default class SnakeScene extends Phaser.Scene {
           },
         },
         {
-          acceptLabel: "Yes",
-          rejectLabel: "Beat it",
+          acceptLabel: i18n.getCommon("quest.accept"),
+          rejectLabel: i18n.getCommon("quest.refuse"),
           nextLabel: "Next",
         },
         speaker
@@ -2459,8 +2367,8 @@ export default class SnakeScene extends Phaser.Scene {
         },
       },
       {
-        acceptLabel: encounter.acceptLabel ?? "Accept",
-        rejectLabel: encounter.rejectLabel ?? "Refuse",
+        acceptLabel: encounter.acceptLabel ?? i18n.getCommon("quest.accept"),
+        rejectLabel: encounter.rejectLabel ?? i18n.getCommon("quest.refuse"),
         nextLabel: "Next",
       },
       { portraitId: encounter.portraitId }
@@ -2826,5 +2734,34 @@ export default class SnakeScene extends Phaser.Scene {
         };
     }
   }
-}
 
+  toggleLanguage(): { ok: boolean; message: string; color: string } {
+    const cost = LANGUAGE_SELECTOR_COST;
+    if (!this.snakeCosmetics.languageSelected) {
+      if (this.score < cost) {
+        return {
+          ok: false,
+          message: `Spanish language costs ${cost} score.`,
+          color: "#ff6b6b",
+        };
+      }
+      this.addScoreDirect(-cost);
+      this.snakeCosmetics.languageSelected = true;
+      this.isDirty = true;
+    }
+
+    if (!this.snakeCosmetics.languageSet) {
+      i18n.setLanguage('es');
+      this.snakeGame.saveLanguagePreference('es');
+      this.snakeCosmetics.languageSet = true;
+    }
+
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: "Language set to Spanish.",
+      color: "#5dd6a2",
+    };
+  }
+
+}
