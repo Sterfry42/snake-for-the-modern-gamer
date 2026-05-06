@@ -76,6 +76,7 @@ private build(): void {
   }
 
   private saveGame(): void {
+    this.scene.prepareCharacterSave();
     saveManager.save(
       this.scene.snakeGame,
       this.scene.chosenReligionId ? { id: this.scene.chosenReligionId, mods: this.scene.religionMods } : undefined,
@@ -100,6 +101,7 @@ private build(): void {
     );
 
     if (success) {
+      this.scene.restoreCharacterSaveState();
       this.scene.juice.announce("Game loaded!", "#4da3ff", 1000);
     } else {
       this.scene.juice.announce("Failed to load game!", "#ff6b6b", 1000);

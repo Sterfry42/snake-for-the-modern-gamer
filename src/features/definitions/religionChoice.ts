@@ -71,6 +71,10 @@ class ReligionChoiceFeature extends Feature {
 
   private scheduleChoiceFlow(scene: SnakeScene): void {
     scene.time.delayedCall(30, () => {
+      if ((scene as any).titleVisible || !scene.getFlag<boolean>("run.startChoicesReady")) {
+        this.scheduleChoiceFlow(scene);
+        return;
+      }
       scene.paused = true;
       scene.skillTree.hideOverlay();
       this.showChoiceFlow(scene);
@@ -88,6 +92,7 @@ class ReligionChoiceFeature extends Feature {
       const candidates = pickN(RELIGIONS, 3, rng);
       const options: ChoiceOption[] = candidates.map((r) => ({ id: r.id, title: r.name, description: r.description }));
       this.popup?.show("Choose your faith", options, (id) => {
+        scene.paused = true;
         const chosen = RELIGIONS.find((r) => r.id === id);
         if (chosen) {
           (scene as any).setReligionChoice?.(chosen.id, chosen.mods);
@@ -101,6 +106,7 @@ class ReligionChoiceFeature extends Feature {
       const candidates = pickN(BACKGROUNDS, 3, rng);
       const options: ChoiceOption[] = candidates.map((b) => ({ id: b.id, title: b.name, description: b.description }));
       this.popup?.show("Choose your background", options, (id) => {
+        scene.paused = true;
         const chosen = BACKGROUNDS.find((b) => b.id === id);
         if (chosen) {
           (scene as any).setBackgroundChoice?.(chosen.id, chosen.mods);
@@ -114,10 +120,12 @@ class ReligionChoiceFeature extends Feature {
       const candidates = pickN(CLASSES, 3, rng);
       const options: ChoiceOption[] = candidates.map((c) => ({ id: c.id, title: c.name, description: c.description }));
       this.popup?.show("Choose your class", options, (id) => {
+        scene.paused = true;
         const chosen = CLASSES.find((c) => c.id === id);
         if (chosen) {
           (scene as any).setClassChoice?.(chosen.id, chosen.mods);
           scene.juice.skillTreeOpened();
+          scene.setFlag("run.startChoicesReady", undefined);
           scene.paused = false;
           this.flowActive = false;
           this.popup?.hide();

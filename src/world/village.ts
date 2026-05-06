@@ -108,6 +108,16 @@ function drawHouse(layout: string[][], left: number, top: number, width: number,
   setChar(layout, cx, trimY, "T");
 }
 
+function drawMarketStall(layout: string[][], left: number, top: number): void {
+  for (let x = left; x < left + 5; x++) {
+    setChar(layout, x, top, "S");
+    setChar(layout, x, top + 1, "A");
+    setChar(layout, x, top + 2, "E");
+  }
+  setChar(layout, left, top + 2, "L");
+  setChar(layout, left + 4, top + 2, "L");
+}
+
 export function tryPlaceVillage(
   layout: string[][],
   grid: GridConfig,
@@ -140,7 +150,9 @@ export function tryPlaceVillage(
 
   const questSpot = { x: plaza.left + Math.floor(plaza.width / 2), y: plaza.top + Math.floor(plaza.height / 2) };
   setChar(layout, questSpot.x, questSpot.y, "G");
-  const shopSpot = { x: plaza.left - 5, y: plaza.top + 3 };
+  const stall = { left: plaza.left + 1, top: plaza.top - 3 };
+  drawMarketStall(layout, stall.left, stall.top);
+  const shopSpot = { x: stall.left + 2, y: stall.top + 2 };
 
   const residentSpots = [
     { x: plaza.left + 2, y: plaza.top + 2 },

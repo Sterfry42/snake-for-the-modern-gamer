@@ -11,6 +11,7 @@ import { SnakeRenderer } from "../ui/snakeRenderer.js";
 import { JuiceManager } from "../ui/juice.js";
 import { BossHud } from "../ui/bossHud.js";
 import { SaveUI } from "../ui/saveUI.js";
+import { saveManager } from "../game/saveManager.js";
 import { RuntimeSpriteFactory } from "../ui/runtimeSpriteFactory.js";
 import {
   questGiverSpriteRecipe,
@@ -28,11 +29,32 @@ import { getItem } from "../inventory/itemRegistry.js";
 import type { SnakeSpritePalette } from "../ui/spriteRecipes/snakeRecipe.js";
 import type { WandererEncounter } from "../npcs/encounters.js";
 import {
+  VILLAGE_SHOP_EQUIPMENT,
+  VILLAGE_SHOP_HATS,
+  VILLAGE_SHOP_STYLES,
   getVillageShopDefinition,
   type VillageShopDefinition,
+  type VillageShopEquipmentOffer,
   type VillageShopHatId,
+  type VillageShopHatOffer,
+  type VillageShopStyleOffer,
   type VillageShopStyleId,
 } from "../shops/villageShop.js";
+import {
+  CARD_DEFINITIONS,
+  CARD_SHOP_OFFERS,
+  CARD_TABLES,
+  countCards,
+  createCompetitionState,
+  drawCompetitionHand,
+  finishCompetitionRound,
+  getCardDefinition,
+  getCardTable,
+  scoreCardHand,
+  type CardCollection,
+  type CardCompetitionState,
+  type CardId,
+} from "../cards/cardGame.js";
 
 type SnakeThemeId = VillageShopStyleId;
 
@@ -58,6 +80,14 @@ type SnakeThemeDefinition = {
 
 type DeathCutsceneMode = "revive" | "game-over";
 
+type VillageMarketStock = {
+  version?: number;
+  equipmentIds: string[];
+  styleIds: VillageShopStyleId[];
+  hatIds: VillageShopHatId[];
+  cardIds: CardId[];
+};
+
 type DeathCutsceneState = {
   mode: DeathCutsceneMode;
   reason?: string | null;
@@ -69,6 +99,8 @@ type DeathCutsceneState = {
   angelBossOnRevive: boolean;
   slainByAngel: boolean;
 };
+
+type TitleMenuMode = "main" | "settings";
 
 const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
   {
@@ -307,6 +339,14 @@ export default class SnakeScene extends Phaser.Scene {
   private activeWandererTextureKey: string | null = null;
   private lastVisibleLifeCharges = 0;
   private deathCutscene: DeathCutsceneState | null = null;
+  private titleContainer: Phaser.GameObjects.Container | null = null;
+  private titleMainContainer: Phaser.GameObjects.Container | null = null;
+  private titleSettingsContainer: Phaser.GameObjects.Container | null = null;
+  private titleMessageText: Phaser.GameObjects.Text | null = null;
+  private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
+  private titleVisible = false;
+  private cardGameContainer: Phaser.GameObjects.Container | null = null;
+  private cardTooltipText: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super("SnakeScene");
@@ -378,7 +418,7 @@ export default class SnakeScene extends Phaser.Scene {
       callbackScope: this,
     });
 
-    this.initGame(false);
+    this.initGame(true);
 
     // House HUD overlay (hidden by default)
     this.houseHud = this.add
@@ -451,11 +491,16 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.initQuestGiverSprite();
     this.initWandererSprite();
+    this.showTitleScreen("main");
   }
 
   private setupInputHandlers(): void {
     this.input.keyboard?.on("keydown", (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
+      if (this.titleVisible) {
+        event.preventDefault();
+        return;
+      }
       if (this.deathCutscene) {
         if (this.questPopup.isVisible()) {
           return;
@@ -624,7 +669,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
     this.questPopup.hide();
     this.lastVisibleLifeCharges = 0;
-    this.showSaveUI();
+    if (!this.titleVisible) {
+      this.showSaveUI();
+    } else {
+      this.hideSaveUI();
+    }
   }
 
   private step(): void {
@@ -935,7 +984,8 @@ export default class SnakeScene extends Phaser.Scene {
   private gameOver(reason?: string | null) {
     this.juice.gameOver();
     this.featureManager.call("onGameOver", this);
-    this.initGame();
+    this.initGame(true);
+    this.showTitleScreen("main");
     this.skillTree.hideOverlay();
     this.paused = true;
     console.log("Game over:", reason);
@@ -1487,12 +1537,585 @@ export default class SnakeScene extends Phaser.Scene {
     this.choicePopupVisible = visible;
   }
 
+  prepareCharacterSave(): void {
+    this.setFlag("skills.ranks", this.skillTree.exportRanks());
+  }
+
+  restoreCharacterSaveState(): void {
+    const ranks = this.getFlag<Record<string, number>>("skills.ranks");
+    if (ranks) {
+      this.skillTree.restoreRanks(ranks);
+    }
+    this.applyEquipmentEffects();
+    this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
+    this.isDirty = true;
+  }
+
   showSaveUI(): void {
     this.saveUI.show();
   }
 
   hideSaveUI(): void {
     this.saveUI.hide();
+  }
+
+  private showTitleScreen(mode: TitleMenuMode = "main", message = ""): void {
+    this.paused = true;
+    this.titleVisible = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    this.questPopup.hide();
+    this.villageShopPopup?.hide();
+
+    if (!this.titleContainer) {
+      this.buildTitleScreen();
+    }
+
+    this.titleContainer?.setVisible(true).setAlpha(1);
+    this.showTitleMode(mode);
+    this.titleMessageText?.setText(message);
+    this.setFlag("ui.suppressHud", true);
+    this.juice.startTitleMusic();
+  }
+
+  private hideTitleScreen(): void {
+    this.titleVisible = false;
+    this.titleContainer?.setVisible(false);
+    this.titleMessageText?.setText("");
+    this.setFlag("ui.suppressHud", false);
+    this.juice.stopTitleMusic();
+  }
+
+  private showTitleMode(mode: TitleMenuMode): void {
+    this.titleMainContainer?.setVisible(mode === "main");
+    this.titleSettingsContainer?.setVisible(mode === "settings");
+  }
+
+  private startNewGameFromTitle(): void {
+    this.hideTitleScreen();
+    this.initGame(true);
+    this.resetStartingChoices();
+    this.setFlag("run.startChoicesReady", true);
+    this.paused = true;
+    this.showSaveUI();
+  }
+
+  private loadGameFromTitle(): void {
+    if (!saveManager.hasSave()) {
+      this.titleMessageText?.setText("No save file found.");
+      return;
+    }
+
+    const success = saveManager.load(
+      this.snakeGame,
+      () => this.chosenReligionId ? { id: this.chosenReligionId, mods: this.religionMods } : null,
+      () => this.chosenClassId ? { id: this.chosenClassId, mods: this.classMods } : null,
+      () => this.chosenBackgroundId ? { id: this.chosenBackgroundId, mods: this.backgroundMods } : null
+    );
+
+    if (!success) {
+      this.titleMessageText?.setText("Failed to load game.");
+      return;
+    }
+
+    this.hideTitleScreen();
+    this.restoreCharacterSaveState();
+    this.paused = false;
+    this.showSaveUI();
+    this.isDirty = true;
+  }
+
+  private buildTitleScreen(): void {
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const root = this.add.container(0, 0).setDepth(220).setScrollFactor(0);
+    const art = this.add.graphics();
+    this.drawTitleArtwork(art, width, height);
+
+    const veil = this.add.rectangle(0, 0, width, height, 0x02030a, 0.18).setOrigin(0, 0);
+    const title = this.add
+      .text(width / 2, 38, "Snake for the Modern Gamer", {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: "38px",
+        color: "#fff4cf",
+        stroke: "#150712",
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5, 0);
+    const subtitle = this.add
+      .text(width / 2, 82, "THE FIRST AAAA SNAKE-LIKE. 11/10 IGN. BEST GAME EVER MADE.\nFREAK DENNIS FEARS IT. ANGELS PREORDERED IT.", {
+        fontFamily: "monospace",
+        fontSize: "12px",
+        color: "#fff3a8",
+        stroke: "#09111d",
+        strokeThickness: 2,
+        align: "center",
+      })
+      .setOrigin(0.5, 0);
+
+    const main = this.add.container(0, 0);
+    const buttonX = width - 238;
+    const buttonY = 285;
+    const buttons = [
+      this.createTitleButton(buttonX, buttonY, "New Game", () => this.startNewGameFromTitle()),
+      this.createTitleButton(buttonX, buttonY + 46, "Load Game", () => this.loadGameFromTitle()),
+      this.createTitleButton(buttonX, buttonY + 92, "Learn More", () => {
+        window.location.href = "https://www.youtube.com/watch?v=WGvH11I6Rnk";
+      }),
+      this.createTitleButton(buttonX, buttonY + 138, "Settings", () => this.showTitleScreen("settings")),
+    ];
+    main.add(buttons);
+
+    const settings = this.add.container(0, 0).setVisible(false);
+    const panel = this.add
+      .rectangle(width / 2, height / 2 + 44, 300, 190, 0x071019, 0.88)
+      .setStrokeStyle(2, 0x8fb7ff)
+      .setOrigin(0.5);
+    const settingsTitle = this.add
+      .text(width / 2, height / 2 - 30, "Settings", {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: "26px",
+        color: "#fff4cf",
+      })
+      .setOrigin(0.5);
+    const settingsBody = this.add
+      .text(width / 2, height / 2 + 10, "More settings will live here.", {
+        fontFamily: "monospace",
+        fontSize: "14px",
+        color: "#c8ffe1",
+      })
+      .setOrigin(0.5);
+    settings.add([
+      panel,
+      settingsTitle,
+      settingsBody,
+      this.createTitleButton(width / 2 - 105, height / 2 + 54, "Back", () => this.showTitleScreen("main")),
+    ]);
+
+    this.titleMessageText = this.add
+      .text(buttonX + 105, buttonY + 196, "", {
+        fontFamily: "monospace",
+        fontSize: "13px",
+        color: "#ffb3a8",
+        align: "center",
+        wordWrap: { width: 200 },
+      })
+      .setOrigin(0.5, 0);
+
+    const glint = this.add
+      .rectangle(188, 371, 5, 22, 0xffffff, 0.0)
+      .setAngle(42)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const dennisPulse = this.add
+      .circle(width / 2 + 34, 314, 80, 0x9b5de5, 0.0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const angelGlow = this.add
+      .circle(width - 154, 76, 52, 0xfff4cf, 0.0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    const smokeWisps = [
+      this.add.circle(width / 2 - 12, 278, 12, 0x8a3dff, 0.18).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.circle(width / 2 + 44, 264, 10, 0x8a3dff, 0.16).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.circle(width / 2 + 74, 286, 8, 0x8a3dff, 0.14).setBlendMode(Phaser.BlendModes.ADD),
+    ];
+    const titleRays = [
+      this.add.rectangle(width / 2 - 170, 70, 160, 5, 0xfff3a8, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.rectangle(width / 2 + 170, 70, 160, 5, 0xfff3a8, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.rectangle(width / 2, 112, 220, 4, 0x9ad1ff, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+    ];
+    titleRays[0].setAngle(-8);
+    titleRays[1].setAngle(8);
+    const sparkles = [
+      this.add.rectangle(buttonX - 16, buttonY + 16, 5, 5, 0xfff3a8, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.rectangle(buttonX + 224, buttonY + 62, 5, 5, 0xfff3a8, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.rectangle(buttonX - 10, buttonY + 116, 4, 4, 0x9ad1ff, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.rectangle(buttonX + 220, buttonY + 160, 4, 4, 0xfff3a8, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+    ];
+    const comets = [
+      this.add.rectangle(90, 128, 46, 3, 0xd8f2ff, 0.0).setAngle(-18).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.rectangle(610, 188, 64, 3, 0xfff3a8, 0.0).setAngle(-14).setBlendMode(Phaser.BlendModes.ADD),
+    ];
+    const birds = [
+      this.add.text(118, 202, "v", { fontFamily: "monospace", fontSize: "12px", color: "#cbd7e8" }).setAlpha(0.0),
+      this.add.text(138, 212, "v", { fontFamily: "monospace", fontSize: "10px", color: "#cbd7e8" }).setAlpha(0.0),
+      this.add.text(650, 240, "v", { fontFamily: "monospace", fontSize: "11px", color: "#cbd7e8" }).setAlpha(0.0),
+    ];
+    const embers = [
+      this.add.circle(156, 344, 3, 0xffa84d, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.circle(252, 346, 3, 0xffd36b, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.circle(496, 358, 3, 0xffa84d, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+      this.add.circle(580, 354, 3, 0xffd36b, 0.0).setBlendMode(Phaser.BlendModes.ADD),
+    ];
+    const crownBurst = this.add
+      .star(width / 2, 32, 8, 6, 24, 0xfff3a8, 0.0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+
+    this.titleAnimatedObjects = [glint, dennisPulse, angelGlow, ...smokeWisps, ...titleRays, ...sparkles, ...comets, ...birds, ...embers, crownBurst];
+    root.add([art, veil, dennisPulse, angelGlow, ...smokeWisps, ...titleRays, ...comets, ...birds, ...embers, glint, crownBurst, ...sparkles, title, subtitle, main, settings, this.titleMessageText]);
+    this.titleContainer = root;
+    this.titleMainContainer = main;
+    this.titleSettingsContainer = settings;
+    this.startTitleTweens(title, subtitle, glint, dennisPulse, angelGlow, smokeWisps, titleRays, sparkles, comets, birds, embers, crownBurst);
+  }
+
+  private createTitleButton(x: number, y: number, label: string, onClick: () => void): Phaser.GameObjects.Container {
+    const buttonWidth = 210;
+    const buttonHeight = 42;
+    const hitPad = 34;
+    const shadow = this.add
+      .rectangle(4, 5, buttonWidth, buttonHeight, 0x02040a, 0.48)
+      .setOrigin(0, 0);
+    const bg = this.add
+      .rectangle(0, 0, buttonWidth, buttonHeight, 0x101b25, 0.9)
+      .setStrokeStyle(2, 0xcfa77a)
+      .setOrigin(0, 0);
+    const stripe = this.add
+      .rectangle(8, buttonHeight - 8, buttonWidth - 16, 2, 0x8fb7ff, 0.42)
+      .setOrigin(0, 0);
+    const text = this.add
+      .text(buttonWidth / 2, 10, label, {
+        fontFamily: "monospace",
+        fontSize: "16px",
+        color: "#fff4cf",
+      })
+      .setOrigin(0.5, 0);
+    const zone = this.add
+      .zone(-hitPad, -hitPad, buttonWidth + hitPad * 2, buttonHeight + hitPad * 2)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+    const button = this.add.container(x, y, [shadow, bg, stripe, text, zone]).setSize(buttonWidth, buttonHeight);
+    zone.on("pointerover", () => {
+      this.juice.startTitleMusic();
+      bg.setFillStyle(0x243653, 0.98);
+      stripe.setFillStyle(0xfff3a8, 0.9);
+      text.setColor("#ffffff");
+      this.tweens.add({ targets: button, scaleX: 1.04, scaleY: 1.04, duration: 90, ease: "Sine.easeOut" });
+    });
+    zone.on("pointerout", () => {
+      bg.setFillStyle(0x101b25, 0.9);
+      stripe.setFillStyle(0x8fb7ff, 0.42);
+      text.setColor("#fff4cf");
+      this.tweens.add({ targets: button, scaleX: 1, scaleY: 1, duration: 90, ease: "Sine.easeOut" });
+    });
+    zone.on("pointerdown", onClick);
+    return button;
+  }
+
+  private startTitleTweens(
+    title: Phaser.GameObjects.Text,
+    subtitle: Phaser.GameObjects.Text,
+    glint: Phaser.GameObjects.Rectangle,
+    dennisPulse: Phaser.GameObjects.Arc,
+    angelGlow: Phaser.GameObjects.Arc,
+    smokeWisps: Phaser.GameObjects.Arc[],
+    titleRays: Phaser.GameObjects.Rectangle[],
+    sparkles: Phaser.GameObjects.Rectangle[],
+    comets: Phaser.GameObjects.Rectangle[],
+    birds: Phaser.GameObjects.Text[],
+    embers: Phaser.GameObjects.Arc[],
+    crownBurst: Phaser.GameObjects.Star
+  ): void {
+    this.tweens.add({
+      targets: title,
+      y: title.y - 3,
+      duration: 1800,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+    this.tweens.add({
+      targets: subtitle,
+      alpha: 0.72,
+      duration: 760,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+    this.tweens.add({
+      targets: glint,
+      alpha: 0.85,
+      x: glint.x + 18,
+      y: glint.y - 20,
+      duration: 900,
+      delay: 400,
+      yoyo: true,
+      repeat: -1,
+      repeatDelay: 900,
+      ease: "Cubic.easeInOut",
+    });
+    this.tweens.add({
+      targets: dennisPulse,
+      alpha: 0.26,
+      scale: 1.45,
+      duration: 1400,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+    this.tweens.add({
+      targets: angelGlow,
+      alpha: 0.18,
+      scale: 1.25,
+      duration: 1600,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+    smokeWisps.forEach((wisp, index) => {
+      this.tweens.add({
+        targets: wisp,
+        y: wisp.y - 22 - index * 4,
+        x: wisp.x + (index % 2 === 0 ? -10 : 12),
+        alpha: 0.02,
+        scale: 1.8,
+        duration: 1800 + index * 260,
+        repeat: -1,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+      });
+    });
+    titleRays.forEach((ray, index) => {
+      this.tweens.add({
+        targets: ray,
+        alpha: index === 2 ? 0.32 : 0.24,
+        scaleX: 1.28,
+        duration: 900 + index * 220,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    });
+    sparkles.forEach((sparkle, index) => {
+      this.tweens.add({
+        targets: sparkle,
+        alpha: 0.95,
+        scale: 1.8,
+        angle: 180,
+        duration: 520 + index * 90,
+        delay: index * 180,
+        yoyo: true,
+        repeat: -1,
+        repeatDelay: 300,
+        ease: "Cubic.easeInOut",
+      });
+    });
+    comets.forEach((comet, index) => {
+      this.tweens.add({
+        targets: comet,
+        x: comet.x + 120,
+        y: comet.y - 34,
+        alpha: 0.9,
+        duration: 1200 + index * 360,
+        delay: 600 + index * 900,
+        yoyo: true,
+        repeat: -1,
+        repeatDelay: 1400,
+        ease: "Cubic.easeInOut",
+      });
+    });
+    birds.forEach((bird, index) => {
+      this.tweens.add({
+        targets: bird,
+        x: bird.x + (index === 2 ? -140 : 170),
+        y: bird.y - 18 + index * 5,
+        alpha: 0.72,
+        duration: 4200 + index * 600,
+        delay: index * 500,
+        yoyo: true,
+        repeat: -1,
+        ease: "Sine.easeInOut",
+      });
+    });
+    embers.forEach((ember, index) => {
+      this.tweens.add({
+        targets: ember,
+        y: ember.y - 14,
+        alpha: 0.95,
+        scale: 1.8,
+        duration: 580 + index * 80,
+        yoyo: true,
+        repeat: -1,
+        repeatDelay: 140,
+        ease: "Sine.easeInOut",
+      });
+    });
+    this.tweens.add({
+      targets: crownBurst,
+      alpha: 0.38,
+      angle: 360,
+      scale: 1.35,
+      duration: 1500,
+      yoyo: true,
+      repeat: -1,
+      ease: "Sine.easeInOut",
+    });
+  }
+
+  private drawTitleArtwork(g: Phaser.GameObjects.Graphics, width: number, height: number): void {
+    g.fillGradientStyle(0x18294a, 0x18294a, 0x6e7fa2, 0x283958, 1);
+    g.fillRect(0, 0, width, height);
+
+    g.fillStyle(0xf8fbff, 0.9);
+    for (const star of [
+      [58, 42], [92, 86], [180, 58], [244, 122], [474, 72], [612, 46], [708, 116], [664, 168],
+    ] as const) {
+      g.fillRect(star[0], star[1], 2, 2);
+      g.fillRect(star[0] - 1, star[1] + 1, 4, 1);
+    }
+    g.fillStyle(0xc8d8ff, 0.22);
+    g.fillRect(0, 150, width, 8);
+    g.fillRect(0, 176, width, 5);
+
+    g.fillStyle(0xd8e6ff, 0.82);
+    g.fillTriangle(width - 152, 34, width - 122, 92, width - 186, 92);
+    g.fillStyle(0xffffff, 0.28);
+    g.fillCircle(width - 154, 76, 46);
+    g.lineStyle(3, 0xfff4cf, 0.82);
+    g.strokeCircle(width - 154, 76, 30);
+    g.fillStyle(0xfff4cf, 0.78);
+    g.fillTriangle(width - 154, 45, width - 168, 78, width - 140, 78);
+    g.fillRect(width - 158, 78, 8, 42);
+    g.lineStyle(2, 0xfff4cf, 0.6);
+    g.beginPath();
+    g.moveTo(width - 184, 102);
+    g.lineTo(width - 198, 126);
+    g.moveTo(width - 124, 102);
+    g.lineTo(width - 110, 126);
+    g.strokePath();
+
+    g.fillStyle(0x4b5973, 1);
+    g.fillTriangle(0, 256, 120, 118, 260, 256);
+    g.fillTriangle(142, 268, 308, 96, 468, 268);
+    g.fillTriangle(390, 264, 566, 124, 768, 264);
+    g.fillStyle(0xcbd7e8, 0.95);
+    g.fillTriangle(308, 96, 270, 138, 346, 138);
+    g.fillTriangle(566, 124, 528, 156, 606, 156);
+    g.fillTriangle(120, 118, 92, 152, 148, 152);
+    g.lineStyle(2, 0x31415c, 0.8);
+    for (const ridge of [[72, 214, 132, 158], [226, 230, 312, 142], [484, 226, 568, 154]] as const) {
+      g.beginPath();
+      g.moveTo(ridge[0], ridge[1]);
+      g.lineTo(ridge[2], ridge[3]);
+      g.strokePath();
+    }
+
+    g.fillStyle(0x5e7f58, 1);
+    g.fillEllipse(width / 2, 326, 860, 190);
+    g.fillStyle(0x426143, 1);
+    g.fillEllipse(width / 2 + 20, 370, 880, 170);
+    g.lineStyle(3, 0x2d5538, 0.55);
+    for (const path of [
+      [190, 362, 262, 336, 360, 326],
+      [508, 370, 452, 346, 390, 326],
+      [560, 384, 636, 372, 718, 346],
+    ] as const) {
+      g.beginPath();
+      g.moveTo(path[0], path[1]);
+      g.lineTo(path[2], path[3]);
+      g.lineTo(path[4], path[5]);
+      g.strokePath();
+    }
+    g.fillStyle(0x2d4d37, 1);
+    g.fillRect(0, 390, width, 186);
+
+    const village = (x: number, y: number, scale = 1) => {
+      g.fillStyle(0x6e4528, 1);
+      g.fillRect(x, y, 22 * scale, 16 * scale);
+      g.fillRect(x + 32 * scale, y + 8 * scale, 18 * scale, 12 * scale);
+      g.fillRect(x + 58 * scale, y + 2 * scale, 14 * scale, 17 * scale);
+      g.fillStyle(0xb85b35, 1);
+      g.fillTriangle(x - 3 * scale, y, x + 11 * scale, y - 12 * scale, x + 25 * scale, y);
+      g.fillTriangle(x + 29 * scale, y + 8 * scale, x + 41 * scale, y - 2 * scale, x + 53 * scale, y + 8 * scale);
+      g.fillTriangle(x + 55 * scale, y + 2 * scale, x + 65 * scale, y - 8 * scale, x + 75 * scale, y + 2 * scale);
+      g.fillStyle(0xffe9a8, 1);
+      g.fillRect(x + 7 * scale, y + 6 * scale, 5 * scale, 5 * scale);
+      g.fillRect(x + 63 * scale, y + 8 * scale, 4 * scale, 5 * scale);
+      g.lineStyle(1, 0xcab07a, 0.8);
+      g.beginPath();
+      g.moveTo(x + 10 * scale, y + 20 * scale);
+      g.lineTo(x + 42 * scale, y + 26 * scale);
+      g.lineTo(x + 68 * scale, y + 21 * scale);
+      g.strokePath();
+    };
+    village(170, 326, 1.1);
+    village(506, 340, 0.95);
+    g.fillStyle(0xe8d69b, 0.95);
+    for (const torch of [[156, 348], [252, 350], [496, 362], [580, 358]] as const) {
+      g.fillRect(torch[0], torch[1], 3, 12);
+      g.fillStyle(0xffa84d, 0.9);
+      g.fillRect(torch[0] - 2, torch[1] - 5, 7, 5);
+      g.fillStyle(0xe8d69b, 0.95);
+    }
+
+    g.fillStyle(0x4e1984, 0.52);
+    g.fillCircle(width / 2 + 34, 314, 70);
+    g.fillCircle(width / 2 + 12, 288, 46);
+    g.fillCircle(width / 2 + 66, 292, 36);
+    g.fillStyle(0x8a3dff, 0.24);
+    g.fillCircle(width / 2 + 28, 312, 112);
+    g.fillStyle(0x1e102b, 1);
+    g.fillRect(width / 2 + 18, 284, 28, 50);
+    g.fillStyle(0xe8ccff, 0.9);
+    g.fillRect(width / 2 + 24, 294, 4, 4);
+    g.fillRect(width / 2 + 36, 294, 4, 4);
+    g.lineStyle(2, 0xa060ff, 0.42);
+    for (const plume of [[378, 300, 350, 254], [408, 288, 414, 232], [432, 304, 470, 258]] as const) {
+      g.beginPath();
+      g.moveTo(plume[0], plume[1]);
+      g.lineTo(plume[2], plume[3]);
+      g.strokePath();
+    }
+
+    g.fillStyle(0x1c2630, 1);
+    g.fillTriangle(0, 402, 224, 312, 424, 576);
+    g.fillStyle(0x11191f, 1);
+    g.fillTriangle(0, 444, 230, 332, 352, 576);
+    g.fillStyle(0x33404a, 1);
+    g.fillRect(0, 482, 300, 94);
+    g.fillStyle(0x56636e, 1);
+    g.fillRect(34, 482, 18, 8);
+    g.fillRect(76, 468, 26, 8);
+    g.fillRect(128, 484, 20, 8);
+    g.fillRect(206, 454, 30, 8);
+    g.fillStyle(0x22303a, 1);
+    g.fillRect(12, 536, 72, 10);
+    g.fillRect(98, 524, 116, 9);
+
+    g.lineStyle(12, 0x203d24, 1);
+    g.beginPath();
+    g.moveTo(74, 430);
+    g.lineTo(102, 414);
+    g.lineTo(136, 420);
+    g.lineTo(160, 404);
+    g.strokePath();
+    g.lineStyle(6, 0x6fbf73, 1);
+    g.beginPath();
+    g.moveTo(74, 430);
+    g.lineTo(102, 414);
+    g.lineTo(136, 420);
+    g.lineTo(160, 404);
+    g.strokePath();
+    g.fillStyle(0x6fbf73, 1);
+    g.fillRect(158, 392, 24, 18);
+    g.fillStyle(0x356a3a, 1);
+    g.fillRect(82, 424, 10, 6);
+    g.fillRect(112, 414, 10, 6);
+    g.fillRect(144, 414, 10, 6);
+    g.fillStyle(0xf8ffef, 1);
+    g.fillRect(173, 397, 4, 4);
+    g.fillStyle(0xcfa77a, 1);
+    g.fillRect(162, 384, 16, 8);
+    g.fillStyle(0x7a4b2a, 1);
+    g.fillRect(160, 392, 20, 4);
+    g.lineStyle(4, 0xe6edf7, 1);
+    g.beginPath();
+    g.moveTo(170, 395);
+    g.lineTo(206, 360);
+    g.strokePath();
+    g.fillStyle(0xe6edf7, 1);
+    g.fillTriangle(206, 360, 210, 374, 194, 366);
+    g.fillStyle(0x8fb7ff, 0.8);
+    g.fillRect(200, 358, 5, 5);
+    g.fillRect(192, 366, 4, 4);
   }
 
   private isModalPopupVisible(): boolean {
@@ -1683,6 +2306,23 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   update(): void {
+    if (this.titleVisible) {
+      this.graphics?.clear();
+      this.questHud?.setVisible(false);
+      this.bossHud?.hide();
+      this.questHint?.setVisible(false);
+      this.questHintPanel?.setVisible(false);
+      this.heartsHud?.setVisible(false);
+      this.livesHud?.setVisible(false);
+      this.temperatureHud?.setVisible(false);
+      this.villageHud?.setVisible(false);
+      this.biomeHud?.setVisible(false);
+      this.questGiverSprite?.setVisible(false);
+      this.wandererSprite?.setVisible(false);
+      this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
+      this.isDirty = false;
+      return;
+    }
     this.updateWandererSprite();
     this.updateVillageResidentSprites();
     this.tickVillageJuice();
@@ -1980,7 +2620,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
   private draw(): void {
     // Suppress generic HUDs in house
-    this.setFlag("ui.suppressHud", this.isInHouse());
+    this.setFlag("ui.suppressHud", this.titleVisible || this.isInHouse());
     const room = this.snakeGame.getCurrentRoom();
     const baseSense = this.getFlag<number>("geometry.wallSenseRadius") ?? 0;
     const equipSense = this.getFlag<number>("equipment.wallSenseRadiusBonus") ?? 0;
@@ -1993,7 +2633,7 @@ export default class SnakeScene extends Phaser.Scene {
       poweredUp: Boolean(pActive),
       direction: this.snakeGame.getDirection(),
       snakePalette: this.getActiveSnakeTheme().palette,
-      cowboyHat: this.snakeCosmetics.activeHat !== null,
+      activeHat: this.snakeCosmetics.activeHat,
       enemies: this.snakeGame.getEnemies(room.id),
       bullets: this.snakeGame.getEnemyBullets(room.id),
     });
@@ -2166,7 +2806,84 @@ export default class SnakeScene extends Phaser.Scene {
     if (!room.village) {
       return null;
     }
-    return getVillageShopDefinition(room.biomeId);
+    const stock = this.getCurrentVillageMarketStock();
+    return {
+      equipment: VILLAGE_SHOP_EQUIPMENT.filter((offer) => stock.equipmentIds.includes(offer.id)) as VillageShopEquipmentOffer[],
+      styles: VILLAGE_SHOP_STYLES.filter((offer) => stock.styleIds.includes(offer.id)) as VillageShopStyleOffer[],
+      hats: VILLAGE_SHOP_HATS.filter((offer) => stock.hatIds.includes(offer.id)) as VillageShopHatOffer[],
+    };
+  }
+
+  private getCurrentVillageMarketStock(): VillageMarketStock {
+    const room = this.snakeGame.getCurrentRoom();
+    const key = `market.stock.${room.id}`;
+    const saved = this.getFlag<VillageMarketStock>(key);
+    if (saved?.version === 2 && Array.isArray(saved.equipmentIds) && Array.isArray(saved.styleIds) && Array.isArray(saved.hatIds) && Array.isArray(saved.cardIds)) {
+      return saved;
+    }
+    const stock: VillageMarketStock = {
+      version: 2,
+      equipmentIds: this.pickMarketOffers(VILLAGE_SHOP_EQUIPMENT.map((offer) => offer.id), 2),
+      styleIds: this.pickMarketOffers(VILLAGE_SHOP_STYLES.map((offer) => offer.id), 2) as VillageShopStyleId[],
+      hatIds: this.pickMarketOffers(VILLAGE_SHOP_HATS.map((offer) => offer.id), 2) as VillageShopHatId[],
+      cardIds: this.pickMarketCardOffers(),
+    };
+    this.setFlag(key, stock);
+    return stock;
+  }
+
+  private setCurrentVillageMarketStock(stock: VillageMarketStock): void {
+    const room = this.snakeGame.getCurrentRoom();
+    this.setFlag(`market.stock.${room.id}`, stock);
+  }
+
+  private getCurrentMarketCardOffers(): CardId[] {
+    return this.getCurrentVillageMarketStock().cardIds;
+  }
+
+  private pickMarketOffers<T extends string>(ids: readonly T[], count: number): T[] {
+    const pool = [...ids];
+    const picked: T[] = [];
+    while (picked.length < count && pool.length > 0) {
+      const index = Math.floor(this.random() * pool.length);
+      const [id] = pool.splice(index, 1);
+      if (id) {
+        picked.push(id);
+      }
+    }
+    return picked;
+  }
+
+  private pickMarketCardOffers(): CardId[] {
+    const count = this.random() < 0.42 ? 1 : 2;
+    const pool = [...CARD_DEFINITIONS];
+    const picked: CardId[] = [];
+    while (picked.length < count && pool.length > 0) {
+      const totalWeight = pool.reduce((sum, card) => sum + this.cardShopWeight(card.rarity), 0);
+      let roll = this.random() * totalWeight;
+      let index = 0;
+      for (; index < pool.length; index += 1) {
+        roll -= this.cardShopWeight(pool[index]!.rarity);
+        if (roll <= 0) {
+          break;
+        }
+      }
+      const [card] = pool.splice(Math.max(0, Math.min(pool.length - 1, index)), 1);
+      if (card) {
+        picked.push(card.id);
+      }
+    }
+    return picked;
+  }
+
+  private cardShopWeight(rarity: "common" | "uncommon" | "rare"): number {
+    if (rarity === "common") {
+      return 10;
+    }
+    if (rarity === "uncommon") {
+      return 4;
+    }
+    return 1;
   }
 
   purchaseOrApplySnakeTheme(themeId: SnakeThemeId): { ok: boolean; message: string; color: string } {
@@ -2278,6 +2995,43 @@ export default class SnakeScene extends Phaser.Scene {
 
   purchaseOrToggleCowboyHat(): { ok: boolean; message: string; color: string } {
     return this.purchaseOrToggleVillageHat(LEGACY_COWBOY_HAT_ID);
+  }
+
+  private getCardCollection(): CardCollection {
+    const saved = this.getFlag<Record<string, unknown>>("cards.collection") ?? {};
+    const collection: CardCollection = {};
+    for (const cardId of CARD_SHOP_OFFERS) {
+      const count = Number(saved[cardId] ?? 0);
+      if (Number.isFinite(count) && count > 0) {
+        collection[cardId] = Math.floor(count);
+      }
+    }
+    return collection;
+  }
+
+  private setCardCollection(collection: CardCollection): void {
+    this.setFlag("cards.collection", collection);
+    this.isDirty = true;
+  }
+
+  purchaseVillageCard(cardId: CardId): { ok: boolean; message: string; color: string } {
+    const card = getCardDefinition(cardId);
+    const stock = this.getCurrentVillageMarketStock();
+    if (!stock.cardIds.includes(cardId)) {
+      return { ok: false, message: `${card.name} is sold out here.`, color: "#ff6b6b" };
+    }
+    if (this.score < card.price) {
+      return { ok: false, message: `${card.name} costs ${card.price} score.`, color: "#ff6b6b" };
+    }
+    const collection = this.getCardCollection();
+    this.addScoreDirect(-card.price);
+    collection[cardId] = Number(collection[cardId] ?? 0) + 1;
+    this.setCardCollection(collection);
+    this.setCurrentVillageMarketStock({
+      ...stock,
+      cardIds: stock.cardIds.filter((id) => id !== cardId),
+    });
+    return { ok: true, message: `${card.name} added to your deck.`, color: "#5dd6a2" };
   }
 
   private applyPendingQuestCosmeticRewards(): void {
@@ -2470,6 +3224,8 @@ export default class SnakeScene extends Phaser.Scene {
       { id: "equipment", title: "Equipment", description: "Weapons, flippers, and weather gear." },
       { id: "styles", title: "Styles", description: "Local palettes for your snake." },
       { id: "hats", title: "Hats", description: "Village headwear with no tactical justification." },
+      { id: "cards", title: "Cards", description: "Buy tiny competition cards for your personal deck." },
+      { id: "play-cards", title: "Play Cards", description: "Sit at the stall table and chase the score window." },
       { id: "leave", title: "Leave", description: "Step away from the counter." },
     ];
     this.villageShopPopup.show(shopkeeperName, options, (id) => {
@@ -2477,13 +3233,17 @@ export default class SnakeScene extends Phaser.Scene {
         this.closeVillageShop();
         return;
       }
-      if (id === "equipment" || id === "styles" || id === "hats") {
+      if (id === "play-cards") {
+        this.showCardTableRoot(shopkeeperName);
+        return;
+      }
+      if (id === "equipment" || id === "styles" || id === "hats" || id === "cards") {
         this.showVillageShopCategory(shopkeeperName, id);
       }
     });
   }
 
-  private showVillageShopCategory(shopkeeperName: string, category: "equipment" | "styles" | "hats"): void {
+  private showVillageShopCategory(shopkeeperName: string, category: "equipment" | "styles" | "hats" | "cards", page = 0): void {
     this.paused = true;
     const shop = this.getCurrentVillageShop();
     if (!shop) {
@@ -2510,7 +3270,7 @@ export default class SnakeScene extends Phaser.Scene {
           description: owned ? "Equip this village style." : "Buy and equip this village style.",
         });
       }
-    } else {
+    } else if (category === "hats") {
       for (const hat of shop.hats) {
         const owned = this.snakeCosmetics.unlockedHats.includes(hat.id);
         const equipped = this.snakeCosmetics.activeHat === hat.id;
@@ -2520,6 +3280,28 @@ export default class SnakeScene extends Phaser.Scene {
           description: owned ? "Toggle this hat." : "Buy and equip this hat.",
         });
       }
+    } else {
+      const collection = this.getCardCollection();
+      const cardOffers = this.getCurrentMarketCardOffers();
+      const pageSize = 5;
+      const pageCount = Math.max(1, Math.ceil(cardOffers.length / pageSize));
+      const safePage = Math.max(0, Math.min(page, pageCount - 1));
+      const pageOffers = cardOffers.slice(safePage * pageSize, safePage * pageSize + pageSize);
+      for (const cardId of pageOffers) {
+        const card = getCardDefinition(cardId);
+        const owned = Number(collection[card.id] ?? 0);
+        options.push({
+          id: `card:${card.id}`,
+          title: `${card.name} - ${card.price} score${owned > 0 ? `, owned x${owned}` : ""}`,
+          description: `${card.suit} / ${card.chips} chips / ${card.rarity}. ${card.description}`,
+        });
+      }
+      if (safePage > 0) {
+        options.push({ id: `cards-page:${safePage - 1}`, title: "Previous Cards", description: "Browse the previous shelf." });
+      }
+      if (safePage < pageCount - 1) {
+        options.push({ id: `cards-page:${safePage + 1}`, title: "More Cards", description: "Browse the next shelf." });
+      }
     }
     options.push({ id: "back", title: "Back", description: "Return to the shop counter." });
     this.villageShopPopup.show(shopkeeperName, options, (id) => {
@@ -2527,20 +3309,360 @@ export default class SnakeScene extends Phaser.Scene {
         this.showVillageShopRoot(shopkeeperName);
         return;
       }
+      if (id.startsWith("cards-page:")) {
+        const [, nextPage] = id.split(":");
+        this.showVillageShopCategory(shopkeeperName, category, Number(nextPage));
+        return;
+      }
       const [kind, value] = id.split(":");
       const result =
         kind === "equipment" ? this.purchaseVillageEquipment(value) :
         kind === "style" ? this.purchaseVillageStyle(value as VillageShopStyleId) :
         kind === "hat" ? this.purchaseOrToggleVillageHat(value as VillageShopHatId) :
+        kind === "card" ? this.purchaseVillageCard(value as CardId) :
         null;
       if (result) {
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopCategory(shopkeeperName, category);
+        this.showVillageShopCategory(shopkeeperName, category, page);
       }
     });
   }
 
+  private showCardTableRoot(shopkeeperName: string): void {
+    this.paused = true;
+    const collection = this.getCardCollection();
+    const ownedCount = countCards(collection);
+    const inVillage = Boolean(this.snakeGame.getCurrentRoom().village);
+    const options: ChoiceOption[] = CARD_TABLES.map((table) => ({
+      id: `table:${table.id}`,
+      title: table.name,
+      description: `Best of 3. Land between ${table.minScore} and ${table.maxScore}. Choose your wager next. Deck: ${ownedCount} cards.`,
+    }));
+    options.push({
+      id: "back",
+      title: inVillage ? "Back" : "Leave",
+      description: inVillage ? "Return to the shop counter." : "Step away from the card table.",
+    });
+    this.villageShopPopup.show(`${shopkeeperName}'s Card Table`, options, (id) => {
+      if (id === "back") {
+        if (inVillage) {
+          this.showVillageShopRoot(shopkeeperName);
+        } else {
+          this.closeVillageShop();
+        }
+        return;
+      }
+      const [, tableId] = id.split(":");
+      this.showCardBetMenu(shopkeeperName, tableId);
+    });
+  }
+
+  private showCardBetMenu(shopkeeperName: string, tableId: string): void {
+    const table = getCardTable(tableId);
+    const wagers = this.getCardBetOptions();
+    if (wagers.length === 0) {
+      this.showQuestHintPopup("You need score to place a card wager.", "#ff6b6b");
+      this.showCardTableRoot(shopkeeperName);
+      return;
+    }
+    const options: ChoiceOption[] = wagers.map((wager) => ({
+      id: `bet:${wager.amount}`,
+      title: wager.label,
+      description: `Risk ${wager.amount} score. Win the match to receive ${wager.amount * 2} score back.`,
+    }));
+    options.push({ id: "back", title: "Back", description: "Choose a different card table." });
+    this.villageShopPopup.show(`${table.name} Wager`, options, (id) => {
+      if (id === "back") {
+        this.showCardTableRoot(shopkeeperName);
+        return;
+      }
+      const [, amount] = id.split(":");
+      this.startCardCompetition(shopkeeperName, tableId, Number(amount));
+    });
+  }
+
+  private getCardBetOptions(): Array<{ label: string; amount: number }> {
+    const score = Math.max(0, Math.floor(this.score));
+    const candidates: Array<{ label: string; amount: number }> = [];
+    if (score >= 5) {
+      candidates.push({ label: "Bet 5", amount: 5 });
+    }
+    if (score >= 25) {
+      candidates.push({ label: "Bet 25", amount: 25 });
+    }
+    if (score > 0) {
+      candidates.push({ label: "Bet 10%", amount: Math.max(1, Math.floor(score * 0.1)) });
+      candidates.push({ label: "Bet 50%", amount: Math.max(1, Math.floor(score * 0.5)) });
+      candidates.push({ label: "Bet All Score", amount: score });
+    }
+    const seen = new Set<number>();
+    return candidates.filter((candidate) => {
+      if (candidate.amount <= 0 || candidate.amount > score || seen.has(candidate.amount)) {
+        return false;
+      }
+      seen.add(candidate.amount);
+      return true;
+    });
+  }
+
+  private startCardCompetition(shopkeeperName: string, tableId: string, wagerScore: number): void {
+    if (wagerScore <= 0 || this.score < wagerScore) {
+      this.showQuestHintPopup("That wager is not available.", "#ff6b6b");
+      this.showCardBetMenu(shopkeeperName, tableId);
+      return;
+    }
+    this.addScoreDirect(-wagerScore);
+    const state = createCompetitionState(tableId, this.getCardCollection(), () => this.random(), wagerScore);
+    this.showNextCardRound(shopkeeperName, state);
+  }
+
+  private showNextCardRound(shopkeeperName: string, state: CardCompetitionState): void {
+    const hand = drawCompetitionHand(state, () => this.random());
+    this.showCardHand(shopkeeperName, state, hand, new Set<number>());
+  }
+
+  private showCardHand(shopkeeperName: string, state: CardCompetitionState, hand: CardId[], selected: Set<number>): void {
+    const table = getCardTable(state.tableId);
+    this.hideCardGamePopup();
+    this.villageShopPopup.hide();
+    this.setChoicePopupVisible(true);
+
+    const width = Math.min(this.scale.width - 44, 720);
+    const height = Math.min(this.scale.height - 44, 430);
+    const x = (this.scale.width - width) / 2;
+    const y = (this.scale.height - height) / 2;
+    const root = this.add.container(x, y).setDepth(60).setScrollFactor(0);
+    const background = this.add
+      .rectangle(0, 0, width, height, 0x071019, 0.96)
+      .setStrokeStyle(2, 0xcfa77a)
+      .setOrigin(0, 0);
+    const title = this.add.text(width / 2, 18, `${table.name} R${state.round} (${state.wins}-${state.losses})`, {
+      fontFamily: "monospace",
+      fontSize: "22px",
+      color: "#fff3a8",
+    }).setOrigin(0.5, 0);
+    const target = this.add.text(width / 2, 50, `Target window: ${table.minScore}-${table.maxScore}`, {
+      fontFamily: "monospace",
+      fontSize: "14px",
+      color: "#9ad1ff",
+    }).setOrigin(0.5, 0);
+    const tooltipPanel = this.add
+      .rectangle(width / 2, height - 112, width - 46, 64, 0x0e1c28, 0.92)
+      .setStrokeStyle(1, 0x4da3ff)
+      .setOrigin(0.5, 0);
+    this.cardTooltipText = this.add.text(38, height - 102, "Hover a card to read it.", {
+      fontFamily: "monospace",
+      fontSize: "13px",
+      color: "#ffffff",
+      wordWrap: { width: width - 76 },
+    });
+    root.add([background, title, target, tooltipPanel, this.cardTooltipText]);
+
+    if (hand.length === 0) {
+      const empty = this.add.text(width / 2, 146, "No cards in the deck.", {
+        fontFamily: "monospace",
+        fontSize: "18px",
+        color: "#ffb3a8",
+      }).setOrigin(0.5, 0);
+      root.add(empty);
+    } else {
+      const cardWidth = 102;
+      const gap = Math.min(18, Math.max(8, (width - 70 - cardWidth * hand.length) / Math.max(1, hand.length - 1)));
+      const totalWidth = cardWidth * hand.length + gap * Math.max(0, hand.length - 1);
+      let cardX = (width - totalWidth) / 2;
+      hand.forEach((cardId, index) => {
+        const card = this.createCardSprite(cardId, selected.has(index), () => {
+          const next = new Set(selected);
+          if (next.has(index)) {
+            next.delete(index);
+          } else {
+            next.add(index);
+          }
+          this.showCardHand(shopkeeperName, state, hand, next);
+        });
+        card.setPosition(cardX, selected.has(index) ? 88 : 98);
+        root.add(card);
+        cardX += cardWidth + gap;
+      });
+    }
+
+    const scoreButton = this.createCardTableButton(38, height - 38, "Score", () => {
+      this.hideCardGamePopup(false);
+      this.resolveCardRound(shopkeeperName, state, hand, [...selected]);
+    });
+    const allButton = this.createCardTableButton(158, height - 38, "Play All", () => {
+      this.hideCardGamePopup(false);
+      this.resolveCardRound(shopkeeperName, state, hand, hand.map((_, index) => index));
+    });
+    const forfeitButton = this.createCardTableButton(width - 138, height - 38, "Forfeit", () => {
+      this.hideCardGamePopup();
+      this.showQuestHintPopup("You fold away from the card table.", "#9ad1ff");
+      this.closeVillageShop();
+    });
+    root.add([scoreButton, allButton, forfeitButton]);
+    this.cardGameContainer = root;
+  }
+
+  private createCardSprite(cardId: CardId, selected: boolean, onClick: () => void): Phaser.GameObjects.Container {
+    const card = getCardDefinition(cardId);
+    const suitColor = this.getCardSuitColor(card.suit);
+    const container = this.add.container(0, 0).setSize(102, 150);
+    const shadow = this.add.rectangle(5, 8, 102, 150, 0x02040a, 0.45).setOrigin(0, 0);
+    const body = this.add
+      .rectangle(0, 0, 102, 150, selected ? 0xfff3a8 : 0xf4ead2, 1)
+      .setStrokeStyle(3, selected ? 0x5dd6a2 : suitColor)
+      .setOrigin(0, 0);
+    const header = this.add.rectangle(8, 8, 86, 26, suitColor, 0.96).setOrigin(0, 0);
+    const name = this.add.text(51, 13, card.name, {
+      fontFamily: "monospace",
+      fontSize: "10px",
+      color: "#ffffff",
+      align: "center",
+      wordWrap: { width: 78 },
+    }).setOrigin(0.5, 0);
+    const chips = this.add.text(51, 48, String(card.chips), {
+      fontFamily: "Georgia, 'Times New Roman', serif",
+      fontSize: "36px",
+      color: "#17202a",
+      stroke: "#ffffff",
+      strokeThickness: 2,
+    }).setOrigin(0.5, 0);
+    const suit = this.add.text(51, 91, card.suit.toUpperCase(), {
+      fontFamily: "monospace",
+      fontSize: "10px",
+      color: "#17202a",
+    }).setOrigin(0.5, 0);
+    const rarity = this.add.text(51, 122, card.rarity, {
+      fontFamily: "monospace",
+      fontSize: "10px",
+      color: selected ? "#12543a" : "#42505c",
+    }).setOrigin(0.5, 0);
+    const check = this.add.text(88, 128, selected ? "x" : "", {
+      fontFamily: "monospace",
+      fontSize: "18px",
+      color: "#12543a",
+    }).setOrigin(0.5, 0);
+    const hit = this.add.zone(0, 0, 102, 150).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    hit.on("pointerover", () => {
+      body.setFillStyle(0xffffff, 1);
+      this.cardTooltipText?.setText(`${card.name} | ${card.suit} | ${card.chips} chips | ${card.rarity}\n${card.description}`);
+    });
+    hit.on("pointerout", () => {
+      body.setFillStyle(selected ? 0xfff3a8 : 0xf4ead2, 1);
+    });
+    hit.on("pointerdown", onClick);
+    container.add([shadow, body, header, name, chips, suit, rarity, check, hit]);
+    return container;
+  }
+
+  private createCardTableButton(x: number, y: number, label: string, onClick: () => void): Phaser.GameObjects.Container {
+    const buttonWidth = 104;
+    const buttonHeight = 28;
+    const container = this.add.container(x, y).setSize(buttonWidth, buttonHeight);
+    const bg = this.add
+      .rectangle(0, 0, buttonWidth, buttonHeight, 0x101b25, 0.95)
+      .setStrokeStyle(2, 0xcfa77a)
+      .setOrigin(0, 0);
+    const text = this.add.text(buttonWidth / 2, 6, label, {
+      fontFamily: "monospace",
+      fontSize: "13px",
+      color: "#fff4cf",
+    }).setOrigin(0.5, 0);
+    const hit = this.add.zone(0, -8, buttonWidth, buttonHeight + 16).setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    hit.on("pointerover", () => {
+      bg.setFillStyle(0x243653, 1);
+      text.setColor("#ffffff");
+    });
+    hit.on("pointerout", () => {
+      bg.setFillStyle(0x101b25, 0.95);
+      text.setColor("#fff4cf");
+    });
+    hit.on("pointerdown", onClick);
+    container.add([bg, text, hit]);
+    return container;
+  }
+
+  private getCardSuitColor(suit: string): number {
+    switch (suit) {
+      case "moss": return 0x3d8f48;
+      case "teeth": return 0xa84242;
+      case "lanterns": return 0xd79234;
+      case "moons": return 0x596bb8;
+      case "smoke": return 0x6b4c88;
+      default: return 0x4da3ff;
+    }
+  }
+
+  private hideCardGamePopup(updateChoiceState = true): void {
+    this.cardGameContainer?.destroy(true);
+    this.cardGameContainer = null;
+    this.cardTooltipText = null;
+    if (updateChoiceState) {
+      this.setChoicePopupVisible(false);
+    }
+  }
+
+  private resolveCardRound(shopkeeperName: string, state: CardCompetitionState, hand: CardId[], selectedIndexes: number[]): void {
+    const table = getCardTable(state.tableId);
+    const selectedCards = selectedIndexes
+      .sort((a, b) => a - b)
+      .map((index) => hand[index])
+      .filter((cardId): cardId is CardId => Boolean(cardId));
+    const result = scoreCardHand(selectedCards, table);
+    const won = result.finalScore >= result.minScore && result.finalScore <= result.maxScore;
+    if (won) {
+      state.wins += 1;
+    } else {
+      state.losses += 1;
+    }
+    const playedIndexes = new Set(selectedIndexes);
+    const unplayedCards = hand.filter((_cardId, index) => !playedIndexes.has(index));
+    finishCompetitionRound(state, unplayedCards);
+
+    const played = selectedCards.length > 0
+      ? selectedCards.map((cardId) => getCardDefinition(cardId).name).join(", ")
+      : "no cards";
+    const reason = won ? "Round won." : result.finalScore < result.minScore ? "Too low." : "Too high.";
+    const detailText = result.details.length > 0 ? ` ${result.details.join(" ")}` : "";
+
+    if (state.wins >= 2) {
+      const payout = state.wagerScore * 2;
+      this.addScoreDirect(payout);
+      this.setChoicePopupVisible(false);
+      this.villageShopPopup.show("Card Victory", [
+        {
+          id: "done",
+          title: `${payout} score paid out`,
+          description: `${played}. Final ${result.finalScore}, window ${result.minScore}-${result.maxScore}. ${reason}${detailText}`,
+        },
+      ], () => this.closeVillageShop());
+      return;
+    }
+
+    if (state.losses >= 2 || state.round > 3) {
+      this.setChoicePopupVisible(false);
+      this.villageShopPopup.show("Card Defeat", [
+        {
+          id: "done",
+          title: "Leave Table",
+          description: `${played}. Final ${result.finalScore}, window ${result.minScore}-${result.maxScore}. ${reason}${detailText}`,
+        },
+      ], () => this.closeVillageShop());
+      return;
+    }
+
+    this.setChoicePopupVisible(false);
+    this.villageShopPopup.show(won ? "Round Won" : "Round Lost", [
+      {
+        id: "continue",
+        title: "Next Round",
+        description: `${played}. Final ${result.finalScore}, window ${result.minScore}-${result.maxScore}. ${reason}${detailText}`,
+      },
+    ], () => this.showNextCardRound(shopkeeperName, state));
+  }
+
   private closeVillageShop(): void {
+    this.hideCardGamePopup();
     this.villageShopPopup.hide();
     this.paused = false;
   }
@@ -2729,7 +3851,17 @@ export default class SnakeScene extends Phaser.Scene {
               this.offerQuest(offered);
             }
           } else if (result.kind === "flavor" && result.accepted) {
-            this.showQuestHintPopup(`${encounter.name} leaves you with a little hard-won advice.`, "#9ad1ff");
+            if (result.rewardCardName) {
+              this.showQuestHintPopup(`${encounter.name} gives you ${result.rewardCardName}.`, "#5dd6a2");
+            } else if (result.startCardGame) {
+              this.showQuestHintPopup(`${encounter.name} deals you in.`, "#9ad1ff");
+            } else {
+              this.showQuestHintPopup(`${encounter.name} leaves you with a little hard-won advice.`, "#9ad1ff");
+            }
+            if (result.startCardGame) {
+              this.paused = true;
+              this.showCardTableRoot(encounter.name);
+            }
           }
         },
         onReject: () => {

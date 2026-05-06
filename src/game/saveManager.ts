@@ -1,18 +1,16 @@
-import { getItem } from "../inventory/itemRegistry.js";
-
 export interface GameSaveData {
   version: string;
   timestamp: number;
-  snakeLength: number;
+  snakeLength?: number;
   score: number;
-  snakeBody: Array<{ x: number; y: number }>;
-  snakeDirection: { x: number; y: number };
-  snakeRoomId: string;
-  playerHealth: number;
-  playerMaxHealth: number;
-  questsActive: string[];
-  questsCompleted: string[];
-  questsAccepted: string[];
+  snakeBody?: Array<{ x: number; y: number }>;
+  snakeDirection?: { x: number; y: number };
+  snakeRoomId?: string;
+  playerHealth?: number;
+  playerMaxHealth?: number;
+  questsActive?: string[];
+  questsCompleted?: string[];
+  questsAccepted?: string[];
   inventory: Record<string, number>;
   equipment: Record<string, string>;
   flags: Record<string, unknown>;
@@ -69,68 +67,10 @@ export class SaveManager {
         return false;
       }
 
-      const getReligion = getReligionChoice || (() => null);
-      const getClass = getClassChoice || (() => null);
-      const getBackground = getBackgroundChoice || (() => null);
+      const success = game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
 
-      const religionChoice = data.religionId ? getReligion() : null;
-      const classChoice = data.classId ? getClass() : null;
-      const backgroundChoice = data.backgroundId ? getBackground() : null;
-
-const success = game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
-
-if (success) {
+      if (success) {
         console.log(`[SaveManager] Loaded save successfully`);
-        game.setFlag("timeMs", data.timestamp);
-        game.setFlag("player.health", data.playerHealth);
-        game.setFlag("player.maxHealth", data.playerMaxHealth);
-
-        // Restore snake body, direction, position, and length
-        if (data.snakeBody && data.snakeBody.length > 0 && data.snakeDirection && data.snakeRoomId) {
-          console.log(`[SaveManager] Restoring snake from save`);
-          game.snake.restoreFromSave(data.snakeBody, data.snakeDirection, data.snakeRoomId, data.snakeLength);
-        }
-
-        for (const [key, value] of Object.entries(data.inventory)) {
-          game.getInventory().addItem(key, value);
-        }
-
-        for (const [slot, itemId] of Object.entries(data.equipment)) {
-          const item = getItem(itemId);
-          if (item) {
-            game.getInventory().equip(item);
-          }
-        }
-
-        for (const [key, value] of Object.entries(data.flags)) {
-          if (value !== undefined) {
-            game.setFlag(key, value);
-          }
-        }
-
-        if (data.religionId) {
-          const religion = getReligion();
-          if (religion && religion.id === data.religionId) {
-            game.setFlag("religion.id", data.religionId);
-            game.setFlag("religion.mods", data.religionMods);
-          }
-        }
-
-        if (data.classId) {
-          const cls = getClass();
-          if (cls && cls.id === data.classId) {
-            game.setFlag("class.id", data.classId);
-            game.setFlag("class.mods", data.classMods);
-          }
-        }
-
-        if (data.backgroundId) {
-          const bg = getBackground();
-          if (bg && bg.id === data.backgroundId) {
-            game.setFlag("background.id", data.backgroundId);
-            game.setFlag("background.mods", data.backgroundMods);
-          }
-        }
       }
 
       return success;

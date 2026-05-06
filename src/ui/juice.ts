@@ -19,6 +19,8 @@ export class JuiceManager {
   private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private houseMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private heavenMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private titleMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private titleMusicTimer?: Phaser.Time.TimerEvent;
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
@@ -81,6 +83,167 @@ export class JuiceManager {
     this.playTone({ frequency: base * Math.min(multiplier, 2.5), duration: 0.22, type: "square", volume: 0.1 });
     this.scene.cameras.main.flash(110, 110, 210, 255, true);
     this.punchZoom(1.03 + Math.min(0.02, multiplier * 0.01), 120);
+  }
+
+  startTitleMusic(): void {
+    if (this.titleMusic) {
+      return;
+    }
+
+    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+
+    this.stopBossMusic();
+    this.stopPowerupMusic();
+    this.stopHeavenMusic();
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const root = this.ctx.createOscillator();
+    root.type = "sawtooth";
+    root.frequency.setValueAtTime(65.41, now);
+    const rootGain = this.ctx.createGain();
+    rootGain.gain.value = 0.32;
+    root.connect(rootGain);
+    rootGain.connect(gain);
+
+    const fifth = this.ctx.createOscillator();
+    fifth.type = "sine";
+    fifth.frequency.setValueAtTime(98.0, now);
+    const fifthGain = this.ctx.createGain();
+    fifthGain.gain.value = 0.2;
+    fifth.connect(fifthGain);
+    fifthGain.connect(gain);
+
+    const brass = this.ctx.createOscillator();
+    brass.type = "sawtooth";
+    brass.frequency.setValueAtTime(130.81, now);
+    const brassGain = this.ctx.createGain();
+    brassGain.gain.value = 0.14;
+    brass.connect(brassGain);
+    brassGain.connect(gain);
+
+    const pulse = this.ctx.createOscillator();
+    pulse.type = "sine";
+    pulse.frequency.setValueAtTime(0.16, now);
+    const pulseGain = this.ctx.createGain();
+    pulseGain.gain.value = 0.08;
+    pulse.connect(pulseGain);
+    pulseGain.connect(gain.gain);
+
+    const shimmer = this.ctx.createOscillator();
+    shimmer.type = "triangle";
+    shimmer.frequency.setValueAtTime(261.63, now);
+    const shimmerGain = this.ctx.createGain();
+    shimmerGain.gain.value = 0.06;
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(gain);
+
+    root.start(now);
+    fifth.start(now);
+    brass.start(now);
+    pulse.start(now);
+    shimmer.start(now);
+    gain.gain.exponentialRampToValueAtTime(0.24, now + 1.2);
+
+    this.titleMusic = {
+      gain,
+      sources: [root, fifth, brass, pulse, shimmer],
+      cleanup: [rootGain, fifthGain, brassGain, pulseGain, shimmerGain],
+    };
+
+    const fanfare = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99];
+    fanfare.forEach((frequency, index) => {
+      globalThis.setTimeout(() => {
+        if (this.titleMusic) {
+          this.playTone({ frequency, duration: 0.34, type: index % 2 === 0 ? "triangle" : "square", volume: 0.13 });
+        }
+      }, 180 * index);
+    });
+
+    let step = 0;
+    const melody = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 659.25, 523.25, 392.0, 493.88, 587.33, 783.99];
+    const harmony = [392.0, 493.88, 587.33, 659.25, 783.99, 1046.5, 783.99, 659.25, 587.33, 659.25, 783.99, 987.77];
+    const bass = [65.41, 65.41, 98.0, 98.0, 73.42, 73.42, 110.0, 110.0, 65.41, 82.41, 98.0, 123.47];
+    this.titleMusicTimer?.remove(false);
+    this.titleMusicTimer = this.scene.time.addEvent({
+      delay: 135,
+      loop: true,
+      callback: () => {
+        if (!this.titleMusic) {
+          return;
+        }
+        const index = step % melody.length;
+        this.playTone({ frequency: melody[index], duration: 0.13, type: index % 2 === 0 ? "square" : "triangle", volume: 0.095 });
+        if (step % 3 === 0) {
+          this.playTone({ frequency: harmony[index], duration: 0.12, type: "triangle", volume: 0.06 });
+        }
+        if (step % 2 === 0) {
+          this.playTone({ frequency: bass[index], frequencyEnd: bass[index] * 0.68, duration: 0.18, type: "sawtooth", volume: 0.13 });
+        }
+        if (step % 12 === 0) {
+          this.playTone({ frequency: 49.0, frequencyEnd: 24, duration: 0.24, type: "square", volume: 0.16 });
+        }
+        if (step % 6 === 3) {
+          this.playTone({ frequency: 196.0, frequencyEnd: 110, duration: 0.09, type: "triangle", volume: 0.1 });
+        }
+        if (step % 12 === 10) {
+          this.playTone({ frequency: 1046.5, frequencyEnd: 1567.98, duration: 0.18, type: "sine", volume: 0.055 });
+        }
+        step += 1;
+      },
+    });
+  }
+
+  stopTitleMusic(): void {
+    if (!this.titleMusic) {
+      return;
+    }
+
+    this.titleMusicTimer?.remove(false);
+    this.titleMusicTimer = undefined;
+
+    const { gain, sources, cleanup } = this.titleMusic;
+    const now = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.55);
+
+    for (const source of sources) {
+      try {
+        source.stop(now + 0.6);
+      } catch {
+        // ignore stopped sources
+      }
+    }
+
+    globalThis.setTimeout(() => {
+      for (const source of sources) {
+        try {
+          source.disconnect();
+        } catch {
+          // ignore
+        }
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {
+          // ignore
+        }
+      }
+      try {
+        gain.disconnect();
+      } catch {
+        // ignore
+      }
+    }, 700);
+
+    this.titleMusic = undefined;
   }
 
   manaUnlocked() {

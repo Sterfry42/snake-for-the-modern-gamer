@@ -1,6 +1,7 @@
 import { buildNpcStats } from "./profiles.js";
 import type { BiomeId } from "../world/biomes.js";
 import { i18n } from "../i18n/i18nManager.js";
+import type { CardId } from "../cards/cardGame.js";
 
 export type WandererEncounterKind = "duel" | "quest" | "flavor";
 export type EncounterZoneTag = "surface" | "depths" | "upper" | "lower" | "east" | "west";
@@ -27,6 +28,8 @@ export interface WandererEncounter {
   rejectLabel?: string;
   questId?: string;
   rewardScore?: number;
+  rewardCardId?: CardId | "random";
+  startsCardGame?: boolean;
 }
 
 export interface WandererEncounterSelectionContext {
@@ -38,6 +41,50 @@ export interface WandererEncounterSelectionContext {
 }
 
 export const WANDERER_ENCOUNTERS: readonly WandererEncounter[] = [
+  {
+    id: "maribel-cardwright",
+    name: "Maribel Cardwright",
+    kind: "flavor",
+    weight: 0.85,
+    minRoomsVisited: 2,
+    zoneTags: ["surface", "upper"],
+    biomeIds: ["verdigris-basin", "moonlit-parish", "gloam-garden"],
+    portraitId: "sage-1",
+    pages: [
+      "Maribel sits behind a cracked travel case full of painted pasteboard, each card sleeved in wax paper and old superstition.",
+      "\"Cards are honest in the way knives are honest. They only ruin you if you pretend they are not sharp.\"",
+      "\"Take one. Build a little deck. Lose beautifully, then learn with your remaining dignity.\"",
+    ],
+    repeatPages: [
+      "Maribel taps the travel case twice and smiles like a dealer hearing thunder approach.",
+      "\"Another card for the road. Do not spend all your caution in one hand.\"",
+    ],
+    acceptLabel: "Take card",
+    rejectLabel: "Pass",
+    rewardCardId: "random",
+  },
+  {
+    id: "osric-window",
+    name: "Osric Window",
+    kind: "flavor",
+    weight: 0.65,
+    minRoomsVisited: 5,
+    zoneTags: ["east", "lower"],
+    biomeIds: ["sable-depths", "ember-waste", "moonlit-parish"],
+    portraitId: "sage-2",
+    pages: [
+      "Osric lays five cards on a broken shield and measures the distance between them like a surgeon choosing where history should hurt.",
+      "\"Too little score is cowardice. Too much score is vanity. The correct number is the only number with manners.\"",
+      "\"Sit. One table. One lesson. If Freak Dennis is listening, let him learn fear through arithmetic.\"",
+    ],
+    repeatPages: [
+      "Osric has already dealt the cards before you finish arriving.",
+      "\"Again. The window opens only for snakes willing to aim.\"",
+    ],
+    acceptLabel: "Play",
+    rejectLabel: "Leave",
+    startsCardGame: true,
+  },
   {
     id: "freak-joey",
     name: "Freak Joey",
