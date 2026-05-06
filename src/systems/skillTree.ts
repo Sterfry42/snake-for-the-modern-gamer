@@ -1474,6 +1474,32 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     return this.getRank(perkId) > 0;
   }
 
+  exportRanks(): Record<string, number> {
+    return Object.fromEntries(this.perkRanks.entries());
+  }
+
+  restoreRanks(ranks: Record<string, number>): void {
+    this.perkRanks.clear();
+    for (const [perkId, rawRank] of Object.entries(ranks)) {
+      const definition = this.perkLookup.get(perkId);
+      if (!definition) {
+        continue;
+      }
+      const rank = Math.max(0, Math.min(definition.maxRank, Math.floor(Number(rawRank))));
+      if (rank <= 0) {
+        continue;
+      }
+      this.perkRanks.set(perkId, rank);
+      const effectContext: SkillEffectContext = { runtime: this.runtime, system: this };
+      for (let i = 0; i < rank; i += 1) {
+        const rankEffects = definition.effectsByRank[i] ?? [];
+        for (const effect of rankEffects) {
+          applySkillEffect(effect, effectContext);
+        }
+      }
+    }
+  }
+
   getPurchaseState(perkId: string): SkillPerkState {
     const definition = this.perkLookup.get(perkId);
     if (!definition) {

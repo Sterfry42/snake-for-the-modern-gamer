@@ -33,6 +33,15 @@ export class SkillTreeManager implements SkillTreeRuntime {
     this.overlay.refresh();
   }
 
+  exportRanks(): Record<string, number> {
+    return this.system.exportRanks();
+  }
+
+  restoreRanks(ranks: Record<string, number>): void {
+    this.system.restoreRanks(ranks);
+    this.overlay.refresh();
+  }
+
   tick(): void {
     this.system.tick();
   }
@@ -315,6 +324,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
     }
 
     this.juice.perkPurchased();
+    this.scene.setFlag("skills.ranks", this.system.exportRanks());
     this.overlay.refresh();
     this.overlay.pulsePerk(perkId);
     this.overlay.announce(state.definition.title + " - Rank " + purchase.rank + " unlocked!", "#5dd6a2");

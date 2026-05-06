@@ -19,6 +19,7 @@ import {
 import {
   snakeHatRecipe,
   type SnakeHatPalette,
+  type SnakeHatStyle,
   type SnakeHatVariant,
 } from "./spriteRecipes/snakeHatRecipe.js";
 import {
@@ -52,6 +53,7 @@ interface SnakeRenderOptions {
   direction?: Vector2Like;
   snakePalette?: SnakeSpritePalette;
   cowboyHat?: boolean;
+  activeHat?: SnakeHatStyle | null;
   enemies?: readonly EnemyInstance[];
   bullets?: readonly BulletInstance[];
 }
@@ -65,6 +67,7 @@ export class SnakeRenderer {
   private readonly appleTextureKeys: Record<AppleSpriteVariant, string>;
   private readonly appleSprite: Phaser.GameObjects.Image;
   private readonly hatTextureKeys: Record<SnakeHatVariant, string>;
+  private readonly hatTextureCache: Partial<Record<SnakeHatStyle, Record<SnakeHatVariant, string>>> = {};
   private readonly enemyTextureKeys: Record<EnemySpriteVariant, string>;
   private readonly enemySprites: Phaser.GameObjects.Image[] = [];
   private readonly bulletSprites: Phaser.GameObjects.Image[] = [];
@@ -152,7 +155,7 @@ export class SnakeRenderer {
       opts.snakeColor,
       opts.poweredUp ?? false,
       opts.snakePalette,
-      opts.cowboyHat ?? false
+      opts.activeHat ?? (opts.cowboyHat ? "cowboy" : null)
     );
     this.drawEnemies(opts.enemies ?? []);
     this.drawBullets(opts.bullets ?? []);
@@ -204,6 +207,10 @@ export class SnakeRenderer {
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 0.9).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
           this.graphics.lineStyle(1, outline, 0.6).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === "S") {
+          this.drawMarketCanopyTile(rectX, rectY, x, y);
+        } else if (tile === "A") {
+          this.drawMarketCounterTile(rectX, rectY, x, y);
         } else if (tile === "C") {
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
@@ -266,6 +273,23 @@ export class SnakeRenderer {
       this.graphics.strokePath();
     }
     this.graphics.lineStyle(1, deep, 0.45).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
+  private drawMarketCanopyTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    const stripe = (tileX + tileY) % 2 === 0 ? 0xc7433d : 0xffe0a3;
+    const shadow = darkenColor(stripe, 0.32);
+    this.graphics.fillStyle(stripe, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+    this.graphics.fillStyle(shadow, 0.55).fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
+    this.graphics.lineStyle(1, 0x5b2f24, 0.72).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
+  private drawMarketCounterTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    void tileX;
+    void tileY;
+    this.graphics.fillStyle(0x7a5232, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+    this.graphics.fillStyle(0xcfa77a, 0.9).fillRect(rectX, rectY, this.grid.cell, Math.max(2, Math.floor(this.grid.cell * 0.32)));
+    this.graphics.fillStyle(0x3d2412, 0.58).fillRect(rectX + 2, rectY + this.grid.cell - 4, this.grid.cell - 4, 2);
+    this.graphics.lineStyle(1, 0x3d2412, 0.75).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private drawBoatTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
@@ -625,7 +649,7 @@ export class SnakeRenderer {
     overrideColor?: number,
     poweredUp: boolean = false,
     paletteOverride?: SnakeSpritePalette,
-    cowboyHat: boolean = false
+    activeHat: SnakeHatStyle | null = null
   ): void {
     void room;
     const [roomX, roomY] = currentRoomId.split(",").map(Number);
@@ -662,9 +686,10 @@ export class SnakeRenderer {
         .setTint(tintColor)
         .setVisible(true);
 
-      if (cowboyHat && index === 0) {
+      if (activeHat && index === 0) {
+        const hatTextures = this.getHatTextureKeys(activeHat);
         this.hatSprite
-          .setTexture(this.hatTextureKeys[this.hatVariantFor(direction)])
+          .setTexture(hatTextures[this.hatVariantFor(direction)])
           .setPosition(x + this.grid.cell / 2, y + this.grid.cell / 2 - this.grid.cell * 0.12)
           .setDisplaySize(this.grid.cell, this.grid.cell)
           .setAlpha(pulse)
@@ -698,10 +723,52 @@ export class SnakeRenderer {
 
   private buildHatPalette(): SnakeHatPalette {
     return {
+      style: "cowboy",
       fillColor: "#8b5a2b",
       bandColor: "#d5b06f",
       outlineColor: "#3d2412",
     };
+  }
+
+  private buildHatPaletteFor(style: SnakeHatStyle): SnakeHatPalette {
+    if (style === "market-cap") {
+      return {
+        style,
+        fillColor: "#315f7d",
+        bandColor: "#f0f6ff",
+        outlineColor: "#102b3a",
+        accentColor: "#ffcf5a",
+      };
+    }
+    if (style === "ember-cowl") {
+      return {
+        style,
+        fillColor: "#4b1d28",
+        bandColor: "#8f2f1f",
+        outlineColor: "#1a0c12",
+        accentColor: "#ffb36b",
+      };
+    }
+    if (style === "pearl-crown") {
+      return {
+        style,
+        fillColor: "#f4d36a",
+        bandColor: "#fff5c8",
+        outlineColor: "#6a4b15",
+        accentColor: "#bff7ff",
+      };
+    }
+    return this.buildHatPalette();
+  }
+
+  private getHatTextureKeys(style: SnakeHatStyle): Record<SnakeHatVariant, string> {
+    const cached = this.hatTextureCache[style];
+    if (cached) {
+      return cached;
+    }
+    const keys = this.spriteFactory.ensureRecipe(snakeHatRecipe, this.grid.cell, this.buildHatPaletteFor(style));
+    this.hatTextureCache[style] = keys;
+    return keys;
   }
 
   private buildEnemyPalette(): EnemySpritePalette {

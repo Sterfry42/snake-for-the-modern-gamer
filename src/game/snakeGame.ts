@@ -13,6 +13,7 @@ import type { Quest } from "../quests/quest.js";
 import type { QuestRegistry } from "../quests/questRegistry.js";
 import { InventorySystem } from "../inventory/inventory.js";
 import { ITEMS, getItem } from "../inventory/itemRegistry.js";
+import { CARD_SHOP_OFFERS, getCardDefinition, type CardCollection, type CardId } from "../cards/cardGame.js";
 import type { QuestRuntime } from "../quests/quest.js";
 import {
   chooseWandererEncounter,
@@ -697,7 +698,13 @@ export class SnakeGame implements QuestRuntime {
       if (room.treasure && room.treasure.x === localX && room.treasure.y === localY) {
         let awardedName: string | undefined;
         let awardedId: string | undefined;
-        if (ITEMS.length > 0) {
+        if (this.rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
+          const cardId = this.pickRandomCardId();
+          const card = getCardDefinition(cardId);
+          this.addCardToCollection(cardId, 1);
+          awardedName = `${card.name} card`;
+          awardedId = `card:${card.id}`;
+        } else if (ITEMS.length > 0) {
           const idx = Math.floor(this.rng() * ITEMS.length);
           const awarded = ITEMS[Math.max(0, Math.min(ITEMS.length - 1, idx))];
           this.inventory.addItem(awarded.id, 1);
@@ -989,6 +996,10 @@ export class SnakeGame implements QuestRuntime {
     return this.snake.score;
   }
 
+  setScore(score: number): void {
+    this.snake.score = Math.max(0, Math.floor(Number(score) || 0));
+  }
+
   addScore(amount: number): void {
     this.snake.addScore(amount);
   }
@@ -1112,7 +1123,7 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  resolveRandomEncounter(accept: boolean): { kind: "quest" | "duel" | "flavor" | "none"; accepted: boolean } {
+  resolveRandomEncounter(accept: boolean): { kind: "quest" | "duel" | "flavor" | "none"; accepted: boolean; startCardGame?: boolean; rewardCardName?: string } {
     const encounter = this.getFlag<(WandererEncounter & { roomId: string; statsNote: string })>("npc.randomEncounter");
     if (!encounter) {
       return { kind: "none", accepted: false };
@@ -1154,13 +1165,20 @@ export class SnakeGame implements QuestRuntime {
       return { kind: "quest", accepted: false };
     }
 
+    let rewardCardName: string | undefined;
+    if (encounter.rewardCardId) {
+      const cardId = encounter.rewardCardId === "random" ? this.pickRandomCardId() : encounter.rewardCardId;
+      const card = getCardDefinition(cardId);
+      this.addCardToCollection(cardId, 1);
+      rewardCardName = card.name;
+    }
     if (encounter.rewardScore) {
       this.addScore(encounter.rewardScore);
     }
     if (encounter.oneShot) {
       this.resolvedWandererEncounters.add(encounter.id);
     }
-    return { kind: encounter.kind, accepted: true };
+    return { kind: encounter.kind, accepted: true, startCardGame: encounter.startsCardGame, rewardCardName };
   }
 
   startFreakJoeyDuel(): boolean {
@@ -1252,28 +1270,52 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag("ui.itemReward", { itemId, count });
   }
 
+  addCardToCollection(cardId: CardId, count = 1): void {
+    const collection = this.getFlag<CardCollection>("cards.collection") ?? {};
+    const next = { ...collection, [cardId]: Math.max(0, Number(collection[cardId] ?? 0)) + count };
+    this.setFlag("cards.collection", next);
+    this.setFlag("ui.cardReward", { cardId, count });
+  }
+
+  private pickRandomCardId(): CardId {
+    const index = Math.floor(this.rng() * CARD_SHOP_OFFERS.length);
+    return CARD_SHOP_OFFERS[Math.max(0, Math.min(CARD_SHOP_OFFERS.length - 1, index))]!;
+  }
+
   addCosmeticReward(type: "style" | "hat", id: string): void {
     const pending = this.getFlag<Array<{ type: "style" | "hat"; id: string }>>("quest.pendingCosmeticRewards") ?? [];
     this.setFlag("quest.pendingCosmeticRewards", [...pending, { type, id }]);
   }
 
   getSaveData(): GameSaveData {
+    const characterFlags: Record<string, unknown> = {};
+    for (const key of [
+      "cards.collection",
+      "skills.ranks",
+      "equipment.wallSenseRadiusBonus",
+      "equipment.seismicPulseRadiusBonus",
+      "equipment.masonryEnabled",
+      "equipment.invulnerabilityBonus",
+      "equipment.regenerator",
+      "equipment.phoenixCharges",
+      "equipment.itemPhoenixCharges",
+      "equipment.gunEnabled",
+      "equipment.heatResistance",
+      "equipment.coldResistance",
+      "equipment.swimmingEnabled",
+    ]) {
+      const value = this.getFlag(key);
+      if (value !== undefined) {
+        characterFlags[key] = value;
+      }
+    }
     const data: GameSaveData = {
       version: "1.0.0",
       timestamp: Date.now(),
-      snakeLength: this.getSnakeLength(),
       score: this.getScore(),
-      snakeBody: Array.from(this.getSnakeBody()),
-      snakeDirection: this.getDirection(),
-      snakeRoomId: this.snake.currentRoomId,
-      playerHealth: this.getPlayerHealth().current,
-      playerMaxHealth: this.getPlayerHealth().max,
-      questsActive: this.getActiveQuests().map((q) => q.id),
-      questsCompleted: this.getCompletedQuestIds(),
-      questsAccepted: this.getAcceptedQuestIds(),
       inventory: Object.fromEntries(this.inventory.getAllItems()),
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
-      flags: { ...this.snake.flags },
+      flags: characterFlags,
     };
 
     const religionId = this.getFlag<string>("religion.id");
@@ -1331,18 +1373,7 @@ export class SnakeGame implements QuestRuntime {
       });
 
       this.reset();
-
-      // Restore snake body, direction, position, and length
-      if (data.snakeBody && data.snakeBody.length > 0 && data.snakeDirection && data.snakeRoomId) {
-        console.log(`[SnakeGame] Restoring snake from save`);
-        this.snake.restoreFromSave(data.snakeBody, data.snakeDirection, data.snakeRoomId, data.snakeLength);
-      }
-
-      console.log(`[SnakeGame] After loading - snake length: ${this.snake.bodySegments.length}, room: ${this.snake.currentRoomId}`);
-
-      this.setFlag("timeMs", data.timestamp);
-      this.setFlag("player.health", data.playerHealth);
-      this.setFlag("player.maxHealth", data.playerMaxHealth);
+      this.setScore(data.score);
 
       for (const [key, value] of Object.entries(data.inventory)) {
         this.inventory.addItem(key, value);
@@ -1352,7 +1383,7 @@ export class SnakeGame implements QuestRuntime {
         this.inventory.equip(itemId);
       }
 
-      for (const [key, value] of Object.entries(data.flags)) {
+      for (const [key, value] of Object.entries(data.flags ?? {})) {
         if (value !== undefined) {
           this.setFlag(key, value);
         }
