@@ -54,6 +54,7 @@ import {
   type CardCollection,
   type CardCompetitionState,
   type CardId,
+  type CardScoreResult,
 } from "../cards/cardGame.js";
 
 type SnakeThemeId = VillageShopStyleId;
@@ -3412,6 +3413,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     this.addScoreDirect(-wagerScore);
+    this.juice.startCardMusic();
     const state = createCompetitionState(tableId, this.getCardCollection(), () => this.random(), wagerScore);
     this.showNextCardRound(shopkeeperName, state);
   }
@@ -3602,6 +3604,144 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private showCardScoringCutscene(cardIds: CardId[], result: CardScoreResult, won: boolean, onComplete: () => void): void {
+    this.hideCardGamePopup(false);
+    this.setChoicePopupVisible(true);
+    const width = Math.min(this.scale.width - 44, 720);
+    const height = Math.min(this.scale.height - 44, 430);
+    const x = (this.scale.width - width) / 2;
+    const y = (this.scale.height - height) / 2;
+    const root = this.add.container(x, y).setDepth(62).setScrollFactor(0);
+    const background = this.add
+      .rectangle(0, 0, width, height, 0x071019, 0.97)
+      .setStrokeStyle(2, won ? 0x5dd6a2 : 0xff6b6b)
+      .setOrigin(0, 0);
+    const title = this.add.text(width / 2, 18, "Scoring Hand", {
+      fontFamily: "monospace",
+      fontSize: "22px",
+      color: "#fff3a8",
+    }).setOrigin(0.5, 0);
+    const scoreText = this.add.text(width / 2, height - 116, "Chips: 0", {
+      fontFamily: "monospace",
+      fontSize: "22px",
+      color: "#ffffff",
+    }).setOrigin(0.5, 0);
+    const multText = this.add.text(width / 2, height - 82, "Multiplier: x1", {
+      fontFamily: "monospace",
+      fontSize: "18px",
+      color: "#9ad1ff",
+    }).setOrigin(0.5, 0);
+    const finalText = this.add.text(width / 2, height - 48, "", {
+      fontFamily: "monospace",
+      fontSize: "18px",
+      color: won ? "#5dd6a2" : "#ffb3a8",
+    }).setOrigin(0.5, 0);
+    root.add([background, title, scoreText, multText, finalText]);
+
+    const cardWidth = 102;
+    const visibleCards = cardIds.length > 0 ? cardIds : [];
+    const gap = Math.min(18, Math.max(8, (width - 70 - cardWidth * Math.max(1, visibleCards.length)) / Math.max(1, visibleCards.length - 1)));
+    const totalWidth = cardWidth * visibleCards.length + gap * Math.max(0, visibleCards.length - 1);
+    let cardX = visibleCards.length > 0 ? (width - totalWidth) / 2 : width / 2 - cardWidth / 2;
+    const cardSprites: Phaser.GameObjects.Container[] = [];
+    if (visibleCards.length === 0) {
+      const empty = this.add.text(width / 2, 138, "Empty hand", {
+        fontFamily: "monospace",
+        fontSize: "20px",
+        color: "#ffb3a8",
+      }).setOrigin(0.5, 0);
+      root.add(empty);
+    } else {
+      for (const cardId of visibleCards) {
+        const sprite = this.createCardSprite(cardId, true, () => undefined);
+        sprite.setPosition(cardX, 92).setAlpha(0.72).setScale(0.92);
+        root.add(sprite);
+        cardSprites.push(sprite);
+        cardX += cardWidth + gap;
+      }
+    }
+
+    this.cardGameContainer = root;
+    let runningChips = 0;
+    let delay = 160;
+    cardSprites.forEach((sprite, index) => {
+      const card = getCardDefinition(visibleCards[index]!);
+      this.time.delayedCall(delay, () => {
+        runningChips += card.chips;
+        this.juice.cardScoreTick(card.chips);
+        scoreText.setText(`Chips: ${runningChips}`);
+        this.tweens.add({
+          targets: sprite,
+          y: 62,
+          scale: 1.16,
+          alpha: 1,
+          duration: 150,
+          yoyo: true,
+          ease: "Back.easeOut",
+        });
+        const pop = this.add.text(sprite.x + 51, sprite.y - 18, `+${card.chips}`, {
+          fontFamily: "monospace",
+          fontSize: "18px",
+          color: "#fff3a8",
+          stroke: "#071019",
+          strokeThickness: 3,
+        }).setOrigin(0.5, 0);
+        root.add(pop);
+        this.tweens.add({
+          targets: pop,
+          y: pop.y - 34,
+          alpha: 0,
+          duration: 420,
+          ease: "Cubic.easeOut",
+          onComplete: () => pop.destroy(),
+        });
+      });
+      delay += 260;
+    });
+
+    this.time.delayedCall(delay, () => {
+      runningChips = result.chips;
+      this.juice.cardModifierTick(result.multiplier);
+      scoreText.setText(`Chips: ${result.chips}`);
+      multText.setText(`Multiplier: x${result.multiplier.toFixed(2).replace(/\.00$/, "")}`);
+      const detail = result.details[0] ?? "Modifiers resolve.";
+      const modifierText = this.add.text(width / 2, 64, detail, {
+        fontFamily: "monospace",
+        fontSize: "14px",
+        color: "#c8ffe1",
+        wordWrap: { width: width - 80 },
+        align: "center",
+      }).setOrigin(0.5, 0);
+      root.add(modifierText);
+      this.tweens.add({
+        targets: modifierText,
+        scale: 1.08,
+        duration: 120,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+      });
+    });
+    delay += 520;
+
+    this.time.delayedCall(delay, () => {
+      this.juice.cardRoundResult(won);
+      finalText.setText(`Final ${result.finalScore} / Window ${result.minScore}-${result.maxScore} / ${won ? "Round won" : result.finalScore < result.minScore ? "Too low" : "Too high"}`);
+      this.tweens.add({
+        targets: finalText,
+        scale: 1.12,
+        duration: 160,
+        yoyo: true,
+        ease: "Back.easeOut",
+      });
+    });
+    delay += 780;
+
+    this.time.delayedCall(delay, () => {
+      this.hideCardGamePopup(false);
+      onComplete();
+    });
+  }
+
   private resolveCardRound(shopkeeperName: string, state: CardCompetitionState, hand: CardId[], selectedIndexes: number[]): void {
     const table = getCardTable(state.tableId);
     const selectedCards = selectedIndexes
@@ -3610,14 +3750,24 @@ export default class SnakeScene extends Phaser.Scene {
       .filter((cardId): cardId is CardId => Boolean(cardId));
     const result = scoreCardHand(selectedCards, table);
     const won = result.finalScore >= result.minScore && result.finalScore <= result.maxScore;
+    this.showCardScoringCutscene(selectedCards, result, won, () => {
+      this.finishResolvedCardRound(shopkeeperName, state, selectedCards, result, won);
+    });
+  }
+
+  private finishResolvedCardRound(
+    shopkeeperName: string,
+    state: CardCompetitionState,
+    selectedCards: CardId[],
+    result: CardScoreResult,
+    won: boolean
+  ): void {
     if (won) {
       state.wins += 1;
     } else {
       state.losses += 1;
     }
-    const playedIndexes = new Set(selectedIndexes);
-    const unplayedCards = hand.filter((_cardId, index) => !playedIndexes.has(index));
-    finishCompetitionRound(state, unplayedCards);
+    finishCompetitionRound(state, selectedCards);
 
     const played = selectedCards.length > 0
       ? selectedCards.map((cardId) => getCardDefinition(cardId).name).join(", ")
@@ -3628,6 +3778,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (state.wins >= 2) {
       const payout = state.wagerScore * 2;
       this.addScoreDirect(payout);
+      this.juice.stopCardMusic();
       this.setChoicePopupVisible(false);
       this.villageShopPopup.show("Card Victory", [
         {
@@ -3640,6 +3791,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     if (state.losses >= 2 || state.round > 3) {
+      this.juice.stopCardMusic();
       this.setChoicePopupVisible(false);
       this.villageShopPopup.show("Card Defeat", [
         {
@@ -3662,6 +3814,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private closeVillageShop(): void {
+    this.juice.stopCardMusic();
     this.hideCardGamePopup();
     this.villageShopPopup.hide();
     this.paused = false;

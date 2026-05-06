@@ -21,6 +21,8 @@ export class JuiceManager {
   private heavenMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private titleMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private titleMusicTimer?: Phaser.Time.TimerEvent;
+  private cardMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private cardMusicTimer?: Phaser.Time.TimerEvent;
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
@@ -244,6 +246,113 @@ export class JuiceManager {
     }, 700);
 
     this.titleMusic = undefined;
+  }
+
+  startCardMusic(): void {
+    if (this.cardMusic) {
+      return;
+    }
+    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+      void this.ctx.resume();
+    }
+    this.stopTitleMusic();
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const bass = this.ctx.createOscillator();
+    bass.type = "triangle";
+    bass.frequency.setValueAtTime(130.81, now);
+    const bassGain = this.ctx.createGain();
+    bassGain.gain.value = 0.1;
+    bass.connect(bassGain);
+    bassGain.connect(gain);
+
+    const shimmer = this.ctx.createOscillator();
+    shimmer.type = "sine";
+    shimmer.frequency.setValueAtTime(523.25, now);
+    const shimmerGain = this.ctx.createGain();
+    shimmerGain.gain.value = 0.035;
+    shimmer.connect(shimmerGain);
+    shimmerGain.connect(gain);
+
+    bass.start(now);
+    shimmer.start(now);
+    gain.gain.exponentialRampToValueAtTime(0.16, now + 0.35);
+    this.cardMusic = { gain, sources: [bass, shimmer], cleanup: [bassGain, shimmerGain] };
+
+    let step = 0;
+    const melody = [523.25, 659.25, 783.99, 659.25, 587.33, 698.46, 880, 698.46];
+    const bassline = [130.81, 130.81, 196.0, 196.0, 146.83, 146.83, 220.0, 220.0];
+    this.cardMusicTimer?.remove(false);
+    this.cardMusicTimer = this.scene.time.addEvent({
+      delay: 170,
+      loop: true,
+      callback: () => {
+        if (!this.cardMusic) {
+          return;
+        }
+        const index = step % melody.length;
+        this.playTone({ frequency: melody[index], duration: 0.09, type: step % 2 === 0 ? "square" : "triangle", volume: 0.055 });
+        if (step % 2 === 0) {
+          this.playTone({ frequency: bassline[index], duration: 0.12, type: "triangle", volume: 0.055 });
+        }
+        if (step % 4 === 3) {
+          this.playTone({ frequency: 1046.5, frequencyEnd: 1318.51, duration: 0.12, type: "sine", volume: 0.035 });
+        }
+        step += 1;
+      },
+    });
+  }
+
+  stopCardMusic(): void {
+    if (!this.cardMusic) {
+      return;
+    }
+    this.cardMusicTimer?.remove(false);
+    this.cardMusicTimer = undefined;
+    const { gain, sources, cleanup } = this.cardMusic;
+    const now = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
+    for (const source of sources) {
+      try { source.stop(now + 0.35); } catch {}
+    }
+    globalThis.setTimeout(() => {
+      for (const source of sources) {
+        try { source.disconnect(); } catch {}
+      }
+      for (const node of cleanup) {
+        try { node.disconnect(); } catch {}
+      }
+      try { gain.disconnect(); } catch {}
+    }, 420);
+    this.cardMusic = undefined;
+  }
+
+  cardScoreTick(value: number): void {
+    this.playTone({ frequency: 360 + Math.min(600, value * 14), frequencyEnd: 520 + Math.min(760, value * 18), duration: 0.12, type: "square", volume: 0.08 });
+    this.punchZoom(1.012, 80);
+  }
+
+  cardModifierTick(multiplier: number): void {
+    this.playTone({ frequency: 660, frequencyEnd: 660 * Math.max(1.1, Math.min(2.5, multiplier)), duration: 0.18, type: "triangle", volume: 0.1 });
+    this.scene.cameras.main.flash(80, 255, 230, 120, true);
+    this.punchZoom(1.025, 110);
+  }
+
+  cardRoundResult(won: boolean): void {
+    if (won) {
+      this.playTone({ frequency: 523.25, duration: 0.12, type: "triangle", volume: 0.11 });
+      this.playTone({ frequency: 783.99, duration: 0.2, type: "sine", volume: 0.1 });
+      this.scene.cameras.main.flash(130, 255, 190, 120, true);
+    } else {
+      this.playTone({ frequency: 220, frequencyEnd: 110, duration: 0.22, type: "sawtooth", volume: 0.09 });
+      this.scene.cameras.main.shake(100, 0.006);
+    }
   }
 
   manaUnlocked() {

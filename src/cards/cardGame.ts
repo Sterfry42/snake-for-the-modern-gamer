@@ -44,6 +44,7 @@ export interface CardCompetitionState {
   round: number;
   wins: number;
   losses: number;
+z  spentCards: CardId[];
   deck: CardId[];
   discard: CardId[];
 }
@@ -146,28 +147,24 @@ export function createCompetitionState(tableId: string, collection: CardCollecti
     round: 1,
     wins: 0,
     losses: 0,
+    spentCards: [],
     deck: shuffleCards(expandCollection(collection), random),
     discard: [],
   };
 }
 
 export function drawCompetitionHand(state: CardCompetitionState, random: () => number, size = 5): CardId[] {
-  if (state.deck.length === 0 && state.discard.length > 0) {
-    state.deck = shuffleCards(state.discard, random);
-    state.discard = [];
-  }
-  const hand: CardId[] = [];
-  while (hand.length < size && state.deck.length > 0) {
-    const next = state.deck.shift();
-    if (next) {
-      hand.push(next);
-    }
-  }
-  return hand;
+  return shuffleCards(state.deck, random).slice(0, size);
 }
 
-export function finishCompetitionRound(state: CardCompetitionState, unplayedCards: CardId[]): void {
-  state.discard.push(...unplayedCards);
+export function finishCompetitionRound(state: CardCompetitionState, playedCards: CardId[]): void {
+  for (const played of playedCards) {
+    const index = state.deck.indexOf(played);
+    if (index >= 0) {
+      state.deck.splice(index, 1);
+      state.spentCards.push(played);
+    }
+  }
   state.round += 1;
 }
 
