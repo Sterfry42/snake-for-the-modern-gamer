@@ -11,6 +11,7 @@ import { QuestController } from "../systems/questController.js";
 import type { QuestGiverRequest } from "../systems/questController.js";
 import type { Quest } from "../quests/quest.js";
 import type { QuestRegistry } from "../quests/questRegistry.js";
+import type { GameSaveData } from "./saveManager.js";
 import { InventorySystem } from "../inventory/inventory.js";
 import { ITEMS, getItem } from "../inventory/itemRegistry.js";
 import { CARD_SHOP_OFFERS, getCardDefinition, type CardCollection, type CardId } from "../cards/cardGame.js";
@@ -1316,6 +1317,9 @@ export class SnakeGame implements QuestRuntime {
       inventory: Object.fromEntries(this.inventory.getAllItems()),
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
       flags: characterFlags,
+      questsActive: this.questController.getActive().map((q: Quest) => q.id),
+      questsCompleted: this.questController.getCompletedIds(),
+      questsAccepted: this.questController.getAcceptedIds(),
     };
 
     const religionId = this.getFlag<string>("religion.id");
@@ -1386,6 +1390,29 @@ export class SnakeGame implements QuestRuntime {
       for (const [key, value] of Object.entries(data.flags ?? {})) {
         if (value !== undefined) {
           this.setFlag(key, value);
+        }
+      }
+
+      if (data.questsActive && data.questsActive.length > 0) {
+        for (const questId of data.questsActive) {
+          const quest = this.registry.getById(questId);
+          if (quest) {
+            quest.onAccept(this);
+            if (!this.questController.getAcceptedIds().includes(questId)) {
+              this.questController.getAcceptedIds().push(questId);
+            }
+            if (!this.questController.getActive().includes(quest)) {
+              this.questController.getActive().push(quest);
+            }
+          }
+        }
+      }
+
+      if (data.questsCompleted && data.questsCompleted.length > 0) {
+        for (const questId of data.questsCompleted) {
+          if (!this.questController.getCompletedIds().includes(questId)) {
+            this.questController.getCompletedIds().push(questId);
+          }
         }
       }
 
