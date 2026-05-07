@@ -2672,9 +2672,32 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Render bosses
     const bosses = this.snakeGame.getBosses(room.id);
+    const timeMs = this.time.now;
     for (const boss of bosses) {
-      const bossColor = boss.kind === "angel" ? 0xfff2a8 : 0xff00ff;
-      const bossAlpha = boss.kind === "angel" ? 0.92 : 0.8;
+      let bossColor: number;
+      let bossAlpha: number;
+
+      if (boss.kind === "angel") {
+        bossColor = 0xfff2a8;
+        bossAlpha = 0.92;
+      } else if (boss.kind === "freaker-dennis" && boss.rainbowPalette) {
+        const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
+        if (palette && palette.enabled) {
+          const colors = palette.colors;
+          const segmentIndex = palette.segmentIndex;
+          const speed = palette.speed * 60;
+          const colorIndex = Math.floor((timeMs / 1000 / speed) % colors.length);
+          bossColor = parseInt(colors[colorIndex].replace('#', '0x'), 16);
+          bossAlpha = 0.85;
+        } else {
+          bossColor = 0xff00ff;
+          bossAlpha = 0.8;
+        }
+      } else {
+        bossColor = 0xff00ff;
+        bossAlpha = 0.8;
+      }
+
       for (const segment of boss.body) {
         const [roomX, roomY] = room.id.split(",").map(Number);
         const localX = segment.x - roomX * this.grid.cols;

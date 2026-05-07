@@ -370,7 +370,7 @@ export class SnakeGame implements QuestRuntime {
     }
 
     // TODO: Make this configurable
-    if (this.rng() < 0.05) { // 5% chance to spawn a boss on reset
+    if (this.rng() < 0.03) { // 3% chance to spawn a boss on reset
       this.bosses.spawnBoss(this.snake.currentRoomId, "freak-dennis");
     }
 
@@ -460,7 +460,7 @@ export class SnakeGame implements QuestRuntime {
       if (!this.visitedRooms.has(newRoomId)) {
         this.visitedRooms.add(newRoomId);
         // TODO: Make this configurable
-        if (this.rng() < 0.05) { // 5% chance to spawn Freak Dennis in a new room
+        if (this.rng() < 0.03) { // 3% chance to spawn Freak Dennis in a new room
           this.bosses.spawnBoss(newRoomId, "freak-dennis");
         }
         this.enemies.ensureEnemy(
