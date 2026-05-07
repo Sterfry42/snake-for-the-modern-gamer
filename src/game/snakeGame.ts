@@ -286,6 +286,7 @@ export class SnakeGame implements QuestRuntime {
   constructor(
     config: GameConfig = defaultGameConfig,
     private readonly registry: QuestRegistry,
+    private readonly snakeScene: any,
     rng?: RandomGenerator
   ) {
     this.config = config;
@@ -1346,6 +1347,11 @@ export class SnakeGame implements QuestRuntime {
       data.backgroundMods = backgroundMods;
     }
 
+    if (this.snakeScene && typeof this.snakeScene.getSnakeCustomizationState === 'function') {
+      const cosmetics = this.snakeScene.getSnakeCustomizationState();
+      data.cosmetics = cosmetics;
+    }
+
     return data;
   }
 
@@ -1436,15 +1442,19 @@ export class SnakeGame implements QuestRuntime {
         }
       }
 
-      if (data.backgroundId) {
-        const bg = getBackground();
-        if (bg && bg.id === data.backgroundId) {
-          this.setFlag("background.id", data.backgroundId);
-          this.setFlag("background.mods", data.backgroundMods);
-        }
+if (data.backgroundId) {
+      const bg = getBackground();
+      if (bg && bg.id === data.backgroundId) {
+        this.setFlag("background.id", data.backgroundId);
+        this.setFlag("background.mods", data.backgroundMods);
       }
+    }
 
-      return true;
+    if (data.cosmetics && this.snakeScene && typeof this.snakeScene.setSnakeCosmeticState === 'function') {
+      this.snakeScene.setSnakeCosmeticState(data.cosmetics);
+    }
+
+    return true;
     } catch (error) {
       console.error("Failed to load game:", error);
       return false;
