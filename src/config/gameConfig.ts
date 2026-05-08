@@ -76,6 +76,34 @@ export interface SnakeConfig {
   spawnBuffer: Vector2Like[];
 }
 
+export interface RainbowColorConfig {
+  enabled: boolean;
+  colors: string[];
+  segmentIndex: number;
+  speed: number;
+}
+
+export interface TrackingConfig {
+  enabled: boolean;
+  detectionRadius: number;
+  moveSpeedBonus: number;
+  minDistance: number;
+  maxDistance: number;
+  changeThreshold: number;
+}
+
+export interface FreakerDennisConfig {
+  rainbowPalette: RainbowColorConfig;
+  tracking: TrackingConfig;
+  difficulty: {
+    health: number;
+    pullRadius: number;
+    pullStrength: number;
+    spawnChance: number;
+    damageResistance: number;
+  };
+}
+
 export interface GameConfig {
   grid: GridConfig;
   snake: SnakeConfig;
@@ -84,6 +112,7 @@ export interface GameConfig {
   apples: AppleSystemConfig;
   quests: QuestSystemConfig;
   features: FeatureSystemConfig;
+  freakerDennis?: FreakerDennisConfig;
 }
 
 export type PowerupKind = "phase" | "smite" | "gun";
@@ -178,6 +207,29 @@ export const defaultGameConfig: GameConfig = {
   },
   features: {
     enabled: ["coreScore", "wrapWall", "bonusApple", "hungerTimer", "religionChoice", "killstreakArsenal"],
+  },
+  freakerDennis: {
+    rainbowPalette: {
+      enabled: true,
+      colors: ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"],
+      segmentIndex: 0,
+      speed: 0.1,
+    },
+    tracking: {
+      enabled: true,
+      detectionRadius: 12,
+      moveSpeedBonus: 1.5,
+      minDistance: 3,
+      maxDistance: 15,
+      changeThreshold: 0.7,
+    },
+    difficulty: {
+      health: 150,
+      pullRadius: 10,
+      pullStrength: 0.6,
+      spawnChance: 0.03,
+      damageResistance: 0.2,
+    },
   },
 };
 

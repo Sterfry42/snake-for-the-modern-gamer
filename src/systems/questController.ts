@@ -63,6 +63,31 @@ export class QuestController {
     return this.offered;
   }
 
+  restoreQuestIds(
+    state: { active?: string[]; completed?: string[]; accepted?: string[] },
+    runtime: QuestRuntime
+  ): void {
+    const completed = Array.from(new Set(state.completed ?? []));
+    const accepted = Array.from(new Set([...(state.accepted ?? []), ...(state.active ?? []), ...completed]));
+    const active: Quest[] = [];
+    for (const id of state.active ?? []) {
+      if (completed.includes(id)) {
+        continue;
+      }
+      const quest = this.registry.getById(id);
+      if (!quest || active.some((entry) => entry.id === id)) {
+        continue;
+      }
+      quest.onAccept(runtime);
+      active.push(quest);
+    }
+    this.active = active;
+    this.completed = completed;
+    this.accepted = accepted;
+    this.offered = null;
+    this.offeredByRoomId = undefined;
+  }
+
   acceptOffered(runtime: QuestRuntime): Quest | null {
     if (!this.offered) {
       return null;

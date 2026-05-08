@@ -11,6 +11,7 @@ import { QuestController } from "../systems/questController.js";
 import type { QuestGiverRequest } from "../systems/questController.js";
 import type { Quest } from "../quests/quest.js";
 import type { QuestRegistry } from "../quests/questRegistry.js";
+import type { GameSaveData } from "./saveManager.js";
 import { InventorySystem } from "../inventory/inventory.js";
 import { ITEMS, getItem } from "../inventory/itemRegistry.js";
 import { CARD_SHOP_OFFERS, getCardDefinition, type CardCollection, type CardId } from "../cards/cardGame.js";
@@ -267,7 +268,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly world: WorldService;
   private readonly apples: AppleService;
   private readonly snake: SnakeState;
-  private readonly bosses: BossManager;
+  public readonly bosses: BossManager;
   private readonly enemies: EnemyManager;
   private readonly questController: QuestController;
   private readonly inventory: InventorySystem;
@@ -285,6 +286,7 @@ export class SnakeGame implements QuestRuntime {
   constructor(
     config: GameConfig = defaultGameConfig,
     private readonly registry: QuestRegistry,
+    private readonly snakeScene: any,
     rng?: RandomGenerator
   ) {
     this.config = config;
@@ -368,7 +370,7 @@ export class SnakeGame implements QuestRuntime {
     }
 
     // TODO: Make this configurable
-    if (this.rng() < 0.05) { // 5% chance to spawn a boss on reset
+    if (this.rng() < 0.03) { // 3% chance to spawn a boss on reset
       this.bosses.spawnBoss(this.snake.currentRoomId, "freak-dennis");
     }
 
@@ -458,7 +460,7 @@ export class SnakeGame implements QuestRuntime {
       if (!this.visitedRooms.has(newRoomId)) {
         this.visitedRooms.add(newRoomId);
         // TODO: Make this configurable
-        if (this.rng() < 0.05) { // 5% chance to spawn Freak Dennis in a new room
+        if (this.rng() < 0.03) { // 3% chance to spawn Freak Dennis in a new room
           this.bosses.spawnBoss(newRoomId, "freak-dennis");
         }
         this.enemies.ensureEnemy(
@@ -1316,6 +1318,9 @@ export class SnakeGame implements QuestRuntime {
       inventory: Object.fromEntries(this.inventory.getAllItems()),
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
       flags: characterFlags,
+      questsActive: this.questController.getActive().map((q: Quest) => q.id),
+      questsCompleted: this.questController.getCompletedIds(),
+      questsAccepted: this.questController.getAcceptedIds(),
     };
 
     const religionId = this.getFlag<string>("religion.id");
@@ -1340,6 +1345,11 @@ export class SnakeGame implements QuestRuntime {
     if (backgroundId || backgroundMods) {
       data.backgroundId = backgroundId;
       data.backgroundMods = backgroundMods;
+    }
+
+    if (this.snakeScene && typeof this.snakeScene.getSnakeCustomizationState === 'function') {
+      const cosmetics = this.snakeScene.getSnakeCustomizationState();
+      data.cosmetics = cosmetics;
     }
 
     return data;
@@ -1389,6 +1399,12 @@ export class SnakeGame implements QuestRuntime {
         }
       }
 
+      this.questController.restoreQuestIds({
+        active: data.questsActive,
+        completed: data.questsCompleted,
+        accepted: data.questsAccepted,
+      }, this);
+
       const getReligion = getReligionChoice || (() => null);
       const getClass = getClassChoice || (() => null);
       const getBackground = getBackgroundChoice || (() => null);
@@ -1409,15 +1425,19 @@ export class SnakeGame implements QuestRuntime {
         }
       }
 
-      if (data.backgroundId) {
-        const bg = getBackground();
-        if (bg && bg.id === data.backgroundId) {
-          this.setFlag("background.id", data.backgroundId);
-          this.setFlag("background.mods", data.backgroundMods);
-        }
+if (data.backgroundId) {
+      const bg = getBackground();
+      if (bg && bg.id === data.backgroundId) {
+        this.setFlag("background.id", data.backgroundId);
+        this.setFlag("background.mods", data.backgroundMods);
       }
+    }
 
-      return true;
+    if (data.cosmetics && this.snakeScene && typeof this.snakeScene.setSnakeCosmeticState === 'function') {
+      this.snakeScene.setSnakeCosmeticState(data.cosmetics);
+    }
+
+    return true;
     } catch (error) {
       console.error("Failed to load game:", error);
       return false;

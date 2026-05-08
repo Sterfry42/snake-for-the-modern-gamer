@@ -278,7 +278,7 @@ export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
 
-  private snakeGame!: SnakeGame;
+  public snakeGame!: SnakeGame;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
@@ -408,7 +408,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics.setDepth(0);
 
     const registry = await createQuestRegistry();
-    this.snakeGame = new SnakeGame(defaultGameConfig, registry);
+    this.snakeGame = new SnakeGame(defaultGameConfig, registry, this);
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
@@ -1440,6 +1440,20 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
       return { ok: true, message: "Cheat active: +100 lives.", color: "#5dd6a2" };
     }
+    if (code === "freakdennis") {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnBoss(this.currentRoomId, "freak-dennis");
+        return { ok: true, message: "Spawned Freak Dennis!", color: "#5dd6a2" };
+      }
+      return { ok: false, message: "Cannot spawn boss - game not in valid state", color: "#ff6b6b" };
+    }
+    if (code === "freakerdennis") {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnBoss(this.currentRoomId, "freaker-dennis");
+        return { ok: true, message: "Spawned Freaker Dennis!", color: "#5dd6a2" };
+      }
+      return { ok: false, message: "Cannot spawn boss - game not in valid state", color: "#ff6b6b" };
+    }
     return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: "#ff6b6b" };
   }
 
@@ -1515,7 +1529,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   get currentRoomId(): string {
-    return this.snakeGame.getCurrentRoom().id;
+    const room = this.snakeGame.getCurrentRoom();
+    if (!room) {
+      console.warn('[currentRoomId] Game state invalid, using default room');
+      return "0,0,0";
+    }
+    return room.id;
   }
 
   getGeneratedRoomsOnCurrentLevel(): string[] {
@@ -2672,9 +2691,32 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Render bosses
     const bosses = this.snakeGame.getBosses(room.id);
+    const timeMs = this.time.now;
     for (const boss of bosses) {
-      const bossColor = boss.kind === "angel" ? 0xfff2a8 : 0xff00ff;
-      const bossAlpha = boss.kind === "angel" ? 0.92 : 0.8;
+      let bossColor: number;
+      let bossAlpha: number;
+
+      if (boss.kind === "angel") {
+        bossColor = 0xfff2a8;
+        bossAlpha = 0.92;
+      } else if (boss.kind === "freaker-dennis" && boss.rainbowPalette) {
+        const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
+        if (palette && palette.enabled) {
+          const colors = palette.colors;
+          const speed = palette.speed ?? 1;
+          const tickInterval = speed * 1000;
+          const colorIndex = Math.floor(timeMs / tickInterval) % colors.length;
+          bossColor = parseInt(colors[colorIndex].replace('#', '0x'), 16);
+          bossAlpha = 0.85;
+        } else {
+          bossColor = 0xff00ff;
+          bossAlpha = 0.8;
+        }
+      } else {
+        bossColor = 0xff00ff;
+        bossAlpha = 0.8;
+      }
+
       for (const segment of boss.body) {
         const [roomX, roomY] = room.id.split(",").map(Number);
         const localX = segment.x - roomX * this.grid.cols;
@@ -2774,6 +2816,21 @@ export default class SnakeScene extends Phaser.Scene {
       loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
       languageSelected: this.snakeCosmetics.languageSelected,
       languageSet: this.snakeCosmetics.languageSet,
+    };
+  }
+
+  setSnakeCosmeticState(state: SnakeCosmeticState): void {
+    this.snakeCosmetics = {
+      unlockedThemes: state.unlockedThemes,
+      activeTheme: state.activeTheme,
+      unlockedHats: state.unlockedHats,
+      activeHat: state.activeHat,
+      cowboyHatUnlocked: state.cowboyHatUnlocked,
+      cowboyHatEquipped: state.cowboyHatEquipped,
+      loudWalkingNoiseUnlocked: state.loudWalkingNoiseUnlocked,
+      loudWalkingNoiseEnabled: state.loudWalkingNoiseEnabled,
+      languageSelected: state.languageSelected,
+      languageSet: state.languageSet,
     };
   }
 

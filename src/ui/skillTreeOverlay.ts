@@ -61,7 +61,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
   { id: "customize", label: "Style", placeholder: "Buy palettes and swagger." },
   { id: "map", label: "Map", placeholder: "Explore to reveal more rooms." },
-  { id: "cheats", label: "Cheats", placeholder: "Enter cheat strings." },
+  { id: "cheats", label: "Cheats", placeholder: "Enter cheat strings: freakdennis, freakerdennis" },
   { id: "info", label: "Info" },
 ];
 
@@ -620,6 +620,11 @@ export class SkillTreeOverlay {
   }
 
   private applyCheatCode(): void {
+    if (!this.scene.snakeGame || !this.scene.currentRoomId) {
+      this.announce("Cannot use cheats in current game state", "#ff6b6b", 2000);
+      return;
+    }
+    
     const result = this.scene.applyCheatCode(this.cheatCode);
     this.announce(result.message, result.color, 2200);
     if (result.ok) {
