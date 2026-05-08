@@ -10,7 +10,7 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-docs/
+![1778050621860](image/.gitignore/1778050621860.png)![1778050626574](image/.gitignore/1778050626574.png)![1778050626866](image/.gitignore/1778050626866.png)![1778050627036](image/.gitignore/1778050627036.png)![1778050627198](image/.gitignore/1778050627198.png)![1778050634979](image/.gitignore/1778050634979.png)![1778050639217](image/.gitignore/1778050639217.png)docs/
 *.local
 
 # Editor directories and files

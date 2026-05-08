@@ -47,7 +47,7 @@ const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
 const CLICK_ROW_TOP_BIAS = 8;
 
-type TabId = "skills" | "inventory" | "customize" | "map" | "cheats" | "info";
+type TabId = "skills" | "inventory" | "customize" | "map" | "graph" | "cheats" | "info";
 type SnakeThemeId = VillageShopStyleId;
 
 interface TabDefinition {
@@ -61,8 +61,19 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
   { id: "customize", label: "Style", placeholder: "Buy palettes and swagger." },
   { id: "map", label: "Map", placeholder: "Explore to reveal more rooms." },
+  { id: "graph", label: "Graph" },
   { id: "cheats", label: "Cheats", placeholder: "Enter cheat strings: freakdennis, freakerdennis" },
   { id: "info", label: "Info" },
+];
+
+const LUCK_GRAPH_POINTS: readonly { outOf10: number; luck: number }[] = [
+  { outOf10: 130, luck: -0.13 },
+  { outOf10: 10.495, luck: 0.213 },
+  { outOf10: 6.5, luck: 0 },
+  { outOf10: 8.5, luck: 1.1 },
+  { outOf10: 3, luck: 0 },
+  { outOf10: 31.2, luck: 0.9705 },
+  { outOf10: 6.2, luck: 6.022e-23 },
 ];
 
 export class SkillTreeOverlay {
@@ -79,6 +90,11 @@ export class SkillTreeOverlay {
   private readonly mapBackground: Phaser.GameObjects.Rectangle;
   private readonly mapTitle: Phaser.GameObjects.Text;
   private readonly mapContainer: Phaser.GameObjects.Container;
+  private readonly graphGraphics: Phaser.GameObjects.Graphics;
+  private readonly graphBackground: Phaser.GameObjects.Rectangle;
+  private readonly graphTitle: Phaser.GameObjects.Text;
+  private readonly graphLabels: Phaser.GameObjects.Text;
+  private readonly graphContainer: Phaser.GameObjects.Container;
   private readonly cheatContainer: Phaser.GameObjects.Container;
   private readonly cheatBackground: Phaser.GameObjects.Rectangle;
   private readonly cheatTitle: Phaser.GameObjects.Text;
@@ -155,6 +171,31 @@ export class SkillTreeOverlay {
     }).setVisible(false);
     this.mapGraphics = this.scene.add.graphics();
     this.mapContainer = this.scene.add.container(0, 0, [this.mapBackground, this.mapTitle, this.mapGraphics]).setVisible(false);
+
+    const graphX = TREE_PADDING.horizontal;
+    const graphY = TREE_PADDING.top - 8;
+    const graphW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const graphH = this.options.height - graphY - TREE_PADDING.bottom + 4;
+    this.graphBackground = this.scene.add
+      .rectangle(graphX, graphY, graphW, graphH, 0x0b1622, 0.72)
+      .setStrokeStyle(1, 0x244155)
+      .setOrigin(0, 0)
+      .setVisible(false);
+    this.graphTitle = this.scene.add.text(graphX + 10, graphY + 8, "Luck Graph", {
+      fontFamily: "monospace",
+      fontSize: "16px",
+      color: "#9ad1ff",
+    }).setVisible(false);
+    this.graphGraphics = this.scene.add.graphics();
+    this.graphLabels = this.scene.add.text(graphX + 12, graphY + graphH - 42, "", {
+      fontFamily: "monospace",
+      fontSize: "11px",
+      color: "#c8ffe1",
+      lineSpacing: 2,
+    }).setVisible(false);
+    this.graphContainer = this.scene.add
+      .container(0, 0, [this.graphBackground, this.graphTitle, this.graphGraphics, this.graphLabels])
+      .setVisible(false);
 
     const cheatX = TREE_PADDING.horizontal;
     const cheatY = TREE_PADDING.top - 8;
@@ -423,6 +464,7 @@ export class SkillTreeOverlay {
       this.connectionGraphics,
       this.connectionHighlight,
       this.mapContainer,
+      this.graphContainer,
       this.cheatContainer,
       this.detailPanel,
       this.title,
@@ -751,6 +793,7 @@ export class SkillTreeOverlay {
     const customizationActive = this.activeTab === "customize";
     const cheatsActive = this.activeTab === "cheats";
     const infoActive = this.activeTab === "info";
+    const graphActive = this.activeTab === "graph";
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
     this.customizationText.setVisible(customizationActive);
@@ -768,6 +811,17 @@ export class SkillTreeOverlay {
     } else {
       this.mapGraphics.clear();
     }
+    this.graphContainer.setVisible(graphActive);
+    this.graphBackground.setVisible(graphActive);
+    this.graphTitle.setVisible(graphActive);
+    this.graphGraphics.setVisible(graphActive);
+    this.graphLabels.setVisible(graphActive);
+    if (graphActive) {
+      this.drawLuckGraphPanel();
+    } else {
+      this.graphGraphics.clear();
+      this.graphLabels.setText("");
+    }
     this.cheatContainer.setVisible(cheatsActive);
     this.cheatBackground.setVisible(cheatsActive);
     this.cheatTitle.setVisible(cheatsActive);
@@ -781,7 +835,7 @@ export class SkillTreeOverlay {
 
     if (this.stubText) {
       const mapActive = this.activeTab === "map";
-      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive && !cheatsActive && !infoActive;
+      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive && !graphActive && !cheatsActive && !infoActive;
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
@@ -846,10 +900,23 @@ export class SkillTreeOverlay {
       this.detailSubtitle.setText("String Input").setVisible(true);
       this.detailRankText.setText("").setVisible(false);
       this.detailBody
-        .setText("Supported cheats:\n\ninvestingincrypto\nimawiddlebabywhoneedshelp")
+        .setText("Supported cheats:\n\ninvestingincrypto\nimawiddlebabywhoneedshelp\nteleporterquest\ngreenpurchase\nfreakdennis\nfreakerdennis")
         .setVisible(true);
       if (!this.hintSticky) {
         this.hintText.setText("Type a cheat string and press Enter.");
+        this.hintText.setColor("#9ad1ff");
+      }
+    }
+
+    if (graphActive) {
+      this.detailTitle.setText("Luck Graph").setVisible(true);
+      this.detailSubtitle.setText("Out Of 10 vs Luck").setVisible(true);
+      this.detailRankText.setText("").setVisible(false);
+      this.detailBody
+        .setText("Plots the provided table. X uses a log scale so the 130 outlier can share the same graph with the smaller values.")
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText("Graph tab: provided luck data.");
         this.hintText.setColor("#9ad1ff");
       }
     }
@@ -930,7 +997,7 @@ export class SkillTreeOverlay {
         this.hintText.setText("Customize your serpent's colors and hat.");
         this.hintText.setColor("#9ad1ff");
       }
-    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills" && this.activeTab !== "info" && this.activeTab !== "cheats") {
+    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills" && this.activeTab !== "info" && this.activeTab !== "cheats" && this.activeTab !== "graph") {
       this.customizationRowMap = [];
       this.clearPerkDetails(true);
     }
@@ -1046,9 +1113,15 @@ export class SkillTreeOverlay {
             : acceptedIds.has(quest.id)
               ? "[-]"
               : "[ ]";
-        return `${marker} ${quest.label}: ${quest.description}`;
+        const subtasks = typeof (this.scene as any).getQuestSubtasks === "function"
+          ? ((this.scene as any).getQuestSubtasks(quest.id) as string[])
+          : [];
+        const subtaskText = subtasks.length > 0
+          ? `\n${subtasks.map((line) => `  ${line}`).join("\n")}`
+          : "";
+        return `${marker} ${quest.label}: ${quest.description}${subtaskText}`;
       })
-      .join("\n");
+      .join("\n\n");
   }
 
   private drawMapPanel(): void {
@@ -1060,12 +1133,21 @@ export class SkillTreeOverlay {
     const level = Number((current.split(",")[2] ?? 0));
     this.mapTitle.setText(`Map - Depth ${level}`);
     const coords = rooms.map((id) => id.split(",").map((n) => Number(n)) as number[]).filter((c) => (c[2] ?? 0) === level);
+    const questMarkers = typeof getter.getQuestMapMarkers === "function"
+      ? (getter.getQuestMapMarkers() as Array<{ roomId: string; label: string; color: number; kind: string }>)
+      : [];
+    const questMarkerCoords = questMarkers
+      .map((marker) => ({ marker, coords: marker.roomId.split(",").map((n) => Number(n)) as number[] }))
+      .filter((entry) => (entry.coords[2] ?? 0) === level);
 
     // Ensure bounds include house and origin on their level for icon placement
     const markerCoords: number[][] = [];
     if (level === 0) {
       markerCoords.push([0, 0, 0]); // origin/spawn
       markerCoords.push([0, -1, 0]); // house
+    }
+    for (const entry of questMarkerCoords) {
+      markerCoords.push(entry.coords);
     }
 
     const allBounds = coords.concat(markerCoords);
@@ -1148,6 +1230,101 @@ export class SkillTreeOverlay {
       this.mapGraphics.lineTo(s.cx, s.cy + 2);
       this.mapGraphics.strokePath();
     }
+
+    for (const { marker, coords: [qx, qy] } of questMarkerCoords) {
+      const q = iconPos(qx, qy);
+      const color = marker.color ?? 0xffd166;
+      this.mapGraphics.lineStyle(2, color, 0.95).strokeCircle(q.cx, q.cy, Math.max(3, cellSize * 0.34));
+      this.mapGraphics.fillStyle(color, 0.95);
+      if (marker.kind === "turn-in") {
+        this.mapGraphics.fillTriangle(q.cx, q.cy - 4, q.cx - 4, q.cy + 3, q.cx + 4, q.cy + 3);
+      } else {
+        this.mapGraphics.fillCircle(q.cx, q.cy, Math.max(2, cellSize * 0.13));
+      }
+    }
+  }
+
+  private drawLuckGraphPanel(): void {
+    this.graphGraphics.clear();
+    const left = this.graphBackground.x + 48;
+    const top = this.graphBackground.y + 44;
+    const width = this.graphBackground.width - 76;
+    const height = this.graphBackground.height - 104;
+    const bottom = top + height;
+    const right = left + width;
+
+    const xValues = LUCK_GRAPH_POINTS.map((point) => Math.log10(Math.max(0.001, point.outOf10)));
+    const yValues = LUCK_GRAPH_POINTS.map((point) => point.luck);
+    const minX = Math.min(...xValues);
+    const maxX = Math.max(...xValues);
+    const minY = Math.min(-0.2, ...yValues);
+    const maxY = Math.max(1.2, ...yValues);
+    const xRange = Math.max(0.001, maxX - minX);
+    const yRange = Math.max(0.001, maxY - minY);
+    const plotX = (value: number) => left + ((Math.log10(Math.max(0.001, value)) - minX) / xRange) * width;
+    const plotY = (value: number) => bottom - ((value - minY) / yRange) * height;
+
+    this.graphGraphics.lineStyle(1, 0x244155, 0.8);
+    for (let i = 0; i <= 4; i += 1) {
+      const y = top + (height / 4) * i;
+      this.graphGraphics.beginPath();
+      this.graphGraphics.moveTo(left, y);
+      this.graphGraphics.lineTo(right, y);
+      this.graphGraphics.strokePath();
+    }
+    for (let i = 0; i <= 4; i += 1) {
+      const x = left + (width / 4) * i;
+      this.graphGraphics.beginPath();
+      this.graphGraphics.moveTo(x, top);
+      this.graphGraphics.lineTo(x, bottom);
+      this.graphGraphics.strokePath();
+    }
+
+    this.graphGraphics.lineStyle(2, 0x9ad1ff, 0.95);
+    this.graphGraphics.beginPath();
+    this.graphGraphics.moveTo(left, bottom);
+    this.graphGraphics.lineTo(right, bottom);
+    this.graphGraphics.moveTo(left, top);
+    this.graphGraphics.lineTo(left, bottom);
+    this.graphGraphics.strokePath();
+
+    const sorted = [...LUCK_GRAPH_POINTS].sort((a, b) => a.outOf10 - b.outOf10);
+    this.graphGraphics.lineStyle(2, 0x5dd6a2, 0.78);
+    this.graphGraphics.beginPath();
+    sorted.forEach((point, index) => {
+      const x = plotX(point.outOf10);
+      const y = plotY(point.luck);
+      if (index === 0) {
+        this.graphGraphics.moveTo(x, y);
+      } else {
+        this.graphGraphics.lineTo(x, y);
+      }
+    });
+    this.graphGraphics.strokePath();
+
+    for (const point of LUCK_GRAPH_POINTS) {
+      const x = plotX(point.outOf10);
+      const y = plotY(point.luck);
+      const highlight = point.luck >= 0.9 ? 0xffd166 : point.luck < 0 ? 0xff6b6b : 0x5dd6a2;
+      this.graphGraphics.fillStyle(highlight, 0.95).fillCircle(x, y, 4);
+      this.graphGraphics.lineStyle(1, 0xffffff, 0.8).strokeCircle(x, y, 4.5);
+    }
+
+    const zeroY = plotY(0);
+    if (zeroY >= top && zeroY <= bottom) {
+      this.graphGraphics.lineStyle(1, 0xffffff, 0.38);
+      this.graphGraphics.beginPath();
+      this.graphGraphics.moveTo(left, zeroY);
+      this.graphGraphics.lineTo(right, zeroY);
+      this.graphGraphics.strokePath();
+    }
+
+    this.graphLabels.setText(
+      [
+        `Y luck: ${minY.toFixed(2)} to ${maxY.toFixed(2)}`,
+        `X out of 10: ${Math.min(...LUCK_GRAPH_POINTS.map((p) => p.outOf10)).toString()} to ${Math.max(...LUCK_GRAPH_POINTS.map((p) => p.outOf10)).toString()} (log)`,
+      ].join("\n")
+    );
   }
 
   private buildTabs(): void {

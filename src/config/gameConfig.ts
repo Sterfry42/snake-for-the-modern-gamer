@@ -146,7 +146,7 @@ export const defaultGameConfig: GameConfig = {
       count: { min: 2, max: 5 },
       width: { min: 3, max: 8 },
       height: { min: 2, max: 5 },
-      margin: 2,
+      margin: 7,
     },
     ladder: {
       enabled: true,

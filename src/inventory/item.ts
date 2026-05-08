@@ -31,6 +31,10 @@ export interface EquipableItem extends BaseItem {
     coldResistance?: number;
     // Allows safe traversal over water tiles.
     swimmingEnabled?: boolean;
+    refundEveryRooms?: { interval: number; score: number };
+    appleScorePenalty?: number;
+    hazardMapSense?: number;
+    radiationTimerScalar?: number;
   };
 }
 

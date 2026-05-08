@@ -1,6 +1,7 @@
 import Phaser from "phaser";
 import { defaultGameConfig } from "../config/gameConfig.js";
 import { SnakeGame } from "../game/snakeGame.js";
+import type { QuestRoomActor } from "../game/snakeGame.js";
 import { FeatureManager } from "../systems/features.js";
 import { createQuestRegistry } from "../systems/quests.js";
 import { SkillTreeManager } from "../systems/skillTreeManager.js";
@@ -303,6 +304,7 @@ export default class SnakeScene extends Phaser.Scene {
   private heartsHud!: Phaser.GameObjects.Text;
   private livesHud!: Phaser.GameObjects.Text;
   private temperatureHud!: Phaser.GameObjects.Text;
+  private radiationHud!: Phaser.GameObjects.Text;
   private villageHud!: Phaser.GameObjects.Text;
   private biomeHud!: Phaser.GameObjects.Text;
   private questGiverSprite!: Phaser.GameObjects.Sprite;
@@ -467,6 +469,17 @@ export default class SnakeScene extends Phaser.Scene {
       })
       .setDepth(28)
       .setVisible(false);
+    this.radiationHud = this.add
+      .text(this.grid.cols * this.grid.cell / 2, 8, "", {
+        fontFamily: "monospace",
+        fontSize: "28px",
+        color: "#7cff3a",
+        stroke: "#06240b",
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(34)
+      .setVisible(false);
     this.villageHud = this.add
       .text(this.grid.cols * this.grid.cell / 2, 18, "", {
         fontFamily: "Georgia, 'Times New Roman', serif",
@@ -567,6 +580,9 @@ export default class SnakeScene extends Phaser.Scene {
       if (key === "y") this.hideSaveUI();
 
       if (key === "e") {
+        if (this.tryInteractQuestTarget()) {
+          return;
+        }
         if (this.tryInteractVillageShopkeeper()) {
           return;
         }
@@ -727,6 +743,12 @@ export default class SnakeScene extends Phaser.Scene {
       const item = getItem(consumedPhoenix.itemId);
       this.showQuestHintPopup(`${item?.name ?? "Phoenix charm"} burned away.`, "#fff3a8");
       this.snakeGame.setFlag("equipment.itemPhoenixConsumed", undefined);
+    }
+
+    const questInteraction = this.snakeGame.getFlag<{ message?: string }>("ui.questInteraction");
+    if (questInteraction?.message) {
+      this.showQuestHintPopup(questInteraction.message, "#9ad1ff");
+      this.snakeGame.setFlag("ui.questInteraction", undefined);
     }
 
     // Idle apple sparkle
@@ -1439,6 +1461,14 @@ export default class SnakeScene extends Phaser.Scene {
       this.setFlag("ui.livesRevealed", true);
       this.isDirty = true;
       return { ok: true, message: "Cheat active: +100 lives.", color: "#5dd6a2" };
+    }
+    if (code === "teleporterquest" || code === "greenpurchase") {
+      const started = this.snakeGame.startGreenPurchaseCheat();
+      if (started) {
+        this.isDirty = true;
+        return { ok: true, message: "Cheat active: Green Purchase quest added.", color: "#5dd6a2" };
+      }
+      return { ok: false, message: "Green Purchase is already active or unavailable.", color: "#ff6b6b" };
     }
     if (code === "freakdennis") {
       if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
@@ -2154,6 +2184,14 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getAcceptedQuests();
   }
 
+  getQuestMapMarkers() {
+    return this.snakeGame.getQuestMapMarkers();
+  }
+
+  getQuestSubtasks(questId: string): string[] {
+    return this.snakeGame.getQuestSubtasks(questId);
+  }
+
   get offeredQuest(): Quest | null {
     return this.snakeGame.getOfferedQuest();
   }
@@ -2201,6 +2239,10 @@ export default class SnakeScene extends Phaser.Scene {
     let heatResistance = 0;
     let coldResistance = 0;
     let swimmingEnabled = false;
+    let refundEveryRooms: { interval: number; score: number } | undefined;
+    let appleScorePenalty = 0;
+    let hazardMapSense = 0;
+    let radiationTimerScalar = 1;
 
     for (const [, itemId] of equipped) {
       const item = getItem(itemId) as any;
@@ -2243,6 +2285,18 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (mods.swimmingEnabled) {
         swimmingEnabled = true;
+      }
+      if (mods.refundEveryRooms) {
+        refundEveryRooms = mods.refundEveryRooms;
+      }
+      if (typeof mods.appleScorePenalty === "number") {
+        appleScorePenalty += mods.appleScorePenalty;
+      }
+      if (typeof mods.hazardMapSense === "number") {
+        hazardMapSense += mods.hazardMapSense;
+      }
+      if (typeof mods.radiationTimerScalar === "number") {
+        radiationTimerScalar *= mods.radiationTimerScalar;
       }
     }
 
@@ -2320,6 +2374,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag("equipment.heatResistance", heatResistance > 0 ? Math.min(0.9, heatResistance) : undefined);
     this.setFlag("equipment.coldResistance", coldResistance > 0 ? Math.min(0.9, coldResistance) : undefined);
     this.setFlag("equipment.swimmingEnabled", swimmingEnabled ? true : undefined);
+    this.setFlag("equipment.refundEveryRooms", refundEveryRooms);
+    this.setFlag("equipment.appleScorePenalty", appleScorePenalty > 0 ? appleScorePenalty : undefined);
+    this.setFlag("equipment.hazardMapSense", hazardMapSense > 0 ? hazardMapSense : undefined);
+    this.setFlag("equipment.radiationTimerScalar", radiationTimerScalar !== 1 ? radiationTimerScalar : undefined);
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
@@ -2335,6 +2393,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.heartsHud?.setVisible(false);
       this.livesHud?.setVisible(false);
       this.temperatureHud?.setVisible(false);
+      this.radiationHud?.setVisible(false);
       this.villageHud?.setVisible(false);
       this.biomeHud?.setVisible(false);
       this.questGiverSprite?.setVisible(false);
@@ -2689,6 +2748,19 @@ export default class SnakeScene extends Phaser.Scene {
       this.temperatureHud.setVisible(false);
     }
 
+    const radiation = this.snakeGame.getRadiationTimer();
+    if (!this.isInHouse() && radiation) {
+      const remainingSeconds = Math.ceil(radiation.remainingMs / 1000);
+      const minutes = Math.floor(remainingSeconds / 60).toString().padStart(2, "0");
+      const seconds = (remainingSeconds % 60).toString().padStart(2, "0");
+      const color = remainingSeconds <= 15 ? "#ff3b3b" : remainingSeconds <= 45 ? "#ff9f1c" : "#7cff3a";
+      this.radiationHud.setColor(color);
+      this.radiationHud.setText(`RADIOACTIVE SUBSTANCE: ${minutes}:${seconds}`);
+      this.radiationHud.setVisible(true);
+    } else {
+      this.radiationHud.setVisible(false);
+    }
+
     // Render bosses
     const bosses = this.snakeGame.getBosses(room.id);
     const timeMs = this.time.now;
@@ -2729,6 +2801,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.featureManager.call("onRender", this, this.graphics);
+    this.drawQuestRoomActors(this.snakeGame.getQuestRoomActors(room.id));
 
     // Update simple house HUD
     if (this.isInHouse()) {
@@ -3228,6 +3301,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.isInHouse() || this.paused || this.offeredQuest) {
       return null;
     }
+    const questActorHint = this.snakeGame.getNearbyQuestActorHint();
+    if (questActorHint) {
+      return { text: questActorHint };
+    }
     const room = this.snakeGame.getCurrentRoom();
     const shopkeeper = room.village?.shopkeeper;
     if (shopkeeper && this.distanceFromHeadToLocal(shopkeeper) <= 1) {
@@ -3652,6 +3729,24 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private drawQuestRoomActors(actors: QuestRoomActor[]): void {
+    const cell = this.grid.cell;
+    for (const actor of actors) {
+      const x = actor.x * cell;
+      const y = actor.y * cell;
+      if (actor.kind === "tax-office") {
+        this.graphics.fillStyle(0x2b2117, 0.95).fillRoundedRect(x + 2, y + 4, cell - 4, cell - 7, 3);
+        this.graphics.fillStyle(0xffd166, 0.95).fillRect(x + 5, y + 7, cell - 10, 3);
+      } else if (actor.kind === "forest-teleporter" || actor.kind === "deep-teleporter") {
+        this.graphics.lineStyle(3, 0x7cff3a, 0.95).strokeCircle(x + cell / 2, y + cell / 2, cell * 0.38);
+        this.graphics.lineStyle(1, 0xd8ffd0, 0.9).strokeCircle(x + cell / 2, y + cell / 2, cell * 0.22);
+      } else if (actor.kind === "deep-merchant") {
+        this.graphics.fillStyle(0x142414, 0.96).fillRect(x + 4, y + 4, cell - 8, cell - 8);
+        this.graphics.fillStyle(0x7cff3a, 0.9).fillCircle(x + cell / 2, y + cell / 2, cell * 0.18);
+      }
+    }
+  }
+
   private hideCardGamePopup(updateChoiceState = true): void {
     this.cardGameContainer?.destroy(true);
     this.cardGameContainer = null;
@@ -3875,6 +3970,49 @@ export default class SnakeScene extends Phaser.Scene {
     this.hideCardGamePopup();
     this.villageShopPopup.hide();
     this.paused = false;
+  }
+
+  private tryInteractQuestTarget(): boolean {
+    if (this.paused || this.offeredQuest) {
+      return false;
+    }
+    const interaction = this.snakeGame.getNearbyQuestInteraction();
+    if (!interaction) {
+      return false;
+    }
+    if (interaction.kind === "choice") {
+      this.paused = true;
+      this.setChoicePopupVisible(true);
+      this.villageShopPopup.show(interaction.title, interaction.options, (id) => {
+        const result = this.snakeGame.resolveQuestInteraction(id);
+        this.paused = false;
+        if (result.message) {
+          this.showQuestHintPopup(result.message, result.failed ? "#ff6b6b" : "#9ad1ff");
+        }
+        if (result.completed) {
+          this.juice.questCompleted();
+          this.applyPendingQuestCosmeticRewards();
+        }
+        this.applyEquipmentEffects();
+        this.isDirty = true;
+      });
+      return true;
+    }
+    this.showQuestDialogue(
+      interaction.title,
+      interaction.pages,
+      {
+        onClose: () => {
+          const result = this.snakeGame.resolveQuestInteraction();
+          if (result.message) {
+            this.showQuestHintPopup(result.message, "#9ad1ff");
+          }
+          this.closeQuestPopup();
+        },
+      },
+      { closeLabel: interaction.closeLabel ?? "Close" }
+    );
+    return true;
   }
 
   private tryInteractQuestGiver(): boolean {
