@@ -133,6 +133,18 @@ export class SnakeState {
     }
   }
 
+  shrinkTail(segments: number): boolean {
+    const amount = Math.max(0, Math.floor(segments));
+    if (amount <= 0) {
+      return true;
+    }
+    if (this.body.length - amount < 2) {
+      return false;
+    }
+    this.body.splice(Math.max(1, this.body.length - amount), amount);
+    return true;
+  }
+
   step(deps: SnakeStepDependencies): SnakeStepOutcome {
     const previousSnapshot = {
       body: this.body.map((segment) => ({ x: segment.x, y: segment.y })),

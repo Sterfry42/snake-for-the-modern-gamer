@@ -155,6 +155,30 @@ export const ITEMS: readonly Item[] = [
       phoenixCharges: 1,
     },
   },
+  {
+    id: "ring-ledger",
+    name: "Ledger Ring",
+    description: "A brass ring engraved with numbers that change when you are not looking. Every debt wants to become a weapon.",
+    kind: "equipment",
+    slot: "ring",
+    modifiers: {
+      refundEveryRooms: { interval: 10, score: 20 },
+      appleScorePenalty: 1,
+    },
+  },
+  {
+    id: "helm-hazard-halo",
+    name: "Hazard Halo",
+    description: "A dim green halo that warns your skull before the world becomes technical.",
+    kind: "equipment",
+    slot: "helm",
+    modifiers: {
+      heatResistance: 0.35,
+      coldResistance: 0.35,
+      hazardMapSense: 1,
+      radiationTimerScalar: 0.9,
+    },
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));

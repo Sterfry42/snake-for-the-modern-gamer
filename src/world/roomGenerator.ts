@@ -153,6 +153,13 @@ export class RoomGenerator {
     return minInclusive + this.randomInt(Math.max(1, maxExclusive - minInclusive));
   }
 
+  private hashedOffset(span: number, size: number, desiredMargin: number, hash: number): number {
+    const maxStart = Math.max(0, span - size);
+    const margin = Math.min(desiredMargin, Math.floor(maxStart / 2));
+    const range = Math.max(1, maxStart - margin * 2 + 1);
+    return margin + (hash % range);
+  }
+
   private createPortal(roomId: string, x: number, y: number) {
     const [roomX, roomY, roomZ = 0] = roomId.split(",").map(Number);
     const offset = this.config.ladder.verticalOffset;
@@ -728,7 +735,7 @@ export class RoomGenerator {
     grid: GridConfig
   ): { left: number; top: number; width: number; height: number } | null {
     const hash = this.hashRoom(anchorX, anchorY, roomZ, 0x4b7);
-    if (hash % 100 >= 16) {
+    if (hash % 100 >= 48) {
       return null;
     }
 
@@ -743,12 +750,12 @@ export class RoomGenerator {
       return null;
     }
 
-    const width = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c1) % 6);
-    const height = 3 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c9) % 6);
-    const overlapX = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4d3) % Math.max(1, width - 2));
-    const overlapY = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4df) % Math.max(1, height - 2));
-    const innerX = 3 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4e7) % Math.max(1, grid.cols - width - 6));
-    const innerY = 3 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4f1) % Math.max(1, grid.rows - height - 6));
+    const width = 6 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c1) % 7);
+    const height = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c9) % 9);
+    const overlapX = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4d3) % Math.max(1, width - 3));
+    const overlapY = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4df) % Math.max(1, height - 3));
+    const innerX = this.hashedOffset(grid.cols, width, 7, this.hashRoom(anchorX, anchorY, roomZ, 0x4e7));
+    const innerY = this.hashedOffset(grid.rows, height, 7, this.hashRoom(anchorX, anchorY, roomZ, 0x4f1));
 
     if (kind === 0) {
       return {

@@ -6,6 +6,8 @@ export interface QuestRuntime {
   addCosmeticReward(type: "style" | "hat", id: string): void;
   getFlag<T = unknown>(key: string): T | undefined;
   setFlag(key: string, value: unknown): void;
+  canOfferQuestFromGiver?(questId: string, giverRoomId: string): boolean;
+  onQuestAcceptedFromGiver?(quest: Quest, giverRoomId?: string): void;
 }
 
 export abstract class Quest {
