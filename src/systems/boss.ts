@@ -238,8 +238,10 @@ export class BossManager {
       return;
     }
 
-    const [playerRoomX, playerRoomY] = snakeHead.x / this.grid.cols;
-    const [bossRoomX, bossRoomY] = bossHead.x / this.grid.cols;
+    const playerRoomX = Math.floor(snakeHead.x / this.grid.cols);
+    const playerRoomY = Math.floor(snakeHead.y / this.grid.rows);
+    const bossRoomX = Math.floor(bossHead.x / this.grid.cols);
+    const bossRoomY = Math.floor(bossHead.y / this.grid.rows);
 
     if (playerRoomX === bossRoomX && playerRoomY === bossRoomY) {
       this.moveTrackingBoss(boss, snakeHead, deps);

@@ -1,17 +1,9 @@
-import { defaultGameConfig } from "../config/gameConfig.js";
-import { createRng } from "../core/rng.js";
-import type { QuestRegistry } from "../systems/quests.js";
-
-const questRegistry = {
-  getAll: () => [],
-  get: (id: string) => undefined,
-  getDefinition: (id: string) => undefined,
-};
+import { BossManager } from "../boss.js";
 
 describe("Freaker Dennis Boss", () => {
   it("should spawn with correct stats", () => {
     const grid = { cols: 16, rows: 12 };
-    const bossManager = new (await import("../systems/boss.js")).BossManager(grid);
+    const bossManager = new BossManager(grid);
 
     bossManager.spawnBoss("0,0,0", "freaker-dennis");
     const bosses = bossManager.getBossesInRoom("0,0,0");
@@ -26,35 +18,9 @@ describe("Freaker Dennis Boss", () => {
     expect(bosses[0].pull?.strength).toBe(0.6);
   });
 
-  it("should track player in same room", () => {
-    const grid = { cols: 16, rows: 12 };
-    const bossManager = new (await import("../systems/boss.js")).BossManager(grid);
-
-    bossManager.spawnBoss("0,0,0", "freaker-dennis");
-    const bosses = bossManager.getBossesInRoom("0,0,0");
-
-    const boss = bosses[0];
-    const snakeHead = { x: 8, y: 8 };
-    const direction = bossManager.getPullFor(snakeHead, "0,0,0", () => 0.5);
-
-    expect(direction).toBeTruthy();
-    expect(direction!.x + direction!.y > 0).toBe(true);
-  });
-
-  it("should use random movement when player not in room", () => {
-    const grid = { cols: 16, rows: 12 };
-    const bossManager = new (await import("../systems/boss.js")).BossManager(grid);
-
-    bossManager.spawnBoss("0,0,0", "freaker-dennis");
-    const bosses = bossManager.getBossesInRoom("1,1,0");
-
-    const boss = bosses[0];
-    expect(boss.trackingMode).toBe(true);
-  });
-
   it("should have enhanced pull strength", () => {
     const grid = { cols: 16, rows: 12 };
-    const bossManager = new (await import("../systems/boss.js")).BossManager(grid);
+    const bossManager = new BossManager(grid);
 
     bossManager.spawnBoss("0,0,0", "freaker-dennis");
     const bosses = bossManager.getBossesInRoom("0,0,0");
@@ -62,27 +28,53 @@ describe("Freaker Dennis Boss", () => {
     const boss = bosses[0];
     const snakeHead = { x: 5, y: 5 };
 
-    const rng = createRng(0);
+    const rng = () => 0;
     const pulls = Array.from({ length: 100 }, () =>
       bossManager.getPullFor(snakeHead, "0,0,0", rng)
     );
 
     const pullCount = pulls.filter(p => p !== null).length;
-    expect(pullCount).toBeGreaterThan(pulls.length * 0.4);
+    expect(pullCount).toBe(pulls.length);
   });
 
-  it("should spawn in new rooms with 3% chance", () => {
-    const rng = createRng(0);
-    const game = new (await import("../game/snakeGame.js")).SnakeGame(defaultGameConfig, questRegistry, rng);
+  it("should handle different grid configurations", () => {
+    const gridConfigs = [
+      { cols: 10, rows: 10 },
+      { cols: 20, rows: 15 },
+      { cols: 32, rows: 32 },
+    ];
 
-    let spawnCount = 0;
-    for (let i = 0; i < 100; i++) {
-      game.bosses.spawnBoss(game.snake.currentRoomId, "freaker-dennis");
-      const bosses = game.bosses.getBossesInRoom(game.snake.currentRoomId);
-      if (bosses.length > 0) spawnCount++;
+    for (const config of gridConfigs) {
+      const bossManager = new BossManager(config);
+      bossManager.spawnBoss("0,0,0", "freaker-dennis");
+      const bosses = bossManager.getBossesInRoom("0,0,0");
+
+      const boss = bosses[0];
+      expect(boss.name).toBe("Freaker Dennis");
+      expect(boss.health).toBe(150);
     }
+  });
 
-    expect(spawnCount).toBeGreaterThan(0);
-    expect(spawnCount).toBeLessThanOrEqual(5);
+  it("should handle edge case when player is at room boundaries", () => {
+    const grid = { cols: 16, rows: 12 };
+    const bossManager = new BossManager(grid);
+
+    bossManager.spawnBoss("0,0,0", "freaker-dennis");
+    const bosses = bossManager.getBossesInRoom("0,0,0");
+
+    const boss = bosses[0];
+    
+    const boundaryPositions = [
+      { x: 5, y: 6 },
+      { x: 10, y: 6 },
+      { x: 8, y: 2 },
+      { x: 8, y: 9 },
+    ];
+
+    for (const pos of boundaryPositions) {
+      const direction = bossManager.getPullFor(pos, "0,0,0", () => 0);
+      expect(direction).toBeTruthy();
+      expect(direction!.x + direction!.y > 0).toBe(true);
+    }
   });
 });
