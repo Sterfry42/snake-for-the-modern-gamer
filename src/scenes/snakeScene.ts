@@ -2703,9 +2703,9 @@ export default class SnakeScene extends Phaser.Scene {
         const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
         if (palette && palette.enabled) {
           const colors = palette.colors;
-          const segmentIndex = palette.segmentIndex;
-          const speed = palette.speed * 60;
-          const colorIndex = Math.floor((timeMs / 1000 / speed) % colors.length);
+          const speed = palette.speed ?? 1;
+          const tickInterval = speed * 1000;
+          const colorIndex = Math.floor(timeMs / tickInterval) % colors.length;
           bossColor = parseInt(colors[colorIndex].replace('#', '0x'), 16);
           bossAlpha = 0.85;
         } else {
