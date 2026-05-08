@@ -278,7 +278,7 @@ export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
 
-  private snakeGame!: SnakeGame;
+  public snakeGame!: SnakeGame;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
@@ -1440,6 +1440,20 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
       return { ok: true, message: "Cheat active: +100 lives.", color: "#5dd6a2" };
     }
+    if (code === "freakdennis") {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnBoss(this.currentRoomId, "freak-dennis");
+        return { ok: true, message: "Spawned Freak Dennis!", color: "#5dd6a2" };
+      }
+      return { ok: false, message: "Cannot spawn boss - game not in valid state", color: "#ff6b6b" };
+    }
+    if (code === "freakerdennis") {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnBoss(this.currentRoomId, "freaker-dennis");
+        return { ok: true, message: "Spawned Freaker Dennis!", color: "#5dd6a2" };
+      }
+      return { ok: false, message: "Cannot spawn boss - game not in valid state", color: "#ff6b6b" };
+    }
     return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: "#ff6b6b" };
   }
 
@@ -1515,7 +1529,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   get currentRoomId(): string {
-    return this.snakeGame.getCurrentRoom().id;
+    const room = this.snakeGame.getCurrentRoom();
+    if (!room) {
+      console.warn('[currentRoomId] Game state invalid, using default room');
+      return "0,0,0";
+    }
+    return room.id;
   }
 
   getGeneratedRoomsOnCurrentLevel(): string[] {

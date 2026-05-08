@@ -268,7 +268,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly world: WorldService;
   private readonly apples: AppleService;
   private readonly snake: SnakeState;
-  private readonly bosses: BossManager;
+  public readonly bosses: BossManager;
   private readonly enemies: EnemyManager;
   private readonly questController: QuestController;
   private readonly inventory: InventorySystem;

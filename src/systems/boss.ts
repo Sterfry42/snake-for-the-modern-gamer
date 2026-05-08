@@ -35,6 +35,10 @@ export class BossManager {
   }
 
   public spawnBoss(roomId: string, bossType: "freak-dennis" | "freaker-dennis" | "random" | "fallen-angel" = "random"): void {
+    if (!roomId || typeof roomId !== "string" || !roomId.includes(",")) {
+      console.warn('[spawnBoss] Invalid roomId provided:', roomId);
+      return;
+    }
     const [roomX, roomY] = roomId.split(",").map(Number);
     const roomOffsetX = roomX * this.grid.cols;
     const roomOffsetY = roomY * this.grid.rows;
