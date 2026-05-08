@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class o extends t{constructor(){super("tax-collector-future-body","The Tax Collector Of Your Future Body","Visit three tax offices, settle your future-body debt, then return to the collector.")}isCompleted(e){return!1}onReward(e){e.addItem("ring-ledger",1)}}const l=new o;export{l as default};

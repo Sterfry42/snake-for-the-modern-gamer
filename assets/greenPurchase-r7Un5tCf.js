@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-Bpr_u20u.js";class t extends r{constructor(){super("green-purchase","The Green Purchase","Find the forest teleporter, buy the radioactive substance 100 depths below, and return before the timer kills you.")}isCompleted(e){return!1}onReward(e){e.addItem("helm-hazard-halo",1)}}const n=new t;export{n as default};
