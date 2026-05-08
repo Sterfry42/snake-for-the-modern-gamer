@@ -408,7 +408,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics.setDepth(0);
 
     const registry = await createQuestRegistry();
-    this.snakeGame = new SnakeGame(defaultGameConfig, registry);
+    this.snakeGame = new SnakeGame(defaultGameConfig, registry, this);
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
@@ -2774,6 +2774,21 @@ export default class SnakeScene extends Phaser.Scene {
       loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
       languageSelected: this.snakeCosmetics.languageSelected,
       languageSet: this.snakeCosmetics.languageSet,
+    };
+  }
+
+  setSnakeCosmeticState(state: SnakeCosmeticState): void {
+    this.snakeCosmetics = {
+      unlockedThemes: state.unlockedThemes,
+      activeTheme: state.activeTheme,
+      unlockedHats: state.unlockedHats,
+      activeHat: state.activeHat,
+      cowboyHatUnlocked: state.cowboyHatUnlocked,
+      cowboyHatEquipped: state.cowboyHatEquipped,
+      loudWalkingNoiseUnlocked: state.loudWalkingNoiseUnlocked,
+      loudWalkingNoiseEnabled: state.loudWalkingNoiseEnabled,
+      languageSelected: state.languageSelected,
+      languageSet: state.languageSet,
     };
   }
 

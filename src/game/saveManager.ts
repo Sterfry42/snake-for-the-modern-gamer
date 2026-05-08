@@ -20,6 +20,18 @@ export interface GameSaveData {
   classMods?: Record<string, unknown>;
   backgroundId?: string;
   backgroundMods?: Record<string, unknown>;
+  cosmetics?: {
+    unlockedThemes: string[];
+    activeTheme: string;
+    unlockedHats: string[];
+    activeHat: string | null;
+    cowboyHatUnlocked: boolean;
+    cowboyHatEquipped: boolean;
+    loudWalkingNoiseUnlocked: boolean;
+    loudWalkingNoiseEnabled: boolean;
+    languageSelected: boolean;
+    languageSet: boolean;
+  };
 }
 
 export class SaveManager {
