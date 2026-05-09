@@ -900,7 +900,7 @@ export class SkillTreeOverlay {
       this.detailSubtitle.setText("String Input").setVisible(true);
       this.detailRankText.setText("").setVisible(false);
       this.detailBody
-        .setText("Supported cheats:\n\ninvestingincrypto\nimawiddlebabywhoneedshelp\nteleporterquest\ngreenpurchase\nfreakdennis\nfreakerdennis")
+        .setText("Supported cheats:\n\ninvestingincrypto\nimawiddlebabywhoneedshelp\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis")
         .setVisible(true);
       if (!this.hintSticky) {
         this.hintText.setText("Type a cheat string and press Enter.");

@@ -156,6 +156,27 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: "amulet-baby-bottle",
+    name: "Baby Bottle",
+    description: "A warm little bottle full of second chances. Once per run, it remembers you whole.",
+    kind: "equipment",
+    slot: "amulet",
+    modifiers: {
+      phoenixCharges: 1,
+    },
+  },
+  {
+    id: "amulet-time-splinter",
+    name: "Time Splinter",
+    description: "A shard of the future that flinches before the present arrives.",
+    kind: "equipment",
+    slot: "amulet",
+    modifiers: {
+      tickDelayScalar: 0.92,
+      invulnerabilityBonus: 20,
+    },
+  },
+  {
     id: "ring-ledger",
     name: "Ledger Ring",
     description: "A brass ring engraved with numbers that change when you are not looking. Every debt wants to become a weapon.",
@@ -182,6 +203,18 @@ export const ITEMS: readonly Item[] = [
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));
+const CHEST_LOOT_EXCLUDED_IDS = new Set([
+  "weapon-market-revolver",
+  "boots-lead-flippers",
+  "cloak-firebreak",
+  "cloak-frostguard",
+  "amulet-baby-bottle",
+  "amulet-time-splinter",
+  "ring-ledger",
+  "helm-hazard-halo",
+]);
+
+export const CHEST_LOOT_ITEMS: readonly Item[] = ITEMS.filter((item) => !CHEST_LOOT_EXCLUDED_IDS.has(item.id));
 
 export function getItem(id: string): Item | undefined {
   return ITEM_MAP.get(id);
