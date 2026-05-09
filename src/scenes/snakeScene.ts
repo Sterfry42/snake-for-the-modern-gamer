@@ -2760,10 +2760,6 @@ export default class SnakeScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
         onComplete: () => this.biomeHud.setVisible(false),
       });
-      this.showQuestHintPopup(
-        `You cross into ${biomeReveal.title}. Temp ${biomeReveal.temperature}. Danger ${biomeReveal.dangerLevel}/10.`,
-        "#dfe8ff"
-      );
       this.snakeGame.setFlag("ui.biomeReveal", undefined);
     }
   }
