@@ -112,6 +112,16 @@ export class SnakeState {
     this.bufferedDirection = candidate;
   }
 
+  forceDirection(x: number, y: number): void {
+    const candidate = { x, y };
+    if (candidate.x === 0 && candidate.y === 0) {
+      return;
+    }
+    this.direction = { ...candidate };
+    this.nextDirection = { ...candidate };
+    this.bufferedDirection = null;
+  }
+
   enableTeleport(flag: boolean): void {
     this.teleportEnabled = flag;
   }
@@ -210,6 +220,7 @@ export class SnakeState {
       delete this.flags["internal.previousHead"];
     }
     delete this.flags["internal.lastRemovedTail"];
+    delete this.flags["internal.lastSelfCollision"];
     delete this.flags["geometry.wallEaten"];
     delete this.flags["geometry.terraShieldTriggered"];
 
@@ -268,13 +279,28 @@ export class SnakeState {
       return { status: "dead", reason: "water" };
     }
 
+    const appleEaten = Boolean(
+      finalizedRoom.apple &&
+      finalizedRoom.apple.x === finalLocalHeadX &&
+      finalizedRoom.apple.y === finalLocalHeadY
+    );
+    const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTailStack();
     const selfCollisionIndex = verticalRoomChanged
       ? -1
-      : this.body.findIndex((segment) => segment.x === head.x && segment.y === head.y);
+      : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1) {
       if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
+        const collidedSegment = bodyForSelfCollision[selfCollisionIndex];
+        this.flags["internal.lastSelfCollision"] = {
+          index: selfCollisionIndex,
+          segment: collidedSegment ? { x: collidedSegment.x, y: collidedSegment.y } : undefined,
+          checkedBodyLength: bodyForSelfCollision.length,
+          fullBodyLength: this.body.length,
+          appleEaten,
+          body: this.body.map((segment) => ({ x: segment.x, y: segment.y })),
+        };
         this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
         return { status: "dead", reason: "self" };
       }
@@ -303,12 +329,6 @@ export class SnakeState {
 
     this.body.unshift({ x: head.x, y: head.y });
     this.flags["internal.currentHead"] = { x: head.x, y: head.y };
-
-    const appleEaten = Boolean(
-      finalizedRoom.apple &&
-      finalizedRoom.apple.x === finalLocalHeadX &&
-      finalizedRoom.apple.y === finalLocalHeadY
-    );
 
     if (!appleEaten) {
       const removed = this.body.pop();
@@ -399,8 +419,8 @@ export class SnakeState {
     this.body = snapshot.body.map((segment) => ({ x: segment.x, y: segment.y }));
     this.roomId = snapshot.roomId;
     this.direction = { ...snapshot.direction };
-    this.nextDirection = { ...snapshot.nextDirection };
-    this.bufferedDirection = snapshot.bufferedDirection ? { ...snapshot.bufferedDirection } : null;
+    this.nextDirection = { ...snapshot.direction };
+    this.bufferedDirection = null;
     const currentHead = this.body[0];
     if (currentHead) {
       this.flags["internal.currentHead"] = { x: currentHead.x, y: currentHead.y };
@@ -435,6 +455,22 @@ export class SnakeState {
       return true;
     }
     return this.tryConsumeSelfCollision(head);
+  }
+
+  private getBodyWithoutMovingTailStack(): Vector2Like[] {
+    const tail = this.body[this.body.length - 1];
+    if (!tail) {
+      return this.body;
+    }
+    let movingTailStart = this.body.length - 1;
+    while (
+      movingTailStart > 0 &&
+      this.body[movingTailStart - 1].x === tail.x &&
+      this.body[movingTailStart - 1].y === tail.y
+    ) {
+      movingTailStart -= 1;
+    }
+    return this.body.slice(0, movingTailStart);
   }
 
   private sliceSnakeAtIndex(index: number): void {

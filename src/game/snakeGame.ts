@@ -13,7 +13,7 @@ import type { Quest } from "../quests/quest.js";
 import type { QuestRegistry } from "../quests/questRegistry.js";
 import type { GameSaveData } from "./saveManager.js";
 import { InventorySystem } from "../inventory/inventory.js";
-import { ITEMS, getItem } from "../inventory/itemRegistry.js";
+import { CHEST_LOOT_ITEMS, getItem } from "../inventory/itemRegistry.js";
 import { CARD_SHOP_OFFERS, getCardDefinition, type CardCollection, type CardId } from "../cards/cardGame.js";
 import type { QuestRuntime } from "../quests/quest.js";
 import {
@@ -34,6 +34,9 @@ import type { GameSaveData } from "./saveManager.js";
 type StagedQuestStage =
   | "visit-offices"
   | "return-to-giver"
+  | "find-baby"
+  | "carry-baby"
+  | "survive-freak-you"
   | "find-forest-teleporter"
   | "buy-substance"
   | "escape-radiation"
@@ -53,10 +56,13 @@ interface StagedQuestInstance {
   stage: StagedQuestStage;
   targetRoomId?: string;
   deepRoomId?: string;
+  merchantRoomId?: string;
   returnTeleporterRoomId?: string;
   offices?: StagedQuestOffice[];
   carriedItemId?: string;
   remainingRadiationMs?: number;
+  totalRadiationMs?: number;
+  bossId?: string;
   failureReason?: string;
 }
 
@@ -74,7 +80,7 @@ export interface QuestRoomActor {
   roomId: string;
   x: number;
   y: number;
-  kind: "tax-office" | "forest-teleporter" | "deep-merchant" | "deep-teleporter";
+  kind: "tax-office" | "quest-baby" | "forest-teleporter" | "deep-merchant" | "deep-teleporter";
   label: string;
 }
 
@@ -121,6 +127,14 @@ export interface DeathDebugSnapshot {
   local: Vector2Like;
   tile?: string;
   direction?: Vector2Like;
+  selfCollision?: {
+    index?: number;
+    segment?: Vector2Like;
+    checkedBodyLength?: number;
+    fullBodyLength?: number;
+    appleEaten?: boolean;
+    body?: Vector2Like[];
+  };
   rooms: DeathDebugRoomSnapshot[];
 }
 
@@ -483,6 +497,7 @@ export class SnakeGame implements QuestRuntime {
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       getSnakeBody: () => this.snake.bodySegments,
     });
+    this.reconcileStagedQuestBosses();
 
 
     const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
@@ -490,7 +505,7 @@ export class SnakeGame implements QuestRuntime {
     const bossOnHead = headBeforeSnakeStep
       ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
       : null;
-    if (bossOnHead?.kind === "angel") {
+    if (bossOnHead && (bossOnHead.kind === "angel" || bossOnHead.kind === "freak-you")) {
       this.setFlag("internal.killedByBossKind", bossOnHead.kind);
       this.setFlag("internal.killedByBossName", bossOnHead.name);
       this.markDeathAtCurrentHead("boss");
@@ -790,9 +805,9 @@ export class SnakeGame implements QuestRuntime {
           this.addCardToCollection(cardId, 1);
           awardedName = `${card.name} card`;
           awardedId = `card:${card.id}`;
-        } else if (ITEMS.length > 0) {
-          const idx = Math.floor(this.rng() * ITEMS.length);
-          const awarded = ITEMS[Math.max(0, Math.min(ITEMS.length - 1, idx))];
+        } else if (CHEST_LOOT_ITEMS.length > 0) {
+          const idx = Math.floor(this.rng() * CHEST_LOOT_ITEMS.length);
+          const awarded = CHEST_LOOT_ITEMS[Math.max(0, Math.min(CHEST_LOOT_ITEMS.length - 1, idx))];
           this.inventory.addItem(awarded.id, 1);
           awardedName = awarded.name;
           awardedId = awarded.id;
@@ -1066,6 +1081,7 @@ export class SnakeGame implements QuestRuntime {
       tile?: string;
       direction?: Vector2Like;
     }>("internal.lastDeathPosition");
+    const selfCollision = this.getFlag<DeathDebugSnapshot["selfCollision"]>("internal.lastSelfCollision");
     const fallbackHead = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
     const fallbackRoomId = this.snake.currentRoomId;
     const roomId = death?.roomId ?? fallbackRoomId;
@@ -1097,6 +1113,7 @@ export class SnakeGame implements QuestRuntime {
       local,
       tile,
       direction: death?.direction ?? this.snake.directionVector,
+      selfCollision,
       rooms,
     };
   }
@@ -1133,6 +1150,10 @@ export class SnakeGame implements QuestRuntime {
   }
   setDirection(x: number, y: number): void {
     this.snake.setDirection(x, y);
+  }
+
+  forceDirection(x: number, y: number): void {
+    this.snake.forceDirection(x, y);
   }
 
   getFlag<T = unknown>(key: string): T | undefined {
@@ -1204,6 +1225,30 @@ export class SnakeGame implements QuestRuntime {
     return Boolean(this.questController.acceptOffered(this));
   }
 
+  startFindMyBabyCheat(): boolean {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === "find-my-baby" && instance.stage !== "failed" && instance.stage !== "completed")) {
+      return false;
+    }
+    this.ensureQuestCheatGiver("npc-worried-parent", "The Worried Parent", "sage-1", "The Worried Parent appears with a cradle-shaped problem.");
+    const quest = this.questController.offerSpecificQuestById("find-my-baby", this, this.snake.currentRoomId);
+    if (!quest) {
+      return false;
+    }
+    return Boolean(this.questController.acceptOffered(this));
+  }
+
+  startFreakYouCheat(): boolean {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === "freak-you" && instance.stage !== "failed" && instance.stage !== "completed")) {
+      return false;
+    }
+    this.ensureQuestCheatGiver("npc-time-traveler", "The Time Traveler", "sage-2", "The Time Traveler appears already afraid of you.");
+    const quest = this.questController.offerSpecificQuestById("freak-you", this, this.snake.currentRoomId);
+    if (!quest) {
+      return false;
+    }
+    return Boolean(this.questController.acceptOffered(this));
+  }
+
   requestQuestFromGiver(roomId: string): QuestGiverRequest {
     const turnIn = this.tryGetStagedQuestTurnIn(roomId);
     if (turnIn) {
@@ -1221,6 +1266,13 @@ export class SnakeGame implements QuestRuntime {
     return this.questController.getQuestForGiver(roomId, this);
   }
 
+  requiresQuestGiver(questId: string): boolean {
+    return questId === "tax-collector-future-body" ||
+      questId === "green-purchase" ||
+      questId === "find-my-baby" ||
+      questId === "freak-you";
+  }
+
   canOfferQuestFromGiver(questId: string, giverRoomId: string): boolean {
     if (questId === "green-purchase") {
       return this.findForestRoomNear(giverRoomId, 10, 12) !== null;
@@ -1234,6 +1286,10 @@ export class SnakeGame implements QuestRuntime {
     }
     if (quest.id === "tax-collector-future-body") {
       this.startTaxCollectorQuest(giverRoomId);
+    } else if (quest.id === "find-my-baby") {
+      this.startFindMyBabyQuest(giverRoomId);
+    } else if (quest.id === "freak-you") {
+      this.startFreakYouQuest(giverRoomId);
     } else if (quest.id === "green-purchase") {
       this.startGreenPurchaseQuest(giverRoomId);
     }
@@ -1267,10 +1323,32 @@ export class SnakeGame implements QuestRuntime {
             }
           }
         }
+      } else if (instance.questId === "find-my-baby") {
+        const carrying = instance.stage === "carry-baby" || instance.carriedItemId === "quest-baby";
+        markers.push({
+          questId: instance.questId,
+          roomId: carrying ? instance.giverRoomId : instance.targetRoomId ?? instance.giverRoomId,
+          kind: carrying ? "turn-in" : "target",
+          label: carrying ? "Parent" : "Baby",
+          color: carrying ? 0x5dd6a2 : 0x9ad1ff,
+        });
+      } else if (instance.questId === "freak-you") {
+        const bossRoomId = instance.bossId ? this.bosses.getBossHeadRoomId(instance.bossId) : null;
+        markers.push({
+          questId: instance.questId,
+          roomId: instance.stage === "return-to-giver" ? instance.giverRoomId : bossRoomId ?? instance.targetRoomId ?? instance.giverRoomId,
+          kind: instance.stage === "return-to-giver" ? "turn-in" : "danger",
+          label: instance.stage === "return-to-giver" ? "Time Traveler" : "Freak You",
+          color: instance.stage === "return-to-giver" ? 0x5dd6a2 : 0xff3b3b,
+        });
       } else if (instance.questId === "green-purchase") {
         const roomId =
           instance.stage === "buy-substance"
-            ? instance.deepRoomId
+            ? (
+                this.snake.currentRoomId === instance.deepRoomId || this.snake.currentRoomId === instance.merchantRoomId
+                  ? instance.merchantRoomId ?? instance.deepRoomId
+                  : instance.targetRoomId
+              )
             : instance.stage === "return-to-giver"
               ? instance.giverRoomId
             : instance.stage === "escape-radiation" && instance.carriedItemId === "radioactive-substance"
@@ -1283,7 +1361,7 @@ export class SnakeGame implements QuestRuntime {
             questId: instance.questId,
             roomId,
             kind: escaping ? "danger" : "target",
-            label: buying ? "Merchant" : escaping ? "Return" : "Teleporter",
+        label: buying ? "Merchant" : escaping ? "Return" : "Teleporter",
             color: buying ? 0xffd166 : escaping ? 0x7cff3a : 0x51ff8a,
           });
         }
@@ -1315,15 +1393,40 @@ export class SnakeGame implements QuestRuntime {
       }
       return [...officeLines, "[ ] Bring all receipts back to the collector"];
     }
+    if (questId === "find-my-baby") {
+      return [
+        `${instance.stage === "find-baby" ? "[ ]" : "[x]"} Find the missing baby`,
+        `${instance.stage === "return-to-giver" ? "[ ]" : instance.stage === "find-baby" ? "[ ]" : "[x]"} Return the baby to the original NPC`,
+      ];
+    }
+    if (questId === "freak-you") {
+      return [
+        `${instance.stage === "survive-freak-you" ? "[ ]" : "[x]"} Make Freak You run into your body`,
+        `${instance.stage === "return-to-giver" ? "[ ]" : "[ ]"} Return to the time traveler`,
+      ];
+    }
     if (questId === "green-purchase") {
+      const hasReturnedFromDeep =
+        instance.stage === "escape-radiation" &&
+        instance.carriedItemId === "radioactive-substance" &&
+        this.snake.currentRoomId !== instance.deepRoomId;
       return [
         `${instance.stage === "find-forest-teleporter" ? "[ ]" : "[x]"} Find the forest teleporter`,
-        `${instance.stage === "buy-substance" ? "[ ]" : instance.stage === "find-forest-teleporter" ? "[ ]" : "[x]"} Buy the radioactive substance 100 depths below`,
-        `${instance.stage === "return-to-giver" ? "[x]" : "[ ]"} Use the deep teleporter to return to the forest`,
+        `${instance.stage === "buy-substance" ? "[ ]" : instance.stage === "find-forest-teleporter" ? "[ ]" : "[x]"} Reach the deep merchant and buy the substance`,
+        `${hasReturnedFromDeep || instance.stage === "return-to-giver" ? "[x]" : "[ ]"} Use the deep teleporter to return to the forest`,
         "[ ] Return to the original buyer before the timer expires",
       ];
     }
     return [];
+  }
+
+  isCarryingQuestBaby(): boolean {
+    return this.getStagedQuestInstances().some((instance) =>
+      instance.questId === "find-my-baby" &&
+      instance.stage !== "failed" &&
+      instance.stage !== "completed" &&
+      instance.carriedItemId === "quest-baby"
+    );
   }
 
   getQuestRoomActors(roomId: string = this.snake.currentRoomId): QuestRoomActor[] {
@@ -1346,6 +1449,19 @@ export class SnakeGame implements QuestRuntime {
             });
           }
         }
+      } else if (instance.questId === "find-my-baby") {
+        if (instance.targetRoomId === roomId && instance.stage === "find-baby") {
+          const babyPosition = this.getQuestBabyActorPosition();
+          actors.push({
+            id: "quest-baby",
+            questId: instance.questId,
+            roomId,
+            x: babyPosition.x,
+            y: babyPosition.y,
+            kind: "quest-baby",
+            label: "BABY",
+          });
+        }
       } else if (instance.questId === "green-purchase") {
         if (instance.targetRoomId === roomId && (instance.stage === "find-forest-teleporter" || instance.stage === "escape-radiation")) {
           actors.push({
@@ -1358,7 +1474,7 @@ export class SnakeGame implements QuestRuntime {
             label: "???",
           });
         }
-        if (instance.deepRoomId === roomId && instance.stage === "buy-substance") {
+        if (instance.merchantRoomId === roomId && instance.stage === "buy-substance") {
           actors.push({
             id: "deep-merchant",
             questId: instance.questId,
@@ -1370,6 +1486,17 @@ export class SnakeGame implements QuestRuntime {
           });
         }
         if (instance.deepRoomId === roomId && instance.stage === "escape-radiation") {
+          actors.push({
+            id: "deep-teleporter",
+            questId: instance.questId,
+            roomId,
+            x: Math.floor(this.config.grid.cols / 2),
+            y: Math.floor(this.config.grid.rows / 2),
+            kind: "deep-teleporter",
+            label: "UP",
+          });
+        }
+        if (instance.deepRoomId === roomId && instance.stage === "buy-substance") {
           actors.push({
             id: "deep-teleporter",
             questId: instance.questId,
@@ -1400,6 +1527,18 @@ export class SnakeGame implements QuestRuntime {
           { id: `tax:${actor.id}:length`, title: "Surrender 2 length", description: canPayLength ? "Place your future on the counter." : "You are too short to survive this filing." },
           { id: `tax:${actor.id}:duel`, title: "Duel the clerk", description: "Argue in the ugly language of teeth and procedure." },
         ],
+      };
+    }
+    if (actor.kind === "quest-baby") {
+      return {
+        kind: "dialogue",
+        title: "The Baby",
+        pages: [
+          "Before hunger, I was a hallway.",
+          "I have no teeth, yet the world keeps putting names in my mouth.",
+          "Carry me, long animal. I am tired of being a prophecy with soft bones.",
+        ],
+        closeLabel: "Pick up",
       };
     }
     if (actor.kind === "forest-teleporter") {
@@ -1451,6 +1590,8 @@ export class SnakeGame implements QuestRuntime {
     switch (actor.kind) {
       case "tax-office":
         return "Settle future-body tax (press E)";
+      case "quest-baby":
+        return "Listen to the baby (press E)";
       case "deep-merchant":
         return "Buy radioactive substance (press E)";
       case "forest-teleporter":
@@ -1467,6 +1608,9 @@ export class SnakeGame implements QuestRuntime {
     if (actor?.kind === "tax-office" && actionId?.startsWith("tax:")) {
       const [, officeId, method] = actionId.split(":");
       return this.resolveTaxOffice(officeId, method as "score" | "length" | "duel");
+    }
+    if (actor?.kind === "quest-baby") {
+      return this.pickUpQuestBaby(actor.questId);
     }
     if (actor?.kind === "forest-teleporter") {
       return this.useGreenTeleporter(actor.questId);
@@ -1487,7 +1631,7 @@ export class SnakeGame implements QuestRuntime {
     if (!instance || typeof instance.remainingRadiationMs !== "number") {
       return null;
     }
-    return { remainingMs: Math.max(0, instance.remainingRadiationMs), totalMs: 120000 };
+    return { remainingMs: Math.max(0, instance.remainingRadiationMs), totalMs: Math.max(1, Number(instance.totalRadiationMs ?? 120000)) };
   }
 
   getBosses(roomId: string) {
@@ -1857,6 +2001,11 @@ if (data.backgroundId) {
       this.snakeScene.setSnakeCosmeticState(data.cosmetics);
     }
 
+    if (this.getRadiationTimer()) {
+      this.setFlag("quest.staged.radiationLastTickMs", this.getFlag<number>("timeMs") ?? 0);
+    }
+    this.respawnMissingStagedBossesAfterLoad();
+
     return true;
     } catch (error) {
       console.error("Failed to load game:", error);
@@ -1920,6 +2069,55 @@ if (data.backgroundId) {
     ]);
   }
 
+  private startFindMyBabyQuest(giverRoomId: string): void {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === "find-my-baby")) {
+      return;
+    }
+    const targetRoomId = this.pickObjectiveRoom(giverRoomId, 5, 8, 11, (candidate) =>
+      candidate !== giverRoomId && getBiomeForRoom(candidate).id !== "sunken-ocean"
+    );
+    this.setStagedQuestInstances([
+      ...this.getStagedQuestInstances(),
+      {
+        questId: "find-my-baby",
+        giverRoomId,
+        stage: "find-baby",
+        targetRoomId,
+      },
+    ]);
+  }
+
+  private startFreakYouQuest(giverRoomId: string): void {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === "freak-you")) {
+      return;
+    }
+    const targetRoomId = this.pickObjectiveRoom(giverRoomId, 1, 2, 23, (candidate) =>
+      candidate !== giverRoomId && getBiomeForRoom(candidate).id !== "sunken-ocean"
+    );
+    const portal = this.prepareFreakYouPortalRoom(targetRoomId);
+    const bossId = this.bosses.spawnFreakYou(targetRoomId) ?? undefined;
+    this.setFlag("ui.questInteraction", {
+      message: "A portal opens nearby. A future version of you unfolds through it.",
+    });
+    this.setFlag("ui.freakYouPortal", {
+      roomId: targetRoomId,
+      x: portal.x,
+      y: portal.y,
+      startedAtMs: this.getFlag<number>("timeMs") ?? 0,
+      durationMs: 3500,
+    });
+    this.setStagedQuestInstances([
+      ...this.getStagedQuestInstances(),
+      {
+        questId: "freak-you",
+        giverRoomId,
+        stage: "survive-freak-you",
+        targetRoomId,
+        bossId,
+      },
+    ]);
+  }
+
   private startGreenPurchaseQuest(giverRoomId: string): void {
     if (this.getStagedQuestInstances().some((instance) => instance.questId === "green-purchase")) {
       return;
@@ -1943,6 +2141,10 @@ if (data.backgroundId) {
   }
 
   private ensureGreenPurchaseCheatGiver(): void {
+    this.ensureQuestCheatGiver("npc-the-green-buyer", "The Green Buyer", "sage-3", "The Green Buyer appears with an urgent errand.");
+  }
+
+  private ensureQuestCheatGiver(id: string, name: string, styleId: string, message: string): void {
     const room = this.world.getRoom(this.snake.currentRoomId);
     if (room.questGiver) {
       return;
@@ -1951,10 +2153,10 @@ if (data.backgroundId) {
       x: Math.floor(this.config.grid.cols / 2),
       y: Math.floor(this.config.grid.rows / 2),
     };
-    const profile = buildHouseNpcProfile("The Green Buyer", "sage-3");
+    const profile = buildHouseNpcProfile(name, styleId);
     room.questGiver = {
       ...profile,
-      id: "npc-the-green-buyer",
+      id,
       x: spawn.x,
       y: spawn.y,
     };
@@ -1963,7 +2165,26 @@ if (data.backgroundId) {
       layout[spawn.y][spawn.x] = ".";
       room.layout = layout.map((row) => row.join(""));
     }
-    this.setFlag("ui.questInteraction", { message: "The Green Buyer appears with an urgent errand." });
+    this.setFlag("ui.questInteraction", { message });
+  }
+
+  private prepareFreakYouPortalRoom(roomId: string): Vector2Like {
+    const room = this.world.getRoom(roomId);
+    const center = {
+      x: Math.floor(this.config.grid.cols / 2),
+      y: Math.floor(this.config.grid.rows / 2),
+    };
+    const layout = room.layout.map((row) => row.split(""));
+    for (let y = center.y - 8; y <= center.y + 8; y += 1) {
+      for (let x = center.x - 10; x <= center.x + 10; x += 1) {
+        if (!layout[y]?.[x]) {
+          continue;
+        }
+        layout[y][x] = ".";
+      }
+    }
+    room.layout = layout.map((row) => row.join(""));
+    return center;
   }
 
   private pickOffsetRoom(originRoomId: string, minDistance: number, maxDistance: number, salt: number): string {
@@ -2054,6 +2275,13 @@ if (data.backgroundId) {
     return this.getQuestRoomActors(roomId).find((actor) => actor.x === local.x && actor.y === local.y) ?? null;
   }
 
+  private getQuestBabyActorPosition(): Vector2Like {
+    return {
+      x: Math.max(2, Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2) + 7)),
+      y: Math.max(2, Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2) + 3)),
+    };
+  }
+
   private tryActivateQuestTeleporterAtHead(): boolean {
     const actor = this.getQuestActorAtHead();
     if (!actor || (actor.kind !== "forest-teleporter" && actor.kind !== "deep-teleporter")) {
@@ -2100,6 +2328,19 @@ if (data.backgroundId) {
     return { message: "Receipt stamped. Your future body becomes slightly less illegal." };
   }
 
+  private pickUpQuestBaby(questId: string): { message?: string } {
+    const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
+    if (!instance || instance.questId !== "find-my-baby" || instance.stage !== "find-baby") {
+      return {};
+    }
+    this.updateStagedQuestInstance(questId, (current) => ({
+      ...current,
+      stage: "return-to-giver",
+      carriedItemId: "quest-baby",
+    }));
+    return { message: "The baby has joined your inventory, spiritually and upsettingly." };
+  }
+
   private useGreenTeleporter(questId: string): { message?: string } {
     const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
     if (!instance || !instance.targetRoomId) {
@@ -2108,21 +2349,25 @@ if (data.backgroundId) {
     const [x = 0, y = 0, z = 0] = instance.targetRoomId.split(",").map(Number);
     if (instance.stage === "find-forest-teleporter") {
       const deepRoomId = `${x},${y},${z + 100}`;
+      const merchantRoomId = this.pickDeepMerchantRoom(deepRoomId);
       this.updateStagedQuestInstance(questId, (current) => ({
         ...current,
         stage: "buy-substance",
         deepRoomId,
+        merchantRoomId,
         returnTeleporterRoomId: current.targetRoomId,
       }));
       this.teleportSnakeToRoom(deepRoomId);
       return { message: "The forest drops away. Something green is open for business." };
     }
+    if (instance.stage === "buy-substance") {
+      if (this.snake.currentRoomId === instance.deepRoomId && instance.returnTeleporterRoomId) {
+        this.teleportSnakeToRoom(instance.returnTeleporterRoomId);
+        return { message: "The pad returns you without the green thing. The merchant keeps waiting." };
+      }
+    }
     if (instance.stage === "escape-radiation") {
       if (this.snake.currentRoomId === instance.deepRoomId && instance.returnTeleporterRoomId) {
-        this.updateStagedQuestInstance(questId, (current) => ({
-          ...current,
-          stage: "return-to-giver",
-        }));
         this.teleportSnakeToRoom(instance.returnTeleporterRoomId);
         return { message: "You return to the forest with the green thing still explaining itself." };
       }
@@ -2135,19 +2380,67 @@ if (data.backgroundId) {
     if (!instance || instance.stage !== "buy-substance") {
       return {};
     }
+    if (this.snake.currentRoomId !== instance.merchantRoomId) {
+      return { message: "The merchant is not here. The deep road continues." };
+    }
     if (this.getScore() < 50) {
       return { message: "The merchant smiles without discounting anything." };
     }
     this.addScore(-50);
     const scalar = Math.max(0.1, Number(this.getFlag<number>("equipment.radiationTimerScalar") ?? 1));
+    const totalMs = this.calculateGreenPurchaseTimerMs(instance);
     this.updateStagedQuestInstance("green-purchase", (current) => ({
       ...current,
       stage: "escape-radiation",
       carriedItemId: "radioactive-substance",
-      remainingRadiationMs: Math.floor(120000 / scalar),
+      remainingRadiationMs: Math.floor(totalMs / scalar),
+      totalRadiationMs: Math.floor(totalMs / scalar),
     }));
     this.setFlag("quest.staged.radiationLastTickMs", this.getFlag<number>("timeMs") ?? 0);
-    return { message: "RADIOACTIVE SUBSTANCE: 02:00" };
+    const totalSeconds = Math.ceil(Math.floor(totalMs / scalar) / 1000);
+    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
+    const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+    return { message: `RADIOACTIVE SUBSTANCE: ${minutes}:${seconds}` };
+  }
+
+  private calculateGreenPurchaseTimerMs(instance: StagedQuestInstance): number {
+    const deepToMerchant = instance.deepRoomId && instance.merchantRoomId
+      ? this.roomDistance(instance.deepRoomId, instance.merchantRoomId)
+      : 2;
+    const forestToGiver = instance.targetRoomId
+      ? this.roomDistance(instance.targetRoomId, instance.giverRoomId)
+      : 10;
+    const roomSeconds = 8;
+    const panicBufferSeconds = 20;
+    return Math.max(45000, Math.ceil((deepToMerchant + forestToGiver) * roomSeconds + panicBufferSeconds) * 1000);
+  }
+
+  private roomDistance(a: string, b: string): number {
+    const [ax = 0, ay = 0, az = 0] = a.split(",").map(Number);
+    const [bx = 0, by = 0, bz = 0] = b.split(",").map(Number);
+    return Math.abs(ax - bx) + Math.abs(ay - by) + Math.abs(az - bz);
+  }
+
+  private pickDeepMerchantRoom(deepRoomId: string): string {
+    const [x = 0, y = 0, z = 0] = deepRoomId.split(",").map(Number);
+    for (let radius = 2; radius <= 6; radius += 1) {
+      const candidates = [
+        `${x + radius},${y},${z}`,
+        `${x - radius},${y},${z}`,
+        `${x},${y + radius},${z}`,
+        `${x},${y - radius},${z}`,
+        `${x + radius},${y + radius},${z}`,
+        `${x - radius},${y + radius},${z}`,
+      ];
+      const found = candidates.find((roomId) => {
+        const biome = getBiomeForRoom(roomId).id;
+        return biome !== "elderwood-maze" && biome !== "sunken-ocean";
+      });
+      if (found) {
+        return found;
+      }
+    }
+    return `${x},${y + 7},${z}`;
   }
 
   private teleportSnakeToRoom(roomId: string): void {
@@ -2186,8 +2479,9 @@ if (data.backgroundId) {
     }
     const layout = room.layout.map((row) => row.split(""));
     for (const actor of actors) {
-      for (let dy = -2; dy <= 2; dy += 1) {
-        for (let dx = -2; dx <= 2; dx += 1) {
+      const radius = actor.kind === "forest-teleporter" || actor.kind === "deep-teleporter" || actor.kind === "deep-merchant" ? 7 : 3;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
           const x = actor.x + dx;
           const y = actor.y + dy;
           if (!layout[y]?.[x]) {
@@ -2196,11 +2490,78 @@ if (data.backgroundId) {
           layout[y][x] = ".";
         }
       }
+      if (actor.kind === "deep-merchant") {
+        this.stampDeepMerchantHouse(layout, actor);
+      }
       if (room.apple?.x === actor.x && room.apple.y === actor.y) delete room.apple;
       if (room.treasure?.x === actor.x && room.treasure.y === actor.y) delete room.treasure;
       if (room.powerup?.x === actor.x && room.powerup.y === actor.y) delete room.powerup;
     }
     room.layout = layout.map((row) => row.join(""));
+  }
+
+  private stampDeepMerchantHouse(layout: string[][], actor: QuestRoomActor): void {
+    const left = Math.max(1, actor.x - 5);
+    const right = Math.min(this.config.grid.cols - 2, actor.x + 5);
+    const top = Math.max(1, actor.y - 4);
+    const bottom = Math.min(this.config.grid.rows - 2, actor.y + 4);
+    const doorX = Math.max(left + 1, Math.min(right - 1, actor.x));
+    for (let y = top; y <= bottom; y += 1) {
+      for (let x = left; x <= right; x += 1) {
+        const isWall = y === top || y === bottom || x === left || x === right;
+        layout[y][x] = isWall ? "#" : ".";
+      }
+    }
+    layout[bottom][doorX] = ".";
+    for (let y = bottom; y < Math.min(this.config.grid.rows, bottom + 5); y += 1) {
+      for (let x = Math.max(0, doorX - 1); x <= Math.min(this.config.grid.cols - 1, doorX + 1); x += 1) {
+        layout[y][x] = ".";
+      }
+    }
+    layout[actor.y][actor.x] = ".";
+  }
+
+  private reconcileStagedQuestBosses(): void {
+    let changed = false;
+    const instances = this.getStagedQuestInstances().map((instance) => {
+      if (instance.questId !== "freak-you" || instance.stage !== "survive-freak-you") {
+        return instance;
+      }
+      const bossAlive = instance.bossId
+        ? this.bosses.hasBoss(instance.bossId)
+        : this.bosses.hasBossWithKind("freak-you");
+      if (bossAlive) {
+        return instance;
+      }
+      changed = true;
+      this.setFlag("ui.questInteraction", { message: "Freak You folds into a timeline where you were not lunch." });
+      return { ...instance, stage: "return-to-giver" as StagedQuestStage };
+    });
+    if (changed) {
+      this.setStagedQuestInstances(instances);
+    }
+  }
+
+  private respawnMissingStagedBossesAfterLoad(): void {
+    let changed = false;
+    const instances = this.getStagedQuestInstances().map((instance) => {
+      if (instance.questId !== "freak-you" || instance.stage !== "survive-freak-you" || !instance.targetRoomId) {
+        return instance;
+      }
+      const bossAlive = instance.bossId
+        ? this.bosses.hasBoss(instance.bossId)
+        : this.bosses.hasBossWithKind("freak-you");
+      if (bossAlive) {
+        return instance;
+      }
+      this.prepareFreakYouPortalRoom(instance.targetRoomId);
+      const bossId = this.bosses.spawnFreakYou(instance.targetRoomId) ?? instance.bossId;
+      changed = true;
+      return { ...instance, bossId };
+    });
+    if (changed) {
+      this.setStagedQuestInstances(instances);
+    }
   }
 
   private tickRadiationQuestTimer(): boolean {
@@ -2237,7 +2598,13 @@ if (data.backgroundId) {
   }
 
   private tryGetStagedQuestTurnIn(roomId: string): QuestGiverRequest | null {
-    const instance = this.getStagedQuestInstances().find((quest) => quest.giverRoomId === roomId && quest.stage === "return-to-giver");
+    const instance = this.getStagedQuestInstances().find((quest) =>
+      quest.giverRoomId === roomId &&
+      (
+        quest.stage === "return-to-giver" ||
+        (quest.questId === "green-purchase" && quest.stage === "escape-radiation" && quest.carriedItemId === "radioactive-substance")
+      )
+    );
     if (!instance) {
       return null;
     }

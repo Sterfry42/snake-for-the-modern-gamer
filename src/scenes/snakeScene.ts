@@ -341,6 +341,7 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly flagsProxy: Record<string, unknown>;
   private activeWandererTextureKey: string | null = null;
   private lastVisibleLifeCharges = 0;
+  private nextBabyCryAtMs = 0;
   private deathCutscene: DeathCutsceneState | null = null;
   private titleContainer: Phaser.GameObjects.Container | null = null;
   private titleMainContainer: Phaser.GameObjects.Container | null = null;
@@ -546,25 +547,25 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (this.isManualHouseMovementActive()) {
         if (["arrowup", "w"].includes(key)) {
-          this.setDir(0, -1);
+          this.setManualResumeDir(0, -1);
           this.consumeManualResumePause();
           this.step();
           return;
         }
         if (["arrowdown", "s"].includes(key)) {
-          this.setDir(0, 1);
+          this.setManualResumeDir(0, 1);
           this.consumeManualResumePause();
           this.step();
           return;
         }
         if (["arrowleft", "a"].includes(key)) {
-          this.setDir(-1, 0);
+          this.setManualResumeDir(-1, 0);
           this.consumeManualResumePause();
           this.step();
           return;
         }
         if (["arrowright", "d"].includes(key)) {
-          this.setDir(1, 0);
+          this.setManualResumeDir(1, 0);
           this.consumeManualResumePause();
           this.step();
           return;
@@ -750,6 +751,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup(questInteraction.message, "#9ad1ff");
       this.snakeGame.setFlag("ui.questInteraction", undefined);
     }
+    this.tickFreakYouPortalFx();
 
     // Idle apple sparkle
     if (this.currentApple && !result.apple.eaten) {
@@ -968,7 +970,11 @@ export default class SnakeScene extends Phaser.Scene {
       local: snapshot.local,
       tile: snapshot.tile,
       direction: snapshot.direction,
+      selfCollision: snapshot.selfCollision,
     });
+    if (snapshot.selfCollision) {
+      console.log("selfCollision", JSON.stringify(snapshot.selfCollision));
+    }
     for (const room of snapshot.rooms) {
       console.log(`${room.roomId} ${room.biomeTitle} (${room.biomeId})\n${room.layout.join("\n")}`);
     }
@@ -989,16 +995,39 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showQuestHintPopup(message: string, color = "#ffe58a"): void {
-    const popup = this.add
-      .text(120, 8, message, { fontFamily: "monospace", fontSize: "14px", color })
-      .setDepth(31)
-      .setOrigin(0, 0)
-      .setAlpha(0.95);
+    const maxWidth = Math.min(720, this.scale.width - 48);
+    const x = this.scale.width / 2;
+    const y = 76;
+    const text = this.add
+      .text(0, 0, message, {
+        fontFamily: "monospace",
+        fontSize: "24px",
+        color,
+        align: "center",
+        stroke: "#05070b",
+        strokeThickness: 5,
+        wordWrap: { width: maxWidth - 34 },
+      })
+      .setOrigin(0.5, 0.5);
+    const bounds = text.getBounds();
+    const panel = this.add
+      .rectangle(0, 0, Math.min(maxWidth, bounds.width + 46), bounds.height + 28, 0x071019, 0.88)
+      .setStrokeStyle(3, 0x5dd6a2, 0.82)
+      .setOrigin(0.5, 0.5);
+    const popup = this.add.container(x, y, [panel, text]).setDepth(72).setAlpha(0).setScale(0.86);
     this.tweens.add({
       targets: popup,
-      y: 26,
+      alpha: 1,
+      scale: 1,
+      duration: 130,
+      ease: "Back.easeOut",
+    });
+    this.tweens.add({
+      targets: popup,
+      y: y - 28,
       alpha: 0,
-      duration: 700,
+      duration: 1050,
+      delay: 780,
       ease: "Cubic.easeOut",
       onComplete: () => popup.destroy(),
     });
@@ -1393,6 +1422,14 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeGame.setDirection(x, y);
   }
 
+  setManualResumeDir(x: number, y: number) {
+    if (this.getFlag<boolean>("traversal.manualResumePending")) {
+      this.snakeGame.forceDirection(x, y);
+    } else {
+      this.setDir(x, y);
+    }
+  }
+
   private togglePauseMenu(force?: boolean): void {
     if (this.offeredQuest || this.isModalPopupVisible()) return;
     const nextState = typeof force === "boolean" ? force : !this.paused;
@@ -1469,6 +1506,22 @@ export default class SnakeScene extends Phaser.Scene {
         return { ok: true, message: "Cheat active: Green Purchase quest added.", color: "#5dd6a2" };
       }
       return { ok: false, message: "Green Purchase is already active or unavailable.", color: "#ff6b6b" };
+    }
+    if (code === "findmybaby" || code === "babyquest") {
+      const started = this.snakeGame.startFindMyBabyCheat();
+      if (started) {
+        this.isDirty = true;
+        return { ok: true, message: "Cheat active: Find My Baby quest added.", color: "#5dd6a2" };
+      }
+      return { ok: false, message: "Find My Baby is already active or unavailable.", color: "#ff6b6b" };
+    }
+    if (code === "freakyou" || code === "timequest") {
+      const started = this.snakeGame.startFreakYouCheat();
+      if (started) {
+        this.isDirty = true;
+        return { ok: true, message: "Cheat active: Freak You quest added.", color: "#5dd6a2" };
+      }
+      return { ok: false, message: "Freak You is already active or unavailable.", color: "#ff6b6b" };
     }
     if (code === "freakdennis") {
       if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
@@ -2406,11 +2459,28 @@ export default class SnakeScene extends Phaser.Scene {
     this.updateVillageResidentSprites();
     this.tickVillageJuice();
     this.tickBiomeHazardJuice();
+    this.tickQuestBabyCry();
     if (this.isDirty) {
       this.draw();
       this.isDirty = false;
     }
   }
+
+  private tickQuestBabyCry(): void {
+    if (!this.snakeGame?.isCarryingQuestBaby()) {
+      this.nextBabyCryAtMs = 0;
+      return;
+    }
+    if (this.deathCutscene || this.titleVisible) {
+      return;
+    }
+    if (this.time.now < this.nextBabyCryAtMs) {
+      return;
+    }
+    this.juice.babyCry();
+    this.nextBabyCryAtMs = this.time.now + 3600;
+  }
+
   private updateBossEncounter(): void {
     const bosses = this.snakeGame.getBosses(this.currentRoomId);
     const boss = bosses[0];
@@ -2690,10 +2760,6 @@ export default class SnakeScene extends Phaser.Scene {
         ease: "Cubic.easeIn",
         onComplete: () => this.biomeHud.setVisible(false),
       });
-      this.showQuestHintPopup(
-        `You cross into ${biomeReveal.title}. Temp ${biomeReveal.temperature}. Danger ${biomeReveal.dangerLevel}/10.`,
-        "#dfe8ff"
-      );
       this.snakeGame.setFlag("ui.biomeReveal", undefined);
     }
   }
@@ -2762,6 +2828,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Render bosses
+    this.drawFreakYouPortalFx(room.id);
     const bosses = this.snakeGame.getBosses(room.id);
     const timeMs = this.time.now;
     for (const boss of bosses) {
@@ -2771,6 +2838,9 @@ export default class SnakeScene extends Phaser.Scene {
       if (boss.kind === "angel") {
         bossColor = 0xfff2a8;
         bossAlpha = 0.92;
+      } else if (boss.kind === "freak-you") {
+        bossColor = 0xff2d55;
+        bossAlpha = 0.9;
       } else if (boss.kind === "freaker-dennis" && boss.rainbowPalette) {
         const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
         if (palette && palette.enabled) {
@@ -2789,13 +2859,35 @@ export default class SnakeScene extends Phaser.Scene {
         bossAlpha = 0.8;
       }
 
-      for (const segment of boss.body) {
+      for (let index = 0; index < boss.body.length; index += 1) {
+        const segment = boss.body[index];
         const [roomX, roomY] = room.id.split(",").map(Number);
         const localX = segment.x - roomX * this.grid.cols;
         const localY = segment.y - roomY * this.grid.rows;
         if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
           const { x, y } = this.snakeRenderer.getWorldPosition(segment, room.id);
-          this.graphics.fillStyle(bossColor, bossAlpha).fillRect(x, y, this.grid.cell, this.grid.cell);
+          const isFreakYouHead = boss.kind === "freak-you" && index < 3;
+          const isFreakYouHeadCenter =
+            isFreakYouHead &&
+            (boss.headCenter
+              ? segment.x === boss.headCenter.x && segment.y === boss.headCenter.y
+              : index === 1);
+          this.graphics
+            .fillStyle(isFreakYouHead ? 0xff7a8f : bossColor, isFreakYouHead ? 0.98 : bossAlpha)
+            .fillRect(x, y, this.grid.cell, this.grid.cell);
+          if (isFreakYouHeadCenter) {
+            const noseSize = Math.max(3, this.grid.cell * 0.28);
+            const noseX = x + this.grid.cell / 2 + (boss.direction?.x ?? 0) * this.grid.cell * 0.32;
+            const noseY = y + this.grid.cell / 2 + (boss.direction?.y ?? 0) * this.grid.cell * 0.32;
+            this.graphics
+              .fillStyle(0x7dffe0, 0.95)
+              .fillCircle(noseX, noseY, noseSize);
+          }
+          if (isFreakYouHead) {
+            this.graphics
+              .lineStyle(2, 0x0b2b25, 0.9)
+              .strokeRect(x + 2, y + 2, this.grid.cell - 4, this.grid.cell - 4);
+          }
         }
       }
     }
@@ -3743,6 +3835,12 @@ export default class SnakeScene extends Phaser.Scene {
       } else if (actor.kind === "deep-merchant") {
         this.graphics.fillStyle(0x142414, 0.96).fillRect(x + 4, y + 4, cell - 8, cell - 8);
         this.graphics.fillStyle(0x7cff3a, 0.9).fillCircle(x + cell / 2, y + cell / 2, cell * 0.18);
+      } else if (actor.kind === "quest-baby") {
+        this.graphics.fillStyle(0x10261f, 0.95).fillRoundedRect(x + 3, y + 5, cell - 6, cell - 8, 4);
+        this.graphics.fillStyle(0xa8ffe0, 0.95).fillRoundedRect(x + 5, y + 7, cell - 10, cell - 12, 3);
+        this.graphics.fillStyle(0xffd7b8, 1).fillCircle(x + cell / 2, y + cell * 0.42, cell * 0.16);
+        this.graphics.fillStyle(0x18352d, 1).fillCircle(x + cell * 0.45, y + cell * 0.39, 1.5);
+        this.graphics.fillStyle(0x18352d, 1).fillCircle(x + cell * 0.55, y + cell * 0.39, 1.5);
       }
     }
   }
@@ -3970,6 +4068,57 @@ export default class SnakeScene extends Phaser.Scene {
     this.hideCardGamePopup();
     this.villageShopPopup.hide();
     this.paused = false;
+  }
+
+  private tickFreakYouPortalFx(): void {
+    const portal = this.snakeGame.getFlag<{
+      roomId: string;
+      x: number;
+      y: number;
+      durationMs?: number;
+      sceneStartedAtMs?: number;
+    }>("ui.freakYouPortal");
+    if (!portal) {
+      return;
+    }
+    if (typeof portal.sceneStartedAtMs !== "number") {
+      this.snakeGame.setFlag("ui.freakYouPortal", {
+        ...portal,
+        sceneStartedAtMs: this.time.now,
+      });
+      return;
+    }
+    const duration = Math.max(1, portal.durationMs ?? 3500);
+    if (this.time.now - portal.sceneStartedAtMs > duration) {
+      this.snakeGame.setFlag("ui.freakYouPortal", undefined);
+    }
+  }
+
+  private drawFreakYouPortalFx(roomId: string): void {
+    const portal = this.snakeGame.getFlag<{
+      roomId: string;
+      x: number;
+      y: number;
+      durationMs?: number;
+      sceneStartedAtMs?: number;
+    }>("ui.freakYouPortal");
+    if (!portal || portal.roomId !== roomId) {
+      return;
+    }
+    const startedAt = portal.sceneStartedAtMs ?? this.time.now;
+    const duration = Math.max(1, portal.durationMs ?? 3500);
+    const progress = Math.max(0, Math.min(1, (this.time.now - startedAt) / duration));
+    const pulse = 1 + Math.sin(this.time.now / 80) * 0.16;
+    const world = this.tileToWorldInRoom({ x: portal.x, y: portal.y }, roomId);
+    const cx = world.x + this.grid.cell / 2;
+    const cy = world.y + this.grid.cell / 2;
+    const radius = this.grid.cell * (2.1 + progress * 1.6) * pulse;
+    this.graphics.lineStyle(4, 0xff3bff, 0.82 * (1 - progress * 0.3));
+    this.graphics.strokeCircle(cx, cy, radius);
+    this.graphics.lineStyle(2, 0x5dd6ff, 0.72 * (1 - progress * 0.2));
+    this.graphics.strokeCircle(cx, cy, radius * 0.58);
+    this.graphics.fillStyle(0x1a061f, 0.28 * (1 - progress));
+    this.graphics.fillCircle(cx, cy, radius * 0.44);
   }
 
   private tryInteractQuestTarget(): boolean {

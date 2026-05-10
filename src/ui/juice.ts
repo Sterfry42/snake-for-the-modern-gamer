@@ -79,6 +79,20 @@ export class JuiceManager {
     this.kickCamera(0.02, 140);
   }
 
+  babyCry() {
+    const cries = [
+      { delayMs: 0, start: 760, end: 420, duration: 0.42, volume: 0.095 },
+      { delayMs: 520, start: 820, end: 460, duration: 0.44, volume: 0.1 },
+      { delayMs: 1120, start: 900, end: 390, duration: 0.62, volume: 0.12 },
+    ];
+    for (const cry of cries) {
+      globalThis.setTimeout(() => {
+        this.playTone({ frequency: cry.start, frequencyEnd: cry.end, duration: cry.duration, type: "sawtooth", volume: cry.volume });
+        this.playTone({ frequency: cry.start * 1.018, frequencyEnd: cry.end * 0.96, duration: cry.duration, type: "triangle", volume: cry.volume * 0.45 });
+      }, cry.delayMs);
+    }
+  }
+
   scoreMultiplierBoost(multiplier: number) {
     const base = 520;
     this.playTone({ frequency: base, duration: 0.14, type: "sine", volume: 0.1 });

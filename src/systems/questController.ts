@@ -126,6 +126,9 @@ export class QuestController {
     if (!quest) {
       return null;
     }
+    if (!this.canOfferFromGiver(quest, runtime, giverRoomId)) {
+      return null;
+    }
     if (this.accepted.includes(quest.id) || this.completed.includes(quest.id)) {
       return null;
     }
@@ -319,8 +322,11 @@ export class QuestController {
   }
 
   private canOfferFromGiver(quest: Quest, runtime?: QuestRuntime, giverRoomId?: string): boolean {
-    if (!runtime || !giverRoomId) {
+    if (!runtime) {
       return true;
+    }
+    if (!giverRoomId) {
+      return !(runtime.requiresQuestGiver?.(quest.id) ?? false);
     }
     return runtime.canOfferQuestFromGiver?.(quest.id, giverRoomId) ?? true;
   }

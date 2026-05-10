@@ -3,15 +3,21 @@ import type { Vector2Like } from "../core/math.js";
 import { addVectors, manhattanDistance } from "../core/math.js";
 import type { RoomSnapshot } from "../world/types.js";
 
+const FREAK_YOU_TURN_MARGIN = 5;
+
 export interface Boss {
   id: string;
   name: string;
-  kind?: "freak-dennis" | "freaker-dennis" | "revenant" | "angel";
+  kind?: "freak-dennis" | "freaker-dennis" | "freak-you" | "revenant" | "angel";
   body: Vector2Like[];
   health: number;
   maxHealth: number;
   roomId: string;
   direction: Vector2Like;
+  headCenter?: Vector2Like;
+  moveTick?: number;
+  turnCounter?: number;
+  maxBodyCells?: number;
   pull?: {
     radius: number;
     strength: number;
@@ -86,9 +92,47 @@ export class BossManager {
     this.bosses.set(id, boss);
   }
 
+  public spawnFreakYou(roomId: string): string | null {
+    if (!roomId || typeof roomId !== "string" || !roomId.includes(",")) {
+      console.warn("[spawnFreakYou] Invalid roomId provided:", roomId);
+      return null;
+    }
+    if (this.hasBossWithKind("freak-you")) {
+      return Array.from(this.bosses.values()).find((boss) => boss.kind === "freak-you")?.id ?? null;
+    }
+
+    const [roomX, roomY] = roomId.split(",").map(Number);
+    const roomOffsetX = roomX * this.grid.cols;
+    const roomOffsetY = roomY * this.grid.rows;
+    const centerX = Math.floor(roomOffsetX + this.grid.cols / 2);
+    const centerY = Math.floor(roomOffsetY + this.grid.rows / 2);
+    const direction = { x: 1, y: 0 };
+    const body = this.wideHeadBand({ x: centerX, y: centerY }, direction);
+
+    const boss: Boss = {
+      id: `boss-freak-you-${Date.now()}`,
+      name: "Freak You",
+      kind: "freak-you",
+      body,
+      health: 1,
+      maxHealth: 1,
+      roomId,
+      direction,
+      headCenter: { x: centerX, y: centerY },
+      moveTick: 0,
+      turnCounter: 0,
+      maxBodyCells: 400 * 3,
+      trackingMode: true,
+    };
+    this.bosses.set(boss.id, boss);
+    return boss.id;
+  }
+
   public step(deps: BossStepDependencies): void {
     for (const boss of this.bosses.values()) {
-      if (boss.kind === "angel") {
+      if (boss.kind === "freak-you") {
+        this.moveFreakYou(boss, deps);
+      } else if (boss.kind === "angel") {
         this.moveAngelBoss(boss, deps);
       } else if (boss.kind === "freaker-dennis") {
         this.moveFreakerDennis(boss, deps);
@@ -137,6 +181,24 @@ export class BossManager {
       }
     }
     return false;
+  }
+
+  public hasBoss(id: string): boolean {
+    return this.bosses.has(id);
+  }
+
+  public hasBossWithKind(kind: Boss["kind"]): boolean {
+    return Array.from(this.bosses.values()).some((boss) => boss.kind === kind);
+  }
+
+  public getBossHeadRoomId(id: string): string | null {
+    const boss = this.bosses.get(id);
+    const head = boss?.kind === "freak-you" ? boss.headCenter ?? boss.body[1] ?? boss.body[0] : boss?.body[0];
+    if (!boss || !head) {
+      return null;
+    }
+    const [, , roomZ = 0] = boss.roomId.split(",").map(Number);
+    return `${Math.floor(head.x / this.grid.cols)},${Math.floor(head.y / this.grid.rows)},${roomZ}`;
   }
 
  public getPullFor(snakeHead: Vector2Like, roomId: string, rng: () => number): Vector2Like | null {
@@ -336,6 +398,141 @@ export class BossManager {
         return;
       }
     }
+  }
+
+  private moveFreakYou(boss: Boss, deps: BossStepDependencies): void {
+    const snakeBody = deps.getSnakeBody();
+    const snakeHead = snakeBody[0];
+    const bossHead = this.getFreakYouHeadCenter(boss);
+    if (!snakeHead || !bossHead) {
+      return;
+    }
+
+    const shouldConsiderTurn = (boss.turnCounter ?? 0) >= 20;
+    const directions = shouldConsiderTurn ? this.preferredTrackingDirections(boss, snakeHead) : [boss.direction];
+    for (const direction of directions) {
+      if (this.tryMoveFreakYou(boss, direction, deps, snakeBody)) {
+        return;
+      }
+    }
+
+    for (const direction of this.preferredTrackingDirections(boss, snakeHead)) {
+      if (direction.x === boss.direction.x && direction.y === boss.direction.y) {
+        continue;
+      }
+      if (this.tryMoveFreakYou(boss, direction, deps, snakeBody)) {
+        return;
+      }
+    }
+  }
+
+  private preferredTrackingDirections(boss: Boss, target: Vector2Like): Vector2Like[] {
+    const head = this.getFreakYouHeadCenter(boss);
+    if (!head) {
+      return [boss.direction];
+    }
+    const dx = target.x - head.x;
+    const dy = target.y - head.y;
+    const primary = Math.abs(dx) >= Math.abs(dy)
+      ? { x: Math.sign(dx), y: 0 }
+      : { x: 0, y: Math.sign(dy) };
+    const secondary = Math.abs(dx) >= Math.abs(dy)
+      ? { x: 0, y: Math.sign(dy) }
+      : { x: Math.sign(dx), y: 0 };
+    const options = [primary, secondary, boss.direction, { x: boss.direction.y, y: -boss.direction.x }, { x: -boss.direction.y, y: boss.direction.x }]
+      .filter((direction) => direction.x !== 0 || direction.y !== 0)
+      .filter((direction) => direction.x + boss.direction.x !== 0 || direction.y + boss.direction.y !== 0);
+    return options.length > 0 ? options : [boss.direction];
+  }
+
+  private tryMoveFreakYou(
+    boss: Boss,
+    direction: Vector2Like,
+    deps: BossStepDependencies,
+    snakeBody: readonly Vector2Like[]
+  ): boolean {
+    if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) {
+      return false;
+    }
+    const head = this.getFreakYouHeadCenter(boss);
+    if (!head) {
+      return false;
+    }
+    const changedDirection = direction.x !== boss.direction.x || direction.y !== boss.direction.y;
+    if (changedDirection && !this.canFreakYouTurnWithMargin(head, direction)) {
+      return false;
+    }
+    const nextCenter = addVectors(head, direction);
+    const nextBand = this.wideHeadBand(nextCenter, direction);
+    for (const cell of nextBand) {
+      const [, , roomZ = 0] = boss.roomId.split(",").map(Number);
+      const targetRoomX = Math.floor(cell.x / this.grid.cols);
+      const targetRoomY = Math.floor(cell.y / this.grid.rows);
+      const localHeadX = cell.x - targetRoomX * this.grid.cols;
+      const localHeadY = cell.y - targetRoomY * this.grid.rows;
+      const targetRoom = deps.getRoom(`${targetRoomX},${targetRoomY},${roomZ}`);
+      if (targetRoom.layout[localHeadY]?.[localHeadX] === "#") {
+        this.carveBossWall(targetRoom, localHeadX, localHeadY);
+      }
+    }
+
+    const playerBodyWithoutHead = snakeBody.slice(1);
+    if (nextBand.some((cell) => playerBodyWithoutHead.some((segment) => segment.x === cell.x && segment.y === cell.y))) {
+      this.bosses.delete(boss.id);
+      return true;
+    }
+
+    boss.direction = direction;
+    boss.headCenter = nextCenter;
+    boss.turnCounter = changedDirection ? 0 : (boss.turnCounter ?? 0) + 1;
+    const maxBodyCells = Math.max(nextBand.length, boss.maxBodyCells ?? 400 * 3);
+    const keepLength = boss.body.length < maxBodyCells
+      ? boss.body.length
+      : Math.max(0, maxBodyCells - nextBand.length);
+    boss.body = [...nextBand, ...boss.body.slice(0, keepLength)];
+    const [, , roomZ = 0] = boss.roomId.split(",").map(Number);
+    boss.roomId = `${Math.floor(nextCenter.x / this.grid.cols)},${Math.floor(nextCenter.y / this.grid.rows)},${roomZ}`;
+    return true;
+  }
+
+  private getFreakYouHeadCenter(boss: Boss): Vector2Like | null {
+    return boss.headCenter ?? boss.body[1] ?? boss.body[0] ?? null;
+  }
+
+  private canFreakYouTurnWithMargin(head: Vector2Like, direction: Vector2Like): boolean {
+    const nextCenter = addVectors(head, direction);
+    return this.wideHeadBand(nextCenter, direction).every((cell) => this.isInsideFreakYouTurnMargin(cell));
+  }
+
+  private isInsideFreakYouTurnMargin(cell: Vector2Like): boolean {
+    const localX = this.mod(cell.x, this.grid.cols);
+    const localY = this.mod(cell.y, this.grid.rows);
+    return (
+      localX >= FREAK_YOU_TURN_MARGIN &&
+      localX <= this.grid.cols - 1 - FREAK_YOU_TURN_MARGIN &&
+      localY >= FREAK_YOU_TURN_MARGIN &&
+      localY <= this.grid.rows - 1 - FREAK_YOU_TURN_MARGIN
+    );
+  }
+
+  private mod(value: number, divisor: number): number {
+    return ((value % divisor) + divisor) % divisor;
+  }
+
+  private wideHeadBand(center: Vector2Like, direction: Vector2Like): Vector2Like[] {
+    const perpendicular = direction.x !== 0 ? { x: 0, y: 1 } : { x: 1, y: 0 };
+    return [-1, 0, 1].map((offset) => ({
+      x: center.x + perpendicular.x * offset,
+      y: center.y + perpendicular.y * offset,
+    }));
+  }
+
+  private carveBossWall(room: RoomSnapshot, localX: number, localY: number): void {
+    const row = room.layout[localY];
+    if (!row || row[localX] !== "#") {
+      return;
+    }
+    room.layout[localY] = `${row.slice(0, localX)}.${row.slice(localX + 1)}`;
   }
 
   private tryMoveBoss(boss: Boss, direction: Vector2Like, deps: BossStepDependencies): boolean {
