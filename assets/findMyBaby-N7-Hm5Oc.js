@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class a extends t{constructor(){super("find-my-baby","Find My Baby","Find the missing baby and bring it back to the grieving stranger.")}isCompleted(e){return!1}onReward(e){e.addItem("amulet-baby-bottle",1)}}const i=new a;export{i as default};

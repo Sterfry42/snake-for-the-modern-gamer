@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class r extends t{constructor(){super("freak-you","Freak You","Protect a terrified time traveler from the future version of you that learned how to hunt backward.")}isCompleted(e){return!1}onReward(e){e.addItem("amulet-time-splinter",1)}}const u=new r;export{u as default};
