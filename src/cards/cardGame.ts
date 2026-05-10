@@ -40,14 +40,14 @@ export type CardCollection = Partial<Record<CardId, number>>;
 
 export interface CardCompetitionState {
   tableId: string;
-  wagerScore: number;
-  round: number;
-  wins: number;
-  losses: number;
-z  spentCards: CardId[];
-  deck: CardId[];
-  discard: CardId[];
-}
+    wagerScore: number;
+    round: number;
+    wins: number;
+    losses: number;
+    spentCards: CardId[];
+    deck: CardId[];
+    discard: CardId[];
+  }
 
 export interface CardScoreResult {
   chips: number;
