@@ -26,7 +26,7 @@ function drawBlock(
 
 function drawMany(
   context: CanvasRenderingContext2D,
-  points: readonly [number, number][],
+  points: number[][],
   pixelSize: number,
   color: string
 ): void {
@@ -41,7 +41,7 @@ const APPLE_OUTLINE = [
   [1, 5], [2, 5], [3, 5], [4, 5], [5, 5], [6, 5],
   [2, 6], [3, 6], [4, 6], [5, 6],
   [3, 7], [4, 7],
-] as const;
+];
 
 const APPLE_FILL = [
   [3, 2], [4, 2],
@@ -49,44 +49,44 @@ const APPLE_FILL = [
   [2, 4], [3, 4], [4, 4], [5, 4],
   [2, 5], [3, 5], [4, 5], [5, 5],
   [3, 6], [4, 6],
-] as const;
+];
 
 const APPLE_ACCENT = [
   [4, 3],
   [3, 4], [4, 4],
   [3, 5],
-] as const;
+];
 
 const LEAF = [
   [5, 0], [6, 0],
   [4, 1], [5, 1],
-] as const;
+];
 
 const STEM = [
   [3, 0],
   [3, 1],
-] as const;
+];
 
 const SHIELD_MARKS = [
   [0, 3], [0, 4],
   [7, 3], [7, 4],
   [3, 0], [4, 0],
   [3, 7], [4, 7],
-] as const;
+];
 
 const GOLD_SPARKLES = [
   [1, 1], [6, 1], [1, 6], [6, 6],
   [0, 4], [7, 4],
-] as const;
+];
 
 const SKITTISH_EYES = [
   [2, 2], [5, 2],
   [2, 3], [5, 3],
-] as const;
+];
 
 const SKITTISH_FEET = [
   [2, 7], [5, 7],
-] as const;
+];
 
 export const appleSpriteRecipe: RuntimeSpriteRecipe<AppleSpriteVariant, AppleSpritePalette> = {
   id: "apple",
