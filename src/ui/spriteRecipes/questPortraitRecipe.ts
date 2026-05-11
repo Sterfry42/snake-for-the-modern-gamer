@@ -23,7 +23,7 @@ function fillPixel(
 
 function drawPixels(
   context: CanvasRenderingContext2D,
-  points: readonly [number, number][],
+  points: readonly (readonly [number, number])[],
   pixelSize: number,
   color: string
 ): void {
@@ -49,12 +49,12 @@ const FRAME = [
   [0, 13], [15, 13],
   [0, 14], [15, 14],
   [0, 15], [1, 15], [2, 15], [3, 15], [4, 15], [5, 15], [6, 15], [7, 15], [8, 15], [9, 15], [10, 15], [11, 15], [12, 15], [13, 15], [14, 15], [15, 15],
-];
+] as const;
 
 const FRAME_ACCENT = [
   [1, 1], [2, 1], [3, 1], [12, 1], [13, 1], [14, 1],
   [1, 14], [2, 14], [3, 14], [12, 14], [13, 14], [14, 14],
-];
+] as const;
 
 const BACKGROUND = Array.from({ length: 12 * 12 }, (_, index) => {
   const x = 2 + (index % 12);
