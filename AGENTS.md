@@ -68,3 +68,4 @@ All agents working on this project must follow these steps:
 - `npm run build` - Build the project
 - `npm run preview` - Preview production build
 - `npm run typecheck` - Run TypeScript type checking
+- `npm run format` - Format code using Prettier
