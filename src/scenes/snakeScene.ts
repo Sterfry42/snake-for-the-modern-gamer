@@ -2960,6 +2960,30 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.getOverlay().announce(`Class: ${id}`, "#c8ffe1", 1800);
   }
 
+  getChosenReligionId(): string | null {
+    return this.chosenReligionId;
+  }
+
+  getReligionMods(): typeof this.religionMods {
+    return this.religionMods;
+  }
+
+  getChosenBackgroundId(): string | null {
+    return this.chosenBackgroundId;
+  }
+
+  getBackgroundMods(): typeof this.backgroundMods {
+    return this.backgroundMods;
+  }
+
+  getChosenClassId(): string | null {
+    return this.chosenClassId;
+  }
+
+  getClassMods(): typeof this.classMods {
+    return this.classMods;
+  }
+
   resetStartingChoices(): void {
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;

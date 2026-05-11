@@ -79,9 +79,9 @@ private build(): void {
     this.scene.prepareCharacterSave();
     saveManager.save(
       this.scene.snakeGame,
-      this.scene.chosenReligionId ? { id: this.scene.chosenReligionId, mods: this.scene.religionMods } : undefined,
-      this.scene.chosenClassId ? { id: this.scene.chosenClassId, mods: this.scene.classMods } : undefined,
-      this.scene.chosenBackgroundId ? { id: this.scene.chosenBackgroundId, mods: this.scene.backgroundMods } : undefined
+      this.scene.getChosenReligionId() ? { id: this.scene.getChosenReligionId(), mods: this.scene.getReligionMods() } : undefined,
+      this.scene.getChosenClassId() ? { id: this.scene.getChosenClassId(), mods: this.scene.getClassMods() } : undefined,
+      this.scene.getChosenBackgroundId() ? { id: this.scene.getChosenBackgroundId(), mods: this.scene.getBackgroundMods() } : undefined
     );
 
     this.scene.juice.announce("Game saved!", "#4da3ff", 1000);
@@ -95,9 +95,9 @@ private build(): void {
 
     const success = saveManager.load(
       this.scene.snakeGame,
-      () => this.scene.chosenReligionId ? { id: this.scene.chosenReligionId, mods: this.scene.religionMods } : null,
-      () => this.scene.chosenClassId ? { id: this.scene.chosenClassId, mods: this.scene.classMods } : null,
-      () => this.scene.chosenBackgroundId ? { id: this.scene.chosenBackgroundId, mods: this.scene.backgroundMods } : null
+      () => this.scene.getChosenReligionId() ? { id: this.scene.getChosenReligionId(), mods: this.scene.getReligionMods() } : null,
+      () => this.scene.getChosenClassId() ? { id: this.scene.getChosenClassId(), mods: this.scene.getClassMods() } : null,
+      () => this.scene.getChosenBackgroundId() ? { id: this.scene.getChosenBackgroundId(), mods: this.scene.getBackgroundMods() } : null
     );
 
     if (success) {
