@@ -5,6 +5,7 @@ export type FeatureHook = {
 }[keyof Feature];
 
 export class FeatureRegistry {
+  private static readonly instance = new FeatureRegistry();
   private readonly features = new Map<string, Feature>();
 
   register(feature: Feature): void {
@@ -46,5 +47,9 @@ export class FeatureRegistry {
         handler.call(feature, context, ...args);
       }
     }
+  }
+
+  static getInstance(): FeatureRegistry {
+    return FeatureRegistry.instance;
   }
 }
