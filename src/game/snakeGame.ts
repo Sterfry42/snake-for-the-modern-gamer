@@ -29,7 +29,6 @@ import { getBiomeDefinition, getBiomeForRoom } from "../world/biomes.js";
 import type { RoomSnapshot } from "../world/types.js";
 import { i18n } from "../i18n/i18nManager.js";
 import { loadLanguagePreference, saveLanguagePreference } from "../i18n/storage.js";
-import type { GameSaveData } from "./saveManager.js";
 
 type StagedQuestStage =
   | "visit-offices"
@@ -356,6 +355,12 @@ export class SnakeGame implements QuestRuntime {
 
   private predationConfig: PredationComputedConfig = createDefaultPredationConfig();
   private predationState: PredationRuntimeState = createDefaultPredationState();
+
+  private momentumConfig: MomentumComputedConfig = createDefaultMomentumConfig();
+  private momentumState: MomentumRuntimeState = createDefaultMomentumState();
+
+  private traversalConfig: TraversalComputedConfig = createDefaultTraversalConfig();
+  private traversalState: TraversalRuntimeState = createDefaultTraversalState();
 
   private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
 
@@ -1954,7 +1959,10 @@ export class SnakeGame implements QuestRuntime {
       }
 
       for (const [slot, itemId] of Object.entries(data.equipment)) {
-        this.inventory.equip(itemId);
+        const item = getItem(itemId);
+        if (item) {
+          this.inventory.equip(item);
+        }
       }
 
       for (const [key, value] of Object.entries(data.flags ?? {})) {
@@ -3012,7 +3020,7 @@ if (data.backgroundId) {
     }
     const current = this.npcDisposition.get(roomId) ?? { anger: 0, hostility: "friendly" as const };
     const anger = reason === "shot" ? 99 : current.anger + 1;
-    const hostility =
+    const hostility: "friendly" | "warning" | "hostile" =
       anger >= 2 || reason === "shot" ? "hostile" :
       anger >= 1 ? "warning" :
       "friendly";
