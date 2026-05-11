@@ -1,4 +1,4 @@
-import type { Quest } from "./quest.js";
+import type { Quest } from './quest.js';
 
 export class QuestRegistry {
   private readonly quests = new Map<string, Quest>();
@@ -29,7 +29,7 @@ export class QuestRegistry {
   }
 
   async loadBuiltIns(): Promise<void> {
-    const modules = import.meta.glob("./definitions/*.ts");
+    const modules = import.meta.glob('./definitions/*.ts');
     const entries = Object.entries(modules);
     await Promise.all(
       entries.map(async ([, loader]) => {
@@ -39,8 +39,7 @@ export class QuestRegistry {
         } else if (mod.default) {
           this.register(mod.default);
         }
-      })
+      }),
     );
   }
 }
-

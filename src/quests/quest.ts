@@ -3,7 +3,7 @@ export interface QuestRuntime {
   getScore(): number;
   addScore(amount: number): void;
   addItem(itemId: string, count?: number): void;
-  addCosmeticReward(type: "style" | "hat", id: string): void;
+  addCosmeticReward(type: 'style' | 'hat', id: string): void;
   getFlag<T = unknown>(key: string): T | undefined;
   setFlag(key: string, value: unknown): void;
   requiresQuestGiver?(questId: string): boolean;
@@ -15,7 +15,7 @@ export abstract class Quest {
   constructor(
     public readonly id: string,
     public readonly label: string,
-    public readonly description: string
+    public readonly description: string,
   ) {}
 
   abstract isCompleted(runtime: QuestRuntime): boolean;

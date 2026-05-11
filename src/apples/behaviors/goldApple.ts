@@ -1,4 +1,4 @@
-import { AppleInstance, type AppleRewards } from "../types.js";
+import { AppleInstance, type AppleRewards } from '../types.js';
 
 export class GoldApple extends AppleInstance {
   override onConsume(): AppleRewards {

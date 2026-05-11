@@ -1,14 +1,14 @@
-import type { GridConfig, WorldConfig } from "../config/gameConfig.js";
-import { vectorKey } from "../core/math.js";
-import type { RandomGenerator } from "../core/rng.js";
-import type { RoomSnapshot } from "./types.js";
-import { createHouseRoom } from "./houseRoom.js";
-import { tryPlaceQuestHouse } from "./questHouse.js";
-import { tryPlaceVillage } from "./village.js";
-import { createBiomePalette, getBiomeForRoom } from "./biomes.js";
+import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
+import { vectorKey } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import type { RoomSnapshot } from './types.js';
+import { createHouseRoom } from './houseRoom.js';
+import { tryPlaceQuestHouse } from './questHouse.js';
+import { tryPlaceVillage } from './village.js';
+import { createBiomePalette, getBiomeForRoom } from './biomes.js';
 
 type ProtectedCells = ReadonlySet<string> | undefined;
-type ForestSide = "north" | "south" | "west" | "east";
+type ForestSide = 'north' | 'south' | 'west' | 'east';
 
 interface DenseForestPlan {
   exits: Record<ForestSide, boolean>;
@@ -19,22 +19,22 @@ interface DenseForestPlan {
 export class RoomGenerator {
   constructor(
     private readonly config: WorldConfig,
-    private readonly rng: RandomGenerator
+    private readonly rng: RandomGenerator,
   ) {}
 
   generate(roomId: string, grid: GridConfig): RoomSnapshot {
     // Override: special house room at (0,-1,0)
-    if (roomId === "0,-1,0") {
+    if (roomId === '0,-1,0') {
       return createHouseRoom(roomId, grid);
     }
-    const layout = Array.from({ length: grid.rows }, () => Array(grid.cols).fill("."));
-    const portals: RoomSnapshot["portals"] = [];
-    let questGiver: RoomSnapshot["questGiver"] | undefined;
-    let village: RoomSnapshot["village"] | undefined;
-    let temperatureReliefs: RoomSnapshot["temperatureReliefs"] | undefined;
+    const layout = Array.from({ length: grid.rows }, () => Array(grid.cols).fill('.'));
+    const portals: RoomSnapshot['portals'] = [];
+    let questGiver: RoomSnapshot['questGiver'] | undefined;
+    let village: RoomSnapshot['village'] | undefined;
+    let temperatureReliefs: RoomSnapshot['temperatureReliefs'] | undefined;
     const palette = createBiomePalette(roomId);
-    const isOcean = palette.biomeId === "sunken-ocean";
-    const isDenseForest = palette.biomeId === "elderwood-maze";
+    const isOcean = palette.biomeId === 'sunken-ocean';
+    const isDenseForest = palette.biomeId === 'elderwood-maze';
 
     const spawnGuard = this.createSpawnGuard(roomId);
 
@@ -44,21 +44,22 @@ export class RoomGenerator {
       this.fillDenseForestRoom(layout, grid, roomId, spawnGuard?.protected);
     }
 
-    const numObstacles = isOcean || isDenseForest
-      ? 0
-      : this.randomIntInRange(
-          this.config.obstacles.count.min,
-          this.config.obstacles.count.max + 1
-        );
+    const numObstacles =
+      isOcean || isDenseForest
+        ? 0
+        : this.randomIntInRange(
+            this.config.obstacles.count.min,
+            this.config.obstacles.count.max + 1,
+          );
 
     for (let i = 0; i < numObstacles; i++) {
       const obstacleWidth = this.randomIntInRange(
         this.config.obstacles.width.min,
-        this.config.obstacles.width.max + 1
+        this.config.obstacles.width.max + 1,
       );
       const obstacleHeight = this.randomIntInRange(
         this.config.obstacles.height.min,
-        this.config.obstacles.height.max + 1
+        this.config.obstacles.height.max + 1,
       );
 
       const maxX = grid.cols - obstacleWidth - this.config.obstacles.margin * 2;
@@ -75,7 +76,7 @@ export class RoomGenerator {
           if (spawnGuard?.protected.has(vectorKey({ x: col, y: row }))) {
             continue;
           }
-          layout[row][col] = "#";
+          layout[row][col] = '#';
         }
       }
     }
@@ -94,7 +95,13 @@ export class RoomGenerator {
       }
     }
 
-    if (!isOcean && !isDenseForest && !village && roomId !== this.config.originRoomId && this.rng() < 0.12) {
+    if (
+      !isOcean &&
+      !isDenseForest &&
+      !village &&
+      roomId !== this.config.originRoomId &&
+      this.rng() < 0.12
+    ) {
       const questHouse = tryPlaceQuestHouse(layout, grid, this.rng);
       if (questHouse) {
         questGiver = questHouse.questGiver;
@@ -119,10 +126,10 @@ export class RoomGenerator {
         }
         const ladderX = this.config.obstacles.margin + this.randomInt(ladderWidth);
         const ladderY = this.config.obstacles.margin + this.randomInt(ladderHeight);
-        if (layout[ladderY]?.[ladderX] !== ".") {
+        if (layout[ladderY]?.[ladderX] !== '.') {
           continue;
         }
-        layout[ladderY][ladderX] = "H";
+        layout[ladderY][ladderX] = 'H';
         portals.push(this.createPortal(roomId, ladderX, ladderY));
         ladderPlaced = true;
       }
@@ -132,7 +139,7 @@ export class RoomGenerator {
 
     return {
       id: roomId,
-      layout: layout.map((row) => row.join("")),
+      layout: layout.map((row) => row.join('')),
       portals,
       questGiver,
       village,
@@ -161,7 +168,7 @@ export class RoomGenerator {
   }
 
   private createPortal(roomId: string, x: number, y: number) {
-    const [roomX, roomY, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX, roomY, roomZ = 0] = roomId.split(',').map(Number);
     const offset = this.config.ladder.verticalOffset;
     const destZ = roomZ + (this.rng() < 0.5 ? offset : -offset);
     return {
@@ -183,15 +190,21 @@ export class RoomGenerator {
           (shores.east && x >= grid.cols - shoreWidth) ||
           (shores.north && y < shoreWidth) ||
           (shores.south && y >= grid.rows - shoreWidth);
-        layout[y][x] = onTransitionShore ? "." : "~";
+        layout[y][x] = onTransitionShore ? '.' : '~';
       }
     }
     this.placeOceanShips(layout, grid, roomId);
   }
 
-  private getOceanTransitionShores(roomId: string): { north: boolean; south: boolean; west: boolean; east: boolean } {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
-    const isOcean = (x: number, y: number) => getBiomeForRoom(`${x},${y},${roomZ}`).id === "sunken-ocean";
+  private getOceanTransitionShores(roomId: string): {
+    north: boolean;
+    south: boolean;
+    west: boolean;
+    east: boolean;
+  } {
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
+    const isOcean = (x: number, y: number) =>
+      getBiomeForRoom(`${x},${y},${roomZ}`).id === 'sunken-ocean';
     return {
       north: !isOcean(roomX, roomY - 1),
       south: !isOcean(roomX, roomY + 1),
@@ -201,11 +214,11 @@ export class RoomGenerator {
   }
 
   private placeOceanShips(layout: string[][], grid: GridConfig, roomId: string): void {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     const anchors = [
-      { x: roomX, y: roomY, segment: "start" as const },
-      { x: roomX - 1, y: roomY, segment: "east-end" as const },
-      { x: roomX, y: roomY - 1, segment: "south-end" as const },
+      { x: roomX, y: roomY, segment: 'start' as const },
+      { x: roomX - 1, y: roomY, segment: 'east-end' as const },
+      { x: roomX, y: roomY - 1, segment: 'south-end' as const },
     ];
 
     for (const anchor of anchors) {
@@ -213,15 +226,27 @@ export class RoomGenerator {
       if (!ship) {
         continue;
       }
-      if (anchor.segment === "start") {
-        if (ship.orientation === "east") {
-          this.drawShipDeck(layout, Math.floor(grid.cols / 2), ship.offset, grid.cols - Math.floor(grid.cols / 2), ship.width);
+      if (anchor.segment === 'start') {
+        if (ship.orientation === 'east') {
+          this.drawShipDeck(
+            layout,
+            Math.floor(grid.cols / 2),
+            ship.offset,
+            grid.cols - Math.floor(grid.cols / 2),
+            ship.width,
+          );
         } else {
-          this.drawShipDeck(layout, ship.offset, Math.floor(grid.rows / 2), ship.width, grid.rows - Math.floor(grid.rows / 2));
+          this.drawShipDeck(
+            layout,
+            ship.offset,
+            Math.floor(grid.rows / 2),
+            ship.width,
+            grid.rows - Math.floor(grid.rows / 2),
+          );
         }
-      } else if (anchor.segment === "east-end" && ship.orientation === "east") {
+      } else if (anchor.segment === 'east-end' && ship.orientation === 'east') {
         this.drawShipDeck(layout, 0, ship.offset, Math.ceil(grid.cols / 2), ship.width);
-      } else if (anchor.segment === "south-end" && ship.orientation === "south") {
+      } else if (anchor.segment === 'south-end' && ship.orientation === 'south') {
         this.drawShipDeck(layout, ship.offset, 0, ship.width, Math.ceil(grid.rows / 2));
       }
     }
@@ -231,8 +256,8 @@ export class RoomGenerator {
     anchorX: number,
     anchorY: number,
     roomZ: number,
-    grid: GridConfig
-  ): { orientation: "east" | "south"; offset: number; width: number } | null {
+    grid: GridConfig,
+  ): { orientation: 'east' | 'south'; offset: number; width: number } | null {
     if (!this.isDeepOceanRoom(anchorX, anchorY, roomZ)) {
       return null;
     }
@@ -242,16 +267,16 @@ export class RoomGenerator {
       return null;
     }
 
-    const orientation = hash % 2 === 0 ? "east" : "south";
-    const neighborX = orientation === "east" ? anchorX + 1 : anchorX;
-    const neighborY = orientation === "south" ? anchorY + 1 : anchorY;
+    const orientation = hash % 2 === 0 ? 'east' : 'south';
+    const neighborX = orientation === 'east' ? anchorX + 1 : anchorX;
+    const neighborY = orientation === 'south' ? anchorY + 1 : anchorY;
     if (!this.isDeepOceanRoom(neighborX, neighborY, roomZ)) {
       return null;
     }
 
     const width = 5;
     const margin = 5;
-    const span = orientation === "east" ? grid.rows : grid.cols;
+    const span = orientation === 'east' ? grid.rows : grid.cols;
     const maxOffset = Math.max(margin, span - width - margin);
     const offsetRange = Math.max(1, maxOffset - margin + 1);
     const offset = margin + (this.hashRoom(anchorX, anchorY, roomZ, 0x9e3) % offsetRange);
@@ -259,7 +284,7 @@ export class RoomGenerator {
   }
 
   private isDeepOceanRoom(roomX: number, roomY: number, roomZ: number): boolean {
-    if (getBiomeForRoom(`${roomX},${roomY},${roomZ}`).id !== "sunken-ocean") {
+    if (getBiomeForRoom(`${roomX},${roomY},${roomZ}`).id !== 'sunken-ocean') {
       return false;
     }
     const shores = this.getOceanTransitionShores(`${roomX},${roomY},${roomZ}`);
@@ -270,16 +295,16 @@ export class RoomGenerator {
     layout: string[][],
     grid: GridConfig,
     roomId: string,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     const plan = this.resolveDenseForestPlan(roomX, roomY, roomZ, grid);
     for (let y = 0; y < grid.rows; y += 1) {
       for (let x = 0; x < grid.cols; x += 1) {
         if (protectedCells?.has(vectorKey({ x, y }))) {
           continue;
         }
-        layout[y][x] = "#";
+        layout[y][x] = '#';
       }
     }
 
@@ -288,9 +313,28 @@ export class RoomGenerator {
       if (!plan.exits[side]) {
         continue;
       }
-      this.carveForestEntranceMouth(layout, side, plan.exitPositions[side], grid, 9, 5, ".", protectedCells);
+      this.carveForestEntranceMouth(
+        layout,
+        side,
+        plan.exitPositions[side],
+        grid,
+        9,
+        5,
+        '.',
+        protectedCells,
+      );
       const exit = this.forestExitPoint(side, plan.exitPositions[side], grid);
-      this.carveForestCorridor(layout, plan.center, exit, grid, roomX, roomY, roomZ, side, protectedCells);
+      this.carveForestCorridor(
+        layout,
+        plan.center,
+        exit,
+        grid,
+        roomX,
+        roomY,
+        roomZ,
+        side,
+        protectedCells,
+      );
     }
 
     this.carveForestClearings(layout, grid, roomX, roomY, roomZ, protectedCells);
@@ -301,34 +345,48 @@ export class RoomGenerator {
     layout: string[][],
     grid: GridConfig,
     roomId: string,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     const neighbors = [
-      { dx: -1, dy: 0, side: "west" as const },
-      { dx: 1, dy: 0, side: "east" as const },
-      { dx: 0, dy: -1, side: "north" as const },
-      { dx: 0, dy: 1, side: "south" as const },
+      { dx: -1, dy: 0, side: 'west' as const },
+      { dx: 1, dy: 0, side: 'east' as const },
+      { dx: 0, dy: -1, side: 'north' as const },
+      { dx: 0, dy: 1, side: 'south' as const },
     ];
 
     const diagonalNeighbors = [
-      { dx: -1, dy: -1, corner: "northwest" as const },
-      { dx: 1, dy: -1, corner: "northeast" as const },
-      { dx: -1, dy: 1, corner: "southwest" as const },
-      { dx: 1, dy: 1, corner: "southeast" as const },
+      { dx: -1, dy: -1, corner: 'northwest' as const },
+      { dx: 1, dy: -1, corner: 'northeast' as const },
+      { dx: -1, dy: 1, corner: 'southwest' as const },
+      { dx: 1, dy: 1, corner: 'southeast' as const },
     ];
     for (const neighbor of diagonalNeighbors) {
-      if (getBiomeForRoom(`${roomX + neighbor.dx},${roomY + neighbor.dy},${roomZ}`).id !== "elderwood-maze") {
+      if (
+        getBiomeForRoom(`${roomX + neighbor.dx},${roomY + neighbor.dy},${roomZ}`).id !==
+        'elderwood-maze'
+      ) {
         continue;
       }
       this.drawDenseForestCornerThreshold(layout, grid, neighbor.corner, protectedCells);
     }
 
     for (const neighbor of neighbors) {
-      if (getBiomeForRoom(`${roomX + neighbor.dx},${roomY + neighbor.dy},${roomZ}`).id !== "elderwood-maze") {
+      if (
+        getBiomeForRoom(`${roomX + neighbor.dx},${roomY + neighbor.dy},${roomZ}`).id !==
+        'elderwood-maze'
+      ) {
         continue;
       }
-      this.drawDenseForestThreshold(layout, grid, roomX, roomY, roomZ, neighbor.side, protectedCells);
+      this.drawDenseForestThreshold(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        roomZ,
+        neighbor.side,
+        protectedCells,
+      );
     }
   }
 
@@ -338,61 +396,78 @@ export class RoomGenerator {
     roomX: number,
     roomY: number,
     roomZ: number,
-    side: "north" | "south" | "west" | "east",
-    protectedCells?: ProtectedCells
+    side: 'north' | 'south' | 'west' | 'east',
+    protectedCells?: ProtectedCells,
   ): void {
     const depth = 6;
     const neighbor =
-      side === "west" ? { x: roomX - 1, y: roomY } :
-      side === "east" ? { x: roomX + 1, y: roomY } :
-      side === "north" ? { x: roomX, y: roomY - 1 } :
-      { x: roomX, y: roomY + 1 };
+      side === 'west'
+        ? { x: roomX - 1, y: roomY }
+        : side === 'east'
+          ? { x: roomX + 1, y: roomY }
+          : side === 'north'
+            ? { x: roomX, y: roomY - 1 }
+            : { x: roomX, y: roomY + 1 };
     const forestPlan = this.resolveDenseForestPlan(neighbor.x, neighbor.y, roomZ, grid);
     const forestSide = this.oppositeForestSide(side);
     const entranceOpen = forestPlan.exits[forestSide];
     const entrancePosition = forestPlan.exitPositions[forestSide];
-    const left = side === "east" ? grid.cols - depth : 0;
-    const right = side === "west" ? depth : grid.cols;
-    const top = side === "south" ? grid.rows - depth : 0;
-    const bottom = side === "north" ? depth : grid.rows;
+    const left = side === 'east' ? grid.cols - depth : 0;
+    const right = side === 'west' ? depth : grid.cols;
+    const top = side === 'south' ? grid.rows - depth : 0;
+    const bottom = side === 'north' ? depth : grid.rows;
 
     for (let y = top; y < bottom; y += 1) {
       for (let x = left; x < right; x += 1) {
         if (protectedCells?.has(vectorKey({ x, y }))) {
           continue;
         }
-        layout[y][x] = "#";
+        layout[y][x] = '#';
       }
     }
 
     if (!entranceOpen) {
       return;
     }
-    this.carveForestEntranceMouth(layout, side, entrancePosition, grid, depth, 5, ".", protectedCells);
+    this.carveForestEntranceMouth(
+      layout,
+      side,
+      entrancePosition,
+      grid,
+      depth,
+      5,
+      '.',
+      protectedCells,
+    );
   }
 
   private drawDenseForestCornerThreshold(
     layout: string[][],
     grid: GridConfig,
-    corner: "northwest" | "northeast" | "southwest" | "southeast",
-    protectedCells?: ProtectedCells
+    corner: 'northwest' | 'northeast' | 'southwest' | 'southeast',
+    protectedCells?: ProtectedCells,
   ): void {
     const depth = 6;
-    const left = corner === "northeast" || corner === "southeast" ? grid.cols - depth : 0;
-    const top = corner === "southwest" || corner === "southeast" ? grid.rows - depth : 0;
-    this.carveLocalRect(layout, left, top, depth, depth, "#", protectedCells);
+    const left = corner === 'northeast' || corner === 'southeast' ? grid.cols - depth : 0;
+    const top = corner === 'southwest' || corner === 'southeast' ? grid.rows - depth : 0;
+    this.carveLocalRect(layout, left, top, depth, depth, '#', protectedCells);
   }
 
-  private resolveDenseForestPlan(roomX: number, roomY: number, roomZ: number, grid: GridConfig): DenseForestPlan {
+  private resolveDenseForestPlan(
+    roomX: number,
+    roomY: number,
+    roomZ: number,
+    grid: GridConfig,
+  ): DenseForestPlan {
     const sides = this.forestSides();
     const exits = {} as Record<ForestSide, boolean>;
     const exitPositions = {} as Record<ForestSide, number>;
     for (const side of sides) {
       const neighbor = this.forestNeighbor(roomX, roomY, side);
       const neighborBiome = getBiomeForRoom(`${neighbor.x},${neighbor.y},${roomZ}`).id;
-      if (neighborBiome === "sunken-ocean") {
+      if (neighborBiome === 'sunken-ocean') {
         exits[side] = false;
-      } else if (neighborBiome === "elderwood-maze") {
+      } else if (neighborBiome === 'elderwood-maze') {
         exits[side] = this.hashForestEdge(roomX, roomY, roomZ, side, 0x601) % 100 < 66;
       } else {
         exits[side] = true;
@@ -404,10 +479,11 @@ export class RoomGenerator {
       const edgeCandidates = sides.filter((side) => {
         const neighbor = this.forestNeighbor(roomX, roomY, side);
         const biome = getBiomeForRoom(`${neighbor.x},${neighbor.y},${roomZ}`).id;
-        return biome !== "sunken-ocean" && biome !== "elderwood-maze";
+        return biome !== 'sunken-ocean' && biome !== 'elderwood-maze';
       });
       if (edgeCandidates.length > 0) {
-        const forced = edgeCandidates[this.hashRoom(roomX, roomY, roomZ, 0x65d) % edgeCandidates.length];
+        const forced =
+          edgeCandidates[this.hashRoom(roomX, roomY, roomZ, 0x65d) % edgeCandidates.length];
         exits[forced] = true;
       }
     }
@@ -428,32 +504,68 @@ export class RoomGenerator {
     roomY: number,
     roomZ: number,
     side: ForestSide,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
-    const straightLength = 10 + (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x683)) % 4);
+    const straightLength =
+      10 + (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x683)) % 4);
     const staging = this.forestEntranceStagingPoint(side, to, straightLength, grid);
-    this.carveLocalRectBetween(layout, to.x, to.y, staging.x, staging.y, ".", protectedCells);
+    this.carveLocalRectBetween(layout, to.x, to.y, staging.x, staging.y, '.', protectedCells);
 
-    const bendFirstHorizontal = this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x691)) % 100 < 50;
+    const bendFirstHorizontal =
+      this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x691)) % 100 < 50;
     if (bendFirstHorizontal) {
-      this.carveLocalRectBetween(layout, from.x, from.y, staging.x, from.y, ".", protectedCells);
-      this.carveLocalRectBetween(layout, staging.x, from.y, staging.x, staging.y, ".", protectedCells);
+      this.carveLocalRectBetween(layout, from.x, from.y, staging.x, from.y, '.', protectedCells);
+      this.carveLocalRectBetween(
+        layout,
+        staging.x,
+        from.y,
+        staging.x,
+        staging.y,
+        '.',
+        protectedCells,
+      );
     } else {
-      this.carveLocalRectBetween(layout, from.x, from.y, from.x, staging.y, ".", protectedCells);
-      this.carveLocalRectBetween(layout, from.x, staging.y, staging.x, staging.y, ".", protectedCells);
+      this.carveLocalRectBetween(layout, from.x, from.y, from.x, staging.y, '.', protectedCells);
+      this.carveLocalRectBetween(
+        layout,
+        from.x,
+        staging.y,
+        staging.x,
+        staging.y,
+        '.',
+        protectedCells,
+      );
     }
 
     if (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6b1)) % 100 < 34) {
-      const branchLength = 4 + (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6c1)) % 8);
-      const branchDir = this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6d3)) % 2 === 0 ? -1 : 1;
+      const branchLength =
+        4 + (this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6c1)) % 8);
+      const branchDir =
+        this.hashRoom(roomX, roomY, roomZ, this.forestSideSalt(side, 0x6d3)) % 2 === 0 ? -1 : 1;
       const branchStart = {
         x: Math.floor((from.x + staging.x) / 2),
         y: Math.floor((from.y + staging.y) / 2),
       };
-      if (side === "north" || side === "south") {
-        this.carveLocalRectBetween(layout, branchStart.x, branchStart.y, branchStart.x + branchDir * branchLength, branchStart.y, ".", protectedCells);
+      if (side === 'north' || side === 'south') {
+        this.carveLocalRectBetween(
+          layout,
+          branchStart.x,
+          branchStart.y,
+          branchStart.x + branchDir * branchLength,
+          branchStart.y,
+          '.',
+          protectedCells,
+        );
       } else {
-        this.carveLocalRectBetween(layout, branchStart.x, branchStart.y, branchStart.x, branchStart.y + branchDir * branchLength, ".", protectedCells);
+        this.carveLocalRectBetween(
+          layout,
+          branchStart.x,
+          branchStart.y,
+          branchStart.x,
+          branchStart.y + branchDir * branchLength,
+          '.',
+          protectedCells,
+        );
       }
     }
   }
@@ -464,7 +576,7 @@ export class RoomGenerator {
     roomX: number,
     roomY: number,
     roomZ: number,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
     const count = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x701) % 3);
     for (let index = 0; index < count; index += 1) {
@@ -473,9 +585,13 @@ export class RoomGenerator {
       }
       const width = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x721 + index) % 4);
       const height = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x731 + index) % 4);
-      const x = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x741 + index) % Math.max(1, grid.cols - width - 4));
-      const y = 2 + (this.hashRoom(roomX, roomY, roomZ, 0x751 + index) % Math.max(1, grid.rows - height - 4));
-      this.carveLocalRect(layout, x, y, width, height, ".", protectedCells);
+      const x =
+        2 +
+        (this.hashRoom(roomX, roomY, roomZ, 0x741 + index) % Math.max(1, grid.cols - width - 4));
+      const y =
+        2 +
+        (this.hashRoom(roomX, roomY, roomZ, 0x751 + index) % Math.max(1, grid.rows - height - 4));
+      this.carveLocalRect(layout, x, y, width, height, '.', protectedCells);
     }
   }
 
@@ -483,24 +599,24 @@ export class RoomGenerator {
     layout: string[][],
     grid: GridConfig,
     plan: DenseForestPlan,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
     for (const side of this.forestSides()) {
       if (plan.exits[side]) {
         continue;
       }
       switch (side) {
-        case "north":
-          this.carveLocalRect(layout, 0, 0, grid.cols, 2, "#", protectedCells);
+        case 'north':
+          this.carveLocalRect(layout, 0, 0, grid.cols, 2, '#', protectedCells);
           break;
-        case "south":
-          this.carveLocalRect(layout, 0, grid.rows - 2, grid.cols, 2, "#", protectedCells);
+        case 'south':
+          this.carveLocalRect(layout, 0, grid.rows - 2, grid.cols, 2, '#', protectedCells);
           break;
-        case "west":
-          this.carveLocalRect(layout, 0, 0, 2, grid.rows, "#", protectedCells);
+        case 'west':
+          this.carveLocalRect(layout, 0, 0, 2, grid.rows, '#', protectedCells);
           break;
-        case "east":
-          this.carveLocalRect(layout, grid.cols - 2, 0, 2, grid.rows, "#", protectedCells);
+        case 'east':
+          this.carveLocalRect(layout, grid.cols - 2, 0, 2, grid.rows, '#', protectedCells);
           break;
       }
     }
@@ -509,7 +625,16 @@ export class RoomGenerator {
       if (!plan.exits[side]) {
         continue;
       }
-      this.carveForestEntranceMouth(layout, side, plan.exitPositions[side], grid, 9, 5, ".", protectedCells);
+      this.carveForestEntranceMouth(
+        layout,
+        side,
+        plan.exitPositions[side],
+        grid,
+        9,
+        5,
+        '.',
+        protectedCells,
+      );
     }
   }
 
@@ -519,8 +644,8 @@ export class RoomGenerator {
     y1: number,
     x2: number,
     y2: number,
-    tile: "." | "#",
-    protectedCells?: ProtectedCells
+    tile: '.' | '#',
+    protectedCells?: ProtectedCells,
   ): void {
     const left = Math.min(x1, x2) - 1;
     const top = Math.min(y1, y2) - 1;
@@ -535,8 +660,8 @@ export class RoomGenerator {
     top: number,
     width: number,
     height: number,
-    tile: "." | "#",
-    protectedCells?: ProtectedCells
+    tile: '.' | '#',
+    protectedCells?: ProtectedCells,
   ): void {
     for (let y = top; y < top + height; y += 1) {
       for (let x = left; x < left + width; x += 1) {
@@ -558,35 +683,55 @@ export class RoomGenerator {
     grid: GridConfig,
     depth: number,
     width: number,
-    tile: "." | "#",
-    protectedCells?: ProtectedCells
+    tile: '.' | '#',
+    protectedCells?: ProtectedCells,
   ): void {
     const half = Math.floor(width / 2);
     switch (side) {
-      case "north":
+      case 'north':
         this.carveLocalRect(layout, position - half, 0, width, depth, tile, protectedCells);
         break;
-      case "south":
-        this.carveLocalRect(layout, position - half, grid.rows - depth, width, depth, tile, protectedCells);
+      case 'south':
+        this.carveLocalRect(
+          layout,
+          position - half,
+          grid.rows - depth,
+          width,
+          depth,
+          tile,
+          protectedCells,
+        );
         break;
-      case "west":
+      case 'west':
         this.carveLocalRect(layout, 0, position - half, depth, width, tile, protectedCells);
         break;
-      case "east":
-        this.carveLocalRect(layout, grid.cols - depth, position - half, depth, width, tile, protectedCells);
+      case 'east':
+        this.carveLocalRect(
+          layout,
+          grid.cols - depth,
+          position - half,
+          depth,
+          width,
+          tile,
+          protectedCells,
+        );
         break;
     }
   }
 
-  private forestExitPoint(side: ForestSide, position: number, grid: GridConfig): { x: number; y: number } {
+  private forestExitPoint(
+    side: ForestSide,
+    position: number,
+    grid: GridConfig,
+  ): { x: number; y: number } {
     switch (side) {
-      case "north":
+      case 'north':
         return { x: position, y: 0 };
-      case "south":
+      case 'south':
         return { x: position, y: grid.rows - 1 };
-      case "west":
+      case 'west':
         return { x: 0, y: position };
-      case "east":
+      case 'east':
         return { x: grid.cols - 1, y: position };
     }
   }
@@ -595,35 +740,47 @@ export class RoomGenerator {
     side: ForestSide,
     exit: { x: number; y: number },
     straightLength: number,
-    grid: GridConfig
+    grid: GridConfig,
   ): { x: number; y: number } {
     switch (side) {
-      case "north":
+      case 'north':
         return { x: exit.x, y: Math.min(grid.rows - 1, straightLength) };
-      case "south":
+      case 'south':
         return { x: exit.x, y: Math.max(0, grid.rows - 1 - straightLength) };
-      case "west":
+      case 'west':
         return { x: Math.min(grid.cols - 1, straightLength), y: exit.y };
-      case "east":
+      case 'east':
         return { x: Math.max(0, grid.cols - 1 - straightLength), y: exit.y };
     }
   }
 
-  private forestExitPosition(roomX: number, roomY: number, roomZ: number, side: ForestSide, grid: GridConfig): number {
-    const span = side === "north" || side === "south" ? grid.cols : grid.rows;
+  private forestExitPosition(
+    roomX: number,
+    roomY: number,
+    roomZ: number,
+    side: ForestSide,
+    grid: GridConfig,
+  ): number {
+    const span = side === 'north' || side === 'south' ? grid.cols : grid.rows;
     const margin = 4;
     const range = Math.max(1, span - margin * 2);
     return margin + (this.hashForestEdge(roomX, roomY, roomZ, side, 0x681) % range);
   }
 
-  private hashForestEdge(roomX: number, roomY: number, roomZ: number, side: ForestSide, salt: number): number {
-    if (side === "east") {
+  private hashForestEdge(
+    roomX: number,
+    roomY: number,
+    roomZ: number,
+    side: ForestSide,
+    salt: number,
+  ): number {
+    if (side === 'east') {
       return this.hashRoom(roomX, roomY, roomZ, salt + 11);
     }
-    if (side === "west") {
+    if (side === 'west') {
       return this.hashRoom(roomX - 1, roomY, roomZ, salt + 11);
     }
-    if (side === "south") {
+    if (side === 'south') {
       return this.hashRoom(roomX, roomY, roomZ, salt + 29);
     }
     return this.hashRoom(roomX, roomY - 1, roomZ, salt + 29);
@@ -631,45 +788,45 @@ export class RoomGenerator {
 
   private forestNeighbor(roomX: number, roomY: number, side: ForestSide): { x: number; y: number } {
     switch (side) {
-      case "north":
+      case 'north':
         return { x: roomX, y: roomY - 1 };
-      case "south":
+      case 'south':
         return { x: roomX, y: roomY + 1 };
-      case "west":
+      case 'west':
         return { x: roomX - 1, y: roomY };
-      case "east":
+      case 'east':
         return { x: roomX + 1, y: roomY };
     }
   }
 
   private oppositeForestSide(side: ForestSide): ForestSide {
     switch (side) {
-      case "north":
-        return "south";
-      case "south":
-        return "north";
-      case "west":
-        return "east";
-      case "east":
-        return "west";
+      case 'north':
+        return 'south';
+      case 'south':
+        return 'north';
+      case 'west':
+        return 'east';
+      case 'east':
+        return 'west';
     }
   }
 
   private forestSideSalt(side: ForestSide, salt: number): number {
     switch (side) {
-      case "north":
+      case 'north':
         return salt + 1;
-      case "south":
+      case 'south':
         return salt + 2;
-      case "west":
+      case 'west':
         return salt + 3;
-      case "east":
+      case 'east':
         return salt + 4;
     }
   }
 
   private forestSides(): ForestSide[] {
-    return ["north", "south", "west", "east"];
+    return ['north', 'south', 'west', 'east'];
   }
 
   private hashTile(x: number, y: number, salt: number): number {
@@ -696,16 +853,22 @@ export class RoomGenerator {
     return hash >>> 0;
   }
 
-  private drawShipDeck(layout: string[][], left: number, top: number, width: number, height: number): void {
+  private drawShipDeck(
+    layout: string[][],
+    left: number,
+    top: number,
+    width: number,
+    height: number,
+  ): void {
     for (let y = top; y < top + height; y += 1) {
       for (let x = left; x < left + width; x += 1) {
         if (!layout[y]?.[x]) {
           continue;
         }
-        if (layout[y][x] === "#") {
+        if (layout[y][x] === '#') {
           continue;
         }
-        layout[y][x] = "O";
+        layout[y][x] = 'O';
       }
     }
   }
@@ -714,16 +877,16 @@ export class RoomGenerator {
     layout: string[][],
     grid: GridConfig,
     roomId: string,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     for (let anchorY = roomY - 1; anchorY <= roomY; anchorY += 1) {
       for (let anchorX = roomX - 1; anchorX <= roomX; anchorX += 1) {
         const barrier = this.resolveCrossRoomBarrier(anchorX, anchorY, roomZ, grid);
         if (!barrier) {
           continue;
         }
-        this.drawGlobalRect(layout, grid, roomX, roomY, barrier, "#", protectedCells);
+        this.drawGlobalRect(layout, grid, roomX, roomY, barrier, '#', protectedCells);
       }
     }
   }
@@ -732,7 +895,7 @@ export class RoomGenerator {
     anchorX: number,
     anchorY: number,
     roomZ: number,
-    grid: GridConfig
+    grid: GridConfig,
   ): { left: number; top: number; width: number; height: number } | null {
     const hash = this.hashRoom(anchorX, anchorY, roomZ, 0x4b7);
     if (hash % 100 >= 48) {
@@ -742,11 +905,24 @@ export class RoomGenerator {
     const kind = hash % 3;
     const involvedRooms =
       kind === 0
-        ? [[anchorX, anchorY], [anchorX + 1, anchorY]]
+        ? [
+            [anchorX, anchorY],
+            [anchorX + 1, anchorY],
+          ]
         : kind === 1
-          ? [[anchorX, anchorY], [anchorX, anchorY + 1]]
-          : [[anchorX, anchorY], [anchorX + 1, anchorY], [anchorX, anchorY + 1], [anchorX + 1, anchorY + 1]];
-    if (involvedRooms.some(([x, y]) => getBiomeForRoom(`${x},${y},${roomZ}`).id === "sunken-ocean")) {
+          ? [
+              [anchorX, anchorY],
+              [anchorX, anchorY + 1],
+            ]
+          : [
+              [anchorX, anchorY],
+              [anchorX + 1, anchorY],
+              [anchorX, anchorY + 1],
+              [anchorX + 1, anchorY + 1],
+            ];
+    if (
+      involvedRooms.some(([x, y]) => getBiomeForRoom(`${x},${y},${roomZ}`).id === 'sunken-ocean')
+    ) {
       return null;
     }
 
@@ -754,8 +930,18 @@ export class RoomGenerator {
     const height = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c9) % 9);
     const overlapX = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4d3) % Math.max(1, width - 3));
     const overlapY = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4df) % Math.max(1, height - 3));
-    const innerX = this.hashedOffset(grid.cols, width, 7, this.hashRoom(anchorX, anchorY, roomZ, 0x4e7));
-    const innerY = this.hashedOffset(grid.rows, height, 7, this.hashRoom(anchorX, anchorY, roomZ, 0x4f1));
+    const innerX = this.hashedOffset(
+      grid.cols,
+      width,
+      7,
+      this.hashRoom(anchorX, anchorY, roomZ, 0x4e7),
+    );
+    const innerY = this.hashedOffset(
+      grid.rows,
+      height,
+      7,
+      this.hashRoom(anchorX, anchorY, roomZ, 0x4f1),
+    );
 
     if (kind === 0) {
       return {
@@ -785,13 +971,35 @@ export class RoomGenerator {
     layout: string[][],
     grid: GridConfig,
     roomId: string,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     const length = 15;
     for (let offset = 0; offset < length; offset += 1) {
-      this.drawRiverIfPresent(layout, grid, roomX, roomY, roomZ, roomX - offset, roomY, offset, "east", protectedCells);
-      this.drawRiverIfPresent(layout, grid, roomX, roomY, roomZ, roomX, roomY - offset, offset, "south", protectedCells);
+      this.drawRiverIfPresent(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        roomZ,
+        roomX - offset,
+        roomY,
+        offset,
+        'east',
+        protectedCells,
+      );
+      this.drawRiverIfPresent(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        roomZ,
+        roomX,
+        roomY - offset,
+        offset,
+        'south',
+        protectedCells,
+      );
     }
   }
 
@@ -804,54 +1012,92 @@ export class RoomGenerator {
     anchorX: number,
     anchorY: number,
     segmentIndex: number,
-    orientation: "east" | "south",
-    protectedCells?: ProtectedCells
+    orientation: 'east' | 'south',
+    protectedCells?: ProtectedCells,
   ): void {
     const river = this.resolveRiver(anchorX, anchorY, roomZ, grid);
     if (!river || river.orientation !== orientation) {
       return;
     }
-    if (getBiomeForRoom(`${roomX},${roomY},${roomZ}`).id === "sunken-ocean") {
+    if (getBiomeForRoom(`${roomX},${roomY},${roomZ}`).id === 'sunken-ocean') {
       return;
     }
 
     const roomLeft = roomX * grid.cols;
     const roomTop = roomY * grid.rows;
-    if (river.orientation === "east") {
+    if (river.orientation === 'east') {
       const segmentLeft = segmentIndex === 0 ? roomLeft + Math.floor(grid.cols / 2) : roomLeft;
-      const segmentRight = segmentIndex === river.length - 1 ? roomLeft + Math.ceil(grid.cols / 2) : roomLeft + grid.cols;
+      const segmentRight =
+        segmentIndex === river.length - 1
+          ? roomLeft + Math.ceil(grid.cols / 2)
+          : roomLeft + grid.cols;
       const riverTop = roomTop + river.offset;
-      this.drawGlobalRect(layout, grid, roomX, roomY, {
-        left: segmentLeft,
-        top: riverTop,
-        width: segmentRight - segmentLeft,
-        height: river.width,
-      }, "~", protectedCells);
+      this.drawGlobalRect(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        {
+          left: segmentLeft,
+          top: riverTop,
+          width: segmentRight - segmentLeft,
+          height: river.width,
+        },
+        '~',
+        protectedCells,
+      );
       if (segmentIndex === river.bridgeIndex) {
-        this.drawGlobalRect(layout, grid, roomX, roomY, {
-          left: roomLeft + Math.floor(grid.cols / 2) - 1,
-          top: riverTop - 2,
-          width: 3,
-          height: river.width + 4,
-        }, "O", protectedCells);
+        this.drawGlobalRect(
+          layout,
+          grid,
+          roomX,
+          roomY,
+          {
+            left: roomLeft + Math.floor(grid.cols / 2) - 1,
+            top: riverTop - 2,
+            width: 3,
+            height: river.width + 4,
+          },
+          'O',
+          protectedCells,
+        );
       }
     } else {
       const segmentTop = segmentIndex === 0 ? roomTop + Math.floor(grid.rows / 2) : roomTop;
-      const segmentBottom = segmentIndex === river.length - 1 ? roomTop + Math.ceil(grid.rows / 2) : roomTop + grid.rows;
+      const segmentBottom =
+        segmentIndex === river.length - 1
+          ? roomTop + Math.ceil(grid.rows / 2)
+          : roomTop + grid.rows;
       const riverLeft = roomLeft + river.offset;
-      this.drawGlobalRect(layout, grid, roomX, roomY, {
-        left: riverLeft,
-        top: segmentTop,
-        width: river.width,
-        height: segmentBottom - segmentTop,
-      }, "~", protectedCells);
+      this.drawGlobalRect(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        {
+          left: riverLeft,
+          top: segmentTop,
+          width: river.width,
+          height: segmentBottom - segmentTop,
+        },
+        '~',
+        protectedCells,
+      );
       if (segmentIndex === river.bridgeIndex) {
-        this.drawGlobalRect(layout, grid, roomX, roomY, {
-          left: riverLeft - 2,
-          top: roomTop + Math.floor(grid.rows / 2) - 1,
-          width: river.width + 4,
-          height: 3,
-        }, "O", protectedCells);
+        this.drawGlobalRect(
+          layout,
+          grid,
+          roomX,
+          roomY,
+          {
+            left: riverLeft - 2,
+            top: roomTop + Math.floor(grid.rows / 2) - 1,
+            width: river.width + 4,
+            height: 3,
+          },
+          'O',
+          protectedCells,
+        );
       }
     }
   }
@@ -860,9 +1106,15 @@ export class RoomGenerator {
     anchorX: number,
     anchorY: number,
     roomZ: number,
-    grid: GridConfig
-  ): { orientation: "east" | "south"; offset: number; width: number; length: number; bridgeIndex: number } | null {
-    if (getBiomeForRoom(`${anchorX},${anchorY},${roomZ}`).id === "sunken-ocean") {
+    grid: GridConfig,
+  ): {
+    orientation: 'east' | 'south';
+    offset: number;
+    width: number;
+    length: number;
+    bridgeIndex: number;
+  } | null {
+    if (getBiomeForRoom(`${anchorX},${anchorY},${roomZ}`).id === 'sunken-ocean') {
       return null;
     }
     const hash = this.hashRoom(anchorX, anchorY, roomZ, 0x713);
@@ -870,10 +1122,10 @@ export class RoomGenerator {
       return null;
     }
 
-    const orientation = hash % 2 === 0 ? "east" : "south";
+    const orientation = hash % 2 === 0 ? 'east' : 'south';
     const length = 15;
     const width = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x727) % 3);
-    const span = orientation === "east" ? grid.rows : grid.cols;
+    const span = orientation === 'east' ? grid.rows : grid.cols;
     const margin = 4;
     const maxOffset = Math.max(margin, span - width - margin);
     const offsetRange = Math.max(1, maxOffset - margin + 1);
@@ -888,8 +1140,8 @@ export class RoomGenerator {
     roomX: number,
     roomY: number,
     rect: { left: number; top: number; width: number; height: number },
-    tile: "#" | "~" | "O",
-    protectedCells?: ProtectedCells
+    tile: '#' | '~' | 'O',
+    protectedCells?: ProtectedCells,
   ): void {
     const roomLeft = roomX * grid.cols;
     const roomTop = roomY * grid.rows;
@@ -914,19 +1166,25 @@ export class RoomGenerator {
   private placeLake(layout: string[][], grid: GridConfig): void {
     const radiusX = this.randomIntInRange(3, 7);
     const radiusY = this.randomIntInRange(2, 5);
-    const centerX = this.randomIntInRange(radiusX + 2, Math.max(radiusX + 3, grid.cols - radiusX - 2));
-    const centerY = this.randomIntInRange(radiusY + 2, Math.max(radiusY + 3, grid.rows - radiusY - 2));
+    const centerX = this.randomIntInRange(
+      radiusX + 2,
+      Math.max(radiusX + 3, grid.cols - radiusX - 2),
+    );
+    const centerY = this.randomIntInRange(
+      radiusY + 2,
+      Math.max(radiusY + 3, grid.rows - radiusY - 2),
+    );
 
     for (let y = centerY - radiusY; y <= centerY + radiusY; y += 1) {
       for (let x = centerX - radiusX; x <= centerX + radiusX; x += 1) {
-        if (layout[y]?.[x] !== ".") {
+        if (layout[y]?.[x] !== '.') {
           continue;
         }
         const nx = (x - centerX) / Math.max(1, radiusX);
         const ny = (y - centerY) / Math.max(1, radiusY);
         const edgeNoise = this.rng() * 0.22;
         if (nx * nx + ny * ny <= 1 + edgeNoise) {
-          layout[y][x] = "~";
+          layout[y][x] = '~';
         }
       }
     }
@@ -958,15 +1216,15 @@ export class RoomGenerator {
             continue;
           }
           for (let col = 0; col < layout[row].length; col += 1) {
-            if (layout[row][col] === "#") {
-              layout[row][col] = ".";
+            if (layout[row][col] === '#') {
+              layout[row][col] = '.';
             }
           }
         }
         for (const key of protectedCells) {
-          const [col, row] = key.split(",").map(Number);
-          if (layout[row]?.[col] === "#") {
-            layout[row][col] = ".";
+          const [col, row] = key.split(',').map(Number);
+          if (layout[row]?.[col] === '#') {
+            layout[row][col] = '.';
           }
         }
       },
@@ -976,22 +1234,19 @@ export class RoomGenerator {
   private placeTemperatureReliefs(
     layout: string[][],
     grid: GridConfig,
-    biomeId: RoomSnapshot["biomeId"]
-  ): RoomSnapshot["temperatureReliefs"] | undefined {
-    const kind =
-      biomeId === "sable-depths" ? "warm" :
-      biomeId === "ember-waste" ? "cool" :
-      null;
+    biomeId: RoomSnapshot['biomeId'],
+  ): RoomSnapshot['temperatureReliefs'] | undefined {
+    const kind = biomeId === 'sable-depths' ? 'warm' : biomeId === 'ember-waste' ? 'cool' : null;
     if (!kind) {
       return undefined;
     }
 
     const count = 2;
-    const reliefs: NonNullable<RoomSnapshot["temperatureReliefs"]> = [];
+    const reliefs: NonNullable<RoomSnapshot['temperatureReliefs']> = [];
     for (let attempt = 0; attempt < 60 && reliefs.length < count; attempt++) {
       const x = this.randomInt(grid.cols);
       const y = this.randomInt(grid.rows);
-      if (layout[y]?.[x] !== ".") {
+      if (layout[y]?.[x] !== '.') {
         continue;
       }
       if (reliefs.some((relief) => Math.abs(relief.x - x) + Math.abs(relief.y - y) < 5)) {

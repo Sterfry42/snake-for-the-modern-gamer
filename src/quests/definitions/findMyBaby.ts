@@ -1,12 +1,12 @@
-import { Quest } from "../quest.js";
-import type { QuestRuntime } from "../quest.js";
+import { Quest } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 class FindMyBabyQuest extends Quest {
   constructor() {
     super(
-      "find-my-baby",
-      "Find My Baby",
-      "Find the missing baby and bring it back to the grieving stranger."
+      'find-my-baby',
+      'Find My Baby',
+      'Find the missing baby and bring it back to the grieving stranger.',
     );
   }
 
@@ -15,7 +15,7 @@ class FindMyBabyQuest extends Quest {
   }
 
   override onReward(runtime: QuestRuntime): void {
-    runtime.addItem("amulet-baby-bottle", 1);
+    runtime.addItem('amulet-baby-bottle', 1);
   }
 }
 

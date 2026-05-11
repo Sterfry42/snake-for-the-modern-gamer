@@ -1,12 +1,12 @@
-import { Quest } from "../quest.js";
-import type { QuestRuntime } from "../quest.js";
+import { Quest } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 class GreenPurchaseQuest extends Quest {
   constructor() {
     super(
-      "green-purchase",
-      "The Green Purchase",
-      "Find the forest teleporter, buy the radioactive substance 100 depths below, and return before the timer kills you."
+      'green-purchase',
+      'The Green Purchase',
+      'Find the forest teleporter, buy the radioactive substance 100 depths below, and return before the timer kills you.',
     );
   }
 
@@ -15,7 +15,7 @@ class GreenPurchaseQuest extends Quest {
   }
 
   override onReward(runtime: QuestRuntime): void {
-    runtime.addItem("helm-hazard-halo", 1);
+    runtime.addItem('helm-hazard-halo', 1);
   }
 }
 

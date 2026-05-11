@@ -1,5 +1,5 @@
-import Phaser from "phaser";
-import type SnakeScene from "../scenes/snakeScene.js";
+import Phaser from 'phaser';
+import type SnakeScene from '../scenes/snakeScene.js';
 
 interface BossHudDisplay {
   readonly name: string;
@@ -35,11 +35,11 @@ export class BossHud {
       .setOrigin(0, 0.5);
 
     this.nameText = this.scene.add
-      .text(0, -16, "", {
+      .text(0, -16, '', {
         fontFamily: "Georgia, 'Times New Roman', serif",
-        fontSize: "22px",
-        color: "#f1e9dd",
-        stroke: "#1c0b0b",
+        fontSize: '22px',
+        color: '#f1e9dd',
+        stroke: '#1c0b0b',
         strokeThickness: 2,
       })
       .setOrigin(0.5, 0.5);

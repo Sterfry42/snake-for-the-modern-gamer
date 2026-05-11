@@ -10,7 +10,7 @@ export const AVAILABLE_LANGUAGES: readonly LanguageConfig[] = [
   { id: 'es', code: 'es', nativeName: 'Español', name: 'Spanish' },
 ];
 
-export type LanguageId = typeof AVAILABLE_LANGUAGES[number]['id'];
+export type LanguageId = (typeof AVAILABLE_LANGUAGES)[number]['id'];
 export const DEFAULT_LANGUAGE: LanguageId = 'en';
 
 export interface QuestDialogue {

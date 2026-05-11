@@ -1,4 +1,4 @@
-import type { EquipableItem, EquipmentSlot, Item } from "./item.js";
+import type { EquipableItem, EquipmentSlot, Item } from './item.js';
 
 export class InventorySystem {
   private readonly items: Map<string, number> = new Map();
@@ -50,7 +50,7 @@ export class InventorySystem {
 
   equip(item: Item): boolean {
     const equip = item as EquipableItem;
-    if (!equip || equip.kind !== "equipment") {
+    if (!equip || equip.kind !== 'equipment') {
       return false;
     }
     // Ensure we have the item in inventory
