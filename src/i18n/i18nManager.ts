@@ -45,8 +45,8 @@ class I18nManager {
     return this.translations[this.currentLanguage]?.npcEncounters?.[npcId];
   }
 
-  getCommon(key: string): string {
-    return this.translations[this.currentLanguage]?.common?.[key] || key;
+  getCommon(key: string): string | unknown {
+    return this.translations[this.currentLanguage]?.common?.[key] ?? key;
   }
 }
 

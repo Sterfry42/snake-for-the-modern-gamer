@@ -1,3 +1,4 @@
+import type { CommonTranslations } from "../../types.js";
 export const COMMON_ES: CommonTranslations = {
   quest: {
     accept: "Aceptar",

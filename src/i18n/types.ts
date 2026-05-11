@@ -23,6 +23,8 @@ export interface NpcDialogue {
   repeatPages?: string[];
   acceptLabel?: string;
   rejectLabel?: string;
+  questId?: string;
+  rewardScore?: number;
 }
 
 export interface QuestTranslations {
@@ -34,5 +36,5 @@ export interface NpcTranslations {
 }
 
 export interface CommonTranslations {
-  [key: string]: string;
+  [key: string]: unknown;
 }
