@@ -1,8 +1,8 @@
-import { BossManager } from "../boss.js";
+import { BossManager } from "../boss.ts";
 
 describe("Freaker Dennis Boss", () => {
   it("should spawn with correct stats", () => {
-    const grid = { cols: 16, rows: 12 };
+    const grid = { cols: 16, rows: 12, cell: 24 };
     const bossManager = new BossManager(grid);
 
     bossManager.spawnBoss("0,0,0", "freaker-dennis");
@@ -19,7 +19,7 @@ describe("Freaker Dennis Boss", () => {
   });
 
   it("should have enhanced pull strength", () => {
-    const grid = { cols: 16, rows: 12 };
+    const grid = { cols: 16, rows: 12, cell: 24 };
     const bossManager = new BossManager(grid);
 
     bossManager.spawnBoss("0,0,0", "freaker-dennis");
@@ -39,9 +39,9 @@ describe("Freaker Dennis Boss", () => {
 
   it("should handle different grid configurations", () => {
     const gridConfigs = [
-      { cols: 10, rows: 10 },
-      { cols: 20, rows: 15 },
-      { cols: 32, rows: 32 },
+      { cols: 10, rows: 10, cell: 24 },
+      { cols: 20, rows: 15, cell: 24 },
+      { cols: 32, rows: 32, cell: 24 },
     ];
 
     for (const config of gridConfigs) {
@@ -56,7 +56,7 @@ describe("Freaker Dennis Boss", () => {
   });
 
   it("should handle edge case when player is at room boundaries", () => {
-    const grid = { cols: 16, rows: 12 };
+    const grid = { cols: 16, rows: 12, cell: 24 };
     const bossManager = new BossManager(grid);
 
     bossManager.spawnBoss("0,0,0", "freaker-dennis");
