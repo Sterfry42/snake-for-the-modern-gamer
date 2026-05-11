@@ -284,8 +284,8 @@ export default class SnakeScene extends Phaser.Scene {
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
   private snakeRenderer!: SnakeRenderer;
-  private juice!: JuiceManager;
-  private skillTree!: SkillTreeManager;
+  juice!: JuiceManager;
+  skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
   private saveUI!: SaveUI;
   private mobileControls: MobileControls | null = null;
@@ -322,7 +322,7 @@ export default class SnakeScene extends Phaser.Scene {
   private chosenClassId: string | null = null;
   private classMods: { tickDelayScalar?: number; wallSenseBonus?: number; seismicPulseBonus?: number; invulnerabilityBonus?: number; regenerator?: { interval: number; amount: number } | null; phoenixCharges?: number; masonryEnabled?: boolean } = {};
 
-  private paused = true;
+  paused = true;
   private isDirty = false;
   private currentApple: AppleSnapshot | null = null;
   private snakeCosmetics: SnakeCosmeticState = {
