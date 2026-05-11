@@ -1,9 +1,9 @@
-import type { Quest, QuestRuntime } from "../quests/quest.js";
-import type { QuestRegistry } from "../quests/questRegistry.js";
+import type { Quest, QuestRuntime } from '../quests/quest.js';
+import type { QuestRegistry } from '../quests/questRegistry.js';
 
 export interface QuestGiverRequest {
   quest: Quest | null;
-  state: "available" | "active" | "completed" | "none";
+  state: 'available' | 'active' | 'completed' | 'none';
 }
 
 export interface QuestControllerOptions {
@@ -30,7 +30,7 @@ export class QuestController {
 
   constructor(
     private readonly registry: QuestRegistry,
-    options: QuestControllerOptions = {}
+    options: QuestControllerOptions = {},
   ) {
     this.initialQuestCount = options.initialQuestCount ?? 3;
     this.initialQuestIds = options.initialQuestIds ?? [];
@@ -67,10 +67,12 @@ export class QuestController {
 
   restoreQuestIds(
     state: { active?: string[]; completed?: string[]; accepted?: string[] },
-    runtime: QuestRuntime
+    runtime: QuestRuntime,
   ): void {
     const completed = Array.from(new Set(state.completed ?? []));
-    const accepted = Array.from(new Set([...(state.accepted ?? []), ...(state.active ?? []), ...completed]));
+    const accepted = Array.from(
+      new Set([...(state.accepted ?? []), ...(state.active ?? []), ...completed]),
+    );
     const active: Quest[] = [];
     for (const id of state.active ?? []) {
       if (completed.includes(id)) {
@@ -158,7 +160,7 @@ export class QuestController {
 
   getQuestForGiver(roomId: string, runtime: QuestRuntime): QuestGiverRequest {
     let assignedId = this.giverAssignments.get(roomId);
-    let quest = assignedId ? this.registry.getById(assignedId) ?? null : null;
+    let quest = assignedId ? (this.registry.getById(assignedId) ?? null) : null;
     if (quest && !this.canOfferFromGiver(quest, runtime, roomId)) {
       this.giverAssignments.delete(roomId);
       assignedId = undefined;
@@ -168,7 +170,7 @@ export class QuestController {
     if (!quest) {
       quest = this.pickEligibleQuest(runtime, roomId);
       if (!quest) {
-        return { quest: null, state: "none" };
+        return { quest: null, state: 'none' };
       }
       this.giverAssignments.set(roomId, quest.id);
     }
@@ -177,19 +179,19 @@ export class QuestController {
       this.giverAssignments.delete(roomId);
       const nextQuest = this.pickEligibleQuest(runtime, roomId);
       if (!nextQuest) {
-        return { quest, state: "completed" };
+        return { quest, state: 'completed' };
       }
       this.giverAssignments.set(roomId, nextQuest.id);
       quest = nextQuest;
     }
 
     if (this.active.some((activeQuest) => activeQuest.id === quest.id)) {
-      return { quest, state: "active" };
+      return { quest, state: 'active' };
     }
 
     this.offered = quest;
     this.offeredByRoomId = roomId;
-    return { quest, state: "available" };
+    return { quest, state: 'available' };
   }
 
   handleCompletions(runtime: QuestRuntime): Quest[] {
@@ -304,7 +306,11 @@ export class QuestController {
   }
 
   private collectEligibleQuests(runtime?: QuestRuntime, giverRoomId?: string): Quest[] {
-    const exclude = new Set<string>([...this.accepted, ...this.completed, ...this.active.map((q) => q.id)]);
+    const exclude = new Set<string>([
+      ...this.accepted,
+      ...this.completed,
+      ...this.active.map((q) => q.id),
+    ]);
     if (this.offered) {
       exclude.add(this.offered.id);
     }

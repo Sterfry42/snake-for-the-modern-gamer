@@ -1,6 +1,6 @@
-import type { Vector2Like } from "../core/math.js";
-import type { NpcProfile } from "../npcs/profiles.js";
-import type { BiomeId } from "./biomes.js";
+import type { Vector2Like } from '../core/math.js';
+import type { NpcProfile } from '../npcs/profiles.js';
+import type { BiomeId } from './biomes.js';
 
 export interface PortalConfig {
   x: number;
@@ -17,7 +17,7 @@ export interface RoomSnapshot {
   portals: PortalConfig[];
   apple?: Vector2Like;
   treasure?: Vector2Like;
-  powerup?: { x: number; y: number; kind: "phase" | "smite" | "gun" };
+  powerup?: { x: number; y: number; kind: 'phase' | 'smite' | 'gun' };
   questGiver?: NpcProfile & { x: number; y: number };
   village?: {
     name: string;
@@ -26,7 +26,7 @@ export interface RoomSnapshot {
     residents: Array<NpcProfile & { x: number; y: number }>;
     shopkeeper: NpcProfile & { x: number; y: number };
   };
-  temperatureReliefs?: Array<{ x: number; y: number; kind: "warm" | "cool" }>;
+  temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' }>;
   biomeId: BiomeId;
   biomeTitle: string;
   backgroundColor: number;

@@ -1,10 +1,13 @@
-import type { GridConfig } from "../../config/gameConfig.js";
-import type { RoomLayout } from "./types.js";
+import type { GridConfig } from '../../config/gameConfig.js';
+import type { RoomLayout } from './types.js';
 
 export class TerrainCanvas {
   readonly layout: RoomLayout;
 
-  constructor(readonly grid: GridConfig, fillTile = ".") {
+  constructor(
+    readonly grid: GridConfig,
+    fillTile = '.',
+  ) {
     this.layout = Array.from({ length: grid.rows }, () => Array(grid.cols).fill(fillTile));
   }
 
@@ -20,11 +23,11 @@ export class TerrainCanvas {
   }
 
   isEmpty(x: number, y: number): boolean {
-    return this.get(x, y) === ".";
+    return this.get(x, y) === '.';
   }
 
   toRows(): string[] {
-    return this.layout.map((row) => row.join(""));
+    return this.layout.map((row) => row.join(''));
   }
 
   ensureHardEntranceRunups(length: number): void {
@@ -39,8 +42,8 @@ export class TerrainCanvas {
           break;
         }
         const tile = this.get(x, y);
-        if (tile === "#" || tile === "~") {
-          this.set(x, y, ".");
+        if (tile === '#' || tile === '~') {
+          this.set(x, y, '.');
         }
       }
     };
@@ -61,6 +64,6 @@ export class TerrainCanvas {
 
   private isSafeEntryTile(x: number, y: number): boolean {
     const tile = this.get(x, y);
-    return tile !== undefined && tile !== "#" && tile !== "~";
+    return tile !== undefined && tile !== '#' && tile !== '~';
   }
 }

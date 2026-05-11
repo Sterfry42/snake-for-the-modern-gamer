@@ -1,21 +1,30 @@
-import { defaultGameConfig, type GameConfig, type PowerupKind } from "../config/gameConfig.js";
-import type { Vector2Like } from "../core/math.js";
-import { createRng, type RandomGenerator } from "../core/rng.js";
-import { AppleService, type AppleConsumptionResult } from "../apples/appleService.js";
-import type { AppleSnapshot } from "../apples/types.js";
-import { SnakeState, type SnakeStepDependencies, type SnakeStepOutcome } from "../systems/snakeState.js";
-import { BossManager } from "../systems/boss.js";
-import { EnemyManager } from "../systems/enemies.js";
-import { WorldService } from "../world/worldService.js";
-import { QuestController } from "../systems/questController.js";
-import type { QuestGiverRequest } from "../systems/questController.js";
-import type { Quest } from "../quests/quest.js";
-import type { QuestRegistry } from "../quests/questRegistry.js";
-import type { GameSaveData } from "./saveManager.js";
-import { InventorySystem } from "../inventory/inventory.js";
-import { CHEST_LOOT_ITEMS, getItem } from "../inventory/itemRegistry.js";
-import { CARD_SHOP_OFFERS, getCardDefinition, type CardCollection, type CardId } from "../cards/cardGame.js";
-import type { QuestRuntime } from "../quests/quest.js";
+import { defaultGameConfig, type GameConfig, type PowerupKind } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import { createRng, type RandomGenerator } from '../core/rng.js';
+import { AppleService, type AppleConsumptionResult } from '../apples/appleService.js';
+import type { AppleSnapshot } from '../apples/types.js';
+import {
+  SnakeState,
+  type SnakeStepDependencies,
+  type SnakeStepOutcome,
+} from '../systems/snakeState.js';
+import { BossManager } from '../systems/boss.js';
+import { EnemyManager } from '../systems/enemies.js';
+import { WorldService } from '../world/worldService.js';
+import { QuestController } from '../systems/questController.js';
+import type { QuestGiverRequest } from '../systems/questController.js';
+import type { Quest } from '../quests/quest.js';
+import type { QuestRegistry } from '../quests/questRegistry.js';
+import type { GameSaveData } from './saveManager.js';
+import { InventorySystem } from '../inventory/inventory.js';
+import { CHEST_LOOT_ITEMS, getItem } from '../inventory/itemRegistry.js';
+import {
+  CARD_SHOP_OFFERS,
+  getCardDefinition,
+  type CardCollection,
+  type CardId,
+} from '../cards/cardGame.js';
+import type { QuestRuntime } from '../quests/quest.js';
 import {
   chooseWandererEncounter,
   getEncounterPages,
@@ -23,30 +32,30 @@ import {
   getRoomEncounterTags,
   type EncounterHistoryEntry,
   type WandererEncounter,
-} from "../npcs/encounters.js";
-import { buildHouseNpcProfile } from "../npcs/profiles.js";
-import { getBiomeDefinition, getBiomeForRoom } from "../world/biomes.js";
-import type { RoomSnapshot } from "../world/types.js";
-import { i18n } from "../i18n/i18nManager.js";
-import { loadLanguagePreference, saveLanguagePreference } from "../i18n/storage.js";
+} from '../npcs/encounters.js';
+import { buildHouseNpcProfile } from '../npcs/profiles.js';
+import { getBiomeDefinition, getBiomeForRoom } from '../world/biomes.js';
+import type { RoomSnapshot } from '../world/types.js';
+import { i18n } from '../i18n/i18nManager.js';
+import { loadLanguagePreference, saveLanguagePreference } from '../i18n/storage.js';
 
 type StagedQuestStage =
-  | "visit-offices"
-  | "return-to-giver"
-  | "find-baby"
-  | "carry-baby"
-  | "survive-freak-you"
-  | "find-forest-teleporter"
-  | "buy-substance"
-  | "escape-radiation"
-  | "completed"
-  | "failed";
+  | 'visit-offices'
+  | 'return-to-giver'
+  | 'find-baby'
+  | 'carry-baby'
+  | 'survive-freak-you'
+  | 'find-forest-teleporter'
+  | 'buy-substance'
+  | 'escape-radiation'
+  | 'completed'
+  | 'failed';
 
 interface StagedQuestOffice {
   id: string;
   roomId: string;
   paid: boolean;
-  method?: "score" | "length" | "duel";
+  method?: 'score' | 'length' | 'duel';
 }
 
 interface StagedQuestInstance {
@@ -68,7 +77,7 @@ interface StagedQuestInstance {
 export interface QuestMapMarker {
   questId: string;
   roomId: string;
-  kind: "target" | "turn-in" | "danger" | "office";
+  kind: 'target' | 'turn-in' | 'danger' | 'office';
   label: string;
   color: number;
 }
@@ -79,29 +88,37 @@ export interface QuestRoomActor {
   roomId: string;
   x: number;
   y: number;
-  kind: "tax-office" | "quest-baby" | "forest-teleporter" | "deep-merchant" | "deep-teleporter";
+  kind: 'tax-office' | 'quest-baby' | 'forest-teleporter' | 'deep-merchant' | 'deep-teleporter';
   label: string;
 }
 
 export type QuestInteraction =
   | {
-      kind: "dialogue";
+      kind: 'dialogue';
       title: string;
       pages: string[];
       closeLabel?: string;
     }
   | {
-      kind: "choice";
+      kind: 'choice';
       title: string;
       options: Array<{ id: string; title: string; description: string }>;
     };
 
 export interface StepResult {
-  status: "alive" | "dead";
-  deathReason?: "wall" | "self" | "shielded" | "boss" | "bullet" | "temperature" | "water" | "shark";
+  status: 'alive' | 'dead';
+  deathReason?:
+    | 'wall'
+    | 'self'
+    | 'shielded'
+    | 'boss'
+    | 'bullet'
+    | 'temperature'
+    | 'water'
+    | 'shark';
   apple: {
     eaten: boolean;
-    rewards?: AppleConsumptionResult["rewards"];
+    rewards?: AppleConsumptionResult['rewards'];
     worldPosition?: Vector2Like | null;
     current: AppleSnapshot | null;
     stateChanged: boolean;
@@ -114,13 +131,13 @@ export interface StepResult {
 
 export interface DeathDebugRoomSnapshot {
   roomId: string;
-  biomeId: RoomSnapshot["biomeId"];
+  biomeId: RoomSnapshot['biomeId'];
   biomeTitle: string;
   layout: string[];
 }
 
 export interface DeathDebugSnapshot {
-  reason?: StepResult["deathReason"] | string | null;
+  reason?: StepResult['deathReason'] | string | null;
   roomId: string;
   world: Vector2Like;
   local: Vector2Like;
@@ -348,7 +365,10 @@ export class SnakeGame implements QuestRuntime {
   private readonly questController: QuestController;
   private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
-  private readonly npcDisposition = new Map<string, { anger: number; hostility: "friendly" | "warning" | "hostile" }>();
+  private readonly npcDisposition = new Map<
+    string,
+    { anger: number; hostility: 'friendly' | 'warning' | 'hostile' }
+  >();
   private readonly resolvedWandererEncounters = new Set<string>();
   private readonly wandererHistory = new Map<string, EncounterHistoryEntry>();
   private lastWandererEncounterRoomCount = -999;
@@ -368,7 +388,7 @@ export class SnakeGame implements QuestRuntime {
     config: GameConfig = defaultGameConfig,
     private readonly registry: QuestRegistry,
     private readonly snakeScene: any,
-    rng?: RandomGenerator
+    rng?: RandomGenerator,
   ) {
     this.config = config;
     this.rng = rng ?? createRng(config.rng.seed);
@@ -405,73 +425,82 @@ export class SnakeGame implements QuestRuntime {
     this.lastWandererEncounterRoomCount = -999;
     this.visitedRooms.add(this.snake.currentRoomId);
     this.powerupState = null;
-    this.setFlag("timeMs", 0);
-    this.setFlag("player.health", 3);
-    this.setFlag("player.maxHealth", 3);
-    this.setFlag("ui.healthRevealed", undefined);
-    this.setFlag("ui.livesRevealed", undefined);
-    this.setFlag("player.bulletInvulnTicks", 0);
-    this.setFlag("player.temperatureExposureMs", 0);
-    this.setFlag("player.temperatureThresholdMs", 10000);
-    this.setFlag("player.temperatureDamageIntervalMs", 5000);
-    this.setFlag("player.temperatureDamageProgressMs", 0);
-    this.setFlag("player.temperatureLastTickMs", 0);
-    this.setFlag("player.temperatureHazard", undefined);
-    this.setFlag("equipment.gunEnabled", undefined);
-    this.setFlag("equipment.itemPhoenixCharges", undefined);
-    this.setFlag("equipment.heatResistance", undefined);
-    this.setFlag("equipment.coldResistance", undefined);
-    this.setFlag("equipment.swimmingEnabled", undefined);
-    this.setFlag("treasurePicked", 0);
-    this.setFlag("powerupsPicked", 0);
-    this.setFlag("roomsVisited", 1);
-    this.setFlag("house.itemsPurchased", 0);
-    this.setFlag("appleStreak", 0);
-    this.setFlag("appleStreakMax", 0);
-    this.setFlag("lastAppleTimeMs", undefined);
-    this.setFlag("npc.randomEncounter", undefined);
-    this.setFlag("npc.randomEncounter.prompted", undefined);
-    this.setFlag("npc.randomEncounter.triggerAtMs", undefined);
-    this.setFlag("npc.randomEncounter.revealAtMs", undefined);
-    this.setFlag("ui.wandererReveal", undefined);
-    this.setFlag("ui.playerShot", undefined);
-    this.setFlag("ui.playerHit", undefined);
-    this.setFlag("ui.villageReveal", undefined);
-    this.setFlag("ui.biomeReveal", undefined);
-    this.setFlag("ui.lastBiomeId", undefined);
-    this.setFlag("npc.freakJoey.active", undefined);
-    this.setFlag("npc.freakJoey.defeated", undefined);
-    this.setFlag("quest.staged.instances", undefined);
-    this.setFlag("quest.staged.completedNow", undefined);
-    this.setFlag("quest.staged.failedNow", undefined);
-    this.setFlag("ui.questInteraction", undefined);
-    this.setFlag("equipment.refundEveryRooms", undefined);
-    this.setFlag("equipment.appleScorePenalty", undefined);
-    this.setFlag("equipment.hazardMapSense", undefined);
-    this.setFlag("equipment.radiationTimerScalar", undefined);
-    this.setFlag("roomEntryTimeMs", 0);
+    this.setFlag('timeMs', 0);
+    this.setFlag('player.health', 3);
+    this.setFlag('player.maxHealth', 3);
+    this.setFlag('ui.healthRevealed', undefined);
+    this.setFlag('ui.livesRevealed', undefined);
+    this.setFlag('player.bulletInvulnTicks', 0);
+    this.setFlag('player.temperatureExposureMs', 0);
+    this.setFlag('player.temperatureThresholdMs', 10000);
+    this.setFlag('player.temperatureDamageIntervalMs', 5000);
+    this.setFlag('player.temperatureDamageProgressMs', 0);
+    this.setFlag('player.temperatureLastTickMs', 0);
+    this.setFlag('player.temperatureHazard', undefined);
+    this.setFlag('equipment.gunEnabled', undefined);
+    this.setFlag('equipment.itemPhoenixCharges', undefined);
+    this.setFlag('equipment.heatResistance', undefined);
+    this.setFlag('equipment.coldResistance', undefined);
+    this.setFlag('equipment.swimmingEnabled', undefined);
+    this.setFlag('treasurePicked', 0);
+    this.setFlag('powerupsPicked', 0);
+    this.setFlag('roomsVisited', 1);
+    this.setFlag('house.itemsPurchased', 0);
+    this.setFlag('appleStreak', 0);
+    this.setFlag('appleStreakMax', 0);
+    this.setFlag('lastAppleTimeMs', undefined);
+    this.setFlag('npc.randomEncounter', undefined);
+    this.setFlag('npc.randomEncounter.prompted', undefined);
+    this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
+    this.setFlag('npc.randomEncounter.revealAtMs', undefined);
+    this.setFlag('ui.wandererReveal', undefined);
+    this.setFlag('ui.playerShot', undefined);
+    this.setFlag('ui.playerHit', undefined);
+    this.setFlag('ui.villageReveal', undefined);
+    this.setFlag('ui.biomeReveal', undefined);
+    this.setFlag('ui.lastBiomeId', undefined);
+    this.setFlag('npc.freakJoey.active', undefined);
+    this.setFlag('npc.freakJoey.defeated', undefined);
+    this.setFlag('quest.staged.instances', undefined);
+    this.setFlag('quest.staged.completedNow', undefined);
+    this.setFlag('quest.staged.failedNow', undefined);
+    this.setFlag('ui.questInteraction', undefined);
+    this.setFlag('equipment.refundEveryRooms', undefined);
+    this.setFlag('equipment.appleScorePenalty', undefined);
+    this.setFlag('equipment.hazardMapSense', undefined);
+    this.setFlag('equipment.radiationTimerScalar', undefined);
+    this.setFlag('roomEntryTimeMs', 0);
     const head = this.snake.bodySegments[0];
     if (head) {
-      const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
-      this.setFlag("roomEntryLocalPos", { x: head.x - roomX * this.config.grid.cols, y: head.y - roomY * this.config.grid.rows });
+      const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
+      this.setFlag('roomEntryLocalPos', {
+        x: head.x - roomX * this.config.grid.cols,
+        y: head.y - roomY * this.config.grid.rows,
+      });
     } else {
-      this.setFlag("roomEntryLocalPos", undefined);
+      this.setFlag('roomEntryLocalPos', undefined);
     }
 
     // TODO: Make this configurable
-    if (this.rng() < 0.03) { // 3% chance to spawn a boss on reset
-      this.bosses.spawnBoss(this.snake.currentRoomId, "freak-dennis");
+    if (this.rng() < 0.03) {
+      // 3% chance to spawn a boss on reset
+      this.bosses.spawnBoss(this.snake.currentRoomId, 'freak-dennis');
     }
-    if (this.rng() < 0.01) { // 1% chance to spawn Freaker Dennis on reset
-      this.bosses.spawnBoss(this.snake.currentRoomId, "freaker-dennis");
+    if (this.rng() < 0.01) {
+      // 1% chance to spawn Freaker Dennis on reset
+      this.bosses.spawnBoss(this.snake.currentRoomId, 'freaker-dennis');
     }
 
     this.resetPredation();
-    this.apples.ensureApple(this.snake.currentRoomId, Array.from(this.snake.bodySegments), this.snake.score);
+    this.apples.ensureApple(
+      this.snake.currentRoomId,
+      Array.from(this.snake.bodySegments),
+      this.snake.score,
+    );
     this.enemies.ensureEnemy(
       this.snake.currentRoomId,
       this.world.getRoom(this.snake.currentRoomId),
-      this.config.snake.initialBody
+      this.config.snake.initialBody,
     );
   }
 
@@ -504,19 +533,18 @@ export class SnakeGame implements QuestRuntime {
     });
     this.reconcileStagedQuestBosses();
 
-
     const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
     const headBeforeSnakeStep = this.snake.bodySegments[0];
     const bossOnHead = headBeforeSnakeStep
       ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
       : null;
-    if (bossOnHead && (bossOnHead.kind === "angel" || bossOnHead.kind === "freak-you")) {
-      this.setFlag("internal.killedByBossKind", bossOnHead.kind);
-      this.setFlag("internal.killedByBossName", bossOnHead.name);
-      this.markDeathAtCurrentHead("boss");
+    if (bossOnHead && (bossOnHead.kind === 'angel' || bossOnHead.kind === 'freak-you')) {
+      this.setFlag('internal.killedByBossKind', bossOnHead.kind);
+      this.setFlag('internal.killedByBossName', bossOnHead.name);
+      this.markDeathAtCurrentHead('boss');
       return {
-        status: "dead",
-        deathReason: "boss",
+        status: 'dead',
+        deathReason: 'boss',
         apple: {
           eaten: false,
           current: appleBeforeStep,
@@ -545,44 +573,42 @@ export class SnakeGame implements QuestRuntime {
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
       const newRoomId = this.snake.currentRoomId;
-      const previousDepth = Number(previousRoom.split(",")[2] ?? 0);
-      const newDepth = Number(newRoomId.split(",")[2] ?? 0);
+      const previousDepth = Number(previousRoom.split(',')[2] ?? 0);
+      const newDepth = Number(newRoomId.split(',')[2] ?? 0);
       if (previousDepth !== newDepth) {
-        this.setFlag("traversal.manualResumePending", true);
+        this.setFlag('traversal.manualResumePending', true);
       }
       if (!this.visitedRooms.has(newRoomId)) {
         this.visitedRooms.add(newRoomId);
         // TODO: Make this configurable
-        if (this.rng() < 0.03) { // 3% chance to spawn Freak Dennis in a new room
-          this.bosses.spawnBoss(newRoomId, "freak-dennis");
+        if (this.rng() < 0.03) {
+          // 3% chance to spawn Freak Dennis in a new room
+          this.bosses.spawnBoss(newRoomId, 'freak-dennis');
         }
-        if (this.rng() < 0.01) { // 1% chance to spawn Freaker Dennis in a new room
-          this.bosses.spawnBoss(newRoomId, "freaker-dennis");
+        if (this.rng() < 0.01) {
+          // 1% chance to spawn Freaker Dennis in a new room
+          this.bosses.spawnBoss(newRoomId, 'freaker-dennis');
         }
-        this.enemies.ensureEnemy(
-          newRoomId,
-          this.world.getRoom(newRoomId),
-          []
-        );
+        this.enemies.ensureEnemy(newRoomId, this.world.getRoom(newRoomId), []);
         this.maybeQueueFreakJoeyEncounter(newRoomId);
         const newRoom = this.world.getRoom(newRoomId);
-        const lastBiomeId = this.getFlag<string>("ui.lastBiomeId");
+        const lastBiomeId = this.getFlag<string>('ui.lastBiomeId');
         if (lastBiomeId !== newRoom.biomeId) {
           const biome = getBiomeDefinition(newRoom.biomeId);
-          this.setFlag("ui.biomeReveal", {
+          this.setFlag('ui.biomeReveal', {
             roomId: newRoomId,
             biomeId: newRoom.biomeId,
             title: newRoom.biomeTitle,
             temperature: biome.temperature,
             dangerLevel: biome.dangerLevel,
           });
-          this.setFlag("ui.lastBiomeId", newRoom.biomeId);
+          this.setFlag('ui.lastBiomeId', newRoom.biomeId);
         }
         if (newRoom.village) {
-          const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
-          this.setFlag("player.health", maxHealth);
+          const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+          this.setFlag('player.health', maxHealth);
           this.addScore(3);
-          this.setFlag("ui.villageReveal", {
+          this.setFlag('ui.villageReveal', {
             roomId: newRoomId,
             name: newRoom.village.name,
             x: newRoom.village.center.x,
@@ -591,53 +617,60 @@ export class SnakeGame implements QuestRuntime {
         }
       } else {
         const newRoom = this.world.getRoom(newRoomId);
-        const lastBiomeId = this.getFlag<string>("ui.lastBiomeId");
+        const lastBiomeId = this.getFlag<string>('ui.lastBiomeId');
         if (lastBiomeId !== newRoom.biomeId) {
           const biome = getBiomeDefinition(newRoom.biomeId);
-          this.setFlag("ui.biomeReveal", {
+          this.setFlag('ui.biomeReveal', {
             roomId: newRoomId,
             biomeId: newRoom.biomeId,
             title: newRoom.biomeTitle,
             temperature: biome.temperature,
             dangerLevel: biome.dangerLevel,
           });
-          this.setFlag("ui.lastBiomeId", newRoom.biomeId);
+          this.setFlag('ui.lastBiomeId', newRoom.biomeId);
         }
       }
-      const timeMs = Number(this.getFlag<number>("timeMs") ?? 0);
-      const entryTimeMs = Number(this.getFlag<number>("roomEntryTimeMs") ?? timeMs);
-      const entryPos = this.getFlag<{ x: number; y: number }>("roomEntryLocalPos");
-      const previousHead = this.getFlag<{ x: number; y: number }>("internal.previousHead");
+      const timeMs = Number(this.getFlag<number>('timeMs') ?? 0);
+      const entryTimeMs = Number(this.getFlag<number>('roomEntryTimeMs') ?? timeMs);
+      const entryPos = this.getFlag<{ x: number; y: number }>('roomEntryLocalPos');
+      const previousHead = this.getFlag<{ x: number; y: number }>('internal.previousHead');
       if (entryPos && previousHead) {
-        const [prevRoomX, prevRoomY] = previousRoom.split(",").map(Number);
+        const [prevRoomX, prevRoomY] = previousRoom.split(',').map(Number);
         const prevLocalX = previousHead.x - prevRoomX * this.config.grid.cols;
         const prevLocalY = previousHead.y - prevRoomY * this.config.grid.rows;
         const distance = Math.abs(prevLocalX - entryPos.x) + Math.abs(prevLocalY - entryPos.y);
-        this.setFlag("roomTravelDistance", distance);
-        this.setFlag("roomTravelMs", Math.max(0, timeMs - entryTimeMs));
+        this.setFlag('roomTravelDistance', distance);
+        this.setFlag('roomTravelMs', Math.max(0, timeMs - entryTimeMs));
       } else {
-        this.setFlag("roomTravelDistance", undefined);
-        this.setFlag("roomTravelMs", undefined);
+        this.setFlag('roomTravelDistance', undefined);
+        this.setFlag('roomTravelMs', undefined);
       }
       const head = this.snake.bodySegments[0];
       if (head) {
-        const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
-        this.setFlag("roomEntryLocalPos", { x: head.x - roomX * this.config.grid.cols, y: head.y - roomY * this.config.grid.rows });
+        const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
+        this.setFlag('roomEntryLocalPos', {
+          x: head.x - roomX * this.config.grid.cols,
+          y: head.y - roomY * this.config.grid.rows,
+        });
       } else {
-        this.setFlag("roomEntryLocalPos", undefined);
+        this.setFlag('roomEntryLocalPos', undefined);
       }
-      this.setFlag("roomEntryTimeMs", timeMs);
-      this.setFlag("roomsVisited", this.visitedRooms.size);
+      this.setFlag('roomEntryTimeMs', timeMs);
+      this.setFlag('roomsVisited', this.visitedRooms.size);
       this.handleEquipmentRoomRefund();
       this.handleStagedQuestRoomEntered(newRoomId);
     }
 
-    if (outcome.status === "dead") {
-      const killedByAngel = this.getFlag<string>("internal.killedByBossKind") === "angel";
-      const insultedAngelActive = Boolean(this.getFlag<boolean>("boss.insultedAngel"));
-      if (killedByAngel || insultedAngelActive || !this.tryFortitudePhoenix(outcome, roomsChanged, previousRoom)) {
+    if (outcome.status === 'dead') {
+      const killedByAngel = this.getFlag<string>('internal.killedByBossKind') === 'angel';
+      const insultedAngelActive = Boolean(this.getFlag<boolean>('boss.insultedAngel'));
+      if (
+        killedByAngel ||
+        insultedAngelActive ||
+        !this.tryFortitudePhoenix(outcome, roomsChanged, previousRoom)
+      ) {
         return {
-          status: "dead",
+          status: 'dead',
           deathReason: outcome.reason,
           apple: {
             eaten: false,
@@ -650,7 +683,7 @@ export class SnakeGame implements QuestRuntime {
           questsCompleted: [],
         };
       }
-      outcome = { status: "alive", reason: undefined, appleEaten: false };
+      outcome = { status: 'alive', reason: undefined, appleEaten: false };
     }
 
     if (this.tryActivateQuestTeleporterAtHead()) {
@@ -660,25 +693,41 @@ export class SnakeGame implements QuestRuntime {
     const updatedSnake = Array.from(this.snake.bodySegments);
     const currentHead = updatedSnake[0];
     // UI: Turn skid when direction changes
-    const previous = this.getFlag<{ direction?: Vector2Like }>("internal.previousSnapshot");
+    const previous = this.getFlag<{ direction?: Vector2Like }>('internal.previousSnapshot');
     const currDir = this.snake.directionVector;
-    if (previous?.direction && (previous.direction.x !== currDir.x || previous.direction.y !== currDir.y) && currentHead) {
-      this.setFlag("ui.turnSkid", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId, dx: currDir.x, dy: currDir.y });
+    if (
+      previous?.direction &&
+      (previous.direction.x !== currDir.x || previous.direction.y !== currDir.y) &&
+      currentHead
+    ) {
+      this.setFlag('ui.turnSkid', {
+        x: currentHead.x,
+        y: currentHead.y,
+        roomId: this.snake.currentRoomId,
+        dx: currDir.x,
+        dy: currDir.y,
+      });
     }
 
-    const lastTail = this.getFlag<{ x: number; y: number; roomId?: string }>("internal.lastRemovedTail");
-    if (lastTail && (this.getFlag<boolean>("geometry.masonryEnabled") || this.getFlag<boolean>("equipment.masonryEnabled"))) {
+    const lastTail = this.getFlag<{ x: number; y: number; roomId?: string }>(
+      'internal.lastRemovedTail',
+    );
+    if (
+      lastTail &&
+      (this.getFlag<boolean>('geometry.masonryEnabled') ||
+        this.getFlag<boolean>('equipment.masonryEnabled'))
+    ) {
       this.applyMasonry(lastTail, updatedSnake, roomsChanged);
     }
-    this.setFlag("internal.lastRemovedTail", undefined);
+    this.setFlag('internal.lastRemovedTail', undefined);
 
-    const wallEaten = this.getFlag<{ x: number; y: number; roomId: string }>("geometry.wallEaten");
+    const wallEaten = this.getFlag<{ x: number; y: number; roomId: string }>('geometry.wallEaten');
     if (wallEaten) {
       this.handleWallEaten(wallEaten, roomsChanged);
-      this.setFlag("geometry.wallEaten", undefined);
+      this.setFlag('geometry.wallEaten', undefined);
     }
 
-    if (this.getFlag<boolean>("geometry.faultLineEnabled") && currentHead) {
+    if (this.getFlag<boolean>('geometry.faultLineEnabled') && currentHead) {
       this.applyFaultLine(currentHead, roomsChanged);
     }
 
@@ -689,42 +738,57 @@ export class SnakeGame implements QuestRuntime {
       if (info) {
         const { roomId, localX, localY } = info;
         const room = this.world.getRoom(roomId);
-        let nx = 0, ny = 0;
+        let nx = 0,
+          ny = 0;
         if (dir.x !== 0) {
           const tx = localX + dir.x;
           if (tx >= 0 && tx < this.config.grid.cols) {
             const t = room.layout[localY]?.[tx];
-            if (t === '#') { nx = dir.x; ny = 0; }
+            if (t === '#') {
+              nx = dir.x;
+              ny = 0;
+            }
           }
         } else if (dir.y !== 0) {
           const ty = localY + dir.y;
           if (ty >= 0 && ty < this.config.grid.rows) {
             const t = room.layout[ty]?.[localX];
-            if (t === '#') { nx = 0; ny = dir.y; }
+            if (t === '#') {
+              nx = 0;
+              ny = dir.y;
+            }
           }
         }
         if (nx !== 0 || ny !== 0) {
-          this.setFlag("ui.wallGraze", { x: currentHead.x, y: currentHead.y, roomId, nx, ny });
+          this.setFlag('ui.wallGraze', { x: currentHead.x, y: currentHead.y, roomId, nx, ny });
         }
       }
     }
 
     let appleStateChanged = roomsChanged.has(this.snake.currentRoomId);
     let appleSnapshot = this.apples.getSnapshot(this.snake.currentRoomId);
-    let appleRewards: AppleConsumptionResult["rewards"] | undefined;
+    let appleRewards: AppleConsumptionResult['rewards'] | undefined;
     let appleWorldPosition: Vector2Like | null = null;
     let appleEaten = false;
 
     if (outcome.appleEaten) {
       appleEaten = true;
-      const phasePowerupActive = Boolean(this.powerupState?.kind === "phase" && this.powerupState.remaining > 0);
+      const phasePowerupActive = Boolean(
+        this.powerupState?.kind === 'phase' && this.powerupState.remaining > 0,
+      );
       const consumption = this.apples.handleConsumption(
         this.snake.currentRoomId,
         this.snake.directionVector,
-        phasePowerupActive
+        phasePowerupActive,
       );
       if (consumption.fatal) {
-        if (this.tryFortitudePhoenix({ status: "dead", reason: "shielded" }, roomsChanged, previousRoom)) {
+        if (
+          this.tryFortitudePhoenix(
+            { status: 'dead', reason: 'shielded' },
+            roomsChanged,
+            previousRoom,
+          )
+        ) {
           return this.createAliveStepResult({
             appleEaten: true,
             appleSnapshot: appleBeforeStep,
@@ -733,10 +797,10 @@ export class SnakeGame implements QuestRuntime {
             roomHasChanged,
           });
         }
-        this.markDeathAtCurrentHead("shielded");
+        this.markDeathAtCurrentHead('shielded');
         return {
-          status: "dead",
-          deathReason: "shielded",
+          status: 'dead',
+          deathReason: 'shielded',
           apple: {
             eaten: true,
             current: appleBeforeStep,
@@ -753,19 +817,28 @@ export class SnakeGame implements QuestRuntime {
       appleWorldPosition = consumption.worldPosition ?? null;
       appleStateChanged = appleStateChanged || consumption.changed;
 
-      const nowMs = Number(this.getFlag<number>("timeMs") ?? 0);
-      const lastAppleMs = Number(this.getFlag<number>("lastAppleTimeMs") ?? Number.NEGATIVE_INFINITY);
+      const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+      const lastAppleMs = Number(
+        this.getFlag<number>('lastAppleTimeMs') ?? Number.NEGATIVE_INFINITY,
+      );
       const streakWindowMs = 1500;
-      const streak = nowMs - lastAppleMs <= streakWindowMs
-        ? Number(this.getFlag<number>("appleStreak") ?? 0) + 1
-        : 1;
-      const best = Math.max(Number(this.getFlag<number>("appleStreakMax") ?? 0), streak);
-      this.setFlag("appleStreak", streak);
-      this.setFlag("appleStreakMax", best);
-      this.setFlag("lastAppleTimeMs", nowMs);
+      const streak =
+        nowMs - lastAppleMs <= streakWindowMs
+          ? Number(this.getFlag<number>('appleStreak') ?? 0) + 1
+          : 1;
+      const best = Math.max(Number(this.getFlag<number>('appleStreakMax') ?? 0), streak);
+      this.setFlag('appleStreak', streak);
+      this.setFlag('appleStreakMax', best);
+      this.setFlag('lastAppleTimeMs', nowMs);
 
-      const appleScoreMultiplier = Math.max(1, Number(this.getFlag<number>("cheat.appleScoreMultiplier") ?? 1));
-      const appleScorePenalty = Math.max(0, Number(this.getFlag<number>("equipment.appleScorePenalty") ?? 0));
+      const appleScoreMultiplier = Math.max(
+        1,
+        Number(this.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
+      );
+      const appleScorePenalty = Math.max(
+        0,
+        Number(this.getFlag<number>('equipment.appleScorePenalty') ?? 0),
+      );
       const appleScore = Math.max(0, consumption.rewards.bonusScore - appleScorePenalty);
       if (appleScore > 0) {
         this.addScore(appleScore * appleScoreMultiplier);
@@ -776,29 +849,37 @@ export class SnakeGame implements QuestRuntime {
         this.snake.grow(extraGrowth);
       }
 
-      const spawn = this.apples.spawnApple(this.snake.currentRoomId, Array.from(this.snake.bodySegments), this.snake.score);
+      const spawn = this.apples.spawnApple(
+        this.snake.currentRoomId,
+        Array.from(this.snake.bodySegments),
+        this.snake.score,
+      );
       if (spawn.changed) {
         appleStateChanged = true;
       }
       appleSnapshot = spawn.snapshot;
 
-      const seismicRadius = (this.getFlag<number>("geometry.seismicPulseRadius") ?? 0)
-        + (this.getFlag<number>("equipment.seismicPulseRadiusBonus") ?? 0);
+      const seismicRadius =
+        (this.getFlag<number>('geometry.seismicPulseRadius') ?? 0) +
+        (this.getFlag<number>('equipment.seismicPulseRadiusBonus') ?? 0);
       if (seismicRadius > 0 && currentHead) {
         this.triggerSeismicPulse(currentHead, seismicRadius, roomsChanged);
       }
-      if ((this.getFlag<boolean>("geometry.collapseControlEnabled") || this.getFlag<boolean>("equipment.collapseControlEnabled")) && currentHead) {
+      if (
+        (this.getFlag<boolean>('geometry.collapseControlEnabled') ||
+          this.getFlag<boolean>('equipment.collapseControlEnabled')) &&
+        currentHead
+      ) {
         this.triggerCollapseControl(currentHead, updatedSnake, roomsChanged);
       }
       this.rechargeTerraShield();
       this.handleFortitudeOnApple(roomsChanged);
-
     }
 
     // Treasure pickup: collect and grant a random item
     if (currentHead) {
       const room = this.world.getRoom(this.snake.currentRoomId);
-      const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+      const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
       const localX = currentHead.x - roomX * this.config.grid.cols;
       const localY = currentHead.y - roomY * this.config.grid.rows;
       if (room.treasure && room.treasure.x === localX && room.treasure.y === localY) {
@@ -821,12 +902,20 @@ export class SnakeGame implements QuestRuntime {
         this.addScore(5);
         this.world.setTreasure(this.snake.currentRoomId, undefined);
         roomsChanged.add(this.snake.currentRoomId);
-        const treasureCount = Number(this.getFlag<number>("treasurePicked") ?? 0);
-        this.setFlag("treasurePicked", treasureCount + 1);
+        const treasureCount = Number(this.getFlag<number>('treasurePicked') ?? 0);
+        this.setFlag('treasurePicked', treasureCount + 1);
         // Notify UI for juice + hint
-        this.setFlag("loot.itemPicked", { head: currentHead, itemName: awardedName, itemId: awardedId });
+        this.setFlag('loot.itemPicked', {
+          head: currentHead,
+          itemName: awardedName,
+          itemId: awardedId,
+        });
         // Treasure-specific pickup FX at the pickup tile
-        this.setFlag("ui.treasurePickup", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId });
+        this.setFlag('ui.treasurePickup', {
+          x: currentHead.x,
+          y: currentHead.y,
+          roomId: this.snake.currentRoomId,
+        });
       }
       // Powerup pickup: instant short effect
       if (room.powerup && room.powerup.x === localX && room.powerup.y === localY) {
@@ -834,28 +923,40 @@ export class SnakeGame implements QuestRuntime {
         const duration = 300; // ~30s at 100ms base tick
         this.world.setPowerup(this.snake.currentRoomId, undefined);
         roomsChanged.add(this.snake.currentRoomId);
-        const powerupCount = Number(this.getFlag<number>("powerupsPicked") ?? 0);
-        this.setFlag("powerupsPicked", powerupCount + 1);
-        if (kind === "gun") {
-          this.inventory.addItem("weapon-revolver", 1);
-          const gunItem = getItem("weapon-revolver");
-          if (gunItem && !this.inventory.getEquipped("weapon")) {
+        const powerupCount = Number(this.getFlag<number>('powerupsPicked') ?? 0);
+        this.setFlag('powerupsPicked', powerupCount + 1);
+        if (kind === 'gun') {
+          this.inventory.addItem('weapon-revolver', 1);
+          const gunItem = getItem('weapon-revolver');
+          if (gunItem && !this.inventory.getEquipped('weapon')) {
             this.inventory.equip(gunItem);
           }
-          this.setFlag("equipment.gunEnabled", true);
-          this.setFlag("loot.itemPicked", { head: currentHead, itemName: "Pilgrim Revolver", itemId: "weapon-revolver" });
-        } else if (kind === "phase") {
-          const bonus = Number(this.getFlag<number>("equipment.invulnerabilityBonus") ?? 0);
-          const inv = Math.max(Number(this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0), duration + Math.max(0, Math.floor(bonus)));
-          this.setFlag("fortitude.invulnerabilityTicks", inv);
-        } else if (kind === "smite") {
-          this.setFlag("powerup.smiteTicks", duration);
+          this.setFlag('equipment.gunEnabled', true);
+          this.setFlag('loot.itemPicked', {
+            head: currentHead,
+            itemName: 'Pilgrim Revolver',
+            itemId: 'weapon-revolver',
+          });
+        } else if (kind === 'phase') {
+          const bonus = Number(this.getFlag<number>('equipment.invulnerabilityBonus') ?? 0);
+          const inv = Math.max(
+            Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0),
+            duration + Math.max(0, Math.floor(bonus)),
+          );
+          this.setFlag('fortitude.invulnerabilityTicks', inv);
+        } else if (kind === 'smite') {
+          this.setFlag('powerup.smiteTicks', duration);
         }
-        if (kind !== "gun") {
+        if (kind !== 'gun') {
           this.powerupState = { kind, remaining: duration, total: duration };
-          this.setFlag("powerup.active", { kind, remaining: duration, total: duration });
+          this.setFlag('powerup.active', { kind, remaining: duration, total: duration });
         }
-        this.setFlag("ui.powerupPickup", { x: currentHead.x, y: currentHead.y, roomId: this.snake.currentRoomId, kind });
+        this.setFlag('ui.powerupPickup', {
+          x: currentHead.x,
+          y: currentHead.y,
+          roomId: this.snake.currentRoomId,
+          kind,
+        });
       }
     }
 
@@ -866,8 +967,14 @@ export class SnakeGame implements QuestRuntime {
     if (currentHead) {
       const harmfulEnemy = this.enemies.getHarmfulOccupantAt(this.snake.currentRoomId, currentHead);
       if (harmfulEnemy) {
-        const deathReason = harmfulEnemy.encounterKind === "shark" ? "shark" : "boss";
-        if (this.tryFortitudePhoenix({ status: "dead", reason: deathReason === "shark" ? "boss" : deathReason }, roomsChanged, previousRoom)) {
+        const deathReason = harmfulEnemy.encounterKind === 'shark' ? 'shark' : 'boss';
+        if (
+          this.tryFortitudePhoenix(
+            { status: 'dead', reason: deathReason === 'shark' ? 'boss' : deathReason },
+            roomsChanged,
+            previousRoom,
+          )
+        ) {
           return this.createAliveStepResult({
             appleEaten,
             appleRewards,
@@ -880,7 +987,7 @@ export class SnakeGame implements QuestRuntime {
         }
         this.markDeathAtCurrentHead(deathReason);
         return {
-          status: "dead",
+          status: 'dead',
           deathReason,
           apple: {
             eaten: appleEaten,
@@ -899,7 +1006,7 @@ export class SnakeGame implements QuestRuntime {
       if (enemyEat.eaten) {
         this.addScore(3);
         this.snake.grow(1);
-        this.setFlag("ui.enemyEaten", {
+        this.setFlag('ui.enemyEaten', {
           x: currentHead.x,
           y: currentHead.y,
           roomId: this.snake.currentRoomId,
@@ -913,8 +1020,13 @@ export class SnakeGame implements QuestRuntime {
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
     });
-    if (enemyStep.bulletHits > 0 && this.applyBulletDamage(enemyStep.bulletHits, enemyStep.hitStyle)) {
-      if (this.tryFortitudePhoenix({ status: "dead", reason: "bullet" }, roomsChanged, previousRoom)) {
+    if (
+      enemyStep.bulletHits > 0 &&
+      this.applyBulletDamage(enemyStep.bulletHits, enemyStep.hitStyle)
+    ) {
+      if (
+        this.tryFortitudePhoenix({ status: 'dead', reason: 'bullet' }, roomsChanged, previousRoom)
+      ) {
         return this.createAliveStepResult({
           appleEaten,
           appleRewards,
@@ -925,10 +1037,10 @@ export class SnakeGame implements QuestRuntime {
           roomHasChanged,
         });
       }
-      this.markDeathAtCurrentHead("bullet");
+      this.markDeathAtCurrentHead('bullet');
       return {
-        status: "dead",
-        deathReason: "bullet",
+        status: 'dead',
+        deathReason: 'bullet',
         apple: {
           eaten: appleEaten,
           rewards: appleRewards,
@@ -942,25 +1054,34 @@ export class SnakeGame implements QuestRuntime {
         questsCompleted: [],
       };
     }
-    if (this.getFlag<boolean>("npc.freakJoey.active") && !this.enemies.hasEnemyWithId("freak-joey")) {
-      this.setFlag("npc.freakJoey.active", undefined);
-      this.setFlag("npc.freakJoey.defeated", true);
-      this.resolvedWandererEncounters.add("freak-joey");
+    if (
+      this.getFlag<boolean>('npc.freakJoey.active') &&
+      !this.enemies.hasEnemyWithId('freak-joey')
+    ) {
+      this.setFlag('npc.freakJoey.active', undefined);
+      this.setFlag('npc.freakJoey.defeated', true);
+      this.resolvedWandererEncounters.add('freak-joey');
       this.addScore(25);
     }
-    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>("npc.activeDuel");
+    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
     if (activeDuel && !this.enemies.hasEnemyWithId(activeDuel.id)) {
-      if (activeDuel.id !== "freak-joey" && activeDuel.rewardScore) {
+      if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
         this.addScore(activeDuel.rewardScore);
       }
-      this.setFlag("npc.activeDuel", undefined);
+      this.setFlag('npc.activeDuel', undefined);
     }
 
     this.tickPredationTimers();
     this.tickFortitudeStates();
     this.tickPlayerStates();
     if (this.tickTemperatureState()) {
-      if (this.tryFortitudePhoenix({ status: "dead", reason: "temperature" }, roomsChanged, previousRoom)) {
+      if (
+        this.tryFortitudePhoenix(
+          { status: 'dead', reason: 'temperature' },
+          roomsChanged,
+          previousRoom,
+        )
+      ) {
         return this.createAliveStepResult({
           appleEaten,
           appleRewards,
@@ -971,10 +1092,10 @@ export class SnakeGame implements QuestRuntime {
           roomHasChanged,
         });
       }
-      this.markDeathAtCurrentHead("temperature");
+      this.markDeathAtCurrentHead('temperature');
       return {
-        status: "dead",
-        deathReason: "temperature",
+        status: 'dead',
+        deathReason: 'temperature',
         apple: {
           eaten: appleEaten,
           rewards: appleRewards,
@@ -991,7 +1112,13 @@ export class SnakeGame implements QuestRuntime {
     this.tickPowerupState();
 
     if (this.tickRadiationQuestTimer()) {
-      if (this.tryFortitudePhoenix({ status: "dead", reason: "temperature" }, roomsChanged, previousRoom)) {
+      if (
+        this.tryFortitudePhoenix(
+          { status: 'dead', reason: 'temperature' },
+          roomsChanged,
+          previousRoom,
+        )
+      ) {
         return this.createAliveStepResult({
           appleEaten,
           appleRewards,
@@ -1002,10 +1129,10 @@ export class SnakeGame implements QuestRuntime {
           roomHasChanged,
         });
       }
-      this.markDeathAtCurrentHead("temperature");
+      this.markDeathAtCurrentHead('temperature');
       return {
-        status: "dead",
-        deathReason: "temperature",
+        status: 'dead',
+        deathReason: 'temperature',
         apple: {
           eaten: appleEaten,
           rewards: appleRewards,
@@ -1024,7 +1151,7 @@ export class SnakeGame implements QuestRuntime {
     const questOffer = this.questController.maybeCreateOffer(paused, this) ?? undefined;
 
     return {
-      status: "alive",
+      status: 'alive',
       apple: {
         eaten: appleEaten,
         rewards: appleRewards,
@@ -1045,16 +1172,16 @@ export class SnakeGame implements QuestRuntime {
     return room;
   }
 
-  private markDeathAtCurrentHead(reason?: StepResult["deathReason"] | string): void {
+  private markDeathAtCurrentHead(reason?: StepResult['deathReason'] | string): void {
     const head = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
     const roomId = this.snake.currentRoomId;
-    const [roomX = 0, roomY = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
     const local = {
       x: head.x - roomX * this.config.grid.cols,
       y: head.y - roomY * this.config.grid.rows,
     };
     const room = this.world.getRoom(roomId);
-    this.setFlag("internal.lastDeathPosition", {
+    this.setFlag('internal.lastDeathPosition', {
       world: { x: head.x, y: head.y },
       local,
       roomId,
@@ -1078,19 +1205,21 @@ export class SnakeGame implements QuestRuntime {
     return this.snake.bodySegments;
   }
 
-  createDeathDebugSnapshot(reason?: StepResult["deathReason"] | string | null): DeathDebugSnapshot {
+  createDeathDebugSnapshot(reason?: StepResult['deathReason'] | string | null): DeathDebugSnapshot {
     const death = this.getFlag<{
       world?: Vector2Like;
       local?: Vector2Like;
       roomId?: string;
       tile?: string;
       direction?: Vector2Like;
-    }>("internal.lastDeathPosition");
-    const selfCollision = this.getFlag<DeathDebugSnapshot["selfCollision"]>("internal.lastSelfCollision");
+    }>('internal.lastDeathPosition');
+    const selfCollision = this.getFlag<DeathDebugSnapshot['selfCollision']>(
+      'internal.lastSelfCollision',
+    );
     const fallbackHead = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
     const fallbackRoomId = this.snake.currentRoomId;
     const roomId = death?.roomId ?? fallbackRoomId;
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     const world = death?.world ?? fallbackHead;
     const local = death?.local ?? {
       x: world.x - roomX * this.config.grid.cols,
@@ -1126,8 +1255,8 @@ export class SnakeGame implements QuestRuntime {
   // Map support: expose generated rooms on the current Z level
   getGeneratedRooms(levelZ?: number): string[] {
     const all = Array.from(this.world.snapshot().keys());
-    const z = levelZ ?? Number((this.snake.currentRoomId.split(",")[2] ?? 0));
-    return all.filter((id) => Number((id.split(",")[2] ?? 0)) === z);
+    const z = levelZ ?? Number(this.snake.currentRoomId.split(',')[2] ?? 0);
+    return all.filter((id) => Number(id.split(',')[2] ?? 0) === z);
   }
 
   getDirection(): Vector2Like {
@@ -1219,11 +1348,22 @@ export class SnakeGame implements QuestRuntime {
   }
 
   startGreenPurchaseCheat(): boolean {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === "green-purchase" && instance.stage !== "failed" && instance.stage !== "completed")) {
+    if (
+      this.getStagedQuestInstances().some(
+        (instance) =>
+          instance.questId === 'green-purchase' &&
+          instance.stage !== 'failed' &&
+          instance.stage !== 'completed',
+      )
+    ) {
       return false;
     }
     this.ensureGreenPurchaseCheatGiver();
-    const quest = this.questController.offerSpecificQuestById("green-purchase", this, this.snake.currentRoomId);
+    const quest = this.questController.offerSpecificQuestById(
+      'green-purchase',
+      this,
+      this.snake.currentRoomId,
+    );
     if (!quest) {
       return false;
     }
@@ -1231,11 +1371,27 @@ export class SnakeGame implements QuestRuntime {
   }
 
   startFindMyBabyCheat(): boolean {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === "find-my-baby" && instance.stage !== "failed" && instance.stage !== "completed")) {
+    if (
+      this.getStagedQuestInstances().some(
+        (instance) =>
+          instance.questId === 'find-my-baby' &&
+          instance.stage !== 'failed' &&
+          instance.stage !== 'completed',
+      )
+    ) {
       return false;
     }
-    this.ensureQuestCheatGiver("npc-worried-parent", "The Worried Parent", "sage-1", "The Worried Parent appears with a cradle-shaped problem.");
-    const quest = this.questController.offerSpecificQuestById("find-my-baby", this, this.snake.currentRoomId);
+    this.ensureQuestCheatGiver(
+      'npc-worried-parent',
+      'The Worried Parent',
+      'sage-1',
+      'The Worried Parent appears with a cradle-shaped problem.',
+    );
+    const quest = this.questController.offerSpecificQuestById(
+      'find-my-baby',
+      this,
+      this.snake.currentRoomId,
+    );
     if (!quest) {
       return false;
     }
@@ -1243,11 +1399,27 @@ export class SnakeGame implements QuestRuntime {
   }
 
   startFreakYouCheat(): boolean {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === "freak-you" && instance.stage !== "failed" && instance.stage !== "completed")) {
+    if (
+      this.getStagedQuestInstances().some(
+        (instance) =>
+          instance.questId === 'freak-you' &&
+          instance.stage !== 'failed' &&
+          instance.stage !== 'completed',
+      )
+    ) {
       return false;
     }
-    this.ensureQuestCheatGiver("npc-time-traveler", "The Time Traveler", "sage-2", "The Time Traveler appears already afraid of you.");
-    const quest = this.questController.offerSpecificQuestById("freak-you", this, this.snake.currentRoomId);
+    this.ensureQuestCheatGiver(
+      'npc-time-traveler',
+      'The Time Traveler',
+      'sage-2',
+      'The Time Traveler appears already afraid of you.',
+    );
+    const quest = this.questController.offerSpecificQuestById(
+      'freak-you',
+      this,
+      this.snake.currentRoomId,
+    );
     if (!quest) {
       return false;
     }
@@ -1260,26 +1432,31 @@ export class SnakeGame implements QuestRuntime {
       return turnIn;
     }
     const stagedActive = this.getStagedQuestInstances().find(
-      (instance) => instance.giverRoomId === roomId && instance.stage !== "completed" && instance.stage !== "failed"
+      (instance) =>
+        instance.giverRoomId === roomId &&
+        instance.stage !== 'completed' &&
+        instance.stage !== 'failed',
     );
     if (stagedActive) {
       return {
         quest: this.registry.getById(stagedActive.questId) ?? null,
-        state: "active",
+        state: 'active',
       };
     }
     return this.questController.getQuestForGiver(roomId, this);
   }
 
   requiresQuestGiver(questId: string): boolean {
-    return questId === "tax-collector-future-body" ||
-      questId === "green-purchase" ||
-      questId === "find-my-baby" ||
-      questId === "freak-you";
+    return (
+      questId === 'tax-collector-future-body' ||
+      questId === 'green-purchase' ||
+      questId === 'find-my-baby' ||
+      questId === 'freak-you'
+    );
   }
 
   canOfferQuestFromGiver(questId: string, giverRoomId: string): boolean {
-    if (questId === "green-purchase") {
+    if (questId === 'green-purchase') {
       return this.findForestRoomNear(giverRoomId, 10, 12) !== null;
     }
     return true;
@@ -1289,13 +1466,13 @@ export class SnakeGame implements QuestRuntime {
     if (!giverRoomId) {
       return;
     }
-    if (quest.id === "tax-collector-future-body") {
+    if (quest.id === 'tax-collector-future-body') {
       this.startTaxCollectorQuest(giverRoomId);
-    } else if (quest.id === "find-my-baby") {
+    } else if (quest.id === 'find-my-baby') {
       this.startFindMyBabyQuest(giverRoomId);
-    } else if (quest.id === "freak-you") {
+    } else if (quest.id === 'freak-you') {
       this.startFreakYouQuest(giverRoomId);
-    } else if (quest.id === "green-purchase") {
+    } else if (quest.id === 'green-purchase') {
       this.startGreenPurchaseQuest(giverRoomId);
     }
   }
@@ -1303,16 +1480,16 @@ export class SnakeGame implements QuestRuntime {
   getQuestMapMarkers(): QuestMapMarker[] {
     const markers: QuestMapMarker[] = [];
     for (const instance of this.getStagedQuestInstances()) {
-      if (instance.stage === "failed" || instance.stage === "completed") {
+      if (instance.stage === 'failed' || instance.stage === 'completed') {
         continue;
       }
-      if (instance.questId === "tax-collector-future-body") {
-        if (instance.stage === "return-to-giver") {
+      if (instance.questId === 'tax-collector-future-body') {
+        if (instance.stage === 'return-to-giver') {
           markers.push({
             questId: instance.questId,
             roomId: instance.giverRoomId,
-            kind: "turn-in",
-            label: "Tax Collector",
+            kind: 'turn-in',
+            label: 'Tax Collector',
             color: 0x5dd6a2,
           });
         } else {
@@ -1321,52 +1498,58 @@ export class SnakeGame implements QuestRuntime {
               markers.push({
                 questId: instance.questId,
                 roomId: office.roomId,
-                kind: "office",
-                label: office.id.replace("office-", "Tax "),
+                kind: 'office',
+                label: office.id.replace('office-', 'Tax '),
                 color: 0xffd166,
               });
             }
           }
         }
-      } else if (instance.questId === "find-my-baby") {
-        const carrying = instance.stage === "carry-baby" || instance.carriedItemId === "quest-baby";
+      } else if (instance.questId === 'find-my-baby') {
+        const carrying = instance.stage === 'carry-baby' || instance.carriedItemId === 'quest-baby';
         markers.push({
           questId: instance.questId,
-          roomId: carrying ? instance.giverRoomId : instance.targetRoomId ?? instance.giverRoomId,
-          kind: carrying ? "turn-in" : "target",
-          label: carrying ? "Parent" : "Baby",
+          roomId: carrying ? instance.giverRoomId : (instance.targetRoomId ?? instance.giverRoomId),
+          kind: carrying ? 'turn-in' : 'target',
+          label: carrying ? 'Parent' : 'Baby',
           color: carrying ? 0x5dd6a2 : 0x9ad1ff,
         });
-      } else if (instance.questId === "freak-you") {
+      } else if (instance.questId === 'freak-you') {
         const bossRoomId = instance.bossId ? this.bosses.getBossHeadRoomId(instance.bossId) : null;
         markers.push({
           questId: instance.questId,
-          roomId: instance.stage === "return-to-giver" ? instance.giverRoomId : bossRoomId ?? instance.targetRoomId ?? instance.giverRoomId,
-          kind: instance.stage === "return-to-giver" ? "turn-in" : "danger",
-          label: instance.stage === "return-to-giver" ? "Time Traveler" : "Freak You",
-          color: instance.stage === "return-to-giver" ? 0x5dd6a2 : 0xff3b3b,
-        });
-      } else if (instance.questId === "green-purchase") {
-        const roomId =
-          instance.stage === "buy-substance"
-            ? (
-                this.snake.currentRoomId === instance.deepRoomId || this.snake.currentRoomId === instance.merchantRoomId
-                  ? instance.merchantRoomId ?? instance.deepRoomId
-                  : instance.targetRoomId
-              )
-            : instance.stage === "return-to-giver"
+          roomId:
+            instance.stage === 'return-to-giver'
               ? instance.giverRoomId
-            : instance.stage === "escape-radiation" && instance.carriedItemId === "radioactive-substance"
-              ? (this.snake.currentRoomId === instance.deepRoomId ? instance.deepRoomId : instance.giverRoomId)
-              : instance.targetRoomId;
+              : (bossRoomId ?? instance.targetRoomId ?? instance.giverRoomId),
+          kind: instance.stage === 'return-to-giver' ? 'turn-in' : 'danger',
+          label: instance.stage === 'return-to-giver' ? 'Time Traveler' : 'Freak You',
+          color: instance.stage === 'return-to-giver' ? 0x5dd6a2 : 0xff3b3b,
+        });
+      } else if (instance.questId === 'green-purchase') {
+        const roomId =
+          instance.stage === 'buy-substance'
+            ? this.snake.currentRoomId === instance.deepRoomId ||
+              this.snake.currentRoomId === instance.merchantRoomId
+              ? (instance.merchantRoomId ?? instance.deepRoomId)
+              : instance.targetRoomId
+            : instance.stage === 'return-to-giver'
+              ? instance.giverRoomId
+              : instance.stage === 'escape-radiation' &&
+                  instance.carriedItemId === 'radioactive-substance'
+                ? this.snake.currentRoomId === instance.deepRoomId
+                  ? instance.deepRoomId
+                  : instance.giverRoomId
+                : instance.targetRoomId;
         if (roomId) {
-          const buying = instance.stage === "buy-substance";
-          const escaping = instance.stage === "escape-radiation" || instance.stage === "return-to-giver";
+          const buying = instance.stage === 'buy-substance';
+          const escaping =
+            instance.stage === 'escape-radiation' || instance.stage === 'return-to-giver';
           markers.push({
             questId: instance.questId,
             roomId,
-            kind: escaping ? "danger" : "target",
-        label: buying ? "Merchant" : escaping ? "Return" : "Teleporter",
+            kind: escaping ? 'danger' : 'target',
+            label: buying ? 'Merchant' : escaping ? 'Return' : 'Teleporter',
             color: buying ? 0xffd166 : escaping ? 0x7cff3a : 0x51ff8a,
           });
         }
@@ -1380,67 +1563,68 @@ export class SnakeGame implements QuestRuntime {
     if (!instance) {
       return [];
     }
-    if (instance.stage === "failed") {
-      return [`[!] Failed: ${instance.failureReason ?? "quest failed"}`];
+    if (instance.stage === 'failed') {
+      return [`[!] Failed: ${instance.failureReason ?? 'quest failed'}`];
     }
-    if (instance.stage === "completed") {
-      return ["[x] Completed"];
+    if (instance.stage === 'completed') {
+      return ['[x] Completed'];
     }
-    if (questId === "tax-collector-future-body") {
+    if (questId === 'tax-collector-future-body') {
       const offices = instance.offices ?? [];
       const officeLines = offices.map((office, index) => {
-        const status = office.paid ? "[x]" : "[ ]";
-        const method = office.method ? ` (${office.method})` : "";
+        const status = office.paid ? '[x]' : '[ ]';
+        const method = office.method ? ` (${office.method})` : '';
         return `${status} Tax office ${index + 1}${method}`;
       });
-      if (instance.stage === "return-to-giver") {
-        return [...officeLines, "[ ] Return to the original tax collector"];
+      if (instance.stage === 'return-to-giver') {
+        return [...officeLines, '[ ] Return to the original tax collector'];
       }
-      return [...officeLines, "[ ] Bring all receipts back to the collector"];
+      return [...officeLines, '[ ] Bring all receipts back to the collector'];
     }
-    if (questId === "find-my-baby") {
+    if (questId === 'find-my-baby') {
       return [
-        `${instance.stage === "find-baby" ? "[ ]" : "[x]"} Find the missing baby`,
-        `${instance.stage === "return-to-giver" ? "[ ]" : instance.stage === "find-baby" ? "[ ]" : "[x]"} Return the baby to the original NPC`,
+        `${instance.stage === 'find-baby' ? '[ ]' : '[x]'} Find the missing baby`,
+        `${instance.stage === 'return-to-giver' ? '[ ]' : instance.stage === 'find-baby' ? '[ ]' : '[x]'} Return the baby to the original NPC`,
       ];
     }
-    if (questId === "freak-you") {
+    if (questId === 'freak-you') {
       return [
-        `${instance.stage === "survive-freak-you" ? "[ ]" : "[x]"} Make Freak You run into your body`,
-        `${instance.stage === "return-to-giver" ? "[ ]" : "[ ]"} Return to the time traveler`,
+        `${instance.stage === 'survive-freak-you' ? '[ ]' : '[x]'} Make Freak You run into your body`,
+        `${instance.stage === 'return-to-giver' ? '[ ]' : '[ ]'} Return to the time traveler`,
       ];
     }
-    if (questId === "green-purchase") {
+    if (questId === 'green-purchase') {
       const hasReturnedFromDeep =
-        instance.stage === "escape-radiation" &&
-        instance.carriedItemId === "radioactive-substance" &&
+        instance.stage === 'escape-radiation' &&
+        instance.carriedItemId === 'radioactive-substance' &&
         this.snake.currentRoomId !== instance.deepRoomId;
       return [
-        `${instance.stage === "find-forest-teleporter" ? "[ ]" : "[x]"} Find the forest teleporter`,
-        `${instance.stage === "buy-substance" ? "[ ]" : instance.stage === "find-forest-teleporter" ? "[ ]" : "[x]"} Reach the deep merchant and buy the substance`,
-        `${hasReturnedFromDeep || instance.stage === "return-to-giver" ? "[x]" : "[ ]"} Use the deep teleporter to return to the forest`,
-        "[ ] Return to the original buyer before the timer expires",
+        `${instance.stage === 'find-forest-teleporter' ? '[ ]' : '[x]'} Find the forest teleporter`,
+        `${instance.stage === 'buy-substance' ? '[ ]' : instance.stage === 'find-forest-teleporter' ? '[ ]' : '[x]'} Reach the deep merchant and buy the substance`,
+        `${hasReturnedFromDeep || instance.stage === 'return-to-giver' ? '[x]' : '[ ]'} Use the deep teleporter to return to the forest`,
+        '[ ] Return to the original buyer before the timer expires',
       ];
     }
     return [];
   }
 
   isCarryingQuestBaby(): boolean {
-    return this.getStagedQuestInstances().some((instance) =>
-      instance.questId === "find-my-baby" &&
-      instance.stage !== "failed" &&
-      instance.stage !== "completed" &&
-      instance.carriedItemId === "quest-baby"
+    return this.getStagedQuestInstances().some(
+      (instance) =>
+        instance.questId === 'find-my-baby' &&
+        instance.stage !== 'failed' &&
+        instance.stage !== 'completed' &&
+        instance.carriedItemId === 'quest-baby',
     );
   }
 
   getQuestRoomActors(roomId: string = this.snake.currentRoomId): QuestRoomActor[] {
     const actors: QuestRoomActor[] = [];
     for (const instance of this.getStagedQuestInstances()) {
-      if (instance.stage === "failed" || instance.stage === "completed") {
+      if (instance.stage === 'failed' || instance.stage === 'completed') {
         continue;
       }
-      if (instance.questId === "tax-collector-future-body") {
+      if (instance.questId === 'tax-collector-future-body') {
         for (const office of instance.offices ?? []) {
           if (!office.paid && office.roomId === roomId) {
             actors.push({
@@ -1449,67 +1633,70 @@ export class SnakeGame implements QuestRuntime {
               roomId,
               x: Math.floor(this.config.grid.cols / 2),
               y: Math.floor(this.config.grid.rows / 2),
-              kind: "tax-office",
-              label: "TAX",
+              kind: 'tax-office',
+              label: 'TAX',
             });
           }
         }
-      } else if (instance.questId === "find-my-baby") {
-        if (instance.targetRoomId === roomId && instance.stage === "find-baby") {
+      } else if (instance.questId === 'find-my-baby') {
+        if (instance.targetRoomId === roomId && instance.stage === 'find-baby') {
           const babyPosition = this.getQuestBabyActorPosition();
           actors.push({
-            id: "quest-baby",
+            id: 'quest-baby',
             questId: instance.questId,
             roomId,
             x: babyPosition.x,
             y: babyPosition.y,
-            kind: "quest-baby",
-            label: "BABY",
+            kind: 'quest-baby',
+            label: 'BABY',
           });
         }
-      } else if (instance.questId === "green-purchase") {
-        if (instance.targetRoomId === roomId && (instance.stage === "find-forest-teleporter" || instance.stage === "escape-radiation")) {
+      } else if (instance.questId === 'green-purchase') {
+        if (
+          instance.targetRoomId === roomId &&
+          (instance.stage === 'find-forest-teleporter' || instance.stage === 'escape-radiation')
+        ) {
           actors.push({
-            id: "forest-teleporter",
+            id: 'forest-teleporter',
             questId: instance.questId,
             roomId,
             x: Math.floor(this.config.grid.cols / 2),
             y: Math.floor(this.config.grid.rows / 2),
-            kind: "forest-teleporter",
-            label: "???",
+            kind: 'forest-teleporter',
+            label: '???',
           });
         }
-        if (instance.merchantRoomId === roomId && instance.stage === "buy-substance") {
+        if (instance.merchantRoomId === roomId && instance.stage === 'buy-substance') {
           actors.push({
-            id: "deep-merchant",
+            id: 'deep-merchant',
             questId: instance.questId,
             roomId,
             x: Math.floor(this.config.grid.cols / 2) + 2,
             y: Math.floor(this.config.grid.rows / 2),
-            kind: "deep-merchant",
-            label: "BUY",
+            kind: 'deep-merchant',
+            label: 'BUY',
           });
         }
-        if (instance.deepRoomId === roomId && instance.stage === "escape-radiation") {
+        if (instance.deepRoomId === roomId && instance.stage === 'escape-radiation') {
           actors.push({
-            id: "deep-teleporter",
+            id: 'deep-teleporter',
             questId: instance.questId,
             roomId,
             x: Math.floor(this.config.grid.cols / 2),
             y: Math.floor(this.config.grid.rows / 2),
-            kind: "deep-teleporter",
-            label: "UP",
+            kind: 'deep-teleporter',
+            label: 'UP',
           });
         }
-        if (instance.deepRoomId === roomId && instance.stage === "buy-substance") {
+        if (instance.deepRoomId === roomId && instance.stage === 'buy-substance') {
           actors.push({
-            id: "deep-teleporter",
+            id: 'deep-teleporter',
             questId: instance.questId,
             roomId,
             x: Math.floor(this.config.grid.cols / 2),
             y: Math.floor(this.config.grid.rows / 2),
-            kind: "deep-teleporter",
-            label: "UP",
+            kind: 'deep-teleporter',
+            label: 'UP',
           });
         }
       }
@@ -1522,66 +1709,92 @@ export class SnakeGame implements QuestRuntime {
     if (!actor) {
       return null;
     }
-    if (actor.kind === "tax-office") {
+    if (actor.kind === 'tax-office') {
       const canPayLength = this.getSnakeLength() > 3;
       return {
-        kind: "choice",
-        title: "Future Body Tax Office",
+        kind: 'choice',
+        title: 'Future Body Tax Office',
         options: [
-          { id: `tax:${actor.id}:score`, title: "Pay 25 score", description: "Settle the assessment with ordinary numbers." },
-          { id: `tax:${actor.id}:length`, title: "Surrender 2 length", description: canPayLength ? "Place your future on the counter." : "You are too short to survive this filing." },
-          { id: `tax:${actor.id}:duel`, title: "Duel the clerk", description: "Argue in the ugly language of teeth and procedure." },
+          {
+            id: `tax:${actor.id}:score`,
+            title: 'Pay 25 score',
+            description: 'Settle the assessment with ordinary numbers.',
+          },
+          {
+            id: `tax:${actor.id}:length`,
+            title: 'Surrender 2 length',
+            description: canPayLength
+              ? 'Place your future on the counter.'
+              : 'You are too short to survive this filing.',
+          },
+          {
+            id: `tax:${actor.id}:duel`,
+            title: 'Duel the clerk',
+            description: 'Argue in the ugly language of teeth and procedure.',
+          },
         ],
       };
     }
-    if (actor.kind === "quest-baby") {
+    if (actor.kind === 'quest-baby') {
       return {
-        kind: "dialogue",
-        title: "The Baby",
+        kind: 'dialogue',
+        title: 'The Baby',
         pages: [
-          "Before hunger, I was a hallway.",
-          "I have no teeth, yet the world keeps putting names in my mouth.",
-          "Carry me, long animal. I am tired of being a prophecy with soft bones.",
+          'Before hunger, I was a hallway.',
+          'I have no teeth, yet the world keeps putting names in my mouth.',
+          'Carry me, long animal. I am tired of being a prophecy with soft bones.',
         ],
-        closeLabel: "Pick up",
+        closeLabel: 'Pick up',
       };
     }
-    if (actor.kind === "forest-teleporter") {
-      const instance = this.getStagedQuestInstances().find((quest) => quest.questId === actor.questId);
-      if (instance?.stage === "escape-radiation") {
+    if (actor.kind === 'forest-teleporter') {
+      const instance = this.getStagedQuestInstances().find(
+        (quest) => quest.questId === actor.questId,
+      );
+      if (instance?.stage === 'escape-radiation') {
         return {
-          kind: "dialogue",
-          title: "Forest Teleporter",
-          pages: ["The circle spits you back into the forest. The green thing is still counting down inside your grip."],
-          closeLabel: "Stagger out",
+          kind: 'dialogue',
+          title: 'Forest Teleporter',
+          pages: [
+            'The circle spits you back into the forest. The green thing is still counting down inside your grip.',
+          ],
+          closeLabel: 'Stagger out',
         };
       }
       return {
-        kind: "dialogue",
-        title: "Forest Teleporter",
+        kind: 'dialogue',
+        title: 'Forest Teleporter',
         pages: [
-          "The moss bends away from the circle.",
-          "The clearing hums downward, toward a merchant beneath the ordinary bottom of the world.",
+          'The moss bends away from the circle.',
+          'The clearing hums downward, toward a merchant beneath the ordinary bottom of the world.',
         ],
-        closeLabel: "Step in",
+        closeLabel: 'Step in',
       };
     }
-    if (actor.kind === "deep-merchant") {
+    if (actor.kind === 'deep-merchant') {
       return {
-        kind: "choice",
-        title: "Deep Merchant",
+        kind: 'choice',
+        title: 'Deep Merchant',
         options: [
-          { id: "green:buy", title: "Buy substance - 50 score", description: "No refunds. Refunds imply survival." },
-          { id: "green:leave", title: "Leave", description: "Keep your money and your current number of bones." },
+          {
+            id: 'green:buy',
+            title: 'Buy substance - 50 score',
+            description: 'No refunds. Refunds imply survival.',
+          },
+          {
+            id: 'green:leave',
+            title: 'Leave',
+            description: 'Keep your money and your current number of bones.',
+          },
         ],
       };
     }
-    if (actor.kind === "deep-teleporter") {
+    if (actor.kind === 'deep-teleporter') {
       return {
-        kind: "dialogue",
-        title: "Deep Teleporter",
-        pages: ["The pad remembers the forest above you. It opens like a green wound."],
-        closeLabel: "Return",
+        kind: 'dialogue',
+        title: 'Deep Teleporter',
+        pages: ['The pad remembers the forest above you. It opens like a green wound.'],
+        closeLabel: 'Return',
       };
     }
     return null;
@@ -1593,37 +1806,41 @@ export class SnakeGame implements QuestRuntime {
       return null;
     }
     switch (actor.kind) {
-      case "tax-office":
-        return "Settle future-body tax (press E)";
-      case "quest-baby":
-        return "Listen to the baby (press E)";
-      case "deep-merchant":
-        return "Buy radioactive substance (press E)";
-      case "forest-teleporter":
-      case "deep-teleporter":
-        return "Teleporter pad activates when you slither onto it";
+      case 'tax-office':
+        return 'Settle future-body tax (press E)';
+      case 'quest-baby':
+        return 'Listen to the baby (press E)';
+      case 'deep-merchant':
+        return 'Buy radioactive substance (press E)';
+      case 'forest-teleporter':
+      case 'deep-teleporter':
+        return 'Teleporter pad activates when you slither onto it';
     }
   }
 
-  resolveQuestInteraction(actionId?: string): { completed?: Quest | null; failed?: boolean; message?: string } {
+  resolveQuestInteraction(actionId?: string): {
+    completed?: Quest | null;
+    failed?: boolean;
+    message?: string;
+  } {
     const actor = this.getNearbyQuestActor();
-    if (!actor && !actionId?.startsWith("green:")) {
+    if (!actor && !actionId?.startsWith('green:')) {
       return {};
     }
-    if (actor?.kind === "tax-office" && actionId?.startsWith("tax:")) {
-      const [, officeId, method] = actionId.split(":");
-      return this.resolveTaxOffice(officeId, method as "score" | "length" | "duel");
+    if (actor?.kind === 'tax-office' && actionId?.startsWith('tax:')) {
+      const [, officeId, method] = actionId.split(':');
+      return this.resolveTaxOffice(officeId, method as 'score' | 'length' | 'duel');
     }
-    if (actor?.kind === "quest-baby") {
+    if (actor?.kind === 'quest-baby') {
       return this.pickUpQuestBaby(actor.questId);
     }
-    if (actor?.kind === "forest-teleporter") {
+    if (actor?.kind === 'forest-teleporter') {
       return this.useGreenTeleporter(actor.questId);
     }
-    if (actor?.kind === "deep-merchant" && actionId === "green:buy") {
+    if (actor?.kind === 'deep-merchant' && actionId === 'green:buy') {
       return this.buyRadioactiveSubstance();
     }
-    if (actor?.kind === "deep-teleporter") {
+    if (actor?.kind === 'deep-teleporter') {
       return this.useGreenTeleporter(actor.questId);
     }
     return {};
@@ -1631,12 +1848,18 @@ export class SnakeGame implements QuestRuntime {
 
   getRadiationTimer(): { remainingMs: number; totalMs: number } | null {
     const instance = this.getStagedQuestInstances().find(
-      (quest) => quest.questId === "green-purchase" && quest.stage === "escape-radiation" && quest.carriedItemId === "radioactive-substance"
+      (quest) =>
+        quest.questId === 'green-purchase' &&
+        quest.stage === 'escape-radiation' &&
+        quest.carriedItemId === 'radioactive-substance',
     );
-    if (!instance || typeof instance.remainingRadiationMs !== "number") {
+    if (!instance || typeof instance.remainingRadiationMs !== 'number') {
       return null;
     }
-    return { remainingMs: Math.max(0, instance.remainingRadiationMs), totalMs: Math.max(1, Number(instance.totalRadiationMs ?? 120000)) };
+    return {
+      remainingMs: Math.max(0, instance.remainingRadiationMs),
+      totalMs: Math.max(1, Number(instance.totalRadiationMs ?? 120000)),
+    };
   }
 
   getBosses(roomId: string) {
@@ -1646,8 +1869,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   spawnInsultedAngelBoss(): void {
-    this.bosses.spawnBoss(this.snake.currentRoomId, "fallen-angel");
-    this.setFlag("boss.insultedAngel", true);
+    this.bosses.spawnBoss(this.snake.currentRoomId, 'fallen-angel');
+    this.setFlag('boss.insultedAngel', true);
   }
 
   getEnemies(roomId: string) {
@@ -1660,22 +1883,28 @@ export class SnakeGame implements QuestRuntime {
 
   getPlayerHealth(): { current: number; max: number } {
     return {
-      current: Number(this.getFlag<number>("player.health") ?? 3),
-      max: Number(this.getFlag<number>("player.maxHealth") ?? 3),
+      current: Number(this.getFlag<number>('player.health') ?? 3),
+      max: Number(this.getFlag<number>('player.maxHealth') ?? 3),
     };
   }
 
   getPlayerTemperature(): {
     current: number;
     max: number;
-    hazard: "hot" | "cold" | null;
+    hazard: 'hot' | 'cold' | null;
     active: boolean;
   } {
     const currentRoom = this.getCurrentRoom();
     const biome = getBiomeDefinition(currentRoom.biomeId);
     const hazard = biome.temperatureHazard;
-    const thresholdMs = Math.max(1, Number(this.getFlag<number>("player.temperatureThresholdMs") ?? 10000));
-    const exposureMs = Math.max(0, Number(this.getFlag<number>("player.temperatureExposureMs") ?? 0));
+    const thresholdMs = Math.max(
+      1,
+      Number(this.getFlag<number>('player.temperatureThresholdMs') ?? 10000),
+    );
+    const exposureMs = Math.max(
+      0,
+      Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0),
+    );
     const max = 10;
     const current = Math.max(0, Math.min(max, Math.ceil((exposureMs / thresholdMs) * max)));
     return {
@@ -1686,15 +1915,22 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  resolveRandomEncounter(accept: boolean): { kind: "quest" | "duel" | "flavor" | "none"; accepted: boolean; startCardGame?: boolean; rewardCardName?: string } {
-    const encounter = this.getFlag<(WandererEncounter & { roomId: string; statsNote: string })>("npc.randomEncounter");
+  resolveRandomEncounter(accept: boolean): {
+    kind: 'quest' | 'duel' | 'flavor' | 'none';
+    accepted: boolean;
+    startCardGame?: boolean;
+    rewardCardName?: string;
+  } {
+    const encounter = this.getFlag<WandererEncounter & { roomId: string; statsNote: string }>(
+      'npc.randomEncounter',
+    );
     if (!encounter) {
-      return { kind: "none", accepted: false };
+      return { kind: 'none', accepted: false };
     }
-    this.setFlag("npc.randomEncounter", undefined);
-    this.setFlag("npc.randomEncounter.prompted", undefined);
-    this.setFlag("npc.randomEncounter.triggerAtMs", undefined);
-    this.setFlag("npc.randomEncounter.revealAtMs", undefined);
+    this.setFlag('npc.randomEncounter', undefined);
+    this.setFlag('npc.randomEncounter.prompted', undefined);
+    this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
+    this.setFlag('npc.randomEncounter.revealAtMs', undefined);
     this.recordWandererOutcome(encounter.id, accept);
     if (!accept) {
       if (encounter.oneShot) {
@@ -1703,34 +1939,35 @@ export class SnakeGame implements QuestRuntime {
       return { kind: encounter.kind, accepted: false };
     }
 
-    if (encounter.kind === "duel") {
+    if (encounter.kind === 'duel') {
       const started = this.startNamedDuel(encounter.id, encounter.name, encounter.rewardScore);
       if (started) {
         if (encounter.oneShot) {
           this.resolvedWandererEncounters.add(encounter.id);
         }
-        return { kind: "duel", accepted: true };
+        return { kind: 'duel', accepted: true };
       }
-      return { kind: "duel", accepted: false };
+      return { kind: 'duel', accepted: false };
     }
 
-    if (encounter.kind === "quest" && encounter.questId) {
+    if (encounter.kind === 'quest' && encounter.questId) {
       const quest = this.questController.offerSpecificQuestById(encounter.questId, this);
       if (quest) {
         if (encounter.oneShot) {
           this.resolvedWandererEncounters.add(encounter.id);
         }
-        return { kind: "quest", accepted: true };
+        return { kind: 'quest', accepted: true };
       }
       if (encounter.rewardScore) {
         this.addScore(encounter.rewardScore);
       }
-      return { kind: "quest", accepted: false };
+      return { kind: 'quest', accepted: false };
     }
 
     let rewardCardName: string | undefined;
     if (encounter.rewardCardId) {
-      const cardId = encounter.rewardCardId === "random" ? this.pickRandomCardId() : encounter.rewardCardId;
+      const cardId =
+        encounter.rewardCardId === 'random' ? this.pickRandomCardId() : encounter.rewardCardId;
       const card = getCardDefinition(cardId);
       this.addCardToCollection(cardId, 1);
       rewardCardName = card.name;
@@ -1741,24 +1978,39 @@ export class SnakeGame implements QuestRuntime {
     if (encounter.oneShot) {
       this.resolvedWandererEncounters.add(encounter.id);
     }
-    return { kind: encounter.kind, accepted: true, startCardGame: encounter.startsCardGame, rewardCardName };
+    return {
+      kind: encounter.kind,
+      accepted: true,
+      startCardGame: encounter.startsCardGame,
+      rewardCardName,
+    };
   }
 
   startFreakJoeyDuel(): boolean {
-    if (this.getFlag<boolean>("npc.freakJoey.defeated")) {
+    if (this.getFlag<boolean>('npc.freakJoey.defeated')) {
       return false;
     }
-    return this.startNamedDuel("freak-joey", "Freak Joey", 25, 15);
+    return this.startNamedDuel('freak-joey', 'Freak Joey', 25, 15);
   }
 
-  startNamedDuel(encounterId: string, name: string, rewardScore?: number, hearts?: number): boolean {
+  startNamedDuel(
+    encounterId: string,
+    name: string,
+    rewardScore?: number,
+    hearts?: number,
+  ): boolean {
     const room = this.world.getRoom(this.snake.currentRoomId);
-    const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+    const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
     const occupied = this.snake.bodySegments.map((segment) => ({
       x: segment.x - roomX * this.config.grid.cols,
       y: segment.y - roomY * this.config.grid.rows,
     }));
-    const maxHearts = hearts ?? Math.max(8, Math.ceil((this.getFlag<number>("roomsVisited") ?? this.visitedRooms.size) * 1.5));
+    const maxHearts =
+      hearts ??
+      Math.max(
+        8,
+        Math.ceil((this.getFlag<number>('roomsVisited') ?? this.visitedRooms.size) * 1.5),
+      );
     const duelist = this.enemies.spawnDuelist(this.snake.currentRoomId, room, occupied, {
       id: encounterId,
       name,
@@ -1767,17 +2019,17 @@ export class SnakeGame implements QuestRuntime {
     if (!duelist) {
       return false;
     }
-    if (encounterId === "freak-joey") {
-      this.setFlag("npc.freakJoey.active", true);
+    if (encounterId === 'freak-joey') {
+      this.setFlag('npc.freakJoey.active', true);
     }
-    this.setFlag("npc.activeDuel", { id: encounterId, rewardScore });
+    this.setFlag('npc.activeDuel', { id: encounterId, rewardScore });
     return true;
   }
 
   firePlayerShot(direction: Vector2Like): boolean {
     const active = this.powerupState;
-    const hasGunEquipped = Boolean(this.getFlag<boolean>("equipment.gunEnabled"));
-    const hasLegacyGunPowerup = Boolean(active && active.kind === "gun" && active.remaining > 0);
+    const hasGunEquipped = Boolean(this.getFlag<boolean>('equipment.gunEnabled'));
+    const hasLegacyGunPowerup = Boolean(active && active.kind === 'gun' && active.remaining > 0);
     if (!hasGunEquipped && !hasLegacyGunPowerup) {
       return false;
     }
@@ -1785,39 +2037,53 @@ export class SnakeGame implements QuestRuntime {
     if (!head) {
       return false;
     }
-    const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+    const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
     const localHead = {
       x: head.x - roomX * this.config.grid.cols,
       y: head.y - roomY * this.config.grid.rows,
     };
     const room = this.world.getRoom(this.snake.currentRoomId);
     const giver = room.questGiver;
-    if (
-      giver &&
-      this.isNpcInLineOfFire(room, localHead, direction, { x: giver.x, y: giver.y })
-    ) {
-      this.angerNpc(this.snake.currentRoomId, "shot");
-      this.setFlag("ui.playerShot", { x: head.x, y: head.y, roomId: this.snake.currentRoomId, dx: direction.x, dy: direction.y });
+    if (giver && this.isNpcInLineOfFire(room, localHead, direction, { x: giver.x, y: giver.y })) {
+      this.angerNpc(this.snake.currentRoomId, 'shot');
+      this.setFlag('ui.playerShot', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        dx: direction.x,
+        dy: direction.y,
+      });
       return true;
     }
     const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
     if (fired) {
-      this.setFlag("ui.playerShot", { x: head.x, y: head.y, roomId: this.snake.currentRoomId, dx: direction.x, dy: direction.y });
+      this.setFlag('ui.playerShot', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        dx: direction.x,
+        dy: direction.y,
+      });
     }
     return fired;
   }
 
-  getNpcDisposition(roomId: string): { anger: number; hostility: "friendly" | "warning" | "hostile" } {
-    return this.npcDisposition.get(roomId) ?? { anger: 0, hostility: "friendly" };
+  getNpcDisposition(roomId: string): {
+    anger: number;
+    hostility: 'friendly' | 'warning' | 'hostile';
+  } {
+    return this.npcDisposition.get(roomId) ?? { anger: 0, hostility: 'friendly' };
   }
 
-  insultNpc(roomId: string): { anger: number; hostility: "friendly" | "warning" | "hostile"; name: string } | null {
+  insultNpc(
+    roomId: string,
+  ): { anger: number; hostility: 'friendly' | 'warning' | 'hostile'; name: string } | null {
     const room = this.world.getRoom(roomId);
     const giver = room.questGiver;
     if (!giver) {
       return null;
     }
-    const disposition = this.angerNpc(roomId, "insult");
+    const disposition = this.angerNpc(roomId, 'insult');
     return disposition ? { ...disposition, name: giver.name } : null;
   }
 
@@ -1830,14 +2096,14 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     this.inventory.addItem(itemId, count);
-    this.setFlag("ui.itemReward", { itemId, count });
+    this.setFlag('ui.itemReward', { itemId, count });
   }
 
   addCardToCollection(cardId: CardId, count = 1): void {
-    const collection = this.getFlag<CardCollection>("cards.collection") ?? {};
+    const collection = this.getFlag<CardCollection>('cards.collection') ?? {};
     const next = { ...collection, [cardId]: Math.max(0, Number(collection[cardId] ?? 0)) + count };
-    this.setFlag("cards.collection", next);
-    this.setFlag("ui.cardReward", { cardId, count });
+    this.setFlag('cards.collection', next);
+    this.setFlag('ui.cardReward', { cardId, count });
   }
 
   private pickRandomCardId(): CardId {
@@ -1845,35 +2111,37 @@ export class SnakeGame implements QuestRuntime {
     return CARD_SHOP_OFFERS[Math.max(0, Math.min(CARD_SHOP_OFFERS.length - 1, index))]!;
   }
 
-  addCosmeticReward(type: "style" | "hat", id: string): void {
-    const pending = this.getFlag<Array<{ type: "style" | "hat"; id: string }>>("quest.pendingCosmeticRewards") ?? [];
-    this.setFlag("quest.pendingCosmeticRewards", [...pending, { type, id }]);
+  addCosmeticReward(type: 'style' | 'hat', id: string): void {
+    const pending =
+      this.getFlag<Array<{ type: 'style' | 'hat'; id: string }>>('quest.pendingCosmeticRewards') ??
+      [];
+    this.setFlag('quest.pendingCosmeticRewards', [...pending, { type, id }]);
   }
 
   getSaveData(): GameSaveData {
     const characterFlags: Record<string, unknown> = {};
     for (const key of [
-      "cards.collection",
-      "skills.ranks",
-      "equipment.wallSenseRadiusBonus",
-      "equipment.seismicPulseRadiusBonus",
-      "equipment.masonryEnabled",
-      "equipment.invulnerabilityBonus",
-      "equipment.regenerator",
-      "equipment.phoenixCharges",
-      "equipment.itemPhoenixCharges",
-      "equipment.gunEnabled",
-      "equipment.heatResistance",
-      "equipment.coldResistance",
-      "equipment.swimmingEnabled",
-      "equipment.refundEveryRooms",
-      "equipment.appleScorePenalty",
-      "equipment.hazardMapSense",
-      "equipment.radiationTimerScalar",
-      "quest.staged.instances",
-      "quest.staged.completedNow",
-      "quest.staged.failedNow",
-      "quest.staged.radiationLastTickMs",
+      'cards.collection',
+      'skills.ranks',
+      'equipment.wallSenseRadiusBonus',
+      'equipment.seismicPulseRadiusBonus',
+      'equipment.masonryEnabled',
+      'equipment.invulnerabilityBonus',
+      'equipment.regenerator',
+      'equipment.phoenixCharges',
+      'equipment.itemPhoenixCharges',
+      'equipment.gunEnabled',
+      'equipment.heatResistance',
+      'equipment.coldResistance',
+      'equipment.swimmingEnabled',
+      'equipment.refundEveryRooms',
+      'equipment.appleScorePenalty',
+      'equipment.hazardMapSense',
+      'equipment.radiationTimerScalar',
+      'quest.staged.instances',
+      'quest.staged.completedNow',
+      'quest.staged.failedNow',
+      'quest.staged.radiationLastTickMs',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -1881,7 +2149,7 @@ export class SnakeGame implements QuestRuntime {
       }
     }
     const data: GameSaveData = {
-      version: "1.0.0",
+      version: '1.0.0',
       timestamp: Date.now(),
       score: this.getScore(),
       inventory: Object.fromEntries(this.inventory.getAllItems()),
@@ -1892,24 +2160,24 @@ export class SnakeGame implements QuestRuntime {
       questsAccepted: this.questController.getAcceptedIds(),
     };
 
-    const religionId = this.getFlag<string>("religion.id");
-    const religionMods = this.getFlag<Record<string, unknown>>("religion.mods");
+    const religionId = this.getFlag<string>('religion.id');
+    const religionMods = this.getFlag<Record<string, unknown>>('religion.mods');
 
     if (religionId || religionMods) {
       data.religionId = religionId;
       data.religionMods = religionMods;
     }
 
-    const classId = this.getFlag<string>("class.id");
-    const classMods = this.getFlag<Record<string, unknown>>("class.mods");
+    const classId = this.getFlag<string>('class.id');
+    const classMods = this.getFlag<Record<string, unknown>>('class.mods');
 
     if (classId || classMods) {
       data.classId = classId;
       data.classMods = classMods;
     }
 
-    const backgroundId = this.getFlag<string>("background.id");
-    const backgroundMods = this.getFlag<Record<string, unknown>>("background.mods");
+    const backgroundId = this.getFlag<string>('background.id');
+    const backgroundMods = this.getFlag<Record<string, unknown>>('background.mods');
 
     if (backgroundId || backgroundMods) {
       data.backgroundId = backgroundId;
@@ -1927,16 +2195,20 @@ export class SnakeGame implements QuestRuntime {
   saveGame(): void {
     try {
       const data = this.getSaveData();
-      this.setFlag("timeMs", Date.now());
-      localStorage.setItem("snakeGameSave", JSON.stringify(data));
+      this.setFlag('timeMs', Date.now());
+      localStorage.setItem('snakeGameSave', JSON.stringify(data));
     } catch (error) {
-      console.error("Failed to save game:", error);
+      console.error('Failed to save game:', error);
     }
   }
 
-  loadGame(getReligionChoice?: () => any, getClassChoice?: () => any, getBackgroundChoice?: () => any): boolean {
+  loadGame(
+    getReligionChoice?: () => any,
+    getClassChoice?: () => any,
+    getBackgroundChoice?: () => any,
+  ): boolean {
     try {
-      const saved = localStorage.getItem("snakeGameSave");
+      const saved = localStorage.getItem('snakeGameSave');
       if (!saved) {
         return false;
       }
@@ -1971,11 +2243,14 @@ export class SnakeGame implements QuestRuntime {
         }
       }
 
-      this.questController.restoreQuestIds({
-        active: data.questsActive,
-        completed: data.questsCompleted,
-        accepted: data.questsAccepted,
-      }, this);
+      this.questController.restoreQuestIds(
+        {
+          active: data.questsActive,
+          completed: data.questsCompleted,
+          accepted: data.questsAccepted,
+        },
+        this,
+      );
 
       const getReligion = getReligionChoice || (() => null);
       const getClass = getClassChoice || (() => null);
@@ -1984,46 +2259,50 @@ export class SnakeGame implements QuestRuntime {
       if (data.religionId) {
         const religion = getReligion();
         if (religion && religion.id === data.religionId) {
-          this.setFlag("religion.id", data.religionId);
-          this.setFlag("religion.mods", data.religionMods);
+          this.setFlag('religion.id', data.religionId);
+          this.setFlag('religion.mods', data.religionMods);
         }
       }
 
       if (data.classId) {
         const cls = getClass();
         if (cls && cls.id === data.classId) {
-          this.setFlag("class.id", data.classId);
-          this.setFlag("class.mods", data.classMods);
+          this.setFlag('class.id', data.classId);
+          this.setFlag('class.mods', data.classMods);
         }
       }
 
-if (data.backgroundId) {
-      const bg = getBackground();
-      if (bg && bg.id === data.backgroundId) {
-        this.setFlag("background.id", data.backgroundId);
-        this.setFlag("background.mods", data.backgroundMods);
+      if (data.backgroundId) {
+        const bg = getBackground();
+        if (bg && bg.id === data.backgroundId) {
+          this.setFlag('background.id', data.backgroundId);
+          this.setFlag('background.mods', data.backgroundMods);
+        }
       }
-    }
 
-    if (data.cosmetics && this.snakeScene && typeof this.snakeScene.setSnakeCosmeticState === 'function') {
-      this.snakeScene.setSnakeCosmeticState(data.cosmetics);
-    }
+      if (
+        data.cosmetics &&
+        this.snakeScene &&
+        typeof this.snakeScene.setSnakeCosmeticState === 'function'
+      ) {
+        this.snakeScene.setSnakeCosmeticState(data.cosmetics);
+      }
 
-    if (this.getRadiationTimer()) {
-      this.setFlag("quest.staged.radiationLastTickMs", this.getFlag<number>("timeMs") ?? 0);
-    }
-    this.respawnMissingStagedBossesAfterLoad();
+      if (this.getRadiationTimer()) {
+        this.setFlag('quest.staged.radiationLastTickMs', this.getFlag<number>('timeMs') ?? 0);
+      }
+      this.respawnMissingStagedBossesAfterLoad();
 
-    return true;
+      return true;
     } catch (error) {
-      console.error("Failed to load game:", error);
+      console.error('Failed to load game:', error);
       return false;
     }
   }
 
   hasSaveFile(): boolean {
     try {
-      return Boolean(localStorage.getItem("snakeGameSave"));
+      return Boolean(localStorage.getItem('snakeGameSave'));
     } catch {
       return false;
     }
@@ -2031,34 +2310,49 @@ if (data.backgroundId) {
 
   clearSaveFile(): void {
     try {
-      localStorage.removeItem("snakeGameSave");
+      localStorage.removeItem('snakeGameSave');
     } catch (error) {
-      console.error("Failed to clear save file:", error);
+      console.error('Failed to clear save file:', error);
     }
   }
 
   private getStagedQuestInstances(): StagedQuestInstance[] {
-    const value = this.getFlag<StagedQuestInstance[]>("quest.staged.instances");
+    const value = this.getFlag<StagedQuestInstance[]>('quest.staged.instances');
     return Array.isArray(value) ? value : [];
   }
 
   private setStagedQuestInstances(instances: StagedQuestInstance[]): void {
-    this.setFlag("quest.staged.instances", instances);
+    this.setFlag('quest.staged.instances', instances);
   }
 
-  private updateStagedQuestInstance(questId: string, updater: (instance: StagedQuestInstance) => StagedQuestInstance): void {
+  private updateStagedQuestInstance(
+    questId: string,
+    updater: (instance: StagedQuestInstance) => StagedQuestInstance,
+  ): void {
     this.setStagedQuestInstances(
-      this.getStagedQuestInstances().map((instance) => instance.questId === questId ? updater(instance) : instance)
+      this.getStagedQuestInstances().map((instance) =>
+        instance.questId === questId ? updater(instance) : instance,
+      ),
     );
   }
 
   private startTaxCollectorQuest(giverRoomId: string): void {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === "tax-collector-future-body")) {
+    if (
+      this.getStagedQuestInstances().some(
+        (instance) => instance.questId === 'tax-collector-future-body',
+      )
+    ) {
       return;
     }
     const usedRooms = new Set<string>([giverRoomId]);
     const offices = Array.from({ length: 3 }, (_, index) => {
-      const roomId = this.pickObjectiveRoom(giverRoomId, 5, 8, index, (candidate) => !usedRooms.has(candidate));
+      const roomId = this.pickObjectiveRoom(
+        giverRoomId,
+        5,
+        8,
+        index,
+        (candidate) => !usedRooms.has(candidate),
+      );
       usedRooms.add(roomId);
       return {
         id: `office-${index + 1}`,
@@ -2069,57 +2363,65 @@ if (data.backgroundId) {
     this.setStagedQuestInstances([
       ...this.getStagedQuestInstances(),
       {
-        questId: "tax-collector-future-body",
+        questId: 'tax-collector-future-body',
         giverRoomId,
-        stage: "visit-offices",
+        stage: 'visit-offices',
         offices,
       },
     ]);
   }
 
   private startFindMyBabyQuest(giverRoomId: string): void {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === "find-my-baby")) {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === 'find-my-baby')) {
       return;
     }
-    const targetRoomId = this.pickObjectiveRoom(giverRoomId, 5, 8, 11, (candidate) =>
-      candidate !== giverRoomId && getBiomeForRoom(candidate).id !== "sunken-ocean"
+    const targetRoomId = this.pickObjectiveRoom(
+      giverRoomId,
+      5,
+      8,
+      11,
+      (candidate) => candidate !== giverRoomId && getBiomeForRoom(candidate).id !== 'sunken-ocean',
     );
     this.setStagedQuestInstances([
       ...this.getStagedQuestInstances(),
       {
-        questId: "find-my-baby",
+        questId: 'find-my-baby',
         giverRoomId,
-        stage: "find-baby",
+        stage: 'find-baby',
         targetRoomId,
       },
     ]);
   }
 
   private startFreakYouQuest(giverRoomId: string): void {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === "freak-you")) {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === 'freak-you')) {
       return;
     }
-    const targetRoomId = this.pickObjectiveRoom(giverRoomId, 1, 2, 23, (candidate) =>
-      candidate !== giverRoomId && getBiomeForRoom(candidate).id !== "sunken-ocean"
+    const targetRoomId = this.pickObjectiveRoom(
+      giverRoomId,
+      1,
+      2,
+      23,
+      (candidate) => candidate !== giverRoomId && getBiomeForRoom(candidate).id !== 'sunken-ocean',
     );
     const portal = this.prepareFreakYouPortalRoom(targetRoomId);
     const bossId = this.bosses.spawnFreakYou(targetRoomId) ?? undefined;
-    this.setFlag("ui.questInteraction", {
-      message: "A portal opens nearby. A future version of you unfolds through it.",
+    this.setFlag('ui.questInteraction', {
+      message: 'A portal opens nearby. A future version of you unfolds through it.',
     });
-    this.setFlag("ui.freakYouPortal", {
+    this.setFlag('ui.freakYouPortal', {
       roomId: targetRoomId,
       x: portal.x,
       y: portal.y,
-      startedAtMs: this.getFlag<number>("timeMs") ?? 0,
+      startedAtMs: this.getFlag<number>('timeMs') ?? 0,
       durationMs: 3500,
     });
     this.setStagedQuestInstances([
       ...this.getStagedQuestInstances(),
       {
-        questId: "freak-you",
+        questId: 'freak-you',
         giverRoomId,
-        stage: "survive-freak-you",
+        stage: 'survive-freak-you',
         targetRoomId,
         bossId,
       },
@@ -2127,29 +2429,36 @@ if (data.backgroundId) {
   }
 
   private startGreenPurchaseQuest(giverRoomId: string): void {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === "green-purchase")) {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === 'green-purchase')) {
       return;
     }
-    const targetRoomId = this.findForestRoomNear(giverRoomId, 10, 12, true) ?? this.pickObjectiveRoom(
-      giverRoomId,
-      10,
-      12,
-      7,
-      (roomId) => getBiomeForRoom(roomId).id === "elderwood-maze"
-    );
+    const targetRoomId =
+      this.findForestRoomNear(giverRoomId, 10, 12, true) ??
+      this.pickObjectiveRoom(
+        giverRoomId,
+        10,
+        12,
+        7,
+        (roomId) => getBiomeForRoom(roomId).id === 'elderwood-maze',
+      );
     this.setStagedQuestInstances([
       ...this.getStagedQuestInstances(),
       {
-        questId: "green-purchase",
+        questId: 'green-purchase',
         giverRoomId,
-        stage: "find-forest-teleporter",
+        stage: 'find-forest-teleporter',
         targetRoomId,
       },
     ]);
   }
 
   private ensureGreenPurchaseCheatGiver(): void {
-    this.ensureQuestCheatGiver("npc-the-green-buyer", "The Green Buyer", "sage-3", "The Green Buyer appears with an urgent errand.");
+    this.ensureQuestCheatGiver(
+      'npc-the-green-buyer',
+      'The Green Buyer',
+      'sage-3',
+      'The Green Buyer appears with an urgent errand.',
+    );
   }
 
   private ensureQuestCheatGiver(id: string, name: string, styleId: string, message: string): void {
@@ -2168,12 +2477,12 @@ if (data.backgroundId) {
       x: spawn.x,
       y: spawn.y,
     };
-    const layout = room.layout.map((row) => row.split(""));
+    const layout = room.layout.map((row) => row.split(''));
     if (layout[spawn.y]?.[spawn.x]) {
-      layout[spawn.y][spawn.x] = ".";
-      room.layout = layout.map((row) => row.join(""));
+      layout[spawn.y][spawn.x] = '.';
+      room.layout = layout.map((row) => row.join(''));
     }
-    this.setFlag("ui.questInteraction", { message });
+    this.setFlag('ui.questInteraction', { message });
   }
 
   private prepareFreakYouPortalRoom(roomId: string): Vector2Like {
@@ -2182,22 +2491,28 @@ if (data.backgroundId) {
       x: Math.floor(this.config.grid.cols / 2),
       y: Math.floor(this.config.grid.rows / 2),
     };
-    const layout = room.layout.map((row) => row.split(""));
+    const layout = room.layout.map((row) => row.split(''));
     for (let y = center.y - 8; y <= center.y + 8; y += 1) {
       for (let x = center.x - 10; x <= center.x + 10; x += 1) {
         if (!layout[y]?.[x]) {
           continue;
         }
-        layout[y][x] = ".";
+        layout[y][x] = '.';
       }
     }
-    room.layout = layout.map((row) => row.join(""));
+    room.layout = layout.map((row) => row.join(''));
     return center;
   }
 
-  private pickOffsetRoom(originRoomId: string, minDistance: number, maxDistance: number, salt: number): string {
-    const [x = 0, y = 0, z = 0] = originRoomId.split(",").map(Number);
-    const distance = minDistance + Math.floor(this.rng() * Math.max(1, maxDistance - minDistance + 1));
+  private pickOffsetRoom(
+    originRoomId: string,
+    minDistance: number,
+    maxDistance: number,
+    salt: number,
+  ): string {
+    const [x = 0, y = 0, z = 0] = originRoomId.split(',').map(Number);
+    const distance =
+      minDistance + Math.floor(this.rng() * Math.max(1, maxDistance - minDistance + 1));
     const variants = [
       { dx: distance, dy: Math.floor(distance * 0.35) },
       { dx: -distance, dy: -Math.floor(distance * 0.35) },
@@ -2206,7 +2521,8 @@ if (data.backgroundId) {
       { dx: distance, dy: -Math.floor(distance * 0.4) },
       { dx: -distance, dy: Math.floor(distance * 0.4) },
     ];
-    const pick = variants[(Math.floor(this.rng() * variants.length) + salt) % variants.length] ?? variants[0];
+    const pick =
+      variants[(Math.floor(this.rng() * variants.length) + salt) % variants.length] ?? variants[0];
     return `${x + pick.dx},${y + pick.dy},${z}`;
   }
 
@@ -2215,7 +2531,7 @@ if (data.backgroundId) {
     minRadius: number,
     maxRadius: number,
     salt: number,
-    predicate: (roomId: string) => boolean = () => true
+    predicate: (roomId: string) => boolean = () => true,
   ): string {
     const candidates = this.getObjectiveRoomCandidates(originRoomId, minRadius, maxRadius);
     const offset = Math.floor(this.rng() * Math.max(1, candidates.length));
@@ -2228,8 +2544,12 @@ if (data.backgroundId) {
     return this.pickOffsetRoom(originRoomId, minRadius, maxRadius, salt);
   }
 
-  private getObjectiveRoomCandidates(originRoomId: string, minRadius: number, maxRadius: number): string[] {
-    const [x = 0, y = 0, z = 0] = originRoomId.split(",").map(Number);
+  private getObjectiveRoomCandidates(
+    originRoomId: string,
+    minRadius: number,
+    maxRadius: number,
+  ): string[] {
+    const [x = 0, y = 0, z = 0] = originRoomId.split(',').map(Number);
     const candidates: string[] = [];
     for (let dy = -maxRadius; dy <= maxRadius; dy += 1) {
       for (let dx = -maxRadius; dx <= maxRadius; dx += 1) {
@@ -2243,9 +2563,15 @@ if (data.backgroundId) {
     return candidates;
   }
 
-  private findForestRoomNear(originRoomId: string, minRadius: number, maxRadius: number, randomize = false): string | null {
-    const candidates = this.getObjectiveRoomCandidates(originRoomId, minRadius, maxRadius)
-      .filter((candidate) => getBiomeForRoom(candidate).id === "elderwood-maze");
+  private findForestRoomNear(
+    originRoomId: string,
+    minRadius: number,
+    maxRadius: number,
+    randomize = false,
+  ): string | null {
+    const candidates = this.getObjectiveRoomCandidates(originRoomId, minRadius, maxRadius).filter(
+      (candidate) => getBiomeForRoom(candidate).id === 'elderwood-maze',
+    );
     if (candidates.length === 0) {
       return null;
     }
@@ -2261,12 +2587,16 @@ if (data.backgroundId) {
       return null;
     }
     const roomId = this.snake.currentRoomId;
-    const [roomX = 0, roomY = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
     const local = {
       x: head.x - roomX * this.config.grid.cols,
       y: head.y - roomY * this.config.grid.rows,
     };
-    return this.getQuestRoomActors(roomId).find((actor) => Math.abs(local.x - actor.x) + Math.abs(local.y - actor.y) <= 1) ?? null;
+    return (
+      this.getQuestRoomActors(roomId).find(
+        (actor) => Math.abs(local.x - actor.x) + Math.abs(local.y - actor.y) <= 1,
+      ) ?? null
+    );
   }
 
   private getQuestActorAtHead(): QuestRoomActor | null {
@@ -2275,78 +2605,92 @@ if (data.backgroundId) {
       return null;
     }
     const roomId = this.snake.currentRoomId;
-    const [roomX = 0, roomY = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
     const local = {
       x: head.x - roomX * this.config.grid.cols,
       y: head.y - roomY * this.config.grid.rows,
     };
-    return this.getQuestRoomActors(roomId).find((actor) => actor.x === local.x && actor.y === local.y) ?? null;
+    return (
+      this.getQuestRoomActors(roomId).find((actor) => actor.x === local.x && actor.y === local.y) ??
+      null
+    );
   }
 
   private getQuestBabyActorPosition(): Vector2Like {
     return {
-      x: Math.max(2, Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2) + 7)),
-      y: Math.max(2, Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2) + 3)),
+      x: Math.max(
+        2,
+        Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2) + 7),
+      ),
+      y: Math.max(
+        2,
+        Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2) + 3),
+      ),
     };
   }
 
   private tryActivateQuestTeleporterAtHead(): boolean {
     const actor = this.getQuestActorAtHead();
-    if (!actor || (actor.kind !== "forest-teleporter" && actor.kind !== "deep-teleporter")) {
+    if (!actor || (actor.kind !== 'forest-teleporter' && actor.kind !== 'deep-teleporter')) {
       return false;
     }
     const result = this.useGreenTeleporter(actor.questId);
     if (result.message) {
-      this.setFlag("ui.questInteraction", { message: result.message });
+      this.setFlag('ui.questInteraction', { message: result.message });
     }
     return true;
   }
 
-  private resolveTaxOffice(officeId: string | undefined, method: "score" | "length" | "duel"): { completed?: Quest | null; message?: string } {
+  private resolveTaxOffice(
+    officeId: string | undefined,
+    method: 'score' | 'length' | 'duel',
+  ): { completed?: Quest | null; message?: string } {
     if (!officeId) {
       return {};
     }
-    const instance = this.getStagedQuestInstances().find((quest) => quest.questId === "tax-collector-future-body");
+    const instance = this.getStagedQuestInstances().find(
+      (quest) => quest.questId === 'tax-collector-future-body',
+    );
     const office = instance?.offices?.find((entry) => entry.id === officeId);
     if (!instance || !office || office.paid) {
       return {};
     }
-    if (method === "score") {
+    if (method === 'score') {
       if (this.getScore() < 25) {
-        return { message: "The clerk rejects your poverty as improperly formatted." };
+        return { message: 'The clerk rejects your poverty as improperly formatted.' };
       }
       this.addScore(-25);
-    } else if (method === "length") {
+    } else if (method === 'length') {
       if (!this.snake.shrinkTail(2)) {
-        return { message: "You are too short to survive the deduction." };
+        return { message: 'You are too short to survive the deduction.' };
       }
-    } else if (method === "duel") {
-      this.startNamedDuel(`tax-clerk-${officeId}`, "Tax Clerk", 0, 8);
+    } else if (method === 'duel') {
+      this.startNamedDuel(`tax-clerk-${officeId}`, 'Tax Clerk', 0, 8);
     }
-    this.updateStagedQuestInstance("tax-collector-future-body", (current) => {
+    this.updateStagedQuestInstance('tax-collector-future-body', (current) => {
       const offices = (current.offices ?? []).map((entry) =>
-        entry.id === officeId ? { ...entry, paid: true, method } : entry
+        entry.id === officeId ? { ...entry, paid: true, method } : entry,
       );
       return {
         ...current,
         offices,
-        stage: offices.every((entry) => entry.paid) ? "return-to-giver" : current.stage,
+        stage: offices.every((entry) => entry.paid) ? 'return-to-giver' : current.stage,
       };
     });
-    return { message: "Receipt stamped. Your future body becomes slightly less illegal." };
+    return { message: 'Receipt stamped. Your future body becomes slightly less illegal.' };
   }
 
   private pickUpQuestBaby(questId: string): { message?: string } {
     const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
-    if (!instance || instance.questId !== "find-my-baby" || instance.stage !== "find-baby") {
+    if (!instance || instance.questId !== 'find-my-baby' || instance.stage !== 'find-baby') {
       return {};
     }
     this.updateStagedQuestInstance(questId, (current) => ({
       ...current,
-      stage: "return-to-giver",
-      carriedItemId: "quest-baby",
+      stage: 'return-to-giver',
+      carriedItemId: 'quest-baby',
     }));
-    return { message: "The baby has joined your inventory, spiritually and upsettingly." };
+    return { message: 'The baby has joined your inventory, spiritually and upsettingly.' };
   }
 
   private useGreenTeleporter(questId: string): { message?: string } {
@@ -2354,83 +2698,98 @@ if (data.backgroundId) {
     if (!instance || !instance.targetRoomId) {
       return {};
     }
-    const [x = 0, y = 0, z = 0] = instance.targetRoomId.split(",").map(Number);
-    if (instance.stage === "find-forest-teleporter") {
+    const [x = 0, y = 0, z = 0] = instance.targetRoomId.split(',').map(Number);
+    if (instance.stage === 'find-forest-teleporter') {
       const deepRoomId = `${x},${y},${z + 100}`;
       const merchantRoomId = this.pickDeepMerchantRoom(deepRoomId);
       this.updateStagedQuestInstance(questId, (current) => ({
         ...current,
-        stage: "buy-substance",
+        stage: 'buy-substance',
         deepRoomId,
         merchantRoomId,
         returnTeleporterRoomId: current.targetRoomId,
       }));
       this.teleportSnakeToRoom(deepRoomId);
-      return { message: "The forest drops away. Something green is open for business." };
+      return { message: 'The forest drops away. Something green is open for business.' };
     }
-    if (instance.stage === "buy-substance") {
+    if (instance.stage === 'buy-substance') {
       if (this.snake.currentRoomId === instance.deepRoomId && instance.returnTeleporterRoomId) {
         this.teleportSnakeToRoom(instance.returnTeleporterRoomId);
-        return { message: "The pad returns you without the green thing. The merchant keeps waiting." };
+        return {
+          message: 'The pad returns you without the green thing. The merchant keeps waiting.',
+        };
       }
     }
-    if (instance.stage === "escape-radiation") {
+    if (instance.stage === 'escape-radiation') {
       if (this.snake.currentRoomId === instance.deepRoomId && instance.returnTeleporterRoomId) {
         this.teleportSnakeToRoom(instance.returnTeleporterRoomId);
-        return { message: "You return to the forest with the green thing still explaining itself." };
+        return {
+          message: 'You return to the forest with the green thing still explaining itself.',
+        };
       }
     }
     return {};
   }
 
   private buyRadioactiveSubstance(): { message?: string } {
-    const instance = this.getStagedQuestInstances().find((quest) => quest.questId === "green-purchase");
-    if (!instance || instance.stage !== "buy-substance") {
+    const instance = this.getStagedQuestInstances().find(
+      (quest) => quest.questId === 'green-purchase',
+    );
+    if (!instance || instance.stage !== 'buy-substance') {
       return {};
     }
     if (this.snake.currentRoomId !== instance.merchantRoomId) {
-      return { message: "The merchant is not here. The deep road continues." };
+      return { message: 'The merchant is not here. The deep road continues.' };
     }
     if (this.getScore() < 50) {
-      return { message: "The merchant smiles without discounting anything." };
+      return { message: 'The merchant smiles without discounting anything.' };
     }
     this.addScore(-50);
-    const scalar = Math.max(0.1, Number(this.getFlag<number>("equipment.radiationTimerScalar") ?? 1));
+    const scalar = Math.max(
+      0.1,
+      Number(this.getFlag<number>('equipment.radiationTimerScalar') ?? 1),
+    );
     const totalMs = this.calculateGreenPurchaseTimerMs(instance);
-    this.updateStagedQuestInstance("green-purchase", (current) => ({
+    this.updateStagedQuestInstance('green-purchase', (current) => ({
       ...current,
-      stage: "escape-radiation",
-      carriedItemId: "radioactive-substance",
+      stage: 'escape-radiation',
+      carriedItemId: 'radioactive-substance',
       remainingRadiationMs: Math.floor(totalMs / scalar),
       totalRadiationMs: Math.floor(totalMs / scalar),
     }));
-    this.setFlag("quest.staged.radiationLastTickMs", this.getFlag<number>("timeMs") ?? 0);
+    this.setFlag('quest.staged.radiationLastTickMs', this.getFlag<number>('timeMs') ?? 0);
     const totalSeconds = Math.ceil(Math.floor(totalMs / scalar) / 1000);
-    const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
-    const seconds = (totalSeconds % 60).toString().padStart(2, "0");
+    const minutes = Math.floor(totalSeconds / 60)
+      .toString()
+      .padStart(2, '0');
+    const seconds = (totalSeconds % 60).toString().padStart(2, '0');
     return { message: `RADIOACTIVE SUBSTANCE: ${minutes}:${seconds}` };
   }
 
   private calculateGreenPurchaseTimerMs(instance: StagedQuestInstance): number {
-    const deepToMerchant = instance.deepRoomId && instance.merchantRoomId
-      ? this.roomDistance(instance.deepRoomId, instance.merchantRoomId)
-      : 2;
+    const deepToMerchant =
+      instance.deepRoomId && instance.merchantRoomId
+        ? this.roomDistance(instance.deepRoomId, instance.merchantRoomId)
+        : 2;
     const forestToGiver = instance.targetRoomId
       ? this.roomDistance(instance.targetRoomId, instance.giverRoomId)
       : 10;
     const roomSeconds = 8;
     const panicBufferSeconds = 20;
-    return Math.max(45000, Math.ceil((deepToMerchant + forestToGiver) * roomSeconds + panicBufferSeconds) * 1000);
+    return Math.max(
+      45000,
+      Math.ceil((deepToMerchant + forestToGiver) * roomSeconds + panicBufferSeconds) * 1000,
+    );
   }
 
   private roomDistance(a: string, b: string): number {
-    const [ax = 0, ay = 0, az = 0] = a.split(",").map(Number);
-    const [bx = 0, by = 0, bz = 0] = b.split(",").map(Number);
+    const [ax = 0, ay = 0, az = 0] = a.split(',').map(Number);
+    const [bx = 0, by = 0, bz = 0] = b.split(',').map(Number);
     return Math.abs(ax - bx) + Math.abs(ay - by) + Math.abs(az - bz);
   }
 
   private pickDeepMerchantRoom(deepRoomId: string): string {
-    const [x = 0, y = 0, z = 0] = deepRoomId.split(",").map(Number);
+    const [x = 0, y = 0, z = 0] = deepRoomId.split(',').map(Number);
     for (let radius = 2; radius <= 6; radius += 1) {
       const candidates = [
         `${x + radius},${y},${z}`,
@@ -2442,7 +2801,7 @@ if (data.backgroundId) {
       ];
       const found = candidates.find((roomId) => {
         const biome = getBiomeForRoom(roomId).id;
-        return biome !== "elderwood-maze" && biome !== "sunken-ocean";
+        return biome !== 'elderwood-maze' && biome !== 'sunken-ocean';
       });
       if (found) {
         return found;
@@ -2455,8 +2814,8 @@ if (data.backgroundId) {
     this.world.getRoom(roomId);
     this.snake.currentRoomId = roomId;
     this.visitedRooms.add(roomId);
-    this.setFlag("roomsVisited", this.visitedRooms.size);
-    this.setFlag("traversal.manualResumePending", true);
+    this.setFlag('roomsVisited', this.visitedRooms.size);
+    this.setFlag('traversal.manualResumePending', true);
   }
 
   private handleStagedQuestRoomEntered(roomId: string): void {
@@ -2465,18 +2824,20 @@ if (data.backgroundId) {
   }
 
   private handleEquipmentRoomRefund(): void {
-    const refund = this.getFlag<{ interval?: number; score?: number }>("equipment.refundEveryRooms");
+    const refund = this.getFlag<{ interval?: number; score?: number }>(
+      'equipment.refundEveryRooms',
+    );
     if (!refund || !refund.interval || !refund.score) {
-      this.setFlag("equipment.roomRefundCounter", undefined);
+      this.setFlag('equipment.roomRefundCounter', undefined);
       return;
     }
-    const counter = Number(this.getFlag<number>("equipment.roomRefundCounter") ?? 0) + 1;
+    const counter = Number(this.getFlag<number>('equipment.roomRefundCounter') ?? 0) + 1;
     if (counter >= refund.interval) {
       this.addScore(refund.score);
-      this.setFlag("equipment.roomRefundCounter", 0);
-      this.setFlag("ui.questInteraction", { message: `Tax refund: +${refund.score} score` });
+      this.setFlag('equipment.roomRefundCounter', 0);
+      this.setFlag('ui.questInteraction', { message: `Tax refund: +${refund.score} score` });
     } else {
-      this.setFlag("equipment.roomRefundCounter", counter);
+      this.setFlag('equipment.roomRefundCounter', counter);
     }
   }
 
@@ -2485,9 +2846,14 @@ if (data.backgroundId) {
     if (actors.length === 0) {
       return;
     }
-    const layout = room.layout.map((row) => row.split(""));
+    const layout = room.layout.map((row) => row.split(''));
     for (const actor of actors) {
-      const radius = actor.kind === "forest-teleporter" || actor.kind === "deep-teleporter" || actor.kind === "deep-merchant" ? 7 : 3;
+      const radius =
+        actor.kind === 'forest-teleporter' ||
+        actor.kind === 'deep-teleporter' ||
+        actor.kind === 'deep-merchant'
+          ? 7
+          : 3;
       for (let dy = -radius; dy <= radius; dy += 1) {
         for (let dx = -radius; dx <= radius; dx += 1) {
           const x = actor.x + dx;
@@ -2495,17 +2861,17 @@ if (data.backgroundId) {
           if (!layout[y]?.[x]) {
             continue;
           }
-          layout[y][x] = ".";
+          layout[y][x] = '.';
         }
       }
-      if (actor.kind === "deep-merchant") {
+      if (actor.kind === 'deep-merchant') {
         this.stampDeepMerchantHouse(layout, actor);
       }
       if (room.apple?.x === actor.x && room.apple.y === actor.y) delete room.apple;
       if (room.treasure?.x === actor.x && room.treasure.y === actor.y) delete room.treasure;
       if (room.powerup?.x === actor.x && room.powerup.y === actor.y) delete room.powerup;
     }
-    room.layout = layout.map((row) => row.join(""));
+    room.layout = layout.map((row) => row.join(''));
   }
 
   private stampDeepMerchantHouse(layout: string[][], actor: QuestRoomActor): void {
@@ -2517,33 +2883,39 @@ if (data.backgroundId) {
     for (let y = top; y <= bottom; y += 1) {
       for (let x = left; x <= right; x += 1) {
         const isWall = y === top || y === bottom || x === left || x === right;
-        layout[y][x] = isWall ? "#" : ".";
+        layout[y][x] = isWall ? '#' : '.';
       }
     }
-    layout[bottom][doorX] = ".";
+    layout[bottom][doorX] = '.';
     for (let y = bottom; y < Math.min(this.config.grid.rows, bottom + 5); y += 1) {
-      for (let x = Math.max(0, doorX - 1); x <= Math.min(this.config.grid.cols - 1, doorX + 1); x += 1) {
-        layout[y][x] = ".";
+      for (
+        let x = Math.max(0, doorX - 1);
+        x <= Math.min(this.config.grid.cols - 1, doorX + 1);
+        x += 1
+      ) {
+        layout[y][x] = '.';
       }
     }
-    layout[actor.y][actor.x] = ".";
+    layout[actor.y][actor.x] = '.';
   }
 
   private reconcileStagedQuestBosses(): void {
     let changed = false;
     const instances = this.getStagedQuestInstances().map((instance) => {
-      if (instance.questId !== "freak-you" || instance.stage !== "survive-freak-you") {
+      if (instance.questId !== 'freak-you' || instance.stage !== 'survive-freak-you') {
         return instance;
       }
       const bossAlive = instance.bossId
         ? this.bosses.hasBoss(instance.bossId)
-        : this.bosses.hasBossWithKind("freak-you");
+        : this.bosses.hasBossWithKind('freak-you');
       if (bossAlive) {
         return instance;
       }
       changed = true;
-      this.setFlag("ui.questInteraction", { message: "Freak You folds into a timeline where you were not lunch." });
-      return { ...instance, stage: "return-to-giver" as StagedQuestStage };
+      this.setFlag('ui.questInteraction', {
+        message: 'Freak You folds into a timeline where you were not lunch.',
+      });
+      return { ...instance, stage: 'return-to-giver' as StagedQuestStage };
     });
     if (changed) {
       this.setStagedQuestInstances(instances);
@@ -2553,12 +2925,16 @@ if (data.backgroundId) {
   private respawnMissingStagedBossesAfterLoad(): void {
     let changed = false;
     const instances = this.getStagedQuestInstances().map((instance) => {
-      if (instance.questId !== "freak-you" || instance.stage !== "survive-freak-you" || !instance.targetRoomId) {
+      if (
+        instance.questId !== 'freak-you' ||
+        instance.stage !== 'survive-freak-you' ||
+        !instance.targetRoomId
+      ) {
         return instance;
       }
       const bossAlive = instance.bossId
         ? this.bosses.hasBoss(instance.bossId)
-        : this.bosses.hasBossWithKind("freak-you");
+        : this.bosses.hasBossWithKind('freak-you');
       if (bossAlive) {
         return instance;
       }
@@ -2573,17 +2949,21 @@ if (data.backgroundId) {
   }
 
   private tickRadiationQuestTimer(): boolean {
-    const now = Number(this.getFlag<number>("timeMs") ?? 0);
-    const last = Number(this.getFlag<number>("quest.staged.radiationLastTickMs") ?? now);
+    const now = Number(this.getFlag<number>('timeMs') ?? 0);
+    const last = Number(this.getFlag<number>('quest.staged.radiationLastTickMs') ?? now);
     const delta = Math.max(0, now - last);
-    this.setFlag("quest.staged.radiationLastTickMs", now);
+    this.setFlag('quest.staged.radiationLastTickMs', now);
     if (delta <= 0) {
       return false;
     }
     let timedOut = false;
     this.setStagedQuestInstances(
       this.getStagedQuestInstances().map((instance) => {
-        if (instance.questId !== "green-purchase" || instance.stage !== "escape-radiation" || instance.carriedItemId !== "radioactive-substance") {
+        if (
+          instance.questId !== 'green-purchase' ||
+          instance.stage !== 'escape-radiation' ||
+          instance.carriedItemId !== 'radioactive-substance'
+        ) {
           return instance;
         }
         const remaining = Math.max(0, Number(instance.remainingRadiationMs ?? 0) - delta);
@@ -2592,26 +2972,30 @@ if (data.backgroundId) {
         }
         timedOut = true;
         this.questController.failQuestById(instance.questId);
-        this.setFlag("quest.staged.failedNow", { questId: instance.questId, reason: "radiation-timeout" });
+        this.setFlag('quest.staged.failedNow', {
+          questId: instance.questId,
+          reason: 'radiation-timeout',
+        });
         return {
           ...instance,
-          stage: "failed",
+          stage: 'failed',
           carriedItemId: undefined,
           remainingRadiationMs: 0,
-          failureReason: "radiation-timeout",
+          failureReason: 'radiation-timeout',
         };
-      })
+      }),
     );
     return timedOut;
   }
 
   private tryGetStagedQuestTurnIn(roomId: string): QuestGiverRequest | null {
-    const instance = this.getStagedQuestInstances().find((quest) =>
-      quest.giverRoomId === roomId &&
-      (
-        quest.stage === "return-to-giver" ||
-        (quest.questId === "green-purchase" && quest.stage === "escape-radiation" && quest.carriedItemId === "radioactive-substance")
-      )
+    const instance = this.getStagedQuestInstances().find(
+      (quest) =>
+        quest.giverRoomId === roomId &&
+        (quest.stage === 'return-to-giver' ||
+          (quest.questId === 'green-purchase' &&
+            quest.stage === 'escape-radiation' &&
+            quest.carriedItemId === 'radioactive-substance')),
     );
     if (!instance) {
       return null;
@@ -2620,15 +3004,19 @@ if (data.backgroundId) {
     if (!quest) {
       return null;
     }
-    this.updateStagedQuestInstance(instance.questId, (current) => ({ ...current, stage: "completed", carriedItemId: undefined }));
+    this.updateStagedQuestInstance(instance.questId, (current) => ({
+      ...current,
+      stage: 'completed',
+      carriedItemId: undefined,
+    }));
     const completed = this.questController.completeQuestById(instance.questId, this);
-    this.setFlag("quest.staged.completedNow", { questId: instance.questId });
-    return { quest: completed ?? quest, state: "completed" };
+    this.setFlag('quest.staged.completedNow', { questId: instance.questId });
+    return { quest: completed ?? quest, state: 'completed' };
   }
 
   private createAliveStepResult(options: {
     appleEaten: boolean;
-    appleRewards?: AppleConsumptionResult["rewards"];
+    appleRewards?: AppleConsumptionResult['rewards'];
     appleWorldPosition?: Vector2Like | null;
     appleSnapshot: AppleSnapshot | null;
     appleStateChanged: boolean;
@@ -2636,7 +3024,7 @@ if (data.backgroundId) {
     roomHasChanged: boolean;
   }): StepResult {
     return {
-      status: "alive",
+      status: 'alive',
       apple: {
         eaten: options.appleEaten,
         rewards: options.appleRewards,
@@ -2652,13 +3040,13 @@ if (data.backgroundId) {
   }
 
   // --- House decoration API ---
-  purchaseHouseItem(kind: "couch" | "kitchen" | "expand" | "bed" | "plant" | "lamp"): boolean {
-    const houseId = "0,-1,0";
+  purchaseHouseItem(kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp'): boolean {
+    const houseId = '0,-1,0';
     const room = this.world.getRoom(houseId);
     const cols = this.config.grid.cols;
     const rows = this.config.grid.rows;
 
-    const purchases = (this.getFlag<Record<string, unknown>>("house.purchases") ?? {}) as Record<
+    const purchases = (this.getFlag<Record<string, unknown>>('house.purchases') ?? {}) as Record<
       string,
       unknown
     >;
@@ -2680,79 +3068,90 @@ if (data.backgroundId) {
     function setChar(x: number, y: number, ch: string) {
       const row = room.layout[y];
       if (!row) return;
-      const chars = row.split("");
+      const chars = row.split('');
       if (x < 0 || x >= chars.length) return;
       if (chars[x] === ch) return;
       chars[x] = ch;
-      room.layout[y] = chars.join("");
+      room.layout[y] = chars.join('');
     }
 
-    if (kind === "couch") {
+    if (kind === 'couch') {
       if (purchases[kind]) return false;
       // Place couch near lower-left inside the house cube
       const bbox = this.getHouseBoundingBox(room);
       if (!bbox) return false;
       const y = bbox.bottom - 2;
       const startX = bbox.left + 2;
-      for (let x = startX; x < startX + 3; x++) setChar(x, y, "C");
+      for (let x = startX; x < startX + 3; x++) setChar(x, y, 'C');
       purchases[kind] = true;
-    } else if (kind === "kitchen") {
+    } else if (kind === 'kitchen') {
       if (purchases[kind]) return false;
       // Kitchen block on upper-right inside the house cube
       const bbox = this.getHouseBoundingBox(room);
       if (!bbox) return false;
       const startY = bbox.top + 2;
       const startX = bbox.right - 4;
-      for (let y = startY; y < startY + 2; y++) for (let x = startX; x < startX + 3; x++) setChar(x, y, "K");
+      for (let y = startY; y < startY + 2; y++)
+        for (let x = startX; x < startX + 3; x++) setChar(x, y, 'K');
       purchases[kind] = true;
-    } else if (kind === "expand") {
+    } else if (kind === 'expand') {
       // Recompute cube larger by one step; max 3 expansions
-      const level = Number((this.getFlag<number>("house.expandLevel") ?? 0));
+      const level = Number(this.getFlag<number>('house.expandLevel') ?? 0);
       const cap = 5;
       if (level >= cap) return false;
       this.expandHouseCube(room, level + 1);
-      this.setFlag("house.expandLevel", level + 1);
-    } else if (kind === "bed") {
+      this.setFlag('house.expandLevel', level + 1);
+    } else if (kind === 'bed') {
       if (purchases[kind]) return false;
       const bbox = this.getHouseBoundingBox(room);
       if (!bbox) return false;
       const startX = bbox.left + 3;
       const startY = bbox.top + Math.floor((bbox.bottom - bbox.top) / 2);
-      for (let x = startX; x < startX + 2; x++) setChar(x, startY, "B");
+      for (let x = startX; x < startX + 2; x++) setChar(x, startY, 'B');
       purchases[kind] = true;
-    } else if (kind === "plant") {
+    } else if (kind === 'plant') {
       if (purchases[kind]) return false;
       const bbox = this.getHouseBoundingBox(room);
       if (!bbox) return false;
-      setChar(bbox.left + 2, bbox.top + 2, "P");
+      setChar(bbox.left + 2, bbox.top + 2, 'P');
       purchases[kind] = true;
-    } else if (kind === "lamp") {
+    } else if (kind === 'lamp') {
       if (purchases[kind]) return false;
       const bbox = this.getHouseBoundingBox(room);
       if (!bbox) return false;
-      setChar(bbox.right - 2, bbox.bottom - 2, "L");
+      setChar(bbox.right - 2, bbox.bottom - 2, 'L');
       purchases[kind] = true;
     }
 
     // Deduct points and persist state
     this.addScore(-cost);
-    this.setFlag("house.purchases", purchases);
-    const purchaseCount = Number(this.getFlag<number>("house.itemsPurchased") ?? 0);
-    this.setFlag("house.itemsPurchased", purchaseCount + 1);
+    this.setFlag('house.purchases', purchases);
+    const purchaseCount = Number(this.getFlag<number>('house.itemsPurchased') ?? 0);
+    this.setFlag('house.itemsPurchased', purchaseCount + 1);
     return true;
   }
 
-  private getHouseBoundingBox(room: { layout: string[] }): { left: number; right: number; top: number; bottom: number } | null {
+  private getHouseBoundingBox(room: {
+    layout: string[];
+  }): { left: number; right: number; top: number; bottom: number } | null {
     // Find the first wood tile to infer the cube, then expand to borders '#'
     for (let y = 0; y < room.layout.length; y++) {
       for (let x = 0; x < room.layout[y].length; x++) {
         if (room.layout[y][x] === 'W') {
           // expand left
-          let left = x; while (left > 0 && room.layout[y][left] !== '#') left--;
-          let right = x; while (right < room.layout[y].length && room.layout[y][right] !== '#') right++;
+          let left = x;
+          while (left > 0 && room.layout[y][left] !== '#') left--;
+          let right = x;
+          while (right < room.layout[y].length && room.layout[y][right] !== '#') right++;
           // expand top/bottom by scanning columns within bounds
-          let top = y; while (top > 0 && room.layout[top].slice(left + 1, right).includes('W')) top--;
-          let bottom = y; while (bottom < room.layout.length - 1 && room.layout[bottom].slice(left + 1, right).includes('W')) bottom++;
+          let top = y;
+          while (top > 0 && room.layout[top].slice(left + 1, right).includes('W')) top--;
+          let bottom = y;
+          while (
+            bottom < room.layout.length - 1 &&
+            room.layout[bottom].slice(left + 1, right).includes('W')
+          )
+            bottom++;
           return { left, right, top, bottom };
         }
       }
@@ -2776,7 +3175,8 @@ if (data.backgroundId) {
     const top = Math.floor(rows / 2 - height / 2);
     for (let y = top; y < top + height; y++) {
       for (let x = left; x < left + width; x++) {
-        const isBorder = x === left || x === left + width - 1 || y === top || y === top + height - 1;
+        const isBorder =
+          x === left || x === left + width - 1 || y === top || y === top + height - 1;
         layout[y][x] = isBorder ? '#' : 'W';
       }
     }
@@ -2792,9 +3192,12 @@ if (data.backgroundId) {
 
     // Re-apply furniture if still inside
     const tryPlace = (ch: string) => {
-      for (let y = 0; y < prev.length; y++) for (let x = 0; x < prev[y].length; x++) if (prev[y][x] === ch) {
-        if (x > left && x < left + width - 1 && y > top && y < top + height - 1) layout[y][x] = ch;
-      }
+      for (let y = 0; y < prev.length; y++)
+        for (let x = 0; x < prev[y].length; x++)
+          if (prev[y][x] === ch) {
+            if (x > left && x < left + width - 1 && y > top && y < top + height - 1)
+              layout[y][x] = ch;
+          }
     };
     tryPlace('C');
     tryPlace('K');
@@ -2803,16 +3206,16 @@ if (data.backgroundId) {
   }
 
   private tickFortitudeStates(): void {
-    const invuln = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
+    const invuln = this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0;
     if (invuln > 0) {
-      this.setFlag("fortitude.invulnerabilityTicks", Math.max(0, invuln - 1));
+      this.setFlag('fortitude.invulnerabilityTicks', Math.max(0, invuln - 1));
     }
   }
 
   private tickPlayerStates(): void {
-    const invuln = Number(this.getFlag<number>("player.bulletInvulnTicks") ?? 0);
+    const invuln = Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0);
     if (invuln > 0) {
-      this.setFlag("player.bulletInvulnTicks", invuln - 1);
+      this.setFlag('player.bulletInvulnTicks', invuln - 1);
     }
   }
 
@@ -2823,35 +3226,57 @@ if (data.backgroundId) {
     if (!head) {
       return false;
     }
-    const timeMs = Number(this.getFlag<number>("timeMs") ?? 0);
-    const lastTickMs = Number(this.getFlag<number>("player.temperatureLastTickMs") ?? 0);
+    const timeMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const lastTickMs = Number(this.getFlag<number>('player.temperatureLastTickMs') ?? 0);
     const deltaMs = Math.max(0, lastTickMs > 0 ? timeMs - lastTickMs : 0);
-    this.setFlag("player.temperatureLastTickMs", timeMs);
-    const [roomX, roomY] = this.snake.currentRoomId.split(",").map(Number);
+    this.setFlag('player.temperatureLastTickMs', timeMs);
+    const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
     const localX = head.x - roomX * this.config.grid.cols;
     const localY = head.y - roomY * this.config.grid.rows;
-    const tile = room.layout[localY]?.[localX] ?? ".";
-    const sheltered = "WETCKBPLG".includes(tile);
-    const onRelief = room.temperatureReliefs?.find((relief) => relief.x === localX && relief.y === localY);
-    const thresholdMs = Math.max(1000, Number(this.getFlag<number>("player.temperatureThresholdMs") ?? 10000));
-    const damageIntervalMs = Math.max(1000, Number(this.getFlag<number>("player.temperatureDamageIntervalMs") ?? 5000));
-    const heatResistance = Math.max(0, Number(this.getFlag<number>("equipment.heatResistance") ?? 0));
-    const coldResistance = Math.max(0, Number(this.getFlag<number>("equipment.coldResistance") ?? 0));
-    const resistance = biome.temperatureHazard === "hot" ? heatResistance : biome.temperatureHazard === "cold" ? coldResistance : 0;
+    const tile = room.layout[localY]?.[localX] ?? '.';
+    const sheltered = 'WETCKBPLG'.includes(tile);
+    const onRelief = room.temperatureReliefs?.find(
+      (relief) => relief.x === localX && relief.y === localY,
+    );
+    const thresholdMs = Math.max(
+      1000,
+      Number(this.getFlag<number>('player.temperatureThresholdMs') ?? 10000),
+    );
+    const damageIntervalMs = Math.max(
+      1000,
+      Number(this.getFlag<number>('player.temperatureDamageIntervalMs') ?? 5000),
+    );
+    const heatResistance = Math.max(
+      0,
+      Number(this.getFlag<number>('equipment.heatResistance') ?? 0),
+    );
+    const coldResistance = Math.max(
+      0,
+      Number(this.getFlag<number>('equipment.coldResistance') ?? 0),
+    );
+    const resistance =
+      biome.temperatureHazard === 'hot'
+        ? heatResistance
+        : biome.temperatureHazard === 'cold'
+          ? coldResistance
+          : 0;
     const exposureRate = Math.max(0.05, (biome.temperatureRate || 1) * Math.max(0, 1 - resistance));
-    let exposureMs = Math.max(0, Number(this.getFlag<number>("player.temperatureExposureMs") ?? 0));
-    let damageProgressMs = Math.max(0, Number(this.getFlag<number>("player.temperatureDamageProgressMs") ?? 0));
+    let exposureMs = Math.max(0, Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0));
+    let damageProgressMs = Math.max(
+      0,
+      Number(this.getFlag<number>('player.temperatureDamageProgressMs') ?? 0),
+    );
 
     if (!biome.temperatureHazard) {
       exposureMs = Math.max(0, exposureMs - deltaMs * 2.5);
       damageProgressMs = 0;
-      this.setFlag("player.temperatureExposureMs", exposureMs);
-      this.setFlag("player.temperatureDamageProgressMs", damageProgressMs);
-      this.setFlag("player.temperatureHazard", undefined);
+      this.setFlag('player.temperatureExposureMs', exposureMs);
+      this.setFlag('player.temperatureDamageProgressMs', damageProgressMs);
+      this.setFlag('player.temperatureHazard', undefined);
       return false;
     }
 
-    this.setFlag("player.temperatureHazard", biome.temperatureHazard);
+    this.setFlag('player.temperatureHazard', biome.temperatureHazard);
 
     if (onRelief) {
       exposureMs = Math.max(0, exposureMs - deltaMs * 3.5);
@@ -2866,8 +3291,8 @@ if (data.backgroundId) {
       }
     }
 
-    this.setFlag("player.temperatureExposureMs", exposureMs);
-    this.setFlag("player.temperatureDamageProgressMs", damageProgressMs);
+    this.setFlag('player.temperatureExposureMs', exposureMs);
+    this.setFlag('player.temperatureDamageProgressMs', damageProgressMs);
 
     if (exposureMs < thresholdMs) {
       return false;
@@ -2877,16 +3302,16 @@ if (data.backgroundId) {
       return false;
     }
 
-    const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
-    let currentHealth = Number(this.getFlag<number>("player.health") ?? maxHealth);
+    const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    let currentHealth = Number(this.getFlag<number>('player.health') ?? maxHealth);
     while (damageProgressMs >= damageIntervalMs && currentHealth > 0) {
       damageProgressMs -= damageIntervalMs;
       currentHealth -= 1;
     }
-    this.setFlag("player.temperatureDamageProgressMs", damageProgressMs);
-    this.setFlag("player.health", Math.max(0, currentHealth));
-    this.setFlag("ui.healthRevealed", true);
-    this.setFlag("ui.playerHit", {
+    this.setFlag('player.temperatureDamageProgressMs', damageProgressMs);
+    this.setFlag('player.health', Math.max(0, currentHealth));
+    this.setFlag('ui.healthRevealed', true);
+    this.setFlag('ui.playerHit', {
       x: head.x,
       y: head.y,
       roomId: this.snake.currentRoomId,
@@ -2901,44 +3326,51 @@ if (data.backgroundId) {
     const active = this.powerupState;
     if (active && active.remaining > 0) {
       active.remaining -= 1;
-      this.setFlag("powerup.active", { kind: active.kind, remaining: active.remaining, total: active.total });
+      this.setFlag('powerup.active', {
+        kind: active.kind,
+        remaining: active.remaining,
+        total: active.total,
+      });
       // Decrement smite runtime ticks mirror flag if present
-      if (active.kind === "smite") {
-        const sm = Number(this.getFlag<number>("powerup.smiteTicks") ?? 0);
+      if (active.kind === 'smite') {
+        const sm = Number(this.getFlag<number>('powerup.smiteTicks') ?? 0);
         if (sm > 0) {
-          this.setFlag("powerup.smiteTicks", sm - 1);
+          this.setFlag('powerup.smiteTicks', sm - 1);
         } else {
-          this.setFlag("powerup.smiteTicks", undefined);
+          this.setFlag('powerup.smiteTicks', undefined);
         }
       }
     } else if (active && active.remaining <= 0) {
       // Clear state
       this.powerupState = null;
-      this.setFlag("powerup.active", undefined);
-      this.setFlag("powerup.smiteTicks", undefined);
+      this.setFlag('powerup.active', undefined);
+      this.setFlag('powerup.smiteTicks', undefined);
     } else {
       // Ensure flag cleared when no powerup
-      this.setFlag("powerup.active", undefined);
+      this.setFlag('powerup.active', undefined);
     }
   }
 
-  private applyBulletDamage(hits: number, style?: "enemy" | "npc-hostile" | "duelist" | "freak-joey" | "player"): boolean {
+  private applyBulletDamage(
+    hits: number,
+    style?: 'enemy' | 'npc-hostile' | 'duelist' | 'freak-joey' | 'player',
+  ): boolean {
     if (hits <= 0) {
       return false;
     }
-    const invuln = Number(this.getFlag<number>("player.bulletInvulnTicks") ?? 0);
+    const invuln = Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0);
     if (invuln > 0) {
       return false;
     }
-    const max = Number(this.getFlag<number>("player.maxHealth") ?? 3);
-    const current = Number(this.getFlag<number>("player.health") ?? max);
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
     const next = Math.max(0, current - 1);
-    this.setFlag("player.health", next);
-    this.setFlag("ui.healthRevealed", true);
-    this.setFlag("player.bulletInvulnTicks", 10);
+    this.setFlag('player.health', next);
+    this.setFlag('ui.healthRevealed', true);
+    this.setFlag('player.bulletInvulnTicks', 10);
     const head = this.snake.bodySegments[0];
     if (head) {
-      this.setFlag("ui.playerHit", {
+      this.setFlag('ui.playerHit', {
         x: head.x,
         y: head.y,
         roomId: this.snake.currentRoomId,
@@ -2951,10 +3383,10 @@ if (data.backgroundId) {
   }
 
   private maybeQueueFreakJoeyEncounter(roomId: string): void {
-    if (this.getFlag<boolean>("npc.freakJoey.defeated")) {
+    if (this.getFlag<boolean>('npc.freakJoey.defeated')) {
       return;
     }
-    if (this.enemies.hasEnemyWithId("freak-joey")) {
+    if (this.enemies.hasEnemyWithId('freak-joey')) {
       return;
     }
     const room = this.world.getRoom(roomId);
@@ -2967,7 +3399,7 @@ if (data.backgroundId) {
     if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 5) {
       return;
     }
-    const roomsVisited = Number(this.getFlag<number>("roomsVisited") ?? this.visitedRooms.size);
+    const roomsVisited = Number(this.getFlag<number>('roomsVisited') ?? this.visitedRooms.size);
     const encounter = chooseWandererEncounter(this.rng, {
       roomsVisited,
       zoneTags: getRoomEncounterTags(roomId),
@@ -2985,7 +3417,7 @@ if (data.backgroundId) {
     const history = this.wandererHistory.get(encounter.id);
     this.recordWandererSeen(encounter.id);
     this.lastWandererEncounterRoomCount = this.visitedRooms.size;
-    this.setFlag("npc.randomEncounter", {
+    this.setFlag('npc.randomEncounter', {
       ...encounter,
       pages: getEncounterPages(encounter, history),
       roomId,
@@ -2993,10 +3425,10 @@ if (data.backgroundId) {
       y: spawn.y,
       statsNote: getEncounterStatsNote(encounter.name),
     });
-    const revealAtMs = Number(this.getFlag<number>("timeMs") ?? 0);
-    this.setFlag("npc.randomEncounter.revealAtMs", revealAtMs);
-    this.setFlag("npc.randomEncounter.triggerAtMs", revealAtMs + 2200);
-    this.setFlag("ui.wandererReveal", {
+    const revealAtMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    this.setFlag('npc.randomEncounter.revealAtMs', revealAtMs);
+    this.setFlag('npc.randomEncounter.triggerAtMs', revealAtMs + 2200);
+    this.setFlag('ui.wandererReveal', {
       x: spawn.x,
       y: spawn.y,
       roomId,
@@ -3011,37 +3443,35 @@ if (data.backgroundId) {
 
   private angerNpc(
     roomId: string,
-    reason: "insult" | "shot"
-  ): { anger: number; hostility: "friendly" | "warning" | "hostile" } | null {
+    reason: 'insult' | 'shot',
+  ): { anger: number; hostility: 'friendly' | 'warning' | 'hostile' } | null {
     const room = this.world.getRoom(roomId);
     const giver = room.questGiver;
     if (!giver) {
       return null;
     }
-    const current = this.npcDisposition.get(roomId) ?? { anger: 0, hostility: "friendly" as const };
-    const anger = reason === "shot" ? 99 : current.anger + 1;
-    const hostility: "friendly" | "warning" | "hostile" =
-      anger >= 2 || reason === "shot" ? "hostile" :
-      anger >= 1 ? "warning" :
-      "friendly";
+    const current = this.npcDisposition.get(roomId) ?? { anger: 0, hostility: 'friendly' as const };
+    const anger = reason === 'shot' ? 99 : current.anger + 1;
+    const hostility: 'friendly' | 'warning' | 'hostile' =
+      anger >= 2 || reason === 'shot' ? 'hostile' : anger >= 1 ? 'warning' : 'friendly';
     const next = { anger, hostility };
     this.npcDisposition.set(roomId, next);
-    if (hostility === "hostile") {
+    if (hostility === 'hostile') {
       this.enemies.spawnHostileNpc(
         roomId,
         { x: giver.x, y: giver.y },
         giver.name,
-        Math.max(3, giver.maxHearts)
+        Math.max(3, giver.maxHearts),
       );
     }
     return next;
   }
 
   private isNpcInLineOfFire(
-    room: ReturnType<WorldService["getRoom"]>,
+    room: ReturnType<WorldService['getRoom']>,
     origin: Vector2Like,
     direction: Vector2Like,
-    target: Vector2Like
+    target: Vector2Like,
   ): boolean {
     if (direction.x !== 0) {
       if (origin.y !== target.y) {
@@ -3062,7 +3492,7 @@ if (data.backgroundId) {
     let x = origin.x + direction.x;
     let y = origin.y + direction.y;
     while (x >= 0 && x < this.config.grid.cols && y >= 0 && y < this.config.grid.rows) {
-      if (room.layout[y]?.[x] === "#") {
+      if (room.layout[y]?.[x] === '#') {
         return false;
       }
       if (x === target.x && y === target.y) {
@@ -3093,7 +3523,7 @@ if (data.backgroundId) {
 
   private findEncounterSpawn(roomId: string): Vector2Like | null {
     const room = this.world.getRoom(roomId);
-    const [roomX, roomY] = roomId.split(",").map(Number);
+    const [roomX, roomY] = roomId.split(',').map(Number);
     const head = this.snake.bodySegments[0];
     const headLocal = head
       ? {
@@ -3105,7 +3535,7 @@ if (data.backgroundId) {
     let bestDistance = -1;
     for (let y = 0; y < this.config.grid.rows; y++) {
       for (let x = 0; x < this.config.grid.cols; x++) {
-        if (room.layout[y]?.[x] === "#") continue;
+        if (room.layout[y]?.[x] === '#') continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
         if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
@@ -3122,8 +3552,8 @@ if (data.backgroundId) {
   }
 
   private handleFortitudeRegenerator(roomsChanged: Set<string>): void {
-    const base = this.getFlag<{ interval?: number; amount?: number }>("fortitude.regenerator");
-    const equip = this.getFlag<{ interval?: number; amount?: number }>("equipment.regenerator");
+    const base = this.getFlag<{ interval?: number; amount?: number }>('fortitude.regenerator');
+    const equip = this.getFlag<{ interval?: number; amount?: number }>('equipment.regenerator');
     const interval = Math.min(
       base?.interval && base.interval > 0 ? base.interval : Number.POSITIVE_INFINITY,
       equip?.interval && equip.interval > 0 ? equip.interval : Number.POSITIVE_INFINITY,
@@ -3132,16 +3562,16 @@ if (data.backgroundId) {
     if (!Number.isFinite(interval) || interval <= 0 || amount <= 0) {
       return;
     }
-    const counter = (this.getFlag<number>("fortitude.regeneratorCounter") ?? 0) + 1;
+    const counter = (this.getFlag<number>('fortitude.regeneratorCounter') ?? 0) + 1;
     if (counter >= interval) {
       const growAmount = Math.max(1, amount);
       for (let i = 0; i < amount; i += 1) {
         this.snake.grow(1);
       }
       roomsChanged.add(this.snake.currentRoomId);
-      this.setFlag("fortitude.regeneratorCounter", 0);
+      this.setFlag('fortitude.regeneratorCounter', 0);
     } else {
-      this.setFlag("fortitude.regeneratorCounter", counter);
+      this.setFlag('fortitude.regeneratorCounter', counter);
     }
   }
 
@@ -3151,9 +3581,11 @@ if (data.backgroundId) {
   }
 
   private processFortitudeBloodBank(roomsChanged: Set<string>): void {
-    const bank = this.getFlag<{ stored?: number; capacity?: number; reward?: { score?: number; growth?: number } }>(
-      "fortitude.bloodBank"
-    );
+    const bank = this.getFlag<{
+      stored?: number;
+      capacity?: number;
+      reward?: { score?: number; growth?: number };
+    }>('fortitude.bloodBank');
     if (!bank) {
       return;
     }
@@ -3175,34 +3607,35 @@ if (data.backgroundId) {
       bank.stored = 0;
     }
 
-    this.setFlag("fortitude.bloodBank", bank);
+    this.setFlag('fortitude.bloodBank', bank);
   }
 
   private activateFortitudeInvulnerability(): void {
-    const base = this.getFlag<{ duration?: number }>("fortitude.invulnerability");
+    const base = this.getFlag<{ duration?: number }>('fortitude.invulnerability');
     if (!base) {
       // Still allow equipment-only bonus to have no effect without a base
       // invulnerability flag; so early return if no base present
       return;
     }
-    const bonus = (this.getFlag<number>("fortitude.invulnerabilityBonus") ?? 0)
-      + (this.getFlag<number>("equipment.invulnerabilityBonus") ?? 0);
+    const bonus =
+      (this.getFlag<number>('fortitude.invulnerabilityBonus') ?? 0) +
+      (this.getFlag<number>('equipment.invulnerabilityBonus') ?? 0);
     const duration = Math.max(0, (base.duration ?? 0) + bonus);
     if (duration <= 0) {
       return;
     }
-    const current = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
+    const current = this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0;
     const updated = Math.max(current, duration + 1);
-    this.setFlag("fortitude.invulnerabilityTicks", updated);
+    this.setFlag('fortitude.invulnerabilityTicks', updated);
   }
 
   private tryFortitudePhoenix(
     outcome: SnakeStepOutcome,
     roomsChanged: Set<string>,
-    previousRoomId: string
+    previousRoomId: string,
   ): boolean {
-    const state = this.getFlag<{ charges?: number }>("fortitude.phoenix");
-    const eqCharges = this.getFlag<number>("equipment.phoenixCharges") ?? 0;
+    const state = this.getFlag<{ charges?: number }>('fortitude.phoenix');
+    const eqCharges = this.getFlag<number>('equipment.phoenixCharges') ?? 0;
     const charges = (state?.charges ?? 0) + eqCharges;
     if (charges <= 0) {
       return false;
@@ -3210,26 +3643,26 @@ if (data.backgroundId) {
 
     if ((state?.charges ?? 0) > 0) {
       const remaining = (state?.charges ?? 0) - 1;
-      this.setFlag("fortitude.phoenix", { ...state, charges: remaining });
+      this.setFlag('fortitude.phoenix', { ...state, charges: remaining });
     } else {
-      this.setFlag("equipment.phoenixCharges", Math.max(0, eqCharges - 1));
+      this.setFlag('equipment.phoenixCharges', Math.max(0, eqCharges - 1));
       this.consumeEquippedPhoenixItem();
     }
     this.snake.restorePreviousSnapshot();
-    const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
-    this.setFlag("player.health", maxHealth);
-    this.setFlag("player.bulletInvulnTicks", 12);
-    this.setFlag("ui.healthRevealed", true);
+    const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    this.setFlag('player.health', maxHealth);
+    this.setFlag('player.bulletInvulnTicks', 12);
+    this.setFlag('ui.healthRevealed', true);
     roomsChanged.add(previousRoomId);
-    this.setFlag("fortitude.phoenixTriggered", { reason: outcome.reason ?? "unknown" });
-    this.setFlag("traversal.manualResumePending", true);
+    this.setFlag('fortitude.phoenixTriggered', { reason: outcome.reason ?? 'unknown' });
+    this.setFlag('traversal.manualResumePending', true);
 
-    const base = this.getFlag<{ duration?: number }>("fortitude.invulnerability");
-    const bonus = this.getFlag<number>("fortitude.invulnerabilityBonus") ?? 0;
+    const base = this.getFlag<{ duration?: number }>('fortitude.invulnerability');
+    const bonus = this.getFlag<number>('fortitude.invulnerabilityBonus') ?? 0;
     if (base && (base.duration ?? 0) + bonus > 0) {
-      const current = this.getFlag<number>("fortitude.invulnerabilityTicks") ?? 0;
+      const current = this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0;
       const refreshed = Math.max(current, (base.duration ?? 0) + bonus + 1);
-      this.setFlag("fortitude.invulnerabilityTicks", refreshed);
+      this.setFlag('fortitude.invulnerabilityTicks', refreshed);
     }
 
     return true;
@@ -3237,24 +3670,24 @@ if (data.backgroundId) {
 
   reviveAfterExtraLife(reason?: string | null): void {
     this.snake.restorePreviousSnapshot();
-    const maxHealth = Number(this.getFlag<number>("player.maxHealth") ?? 3);
-    this.setFlag("player.health", maxHealth);
-    this.setFlag("player.bulletInvulnTicks", 12);
-    this.setFlag("ui.healthRevealed", true);
-    this.setFlag("fortitude.phoenixTriggered", { reason: reason ?? "extra-life" });
-    this.setFlag("traversal.manualResumePending", true);
+    const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    this.setFlag('player.health', maxHealth);
+    this.setFlag('player.bulletInvulnTicks', 12);
+    this.setFlag('ui.healthRevealed', true);
+    this.setFlag('fortitude.phoenixTriggered', { reason: reason ?? 'extra-life' });
+    this.setFlag('traversal.manualResumePending', true);
   }
 
   private consumeEquippedPhoenixItem(): void {
     for (const [slot, itemId] of this.inventory.getAllEquipped()) {
       const item = getItem(itemId);
-      const charges = item?.kind === "equipment" ? item.modifiers?.phoenixCharges ?? 0 : 0;
+      const charges = item?.kind === 'equipment' ? (item.modifiers?.phoenixCharges ?? 0) : 0;
       if (charges <= 0) {
         continue;
       }
       this.inventory.removeItem(itemId, 1);
       this.inventory.unequip(slot);
-      this.setFlag("equipment.itemPhoenixConsumed", { itemId, slot });
+      this.setFlag('equipment.itemPhoenixConsumed', { itemId, slot });
       return;
     }
   }
@@ -3262,17 +3695,19 @@ if (data.backgroundId) {
   private resetMomentum(): void {
     this.momentumConfig = createDefaultMomentumConfig();
     this.momentumState = createDefaultMomentumState();
-    this.setFlag("momentum.state", undefined);
-    this.setFlag("momentum.phasingTicks", undefined);
-    this.setFlag("momentum.surgeTriggered", undefined);
-    this.setFlag("momentum.trailActive", undefined);
+    this.setFlag('momentum.state', undefined);
+    this.setFlag('momentum.phasingTicks', undefined);
+    this.setFlag('momentum.surgeTriggered', undefined);
+    this.setFlag('momentum.trailActive', undefined);
   }
 
   private hydrateMomentumConfig(): void {
     const contributions = Object.entries(this.snake.flags)
-      .filter(([key]) => key.startsWith("momentum.config."))
+      .filter(([key]) => key.startsWith('momentum.config.'))
       .map(([, value]) => value)
-      .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
+      .filter(
+        (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object',
+      );
 
     if (contributions.length === 0) {
       this.momentumConfig = createDefaultMomentumConfig();
@@ -3320,146 +3755,163 @@ if (data.backgroundId) {
       }
 
       const maxStacksValue = (contribution as { maxStacks?: unknown }).maxStacks;
-      if (typeof maxStacksValue === "number") {
+      if (typeof maxStacksValue === 'number') {
         baseMaxStacks = Math.max(baseMaxStacks ?? maxStacksValue, maxStacksValue);
       }
       const maxStacksBonusValue = (contribution as { maxStacksBonus?: unknown }).maxStacksBonus;
-      if (typeof maxStacksBonusValue === "number") {
+      if (typeof maxStacksBonusValue === 'number') {
         maxStacksBonus += maxStacksBonusValue;
       }
 
       const gainValue = (contribution as { baseGain?: unknown }).baseGain;
-      if (typeof gainValue === "number") {
+      if (typeof gainValue === 'number') {
         baseGain = Math.max(baseGain ?? gainValue, gainValue);
       }
       const gainBonusValue = (contribution as { gainBonus?: unknown }).gainBonus;
-      if (typeof gainBonusValue === "number") {
+      if (typeof gainBonusValue === 'number') {
         gainBonus += gainBonusValue;
       }
 
       const decayDelayValue = (contribution as { decayDelay?: unknown }).decayDelay;
-      if (typeof decayDelayValue === "number") {
+      if (typeof decayDelayValue === 'number') {
         baseDecayDelay = Math.max(baseDecayDelay ?? decayDelayValue, decayDelayValue);
       }
       const decayDelayBonusValue = (contribution as { decayDelayBonus?: unknown }).decayDelayBonus;
-      if (typeof decayDelayBonusValue === "number") {
+      if (typeof decayDelayBonusValue === 'number') {
         decayDelayBonus += decayDelayBonusValue;
       }
 
       const decayLossValue = (contribution as { decayLoss?: unknown }).decayLoss;
-      if (typeof decayLossValue === "number") {
+      if (typeof decayLossValue === 'number') {
         baseDecayLoss = Math.max(baseDecayLoss ?? decayLossValue, decayLossValue);
       }
       const decayLossBonusValue = (contribution as { decayLossBonus?: unknown }).decayLossBonus;
-      if (typeof decayLossBonusValue === "number") {
+      if (typeof decayLossBonusValue === 'number') {
         decayLossBonus += decayLossBonusValue;
       }
 
       const turnRetentionValue = (contribution as { turnRetention?: unknown }).turnRetention;
-      if (typeof turnRetentionValue === "number") {
+      if (typeof turnRetentionValue === 'number') {
         baseTurnRetention = Math.max(baseTurnRetention ?? turnRetentionValue, turnRetentionValue);
       }
-      const turnRetentionBonusValue = (contribution as { turnRetentionBonus?: unknown }).turnRetentionBonus;
-      if (typeof turnRetentionBonusValue === "number") {
+      const turnRetentionBonusValue = (contribution as { turnRetentionBonus?: unknown })
+        .turnRetentionBonus;
+      if (typeof turnRetentionBonusValue === 'number') {
         turnRetentionBonus += turnRetentionBonusValue;
       }
 
       const turnForgivenessValue = (contribution as { turnForgiveness?: unknown }).turnForgiveness;
-      if (typeof turnForgivenessValue === "number") {
-        baseTurnForgiveness = Math.max(baseTurnForgiveness ?? turnForgivenessValue, turnForgivenessValue);
+      if (typeof turnForgivenessValue === 'number') {
+        baseTurnForgiveness = Math.max(
+          baseTurnForgiveness ?? turnForgivenessValue,
+          turnForgivenessValue,
+        );
       }
-      const turnForgivenessBonusValue = (contribution as { turnForgivenessBonus?: unknown }).turnForgivenessBonus;
-      if (typeof turnForgivenessBonusValue === "number") {
+      const turnForgivenessBonusValue = (contribution as { turnForgivenessBonus?: unknown })
+        .turnForgivenessBonus;
+      if (typeof turnForgivenessBonusValue === 'number') {
         turnForgivenessBonus += turnForgivenessBonusValue;
       }
 
       const surgeThresholdValue = (contribution as { surgeThreshold?: unknown }).surgeThreshold;
-      if (typeof surgeThresholdValue === "number") {
-        baseSurgeThreshold = Math.max(baseSurgeThreshold ?? surgeThresholdValue, surgeThresholdValue);
+      if (typeof surgeThresholdValue === 'number') {
+        baseSurgeThreshold = Math.max(
+          baseSurgeThreshold ?? surgeThresholdValue,
+          surgeThresholdValue,
+        );
       }
-      const surgeThresholdBonusValue = (contribution as { surgeThresholdBonus?: unknown }).surgeThresholdBonus;
-      if (typeof surgeThresholdBonusValue === "number") {
+      const surgeThresholdBonusValue = (contribution as { surgeThresholdBonus?: unknown })
+        .surgeThresholdBonus;
+      if (typeof surgeThresholdBonusValue === 'number') {
         surgeThresholdBonus += surgeThresholdBonusValue;
       }
 
       const surgeDurationValue = (contribution as { surgeDuration?: unknown }).surgeDuration;
-      if (typeof surgeDurationValue === "number") {
+      if (typeof surgeDurationValue === 'number') {
         baseSurgeDuration = Math.max(baseSurgeDuration ?? surgeDurationValue, surgeDurationValue);
       }
-      const surgeDurationBonusValue = (contribution as { surgeDurationBonus?: unknown }).surgeDurationBonus;
-      if (typeof surgeDurationBonusValue === "number") {
+      const surgeDurationBonusValue = (contribution as { surgeDurationBonus?: unknown })
+        .surgeDurationBonus;
+      if (typeof surgeDurationBonusValue === 'number') {
         surgeDurationBonus += surgeDurationBonusValue;
       }
 
       const surgeCooldownValue = (contribution as { surgeCooldown?: unknown }).surgeCooldown;
-      if (typeof surgeCooldownValue === "number") {
+      if (typeof surgeCooldownValue === 'number') {
         baseSurgeCooldown = Math.max(baseSurgeCooldown ?? surgeCooldownValue, surgeCooldownValue);
       }
-      const surgeCooldownBonusValue = (contribution as { surgeCooldownBonus?: unknown }).surgeCooldownBonus;
-      if (typeof surgeCooldownBonusValue === "number") {
+      const surgeCooldownBonusValue = (contribution as { surgeCooldownBonus?: unknown })
+        .surgeCooldownBonus;
+      if (typeof surgeCooldownBonusValue === 'number') {
         surgeCooldownBonus += surgeCooldownBonusValue;
       }
 
       const surgeConsumeValue = (contribution as { surgeConsume?: unknown }).surgeConsume;
-      if (typeof surgeConsumeValue === "number") {
+      if (typeof surgeConsumeValue === 'number') {
         baseSurgeConsume = Math.max(baseSurgeConsume ?? surgeConsumeValue, surgeConsumeValue);
       }
-      const surgeConsumeBonusValue = (contribution as { surgeConsumeBonus?: unknown }).surgeConsumeBonus;
-      if (typeof surgeConsumeBonusValue === "number") {
+      const surgeConsumeBonusValue = (contribution as { surgeConsumeBonus?: unknown })
+        .surgeConsumeBonus;
+      if (typeof surgeConsumeBonusValue === 'number') {
         surgeConsumeBonus += surgeConsumeBonusValue;
       }
 
-      const surgeInvulnValue = (contribution as { surgeInvulnerability?: unknown }).surgeInvulnerability;
-      if (typeof surgeInvulnValue === "number") {
+      const surgeInvulnValue = (contribution as { surgeInvulnerability?: unknown })
+        .surgeInvulnerability;
+      if (typeof surgeInvulnValue === 'number') {
         baseSurgeInvuln = Math.max(baseSurgeInvuln ?? surgeInvulnValue, surgeInvulnValue);
       }
-      const surgeInvulnBonusValue = (contribution as { surgeInvulnerabilityBonus?: unknown }).surgeInvulnerabilityBonus;
-      if (typeof surgeInvulnBonusValue === "number") {
+      const surgeInvulnBonusValue = (contribution as { surgeInvulnerabilityBonus?: unknown })
+        .surgeInvulnerabilityBonus;
+      if (typeof surgeInvulnBonusValue === 'number') {
         surgeInvulnBonus += surgeInvulnBonusValue;
       }
 
       const phaseTicksValue = (contribution as { phaseTicksOnSurge?: unknown }).phaseTicksOnSurge;
-      if (typeof phaseTicksValue === "number") {
+      if (typeof phaseTicksValue === 'number') {
         basePhaseTicks = Math.max(basePhaseTicks ?? phaseTicksValue, phaseTicksValue);
       }
-      const phaseTicksBonusValue = (contribution as { phaseTicksOnSurgeBonus?: unknown }).phaseTicksOnSurgeBonus;
-      if (typeof phaseTicksBonusValue === "number") {
+      const phaseTicksBonusValue = (contribution as { phaseTicksOnSurgeBonus?: unknown })
+        .phaseTicksOnSurgeBonus;
+      if (typeof phaseTicksBonusValue === 'number') {
         phaseTicksBonus += phaseTicksBonusValue;
       }
 
       const scorePerStackValue = (contribution as { scorePerStack?: unknown }).scorePerStack;
-      if (typeof scorePerStackValue === "number") {
+      if (typeof scorePerStackValue === 'number') {
         baseScorePerStack = Math.max(baseScorePerStack ?? scorePerStackValue, scorePerStackValue);
       }
-      const scorePerStackBonusValue = (contribution as { scorePerStackBonus?: unknown }).scorePerStackBonus;
-      if (typeof scorePerStackBonusValue === "number") {
+      const scorePerStackBonusValue = (contribution as { scorePerStackBonus?: unknown })
+        .scorePerStackBonus;
+      if (typeof scorePerStackBonusValue === 'number') {
         scorePerStackBonus += scorePerStackBonusValue;
       }
 
       const surgeScoreValue = (contribution as { surgeScore?: unknown }).surgeScore;
-      if (typeof surgeScoreValue === "number") {
+      if (typeof surgeScoreValue === 'number') {
         baseSurgeScore = Math.max(baseSurgeScore ?? surgeScoreValue, surgeScoreValue);
       }
       const surgeScoreBonusValue = (contribution as { surgeScoreBonus?: unknown }).surgeScoreBonus;
-      if (typeof surgeScoreBonusValue === "number") {
+      if (typeof surgeScoreBonusValue === 'number') {
         surgeScoreBonus += surgeScoreBonusValue;
       }
 
       const trailTicksValue = (contribution as { trailTicks?: unknown }).trailTicks;
-      if (typeof trailTicksValue === "number") {
+      if (typeof trailTicksValue === 'number') {
         baseTrailTicks = Math.max(baseTrailTicks ?? trailTicksValue, trailTicksValue);
       }
       const trailTicksBonusValue = (contribution as { trailTicksBonus?: unknown }).trailTicksBonus;
-      if (typeof trailTicksBonusValue === "number") {
+      if (typeof trailTicksBonusValue === 'number') {
         trailTicksBonus += trailTicksBonusValue;
       }
 
       const trailScoreValue = (contribution as { trailScorePerTick?: unknown }).trailScorePerTick;
-      if (typeof trailScoreValue === "number") {
+      if (typeof trailScoreValue === 'number') {
         baseTrailScore = Math.max(baseTrailScore ?? trailScoreValue, trailScoreValue);
       }
-      const trailScoreBonusValue = (contribution as { trailScorePerTickBonus?: unknown }).trailScorePerTickBonus;
-      if (typeof trailScoreBonusValue === "number") {
+      const trailScoreBonusValue = (contribution as { trailScorePerTickBonus?: unknown })
+        .trailScorePerTickBonus;
+      if (typeof trailScoreBonusValue === 'number') {
         trailScoreBonus += trailScoreBonusValue;
       }
     }
@@ -3486,7 +3938,8 @@ if (data.backgroundId) {
     const turnForgivenessBase = baseTurnForgiveness ?? 0;
     config.turnForgiveness = Math.max(0, Math.round(turnForgivenessBase + turnForgivenessBonus));
 
-    let surgeThreshold = baseSurgeThreshold ?? (config.maxStacks > 0 ? config.maxStacks : Number.POSITIVE_INFINITY);
+    let surgeThreshold =
+      baseSurgeThreshold ?? (config.maxStacks > 0 ? config.maxStacks : Number.POSITIVE_INFINITY);
     surgeThreshold += surgeThresholdBonus;
     if (surgeThreshold <= 0) {
       surgeThreshold = Number.POSITIVE_INFINITY;
@@ -3529,10 +3982,16 @@ if (data.backgroundId) {
 
   private syncMomentumFlags(): void {
     const state = this.momentumState;
-    if (!this.momentumConfig.enabled && state.stacks === 0 && state.surgeTicks === 0 && state.phasingTicks === 0 && state.trailTicks === 0) {
-      this.setFlag("momentum.state", undefined);
+    if (
+      !this.momentumConfig.enabled &&
+      state.stacks === 0 &&
+      state.surgeTicks === 0 &&
+      state.phasingTicks === 0 &&
+      state.trailTicks === 0
+    ) {
+      this.setFlag('momentum.state', undefined);
     } else {
-      this.setFlag("momentum.state", {
+      this.setFlag('momentum.state', {
         stacks: state.stacks,
         surgeTicks: state.surgeTicks,
         cooldown: state.surgeCooldown,
@@ -3540,15 +3999,15 @@ if (data.backgroundId) {
     }
 
     if (state.phasingTicks > 0) {
-      this.setFlag("momentum.phasingTicks", state.phasingTicks);
+      this.setFlag('momentum.phasingTicks', state.phasingTicks);
     } else {
-      this.setFlag("momentum.phasingTicks", undefined);
+      this.setFlag('momentum.phasingTicks', undefined);
     }
 
     if (state.trailTicks > 0) {
-      this.setFlag("momentum.trailActive", state.trailTicks);
+      this.setFlag('momentum.trailActive', state.trailTicks);
     } else {
-      this.setFlag("momentum.trailActive", undefined);
+      this.setFlag('momentum.trailActive', undefined);
     }
   }
 
@@ -3561,7 +4020,8 @@ if (data.backgroundId) {
 
     const moving = currentDirection.x !== 0 || currentDirection.y !== 0;
     const prev = state.previousDirection;
-    const turned = Boolean(prev) && (prev!.x !== currentDirection.x || prev!.y !== currentDirection.y);
+    const turned =
+      Boolean(prev) && (prev!.x !== currentDirection.x || prev!.y !== currentDirection.y);
 
     if (moving && (!turned || state.forgivenessTimer > 0)) {
       state.stacks += config.gainPerTick;
@@ -3592,7 +4052,11 @@ if (data.backgroundId) {
       state.stacks = 0;
     }
 
-    if (config.surgeThreshold !== Number.POSITIVE_INFINITY && state.stacks >= config.surgeThreshold && (config.surgeDuration > 0 || config.phaseTicksOnSurge > 0 || config.surgeInvulnerability > 0)) {
+    if (
+      config.surgeThreshold !== Number.POSITIVE_INFINITY &&
+      state.stacks >= config.surgeThreshold &&
+      (config.surgeDuration > 0 || config.phaseTicksOnSurge > 0 || config.surgeInvulnerability > 0)
+    ) {
       if (state.surgeCooldown <= 0) {
         state.surgeTicks = config.surgeDuration;
         state.surgeCooldown = config.surgeCooldown;
@@ -3606,7 +4070,7 @@ if (data.backgroundId) {
         if (config.surgeScore > 0) {
           this.addScore(config.surgeScore);
         }
-        this.setFlag("momentum.surgeTriggered", {
+        this.setFlag('momentum.surgeTriggered', {
           roomId: this.snake.currentRoomId,
           stacks: state.stacks,
           duration: state.surgeTicks,
@@ -3617,7 +4081,10 @@ if (data.backgroundId) {
     this.syncMomentumFlags();
   }
 
-  private handleMomentumOnApple(consumption: AppleConsumptionResult, roomsChanged: Set<string>): number {
+  private handleMomentumOnApple(
+    consumption: AppleConsumptionResult,
+    roomsChanged: Set<string>,
+  ): number {
     const config = this.momentumConfig;
     if (!config.enabled) {
       return 0;
@@ -3640,7 +4107,12 @@ if (data.backgroundId) {
     const state = this.ensureMomentumState();
 
     if (!config.enabled) {
-      if (state.stacks !== 0 || state.surgeTicks !== 0 || state.phasingTicks !== 0 || state.trailTicks !== 0) {
+      if (
+        state.stacks !== 0 ||
+        state.surgeTicks !== 0 ||
+        state.phasingTicks !== 0 ||
+        state.trailTicks !== 0
+      ) {
         this.momentumState = createDefaultMomentumState();
         this.syncMomentumFlags();
       }
@@ -3661,7 +4133,7 @@ if (data.backgroundId) {
     if (state.surgeTicks > 0) {
       state.surgeTicks -= 1;
       if (state.surgeTicks <= 0) {
-        this.setFlag("momentum.surgeTriggered", undefined);
+        this.setFlag('momentum.surgeTriggered', undefined);
       }
     }
 
@@ -3693,17 +4165,19 @@ if (data.backgroundId) {
   private resetTraversal(): void {
     this.traversalConfig = createDefaultTraversalConfig();
     this.traversalState = createDefaultTraversalState();
-    this.setFlag("traversal.state", undefined);
-    this.setFlag("traversal.phaseTicks", undefined);
-    this.setFlag("traversal.ghostShield", undefined);
-    this.setFlag("traversal.echoActive", undefined);
+    this.setFlag('traversal.state', undefined);
+    this.setFlag('traversal.phaseTicks', undefined);
+    this.setFlag('traversal.ghostShield', undefined);
+    this.setFlag('traversal.echoActive', undefined);
   }
 
   private hydrateTraversalConfig(): void {
     const contributions = Object.entries(this.snake.flags)
-      .filter(([key]) => key.startsWith("traversal.config."))
+      .filter(([key]) => key.startsWith('traversal.config.'))
       .map(([, value]) => value)
-      .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
+      .filter(
+        (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object',
+      );
 
     if (contributions.length === 0) {
       this.traversalConfig = createDefaultTraversalConfig();
@@ -3736,74 +4210,78 @@ if (data.backgroundId) {
       }
 
       const widthValue = (contribution as { corridorWidth?: unknown }).corridorWidth;
-      if (typeof widthValue === "number") {
+      if (typeof widthValue === 'number') {
         baseWidth = Math.max(baseWidth ?? widthValue, widthValue);
       }
       const widthBonusValue = (contribution as { corridorWidthBonus?: unknown }).corridorWidthBonus;
-      if (typeof widthBonusValue === "number") {
+      if (typeof widthBonusValue === 'number') {
         widthBonus += widthBonusValue;
       }
 
       const extendValue = (contribution as { extendForwardRooms?: unknown }).extendForwardRooms;
-      if (typeof extendValue === "number") {
+      if (typeof extendValue === 'number') {
         baseExtend = Math.max(baseExtend ?? extendValue, extendValue);
       }
-      const extendBonusValue = (contribution as { extendForwardRoomsBonus?: unknown }).extendForwardRoomsBonus;
-      if (typeof extendBonusValue === "number") {
+      const extendBonusValue = (contribution as { extendForwardRoomsBonus?: unknown })
+        .extendForwardRoomsBonus;
+      if (typeof extendBonusValue === 'number') {
         extendBonus += extendBonusValue;
       }
 
       const phaseValue = (contribution as { phaseTicksOnEnter?: unknown }).phaseTicksOnEnter;
-      if (typeof phaseValue === "number") {
+      if (typeof phaseValue === 'number') {
         basePhaseTicks = Math.max(basePhaseTicks ?? phaseValue, phaseValue);
       }
-      const phaseBonusValue = (contribution as { phaseTicksOnEnterBonus?: unknown }).phaseTicksOnEnterBonus;
-      if (typeof phaseBonusValue === "number") {
+      const phaseBonusValue = (contribution as { phaseTicksOnEnterBonus?: unknown })
+        .phaseTicksOnEnterBonus;
+      if (typeof phaseBonusValue === 'number') {
         phaseTicksBonus += phaseBonusValue;
       }
 
       const growthValue = (contribution as { growthOnEnter?: unknown }).growthOnEnter;
-      if (typeof growthValue === "number") {
+      if (typeof growthValue === 'number') {
         baseGrowth = Math.max(baseGrowth ?? growthValue, growthValue);
       }
-      const growthBonusValue = (contribution as { growthOnEnterBonus?: unknown }).growthOnEnterBonus;
-      if (typeof growthBonusValue === "number") {
+      const growthBonusValue = (contribution as { growthOnEnterBonus?: unknown })
+        .growthOnEnterBonus;
+      if (typeof growthBonusValue === 'number') {
         growthBonus += growthBonusValue;
       }
 
       const scoreValue = (contribution as { scoreOnEnter?: unknown }).scoreOnEnter;
-      if (typeof scoreValue === "number") {
+      if (typeof scoreValue === 'number') {
         baseScore = Math.max(baseScore ?? scoreValue, scoreValue);
       }
       const scoreBonusValue = (contribution as { scoreOnEnterBonus?: unknown }).scoreOnEnterBonus;
-      if (typeof scoreBonusValue === "number") {
+      if (typeof scoreBonusValue === 'number') {
         scoreBonus += scoreBonusValue;
       }
 
       const shieldValue = (contribution as { ghostShieldCharges?: unknown }).ghostShieldCharges;
-      if (typeof shieldValue === "number") {
+      if (typeof shieldValue === 'number') {
         baseShield = Math.max(baseShield ?? shieldValue, shieldValue);
       }
-      const shieldBonusValue = (contribution as { ghostShieldChargesBonus?: unknown }).ghostShieldChargesBonus;
-      if (typeof shieldBonusValue === "number") {
+      const shieldBonusValue = (contribution as { ghostShieldChargesBonus?: unknown })
+        .ghostShieldChargesBonus;
+      if (typeof shieldBonusValue === 'number') {
         shieldBonus += shieldBonusValue;
       }
 
       const echoTicksValue = (contribution as { echoTicks?: unknown }).echoTicks;
-      if (typeof echoTicksValue === "number") {
+      if (typeof echoTicksValue === 'number') {
         baseEchoTicks = Math.max(baseEchoTicks ?? echoTicksValue, echoTicksValue);
       }
       const echoTicksBonusValue = (contribution as { echoTicksBonus?: unknown }).echoTicksBonus;
-      if (typeof echoTicksBonusValue === "number") {
+      if (typeof echoTicksBonusValue === 'number') {
         echoTicksBonus += echoTicksBonusValue;
       }
 
       const echoScoreValue = (contribution as { echoScore?: unknown }).echoScore;
-      if (typeof echoScoreValue === "number") {
+      if (typeof echoScoreValue === 'number') {
         baseEchoScore = Math.max(baseEchoScore ?? echoScoreValue, echoScoreValue);
       }
       const echoScoreBonusValue = (contribution as { echoScoreBonus?: unknown }).echoScoreBonus;
-      if (typeof echoScoreBonusValue === "number") {
+      if (typeof echoScoreBonusValue === 'number') {
         echoScoreBonus += echoScoreBonusValue;
       }
 
@@ -3850,10 +4328,15 @@ if (data.backgroundId) {
 
   private syncTraversalFlags(): void {
     const state = this.traversalState;
-    if (!this.traversalConfig.enabled && state.ghostShields === 0 && state.phaseTicks === 0 && state.echoTicks === 0) {
-      this.setFlag("traversal.state", undefined);
+    if (
+      !this.traversalConfig.enabled &&
+      state.ghostShields === 0 &&
+      state.phaseTicks === 0 &&
+      state.echoTicks === 0
+    ) {
+      this.setFlag('traversal.state', undefined);
     } else {
-      this.setFlag("traversal.state", {
+      this.setFlag('traversal.state', {
         ghostShields: state.ghostShields,
         phaseTicks: state.phaseTicks,
         echoTicks: state.echoTicks,
@@ -3861,32 +4344,43 @@ if (data.backgroundId) {
     }
 
     if (state.phaseTicks > 0) {
-      this.setFlag("traversal.phaseTicks", state.phaseTicks);
+      this.setFlag('traversal.phaseTicks', state.phaseTicks);
     } else {
-      this.setFlag("traversal.phaseTicks", undefined);
+      this.setFlag('traversal.phaseTicks', undefined);
     }
 
     if (state.ghostShields > 0) {
-      this.setFlag("traversal.ghostShield", { charges: state.ghostShields });
+      this.setFlag('traversal.ghostShield', { charges: state.ghostShields });
     } else {
-      this.setFlag("traversal.ghostShield", undefined);
+      this.setFlag('traversal.ghostShield', undefined);
     }
 
     if (state.echoTicks > 0) {
-      this.setFlag("traversal.echoActive", state.echoTicks);
+      this.setFlag('traversal.echoActive', state.echoTicks);
     } else {
-      this.setFlag("traversal.echoActive", undefined);
+      this.setFlag('traversal.echoActive', undefined);
     }
   }
 
-  private handleTraversalRoomChange(previousRoomId: string, currentRoomId: string, roomsChanged: Set<string>): void {
+  private handleTraversalRoomChange(
+    previousRoomId: string,
+    currentRoomId: string,
+    roomsChanged: Set<string>,
+  ): void {
     const config = this.traversalConfig;
     if (!config.enabled) {
       return;
     }
 
     if (config.corridorWidth > 0) {
-      this.carveTraversalCorridor(currentRoomId, this.snake.directionVector, config.corridorWidth, config.extendForwardRooms, roomsChanged, config.pullAppleIntoCorridor);
+      this.carveTraversalCorridor(
+        currentRoomId,
+        this.snake.directionVector,
+        config.corridorWidth,
+        config.extendForwardRooms,
+        roomsChanged,
+        config.pullAppleIntoCorridor,
+      );
     }
 
     if (config.scoreOnEnter > 0) {
@@ -3941,8 +4435,8 @@ if (data.backgroundId) {
       }
     }
 
-    const shieldFlag = this.getFlag<{ charges?: number }>("traversal.ghostShield");
-    if (shieldFlag && typeof shieldFlag.charges === "number") {
+    const shieldFlag = this.getFlag<{ charges?: number }>('traversal.ghostShield');
+    if (shieldFlag && typeof shieldFlag.charges === 'number') {
       state.ghostShields = Math.max(0, shieldFlag.charges);
     }
 
@@ -3962,7 +4456,7 @@ if (data.backgroundId) {
     width: number,
     extendForwardRooms: number,
     roomsChanged: Set<string>,
-    pullApple: boolean
+    pullApple: boolean,
   ): void {
     const axisX = Math.abs(direction.x) >= Math.abs(direction.y) ? Math.sign(direction.x) : 0;
     const axisY = axisX === 0 ? Math.sign(direction.y) : 0;
@@ -3983,7 +4477,15 @@ if (data.backgroundId) {
         break;
       }
       visited.add(currentRoomId);
-      this.openTraversalCorridorInRoom(currentRoomId, axisX, axisY, width, baseLocal, pullApple, roomsChanged);
+      this.openTraversalCorridorInRoom(
+        currentRoomId,
+        axisX,
+        axisY,
+        width,
+        baseLocal,
+        pullApple,
+        roomsChanged,
+      );
       const nextRoomId = this.shiftRoomId(currentRoomId, axisX, axisY);
       currentRoomId = nextRoomId;
       baseLocal = null;
@@ -3997,7 +4499,7 @@ if (data.backgroundId) {
     width: number,
     baseLocal: { localX: number; localY: number } | null,
     pullApple: boolean,
-    roomsChanged: Set<string>
+    roomsChanged: Set<string>,
   ): void {
     const room = this.world.getRoom(roomId);
     if (!room) {
@@ -4080,15 +4582,15 @@ if (data.backgroundId) {
   private handlePredationOnApple(
     consumption: AppleConsumptionResult,
     roomsChanged: Set<string>,
-    head: Vector2Like | undefined
+    head: Vector2Like | undefined,
   ): { score: number; growth: number } {
     const config = this.predationConfig;
     if (!config.enabled) {
       return { score: 0, growth: 0 };
     }
 
-    this.setFlag("predation.rendConsumed", undefined);
-    this.setFlag("predation.apexTriggered", undefined);
+    this.setFlag('predation.rendConsumed', undefined);
+    this.setFlag('predation.apexTriggered', undefined);
 
     const state = this.ensurePredationState();
     const quickWindow = config.quickEatWindow;
@@ -4124,7 +4626,10 @@ if (data.backgroundId) {
       if (state.stacks >= config.rend.gainThreshold && maxCharges > 0) {
         state.rendCharges = Math.min(maxCharges, state.rendCharges + 1);
       }
-      if (state.rendCharges > 0 && (config.rend.scorePerCharge > 0 || config.rend.growthPerCharge > 0)) {
+      if (
+        state.rendCharges > 0 &&
+        (config.rend.scorePerCharge > 0 || config.rend.growthPerCharge > 0)
+      ) {
         state.rendCharges -= 1;
         if (config.rend.scorePerCharge > 0) {
           this.addScore(config.rend.scorePerCharge);
@@ -4137,23 +4642,29 @@ if (data.backgroundId) {
           bonus.growth += config.rend.growthPerCharge;
           roomsChanged.add(this.snake.currentRoomId);
         }
-        this.setFlag("predation.rendConsumed", {
+        this.setFlag('predation.rendConsumed', {
           roomId: this.snake.currentRoomId,
           head: head ? { x: head.x, y: head.y } : undefined,
         });
       }
     }
 
-    const frenzyAvailable = Number.isFinite(config.frenzyThreshold) && state.stacks >= config.frenzyThreshold;
+    const frenzyAvailable =
+      Number.isFinite(config.frenzyThreshold) && state.stacks >= config.frenzyThreshold;
     if (frenzyAvailable && config.frenzyDuration > 0 && state.frenzyTicks <= 0) {
       state.frenzyTicks = config.frenzyDuration;
-      this.setFlag("predation.frenzyTriggered", {
+      this.setFlag('predation.frenzyTriggered', {
         roomId: this.snake.currentRoomId,
         stacks: state.stacks,
       });
     }
 
-    if (config.apex.enabled && state.frenzyTicks > 0 && state.stacks >= config.apex.requiredStacks && state.apexCooldown <= 0) {
+    if (
+      config.apex.enabled &&
+      state.frenzyTicks > 0 &&
+      state.stacks >= config.apex.requiredStacks &&
+      state.apexCooldown <= 0
+    ) {
       state.apexCooldown = config.apex.cooldown;
       if (config.apex.score > 0) {
         this.addScore(config.apex.score);
@@ -4167,7 +4678,7 @@ if (data.backgroundId) {
         roomsChanged.add(this.snake.currentRoomId);
       }
       state.stacks = Math.max(0, state.stacks - config.apex.requiredStacks);
-      this.setFlag("predation.apexTriggered", {
+      this.setFlag('predation.apexTriggered', {
         roomId: this.snake.currentRoomId,
         stacks: state.stacks,
       });
@@ -4200,17 +4711,19 @@ if (data.backgroundId) {
     this.predationState = createDefaultPredationState();
     this.predationState.lastRoomId = this.snake.currentRoomId;
     this.syncPredationFlags();
-    this.setFlag("predation.scentTicks", undefined);
-    this.setFlag("predation.frenzyTriggered", undefined);
-    this.setFlag("predation.rendConsumed", undefined);
-    this.setFlag("predation.apexTriggered", undefined);
+    this.setFlag('predation.scentTicks', undefined);
+    this.setFlag('predation.frenzyTriggered', undefined);
+    this.setFlag('predation.rendConsumed', undefined);
+    this.setFlag('predation.apexTriggered', undefined);
   }
 
   private hydratePredationConfig(): void {
     const contributions = Object.entries(this.snake.flags)
-      .filter(([key]) => key.startsWith("predation.config."))
+      .filter(([key]) => key.startsWith('predation.config.'))
       .map(([, value]) => value)
-      .filter((value): value is Record<string, unknown> => Boolean(value) && typeof value === "object");
+      .filter(
+        (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object',
+      );
 
     if (contributions.length === 0) {
       this.predationConfig = createDefaultPredationConfig();
@@ -4262,161 +4775,166 @@ if (data.backgroundId) {
       }
 
       const windowValue = (contribution as { window?: unknown }).window;
-      if (typeof windowValue === "number" && windowValue > baseWindow) {
+      if (typeof windowValue === 'number' && windowValue > baseWindow) {
         baseWindow = windowValue;
       }
       const windowBonusValue = (contribution as { windowBonus?: unknown }).windowBonus;
-      if (typeof windowBonusValue === "number") {
+      if (typeof windowBonusValue === 'number') {
         windowBonus += windowBonusValue;
       }
 
       const decayHoldValue = (contribution as { decayHold?: unknown }).decayHold;
-      if (typeof decayHoldValue === "number" && decayHoldValue > baseDecayHold) {
+      if (typeof decayHoldValue === 'number' && decayHoldValue > baseDecayHold) {
         baseDecayHold = decayHoldValue;
       }
       const decayHoldBonusValue = (contribution as { decayHoldBonus?: unknown }).decayHoldBonus;
-      if (typeof decayHoldBonusValue === "number") {
+      if (typeof decayHoldBonusValue === 'number') {
         decayHoldBonus += decayHoldBonusValue;
       }
 
       const decayStepValue = (contribution as { decayStep?: unknown }).decayStep;
-      if (typeof decayStepValue === "number" && decayStepValue > 0) {
+      if (typeof decayStepValue === 'number' && decayStepValue > 0) {
         decayStep = Math.max(decayStep, Math.floor(decayStepValue));
       }
       const decayStepBonusValue = (contribution as { decayStepBonus?: unknown }).decayStepBonus;
-      if (typeof decayStepBonusValue === "number") {
+      if (typeof decayStepBonusValue === 'number') {
         decayStepBonus += decayStepBonusValue;
       }
 
       const stackGainValue = (contribution as { stackGain?: unknown }).stackGain;
-      if (typeof stackGainValue === "number" && stackGainValue > stackGain) {
+      if (typeof stackGainValue === 'number' && stackGainValue > stackGain) {
         stackGain = stackGainValue;
       }
       const stackGainBonusValue = (contribution as { stackGainBonus?: unknown }).stackGainBonus;
-      if (typeof stackGainBonusValue === "number") {
+      if (typeof stackGainBonusValue === 'number') {
         stackGainBonus += stackGainBonusValue;
       }
 
       const maxStacksValue = (contribution as { maxStacks?: unknown }).maxStacks;
-      if (typeof maxStacksValue === "number" && maxStacksValue > baseMaxStacks) {
+      if (typeof maxStacksValue === 'number' && maxStacksValue > baseMaxStacks) {
         baseMaxStacks = maxStacksValue;
       }
       const maxStacksBonusValue = (contribution as { maxStacksBonus?: unknown }).maxStacksBonus;
-      if (typeof maxStacksBonusValue === "number") {
+      if (typeof maxStacksBonusValue === 'number') {
         maxStacksBonus += maxStacksBonusValue;
       }
 
       const scorePerStackValue = (contribution as { scorePerStack?: unknown }).scorePerStack;
-      if (typeof scorePerStackValue === "number") {
+      if (typeof scorePerStackValue === 'number') {
         baseScorePerStack += scorePerStackValue;
       }
-      const scorePerStackBonusValue = (contribution as { scorePerStackBonus?: unknown }).scorePerStackBonus;
-      if (typeof scorePerStackBonusValue === "number") {
+      const scorePerStackBonusValue = (contribution as { scorePerStackBonus?: unknown })
+        .scorePerStackBonus;
+      if (typeof scorePerStackBonusValue === 'number') {
         scorePerStackBonus += scorePerStackBonusValue;
       }
 
       const quickEatWindowValue = (contribution as { quickEatWindow?: unknown }).quickEatWindow;
-      if (typeof quickEatWindowValue === "number" && quickEatWindowValue > baseQuickWindow) {
+      if (typeof quickEatWindowValue === 'number' && quickEatWindowValue > baseQuickWindow) {
         baseQuickWindow = quickEatWindowValue;
       }
-      const quickEatWindowBonusValue = (contribution as { quickEatWindowBonus?: unknown }).quickEatWindowBonus;
-      if (typeof quickEatWindowBonusValue === "number") {
+      const quickEatWindowBonusValue = (contribution as { quickEatWindowBonus?: unknown })
+        .quickEatWindowBonus;
+      if (typeof quickEatWindowBonusValue === 'number') {
         quickWindowBonus += quickEatWindowBonusValue;
       }
 
-      const bonusStacksValue = (contribution as { bonusStacksOnQuickEat?: unknown }).bonusStacksOnQuickEat;
-      if (typeof bonusStacksValue === "number") {
+      const bonusStacksValue = (contribution as { bonusStacksOnQuickEat?: unknown })
+        .bonusStacksOnQuickEat;
+      if (typeof bonusStacksValue === 'number') {
         bonusStacksOnQuick += bonusStacksValue;
       }
 
-      const stackGainOnRoomEnterValue = (contribution as { stackGainOnRoomEnter?: unknown }).stackGainOnRoomEnter;
-      if (typeof stackGainOnRoomEnterValue === "number") {
+      const stackGainOnRoomEnterValue = (contribution as { stackGainOnRoomEnter?: unknown })
+        .stackGainOnRoomEnter;
+      if (typeof stackGainOnRoomEnterValue === 'number') {
         stackGainOnRoomEnter += stackGainOnRoomEnterValue;
       }
 
       const scentDurationValue = (contribution as { scentDuration?: unknown }).scentDuration;
-      if (typeof scentDurationValue === "number" && scentDurationValue > scentDuration) {
+      if (typeof scentDurationValue === 'number' && scentDurationValue > scentDuration) {
         scentDuration = scentDurationValue;
       }
 
       const frenzyValue = (contribution as { frenzy?: unknown }).frenzy;
-      if (frenzyValue && typeof frenzyValue === "object") {
+      if (frenzyValue && typeof frenzyValue === 'object') {
         const frenzy = frenzyValue as Record<string, unknown>;
         const threshold = frenzy.threshold;
-        if (typeof threshold === "number" && threshold < frenzyThresholdBase) {
+        if (typeof threshold === 'number' && threshold < frenzyThresholdBase) {
           frenzyThresholdBase = threshold;
         }
         const thresholdBonus = frenzy.thresholdBonus;
-        if (typeof thresholdBonus === "number") {
+        if (typeof thresholdBonus === 'number') {
           frenzyThresholdBonus += thresholdBonus;
         }
         const duration = frenzy.duration;
-        if (typeof duration === "number" && duration > frenzyDurationBase) {
+        if (typeof duration === 'number' && duration > frenzyDurationBase) {
           frenzyDurationBase = duration;
         }
         const durationBonus = frenzy.durationBonus;
-        if (typeof durationBonus === "number") {
+        if (typeof durationBonus === 'number') {
           frenzyDurationBonus += durationBonus;
         }
         const scoreBonus = frenzy.scoreBonus;
-        if (typeof scoreBonus === "number") {
+        if (typeof scoreBonus === 'number') {
           frenzyScoreBonus += scoreBonus;
         }
       }
 
       const rendValue = (contribution as { rend?: unknown }).rend;
-      if (rendValue && typeof rendValue === "object") {
+      if (rendValue && typeof rendValue === 'object') {
         const rend = rendValue as Record<string, unknown>;
         if (rend.enabled === true) {
           rendEnabled = true;
         }
         const gainThreshold = rend.gainThreshold;
-        if (typeof gainThreshold === "number" && gainThreshold < rendGainThreshold) {
+        if (typeof gainThreshold === 'number' && gainThreshold < rendGainThreshold) {
           rendGainThreshold = gainThreshold;
         }
         const maxCharges = rend.maxCharges;
-        if (typeof maxCharges === "number" && maxCharges > rendMaxChargesBase) {
+        if (typeof maxCharges === 'number' && maxCharges > rendMaxChargesBase) {
           rendMaxChargesBase = maxCharges;
         }
         const maxChargesBonusValue = rend.maxChargesBonus;
-        if (typeof maxChargesBonusValue === "number") {
+        if (typeof maxChargesBonusValue === 'number') {
           rendMaxChargesBonus += maxChargesBonusValue;
         }
         const growthPerCharge = rend.growthPerCharge;
-        if (typeof growthPerCharge === "number" && growthPerCharge > rendGrowthPerCharge) {
+        if (typeof growthPerCharge === 'number' && growthPerCharge > rendGrowthPerCharge) {
           rendGrowthPerCharge = growthPerCharge;
         }
         const scorePerChargeValue = rend.scorePerCharge;
-        if (typeof scorePerChargeValue === "number" && scorePerChargeValue > rendScorePerCharge) {
+        if (typeof scorePerChargeValue === 'number' && scorePerChargeValue > rendScorePerCharge) {
           rendScorePerCharge = scorePerChargeValue;
         }
       }
 
       const apexValue = (contribution as { apex?: unknown }).apex;
-      if (apexValue && typeof apexValue === "object") {
+      if (apexValue && typeof apexValue === 'object') {
         const apex = apexValue as Record<string, unknown>;
         apexEnabled = true;
         const requiredStacks = apex.requiredStacks;
-        if (typeof requiredStacks === "number" && requiredStacks < apexRequiredStacks) {
+        if (typeof requiredStacks === 'number' && requiredStacks < apexRequiredStacks) {
           apexRequiredStacks = requiredStacks;
         }
         const apexScoreValue = apex.score;
-        if (typeof apexScoreValue === "number" && apexScoreValue > apexScore) {
+        if (typeof apexScoreValue === 'number' && apexScoreValue > apexScore) {
           apexScore = apexScoreValue;
         }
         const apexGrowthValue = apex.growth;
-        if (typeof apexGrowthValue === "number" && apexGrowthValue > apexGrowth) {
+        if (typeof apexGrowthValue === 'number' && apexGrowthValue > apexGrowth) {
           apexGrowth = apexGrowthValue;
         }
         const apexCooldownValue = apex.cooldown;
-        if (typeof apexCooldownValue === "number" && apexCooldownValue > apexCooldown) {
+        if (typeof apexCooldownValue === 'number' && apexCooldownValue > apexCooldown) {
           apexCooldown = apexCooldownValue;
         }
       }
     }
 
     const config = createDefaultPredationConfig();
-    config.enabled = enabled || baseWindow > 0 || baseScorePerStack > 0 || rendEnabled || apexEnabled;
+    config.enabled =
+      enabled || baseWindow > 0 || baseScorePerStack > 0 || rendEnabled || apexEnabled;
 
     config.window = Math.max(0, Math.round(baseWindow + windowBonus));
     config.decayHold = Math.max(0, Math.round(baseDecayHold + decayHoldBonus));
@@ -4438,7 +4956,10 @@ if (data.backgroundId) {
 
     if (rendEnabled) {
       config.rend.enabled = true;
-      config.rend.gainThreshold = Math.max(1, Math.round(Number.isFinite(rendGainThreshold) ? rendGainThreshold : 2));
+      config.rend.gainThreshold = Math.max(
+        1,
+        Math.round(Number.isFinite(rendGainThreshold) ? rendGainThreshold : 2),
+      );
       config.rend.maxCharges = Math.max(0, Math.floor(rendMaxChargesBase + rendMaxChargesBonus));
       config.rend.growthPerCharge = Math.max(0, Math.floor(rendGrowthPerCharge));
       config.rend.scorePerCharge = Math.max(0, rendScorePerCharge);
@@ -4446,7 +4967,10 @@ if (data.backgroundId) {
 
     if (apexEnabled) {
       config.apex.enabled = true;
-      config.apex.requiredStacks = Math.max(1, Math.round(Number.isFinite(apexRequiredStacks) ? apexRequiredStacks : 6));
+      config.apex.requiredStacks = Math.max(
+        1,
+        Math.round(Number.isFinite(apexRequiredStacks) ? apexRequiredStacks : 6),
+      );
       config.apex.score = Math.max(0, apexScore);
       config.apex.growth = Math.max(0, Math.floor(apexGrowth));
       config.apex.cooldown = Math.max(0, Math.round(apexCooldown));
@@ -4471,14 +4995,20 @@ if (data.backgroundId) {
     const state = this.predationState;
     const config = this.predationConfig;
 
-    if (!config.enabled && state.stacks === 0 && state.rendCharges === 0 && state.frenzyTicks === 0 && state.scentTicks === 0) {
-      this.setFlag("predation.state", undefined);
-      this.setFlag("predation.scentTicks", undefined);
-      this.setFlag("predation.frenzyActive", undefined);
+    if (
+      !config.enabled &&
+      state.stacks === 0 &&
+      state.rendCharges === 0 &&
+      state.frenzyTicks === 0 &&
+      state.scentTicks === 0
+    ) {
+      this.setFlag('predation.state', undefined);
+      this.setFlag('predation.scentTicks', undefined);
+      this.setFlag('predation.frenzyActive', undefined);
       return;
     }
 
-    this.setFlag("predation.state", {
+    this.setFlag('predation.state', {
       stacks: state.stacks,
       timer: state.timer,
       decayHold: state.decayHold,
@@ -4490,15 +5020,15 @@ if (data.backgroundId) {
     });
 
     if (state.scentTicks > 0) {
-      this.setFlag("predation.scentTicks", state.scentTicks);
+      this.setFlag('predation.scentTicks', state.scentTicks);
     } else {
-      this.setFlag("predation.scentTicks", undefined);
+      this.setFlag('predation.scentTicks', undefined);
     }
 
     if (state.frenzyTicks > 0) {
-      this.setFlag("predation.frenzyActive", state.frenzyTicks);
+      this.setFlag('predation.frenzyActive', state.frenzyTicks);
     } else {
-      this.setFlag("predation.frenzyActive", undefined);
+      this.setFlag('predation.frenzyActive', undefined);
     }
   }
 
@@ -4511,7 +5041,12 @@ if (data.backgroundId) {
     }
 
     if (!config.enabled) {
-      if (state.stacks !== 0 || state.rendCharges !== 0 || state.frenzyTicks !== 0 || state.scentTicks !== 0) {
+      if (
+        state.stacks !== 0 ||
+        state.rendCharges !== 0 ||
+        state.frenzyTicks !== 0 ||
+        state.scentTicks !== 0
+      ) {
         this.predationState = createDefaultPredationState();
         this.predationState.lastRoomId = this.snake.currentRoomId;
         this.syncPredationFlags();
@@ -4563,7 +5098,7 @@ if (data.backgroundId) {
       state.timer = 0;
       state.decayHold = 0;
       state.frenzyTicks = 0;
-      this.setFlag("predation.frenzyActive", undefined);
+      this.setFlag('predation.frenzyActive', undefined);
     }
 
     this.syncPredationFlags();
@@ -4571,7 +5106,7 @@ if (data.backgroundId) {
   private applyMasonry(
     lastTail: { x: number; y: number; roomId?: string },
     snake: readonly Vector2Like[],
-    roomsChanged: Set<string>
+    roomsChanged: Set<string>,
   ): void {
     const info = this.resolveRoomPosition(lastTail);
     if (!info) {
@@ -4617,7 +5152,7 @@ if (data.backgroundId) {
       room.layout[localY] = chars.join('');
       roomsChanged.add(roomId);
       // UI: horizontal sweep at the affected row
-      this.setFlag("ui.faultLine", { roomId, y: localY });
+      this.setFlag('ui.faultLine', { roomId, y: localY });
     }
   }
 
@@ -4636,7 +5171,12 @@ if (data.backgroundId) {
       for (let dx = -radius; dx <= radius; dx++) {
         const targetX = localX + dx;
         const targetY = localY + dy;
-        if (targetX < 0 || targetX >= this.config.grid.cols || targetY < 0 || targetY >= this.config.grid.rows) {
+        if (
+          targetX < 0 ||
+          targetX >= this.config.grid.cols ||
+          targetY < 0 ||
+          targetY >= this.config.grid.rows
+        ) {
           continue;
         }
         const tile = room.layout[targetY]?.[targetX];
@@ -4651,14 +5191,14 @@ if (data.backgroundId) {
     if (changed) {
       roomsChanged.add(roomId);
       // UI: seismic pulse burst at head position
-      this.setFlag("ui.seismicPulse", { x: head.x, y: head.y, roomId, radius });
+      this.setFlag('ui.seismicPulse', { x: head.x, y: head.y, roomId, radius });
     }
   }
 
   private triggerCollapseControl(
     head: Vector2Like,
     snake: readonly Vector2Like[],
-    roomsChanged: Set<string>
+    roomsChanged: Set<string>,
   ): void {
     const info = this.resolveRoomPosition(head);
     if (!info) {
@@ -4700,16 +5240,16 @@ if (data.backgroundId) {
     if (changed) {
       roomsChanged.add(roomId);
       // UI: construction sparks at head
-      this.setFlag("ui.collapseControl", { x: head.x, y: head.y, roomId });
+      this.setFlag('ui.collapseControl', { x: head.x, y: head.y, roomId });
     }
   }
 
   private handleWallEaten(
     info: { x: number; y: number; roomId: string },
-    roomsChanged: Set<string>
+    roomsChanged: Set<string>,
   ): void {
     roomsChanged.add(info.roomId);
-    const reward = this.getFlag<{ score?: number; growth?: number }>("geometry.worldEaterReward");
+    const reward = this.getFlag<{ score?: number; growth?: number }>('geometry.worldEaterReward');
     const bonusScore = reward?.score ?? 1;
     const bonusGrowth = reward?.growth ?? 0;
     if (bonusScore !== 0) {
@@ -4719,11 +5259,13 @@ if (data.backgroundId) {
       this.snake.grow(bonusGrowth);
     }
     // UI: debris burst
-    this.setFlag("ui.wallChomp", { x: info.x, y: info.y, roomId: info.roomId });
+    this.setFlag('ui.wallChomp', { x: info.x, y: info.y, roomId: info.roomId });
   }
 
   private rechargeTerraShield(): void {
-    const shield = this.getFlag<{ charges: number; max?: number; recharge?: number }>("geometry.terraShield");
+    const shield = this.getFlag<{ charges: number; max?: number; recharge?: number }>(
+      'geometry.terraShield',
+    );
     if (!shield) {
       return;
     }
@@ -4737,7 +5279,7 @@ if (data.backgroundId) {
       max,
       recharge,
     };
-    this.setFlag("geometry.terraShield", updated);
+    this.setFlag('geometry.terraShield', updated);
   }
 
   private resolveRoomPosition(position: { x: number; y: number; roomId?: string }): {
@@ -4746,7 +5288,7 @@ if (data.backgroundId) {
     localY: number;
   } | null {
     const roomId = position.roomId ?? this.getRoomIdForPosition(position);
-    const [roomX, roomY] = roomId.split(",").map(Number);
+    const [roomX, roomY] = roomId.split(',').map(Number);
     const localX = position.x - roomX * this.config.grid.cols;
     const localY = position.y - roomY * this.config.grid.rows;
     if (
@@ -4779,7 +5321,7 @@ if (data.backgroundId) {
   private getRoomIdForPosition(position: Vector2Like): string {
     const roomX = Math.floor(position.x / this.config.grid.cols);
     const roomY = Math.floor(position.y / this.config.grid.rows);
-    const [, , roomZ = "0"] = this.snake.currentRoomId.split(",");
+    const [, , roomZ = '0'] = this.snake.currentRoomId.split(',');
     return `${roomX},${roomY},${roomZ}`;
   }
 }

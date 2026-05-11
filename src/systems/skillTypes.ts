@@ -1,75 +1,75 @@
 export interface SkillEffectTickDelayScalar {
-  type: "tickDelayScalar";
+  type: 'tickDelayScalar';
   factor: number;
   sourceId?: string;
 }
 
 export interface SkillEffectExtraLife {
-  type: "extraLifeCharge";
+  type: 'extraLifeCharge';
   count: number;
 }
 
 export interface SkillEffectScoreMultiplier {
-  type: "scoreMultiplier";
+  type: 'scoreMultiplier';
   multiplier: number;
 }
 
 export interface SkillEffectScoreMultiplierBonus {
-  type: "scoreMultiplierBonus";
+  type: 'scoreMultiplierBonus';
   bonus: number;
 }
 
 export interface SkillEffectSetFlag {
-  type: "setFlag";
+  type: 'setFlag';
   key: string;
   value: unknown;
   resetValue?: unknown;
 }
 
 export interface SkillEffectInstantGrow {
-  type: "instantGrow";
+  type: 'instantGrow';
   segments: number;
 }
 
 export interface SkillEffectManaEnable {
-  type: "manaEnable";
+  type: 'manaEnable';
   max: number;
   regen: number;
 }
 
 export interface SkillEffectManaUpgrade {
-  type: "manaUpgrade";
+  type: 'manaUpgrade';
   maxBonus: number;
   regenBonus: number;
 }
 
 export interface SkillEffectUnlockArcanePulse {
-  type: "unlockArcanePulse";
+  type: 'unlockArcanePulse';
 }
 
 export interface SkillEffectUnlockArcaneVeil {
-  type: "unlockArcaneVeil";
+  type: 'unlockArcaneVeil';
 }
 
 export interface SkillEffectRegisterSpell {
-  type: "registerSpell";
+  type: 'registerSpell';
   spellId: string;
 }
 
 export interface SkillEffectStatModifier {
-  type: "statModifier";
+  type: 'statModifier';
   stat: string;
   value: number;
 }
 
 export interface SkillEffectUnlockMechanic {
-  type: "unlockMechanic";
+  type: 'unlockMechanic';
   mechanic: string;
   note?: string;
 }
 
 export interface SkillEffectPlaceholder {
-  type: "placeholder";
+  type: 'placeholder';
   note: string;
 }
 
@@ -102,7 +102,7 @@ export interface SkillPerkDefinition {
   readonly effectsByRank: readonly (readonly SkillEffect[])[];
 }
 
-export type SkillPerkStatus = "available" | "locked" | "unaffordable" | "maxed";
+export type SkillPerkStatus = 'available' | 'locked' | 'unaffordable' | 'maxed';
 
 export interface SkillPerkState {
   definition: SkillPerkDefinition;

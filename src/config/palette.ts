@@ -139,12 +139,12 @@ export function randomBackgroundColor(rng: () => number = Math.random): number {
   const saturation = randomInRange(
     paletteConfig.background.saturation.min,
     paletteConfig.background.saturation.max,
-    rng
+    rng,
   );
   const lightness = randomInRange(
     paletteConfig.background.lightness.min,
     paletteConfig.background.lightness.max,
-    rng
+    rng,
   );
   return hslToHex(hue, saturation, lightness);
 }

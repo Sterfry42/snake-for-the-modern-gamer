@@ -1,5 +1,5 @@
-import type { AppleRewards } from "../types.js";
-import { AppleInstance } from "../types.js";
+import type { AppleRewards } from '../types.js';
+import { AppleInstance } from '../types.js';
 
 export class NormalApple extends AppleInstance {
   override onConsume(): AppleRewards {

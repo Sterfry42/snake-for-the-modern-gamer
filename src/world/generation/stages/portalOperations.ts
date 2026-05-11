@@ -1,11 +1,11 @@
-import type { WorldConfig } from "../../../config/gameConfig.js";
-import type { RandomGenerator } from "../../../core/rng.js";
-import type { RoomGenerationContext } from "../types.js";
+import type { WorldConfig } from '../../../config/gameConfig.js';
+import type { RandomGenerator } from '../../../core/rng.js';
+import type { RoomGenerationContext } from '../types.js';
 
 export class PortalOperations {
   constructor(
     private readonly config: WorldConfig,
-    private readonly rng: RandomGenerator
+    private readonly rng: RandomGenerator,
   ) {}
 
   place(context: RoomGenerationContext): void {
@@ -25,14 +25,14 @@ export class PortalOperations {
       if (!context.canvas.isEmpty(ladderX, ladderY)) {
         continue;
       }
-      context.canvas.set(ladderX, ladderY, "H");
+      context.canvas.set(ladderX, ladderY, 'H');
       context.portals.push(this.createPortal(context.roomId, ladderX, ladderY));
       ladderPlaced = true;
     }
   }
 
   private createPortal(roomId: string, x: number, y: number) {
-    const [roomX, roomY, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX, roomY, roomZ = 0] = roomId.split(',').map(Number);
     const offset = this.config.ladder.verticalOffset;
     const destZ = roomZ + (this.rng() < 0.5 ? offset : -offset);
     return {

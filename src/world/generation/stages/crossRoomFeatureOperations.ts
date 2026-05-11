@@ -1,15 +1,15 @@
-import type { GridConfig } from "../../../config/gameConfig.js";
-import { vectorKey } from "../../../core/math.js";
-import type { RandomGenerator } from "../../../core/rng.js";
-import type { BiomeMap } from "../biomeMap.js";
-import type { ProtectedCells, RoomGenerationContext } from "../types.js";
+import type { GridConfig } from '../../../config/gameConfig.js';
+import { vectorKey } from '../../../core/math.js';
+import type { RandomGenerator } from '../../../core/rng.js';
+import type { BiomeMap } from '../biomeMap.js';
+import type { ProtectedCells, RoomGenerationContext } from '../types.js';
 
 export class CrossRoomFeatureOperations {
   private readonly worldSalt: number;
 
   constructor(
     private readonly biomeMap: BiomeMap,
-    rng: RandomGenerator
+    rng: RandomGenerator,
   ) {
     this.worldSalt = Math.floor(rng() * 0xffffffff);
   }
@@ -18,24 +18,34 @@ export class CrossRoomFeatureOperations {
     if (context.isOcean || context.isDenseForest) {
       return;
     }
-    this.placeCrossRoomBarriers(context.layout, context.grid, context.roomId, context.spawnGuard?.protected);
-    this.placeCrossRoomRivers(context.layout, context.grid, context.roomId, context.spawnGuard?.protected);
+    this.placeCrossRoomBarriers(
+      context.layout,
+      context.grid,
+      context.roomId,
+      context.spawnGuard?.protected,
+    );
+    this.placeCrossRoomRivers(
+      context.layout,
+      context.grid,
+      context.roomId,
+      context.spawnGuard?.protected,
+    );
   }
 
   private placeCrossRoomBarriers(
     layout: string[][],
     grid: GridConfig,
     roomId: string,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     for (let anchorY = roomY - 1; anchorY <= roomY; anchorY += 1) {
       for (let anchorX = roomX - 1; anchorX <= roomX; anchorX += 1) {
         const barrier = this.resolveCrossRoomBarrier(anchorX, anchorY, roomZ, grid);
         if (!barrier) {
           continue;
         }
-        this.drawGlobalRect(layout, grid, roomX, roomY, barrier, "#", protectedCells);
+        this.drawGlobalRect(layout, grid, roomX, roomY, barrier, '#', protectedCells);
       }
     }
   }
@@ -44,7 +54,7 @@ export class CrossRoomFeatureOperations {
     anchorX: number,
     anchorY: number,
     roomZ: number,
-    grid: GridConfig
+    grid: GridConfig,
   ): { left: number; top: number; width: number; height: number } | null {
     const hash = this.hashRoom(anchorX, anchorY, roomZ, 0x4b7);
     if (hash % 100 >= 48) {
@@ -54,11 +64,26 @@ export class CrossRoomFeatureOperations {
     const kind = hash % 3;
     const involvedRooms =
       kind === 0
-        ? [[anchorX, anchorY], [anchorX + 1, anchorY]]
+        ? [
+            [anchorX, anchorY],
+            [anchorX + 1, anchorY],
+          ]
         : kind === 1
-          ? [[anchorX, anchorY], [anchorX, anchorY + 1]]
-          : [[anchorX, anchorY], [anchorX + 1, anchorY], [anchorX, anchorY + 1], [anchorX + 1, anchorY + 1]];
-    if (involvedRooms.some(([x, y]) => this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id === "sunken-ocean")) {
+          ? [
+              [anchorX, anchorY],
+              [anchorX, anchorY + 1],
+            ]
+          : [
+              [anchorX, anchorY],
+              [anchorX + 1, anchorY],
+              [anchorX, anchorY + 1],
+              [anchorX + 1, anchorY + 1],
+            ];
+    if (
+      involvedRooms.some(
+        ([x, y]) => this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id === 'sunken-ocean',
+      )
+    ) {
       return null;
     }
 
@@ -66,8 +91,18 @@ export class CrossRoomFeatureOperations {
     const height = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4c9) % 9);
     const overlapX = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4d3) % Math.max(1, width - 3));
     const overlapY = 2 + (this.hashRoom(anchorX, anchorY, roomZ, 0x4df) % Math.max(1, height - 3));
-    const innerX = this.hashedOffset(grid.cols, width, 7, this.hashRoom(anchorX, anchorY, roomZ, 0x4e7));
-    const innerY = this.hashedOffset(grid.rows, height, 7, this.hashRoom(anchorX, anchorY, roomZ, 0x4f1));
+    const innerX = this.hashedOffset(
+      grid.cols,
+      width,
+      7,
+      this.hashRoom(anchorX, anchorY, roomZ, 0x4e7),
+    );
+    const innerY = this.hashedOffset(
+      grid.rows,
+      height,
+      7,
+      this.hashRoom(anchorX, anchorY, roomZ, 0x4f1),
+    );
 
     if (kind === 0) {
       return {
@@ -97,16 +132,38 @@ export class CrossRoomFeatureOperations {
     layout: string[][],
     grid: GridConfig,
     roomId: string,
-    protectedCells?: ProtectedCells
+    protectedCells?: ProtectedCells,
   ): void {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     if (this.isStartingArea(roomX, roomY, roomZ)) {
       return;
     }
     const length = 15;
     for (let offset = 0; offset < length; offset += 1) {
-      this.drawRiverIfPresent(layout, grid, roomX, roomY, roomZ, roomX - offset, roomY, offset, "east", protectedCells);
-      this.drawRiverIfPresent(layout, grid, roomX, roomY, roomZ, roomX, roomY - offset, offset, "south", protectedCells);
+      this.drawRiverIfPresent(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        roomZ,
+        roomX - offset,
+        roomY,
+        offset,
+        'east',
+        protectedCells,
+      );
+      this.drawRiverIfPresent(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        roomZ,
+        roomX,
+        roomY - offset,
+        offset,
+        'south',
+        protectedCells,
+      );
     }
   }
 
@@ -119,54 +176,92 @@ export class CrossRoomFeatureOperations {
     anchorX: number,
     anchorY: number,
     segmentIndex: number,
-    orientation: "east" | "south",
-    protectedCells?: ProtectedCells
+    orientation: 'east' | 'south',
+    protectedCells?: ProtectedCells,
   ): void {
     const river = this.resolveRiver(anchorX, anchorY, roomZ, grid);
     if (!river || river.orientation !== orientation) {
       return;
     }
-    if (this.biomeMap.getBiomeForRoomId(`${roomX},${roomY},${roomZ}`).id === "sunken-ocean") {
+    if (this.biomeMap.getBiomeForRoomId(`${roomX},${roomY},${roomZ}`).id === 'sunken-ocean') {
       return;
     }
 
     const roomLeft = roomX * grid.cols;
     const roomTop = roomY * grid.rows;
-    if (river.orientation === "east") {
+    if (river.orientation === 'east') {
       const segmentLeft = segmentIndex === 0 ? roomLeft + Math.floor(grid.cols / 2) : roomLeft;
-      const segmentRight = segmentIndex === river.length - 1 ? roomLeft + Math.ceil(grid.cols / 2) : roomLeft + grid.cols;
+      const segmentRight =
+        segmentIndex === river.length - 1
+          ? roomLeft + Math.ceil(grid.cols / 2)
+          : roomLeft + grid.cols;
       const riverTop = roomTop + river.offset;
-      this.drawGlobalRect(layout, grid, roomX, roomY, {
-        left: segmentLeft,
-        top: riverTop,
-        width: segmentRight - segmentLeft,
-        height: river.width,
-      }, "~", protectedCells);
+      this.drawGlobalRect(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        {
+          left: segmentLeft,
+          top: riverTop,
+          width: segmentRight - segmentLeft,
+          height: river.width,
+        },
+        '~',
+        protectedCells,
+      );
       if (segmentIndex === river.bridgeIndex) {
-        this.drawGlobalRect(layout, grid, roomX, roomY, {
-          left: roomLeft + Math.floor(grid.cols / 2) - 1,
-          top: riverTop - 2,
-          width: 3,
-          height: river.width + 4,
-        }, "O", protectedCells);
+        this.drawGlobalRect(
+          layout,
+          grid,
+          roomX,
+          roomY,
+          {
+            left: roomLeft + Math.floor(grid.cols / 2) - 1,
+            top: riverTop - 2,
+            width: 3,
+            height: river.width + 4,
+          },
+          'O',
+          protectedCells,
+        );
       }
     } else {
       const segmentTop = segmentIndex === 0 ? roomTop + Math.floor(grid.rows / 2) : roomTop;
-      const segmentBottom = segmentIndex === river.length - 1 ? roomTop + Math.ceil(grid.rows / 2) : roomTop + grid.rows;
+      const segmentBottom =
+        segmentIndex === river.length - 1
+          ? roomTop + Math.ceil(grid.rows / 2)
+          : roomTop + grid.rows;
       const riverLeft = roomLeft + river.offset;
-      this.drawGlobalRect(layout, grid, roomX, roomY, {
-        left: riverLeft,
-        top: segmentTop,
-        width: river.width,
-        height: segmentBottom - segmentTop,
-      }, "~", protectedCells);
+      this.drawGlobalRect(
+        layout,
+        grid,
+        roomX,
+        roomY,
+        {
+          left: riverLeft,
+          top: segmentTop,
+          width: river.width,
+          height: segmentBottom - segmentTop,
+        },
+        '~',
+        protectedCells,
+      );
       if (segmentIndex === river.bridgeIndex) {
-        this.drawGlobalRect(layout, grid, roomX, roomY, {
-          left: riverLeft - 2,
-          top: roomTop + Math.floor(grid.rows / 2) - 1,
-          width: river.width + 4,
-          height: 3,
-        }, "O", protectedCells);
+        this.drawGlobalRect(
+          layout,
+          grid,
+          roomX,
+          roomY,
+          {
+            left: riverLeft - 2,
+            top: roomTop + Math.floor(grid.rows / 2) - 1,
+            width: river.width + 4,
+            height: 3,
+          },
+          'O',
+          protectedCells,
+        );
       }
     }
   }
@@ -175,9 +270,15 @@ export class CrossRoomFeatureOperations {
     anchorX: number,
     anchorY: number,
     roomZ: number,
-    grid: GridConfig
-  ): { orientation: "east" | "south"; offset: number; width: number; length: number; bridgeIndex: number } | null {
-    if (this.biomeMap.getBiomeForRoomId(`${anchorX},${anchorY},${roomZ}`).id === "sunken-ocean") {
+    grid: GridConfig,
+  ): {
+    orientation: 'east' | 'south';
+    offset: number;
+    width: number;
+    length: number;
+    bridgeIndex: number;
+  } | null {
+    if (this.biomeMap.getBiomeForRoomId(`${anchorX},${anchorY},${roomZ}`).id === 'sunken-ocean') {
       return null;
     }
     if (this.riverTouchesStartingArea(anchorX, anchorY, roomZ)) {
@@ -188,10 +289,10 @@ export class CrossRoomFeatureOperations {
       return null;
     }
 
-    const orientation = hash % 2 === 0 ? "east" : "south";
+    const orientation = hash % 2 === 0 ? 'east' : 'south';
     const length = 15;
     const width = 4 + (this.hashRoom(anchorX, anchorY, roomZ, 0x727) % 3);
-    const span = orientation === "east" ? grid.rows : grid.cols;
+    const span = orientation === 'east' ? grid.rows : grid.cols;
     const margin = 4;
     const maxOffset = Math.max(margin, span - width - margin);
     const offsetRange = Math.max(1, maxOffset - margin + 1);
@@ -206,8 +307,8 @@ export class CrossRoomFeatureOperations {
     roomX: number,
     roomY: number,
     rect: { left: number; top: number; width: number; height: number },
-    tile: "#" | "~" | "O",
-    protectedCells?: ProtectedCells
+    tile: '#' | '~' | 'O',
+    protectedCells?: ProtectedCells,
   ): void {
     const roomLeft = roomX * grid.cols;
     const roomTop = roomY * grid.rows;
@@ -239,7 +340,10 @@ export class CrossRoomFeatureOperations {
   private riverTouchesStartingArea(anchorX: number, anchorY: number, roomZ: number): boolean {
     const length = 15;
     for (let index = 0; index < length; index += 1) {
-      if (this.isStartingArea(anchorX + index, anchorY, roomZ) || this.isStartingArea(anchorX, anchorY + index, roomZ)) {
+      if (
+        this.isStartingArea(anchorX + index, anchorY, roomZ) ||
+        this.isStartingArea(anchorX, anchorY + index, roomZ)
+      ) {
         return true;
       }
     }

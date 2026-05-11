@@ -1,5 +1,5 @@
-import type { Vector2Like } from "../../core/math.js";
-import { AppleInstance, type AppleMoveContext, type AppleRewards } from "../types.js";
+import type { Vector2Like } from '../../core/math.js';
+import { AppleInstance, type AppleMoveContext, type AppleRewards } from '../types.js';
 
 const DIRECTIONS: Vector2Like[] = [
   { x: 1, y: 0 },
@@ -23,7 +23,7 @@ export class SkittishApple extends AppleInstance {
     position: Vector2Like,
     typeId: string,
     color: number,
-    private readonly moveChance: number
+    private readonly moveChance: number,
   ) {
     super(roomId, position, typeId, color);
   }
@@ -65,9 +65,9 @@ export class SkittishApple extends AppleInstance {
   private evaluateDirection(
     dir: Vector2Like,
     context: AppleMoveContext,
-    head: Vector2Like
+    head: Vector2Like,
   ): { dir: Vector2Like; distance: number; blocked: boolean } {
-    const [roomX, roomY, roomZ = 0] = this.roomId.split(",").map(Number);
+    const [roomX, roomY, roomZ = 0] = this.roomId.split(',').map(Number);
     let targetLocalX = this.position.x + dir.x;
     let targetLocalY = this.position.y + dir.y;
     let targetRoomX = roomX;
@@ -92,14 +92,16 @@ export class SkittishApple extends AppleInstance {
     const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
     const targetRoom = context.getRoom(targetRoomId);
     const tile = targetRoom.layout[targetLocalY]?.[targetLocalX];
-    const blockedByWall = tile !== ".";
+    const blockedByWall = tile !== '.';
 
     const candidateLocal = { x: targetLocalX, y: targetLocalY };
     const blockedByApple = context.isAppleOccupied(targetRoomId, candidateLocal);
 
     const globalX = targetRoomX * context.grid.cols + targetLocalX;
     const globalY = targetRoomY * context.grid.rows + targetLocalY;
-    const blockedBySnake = context.snake.some((segment) => segment.x === globalX && segment.y === globalY);
+    const blockedBySnake = context.snake.some(
+      (segment) => segment.x === globalX && segment.y === globalY,
+    );
 
     const distance = Math.abs(head.x - globalX) + Math.abs(head.y - globalY);
 

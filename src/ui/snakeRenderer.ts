@@ -1,38 +1,38 @@
-import Phaser from "phaser";
-import { paletteConfig, darkenColor } from "../config/palette.js";
-import type { GridConfig } from "../config/gameConfig.js";
-import type { Vector2Like } from "../core/math.js";
-import type { RoomSnapshot } from "../world/types.js";
-import type { AppleSnapshot } from "../apples/types.js";
-import { RuntimeSpriteFactory } from "./runtimeSpriteFactory.js";
-import { getBiomeDefinition } from "../world/biomes.js";
+import Phaser from 'phaser';
+import { paletteConfig, darkenColor } from '../config/palette.js';
+import type { GridConfig } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import type { RoomSnapshot } from '../world/types.js';
+import type { AppleSnapshot } from '../apples/types.js';
+import { RuntimeSpriteFactory } from './runtimeSpriteFactory.js';
+import { getBiomeDefinition } from '../world/biomes.js';
 import {
   snakeSpriteRecipe,
   type SnakeSpritePalette,
   type SnakeSpriteVariant,
-} from "./spriteRecipes/snakeRecipe.js";
+} from './spriteRecipes/snakeRecipe.js';
 import {
   appleSpriteRecipe,
   type AppleSpritePalette,
   type AppleSpriteVariant,
-} from "./spriteRecipes/appleRecipe.js";
+} from './spriteRecipes/appleRecipe.js';
 import {
   snakeHatRecipe,
   type SnakeHatPalette,
   type SnakeHatStyle,
   type SnakeHatVariant,
-} from "./spriteRecipes/snakeHatRecipe.js";
+} from './spriteRecipes/snakeHatRecipe.js';
 import {
   enemySpriteRecipe,
   type EnemySpritePalette,
   type EnemySpriteVariant,
-} from "./spriteRecipes/enemyRecipe.js";
+} from './spriteRecipes/enemyRecipe.js';
 import {
   furnitureSpriteRecipe,
   type FurnitureSpritePalette,
   type FurnitureSpriteVariant,
-} from "./spriteRecipes/furnitureRecipe.js";
-import type { EnemyInstance, BulletInstance } from "../systems/enemies.js";
+} from './spriteRecipes/furnitureRecipe.js';
+import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 
 const SNAKE_OUTLINE_ALPHA = 0.9;
 const SNAKE_OUTLINE_WIDTH = 1;
@@ -67,7 +67,9 @@ export class SnakeRenderer {
   private readonly appleTextureKeys: Record<AppleSpriteVariant, string>;
   private readonly appleSprite: Phaser.GameObjects.Image;
   private readonly hatTextureKeys: Record<SnakeHatVariant, string>;
-  private readonly hatTextureCache: Partial<Record<SnakeHatStyle, Record<SnakeHatVariant, string>>> = {};
+  private readonly hatTextureCache: Partial<
+    Record<SnakeHatStyle, Record<SnakeHatVariant, string>>
+  > = {};
   private readonly enemyTextureKeys: Record<EnemySpriteVariant, string>;
   private readonly enemySprites: Phaser.GameObjects.Image[] = [];
   private readonly bulletSprites: Phaser.GameObjects.Image[] = [];
@@ -77,47 +79,49 @@ export class SnakeRenderer {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly graphics: Phaser.GameObjects.Graphics,
-    private readonly grid: GridConfig
+    private readonly grid: GridConfig,
   ) {
     this.spriteFactory = new RuntimeSpriteFactory(scene);
     this.defaultSnakeTextureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
       this.grid.cell,
-      this.buildSnakePalette()
+      this.buildSnakePalette(),
     );
     this.appleTextureKeys = this.spriteFactory.ensureRecipe(
       appleSpriteRecipe,
       this.grid.cell,
-      this.buildApplePalette()
+      this.buildApplePalette(),
     );
-    this.appleSprite = this.scene.add.image(0, 0, this.appleTextureKeys.normal)
+    this.appleSprite = this.scene.add
+      .image(0, 0, this.appleTextureKeys.normal)
       .setDepth(APPLE_LAYER_DEPTH)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
     this.hatTextureKeys = this.spriteFactory.ensureRecipe(
       snakeHatRecipe,
       this.grid.cell,
-      this.buildHatPalette()
+      this.buildHatPalette(),
     );
     this.enemyTextureKeys = this.spriteFactory.ensureRecipe(
       enemySpriteRecipe,
       this.grid.cell,
-      this.buildEnemyPalette()
+      this.buildEnemyPalette(),
     );
     this.furnitureTextureKeys = this.spriteFactory.ensureRecipe(
       furnitureSpriteRecipe,
       this.grid.cell,
-      this.buildFurniturePalette()
+      this.buildFurniturePalette(),
     );
     this.snakeLayer = this.scene.add.container(0, 0).setDepth(SNAKE_LAYER_DEPTH);
-    this.hatSprite = this.scene.add.image(0, 0, this.hatTextureKeys["hat-up"])
+    this.hatSprite = this.scene.add
+      .image(0, 0, this.hatTextureKeys['hat-up'])
       .setDepth(SNAKE_LAYER_DEPTH + 1)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
   }
 
   getWorldPosition(position: Vector2Like, currentRoomId: string): { x: number; y: number } {
-    const [roomX, roomY] = currentRoomId.split(",").map(Number);
+    const [roomX, roomY] = currentRoomId.split(',').map(Number);
     const localX = position.x - roomX * this.grid.cols;
     const localY = position.y - roomY * this.grid.rows;
 
@@ -132,7 +136,7 @@ export class SnakeRenderer {
     snakeBody: readonly Vector2Like[],
     currentRoomId: string,
     appleInfo?: AppleSnapshot | null,
-    options: SnakeRenderOptions = {}
+    options: SnakeRenderOptions = {},
   ): void {
     this.graphics.clear();
     this.graphics.clearMask();
@@ -155,7 +159,7 @@ export class SnakeRenderer {
       opts.snakeColor,
       opts.poweredUp ?? false,
       opts.snakePalette,
-      opts.activeHat ?? (opts.cowboyHat ? "cowboy" : null)
+      opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
     );
     this.drawEnemies(opts.enemies ?? []);
     this.drawBullets(opts.bullets ?? []);
@@ -164,7 +168,7 @@ export class SnakeRenderer {
   private drawRoom(room: RoomSnapshot): void {
     const ladderOutlineColor = darkenColor(
       paletteConfig.ladder.color,
-      paletteConfig.ladder.outlineDarkenFactor
+      paletteConfig.ladder.outlineDarkenFactor,
     );
     const biome = getBiomeDefinition(room.biomeId);
     for (let y = 0; y < room.layout.length; y++) {
@@ -172,8 +176,8 @@ export class SnakeRenderer {
         const tile = room.layout[y][x];
         const rectX = x * this.grid.cell;
         const rectY = y * this.grid.cell;
-        if (tile === "#") {
-          if (room.biomeId === "elderwood-maze") {
+        if (tile === '#') {
+          if (room.biomeId === 'elderwood-maze') {
             this.drawTreeTile(rectX, rectY, x, y);
           } else {
             this.graphics.fillStyle(room.wallColor, 1);
@@ -181,73 +185,95 @@ export class SnakeRenderer {
             this.graphics.lineStyle(2, room.wallOutlineColor, 0.85);
             this.graphics.strokeRect(rectX, rectY, this.grid.cell, this.grid.cell);
           }
-        } else if (tile === "H") {
+        } else if (tile === 'H') {
           const portal = room.portals.find((entry) => entry.x === x && entry.y === y);
-          const [, , currentZ = "0"] = room.id.split(",");
-          const [, , destZ = currentZ] = portal?.destRoomId.split(",") ?? [];
+          const [, , currentZ = '0'] = room.id.split(',');
+          const [, , destZ = currentZ] = portal?.destRoomId.split(',') ?? [];
           this.drawLadderTile(
             rectX,
             rectY,
-            Number(destZ) >= Number(currentZ) ? "up" : "down",
-            ladderOutlineColor
+            Number(destZ) >= Number(currentZ) ? 'up' : 'down',
+            ladderOutlineColor,
           );
-        } else if (tile === "~") {
-          this.drawWaterTile(rectX, rectY, x, y, room.biomeId === "sunken-ocean");
-        } else if (tile === "O") {
+        } else if (tile === '~') {
+          this.drawWaterTile(rectX, rectY, x, y, room.biomeId === 'sunken-ocean');
+        } else if (tile === 'O') {
           this.drawBoatTile(rectX, rectY, x, y);
-        } else if (tile === "W") {
+        } else if (tile === 'W') {
           // Wooden floor for house interior
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "T") {
+          this.graphics
+            .lineStyle(1, outline, 0.35)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'T') {
           // Door trim/frame accent
           const color = 0xcfa77a;
           const outline = darkenColor(color, 0.35);
-          this.graphics.fillStyle(color, 0.9).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.6).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "S") {
+          this.graphics
+            .fillStyle(color, 0.9)
+            .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics
+            .lineStyle(1, outline, 0.6)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'S') {
           this.drawMarketCanopyTile(rectX, rectY, x, y);
-        } else if (tile === "A") {
+        } else if (tile === 'A') {
           this.drawMarketCounterTile(rectX, rectY, x, y);
-        } else if (tile === "C") {
+        } else if (tile === 'C') {
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "K") {
+          this.graphics
+            .lineStyle(1, outline, 0.35)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'K') {
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "B") {
+          this.graphics
+            .lineStyle(1, outline, 0.35)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'B') {
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "P") {
+          this.graphics
+            .lineStyle(1, outline, 0.35)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'P') {
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "L") {
+          this.graphics
+            .lineStyle(1, outline, 0.35)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'L') {
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "E") {
+          this.graphics
+            .lineStyle(1, outline, 0.35)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'E') {
           // Expansion/rug: light accent tile
           const color = 0x8ea1ff;
           const outline = darkenColor(color, 0.45);
-          this.graphics.fillStyle(color, 0.75).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.6).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === "G") {
+          this.graphics
+            .fillStyle(color, 0.75)
+            .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics
+            .lineStyle(1, outline, 0.6)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'G') {
           // Quest giver tile uses cozy floor; sprite renders on top.
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
           this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics.lineStyle(1, outline, 0.35).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          this.graphics
+            .lineStyle(1, outline, 0.35)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
         } else {
           this.graphics.fillStyle(room.backgroundColor, 1);
           this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
@@ -257,12 +283,20 @@ export class SnakeRenderer {
     }
   }
 
-  private drawWaterTile(rectX: number, rectY: number, tileX: number, tileY: number, ocean: boolean): void {
+  private drawWaterTile(
+    rectX: number,
+    rectY: number,
+    tileX: number,
+    tileY: number,
+    ocean: boolean,
+  ): void {
     const base = ocean ? 0x0b4f7a : 0x176b8f;
     const deep = ocean ? 0x07344f : 0x0d4a66;
     const foam = ocean ? 0xa7e8ff : 0x8bdcff;
     this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-    this.graphics.fillStyle(deep, 0.42).fillRect(rectX, rectY + this.grid.cell * 0.52, this.grid.cell, this.grid.cell * 0.48);
+    this.graphics
+      .fillStyle(deep, 0.42)
+      .fillRect(rectX, rectY + this.grid.cell * 0.52, this.grid.cell, this.grid.cell * 0.48);
     if ((tileX * 3 + tileY * 5) % 4 === 0) {
       const y = rectY + Math.floor(this.grid.cell * 0.38);
       this.graphics.lineStyle(2, foam, 0.55);
@@ -272,24 +306,36 @@ export class SnakeRenderer {
       this.graphics.lineTo(rectX + this.grid.cell - 4, y + 1);
       this.graphics.strokePath();
     }
-    this.graphics.lineStyle(1, deep, 0.45).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    this.graphics
+      .lineStyle(1, deep, 0.45)
+      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private drawMarketCanopyTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
     const stripe = (tileX + tileY) % 2 === 0 ? 0xc7433d : 0xffe0a3;
     const shadow = darkenColor(stripe, 0.32);
     this.graphics.fillStyle(stripe, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-    this.graphics.fillStyle(shadow, 0.55).fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
-    this.graphics.lineStyle(1, 0x5b2f24, 0.72).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    this.graphics
+      .fillStyle(shadow, 0.55)
+      .fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
+    this.graphics
+      .lineStyle(1, 0x5b2f24, 0.72)
+      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private drawMarketCounterTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
     void tileX;
     void tileY;
     this.graphics.fillStyle(0x7a5232, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-    this.graphics.fillStyle(0xcfa77a, 0.9).fillRect(rectX, rectY, this.grid.cell, Math.max(2, Math.floor(this.grid.cell * 0.32)));
-    this.graphics.fillStyle(0x3d2412, 0.58).fillRect(rectX + 2, rectY + this.grid.cell - 4, this.grid.cell - 4, 2);
-    this.graphics.lineStyle(1, 0x3d2412, 0.75).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    this.graphics
+      .fillStyle(0xcfa77a, 0.9)
+      .fillRect(rectX, rectY, this.grid.cell, Math.max(2, Math.floor(this.grid.cell * 0.32)));
+    this.graphics
+      .fillStyle(0x3d2412, 0.58)
+      .fillRect(rectX + 2, rectY + this.grid.cell - 4, this.grid.cell - 4, 2);
+    this.graphics
+      .lineStyle(1, 0x3d2412, 0.75)
+      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private drawBoatTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
@@ -297,7 +343,9 @@ export class SnakeRenderer {
     const edge = darkenColor(base, 0.45);
     const highlight = 0xc79356;
     this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-    this.graphics.lineStyle(1, edge, 0.65).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    this.graphics
+      .lineStyle(1, edge, 0.65)
+      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
     this.graphics.lineStyle(1, highlight, 0.35);
     this.graphics.beginPath();
     this.graphics.moveTo(rectX + 3, rectY + this.grid.cell * 0.36);
@@ -313,27 +361,50 @@ export class SnakeRenderer {
     const leaf = (tileX * 5 + tileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
     const trunk = 0x5c3a23;
     this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-    this.graphics.fillStyle(shadow, 0.45).fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
-    this.graphics.fillStyle(trunk, 0.95).fillRect(rectX + this.grid.cell * 0.43, rectY + this.grid.cell * 0.48, this.grid.cell * 0.14, this.grid.cell * 0.34);
-    this.graphics.fillStyle(leaf, 0.95).fillCircle(rectX + this.grid.cell * 0.5, rectY + this.grid.cell * 0.38, this.grid.cell * 0.32);
-    this.graphics.fillStyle(0x9ddd76, 0.16).fillCircle(rectX + this.grid.cell * 0.4, rectY + this.grid.cell * 0.28, this.grid.cell * 0.12);
-    this.graphics.lineStyle(1, shadow, 0.8).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    this.graphics
+      .fillStyle(shadow, 0.45)
+      .fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
+    this.graphics
+      .fillStyle(trunk, 0.95)
+      .fillRect(
+        rectX + this.grid.cell * 0.43,
+        rectY + this.grid.cell * 0.48,
+        this.grid.cell * 0.14,
+        this.grid.cell * 0.34,
+      );
+    this.graphics
+      .fillStyle(leaf, 0.95)
+      .fillCircle(
+        rectX + this.grid.cell * 0.5,
+        rectY + this.grid.cell * 0.38,
+        this.grid.cell * 0.32,
+      );
+    this.graphics
+      .fillStyle(0x9ddd76, 0.16)
+      .fillCircle(
+        rectX + this.grid.cell * 0.4,
+        rectY + this.grid.cell * 0.28,
+        this.grid.cell * 0.12,
+      );
+    this.graphics
+      .lineStyle(1, shadow, 0.8)
+      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private drawLadderTile(
     rectX: number,
     rectY: number,
-    direction: "up" | "down",
-    outlineColor: number
+    direction: 'up' | 'down',
+    outlineColor: number,
   ): void {
     const cell = this.grid.cell;
     const inner = Math.max(4, Math.floor(cell * 0.18));
     const railInset = Math.max(5, Math.floor(cell * 0.24));
     const rungInset = Math.max(4, Math.floor(cell * 0.18));
-    const arrowColor = direction === "up" ? 0xbef7ff : 0xffe0a3;
-    const floorColor = direction === "up" ? 0x17364a : 0x3c2a1d;
-    const railColor = direction === "up" ? 0x78d8ff : 0xffc46b;
-    const shadowColor = direction === "up" ? 0x071822 : 0x21140c;
+    const arrowColor = direction === 'up' ? 0xbef7ff : 0xffe0a3;
+    const floorColor = direction === 'up' ? 0x17364a : 0x3c2a1d;
+    const railColor = direction === 'up' ? 0x78d8ff : 0xffc46b;
+    const shadowColor = direction === 'up' ? 0x071822 : 0x21140c;
 
     this.graphics.fillStyle(floorColor, 1);
     this.graphics.fillRect(rectX, rectY, cell, cell);
@@ -357,7 +428,11 @@ export class SnakeRenderer {
     this.graphics.strokePath();
 
     this.graphics.lineStyle(2, arrowColor, 0.9);
-    for (let y = rectY + rungInset + 3; y < rectY + cell - rungInset; y += Math.max(5, Math.floor(cell * 0.22))) {
+    for (
+      let y = rectY + rungInset + 3;
+      y < rectY + cell - rungInset;
+      y += Math.max(5, Math.floor(cell * 0.22))
+    ) {
       this.graphics.beginPath();
       this.graphics.moveTo(leftRailX, y);
       this.graphics.lineTo(rightRailX, y);
@@ -365,10 +440,10 @@ export class SnakeRenderer {
     }
 
     const centerX = rectX + cell / 2;
-    const arrowTop = direction === "up" ? rectY + 4 : rectY + cell - 4;
-    const arrowBase = direction === "up" ? rectY + 10 : rectY + cell - 10;
+    const arrowTop = direction === 'up' ? rectY + 4 : rectY + cell - 4;
+    const arrowBase = direction === 'up' ? rectY + 10 : rectY + cell - 10;
     this.graphics.fillStyle(arrowColor, 0.95);
-    if (direction === "up") {
+    if (direction === 'up') {
       this.graphics.fillTriangle(centerX, arrowTop, centerX - 4, arrowBase, centerX + 4, arrowBase);
     } else {
       this.graphics.fillTriangle(centerX, arrowTop, centerX - 4, arrowBase, centerX + 4, arrowBase);
@@ -381,53 +456,57 @@ export class SnakeRenderer {
     tileX: number,
     tileY: number,
     rectX: number,
-    rectY: number
+    rectY: number,
   ): void {
     switch (biomeId) {
-      case "ember-waste":
+      case 'ember-waste':
         if ((tileX + tileY) % 5 === 0) {
           this.graphics.fillStyle(accentColor, 0.07);
           this.graphics.fillCircle(rectX + this.grid.cell * 0.72, rectY + this.grid.cell * 0.28, 2);
         }
         break;
-      case "moonlit-parish":
+      case 'moonlit-parish':
         if ((tileX * 2 + tileY) % 6 === 0) {
           this.graphics.lineStyle(1, accentColor, 0.08);
           this.graphics.strokeRect(rectX + 3, rectY + 3, this.grid.cell - 6, this.grid.cell - 6);
         }
         break;
-      case "sable-depths":
+      case 'sable-depths':
         if ((tileX + tileY * 2) % 4 === 0) {
           this.graphics.fillStyle(accentColor, 0.05);
           this.graphics.fillRect(rectX + 2, rectY + this.grid.cell - 4, this.grid.cell - 4, 2);
         }
         break;
-      case "gloam-garden":
+      case 'gloam-garden':
         if ((tileX * 3 + tileY) % 7 === 0) {
           this.graphics.fillStyle(accentColor, 0.06);
           this.graphics.fillCircle(rectX + this.grid.cell * 0.35, rectY + this.grid.cell * 0.4, 2);
-          this.graphics.fillCircle(rectX + this.grid.cell * 0.58, rectY + this.grid.cell * 0.62, 1.5);
+          this.graphics.fillCircle(
+            rectX + this.grid.cell * 0.58,
+            rectY + this.grid.cell * 0.62,
+            1.5,
+          );
         }
         break;
-      case "elderwood-maze":
+      case 'elderwood-maze':
         if ((tileX + tileY * 3) % 5 === 0) {
           this.graphics.fillStyle(accentColor, 0.08);
           this.graphics.fillCircle(rectX + this.grid.cell * 0.5, rectY + this.grid.cell * 0.5, 2);
         }
         break;
-      case "sunken-ocean":
+      case 'sunken-ocean':
         if ((tileX + tileY * 2) % 5 === 0) {
           this.graphics.fillStyle(accentColor, 0.12);
           this.graphics.fillRect(rectX + 5, rectY + 9, this.grid.cell - 10, 2);
         }
         break;
-      case "home-hearth":
+      case 'home-hearth':
         if ((tileX + tileY) % 6 === 0) {
           this.graphics.fillStyle(accentColor, 0.04);
           this.graphics.fillRect(rectX + 2, rectY + 2, this.grid.cell - 4, this.grid.cell - 4);
         }
         break;
-      case "verdigris-basin":
+      case 'verdigris-basin':
       default:
         if ((tileX + tileY) % 6 === 0) {
           this.graphics.fillStyle(accentColor, 0.05);
@@ -441,13 +520,13 @@ export class SnakeRenderer {
     room: RoomSnapshot,
     snakeBody: readonly Vector2Like[],
     currentRoomId: string,
-    radius: number
+    radius: number,
   ): void {
     if (radius <= 0 || snakeBody.length === 0) {
       return;
     }
     const head = snakeBody[0];
-    const [roomX, roomY] = currentRoomId.split(",").map(Number);
+    const [roomX, roomY] = currentRoomId.split(',').map(Number);
     const localHeadX = head.x - roomX * this.grid.cols;
     const localHeadY = head.y - roomY * this.grid.rows;
     if (
@@ -465,16 +544,11 @@ export class SnakeRenderer {
       for (let dx = -radius; dx <= radius; dx++) {
         const targetX = localHeadX + dx;
         const targetY = localHeadY + dy;
-        if (
-          targetX < 0 ||
-          targetX >= this.grid.cols ||
-          targetY < 0 ||
-          targetY >= this.grid.rows
-        ) {
+        if (targetX < 0 || targetX >= this.grid.cols || targetY < 0 || targetY >= this.grid.rows) {
           continue;
         }
         const tile = room.layout[targetY]?.[targetX];
-        if (tile !== "#") {
+        if (tile !== '#') {
           continue;
         }
         const distance = Math.abs(dx) + Math.abs(dy);
@@ -487,7 +561,7 @@ export class SnakeRenderer {
           targetX * this.grid.cell,
           targetY * this.grid.cell,
           this.grid.cell,
-          this.grid.cell
+          this.grid.cell,
         );
       }
     }
@@ -517,7 +591,10 @@ export class SnakeRenderer {
         const sprite = this.ensureFurnitureSprite(index);
         sprite
           .setTexture(this.furnitureTextureKeys[variant])
-          .setPosition(x * this.grid.cell + this.grid.cell / 2, y * this.grid.cell + this.grid.cell / 2)
+          .setPosition(
+            x * this.grid.cell + this.grid.cell / 2,
+            y * this.grid.cell + this.grid.cell / 2,
+          )
           .setDisplaySize(this.grid.cell, this.grid.cell)
           .setVisible(true);
         index += 1;
@@ -591,14 +668,26 @@ export class SnakeRenderer {
     for (const relief of reliefs) {
       const x = relief.x * this.grid.cell;
       const y = relief.y * this.grid.cell;
-      const color = relief.kind === "warm" ? 0xffc27a : 0x8fd8ff;
+      const color = relief.kind === 'warm' ? 0xffc27a : 0x8fd8ff;
       const outline = darkenColor(color, 0.45);
       this.graphics.fillStyle(color, 0.55);
-      this.graphics.fillCircle(x + this.grid.cell / 2, y + this.grid.cell / 2, Math.max(4, this.grid.cell * 0.28));
+      this.graphics.fillCircle(
+        x + this.grid.cell / 2,
+        y + this.grid.cell / 2,
+        Math.max(4, this.grid.cell * 0.28),
+      );
       this.graphics.lineStyle(1, outline, 0.85);
-      this.graphics.strokeCircle(x + this.grid.cell / 2, y + this.grid.cell / 2, Math.max(4, this.grid.cell * 0.28));
+      this.graphics.strokeCircle(
+        x + this.grid.cell / 2,
+        y + this.grid.cell / 2,
+        Math.max(4, this.grid.cell * 0.28),
+      );
       this.graphics.lineStyle(1, color, 0.28);
-      this.graphics.strokeCircle(x + this.grid.cell / 2, y + this.grid.cell / 2, Math.max(6, this.grid.cell * 0.4));
+      this.graphics.strokeCircle(
+        x + this.grid.cell / 2,
+        y + this.grid.cell / 2,
+        Math.max(6, this.grid.cell * 0.4),
+      );
     }
   }
 
@@ -607,17 +696,16 @@ export class SnakeRenderer {
     if (!p) return;
     const x = p.x * this.grid.cell;
     const y = p.y * this.grid.cell;
-    const color =
-      p.kind === "gun" ? 0xf6bd60 :
-      p.kind === "smite" ? 0xd7263d :
-      0x9b5de5;
+    const color = p.kind === 'gun' ? 0xf6bd60 : p.kind === 'smite' ? 0xd7263d : 0x9b5de5;
     const outline = darkenColor(color, 0.35);
     this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
-    this.graphics.lineStyle(1, outline, 0.9).strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    this.graphics
+      .lineStyle(1, outline, 0.9)
+      .strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private extractShieldDirs(appleInfo?: AppleSnapshot): Vector2Like[] | undefined {
-    if (!appleInfo || appleInfo.typeId !== "shielded") {
+    if (!appleInfo || appleInfo.typeId !== 'shielded') {
       return undefined;
     }
     const dirs = appleInfo.metadata?.protectedDirs as Vector2Like[] | undefined;
@@ -649,17 +737,17 @@ export class SnakeRenderer {
     overrideColor?: number,
     poweredUp: boolean = false,
     paletteOverride?: SnakeSpritePalette,
-    activeHat: SnakeHatStyle | null = null
+    activeHat: SnakeHatStyle | null = null,
   ): void {
     void room;
-    const [roomX, roomY] = currentRoomId.split(",").map(Number);
+    const [roomX, roomY] = currentRoomId.split(',').map(Number);
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
-    const pulse = poweredUp ? (0.85 + 0.15 * Math.sin(now / 180)) : 1;
-    const tintColor = typeof overrideColor === "number" ? overrideColor : 0xffffff;
+    const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
+    const tintColor = typeof overrideColor === 'number' ? overrideColor : 0xffffff;
     const textureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
       this.grid.cell,
-      paletteOverride ?? this.buildSnakePalette()
+      paletteOverride ?? this.buildSnakePalette(),
     );
     this.snakeSprites.forEach((sprite) => sprite.setVisible(false));
     this.hatSprite.setVisible(false);
@@ -672,7 +760,7 @@ export class SnakeRenderer {
       }
       const alpha = Math.max(
         paletteConfig.snake.minAlpha,
-        1 - index * paletteConfig.snake.fadeStep
+        1 - index * paletteConfig.snake.fadeStep,
       );
       const x = localX * this.grid.cell;
       const y = localY * this.grid.cell;
@@ -704,7 +792,7 @@ export class SnakeRenderer {
       bellyColor: this.toCssColor(paletteConfig.snake.bellyColor),
       patternColor: this.toCssColor(paletteConfig.snake.patternColor),
       outlineColor: this.toCssColor(
-        darkenColor(paletteConfig.snake.bodyColor, paletteConfig.snake.outlineDarkenFactor)
+        darkenColor(paletteConfig.snake.bodyColor, paletteConfig.snake.outlineDarkenFactor),
       ),
       eyeColor: this.toCssColor(paletteConfig.snake.eyeColor),
     };
@@ -712,50 +800,50 @@ export class SnakeRenderer {
 
   private buildApplePalette(): AppleSpritePalette {
     return {
-      fillColor: "#ffffff",
-      accentColor: "#ffd9d9",
-      outlineColor: "#5c241d",
-      leafColor: "#9af7aa",
-      stemColor: "#714c2a",
-      sparkleColor: "#fff5c2",
+      fillColor: '#ffffff',
+      accentColor: '#ffd9d9',
+      outlineColor: '#5c241d',
+      leafColor: '#9af7aa',
+      stemColor: '#714c2a',
+      sparkleColor: '#fff5c2',
     };
   }
 
   private buildHatPalette(): SnakeHatPalette {
     return {
-      style: "cowboy",
-      fillColor: "#8b5a2b",
-      bandColor: "#d5b06f",
-      outlineColor: "#3d2412",
+      style: 'cowboy',
+      fillColor: '#8b5a2b',
+      bandColor: '#d5b06f',
+      outlineColor: '#3d2412',
     };
   }
 
   private buildHatPaletteFor(style: SnakeHatStyle): SnakeHatPalette {
-    if (style === "market-cap") {
+    if (style === 'market-cap') {
       return {
         style,
-        fillColor: "#315f7d",
-        bandColor: "#f0f6ff",
-        outlineColor: "#102b3a",
-        accentColor: "#ffcf5a",
+        fillColor: '#315f7d',
+        bandColor: '#f0f6ff',
+        outlineColor: '#102b3a',
+        accentColor: '#ffcf5a',
       };
     }
-    if (style === "ember-cowl") {
+    if (style === 'ember-cowl') {
       return {
         style,
-        fillColor: "#4b1d28",
-        bandColor: "#8f2f1f",
-        outlineColor: "#1a0c12",
-        accentColor: "#ffb36b",
+        fillColor: '#4b1d28',
+        bandColor: '#8f2f1f',
+        outlineColor: '#1a0c12',
+        accentColor: '#ffb36b',
       };
     }
-    if (style === "pearl-crown") {
+    if (style === 'pearl-crown') {
       return {
         style,
-        fillColor: "#f4d36a",
-        bandColor: "#fff5c8",
-        outlineColor: "#6a4b15",
-        accentColor: "#bff7ff",
+        fillColor: '#f4d36a',
+        bandColor: '#fff5c8',
+        outlineColor: '#6a4b15',
+        accentColor: '#bff7ff',
       };
     }
     return this.buildHatPalette();
@@ -766,34 +854,38 @@ export class SnakeRenderer {
     if (cached) {
       return cached;
     }
-    const keys = this.spriteFactory.ensureRecipe(snakeHatRecipe, this.grid.cell, this.buildHatPaletteFor(style));
+    const keys = this.spriteFactory.ensureRecipe(
+      snakeHatRecipe,
+      this.grid.cell,
+      this.buildHatPaletteFor(style),
+    );
     this.hatTextureCache[style] = keys;
     return keys;
   }
 
   private buildEnemyPalette(): EnemySpritePalette {
     return {
-      bodyColor: "#ff8f5a",
-      accentColor: "#ffd0a6",
-      outlineColor: "#6a2c1a",
-      eyeColor: "#fff8ef",
-      bulletColor: "#fff3a8",
-      bulletOutlineColor: "#8b5a2b",
+      bodyColor: '#ff8f5a',
+      accentColor: '#ffd0a6',
+      outlineColor: '#6a2c1a',
+      eyeColor: '#fff8ef',
+      bulletColor: '#fff3a8',
+      bulletOutlineColor: '#8b5a2b',
     };
   }
 
   private buildFurniturePalette(): FurnitureSpritePalette {
     return {
-      couch: { fill: "#ffb26b", accent: "#ffd8a8", outline: "#7c4a27" },
-      kitchen: { fill: "#5ac8c0", accent: "#c7fff7", outline: "#24504d" },
-      bed: { fill: "#ffb3c1", accent: "#fff0f4", outline: "#6e4350" },
-      plant: { fill: "#62d96b", accent: "#9a6b3d", outline: "#29472d" },
-      lamp: { fill: "#ffe58a", accent: "#fff6c7", outline: "#6c5a25" },
+      couch: { fill: '#ffb26b', accent: '#ffd8a8', outline: '#7c4a27' },
+      kitchen: { fill: '#5ac8c0', accent: '#c7fff7', outline: '#24504d' },
+      bed: { fill: '#ffb3c1', accent: '#fff0f4', outline: '#6e4350' },
+      plant: { fill: '#62d96b', accent: '#9a6b3d', outline: '#29472d' },
+      lamp: { fill: '#ffe58a', accent: '#fff6c7', outline: '#6c5a25' },
     };
   }
 
   private toCssColor(hex: number): string {
-    return `#${hex.toString(16).padStart(6, "0")}`;
+    return `#${hex.toString(16).padStart(6, '0')}`;
   }
 
   private ensureSnakeSprite(index: number): Phaser.GameObjects.Image {
@@ -803,7 +895,7 @@ export class SnakeRenderer {
     }
 
     sprite = this.scene.add
-      .image(0, 0, this.defaultSnakeTextureKeys["body-horizontal"])
+      .image(0, 0, this.defaultSnakeTextureKeys['body-horizontal'])
       .setVisible(false)
       .setOrigin(0.5, 0.5);
     this.snakeLayer.add(sprite);
@@ -814,7 +906,7 @@ export class SnakeRenderer {
   private resolveVariant(
     snakeBody: readonly Vector2Like[],
     index: number,
-    direction: Vector2Like
+    direction: Vector2Like,
   ): SnakeSpriteVariant {
     if (snakeBody.length <= 1) {
       return this.headVariantFor(direction);
@@ -846,24 +938,24 @@ export class SnakeRenderer {
     };
 
     if (toPrevious.x === -toNext.x && toPrevious.y === -toNext.y) {
-      return toPrevious.x !== 0 ? "body-horizontal" : "body-vertical";
+      return toPrevious.x !== 0 ? 'body-horizontal' : 'body-vertical';
     }
 
     return this.turnVariantFor(toPrevious, toNext);
   }
 
   private headVariantFor(direction: Vector2Like): SnakeSpriteVariant {
-    if (direction.x > 0) return "head-right";
-    if (direction.x < 0) return "head-left";
-    if (direction.y > 0) return "head-down";
-    return "head-up";
+    if (direction.x > 0) return 'head-right';
+    if (direction.x < 0) return 'head-left';
+    if (direction.y > 0) return 'head-down';
+    return 'head-up';
   }
 
   private tailVariantFor(direction: Vector2Like): SnakeSpriteVariant {
-    if (direction.x > 0) return "tail-right";
-    if (direction.x < 0) return "tail-left";
-    if (direction.y > 0) return "tail-down";
-    return "tail-up";
+    if (direction.x > 0) return 'tail-right';
+    if (direction.x < 0) return 'tail-left';
+    if (direction.y > 0) return 'tail-down';
+    return 'tail-up';
   }
 
   private turnVariantFor(a: Vector2Like, b: Vector2Like): SnakeSpriteVariant {
@@ -872,30 +964,30 @@ export class SnakeRenderer {
     const hasDown = a.y > 0 || b.y > 0;
     const hasLeft = a.x < 0 || b.x < 0;
 
-    if (hasUp && hasRight) return "turn-up-right";
-    if (hasRight && hasDown) return "turn-right-down";
-    if (hasDown && hasLeft) return "turn-down-left";
-    return "turn-left-up";
+    if (hasUp && hasRight) return 'turn-up-right';
+    if (hasRight && hasDown) return 'turn-right-down';
+    if (hasDown && hasLeft) return 'turn-down-left';
+    return 'turn-left-up';
   }
 
   private hatVariantFor(direction: Vector2Like): SnakeHatVariant {
-    if (direction.x > 0) return "hat-right";
-    if (direction.x < 0) return "hat-left";
-    if (direction.y > 0) return "hat-down";
-    return "hat-up";
+    if (direction.x > 0) return 'hat-right';
+    if (direction.x < 0) return 'hat-left';
+    if (direction.y > 0) return 'hat-down';
+    return 'hat-up';
   }
 
   private resolveAppleVariant(appleInfo?: AppleSnapshot): AppleSpriteVariant {
     switch (appleInfo?.typeId) {
-      case "shielded":
-        return "shielded";
-      case "gold":
-      case "pearl":
-        return "gold";
-      case "skittish":
-        return "skittish";
+      case 'shielded':
+        return 'shielded';
+      case 'gold':
+      case 'pearl':
+        return 'gold';
+      case 'skittish':
+        return 'skittish';
       default:
-        return "normal";
+        return 'normal';
     }
   }
 
@@ -907,13 +999,13 @@ export class SnakeRenderer {
       const textureKeys = this.spriteFactory.ensureRecipe(
         enemySpriteRecipe,
         this.grid.cell,
-        this.paletteForEnemy(enemy)
+        this.paletteForEnemy(enemy),
       );
       sprite
         .setTexture(textureKeys[variant])
         .setPosition(
           enemy.position.x * this.grid.cell + this.grid.cell / 2,
-          enemy.position.y * this.grid.cell + this.grid.cell / 2
+          enemy.position.y * this.grid.cell + this.grid.cell / 2,
         )
         .setDisplaySize(this.grid.cell, this.grid.cell)
         .setVisible(true);
@@ -928,13 +1020,13 @@ export class SnakeRenderer {
       const textureKeys = this.spriteFactory.ensureRecipe(
         enemySpriteRecipe,
         this.grid.cell,
-        this.paletteForBullet(bullet)
+        this.paletteForBullet(bullet),
       );
       sprite
-        .setTexture(textureKeys["bullet"])
+        .setTexture(textureKeys['bullet'])
         .setPosition(
           bullet.position.x * this.grid.cell + this.grid.cell / 2,
-          bullet.position.y * this.grid.cell + this.grid.cell / 2
+          bullet.position.y * this.grid.cell + this.grid.cell / 2,
         )
         .setDisplaySize(bulletSize, bulletSize)
         .setVisible(true);
@@ -947,7 +1039,7 @@ export class SnakeRenderer {
       return sprite;
     }
     sprite = this.scene.add
-      .image(0, 0, this.enemyTextureKeys["enemy-down"])
+      .image(0, 0, this.enemyTextureKeys['enemy-down'])
       .setDepth(ENEMY_LAYER_DEPTH)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
@@ -961,7 +1053,7 @@ export class SnakeRenderer {
       return sprite;
     }
     sprite = this.scene.add
-      .image(0, 0, this.enemyTextureKeys["bullet"])
+      .image(0, 0, this.enemyTextureKeys['bullet'])
       .setDepth(BULLET_LAYER_DEPTH)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
@@ -975,7 +1067,7 @@ export class SnakeRenderer {
       return sprite;
     }
     sprite = this.scene.add
-      .image(0, 0, this.furnitureTextureKeys["couch"])
+      .image(0, 0, this.furnitureTextureKeys['couch'])
       .setDepth(FURNITURE_LAYER_DEPTH)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
@@ -985,53 +1077,58 @@ export class SnakeRenderer {
 
   private resolveEnemyVariant(enemy: EnemyInstance): EnemySpriteVariant {
     const suffix =
-      enemy.aimDirection.x > 0 ? "right" :
-      enemy.aimDirection.x < 0 ? "left" :
-      enemy.aimDirection.y < 0 ? "up" :
-      "down";
+      enemy.aimDirection.x > 0
+        ? 'right'
+        : enemy.aimDirection.x < 0
+          ? 'left'
+          : enemy.aimDirection.y < 0
+            ? 'up'
+            : 'down';
 
-    return (enemy.flashTicks > 0 ? `enemy-flash-${suffix}` : `enemy-${suffix}`) as EnemySpriteVariant;
+    return (
+      enemy.flashTicks > 0 ? `enemy-flash-${suffix}` : `enemy-${suffix}`
+    ) as EnemySpriteVariant;
   }
 
   private paletteForEnemy(enemy: EnemyInstance): EnemySpritePalette {
-    if (enemy.encounterKind === "npc-hostile") {
+    if (enemy.encounterKind === 'npc-hostile') {
       return {
-        bodyColor: "#a82d3d",
-        accentColor: "#ff9f8b",
-        outlineColor: "#30070e",
-        eyeColor: "#fff0ea",
-        bulletColor: "#ffb36b",
-        bulletOutlineColor: "#6a2c1a",
+        bodyColor: '#a82d3d',
+        accentColor: '#ff9f8b',
+        outlineColor: '#30070e',
+        eyeColor: '#fff0ea',
+        bulletColor: '#ffb36b',
+        bulletOutlineColor: '#6a2c1a',
       };
     }
-    if (enemy.encounterKind === "duelist") {
-      if (enemy.id === "freak-joey") {
+    if (enemy.encounterKind === 'duelist') {
+      if (enemy.id === 'freak-joey') {
         return {
-          bodyColor: "#7a2430",
-          accentColor: "#f4b46a",
-          outlineColor: "#23060a",
-          eyeColor: "#fff0d4",
-          bulletColor: "#ffd27d",
-          bulletOutlineColor: "#5a2a12",
+          bodyColor: '#7a2430',
+          accentColor: '#f4b46a',
+          outlineColor: '#23060a',
+          eyeColor: '#fff0d4',
+          bulletColor: '#ffd27d',
+          bulletOutlineColor: '#5a2a12',
         };
       }
       return {
-        bodyColor: "#5d3d7d",
-        accentColor: "#f0da8a",
-        outlineColor: "#1c1026",
-        eyeColor: "#fff8e2",
-        bulletColor: "#e2c8ff",
-        bulletOutlineColor: "#4a315f",
+        bodyColor: '#5d3d7d',
+        accentColor: '#f0da8a',
+        outlineColor: '#1c1026',
+        eyeColor: '#fff8e2',
+        bulletColor: '#e2c8ff',
+        bulletOutlineColor: '#4a315f',
       };
     }
-    if (enemy.encounterKind === "shark") {
+    if (enemy.encounterKind === 'shark') {
       return {
-        bodyColor: "#3f6f87",
-        accentColor: "#b9e8f5",
-        outlineColor: "#092534",
-        eyeColor: "#fff6e8",
-        bulletColor: "#9ed8e8",
-        bulletOutlineColor: "#123746",
+        bodyColor: '#3f6f87',
+        accentColor: '#b9e8f5',
+        outlineColor: '#092534',
+        eyeColor: '#fff6e8',
+        bulletColor: '#9ed8e8',
+        bulletOutlineColor: '#123746',
       };
     }
     return this.buildEnemyPalette();
@@ -1039,43 +1136,43 @@ export class SnakeRenderer {
 
   private paletteForBullet(bullet: BulletInstance): EnemySpritePalette {
     switch (bullet.style) {
-      case "player":
+      case 'player':
         return {
-          bodyColor: "#f6bd60",
-          accentColor: "#ffe0a3",
-          outlineColor: "#7a4d1d",
-          eyeColor: "#fff8ef",
-          bulletColor: "#ffe0a3",
-          bulletOutlineColor: "#7a4d1d",
+          bodyColor: '#f6bd60',
+          accentColor: '#ffe0a3',
+          outlineColor: '#7a4d1d',
+          eyeColor: '#fff8ef',
+          bulletColor: '#ffe0a3',
+          bulletOutlineColor: '#7a4d1d',
         };
-      case "npc-hostile":
+      case 'npc-hostile':
         return {
-          bodyColor: "#a82d3d",
-          accentColor: "#ff9f8b",
-          outlineColor: "#30070e",
-          eyeColor: "#fff0ea",
-          bulletColor: "#ff8e7a",
-          bulletOutlineColor: "#5a1620",
+          bodyColor: '#a82d3d',
+          accentColor: '#ff9f8b',
+          outlineColor: '#30070e',
+          eyeColor: '#fff0ea',
+          bulletColor: '#ff8e7a',
+          bulletOutlineColor: '#5a1620',
         };
-      case "freak-joey":
+      case 'freak-joey':
         return {
-          bodyColor: "#7a2430",
-          accentColor: "#f4b46a",
-          outlineColor: "#23060a",
-          eyeColor: "#fff0d4",
-          bulletColor: "#ffd27d",
-          bulletOutlineColor: "#5a2a12",
+          bodyColor: '#7a2430',
+          accentColor: '#f4b46a',
+          outlineColor: '#23060a',
+          eyeColor: '#fff0d4',
+          bulletColor: '#ffd27d',
+          bulletOutlineColor: '#5a2a12',
         };
-      case "duelist":
+      case 'duelist':
         return {
-          bodyColor: "#5d3d7d",
-          accentColor: "#f0da8a",
-          outlineColor: "#1c1026",
-          eyeColor: "#fff8e2",
-          bulletColor: "#e2c8ff",
-          bulletOutlineColor: "#4a315f",
+          bodyColor: '#5d3d7d',
+          accentColor: '#f0da8a',
+          outlineColor: '#1c1026',
+          eyeColor: '#fff8e2',
+          bulletColor: '#e2c8ff',
+          bulletOutlineColor: '#4a315f',
         };
-      case "enemy":
+      case 'enemy':
       default:
         return this.buildEnemyPalette();
     }
@@ -1083,16 +1180,16 @@ export class SnakeRenderer {
 
   private furnitureVariantForTile(tile: string): FurnitureSpriteVariant | null {
     switch (tile) {
-      case "C":
-        return "couch";
-      case "K":
-        return "kitchen";
-      case "B":
-        return "bed";
-      case "P":
-        return "plant";
-      case "L":
-        return "lamp";
+      case 'C':
+        return 'couch';
+      case 'K':
+        return 'kitchen';
+      case 'B':
+        return 'bed';
+      case 'P':
+        return 'plant';
+      case 'L':
+        return 'lamp';
       default:
         return null;
     }

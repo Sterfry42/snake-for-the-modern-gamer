@@ -1,6 +1,6 @@
-import Phaser from "phaser";
-import type SnakeScene from "../scenes/snakeScene.js";
-import type { Quest } from "../../quests.js";
+import Phaser from 'phaser';
+import type SnakeScene from '../scenes/snakeScene.js';
+import type { Quest } from '../../quests.js';
 
 interface QuestHudOptions {
   position?: { x: number; y: number };
@@ -13,9 +13,9 @@ interface QuestHudOptions {
 
 const DEFAULT_OPTIONS: Required<QuestHudOptions> = {
   position: { x: 0, y: 0 },
-  fontSize: "14px",
-  fontFamily: "monospace",
-  color: "#e6e6e6",
+  fontSize: '14px',
+  fontFamily: 'monospace',
+  color: '#e6e6e6',
   lineSpacing: 4,
   depth: 10,
 };
@@ -30,7 +30,7 @@ export class QuestHud {
 
   constructor(
     private readonly scene: SnakeScene,
-    options: QuestHudOptions = {}
+    options: QuestHudOptions = {},
   ) {
     this.options = {
       position: options.position ?? DEFAULT_OPTIONS.position,
@@ -42,12 +42,12 @@ export class QuestHud {
     };
 
     this.text = this.scene.add
-      .text(this.options.position.x, this.options.position.y, "", {
+      .text(this.options.position.x, this.options.position.y, '', {
         fontFamily: this.options.fontFamily,
         fontSize: this.options.fontSize,
         color: this.options.color,
         lineSpacing: this.options.lineSpacing,
-        align: "right",
+        align: 'right',
       })
       .setOrigin(1, 0)
       .setDepth(this.options.depth);
@@ -57,13 +57,13 @@ export class QuestHud {
     const visibleQuests = quests.slice(0, MAX_VISIBLE_QUESTS);
     this.hasContent = visibleQuests.length > 0;
     if (!this.hasContent) {
-      this.text.setText("");
+      this.text.setText('');
       this.text.setVisible(false);
       return;
     }
 
     const lines = visibleQuests.map((quest) => `[ ] ${quest.description}`);
-    const content = [`Quests:`, ...lines].join("\n");
+    const content = [`Quests:`, ...lines].join('\n');
 
     this.text.setText(content);
     this.text.setPosition(gridWidth - 10, this.options.position.y);

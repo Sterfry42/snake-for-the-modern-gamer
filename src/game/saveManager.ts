@@ -35,8 +35,8 @@ export interface GameSaveData {
 }
 
 export class SaveManager {
-  private readonly SAVE_KEY = "snakeGameSave";
-  private readonly VERSION = "1.0.0";
+  private readonly SAVE_KEY = 'snakeGameSave';
+  private readonly VERSION = '1.0.0';
 
   constructor() {}
 
@@ -61,11 +61,16 @@ export class SaveManager {
 
       localStorage.setItem(this.SAVE_KEY, JSON.stringify(data));
     } catch (error) {
-      console.error("Failed to save game:", error);
+      console.error('Failed to save game:', error);
     }
   }
 
-  load(game: any, getReligionChoice?: () => any, getClassChoice?: () => any, getBackgroundChoice?: () => any): boolean {
+  load(
+    game: any,
+    getReligionChoice?: () => any,
+    getClassChoice?: () => any,
+    getBackgroundChoice?: () => any,
+  ): boolean {
     try {
       const saved = localStorage.getItem(this.SAVE_KEY);
       if (!saved) {
@@ -75,7 +80,7 @@ export class SaveManager {
       const data = JSON.parse(saved) as GameSaveData;
 
       if (data.version !== this.VERSION) {
-        console.error("Save version mismatch:", data.version, this.VERSION);
+        console.error('Save version mismatch:', data.version, this.VERSION);
         return false;
       }
 
@@ -87,7 +92,7 @@ export class SaveManager {
 
       return success;
     } catch (error) {
-      console.error("Failed to load game:", error);
+      console.error('Failed to load game:', error);
       return false;
     }
   }
@@ -104,7 +109,7 @@ export class SaveManager {
     try {
       localStorage.removeItem(this.SAVE_KEY);
     } catch (error) {
-      console.error("Failed to clear save:", error);
+      console.error('Failed to clear save:', error);
     }
   }
 }

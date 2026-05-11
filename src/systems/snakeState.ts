@@ -1,12 +1,12 @@
-import type { GridConfig, SnakeConfig } from "../config/gameConfig.js";
-import type { Vector2Like } from "../core/math.js";
-import { addVectors } from "../core/math.js";
-import type { BossManager } from "./boss.js";
-import type { RoomSnapshot } from "../world/types.js";
+import type { GridConfig, SnakeConfig } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import { addVectors } from '../core/math.js';
+import type { BossManager } from './boss.js';
+import type { RoomSnapshot } from '../world/types.js';
 
 export interface SnakeStepOutcome {
-  status: "alive" | "dead";
-  reason?: "wall" | "self" | "boss" | "water" | "shielded" | "bullet" | "temperature";
+  status: 'alive' | 'dead';
+  reason?: 'wall' | 'self' | 'boss' | 'water' | 'shielded' | 'bullet' | 'temperature';
   appleEaten?: boolean;
 }
 
@@ -163,7 +163,7 @@ export class SnakeState {
       nextDirection: { ...this.nextDirection },
       bufferedDirection: this.bufferedDirection ? { ...this.bufferedDirection } : null,
     };
-    this.flags["internal.previousSnapshot"] = previousSnapshot;
+    this.flags['internal.previousSnapshot'] = previousSnapshot;
 
     const bossManager = deps.getBossManager();
     const currentHeadBeforeMove = this.body[0];
@@ -191,11 +191,12 @@ export class SnakeState {
       const head0 = this.body[0];
       const isBlocked = (dir: Vector2Like): boolean => {
         const candidate = addVectors(head0, dir);
-        const [roomX, roomY] = this.roomId.split(",").map(Number);
+        const [roomX, roomY] = this.roomId.split(',').map(Number);
         const localX = candidate.x - roomX * this.grid.cols;
         const localY = candidate.y - roomY * this.grid.rows;
         // Allow leaving the room freely; only block on solid wall tiles
-        if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows) return false;
+        if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows)
+          return false;
         const tile = currentRoom.layout[localY]?.[localX];
         if (!tile) return true;
         if (tile === '#') return true;
@@ -215,26 +216,26 @@ export class SnakeState {
 
     const previousHead = currentHeadBeforeMove;
     if (previousHead) {
-      this.flags["internal.previousHead"] = { x: previousHead.x, y: previousHead.y };
+      this.flags['internal.previousHead'] = { x: previousHead.x, y: previousHead.y };
     } else {
-      delete this.flags["internal.previousHead"];
+      delete this.flags['internal.previousHead'];
     }
-    delete this.flags["internal.lastRemovedTail"];
-    delete this.flags["internal.lastSelfCollision"];
-    delete this.flags["geometry.wallEaten"];
-    delete this.flags["geometry.terraShieldTriggered"];
+    delete this.flags['internal.lastRemovedTail'];
+    delete this.flags['internal.lastSelfCollision'];
+    delete this.flags['geometry.wallEaten'];
+    delete this.flags['geometry.terraShieldTriggered'];
 
     const head = addVectors(this.body[0], this.direction);
 
     let roomChanged = false;
     let verticalRoomChanged = false;
 
-    const [roomX, roomY, roomZ = 0] = this.roomId.split(",").map(Number);
+    const [roomX, roomY, roomZ = 0] = this.roomId.split(',').map(Number);
     const localHeadX = head.x - roomX * this.grid.cols;
     const localHeadY = head.y - roomY * this.grid.rows;
     const portal = currentRoom.portals.find((p) => p.x === localHeadX && p.y === localHeadY);
     if (portal) {
-      const [, , destZ = "0"] = portal.destRoomId.split(",");
+      const [, , destZ = '0'] = portal.destRoomId.split(',');
       verticalRoomChanged = Number(destZ) !== roomZ;
       this.roomId = portal.destRoomId;
       roomChanged = true;
@@ -262,27 +263,27 @@ export class SnakeState {
     }
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
-    const invulnTicks = Number(this.flags["fortitude.invulnerabilityTicks"] ?? 0);
+    const invulnTicks = Number(this.flags['fortitude.invulnerabilityTicks'] ?? 0);
     const wallInvulnTicks = Math.max(invulnTicks, safeZoneActive ? 1 : 0);
-    if (tile === "#") {
+    if (tile === '#') {
       if (wallInvulnTicks > 0) {
         // Invulnerability lets us phase through the wall.
       } else if (this.tryConsumeWall(finalizedRoom, finalLocalHeadX, finalLocalHeadY, head)) {
-        this.flags["geometry.wallEaten"] = { x: head.x, y: head.y, roomId: this.roomId };
+        this.flags['geometry.wallEaten'] = { x: head.x, y: head.y, roomId: this.roomId };
       } else {
         this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
-        return { status: "dead", reason: "wall" };
+        return { status: 'dead', reason: 'wall' };
       }
     }
-    if (tile === "~" && !this.flags["equipment.swimmingEnabled"]) {
+    if (tile === '~' && !this.flags['equipment.swimmingEnabled']) {
       this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
-      return { status: "dead", reason: "water" };
+      return { status: 'dead', reason: 'water' };
     }
 
     const appleEaten = Boolean(
       finalizedRoom.apple &&
       finalizedRoom.apple.x === finalLocalHeadX &&
-      finalizedRoom.apple.y === finalLocalHeadY
+      finalizedRoom.apple.y === finalLocalHeadY,
     );
     const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTailStack();
     const selfCollisionIndex = verticalRoomChanged
@@ -293,7 +294,7 @@ export class SnakeState {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
         const collidedSegment = bodyForSelfCollision[selfCollisionIndex];
-        this.flags["internal.lastSelfCollision"] = {
+        this.flags['internal.lastSelfCollision'] = {
           index: selfCollisionIndex,
           segment: collidedSegment ? { x: collidedSegment.x, y: collidedSegment.y } : undefined,
           checkedBodyLength: bodyForSelfCollision.length,
@@ -302,74 +303,77 @@ export class SnakeState {
           body: this.body.map((segment) => ({ x: segment.x, y: segment.y })),
         };
         this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
-        return { status: "dead", reason: "self" };
+        return { status: 'dead', reason: 'self' };
       }
     }
 
     const collidedBoss = bossManager.getBossAtPosition(head, this.roomId);
     if (collidedBoss && invulnTicks <= 0) {
-      const smite = Number(this.flags["powerup.smiteTicks"] ?? 0);
+      const smite = Number(this.flags['powerup.smiteTicks'] ?? 0);
       if (smite > 0) {
         // Kill the boss we collided with instead of dying
         bossManager.killBossAtPosition(head, this.roomId);
-        this.flags["internal.killedByBossKind"] = undefined;
-        this.flags["internal.killedByBossName"] = undefined;
-        this.flags["ui.bossSmite"] = {
+        this.flags['internal.killedByBossKind'] = undefined;
+        this.flags['internal.killedByBossName'] = undefined;
+        this.flags['ui.bossSmite'] = {
           x: head.x,
           y: head.y,
           roomId: this.getRoomIdForPosition(head),
         };
       } else {
-        this.flags["internal.killedByBossKind"] = collidedBoss.kind;
-        this.flags["internal.killedByBossName"] = collidedBoss.name;
+        this.flags['internal.killedByBossKind'] = collidedBoss.kind;
+        this.flags['internal.killedByBossName'] = collidedBoss.name;
         this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
-        return { status: "dead", reason: "boss" };
+        return { status: 'dead', reason: 'boss' };
       }
     }
 
     this.body.unshift({ x: head.x, y: head.y });
-    this.flags["internal.currentHead"] = { x: head.x, y: head.y };
+    this.flags['internal.currentHead'] = { x: head.x, y: head.y };
 
     if (!appleEaten) {
       const removed = this.body.pop();
       if (removed) {
         const tailRoomX = Math.floor(removed.x / this.grid.cols);
         const tailRoomY = Math.floor(removed.y / this.grid.rows);
-        const [, , roomZ = "0"] = this.roomId.split(",");
-        this.flags["internal.lastRemovedTail"] = {
+        const [, , roomZ = '0'] = this.roomId.split(',');
+        this.flags['internal.lastRemovedTail'] = {
           x: removed.x,
           y: removed.y,
-          roomId: `${tailRoomX},${tailRoomY},${roomZ}`
+          roomId: `${tailRoomX},${tailRoomY},${roomZ}`,
         };
       } else {
-        delete this.flags["internal.lastRemovedTail"];
+        delete this.flags['internal.lastRemovedTail'];
       }
     } else {
-      delete this.flags["internal.lastRemovedTail"];
+      delete this.flags['internal.lastRemovedTail'];
     }
 
     if (verticalRoomChanged) {
       this.body = this.body.map(() => ({ x: head.x, y: head.y }));
-      delete this.flags["internal.lastRemovedTail"];
+      delete this.flags['internal.lastRemovedTail'];
     }
 
-    if (this.bufferedDirection && !this.isOppositeDirection(this.bufferedDirection, this.direction)) {
+    if (
+      this.bufferedDirection &&
+      !this.isOppositeDirection(this.bufferedDirection, this.direction)
+    ) {
       this.nextDirection = { ...this.bufferedDirection };
     } else {
       this.nextDirection = { ...this.direction };
     }
     this.bufferedDirection = null;
 
-    return { status: "alive", appleEaten };
+    return { status: 'alive', appleEaten };
   }
 
   private markDeathPosition(
     worldPosition: Vector2Like,
     roomId: string,
     localPosition: Vector2Like,
-    tile?: string
+    tile?: string,
   ): void {
-    this.flags["internal.lastDeathPosition"] = {
+    this.flags['internal.lastDeathPosition'] = {
       world: { x: worldPosition.x, y: worldPosition.y },
       local: { x: localPosition.x, y: localPosition.y },
       roomId,
@@ -379,12 +383,12 @@ export class SnakeState {
   }
 
   private isSafeRoom(roomId: string): boolean {
-    return roomId === "0,-1,0";
+    return roomId === '0,-1,0';
   }
 
   private isSafeTile(tile?: string): boolean {
     if (!tile) return false;
-    return "WETCKBPLG".includes(tile);
+    return 'WETCKBPLG'.includes(tile);
   }
 
   private isInSafeZone(room: RoomSnapshot, head?: Vector2Like): boolean {
@@ -394,7 +398,7 @@ export class SnakeState {
     if (!head) {
       return false;
     }
-    const [roomX, roomY] = this.roomId.split(",").map(Number);
+    const [roomX, roomY] = this.roomId.split(',').map(Number);
     const localX = head.x - roomX * this.grid.cols;
     const localY = head.y - roomY * this.grid.rows;
     if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows) {
@@ -404,7 +408,7 @@ export class SnakeState {
     return this.isSafeTile(tile);
   }
   restorePreviousSnapshot(): void {
-    const snapshot = this.flags["internal.previousSnapshot"] as
+    const snapshot = this.flags['internal.previousSnapshot'] as
       | {
           body: Vector2Like[];
           roomId: string;
@@ -423,12 +427,17 @@ export class SnakeState {
     this.bufferedDirection = null;
     const currentHead = this.body[0];
     if (currentHead) {
-      this.flags["internal.currentHead"] = { x: currentHead.x, y: currentHead.y };
+      this.flags['internal.currentHead'] = { x: currentHead.x, y: currentHead.y };
     }
-    delete this.flags["internal.previousSnapshot"];
+    delete this.flags['internal.previousSnapshot'];
   }
 
-  restoreFromSave(body: Vector2Like[], direction: Vector2Like, roomId: string, length: number): void {
+  restoreFromSave(
+    body: Vector2Like[],
+    direction: Vector2Like,
+    roomId: string,
+    length: number,
+  ): void {
     console.log(`[SnakeState] Restoring from save with ${body.length} segments`);
     this.body = body.map((segment) => ({ x: segment.x, y: segment.y }));
     this.direction = { ...direction };
@@ -445,12 +454,16 @@ export class SnakeState {
 
     const currentHead = this.body[0];
     if (currentHead) {
-      this.flags["internal.currentHead"] = { x: currentHead.x, y: currentHead.y };
+      this.flags['internal.currentHead'] = { x: currentHead.x, y: currentHead.y };
     }
     console.log(`[SnakeState] After restore - snake length: ${this.body.length}`);
   }
 
-  private resolveSelfCollision(head: Vector2Like, collisionIndex: number, invulnTicks: number): boolean {
+  private resolveSelfCollision(
+    head: Vector2Like,
+    collisionIndex: number,
+    invulnTicks: number,
+  ): boolean {
     if (invulnTicks > 0) {
       return true;
     }
@@ -481,14 +494,14 @@ export class SnakeState {
   }
 
   private tryConsumeSelfCollision(head: Vector2Like): boolean {
-    const state = this.flags["fortitude.hardened"] as { charges?: number } | undefined;
+    const state = this.flags['fortitude.hardened'] as { charges?: number } | undefined;
     const charges = state?.charges ?? 0;
     if (charges <= 0) {
       return false;
     }
     const next = Math.max(0, charges - 1);
-    this.flags["fortitude.hardened"] = { ...state, charges: next };
-    this.flags["fortitude.hardenedTriggered"] = {
+    this.flags['fortitude.hardened'] = { ...state, charges: next };
+    this.flags['fortitude.hardenedTriggered'] = {
       x: head.x,
       y: head.y,
       roomId: this.getRoomIdForPosition(head),
@@ -499,7 +512,7 @@ export class SnakeState {
   private getRoomIdForPosition(position: Vector2Like): string {
     const roomX = Math.floor(position.x / this.grid.cols);
     const roomY = Math.floor(position.y / this.grid.rows);
-    const [, , roomZ = "0"] = this.roomId.split(",");
+    const [, , roomZ = '0'] = this.roomId.split(',');
     return `${roomX},${roomY},${roomZ}`;
   }
 
@@ -507,13 +520,13 @@ export class SnakeState {
     room: RoomSnapshot,
     localX: number,
     localY: number,
-    _head: Vector2Like
+    _head: Vector2Like,
   ): boolean {
-    const canEatWalls = Boolean(this.flags["geometry.canEatWalls"]);
-    const shieldState = this.flags["geometry.terraShield"] as
+    const canEatWalls = Boolean(this.flags['geometry.canEatWalls']);
+    const shieldState = this.flags['geometry.terraShield'] as
       | { charges: number; max?: number; recharge?: number }
       | undefined;
-    const traversalShield = this.flags["traversal.ghostShield"] as { charges?: number } | undefined;
+    const traversalShield = this.flags['traversal.ghostShield'] as { charges?: number } | undefined;
 
     let usingShield = false;
 
@@ -524,11 +537,15 @@ export class SnakeState {
           ...traversalShield,
           charges: Math.max(0, traversalCharges - 1),
         };
-        this.flags["traversal.ghostShield"] = nextTraversal;
-        const [roomX, roomY] = this.roomId.split(",").map(Number);
+        this.flags['traversal.ghostShield'] = nextTraversal;
+        const [roomX, roomY] = this.roomId.split(',').map(Number);
         const worldX = roomX * this.grid.cols + localX;
         const worldY = roomY * this.grid.rows + localY;
-        this.flags["traversal.ghostShieldTriggered"] = { x: worldX, y: worldY, roomId: this.roomId };
+        this.flags['traversal.ghostShieldTriggered'] = {
+          x: worldX,
+          y: worldY,
+          roomId: this.roomId,
+        };
         usingShield = true;
       } else {
         const charges = shieldState?.charges ?? 0;
@@ -541,11 +558,11 @@ export class SnakeState {
           max,
           recharge: shieldState?.recharge,
         };
-        this.flags["geometry.terraShield"] = nextShield;
-        const [roomX, roomY] = this.roomId.split(",").map(Number);
+        this.flags['geometry.terraShield'] = nextShield;
+        const [roomX, roomY] = this.roomId.split(',').map(Number);
         const worldX = roomX * this.grid.cols + localX;
         const worldY = roomY * this.grid.rows + localY;
-        this.flags["geometry.terraShieldTriggered"] = { x: worldX, y: worldY, roomId: this.roomId };
+        this.flags['geometry.terraShieldTriggered'] = { x: worldX, y: worldY, roomId: this.roomId };
         usingShield = true;
       }
     }
@@ -559,8 +576,8 @@ export class SnakeState {
     if (!row || row[localX] === undefined) {
       return;
     }
-    if (row[localX] === "#") {
-      room.layout[localY] = row.substring(0, localX) + "." + row.substring(localX + 1);
+    if (row[localX] === '#') {
+      room.layout[localY] = row.substring(0, localX) + '.' + row.substring(localX + 1);
     }
     if (room.apple && room.apple.x === localX && room.apple.y === localY) {
       delete room.apple;
@@ -586,11 +603,3 @@ export class SnakeState {
     return Boolean(b) && a.x === b.x && a.y === b.y;
   }
 }
-
-
-
-
-
-
-
-

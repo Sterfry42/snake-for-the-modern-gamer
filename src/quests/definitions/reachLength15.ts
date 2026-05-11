@@ -1,9 +1,9 @@
-import { Quest } from "../quest.js";
-import type { QuestRuntime } from "../quest.js";
+import { Quest } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 class ReachLengthFifteenQuest extends Quest {
   constructor() {
-    super("reach-length-15", "Longer Line", "Grow your snake to length 15");
+    super('reach-length-15', 'Longer Line', 'Grow your snake to length 15');
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

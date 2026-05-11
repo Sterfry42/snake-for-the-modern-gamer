@@ -2,7 +2,7 @@ import type {
   RoomGenerationContext,
   RoomGenerationOperations,
   RoomGenerationStage,
-} from "../types.js";
+} from '../types.js';
 
 abstract class CurrentRoomStage implements RoomGenerationStage {
   abstract readonly id: string;
@@ -13,7 +13,7 @@ abstract class CurrentRoomStage implements RoomGenerationStage {
 }
 
 export class BiomeMapStage extends CurrentRoomStage {
-  readonly id = "biome-map";
+  readonly id = 'biome-map';
 
   apply(context: RoomGenerationContext): void {
     this.operations.resolveBiomeMap(context);
@@ -21,7 +21,7 @@ export class BiomeMapStage extends CurrentRoomStage {
 }
 
 export class BaseTerrainStage extends CurrentRoomStage {
-  readonly id = "biome-base-terrain";
+  readonly id = 'biome-base-terrain';
 
   apply(context: RoomGenerationContext): void {
     this.operations.applyBiomeBaseTerrain(context);
@@ -29,7 +29,7 @@ export class BaseTerrainStage extends CurrentRoomStage {
 }
 
 export class RandomObstacleStage extends CurrentRoomStage {
-  readonly id = "random-obstacles";
+  readonly id = 'random-obstacles';
 
   apply(context: RoomGenerationContext): void {
     this.operations.placeRandomObstacles(context);
@@ -37,7 +37,7 @@ export class RandomObstacleStage extends CurrentRoomStage {
 }
 
 export class RoomArchetypeStage extends CurrentRoomStage {
-  readonly id = "room-archetype";
+  readonly id = 'room-archetype';
 
   apply(context: RoomGenerationContext): void {
     this.operations.applyRoomArchetype(context);
@@ -45,7 +45,7 @@ export class RoomArchetypeStage extends CurrentRoomStage {
 }
 
 export class CrossRoomFeatureStage extends CurrentRoomStage {
-  readonly id = "cross-room-features";
+  readonly id = 'cross-room-features';
 
   apply(context: RoomGenerationContext): void {
     this.operations.placeCrossRoomFeatures(context);
@@ -53,7 +53,7 @@ export class CrossRoomFeatureStage extends CurrentRoomStage {
 }
 
 export class StructureStage extends CurrentRoomStage {
-  readonly id = "room-structures";
+  readonly id = 'room-structures';
 
   apply(context: RoomGenerationContext): void {
     this.operations.placeRoomStructures(context);
@@ -61,7 +61,7 @@ export class StructureStage extends CurrentRoomStage {
 }
 
 export class PortalStage extends CurrentRoomStage {
-  readonly id = "portals";
+  readonly id = 'portals';
 
   apply(context: RoomGenerationContext): void {
     this.operations.placePortals(context);
@@ -69,7 +69,7 @@ export class PortalStage extends CurrentRoomStage {
 }
 
 export class SafetyValidationStage extends CurrentRoomStage {
-  readonly id = "safety-validation";
+  readonly id = 'safety-validation';
 
   apply(context: RoomGenerationContext): void {
     this.operations.validateRoomSafety(context);

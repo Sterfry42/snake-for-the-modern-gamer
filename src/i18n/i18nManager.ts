@@ -1,20 +1,23 @@
-import type { LanguageId } from "./types.js";
-import { AVAILABLE_LANGUAGES, DEFAULT_LANGUAGE } from "./types.js";
-import { COMMON_EN } from "./languages/en/common.js";
-import { COMMON_ES } from "./languages/es/common.js";
-import { QUEST_DIALOGUE_EN } from "./languages/en/questDialogue.js";
-import { QUEST_DIALOGUE_ES } from "./languages/es/questDialogue.js";
-import { NPC_ENCOUNTERS_EN } from "./languages/en/npcEncounters.js";
-import { NPC_ENCOUNTERS_ES } from "./languages/es/npcEncounters.js";
-import type { QuestTranslations, NpcTranslations, CommonTranslations } from "./types.js";
+import type { LanguageId } from './types.js';
+import { AVAILABLE_LANGUAGES, DEFAULT_LANGUAGE } from './types.js';
+import { COMMON_EN } from './languages/en/common.js';
+import { COMMON_ES } from './languages/es/common.js';
+import { QUEST_DIALOGUE_EN } from './languages/en/questDialogue.js';
+import { QUEST_DIALOGUE_ES } from './languages/es/questDialogue.js';
+import { NPC_ENCOUNTERS_EN } from './languages/en/npcEncounters.js';
+import { NPC_ENCOUNTERS_ES } from './languages/es/npcEncounters.js';
+import type { QuestTranslations, NpcTranslations, CommonTranslations } from './types.js';
 
 class I18nManager {
   private currentLanguage: LanguageId = DEFAULT_LANGUAGE;
-  private translations: Record<LanguageId, {
-    questDialogue: QuestTranslations;
-    npcEncounters: NpcTranslations;
-    common: CommonTranslations;
-  }> = {
+  private translations: Record<
+    LanguageId,
+    {
+      questDialogue: QuestTranslations;
+      npcEncounters: NpcTranslations;
+      common: CommonTranslations;
+    }
+  > = {
     en: {
       questDialogue: QUEST_DIALOGUE_EN,
       npcEncounters: NPC_ENCOUNTERS_EN,
@@ -28,7 +31,7 @@ class I18nManager {
   };
 
   setLanguage(languageId: LanguageId) {
-    if (AVAILABLE_LANGUAGES.some(l => l.id === languageId)) {
+    if (AVAILABLE_LANGUAGES.some((l) => l.id === languageId)) {
       this.currentLanguage = languageId;
     }
   }

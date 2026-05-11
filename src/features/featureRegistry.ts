@@ -1,4 +1,4 @@
-import type { Feature } from "./feature.js";
+import type { Feature } from './feature.js';
 
 export type FeatureHook = {
   [K in keyof Feature]: Feature[K] extends (...args: any[]) => any ? K : never;
@@ -25,7 +25,7 @@ export class FeatureRegistry {
   }
 
   async loadBuiltIns(enabledIds: string[]): Promise<void> {
-    const modules = import.meta.glob("./definitions/*.ts");
+    const modules = import.meta.glob('./definitions/*.ts');
     const entries = Object.entries(modules);
     await Promise.all(
       entries.map(async ([, loader]) => {
@@ -36,14 +36,14 @@ export class FeatureRegistry {
             this.register(feature);
           }
         }
-      })
+      }),
     );
   }
 
   invoke(hook: FeatureHook, context: Parameters<Feature[FeatureHook]>[0], ...args: any[]): void {
     for (const feature of this.features.values()) {
       const handler = feature[hook];
-      if (typeof handler === "function") {
+      if (typeof handler === 'function') {
         handler.call(feature, context, ...args);
       }
     }
