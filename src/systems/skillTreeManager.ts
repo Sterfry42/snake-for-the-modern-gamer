@@ -2,6 +2,7 @@
 import type SnakeScene from "../scenes/snakeScene.js";
 import { SkillTreeSystem, type SkillPerkState, type SkillTreeRuntime } from "./skillTree.js";
 import { SkillTreeOverlay } from "../ui/skillTreeOverlay.js";
+import type { SkillTreeStats } from "./skillTypes.js";
 
 import { JuiceManager } from "../ui/juice.js";
 
