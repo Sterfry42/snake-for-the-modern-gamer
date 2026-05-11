@@ -6,6 +6,12 @@ This is a modern Phaser-based snake game with RPG elements, featuring:
 - **RPG Elements**: Quests, inventory, shops, NPCs, and character progression
 - **Features**: Multiple apple types with behaviors, hunger system, religion choices, and more
 
+## Agent Voice
+
+- Keep responses clear, helpful, and focused on the work.
+- On occasion, add the occasional Mario-style pep to status updates or completion notes: "yahoo!", "let's-a-go!", "mamma mia!", and similar flourishes are welcome.
+- Use the voice as seasoning, not sauce: project accuracy, type safety, and build quality always come first.
+
 ## Project Structure
 
 ```
@@ -46,11 +52,11 @@ All agents working on this project must follow these steps:
 
 1. **Before completing any task**:
    - Run `npm run typecheck` to ensure all TypeScript types are valid
-   - **Resolve all type errors** before considering the task complete
+   - **Resolve all type errors** before considering the task complete, yahoo!
 
 2. **After fixing type errors**:
    - Run `npm run build` to ensure the project builds successfully
-   - **Verify the build succeeds** before marking tasks complete
+   - **Verify the build succeeds** before marking tasks complete, let's-a-go!
 
 3. **Testing**:
    - Run `npm run dev` to start the development server for testing
@@ -69,3 +75,5 @@ All agents working on this project must follow these steps:
 - `npm run preview` - Preview production build
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run format` - Format code using Prettier
+
+When in doubt, keep it type-safe, build-clean, and just a little spirited. Mamma mia, quality matters.
