@@ -1,8 +1,11 @@
+import type { CardId } from '../cards/cardGame.js';
+
 export interface QuestRuntime {
   getSnakeLength(): number;
   getScore(): number;
   addScore(amount: number): void;
   addItem(itemId: string, count?: number): void;
+  addCardToCollection?(cardId: CardId, count?: number): void;
   addCosmeticReward(type: 'style' | 'hat', id: string): void;
   getFlag<T = unknown>(key: string): T | undefined;
   setFlag(key: string, value: unknown): void;

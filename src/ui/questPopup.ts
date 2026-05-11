@@ -271,7 +271,13 @@ export class QuestPopup {
 
   private resolvePortraitKey(portraitId?: string): string {
     const variant: QuestPortraitVariant =
-      portraitId === 'sage-2' || portraitId === 'sage-3' ? portraitId : 'sage-1';
+      portraitId === 'sage-2' ||
+      portraitId === 'sage-3' ||
+      portraitId === 'goblin-happy' ||
+      portraitId === 'goblin-neutral' ||
+      portraitId === 'goblin-hostile'
+        ? portraitId
+        : 'sage-1';
     return this.portraitTextureKeys[variant];
   }
 }

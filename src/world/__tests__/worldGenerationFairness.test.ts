@@ -220,7 +220,7 @@ describe('world generation fairness', () => {
       const rooms = generateNeighborhood(center, 1);
       for (const room of rooms.values()) {
         for (const direction of DIRECTIONS) {
-          const inward = { dx: -direction.dx, dy: -direction.dy };
+          const inward = { name: direction.name, dx: -direction.dx, dy: -direction.dy };
           for (const entry of edgeCellsFor(room, defaultGameConfig.grid, direction)) {
             if (!isImmediatelySafe(room.layout[entry.y]?.[entry.x])) {
               continue;

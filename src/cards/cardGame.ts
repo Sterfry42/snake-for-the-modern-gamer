@@ -15,7 +15,8 @@ export type CardId =
   | 'too-much-sauce'
   | 'angel-audit'
   | 'royal-scale'
-  | 'freak-dennis-fog';
+  | 'freak-dennis-fog'
+  | 'goblin-receipt';
 
 export interface CardDefinition {
   id: CardId;
@@ -193,6 +194,15 @@ export const CARD_DEFINITIONS: readonly CardDefinition[] = [
     price: 26,
     rarity: 'rare',
     description: 'Narrows the window by 4, then adds 2x. Absolute menace behavior.',
+  },
+  {
+    id: 'goblin-receipt',
+    name: 'Goblin Receipt',
+    suit: 'teeth',
+    chips: 6,
+    price: 22,
+    rarity: 'rare',
+    description: '+12 chips if the hand has a Lantern card. Otherwise it complains and adds 1.',
   },
 ];
 
@@ -381,6 +391,15 @@ export function scoreCardHand(cardIds: CardId[], table: CardTableDefinition): Ca
       maxScore -= 4;
       multiplier *= 2;
       details.push('Freak Dennis Fog made everything worse and bigger.');
+    } else if (card.id === 'goblin-receipt') {
+      const hasLantern = cards.some((candidate) => candidate.suit === 'lanterns');
+      if (hasLantern) {
+        chips += 12;
+        details.push('Goblin Receipt found a lantern-stamp and added 12 chips.');
+      } else {
+        chips += 1;
+        details.push('Goblin Receipt added 1 chip after failing to look official.');
+      }
     }
   }
 

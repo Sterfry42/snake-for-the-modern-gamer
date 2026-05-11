@@ -1101,6 +1101,16 @@ export class SnakeRenderer {
         bulletOutlineColor: '#6a2c1a',
       };
     }
+    if (enemy.encounterKind === 'goblin') {
+      return {
+        bodyColor: '#4f8a32',
+        accentColor: '#d5ff7a',
+        outlineColor: '#10220b',
+        eyeColor: '#fff4c2',
+        bulletColor: '#b6ff6a',
+        bulletOutlineColor: '#315a1f',
+      };
+    }
     if (enemy.encounterKind === 'duelist') {
       if (enemy.id === 'freak-joey') {
         return {
@@ -1153,6 +1163,15 @@ export class SnakeRenderer {
           eyeColor: '#fff0ea',
           bulletColor: '#ff8e7a',
           bulletOutlineColor: '#5a1620',
+        };
+      case 'goblin':
+        return {
+          bodyColor: '#4f8a32',
+          accentColor: '#d5ff7a',
+          outlineColor: '#10220b',
+          eyeColor: '#fff4c2',
+          bulletColor: '#b6ff6a',
+          bulletOutlineColor: '#315a1f',
         };
       case 'freak-joey':
         return {

@@ -9,7 +9,8 @@ export type VillageShopStyleId =
   | 'bone'
   | 'market-moss'
   | 'charcoal-silk'
-  | 'pearlwake';
+  | 'pearlwake'
+  | 'goblin-hide';
 export type VillageShopHatId = 'cowboy' | 'market-cap' | 'ember-cowl' | 'pearl-crown';
 
 export interface VillageShopEquipmentOffer {

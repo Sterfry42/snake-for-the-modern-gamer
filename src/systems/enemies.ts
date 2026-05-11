@@ -15,7 +15,7 @@ export interface EnemyInstance {
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
-  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark';
+  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark' | 'goblin';
 }
 
 export interface BulletInstance {
@@ -24,7 +24,7 @@ export interface BulletInstance {
   position: Vector2Like;
   direction: Vector2Like;
   owner: 'enemy' | 'player';
-  style?: 'enemy' | 'npc-hostile' | 'duelist' | 'freak-joey' | 'player';
+  style?: 'enemy' | 'npc-hostile' | 'duelist' | 'freak-joey' | 'goblin' | 'player';
 }
 
 export interface DuelBossDisplay {
@@ -205,6 +205,37 @@ export class EnemyManager {
     return hostileNpc;
   }
 
+  spawnGoblin(
+    roomId: string,
+    position: Vector2Like,
+    name: string,
+    hearts: number,
+    index: number,
+  ): EnemyInstance {
+    const id = `goblin:${roomId}:${index}`;
+    const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === id);
+    if (existing) {
+      return existing;
+    }
+    const goblin: EnemyInstance = {
+      id,
+      roomId,
+      position,
+      fireCooldown: 6,
+      moveCooldown: 2,
+      aimDirection: { x: 0, y: 1 },
+      flashTicks: 0,
+      name,
+      currentHearts: hearts,
+      maxHearts: hearts,
+      encounterKind: 'goblin',
+    };
+    const current = this.enemies.get(roomId) ?? [];
+    current.push(goblin);
+    this.enemies.set(roomId, current);
+    return goblin;
+  }
+
   spawnDuelist(
     roomId: string,
     room: RoomSnapshot,
@@ -368,6 +399,8 @@ export class EnemyManager {
             ? 2 + Math.floor(this.rng() * 2)
             : enemy.encounterKind === 'duelist'
               ? (snakeCharging ? 4 : 2) + Math.floor(this.rng() * 2)
+              : enemy.encounterKind === 'goblin'
+                ? (snakeCharging ? 5 : 3) + Math.floor(this.rng() * 3)
               : (snakeCharging ? 7 : 5) + Math.floor(this.rng() * 5);
       }
 
@@ -388,6 +421,8 @@ export class EnemyManager {
             fireCooldown:
               enemy.encounterKind === 'duelist'
                 ? 4 + Math.floor(this.rng() * 3)
+                : enemy.encounterKind === 'goblin'
+                  ? 7 + Math.floor(this.rng() * 4)
                 : 12 + Math.floor(this.rng() * 6),
           });
           continue;
@@ -599,6 +634,8 @@ export class EnemyManager {
       style:
         enemy.encounterKind === 'npc-hostile'
           ? 'npc-hostile'
+          : enemy.encounterKind === 'goblin'
+            ? 'goblin'
           : enemy.encounterKind === 'duelist' && enemy.id === 'freak-joey'
             ? 'freak-joey'
             : enemy.encounterKind === 'duelist'

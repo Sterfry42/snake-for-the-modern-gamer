@@ -4,6 +4,7 @@ import type { RandomGenerator } from '../../../core/rng.js';
 import { tryPlaceQuestHouse } from '../../questHouse.js';
 import type { RoomSnapshot } from '../../types.js';
 import { tryPlaceVillage } from '../../village.js';
+import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
 import type { RoomGenerationContext } from '../types.js';
 
 export class StructureOperations {
@@ -39,6 +40,22 @@ export class StructureOperations {
     if (
       canPlaceOptionalStructures &&
       !context.village &&
+      !context.questGiver &&
+      (shouldGuaranteeStructure || this.rng() < 0.04)
+    ) {
+      const goblinCamp = tryPlaceGoblinCamp(context.layout, context.grid, this.rng, {
+        forbiddenCells: entranceRunups,
+        margin: 5,
+      });
+      if (goblinCamp) {
+        context.goblinCamp = goblinCamp;
+      }
+    }
+
+    if (
+      canPlaceOptionalStructures &&
+      !context.village &&
+      !context.goblinCamp &&
       (shouldGuaranteeStructure || this.rng() < 0.12)
     ) {
       const questHouse = tryPlaceQuestHouse(context.layout, context.grid, this.rng, {
@@ -53,13 +70,14 @@ export class StructureOperations {
     if (
       canPlaceOptionalStructures &&
       !context.village &&
+      !context.goblinCamp &&
       !context.questGiver &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
       this.placeLake(context.layout, context.grid, entranceRunups);
     }
 
-    if (!context.village && !context.questGiver) {
+    if (!context.village && !context.goblinCamp && !context.questGiver) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
         context.layout,
         context.grid,

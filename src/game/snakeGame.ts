@@ -9,7 +9,7 @@ import {
   type SnakeStepOutcome,
 } from '../systems/snakeState.js';
 import { BossManager } from '../systems/boss.js';
-import { EnemyManager } from '../systems/enemies.js';
+import { EnemyManager, type BulletInstance } from '../systems/enemies.js';
 import { WorldService } from '../world/worldService.js';
 import { QuestController } from '../systems/questController.js';
 import type { QuestGiverRequest } from '../systems/questController.js';
@@ -38,12 +38,26 @@ import { getBiomeDefinition, getBiomeForRoom } from '../world/biomes.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { loadLanguagePreference, saveLanguagePreference } from '../i18n/storage.js';
+import {
+  DEFAULT_FACTION_ALIGNMENT,
+  getFactionDescription,
+  getFactionEffects,
+  getFactionName,
+  getFactionSubtitle,
+  normalizeAlignment,
+  type FactionAlignmentState,
+  type FactionCardView,
+  type FactionId,
+} from '../factions/factions.js';
+import type { WardDeathSource } from '../shops/goblinShop.js';
 
 type StagedQuestStage =
   | 'visit-offices'
   | 'return-to-giver'
   | 'find-baby'
   | 'carry-baby'
+  | 'find-goblin-stamp'
+  | 'carry-goblin-stamp'
   | 'survive-freak-you'
   | 'find-forest-teleporter'
   | 'buy-substance'
@@ -88,7 +102,13 @@ export interface QuestRoomActor {
   roomId: string;
   x: number;
   y: number;
-  kind: 'tax-office' | 'quest-baby' | 'forest-teleporter' | 'deep-merchant' | 'deep-teleporter';
+  kind:
+    | 'tax-office'
+    | 'quest-baby'
+    | 'goblin-ledger-stamp'
+    | 'forest-teleporter'
+    | 'deep-merchant'
+    | 'deep-teleporter';
   label: string;
 }
 
@@ -465,6 +485,10 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('quest.staged.completedNow', undefined);
     this.setFlag('quest.staged.failedNow', undefined);
     this.setFlag('ui.questInteraction', undefined);
+    this.setFlag('factions.alignment', undefined);
+    this.setFlag('wards.contracts', undefined);
+    this.setFlag('wards.usage', undefined);
+    this.setFlag('wards.lastTriggered', undefined);
     this.setFlag('equipment.refundEveryRooms', undefined);
     this.setFlag('equipment.appleScorePenalty', undefined);
     this.setFlag('equipment.hazardMapSense', undefined);
@@ -615,6 +639,7 @@ export class SnakeGame implements QuestRuntime {
             y: newRoom.village.center.y,
           });
         }
+        this.handleGoblinCampEntered(newRoomId, newRoom);
       } else {
         const newRoom = this.world.getRoom(newRoomId);
         const lastBiomeId = this.getFlag<string>('ui.lastBiomeId');
@@ -629,6 +654,7 @@ export class SnakeGame implements QuestRuntime {
           });
           this.setFlag('ui.lastBiomeId', newRoom.biomeId);
         }
+        this.handleGoblinCampEntered(newRoomId, newRoom);
       }
       const timeMs = Number(this.getFlag<number>('timeMs') ?? 0);
       const entryTimeMs = Number(this.getFlag<number>('roomEntryTimeMs') ?? timeMs);
@@ -1451,6 +1477,7 @@ export class SnakeGame implements QuestRuntime {
       questId === 'tax-collector-future-body' ||
       questId === 'green-purchase' ||
       questId === 'find-my-baby' ||
+      questId === 'goblin-ledger-debt' ||
       questId === 'freak-you'
     );
   }
@@ -1470,6 +1497,8 @@ export class SnakeGame implements QuestRuntime {
       this.startTaxCollectorQuest(giverRoomId);
     } else if (quest.id === 'find-my-baby') {
       this.startFindMyBabyQuest(giverRoomId);
+    } else if (quest.id === 'goblin-ledger-debt') {
+      this.startGoblinLedgerDebtQuest(giverRoomId);
     } else if (quest.id === 'freak-you') {
       this.startFreakYouQuest(giverRoomId);
     } else if (quest.id === 'green-purchase') {
@@ -1513,6 +1542,17 @@ export class SnakeGame implements QuestRuntime {
           kind: carrying ? 'turn-in' : 'target',
           label: carrying ? 'Parent' : 'Baby',
           color: carrying ? 0x5dd6a2 : 0x9ad1ff,
+        });
+      } else if (instance.questId === 'goblin-ledger-debt') {
+        const carrying =
+          instance.stage === 'carry-goblin-stamp' ||
+          instance.carriedItemId === 'goblin-ledger-stamp';
+        markers.push({
+          questId: instance.questId,
+          roomId: carrying ? instance.giverRoomId : (instance.targetRoomId ?? instance.giverRoomId),
+          kind: carrying ? 'turn-in' : 'target',
+          label: carrying ? 'Goblin Clerk' : 'Ledger Stamp',
+          color: carrying ? 0xb6ff6a : 0xffd166,
         });
       } else if (instance.questId === 'freak-you') {
         const bossRoomId = instance.bossId ? this.bosses.getBossHeadRoomId(instance.bossId) : null;
@@ -1587,6 +1627,12 @@ export class SnakeGame implements QuestRuntime {
         `${instance.stage === 'return-to-giver' ? '[ ]' : instance.stage === 'find-baby' ? '[ ]' : '[x]'} Return the baby to the original NPC`,
       ];
     }
+    if (questId === 'goblin-ledger-debt') {
+      return [
+        `${instance.stage === 'find-goblin-stamp' ? '[ ]' : '[x]'} Find the missing ledger-stamp`,
+        `${instance.stage === 'return-to-giver' ? '[ ]' : instance.stage === 'find-goblin-stamp' ? '[ ]' : '[x]'} Bring the stamp back to the goblin clerk`,
+      ];
+    }
     if (questId === 'freak-you') {
       return [
         `${instance.stage === 'survive-freak-you' ? '[ ]' : '[x]'} Make Freak You run into your body`,
@@ -1649,6 +1695,19 @@ export class SnakeGame implements QuestRuntime {
             y: babyPosition.y,
             kind: 'quest-baby',
             label: 'BABY',
+          });
+        }
+      } else if (instance.questId === 'goblin-ledger-debt') {
+        if (instance.targetRoomId === roomId && instance.stage === 'find-goblin-stamp') {
+          const stampPosition = this.getGoblinLedgerStampActorPosition();
+          actors.push({
+            id: 'goblin-ledger-stamp',
+            questId: instance.questId,
+            roomId,
+            x: stampPosition.x,
+            y: stampPosition.y,
+            kind: 'goblin-ledger-stamp',
+            label: 'STAMP',
           });
         }
       } else if (instance.questId === 'green-purchase') {
@@ -1747,6 +1806,18 @@ export class SnakeGame implements QuestRuntime {
         closeLabel: 'Pick up',
       };
     }
+    if (actor.kind === 'goblin-ledger-stamp') {
+      return {
+        kind: 'dialogue',
+        title: 'Ledger-Stamp',
+        pages: [
+          'The stamp sits in a ring of scraped stone, fat with old ink and small bite marks.',
+          'It smells like copper, mildew, and a goblin saying "mine" too many times.',
+          'When you touch it, the room makes a tiny official noise and then pretends it did not.',
+        ],
+        closeLabel: 'Take stamp',
+      };
+    }
     if (actor.kind === 'forest-teleporter') {
       const instance = this.getStagedQuestInstances().find(
         (quest) => quest.questId === actor.questId,
@@ -1810,6 +1881,8 @@ export class SnakeGame implements QuestRuntime {
         return 'Settle future-body tax (press E)';
       case 'quest-baby':
         return 'Listen to the baby (press E)';
+      case 'goblin-ledger-stamp':
+        return 'Pick up ledger-stamp (press E)';
       case 'deep-merchant':
         return 'Buy radioactive substance (press E)';
       case 'forest-teleporter':
@@ -1833,6 +1906,9 @@ export class SnakeGame implements QuestRuntime {
     }
     if (actor?.kind === 'quest-baby') {
       return this.pickUpQuestBaby(actor.questId);
+    }
+    if (actor?.kind === 'goblin-ledger-stamp') {
+      return this.pickUpGoblinLedgerStamp(actor.questId);
     }
     if (actor?.kind === 'forest-teleporter') {
       return this.useGreenTeleporter(actor.questId);
@@ -1951,8 +2027,13 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (encounter.kind === 'quest' && encounter.questId) {
-      const quest = this.questController.offerSpecificQuestById(encounter.questId, this);
+      const quest = this.questController.offerSpecificQuestById(
+        encounter.questId,
+        this,
+        encounter.roomId,
+      );
       if (quest) {
+        this.ensureEncounterQuestGiver(encounter);
         if (encounter.oneShot) {
           this.resolvedWandererEncounters.add(encounter.id);
         }
@@ -1991,6 +2072,34 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     return this.startNamedDuel('freak-joey', 'Freak Joey', 25, 15);
+  }
+
+  private ensureEncounterQuestGiver(
+    encounter: WandererEncounter & { roomId: string; x?: number; y?: number },
+  ): void {
+    const room = this.world.getRoom(encounter.roomId);
+    if (room.questGiver) {
+      return;
+    }
+    const spawn =
+      typeof encounter.x === 'number' && typeof encounter.y === 'number'
+        ? { x: encounter.x, y: encounter.y }
+        : (this.findEncounterSpawn(encounter.roomId) ?? {
+            x: Math.floor(this.config.grid.cols / 2),
+            y: Math.floor(this.config.grid.rows / 2),
+          });
+    const profile = buildHouseNpcProfile(encounter.name, encounter.portraitId ?? 'sage-1');
+    room.questGiver = {
+      ...profile,
+      id: `npc-${encounter.id}`,
+      x: spawn.x,
+      y: spawn.y,
+    };
+    const layout = room.layout.map((row) => row.split(''));
+    if (layout[spawn.y]?.[spawn.x]) {
+      layout[spawn.y][spawn.x] = '.';
+      room.layout = layout.map((row) => row.join(''));
+    }
   }
 
   startNamedDuel(
@@ -2055,6 +2164,24 @@ export class SnakeGame implements QuestRuntime {
       });
       return true;
     }
+    const goblinActors = room.goblinCamp
+      ? [room.goblinCamp.shopkeeper, ...room.goblinCamp.guards]
+      : [];
+    const shotGoblin = goblinActors.find((goblin) =>
+      this.isNpcInLineOfFire(room, localHead, direction, { x: goblin.x, y: goblin.y }),
+    );
+    if (shotGoblin) {
+      this.adjustFactionAlignment('goblin-camps', -50);
+      this.handleGoblinCampEntered(this.snake.currentRoomId, room);
+      this.setFlag('ui.playerShot', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        dx: direction.x,
+        dy: direction.y,
+      });
+      return true;
+    }
     const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
     if (fired) {
       this.setFlag('ui.playerShot', {
@@ -2073,6 +2200,134 @@ export class SnakeGame implements QuestRuntime {
     hostility: 'friendly' | 'warning' | 'hostile';
   } {
     return this.npcDisposition.get(roomId) ?? { anger: 0, hostility: 'friendly' };
+  }
+
+  getFactionAlignment(factionId: FactionId): FactionAlignmentState {
+    const saved = this.getFlag<Partial<Record<FactionId, number>>>('factions.alignment') ?? {};
+    return normalizeAlignment(saved[factionId] ?? DEFAULT_FACTION_ALIGNMENT[factionId]);
+  }
+
+  adjustFactionAlignment(factionId: FactionId, delta: number): FactionAlignmentState {
+    const saved = this.getFlag<Partial<Record<FactionId, number>>>('factions.alignment') ?? {};
+    const current = saved[factionId] ?? DEFAULT_FACTION_ALIGNMENT[factionId];
+    const next = normalizeAlignment(current + delta);
+    this.setFlag('factions.alignment', { ...saved, [factionId]: next.value });
+    return next;
+  }
+
+  getFactionCards(): FactionCardView[] {
+    const visitedGoblinCamp = Array.from(this.world.snapshot().values()).some(
+      (room) => room.goblinCamp,
+    );
+    const ids: FactionId[] = ['hearthbound-remnant', 'goblin-camps'];
+    return ids.map((id) => {
+      const alignment = this.getFactionAlignment(id);
+      const discovered = id === 'hearthbound-remnant' || visitedGoblinCamp;
+      return {
+        id,
+        name: getFactionName(id),
+        subtitle: getFactionSubtitle(id),
+        standing: alignment.standing,
+        alignment: alignment.value,
+        description: getFactionDescription(id, alignment.standing),
+        effects: getFactionEffects(id, alignment.standing),
+        discovered,
+      };
+    });
+  }
+
+  getWardContracts(): Partial<Record<WardDeathSource, number>> {
+    return { ...(this.getFlag<Partial<Record<WardDeathSource, number>>>('wards.contracts') ?? {}) };
+  }
+
+  getWardUsage(): Partial<Record<WardDeathSource, number>> {
+    return { ...(this.getFlag<Partial<Record<WardDeathSource, number>>>('wards.usage') ?? {}) };
+  }
+
+  getGoblinLedgerQuestStatus(): 'available' | 'active' | 'turn-in' | 'completed' | 'none' {
+    if (this.questController.getCompletedIds().includes('goblin-ledger-debt')) {
+      return 'completed';
+    }
+    const instance = this.getStagedQuestInstances().find(
+      (quest) => quest.questId === 'goblin-ledger-debt',
+    );
+    if (instance) {
+      return instance.stage === 'return-to-giver' ? 'turn-in' : 'active';
+    }
+    if (this.questController.getAcceptedIds().includes('goblin-ledger-debt')) {
+      return 'active';
+    }
+    return this.registry.getById('goblin-ledger-debt') ? 'available' : 'none';
+  }
+
+  offerGoblinLedgerQuestFromCurrentRoom(): Quest | null {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const giverRoomId = room.id;
+    if (!room.goblinCamp) {
+      return null;
+    }
+    return this.questController.offerSpecificQuestById('goblin-ledger-debt', this, giverRoomId);
+  }
+
+  turnInGoblinLedgerQuestAtCurrentRoom(): Quest | null {
+    const roomId = this.snake.currentRoomId;
+    const instance = this.getStagedQuestInstances().find(
+      (quest) =>
+        quest.questId === 'goblin-ledger-debt' &&
+        quest.giverRoomId === roomId &&
+        quest.stage === 'return-to-giver',
+    );
+    if (!instance) {
+      return null;
+    }
+    this.updateStagedQuestInstance(instance.questId, (current) => ({
+      ...current,
+      stage: 'completed',
+      carriedItemId: undefined,
+    }));
+    return this.questController.completeQuestById(instance.questId, this);
+  }
+
+  addWardContract(source: WardDeathSource, count = 1): void {
+    const contracts = this.getWardContracts();
+    contracts[source] = Math.max(0, Math.floor(contracts[source] ?? 0)) + count;
+    this.setFlag('wards.contracts', contracts);
+    this.adjustFactionAlignment('goblin-camps', 2);
+  }
+
+  tryConsumeWardForDeath(reason?: string | null): boolean {
+    if (!reason || !this.isWardDeathSource(reason)) {
+      return false;
+    }
+    const contracts = this.getWardContracts();
+    const current = Math.max(0, Math.floor(contracts[reason] ?? 0));
+    if (current <= 0) {
+      return false;
+    }
+    const next = { ...contracts, [reason]: current - 1 };
+    if (next[reason] <= 0) {
+      delete next[reason];
+    }
+    this.setFlag('wards.contracts', next);
+    const usage = this.getWardUsage();
+    usage[reason] = Math.max(0, Math.floor(usage[reason] ?? 0)) + 1;
+    this.setFlag('wards.usage', usage);
+    this.setFlag('wards.lastTriggered', { source: reason });
+    this.adjustFactionAlignment('goblin-camps', 1);
+    return true;
+  }
+
+  private isWardDeathSource(reason: string): reason is WardDeathSource {
+    return (
+      reason === 'wall' ||
+      reason === 'self' ||
+      reason === 'shielded' ||
+      reason === 'boss' ||
+      reason === 'bullet' ||
+      reason === 'temperature' ||
+      reason === 'water' ||
+      reason === 'shark'
+    );
   }
 
   insultNpc(
@@ -2122,6 +2377,9 @@ export class SnakeGame implements QuestRuntime {
     const characterFlags: Record<string, unknown> = {};
     for (const key of [
       'cards.collection',
+      'factions.alignment',
+      'wards.contracts',
+      'wards.usage',
       'skills.ranks',
       'equipment.wallSenseRadiusBonus',
       'equipment.seismicPulseRadiusBonus',
@@ -2393,6 +2651,30 @@ export class SnakeGame implements QuestRuntime {
     ]);
   }
 
+  private startGoblinLedgerDebtQuest(giverRoomId: string): void {
+    if (
+      this.getStagedQuestInstances().some((instance) => instance.questId === 'goblin-ledger-debt')
+    ) {
+      return;
+    }
+    const targetRoomId = this.pickObjectiveRoom(
+      giverRoomId,
+      4,
+      7,
+      19,
+      (candidate) => candidate !== giverRoomId && getBiomeForRoom(candidate).id !== 'sunken-ocean',
+    );
+    this.setStagedQuestInstances([
+      ...this.getStagedQuestInstances(),
+      {
+        questId: 'goblin-ledger-debt',
+        giverRoomId,
+        stage: 'find-goblin-stamp',
+        targetRoomId,
+      },
+    ]);
+  }
+
   private startFreakYouQuest(giverRoomId: string): void {
     if (this.getStagedQuestInstances().some((instance) => instance.questId === 'freak-you')) {
       return;
@@ -2629,6 +2911,19 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  private getGoblinLedgerStampActorPosition(): Vector2Like {
+    return {
+      x: Math.max(
+        2,
+        Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2) - 6),
+      ),
+      y: Math.max(
+        2,
+        Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2) + 4),
+      ),
+    };
+  }
+
   private tryActivateQuestTeleporterAtHead(): boolean {
     const actor = this.getQuestActorAtHead();
     if (!actor || (actor.kind !== 'forest-teleporter' && actor.kind !== 'deep-teleporter')) {
@@ -2691,6 +2986,25 @@ export class SnakeGame implements QuestRuntime {
       carriedItemId: 'quest-baby',
     }));
     return { message: 'The baby has joined your inventory, spiritually and upsettingly.' };
+  }
+
+  private pickUpGoblinLedgerStamp(questId: string): { message?: string } {
+    const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
+    if (
+      !instance ||
+      instance.questId !== 'goblin-ledger-debt' ||
+      instance.stage !== 'find-goblin-stamp'
+    ) {
+      return {};
+    }
+    this.updateStagedQuestInstance(questId, (current) => ({
+      ...current,
+      stage: 'return-to-giver',
+      carriedItemId: 'goblin-ledger-stamp',
+    }));
+    return {
+      message: 'The ledger-stamp sticks to you like a small green accusation.',
+    };
   }
 
   private useGreenTeleporter(questId: string): { message?: string } {
@@ -2993,6 +3307,9 @@ export class SnakeGame implements QuestRuntime {
       (quest) =>
         quest.giverRoomId === roomId &&
         (quest.stage === 'return-to-giver' ||
+          (quest.questId === 'goblin-ledger-debt' &&
+            quest.stage === 'return-to-giver' &&
+            quest.carriedItemId === 'goblin-ledger-stamp') ||
           (quest.questId === 'green-purchase' &&
             quest.stage === 'escape-radiation' &&
             quest.carriedItemId === 'radioactive-substance')),
@@ -3353,7 +3670,7 @@ export class SnakeGame implements QuestRuntime {
 
   private applyBulletDamage(
     hits: number,
-    style?: 'enemy' | 'npc-hostile' | 'duelist' | 'freak-joey' | 'player',
+    style?: BulletInstance['style'],
   ): boolean {
     if (hits <= 0) {
       return false;
@@ -3414,6 +3731,17 @@ export class SnakeGame implements QuestRuntime {
     if (!spawn) {
       return;
     }
+    if (
+      encounter.id.startsWith('goblin-') &&
+      this.getFactionAlignment('goblin-camps').standing === 'violent'
+    ) {
+      this.enemies.spawnGoblin(roomId, spawn, encounter.name, 4, this.visitedRooms.size);
+      this.lastWandererEncounterRoomCount = this.visitedRooms.size;
+      this.setFlag('ui.questInteraction', {
+        message: `${encounter.name} sees the old debts on you and comes in biting.`,
+      });
+      return;
+    }
     const history = this.wandererHistory.get(encounter.id);
     this.recordWandererSeen(encounter.id);
     this.lastWandererEncounterRoomCount = this.visitedRooms.size;
@@ -3465,6 +3793,32 @@ export class SnakeGame implements QuestRuntime {
       );
     }
     return next;
+  }
+
+  private handleGoblinCampEntered(roomId: string, room: RoomSnapshot): void {
+    if (!room.goblinCamp) {
+      return;
+    }
+    const standing = this.getFactionAlignment('goblin-camps').standing;
+    this.setFlag('ui.goblinCampReveal', {
+      roomId,
+      name: room.goblinCamp.name,
+      x: room.goblinCamp.center.x,
+      y: room.goblinCamp.center.y,
+      standing,
+    });
+    if (standing !== 'violent') {
+      return;
+    }
+    room.goblinCamp.guards.forEach((guard, index) => {
+      this.enemies.spawnGoblin(
+        roomId,
+        { x: guard.x, y: guard.y },
+        guard.name,
+        Math.max(2, guard.maxHearts ?? 2),
+        index,
+      );
+    });
   }
 
   private isNpcInLineOfFire(

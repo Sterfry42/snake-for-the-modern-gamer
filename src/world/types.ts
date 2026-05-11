@@ -26,6 +26,15 @@ export interface RoomSnapshot {
     residents: Array<NpcProfile & { x: number; y: number }>;
     shopkeeper: NpcProfile & { x: number; y: number };
   };
+  goblinCamp?: {
+    id: string;
+    name: string;
+    center: Vector2Like;
+    tents: Vector2Like[];
+    fires: Vector2Like[];
+    guards: Array<NpcProfile & { x: number; y: number }>;
+    shopkeeper: NpcProfile & { x: number; y: number };
+  };
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' }>;
   biomeId: BiomeId;
   biomeTitle: string;
