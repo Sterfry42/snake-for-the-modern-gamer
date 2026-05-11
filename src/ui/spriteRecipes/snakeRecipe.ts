@@ -54,7 +54,7 @@ function fillPixel(
 
 function drawPixels(
   context: CanvasRenderingContext2D,
-  points: readonly [number, number][],
+  points: ReadonlyArray<readonly [number, number]>,
   pixelSize: number,
   color: string
 ): void {
@@ -73,7 +73,7 @@ function rotatePoint(x: number, y: number, turns: number): [number, number] {
   return [px, py];
 }
 
-function rotatePoints(points: readonly [number, number][], turns: number): [number, number][] {
+function rotatePoints(points: ReadonlyArray<readonly [number, number]>, turns: number): [number, number][] {
   return points.map(([x, y]) => rotatePoint(x, y, turns));
 }
 
