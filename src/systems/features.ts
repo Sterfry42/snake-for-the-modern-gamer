@@ -1,5 +1,4 @@
-import { FeatureRegistry } from "../features/featureRegistry.js";
-import type { Feature } from "../features/feature.js";
+import { FeatureRegistry, type FeatureHook } from "../features/featureRegistry.js";
 import type SnakeScene from "../scenes/snakeScene.js";
 
 export class FeatureManager {
@@ -10,7 +9,7 @@ export class FeatureManager {
     this.call("onRegister", scene);
   }
 
-  call(hook: keyof Feature, scene: SnakeScene, ...args: any[]): void {
+  call(hook: FeatureHook, scene: SnakeScene, ...args: any[]): void {
     this.registry.invoke(hook, scene, ...args);
   }
 
