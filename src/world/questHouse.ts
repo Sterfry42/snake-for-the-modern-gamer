@@ -1,4 +1,5 @@
 import type { GridConfig } from "../config/gameConfig.js";
+import { vectorKey } from "../core/math.js";
 import type { RandomGenerator } from "../core/rng.js";
 import { buildHouseNpcProfile, type NpcProfile } from "../npcs/profiles.js";
 
@@ -10,6 +11,11 @@ export interface QuestGiverInfo extends NpcProfile {
 export interface QuestHouseResult {
   questGiver: QuestGiverInfo;
   bounds: { left: number; top: number; width: number; height: number };
+}
+
+export interface QuestHousePlacementOptions {
+  forbiddenCells?: ReadonlySet<string>;
+  margin?: number;
 }
 
 const SAFE_INTERIOR_TILES = new Set(["W", "E", "T"]);
@@ -47,13 +53,35 @@ function carveHouseDoor(layout: string[][], left: number, top: number, width: nu
   }
 }
 
+function canPlaceRect(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  forbiddenCells?: ReadonlySet<string>
+): boolean {
+  for (let y = top; y < top + height; y++) {
+    for (let x = left; x < left + width; x++) {
+      if (layout[y]?.[x] !== ".") {
+        return false;
+      }
+      if (forbiddenCells?.has(vectorKey({ x, y }))) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 export function tryPlaceQuestHouse(
   layout: string[][],
   grid: GridConfig,
-  rng: RandomGenerator
+  rng: RandomGenerator,
+  options: QuestHousePlacementOptions = {}
 ): QuestHouseResult | null {
   const attempts = 24;
-  const margin = 2;
+  const margin = options.margin ?? 2;
   const minWidth = 8;
   const maxWidth = Math.min(12, grid.cols - margin * 2);
   const minHeight = 6;
@@ -69,11 +97,8 @@ export function tryPlaceQuestHouse(
     const left = margin + Math.floor(rng() * Math.max(1, grid.cols - width - margin * 2 + 1));
     const top = margin + Math.floor(rng() * Math.max(1, grid.rows - height - margin * 2 + 1));
 
-    // Carve out the space to guarantee the house fits.
-    for (let y = top; y < top + height; y++) {
-      for (let x = left; x < left + width; x++) {
-        setChar(layout, x, y, ".");
-      }
+    if (!canPlaceRect(layout, left, top, width, height, options.forbiddenCells)) {
+      continue;
     }
 
     drawHouseCube(layout, left, top, width, height);

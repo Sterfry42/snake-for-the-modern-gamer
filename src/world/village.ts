@@ -1,4 +1,5 @@
 import type { GridConfig } from "../config/gameConfig.js";
+import { vectorKey } from "../core/math.js";
 import type { RandomGenerator } from "../core/rng.js";
 import { buildHouseNpcProfile } from "../npcs/profiles.js";
 import type { RoomSnapshot } from "./types.js";
@@ -75,6 +76,13 @@ const VILLAGER_NAMES = [
 
 const VILLAGER_PORTRAITS = ["sage-1", "sage-2", "sage-3"] as const;
 const SHOPKEEPER_NAMES = ["Marlow", "Penny Coil", "Brindle", "Tillia"] as const;
+const VILLAGE_ATTEMPTS = 28;
+const VILLAGE_MARGIN = 5;
+
+interface VillagePlacementOptions {
+  forbiddenCells?: ReadonlySet<string>;
+  margin?: number;
+}
 
 function setChar(layout: string[][], x: number, y: number, ch: string): void {
   if (y < 0 || y >= layout.length) return;
@@ -118,22 +126,72 @@ function drawMarketStall(layout: string[][], left: number, top: number): void {
   setChar(layout, left + 4, top + 2, "L");
 }
 
+function canPlaceRect(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  forbiddenCells?: ReadonlySet<string>
+): boolean {
+  for (let y = top; y < top + height; y++) {
+    for (let x = left; x < left + width; x++) {
+      if (layout[y]?.[x] !== ".") {
+        return false;
+      }
+      if (forbiddenCells?.has(vectorKey({ x, y }))) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
 export function tryPlaceVillage(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  biomeId: BiomeId
+  biomeId: BiomeId,
+  options: VillagePlacementOptions = {}
 ): { questGiver: RoomSnapshot["questGiver"]; village: NonNullable<RoomSnapshot["village"]> } | null {
   if (grid.cols < 26 || grid.rows < 18) {
     return null;
   }
 
-  const plaza = {
-    left: Math.max(4, Math.floor(grid.cols / 2) - 5),
-    top: Math.max(4, Math.floor(grid.rows / 2) - 3),
-    width: 10,
-    height: 6,
-  };
+  const margin = options.margin ?? VILLAGE_MARGIN;
+  const plazaWidth = 6;
+  const plazaHeight = 4;
+  const footprintWidth = 18;
+  const footprintHeight = 11;
+  const minLeft = margin;
+  const minTop = margin;
+  const maxLeft = grid.cols - footprintWidth - margin;
+  const maxTop = grid.rows - footprintHeight - margin;
+
+  if (maxLeft < minLeft || maxTop < minTop) {
+    return null;
+  }
+
+  let plaza: { left: number; top: number; width: number; height: number } | null = null;
+  for (let attempt = 0; attempt < VILLAGE_ATTEMPTS; attempt += 1) {
+    const footprintLeft = minLeft + Math.floor(rng() * (maxLeft - minLeft + 1));
+    const footprintTop = minTop + Math.floor(rng() * (maxTop - minTop + 1));
+    if (!canPlaceRect(layout, footprintLeft, footprintTop, footprintWidth, footprintHeight, options.forbiddenCells)) {
+      continue;
+    }
+    plaza = {
+      left: footprintLeft + 6,
+      top: footprintTop + 2,
+      width: plazaWidth,
+      height: plazaHeight,
+    };
+    break;
+  }
+
+  if (!plaza) {
+    return null;
+  }
+
   fillRect(layout, plaza.left, plaza.top, plaza.width, plaza.height, "E");
 
   const lanterns = [
@@ -144,9 +202,9 @@ export function tryPlaceVillage(
   ];
   lanterns.forEach((spot) => setChar(layout, spot.x, spot.y, "L"));
 
-  drawHouse(layout, plaza.left - 8, plaza.top - 1, 7, 6, "south");
-  drawHouse(layout, plaza.left + plaza.width + 1, plaza.top - 1, 7, 6, "south");
-  drawHouse(layout, plaza.left + 2, plaza.top + plaza.height + 1, 8, 6, "north");
+  drawHouse(layout, plaza.left - 6, plaza.top - 1, 5, 4, "south");
+  drawHouse(layout, plaza.left + plaza.width + 1, plaza.top - 1, 5, 4, "south");
+  drawHouse(layout, plaza.left + 1, plaza.top + plaza.height + 1, 6, 4, "north");
 
   const questSpot = { x: plaza.left + Math.floor(plaza.width / 2), y: plaza.top + Math.floor(plaza.height / 2) };
   setChar(layout, questSpot.x, questSpot.y, "G");

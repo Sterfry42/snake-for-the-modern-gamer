@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test:world-generation": "vitest run src/world/__tests__/worldGenerationFairness.test.ts",
     "build": "vite build",
     "preview": "vite preview"
   },
