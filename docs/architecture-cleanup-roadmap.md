@@ -17,6 +17,7 @@ The largest structural issues are:
 - Content registries exist for some domains, like apples, items, features, quests, and skills, but newer content such as ocean hazards, forest behavior, ships, sharks, angel death branches, and biome transition rules are not using equivalent registries.
 - The skill tree still reflects older assumptions. Several perk effects are just string flags consumed opportunistically by unrelated systems, and the tree does not clearly map onto the current game domains.
 - Older artifacts, especially scene-level quest files under `src/scenes/`, appear to overlap with newer quest definitions under `src/quests/definitions/`.
+- The production build currently emits a large main chunk warning. This is not only a bundling problem; it reflects that too many gameplay domains, UI surfaces, registries, scene systems, and feature implementations are pulled into the initial game shell.
 
 ## Priority Plan
 
@@ -33,6 +34,7 @@ The largest structural issues are:
 | P1 | Skill tree | Perks are static, old, and loosely connected to current systems. | Skill tree perks are declarative effects over typed domains. | Audit every perk. Remove dead effects, rename unclear ones, and group skills into current domains: traversal, survival, combat, world shaping, faith, and exploration. |
 | P2 | Scene/UI | Gameplay state, cutscenes, debug logging, and UI panels are mixed into `snakeScene.ts`. | Scene coordinates input/rendering while cutscenes, dialogue, and debug overlays are separate controllers. | Extract `DeathCutsceneController`, `DialogueController`, and `DeathDebugReporter`. Keep `snakeScene.ts` as orchestration glue. |
 | P2 | Rendering | Tile/entity rendering has many direct special cases. | Renderers consume registered tile/entity definitions. | Add sprite metadata to tile/entity registries. Let water, ships, blockers, apples, enemies, and special structures register draw behavior. |
+| P2 | Bundle shape | The main game chunk is too large because the bootstrap, Phaser scene, UI overlays, feature content, shops, cards, world systems, and debug behavior are loaded together. | A small bootstrap shell that loads game domains, overlays, content packs, and optional features only when needed. | Add bundle-size visibility to builds. Split high-level scene/UI domains first: skill tree, shops/card game, cutscenes/debug overlays, optional feature definitions, and heavy renderer registrations. |
 | P2 | Save data | Save behavior depends on broad state snapshots and many flags. | Versioned save schema with migrations. | Define save schema versions. Add migrations when flags or system ownership changes. |
 | P3 | Legacy artifacts | There are old scene-level quest files and possibly outdated docs/tests. | One source of truth for quests and current mechanics. | Confirm whether `src/scenes/eatApples.ts`, `hungerTimer.ts`, `reachLength.ts`, and `surviveNoEat.ts` are still used. Delete or migrate once verified. |
 
@@ -50,6 +52,16 @@ The game should revolve around a small number of explicit contracts:
 - `RendererRegistry`: maps tile/entity/content definitions to draw functions.
 
 The target is not a large engine rewrite. The target is a clear route for adding a mechanic without editing five unrelated files.
+
+The runtime entrypoint should stay deliberately small. `main.ts` should bootstrap the app, load the minimum shell needed to start or resume play, and then let domains register themselves through explicit boundaries. Heavy or situational domains such as shops, card-game UI, skill tree UI, debug/death overlays, optional feature content, and future editor/developer tools should be lazy-loadable rather than permanently attached to the initial game chunk.
+
+Bundle shape is a useful architecture signal:
+
+- a large initial chunk usually means boundaries are being bypassed;
+- feature modules should be discoverable without eagerly importing every feature implementation into the shell;
+- UI surfaces should load when opened or when a scene actually needs them;
+- renderer metadata should be registered through compact definitions, with expensive factories/assets loaded on demand;
+- build output should be checked periodically so the large-chunk warning does not become ignored background noise.
 
 ## Systemic Design Direction
 

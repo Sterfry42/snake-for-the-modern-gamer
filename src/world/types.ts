@@ -13,6 +13,7 @@ export interface PortalConfig {
 export interface RoomSnapshot {
   id: string;
   layout: string[];
+  archetypeId?: string;
   portals: PortalConfig[];
   apple?: Vector2Like;
   treasure?: Vector2Like;
