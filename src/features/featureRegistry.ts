@@ -1,6 +1,11 @@
 import type { Feature } from "./feature.js";
 
+export type FeatureHook = {
+  [K in keyof Feature]: Feature[K] extends (...args: any[]) => any ? K : never;
+}[keyof Feature];
+
 export class FeatureRegistry {
+  private static readonly instance = new FeatureRegistry();
   private readonly features = new Map<string, Feature>();
 
   register(feature: Feature): void {
@@ -35,12 +40,16 @@ export class FeatureRegistry {
     );
   }
 
-  invoke(hook: keyof Feature, context: Parameters<Feature[keyof Feature]>[0], ...args: any[]): void {
+  invoke(hook: FeatureHook, context: Parameters<Feature[FeatureHook]>[0], ...args: any[]): void {
     for (const feature of this.features.values()) {
       const handler = feature[hook];
       if (typeof handler === "function") {
         handler.call(feature, context, ...args);
       }
     }
+  }
+
+  static getInstance(): FeatureRegistry {
+    return FeatureRegistry.instance;
   }
 }

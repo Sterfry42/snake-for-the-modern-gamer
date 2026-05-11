@@ -284,8 +284,8 @@ export default class SnakeScene extends Phaser.Scene {
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
   private snakeRenderer!: SnakeRenderer;
-  private juice!: JuiceManager;
-  private skillTree!: SkillTreeManager;
+  juice!: JuiceManager;
+  skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
   private saveUI!: SaveUI;
   private mobileControls: MobileControls | null = null;
@@ -322,7 +322,7 @@ export default class SnakeScene extends Phaser.Scene {
   private chosenClassId: string | null = null;
   private classMods: { tickDelayScalar?: number; wallSenseBonus?: number; seismicPulseBonus?: number; invulnerabilityBonus?: number; regenerator?: { interval: number; amount: number } | null; phoenixCharges?: number; masonryEnabled?: boolean } = {};
 
-  private paused = true;
+  paused = true;
   private isDirty = false;
   private currentApple: AppleSnapshot | null = null;
   private snakeCosmetics: SnakeCosmeticState = {
@@ -2960,6 +2960,30 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.getOverlay().announce(`Class: ${id}`, "#c8ffe1", 1800);
   }
 
+  getChosenReligionId(): string | null {
+    return this.chosenReligionId;
+  }
+
+  getReligionMods(): typeof this.religionMods {
+    return this.religionMods;
+  }
+
+  getChosenBackgroundId(): string | null {
+    return this.chosenBackgroundId;
+  }
+
+  getBackgroundMods(): typeof this.backgroundMods {
+    return this.backgroundMods;
+  }
+
+  getChosenClassId(): string | null {
+    return this.chosenClassId;
+  }
+
+  getClassMods(): typeof this.classMods {
+    return this.classMods;
+  }
+
   resetStartingChoices(): void {
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;
@@ -3329,7 +3353,7 @@ export default class SnakeScene extends Phaser.Scene {
     return skillLives + phoenixLives;
   }
 
-  private tryBuyHouse(kind: "couch" | "kitchen" | "expand"): void {
+  private tryBuyHouse(kind: "couch" | "kitchen" | "expand" | "bed" | "plant" | "lamp"): void {
     const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
       this.isDirty = true;

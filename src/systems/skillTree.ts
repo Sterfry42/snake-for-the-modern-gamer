@@ -677,7 +677,7 @@ const PREDATION_BRANCH: BranchConfig = {
       id: "scoreFlow",
       title: "Score Flow",
       shortLabel: "SCOR",
-      description: "Kick off the hunt – chain feasts to build Hunt Momentum.",
+      description: "Kick off the hunt ï¿½ chain feasts to build Hunt Momentum.",
       ranks: [
         {
           description: "Unlock Hunt Momentum (combo window 28 ticks, +15% score per stack, max 4 stacks).",
@@ -1485,7 +1485,8 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
       if (!definition) {
         continue;
       }
-      const rank = Math.max(0, Math.min(definition.maxRank, Math.floor(Number(rawRank))));
+      const maxRank = definition.costByRank.length;
+      const rank = Math.max(0, Math.min(maxRank, Math.floor(Number(rawRank))));
       if (rank <= 0) {
         continue;
       }

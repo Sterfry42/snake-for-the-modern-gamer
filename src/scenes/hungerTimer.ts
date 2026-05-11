@@ -7,7 +7,13 @@ registerFeature({
     onTick: (s) => {
         s.flags['timeSinceEat'] = ((s.flags['timeSinceEat'] || 0) as number) + 1; // increments every 100ms
     },
+    onRender: (s) => {
+        // Render logic if needed
+    },
     onAppleEaten: (s) => {
         s.flags['timeSinceEat'] = 0;
+    },
+    onGameOver: (s) => {
+        // Cleanup logic if needed
     },
 });

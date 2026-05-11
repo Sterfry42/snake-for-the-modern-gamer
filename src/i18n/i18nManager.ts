@@ -46,7 +46,7 @@ class I18nManager {
   }
 
   getCommon(key: string): string {
-    return this.translations[this.currentLanguage]?.common?.[key] || key;
+    return (this.translations[this.currentLanguage]?.common?.[key] ?? key) as string;
   }
 }
 

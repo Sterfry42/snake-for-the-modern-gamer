@@ -35,7 +35,7 @@ export interface AppleConsumptionContext {
 }
 
 export abstract class AppleInstance {
-  protected constructor(
+  public constructor(
     public roomId: string,
     public position: Vector2Like,
     public readonly typeId: string,
@@ -78,7 +78,7 @@ export abstract class AppleInstance {
     return undefined;
   }
 
-  protected relocate(roomId: string, position: Vector2Like): void {
+  public relocate(roomId: string, position: Vector2Like): void {
     this.roomId = roomId;
     this.position = { x: position.x, y: position.y };
   }

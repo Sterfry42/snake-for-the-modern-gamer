@@ -109,7 +109,7 @@ export class QuestPopup {
         onAccept: callbacks.onAccept,
         onReject: callbacks.onReject,
       },
-      { acceptLabel: i18n.getCommon("quest.accept"), rejectLabel: i18n.getCommon("quest.refuse") }
+      { acceptLabel: i18n.getCommon("quest.accept") as string, rejectLabel: i18n.getCommon("quest.refuse") as string }
     );
   }
 
@@ -126,8 +126,8 @@ export class QuestPopup {
     this.pageIndex = 0;
     this.title?.setText(title);
     this.portrait?.setTexture(this.resolvePortraitKey(speaker.portraitId)).setVisible(true);
-    this.acceptButton?.setText(labels.acceptLabel ?? i18n.getCommon("quest.accept"));
-    this.rejectButton?.setText(labels.rejectLabel ?? i18n.getCommon("quest.refuse"));
+    this.acceptButton?.setText(labels.acceptLabel ?? (i18n.getCommon("quest.accept") as string));
+    this.rejectButton?.setText(labels.rejectLabel ?? (i18n.getCommon("quest.refuse") as string));
     this.nextButton?.setText(labels.nextLabel ?? (callbacks.onAccept || callbacks.onReject ? "Next" : labels.closeLabel ?? "Close"));
     this.refreshDialoguePage();
     this.container?.setVisible(true);

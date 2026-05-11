@@ -6,7 +6,7 @@ import type { RoomSnapshot } from "../world/types.js";
 
 export interface SnakeStepOutcome {
   status: "alive" | "dead";
-  reason?: "wall" | "self" | "boss" | "water";
+  reason?: "wall" | "self" | "boss" | "water" | "shielded" | "bullet" | "temperature";
   appleEaten?: boolean;
 }
 

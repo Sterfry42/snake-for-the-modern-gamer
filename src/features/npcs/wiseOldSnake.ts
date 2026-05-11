@@ -1,5 +1,5 @@
 import Phaser from "phaser";
-import { registerNpc } from "../../npcs.js";
+import { registerNpc } from "../../npcs/npcs.js";
 
 registerNpc({
     id: "wise-old-snake",

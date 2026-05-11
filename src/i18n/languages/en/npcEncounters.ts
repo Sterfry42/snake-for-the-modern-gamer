@@ -1,3 +1,4 @@
+import type { NpcTranslations } from "../../types.js";
 export const NPC_ENCOUNTERS_EN: NpcTranslations = {
   "freak-joey": {
     pages: [
