@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class r extends t{constructor(){super("goblin-ledger-debt","Goblin Ledger Debt","Find the missing goblin ledger-stamp and return it before the clerk decides your spine is acceptable collateral.")}isCompleted(e){return!1}onReward(e){e.addScore(18),e.addCardToCollection?.("goblin-receipt",1)}}const l=new r;export{l as default};
