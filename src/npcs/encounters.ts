@@ -21,7 +21,7 @@ export interface WandererEncounter {
   oneShot?: boolean;
   zoneTags?: EncounterZoneTag[];
   biomeIds?: BiomeId[];
-  portraitId?: 'sage-1' | 'sage-2' | 'sage-3';
+  portraitId?: 'sage-1' | 'sage-2' | 'sage-3' | 'goblin-happy' | 'goblin-neutral' | 'goblin-hostile';
   pages: string[];
   repeatPages?: string[];
   acceptLabel?: string;
@@ -41,6 +41,70 @@ export interface WandererEncounterSelectionContext {
 }
 
 export const WANDERER_ENCOUNTERS: readonly WandererEncounter[] = [
+  {
+    id: 'goblin-nackle-receipts',
+    name: 'Nackle the Receipt-Biter',
+    kind: 'flavor',
+    weight: 0.85,
+    minRoomsVisited: 4,
+    oneShot: true,
+    zoneTags: ['lower', 'east'],
+    biomeIds: ['ember-waste', 'sable-depths', 'moonlit-parish'],
+    portraitId: 'goblin-neutral',
+    pages: [
+      'A goblin squats on a ledger bigger than his torso, chewing the corner of one page with deep professional resentment.',
+      '"Snake got no pockets. Snake got no shoes. Snake still wants fair dealing? Hah. Horrible shape for business."',
+      '"Take receipt-card. It proves nothing, which makes it very flexible. Use it bad, use it mean."',
+    ],
+    repeatPages: [
+      'Nackle waves a damp ledger page like a flag from a doomed little kingdom.',
+      '"No more free paper, long belly. Paper costs blood or teeth now."',
+    ],
+    acceptLabel: 'Take card',
+    rejectLabel: 'Hiss off',
+    rewardCardId: 'goblin-receipt',
+  },
+  {
+    id: 'goblin-mott-warning',
+    name: 'Mott of the Split Nail',
+    kind: 'flavor',
+    weight: 0.7,
+    minRoomsVisited: 5,
+    zoneTags: ['west', 'lower'],
+    biomeIds: ['gloam-garden', 'ember-waste', 'sable-depths'],
+    portraitId: 'goblin-happy',
+    pages: [
+      'A goblin peers from behind a cracked cooking shield, smiling with the private joy of someone watching a trap almost become educational.',
+      '"Snake goes fast, snake dies flat. Mott has seen it. Mott laughed respectful-like."',
+      '"Take shiny score crumb. Buy ward later. Or don\'t. Dead snakes are quiet customers."',
+    ],
+    acceptLabel: 'Take crumb',
+    rejectLabel: 'Ignore',
+    rewardScore: 6,
+  },
+  {
+    id: 'goblin-vellum-debt',
+    name: 'Vellum-Fang',
+    kind: 'quest',
+    weight: 0.75,
+    minRoomsVisited: 6,
+    oneShot: true,
+    zoneTags: ['depths', 'lower'],
+    biomeIds: ['sable-depths', 'ember-waste'],
+    portraitId: 'goblin-neutral',
+    pages: [
+      'A goblin clerk stands beside a sack of bones sorted by size, tapping a quill against his teeth.',
+      '"Bad thing happened. Ledger-stamp ran off. Maybe walked. Maybe stolen. Maybe Vellum-Fang dropped it and will never admit."',
+      '"Snake finds stamp, brings back. Goblins stop saying snake is useless tube. Maybe."',
+    ],
+    repeatPages: [
+      'Vellum-Fang squints at you like a debt that learned locomotion.',
+      '"Stamp first. Talking after. That is civilized order."',
+    ],
+    acceptLabel: 'Take errand',
+    rejectLabel: 'Refuse',
+    questId: 'goblin-ledger-debt',
+  },
   {
     id: 'maribel-cardwright',
     name: 'Maribel Cardwright',

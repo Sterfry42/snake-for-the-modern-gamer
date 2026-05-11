@@ -39,6 +39,7 @@ export interface RoomGenerationContext {
   portals: RoomSnapshot['portals'];
   questGiver?: RoomSnapshot['questGiver'];
   village?: RoomSnapshot['village'];
+  goblinCamp?: RoomSnapshot['goblinCamp'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   palette: RoomGenerationPalette;
   archetype?: RoomArchetype;

@@ -42,6 +42,14 @@ import {
   type VillageShopStyleId,
 } from '../shops/villageShop.js';
 import {
+  GOBLIN_WARD_SCROLLS,
+  GOBLIN_SNAKE_STYLE,
+  getWardPrice,
+  getWardScrollOffer,
+  type WardDeathSource,
+} from '../shops/goblinShop.js';
+import type { FactionCardView } from '../factions/factions.js';
+import {
   CARD_DEFINITIONS,
   CARD_SHOP_OFFERS,
   CARD_TABLES,
@@ -81,6 +89,7 @@ type SnakeThemeDefinition = {
 };
 
 type DeathCutsceneMode = 'revive' | 'game-over';
+type DeathRescuer = 'angel' | 'goblin-angel';
 
 type VillageMarketStock = {
   version?: number;
@@ -100,6 +109,7 @@ type DeathCutsceneState = {
   taunts: number;
   angelBossOnRevive: boolean;
   slainByAngel: boolean;
+  rescuer: DeathRescuer;
 };
 
 type TitleMenuMode = 'main' | 'settings';
@@ -158,6 +168,7 @@ const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
 const COWBOY_HAT_COST = 36;
 const LEGACY_COWBOY_HAT_ID: VillageShopHatId = 'cowboy';
 const ANGEL_TEXTURE_KEY = 'death-angel-pixel';
+const GOBLIN_ANGEL_TEXTURE_KEY = 'death-goblin-angel-pixel';
 
 const DEATH_DIALOGUE_BRANCHES: readonly string[][] = [
   [
@@ -227,6 +238,41 @@ const REVIVE_DIALOGUE_BRANCHES: readonly string[][] = [
     'Rise, and carry this interruption like a scar.',
   ],
 ];
+
+const GOBLIN_WARD_REVIVE_DIALOGUE: Partial<Record<string, readonly string[]>> = {
+  wall: [
+    'Stone had you fair and square.',
+    'Lucky for you, some idiot bought paperwork.',
+  ],
+  self: [
+    'You tied yourself into a funeral knot.',
+    'I cut it. You owe the camp a nicer story.',
+  ],
+  boss: [
+    'Big thing ate your future.',
+    'I reached in and pulled out the cheap part.',
+  ],
+  shark: [
+    'Teeth from below, clause from above.',
+    'Do not look grateful. It makes the ink bubble.',
+  ],
+  bullet: [
+    'Fast little metal thing. Very confident. Very wrong.',
+    'Your contract caught it with its ugly little hands.',
+  ],
+  temperature: [
+    'The air tried to repossess you.',
+    'I repossessed you first. Different department.',
+  ],
+  water: [
+    'The water signed for your body.',
+    'I forged a better signature.',
+  ],
+  shielded: [
+    'Protection bit you. Classic.',
+    'The ward bit back harder.',
+  ],
+};
 
 const FINAL_DIALOGUE_BRANCHES: readonly string[][] = [
   [
@@ -605,6 +651,9 @@ export default class SnakeScene extends Phaser.Scene {
         if (this.tryInteractVillageShopkeeper()) {
           return;
         }
+        if (this.tryInteractGoblinShopkeeper()) {
+          return;
+        }
         if (this.tryInteractQuestGiver()) {
           return;
         }
@@ -722,6 +771,14 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.wasKilledByInsultedAngel(result.deathReason)) {
         this.clearAllLifeSources();
         this.startDeathSequence('game-over', result.deathReason, { slainByAngel: true });
+        return;
+      }
+      if (this.snakeGame.tryConsumeWardForDeath(result.deathReason)) {
+        this.skillTree.hideOverlay();
+        this.startDeathSequence('revive', result.deathReason, {
+          reviveOnComplete: true,
+          rescuer: 'goblin-angel',
+        });
         return;
       }
       if (this.skillTree.tryConsumeExtraLife()) {
@@ -1094,7 +1151,7 @@ export default class SnakeScene extends Phaser.Scene {
   private startDeathSequence(
     mode: DeathCutsceneMode,
     reason?: string | null,
-    options: { reviveOnComplete?: boolean; slainByAngel?: boolean } = {},
+    options: { reviveOnComplete?: boolean; slainByAngel?: boolean; rescuer?: DeathRescuer } = {},
   ): void {
     if (reason === 'water') {
       this.playDrowningAnimation(() => this.startDeathCutscene(mode, reason, options));
@@ -1184,7 +1241,7 @@ export default class SnakeScene extends Phaser.Scene {
   private startDeathCutscene(
     mode: DeathCutsceneMode,
     reason?: string | null,
-    options: { reviveOnComplete?: boolean; slainByAngel?: boolean } = {},
+    options: { reviveOnComplete?: boolean; slainByAngel?: boolean; rescuer?: DeathRescuer } = {},
   ): void {
     if (this.deathCutscene) {
       return;
@@ -1194,20 +1251,26 @@ export default class SnakeScene extends Phaser.Scene {
     this.hideSaveUI();
     this.skillTree.hideOverlay();
     this.ensureAngelTexture();
+    this.ensureGoblinAngelTexture();
     this.juice.startHeavenMusic();
 
     const width = this.grid.cols * this.grid.cell;
     const height = this.grid.rows * this.grid.cell;
+    const rescuer = options.rescuer ?? 'angel';
+    const isGoblinAngel = rescuer === 'goblin-angel';
     const container = this.add.container(0, 0).setDepth(80);
-    const fade = this.add.rectangle(0, 0, width, height, 0xffffff, 1).setOrigin(0, 0).setAlpha(0);
+    const fade = this.add
+      .rectangle(0, 0, width, height, isGoblinAngel ? 0xd8ff9a : 0xffffff, 1)
+      .setOrigin(0, 0)
+      .setAlpha(0);
     const angel = this.add
-      .image(width / 2, height * 0.38, ANGEL_TEXTURE_KEY)
+      .image(width / 2, height * 0.38, isGoblinAngel ? GOBLIN_ANGEL_TEXTURE_KEY : ANGEL_TEXTURE_KEY)
       .setOrigin(0.5)
       .setScale(8.5)
       .setAlpha(0)
-      .setTint(0xfffbdf);
+      .setTint(isGoblinAngel ? 0xcaff76 : 0xfffbdf);
     const halo = this.add
-      .ellipse(width / 2, height * 0.17, width * 0.42, 44, 0xfff4a8, 0.35)
+      .ellipse(width / 2, height * 0.17, width * 0.42, 44, isGoblinAngel ? 0x93d146 : 0xfff4a8, 0.35)
       .setAlpha(0)
       .setBlendMode(Phaser.BlendModes.ADD);
 
@@ -1222,6 +1285,7 @@ export default class SnakeScene extends Phaser.Scene {
       taunts: 0,
       angelBossOnRevive: false,
       slainByAngel: options.slainByAngel ?? false,
+      rescuer,
     };
 
     this.tweens.add({ targets: fade, alpha: 1, duration: 650, ease: 'Sine.easeInOut' });
@@ -1284,26 +1348,34 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup.setDepth(90);
     cutscene.canAdvance = false;
 
-    const pages = cutscene.slainByAngel
-      ? this.composeAngelExecutionDialogue()
-      : this.composeDeathDialogue(
-          cutscene.mode,
-          cutscene.mode === 'game-over' ? this.composeRunSummary() : [],
-        );
+    const pages =
+      cutscene.rescuer === 'goblin-angel'
+        ? this.composeGoblinWardReviveDialogue()
+        : cutscene.slainByAngel
+          ? this.composeAngelExecutionDialogue()
+          : this.composeDeathDialogue(
+              cutscene.mode,
+              cutscene.mode === 'game-over' ? this.composeRunSummary() : [],
+            );
 
     if (cutscene.mode === 'revive') {
       this.questPopup.showDialogue(
-        'The Angel',
+        cutscene.rescuer === 'goblin-angel' ? 'The Goblin Angel' : 'The Angel',
         pages,
         {
           onAccept: () => {
             cutscene.canAdvance = true;
             this.advanceDeathCutscene();
           },
-          onReject: () => this.tauntAngel(),
+          onReject: () =>
+            cutscene.rescuer === 'goblin-angel' ? this.complainToGoblinAngel() : this.tauntAngel(),
         },
-        { acceptLabel: 'Return', rejectLabel: 'Taunt', nextLabel: 'Listen' },
-        { portraitId: 'sage-3' },
+        {
+          acceptLabel: cutscene.rescuer === 'goblin-angel' ? 'Pay the debt' : 'Return',
+          rejectLabel: cutscene.rescuer === 'goblin-angel' ? 'Complain' : 'Taunt',
+          nextLabel: 'Listen',
+        },
+        { portraitId: cutscene.rescuer === 'goblin-angel' ? 'goblin-hostile' : 'sage-3' },
       );
       return;
     }
@@ -1364,6 +1436,36 @@ export default class SnakeScene extends Phaser.Scene {
     );
   }
 
+  private complainToGoblinAngel(): void {
+    const cutscene = this.deathCutscene;
+    if (!cutscene || cutscene.mode !== 'revive' || cutscene.completed) {
+      return;
+    }
+    cutscene.taunts += 1;
+    const pages =
+      cutscene.taunts <= 1
+        ? [
+            'Complain? Wonderful. The contract includes listening fees.',
+            'I will add them to the imaginary invoice I keep inside your terror.',
+          ]
+        : [
+            'No more appeals. No more squeaking.',
+            'Back to life with you before I start charging interest in organs.',
+          ];
+    this.questPopup.showDialogue(
+      'The Goblin Angel',
+      pages,
+      {
+        onClose: () => {
+          cutscene.canAdvance = true;
+          this.advanceDeathCutscene();
+        },
+      },
+      { nextLabel: 'Listen', closeLabel: 'Pay the debt' },
+      { portraitId: 'goblin-hostile' },
+    );
+  }
+
   private clearAllLifeSources(): void {
     this.skillTree.clearExtraLifeCharges();
     this.setFlag('equipment.phoenixCharges', 0);
@@ -1393,6 +1495,19 @@ export default class SnakeScene extends Phaser.Scene {
       ...this.pickDialogueBranch(ANGEL_EXECUTION_DIALOGUE),
       `Score ${score}. A number small enough to fit in a beggar's palm.`,
       `Length ${length}. So much body, so little consequence.`,
+    ];
+  }
+
+  private composeGoblinWardReviveDialogue(): string[] {
+    const reason = this.deathCutscene?.reason ?? 'unknown';
+    const reasonLines = GOBLIN_WARD_REVIVE_DIALOGUE[reason] ?? [
+      'Something killed you. Very sad. Very billable.',
+      'The ward fired first, so your regular lives stay in their little pouch.',
+    ];
+    return [
+      'Hold still. Your soul is slippery and badly labeled.',
+      ...reasonLines,
+      'The goblins have honored the contract. Try not to make that our mistake.',
     ];
   }
 
@@ -1508,6 +1623,66 @@ export default class SnakeScene extends Phaser.Scene {
         [9, 29, 3, 8],
       ],
       '#fffaf0',
+    );
+    texture.refresh();
+  }
+
+  private ensureGoblinAngelTexture(): void {
+    if (this.textures.exists(GOBLIN_ANGEL_TEXTURE_KEY)) {
+      return;
+    }
+
+    const texture = this.textures.createCanvas(GOBLIN_ANGEL_TEXTURE_KEY, 48, 48);
+    const context = texture.getContext();
+    context.imageSmoothingEnabled = false;
+
+    const px = (x: number, y: number, w: number, h: number, color: string): void => {
+      context.fillStyle = color;
+      context.fillRect(x, y, w, h);
+    };
+    const mirror = (points: readonly [number, number, number, number][], color: string): void => {
+      for (const [x, y, w, h] of points) {
+        px(x, y, w, h, color);
+        px(48 - x - w, y, w, h, color);
+      }
+    };
+
+    context.clearRect(0, 0, 48, 48);
+    px(15, 3, 18, 3, '#b6d94a');
+    px(11, 6, 26, 2, '#6f8f22');
+    mirror(
+      [
+        [7, 10, 10, 5],
+        [4, 16, 13, 6],
+        [1, 23, 15, 8],
+        [5, 33, 10, 6],
+      ],
+      '#9fb35c',
+    );
+    mirror(
+      [
+        [10, 15, 7, 4],
+        [7, 23, 8, 5],
+      ],
+      '#5d6f2d',
+    );
+    px(17, 10, 14, 10, '#7db24a');
+    px(15, 18, 18, 4, '#405719');
+    px(14, 22, 20, 18, '#5b6f28');
+    px(18, 24, 12, 13, '#28350f');
+    px(20, 13, 3, 2, '#0b1005');
+    px(26, 13, 3, 2, '#0b1005');
+    px(22, 17, 6, 1, '#d8f08a');
+    px(19, 20, 3, 3, '#d8f08a');
+    px(27, 20, 3, 3, '#d8f08a');
+    px(19, 40, 4, 6, '#28350f');
+    px(25, 40, 4, 6, '#28350f');
+    mirror(
+      [
+        [11, 25, 3, 11],
+        [8, 31, 3, 7],
+      ],
+      '#6f8f22',
     );
     texture.refresh();
   }
@@ -2488,6 +2663,18 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getQuestMapMarkers();
   }
 
+  getFactionCards(): FactionCardView[] {
+    return this.snakeGame.getFactionCards();
+  }
+
+  getCardCollectionForMenu(): CardCollection {
+    return this.getCardCollection();
+  }
+
+  getWardContractsForMenu(): Partial<Record<WardDeathSource, number>> {
+    return this.snakeGame.getWardContracts();
+  }
+
   getQuestSubtasks(questId: string): string[] {
     return this.snakeGame.getQuestSubtasks(questId);
   }
@@ -3389,6 +3576,14 @@ export default class SnakeScene extends Phaser.Scene {
         palette: style.palette,
       });
     }
+    if (unlocked.has(GOBLIN_SNAKE_STYLE.id)) {
+      merged.set(GOBLIN_SNAKE_STYLE.id, {
+        id: GOBLIN_SNAKE_STYLE.id,
+        label: GOBLIN_SNAKE_STYLE.label,
+        cost: GOBLIN_SNAKE_STYLE.price,
+        palette: GOBLIN_SNAKE_STYLE.palette,
+      });
+    }
     return Array.from(merged.values());
   }
 
@@ -3862,6 +4057,16 @@ export default class SnakeScene extends Phaser.Scene {
     if (shopkeeper && this.distanceFromHeadToLocal(shopkeeper) <= 1) {
       return { text: `Shop with ${shopkeeper.name ?? 'shopkeeper'} (press E)` };
     }
+    const goblinShopkeeper = room.goblinCamp?.shopkeeper;
+    if (goblinShopkeeper && this.distanceFromHeadToLocal(goblinShopkeeper) <= 1) {
+      const standing = this.snakeGame.getFactionAlignment('goblin-camps').standing;
+      return {
+        text:
+          standing === 'violent'
+            ? `${goblinShopkeeper.name ?? 'Goblin'} is violent`
+            : `Trade wards with ${goblinShopkeeper.name ?? 'goblin'} (press E)`,
+      };
+    }
     const giver = room.questGiver;
     if (!giver) {
       return null;
@@ -3901,6 +4106,161 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.showVillageShopRoot(shopkeeper.name ?? 'Village Shopkeeper');
     return true;
+  }
+
+  private tryInteractGoblinShopkeeper(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const shopkeeper = room.goblinCamp?.shopkeeper;
+    if (!shopkeeper || this.distanceFromHeadToLocal(shopkeeper) > 1) {
+      return false;
+    }
+    this.showGoblinShopRoot(shopkeeper.name ?? 'Goblin Clerk');
+    return true;
+  }
+
+  private showGoblinShopRoot(shopkeeperName: string): void {
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    const standing = this.snakeGame.getFactionAlignment('goblin-camps').standing;
+    if (standing === 'violent' || standing === 'angry') {
+      this.villageShopPopup.show(`${shopkeeperName}'s Contract Stump`, [
+        {
+          id: 'leave',
+          title: standing === 'violent' ? 'Leave quickly' : 'No Sale',
+          description:
+            standing === 'violent'
+              ? 'The goblins are done pricing miracles and have moved to murder.'
+              : 'The clerk recognizes you and closes the ledger with insulting care.',
+        },
+      ], () => this.closeVillageShop());
+      return;
+    }
+
+    const contracts = this.snakeGame.getWardContracts();
+    const usage = this.snakeGame.getWardUsage();
+    const options: ChoiceOption[] = GOBLIN_WARD_SCROLLS.map((offer) => {
+      const price = getWardPrice(offer, standing, Number(usage[offer.source] ?? 0)) ?? offer.basePrice;
+      const owned = Number(contracts[offer.source] ?? 0);
+      const used = Number(usage[offer.source] ?? 0);
+      return {
+        id: `ward:${offer.id}`,
+        title: `${offer.label} - ${price} score${owned > 0 ? `, held x${owned}` : ''}`,
+        description: `${offer.description}${used > 0 ? ` Used ${used} times; goblin price is uglier now.` : ''}`,
+      };
+    });
+    const styleOwned = this.snakeCosmetics.unlockedThemes.includes(GOBLIN_SNAKE_STYLE.id);
+    const styleEquipped = this.snakeCosmetics.activeTheme === GOBLIN_SNAKE_STYLE.id;
+    options.push({
+      id: `style:${GOBLIN_SNAKE_STYLE.id}`,
+      title: `${GOBLIN_SNAKE_STYLE.label} - ${styleOwned ? (styleEquipped ? 'equipped' : 'owned') : `${GOBLIN_SNAKE_STYLE.price} score`}`,
+      description: 'A green, sharp-eyed snake style sold only by goblin merchants.',
+    });
+    const goblinQuest = this.snakeGame.getGoblinLedgerQuestStatus();
+    if (goblinQuest === 'available') {
+      options.push({
+        id: 'quest:goblin-ledger-debt',
+        title: 'Ugly Errand',
+        description: 'The clerk needs a missing ledger-stamp found before blame becomes furniture.',
+      });
+    } else if (goblinQuest === 'active') {
+      options.push({
+        id: 'quest:goblin-ledger-active',
+        title: 'Ledger-Stamps First',
+        description: 'The clerk refuses fresh business until the old stupidity is corrected.',
+      });
+    } else if (goblinQuest === 'turn-in') {
+      options.push({
+        id: 'quest:goblin-ledger-turnin',
+        title: 'Return Ledger-Stamp',
+        description: 'Hand over the sticky little authority and collect whatever mercy counts as pay.',
+      });
+    } else if (goblinQuest === 'completed') {
+      options.push({
+        id: 'quest:goblin-ledger-completed',
+        title: 'Debt Settled',
+        description: 'The clerk has no more work for you. This is probably mercy.',
+      });
+    }
+    options.push({
+      id: 'leave',
+      title: 'Leave',
+      description: 'Step away before the fine print learns your name.',
+    });
+    this.villageShopPopup.show(`${shopkeeperName}'s Ward Contracts`, options, (id) => {
+      if (id === 'leave') {
+        this.closeVillageShop();
+        return;
+      }
+      const [, offerId] = id.split(':');
+      if (id.startsWith('style:')) {
+        const result = this.purchaseGoblinStyle();
+        this.showQuestHintPopup(result.message, result.color);
+        this.showGoblinShopRoot(shopkeeperName);
+        return;
+      }
+      if (id.startsWith('quest:')) {
+        this.handleGoblinShopQuestChoice(id, shopkeeperName);
+        return;
+      }
+      const result = this.purchaseGoblinWard(offerId);
+      this.showQuestHintPopup(result.message, result.color);
+      this.showGoblinShopRoot(shopkeeperName);
+    });
+  }
+
+  private purchaseGoblinWard(offerId: string): { ok: boolean; message: string; color: string } {
+    const offer = getWardScrollOffer(offerId);
+    if (!offer) {
+      return { ok: false, message: 'The contract has gone missing.', color: '#ff6b6b' };
+    }
+    const standing = this.snakeGame.getFactionAlignment('goblin-camps').standing;
+    const price = getWardPrice(
+      offer,
+      standing,
+      Number(this.snakeGame.getWardUsage()[offer.source] ?? 0),
+    );
+    if (price === null) {
+      return { ok: false, message: 'The goblins refuse to sell to you.', color: '#ff6b6b' };
+    }
+    if (this.score < price) {
+      return { ok: false, message: `${offer.label} costs ${price} score.`, color: '#ff6b6b' };
+    }
+    this.addScoreDirect(-price);
+    this.snakeGame.addWardContract(offer.source as WardDeathSource);
+    return {
+      ok: true,
+      message: `${offer.label} signed. It triggers before lives.`,
+      color: '#b6ff6a',
+    };
+  }
+
+  private purchaseGoblinStyle(): { ok: boolean; message: string; color: string } {
+    const unlocked = this.snakeCosmetics.unlockedThemes.includes(GOBLIN_SNAKE_STYLE.id);
+    if (!unlocked) {
+      if (this.score < GOBLIN_SNAKE_STYLE.price) {
+        return {
+          ok: false,
+          message: `${GOBLIN_SNAKE_STYLE.label} costs ${GOBLIN_SNAKE_STYLE.price} score.`,
+          color: '#ff6b6b',
+        };
+      }
+      this.addScoreDirect(-GOBLIN_SNAKE_STYLE.price);
+      this.snakeCosmetics.unlockedThemes = [
+        ...this.snakeCosmetics.unlockedThemes,
+        GOBLIN_SNAKE_STYLE.id,
+      ];
+    }
+    this.snakeCosmetics.activeTheme = GOBLIN_SNAKE_STYLE.id;
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: unlocked ? 'Goblin Hide equipped.' : 'Goblin Hide bought and equipped.',
+      color: '#b6ff6a',
+    };
   }
 
   private showVillageShopRoot(shopkeeperName: string): void {
@@ -5055,7 +5415,15 @@ export default class SnakeScene extends Phaser.Scene {
       this.questGiverSprite.setVisible(false);
       return;
     }
-    const palette = this.paletteForQuestGiverDisposition(disposition.hostility);
+    const palette = giver.portraitId?.startsWith('goblin-')
+      ? this.paletteForGoblinResident(
+          disposition.hostility === 'hostile'
+            ? 'violent'
+            : disposition.hostility === 'warning'
+              ? 'wary'
+              : this.snakeGame.getFactionAlignment('goblin-camps').standing,
+        )
+      : this.paletteForQuestGiverDisposition(disposition.hostility);
     const textures = this.runtimeSpriteFactory.ensureRecipe(
       questGiverSpriteRecipe,
       Math.max(18, Math.floor(this.grid.cell * 0.92)),
@@ -5176,13 +5544,24 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
-    const residents = room.village ? [...room.village.residents, room.village.shopkeeper] : [];
+    const goblinStanding = this.snakeGame.getFactionAlignment('goblin-camps').standing;
+    const goblinResidents =
+      room.goblinCamp && goblinStanding !== 'violent'
+        ? [room.goblinCamp.shopkeeper, ...room.goblinCamp.guards]
+        : [];
+    const residents = [
+      ...(room.village ? [...room.village.residents, room.village.shopkeeper] : []),
+      ...goblinResidents,
+    ];
     if (residents.length === 0 || this.questPopup.isVisible()) {
       return;
     }
     residents.forEach((resident, index) => {
       const sprite = this.ensureVillageResidentSprite(index);
-      const palette = this.paletteForResident(resident.name, index);
+      const isGoblin = room.goblinCamp
+        ? goblinResidents.some((goblin) => goblin.id === resident.id)
+        : false;
+      const palette = isGoblin ? this.paletteForGoblinResident(goblinStanding) : this.paletteForResident(resident.name, index);
       const textures = this.runtimeSpriteFactory.ensureRecipe(
         questGiverSpriteRecipe,
         Math.max(16, Math.floor(this.grid.cell * 0.84)),
@@ -5209,7 +5588,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (Math.random() < 0.04) {
         (this.juice as any).wandererAura?.(world.x, world.y - 4, palette.trimColor);
       }
-      if (Math.random() < 0.02) {
+      if (!isGoblin && Math.random() < 0.02) {
         (this.juice as any).villageResidentMurmur?.(
           world.x,
           world.y - 2,
@@ -5345,6 +5724,31 @@ export default class SnakeScene extends Phaser.Scene {
     ];
     const index = Math.abs(name.length + offset) % palettes.length;
     return palettes[index];
+  }
+
+  private paletteForGoblinResident(standing: string): QuestGiverSpritePalette {
+    if (standing === 'angry') {
+      return {
+        robeColor: '#59611f',
+        trimColor: '#ffd166',
+        outlineColor: '#161a08',
+        eyeColor: '#fff2c6',
+      };
+    }
+    if (standing === 'wary') {
+      return {
+        robeColor: '#4f6f2a',
+        trimColor: '#b6d94a',
+        outlineColor: '#101908',
+        eyeColor: '#f8ffd0',
+      };
+    }
+    return {
+      robeColor: '#3d7a2f',
+      trimColor: '#b6ff6a',
+      outlineColor: '#10220b',
+      eyeColor: '#f8ffd0',
+    };
   }
 
   private paletteForQuestGiverDisposition(

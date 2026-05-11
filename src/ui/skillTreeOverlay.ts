@@ -12,6 +12,9 @@ import type { Quest } from '../../quests.js';
 import { saveManager } from '../game/saveManager.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
+import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
+import type { FactionCardView } from '../factions/factions.js';
+import type { WardDeathSource } from '../shops/goblinShop.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -47,23 +50,45 @@ const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
 const CLICK_ROW_TOP_BIAS = 8;
 
-type TabId = 'skills' | 'inventory' | 'customize' | 'map' | 'graph' | 'cheats' | 'info';
+type PrimaryTabId = 'growth' | 'gear' | 'world' | 'system';
+type TabId =
+  | 'skills'
+  | 'inventory'
+  | 'customize'
+  | 'cards'
+  | 'map'
+  | 'quests'
+  | 'factions'
+  | 'graph'
+  | 'cheats'
+  | 'info';
 type SnakeThemeId = VillageShopStyleId;
 
 interface TabDefinition {
   id: TabId;
   label: string;
   placeholder?: string;
+  group: PrimaryTabId;
 }
 
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
-  { id: 'skills', label: 'Skill Tree' },
-  { id: 'inventory', label: 'Inventory', placeholder: 'Items you collect will appear here.' },
-  { id: 'customize', label: 'Style', placeholder: 'Buy palettes and swagger.' },
-  { id: 'map', label: 'Map', placeholder: 'Explore to reveal more rooms.' },
-  { id: 'graph', label: 'Graph' },
-  { id: 'cheats', label: 'Cheats', placeholder: 'Enter cheat strings: freakdennis, freakerdennis' },
-  { id: 'info', label: 'Info' },
+  { id: 'skills', label: 'Skill Tree', group: 'growth' },
+  { id: 'inventory', label: 'Inventory', group: 'gear', placeholder: 'Items you collect will appear here.' },
+  { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
+  { id: 'cards', label: 'Cards', group: 'gear' },
+  { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
+  { id: 'quests', label: 'Quests', group: 'world' },
+  { id: 'factions', label: 'Factions', group: 'world' },
+  { id: 'graph', label: 'Graph', group: 'system' },
+  { id: 'cheats', label: 'Cheats', group: 'system', placeholder: 'Enter cheat strings: freakdennis, freakerdennis' },
+  { id: 'info', label: 'Info', group: 'system' },
+];
+
+const PRIMARY_TAB_DEFINITIONS: readonly { id: PrimaryTabId; label: string }[] = [
+  { id: 'growth', label: 'Growth' },
+  { id: 'gear', label: 'Gear' },
+  { id: 'world', label: 'World' },
+  { id: 'system', label: 'System' },
 ];
 
 const LUCK_GRAPH_POINTS: readonly { outOf10: number; luck: number }[] = [
@@ -103,6 +128,7 @@ export class SkillTreeOverlay {
   private cheatInputFocused = false;
   private cheatCode = '';
   private readonly nodeVisuals: Map<string, NodeVisual> = new Map();
+  private readonly primaryTabLabels: Map<PrimaryTabId, Phaser.GameObjects.Text> = new Map();
   private readonly tabLabels: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private readonly stubText: Phaser.GameObjects.Text | null;
   private readonly detailPanel: Phaser.GameObjects.Rectangle;
@@ -117,6 +143,8 @@ export class SkillTreeOverlay {
   private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
   private readonly customizationText: Phaser.GameObjects.Text;
   private readonly questListText: Phaser.GameObjects.Text;
+  private readonly cardsText: Phaser.GameObjects.Text;
+  private readonly factionsText: Phaser.GameObjects.Text;
   private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
@@ -125,6 +153,7 @@ export class SkillTreeOverlay {
   private detailPinned = false;
 
   private visible = false;
+  private activePrimaryTab: PrimaryTabId = 'growth';
   private activeTab: TabId = 'skills';
   private hintSticky = false;
   private hintTimer?: Phaser.Time.TimerEvent;
@@ -419,6 +448,36 @@ export class SkillTreeOverlay {
         },
       })
       .setVisible(false);
+    this.cardsText = this.scene.add
+      .text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#e6f3ff',
+        lineSpacing: 3,
+        wordWrap: {
+          width:
+            this.options.width -
+            DETAIL_PANEL_WIDTH -
+            DETAIL_PANEL_MARGIN -
+            TREE_PADDING.horizontal * 2,
+        },
+      })
+      .setVisible(false);
+    this.factionsText = this.scene.add
+      .text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#e6f3ff',
+        lineSpacing: 4,
+        wordWrap: {
+          width:
+            this.options.width -
+            DETAIL_PANEL_WIDTH -
+            DETAIL_PANEL_MARGIN -
+            TREE_PADDING.horizontal * 2,
+        },
+      })
+      .setVisible(false);
 
     this.inventoryItemsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== 'inventory') return;
@@ -534,6 +593,8 @@ export class SkillTreeOverlay {
       this.inventoryItemsText,
       this.customizationText,
       this.questListText,
+      this.cardsText,
+      this.factionsText,
     ];
     if (this.stubText) {
       children.push(this.stubText);
@@ -858,13 +919,18 @@ export class SkillTreeOverlay {
     const skillsActive = this.activeTab === 'skills';
     const inventoryActive = this.activeTab === 'inventory';
     const customizationActive = this.activeTab === 'customize';
+    const cardsActive = this.activeTab === 'cards';
     const cheatsActive = this.activeTab === 'cheats';
+    const questsActive = this.activeTab === 'quests';
+    const factionsActive = this.activeTab === 'factions';
     const infoActive = this.activeTab === 'info';
     const graphActive = this.activeTab === 'graph';
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
     this.customizationText.setVisible(customizationActive);
-    this.questListText.setVisible(infoActive);
+    this.cardsText.setVisible(cardsActive);
+    this.questListText.setVisible(questsActive);
+    this.factionsText.setVisible(factionsActive);
     if (!customizationActive) {
       this.clearCustomizationHover();
     }
@@ -906,9 +972,12 @@ export class SkillTreeOverlay {
         !skillsActive &&
         !inventoryActive &&
         !customizationActive &&
+        !cardsActive &&
         !mapActive &&
         !graphActive &&
         !cheatsActive &&
+        !questsActive &&
+        !factionsActive &&
         !infoActive;
       this.stubText.setVisible(showStub);
       if (showStub) {
@@ -964,7 +1033,21 @@ export class SkillTreeOverlay {
       }
     }
 
-    if (infoActive) {
+    if (cardsActive) {
+      this.cardsText.setText(this.formatCardCollection(this.scene.getCardCollectionForMenu()));
+      this.detailTitle.setText('Cards').setVisible(true);
+      this.detailSubtitle.setText('Collection').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText('Cards bought from villages appear here. They can be used at card tables.')
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('Card collection: owned cards and counts.');
+        this.hintText.setColor('#9ad1ff');
+      }
+    }
+
+    if (questsActive) {
       this.questListText.setText(this.formatQuestInfo(this.scene.getAcceptedQuestList()));
       this.detailTitle.setText('Quests').setVisible(true);
       this.detailSubtitle.setText('Accepted Tasks').setVisible(true);
@@ -978,6 +1061,38 @@ export class SkillTreeOverlay {
         this.hintText.setText('Accepted quests are listed here.');
         this.hintText.setColor('#9ad1ff');
       }
+    }
+
+    if (factionsActive) {
+      this.factionsText.setText(
+        this.formatFactionCards(
+          this.scene.getFactionCards(),
+          this.scene.getWardContractsForMenu(),
+        ),
+      );
+      this.detailTitle.setText('Factions').setVisible(true);
+      this.detailSubtitle.setText('Standing').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(
+          'Faction standing changes prices, access, and hostility. Ward contracts trigger before lives.',
+        )
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('Factions: who likes you, who sells to you, and who may bite.');
+        this.hintText.setColor('#9ad1ff');
+      }
+    }
+
+    if (infoActive) {
+      this.questListText.setVisible(true);
+      this.questListText.setText('Use the grouped tabs above to manage growth, gear, world state, and system tools.');
+      this.detailTitle.setText('Info').setVisible(true);
+      this.detailSubtitle.setText('Menu').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText('Growth holds skills. Gear holds items, style, and cards. World holds map, quests, and factions.')
+        .setVisible(true);
     }
 
     if (cheatsActive) {
@@ -1093,6 +1208,10 @@ export class SkillTreeOverlay {
     } else if (
       this.activeTab !== 'inventory' &&
       this.activeTab !== 'skills' &&
+      this.activeTab !== 'cards' &&
+      this.activeTab !== 'quests' &&
+      this.activeTab !== 'factions' &&
+      this.activeTab !== 'map' &&
       this.activeTab !== 'info' &&
       this.activeTab !== 'cheats' &&
       this.activeTab !== 'graph'
@@ -1221,6 +1340,55 @@ export class SkillTreeOverlay {
         return `${marker} ${quest.label}: ${quest.description}${subtaskText}`;
       })
       .join('\n\n');
+  }
+
+  private formatCardCollection(collection: CardCollection): string {
+    const owned = CARD_DEFINITIONS.map((card) => ({
+      card,
+      count: Number(collection[card.id] ?? 0),
+    })).filter((entry) => entry.count > 0);
+
+    if (owned.length === 0) {
+      return 'No cards owned.\n\nVillage shopkeepers sell cards for your personal deck.';
+    }
+
+    const total = owned.reduce((sum, entry) => sum + entry.count, 0);
+    const lines = [`Owned cards: ${total}`, ''];
+    for (const { card, count } of owned) {
+      lines.push(
+        `[x${count}] ${card.name}`,
+        `  ${card.suit} / ${card.chips} chips / ${card.rarity}`,
+        `  ${card.description}`,
+        '',
+      );
+    }
+    return lines.join('\n').trimEnd();
+  }
+
+  private formatFactionCards(
+    factions: FactionCardView[],
+    wards: Partial<Record<WardDeathSource, number>>,
+  ): string {
+    const visible = factions.filter((faction) => faction.discovered);
+    const lines: string[] = [];
+    for (const faction of visible) {
+      const sign = faction.alignment > 0 ? '+' : '';
+      lines.push(
+        `${faction.name}`,
+        `${faction.standing.toUpperCase()} | ${sign}${faction.alignment}`,
+        faction.subtitle,
+        faction.description,
+        ...faction.effects.map((effect) => `  - ${effect}`),
+        '',
+      );
+    }
+
+    const wardLines = Object.entries(wards)
+      .filter(([, count]) => Number(count) > 0)
+      .map(([source, count]) => `  - ${source}: x${count}`);
+    lines.push('Ward Contracts');
+    lines.push(...(wardLines.length > 0 ? wardLines : ['  - none']));
+    return lines.join('\n');
   }
 
   private drawMapPanel(): void {
@@ -1483,18 +1651,49 @@ export class SkillTreeOverlay {
 
   private buildTabs(): void {
     const startX = 24;
-    const baseY = 100;
-    let currentX = startX;
+    const primaryY = 78;
+    const secondaryY = 112;
     const showHand = TAB_DEFINITIONS.length > 1;
 
-    for (const tab of TAB_DEFINITIONS) {
+    let primaryX = startX;
+    for (const primary of PRIMARY_TAB_DEFINITIONS) {
       const label = this.scene.add
-        .text(currentX, baseY, tab.label, {
+        .text(primaryX, primaryY, primary.label, {
           fontFamily: 'monospace',
-          fontSize: '18px',
+          fontSize: '17px',
           color: '#7895b4',
           backgroundColor: 'rgba(0,0,0,0)',
-          padding: { left: 10, right: 10, top: 6, bottom: 6 },
+          padding: { left: 10, right: 10, top: 5, bottom: 5 },
+        })
+        .setOrigin(0, 0.5)
+        .setInteractive({ useHandCursor: true });
+
+      label.on('pointerdown', () => {
+        this.setActivePrimaryTab(primary.id);
+      });
+      label.on('pointerover', () => {
+        if (primary.id !== this.activePrimaryTab) {
+          label.setColor('#9ad1ff');
+        }
+      });
+      label.on('pointerout', () => {
+        this.updateTabVisuals();
+      });
+
+      this.container.add(label);
+      this.primaryTabLabels.set(primary.id, label);
+      primaryX += label.width + 14;
+    }
+
+    let currentX = startX;
+    for (const tab of TAB_DEFINITIONS) {
+      const label = this.scene.add
+        .text(currentX, secondaryY, tab.label, {
+          fontFamily: 'monospace',
+          fontSize: '16px',
+          color: '#7895b4',
+          backgroundColor: 'rgba(0,0,0,0)',
+          padding: { left: 9, right: 9, top: 5, bottom: 5 },
         })
         .setOrigin(0, 0.5)
         .setInteractive({ useHandCursor: showHand });
@@ -1516,6 +1715,7 @@ export class SkillTreeOverlay {
 
       currentX += label.width + 18;
     }
+    this.layoutSecondaryTabs();
   }
 
   private buildNodes(): void {
@@ -1773,6 +1973,8 @@ export class SkillTreeOverlay {
       return;
     }
     this.activeTab = tabId;
+    this.activePrimaryTab =
+      TAB_DEFINITIONS.find((tab) => tab.id === tabId)?.group ?? this.activePrimaryTab;
     (this.scene as any).juice?.uiTabSwitch?.();
     this.updateTabVisuals();
     this.hintSticky = false;
@@ -1782,7 +1984,52 @@ export class SkillTreeOverlay {
     this.handlers.onTabChange?.(tabId);
   }
 
+  private setActivePrimaryTab(primaryTabId: PrimaryTabId): void {
+    this.activePrimaryTab = primaryTabId;
+    const firstChild = TAB_DEFINITIONS.find((tab) => tab.group === primaryTabId);
+    if (firstChild) {
+      this.activeTab = firstChild.id;
+    }
+    (this.scene as any).juice?.uiTabSwitch?.();
+    this.updateTabVisuals();
+    this.hintSticky = false;
+    this.hintTimer?.remove();
+    this.hintTimer = undefined;
+    this.refresh();
+    if (firstChild) {
+      this.handlers.onTabChange?.(firstChild.id);
+    }
+  }
+
+  private layoutSecondaryTabs(): void {
+    const startX = 24;
+    let currentX = startX;
+    for (const tab of TAB_DEFINITIONS) {
+      const label = this.tabLabels.get(tab.id);
+      if (!label) continue;
+      const visible = tab.group === this.activePrimaryTab;
+      label.setVisible(visible);
+      if (!visible) continue;
+      label.setX(currentX);
+      currentX += label.width + 14;
+    }
+  }
+
   private updateTabVisuals(): void {
+    for (const primary of PRIMARY_TAB_DEFINITIONS) {
+      const label = this.primaryTabLabels.get(primary.id);
+      if (!label) continue;
+      if (primary.id === this.activePrimaryTab) {
+        label.setColor('#ffffff');
+        label.setFontStyle('bold');
+        label.setBackgroundColor('rgba(35,90,65,0.55)');
+      } else {
+        label.setColor('#7895b4');
+        label.setFontStyle('normal');
+        label.setBackgroundColor('rgba(0,0,0,0)');
+      }
+    }
+    this.layoutSecondaryTabs();
     for (const tab of TAB_DEFINITIONS) {
       const label = this.tabLabels.get(tab.id);
       if (!label) {

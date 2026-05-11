@@ -145,6 +145,9 @@ export class QuestController {
     }
     this.offered = quest;
     this.offeredByRoomId = giverRoomId;
+    if (giverRoomId) {
+      this.giverAssignments.set(giverRoomId, quest.id);
+    }
     return quest;
   }
 
@@ -176,13 +179,10 @@ export class QuestController {
     }
 
     if (this.accepted.includes(quest.id) || this.completed.includes(quest.id)) {
-      this.giverAssignments.delete(roomId);
-      const nextQuest = this.pickEligibleQuest(runtime, roomId);
-      if (!nextQuest) {
-        return { quest, state: 'completed' };
-      }
-      this.giverAssignments.set(roomId, nextQuest.id);
-      quest = nextQuest;
+      return {
+        quest,
+        state: this.completed.includes(quest.id) ? 'completed' : 'active',
+      };
     }
 
     if (this.active.some((activeQuest) => activeQuest.id === quest.id)) {
@@ -213,11 +213,6 @@ export class QuestController {
 
     this.active = stillActive;
     for (const quest of completedNow) {
-      for (const [roomId, assignedId] of this.giverAssignments) {
-        if (assignedId === quest.id) {
-          this.giverAssignments.delete(roomId);
-        }
-      }
       quest.onReward(runtime);
     }
 
@@ -234,11 +229,6 @@ export class QuestController {
     }
     this.active = this.active.filter((activeQuest) => activeQuest.id !== id);
     this.completed.push(id);
-    for (const [roomId, assignedId] of this.giverAssignments) {
-      if (assignedId === id) {
-        this.giverAssignments.delete(roomId);
-      }
-    }
     quest.onReward(runtime);
     return quest;
   }

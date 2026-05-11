@@ -1,6 +1,12 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
 
-export type QuestPortraitVariant = 'sage-1' | 'sage-2' | 'sage-3';
+export type QuestPortraitVariant =
+  | 'sage-1'
+  | 'sage-2'
+  | 'sage-3'
+  | 'goblin-happy'
+  | 'goblin-neutral'
+  | 'goblin-hostile';
 
 export interface QuestPortraitPalette {
   frameColor: string;
@@ -8,7 +14,14 @@ export interface QuestPortraitPalette {
   backgroundColor: string;
 }
 
-const VARIANTS: readonly QuestPortraitVariant[] = ['sage-1', 'sage-2', 'sage-3'];
+const VARIANTS: readonly QuestPortraitVariant[] = [
+  'sage-1',
+  'sage-2',
+  'sage-3',
+  'goblin-happy',
+  'goblin-neutral',
+  'goblin-hostile',
+];
 
 function fillPixel(
   context: CanvasRenderingContext2D,
@@ -432,6 +445,75 @@ const PORTRAITS: Record<QuestPortraitVariant, PortraitLayers> = {
     beardColor: '#8b6a4d',
     eyeColor: '#151515',
     trimColor: '#d0f0a9',
+  },
+  'goblin-happy': {
+    hood: [
+      [4, 3], [5, 3], [10, 3], [11, 3],
+      [3, 4], [4, 4], [5, 4], [6, 4], [9, 4], [10, 4], [11, 4], [12, 4],
+      [3, 5], [4, 5], [11, 5], [12, 5],
+      [3, 6], [12, 6], [3, 7], [12, 7], [4, 9], [11, 9],
+      [5, 10], [10, 10], [6, 11], [9, 11],
+    ],
+    face: [
+      [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5],
+      [4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6],
+      [4, 7], [5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7], [11, 7],
+      [5, 8], [6, 8], [7, 8], [8, 8], [9, 8], [10, 8],
+    ],
+    beard: [[6, 9], [7, 9], [8, 9], [9, 9], [7, 10], [8, 10]],
+    eyes: [[6, 6], [9, 6], [7, 8], [8, 8]],
+    trim: [[3, 4], [12, 4], [6, 10], [9, 10]],
+    hoodColor: '#304018',
+    faceColor: '#6fbf46',
+    beardColor: '#d9ff72',
+    eyeColor: '#101608',
+    trimColor: '#b6ff6a',
+  },
+  'goblin-neutral': {
+    hood: [
+      [4, 3], [5, 3], [10, 3], [11, 3],
+      [3, 4], [4, 4], [5, 4], [10, 4], [11, 4], [12, 4],
+      [3, 5], [4, 5], [11, 5], [12, 5],
+      [3, 6], [12, 6], [3, 7], [12, 7], [4, 9], [11, 9],
+      [5, 10], [10, 10], [6, 11], [9, 11],
+    ],
+    face: [
+      [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5],
+      [4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6],
+      [4, 7], [5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7], [11, 7],
+      [5, 8], [6, 8], [7, 8], [8, 8], [9, 8], [10, 8],
+    ],
+    beard: [[6, 9], [7, 9], [8, 9], [9, 9]],
+    eyes: [[6, 6], [9, 6], [7, 8], [8, 8]],
+    trim: [[3, 4], [12, 4], [5, 10], [10, 10]],
+    hoodColor: '#2b3217',
+    faceColor: '#5aa53b',
+    beardColor: '#405719',
+    eyeColor: '#101608',
+    trimColor: '#91d146',
+  },
+  'goblin-hostile': {
+    hood: [
+      [4, 3], [5, 3], [10, 3], [11, 3],
+      [3, 4], [4, 4], [5, 4], [10, 4], [11, 4], [12, 4],
+      [3, 5], [4, 5], [11, 5], [12, 5],
+      [3, 6], [12, 6], [3, 7], [12, 7], [4, 9], [11, 9],
+      [5, 10], [10, 10], [6, 11], [9, 11],
+    ],
+    face: [
+      [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5],
+      [4, 6], [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6], [11, 6],
+      [4, 7], [5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7], [11, 7],
+      [5, 8], [6, 8], [7, 8], [8, 8], [9, 8], [10, 8],
+    ],
+    beard: [[6, 9], [7, 9], [8, 9], [9, 9], [6, 10], [9, 10]],
+    eyes: [[6, 6], [9, 6], [6, 7], [9, 7], [7, 8], [8, 8]],
+    trim: [[3, 4], [12, 4], [5, 10], [10, 10]],
+    hoodColor: '#331715',
+    faceColor: '#6d8f29',
+    beardColor: '#ffd166',
+    eyeColor: '#fff2c6',
+    trimColor: '#ff8e7a',
   },
 };
 
