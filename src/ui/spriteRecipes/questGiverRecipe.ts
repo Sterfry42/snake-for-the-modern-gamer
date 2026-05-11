@@ -24,7 +24,7 @@ function fillPixel(
 
 function drawPixels(
   context: CanvasRenderingContext2D,
-  points: readonly [number, number][],
+  points: readonly (readonly [number, number])[],
   pixelSize: number,
   color: string
 ): void {
