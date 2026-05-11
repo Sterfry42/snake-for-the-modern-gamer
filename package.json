@@ -7,10 +7,12 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write \"src/**/*.ts\""
   },
   "devDependencies": {
     "@vitest/ui": "^4.1.5",
+    "prettier": "^3.8.3",
     "vite": "^7.1.7",
     "vitest": "^4.1.5"
   },
