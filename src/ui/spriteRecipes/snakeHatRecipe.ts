@@ -45,7 +45,7 @@ function rotatePoint(x: number, y: number, turns: number): [number, number] {
   return [px, py];
 }
 
-function rotatePoints(points: readonly [number, number][], turns: number): [number, number][] {
+function rotatePoints(points: number[][], turns: number): [number, number][] {
   return points.map(([x, y]) => rotatePoint(x, y, turns));
 }
 
@@ -53,48 +53,48 @@ const HAT_TOP = [
   [2, 1], [3, 1], [4, 1], [5, 1],
   [2, 2], [3, 2], [4, 2], [5, 2],
   [2, 3], [3, 3], [4, 3], [5, 3],
-] as const;
+];
 
 const HAT_BRIM = [
   [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [6, 4],
-] as const;
+];
 
 const HAT_BAND = [
   [2, 3], [3, 3], [4, 3], [5, 3],
-] as const;
+];
 
 const CAP_CROWN = [
   [2, 2], [3, 2], [4, 2], [5, 2],
   [2, 3], [3, 3], [4, 3], [5, 3],
-] as const;
+];
 
 const CAP_BILL = [
   [4, 4], [5, 4], [6, 4],
-] as const;
+];
 
 const COWL_HOOD = [
   [2, 1], [3, 1], [4, 1], [5, 1],
   [1, 2], [2, 2], [3, 2], [4, 2], [5, 2], [6, 2],
   [1, 3], [2, 3], [5, 3], [6, 3],
   [2, 4], [5, 4],
-] as const;
+];
 
 const COWL_FLAME = [
   [3, 0], [4, 0], [3, 1], [4, 1],
-] as const;
+];
 
 const CROWN_BASE = [
   [1, 4], [2, 4], [3, 4], [4, 4], [5, 4], [6, 4],
   [2, 3], [3, 3], [4, 3], [5, 3],
-] as const;
+];
 
 const CROWN_POINTS = [
   [1, 2], [3, 1], [4, 1], [6, 2],
-] as const;
+];
 
 const CROWN_GEMS = [
   [3, 3], [4, 3],
-] as const;
+];
 
 export const snakeHatRecipe: RuntimeSpriteRecipe<SnakeHatVariant, SnakeHatPalette> = {
   id: "snake-hat",
