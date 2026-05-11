@@ -26,7 +26,10 @@ export class JuiceManager {
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
-    this.ctx = this.scene.sound.context;
+    this.ctx = this.scene.sys.game.config.audio?.context;
+    if (!this.ctx) {
+      throw new Error('AudioContext not available');
+    }
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 0.9;
     this.masterGain.connect(this.ctx.destination);
