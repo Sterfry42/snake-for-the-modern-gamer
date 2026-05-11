@@ -34,6 +34,10 @@ export interface DuelBossDisplay {
   maxHealth: number;
   roomId: string;
   body: Vector2Like[];
+  kind?: "freak-dennis" | "freaker-dennis" | "freak-you" | "revenant" | "angel";
+  rainbowPalette?: boolean;
+  headCenter?: Vector2Like;
+  direction?: Vector2Like;
 }
 
 interface EnemyStepParams {

@@ -3353,7 +3353,7 @@ export default class SnakeScene extends Phaser.Scene {
     return skillLives + phoenixLives;
   }
 
-  private tryBuyHouse(kind: "couch" | "kitchen" | "expand"): void {
+  private tryBuyHouse(kind: "couch" | "kitchen" | "expand" | "bed" | "plant" | "lamp"): void {
     const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
       this.isDirty = true;
