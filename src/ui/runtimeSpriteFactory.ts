@@ -1,15 +1,10 @@
-import Phaser from "phaser";
+import Phaser from 'phaser';
 
 export interface RuntimeSpriteRecipe<TVariant extends string, TPalette> {
   readonly id: string;
   readonly variants: readonly TVariant[];
   getPaletteKey(palette: TPalette): string;
-  draw(
-    context: CanvasRenderingContext2D,
-    variant: TVariant,
-    size: number,
-    palette: TPalette
-  ): void;
+  draw(context: CanvasRenderingContext2D, variant: TVariant, size: number, palette: TPalette): void;
 }
 
 export class RuntimeSpriteFactory {
@@ -18,7 +13,7 @@ export class RuntimeSpriteFactory {
   ensureRecipe<TVariant extends string, TPalette>(
     recipe: RuntimeSpriteRecipe<TVariant, TPalette>,
     size: number,
-    palette: TPalette
+    palette: TPalette,
   ): Record<TVariant, string> {
     const paletteKey = recipe.getPaletteKey(palette);
     const output = {} as Record<TVariant, string>;

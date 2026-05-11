@@ -1,7 +1,7 @@
-import type { GridConfig } from "../config/gameConfig.js";
-import type { Vector2Like } from "../core/math.js";
-import type { RandomGenerator } from "../core/rng.js";
-import type { RoomSnapshot } from "../world/types.js";
+import type { GridConfig } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import type { RoomSnapshot } from '../world/types.js';
 
 export interface AppleSnapshot {
   roomId: string;
@@ -39,7 +39,7 @@ export abstract class AppleInstance {
     public roomId: string,
     public position: Vector2Like,
     public readonly typeId: string,
-    public readonly color: number
+    public readonly color: number,
   ) {}
 
   initialize(_context: AppleInitializationContext): void {}

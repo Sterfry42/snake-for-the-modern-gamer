@@ -1,6 +1,6 @@
-import { vectorKey } from "../../../core/math.js";
-import type { WorldConfig } from "../../../config/gameConfig.js";
-import type { RoomGenerationContext, SpawnGuard } from "../types.js";
+import { vectorKey } from '../../../core/math.js';
+import type { WorldConfig } from '../../../config/gameConfig.js';
+import type { RoomGenerationContext, SpawnGuard } from '../types.js';
 
 export class SafetyOperations {
   constructor(private readonly config: WorldConfig) {}
@@ -24,15 +24,15 @@ export class SafetyOperations {
       protected: protectedCells,
       clear(layout: string[][]) {
         for (const key of cellsToClear) {
-          const [col, row] = key.split(",").map(Number);
-          if (layout[row]?.[col] === "#") {
-            layout[row][col] = ".";
+          const [col, row] = key.split(',').map(Number);
+          if (layout[row]?.[col] === '#') {
+            layout[row][col] = '.';
           }
         }
         for (const key of protectedCells) {
-          const [col, row] = key.split(",").map(Number);
-          if (layout[row]?.[col] === "#") {
-            layout[row][col] = ".";
+          const [col, row] = key.split(',').map(Number);
+          if (layout[row]?.[col] === '#') {
+            layout[row][col] = '.';
           }
         }
       },

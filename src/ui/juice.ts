@@ -1,5 +1,5 @@
-import Phaser from "phaser";
-import type SnakeScene from "../scenes/snakeScene.js";
+import Phaser from 'phaser';
+import type SnakeScene from '../scenes/snakeScene.js';
 
 type ToneOptions = {
   frequency: number;
@@ -15,7 +15,12 @@ export class JuiceManager {
   private readonly particleLayer: Phaser.GameObjects.Layer;
   private readonly overlayLayer: Phaser.GameObjects.Layer;
   private movementNoiseMultiplier = 1;
-  private bossMusic?: { id: string; gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private bossMusic?: {
+    id: string;
+    gain: GainNode;
+    sources: OscillatorNode[];
+    cleanup: AudioNode[];
+  };
   private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private houseMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private heavenMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
@@ -43,42 +48,83 @@ export class JuiceManager {
     const volume = 0.18 + level * 0.04;
     const shake = 0.01 + level * 0.006;
     const burstCount = 6 + level * 5;
-    this.playTone({ frequency: 420 - level * 35, frequencyEnd: 300 - level * 28, duration: 0.18 + level * 0.03, type: level > 1 ? "sawtooth" : "square", volume });
+    this.playTone({
+      frequency: 420 - level * 35,
+      frequencyEnd: 300 - level * 28,
+      duration: 0.18 + level * 0.03,
+      type: level > 1 ? 'sawtooth' : 'square',
+      volume,
+    });
     if (level > 0) {
-      this.playTone({ frequency: 95 + level * 18, frequencyEnd: 55, duration: 0.12 + level * 0.03, type: "sawtooth", volume: 0.05 + level * 0.025 });
+      this.playTone({
+        frequency: 95 + level * 18,
+        frequencyEnd: 55,
+        duration: 0.12 + level * 0.03,
+        type: 'sawtooth',
+        volume: 0.05 + level * 0.025,
+      });
     }
     this.kickCamera(shake, 60 + level * 35);
-    this.spawnBurst(worldX, worldY, { colors: [0xfff3a8, 0xffc25f, 0xff5f57], count: burstCount, radius: 14 + level * 7 });
-    this.ringPulse(worldX, worldY, level > 1 ? 0xff5f57 : 0xffc25f, 10 + level * 5, 2 + level, 180 + level * 45);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xfff3a8, 0xffc25f, 0xff5f57],
+      count: burstCount,
+      radius: 14 + level * 7,
+    });
+    this.ringPulse(
+      worldX,
+      worldY,
+      level > 1 ? 0xff5f57 : 0xffc25f,
+      10 + level * 5,
+      2 + level,
+      180 + level * 45,
+    );
   }
 
   skillTreeOpened() {
-    this.playTone({ frequency: 240, duration: 0.14, type: "triangle", volume: 0.06 });
+    this.playTone({ frequency: 240, duration: 0.14, type: 'triangle', volume: 0.06 });
   }
 
   skillTreeClosed() {
-    this.playTone({ frequency: 180, duration: 0.1, type: "sine", volume: 0.05 });
+    this.playTone({ frequency: 180, duration: 0.1, type: 'sine', volume: 0.05 });
   }
 
   perkPurchased() {
-    this.playTone({ frequency: 540, frequencyEnd: 780, duration: 0.22, type: "sine", volume: 0.14 });
+    this.playTone({
+      frequency: 540,
+      frequencyEnd: 780,
+      duration: 0.22,
+      type: 'sine',
+      volume: 0.14,
+    });
     this.scene.cameras.main.flash(130, 130, 255, 160, true);
     this.punchZoom(1.02, 100);
   }
 
   perkPurchaseFailed() {
-    this.playTone({ frequency: 160, duration: 0.16, type: "sawtooth", volume: 0.08 });
+    this.playTone({ frequency: 160, duration: 0.16, type: 'sawtooth', volume: 0.08 });
   }
 
   extraLifeGained() {
-    this.playTone({ frequency: 440, frequencyEnd: 660, duration: 0.3, type: "triangle", volume: 0.16 });
+    this.playTone({
+      frequency: 440,
+      frequencyEnd: 660,
+      duration: 0.3,
+      type: 'triangle',
+      volume: 0.16,
+    });
     this.scene.cameras.main.flash(180, 90, 255, 150, false);
     const cam = this.scene.cameras.main;
     this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0x5dd6a2, 14, 3, 260);
   }
 
   extraLifeSpent() {
-    this.playTone({ frequency: 260, frequencyEnd: 140, duration: 0.26, type: "square", volume: 0.12 });
+    this.playTone({
+      frequency: 260,
+      frequencyEnd: 140,
+      duration: 0.26,
+      type: 'square',
+      volume: 0.12,
+    });
     this.kickCamera(0.02, 140);
   }
 
@@ -90,16 +136,33 @@ export class JuiceManager {
     ];
     for (const cry of cries) {
       globalThis.setTimeout(() => {
-        this.playTone({ frequency: cry.start, frequencyEnd: cry.end, duration: cry.duration, type: "sawtooth", volume: cry.volume });
-        this.playTone({ frequency: cry.start * 1.018, frequencyEnd: cry.end * 0.96, duration: cry.duration, type: "triangle", volume: cry.volume * 0.45 });
+        this.playTone({
+          frequency: cry.start,
+          frequencyEnd: cry.end,
+          duration: cry.duration,
+          type: 'sawtooth',
+          volume: cry.volume,
+        });
+        this.playTone({
+          frequency: cry.start * 1.018,
+          frequencyEnd: cry.end * 0.96,
+          duration: cry.duration,
+          type: 'triangle',
+          volume: cry.volume * 0.45,
+        });
       }, cry.delayMs);
     }
   }
 
   scoreMultiplierBoost(multiplier: number) {
     const base = 520;
-    this.playTone({ frequency: base, duration: 0.14, type: "sine", volume: 0.1 });
-    this.playTone({ frequency: base * Math.min(multiplier, 2.5), duration: 0.22, type: "square", volume: 0.1 });
+    this.playTone({ frequency: base, duration: 0.14, type: 'sine', volume: 0.1 });
+    this.playTone({
+      frequency: base * Math.min(multiplier, 2.5),
+      duration: 0.22,
+      type: 'square',
+      volume: 0.1,
+    });
     this.scene.cameras.main.flash(110, 110, 210, 255, true);
     this.punchZoom(1.03 + Math.min(0.02, multiplier * 0.01), 120);
   }
@@ -109,7 +172,7 @@ export class JuiceManager {
       return;
     }
 
-    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
       void this.ctx.resume();
     }
 
@@ -123,7 +186,7 @@ export class JuiceManager {
     gain.connect(this.masterGain);
 
     const root = this.ctx.createOscillator();
-    root.type = "sawtooth";
+    root.type = 'sawtooth';
     root.frequency.setValueAtTime(65.41, now);
     const rootGain = this.ctx.createGain();
     rootGain.gain.value = 0.32;
@@ -131,7 +194,7 @@ export class JuiceManager {
     rootGain.connect(gain);
 
     const fifth = this.ctx.createOscillator();
-    fifth.type = "sine";
+    fifth.type = 'sine';
     fifth.frequency.setValueAtTime(98.0, now);
     const fifthGain = this.ctx.createGain();
     fifthGain.gain.value = 0.2;
@@ -139,7 +202,7 @@ export class JuiceManager {
     fifthGain.connect(gain);
 
     const brass = this.ctx.createOscillator();
-    brass.type = "sawtooth";
+    brass.type = 'sawtooth';
     brass.frequency.setValueAtTime(130.81, now);
     const brassGain = this.ctx.createGain();
     brassGain.gain.value = 0.14;
@@ -147,7 +210,7 @@ export class JuiceManager {
     brassGain.connect(gain);
 
     const pulse = this.ctx.createOscillator();
-    pulse.type = "sine";
+    pulse.type = 'sine';
     pulse.frequency.setValueAtTime(0.16, now);
     const pulseGain = this.ctx.createGain();
     pulseGain.gain.value = 0.08;
@@ -155,7 +218,7 @@ export class JuiceManager {
     pulseGain.connect(gain.gain);
 
     const shimmer = this.ctx.createOscillator();
-    shimmer.type = "triangle";
+    shimmer.type = 'triangle';
     shimmer.frequency.setValueAtTime(261.63, now);
     const shimmerGain = this.ctx.createGain();
     shimmerGain.gain.value = 0.06;
@@ -179,14 +242,23 @@ export class JuiceManager {
     fanfare.forEach((frequency, index) => {
       globalThis.setTimeout(() => {
         if (this.titleMusic) {
-          this.playTone({ frequency, duration: 0.34, type: index % 2 === 0 ? "triangle" : "square", volume: 0.13 });
+          this.playTone({
+            frequency,
+            duration: 0.34,
+            type: index % 2 === 0 ? 'triangle' : 'square',
+            volume: 0.13,
+          });
         }
       }, 180 * index);
     });
 
     let step = 0;
-    const melody = [261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 659.25, 523.25, 392.0, 493.88, 587.33, 783.99];
-    const harmony = [392.0, 493.88, 587.33, 659.25, 783.99, 1046.5, 783.99, 659.25, 587.33, 659.25, 783.99, 987.77];
+    const melody = [
+      261.63, 329.63, 392.0, 523.25, 659.25, 783.99, 659.25, 523.25, 392.0, 493.88, 587.33, 783.99,
+    ];
+    const harmony = [
+      392.0, 493.88, 587.33, 659.25, 783.99, 1046.5, 783.99, 659.25, 587.33, 659.25, 783.99, 987.77,
+    ];
     const bass = [65.41, 65.41, 98.0, 98.0, 73.42, 73.42, 110.0, 110.0, 65.41, 82.41, 98.0, 123.47];
     this.titleMusicTimer?.remove(false);
     this.titleMusicTimer = this.scene.time.addEvent({
@@ -197,21 +269,55 @@ export class JuiceManager {
           return;
         }
         const index = step % melody.length;
-        this.playTone({ frequency: melody[index], duration: 0.13, type: index % 2 === 0 ? "square" : "triangle", volume: 0.095 });
+        this.playTone({
+          frequency: melody[index],
+          duration: 0.13,
+          type: index % 2 === 0 ? 'square' : 'triangle',
+          volume: 0.095,
+        });
         if (step % 3 === 0) {
-          this.playTone({ frequency: harmony[index], duration: 0.12, type: "triangle", volume: 0.06 });
+          this.playTone({
+            frequency: harmony[index],
+            duration: 0.12,
+            type: 'triangle',
+            volume: 0.06,
+          });
         }
         if (step % 2 === 0) {
-          this.playTone({ frequency: bass[index], frequencyEnd: bass[index] * 0.68, duration: 0.18, type: "sawtooth", volume: 0.13 });
+          this.playTone({
+            frequency: bass[index],
+            frequencyEnd: bass[index] * 0.68,
+            duration: 0.18,
+            type: 'sawtooth',
+            volume: 0.13,
+          });
         }
         if (step % 12 === 0) {
-          this.playTone({ frequency: 49.0, frequencyEnd: 24, duration: 0.24, type: "square", volume: 0.16 });
+          this.playTone({
+            frequency: 49.0,
+            frequencyEnd: 24,
+            duration: 0.24,
+            type: 'square',
+            volume: 0.16,
+          });
         }
         if (step % 6 === 3) {
-          this.playTone({ frequency: 196.0, frequencyEnd: 110, duration: 0.09, type: "triangle", volume: 0.1 });
+          this.playTone({
+            frequency: 196.0,
+            frequencyEnd: 110,
+            duration: 0.09,
+            type: 'triangle',
+            volume: 0.1,
+          });
         }
         if (step % 12 === 10) {
-          this.playTone({ frequency: 1046.5, frequencyEnd: 1567.98, duration: 0.18, type: "sine", volume: 0.055 });
+          this.playTone({
+            frequency: 1046.5,
+            frequencyEnd: 1567.98,
+            duration: 0.18,
+            type: 'sine',
+            volume: 0.055,
+          });
         }
         step += 1;
       },
@@ -269,7 +375,7 @@ export class JuiceManager {
     if (this.cardMusic) {
       return;
     }
-    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
       void this.ctx.resume();
     }
     this.stopTitleMusic();
@@ -280,7 +386,7 @@ export class JuiceManager {
     gain.connect(this.masterGain);
 
     const bass = this.ctx.createOscillator();
-    bass.type = "triangle";
+    bass.type = 'triangle';
     bass.frequency.setValueAtTime(130.81, now);
     const bassGain = this.ctx.createGain();
     bassGain.gain.value = 0.1;
@@ -288,7 +394,7 @@ export class JuiceManager {
     bassGain.connect(gain);
 
     const shimmer = this.ctx.createOscillator();
-    shimmer.type = "sine";
+    shimmer.type = 'sine';
     shimmer.frequency.setValueAtTime(523.25, now);
     const shimmerGain = this.ctx.createGain();
     shimmerGain.gain.value = 0.035;
@@ -312,12 +418,28 @@ export class JuiceManager {
           return;
         }
         const index = step % melody.length;
-        this.playTone({ frequency: melody[index], duration: 0.09, type: step % 2 === 0 ? "square" : "triangle", volume: 0.055 });
+        this.playTone({
+          frequency: melody[index],
+          duration: 0.09,
+          type: step % 2 === 0 ? 'square' : 'triangle',
+          volume: 0.055,
+        });
         if (step % 2 === 0) {
-          this.playTone({ frequency: bassline[index], duration: 0.12, type: "triangle", volume: 0.055 });
+          this.playTone({
+            frequency: bassline[index],
+            duration: 0.12,
+            type: 'triangle',
+            volume: 0.055,
+          });
         }
         if (step % 4 === 3) {
-          this.playTone({ frequency: 1046.5, frequencyEnd: 1318.51, duration: 0.12, type: "sine", volume: 0.035 });
+          this.playTone({
+            frequency: 1046.5,
+            frequencyEnd: 1318.51,
+            duration: 0.12,
+            type: 'sine',
+            volume: 0.035,
+          });
         }
         step += 1;
       },
@@ -336,99 +458,166 @@ export class JuiceManager {
     gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
     gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.3);
     for (const source of sources) {
-      try { source.stop(now + 0.35); } catch {}
+      try {
+        source.stop(now + 0.35);
+      } catch {}
     }
     globalThis.setTimeout(() => {
       for (const source of sources) {
-        try { source.disconnect(); } catch {}
+        try {
+          source.disconnect();
+        } catch {}
       }
       for (const node of cleanup) {
-        try { node.disconnect(); } catch {}
+        try {
+          node.disconnect();
+        } catch {}
       }
-      try { gain.disconnect(); } catch {}
+      try {
+        gain.disconnect();
+      } catch {}
     }, 420);
     this.cardMusic = undefined;
   }
 
   cardScoreTick(value: number): void {
-    this.playTone({ frequency: 360 + Math.min(600, value * 14), frequencyEnd: 520 + Math.min(760, value * 18), duration: 0.12, type: "square", volume: 0.08 });
+    this.playTone({
+      frequency: 360 + Math.min(600, value * 14),
+      frequencyEnd: 520 + Math.min(760, value * 18),
+      duration: 0.12,
+      type: 'square',
+      volume: 0.08,
+    });
     this.punchZoom(1.012, 80);
   }
 
   cardModifierTick(multiplier: number): void {
-    this.playTone({ frequency: 660, frequencyEnd: 660 * Math.max(1.1, Math.min(2.5, multiplier)), duration: 0.18, type: "triangle", volume: 0.1 });
+    this.playTone({
+      frequency: 660,
+      frequencyEnd: 660 * Math.max(1.1, Math.min(2.5, multiplier)),
+      duration: 0.18,
+      type: 'triangle',
+      volume: 0.1,
+    });
     this.scene.cameras.main.flash(80, 255, 230, 120, true);
     this.punchZoom(1.025, 110);
   }
 
   cardRoundResult(won: boolean): void {
     if (won) {
-      this.playTone({ frequency: 523.25, duration: 0.12, type: "triangle", volume: 0.11 });
-      this.playTone({ frequency: 783.99, duration: 0.2, type: "sine", volume: 0.1 });
+      this.playTone({ frequency: 523.25, duration: 0.12, type: 'triangle', volume: 0.11 });
+      this.playTone({ frequency: 783.99, duration: 0.2, type: 'sine', volume: 0.1 });
       this.scene.cameras.main.flash(130, 255, 190, 120, true);
     } else {
-      this.playTone({ frequency: 220, frequencyEnd: 110, duration: 0.22, type: "sawtooth", volume: 0.09 });
+      this.playTone({
+        frequency: 220,
+        frequencyEnd: 110,
+        duration: 0.22,
+        type: 'sawtooth',
+        volume: 0.09,
+      });
       this.scene.cameras.main.shake(100, 0.006);
     }
   }
 
   manaUnlocked() {
-    this.playTone({ frequency: 320, duration: 0.18, type: "sine", volume: 0.08 });
-    this.playTone({ frequency: 520, duration: 0.28, type: "triangle", volume: 0.07 });
+    this.playTone({ frequency: 320, duration: 0.18, type: 'sine', volume: 0.08 });
+    this.playTone({ frequency: 520, duration: 0.28, type: 'triangle', volume: 0.07 });
   }
 
   arcaneSpellUnlocked() {
-    this.playTone({ frequency: 420, frequencyEnd: 680, duration: 0.24, type: "sine", volume: 0.12 });
+    this.playTone({
+      frequency: 420,
+      frequencyEnd: 680,
+      duration: 0.24,
+      type: 'sine',
+      volume: 0.12,
+    });
     this.scene.cameras.main.flash(140, 160, 110, 255, true);
   }
 
   arcaneVeilPrimed() {
-    this.playTone({ frequency: 360, duration: 0.2, type: "triangle", volume: 0.09 });
-    this.playTone({ frequency: 180, duration: 0.3, type: "sine", volume: 0.05 });
+    this.playTone({ frequency: 360, duration: 0.2, type: 'triangle', volume: 0.09 });
+    this.playTone({ frequency: 180, duration: 0.3, type: 'sine', volume: 0.05 });
   }
 
   arcanePulse(worldX: number, worldY: number) {
-    this.playTone({ frequency: 600, frequencyEnd: 820, duration: 0.28, type: "sine", volume: 0.16 });
-    this.spawnBurst(worldX, worldY, { colors: [0xc27dff, 0x7ad1ff, 0x4dfbff], count: 12, radius: 24 });
+    this.playTone({
+      frequency: 600,
+      frequencyEnd: 820,
+      duration: 0.28,
+      type: 'sine',
+      volume: 0.16,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc27dff, 0x7ad1ff, 0x4dfbff],
+      count: 12,
+      radius: 24,
+    });
     this.kickCamera(0.018, 110);
     this.ringPulse(worldX, worldY, 0x7ad1ff, 12, 2, 220);
   }
 
   arcaneVeilBurst() {
-    this.playTone({ frequency: 500, frequencyEnd: 220, duration: 0.4, type: "sawtooth", volume: 0.18 });
+    this.playTone({
+      frequency: 500,
+      frequencyEnd: 220,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.18,
+    });
     this.scene.cameras.main.flash(220, 140, 255, 210, true);
     this.kickCamera(0.028, 160);
   }
 
   predationFrenzy(worldX: number, worldY: number) {
-    this.playTone({ frequency: 540, frequencyEnd: 780, duration: 0.26, type: "square", volume: 0.16 });
-    this.spawnBurst(worldX, worldY, { colors: [0xff8450, 0xffc857, 0xfff3a8], count: 18, radius: 28 });
+    this.playTone({
+      frequency: 540,
+      frequencyEnd: 780,
+      duration: 0.26,
+      type: 'square',
+      volume: 0.16,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff8450, 0xffc857, 0xfff3a8],
+      count: 18,
+      radius: 28,
+    });
     this.kickCamera(0.02, 140);
   }
 
   predationRend(worldX: number, worldY: number) {
-    this.playTone({ frequency: 320, frequencyEnd: 180, duration: 0.18, type: "sawtooth", volume: 0.12 });
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 180,
+      duration: 0.18,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
     this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffa36c], count: 10, radius: 18 });
   }
 
   // Big apex moment: shockwave + zoom punch + particles
   predationApex(worldX: number, worldY: number) {
-    this.playTone({ frequency: 360, duration: 0.2, type: "triangle", volume: 0.14 });
-    this.playTone({ frequency: 720, duration: 0.24, type: "sine", volume: 0.16 });
+    this.playTone({ frequency: 360, duration: 0.2, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 720, duration: 0.24, type: 'sine', volume: 0.16 });
     this.scene.cameras.main.flash(140, 255, 160, 80, true);
     this.kickCamera(0.026, 160);
     this.punchZoom(1.06, 140);
     this.blastWave(worldX, worldY, [0xff8450, 0xfff3a8], 42);
-    this.spawnBurst(worldX, worldY, { colors: [0xff8450, 0xffc857, 0xfff3a8], count: 24, radius: 34 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff8450, 0xffc857, 0xfff3a8],
+      count: 24,
+      radius: 34,
+    });
   }
 
   bossHit(worldX: number, worldY: number) {
-    this.playTone({ frequency: 180, duration: 0.12, type: "square", volume: 0.12 });
+    this.playTone({ frequency: 180, duration: 0.12, type: 'square', volume: 0.12 });
     this.kickCamera(0.02, 110);
     this.ringPulse(worldX, worldY, 0xff6b6b, 16, 2, 200);
     this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xc27dff], count: 12, radius: 22 });
   }
-
 
   startBossMusic(bossId: string) {
     if (this.bossMusic?.id === bossId) {
@@ -436,7 +625,7 @@ export class JuiceManager {
     }
     this.stopBossMusic();
 
-    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
       void this.ctx.resume();
     }
 
@@ -446,7 +635,7 @@ export class JuiceManager {
     gain.connect(this.masterGain);
 
     const primary = this.ctx.createOscillator();
-    primary.type = "sawtooth";
+    primary.type = 'sawtooth';
     primary.frequency.setValueAtTime(58, now);
     const primaryGain = this.ctx.createGain();
     primaryGain.gain.value = 0.5;
@@ -454,7 +643,7 @@ export class JuiceManager {
     primaryGain.connect(gain);
 
     const secondary = this.ctx.createOscillator();
-    secondary.type = "triangle";
+    secondary.type = 'triangle';
     secondary.frequency.setValueAtTime(93, now);
     const secondaryGain = this.ctx.createGain();
     secondaryGain.gain.value = 0.35;
@@ -462,7 +651,7 @@ export class JuiceManager {
     secondaryGain.connect(gain);
 
     const sub = this.ctx.createOscillator();
-    sub.type = "square";
+    sub.type = 'square';
     sub.frequency.setValueAtTime(32, now);
     const subGain = this.ctx.createGain();
     subGain.gain.value = 0.25;
@@ -470,7 +659,7 @@ export class JuiceManager {
     subGain.connect(gain);
 
     const lfo = this.ctx.createOscillator();
-    lfo.type = "sine";
+    lfo.type = 'sine';
     lfo.frequency.setValueAtTime(0.35, now);
     const lfoGain = this.ctx.createGain();
     lfoGain.gain.value = 14;
@@ -496,13 +685,21 @@ export class JuiceManager {
     // Short uplifting jingle (Zelda-like) + sparkles
     const notes = [660, 880, 1175]; // E5, A5, D6-ish
     const durations = [0.12, 0.12, 0.16];
-    const types: OscillatorType[] = ["triangle", "sine", "triangle"];
+    const types: OscillatorType[] = ['triangle', 'sine', 'triangle'];
     let delay = 0;
     notes.forEach((freq, i) => {
-      globalThis.setTimeout(() => this.playTone({ frequency: freq, duration: durations[i], type: types[i], volume: 0.14 }), delay * 1000);
+      globalThis.setTimeout(
+        () =>
+          this.playTone({ frequency: freq, duration: durations[i], type: types[i], volume: 0.14 }),
+        delay * 1000,
+      );
       delay += durations[i] * 0.7; // slight overlap
     });
-    this.spawnBurst(worldX, worldY, { colors: [0x9ad1ff, 0x5dd6a2, 0xfff3a8], count: 14, radius: 22 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0x5dd6a2, 0xfff3a8],
+      count: 14,
+      radius: 22,
+    });
     this.ringPulse(worldX, worldY, 0x9ad1ff, 18, 2, 220);
     this.spawnTreasureChest(worldX, worldY);
   }
@@ -533,7 +730,7 @@ export class JuiceManager {
       scale: 1.2,
       alpha: 0,
       duration: 720,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onUpdate: () => drawChest(worldX, state.y, state.scale, state.alpha),
       onComplete: () => g.destroy(),
     });
@@ -541,22 +738,41 @@ export class JuiceManager {
 
   equipmentEquip() {
     // Soft confirm: quick rising interval
-    this.playTone({ frequency: 420, duration: 0.08, type: "triangle", volume: 0.08 });
-    globalThis.setTimeout(() => this.playTone({ frequency: 560, duration: 0.1, type: "sine", volume: 0.08 }), 60);
+    this.playTone({ frequency: 420, duration: 0.08, type: 'triangle', volume: 0.08 });
+    globalThis.setTimeout(
+      () => this.playTone({ frequency: 560, duration: 0.1, type: 'sine', volume: 0.08 }),
+      60,
+    );
   }
 
   equipmentUnequip() {
     // Soft release: gentle falling tone
-    this.playTone({ frequency: 320, frequencyEnd: 200, duration: 0.12, type: "sine", volume: 0.07 });
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 200,
+      duration: 0.12,
+      type: 'sine',
+      volume: 0.07,
+    });
   }
 
   uiTabSwitch() {
     // Gentle whoosh for tab transitions
-    this.playTone({ frequency: 260, frequencyEnd: 420, duration: 0.12, type: "triangle", volume: 0.06 });
+    this.playTone({
+      frequency: 260,
+      frequencyEnd: 420,
+      duration: 0.12,
+      type: 'triangle',
+      volume: 0.06,
+    });
   }
 
   uiSparkle(worldX: number, worldY: number) {
-    this.spawnBurst(worldX, worldY, { colors: [0x4da3ff, 0x9ad1ff, 0xcfe5ff], count: 12, radius: 28 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x4da3ff, 0x9ad1ff, 0xcfe5ff],
+      count: 12,
+      radius: 28,
+    });
   }
 
   setMovementNoiseMultiplier(multiplier: number) {
@@ -572,7 +788,12 @@ export class JuiceManager {
       const dist = Phaser.Math.Between(6, 12);
       const cx = worldX + Math.cos(angle) * dist;
       const cy = worldY + Math.sin(angle) * dist;
-      const circle = this.scene.add.circle(cx, cy, Phaser.Math.Between(2, 3), Phaser.Utils.Array.GetRandom(colors));
+      const circle = this.scene.add.circle(
+        cx,
+        cy,
+        Phaser.Math.Between(2, 3),
+        Phaser.Utils.Array.GetRandom(colors),
+      );
       circle.setDepth(21).setAlpha(0.9);
       this.particleLayer.add(circle);
       this.scene.tweens.add({
@@ -580,7 +801,7 @@ export class JuiceManager {
         y: cy - Phaser.Math.Between(2, 4),
         alpha: 0,
         duration: Phaser.Math.Between(260, 380),
-        ease: "Cubic.easeOut",
+        ease: 'Cubic.easeOut',
         onComplete: () => circle.destroy(),
       });
     }
@@ -595,7 +816,12 @@ export class JuiceManager {
       const dist = Phaser.Math.Between(5, 10);
       const cx = worldX + Math.cos(angle) * dist;
       const cy = worldY + Math.sin(angle) * dist;
-      const circle = this.scene.add.circle(cx, cy, Phaser.Math.Between(2, 3), Phaser.Utils.Array.GetRandom(colors));
+      const circle = this.scene.add.circle(
+        cx,
+        cy,
+        Phaser.Math.Between(2, 3),
+        Phaser.Utils.Array.GetRandom(colors),
+      );
       circle.setDepth(21).setAlpha(0.95);
       this.particleLayer.add(circle);
       this.scene.tweens.add({
@@ -603,7 +829,7 @@ export class JuiceManager {
         y: cy - Phaser.Math.Between(2, 4),
         alpha: 0,
         duration: Phaser.Math.Between(240, 360),
-        ease: "Cubic.easeOut",
+        ease: 'Cubic.easeOut',
         onComplete: () => circle.destroy(),
       });
     }
@@ -611,24 +837,26 @@ export class JuiceManager {
 
   // Treasure pickup burst
   treasurePickup(worldX: number, worldY: number) {
-    this.playTone({ frequency: 740, duration: 0.14, type: "triangle", volume: 0.14 });
-    this.playTone({ frequency: 980, duration: 0.16, type: "sine", volume: 0.12 });
-    this.spawnBurst(worldX, worldY, { colors: [0xffd700, 0xffe58a, 0xfff3a8], count: 18, radius: 26 });
+    this.playTone({ frequency: 740, duration: 0.14, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 980, duration: 0.16, type: 'sine', volume: 0.12 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd700, 0xffe58a, 0xfff3a8],
+      count: 18,
+      radius: 26,
+    });
     this.ringPulse(worldX, worldY, 0xffd700, 10, 2, 240);
     globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xfff3a8, 14, 2, 220), 60);
     this.punchZoom(1.015, 120);
   }
 
   // Powerup pickup: heavy juice
-  powerupPickup(worldX: number, worldY: number, kind: "phase" | "smite" | "gun") {
-    const colors =
-      kind === "gun" ? [0xf6bd60, 0xffe0a3, 0xff8c42] :
-      [0x9b5de5, 0xc77dff, 0x7ad1ff];
+  powerupPickup(worldX: number, worldY: number, kind: 'phase' | 'smite' | 'gun') {
+    const colors = kind === 'gun' ? [0xf6bd60, 0xffe0a3, 0xff8c42] : [0x9b5de5, 0xc77dff, 0x7ad1ff];
     this.playTone({
-      frequency: kind === "gun" ? 420 : 560,
-      frequencyEnd: kind === "gun" ? 680 : 920,
+      frequency: kind === 'gun' ? 420 : 560,
+      frequencyEnd: kind === 'gun' ? 680 : 920,
       duration: 0.34,
-      type: kind === "gun" ? "square" : "sine",
+      type: kind === 'gun' ? 'square' : 'sine',
       volume: 0.24,
     });
     this.spawnBurst(worldX, worldY, { colors, count: 36, radius: 40 });
@@ -636,33 +864,51 @@ export class JuiceManager {
     this.punchZoom(1.085, 220);
     this.scene.cameras.main.flash(
       200,
-      kind === "gun" ? 246 : 155,
-      kind === "gun" ? 189 : 110,
-      kind === "gun" ? 96 : 255,
-      true
+      kind === 'gun' ? 246 : 155,
+      kind === 'gun' ? 189 : 110,
+      kind === 'gun' ? 96 : 255,
+      true,
     );
     this.blastWave(worldX, worldY, colors, 42);
-    this.ringPulse(worldX, worldY, kind === "gun" ? 0xf6bd60 : 0x9b5de5, 16, 2, 300);
-    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, kind === "gun" ? 0xffe0a3 : 0xc77dff, 20, 2, 280), 100);
+    this.ringPulse(worldX, worldY, kind === 'gun' ? 0xf6bd60 : 0x9b5de5, 16, 2, 300);
+    globalThis.setTimeout(
+      () => this.ringPulse(worldX, worldY, kind === 'gun' ? 0xffe0a3 : 0xc77dff, 20, 2, 280),
+      100,
+    );
   }
 
   wandererReveal(worldX: number, worldY: number) {
-    this.playTone({ frequency: 240, duration: 0.18, type: "triangle", volume: 0.11 });
-    this.playTone({ frequency: 480, duration: 0.24, type: "sine", volume: 0.09 });
+    this.playTone({ frequency: 240, duration: 0.18, type: 'triangle', volume: 0.11 });
+    this.playTone({ frequency: 480, duration: 0.24, type: 'sine', volume: 0.09 });
     this.scene.cameras.main.flash(140, 185, 130, 255, true);
     this.kickCamera(0.016, 130);
-    this.spawnBurst(worldX, worldY, { colors: [0x8c6fff, 0xcfb8ff, 0x90e0ff], count: 18, radius: 24 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x8c6fff, 0xcfb8ff, 0x90e0ff],
+      count: 18,
+      radius: 24,
+    });
     this.ringPulse(worldX, worldY, 0xcfb8ff, 12, 2, 260);
   }
 
   wandererApproach(worldX: number, worldY: number) {
-    this.playTone({ frequency: 300, frequencyEnd: 220, duration: 0.22, type: "sawtooth", volume: 0.1 });
+    this.playTone({
+      frequency: 300,
+      frequencyEnd: 220,
+      duration: 0.22,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
     this.blastWave(worldX, worldY, [0xb89cff, 0xe8ddff], 20);
     this.punchZoom(1.025, 140);
   }
 
   wandererAura(worldX: number, worldY: number, colorCss: string) {
-    const circle = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(2, 3), Phaser.Display.Color.HexStringToColor(colorCss).color);
+    const circle = this.scene.add.circle(
+      worldX,
+      worldY,
+      Phaser.Math.Between(2, 3),
+      Phaser.Display.Color.HexStringToColor(colorCss).color,
+    );
     circle.setDepth(26).setAlpha(0.45).setBlendMode(Phaser.BlendModes.ADD);
     this.particleLayer.add(circle);
     this.scene.tweens.add({
@@ -671,38 +917,58 @@ export class JuiceManager {
       alpha: 0,
       scale: 0.4,
       duration: Phaser.Math.Between(420, 680),
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => circle.destroy(),
     });
   }
 
   duelAccepted(worldX: number, worldY: number) {
-    this.playTone({ frequency: 220, duration: 0.14, type: "square", volume: 0.12 });
-    this.playTone({ frequency: 440, duration: 0.18, type: "sawtooth", volume: 0.16 });
-    this.playTone({ frequency: 660, duration: 0.24, type: "triangle", volume: 0.12 });
+    this.playTone({ frequency: 220, duration: 0.14, type: 'square', volume: 0.12 });
+    this.playTone({ frequency: 440, duration: 0.18, type: 'sawtooth', volume: 0.16 });
+    this.playTone({ frequency: 660, duration: 0.24, type: 'triangle', volume: 0.12 });
     this.kickCamera(0.028, 180);
     this.punchZoom(1.06, 180);
     this.scene.cameras.main.flash(160, 255, 90, 90, true);
-    this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffd166, 0xfff3a8], count: 24, radius: 28 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffd166, 0xfff3a8],
+      count: 24,
+      radius: 28,
+    });
     this.blastWave(worldX, worldY, [0xff6b6b, 0xffd166], 24);
   }
 
   villageReveal(worldX: number, worldY: number) {
-    this.playTone({ frequency: 196, duration: 0.24, type: "triangle", volume: 0.1 });
-    globalThis.setTimeout(() => this.playTone({ frequency: 293, duration: 0.3, type: "sine", volume: 0.08 }), 90);
-    globalThis.setTimeout(() => this.playTone({ frequency: 392, duration: 0.36, type: "triangle", volume: 0.08 }), 180);
+    this.playTone({ frequency: 196, duration: 0.24, type: 'triangle', volume: 0.1 });
+    globalThis.setTimeout(
+      () => this.playTone({ frequency: 293, duration: 0.3, type: 'sine', volume: 0.08 }),
+      90,
+    );
+    globalThis.setTimeout(
+      () => this.playTone({ frequency: 392, duration: 0.36, type: 'triangle', volume: 0.08 }),
+      180,
+    );
     this.scene.cameras.main.flash(220, 246, 214, 164, true);
     this.kickCamera(0.02, 180);
     this.punchZoom(1.05, 200);
-    this.spawnBurst(worldX, worldY, { colors: [0xffe8b6, 0xf6bd60, 0xcde7ff], count: 28, radius: 34 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffe8b6, 0xf6bd60, 0xcde7ff],
+      count: 28,
+      radius: 34,
+    });
     this.blastWave(worldX, worldY, [0xffe8b6, 0xf6bd60, 0xcde7ff], 34);
     this.fillPulse(worldX, worldY, 10, 72, 0xf6e7c1, 0.12, 500);
   }
 
   biomeReveal(worldX: number, worldY: number, color: number) {
-    this.playTone({ frequency: 164, duration: 0.24, type: "triangle", volume: 0.08 });
-    globalThis.setTimeout(() => this.playTone({ frequency: 246, duration: 0.28, type: "sine", volume: 0.07 }), 80);
-    globalThis.setTimeout(() => this.playTone({ frequency: 328, duration: 0.34, type: "triangle", volume: 0.07 }), 160);
+    this.playTone({ frequency: 164, duration: 0.24, type: 'triangle', volume: 0.08 });
+    globalThis.setTimeout(
+      () => this.playTone({ frequency: 246, duration: 0.28, type: 'sine', volume: 0.07 }),
+      80,
+    );
+    globalThis.setTimeout(
+      () => this.playTone({ frequency: 328, duration: 0.34, type: 'triangle', volume: 0.07 }),
+      160,
+    );
     this.kickCamera(0.014, 150);
     this.punchZoom(1.04, 180);
     this.fillPulse(worldX, worldY, 10, 86, color, 0.12, 520);
@@ -716,7 +982,12 @@ export class JuiceManager {
     for (let i = 0; i < count; i++) {
       const cx = worldX + Phaser.Math.Between(-3, 3);
       const cy = worldY - Phaser.Math.Between(6, 10);
-      const dot = this.scene.add.circle(cx, cy, Phaser.Math.Between(2, 3), Phaser.Utils.Array.GetRandom(colors));
+      const dot = this.scene.add.circle(
+        cx,
+        cy,
+        Phaser.Math.Between(2, 3),
+        Phaser.Utils.Array.GetRandom(colors),
+      );
       dot.setDepth(27).setAlpha(0.8).setBlendMode(Phaser.BlendModes.ADD);
       this.overlayLayer.add(dot);
       this.scene.tweens.add({
@@ -725,7 +996,7 @@ export class JuiceManager {
         alpha: 0,
         scale: 0.5,
         duration: Phaser.Math.Between(900, 1400),
-        ease: "Sine.easeOut",
+        ease: 'Sine.easeOut',
         onComplete: () => dot.destroy(),
       });
     }
@@ -743,7 +1014,7 @@ export class JuiceManager {
       scale: 3,
       alpha: 0,
       duration: 1200,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => ring.destroy(),
     });
     this.fillPulse(worldX, worldY, 10, 56, 0xf6e7c1, 0.06, 1000);
@@ -753,7 +1024,7 @@ export class JuiceManager {
         worldY + Phaser.Math.Between(-8, 8),
         Phaser.Math.Between(2, 3),
         Phaser.Utils.Array.GetRandom([0xffe8b6, 0xcde7ff, 0xf6bd60]),
-        0.35
+        0.35,
       );
       mote.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
       this.overlayLayer.add(mote);
@@ -763,17 +1034,27 @@ export class JuiceManager {
         alpha: 0,
         scale: 0.4,
         duration: 900 + Math.random() * 300,
-        ease: "Sine.easeOut",
+        ease: 'Sine.easeOut',
         onComplete: () => mote.destroy(),
       });
     }
   }
 
   playerShot(worldX: number, worldY: number, dx: number, dy: number) {
-    this.playTone({ frequency: 520, frequencyEnd: 240, duration: 0.08, type: "square", volume: 0.13 });
+    this.playTone({
+      frequency: 520,
+      frequencyEnd: 240,
+      duration: 0.08,
+      type: 'square',
+      volume: 0.13,
+    });
     const muzzleX = worldX + dx * 10;
     const muzzleY = worldY + dy * 10;
-    this.spawnBurst(muzzleX, muzzleY, { colors: [0xfff3a8, 0xffc857, 0xff8c42], count: 8, radius: 12 });
+    this.spawnBurst(muzzleX, muzzleY, {
+      colors: [0xfff3a8, 0xffc857, 0xff8c42],
+      count: 8,
+      radius: 12,
+    });
     this.ringPulse(muzzleX, muzzleY, 0xffc857, 6, 1, 120);
     this.flashLine(muzzleX, muzzleY, muzzleX + dx * 26, muzzleY + dy * 26, 0xffd166, 2, 90);
     this.kickCamera(0.006, 50);
@@ -784,14 +1065,23 @@ export class JuiceManager {
     worldY: number,
     health: number,
     maxHealth: number,
-    source?: "enemy" | "npc-hostile" | "duelist" | "freak-joey" | "player"
+    source?: 'enemy' | 'npc-hostile' | 'duelist' | 'freak-joey' | 'player',
   ) {
     const colors =
-      source === "npc-hostile" ? [0xff8e7a, 0xa82d3d] :
-      source === "freak-joey" ? [0xffd27d, 0x7a2430] :
-      source === "duelist" ? [0xe2c8ff, 0x5d3d7d] :
-      [0xff6b6b, 0xff9e7a];
-    this.playTone({ frequency: 180, frequencyEnd: 90, duration: 0.18, type: "sawtooth", volume: 0.12 });
+      source === 'npc-hostile'
+        ? [0xff8e7a, 0xa82d3d]
+        : source === 'freak-joey'
+          ? [0xffd27d, 0x7a2430]
+          : source === 'duelist'
+            ? [0xe2c8ff, 0x5d3d7d]
+            : [0xff6b6b, 0xff9e7a];
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 90,
+      duration: 0.18,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
     this.scene.cameras.main.flash(120, 255, 70, 70, true);
     this.kickCamera(0.024, 150);
     this.spawnBurst(worldX, worldY, { colors, count: 14, radius: 18 });
@@ -802,7 +1092,7 @@ export class JuiceManager {
   }
 
   startPowerupMusic(durationMs: number) {
-    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
       void this.ctx.resume();
     }
     this.stopPowerupMusic();
@@ -814,7 +1104,7 @@ export class JuiceManager {
     gain.connect(this.masterGain);
 
     const tri = this.ctx.createOscillator();
-    tri.type = "triangle";
+    tri.type = 'triangle';
     tri.frequency.setValueAtTime(180, now);
     tri.frequency.exponentialRampToValueAtTime(520, now + total);
     const triGain = this.ctx.createGain();
@@ -823,7 +1113,7 @@ export class JuiceManager {
     triGain.connect(gain);
 
     const sq = this.ctx.createOscillator();
-    sq.type = "square";
+    sq.type = 'square';
     sq.frequency.setValueAtTime(90, now);
     sq.frequency.exponentialRampToValueAtTime(220, now + total);
     const sqGain = this.ctx.createGain();
@@ -833,7 +1123,7 @@ export class JuiceManager {
 
     // Gentle tremolo that speeds up
     const lfo = this.ctx.createOscillator();
-    lfo.type = "sine";
+    lfo.type = 'sine';
     lfo.frequency.setValueAtTime(3, now);
     lfo.frequency.linearRampToValueAtTime(9, now + total);
     const lfoGain = this.ctx.createGain();
@@ -863,19 +1153,31 @@ export class JuiceManager {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
     } catch {}
     for (const src of sources) {
-      try { src.stop(now + 0.28); } catch {}
+      try {
+        src.stop(now + 0.28);
+      } catch {}
     }
     globalThis.setTimeout(() => {
-      for (const src of sources) { try { src.disconnect(); } catch {} }
-      for (const node of cleanup) { try { node.disconnect(); } catch {} }
-      try { gain.disconnect(); } catch {}
+      for (const src of sources) {
+        try {
+          src.disconnect();
+        } catch {}
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {}
+      }
+      try {
+        gain.disconnect();
+      } catch {}
     }, 340);
     this.powerupMusic = undefined;
   }
 
   // Gentle house ambience
   startHouseAmbience(): void {
-    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
       void this.ctx.resume();
     }
     this.stopHouseAmbience();
@@ -885,21 +1187,23 @@ export class JuiceManager {
     gain.connect(this.masterGain);
 
     const s1 = this.ctx.createOscillator();
-    s1.type = "sine";
+    s1.type = 'sine';
     s1.frequency.value = 196; // G3
     const g1 = this.ctx.createGain();
     g1.gain.value = 0.06;
-    s1.connect(g1); g1.connect(gain);
+    s1.connect(g1);
+    g1.connect(gain);
 
     const s2 = this.ctx.createOscillator();
-    s2.type = "triangle";
+    s2.type = 'triangle';
     s2.frequency.value = 261.63; // C4
     const g2 = this.ctx.createGain();
     g2.gain.value = 0.05;
-    s2.connect(g2); g2.connect(gain);
+    s2.connect(g2);
+    g2.connect(gain);
 
     const lfo = this.ctx.createOscillator();
-    lfo.type = "sine";
+    lfo.type = 'sine';
     lfo.frequency.value = 0.2;
     const lfoGain = this.ctx.createGain();
     lfoGain.gain.value = 0.06;
@@ -907,7 +1211,7 @@ export class JuiceManager {
     lfoGain.connect(g1.gain);
 
     const lfo2 = this.ctx.createOscillator();
-    lfo2.type = "sine";
+    lfo2.type = 'sine';
     lfo2.frequency.value = 0.13;
     const lfoGain2 = this.ctx.createGain();
     lfoGain2.gain.value = 0.05;
@@ -918,7 +1222,9 @@ export class JuiceManager {
     s2.start(now);
     lfo.start(now);
     lfo2.start(now);
-    try { gain.gain.exponentialRampToValueAtTime(0.2, now + 0.25); } catch {}
+    try {
+      gain.gain.exponentialRampToValueAtTime(0.2, now + 0.25);
+    } catch {}
 
     this.houseMusic = { gain, sources: [s1, s2, lfo, lfo2], cleanup: [g1, g2, lfoGain, lfoGain2] };
   }
@@ -932,17 +1238,31 @@ export class JuiceManager {
       gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
     } catch {}
-    for (const s of sources) { try { s.stop(now + 0.28); } catch {} }
+    for (const s of sources) {
+      try {
+        s.stop(now + 0.28);
+      } catch {}
+    }
     globalThis.setTimeout(() => {
-      for (const s of sources) { try { s.disconnect(); } catch {} }
-      for (const n of cleanup) { try { n.disconnect(); } catch {} }
-      try { gain.disconnect(); } catch {}
+      for (const s of sources) {
+        try {
+          s.disconnect();
+        } catch {}
+      }
+      for (const n of cleanup) {
+        try {
+          n.disconnect();
+        } catch {}
+      }
+      try {
+        gain.disconnect();
+      } catch {}
     }, 340);
     this.houseMusic = undefined;
   }
 
   startHeavenMusic(): void {
-    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
       void this.ctx.resume();
     }
 
@@ -956,17 +1276,18 @@ export class JuiceManager {
     gain.connect(this.masterGain);
 
     const filter = this.ctx.createBiquadFilter();
-    filter.type = "lowpass";
+    filter.type = 'lowpass';
     filter.frequency.value = 2400;
     filter.Q.value = 0.45;
     filter.connect(gain);
 
-    const chord: Array<{ frequency: number; type: OscillatorType; volume: number; drift: number }> = [
-      { frequency: 261.63, type: "sine", volume: 0.08, drift: 0.08 },
-      { frequency: 329.63, type: "triangle", volume: 0.055, drift: 0.06 },
-      { frequency: 392.0, type: "sine", volume: 0.05, drift: 0.045 },
-      { frequency: 523.25, type: "sine", volume: 0.035, drift: 0.035 },
-    ];
+    const chord: Array<{ frequency: number; type: OscillatorType; volume: number; drift: number }> =
+      [
+        { frequency: 261.63, type: 'sine', volume: 0.08, drift: 0.08 },
+        { frequency: 329.63, type: 'triangle', volume: 0.055, drift: 0.06 },
+        { frequency: 392.0, type: 'sine', volume: 0.05, drift: 0.045 },
+        { frequency: 523.25, type: 'sine', volume: 0.035, drift: 0.035 },
+      ];
 
     const sources: OscillatorNode[] = [];
     const cleanup: AudioNode[] = [filter];
@@ -982,7 +1303,7 @@ export class JuiceManager {
       noteGain.connect(filter);
 
       const lfo = this.ctx.createOscillator();
-      lfo.type = "sine";
+      lfo.type = 'sine';
       lfo.frequency.value = note.drift;
       const lfoGain = this.ctx.createGain();
       lfoGain.gain.value = note.frequency * 0.006;
@@ -996,12 +1317,12 @@ export class JuiceManager {
     }
 
     const shimmer = this.ctx.createOscillator();
-    shimmer.type = "sine";
+    shimmer.type = 'sine';
     shimmer.frequency.value = 1046.5;
     const shimmerGain = this.ctx.createGain();
     shimmerGain.gain.value = 0.018;
     const shimmerLfo = this.ctx.createOscillator();
-    shimmerLfo.type = "sine";
+    shimmerLfo.type = 'sine';
     shimmerLfo.frequency.value = 0.11;
     const shimmerLfoGain = this.ctx.createGain();
     shimmerLfoGain.gain.value = 0.014;
@@ -1031,12 +1352,24 @@ export class JuiceManager {
       gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
     } catch {}
     for (const source of sources) {
-      try { source.stop(now + 0.55); } catch {}
+      try {
+        source.stop(now + 0.55);
+      } catch {}
     }
     globalThis.setTimeout(() => {
-      for (const source of sources) { try { source.disconnect(); } catch {} }
-      for (const node of cleanup) { try { node.disconnect(); } catch {} }
-      try { gain.disconnect(); } catch {}
+      for (const source of sources) {
+        try {
+          source.disconnect();
+        } catch {}
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {}
+      }
+      try {
+        gain.disconnect();
+      } catch {}
     }, 650);
     this.heavenMusic = undefined;
   }
@@ -1063,11 +1396,17 @@ export class JuiceManager {
       y: y + dy,
       alpha: 0,
       duration: 1600 + Math.random() * 900,
-      ease: "Sine.easeOut",
+      ease: 'Sine.easeOut',
       onComplete: () => rect.destroy(),
     });
     if (Math.random() < 0.35) {
-      const ember = this.scene.add.circle(x + Phaser.Math.Between(-3, 3), y + Phaser.Math.Between(-3, 3), Phaser.Math.Between(2, 3), 0xffd79a, 0.35);
+      const ember = this.scene.add.circle(
+        x + Phaser.Math.Between(-3, 3),
+        y + Phaser.Math.Between(-3, 3),
+        Phaser.Math.Between(2, 3),
+        0xffd79a,
+        0.35,
+      );
       ember.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
       this.overlayLayer.add(ember);
       this.scene.tweens.add({
@@ -1076,7 +1415,7 @@ export class JuiceManager {
         alpha: 0,
         scale: 0.4,
         duration: 900 + Math.random() * 400,
-        ease: "Sine.easeOut",
+        ease: 'Sine.easeOut',
         onComplete: () => ember.destroy(),
       });
     }
@@ -1094,7 +1433,7 @@ export class JuiceManager {
       alpha: 0,
       y: rect.y - 12,
       duration: 380,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => rect.destroy(),
     });
     // Small glint at the treasure position
@@ -1147,20 +1486,30 @@ export class JuiceManager {
   }
 
   spellFailed() {
-    this.playTone({ frequency: 140, duration: 0.12, type: "triangle", volume: 0.06 });
+    this.playTone({ frequency: 140, duration: 0.12, type: 'triangle', volume: 0.06 });
   }
 
   announce(message: string, color: string, duration: number = 1500): void {
-    const overlay = this.scene.add.rectangle(this.scene.scale.width / 2, 60, this.scene.scale.width, 40, 0x000000, 0.85);
+    const overlay = this.scene.add.rectangle(
+      this.scene.scale.width / 2,
+      60,
+      this.scene.scale.width,
+      40,
+      0x000000,
+      0.85,
+    );
     overlay.setDepth(32).setOrigin(0, 0);
     this.overlayLayer.add(overlay);
 
-    const text = this.scene.add.text(this.scene.scale.width / 2, 60, message, {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: color,
-      align: "center",
-    }).setDepth(33).setOrigin(0.5, 0.5);
+    const text = this.scene.add
+      .text(this.scene.scale.width / 2, 60, message, {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: color,
+        align: 'center',
+      })
+      .setDepth(33)
+      .setOrigin(0.5, 0.5);
     this.overlayLayer.add(text);
 
     const state = { opacity: 1, y: 60 };
@@ -1175,7 +1524,7 @@ export class JuiceManager {
       opacity: 0,
       y: 50,
       duration: duration * 0.3,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => {
         overlay.destroy();
         text.destroy();
@@ -1183,16 +1532,22 @@ export class JuiceManager {
     });
   }
   questOffered() {
-    this.playTone({ frequency: 660, duration: 0.16, type: "triangle", volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'triangle', volume: 0.12 });
     this.scene.cameras.main.flash(120, 80, 130, 255, true);
   }
 
   questAccepted() {
-    this.playTone({ frequency: 550, frequencyEnd: 880, duration: 0.22, type: "sine", volume: 0.14 });
+    this.playTone({
+      frequency: 550,
+      frequencyEnd: 880,
+      duration: 0.22,
+      type: 'sine',
+      volume: 0.14,
+    });
   }
 
   questRejected() {
-    this.playTone({ frequency: 220, duration: 0.16, type: "sawtooth", volume: 0.1 });
+    this.playTone({ frequency: 220, duration: 0.16, type: 'sawtooth', volume: 0.1 });
   }
 
   questCompleted() {
@@ -1201,16 +1556,26 @@ export class JuiceManager {
     this.scene.cameras.main.flash(160, 120, 200, 255, true);
   }
 
-  
-
   gameOver() {
     this.stopBossMusic();
-    this.playTone({ frequency: 200, frequencyEnd: 40, duration: 0.6, type: "sawtooth", volume: 0.18 });
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 40,
+      duration: 0.6,
+      type: 'sawtooth',
+      volume: 0.18,
+    });
     this.scene.cameras.main.shake(260, 0.02);
     this.scene.cameras.main.flash(180, 255, 50, 50, true);
   }
-  private playTone({ frequency, duration = 0.15, type = "sine", volume = 0.1, frequencyEnd }: ToneOptions) {
-    if (!this.scene.sound.locked && this.ctx.state === "suspended") {
+  private playTone({
+    frequency,
+    duration = 0.15,
+    type = 'sine',
+    volume = 0.1,
+    frequencyEnd,
+  }: ToneOptions) {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
       void this.ctx.resume();
     }
 
@@ -1245,7 +1610,7 @@ export class JuiceManager {
     const downDur = Math.max(60, Math.floor(duration * 0.8));
 
     // Start zoom-in
-    cam.zoomTo(targetZoom, upDur, "Cubic.easeOut", true);
+    cam.zoomTo(targetZoom, upDur, 'Cubic.easeOut', true);
 
     // Ensure any previous reset timer is cleared so we don't stack
     if (this.zoomBackTimer) {
@@ -1254,7 +1619,7 @@ export class JuiceManager {
     }
     // Always return to exactly 1.0 zoom to avoid drift
     this.zoomBackTimer = this.scene.time.delayedCall(upDur, () => {
-      cam.zoomTo(1, downDur, "Cubic.easeInOut", true);
+      cam.zoomTo(1, downDur, 'Cubic.easeInOut', true);
       // Hard-set to 1 at the end in case of tween rounding
       this.zoomBackTimer = this.scene.time.delayedCall(downDur + 40, () => {
         cam.setZoom(1);
@@ -1263,13 +1628,22 @@ export class JuiceManager {
     });
   }
 
-  private spawnBurst(worldX: number, worldY: number, { colors, count, radius }: { colors: number[]; count: number; radius: number }) {
+  private spawnBurst(
+    worldX: number,
+    worldY: number,
+    { colors, count, radius }: { colors: number[]; count: number; radius: number },
+  ) {
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
       const dist = Phaser.Math.Between(radius * 0.4, radius);
       const offsetX = Math.cos(angle) * dist;
       const offsetY = Math.sin(angle) * dist;
-      const circle = this.scene.add.circle(worldX + offsetX, worldY + offsetY, Phaser.Math.Between(3, 5), Phaser.Utils.Array.GetRandom(colors));
+      const circle = this.scene.add.circle(
+        worldX + offsetX,
+        worldY + offsetY,
+        Phaser.Math.Between(3, 5),
+        Phaser.Utils.Array.GetRandom(colors),
+      );
       circle.setDepth(22);
       this.particleLayer.add(circle);
 
@@ -1278,14 +1652,21 @@ export class JuiceManager {
         alpha: 0,
         scale: 0,
         duration: Phaser.Math.Between(180, 260),
-        ease: "Cubic.easeOut",
+        ease: 'Cubic.easeOut',
         onComplete: () => circle.destroy(),
       });
     }
   }
 
   // Expanding ring pulse
-  private ringPulse(x: number, y: number, color: number, startRadius: number, lineWidth: number, duration: number) {
+  private ringPulse(
+    x: number,
+    y: number,
+    color: number,
+    startRadius: number,
+    lineWidth: number,
+    duration: number,
+  ) {
     const g = this.scene.add.graphics().setDepth(29);
     this.overlayLayer.add(g);
     g.lineStyle(lineWidth, color, 1);
@@ -1296,7 +1677,7 @@ export class JuiceManager {
       r: startRadius * 3.2,
       a: 0,
       duration,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onUpdate: () => {
         g.clear();
         g.lineStyle(lineWidth, color, state.a);
@@ -1312,17 +1693,27 @@ export class JuiceManager {
     for (let i = 0; i < rings; i++) {
       const delay = i * 40;
       const color = Phaser.Utils.Array.GetRandom(colors);
-      globalThis.setTimeout(() => this.ringPulse(x, y, color, baseRadius + i * 6, 2, 260 + i * 40), delay);
+      globalThis.setTimeout(
+        () => this.ringPulse(x, y, color, baseRadius + i * 6, 2, 260 + i * 40),
+        delay,
+      );
     }
   }
 
   // Optional subtle trail at the snake head position if provided
   movementTick(worldX?: number, worldY?: number) {
-    this.playTone({ frequency: 60, duration: 0.05, type: "square", volume: 0.04 * this.movementNoiseMultiplier });
+    this.playTone({
+      frequency: 60,
+      duration: 0.05,
+      type: 'square',
+      volume: 0.04 * this.movementNoiseMultiplier,
+    });
 
     if (worldX !== undefined && worldY !== undefined) {
       // Spawn a tiny fading dot and occasional spark to suggest momentum.
-      const dot = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(2, 3), 0x5dd6a2).setAlpha(0.9);
+      const dot = this.scene.add
+        .circle(worldX, worldY, Phaser.Math.Between(2, 3), 0x5dd6a2)
+        .setAlpha(0.9);
       dot.setDepth(21);
       this.particleLayer.add(dot);
       this.scene.tweens.add({
@@ -1332,16 +1723,18 @@ export class JuiceManager {
         alpha: 0,
         scale: 0.6,
         duration: 220,
-        ease: "Cubic.easeOut",
+        ease: 'Cubic.easeOut',
         onComplete: () => dot.destroy(),
       });
       if (Math.random() < 0.45) {
-        const spark = this.scene.add.circle(
-          worldX + Phaser.Math.Between(-5, 5),
-          worldY + Phaser.Math.Between(-5, 5),
-          Phaser.Math.Between(1, 2),
-          Phaser.Utils.Array.GetRandom([0xc8ffe1, 0x9ad1ff, 0x5dd6a2])
-        ).setAlpha(0.65);
+        const spark = this.scene.add
+          .circle(
+            worldX + Phaser.Math.Between(-5, 5),
+            worldY + Phaser.Math.Between(-5, 5),
+            Phaser.Math.Between(1, 2),
+            Phaser.Utils.Array.GetRandom([0xc8ffe1, 0x9ad1ff, 0x5dd6a2]),
+          )
+          .setAlpha(0.65);
         spark.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
         this.particleLayer.add(spark);
         this.scene.tweens.add({
@@ -1350,7 +1743,7 @@ export class JuiceManager {
           alpha: 0,
           scale: 0.4,
           duration: 160,
-          ease: "Cubic.easeOut",
+          ease: 'Cubic.easeOut',
           onComplete: () => spark.destroy(),
         });
       }
@@ -1365,7 +1758,7 @@ export class JuiceManager {
     endRadius: number,
     color: number,
     startAlpha: number,
-    duration: number
+    duration: number,
   ) {
     const g = this.scene.add.graphics().setDepth(28);
     this.overlayLayer.add(g);
@@ -1375,7 +1768,7 @@ export class JuiceManager {
       targets: state,
       r: endRadius,
       duration,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onUpdate: () => {
         g.clear();
         g.fillStyle(color, Math.max(0, state.a));
@@ -1391,31 +1784,42 @@ export class JuiceManager {
         targets: state,
         a: 0,
         duration: fadeDur,
-        ease: "Cubic.easeIn",
+        ease: 'Cubic.easeIn',
       });
     });
   }
 
   // Geometry: seismic pulse feedback
   seismicPulse(worldX: number, worldY: number, radius: number) {
-    this.playTone({ frequency: 180, duration: 0.12, type: "triangle", volume: 0.1 });
+    this.playTone({ frequency: 180, duration: 0.12, type: 'triangle', volume: 0.1 });
     this.kickCamera(0.012, 90);
     this.ringPulse(worldX, worldY, 0x9ad1ff, Math.max(8, radius * 2), 2, 240);
-    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xcfe5ff, Math.max(10, radius * 3), 2, 200), 60);
+    globalThis.setTimeout(
+      () => this.ringPulse(worldX, worldY, 0xcfe5ff, Math.max(10, radius * 3), 2, 200),
+      60,
+    );
     this.spawnBurst(worldX, worldY, { colors: [0x9ad1ff, 0xcfe5ff], count: 10, radius: 16 });
   }
 
   // Geometry: collapse control (building walls) feedback
   collapseControl(worldX: number, worldY: number) {
-    this.playTone({ frequency: 220, duration: 0.08, type: "square", volume: 0.08 });
-    this.spawnBurst(worldX, worldY, { colors: [0xb8865e, 0x8a6b4c, 0xd8c3a5], count: 8, radius: 14 });
+    this.playTone({ frequency: 220, duration: 0.08, type: 'square', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xb8865e, 0x8a6b4c, 0xd8c3a5],
+      count: 8,
+      radius: 14,
+    });
   }
 
   // Geometry: wall chomp debris burst
   wallChomp(worldX: number, worldY: number) {
-    this.playTone({ frequency: 140, duration: 0.1, type: "sawtooth", volume: 0.08 });
+    this.playTone({ frequency: 140, duration: 0.1, type: 'sawtooth', volume: 0.08 });
     this.kickCamera(0.014, 80);
-    this.spawnBurst(worldX, worldY, { colors: [0x7b8fa1, 0x9aa6b2, 0xcad2e2], count: 12, radius: 18 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x7b8fa1, 0x9aa6b2, 0xcad2e2],
+      count: 12,
+      radius: 18,
+    });
   }
 
   // Geometry: fault line horizontal sweep
@@ -1428,7 +1832,7 @@ export class JuiceManager {
       a: 0,
       w: 6,
       duration: 260,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onUpdate: () => {
         g.clear();
         g.lineStyle(state.w, 0x4da3ff, state.a);
@@ -1459,11 +1863,11 @@ export class JuiceManager {
         alpha: 0,
         scale: 0.6,
         duration: 200,
-        ease: "Cubic.easeOut",
+        ease: 'Cubic.easeOut',
         onComplete: () => dot.destroy(),
       });
     }
-    this.playTone({ frequency: 240, duration: 0.06, type: "triangle", volume: 0.05 });
+    this.playTone({ frequency: 240, duration: 0.06, type: 'triangle', volume: 0.05 });
   }
 
   // Wall graze sparks on near-miss
@@ -1472,36 +1876,50 @@ export class JuiceManager {
     const originY = worldY + ny * 8;
     const colors = [0xffe58a, 0xfff3a8];
     this.spawnBurst(originX, originY, { colors, count: 6, radius: 10 });
-    this.playTone({ frequency: 320, duration: 0.04, type: "sine", volume: 0.05 });
+    this.playTone({ frequency: 320, duration: 0.04, type: 'sine', volume: 0.05 });
   }
 
   // Item rarity jingle based on id mapping
   itemRarityJingle(itemId?: string) {
-    const rare = new Set(["amulet-phoenix", "weapon-revolver"]);
-    const uncommon = new Set(["helm-seer", "ring-seismic", "cloak-veil", "belt-regenerator"]);
-    let tier: "common" | "uncommon" | "rare" = "common";
-    if (itemId && rare.has(itemId)) tier = "rare";
-    else if (itemId && uncommon.has(itemId)) tier = "uncommon";
-    const seq = tier === "rare" ? [740, 980, 1240] : tier === "uncommon" ? [620, 820, 980] : [520, 660];
-    const vols = tier === "rare" ? [0.16, 0.14, 0.12] : tier === "uncommon" ? [0.14, 0.12, 0.1] : [0.12, 0.1];
+    const rare = new Set(['amulet-phoenix', 'weapon-revolver']);
+    const uncommon = new Set(['helm-seer', 'ring-seismic', 'cloak-veil', 'belt-regenerator']);
+    let tier: 'common' | 'uncommon' | 'rare' = 'common';
+    if (itemId && rare.has(itemId)) tier = 'rare';
+    else if (itemId && uncommon.has(itemId)) tier = 'uncommon';
+    const seq =
+      tier === 'rare' ? [740, 980, 1240] : tier === 'uncommon' ? [620, 820, 980] : [520, 660];
+    const vols =
+      tier === 'rare' ? [0.16, 0.14, 0.12] : tier === 'uncommon' ? [0.14, 0.12, 0.1] : [0.12, 0.1];
     let delay = 0;
     seq.forEach((f, i) => {
       const d = 0.1 + i * 0.02;
-      globalThis.setTimeout(() => this.playTone({ frequency: f, duration: d, type: "triangle", volume: vols[i] ?? 0.1 }), delay * 1000);
+      globalThis.setTimeout(
+        () =>
+          this.playTone({ frequency: f, duration: d, type: 'triangle', volume: vols[i] ?? 0.1 }),
+        delay * 1000,
+      );
       delay += d * 0.7;
     });
   }
 
   // Danger vignette (edge darkening) with photosafe cap
-  private vignette?: { top: Phaser.GameObjects.Rectangle; bottom: Phaser.GameObjects.Rectangle; left: Phaser.GameObjects.Rectangle; right: Phaser.GameObjects.Rectangle };
+  private vignette?: {
+    top: Phaser.GameObjects.Rectangle;
+    bottom: Phaser.GameObjects.Rectangle;
+    left: Phaser.GameObjects.Rectangle;
+    right: Phaser.GameObjects.Rectangle;
+  };
   private photosafe = false;
-  setPhotosafe(flag: boolean) { this.photosafe = flag; }
+  setPhotosafe(flag: boolean) {
+    this.photosafe = flag;
+  }
   private ensureVignette() {
     if (this.vignette) return;
     const w = this.scene.scale.width;
     const h = this.scene.scale.height;
     const pad = 6;
-    const makeRect = (x: number, y: number, w: number, h: number) => this.scene.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(31).setOrigin(0, 0);
+    const makeRect = (x: number, y: number, w: number, h: number) =>
+      this.scene.add.rectangle(x, y, w, h, 0x000000, 0).setDepth(31).setOrigin(0, 0);
     const top = makeRect(0, 0, w, pad);
     const bottom = makeRect(0, h - pad, w, pad);
     const left = makeRect(0, 0, pad, h);
@@ -1517,16 +1935,25 @@ export class JuiceManager {
     const cap = this.photosafe ? 0.18 : 0.35;
     const a = Math.max(0, Math.min(cap, level));
     if (!this.vignette) return;
-    const parts = [this.vignette.top, this.vignette.bottom, this.vignette.left, this.vignette.right];
+    const parts = [
+      this.vignette.top,
+      this.vignette.bottom,
+      this.vignette.left,
+      this.vignette.right,
+    ];
     for (const r of parts) r.setAlpha(a);
   }
 
   // Room transition pulse
   roomTransition(worldX: number, worldY: number) {
-    this.playTone({ frequency: 300, duration: 0.12, type: "sine", volume: 0.08 });
+    this.playTone({ frequency: 300, duration: 0.12, type: 'sine', volume: 0.08 });
     this.kickCamera(0.01, 90);
     this.fillPulse(worldX, worldY, 8, 40, 0x4da3ff, 0.12, 240);
-    this.spawnBurst(worldX, worldY, { colors: [0x4da3ff, 0x9ad1ff, 0xcfe5ff], count: 10, radius: 16 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x4da3ff, 0x9ad1ff, 0xcfe5ff],
+      count: 10,
+      radius: 16,
+    });
     // Small ring highlight from entry side
     this.ringPulse(worldX, worldY, 0x4da3ff, 12, 2, 240);
     // Subtle echo ring for style
@@ -1536,7 +1963,13 @@ export class JuiceManager {
   }
 
   interiorPulse(worldX: number, worldY: number) {
-    const mote = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(2, 3), Phaser.Utils.Array.GetRandom([0xffe8b6, 0xffd79a, 0xf6e7c1]), 0.32);
+    const mote = this.scene.add.circle(
+      worldX,
+      worldY,
+      Phaser.Math.Between(2, 3),
+      Phaser.Utils.Array.GetRandom([0xffe8b6, 0xffd79a, 0xf6e7c1]),
+      0.32,
+    );
     mote.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
     this.overlayLayer.add(mote);
     this.scene.tweens.add({
@@ -1545,7 +1978,7 @@ export class JuiceManager {
       alpha: 0,
       scale: 0.4,
       duration: 800 + Math.random() * 400,
-      ease: "Sine.easeOut",
+      ease: 'Sine.easeOut',
       onComplete: () => mote.destroy(),
     });
   }
@@ -1556,7 +1989,13 @@ export class JuiceManager {
   }
 
   snowDrift(worldX: number, worldY: number) {
-    const flake = this.scene.add.circle(worldX, worldY, Phaser.Math.Between(1, 2), Phaser.Utils.Array.GetRandom([0xe8f4ff, 0xcfe5ff, 0xffffff]), 0.8);
+    const flake = this.scene.add.circle(
+      worldX,
+      worldY,
+      Phaser.Math.Between(1, 2),
+      Phaser.Utils.Array.GetRandom([0xe8f4ff, 0xcfe5ff, 0xffffff]),
+      0.8,
+    );
     flake.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
     this.overlayLayer.add(flake);
     this.scene.tweens.add({
@@ -1565,13 +2004,20 @@ export class JuiceManager {
       y: worldY + Phaser.Math.Between(12, 24),
       alpha: 0,
       duration: 1000 + Math.random() * 700,
-      ease: "Sine.easeInOut",
+      ease: 'Sine.easeInOut',
       onComplete: () => flake.destroy(),
     });
   }
 
   heatHaze(worldX: number, worldY: number) {
-    const haze = this.scene.add.ellipse(worldX, worldY, Phaser.Math.Between(8, 14), Phaser.Math.Between(14, 22), 0xffb36b, 0.14);
+    const haze = this.scene.add.ellipse(
+      worldX,
+      worldY,
+      Phaser.Math.Between(8, 14),
+      Phaser.Math.Between(14, 22),
+      0xffb36b,
+      0.14,
+    );
     haze.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
     this.overlayLayer.add(haze);
     this.scene.tweens.add({
@@ -1582,18 +2028,26 @@ export class JuiceManager {
       scaleX: 1.3,
       scaleY: 0.7,
       duration: 700 + Math.random() * 400,
-      ease: "Sine.easeOut",
+      ease: 'Sine.easeOut',
       onComplete: () => haze.destroy(),
     });
   }
 
-  temperatureReliefPulse(worldX: number, worldY: number, kind: "warm" | "cool") {
-    const color = kind === "warm" ? 0xffc27a : 0x8fd8ff;
+  temperatureReliefPulse(worldX: number, worldY: number, kind: 'warm' | 'cool') {
+    const color = kind === 'warm' ? 0xffc27a : 0x8fd8ff;
     this.ringPulse(worldX, worldY, color, 6, 1, 220);
     this.fillPulse(worldX, worldY, 4, 18, color, 0.08, 240);
   }
 
-  private flashLine(x1: number, y1: number, x2: number, y2: number, color: number, width: number, duration: number) {
+  private flashLine(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    color: number,
+    width: number,
+    duration: number,
+  ) {
     const g = this.scene.add.graphics().setDepth(28);
     this.overlayLayer.add(g);
     g.lineStyle(width, color, 0.95);
@@ -1605,22 +2059,8 @@ export class JuiceManager {
       targets: g,
       alpha: 0,
       duration,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => g.destroy(),
     });
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-

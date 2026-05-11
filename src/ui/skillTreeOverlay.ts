@@ -1,17 +1,17 @@
-import Phaser from "phaser";
-import type SnakeScene from "../scenes/snakeScene.js";
+import Phaser from 'phaser';
+import type SnakeScene from '../scenes/snakeScene.js';
 import type {
   SkillTreeSystem,
   SkillPerkDefinition,
   SkillTreeStats,
   SkillPerkState,
-} from "../systems/skillTree.js";
-import { getItem } from "../inventory/itemRegistry.js";
-import type { EquipmentSlot } from "../inventory/item.js";
-import type { Quest } from "../../quests.js";
-import { saveManager } from "../game/saveManager.js";
-import { i18n } from "../i18n/i18nManager.js";
-import type { VillageShopHatId, VillageShopStyleId } from "../shops/villageShop.js";
+} from '../systems/skillTree.js';
+import { getItem } from '../inventory/itemRegistry.js';
+import type { EquipmentSlot } from '../inventory/item.js';
+import type { Quest } from '../../quests.js';
+import { saveManager } from '../game/saveManager.js';
+import { i18n } from '../i18n/i18nManager.js';
+import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -47,7 +47,7 @@ const DETAIL_PANEL_MARGIN = 24;
 const DETAIL_PANEL_PADDING = 16;
 const CLICK_ROW_TOP_BIAS = 8;
 
-type TabId = "skills" | "inventory" | "customize" | "map" | "graph" | "cheats" | "info";
+type TabId = 'skills' | 'inventory' | 'customize' | 'map' | 'graph' | 'cheats' | 'info';
 type SnakeThemeId = VillageShopStyleId;
 
 interface TabDefinition {
@@ -57,13 +57,13 @@ interface TabDefinition {
 }
 
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
-  { id: "skills", label: "Skill Tree" },
-  { id: "inventory", label: "Inventory", placeholder: "Items you collect will appear here." },
-  { id: "customize", label: "Style", placeholder: "Buy palettes and swagger." },
-  { id: "map", label: "Map", placeholder: "Explore to reveal more rooms." },
-  { id: "graph", label: "Graph" },
-  { id: "cheats", label: "Cheats", placeholder: "Enter cheat strings: freakdennis, freakerdennis" },
-  { id: "info", label: "Info" },
+  { id: 'skills', label: 'Skill Tree' },
+  { id: 'inventory', label: 'Inventory', placeholder: 'Items you collect will appear here.' },
+  { id: 'customize', label: 'Style', placeholder: 'Buy palettes and swagger.' },
+  { id: 'map', label: 'Map', placeholder: 'Explore to reveal more rooms.' },
+  { id: 'graph', label: 'Graph' },
+  { id: 'cheats', label: 'Cheats', placeholder: 'Enter cheat strings: freakdennis, freakerdennis' },
+  { id: 'info', label: 'Info' },
 ];
 
 const LUCK_GRAPH_POINTS: readonly { outOf10: number; luck: number }[] = [
@@ -101,7 +101,7 @@ export class SkillTreeOverlay {
   private readonly cheatInputText: Phaser.GameObjects.Text;
   private readonly cheatApplyButton: Phaser.GameObjects.Text;
   private cheatInputFocused = false;
-  private cheatCode = "";
+  private cheatCode = '';
   private readonly nodeVisuals: Map<string, NodeVisual> = new Map();
   private readonly tabLabels: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private readonly stubText: Phaser.GameObjects.Text | null;
@@ -124,19 +124,25 @@ export class SkillTreeOverlay {
   private detailPerkId: string | null = null;
   private detailPinned = false;
 
-
   private visible = false;
-  private activeTab: TabId = "skills";
+  private activeTab: TabId = 'skills';
   private hintSticky = false;
   private hintTimer?: Phaser.Time.TimerEvent;
   private glintTimer?: Phaser.Time.TimerEvent;
-  private hoverTip?: { container: Phaser.GameObjects.Container; bg: Phaser.GameObjects.Rectangle; text: Phaser.GameObjects.Text; targetX: number; targetY: number; ticker?: Phaser.Time.TimerEvent };
+  private hoverTip?: {
+    container: Phaser.GameObjects.Container;
+    bg: Phaser.GameObjects.Rectangle;
+    text: Phaser.GameObjects.Text;
+    targetX: number;
+    targetY: number;
+    ticker?: Phaser.Time.TimerEvent;
+  };
 
   constructor(
     private readonly scene: SnakeScene,
     private readonly system: SkillTreeSystem,
     private readonly handlers: OverlayHandlers,
-    options: SkillTreeOverlayOptions = {}
+    options: SkillTreeOverlayOptions = {},
   ) {
     this.options = {
       width: options.width ?? DEFAULT_OPTIONS.width,
@@ -157,120 +163,148 @@ export class SkillTreeOverlay {
     // Map container and elements
     const mapX = TREE_PADDING.horizontal;
     const mapY = TREE_PADDING.top - 8;
-    const mapW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const mapW =
+      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
     const mapH = this.options.height - mapY - TREE_PADDING.bottom + 4;
     this.mapBackground = this.scene.add
       .rectangle(mapX, mapY, mapW, mapH, 0x0b1622, 0.72)
       .setStrokeStyle(1, 0x244155)
       .setOrigin(0, 0)
       .setVisible(false);
-    this.mapTitle = this.scene.add.text(mapX + 10, mapY + 8, "Map", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#9ad1ff",
-    }).setVisible(false);
+    this.mapTitle = this.scene.add
+      .text(mapX + 10, mapY + 8, 'Map', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#9ad1ff',
+      })
+      .setVisible(false);
     this.mapGraphics = this.scene.add.graphics();
-    this.mapContainer = this.scene.add.container(0, 0, [this.mapBackground, this.mapTitle, this.mapGraphics]).setVisible(false);
+    this.mapContainer = this.scene.add
+      .container(0, 0, [this.mapBackground, this.mapTitle, this.mapGraphics])
+      .setVisible(false);
 
     const graphX = TREE_PADDING.horizontal;
     const graphY = TREE_PADDING.top - 8;
-    const graphW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const graphW =
+      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
     const graphH = this.options.height - graphY - TREE_PADDING.bottom + 4;
     this.graphBackground = this.scene.add
       .rectangle(graphX, graphY, graphW, graphH, 0x0b1622, 0.72)
       .setStrokeStyle(1, 0x244155)
       .setOrigin(0, 0)
       .setVisible(false);
-    this.graphTitle = this.scene.add.text(graphX + 10, graphY + 8, "Luck Graph", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#9ad1ff",
-    }).setVisible(false);
+    this.graphTitle = this.scene.add
+      .text(graphX + 10, graphY + 8, 'Luck Graph', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#9ad1ff',
+      })
+      .setVisible(false);
     this.graphGraphics = this.scene.add.graphics();
-    this.graphLabels = this.scene.add.text(graphX + 12, graphY + graphH - 42, "", {
-      fontFamily: "monospace",
-      fontSize: "11px",
-      color: "#c8ffe1",
-      lineSpacing: 2,
-    }).setVisible(false);
+    this.graphLabels = this.scene.add
+      .text(graphX + 12, graphY + graphH - 42, '', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#c8ffe1',
+        lineSpacing: 2,
+      })
+      .setVisible(false);
     this.graphContainer = this.scene.add
-      .container(0, 0, [this.graphBackground, this.graphTitle, this.graphGraphics, this.graphLabels])
+      .container(0, 0, [
+        this.graphBackground,
+        this.graphTitle,
+        this.graphGraphics,
+        this.graphLabels,
+      ])
       .setVisible(false);
 
     const cheatX = TREE_PADDING.horizontal;
     const cheatY = TREE_PADDING.top - 8;
-    const cheatW = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const cheatW =
+      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
     const cheatH = this.options.height - cheatY - TREE_PADDING.bottom + 4;
     this.cheatBackground = this.scene.add
       .rectangle(cheatX, cheatY, cheatW, cheatH, 0x0b1622, 0.72)
       .setStrokeStyle(1, 0x244155)
       .setOrigin(0, 0)
       .setVisible(false);
-    this.cheatTitle = this.scene.add.text(cheatX + 10, cheatY + 8, "Cheat Menu", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#9ad1ff",
-    }).setVisible(false);
-    this.cheatInputText = this.scene.add.text(cheatX + 14, cheatY + 54, "", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#ffffff",
-      backgroundColor: "#071019",
-      padding: { left: 10, right: 10, top: 8, bottom: 8 },
-      fixedWidth: cheatW - 28,
-    }).setVisible(false).setInteractive({ useHandCursor: true });
-    this.cheatInputText.on("pointerdown", () => {
-      if (!this.visible || this.activeTab !== "cheats") return;
+    this.cheatTitle = this.scene.add
+      .text(cheatX + 10, cheatY + 8, 'Cheat Menu', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#9ad1ff',
+      })
+      .setVisible(false);
+    this.cheatInputText = this.scene.add
+      .text(cheatX + 14, cheatY + 54, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffffff',
+        backgroundColor: '#071019',
+        padding: { left: 10, right: 10, top: 8, bottom: 8 },
+        fixedWidth: cheatW - 28,
+      })
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    this.cheatInputText.on('pointerdown', () => {
+      if (!this.visible || this.activeTab !== 'cheats') return;
       this.cheatInputFocused = true;
       this.refreshCheatInputText();
-      this.announce("Type a cheat, then press Enter.", "#9ad1ff", 1600);
+      this.announce('Type a cheat, then press Enter.', '#9ad1ff', 1600);
     });
-    this.cheatApplyButton = this.scene.add.text(cheatX + 14, cheatY + 110, "Apply", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#5dd6a2",
-      backgroundColor: "#224433",
-      padding: { left: 12, right: 12, top: 6, bottom: 6 },
-    }).setVisible(false).setInteractive({ useHandCursor: true });
-    this.cheatApplyButton.on("pointerdown", () => {
-      if (!this.visible || this.activeTab !== "cheats") return;
+    this.cheatApplyButton = this.scene.add
+      .text(cheatX + 14, cheatY + 110, 'Apply', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#5dd6a2',
+        backgroundColor: '#224433',
+        padding: { left: 12, right: 12, top: 6, bottom: 6 },
+      })
+      .setVisible(false)
+      .setInteractive({ useHandCursor: true });
+    this.cheatApplyButton.on('pointerdown', () => {
+      if (!this.visible || this.activeTab !== 'cheats') return;
       this.applyCheatCode();
     });
     this.cheatContainer = this.scene.add
-      .container(0, 0, [this.cheatBackground, this.cheatTitle, this.cheatInputText, this.cheatApplyButton])
+      .container(0, 0, [
+        this.cheatBackground,
+        this.cheatTitle,
+        this.cheatInputText,
+        this.cheatApplyButton,
+      ])
       .setVisible(false);
 
     this.title = this.scene.add
-      .text(this.options.width / 2, 24, "Pause Menu", {
-        fontFamily: "monospace",
-        fontSize: "26px",
-        color: "#9ad1ff",
-        align: "center",
+      .text(this.options.width / 2, 24, 'Pause Menu', {
+        fontFamily: 'monospace',
+        fontSize: '26px',
+        color: '#9ad1ff',
+        align: 'center',
       })
       .setOrigin(0.5, 0);
 
-    this.scoreText = this.scene.add
-      .text(24, 66, "Score: 0", {
-        fontFamily: "monospace",
-        fontSize: "18px",
-        color: "#ffffff",
-      });
+    this.scoreText = this.scene.add.text(24, 66, 'Score: 0', {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#ffffff',
+    });
 
     this.manaText = this.scene.add
-      .text(this.options.width - 24, 66, "", {
-        fontFamily: "monospace",
-        fontSize: "16px",
-        color: "#9ad1ff",
-        align: "right",
+      .text(this.options.width - 24, 66, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#9ad1ff',
+        align: 'right',
       })
       .setOrigin(1, 0);
 
     this.hintText = this.scene.add
-      .text(this.options.width / 2, this.options.height - 36, "", {
-        fontFamily: "monospace",
-        fontSize: "16px",
-        color: "#5dd6a2",
-        align: "center",
+      .text(this.options.width / 2, this.options.height - 36, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#5dd6a2',
+        align: 'center',
       })
       .setOrigin(0.5, 0.5);
 
@@ -291,81 +325,103 @@ export class SkillTreeOverlay {
     const bodyY = rankY + 22;
 
     this.detailTitle = this.scene.add
-      .text(detailTextX, titleY, "", {
-        fontFamily: "monospace",
-        fontSize: "18px",
-        color: "#ffffff",
+      .text(detailTextX, titleY, '', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ffffff',
         wordWrap: { width: detailTextWidth },
       })
       .setOrigin(0, 0)
       .setVisible(false);
 
     this.detailSubtitle = this.scene.add
-      .text(detailTextX, subtitleY, "", {
-        fontFamily: "monospace",
-        fontSize: "14px",
-        color: "#5dd6a2",
+      .text(detailTextX, subtitleY, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#5dd6a2',
         wordWrap: { width: detailTextWidth },
       })
       .setOrigin(0, 0)
       .setVisible(false);
 
     this.detailRankText = this.scene.add
-      .text(detailTextX, rankY, "", {
-        fontFamily: "monospace",
-        fontSize: "13px",
-        color: "#9ad1ff",
+      .text(detailTextX, rankY, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#9ad1ff',
       })
       .setOrigin(0, 0)
       .setVisible(false);
 
     this.detailBody = this.scene.add
-      .text(detailTextX, bodyY, "", {
-        fontFamily: "monospace",
-        fontSize: "14px",
-        color: "#c8ffe1",
+      .text(detailTextX, bodyY, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#c8ffe1',
         wordWrap: { width: detailTextWidth },
         lineSpacing: 4,
       })
       .setOrigin(0, 0)
       .setVisible(false);
 
-    this.stubText = TAB_DEFINITIONS.length > 1
-      ? this.scene.add
-          .text(this.options.width / 2, this.options.height / 2 + 20, "", {
-            fontFamily: "monospace",
-            fontSize: "18px",
-            color: "#9ad1ff",
-            align: "center",
-            wordWrap: { width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - 160 },
-          })
-          .setOrigin(0.5, 0.5)
-          .setVisible(false)
-      : null;
+    this.stubText =
+      TAB_DEFINITIONS.length > 1
+        ? this.scene.add
+            .text(this.options.width / 2, this.options.height / 2 + 20, '', {
+              fontFamily: 'monospace',
+              fontSize: '18px',
+              color: '#9ad1ff',
+              align: 'center',
+              wordWrap: {
+                width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - 160,
+              },
+            })
+            .setOrigin(0.5, 0.5)
+            .setVisible(false)
+        : null;
 
-    this.inventoryItemsText = this.scene.add.text(TREE_PADDING.horizontal, TREE_PADDING.top, "", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#ffffff",
-      lineSpacing: 8,
-    }).setInteractive({ useHandCursor: true });
-    this.customizationText = this.scene.add.text(TREE_PADDING.horizontal, TREE_PADDING.top, "", {
-      fontFamily: "monospace",
-      fontSize: "16px",
-      color: "#ffffff",
-      lineSpacing: 8,
-      wordWrap: { width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 },
-    }).setInteractive({ useHandCursor: true }).setVisible(false);
-    this.questListText = this.scene.add.text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, "", {
-      fontFamily: "monospace",
-      fontSize: "13px",
-      color: "#e6f3ff",
-      lineSpacing: 3,
-      wordWrap: { width: this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 },
-    }).setVisible(false);
+    this.inventoryItemsText = this.scene.add
+      .text(TREE_PADDING.horizontal, TREE_PADDING.top, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffffff',
+        lineSpacing: 8,
+      })
+      .setInteractive({ useHandCursor: true });
+    this.customizationText = this.scene.add
+      .text(TREE_PADDING.horizontal, TREE_PADDING.top, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffffff',
+        lineSpacing: 8,
+        wordWrap: {
+          width:
+            this.options.width -
+            DETAIL_PANEL_WIDTH -
+            DETAIL_PANEL_MARGIN -
+            TREE_PADDING.horizontal * 2,
+        },
+      })
+      .setInteractive({ useHandCursor: true })
+      .setVisible(false);
+    this.questListText = this.scene.add
+      .text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#e6f3ff',
+        lineSpacing: 3,
+        wordWrap: {
+          width:
+            this.options.width -
+            DETAIL_PANEL_WIDTH -
+            DETAIL_PANEL_MARGIN -
+            TREE_PADDING.horizontal * 2,
+        },
+      })
+      .setVisible(false);
 
-    this.inventoryItemsText.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== "inventory") return;
+    this.inventoryItemsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'inventory') return;
       const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y);
       const itemId = this.inventoryIndex[index];
       if (!itemId) {
@@ -373,23 +429,23 @@ export class SkillTreeOverlay {
         this.clearPerkDetails(true);
         return;
       }
-      if (itemId.startsWith("unequip:")) {
-        const slot = itemId.split(":")[1] as EquipmentSlot;
+      if (itemId.startsWith('unequip:')) {
+        const slot = itemId.split(':')[1] as EquipmentSlot;
         const ok = this.scene.unequipSlot(slot);
         if (ok) {
-          this.announce(`Unequipped ${slot}.`, "#9ad1ff", 1600);
+          this.announce(`Unequipped ${slot}.`, '#9ad1ff', 1600);
           this.refresh();
         }
         return;
       }
       this.selectedInventoryItemId = itemId;
       const item = getItem(itemId) as any;
-      if (item && item.kind === "equipment") {
+      if (item && item.kind === 'equipment') {
         const currentlyEquipped = this.scene.inventory.getEquipped(item.slot as EquipmentSlot);
         if (currentlyEquipped === itemId) {
           const ok = this.scene.unequipSlot(item.slot as EquipmentSlot);
           if (ok) {
-            this.announce(`${item.name} unequipped.`, "#9ad1ff", 1600);
+            this.announce(`${item.name} unequipped.`, '#9ad1ff', 1600);
             this.refresh();
             this.highlightInventoryItem(this.selectedInventoryItemId ?? itemId);
           }
@@ -398,56 +454,56 @@ export class SkillTreeOverlay {
 
         const ok = this.scene.equipItem(itemId);
         if (ok) {
-          this.announce(`${item.name} equipped.`, "#5dd6a2", 1600);
+          this.announce(`${item.name} equipped.`, '#5dd6a2', 1600);
           this.refresh();
           this.highlightInventoryItem(this.selectedInventoryItemId ?? itemId);
         } else {
-          this.announce(`Cannot equip ${item.name}.`, "#ff6b6b", 1600);
+          this.announce(`Cannot equip ${item.name}.`, '#ff6b6b', 1600);
         }
       }
     });
-    this.customizationText.on("pointerdown", (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== "customize") return;
+    this.customizationText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'customize') return;
       const actionId = this.getCustomizationActionId(pointer);
       if (!actionId) return;
 
-      if (actionId.startsWith("theme:")) {
-        const themeId = actionId.split(":")[1] as SnakeThemeId;
+      if (actionId.startsWith('theme:')) {
+        const themeId = actionId.split(':')[1] as SnakeThemeId;
         const result = this.scene.purchaseOrApplySnakeTheme(themeId);
         this.announce(result.message, result.color, 1800);
         this.refresh();
         return;
       }
 
-      if (actionId === "hat") {
+      if (actionId === 'hat') {
         const result = this.scene.purchaseOrToggleCowboyHat();
         this.announce(result.message, result.color, 1800);
         this.refresh();
         return;
       }
 
-      if (actionId.startsWith("hat:")) {
-        const hatId = actionId.split(":")[1] as VillageShopHatId;
+      if (actionId.startsWith('hat:')) {
+        const hatId = actionId.split(':')[1] as VillageShopHatId;
         const result = this.scene.purchaseOrToggleVillageHat(hatId);
         this.announce(result.message, result.color, 1800);
         this.refresh();
         return;
       }
 
-      if (actionId === "walking-noise") {
+      if (actionId === 'walking-noise') {
         const result = this.scene.toggleDisableWalkingNoise();
         this.announce(result.message, result.color, 1800);
         this.refresh();
       }
 
-      if (actionId === "language") {
+      if (actionId === 'language') {
         const result = this.scene.toggleLanguage();
         this.announce(result.message, result.color, 1800);
         this.refresh();
       }
     });
-    this.customizationText.on("pointermove", (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== "customize") return;
+    this.customizationText.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'customize') return;
       const hovered = this.getCustomizationHoveredRow(pointer);
       if (!hovered) {
         this.clearCustomizationHover();
@@ -455,7 +511,7 @@ export class SkillTreeOverlay {
       }
       this.highlightCustomizationRow(hovered.row);
     });
-    this.customizationText.on("pointerout", () => {
+    this.customizationText.on('pointerout', () => {
       this.clearCustomizationHover();
     });
 
@@ -483,7 +539,10 @@ export class SkillTreeOverlay {
       children.push(this.stubText);
     }
 
-    this.container = this.scene.add.container(x, y, children).setDepth(this.options.depth).setVisible(false);
+    this.container = this.scene.add
+      .container(x, y, children)
+      .setDepth(this.options.depth)
+      .setVisible(false);
 
     this.buildTabs();
     this.buildNodes();
@@ -503,7 +562,7 @@ export class SkillTreeOverlay {
       alpha: 1,
       scale: 1,
       duration: 180,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
     });
     this.scene.time.delayedCall(0, () => this.container.setDepth(this.options.depth));
     this.clearPerkDetails(true);
@@ -542,7 +601,7 @@ export class SkillTreeOverlay {
       alpha: 0,
       scale: 0.98,
       duration: 140,
-      ease: "Cubic.easeIn",
+      ease: 'Cubic.easeIn',
       onComplete: () => {
         this.container.setVisible(false).setAlpha(1).setScale(1);
       },
@@ -576,11 +635,11 @@ export class SkillTreeOverlay {
   }
 
   isInventoryTabActive(): boolean {
-    return this.activeTab === "inventory";
+    return this.activeTab === 'inventory';
   }
 
   showInventoryDetailsAtPointer(): boolean {
-    if (!this.visible || this.activeTab !== "inventory") {
+    if (!this.visible || this.activeTab !== 'inventory') {
       return false;
     }
     const pointer = this.scene.input.activePointer;
@@ -589,7 +648,7 @@ export class SkillTreeOverlay {
     }
     const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y);
     const id = this.inventoryIndex[index];
-    if (!id || id.startsWith("unequip:")) {
+    if (!id || id.startsWith('unequip:')) {
       this.clearPerkDetails(true);
       return false;
     }
@@ -597,7 +656,7 @@ export class SkillTreeOverlay {
     return this.showInventoryItemDetails();
   }
 
-  announce(message: string, color = "#5dd6a2", duration = 2200): void {
+  announce(message: string, color = '#5dd6a2', duration = 2200): void {
     this.hintSticky = true;
     this.hintText.setText(message);
     this.hintText.setColor(color);
@@ -613,42 +672,43 @@ export class SkillTreeOverlay {
 
   showInventoryItemDetails(): boolean {
     if (!this.selectedInventoryItemId) {
-      this.announce("Click an item, then press I to inspect.", "#9ad1ff", 2200);
+      this.announce('Click an item, then press I to inspect.', '#9ad1ff', 2200);
       return false;
     }
     const item = getItem(this.selectedInventoryItemId);
     if (!item) {
-      this.announce("Unknown item.", "#ff6b6b", 1600);
+      this.announce('Unknown item.', '#ff6b6b', 1600);
       return false;
     }
     const title = item.name ?? this.selectedInventoryItemId;
-    const subtitle = (item as any).kind === "equipment" ? `Equipment · Slot: ${(item as any).slot}` : "Item";
-    const body = item.description ?? "";
+    const subtitle =
+      (item as any).kind === 'equipment' ? `Equipment · Slot: ${(item as any).slot}` : 'Item';
+    const body = item.description ?? '';
 
     this.detailTitle.setText(title).setVisible(true);
     this.detailSubtitle.setText(subtitle).setVisible(true);
-    this.detailRankText.setText("").setVisible(false);
+    this.detailRankText.setText('').setVisible(false);
     this.detailBody.setText(body).setVisible(true);
     return true;
   }
 
   handleCheatKeyDown(event: KeyboardEvent): boolean {
-    if (!this.visible || this.activeTab !== "cheats") {
+    if (!this.visible || this.activeTab !== 'cheats') {
       return false;
     }
 
     this.cheatInputFocused = true;
     const key = event.key;
-    if (key === "Enter") {
+    if (key === 'Enter') {
       this.applyCheatCode();
       return true;
     }
-    if (key === "Backspace") {
+    if (key === 'Backspace') {
       this.cheatCode = this.cheatCode.slice(0, -1);
       this.refreshCheatInputText();
       return true;
     }
-    if (key === "Escape") {
+    if (key === 'Escape') {
       this.cheatInputFocused = false;
       this.refreshCheatInputText();
       return true;
@@ -658,39 +718,40 @@ export class SkillTreeOverlay {
       this.refreshCheatInputText();
       return true;
     }
-    return key === " " || key === "Tab";
+    return key === ' ' || key === 'Tab';
   }
 
   private applyCheatCode(): void {
     if (!this.scene.snakeGame || !this.scene.currentRoomId) {
-      this.announce("Cannot use cheats in current game state", "#ff6b6b", 2000);
+      this.announce('Cannot use cheats in current game state', '#ff6b6b', 2000);
       return;
     }
-    
+
     const result = this.scene.applyCheatCode(this.cheatCode);
     this.announce(result.message, result.color, 2200);
     if (result.ok) {
-      this.cheatCode = "";
+      this.cheatCode = '';
     }
     this.refreshCheatInputText();
     this.refresh();
   }
 
   private refreshCheatInputText(): void {
-    const placeholder = this.cheatInputFocused ? "" : "click here and type a cheat";
+    const placeholder = this.cheatInputFocused ? '' : 'click here and type a cheat';
     const value = this.cheatCode || placeholder;
-    const cursor = this.cheatInputFocused ? "_" : "";
+    const cursor = this.cheatInputFocused ? '_' : '';
     this.cheatInputText.setText(`> ${value}${cursor}`);
   }
 
   private highlightInventoryItem(itemId: string): void {
-    if (!this.visible || this.activeTab !== "inventory") return;
+    if (!this.visible || this.activeTab !== 'inventory') return;
     const index = this.inventoryIndex.indexOf(itemId);
     if (index < 0) return;
     const lineHeight = 24;
     const x = TREE_PADDING.horizontal;
     const y = TREE_PADDING.top + index * lineHeight - 2;
-    const width = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
+    const width =
+      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2;
     const height = 20;
 
     // Cleanup old highlight
@@ -705,23 +766,32 @@ export class SkillTreeOverlay {
       targets: rect,
       alpha: 0,
       duration: 520,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => rect.destroy(),
     });
   }
 
-  private getTextRowIndex(pointer: Phaser.Input.Pointer, textY: number, topBias = CLICK_ROW_TOP_BIAS): number {
+  private getTextRowIndex(
+    pointer: Phaser.Input.Pointer,
+    textY: number,
+    topBias = CLICK_ROW_TOP_BIAS,
+  ): number {
     const lineHeight = 24;
     const localY = pointer.worldY - this.container.y - textY - topBias;
     return Math.floor(localY / lineHeight);
   }
 
   private highlightCustomizationRow(row: number): void {
-    if (!this.visible || this.activeTab !== "customize") return;
+    if (!this.visible || this.activeTab !== 'customize') return;
     const lineHeight = 24;
     const x = TREE_PADDING.horizontal - 4;
     const y = TREE_PADDING.top + row * lineHeight - 1;
-    const width = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 + 8;
+    const width =
+      this.options.width -
+      DETAIL_PANEL_WIDTH -
+      DETAIL_PANEL_MARGIN -
+      TREE_PADDING.horizontal * 2 +
+      8;
     const height = 20;
 
     if (!this.customizationHoverHighlight) {
@@ -731,10 +801,7 @@ export class SkillTreeOverlay {
       this.container.add(this.customizationHoverHighlight);
     }
 
-    this.customizationHoverHighlight
-      .setPosition(x, y)
-      .setSize(width, height)
-      .setVisible(true);
+    this.customizationHoverHighlight.setPosition(x, y).setSize(width, height).setVisible(true);
   }
 
   private clearCustomizationHover(): void {
@@ -742,7 +809,7 @@ export class SkillTreeOverlay {
   }
 
   private getCustomizationHoveredRow(
-    pointer: Phaser.Input.Pointer
+    pointer: Phaser.Input.Pointer,
   ): { row: number; actionId: string } | null {
     const visualRow = this.getTextRowIndex(pointer, this.customizationText.y);
     for (const entry of this.customizationRowMap) {
@@ -769,31 +836,31 @@ export class SkillTreeOverlay {
     const stats = this.system.getStats();
     const perks = this.system.getPerks();
 
-    this.scoreText.setText("Score: " + this.scene.score);
+    this.scoreText.setText('Score: ' + this.scene.score);
     if (stats.manaMax > 0) {
       const manaLine =
-        "Mana: " +
+        'Mana: ' +
         stats.mana.toFixed(0) +
-        "/" +
+        '/' +
         stats.manaMax.toFixed(0) +
-        " (+" +
+        ' (+' +
         stats.manaRegen.toFixed(1) +
-        "/tick)";
+        '/tick)';
       this.manaText.setText(manaLine);
     } else {
-      this.manaText.setText("Mana: latent");
+      this.manaText.setText('Mana: latent');
     }
 
     if (!this.hintSticky) {
       this.updateDefaultHint(stats);
     }
 
-    const skillsActive = this.activeTab === "skills";
-    const inventoryActive = this.activeTab === "inventory";
-    const customizationActive = this.activeTab === "customize";
-    const cheatsActive = this.activeTab === "cheats";
-    const infoActive = this.activeTab === "info";
-    const graphActive = this.activeTab === "graph";
+    const skillsActive = this.activeTab === 'skills';
+    const inventoryActive = this.activeTab === 'inventory';
+    const customizationActive = this.activeTab === 'customize';
+    const cheatsActive = this.activeTab === 'cheats';
+    const infoActive = this.activeTab === 'info';
+    const graphActive = this.activeTab === 'graph';
     this.connectionGraphics.setVisible(skillsActive);
     this.inventoryItemsText.setVisible(inventoryActive);
     this.customizationText.setVisible(customizationActive);
@@ -801,7 +868,7 @@ export class SkillTreeOverlay {
     if (!customizationActive) {
       this.clearCustomizationHover();
     }
-    const mapActive = this.activeTab === "map";
+    const mapActive = this.activeTab === 'map';
     this.mapContainer.setVisible(mapActive);
     this.mapBackground.setVisible(mapActive);
     this.mapTitle.setVisible(mapActive);
@@ -820,7 +887,7 @@ export class SkillTreeOverlay {
       this.drawLuckGraphPanel();
     } else {
       this.graphGraphics.clear();
-      this.graphLabels.setText("");
+      this.graphLabels.setText('');
     }
     this.cheatContainer.setVisible(cheatsActive);
     this.cheatBackground.setVisible(cheatsActive);
@@ -834,24 +901,40 @@ export class SkillTreeOverlay {
     }
 
     if (this.stubText) {
-      const mapActive = this.activeTab === "map";
-      const showStub = !skillsActive && !inventoryActive && !customizationActive && !mapActive && !graphActive && !cheatsActive && !infoActive;
+      const mapActive = this.activeTab === 'map';
+      const showStub =
+        !skillsActive &&
+        !inventoryActive &&
+        !customizationActive &&
+        !mapActive &&
+        !graphActive &&
+        !cheatsActive &&
+        !infoActive;
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(tab?.placeholder ?? "More modules are coming soon.");
+        this.stubText.setText(tab?.placeholder ?? 'More modules are coming soon.');
       }
     }
 
     if (inventoryActive) {
       const items = this.scene.inventory.getAllItems();
       if (items.length === 0) {
-        this.inventoryItemsText.setText("No items in inventory.");
+        this.inventoryItemsText.setText('No items in inventory.');
         this.inventoryIndex = [];
       } else {
         const lines: string[] = [];
         const index: string[] = [];
-        const slots: EquipmentSlot[] = ["weapon", "boots", "helm", "ring", "gloves", "cloak", "belt", "amulet"] as unknown as EquipmentSlot[];
+        const slots: EquipmentSlot[] = [
+          'weapon',
+          'boots',
+          'helm',
+          'ring',
+          'gloves',
+          'cloak',
+          'belt',
+          'amulet',
+        ] as unknown as EquipmentSlot[];
         for (const slot of slots) {
           const current = this.scene.inventory.getEquipped(slot as EquipmentSlot);
           if (current) {
@@ -863,68 +946,74 @@ export class SkillTreeOverlay {
         for (const [itemId, count] of items) {
           const item = getItem(itemId) as any;
           const name = item?.name ?? itemId;
-          let suffix = "";
-          if (item && item.kind === "equipment") {
+          let suffix = '';
+          if (item && item.kind === 'equipment') {
             const isEq = this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
-            if (isEq) suffix = " (equipped)";
+            if (isEq) suffix = ' (equipped)';
           }
-          const prefix = item?.kind === "equipment" ? "[E] " : "";
+          const prefix = item?.kind === 'equipment' ? '[E] ' : '';
           lines.push(`${prefix}${name} x${count}${suffix}`);
           index.push(itemId);
         }
-        this.inventoryItemsText.setText(lines.join("\n"));
+        this.inventoryItemsText.setText(lines.join('\n'));
         this.inventoryIndex = index;
         if (!this.hintSticky) {
-          this.hintText.setText("Inventory: click to equip/unequip items.");
-          this.hintText.setColor("#9ad1ff");
+          this.hintText.setText('Inventory: click to equip/unequip items.');
+          this.hintText.setColor('#9ad1ff');
         }
       }
     }
 
     if (infoActive) {
       this.questListText.setText(this.formatQuestInfo(this.scene.getAcceptedQuestList()));
-      this.detailTitle.setText("Quests").setVisible(true);
-      this.detailSubtitle.setText("Accepted Tasks").setVisible(true);
-      this.detailRankText.setText("").setVisible(false);
+      this.detailTitle.setText('Quests').setVisible(true);
+      this.detailSubtitle.setText('Accepted Tasks').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
       this.detailBody
-        .setText("Only quests accepted during this run appear here. Accepted or completed quests are not offered again.")
+        .setText(
+          'Only quests accepted during this run appear here. Accepted or completed quests are not offered again.',
+        )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText("Accepted quests are listed here.");
-        this.hintText.setColor("#9ad1ff");
+        this.hintText.setText('Accepted quests are listed here.');
+        this.hintText.setColor('#9ad1ff');
       }
     }
 
     if (cheatsActive) {
-      this.detailTitle.setText("Cheats").setVisible(true);
-      this.detailSubtitle.setText("String Input").setVisible(true);
-      this.detailRankText.setText("").setVisible(false);
+      this.detailTitle.setText('Cheats').setVisible(true);
+      this.detailSubtitle.setText('String Input').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
       this.detailBody
-        .setText("Supported cheats:\n\ninvestingincrypto\nimawiddlebabywhoneedshelp\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis")
+        .setText(
+          'Supported cheats:\n\ninvestingincrypto\nimawiddlebabywhoneedshelp\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis',
+        )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText("Type a cheat string and press Enter.");
-        this.hintText.setColor("#9ad1ff");
+        this.hintText.setText('Type a cheat string and press Enter.');
+        this.hintText.setColor('#9ad1ff');
       }
     }
 
     if (graphActive) {
-      this.detailTitle.setText("Luck Graph").setVisible(true);
-      this.detailSubtitle.setText("Out Of 10 vs Luck").setVisible(true);
-      this.detailRankText.setText("").setVisible(false);
+      this.detailTitle.setText('Luck Graph').setVisible(true);
+      this.detailSubtitle.setText('Out Of 10 vs Luck').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
       this.detailBody
-        .setText("Plots the provided table. X uses a log scale so the 130 outlier can share the same graph with the smaller values.")
+        .setText(
+          'Plots the provided table. X uses a log scale so the 130 outlier can share the same graph with the smaller values.',
+        )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText("Graph tab: provided luck data.");
-        this.hintText.setColor("#9ad1ff");
+        this.hintText.setText('Graph tab: provided luck data.');
+        this.hintText.setColor('#9ad1ff');
       }
     }
 
     if (customizationActive) {
       const state = this.scene.getSnakeCustomizationState();
-      const lines: string[] = ["Style", ""];
-      const index: string[] = ["", ""];
+      const lines: string[] = ['Style', ''];
+      const index: string[] = ['', ''];
       const rowMap: Array<{ row: number; actionId: string }> = [];
       let visualRow = 0;
       visualRow += this.countRenderedLines(lines[0]);
@@ -932,72 +1021,82 @@ export class SkillTreeOverlay {
       for (const theme of this.scene.getSnakeThemeDefinitions()) {
         const unlocked = state.unlockedThemes.includes(theme.id);
         const active = state.activeTheme === theme.id;
-        const price = unlocked ? (active ? "equipped" : "owned") : `${theme.cost} score`;
-        const line = `${active ? "> " : ""}${theme.label} [${price}]`;
+        const price = unlocked ? (active ? 'equipped' : 'owned') : `${theme.cost} score`;
+        const line = `${active ? '> ' : ''}${theme.label} [${price}]`;
         lines.push(line);
         index.push(`theme:${theme.id}`);
         rowMap.push({ row: visualRow, actionId: `theme:${theme.id}` });
         visualRow += this.countRenderedLines(line);
       }
-      lines.push("", "Hats");
-      index.push("", "");
+      lines.push('', 'Hats');
+      index.push('', '');
       visualRow += 2;
       const hats = this.scene.getSnakeHatDefinitions();
       for (const hat of hats) {
         const owned = state.unlockedHats.includes(hat.id);
         const equipped = state.activeHat === hat.id;
-        const price = owned ? (equipped ? "equipped" : "owned") : `${hat.price} score`;
-        const line = `${equipped ? "> " : ""}${hat.label} [${price}]`;
+        const price = owned ? (equipped ? 'equipped' : 'owned') : `${hat.price} score`;
+        const line = `${equipped ? '> ' : ''}${hat.label} [${price}]`;
         lines.push(line);
         index.push(`hat:${hat.id}`);
         rowMap.push({ row: visualRow, actionId: `hat:${hat.id}` });
         visualRow += this.countRenderedLines(line);
       }
-      lines.push("", "Village shopkeepers sell more hats and local palettes.");
-      index.push("", "");
+      lines.push('', 'Village shopkeepers sell more hats and local palettes.');
+      index.push('', '');
       visualRow += 2;
-      lines.push("");
-      index.push("");
+      lines.push('');
+      index.push('');
       visualRow += 1;
       const walkingNoiseStatus = !state.loudWalkingNoiseUnlocked
-        ? "100 score"
+        ? '100 score'
         : state.loudWalkingNoiseEnabled
-          ? "enabled"
-          : "owned";
+          ? 'enabled'
+          : 'owned';
       const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
       lines.push(walkingNoiseLine);
-      index.push("walking-noise");
-      rowMap.push({ row: visualRow, actionId: "walking-noise" });
+      index.push('walking-noise');
+      rowMap.push({ row: visualRow, actionId: 'walking-noise' });
       visualRow += this.countRenderedLines(walkingNoiseLine);
-      lines.push("");
-      index.push("");
+      lines.push('');
+      index.push('');
       visualRow += 1;
       const languageStatus = !state.languageSelected
         ? `${200} score`
         : state.languageSet
           ? i18n.getCurrentLanguage() === 'es'
-            ? "Spanish (enabled)"
-            : "Spanish (disabled)"
-          : "Spanish (enabled)";
+            ? 'Spanish (enabled)'
+            : 'Spanish (disabled)'
+          : 'Spanish (enabled)';
       const languageLine = `Spanish Language [${languageStatus}]`;
       lines.push(languageLine);
-      index.push("language");
-      rowMap.push({ row: visualRow, actionId: "language" });
-      this.customizationText.setText(lines.join("\n"));
+      index.push('language');
+      rowMap.push({ row: visualRow, actionId: 'language' });
+      this.customizationText.setText(lines.join('\n'));
       this.customizationIndex = index;
       this.customizationRowMap = rowMap;
-      this.detailTitle.setText("Snake Style").setVisible(true);
-      this.detailSubtitle.setText("Cosmetics").setVisible(true);
-      this.detailRankText.setText("").setVisible(false);
+      this.detailTitle.setText('Snake Style').setVisible(true);
+      this.detailSubtitle.setText('Cosmetics').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
       const languageDesc = state.languageSelected
-        ? "Set your game language to Spanish."
-        : "Unlock Spanish language for 200 score.";
-      this.detailBody.setText(`Equip owned palettes and hats. Village shopkeepers sell the broader catalog. ${languageDesc}`).setVisible(true);
+        ? 'Set your game language to Spanish.'
+        : 'Unlock Spanish language for 200 score.';
+      this.detailBody
+        .setText(
+          `Equip owned palettes and hats. Village shopkeepers sell the broader catalog. ${languageDesc}`,
+        )
+        .setVisible(true);
       if (!this.hintSticky) {
         this.hintText.setText("Customize your serpent's colors and hat.");
-        this.hintText.setColor("#9ad1ff");
+        this.hintText.setColor('#9ad1ff');
       }
-    } else if (this.activeTab !== "inventory" && this.activeTab !== "skills" && this.activeTab !== "info" && this.activeTab !== "cheats" && this.activeTab !== "graph") {
+    } else if (
+      this.activeTab !== 'inventory' &&
+      this.activeTab !== 'skills' &&
+      this.activeTab !== 'info' &&
+      this.activeTab !== 'cheats' &&
+      this.activeTab !== 'graph'
+    ) {
       this.customizationRowMap = [];
       this.clearPerkDetails(true);
     }
@@ -1024,55 +1123,55 @@ export class SkillTreeOverlay {
       }
 
       const maxRank = visual.definition.costByRank.length;
-      const nextCost = state.status === "maxed" ? undefined : state.cost;
+      const nextCost = state.status === 'maxed' ? undefined : state.cost;
 
-      visual.rankText.setText("Rank " + Math.min(state.rank, maxRank) + "/" + maxRank);
-      if (state.status === "maxed") {
-        visual.costText.setText("Maxed");
+      visual.rankText.setText('Rank ' + Math.min(state.rank, maxRank) + '/' + maxRank);
+      if (state.status === 'maxed') {
+        visual.costText.setText('Maxed');
       } else if (nextCost !== undefined) {
-        visual.costText.setText("Cost " + nextCost);
+        visual.costText.setText('Cost ' + nextCost);
       } else {
-        visual.costText.setText("");
+        visual.costText.setText('');
       }
 
       let fillColor = 0x122031;
       let strokeColor = 0x244155;
-      let textColor = "#7895b4";
-      let costColor = "#7895b4";
+      let textColor = '#7895b4';
+      let costColor = '#7895b4';
 
       if (state.rank > 0) {
         fillColor = 0x3a7cda;
         strokeColor = 0xa6d4ff;
-        textColor = "#ffffff";
-        costColor = "#cfe5ff";
+        textColor = '#ffffff';
+        costColor = '#cfe5ff';
       }
 
       switch (state.status) {
-        case "available":
+        case 'available':
           if (state.rank === 0) {
             fillColor = 0x1e5133;
             strokeColor = 0x5dd6a2;
-            textColor = "#c8ffe1";
-            costColor = "#c8ffe1";
+            textColor = '#c8ffe1';
+            costColor = '#c8ffe1';
           }
           break;
-        case "unaffordable":
+        case 'unaffordable':
           if (state.rank === 0) {
             fillColor = 0x1a2b40;
             strokeColor = 0x3f617f;
-            textColor = "#9ad1ff";
-            costColor = "#9ad1ff";
+            textColor = '#9ad1ff';
+            costColor = '#9ad1ff';
           } else {
-            costColor = "#9ad1ff";
+            costColor = '#9ad1ff';
           }
           break;
-        case "locked":
+        case 'locked':
           fillColor = 0x101824;
           strokeColor = 0x202f40;
-          textColor = "#546881";
-          costColor = "#546881";
+          textColor = '#546881';
+          costColor = '#546881';
           break;
-        case "maxed":
+        case 'maxed':
           // already covered by rank > 0
           break;
       }
@@ -1082,10 +1181,10 @@ export class SkillTreeOverlay {
       visual.label.setColor(textColor);
       visual.rankText.setColor(textColor);
       visual.costText.setColor(costColor);
-      visual.costText.setVisible(state.status !== "maxed" && nextCost !== undefined);
+      visual.costText.setVisible(state.status !== 'maxed' && nextCost !== undefined);
 
       if (visual.button.input) {
-        visual.button.input.cursor = state.status === "available" ? "pointer" : "default";
+        visual.button.input.cursor = state.status === 'available' ? 'pointer' : 'default';
       }
     }
     if (this.detailPinned && this.detailPerkId) {
@@ -1097,7 +1196,7 @@ export class SkillTreeOverlay {
 
   private formatQuestInfo(quests: Quest[]): string {
     if (quests.length === 0) {
-      return "No accepted quests.";
+      return 'No accepted quests.';
     }
 
     const activeIds = new Set(this.scene.activeQuests.map((quest) => quest.id));
@@ -1107,37 +1206,50 @@ export class SkillTreeOverlay {
     return quests
       .map((quest) => {
         const marker = completedIds.has(quest.id)
-          ? "[x]"
+          ? '[x]'
           : activeIds.has(quest.id)
-            ? "[>]"
+            ? '[>]'
             : acceptedIds.has(quest.id)
-              ? "[-]"
-              : "[ ]";
-        const subtasks = typeof (this.scene as any).getQuestSubtasks === "function"
-          ? ((this.scene as any).getQuestSubtasks(quest.id) as string[])
-          : [];
-        const subtaskText = subtasks.length > 0
-          ? `\n${subtasks.map((line) => `  ${line}`).join("\n")}`
-          : "";
+              ? '[-]'
+              : '[ ]';
+        const subtasks =
+          typeof (this.scene as any).getQuestSubtasks === 'function'
+            ? ((this.scene as any).getQuestSubtasks(quest.id) as string[])
+            : [];
+        const subtaskText =
+          subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
         return `${marker} ${quest.label}: ${quest.description}${subtaskText}`;
       })
-      .join("\n\n");
+      .join('\n\n');
   }
 
   private drawMapPanel(): void {
     this.mapGraphics.clear();
-    const getter: any = (this.scene as any);
-    const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel ? getter.getGeneratedRoomsOnCurrentLevel() : [];
-    const current: string = (this.scene as any).currentRoomId ?? "0,0,0";
-
-    const level = Number((current.split(",")[2] ?? 0));
-    this.mapTitle.setText(`Map - Depth ${level}`);
-    const coords = rooms.map((id) => id.split(",").map((n) => Number(n)) as number[]).filter((c) => (c[2] ?? 0) === level);
-    const questMarkers = typeof getter.getQuestMapMarkers === "function"
-      ? (getter.getQuestMapMarkers() as Array<{ roomId: string; label: string; color: number; kind: string }>)
+    const getter: any = this.scene as any;
+    const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel
+      ? getter.getGeneratedRoomsOnCurrentLevel()
       : [];
+    const current: string = (this.scene as any).currentRoomId ?? '0,0,0';
+
+    const level = Number(current.split(',')[2] ?? 0);
+    this.mapTitle.setText(`Map - Depth ${level}`);
+    const coords = rooms
+      .map((id) => id.split(',').map((n) => Number(n)) as number[])
+      .filter((c) => (c[2] ?? 0) === level);
+    const questMarkers =
+      typeof getter.getQuestMapMarkers === 'function'
+        ? (getter.getQuestMapMarkers() as Array<{
+            roomId: string;
+            label: string;
+            color: number;
+            kind: string;
+          }>)
+        : [];
     const questMarkerCoords = questMarkers
-      .map((marker) => ({ marker, coords: marker.roomId.split(",").map((n) => Number(n)) as number[] }))
+      .map((marker) => ({
+        marker,
+        coords: marker.roomId.split(',').map((n) => Number(n)) as number[],
+      }))
       .filter((entry) => (entry.coords[2] ?? 0) === level);
 
     // Ensure bounds include house and origin on their level for icon placement
@@ -1152,14 +1264,33 @@ export class SkillTreeOverlay {
 
     const allBounds = coords.concat(markerCoords);
     if (allBounds.length === 0) {
-      this.mapGraphics.lineStyle(1, 0x244155, 0.8).strokeRect(this.mapBackground.x + 8, this.mapBackground.y + 32, this.mapBackground.width - 16, this.mapBackground.height - 40);
+      this.mapGraphics
+        .lineStyle(1, 0x244155, 0.8)
+        .strokeRect(
+          this.mapBackground.x + 8,
+          this.mapBackground.y + 32,
+          this.mapBackground.width - 16,
+          this.mapBackground.height - 40,
+        );
       this.mapGraphics.fillStyle(0x9ad1ff, 0.8);
-      this.mapGraphics.fillCircle(this.mapBackground.x + this.mapBackground.width / 2, this.mapBackground.y + this.mapBackground.height / 2, 2);
+      this.mapGraphics.fillCircle(
+        this.mapBackground.x + this.mapBackground.width / 2,
+        this.mapBackground.y + this.mapBackground.height / 2,
+        2,
+      );
       return;
     }
 
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const [x, y] of allBounds) { minX = Math.min(minX, x); maxX = Math.max(maxX, x); minY = Math.min(minY, y); maxY = Math.max(maxY, y); }
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    for (const [x, y] of allBounds) {
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
 
     const margin = 16;
     const areaW = this.mapBackground.width - margin * 2;
@@ -1170,11 +1301,21 @@ export class SkillTreeOverlay {
     const originX = this.mapBackground.x + margin + (areaW - cellSize * spanX) / 2;
     const originY = this.mapBackground.y + 24 + margin + (areaH - cellSize * spanY) / 2;
 
-    const drawCell = (x: number, y: number, style: { fill: number; alpha: number; stroke?: number; strokeA?: number }, outline = true) => {
+    const drawCell = (
+      x: number,
+      y: number,
+      style: { fill: number; alpha: number; stroke?: number; strokeA?: number },
+      outline = true,
+    ) => {
       const gx = originX + (x - minX) * cellSize;
       const gy = originY + (y - minY) * cellSize;
-      this.mapGraphics.fillStyle(style.fill, style.alpha).fillRect(gx + 1, gy + 1, cellSize - 2, cellSize - 2);
-      if (outline) this.mapGraphics.lineStyle(1, style.stroke ?? 0x244155, style.strokeA ?? 0.9).strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
+      this.mapGraphics
+        .fillStyle(style.fill, style.alpha)
+        .fillRect(gx + 1, gy + 1, cellSize - 2, cellSize - 2);
+      if (outline)
+        this.mapGraphics
+          .lineStyle(1, style.stroke ?? 0x244155, style.strokeA ?? 0.9)
+          .strokeRect(gx + 0.5, gy + 0.5, cellSize - 1, cellSize - 1);
       return { gx, gy };
     };
 
@@ -1216,7 +1357,14 @@ export class SkillTreeOverlay {
       const roofBaseY = baseY;
       this.mapGraphics.fillStyle(0xffffff, 0.95);
       // roof
-      this.mapGraphics.fillTriangle(roofLeftX, roofBaseY, roofRightX, roofBaseY, roofTopX, roofTopY);
+      this.mapGraphics.fillTriangle(
+        roofLeftX,
+        roofBaseY,
+        roofRightX,
+        roofBaseY,
+        roofTopX,
+        roofTopY,
+      );
       // base
       this.mapGraphics.fillRect(baseX, baseY, baseW, baseH);
 
@@ -1231,12 +1379,17 @@ export class SkillTreeOverlay {
       this.mapGraphics.strokePath();
     }
 
-    for (const { marker, coords: [qx, qy] } of questMarkerCoords) {
+    for (const {
+      marker,
+      coords: [qx, qy],
+    } of questMarkerCoords) {
       const q = iconPos(qx, qy);
       const color = marker.color ?? 0xffd166;
-      this.mapGraphics.lineStyle(2, color, 0.95).strokeCircle(q.cx, q.cy, Math.max(3, cellSize * 0.34));
+      this.mapGraphics
+        .lineStyle(2, color, 0.95)
+        .strokeCircle(q.cx, q.cy, Math.max(3, cellSize * 0.34));
       this.mapGraphics.fillStyle(color, 0.95);
-      if (marker.kind === "turn-in") {
+      if (marker.kind === 'turn-in') {
         this.mapGraphics.fillTriangle(q.cx, q.cy - 4, q.cx - 4, q.cy + 3, q.cx + 4, q.cy + 3);
       } else {
         this.mapGraphics.fillCircle(q.cx, q.cy, Math.max(2, cellSize * 0.13));
@@ -1261,7 +1414,8 @@ export class SkillTreeOverlay {
     const maxY = Math.max(1.2, ...yValues);
     const xRange = Math.max(0.001, maxX - minX);
     const yRange = Math.max(0.001, maxY - minY);
-    const plotX = (value: number) => left + ((Math.log10(Math.max(0.001, value)) - minX) / xRange) * width;
+    const plotX = (value: number) =>
+      left + ((Math.log10(Math.max(0.001, value)) - minX) / xRange) * width;
     const plotY = (value: number) => bottom - ((value - minY) / yRange) * height;
 
     this.graphGraphics.lineStyle(1, 0x244155, 0.8);
@@ -1323,7 +1477,7 @@ export class SkillTreeOverlay {
       [
         `Y luck: ${minY.toFixed(2)} to ${maxY.toFixed(2)}`,
         `X out of 10: ${Math.min(...LUCK_GRAPH_POINTS.map((p) => p.outOf10)).toString()} to ${Math.max(...LUCK_GRAPH_POINTS.map((p) => p.outOf10)).toString()} (log)`,
-      ].join("\n")
+      ].join('\n'),
     );
   }
 
@@ -1336,24 +1490,24 @@ export class SkillTreeOverlay {
     for (const tab of TAB_DEFINITIONS) {
       const label = this.scene.add
         .text(currentX, baseY, tab.label, {
-          fontFamily: "monospace",
-          fontSize: "18px",
-          color: "#7895b4",
-          backgroundColor: "rgba(0,0,0,0)",
+          fontFamily: 'monospace',
+          fontSize: '18px',
+          color: '#7895b4',
+          backgroundColor: 'rgba(0,0,0,0)',
           padding: { left: 10, right: 10, top: 6, bottom: 6 },
         })
         .setOrigin(0, 0.5)
         .setInteractive({ useHandCursor: showHand });
 
-      label.on("pointerdown", () => {
+      label.on('pointerdown', () => {
         this.setActiveTab(tab.id);
       });
-      label.on("pointerover", () => {
+      label.on('pointerover', () => {
         if (tab.id !== this.activeTab) {
-          label.setColor("#9ad1ff");
+          label.setColor('#9ad1ff');
         }
       });
-      label.on("pointerout", () => {
+      label.on('pointerout', () => {
         this.updateTabVisuals();
       });
 
@@ -1366,7 +1520,8 @@ export class SkillTreeOverlay {
 
   private buildNodes(): void {
     const perks = this.system.getPerks();
-    const width = this.options.width - TREE_PADDING.horizontal * 2 - (DETAIL_PANEL_WIDTH + DETAIL_PANEL_MARGIN);
+    const width =
+      this.options.width - TREE_PADDING.horizontal * 2 - (DETAIL_PANEL_WIDTH + DETAIL_PANEL_MARGIN);
     const height = this.options.height - TREE_PADDING.top - TREE_PADDING.bottom;
     const radius = 18;
 
@@ -1380,32 +1535,32 @@ export class SkillTreeOverlay {
 
       const label = this.scene.add
         .text(0, -4, perk.shortLabel, {
-          fontFamily: "monospace",
-          fontSize: "12px",
-          color: "#9ad1ff",
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#9ad1ff',
         })
         .setOrigin(0.5);
 
       const rankText = this.scene.add
-        .text(0, 17, "Rank 0/0", {
-          fontFamily: "monospace",
-          fontSize: "10px",
-          color: "#7d9bb8",
+        .text(0, 17, 'Rank 0/0', {
+          fontFamily: 'monospace',
+          fontSize: '10px',
+          color: '#7d9bb8',
         })
         .setOrigin(0.5, 0);
 
       const costText = this.scene.add
-        .text(0, 30, "Cost", {
-          fontFamily: "monospace",
-          fontSize: "10px",
-          color: "#7d9bb8",
+        .text(0, 30, 'Cost', {
+          fontFamily: 'monospace',
+          fontSize: '10px',
+          color: '#7d9bb8',
         })
         .setOrigin(0.5, 0);
 
       nodeContainer.add([button, label, rankText, costText]);
       nodeContainer.setSize(radius * 2, radius * 2);
 
-      button.on("pointerover", () => {
+      button.on('pointerover', () => {
         nodeContainer.setScale(1.05);
         this.hoveredPerkId = perk.id;
         const absX = this.container.x + px;
@@ -1413,15 +1568,15 @@ export class SkillTreeOverlay {
         (this.scene as any).juice?.uiSparkle?.(absX, absY);
         this.showConnectionHighlight(perk.id);
         if (!this.hintSticky) {
-          this.hintText.setText("Press I to inspect " + perk.title);
-          this.hintText.setColor("#9ad1ff");
+          this.hintText.setText('Press I to inspect ' + perk.title);
+          this.hintText.setColor('#9ad1ff');
         }
         const state = this.system.getPurchaseState(perk.id);
         const cost = state?.cost;
-        const label = perk.title + (Number.isFinite(cost) ? `  (Cost ${cost})` : "");
+        const label = perk.title + (Number.isFinite(cost) ? `  (Cost ${cost})` : '');
         this.showHoverTip(label);
       });
-      button.on("pointerout", () => {
+      button.on('pointerout', () => {
         nodeContainer.setScale(1);
         if (this.hoveredPerkId === perk.id) {
           this.hoveredPerkId = null;
@@ -1437,12 +1592,12 @@ export class SkillTreeOverlay {
         this.hideHoverTip();
         this.clearConnectionHighlight();
       });
-      button.on("pointerdown", () => {
+      button.on('pointerdown', () => {
         try {
           const state = this.system.getPurchaseState(perk.id);
           this.handlers.onRequestPurchase(perk.id, state);
         } catch (error) {
-          console.error("Failed to resolve perk state", error);
+          console.error('Failed to resolve perk state', error);
         }
       });
 
@@ -1485,9 +1640,17 @@ export class SkillTreeOverlay {
 
   private ensureHoverTip(): void {
     if (this.hoverTip) return;
-    const bg = this.scene.add.rectangle(0, 0, 180, 26, 0x0b1622, 0.9).setStrokeStyle(1, 0x244155).setOrigin(0.5);
-    const text = this.scene.add.text(0, 0, "", { fontFamily: "monospace", fontSize: "12px", color: "#cfe5ff" }).setOrigin(0.5);
-    const container = this.scene.add.container(0, 0, [bg, text]).setDepth(this.options.depth + 2).setVisible(false);
+    const bg = this.scene.add
+      .rectangle(0, 0, 180, 26, 0x0b1622, 0.9)
+      .setStrokeStyle(1, 0x244155)
+      .setOrigin(0.5);
+    const text = this.scene.add
+      .text(0, 0, '', { fontFamily: 'monospace', fontSize: '12px', color: '#cfe5ff' })
+      .setOrigin(0.5);
+    const container = this.scene.add
+      .container(0, 0, [bg, text])
+      .setDepth(this.options.depth + 2)
+      .setVisible(false);
     this.container.add(container);
     this.hoverTip = { container, bg, text, targetX: 0, targetY: 0 };
   }
@@ -1508,7 +1671,11 @@ export class SkillTreeOverlay {
     this.hoverTip.targetY = localY;
     this.hoverTip.container.setPosition(localX, localY);
     if (!this.hoverTip.ticker) {
-      this.hoverTip.ticker = this.scene.time.addEvent({ delay: 16, loop: true, callback: () => this.updateHoverTipPosition() });
+      this.hoverTip.ticker = this.scene.time.addEvent({
+        delay: 16,
+        loop: true,
+        callback: () => this.updateHoverTipPosition(),
+      });
     }
   }
 
@@ -1545,7 +1712,13 @@ export class SkillTreeOverlay {
     if (!visual) return;
     const target = visual.container;
     // Scale bounce
-    this.scene.tweens.add({ targets: target, scale: 1.12, duration: 120, ease: "Cubic.easeOut", yoyo: true });
+    this.scene.tweens.add({
+      targets: target,
+      scale: 1.12,
+      duration: 120,
+      ease: 'Cubic.easeOut',
+      yoyo: true,
+    });
     // Ring pulse around node
     const absX = this.container.x + target.x;
     const absY = this.container.y + target.y;
@@ -1557,7 +1730,7 @@ export class SkillTreeOverlay {
       r: 36,
       a: 0,
       duration: 240,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onUpdate: () => {
         g.clear();
         g.lineStyle(2, 0x9ad1ff, state.a);
@@ -1616,13 +1789,13 @@ export class SkillTreeOverlay {
         continue;
       }
       if (tab.id === this.activeTab) {
-        label.setColor("#ffffff");
-        label.setFontStyle("bold");
-        label.setBackgroundColor("rgba(30,70,110,0.55)");
+        label.setColor('#ffffff');
+        label.setFontStyle('bold');
+        label.setBackgroundColor('rgba(30,70,110,0.55)');
       } else {
-        label.setColor("#7895b4");
-        label.setFontStyle("normal");
-        label.setBackgroundColor("rgba(0,0,0,0)");
+        label.setColor('#7895b4');
+        label.setFontStyle('normal');
+        label.setBackgroundColor('rgba(0,0,0,0)');
       }
     }
   }
@@ -1639,9 +1812,9 @@ export class SkillTreeOverlay {
     this.detailPerkId = perkId;
     if (!this.hintSticky) {
       const definition = this.system.getDefinition(perkId);
-      const label = definition?.title ?? "skill";
-      this.hintText.setText("Inspecting " + label);
-      this.hintText.setColor("#9ad1ff");
+      const label = definition?.title ?? 'skill';
+      this.hintText.setText('Inspecting ' + label);
+      this.hintText.setColor('#9ad1ff');
     }
     return true;
   }
@@ -1662,7 +1835,7 @@ export class SkillTreeOverlay {
     const rank = state?.rank ?? 0;
     const maxRank = Math.max(1, definition.costByRank.length);
     const clampedRank = Math.min(rank, maxRank);
-    const status = state?.status ?? "unavailable";
+    const status = state?.status ?? 'unavailable';
     const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
 
     const lines: string[] = [definition.description];
@@ -1670,7 +1843,7 @@ export class SkillTreeOverlay {
     if (rank > 0 && definition.rankDescriptions.length > 0) {
       const currentIndex = Math.min(rank - 1, definition.rankDescriptions.length - 1);
       if (currentIndex >= 0) {
-        lines.push("Current: " + definition.rankDescriptions[currentIndex]);
+        lines.push('Current: ' + definition.rankDescriptions[currentIndex]);
       }
     }
 
@@ -1678,29 +1851,29 @@ export class SkillTreeOverlay {
       const nextIndex = Math.min(rank, definition.rankDescriptions.length - 1);
       const nextDescription = definition.rankDescriptions[nextIndex];
       const nextCost = definition.costByRank[rank];
-      let nextLine = "Next: " + nextDescription;
+      let nextLine = 'Next: ' + nextDescription;
       if (Number.isFinite(nextCost)) {
-        nextLine += " (Cost " + nextCost + ")";
+        nextLine += ' (Cost ' + nextCost + ')';
       }
       lines.push(nextLine);
     } else {
-      lines.push("Next: Fully mastered.");
+      lines.push('Next: Fully mastered.');
     }
 
-    if (state?.status === "locked" && (state.missing?.length ?? 0) > 0) {
-      const missingTitles = state.missing
-        ?.map((reqId) => this.system.getDefinition(reqId)?.title ?? reqId) ?? [];
+    if (state?.status === 'locked' && (state.missing?.length ?? 0) > 0) {
+      const missingTitles =
+        state.missing?.map((reqId) => this.system.getDefinition(reqId)?.title ?? reqId) ?? [];
       if (missingTitles.length > 0) {
-        lines.push("Requires: " + missingTitles.join(", "));
+        lines.push('Requires: ' + missingTitles.join(', '));
       }
     }
 
     this.detailTitle.setText(definition.title).setVisible(true);
     this.detailSubtitle.setText(definition.branch).setVisible(true);
     this.detailRankText
-      .setText("Rank " + clampedRank + "/" + maxRank + " - " + statusLabel)
+      .setText('Rank ' + clampedRank + '/' + maxRank + ' - ' + statusLabel)
       .setVisible(true);
-    this.detailBody.setText(lines.join("\n\n")).setVisible(true);
+    this.detailBody.setText(lines.join('\n\n')).setVisible(true);
 
     return true;
   }
@@ -1711,33 +1884,36 @@ export class SkillTreeOverlay {
     }
     this.detailPinned = false;
     this.detailPerkId = null;
-    this.detailTitle.setVisible(false).setText("");
-    this.detailSubtitle.setVisible(false).setText("");
-    this.detailRankText.setVisible(false).setText("");
-    this.detailBody.setVisible(false).setText("");
+    this.detailTitle.setVisible(false).setText('');
+    this.detailSubtitle.setVisible(false).setText('');
+    this.detailRankText.setVisible(false).setText('');
+    this.detailBody.setVisible(false).setText('');
   }
 
-
   private updateDefaultHint(stats: SkillTreeStats): void {
-    if (this.activeTab !== "skills") {
+    if (this.activeTab !== 'skills') {
       if (this.stubText) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(tab?.placeholder ?? "More modules are coming soon.");
+        this.stubText.setText(tab?.placeholder ?? 'More modules are coming soon.');
       }
-      this.hintText.setText("Select a tab to manage your serpent.");
-      this.hintText.setColor("#9ad1ff");
+      this.hintText.setText('Select a tab to manage your serpent.');
+      this.hintText.setColor('#9ad1ff');
       return;
     }
 
     if (stats.arcanePulseUnlocked) {
-      this.hintText.setText("Arcane Pulse ready - press Q (20 mana). Press I over a skill for details.");
-      this.hintText.setColor("#ffbdfd");
+      this.hintText.setText(
+        'Arcane Pulse ready - press Q (20 mana). Press I over a skill for details.',
+      );
+      this.hintText.setColor('#ffbdfd');
     } else if (stats.manaMax > 0) {
-      this.hintText.setText("Mana blooms while you slither - spend it wisely. Press I over a skill for details.");
-      this.hintText.setColor("#5dd6a2");
+      this.hintText.setText(
+        'Mana blooms while you slither - spend it wisely. Press I over a skill for details.',
+      );
+      this.hintText.setColor('#5dd6a2');
     } else {
-      this.hintText.setText("Hover a skill node and press I for details.");
-      this.hintText.setColor("#5dd6a2");
+      this.hintText.setText('Hover a skill node and press I for details.');
+      this.hintText.setColor('#5dd6a2');
     }
   }
 }

@@ -1,6 +1,6 @@
-import Phaser from "phaser";
-import { Feature } from "../feature.js";
-import type SnakeScene from "../../scenes/snakeScene.js";
+import Phaser from 'phaser';
+import { Feature } from '../feature.js';
+import type SnakeScene from '../../scenes/snakeScene.js';
 
 interface TierConfig {
   threshold: number;
@@ -16,8 +16,8 @@ interface TierConfig {
 const TIER_CONFIGS: TierConfig[] = [
   {
     threshold: 3,
-    label: "Recon Drone",
-    callout: "Recon Drone Online!",
+    label: 'Recon Drone',
+    callout: 'Recon Drone Online!',
     multiplier: 2,
     duration: 240,
     speedScalar: 0.92,
@@ -26,8 +26,8 @@ const TIER_CONFIGS: TierConfig[] = [
   },
   {
     threshold: 6,
-    label: "Attack Chopper",
-    callout: "Attack Chopper Ready!",
+    label: 'Attack Chopper',
+    callout: 'Attack Chopper Ready!',
     multiplier: 3,
     duration: 300,
     speedScalar: 0.85,
@@ -36,8 +36,8 @@ const TIER_CONFIGS: TierConfig[] = [
   },
   {
     threshold: 10,
-    label: "Tactical Nuke",
-    callout: "Tactical Nuke Inbound!",
+    label: 'Tactical Nuke',
+    callout: 'Tactical Nuke Inbound!',
     multiplier: 5,
     duration: 360,
     speedScalar: 0.78,
@@ -64,7 +64,7 @@ interface KillstreakState {
 }
 
 function toHex(color: number): string {
-  return `#${color.toString(16).padStart(6, "0")}`;
+  return `#${color.toString(16).padStart(6, '0')}`;
 }
 
 function estimateSeconds(ticks: number, tickDelay: number): number {
@@ -84,18 +84,18 @@ class KillstreakArsenalFeature extends Feature {
   private lastQuestCount = -1;
 
   constructor() {
-    super("killstreakArsenal", "Killstreak Arsenal");
+    super('killstreakArsenal', 'Killstreak Arsenal');
   }
 
   override onRegister(scene: SnakeScene): void {
     if (!this.hud) {
       const width = scene.grid.cols * scene.grid.cell;
       this.hud = scene.add
-        .text(width - 12, 10, "Killstreak 0x", {
-          fontFamily: "monospace",
-          fontSize: "16px",
-          color: "#f1f5f9",
-          align: "right",
+        .text(width - 12, 10, 'Killstreak 0x', {
+          fontFamily: 'monospace',
+          fontSize: '16px',
+          color: '#f1f5f9',
+          align: 'right',
           lineSpacing: 2,
         })
         .setOrigin(1, 0)
@@ -115,7 +115,7 @@ class KillstreakArsenalFeature extends Feature {
     if (this.state.streak > 0) {
       this.state.timer += 1;
       if (this.state.timer >= STREAK_TIMEOUT_TICKS) {
-        this.clearStreak(scene, "timeout");
+        this.clearStreak(scene, 'timeout');
         changed = true;
       }
     }
@@ -152,7 +152,7 @@ class KillstreakArsenalFeature extends Feature {
       scene.addScore(this.state.multiplier - 1);
     }
 
-    scene.setFlag("killstreak.appleJuiceLevel", Math.max(0, this.state.tier));
+    scene.setFlag('killstreak.appleJuiceLevel', Math.max(0, this.state.tier));
     if (this.isHudActive()) {
       this.spawnKillConfirm(scene);
     }
@@ -160,7 +160,7 @@ class KillstreakArsenalFeature extends Feature {
   }
 
   override onGameOver(scene: SnakeScene): void {
-    this.clearStreak(scene, "death");
+    this.clearStreak(scene, 'death');
     this.state.highest = 0;
     this.updateHud(scene);
   }
@@ -171,7 +171,7 @@ class KillstreakArsenalFeature extends Feature {
     }
 
     this.barGraphics.clear();
-    if (!this.isHudActive() || scene.getFlag<boolean>("ui.suppressHud")) {
+    if (!this.isHudActive() || scene.getFlag<boolean>('ui.suppressHud')) {
       return;
     }
 
@@ -294,7 +294,7 @@ class KillstreakArsenalFeature extends Feature {
     this.destroyCallout(scene);
   }
 
-  private clearStreak(scene: SnakeScene, reason?: "timeout" | "death"): void {
+  private clearStreak(scene: SnakeScene, reason?: 'timeout' | 'death'): void {
     if (this.isHudActive() && reason) {
       this.spawnDropText(scene, reason);
     }
@@ -310,7 +310,7 @@ class KillstreakArsenalFeature extends Feature {
       return;
     }
 
-    const [roomX, roomY] = scene.currentRoomId.split(",").map(Number);
+    const [roomX, roomY] = scene.currentRoomId.split(',').map(Number);
     const localX = head.x - roomX * scene.grid.cols;
     const localY = head.y - roomY * scene.grid.rows;
     const cell = scene.grid.cell;
@@ -318,13 +318,13 @@ class KillstreakArsenalFeature extends Feature {
     const worldY = localY * cell + cell / 2;
 
     const config = this.state.tier > 0 ? TIER_CONFIGS[this.state.tier - 1] : null;
-    const color = config ? toHex(config.color) : "#5bc0eb";
+    const color = config ? toHex(config.color) : '#5bc0eb';
     const text = scene.add
       .text(worldX, worldY - 14, `Kill Confirmed x${this.state.streak}`, {
-        fontFamily: "monospace",
-        fontSize: "14px",
+        fontFamily: 'monospace',
+        fontSize: '14px',
         color,
-        stroke: "#05060a",
+        stroke: '#05060a',
         strokeThickness: 4,
       })
       .setOrigin(0.5, 1)
@@ -336,7 +336,7 @@ class KillstreakArsenalFeature extends Feature {
       y: worldY - 46,
       alpha: 0,
       duration: 720,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => text.destroy(),
     });
   }
@@ -346,10 +346,10 @@ class KillstreakArsenalFeature extends Feature {
     const width = scene.grid.cols * scene.grid.cell;
     const text = scene.add
       .text(width / 2, 96, message, {
-        fontFamily: "monospace",
-        fontSize: "26px",
+        fontFamily: 'monospace',
+        fontSize: '26px',
         color: toHex(color),
-        stroke: "#05060a",
+        stroke: '#05060a',
         strokeThickness: 6,
       })
       .setOrigin(0.5)
@@ -362,7 +362,7 @@ class KillstreakArsenalFeature extends Feature {
       y: 70,
       alpha: 0,
       duration: 1600,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => {
         if (text.active) {
           text.destroy();
@@ -374,15 +374,15 @@ class KillstreakArsenalFeature extends Feature {
     });
   }
 
-  private spawnDropText(scene: SnakeScene, reason: "timeout" | "death"): void {
+  private spawnDropText(scene: SnakeScene, reason: 'timeout' | 'death'): void {
     const width = scene.grid.cols * scene.grid.cell;
-    const label = reason === "death" ? "Streak reset" : "Streak lost";
+    const label = reason === 'death' ? 'Streak reset' : 'Streak lost';
     const text = scene.add
       .text(width / 2, 128, label, {
-        fontFamily: "monospace",
-        fontSize: "18px",
-        color: "#f94144",
-        stroke: "#05060a",
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#f94144',
+        stroke: '#05060a',
         strokeThickness: 4,
       })
       .setOrigin(0.5)
@@ -394,7 +394,7 @@ class KillstreakArsenalFeature extends Feature {
       y: 108,
       alpha: 0,
       duration: 1200,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => text.destroy(),
     });
   }
@@ -415,9 +415,9 @@ class KillstreakArsenalFeature extends Feature {
     }
 
     const active = this.isHudActive();
-    this.hud.setVisible(active && !scene.getFlag<boolean>("ui.suppressHud"));
+    this.hud.setVisible(active && !scene.getFlag<boolean>('ui.suppressHud'));
     if (!active) {
-      this.hud.setText("");
+      this.hud.setText('');
       this.barGraphics?.clear();
       this.lastQuestCount = scene.activeQuests?.length ?? 0;
       return;
@@ -435,14 +435,14 @@ class KillstreakArsenalFeature extends Feature {
       const remaining = Math.max(0, nextThreshold - this.state.streak);
       lines.push(`${remaining} to ${TIER_CONFIGS[0].label}`);
     } else {
-      lines.push("Max streak!");
+      lines.push('Max streak!');
     }
 
     if (this.state.highest > 0) {
       lines.push(`Best ${this.state.highest}x`);
     }
 
-    this.hud.setText(lines.join("\n"));
+    this.hud.setText(lines.join('\n'));
 
     const width = scene.grid.cols * scene.grid.cell;
     const hudY = this.computeHudY(scene);

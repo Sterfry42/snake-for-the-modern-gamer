@@ -1,17 +1,17 @@
-import { Quest } from "../quest.js";
-import type { QuestRuntime } from "../quest.js";
+import { Quest } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 class ExplorerQuest extends Quest {
   constructor() {
-    super("explore-6-rooms", "Explorer", "Visit 6 unique rooms");
+    super('explore-6-rooms', 'Explorer', 'Visit 6 unique rooms');
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {
-    return this.progressSinceAccept(runtime, "roomsVisited") >= 6;
+    return this.progressSinceAccept(runtime, 'roomsVisited') >= 6;
   }
 
   protected override baselineKeys(): readonly string[] {
-    return ["roomsVisited"];
+    return ['roomsVisited'];
   }
 
   override onReward(runtime: QuestRuntime): void {

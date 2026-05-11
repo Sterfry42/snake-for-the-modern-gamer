@@ -1,5 +1,10 @@
-import type { Vector2Like } from "../../core/math.js";
-import { AppleInstance, type AppleConsumptionContext, type AppleInitializationContext, type AppleRewards } from "../types.js";
+import type { Vector2Like } from '../../core/math.js';
+import {
+  AppleInstance,
+  type AppleConsumptionContext,
+  type AppleInitializationContext,
+  type AppleRewards,
+} from '../types.js';
 
 const DIRECTIONS: Vector2Like[] = [
   { x: 1, y: 0 },
@@ -26,7 +31,9 @@ export class ShieldedApple extends AppleInstance {
     if (context.phasing) {
       return false;
     }
-    return this.protectedDirs.some((shield) => shield.x === context.direction.x && shield.y === context.direction.y);
+    return this.protectedDirs.some(
+      (shield) => shield.x === context.direction.x && shield.y === context.direction.y,
+    );
   }
 
   override onConsume(): AppleRewards {

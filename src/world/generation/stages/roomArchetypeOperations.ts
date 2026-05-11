@@ -1,7 +1,7 @@
-import type { WorldConfig } from "../../../config/gameConfig.js";
-import { vectorKey } from "../../../core/math.js";
-import type { RandomGenerator } from "../../../core/rng.js";
-import type { RoomArchetype, RoomArchetypeId, RoomGenerationContext } from "../types.js";
+import type { WorldConfig } from '../../../config/gameConfig.js';
+import { vectorKey } from '../../../core/math.js';
+import type { RandomGenerator } from '../../../core/rng.js';
+import type { RoomArchetype, RoomArchetypeId, RoomGenerationContext } from '../types.js';
 
 interface WeightedArchetype {
   id: RoomArchetypeId;
@@ -9,16 +9,16 @@ interface WeightedArchetype {
 }
 
 const DEFAULT_ARCHETYPE_POOL: WeightedArchetype[] = [
-  { id: "classic", weight: 65 },
-  { id: "open-clearing", weight: 5 },
-  { id: "four-corners", weight: 15 },
-  { id: "choke-point", weight: 15 },
+  { id: 'classic', weight: 65 },
+  { id: 'open-clearing', weight: 5 },
+  { id: 'four-corners', weight: 15 },
+  { id: 'choke-point', weight: 15 },
 ];
 
 export class RoomArchetypeOperations {
   constructor(
     private readonly config: WorldConfig,
-    private readonly rng: RandomGenerator
+    private readonly rng: RandomGenerator,
   ) {}
 
   apply(context: RoomGenerationContext): void {
@@ -26,35 +26,35 @@ export class RoomArchetypeOperations {
     context.archetype = archetype;
 
     switch (archetype.id) {
-      case "four-corners":
+      case 'four-corners':
         this.applyFourCorners(context);
         break;
-      case "choke-point":
+      case 'choke-point':
         this.applyChokePoint(context);
         break;
-      case "open-clearing":
-      case "classic":
-      case "ocean":
-      case "dense-forest":
+      case 'open-clearing':
+      case 'classic':
+      case 'ocean':
+      case 'dense-forest':
         break;
     }
   }
 
   private chooseArchetype(context: RoomGenerationContext): RoomArchetype {
     if (context.isOcean) {
-      return { id: "ocean", suppressRandomObstacles: true };
+      return { id: 'ocean', suppressRandomObstacles: true };
     }
     if (context.isDenseForest) {
-      return { id: "dense-forest", suppressRandomObstacles: true };
+      return { id: 'dense-forest', suppressRandomObstacles: true };
     }
     if (context.roomId === this.config.originRoomId) {
-      return { id: "classic" };
+      return { id: 'classic' };
     }
 
     const id = this.weightedChoice(DEFAULT_ARCHETYPE_POOL);
     return {
       id,
-      suppressRandomObstacles: id === "open-clearing",
+      suppressRandomObstacles: id === 'open-clearing',
     };
   }
 
@@ -73,7 +73,7 @@ export class RoomArchetypeOperations {
     ];
 
     for (const anchor of anchors) {
-      this.fillRect(context, anchor.left, anchor.top, width, height, "#", safe);
+      this.fillRect(context, anchor.left, anchor.top, width, height, '#', safe);
     }
   }
 
@@ -89,7 +89,7 @@ export class RoomArchetypeOperations {
         if (y >= gapTop && y < gapTop + gapSize) {
           continue;
         }
-        this.fillRect(context, wallX, y, 2, 1, "#", safe);
+        this.fillRect(context, wallX, y, 2, 1, '#', safe);
       }
       return;
     }
@@ -100,7 +100,7 @@ export class RoomArchetypeOperations {
       if (x >= gapLeft && x < gapLeft + gapSize) {
         continue;
       }
-      this.fillRect(context, x, wallY, 1, 2, "#", safe);
+      this.fillRect(context, x, wallY, 1, 2, '#', safe);
     }
   }
 
@@ -110,8 +110,8 @@ export class RoomArchetypeOperations {
     top: number,
     width: number,
     height: number,
-    tile: "#",
-    safe: ReadonlySet<string>
+    tile: '#',
+    safe: ReadonlySet<string>,
   ): void {
     for (let y = top; y < top + height; y += 1) {
       for (let x = left; x < left + width; x += 1) {
@@ -129,7 +129,10 @@ export class RoomArchetypeOperations {
     }
   }
 
-  private createEntranceRunupCells(context: RoomGenerationContext, length: number): ReadonlySet<string> {
+  private createEntranceRunupCells(
+    context: RoomGenerationContext,
+    length: number,
+  ): ReadonlySet<string> {
     const cells = new Set<string>();
     for (let y = 0; y < context.grid.rows; y += 1) {
       for (let x = 0; x < length && x < context.grid.cols; x += 1) {
@@ -155,7 +158,7 @@ export class RoomArchetypeOperations {
         return entry.id;
       }
     }
-    return pool[pool.length - 1]?.id ?? "classic";
+    return pool[pool.length - 1]?.id ?? 'classic';
   }
 
   private randomInt(maxExclusive: number): number {
@@ -165,5 +168,4 @@ export class RoomArchetypeOperations {
   private randomIntInRange(minInclusive: number, maxExclusive: number): number {
     return minInclusive + this.randomInt(Math.max(1, maxExclusive - minInclusive));
   }
-
 }

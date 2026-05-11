@@ -1,7 +1,7 @@
-import type { GridConfig } from "../config/gameConfig.js";
-import { vectorKey } from "../core/math.js";
-import type { RandomGenerator } from "../core/rng.js";
-import { buildHouseNpcProfile, type NpcProfile } from "../npcs/profiles.js";
+import type { GridConfig } from '../config/gameConfig.js';
+import { vectorKey } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import { buildHouseNpcProfile, type NpcProfile } from '../npcs/profiles.js';
 
 export interface QuestGiverInfo extends NpcProfile {
   x: number;
@@ -18,9 +18,9 @@ export interface QuestHousePlacementOptions {
   margin?: number;
 }
 
-const SAFE_INTERIOR_TILES = new Set(["W", "E", "T"]);
-const SAGE_NAMES = ["Aurex", "Belisar", "Cyrene", "Thalestra", "Ozym", "Ilyra", "Ryan"] as const;
-const SAGE_PORTRAITS = ["sage-1", "sage-2", "sage-3"] as const;
+const SAFE_INTERIOR_TILES = new Set(['W', 'E', 'T']);
+const SAGE_NAMES = ['Aurex', 'Belisar', 'Cyrene', 'Thalestra', 'Ozym', 'Ilyra', 'Ryan'] as const;
+const SAGE_PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 
 function setChar(layout: string[][], x: number, y: number, ch: string): void {
   if (y < 0 || y >= layout.length) return;
@@ -28,28 +28,40 @@ function setChar(layout: string[][], x: number, y: number, ch: string): void {
   layout[y][x] = ch;
 }
 
-function drawHouseCube(layout: string[][], left: number, top: number, width: number, height: number) {
+function drawHouseCube(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+) {
   const right = left + width - 1;
   const bottom = top + height - 1;
   for (let y = top; y <= bottom; y++) {
     for (let x = left; x <= right; x++) {
       const isBorder = x === left || x === right || y === top || y === bottom;
-      setChar(layout, x, y, isBorder ? "#" : "W");
+      setChar(layout, x, y, isBorder ? '#' : 'W');
     }
   }
 }
 
-function carveHouseDoor(layout: string[][], left: number, top: number, width: number, height: number) {
+function carveHouseDoor(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+) {
   const bottom = top + height - 1;
   const cx = Math.floor(left + width / 2);
   const doorHalf = Math.max(1, Math.floor(Math.min(3, Math.floor(width / 6)) / 2));
   for (let x = cx - doorHalf; x <= cx + doorHalf; x++) {
-    setChar(layout, x, bottom, ".");
-    if (bottom - 1 > top) setChar(layout, x, bottom - 1, "E");
+    setChar(layout, x, bottom, '.');
+    if (bottom - 1 > top) setChar(layout, x, bottom - 1, 'E');
   }
   const trimY = Math.max(top + 1, bottom - 2);
   for (let x = cx - doorHalf; x <= cx + doorHalf; x++) {
-    setChar(layout, x, trimY, "T");
+    setChar(layout, x, trimY, 'T');
   }
 }
 
@@ -59,11 +71,11 @@ function canPlaceRect(
   top: number,
   width: number,
   height: number,
-  forbiddenCells?: ReadonlySet<string>
+  forbiddenCells?: ReadonlySet<string>,
 ): boolean {
   for (let y = top; y < top + height; y++) {
     for (let x = left; x < left + width; x++) {
-      if (layout[y]?.[x] !== ".") {
+      if (layout[y]?.[x] !== '.') {
         return false;
       }
       if (forbiddenCells?.has(vectorKey({ x, y }))) {
@@ -78,7 +90,7 @@ export function tryPlaceQuestHouse(
   layout: string[][],
   grid: GridConfig,
   rng: RandomGenerator,
-  options: QuestHousePlacementOptions = {}
+  options: QuestHousePlacementOptions = {},
 ): QuestHouseResult | null {
   const attempts = 24;
   const margin = options.margin ?? 2;
@@ -106,10 +118,10 @@ export function tryPlaceQuestHouse(
 
     const centerX = Math.floor(left + width / 2);
     const centerY = Math.floor(top + height / 2);
-    if (!SAFE_INTERIOR_TILES.has(layout[centerY]?.[centerX] ?? "")) {
+    if (!SAFE_INTERIOR_TILES.has(layout[centerY]?.[centerX] ?? '')) {
       continue;
     }
-    setChar(layout, centerX, centerY, "G");
+    setChar(layout, centerX, centerY, 'G');
 
     const name = SAGE_NAMES[Math.floor(rng() * SAGE_NAMES.length)];
     const portraitId = SAGE_PORTRAITS[Math.floor(rng() * SAGE_PORTRAITS.length)];

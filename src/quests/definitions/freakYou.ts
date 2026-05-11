@@ -1,12 +1,12 @@
-import { Quest } from "../quest.js";
-import type { QuestRuntime } from "../quest.js";
+import { Quest } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 class FreakYouQuest extends Quest {
   constructor() {
     super(
-      "freak-you",
-      "Freak You",
-      "Protect a terrified time traveler from the future version of you that learned how to hunt backward."
+      'freak-you',
+      'Freak You',
+      'Protect a terrified time traveler from the future version of you that learned how to hunt backward.',
     );
   }
 
@@ -15,7 +15,7 @@ class FreakYouQuest extends Quest {
   }
 
   override onReward(runtime: QuestRuntime): void {
-    runtime.addItem("amulet-time-splinter", 1);
+    runtime.addItem('amulet-time-splinter', 1);
   }
 }
 

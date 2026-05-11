@@ -1,5 +1,5 @@
-import Phaser from "phaser";
-import type SnakeScene from "../scenes/snakeScene.js";
+import Phaser from 'phaser';
+import type SnakeScene from '../scenes/snakeScene.js';
 
 export interface ChoiceOption {
   id: string;
@@ -37,18 +37,20 @@ export class ChoicePopup {
     const baseX = 8;
     let y = 0;
     for (const opt of options) {
-      const label = this.scene.add.text(baseX, y, `${opt.title}\n${opt.description}`, {
-        fontFamily: "monospace",
-        fontSize: "16px",
-        color: "#ffffff",
-        lineSpacing: 4,
-        wordWrap: { width: 424 },
-        backgroundColor: "rgba(0,0,0,0)",
-        padding: { left: 10, right: 10, top: 6, bottom: 6 },
-      }).setInteractive({ useHandCursor: true })
-        .on("pointerover", () => label.setColor("#9ad1ff"))
-        .on("pointerout", () => label.setColor("#ffffff"))
-        .on("pointerdown", () => this.pick(opt.id));
+      const label = this.scene.add
+        .text(baseX, y, `${opt.title}\n${opt.description}`, {
+          fontFamily: 'monospace',
+          fontSize: '16px',
+          color: '#ffffff',
+          lineSpacing: 4,
+          wordWrap: { width: 424 },
+          backgroundColor: 'rgba(0,0,0,0)',
+          padding: { left: 10, right: 10, top: 6, bottom: 6 },
+        })
+        .setInteractive({ useHandCursor: true })
+        .on('pointerover', () => label.setColor('#9ad1ff'))
+        .on('pointerout', () => label.setColor('#ffffff'))
+        .on('pointerdown', () => this.pick(opt.id));
       this.optionContainer?.add(label);
       this.optionTexts.push(label);
       y += label.height + 16;
@@ -63,7 +65,7 @@ export class ChoicePopup {
     this.background?.setSize(this.width, popupHeight);
     this.optionContainer?.setPosition(16, 60);
     this.scrollHintText
-      ?.setText(this.contentHeight > this.viewportHeight ? "Mouse wheel to scroll" : "")
+      ?.setText(this.contentHeight > this.viewportHeight ? 'Mouse wheel to scroll' : '')
       .setPosition(this.width / 2, popupHeight - 24);
     this.updateMask(x, rootY);
     this.applyScroll(0);
@@ -134,22 +136,31 @@ export class ChoicePopup {
       .setStrokeStyle(2, 0x4da3ff)
       .setOrigin(0, 0);
 
-    this.titleText = this.scene.add.text(this.width / 2, 20, "", {
-      fontFamily: "monospace",
-      fontSize: "22px",
-      color: "#9ad1ff",
-    }).setOrigin(0.5, 0);
+    this.titleText = this.scene.add
+      .text(this.width / 2, 20, '', {
+        fontFamily: 'monospace',
+        fontSize: '22px',
+        color: '#9ad1ff',
+      })
+      .setOrigin(0.5, 0);
 
     this.optionContainer = this.scene.add.container(16, 60);
-    this.scrollHintText = this.scene.add.text(this.width / 2, height - 24, "", {
-      fontFamily: "monospace",
-      fontSize: "12px",
-      color: "#6da8d8",
-    }).setOrigin(0.5, 0);
+    this.scrollHintText = this.scene.add
+      .text(this.width / 2, height - 24, '', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#6da8d8',
+      })
+      .setOrigin(0.5, 0);
     this.optionMaskGraphics = this.scene.add.graphics().setVisible(false);
-    this.container = this.scene.add.container(x, y, [this.background, this.titleText, this.optionContainer, this.scrollHintText]).setVisible(false);
-    this.scene.input.on("wheel", (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
-      this.scrollBy(dy);
-    });
+    this.container = this.scene.add
+      .container(x, y, [this.background, this.titleText, this.optionContainer, this.scrollHintText])
+      .setVisible(false);
+    this.scene.input.on(
+      'wheel',
+      (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
+        this.scrollBy(dy);
+      },
+    );
   }
 }

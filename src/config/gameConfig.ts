@@ -1,4 +1,4 @@
-import type { Vector2Like } from "../core/math.js";
+import type { Vector2Like } from '../core/math.js';
 
 export interface GridConfig {
   cols: number;
@@ -51,7 +51,7 @@ export interface AppleTypeConfig {
   color: number;
   outlineDarkenFactor: number;
   spawn: AppleSpawnWeightConfig;
-  behavior: "normal" | "shielded" | "gold" | "skittish";
+  behavior: 'normal' | 'shielded' | 'gold' | 'skittish';
 }
 
 export interface AppleSystemConfig {
@@ -115,7 +115,7 @@ export interface GameConfig {
   freakerDennis?: FreakerDennisConfig;
 }
 
-export type PowerupKind = "phase" | "smite" | "gun";
+export type PowerupKind = 'phase' | 'smite' | 'gun';
 
 const initialSnakeBody: Vector2Like[] = [
   { x: 5, y: 12 },
@@ -137,7 +137,7 @@ export const defaultGameConfig: GameConfig = {
   },
   rng: {},
   world: {
-    originRoomId: "0,0,0",
+    originRoomId: '0,0,0',
     spawnGuard: {
       enabled: true,
       safeCells: [...initialSnakeBody, ...spawnBuffer],
@@ -157,44 +157,44 @@ export const defaultGameConfig: GameConfig = {
   apples: {
     types: [
       {
-        id: "normal",
-        label: "Standard Apple",
+        id: 'normal',
+        label: 'Standard Apple',
         color: 0xff6b6b,
         outlineDarkenFactor: 0.45,
         spawn: { base: 1 },
-        behavior: "normal",
+        behavior: 'normal',
       },
       {
-        id: "shielded",
-        label: "Shielded Apple",
+        id: 'shielded',
+        label: 'Shielded Apple',
         color: 0xff3f3f,
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.4, scoreThreshold: 10 },
-        behavior: "shielded",
+        behavior: 'shielded',
       },
       {
-        id: "gold",
-        label: "Golden Apple",
+        id: 'gold',
+        label: 'Golden Apple',
         color: 0xffd700,
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.35, scoreThreshold: 10 },
-        behavior: "gold",
+        behavior: 'gold',
       },
       {
-        id: "pearl",
-        label: "Pearl Apple",
+        id: 'pearl',
+        label: 'Pearl Apple',
         color: 0x9df7ff,
         outlineDarkenFactor: 0.45,
         spawn: { base: 0 },
-        behavior: "gold",
+        behavior: 'gold',
       },
       {
-        id: "skittish",
-        label: "Skittish Apple",
+        id: 'skittish',
+        label: 'Skittish Apple',
         color: 0xff8578,
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.35, scoreThreshold: 15 },
-        behavior: "skittish",
+        behavior: 'skittish',
       },
     ],
     skittishMoveChance: 0.225,
@@ -206,12 +206,19 @@ export const defaultGameConfig: GameConfig = {
     questOfferChance: 0,
   },
   features: {
-    enabled: ["coreScore", "wrapWall", "bonusApple", "hungerTimer", "religionChoice", "killstreakArsenal"],
+    enabled: [
+      'coreScore',
+      'wrapWall',
+      'bonusApple',
+      'hungerTimer',
+      'religionChoice',
+      'killstreakArsenal',
+    ],
   },
   freakerDennis: {
     rainbowPalette: {
       enabled: true,
-      colors: ["#FF0000", "#FF7F00", "#FFFF00", "#00FF00", "#0000FF", "#4B0082", "#9400D3"],
+      colors: ['#FF0000', '#FF7F00', '#FFFF00', '#00FF00', '#0000FF', '#4B0082', '#9400D3'],
       segmentIndex: 0,
       speed: 0.1,
     },
@@ -232,4 +239,3 @@ export const defaultGameConfig: GameConfig = {
     },
   },
 };
-

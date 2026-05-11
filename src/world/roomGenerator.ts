@@ -1,18 +1,18 @@
-import type { GridConfig, WorldConfig } from "../config/gameConfig.js";
-import type { RandomGenerator } from "../core/rng.js";
-import type { RoomSnapshot } from "./types.js";
-import { CoordinateBiomeMap } from "./generation/biomeMap.js";
-import { RoomGenerationPipeline } from "./generation/roomGenerationPipeline.js";
-import type { RoomGenerationContext } from "./generation/types.js";
-import { TerrainCanvas } from "./generation/terrainCanvas.js";
-import { PortalOperations } from "./generation/stages/portalOperations.js";
-import { RandomObstacleOperations } from "./generation/stages/randomObstacleOperations.js";
-import { SafetyOperations } from "./generation/stages/safetyOperations.js";
-import { StructureOperations } from "./generation/stages/structureOperations.js";
-import { OceanOperations } from "./generation/stages/oceanOperations.js";
-import { CrossRoomFeatureOperations } from "./generation/stages/crossRoomFeatureOperations.js";
-import { ForestOperations } from "./generation/stages/forestOperations.js";
-import { RoomArchetypeOperations } from "./generation/stages/roomArchetypeOperations.js";
+import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
+import type { RandomGenerator } from '../core/rng.js';
+import type { RoomSnapshot } from './types.js';
+import { CoordinateBiomeMap } from './generation/biomeMap.js';
+import { RoomGenerationPipeline } from './generation/roomGenerationPipeline.js';
+import type { RoomGenerationContext } from './generation/types.js';
+import { TerrainCanvas } from './generation/terrainCanvas.js';
+import { PortalOperations } from './generation/stages/portalOperations.js';
+import { RandomObstacleOperations } from './generation/stages/randomObstacleOperations.js';
+import { SafetyOperations } from './generation/stages/safetyOperations.js';
+import { StructureOperations } from './generation/stages/structureOperations.js';
+import { OceanOperations } from './generation/stages/oceanOperations.js';
+import { CrossRoomFeatureOperations } from './generation/stages/crossRoomFeatureOperations.js';
+import { ForestOperations } from './generation/stages/forestOperations.js';
+import { RoomArchetypeOperations } from './generation/stages/roomArchetypeOperations.js';
 
 export class RoomGenerator {
   private readonly pipeline: RoomGenerationPipeline;
@@ -28,7 +28,7 @@ export class RoomGenerator {
 
   constructor(
     private readonly config: WorldConfig,
-    private readonly rng: RandomGenerator
+    private readonly rng: RandomGenerator,
   ) {
     this.crossRoomFeatureOperations = new CrossRoomFeatureOperations(this.biomeMap, rng);
     this.forestOperations = new ForestOperations(this.biomeMap);
@@ -47,10 +47,10 @@ export class RoomGenerator {
 
   createGenerationContext(roomId: string, grid: GridConfig): RoomGenerationContext {
     const canvas = new TerrainCanvas(grid);
-    const portals: RoomSnapshot["portals"] = [];
+    const portals: RoomSnapshot['portals'] = [];
     const palette = this.biomeMap.createPalette(roomId);
-    const isOcean = palette.biomeId === "sunken-ocean";
-    const isDenseForest = palette.biomeId === "elderwood-maze";
+    const isOcean = palette.biomeId === 'sunken-ocean';
+    const isDenseForest = palette.biomeId === 'elderwood-maze';
     const spawnGuard = this.safetyOperations.createSpawnGuard(roomId);
 
     return {
@@ -92,7 +92,12 @@ export class RoomGenerator {
     if (context.isOcean) {
       this.oceanOperations.fillRoom(context.layout, context.grid, context.roomId);
     } else if (context.isDenseForest) {
-      this.forestOperations.fillDenseForestRoom(context.layout, context.grid, context.roomId, context.spawnGuard?.protected);
+      this.forestOperations.fillDenseForestRoom(
+        context.layout,
+        context.grid,
+        context.roomId,
+        context.spawnGuard?.protected,
+      );
     }
   }
 
@@ -107,7 +112,12 @@ export class RoomGenerator {
   placeCrossRoomFeatures(context: RoomGenerationContext): void {
     this.crossRoomFeatureOperations.place(context);
     if (!context.isOcean && !context.isDenseForest) {
-      this.forestOperations.placeDenseForestThresholds(context.layout, context.grid, context.roomId, context.spawnGuard?.protected);
+      this.forestOperations.placeDenseForestThresholds(
+        context.layout,
+        context.grid,
+        context.roomId,
+        context.spawnGuard?.protected,
+      );
     }
   }
 
@@ -122,5 +132,4 @@ export class RoomGenerator {
   validateRoomSafety(context: RoomGenerationContext): void {
     this.safetyOperations.validate(context);
   }
-
 }

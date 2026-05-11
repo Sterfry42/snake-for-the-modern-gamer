@@ -1,6 +1,6 @@
-import { createHouseRoom } from "../houseRoom.js";
-import type { RoomSnapshot } from "../types.js";
-import type { GridConfig } from "../../config/gameConfig.js";
+import { createHouseRoom } from '../houseRoom.js';
+import type { RoomSnapshot } from '../types.js';
+import type { GridConfig } from '../../config/gameConfig.js';
 import {
   BaseTerrainStage,
   BiomeMapStage,
@@ -10,8 +10,8 @@ import {
   RoomArchetypeStage,
   SafetyValidationStage,
   StructureStage,
-} from "./stages/currentRoomStages.js";
-import type { RoomGenerationOperations, RoomGenerationStage } from "./types.js";
+} from './stages/currentRoomStages.js';
+import type { RoomGenerationOperations, RoomGenerationStage } from './types.js';
 
 export class RoomGenerationPipeline {
   private readonly stages: RoomGenerationStage[];
@@ -31,7 +31,7 @@ export class RoomGenerationPipeline {
 
   generate(roomId: string, grid: GridConfig): RoomSnapshot {
     // Keep the home interior as a special room while the rest of generation moves into stages.
-    if (roomId === "0,-1,0") {
+    if (roomId === '0,-1,0') {
       return createHouseRoom(roomId, grid);
     }
 

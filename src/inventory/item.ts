@@ -1,4 +1,12 @@
-export type EquipmentSlot = "weapon" | "boots" | "helm" | "ring" | "gloves" | "cloak" | "belt" | "amulet";
+export type EquipmentSlot =
+  | 'weapon'
+  | 'boots'
+  | 'helm'
+  | 'ring'
+  | 'gloves'
+  | 'cloak'
+  | 'belt'
+  | 'amulet';
 
 export interface BaseItem {
   id: string;
@@ -7,7 +15,7 @@ export interface BaseItem {
 }
 
 export interface EquipableItem extends BaseItem {
-  kind: "equipment";
+  kind: 'equipment';
   slot: EquipmentSlot;
   modifiers?: {
     // Multiplies the game tick delay. < 1 speeds up, > 1 slows down.
@@ -39,7 +47,7 @@ export interface EquipableItem extends BaseItem {
 }
 
 export interface SimpleItem extends BaseItem {
-  kind?: undefined | "consumable";
+  kind?: undefined | 'consumable';
 }
 
 export type Item = EquipableItem | SimpleItem;

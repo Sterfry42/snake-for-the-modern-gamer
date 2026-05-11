@@ -1,36 +1,46 @@
-import type { GridConfig, WorldConfig } from "../../../config/gameConfig.js";
-import { vectorKey } from "../../../core/math.js";
-import type { RandomGenerator } from "../../../core/rng.js";
-import { tryPlaceQuestHouse } from "../../questHouse.js";
-import type { RoomSnapshot } from "../../types.js";
-import { tryPlaceVillage } from "../../village.js";
-import type { RoomGenerationContext } from "../types.js";
+import type { GridConfig, WorldConfig } from '../../../config/gameConfig.js';
+import { vectorKey } from '../../../core/math.js';
+import type { RandomGenerator } from '../../../core/rng.js';
+import { tryPlaceQuestHouse } from '../../questHouse.js';
+import type { RoomSnapshot } from '../../types.js';
+import { tryPlaceVillage } from '../../village.js';
+import type { RoomGenerationContext } from '../types.js';
 
 export class StructureOperations {
   constructor(
     private readonly config: WorldConfig,
-    private readonly rng: RandomGenerator
+    private readonly rng: RandomGenerator,
   ) {}
 
   place(context: RoomGenerationContext): void {
-    const canPlaceOptionalStructures = !context.isOcean
-      && !context.isDenseForest
-      && !this.isStartingArea(context.roomId);
+    const canPlaceOptionalStructures =
+      !context.isOcean && !context.isDenseForest && !this.isStartingArea(context.roomId);
     const entranceRunups = this.createEntranceRunupCells(context.grid, 5);
-    const shouldGuaranteeStructure = canPlaceOptionalStructures && context.archetype?.id === "open-clearing";
+    const shouldGuaranteeStructure =
+      canPlaceOptionalStructures && context.archetype?.id === 'open-clearing';
 
     if (canPlaceOptionalStructures && (shouldGuaranteeStructure || this.rng() < 0.07)) {
-      const villagePlacement = tryPlaceVillage(context.layout, context.grid, this.rng, context.palette.biomeId, {
-        forbiddenCells: entranceRunups,
-        margin: 5,
-      });
+      const villagePlacement = tryPlaceVillage(
+        context.layout,
+        context.grid,
+        this.rng,
+        context.palette.biomeId,
+        {
+          forbiddenCells: entranceRunups,
+          margin: 5,
+        },
+      );
       if (villagePlacement) {
         context.questGiver = villagePlacement.questGiver;
         context.village = villagePlacement.village;
       }
     }
 
-    if (canPlaceOptionalStructures && !context.village && (shouldGuaranteeStructure || this.rng() < 0.12)) {
+    if (
+      canPlaceOptionalStructures &&
+      !context.village &&
+      (shouldGuaranteeStructure || this.rng() < 0.12)
+    ) {
       const questHouse = tryPlaceQuestHouse(context.layout, context.grid, this.rng, {
         forbiddenCells: entranceRunups,
         margin: 5,
@@ -40,25 +50,44 @@ export class StructureOperations {
       }
     }
 
-    if (canPlaceOptionalStructures && !context.village && !context.questGiver && (shouldGuaranteeStructure || this.rng() < 0.1)) {
+    if (
+      canPlaceOptionalStructures &&
+      !context.village &&
+      !context.questGiver &&
+      (shouldGuaranteeStructure || this.rng() < 0.1)
+    ) {
       this.placeLake(context.layout, context.grid, entranceRunups);
     }
 
     if (!context.village && !context.questGiver) {
-      context.temperatureReliefs = this.placeTemperatureReliefs(context.layout, context.grid, context.palette.biomeId);
+      context.temperatureReliefs = this.placeTemperatureReliefs(
+        context.layout,
+        context.grid,
+        context.palette.biomeId,
+      );
     }
   }
 
-  private placeLake(layout: string[][], grid: GridConfig, forbiddenCells: ReadonlySet<string>): void {
+  private placeLake(
+    layout: string[][],
+    grid: GridConfig,
+    forbiddenCells: ReadonlySet<string>,
+  ): void {
     const radiusX = this.randomIntInRange(3, 7);
     const radiusY = this.randomIntInRange(2, 5);
     const runupMargin = 5;
-    const centerX = this.randomIntInRange(radiusX + runupMargin, Math.max(radiusX + runupMargin + 1, grid.cols - radiusX - runupMargin));
-    const centerY = this.randomIntInRange(radiusY + runupMargin, Math.max(radiusY + runupMargin + 1, grid.rows - radiusY - runupMargin));
+    const centerX = this.randomIntInRange(
+      radiusX + runupMargin,
+      Math.max(radiusX + runupMargin + 1, grid.cols - radiusX - runupMargin),
+    );
+    const centerY = this.randomIntInRange(
+      radiusY + runupMargin,
+      Math.max(radiusY + runupMargin + 1, grid.rows - radiusY - runupMargin),
+    );
 
     for (let y = centerY - radiusY; y <= centerY + radiusY; y += 1) {
       for (let x = centerX - radiusX; x <= centerX + radiusX; x += 1) {
-        if (layout[y]?.[x] !== ".") {
+        if (layout[y]?.[x] !== '.') {
           continue;
         }
         if (forbiddenCells.has(vectorKey({ x, y }))) {
@@ -68,7 +97,7 @@ export class StructureOperations {
         const ny = (y - centerY) / Math.max(1, radiusY);
         const edgeNoise = this.rng() * 0.22;
         if (nx * nx + ny * ny <= 1 + edgeNoise) {
-          layout[y][x] = "~";
+          layout[y][x] = '~';
         }
       }
     }
@@ -77,22 +106,19 @@ export class StructureOperations {
   private placeTemperatureReliefs(
     layout: string[][],
     grid: GridConfig,
-    biomeId: RoomSnapshot["biomeId"]
-  ): RoomSnapshot["temperatureReliefs"] | undefined {
-    const kind =
-      biomeId === "sable-depths" ? "warm" :
-      biomeId === "ember-waste" ? "cool" :
-      null;
+    biomeId: RoomSnapshot['biomeId'],
+  ): RoomSnapshot['temperatureReliefs'] | undefined {
+    const kind = biomeId === 'sable-depths' ? 'warm' : biomeId === 'ember-waste' ? 'cool' : null;
     if (!kind) {
       return undefined;
     }
 
     const count = 2;
-    const reliefs: NonNullable<RoomSnapshot["temperatureReliefs"]> = [];
+    const reliefs: NonNullable<RoomSnapshot['temperatureReliefs']> = [];
     for (let attempt = 0; attempt < 60 && reliefs.length < count; attempt++) {
       const x = this.randomInt(grid.cols);
       const y = this.randomInt(grid.rows);
-      if (layout[y]?.[x] !== ".") {
+      if (layout[y]?.[x] !== '.') {
         continue;
       }
       if (reliefs.some((relief) => Math.abs(relief.x - x) + Math.abs(relief.y - y) < 5)) {
@@ -129,8 +155,8 @@ export class StructureOperations {
   }
 
   private isStartingArea(roomId: string): boolean {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(",").map(Number);
-    const [originX = 0, originY = 0, originZ = 0] = this.config.originRoomId.split(",").map(Number);
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
+    const [originX = 0, originY = 0, originZ = 0] = this.config.originRoomId.split(',').map(Number);
     return roomZ === originZ && Math.abs(roomX - originX) <= 1 && Math.abs(roomY - originY) <= 1;
   }
 }

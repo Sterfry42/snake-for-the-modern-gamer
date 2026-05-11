@@ -1,9 +1,5 @@
-import {
-  createBiomePalette,
-  getBiomeForRoom,
-  type BiomeDefinition,
-} from "../biomes.js";
-import type { RoomGenerationPalette } from "./types.js";
+import { createBiomePalette, getBiomeForRoom, type BiomeDefinition } from '../biomes.js';
+import type { RoomGenerationPalette } from './types.js';
 
 export interface BiomeMap {
   getBiomeForRoomId(roomId: string): BiomeDefinition;

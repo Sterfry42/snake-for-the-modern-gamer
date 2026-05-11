@@ -1,8 +1,8 @@
-import type { GridConfig, WorldConfig } from "../config/gameConfig.js";
-import type { Vector2Like } from "../core/math.js";
-import type { RandomGenerator } from "../core/rng.js";
-import { RoomGenerator } from "./roomGenerator.js";
-import type { RoomSnapshot } from "./types.js";
+import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import { RoomGenerator } from './roomGenerator.js';
+import type { RoomSnapshot } from './types.js';
 
 export class WorldService {
   private readonly rooms = new Map<string, RoomSnapshot>();
@@ -12,7 +12,7 @@ export class WorldService {
   constructor(
     private readonly grid: GridConfig,
     worldConfig: WorldConfig,
-    rng: RandomGenerator
+    rng: RandomGenerator,
   ) {
     this.generator = new RoomGenerator(worldConfig, rng);
     this.rng = rng;
@@ -23,20 +23,18 @@ export class WorldService {
       const room = this.generator.generate(roomId, this.grid);
       this.addReciprocalPortalsFromExistingRooms(room);
       // Small chance to spawn a treasure chest in new rooms
-      if (this.rng() < 0.10) {
+      if (this.rng() < 0.1) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           room.treasure = spot;
         }
       }
       // Powerups: 10% chance to spawn in new rooms
-      if (this.rng() < 0.10) {
+      if (this.rng() < 0.1) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           const roll = this.rng();
-          const kind: "phase" | "smite" =
-            roll < 0.4 ? "phase" :
-            "smite";
+          const kind: 'phase' | 'smite' = roll < 0.4 ? 'phase' : 'smite';
           room.powerup = { x: spot.x, y: spot.y, kind };
         }
       }
@@ -66,7 +64,7 @@ export class WorldService {
 
   setPowerup(
     roomId: string,
-    powerup: { x: number; y: number; kind: "phase" | "smite" | "gun" } | undefined
+    powerup: { x: number; y: number; kind: 'phase' | 'smite' | 'gun' } | undefined,
   ): void {
     const room = this.getRoom(roomId);
     if (powerup) {
@@ -79,8 +77,8 @@ export class WorldService {
   hasPowerupAt(
     roomId: string,
     x: number,
-    y: number
-  ): { present: boolean; kind?: "phase" | "smite" | "gun" } {
+    y: number,
+  ): { present: boolean; kind?: 'phase' | 'smite' | 'gun' } {
     const room = this.getRoom(roomId);
     if (room.powerup && room.powerup.x === x && room.powerup.y === y) {
       return { present: true, kind: room.powerup.kind };
@@ -121,7 +119,12 @@ export class WorldService {
     }
   }
 
-  private ensureReciprocalPortal(room: RoomSnapshot, destinationRoomId: string, x: number, y: number): void {
+  private ensureReciprocalPortal(
+    room: RoomSnapshot,
+    destinationRoomId: string,
+    x: number,
+    y: number,
+  ): void {
     if (x < 0 || y < 0 || x >= this.grid.cols || y >= this.grid.rows) {
       return;
     }
@@ -131,9 +134,9 @@ export class WorldService {
       return;
     }
 
-    const chars = row.split("");
-    chars[x] = "H";
-    room.layout[y] = chars.join("");
+    const chars = row.split('');
+    chars[x] = 'H';
+    room.layout[y] = chars.join('');
     room.portals = room.portals.filter((portal) => portal.x !== x || portal.y !== y);
     room.portals.push({
       x,
@@ -160,14 +163,14 @@ export class WorldService {
       const x = Math.floor(this.rng() * this.grid.cols);
       const y = Math.floor(this.rng() * this.grid.rows);
       const tile = room.layout[y]?.[x];
-      if (tile === ".") {
+      if (tile === '.') {
         return { x, y };
       }
     }
     // fallback search
     for (let y = 0; y < room.layout.length; y++) {
       for (let x = 0; x < room.layout[y].length; x++) {
-        if (room.layout[y][x] === ".") return { x, y };
+        if (room.layout[y][x] === '.') return { x, y };
       }
     }
     return null;

@@ -1,12 +1,12 @@
-import { vectorKey } from "../../../core/math.js";
-import type { WorldConfig } from "../../../config/gameConfig.js";
-import type { RandomGenerator } from "../../../core/rng.js";
-import type { RoomGenerationContext } from "../types.js";
+import { vectorKey } from '../../../core/math.js';
+import type { WorldConfig } from '../../../config/gameConfig.js';
+import type { RandomGenerator } from '../../../core/rng.js';
+import type { RoomGenerationContext } from '../types.js';
 
 export class RandomObstacleOperations {
   constructor(
     private readonly config: WorldConfig,
-    private readonly rng: RandomGenerator
+    private readonly rng: RandomGenerator,
   ) {}
 
   place(context: RoomGenerationContext): void {
@@ -14,21 +14,22 @@ export class RandomObstacleOperations {
       return;
     }
 
-    const numObstacles = context.isOcean || context.isDenseForest
-      ? 0
-      : this.randomIntInRange(
-          this.config.obstacles.count.min,
-          this.config.obstacles.count.max + 1
-        );
+    const numObstacles =
+      context.isOcean || context.isDenseForest
+        ? 0
+        : this.randomIntInRange(
+            this.config.obstacles.count.min,
+            this.config.obstacles.count.max + 1,
+          );
 
     for (let i = 0; i < numObstacles; i++) {
       const obstacleWidth = this.randomIntInRange(
         this.config.obstacles.width.min,
-        this.config.obstacles.width.max + 1
+        this.config.obstacles.width.max + 1,
       );
       const obstacleHeight = this.randomIntInRange(
         this.config.obstacles.height.min,
-        this.config.obstacles.height.max + 1
+        this.config.obstacles.height.max + 1,
       );
 
       const maxX = context.grid.cols - obstacleWidth - this.config.obstacles.margin * 2;
@@ -42,13 +43,13 @@ export class RandomObstacleOperations {
 
       for (let row = y; row < y + obstacleHeight; row++) {
         for (let col = x; col < x + obstacleWidth; col++) {
-          if (context.layout[row]?.[col] !== ".") {
+          if (context.layout[row]?.[col] !== '.') {
             continue;
           }
           if (context.spawnGuard?.protected.has(vectorKey({ x: col, y: row }))) {
             continue;
           }
-          context.canvas.set(col, row, "#");
+          context.canvas.set(col, row, '#');
         }
       }
     }

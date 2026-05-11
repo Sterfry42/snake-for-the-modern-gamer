@@ -1,11 +1,11 @@
-import type SnakeScene from "../scenes/snakeScene.js";
+import type SnakeScene from '../scenes/snakeScene.js';
 
 export type FeatureContext = SnakeScene;
 
 export abstract class Feature {
   protected constructor(
     public readonly id: string,
-    public readonly label: string
+    public readonly label: string,
   ) {}
 
   onRegister(_context: FeatureContext): void {}

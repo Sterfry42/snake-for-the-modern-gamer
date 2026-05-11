@@ -1,21 +1,21 @@
-import { darkenColor, hslToHex, paletteConfig } from "../config/palette.js";
+import { darkenColor, hslToHex, paletteConfig } from '../config/palette.js';
 
 export type BiomeId =
-  | "verdigris-basin"
-  | "ember-waste"
-  | "moonlit-parish"
-  | "sable-depths"
-  | "gloam-garden"
-  | "elderwood-maze"
-  | "sunken-ocean"
-  | "home-hearth";
+  | 'verdigris-basin'
+  | 'ember-waste'
+  | 'moonlit-parish'
+  | 'sable-depths'
+  | 'gloam-garden'
+  | 'elderwood-maze'
+  | 'sunken-ocean'
+  | 'home-hearth';
 
 export interface BiomeDefinition {
   id: BiomeId;
   title: string;
   temperature: string;
   dangerLevel: number;
-  temperatureHazard: "hot" | "cold" | null;
+  temperatureHazard: 'hot' | 'cold' | null;
   temperatureRate: number;
   hue: number;
   saturation: number;
@@ -27,10 +27,10 @@ export interface BiomeDefinition {
 }
 
 const BIOMES: Record<BiomeId, BiomeDefinition> = {
-  "verdigris-basin": {
-    id: "verdigris-basin",
-    title: "Verdigris Basin",
-    temperature: "Mild",
+  'verdigris-basin': {
+    id: 'verdigris-basin',
+    title: 'Verdigris Basin',
+    temperature: 'Mild',
     dangerLevel: 3,
     temperatureHazard: null,
     temperatureRate: 0,
@@ -42,12 +42,12 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 1,
     enemyMoveBias: 0,
   },
-  "ember-waste": {
-    id: "ember-waste",
-    title: "Ember Waste",
-    temperature: "Scorching",
+  'ember-waste': {
+    id: 'ember-waste',
+    title: 'Ember Waste',
+    temperature: 'Scorching',
     dangerLevel: 6,
-    temperatureHazard: "hot",
+    temperatureHazard: 'hot',
     temperatureRate: 1,
     hue: 18,
     saturation: 0.34,
@@ -57,10 +57,10 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: -1,
     enemyMoveBias: 1,
   },
-  "moonlit-parish": {
-    id: "moonlit-parish",
-    title: "Moonlit Parish",
-    temperature: "Cold",
+  'moonlit-parish': {
+    id: 'moonlit-parish',
+    title: 'Moonlit Parish',
+    temperature: 'Cold',
     dangerLevel: 4,
     temperatureHazard: null,
     temperatureRate: 0,
@@ -72,12 +72,12 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 1,
     enemyMoveBias: -1,
   },
-  "sable-depths": {
-    id: "sable-depths",
-    title: "Sable Depths",
-    temperature: "Frigid",
+  'sable-depths': {
+    id: 'sable-depths',
+    title: 'Sable Depths',
+    temperature: 'Frigid',
     dangerLevel: 8,
-    temperatureHazard: "cold",
+    temperatureHazard: 'cold',
     temperatureRate: 1,
     hue: 272,
     saturation: 0.22,
@@ -87,10 +87,10 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 2,
     enemyMoveBias: 1,
   },
-  "gloam-garden": {
-    id: "gloam-garden",
-    title: "Gloam Garden",
-    temperature: "Humid",
+  'gloam-garden': {
+    id: 'gloam-garden',
+    title: 'Gloam Garden',
+    temperature: 'Humid',
     dangerLevel: 2,
     temperatureHazard: null,
     temperatureRate: 0,
@@ -102,10 +102,10 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 0,
     enemyMoveBias: -1,
   },
-  "elderwood-maze": {
-    id: "elderwood-maze",
-    title: "Elderwood Maze",
-    temperature: "Canopied",
+  'elderwood-maze': {
+    id: 'elderwood-maze',
+    title: 'Elderwood Maze',
+    temperature: 'Canopied',
     dangerLevel: 5,
     temperatureHazard: null,
     temperatureRate: 0,
@@ -117,10 +117,10 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 1,
     enemyMoveBias: -1,
   },
-  "sunken-ocean": {
-    id: "sunken-ocean",
-    title: "Sunken Ocean",
-    temperature: "Briny",
+  'sunken-ocean': {
+    id: 'sunken-ocean',
+    title: 'Sunken Ocean',
+    temperature: 'Briny',
     dangerLevel: 5,
     temperatureHazard: null,
     temperatureRate: 0,
@@ -132,10 +132,10 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 0,
     enemyMoveBias: 1,
   },
-  "home-hearth": {
-    id: "home-hearth",
-    title: "Home Hearth",
-    temperature: "Warm",
+  'home-hearth': {
+    id: 'home-hearth',
+    title: 'Home Hearth',
+    temperature: 'Warm',
     dangerLevel: 0,
     temperatureHazard: null,
     temperatureRate: 0,
@@ -166,29 +166,29 @@ export function formatBiomeDanger(biome: BiomeDefinition): string {
 }
 
 export function getBiomeForRoom(roomId: string): BiomeDefinition {
-  if (roomId === "0,-1,0") {
-    return BIOMES["home-hearth"];
+  if (roomId === '0,-1,0') {
+    return BIOMES['home-hearth'];
   }
-  const [x = 0, y = 0, z = 0] = roomId.split(",").map(Number);
+  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
   if (z <= -1 || y >= 2) {
-    return BIOMES["sable-depths"];
+    return BIOMES['sable-depths'];
   }
   if (y <= -9) {
-    return BIOMES["sunken-ocean"];
+    return BIOMES['sunken-ocean'];
   }
   if (x >= 3 && y <= -1 && y >= -6) {
-    return BIOMES["elderwood-maze"];
+    return BIOMES['elderwood-maze'];
   }
   if (x >= 6) {
-    return BIOMES["moonlit-parish"];
+    return BIOMES['moonlit-parish'];
   }
   if (x <= -3) {
-    return BIOMES["ember-waste"];
+    return BIOMES['ember-waste'];
   }
   if (y <= -3) {
-    return BIOMES["gloam-garden"];
+    return BIOMES['gloam-garden'];
   }
-  return BIOMES["verdigris-basin"];
+  return BIOMES['verdigris-basin'];
 }
 
 export function createBiomePalette(roomId: string): {
@@ -199,7 +199,7 @@ export function createBiomePalette(roomId: string): {
   wallOutlineColor: number;
 } {
   const biome = getBiomeForRoom(roomId);
-  const [x = 0, y = 0, z = 0] = roomId.split(",").map(Number);
+  const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
   const seed = x * 73 + y * 37 + z * 53;
   const tint = (((seed % 11) + 11) % 11) - 5;
   const tintScalar = tint / 5;

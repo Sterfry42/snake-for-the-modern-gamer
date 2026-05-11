@@ -1,8 +1,8 @@
-import type { GridConfig } from "../config/gameConfig.js";
-import type { Vector2Like } from "../core/math.js";
-import type { RandomGenerator } from "../core/rng.js";
-import type { RoomSnapshot } from "../world/types.js";
-import { getBiomeDefinition, getBiomeEnemySpawnChance } from "../world/biomes.js";
+import type { GridConfig } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import type { RoomSnapshot } from '../world/types.js';
+import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js';
 
 export interface EnemyInstance {
   id: string;
@@ -15,7 +15,7 @@ export interface EnemyInstance {
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
-  encounterKind?: "enemy" | "duelist" | "npc-hostile" | "shark";
+  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark';
 }
 
 export interface BulletInstance {
@@ -23,8 +23,8 @@ export interface BulletInstance {
   roomId: string;
   position: Vector2Like;
   direction: Vector2Like;
-  owner: "enemy" | "player";
-  style?: "enemy" | "npc-hostile" | "duelist" | "freak-joey" | "player";
+  owner: 'enemy' | 'player';
+  style?: 'enemy' | 'npc-hostile' | 'duelist' | 'freak-joey' | 'player';
 }
 
 export interface DuelBossDisplay {
@@ -34,7 +34,7 @@ export interface DuelBossDisplay {
   maxHealth: number;
   roomId: string;
   body: Vector2Like[];
-  kind?: "freak-dennis" | "freaker-dennis" | "freak-you" | "revenant" | "angel";
+  kind?: 'freak-dennis' | 'freaker-dennis' | 'freak-you' | 'revenant' | 'angel';
   rainbowPalette?: boolean;
   headCenter?: Vector2Like;
   direction?: Vector2Like;
@@ -49,11 +49,11 @@ interface EnemyStepParams {
 
 interface EnemyStepResult {
   bulletHits: number;
-  hitStyle?: BulletInstance["style"];
+  hitStyle?: BulletInstance['style'];
 }
 
 function localToGlobal(roomId: string, position: Vector2Like, grid: GridConfig): Vector2Like {
-  const [roomX, roomY] = roomId.split(",").map(Number);
+  const [roomX, roomY] = roomId.split(',').map(Number);
   return {
     x: roomX * grid.cols + position.x,
     y: roomY * grid.rows + position.y,
@@ -61,7 +61,7 @@ function localToGlobal(roomId: string, position: Vector2Like, grid: GridConfig):
 }
 
 function globalToLocal(roomId: string, position: Vector2Like, grid: GridConfig): Vector2Like {
-  const [roomX, roomY] = roomId.split(",").map(Number);
+  const [roomX, roomY] = roomId.split(',').map(Number);
   return {
     x: position.x - roomX * grid.cols,
     y: position.y - roomY * grid.rows,
@@ -75,7 +75,7 @@ export class EnemyManager {
 
   constructor(
     private readonly grid: GridConfig,
-    private readonly rng: RandomGenerator
+    private readonly rng: RandomGenerator,
   ) {}
 
   clearAll(): void {
@@ -85,7 +85,7 @@ export class EnemyManager {
   }
 
   ensureEnemy(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
-    if (roomId === "0,-1,0") {
+    if (roomId === '0,-1,0') {
       return;
     }
     if (room.village) {
@@ -94,7 +94,7 @@ export class EnemyManager {
     if ((this.enemies.get(roomId)?.length ?? 0) > 0) {
       return;
     }
-    if (room.biomeId === "sunken-ocean") {
+    if (room.biomeId === 'sunken-ocean') {
       this.ensureShark(roomId, room, occupied);
       return;
     }
@@ -131,7 +131,7 @@ export class EnemyManager {
       flashTicks: 0,
       currentHearts: 1,
       maxHearts: 1,
-      encounterKind: "enemy",
+      encounterKind: 'enemy',
     };
     this.enemies.set(roomId, [enemy]);
   }
@@ -144,7 +144,7 @@ export class EnemyManager {
     const candidates: Vector2Like[] = [];
     for (let y = 0; y < this.grid.rows; y++) {
       for (let x = 0; x < this.grid.cols; x++) {
-        if (room.layout[y]?.[x] !== "~") continue;
+        if (room.layout[y]?.[x] !== '~') continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
         if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
@@ -167,15 +167,20 @@ export class EnemyManager {
       moveCooldown: 2 + Math.floor(this.rng() * 2),
       aimDirection: { x: 0, y: 1 },
       flashTicks: 0,
-      name: "Shark",
+      name: 'Shark',
       currentHearts: 2,
       maxHearts: 2,
-      encounterKind: "shark",
+      encounterKind: 'shark',
     };
     this.enemies.set(roomId, [shark]);
   }
 
-  spawnHostileNpc(roomId: string, position: Vector2Like, name: string, hearts: number): EnemyInstance {
+  spawnHostileNpc(
+    roomId: string,
+    position: Vector2Like,
+    name: string,
+    hearts: number,
+  ): EnemyInstance {
     const id = `npc-hostile:${roomId}`;
     const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === id);
     if (existing) {
@@ -192,7 +197,7 @@ export class EnemyManager {
       name,
       currentHearts: hearts,
       maxHearts: hearts,
-      encounterKind: "npc-hostile",
+      encounterKind: 'npc-hostile',
     };
     const current = this.enemies.get(roomId) ?? [];
     current.push(hostileNpc);
@@ -204,7 +209,7 @@ export class EnemyManager {
     roomId: string,
     room: RoomSnapshot,
     occupied: readonly Vector2Like[],
-    options: { id: string; name: string; hearts: number }
+    options: { id: string; name: string; hearts: number },
   ): EnemyInstance | null {
     const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === options.id);
     if (existing) {
@@ -239,7 +244,7 @@ export class EnemyManager {
       name: options.name,
       currentHearts: options.hearts,
       maxHearts: options.hearts,
-      encounterKind: "duelist",
+      encounterKind: 'duelist',
     };
     const current = this.enemies.get(roomId) ?? [];
     current.push(duelist);
@@ -247,10 +252,14 @@ export class EnemyManager {
     return duelist;
   }
 
-  spawnFreakJoey(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): EnemyInstance | null {
+  spawnFreakJoey(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+  ): EnemyInstance | null {
     return this.spawnDuelist(roomId, room, occupied, {
-      id: "freak-joey",
-      name: "Freak Joey",
+      id: 'freak-joey',
+      name: 'Freak Joey',
       hearts: 15,
     });
   }
@@ -258,7 +267,7 @@ export class EnemyManager {
   step(params: EnemyStepParams): EnemyStepResult {
     const { getRoom, snake, currentRoomId, snakeDirection } = params;
     let bulletHits = 0;
-    let hitStyle: BulletInstance["style"] | undefined;
+    let hitStyle: BulletInstance['style'] | undefined;
 
     for (const [roomId, bullets] of this.bullets) {
       const room = getRoom(roomId);
@@ -279,12 +288,12 @@ export class EnemyManager {
           continue;
         }
 
-        if (room.layout[nextPosition.y]?.[nextPosition.x] === "#") {
+        if (room.layout[nextPosition.y]?.[nextPosition.x] === '#') {
           continue;
         }
 
         const bulletGlobal = localToGlobal(roomId, nextPosition, this.grid);
-        if (bullet.owner === "enemy") {
+        if (bullet.owner === 'enemy') {
           if (
             roomId === currentRoomId &&
             snake.some((segment) => segment.x === bulletGlobal.x && segment.y === bulletGlobal.y)
@@ -296,7 +305,7 @@ export class EnemyManager {
         } else {
           const enemies = this.enemies.get(roomId) ?? [];
           const hitEnemy = enemies.find(
-            (enemy) => enemy.position.x === nextPosition.x && enemy.position.y === nextPosition.y
+            (enemy) => enemy.position.x === nextPosition.x && enemy.position.y === nextPosition.y,
           );
           if (hitEnemy) {
             this.damageEnemyById(roomId, hitEnemy.id, 1);
@@ -347,21 +356,22 @@ export class EnemyManager {
       const snakeCharging = this.isSnakeChargingEnemy(enemy.position, headLocal, snakeDirection);
 
       if (moveCooldown <= 0) {
-        if (enemy.encounterKind === "shark") {
+        if (enemy.encounterKind === 'shark') {
           position = this.tryMoveShark(enemy, room, headLocal);
         } else {
           position = snakeCharging
             ? this.tryMoveEnemyAway(enemy, room, headLocal)
             : this.tryMoveEnemy(enemy, room, headLocal);
         }
-        moveCooldown = enemy.encounterKind === "shark"
-          ? 2 + Math.floor(this.rng() * 2)
-          : enemy.encounterKind === "duelist"
-          ? (snakeCharging ? 4 : 2) + Math.floor(this.rng() * 2)
-          : (snakeCharging ? 7 : 5) + Math.floor(this.rng() * 5);
+        moveCooldown =
+          enemy.encounterKind === 'shark'
+            ? 2 + Math.floor(this.rng() * 2)
+            : enemy.encounterKind === 'duelist'
+              ? (snakeCharging ? 4 : 2) + Math.floor(this.rng() * 2)
+              : (snakeCharging ? 7 : 5) + Math.floor(this.rng() * 5);
       }
 
-      if (nextCooldown <= 0 && !snakeCharging && enemy.encounterKind !== "shark") {
+      if (nextCooldown <= 0 && !snakeCharging && enemy.encounterKind !== 'shark') {
         const shot = this.tryCreateShot({ ...enemy, position }, headLocal, room);
         if (shot) {
           const bullets = this.bullets.get(currentRoomId) ?? [];
@@ -375,9 +385,10 @@ export class EnemyManager {
             moveCooldown,
             aimDirection,
             flashTicks,
-            fireCooldown: enemy.encounterKind === "duelist"
-              ? 4 + Math.floor(this.rng() * 3)
-              : 12 + Math.floor(this.rng() * 6),
+            fireCooldown:
+              enemy.encounterKind === 'duelist'
+                ? 4 + Math.floor(this.rng() * 3)
+                : 12 + Math.floor(this.rng() * 6),
           });
           continue;
         }
@@ -412,9 +423,9 @@ export class EnemyManager {
 
     const headLocal = globalToLocal(roomId, head, this.grid);
     const target = enemies.find(
-      (enemy) => enemy.position.x === headLocal.x && enemy.position.y === headLocal.y
+      (enemy) => enemy.position.x === headLocal.x && enemy.position.y === headLocal.y,
     );
-    if (!target || target.encounterKind !== "enemy") {
+    if (!target || target.encounterKind !== 'enemy') {
       return { eaten: false };
     }
     const remaining = enemies.filter((enemy) => enemy.id !== target.id);
@@ -446,28 +457,25 @@ export class EnemyManager {
 
   getHarmfulOccupantAt(roomId: string, worldPosition: Vector2Like): EnemyInstance | null {
     const local = globalToLocal(roomId, worldPosition, this.grid);
-    return (this.enemies.get(roomId) ?? []).find(
-      (enemy) =>
-        enemy.position.x === local.x &&
-        enemy.position.y === local.y &&
-        enemy.encounterKind !== "enemy"
-    ) ?? null;
+    return (
+      (this.enemies.get(roomId) ?? []).find(
+        (enemy) =>
+          enemy.position.x === local.x &&
+          enemy.position.y === local.y &&
+          enemy.encounterKind !== 'enemy',
+      ) ?? null
+    );
   }
 
   firePlayerBullet(roomId: string, origin: Vector2Like, direction: Vector2Like): boolean {
     const spawnX = origin.x + direction.x;
     const spawnY = origin.y + direction.y;
-    if (
-      spawnX < 0 ||
-      spawnX >= this.grid.cols ||
-      spawnY < 0 ||
-      spawnY >= this.grid.rows
-    ) {
+    if (spawnX < 0 || spawnX >= this.grid.cols || spawnY < 0 || spawnY >= this.grid.rows) {
       return false;
     }
 
     const directHit = (this.enemies.get(roomId) ?? []).find(
-      (enemy) => enemy.position.x === spawnX && enemy.position.y === spawnY
+      (enemy) => enemy.position.x === spawnX && enemy.position.y === spawnY,
     );
     if (directHit) {
       this.damageEnemyById(roomId, directHit.id, 1);
@@ -480,17 +488,21 @@ export class EnemyManager {
       roomId,
       position: { x: spawnX, y: spawnY },
       direction,
-      owner: "player",
-      style: "player",
+      owner: 'player',
+      style: 'player',
     });
     this.bullets.set(roomId, bullets);
     return true;
   }
 
-  damageEnemyAt(roomId: string, worldPosition: Vector2Like, damage = 1): { hit: boolean; defeated?: EnemyInstance } {
+  damageEnemyAt(
+    roomId: string,
+    worldPosition: Vector2Like,
+    damage = 1,
+  ): { hit: boolean; defeated?: EnemyInstance } {
     const local = globalToLocal(roomId, worldPosition, this.grid);
     const target = (this.enemies.get(roomId) ?? []).find(
-      (enemy) => enemy.position.x === local.x && enemy.position.y === local.y
+      (enemy) => enemy.position.x === local.x && enemy.position.y === local.y,
     );
     if (!target) {
       return { hit: false };
@@ -500,21 +512,25 @@ export class EnemyManager {
   }
 
   getDuelBossInRoom(roomId: string): DuelBossDisplay | null {
-    const duelist = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.encounterKind === "duelist");
+    const duelist = (this.enemies.get(roomId) ?? []).find(
+      (enemy) => enemy.encounterKind === 'duelist',
+    );
     if (!duelist || duelist.currentHearts === undefined || duelist.maxHearts === undefined) {
       return null;
     }
-    const [roomX, roomY] = roomId.split(",").map(Number);
+    const [roomX, roomY] = roomId.split(',').map(Number);
     return {
       id: duelist.id,
-      name: duelist.name ?? "Nameless Horror",
+      name: duelist.name ?? 'Nameless Horror',
       health: duelist.currentHearts,
       maxHealth: duelist.maxHearts,
       roomId,
-      body: [{
-        x: roomX * this.grid.cols + duelist.position.x,
-        y: roomY * this.grid.rows + duelist.position.y,
-      }],
+      body: [
+        {
+          x: roomX * this.grid.cols + duelist.position.x,
+          y: roomY * this.grid.rows + duelist.position.y,
+        },
+      ],
     };
   }
 
@@ -530,7 +546,7 @@ export class EnemyManager {
   private tryCreateShot(
     enemy: EnemyInstance,
     headLocal: Vector2Like,
-    room: RoomSnapshot
+    room: RoomSnapshot,
   ): BulletInstance | null {
     let direction: Vector2Like | null = null;
 
@@ -548,7 +564,7 @@ export class EnemyManager {
     let cy = enemy.position.y + direction.y;
 
     while (cx >= 0 && cx < this.grid.cols && cy >= 0 && cy < this.grid.rows) {
-      if (room.layout[cy]?.[cx] === "#") {
+      if (room.layout[cy]?.[cx] === '#') {
         return null;
       }
       if (cx === headLocal.x && cy === headLocal.y) {
@@ -569,7 +585,7 @@ export class EnemyManager {
       spawnX >= this.grid.cols ||
       spawnY < 0 ||
       spawnY >= this.grid.rows ||
-      room.layout[spawnY]?.[spawnX] === "#"
+      room.layout[spawnY]?.[spawnX] === '#'
     ) {
       return null;
     }
@@ -579,29 +595,38 @@ export class EnemyManager {
       roomId: enemy.roomId,
       position: { x: spawnX, y: spawnY },
       direction,
-      owner: "enemy",
+      owner: 'enemy',
       style:
-        enemy.encounterKind === "npc-hostile" ? "npc-hostile" :
-        enemy.encounterKind === "duelist" && enemy.id === "freak-joey" ? "freak-joey" :
-        enemy.encounterKind === "duelist" ? "duelist" :
-        "enemy",
+        enemy.encounterKind === 'npc-hostile'
+          ? 'npc-hostile'
+          : enemy.encounterKind === 'duelist' && enemy.id === 'freak-joey'
+            ? 'freak-joey'
+            : enemy.encounterKind === 'duelist'
+              ? 'duelist'
+              : 'enemy',
     };
   }
 
   private createBonusShots(
     enemy: EnemyInstance,
     shot: BulletInstance,
-    room: RoomSnapshot
+    room: RoomSnapshot,
   ): BulletInstance[] {
-    if (enemy.encounterKind !== "duelist") {
+    if (enemy.encounterKind !== 'duelist') {
       return [];
     }
 
     const origin = shot.position;
     const orthogonal =
       shot.direction.x !== 0
-        ? [{ x: 0, y: -1 }, { x: 0, y: 1 }]
-        : [{ x: -1, y: 0 }, { x: 1, y: 0 }];
+        ? [
+            { x: 0, y: -1 },
+            { x: 0, y: 1 },
+          ]
+        : [
+            { x: -1, y: 0 },
+            { x: 1, y: 0 },
+          ];
 
     const candidates = orthogonal.filter((direction) => {
       const nx = origin.x + direction.x;
@@ -611,12 +636,12 @@ export class EnemyManager {
         nx < this.grid.cols &&
         ny >= 0 &&
         ny < this.grid.rows &&
-        room.layout[ny]?.[nx] !== "#"
+        room.layout[ny]?.[nx] !== '#'
       );
     });
 
     const selected =
-      enemy.id === "freak-joey"
+      enemy.id === 'freak-joey'
         ? candidates
         : candidates.length > 0
           ? [candidates[Math.floor(this.rng() * candidates.length)]]
@@ -627,15 +652,15 @@ export class EnemyManager {
       roomId: enemy.roomId,
       position: origin,
       direction,
-      owner: "enemy" as const,
-      style: enemy.id === "freak-joey" ? "freak-joey" : "duelist",
+      owner: 'enemy' as const,
+      style: enemy.id === 'freak-joey' ? 'freak-joey' : 'duelist',
     }));
   }
 
   private tryMoveEnemy(
     enemy: EnemyInstance,
     room: RoomSnapshot,
-    headLocal: Vector2Like
+    headLocal: Vector2Like,
   ): Vector2Like {
     const directions: Vector2Like[] = [
       { x: 1, y: 0 },
@@ -654,12 +679,7 @@ export class EnemyManager {
         x: enemy.position.x + direction.x,
         y: enemy.position.y + direction.y,
       };
-      if (
-        next.x < 0 ||
-        next.x >= this.grid.cols ||
-        next.y < 0 ||
-        next.y >= this.grid.rows
-      ) {
+      if (next.x < 0 || next.x >= this.grid.cols || next.y < 0 || next.y >= this.grid.rows) {
         continue;
       }
       if (!this.isDryEnemyTile(room.layout[next.y]?.[next.x])) {
@@ -677,12 +697,15 @@ export class EnemyManager {
   private tryMoveEnemyAway(
     enemy: EnemyInstance,
     room: RoomSnapshot,
-    headLocal: Vector2Like
+    headLocal: Vector2Like,
   ): Vector2Like {
     const dx = Math.sign(enemy.position.x - headLocal.x);
     const dy = Math.sign(enemy.position.y - headLocal.y);
     const preferred: Vector2Like[] = [];
-    if (Math.abs(enemy.position.x - headLocal.x) >= Math.abs(enemy.position.y - headLocal.y) && dx !== 0) {
+    if (
+      Math.abs(enemy.position.x - headLocal.x) >= Math.abs(enemy.position.y - headLocal.y) &&
+      dx !== 0
+    ) {
       preferred.push({ x: dx, y: 0 });
     }
     if (dy !== 0) {
@@ -691,15 +714,18 @@ export class EnemyManager {
     if (dx !== 0 && !preferred.some((dir) => dir.x === dx && dir.y === 0)) {
       preferred.push({ x: dx, y: 0 });
     }
-    preferred.push(...[
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ].sort(() => this.rng() - 0.5));
+    preferred.push(
+      ...[
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ].sort(() => this.rng() - 0.5),
+    );
 
     let best = enemy.position;
-    let bestDistance = Math.abs(enemy.position.x - headLocal.x) + Math.abs(enemy.position.y - headLocal.y);
+    let bestDistance =
+      Math.abs(enemy.position.x - headLocal.x) + Math.abs(enemy.position.y - headLocal.y);
     for (const direction of preferred) {
       const next = {
         x: enemy.position.x + direction.x,
@@ -726,12 +752,15 @@ export class EnemyManager {
   private tryMoveShark(
     enemy: EnemyInstance,
     room: RoomSnapshot,
-    headLocal: Vector2Like
+    headLocal: Vector2Like,
   ): Vector2Like {
     const dx = Math.sign(headLocal.x - enemy.position.x);
     const dy = Math.sign(headLocal.y - enemy.position.y);
     const preferred: Vector2Like[] = [];
-    if (Math.abs(headLocal.x - enemy.position.x) >= Math.abs(headLocal.y - enemy.position.y) && dx !== 0) {
+    if (
+      Math.abs(headLocal.x - enemy.position.x) >= Math.abs(headLocal.y - enemy.position.y) &&
+      dx !== 0
+    ) {
       preferred.push({ x: dx, y: 0 });
     }
     if (dy !== 0) {
@@ -740,30 +769,27 @@ export class EnemyManager {
     if (dx !== 0 && !preferred.some((dir) => dir.x === dx && dir.y === 0)) {
       preferred.push({ x: dx, y: 0 });
     }
-    preferred.push(...[
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ].sort(() => this.rng() - 0.5));
+    preferred.push(
+      ...[
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ].sort(() => this.rng() - 0.5),
+    );
 
     for (const direction of preferred) {
       const next = {
         x: enemy.position.x + direction.x,
         y: enemy.position.y + direction.y,
       };
-      if (
-        next.x < 0 ||
-        next.x >= this.grid.cols ||
-        next.y < 0 ||
-        next.y >= this.grid.rows
-      ) {
+      if (next.x < 0 || next.x >= this.grid.cols || next.y < 0 || next.y >= this.grid.rows) {
         continue;
       }
       if (next.x === headLocal.x && next.y === headLocal.y) {
         return next;
       }
-      if (room.layout[next.y]?.[next.x] !== "~") {
+      if (room.layout[next.y]?.[next.x] !== '~') {
         continue;
       }
       return next;
@@ -773,11 +799,11 @@ export class EnemyManager {
   }
 
   private isDryEnemyTile(tile: string | undefined): boolean {
-    return tile === "." || tile === "O";
+    return tile === '.' || tile === 'O';
   }
 
   private toLocalOccupied(roomId: string, occupied: readonly Vector2Like[]): Vector2Like[] {
-    const [roomX, roomY] = roomId.split(",").map(Number);
+    const [roomX, roomY] = roomId.split(',').map(Number);
     return occupied.map((segment) => {
       if (
         segment.x >= roomX * this.grid.cols &&
@@ -791,7 +817,11 @@ export class EnemyManager {
     });
   }
 
-  private isSnakeChargingEnemy(enemyPosition: Vector2Like, headLocal: Vector2Like, snakeDirection: Vector2Like): boolean {
+  private isSnakeChargingEnemy(
+    enemyPosition: Vector2Like,
+    headLocal: Vector2Like,
+    snakeDirection: Vector2Like,
+  ): boolean {
     if (snakeDirection.x !== 0 && headLocal.y === enemyPosition.y) {
       return Math.sign(enemyPosition.x - headLocal.x) === snakeDirection.x;
     }
@@ -801,10 +831,7 @@ export class EnemyManager {
     return false;
   }
 
-  private resolveAimDirection(
-    position: Vector2Like,
-    headLocal: Vector2Like
-  ): Vector2Like | null {
+  private resolveAimDirection(position: Vector2Like, headLocal: Vector2Like): Vector2Like | null {
     const dx = headLocal.x - position.x;
     const dy = headLocal.y - position.y;
     if (Math.abs(dx) >= Math.abs(dy) && dx !== 0) {
@@ -816,7 +843,11 @@ export class EnemyManager {
     return null;
   }
 
-  private damageEnemyById(roomId: string, enemyId: string, damage: number): EnemyInstance | undefined {
+  private damageEnemyById(
+    roomId: string,
+    enemyId: string,
+    damage: number,
+  ): EnemyInstance | undefined {
     const enemies = this.enemies.get(roomId) ?? [];
     const target = enemies.find((enemy) => enemy.id === enemyId);
     if (!target) {

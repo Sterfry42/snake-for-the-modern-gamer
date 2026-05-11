@@ -1,6 +1,6 @@
-import type { GridConfig } from "../../config/gameConfig.js";
-import type { RoomSnapshot } from "../types.js";
-import type { TerrainCanvas } from "./terrainCanvas.js";
+import type { GridConfig } from '../../config/gameConfig.js';
+import type { RoomSnapshot } from '../types.js';
+import type { TerrainCanvas } from './terrainCanvas.js';
 
 export type RoomLayout = string[][];
 export type ProtectedCells = ReadonlySet<string> | undefined;
@@ -11,7 +11,7 @@ export interface SpawnGuard {
 }
 
 export interface RoomGenerationPalette {
-  biomeId: RoomSnapshot["biomeId"];
+  biomeId: RoomSnapshot['biomeId'];
   biomeTitle: string;
   backgroundColor: number;
   wallColor: number;
@@ -19,12 +19,12 @@ export interface RoomGenerationPalette {
 }
 
 export type RoomArchetypeId =
-  | "classic"
-  | "open-clearing"
-  | "four-corners"
-  | "choke-point"
-  | "ocean"
-  | "dense-forest";
+  | 'classic'
+  | 'open-clearing'
+  | 'four-corners'
+  | 'choke-point'
+  | 'ocean'
+  | 'dense-forest';
 
 export interface RoomArchetype {
   id: RoomArchetypeId;
@@ -36,10 +36,10 @@ export interface RoomGenerationContext {
   grid: GridConfig;
   canvas: TerrainCanvas;
   layout: RoomLayout;
-  portals: RoomSnapshot["portals"];
-  questGiver?: RoomSnapshot["questGiver"];
-  village?: RoomSnapshot["village"];
-  temperatureReliefs?: RoomSnapshot["temperatureReliefs"];
+  portals: RoomSnapshot['portals'];
+  questGiver?: RoomSnapshot['questGiver'];
+  village?: RoomSnapshot['village'];
+  temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   palette: RoomGenerationPalette;
   archetype?: RoomArchetype;
   isOcean: boolean;

@@ -1,19 +1,15 @@
-import type {
-  AppleSystemConfig,
-  AppleTypeConfig,
-  GridConfig,
-} from "../config/gameConfig.js";
-import type { Vector2Like } from "../core/math.js";
-import type { RandomGenerator } from "../core/rng.js";
-import type { WorldService } from "../world/worldService.js";
+import type { AppleSystemConfig, AppleTypeConfig, GridConfig } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import type { WorldService } from '../world/worldService.js';
 import type {
   AppleInstance,
   AppleSnapshot,
   AppleRewards,
   AppleMoveContext,
   AppleConsumptionContext,
-} from "./types.js";
-import { AppleRegistry } from "./appleRegistry.js";
+} from './types.js';
+import { AppleRegistry } from './appleRegistry.js';
 
 export interface AppleSpawnResult {
   snapshot: AppleSnapshot | null;
@@ -46,7 +42,7 @@ export class AppleService {
   }
 
   private isHouse(roomId: string): boolean {
-    return roomId === "0,-1,0";
+    return roomId === '0,-1,0';
   }
 
   getSnapshot(roomId: string): AppleSnapshot | null {
@@ -54,11 +50,7 @@ export class AppleService {
     return apple ? apple.getSnapshot() : null;
   }
 
-  ensureApple(
-    roomId: string,
-    snake: Vector2Like[],
-    score: number,
-  ): AppleSpawnResult {
+  ensureApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
     if (this.isHouse(roomId)) {
       // Never spawn in the house
       return { snapshot: null, changed: false };
@@ -70,11 +62,7 @@ export class AppleService {
     return this.spawnApple(roomId, snake, score);
   }
 
-  spawnApple(
-    roomId: string,
-    snake: Vector2Like[],
-    score: number,
-  ): AppleSpawnResult {
+  spawnApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
     if (this.isHouse(roomId)) {
       return { snapshot: null, changed: false };
     }
@@ -86,7 +74,7 @@ export class AppleService {
 
     const spawnIndex = Math.floor(this.rng() * spawnOptions.length);
     const position = spawnOptions[spawnIndex];
-    const appleType = this.chooseAppleType(score, position.tile === "~");
+    const appleType = this.chooseAppleType(score, position.tile === '~');
     if (!appleType) {
       return { snapshot: null, changed: false };
     }
@@ -186,11 +174,9 @@ export class AppleService {
   }
 
   private appleWorldPosition(apple: AppleInstance): Vector2Like {
-    const [roomX, roomY] = apple.roomId.split(",").map(Number);
-    const worldX =
-      (roomX * this.grid.cols + apple.position.x + 0.5) * this.grid.cell;
-    const worldY =
-      (roomY * this.grid.rows + apple.position.y + 0.5) * this.grid.cell;
+    const [roomX, roomY] = apple.roomId.split(',').map(Number);
+    const worldX = (roomX * this.grid.cols + apple.position.x + 0.5) * this.grid.cell;
+    const worldY = (roomY * this.grid.rows + apple.position.y + 0.5) * this.grid.cell;
     return { x: worldX, y: worldY };
   }
 
@@ -204,12 +190,7 @@ export class AppleService {
       if (!candidate) {
         continue;
       }
-      const movement = this.applyMovement(
-        apple,
-        candidate.roomId,
-        candidate.position,
-        snake,
-      );
+      const movement = this.applyMovement(apple, candidate.roomId, candidate.position, snake);
       if (movement) {
         return movement;
       }
@@ -264,7 +245,7 @@ export class AppleService {
   ): { roomId: string; position: Vector2Like } | null {
     let localX = apple.position.x + dir.x;
     let localY = apple.position.y + dir.y;
-    let [roomX, roomY, roomZ = 0] = apple.roomId.split(",").map(Number);
+    let [roomX, roomY, roomZ = 0] = apple.roomId.split(',').map(Number);
 
     if (localX < 0) {
       localX = this.grid.cols - 1;
@@ -288,7 +269,7 @@ export class AppleService {
     }
     const targetRoom = this.world.getRoom(targetRoomId);
     const tile = targetRoom.layout[localY]?.[localX];
-    if (tile !== ".") {
+    if (tile !== '.') {
       return null;
     }
 
@@ -310,10 +291,7 @@ export class AppleService {
     return { roomId: targetRoomId, position: { x: localX, y: localY } };
   }
 
-  private createMoveContext(
-    apple: AppleInstance,
-    snake: Vector2Like[],
-  ): AppleMoveContext {
+  private createMoveContext(apple: AppleInstance, snake: Vector2Like[]): AppleMoveContext {
     return {
       rng: this.rng,
       grid: this.grid,
@@ -324,10 +302,7 @@ export class AppleService {
         const occupant = this.apples.get(roomId);
         if (!occupant) return false;
         if (occupant === apple) return false;
-        return (
-          occupant.position.x === position.x &&
-          occupant.position.y === position.y
-        );
+        return occupant.position.x === position.x && occupant.position.y === position.y;
       },
     };
   }
@@ -335,25 +310,22 @@ export class AppleService {
   private chooseAppleType(score: number, waterOnly = false): AppleTypeConfig | null {
     if (waterOnly) {
       return (
-        this.registry.getTypes().find((type) => type.id === "pearl") ??
-        this.registry.getTypes().find((type) => type.id === "gold") ??
-        this.registry.getTypes().find((type) => type.id === "normal") ??
+        this.registry.getTypes().find((type) => type.id === 'pearl') ??
+        this.registry.getTypes().find((type) => type.id === 'gold') ??
+        this.registry.getTypes().find((type) => type.id === 'normal') ??
         null
       );
     }
 
     const eligible = this.registry
       .getTypes()
-      .filter((type) => type.id !== "pearl" && (type.spawn.scoreThreshold ?? 0) <= score);
+      .filter((type) => type.id !== 'pearl' && (type.spawn.scoreThreshold ?? 0) <= score);
 
     if (eligible.length === 0) {
-      return this.registry.getTypes().find((t) => t.id === "normal") ?? null;
+      return this.registry.getTypes().find((t) => t.id === 'normal') ?? null;
     }
 
-    const totalWeight = eligible.reduce(
-      (total, type) => total + type.spawn.base,
-      0,
-    );
+    const totalWeight = eligible.reduce((total, type) => total + type.spawn.base, 0);
     if (totalWeight <= 0) {
       return eligible[0] ?? null;
     }
@@ -369,24 +341,23 @@ export class AppleService {
     return eligible[eligible.length - 1] ?? null;
   }
 
- private collectSpawnOptions(
+  private collectSpawnOptions(
     roomId: string,
     layout: string[],
-    snake: Vector2Like[]
+    snake: Vector2Like[],
   ): AppleSpawnOption[] {
     const options: AppleSpawnOption[] = [];
-    const [roomX, roomY] = roomId.split(",").map(Number);
+    const [roomX, roomY] = roomId.split(',').map(Number);
     const occupant = this.apples.get(roomId);
 
     for (let y = 0; y < layout.length; y++) {
       const row = layout[y];
       for (let x = 0; x < row.length; x++) {
         const tile = row[x];
-        if (tile !== "." && tile !== "~") continue;
+        if (tile !== '.' && tile !== '~') continue;
         // Avoid spawning on treasure chests
         if (this.world.hasTreasureAt(roomId, x, y)) continue;
-        if (occupant && occupant.position.x === x && occupant.position.y === y)
-          continue;
+        if (occupant && occupant.position.x === x && occupant.position.y === y) continue;
         const globalX = roomX * this.grid.cols + x;
         const globalY = roomY * this.grid.rows + y;
         if (this.isSnakeAtGlobal(snake, globalX, globalY)) continue;
@@ -397,7 +368,7 @@ export class AppleService {
   }
 
   private toGlobal(roomId: string, position: Vector2Like): Vector2Like {
-    const [roomX, roomY] = roomId.split(",").map(Number);
+    const [roomX, roomY] = roomId.split(',').map(Number);
     return {
       x: roomX * this.grid.cols + position.x,
       y: roomY * this.grid.rows + position.y,

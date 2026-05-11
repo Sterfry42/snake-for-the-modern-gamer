@@ -1,4 +1,4 @@
-import { getQuestRegistry } from "../../quests.js";
+import { getQuestRegistry } from '../../quests.js';
 
 export async function createQuestRegistry() {
   const registry = getQuestRegistry();
