@@ -12,6 +12,9 @@ const game = new Phaser.Game({
   backgroundColor: "#0b0f14",
   pixelArt: true,
   scene: [SnakeScene],
+  audio: {
+    context: new (window.AudioContext || window.webkitAudioContext)(),
+  },
 });
 
 // Give the game canvas focus when it's ready
