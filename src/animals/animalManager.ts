@@ -1,0 +1,746 @@
+import type { GridConfig } from '../config/gameConfig.js';
+import type { Vector2Like } from '../core/math.js';
+import { manhattanDistance, vectorKey } from '../core/math.js';
+import type { RandomGenerator } from '../core/rng.js';
+import type { RoomSnapshot } from '../world/types.js';
+import {
+  getBiomeDefinition,
+  getBiomeAnimalSpawnBias,
+  getBiomeAnimalSpawnChance,
+  type BiomeId,
+} from '../world/biomes.js';
+import type { AnimalDefinition, AnimalInstance } from './types.js';
+import { AnimalRegistry } from './animalRegistry.js';
+
+interface AnimalStepParams {
+  getRoom(roomId: string): RoomSnapshot;
+  snake: readonly Vector2Like[];
+  currentRoomId: string;
+  snakeDirection: Vector2Like;
+  tameCallback?: (animalId: string, tamed: boolean) => void;
+}
+
+interface AnimalStepResult {
+  tames: number;
+  damageDealt: number;
+  damageTaken: number;
+  hunted: number;
+  startleCount: number;
+}
+
+interface SnakeAnimalResult {
+  tamed: boolean;
+  damaged: boolean;
+  hunted: boolean;
+  startleCount: number;
+}
+
+function createAnimalId(): string {
+  return `animal-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function pickRandom<T>(rng: RandomGenerator, arr: T[]): T {
+  return arr[Math.floor(rng() * arr.length)];
+}
+
+function shuffle<T>(rng: RandomGenerator, arr: T[]): T[] {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
+export class AnimalManager {
+  private readonly animals = new Map<string, AnimalInstance[]>();
+  private nextId = 0;
+
+  constructor(
+    private readonly grid: GridConfig,
+    private readonly rng: RandomGenerator,
+  ) {}
+
+  ensureAnimals(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+  ): void {
+    if (roomId === '0,-1,0') {
+      return;
+    }
+    if (room.village || room.goblinCamp) {
+      return;
+    }
+    if (this.animals.has(roomId)) {
+      return;
+    }
+
+    const biome = getBiomeDefinition(room.biomeId);
+    const spawnChance = getBiomeAnimalSpawnChance(biome);
+    if (spawnChance <= 0) {
+      return;
+    }
+    if (this.rng() > spawnChance) {
+      return;
+    }
+
+    const biomeAnimals = AnimalRegistry.getForBiome(biome.id);
+    if (biomeAnimals.length === 0) {
+      return;
+    }
+
+    const weighted = this.buildSpawnTable(biomeAnimals, biome);
+    if (weighted.length === 0) {
+      return;
+    }
+
+    const roomAnimals: AnimalInstance[] = [];
+    const usedPositions = new Set<string>();
+
+    for (const segment of occupied) {
+      usedPositions.add(vectorKey(segment));
+    }
+    if (room.apple) {
+      usedPositions.add(vectorKey(room.apple));
+    }
+    if (room.treasure) {
+      usedPositions.add(vectorKey(room.treasure));
+    }
+
+    for (const entry of weighted) {
+      if (roomAnimals.length >= entry.maxPerRoom) {
+        continue;
+      }
+      const animal = this.trySpawnAnimal(roomId, room, entry, usedPositions);
+      if (animal) {
+        roomAnimals.push(animal);
+        usedPositions.add(vectorKey(animal.position));
+      }
+    }
+
+    if (roomAnimals.length > 0) {
+      this.animals.set(roomId, roomAnimals);
+    }
+  }
+
+  private buildSpawnTable(
+    biomeAnimals: readonly AnimalDefinition[],
+    biome: ReturnType<typeof getBiomeDefinition>,
+  ): Array<{ definition: AnimalDefinition; maxPerRoom: number }> {
+    const weighted: Array<{ definition: AnimalDefinition; maxPerRoom: number }> = [];
+
+    for (const def of biomeAnimals) {
+      let weight = def.spawnWeight;
+      const biomeBias = getBiomeAnimalSpawnBias(biome, def.type);
+      if (biomeBias > 0) {
+        weight *= biomeBias;
+      }
+      if (def.snakeEncounter === 'dangerous') {
+        weight = Math.max(1, weight * (biome.dangerLevel / 5));
+      }
+      if (def.behavior === 'school' && biome.id !== 'sunken-ocean') {
+        weight *= 0.5;
+      }
+      if (def.behavior === 'perch') {
+        weight *= 1.5;
+      }
+      weighted.push({
+        definition: def,
+        maxPerRoom: Math.min(def.maxPerRoom, Math.ceil(def.spawnWeight / 10)),
+      });
+    }
+
+    return weighted;
+  }
+
+  private trySpawnAnimal(
+    roomId: string,
+    room: RoomSnapshot,
+    entry: { definition: AnimalDefinition; maxPerRoom: number },
+    usedPositions: Set<string>,
+  ): AnimalInstance | null {
+    const def = entry.definition;
+    const candidates: Vector2Like[] = [];
+
+    for (let y = 0; y < this.grid.rows; y++) {
+      for (let x = 0; x < this.grid.cols; x++) {
+        if (usedPositions.has(`${x},${y}`)) {
+          continue;
+        }
+        if (!this.isValidAnimalTile(room, def, x, y)) {
+          continue;
+        }
+        candidates.push({ x, y });
+      }
+    }
+
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const position = candidates[Math.floor(this.rng() * candidates.length)];
+    const directions: Vector2Like[] = [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ];
+
+    return {
+      id: `animal-${this.nextId++}`,
+      type: def.type,
+      roomId,
+      position,
+      direction: pickRandom(this.rng, directions),
+      moveCooldown: Math.floor(this.rng() * def.moveInterval),
+      isTamed: false,
+      flashTicks: 0,
+      currentHearts: def.maxHearts ?? 1,
+    };
+  }
+
+  private isValidAnimalTile(
+    room: RoomSnapshot,
+    def: AnimalDefinition,
+    x: number,
+    y: number,
+  ): boolean {
+    const tile = room.layout[y]?.[x];
+    if (!tile || tile === '#') {
+      return false;
+    }
+    if (def.behavior === 'school') {
+      return tile === '~';
+    }
+    if (def.behavior === 'perch') {
+      return tile === '#' || tile === '.';
+    }
+    return tile === '.' || tile === 'O';
+  }
+
+  step(params: AnimalStepParams): AnimalStepResult {
+    const {
+      getRoom,
+      snake,
+      currentRoomId,
+      snakeDirection,
+      tameCallback,
+    } = params;
+
+    const result: AnimalStepResult = {
+      tames: 0,
+      damageDealt: 0,
+      damageTaken: 0,
+      hunted: 0,
+      startleCount: 0,
+    };
+
+    const head = snake[0];
+    if (!head) {
+      return result;
+    }
+
+    const roomAnimals = this.animals.get(currentRoomId) ?? [];
+    if (roomAnimals.length === 0) {
+      return result;
+    }
+
+    const room = getRoom(currentRoomId);
+    const headLocal = this.worldToLocal(currentRoomId, head);
+    const nextAnimals: AnimalInstance[] = [];
+
+    for (const animal of roomAnimals) {
+      const def = AnimalRegistry.getDefinition(animal.type);
+      let next = { ...animal };
+
+      if (next.flashTicks > 0) {
+        next.flashTicks--;
+      }
+
+      if (next.moveCooldown > 0) {
+        next.moveCooldown--;
+        nextAnimals.push(next);
+        continue;
+      }
+
+      next = this.moveAnimal(next, def, room, headLocal, snakeDirection, roomAnimals);
+      next.moveCooldown = def.moveInterval + Math.floor(this.rng() * def.moveInterval);
+
+      nextAnimals.push(next);
+    }
+
+    this.handleAnimalInteractions(nextAnimals, headLocal, currentRoomId, result);
+
+    if (nextAnimals.length > 0) {
+      this.animals.set(currentRoomId, nextAnimals);
+    } else {
+      this.animals.delete(currentRoomId);
+    }
+
+    return result;
+  }
+
+  private moveAnimal(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+    snakeDirection: Vector2Like,
+    roomAnimals: AnimalInstance[],
+  ): AnimalInstance {
+    switch (def.behavior) {
+      case 'wander':
+        return this.moveWander(animal, def, room, headLocal);
+      case 'flee':
+        return this.moveFlee(animal, def, room, headLocal);
+      case 'chase':
+        return this.moveChase(animal, def, room, headLocal, snakeDirection);
+      case 'graze':
+        return this.moveGraze(animal, def, room, headLocal);
+      case 'school':
+        return this.moveSchool(animal, def, room, headLocal, roomAnimals);
+      case 'perch':
+        return this.movePerch(animal, def, room, headLocal, snakeDirection);
+      default:
+        return this.moveWander(animal, def, room, headLocal);
+    }
+  }
+
+  private moveWander(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+  ): AnimalInstance {
+    const next = this.tryMoveRandom(animal, room, headLocal, this.isWalkableAnimalTile);
+    return next ? { ...animal, position: next } : animal;
+  }
+
+  private moveFlee(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+  ): AnimalInstance {
+    const next = this.tryMoveAway(animal, room, headLocal, this.isWalkableAnimalTile);
+    return next ? { ...animal, position: next } : animal;
+  }
+
+  private moveChase(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+    snakeDirection: Vector2Like,
+  ): AnimalInstance {
+    if (def.snakeEncounter === 'dangerous' && this.isSnakeCharging(animal.position, headLocal, snakeDirection)) {
+      const next = this.tryMoveAway(animal, room, headLocal, this.isWalkableAnimalTile);
+      return next ? { ...animal, position: next } : animal;
+    }
+    const next = this.tryMoveToward(animal, room, headLocal, this.isWalkableAnimalTile);
+    return next ? { ...animal, position: next } : animal;
+  }
+
+  private moveGraze(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+  ): AnimalInstance {
+    const next = this.tryMoveWander(animal, room, headLocal, this.isWalkableAnimalTile);
+    return next ? { ...animal, position: next } : animal;
+  }
+
+  private moveSchool(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+    roomAnimals: AnimalInstance[],
+  ): AnimalInstance {
+    const nearestSchoolmate = this.findNearestAnimal(animal, roomAnimals, 4);
+    if (nearestSchoolmate) {
+      const next = this.tryMoveToward(animal, room, nearestSchoolmate.position, this.isWaterTile);
+      if (next) {
+        return { ...animal, position: next };
+      }
+    }
+    const next = this.tryMoveRandom(animal, room, headLocal, this.isWaterTile);
+    return next ? { ...animal, position: next } : animal;
+  }
+
+  private movePerch(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+    snakeDirection: Vector2Like,
+  ): AnimalInstance {
+    if (this.isSnakeCharging(animal.position, headLocal, snakeDirection)) {
+      const next = this.tryMoveAway(animal, room, headLocal, this.isWalkableAnimalTile);
+      return next ? { ...animal, position: next } : animal;
+    }
+    return animal;
+  }
+
+  private tryMoveRandom(
+    animal: AnimalInstance,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+    tileCheck: (tile: string, x: number, y: number) => boolean,
+  ): Vector2Like | null {
+    const directions = shuffle(
+      this.rng,
+      [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ],
+    );
+
+    for (const dir of directions) {
+      const next = { x: animal.position.x + dir.x, y: animal.position.y + dir.y };
+      if (this.isValidPosition(next, room, tileCheck, headLocal)) {
+        return next;
+      }
+    }
+    return null;
+  }
+
+  private tryMoveToward(
+    animal: AnimalInstance,
+    room: RoomSnapshot,
+    target: Vector2Like,
+    tileCheck: (tile: string, x: number, y: number) => boolean,
+  ): Vector2Like | null {
+    const dx = Math.sign(target.x - animal.position.x);
+    const dy = Math.sign(target.y - animal.position.y);
+    const preferred: Vector2Like[] = [];
+    if (dx !== 0) {
+      preferred.push({ x: dx, y: 0 });
+    }
+    if (dy !== 0) {
+      preferred.push({ x: 0, y: dy });
+    }
+    preferred.push(...shuffle(this.rng, [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ]));
+
+    for (const dir of preferred) {
+      const next = { x: animal.position.x + dir.x, y: animal.position.y + dir.y };
+      if (this.isValidPosition(next, room, tileCheck, target)) {
+        return next;
+      }
+    }
+    return null;
+  }
+
+  private tryMoveAway(
+    animal: AnimalInstance,
+    room: RoomSnapshot,
+    target: Vector2Like,
+    tileCheck: (tile: string, x: number, y: number) => boolean,
+  ): Vector2Like | null {
+    const dx = Math.sign(animal.position.x - target.x);
+    const dy = Math.sign(animal.position.y - target.y);
+    const preferred: Vector2Like[] = [];
+    if (dx !== 0) {
+      preferred.push({ x: dx, y: 0 });
+    }
+    if (dy !== 0) {
+      preferred.push({ x: 0, y: dy });
+    }
+    preferred.push(...shuffle(this.rng, [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ]));
+
+    let best: Vector2Like | null = null;
+    let bestDist = manhattanDistance(animal.position, target);
+
+    for (const dir of preferred) {
+      const next = { x: animal.position.x + dir.x, y: animal.position.y + dir.y };
+      if (!this.isValidPosition(next, room, tileCheck, target)) {
+        continue;
+      }
+      const dist = manhattanDistance(next, target);
+      if (dist > bestDist) {
+        best = next;
+        bestDist = dist;
+      }
+    }
+    return best;
+  }
+
+  private tryMoveWander(
+    animal: AnimalInstance,
+    room: RoomSnapshot,
+    headLocal: Vector2Like,
+    tileCheck: (tile: string, x: number, y: number) => boolean,
+  ): Vector2Like | null {
+    return this.tryMoveRandom(animal, room, headLocal, tileCheck);
+  }
+
+  private isValidPosition(
+    next: Vector2Like,
+    room: RoomSnapshot,
+    tileCheck: (tile: string, x: number, y: number) => boolean,
+    headLocal: Vector2Like,
+  ): boolean {
+    if (next.x < 0 || next.x >= this.grid.cols || next.y < 0 || next.y >= this.grid.rows) {
+      return false;
+    }
+    if (next.x === headLocal.x && next.y === headLocal.y) {
+      return false;
+    }
+    const tile = room.layout[next.y]?.[next.x];
+    return tileCheck(tile, next.x, next.y);
+  }
+
+  private isWalkableAnimalTile(tile: string): boolean {
+    return tile === '.' || tile === 'O';
+  }
+
+  private isWaterTile(tile: string): boolean {
+    return tile === '~';
+  }
+
+  private findNearestAnimal(
+    source: AnimalInstance,
+    others: AnimalInstance[],
+    maxDistance: number,
+  ): AnimalInstance | null {
+    let nearest: AnimalInstance | null = null;
+    let nearestDist = maxDistance;
+
+    for (const other of others) {
+      if (other.id === source.id) {
+        continue;
+      }
+      const dist = manhattanDistance(source.position, other.position);
+      if (dist < nearestDist) {
+        nearest = other;
+        nearestDist = dist;
+      }
+    }
+    return nearest;
+  }
+
+  private isSnakeCharging(
+    animalPos: Vector2Like,
+    headLocal: Vector2Like,
+    snakeDirection: Vector2Like,
+  ): boolean {
+    if (snakeDirection.x !== 0 && headLocal.y === animalPos.y) {
+      return Math.sign(animalPos.x - headLocal.x) === snakeDirection.x;
+    }
+    if (snakeDirection.y !== 0 && headLocal.x === animalPos.x) {
+      return Math.sign(animalPos.y - headLocal.y) === snakeDirection.y;
+    }
+    return false;
+  }
+
+  private handleAnimalInteractions(
+    animals: AnimalInstance[],
+    headLocal: Vector2Like,
+    roomId: string,
+    result: AnimalStepResult,
+  ): void {
+    const newAnimals: AnimalInstance[] = [];
+
+    for (const animal of animals) {
+      const def = AnimalRegistry.getDefinition(animal.type);
+
+      if (animal.position.x === headLocal.x && animal.position.y === headLocal.y) {
+        switch (def.snakeEncounter) {
+          case 'harmless':
+            result.startleCount++;
+            newAnimals.push({ ...animal, flashTicks: 3 });
+            break;
+          case 'dangerous':
+            result.damageTaken++;
+            newAnimals.push({ ...animal, flashTicks: 2 });
+            break;
+          case 'hunt':
+            result.hunted++;
+            break;
+          case 'tamable':
+            newAnimals.push({ ...animal, flashTicks: 2 });
+            break;
+        }
+        continue;
+      }
+
+      if (def.snakeEncounter === 'harmless' && this.isAdjacentToSnake(animal.position, headLocal)) {
+        newAnimals.push({ ...animal, flashTicks: 2 });
+        continue;
+      }
+
+      newAnimals.push(animal);
+    }
+
+    this.animals.set(roomId, newAnimals);
+  }
+
+  private isAdjacentToSnake(pos: Vector2Like, headLocal: Vector2Like): boolean {
+    return Math.abs(pos.x - headLocal.x) <= 1 && Math.abs(pos.y - headLocal.y) <= 1;
+  }
+
+  handleSnakeOverlap(
+    roomId: string,
+    head: Vector2Like,
+    snakeDirection: Vector2Like,
+  ): SnakeAnimalResult {
+    const local = this.worldToLocal(roomId, head);
+    const roomAnimals = this.animals.get(roomId) ?? [];
+    if (roomAnimals.length === 0) {
+      return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
+    }
+
+    const target = roomAnimals.find(
+      (a) => a.position.x === local.x && a.position.y === local.y,
+    );
+
+    if (!target) {
+      return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
+    }
+
+    const def = AnimalRegistry.getDefinition(target.type);
+    const result: SnakeAnimalResult = {
+      tamed: false,
+      damaged: false,
+      hunted: false,
+      startleCount: 0,
+    };
+
+    const remaining = roomAnimals.filter((a) => a.id !== target.id);
+    const updated = remaining.map((a) => ({ ...a, flashTicks: 3 }));
+
+    switch (def.snakeEncounter) {
+      case 'harmless':
+        result.startleCount = 1;
+        this.animals.set(roomId, updated);
+        break;
+      case 'dangerous':
+        result.damaged = true;
+        this.animals.set(roomId, updated);
+        break;
+      case 'hunt':
+        result.hunted = true;
+        this.animals.set(roomId, updated);
+        break;
+      case 'tamable':
+        result.tamed = true;
+        this.animals.set(roomId, updated);
+        break;
+    }
+
+    return result;
+  }
+
+  damageAnimal(
+    roomId: string,
+    position: Vector2Like,
+    damage: number,
+  ): { hit: boolean; defeated?: AnimalInstance } {
+    const roomAnimals = this.animals.get(roomId) ?? [];
+    if (roomAnimals.length === 0) {
+      return { hit: false };
+    }
+
+    const target = roomAnimals.find(
+      (a) => a.position.x === position.x && a.position.y === position.y,
+    );
+
+    if (!target) {
+      return { hit: false };
+    }
+
+    const currentHearts = target.currentHearts ?? 1;
+    const nextHearts = Math.max(0, currentHearts - damage);
+    const defeated = { ...target, currentHearts: nextHearts };
+
+    if (nextHearts > 0) {
+      defeated.flashTicks = 3;
+      const remaining = roomAnimals.map((a) =>
+        a.id === target.id ? defeated : a,
+      );
+      this.animals.set(roomId, remaining);
+      return { hit: true };
+    }
+
+    const remaining = roomAnimals.filter((a) => a.id !== target.id);
+    if (remaining.length > 0) {
+      this.animals.set(roomId, remaining);
+    } else {
+      this.animals.delete(roomId);
+    }
+
+    return { hit: true, defeated };
+  }
+
+  getAnimalsInRoom(roomId: string): readonly AnimalInstance[] {
+    return this.animals.get(roomId) ?? [];
+  }
+
+  tameAnimal(
+    roomId: string,
+    animalId: string,
+    owner: string,
+  ): { success: boolean; animal: AnimalInstance | null } {
+    const roomAnimals = this.animals.get(roomId) ?? [];
+    const target = roomAnimals.find((a) => a.id === animalId);
+
+    if (!target || target.isTamed) {
+      return { success: false, animal: null };
+    }
+
+    const def = AnimalRegistry.getDefinition(target.type);
+    if (def.snakeEncounter !== 'tamable') {
+      return { success: false, animal: null };
+    }
+
+    const updated = {
+      ...target,
+      isTamed: true,
+      tameOwner: owner,
+      flashTicks: 4,
+    };
+
+    const remaining = roomAnimals.map((a) => (a.id === animalId ? updated : a));
+    this.animals.set(roomId, remaining);
+
+    return { success: true, animal: updated };
+  }
+
+  private worldToLocal(roomId: string, worldPos: Vector2Like): Vector2Like {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    return {
+      x: worldPos.x - roomX * this.grid.cols,
+      y: worldPos.y - roomY * this.grid.rows,
+    };
+  }
+
+  private discoveredTypes: Set<string> = new Set();
+
+  reportDiscovered(animalType: string): void {
+    this.discoveredTypes.add(animalType);
+  }
+
+  getDiscoveredTypes(): readonly string[] {
+    return [...this.discoveredTypes];
+  }
+
+  clearAll(): void {
+    this.animals.clear();
+    this.nextId = 0;
+    this.discoveredTypes.clear();
+  }
+}

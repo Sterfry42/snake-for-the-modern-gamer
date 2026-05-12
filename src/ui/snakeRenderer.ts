@@ -32,7 +32,13 @@ import {
   type FurnitureSpritePalette,
   type FurnitureSpriteVariant,
 } from './spriteRecipes/furnitureRecipe.js';
+import {
+  animalSpriteRecipe,
+  type AnimalSpritePalette,
+  type AnimalSpriteVariant,
+} from './spriteRecipes/animalRecipe.js';
 import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
+import type { AnimalInstance } from '../animals/types.js';
 
 const SNAKE_OUTLINE_ALPHA = 0.9;
 const SNAKE_OUTLINE_WIDTH = 1;
@@ -42,6 +48,7 @@ const APPLE_OUTLINE_ALPHA = 0.85;
 const APPLE_OUTLINE_WIDTH = 1;
 const APPLE_LAYER_DEPTH = 4;
 const SNAKE_LAYER_DEPTH = 5;
+const ANIMAL_LAYER_DEPTH = 2;
 const ENEMY_LAYER_DEPTH = 6;
 const BULLET_LAYER_DEPTH = 7;
 const FURNITURE_LAYER_DEPTH = 3;
@@ -56,6 +63,7 @@ interface SnakeRenderOptions {
   activeHat?: SnakeHatStyle | null;
   enemies?: readonly EnemyInstance[];
   bullets?: readonly BulletInstance[];
+  animals?: readonly AnimalInstance[];
 }
 
 export class SnakeRenderer {
@@ -70,6 +78,8 @@ export class SnakeRenderer {
   private readonly hatTextureCache: Partial<
     Record<SnakeHatStyle, Record<SnakeHatVariant, string>>
   > = {};
+  private readonly animalTextureKeys: Record<AnimalSpriteVariant, string>;
+  private readonly animalSprites: Phaser.GameObjects.Image[] = [];
   private readonly enemyTextureKeys: Record<EnemySpriteVariant, string>;
   private readonly enemySprites: Phaser.GameObjects.Image[] = [];
   private readonly bulletSprites: Phaser.GameObjects.Image[] = [];
@@ -111,6 +121,11 @@ export class SnakeRenderer {
       furnitureSpriteRecipe,
       this.grid.cell,
       this.buildFurniturePalette(),
+    );
+    this.animalTextureKeys = this.spriteFactory.ensureRecipe(
+      animalSpriteRecipe,
+      this.grid.cell,
+      this.buildAnimalPalette(),
     );
     this.snakeLayer = this.scene.add.container(0, 0).setDepth(SNAKE_LAYER_DEPTH);
     this.hatSprite = this.scene.add
@@ -161,6 +176,7 @@ export class SnakeRenderer {
       opts.snakePalette,
       opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
     );
+    this.drawAnimals(opts.animals ?? []);
     this.drawEnemies(opts.enemies ?? []);
     this.drawBullets(opts.bullets ?? []);
   }
@@ -884,6 +900,16 @@ export class SnakeRenderer {
     };
   }
 
+  private buildAnimalPalette(): AnimalSpritePalette {
+    return {
+      bodyColor: '#808080',
+      accentColor: '#a0a0a0',
+      outlineColor: '#404040',
+      eyeColor: '#101010',
+      flashColor: '#ffffff',
+    };
+  }
+
   private toCssColor(hex: number): string {
     return `#${hex.toString(16).padStart(6, '0')}`;
   }
@@ -1073,6 +1099,132 @@ export class SnakeRenderer {
       .setOrigin(0.5, 0.5);
     this.furnitureSprites[index] = sprite;
     return sprite;
+  }
+
+  private drawAnimals(animals: readonly AnimalInstance[]): void {
+    this.animalSprites.forEach((sprite) => sprite.setVisible(false));
+    animals.forEach((animal, index) => {
+      const sprite = this.ensureAnimalSprite(index);
+      const variant = this.resolveAnimalVariant(animal);
+      const textureKeys = this.spriteFactory.ensureRecipe(
+        animalSpriteRecipe,
+        this.grid.cell,
+        this.paletteForAnimal(animal),
+      );
+      sprite
+        .setTexture(textureKeys[variant])
+        .setPosition(
+          animal.position.x * this.grid.cell + this.grid.cell / 2,
+          animal.position.y * this.grid.cell + this.grid.cell / 2,
+        )
+        .setDisplaySize(this.grid.cell, this.grid.cell)
+        .setVisible(true);
+    });
+  }
+
+  private ensureAnimalSprite(index: number): Phaser.GameObjects.Image {
+    let sprite = this.animalSprites[index];
+    if (sprite) {
+      return sprite;
+    }
+    sprite = this.scene.add
+      .image(0, 0, this.animalTextureKeys['rabbit-down'])
+      .setDepth(ANIMAL_LAYER_DEPTH)
+      .setVisible(false)
+      .setOrigin(0.5, 0.5);
+    this.animalSprites[index] = sprite;
+    return sprite;
+  }
+
+  private resolveAnimalVariant(animal: AnimalInstance): AnimalSpriteVariant {
+    const direction = animal.direction;
+    const suffix =
+      direction.x > 0
+        ? 'right'
+        : direction.x < 0
+          ? 'left'
+          : direction.y < 0
+            ? 'up'
+            : 'down';
+    const flashSuffix = animal.flashTicks > 0 ? 'flash-' : '';
+    return `${animal.type}-${flashSuffix}${suffix}` as AnimalSpriteVariant;
+  }
+
+  private paletteForAnimal(animal: AnimalInstance): AnimalSpritePalette {
+    switch (animal.type) {
+      case 'rabbit':
+        return {
+          bodyColor: '#f0d0a0',
+          accentColor: '#c08060',
+          outlineColor: '#5a3a20',
+          eyeColor: '#202020',
+          flashColor: '#ffffff',
+        };
+      case 'deer':
+        return {
+          bodyColor: '#b07040',
+          accentColor: '#d0a070',
+          outlineColor: '#3a2010',
+          eyeColor: '#202020',
+          flashColor: '#ffffff',
+        };
+      case 'fox':
+        return {
+          bodyColor: '#e08030',
+          accentColor: '#f0c080',
+          outlineColor: '#4a2010',
+          eyeColor: '#202020',
+          flashColor: '#ffffff',
+        };
+      case 'wolf':
+        return {
+          bodyColor: '#a0a0a0',
+          accentColor: '#d0d0d0',
+          outlineColor: '#202020',
+          eyeColor: '#ff4040',
+          flashColor: '#ffffff',
+        };
+      case 'bear':
+        return {
+          bodyColor: '#604020',
+          accentColor: '#806040',
+          outlineColor: '#201008',
+          eyeColor: '#101010',
+          flashColor: '#ffffff',
+        };
+      case 'fish':
+        return {
+          bodyColor: '#60b0e0',
+          accentColor: '#a0d8f0',
+          outlineColor: '#204060',
+          eyeColor: '#101010',
+          flashColor: '#ffffff',
+        };
+      case 'bird':
+        return {
+          bodyColor: '#4080c0',
+          accentColor: '#60a0e0',
+          outlineColor: '#102040',
+          eyeColor: '#101010',
+          flashColor: '#ffffff',
+        };
+      case 'snake':
+        return {
+          bodyColor: '#60a040',
+          accentColor: '#80c060',
+          outlineColor: '#203010',
+          eyeColor: '#ffff00',
+          flashColor: '#ffffff',
+        };
+      default:
+        return {
+          bodyColor: '#808080',
+          accentColor: '#a0a0a0',
+          outlineColor: '#404040',
+          eyeColor: '#101010',
+          flashColor: '#ffffff',
+        };
+    }
   }
 
   private resolveEnemyVariant(enemy: EnemyInstance): EnemySpriteVariant {

@@ -24,6 +24,8 @@ export interface BiomeDefinition {
   accentColor: number;
   enemyFireBias: number;
   enemyMoveBias: number;
+  animalSpawnChance: number;
+  animalSpawnBias: Record<string, number>;
 }
 
 const BIOMES: Record<BiomeId, BiomeDefinition> = {
@@ -41,6 +43,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0x83d8bf,
     enemyFireBias: 1,
     enemyMoveBias: 0,
+    animalSpawnChance: 0.15,
+    animalSpawnBias: {
+      rabbit: 3,
+      deer: 2,
+      fox: 1,
+      bird: 2,
+      wolf: 0,
+      bear: 0,
+      fish: 0,
+      snake: 0,
+    },
   },
   'ember-waste': {
     id: 'ember-waste',
@@ -56,6 +69,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0xffa06b,
     enemyFireBias: -1,
     enemyMoveBias: 1,
+    animalSpawnChance: 0.1,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 2,
+      bird: 0,
+      wolf: 0,
+      bear: 0,
+      fish: 0,
+      snake: 2,
+    },
   },
   'moonlit-parish': {
     id: 'moonlit-parish',
@@ -71,6 +95,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0xaec4ff,
     enemyFireBias: 1,
     enemyMoveBias: -1,
+    animalSpawnChance: 0.12,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 3,
+      wolf: 2,
+      bear: 0,
+      fish: 0,
+      snake: 0,
+    },
   },
   'sable-depths': {
     id: 'sable-depths',
@@ -86,6 +121,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0xc49bff,
     enemyFireBias: 2,
     enemyMoveBias: 1,
+    animalSpawnChance: 0.18,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 0,
+      wolf: 3,
+      bear: 2,
+      fish: 0,
+      snake: 2,
+    },
   },
   'gloam-garden': {
     id: 'gloam-garden',
@@ -101,6 +147,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0xa6d99a,
     enemyFireBias: 0,
     enemyMoveBias: -1,
+    animalSpawnChance: 0.2,
+    animalSpawnBias: {
+      rabbit: 2,
+      deer: 1,
+      fox: 0,
+      bird: 2,
+      wolf: 0,
+      bear: 0,
+      fish: 3,
+      snake: 0,
+    },
   },
   'elderwood-maze': {
     id: 'elderwood-maze',
@@ -116,6 +173,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0x7ed77c,
     enemyFireBias: 1,
     enemyMoveBias: -1,
+    animalSpawnChance: 0.15,
+    animalSpawnBias: {
+      rabbit: 2,
+      deer: 2,
+      fox: 2,
+      bird: 1,
+      wolf: 2,
+      bear: 2,
+      fish: 0,
+      snake: 2,
+    },
   },
   'sunken-ocean': {
     id: 'sunken-ocean',
@@ -131,6 +199,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0x74d4ff,
     enemyFireBias: 0,
     enemyMoveBias: 1,
+    animalSpawnChance: 0.25,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 0,
+      wolf: 0,
+      bear: 0,
+      fish: 5,
+      snake: 0,
+    },
   },
   'home-hearth': {
     id: 'home-hearth',
@@ -146,6 +225,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     accentColor: 0xf0c998,
     enemyFireBias: 0,
     enemyMoveBias: 0,
+    animalSpawnChance: 0,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 0,
+      wolf: 0,
+      bear: 0,
+      fish: 0,
+      snake: 0,
+    },
   },
 };
 
@@ -163,6 +253,14 @@ export function getBiomeEnemySpawnChance(biome: BiomeDefinition): number {
 
 export function formatBiomeDanger(biome: BiomeDefinition): string {
   return `${biome.dangerLevel}/10`;
+}
+
+export function getBiomeAnimalSpawnChance(biome: BiomeDefinition): number {
+  return biome.animalSpawnChance;
+}
+
+export function getBiomeAnimalSpawnBias(biome: BiomeDefinition, animalType: string): number {
+  return biome.animalSpawnBias[animalType] ?? 0;
 }
 
 export function getBiomeForRoom(roomId: string): BiomeDefinition {
