@@ -89,6 +89,7 @@ type SnakeThemeDefinition = {
 };
 
 type DeathCutsceneMode = 'revive' | 'game-over';
+type AfterlifeDestination = 'heaven' | 'hell';
 type DeathRescuer = 'angel' | 'goblin-angel';
 
 type VillageMarketStock = {
@@ -98,6 +99,8 @@ type VillageMarketStock = {
   hatIds: VillageShopHatId[];
   cardIds: CardId[];
 };
+
+type DeathCutscenePhase = 'intro' | 'angel-dialogue' | 'afterlife' | 'final' | 'revive';
 
 type DeathCutsceneState = {
   mode: DeathCutsceneMode;
@@ -110,6 +113,9 @@ type DeathCutsceneState = {
   angelBossOnRevive: boolean;
   slainByAngel: boolean;
   rescuer: DeathRescuer;
+  afterlifeDestination?: AfterlifeDestination;
+  phase: DeathCutscenePhase;
+  afterlifeDialogueShown: boolean;
 };
 
 type TitleMenuMode = 'main' | 'settings';
@@ -169,6 +175,8 @@ const COWBOY_HAT_COST = 36;
 const LEGACY_COWBOY_HAT_ID: VillageShopHatId = 'cowboy';
 const ANGEL_TEXTURE_KEY = 'death-angel-pixel';
 const GOBLIN_ANGEL_TEXTURE_KEY = 'death-goblin-angel-pixel';
+const HEAVEN_SNAKE_TEXTURE_KEY = 'afterlife-heaven-snake-pixel';
+const HELL_SNAKE_TEXTURE_KEY = 'afterlife-hell-snake-pixel';
 
 const DEATH_DIALOGUE_BRANCHES: readonly string[][] = [
   [
@@ -286,6 +294,36 @@ const FINAL_DIALOGUE_BRANCHES: readonly string[][] = [
   [
     'Thou didst serve life by moving through it until movement failed.',
     'May the next life greet thee with kinder walls and stranger fruit.',
+  ],
+];
+
+const HEAVEN_DIALOGUE_BRANCHES: readonly string[][] = [
+  [
+    'Thy soul rises like incense on a still morning.',
+    'The gates did not open for thee. They recognized thee.',
+  ],
+  [
+    'A light took thee, and it was not unkind.',
+    'Rest now, little serpent. Thy length has found its measure.',
+  ],
+  [
+    'Thy body became dust. Thy length became light.',
+    'Even snakes dream of flying, at the end.',
+  ],
+];
+
+const HELL_DIALOGUE_BRANCHES: readonly string[][] = [
+  [
+    'Thy soul fell like a stone in a dry well.',
+    'The fire did not rage. It merely opened and let thee through.',
+  ],
+  [
+    'Down went the little serpent, all hunger and heat.',
+    'Hell does not punish. It receives.',
+  ],
+  [
+    'A darker current caught what the light would not.',
+    'Even descent has its own geometry.',
   ],
 ];
 
@@ -1275,6 +1313,8 @@ export default class SnakeScene extends Phaser.Scene {
       .setBlendMode(Phaser.BlendModes.ADD);
 
     container.add([fade, halo, angel]);
+    const afterlifeDestination: AfterlifeDestination | undefined =
+      mode === 'game-over' ? (this.random() < 0.5 ? 'heaven' : 'hell') : undefined;
     this.deathCutscene = {
       mode,
       reason,
@@ -1286,6 +1326,9 @@ export default class SnakeScene extends Phaser.Scene {
       angelBossOnRevive: false,
       slainByAngel: options.slainByAngel ?? false,
       rescuer,
+      afterlifeDestination,
+      phase: 'angel-dialogue',
+      afterlifeDialogueShown: false,
     };
 
     this.tweens.add({ targets: fade, alpha: 1, duration: 650, ease: 'Sine.easeInOut' });
@@ -1302,12 +1345,39 @@ export default class SnakeScene extends Phaser.Scene {
     this.time.delayedCall(1250, () => this.showAngelDeathDialogue());
   }
 
-  private advanceDeathCutscene(): void {
+ private advanceDeathCutscene(): void {
     const cutscene = this.deathCutscene;
     if (!cutscene || !cutscene.canAdvance || cutscene.completed) {
       return;
     }
 
+    if (cutscene.mode === 'revive') {
+      this.finalizeDeathCutscene(cutscene);
+      return;
+    }
+
+    const phase = cutscene.phase;
+    if (phase === 'angel-dialogue') {
+      cutscene.phase = 'afterlife';
+      cutscene.canAdvance = false;
+      this.startAfterlifeCutscene();
+      return;
+    }
+
+    if (phase === 'afterlife') {
+      cutscene.phase = 'final';
+      cutscene.canAdvance = false;
+      this.showFinalDialogue();
+      return;
+    }
+
+    if (phase === 'final') {
+      this.finalizeDeathCutscene(cutscene);
+      return;
+    }
+  }
+
+  private finalizeDeathCutscene(cutscene: DeathCutsceneState): void {
     cutscene.completed = true;
     this.questPopup.hide();
     this.tweens.add({
@@ -1320,23 +1390,31 @@ export default class SnakeScene extends Phaser.Scene {
         this.deathCutscene = null;
         this.questPopup.setDepth(20);
         this.juice.stopHeavenMusic();
-        if (cutscene.mode === 'revive') {
-          if (cutscene.reviveOnComplete) {
-            this.snakeGame.reviveAfterExtraLife(cutscene.reason);
-            this.snakeGame.setFlag('fortitude.phoenixTriggered', undefined);
-          }
-          if (cutscene.angelBossOnRevive) {
-            this.snakeGame.spawnInsultedAngelBoss();
-            this.updateBossEncounter();
-          }
-          this.paused = false;
-          this.showSaveUI();
-          this.isDirty = true;
-          return;
-        }
+        (this.juice as any).stopHellMusic?.();
         this.gameOver(cutscene.reason);
       },
     });
+  }
+
+  private showFinalDialogue(): void {
+    const cutscene = this.deathCutscene;
+    if (!cutscene) return;
+
+    this.questPopup.setDepth(90);
+    cutscene.canAdvance = false;
+    const pages = this.composeRunSummary();
+    this.questPopup.showDialogue(
+      'The Ledger',
+      pages,
+      {
+        onAccept: () => {
+          cutscene.canAdvance = true;
+          this.advanceDeathCutscene();
+        },
+      },
+      { nextLabel: 'Listen', closeLabel: 'Close the ledger' },
+      { portraitId: 'sage-3' },
+    );
   }
 
   private showAngelDeathDialogue(): void {
@@ -1685,6 +1763,191 @@ export default class SnakeScene extends Phaser.Scene {
       '#6f8f22',
     );
     texture.refresh();
+  }
+
+  private ensureHeavenSnakeTexture(): void {
+    if (this.textures.exists(HEAVEN_SNAKE_TEXTURE_KEY)) {
+      return;
+    }
+    const texture = this.textures.createCanvas(HEAVEN_SNAKE_TEXTURE_KEY, 16, 16);
+    const context = texture.getContext();
+    context.imageSmoothingEnabled = false;
+    const p = (x: number, y: number, w: number, h: number, color: string): void => {
+      context.fillStyle = color;
+      context.fillRect(x, y, w, h);
+    };
+    context.clearRect(0, 0, 16, 16);
+    const body = '#ffe066';
+    const light = '#fff4a8';
+    const dark = '#c9a824';
+    const eye = '#fff';
+    for (let i = 0; i < 6; i++) {
+      p(5 + i, 5 + (i % 2), 2, 2, body);
+      p(5 + i, 6 + (i % 2) * 0, 1, 1, light);
+    }
+    p(10, 5, 2, 2, eye);
+    p(10, 6, 1, 1, '#1a1a2e');
+    for (let i = 0; i < 4; i++) {
+      p(6 + i, 4, 1, 1, dark);
+      p(6 + i, 8, 1, 1, dark);
+    }
+    p(11, 5, 2, 1, light);
+    texture.refresh();
+  }
+
+  private ensureHellSnakeTexture(): void {
+    if (this.textures.exists(HELL_SNAKE_TEXTURE_KEY)) {
+      return;
+    }
+    const texture = this.textures.createCanvas(HELL_SNAKE_TEXTURE_KEY, 16, 16);
+    const context = texture.getContext();
+    context.imageSmoothingEnabled = false;
+    const p = (x: number, y: number, w: number, h: number, color: string): void => {
+      context.fillStyle = color;
+      context.fillRect(x, y, w, h);
+    };
+    context.clearRect(0, 0, 16, 16);
+    const body = '#cc2222';
+    const light = '#ff5555';
+    const dark = '#661111';
+    const eye = '#ffcc00';
+    for (let i = 0; i < 6; i++) {
+      p(5 + i, 5 + (i % 2), 2, 2, body);
+      p(5 + i, 6, 1, 1, light);
+    }
+    p(10, 5, 2, 2, eye);
+    p(10, 6, 1, 1, '#1a0000');
+    for (let i = 0; i < 4; i++) {
+      p(6 + i, 4, 1, 1, dark);
+      p(6 + i, 8, 1, 1, dark);
+    }
+    p(11, 5, 2, 1, light);
+    texture.refresh();
+  }
+
+  private startAfterlifeCutscene(): void {
+    const cutscene = this.deathCutscene;
+    if (!cutscene) return;
+
+    const destination = cutscene.afterlifeDestination;
+    if (!destination) return;
+
+    this.juice.stopHeavenMusic();
+    if (destination === 'hell') {
+      (this.juice as any).startHellMusic?.();
+    }
+
+    const container = cutscene.container;
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+
+     (container as any).children?.forEach?.((child: Phaser.GameObjects.GameObject) => {
+      child.destroy();
+    });
+
+    let snakeKey: string;
+    let snakeTint: number;
+    let backgroundColor: number;
+
+    if (destination === 'heaven') {
+      snakeKey = HEAVEN_SNAKE_TEXTURE_KEY;
+      snakeTint = 0xffe066;
+      backgroundColor = 0xfff8e0;
+    } else {
+      snakeKey = HELL_SNAKE_TEXTURE_KEY;
+      snakeTint = 0xff3333;
+      backgroundColor = 0x2a0a0a;
+    }
+
+    this.ensureHeavenSnakeTexture();
+    this.ensureHellSnakeTexture();
+
+    const bg = this.add
+      .rectangle(0, 0, width, height, backgroundColor, 0)
+      .setOrigin(0, 0)
+      .setDepth(78);
+    container.add(bg);
+
+    const snake = this.add
+      .image(width / 2, height / 2, snakeKey)
+      .setOrigin(0.5)
+      .setDepth(80)
+      .setScale(4)
+      .setAlpha(0);
+    container.add(snake);
+
+    const glow = this.add
+      .ellipse(width / 2, height / 2, width * 0.6, height * 0.7, snakeTint, 0.12)
+      .setDepth(79)
+      .setAlpha(0)
+      .setBlendMode(Phaser.BlendModes.ADD);
+    container.add(glow);
+
+    container.setAlpha(0);
+    const fadeOverlay = this.add
+      .rectangle(0, 0, width, height, backgroundColor, 1)
+      .setOrigin(0, 0)
+      .setDepth(95)
+      .setAlpha(0);
+    container.add(fadeOverlay);
+
+    const shake = { x: 0, y: 0 };
+    this.cameras.main.shake(320, 0.025);
+    this.tweens.add({ targets: shake, x: 4, y: 4, duration: 100, yoyo: true, repeat: 2 });
+
+    this.tweens.add({
+      targets: bg,
+      alpha: 0.95,
+      duration: 1100,
+      ease: 'Cubic.easeIn',
+    });
+    this.tweens.add({
+      targets: glow,
+      alpha: 0.28,
+      duration: 1200,
+      ease: 'Cubic.easeOut',
+    });
+
+    this.tweens.add({
+      targets: snake,
+      alpha: 1,
+      scale: 5,
+      y: height / 2 - 20,
+      duration: 1100,
+      ease: 'Cubic.easeOut',
+      delay: 280,
+    });
+
+    this.tweens.add({
+      targets: fadeOverlay,
+      alpha: 0,
+      duration: 1400,
+      ease: 'Cubic.easeInOut',
+      delay: 550,
+      onComplete: () => {
+        const cutscene = this.deathCutscene;
+        if (!cutscene) return;
+        const dialog =
+          destination === 'heaven'
+            ? this.pickDialogueBranch(HEAVEN_DIALOGUE_BRANCHES)
+            : this.pickDialogueBranch(HELL_DIALOGUE_BRANCHES);
+        cutscene.afterlifeDialogueShown = true;
+        cutscene.canAdvance = true;
+        this.questPopup.setDepth(90);
+        this.questPopup.showDialogue(
+          destination === 'heaven' ? 'The Light' : 'The Dark',
+          [...dialog],
+          {
+            onAccept: () => {
+              cutscene.canAdvance = true;
+              this.advanceDeathCutscene();
+            },
+          },
+          { nextLabel: 'Listen', closeLabel: 'Accept fate' },
+          { portraitId: destination === 'heaven' ? 'sage-3' : 'sage-2' },
+        );
+      },
+    });
   }
 
   setDir(x: number, y: number) {
