@@ -202,6 +202,66 @@ export const ITEMS: readonly Item[] = [
       radiationTimerScalar: 0.9,
     },
   },
+  {
+    id: 'raw-meat',
+    name: 'Raw Meat',
+    description: 'A strip of raw meat, still warm. Cooking it would make it safe and nourishing.',
+    kind: 'consumable',
+  },
+  {
+    id: 'cooked-meat',
+    name: 'Cooked Meat',
+    description: 'A strip of well-cooked meat. Filling and satisfying.',
+    kind: 'consumable',
+  },
+  {
+    id: 'fish-meat',
+    name: 'Fish Meat',
+    description: 'A strip of raw fish meat. Slimy, but edible if you are desperate enough.',
+    kind: 'consumable',
+  },
+  {
+    id: 'cooked-fish',
+    name: 'Cooked Fish',
+    description: 'A strip of grilled fish. Flaky and warm.',
+    kind: 'consumable',
+  },
+  {
+    id: 'hide',
+    name: 'Hide',
+    description: 'A scrap of cured animal hide. Tough and flexible.',
+    kind: 'consumable',
+  },
+  {
+    id: 'feather',
+    name: 'Feather',
+    description: 'A brightly colored feather. Light as air.',
+    kind: 'consumable',
+  },
+  {
+    id: 'egg',
+    name: 'Egg',
+    description: 'A small bird egg. Smooth and slightly warm.',
+    kind: 'consumable',
+  },
+  {
+    id: 'honey',
+    name: 'Honey',
+    description: 'A glob of wild honey. Sweet and golden.',
+    kind: 'consumable',
+  },
+  {
+    id: 'rope',
+    name: 'Rope',
+    description: 'A coil of braided rope. Useful for lassoing animals.',
+    kind: 'consumable',
+  },
+  {
+    id: 'lead',
+    name: 'Lead',
+    description: 'A sturdy leather lead strap. The key to taming wild creatures.',
+    kind: 'consumable',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));

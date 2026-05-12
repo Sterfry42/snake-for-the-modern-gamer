@@ -3,7 +3,12 @@ import type { Vector2Like } from '../core/math.js';
 import { manhattanDistance, vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
-import { getBiomeDefinition, type BiomeId } from '../world/biomes.js';
+import {
+  getBiomeDefinition,
+  getBiomeAnimalSpawnBias,
+  getBiomeAnimalSpawnChance,
+  type BiomeId,
+} from '../world/biomes.js';
 import type { AnimalDefinition, AnimalInstance } from './types.js';
 import { AnimalRegistry } from './animalRegistry.js';
 
@@ -56,11 +61,6 @@ export class AnimalManager {
     private readonly rng: RandomGenerator,
   ) {}
 
-  clearAll(): void {
-    this.animals.clear();
-    this.nextId = 0;
-  }
-
   ensureAnimals(
     roomId: string,
     room: RoomSnapshot,
@@ -77,7 +77,10 @@ export class AnimalManager {
     }
 
     const biome = getBiomeDefinition(room.biomeId);
-    const spawnChance = Math.max(0, Math.min(0.25, biome.dangerLevel * 0.025));
+    const spawnChance = getBiomeAnimalSpawnChance(biome);
+    if (spawnChance <= 0) {
+      return;
+    }
     if (this.rng() > spawnChance) {
       return;
     }
@@ -129,6 +132,10 @@ export class AnimalManager {
 
     for (const def of biomeAnimals) {
       let weight = def.spawnWeight;
+      const biomeBias = getBiomeAnimalSpawnBias(biome, def.type);
+      if (biomeBias > 0) {
+        weight *= biomeBias;
+      }
       if (def.snakeEncounter === 'dangerous') {
         weight = Math.max(1, weight * (biome.dangerLevel / 5));
       }
@@ -719,5 +726,21 @@ export class AnimalManager {
       x: worldPos.x - roomX * this.grid.cols,
       y: worldPos.y - roomY * this.grid.rows,
     };
+  }
+
+  private discoveredTypes: Set<string> = new Set();
+
+  reportDiscovered(animalType: string): void {
+    this.discoveredTypes.add(animalType);
+  }
+
+  getDiscoveredTypes(): readonly string[] {
+    return [...this.discoveredTypes];
+  }
+
+  clearAll(): void {
+    this.animals.clear();
+    this.nextId = 0;
+    this.discoveredTypes.clear();
   }
 }
