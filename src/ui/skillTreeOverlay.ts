@@ -1337,7 +1337,8 @@ export class SkillTreeOverlay {
             : [];
         const subtaskText =
           subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
-        return `${marker} ${quest.label}: ${quest.description}${subtaskText}`;
+        const questStrings = i18n.getQuestString(quest.id) ?? { label: quest.label, description: quest.description };
+        return `${marker} ${questStrings.label}: ${questStrings.description}${subtaskText}`;
       })
       .join('\n\n');
   }
@@ -1349,11 +1350,11 @@ export class SkillTreeOverlay {
     })).filter((entry) => entry.count > 0);
 
     if (owned.length === 0) {
-      return 'No cards owned.\n\nVillage shopkeepers sell cards for your personal deck.';
+      return i18n.getFeatureString('noCardsOwned');
     }
 
     const total = owned.reduce((sum, entry) => sum + entry.count, 0);
-    const lines = [`Owned cards: ${total}`, ''];
+    const lines = [`${i18n.getFeatureString('cardsOwnedHeader')} ${total}`, ''];
     for (const { card, count } of owned) {
       lines.push(
         `[x${count}] ${card.name}`,

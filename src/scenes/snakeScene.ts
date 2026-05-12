@@ -4675,7 +4675,7 @@ export default class SnakeScene extends Phaser.Scene {
     const options: ChoiceOption[] = CARD_TABLES.map((table) => ({
       id: `table:${table.id}`,
       title: table.name,
-      description: `Best of 3. Land between ${table.minScore} and ${table.maxScore}. Choose your wager next. Deck: ${ownedCount} cards.`,
+      description: `Best of 3. Land between ${table.minScore} and ${table.maxScore}. Choose your wager next. ${i18n.getFeatureString('cardInfo')} ${ownedCount} cards.`,
     }));
     options.push({
       id: 'back',
@@ -5461,7 +5461,7 @@ export default class SnakeScene extends Phaser.Scene {
         giverName,
         [
           ...dialogue.pages.slice(0, 1),
-          `You already carry this charge: ${request.quest.label}. Finish it, then come slither back to me.`,
+          `${i18n.getFeatureString('alreadyCarriesThis')} ${request.quest.label}. Finish it, then come slither back to me.`,
         ],
         {
           onClose: () => this.closeQuestPopup(),
@@ -5478,7 +5478,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestDialogue(
         giverName,
         [
-          `That task is already behind us: ${request.quest.label}.`,
+          `${i18n.getFeatureString('taskAlreadyDone')} ${request.quest.label}.`,
           'Come back when the tunnels have another favor to ask of your scales.',
         ],
         {

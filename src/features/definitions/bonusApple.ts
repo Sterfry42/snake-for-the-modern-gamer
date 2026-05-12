@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
+import { i18n } from '../../i18n/i18nManager.js';
 
 const ACTIVATION_CHANCE = 0.005;
 
@@ -14,7 +15,7 @@ class BonusAppleFeature extends Feature {
   override onRegister(scene: SnakeScene): void {
     if (!this.statusText) {
       this.statusText = scene.add
-        .text(10, 48, 'Bonus apple ready', {
+        .text(10, 48, i18n.getFeatureString('bonusAppleReady'), {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: '#54ff9a',

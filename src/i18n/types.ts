@@ -38,3 +38,43 @@ export interface NpcTranslations {
 export interface CommonTranslations {
   [key: string]: unknown;
 }
+
+export interface QuestStrings {
+  [questId: string]: {
+    label: string;
+    description: string;
+  };
+}
+
+export interface FeatureStrings {
+  questLabel: string;
+  questsHeader: string;
+  noCardsOwned: string;
+  cardsOwnedHeader: string;
+  cardsInfo: string;
+  scoreLabel: string;
+  lengthLabel: string;
+  bonusAppleReady: string;
+  killstreakHeader: string;
+  killstreakToNext: string;
+  killstreakMaxStreak: string;
+  killstreakBest: string;
+  killstreakScoreTime: string;
+  killConfirmed: string;
+  streakReset: string;
+  streakLost: string;
+  tierReconDrone: string;
+  tierReconDroneCallout: string;
+  tierAttackChopper: string;
+  tierAttackChopperCallout: string;
+  tierTacticalNuke: string;
+  tierTacticalNukeCallout: string;
+  faithTitle: string;
+  backgroundTitle: string;
+  classTitle: string;
+  gameplayBonus: string;
+  startReligionTitle: string;
+  alreadyCarriesThis: string;
+  taskAlreadyDone: string;
+  cardInfo: string;
+}
