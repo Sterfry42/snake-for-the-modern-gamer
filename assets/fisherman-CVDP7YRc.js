@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-Bpr_u20u.js";class t extends s{constructor(){super("fisherman","Deep Waters","Hunt 5 fish in the sunken ocean")}isCompleted(e){return this.progressSinceAccept(e,"fishHunted")>=5}baselineKeys(){return["fishHunted"]}onReward(e){e.addScore(20),e.addItem("cooked-fish",3)}}const a=new t;export{a as default};

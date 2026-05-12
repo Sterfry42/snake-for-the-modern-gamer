@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class r extends t{constructor(){super("herd-master","Herd Master","Have 3 tamed deer following you at once")}isCompleted(e){return(e.getFlag("tamedDeerCount")??0)>=3}onReward(e){e.addScore(50),e.addItem("rope",2),e.addItem("lead",1)}}const s=new r;export{s as default};

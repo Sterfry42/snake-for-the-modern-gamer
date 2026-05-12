@@ -1,0 +1,1 @@
+import{Q as a}from"./quest-Bpr_u20u.js";class s extends a{constructor(){super("tame-the-fox","Wild and Free","Tame a fox using a rope")}isCompleted(e){return this.progressSinceAccept(e,"animalsTamed")>=1}baselineKeys(){return["animalsTamed"]}onReward(e){e.addScore(30),e.addCosmeticReward("style","goblin-hide")}}const r=new s;export{r as default};

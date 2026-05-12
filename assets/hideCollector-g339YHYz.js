@@ -1,0 +1,1 @@
+import{Q as o}from"./quest-Bpr_u20u.js";class t extends o{constructor(){super("hide-collector","Tough Hide","Collect 5 hides from hunted animals")}isCompleted(e){return this.progressSinceAccept(e,"hideCollected")>=5}baselineKeys(){return["hideCollected"]}onReward(e){e.addScore(25),e.addItem("cooked-meat",3)}}const l=new t;export{l as default};

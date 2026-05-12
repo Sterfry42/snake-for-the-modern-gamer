@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class a extends t{constructor(){super("hunt-rabbit","Rabbit Run","Hunt 3 rabbits and collect raw meat")}isCompleted(e){return this.progressSinceAccept(e,"rawMeatCollected")>=3}baselineKeys(){return["rawMeatCollected"]}onReward(e){e.addScore(15),e.addItem("rope",1)}}const n=new a;export{n as default};

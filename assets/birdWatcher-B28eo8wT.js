@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-Bpr_u20u.js";class s extends r{constructor(){super("bird-watcher","Feathered Friends","Spot 3 different animal types")}isCompleted(e){return this.progressSinceAccept(e,"animalsDiscovered")>=3}baselineKeys(){return["animalsDiscovered"]}onReward(e){e.addScore(15),e.addItem("feather",3)}}const d=new s;export{d as default};

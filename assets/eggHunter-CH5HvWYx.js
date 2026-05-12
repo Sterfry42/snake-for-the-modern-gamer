@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class s extends t{constructor(){super("egg-hunter","Egg Hunter","Collect 3 bird eggs")}isCompleted(e){return this.progressSinceAccept(e,"eggsCollected")>=3}baselineKeys(){return["eggsCollected"]}onReward(e){e.addScore(20),e.addItem("egg",1)}}const o=new s;export{o as default};

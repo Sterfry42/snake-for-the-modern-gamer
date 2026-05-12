@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-Bpr_u20u.js";class t extends r{constructor(){super("bear-hunter","Apex","Hunt a bear in the elderwood or sable depths")}isCompleted(e){return this.progressSinceAccept(e,"bearsHunted")>=1}baselineKeys(){return["bearsHunted"]}onReward(e){e.addScore(40),e.addItem("hide",3)}}const n=new t;export{n as default};

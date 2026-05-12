@@ -1,0 +1,1 @@
+import{Q as a}from"./quest-Bpr_u20u.js";class s extends a{constructor(){super("wolf-tamer","Trusty Companion","Tame a wolf using a lead")}isCompleted(e){return this.progressSinceAccept(e,"animalsTamed")>=1}baselineKeys(){return["animalsTamed"]}onReward(e){e.addScore(45),e.addItem("lead",1)}}const t=new s;export{t as default};
