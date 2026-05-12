@@ -10,6 +10,7 @@ import {
 } from '../systems/snakeState.js';
 import { BossManager } from '../systems/boss.js';
 import { EnemyManager, type BulletInstance } from '../systems/enemies.js';
+import { AnimalManager } from '../animals/animalManager.js';
 import { WorldService } from '../world/worldService.js';
 import { QuestController } from '../systems/questController.js';
 import type { QuestGiverRequest } from '../systems/questController.js';
@@ -382,6 +383,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly snake: SnakeState;
   public readonly bosses: BossManager;
   private readonly enemies: EnemyManager;
+  private readonly animals: AnimalManager;
   private readonly questController: QuestController;
   private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
@@ -417,6 +419,7 @@ export class SnakeGame implements QuestRuntime {
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid);
     this.enemies = new EnemyManager(config.grid, this.rng);
+    this.animals = new AnimalManager(config.grid, this.rng);
     this.questController = new QuestController(registry, {
       initialQuestCount: config.quests.initialQuestCount,
       initialQuestIds: config.quests.initialQuestIds ?? [],
@@ -436,6 +439,7 @@ export class SnakeGame implements QuestRuntime {
     this.snake.reset(this.config.world.originRoomId);
     this.bosses.clearAll();
     this.enemies.clearAll();
+    this.animals.clearAll();
     this.questController.reset(this);
     this.inventory.clear();
     this.visitedRooms.clear();
@@ -522,6 +526,11 @@ export class SnakeGame implements QuestRuntime {
       this.snake.score,
     );
     this.enemies.ensureEnemy(
+      this.snake.currentRoomId,
+      this.world.getRoom(this.snake.currentRoomId),
+      this.config.snake.initialBody,
+    );
+    this.animals.ensureAnimals(
       this.snake.currentRoomId,
       this.world.getRoom(this.snake.currentRoomId),
       this.config.snake.initialBody,
@@ -614,6 +623,7 @@ export class SnakeGame implements QuestRuntime {
           this.bosses.spawnBoss(newRoomId, 'freaker-dennis');
         }
         this.enemies.ensureEnemy(newRoomId, this.world.getRoom(newRoomId), []);
+        this.animals.ensureAnimals(newRoomId, this.world.getRoom(newRoomId), []);
         this.maybeQueueFreakJoeyEncounter(newRoomId);
         const newRoom = this.world.getRoom(newRoomId);
         const lastBiomeId = this.getFlag<string>('ui.lastBiomeId');
@@ -1040,12 +1050,119 @@ export class SnakeGame implements QuestRuntime {
       }
     }
 
+    if (currentHead) {
+      const animalResult = this.animals.handleSnakeOverlap(
+        this.snake.currentRoomId,
+        currentHead,
+        this.snake.directionVector,
+      );
+      if (animalResult.damaged) {
+        if (
+          this.tryFortitudePhoenix(
+            { status: 'dead', reason: 'boss' },
+            roomsChanged,
+            previousRoom,
+          )
+        ) {
+          return this.createAliveStepResult({
+            appleEaten,
+            appleRewards,
+            appleWorldPosition,
+            appleSnapshot,
+            appleStateChanged,
+            roomsChanged,
+            roomHasChanged,
+          });
+        }
+        this.markDeathAtCurrentHead('boss');
+        return {
+          status: 'dead',
+          deathReason: 'boss',
+          apple: {
+            eaten: appleEaten,
+            rewards: appleRewards,
+            worldPosition: appleWorldPosition,
+            current: appleSnapshot,
+            stateChanged: appleStateChanged,
+          },
+          roomsChanged,
+          roomChanged: roomHasChanged,
+          questOffer: null,
+          questsCompleted: [],
+        };
+      }
+      if (animalResult.hunted) {
+        this.setFlag('ui.animalHunted', true);
+      }
+      if (animalResult.startleCount > 0) {
+        this.setFlag('ui.animalStartled', {
+          x: currentHead.x,
+          y: currentHead.y,
+          roomId: this.snake.currentRoomId,
+        });
+      }
+      if (animalResult.tamed) {
+        this.setFlag('ui.animalTamable', {
+          x: currentHead.x,
+          y: currentHead.y,
+          roomId: this.snake.currentRoomId,
+        });
+      }
+    }
+
     const enemyStep = this.enemies.step({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.snake.bodySegments,
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
     });
+    const animalStep = this.animals.step({
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      snake: this.snake.bodySegments,
+      currentRoomId: this.snake.currentRoomId,
+      snakeDirection: this.snake.directionVector,
+    });
+    if (animalStep.damageTaken > 0) {
+      if (
+        this.tryFortitudePhoenix(
+          { status: 'dead', reason: 'boss' },
+          roomsChanged,
+          previousRoom,
+        )
+      ) {
+        return this.createAliveStepResult({
+          appleEaten,
+          appleRewards,
+          appleWorldPosition,
+          appleSnapshot,
+          appleStateChanged,
+          roomsChanged,
+          roomHasChanged,
+        });
+      }
+      this.markDeathAtCurrentHead('boss');
+      return {
+        status: 'dead',
+        deathReason: 'boss',
+        apple: {
+          eaten: appleEaten,
+          rewards: appleRewards,
+          worldPosition: appleWorldPosition,
+          current: appleSnapshot,
+          stateChanged: appleStateChanged,
+        },
+        roomsChanged,
+        roomChanged: roomHasChanged,
+        questOffer: null,
+        questsCompleted: [],
+      };
+    }
+    if (animalStep.hunted > 0) {
+      this.setFlag('ui.animalHunted', true);
+    }
+    if (animalStep.startleCount > 0) {
+      roomsChanged.add(this.snake.currentRoomId);
+    }
     if (
       enemyStep.bulletHits > 0 &&
       this.applyBulletDamage(enemyStep.bulletHits, enemyStep.hitStyle)
@@ -1951,6 +2068,10 @@ export class SnakeGame implements QuestRuntime {
 
   getEnemies(roomId: string) {
     return this.enemies.getEnemiesInRoom(roomId);
+  }
+
+  getAnimals(roomId: string) {
+    return this.animals.getAnimalsInRoom(roomId);
   }
 
   getEnemyBullets(roomId: string) {

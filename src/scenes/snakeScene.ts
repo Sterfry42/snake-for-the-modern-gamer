@@ -3312,6 +3312,7 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: this.snakeCosmetics.activeHat,
       enemies: this.snakeGame.getEnemies(room.id),
       bullets: this.snakeGame.getEnemyBullets(room.id),
+      animals: this.snakeGame.getAnimals(room.id),
     });
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
