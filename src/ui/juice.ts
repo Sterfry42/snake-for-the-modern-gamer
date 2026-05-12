@@ -24,6 +24,7 @@ export class JuiceManager {
   private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private houseMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private heavenMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private hellMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private titleMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private titleMusicTimer?: Phaser.Time.TimerEvent;
   private cardMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
@@ -1372,6 +1373,124 @@ export class JuiceManager {
       } catch {}
     }, 650);
     this.heavenMusic = undefined;
+  }
+
+  startHellMusic(): void {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+
+    this.stopBossMusic();
+    this.stopPowerupMusic();
+    this.stopHeavenMusic();
+    this.stopHellMusic();
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 600;
+    filter.Q.value = 1.2;
+    filter.connect(gain);
+
+    const chord = [
+      { frequency: 82.41, type: 'sawtooth' as OscillatorType, volume: 0.14 },
+      { frequency: 87.31, type: 'sawtooth' as OscillatorType, volume: 0.12 },
+      { frequency: 110.0, type: 'square' as OscillatorType, volume: 0.06 },
+    ];
+
+    const sources: OscillatorNode[] = [];
+    const cleanup: AudioNode[] = [filter];
+
+    for (const note of chord) {
+      const osc = this.ctx.createOscillator();
+      osc.type = note.type;
+      osc.frequency.setValueAtTime(note.frequency, now);
+      const noteGain = this.ctx.createGain();
+      noteGain.gain.value = note.volume;
+      osc.connect(noteGain);
+      noteGain.connect(filter);
+
+      const lfo = this.ctx.createOscillator();
+      lfo.type = 'sine' as OscillatorType;
+      lfo.frequency.value = 0.12 + Math.random() * 0.15;
+      const lfoGain = this.ctx.createGain();
+      lfoGain.gain.value = note.frequency * 0.015;
+      lfo.connect(lfoGain);
+      lfoGain.connect(osc.frequency);
+      lfoGain.gain.setValueAtTime(0, now);
+      lfoGain.gain.linearRampToValueAtTime(note.frequency * 0.015, now + 1.5);
+
+      osc.start(now);
+      lfo.start(now);
+      sources.push(osc, lfo);
+      cleanup.push(noteGain, lfoGain);
+    }
+
+    // Heartbeat kick: low sub pulse
+    const sub = this.ctx.createOscillator();
+    sub.type = 'sine' as OscillatorType;
+    sub.frequency.setValueAtTime(42, now);
+    const subGain = this.ctx.createGain();
+    subGain.gain.setValueAtTime(0.0001, now);
+    sub.connect(subGain);
+    subGain.connect(filter);
+    sub.start(now);
+    sources.push(sub);
+    cleanup.push(subGain);
+
+    const pulseLfo = this.ctx.createOscillator();
+    pulseLfo.type = 'sine' as OscillatorType;
+    pulseLfo.frequency.value = 0.8;
+    const pulseLfoGain = this.ctx.createGain();
+    pulseLfoGain.gain.setValueAtTime(0, now);
+    pulseLfo.connect(pulseLfoGain);
+    pulseLfoGain.connect(subGain.gain);
+    pulseLfoGain.gain.setValueAtTime(0.12, now);
+    pulseLfo.start(now);
+    sources.push(pulseLfo);
+    cleanup.push(pulseLfoGain);
+
+    try {
+      gain.gain.exponentialRampToValueAtTime(0.35, now + 2);
+    } catch {}
+
+    this.hellMusic = { gain, sources, cleanup };
+  }
+
+  stopHellMusic(): void {
+    if (!this.hellMusic) return;
+    const { gain, sources, cleanup } = this.hellMusic;
+    const now = this.ctx.currentTime;
+    try {
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+    } catch {}
+    for (const source of sources) {
+      try {
+        source.stop(now + 0.55);
+      } catch {}
+    }
+    globalThis.setTimeout(() => {
+      for (const source of sources) {
+        try {
+          source.disconnect();
+        } catch {}
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {}
+      }
+      try {
+        gain.disconnect();
+      } catch {}
+    }, 650);
+    this.hellMusic = undefined;
   }
 
   // Soft glow pulse to indicate restful tick
