@@ -81,6 +81,56 @@ export class JuiceManager {
     );
   }
 
+  scoreDelta(worldX: number, worldY: number, amount: number) {
+    if (amount === 0) {
+      return;
+    }
+    const gain = amount > 0;
+    const magnitude = Math.min(40, Math.abs(amount));
+    const colors = gain ? [0xfff3a8, 0xffd166, 0x5dd6a2] : [0xff6b6b, 0xff8f8f, 0xffc2c2];
+    const color = gain ? 0xfff3a8 : 0xff6b6b;
+    this.playTone({
+      frequency: gain ? 440 + magnitude * 8 : 240,
+      frequencyEnd: gain ? 620 + magnitude * 10 : 120,
+      duration: 0.12 + Math.min(0.18, magnitude * 0.006),
+      type: gain ? "triangle" : "sawtooth",
+      volume: 0.08 + Math.min(0.08, magnitude * 0.004),
+    });
+    if (Math.abs(amount) >= 5) {
+      this.spawnBurst(worldX, worldY, { colors, count: 8 + Math.floor(magnitude * 0.55), radius: 16 + magnitude * 0.45 });
+      this.ringPulse(worldX, worldY, color, 8 + Math.min(12, magnitude * 0.35), 2, 180 + magnitude * 4);
+    }
+    if (Math.abs(amount) >= 20) {
+      this.scene.cameras.main.flash(90, gain ? 255 : 255, gain ? 230 : 90, gain ? 120 : 90, true);
+      this.punchZoom(1.025, 120);
+    }
+  }
+
+  lengthGain(worldX: number, worldY: number, amount: number) {
+    if (amount <= 0) {
+      return;
+    }
+    const magnitude = Math.min(12, amount);
+    this.playTone({ frequency: 300, frequencyEnd: 360 + magnitude * 36, duration: 0.18, type: "sine", volume: 0.08 });
+    this.ringPulse(worldX, worldY, 0x5dd6a2, 10 + magnitude * 2, 2, 240);
+    this.spawnBurst(worldX, worldY, { colors: [0x5dd6a2, 0xc8ffe1, 0x9ad1ff], count: 5 + magnitude * 2, radius: 14 + magnitude * 2 });
+  }
+
+  appleStreak(worldX: number, worldY: number, streak: number) {
+    if (streak < 2) {
+      return;
+    }
+    const capped = Math.min(12, streak);
+    const hot = streak >= 5;
+    this.playTone({ frequency: 520 + capped * 28, frequencyEnd: 720 + capped * 42, duration: 0.16, type: hot ? "square" : "triangle", volume: 0.09 + capped * 0.008 });
+    if (hot) {
+      this.playTone({ frequency: 130, frequencyEnd: 72, duration: 0.18, type: "sawtooth", volume: 0.08 });
+      this.kickCamera(0.01 + capped * 0.0015, 90 + capped * 8);
+    }
+    this.blastWave(worldX, worldY, hot ? [0xff8450, 0xffc857, 0xfff3a8] : [0x5dd6a2, 0xfff3a8], 14 + capped * 2);
+    this.floatingLabel(worldX, worldY - 18, `x${streak}`, hot ? "#ffcf5a" : "#c8ffe1", 18 + Math.min(8, capped));
+  }
+
   skillTreeOpened() {
     this.playTone({ frequency: 240, duration: 0.14, type: 'triangle', volume: 0.06 });
   }
@@ -492,6 +542,32 @@ export class JuiceManager {
     this.punchZoom(1.012, 80);
   }
 
+  cardPurchased(worldX: number, worldY: number, rarity: "common" | "uncommon" | "rare"): void {
+    const rare = rarity === "rare";
+    const uncommon = rarity === "uncommon";
+    const colors = rare ? [0xffd166, 0xfff3a8, 0xc77dff] : uncommon ? [0x9ad1ff, 0xcfe5ff, 0x5dd6a2] : [0x5dd6a2, 0xc8ffe1, 0xfff3a8];
+    this.playTone({ frequency: rare ? 520 : uncommon ? 440 : 360, frequencyEnd: rare ? 980 : uncommon ? 720 : 560, duration: rare ? 0.24 : 0.16, type: "triangle", volume: rare ? 0.13 : 0.09 });
+    if (rare) {
+      this.playTone({ frequency: 1174.66, duration: 0.18, type: "sine", volume: 0.08 });
+      this.scene.cameras.main.flash(120, 255, 220, 120, true);
+    }
+    this.spawnBurst(worldX, worldY, { colors, count: rare ? 24 : uncommon ? 16 : 10, radius: rare ? 30 : uncommon ? 22 : 16 });
+    this.ringPulse(worldX, worldY, colors[0]!, rare ? 16 : 10, 2, rare ? 280 : 210);
+    this.floatingLabel(worldX, worldY - 10, rare ? "RARE CARD" : uncommon ? "UNCOMMON CARD" : "+CARD", rare ? "#ffd166" : "#c8ffe1", rare ? 18 : 14);
+  }
+
+  cardSuitSpark(worldX: number, worldY: number, suit: string): void {
+    const color =
+      suit === "moss" ? 0x5dd66f :
+      suit === "teeth" ? 0xff6b6b :
+      suit === "lanterns" ? 0xffd166 :
+      suit === "moons" ? 0x9ad1ff :
+      suit === "smoke" ? 0xc77dff :
+      0xfff3a8;
+    this.ringPulse(worldX, worldY, color, 5, 1, 140);
+    this.spawnBurst(worldX, worldY, { colors: [color, 0xfff3a8], count: 4, radius: 9 });
+  }
+
   cardModifierTick(multiplier: number): void {
     this.playTone({
       frequency: 660,
@@ -502,6 +578,27 @@ export class JuiceManager {
     });
     this.scene.cameras.main.flash(80, 255, 230, 120, true);
     this.punchZoom(1.025, 110);
+  }
+
+  cardRuleTrigger(worldX: number, worldY: number, detail: string, index: number): void {
+    const text = detail.toLowerCase();
+    const harmful = text.includes("cost") || text.includes("worse") || text.includes("narrows");
+    const color =
+      text.includes("moss") ? 0x5dd66f :
+      text.includes("smoke") ? 0xc77dff :
+      text.includes("angel") || text.includes("moon") ? 0x9ad1ff :
+      text.includes("market") || text.includes("accountant") ? 0xffd166 :
+      harmful ? 0xff6b6b :
+      0xfff3a8;
+    this.playTone({
+      frequency: harmful ? 220 : 540 + index * 42,
+      frequencyEnd: harmful ? 110 : 740 + index * 38,
+      duration: harmful ? 0.16 : 0.14,
+      type: harmful ? "sawtooth" : "triangle",
+      volume: 0.07,
+    });
+    this.ringPulse(worldX, worldY, color, 8 + index * 2, 1, 190);
+    this.spawnBurst(worldX, worldY, { colors: [color, harmful ? 0xff6b6b : 0xfff3a8], count: harmful ? 8 : 6, radius: 14 + index * 2 });
   }
 
   cardRoundResult(won: boolean): void {
@@ -518,6 +615,82 @@ export class JuiceManager {
         volume: 0.09,
       });
       this.scene.cameras.main.shake(100, 0.006);
+    }
+  }
+
+  cardWager(amount: number): void {
+    const size = Math.min(36, Math.max(4, amount));
+    this.playTone({ frequency: 240, frequencyEnd: 160, duration: 0.12, type: "triangle", volume: 0.08 });
+    this.playTone({ frequency: 420 + size * 4, duration: 0.1, type: "square", volume: 0.07 });
+    const cam = this.scene.cameras.main;
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffd166, 12 + size * 0.35, 2, 220);
+  }
+
+  cardHandDealt(worldX: number, worldY: number, count: number): void {
+    const safeCount = Math.max(1, count);
+    this.playTone({ frequency: 320, frequencyEnd: 520, duration: 0.16, type: "triangle", volume: 0.07 });
+    for (let i = 0; i < safeCount; i += 1) {
+      globalThis.setTimeout(() => {
+        this.playTone({ frequency: 420 + i * 42, duration: 0.055, type: "square", volume: 0.045 });
+        this.spawnBurst(worldX + (i - safeCount / 2) * 22, worldY, { colors: [0xfff3a8, 0xcfa77a, 0x9ad1ff], count: 3, radius: 8 });
+      }, i * 45);
+    }
+  }
+
+  cardSelect(worldX: number, worldY: number, selected: boolean, rarity: "common" | "uncommon" | "rare"): void {
+    const rare = rarity === "rare";
+    const uncommon = rarity === "uncommon";
+    const color = rare ? 0xffd166 : uncommon ? 0x9ad1ff : 0x5dd6a2;
+    this.playTone({
+      frequency: selected ? (rare ? 680 : uncommon ? 560 : 460) : 260,
+      frequencyEnd: selected ? (rare ? 920 : uncommon ? 700 : 560) : 190,
+      duration: selected ? 0.12 : 0.08,
+      type: selected ? "triangle" : "sine",
+      volume: rare && selected ? 0.09 : 0.055,
+    });
+    this.ringPulse(worldX, worldY, color, selected ? 8 : 5, selected ? 2 : 1, 160);
+    if (selected || rare) {
+      this.spawnBurst(worldX, worldY, { colors: [color, 0xfff3a8], count: rare ? 10 : 5, radius: rare ? 16 : 10 });
+    }
+  }
+
+  cardScoreCommit(worldX: number, worldY: number, selectedCount: number): void {
+    const count = Math.max(0, selectedCount);
+    if (count === 0) {
+      this.playTone({ frequency: 180, frequencyEnd: 120, duration: 0.12, type: "sawtooth", volume: 0.07 });
+      this.kickCamera(0.004, 70);
+      return;
+    }
+    this.playTone({ frequency: 360, frequencyEnd: 560 + count * 70, duration: 0.18, type: "square", volume: 0.09 });
+    this.punchZoom(1.018 + Math.min(0.02, count * 0.004), 110);
+    this.blastWave(worldX, worldY, [0xfff3a8, 0x9ad1ff], 16 + count * 3);
+  }
+
+  cardBust(worldX: number, worldY: number, reason: "empty" | "low" | "high"): void {
+    const label = reason === "empty" ? "EMPTY" : reason === "low" ? "TOO LOW" : "TOO HIGH";
+    this.playTone({ frequency: reason === "high" ? 260 : 190, frequencyEnd: reason === "high" ? 80 : 120, duration: 0.2, type: "sawtooth", volume: 0.085 });
+    this.kickCamera(reason === "empty" ? 0.006 : 0.011, 110);
+    this.ringPulse(worldX, worldY, 0xff6b6b, 14, 2, 230);
+    this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffb3a8], count: reason === "empty" ? 6 : 12, radius: reason === "empty" ? 13 : 20 });
+    this.floatingLabel(worldX, worldY - 8, label, "#ffb3a8", 16);
+  }
+
+  cardMatchResult(won: boolean, payout = 0): void {
+    const cam = this.scene.cameras.main;
+    if (won) {
+      this.playTone({ frequency: 392, duration: 0.1, type: "triangle", volume: 0.11 });
+      this.playTone({ frequency: 587.33, duration: 0.14, type: "triangle", volume: 0.1 });
+      this.playTone({ frequency: 783.99, duration: 0.22, type: "sine", volume: 0.11 });
+      this.scene.cameras.main.flash(170, 255, 220, 120, true);
+      this.punchZoom(1.06, 200);
+      this.blastWave(cam.midPoint.x, cam.midPoint.y, [0x5dd6a2, 0xfff3a8, 0xffd166], 38);
+      this.floatingLabel(cam.midPoint.x, 76, payout > 0 ? `+${payout} SCORE` : "MATCH WON", "#fff3a8", 18);
+    } else {
+      this.playTone({ frequency: 240, frequencyEnd: 80, duration: 0.34, type: "sawtooth", volume: 0.1 });
+      this.scene.cameras.main.flash(120, 255, 80, 80, true);
+      this.kickCamera(0.014, 180);
+      this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xff6b6b, 28, 2, 280);
+      this.floatingLabel(cam.midPoint.x, 76, "MATCH LOST", "#ffb3a8", 18);
     }
   }
 
@@ -596,6 +769,14 @@ export class JuiceManager {
       volume: 0.12,
     });
     this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffa36c], count: 10, radius: 18 });
+  }
+
+  enemyEaten(worldX: number, worldY: number) {
+    this.playTone({ frequency: 260, frequencyEnd: 120, duration: 0.16, type: "sawtooth", volume: 0.11 });
+    this.playTone({ frequency: 520, frequencyEnd: 720, duration: 0.12, type: "square", volume: 0.08 });
+    this.kickCamera(0.016, 90);
+    this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffcf8a, 0xfff3a8], count: 18, radius: 24 });
+    this.ringPulse(worldX, worldY, 0xff8f5a, 12, 2, 190);
   }
 
   // Big apex moment: shockwave + zoom punch + particles
@@ -776,6 +957,22 @@ export class JuiceManager {
     });
   }
 
+  notice(worldX: number, worldY: number, color: number, urgent = false) {
+    this.playTone({
+      frequency: urgent ? 220 : 460,
+      frequencyEnd: urgent ? 160 : 620,
+      duration: urgent ? 0.14 : 0.12,
+      type: urgent ? "sawtooth" : "triangle",
+      volume: urgent ? 0.08 : 0.055,
+    });
+    this.ringPulse(worldX, worldY, color, urgent ? 10 : 7, 1, 190);
+    this.spawnBurst(worldX, worldY, {
+      colors: [color, urgent ? 0xff6b6b : 0xfff3a8, 0x9ad1ff],
+      count: urgent ? 10 : 6,
+      radius: urgent ? 18 : 12,
+    });
+  }
+
   setMovementNoiseMultiplier(multiplier: number) {
     this.movementNoiseMultiplier = Math.max(0, multiplier);
   }
@@ -876,6 +1073,38 @@ export class JuiceManager {
       () => this.ringPulse(worldX, worldY, kind === 'gun' ? 0xffe0a3 : 0xc77dff, 20, 2, 280),
       100,
     );
+  }
+
+  powerupTick(worldX: number, worldY: number, kind: string, remaining: number, total: number) {
+    const safeTotal = Math.max(1, total);
+    const progress = Phaser.Math.Clamp(remaining / safeTotal, 0, 1);
+    const ending = progress < 0.22;
+    const colors =
+      kind === "gun" ? [0xf6bd60, 0xffe0a3, 0xff8c42] :
+      kind === "smite" ? [0xff6b6b, 0xd7263d, 0xffd166] :
+      [0x9b5de5, 0xc77dff, 0x7ad1ff];
+    const mote = this.scene.add.circle(
+      worldX + Phaser.Math.Between(-8, 8),
+      worldY + Phaser.Math.Between(-8, 8),
+      Phaser.Math.Between(2, ending ? 4 : 3),
+      Phaser.Utils.Array.GetRandom(colors),
+      ending ? 0.9 : 0.58
+    );
+    mote.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(mote);
+    this.scene.tweens.add({
+      targets: mote,
+      x: mote.x + Phaser.Math.Between(-8, 8),
+      y: mote.y - Phaser.Math.Between(10, 22),
+      alpha: 0,
+      scale: ending ? 0.25 : 0.45,
+      duration: ending ? 260 : 420,
+      ease: "Cubic.easeOut",
+      onComplete: () => mote.destroy(),
+    });
+    if (ending) {
+      this.playTone({ frequency: 760, frequencyEnd: 420, duration: 0.08, type: "triangle", volume: 0.035 });
+    }
   }
 
   wandererReveal(worldX: number, worldY: number) {
@@ -1049,16 +1278,37 @@ export class JuiceManager {
       type: 'square',
       volume: 0.13,
     });
+    this.playTone({
+      frequency: 96,
+      frequencyEnd: 52,
+      duration: 0.1,
+      type: 'sawtooth',
+      volume: 0.065,
+    });
     const muzzleX = worldX + dx * 10;
     const muzzleY = worldY + dy * 10;
     this.spawnBurst(muzzleX, muzzleY, {
       colors: [0xfff3a8, 0xffc857, 0xff8c42],
-      count: 8,
-      radius: 12,
+      count: 12,
+      radius: 16,
     });
     this.ringPulse(muzzleX, muzzleY, 0xffc857, 6, 1, 120);
-    this.flashLine(muzzleX, muzzleY, muzzleX + dx * 26, muzzleY + dy * 26, 0xffd166, 2, 90);
-    this.kickCamera(0.006, 50);
+    this.flashLine(muzzleX, muzzleY, muzzleX + dx * 34, muzzleY + dy * 34, 0xffd166, 3, 90);
+    this.flashLine(muzzleX - dy * 2, muzzleY + dx * 2, muzzleX + dx * 22 - dy * 2, muzzleY + dy * 22 + dx * 2, 0xfff3a8, 1, 120);
+    this.kickCamera(0.009, 60);
+    const casing = this.scene.add.rectangle(worldX - dx * 3 - dy * 5, worldY - dy * 3 + dx * 5, 3, 2, 0xffd166, 0.9);
+    casing.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(casing);
+    this.scene.tweens.add({
+      targets: casing,
+      x: casing.x - dx * Phaser.Math.Between(4, 8) - dy * Phaser.Math.Between(8, 14),
+      y: casing.y - dy * Phaser.Math.Between(4, 8) + dx * Phaser.Math.Between(8, 14),
+      alpha: 0,
+      angle: Phaser.Math.Between(-160, 160),
+      duration: 320,
+      ease: "Cubic.easeOut",
+      onComplete: () => casing.destroy(),
+    });
   }
 
   playerHit(
@@ -1089,6 +1339,18 @@ export class JuiceManager {
     this.ringPulse(worldX, worldY, colors[0], 10, 2, 180);
     if (health <= Math.ceil(maxHealth / 3)) {
       this.punchZoom(1.045, 170);
+    }
+  }
+
+  dangerPulse(worldX: number, worldY: number, intensity: number) {
+    const level = Phaser.Math.Clamp(intensity, 0, 1);
+    if (level <= 0) {
+      return;
+    }
+    this.playTone({ frequency: 90 + level * 50, frequencyEnd: 60, duration: 0.16, type: "sine", volume: 0.035 + level * 0.045 });
+    this.ringPulse(worldX, worldY, 0xff3b3b, 8 + level * 10, 1 + Math.round(level), 220);
+    if (level > 0.65) {
+      this.kickCamera(0.006 + level * 0.006, 70);
     }
   }
 
@@ -1673,6 +1935,10 @@ export class JuiceManager {
     this.playTone({ frequency: 520, duration: 0.18, volume: 0.2 });
     this.playTone({ frequency: 780, duration: 0.22, volume: 0.15 });
     this.scene.cameras.main.flash(160, 120, 200, 255, true);
+    const cam = this.scene.cameras.main;
+    this.punchZoom(1.055, 180);
+    this.blastWave(cam.midPoint.x, cam.midPoint.y, [0x5dd6a2, 0xfff3a8, 0x9ad1ff], 32);
+    this.floatingLabel(cam.midPoint.x, 74, "QUEST COMPLETE", "#fff3a8", 18);
   }
 
   gameOver() {
@@ -1775,6 +2041,26 @@ export class JuiceManager {
         onComplete: () => circle.destroy(),
       });
     }
+  }
+
+  private floatingLabel(worldX: number, worldY: number, label: string, color: string, fontSize: number) {
+    const text = this.scene.add.text(worldX, worldY, label, {
+      fontFamily: "monospace",
+      fontSize: `${fontSize}px`,
+      color,
+      stroke: "#1b1f2a",
+      strokeThickness: 3,
+    }).setDepth(33).setOrigin(0.5, 1).setAlpha(0.98);
+    this.overlayLayer.add(text);
+    this.scene.tweens.add({
+      targets: text,
+      y: worldY - 34,
+      alpha: 0,
+      scale: 1.22,
+      duration: 620,
+      ease: "Cubic.easeOut",
+      onComplete: () => text.destroy(),
+    });
   }
 
   // Expanding ring pulse

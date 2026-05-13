@@ -62,6 +62,7 @@ interface SnakeRenderOptions {
   cowboyHat?: boolean;
   activeHat?: SnakeHatStyle | null;
   enemies?: readonly EnemyInstance[];
+  followers?: readonly EnemyInstance[];
   bullets?: readonly BulletInstance[];
   animals?: readonly AnimalInstance[];
 }
@@ -177,7 +178,7 @@ export class SnakeRenderer {
       opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
     );
     this.drawAnimals(opts.animals ?? []);
-    this.drawEnemies(opts.enemies ?? []);
+    this.drawEnemies([...(opts.enemies ?? []), ...(opts.followers ?? [])]);
     this.drawBullets(opts.bullets ?? []);
   }
 

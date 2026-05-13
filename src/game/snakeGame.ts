@@ -51,6 +51,16 @@ import {
   type FactionId,
 } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
+import { RelationshipController } from '../relationships/relationshipController.js';
+import type {
+  DatingCandidateView,
+  RelationshipCandidateProfile,
+  RelationshipChoice,
+  RelationshipEventResult,
+  RelationshipSpecies,
+  RelationshipState,
+  RelationshipTalkResult,
+} from '../relationships/relationshipTypes.js';
 
 type StagedQuestStage =
   | 'visit-offices'
@@ -87,6 +97,17 @@ interface StagedQuestInstance {
   totalRadiationMs?: number;
   bossId?: string;
   failureReason?: string;
+}
+
+export interface FollowerInstance {
+  id: string;
+  kind: 'goblin-mercenary';
+  name: string;
+  roomId: string;
+  position: Vector2Like;
+  direction: Vector2Like;
+  mode: 'follow' | 'guard';
+  attackCooldown: number;
 }
 
 export interface QuestMapMarker {
@@ -385,6 +406,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly enemies: EnemyManager;
   private readonly animals: AnimalManager;
   private readonly questController: QuestController;
+  private readonly relationshipController: RelationshipController;
   private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
   private readonly npcDisposition = new Map<
@@ -426,6 +448,10 @@ export class SnakeGame implements QuestRuntime {
       maxActiveQuests: config.quests.maxActiveQuests,
       questOfferChance: config.quests.questOfferChance,
       rng: this.rng,
+    });
+    this.relationshipController = new RelationshipController({
+      getFlag: (key) => this.getFlag(key),
+      setFlag: (key, value) => this.setFlag(key, value),
     });
     this.inventory = new InventorySystem();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
@@ -493,6 +519,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('wards.contracts', undefined);
     this.setFlag('wards.usage', undefined);
     this.setFlag('wards.lastTriggered', undefined);
+    this.setFlag('followers.active', undefined);
     this.setFlag('equipment.refundEveryRooms', undefined);
     this.setFlag('equipment.appleScorePenalty', undefined);
     this.setFlag('equipment.hazardMapSense', undefined);
@@ -530,7 +557,7 @@ export class SnakeGame implements QuestRuntime {
       this.world.getRoom(this.snake.currentRoomId),
       this.config.snake.initialBody,
     );
-    this.animals.ensureAnimals(
+    this.animals.ensureAnimals( // TODO: Create test
       this.snake.currentRoomId,
       this.world.getRoom(this.snake.currentRoomId),
       this.config.snake.initialBody,
@@ -551,6 +578,22 @@ export class SnakeGame implements QuestRuntime {
   step(paused: boolean): StepResult {
     const roomsChanged = new Set<string>();
     const previousRoom = this.snake.currentRoomId;
+    const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
+    if (paused) {
+      return {
+        status: 'alive',
+        apple: {
+          eaten: false,
+          current: appleBeforeStep,
+          stateChanged: false,
+        },
+        roomsChanged,
+        roomChanged: false,
+        questOffer: null,
+        questsCompleted: [],
+      };
+    }
+
     const snakeSegments = Array.from(this.snake.bodySegments);
 
     this.hydratePredationConfig();
@@ -566,7 +609,6 @@ export class SnakeGame implements QuestRuntime {
     });
     this.reconcileStagedQuestBosses();
 
-    const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
     const headBeforeSnakeStep = this.snake.bodySegments[0];
     const bossOnHead = headBeforeSnakeStep
       ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
@@ -693,6 +735,15 @@ export class SnakeGame implements QuestRuntime {
       }
       this.setFlag('roomEntryTimeMs', timeMs);
       this.setFlag('roomsVisited', this.visitedRooms.size);
+      const relationshipTicks = this.relationshipController.tickNeglect(this.getRoomsVisitedCount());
+      if (relationshipTicks.length > 0) {
+        const latest = relationshipTicks[relationshipTicks.length - 1];
+        this.setFlag('ui.relationshipEvent', {
+          title: latest.title,
+          message: latest.message,
+          color: latest.color,
+        });
+      }
       this.handleEquipmentRoomRefund();
       this.handleStagedQuestRoomEntered(newRoomId);
     }
@@ -1215,6 +1266,22 @@ export class SnakeGame implements QuestRuntime {
     }
 
     this.tickPredationTimers();
+    const followerStep = this.tickFollowers();
+    if (followerStep.enemyDefeats > 0) {
+      this.addScore(followerStep.enemyDefeats * 2);
+      this.setFlag('ui.followerAction', {
+        kind: 'enemy',
+        count: followerStep.enemyDefeats,
+      });
+    }
+    if (followerStep.animalDefeats > 0) {
+      this.addScore(followerStep.animalDefeats);
+      this.setFlag('ui.followerAction', {
+        kind: 'animal',
+        count: followerStep.animalDefeats,
+      });
+      this.setFlag('ui.animalHunted', true);
+    }
     this.tickFortitudeStates();
     this.tickPlayerStates();
     if (this.tickTemperatureState()) {
@@ -2128,6 +2195,23 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('npc.randomEncounter.prompted', undefined);
     this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
+    const relationshipId = (encounter as any).relationshipId as string | undefined;
+    if (relationshipId) {
+      const rel = this.relationshipController.recordEncounterOutcome(
+        relationshipId,
+        accept,
+        this.getRoomsVisitedCount(),
+      );
+      if (accept && (encounter as any).rewardScore) {
+        this.addScore(Number((encounter as any).rewardScore));
+      }
+      this.setFlag('ui.relationshipEvent', {
+        title: rel.title,
+        message: rel.message,
+        color: rel.color,
+      });
+      return { kind: 'flavor', accepted: accept };
+    }
     this.recordWandererOutcome(encounter.id, accept);
     if (!accept) {
       if (encounter.oneShot) {
@@ -2416,6 +2500,80 @@ export class SnakeGame implements QuestRuntime {
     this.adjustFactionAlignment('goblin-camps', 2);
   }
 
+  getFollowers(): readonly FollowerInstance[] {
+    return this.getFollowerState();
+  }
+
+  hasFollowers(): boolean {
+    return this.getFollowerState().length > 0;
+  }
+
+  hireGoblinMercenary(name = 'Goblin Mercenary', price = 55): {
+    ok: boolean;
+    message: string;
+    color: string;
+  } {
+    if (this.hasFollowers()) {
+      return { ok: false, message: 'You already have a mercenary on contract.', color: '#9ad1ff' };
+    }
+    if (this.getScore() < price) {
+      return { ok: false, message: `Goblin mercenary costs ${price} score.`, color: '#ff6b6b' };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No body, no contract.', color: '#ff6b6b' };
+    }
+    this.addScore(-price);
+    const roomId = this.snake.currentRoomId;
+    const position = this.worldToLocal(roomId, head);
+    const follower: FollowerInstance = {
+      id: `follower-goblin-${Date.now().toString(36)}`,
+      kind: 'goblin-mercenary',
+      name,
+      roomId,
+      position: this.findFollowerStandPosition(roomId, position),
+      direction: { x: 0, y: 1 },
+      mode: 'follow',
+      attackCooldown: 0,
+    };
+    this.setFollowerState([follower]);
+    this.adjustFactionAlignment('goblin-camps', 3);
+    return { ok: true, message: `${name} hired. Q commands are now available.`, color: '#b6ff6a' };
+  }
+
+  commandFollowers(): { ok: boolean; message: string; color: string } {
+    const followers = this.getFollowerState();
+    if (followers.length === 0) {
+      return { ok: false, message: 'No mercenary to command.', color: '#ff6b6b' };
+    }
+    const nextMode = followers.some((follower) => follower.mode === 'follow') ? 'guard' : 'follow';
+    this.setFollowerState(followers.map((follower) => ({ ...follower, mode: nextMode })));
+    return {
+      ok: true,
+      message: nextMode === 'guard' ? 'Mercenary is guarding and hunting nearby.' : 'Mercenary is following.',
+      color: '#b6ff6a',
+    };
+  }
+
+  recallFollowers(): { ok: boolean; message: string; color: string } {
+    const followers = this.getFollowerState();
+    const head = this.snake.bodySegments[0];
+    if (followers.length === 0 || !head) {
+      return { ok: false, message: 'No mercenary to recall.', color: '#ff6b6b' };
+    }
+    const roomId = this.snake.currentRoomId;
+    const localHead = this.worldToLocal(roomId, head);
+    this.setFollowerState(
+      followers.map((follower) => ({
+        ...follower,
+        roomId,
+        position: this.findFollowerStandPosition(roomId, localHead),
+        mode: 'follow',
+      })),
+    );
+    return { ok: true, message: 'Mercenary recalled.', color: '#b6ff6a' };
+  }
+
   tryConsumeWardForDeath(reason?: string | null): boolean {
     if (!reason || !this.isWardDeathSource(reason)) {
       return false;
@@ -2451,6 +2609,255 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
+  private getFollowerState(): FollowerInstance[] {
+    const raw = this.getFlag<FollowerInstance[]>('followers.active') ?? [];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw
+      .filter((follower) => follower && follower.kind === 'goblin-mercenary')
+      .map((follower) => ({
+        ...follower,
+        direction: follower.direction ?? { x: 0, y: 1 },
+        mode: follower.mode === 'guard' ? 'guard' : 'follow',
+        attackCooldown: Math.max(0, Number(follower.attackCooldown ?? 0)),
+      }));
+  }
+
+  private setFollowerState(followers: readonly FollowerInstance[]): void {
+    this.setFlag('followers.active', followers.length > 0 ? followers.map((follower) => ({ ...follower })) : undefined);
+  }
+
+  private tickFollowers(): { enemyDefeats: number; animalDefeats: number } {
+    const followers = this.getFollowerState();
+    const head = this.snake.bodySegments[0];
+    if (followers.length === 0 || !head) {
+      return { enemyDefeats: 0, animalDefeats: 0 };
+    }
+    const roomId = this.snake.currentRoomId;
+    const localHead = this.worldToLocal(roomId, head);
+    let enemyDefeats = 0;
+    let animalDefeats = 0;
+
+    const nextFollowers = followers.map((follower) => {
+      let next =
+        follower.roomId === roomId
+          ? { ...follower }
+          : {
+              ...follower,
+              roomId,
+              position: this.findFollowerStandPosition(roomId, localHead),
+              mode: 'follow' as const,
+            };
+
+      next.attackCooldown = Math.max(0, next.attackCooldown - 1);
+      if (next.attackCooldown <= 0) {
+        const target = this.findFollowerTarget(roomId, next.position);
+        if (target) {
+          next.direction = {
+            x: Math.sign(target.position.x - next.position.x),
+            y: Math.sign(target.position.y - next.position.y),
+          };
+          if (target.kind === 'enemy') {
+            const worldTarget = this.localToWorld(roomId, target.position);
+            const hit = this.enemies.damageEnemyAt(roomId, worldTarget, 1);
+            if (hit.defeated) {
+              enemyDefeats += 1;
+            }
+          } else {
+            const hit = this.animals.damageAnimal(roomId, target.position, 1);
+            if (hit.defeated) {
+              animalDefeats += 1;
+            }
+          }
+          next.attackCooldown = 2;
+          return next;
+        }
+      }
+
+      if (next.mode === 'follow') {
+        const target = this.snake.bodySegments[1]
+          ? this.worldToLocal(roomId, this.snake.bodySegments[1])
+          : localHead;
+        next = this.moveFollowerToward(roomId, next, target);
+      }
+      return next;
+    });
+
+    this.setFollowerState(nextFollowers);
+    return { enemyDefeats, animalDefeats };
+  }
+
+  private findFollowerTarget(
+    roomId: string,
+    position: Vector2Like,
+  ): { kind: 'enemy' | 'animal'; position: Vector2Like } | null {
+    const enemies = this.enemies.getEnemiesInRoom(roomId);
+    const enemy = enemies
+      .filter((candidate) => this.distance(position, candidate.position) <= 2)
+      .sort((a, b) => this.distance(position, a.position) - this.distance(position, b.position))[0];
+    if (enemy) {
+      return { kind: 'enemy', position: enemy.position };
+    }
+    const animal = this.animals
+      .getAnimalsInRoom(roomId)
+      .filter((candidate) => this.distance(position, candidate.position) <= 2)
+      .sort((a, b) => this.distance(position, a.position) - this.distance(position, b.position))[0];
+    return animal ? { kind: 'animal', position: animal.position } : null;
+  }
+
+  private moveFollowerToward(
+    roomId: string,
+    follower: FollowerInstance,
+    target: Vector2Like,
+  ): FollowerInstance {
+    if (this.distance(follower.position, target) <= 1) {
+      return follower;
+    }
+    const dx = target.x - follower.position.x;
+    const dy = target.y - follower.position.y;
+    const directions =
+      Math.abs(dx) >= Math.abs(dy)
+        ? [
+            { x: Math.sign(dx), y: 0 },
+            { x: 0, y: Math.sign(dy) },
+          ]
+        : [
+            { x: 0, y: Math.sign(dy) },
+            { x: Math.sign(dx), y: 0 },
+          ];
+    for (const direction of directions) {
+      if (direction.x === 0 && direction.y === 0) {
+        continue;
+      }
+      const position = {
+        x: follower.position.x + direction.x,
+        y: follower.position.y + direction.y,
+      };
+      if (this.isFollowerTileOpen(roomId, position)) {
+        return { ...follower, position, direction };
+      }
+    }
+    return follower;
+  }
+
+  private findFollowerStandPosition(roomId: string, near: Vector2Like): Vector2Like {
+    const candidates = [
+      { x: near.x - 1, y: near.y },
+      { x: near.x + 1, y: near.y },
+      { x: near.x, y: near.y - 1 },
+      { x: near.x, y: near.y + 1 },
+      near,
+    ];
+    return candidates.find((position) => this.isFollowerTileOpen(roomId, position)) ?? near;
+  }
+
+  private isFollowerTileOpen(roomId: string, position: Vector2Like): boolean {
+    if (
+      position.x < 0 ||
+      position.x >= this.config.grid.cols ||
+      position.y < 0 ||
+      position.y >= this.config.grid.rows
+    ) {
+      return false;
+    }
+    const room = this.world.getRoom(roomId);
+    return room.layout[position.y]?.[position.x] !== '#';
+  }
+
+  private worldToLocal(roomId: string, position: Vector2Like): Vector2Like {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    return {
+      x: position.x - roomX * this.config.grid.cols,
+      y: position.y - roomY * this.config.grid.rows,
+    };
+  }
+
+  private localToWorld(roomId: string, position: Vector2Like): Vector2Like {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    return {
+      x: roomX * this.config.grid.cols + position.x,
+      y: roomY * this.config.grid.rows + position.y,
+    };
+  }
+
+  private distance(a: Vector2Like, b: Vector2Like): number {
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+  }
+
+  private getRoomsVisitedCount(): number {
+    return Number(this.getFlag<number>('roomsVisited') ?? this.visitedRooms.size);
+  }
+
+  private getGiftTags(itemId: string): string[] {
+    const item = getItem(itemId);
+    const haystack = `${itemId} ${item?.name ?? ''} ${item?.description ?? ''}`.toLowerCase();
+    const tags: string[] = [];
+    const addIf = (tag: string, pattern: RegExp) => {
+      if (pattern.test(haystack)) tags.push(tag);
+    };
+    addIf('food', /meat|fish|egg|honey/);
+    addIf('raw', /raw/);
+    addIf('cooked', /cooked|grilled/);
+    addIf('honey', /honey/);
+    addIf('card', /card|deck|wager/);
+    addIf('home', /couch|kitchen|bed|plant|lamp|hearth|house/);
+    addIf('warmth', /cloak|fire|phoenix|warm|sun|heat/);
+    addIf('phoenix', /phoenix/);
+    addIf('veil', /veil|starlight/);
+    addIf('luminous', /halo|starlight|sun|light/);
+    addIf('holy', /halo|angel|seer|veil/);
+    addIf('contract', /contract|ledger|debt|ward|refund/);
+    addIf('ledger', /ledger/);
+    addIf('ward', /ward|phoenix/);
+    addIf('hide', /hide|leather/);
+    addIf('tool', /rope|glove|mason|revolver|ring/);
+    addIf('gore', /raw|meat|hide/);
+    return tags.length > 0 ? tags : ['curio'];
+  }
+
+  private getRelationshipNpcPosition(profile: RelationshipCandidateProfile): Vector2Like | null {
+    if (!profile.homeRoomId) {
+      return null;
+    }
+    const room = this.world.getRoom(profile.homeRoomId);
+    const localId = profile.id.split(':').at(-1);
+    if (room.village) {
+      const resident = [...room.village.residents, room.village.shopkeeper].find(
+        (entry) => entry.id === localId,
+      );
+      if (resident) return { x: resident.x, y: resident.y };
+    }
+    if (room.goblinCamp) {
+      const resident = [room.goblinCamp.shopkeeper, ...room.goblinCamp.guards].find(
+        (entry) => entry.id === localId,
+      );
+      if (resident) return { x: resident.x, y: resident.y };
+    }
+    return null;
+  }
+
+  private spawnRelationshipHostile(
+    roomId: string,
+    relationshipId: string,
+    name: string,
+    position?: Vector2Like | null,
+  ): void {
+    const room = this.world.getRoom(roomId);
+    const spawn = position ?? this.findEncounterSpawn(roomId) ?? room.questGiver ?? { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
+    this.enemies.spawnHostileNpc(
+      roomId,
+      spawn,
+      name,
+      Math.max(4, this.getRoomsVisitedCount()),
+      relationshipId,
+    );
+    this.setFlag('ui.questInteraction', {
+      message: `${name} has stopped being a relationship and started being a consequence.`,
+    });
+    this.setFlag(`relationships.hostileSpawned.${relationshipId}`, true);
+  }
+
   insultNpc(
     roomId: string,
   ): { anger: number; hostility: 'friendly' | 'warning' | 'hostile'; name: string } | null {
@@ -2473,6 +2880,114 @@ export class SnakeGame implements QuestRuntime {
     }
     this.inventory.addItem(itemId, count);
     this.setFlag('ui.itemReward', { itemId, count });
+  }
+
+  getGiftableItems(): Array<{ itemId: string; name: string; count: number }> {
+    return this.inventory
+      .getAllItems()
+      .map(([itemId, count]) => ({ itemId, count, name: getItem(itemId)?.name ?? itemId }))
+      .filter((entry) => entry.count > 0);
+  }
+
+  ensureRelationshipCandidate(profile: RelationshipCandidateProfile): void {
+    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+  }
+
+  getDatingCandidateViews(): DatingCandidateView[] {
+    return this.relationshipController.getDatingTabView(
+      this.getRoomsVisitedCount(),
+      (factionId) => (factionId ? getFactionName(factionId) : 'Unaffiliated'),
+    );
+  }
+
+  getRelationshipState(profile: RelationshipCandidateProfile): RelationshipState | undefined {
+    return this.relationshipController.getState(profile.id);
+  }
+
+  isRelationshipHostile(profile: RelationshipCandidateProfile): boolean {
+    const state = this.relationshipController.getState(profile.id);
+    return state?.stage === 'hostile' || state?.stage === 'murderous';
+  }
+
+  getRelationshipTalk(profile: RelationshipCandidateProfile): RelationshipTalkResult {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    return (
+      this.relationshipController.getTalkLine(state.id, this.getRoomsVisitedCount(), this.rng) ?? {
+        title: profile.displayName,
+        line: 'The silence is so pointed it may qualify as dialogue.',
+        color: '#9ad1ff',
+        state,
+      }
+    );
+  }
+
+  applyRelationshipChoice(
+    profile: RelationshipCandidateProfile,
+    choice: RelationshipChoice,
+  ): RelationshipEventResult {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const result = this.relationshipController.applyChoice(
+      state.id,
+      choice,
+      this.getRoomsVisitedCount(),
+    );
+    if (result.becameHostile && profile.homeRoomId) {
+      this.spawnRelationshipHostile(
+        profile.homeRoomId,
+        state.id,
+        state.displayName,
+        this.getRelationshipNpcPosition(profile),
+      );
+    }
+    return result;
+  }
+
+  giveRelationshipGift(profile: RelationshipCandidateProfile, itemId: string): RelationshipEventResult {
+    const item = getItem(itemId);
+    if (!item || this.inventory.getItemCount(itemId) <= 0) {
+      return {
+        ok: false,
+        title: profile.displayName,
+        message: 'The gift is not in your pack.',
+        color: '#ff6b6b',
+      };
+    }
+    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    this.inventory.removeItem(itemId, 1);
+    const result = this.relationshipController.applyGift(
+      profile.id,
+      itemId,
+      item.name,
+      this.getGiftTags(itemId),
+      this.getRoomsVisitedCount(),
+    );
+    if (result.becameHostile && profile.homeRoomId) {
+      this.spawnRelationshipHostile(
+        profile.homeRoomId,
+        profile.id,
+        profile.displayName,
+        this.getRelationshipNpcPosition(profile),
+      );
+    }
+    return result;
+  }
+
+  createDeathRescuerRelationship(rescuer: 'angel' | 'goblin-angel'): RelationshipCandidateProfile {
+    return {
+      id: `death-rescuer:${rescuer}`,
+      displayName: rescuer === 'goblin-angel' ? 'The Goblin Angel' : 'The Angel',
+      species: rescuer,
+      portraitId: rescuer === 'goblin-angel' ? 'goblin-hostile' : 'sage-3',
+      factionId: rescuer === 'goblin-angel' ? 'goblin-camps' : 'hearthbound-remnant',
+    };
+  }
+
+  romanceDeathRescuer(rescuer: 'angel' | 'goblin-angel'): RelationshipEventResult {
+    const profile = this.createDeathRescuerRelationship(rescuer);
+    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const first = this.relationshipController.applyChoice(profile.id, 'flirt', this.getRoomsVisitedCount());
+    if (!first.ok) return first;
+    return this.relationshipController.applyChoice(profile.id, 'ask-out', this.getRoomsVisitedCount());
   }
 
   addCardToCollection(cardId: CardId, count = 1): void {
@@ -2501,6 +3016,9 @@ export class SnakeGame implements QuestRuntime {
       'factions.alignment',
       'wards.contracts',
       'wards.usage',
+      'followers.active',
+      'relationships.states',
+      'relationships.lastEncountered',
       'skills.ranks',
       'equipment.wallSenseRadiusBonus',
       'equipment.seismicPulseRadiusBonus',
@@ -3831,6 +4349,9 @@ export class SnakeGame implements QuestRuntime {
     if (room.questGiver) {
       return;
     }
+    if (this.queueRelationshipEncounter(roomId)) {
+      return;
+    }
     if (this.rng() > 1 / 15) {
       return;
     }
@@ -3883,6 +4404,62 @@ export class SnakeGame implements QuestRuntime {
       roomId,
       id: encounter.id,
     });
+  }
+
+  private queueRelationshipEncounter(roomId: string): boolean {
+    if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 5) {
+      return false;
+    }
+    if (this.rng() > 1 / 12) {
+      return false;
+    }
+    const encounter = this.relationshipController.chooseRelationshipEncounter(
+      this.getRoomsVisitedCount(),
+      this.rng,
+    );
+    if (!encounter) {
+      return false;
+    }
+    const spawn = this.findEncounterSpawn(roomId);
+    if (!spawn) {
+      return false;
+    }
+    const state = this.relationshipController.getState(encounter.relationshipId);
+    if (!state) {
+      return false;
+    }
+    if (encounter.kind === 'hostile') {
+      this.spawnRelationshipHostile(roomId, state.id, state.displayName);
+      this.lastWandererEncounterRoomCount = this.visitedRooms.size;
+      return true;
+    }
+    this.lastWandererEncounterRoomCount = this.visitedRooms.size;
+    this.setFlag('npc.randomEncounter', {
+      id: `relationship-${state.id}`,
+      relationshipId: state.id,
+      kind: 'flavor',
+      name: encounter.title,
+      pages: encounter.pages,
+      roomId,
+      x: spawn.x,
+      y: spawn.y,
+      statsNote: `Relationship: ${state.stage}. Affection ${state.affection}, Trust ${state.trust}, Jealousy ${state.jealousy}.`,
+      acceptLabel: encounter.acceptLabel,
+      rejectLabel: encounter.rejectLabel,
+      portraitId: state.portraitId,
+      rewardScore: encounter.rewardScore,
+      relationshipEncounterKind: encounter.kind,
+    });
+    const revealAtMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    this.setFlag('npc.randomEncounter.revealAtMs', revealAtMs);
+    this.setFlag('npc.randomEncounter.triggerAtMs', revealAtMs + 2200);
+    this.setFlag('ui.wandererReveal', {
+      x: spawn.x,
+      y: spawn.y,
+      roomId,
+      id: state.id,
+    });
+    return true;
   }
 
   getWandererEncounterHistory(id: string): EncounterHistoryEntry | undefined {

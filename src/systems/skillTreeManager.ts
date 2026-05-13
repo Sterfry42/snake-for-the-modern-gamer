@@ -3,6 +3,7 @@ import type SnakeScene from '../scenes/snakeScene.js';
 import { SkillTreeSystem, type SkillPerkState, type SkillTreeRuntime } from './skillTree.js';
 import { SkillTreeOverlay } from '../ui/skillTreeOverlay.js';
 import type { SkillTreeStats } from './skillTypes.js';
+import { ActionSlotController } from './actionSlots.js';
 
 import { JuiceManager } from '../ui/juice.js';
 
@@ -13,6 +14,7 @@ export interface SkillTreeManagerOptions {
 export class SkillTreeManager implements SkillTreeRuntime {
   private readonly system: SkillTreeSystem;
   private readonly overlay: SkillTreeOverlay;
+  private readonly actionSlots: ActionSlotController;
 
   constructor(
     private readonly scene: SnakeScene,
@@ -20,8 +22,21 @@ export class SkillTreeManager implements SkillTreeRuntime {
     options: SkillTreeManagerOptions,
   ) {
     this.system = new SkillTreeSystem(this, options.baseTickDelay);
+    this.actionSlots = new ActionSlotController({
+      getStats: () => this.system.getStats(),
+      getFlag: (key) => this.scene.getFlag(key),
+      setFlag: (key, value) => this.scene.setFlag(key, value),
+      tryCastArcanePulse: () => this.system.tryCastArcanePulse(),
+      getArcanePulseCost: () => this.system.getArcanePulseCost(),
+      hasFollowers: () => this.scene.hasFollowers(),
+      commandFollowers: () => this.scene.commandFollowers(),
+      recallFollowers: () => this.scene.recallFollowers(),
+    });
     this.overlay = new SkillTreeOverlay(this.scene, this.system, {
       onRequestPurchase: (perkId, state) => this.handlePerkInteraction(perkId, state),
+      getSpellSlotView: () => this.actionSlots.getAbilityViews(),
+      onBindSpellSlot: (abilityId) => this.bindQSlot(abilityId),
+      getDatingView: () => this.scene.getDatingCandidateViews(),
     });
     this.overlay.hide();
   }
@@ -40,6 +55,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   restoreRanks(ranks: Record<string, number>): void {
     this.system.restoreRanks(ranks);
+    this.actionSlots.ensureDefaultBinding();
     this.overlay.refresh();
   }
 
@@ -92,31 +108,12 @@ export class SkillTreeManager implements SkillTreeRuntime {
       return true;
     }
 
-    const stats = this.system.getStats();
-    if (!stats.arcanePulseUnlocked) {
+    const result = this.actionSlots.use('q');
+    if (!result.ok) {
       this.juice.spellFailed();
       if (this.overlay.isVisible()) {
-        this.overlay.announce('Unlock Arcane Pulse in the skill tree to cast.', '#9ad1ff', 2200);
+        this.overlay.announce(result.reason, '#ff6b6b', 2200);
       }
-      return true;
-    }
-
-    const pulseCost = this.system.getArcanePulseCost();
-    if (stats.mana < pulseCost) {
-      this.juice.spellFailed();
-      if (this.overlay.isVisible()) {
-        const missing = Math.max(1, Math.ceil(pulseCost - stats.mana));
-        this.overlay.announce(
-          'Arcane Pulse needs ' + pulseCost + ' mana - missing ' + missing + '.',
-          '#ff6b6b',
-          2200,
-        );
-      }
-      return true;
-    }
-
-    if (!this.system.tryCastArcanePulse()) {
-      this.juice.spellFailed();
     }
     return true;
   }
@@ -214,9 +211,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   notifyArcanePulseUnlocked(): void {
+    this.actionSlots.ensureDefaultBinding();
     this.juice.arcaneSpellUnlocked();
     this.overlay.refresh();
-    this.overlay.announce('Arcane Pulse unlocked - press Q to cast!', '#ffbdfd', 2800);
+    this.overlay.announce('Arcane Pulse unlocked and bound to Q.', '#ffbdfd', 2800);
   }
 
   notifyArcaneVeilUnlocked(): void {
@@ -346,6 +344,19 @@ export class SkillTreeManager implements SkillTreeRuntime {
       state.definition.title + ' - Rank ' + purchase.rank + ' unlocked!',
       '#5dd6a2',
     );
+  }
+
+  private bindQSlot(abilityId: string): void {
+    const result = this.actionSlots.bind('q', abilityId);
+    if (!result.ok) {
+      this.juice.spellFailed();
+      this.overlay.announce(result.reason, '#ff6b6b', 2200);
+      this.overlay.refresh();
+      return;
+    }
+    this.juice.arcaneSpellUnlocked();
+    this.overlay.announce(`${result.label} bound to Q.`, '#ffbdfd', 2000);
+    this.overlay.refresh();
   }
 
   // External helpers

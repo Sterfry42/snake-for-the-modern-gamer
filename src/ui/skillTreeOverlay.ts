@@ -15,6 +15,8 @@ import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
+import type { ActionAbilityView } from '../systems/actionSlots.js';
+import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -35,6 +37,9 @@ interface NodeVisual {
 interface OverlayHandlers {
   onRequestPurchase: (perkId: string, state: SkillPerkState) => void;
   onTabChange?: (tabId: TabId) => void;
+  getSpellSlotView?: () => readonly ActionAbilityView[];
+  onBindSpellSlot?: (abilityId: string) => void;
+  getDatingView?: () => readonly DatingCandidateView[];
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
@@ -53,10 +58,12 @@ const CLICK_ROW_TOP_BIAS = 8;
 type PrimaryTabId = 'growth' | 'gear' | 'world' | 'system';
 type TabId =
   | 'skills'
+  | 'spells'
   | 'inventory'
   | 'customize'
   | 'cards'
   | 'map'
+  | 'dating'
   | 'quests'
   | 'factions'
   | 'graph'
@@ -73,10 +80,12 @@ interface TabDefinition {
 
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'skills', label: 'Skill Tree', group: 'growth' },
+  { id: 'spells', label: 'Spells', group: 'growth' },
   { id: 'inventory', label: 'Inventory', group: 'gear', placeholder: 'Items you collect will appear here.' },
   { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
   { id: 'cards', label: 'Cards', group: 'gear' },
   { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
+  { id: 'dating', label: 'Dating', group: 'world' },
   { id: 'quests', label: 'Quests', group: 'world' },
   { id: 'factions', label: 'Factions', group: 'world' },
   { id: 'graph', label: 'Graph', group: 'system' },
@@ -145,6 +154,16 @@ export class SkillTreeOverlay {
   private readonly questListText: Phaser.GameObjects.Text;
   private readonly cardsText: Phaser.GameObjects.Text;
   private readonly factionsText: Phaser.GameObjects.Text;
+  private readonly spellsText: Phaser.GameObjects.Text;
+  private spellRowMap: Array<{
+    startRow: number;
+    endRow: number;
+    abilityId: string;
+    canBind: boolean;
+  }> = [];
+  private readonly scrollMaskGraphics: Phaser.GameObjects.Graphics;
+  private readonly scrollHintText: Phaser.GameObjects.Text;
+  private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
@@ -478,6 +497,46 @@ export class SkillTreeOverlay {
         },
       })
       .setVisible(false);
+    this.spellsText = this.scene.add
+      .text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#e6f3ff',
+        lineSpacing: 4,
+        wordWrap: {
+          width:
+            this.options.width -
+            DETAIL_PANEL_WIDTH -
+            DETAIL_PANEL_MARGIN -
+            TREE_PADDING.horizontal * 2,
+        },
+      })
+      .setInteractive({ useHandCursor: true })
+      .setVisible(false);
+    this.scrollMaskGraphics = this.scene.add.graphics().setVisible(false);
+    this.scrollMaskGraphics.fillStyle(0xffffff, 1);
+    this.scrollMaskGraphics.fillRect(
+      x + TREE_PADDING.horizontal,
+      y + TREE_PADDING.top - 12,
+      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2,
+      this.getScrollableViewportHeight(),
+    );
+    const scrollMask = this.scrollMaskGraphics.createGeometryMask();
+    this.questListText.setMask(scrollMask);
+    this.spellsText.setMask(scrollMask);
+    this.scrollHintText = this.scene.add
+      .text(
+        this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal,
+        this.options.height - 48,
+        '',
+        {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#6da8d8',
+        },
+      )
+      .setOrigin(1, 0)
+      .setVisible(false);
 
     this.inventoryItemsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== 'inventory') return;
@@ -573,6 +632,25 @@ export class SkillTreeOverlay {
     this.customizationText.on('pointerout', () => {
       this.clearCustomizationHover();
     });
+    this.spellsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'spells') return;
+      const row = this.getTextRowIndex(pointer, this.spellsText.y);
+      const entry = this.spellRowMap.find(
+        (candidate) => row >= candidate.startRow && row <= candidate.endRow,
+      );
+      if (!entry) return;
+      if (!entry.canBind) {
+        this.announce('That Q option is not available yet.', '#ff6b6b', 1800);
+        return;
+      }
+      this.handlers.onBindSpellSlot?.(entry.abilityId);
+    });
+    this.scene.input.on(
+      'wheel',
+      (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
+        this.scrollActiveText(dy);
+      },
+    );
 
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
@@ -595,6 +673,8 @@ export class SkillTreeOverlay {
       this.questListText,
       this.cardsText,
       this.factionsText,
+      this.spellsText,
+      this.scrollHintText,
     ];
     if (this.stubText) {
       children.push(this.stubText);
@@ -842,6 +922,34 @@ export class SkillTreeOverlay {
     return Math.floor(localY / lineHeight);
   }
 
+  private getScrollableViewportHeight(): number {
+    return this.options.height - TREE_PADDING.top - TREE_PADDING.bottom + 12;
+  }
+
+  private scrollActiveText(deltaY: number): void {
+    if (!this.visible || (this.activeTab !== 'spells' && this.activeTab !== 'quests' && this.activeTab !== 'dating')) {
+      return;
+    }
+    const text = this.activeTab === 'spells' ? this.spellsText : this.questListText;
+    const next = (this.scrollOffsets[this.activeTab] ?? 0) + deltaY;
+    this.applyScrollableTextOffset(this.activeTab, text, next);
+  }
+
+  private applyScrollableTextOffset(tab: TabId, text: Phaser.GameObjects.Text, rawOffset?: number): void {
+    const maxScroll = Math.max(0, text.height - this.getScrollableViewportHeight());
+    const offset = Phaser.Math.Clamp(rawOffset ?? this.scrollOffsets[tab] ?? 0, 0, maxScroll);
+    this.scrollOffsets[tab] = offset;
+    text.setY(TREE_PADDING.top - 12 - offset);
+    this.scrollHintText
+      .setText(maxScroll > 0 ? `Mouse wheel to scroll ${Math.ceil(offset)}/${Math.ceil(maxScroll)}` : '')
+      .setVisible((tab === 'spells' || tab === 'quests' || tab === 'dating') && maxScroll > 0);
+  }
+
+  private resetScrollableText(text: Phaser.GameObjects.Text): void {
+    text.setY(TREE_PADDING.top - 12);
+    this.scrollHintText.setVisible(false).setText('');
+  }
+
   private highlightCustomizationRow(row: number): void {
     if (!this.visible || this.activeTab !== 'customize') return;
     const lineHeight = 24;
@@ -886,11 +994,77 @@ export class SkillTreeOverlay {
   }
 
   private countRenderedLines(value: string): number {
+    return this.countRenderedLinesFor(this.customizationText, value);
+  }
+
+  private countRenderedLinesFor(text: Phaser.GameObjects.Text, value: string): number {
     if (!value) {
       return 1;
     }
-    const wrapped = this.customizationText.getWrappedText(value);
+    const wrapped = text.getWrappedText(value);
     return Math.max(1, wrapped.length);
+  }
+
+  private refreshSpellsText(): void {
+    const views = this.handlers.getSpellSlotView?.() ?? [];
+    const bound = views.find((view) => view.bound);
+    const lines: string[] = [`Q Slot: ${bound?.label ?? 'Unbound'}`, ''];
+    const rowMap: Array<{
+      startRow: number;
+      endRow: number;
+      abilityId: string;
+      canBind: boolean;
+    }> = [];
+    let visualRow = 2;
+
+    if (views.length === 0) {
+      lines.push('No spells or commands discovered yet.');
+      this.spellRowMap = [];
+      this.spellsText.setText(lines.join('\n'));
+      return;
+    }
+
+    lines.push('Click an available ability to bind Q.', '');
+    visualRow += 2;
+
+    for (const view of views) {
+      const tags: string[] = [view.kind.toUpperCase()];
+      if (view.bound) {
+        tags.push('BOUND');
+      } else if (!view.canBind) {
+        tags.push('LOCKED');
+      }
+      if (view.manaCost !== undefined) {
+        tags.push(`${view.manaCost} MANA`);
+      }
+
+      const startRow = visualRow;
+      const line = `${view.bound ? '> ' : '  '}${view.label} [${tags.join(' / ')}]`;
+      lines.push(line);
+      visualRow += this.countRenderedLinesFor(this.spellsText, line);
+
+      const description = `    ${view.description}`;
+      lines.push(description);
+      visualRow += this.countRenderedLinesFor(this.spellsText, description);
+
+      if (view.disabledReason) {
+        const disabledLine = `    ${view.disabledReason}`;
+        lines.push(disabledLine);
+        visualRow += this.countRenderedLinesFor(this.spellsText, disabledLine);
+      }
+
+      rowMap.push({
+        startRow,
+        endRow: Math.max(startRow, visualRow - 1),
+        abilityId: view.id,
+        canBind: view.canBind,
+      });
+      lines.push('');
+      visualRow += 1;
+    }
+
+    this.spellRowMap = rowMap;
+    this.spellsText.setText(lines.join('\n'));
   }
 
   refresh(): void {
@@ -920,7 +1094,9 @@ export class SkillTreeOverlay {
     const inventoryActive = this.activeTab === 'inventory';
     const customizationActive = this.activeTab === 'customize';
     const cardsActive = this.activeTab === 'cards';
+    const spellsActive = this.activeTab === 'spells';
     const cheatsActive = this.activeTab === 'cheats';
+    const datingActive = this.activeTab === 'dating';
     const questsActive = this.activeTab === 'quests';
     const factionsActive = this.activeTab === 'factions';
     const infoActive = this.activeTab === 'info';
@@ -929,8 +1105,18 @@ export class SkillTreeOverlay {
     this.inventoryItemsText.setVisible(inventoryActive);
     this.customizationText.setVisible(customizationActive);
     this.cardsText.setVisible(cardsActive);
-    this.questListText.setVisible(questsActive);
+    this.spellsText.setVisible(spellsActive);
+    this.questListText.setVisible(questsActive || datingActive);
     this.factionsText.setVisible(factionsActive);
+    if (!spellsActive && !questsActive && !datingActive) {
+      this.scrollHintText.setVisible(false);
+    }
+    if (!spellsActive) {
+      this.resetScrollableText(this.spellsText);
+    }
+    if (!questsActive && !datingActive) {
+      this.resetScrollableText(this.questListText);
+    }
     if (!customizationActive) {
       this.clearCustomizationHover();
     }
@@ -973,9 +1159,11 @@ export class SkillTreeOverlay {
         !inventoryActive &&
         !customizationActive &&
         !cardsActive &&
+        !spellsActive &&
         !mapActive &&
         !graphActive &&
         !cheatsActive &&
+        !datingActive &&
         !questsActive &&
         !factionsActive &&
         !infoActive;
@@ -1047,8 +1235,26 @@ export class SkillTreeOverlay {
       }
     }
 
+    if (spellsActive) {
+      this.refreshSpellsText();
+      this.applyScrollableTextOffset('spells', this.spellsText);
+      this.detailTitle.setText('Q Slot').setVisible(true);
+      this.detailSubtitle.setText('Spells And Commands').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(
+          'Q now resolves through a bindable action slot. Spell casts can share this tab with future follower commands.',
+        )
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('Spells: click an available row to bind Q.');
+        this.hintText.setColor('#ffbdfd');
+      }
+    }
+
     if (questsActive) {
       this.questListText.setText(this.formatQuestInfo(this.scene.getAcceptedQuestList()));
+      this.applyScrollableTextOffset('quests', this.questListText);
       this.detailTitle.setText('Quests').setVisible(true);
       this.detailSubtitle.setText('Accepted Tasks').setVisible(true);
       this.detailRankText.setText('').setVisible(false);
@@ -1060,6 +1266,23 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         this.hintText.setText('Accepted quests are listed here.');
         this.hintText.setColor('#9ad1ff');
+      }
+    }
+
+    if (datingActive) {
+      this.questListText.setText(this.formatDatingInfo(this.handlers.getDatingView?.() ?? []));
+      this.applyScrollableTextOffset('dating', this.questListText);
+      this.detailTitle.setText('Dating').setVisible(true);
+      this.detailSubtitle.setText('Relationships').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(
+          'Romance is opt-in. Flirt, gift, or ask someone out in dialogue to create a route. Jealousy and neglect only matter after that.',
+        )
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('Dating: affection, trust, jealousy, resentment.');
+        this.hintText.setColor('#ffbdfd');
       }
     }
 
@@ -1208,7 +1431,9 @@ export class SkillTreeOverlay {
     } else if (
       this.activeTab !== 'inventory' &&
       this.activeTab !== 'skills' &&
+      this.activeTab !== 'spells' &&
       this.activeTab !== 'cards' &&
+      this.activeTab !== 'dating' &&
       this.activeTab !== 'quests' &&
       this.activeTab !== 'factions' &&
       this.activeTab !== 'map' &&
@@ -1339,6 +1564,38 @@ export class SkillTreeOverlay {
           subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
         const questStrings = i18n.getQuestString(quest.id) ?? { label: quest.label, description: quest.description };
         return `${marker} ${questStrings.label}: ${questStrings.description}${subtaskText}`;
+      })
+      .join('\n\n');
+  }
+
+  private formatDatingInfo(views: readonly DatingCandidateView[]): string {
+    if (views.length === 0) {
+      return [
+        'No active relationships.',
+        '',
+        'Talk to village residents, goblin guards, wanderers, or stranger things.',
+        'Choose Flirt, Gift, or Ask out to opt in. Ignoring romance choices keeps this system quiet.',
+      ].join('\n');
+    }
+    return views
+      .map((view) => {
+        const species = view.species
+          .split('-')
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ');
+        return [
+          view.displayName,
+          `${species} / ${view.factionLabel}`,
+          `Stage: ${view.stage}`,
+          `Affection ${view.affection} | Trust ${view.trust} | Jealousy ${view.jealousy} | Resentment ${view.resentment}`,
+          `Fear ${view.fear} | Fascination ${view.fascination} | Last seen ${view.lastSeenRoomsAgo} rooms ago`,
+          view.personality ? `Personality: ${view.personality}` : '',
+          view.personalityDescription ?? '',
+          `Likes: ${view.likes.length > 0 ? view.likes.join(', ') : 'unknown'}`,
+          view.warning ? `Warning: ${view.warning}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
       })
       .join('\n\n');
   }
@@ -2139,6 +2396,12 @@ export class SkillTreeOverlay {
   }
 
   private updateDefaultHint(stats: SkillTreeStats): void {
+    if (this.activeTab === 'spells') {
+      this.hintText.setText('Spells: click an available row to bind Q.');
+      this.hintText.setColor('#ffbdfd');
+      return;
+    }
+
     if (this.activeTab !== 'skills') {
       if (this.stubText) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
@@ -2151,7 +2414,7 @@ export class SkillTreeOverlay {
 
     if (stats.arcanePulseUnlocked) {
       this.hintText.setText(
-        'Arcane Pulse ready - press Q (20 mana). Press I over a skill for details.',
+        'Arcane Pulse ready - press Q or bind another Q option in Spells.',
       );
       this.hintText.setColor('#ffbdfd');
     } else if (stats.manaMax > 0) {

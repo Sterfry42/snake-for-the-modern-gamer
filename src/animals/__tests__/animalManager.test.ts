@@ -67,6 +67,7 @@ describe('AnimalManager', () => {
         village: {
           name: 'Test Village',
           center: { x: 16, y: 12 },
+          safeArea: { left: 10, top: 8, width: 12, height: 8 },
           lanterns: [],
           residents: [],
           shopkeeper: { name: 'Shopkeeper', description: '', x: 10, y: 10 } as any,
@@ -83,6 +84,7 @@ describe('AnimalManager', () => {
           id: 'goblin-1',
           name: 'Goblin Camp',
           center: { x: 16, y: 12 },
+          safeArea: { left: 10, top: 8, width: 12, height: 8 },
           tents: [],
           fires: [],
           guards: [],

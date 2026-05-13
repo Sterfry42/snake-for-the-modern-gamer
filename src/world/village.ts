@@ -42,6 +42,7 @@ const VILLAGER_PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 const SHOPKEEPER_NAMES = ['Marlow', 'Penny Coil', 'Brindle', 'Tillia'] as const;
 const VILLAGE_ATTEMPTS = 28;
 const VILLAGE_MARGIN = 5;
+const SAFE_AREA_PADDING = 5;
 
 interface VillagePlacementOptions {
   forbiddenCells?: ReadonlySet<string>;
@@ -143,7 +144,7 @@ export function tryPlaceVillage(
   const plazaWidth = 6;
   const plazaHeight = 4;
   const footprintWidth = 18;
-  const footprintHeight = 11;
+  const footprintHeight = plazaHeight + SAFE_AREA_PADDING * 2;
   const minLeft = margin;
   const minTop = margin;
   const maxLeft = grid.cols - footprintWidth - margin;
@@ -171,7 +172,7 @@ export function tryPlaceVillage(
     }
     plaza = {
       left: footprintLeft + 6,
-      top: footprintTop + 2,
+      top: footprintTop + SAFE_AREA_PADDING,
       width: plazaWidth,
       height: plazaHeight,
     };
@@ -182,6 +183,13 @@ export function tryPlaceVillage(
     return null;
   }
 
+  const safeArea = {
+    left: plaza.left - SAFE_AREA_PADDING,
+    top: plaza.top - SAFE_AREA_PADDING,
+    width: plaza.width + SAFE_AREA_PADDING * 2,
+    height: plaza.height + SAFE_AREA_PADDING * 2,
+  };
+  fillRect(layout, safeArea.left, safeArea.top, safeArea.width, safeArea.height, 'E');
   fillRect(layout, plaza.left, plaza.top, plaza.width, plaza.height, 'E');
 
   const lanterns = [
@@ -243,6 +251,7 @@ export function tryPlaceVillage(
     village: {
       name: villageName,
       center: { x: questSpot.x, y: questSpot.y },
+      safeArea,
       lanterns,
       residents,
       shopkeeper: {

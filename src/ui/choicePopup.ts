@@ -78,6 +78,10 @@ export class ChoicePopup {
     this.onPick = undefined;
   }
 
+  setDepth(depth: number): void {
+    this.container?.setDepth(depth);
+  }
+
   isVisible(): boolean {
     return Boolean(this.container?.visible);
   }

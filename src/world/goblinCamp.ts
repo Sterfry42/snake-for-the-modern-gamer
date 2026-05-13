@@ -15,6 +15,7 @@ const CAMP_NAMES = [
 const GOBLIN_NAMES = ['Grib', 'Nackle', 'Mott', 'Scrip', 'Vellum-Fang', 'Dreg Penny'] as const;
 const CAMP_ATTEMPTS = 32;
 const CAMP_MARGIN = 5;
+const SAFE_AREA_PADDING = 5;
 
 interface GoblinCampPlacementOptions {
   forbiddenCells?: ReadonlySet<string>;
@@ -80,8 +81,10 @@ export function tryPlaceGoblinCamp(
   }
 
   const margin = options.margin ?? CAMP_MARGIN;
-  const footprintWidth = 16;
-  const footprintHeight = 10;
+  const coreWidth = 8;
+  const coreHeight = 4;
+  const footprintWidth = coreWidth + SAFE_AREA_PADDING * 2;
+  const footprintHeight = coreHeight + SAFE_AREA_PADDING * 2;
   const minLeft = margin;
   const minTop = margin;
   const maxLeft = grid.cols - footprintWidth - margin;
@@ -111,7 +114,17 @@ export function tryPlaceGoblinCamp(
     y: camp.top + Math.floor(camp.height / 2),
   };
 
-  fillRect(layout, camp.left + 4, camp.top + 3, 8, 4, 'E');
+  const safeArea = {
+    left: camp.left,
+    top: camp.top,
+    width: camp.width,
+    height: camp.height,
+  };
+  fillRect(layout, safeArea.left, safeArea.top, safeArea.width, safeArea.height, 'E');
+
+  const coreLeft = camp.left + SAFE_AREA_PADDING;
+  const coreTop = camp.top + SAFE_AREA_PADDING;
+  fillRect(layout, coreLeft, coreTop, coreWidth, coreHeight, 'E');
 
   const tents = [
     { x: camp.left + 1, y: camp.top + 1 },
@@ -139,6 +152,7 @@ export function tryPlaceGoblinCamp(
     id: `goblin-camp:${camp.left},${camp.top}`,
     name: campName,
     center,
+    safeArea,
     tents,
     fires,
     guards: guardSpots.map((spot) => ({
