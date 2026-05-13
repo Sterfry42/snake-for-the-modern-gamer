@@ -2,6 +2,8 @@ import type { GridConfig } from '../config/gameConfig.js';
 import type { RoomSnapshot } from './types.js';
 import { createBiomePalette } from './biomes.js';
 
+const HOUSE_SAFE_AREA_PADDING = 5;
+
 // Creates a calm, open "house" room layout that we can decorate.
 // Layout uses '.' for floor. Decorations will use custom letters and are non-colliding.
 export function createHouseRoom(roomId: string, grid: GridConfig): RoomSnapshot {
@@ -20,6 +22,7 @@ export function createHouseRoom(roomId: string, grid: GridConfig): RoomSnapshot 
   const baseHeight = Math.min(10, Math.max(8, Math.floor(rows * 0.42)));
   const left = Math.floor(cols / 2 - baseWidth / 2);
   const top = Math.floor(rows / 2 - baseHeight / 2);
+  drawHouseSafeArea(layout, left, top, baseWidth, baseHeight);
   drawHouseCube(layout, left, top, baseWidth, baseHeight);
   carveHouseDoor(layout, left, top, baseWidth, baseHeight);
 
@@ -42,6 +45,31 @@ function setChar(layout: string[], x: number, y: number, ch: string): void {
   if (x < 0 || x >= chars.length) return;
   chars[x] = ch;
   layout[y] = chars.join('');
+}
+
+function fillRect(layout: string[], left: number, top: number, width: number, height: number, ch: string): void {
+  for (let y = top; y < top + height; y += 1) {
+    for (let x = left; x < left + width; x += 1) {
+      setChar(layout, x, y, ch);
+    }
+  }
+}
+
+function drawHouseSafeArea(
+  layout: string[],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+): void {
+  fillRect(
+    layout,
+    left - HOUSE_SAFE_AREA_PADDING,
+    top - HOUSE_SAFE_AREA_PADDING,
+    width + HOUSE_SAFE_AREA_PADDING * 2,
+    height + HOUSE_SAFE_AREA_PADDING * 2,
+    'E',
+  );
 }
 
 export function drawHouseCube(

@@ -10,6 +10,13 @@ export interface PortalConfig {
   destY: number;
 }
 
+export interface RoomArea {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}
+
 export interface RoomSnapshot {
   id: string;
   layout: string[];
@@ -22,6 +29,7 @@ export interface RoomSnapshot {
   village?: {
     name: string;
     center: Vector2Like;
+    safeArea: RoomArea;
     lanterns: Vector2Like[];
     residents: Array<NpcProfile & { x: number; y: number }>;
     shopkeeper: NpcProfile & { x: number; y: number };
@@ -30,6 +38,7 @@ export interface RoomSnapshot {
     id: string;
     name: string;
     center: Vector2Like;
+    safeArea: RoomArea;
     tents: Vector2Like[];
     fires: Vector2Like[];
     guards: Array<NpcProfile & { x: number; y: number }>;

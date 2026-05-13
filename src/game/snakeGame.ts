@@ -89,6 +89,17 @@ interface StagedQuestInstance {
   failureReason?: string;
 }
 
+export interface FollowerInstance {
+  id: string;
+  kind: 'goblin-mercenary';
+  name: string;
+  roomId: string;
+  position: Vector2Like;
+  direction: Vector2Like;
+  mode: 'follow' | 'guard';
+  attackCooldown: number;
+}
+
 export interface QuestMapMarker {
   questId: string;
   roomId: string;
@@ -493,6 +504,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('wards.contracts', undefined);
     this.setFlag('wards.usage', undefined);
     this.setFlag('wards.lastTriggered', undefined);
+    this.setFlag('followers.active', undefined);
     this.setFlag('equipment.refundEveryRooms', undefined);
     this.setFlag('equipment.appleScorePenalty', undefined);
     this.setFlag('equipment.hazardMapSense', undefined);
@@ -530,7 +542,7 @@ export class SnakeGame implements QuestRuntime {
       this.world.getRoom(this.snake.currentRoomId),
       this.config.snake.initialBody,
     );
-    this.animals.ensureAnimals(
+    this.animals.ensureAnimals( // TODO: Create test
       this.snake.currentRoomId,
       this.world.getRoom(this.snake.currentRoomId),
       this.config.snake.initialBody,
@@ -551,6 +563,22 @@ export class SnakeGame implements QuestRuntime {
   step(paused: boolean): StepResult {
     const roomsChanged = new Set<string>();
     const previousRoom = this.snake.currentRoomId;
+    const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
+    if (paused) {
+      return {
+        status: 'alive',
+        apple: {
+          eaten: false,
+          current: appleBeforeStep,
+          stateChanged: false,
+        },
+        roomsChanged,
+        roomChanged: false,
+        questOffer: null,
+        questsCompleted: [],
+      };
+    }
+
     const snakeSegments = Array.from(this.snake.bodySegments);
 
     this.hydratePredationConfig();
@@ -566,7 +594,6 @@ export class SnakeGame implements QuestRuntime {
     });
     this.reconcileStagedQuestBosses();
 
-    const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
     const headBeforeSnakeStep = this.snake.bodySegments[0];
     const bossOnHead = headBeforeSnakeStep
       ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
@@ -1215,6 +1242,22 @@ export class SnakeGame implements QuestRuntime {
     }
 
     this.tickPredationTimers();
+    const followerStep = this.tickFollowers();
+    if (followerStep.enemyDefeats > 0) {
+      this.addScore(followerStep.enemyDefeats * 2);
+      this.setFlag('ui.followerAction', {
+        kind: 'enemy',
+        count: followerStep.enemyDefeats,
+      });
+    }
+    if (followerStep.animalDefeats > 0) {
+      this.addScore(followerStep.animalDefeats);
+      this.setFlag('ui.followerAction', {
+        kind: 'animal',
+        count: followerStep.animalDefeats,
+      });
+      this.setFlag('ui.animalHunted', true);
+    }
     this.tickFortitudeStates();
     this.tickPlayerStates();
     if (this.tickTemperatureState()) {
@@ -2416,6 +2459,80 @@ export class SnakeGame implements QuestRuntime {
     this.adjustFactionAlignment('goblin-camps', 2);
   }
 
+  getFollowers(): readonly FollowerInstance[] {
+    return this.getFollowerState();
+  }
+
+  hasFollowers(): boolean {
+    return this.getFollowerState().length > 0;
+  }
+
+  hireGoblinMercenary(name = 'Goblin Mercenary', price = 55): {
+    ok: boolean;
+    message: string;
+    color: string;
+  } {
+    if (this.hasFollowers()) {
+      return { ok: false, message: 'You already have a mercenary on contract.', color: '#9ad1ff' };
+    }
+    if (this.getScore() < price) {
+      return { ok: false, message: `Goblin mercenary costs ${price} score.`, color: '#ff6b6b' };
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, message: 'No body, no contract.', color: '#ff6b6b' };
+    }
+    this.addScore(-price);
+    const roomId = this.snake.currentRoomId;
+    const position = this.worldToLocal(roomId, head);
+    const follower: FollowerInstance = {
+      id: `follower-goblin-${Date.now().toString(36)}`,
+      kind: 'goblin-mercenary',
+      name,
+      roomId,
+      position: this.findFollowerStandPosition(roomId, position),
+      direction: { x: 0, y: 1 },
+      mode: 'follow',
+      attackCooldown: 0,
+    };
+    this.setFollowerState([follower]);
+    this.adjustFactionAlignment('goblin-camps', 3);
+    return { ok: true, message: `${name} hired. Q commands are now available.`, color: '#b6ff6a' };
+  }
+
+  commandFollowers(): { ok: boolean; message: string; color: string } {
+    const followers = this.getFollowerState();
+    if (followers.length === 0) {
+      return { ok: false, message: 'No mercenary to command.', color: '#ff6b6b' };
+    }
+    const nextMode = followers.some((follower) => follower.mode === 'follow') ? 'guard' : 'follow';
+    this.setFollowerState(followers.map((follower) => ({ ...follower, mode: nextMode })));
+    return {
+      ok: true,
+      message: nextMode === 'guard' ? 'Mercenary is guarding and hunting nearby.' : 'Mercenary is following.',
+      color: '#b6ff6a',
+    };
+  }
+
+  recallFollowers(): { ok: boolean; message: string; color: string } {
+    const followers = this.getFollowerState();
+    const head = this.snake.bodySegments[0];
+    if (followers.length === 0 || !head) {
+      return { ok: false, message: 'No mercenary to recall.', color: '#ff6b6b' };
+    }
+    const roomId = this.snake.currentRoomId;
+    const localHead = this.worldToLocal(roomId, head);
+    this.setFollowerState(
+      followers.map((follower) => ({
+        ...follower,
+        roomId,
+        position: this.findFollowerStandPosition(roomId, localHead),
+        mode: 'follow',
+      })),
+    );
+    return { ok: true, message: 'Mercenary recalled.', color: '#b6ff6a' };
+  }
+
   tryConsumeWardForDeath(reason?: string | null): boolean {
     if (!reason || !this.isWardDeathSource(reason)) {
       return false;
@@ -2449,6 +2566,182 @@ export class SnakeGame implements QuestRuntime {
       reason === 'water' ||
       reason === 'shark'
     );
+  }
+
+  private getFollowerState(): FollowerInstance[] {
+    const raw = this.getFlag<FollowerInstance[]>('followers.active') ?? [];
+    if (!Array.isArray(raw)) {
+      return [];
+    }
+    return raw
+      .filter((follower) => follower && follower.kind === 'goblin-mercenary')
+      .map((follower) => ({
+        ...follower,
+        direction: follower.direction ?? { x: 0, y: 1 },
+        mode: follower.mode === 'guard' ? 'guard' : 'follow',
+        attackCooldown: Math.max(0, Number(follower.attackCooldown ?? 0)),
+      }));
+  }
+
+  private setFollowerState(followers: readonly FollowerInstance[]): void {
+    this.setFlag('followers.active', followers.length > 0 ? followers.map((follower) => ({ ...follower })) : undefined);
+  }
+
+  private tickFollowers(): { enemyDefeats: number; animalDefeats: number } {
+    const followers = this.getFollowerState();
+    const head = this.snake.bodySegments[0];
+    if (followers.length === 0 || !head) {
+      return { enemyDefeats: 0, animalDefeats: 0 };
+    }
+    const roomId = this.snake.currentRoomId;
+    const localHead = this.worldToLocal(roomId, head);
+    let enemyDefeats = 0;
+    let animalDefeats = 0;
+
+    const nextFollowers = followers.map((follower) => {
+      let next =
+        follower.roomId === roomId
+          ? { ...follower }
+          : {
+              ...follower,
+              roomId,
+              position: this.findFollowerStandPosition(roomId, localHead),
+              mode: 'follow' as const,
+            };
+
+      next.attackCooldown = Math.max(0, next.attackCooldown - 1);
+      if (next.attackCooldown <= 0) {
+        const target = this.findFollowerTarget(roomId, next.position);
+        if (target) {
+          next.direction = {
+            x: Math.sign(target.position.x - next.position.x),
+            y: Math.sign(target.position.y - next.position.y),
+          };
+          if (target.kind === 'enemy') {
+            const worldTarget = this.localToWorld(roomId, target.position);
+            const hit = this.enemies.damageEnemyAt(roomId, worldTarget, 1);
+            if (hit.defeated) {
+              enemyDefeats += 1;
+            }
+          } else {
+            const hit = this.animals.damageAnimal(roomId, target.position, 1);
+            if (hit.defeated) {
+              animalDefeats += 1;
+            }
+          }
+          next.attackCooldown = 2;
+          return next;
+        }
+      }
+
+      if (next.mode === 'follow') {
+        const target = this.snake.bodySegments[1]
+          ? this.worldToLocal(roomId, this.snake.bodySegments[1])
+          : localHead;
+        next = this.moveFollowerToward(roomId, next, target);
+      }
+      return next;
+    });
+
+    this.setFollowerState(nextFollowers);
+    return { enemyDefeats, animalDefeats };
+  }
+
+  private findFollowerTarget(
+    roomId: string,
+    position: Vector2Like,
+  ): { kind: 'enemy' | 'animal'; position: Vector2Like } | null {
+    const enemies = this.enemies.getEnemiesInRoom(roomId);
+    const enemy = enemies
+      .filter((candidate) => this.distance(position, candidate.position) <= 2)
+      .sort((a, b) => this.distance(position, a.position) - this.distance(position, b.position))[0];
+    if (enemy) {
+      return { kind: 'enemy', position: enemy.position };
+    }
+    const animal = this.animals
+      .getAnimalsInRoom(roomId)
+      .filter((candidate) => this.distance(position, candidate.position) <= 2)
+      .sort((a, b) => this.distance(position, a.position) - this.distance(position, b.position))[0];
+    return animal ? { kind: 'animal', position: animal.position } : null;
+  }
+
+  private moveFollowerToward(
+    roomId: string,
+    follower: FollowerInstance,
+    target: Vector2Like,
+  ): FollowerInstance {
+    if (this.distance(follower.position, target) <= 1) {
+      return follower;
+    }
+    const dx = target.x - follower.position.x;
+    const dy = target.y - follower.position.y;
+    const directions =
+      Math.abs(dx) >= Math.abs(dy)
+        ? [
+            { x: Math.sign(dx), y: 0 },
+            { x: 0, y: Math.sign(dy) },
+          ]
+        : [
+            { x: 0, y: Math.sign(dy) },
+            { x: Math.sign(dx), y: 0 },
+          ];
+    for (const direction of directions) {
+      if (direction.x === 0 && direction.y === 0) {
+        continue;
+      }
+      const position = {
+        x: follower.position.x + direction.x,
+        y: follower.position.y + direction.y,
+      };
+      if (this.isFollowerTileOpen(roomId, position)) {
+        return { ...follower, position, direction };
+      }
+    }
+    return follower;
+  }
+
+  private findFollowerStandPosition(roomId: string, near: Vector2Like): Vector2Like {
+    const candidates = [
+      { x: near.x - 1, y: near.y },
+      { x: near.x + 1, y: near.y },
+      { x: near.x, y: near.y - 1 },
+      { x: near.x, y: near.y + 1 },
+      near,
+    ];
+    return candidates.find((position) => this.isFollowerTileOpen(roomId, position)) ?? near;
+  }
+
+  private isFollowerTileOpen(roomId: string, position: Vector2Like): boolean {
+    if (
+      position.x < 0 ||
+      position.x >= this.config.grid.cols ||
+      position.y < 0 ||
+      position.y >= this.config.grid.rows
+    ) {
+      return false;
+    }
+    const room = this.world.getRoom(roomId);
+    return room.layout[position.y]?.[position.x] !== '#';
+  }
+
+  private worldToLocal(roomId: string, position: Vector2Like): Vector2Like {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    return {
+      x: position.x - roomX * this.config.grid.cols,
+      y: position.y - roomY * this.config.grid.rows,
+    };
+  }
+
+  private localToWorld(roomId: string, position: Vector2Like): Vector2Like {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    return {
+      x: roomX * this.config.grid.cols + position.x,
+      y: roomY * this.config.grid.rows + position.y,
+    };
+  }
+
+  private distance(a: Vector2Like, b: Vector2Like): number {
+    return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   }
 
   insultNpc(
@@ -2501,6 +2794,7 @@ export class SnakeGame implements QuestRuntime {
       'factions.alignment',
       'wards.contracts',
       'wards.usage',
+      'followers.active',
       'skills.ranks',
       'equipment.wallSenseRadiusBonus',
       'equipment.seismicPulseRadiusBonus',

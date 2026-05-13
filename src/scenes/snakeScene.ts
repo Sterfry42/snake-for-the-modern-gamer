@@ -120,6 +120,8 @@ type DeathCutsceneState = {
 
 type TitleMenuMode = 'main' | 'settings';
 
+type LocalRect = { left: number; top: number; width: number; height: number };
+
 const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
   {
     id: 'classic',
@@ -443,6 +445,10 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly flagsProxy: Record<string, unknown>;
   private activeWandererTextureKey: string | null = null;
   private lastVisibleLifeCharges = 0;
+  private lastJuicedScore = 0;
+  private lastJuicedLength = 0;
+  private nextDangerPulseAtMs = 0;
+  private nextPowerupSparkAtMs = 0;
   private nextBabyCryAtMs = 0;
   private deathCutscene: DeathCutsceneState | null = null;
   private titleContainer: Phaser.GameObjects.Container | null = null;
@@ -494,7 +500,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.setDir(x, y);
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
-          this.step();
+          this.takeManualTurn();
         }
       },
       onTogglePause: () => {
@@ -651,25 +657,25 @@ export default class SnakeScene extends Phaser.Scene {
         if (['arrowup', 'w'].includes(key)) {
           this.setManualResumeDir(0, -1);
           this.consumeManualResumePause();
-          this.step();
+          this.takeManualTurn();
           return;
         }
         if (['arrowdown', 's'].includes(key)) {
           this.setManualResumeDir(0, 1);
           this.consumeManualResumePause();
-          this.step();
+          this.takeManualTurn();
           return;
         }
         if (['arrowleft', 'a'].includes(key)) {
           this.setManualResumeDir(-1, 0);
           this.consumeManualResumePause();
-          this.step();
+          this.takeManualTurn();
           return;
         }
         if (['arrowright', 'd'].includes(key)) {
           this.setManualResumeDir(1, 0);
           this.consumeManualResumePause();
-          this.step();
+          this.takeManualTurn();
           return;
         }
       }
@@ -776,6 +782,10 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
     this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
+    this.lastJuicedScore = this.snakeGame.getScore();
+    this.lastJuicedLength = this.snakeGame.getSnakeLength();
+    this.nextDangerPulseAtMs = 0;
+    this.nextPowerupSparkAtMs = 0;
     this.snakeCosmetics = {
       unlockedThemes: ['classic'],
       activeTheme: 'classic',
@@ -801,6 +811,8 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private step(): void {
+    const scoreBefore = this.snakeGame.getScore();
+    const lengthBefore = this.snakeGame.getSnakeLength();
     const result = this.snakeGame.step(this.paused);
     this.updateHouseAmbience();
 
@@ -853,6 +865,12 @@ export default class SnakeScene extends Phaser.Scene {
           result.apple.worldPosition.x,
           result.apple.worldPosition.y,
           violenceLevel,
+        );
+        const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
+        this.juice.appleStreak(
+          result.apple.worldPosition.x,
+          result.apple.worldPosition.y,
+          streak,
         );
         this.setFlag('killstreak.appleJuiceLevel', undefined);
       }
@@ -999,6 +1017,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.handlePredationFeedback();
+    this.handleRunDeltaFeedback(scoreBefore, lengthBefore);
 
     // Boss smite FX on collision
     const smite = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>('ui.bossSmite');
@@ -1141,6 +1160,9 @@ export default class SnakeScene extends Phaser.Scene {
     const maxWidth = Math.min(720, this.scale.width - 48);
     const x = this.scale.width / 2;
     const y = 76;
+    const noticeColor = Phaser.Display.Color.HexStringToColor(color).color;
+    const urgent = color.toLowerCase() === "#ff6b6b" || color.toLowerCase() === "#ff3b3b";
+    this.juice.notice(x, y, noticeColor, urgent);
     const text = this.add
       .text(0, 0, message, {
         fontFamily: 'monospace',
@@ -2016,6 +2038,7 @@ export default class SnakeScene extends Phaser.Scene {
         ease: 'Cubic.easeOut',
         onComplete: () => text.destroy(),
       });
+      this.juice.scoreDelta(world.x, world.y, amount);
     }
   }
 
@@ -2123,6 +2146,37 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
     return this.pendingFlags[key] as T | undefined;
+  }
+
+  private takeManualTurn(): void {
+    if (this.paused) {
+      return;
+    }
+    this.step();
+  }
+
+  hasFollowers(): boolean {
+    return this.snakeGame?.hasFollowers() ?? false;
+  }
+
+  commandFollowers(): { ok: boolean; message: string; color: string } {
+    const result = this.snakeGame?.commandFollowers() ?? {
+      ok: false,
+      message: 'No mercenary to command.',
+      color: '#ff6b6b',
+    };
+    this.showQuestHintPopup(result.message, result.color);
+    return result;
+  }
+
+  recallFollowers(): { ok: boolean; message: string; color: string } {
+    const result = this.snakeGame?.recallFollowers() ?? {
+      ok: false,
+      message: 'No mercenary to recall.',
+      color: '#ff6b6b',
+    };
+    this.showQuestHintPopup(result.message, result.color);
+    return result;
   }
 
   random(): number {
@@ -3413,6 +3467,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
+      (this.juice as any).enemyEaten?.(world.x, world.y);
       const popup = this.add
         .text(world.x, world.y - 14, '+ Enemy', {
           fontFamily: 'monospace',
@@ -3557,6 +3612,31 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.biomeReveal', undefined);
     }
   }
+
+  private handleRunDeltaFeedback(scoreBefore: number, lengthBefore: number): void {
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (!head) {
+      this.lastJuicedScore = this.snakeGame.getScore();
+      this.lastJuicedLength = this.snakeGame.getSnakeLength();
+      return;
+    }
+
+    const world = this.tileToWorld(head);
+    const scoreAfter = this.snakeGame.getScore();
+    const lengthAfter = this.snakeGame.getSnakeLength();
+    const scoreDelta = scoreAfter - scoreBefore;
+    const lengthDelta = lengthAfter - lengthBefore;
+
+    if (scoreDelta !== 0 && scoreAfter !== this.lastJuicedScore) {
+      this.juice.scoreDelta(world.x, world.y, scoreDelta);
+    }
+    if (lengthDelta > 0 && lengthAfter !== this.lastJuicedLength) {
+      this.juice.lengthGain(world.x, world.y, lengthDelta);
+    }
+
+    this.lastJuicedScore = scoreAfter;
+    this.lastJuicedLength = lengthAfter;
+  }
   private draw(): void {
     // Suppress generic HUDs in house
     this.setFlag('ui.suppressHud', this.titleVisible || this.isInHouse());
@@ -3564,7 +3644,9 @@ export default class SnakeScene extends Phaser.Scene {
     const baseSense = this.getFlag<number>('geometry.wallSenseRadius') ?? 0;
     const equipSense = this.getFlag<number>('equipment.wallSenseRadiusBonus') ?? 0;
     const wallSenseRadius = Math.max(0, baseSense + equipSense);
-    const pActive = this.getFlag<{ kind: string; remaining: number }>('powerup.active');
+    const pActive = this.getFlag<{ kind: string; remaining: number; total?: number }>(
+      'powerup.active',
+    );
     const snakeColor = pActive ? 0x9b5de5 : undefined;
     this.snakeRenderer.render(room, this.snakeGame.getSnakeBody(), room.id, this.currentApple, {
       wallSenseRadius,
@@ -3574,6 +3656,22 @@ export default class SnakeScene extends Phaser.Scene {
       snakePalette: this.getActiveSnakeTheme().palette,
       activeHat: this.snakeCosmetics.activeHat,
       enemies: this.snakeGame.getEnemies(room.id),
+      followers: this.snakeGame
+        .getFollowers()
+        .filter((follower) => follower.roomId === room.id)
+        .map((follower) => ({
+          id: follower.id,
+          roomId: follower.roomId,
+          position: follower.position,
+          fireCooldown: 0,
+          moveCooldown: 0,
+          aimDirection: follower.direction,
+          flashTicks: 0,
+          name: follower.name,
+          currentHearts: 1,
+          maxHearts: 1,
+          encounterKind: 'goblin' as const,
+        })),
       bullets: this.snakeGame.getEnemyBullets(room.id),
       animals: this.snakeGame.getAnimals(room.id),
     });
@@ -3588,7 +3686,17 @@ export default class SnakeScene extends Phaser.Scene {
     this.heartsHud.setText(
       `Hearts: ${'♥'.repeat(Math.max(0, health.current))}${'♡'.repeat(Math.max(0, health.max - health.current))}`,
     );
+    const head = this.snakeGame.getSnakeBody()[0];
+    this.heartsHud.setText(`Hearts: ${"♥".repeat(Math.max(0, health.current))}${"♡".repeat(Math.max(0, health.max - health.current))}`);
     this.heartsHud.setVisible(!this.isInHouse() && healthRevealed);
+    if (!this.isInHouse() && head && healthRevealed && health.current < health.max) {
+      const missingRatio = health.max > 0 ? (health.max - health.current) / health.max : 0;
+      if (this.time.now >= this.nextDangerPulseAtMs) {
+        const world = this.tileToWorld(head);
+        this.juice.dangerPulse(world.x, world.y, missingRatio);
+        this.nextDangerPulseAtMs = this.time.now + Math.max(260, 920 - missingRatio * 430);
+      }
+    }
     const lifeCharges = this.getVisibleLifeCharges();
     if (lifeCharges > 0) {
       this.setFlag('ui.livesRevealed', true);
@@ -3610,8 +3718,20 @@ export default class SnakeScene extends Phaser.Scene {
       this.temperatureHud.setColor(color);
       this.temperatureHud.setText(`${label}: ${'■'.repeat(filled)}${'□'.repeat(empty)}`);
       this.temperatureHud.setVisible(true);
+      if (head && filled >= Math.ceil(temperature.max * 0.66) && this.time.now >= this.nextDangerPulseAtMs) {
+        const world = this.tileToWorld(head);
+        this.juice.dangerPulse(world.x, world.y, filled / Math.max(1, temperature.max));
+        this.nextDangerPulseAtMs = this.time.now + 360;
+      }
     } else {
       this.temperatureHud.setVisible(false);
+    }
+
+    if (!this.isInHouse() && head && pActive && this.time.now >= this.nextPowerupSparkAtMs) {
+      const world = this.tileToWorld(head);
+      this.juice.powerupTick(world.x, world.y, pActive.kind, pActive.remaining, pActive.total ?? pActive.remaining);
+      const progress = pActive.remaining / Math.max(1, pActive.total ?? pActive.remaining);
+      this.nextPowerupSparkAtMs = this.time.now + (progress < 0.22 ? 90 : 150);
     }
 
     const radiation = this.snakeGame.getRadiationTimer();
@@ -3626,6 +3746,11 @@ export default class SnakeScene extends Phaser.Scene {
       this.radiationHud.setColor(color);
       this.radiationHud.setText(`RADIOACTIVE SUBSTANCE: ${minutes}:${seconds}`);
       this.radiationHud.setVisible(true);
+      if (head && remainingSeconds <= 30 && this.time.now >= this.nextDangerPulseAtMs) {
+        const world = this.tileToWorld(head);
+        this.juice.dangerPulse(world.x, world.y, remainingSeconds <= 15 ? 1 : 0.72);
+        this.nextDangerPulseAtMs = this.time.now + (remainingSeconds <= 15 ? 260 : 420);
+      }
     } else {
       this.radiationHud.setVisible(false);
     }
@@ -4136,6 +4261,7 @@ export default class SnakeScene extends Phaser.Scene {
       ...stock,
       cardIds: stock.cardIds.filter((id) => id !== cardId),
     });
+    this.juice.cardPurchased(this.scale.width / 2, 94, card.rarity);
     return { ok: true, message: `${card.name} added to your deck.`, color: '#5dd6a2' };
   }
 
@@ -4281,14 +4407,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private isInHouseInterior(): boolean {
-    const head = this.snakeGame.getSnakeBody()[0];
-    if (!head) return false;
+    const local = this.getHeadLocalInCurrentRoom();
+    if (!local) return false;
     const room = this.snakeGame.getCurrentRoom();
-    const [rx, ry] = room.id.split(',').map(Number);
-    const lx = head.x - rx * this.grid.cols;
-    const ly = head.y - ry * this.grid.rows;
-    if (lx < 0 || ly < 0 || lx >= this.grid.cols || ly >= this.grid.rows) return false;
-    const tile = room.layout[ly]?.[lx];
+    const tile = room.layout[local.y]?.[local.x];
     if (!tile) return false;
     // Interior tiles (wood, rug, trim, and furniture) across any generated house.
     return 'WETCKBPL'.includes(tile);
@@ -4298,7 +4420,84 @@ export default class SnakeScene extends Phaser.Scene {
     return (
       !this.paused &&
       !this.offeredQuest &&
-      (this.isInHouseInterior() || Boolean(this.getFlag<boolean>('traversal.manualResumePending')))
+      (this.isTurnBasedFreeZone() || Boolean(this.getFlag<boolean>('traversal.manualResumePending')))
+    );
+  }
+
+  private isTurnBasedFreeZone(): boolean {
+    const local = this.getHeadLocalInCurrentRoom();
+    if (!local) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const tile = room.layout[local.y]?.[local.x];
+    if (!tile || tile === '#') {
+      return false;
+    }
+    const bounds = this.getTurnBasedZoneBounds(room);
+    return bounds.some((bound) => this.isLocalInsideRect(local, bound));
+  }
+
+  private getHeadLocalInCurrentRoom(): { x: number; y: number } | null {
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (!head) return null;
+    const room = this.snakeGame.getCurrentRoom();
+    const [rx, ry] = room.id.split(',').map(Number);
+    const local = {
+      x: head.x - rx * this.grid.cols,
+      y: head.y - ry * this.grid.rows,
+    };
+    if (local.x < 0 || local.y < 0 || local.x >= this.grid.cols || local.y >= this.grid.rows) {
+      return null;
+    }
+    return local;
+  }
+
+  private getTurnBasedZoneBounds(room: ReturnType<SnakeGame['getCurrentRoom']>): LocalRect[] {
+    if (room.village) {
+      return [room.village.safeArea];
+    }
+    if (room.goblinCamp) {
+      return [room.goblinCamp.safeArea];
+    }
+    if (!this.isInHouse()) {
+      return [];
+    }
+    const bounds = this.getTileBounds(room, 'WETCKBPL');
+    return bounds ? [bounds] : [];
+  }
+
+  private getTileBounds(
+    room: ReturnType<SnakeGame['getCurrentRoom']>,
+    tileSet: string,
+  ): LocalRect | null {
+    let left = Number.POSITIVE_INFINITY;
+    let top = Number.POSITIVE_INFINITY;
+    let right = Number.NEGATIVE_INFINITY;
+    let bottom = Number.NEGATIVE_INFINITY;
+    for (let y = 0; y < room.layout.length; y += 1) {
+      const row = room.layout[y] ?? '';
+      for (let x = 0; x < row.length; x += 1) {
+        if (tileSet.includes(row[x] ?? '')) {
+          left = Math.min(left, x);
+          top = Math.min(top, y);
+          right = Math.max(right, x);
+          bottom = Math.max(bottom, y);
+        }
+      }
+    }
+    if (!Number.isFinite(left) || !Number.isFinite(top)) {
+      return null;
+    }
+    return { left, top, width: right - left + 1, height: bottom - top + 1 };
+  }
+
+  private isLocalInsideRect(local: { x: number; y: number }, rect: LocalRect): boolean {
+    return (
+      local.x >= rect.left &&
+      local.x < rect.left + rect.width &&
+      local.y >= rect.top &&
+      local.y < rect.top + rect.height
     );
   }
 
@@ -4424,6 +4623,14 @@ export default class SnakeScene extends Phaser.Scene {
       description: 'A green, sharp-eyed snake style sold only by goblin merchants.',
     });
     const goblinQuest = this.snakeGame.getGoblinLedgerQuestStatus();
+    const hasMercenary = this.snakeGame.hasFollowers();
+    options.push({
+      id: 'hire:goblin-mercenary',
+      title: hasMercenary ? 'Mercenary Contract - active' : 'Hire Goblin Mercenary - 55 score',
+      description: hasMercenary
+        ? 'Your hired goblin is already following, guarding, and making poor choices nearby.'
+        : 'A contract fighter follows you, attacks enemies, kills animals, and accepts Q-slot commands.',
+    });
     if (goblinQuest === 'available') {
       options.push({
         id: 'quest:goblin-ledger-debt',
@@ -4468,6 +4675,12 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id.startsWith('quest:')) {
         this.handleGoblinShopQuestChoice(id, shopkeeperName);
+        return;
+      }
+      if (id.startsWith('hire:')) {
+        const result = this.snakeGame.hireGoblinMercenary(`${shopkeeperName}'s Cousin`);
+        this.showQuestHintPopup(result.message, result.color);
+        this.showGoblinShopRoot(shopkeeperName);
         return;
       }
       const result = this.purchaseGoblinWard(offerId);
@@ -4752,6 +4965,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.addScoreDirect(-wagerScore);
     this.juice.startCardMusic();
+    this.juice.cardWager(wagerScore);
     const state = createCompetitionState(
       tableId,
       this.getCardCollection(),
@@ -4811,6 +5025,7 @@ export default class SnakeScene extends Phaser.Scene {
       wordWrap: { width: width - 76 },
     });
     root.add([background, title, target, tooltipPanel, this.cardTooltipText]);
+    this.juice.cardHandDealt(x + width / 2, y + 132, hand.length);
 
     if (hand.length === 0) {
       const empty = this.add
@@ -4832,6 +5047,9 @@ export default class SnakeScene extends Phaser.Scene {
       hand.forEach((cardId, index) => {
         const card = this.createCardSprite(cardId, selected.has(index), () => {
           const next = new Set(selected);
+          const willSelect = !next.has(index);
+          const cardDefinition = getCardDefinition(cardId);
+          this.juice.cardSelect(x + card.x + 51, y + card.y + 75, willSelect, cardDefinition.rarity);
           if (next.has(index)) {
             next.delete(index);
           } else {
@@ -4839,17 +5057,31 @@ export default class SnakeScene extends Phaser.Scene {
           }
           this.showCardHand(shopkeeperName, state, hand, next);
         });
-        card.setPosition(cardX, selected.has(index) ? 88 : 98);
+        const targetCardY = selected.has(index) ? 88 : 98;
+        card.setPosition(cardX, targetCardY);
+        if (selected.size === 0) {
+          card.setAlpha(0).setY(68);
+          this.tweens.add({
+            targets: card,
+            y: targetCardY,
+            alpha: 1,
+            duration: 180,
+            delay: index * 55,
+            ease: "Back.easeOut",
+          });
+        }
         root.add(card);
         cardX += cardWidth + gap;
       });
     }
 
     const scoreButton = this.createCardTableButton(38, height - 38, 'Score', () => {
+      this.juice.cardScoreCommit(x + width / 2, y + height / 2, selected.size);
       this.hideCardGamePopup(false);
       this.resolveCardRound(shopkeeperName, state, hand, [...selected]);
     });
     const allButton = this.createCardTableButton(158, height - 38, 'Play All', () => {
+      this.juice.cardScoreCommit(x + width / 2, y + height / 2, hand.length);
       this.hideCardGamePopup(false);
       this.resolveCardRound(
         shopkeeperName,
@@ -4913,6 +5145,25 @@ export default class SnakeScene extends Phaser.Scene {
         color: selected ? '#12543a' : '#42505c',
       })
       .setOrigin(0.5, 0);
+    const shine = this.add
+      .text(13, 123, card.rarity === 'rare' ? '*' : card.rarity === 'uncommon' ? '+' : '', {
+        fontFamily: 'monospace',
+        fontSize: card.rarity === 'rare' ? '20px' : '16px',
+        color: card.rarity === 'rare' ? '#ffd166' : '#4da3ff',
+        stroke: '#17202a',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 0);
+    const glow = this.add
+      .rectangle(
+        8,
+        112,
+        86,
+        28,
+        card.rarity === 'rare' ? 0xffd166 : 0x4da3ff,
+        card.rarity === 'common' ? 0 : 0.14,
+      )
+      .setOrigin(0, 0);
     const check = this.add
       .text(88, 128, selected ? 'x' : '', {
         fontFamily: 'monospace',
@@ -4934,8 +5185,36 @@ export default class SnakeScene extends Phaser.Scene {
       body.setFillStyle(selected ? 0xfff3a8 : 0xf4ead2, 1);
     });
     hit.on('pointerdown', onClick);
-    container.add([shadow, body, header, name, chips, suit, rarity, check, hit]);
+    container.add([shadow, body, header, name, chips, suit, glow, rarity, shine, check, hit]);
     return container;
+  }
+
+  private handleGoblinShopQuestChoice(id: string, shopkeeperName: string): void {
+    if (id === 'quest:goblin-ledger-debt') {
+      const quest = this.snakeGame.offerGoblinLedgerQuestFromCurrentRoom();
+      this.showQuestHintPopup(
+        quest ? 'Ugly Errand accepted. Find the ledger-stamp.' : 'The clerk cannot start that errand here.',
+        quest ? '#b6ff6a' : '#ff6b6b',
+      );
+      this.showGoblinShopRoot(shopkeeperName);
+      return;
+    }
+    if (id === 'quest:goblin-ledger-turnin') {
+      const quest = this.snakeGame.turnInGoblinLedgerQuestAtCurrentRoom();
+      this.showQuestHintPopup(
+        quest ? 'Ledger-stamp returned. The debt is settled.' : 'The clerk still wants the ledger-stamp.',
+        quest ? '#b6ff6a' : '#ff6b6b',
+      );
+      this.showGoblinShopRoot(shopkeeperName);
+      return;
+    }
+    if (id === 'quest:goblin-ledger-active') {
+      this.showQuestHintPopup('Find the missing ledger-stamp first.', '#9ad1ff');
+      this.showGoblinShopRoot(shopkeeperName);
+      return;
+    }
+    this.showQuestHintPopup('The ledger is already closed.', '#9ad1ff');
+    this.showGoblinShopRoot(shopkeeperName);
   }
 
   private createCardTableButton(
@@ -5104,6 +5383,7 @@ export default class SnakeScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 0);
       root.add(empty);
+      this.time.delayedCall(180, () => this.juice.cardBust(x + width / 2, y + 154, "empty"));
     } else {
       for (const cardId of visibleCards) {
         const sprite = this.createCardSprite(cardId, true, () => undefined);
@@ -5122,6 +5402,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.time.delayedCall(delay, () => {
         runningChips += card.chips;
         this.juice.cardScoreTick(card.chips);
+        this.juice.cardSuitSpark(x + sprite.x + 51, y + sprite.y + 75, card.suit);
         scoreText.setText(`Chips: ${runningChips}`);
         this.tweens.add({
           targets: sprite,
@@ -5177,11 +5458,21 @@ export default class SnakeScene extends Phaser.Scene {
         yoyo: true,
         ease: 'Sine.easeInOut',
       });
+      result.details.slice(0, 4).forEach((detail, index) => {
+        this.time.delayedCall(index * 120, () => this.juice.cardRuleTrigger(x + width / 2, y + 92 + index * 18, detail, index));
+      });
     });
     delay += 520;
 
     this.time.delayedCall(delay, () => {
       this.juice.cardRoundResult(won);
+      if (!won) {
+        this.juice.cardBust(
+          x + width / 2,
+          y + height - 38,
+          result.finalScore < result.minScore ? 'low' : 'high',
+        );
+      }
       finalText.setText(
         `Final ${result.finalScore} / Window ${result.minScore}-${result.maxScore} / ${won ? 'Round won' : result.finalScore < result.minScore ? 'Too low' : 'Too high'}`,
       );
@@ -5248,6 +5539,7 @@ export default class SnakeScene extends Phaser.Scene {
       const payout = state.wagerScore * 2;
       this.addScoreDirect(payout);
       this.juice.stopCardMusic();
+      this.juice.cardMatchResult(true, payout);
       this.setChoicePopupVisible(false);
       this.villageShopPopup.show(
         'Card Victory',
@@ -5265,6 +5557,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (state.losses >= 2 || state.round > 3) {
       this.juice.stopCardMusic();
+      this.juice.cardMatchResult(false);
       this.setChoicePopupVisible(false);
       this.villageShopPopup.show(
         'Card Defeat',

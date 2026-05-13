@@ -310,6 +310,7 @@ describe('world generation fairness', () => {
   it('spawns optional structures and cross-room features in a broad generated area', () => {
     const rooms = generateArea('spawn-sanity', -18, 18, -18, 18);
     const villages = [...rooms.values()].filter((room) => room.village);
+    const goblinCamps = [...rooms.values()].filter((room) => room.goblinCamp);
     const questHouses = [...rooms.values()].filter((room) => room.questGiver && !room.village);
     const rivers = [...rooms.values()].filter((room) =>
       hasRiverSegment(room, defaultGameConfig.grid),
@@ -333,6 +334,7 @@ describe('world generation fairness', () => {
     }
 
     expect(villages.length).toBeGreaterThan(0);
+    expect(goblinCamps.length).toBeGreaterThan(0);
     expect(questHouses.length).toBeGreaterThan(0);
     expect(rivers.length).toBeGreaterThan(0);
     expect(crossRoomBoundaryWalls).toBeGreaterThan(0);
@@ -371,7 +373,7 @@ describe('world generation fairness', () => {
     expect(openClearings.length).toBeGreaterThan(0);
     expect(
       openClearings.every((room) => {
-        const hasNpcStructure = Boolean(room.village || room.questGiver);
+        const hasNpcStructure = Boolean(room.village || room.goblinCamp || room.questGiver);
         const hasLake = countTiles(room, new Set(['~'])) > 0;
         return hasNpcStructure || hasLake;
       }),
