@@ -180,8 +180,9 @@ export class EnemyManager {
     position: Vector2Like,
     name: string,
     hearts: number,
+    idSuffix?: string,
   ): EnemyInstance {
-    const id = `npc-hostile:${roomId}`;
+    const id = `npc-hostile:${idSuffix ?? roomId}`;
     const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === id);
     if (existing) {
       return existing;

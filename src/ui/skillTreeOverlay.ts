@@ -16,6 +16,7 @@ import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
+import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -38,6 +39,7 @@ interface OverlayHandlers {
   onTabChange?: (tabId: TabId) => void;
   getSpellSlotView?: () => readonly ActionAbilityView[];
   onBindSpellSlot?: (abilityId: string) => void;
+  getDatingView?: () => readonly DatingCandidateView[];
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
@@ -61,6 +63,7 @@ type TabId =
   | 'customize'
   | 'cards'
   | 'map'
+  | 'dating'
   | 'quests'
   | 'factions'
   | 'graph'
@@ -82,6 +85,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
   { id: 'cards', label: 'Cards', group: 'gear' },
   { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
+  { id: 'dating', label: 'Dating', group: 'world' },
   { id: 'quests', label: 'Quests', group: 'world' },
   { id: 'factions', label: 'Factions', group: 'world' },
   { id: 'graph', label: 'Graph', group: 'system' },
@@ -923,7 +927,7 @@ export class SkillTreeOverlay {
   }
 
   private scrollActiveText(deltaY: number): void {
-    if (!this.visible || (this.activeTab !== 'spells' && this.activeTab !== 'quests')) {
+    if (!this.visible || (this.activeTab !== 'spells' && this.activeTab !== 'quests' && this.activeTab !== 'dating')) {
       return;
     }
     const text = this.activeTab === 'spells' ? this.spellsText : this.questListText;
@@ -938,7 +942,7 @@ export class SkillTreeOverlay {
     text.setY(TREE_PADDING.top - 12 - offset);
     this.scrollHintText
       .setText(maxScroll > 0 ? `Mouse wheel to scroll ${Math.ceil(offset)}/${Math.ceil(maxScroll)}` : '')
-      .setVisible((tab === 'spells' || tab === 'quests') && maxScroll > 0);
+      .setVisible((tab === 'spells' || tab === 'quests' || tab === 'dating') && maxScroll > 0);
   }
 
   private resetScrollableText(text: Phaser.GameObjects.Text): void {
@@ -1092,6 +1096,7 @@ export class SkillTreeOverlay {
     const cardsActive = this.activeTab === 'cards';
     const spellsActive = this.activeTab === 'spells';
     const cheatsActive = this.activeTab === 'cheats';
+    const datingActive = this.activeTab === 'dating';
     const questsActive = this.activeTab === 'quests';
     const factionsActive = this.activeTab === 'factions';
     const infoActive = this.activeTab === 'info';
@@ -1101,15 +1106,15 @@ export class SkillTreeOverlay {
     this.customizationText.setVisible(customizationActive);
     this.cardsText.setVisible(cardsActive);
     this.spellsText.setVisible(spellsActive);
-    this.questListText.setVisible(questsActive);
+    this.questListText.setVisible(questsActive || datingActive);
     this.factionsText.setVisible(factionsActive);
-    if (!spellsActive && !questsActive) {
+    if (!spellsActive && !questsActive && !datingActive) {
       this.scrollHintText.setVisible(false);
     }
     if (!spellsActive) {
       this.resetScrollableText(this.spellsText);
     }
-    if (!questsActive) {
+    if (!questsActive && !datingActive) {
       this.resetScrollableText(this.questListText);
     }
     if (!customizationActive) {
@@ -1158,6 +1163,7 @@ export class SkillTreeOverlay {
         !mapActive &&
         !graphActive &&
         !cheatsActive &&
+        !datingActive &&
         !questsActive &&
         !factionsActive &&
         !infoActive;
@@ -1260,6 +1266,23 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         this.hintText.setText('Accepted quests are listed here.');
         this.hintText.setColor('#9ad1ff');
+      }
+    }
+
+    if (datingActive) {
+      this.questListText.setText(this.formatDatingInfo(this.handlers.getDatingView?.() ?? []));
+      this.applyScrollableTextOffset('dating', this.questListText);
+      this.detailTitle.setText('Dating').setVisible(true);
+      this.detailSubtitle.setText('Relationships').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(
+          'Romance is opt-in. Flirt, gift, or ask someone out in dialogue to create a route. Jealousy and neglect only matter after that.',
+        )
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('Dating: affection, trust, jealousy, resentment.');
+        this.hintText.setColor('#ffbdfd');
       }
     }
 
@@ -1410,6 +1433,7 @@ export class SkillTreeOverlay {
       this.activeTab !== 'skills' &&
       this.activeTab !== 'spells' &&
       this.activeTab !== 'cards' &&
+      this.activeTab !== 'dating' &&
       this.activeTab !== 'quests' &&
       this.activeTab !== 'factions' &&
       this.activeTab !== 'map' &&
@@ -1539,6 +1563,38 @@ export class SkillTreeOverlay {
         const subtaskText =
           subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
         return `${marker} ${quest.label}: ${quest.description}${subtaskText}`;
+      })
+      .join('\n\n');
+  }
+
+  private formatDatingInfo(views: readonly DatingCandidateView[]): string {
+    if (views.length === 0) {
+      return [
+        'No active relationships.',
+        '',
+        'Talk to village residents, goblin guards, wanderers, or stranger things.',
+        'Choose Flirt, Gift, or Ask out to opt in. Ignoring romance choices keeps this system quiet.',
+      ].join('\n');
+    }
+    return views
+      .map((view) => {
+        const species = view.species
+          .split('-')
+          .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+          .join(' ');
+        return [
+          view.displayName,
+          `${species} / ${view.factionLabel}`,
+          `Stage: ${view.stage}`,
+          `Affection ${view.affection} | Trust ${view.trust} | Jealousy ${view.jealousy} | Resentment ${view.resentment}`,
+          `Fear ${view.fear} | Fascination ${view.fascination} | Last seen ${view.lastSeenRoomsAgo} rooms ago`,
+          view.personality ? `Personality: ${view.personality}` : '',
+          view.personalityDescription ?? '',
+          `Likes: ${view.likes.length > 0 ? view.likes.join(', ') : 'unknown'}`,
+          view.warning ? `Warning: ${view.warning}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n');
       })
       .join('\n\n');
   }

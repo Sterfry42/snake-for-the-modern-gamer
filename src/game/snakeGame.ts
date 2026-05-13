@@ -51,6 +51,16 @@ import {
   type FactionId,
 } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
+import { RelationshipController } from '../relationships/relationshipController.js';
+import type {
+  DatingCandidateView,
+  RelationshipCandidateProfile,
+  RelationshipChoice,
+  RelationshipEventResult,
+  RelationshipSpecies,
+  RelationshipState,
+  RelationshipTalkResult,
+} from '../relationships/relationshipTypes.js';
 
 type StagedQuestStage =
   | 'visit-offices'
@@ -396,6 +406,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly enemies: EnemyManager;
   private readonly animals: AnimalManager;
   private readonly questController: QuestController;
+  private readonly relationshipController: RelationshipController;
   private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
   private readonly npcDisposition = new Map<
@@ -437,6 +448,10 @@ export class SnakeGame implements QuestRuntime {
       maxActiveQuests: config.quests.maxActiveQuests,
       questOfferChance: config.quests.questOfferChance,
       rng: this.rng,
+    });
+    this.relationshipController = new RelationshipController({
+      getFlag: (key) => this.getFlag(key),
+      setFlag: (key, value) => this.setFlag(key, value),
     });
     this.inventory = new InventorySystem();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
@@ -720,6 +735,15 @@ export class SnakeGame implements QuestRuntime {
       }
       this.setFlag('roomEntryTimeMs', timeMs);
       this.setFlag('roomsVisited', this.visitedRooms.size);
+      const relationshipTicks = this.relationshipController.tickNeglect(this.getRoomsVisitedCount());
+      if (relationshipTicks.length > 0) {
+        const latest = relationshipTicks[relationshipTicks.length - 1];
+        this.setFlag('ui.relationshipEvent', {
+          title: latest.title,
+          message: latest.message,
+          color: latest.color,
+        });
+      }
       this.handleEquipmentRoomRefund();
       this.handleStagedQuestRoomEntered(newRoomId);
     }
@@ -2171,6 +2195,23 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('npc.randomEncounter.prompted', undefined);
     this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
+    const relationshipId = (encounter as any).relationshipId as string | undefined;
+    if (relationshipId) {
+      const rel = this.relationshipController.recordEncounterOutcome(
+        relationshipId,
+        accept,
+        this.getRoomsVisitedCount(),
+      );
+      if (accept && (encounter as any).rewardScore) {
+        this.addScore(Number((encounter as any).rewardScore));
+      }
+      this.setFlag('ui.relationshipEvent', {
+        title: rel.title,
+        message: rel.message,
+        color: rel.color,
+      });
+      return { kind: 'flavor', accepted: accept };
+    }
     this.recordWandererOutcome(encounter.id, accept);
     if (!accept) {
       if (encounter.oneShot) {
@@ -2744,6 +2785,79 @@ export class SnakeGame implements QuestRuntime {
     return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
   }
 
+  private getRoomsVisitedCount(): number {
+    return Number(this.getFlag<number>('roomsVisited') ?? this.visitedRooms.size);
+  }
+
+  private getGiftTags(itemId: string): string[] {
+    const item = getItem(itemId);
+    const haystack = `${itemId} ${item?.name ?? ''} ${item?.description ?? ''}`.toLowerCase();
+    const tags: string[] = [];
+    const addIf = (tag: string, pattern: RegExp) => {
+      if (pattern.test(haystack)) tags.push(tag);
+    };
+    addIf('food', /meat|fish|egg|honey/);
+    addIf('raw', /raw/);
+    addIf('cooked', /cooked|grilled/);
+    addIf('honey', /honey/);
+    addIf('card', /card|deck|wager/);
+    addIf('home', /couch|kitchen|bed|plant|lamp|hearth|house/);
+    addIf('warmth', /cloak|fire|phoenix|warm|sun|heat/);
+    addIf('phoenix', /phoenix/);
+    addIf('veil', /veil|starlight/);
+    addIf('luminous', /halo|starlight|sun|light/);
+    addIf('holy', /halo|angel|seer|veil/);
+    addIf('contract', /contract|ledger|debt|ward|refund/);
+    addIf('ledger', /ledger/);
+    addIf('ward', /ward|phoenix/);
+    addIf('hide', /hide|leather/);
+    addIf('tool', /rope|glove|mason|revolver|ring/);
+    addIf('gore', /raw|meat|hide/);
+    return tags.length > 0 ? tags : ['curio'];
+  }
+
+  private getRelationshipNpcPosition(profile: RelationshipCandidateProfile): Vector2Like | null {
+    if (!profile.homeRoomId) {
+      return null;
+    }
+    const room = this.world.getRoom(profile.homeRoomId);
+    const localId = profile.id.split(':').at(-1);
+    if (room.village) {
+      const resident = [...room.village.residents, room.village.shopkeeper].find(
+        (entry) => entry.id === localId,
+      );
+      if (resident) return { x: resident.x, y: resident.y };
+    }
+    if (room.goblinCamp) {
+      const resident = [room.goblinCamp.shopkeeper, ...room.goblinCamp.guards].find(
+        (entry) => entry.id === localId,
+      );
+      if (resident) return { x: resident.x, y: resident.y };
+    }
+    return null;
+  }
+
+  private spawnRelationshipHostile(
+    roomId: string,
+    relationshipId: string,
+    name: string,
+    position?: Vector2Like | null,
+  ): void {
+    const room = this.world.getRoom(roomId);
+    const spawn = position ?? this.findEncounterSpawn(roomId) ?? room.questGiver ?? { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
+    this.enemies.spawnHostileNpc(
+      roomId,
+      spawn,
+      name,
+      Math.max(4, this.getRoomsVisitedCount()),
+      relationshipId,
+    );
+    this.setFlag('ui.questInteraction', {
+      message: `${name} has stopped being a relationship and started being a consequence.`,
+    });
+    this.setFlag(`relationships.hostileSpawned.${relationshipId}`, true);
+  }
+
   insultNpc(
     roomId: string,
   ): { anger: number; hostility: 'friendly' | 'warning' | 'hostile'; name: string } | null {
@@ -2766,6 +2880,114 @@ export class SnakeGame implements QuestRuntime {
     }
     this.inventory.addItem(itemId, count);
     this.setFlag('ui.itemReward', { itemId, count });
+  }
+
+  getGiftableItems(): Array<{ itemId: string; name: string; count: number }> {
+    return this.inventory
+      .getAllItems()
+      .map(([itemId, count]) => ({ itemId, count, name: getItem(itemId)?.name ?? itemId }))
+      .filter((entry) => entry.count > 0);
+  }
+
+  ensureRelationshipCandidate(profile: RelationshipCandidateProfile): void {
+    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+  }
+
+  getDatingCandidateViews(): DatingCandidateView[] {
+    return this.relationshipController.getDatingTabView(
+      this.getRoomsVisitedCount(),
+      (factionId) => (factionId ? getFactionName(factionId) : 'Unaffiliated'),
+    );
+  }
+
+  getRelationshipState(profile: RelationshipCandidateProfile): RelationshipState | undefined {
+    return this.relationshipController.getState(profile.id);
+  }
+
+  isRelationshipHostile(profile: RelationshipCandidateProfile): boolean {
+    const state = this.relationshipController.getState(profile.id);
+    return state?.stage === 'hostile' || state?.stage === 'murderous';
+  }
+
+  getRelationshipTalk(profile: RelationshipCandidateProfile): RelationshipTalkResult {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    return (
+      this.relationshipController.getTalkLine(state.id, this.getRoomsVisitedCount(), this.rng) ?? {
+        title: profile.displayName,
+        line: 'The silence is so pointed it may qualify as dialogue.',
+        color: '#9ad1ff',
+        state,
+      }
+    );
+  }
+
+  applyRelationshipChoice(
+    profile: RelationshipCandidateProfile,
+    choice: RelationshipChoice,
+  ): RelationshipEventResult {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const result = this.relationshipController.applyChoice(
+      state.id,
+      choice,
+      this.getRoomsVisitedCount(),
+    );
+    if (result.becameHostile && profile.homeRoomId) {
+      this.spawnRelationshipHostile(
+        profile.homeRoomId,
+        state.id,
+        state.displayName,
+        this.getRelationshipNpcPosition(profile),
+      );
+    }
+    return result;
+  }
+
+  giveRelationshipGift(profile: RelationshipCandidateProfile, itemId: string): RelationshipEventResult {
+    const item = getItem(itemId);
+    if (!item || this.inventory.getItemCount(itemId) <= 0) {
+      return {
+        ok: false,
+        title: profile.displayName,
+        message: 'The gift is not in your pack.',
+        color: '#ff6b6b',
+      };
+    }
+    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    this.inventory.removeItem(itemId, 1);
+    const result = this.relationshipController.applyGift(
+      profile.id,
+      itemId,
+      item.name,
+      this.getGiftTags(itemId),
+      this.getRoomsVisitedCount(),
+    );
+    if (result.becameHostile && profile.homeRoomId) {
+      this.spawnRelationshipHostile(
+        profile.homeRoomId,
+        profile.id,
+        profile.displayName,
+        this.getRelationshipNpcPosition(profile),
+      );
+    }
+    return result;
+  }
+
+  createDeathRescuerRelationship(rescuer: 'angel' | 'goblin-angel'): RelationshipCandidateProfile {
+    return {
+      id: `death-rescuer:${rescuer}`,
+      displayName: rescuer === 'goblin-angel' ? 'The Goblin Angel' : 'The Angel',
+      species: rescuer,
+      portraitId: rescuer === 'goblin-angel' ? 'goblin-hostile' : 'sage-3',
+      factionId: rescuer === 'goblin-angel' ? 'goblin-camps' : 'hearthbound-remnant',
+    };
+  }
+
+  romanceDeathRescuer(rescuer: 'angel' | 'goblin-angel'): RelationshipEventResult {
+    const profile = this.createDeathRescuerRelationship(rescuer);
+    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const first = this.relationshipController.applyChoice(profile.id, 'flirt', this.getRoomsVisitedCount());
+    if (!first.ok) return first;
+    return this.relationshipController.applyChoice(profile.id, 'ask-out', this.getRoomsVisitedCount());
   }
 
   addCardToCollection(cardId: CardId, count = 1): void {
@@ -2795,6 +3017,8 @@ export class SnakeGame implements QuestRuntime {
       'wards.contracts',
       'wards.usage',
       'followers.active',
+      'relationships.states',
+      'relationships.lastEncountered',
       'skills.ranks',
       'equipment.wallSenseRadiusBonus',
       'equipment.seismicPulseRadiusBonus',
@@ -4125,6 +4349,9 @@ export class SnakeGame implements QuestRuntime {
     if (room.questGiver) {
       return;
     }
+    if (this.queueRelationshipEncounter(roomId)) {
+      return;
+    }
     if (this.rng() > 1 / 15) {
       return;
     }
@@ -4177,6 +4404,62 @@ export class SnakeGame implements QuestRuntime {
       roomId,
       id: encounter.id,
     });
+  }
+
+  private queueRelationshipEncounter(roomId: string): boolean {
+    if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 5) {
+      return false;
+    }
+    if (this.rng() > 1 / 12) {
+      return false;
+    }
+    const encounter = this.relationshipController.chooseRelationshipEncounter(
+      this.getRoomsVisitedCount(),
+      this.rng,
+    );
+    if (!encounter) {
+      return false;
+    }
+    const spawn = this.findEncounterSpawn(roomId);
+    if (!spawn) {
+      return false;
+    }
+    const state = this.relationshipController.getState(encounter.relationshipId);
+    if (!state) {
+      return false;
+    }
+    if (encounter.kind === 'hostile') {
+      this.spawnRelationshipHostile(roomId, state.id, state.displayName);
+      this.lastWandererEncounterRoomCount = this.visitedRooms.size;
+      return true;
+    }
+    this.lastWandererEncounterRoomCount = this.visitedRooms.size;
+    this.setFlag('npc.randomEncounter', {
+      id: `relationship-${state.id}`,
+      relationshipId: state.id,
+      kind: 'flavor',
+      name: encounter.title,
+      pages: encounter.pages,
+      roomId,
+      x: spawn.x,
+      y: spawn.y,
+      statsNote: `Relationship: ${state.stage}. Affection ${state.affection}, Trust ${state.trust}, Jealousy ${state.jealousy}.`,
+      acceptLabel: encounter.acceptLabel,
+      rejectLabel: encounter.rejectLabel,
+      portraitId: state.portraitId,
+      rewardScore: encounter.rewardScore,
+      relationshipEncounterKind: encounter.kind,
+    });
+    const revealAtMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    this.setFlag('npc.randomEncounter.revealAtMs', revealAtMs);
+    this.setFlag('npc.randomEncounter.triggerAtMs', revealAtMs + 2200);
+    this.setFlag('ui.wandererReveal', {
+      x: spawn.x,
+      y: spawn.y,
+      roomId,
+      id: state.id,
+    });
+    return true;
   }
 
   getWandererEncounterHistory(id: string): EncounterHistoryEntry | undefined {

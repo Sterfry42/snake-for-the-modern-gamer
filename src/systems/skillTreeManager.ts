@@ -36,6 +36,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       onRequestPurchase: (perkId, state) => this.handlePerkInteraction(perkId, state),
       getSpellSlotView: () => this.actionSlots.getAbilityViews(),
       onBindSpellSlot: (abilityId) => this.bindQSlot(abilityId),
+      getDatingView: () => this.scene.getDatingCandidateViews(),
     });
     this.overlay.hide();
   }
