@@ -1,6 +1,7 @@
 ﻿import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
+import { i18n } from '../../i18n/i18nManager.js';
 
 class ScoreFeature extends Feature {
   private scoreText: Phaser.GameObjects.Text | null = null;
@@ -47,7 +48,7 @@ class ScoreFeature extends Feature {
   private composeLabel(scene: SnakeScene, scoreOverride?: number): string {
     const score = scoreOverride ?? scene.score;
     const length = scene.snake.length;
-    return `Score: ${score}\nLength: ${length}`;
+    return `${i18n.getFeatureString('scoreLabel')}: ${score}\n${i18n.getFeatureString('lengthLabel')}: ${length}`;
   }
 }
 

@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import type { Quest } from '../../quests.js';
+import { i18n } from '../i18n/i18nManager.js';
 
 interface QuestHudOptions {
   position?: { x: number; y: number };
@@ -62,8 +63,12 @@ export class QuestHud {
       return;
     }
 
-    const lines = visibleQuests.map((quest) => `[ ] ${quest.description}`);
-    const content = [`Quests:`, ...lines].join('\n');
+    const lines = visibleQuests.map((quest) => {
+      const questStrings = i18n.getQuestString(quest.id);
+      const desc = questStrings?.description ?? quest.description;
+      return `[ ] ${desc}`;
+    });
+    const content = [i18n.getFeatureString('questsHeader'), ...lines].join('\n');
 
     this.text.setText(content);
     this.text.setPosition(gridWidth - 10, this.options.position.y);

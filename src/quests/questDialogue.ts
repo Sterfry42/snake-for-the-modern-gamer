@@ -146,9 +146,9 @@ export function getQuestDialogue(quest: Quest): QuestDialogue {
 
   return (
     CUSTOM_DIALOGUES[quest.id] ?? {
-      title: quest.label,
+      title: i18n.getQuestString(quest.id)?.label ?? quest.label,
       pages: [
-        `There is work to be done: ${quest.description}.`,
+        `There is work to be done: ${i18n.getQuestString(quest.id)?.description ?? quest.description}.`,
         'I have outlived too many companions to mistake errands for small things. Every task here leans against some older sorrow.',
         'Take the burden if you mean to, but do not insult it by calling it simple.',
       ],

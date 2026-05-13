@@ -1,11 +1,12 @@
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
+import { i18n } from '../../i18n/i18nManager.js';
 
 interface TierConfig {
   threshold: number;
-  label: string;
-  callout: string;
+  labelKey: string;
+  calloutKey: string;
   multiplier: number;
   duration: number;
   speedScalar: number;
@@ -16,8 +17,8 @@ interface TierConfig {
 const TIER_CONFIGS: TierConfig[] = [
   {
     threshold: 3,
-    label: 'Recon Drone',
-    callout: 'Recon Drone Online!',
+    labelKey: 'tierReconDrone',
+    calloutKey: 'tierReconDroneCallout',
     multiplier: 2,
     duration: 240,
     speedScalar: 0.92,
@@ -26,8 +27,8 @@ const TIER_CONFIGS: TierConfig[] = [
   },
   {
     threshold: 6,
-    label: 'Attack Chopper',
-    callout: 'Attack Chopper Ready!',
+    labelKey: 'tierAttackChopper',
+    calloutKey: 'tierAttackChopperCallout',
     multiplier: 3,
     duration: 300,
     speedScalar: 0.85,
@@ -36,8 +37,8 @@ const TIER_CONFIGS: TierConfig[] = [
   },
   {
     threshold: 10,
-    label: 'Tactical Nuke',
-    callout: 'Tactical Nuke Inbound!',
+    labelKey: 'tierTacticalNuke',
+    calloutKey: 'tierTacticalNukeCallout',
     multiplier: 5,
     duration: 360,
     speedScalar: 0.78,
@@ -91,7 +92,7 @@ class KillstreakArsenalFeature extends Feature {
     if (!this.hud) {
       const width = scene.grid.cols * scene.grid.cell;
       this.hud = scene.add
-        .text(width - 12, 10, 'Killstreak 0x', {
+        .text(width - 12, 10, `${i18n.getFeatureString('killstreakHeader')} 0x`, {
           fontFamily: 'monospace',
           fontSize: '16px',
           color: '#f1f5f9',
@@ -274,7 +275,7 @@ class KillstreakArsenalFeature extends Feature {
     this.state.buffTicks = config.duration;
 
     scene.addScore(config.activationBonus);
-    this.spawnCallout(scene, config.callout, config.color);
+    this.spawnCallout(scene, i18n.getFeatureString(config.calloutKey), config.color);
     this.updateHud(scene);
   }
 
@@ -319,8 +320,8 @@ class KillstreakArsenalFeature extends Feature {
 
     const config = this.state.tier > 0 ? TIER_CONFIGS[this.state.tier - 1] : null;
     const color = config ? toHex(config.color) : '#5bc0eb';
-    const text = scene.add
-      .text(worldX, worldY - 14, `Kill Confirmed x${this.state.streak}`, {
+const text = scene.add
+       .text(worldX, worldY - 14, `${i18n.getFeatureString('killConfirmed')} x${this.state.streak}`, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color,
@@ -376,7 +377,7 @@ class KillstreakArsenalFeature extends Feature {
 
   private spawnDropText(scene: SnakeScene, reason: 'timeout' | 'death'): void {
     const width = scene.grid.cols * scene.grid.cell;
-    const label = reason === 'death' ? 'Streak reset' : 'Streak lost';
+    const label = reason === 'death' ? i18n.getFeatureString('streakReset') : i18n.getFeatureString('streakLost');
     const text = scene.add
       .text(width / 2, 128, label, {
         fontFamily: 'monospace',
@@ -423,23 +424,23 @@ class KillstreakArsenalFeature extends Feature {
       return;
     }
 
-    const lines: string[] = [`Killstreak ${this.state.streak}x`];
+    const lines: string[] = [`${i18n.getFeatureString('killstreakHeader')} ${this.state.streak}x`];
     const nextThreshold = this.getNextThreshold();
     if (this.state.tier > 0) {
       const config = TIER_CONFIGS[this.state.tier - 1];
       const currentDelay = ((scene as any).tickDelay as number) ?? 100;
       const secondsLeft = estimateSeconds(this.state.buffTicks, currentDelay);
-      lines.push(`${config.label}`);
-      lines.push(`x${config.multiplier} score | ${secondsLeft}s`);
+      lines.push(`${i18n.getFeatureString(config.labelKey)}`);
+      lines.push(`${i18n.getFeatureString('killstreakScoreTime')} ${config.multiplier} | ${secondsLeft}s`);
     } else if (nextThreshold !== null) {
       const remaining = Math.max(0, nextThreshold - this.state.streak);
-      lines.push(`${remaining} to ${TIER_CONFIGS[0].label}`);
+      lines.push(`${remaining} ${i18n.getFeatureString('killstreakToNext')} ${i18n.getFeatureString(TIER_CONFIGS[0].labelKey)}`);
     } else {
-      lines.push('Max streak!');
+      lines.push(i18n.getFeatureString('killstreakMaxStreak'));
     }
 
     if (this.state.highest > 0) {
-      lines.push(`Best ${this.state.highest}x`);
+      lines.push(`${i18n.getFeatureString('killstreakBest')} ${this.state.highest}x`);
     }
 
     this.hud.setText(lines.join('\n'));

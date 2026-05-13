@@ -1,6 +1,7 @@
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 import { ChoicePopup, type ChoiceOption } from '../../ui/choicePopup.js';
+import { i18n } from '../../i18n/i18nManager.js';
 
 type Mods = {
   tickDelayScalar?: number;
@@ -140,7 +141,7 @@ class ReligionChoiceFeature extends Feature {
   private flowActive = false;
 
   constructor() {
-    super('religionChoice', 'Starting Religion');
+    super('religionChoice', i18n.getFeatureString('startReligionTitle'));
   }
 
   override onRegister(scene: SnakeScene): void {
@@ -185,7 +186,7 @@ class ReligionChoiceFeature extends Feature {
         title: r.name,
         description: r.description,
       }));
-      this.popup?.show('Choose your faith', options, (id) => {
+      this.popup?.show(i18n.getFeatureString('faithTitle'), options, (id) => {
         scene.paused = true;
         const chosen = RELIGIONS.find((r) => r.id === id);
         if (chosen) {
@@ -203,7 +204,7 @@ class ReligionChoiceFeature extends Feature {
         title: b.name,
         description: b.description,
       }));
-      this.popup?.show('Choose your background', options, (id) => {
+      this.popup?.show(i18n.getFeatureString('backgroundTitle'), options, (id) => {
         scene.paused = true;
         const chosen = BACKGROUNDS.find((b) => b.id === id);
         if (chosen) {
@@ -221,7 +222,7 @@ class ReligionChoiceFeature extends Feature {
         title: c.name,
         description: c.description,
       }));
-      this.popup?.show('Choose your class', options, (id) => {
+      this.popup?.show(i18n.getFeatureString('classTitle'), options, (id) => {
         scene.paused = true;
         const chosen = CLASSES.find((c) => c.id === id);
         if (chosen) {
