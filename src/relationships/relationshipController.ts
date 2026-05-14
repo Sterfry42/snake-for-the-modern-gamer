@@ -373,6 +373,35 @@ export class RelationshipController {
     };
   }
 
+  recordEaten(id: string, roomsVisited: number): RelationshipEventResult {
+    const state = this.getState(id);
+    if (!state) {
+      return { ok: false, title: 'No One', message: 'No relationship remembered the bite.', color: '#ff6b6b' };
+    }
+    const saved = this.finalize({
+      ...state,
+      stage: 'murderous',
+      affection: -100,
+      trust: -100,
+      resentment: 100,
+      fear: 100,
+      lastSeenRoomsVisited: roomsVisited,
+      romanceOptIn: false,
+      flags: {
+        ...state.flags,
+        eatenByPlayer: true,
+        eatenRoomsVisited: roomsVisited,
+      },
+    });
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: `${saved.displayName} was eaten by you. The relationship tracker is keeping the receipt.`,
+      color: '#ff6b6b',
+      state: saved,
+    };
+  }
+
   private getStateMap(): Record<string, RelationshipState> {
     const raw = this.runtime.getFlag<Record<string, RelationshipState>>(STATES_FLAG) ?? {};
     const states: Record<string, RelationshipState> = {};
@@ -507,7 +536,7 @@ export class RelationshipController {
     return `${response}\nNeutral: ${itemName} was acceptable, but not personal.`;
   }
 
-  private getLinePool(state: RelationshipState, context: string): string[] {
+  private getLinePool(state: RelationshipState, context: string): readonly string[] {
     const personality = this.getPersonality(state);
     const personalityLines = this.getPersonalityLines(state);
     if (state.stage === 'murderous' || state.stage === 'hostile') {
@@ -620,7 +649,7 @@ export class RelationshipController {
     return ['stranger', 'acquaintance', 'friendly', 'crush', 'dating', 'lover', 'estranged', 'hostile', 'murderous'].indexOf(stage);
   }
 
-  private getOpeningLinePool(state: RelationshipState): string[] {
+  private getOpeningLinePool(state: RelationshipState): readonly string[] {
     if (this.hasOtherSeriousRomance(state) && (state.romanceOptIn || state.stage !== 'stranger')) {
       return [
         'I heard. Of course I heard. Affection is loudest when it thinks it is being discreet.',
@@ -662,13 +691,13 @@ export class RelationshipController {
   }
 
   private getPersonalityLines(state: RelationshipState): {
-    neutral: string[];
-    crush: string[];
-    dating: string[];
-    flirt: string[];
-    date: string[];
-    hurt: string[];
-    hostile: string[];
+    neutral: readonly string[];
+    crush: readonly string[];
+    dating: readonly string[];
+    flirt: readonly string[];
+    date: readonly string[];
+    hurt: readonly string[];
+    hostile: readonly string[];
   } {
     const personality = this.getPersonality(state);
     const lines = {

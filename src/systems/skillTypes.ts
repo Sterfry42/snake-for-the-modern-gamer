@@ -115,6 +115,7 @@ export interface SkillPerkState {
 export interface SkillTreeRuntime {
   getScore(): number;
   addScore(amount: number): void;
+  setActionStepIntervalMs(intervalMs: number): void;
   setTickDelay(delay: number): void;
   growSnake(extraSegments: number): void;
   notifyScoreMultiplierChanged(multiplier: number): void;
@@ -152,12 +153,14 @@ export interface SkillPerkContext {
 // Forward declaration to avoid circular dependency types. Implemented in skillTree.ts
 // eslint-disable-next-line @typescript-eslint/no-use-before-define
 export interface SkillTreeSystemApi {
+  getBaseActionStepIntervalMs(): number;
   getBaseTickDelay(): number;
   addExtraLives(count: number): void;
   enableMana(config: { max: number; regen: number }): void;
   upgradeMana(config: { maxBonus: number; regenBonus: number }): void;
   setScoreMultiplier(multiplier: number): void;
   addScoreMultiplierBonus(bonus: number): void;
+  applyActionStepIntervalScalar(factor: number, sourceId?: string): void;
   applyTickDelayScalar(factor: number, sourceId?: string): void;
   applyFlagEffect(effect: SkillEffectSetFlag): void;
   unlockArcanePulse(): void;

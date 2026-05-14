@@ -576,74 +576,25 @@ export class SnakeGame implements QuestRuntime {
   }
 
   step(paused: boolean): StepResult {
+    return this.actionStep(paused);
+  }
+
+  actionStep(paused: boolean): StepResult {
     const roomsChanged = new Set<string>();
     const previousRoom = this.snake.currentRoomId;
     const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
     if (paused) {
-      return {
-        status: 'alive',
-        apple: {
-          eaten: false,
-          current: appleBeforeStep,
-          stateChanged: false,
-        },
-        roomsChanged,
-        roomChanged: false,
-        questOffer: null,
-        questsCompleted: [],
-      };
+      return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
 
-    const snakeSegments = Array.from(this.snake.bodySegments);
+    this.preSnakeStep(previousRoom, roomsChanged);
 
-    this.hydratePredationConfig();
-    const predationState = this.ensurePredationState();
-    predationState.lastRoomId = previousRoom;
-
-    const skittishRooms = this.apples.moveApples(snakeSegments);
-    skittishRooms.forEach((roomId) => roomsChanged.add(roomId));
-
-    this.bosses.step({
-      getRoom: (roomId: string) => this.world.getRoom(roomId),
-      getSnakeBody: () => this.snake.bodySegments,
-    });
-    this.reconcileStagedQuestBosses();
-
-    const headBeforeSnakeStep = this.snake.bodySegments[0];
-    const bossOnHead = headBeforeSnakeStep
-      ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
-      : null;
-    if (bossOnHead && (bossOnHead.kind === 'angel' || bossOnHead.kind === 'freak-you')) {
-      this.setFlag('internal.killedByBossKind', bossOnHead.kind);
-      this.setFlag('internal.killedByBossName', bossOnHead.name);
-      this.markDeathAtCurrentHead('boss');
-      return {
-        status: 'dead',
-        deathReason: 'boss',
-        apple: {
-          eaten: false,
-          current: appleBeforeStep,
-          stateChanged: roomsChanged.has(previousRoom),
-        },
-        roomsChanged,
-        roomChanged: false,
-        questOffer: null,
-        questsCompleted: [],
-      };
+    const preSnakeDeath = this.checkPreSnakeBossDeath(appleBeforeStep, roomsChanged, previousRoom);
+    if (preSnakeDeath) {
+      return preSnakeDeath;
     }
 
-    const dependencies: SnakeStepDependencies = {
-      getRoom: (roomId: string) => this.world.getRoom(roomId),
-      ensureApple: (roomId: string, snake, score) => {
-        const { changed } = this.apples.ensureApple(roomId, Array.from(snake), score);
-        if (changed) {
-          roomsChanged.add(roomId);
-        }
-      },
-      getBossManager: () => this.bosses,
-    };
-
-    let outcome = this.snake.step(dependencies);
+    let outcome = this.snakeStep(roomsChanged);
 
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
@@ -668,18 +619,7 @@ export class SnakeGame implements QuestRuntime {
         this.animals.ensureAnimals(newRoomId, this.world.getRoom(newRoomId), []);
         this.maybeQueueFreakJoeyEncounter(newRoomId);
         const newRoom = this.world.getRoom(newRoomId);
-        const lastBiomeId = this.getFlag<string>('ui.lastBiomeId');
-        if (lastBiomeId !== newRoom.biomeId) {
-          const biome = getBiomeDefinition(newRoom.biomeId);
-          this.setFlag('ui.biomeReveal', {
-            roomId: newRoomId,
-            biomeId: newRoom.biomeId,
-            title: newRoom.biomeTitle,
-            temperature: biome.temperature,
-            dangerLevel: biome.dangerLevel,
-          });
-          this.setFlag('ui.lastBiomeId', newRoom.biomeId);
-        }
+        this.revealBiomeIfChanged(newRoomId, newRoom);
         if (newRoom.village) {
           const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
           this.setFlag('player.health', maxHealth);
@@ -694,46 +634,10 @@ export class SnakeGame implements QuestRuntime {
         this.handleGoblinCampEntered(newRoomId, newRoom);
       } else {
         const newRoom = this.world.getRoom(newRoomId);
-        const lastBiomeId = this.getFlag<string>('ui.lastBiomeId');
-        if (lastBiomeId !== newRoom.biomeId) {
-          const biome = getBiomeDefinition(newRoom.biomeId);
-          this.setFlag('ui.biomeReveal', {
-            roomId: newRoomId,
-            biomeId: newRoom.biomeId,
-            title: newRoom.biomeTitle,
-            temperature: biome.temperature,
-            dangerLevel: biome.dangerLevel,
-          });
-          this.setFlag('ui.lastBiomeId', newRoom.biomeId);
-        }
+        this.revealBiomeIfChanged(newRoomId, newRoom);
         this.handleGoblinCampEntered(newRoomId, newRoom);
       }
-      const timeMs = Number(this.getFlag<number>('timeMs') ?? 0);
-      const entryTimeMs = Number(this.getFlag<number>('roomEntryTimeMs') ?? timeMs);
-      const entryPos = this.getFlag<{ x: number; y: number }>('roomEntryLocalPos');
-      const previousHead = this.getFlag<{ x: number; y: number }>('internal.previousHead');
-      if (entryPos && previousHead) {
-        const [prevRoomX, prevRoomY] = previousRoom.split(',').map(Number);
-        const prevLocalX = previousHead.x - prevRoomX * this.config.grid.cols;
-        const prevLocalY = previousHead.y - prevRoomY * this.config.grid.rows;
-        const distance = Math.abs(prevLocalX - entryPos.x) + Math.abs(prevLocalY - entryPos.y);
-        this.setFlag('roomTravelDistance', distance);
-        this.setFlag('roomTravelMs', Math.max(0, timeMs - entryTimeMs));
-      } else {
-        this.setFlag('roomTravelDistance', undefined);
-        this.setFlag('roomTravelMs', undefined);
-      }
-      const head = this.snake.bodySegments[0];
-      if (head) {
-        const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
-        this.setFlag('roomEntryLocalPos', {
-          x: head.x - roomX * this.config.grid.cols,
-          y: head.y - roomY * this.config.grid.rows,
-        });
-      } else {
-        this.setFlag('roomEntryLocalPos', undefined);
-      }
-      this.setFlag('roomEntryTimeMs', timeMs);
+      this.recordRoomTravelMetrics(previousRoom);
       this.setFlag('roomsVisited', this.visitedRooms.size);
       const relationshipTicks = this.relationshipController.tickNeglect(this.getRoomsVisitedCount());
       if (relationshipTicks.length > 0) {
@@ -1091,13 +995,33 @@ export class SnakeGame implements QuestRuntime {
       }
       const enemyEat = this.enemies.consumeEnemyAt(this.snake.currentRoomId, currentHead);
       if (enemyEat.eaten) {
-        this.addScore(3);
+        const eatenName = enemyEat.enemy?.name;
+        const eatenHostileNpc = enemyEat.enemy?.encounterKind === 'npc-hostile';
+        this.addScore(eatenHostileNpc ? 6 : 3);
         this.snake.grow(1);
         this.setFlag('ui.enemyEaten', {
           x: currentHead.x,
           y: currentHead.y,
           roomId: this.snake.currentRoomId,
+          name: eatenName,
+          kind: enemyEat.enemy?.encounterKind,
         });
+        const relationshipId = this.getRelationshipIdFromHostileNpc(enemyEat.enemy?.id);
+        if (relationshipId) {
+          const event = this.relationshipController.recordEaten(
+            relationshipId,
+            this.getRoomsVisitedCount(),
+          );
+          if (event.ok) {
+            this.setFlag('ui.relationshipEvent', {
+              title: event.title,
+              message: event.message,
+              color: event.color,
+            });
+          }
+        } else if (eatenHostileNpc && eatenName) {
+          this.setFlag('ui.questInteraction', { message: `${eatenName} has been eaten by you.` });
+        }
       }
     }
 
@@ -1161,200 +1085,18 @@ export class SnakeGame implements QuestRuntime {
       }
     }
 
-    const enemyStep = this.enemies.step({
-      getRoom: (roomId: string) => this.world.getRoom(roomId),
-      snake: this.snake.bodySegments,
-      currentRoomId: this.snake.currentRoomId,
-      snakeDirection: this.snake.directionVector,
+    const statusStepResult = this.statusStepPhase({
+      roomsChanged,
+      previousRoom,
+      roomHasChanged,
+      appleEaten,
+      appleRewards,
+      appleWorldPosition,
+      appleSnapshot,
+      appleStateChanged,
     });
-    const animalStep = this.animals.step({
-      getRoom: (roomId: string) => this.world.getRoom(roomId),
-      snake: this.snake.bodySegments,
-      currentRoomId: this.snake.currentRoomId,
-      snakeDirection: this.snake.directionVector,
-    });
-    if (animalStep.damageTaken > 0) {
-      if (
-        this.tryFortitudePhoenix(
-          { status: 'dead', reason: 'boss' },
-          roomsChanged,
-          previousRoom,
-        )
-      ) {
-        return this.createAliveStepResult({
-          appleEaten,
-          appleRewards,
-          appleWorldPosition,
-          appleSnapshot,
-          appleStateChanged,
-          roomsChanged,
-          roomHasChanged,
-        });
-      }
-      this.markDeathAtCurrentHead('boss');
-      return {
-        status: 'dead',
-        deathReason: 'boss',
-        apple: {
-          eaten: appleEaten,
-          rewards: appleRewards,
-          worldPosition: appleWorldPosition,
-          current: appleSnapshot,
-          stateChanged: appleStateChanged,
-        },
-        roomsChanged,
-        roomChanged: roomHasChanged,
-        questOffer: null,
-        questsCompleted: [],
-      };
-    }
-    if (animalStep.hunted > 0) {
-      this.setFlag('ui.animalHunted', true);
-    }
-    if (animalStep.startleCount > 0) {
-      roomsChanged.add(this.snake.currentRoomId);
-    }
-    if (
-      enemyStep.bulletHits > 0 &&
-      this.applyBulletDamage(enemyStep.bulletHits, enemyStep.hitStyle)
-    ) {
-      if (
-        this.tryFortitudePhoenix({ status: 'dead', reason: 'bullet' }, roomsChanged, previousRoom)
-      ) {
-        return this.createAliveStepResult({
-          appleEaten,
-          appleRewards,
-          appleWorldPosition,
-          appleSnapshot,
-          appleStateChanged,
-          roomsChanged,
-          roomHasChanged,
-        });
-      }
-      this.markDeathAtCurrentHead('bullet');
-      return {
-        status: 'dead',
-        deathReason: 'bullet',
-        apple: {
-          eaten: appleEaten,
-          rewards: appleRewards,
-          worldPosition: appleWorldPosition,
-          current: appleSnapshot,
-          stateChanged: appleStateChanged,
-        },
-        roomsChanged,
-        roomChanged: roomHasChanged,
-        questOffer: null,
-        questsCompleted: [],
-      };
-    }
-    if (
-      this.getFlag<boolean>('npc.freakJoey.active') &&
-      !this.enemies.hasEnemyWithId('freak-joey')
-    ) {
-      this.setFlag('npc.freakJoey.active', undefined);
-      this.setFlag('npc.freakJoey.defeated', true);
-      this.resolvedWandererEncounters.add('freak-joey');
-      this.addScore(25);
-    }
-    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
-    if (activeDuel && !this.enemies.hasEnemyWithId(activeDuel.id)) {
-      if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
-        this.addScore(activeDuel.rewardScore);
-      }
-      this.setFlag('npc.activeDuel', undefined);
-    }
-
-    this.tickPredationTimers();
-    const followerStep = this.tickFollowers();
-    if (followerStep.enemyDefeats > 0) {
-      this.addScore(followerStep.enemyDefeats * 2);
-      this.setFlag('ui.followerAction', {
-        kind: 'enemy',
-        count: followerStep.enemyDefeats,
-      });
-    }
-    if (followerStep.animalDefeats > 0) {
-      this.addScore(followerStep.animalDefeats);
-      this.setFlag('ui.followerAction', {
-        kind: 'animal',
-        count: followerStep.animalDefeats,
-      });
-      this.setFlag('ui.animalHunted', true);
-    }
-    this.tickFortitudeStates();
-    this.tickPlayerStates();
-    if (this.tickTemperatureState()) {
-      if (
-        this.tryFortitudePhoenix(
-          { status: 'dead', reason: 'temperature' },
-          roomsChanged,
-          previousRoom,
-        )
-      ) {
-        return this.createAliveStepResult({
-          appleEaten,
-          appleRewards,
-          appleWorldPosition,
-          appleSnapshot,
-          appleStateChanged,
-          roomsChanged,
-          roomHasChanged,
-        });
-      }
-      this.markDeathAtCurrentHead('temperature');
-      return {
-        status: 'dead',
-        deathReason: 'temperature',
-        apple: {
-          eaten: appleEaten,
-          rewards: appleRewards,
-          worldPosition: appleWorldPosition,
-          current: appleSnapshot,
-          stateChanged: appleStateChanged,
-        },
-        roomsChanged,
-        roomChanged: roomHasChanged,
-        questOffer: null,
-        questsCompleted: [],
-      };
-    }
-    this.tickPowerupState();
-
-    if (this.tickRadiationQuestTimer()) {
-      if (
-        this.tryFortitudePhoenix(
-          { status: 'dead', reason: 'temperature' },
-          roomsChanged,
-          previousRoom,
-        )
-      ) {
-        return this.createAliveStepResult({
-          appleEaten,
-          appleRewards,
-          appleWorldPosition,
-          appleSnapshot,
-          appleStateChanged,
-          roomsChanged,
-          roomHasChanged,
-        });
-      }
-      this.markDeathAtCurrentHead('temperature');
-      return {
-        status: 'dead',
-        deathReason: 'temperature',
-        apple: {
-          eaten: appleEaten,
-          rewards: appleRewards,
-          worldPosition: appleWorldPosition,
-          current: appleSnapshot,
-          stateChanged: appleStateChanged,
-        },
-        roomsChanged,
-        roomChanged: roomHasChanged,
-        questOffer: null,
-        questsCompleted: [],
-      };
+    if (statusStepResult) {
+      return statusStepResult;
     }
 
     const questsCompleted = this.questController.handleCompletions(this);
@@ -1374,6 +1116,403 @@ export class SnakeGame implements QuestRuntime {
       questOffer,
       questsCompleted,
     };
+  }
+
+  bossStep(): void {
+    this.bosses.step({
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      getSnakeBody: () => this.snake.bodySegments,
+    });
+    this.reconcileStagedQuestBosses();
+  }
+
+  actorClockStep(): StepResult | null {
+    const roomsChanged = new Set<string>();
+    const currentRoom = this.snake.currentRoomId;
+    const appleSnapshot = this.apples.getSnapshot(currentRoom);
+    const result = this.actorStepPhase({
+      roomsChanged,
+      previousRoom: currentRoom,
+      roomHasChanged: false,
+      appleEaten: false,
+      appleSnapshot,
+      appleStateChanged: false,
+    });
+    if (result) {
+      return result;
+    }
+    if (roomsChanged.size <= 0) {
+      return null;
+    }
+    return {
+      status: 'alive',
+      apple: {
+        eaten: false,
+        current: appleSnapshot,
+        stateChanged: roomsChanged.has(currentRoom),
+      },
+      roomsChanged,
+      roomChanged: false,
+      questOffer: null,
+      questsCompleted: [],
+    };
+  }
+
+  bulletClockStep(): StepResult | null {
+    const roomsChanged = new Set<string>();
+    const currentRoom = this.snake.currentRoomId;
+    const appleSnapshot = this.apples.getSnapshot(currentRoom);
+    const bulletStep = this.enemies.stepBullets({
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      snake: this.snake.bodySegments,
+      currentRoomId: this.snake.currentRoomId,
+      snakeDirection: this.snake.directionVector,
+    });
+    if (
+      bulletStep.bulletHits <= 0 ||
+      !this.applyBulletDamage(bulletStep.bulletHits, bulletStep.hitStyle)
+    ) {
+      return null;
+    }
+
+    const options = {
+      roomsChanged,
+      previousRoom: currentRoom,
+      roomHasChanged: false,
+      appleEaten: false,
+      appleSnapshot,
+      appleStateChanged: false,
+    };
+    if (
+      this.tryFortitudePhoenix(
+        { status: 'dead', reason: 'bullet' },
+        options.roomsChanged,
+        options.previousRoom,
+      )
+    ) {
+      return this.createAliveStepResult(options);
+    }
+    this.markDeathAtCurrentHead('bullet');
+    return this.createActorDeathStepResult('bullet', options);
+  }
+
+  hazardClockStep(): StepResult | null {
+    const roomsChanged = new Set<string>();
+    const currentRoom = this.snake.currentRoomId;
+    const appleSnapshot = this.apples.getSnapshot(currentRoom);
+    const options = {
+      roomsChanged,
+      previousRoom: currentRoom,
+      roomHasChanged: false,
+      appleEaten: false,
+      appleSnapshot,
+      appleStateChanged: false,
+    };
+    if (this.tickTemperatureState()) {
+      return this.createTemperatureDeathOrPhoenixResult(options);
+    }
+    if (this.tickRadiationQuestTimer()) {
+      return this.createTemperatureDeathOrPhoenixResult(options);
+    }
+    return null;
+  }
+
+  private createNoopActionStepResult(
+    appleBeforeStep: AppleSnapshot | null,
+    roomsChanged: Set<string>,
+  ): StepResult {
+    return {
+      status: 'alive',
+      apple: {
+        eaten: false,
+        current: appleBeforeStep,
+        stateChanged: false,
+      },
+      roomsChanged,
+      roomChanged: false,
+      questOffer: null,
+      questsCompleted: [],
+    };
+  }
+
+  private preSnakeStep(previousRoom: string, roomsChanged: Set<string>): void {
+    const snakeSegments = Array.from(this.snake.bodySegments);
+
+    this.hydratePredationConfig();
+    const predationState = this.ensurePredationState();
+    predationState.lastRoomId = previousRoom;
+
+    const skittishRooms = this.apples.moveApples(snakeSegments);
+    skittishRooms.forEach((roomId) => roomsChanged.add(roomId));
+
+  }
+
+  private checkPreSnakeBossDeath(
+    appleBeforeStep: AppleSnapshot | null,
+    roomsChanged: Set<string>,
+    previousRoom: string,
+  ): StepResult | null {
+    const headBeforeSnakeStep = this.snake.bodySegments[0];
+    const bossOnHead = headBeforeSnakeStep
+      ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
+      : null;
+    if (!bossOnHead || (bossOnHead.kind !== 'angel' && bossOnHead.kind !== 'freak-you')) {
+      return null;
+    }
+
+    this.setFlag('internal.killedByBossKind', bossOnHead.kind);
+    this.setFlag('internal.killedByBossName', bossOnHead.name);
+    this.markDeathAtCurrentHead('boss');
+    return {
+      status: 'dead',
+      deathReason: 'boss',
+      apple: {
+        eaten: false,
+        current: appleBeforeStep,
+        stateChanged: roomsChanged.has(previousRoom),
+      },
+      roomsChanged,
+      roomChanged: false,
+      questOffer: null,
+      questsCompleted: [],
+    };
+  }
+
+  private snakeStep(roomsChanged: Set<string>): SnakeStepOutcome {
+    const dependencies: SnakeStepDependencies = {
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      ensureApple: (roomId: string, snake, score) => {
+        const { changed } = this.apples.ensureApple(roomId, Array.from(snake), score);
+        if (changed) {
+          roomsChanged.add(roomId);
+        }
+      },
+      getBossManager: () => this.bosses,
+    };
+
+    return this.snake.step(dependencies);
+  }
+
+  private actorStep(): {
+    animalStep: {
+      tames: number;
+      damageDealt: number;
+      damageTaken: number;
+      hunted: number;
+      startleCount: number;
+    };
+  } {
+    this.enemies.stepEnemies({
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      snake: this.snake.bodySegments,
+      currentRoomId: this.snake.currentRoomId,
+      snakeDirection: this.snake.directionVector,
+    });
+    const animalStep = this.animals.step({
+      getRoom: (roomId: string) => this.world.getRoom(roomId),
+      snake: this.snake.bodySegments,
+      currentRoomId: this.snake.currentRoomId,
+      snakeDirection: this.snake.directionVector,
+    });
+
+    return { animalStep };
+  }
+
+  private actorStepPhase(options: {
+    roomsChanged: Set<string>;
+    previousRoom: string;
+    roomHasChanged: boolean;
+    appleEaten: boolean;
+    appleRewards?: AppleConsumptionResult['rewards'];
+    appleWorldPosition?: Vector2Like | null;
+    appleSnapshot: AppleSnapshot | null;
+    appleStateChanged: boolean;
+  }): StepResult | null {
+    const { animalStep } = this.actorStep();
+    if (animalStep.damageTaken > 0) {
+      if (
+        this.tryFortitudePhoenix(
+          { status: 'dead', reason: 'boss' },
+          options.roomsChanged,
+          options.previousRoom,
+        )
+      ) {
+        return this.createAliveStepResult(options);
+      }
+      this.markDeathAtCurrentHead('boss');
+      return this.createActorDeathStepResult('boss', options);
+    }
+
+    if (animalStep.hunted > 0) {
+      this.setFlag('ui.animalHunted', true);
+    }
+    if (animalStep.startleCount > 0) {
+      options.roomsChanged.add(this.snake.currentRoomId);
+    }
+    if (
+      this.getFlag<boolean>('npc.freakJoey.active') &&
+      !this.enemies.hasEnemyWithId('freak-joey')
+    ) {
+      this.setFlag('npc.freakJoey.active', undefined);
+      this.setFlag('npc.freakJoey.defeated', true);
+      this.resolvedWandererEncounters.add('freak-joey');
+      this.addScore(25);
+    }
+    const activeDuel = this.getFlag<{ id: string; rewardScore?: number }>('npc.activeDuel');
+    if (activeDuel && !this.enemies.hasEnemyWithId(activeDuel.id)) {
+      if (activeDuel.id !== 'freak-joey' && activeDuel.rewardScore) {
+        this.addScore(activeDuel.rewardScore);
+      }
+      this.setFlag('npc.activeDuel', undefined);
+    }
+
+    return null;
+  }
+
+  private createActorDeathStepResult(
+    deathReason: 'boss' | 'bullet',
+    options: {
+      roomsChanged: Set<string>;
+      roomHasChanged: boolean;
+      appleEaten: boolean;
+      appleRewards?: AppleConsumptionResult['rewards'];
+      appleWorldPosition?: Vector2Like | null;
+      appleSnapshot: AppleSnapshot | null;
+      appleStateChanged: boolean;
+    },
+  ): StepResult {
+    return {
+      status: 'dead',
+      deathReason,
+      apple: {
+        eaten: options.appleEaten,
+        rewards: options.appleRewards,
+        worldPosition: options.appleWorldPosition,
+        current: options.appleSnapshot,
+        stateChanged: options.appleStateChanged,
+      },
+      roomsChanged: options.roomsChanged,
+      roomChanged: options.roomHasChanged,
+      questOffer: null,
+      questsCompleted: [],
+    };
+  }
+
+  private statusStepPhase(options: {
+    roomsChanged: Set<string>;
+    previousRoom: string;
+    roomHasChanged: boolean;
+    appleEaten: boolean;
+    appleRewards?: AppleConsumptionResult['rewards'];
+    appleWorldPosition?: Vector2Like | null;
+    appleSnapshot: AppleSnapshot | null;
+    appleStateChanged: boolean;
+  }): StepResult | null {
+    this.tickPredationTimers();
+    const followerStep = this.tickFollowers();
+    if (followerStep.enemyDefeats > 0) {
+      this.addScore(followerStep.enemyDefeats * 2);
+      this.setFlag('ui.followerAction', {
+        kind: 'enemy',
+        count: followerStep.enemyDefeats,
+      });
+    }
+    if (followerStep.animalDefeats > 0) {
+      this.addScore(followerStep.animalDefeats);
+      this.setFlag('ui.followerAction', {
+        kind: 'animal',
+        count: followerStep.animalDefeats,
+      });
+      this.setFlag('ui.animalHunted', true);
+    }
+    this.tickFortitudeStates();
+    this.tickPlayerStates();
+    this.tickPowerupState();
+
+    return null;
+  }
+
+  private createTemperatureDeathOrPhoenixResult(options: {
+    roomsChanged: Set<string>;
+    previousRoom: string;
+    roomHasChanged: boolean;
+    appleEaten: boolean;
+    appleRewards?: AppleConsumptionResult['rewards'];
+    appleWorldPosition?: Vector2Like | null;
+    appleSnapshot: AppleSnapshot | null;
+    appleStateChanged: boolean;
+  }): StepResult {
+    if (
+      this.tryFortitudePhoenix(
+        { status: 'dead', reason: 'temperature' },
+        options.roomsChanged,
+        options.previousRoom,
+      )
+    ) {
+      return this.createAliveStepResult(options);
+    }
+    this.markDeathAtCurrentHead('temperature');
+    return {
+      status: 'dead',
+      deathReason: 'temperature',
+      apple: {
+        eaten: options.appleEaten,
+        rewards: options.appleRewards,
+        worldPosition: options.appleWorldPosition,
+        current: options.appleSnapshot,
+        stateChanged: options.appleStateChanged,
+      },
+      roomsChanged: options.roomsChanged,
+      roomChanged: options.roomHasChanged,
+      questOffer: null,
+      questsCompleted: [],
+    };
+  }
+
+  private revealBiomeIfChanged(roomId: string, room: RoomSnapshot): void {
+    const lastBiomeId = this.getFlag<string>('ui.lastBiomeId');
+    if (lastBiomeId === room.biomeId) {
+      return;
+    }
+    const biome = getBiomeDefinition(room.biomeId);
+    this.setFlag('ui.biomeReveal', {
+      roomId,
+      biomeId: room.biomeId,
+      title: room.biomeTitle,
+      temperature: biome.temperature,
+      dangerLevel: biome.dangerLevel,
+    });
+    this.setFlag('ui.lastBiomeId', room.biomeId);
+  }
+
+  private recordRoomTravelMetrics(previousRoom: string): void {
+    const timeMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const entryTimeMs = Number(this.getFlag<number>('roomEntryTimeMs') ?? timeMs);
+    const entryPos = this.getFlag<{ x: number; y: number }>('roomEntryLocalPos');
+    const previousHead = this.getFlag<{ x: number; y: number }>('internal.previousHead');
+    if (entryPos && previousHead) {
+      const [prevRoomX, prevRoomY] = previousRoom.split(',').map(Number);
+      const prevLocalX = previousHead.x - prevRoomX * this.config.grid.cols;
+      const prevLocalY = previousHead.y - prevRoomY * this.config.grid.rows;
+      const distance = Math.abs(prevLocalX - entryPos.x) + Math.abs(prevLocalY - entryPos.y);
+      this.setFlag('roomTravelDistance', distance);
+      this.setFlag('roomTravelMs', Math.max(0, timeMs - entryTimeMs));
+    } else {
+      this.setFlag('roomTravelDistance', undefined);
+      this.setFlag('roomTravelMs', undefined);
+    }
+
+    const head = this.snake.bodySegments[0];
+    if (head) {
+      const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
+      this.setFlag('roomEntryLocalPos', {
+        x: head.x - roomX * this.config.grid.cols,
+        y: head.y - roomY * this.config.grid.rows,
+      });
+    } else {
+      this.setFlag('roomEntryLocalPos', undefined);
+    }
+    this.setFlag('roomEntryTimeMs', timeMs);
   }
 
   getCurrentRoom() {
@@ -2627,25 +2766,31 @@ export class SnakeGame implements QuestRuntime {
   }
 
   tryConsumeWardForDeath(reason?: string | null): boolean {
+    if (!this.hasWardForDeath(reason)) {
+      return false;
+    }
+    const contracts = this.getWardContracts();
+    const source = reason as WardDeathSource;
+    const current = Math.max(0, Math.floor(contracts[source] ?? 0));
+    const next = { ...contracts, [source]: current - 1 };
+    if (next[source] <= 0) {
+      delete next[source];
+    }
+    this.setFlag('wards.contracts', next);
+    const usage = this.getWardUsage();
+    usage[source] = Math.max(0, Math.floor(usage[source] ?? 0)) + 1;
+    this.setFlag('wards.usage', usage);
+    this.setFlag('wards.lastTriggered', { source });
+    this.adjustFactionAlignment('goblin-camps', 1);
+    return true;
+  }
+
+  private hasWardForDeath(reason?: string | null): reason is WardDeathSource {
     if (!reason || !this.isWardDeathSource(reason)) {
       return false;
     }
     const contracts = this.getWardContracts();
-    const current = Math.max(0, Math.floor(contracts[reason] ?? 0));
-    if (current <= 0) {
-      return false;
-    }
-    const next = { ...contracts, [reason]: current - 1 };
-    if (next[reason] <= 0) {
-      delete next[reason];
-    }
-    this.setFlag('wards.contracts', next);
-    const usage = this.getWardUsage();
-    usage[reason] = Math.max(0, Math.floor(usage[reason] ?? 0)) + 1;
-    this.setFlag('wards.usage', usage);
-    this.setFlag('wards.lastTriggered', { source: reason });
-    this.adjustFactionAlignment('goblin-camps', 1);
-    return true;
+    return Math.max(0, Math.floor(contracts[reason] ?? 0)) > 0;
   }
 
   private isWardDeathSource(reason: string): reason is WardDeathSource {
@@ -2873,7 +3018,8 @@ export class SnakeGame implements QuestRuntime {
       return null;
     }
     const room = this.world.getRoom(profile.homeRoomId);
-    const localId = profile.id.split(':').at(-1);
+    const localIdParts = profile.id.split(':');
+    const localId = localIdParts[localIdParts.length - 1];
     if (room.village) {
       const resident = [...room.village.residents, room.village.shopkeeper].find(
         (entry) => entry.id === localId,
@@ -2908,6 +3054,15 @@ export class SnakeGame implements QuestRuntime {
       message: `${name} has stopped being a relationship and started being a consequence.`,
     });
     this.setFlag(`relationships.hostileSpawned.${relationshipId}`, true);
+  }
+
+  private getRelationshipIdFromHostileNpc(enemyId?: string): string | null {
+    const prefix = 'npc-hostile:';
+    if (!enemyId?.startsWith(prefix)) {
+      return null;
+    }
+    const id = enemyId.slice(prefix.length);
+    return id.includes(':') ? id : null;
   }
 
   insultNpc(
@@ -3998,9 +4153,6 @@ export class SnakeGame implements QuestRuntime {
       (quest) =>
         quest.giverRoomId === roomId &&
         (quest.stage === 'return-to-giver' ||
-          (quest.questId === 'goblin-ledger-debt' &&
-            quest.stage === 'return-to-giver' &&
-            quest.carriedItemId === 'goblin-ledger-stamp') ||
           (quest.questId === 'green-purchase' &&
             quest.stage === 'escape-radiation' &&
             quest.carriedItemId === 'radioactive-substance')),
@@ -4535,11 +4687,25 @@ export class SnakeGame implements QuestRuntime {
     const next = { anger, hostility };
     this.npcDisposition.set(roomId, next);
     if (hostility === 'hostile') {
+      if (reason === 'shot' && current.hostility === 'hostile') {
+        const hit = this.enemies.damageEnemyAt(
+          roomId,
+          this.localToWorld(roomId, { x: giver.x, y: giver.y }),
+          1,
+        );
+        if (hit.defeated) {
+          this.setFlag('ui.questInteraction', { message: `${giver.name} has been shot dead.` });
+        }
+        return next;
+      }
+      const maxHearts = Math.max(3, giver.maxHearts);
       this.enemies.spawnHostileNpc(
         roomId,
         { x: giver.x, y: giver.y },
         giver.name,
-        Math.max(3, giver.maxHearts),
+        maxHearts,
+        undefined,
+        reason === 'shot' ? Math.max(1, maxHearts - 1) : maxHearts,
       );
     }
     return next;
@@ -4738,6 +4904,9 @@ export class SnakeGame implements QuestRuntime {
     roomsChanged: Set<string>,
     previousRoomId: string,
   ): boolean {
+    if (this.hasWardForDeath(outcome.reason)) {
+      return false;
+    }
     const state = this.getFlag<{ charges?: number }>('fortitude.phoenix');
     const eqCharges = this.getFlag<number>('equipment.phoenixCharges') ?? 0;
     const charges = (state?.charges ?? 0) + eqCharges;
@@ -4778,7 +4947,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('player.health', maxHealth);
     this.setFlag('player.bulletInvulnTicks', 12);
     this.setFlag('ui.healthRevealed', true);
-    this.setFlag('fortitude.phoenixTriggered', { reason: reason ?? 'extra-life' });
+    this.setFlag('fortitude.phoenixTriggered', undefined);
     this.setFlag('traversal.manualResumePending', true);
   }
 

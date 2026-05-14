@@ -1443,7 +1443,7 @@ const HARVEST_PERKS = [
 export class SkillTreeSystem implements SkillTreeSystemApi {
   private readonly perkLookup = new Map<string, SkillPerkDefinition>();
   private readonly perkRanks = new Map<string, number>();
-  private readonly tickDelaySources = new Map<string, number>();
+  private readonly actionStepIntervalSources = new Map<string, number>();
   private readonly flagEffects = new Map<string, SkillEffectSetFlag>();
 
   private extraLifeCharges = 0;
@@ -1463,15 +1463,19 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
 
   constructor(
     private readonly runtime: SkillTreeRuntime,
-    private readonly baseTickDelay: number,
+    private readonly baseActionStepIntervalMs: number,
   ) {
     for (const definition of PERK_DEFINITIONS) {
       this.perkLookup.set(definition.id, definition);
     }
   }
 
+  getBaseActionStepIntervalMs(): number {
+    return this.baseActionStepIntervalMs;
+  }
+
   getBaseTickDelay(): number {
-    return this.baseTickDelay;
+    return this.getBaseActionStepIntervalMs();
   }
 
   getPerks(): SkillPerkDefinition[] {
@@ -1691,13 +1695,20 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     this.runtime.notifyArcaneVeilUnlocked();
   }
 
-  applyTickDelayScalar(factor: number, sourceId = `scalar:${this.tickDelaySources.size}`): void {
+  applyActionStepIntervalScalar(
+    factor: number,
+    sourceId = `scalar:${this.actionStepIntervalSources.size}`,
+  ): void {
     if (!Number.isFinite(factor) || factor <= 0) {
       return;
     }
     const clamped = Math.max(0.2, Math.min(factor, 3));
-    this.tickDelaySources.set(sourceId, clamped);
-    this.recalculateTickDelay();
+    this.actionStepIntervalSources.set(sourceId, clamped);
+    this.recalculateActionStepInterval();
+  }
+
+  applyTickDelayScalar(factor: number, sourceId?: string): void {
+    this.applyActionStepIntervalScalar(factor, sourceId);
   }
 
   tryCastArcanePulse(): boolean {
@@ -1755,7 +1766,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     }
     this.flagEffects.clear();
     this.perkRanks.clear();
-    this.tickDelaySources.clear();
+    this.actionStepIntervalSources.clear();
     this.extraLifeCharges = 0;
     this.scoreMultiplierBase = 1;
     this.scoreMultiplierBonus = 1;
@@ -1768,7 +1779,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     this.arcanePulseUnlocked = false;
     this.arcaneVeilUnlocked = false;
 
-    this.runtime.setTickDelay(this.baseTickDelay);
+    this.runtime.setActionStepIntervalMs(this.baseActionStepIntervalMs);
     this.runtime.notifyExtraLifeReset();
     this.updateScoreMultiplier();
     this.runtime.notifyManaChanged(0, 0, 0);
@@ -1782,13 +1793,13 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     }
   }
 
-  private recalculateTickDelay(): void {
-    const combined = Array.from(this.tickDelaySources.values()).reduce(
+  private recalculateActionStepInterval(): void {
+    const combined = Array.from(this.actionStepIntervalSources.values()).reduce(
       (acc, value) => acc * value,
       1,
     );
-    const newDelay = Math.max(30, Math.round(this.baseTickDelay * combined));
-    this.runtime.setTickDelay(newDelay);
+    const intervalMs = Math.max(30, Math.round(this.baseActionStepIntervalMs * combined));
+    this.runtime.setActionStepIntervalMs(intervalMs);
   }
 
   private countRanks(ids: readonly string[]): number {

@@ -8,7 +8,7 @@ import { ActionSlotController } from './actionSlots.js';
 import { JuiceManager } from '../ui/juice.js';
 
 export interface SkillTreeManagerOptions {
-  baseTickDelay: number;
+  baseActionStepIntervalMs: number;
 }
 
 export class SkillTreeManager implements SkillTreeRuntime {
@@ -21,7 +21,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
     private readonly juice: JuiceManager,
     options: SkillTreeManagerOptions,
   ) {
-    this.system = new SkillTreeSystem(this, options.baseTickDelay);
+    this.system = new SkillTreeSystem(this, options.baseActionStepIntervalMs);
     this.actionSlots = new ActionSlotController({
       getStats: () => this.system.getStats(),
       getFlag: (key) => this.scene.getFlag(key),
@@ -109,7 +109,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
     }
 
     const result = this.actionSlots.use('q');
-    if (!result.ok) {
+    if (result.ok === false) {
       this.juice.spellFailed();
       if (this.overlay.isVisible()) {
         this.overlay.announce(result.reason, '#ff6b6b', 2200);
@@ -169,7 +169,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   setTickDelay(delay: number): void {
-    this.scene.setTickDelay(delay);
+    this.setActionStepIntervalMs(delay);
+  }
+
+  setActionStepIntervalMs(intervalMs: number): void {
+    this.scene.setActionStepIntervalMs(intervalMs);
   }
 
   growSnake(extraSegments: number): void {
@@ -348,7 +352,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   private bindQSlot(abilityId: string): void {
     const result = this.actionSlots.bind('q', abilityId);
-    if (!result.ok) {
+    if (result.ok === false) {
       this.juice.spellFailed();
       this.overlay.announce(result.reason, '#ff6b6b', 2200);
       this.overlay.refresh();
@@ -360,9 +364,13 @@ export class SkillTreeManager implements SkillTreeRuntime {
   }
 
   // External helpers
-  applyTickDelayScalar(factor: number, sourceId: string): void {
+  applyActionStepIntervalScalar(factor: number, sourceId: string): void {
     // Pass through to the underlying system so other modules (e.g., equipment)
-    // can contribute to the tick delay calculation as named sources.
-    this.system.applyTickDelayScalar(factor, sourceId);
+    // can contribute to the action interval calculation as named sources.
+    this.system.applyActionStepIntervalScalar(factor, sourceId);
+  }
+
+  applyTickDelayScalar(factor: number, sourceId: string): void {
+    this.applyActionStepIntervalScalar(factor, sourceId);
   }
 }

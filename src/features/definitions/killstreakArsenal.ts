@@ -260,7 +260,7 @@ class KillstreakArsenalFeature extends Feature {
 
   private activateTier(scene: SnakeScene, tier: number): void {
     const config = TIER_CONFIGS[tier - 1];
-    const currentDelay = ((scene as any).tickDelay as number) ?? 100;
+    const currentDelay = scene.getActionStepIntervalMs();
 
     if (this.state.buffTicks <= 0 || this.state.baseTickDelay === undefined) {
       this.state.baseTickDelay = currentDelay;
@@ -268,7 +268,7 @@ class KillstreakArsenalFeature extends Feature {
 
     const baseDelay = this.state.baseTickDelay ?? currentDelay;
     const boostedDelay = Math.max(20, Math.round(baseDelay * config.speedScalar));
-    scene.setTickDelay(boostedDelay);
+    scene.setActionStepIntervalMs(boostedDelay);
 
     this.state.tier = tier;
     this.state.multiplier = config.multiplier;
@@ -285,7 +285,7 @@ class KillstreakArsenalFeature extends Feature {
     }
 
     if (this.state.baseTickDelay !== undefined) {
-      scene.setTickDelay(this.state.baseTickDelay);
+      scene.setActionStepIntervalMs(this.state.baseTickDelay);
     }
 
     this.state.tier = 0;
@@ -428,7 +428,7 @@ const text = scene.add
     const nextThreshold = this.getNextThreshold();
     if (this.state.tier > 0) {
       const config = TIER_CONFIGS[this.state.tier - 1];
-      const currentDelay = ((scene as any).tickDelay as number) ?? 100;
+      const currentDelay = scene.getActionStepIntervalMs();
       const secondsLeft = estimateSeconds(this.state.buffTicks, currentDelay);
       lines.push(`${i18n.getFeatureString(config.labelKey)}`);
       lines.push(`${i18n.getFeatureString('killstreakScoreTime')} ${config.multiplier} | ${secondsLeft}s`);
