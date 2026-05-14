@@ -181,12 +181,19 @@ export class EnemyManager {
     name: string,
     hearts: number,
     idSuffix?: string,
+    currentHearts = hearts,
   ): EnemyInstance {
     const id = `npc-hostile:${idSuffix ?? roomId}`;
     const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === id);
     if (existing) {
+      existing.currentHearts = Math.min(
+        Math.max(1, currentHearts),
+        Math.max(1, existing.maxHearts ?? hearts),
+      );
+      existing.flashTicks = Math.max(existing.flashTicks, 2);
       return existing;
     }
+    const maxHearts = Math.max(1, hearts);
     const hostileNpc: EnemyInstance = {
       id,
       roomId,
@@ -196,8 +203,8 @@ export class EnemyManager {
       aimDirection: { x: 0, y: 1 },
       flashTicks: 0,
       name,
-      currentHearts: hearts,
-      maxHearts: hearts,
+      currentHearts: Math.min(Math.max(1, currentHearts), maxHearts),
+      maxHearts,
       encounterKind: 'npc-hostile',
     };
     const current = this.enemies.get(roomId) ?? [];
@@ -297,7 +304,13 @@ export class EnemyManager {
   }
 
   step(params: EnemyStepParams): EnemyStepResult {
-    const { getRoom, snake, currentRoomId, snakeDirection } = params;
+    const bulletStep = this.stepBullets(params);
+    this.stepEnemies(params);
+    return bulletStep;
+  }
+
+  stepBullets(params: EnemyStepParams): EnemyStepResult {
+    const { getRoom, snake, currentRoomId } = params;
     let bulletHits = 0;
     let hitStyle: BulletInstance['style'] | undefined;
 
@@ -355,14 +368,19 @@ export class EnemyManager {
       }
     }
 
+    return { bulletHits, hitStyle };
+  }
+
+  stepEnemies(params: EnemyStepParams): void {
+    const { getRoom, snake, currentRoomId, snakeDirection } = params;
     const head = snake[0];
     if (!head) {
-      return { bulletHits, hitStyle };
+      return;
     }
 
     const roomEnemies = this.enemies.get(currentRoomId) ?? [];
     if (roomEnemies.length === 0) {
-      return { bulletHits, hitStyle };
+      return;
     }
 
     const room = getRoom(currentRoomId);
@@ -447,11 +465,9 @@ export class EnemyManager {
     } else {
       this.enemies.delete(currentRoomId);
     }
-
-    return { bulletHits, hitStyle };
   }
 
-  consumeEnemyAt(roomId: string, head: Vector2Like): { eaten: boolean } {
+  consumeEnemyAt(roomId: string, head: Vector2Like): { eaten: boolean; enemy?: EnemyInstance } {
     const enemies = this.enemies.get(roomId) ?? [];
     if (enemies.length === 0) {
       return { eaten: false };
@@ -461,7 +477,7 @@ export class EnemyManager {
     const target = enemies.find(
       (enemy) => enemy.position.x === headLocal.x && enemy.position.y === headLocal.y,
     );
-    if (!target || target.encounterKind !== 'enemy') {
+    if (!target || (target.encounterKind !== 'enemy' && target.encounterKind !== 'npc-hostile')) {
       return { eaten: false };
     }
     const remaining = enemies.filter((enemy) => enemy.id !== target.id);
@@ -476,7 +492,7 @@ export class EnemyManager {
       this.enemies.delete(roomId);
     }
 
-    return { eaten: true };
+    return { eaten: true, enemy: target };
   }
 
   getEnemiesInRoom(roomId: string): readonly EnemyInstance[] {

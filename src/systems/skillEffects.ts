@@ -3,7 +3,7 @@ import type { SkillEffect, SkillEffectContext } from './skillTypes.js';
 export function applySkillEffect(effect: SkillEffect, context: SkillEffectContext): void {
   switch (effect.type) {
     case 'tickDelayScalar': {
-      context.system.applyTickDelayScalar(effect.factor, effect.sourceId);
+      context.system.applyActionStepIntervalScalar(effect.factor, effect.sourceId);
       break;
     }
     case 'extraLifeCharge': {

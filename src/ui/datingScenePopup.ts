@@ -8,7 +8,7 @@ import type {
   RelationshipSpecies,
   RelationshipState,
 } from '../relationships/relationshipTypes.js';
-import { getDatingPortraitAsset, type DatingPortraitAsset } from '../relationships/datingPortraitManifest.js';
+import { getDatingPortraitAsset } from '../relationships/datingPortraitManifest.js';
 import {
   datingPortraitRecipe,
   type DatingPortraitPalette,
@@ -57,9 +57,6 @@ export class DatingScenePopup {
   private resultText?: Phaser.GameObjects.Text;
   private actionTexts: Phaser.GameObjects.Text[] = [];
   private onAction?: (action: DatingSceneAction) => void;
-  private activePortraitKey?: string;
-  private readonly loadingPortraits = new Set<string>();
-  private readonly failedPortraits = new Set<string>();
 
   constructor(private readonly scene: SnakeScene) {
     this.spriteFactory = new RuntimeSpriteFactory(scene);
@@ -101,7 +98,6 @@ export class DatingScenePopup {
   private setPortrait(profile: RelationshipCandidateProfile, portraitSize: number, topHeight: number): void {
     const width = this.scene.scale.width;
     const asset = getDatingPortraitAsset(profile);
-    this.activePortraitKey = asset?.key;
 
     if (asset && this.scene.textures.exists(asset.key)) {
       this.portrait
@@ -113,9 +109,6 @@ export class DatingScenePopup {
     }
 
     this.setGeneratedPortrait(profile, portraitSize, topHeight);
-    if (asset) {
-      this.loadPortraitAsset(asset, portraitSize, topHeight);
-    }
   }
 
   private setGeneratedPortrait(
@@ -134,36 +127,6 @@ export class DatingScenePopup {
       .setDisplaySize(portraitSize, portraitSize)
       .setPosition(width / 2, Math.max(18 + portraitSize / 2, topHeight / 2))
       .setVisible(true);
-  }
-
-  private loadPortraitAsset(asset: DatingPortraitAsset, portraitSize: number, topHeight: number): void {
-    if (this.loadingPortraits.has(asset.key) || this.failedPortraits.has(asset.key)) {
-      return;
-    }
-    this.loadingPortraits.add(asset.key);
-    const image = new Image();
-    image.onload = () => {
-      this.loadingPortraits.delete(asset.key);
-      if (!this.scene.textures.exists(asset.key)) {
-        this.scene.textures.addImage(asset.key, image);
-      }
-      if (this.activePortraitKey !== asset.key || !this.isVisible()) {
-        return;
-      }
-      this.portrait
-        ?.setTexture(asset.key)
-        .setDisplaySize(portraitSize, portraitSize)
-        .setPosition(
-          this.scene.scale.width / 2,
-          Math.max(18 + portraitSize / 2, topHeight / 2),
-        )
-        .setVisible(true);
-    };
-    image.onerror = () => {
-      this.loadingPortraits.delete(asset.key);
-      this.failedPortraits.add(asset.key);
-    };
-    image.src = asset.url;
   }
 
   private build(): void {

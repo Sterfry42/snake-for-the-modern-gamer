@@ -9,6 +9,9 @@ export abstract class Feature {
   ) {}
 
   onRegister(_context: FeatureContext): void {}
+  onActionStep(context: FeatureContext): void {
+    this.onTick(context);
+  }
   onTick(_context: FeatureContext): void {}
   onRender(_context: FeatureContext): void {}
   onAppleEaten(_context: FeatureContext): void {}

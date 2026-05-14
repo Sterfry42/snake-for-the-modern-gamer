@@ -3,6 +3,7 @@ import { defaultGameConfig } from '../config/gameConfig.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type { QuestRoomActor } from '../game/snakeGame.js';
 import { FeatureManager } from '../systems/features.js';
+import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
 import { QuestHud } from '../ui/questHud.js';
@@ -55,6 +56,7 @@ import type {
   DatingCandidateView,
   RelationshipCandidateProfile,
   RelationshipChoice,
+  RelationshipEventResult,
   RelationshipSpecies,
 } from '../relationships/relationshipTypes.js';
 import {
@@ -380,6 +382,29 @@ const ANGEL_EXECUTION_DIALOGUE: readonly string[][] = [
 
 const LANGUAGE_SELECTOR_COST = 200;
 
+type GameMode =
+  | 'title'
+  | 'action'
+  | 'manual-room'
+  | 'dialogue'
+  | 'shop'
+  | 'dating'
+  | 'card-game'
+  | 'death-cutscene'
+  | 'paused';
+
+const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
+  title: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+  action: { boss: true, action: true, actor: true, bullet: true, hazard: true, 'manual-world': false },
+  'manual-room': { boss: false, action: 'manual', actor: false, bullet: true, hazard: false, 'manual-world': true },
+  dialogue: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+  shop: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+  dating: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+  'card-game': { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+  'death-cutscene': { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+  paused: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+};
+
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
@@ -400,9 +425,48 @@ export default class SnakeScene extends Phaser.Scene {
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private readonly featureManager = new FeatureManager();
-  private readonly baseTickDelay = 100;
-  private tickDelay = this.baseTickDelay;
-  private tickEvent!: Phaser.Time.TimerEvent;
+  private readonly baseActionStepIntervalMs = 100;
+  private readonly baseBossStepIntervalMs = 100;
+  private readonly baseActorStepIntervalMs = 100;
+  private readonly baseBulletStepIntervalMs = 100;
+  private readonly baseHazardStepIntervalMs = 100;
+  private actionStepIntervalMs = this.baseActionStepIntervalMs;
+  private bossStepIntervalMs = this.baseBossStepIntervalMs;
+  private actorStepIntervalMs = this.baseActorStepIntervalMs;
+  private bulletStepIntervalMs = this.baseBulletStepIntervalMs;
+  private hazardStepIntervalMs = this.baseHazardStepIntervalMs;
+  private readonly simulationScheduler = new SimulationScheduler([
+    {
+      id: 'boss',
+      intervalMs: this.bossStepIntervalMs,
+      step: () => this.runBossClockStep(),
+    },
+    {
+      id: 'action',
+      intervalMs: this.actionStepIntervalMs,
+      step: (stepMs) => this.runActionClockStep(stepMs),
+    },
+    {
+      id: 'actor',
+      intervalMs: this.actorStepIntervalMs,
+      step: () => this.runActorClockStep(),
+    },
+    {
+      id: 'bullet',
+      intervalMs: this.bulletStepIntervalMs,
+      step: () => this.runBulletClockStep(),
+    },
+    {
+      id: 'hazard',
+      intervalMs: this.hazardStepIntervalMs,
+      step: () => this.runHazardClockStep(),
+    },
+    {
+      id: 'manual-world',
+      intervalMs: this.actionStepIntervalMs,
+      step: (stepMs) => this.runManualRoomClockStep(stepMs),
+    },
+  ]);
   private houseHud!: Phaser.GameObjects.Text;
   private housePanel!: Phaser.GameObjects.Rectangle;
   private questHint!: Phaser.GameObjects.Text;
@@ -513,7 +577,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
     this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.grid);
     this.juice = new JuiceManager(this);
-    this.skillTree = new SkillTreeManager(this, this.juice, { baseTickDelay: this.baseTickDelay });
+    this.skillTree = new SkillTreeManager(this, this.juice, {
+      baseActionStepIntervalMs: this.baseActionStepIntervalMs,
+    });
     this.bossHud = new BossHud(this);
     console.log('[SnakeScene] About to create SaveUI');
     this.saveUI = new SaveUI(this);
@@ -550,13 +616,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeGame = new SnakeGame(defaultGameConfig, registry, this);
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
-
-    this.tickEvent = this.time.addEvent({
-      loop: true,
-      delay: this.tickDelay,
-      callback: this.handleTick,
-      callbackScope: this,
-    });
 
     this.initGame(true);
 
@@ -784,27 +843,100 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private handleTick(): void {
-    if (!this.paused) {
-      if (this.isManualHouseMovementActive()) {
-        const elapsed = Number(this.getFlag<number>('timeMs') ?? 0) + this.tickDelay;
-        this.setFlag('timeMs', elapsed);
-        this.updateHouseAmbience();
-        this.tickHouseAmbientEffects();
-        this.skillTree.tick();
-        this.isDirty = true;
-        return;
-      }
-      const elapsed = Number(this.getFlag<number>('timeMs') ?? 0) + this.tickDelay;
-      this.setFlag('timeMs', elapsed);
-      this.step();
+  private runActionClockStep(_stepMs: number): void {
+    if (this.paused) {
+      return;
+    }
+    this.runActionStep();
+  }
+
+  private runBossClockStep(): void {
+    if (this.paused) {
+      return;
+    }
+    this.snakeGame.bossStep();
+  }
+
+  private runActorClockStep(): void {
+    if (this.paused) {
+      return;
+    }
+    const result = this.snakeGame.actorClockStep();
+    if (!result) {
+      return;
+    }
+    if (this.handleStepDeath(result)) {
+      return;
+    }
+    if (this.handlePhoenixReviveTrigger()) {
+      return;
+    }
+    if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
+      this.isDirty = true;
     }
   }
 
+  private runHazardClockStep(): void {
+    if (this.paused) {
+      return;
+    }
+    const result = this.snakeGame.hazardClockStep();
+    if (!result) {
+      return;
+    }
+    if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
+      return;
+    }
+    if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
+      this.isDirty = true;
+    }
+  }
+
+  private runBulletClockStep(): void {
+    if (this.paused) {
+      return;
+    }
+    const result = this.snakeGame.bulletClockStep();
+    if (!result) {
+      return;
+    }
+    if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
+      return;
+    }
+    if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
+      this.isDirty = true;
+    }
+  }
+
+  private runManualRoomClockStep(_stepMs: number): void {
+    if (this.paused) {
+      return;
+    }
+    this.updateHouseAmbience();
+    this.tickHouseAmbientEffects();
+    this.skillTree.tick();
+    this.isDirty = true;
+  }
+
+  private advanceSimulationTime(deltaMs: number): void {
+    const elapsed = Number(this.getFlag<number>('timeMs') ?? 0) + deltaMs;
+    this.setFlag('timeMs', elapsed);
+  }
+
   private initGame(startPaused = true): void {
+    this.setBossStepIntervalMs(this.baseBossStepIntervalMs);
+    this.setActorStepIntervalMs(this.baseActorStepIntervalMs);
+    this.setBulletStepIntervalMs(this.baseBulletStepIntervalMs);
+    this.setHazardStepIntervalMs(this.baseHazardStepIntervalMs);
+    this.simulationScheduler.resetClock('boss');
+    this.simulationScheduler.resetClock('action');
+    this.simulationScheduler.resetClock('actor');
+    this.simulationScheduler.resetClock('bullet');
+    this.simulationScheduler.resetClock('hazard');
+    this.simulationScheduler.resetClock('manual-world');
     this.skillTree.reset(startPaused);
     // Reset equipment effects (no equipment contributes to tick delay until equipped)
-    this.skillTree.applyTickDelayScalar(1, 'equipment:boots');
+    this.skillTree.applyActionStepIntervalScalar(1, 'equipment:boots');
     this.snakeGame.reset();
     this.juice.stopBossMusic();
     this.juice.stopHeavenMusic();
@@ -847,48 +979,17 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private step(): void {
+  private runActionStep(): void {
     const scoreBefore = this.snakeGame.getScore();
     const lengthBefore = this.snakeGame.getSnakeLength();
-    const result = this.snakeGame.step(this.paused);
+    const result = this.snakeGame.actionStep(this.paused);
     this.updateHouseAmbience();
 
-    if (result.status === 'dead') {
-      this.reportDeathDebug(result.deathReason);
-      if (this.wasKilledByInsultedAngel(result.deathReason)) {
-        this.clearAllLifeSources();
-        this.startDeathSequence('game-over', result.deathReason, { slainByAngel: true });
-        return;
-      }
-      if (this.snakeGame.tryConsumeWardForDeath(result.deathReason)) {
-        this.skillTree.hideOverlay();
-        this.startDeathSequence('revive', result.deathReason, {
-          reviveOnComplete: true,
-          rescuer: 'goblin-angel',
-        });
-        return;
-      }
-      if (this.skillTree.tryConsumeExtraLife()) {
-        this.skillTree.hideOverlay();
-        this.startDeathSequence('revive', result.deathReason, { reviveOnComplete: true });
-        return;
-      }
-      this.startDeathSequence('game-over', result.deathReason);
+    if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
       return;
     }
 
-    const phoenixTriggered = this.snakeGame.getFlag<{ reason?: string | null }>(
-      'fortitude.phoenixTriggered',
-    );
-    if (phoenixTriggered) {
-      this.snakeGame.setFlag('fortitude.phoenixTriggered', undefined);
-      this.startDeathSequence('revive', phoenixTriggered.reason ?? 'extra-life', {
-        reviveOnComplete: false,
-      });
-      return;
-    }
-
-    this.featureManager.call('onTick', this);
+    this.featureManager.call('onActionStep', this);
 
     this.currentApple = result.apple.current ?? null;
     this.updateBossEncounter();
@@ -983,7 +1084,7 @@ export default class SnakeScene extends Phaser.Scene {
         'powerup.active',
       );
       if (active && typeof active.total === 'number') {
-        const durationMs = Math.max(1, active.total) * this.tickDelay;
+        const durationMs = Math.max(1, active.total) * this.actionStepIntervalMs;
         (this.juice as any).startPowerupMusic?.(durationMs);
         this.powerupMusicActive = true;
       }
@@ -1077,6 +1178,48 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
   }
 
+  private handleStepDeath(result: ReturnType<SnakeGame['actionStep']>): boolean {
+    if (result.status !== 'dead') {
+      return false;
+    }
+    this.reportDeathDebug(result.deathReason);
+    if (this.wasKilledByInsultedAngel(result.deathReason)) {
+      this.clearAllLifeSources();
+      this.startDeathSequence('game-over', result.deathReason, { slainByAngel: true });
+      return true;
+    }
+    if (this.snakeGame.tryConsumeWardForDeath(result.deathReason)) {
+      this.snakeGame.setFlag('fortitude.phoenixTriggered', undefined);
+      this.skillTree.hideOverlay();
+      this.startDeathSequence('revive', result.deathReason, {
+        reviveOnComplete: true,
+        rescuer: 'goblin-angel',
+      });
+      return true;
+    }
+    if (this.skillTree.tryConsumeExtraLife()) {
+      this.skillTree.hideOverlay();
+      this.startDeathSequence('revive', result.deathReason, { reviveOnComplete: true });
+      return true;
+    }
+    this.startDeathSequence('game-over', result.deathReason);
+    return true;
+  }
+
+  private handlePhoenixReviveTrigger(): boolean {
+    const phoenixTriggered = this.snakeGame.getFlag<{ reason?: string | null }>(
+      'fortitude.phoenixTriggered',
+    );
+    if (!phoenixTriggered) {
+      return false;
+    }
+    this.snakeGame.setFlag('fortitude.phoenixTriggered', undefined);
+    this.startDeathSequence('revive', phoenixTriggered.reason ?? 'extra-life', {
+      reviveOnComplete: false,
+    });
+    return true;
+  }
+
   private offerQuest(quest: Quest) {
     this.paused = true;
     this.hideSaveUI();
@@ -1110,7 +1253,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private tickHouseAmbientEffects(): void {
-    const insideInterior = this.isInHouseInterior();
+    const insideInterior = this.isInPlayerHouseInterior();
     if (!insideInterior) {
       this.houseRestCounter = 0;
       return;
@@ -1462,6 +1605,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.juice.stopHeavenMusic();
         (this.juice as any).stopHellMusic?.();
         if (cutscene.mode === 'revive') {
+          this.snakeGame.setFlag('fortitude.phoenixTriggered', undefined);
           if (cutscene.reviveOnComplete) {
             this.snakeGame.reviveAfterExtraLife(cutscene.reason);
           }
@@ -2276,7 +2420,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused) {
       return;
     }
-    this.step();
+    this.runActionStep();
   }
 
   hasFollowers(): boolean {
@@ -2312,15 +2456,53 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   setTickDelay(delay: number): void {
-    this.tickDelay = Math.max(20, delay);
-    if (this.tickEvent) {
-      this.tickEvent.reset({
-        delay: this.tickDelay,
-        callback: this.handleTick,
-        callbackScope: this,
-        loop: true,
-      });
-    }
+    this.setActionStepIntervalMs(delay);
+  }
+
+  setActionStepIntervalMs(intervalMs: number): void {
+    this.actionStepIntervalMs = Math.max(20, intervalMs);
+    this.simulationScheduler.setClockInterval('action', this.actionStepIntervalMs);
+    this.simulationScheduler.setClockInterval('manual-world', this.actionStepIntervalMs);
+  }
+
+  getActionStepIntervalMs(): number {
+    return this.actionStepIntervalMs;
+  }
+
+  setBossStepIntervalMs(intervalMs: number): void {
+    this.bossStepIntervalMs = Math.max(20, intervalMs);
+    this.simulationScheduler.setClockInterval('boss', this.bossStepIntervalMs);
+  }
+
+  getBossStepIntervalMs(): number {
+    return this.bossStepIntervalMs;
+  }
+
+  setActorStepIntervalMs(intervalMs: number): void {
+    this.actorStepIntervalMs = Math.max(20, intervalMs);
+    this.simulationScheduler.setClockInterval('actor', this.actorStepIntervalMs);
+  }
+
+  getActorStepIntervalMs(): number {
+    return this.actorStepIntervalMs;
+  }
+
+  setBulletStepIntervalMs(intervalMs: number): void {
+    this.bulletStepIntervalMs = Math.max(20, intervalMs);
+    this.simulationScheduler.setClockInterval('bullet', this.bulletStepIntervalMs);
+  }
+
+  getBulletStepIntervalMs(): number {
+    return this.bulletStepIntervalMs;
+  }
+
+  setHazardStepIntervalMs(intervalMs: number): void {
+    this.hazardStepIntervalMs = Math.max(20, intervalMs);
+    this.simulationScheduler.setClockInterval('hazard', this.hazardStepIntervalMs);
+  }
+
+  getHazardStepIntervalMs(): number {
+    return this.hazardStepIntervalMs;
   }
 
   get teleport(): boolean {
@@ -3310,7 +3492,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Apply speed scalar via skill system
-    this.skillTree.applyTickDelayScalar(tickScalar, 'equipment:boots');
+    this.skillTree.applyActionStepIntervalScalar(tickScalar, 'equipment:boots');
 
     // Set equipment flags for game logic to combine with skill-based flags
     this.setFlag('equipment.wallSenseRadiusBonus', wallSenseBonus > 0 ? wallSenseBonus : undefined);
@@ -3345,7 +3527,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.getOverlay().refresh();
   }
 
-  update(): void {
+  update(_time: number, delta: number): void {
     if (this.titleVisible) {
       this.graphics?.clear();
       this.questHud?.setVisible(false);
@@ -3364,6 +3546,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = false;
       return;
     }
+    this.updateSimulation(delta);
     this.updateWandererSprite();
     this.updateVillageResidentSprites();
     this.tickVillageJuice();
@@ -3373,6 +3556,42 @@ export default class SnakeScene extends Phaser.Scene {
       this.draw();
       this.isDirty = false;
     }
+  }
+
+  private updateSimulation(deltaMs: number): void {
+    const mode = this.getGameMode();
+    if (mode === 'action' || mode === 'manual-room') {
+      this.advanceSimulationTime(Math.max(0, Math.min(deltaMs, 250)));
+    }
+    this.simulationScheduler.update(deltaMs, SIMULATION_MODE_RULES[mode]);
+  }
+
+  private getGameMode(): GameMode {
+    if (this.titleVisible) {
+      return 'title';
+    }
+    if (this.deathCutscene) {
+      return 'death-cutscene';
+    }
+    if (this.cardGameContainer) {
+      return 'card-game';
+    }
+    if (this.datingScenePopup?.isVisible()) {
+      return 'dating';
+    }
+    if (this.villageShopPopup?.isVisible()) {
+      return 'shop';
+    }
+    if (this.questPopup?.isVisible()) {
+      return 'dialogue';
+    }
+    if (this.paused) {
+      return 'paused';
+    }
+    if (this.isManualHouseMovementActive()) {
+      return 'manual-room';
+    }
+    return 'action';
   }
 
   private tickQuestBabyCry(): void {
@@ -3590,14 +3809,18 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.wallGraze', undefined);
     }
 
-    const enemyEaten = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>(
-      'ui.enemyEaten',
-    );
+    const enemyEaten = this.snakeGame.getFlag<{
+      x: number;
+      y: number;
+      roomId: string;
+      name?: string;
+      kind?: string;
+    }>('ui.enemyEaten');
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
       (this.juice as any).enemyEaten?.(world.x, world.y);
       const popup = this.add
-        .text(world.x, world.y - 14, '+ Enemy', {
+        .text(world.x, world.y - 14, enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy', {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: '#ffcf8a',
@@ -4522,7 +4745,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   // Monitor room transitions to start/stop house ambience
   private updateHouseAmbience(): void {
-    const insideInterior = this.isInHouseInterior();
+    const insideInterior = this.isInPlayerHouseInterior();
     if (insideInterior && !this.houseMusicActive) {
       (this.juice as any).startHouseAmbience?.();
       this.houseMusicActive = true;
@@ -4531,10 +4754,17 @@ export default class SnakeScene extends Phaser.Scene {
       this.houseMusicActive = false;
     }
     // Apply slowdown only when snake is actually inside an interior.
-    this.skillTree.applyTickDelayScalar(insideInterior ? 1.6 : 1.0, 'house');
+    this.skillTree.applyActionStepIntervalScalar(insideInterior ? 1.6 : 1.0, 'house');
   }
 
-  private isInHouseInterior(): boolean {
+  private isInPlayerHouseInterior(): boolean {
+    if (!this.isInHouse()) {
+      return false;
+    }
+    return this.isOnInteriorTile();
+  }
+
+  private isOnInteriorTile(): boolean {
     const local = this.getHeadLocalInCurrentRoom();
     if (!local) return false;
     const room = this.snakeGame.getCurrentRoom();
@@ -4587,6 +4817,13 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (room.goblinCamp) {
       return [room.goblinCamp.safeArea];
+    }
+    if (room.snakeMcDonalds) {
+      return [room.snakeMcDonalds.bounds];
+    }
+    if (room.questGiver) {
+      const bounds = this.getTileBounds(room, 'WETG');
+      return bounds ? [bounds] : [];
     }
     if (!this.isInHouse()) {
       return [];
@@ -6193,7 +6430,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showDatingScene(
     profile: RelationshipCandidateProfile,
-    result?: { title: string; message: string; color: string; state?: any },
+    result?: RelationshipEventResult,
   ): void {
     this.paused = true;
     this.skillTree.hideOverlay();

@@ -65,6 +65,30 @@ function carveHouseDoor(
   }
 }
 
+function carveHouseApproach(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  forbiddenCells?: ReadonlySet<string>,
+): void {
+  const bottom = top + height - 1;
+  const cx = Math.floor(left + width / 2);
+  const doorHalf = Math.max(1, Math.floor(Math.min(3, Math.floor(width / 6)) / 2));
+  for (let y = bottom + 1; y <= bottom + 4; y++) {
+    for (let x = cx - doorHalf; x <= cx + doorHalf; x++) {
+      if (forbiddenCells?.has(vectorKey({ x, y }))) {
+        continue;
+      }
+      const tile = layout[y]?.[x];
+      if (tile === '#' || tile === '~') {
+        setChar(layout, x, y, '.');
+      }
+    }
+  }
+}
+
 function canPlaceRect(
   layout: string[][],
   left: number,
@@ -115,6 +139,7 @@ export function tryPlaceQuestHouse(
 
     drawHouseCube(layout, left, top, width, height);
     carveHouseDoor(layout, left, top, width, height);
+    carveHouseApproach(layout, left, top, width, height, options.forbiddenCells);
 
     const centerX = Math.floor(left + width / 2);
     const centerY = Math.floor(top + height / 2);

@@ -6,9 +6,10 @@ registerFeature({
   onRegister: (s) => {
     s.flags['timeSinceEat'] = 0;
   },
-  onTick: (s) => {
-    s.flags['timeSinceEat'] = ((s.flags['timeSinceEat'] || 0) as number) + 1; // increments every 100ms
+  onActionStep: (s) => {
+    s.flags['timeSinceEat'] = ((s.flags['timeSinceEat'] || 0) as number) + 1;
   },
+  onTick: () => {},
   onRender: (s) => {
     // Render logic if needed
   },
