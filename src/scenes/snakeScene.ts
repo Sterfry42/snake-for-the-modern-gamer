@@ -27,6 +27,7 @@ import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { EquipmentSlot } from '../inventory/item.js';
+import type { McDonaldsData } from '../world/snakeMcDonalds.js';
 import { getItem } from '../inventory/itemRegistry.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { WandererEncounter } from '../npcs/encounters.js';
@@ -717,6 +718,12 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (key === 'e') {
         if (this.tryInteractQuestTarget()) {
+          return;
+        }
+        if (this.tryInteractMcDonaldsCashier()) {
+          return;
+        }
+        if (this.tryInteractMcDonaldsToilet()) {
           return;
         }
         if (this.tryInteractVillageShopkeeper()) {
@@ -4651,6 +4658,10 @@ export default class SnakeScene extends Phaser.Scene {
             : `Trade wards with ${goblinShopkeeper.name ?? 'goblin'} (press E)`,
       };
     }
+    const mc = room.snakeMcDonalds;
+    if (mc && this.distanceFromHeadToLocal(mc.toilet) <= 1) {
+      return { text: 'Press E to flush' };
+    }
     const giver = room.questGiver;
     if (!giver) {
       return null;
@@ -5907,6 +5918,167 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.showQuestHintPopup('No quests right now');
+    return true;
+  }
+
+  private tryInteractMcDonaldsCashier(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const mc = room.snakeMcDonalds;
+    if (!mc) {
+      return false;
+    }
+    if (this.distanceFromHeadToLocal(mc.cashier) > 1) {
+      return false;
+    }
+
+    this.openMcDonaldsMenu(mc);
+    return true;
+  }
+
+  private openMcDonaldsMenu(mc: McDonaldsData): void {
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+
+    const inventory = this.snakeGame.getInventory();
+    const burgerOwned = inventory.getItemCount('food-snake-burger') > 0;
+    const friesOwned = inventory.getItemCount('food-snake-fries') > 0;
+    const nuggetsOwned = inventory.getItemCount('food-snake-nuggets') > 0;
+
+    const options: ChoiceOption[] = [
+      {
+        id: 'buy-burger-fries',
+        title: 'Snake Burger + Snake Fries - 100 score',
+        description: `Both items. +5 length, 1 minute invulnerability each. ${burgerOwned ? '(Already have burger)' : ''} ${friesOwned ? '(Already have fries)' : ''}`,
+      },
+      {
+        id: 'buy-nuggets',
+        title: 'Snake Nuggets - 50 score',
+        description: `+2 length, 30 seconds invulnerability. ${nuggetsOwned ? '(Already have nuggets)' : ''}`,
+      },
+      {
+        id: 'eat-burger',
+        title: 'Snake Burger',
+        description: `Consume for +5 length, 1 minute invulnerability. ${burgerOwned ? 'In inventory.' : 'Not owned.'}`,
+      },
+      {
+        id: 'eat-fries',
+        title: 'Snake Fries',
+        description: `Consume for +5 length, 1 minute invulnerability. ${friesOwned ? 'In inventory.' : 'Not owned.'}`,
+      },
+      {
+        id: 'eat-nuggets',
+        title: 'Snake Nuggets',
+        description: `Consume for +2 length, 30 seconds invulnerability. ${nuggetsOwned ? 'In inventory.' : 'Not owned.'}`,
+      },
+      {
+        id: 'leave',
+        title: 'Leave',
+        description: 'Slither away.',
+      },
+    ];
+
+    this.villageShopPopup.show(`${mc.cashier.name}'s Counter`, options, (id) => {
+      this.handleMcDonaldsChoice(id, mc);
+    });
+  }
+
+  private handleMcDonaldsChoice(id: string, mc: NonNullable<ReturnType<SnakeGame['getCurrentRoom']>['snakeMcDonalds']>): void {
+    if (id === 'leave') {
+      this.closeVillageShop();
+      return;
+    }
+
+    const inventory = this.snakeGame.getInventory();
+
+    if (id === 'buy-burger-fries') {
+      if (this.score < 100) {
+        this.showQuestHintPopup("You don't have 100 score.", '#ff6b6b');
+        this.openMcDonaldsMenu(mc);
+        return;
+      }
+      this.addScoreDirect(-100);
+      inventory.addItem('food-snake-burger', 1);
+      inventory.addItem('food-snake-fries', 1);
+      this.showQuestHintPopup('Bought Snake Burger and Snake Fries!', '#5dd6a2');
+      this.juice.perkPurchased();
+      this.openMcDonaldsMenu(mc);
+      return;
+    }
+
+    if (id === 'buy-nuggets') {
+      if (this.score < 50) {
+        this.showQuestHintPopup("You don't have 50 score.", '#ff6b6b');
+        this.openMcDonaldsMenu(mc);
+        return;
+      }
+      this.addScoreDirect(-50);
+      inventory.addItem('food-snake-nuggets', 1);
+      this.showQuestHintPopup('Bought Snake Nuggets!', '#5dd6a2');
+      this.juice.perkPurchased();
+      this.openMcDonaldsMenu(mc);
+      return;
+    }
+
+    if (id === 'eat-burger') {
+      const result = this.snakeGame.consumeMcDonaldsFood('food-snake-burger');
+      if (result.success) {
+        this.showQuestHintPopup(result.message, '#5dd6a2');
+        this.juice.appleChomp(0, 0, 2);
+      } else {
+        this.showQuestHintPopup(result.message, '#ff6b6b');
+      }
+      this.openMcDonaldsMenu(mc);
+      return;
+    }
+
+    if (id === 'eat-fries') {
+      const result = this.snakeGame.consumeMcDonaldsFood('food-snake-fries');
+      if (result.success) {
+        this.showQuestHintPopup(result.message, '#5dd6a2');
+        this.juice.appleChomp(0, 0, 2);
+      } else {
+        this.showQuestHintPopup(result.message, '#ff6b6b');
+      }
+      this.openMcDonaldsMenu(mc);
+      return;
+    }
+
+    if (id === 'eat-nuggets') {
+      const result = this.snakeGame.consumeMcDonaldsFood('food-snake-nuggets');
+      if (result.success) {
+        this.showQuestHintPopup(result.message, '#5dd6a2');
+        this.juice.appleChomp(0, 0, 2);
+      } else {
+        this.showQuestHintPopup(result.message, '#ff6b6b');
+      }
+      this.openMcDonaldsMenu(mc);
+      return;
+    }
+
+    this.closeVillageShop();
+  }
+
+  private tryInteractMcDonaldsToilet(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const mc = room.snakeMcDonalds;
+    if (!mc) {
+      return false;
+    }
+    if (this.distanceFromHeadToLocal(mc.toilet) > 1) {
+      return false;
+    }
+
+    this.juice.toiletFlush();
+    this.snakeGame.flushToilet();
+
+    this.showQuestHintPopup('The toilet gurgles and flushes. It sounds very satisfied.', '#9ad1ff');
     return true;
   }
 

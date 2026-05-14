@@ -77,4 +77,9 @@ export interface FeatureStrings {
   alreadyCarriesThis: string;
   taskAlreadyDone: string;
   cardInfo: string;
+  snakeBurger: string;
+  snakeFries: string;
+  snakeNuggets: string;
+  flushToilet: string;
+  mcCashierDialogue: string;
 }

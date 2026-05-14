@@ -31,4 +31,9 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   alreadyCarriesThis: 'You already carry this charge:',
   taskAlreadyDone: 'That task is already behind us:',
   cardInfo: 'Deck:',
+  snakeBurger: 'Snake Burger',
+  snakeFries: 'Snake Fries',
+  snakeNuggets: 'Snake Nuggets',
+  flushToilet: 'The toilet gurgles and flushes.',
+  mcCashierDialogue: 'Welcome to Snake McDonalds! Fresh snake food, served fast, served cold.',
 };

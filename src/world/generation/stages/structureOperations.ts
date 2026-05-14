@@ -5,10 +5,12 @@ import { tryPlaceQuestHouse } from '../../questHouse.js';
 import type { RoomSnapshot } from '../../types.js';
 import { tryPlaceVillage } from '../../village.js';
 import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
+import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
 import type { RoomGenerationContext } from '../types.js';
 
-type SettlementKind = 'village' | 'goblin-camp' | 'quest-house';
+type SettlementKind = 'village' | 'goblin-camp' | 'quest-house' | 'snake-mcDonalds';
 
+const SNAKE_MC_DONALDS_CHANCE = 0.01;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
@@ -34,7 +36,8 @@ export class StructureOperations {
       canPlaceOptionalStructures &&
       !context.village &&
       !context.goblinCamp &&
-      !context.questGiver
+      !context.questGiver &&
+      !context.snakeMcDonalds
     ) {
       this.placeSettlement(context, entranceRunups, shouldGuaranteeStructure);
     }
@@ -44,12 +47,13 @@ export class StructureOperations {
       !context.village &&
       !context.goblinCamp &&
       !context.questGiver &&
+      !context.snakeMcDonalds &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
       this.placeLake(context.layout, context.grid, entranceRunups);
     }
 
-    if (!context.village && !context.goblinCamp && !context.questGiver) {
+    if (!context.village && !context.goblinCamp && !context.questGiver && !context.snakeMcDonalds) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
         context.layout,
         context.grid,
@@ -80,6 +84,10 @@ export class StructureOperations {
   }
 
   private pickSettlementKind(guaranteed: boolean): SettlementKind | null {
+    if (this.rng() < SNAKE_MC_DONALDS_CHANCE) {
+      return 'snake-mcDonalds';
+    }
+
     const roll = this.rng();
     if (guaranteed) {
       if (roll < 0.45) {
@@ -147,6 +155,17 @@ export class StructureOperations {
           return false;
         }
         context.questGiver = questHouse.questGiver;
+        return true;
+      }
+      case 'snake-mcDonalds': {
+        const mcDonalds = tryPlaceSnakeMcDonalds(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 3,
+        });
+        if (!mcDonalds) {
+          return false;
+        }
+        context.snakeMcDonalds = mcDonalds;
         return true;
       }
     }

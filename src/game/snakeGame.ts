@@ -1492,6 +1492,58 @@ export class SnakeGame implements QuestRuntime {
   growSnake(extraSegments: number): void {
     this.snake.grow(extraSegments);
   }
+
+  consumeMcDonaldsFood(itemId: string): {
+    success: boolean;
+    message: string;
+    lengthGained: number;
+    invulnerabilityTicks: number;
+  } {
+    const item = getItem(itemId);
+    if (!item) {
+      return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
+    }
+
+    if (this.inventory.getItemCount(itemId) <= 0) {
+      return { success: false, message: `No ${item.name} remaining.`, lengthGained: 0, invulnerabilityTicks: 0 };
+    }
+
+    let lengthGained = 0;
+    let invulnerabilityTicks = 0;
+
+    switch (itemId) {
+      case 'food-snake-burger':
+      case 'food-snake-fries':
+        lengthGained = 5;
+        invulnerabilityTicks = 600;
+        break;
+      case 'food-snake-nuggets':
+        lengthGained = 2;
+        invulnerabilityTicks = 300;
+        break;
+      default:
+        return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
+    }
+
+    this.inventory.removeItem(itemId, 1);
+
+    this.growSnake(lengthGained);
+
+    const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
+    const updatedInvuln = Math.max(currentInvuln, invulnerabilityTicks);
+    this.setFlag('fortitude.invulnerabilityTicks', updatedInvuln);
+
+    return {
+      success: true,
+      message: `Delicious! +${lengthGained} length, ${invulnerabilityTicks} ticks of invulnerability.`,
+      lengthGained,
+      invulnerabilityTicks,
+    };
+  }
+
+  flushToilet(): void {
+  }
+
   setDirection(x: number, y: number): void {
     this.snake.setDirection(x, y);
   }

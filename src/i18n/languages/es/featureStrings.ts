@@ -31,4 +31,9 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   alreadyCarriesThis: 'Ya portas esta carga:',
   taskAlreadyDone: 'Esa tarea ya quedó atrás:',
   cardInfo: 'Mazo:',
+  snakeBurger: 'Hamburguesa de Serpiente',
+  snakeFries: 'Papas Fritas de Serpiente',
+  snakeNuggets: 'Nuggets de Serpiente',
+  flushToilet: 'El inodoro hace un ruido de desag\u00fce.',
+  mcCashierDialogue: '\u00a1Bienvenido a Snake McDonalds! Comida de serpiente fresca, servida r\u00e1pido, servida fr\u00eda.',
 };
