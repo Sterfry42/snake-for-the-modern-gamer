@@ -205,6 +205,30 @@ export class JuiceManager {
     }
   }
 
+  toiletFlush() {
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 400,
+      duration: 0.15,
+      type: 'sine',
+      volume: 0.12,
+    });
+    this.playTone({
+      frequency: 150,
+      frequencyEnd: 50,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+    this.playTone({
+      frequency: 300,
+      frequencyEnd: 100,
+      duration: 0.12,
+      type: 'triangle',
+      volume: 0.1,
+    });
+  }
+
   scoreMultiplierBoost(multiplier: number) {
     const base = 520;
     this.playTone({ frequency: base, duration: 0.14, type: 'sine', volume: 0.1 });

@@ -44,6 +44,18 @@ export interface RoomSnapshot {
     guards: Array<NpcProfile & { x: number; y: number }>;
     shopkeeper: NpcProfile & { x: number; y: number };
   };
+  snakeMcDonalds?: {
+    cashier: {
+      name: string;
+      x: number;
+      y: number;
+    };
+    toilet: {
+      x: number;
+      y: number;
+    };
+    bounds: { left: number; top: number; width: number; height: number };
+  };
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' }>;
   biomeId: BiomeId;
   biomeTitle: string;

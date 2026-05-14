@@ -262,6 +262,24 @@ export const ITEMS: readonly Item[] = [
     description: 'A sturdy leather lead strap. The key to taming wild creatures.',
     kind: 'consumable',
   },
+  {
+    id: 'food-snake-burger',
+    name: 'Snake Burger',
+    description: 'A juicy burger made with premium snake meat. +5 length, 1 minute invulnerability.',
+    kind: 'consumable',
+  },
+  {
+    id: 'food-snake-fries',
+    name: 'Snake Fries',
+    description: 'Crispy golden fries seasoned with serpent herbs. +5 length, 1 minute invulnerability.',
+    kind: 'consumable',
+  },
+  {
+    id: 'food-snake-nuggets',
+    name: 'Snake Nuggets',
+    description: 'Crispy little nuggets of snake. +2 length, 30 seconds invulnerability.',
+    kind: 'consumable',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));

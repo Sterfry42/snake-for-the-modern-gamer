@@ -291,6 +291,12 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.35)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'R') {
+          // Toilet tile - white for visibility
+          this.graphics.fillStyle(0xffffff, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.graphics
+            .lineStyle(1, 0xcccccc, 0.6)
+            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
         } else {
           this.graphics.fillStyle(room.backgroundColor, 1);
           this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
