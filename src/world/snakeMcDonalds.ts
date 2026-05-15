@@ -126,7 +126,7 @@ export function tryPlaceSnakeMcDonalds(
     // Interior x: right-4 to right-1, y: bottom-3 to bottom-2
 
     // Left wall (separates bathroom from main area)
-    for (let y = bottom - 4; y <= bottom - 1; y++) {
+    for (let y = bottom - 4; y <= bottom - 2; y++) {
       setChar(layout, right - 5, y, '#');
     }
     // Top wall
