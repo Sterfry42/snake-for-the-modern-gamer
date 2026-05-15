@@ -477,6 +477,7 @@ export default class SnakeScene extends Phaser.Scene {
   private radiationHud!: Phaser.GameObjects.Text;
   private villageHud!: Phaser.GameObjects.Text;
   private biomeHud!: Phaser.GameObjects.Text;
+  private performanceHud: Phaser.GameObjects.Text | null = null;
   private questGiverSprite!: Phaser.GameObjects.Sprite;
   private wandererSprite!: Phaser.GameObjects.Sprite;
   private choicePopupVisible = false;
@@ -550,6 +551,10 @@ export default class SnakeScene extends Phaser.Scene {
   private titleVisible = false;
   private cardGameContainer: Phaser.GameObjects.Container | null = null;
   private cardTooltipText: Phaser.GameObjects.Text | null = null;
+  private performanceHudVisible = false;
+  private performanceSampleMs = 0;
+  private performanceSampleFrames = 0;
+  private displayedFps = 0;
 
   constructor() {
     super('SnakeScene');
@@ -1247,9 +1252,7 @@ export default class SnakeScene extends Phaser.Scene {
   private closeQuestPopup() {
     this.questPopup.hide();
     this.skillTree.hideOverlay();
-    this.paused = false;
-    this.showSaveUI();
-    this.isDirty = true;
+    this.resumeGameplayAfterModal();
   }
 
   private tickHouseAmbientEffects(): void {
@@ -2320,6 +2323,10 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
       return { ok: true, message: 'Cheat active: apple score x100.', color: '#5dd6a2' };
     }
+    if (code === '90fps240hz') {
+      this.setPerformanceHudVisible(true);
+      return { ok: true, message: 'Performance counter enabled.', color: '#5dd6a2' };
+    }
     if (code === 'imawiddlebabywhoneedshelp') {
       this.skillTree.addExtraLifeCharge(100);
       this.setFlag('ui.livesRevealed', true);
@@ -2561,11 +2568,13 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   restoreCharacterSaveState(): void {
+    this.skillTree.reset(this.paused);
     const ranks = this.getFlag<Record<string, number>>('skills.ranks');
     if (ranks) {
       this.skillTree.restoreRanks(ranks);
     }
     this.applyEquipmentEffects();
+    this.updateHouseAmbience();
     this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
     this.isDirty = true;
   }
@@ -3527,6 +3536,56 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.getOverlay().refresh();
   }
 
+  private setPerformanceHudVisible(visible: boolean): void {
+    this.performanceHudVisible = visible;
+    if (!visible) {
+      this.performanceHud?.setVisible(false);
+      return;
+    }
+    this.ensurePerformanceHud();
+    this.performanceHud?.setVisible(true);
+  }
+
+  private ensurePerformanceHud(): Phaser.GameObjects.Text {
+    if (this.performanceHud) {
+      return this.performanceHud;
+    }
+    this.performanceHud = this.add
+      .text(this.scale.width - 10, this.scale.height - 10, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#d7f7ff',
+        align: 'right',
+        backgroundColor: 'rgba(0,0,0,0.58)',
+        padding: { left: 8, right: 8, top: 5, bottom: 5 },
+      })
+      .setOrigin(1, 1)
+      .setScrollFactor(0)
+      .setDepth(240)
+      .setVisible(false);
+    return this.performanceHud;
+  }
+
+  private updatePerformanceHud(deltaMs: number): void {
+    if (!this.performanceHudVisible) {
+      return;
+    }
+    const hud = this.ensurePerformanceHud();
+    this.performanceSampleMs += Math.max(0, deltaMs);
+    this.performanceSampleFrames += 1;
+    if (this.performanceSampleMs >= 500) {
+      this.displayedFps = (this.performanceSampleFrames * 1000) / this.performanceSampleMs;
+      this.performanceSampleMs = 0;
+      this.performanceSampleFrames = 0;
+    }
+    const stepMs = this.getActionStepIntervalMs();
+    const tilesPerSecond = stepMs > 0 ? 1000 / stepMs : 0;
+    hud
+      .setText(`FPS: ${this.displayedFps.toFixed(1)}\nSpeed: ${tilesPerSecond.toFixed(2)} tiles/s (${Math.round(stepMs)}ms)`)
+      .setPosition(this.scale.width - 10, this.scale.height - 10)
+      .setVisible(true);
+  }
+
   update(_time: number, delta: number): void {
     if (this.titleVisible) {
       this.graphics?.clear();
@@ -3547,6 +3606,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     this.updateSimulation(delta);
+    this.updatePerformanceHud(delta);
     this.updateWandererSprite();
     this.updateVillageResidentSprites();
     this.tickVillageJuice();
@@ -5960,7 +6020,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.juice.stopCardMusic();
     this.hideCardGamePopup();
     this.villageShopPopup.hide();
+    this.resumeGameplayAfterModal();
+  }
+
+  private resumeGameplayAfterModal(): void {
     this.paused = false;
+    this.skillTree.hideOverlay();
+    this.showSaveUI();
+    this.updateHouseAmbience();
+    this.isDirty = true;
   }
 
   private tickFreakYouPortalFx(): void {
