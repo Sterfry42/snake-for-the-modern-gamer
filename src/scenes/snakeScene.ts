@@ -1034,6 +1034,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (result.apple.eaten) {
       this.featureManager.call('onAppleEaten', this);
+      this.applyJadePeakAppleEffects(result.apple.typeId);
       if (result.apple.worldPosition) {
         const violenceLevel = Number(this.getFlag<number>('killstreak.appleJuiceLevel') ?? 0);
         this.juice.appleChomp(
@@ -3574,6 +3575,53 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
+  }
+
+  private applyJadePeakAppleEffects(typeId: string | undefined): void {
+    if (!typeId) return;
+
+    const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const currentRoomId = this.snakeGame.getCurrentRoom().id;
+    const head = this.snakeGame.getSnakeBody()[0];
+
+    if (typeId === 'mochi') {
+      this.snakeGame.setFlag('jadePeak.mochiWideEnd', nowMs + 5000);
+      this.showQuestHintPopup('The snake grows wide and squishy!', '#f5d5e8');
+    }
+
+    if (typeId === 'wasabi') {
+      this.snakeGame.setFlag('jadePeak.wasabiBurnEnd', nowMs + 3000);
+      this.snakeGame.setFlag('jadePeak.wasabiDamageTaken', 1);
+      if (head) {
+        const enemies = this.snakeGame.getEnemies(currentRoomId);
+        for (let i = 0; i < enemies.length; i++) {
+          const enemy = enemies[i];
+          if (!enemy) continue;
+          const dx = Math.abs(enemy.position.x - head.x);
+          const dy = Math.abs(enemy.position.y - head.y);
+          if (dx <= 5 && dy <= 5) {
+            const hit = (this.snakeGame as any).enemies.damageEnemyAt(currentRoomId, enemy.position, 1);
+          }
+        }
+      }
+      this.showQuestHintPopup('Wasabi burns through you and the nearby foes!', '#9acd32');
+    }
+
+    if (typeId === 'yuzu') {
+      this.snakeGame.setFlag('jadePeak.yuzuWallSenseEnd', nowMs + 8000);
+      this.snakeGame.setFlag('jadePeak.yuzuSpeedEnd', nowMs + 4000);
+      this.showQuestHintPopup('Citrus clarity reveals the walls ahead!', '#f0e68c');
+    }
+
+    if (typeId === 'koi') {
+      this.snakeGame.setFlag('jadePeak.koiFlowEnd', nowMs + 6000);
+      this.showQuestHintPopup('You enter the flowing current!', '#ff6b35');
+    }
+
+    if (typeId === 'amacha') {
+      this.showQuestHintPopup('A tanuki materializes from the shadows...', '#8b4513');
+      this.snakeGame.setFlag('jadePeak.amachaTanukiSpawned', true);
+    }
   }
 
   private setPerformanceHudVisible(visible: boolean): void {

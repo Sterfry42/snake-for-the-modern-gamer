@@ -22,6 +22,7 @@ export interface AppleConsumptionResult {
   worldPosition: Vector2Like | null;
   changed: boolean;
   snapshot: AppleSnapshot | null;
+  typeId?: string;
 }
 
 interface AppleSpawnOption extends Vector2Like {
@@ -158,6 +159,7 @@ export class AppleService {
       worldPosition,
       changed: true,
       snapshot: null,
+      typeId: apple.typeId,
     };
   }
 
