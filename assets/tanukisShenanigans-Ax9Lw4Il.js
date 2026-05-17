@@ -1,0 +1,1 @@
+import{Q as a}from"./quest-Bpr_u20u.js";class e extends a{constructor(){super("tanukis-shenanigans","Tanuki's Shenanigans","Find the mischievous tanuki hiding in the bamboo grove")}isCompleted(n){return!!n.getFlag("tanuki.found")}onReward(n){n.addItem("furoshiki",1),n.addScore(30)}}const o=new e;export{o as default};

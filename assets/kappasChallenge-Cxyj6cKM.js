@@ -1,0 +1,1 @@
+import{Q as e}from"./quest-Bpr_u20u.js";class p extends e{constructor(){super("kappas-challenge","Kappa's Challenge","Defeat the kappa or bring him a cucumber at the mountain pass")}isCompleted(a){return!!a.getFlag("kappa.defeated")}onReward(a){a.addCardToCollection?.("kappa-card",1),a.addCardToCollection?.("katana-blueprint",1)}}const o=new p;export{o as default};
