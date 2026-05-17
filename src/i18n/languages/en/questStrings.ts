@@ -125,4 +125,24 @@ export const QUEST_STRINGS_EN: QuestStringsType = {
     label: 'Trusty Companion',
     description: 'Tame a wolf using a lead',
   },
+  'shrine-maidens-request': {
+    label: "The Shrine Maiden's Request",
+    description: 'Deliver 10 apples to the shrine maiden',
+  },
+  'tanukis-shenanigans': {
+    label: "Tanuki's Shenanigans",
+    description: 'Find the mischievous tanuki hiding in the bamboo grove',
+  },
+  'kappas-challenge': {
+    label: "Kappa's Challenge",
+    description: 'Defeat the kappa or bring him a cucumber at the mountain pass',
+  },
+  'seven-dragon-temples': {
+    label: 'Seven Dragon Temples',
+    description: 'Find 7 hidden shrine rooms scattered across the biome',
+  },
+  'ramen-recipe-hunt': {
+    label: 'Ramen Recipe Hunt',
+    description: 'Collect 3 rare ingredients from different biome areas',
+  },
 } as const;

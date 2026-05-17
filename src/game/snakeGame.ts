@@ -4826,7 +4826,7 @@ export class SnakeGame implements QuestRuntime {
     const localX = head.x - roomX * this.config.grid.cols;
     const localY = head.y - roomY * this.config.grid.rows;
     const tile = room.layout[localY]?.[localX] ?? '.';
-    const sheltered = 'WETCKBPLG'.includes(tile);
+    const sheltered = 'WETCKBPLGO'.includes(tile);
     const onRelief = room.temperatureReliefs?.find(
       (relief) => relief.x === localX && relief.y === localY,
     );
@@ -4852,7 +4852,14 @@ export class SnakeGame implements QuestRuntime {
         : biome.temperatureHazard === 'cold'
           ? coldResistance
           : 0;
-    const exposureRate = Math.max(0.05, (biome.temperatureRate || 1) * Math.max(0, 1 - resistance));
+    const [, , roomZ = 0] = this.snake.currentRoomId.split(',').map(Number);
+    const peakColdRate = biome.peakColdRate ?? 0;
+    const peakZThreshold = biome.peakZThreshold ?? Infinity;
+    const isAtPeakCold = roomZ <= peakZThreshold && peakColdRate > 0;
+    const exposureRate = Math.max(
+      0.05,
+      ((biome.temperatureRate ?? 1) + (isAtPeakCold ? peakColdRate : 0)) * Math.max(0, 1 - resistance),
+    );
     let exposureMs = Math.max(0, Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0));
     let damageProgressMs = Math.max(
       0,

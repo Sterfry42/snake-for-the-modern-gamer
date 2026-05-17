@@ -1,5 +1,86 @@
 import type { NpcTranslations } from '../../types.js';
 export const NPC_ENCOUNTERS_EN: NpcTranslations = {
+  'shrine-maiden-miko': {
+    pages: [
+      'A young woman in white and crimson robes stands before a torii gate half-swallowed by bamboo, her expression as calm as the mountain mist curling around her ankles.',
+      '"The kami watch over those who approach with respect. Will you leave an offering at the shrine?"',
+      '"Even the smallest gift carries the weight of intention. Bring apples -- the shrine has grown hungry."',
+    ],
+    repeatPages: [
+      'Miko bows gracefully. The paper lanterns flicker in a wind that does not touch her.',
+    ],
+    acceptLabel: 'Leave offering',
+    rejectLabel: 'Bow and depart',
+    rewardScore: 15,
+  },
+  'yokai-chef': {
+    pages: [
+      'Behind a modest wooden stand, a chef with ink-dark hair stirs a steaming pot with fierce concentration. A faint smoke scent lingers -- or perhaps imagination.',
+      '"Welcome, welcome! The best broth in all the provinces. Or the dimension. However many there are." *burps smoke*',
+      '"Try the special. It does not eat you back. Usually."',
+    ],
+    repeatPages: [
+      'The chef slides a steaming bowl across the counter without looking up, as if the broth has opinions about being served.',
+      '"More broth? Or are you still building up the courage to ask how much it costs in souls?"',
+    ],
+    acceptLabel: 'Order ramen',
+    rejectLabel: 'Just looking',
+    rewardScore: 12,
+  },
+  'kappa-duel': {
+    pages: [
+      'A small reptilian creature with a dish of water balanced perfectly on its head stands before a koi pond, arms crossed and scowl firmly in place.',
+      '"Hmph. You want to pass? Fine. Duel me -- or bring me something I truly want. Cucumber. Not that I care. It is just... refreshing."',
+    ],
+    repeatPages: [
+      'The kappa tips its water dish with a clawed finger, watching the ripple with thinly veiled disappointment.',
+      '"You left, didn\'t you. Typical surface-dweller. No commitment to anything."',
+    ],
+    acceptLabel: 'Duel',
+    rejectLabel: 'Bring cucumber',
+    questId: 'kappas-challenge',
+  },
+  'tanuki-shenanigans': {
+    pages: [
+      'A plump raccoon dog wearing a tiny straw hat materializes from behind a bamboo stalk, grinning with the kind of confidence only a creature known for illusions possesses.',
+      '"Oho! Fortune favors the curious! Help me with a little task, and the heavens shall reward you! Or I will. Whichever comes first."',
+      '"The bamboo grove hides something precious. Find it. I shall take credit either way."',
+    ],
+    repeatPages: [
+      'Tanuki tips its tiny hat and winks so hard both eyes seem to leave their sockets temporarily.',
+      '"Have you found it yet? No? Well, keep looking. Your confusion is excellent comedy."',
+    ],
+    acceptLabel: 'Accept trickery',
+    rejectLabel: 'Hesitate',
+    questId: 'tanukis-shenanigans',
+  },
+  'ronin-wanderer': {
+    pages: [
+      'A wandering samurai stands motionless at a mountain pass, sword sheathed but presence sharp as a drawn blade.',
+      '"I do not seek glory. I seek clarity. Prove your worth, and I shall share what I have learned."',
+      '"Draw steel. Let the mountain decide who speaks first -- the victor or the wind."',
+    ],
+    repeatPages: [
+      'The ronin\'s hand rests on his hilt. The bamboo bends around him as if apologizing to the mountain.',
+      '"Still breathing. Still trying. How tedious. How admirable."',
+    ],
+    acceptLabel: 'Draw steel',
+    rejectLabel: 'Pass quietly',
+    rewardScore: 20,
+  },
+  'tengu-encounter': {
+    pages: [
+      'A towering bird-like spirit perches on a cliff edge, wings folded, eyes piercing. The air grows still around it.',
+      '"Mortals who bring offerings to the mountain are granted favors. Bring me a cherry blossom branch, and I shall let you soar."',
+    ],
+    repeatPages: [
+      'The tengu tilts its head and studies you the way a storm studies a field -- with patient malice.',
+      '"The mountain remembers. So do I. You will not be the last to stand here and falter."',
+    ],
+    acceptLabel: 'Offer branch',
+    rejectLabel: 'Leave respectfully',
+    rewardScore: 25,
+  },
   'freak-joey': {
     pages: [
       'He steps out of the lower dark wearing a grin too eager to belong to a living thing. The rooms around him go quiet in the way old chapels do when someone enters carrying murder like a sacrament.',

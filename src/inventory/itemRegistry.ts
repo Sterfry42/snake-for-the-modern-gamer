@@ -280,13 +280,58 @@ export const ITEMS: readonly Item[] = [
     description: 'Crispy golden fries seasoned with serpent herbs. +5 length, 1 minute invulnerability.',
     kind: 'consumable',
   },
-  {
-    id: 'food-snake-nuggets',
-    name: 'Snake Nuggets',
-    description: 'Crispy little nuggets of snake. +2 length, 30 seconds invulnerability.',
-    kind: 'consumable',
-  },
-];
+   {
+      id: 'food-snake-nuggets',
+      name: 'Snake Nuggets',
+      description: 'Crispy little nuggets of snake. +2 length, 30 seconds invulnerability.',
+      kind: 'consumable',
+    },
+    {
+      id: 'ofuda',
+      name: 'Ofuda',
+      description: 'A paper talisman that negates one death. Stackable. Like a phoenix charge but single-use.',
+      kind: 'consumable',
+    },
+    {
+      id: 'weapon-jade-katana',
+      name: 'Jade Katana',
+      description: 'A blade that grants a one-time wall-smite ability. Cut through one wall segment.',
+      kind: 'equipment',
+      slot: 'weapon',
+      modifiers: {
+        wallSmiteEnabled: true,
+      },
+    },
+    {
+      id: 'boots-geta',
+      name: 'Geta',
+      description: 'Traditional wooden sandals. Cosmetic, but grants +1 movement speed on bamboo tiles.',
+      kind: 'equipment',
+      slot: 'boots',
+      modifiers: {
+        tickDelayScalar: 0.97,
+      },
+    },
+    {
+      id: 'cloak-furoshiki',
+      name: 'Furoshiki',
+      description: 'A wrapping cloth that temporarily stores one collected apple for later consumption.',
+      kind: 'equipment',
+      slot: 'cloak',
+    },
+    {
+      id: 'senbei',
+      name: 'Senbei',
+      description: 'A cheap rice cracker from the ramen stand. Fills some hunger.',
+      kind: 'consumable',
+    },
+    {
+      id: 'ramen',
+      name: 'Ramen',
+      description: 'A steaming bowl of ramen. Fills hunger completely and gives a small speed boost.',
+      kind: 'consumable',
+    },
+  ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));
 const CHEST_LOOT_EXCLUDED_IDS = new Set([

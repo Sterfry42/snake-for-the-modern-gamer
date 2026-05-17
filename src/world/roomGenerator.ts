@@ -51,6 +51,7 @@ export class RoomGenerator {
     const palette = this.biomeMap.createPalette(roomId);
     const isOcean = palette.biomeId === 'sunken-ocean';
     const isDenseForest = palette.biomeId === 'elderwood-maze';
+    const isJadePeak = palette.biomeId === 'jade-peak-province';
     const spawnGuard = this.safetyOperations.createSpawnGuard(roomId);
 
     return {
@@ -62,6 +63,7 @@ export class RoomGenerator {
       palette,
       isOcean,
       isDenseForest,
+      isJadePeak,
       spawnGuard,
     };
   }
@@ -77,6 +79,10 @@ export class RoomGenerator {
       goblinCamp: context.goblinCamp,
       town: context.town,
       snakeMcDonalds: context.snakeMcDonalds,
+      shrine: context.shrine,
+      ramenStand: context.ramenStand,
+      koiPond: context.koiPond,
+      tenguCamp: context.tenguCamp,
       temperatureReliefs: context.temperatureReliefs,
       biomeId: context.palette.biomeId,
       biomeTitle: context.palette.biomeTitle,

@@ -264,6 +264,7 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'elderwood-maze': ['Briarford', 'Canopy Gate', 'Oldroot', 'Green Toll', 'Mosswick'],
   'sunken-ocean': ['Pearlford', 'Foamgate', 'Saltwick', 'Tide Toll', 'Brinemarket'],
   'home-hearth': ['Hearthwick', 'Cinderhome', 'Lampford', 'Quiet Gate', 'Warmmarket'],
+  'jade-peak-province': ['Jadeford', 'Mistgate', 'Cedar Toll', 'Koiwick', 'Shrinemarket'],
 };
 
 const HUMAN_NAMES = [

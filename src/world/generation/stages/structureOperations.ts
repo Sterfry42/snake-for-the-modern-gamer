@@ -7,18 +7,44 @@ import { tryPlaceVillage } from '../../village.js';
 import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
 import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
 import { tryPlaceTown } from '../../town.js';
+import { tryPlaceShrine } from '../../shrine.js';
+import { tryPlaceRamenStand } from '../../ramenStand.js';
+import { tryPlaceKoiPond } from '../../koiPond.js';
+import { tryPlaceTenguCamp } from '../../tenguCamp.js';
 import type { RoomGenerationContext } from '../types.js';
 
-type SettlementKind = 'village' | 'goblin-camp' | 'quest-house' | 'snake-mcDonalds' | 'town';
+type SettlementKind =
+  | 'village'
+  | 'goblin-camp'
+  | 'quest-house'
+  | 'snake-mcDonalds'
+  | 'town'
+  | 'shrine'
+  | 'ramen-stand'
+  | 'tengu-camp';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
 const TOWN_CHANCE = 0.08;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
+const SHRINE_CHANCE = 0.08;
+const RAMEN_STAND_CHANCE = 0.04;
+const TENGU_CAMP_CHANCE = 0.04;
+const SHRINE_JADE_PEAK_CHANCE = 0.12;
+const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;
+const TENGU_CAMP_JADE_PEAK_CHANCE = 0.10;
 const SETTLEMENT_ANCHOR_SPACING = 5;
-const GUARANTEED_SETTLEMENT_KINDS = ['town', 'village', 'goblin-camp', 'quest-house'] as const;
-const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house'] as const;
+const GUARANTEED_SETTLEMENT_KINDS = [
+  'town',
+  'village',
+  'goblin-camp',
+  'quest-house',
+  'shrine',
+  'ramen-stand',
+  'tengu-camp',
+] as const;
+const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house', 'shrine'] as const;
 
 export class StructureOperations {
   constructor(
@@ -42,7 +68,10 @@ export class StructureOperations {
       !context.goblinCamp &&
       !context.town &&
       !context.questGiver &&
-      !context.snakeMcDonalds
+      !context.snakeMcDonalds &&
+      !context.shrine &&
+      !context.ramenStand &&
+      !context.tenguCamp
     ) {
       this.placeSettlement(context, entranceRunups, shouldGuaranteeStructure);
     }
@@ -54,12 +83,49 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.shrine &&
+      !context.ramenStand &&
+      !context.tenguCamp &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
       this.placeLake(context.layout, context.grid, entranceRunups);
     }
 
-    if (!context.village && !context.goblinCamp && !context.town && !context.questGiver && !context.snakeMcDonalds) {
+    if (
+      canPlaceOptionalLake &&
+      !context.koiPond &&
+      !context.village &&
+      !context.goblinCamp &&
+      !context.town &&
+      !context.questGiver &&
+      !context.snakeMcDonalds &&
+      !context.shrine &&
+      !context.ramenStand &&
+      !context.tenguCamp
+    ) {
+      const koiChance = context.isJadePeak ? 0.12 : 0.03;
+      if (this.rng() < koiChance) {
+        const koiPond = tryPlaceKoiPond(context.layout, context.grid, this.rng, {
+          forbiddenCells: entranceRunups,
+          margin: 4,
+        });
+        if (koiPond) {
+          context.koiPond = koiPond;
+        }
+      }
+    }
+
+    if (
+      !context.village &&
+      !context.goblinCamp &&
+      !context.town &&
+      !context.questGiver &&
+      !context.snakeMcDonalds &&
+      !context.shrine &&
+      !context.ramenStand &&
+      !context.koiPond &&
+      !context.tenguCamp
+    ) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
         context.layout,
         context.grid,
@@ -76,7 +142,7 @@ export class StructureOperations {
     const openClearingGuarantee = guaranteed && context.archetype?.id === 'open-clearing';
     const allowTown = !openClearingGuarantee;
     const allowSpecial = !openClearingGuarantee;
-    const preferred = this.pickSettlementKind(guaranteed, allowTown, allowSpecial);
+    const preferred = this.pickSettlementKind(guaranteed, context, allowTown, allowSpecial);
     if (!preferred) {
       return;
     }
@@ -94,9 +160,12 @@ export class StructureOperations {
 
   private pickSettlementKind(
     guaranteed: boolean,
+    context: RoomGenerationContext,
     allowTown = true,
     allowSpecial = true,
   ): SettlementKind | null {
+    const isJadePeak = context.palette.biomeId === 'jade-peak-province';
+
     if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE) {
       return 'snake-mcDonalds';
     }
@@ -106,6 +175,18 @@ export class StructureOperations {
       if (allowTown && roll < 0.2) {
         return 'town';
       }
+      if (isJadePeak) {
+        if (roll < 0.35) {
+          return 'village';
+        }
+        if (roll < 0.55) {
+          return 'shrine';
+        }
+        if (roll < 0.75) {
+          return 'tengu-camp';
+        }
+        return 'quest-house';
+      }
       if (roll < 0.55) {
         return 'village';
       }
@@ -113,6 +194,35 @@ export class StructureOperations {
         return 'goblin-camp';
       }
       return 'quest-house';
+    }
+
+    if (isJadePeak) {
+      const shrineChance = SHRINE_JADE_PEAK_CHANCE;
+      const ramenChance = RAMEN_STAND_JADE_PEAK_CHANCE;
+      const tenguChance = TENGU_CAMP_JADE_PEAK_CHANCE;
+      if (roll < shrineChance) {
+        return 'shrine';
+      }
+      if (roll < shrineChance + ramenChance) {
+        return 'ramen-stand';
+      }
+      if (roll < shrineChance + ramenChance + tenguChance) {
+        return 'tengu-camp';
+      }
+      if (roll < shrineChance + ramenChance + tenguChance + VILLAGE_CHANCE) {
+        return 'village';
+      }
+      if (
+        roll <
+        shrineChance +
+          ramenChance +
+          tenguChance +
+          VILLAGE_CHANCE +
+          QUEST_HOUSE_CHANCE
+      ) {
+        return 'quest-house';
+      }
+      return null;
     }
 
     let threshold = VILLAGE_CHANCE;
@@ -203,6 +313,40 @@ export class StructureOperations {
           return false;
         }
         context.snakeMcDonalds = mcDonalds;
+        return true;
+      }
+      case 'shrine': {
+        const shrine = tryPlaceShrine(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!shrine) {
+          return false;
+        }
+        context.shrine = shrine;
+        context.questGiver = shrine.maiden;
+        return true;
+      }
+      case 'ramen-stand': {
+        const ramenStand = tryPlaceRamenStand(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!ramenStand) {
+          return false;
+        }
+        context.ramenStand = ramenStand;
+        return true;
+      }
+      case 'tengu-camp': {
+        const tenguCamp = tryPlaceTenguCamp(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!tenguCamp) {
+          return false;
+        }
+        context.tenguCamp = tenguCamp;
         return true;
       }
     }

@@ -43,6 +43,14 @@ export interface EquipableItem extends BaseItem {
     appleScorePenalty?: number;
     hazardMapSense?: number;
     radiationTimerScalar?: number;
+    // Enables wall-smite ability for katana.
+    wallSmiteEnabled?: boolean;
+    // Periodic shrine blessings from Kami religion.
+    shrineBlessing?: boolean;
+    // Reveals yokai disguises in NPC encounters.
+    yokaiInsight?: boolean;
+    // Passive length growth (spiritual discipline).
+    spiritualLength?: boolean;
   };
 }
 
