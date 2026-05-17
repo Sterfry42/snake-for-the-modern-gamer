@@ -24,7 +24,7 @@ type SettlementKind =
   | 'tengu-camp';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
-const TOWN_CHANCE = 0.08;
+const TOWN_CHANCE = 0.04;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
