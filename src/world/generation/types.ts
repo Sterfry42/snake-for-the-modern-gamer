@@ -40,6 +40,7 @@ export interface RoomGenerationContext {
   questGiver?: RoomSnapshot['questGiver'];
   village?: RoomSnapshot['village'];
   goblinCamp?: RoomSnapshot['goblinCamp'];
+  town?: RoomSnapshot['town'];
   snakeMcDonalds?: RoomSnapshot['snakeMcDonalds'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   palette: RoomGenerationPalette;

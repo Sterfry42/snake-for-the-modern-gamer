@@ -37,6 +37,20 @@ import {
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import { getBiomeDefinition, getBiomeForRoom } from '../world/biomes.js';
 import type { RoomSnapshot } from '../world/types.js';
+import {
+  applyTownCrime,
+  cloneTown,
+  discoverThievesGuild,
+  getTownRoom,
+  maybeTriggerPatrol,
+  reduceWantedViaGuild,
+  resolveGuildJob,
+  type GuildJobKind,
+  type TownCrimeKind,
+  type TownPatrolEncounter,
+  type TownRoomKind,
+  type TownStructure,
+} from '../world/town.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { loadLanguagePreference, saveLanguagePreference } from '../i18n/storage.js';
 import {
@@ -514,6 +528,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.playerShot', undefined);
     this.setFlag('ui.playerHit', undefined);
     this.setFlag('ui.villageReveal', undefined);
+    this.setFlag('ui.townReveal', undefined);
     this.setFlag('ui.biomeReveal', undefined);
     this.setFlag('ui.lastBiomeId', undefined);
     this.setFlag('npc.freakJoey.active', undefined);
@@ -636,6 +651,20 @@ export class SnakeGame implements QuestRuntime {
             name: newRoom.village.name,
             x: newRoom.village.center.x,
             y: newRoom.village.center.y,
+          });
+        }
+        if (newRoom.town) {
+          const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+          this.setFlag('player.health', maxHealth);
+          this.addScore(5);
+          this.setFlag('ui.townReveal', {
+            roomId: newRoomId,
+            name: newRoom.town.name,
+            mood: newRoom.town.mood,
+            law: newRoom.town.laws[0]?.description,
+            wantedLevel: newRoom.town.wantedLevel,
+            x: newRoom.town.center.x,
+            y: newRoom.town.center.y,
           });
         }
         this.handleGoblinCampEntered(newRoomId, newRoom);
@@ -1528,6 +1557,248 @@ export class SnakeGame implements QuestRuntime {
     return room;
   }
 
+  getCurrentTown(): TownStructure | null {
+    return this.getCurrentRoom().town ?? null;
+  }
+
+  updateCurrentTown(town: TownStructure): TownStructure | null {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    if (!room.town || room.town.id !== town.id) {
+      return null;
+    }
+    room.town = cloneTown(town);
+    this.world.updateTown(room.town);
+    return room.town;
+  }
+
+  moveCurrentTownRoom(targetRoomId: string): {
+    ok: boolean;
+    town?: TownStructure;
+    patrol?: TownPatrolEncounter;
+    message: string;
+  } {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const town = room.town;
+    if (!town) {
+      return { ok: false, message: 'There is no town here.' };
+    }
+    const from = getTownRoom(town, town.currentRoomId);
+    const to = getTownRoom(town, targetRoomId);
+    if (!from || !to || !from.connections.includes(to.id)) {
+      return { ok: false, town, message: 'That district is not connected from here.' };
+    }
+    if (to.hidden && !to.discovered) {
+      return { ok: false, town, message: 'You have not found that door yet.' };
+    }
+    const next = cloneTown(town);
+    const nextFrom = getTownRoom(next, from.id);
+    const nextTo = getTownRoom(next, to.id);
+    if (!nextFrom || !nextTo) {
+      return { ok: false, town, message: 'The town map refuses to fold that way.' };
+    }
+    next.currentRoomId = nextTo.id;
+    next.rooms = next.rooms.map((entry) =>
+      entry.id === nextTo.id ? { ...entry, visited: true, discovered: true } : entry,
+    );
+    let patrol = maybeTriggerPatrol(next, nextFrom, nextTo, this.rng);
+    if (nextTo.kind === 'backAlley' && !next.discoveredGuild) {
+      const shouldReveal =
+        next.wantedLevel >= 1 ||
+        next.mood === 'crimeWave' ||
+        Number(next.suspicion ?? 0) >= 20 ||
+        this.rng() < 0.35;
+      if (shouldReveal) {
+        const revealed = discoverThievesGuild(next);
+        room.town = revealed;
+        this.world.updateTown(revealed);
+        return {
+          ok: true,
+          town: revealed,
+          patrol,
+          message: 'A chalk mark near the drain shows a snake biting a coin. It was not there before.',
+        };
+      }
+    }
+    room.town = next;
+    this.world.updateTown(next);
+    return {
+      ok: true,
+      town: next,
+      patrol,
+      message:
+        nextTo.kind === 'exit'
+          ? `${next.name}'s back road is open. The wilderness waits past the last fence.`
+          : `You move to ${nextTo.displayName}.`,
+    };
+  }
+
+  applyCurrentTownCrime(kind: TownCrimeKind, witnessed = true, severity = 1): {
+    ok: boolean;
+    town?: TownStructure;
+    message: string;
+  } {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const town = room.town;
+    if (!town) {
+      return { ok: false, message: 'There is no town law to break here.' };
+    }
+    const currentRoomId = town.currentRoomId;
+    const next = applyTownCrime(town, {
+      kind,
+      witnessed,
+      severity,
+      roomId: currentRoomId,
+    });
+    room.town = next;
+    this.world.updateTown(next);
+    return {
+      ok: true,
+      town: next,
+      message: witnessed
+        ? `Wanted level is now ${next.wantedLevel}. The notice board will hear about this.`
+        : 'No one saw it clearly, which is not the same as innocence.',
+    };
+  }
+
+  discoverCurrentTownGuild(): { ok: boolean; town?: TownStructure; message: string } {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const town = room.town;
+    if (!town) {
+      return { ok: false, message: 'No guild hides in this room.' };
+    }
+    const next = discoverThievesGuild(town);
+    room.town = next;
+    this.world.updateTown(next);
+    return { ok: true, town: next, message: 'The cellar door opens into the Thieves Guild.' };
+  }
+
+  reduceCurrentTownWantedViaGuild(): {
+    ok: boolean;
+    town?: TownStructure;
+    message: string;
+    cost: number;
+  } {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const town = room.town;
+    if (!town) {
+      return { ok: false, message: 'No town wanted posters are watching you.', cost: 0 };
+    }
+    const result = reduceWantedViaGuild(town);
+    if (result.cost > 0 && this.getScore() < result.cost) {
+      return {
+        ok: false,
+        town,
+        message: `The guild wants ${result.cost} score to blur the posters.`,
+        cost: result.cost,
+      };
+    }
+    if (result.cost > 0) {
+      this.addScore(-result.cost);
+    }
+    room.town = result.town;
+    this.world.updateTown(result.town);
+    return { ok: true, town: result.town, message: result.message, cost: result.cost };
+  }
+
+  resolveCurrentTownGuildJob(jobId: string, success: boolean): {
+    ok: boolean;
+    town?: TownStructure;
+    message: string;
+    rewardScore: number;
+  } {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const town = room.town;
+    if (!town) {
+      return { ok: false, message: 'No guild job can be resolved here.', rewardScore: 0 };
+    }
+    const job = town.guildJobs.find((entry) => entry.id === jobId);
+    if (!job) {
+      return { ok: false, town, message: 'That guild job is no longer on the board.', rewardScore: 0 };
+    }
+    const next = resolveGuildJob(town, jobId, success);
+    const resolvedJob = next.guildJobs.find((entry) => entry.id === jobId);
+    let rewardScore = 0;
+    if (success && resolvedJob?.reward.kind === 'currency') {
+      rewardScore = resolvedJob.reward.amount ?? 0;
+      this.addScore(rewardScore);
+    }
+    room.town = next;
+    this.world.updateTown(next);
+    return {
+      ok: true,
+      town: next,
+      rewardScore,
+      message: success
+        ? this.describeGuildJobSuccess(job.kind, rewardScore)
+        : 'The job goes crooked. Guards learn new adjectives for snake.',
+    };
+  }
+
+  openCurrentTownGate(): { ok: boolean; message: string } {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const town = room.town;
+    if (!town) {
+      return { ok: false, message: 'There is no town gate here.' };
+    }
+    const district = town.districtByRoomId[room.id];
+    if (district !== 'gate') {
+      return { ok: false, message: 'The guard looks around for a gate and finds only awkwardness.' };
+    }
+    const centerX = Math.floor(this.config.grid.cols / 2);
+    const centerY = Math.floor(this.config.grid.rows / 2);
+    for (let y = centerY - 2; y <= centerY + 2; y += 1) {
+      const row = room.layout[y];
+      if (!row) continue;
+      const chars = row.split('');
+      for (let x = centerX - 2; x <= centerX + 2; x += 1) {
+        if (chars[x] && chars[x] !== 'G') {
+          chars[x] = 'E';
+        }
+      }
+      room.layout[y] = chars.join('');
+    }
+    this.setFlag(`town.gateOpened.${town.id}`, true);
+    return { ok: true, message: 'The guard opens the gate. Try not to make them regret paperwork.' };
+  }
+
+  describeTownRoom(kind: TownRoomKind): string {
+    switch (kind) {
+      case 'outskirts':
+        return 'Fenceposts appear where wilderness was pretending it had no neighbors.';
+      case 'gate':
+        return 'The gate guards watch the road, your mouth, and each other.';
+      case 'square':
+        return 'The square is all notices, gossip, and legal-looking benches.';
+      case 'market':
+      case 'marketStreet':
+        return 'The market is louder than a bag of coins dropped into soup.';
+      case 'tavern':
+      case 'tavernInterior':
+        return 'The tavern smells like stew, spilled confessions, and future dates.';
+      case 'residential':
+      case 'residentialStreet':
+        return 'Homes press close together, each window inventing a rumor.';
+      case 'backAlley':
+        return 'The back alley narrows into chalk marks and plausible deniability.';
+      case 'guildHideout':
+        return 'A cellar door opens into a room where everyone has already noticed you.';
+      case 'exit':
+      case 'townExit':
+        return 'The back road points out of town before anyone changes their mind.';
+    }
+  }
+
+  private describeGuildJobSuccess(kind: GuildJobKind, rewardScore: number): string {
+    switch (kind) {
+      case 'pickpocket':
+        return `Market pocket picked. Guild karma rises${rewardScore > 0 ? ` and +${rewardScore} score lands quietly.` : '.'}`;
+      case 'houseJob':
+        return 'Residential ledger lifted. The guild sands one edge off your wanted poster.';
+      case 'smugglePackage':
+        return 'Package moved from gate to alley. It only whispered twice.';
+    }
+  }
+
   private markDeathAtCurrentHead(reason?: StepResult['deathReason'] | string): void {
     const head = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
     const roomId = this.snake.currentRoomId;
@@ -2400,6 +2671,14 @@ export class SnakeGame implements QuestRuntime {
     hazard: 'hot' | 'cold' | null;
     active: boolean;
   } {
+    if (this.getFlag<boolean>('cheat.immortal')) {
+      return {
+        current: 0,
+        max: 10,
+        hazard: null,
+        active: false,
+      };
+    }
     const currentRoom = this.getCurrentRoom();
     const biome = getBiomeDefinition(currentRoom.biomeId);
     const hazard = biome.temperatureHazard;
@@ -4532,6 +4811,13 @@ export class SnakeGame implements QuestRuntime {
     if (!head) {
       return false;
     }
+    if (this.getFlag<boolean>('cheat.immortal')) {
+      this.setFlag('player.temperatureExposureMs', 0);
+      this.setFlag('player.temperatureDamageProgressMs', 0);
+      this.setFlag('player.temperatureHazard', undefined);
+      this.setFlag('player.temperatureLastTickMs', Number(this.getFlag<number>('timeMs') ?? 0));
+      return false;
+    }
     const timeMs = Number(this.getFlag<number>('timeMs') ?? 0);
     const lastTickMs = Number(this.getFlag<number>('player.temperatureLastTickMs') ?? 0);
     const deltaMs = Math.max(0, lastTickMs > 0 ? timeMs - lastTickMs : 0);
@@ -4662,6 +4948,9 @@ export class SnakeGame implements QuestRuntime {
     style?: BulletInstance['style'],
   ): boolean {
     if (hits <= 0) {
+      return false;
+    }
+    if (this.getFlag<boolean>('cheat.immortal')) {
       return false;
     }
     const invuln = Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0);

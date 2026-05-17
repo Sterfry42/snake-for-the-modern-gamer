@@ -6,15 +6,19 @@ import type { RoomSnapshot } from '../../types.js';
 import { tryPlaceVillage } from '../../village.js';
 import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
 import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
+import { tryPlaceTown } from '../../town.js';
 import type { RoomGenerationContext } from '../types.js';
 
-type SettlementKind = 'village' | 'goblin-camp' | 'quest-house' | 'snake-mcDonalds';
+type SettlementKind = 'village' | 'goblin-camp' | 'quest-house' | 'snake-mcDonalds' | 'town';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
+const TOWN_CHANCE = 0.08;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
 const SETTLEMENT_ANCHOR_SPACING = 5;
+const GUARANTEED_SETTLEMENT_KINDS = ['town', 'village', 'goblin-camp', 'quest-house'] as const;
+const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house'] as const;
 
 export class StructureOperations {
   constructor(
@@ -36,6 +40,7 @@ export class StructureOperations {
       canPlaceOptionalStructures &&
       !context.village &&
       !context.goblinCamp &&
+      !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds
     ) {
@@ -46,6 +51,7 @@ export class StructureOperations {
       canPlaceOptionalLake &&
       !context.village &&
       !context.goblinCamp &&
+      !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
@@ -53,7 +59,7 @@ export class StructureOperations {
       this.placeLake(context.layout, context.grid, entranceRunups);
     }
 
-    if (!context.village && !context.goblinCamp && !context.questGiver && !context.snakeMcDonalds) {
+    if (!context.village && !context.goblinCamp && !context.town && !context.questGiver && !context.snakeMcDonalds) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
         context.layout,
         context.grid,
@@ -67,13 +73,16 @@ export class StructureOperations {
     forbiddenCells: ReadonlySet<string>,
     guaranteed: boolean,
   ): void {
-    const preferred = this.pickSettlementKind(guaranteed);
+    const openClearingGuarantee = guaranteed && context.archetype?.id === 'open-clearing';
+    const allowTown = !openClearingGuarantee;
+    const allowSpecial = !openClearingGuarantee;
+    const preferred = this.pickSettlementKind(guaranteed, allowTown, allowSpecial);
     if (!preferred) {
       return;
     }
 
     const attempts = guaranteed
-      ? [preferred, ...(['village', 'goblin-camp', 'quest-house'] as const).filter((kind) => kind !== preferred)]
+      ? [preferred, ...(allowTown ? GUARANTEED_SETTLEMENT_KINDS : OPEN_CLEARING_SETTLEMENT_KINDS).filter((kind) => kind !== preferred)]
       : [preferred];
 
     for (const kind of attempts) {
@@ -83,29 +92,46 @@ export class StructureOperations {
     }
   }
 
-  private pickSettlementKind(guaranteed: boolean): SettlementKind | null {
-    if (this.rng() < SNAKE_MC_DONALDS_CHANCE) {
+  private pickSettlementKind(
+    guaranteed: boolean,
+    allowTown = true,
+    allowSpecial = true,
+  ): SettlementKind | null {
+    if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE) {
       return 'snake-mcDonalds';
     }
 
     const roll = this.rng();
     if (guaranteed) {
-      if (roll < 0.45) {
+      if (allowTown && roll < 0.2) {
+        return 'town';
+      }
+      if (roll < 0.55) {
         return 'village';
       }
-      if (roll < 0.75) {
+      if (roll < 0.8) {
         return 'goblin-camp';
       }
       return 'quest-house';
     }
 
-    if (roll < VILLAGE_CHANCE) {
+    let threshold = VILLAGE_CHANCE;
+    if (roll < threshold) {
       return 'village';
     }
-    if (roll < VILLAGE_CHANCE + GOBLIN_CAMP_CHANCE) {
+
+    threshold += allowTown && this.canSpawnTown() ? TOWN_CHANCE : 0;
+    if (allowTown && this.canSpawnTown() && roll < threshold) {
+      return 'town';
+    }
+
+    threshold += GOBLIN_CAMP_CHANCE;
+    if (roll < threshold) {
       return 'goblin-camp';
     }
-    if (roll < VILLAGE_CHANCE + GOBLIN_CAMP_CHANCE + QUEST_HOUSE_CHANCE) {
+
+    threshold += QUEST_HOUSE_CHANCE;
+    if (roll < threshold) {
       return 'quest-house';
     }
     return null;
@@ -133,6 +159,17 @@ export class StructureOperations {
         }
         context.questGiver = villagePlacement.questGiver;
         context.village = villagePlacement.village;
+        return true;
+      }
+      case 'town': {
+        const town = tryPlaceTown(context.layout, context.grid, this.rng, context.palette.biomeId, {
+          forbiddenCells,
+          margin: 4,
+        });
+        if (!town) {
+          return false;
+        }
+        context.town = town;
         return true;
       }
       case 'goblin-camp': {
@@ -265,6 +302,10 @@ export class StructureOperations {
 
   private isOriginRoom(roomId: string): boolean {
     return roomId === this.config.originRoomId;
+  }
+
+  private canSpawnTown(): boolean {
+    return true;
   }
 
   private isSettlementAnchor(roomId: string): boolean {

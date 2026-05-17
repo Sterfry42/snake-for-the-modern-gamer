@@ -29,6 +29,14 @@ import type { Vector2Like } from '../core/math.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
+import {
+  formatTownMood,
+  getTownDistrictForRoom,
+  getTownRoom,
+  townDistrictDisplayName,
+  type TownDistrictKind,
+  type TownStructure,
+} from '../world/town.js';
 import { getItem } from '../inventory/itemRegistry.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { WandererEncounter } from '../npcs/encounters.js';
@@ -817,6 +825,9 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (this.tryInteractMcDonaldsToilet()) {
+          return;
+        }
+        if (this.tryInteractTown()) {
           return;
         }
         if (this.tryInteractVillageShopkeeper()) {
@@ -2362,6 +2373,22 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
       return { ok: true, message: 'Cheat active: +100 lives.', color: '#5dd6a2' };
     }
+    if (code === 'immortal' || code === 'mammamia' || code === 'starman' || code === 'mario') {
+      this.setFlag('cheat.immortal', true);
+      this.setFlag('equipment.swimmingEnabled', true);
+      this.setFlag('equipment.heatResistance', 1);
+      this.setFlag('equipment.coldResistance', 1);
+      this.setFlag('player.temperatureExposureMs', 0);
+      this.setFlag('player.temperatureDamageProgressMs', 0);
+      this.setFlag('player.temperatureHazard', undefined);
+      this.setFlag('ui.healthRevealed', true);
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: 'Cheat active: immortal mode. Yahoo!',
+        color: '#5dd6a2',
+      };
+    }
     if (code === 'teleporterquest' || code === 'greenpurchase') {
       const started = this.snakeGame.startGreenPurchaseCheat();
       if (started) {
@@ -3541,15 +3568,16 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag('equipment.phoenixCharges', phoenix > 0 ? phoenix : undefined);
     this.setFlag('equipment.itemPhoenixCharges', itemPhoenix > 0 ? itemPhoenix : undefined);
     this.setFlag('equipment.gunEnabled', gunEnabled ? true : undefined);
+    const immortalCheat = Boolean(this.getFlag<boolean>('cheat.immortal'));
     this.setFlag(
       'equipment.heatResistance',
-      heatResistance > 0 ? Math.min(0.9, heatResistance) : undefined,
+      immortalCheat ? 1 : heatResistance > 0 ? Math.min(0.9, heatResistance) : undefined,
     );
     this.setFlag(
       'equipment.coldResistance',
-      coldResistance > 0 ? Math.min(0.9, coldResistance) : undefined,
+      immortalCheat ? 1 : coldResistance > 0 ? Math.min(0.9, coldResistance) : undefined,
     );
-    this.setFlag('equipment.swimmingEnabled', swimmingEnabled ? true : undefined);
+    this.setFlag('equipment.swimmingEnabled', swimmingEnabled || immortalCheat ? true : undefined);
     this.setFlag('equipment.refundEveryRooms', refundEveryRooms);
     this.setFlag(
       'equipment.appleScorePenalty',
@@ -4011,6 +4039,45 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup(`${villageReveal.name} stirs around you.`, '#f6e7c1');
       this.snakeGame.setFlag('ui.villageReveal', undefined);
     }
+    const townReveal = this.snakeGame.getFlag<{
+      roomId: string;
+      name: string;
+      mood: string;
+      law?: string;
+      wantedLevel: number;
+      x: number;
+      y: number;
+    }>('ui.townReveal');
+    if (townReveal) {
+      const world = this.tileToWorldInRoom({ x: townReveal.x, y: townReveal.y }, townReveal.roomId);
+      (this.juice as any).villageReveal?.(world.x, world.y);
+      this.villageHud
+        .setText(`${townReveal.name.toUpperCase()}\n${formatTownMood(townReveal.mood as any)} | Wanted ${townReveal.wantedLevel}`)
+        .setAlpha(0)
+        .setY(12)
+        .setVisible(true);
+      this.tweens.add({
+        targets: this.villageHud,
+        alpha: 1,
+        y: 18,
+        duration: 320,
+        ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: this.villageHud,
+        alpha: 0,
+        y: 32,
+        delay: 2200,
+        duration: 900,
+        ease: 'Cubic.easeIn',
+        onComplete: () => this.villageHud.setVisible(false),
+      });
+      this.showQuestHintPopup(
+        `${townReveal.name}: ${townReveal.law ?? 'Mind the notice board.'}`,
+        '#f6e7c1',
+      );
+      this.snakeGame.setFlag('ui.townReveal', undefined);
+    }
     const biomeReveal = this.snakeGame.getFlag<{
       roomId: string;
       biomeId: string;
@@ -4427,7 +4494,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   getCurrentVillageShop(): VillageShopDefinition | null {
     const room = this.snakeGame.getCurrentRoom();
-    if (!room.village) {
+    if (!room.village && !room.town) {
       return null;
     }
     const stock = this.getCurrentVillageMarketStock();
@@ -4446,7 +4513,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private getCurrentVillageMarketStock(): VillageMarketStock {
     const room = this.snakeGame.getCurrentRoom();
-    const key = `market.stock.${room.id}`;
+    const key = room.town ? `town.market.stock.${room.town.id}` : `market.stock.${room.id}`;
     const saved = this.getFlag<VillageMarketStock>(key);
     if (
       saved?.version === 2 &&
@@ -4461,17 +4528,17 @@ export default class SnakeScene extends Phaser.Scene {
       version: 2,
       equipmentIds: this.pickMarketOffers(
         VILLAGE_SHOP_EQUIPMENT.map((offer) => offer.id),
-        2,
+        room.town ? Math.min(4, VILLAGE_SHOP_EQUIPMENT.length) : 2,
       ),
       styleIds: this.pickMarketOffers(
         VILLAGE_SHOP_STYLES.map((offer) => offer.id),
-        2,
+        room.town ? Math.min(3, VILLAGE_SHOP_STYLES.length) : 2,
       ) as VillageShopStyleId[],
       hatIds: this.pickMarketOffers(
         VILLAGE_SHOP_HATS.map((offer) => offer.id),
-        2,
+        room.town ? Math.min(4, VILLAGE_SHOP_HATS.length) : 2,
       ) as VillageShopHatId[],
-      cardIds: this.pickMarketCardOffers(),
+      cardIds: this.pickMarketCardOffers(room.town ? 8 : undefined),
     };
     this.setFlag(key, stock);
     return stock;
@@ -4479,7 +4546,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setCurrentVillageMarketStock(stock: VillageMarketStock): void {
     const room = this.snakeGame.getCurrentRoom();
-    this.setFlag(`market.stock.${room.id}`, stock);
+    this.setFlag(room.town ? `town.market.stock.${room.town.id}` : `market.stock.${room.id}`, stock);
   }
 
   private getCurrentMarketCardOffers(): CardId[] {
@@ -4499,8 +4566,8 @@ export default class SnakeScene extends Phaser.Scene {
     return picked;
   }
 
-  private pickMarketCardOffers(): CardId[] {
-    const count = this.random() < 0.42 ? 1 : 2;
+  private pickMarketCardOffers(forcedCount?: number): CardId[] {
+    const count = forcedCount ?? (this.random() < 0.42 ? 1 : 2);
     const pool = [...CARD_DEFINITIONS];
     const picked: CardId[] = [];
     while (picked.length < count && pool.length > 0) {
@@ -4910,6 +4977,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (room.snakeMcDonalds) {
       return [room.snakeMcDonalds.bounds];
     }
+    if (room.town) {
+      return [room.town.safeArea];
+    }
     if (room.questGiver) {
       const bounds = this.getTileBounds(room, 'WETG');
       return bounds ? [bounds] : [];
@@ -4988,6 +5058,13 @@ export default class SnakeScene extends Phaser.Scene {
     if (mc && this.distanceFromHeadToLocal(mc.toilet) <= 1) {
       return { text: 'Press E to flush' };
     }
+    const town = room.town;
+    if (town && this.distanceFromHeadToLocal(town.center) <= 3) {
+      const current = getTownDistrictForRoom(town, room.id);
+      return {
+        text: `${town.name}${current ? `: ${townDistrictDisplayName(current)}` : ''} (press E)`,
+      };
+    }
     const giver = room.questGiver;
     if (!giver) {
       return null;
@@ -5027,6 +5104,277 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.showVillageShopRoot(shopkeeper.name ?? 'Village Shopkeeper');
     return true;
+  }
+
+  private tryInteractTown(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const town = this.snakeGame.getCurrentTown();
+    if (!town || this.distanceFromHeadToLocal(town.center) > 4) {
+      return false;
+    }
+    this.showTownRoom(town);
+    return true;
+  }
+
+  private showTownRoom(town: TownStructure): void {
+    const freshTown = this.snakeGame.getCurrentTown() ?? town;
+    const room = this.snakeGame.getCurrentRoom();
+    const current = getTownDistrictForRoom(freshTown, room.id);
+    if (!current) {
+      this.showQuestHintPopup('The town map has misplaced itself.', '#ff6b6b');
+      return;
+    }
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    const options: ChoiceOption[] = [];
+    const description = [
+      this.snakeGame.describeTownRoom(current),
+      `Wanted ${freshTown.wantedLevel}/5. Reputation ${freshTown.reputation}.`,
+      freshTown.thievesGuild?.discovered
+        ? `Guild karma ${freshTown.thievesGuild.karma}.`
+        : 'The back alley has opinions it has not shared yet.',
+    ].join(' ');
+
+    if (current === 'square' || current === 'gate') {
+      options.push({
+        id: 'town-notices',
+        title: 'Read Notice Board',
+        description: `${freshTown.notices.length} notices, at least one written by someone enjoying authority.`,
+      });
+    }
+    if (current === 'gate') {
+      options.push({
+        id: 'town-open-gate',
+        title: 'Talk to Gate Guard',
+        description: 'Ask the guard to open the barrier and pretend this is normal snake paperwork.',
+      });
+    }
+    if (current === 'market' || current === 'marketStreet') {
+      options.push({
+        id: 'town-shop',
+        title: 'Town Market',
+        description: 'A larger town counter with more stock than a village stall.',
+      });
+      options.push({
+        id: 'town-steal-flower',
+        title: 'Steal a Flower',
+        description: 'A relationship gift, a tiny crime, and a classic bad idea.',
+      });
+    }
+    if (current === 'tavern' || current === 'tavernInterior') {
+      options.push({
+        id: 'town-rumors',
+        title: 'Buy Tavern Rumor',
+        description: 'Hear what the town thinks happened before it becomes true.',
+      });
+    }
+    if (current === 'backAlley') {
+      options.push({
+        id: freshTown.discoveredGuild ? 'town-guild' : 'town-guild-discover',
+        title: freshTown.discoveredGuild ? 'Enter Thieves Guild' : 'Investigate Graffiti',
+        description: freshTown.discoveredGuild
+          ? 'The cellar door recognizes trouble by silhouette.'
+          : 'A chalk snake bites a coin near the drain.',
+      });
+    }
+    if (current === 'guildHideout') {
+      options.push({
+        id: 'town-guild',
+        title: 'Guild Business',
+        description: 'Jobs, services, and people who pronounce legality as a dare.',
+      });
+    }
+    if (current === 'residential' || current === 'residentialStreet') {
+      options.push({
+        id: 'town-break-in',
+        title: 'Break In',
+        description: 'A residential job-shaped bad idea with witnesses nearby.',
+      });
+    }
+    if (freshTown.wantedLevel > 0 && (current === 'gate' || current === 'square' || current === 'townExit' || current === 'exit')) {
+      const fine = 8 + freshTown.wantedLevel * 7;
+      options.push({
+        id: `town-pay-fine:${fine}`,
+        title: `Pay Fine - ${fine} score`,
+        description: 'Lower wanted by one and let a clerk feel powerful.',
+      });
+    }
+    options.push({ id: 'leave', title: 'Step Back', description: 'Return to the room.' });
+    this.villageShopPopup.show(
+      `${freshTown.name} - ${townDistrictDisplayName(current)}`,
+      [{ id: 'town-status', title: formatTownMood(freshTown.mood), description }, ...options],
+      (id) => this.handleTownChoice(id, freshTown),
+    );
+  }
+
+  private handleTownChoice(id: string, town: TownStructure): void {
+    if (id === 'leave' || id === 'town-status') {
+      this.closeVillageShop();
+      return;
+    }
+    if (id === 'town-notices') {
+      this.showTownNotices(town);
+      return;
+    }
+    if (id === 'town-open-gate') {
+      const result = this.snakeGame.openCurrentTownGate();
+      this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+      this.showTownRoom(this.snakeGame.getCurrentTown() ?? town);
+      return;
+    }
+    if (id === 'town-rumors') {
+      const updated = this.snakeGame.discoverCurrentTownGuild();
+      this.showQuestHintPopup(
+        updated.ok
+          ? 'The bartender sells you a rumor about a cellar door that was always there.'
+          : updated.message,
+        updated.ok ? '#b6ff6a' : '#ff6b6b',
+      );
+      this.showTownRoom(updated.town ?? town);
+      return;
+    }
+    if (id === 'town-shop') {
+      this.showVillageShopRoot(`${town.name} Market`);
+      return;
+    }
+    if (id === 'town-steal-flower') {
+      const result = this.snakeGame.applyCurrentTownCrime('theft', true, 1);
+      this.showQuestHintPopup(result.message, result.ok ? '#fff3a8' : '#ff6b6b');
+      this.showTownRoom(result.town ?? town);
+      return;
+    }
+    if (id === 'town-break-in') {
+      const result = this.snakeGame.applyCurrentTownCrime('breakIn', true, 2);
+      this.showQuestHintPopup(result.message, result.ok ? '#fff3a8' : '#ff6b6b');
+      this.showTownRoom(result.town ?? town);
+      return;
+    }
+    if (id === 'town-guild-discover') {
+      const result = this.snakeGame.discoverCurrentTownGuild();
+      this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+      this.showTownRoom(result.town ?? town);
+      return;
+    }
+    if (id === 'town-guild') {
+      this.showTownGuild(town);
+      return;
+    }
+    if (id.startsWith('town-pay-fine:')) {
+      const fine = Number(id.split(':')[1] ?? 0);
+      if (this.score < fine) {
+        this.showQuestHintPopup(`The fine is ${fine} score.`, '#ff6b6b');
+        this.showTownRoom(town);
+        return;
+      }
+      this.addScoreDirect(-fine);
+      const current = this.snakeGame.getCurrentTown() ?? town;
+      const next = { ...current, wantedLevel: Math.max(0, current.wantedLevel - 1) as TownStructure['wantedLevel'] };
+      const updated = this.snakeGame.updateCurrentTown(next) ?? current;
+      this.showQuestHintPopup('Fine paid. The wanted poster gets a little less personal.', '#b6ff6a');
+      this.showTownRoom(updated);
+    }
+  }
+
+  private showTownNotices(town: TownStructure): void {
+    const freshTown = this.snakeGame.getCurrentTown() ?? town;
+    const options: ChoiceOption[] = freshTown.notices.map((notice) => ({
+      id: `notice:${notice.id}`,
+      title: notice.title,
+      description: notice.body,
+    }));
+    if (freshTown.rumors.length > 0) {
+      options.push(
+        ...freshTown.rumors.slice(0, 4).map((rumor) => ({
+          id: `rumor:${rumor.id}`,
+          title: 'Rumor',
+          description: rumor.summary,
+        })),
+      );
+    }
+    options.push({ id: 'back', title: 'Back', description: 'Return to town business.' });
+    this.villageShopPopup.show(`${freshTown.name} Notice Board`, options, (id) => {
+      if (id === 'back') {
+        this.showTownRoom(freshTown);
+      }
+    });
+  }
+
+  private showTownGuild(town: TownStructure): void {
+    const freshTown = this.snakeGame.getCurrentTown() ?? town;
+    const guild = freshTown.thievesGuild;
+    if (!guild?.discovered) {
+      this.showQuestHintPopup('The guild is still only a rumor.', '#ff6b6b');
+      this.showTownRoom(freshTown);
+      return;
+    }
+    const options: ChoiceOption[] = [
+      {
+        id: 'guild-lower-wanted',
+        title: 'Lower Wanted',
+        description: freshTown.wantedLevel > 0 ? 'Pay the guild to make posters less accurate.' : 'You are not wanted here yet.',
+      },
+      {
+        id: 'guild-fence',
+        title: 'Fence Stolen Goods',
+        description: 'Convert suspicious flowers and imaginary contraband into 6 score.',
+      },
+      {
+        id: 'guild-black-market',
+        title: 'Find Black Market',
+        description: 'Browse the same market table with town-sized stock and worse lighting.',
+      },
+    ];
+    for (const job of freshTown.guildJobs.filter((entry) => entry.status === 'available')) {
+      options.push({
+        id: `guild-job:${job.id}`,
+        title: this.guildJobTitle(job.kind),
+        description: `Target: ${getTownRoom(freshTown, job.targetRoomId)?.displayName ?? 'unknown district'}. Karma +${job.karmaReward}, risk +${job.wantedRisk} wanted if botched.`,
+      });
+    }
+    options.push({ id: 'back', title: 'Back', description: 'Return to the district.' });
+    this.villageShopPopup.show(`${freshTown.name} Thieves Guild`, options, (id) => {
+      if (id === 'back') {
+        this.showTownRoom(freshTown);
+        return;
+      }
+      if (id === 'guild-lower-wanted') {
+        const result = this.snakeGame.reduceCurrentTownWantedViaGuild();
+        this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+        this.showTownGuild(result.town ?? freshTown);
+        return;
+      }
+      if (id === 'guild-fence') {
+        this.addScoreDirect(6);
+        this.showQuestHintPopup('The fence buys what nobody can prove was stolen. +6 score.', '#b6ff6a');
+        this.showTownGuild(this.snakeGame.getCurrentTown() ?? freshTown);
+        return;
+      }
+      if (id === 'guild-black-market') {
+        this.showVillageShopRoot(`${freshTown.name} Black Market`);
+        return;
+      }
+      if (id.startsWith('guild-job:')) {
+        const jobId = id.slice('guild-job:'.length);
+        const success = this.random() > 0.22;
+        const result = this.snakeGame.resolveCurrentTownGuildJob(jobId, success);
+        this.showQuestHintPopup(result.message, result.ok && success ? '#b6ff6a' : '#fff3a8');
+        this.showTownGuild(result.town ?? freshTown);
+      }
+    });
+  }
+
+  private guildJobTitle(kind: 'pickpocket' | 'houseJob' | 'smugglePackage'): string {
+    switch (kind) {
+      case 'pickpocket':
+        return 'Pickpocket in Market';
+      case 'houseJob':
+        return 'Break Into Residence';
+      case 'smugglePackage':
+        return 'Smuggle Package';
+    }
   }
 
   private tryInteractGoblinShopkeeper(): boolean {
@@ -6469,6 +6817,24 @@ export default class SnakeScene extends Phaser.Scene {
         })),
       );
     }
+    if (room.town) {
+      const district = getTownDistrictForRoom(room.town, room.id);
+      candidates.push(
+        ...room.town.residents
+          .filter((resident) => this.isTownResidentInDistrict(resident.workRoomId, district))
+          .map((resident) => ({
+            id: `resident:${room.id}:${resident.id}`,
+            displayName: `${resident.name}${resident.role === 'bartender' ? ' the Bartender' : resident.role === 'guard' ? ' the Guard' : ''}`,
+            species: 'human' as RelationshipSpecies,
+            portraitId: resident.portraitId,
+            homeRoomId: resident.homeRoomId ?? room.id,
+            factionId: 'hearthbound-remnant' as const,
+            personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+            x: resident.x,
+            y: resident.y,
+          })),
+      );
+    }
     if (room.goblinCamp) {
       candidates.push(
         ...room.goblinCamp.guards.map((guard) => ({
@@ -6538,6 +6904,22 @@ export default class SnakeScene extends Phaser.Scene {
         this.showDatingScene(profile);
       },
     );
+  }
+
+  private isTownResidentInDistrict(
+    workRoomId: string | undefined,
+    district: TownDistrictKind | undefined,
+  ): boolean {
+    if (!workRoomId || !district) {
+      return false;
+    }
+    const kind = workRoomId.split(':').pop();
+    if (kind === district) return true;
+    if (kind === 'market' && district === 'marketStreet') return true;
+    if (kind === 'tavern' && district === 'tavernInterior') return true;
+    if (kind === 'residential' && district === 'residentialStreet') return true;
+    if (kind === 'exit' && district === 'townExit') return true;
+    return false;
   }
 
   private showDatingScene(
@@ -7465,6 +7847,11 @@ export default class SnakeScene extends Phaser.Scene {
         : [];
     const residents = [
       ...(room.village ? [...room.village.residents, room.village.shopkeeper] : []),
+      ...(room.town
+        ? room.town.residents.filter((resident) =>
+            this.isTownResidentInDistrict(resident.workRoomId, getTownDistrictForRoom(room.town!, room.id)),
+          )
+        : []),
       ...goblinResidents,
     ];
     if (residents.length === 0 || this.questPopup.isVisible()) {
@@ -7529,19 +7916,20 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
-    if (!room.village) {
+    const villageLike = room.village ?? room.town;
+    if (!villageLike) {
       return;
     }
     if (Math.random() < 0.08) {
       const lantern =
-        room.village.lanterns[Math.floor(Math.random() * room.village.lanterns.length)];
+        villageLike.lanterns[Math.floor(Math.random() * villageLike.lanterns.length)];
       if (lantern) {
         const world = this.tileToWorldLocalInRoom(lantern);
         (this.juice as any).villageLantern?.(world.x, world.y);
       }
     }
     if (Math.random() < 0.03) {
-      const world = this.tileToWorldLocalInRoom(room.village.center);
+      const world = this.tileToWorldLocalInRoom(villageLike.center);
       (this.juice as any).villageBreath?.(world.x, world.y);
     }
   }

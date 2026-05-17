@@ -1,6 +1,7 @@
 import type { Vector2Like } from '../core/math.js';
 import type { NpcProfile } from '../npcs/profiles.js';
 import type { BiomeId } from './biomes.js';
+import type { TownStructure } from './town.js';
 
 export interface PortalConfig {
   x: number;
@@ -44,6 +45,7 @@ export interface RoomSnapshot {
     guards: Array<NpcProfile & { x: number; y: number }>;
     shopkeeper: NpcProfile & { x: number; y: number };
   };
+  town?: TownStructure;
   snakeMcDonalds?: {
     cashier: {
       name: string;

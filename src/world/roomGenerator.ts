@@ -75,6 +75,7 @@ export class RoomGenerator {
       questGiver: context.questGiver,
       village: context.village,
       goblinCamp: context.goblinCamp,
+      town: context.town,
       snakeMcDonalds: context.snakeMcDonalds,
       temperatureReliefs: context.temperatureReliefs,
       biomeId: context.palette.biomeId,

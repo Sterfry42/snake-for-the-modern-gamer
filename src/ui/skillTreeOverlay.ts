@@ -1324,7 +1324,7 @@ export class SkillTreeOverlay {
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
-          'Supported cheats:\n\ninvestingincrypto\n90fps240Hz\nimawiddlebabywhoneedshelp\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis',
+          'Supported cheats:\n\ninvestingincrypto\n90fps240Hz\nimawiddlebabywhoneedshelp\nimmortal\nmammamia\nstarman\nmario\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis',
         )
         .setVisible(true);
       if (!this.hintSticky) {
