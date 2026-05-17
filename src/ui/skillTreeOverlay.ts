@@ -1592,6 +1592,9 @@ export class SkillTreeOverlay {
           view.personality ? `Personality: ${view.personality}` : '',
           view.personalityDescription ?? '',
           `Likes: ${view.likes.length > 0 ? view.likes.join(', ') : 'unknown'}`,
+          view.memories && view.memories.length > 0
+            ? `Memories: ${view.memories.map((memory) => memory.summary).join(' / ')}`
+            : '',
           view.warning ? `Warning: ${view.warning}` : '',
         ]
           .filter(Boolean)

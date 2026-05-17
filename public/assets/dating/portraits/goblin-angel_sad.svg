@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="goblin-angel sad mood portrait">
+  <g id="base-portrait">
+
   <defs>
     <radialGradient id="bg" cx="50%" cy="24%" r="78%">
       <stop offset="0" stop-color="#fbffbd"/>
@@ -26,4 +28,12 @@
   <ellipse cx="195" cy="306" rx="24" ry="11" fill="#e685a2" opacity=".35"/>
   <ellipse cx="333" cy="306" rx="24" ry="11" fill="#e685a2" opacity=".35"/>
   <path d="M178 416c36 28 120 28 156 0" fill="none" stroke="#ddff8c" stroke-width="9" stroke-linecap="round"/>
-</svg>
+
+  </g>
+  <g id="mood-sad" opacity="0.9">
+    <path d="M204 250c20-10 39-6 56 9M278 259c17-15 37-19 56-9" fill="none" stroke="#365071" stroke-width="8" stroke-linecap="round"/>
+    <path d="M226 334c21-14 55-14 76 0" fill="none" stroke="#5f3146" stroke-width="8" stroke-linecap="round"/>
+    <path d="M318 286c-7 18-5 32 5 43" fill="none" stroke="#8bdcff" stroke-width="5" stroke-linecap="round" opacity="0.72"/>
+    <rect width="512" height="512" fill="#557399" opacity="0.12"/>
+  </g></svg>
+

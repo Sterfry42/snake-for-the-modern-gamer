@@ -54,11 +54,13 @@ import {
 import type { FactionCardView } from '../factions/factions.js';
 import type {
   DatingCandidateView,
+  DatingBranchChoice,
   RelationshipCandidateProfile,
   RelationshipChoice,
   RelationshipEventResult,
   RelationshipSpecies,
 } from '../relationships/relationshipTypes.js';
+import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
 import {
   CARD_DEFINITIONS,
   CARD_SHOP_OFFERS,
@@ -146,7 +148,15 @@ type DatingSequence = {
   index: number;
   branchOutcome?: RelationshipChoice;
   branchText?: string;
-  branchResults: Record<string, { text: string; outcome?: RelationshipChoice }>;
+  branchChoice?: DatingBranchChoice;
+  branchResults: Record<string, DatingBranchResult>;
+};
+
+type DatingBranchResult = {
+  text: string;
+  outcome?: RelationshipChoice;
+  tags?: DatingBranchChoice['tags'];
+  label?: string;
 };
 
 const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
@@ -575,6 +585,19 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
+  private loadDatingPortraitAssets(): Promise<void> {
+    const assets = DATING_PORTRAIT_ASSETS.filter((asset) => !this.textures.exists(asset.key));
+    if (assets.length === 0) return Promise.resolve();
+
+    return new Promise((resolve) => {
+      this.load.once(Phaser.Loader.Events.COMPLETE, () => resolve());
+      for (const asset of assets) {
+        this.load.svg(asset.key, asset.url, { width: 512, height: 512 });
+      }
+      this.load.start();
+    });
+  }
+
   async create() {
     this.graphics = this.add.graphics();
     // Reduce subpixel jitter and keep lines crisp during shake/zoom
@@ -614,6 +637,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
     this.questPopup = new QuestPopup(this);
     this.villageShopPopup = new ChoicePopup(this);
+    await this.loadDatingPortraitAssets();
     this.datingScenePopup = new DatingScenePopup(this);
     this.graphics.setDepth(0);
 
@@ -746,6 +770,11 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       if (this.isManualHouseMovementActive()) {
+        if (key === 'e' && this.snakeGame?.returnFromManualResumePause()) {
+          event.preventDefault();
+          this.isDirty = true;
+          return;
+        }
         if (['arrowup', 'w'].includes(key)) {
           this.setManualResumeDir(0, -1);
           this.consumeManualResumePause();
@@ -5730,6 +5759,21 @@ export default class SnakeScene extends Phaser.Scene {
         this.graphics.fillStyle(0xffd7b8, 1).fillCircle(x + cell / 2, y + cell * 0.42, cell * 0.16);
         this.graphics.fillStyle(0x18352d, 1).fillCircle(x + cell * 0.45, y + cell * 0.39, 1.5);
         this.graphics.fillStyle(0x18352d, 1).fillCircle(x + cell * 0.55, y + cell * 0.39, 1.5);
+      } else if (actor.kind === 'deep-lying-bouquet') {
+        this.graphics
+          .lineStyle(2, 0xe8f7ff, 0.95)
+          .strokeCircle(x + cell / 2, y + cell / 2, cell * 0.42);
+        this.graphics
+          .fillStyle(0xbde6ff, 0.9)
+          .fillRoundedRect(x + cell * 0.38, y + cell * 0.48, cell * 0.24, cell * 0.38, 3);
+        this.graphics
+          .lineStyle(2, 0x6be3ff, 0.85)
+          .lineBetween(x + cell * 0.5, y + cell * 0.82, x + cell * 0.32, y + cell * 0.26)
+          .lineBetween(x + cell * 0.5, y + cell * 0.82, x + cell * 0.5, y + cell * 0.2)
+          .lineBetween(x + cell * 0.5, y + cell * 0.82, x + cell * 0.68, y + cell * 0.26);
+        this.graphics.fillStyle(0xffbdfd, 1).fillCircle(x + cell * 0.32, y + cell * 0.24, cell * 0.12);
+        this.graphics.fillStyle(0xffffff, 1).fillCircle(x + cell * 0.5, y + cell * 0.18, cell * 0.13);
+        this.graphics.fillStyle(0xaec4ff, 1).fillCircle(x + cell * 0.68, y + cell * 0.24, cell * 0.12);
       }
     }
   }
@@ -6431,7 +6475,7 @@ export default class SnakeScene extends Phaser.Scene {
           id: `resident:${room.id}:${guard.id}`,
           displayName: guard.name,
           species: 'goblin' as RelationshipSpecies,
-          portraitId: 'goblin-neutral',
+          portraitId: guard.portraitId ?? 'goblin-neutral',
           homeRoomId: room.id,
           factionId: 'goblin-camps' as const,
           x: guard.x,
@@ -6508,28 +6552,44 @@ export default class SnakeScene extends Phaser.Scene {
       state: result?.state ?? this.snakeGame.getRelationshipState(profile) ?? talk.state,
       line: this.extractFirstQuotedLine(result?.message) ?? talk.line,
       result: result as any,
-      actions: this.getDatingSceneActions(result?.state ?? this.snakeGame.getRelationshipState(profile) ?? talk.state),
+      actions: this.getDatingSceneActions(profile, result?.state ?? this.snakeGame.getRelationshipState(profile) ?? talk.state),
       onAction: (action) => this.handleDatingSceneAction(profile, action),
     });
   }
 
-  private getDatingSceneActions(state?: { stage?: string; romanceOptIn?: boolean; resentment?: number; jealousy?: number }): readonly DatingSceneButton[] {
+  private getDatingSceneActions(
+    profile: RelationshipCandidateProfile,
+    state?: { stage?: string; romanceOptIn?: boolean; resentment?: number; jealousy?: number },
+  ): readonly DatingSceneButton[] {
     const stage = state?.stage ?? 'stranger';
-    const serious = stage === 'dating' || stage === 'lover';
-    const romanceOpen = Boolean(state?.romanceOptIn) || stage === 'crush' || serious;
-    const canMean = stage !== 'stranger' && stage !== 'acquaintance';
     const needsApology = Number(state?.resentment ?? 0) > 0 || Number(state?.jealousy ?? 0) > 0 || stage === 'estranged';
-    return [
-      { id: 'talk', label: 'Talk' },
-      { id: 'gift', label: 'Gift' },
-      { id: 'flirt', label: 'Flirt' },
-      { id: 'date', label: 'Date', disabled: !romanceOpen, reason: 'flirt first' },
-      { id: 'apologize', label: 'Apologize', disabled: !needsApology, reason: 'no hurt' },
-      { id: 'mean', label: 'Be Mean', tone: 'danger', disabled: !canMean, reason: 'too early' },
-      { id: 'break-up', label: 'Break Up', tone: 'danger', disabled: !serious, reason: 'not dating' },
-      { id: 'boundary', label: 'Boundary', disabled: !romanceOpen, reason: 'no route' },
-      { id: 'leave', label: 'Leave' },
-    ];
+    const labels: Record<string, string> = {
+      talk: 'Talk',
+      gift: 'Gift',
+      flirt: 'Flirt',
+      'ask-out': 'Ask Out',
+      date: 'Date',
+      propose: 'Propose',
+      reassure: 'Reassure',
+      apologize: 'Apologize',
+      explain: 'Explain',
+      family: 'Family',
+      'discuss-arrangement': 'Arrangement',
+      divorce: 'Divorce',
+      'break-up': 'Break Up',
+      plead: 'Plead',
+      fight: 'Fight',
+      run: 'Run',
+    };
+    const danger = new Set(['divorce', 'break-up', 'fight', 'run']);
+    const actions = this.snakeGame.getRelationshipActions(profile).map((id) => ({
+      id: id as DatingSceneAction,
+      label: labels[id] ?? id,
+      tone: danger.has(id) ? ('danger' as const) : undefined,
+      disabled: id === 'apologize' && !needsApology,
+      reason: id === 'apologize' && !needsApology ? 'no hurt' : undefined,
+    }));
+    return [...actions, { id: 'leave', label: 'Leave' }];
   }
 
   private handleDatingSceneAction(profile: RelationshipCandidateProfile, action: DatingSceneAction): void {
@@ -6584,8 +6644,8 @@ export default class SnakeScene extends Phaser.Scene {
     if (String(action).startsWith('branch-')) {
       const result = sequence.branchResults[action];
       sequence.branchOutcome = result?.outcome;
-      sequence.branchText =
-        result?.text ?? `${sequence.profile.displayName} studies your answer like it may become evidence later.`;
+      sequence.branchChoice = this.normalizeDatingBranchChoice(String(action), result);
+      sequence.branchText = `${sequence.profile.displayName}'s expression changes before their voice does.`;
       sequence.index += 1;
       this.renderDatingSequence();
       return;
@@ -6600,13 +6660,20 @@ export default class SnakeScene extends Phaser.Scene {
     const sequence = this.activeDatingSequence;
     if (!sequence) return;
     if (sequence.index >= sequence.pages.length) {
-      const main = this.snakeGame.applyRelationshipChoice(sequence.profile, sequence.kind);
-      const branch = sequence.branchOutcome
+      const branch = sequence.branchChoice
+        ? this.snakeGame.applyRelationshipBranchChoice(sequence.profile, sequence.branchChoice, sequence.kind)
+        : null;
+      const main = branch
+        ? null
+        : this.snakeGame.applyRelationshipChoice(sequence.profile, sequence.kind);
+      const fallback = sequence.branchOutcome
         ? this.snakeGame.applyRelationshipChoice(sequence.profile, sequence.branchOutcome)
         : null;
       this.activeDatingSequence = null;
-      const message = [sequence.branchText, main.message, branch?.message].filter(Boolean).join('\n');
-      this.showDatingScene(sequence.profile, { ...main, message, state: branch?.state ?? main.state });
+      const result = branch ?? fallback ?? main;
+      if (!result) return;
+      const message = [sequence.branchText, result.message].filter(Boolean).join('\n');
+      this.showDatingScene(sequence.profile, { ...result, message });
       this.skillTree.getOverlay().refresh();
       return;
     }
@@ -6629,17 +6696,41 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
+  private normalizeDatingBranchChoice(actionId: string, result?: DatingBranchResult): DatingBranchChoice {
+    const label = result?.label ?? actionId.replace(/^branch-/, '').replace(/-/g, ' ');
+    return {
+      id: actionId,
+      label,
+      line: result?.text ?? label,
+      tags: result?.tags ?? this.inferRelationshipTags(actionId),
+    };
+  }
+
+  private inferRelationshipTags(actionId: string): DatingBranchChoice['tags'] {
+    if (/protect|sharecloak/.test(actionId)) return ['protective', 'selfless', 'bravery', 'privateAffection'];
+    if (/run|floor|coward|skip/.test(actionId)) return ['selfPreserving', 'avoidance'];
+    if (/joke|counter|mooncrime/.test(actionId)) return ['clever', 'dramatic'];
+    if (/honest|sincere/.test(actionId)) return ['honesty', 'privateAffection'];
+    if (/knife|stone|betrayer/.test(actionId)) return ['violence', 'danger', 'dramatic'];
+    if (/pastry|pepperoni|pineapple|mushroom/.test(actionId)) return ['food', 'comfort'];
+    if (/married|slowdance|eyes|smile|rose/.test(actionId)) return ['commitment', 'publicAffection', 'dramatic'];
+    if (/home/.test(actionId)) return ['comfort', 'loyalty'];
+    if (/thief|mastermind|rival/.test(actionId)) return ['clever', 'ambition'];
+    if (/mock|complain/.test(actionId)) return ['betrayal', 'neediness'];
+    return ['honesty'];
+  }
+
   private createDatingSequenceEvent(
     profile: RelationshipCandidateProfile,
     kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>,
-  ): { pages: DatingSequencePage[]; branchResults: Record<string, { text: string; outcome?: RelationshipChoice }> } {
+  ): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
     const voice = (line: string): DatingSequencePage => ({ line, result: `${profile.displayName}'s expression changes before their voice does.` });
     const speciesLine = (human: string, goblin: string, angel: string): string => {
       if (profile.species === 'goblin' || profile.species === 'goblin-angel') return goblin;
       if (profile.species === 'angel') return angel;
       return human;
     };
-    const templates: Array<{ pages: DatingSequencePage[]; branchResults: Record<string, { text: string; outcome?: RelationshipChoice }> }> = [];
+    const templates: Array<{ pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> }> = [];
     if (kind === 'talk') {
       templates.push({
         pages: [

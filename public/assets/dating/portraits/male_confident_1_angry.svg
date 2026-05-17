@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="1200" height="1200" role="img" aria-label="Male Confident 1, full-body SVG dating sim portrait">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff2ce"/>
+      <stop offset="0.34" stop-color="#ffd169"/>
+      <stop offset="0.68" stop-color="#ff8d59"/>
+      <stop offset="1" stop-color="#2a1830"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="20%" r="60%">
+      <stop offset="0" stop-color="#fffef8" stop-opacity="0.95"/>
+      <stop offset="0.45" stop-color="#fff2bf" stop-opacity="0.25"/>
+      <stop offset="1" stop-color="#fff2bf" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="hairGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff0b8"/>
+      <stop offset="0.28" stop-color="#f3c85a"/>
+      <stop offset="0.65" stop-color="#c9822c"/>
+      <stop offset="1" stop-color="#7a4120"/>
+    </linearGradient>
+    <linearGradient id="skinGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f9d0b2"/>
+      <stop offset="1" stop-color="#df9875"/>
+    </linearGradient>
+    <linearGradient id="jacketGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.6" stop-color="#f2f0f6"/>
+      <stop offset="1" stop-color="#d0d4e5"/>
+    </linearGradient>
+    <linearGradient id="pantsGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#244a8a"/>
+      <stop offset="1" stop-color="#111a35"/>
+    </linearGradient>
+    <linearGradient id="bootGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5b331f"/>
+      <stop offset="1" stop-color="#1b1010"/>
+    </linearGradient>
+    <radialGradient id="eyeGrad" cx="45%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#84fff1"/>
+      <stop offset="0.55" stop-color="#2cc8a6"/>
+      <stop offset="1" stop-color="#1e6f65"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#170d16" flood-opacity="0.35"/>
+    </filter>
+    <filter id="sparkleGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="sparkle" viewBox="-20 -20 40 40">
+      <path d="M0-16L4-4 16 0 4 4 0 16-4 4-16 0-4-4Z"/>
+      <circle r="2.2"/>
+    </symbol>
+    <symbol id="heart" viewBox="0 0 60 54">
+      <path d="M30 50C14 35 3 27 3 15 3 7 9 1 17 1c5 0 10 2 13 7 3-5 8-7 13-7 8 0 14 6 14 14 0 12-11 20-27 35z"/>
+    </symbol>
+  </defs>
+
+  <g transform="translate(280 0)">
+<g id="background">
+    <rect x="-280" width="1200" height="1200" fill="url(#bgGrad)"/>
+    <rect x="-280" width="1200" height="1200" fill="url(#glow)"/>
+    <path d="M145 120c52-48 112-34 142 20 33-54 95-69 145-19 36 36 31 95-9 130-37 33-88 65-136 112-45-44-100-82-138-117-37-34-39-89-4-126z" fill="#fff8de" opacity="0.14"/>
+    <g fill="#fff9eb" opacity="0.82" filter="url(#sparkleGlow)">
+      <use href="#sparkle" x="76" y="126" width="24" height="24"/>
+      <use href="#sparkle" x="541" y="158" width="28" height="28"/>
+      <use href="#sparkle" x="104" y="355" width="16" height="16"/>
+      <use href="#sparkle" x="516" y="488" width="20" height="20"/>
+      <use href="#sparkle" x="126" y="928" width="22" height="22"/>
+    </g>
+  </g>
+
+  <g filter="url(#shadow)">
+    <g id="back-hair">
+      <path d="M183 210c19-72 66-120 137-120 83 0 142 53 156 137 7 45 1 102-13 164-18 81-25 154-27 264H204c-4-110-11-183-28-264-14-62-21-120-13-181z" fill="url(#hairGrad)"/>
+      <path d="M225 98c-22 50-26 112-12 188" fill="none" stroke="#fff8cf" stroke-width="12" stroke-linecap="round" opacity="0.76"/>
+      <path d="M329 90c11 48 10 108 0 182" fill="none" stroke="#ffd970" stroke-width="10" stroke-linecap="round" opacity="0.72"/>
+      <path d="M398 108c18 33 27 77 28 131" fill="none" stroke="#fff2ba" stroke-width="10" stroke-linecap="round" opacity="0.62"/>
+    </g>
+
+    <g id="legs">
+      <path d="M257 778c1 110-9 236-28 381-5 37-22 50-44 46-23-4-35-21-32-48 11-119 29-257 49-381 7-40 19-57 33-57 16 0 25 17 22 59z" fill="url(#pantsGrad)"/>
+      <path d="M383 778c-1 110 9 236 28 381 5 37 22 50 44 46 23-4 35-21 32-48-11-119-29-257-49-381-7-40-19-57-33-57-16 0-25 17-22 59z" fill="url(#pantsGrad)"/>
+      <path d="M242 807c25 17 51 25 78 25s53-8 78-25" stroke="#6ea4ff" stroke-width="6" opacity="0.55" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="boots">
+      <path d="M165 1102c20-18 44-33 73-46 18-8 31-3 44 14 12 15 17 43 14 80H147c0-17 6-34 18-48z" fill="url(#bootGrad)"/>
+      <path d="M296 1150H147" stroke="#ffd36d" stroke-width="8" stroke-linecap="round"/>
+      <path d="M344 1149c-3-37 3-64 16-79 13-17 26-22 44-14 29 13 53 28 73 46 12 14 18 31 18 48H344z" fill="url(#bootGrad)"/>
+      <path d="M495 1150H344" stroke="#ffd36d" stroke-width="8" stroke-linecap="round"/>
+    </g>
+
+    <g id="pants">
+      <path d="M223 626c31 22 66 33 97 33s66-11 97-33l23 174c-33 28-72 42-120 42s-87-14-120-42z" fill="url(#pantsGrad)"/>
+      <path d="M248 644c18 12 42 18 72 18s54-6 72-18" stroke="#8ac2ff" stroke-width="5" opacity="0.7" stroke-linecap="round" fill="none"/>
+      <path d="M266 661l-13 154M320 669v171M374 661l13 154" stroke="#18264a" stroke-width="5" opacity="0.6"/>
+      <path d="M269 630h102" stroke="#ffd36d" stroke-width="9" stroke-linecap="round"/>
+    </g>
+
+    <g id="torso">
+      <path d="M278 385h84v96c0 25-19 42-42 42s-42-17-42-42z" fill="url(#skinGrad)"/>
+      <path d="M206 246c0-100 48-165 114-165s114 65 114 165c0 112-48 171-114 171s-114-59-114-171z" fill="url(#skinGrad)"/>
+      <path d="M252 405c19 18 43 28 68 28s49-10 68-28c17 41 31 100 33 174 1 35-9 63-30 84-17 17-41 27-71 27s-54-10-71-27c-21-21-31-49-30-84 2-74 16-133 33-174z" fill="url(#skinGrad)"/>
+      <path d="M255 471c20 22 42 33 65 33 24 0 46-11 65-33" stroke="#f3e1d7" stroke-width="6" opacity="0.68" stroke-linecap="round" fill="none"/>
+      <path d="M267 519c17 14 35 21 53 21 19 0 37-7 53-21" stroke="#d98d74" stroke-width="4" opacity="0.45" stroke-linecap="round" fill="none"/>
+      <path d="M259 564c16 13 36 20 61 20s45-7 61-20" stroke="#d5856d" stroke-width="4" opacity="0.4" stroke-linecap="round" fill="none"/>
+      <path d="M285 476c-8 22-10 46-7 72M355 476c8 22 10 46 7 72" stroke="#cc7c68" stroke-width="3.5" opacity="0.44" stroke-linecap="round" fill="none"/>
+      <path d="M300 526c6 4 13 6 20 6s14-2 20-6" stroke="#c5725c" stroke-width="3.5" opacity="0.55" stroke-linecap="round" fill="none"/>
+      <path d="M285 600c10 7 22 10 35 10s25-3 35-10" stroke="#c5725c" stroke-width="3.5" opacity="0.5" stroke-linecap="round" fill="none"/>
+      <path d="M234 446c7-27 21-53 42-77M406 446c-7-27-21-53-42-77" stroke="#ebb397" stroke-width="7" opacity="0.38" stroke-linecap="round" fill="none"/>
+      <path d="M283 432c14 8 26 12 37 12 12 0 23-4 37-12" stroke="#e5a588" stroke-width="5" opacity="0.45" stroke-linecap="round" fill="none"/>
+      <path d="M253 505c-20 25-29 58-28 103M387 505c20 25 29 58 28 103" stroke="#cc8169" stroke-width="3" opacity="0.28" stroke-linecap="round" fill="none"/>
+      <!-- scar -->
+      <path d="M355 486c18 6 31 4 45-8" stroke="#c87964" stroke-width="4" opacity="0.68" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="jacket">
+      <path d="M186 419c16-29 42-52 74-68l27 31c-22 27-38 66-49 117-7 32-10 65-10 99h-66c-8-90 1-145 24-179z" fill="url(#jacketGrad)"/>
+      <path d="M454 419c-16-29-42-52-74-68l-27 31c22 27 38 66 49 117 7 32 10 65 10 99h66c8-90-1-145-24-179z" fill="url(#jacketGrad)"/>
+      <path d="M245 359c22 18 48 27 75 27s53-9 75-27" stroke="#ffd36d" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <path d="M210 441c20 10 40 15 62 15M430 441c-20 10-40 15-62 15" stroke="#9eb1d7" stroke-width="7" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="arms">
+      <path d="M251 336c-31-11-64 7-78 38-11 22-6 39 10 46 15 6 30 0 37-14 8-18 21-31 40-38 15-6 18-19 12-32-5-11-8-14-21-20z" fill="url(#skinGrad)"/>
+      <path d="M389 336c31-11 64 7 78 38 11 22 6 39-10 46-15 6-30 0-37-14-8-18-21-31-40-38-15-6-18-19-12-32 5-11 8-14 21-20z" fill="url(#skinGrad)"/>
+      <path d="M190 250c13-18 34-29 58-31 13-1 24 9 24 22s-10 23-23 23c-11 0-20 4-28 11-10 9-23 11-33 4-11-8-10-20 2-29z" fill="url(#skinGrad)"/>
+      <path d="M450 250c-13-18-34-29-58-31-13-1-24 9-24 22s10 23 23 23c11 0 20 4 28 11 10 9 23 11 33 4 11-8 10-20-2-29z" fill="url(#skinGrad)"/>
+      <path d="M176 253c12 17 27 26 45 28M464 253c-12 17-27 26-45 28" stroke="#df9a7e" stroke-width="4" opacity="0.6" stroke-linecap="round" fill="none"/>
+      <!-- wrist wraps -->
+      <path d="M213 274c15 8 28 11 42 10" stroke="#fff7ef" stroke-width="8" opacity="0.88" stroke-linecap="round" fill="none"/>
+      <path d="M385 284c14 1 27-2 42-10" stroke="#fff7ef" stroke-width="8" opacity="0.88" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="face">
+      <path d="M191 235c4-106 54-169 129-169 50 0 97 33 116 93-33-9-61-26-84-52-23 21-64 39-122 54-23 6-35 28-39 74z" fill="url(#hairGrad)"/>
+      <path d="M240 110c-18 44-23 93-15 150" stroke="#fff4c3" stroke-width="10" stroke-linecap="round" opacity="0.74" fill="none"/>
+      <path d="M387 118c15 26 24 57 27 93" stroke="#ffd36d" stroke-width="8" stroke-linecap="round" opacity="0.72" fill="none"/>
+      <path d="M241 225c18-20 39-22 58-12M346 206c20-5 39 0 56 18" stroke="#684121" stroke-width="8" stroke-linecap="round" fill="none"/>
+      <ellipse cx="268" cy="246" rx="18" ry="21" fill="#fff9f8"/>
+      <ellipse cx="372" cy="246" rx="18" ry="21" fill="#fff9f8"/>
+      <ellipse cx="270" cy="249" rx="12" ry="15" fill="url(#eyeGrad)"/>
+      <ellipse cx="370" cy="249" rx="12" ry="15" fill="url(#eyeGrad)"/>
+      <circle cx="272" cy="252" r="6" fill="#214942"/>
+      <circle cx="372" cy="252" r="6" fill="#214942"/>
+      <circle cx="266" cy="241" r="3.5" fill="#fff"/>
+      <circle cx="366" cy="241" r="3.5" fill="#fff"/>
+      <path d="M244 278c17 5 33 5 52 0M344 278c17 5 34 5 52 0" stroke="#684121" stroke-width="6" stroke-linecap="round" fill="none"/>
+      <path d="M315 252c-9 20-10 32 8 37" stroke="#bf7b68" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <path d="M278 323c14 7 28 10 42 10 15 0 29-3 43-10-4 22-22 35-43 35-20 0-39-13-42-35z" fill="#c6564b"/>
+      <path d="M279 321c14-9 28-13 41-13 14 0 28 4 42 13" fill="none" stroke="#8d302f" stroke-width="6" stroke-linecap="round"/>
+      <path d="M289 330c10 4 20 6 31 6 10 0 21-2 32-6" fill="none" stroke="#ffe0d2" stroke-width="3" opacity="0.6" stroke-linecap="round"/>
+      <rect x="217" y="289" width="30" height="16" rx="5" fill="#fff7e8" stroke="#d9b98c" stroke-width="2" transform="rotate(-14 232 297)"/>
+      <path d="M221 297h22" stroke="#d9b98c" stroke-width="2" opacity="0.7"/>
+      <ellipse cx="226" cy="300" rx="18" ry="8" fill="#f28b7f" opacity="0.18"/>
+      <ellipse cx="412" cy="300" rx="18" ry="8" fill="#f28b7f" opacity="0.18"/>
+    </g>
+
+    <g id="accessories">
+      <path d="M286 471c10 6 21 9 34 9s24-3 34-9" stroke="#7b4f2e" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <path d="M320 482v43" stroke="#7b4f2e" stroke-width="4" stroke-linecap="round"/>
+      <use href="#heart" x="304" y="518" width="32" height="29" fill="#ffd36d" stroke="#fff8ec" stroke-width="3"/>
+      <path d="M317 524c7-7 15-11 24-12-9 10-11 19-10 28-3-5-8-11-14-16z" fill="#ff5f66" opacity="0.85"/>
+      <path d="M211 306c-9 17-10 31-2 45" stroke="#ffe6ad" stroke-width="5" opacity="0.78" stroke-linecap="round"/>
+      <path d="M430 666c16 2 32 7 46 18" stroke="#ffd36d" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <use href="#heart" x="470" y="672" width="30" height="27" fill="#ffd36d" stroke="#fff8ec" stroke-width="3"/>
+    </g>
+
+    <g id="foreground" fill="#fff8ea" opacity="0.88" filter="url(#sparkleGlow)">
+      <use href="#sparkle" x="149" y="172" width="22" height="22"/>
+      <use href="#sparkle" x="463" y="190" width="22" height="22"/>
+      <use href="#sparkle" x="481" y="568" width="18" height="18"/>
+      <use href="#heart" x="92" y="540" width="34" height="31" fill="#fff4ba" opacity="0.48"/>
+    </g>
+  </g>
+  </g>
+</svg>

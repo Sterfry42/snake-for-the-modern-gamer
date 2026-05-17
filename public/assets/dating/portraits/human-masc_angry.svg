@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="human-masc angry mood portrait">
+  <g id="base-portrait">
+
   <defs>
     <radialGradient id="bg" cx="50%" cy="22%" r="76%">
       <stop offset="0" stop-color="#fff0d2"/>
@@ -29,4 +31,12 @@
   <path d="M214 420c17 26 67 26 84 0" fill="none" stroke="#f0c6a6" stroke-width="24" stroke-linecap="round"/>
   <path d="M211 413c23 16 67 16 90 0" fill="none" stroke="#fff4e3" stroke-width="5" opacity=".5"/>
   <path d="M186 158c18-55 112-84 155-11" fill="none" stroke="#2b1717" stroke-width="26" stroke-linecap="round"/>
-</svg>
+
+  </g>
+  <g id="mood-angry" opacity="0.94">
+    <path d="M198 240c24 5 44 16 61 31M335 240c-24 5-44 16-61 31" fill="none" stroke="#45172d" stroke-width="10" stroke-linecap="round"/>
+    <path d="M226 334c24 8 52 8 76 0" fill="none" stroke="#641926" stroke-width="9" stroke-linecap="round"/>
+    <path d="M232 337l10 19M292 337l-10 19" fill="none" stroke="#fff2d2" stroke-width="5" stroke-linecap="round" opacity="0.8"/>
+    <rect width="512" height="512" fill="#ff3b3b" opacity="0.11"/>
+  </g></svg>
+

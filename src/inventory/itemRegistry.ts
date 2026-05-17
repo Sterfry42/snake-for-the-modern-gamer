@@ -178,6 +178,12 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'deep-lying-bouquet',
+    name: 'Deep-Lying Bouquet',
+    description: 'Wedding flowers dug from cold earth. They prove you can remember a promise across rooms.',
+    kind: 'consumable',
+  },
+  {
     id: 'ring-ledger',
     name: 'Ledger Ring',
     description:
@@ -290,6 +296,7 @@ const CHEST_LOOT_EXCLUDED_IDS = new Set([
   'cloak-frostguard',
   'amulet-baby-bottle',
   'amulet-time-splinter',
+  'deep-lying-bouquet',
   'ring-ledger',
   'helm-hazard-halo',
 ]);
