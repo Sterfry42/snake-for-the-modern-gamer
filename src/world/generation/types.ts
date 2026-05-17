@@ -24,7 +24,13 @@ export type RoomArchetypeId =
   | 'four-corners'
   | 'choke-point'
   | 'ocean'
-  | 'dense-forest';
+  | 'dense-forest'
+  | 'cherry-garden'
+  | 'bamboo-thicket'
+  | 'shrine-courtyard'
+  | 'onsen-village'
+  | 'mountain-pass'
+  | 'tatami-dojo';
 
 export interface RoomArchetype {
   id: RoomArchetypeId;
@@ -41,11 +47,16 @@ export interface RoomGenerationContext {
   village?: RoomSnapshot['village'];
   goblinCamp?: RoomSnapshot['goblinCamp'];
   snakeMcDonalds?: RoomSnapshot['snakeMcDonalds'];
+  shrine?: RoomSnapshot['shrine'];
+  ramenStand?: RoomSnapshot['ramenStand'];
+  koiPond?: RoomSnapshot['koiPond'];
+  tenguCamp?: RoomSnapshot['tenguCamp'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   palette: RoomGenerationPalette;
   archetype?: RoomArchetype;
   isOcean: boolean;
   isDenseForest: boolean;
+  isJadePeak: boolean;
   spawnGuard: SpawnGuard | null;
 }
 

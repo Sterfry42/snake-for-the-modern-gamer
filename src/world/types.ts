@@ -44,19 +44,35 @@ export interface RoomSnapshot {
     guards: Array<NpcProfile & { x: number; y: number }>;
     shopkeeper: NpcProfile & { x: number; y: number };
   };
-  snakeMcDonalds?: {
-    cashier: {
-      name: string;
-      x: number;
-      y: number;
-    };
-    toilet: {
-      x: number;
-      y: number;
-    };
-    bounds: { left: number; top: number; width: number; height: number };
-  };
-  temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' }>;
+snakeMcDonalds?: {
+     cashier: {
+       name: string;
+       x: number;
+       y: number;
+     };
+     toilet: {
+       x: number;
+       y: number;
+     };
+     bounds: { left: number; top: number; width: number; height: number };
+   };
+   shrine?: {
+     maiden: NpcProfile & { x: number; y: number };
+     hasBlessings: boolean;
+   };
+   ramenStand?: {
+     chef: NpcProfile & { x: number; y: number };
+     sellsRamen: boolean;
+   };
+   koiPond?: {
+     center: Vector2Like;
+     waterTiles: Vector2Like[];
+   };
+   tenguCamp?: {
+     chieftain: NpcProfile & { x: number; y: number };
+     feathers: Vector2Like[];
+   };
+   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   biomeId: BiomeId;
   biomeTitle: string;
   backgroundColor: number;

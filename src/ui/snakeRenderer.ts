@@ -214,8 +214,27 @@ export class SnakeRenderer {
           );
         } else if (tile === '~') {
           this.drawWaterTile(rectX, rectY, x, y, room.biomeId === 'sunken-ocean');
-        } else if (tile === 'O') {
-          this.drawBoatTile(rectX, rectY, x, y);
+      } else if (tile === 'O') {
+          if (room.biomeId === 'jade-peak-province') {
+            const base = 0x5bb8d4;
+            const deep = 0x3a8fad;
+            const foam = 0x9ad4e8;
+            this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .fillStyle(deep, 0.35)
+              .fillRect(rectX, rectY + this.grid.cell * 0.52, this.grid.cell, this.grid.cell * 0.48);
+            if ((x * 3 + y * 5) % 4 === 0) {
+              const waveY = rectY + Math.floor(this.grid.cell * 0.38);
+              this.graphics.lineStyle(2, foam, 0.5);
+              this.graphics.beginPath();
+              this.graphics.moveTo(rectX + 4, waveY);
+              this.graphics.lineTo(rectX + this.grid.cell * 0.4, waveY - 2);
+              this.graphics.lineTo(rectX + this.grid.cell - 4, waveY + 1);
+              this.graphics.stroke();
+            }
+          } else {
+            this.drawBoatTile(rectX, rectY, x, y);
+          }
         } else if (tile === 'W') {
           // Wooden floor for house interior
           const color = 0x6d5845;
@@ -235,7 +254,14 @@ export class SnakeRenderer {
             .lineStyle(1, outline, 0.6)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
         } else if (tile === 'S') {
-          this.drawMarketCanopyTile(rectX, rectY, x, y);
+          if (room.biomeId === 'jade-peak-province') {
+            const color = 0xd4c5a9;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else {
+            this.drawMarketCanopyTile(rectX, rectY, x, y);
+          }
         } else if (tile === 'A') {
           this.drawMarketCounterTile(rectX, rectY, x, y);
         } else if (tile === 'C') {
@@ -245,27 +271,48 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.35)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === 'K') {
-          const color = 0x6d5845;
-          const outline = darkenColor(color, 0.35);
-          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics
-            .lineStyle(1, outline, 0.35)
-            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === 'B') {
-          const color = 0x6d5845;
-          const outline = darkenColor(color, 0.35);
-          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics
-            .lineStyle(1, outline, 0.35)
-            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === 'P') {
-          const color = 0x6d5845;
-          const outline = darkenColor(color, 0.35);
-          this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics
-            .lineStyle(1, outline, 0.35)
-            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+       } else if (tile === 'K') {
+          if (room.biomeId === 'jade-peak-province') {
+            const color = 0xff8c42;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else {
+            const color = 0x6d5845;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.35)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          }
+      } else if (tile === 'B') {
+          if (room.biomeId === 'jade-peak-province') {
+            const color = 0x3a7d44;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(1, outline, 0.7).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else {
+            const color = 0x6d5845;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.35)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          }
+     } else if (tile === 'P') {
+          if (room.biomeId === 'jade-peak-province') {
+            const color = 0xf8d5e0;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 0.7).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(1, outline, 0.4).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else {
+            const color = 0x6d5845;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.35)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          }
         } else if (tile === 'L') {
           const color = 0x6d5845;
           const outline = darkenColor(color, 0.35);
@@ -273,16 +320,22 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.35)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === 'E') {
-          // Expansion/rug: light accent tile
-          const color = 0x8ea1ff;
-          const outline = darkenColor(color, 0.45);
-          this.graphics
-            .fillStyle(color, 0.75)
-            .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics
-            .lineStyle(1, outline, 0.6)
-            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+     } else if (tile === 'E') {
+          if (room.biomeId === 'jade-peak-province') {
+            const color = 0xe8e0d4;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else {
+            const color = 0x8ea1ff;
+            const outline = darkenColor(color, 0.45);
+            this.graphics
+              .fillStyle(color, 0.75)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.6)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          }
         } else if (tile === 'G') {
           // Quest giver tile uses cozy floor; sprite renders on top.
           const color = 0x6d5845;
@@ -291,12 +344,25 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.35)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === 'R') {
-          // Toilet tile - white for visibility
-          this.graphics.fillStyle(0xffffff, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          this.graphics
-            .lineStyle(1, 0xcccccc, 0.6)
-            .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+      } else if (tile === 'R') {
+          if (room.biomeId === 'jade-peak-province') {
+            const color = 0x8b5e3c;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else {
+            this.graphics.fillStyle(0xffffff, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, 0xcccccc, 0.6)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          }
+        } else if (tile === 'F') {
+          if (room.biomeId === 'jade-peak-province') {
+            const color = 0x6b4c3b;
+            const outline = darkenColor(color, 0.35);
+            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          }
         } else {
           this.graphics.fillStyle(room.backgroundColor, 1);
           this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
@@ -867,6 +933,23 @@ export class SnakeRenderer {
         bandColor: '#fff5c8',
         outlineColor: '#6a4b15',
         accentColor: '#bff7ff',
+      };
+    }
+    if (style === 'dragon-helm') {
+      return {
+        style,
+        fillColor: '#7ec8e3',
+        bandColor: '#c41e3a',
+        outlineColor: '#1a2b3c',
+        accentColor: '#ff6b35',
+      };
+    }
+    if (style === 'master-broth') {
+      return {
+        style,
+        fillColor: '#ffffff',
+        bandColor: '#4a90d9',
+        outlineColor: '#2c3e50',
       };
     }
     return this.buildHatPalette();

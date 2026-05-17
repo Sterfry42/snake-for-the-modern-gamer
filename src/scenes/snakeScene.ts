@@ -504,6 +504,9 @@ export default class SnakeScene extends Phaser.Scene {
     regenerator?: { interval: number; amount: number } | null;
     phoenixCharges?: number;
     masonryEnabled?: boolean;
+    shrineBlessing?: boolean;
+    yokaiInsight?: boolean;
+    spiritualLength?: boolean;
   } = {};
   // Background and Class choice state
   private chosenBackgroundId: string | null = null;
@@ -3481,6 +3484,14 @@ export default class SnakeScene extends Phaser.Scene {
       if (typeof this.religionMods.phoenixCharges === 'number') {
         phoenix += this.religionMods.phoenixCharges;
       }
+      if (this.religionMods.spiritualLength) {
+        if (!regen) {
+          regen = { interval: 30, amount: 1 };
+        } else {
+          regen.interval = Math.min(regen.interval, 30);
+          regen.amount += 1;
+        }
+      }
     }
 
     // Background bonuses
@@ -5724,6 +5735,8 @@ export default class SnakeScene extends Phaser.Scene {
         return 0x596bb8;
       case 'smoke':
         return 0x6b4c88;
+      case 'jade':
+        return 0x5bb88a;
       default:
         return 0x4da3ff;
     }
@@ -7630,6 +7643,48 @@ export default class SnakeScene extends Phaser.Scene {
           trimColor: '#a5f0ea',
           outlineColor: '#0d2a28',
           eyeColor: '#f1fffd',
+        };
+      case 'shrine-maiden-miko':
+        return {
+          robeColor: '#e8e0f0',
+          trimColor: '#c41e3a',
+          outlineColor: '#1a1020',
+          eyeColor: '#f5e6d0',
+        };
+      case 'yokai-chef':
+        return {
+          robeColor: '#2c2c3e',
+          trimColor: '#ff6b35',
+          outlineColor: '#1a1a28',
+          eyeColor: '#ffe4b5',
+        };
+      case 'kappa-duel':
+        return {
+          robeColor: '#4a7c59',
+          trimColor: '#8bc34a',
+          outlineColor: '#1e3a28',
+          eyeColor: '#fff8dc',
+        };
+      case 'tanuki-shenanigans':
+        return {
+          robeColor: '#8b6f47',
+          trimColor: '#d4a76a',
+          outlineColor: '#3d2b1a',
+          eyeColor: '#f0e0c8',
+        };
+      case 'ronin-wanderer':
+        return {
+          robeColor: '#3a3a4a',
+          trimColor: '#8a8a9a',
+          outlineColor: '#1a1a24',
+          eyeColor: '#e8d8c8',
+        };
+      case 'tengu-encounter':
+        return {
+          robeColor: '#4a2c2c',
+          trimColor: '#ff4500',
+          outlineColor: '#1a0a0a',
+          eyeColor: '#ffd700',
         };
       default:
         return {
