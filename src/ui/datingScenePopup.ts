@@ -8,7 +8,10 @@ import type {
   RelationshipSpecies,
   RelationshipState,
 } from '../relationships/relationshipTypes.js';
-import { getDatingPortraitAsset } from '../relationships/datingPortraitManifest.js';
+import {
+  getDatingPortraitAsset,
+  type DatingPortraitMood,
+} from '../relationships/datingPortraitManifest.js';
 import {
   datingPortraitRecipe,
   type DatingPortraitPalette,
@@ -71,7 +74,8 @@ export class DatingScenePopup {
     const state = options.state;
     const portraitSize = Math.min(512, Math.floor(Math.min(width * 0.62, height * 0.68)));
     const topHeight = Math.floor(height * 0.68);
-    this.setPortrait(profile, portraitSize, topHeight);
+    const mood = this.getPortraitMood(state, options.result);
+    this.setPortrait(profile, portraitSize, topHeight, mood);
 
     this.title?.setText(profile.displayName);
     this.statText?.setText(
@@ -95,26 +99,35 @@ export class DatingScenePopup {
     return Boolean(this.container?.visible);
   }
 
-  private setPortrait(profile: RelationshipCandidateProfile, portraitSize: number, topHeight: number): void {
+  private setPortrait(
+    profile: RelationshipCandidateProfile,
+    portraitSize: number,
+    topHeight: number,
+    mood: DatingPortraitMood,
+  ): void {
     const width = this.scene.scale.width;
-    const asset = getDatingPortraitAsset(profile);
+    const asset = getDatingPortraitAsset(profile, mood);
 
     if (asset && this.scene.textures.exists(asset.key)) {
       this.portrait
         ?.setTexture(asset.key)
+        .clearTint()
+        .setAlpha(1)
         .setDisplaySize(portraitSize, portraitSize)
         .setPosition(width / 2, Math.max(18 + portraitSize / 2, topHeight / 2))
         .setVisible(true);
+      this.applyPortraitMoodTreatment(mood, asset.mood === mood);
       return;
     }
 
-    this.setGeneratedPortrait(profile, portraitSize, topHeight);
+    this.setGeneratedPortrait(profile, portraitSize, topHeight, mood);
   }
 
   private setGeneratedPortrait(
     profile: RelationshipCandidateProfile,
     portraitSize: number,
     topHeight: number,
+    mood: DatingPortraitMood,
   ): void {
     const width = this.scene.scale.width;
     const keys = this.spriteFactory.ensureRecipe(
@@ -124,9 +137,43 @@ export class DatingScenePopup {
     );
     this.portrait
       ?.setTexture(keys[this.variantFor(profile)])
+      .clearTint()
+      .setAlpha(1)
       .setDisplaySize(portraitSize, portraitSize)
       .setPosition(width / 2, Math.max(18 + portraitSize / 2, topHeight / 2))
       .setVisible(true);
+    this.applyPortraitMoodTreatment(mood, false);
+  }
+
+  private getPortraitMood(
+    state?: RelationshipState,
+    result?: RelationshipEventResult,
+  ): DatingPortraitMood {
+    const message = result?.message ?? '';
+    if (/Hated|Disliked|hostile|murderous|knife|cruel|already married/i.test(message)) return 'angry';
+    if (/proposal before|hurt|divorced|breakup|neglect|silence|rejected/i.test(message)) return 'sad';
+    if (/Loved|Liked|married|accepted|reassured|apologized/i.test(message)) return 'happy';
+    if (!state) return 'neutral';
+    const latest = state.memories[state.memories.length - 1];
+    if (state.stage === 'murderous' || state.stage === 'hostile' || state.resentment >= 55) return 'angry';
+    if (state.stage === 'heartbroken' || state.stage === 'estranged' || state.jealousy >= 55) return 'sad';
+    if (latest?.tone === 'traumatic') return 'angry';
+    if (latest?.tone === 'negative') return latest.kind === 'neglect' || latest.kind === 'proposalRejected' ? 'sad' : 'angry';
+    if (latest?.tone === 'positive' || state.stage === 'lover' || state.stage === 'married') return 'happy';
+    return 'neutral';
+  }
+
+  private applyPortraitMoodTreatment(mood: DatingPortraitMood, hasExactMoodAsset: boolean): void {
+    if (hasExactMoodAsset || mood === 'neutral') {
+      return;
+    }
+    if (mood === 'angry') {
+      this.portrait?.setTint(0xff9b9b).setAlpha(1);
+    } else if (mood === 'sad') {
+      this.portrait?.setTint(0x9fb7d8).setAlpha(0.88);
+    } else if (mood === 'happy') {
+      this.portrait?.setTint(0xffd3ee).setAlpha(1);
+    }
   }
 
   private build(): void {

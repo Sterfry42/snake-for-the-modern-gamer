@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="human-masc happy mood portrait">
+  <g id="base-portrait">
+
   <defs>
     <radialGradient id="bg" cx="50%" cy="22%" r="76%">
       <stop offset="0" stop-color="#fff0d2"/>
@@ -29,4 +31,12 @@
   <path d="M214 420c17 26 67 26 84 0" fill="none" stroke="#f0c6a6" stroke-width="24" stroke-linecap="round"/>
   <path d="M211 413c23 16 67 16 90 0" fill="none" stroke="#fff4e3" stroke-width="5" opacity=".5"/>
   <path d="M186 158c18-55 112-84 155-11" fill="none" stroke="#2b1717" stroke-width="26" stroke-linecap="round"/>
-</svg>
+
+  </g>
+  <g id="mood-happy" opacity="0.92">
+    <path d="M222 326c22 24 64 24 86 0" fill="none" stroke="#fff6fb" stroke-width="9" stroke-linecap="round"/>
+    <path d="M224 324c20 17 62 17 82 0" fill="none" stroke="#9b315a" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="196" cy="306" rx="28" ry="12" fill="#ff8fb8" opacity="0.42"/>
+    <ellipse cx="330" cy="306" rx="28" ry="12" fill="#ff8fb8" opacity="0.42"/>
+  </g></svg>
+

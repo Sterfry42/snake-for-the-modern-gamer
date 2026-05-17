@@ -1,0 +1,204 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1200" width="1200" height="1200" role="img" aria-label="Goblin Confident 2, full-body SVG dating sim portrait">
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#231f28"/>
+      <stop offset="0.34" stop-color="#4c2f2a"/>
+      <stop offset="0.7" stop-color="#171217"/>
+      <stop offset="1" stop-color="#08070a"/>
+    </linearGradient>
+    <radialGradient id="smokeGlow" cx="50%" cy="22%" r="60%">
+      <stop offset="0" stop-color="#f7ede3" stop-opacity="0.72"/>
+      <stop offset="0.42" stop-color="#d0b8aa" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#d0b8aa" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="skinGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#8dad6a"/>
+      <stop offset="0.52" stop-color="#617f46"/>
+      <stop offset="1" stop-color="#354928"/>
+    </linearGradient>
+    <linearGradient id="hairGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#463844"/>
+      <stop offset="0.5" stop-color="#1c1520"/>
+      <stop offset="1" stop-color="#07060a"/>
+    </linearGradient>
+    <linearGradient id="streakGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#d64d5c"/>
+      <stop offset="1" stop-color="#6e1828"/>
+    </linearGradient>
+    <linearGradient id="leatherGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6c4d33"/>
+      <stop offset="1" stop-color="#2a1b15"/>
+    </linearGradient>
+    <linearGradient id="clothGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#702728"/>
+      <stop offset="1" stop-color="#261214"/>
+    </linearGradient>
+    <linearGradient id="pantsGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#242027"/>
+      <stop offset="1" stop-color="#0a090d"/>
+    </linearGradient>
+    <linearGradient id="bootGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#463427"/>
+      <stop offset="1" stop-color="#17100d"/>
+    </linearGradient>
+    <radialGradient id="eyeGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0" stop-color="#fee6b5"/>
+      <stop offset="0.55" stop-color="#d59b4a"/>
+      <stop offset="1" stop-color="#6d3917"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="15" stdDeviation="16" flood-color="#040304" flood-opacity="0.55"/>
+    </filter>
+    <filter id="smoke" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1.3"/>
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="1.8" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <symbol id="spark" viewBox="-20 -20 40 40">
+      <path d="M0-14L3-3 14 0 3 3 0 14-3 3-14 0-3-3Z"/>
+      <circle r="2"/>
+    </symbol>
+    <symbol id="bone" viewBox="0 0 38 18">
+      <path d="M7 9c-4 0-6-3-6-6s2-3 4-3 4 1 6 3h17c2-2 4-3 6-3s4 1 4 3-2 6-6 6c4 0 6 3 6 6s-2 3-4 3-4-1-6-3H11c-2 2-4 3-6 3s-4-1-4-3 2-6 6-6z"/>
+    </symbol>
+    <symbol id="knife" viewBox="0 0 20 48">
+      <path d="M10 0l8 18-8 28L2 18z"/>
+    </symbol>
+    <symbol id="fang" viewBox="0 0 24 38">
+      <path d="M12 1c6 7 9 19 7 28-1 5-4 8-7 8s-6-3-7-8c-2-9 1-21 7-28z"/>
+    </symbol>
+  </defs>
+
+  <g transform="translate(280 0)">
+<g id="background">
+    <rect x="-280" width="1200" height="1200" fill="url(#bgGrad)"/>
+    <rect x="-280" width="1200" height="1200" fill="url(#smokeGlow)"/>
+    <path d="M72 423c78-58-31-118 42-182 48-42 110-15 86 43-20 47-90 52-53 119" fill="none" stroke="#d7c9bf" stroke-width="6" opacity="0.13" stroke-linecap="round" filter="url(#smoke)"/>
+    <path d="M517 250c-58 42 12 86-38 138-38 39-91 21-72-30 16-42 72-43 45-92" fill="none" stroke="#d7c9bf" stroke-width="5" opacity="0.12" stroke-linecap="round" filter="url(#smoke)"/>
+    <path d="M120 933c80-92 170-105 257-51 62-32 127-31 203 21" fill="none" stroke="#402929" stroke-width="16" opacity="0.22" stroke-linecap="round"/>
+    <g fill="#e8ddd3" opacity="0.7" filter="url(#glow)">
+      <use href="#spark" x="87" y="126" width="20" height="20"/>
+      <use href="#spark" x="532" y="172" width="22" height="22"/>
+      <use href="#spark" x="548" y="516" width="18" height="18"/>
+    </g>
+  </g>
+
+  <g id="character" filter="url(#shadow)">
+    <g id="back-hair">
+      <path d="M178 198c14-83 71-140 142-140 80 0 139 62 147 153 5 61-12 116-26 178-13 55-18 114-18 189H217c0-75-5-134-18-189-16-69-32-132-21-191z" fill="url(#hairGrad)"/>
+      <path d="M345 73c31 18 51 54 57 104 5 43-1 88-14 133-10-18-23-31-42-43-8-50-12-114-1-194z" fill="url(#streakGrad)" opacity="0.88"/>
+      <path d="M248 93c-11 33-15 72-11 118" stroke="#4d4150" stroke-width="10" opacity="0.76" stroke-linecap="round" fill="none"/>
+      <path d="M364 88c8 31 10 66 6 103" stroke="#77525b" stroke-width="8" opacity="0.64" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="legs">
+      <path d="M258 790c-1 104-12 239-35 359-8 38-24 51-46 47-23-4-34-20-31-47 14-114 31-235 49-359 6-40 19-60 35-60 17 0 29 19 28 60z" fill="url(#pantsGrad)"/>
+      <path d="M382 790c1 104 12 239 35 359 8 38 24 51 46 47 23-4 34-20 31-47-14-114-31-235-49-359-6-40-19-60-35-60-17 0-29 19-28 60z" fill="url(#pantsGrad)"/>
+      <path d="M228 869c24 12 54 18 92 18 38 0 68-6 92-18" stroke="#586d3a" stroke-width="7" opacity="0.45" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="boots-wraps">
+      <path d="M163 1096c18-18 42-32 73-43 18-7 31-2 42 13 12 16 16 43 13 79H145c1-18 7-35 18-49z" fill="url(#bootGrad)"/>
+      <path d="M291 1145H145" stroke="#cdbb90" stroke-width="8" stroke-linecap="round"/>
+      <path d="M349 1145c-3-36 1-63 13-79 11-15 24-20 42-13 31 11 55 25 73 43 11 14 17 31 18 49H349z" fill="url(#bootGrad)"/>
+      <path d="M495 1145H349" stroke="#cdbb90" stroke-width="8" stroke-linecap="round"/>
+      <path d="M171 1050c26 8 47 8 66 2M403 1052c19 6 40 6 66-2" stroke="#d9ca9c" stroke-width="7" opacity="0.9" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="lower-cloth-belts">
+      <path d="M228 639c28 20 58 29 92 29s64-9 92-29l30 181c-31 23-72 35-122 35s-91-12-122-35z" fill="url(#clothGrad)"/>
+      <path d="M263 656c15 10 34 15 57 15s42-5 57-15" stroke="#ab6653" stroke-width="5" opacity="0.7" stroke-linecap="round" fill="none"/>
+      <path d="M237 629c52 29 109 29 166 0" stroke="#cdbb90" stroke-width="6" stroke-dasharray="8 8" opacity="0.88" stroke-linecap="round" fill="none"/>
+      <g fill="#d2c7b5" stroke="#231b1c" stroke-width="2.2">
+        <use href="#knife" x="244" y="643" width="14" height="32"/>
+        <use href="#knife" x="274" y="657" width="12" height="28"/>
+        <use href="#knife" x="356" y="657" width="12" height="28"/>
+        <use href="#knife" x="386" y="643" width="14" height="32"/>
+      </g>
+      <g fill="#cdbb90">
+        <use href="#bone" x="287" y="611" width="46" height="22"/>
+      </g>
+      <path d="M273 666l-10 146M320 671v165M367 666l10 146" stroke="#341818" stroke-width="4" opacity="0.52"/>
+    </g>
+
+    <g id="torso">
+      <path d="M280 397h80v92c0 24-18 41-40 41s-40-17-40-41z" fill="url(#skinGrad)"/>
+      <path d="M218 248c0-100 45-162 102-162s102 62 102 162c0 107-45 162-102 162s-102-55-102-162z" fill="url(#skinGrad)"/>
+      <path d="M257 415c17 22 38 33 63 33s46-11 63-33c14 44 26 103 28 177 1 36-8 66-27 87-16 18-37 27-64 27s-48-9-64-27c-19-21-28-51-27-87 2-74 14-133 28-177z" fill="url(#skinGrad)"/>
+      <path d="M263 479c16 16 35 24 57 24s41-8 57-24" stroke="#b9cf8f" stroke-width="5" opacity="0.42" stroke-linecap="round" fill="none"/>
+      <path d="M274 528c12 10 27 14 46 14 18 0 33-4 46-14" stroke="#4c612f" stroke-width="4" opacity="0.3" stroke-linecap="round" fill="none"/>
+      <path d="M284 580c10 6 22 9 36 9 13 0 25-3 36-9" stroke="#435829" stroke-width="4" opacity="0.28" stroke-linecap="round" fill="none"/>
+      <path d="M291 499c-8 23-11 45-9 68M349 499c8 23 11 45 9 68" stroke="#415628" stroke-width="3.2" opacity="0.26" stroke-linecap="round" fill="none"/>
+      <path d="M302 534c5 4 11 6 18 6 6 0 12-2 18-6" stroke="#3a4d23" stroke-width="3" opacity="0.45" stroke-linecap="round" fill="none"/>
+      <!-- asym harness / shoulder guard -->
+      <path d="M250 446c23 9 46 13 70 13 23 0 46-4 70-13" stroke="#8c6a42" stroke-width="9" opacity="0.9" stroke-linecap="round" fill="none"/>
+      <path d="M277 447c-19 63-21 126-14 182" stroke="#8c6a42" stroke-width="8" opacity="0.9" stroke-linecap="round" fill="none"/>
+      <path d="M387 432c31 18 53 46 62 90" stroke="#8c6a42" stroke-width="10" opacity="0.95" stroke-linecap="round" fill="none"/>
+      <path d="M399 421c18 6 34 15 46 30-4 18-17 29-33 29-15 0-30-8-41-24 5-14 12-25 28-35z" fill="#d2c7b5" opacity="0.95"/>
+      <!-- tattoo -->
+      <path d="M369 461c-17 8-28 19-32 33 16 2 28 8 35 19-15 3-26 12-33 27 17 0 29 5 36 16" stroke="#1a1118" stroke-width="5.5" opacity="0.92" stroke-linecap="round" fill="none"/>
+      <!-- rib scars -->
+      <path d="M245 494l34-14M247 517l40-17M252 539l36-15" stroke="#b16558" stroke-width="3.8" opacity="0.78" stroke-linecap="round"/>
+      <!-- knuckle wrap bands -->
+      <path d="M193 654c15-8 28-10 40-8" stroke="#d6c99e" stroke-width="6" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="arms">
+      <path d="M175 429c-33 41-43 104-30 186 5 31 16 50 33 59 15 7 31 3 38-11 6-12 1-26-13-35-11-7-17-21-18-40-2-35 6-74 27-118 10-22 7-39-7-48-11-7-19-6-30 7z" fill="url(#leatherGrad)"/>
+      <path d="M182 642c21-10 45-13 73-8 14 3 23 15 21 29-2 13-14 22-29 19-20-5-37-4-53 2-15 6-28-1-33-14-4-13 0-21 21-28z" fill="url(#skinGrad)"/>
+      <path d="M451 425c31 34 43 82 35 146-4 29-16 50-37 61-15 7-31 2-38-11-6-12-1-27 13-35 11-7 18-19 20-36 4-31-4-57-23-79-11-12-12-28-2-39 10-10 22-12 32-7z" fill="url(#leatherGrad)"/>
+      <path d="M407 329c22 3 42 17 58 43 9 14 6 29-6 37-12 9-26 7-35-6-9-13-21-20-35-21-15-2-22-12-20-27 2-14 12-28 38-26z" fill="url(#skinGrad)"/>
+      <path d="M414 340c8 12 19 18 34 18" stroke="#5c7537" stroke-width="4" opacity="0.55" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="face">
+      <path d="M186 244c5-110 58-175 134-175 59 0 105 39 122 106-42-13-72-36-94-74-25 31-69 52-130 64-17 3-27 27-32 79z" fill="url(#hairGrad)"/>
+      <path d="M365 79c8 32 7 71-2 117" stroke="url(#streakGrad)" stroke-width="12" opacity="0.9" stroke-linecap="round" fill="none"/>
+      <path d="M246 188c15-10 31-13 50-8M347 179c18-6 34-3 48 8" stroke="#251922" stroke-width="7" stroke-linecap="round" fill="none"/>
+      <path d="M241 220c17-12 36-14 55-7-18 12-36 15-55 7z" fill="#fff9f0"/>
+      <path d="M343 213c19-7 37-5 55 7-18 8-36 5-55-7z" fill="#fff9f0"/>
+      <ellipse cx="268" cy="224" rx="11" ry="14" fill="url(#eyeGrad)"/>
+      <ellipse cx="369" cy="224" rx="11" ry="14" fill="url(#eyeGrad)"/>
+      <circle cx="269" cy="227" r="5.5" fill="#332012"/>
+      <circle cx="370" cy="227" r="5.5" fill="#332012"/>
+      <circle cx="264" cy="219" r="3" fill="#fff"/>
+      <circle cx="365" cy="219" r="3" fill="#fff"/>
+      <path d="M237 231c18 7 39 7 62-2M339 229c23 9 43 9 62 2" stroke="#0f0d11" stroke-width="5.5" stroke-linecap="round" fill="none"/>
+      <path d="M314 224c-8 18-8 29 8 32" stroke="#5b7537" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <path d="M285 289c15 8 29 8 42 2 10-4 18-9 26-17-4 25-20 38-40 38-16 0-25-7-28-23z" fill="#6f211d"/>
+      <path d="M286 287c21 8 42 4 64-11" fill="none" stroke="#341317" stroke-width="5.5" stroke-linecap="round"/>
+      <path d="M301 293c12 3 24 1 35-5" fill="none" stroke="#ffd9c0" stroke-width="3" opacity="0.58" stroke-linecap="round"/>
+      <!-- pointed ears -->
+      <path d="M206 214c-8 14-4 29 11 34 12 4 27-4 38-20" stroke="#536d34" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <path d="M434 214c8 14 4 29-11 34-12 4-27-4-38-20" stroke="#536d34" stroke-width="10" stroke-linecap="round" fill="none"/>
+      <!-- broken tusk / fang earring -->
+      <path d="M296 311c-2 14-6 23-12 27" fill="none" stroke="#f4e4c2" stroke-width="5" stroke-linecap="round"/>
+      <path d="M347 310c1 8 2 13 4 17" fill="none" stroke="#f4e4c2" stroke-width="4" stroke-linecap="round"/>
+      <path d="M439 243c-3 21-9 37-18 49" stroke="#d6c99e" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <use href="#fang" x="423" y="291" width="13" height="20" fill="#f4e4c2"/>
+    </g>
+
+    <g id="accessories">
+      <path d="M289 458c9 5 19 7 31 7 12 0 22-2 31-7" stroke="#5c4931" stroke-width="4" stroke-linecap="round" fill="none"/>
+      <path d="M320 465v41" stroke="#5c4931" stroke-width="4" stroke-linecap="round"/>
+      <use href="#bone" x="298" y="503" width="44" height="20" fill="#d2c7b5"/>
+      <use href="#fang" x="312" y="519" width="16" height="25" fill="#f4e4c2"/>
+      <g fill="#d2c7b5" stroke="#231b1c" stroke-width="2.2">
+        <use href="#knife" x="450" y="505" width="12" height="26"/>
+        <use href="#knife" x="459" y="532" width="12" height="26"/>
+      </g>
+      <path d="M436 493c10 9 17 21 19 36" stroke="#d6c99e" stroke-width="4" stroke-linecap="round" fill="none"/>
+    </g>
+
+    <g id="foreground">
+      <path d="M496 388c44-29-7-63 33-95" fill="none" stroke="#d7c9bf" stroke-width="5" opacity="0.2" stroke-linecap="round" filter="url(#smoke)"/>
+      <g fill="#e8ddd3" opacity="0.8" filter="url(#glow)">
+        <use href="#spark" x="154" y="165" width="20" height="20"/>
+        <use href="#spark" x="463" y="185" width="20" height="20"/>
+      </g>
+    </g>
+  </g>
+  </g>
+</svg>

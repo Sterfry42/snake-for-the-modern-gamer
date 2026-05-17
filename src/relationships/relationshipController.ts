@@ -1,14 +1,23 @@
 import type { FactionId } from '../factions/factions.js';
 import type {
   DatingCandidateView,
+  DatingBranchChoice,
+  ConflictStyle,
+  ExclusivityPreference,
+  NeglectTier,
   RelationshipCandidateProfile,
   RelationshipChoice,
   RelationshipEncounter,
   RelationshipEventResult,
+  RelationshipMemory,
+  RelationshipOutcomeTier,
   RelationshipPreferenceProfile,
+  RelationshipPersonality,
+  RelationshipReward,
   RelationshipSpecies,
   RelationshipStage,
   RelationshipState,
+  RelationshipTag,
   RelationshipTalkResult,
 } from './relationshipTypes.js';
 
@@ -19,6 +28,32 @@ interface RelationshipRuntime {
 
 const STATES_FLAG = 'relationships.states';
 const LAST_ENCOUNTER_FLAG = 'relationships.lastEncountered';
+const MAX_MEMORIES_PER_RELATIONSHIP = 24;
+const FORCEABLE_STAGES = new Set<RelationshipStage>([
+  'married',
+  'heartbroken',
+  'vengeful',
+  'estranged',
+  'hostile',
+  'murderous',
+  'dead',
+]);
+
+const PERSONALITY_TAG_WEIGHTS: Record<RelationshipPersonality, Partial<Record<RelationshipTag, number>>> = {
+  poetic: { dramatic: 3, honesty: 4, privateAffection: 3, commitment: 4, bravery: 2, selfPreserving: -2, avoidance: -4, betrayal: -8, giftSpamming: -5 },
+  deadpan: { honesty: 4, competence: 3, pragmatic: 4, clever: 2, dramatic: -3, neediness: -2, giftSpamming: -4, publicAffection: -1, selfPreserving: 2 },
+  hungry: { food: 6, comfort: 4, protective: 3, loyalty: 4, neglect: -5, betrayal: -8, selfPreserving: -1, family: 4 },
+  regal: { bravery: 4, protective: 4, ritual: 5, commitment: 5, humility: 3, avoidance: -4, publicAffection: 2, betrayal: -10, secrecy: -6, marriage: 5 },
+  sharp: { clever: 5, pragmatic: 5, selfPreserving: 3, transaction: 4, contract: 5, competence: 4, dramatic: -1, neediness: -3, betrayal: -7, ledger: 4, goblin: 3 },
+};
+
+const TIER_DELTAS: Record<RelationshipOutcomeTier, Partial<Pick<RelationshipState, 'affection' | 'trust' | 'fascination' | 'resentment' | 'jealousy'>>> = {
+  loved: { affection: 8, trust: 4, fascination: 3, resentment: -3 },
+  liked: { affection: 4, trust: 2, fascination: 1 },
+  neutral: { fascination: 1 },
+  disliked: { affection: -3, trust: -2, resentment: 3 },
+  hated: { affection: -8, trust: -6, resentment: 8, jealousy: 2 },
+};
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -53,6 +88,8 @@ export class RelationshipController {
         portraitId: normalizePortrait(profile.species, profile.portraitId),
         homeRoomId: profile.homeRoomId ?? existing.homeRoomId,
         factionId: profile.factionId ?? existing.factionId,
+        conflictStyle: profile.conflictStyle ?? existing.conflictStyle,
+        exclusivityPreference: profile.exclusivityPreference ?? existing.exclusivityPreference,
       };
       this.saveState(updated);
       return updated;
@@ -77,6 +114,10 @@ export class RelationshipController {
       rejectedDates: 0,
       ignoredEncounters: 0,
       romanceOptIn: false,
+      conflictStyle: profile.conflictStyle ?? this.deriveConflictStyle(profile),
+      exclusivityPreference: profile.exclusivityPreference ?? this.deriveExclusivityPreference(profile),
+      memories: [],
+      children: [],
       flags: {},
     };
     this.saveState(state);
@@ -106,8 +147,26 @@ export class RelationshipController {
           personality: this.getPersonality(state),
           personalityDescription: this.getPersonalityDescription(state),
           warning: this.getWarning(state, roomsVisited),
+          memories: state.memories.slice(-5),
+          spouseId: this.getCurrentSpouse()?.id,
         };
       });
+  }
+
+  getCurrentSpouse(): RelationshipState | undefined {
+    return this.getAllStates().find((state) => state.stage === 'married' && !state.flags.dead);
+  }
+
+  getAvailableChoices(id: string): Array<RelationshipChoice | 'gift'> {
+    const state = this.getState(id);
+    if (!state || state.stage === 'dead') return ['talk'];
+    if (state.stage === 'murderous' || state.stage === 'hostile') return ['plead', 'fight', 'run'];
+    if (state.stage === 'married') return ['talk', 'gift', 'date', 'family', 'discuss-arrangement', 'divorce'];
+    if (state.stage === 'lover') return ['talk', 'gift', 'date', 'propose', 'reassure', 'apologize', 'break-up'];
+    if (state.stage === 'dating') return ['talk', 'gift', 'date', 'reassure', 'apologize', 'break-up'];
+    if (state.stage === 'estranged' || state.stage === 'heartbroken' || state.stage === 'vengeful') return ['talk', 'apologize', 'explain', 'gift'];
+    if (state.stage === 'crush') return ['talk', 'gift', 'flirt', 'ask-out', 'apologize'];
+    return ['talk', 'gift', 'flirt'];
   }
 
   applyChoice(id: string, choice: RelationshipChoice, roomsVisited: number): RelationshipEventResult {
@@ -172,6 +231,15 @@ export class RelationshipController {
         next.trust += 8;
         next.resentment -= 12;
         next.jealousy -= 5;
+        this.lowerNeglect(next);
+        this.recordMemory(next, {
+          roomsVisited,
+          kind: 'apology',
+          tags: ['honesty', 'humility'],
+          intensity: 8,
+          tone: 'positive',
+          summary: `You apologized to ${next.displayName}.`,
+        });
         break;
       case 'boundary':
         next.romanceOptIn = false;
@@ -192,6 +260,65 @@ export class RelationshipController {
         next.resentment += next.stage === 'lover' ? 36 : 24;
         next.jealousy = Math.max(0, next.jealousy - 12);
         next.flags.ruthlessBreakup = true;
+        this.recordMemory(next, {
+          roomsVisited,
+          kind: 'breakup',
+          tags: ['commitment', 'betrayal'],
+          intensity: 18,
+          tone: 'negative',
+          summary: `You broke up with ${next.displayName}.`,
+        });
+        break;
+      case 'propose':
+        return this.propose(next, roomsVisited);
+      case 'family':
+        return this.familyAction(next, roomsVisited);
+      case 'discuss-arrangement':
+        return this.discussArrangement(next, roomsVisited);
+      case 'divorce':
+        return this.divorce(next, roomsVisited);
+      case 'reassure':
+        next.trust += 6;
+        next.jealousy -= 12;
+        next.resentment -= 4;
+        this.lowerNeglect(next);
+        this.recordMemory(next, {
+          roomsVisited,
+          kind: 'talk',
+          tags: ['loyalty', 'honesty'],
+          intensity: 8,
+          tone: 'positive',
+          summary: `You reassured ${next.displayName}.`,
+        });
+        break;
+      case 'explain': {
+        const tier = this.interpretTags(next, ['honesty', 'pragmatic', 'restraint']);
+        this.applyTaggedDeltas(next, tier);
+        this.recordMemory(next, {
+          roomsVisited,
+          kind: 'talk',
+          tags: ['honesty', 'pragmatic'],
+          intensity: 7,
+          tone: 'neutral',
+          summary: `You explained yourself to ${next.displayName}.`,
+        });
+        break;
+      }
+      case 'plead':
+        next.trust += 2;
+        next.resentment -= this.getPersonality(next) === 'regal' ? 1 : 6;
+        next.fear -= 3;
+        break;
+      case 'fight':
+        next.trust -= 6;
+        next.resentment += 10;
+        next.fear += 8;
+        next.flags.forceStage = 'murderous';
+        break;
+      case 'run':
+        next.trust -= 8;
+        next.resentment += 5;
+        next.fear += 3;
         break;
     }
     this.recordChoiceUse(next, choice, roomsVisited);
@@ -204,6 +331,110 @@ export class RelationshipController {
       color: this.colorFor(saved),
       state: saved,
       becameHostile: saved.stage === 'hostile' || saved.stage === 'murderous',
+    };
+  }
+
+  applyBranchChoice(
+    id: string,
+    branch: DatingBranchChoice,
+    roomsVisited: number,
+    kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'> = 'date',
+  ): RelationshipEventResult {
+    const state = this.getState(id);
+    if (!state) {
+      return { ok: false, title: 'No One', message: 'That branch goes nowhere.', color: '#ff6b6b' };
+    }
+    const next = {
+      ...state,
+      flags: { ...state.flags },
+      memories: [...state.memories],
+      lastSeenRoomsVisited: roomsVisited,
+    };
+    const tier = this.interpretTags(next, branch.tags);
+    this.applyTaggedDeltas(next, tier);
+    if (kind === 'flirt') {
+      next.romanceOptIn = true;
+      this.applyJealousyToOthers(next.id, 6);
+    }
+    if (kind === 'date') {
+      next.romanceOptIn = true;
+      next.flags.firstDateAccepted = true;
+      if (tier !== 'disliked' && tier !== 'hated') {
+        next.acceptedDates += 1;
+      } else {
+        next.rejectedDates += 1;
+      }
+      this.applyJealousyToOthers(next.id, tier === 'loved' ? 14 : 8);
+    }
+    const summary = branch.outcomeLines?.[tier] ?? this.createBranchOutcomeSummary(next, branch, tier);
+    this.recordMemory(next, {
+      roomsVisited,
+      kind,
+      tags: branch.tags,
+      intensity: this.intensityForTier(tier),
+      tone: tier === 'loved' || tier === 'liked' ? 'positive' : tier === 'neutral' ? 'neutral' : 'negative',
+      summary,
+    });
+    const saved = this.finalize(next);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: `${this.labelForTier(tier)}: ${summary}`,
+      color: this.colorFor(saved),
+      state: saved,
+      becameHostile: saved.stage === 'hostile' || saved.stage === 'murderous',
+    };
+  }
+
+  completeMarriage(id: string, roomsVisited: number): RelationshipEventResult {
+    const state = this.getState(id);
+    if (!state) {
+      return { ok: false, title: 'No One', message: 'The wedding has no partner.', color: '#ff6b6b' };
+    }
+    const spouse = this.getCurrentSpouse();
+    if (spouse && spouse.id !== id) {
+      return {
+        ok: false,
+        title: state.displayName,
+        message: `You are already married to ${spouse.displayName}.`,
+        color: '#ff6b6b',
+        state,
+      };
+    }
+    const next = {
+      ...state,
+      stage: 'married' as RelationshipStage,
+      affection: Math.max(state.affection, 100),
+      trust: Math.max(state.trust, 75),
+      romanceOptIn: true,
+      flags: {
+        ...state.flags,
+        married: true,
+        marriedRoom: roomsVisited,
+        engaged: false,
+        pendingBouquetQuest: false,
+        forceStage: 'married',
+      },
+      memories: [...state.memories],
+    };
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'marriage',
+      tags: ['commitment', 'ritual', 'marriage'],
+      intensity: 30,
+      tone: 'positive',
+      summary: `You married ${next.displayName} after bringing back the Deep-Lying Bouquet.`,
+      questId: 'deep-lying-bouquet',
+      uniqueKey: `marriage:${next.id}`,
+    });
+    const saved = this.finalize(next);
+    this.resolveMarriageFallout(saved.id, roomsVisited);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: `${saved.displayName} married you. The bouquet is legally and emotionally ridiculous.`,
+      color: '#ffbdfd',
+      state: saved,
     };
   }
 
@@ -233,7 +464,17 @@ export class RelationshipController {
       return { ok: false, title: 'No One', message: 'No one accepts the gift.', color: '#ff6b6b' };
     }
     const preferences = this.getPreferences(state);
-    const next = { ...state, flags: { ...state.flags }, lastGiftRoomsVisited: roomsVisited, lastSeenRoomsVisited: roomsVisited };
+    const repeatedSameGift =
+      state.lastGiftRoomsVisited !== undefined &&
+      roomsVisited - state.lastGiftRoomsVisited <= 8 &&
+      state.flags.lastGiftItemId === itemId;
+    const next = {
+      ...state,
+      flags: { ...state.flags, lastGiftItemId: itemId },
+      memories: [...state.memories],
+      lastGiftRoomsVisited: roomsVisited,
+      lastSeenRoomsVisited: roomsVisited,
+    };
     let tone: 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated' = 'neutral';
 
     if (preferences.tabooItemIds?.includes(itemId) || tags.some((tag) => preferences.hatedItemTags.includes(tag))) {
@@ -258,6 +499,17 @@ export class RelationshipController {
       next.affection += 1;
     }
     next.romanceOptIn = next.romanceOptIn || tone === 'loved';
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'gift',
+      tags: ['giftGiving', ...(repeatedSameGift ? ['giftSpamming' as RelationshipTag] : [])],
+      intensity: tone === 'loved' ? 10 : tone === 'hated' ? 12 : 5,
+      tone: tone === 'loved' || tone === 'liked' ? 'positive' : tone === 'neutral' ? 'neutral' : 'negative',
+      itemId,
+      summary: repeatedSameGift
+        ? `You gave ${next.displayName} another ${itemName}. They noticed the repetition.`
+        : `You gave ${next.displayName} ${itemName}.`,
+    });
 
     const saved = this.finalize(next);
     return {
@@ -273,20 +525,36 @@ export class RelationshipController {
   tickNeglect(roomsVisited: number): RelationshipEventResult[] {
     const results: RelationshipEventResult[] = [];
     for (const state of this.getAllStates()) {
-      if (state.stage !== 'dating' && state.stage !== 'lover') continue;
+      if (!this.isSeriousRelationship(state)) continue;
       const roomsAgo = roomsVisited - state.lastSeenRoomsVisited;
-      if (roomsAgo < 14) continue;
-      const next = { ...state, jealousy: state.jealousy + 4, resentment: state.resentment + 3, ignoredEncounters: state.ignoredEncounters + 1 };
+      const tier = this.calculateNeglectTier(roomsAgo);
+      const currentTier = this.getNeglectTier(state);
+      if (tier <= currentTier) continue;
+      const next = {
+        ...state,
+        flags: { ...state.flags, neglectTier: tier, lastNeglectTierRoom: roomsVisited },
+        memories: [...state.memories],
+        jealousy: state.jealousy + tier * 4,
+        resentment: state.resentment + tier * 3,
+        ignoredEncounters: state.ignoredEncounters + 1,
+      };
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'neglect',
+        tags: ['neglect', 'avoidance'],
+        intensity: tier * 10,
+        tone: tier >= 3 ? 'negative' : 'neutral',
+        summary: this.neglectSummaryFor(next, tier),
+        uniqueKey: `neglect:${state.id}:${tier}`,
+      });
       const saved = this.finalize(next);
-      if (saved.ignoredEncounters !== state.ignoredEncounters) {
-        results.push({
-          ok: true,
-          title: saved.displayName,
-          message: `${saved.displayName} has started counting the rooms since you last made time.`,
-          color: '#ffbdfd',
-          state: saved,
-        });
-      }
+      results.push({
+        ok: true,
+        title: saved.displayName,
+        message: this.neglectSummaryFor(saved, tier),
+        color: '#ffbdfd',
+        state: saved,
+      });
     }
     return results;
   }
@@ -348,12 +616,13 @@ export class RelationshipController {
     if (!state) {
       return { ok: false, title: 'No One', message: 'The encounter dissolves.', color: '#ff6b6b' };
     }
-    const next = { ...state, lastSeenRoomsVisited: roomsVisited };
+    const next = { ...state, flags: { ...state.flags }, memories: [...state.memories], lastSeenRoomsVisited: roomsVisited };
     if (accepted) {
       next.affection += 5;
       next.trust += 5;
       next.jealousy -= 8;
       next.resentment -= 5;
+      this.lowerNeglect(next);
     } else {
       next.ignoredEncounters += 1;
       next.trust -= 8;
@@ -378,7 +647,7 @@ export class RelationshipController {
     if (!state) {
       return { ok: false, title: 'No One', message: 'No relationship remembered the bite.', color: '#ff6b6b' };
     }
-    const saved = this.finalize({
+    const next: RelationshipState = {
       ...state,
       stage: 'murderous',
       affection: -100,
@@ -391,8 +660,20 @@ export class RelationshipController {
         ...state.flags,
         eatenByPlayer: true,
         eatenRoomsVisited: roomsVisited,
+        forceStage: 'murderous',
+        stageReason: 'eatenByPlayer',
       },
+    };
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'deathScene',
+      tags: ['betrayal', 'violence', 'death', 'trauma'],
+      intensity: 100,
+      tone: 'traumatic',
+      summary: `${state.displayName} was eaten by you and will not let the tracker downgrade it.`,
+      uniqueKey: `eaten:${state.id}`,
     });
+    const saved = this.finalize(next);
     return {
       ok: true,
       title: saved.displayName,
@@ -433,6 +714,14 @@ export class RelationshipController {
   }
 
   private normalizeState(state: RelationshipState): RelationshipState {
+    const profile = {
+      id: state.id,
+      displayName: state.displayName,
+      species: state.species,
+      portraitId: state.portraitId,
+      homeRoomId: state.homeRoomId,
+      factionId: state.factionId,
+    };
     return {
       ...state,
       stage: state.stage ?? 'stranger',
@@ -444,13 +733,21 @@ export class RelationshipController {
       rejectedDates: Math.max(0, Number(state.rejectedDates ?? 0)),
       ignoredEncounters: Math.max(0, Number(state.ignoredEncounters ?? 0)),
       romanceOptIn: Boolean(state.romanceOptIn),
+      conflictStyle: state.conflictStyle ?? this.deriveConflictStyle(profile),
+      exclusivityPreference: state.exclusivityPreference ?? this.deriveExclusivityPreference(profile),
+      memories: this.trimMemories(Array.isArray(state.memories) ? state.memories : []),
+      children: Array.isArray(state.children) ? state.children : [],
       flags: state.flags ?? {},
     };
   }
 
   private deriveStage(state: RelationshipState): RelationshipStage {
-    const wasSerious = state.stage === 'dating' || state.stage === 'lover' || Boolean(state.flags.firstDateAccepted);
-    if (wasSerious && state.resentment >= 80 && state.jealousy >= 70 && state.trust <= -40) return 'murderous';
+    const forceStage = typeof state.flags.forceStage === 'string' ? state.flags.forceStage : undefined;
+    if (forceStage && FORCEABLE_STAGES.has(forceStage as RelationshipStage)) return forceStage as RelationshipStage;
+    if (state.flags.dead) return 'dead';
+    if (state.flags.married) return 'married';
+    const wasSerious = this.isSeriousRelationship(state) || Boolean(state.flags.firstDateAccepted);
+    if (wasSerious && (state.resentment >= 65 || state.trust <= -25)) return this.resolveConflictEscalation(state);
     if (state.resentment >= 65 || state.fear >= 75) return 'hostile';
     if (wasSerious && (state.resentment >= 45 || state.trust <= -20)) return 'estranged';
     if (wasSerious && state.affection >= 70 && state.trust >= 50) return 'lover';
@@ -459,6 +756,423 @@ export class RelationshipController {
     if (state.affection >= 25 && state.trust >= 10) return 'friendly';
     if (state.affection >= 10 || state.trust >= 8 || state.fascination >= 15) return 'acquaintance';
     return 'stranger';
+  }
+
+  private deriveConflictStyle(profile: RelationshipCandidateProfile): ConflictStyle {
+    if (profile.species === 'goblin-angel') return 'contractual';
+    if (profile.species === 'angel') return 'formalDuel';
+    const personality = profile.personality ?? this.getPersonality({ id: profile.id, species: profile.species } as RelationshipState);
+    if (personality === 'poetic') return 'heartbroken';
+    if (personality === 'deadpan') return 'withdrawn';
+    if (personality === 'hungry') return 'forgiving';
+    if (personality === 'regal') return 'formalDuel';
+    if (personality === 'sharp') return profile.species === 'goblin' ? 'contractual' : 'vengeful';
+    return 'withdrawn';
+  }
+
+  private deriveExclusivityPreference(profile: RelationshipCandidateProfile): ExclusivityPreference {
+    if (profile.species === 'goblin-angel') return 'transactional';
+    if (profile.species === 'angel') return 'monogamous';
+    const personality = profile.personality ?? this.getPersonality({ id: profile.id, species: profile.species } as RelationshipState);
+    if (personality === 'deadpan') return 'tolerant';
+    if (personality === 'poetic') return 'devotional';
+    if (personality === 'hungry') return 'jealous';
+    if (personality === 'regal') return 'monogamous';
+    if (personality === 'sharp') return profile.species === 'goblin' ? 'transactional' : 'possessive';
+    return 'jealous';
+  }
+
+  private resolveConflictEscalation(state: RelationshipState): RelationshipStage {
+    switch (state.conflictStyle) {
+      case 'heartbroken':
+        return state.resentment >= 70 ? 'heartbroken' : 'estranged';
+      case 'withdrawn':
+        return 'estranged';
+      case 'vengeful':
+        return state.resentment >= 80 ? 'hostile' : 'vengeful';
+      case 'murderous':
+        return state.resentment >= 80 && state.jealousy >= 70 ? 'murderous' : 'hostile';
+      case 'petty':
+        return 'vengeful';
+      case 'formalDuel':
+        return state.trust <= -30 || state.resentment >= 70 ? 'hostile' : 'estranged';
+      case 'contractual':
+        return state.resentment >= 80 ? 'hostile' : 'estranged';
+      case 'forgiving':
+        return state.resentment >= 90 && state.trust <= -60 ? 'heartbroken' : 'estranged';
+    }
+  }
+
+  private isSeriousRelationship(state: RelationshipState): boolean {
+    return state.stage === 'dating' || state.stage === 'lover' || state.stage === 'married';
+  }
+
+  private calculateNeglectTier(roomsSinceSeen: number): NeglectTier {
+    if (roomsSinceSeen >= 40) return 4;
+    if (roomsSinceSeen >= 28) return 3;
+    if (roomsSinceSeen >= 18) return 2;
+    if (roomsSinceSeen >= 10) return 1;
+    return 0;
+  }
+
+  private getNeglectTier(state: RelationshipState): NeglectTier {
+    const value = Number(state.flags.neglectTier ?? 0);
+    return value >= 4 ? 4 : value >= 3 ? 3 : value >= 2 ? 2 : value >= 1 ? 1 : 0;
+  }
+
+  private lowerNeglect(state: RelationshipState): void {
+    state.flags.neglectTier = Math.max(0, this.getNeglectTier(state) - 1);
+  }
+
+  private neglectSummaryFor(state: RelationshipState, tier: NeglectTier): string {
+    if (tier >= 4) return `${state.displayName} has stopped treating your absence as accidental.`;
+    if (tier >= 3) return `${state.displayName} confronts the silence you left behind.`;
+    if (tier >= 2) return `${state.displayName} is hurt that you keep passing through life without them.`;
+    return `${state.displayName} has started counting the rooms since you last made time.`;
+  }
+
+  private interpretTags(state: RelationshipState, tags: readonly RelationshipTag[]): RelationshipOutcomeTier {
+    const weights = PERSONALITY_TAG_WEIGHTS[this.getPersonality(state)];
+    const score = tags.reduce((sum, tag) => sum + (weights[tag] ?? 0), 0);
+    if (score >= 10) return 'loved';
+    if (score >= 4) return 'liked';
+    if (score <= -10) return 'hated';
+    if (score <= -4) return 'disliked';
+    return 'neutral';
+  }
+
+  private applyTaggedDeltas(state: RelationshipState, tier: RelationshipOutcomeTier): void {
+    const delta = TIER_DELTAS[tier];
+    state.affection += delta.affection ?? 0;
+    state.trust += delta.trust ?? 0;
+    state.fascination += delta.fascination ?? 0;
+    state.resentment += delta.resentment ?? 0;
+    state.jealousy += delta.jealousy ?? 0;
+  }
+
+  private recordMemory(
+    state: RelationshipState,
+    memory: Omit<RelationshipMemory, 'id' | 'relationshipId'>,
+  ): void {
+    const memories = [...(state.memories ?? [])];
+    if (memory.uniqueKey && memories.some((entry) => entry.uniqueKey === memory.uniqueKey)) return;
+    memories.push({
+      ...memory,
+      id: `mem_${memory.roomsVisited}_${memories.length}_${Math.abs(this.hash(state.id + memory.summary))}`,
+      relationshipId: state.id,
+    });
+    state.memories = this.trimMemories(memories);
+  }
+
+  private trimMemories(memories: RelationshipMemory[]): RelationshipMemory[] {
+    if (memories.length <= MAX_MEMORIES_PER_RELATIONSHIP) return memories;
+    const major = memories.filter((memory) =>
+      memory.tone === 'traumatic' ||
+      memory.kind === 'marriage' ||
+      memory.kind === 'divorce' ||
+      memory.kind === 'child' ||
+      memory.kind === 'rivalMurder' ||
+      memory.kind === 'death',
+    );
+    const normal = memories.filter((memory) => !major.includes(memory));
+    return [...major, ...normal.slice(-(MAX_MEMORIES_PER_RELATIONSHIP - major.length))].slice(-MAX_MEMORIES_PER_RELATIONSHIP);
+  }
+
+  private labelForTier(tier: RelationshipOutcomeTier): string {
+    return tier[0]!.toUpperCase() + tier.slice(1);
+  }
+
+  private summaryVerbForTier(tier: RelationshipOutcomeTier): string {
+    if (tier === 'loved') return 'loved';
+    if (tier === 'liked') return 'liked';
+    if (tier === 'disliked') return 'disliked';
+    if (tier === 'hated') return 'hated';
+    return 'considered';
+  }
+
+  private createBranchOutcomeSummary(
+    state: RelationshipState,
+    branch: DatingBranchChoice,
+    tier: RelationshipOutcomeTier,
+  ): string {
+    const personality = this.getPersonality(state);
+    const tags = new Set(branch.tags);
+    const subject = branch.label.toLowerCase();
+    if (tier === 'loved') {
+      if (tags.has('honesty')) return `${state.displayName} loves that you chose the honest answer instead of decorating the moment.`;
+      if (tags.has('protective')) return `${state.displayName} loves the way you stepped toward danger before asking it to be convenient.`;
+      if (tags.has('clever')) return `${state.displayName} loves the cleverness and immediately tries not to look too impressed.`;
+      if (tags.has('food')) return `${state.displayName} loves the answer with the uncomplicated joy of someone whose heart has snacks.`;
+      if (tags.has('commitment')) return `${state.displayName} loves how casually you let the future into the room.`;
+      return `${state.displayName} loves the ${subject} answer more than they planned to admit.`;
+    }
+    if (tier === 'liked') {
+      if (personality === 'sharp' && tags.has('selfPreserving')) return `${state.displayName} likes the survival instinct. Romance is better when both parties remain billable.`;
+      if (personality === 'deadpan' && tags.has('pragmatic')) return `${state.displayName} likes the practical answer and files one quiet point in your favor.`;
+      if (tags.has('clever')) return `${state.displayName} likes the answer because it has enough teeth to be interesting.`;
+      if (tags.has('honesty')) return `${state.displayName} likes the honesty, even while pretending it was merely efficient.`;
+      return `${state.displayName} likes the ${subject} answer, though they make you work to notice it.`;
+    }
+    if (tier === 'neutral') {
+      if (tags.has('selfPreserving')) return `${state.displayName} understands the survival logic, but it does not warm the moment.`;
+      if (tags.has('clever')) return `${state.displayName} accepts the joke as structurally adequate, which is almost praise.`;
+      if (tags.has('food')) return `${state.displayName} accepts the answer, but wanted something with a little more pulse.`;
+      return `${state.displayName} accepts the ${subject} answer, but the moment stays balanced on the fence.`;
+    }
+    if (tier === 'disliked') {
+      if (tags.has('avoidance')) return `${state.displayName} dislikes the avoidance. They heard the exit before they heard you.`;
+      if (tags.has('violence')) return `${state.displayName} dislikes how quickly the answer turned sharp.`;
+      if (tags.has('betrayal')) return `${state.displayName} dislikes the joke because it sounds too much like a rehearsal.`;
+      return `${state.displayName} dislikes the ${subject} answer and lets the silence carry the rest.`;
+    }
+    if (tags.has('betrayal')) return `${state.displayName} hates the answer. The word betrayal has stopped being hypothetical.`;
+    if (tags.has('avoidance')) return `${state.displayName} hates being left alone inside the scene you started together.`;
+    return `${state.displayName} hates the ${subject} answer, and the room notices before you do.`;
+  }
+
+  private intensityForTier(tier: RelationshipOutcomeTier): number {
+    return tier === 'loved' || tier === 'hated' ? 12 : tier === 'liked' || tier === 'disliked' ? 7 : 3;
+  }
+
+  private hash(value: string): number {
+    let total = 0;
+    for (let i = 0; i < value.length; i += 1) total = (total * 31 + value.charCodeAt(i)) >>> 0;
+    return total;
+  }
+
+  private propose(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    const next: RelationshipState = { ...state, flags: { ...state.flags, lastProposalRoom: roomsVisited }, memories: [...state.memories] };
+    const spouse = this.getCurrentSpouse();
+    const proposalCooldown = Number(state.flags.lastProposalRoom ?? -1000);
+    if (roomsVisited - proposalCooldown < 4) {
+      return {
+        ok: false,
+        title: state.displayName,
+        message: `"Not every room needs to contain the same enormous question."`,
+        color: '#ffbdfd',
+        state,
+      };
+    }
+    if (spouse && spouse.id !== state.id) {
+      next.jealousy += 20;
+      next.resentment += 18;
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'proposalRejected',
+        tags: ['commitment', 'betrayal', 'secrecy'],
+        intensity: 18,
+        tone: 'negative',
+        targetRelationshipId: spouse.id,
+        summary: `You proposed to ${next.displayName} while already married to ${spouse.displayName}.`,
+      });
+      const saved = this.finalize(next);
+      return {
+        ok: false,
+        title: saved.displayName,
+        message: `"You are already married. That is not romance. That is calendar fraud."`,
+        color: this.colorFor(saved),
+        state: saved,
+        becameHostile: saved.stage === 'hostile' || saved.stage === 'murderous',
+      };
+    }
+    if (this.canAcceptProposal(next)) {
+      next.flags.engaged = true;
+      next.flags.pendingBouquetQuest = true;
+      next.romanceOptIn = true;
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'proposal',
+        tags: ['commitment', 'ritual', 'marriage'],
+        intensity: 20,
+        tone: 'positive',
+        summary: `${next.displayName} accepted your proposal. Find the Deep-Lying Bouquet to complete the wedding.`,
+        questId: 'deep-lying-bouquet',
+        uniqueKey: `proposal:${next.id}`,
+      });
+      const saved = this.finalize(next);
+      return {
+        ok: true,
+        title: saved.displayName,
+        message: `"Yes. Bring me the Deep-Lying Bouquet, and we will make this legally romantic."`,
+        color: '#ffbdfd',
+        state: saved,
+        questId: 'deep-lying-bouquet',
+      };
+    }
+    next.resentment += next.resentment > 20 ? 5 : 1;
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'proposalRejected',
+      tags: ['commitment', 'premature'],
+      intensity: 10,
+      tone: 'neutral',
+      summary: `You proposed before ${next.displayName} was ready.`,
+    });
+    const saved = this.finalize(next);
+    return {
+      ok: false,
+      title: saved.displayName,
+      message: `"No. Not because the question is ugly. Because the timing is."`,
+      color: this.colorFor(saved),
+      state: saved,
+    };
+  }
+
+  private canAcceptProposal(state: RelationshipState): boolean {
+    return state.stage === 'lover' && state.affection >= 100 && state.trust >= 70 && state.resentment < 20 && state.jealousy < 30;
+  }
+
+  private familyAction(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    const next = { ...state, flags: { ...state.flags }, memories: [...state.memories], children: [...state.children] };
+    if (state.stage !== 'married') {
+      return { ok: false, title: state.displayName, message: 'Family options unlock after marriage.', color: '#ff6b6b', state };
+    }
+    const marriedRoom = Number(state.flags.marriedRoom ?? roomsVisited);
+    if (roomsVisited - marriedRoom < 8 || state.trust < 65 || state.resentment > 20) {
+      return {
+        ok: true,
+        title: state.displayName,
+        message: `"Family is not a button you press. It is a room we build carefully."`,
+        color: '#ffbdfd',
+        state,
+      };
+    }
+    if (next.children.length === 0) {
+      const child = {
+        id: `child_${next.id}_${roomsVisited}`,
+        parentRelationshipId: next.id,
+        name: next.species === 'goblin' ? 'Tiny Clause' : next.species === 'angel' ? 'Aster' : 'Eggbert',
+        type: next.species === 'goblin' ? ('adoptedGoblin' as const) : next.species === 'angel' ? ('cosmic' as const) : ('egg' as const),
+        createdRoom: roomsVisited,
+        memories: [],
+      };
+      next.children.push(child);
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'child',
+        tags: ['family', 'commitment'],
+        intensity: 20,
+        tone: 'positive',
+        summary: `${next.displayName} started a family with you. ${child.name} is now everyone's problem.`,
+        uniqueKey: `child:${next.id}`,
+      });
+    }
+    const saved = this.finalize(next);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: `"Our family survives another room. I am choosing to find that romantic."`,
+      color: '#ffbdfd',
+      state: saved,
+    };
+  }
+
+  private discussArrangement(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    const next = { ...state, flags: { ...state.flags }, memories: [...state.memories] };
+    const tier = this.interpretTags(next, ['honesty', 'rivalAttention', state.exclusivityPreference === 'transactional' ? 'contract' : 'commitment']);
+    this.applyTaggedDeltas(next, tier);
+    if (state.exclusivityPreference === 'monogamous' || state.exclusivityPreference === 'territorial') {
+      next.jealousy += 12;
+      next.resentment += 8;
+    } else if (state.exclusivityPreference === 'open' || state.exclusivityPreference === 'tolerant' || state.exclusivityPreference === 'transactional') {
+      next.trust += 6;
+      next.jealousy -= 8;
+    }
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'rivalConflict',
+      tags: ['honesty', 'rivalAttention'],
+      intensity: 12,
+      tone: tier === 'liked' || tier === 'loved' ? 'positive' : 'negative',
+      summary: `You discussed other lovers with ${next.displayName}.`,
+    });
+    const saved = this.finalize(next);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: saved.exclusivityPreference === 'transactional'
+        ? `"Undisclosed affection is affection fraud. We can draft terms."`
+        : `"Thank you for telling me. I will decide how furious honesty allows me to be."`,
+      color: this.colorFor(saved),
+      state: saved,
+    };
+  }
+
+  private divorce(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    const next = {
+      ...state,
+      flags: { ...state.flags, married: false, forceStage: state.conflictStyle === 'heartbroken' ? 'heartbroken' : 'estranged' },
+      memories: [...state.memories],
+      romanceOptIn: false,
+      affection: state.affection - 35,
+      trust: state.trust - 30,
+      resentment: state.resentment + 35,
+      jealousy: 0,
+    };
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'divorce',
+      tags: ['divorce', 'commitment', 'betrayal'],
+      intensity: 30,
+      tone: 'negative',
+      summary: `You divorced ${next.displayName}.`,
+      uniqueKey: `divorce:${next.id}:${roomsVisited}`,
+    });
+    const saved = this.finalize(next);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: `"Then let the record show we were real, and then we were not."`,
+      color: this.colorFor(saved),
+      state: saved,
+    };
+  }
+
+  private resolveMarriageFallout(newSpouseId: string, roomsVisited: number): void {
+    for (const state of this.getAllStates()) {
+      if (state.id === newSpouseId || !state.romanceOptIn) continue;
+      if (state.stage !== 'lover' && state.stage !== 'dating' && state.stage !== 'crush') continue;
+      const next = { ...state, flags: { ...state.flags }, memories: [...state.memories] };
+      const harsh =
+        state.exclusivityPreference === 'possessive' ||
+        state.exclusivityPreference === 'territorial' ||
+        state.exclusivityPreference === 'monogamous' ||
+        state.exclusivityPreference === 'devotional';
+      next.jealousy += harsh ? 35 : 14;
+      next.resentment += harsh ? 28 : 8;
+      next.trust -= harsh ? 18 : 4;
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'rivalConflict',
+        tags: ['rivalAttention', 'marriage', 'betrayal'],
+        intensity: harsh ? 30 : 12,
+        tone: harsh ? 'negative' : 'neutral',
+        targetRelationshipId: newSpouseId,
+        summary: `${next.displayName} learned that you married someone else.`,
+        uniqueKey: `marriageFallout:${next.id}:${newSpouseId}`,
+      });
+      if (
+        harsh &&
+        (next.conflictStyle === 'murderous' || next.conflictStyle === 'vengeful') &&
+        next.jealousy >= 85 &&
+        next.resentment >= 60 &&
+        !next.flags.rivalMurder
+      ) {
+        next.flags.rivalMurder = true;
+        next.flags.forceStage = next.conflictStyle === 'murderous' ? 'murderous' : 'vengeful';
+        this.recordMemory(next, {
+          roomsVisited,
+          kind: 'rivalMurder',
+          tags: ['rival', 'murder', 'violence', 'trauma'],
+          intensity: 100,
+          tone: 'traumatic',
+          targetRelationshipId: newSpouseId,
+          summary: `${next.displayName} decided the new spouse was the problem.`,
+          uniqueKey: `rivalMurder:${next.id}:${newSpouseId}`,
+        });
+      }
+      this.finalize(next);
+    }
   }
 
   private getPreferences(state: RelationshipState): RelationshipPreferenceProfile {
@@ -496,7 +1210,23 @@ export class RelationshipController {
     for (const state of this.getAllStates()) {
       if (state.id === exceptId || !state.romanceOptIn) continue;
       if (state.stage !== 'dating' && state.stage !== 'lover' && state.stage !== 'crush') continue;
-      this.finalize({ ...state, jealousy: state.jealousy + amount, trust: state.trust - 2 });
+      const next = {
+        ...state,
+        flags: { ...state.flags },
+        memories: [...state.memories],
+        jealousy: state.jealousy + amount,
+        trust: state.trust - 2,
+      };
+      this.recordMemory(next, {
+        roomsVisited: state.lastSeenRoomsVisited,
+        kind: 'rivalConflict',
+        tags: ['rivalAttention'],
+        intensity: amount,
+        tone: 'negative',
+        targetRelationshipId: exceptId,
+        summary: `${state.displayName} noticed your attention wandering.`,
+      });
+      this.finalize(next);
     }
   }
 
@@ -550,6 +1280,10 @@ export class RelationshipController {
         'How generous of you to remember which heart you are currently haunting.',
         'If this is attention, I would hate to see your neglect sharpened.',
       ];
+    }
+    const memoryLine = this.getMemoryReferenceLine(state, context);
+    if (memoryLine) {
+      return [memoryLine, ...personalityLines.neutral];
     }
     if (this.hasOtherSeriousRomance(state)) {
       if (state.stage === 'dating' || state.stage === 'lover' || state.stage === 'crush') {
@@ -631,11 +1365,12 @@ export class RelationshipController {
 
   private getWarning(state: RelationshipState, roomsVisited: number): string | undefined {
     const roomsAgo = roomsVisited - state.lastSeenRoomsVisited;
+    if (state.stage === 'dead') return 'dead romance';
     if (state.stage === 'murderous') return 'murderous route active';
     if (state.stage === 'hostile') return 'hostile';
     if (state.jealousy >= 55) return 'jealous and watching';
     if (state.resentment >= 45) return 'resentment is high';
-    if ((state.stage === 'dating' || state.stage === 'lover') && roomsAgo >= 14) return 'neglected';
+    if (this.isSeriousRelationship(state) && roomsAgo >= 10) return `neglect tier ${this.calculateNeglectTier(roomsAgo)}`;
     return undefined;
   }
 
@@ -646,10 +1381,28 @@ export class RelationshipController {
   }
 
   private stageWeight(stage: RelationshipStage): number {
-    return ['stranger', 'acquaintance', 'friendly', 'crush', 'dating', 'lover', 'estranged', 'hostile', 'murderous'].indexOf(stage);
+    return [
+      'stranger',
+      'acquaintance',
+      'friendly',
+      'crush',
+      'dating',
+      'lover',
+      'married',
+      'heartbroken',
+      'estranged',
+      'vengeful',
+      'hostile',
+      'murderous',
+      'dead',
+    ].indexOf(stage);
   }
 
   private getOpeningLinePool(state: RelationshipState): readonly string[] {
+    const memoryLine = this.getMemoryReferenceLine(state, 'opening');
+    if (memoryLine) {
+      return [memoryLine, ...this.getPersonalityLines(state).neutral];
+    }
     if (this.hasOtherSeriousRomance(state) && (state.romanceOptIn || state.stage !== 'stranger')) {
       return [
         'I heard. Of course I heard. Affection is loudest when it thinks it is being discreet.',
@@ -658,6 +1411,86 @@ export class RelationshipController {
       ];
     }
     return this.getLinePool(state, 'talk');
+  }
+
+  private getMemoryReferenceLine(state: RelationshipState, context: string): string | null {
+    if (state.memories.length === 0) return null;
+    const memory = this.pickMemoryToReference(state, context);
+    if (!memory) return null;
+    const personality = this.getPersonality(state);
+    if (memory.kind === 'gift' && memory.itemId) {
+      if (memory.tags.includes('giftSpamming')) {
+        return personality === 'sharp'
+          ? `You gave me that gift before. I am tracking repeat tenderness under suspicious assets.`
+          : `You gave me that before. I am deciding whether repetition is devotion or panic.`;
+      }
+      return memory.tone === 'positive'
+        ? `I still remember that gift. I am pretending not to, which is different from forgetting.`
+        : `I remember that gift. Some objects arrive with little warning labels after the fact.`;
+    }
+    if (memory.kind === 'date') {
+      if (memory.tags.includes('selfPreserving')) {
+        return personality === 'sharp' || personality === 'deadpan'
+          ? `I keep thinking about that date. Running was not cowardice; it was math with legs.`
+          : `I keep thinking about that date, and about the part where survival became more important than me.`;
+      }
+      if (memory.tags.includes('protective')) {
+        return personality === 'regal'
+          ? `I remember when you protected me. Courage looks better when it remembers respect.`
+          : `I remember how you moved when danger arrived. That did something inconvenient to my standards.`;
+      }
+      if (memory.tags.includes('violence')) {
+        return `I remember the dangerous part of that date. I am still deciding whether it was thrilling or evidence.`;
+      }
+      return `I remember our date. The room has been acting smug about it ever since.`;
+    }
+    if (memory.kind === 'proposalRejected') {
+      return `I remember the proposal. The answer was no, but the question did not vanish.`;
+    }
+    if (memory.kind === 'proposal') {
+      return `I remember saying yes. Bring the bouquet back and make the promise survive logistics.`;
+    }
+    if (memory.kind === 'marriage') {
+      return `I remember the bouquet. I remember choosing you after the cold tried to keep it.`;
+    }
+    if (memory.kind === 'neglect') {
+      return personality === 'deadpan'
+        ? `I noticed the absence. I made it a chart. The chart was unflattering.`
+        : `I noticed how many rooms passed without you. Absence is loud when it wants to be.`;
+    }
+    if (memory.kind === 'apology') {
+      return `I remember the apology. It helped because it sounded less like strategy than usual.`;
+    }
+    if (memory.kind === 'breakup' || memory.kind === 'divorce') {
+      return `I remember the ending. Do not ask me to treat it like ordinary weather.`;
+    }
+    if (memory.kind === 'rivalConflict') {
+      return personality === 'sharp'
+        ? `I know about the other affection. Disclosure has consequences, but secrecy has fees.`
+        : `I know about the other heart in the room, even when the room is pretending otherwise.`;
+    }
+    if (memory.kind === 'rivalMurder') {
+      return `I remember what jealousy did. Some memories do not sit down when asked.`;
+    }
+    if (memory.tone === 'traumatic') {
+      return `I remember the worst part. It is still standing very close to us.`;
+    }
+    return null;
+  }
+
+  private pickMemoryToReference(state: RelationshipState, context: string): RelationshipMemory | null {
+    const majorMemories = state.memories.filter(
+      (memory) =>
+        memory.tone === 'traumatic' ||
+        memory.kind === 'marriage' ||
+        memory.kind === 'divorce' ||
+        memory.kind === 'proposal' ||
+        memory.kind === 'proposalRejected',
+    );
+    const major = majorMemories[majorMemories.length - 1] ?? null;
+    if (major && context !== 'flirt') return major;
+    const memories = state.memories.filter((memory) => memory.kind !== 'talk' && memory.kind !== 'flirt');
+    return memories[memories.length - 1] ?? null;
   }
 
   private getPersonalityDescription(state: RelationshipState): string {
@@ -677,11 +1510,11 @@ export class RelationshipController {
       (other) =>
         other.id !== state.id &&
         other.romanceOptIn &&
-        (other.stage === 'dating' || other.stage === 'lover' || other.stage === 'crush'),
+        (other.stage === 'dating' || other.stage === 'lover' || other.stage === 'crush' || other.stage === 'married'),
     );
   }
 
-  private getPersonality(state: RelationshipState): 'poetic' | 'deadpan' | 'hungry' | 'regal' | 'sharp' {
+  private getPersonality(state: Pick<RelationshipState, 'id' | 'species'>): RelationshipPersonality {
     if (state.species === 'goblin' || state.species === 'goblin-angel') return 'sharp';
     if (state.species === 'angel') return 'regal';
     const options = ['poetic', 'deadpan', 'hungry', 'regal', 'sharp'] as const;

@@ -54,6 +54,7 @@ import type { WardDeathSource } from '../shops/goblinShop.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
   DatingCandidateView,
+  DatingBranchChoice,
   RelationshipCandidateProfile,
   RelationshipChoice,
   RelationshipEventResult,
@@ -67,6 +68,8 @@ type StagedQuestStage =
   | 'return-to-giver'
   | 'find-baby'
   | 'carry-baby'
+  | 'find-bouquet'
+  | 'carry-bouquet'
   | 'find-goblin-stamp'
   | 'carry-goblin-stamp'
   | 'survive-freak-you'
@@ -96,6 +99,7 @@ interface StagedQuestInstance {
   remainingRadiationMs?: number;
   totalRadiationMs?: number;
   bossId?: string;
+  relationshipId?: string;
   failureReason?: string;
 }
 
@@ -127,6 +131,7 @@ export interface QuestRoomActor {
   kind:
     | 'tax-office'
     | 'quest-baby'
+    | 'deep-lying-bouquet'
     | 'goblin-ledger-stamp'
     | 'forest-teleporter'
     | 'deep-merchant'
@@ -195,6 +200,8 @@ export interface DeathDebugSnapshot {
   };
   rooms: DeathDebugRoomSnapshot[];
 }
+
+const POST_DEATH_INVULNERABILITY_TICKS = 30;
 
 interface MomentumComputedConfig {
   enabled: boolean;
@@ -1918,6 +1925,15 @@ export class SnakeGame implements QuestRuntime {
           label: carrying ? 'Parent' : 'Baby',
           color: carrying ? 0x5dd6a2 : 0x9ad1ff,
         });
+      } else if (instance.questId === 'deep-lying-bouquet') {
+        const carrying = instance.stage === 'carry-bouquet' || instance.carriedItemId === 'deep-lying-bouquet';
+        markers.push({
+          questId: instance.questId,
+          roomId: carrying ? instance.giverRoomId : (instance.targetRoomId ?? instance.giverRoomId),
+          kind: carrying ? 'turn-in' : 'target',
+          label: carrying ? 'Wedding' : 'Bouquet',
+          color: carrying ? 0xffbdfd : 0xaec4ff,
+        });
       } else if (instance.questId === 'goblin-ledger-debt') {
         const carrying =
           instance.stage === 'carry-goblin-stamp' ||
@@ -2002,6 +2018,12 @@ export class SnakeGame implements QuestRuntime {
         `${instance.stage === 'return-to-giver' ? '[ ]' : instance.stage === 'find-baby' ? '[ ]' : '[x]'} Return the baby to the original NPC`,
       ];
     }
+    if (questId === 'deep-lying-bouquet') {
+      return [
+        `${instance.stage === 'find-bouquet' ? '[ ]' : '[x]'} Find the Deep-Lying Bouquet in a cold room`,
+        `${instance.stage === 'return-to-giver' ? '[ ]' : instance.stage === 'find-bouquet' ? '[ ]' : '[x]'} Bring it back to complete the wedding`,
+      ];
+    }
     if (questId === 'goblin-ledger-debt') {
       return [
         `${instance.stage === 'find-goblin-stamp' ? '[ ]' : '[x]'} Find the missing ledger-stamp`,
@@ -2070,6 +2092,19 @@ export class SnakeGame implements QuestRuntime {
             y: babyPosition.y,
             kind: 'quest-baby',
             label: 'BABY',
+          });
+        }
+      } else if (instance.questId === 'deep-lying-bouquet') {
+        if (instance.targetRoomId === roomId && instance.stage === 'find-bouquet') {
+          const bouquetPosition = this.getDeepLyingBouquetActorPosition();
+          actors.push({
+            id: 'deep-lying-bouquet',
+            questId: instance.questId,
+            roomId,
+            x: bouquetPosition.x,
+            y: bouquetPosition.y,
+            kind: 'deep-lying-bouquet',
+            label: 'LOVE',
           });
         }
       } else if (instance.questId === 'goblin-ledger-debt') {
@@ -2181,6 +2216,17 @@ export class SnakeGame implements QuestRuntime {
         closeLabel: 'Pick up',
       };
     }
+    if (actor.kind === 'deep-lying-bouquet') {
+      return {
+        kind: 'dialogue',
+        title: 'Deep-Lying Bouquet',
+        pages: [
+          'The flowers are buried under a rind of frost, blooming like they are hiding from every season.',
+          'They smell like old vows, cold tile, and one very specific wedding disaster waiting to become beautiful.',
+        ],
+        closeLabel: 'Take bouquet',
+      };
+    }
     if (actor.kind === 'goblin-ledger-stamp') {
       return {
         kind: 'dialogue',
@@ -2256,6 +2302,8 @@ export class SnakeGame implements QuestRuntime {
         return 'Settle future-body tax (press E)';
       case 'quest-baby':
         return 'Listen to the baby (press E)';
+      case 'deep-lying-bouquet':
+        return 'Take the Deep-Lying Bouquet (press E)';
       case 'goblin-ledger-stamp':
         return 'Pick up ledger-stamp (press E)';
       case 'deep-merchant':
@@ -2281,6 +2329,9 @@ export class SnakeGame implements QuestRuntime {
     }
     if (actor?.kind === 'quest-baby') {
       return this.pickUpQuestBaby(actor.questId);
+    }
+    if (actor?.kind === 'deep-lying-bouquet') {
+      return this.pickUpDeepLyingBouquet(actor.questId);
     }
     if (actor?.kind === 'goblin-ledger-stamp') {
       return this.pickUpGoblinLedgerStamp(actor.questId);
@@ -2999,6 +3050,7 @@ export class SnakeGame implements QuestRuntime {
     addIf('honey', /honey/);
     addIf('card', /card|deck|wager/);
     addIf('home', /couch|kitchen|bed|plant|lamp|hearth|house/);
+    addIf('sentimental', /bouquet|wedding|promise|flowers/);
     addIf('warmth', /cloak|fire|phoenix|warm|sun|heat/);
     addIf('phoenix', /phoenix/);
     addIf('veil', /veil|starlight/);
@@ -3111,6 +3163,11 @@ export class SnakeGame implements QuestRuntime {
     return this.relationshipController.getState(profile.id);
   }
 
+  getRelationshipActions(profile: RelationshipCandidateProfile): Array<RelationshipChoice | 'gift'> {
+    this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    return this.relationshipController.getAvailableChoices(profile.id);
+  }
+
   isRelationshipHostile(profile: RelationshipCandidateProfile): boolean {
     const state = this.relationshipController.getState(profile.id);
     return state?.stage === 'hostile' || state?.stage === 'murderous';
@@ -3138,6 +3195,9 @@ export class SnakeGame implements QuestRuntime {
       choice,
       this.getRoomsVisitedCount(),
     );
+    if (result.questId === 'deep-lying-bouquet') {
+      this.startDeepLyingBouquetQuest(state.id);
+    }
     if (result.becameHostile && profile.homeRoomId) {
       this.spawnRelationshipHostile(
         profile.homeRoomId,
@@ -3147,6 +3207,28 @@ export class SnakeGame implements QuestRuntime {
       );
     }
     return result;
+  }
+
+  applyRelationshipBranchChoice(
+    profile: RelationshipCandidateProfile,
+    branch: DatingBranchChoice,
+    kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>,
+  ): RelationshipEventResult {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const result = this.relationshipController.applyBranchChoice(state.id, branch, this.getRoomsVisitedCount(), kind);
+    if (result.becameHostile && profile.homeRoomId) {
+      this.spawnRelationshipHostile(profile.homeRoomId, state.id, state.displayName, this.getRelationshipNpcPosition(profile));
+    }
+    return result;
+  }
+
+  private completeRelationshipMarriage(relationshipId: string): void {
+    const result = this.relationshipController.completeMarriage(relationshipId, this.getRoomsVisitedCount());
+    this.setFlag('ui.relationshipEvent', {
+      title: result.title,
+      message: result.message,
+      color: result.color,
+    });
   }
 
   giveRelationshipGift(profile: RelationshipCandidateProfile, itemId: string): RelationshipEventResult {
@@ -3497,6 +3579,41 @@ export class SnakeGame implements QuestRuntime {
     ]);
   }
 
+  private startDeepLyingBouquetQuest(relationshipId: string): void {
+    if (this.getStagedQuestInstances().some((instance) => instance.questId === 'deep-lying-bouquet')) {
+      return;
+    }
+    const giverRoomId = this.snake.currentRoomId;
+    const offered = this.questController.offerSpecificQuestById(
+      'deep-lying-bouquet',
+      this,
+      giverRoomId,
+    );
+    if (offered) {
+      this.questController.acceptOffered(this);
+    }
+    const targetRoomId = this.pickObjectiveRoom(
+      giverRoomId,
+      7,
+      15,
+      31,
+      (candidate) => candidate !== giverRoomId && getBiomeForRoom(candidate).temperatureHazard === 'cold',
+    );
+    this.setStagedQuestInstances([
+      ...this.getStagedQuestInstances(),
+      {
+        questId: 'deep-lying-bouquet',
+        giverRoomId,
+        stage: 'find-bouquet',
+        targetRoomId,
+        relationshipId,
+      },
+    ]);
+    this.setFlag('ui.questInteraction', {
+      message: 'Wedding quest started: find the Deep-Lying Bouquet in the cold depths.',
+    });
+  }
+
   private startGoblinLedgerDebtQuest(giverRoomId: string): void {
     if (
       this.getStagedQuestInstances().some((instance) => instance.questId === 'goblin-ledger-debt')
@@ -3770,6 +3887,19 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  private getDeepLyingBouquetActorPosition(): Vector2Like {
+    return {
+      x: Math.max(
+        2,
+        Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2) + 4),
+      ),
+      y: Math.max(
+        2,
+        Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2) - 4),
+      ),
+    };
+  }
+
   private tryActivateQuestTeleporterAtHead(): boolean {
     const actor = this.getQuestActorAtHead();
     if (!actor || (actor.kind !== 'forest-teleporter' && actor.kind !== 'deep-teleporter')) {
@@ -3851,6 +3981,19 @@ export class SnakeGame implements QuestRuntime {
     return {
       message: 'The ledger-stamp sticks to you like a small green accusation.',
     };
+  }
+
+  private pickUpDeepLyingBouquet(questId: string): { message?: string } {
+    const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
+    if (!instance || instance.questId !== 'deep-lying-bouquet' || instance.stage !== 'find-bouquet') {
+      return {};
+    }
+    this.updateStagedQuestInstance(questId, (current) => ({
+      ...current,
+      stage: 'return-to-giver',
+      carriedItemId: 'deep-lying-bouquet',
+    }));
+    return { message: 'The Deep-Lying Bouquet joins your pack. It is cold enough to remember forever.' };
   }
 
   private useGreenTeleporter(questId: string): { message?: string } {
@@ -4170,6 +4313,9 @@ export class SnakeGame implements QuestRuntime {
       carriedItemId: undefined,
     }));
     const completed = this.questController.completeQuestById(instance.questId, this);
+    if (instance.questId === 'deep-lying-bouquet' && instance.relationshipId) {
+      this.completeRelationshipMarriage(instance.relationshipId);
+    }
     this.setFlag('quest.staged.completedNow', { questId: instance.questId });
     return { quest: completed ?? quest, state: 'completed' };
   }
@@ -4899,6 +5045,19 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('fortitude.invulnerabilityTicks', updated);
   }
 
+  private grantPostDeathInvulnerability(): void {
+    const currentFortitudeInvuln = this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0;
+    const currentBulletInvuln = this.getFlag<number>('player.bulletInvulnTicks') ?? 0;
+    this.setFlag(
+      'fortitude.invulnerabilityTicks',
+      Math.max(currentFortitudeInvuln, POST_DEATH_INVULNERABILITY_TICKS + 1),
+    );
+    this.setFlag(
+      'player.bulletInvulnTicks',
+      Math.max(currentBulletInvuln, POST_DEATH_INVULNERABILITY_TICKS),
+    );
+  }
+
   private tryFortitudePhoenix(
     outcome: SnakeStepOutcome,
     roomsChanged: Set<string>,
@@ -4925,6 +5084,7 @@ export class SnakeGame implements QuestRuntime {
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     this.setFlag('player.health', maxHealth);
     this.setFlag('player.bulletInvulnTicks', 12);
+    this.grantPostDeathInvulnerability();
     this.setFlag('ui.healthRevealed', true);
     roomsChanged.add(previousRoomId);
     this.setFlag('fortitude.phoenixTriggered', { reason: outcome.reason ?? 'unknown' });
@@ -4946,9 +5106,23 @@ export class SnakeGame implements QuestRuntime {
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     this.setFlag('player.health', maxHealth);
     this.setFlag('player.bulletInvulnTicks', 12);
+    this.grantPostDeathInvulnerability();
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('fortitude.phoenixTriggered', undefined);
     this.setFlag('traversal.manualResumePending', true);
+  }
+
+  returnFromManualResumePause(): boolean {
+    if (!this.getFlag<boolean>('traversal.manualResumePending')) {
+      return false;
+    }
+    if (!this.getFlag('internal.previousSnapshot')) {
+      return false;
+    }
+    this.snake.restorePreviousSnapshot();
+    this.setFlag('traversal.manualResumePending', undefined);
+    this.setFlag('ui.questInteraction', { message: 'You step back through the ladder.' });
+    return true;
   }
 
   private consumeEquippedPhoenixItem(): void {
