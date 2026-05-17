@@ -1,4 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+﻿<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="human-rogue happy mood portrait">
+  <g id="base-portrait">
+
   <defs>
     <radialGradient id="bg" cx="50%" cy="24%" r="78%"><stop offset="0" stop-color="#ffe0ea"/><stop offset=".52" stop-color="#70404a"/><stop offset="1" stop-color="#120b12"/></radialGradient>
     <linearGradient id="vest" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#4b1f2e"/><stop offset="1" stop-color="#1a1018"/></linearGradient>
@@ -16,4 +18,12 @@
   <path d="M226 329c20 19 58 19 78 0" stroke="#7a2443" stroke-width="7" stroke-linecap="round" fill="none"/>
   <ellipse cx="199" cy="307" rx="24" ry="11" fill="#ff8fb8" opacity=".38"/><ellipse cx="329" cy="307" rx="24" ry="11" fill="#ff8fb8" opacity=".38"/>
   <path d="M201 420c20 24 90 24 110 0" stroke="#ffc0cb" stroke-width="10" stroke-linecap="round" fill="none"/>
-</svg>
+
+  </g>
+  <g id="mood-happy" opacity="0.92">
+    <path d="M222 326c22 24 64 24 86 0" fill="none" stroke="#fff6fb" stroke-width="9" stroke-linecap="round"/>
+    <path d="M224 324c20 17 62 17 82 0" fill="none" stroke="#9b315a" stroke-width="5" stroke-linecap="round"/>
+    <ellipse cx="196" cy="306" rx="28" ry="12" fill="#ff8fb8" opacity="0.42"/>
+    <ellipse cx="330" cy="306" rx="28" ry="12" fill="#ff8fb8" opacity="0.42"/>
+  </g></svg>
+

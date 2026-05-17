@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class o extends t{constructor(){super("deep-lying-bouquet","Deep-Lying Bouquet","Find the Deep-Lying Bouquet 7-15 rooms into the cold region and bring it back to complete the wedding.")}isCompleted(e){return!1}onReward(e){e.addItem("deep-lying-bouquet",1)}}const i=new o;export{i as default};
