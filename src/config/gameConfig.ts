@@ -253,6 +253,7 @@ export const defaultGameConfig: GameConfig = {
       'hungerTimer',
       'religionChoice',
       'killstreakArsenal',
+      'coordinates',
     ],
   },
   freakerDennis: {
