@@ -287,10 +287,11 @@ export class SnakeState {
       finalizedRoom.apple.y === finalLocalHeadY,
     );
     const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTailStack();
+    const koiFlowActive = this.isKoiFlowActive();
     const selfCollisionIndex = verticalRoomChanged
       ? -1
       : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
-    if (selfCollisionIndex !== -1) {
+    if (selfCollisionIndex !== -1 && !koiFlowActive) {
       if (cheatImmortal) {
         // Immortal cheat phases through the body instead of slicing or dying.
       } else if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
@@ -604,5 +605,12 @@ export class SnakeState {
 
   private isSameDirection(a: Vector2Like, b: Vector2Like | null): boolean {
     return Boolean(b) && a.x === b.x && a.y === b.y;
+  }
+
+  private isKoiFlowActive(): boolean {
+    const endMs = Number(this.flags['jadePeak.koiFlowEnd'] ?? 0);
+    if (endMs <= 0) return false;
+    const nowMs = Number(this.flags['timeMs'] ?? 0);
+    return nowMs < endMs;
   }
 }

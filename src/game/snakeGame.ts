@@ -183,6 +183,7 @@ export interface StepResult {
     worldPosition?: Vector2Like | null;
     current: AppleSnapshot | null;
     stateChanged: boolean;
+    typeId?: string;
   };
   roomsChanged: Set<string>;
   roomChanged: boolean;
@@ -797,6 +798,7 @@ export class SnakeGame implements QuestRuntime {
     let appleRewards: AppleConsumptionResult['rewards'] | undefined;
     let appleWorldPosition: Vector2Like | null = null;
     let appleEaten = false;
+    let appleTypeId: string | undefined;
 
     if (outcome.appleEaten) {
       appleEaten = true;
@@ -822,6 +824,7 @@ export class SnakeGame implements QuestRuntime {
             appleStateChanged: true,
             roomsChanged,
             roomHasChanged,
+            appleTypeId,
           });
         }
         this.markDeathAtCurrentHead('shielded');
@@ -843,6 +846,7 @@ export class SnakeGame implements QuestRuntime {
       appleRewards = consumption.rewards;
       appleWorldPosition = consumption.worldPosition ?? null;
       appleStateChanged = appleStateChanged || consumption.changed;
+      appleTypeId = consumption.typeId;
 
       const nowMs = Number(this.getFlag<number>('timeMs') ?? 0);
       const lastAppleMs = Number(
@@ -1010,6 +1014,7 @@ export class SnakeGame implements QuestRuntime {
             appleStateChanged,
             roomsChanged,
             roomHasChanged,
+            appleTypeId,
           });
         }
         this.markDeathAtCurrentHead(deathReason);
@@ -1083,6 +1088,7 @@ export class SnakeGame implements QuestRuntime {
             appleStateChanged,
             roomsChanged,
             roomHasChanged,
+            appleTypeId,
           });
         }
         this.markDeathAtCurrentHead('boss');
@@ -4607,6 +4613,7 @@ export class SnakeGame implements QuestRuntime {
     appleStateChanged: boolean;
     roomsChanged: Set<string>;
     roomHasChanged: boolean;
+    appleTypeId?: string;
   }): StepResult {
     return {
       status: 'alive',
@@ -4616,6 +4623,7 @@ export class SnakeGame implements QuestRuntime {
         worldPosition: options.appleWorldPosition,
         current: options.appleSnapshot,
         stateChanged: options.appleStateChanged,
+        typeId: options.appleTypeId,
       },
       roomsChanged: options.roomsChanged,
       roomChanged: options.roomHasChanged,
