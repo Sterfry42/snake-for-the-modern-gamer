@@ -125,4 +125,24 @@ export const QUEST_STRINGS_ES: QuestStringsType = {
     label: 'Compañero Fiel',
     description: 'Domina un lobo usando una correa',
   },
+  'shrine-maidens-request': {
+    label: 'La Solicitud de la Doncella del Santuario',
+    description: 'Entrega 10 manzanas a la doncella del santuario',
+  },
+  'tanukis-shenanigans': {
+    label: 'Travesuras del Tanuki',
+    description: 'Encuentra al travieso tanuki escondido en el bosque de bambú',
+  },
+  'kappas-challenge': {
+    label: 'El Desafío del Kappa',
+    description: 'Derrota al kappa o tráele un pepino en el paso de montaña',
+  },
+  'seven-dragon-temples': {
+    label: 'Siete Templos Dragón',
+    description: 'Encuentra 7 habitaciones de santuario escondidas dispersas por la biome',
+  },
+  'ramen-recipe-hunt': {
+    label: 'Caza de Recetas de Ramen',
+    description: 'Recoge 3 ingredientes raros de diferentes áreas de la biome',
+  },
 } as const;

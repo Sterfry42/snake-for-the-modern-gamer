@@ -48,6 +48,11 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
       },
       'sunken-ocean': null,
       'home-hearth': null,
+      'jade-peak-province': {
+        temperature: 'Serene',
+        colorMod: { hueShift: 5, saturationShift: 0.05, lightnessShift: 0 },
+        behaviorMod: {},
+      },
     },
   },
   {
@@ -85,6 +90,11 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
       },
       'sunken-ocean': null,
       'home-hearth': null,
+      'jade-peak-province': {
+        temperature: 'Serene',
+        colorMod: { hueShift: 0, saturationShift: 0, lightnessShift: 0 },
+        behaviorMod: {},
+      },
     },
   },
   {
@@ -110,6 +120,7 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
       },
       'sunken-ocean': null,
       'home-hearth': null,
+      'jade-peak-province': null,
     },
   },
   {
@@ -135,10 +146,15 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
       },
       'sunken-ocean': null,
       'home-hearth': null,
+      'jade-peak-province': {
+        temperature: 'Serene',
+        colorMod: { hueShift: 0, saturationShift: 0, lightnessShift: 0 },
+        behaviorMod: {},
+      },
     },
   },
   {
-    type: 'bear',
+ type: 'bear',
     biomes: {
       'verdigris-basin': null,
       'ember-waste': null,
@@ -156,6 +172,7 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
       },
       'sunken-ocean': null,
       'home-hearth': null,
+      'jade-peak-province': null,
     },
   },
   {
@@ -171,12 +188,13 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
         behaviorMod: {},
       },
       'elderwood-maze': null,
-      'sunken-ocean': {
+  'sunken-ocean': {
         temperature: 'Briny',
         colorMod: { hueShift: -5, saturationShift: 0.05, lightnessShift: -0.05 },
         behaviorMod: {},
       },
       'home-hearth': null,
+      'jade-peak-province': null,
     },
   },
   {
@@ -204,8 +222,13 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
         colorMod: { hueShift: -5, saturationShift: 0.05, lightnessShift: 0 },
         behaviorMod: {},
       },
-      'sunken-ocean': null,
+ 'sunken-ocean': null,
       'home-hearth': null,
+      'jade-peak-province': {
+        temperature: 'Serene',
+        colorMod: { hueShift: 0, saturationShift: 0, lightnessShift: 0 },
+        behaviorMod: {},
+      },
     },
   },
   {
@@ -231,6 +254,11 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
       },
       'sunken-ocean': null,
       'home-hearth': null,
+      'jade-peak-province': {
+        temperature: 'Serene',
+        colorMod: { hueShift: 10, saturationShift: -0.05, lightnessShift: 0 },
+        behaviorMod: {},
+      },
     },
   },
 ];

@@ -135,6 +135,46 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
       'Recover two treasures. We owe the buried at least the courtesy of admitting their offerings were never answered.',
     ],
   },
+  'shrine-maidens-request': {
+    title: 'Offerings at the Torii Gate',
+    pages: [
+      'The shrine sits at a place where the stone forgets how to be heavy. Lantern light clings to the eaves like a second kind of moss.',
+      'The shrine maiden does not ask for gold. She asks for apples -- fruit that fell from trees that no longer remember their own soil.',
+      'Bring ten. Each one is a small prayer wrapped in red skin. Let the mountain learn that something still remembers it exists.',
+    ],
+  },
+  'tanukis-shenanigans': {
+    title: 'The Bamboo Lie',
+    pages: [
+      'The tanuki is a creature who once told a lie so beautiful the other yokai made it mayor. It has never forgiven them for laughing.',
+      'It hides in the bamboo grove not because it is afraid but because the bamboo has agreed, on very specific days, to pretend the tanuki does not exist.',
+      'Find what it is guarding. Or what it is pretending to guard. The difference is mostly a matter of which story you prefer.',
+    ],
+  },
+  'kappas-challenge': {
+    title: 'Water on the Head',
+    pages: [
+      'The kappa\'s dish holds a lake no one can see. It is the size of a saucer and as deep as the first time someone realized water could spill and never come back.',
+      'It does not want a fight. It wants a cucumber -- not for eating, but for the way a cucumber sounds when a kappa rolls it across stone in the dark.',
+      'Prove yourself worthy. By fighting or by bringing the vegetable. The kappa respects resolve more than victory.',
+    ],
+  },
+  'seven-dragon-temples': {
+    title: 'Seven Shrines, Seven Silences',
+    pages: [
+      'The old mapmakers called them the Seven Dragon Temples. Not because dragons lived there, but because seven is the number of breaths a temple takes before it decides to forget a place exists.',
+      'Each shrine is hidden inside a room that refuses to be mapped -- a chamber the corridors reroute around the way a throat reroutes around a swallowed bone.',
+      'Find all seven. Let the mountain remember what it was built to hold.',
+    ],
+  },
+  'ramen-recipe-hunt': {
+    title: 'The Broth That Remembers',
+    pages: [
+      'The ramen master\'s broth has no business being this good in a place where water tastes like old decisions and the walls occasionally weep.',
+      'Three rare ingredients -- not because three is a magic number, but because the broth refuses to work with fewer. This is not negotiation. It is a boundary.',
+      'Collect them from different parts of the biome. Each ingredient remembers a different season. The broth needs all of them to dream properly.',
+    ],
+  },
 };
 
 export function getQuestDialogue(quest: Quest): QuestDialogue {

@@ -1,7 +1,13 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
 
 export type SnakeHatVariant = 'hat-up' | 'hat-down' | 'hat-left' | 'hat-right';
-export type SnakeHatStyle = 'cowboy' | 'market-cap' | 'ember-cowl' | 'pearl-crown';
+export type SnakeHatStyle =
+  | 'cowboy'
+  | 'market-cap'
+  | 'ember-cowl'
+  | 'pearl-crown'
+  | 'dragon-helm'
+  | 'master-broth';
 
 export interface SnakeHatPalette {
   style: SnakeHatStyle;
@@ -148,6 +154,61 @@ const CROWN_GEMS = [
   [4, 3],
 ];
 
+const HELM_BASE = [
+  [1, 4],
+  [2, 4],
+  [3, 4],
+  [4, 4],
+  [5, 4],
+  [6, 4],
+  [2, 3],
+  [3, 3],
+  [4, 3],
+  [5, 3],
+];
+
+const HELM_HORNS = [
+  [2, 1],
+  [3, 0],
+  [4, 0],
+  [5, 1],
+];
+
+const HELM_RIDGE = [
+  [3, 2],
+  [4, 2],
+  [3, 3],
+  [4, 3],
+];
+
+const CHEF_TOP = [
+  [2, 0],
+  [3, 0],
+  [4, 0],
+  [5, 0],
+  [1, 1],
+  [2, 1],
+  [3, 1],
+  [4, 1],
+  [5, 1],
+  [6, 1],
+  [2, 2],
+  [3, 2],
+  [4, 2],
+  [5, 2],
+  [2, 3],
+  [3, 3],
+  [4, 3],
+  [5, 3],
+];
+
+const CHEF_BAND = [
+  [2, 3],
+  [3, 3],
+  [4, 3],
+  [5, 3],
+];
+
 export const snakeHatRecipe: RuntimeSpriteRecipe<SnakeHatVariant, SnakeHatPalette> = {
   id: 'snake-hat',
   variants: VARIANTS,
@@ -253,6 +314,35 @@ export const snakeHatRecipe: RuntimeSpriteRecipe<SnakeHatVariant, SnakeHatPalett
         rotatePoints(CROWN_GEMS, turns),
         pixelSize,
         palette.accentColor ?? '#ffffff',
+      );
+    } else if (palette.style === 'dragon-helm') {
+      drawPixels(
+        context,
+        rotatePoints([...HELM_BASE, ...HELM_HORNS], turns),
+        pixelSize,
+        palette.outlineColor,
+      );
+      drawPixels(context, rotatePoints(HELM_BASE, turns), pixelSize, palette.fillColor);
+      drawPixels(context, rotatePoints(HELM_HORNS, turns), pixelSize, palette.bandColor);
+      drawPixels(
+        context,
+        rotatePoints(HELM_RIDGE, turns),
+        pixelSize,
+        palette.accentColor ?? '#ff6b35',
+      );
+    } else if (palette.style === 'master-broth') {
+      drawPixels(
+        context,
+        rotatePoints([...CHEF_TOP, ...CHEF_BAND], turns),
+        pixelSize,
+        palette.outlineColor,
+      );
+      drawPixels(context, rotatePoints(CHEF_TOP, turns), pixelSize, palette.fillColor);
+      drawPixels(
+        context,
+        rotatePoints(CHEF_BAND, turns),
+        pixelSize,
+        palette.bandColor,
       );
     } else {
       drawPixels(context, rotatePoints(HAT_TOP, turns), pixelSize, palette.outlineColor);

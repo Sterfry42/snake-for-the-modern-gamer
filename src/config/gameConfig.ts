@@ -51,7 +51,7 @@ export interface AppleTypeConfig {
   color: number;
   outlineDarkenFactor: number;
   spawn: AppleSpawnWeightConfig;
-  behavior: 'normal' | 'shielded' | 'gold' | 'skittish';
+  behavior: 'normal' | 'shielded' | 'gold' | 'skittish' | 'mochi' | 'wasabi' | 'yuzu' | 'koi' | 'amacha';
 }
 
 export interface AppleSystemConfig {
@@ -196,6 +196,46 @@ export const defaultGameConfig: GameConfig = {
         spawn: { base: 0.35, scoreThreshold: 15 },
         behavior: 'skittish',
       },
+      {
+        id: 'mochi',
+        label: 'Mochi Apple',
+        color: 0xf5d5e8,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.15, scoreThreshold: 20 },
+        behavior: 'mochi',
+      },
+      {
+        id: 'wasabi',
+        label: 'Wasabi Apple',
+        color: 0x9acd32,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.1, scoreThreshold: 30 },
+        behavior: 'wasabi',
+      },
+      {
+        id: 'yuzu',
+        label: 'Yuzu Apple',
+        color: 0xf0e68c,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.12, scoreThreshold: 25 },
+        behavior: 'yuzu',
+      },
+      {
+        id: 'koi',
+        label: 'Koi Apple',
+        color: 0xff6b35,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0 },
+        behavior: 'koi',
+      },
+      {
+        id: 'amacha',
+        label: 'Amacha Apple',
+        color: 0x8b4513,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0 },
+        behavior: 'amacha',
+      },
     ],
     skittishMoveChance: 0.225,
   },
@@ -213,6 +253,7 @@ export const defaultGameConfig: GameConfig = {
       'hungerTimer',
       'religionChoice',
       'killstreakArsenal',
+      'coordinates',
     ],
   },
   freakerDennis: {

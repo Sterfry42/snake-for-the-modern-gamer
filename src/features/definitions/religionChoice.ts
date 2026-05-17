@@ -11,6 +11,9 @@ type Mods = {
   regenerator?: { interval: number; amount: number };
   phoenixCharges?: number;
   masonryEnabled?: boolean;
+  shrineBlessing?: boolean;
+  yokaiInsight?: boolean;
+  spiritualLength?: boolean;
 };
 
 type Religion = { id: string; name: string; description: string; mods: Mods };
@@ -55,6 +58,12 @@ const RELIGIONS: Religion[] = [
     name: 'Ancient Mesopotamian Religion',
     description: 'Gameplay bonus: regenerate +1 length every 24 ticks.',
     mods: { regenerator: { interval: 24, amount: 1 } },
+  },
+  {
+    id: 'kami',
+    name: 'Kami Worship',
+    description: 'Gameplay bonuses: periodic shrine blessings, yokai insight, and passive spiritual length growth.',
+    mods: { shrineBlessing: true, yokaiInsight: true, spiritualLength: true },
   },
 ];
 

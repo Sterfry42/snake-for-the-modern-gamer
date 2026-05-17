@@ -1,5 +1,86 @@
 import type { NpcTranslations } from '../../types.js';
 export const NPC_ENCOUNTERS_ES: NpcTranslations = {
+  'shrine-maiden-miko': {
+    pages: [
+      'Una joven mujer con túnicas blancas y carmesí se encuentra frente a un torii medio devorado por el bambú, con una expresión tan serena como la niebla de la montaña que se arremolina en sus tobillos.',
+      '"Los kami velan por aquellos que se acercan con respeto. ¿Querrás dejar una ofrenda en el santuario?"',
+      '"Incluso el regalo más pequeño lleva el peso de la intención. Trae manzanas -- el santuario ha tenido hambre."',
+    ],
+    repeatPages: [
+      'Miko se inclina con gracia. Los faroles de papel parpadean en un viento que no la toca.',
+    ],
+    acceptLabel: 'Dejar ofrenda',
+    rejectLabel: 'Inclinar y partir',
+    rewardScore: 15,
+  },
+  'yokai-chef': {
+    pages: [
+      'Detrás de un humilde puesto de madera, un chef de cabello oscuro como la tinta revuelve una olla humeante con feroz concentración. Un tenue aroma a humo permanece -- o tal vez sea imaginación.',
+      '"¡Bienvenido, bienvenido! El mejor caldo de todas las provincias. O la dimensión. Sea como sea."',
+      '"Prueba lo especial. No te come de vuelta. Por lo general."',
+    ],
+    repeatPages: [
+      'El chef desliza un bol humeante sobre el mostrador sin mirar hacia arriba, como si el caldo tuviera opiniones sobre ser servido.',
+      '"¿Más caldo? ¿O todavía estás acumulando el valor de preguntar cuánto cuesta en almas?"',
+    ],
+    acceptLabel: 'Pedir ramen',
+    rejectLabel: 'Solo mirando',
+    rewardScore: 12,
+  },
+  'kappa-duel': {
+    pages: [
+      'Una pequeña criatura reptiliana con un plato de agua perfectamente equilibrado en su cabeza se encuentra frente a un estanque de koi, con los brazos cruzados y el ceño fruncido firmemente puesto.',
+      '"Hmph. ¿Quieres pasar? Bien. Duelo conmigo -- o tráeme algo que realmente quiero. Pepino. No es que me importe. Es solo... refrescante."',
+    ],
+    repeatPages: [
+      'El kappa inclina su plato de agua con un dedo con garra, observando la ondulación con desaprobación apenas disimulada.',
+      '"Te fuiste, ¿verdad? Propio de los de la superficie. Sin compromiso con nada."',
+    ],
+    acceptLabel: 'Duelo',
+    rejectLabel: 'Traer pepino',
+    questId: 'kappas-challenge',
+  },
+  'tanuki-shenanigans': {
+    pages: [
+      'Un gato mapache gordo con un pequeño sombrero de paja se materializa detrás de un tallo de bambú, sonriendo con el tipo de confianza que solo una criatura conocida por sus ilusiones posee.',
+      '"¡Oho! La fortuna favorece a los curiosos. Ayúdame con una pequeña tarea y los cielos te recompensarán! O haré yo. Cualquiera que venga primero."',
+      '"El bosque de bambú esconde algo preciado. Encuéntralo. Yo tomaré el crédito de todas formas."',
+    ],
+    repeatPages: [
+      'El tanuki inclina su pequeño sombrero y parpadea tan fuerte que ambos ojos parecen salir temporalmente de sus órbitas.',
+      '"¿Ya lo encontraste? ¿No? Bueno, sigue buscando. Tu confusión es comedia excelente."',
+    ],
+    acceptLabel: 'Aceptar travesura',
+    rejectLabel: 'Dudarlo',
+    questId: 'tanukis-shenanigans',
+  },
+  'ronin-wanderer': {
+    pages: [
+      'Un samurái vagabundo se encuentra inmóvil en un paso de montaña, con la espada envainada pero su presencia aguda como una hoja desenvainada.',
+      '"No busco gloria. Busco claridad. Demuestra tu valor, y compartiré lo que he aprendido."',
+      '"Desenfunda el acero. Que la montaña decida quién habla primero -- el vencedor o el viento."',
+    ],
+    repeatPages: [
+      'La mano del ronin descansa en la vaina. El bambú se inclina a su alrededor como si se disculpara con la montaña.',
+      '"Aún respirando. Siguiendo intentando. Qué tedioso. Qué admirable."',
+    ],
+    acceptLabel: 'Desenvainar',
+    rejectLabel: 'Pasar en silencio',
+    rewardScore: 20,
+  },
+  'tengu-encounter': {
+    pages: [
+      'Un espíritu bird-like gigante se posa en el borde de un acantilado, alas dobladas, ojos penetrantes. El aire se vuelve tranquilo a su alrededor.',
+      '"Los mortales que traen ofrendas a la montaña reciben favores. Tráeme una rama de cerezo, y te dejaré volar."',
+    ],
+    repeatPages: [
+      'El tengu inclina la cabeza y te estudia como una tormenta estudia un campo -- con malicia paciente.',
+      '"La montaña recuerda. Yo también. No serás el último en pararse aquí y dudar."',
+    ],
+    acceptLabel: 'Ofrecer rama',
+    rejectLabel: 'Partir respetuosamente',
+    rewardScore: 25,
+  },
   'freak-joey': {
     pages: [
       'Sale de las profundidades oscuras con una sonrisa demasiado ansiosa para pertenecer a algo vivo. Las habitaciones a su alrededor se callan de la manera en que lo hacen las antiguas capillas cuando alguien entra llevando asesinato como un sacramento.',

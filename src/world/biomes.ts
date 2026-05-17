@@ -8,7 +8,8 @@ export type BiomeId =
   | 'gloam-garden'
   | 'elderwood-maze'
   | 'sunken-ocean'
-  | 'home-hearth';
+  | 'home-hearth'
+  | 'jade-peak-province';
 
 export interface BiomeDefinition {
   id: BiomeId;
@@ -26,6 +27,8 @@ export interface BiomeDefinition {
   enemyMoveBias: number;
   animalSpawnChance: number;
   animalSpawnBias: Record<string, number>;
+  peakZThreshold?: number;
+  peakColdRate?: number;
 }
 
 const BIOMES: Record<BiomeId, BiomeDefinition> = {
@@ -237,6 +240,38 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       snake: 0,
     },
   },
+  'jade-peak-province': {
+    id: 'jade-peak-province',
+    title: 'Jade Peak Province',
+    temperature: 'Serene',
+    dangerLevel: 4,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 345,
+    saturation: 0.22,
+    lightness: 0.22,
+    tintVariance: 0.02,
+    accentColor: 0xf8a0c2,
+    enemyFireBias: 0,
+    enemyMoveBias: 1,
+    animalSpawnChance: 0.18,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 2,
+      bird: 3,
+      wolf: 0,
+      bear: 0,
+      fish: 0,
+      snake: 0,
+      koi: 5,
+      crane: 3,
+      tanuki: 3,
+      kappa: 2,
+    },
+    peakZThreshold: -2,
+    peakColdRate: 1,
+  },
 };
 
 function clamp01(value: number): number {
@@ -268,6 +303,9 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
     return BIOMES['home-hearth'];
   }
   const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+  if (y >= -8 && y <= -5 && x >= -4 && x <= 2) {
+    return BIOMES['jade-peak-province'];
+  }
   if (z <= -1 || y >= 2) {
     return BIOMES['sable-depths'];
   }
