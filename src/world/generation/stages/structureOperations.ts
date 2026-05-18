@@ -6,11 +6,20 @@ import type { RoomSnapshot } from '../../types.js';
 import { tryPlaceVillage } from '../../village.js';
 import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
 import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
-import { tryPlaceTown } from '../../town.js';
+import {
+  createTownDistrictRoom,
+  createPhysicalHumanTown,
+  stampTownBoundaryApproach,
+  stampTownBoundaryCorner,
+  type TownDistrictKind,
+} from '../../town.js';
 import { tryPlaceShrine } from '../../shrine.js';
 import { tryPlaceRamenStand } from '../../ramenStand.js';
 import { tryPlaceKoiPond } from '../../koiPond.js';
 import { tryPlaceTenguCamp } from '../../tenguCamp.js';
+import { cellsForEdgeRunup, mergeProtectedCells, type EdgeSide } from '../edgeAccess.js';
+import { HUMAN_TOWN_DISTRICTS, type MultiRoomStructureResolver } from '../townStructureResolver.js';
+import { formatRoomId } from '../multiRoomStructures.js';
 import type { RoomGenerationContext } from '../types.js';
 
 type SettlementKind =
@@ -18,13 +27,11 @@ type SettlementKind =
   | 'goblin-camp'
   | 'quest-house'
   | 'snake-mcDonalds'
-  | 'town'
   | 'shrine'
   | 'ramen-stand'
   | 'tengu-camp';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
-const TOWN_CHANCE = 0.04;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
@@ -36,7 +43,6 @@ const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;
 const TENGU_CAMP_JADE_PEAK_CHANCE = 0.10;
 const SETTLEMENT_ANCHOR_SPACING = 5;
 const GUARANTEED_SETTLEMENT_KINDS = [
-  'town',
   'village',
   'goblin-camp',
   'quest-house',
@@ -50,9 +56,19 @@ export class StructureOperations {
   constructor(
     private readonly config: WorldConfig,
     private readonly rng: RandomGenerator,
+    private readonly structureResolver: MultiRoomStructureResolver,
   ) {}
 
   place(context: RoomGenerationContext): void {
+    if (context.townMembership?.role === 'inside' && context.townMembership.district) {
+      this.renderTownDistrict(context);
+      return;
+    }
+
+    if (context.townAdjacency) {
+      this.renderTownPerimeter(context);
+    }
+
     const canPlaceOptionalStructures =
       !context.isOcean && !context.isDenseForest && !this.isOriginRoom(context.roomId);
     const canPlaceOptionalLake =
@@ -64,6 +80,7 @@ export class StructureOperations {
 
     if (
       canPlaceOptionalStructures &&
+      !context.townAdjacency &&
       !context.village &&
       !context.goblinCamp &&
       !context.town &&
@@ -93,6 +110,7 @@ export class StructureOperations {
 
     if (
       canPlaceOptionalLake &&
+      !context.townAdjacency &&
       !context.koiPond &&
       !context.village &&
       !context.goblinCamp &&
@@ -140,15 +158,20 @@ export class StructureOperations {
     guaranteed: boolean,
   ): void {
     const openClearingGuarantee = guaranteed && context.archetype?.id === 'open-clearing';
-    const allowTown = !openClearingGuarantee;
     const allowSpecial = !openClearingGuarantee;
-    const preferred = this.pickSettlementKind(guaranteed, context, allowTown, allowSpecial);
+    const preferred = this.pickSettlementKind(guaranteed, context, allowSpecial);
     if (!preferred) {
       return;
     }
 
     const attempts = guaranteed
-      ? [preferred, ...(allowTown ? GUARANTEED_SETTLEMENT_KINDS : OPEN_CLEARING_SETTLEMENT_KINDS).filter((kind) => kind !== preferred)]
+      ? [
+          preferred,
+          ...(openClearingGuarantee
+            ? OPEN_CLEARING_SETTLEMENT_KINDS
+            : GUARANTEED_SETTLEMENT_KINDS
+          ).filter((kind) => kind !== preferred),
+        ]
       : [preferred];
 
     for (const kind of attempts) {
@@ -161,7 +184,6 @@ export class StructureOperations {
   private pickSettlementKind(
     guaranteed: boolean,
     context: RoomGenerationContext,
-    allowTown = true,
     allowSpecial = true,
   ): SettlementKind | null {
     const isJadePeak = context.palette.biomeId === 'jade-peak-province';
@@ -172,9 +194,6 @@ export class StructureOperations {
 
     const roll = this.rng();
     if (guaranteed) {
-      if (allowTown && roll < 0.2) {
-        return 'town';
-      }
       if (isJadePeak) {
         if (roll < 0.35) {
           return 'village';
@@ -187,10 +206,10 @@ export class StructureOperations {
         }
         return 'quest-house';
       }
-      if (roll < 0.55) {
+      if (roll < 0.45) {
         return 'village';
       }
-      if (roll < 0.8) {
+      if (roll < 0.75) {
         return 'goblin-camp';
       }
       return 'quest-house';
@@ -230,11 +249,6 @@ export class StructureOperations {
       return 'village';
     }
 
-    threshold += allowTown && this.canSpawnTown() ? TOWN_CHANCE : 0;
-    if (allowTown && this.canSpawnTown() && roll < threshold) {
-      return 'town';
-    }
-
     threshold += GOBLIN_CAMP_CHANCE;
     if (roll < threshold) {
       return 'goblin-camp';
@@ -269,17 +283,6 @@ export class StructureOperations {
         }
         context.questGiver = villagePlacement.questGiver;
         context.village = villagePlacement.village;
-        return true;
-      }
-      case 'town': {
-        const town = tryPlaceTown(context.layout, context.grid, this.rng, context.palette.biomeId, {
-          forbiddenCells,
-          margin: 4,
-        });
-        if (!town) {
-          return false;
-        }
-        context.town = town;
         return true;
       }
       case 'goblin-camp': {
@@ -349,6 +352,130 @@ export class StructureOperations {
         context.tenguCamp = tenguCamp;
         return true;
       }
+    }
+  }
+
+  private renderTownDistrict(context: RoomGenerationContext): void {
+    const membership = context.townMembership;
+    if (!membership?.district) {
+      return;
+    }
+    const town = this.createTownForPlacement(context);
+    const room = createTownDistrictRoom({
+      town,
+      roomId: context.roomId,
+      districtKind: membership.district,
+      grid: context.grid,
+      biomeId: context.palette.biomeId,
+      biomeTitle: context.palette.biomeTitle,
+      backgroundColor: context.palette.backgroundColor,
+      wallColor: context.palette.wallColor,
+      wallOutlineColor: context.palette.wallOutlineColor,
+      connections: this.structureResolver.getTownConnections(context.roomId),
+    });
+    this.replaceLayout(context, room.layout);
+    context.town = room.town;
+    context.questGiver = undefined;
+    context.village = undefined;
+    context.goblinCamp = undefined;
+    context.snakeMcDonalds = undefined;
+    context.shrine = undefined;
+    context.ramenStand = undefined;
+    context.koiPond = undefined;
+    context.tenguCamp = undefined;
+  }
+
+  private renderTownPerimeter(context: RoomGenerationContext): void {
+    const adjacency = context.townAdjacency;
+    if (!adjacency) {
+      return;
+    }
+    const sides = adjacency.adjacentSidesFacingTown?.length
+      ? adjacency.adjacentSidesFacingTown
+      : adjacency.adjacentSideFacingTown
+        ? [adjacency.adjacentSideFacingTown]
+        : [];
+    const corners = adjacency.adjacentCornersFacingTown ?? [];
+    if (sides.length === 0 && corners.length === 0) {
+      return;
+    }
+    context.townPerimeter = {
+      townId: adjacency.placement.id,
+      sideFacingTown: adjacency.adjacentSideFacingTown,
+      sidesFacingTown: [...sides],
+      cornersFacingTown: [...corners],
+    };
+    const openingSide = adjacency.isEntranceApproach || adjacency.isExitApproach
+      ? adjacency.adjacentSideFacingTown
+      : undefined;
+    let rows = context.layout.map((row) => row.join(''));
+    for (const side of sides) {
+      rows = stampTownBoundaryApproach(rows, side, side === openingSide);
+    }
+    for (const corner of corners) {
+      rows = stampTownBoundaryCorner(rows, corner);
+    }
+    this.replaceLayout(context, rows);
+    if (openingSide) {
+      const plan = this.edgeAccessPlanForSide(
+        openingSide,
+        adjacency.isEntranceApproach ? 'townGate' : 'townExit',
+        context.grid,
+      );
+      context.reservedEdgeAccess = [...(context.reservedEdgeAccess ?? []), plan];
+      context.protectedCells = mergeProtectedCells(
+        context.protectedCells,
+        cellsForEdgeRunup(context.grid, plan),
+      );
+    }
+  }
+
+  private createTownForPlacement(context: RoomGenerationContext) {
+    const placement = context.townMembership?.placement ?? context.townAdjacency?.placement;
+    if (!placement) {
+      throw new Error('Cannot create town without a structure placement.');
+    }
+    const districtRoomIds: Record<string, TownDistrictKind> = {};
+    for (const [offset, district] of Object.entries(HUMAN_TOWN_DISTRICTS)) {
+      const [dx = 0, dy = 0] = offset.split(',').map(Number);
+      districtRoomIds[
+        formatRoomId({
+          x: placement.anchor.x + dx,
+          y: placement.anchor.y + dy,
+          z: placement.anchor.z,
+        })
+      ] = district;
+    }
+    return createPhysicalHumanTown({
+      biomeId: context.palette.biomeId,
+      seed: placement.seed,
+      townId: placement.id,
+      districtRoomIds,
+      entranceRoomId: formatRoomId(placement.anchor),
+      exitRoomIds: [formatRoomId({ x: placement.anchor.x + 2, y: placement.anchor.y + 3, z: placement.anchor.z })],
+    });
+  }
+
+  private edgeAccessPlanForSide(
+    side: EdgeSide,
+    reason: 'townGate' | 'townExit',
+    grid: GridConfig,
+  ) {
+    const horizontal = side === 'north' || side === 'south';
+    return {
+      side,
+      open: true,
+      openingCenter: horizontal ? Math.floor(grid.cols / 2) : Math.floor(grid.rows / 2),
+      openingWidth: 5,
+      runupDepth: 5,
+      reason,
+    };
+  }
+
+  private replaceLayout(context: RoomGenerationContext, rows: readonly string[]): void {
+    for (let y = 0; y < context.grid.rows; y += 1) {
+      const row = rows[y] ?? '.'.repeat(context.grid.cols);
+      context.layout[y] = row.split('');
     }
   }
 
@@ -446,10 +573,6 @@ export class StructureOperations {
 
   private isOriginRoom(roomId: string): boolean {
     return roomId === this.config.originRoomId;
-  }
-
-  private canSpawnTown(): boolean {
-    return true;
   }
 
   private isSettlementAnchor(roomId: string): boolean {

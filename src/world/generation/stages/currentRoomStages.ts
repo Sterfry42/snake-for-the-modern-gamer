@@ -28,6 +28,14 @@ export class BaseTerrainStage extends CurrentRoomStage {
   }
 }
 
+export class MultiRoomStructureStage extends CurrentRoomStage {
+  readonly id = 'multi-room-structures';
+
+  apply(context: RoomGenerationContext): void {
+    this.operations.resolveMultiRoomStructures(context);
+  }
+}
+
 export class RandomObstacleStage extends CurrentRoomStage {
   readonly id = 'random-obstacles';
 

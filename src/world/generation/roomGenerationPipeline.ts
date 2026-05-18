@@ -5,6 +5,7 @@ import {
   BaseTerrainStage,
   BiomeMapStage,
   CrossRoomFeatureStage,
+  MultiRoomStructureStage,
   PortalStage,
   RandomObstacleStage,
   RoomArchetypeStage,
@@ -19,6 +20,7 @@ export class RoomGenerationPipeline {
   constructor(private readonly operations: RoomGenerationOperations) {
     this.stages = [
       new BiomeMapStage(operations),
+      new MultiRoomStructureStage(operations),
       new BaseTerrainStage(operations),
       new RoomArchetypeStage(operations),
       new CrossRoomFeatureStage(operations),

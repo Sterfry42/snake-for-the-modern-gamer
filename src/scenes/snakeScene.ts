@@ -442,6 +442,7 @@ export default class SnakeScene extends Phaser.Scene {
   private lastBossHealth: Map<string, number> = new Map();
   private powerupMusicActive = false;
   private houseMusicActive = false;
+  private townMusicActive = false;
   private readonly featureManager = new FeatureManager();
   private readonly baseActionStepIntervalMs = 100;
   private readonly baseBossStepIntervalMs = 100;
@@ -4137,6 +4138,18 @@ export default class SnakeScene extends Phaser.Scene {
       );
       this.snakeGame.setFlag('ui.townReveal', undefined);
     }
+    const townHostility = this.snakeGame.getFlag<{
+      roomId: string;
+      x: number;
+      y: number;
+      label: string;
+    }>('ui.townHostility');
+    if (townHostility) {
+      const world = this.tileToWorldInRoom({ x: townHostility.x, y: townHostility.y }, townHostility.roomId);
+      this.juice.notice(world.x, world.y, 0xff6b6b, true);
+      this.showQuestHintPopup(townHostility.label, '#ff6b6b');
+      this.snakeGame.setFlag('ui.townHostility', undefined);
+    }
     const biomeReveal = this.snakeGame.getFlag<{
       roomId: string;
       biomeId: string;
@@ -4970,6 +4983,25 @@ export default class SnakeScene extends Phaser.Scene {
     }
     // Apply slowdown only when snake is actually inside an interior.
     this.skillTree.applyActionStepIntervalScalar(insideInterior ? 1.6 : 1.0, 'house');
+    this.updateTownMusic();
+  }
+
+  private updateTownMusic(): void {
+    const room = this.snakeGame.getCurrentRoom();
+    const district = room.town ? getTownDistrictForRoom(room.town, room.id) : undefined;
+    const insideTownInterior = Boolean(
+      district &&
+        district !== 'outskirts' &&
+        district !== 'gate' &&
+        district !== 'townExit',
+    );
+    if (insideTownInterior && !this.townMusicActive) {
+      (this.juice as any).startTownMusic?.();
+      this.townMusicActive = true;
+    } else if (!insideTownInterior && this.townMusicActive) {
+      (this.juice as any).stopTownMusic?.();
+      this.townMusicActive = false;
+    }
   }
 
   private isInPlayerHouseInterior(): boolean {
@@ -5185,6 +5217,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup('The town map has misplaced itself.', '#ff6b6b');
       return;
     }
+    const hostileTown = this.snakeGame.isTownHostileForRoom(freshTown, room.id);
     this.paused = true;
     this.hideSaveUI();
     this.skillTree.hideOverlay();
@@ -5197,18 +5230,35 @@ export default class SnakeScene extends Phaser.Scene {
         : 'The back alley has opinions it has not shared yet.',
     ].join(' ');
 
-    if (current === 'square' || current === 'gate') {
+    if (hostileTown) {
+      options.push({
+        id: 'leave',
+        title: 'Run',
+        description: 'The town is openly hostile. No one here is offering services.',
+      });
+      this.villageShopPopup.show(
+        `${freshTown.name} - Alarm`,
+        [{ id: 'town-status', title: 'Town Hostile', description }, ...options],
+        (id) => this.handleTownChoice(id, freshTown),
+      );
+      return;
+    }
+
+    if (current === 'square' || current === 'gate' || current === 'townExit') {
       options.push({
         id: 'town-notices',
         title: 'Read Notice Board',
         description: `${freshTown.notices.length} notices, at least one written by someone enjoying authority.`,
       });
     }
-    if (current === 'gate') {
+    if (current === 'gate' || current === 'townExit') {
       options.push({
         id: 'town-open-gate',
-        title: 'Talk to Gate Guard',
-        description: 'Ask the guard to open the barrier and pretend this is normal snake paperwork.',
+        title: current === 'townExit' ? 'Talk to Exit Guard' : 'Talk to Gate Guard',
+        description:
+          current === 'townExit'
+            ? 'Ask the inner guard to open the back gate. Outsiders do not get this latch.'
+            : 'Ask the guard to open the barrier and pretend this is normal snake paperwork.',
       });
     }
     if (current === 'market' || current === 'marketStreet') {
@@ -6879,13 +6929,24 @@ export default class SnakeScene extends Phaser.Scene {
       );
     }
     if (room.town) {
+      if (this.snakeGame.isTownHostileForRoom(room.town, room.id)) {
+        return null;
+      }
       const district = getTownDistrictForRoom(room.town, room.id);
       candidates.push(
         ...room.town.residents
           .filter((resident) => this.isTownResidentInDistrict(resident.workRoomId, district))
           .map((resident) => ({
             id: `resident:${room.id}:${resident.id}`,
-            displayName: `${resident.name}${resident.role === 'bartender' ? ' the Bartender' : resident.role === 'guard' ? ' the Guard' : ''}`,
+            displayName: `${resident.name}${
+              resident.role === 'bartender'
+                ? ' the Bartender'
+                : resident.role === 'guard'
+                  ? ' the Guard'
+                  : resident.role === 'thief' || resident.role === 'thiefContact'
+                    ? ' of the Guild'
+                    : ''
+            }`,
             species: 'human' as RelationshipSpecies,
             portraitId: resident.portraitId,
             homeRoomId: resident.homeRoomId ?? room.id,
@@ -6929,6 +6990,8 @@ export default class SnakeScene extends Phaser.Scene {
   private showRelationshipRoot(profile: RelationshipCandidateProfile): void {
     this.paused = true;
     this.setChoicePopupVisible(true);
+    const currentTown = this.snakeGame.getCurrentTown();
+    const canPickpocket = Boolean(currentTown?.thievesGuild?.discovered && profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`));
     this.villageShopPopup.show(
       profile.displayName,
       [
@@ -6938,6 +7001,15 @@ export default class SnakeScene extends Phaser.Scene {
           description: 'Get a line from them. This does not start romance.',
         },
         { id: 'romance', title: 'Romance', description: 'Open the dating scene and opt into dating-game nonsense.' },
+        ...(canPickpocket
+          ? [
+              {
+                id: 'pickpocket',
+                title: 'Pick Pocket',
+                description: 'Lift score or contraband. Trust is also in the pocket, unfortunately.',
+              },
+            ]
+          : []),
         { id: 'leave', title: 'Leave', description: 'Keep things safely ordinary.' },
       ],
       (id) => {
@@ -6948,9 +7020,11 @@ export default class SnakeScene extends Phaser.Scene {
         }
         if (id === 'talk') {
           const talk = this.snakeGame.getRelationshipTalk(profile);
+          const town = this.snakeGame.getCurrentTown();
+          const townLine = town ? this.townGossipLine(town) : null;
           this.showQuestDialogue(
             talk.title,
-            [`"${talk.line}"`],
+            townLine ? [`"${townLine}"`, `"${talk.line}"`] : [`"${talk.line}"`],
             {
               onClose: () => {
                 this.closeQuestPopup();
@@ -6962,9 +7036,40 @@ export default class SnakeScene extends Phaser.Scene {
           );
           return;
         }
+        if (id === 'pickpocket') {
+          const result = this.snakeGame.pickpocketRelationshipNpc(profile);
+          this.showQuestHintPopup(result.message, result.ok ? result.color : '#ff6b6b');
+          this.skillTree.getOverlay().refresh();
+          this.paused = false;
+          return;
+        }
         this.showDatingScene(profile);
       },
     );
+  }
+
+  private townGossipLine(town: TownStructure): string {
+    if (town.wantedLevel >= 3 || (town.suspicion ?? 0) >= 65) {
+      return 'Keep your head down. The guards are counting shadows and calling half of them snakes.';
+    }
+    switch (town.mood) {
+      case 'festival':
+        return 'Festival lanterns are up. Even the bailiff is pretending to have a soul.';
+      case 'foodShortage':
+        return 'Food is short. People are smiling with their teeth closed.';
+      case 'crimeWave':
+        return 'Everyone has lost something this week. Some people lost patience first.';
+      case 'curfew':
+        return 'Curfew bell rings early now. The guards like the sound too much.';
+      case 'weddingSeason':
+        return 'Half the town is marrying, feuding, or buying flowers for both.';
+      case 'funeralWeek':
+        return 'Speak softly. The town has been burying more names than usual.';
+      case 'plagueScare':
+        return 'People are washing coins before touching them. It has not improved the coins.';
+      default:
+        return 'Town is town. Notice board lies, market complains, guards stare.';
+    }
   }
 
   private isTownResidentInDistrict(
@@ -6973,6 +7078,11 @@ export default class SnakeScene extends Phaser.Scene {
   ): boolean {
     if (!workRoomId || !district) {
       return false;
+    }
+    const currentTown = this.snakeGame.getCurrentTown();
+    const physicalKind = currentTown?.districtByRoomId[workRoomId];
+    if (physicalKind) {
+      return this.isTownResidentInDistrict(physicalKind, district);
     }
     const kind = workRoomId.split(':').pop();
     if (kind === district) return true;
@@ -7515,7 +7625,55 @@ export default class SnakeScene extends Phaser.Scene {
         },
       });
     }
-    return templates[Math.floor(this.random() * templates.length)] ?? templates[0]!;
+    return this.balanceDatingBranchResults(templates[Math.floor(this.random() * templates.length)] ?? templates[0]!);
+  }
+
+  private balanceDatingBranchResults(event: {
+    pages: DatingSequencePage[];
+    branchResults: Record<string, DatingBranchResult>;
+  }): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
+    const branchIds = event.pages
+      .flatMap((page) => page.actions ?? [])
+      .map((action) => action.id)
+      .filter((id) => id.startsWith('branch-'));
+    if (branchIds.length < 3) {
+      return event;
+    }
+    const branchResults = { ...event.branchResults };
+    const tierFor = (id: string): 'positive' | 'neutral' | 'negative' => {
+      const text = branchResults[id]?.text.toLowerCase() ?? '';
+      if (/hated|disliked/.test(text)) return 'negative';
+      if (/neutral/.test(text)) return 'neutral';
+      return 'positive';
+    };
+    const hasPositive = branchIds.some((id) => tierFor(id) === 'positive');
+    const hasNeutral = branchIds.some((id) => tierFor(id) === 'neutral');
+    const hasNegative = branchIds.some((id) => tierFor(id) === 'negative');
+    const setTier = (id: string, tier: 'loved' | 'neutral' | 'disliked'): void => {
+      const current = branchResults[id] ?? { text: id.replace(/^branch-/, '') };
+      const stripped = current.text.replace(/^(Loved|Liked|Neutral|Disliked|Hated):\s*/i, '');
+      branchResults[id] = {
+        ...current,
+        text: `${tier === 'loved' ? 'Loved' : tier === 'neutral' ? 'Neutral' : 'Disliked'}: ${stripped}`,
+        tags:
+          tier === 'loved'
+            ? ['honesty', 'pragmatic', 'clever', 'food', 'comfort', 'bravery', 'commitment', 'privateAffection', 'dramatic']
+            : tier === 'neutral'
+              ? []
+              : ['betrayal', 'avoidance', 'neediness'],
+        outcome: tier === 'disliked' ? 'mean' : current.outcome,
+      };
+    };
+    if (!hasPositive) {
+      setTier(branchIds[0]!, 'loved');
+    }
+    if (!hasNeutral) {
+      setTier(branchIds[Math.min(1, branchIds.length - 1)]!, 'neutral');
+    }
+    if (!hasNegative) {
+      setTier(branchIds[branchIds.length - 1]!, 'disliked');
+    }
+    return { ...event, branchResults };
   }
 
   private pickRelationshipLine(profile: RelationshipCandidateProfile, lines: readonly string[]): string {
@@ -7909,9 +8067,11 @@ export default class SnakeScene extends Phaser.Scene {
     const residents = [
       ...(room.village ? [...room.village.residents, room.village.shopkeeper] : []),
       ...(room.town
-        ? room.town.residents.filter((resident) =>
-            this.isTownResidentInDistrict(resident.workRoomId, getTownDistrictForRoom(room.town!, room.id)),
-          )
+        ? this.snakeGame.isTownHostileForRoom(room.town, room.id)
+          ? []
+          : room.town.residents.filter((resident) =>
+              this.isTownResidentInDistrict(resident.workRoomId, getTownDistrictForRoom(room.town!, room.id)),
+            )
         : []),
       ...goblinResidents,
     ];

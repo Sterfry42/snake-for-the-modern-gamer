@@ -1,3 +1,5 @@
+import type { WorldGenerationIdentity } from '../world/generation/worldGenerationIdentity.js';
+
 export interface GameSaveData {
   version: string;
   timestamp: number;
@@ -14,6 +16,7 @@ export interface GameSaveData {
   inventory: Record<string, number>;
   equipment: Record<string, string>;
   flags: Record<string, unknown>;
+  worldGeneration?: WorldGenerationIdentity;
   religionId?: string;
   religionMods?: Record<string, unknown>;
   classId?: string;

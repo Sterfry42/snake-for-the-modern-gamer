@@ -69,7 +69,7 @@ export class AnimalManager {
     if (roomId === '0,-1,0') {
       return;
     }
-    if (room.village || room.goblinCamp) {
+    if (room.village || room.goblinCamp || room.town || room.townPerimeter) {
       return;
     }
     if (this.animals.has(roomId)) {

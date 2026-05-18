@@ -253,6 +253,8 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.6)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'N' || tile === 'U' || tile === 'M' || tile === 'R' || tile === 'F' || tile === 'P') {
+          this.drawTownSymbolTile(rectX, rectY, tile);
         } else if (tile === 'S') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0xd4c5a9;
@@ -425,6 +427,55 @@ export class SnakeRenderer {
     this.graphics
       .lineStyle(1, 0x3d2412, 0.75)
       .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
+  private drawTownSymbolTile(rectX: number, rectY: number, tile: string): void {
+    const cell = this.grid.cell;
+    const base = tile === 'U' ? 0x333844 : tile === 'N' ? 0x8b5f32 : tile === 'M' ? 0xc7433d : 0x6d5845;
+    const accent =
+      tile === 'U'
+        ? 0x9aa4b2
+        : tile === 'N'
+          ? 0xffe0a3
+          : tile === 'M'
+            ? 0xffe0a3
+            : tile === 'R'
+              ? 0xf4d08b
+              : tile === 'P'
+                ? 0x8fd1ff
+                : 0x9f6b3f;
+    const outline = darkenColor(base, 0.42);
+    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
+    this.graphics.lineStyle(1, outline, 0.75).strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+
+    if (tile === 'N') {
+      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.22, rectY + cell * 0.18, cell * 0.56, cell * 0.58);
+      this.graphics.lineStyle(1, outline, 0.8);
+      this.graphics.beginPath();
+      this.graphics.moveTo(rectX + cell * 0.3, rectY + cell * 0.36);
+      this.graphics.lineTo(rectX + cell * 0.7, rectY + cell * 0.36);
+      this.graphics.moveTo(rectX + cell * 0.3, rectY + cell * 0.52);
+      this.graphics.lineTo(rectX + cell * 0.62, rectY + cell * 0.52);
+      this.graphics.strokePath();
+    } else if (tile === 'U') {
+      for (let i = 0; i < 4; i += 1) {
+        const x = rectX + cell * (0.24 + i * 0.14);
+        this.graphics.fillStyle(accent, 0.85).fillRect(x, rectY + cell * 0.18, Math.max(2, cell * 0.06), cell * 0.64);
+      }
+    } else if (tile === 'M') {
+      this.graphics.fillStyle(accent, 1).fillRect(rectX + 2, rectY + 3, cell - 4, cell * 0.28);
+      this.graphics.fillStyle(0x7a5232, 1).fillRect(rectX + cell * 0.2, rectY + cell * 0.58, cell * 0.6, cell * 0.18);
+    } else if (tile === 'R') {
+      this.graphics.fillStyle(accent, 1).fillCircle(rectX + cell * 0.5, rectY + cell * 0.48, cell * 0.22);
+      this.graphics.fillStyle(outline, 0.85).fillRect(rectX + cell * 0.46, rectY + cell * 0.62, cell * 0.08, cell * 0.18);
+    } else if (tile === 'P') {
+      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.25, rectY + cell * 0.22, cell * 0.5, cell * 0.42);
+      this.graphics.fillStyle(outline, 1).fillRect(rectX + cell * 0.32, rectY + cell * 0.64, cell * 0.36, cell * 0.12);
+    } else {
+      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.2, rectY + cell * 0.42, cell * 0.6, cell * 0.14);
+      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.28, rectY + cell * 0.2, cell * 0.12, cell * 0.6);
+      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.6, rectY + cell * 0.2, cell * 0.12, cell * 0.6);
+    }
   }
 
   private drawBoatTile(rectX: number, rectY: number, tileX: number, tileY: number): void {

@@ -46,6 +46,12 @@ export interface RoomSnapshot {
     shopkeeper: NpcProfile & { x: number; y: number };
   };
   town?: TownStructure;
+  townPerimeter?: {
+    townId: string;
+    sideFacingTown?: 'north' | 'south' | 'east' | 'west';
+    sidesFacingTown?: Array<'north' | 'south' | 'east' | 'west'>;
+    cornersFacingTown?: Array<'northWest' | 'northEast' | 'southWest' | 'southEast'>;
+  };
   snakeMcDonalds?: {
     cashier: {
       name: string;

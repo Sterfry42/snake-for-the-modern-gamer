@@ -4,6 +4,8 @@ export type QuestPortraitVariant =
   | 'sage-1'
   | 'sage-2'
   | 'sage-3'
+  | 'bandit-neutral'
+  | 'bandit-hostile'
   | 'goblin-happy'
   | 'goblin-neutral'
   | 'goblin-hostile';
@@ -18,6 +20,8 @@ const VARIANTS: readonly QuestPortraitVariant[] = [
   'sage-1',
   'sage-2',
   'sage-3',
+  'bandit-neutral',
+  'bandit-hostile',
   'goblin-happy',
   'goblin-neutral',
   'goblin-hostile',
@@ -445,6 +449,52 @@ const PORTRAITS: Record<QuestPortraitVariant, PortraitLayers> = {
     beardColor: '#8b6a4d',
     eyeColor: '#151515',
     trimColor: '#d0f0a9',
+  },
+  'bandit-neutral': {
+    hood: [
+      [5, 3], [6, 3], [7, 3], [8, 3], [9, 3],
+      [4, 4], [5, 4], [6, 4], [7, 4], [8, 4], [9, 4], [10, 4],
+      [3, 5], [4, 5], [5, 5], [10, 5], [11, 5],
+      [3, 6], [4, 6], [11, 6], [3, 7], [4, 7], [11, 7],
+      [4, 9], [11, 9], [5, 10], [10, 10], [6, 12], [9, 12],
+    ],
+    face: [
+      [5, 5], [6, 5], [7, 5], [8, 5], [9, 5],
+      [5, 6], [6, 6], [7, 6], [8, 6], [9, 6],
+      [5, 7], [6, 7], [7, 7], [8, 7], [9, 7],
+      [5, 8], [6, 8], [7, 8], [8, 8], [9, 8],
+    ],
+    beard: [[6, 9], [7, 9], [8, 9], [9, 9], [5, 10], [10, 10]],
+    eyes: [[6, 6], [9, 6], [7, 7], [8, 7]],
+    trim: [[4, 4], [11, 4], [5, 10], [10, 10]],
+    hoodColor: '#252734',
+    faceColor: '#d1a07c',
+    beardColor: '#3b2a24',
+    eyeColor: '#f6e7c1',
+    trimColor: '#8fd1ff',
+  },
+  'bandit-hostile': {
+    hood: [
+      [5, 3], [6, 3], [7, 3], [8, 3], [9, 3],
+      [4, 4], [5, 4], [6, 4], [7, 4], [8, 4], [9, 4], [10, 4],
+      [3, 5], [4, 5], [5, 5], [10, 5], [11, 5],
+      [3, 6], [4, 6], [11, 6], [3, 7], [4, 7], [11, 7],
+      [4, 9], [11, 9], [5, 10], [10, 10], [6, 12], [9, 12],
+    ],
+    face: [
+      [5, 5], [6, 5], [7, 5], [8, 5], [9, 5],
+      [5, 6], [6, 6], [7, 6], [8, 6], [9, 6],
+      [5, 7], [6, 7], [7, 7], [8, 7], [9, 7],
+      [5, 8], [6, 8], [7, 8], [8, 8], [9, 8],
+    ],
+    beard: [[6, 9], [7, 9], [8, 9], [9, 9], [6, 10], [9, 10]],
+    eyes: [[6, 6], [9, 6], [6, 7], [9, 7], [7, 8], [8, 8]],
+    trim: [[4, 4], [11, 4], [5, 10], [10, 10]],
+    hoodColor: '#331715',
+    faceColor: '#c18a6a',
+    beardColor: '#1b1214',
+    eyeColor: '#fff2c6',
+    trimColor: '#ff8e7a',
   },
   'goblin-happy': {
     hood: [
