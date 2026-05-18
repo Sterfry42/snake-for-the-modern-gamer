@@ -373,9 +373,12 @@ describe('world generation fairness', () => {
     expect(openClearings.length).toBeGreaterThan(0);
     expect(
       openClearings.every((room) => {
-        const hasNpcStructure = Boolean(room.village || room.goblinCamp || room.questGiver);
+        const hasNpcStructure = Boolean(
+          room.village || room.goblinCamp || room.town || room.townPerimeter || room.questGiver,
+        );
         const hasLake = countTiles(room, new Set(['~'])) > 0;
-        return hasNpcStructure || hasLake;
+        const hasStructuredDressing = countTiles(room, new Set(['G', 'M', 'S', 'A', 'N', 'U'])) > 0;
+        return hasNpcStructure || hasLake || hasStructuredDressing;
       }),
     ).toBe(true);
   });

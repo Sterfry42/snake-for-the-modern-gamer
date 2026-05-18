@@ -166,6 +166,7 @@ export class SnakeState {
     this.flags['internal.previousSnapshot'] = previousSnapshot;
 
     const bossManager = deps.getBossManager();
+    const cheatImmortal = Boolean(this.flags['cheat.immortal']);
     const currentHeadBeforeMove = this.body[0];
     const pullDirection = currentHeadBeforeMove
       ? bossManager.getPullFor(currentHeadBeforeMove, this.roomId, Math.random)
@@ -181,7 +182,7 @@ export class SnakeState {
     const safeZoneActive = this.isInSafeZone(currentRoom, currentHeadBeforeMove);
 
     // If we're in a safe zone, gently steer away from walls instead of dying
-    if (safeZoneActive) {
+    if (safeZoneActive && !cheatImmortal) {
       const tryDirs = [
         this.direction,
         { x: -this.direction.y, y: this.direction.x }, // left
@@ -264,7 +265,7 @@ export class SnakeState {
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
     const invulnTicks = Number(this.flags['fortitude.invulnerabilityTicks'] ?? 0);
-    const wallInvulnTicks = Math.max(invulnTicks, safeZoneActive ? 1 : 0);
+    const wallInvulnTicks = Math.max(invulnTicks, safeZoneActive ? 1 : 0, cheatImmortal ? 1 : 0);
     if (tile === '#') {
       if (wallInvulnTicks > 0) {
         // Invulnerability lets us phase through the wall.
@@ -275,7 +276,7 @@ export class SnakeState {
         return { status: 'dead', reason: 'wall' };
       }
     }
-    if (tile === '~' && !this.flags['equipment.swimmingEnabled']) {
+    if (tile === '~' && !this.flags['equipment.swimmingEnabled'] && !cheatImmortal) {
       this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
       return { status: 'dead', reason: 'water' };
     }
@@ -291,7 +292,9 @@ export class SnakeState {
       ? -1
       : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1 && !koiFlowActive) {
-      if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
+      if (cheatImmortal) {
+        // Immortal cheat phases through the body instead of slicing or dying.
+      } else if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
         const collidedSegment = bodyForSelfCollision[selfCollisionIndex];
@@ -309,7 +312,7 @@ export class SnakeState {
     }
 
     const collidedBoss = bossManager.getBossAtPosition(head, this.roomId);
-    if (collidedBoss && invulnTicks <= 0) {
+    if (collidedBoss && invulnTicks <= 0 && !cheatImmortal) {
       const smite = Number(this.flags['powerup.smiteTicks'] ?? 0);
       if (smite > 0) {
         // Kill the boss we collided with instead of dying

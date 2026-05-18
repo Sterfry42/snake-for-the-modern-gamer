@@ -56,6 +56,11 @@ export class AppleService {
       // Never spawn in the house
       return { snapshot: null, changed: false };
     }
+    const room = this.world.getRoom(roomId);
+    if (room.town || room.townPerimeter) {
+      this.clearApple(roomId);
+      return { snapshot: null, changed: false };
+    }
     const existing = this.apples.get(roomId);
     if (existing) {
       return { snapshot: existing.getSnapshot(), changed: false };
@@ -68,6 +73,10 @@ export class AppleService {
       return { snapshot: null, changed: false };
     }
     const room = this.world.getRoom(roomId);
+    if (room.town || room.townPerimeter) {
+      this.clearApple(roomId);
+      return { snapshot: null, changed: false };
+    }
     const spawnOptions = this.collectSpawnOptions(roomId, room.layout, snake);
     if (spawnOptions.length === 0) {
       return { snapshot: null, changed: false };

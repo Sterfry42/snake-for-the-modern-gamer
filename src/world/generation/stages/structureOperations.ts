@@ -6,10 +6,20 @@ import type { RoomSnapshot } from '../../types.js';
 import { tryPlaceVillage } from '../../village.js';
 import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
 import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
+import {
+  createTownDistrictRoom,
+  createPhysicalHumanTown,
+  stampTownBoundaryApproach,
+  stampTownBoundaryCorner,
+  type TownDistrictKind,
+} from '../../town.js';
 import { tryPlaceShrine } from '../../shrine.js';
 import { tryPlaceRamenStand } from '../../ramenStand.js';
 import { tryPlaceKoiPond } from '../../koiPond.js';
 import { tryPlaceTenguCamp } from '../../tenguCamp.js';
+import { cellsForEdgeRunup, mergeProtectedCells, type EdgeSide } from '../edgeAccess.js';
+import { HUMAN_TOWN_DISTRICTS, type MultiRoomStructureResolver } from '../townStructureResolver.js';
+import { formatRoomId } from '../multiRoomStructures.js';
 import type { RoomGenerationContext } from '../types.js';
 
 type SettlementKind =
@@ -32,14 +42,33 @@ const SHRINE_JADE_PEAK_CHANCE = 0.12;
 const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;
 const TENGU_CAMP_JADE_PEAK_CHANCE = 0.10;
 const SETTLEMENT_ANCHOR_SPACING = 5;
+const GUARANTEED_SETTLEMENT_KINDS = [
+  'village',
+  'goblin-camp',
+  'quest-house',
+  'shrine',
+  'ramen-stand',
+  'tengu-camp',
+] as const;
+const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house', 'shrine'] as const;
 
 export class StructureOperations {
   constructor(
     private readonly config: WorldConfig,
     private readonly rng: RandomGenerator,
+    private readonly structureResolver: MultiRoomStructureResolver,
   ) {}
 
   place(context: RoomGenerationContext): void {
+    if (context.townMembership?.role === 'inside' && context.townMembership.district) {
+      this.renderTownDistrict(context);
+      return;
+    }
+
+    if (context.townAdjacency) {
+      this.renderTownPerimeter(context);
+    }
+
     const canPlaceOptionalStructures =
       !context.isOcean && !context.isDenseForest && !this.isOriginRoom(context.roomId);
     const canPlaceOptionalLake =
@@ -51,8 +80,10 @@ export class StructureOperations {
 
     if (
       canPlaceOptionalStructures &&
+      !context.townAdjacency &&
       !context.village &&
       !context.goblinCamp &&
+      !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
       !context.shrine &&
@@ -66,6 +97,7 @@ export class StructureOperations {
       canPlaceOptionalLake &&
       !context.village &&
       !context.goblinCamp &&
+      !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
       !context.shrine &&
@@ -78,10 +110,16 @@ export class StructureOperations {
 
     if (
       canPlaceOptionalLake &&
+      !context.townAdjacency &&
       !context.koiPond &&
       !context.village &&
       !context.goblinCamp &&
-      !context.shrine
+      !context.town &&
+      !context.questGiver &&
+      !context.snakeMcDonalds &&
+      !context.shrine &&
+      !context.ramenStand &&
+      !context.tenguCamp
     ) {
       const koiChance = context.isJadePeak ? 0.12 : 0.03;
       if (this.rng() < koiChance) {
@@ -95,7 +133,17 @@ export class StructureOperations {
       }
     }
 
-    if (!context.village && !context.goblinCamp && !context.questGiver && !context.snakeMcDonalds) {
+    if (
+      !context.village &&
+      !context.goblinCamp &&
+      !context.town &&
+      !context.questGiver &&
+      !context.snakeMcDonalds &&
+      !context.shrine &&
+      !context.ramenStand &&
+      !context.koiPond &&
+      !context.tenguCamp
+    ) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
         context.layout,
         context.grid,
@@ -109,21 +157,21 @@ export class StructureOperations {
     forbiddenCells: ReadonlySet<string>,
     guaranteed: boolean,
   ): void {
-    const preferred = this.pickSettlementKind(guaranteed, context);
+    const openClearingGuarantee = guaranteed && context.archetype?.id === 'open-clearing';
+    const allowSpecial = !openClearingGuarantee;
+    const preferred = this.pickSettlementKind(guaranteed, context, allowSpecial);
     if (!preferred) {
       return;
     }
 
-    const fallbackKinds = [
-      'village',
-      'goblin-camp',
-      'quest-house',
-      'shrine',
-      'ramen-stand',
-      'tengu-camp',
-    ] as const;
     const attempts = guaranteed
-      ? [preferred, ...fallbackKinds.filter((kind) => kind !== preferred)]
+      ? [
+          preferred,
+          ...(openClearingGuarantee
+            ? OPEN_CLEARING_SETTLEMENT_KINDS
+            : GUARANTEED_SETTLEMENT_KINDS
+          ).filter((kind) => kind !== preferred),
+        ]
       : [preferred];
 
     for (const kind of attempts) {
@@ -136,10 +184,11 @@ export class StructureOperations {
   private pickSettlementKind(
     guaranteed: boolean,
     context: RoomGenerationContext,
+    allowSpecial = true,
   ): SettlementKind | null {
     const isJadePeak = context.palette.biomeId === 'jade-peak-province';
 
-    if (this.rng() < SNAKE_MC_DONALDS_CHANCE) {
+    if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE) {
       return 'snake-mcDonalds';
     }
 
@@ -195,13 +244,18 @@ export class StructureOperations {
       return null;
     }
 
-    if (roll < VILLAGE_CHANCE) {
+    let threshold = VILLAGE_CHANCE;
+    if (roll < threshold) {
       return 'village';
     }
-    if (roll < VILLAGE_CHANCE + GOBLIN_CAMP_CHANCE) {
+
+    threshold += GOBLIN_CAMP_CHANCE;
+    if (roll < threshold) {
       return 'goblin-camp';
     }
-    if (roll < VILLAGE_CHANCE + GOBLIN_CAMP_CHANCE + QUEST_HOUSE_CHANCE) {
+
+    threshold += QUEST_HOUSE_CHANCE;
+    if (roll < threshold) {
       return 'quest-house';
     }
     return null;
@@ -298,6 +352,130 @@ export class StructureOperations {
         context.tenguCamp = tenguCamp;
         return true;
       }
+    }
+  }
+
+  private renderTownDistrict(context: RoomGenerationContext): void {
+    const membership = context.townMembership;
+    if (!membership?.district) {
+      return;
+    }
+    const town = this.createTownForPlacement(context);
+    const room = createTownDistrictRoom({
+      town,
+      roomId: context.roomId,
+      districtKind: membership.district,
+      grid: context.grid,
+      biomeId: context.palette.biomeId,
+      biomeTitle: context.palette.biomeTitle,
+      backgroundColor: context.palette.backgroundColor,
+      wallColor: context.palette.wallColor,
+      wallOutlineColor: context.palette.wallOutlineColor,
+      connections: this.structureResolver.getTownConnections(context.roomId),
+    });
+    this.replaceLayout(context, room.layout);
+    context.town = room.town;
+    context.questGiver = undefined;
+    context.village = undefined;
+    context.goblinCamp = undefined;
+    context.snakeMcDonalds = undefined;
+    context.shrine = undefined;
+    context.ramenStand = undefined;
+    context.koiPond = undefined;
+    context.tenguCamp = undefined;
+  }
+
+  private renderTownPerimeter(context: RoomGenerationContext): void {
+    const adjacency = context.townAdjacency;
+    if (!adjacency) {
+      return;
+    }
+    const sides = adjacency.adjacentSidesFacingTown?.length
+      ? adjacency.adjacentSidesFacingTown
+      : adjacency.adjacentSideFacingTown
+        ? [adjacency.adjacentSideFacingTown]
+        : [];
+    const corners = adjacency.adjacentCornersFacingTown ?? [];
+    if (sides.length === 0 && corners.length === 0) {
+      return;
+    }
+    context.townPerimeter = {
+      townId: adjacency.placement.id,
+      sideFacingTown: adjacency.adjacentSideFacingTown,
+      sidesFacingTown: [...sides],
+      cornersFacingTown: [...corners],
+    };
+    const openingSide = adjacency.isEntranceApproach || adjacency.isExitApproach
+      ? adjacency.adjacentSideFacingTown
+      : undefined;
+    let rows = context.layout.map((row) => row.join(''));
+    for (const side of sides) {
+      rows = stampTownBoundaryApproach(rows, side, side === openingSide);
+    }
+    for (const corner of corners) {
+      rows = stampTownBoundaryCorner(rows, corner);
+    }
+    this.replaceLayout(context, rows);
+    if (openingSide) {
+      const plan = this.edgeAccessPlanForSide(
+        openingSide,
+        adjacency.isEntranceApproach ? 'townGate' : 'townExit',
+        context.grid,
+      );
+      context.reservedEdgeAccess = [...(context.reservedEdgeAccess ?? []), plan];
+      context.protectedCells = mergeProtectedCells(
+        context.protectedCells,
+        cellsForEdgeRunup(context.grid, plan),
+      );
+    }
+  }
+
+  private createTownForPlacement(context: RoomGenerationContext) {
+    const placement = context.townMembership?.placement ?? context.townAdjacency?.placement;
+    if (!placement) {
+      throw new Error('Cannot create town without a structure placement.');
+    }
+    const districtRoomIds: Record<string, TownDistrictKind> = {};
+    for (const [offset, district] of Object.entries(HUMAN_TOWN_DISTRICTS)) {
+      const [dx = 0, dy = 0] = offset.split(',').map(Number);
+      districtRoomIds[
+        formatRoomId({
+          x: placement.anchor.x + dx,
+          y: placement.anchor.y + dy,
+          z: placement.anchor.z,
+        })
+      ] = district;
+    }
+    return createPhysicalHumanTown({
+      biomeId: context.palette.biomeId,
+      seed: placement.seed,
+      townId: placement.id,
+      districtRoomIds,
+      entranceRoomId: formatRoomId(placement.anchor),
+      exitRoomIds: [formatRoomId({ x: placement.anchor.x + 2, y: placement.anchor.y + 3, z: placement.anchor.z })],
+    });
+  }
+
+  private edgeAccessPlanForSide(
+    side: EdgeSide,
+    reason: 'townGate' | 'townExit',
+    grid: GridConfig,
+  ) {
+    const horizontal = side === 'north' || side === 'south';
+    return {
+      side,
+      open: true,
+      openingCenter: horizontal ? Math.floor(grid.cols / 2) : Math.floor(grid.rows / 2),
+      openingWidth: 5,
+      runupDepth: 5,
+      reason,
+    };
+  }
+
+  private replaceLayout(context: RoomGenerationContext, rows: readonly string[]): void {
+    for (let y = 0; y < context.grid.rows; y += 1) {
+      const row = rows[y] ?? '.'.repeat(context.grid.cols);
+      context.layout[y] = row.split('');
     }
   }
 

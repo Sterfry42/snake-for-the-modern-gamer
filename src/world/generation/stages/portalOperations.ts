@@ -9,6 +9,9 @@ export class PortalOperations {
   ) {}
 
   place(context: RoomGenerationContext): void {
+    if (context.townMembership || context.townAdjacency) {
+      return;
+    }
     if (!this.config.ladder.enabled || this.rng() >= this.config.ladder.chance) {
       return;
     }

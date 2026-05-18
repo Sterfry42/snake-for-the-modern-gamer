@@ -23,6 +23,7 @@ export class JuiceManager {
   };
   private powerupMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private houseMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private townMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private heavenMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private hellMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private titleMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
@@ -1546,6 +1547,86 @@ export class JuiceManager {
       } catch {}
     }, 340);
     this.houseMusic = undefined;
+  }
+
+  startTownMusic(): void {
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+    if (this.townMusic) return;
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+    const root = this.ctx.createOscillator();
+    root.type = 'triangle';
+    root.frequency.value = 329.63;
+    const fifth = this.ctx.createOscillator();
+    fifth.type = 'sine';
+    fifth.frequency.value = 493.88;
+    const lilt = this.ctx.createOscillator();
+    lilt.type = 'square';
+    lilt.frequency.value = 5.4;
+    const bell = this.ctx.createOscillator();
+    bell.type = 'triangle';
+    bell.frequency.value = 659.25;
+    const rootGain = this.ctx.createGain();
+    rootGain.gain.value = 0.032;
+    const fifthGain = this.ctx.createGain();
+    fifthGain.gain.value = 0.03;
+    const liltGain = this.ctx.createGain();
+    liltGain.gain.value = 0.018;
+    const bellGain = this.ctx.createGain();
+    bellGain.gain.value = 0.018;
+    root.connect(rootGain);
+    fifth.connect(fifthGain);
+    lilt.connect(liltGain);
+    bell.connect(bellGain);
+    rootGain.connect(gain);
+    fifthGain.connect(gain);
+    bellGain.connect(gain);
+    liltGain.connect(fifthGain.gain);
+    liltGain.connect(bellGain.gain);
+    root.start(now);
+    fifth.start(now);
+    lilt.start(now);
+    bell.start(now);
+    try {
+      gain.gain.exponentialRampToValueAtTime(0.16, now + 0.35);
+    } catch {}
+    this.townMusic = { gain, sources: [root, fifth, lilt, bell], cleanup: [rootGain, fifthGain, liltGain, bellGain] };
+  }
+
+  stopTownMusic(): void {
+    if (!this.townMusic) return;
+    const { gain, sources, cleanup } = this.townMusic;
+    const now = this.ctx.currentTime;
+    try {
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.25);
+    } catch {}
+    for (const source of sources) {
+      try {
+        source.stop(now + 0.28);
+      } catch {}
+    }
+    globalThis.setTimeout(() => {
+      for (const source of sources) {
+        try {
+          source.disconnect();
+        } catch {}
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {}
+      }
+      try {
+        gain.disconnect();
+      } catch {}
+    }, 340);
+    this.townMusic = undefined;
   }
 
   startHeavenMusic(): void {

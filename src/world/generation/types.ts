@@ -1,5 +1,7 @@
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { RoomSnapshot } from '../types.js';
+import type { EdgeAccessPlan } from './edgeAccess.js';
+import type { TownRoomMembership } from './multiRoomStructures.js';
 import type { TerrainCanvas } from './terrainCanvas.js';
 
 export type RoomLayout = string[][];
@@ -46,12 +48,18 @@ export interface RoomGenerationContext {
   questGiver?: RoomSnapshot['questGiver'];
   village?: RoomSnapshot['village'];
   goblinCamp?: RoomSnapshot['goblinCamp'];
+  town?: RoomSnapshot['town'];
+  townPerimeter?: RoomSnapshot['townPerimeter'];
   snakeMcDonalds?: RoomSnapshot['snakeMcDonalds'];
   shrine?: RoomSnapshot['shrine'];
   ramenStand?: RoomSnapshot['ramenStand'];
   koiPond?: RoomSnapshot['koiPond'];
   tenguCamp?: RoomSnapshot['tenguCamp'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
+  townMembership?: TownRoomMembership | null;
+  townAdjacency?: TownRoomMembership | null;
+  reservedEdgeAccess?: EdgeAccessPlan[];
+  protectedCells?: ReadonlySet<string>;
   palette: RoomGenerationPalette;
   archetype?: RoomArchetype;
   isOcean: boolean;
@@ -69,6 +77,7 @@ export interface RoomGenerationOperations {
   createGenerationContext(roomId: string, grid: GridConfig): RoomGenerationContext;
   finalizeGenerationContext(context: RoomGenerationContext): RoomSnapshot;
   resolveBiomeMap(context: RoomGenerationContext): void;
+  resolveMultiRoomStructures(context: RoomGenerationContext): void;
   applyBiomeBaseTerrain(context: RoomGenerationContext): void;
   applyRoomArchetype(context: RoomGenerationContext): void;
   placeRandomObstacles(context: RoomGenerationContext): void;

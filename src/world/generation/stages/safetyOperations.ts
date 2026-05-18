@@ -1,5 +1,6 @@
 import { vectorKey } from '../../../core/math.js';
 import type { WorldConfig } from '../../../config/gameConfig.js';
+import { carveEdgeOpening } from '../edgeAccess.js';
 import type { RoomGenerationContext, SpawnGuard } from '../types.js';
 
 export class SafetyOperations {
@@ -41,6 +42,9 @@ export class SafetyOperations {
 
   validate(context: RoomGenerationContext): void {
     context.canvas.ensureHardEntranceRunups(5);
+    for (const plan of context.reservedEdgeAccess ?? []) {
+      carveEdgeOpening(context.layout, context.grid, plan);
+    }
     context.spawnGuard?.clear(context.canvas.layout);
   }
 

@@ -1,6 +1,7 @@
 import type { Vector2Like } from '../core/math.js';
 import type { NpcProfile } from '../npcs/profiles.js';
 import type { BiomeId } from './biomes.js';
+import type { TownStructure } from './town.js';
 
 export interface PortalConfig {
   x: number;
@@ -44,35 +45,42 @@ export interface RoomSnapshot {
     guards: Array<NpcProfile & { x: number; y: number }>;
     shopkeeper: NpcProfile & { x: number; y: number };
   };
-snakeMcDonalds?: {
-     cashier: {
-       name: string;
-       x: number;
-       y: number;
-     };
-     toilet: {
-       x: number;
-       y: number;
-     };
-     bounds: { left: number; top: number; width: number; height: number };
-   };
-   shrine?: {
-     maiden: NpcProfile & { x: number; y: number };
-     hasBlessings: boolean;
-   };
-   ramenStand?: {
-     chef: NpcProfile & { x: number; y: number };
-     sellsRamen: boolean;
-   };
-   koiPond?: {
-     center: Vector2Like;
-     waterTiles: Vector2Like[];
-   };
-   tenguCamp?: {
-     chieftain: NpcProfile & { x: number; y: number };
-     feathers: Vector2Like[];
-   };
-   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
+  town?: TownStructure;
+  townPerimeter?: {
+    townId: string;
+    sideFacingTown?: 'north' | 'south' | 'east' | 'west';
+    sidesFacingTown?: Array<'north' | 'south' | 'east' | 'west'>;
+    cornersFacingTown?: Array<'northWest' | 'northEast' | 'southWest' | 'southEast'>;
+  };
+  snakeMcDonalds?: {
+    cashier: {
+      name: string;
+      x: number;
+      y: number;
+    };
+    toilet: {
+      x: number;
+      y: number;
+    };
+    bounds: { left: number; top: number; width: number; height: number };
+  };
+  shrine?: {
+    maiden: NpcProfile & { x: number; y: number };
+    hasBlessings: boolean;
+  };
+  ramenStand?: {
+    chef: NpcProfile & { x: number; y: number };
+    sellsRamen: boolean;
+  };
+  koiPond?: {
+    center: Vector2Like;
+    waterTiles: Vector2Like[];
+  };
+  tenguCamp?: {
+    chieftain: NpcProfile & { x: number; y: number };
+    feathers: Vector2Like[];
+  };
+  temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   biomeId: BiomeId;
   biomeTitle: string;
   backgroundColor: number;

@@ -88,7 +88,7 @@ export class EnemyManager {
     if (roomId === '0,-1,0') {
       return;
     }
-    if (room.village) {
+    if (room.village || room.town || room.townPerimeter) {
       return;
     }
     if ((this.enemies.get(roomId)?.length ?? 0) > 0) {
@@ -853,7 +853,7 @@ export class EnemyManager {
   }
 
   private isDryEnemyTile(tile: string | undefined): boolean {
-    return tile === '.' || tile === 'O';
+    return Boolean(tile && '.OEWTSAMRUNPFLG'.includes(tile));
   }
 
   private toLocalOccupied(roomId: string, occupied: readonly Vector2Like[]): Vector2Like[] {

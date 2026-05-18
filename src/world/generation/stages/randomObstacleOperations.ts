@@ -10,7 +10,7 @@ export class RandomObstacleOperations {
   ) {}
 
   place(context: RoomGenerationContext): void {
-    if (context.archetype?.suppressRandomObstacles) {
+    if (context.archetype?.suppressRandomObstacles || context.townMembership || context.townAdjacency) {
       return;
     }
 
@@ -46,7 +46,8 @@ export class RandomObstacleOperations {
           if (context.layout[row]?.[col] !== '.') {
             continue;
           }
-          if (context.spawnGuard?.protected.has(vectorKey({ x: col, y: row }))) {
+          const key = vectorKey({ x: col, y: row });
+          if (context.spawnGuard?.protected.has(key) || context.protectedCells?.has(key)) {
             continue;
           }
           context.canvas.set(col, row, '#');

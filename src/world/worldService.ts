@@ -3,6 +3,8 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { RoomGenerator } from './roomGenerator.js';
 import type { RoomSnapshot } from './types.js';
+import { cloneTownForRoom, type TownStructure } from './town.js';
+import type { WorldGenerationIdentity } from './generation/worldGenerationIdentity.js';
 
 export class WorldService {
   private readonly rooms = new Map<string, RoomSnapshot>();
@@ -13,8 +15,9 @@ export class WorldService {
     private readonly grid: GridConfig,
     worldConfig: WorldConfig,
     rng: RandomGenerator,
+    identity?: WorldGenerationIdentity,
   ) {
-    this.generator = new RoomGenerator(worldConfig, rng);
+    this.generator = new RoomGenerator(grid, worldConfig, rng, identity);
     this.rng = rng;
   }
 
@@ -22,15 +25,16 @@ export class WorldService {
     if (!this.rooms.has(roomId)) {
       const room = this.generator.generate(roomId, this.grid);
       this.addReciprocalPortalsFromExistingRooms(room);
+      const suppressPickupSpawns = Boolean(room.town || room.townPerimeter);
       // Small chance to spawn a treasure chest in new rooms
-      if (this.rng() < 0.1) {
+      if (!suppressPickupSpawns && this.rng() < 0.1) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           room.treasure = spot;
         }
       }
       // Powerups: 10% chance to spawn in new rooms
-      if (this.rng() < 0.1) {
+      if (!suppressPickupSpawns && this.rng() < 0.1) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           const roll = this.rng();
@@ -97,6 +101,33 @@ export class WorldService {
 
   snapshot(): Map<string, RoomSnapshot> {
     return new Map(this.rooms);
+  }
+
+  updateTown(town: TownStructure): void {
+    for (const [roomId, room] of this.rooms) {
+      const districtKind = town.districtByRoomId[roomId];
+      if (room.town?.id === town.id && districtKind) {
+        const positionedResidents = room.town.residents;
+        const roomCenter = room.town.center;
+        const roomSafeArea = room.town.safeArea;
+        const roomLanterns = room.town.lanterns;
+        const next = cloneTownForRoom(town, roomId, districtKind);
+        next.center = { ...roomCenter };
+        next.safeArea = { ...roomSafeArea };
+        next.lanterns = roomLanterns.map((lantern) => ({ ...lantern }));
+        next.residents = next.residents.map((resident) => {
+          const positioned = positionedResidents.find((entry) => entry.id === resident.id);
+          return positioned ? { ...resident, x: positioned.x, y: positioned.y } : resident;
+        });
+        const positionedShopkeeper = positionedResidents.find(
+          (resident) => resident.id === next.shopkeeper.id,
+        );
+        next.shopkeeper = positionedShopkeeper
+          ? { ...next.shopkeeper, x: positionedShopkeeper.x, y: positionedShopkeeper.y }
+          : next.shopkeeper;
+        room.town = next;
+      }
+    }
   }
 
   private addReciprocalPortalsFromExistingRooms(room: RoomSnapshot): void {

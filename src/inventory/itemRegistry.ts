@@ -184,6 +184,18 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
   },
   {
+    id: 'stolen-signet',
+    name: 'Stolen Signet',
+    description: 'A warm ring with a family crest and a very recent absence.',
+    kind: 'consumable',
+  },
+  {
+    id: 'forged-town-permit',
+    name: 'Forged Town Permit',
+    description: 'Official-looking paper that becomes less official the longer anyone reads it.',
+    kind: 'consumable',
+  },
+  {
     id: 'ring-ledger',
     name: 'Ledger Ring',
     description:
