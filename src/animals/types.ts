@@ -1,6 +1,22 @@
 import type { Vector2Like } from '../core/math.js';
 
-export type AnimalType = 'rabbit' | 'fox' | 'wolf' | 'fish' | 'bird' | 'deer' | 'bear' | 'snake';
+export type AnimalType =
+  | 'rabbit'
+  | 'fox'
+  | 'wolf'
+  | 'fish'
+  | 'bird'
+  | 'deer'
+  | 'bear'
+  | 'snake'
+  | 'eagle'
+  | 'jackalope'
+  | 'raccoon'
+  | 'coyote'
+  | 'bison'
+  | 'bass'
+  | 'possum'
+  | 'armadillo';
 
 export interface DropEntry {
   itemId: string;

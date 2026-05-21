@@ -1,70 +1,26 @@
 import type { RuntimeSpriteRecipe } from '../runtimeSpriteFactory.js';
 
+type AnimalSpriteType =
+  | 'rabbit'
+  | 'fox'
+  | 'wolf'
+  | 'deer'
+  | 'bear'
+  | 'fish'
+  | 'bird'
+  | 'snake'
+  | 'eagle'
+  | 'jackalope'
+  | 'raccoon'
+  | 'coyote'
+  | 'bison'
+  | 'bass'
+  | 'possum'
+  | 'armadillo';
+type AnimalSpriteDirection = 'up' | 'down' | 'left' | 'right';
 export type AnimalSpriteVariant =
-  | 'rabbit-up'
-  | 'rabbit-down'
-  | 'rabbit-left'
-  | 'rabbit-right'
-  | 'rabbit-flash-up'
-  | 'rabbit-flash-down'
-  | 'rabbit-flash-left'
-  | 'rabbit-flash-right'
-  | 'fox-up'
-  | 'fox-down'
-  | 'fox-left'
-  | 'fox-right'
-  | 'fox-flash-up'
-  | 'fox-flash-down'
-  | 'fox-flash-left'
-  | 'fox-flash-right'
-  | 'wolf-up'
-  | 'wolf-down'
-  | 'wolf-left'
-  | 'wolf-right'
-  | 'wolf-flash-up'
-  | 'wolf-flash-down'
-  | 'wolf-flash-left'
-  | 'wolf-flash-right'
-  | 'deer-up'
-  | 'deer-down'
-  | 'deer-left'
-  | 'deer-right'
-  | 'deer-flash-up'
-  | 'deer-flash-down'
-  | 'deer-flash-left'
-  | 'deer-flash-right'
-  | 'bear-up'
-  | 'bear-down'
-  | 'bear-left'
-  | 'bear-right'
-  | 'bear-flash-up'
-  | 'bear-flash-down'
-  | 'bear-flash-left'
-  | 'bear-flash-right'
-  | 'fish-up'
-  | 'fish-down'
-  | 'fish-left'
-  | 'fish-right'
-  | 'fish-flash-up'
-  | 'fish-flash-down'
-  | 'fish-flash-left'
-  | 'fish-flash-right'
-  | 'bird-up'
-  | 'bird-down'
-  | 'bird-left'
-  | 'bird-right'
-  | 'bird-flash-up'
-  | 'bird-flash-down'
-  | 'bird-flash-left'
-  | 'bird-flash-right'
-  | 'snake-up'
-  | 'snake-down'
-  | 'snake-left'
-  | 'snake-right'
-  | 'snake-flash-up'
-  | 'snake-flash-down'
-  | 'snake-flash-left'
-  | 'snake-flash-right';
+  | `${AnimalSpriteType}-${AnimalSpriteDirection}`
+  | `${AnimalSpriteType}-flash-${AnimalSpriteDirection}`;
 
 export interface AnimalSpritePalette {
   bodyColor: string;
@@ -74,24 +30,31 @@ export interface AnimalSpritePalette {
   flashColor?: string;
 }
 
-const ALL_VARIANTS: readonly AnimalSpriteVariant[] = [
-  'rabbit-up', 'rabbit-down', 'rabbit-left', 'rabbit-right',
-  'rabbit-flash-up', 'rabbit-flash-down', 'rabbit-flash-left', 'rabbit-flash-right',
-  'fox-up', 'fox-down', 'fox-left', 'fox-right',
-  'fox-flash-up', 'fox-flash-down', 'fox-flash-left', 'fox-flash-right',
-  'wolf-up', 'wolf-down', 'wolf-left', 'wolf-right',
-  'wolf-flash-up', 'wolf-flash-down', 'wolf-flash-left', 'wolf-flash-right',
-  'deer-up', 'deer-down', 'deer-left', 'deer-right',
-  'deer-flash-up', 'deer-flash-down', 'deer-flash-left', 'deer-flash-right',
-  'bear-up', 'bear-down', 'bear-left', 'bear-right',
-  'bear-flash-up', 'bear-flash-down', 'bear-flash-left', 'bear-flash-right',
-  'fish-up', 'fish-down', 'fish-left', 'fish-right',
-  'fish-flash-up', 'fish-flash-down', 'fish-flash-left', 'fish-flash-right',
-  'bird-up', 'bird-down', 'bird-left', 'bird-right',
-  'bird-flash-up', 'bird-flash-down', 'bird-flash-left', 'bird-flash-right',
-  'snake-up', 'snake-down', 'snake-left', 'snake-right',
-  'snake-flash-up', 'snake-flash-down', 'snake-flash-left', 'snake-flash-right',
+const ANIMAL_SPRITE_TYPES: readonly AnimalSpriteType[] = [
+  'rabbit',
+  'fox',
+  'wolf',
+  'deer',
+  'bear',
+  'fish',
+  'bird',
+  'snake',
+  'eagle',
+  'jackalope',
+  'raccoon',
+  'coyote',
+  'bison',
+  'bass',
+  'possum',
+  'armadillo',
 ];
+const ANIMAL_DIRECTIONS: readonly AnimalSpriteDirection[] = ['up', 'down', 'left', 'right'];
+const ALL_VARIANTS: readonly AnimalSpriteVariant[] = ANIMAL_SPRITE_TYPES.flatMap((type) =>
+  ANIMAL_DIRECTIONS.flatMap((direction) => [
+    `${type}-${direction}` as AnimalSpriteVariant,
+    `${type}-flash-${direction}` as AnimalSpriteVariant,
+  ]),
+);
 
 function fillPixel(
   context: CanvasRenderingContext2D,
@@ -242,6 +205,49 @@ const BIRD_WING = [
   [5, 4],
 ] as const;
 
+const EAGLE_WINGS = [
+  [1, 3],
+  [2, 3],
+  [6, 3],
+  [7, 3],
+  [0, 4],
+  [1, 4],
+  [7, 4],
+  [8, 4],
+] as const;
+
+const JACKALOPE_ANTLERS = [
+  [2, 0],
+  [2, -1],
+  [3, 0],
+  [5, 0],
+  [6, 0],
+  [6, -1],
+] as const;
+
+const RACCOON_MASK = [
+  [2, 2],
+  [3, 2],
+  [5, 2],
+  [6, 2],
+] as const;
+
+const BISON_HORNS = [
+  [1, 1],
+  [2, 1],
+  [6, 1],
+  [7, 1],
+] as const;
+
+const ARMADILLO_SHELL = [
+  [2, 4],
+  [3, 4],
+  [4, 4],
+  [5, 4],
+  [3, 5],
+  [4, 5],
+] as const;
+
 const SNAKE_HEAD = [
   [1, 3],
   [2, 3],
@@ -312,6 +318,34 @@ export const animalSpriteRecipe: RuntimeSpriteRecipe<AnimalSpriteVariant, Animal
         break;
       case 'snake':
         drawPoints(SNAKE_HEAD, palette.outlineColor);
+        break;
+      case 'eagle':
+        drawPoints(EAGLE_WINGS, palette.accentColor);
+        drawPoints(BIRD_BEAK, palette.flashColor ?? '#ffaa00');
+        break;
+      case 'jackalope':
+        drawPoints(RABBIT_EARS, palette.outlineColor);
+        drawPoints(JACKALOPE_ANTLERS, palette.accentColor);
+        break;
+      case 'raccoon':
+        drawPoints(RACCOON_MASK, palette.outlineColor);
+        break;
+      case 'coyote':
+        drawPoints(FOX_NOSE, palette.accentColor);
+        break;
+      case 'bison':
+        drawPoints(BEAR_EARS, palette.outlineColor);
+        drawPoints(BISON_HORNS, palette.accentColor);
+        break;
+      case 'bass':
+        drawPoints(FISH_TAIL, palette.accentColor);
+        drawPoints(BIRD_WING, palette.outlineColor);
+        break;
+      case 'possum':
+        drawPoints(FOX_NOSE, palette.flashColor ?? palette.accentColor);
+        break;
+      case 'armadillo':
+        drawPoints(ARMADILLO_SHELL, palette.accentColor);
         break;
     }
 

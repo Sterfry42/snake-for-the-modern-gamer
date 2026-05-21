@@ -17,6 +17,10 @@ const PREDATOR_PREY_RELATIONS: PredatorPreyRelation[] = [
   { predator: 'bear', prey: 'rabbit', huntRange: 3 },
   { predator: 'snake', prey: 'rabbit', huntRange: 3 },
   { predator: 'snake', prey: 'snake', huntRange: 2 },
+  { predator: 'eagle', prey: 'jackalope', huntRange: 4 },
+  { predator: 'coyote', prey: 'jackalope', huntRange: 4 },
+  { predator: 'coyote', prey: 'possum', huntRange: 3 },
+  { predator: 'snake', prey: 'possum', huntRange: 2 },
 ];
 
 export function createEcologySystem(): EcologySystem {

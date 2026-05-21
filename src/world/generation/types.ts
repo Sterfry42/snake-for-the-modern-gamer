@@ -32,7 +32,13 @@ export type RoomArchetypeId =
   | 'shrine-courtyard'
   | 'onsen-village'
   | 'mountain-pass'
-  | 'tatami-dojo';
+  | 'tatami-dojo'
+  | 'firework-field'
+  | 'billboard-maze'
+  | 'monument-plaza'
+  | 'motel-pool-ruins'
+  | 'interstate-cut'
+  | 'gridiron-yard';
 
 export interface RoomArchetype {
   id: RoomArchetypeId;
@@ -54,7 +60,15 @@ export interface RoomGenerationContext {
   shrine?: RoomSnapshot['shrine'];
   ramenStand?: RoomSnapshot['ramenStand'];
   koiPond?: RoomSnapshot['koiPond'];
+  motelPool?: RoomSnapshot['motelPool'];
   tenguCamp?: RoomSnapshot['tenguCamp'];
+  roadsideMonument?: RoomSnapshot['roadsideMonument'];
+  allNiteDiner?: RoomSnapshot['allNiteDiner'];
+  fireworkStand?: RoomSnapshot['fireworkStand'];
+  jackalopeLodge?: RoomSnapshot['jackalopeLodge'];
+  gridironYard?: RoomSnapshot['gridironYard'];
+  billboardOracle?: RoomSnapshot['billboardOracle'];
+  roadCrew?: RoomSnapshot['roadCrew'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   townMembership?: TownRoomMembership | null;
   townAdjacency?: TownRoomMembership | null;
@@ -65,6 +79,7 @@ export interface RoomGenerationContext {
   isOcean: boolean;
   isDenseForest: boolean;
   isJadePeak: boolean;
+  isLibertyBadlands: boolean;
   spawnGuard: SpawnGuard | null;
 }
 

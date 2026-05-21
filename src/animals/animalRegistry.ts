@@ -7,6 +7,14 @@ import fishDef from './definitions/fish.js';
 import birdDef from './definitions/bird.js';
 import bearDef from './definitions/bear.js';
 import snakeAnimalDef from './definitions/snakeAnimal.js';
+import eagleDef from './definitions/eagle.js';
+import jackalopeDef from './definitions/jackalope.js';
+import raccoonDef from './definitions/raccoon.js';
+import coyoteDef from './definitions/coyote.js';
+import bisonDef from './definitions/bison.js';
+import bassDef from './definitions/bass.js';
+import possumDef from './definitions/possum.js';
+import armadilloDef from './definitions/armadillo.js';
 
 const ALL_DEFINITIONS: readonly AnimalDefinition[] = [
   rabbitDef,
@@ -17,6 +25,14 @@ const ALL_DEFINITIONS: readonly AnimalDefinition[] = [
   birdDef,
   bearDef,
   snakeAnimalDef,
+  eagleDef,
+  jackalopeDef,
+  raccoonDef,
+  coyoteDef,
+  bisonDef,
+  bassDef,
+  possumDef,
+  armadilloDef,
 ];
 
 const DEFINITION_MAP = new Map<string, AnimalDefinition>(

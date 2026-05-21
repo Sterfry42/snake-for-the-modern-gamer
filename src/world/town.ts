@@ -258,6 +258,15 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'sunken-ocean': ['Pearlford', 'Foamgate', 'Saltwick', 'Tide Toll', 'Brinemarket'],
   'home-hearth': ['Hearthwick', 'Cinderhome', 'Lampford', 'Quiet Gate', 'Warmmarket'],
   'jade-peak-province': ['Jadeford', 'Mistgate', 'Cedar Toll', 'Koiwick', 'Shrinemarket'],
+  'liberty-badlands': [
+    'Pie Junction',
+    'Bellrock',
+    'Eaglegate',
+    'Cactus Toll',
+    'Griddleford',
+    'Monument Bend',
+    'Vacancy Wells',
+  ],
 };
 
 const HUMAN_NAMES = [

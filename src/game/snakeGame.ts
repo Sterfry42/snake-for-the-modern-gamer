@@ -79,6 +79,17 @@ import type {
   RelationshipTalkResult,
 } from '../relationships/relationshipTypes.js';
 
+export interface FootballInstance {
+  id: string;
+  roomId: string;
+  position: Vector2Like;
+  direction: Vector2Like;
+  age: number;
+  maxAge: number;
+  state: 'flying' | 'grounded' | 'returning';
+  target?: Vector2Like;
+}
+
 type StagedQuestStage =
   | 'visit-offices'
   | 'return-to-giver'
@@ -452,6 +463,8 @@ export class SnakeGame implements QuestRuntime {
 
   private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
   private worldGenerationIdentity: WorldGenerationIdentity;
+  private readonly footballs = new Map<string, FootballInstance[]>();
+  private footballIdCounter = 0;
 
   constructor(
     config: GameConfig = defaultGameConfig,
@@ -491,6 +504,8 @@ export class SnakeGame implements QuestRuntime {
     this.snake.reset(this.config.world.originRoomId);
     this.bosses.clearAll();
     this.enemies.clearAll();
+    this.footballs.clear();
+    this.footballIdCounter = 0;
     this.animals.clearAll();
     this.questController.reset(this);
     this.inventory.clear();
@@ -514,6 +529,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('player.temperatureLastTickMs', 0);
     this.setFlag('player.temperatureHazard', undefined);
     this.setFlag('equipment.gunEnabled', undefined);
+    this.setFlag('equipment.libertyFootballCharges', undefined);
     this.setFlag('equipment.itemPhoenixCharges', undefined);
     this.setFlag('equipment.heatResistance', undefined);
     this.setFlag('equipment.coldResistance', undefined);
@@ -531,6 +547,10 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
     this.setFlag('ui.wandererReveal', undefined);
     this.setFlag('ui.playerShot', undefined);
+    this.setFlag('ui.footballCatch', undefined);
+    this.setFlag('ui.footballFumble', undefined);
+    this.setFlag('ui.footballPass', undefined);
+    this.setFlag('ui.libertyLandmarkReveal', undefined);
     this.setFlag('ui.playerHit', undefined);
     this.setFlag('ui.villageReveal', undefined);
     this.setFlag('ui.townReveal', undefined);
@@ -679,10 +699,12 @@ export class SnakeGame implements QuestRuntime {
             y: newRoom.town.center.y,
           });
         }
+        this.queueLibertyLandmarkReveal(newRoomId, newRoom);
         this.handleGoblinCampEntered(newRoomId, newRoom);
       } else {
         const newRoom = this.world.getRoom(newRoomId);
         this.revealBiomeIfChanged(newRoomId, newRoom);
+        this.queueLibertyLandmarkReveal(newRoomId, newRoom);
         this.handleGoblinCampEntered(newRoomId, newRoom);
       }
       const transitionedRoom = this.world.getRoom(newRoomId);
@@ -769,6 +791,10 @@ export class SnakeGame implements QuestRuntime {
     if (wallEaten) {
       this.handleWallEaten(wallEaten, roomsChanged);
       this.setFlag('geometry.wallEaten', undefined);
+    }
+
+    if (currentHead) {
+      this.stepFootballs(currentHead, roomsChanged);
     }
 
     if (this.getFlag<boolean>('geometry.faultLineEnabled') && currentHead) {
@@ -889,6 +915,12 @@ export class SnakeGame implements QuestRuntime {
       const appleScore = Math.max(0, consumption.rewards.bonusScore - appleScorePenalty);
       if (appleScore > 0) {
         this.addScore(appleScore * appleScoreMultiplier);
+      }
+      const libertyAppleBonus = Number(this.getFlag<number>('liberty.nextAppleBonus') ?? 0);
+      if (libertyAppleBonus > 0) {
+        this.addScore(libertyAppleBonus);
+        this.setFlag('liberty.nextAppleBonus', undefined);
+        this.setFlag('ui.questInteraction', { message: `Liberty sparkle bonus: +${libertyAppleBonus} score.` });
       }
 
       const extraGrowth = Math.max(0, consumption.rewards.growth - 1);
@@ -1546,6 +1578,216 @@ export class SnakeGame implements QuestRuntime {
       dangerLevel: biome.dangerLevel,
     });
     this.setFlag('ui.lastBiomeId', room.biomeId);
+  }
+
+  private queueLibertyLandmarkReveal(roomId: string, room: RoomSnapshot): void {
+    if (room.biomeId !== 'liberty-badlands') {
+      return;
+    }
+    const reveal = this.getLibertyLandmarkReveal(room);
+    if (!reveal) {
+      return;
+    }
+    const key = `ui.libertyLandmarkRevealed.${roomId}.${reveal.kind}`;
+    if (this.getFlag<boolean>(key)) {
+      return;
+    }
+    this.setFlag(key, true);
+    this.setFlag('ui.libertyLandmarkReveal', {
+      roomId,
+      ...reveal,
+    });
+  }
+
+  private getLibertyLandmarkReveal(room: RoomSnapshot):
+    | {
+        name: string;
+        subtitle: string;
+        x: number;
+        y: number;
+        kind: string;
+      }
+    | null {
+    if (room.allNiteDiner) {
+      return {
+        name: room.allNiteDiner.dinerName,
+        subtitle: 'All-Nite Diner',
+        x: room.allNiteDiner.cook.x,
+        y: room.allNiteDiner.cook.y,
+        kind: 'diner',
+      };
+    }
+    if (room.fireworkStand) {
+      return {
+        name: room.fireworkStand.standName,
+        subtitle: 'Firework Stand',
+        x: room.fireworkStand.vendor.x,
+        y: room.fireworkStand.vendor.y,
+        kind: 'fireworks',
+      };
+    }
+    if (room.roadsideMonument) {
+      return {
+        name: room.roadsideMonument.monumentName,
+        subtitle: 'Roadside Monument',
+        x: room.roadsideMonument.docent.x,
+        y: room.roadsideMonument.docent.y,
+        kind: 'monument',
+      };
+    }
+    if (room.jackalopeLodge) {
+      return {
+        name: room.jackalopeLodge.lodgeName,
+        subtitle: 'Jackalope Lodge',
+        x: room.jackalopeLodge.elder.x,
+        y: room.jackalopeLodge.elder.y,
+        kind: 'lodge',
+      };
+    }
+    if (room.motelPool) {
+      return {
+        name: room.motelPool.poolName,
+        subtitle: 'Motel Pool',
+        x: room.motelPool.clerk.x,
+        y: room.motelPool.clerk.y,
+        kind: 'motelPool',
+      };
+    }
+    if (room.gridironYard) {
+      return {
+        name: room.gridironYard.fieldName,
+        subtitle: 'Gridiron Yard',
+        x: room.gridironYard.coach.x,
+        y: room.gridironYard.coach.y,
+        kind: 'gridiron',
+      };
+    }
+    if (room.billboardOracle) {
+      return {
+        name: room.billboardOracle.slogan,
+        subtitle: 'Billboard Prophecy',
+        x: room.billboardOracle.signPainter.x,
+        y: room.billboardOracle.signPainter.y,
+        kind: 'billboard',
+      };
+    }
+    if (room.roadCrew) {
+      return {
+        name: room.roadCrew.roadName,
+        subtitle: 'Roadside Assistance',
+        x: room.roadCrew.ranger.x,
+        y: room.roadCrew.ranger.y,
+        kind: 'roadCrew',
+      };
+    }
+    return null;
+  }
+
+  stepFootballs(
+    headWorld: Vector2Like = this.snake.bodySegments[0] ?? { x: 0, y: 0 },
+    roomsChanged: Set<string> = new Set<string>(),
+  ): void {
+    const roomId = this.snake.currentRoomId;
+    const room = this.world.getRoom(roomId);
+    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
+    const headLocal = {
+      x: headWorld.x - roomX * this.config.grid.cols,
+      y: headWorld.y - roomY * this.config.grid.rows,
+    };
+    const footballs = this.footballs.get(roomId) ?? [];
+    if (footballs.length === 0) {
+      return;
+    }
+
+    const nextFootballs: FootballInstance[] = [];
+    for (const football of footballs) {
+      if (football.position.x === headLocal.x && football.position.y === headLocal.y) {
+        this.completeFootballCatch(roomId, headLocal);
+        roomsChanged.add(roomId);
+        continue;
+      }
+
+      const aged = { ...football, age: football.age + 1 };
+      if (aged.age > aged.maxAge) {
+        continue;
+      }
+
+      if (aged.state === 'grounded') {
+        nextFootballs.push(aged);
+        continue;
+      }
+
+      const nextPosition = {
+        x: aged.position.x + aged.direction.x,
+        y: aged.position.y + aged.direction.y,
+      };
+      if (!this.isCatchableFootballTile(room, nextPosition)) {
+        this.setFlag('ui.footballFumble', { roomId, x: aged.position.x, y: aged.position.y });
+        nextFootballs.push({ ...aged, state: 'grounded', age: 0, maxAge: 3 });
+        roomsChanged.add(roomId);
+        continue;
+      }
+
+      if (nextPosition.x === headLocal.x && nextPosition.y === headLocal.y) {
+        this.completeFootballCatch(roomId, headLocal);
+        roomsChanged.add(roomId);
+        continue;
+      }
+
+      const receiver = this.findGridironReceiverAt(room, nextPosition);
+      if (receiver && aged.state !== 'returning') {
+        const returnDirection = this.resolveStepDirection(nextPosition, headLocal);
+        nextFootballs.push({
+          ...aged,
+          position: nextPosition,
+          direction: returnDirection,
+          state: 'returning',
+          target: headLocal,
+          age: 0,
+          maxAge: 9,
+        });
+        this.setFlag('ui.footballPass', {
+          roomId,
+          from: nextPosition,
+          to: headLocal,
+        });
+        roomsChanged.add(roomId);
+        continue;
+      }
+
+      nextFootballs.push({ ...aged, position: nextPosition });
+      roomsChanged.add(roomId);
+    }
+
+    if (nextFootballs.length > 0) {
+      this.footballs.set(roomId, nextFootballs);
+    } else {
+      this.footballs.delete(roomId);
+    }
+  }
+
+  private isCatchableFootballTile(room: RoomSnapshot, position: Vector2Like): boolean {
+    return (
+      position.x >= 0 &&
+      position.x < this.config.grid.cols &&
+      position.y >= 0 &&
+      position.y < this.config.grid.rows &&
+      room.layout[position.y]?.[position.x] !== '#'
+    );
+  }
+
+  private findGridironReceiverAt(room: RoomSnapshot, position: Vector2Like): Vector2Like | null {
+    const actors = room.gridironYard ? [room.gridironYard.coach, ...room.gridironYard.players] : [];
+    return actors.find((actor) => actor.x === position.x && actor.y === position.y) ?? null;
+  }
+
+  private resolveStepDirection(from: Vector2Like, to: Vector2Like): Vector2Like {
+    const dx = to.x - from.x;
+    const dy = to.y - from.y;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      return { x: Math.sign(dx), y: 0 };
+    }
+    return { x: 0, y: Math.sign(dy) };
   }
 
   private recordRoomTravelMetrics(previousRoom: string): void {
@@ -2817,6 +3059,75 @@ export class SnakeGame implements QuestRuntime {
     return this.enemies.getBulletsInRoom(roomId);
   }
 
+  getFootballs(roomId: string): readonly FootballInstance[] {
+    return this.footballs.get(roomId) ?? [];
+  }
+
+  spawnFootball(
+    roomId: string,
+    origin: Vector2Like,
+    direction: Vector2Like,
+    options: Partial<Pick<FootballInstance, 'state' | 'target' | 'maxAge'>> = {},
+  ): FootballInstance | null {
+    const spawn = {
+      x: origin.x + direction.x,
+      y: origin.y + direction.y,
+    };
+    const room = this.world.getRoom(roomId);
+    if (!this.isCatchableFootballTile(room, spawn)) {
+      return null;
+    }
+    const football: FootballInstance = {
+      id: `football-${this.footballIdCounter++}`,
+      roomId,
+      position: spawn,
+      direction,
+      age: 0,
+      maxAge: options.maxAge ?? 9,
+      state: options.state ?? 'flying',
+      target: options.target,
+    };
+    const footballs = this.footballs.get(roomId) ?? [];
+    footballs.push(football);
+    this.footballs.set(roomId, footballs);
+    this.setFlag('ui.footballPass', {
+      roomId,
+      from: origin,
+      to: spawn,
+    });
+    return football;
+  }
+
+  catchFootball(roomId: string, localPosition: Vector2Like): boolean {
+    const footballs = this.footballs.get(roomId) ?? [];
+    const target = footballs.find(
+      (football) => football.position.x === localPosition.x && football.position.y === localPosition.y,
+    );
+    if (!target) {
+      return false;
+    }
+    this.footballs.set(
+      roomId,
+      footballs.filter((football) => football.id !== target.id),
+    );
+    this.completeFootballCatch(roomId, localPosition);
+    return true;
+  }
+
+  private completeFootballCatch(roomId: string, localPosition: Vector2Like): number {
+    const caffeine = Number(this.getFlag<number>('liberty.caffeineCatches') ?? 0);
+    const bonusScore = caffeine > 0 ? 30 : 15;
+    this.addScore(bonusScore);
+    this.setFlag('liberty.caffeineCatches', caffeine > 0 ? caffeine - 1 : undefined);
+    this.setFlag('ui.footballCatch', {
+      roomId,
+      x: localPosition.x,
+      y: localPosition.y,
+      score: bonusScore,
+    });
+    return bonusScore;
+  }
+
   getPlayerHealth(): { current: number; max: number } {
     return {
       current: Number(this.getFlag<number>('player.health') ?? 3),
@@ -3024,7 +3335,9 @@ export class SnakeGame implements QuestRuntime {
     const active = this.powerupState;
     const hasGunEquipped = Boolean(this.getFlag<boolean>('equipment.gunEnabled'));
     const hasLegacyGunPowerup = Boolean(active && active.kind === 'gun' && active.remaining > 0);
-    if (!hasGunEquipped && !hasLegacyGunPowerup) {
+    const footballCharges = Number(this.getFlag<number>('equipment.libertyFootballCharges') ?? 0);
+    const hasFootball = footballCharges > 0;
+    if (!hasGunEquipped && !hasLegacyGunPowerup && !hasFootball) {
       return false;
     }
     const head = this.snake.bodySegments[0];
@@ -3037,6 +3350,22 @@ export class SnakeGame implements QuestRuntime {
       y: head.y - roomY * this.config.grid.rows,
     };
     const room = this.world.getRoom(this.snake.currentRoomId);
+    if (hasFootball && !hasGunEquipped && !hasLegacyGunPowerup) {
+      const football = this.spawnFootball(this.snake.currentRoomId, localHead, direction);
+      if (!football) {
+        return false;
+      }
+      this.setFlag('equipment.libertyFootballCharges', Math.max(0, footballCharges - 1));
+      this.setFlag('ui.playerShot', {
+        x: head.x,
+        y: head.y,
+        roomId: this.snake.currentRoomId,
+        dx: direction.x,
+        dy: direction.y,
+        style: 'football',
+      });
+      return true;
+    }
     const giver = room.questGiver;
     if (giver && this.isNpcInLineOfFire(room, localHead, direction, { x: giver.x, y: giver.y })) {
       this.angerNpc(this.snake.currentRoomId, 'shot');
@@ -3069,12 +3398,16 @@ export class SnakeGame implements QuestRuntime {
     }
     const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
     if (fired) {
+      if (hasFootball && !hasGunEquipped && !hasLegacyGunPowerup) {
+        this.setFlag('equipment.libertyFootballCharges', Math.max(0, footballCharges - 1));
+      }
       this.setFlag('ui.playerShot', {
         x: head.x,
         y: head.y,
         roomId: this.snake.currentRoomId,
         dx: direction.x,
         dy: direction.y,
+        style: hasFootball && !hasGunEquipped && !hasLegacyGunPowerup ? 'football' : 'bullet',
       });
     }
     return fired;

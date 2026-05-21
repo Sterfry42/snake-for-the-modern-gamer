@@ -9,7 +9,8 @@ export type BiomeId =
   | 'elderwood-maze'
   | 'sunken-ocean'
   | 'home-hearth'
-  | 'jade-peak-province';
+  | 'jade-peak-province'
+  | 'liberty-badlands';
 
 export interface BiomeDefinition {
   id: BiomeId;
@@ -272,6 +273,40 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     peakZThreshold: -2,
     peakColdRate: 1,
   },
+  'liberty-badlands': {
+    id: 'liberty-badlands',
+    title: 'Liberty Badlands',
+    temperature: 'Sunburnt',
+    dangerLevel: 5,
+    temperatureHazard: 'hot',
+    temperatureRate: 0.45,
+    hue: 6,
+    saturation: 0.38,
+    lightness: 0.22,
+    tintVariance: 0.032,
+    accentColor: 0x74b8ff,
+    enemyFireBias: 1,
+    enemyMoveBias: 1,
+    animalSpawnChance: 0.2,
+    animalSpawnBias: {
+      rabbit: 1,
+      deer: 1,
+      fox: 0,
+      bird: 1,
+      wolf: 0,
+      bear: 1,
+      fish: 1,
+      snake: 2,
+      eagle: 5,
+      jackalope: 5,
+      raccoon: 3,
+      coyote: 3,
+      bison: 2,
+      bass: 2,
+      possum: 3,
+      armadillo: 2,
+    },
+  },
 };
 
 function clamp01(value: number): number {
@@ -305,6 +340,9 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
   const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
   if (y >= -8 && y <= -5 && x >= -4 && x <= 2) {
     return BIOMES['jade-peak-province'];
+  }
+  if (x >= -10 && x <= -5 && y >= -8 && y <= -3) {
+    return BIOMES['liberty-badlands'];
   }
   if (z <= -1 || y >= 2) {
     return BIOMES['sable-depths'];

@@ -1336,6 +1336,70 @@ export class JuiceManager {
     });
   }
 
+  footballShot(worldX: number, worldY: number, dx: number, dy: number) {
+    this.playTone({ frequency: 180, frequencyEnd: 420, duration: 0.18, type: 'triangle', volume: 0.1 });
+    const startX = worldX + dx * 10;
+    const startY = worldY + dy * 10;
+    const ball = this.scene.add.ellipse(startX, startY, 12, 8, 0x8b4a24, 1).setDepth(31);
+    ball.setStrokeStyle(2, 0xf3eee2, 0.9);
+    this.overlayLayer.add(ball);
+    this.scene.tweens.add({
+      targets: ball,
+      x: startX + dx * 92,
+      y: startY + dy * 92 - 20,
+      scaleX: 1.9,
+      scaleY: 1.9,
+      angle: 540,
+      duration: 280,
+      ease: 'Cubic.easeOut',
+      yoyo: true,
+      onComplete: () => ball.destroy(),
+    });
+    this.spawnBurst(startX, startY, { colors: [0xf3eee2, 0x74b8ff], count: 8, radius: 14 });
+    this.flashLine(startX, startY, startX + dx * 48, startY + dy * 48 - 10, 0xf3eee2, 2, 140);
+  }
+
+  footballPass(fromX: number, fromY: number, toX: number, toY: number) {
+    this.playTone({ frequency: 220, frequencyEnd: 520, duration: 0.2, type: 'triangle', volume: 0.08 });
+    this.gridironCrowdRoar(toX, toY);
+    const ball = this.scene.add.ellipse(fromX, fromY, 10, 7, 0x8b4a24, 1).setDepth(32);
+    ball.setStrokeStyle(2, 0xf3eee2, 0.9);
+    this.overlayLayer.add(ball);
+    const state = { t: 0 };
+    this.scene.tweens.add({
+      targets: state,
+      t: 1,
+      duration: 720,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        const t = state.t;
+        const arc = Math.sin(Math.PI * t);
+        ball.setPosition(
+          Phaser.Math.Linear(fromX, toX, t),
+          Phaser.Math.Linear(fromY, toY, t) - arc * 96,
+        );
+        ball.setScale(1 + arc * 1.75);
+        ball.setAngle(t * 720);
+      },
+      onComplete: () => {
+        this.spawnBurst(toX, toY, { colors: [0xf3eee2, 0x74b8ff, 0xb5362f], count: 14, radius: 18 });
+        ball.destroy();
+      },
+    });
+  }
+
+  footballCatch(worldX: number, worldY: number) {
+    this.playTone({ frequency: 330, frequencyEnd: 660, duration: 0.14, type: 'triangle', volume: 0.08 });
+    this.ringPulse(worldX, worldY, 0xf3eee2, 8, 2, 220);
+    this.spawnBurst(worldX, worldY, { colors: [0x8b4a24, 0xf3eee2, 0x244f87], count: 10, radius: 16 });
+  }
+
+  footballFumble(worldX: number, worldY: number) {
+    this.playTone({ frequency: 180, frequencyEnd: 120, duration: 0.12, type: 'sawtooth', volume: 0.045 });
+    this.ringPulse(worldX, worldY, 0x8b4a24, 5, 1, 180);
+    this.spawnBurst(worldX, worldY, { colors: [0x8b4a24, 0xd9b18c], count: 5, radius: 10 });
+  }
+
   playerHit(
     worldX: number,
     worldY: number,
@@ -2541,6 +2605,136 @@ export class JuiceManager {
       ease: 'Sine.easeOut',
       onComplete: () => haze.destroy(),
     });
+  }
+
+  eagleFlyover() {
+    const h = this.scene.scale.height;
+    const w = this.scene.scale.width;
+    const fromLeft = Math.random() < 0.5;
+    const startX = fromLeft ? -32 : w + 32;
+    const endX = fromLeft ? w + 32 : -32;
+    const y = Phaser.Math.Between(36, Math.max(64, Math.floor(h * 0.35)));
+    const eagle = this.scene.add
+      .text(startX, y, 'V', {
+        fontFamily: 'monospace',
+        fontSize: '24px',
+        color: '#f2f0df',
+        stroke: '#3a2414',
+        strokeThickness: 2,
+      })
+      .setDepth(27)
+      .setAlpha(0.82)
+      .setOrigin(0.5);
+    eagle.setRotation(fromLeft ? 0.35 : -0.35);
+    this.particleLayer.add(eagle);
+    this.playTone({ frequency: 880, frequencyEnd: 660, duration: 0.18, type: 'triangle', volume: 0.045 });
+    this.scene.tweens.add({
+      targets: eagle,
+      x: endX,
+      y: y + Phaser.Math.Between(-12, 18),
+      alpha: 0,
+      duration: 2600,
+      ease: 'Sine.easeInOut',
+      onComplete: () => eagle.destroy(),
+    });
+  }
+
+  dustDevil(worldX: number, worldY: number) {
+    for (let i = 0; i < 9; i += 1) {
+      const dot = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-8, 8),
+        worldY + Phaser.Math.Between(-10, 10),
+        Phaser.Math.Between(1, 3),
+        Phaser.Utils.Array.GetRandom([0xb75a3c, 0xc99b6b, 0xe4d0b0]),
+        0.22,
+      );
+      dot.setDepth(24);
+      this.particleLayer.add(dot);
+      this.scene.tweens.add({
+        targets: dot,
+        x: worldX + Phaser.Math.Between(-18, 18),
+        y: worldY - Phaser.Math.Between(12, 32),
+        alpha: 0,
+        scale: 0.5,
+        duration: 900 + Math.random() * 500,
+        ease: 'Sine.easeOut',
+        onComplete: () => dot.destroy(),
+      });
+    }
+  }
+
+  tumbleweed() {
+    const h = this.scene.scale.height;
+    const w = this.scene.scale.width;
+    const fromLeft = Math.random() < 0.5;
+    const startX = fromLeft ? -20 : w + 20;
+    const endX = fromLeft ? w + 20 : -20;
+    const y = Phaser.Math.Between(Math.floor(h * 0.42), h - 28);
+    const weed = this.scene.add.circle(startX, y, 8, 0xb8865e, 0.35).setDepth(24);
+    weed.setStrokeStyle(2, 0x6f4628, 0.45);
+    this.particleLayer.add(weed);
+    this.scene.tweens.add({
+      targets: weed,
+      x: endX,
+      y: y + Phaser.Math.Between(-12, 12),
+      angle: fromLeft ? 720 : -720,
+      alpha: 0,
+      duration: 2600,
+      ease: 'Sine.easeInOut',
+      onComplete: () => weed.destroy(),
+    });
+  }
+
+  libertyHeatShimmer(worldX: number, worldY: number) {
+    const haze = this.scene.add.ellipse(worldX, worldY, 18, 8, 0xe8d0a8, 0.1);
+    haze.setDepth(24).setBlendMode(Phaser.BlendModes.ADD);
+    this.particleLayer.add(haze);
+    this.scene.tweens.add({
+      targets: haze,
+      x: worldX + Phaser.Math.Between(-10, 10),
+      y: worldY - Phaser.Math.Between(4, 12),
+      alpha: 0,
+      scaleX: 1.8,
+      duration: 760 + Math.random() * 320,
+      ease: 'Sine.easeOut',
+      onComplete: () => haze.destroy(),
+    });
+  }
+
+  neonFlicker(worldX: number, worldY: number) {
+    this.playTone({ frequency: 620, frequencyEnd: 700, duration: 0.07, type: 'sine', volume: 0.025 });
+    this.ringPulse(worldX, worldY, 0x8fd8ff, 5, 1, 150);
+    const glow = this.scene.add.rectangle(worldX, worldY, 22, 8, 0x5f8fbf, 0.28).setDepth(26);
+    glow.setBlendMode(Phaser.BlendModes.ADD);
+    this.particleLayer.add(glow);
+    this.scene.tweens.add({
+      targets: glow,
+      alpha: 0,
+      duration: 130,
+      ease: 'Sine.easeOut',
+      onComplete: () => glow.destroy(),
+    });
+  }
+
+  fireworkPop(worldX: number, worldY: number) {
+    this.playTone({ frequency: 520, frequencyEnd: 920, duration: 0.12, type: 'triangle', volume: 0.055 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xb5362f, 0xf3eee2, 0x5f8fbf],
+      count: 12,
+      radius: 20,
+    });
+  }
+
+  monumentSparkle(worldX: number, worldY: number) {
+    this.playTone({ frequency: 1046.5, duration: 0.08, type: 'sine', volume: 0.035 });
+    this.ringPulse(worldX, worldY, 0xf3eee2, 4, 1, 180);
+    this.spawnBurst(worldX, worldY, { colors: [0xf3eee2, 0x9ad1ff], count: 5, radius: 10 });
+  }
+
+  gridironCrowdRoar(worldX: number, worldY: number) {
+    this.playTone({ frequency: 110, frequencyEnd: 82, duration: 0.22, type: 'sawtooth', volume: 0.07 });
+    this.playTone({ frequency: 220, frequencyEnd: 180, duration: 0.18, type: 'triangle', volume: 0.035 });
+    this.ringPulse(worldX, worldY, 0xf3eee2, 12, 2, 240);
   }
 
   temperatureReliefPulse(worldX: number, worldY: number, kind: 'warm' | 'cool') {

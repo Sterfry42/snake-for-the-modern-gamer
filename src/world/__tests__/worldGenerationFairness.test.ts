@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { defaultGameConfig, type GridConfig } from '../../config/gameConfig.js';
 import { vectorKey } from '../../core/math.js';
 import { createRng } from '../../core/rng.js';
+import { getBiomeForRoom } from '../biomes.js';
 import { tryPlaceQuestHouse } from '../questHouse.js';
 import { RoomGenerator } from '../roomGenerator.js';
 import { SafetyOperations } from '../generation/stages/safetyOperations.js';
@@ -38,6 +39,7 @@ const FIXTURE_CENTERS: RoomCoord[] = [
   { x: 0, y: 2, z: 0 },
   { x: -3, y: 0, z: 0 },
   { x: 6, y: 0, z: 0 },
+  { x: -7, y: -6, z: 0 },
 ];
 
 function roomId(coord: RoomCoord): string {
@@ -390,5 +392,38 @@ describe('world generation fairness', () => {
 
     expect(ocean?.archetypeId).toBe('ocean');
     expect(denseForest?.archetypeId).toBe('dense-forest');
+  });
+
+  it('maps Liberty Badlands into the intended southwest coordinate band', () => {
+    expect(getBiomeForRoom('-7,-6,0').id).toBe('liberty-badlands');
+    expect(getBiomeForRoom('-5,-3,0').id).toBe('liberty-badlands');
+    expect(getBiomeForRoom('-4,-6,0').id).toBe('jade-peak-province');
+  });
+
+  it('generates Liberty Badlands archetypes and signature structures across its region', () => {
+    const rooms = generateArea('liberty-badlands-sanity', -10, -5, -8, -3);
+    const libertyRooms = [...rooms.values()].filter((room) => room.biomeId === 'liberty-badlands');
+    const archetypes = new Set(libertyRooms.map((room) => room.archetypeId));
+
+    expect(libertyRooms.length).toBeGreaterThan(0);
+    expect(archetypes.has('billboard-maze')).toBe(true);
+    expect(archetypes.has('firework-field')).toBe(true);
+    expect(archetypes.has('monument-plaza')).toBe(true);
+    expect(archetypes.has('motel-pool-ruins')).toBe(true);
+    expect(archetypes.has('interstate-cut')).toBe(true);
+    expect(
+      libertyRooms.some(
+        (room) =>
+          room.allNiteDiner ||
+          room.roadsideMonument ||
+          room.fireworkStand ||
+          room.jackalopeLodge ||
+          room.koiPond ||
+          room.motelPool ||
+          room.billboardOracle ||
+          room.roadCrew ||
+          room.gridironYard,
+      ),
+    ).toBe(true);
   });
 });

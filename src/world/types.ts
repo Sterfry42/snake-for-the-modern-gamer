@@ -76,9 +76,53 @@ export interface RoomSnapshot {
     center: Vector2Like;
     waterTiles: Vector2Like[];
   };
+  motelPool?: {
+    clerk: NpcProfile & { x: number; y: number };
+    maintenance: NpcProfile & { x: number; y: number };
+    poolName: string;
+    center: Vector2Like;
+    waterTiles: Vector2Like[];
+  };
   tenguCamp?: {
     chieftain: NpcProfile & { x: number; y: number };
     feathers: Vector2Like[];
+  };
+  roadsideMonument?: {
+    docent: NpcProfile & { x: number; y: number };
+    ranger: NpcProfile & { x: number; y: number };
+    hasBlessings: boolean;
+    monumentName: string;
+  };
+  allNiteDiner?: {
+    cook: NpcProfile & { x: number; y: number };
+    waitress: NpcProfile & { x: number; y: number };
+    regular: NpcProfile & { x: number; y: number };
+    sellsFood: true;
+    dinerName: string;
+  };
+  fireworkStand?: {
+    vendor: NpcProfile & { x: number; y: number };
+    inspector: NpcProfile & { x: number; y: number };
+    sellsFireworks: true;
+    standName: string;
+  };
+  jackalopeLodge?: {
+    elder: NpcProfile & { x: number; y: number };
+    witnesses: Array<NpcProfile & { x: number; y: number }>;
+    lodgeName: string;
+  };
+  gridironYard?: {
+    coach: NpcProfile & { x: number; y: number };
+    players: Array<NpcProfile & { x: number; y: number }>;
+    fieldName: string;
+  };
+  billboardOracle?: {
+    signPainter: NpcProfile & { x: number; y: number };
+    slogan: string;
+  };
+  roadCrew?: {
+    ranger: NpcProfile & { x: number; y: number };
+    roadName: string;
   };
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   biomeId: BiomeId;

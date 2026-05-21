@@ -68,6 +68,7 @@ import type {
   RelationshipEventResult,
   RelationshipSpecies,
 } from '../relationships/relationshipTypes.js';
+import { getLibertyNpcLine, type LibertyNpcRole } from '../world/libertyBadlandsFlavor.js';
 import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
 import {
   CARD_DEFINITIONS,
@@ -834,6 +835,9 @@ export default class SnakeScene extends Phaser.Scene {
         if (this.tryInteractTown()) {
           return;
         }
+        if (this.tryInteractLibertyStructure()) {
+          return;
+        }
         if (this.tryInteractVillageShopkeeper()) {
           return;
         }
@@ -1060,6 +1064,15 @@ export default class SnakeScene extends Phaser.Scene {
           result.apple.worldPosition.y,
           streak,
         );
+        if (
+          this.snakeGame.getCurrentRoom().biomeId === 'liberty-badlands' &&
+          this.snakeGame.getCurrentRoom().archetypeId === 'gridiron-yard'
+        ) {
+          (this.juice as any).gridironCrowdRoar?.(
+            result.apple.worldPosition.x,
+            result.apple.worldPosition.y,
+          );
+        }
         this.setFlag('killstreak.appleJuiceLevel', undefined);
       }
     }
@@ -4036,11 +4049,49 @@ export default class SnakeScene extends Phaser.Scene {
       roomId: string;
       dx: number;
       dy: number;
+      style?: 'bullet' | 'football';
     }>('ui.playerShot');
     if (playerShot) {
       const world = this.tileToWorldInRoom({ x: playerShot.x, y: playerShot.y }, playerShot.roomId);
-      (this.juice as any).playerShot?.(world.x, world.y, playerShot.dx, playerShot.dy);
+      if (playerShot.style === 'football') {
+        (this.juice as any).footballShot?.(world.x, world.y, playerShot.dx, playerShot.dy);
+      } else {
+        (this.juice as any).playerShot?.(world.x, world.y, playerShot.dx, playerShot.dy);
+      }
       this.snakeGame.setFlag('ui.playerShot', undefined);
+    }
+    const footballPass = this.snakeGame.getFlag<{
+      roomId: string;
+      from: Vector2Like;
+      to: Vector2Like;
+    }>('ui.footballPass');
+    if (footballPass) {
+      const from = this.tileToWorldInRoom(footballPass.from, footballPass.roomId);
+      const to = this.tileToWorldInRoom(footballPass.to, footballPass.roomId);
+      (this.juice as any).footballPass?.(from.x, from.y, to.x, to.y);
+      this.snakeGame.setFlag('ui.footballPass', undefined);
+    }
+    const footballCatch = this.snakeGame.getFlag<{
+      roomId: string;
+      x: number;
+      y: number;
+      score: number;
+    }>('ui.footballCatch');
+    if (footballCatch) {
+      const world = this.tileToWorldInRoom({ x: footballCatch.x, y: footballCatch.y }, footballCatch.roomId);
+      (this.juice as any).footballCatch?.(world.x, world.y);
+      this.showQuestHintPopup(`Football caught. +${footballCatch.score} score.`, '#f3eee2');
+      this.snakeGame.setFlag('ui.footballCatch', undefined);
+    }
+    const footballFumble = this.snakeGame.getFlag<{
+      roomId: string;
+      x: number;
+      y: number;
+    }>('ui.footballFumble');
+    if (footballFumble) {
+      const world = this.tileToWorldInRoom({ x: footballFumble.x, y: footballFumble.y }, footballFumble.roomId);
+      (this.juice as any).footballFumble?.(world.x, world.y);
+      this.snakeGame.setFlag('ui.footballFumble', undefined);
     }
 
     const playerHit = this.snakeGame.getFlag<{
@@ -4137,6 +4188,48 @@ export default class SnakeScene extends Phaser.Scene {
         '#f6e7c1',
       );
       this.snakeGame.setFlag('ui.townReveal', undefined);
+    }
+    const libertyLandmarkReveal = this.snakeGame.getFlag<{
+      roomId: string;
+      name: string;
+      subtitle: string;
+      x: number;
+      y: number;
+      kind: string;
+    }>('ui.libertyLandmarkReveal');
+    if (libertyLandmarkReveal) {
+      const world = this.tileToWorldInRoom(
+        { x: libertyLandmarkReveal.x, y: libertyLandmarkReveal.y },
+        libertyLandmarkReveal.roomId,
+      );
+      (this.juice as any).villageReveal?.(world.x, world.y);
+      (this.juice as any).neonFlicker?.(world.x, world.y - 18);
+      this.villageHud
+        .setText(`${libertyLandmarkReveal.name.toUpperCase()}\n${libertyLandmarkReveal.subtitle}`)
+        .setAlpha(0)
+        .setY(12)
+        .setVisible(true);
+      this.tweens.add({
+        targets: this.villageHud,
+        alpha: 1,
+        y: 18,
+        duration: 320,
+        ease: 'Cubic.easeOut',
+      });
+      this.tweens.add({
+        targets: this.villageHud,
+        alpha: 0,
+        y: 34,
+        delay: 2100,
+        duration: 900,
+        ease: 'Cubic.easeIn',
+        onComplete: () => this.villageHud.setVisible(false),
+      });
+      this.showQuestHintPopup(
+        `${libertyLandmarkReveal.subtitle}: ${libertyLandmarkReveal.name}`,
+        '#f6e7c1',
+      );
+      this.snakeGame.setFlag('ui.libertyLandmarkReveal', undefined);
     }
     const townHostility = this.snakeGame.getFlag<{
       roomId: string;
@@ -4252,6 +4345,7 @@ export default class SnakeScene extends Phaser.Scene {
           encounterKind: 'goblin' as const,
         })),
       bullets: this.snakeGame.getEnemyBullets(room.id),
+      footballs: this.snakeGame.getFootballs(room.id),
       animals: this.snakeGame.getAnimals(room.id),
     });
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
@@ -5071,6 +5165,16 @@ export default class SnakeScene extends Phaser.Scene {
     if (room.town) {
       return [room.town.safeArea];
     }
+    if (
+      room.allNiteDiner ||
+      room.fireworkStand ||
+      room.roadsideMonument ||
+      room.jackalopeLodge ||
+      room.gridironYard
+    ) {
+      const bounds = this.getTileBounds(room, 'AELMNPRWFG');
+      return bounds ? [bounds] : [];
+    }
     if (room.questGiver) {
       const bounds = this.getTileBounds(room, 'WETG');
       return bounds ? [bounds] : [];
@@ -5148,6 +5252,10 @@ export default class SnakeScene extends Phaser.Scene {
     const mc = room.snakeMcDonalds;
     if (mc && this.distanceFromHeadToLocal(mc.toilet) <= 1) {
       return { text: 'Press E to flush' };
+    }
+    const libertyHint = this.getLibertyStructureHint(room);
+    if (libertyHint) {
+      return { text: libertyHint };
     }
     const town = room.town;
     if (town && this.distanceFromHeadToLocal(town.center) <= 3) {
@@ -7048,6 +7156,389 @@ export default class SnakeScene extends Phaser.Scene {
     );
   }
 
+  private getLibertyStructureHint(room: ReturnType<SnakeGame['getCurrentRoom']>): string | null {
+    if (
+      room.gridironYard &&
+      [room.gridironYard.coach, ...room.gridironYard.players].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      return `Play football at ${room.gridironYard.fieldName} (press E)`;
+    }
+    if (
+      room.allNiteDiner &&
+      [room.allNiteDiner.cook, room.allNiteDiner.waitress, room.allNiteDiner.regular].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      return `Order at ${room.allNiteDiner.dinerName} (press E)`;
+    }
+    if (
+      room.fireworkStand &&
+      [room.fireworkStand.vendor, room.fireworkStand.inspector].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      return `Shop at ${room.fireworkStand.standName} (press E)`;
+    }
+    if (
+      room.roadsideMonument &&
+      [room.roadsideMonument.docent, room.roadsideMonument.ranger].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      return `Visit ${room.roadsideMonument.monumentName} (press E)`;
+    }
+    if (
+      room.jackalopeLodge &&
+      [room.jackalopeLodge.elder, ...room.jackalopeLodge.witnesses].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      return `Hear a tall tale at ${room.jackalopeLodge.lodgeName} (press E)`;
+    }
+    if (
+      room.motelPool &&
+      [room.motelPool.clerk, room.motelPool.maintenance].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      return `Check in at ${room.motelPool.poolName} (press E)`;
+    }
+    if (room.billboardOracle && this.distanceFromHeadToLocal(room.billboardOracle.signPainter) <= 2) {
+      return `Read the billboard prophecy (press E)`;
+    }
+    if (room.roadCrew && this.distanceFromHeadToLocal(room.roadCrew.ranger) <= 2) {
+      return `Ask for roadside assistance on ${room.roadCrew.roadName} (press E)`;
+    }
+    return null;
+  }
+
+  private libertyLine(role: LibertyNpcRole, seed = 0): string {
+    return getLibertyNpcLine(role, seed + this.snakeGame.getScore());
+  }
+
+  private tryInteractLibertyStructure(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const option = this.getLibertyStructureHint(room);
+    if (!option) {
+      return false;
+    }
+    const choices: ChoiceOption[] = [];
+    let title = 'Liberty Badlands';
+    if (
+      room.gridironYard &&
+      [room.gridironYard.coach, ...room.gridironYard.players].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      title = room.gridironYard.fieldName;
+      choices.push(
+        {
+          id: 'liberty-football',
+          title: 'Hail Mary Drill',
+          description: this.libertyLine('coach', 1),
+        },
+        {
+          id: 'liberty-football-blitz',
+          title: 'Blitz Drill',
+          description: this.libertyLine('coach', 2),
+        },
+      );
+    } else if (
+      room.allNiteDiner &&
+      [room.allNiteDiner.cook, room.allNiteDiner.waitress, room.allNiteDiner.regular].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      title = room.allNiteDiner.dinerName;
+      choices.push(
+        {
+          id: 'liberty-diner-pie',
+          title: 'Pie Slice - 12 score',
+          description: this.libertyLine('waitress', 1),
+        },
+        {
+          id: 'liberty-diner-coffee',
+          title: 'Bottomless Coffee - 8 score',
+          description: this.libertyLine('regular', 2),
+        },
+        {
+          id: 'liberty-diner-blue-plate',
+          title: 'Blue Plate Special - 20 score',
+          description: this.libertyLine('cook', 3),
+        },
+        {
+          id: 'liberty-diner-hashbrowns',
+          title: 'Hash Browns - 10 score',
+          description: this.libertyLine('cook', 4),
+        },
+      );
+    } else if (
+      room.fireworkStand &&
+      [room.fireworkStand.vendor, room.fireworkStand.inspector].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      title = room.fireworkStand.standName;
+      choices.push(
+        {
+          id: 'liberty-firework-football',
+          title: 'Bottle-Rocket Football - 18 score',
+          description: this.libertyLine('fireworkVendor', 1),
+        },
+        {
+          id: 'liberty-firework-roman-candle',
+          title: 'Roman Candle Pack - 28 score',
+          description: this.libertyLine('inspector', 2),
+        },
+        {
+          id: 'liberty-firework-sparkler',
+          title: 'Sparkler Trail - 12 score',
+          description: this.libertyLine('fireworkVendor', 3),
+        },
+      );
+    } else if (
+      room.roadsideMonument &&
+      [room.roadsideMonument.docent, room.roadsideMonument.ranger].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      title = room.roadsideMonument.monumentName;
+      choices.push(
+        {
+          id: 'liberty-monument-blessing',
+          title: 'Read the Plaque',
+          description: this.libertyLine('docent', 1),
+        },
+        {
+          id: 'liberty-monument-donate',
+          title: 'Donate to the Gift Shop - 15 score',
+          description: this.libertyLine('ranger', 2),
+        },
+      );
+    } else if (
+      room.jackalopeLodge &&
+      [room.jackalopeLodge.elder, ...room.jackalopeLodge.witnesses].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      title = room.jackalopeLodge.lodgeName;
+      choices.push(
+        {
+          id: 'liberty-lodge-tale',
+          title: 'Hear the Tall Tale',
+          description: this.libertyLine('elder', 1),
+        },
+        {
+          id: 'liberty-lodge-whistle',
+          title: 'Buy Antler Whistle - 16 score',
+          description: this.libertyLine('witness', 2),
+        },
+      );
+    } else if (
+      room.motelPool &&
+      [room.motelPool.clerk, room.motelPool.maintenance].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+    ) {
+      title = room.motelPool.poolName;
+      choices.push(
+        {
+          id: 'liberty-motel-cooldown',
+          title: 'Chlorine Cooldown - 8 score',
+          description: this.libertyLine('motelClerk', 1),
+        },
+        {
+          id: 'liberty-motel-lost-found',
+          title: 'Lost & Found Dive - 14 score',
+          description: this.libertyLine('maintenance', 2),
+        },
+      );
+    } else if (room.billboardOracle && this.distanceFromHeadToLocal(room.billboardOracle.signPainter) <= 2) {
+      title = room.billboardOracle.slogan;
+      choices.push({
+        id: 'liberty-billboard-contract',
+        title: 'Sign the Ad Contract',
+        description: this.libertyLine('signPainter', 1),
+      });
+    } else if (room.roadCrew && this.distanceFromHeadToLocal(room.roadCrew.ranger) <= 2) {
+      title = room.roadCrew.roadName;
+      choices.push({
+        id: 'liberty-roadside-assistance',
+        title: 'Roadside Assistance - 10 score',
+        description: this.libertyLine('roadCrew', 1),
+      });
+    }
+    if (choices.length === 0) {
+      return false;
+    }
+    choices.push({ id: 'liberty-leave', title: 'Leave', description: 'Return to the red dirt.' });
+    this.paused = true;
+    this.setChoicePopupVisible(true);
+    this.villageShopPopup.show(title, choices, (id) => {
+      this.handleLibertyChoice(id);
+      this.paused = false;
+      this.setChoicePopupVisible(false);
+      this.isDirty = true;
+    });
+    return true;
+  }
+
+  private handleLibertyChoice(id: string): void {
+    if (id === 'liberty-leave') {
+      return;
+    }
+    if (id === 'liberty-football') {
+      this.runFootballCatchPlay();
+      return;
+    }
+    if (id === 'liberty-football-blitz') {
+      this.runFootballCatchPlay();
+      this.grantFootballThrow(1);
+      this.snakeGame.addScore(20);
+      (this.juice as any).gridironCrowdRoar?.(this.scale.width / 2, 90);
+      this.showQuestHintPopup('Blitz survived. +20 score and an extra football throw.', '#f3eee2');
+      return;
+    }
+    if (id === 'liberty-diner-pie') {
+      if (!this.spendScore(12, 'Pie Slice')) return;
+      this.snakeGame.growSnake(2);
+      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      this.showQuestHintPopup('Pie acquired. +2 length. The heat looks briefly embarrassed.', '#9ad1ff');
+      return;
+    }
+    if (id === 'liberty-diner-coffee') {
+      if (!this.spendScore(8, 'Bottomless Coffee')) return;
+      this.snakeGame.setFlag('liberty.caffeineCatches', 2);
+      (this.juice as any).neonFlicker?.(this.scale.width / 2, 80);
+      this.showQuestHintPopup('Coffee hits like a legal document with caffeine. Next two football catches pay double.', '#9ad1ff');
+      return;
+    }
+    if (id === 'liberty-diner-blue-plate') {
+      if (!this.spendScore(20, 'Blue Plate Special')) return;
+      const roll = Math.floor(Math.random() * 3);
+      if (roll === 0) {
+        this.snakeGame.growSnake(3);
+        this.showQuestHintPopup('Blue Plate Special: Monumental Appetite. +3 length.', '#f3eee2');
+      } else if (roll === 1) {
+        this.grantFootballThrow(2);
+        this.showQuestHintPopup('Blue Plate Special: Fourth Quarter Arm. +2 football throws.', '#9ad1ff');
+      } else {
+        this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+        this.snakeGame.setFlag('liberty.nextAppleBonus', 35);
+        this.showQuestHintPopup('Blue Plate Special: Long Weekend. Heat reset and next apple gets +35 score.', '#f3eee2');
+      }
+      (this.juice as any).neonFlicker?.(this.scale.width / 2, 80);
+      return;
+    }
+    if (id === 'liberty-diner-hashbrowns') {
+      if (!this.spendScore(10, 'Hash Browns')) return;
+      this.snakeGame.growSnake(1);
+      this.grantFootballThrow(1);
+      this.showQuestHintPopup('Hash browns acquired. +1 length and one football throw.', '#f3eee2');
+      return;
+    }
+    if (id === 'liberty-firework-football') {
+      if (!this.spendScore(18, 'Bottle-Rocket Football')) return;
+      this.grantFootballThrow(1);
+      (this.juice as any).fireworkPop?.(this.scale.width / 2, 90);
+      this.showQuestHintPopup('One bottle-rocket football ready. Click or tap to throw it.', '#9ad1ff');
+      return;
+    }
+    if (id === 'liberty-firework-roman-candle') {
+      if (!this.spendScore(28, 'Roman Candle Pack')) return;
+      this.grantFootballThrow(3);
+      (this.juice as any).fireworkPop?.(this.scale.width / 2 - 24, 90);
+      (this.juice as any).fireworkPop?.(this.scale.width / 2 + 24, 100);
+      this.showQuestHintPopup('Roman candle pack armed. Three football throws ready.', '#9ad1ff');
+      return;
+    }
+    if (id === 'liberty-firework-sparkler') {
+      if (!this.spendScore(12, 'Sparkler Trail')) return;
+      this.snakeGame.setFlag('liberty.nextAppleBonus', 26);
+      (this.juice as any).fireworkPop?.(this.scale.width / 2, 90);
+      this.showQuestHintPopup('Sparkler trail pops safely. Next apple gets +26 score.', '#f3eee2');
+      return;
+    }
+    if (id === 'liberty-monument-blessing') {
+      this.snakeGame.addScore(25);
+      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      (this.juice as any).monumentSparkle?.(this.scale.width / 2, 86);
+      this.showQuestHintPopup('The plaque makes several claims. +25 score. Heat reset.', '#f3eee2');
+      return;
+    }
+    if (id === 'liberty-monument-donate') {
+      if (!this.spendScore(15, 'Gift Shop Donation')) return;
+      this.snakeGame.setFlag('liberty.nextAppleBonus', 45);
+      this.grantFootballThrow(1);
+      (this.juice as any).monumentSparkle?.(this.scale.width / 2, 86);
+      this.showQuestHintPopup('Donation receipt blessed. Next apple gets +45 score and one commemorative football.', '#f3eee2');
+      return;
+    }
+    if (id === 'liberty-lodge-tale') {
+      this.snakeGame.addScore(12);
+      this.snakeGame.growSnake(1);
+      this.showQuestHintPopup('The story grows in the telling. So do you. +1 length, +12 score.', '#f3eee2');
+      return;
+    }
+    if (id === 'liberty-lodge-whistle') {
+      if (!this.spendScore(16, 'Antler Whistle')) return;
+      this.snakeGame.growSnake(2);
+      this.snakeGame.addScore(10);
+      (this.juice as any).monumentSparkle?.(this.scale.width / 2, 86);
+      this.showQuestHintPopup('The whistle makes a sound only witnesses understand. +2 length.', '#f3eee2');
+      return;
+    }
+    if (id === 'liberty-motel-cooldown') {
+      if (!this.spendScore(8, 'Chlorine Cooldown')) return;
+      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      this.snakeGame.addScore(12);
+      (this.juice as any).neonFlicker?.(this.scale.width / 2, 80);
+      this.showQuestHintPopup('Pool rules observed. Heat reset, +12 score.', '#9ad1ff');
+      return;
+    }
+    if (id === 'liberty-motel-lost-found') {
+      if (!this.spendScore(14, 'Lost & Found Dive')) return;
+      this.grantFootballThrow(1);
+      this.snakeGame.addScore(22);
+      this.showQuestHintPopup('You skim up a room key and a football. +22 score, +1 throw.', '#9ad1ff');
+      return;
+    }
+    if (id === 'liberty-billboard-contract') {
+      this.snakeGame.addScore(30);
+      (this.juice as any).neonFlicker?.(this.scale.width / 2, 80);
+      this.showQuestHintPopup('The billboard nods in vinyl. +30 score.', '#9ad1ff');
+      return;
+    }
+    if (id === 'liberty-roadside-assistance') {
+      if (!this.spendScore(10, 'Roadside Assistance')) return;
+      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      this.grantFootballThrow(1);
+      this.showQuestHintPopup('Detour approved. Heat reset and one football throw ready.', '#f3eee2');
+    }
+  }
+
+  private spendScore(cost: number, label: string): boolean {
+    if (this.snakeGame.getScore() < cost) {
+      this.showQuestHintPopup(`${label} costs ${cost} score.`, '#ff6b6b');
+      return false;
+    }
+    this.snakeGame.addScore(-cost);
+    return true;
+  }
+
+  private grantFootballThrow(amount: number): void {
+    const current = Number(this.snakeGame.getFlag<number>('equipment.libertyFootballCharges') ?? 0);
+    this.snakeGame.setFlag('equipment.libertyFootballCharges', current + amount);
+  }
+
+  private runFootballCatchPlay(): void {
+    const room = this.snakeGame.getCurrentRoom();
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (!room.gridironYard || !head) {
+      return;
+    }
+    const [roomX, roomY] = room.id.split(',').map(Number);
+    const local = { x: head.x - roomX * this.grid.cols, y: head.y - roomY * this.grid.rows };
+    const coachWorld = this.tileToWorldLocalInRoom(room.gridironYard.coach);
+    const catchWorld = this.tileToWorldLocalInRoom(local);
+    (this.juice as any).footballPass?.(coachWorld.x, coachWorld.y, catchWorld.x, catchWorld.y);
+    const direction =
+      Math.abs(local.x - room.gridironYard.coach.x) >= Math.abs(local.y - room.gridironYard.coach.y)
+        ? { x: Math.sign(local.x - room.gridironYard.coach.x), y: 0 }
+        : { x: 0, y: Math.sign(local.y - room.gridironYard.coach.y) };
+    const spawned = this.snakeGame.spawnFootball(room.id, room.gridironYard.coach, direction, {
+      target: local,
+      maxAge: 12,
+    });
+    if (spawned) {
+      this.showQuestHintPopup('Ball is live. Run it down and catch it before the desert does.', '#f3eee2');
+    } else {
+      this.grantFootballThrow(1);
+      this.showQuestHintPopup('Coach hands you the ball. One football throw ready.', '#f3eee2');
+    }
+  }
+
   private townGossipLine(town: TownStructure): string {
     if (town.wantedLevel >= 3 || (town.suspicion ?? 0) >= 65) {
       return 'Keep your head down. The guards are counting shadows and calling half of them snakes.';
@@ -8184,6 +8675,52 @@ export default class SnakeScene extends Phaser.Scene {
         Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
         Math.random() < 0.5 ? 'warm' : 'cool',
       );
+    } else if (room.biomeId === 'liberty-badlands') {
+      if (Math.random() < 0.05) {
+        (this.juice as any).eagleFlyover?.();
+      }
+      if (Math.random() < 0.12) {
+        (this.juice as any).dustDevil?.(
+          Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
+          Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
+        );
+      }
+      if (Math.random() < 0.08) {
+        (this.juice as any).tumbleweed?.();
+      }
+      if (Math.random() < 0.14) {
+        (this.juice as any).libertyHeatShimmer?.(
+          Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
+          Phaser.Math.Between(this.grid.cell * 3, this.grid.rows * this.grid.cell - 12),
+        );
+      }
+      if (
+        (room.archetypeId === 'firework-field' || room.fireworkStand || room.roadsideMonument) &&
+        Math.random() < 0.16
+      ) {
+        (this.juice as any).fireworkPop?.(
+          Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        );
+      }
+      if (
+        (room.allNiteDiner ||
+          room.fireworkStand ||
+          room.archetypeId === 'billboard-maze' ||
+          room.archetypeId === 'motel-pool-ruins') &&
+        Math.random() < 0.12
+      ) {
+        (this.juice as any).neonFlicker?.(
+          Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        );
+      }
+      if ((room.roadsideMonument || room.archetypeId === 'monument-plaza') && Math.random() < 0.1) {
+        (this.juice as any).monumentSparkle?.(
+          Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        );
+      }
     }
 
     if (room.temperatureReliefs && Math.random() < 0.08) {

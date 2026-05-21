@@ -27,6 +27,7 @@ const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {
   'sunken-ocean': ['Pearl Wake', 'Brine Rest', 'The Salt Chapel', 'Foamcross', 'Tide Hollow'],
   'home-hearth': ['Home Hearth', 'Hearthwake', 'The Quiet Room', 'Lamp Rest', 'Cinder Home'],
   'jade-peak-province': ['Jade Hollow', 'Amberwake', 'The Serene Peak', 'Mistglade', 'Blossom Rest'],
+  'liberty-badlands': ['Dustfork', 'Eaglegate', 'Bellrock', 'Pie Junction', 'Vacancy Wells'],
 } as const;
 
 const VILLAGER_NAMES = [

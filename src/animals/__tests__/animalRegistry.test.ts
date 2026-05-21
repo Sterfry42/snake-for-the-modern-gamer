@@ -6,12 +6,29 @@ describe('AnimalRegistry', () => {
   describe('getAll', () => {
     it('returns all animal definitions', () => {
       const all = AnimalRegistry.getAll();
-      expect(all).toHaveLength(8);
+      expect(all).toHaveLength(16);
     });
 
     it('contains all expected animal types', () => {
       const all = AnimalRegistry.getAll().map((d) => d.type);
-      const expected: AnimalType[] = ['rabbit', 'deer', 'fox', 'wolf', 'fish', 'bird', 'bear', 'snake'];
+      const expected: AnimalType[] = [
+        'rabbit',
+        'deer',
+        'fox',
+        'wolf',
+        'fish',
+        'bird',
+        'bear',
+        'snake',
+        'eagle',
+        'jackalope',
+        'raccoon',
+        'coyote',
+        'bison',
+        'bass',
+        'possum',
+        'armadillo',
+      ];
       for (const type of expected) {
         expect(all).toContain(type);
       }
@@ -141,6 +158,22 @@ describe('AnimalRegistry', () => {
       expect(animals.map((a) => a.type)).toContain('wolf');
       expect(animals.map((a) => a.type)).toContain('bird');
     });
+
+    it('returns the full Liberty Badlands roster', () => {
+      const animals = AnimalRegistry.getForBiome('liberty-badlands');
+      expect(animals.map((a) => a.type)).toEqual(
+        expect.arrayContaining([
+          'eagle',
+          'jackalope',
+          'raccoon',
+          'coyote',
+          'bison',
+          'bass',
+          'possum',
+          'armadillo',
+        ]),
+      );
+    });
   });
 
   describe('definition constraints', () => {
@@ -148,7 +181,8 @@ describe('AnimalRegistry', () => {
       const validBiomes = [
         'verdigris-basin', 'ember-waste', 'moonlit-parish',
         'sable-depths', 'gloam-garden', 'elderwood-maze',
-        'sunken-ocean', 'home-hearth',
+        'sunken-ocean', 'home-hearth', 'jade-peak-province',
+        'liberty-badlands',
       ];
       for (const def of AnimalRegistry.getAll()) {
         for (const biomeId of def.biomeIds) {

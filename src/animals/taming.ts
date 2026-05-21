@@ -27,6 +27,22 @@ export const TAMABLE_ANIMALS: Record<AnimalType, TamableAnimal | null> = {
   },
   bear: null,
   snake: null,
+  eagle: null,
+  jackalope: {
+    type: 'jackalope',
+    requiredItem: 'rope',
+    tameScore: 12,
+  },
+  raccoon: null,
+  coyote: {
+    type: 'coyote',
+    requiredItem: 'lead',
+    tameScore: 22,
+  },
+  bison: null,
+  bass: null,
+  possum: null,
+  armadillo: null,
 };
 
 export function canTameAnimal(animalType: AnimalType): boolean {
