@@ -17,6 +17,10 @@ import { tryPlaceShrine } from '../../shrine.js';
 import { tryPlaceRamenStand } from '../../ramenStand.js';
 import { tryPlaceKoiPond } from '../../koiPond.js';
 import { tryPlaceTenguCamp } from '../../tenguCamp.js';
+import { tryPlaceRoadsideMonument } from '../../roadsideMonument.js';
+import { tryPlaceAllNiteDiner } from '../../allNiteDiner.js';
+import { tryPlaceFireworkStand } from '../../fireworkStand.js';
+import { tryPlaceJackalopeLodge } from '../../jackalopeLodge.js';
 import { cellsForEdgeRunup, mergeProtectedCells, type EdgeSide } from '../edgeAccess.js';
 import { HUMAN_TOWN_DISTRICTS, type MultiRoomStructureResolver } from '../townStructureResolver.js';
 import { formatRoomId } from '../multiRoomStructures.js';
@@ -29,7 +33,11 @@ type SettlementKind =
   | 'snake-mcDonalds'
   | 'shrine'
   | 'ramen-stand'
-  | 'tengu-camp';
+  | 'tengu-camp'
+  | 'roadside-monument'
+  | 'all-nite-diner'
+  | 'firework-stand'
+  | 'jackalope-lodge';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
 const VILLAGE_CHANCE = 0.09;
@@ -41,6 +49,11 @@ const TENGU_CAMP_CHANCE = 0.04;
 const SHRINE_JADE_PEAK_CHANCE = 0.12;
 const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;
 const TENGU_CAMP_JADE_PEAK_CHANCE = 0.10;
+const ROADSIDE_MONUMENT_CHANCE = 0.10;
+const ALL_NITE_DINER_CHANCE = 0.08;
+const FIREWORK_STAND_CHANCE = 0.08;
+const JACKALOPE_LODGE_CHANCE = 0.10;
+const MOTEL_POOL_CHANCE = 0.10;
 const SETTLEMENT_ANCHOR_SPACING = 5;
 const GUARANTEED_SETTLEMENT_KINDS = [
   'village',
@@ -49,6 +62,10 @@ const GUARANTEED_SETTLEMENT_KINDS = [
   'shrine',
   'ramen-stand',
   'tengu-camp',
+  'roadside-monument',
+  'all-nite-diner',
+  'firework-stand',
+  'jackalope-lodge',
 ] as const;
 const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house', 'shrine'] as const;
 
@@ -74,9 +91,16 @@ export class StructureOperations {
     const canPlaceOptionalLake =
       !context.isOcean && !context.isDenseForest && !this.isStartingArea(context.roomId);
     const entranceRunups = this.createEntranceRunupCells(context.grid, 5);
+    const libertyStructureFriendly =
+      context.isLibertyBadlands &&
+      (context.archetype?.id === 'monument-plaza' ||
+        context.archetype?.id === 'firework-field' ||
+        context.archetype?.id === 'interstate-cut');
     const shouldGuaranteeStructure =
       canPlaceOptionalStructures &&
-      (context.archetype?.id === 'open-clearing' || this.isSettlementAnchor(context.roomId));
+      (context.archetype?.id === 'open-clearing' ||
+        libertyStructureFriendly ||
+        this.isSettlementAnchor(context.roomId));
 
     if (
       canPlaceOptionalStructures &&
@@ -88,7 +112,8 @@ export class StructureOperations {
       !context.snakeMcDonalds &&
       !context.shrine &&
       !context.ramenStand &&
-      !context.tenguCamp
+      !context.tenguCamp &&
+      !this.hasLibertyStructure(context)
     ) {
       this.placeSettlement(context, entranceRunups, shouldGuaranteeStructure);
     }
@@ -103,6 +128,7 @@ export class StructureOperations {
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
+      !this.hasLibertyStructure(context) &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
       this.placeLake(context.layout, context.grid, entranceRunups);
@@ -119,9 +145,10 @@ export class StructureOperations {
       !context.snakeMcDonalds &&
       !context.shrine &&
       !context.ramenStand &&
-      !context.tenguCamp
+      !context.tenguCamp &&
+      !this.hasLibertyStructure(context)
     ) {
-      const koiChance = context.isJadePeak ? 0.12 : 0.03;
+      const koiChance = context.isJadePeak ? 0.12 : context.isLibertyBadlands ? MOTEL_POOL_CHANCE : 0.03;
       if (this.rng() < koiChance) {
         const koiPond = tryPlaceKoiPond(context.layout, context.grid, this.rng, {
           forbiddenCells: entranceRunups,
@@ -142,7 +169,8 @@ export class StructureOperations {
       !context.shrine &&
       !context.ramenStand &&
       !context.koiPond &&
-      !context.tenguCamp
+      !context.tenguCamp &&
+      !this.hasLibertyStructure(context)
     ) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
         context.layout,
@@ -187,6 +215,7 @@ export class StructureOperations {
     allowSpecial = true,
   ): SettlementKind | null {
     const isJadePeak = context.palette.biomeId === 'jade-peak-province';
+    const isLibertyBadlands = context.palette.biomeId === 'liberty-badlands';
 
     if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE) {
       return 'snake-mcDonalds';
@@ -203,6 +232,21 @@ export class StructureOperations {
         }
         if (roll < 0.75) {
           return 'tengu-camp';
+        }
+        return 'quest-house';
+      }
+      if (isLibertyBadlands) {
+        if (roll < 0.25) {
+          return 'all-nite-diner';
+        }
+        if (roll < 0.45) {
+          return 'roadside-monument';
+        }
+        if (roll < 0.65) {
+          return 'jackalope-lodge';
+        }
+        if (roll < 0.8) {
+          return 'firework-stand';
         }
         return 'quest-house';
       }
@@ -239,6 +283,30 @@ export class StructureOperations {
           VILLAGE_CHANCE +
           QUEST_HOUSE_CHANCE
       ) {
+        return 'quest-house';
+      }
+      return null;
+    }
+
+    if (isLibertyBadlands) {
+      let threshold = ALL_NITE_DINER_CHANCE;
+      if (roll < threshold) {
+        return 'all-nite-diner';
+      }
+      threshold += ROADSIDE_MONUMENT_CHANCE;
+      if (roll < threshold) {
+        return 'roadside-monument';
+      }
+      threshold += JACKALOPE_LODGE_CHANCE;
+      if (roll < threshold) {
+        return 'jackalope-lodge';
+      }
+      threshold += FIREWORK_STAND_CHANCE;
+      if (roll < threshold) {
+        return 'firework-stand';
+      }
+      threshold += QUEST_HOUSE_CHANCE;
+      if (roll < threshold) {
         return 'quest-house';
       }
       return null;
@@ -352,7 +420,63 @@ export class StructureOperations {
         context.tenguCamp = tenguCamp;
         return true;
       }
+      case 'roadside-monument': {
+        const monument = tryPlaceRoadsideMonument(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!monument) {
+          return false;
+        }
+        context.roadsideMonument = monument;
+        context.questGiver = monument.docent;
+        return true;
+      }
+      case 'all-nite-diner': {
+        const diner = tryPlaceAllNiteDiner(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!diner) {
+          return false;
+        }
+        context.allNiteDiner = diner;
+        return true;
+      }
+      case 'firework-stand': {
+        const stand = tryPlaceFireworkStand(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!stand) {
+          return false;
+        }
+        context.fireworkStand = stand;
+        return true;
+      }
+      case 'jackalope-lodge': {
+        const lodge = tryPlaceJackalopeLodge(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!lodge) {
+          return false;
+        }
+        context.jackalopeLodge = lodge;
+        context.questGiver = lodge.elder;
+        return true;
+      }
     }
+  }
+
+  private hasLibertyStructure(context: RoomGenerationContext): boolean {
+    return Boolean(
+      context.roadsideMonument ||
+        context.allNiteDiner ||
+        context.fireworkStand ||
+        context.jackalopeLodge ||
+        context.motelPool,
+    );
   }
 
   private renderTownDistrict(context: RoomGenerationContext): void {
@@ -382,7 +506,14 @@ export class StructureOperations {
     context.shrine = undefined;
     context.ramenStand = undefined;
     context.koiPond = undefined;
+    context.motelPool = undefined;
     context.tenguCamp = undefined;
+    context.roadsideMonument = undefined;
+    context.allNiteDiner = undefined;
+    context.fireworkStand = undefined;
+    context.jackalopeLodge = undefined;
+    context.billboardOracle = undefined;
+    context.roadCrew = undefined;
   }
 
   private renderTownPerimeter(context: RoomGenerationContext): void {
@@ -519,7 +650,12 @@ export class StructureOperations {
     grid: GridConfig,
     biomeId: RoomSnapshot['biomeId'],
   ): RoomSnapshot['temperatureReliefs'] | undefined {
-    const kind = biomeId === 'sable-depths' ? 'warm' : biomeId === 'ember-waste' ? 'cool' : null;
+    const kind =
+      biomeId === 'sable-depths'
+        ? 'warm'
+        : biomeId === 'ember-waste' || biomeId === 'liberty-badlands'
+          ? 'cool'
+          : null;
     if (!kind) {
       return undefined;
     }

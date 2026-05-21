@@ -39,6 +39,7 @@ import {
 } from './spriteRecipes/animalRecipe.js';
 import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
+import type { FootballInstance } from '../game/snakeGame.js';
 
 const SNAKE_OUTLINE_ALPHA = 0.9;
 const SNAKE_OUTLINE_WIDTH = 1;
@@ -64,6 +65,7 @@ interface SnakeRenderOptions {
   enemies?: readonly EnemyInstance[];
   followers?: readonly EnemyInstance[];
   bullets?: readonly BulletInstance[];
+  footballs?: readonly FootballInstance[];
   animals?: readonly AnimalInstance[];
 }
 
@@ -180,6 +182,7 @@ export class SnakeRenderer {
     this.drawAnimals(opts.animals ?? []);
     this.drawEnemies([...(opts.enemies ?? []), ...(opts.followers ?? [])]);
     this.drawBullets(opts.bullets ?? []);
+    this.drawFootballs(opts.footballs ?? []);
   }
 
   private drawRoom(room: RoomSnapshot): void {
@@ -196,6 +199,8 @@ export class SnakeRenderer {
         if (tile === '#') {
           if (room.biomeId === 'elderwood-maze') {
             this.drawTreeTile(rectX, rectY, x, y);
+          } else if (room.biomeId === 'liberty-badlands') {
+            this.drawLibertyWallTile(rectX, rectY, x, y);
           } else {
             this.graphics.fillStyle(room.wallColor, 1);
             this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
@@ -235,6 +240,8 @@ export class SnakeRenderer {
           } else {
             this.drawBoatTile(rectX, rectY, x, y);
           }
+        } else if (room.biomeId === 'liberty-badlands' && ['A', 'E', 'F', 'G', 'L', 'M', 'N', 'O', 'P', 'W'].includes(tile)) {
+          this.drawLibertyTile(rectX, rectY, tile, x, y);
         } else if (tile === 'W') {
           // Wooden floor for house interior
           const color = 0x6d5845;
@@ -646,6 +653,16 @@ export class SnakeRenderer {
           this.graphics.fillRect(rectX + 2, rectY + 2, this.grid.cell - 4, this.grid.cell - 4);
         }
         break;
+      case 'liberty-badlands':
+        if ((tileX * 3 + tileY * 2) % 6 === 0) {
+          this.graphics.fillStyle(0xe6d8c7, 0.08);
+          this.graphics.fillRect(rectX + 3, rectY + this.grid.cell - 5, this.grid.cell - 6, 2);
+        }
+        if ((tileX + tileY * 5) % 17 === 0) {
+          this.graphics.fillStyle(accentColor, 0.16);
+          this.graphics.fillCircle(rectX + this.grid.cell * 0.68, rectY + this.grid.cell * 0.34, 2);
+        }
+        break;
       case 'verdigris-basin':
       default:
         if ((tileX + tileY) % 6 === 0) {
@@ -654,6 +671,107 @@ export class SnakeRenderer {
         }
         break;
     }
+  }
+
+  private drawLibertyTile(
+    rectX: number,
+    rectY: number,
+    tile: string,
+    tileX: number,
+    tileY: number,
+  ): void {
+    const cell = this.grid.cell;
+    switch (tile) {
+      case 'A': {
+        const base = 0x2f3032;
+        this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
+        if ((tileX + tileY) % 4 === 0) {
+          this.graphics.fillStyle(0xffffff, 0.18).fillRect(rectX + 3, rectY + cell * 0.48, cell - 6, 2);
+        }
+        break;
+      }
+      case 'E': {
+        const color = 0xd9d2c4;
+        const outline = darkenColor(color, 0.28);
+        this.graphics.fillStyle(color, 0.92).fillRect(rectX, rectY, cell, cell);
+        this.graphics.lineStyle(1, outline, 0.36).strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+        break;
+      }
+      case 'F': {
+        const color = 0x9b2f27;
+        const outline = darkenColor(color, 0.35);
+        this.graphics.fillStyle(color, 1).fillRect(rectX + 3, rectY + 5, cell - 6, cell - 8);
+        this.graphics.fillStyle(0xe7ded0, 0.9).fillRect(rectX + 5, rectY + 7, cell - 10, 3);
+        this.graphics.lineStyle(1, outline, 0.72).strokeRect(rectX + 3.5, rectY + 5.5, cell - 7, cell - 9);
+        break;
+      }
+      case 'G': {
+        this.graphics.fillStyle(0xe6d8c7, 0.78).fillCircle(rectX + cell / 2, rectY + cell * 0.46, cell * 0.28);
+        this.graphics.fillStyle(0x315f7d, 0.95).fillRect(rectX + cell * 0.25, rectY + cell * 0.18, cell * 0.5, cell * 0.24);
+        this.graphics.fillStyle(0xb5362f, 0.95).fillRect(rectX + cell * 0.3, rectY + cell * 0.55, cell * 0.4, cell * 0.28);
+        this.graphics.lineStyle(1, 0xf3eee2, 0.8).strokeRect(rectX + cell * 0.3, rectY + cell * 0.55, cell * 0.4, cell * 0.28);
+        break;
+      }
+      case 'L': {
+        this.graphics.fillStyle(0x6fa8dc, 0.38).fillCircle(rectX + cell / 2, rectY + cell / 2, Math.max(3, cell * 0.22));
+        this.graphics.fillStyle(0xf6f0df, 0.95).fillCircle(rectX + cell / 2, rectY + cell / 2, Math.max(1.5, cell * 0.08));
+        break;
+      }
+      case 'M': {
+        const color = 0xe8e2d4;
+        const outline = 0x82786b;
+        this.graphics.fillStyle(color, 1).fillRect(rectX + 2, rectY + 2, cell - 4, cell - 4);
+        this.graphics.lineStyle(1, outline, 0.75).strokeRect(rectX + 2.5, rectY + 2.5, cell - 5, cell - 5);
+        this.graphics.fillStyle(0x5f8fbf, 0.45).fillRect(rectX + cell * 0.25, rectY + 4, cell * 0.5, 2);
+        break;
+      }
+      case 'N': {
+        const base = 0x315f7d;
+        this.graphics.fillStyle(base, 1).fillRect(rectX + 2, rectY + 4, cell - 4, cell - 8);
+        this.graphics.fillStyle(0xbfe9ff, 0.85).fillRect(rectX + 5, rectY + 7, cell - 10, 2);
+        this.graphics.lineStyle(1, 0xbfe9ff, 0.55).strokeRect(rectX + 2.5, rectY + 4.5, cell - 5, cell - 9);
+        break;
+      }
+      case 'O': {
+        const color = 0x2c6e91;
+        this.graphics.fillStyle(color, 0.42).fillRect(rectX, rectY, cell, cell);
+        this.graphics.lineStyle(1, 0x9ad4e8, 0.5).strokeRect(rectX + 2, rectY + 2, cell - 4, cell - 4);
+        break;
+      }
+      case 'P': {
+        const color = tileX % 2 === 0 ? 0xe8e2d4 : 0xb5362f;
+        this.graphics.fillStyle(color, 0.55).fillRect(rectX + 5, rectY + 5, cell - 10, cell - 10);
+        break;
+      }
+      case 'W': {
+        this.graphics.fillStyle(0xf3eee2, 0.9).fillRect(rectX + cell * 0.38, rectY, Math.max(2, cell * 0.24), cell);
+        if ((tileX + tileY) % 2 === 0) {
+          this.graphics.fillStyle(0x5f8fbf, 0.22).fillRect(rectX + cell * 0.42, rectY + 4, Math.max(1, cell * 0.16), 4);
+        }
+        break;
+      }
+    }
+  }
+
+  private drawLibertyWallTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    const cell = this.grid.cell;
+    const base = (tileX + tileY) % 3 === 0 ? 0x244f87 : 0x173b6d;
+    const deep = 0x0d2347;
+    const highlight = 0xf3eee2;
+    const rust = 0xb5362f;
+    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
+    this.graphics.fillStyle(deep, 0.42).fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
+    if ((tileX * 2 + tileY) % 5 === 0) {
+      this.graphics.fillStyle(highlight, 0.42).fillRect(rectX + 3, rectY + 4, cell - 6, 2);
+    }
+    if ((tileX + tileY * 3) % 4 === 0) {
+      this.graphics.fillStyle(rust, 0.38).fillRect(rectX + cell - 5, rectY + 3, 2, cell - 6);
+    }
+    if ((tileX * 7 + tileY) % 9 === 0) {
+      this.graphics.fillStyle(highlight, 0.35).fillCircle(rectX + cell * 0.28, rectY + cell * 0.35, 1.6);
+      this.graphics.fillStyle(highlight, 0.35).fillCircle(rectX + cell * 0.72, rectY + cell * 0.35, 1.6);
+    }
+    this.graphics.lineStyle(1, 0x07152c, 0.75).strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
   }
 
   private highlightWalls(
@@ -1200,6 +1318,38 @@ export class SnakeRenderer {
     });
   }
 
+  private drawFootballs(footballs: readonly FootballInstance[]): void {
+    const cell = this.grid.cell;
+    footballs.forEach((football) => {
+      const cx = football.position.x * cell + cell / 2;
+      const cy = football.position.y * cell + cell / 2;
+      const grounded = football.state === 'grounded';
+      const angle = football.direction.x !== 0 ? 0 : Math.PI / 2;
+      const radiusX = grounded ? cell * 0.28 : cell * 0.34;
+      const radiusY = grounded ? cell * 0.18 : cell * 0.22;
+      this.graphics.fillStyle(0x8b4a24, 1);
+      this.graphics.fillEllipse(cx, cy, radiusX * 2, radiusY * 2);
+      this.graphics.lineStyle(1, 0x3d1f10, 0.9);
+      this.graphics.strokeEllipse(cx, cy, radiusX * 2, radiusY * 2);
+      this.graphics.lineStyle(1, 0xf3eee2, 0.95);
+      if (angle === 0) {
+        this.graphics.lineBetween(cx - radiusX * 0.35, cy, cx + radiusX * 0.35, cy);
+        for (let i = -1; i <= 1; i += 1) {
+          this.graphics.lineBetween(cx + i * 3, cy - 3, cx + i * 3, cy + 3);
+        }
+      } else {
+        this.graphics.lineBetween(cx, cy - radiusX * 0.35, cx, cy + radiusX * 0.35);
+        for (let i = -1; i <= 1; i += 1) {
+          this.graphics.lineBetween(cx - 3, cy + i * 3, cx + 3, cy + i * 3);
+        }
+      }
+      if (football.state === 'returning') {
+        this.graphics.lineStyle(1, 0xf3eee2, 0.28);
+        this.graphics.strokeCircle(cx, cy, cell * 0.42);
+      }
+    });
+  }
+
   private ensureEnemySprite(index: number): Phaser.GameObjects.Image {
     let sprite = this.enemySprites[index];
     if (sprite) {
@@ -1355,6 +1505,70 @@ export class SnakeRenderer {
           accentColor: '#80c060',
           outlineColor: '#203010',
           eyeColor: '#ffff00',
+          flashColor: '#ffffff',
+        };
+      case 'eagle':
+        return {
+          bodyColor: '#5a3b22',
+          accentColor: '#f2f0df',
+          outlineColor: '#20140c',
+          eyeColor: '#ffe88a',
+          flashColor: '#ffd166',
+        };
+      case 'jackalope':
+        return {
+          bodyColor: '#c49a6c',
+          accentColor: '#e8d7b8',
+          outlineColor: '#4b2d17',
+          eyeColor: '#201008',
+          flashColor: '#ffffff',
+        };
+      case 'raccoon':
+        return {
+          bodyColor: '#747474',
+          accentColor: '#c7c7c7',
+          outlineColor: '#252525',
+          eyeColor: '#fff0c8',
+          flashColor: '#ffffff',
+        };
+      case 'coyote':
+        return {
+          bodyColor: '#b9864c',
+          accentColor: '#efd0a2',
+          outlineColor: '#3c2414',
+          eyeColor: '#ffe08a',
+          flashColor: '#ffffff',
+        };
+      case 'bison':
+        return {
+          bodyColor: '#5a351f',
+          accentColor: '#d0c2a0',
+          outlineColor: '#1f1008',
+          eyeColor: '#fff0c8',
+          flashColor: '#ffffff',
+        };
+      case 'bass':
+        return {
+          bodyColor: '#5f8f67',
+          accentColor: '#c8e6a0',
+          outlineColor: '#1f3f2a',
+          eyeColor: '#101010',
+          flashColor: '#ffffff',
+        };
+      case 'possum':
+        return {
+          bodyColor: '#b9b5ad',
+          accentColor: '#f1c9d0',
+          outlineColor: '#4d4a46',
+          eyeColor: '#101010',
+          flashColor: '#ffffff',
+        };
+      case 'armadillo':
+        return {
+          bodyColor: '#9a816d',
+          accentColor: '#d2bea6',
+          outlineColor: '#3d3028',
+          eyeColor: '#101010',
           flashColor: '#ffffff',
         };
       default:

@@ -9,7 +9,7 @@ export interface SeasonalVariant {
 
 export interface AnimalSeasonalData {
   type: AnimalType;
-  biomes: Record<BiomeId, SeasonalVariant | null>;
+  biomes: Partial<Record<BiomeId, SeasonalVariant | null>>;
 }
 
 const ANIMAL_SEASONS: AnimalSeasonalData[] = [

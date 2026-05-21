@@ -77,6 +77,7 @@ export class RoomGenerator {
     const isOcean = palette.biomeId === 'sunken-ocean';
     const isDenseForest = palette.biomeId === 'elderwood-maze';
     const isJadePeak = palette.biomeId === 'jade-peak-province';
+    const isLibertyBadlands = palette.biomeId === 'liberty-badlands';
     const spawnGuard = this.safetyOperations.createSpawnGuard(roomId);
 
     return {
@@ -89,6 +90,7 @@ export class RoomGenerator {
       isOcean,
       isDenseForest,
       isJadePeak,
+      isLibertyBadlands,
       spawnGuard,
     };
   }
@@ -108,7 +110,15 @@ export class RoomGenerator {
       shrine: context.shrine,
       ramenStand: context.ramenStand,
       koiPond: context.koiPond,
+      motelPool: context.motelPool,
       tenguCamp: context.tenguCamp,
+      roadsideMonument: context.roadsideMonument,
+      allNiteDiner: context.allNiteDiner,
+      fireworkStand: context.fireworkStand,
+      jackalopeLodge: context.jackalopeLodge,
+      gridironYard: context.gridironYard,
+      billboardOracle: context.billboardOracle,
+      roadCrew: context.roadCrew,
       temperatureReliefs: context.temperatureReliefs,
       biomeId: context.palette.biomeId,
       biomeTitle: context.palette.biomeTitle,

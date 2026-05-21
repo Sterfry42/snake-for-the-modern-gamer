@@ -58,9 +58,11 @@ export function calculateFollowPosition(
 }
 
 export function getHerdableTypes(): AnimalType[] {
-  return ['rabbit', 'deer'] as AnimalType[];
+  return ['rabbit', 'deer', 'jackalope'] as AnimalType[];
 }
 
 export function isHerdingBiome(biomeId: string): boolean {
-  return ['verdigris-basin', 'gloam-garden', 'elderwood-maze'].includes(biomeId);
+  return ['verdigris-basin', 'gloam-garden', 'elderwood-maze', 'liberty-badlands'].includes(
+    biomeId,
+  );
 }
