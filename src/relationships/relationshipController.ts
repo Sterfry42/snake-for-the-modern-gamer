@@ -350,7 +350,7 @@ export class RelationshipController {
       memories: [...state.memories],
       lastSeenRoomsVisited: roomsVisited,
     };
-    const tier = this.interpretTags(next, branch.tags);
+    const tier = branch.targetTier ?? this.interpretTags(next, branch.tags);
     this.applyTaggedDeltas(next, tier);
     if (kind === 'flirt') {
       next.romanceOptIn = true;

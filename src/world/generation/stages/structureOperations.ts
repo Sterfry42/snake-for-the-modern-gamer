@@ -22,7 +22,12 @@ import { tryPlaceAllNiteDiner } from '../../allNiteDiner.js';
 import { tryPlaceFireworkStand } from '../../fireworkStand.js';
 import { tryPlaceJackalopeLodge } from '../../jackalopeLodge.js';
 import { cellsForEdgeRunup, mergeProtectedCells, type EdgeSide } from '../edgeAccess.js';
-import { HUMAN_TOWN_DISTRICTS, type MultiRoomStructureResolver } from '../townStructureResolver.js';
+import {
+  getHumanTownDistricts,
+  getHumanTownEntranceRoomId,
+  getHumanTownExitRoomIds,
+  type MultiRoomStructureResolver,
+} from '../townStructureResolver.js';
 import { formatRoomId } from '../multiRoomStructures.js';
 import type { RoomGenerationContext } from '../types.js';
 
@@ -567,7 +572,7 @@ export class StructureOperations {
       throw new Error('Cannot create town without a structure placement.');
     }
     const districtRoomIds: Record<string, TownDistrictKind> = {};
-    for (const [offset, district] of Object.entries(HUMAN_TOWN_DISTRICTS)) {
+    for (const [offset, district] of Object.entries(getHumanTownDistricts(placement))) {
       const [dx = 0, dy = 0] = offset.split(',').map(Number);
       districtRoomIds[
         formatRoomId({
@@ -578,12 +583,12 @@ export class StructureOperations {
       ] = district;
     }
     return createPhysicalHumanTown({
-      biomeId: context.palette.biomeId,
+      biomeId: placement.townBiomeId ?? context.palette.biomeId,
       seed: placement.seed,
       townId: placement.id,
       districtRoomIds,
-      entranceRoomId: formatRoomId(placement.anchor),
-      exitRoomIds: [formatRoomId({ x: placement.anchor.x + 2, y: placement.anchor.y + 3, z: placement.anchor.z })],
+      entranceRoomId: getHumanTownEntranceRoomId(placement),
+      exitRoomIds: getHumanTownExitRoomIds(placement),
     });
   }
 

@@ -7,13 +7,47 @@ export interface AnimalDropResult {
   count: number;
 }
 
-function rollDrop(drops: readonly DropEntry[], rng: RandomGenerator): string | null {
-  for (const entry of drops) {
-    if (rng() < entry.chance) {
-      return entry.itemId;
+export interface AnimalDropModifiers {
+  bonusChance?: number;
+  doubleRoll?: boolean;
+  guaranteedMeat?: boolean;
+}
+
+function rollDropCount(entry: DropEntry, rng: RandomGenerator): number {
+  const minCount = Math.max(1, Math.floor(entry.minCount ?? 1));
+  const maxCount = Math.max(minCount, Math.floor(entry.maxCount ?? minCount));
+  if (maxCount === minCount) {
+    return minCount;
+  }
+  return minCount + Math.floor(rng() * (maxCount - minCount + 1));
+}
+
+export function rollAnimalDrops(
+  drops: readonly DropEntry[] | undefined,
+  rng: RandomGenerator,
+  modifiers: AnimalDropModifiers = {},
+): Array<{ itemId: string; count: number }> {
+  if (!drops || drops.length === 0) {
+    return [];
+  }
+
+  const rolls = modifiers.doubleRoll ? 2 : 1;
+  const awarded = new Map<string, number>();
+
+  for (let rollIndex = 0; rollIndex < rolls; rollIndex += 1) {
+    for (const entry of drops) {
+      const chance = Math.max(0, Math.min(1, entry.chance + (modifiers.bonusChance ?? 0)));
+      const isGuaranteedMeat =
+        Boolean(modifiers.guaranteedMeat) && (entry.itemId === 'raw-meat' || entry.itemId === 'fish-meat');
+      if (!isGuaranteedMeat && rng() >= chance) {
+        continue;
+      }
+      const count = rollDropCount(entry, rng);
+      awarded.set(entry.itemId, (awarded.get(entry.itemId) ?? 0) + count);
     }
   }
-  return null;
+
+  return Array.from(awarded.entries()).map(([itemId, count]) => ({ itemId, count }));
 }
 
 export function processAnimalDrops(
@@ -27,16 +61,7 @@ export function processAnimalDrops(
     return { items: [], count: 0 };
   }
 
-  const items: Array<{ itemId: string; count: number }> = [];
-  const uniqueDrops = new Set<string>();
-
-  for (const drop of drops) {
-    if (rollDrop([drop], rng)) {
-      const count = 1;
-      items.push({ itemId: drop.itemId, count });
-      uniqueDrops.add(drop.itemId);
-    }
-  }
+  const items = rollAnimalDrops(drops, rng);
 
   return { items, count: items.length };
 }

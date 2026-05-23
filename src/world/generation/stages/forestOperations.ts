@@ -318,9 +318,6 @@ export class ForestOperations {
     protectedCells?: ProtectedCells,
   ): void {
     for (const side of this.forestSides()) {
-      if (plan.exits[side]) {
-        continue;
-      }
       switch (side) {
         case 'north':
           this.carveLocalRect(layout, 0, 0, grid.cols, 2, '#', protectedCells);

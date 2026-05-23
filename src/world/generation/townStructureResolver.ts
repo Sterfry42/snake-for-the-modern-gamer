@@ -26,13 +26,90 @@ export const HUMAN_TOWN_DISTRICTS: Readonly<Record<string, TownPhysicalDistrictK
   '2,3': 'townExit',
 };
 
-const DISTRICT_BY_OFFSET = new Map(
-  Object.entries(HUMAN_TOWN_DISTRICTS).map(([key, district]) => {
-    const [dx = 0, dy = 0] = key.split(',').map(Number);
-    return [key, { dx, dy, district }];
-  }),
-);
-const TOWN_OFFSET_KEYS = new Set(Object.keys(HUMAN_TOWN_DISTRICTS));
+type CardinalSide = 'north' | 'south' | 'east' | 'west';
+
+export interface HumanTownFootprint {
+  districts: Readonly<Record<string, TownPhysicalDistrictKind>>;
+  entranceSide: CardinalSide;
+  exitSide: CardinalSide;
+  entranceOffset: { dx: number; dy: number };
+  exitOffsets: ReadonlyArray<{ dx: number; dy: number }>;
+}
+
+const BASE_TOWN_OFFSETS = Object.entries(HUMAN_TOWN_DISTRICTS).map(([key, district]) => {
+  const [dx = 0, dy = 0] = key.split(',').map(Number);
+  return { dx, dy, district };
+});
+
+function rotateOffset(dx: number, dy: number, turns: number): { dx: number; dy: number } {
+  switch (turns % 4) {
+    case 1:
+      return { dx: 3 - dy, dy: dx };
+    case 2:
+      return { dx: 3 - dx, dy: 3 - dy };
+    case 3:
+      return { dx: dy, dy: 3 - dx };
+    default:
+      return { dx, dy };
+  }
+}
+
+function rotateSide(side: CardinalSide, turns: number): CardinalSide {
+  const sides: CardinalSide[] = ['north', 'east', 'south', 'west'];
+  const index = sides.indexOf(side);
+  return sides[positiveMod(index + turns, sides.length)]!;
+}
+
+const HUMAN_TOWN_FOOTPRINTS: readonly HumanTownFootprint[] = [0, 1, 2, 3].map((turns) => {
+  const districts: Record<string, TownPhysicalDistrictKind> = {};
+  for (const entry of BASE_TOWN_OFFSETS) {
+    const offset = rotateOffset(entry.dx, entry.dy, turns);
+    districts[`${offset.dx},${offset.dy}`] = entry.district;
+  }
+  return {
+    districts,
+    entranceSide: rotateSide('west', turns),
+    exitSide: rotateSide('south', turns),
+    entranceOffset: rotateOffset(0, 0, turns),
+    exitOffsets: [rotateOffset(2, 3, turns)],
+  };
+});
+
+function footprintForSeed(seed: number): HumanTownFootprint {
+  return HUMAN_TOWN_FOOTPRINTS[positiveMod(seed, HUMAN_TOWN_FOOTPRINTS.length)] ?? HUMAN_TOWN_FOOTPRINTS[0]!;
+}
+
+export function getHumanTownFootprint(placement: MultiRoomStructurePlacement): HumanTownFootprint {
+  return footprintForSeed(placement.seed);
+}
+
+export function getHumanTownDistricts(placement: MultiRoomStructurePlacement): Readonly<Record<string, TownPhysicalDistrictKind>> {
+  return getHumanTownFootprint(placement).districts;
+}
+
+export function getHumanTownEntranceRoomId(placement: MultiRoomStructurePlacement): string {
+  const offset = getHumanTownFootprint(placement).entranceOffset;
+  return formatRoomId({ x: placement.anchor.x + offset.dx, y: placement.anchor.y + offset.dy, z: placement.anchor.z });
+}
+
+export function getHumanTownExitRoomIds(placement: MultiRoomStructurePlacement): string[] {
+  return getHumanTownFootprint(placement).exitOffsets.map((offset) =>
+    formatRoomId({ x: placement.anchor.x + offset.dx, y: placement.anchor.y + offset.dy, z: placement.anchor.z }),
+  );
+}
+
+function offsetForSide(side: CardinalSide): { dx: number; dy: number } {
+  switch (side) {
+    case 'north':
+      return { dx: 0, dy: -1 };
+    case 'south':
+      return { dx: 0, dy: 1 };
+    case 'east':
+      return { dx: 1, dy: 0 };
+    case 'west':
+      return { dx: -1, dy: 0 };
+  }
+}
 
 export class MultiRoomStructureResolver {
   constructor(
@@ -61,6 +138,7 @@ export class MultiRoomStructureResolver {
       return {};
     }
     const coord = parseRoomId(roomId);
+    const footprint = getHumanTownFootprint(membership.placement);
     const connections: Partial<Record<'north' | 'south' | 'east' | 'west', string>> = {};
     const addIfTown = (side: 'north' | 'south' | 'east' | 'west', dx: number, dy: number): void => {
       const neighbor = { x: coord.x + dx, y: coord.y + dy, z: coord.z };
@@ -74,10 +152,12 @@ export class MultiRoomStructureResolver {
     addIfTown('west', -1, 0);
 
     if (membership.district === 'outskirts') {
-      connections.west = formatRoomId({ x: coord.x - 1, y: coord.y, z: coord.z });
+      const offset = offsetForSide(footprint.entranceSide);
+      connections[footprint.entranceSide] = formatRoomId({ x: coord.x + offset.dx, y: coord.y + offset.dy, z: coord.z });
     }
     if (membership.district === 'townExit') {
-      connections.south = formatRoomId({ x: coord.x, y: coord.y + 1, z: coord.z });
+      const offset = offsetForSide(footprint.exitSide);
+      connections[footprint.exitSide] = formatRoomId({ x: coord.x + offset.dx, y: coord.y + offset.dy, z: coord.z });
     }
     return connections;
   }
@@ -144,11 +224,20 @@ export class MultiRoomStructureResolver {
       salt: this.identity.townSalt,
       featureSalt: 0xdad7,
     });
-    return {
+    const tempPlacement = {
       id: `human-town:${anchor.x},${anchor.y},${anchor.z}:${seed.toString(36)}`,
+      kind: 'humanTown' as const,
+      anchor,
+      seed,
+      bounds: { left: anchor.x, top: anchor.y, width: 4, height: 4, z },
+    };
+    const townBiomeId = this.biomeMap.getBiomeForRoomId(getHumanTownEntranceRoomId(tempPlacement)).id;
+    return {
+      id: tempPlacement.id,
       kind: 'humanTown',
       anchor,
       seed,
+      townBiomeId,
       bounds: { left: anchor.x, top: anchor.y, width: 4, height: 4, z },
     };
   }
@@ -158,10 +247,11 @@ export class MultiRoomStructureResolver {
     if (placement.anchor.z === 0 && originDistance < 6) {
       return false;
     }
-    for (const entry of DISTRICT_BY_OFFSET.values()) {
+    for (const [key] of Object.entries(getHumanTownDistricts(placement))) {
+      const [dx = 0, dy = 0] = key.split(',').map(Number);
       const roomId = formatRoomId({
-        x: placement.anchor.x + entry.dx,
-        y: placement.anchor.y + entry.dy,
+        x: placement.anchor.x + dx,
+        y: placement.anchor.y + dy,
         z: placement.anchor.z,
       });
       const biome = this.biomeMap.getBiomeForRoomId(roomId);
@@ -179,36 +269,53 @@ export class MultiRoomStructureResolver {
   ): TownRoomMembership | null {
     const dx = coord.x - placement.anchor.x;
     const dy = coord.y - placement.anchor.y;
-    const district = HUMAN_TOWN_DISTRICTS[`${dx},${dy}`];
+    const footprint = getHumanTownFootprint(placement);
+    const district = footprint.districts[`${dx},${dy}`];
     if (district) {
       return { placement, role: 'inside', roomId, district };
     }
 
+    const townOffsetKeys = new Set(Object.keys(footprint.districts));
     const sides: Array<'north' | 'south' | 'east' | 'west'> = [];
-    if (TOWN_OFFSET_KEYS.has(`${dx},${dy - 1}`)) sides.push('north');
-    if (TOWN_OFFSET_KEYS.has(`${dx},${dy + 1}`)) sides.push('south');
-    if (TOWN_OFFSET_KEYS.has(`${dx - 1},${dy}`)) sides.push('west');
-    if (TOWN_OFFSET_KEYS.has(`${dx + 1},${dy}`)) sides.push('east');
+    if (townOffsetKeys.has(`${dx},${dy - 1}`)) sides.push('north');
+    if (townOffsetKeys.has(`${dx},${dy + 1}`)) sides.push('south');
+    if (townOffsetKeys.has(`${dx - 1},${dy}`)) sides.push('west');
+    if (townOffsetKeys.has(`${dx + 1},${dy}`)) sides.push('east');
     const corners: Array<'northWest' | 'northEast' | 'southWest' | 'southEast'> = [];
     if (sides.length === 0) {
-      if (TOWN_OFFSET_KEYS.has(`${dx - 1},${dy - 1}`)) corners.push('northWest');
-      if (TOWN_OFFSET_KEYS.has(`${dx + 1},${dy - 1}`)) corners.push('northEast');
-      if (TOWN_OFFSET_KEYS.has(`${dx - 1},${dy + 1}`)) corners.push('southWest');
-      if (TOWN_OFFSET_KEYS.has(`${dx + 1},${dy + 1}`)) corners.push('southEast');
+      if (townOffsetKeys.has(`${dx - 1},${dy - 1}`)) corners.push('northWest');
+      if (townOffsetKeys.has(`${dx + 1},${dy - 1}`)) corners.push('northEast');
+      if (townOffsetKeys.has(`${dx - 1},${dy + 1}`)) corners.push('southWest');
+      if (townOffsetKeys.has(`${dx + 1},${dy + 1}`)) corners.push('southEast');
     }
     if (sides.length === 0 && corners.length === 0) {
       return null;
     }
     const adjacentSideFacingTown = sides[0];
+    const entranceOffset = offsetForSide(footprint.entranceSide);
+    const exitOffset = offsetForSide(footprint.exitSide);
+    const entranceApproach = {
+      x: placement.anchor.x + footprint.entranceOffset.dx + entranceOffset.dx,
+      y: placement.anchor.y + footprint.entranceOffset.dy + entranceOffset.dy,
+    };
+    const primaryExit = footprint.exitOffsets[0] ?? { dx: 0, dy: 0 };
+    const exitApproach = {
+      x: placement.anchor.x + primaryExit.dx + exitOffset.dx,
+      y: placement.anchor.y + primaryExit.dy + exitOffset.dy,
+    };
     return {
       placement,
-      role: coord.x === placement.anchor.x - 1 && coord.y === placement.anchor.y ? 'approach' : 'adjacent',
+      role:
+        (coord.x === entranceApproach.x && coord.y === entranceApproach.y) ||
+        (coord.x === exitApproach.x && coord.y === exitApproach.y)
+          ? 'approach'
+          : 'adjacent',
       roomId,
       adjacentSideFacingTown,
       adjacentSidesFacingTown: sides,
       adjacentCornersFacingTown: corners,
-      isEntranceApproach: coord.x === placement.anchor.x - 1 && coord.y === placement.anchor.y,
-      isExitApproach: coord.x === placement.anchor.x + 2 && coord.y === placement.anchor.y + 4,
+      isEntranceApproach: coord.x === entranceApproach.x && coord.y === entranceApproach.y,
+      isExitApproach: coord.x === exitApproach.x && coord.y === exitApproach.y,
     };
   }
 }

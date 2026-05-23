@@ -83,4 +83,22 @@ describe('SimulationScheduler', () => {
 
     expect(steps).toEqual(['boss', 'action', 'actor', 'bullet', 'hazard']);
   });
+
+  it('reports scheduler diagnostics for clamping and per-clock steps', () => {
+    let steps = 0;
+    const scheduler = new SimulationScheduler([
+      { id: 'action', intervalMs: 100, step: () => { steps += 1; } },
+      { id: 'actor', intervalMs: 200, step: () => { steps += 1; } },
+    ]);
+
+    scheduler.update(300, { action: true, actor: true });
+
+    const diagnostics = scheduler.getDiagnostics();
+    expect(steps).toBe(3);
+    expect(diagnostics.rawDeltaMs).toBe(300);
+    expect(diagnostics.clampedDeltaMs).toBe(250);
+    expect(diagnostics.wasDeltaClamped).toBe(true);
+    expect(diagnostics.clocks.find((clock) => clock.id === 'action')?.stepsLastUpdate).toBe(2);
+    expect(diagnostics.clocks.find((clock) => clock.id === 'actor')?.stepsLastUpdate).toBe(1);
+  });
 });

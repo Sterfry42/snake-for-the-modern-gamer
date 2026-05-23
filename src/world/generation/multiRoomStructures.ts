@@ -1,3 +1,5 @@
+import type { BiomeId } from '../biomes.js';
+
 export type MultiRoomStructureKind = 'humanTown' | 'futureDungeon' | 'futureCastle' | 'futureRuin';
 
 export type StructureRoomRole = 'inside' | 'adjacent' | 'approach';
@@ -13,6 +15,7 @@ export interface MultiRoomStructurePlacement {
   kind: MultiRoomStructureKind;
   anchor: RoomCoordinate;
   seed: number;
+  townBiomeId?: BiomeId;
   bounds: {
     left: number;
     top: number;

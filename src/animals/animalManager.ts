@@ -17,6 +17,7 @@ interface AnimalStepParams {
   snake: readonly Vector2Like[];
   currentRoomId: string;
   snakeDirection: Vector2Like;
+  canHuntHarmless?: boolean;
   tameCallback?: (animalId: string, tamed: boolean) => void;
 }
 
@@ -26,12 +27,22 @@ interface AnimalStepResult {
   damageTaken: number;
   hunted: number;
   startleCount: number;
+  huntedAnimals: HuntedAnimalResult[];
 }
 
-interface SnakeAnimalResult {
+export interface HuntedAnimalResult {
+  animalId: string;
+  animalType: AnimalDefinition['type'];
+  animalName: string;
+  position: Vector2Like;
+  drops: AnimalDefinition['drops'];
+}
+
+export interface SnakeAnimalResult {
   tamed: boolean;
   damaged: boolean;
   hunted: boolean;
+  huntedAnimal?: HuntedAnimalResult;
   startleCount: number;
 }
 
@@ -234,6 +245,7 @@ export class AnimalManager {
       damageTaken: 0,
       hunted: 0,
       startleCount: 0,
+      huntedAnimals: [],
     };
 
     const head = snake[0];
@@ -270,7 +282,13 @@ export class AnimalManager {
       nextAnimals.push(next);
     }
 
-    this.handleAnimalInteractions(nextAnimals, headLocal, currentRoomId, result);
+    this.handleAnimalInteractions(
+      nextAnimals,
+      headLocal,
+      currentRoomId,
+      result,
+      Boolean(params.canHuntHarmless),
+    );
 
     if (nextAnimals.length > 0) {
       this.animals.set(currentRoomId, nextAnimals);
@@ -552,6 +570,7 @@ export class AnimalManager {
     headLocal: Vector2Like,
     roomId: string,
     result: AnimalStepResult,
+    canHuntHarmless: boolean,
   ): void {
     const newAnimals: AnimalInstance[] = [];
 
@@ -561,8 +580,13 @@ export class AnimalManager {
       if (animal.position.x === headLocal.x && animal.position.y === headLocal.y) {
         switch (def.snakeEncounter) {
           case 'harmless':
-            result.startleCount++;
-            newAnimals.push({ ...animal, flashTicks: 3 });
+            if (canHuntHarmless) {
+              result.hunted++;
+              result.huntedAnimals.push(this.createHuntedAnimalResult(animal, def));
+            } else {
+              result.startleCount++;
+              newAnimals.push({ ...animal, flashTicks: 3 });
+            }
             break;
           case 'dangerous':
             result.damageTaken++;
@@ -570,6 +594,7 @@ export class AnimalManager {
             break;
           case 'hunt':
             result.hunted++;
+            result.huntedAnimals.push(this.createHuntedAnimalResult(animal, def));
             break;
           case 'tamable':
             newAnimals.push({ ...animal, flashTicks: 2 });
@@ -597,6 +622,7 @@ export class AnimalManager {
     roomId: string,
     head: Vector2Like,
     snakeDirection: Vector2Like,
+    canHuntHarmless = false,
   ): SnakeAnimalResult {
     const local = this.worldToLocal(roomId, head);
     const roomAnimals = this.animals.get(roomId) ?? [];
@@ -625,8 +651,14 @@ export class AnimalManager {
 
     switch (def.snakeEncounter) {
       case 'harmless':
-        result.startleCount = 1;
-        this.animals.set(roomId, updated);
+        if (canHuntHarmless) {
+          result.hunted = true;
+          result.huntedAnimal = this.createHuntedAnimalResult(target, def);
+          this.animals.set(roomId, updated);
+        } else {
+          result.startleCount = 1;
+          this.animals.set(roomId, [...remaining, { ...target, flashTicks: 3 }]);
+        }
         break;
       case 'dangerous':
         result.damaged = true;
@@ -634,6 +666,7 @@ export class AnimalManager {
         break;
       case 'hunt':
         result.hunted = true;
+        result.huntedAnimal = this.createHuntedAnimalResult(target, def);
         this.animals.set(roomId, updated);
         break;
       case 'tamable':
@@ -643,6 +676,19 @@ export class AnimalManager {
     }
 
     return result;
+  }
+
+  private createHuntedAnimalResult(
+    animal: AnimalInstance,
+    def: AnimalDefinition,
+  ): HuntedAnimalResult {
+    return {
+      animalId: animal.id,
+      animalType: animal.type,
+      animalName: def.name,
+      position: { ...animal.position },
+      drops: def.drops,
+    };
   }
 
   damageAnimal(

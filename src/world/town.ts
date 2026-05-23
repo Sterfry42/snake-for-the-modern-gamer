@@ -1046,6 +1046,34 @@ function drawRoad(layout: string[][], horizontal = true): void {
   }
 }
 
+function connectedRoadMode(openSides: readonly ExitSide[]): 'horizontal' | 'vertical' | 'cross' {
+  const horizontal = openSides.includes('east') || openSides.includes('west');
+  const vertical = openSides.includes('north') || openSides.includes('south');
+  if (horizontal && vertical) return 'cross';
+  return vertical ? 'vertical' : 'horizontal';
+}
+
+function drawConnectedRoad(layout: string[][], openSides: readonly ExitSide[]): 'horizontal' | 'vertical' | 'cross' {
+  const mode = connectedRoadMode(openSides);
+  if (mode === 'horizontal' || mode === 'cross') {
+    drawRoad(layout, true);
+  }
+  if (mode === 'vertical' || mode === 'cross') {
+    drawRoad(layout, false);
+  }
+  return mode;
+}
+
+function exteriorConnectionSides(
+  connections: Partial<Record<ExitSide, string>>,
+  town: TownStructure,
+): ExitSide[] {
+  return (Object.keys(connections) as ExitSide[]).filter((side) => {
+    const roomId = connections[side];
+    return !roomId || !town.districtByRoomId[roomId];
+  });
+}
+
 function stampNpc(layout: string[][], x: number, y: number): void {
   setChar(layout, x, y, 'G');
 }
@@ -1072,12 +1100,20 @@ export function createTownDistrictRoom(args: {
   const district = args.districtKind;
   town.safeArea = { left: 1, top: 1, width: args.grid.cols - 2, height: args.grid.rows - 2 };
   town.center = center;
-  const openSides = Object.keys(args.connections) as ExitSide[];
+  const rawOpenSides = Object.keys(args.connections) as ExitSide[];
+  const openSides = rawOpenSides.filter((side) => {
+    const neighborId = args.connections[side];
+    const neighborDistrict = neighborId ? town.districtByRoomId[neighborId] : undefined;
+    const guildGrate =
+      (district === 'backAlley' && neighborDistrict === 'guildHideout') ||
+      (district === 'guildHideout' && neighborDistrict === 'backAlley');
+    return !guildGrate || town.discoveredGuild;
+  });
   drawTownWalls(layout, openSides);
 
   switch (district) {
     case 'outskirts':
-      drawRoad(layout, true);
+      drawConnectedRoad(layout, openSides);
       for (let x = 3; x < args.grid.cols - 3; x += 4) {
         setChar(layout, x, center.y - 5, 'L');
         setChar(layout, x, center.y + 5, 'L');
@@ -1089,9 +1125,13 @@ export function createTownDistrictRoom(args: {
       stampNpc(layout, center.x, center.y);
       break;
     case 'gate':
-      drawRoad(layout, true);
-      fillRect(layout, center.x - 2, 2, 5, args.grid.rows - 4, '#');
-      fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'S');
+      if (drawConnectedRoad(layout, openSides) === 'vertical') {
+        fillRect(layout, 2, center.y - 2, args.grid.cols - 4, 5, '#');
+        fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'S');
+      } else {
+        fillRect(layout, center.x - 2, 2, 5, args.grid.rows - 4, '#');
+        fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'S');
+      }
       stampNpc(layout, center.x - 4, center.y - 2);
       stampNpc(layout, center.x + 4, center.y + 2);
       stampNpc(layout, center.x - 4, center.y + 2);
@@ -1113,7 +1153,7 @@ export function createTownDistrictRoom(args: {
       break;
     case 'market':
     case 'marketStreet':
-      drawRoad(layout, true);
+      drawConnectedRoad(layout, openSides);
       for (let x = 4; x < args.grid.cols - 6; x += 7) {
         fillRect(layout, x, center.y - 6, 5, 3, 'S');
         fillRect(layout, x, center.y + 4, 5, 3, 'S');
@@ -1141,7 +1181,7 @@ export function createTownDistrictRoom(args: {
       break;
     case 'residential':
     case 'residentialStreet':
-      drawRoad(layout, false);
+      drawConnectedRoad(layout, openSides);
       for (let y = 4; y < args.grid.rows - 5; y += 6) {
         fillRect(layout, 3, y, 6, 4, 'W');
         fillRect(layout, args.grid.cols - 9, y, 6, 4, 'W');
@@ -1180,9 +1220,14 @@ export function createTownDistrictRoom(args: {
       break;
     case 'exit':
     case 'townExit':
-      drawRoad(layout, false);
-      fillRect(layout, 2, args.grid.rows - 6, args.grid.cols - 4, 3, '#');
-      fillRect(layout, center.x - 1, args.grid.rows - 6, 3, 3, 'S');
+      drawConnectedRoad(layout, openSides);
+      if (exteriorConnectionSides(args.connections, town).some((side) => side === 'east' || side === 'west')) {
+        fillRect(layout, center.x - 2, 2, 5, args.grid.rows - 4, '#');
+        fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'S');
+      } else {
+        fillRect(layout, 2, args.grid.rows - 6, args.grid.cols - 4, 3, '#');
+        fillRect(layout, center.x - 1, args.grid.rows - 6, 3, 3, 'S');
+      }
       stampTownInteraction(layout, district, center.x - 4, center.y - 2);
       setChar(layout, center.x + 5, center.y - 2, 'L');
       stampNpc(layout, center.x + 3, center.y);
@@ -1258,10 +1303,10 @@ export function stampTownBoundaryCorner(
   const cols = layout[0]?.length ?? 0;
   const north = cornerFacingTown === 'northWest' || cornerFacingTown === 'northEast';
   const west = cornerFacingTown === 'northWest' || cornerFacingTown === 'southWest';
-  const xStart = west ? 0 : Math.max(0, cols - 6);
-  const yStart = north ? 0 : Math.max(0, rowsCount - 6);
-  const xEnd = west ? Math.min(cols - 1, 5) : cols - 1;
-  const yEnd = north ? Math.min(rowsCount - 1, 5) : rowsCount - 1;
+  const xStart = west ? 0 : Math.max(0, cols - 2);
+  const yStart = north ? 0 : Math.max(0, rowsCount - 2);
+  const xEnd = west ? Math.min(cols - 1, 1) : cols - 1;
+  const yEnd = north ? Math.min(rowsCount - 1, 1) : rowsCount - 1;
   for (let y = yStart; y <= yEnd; y += 1) {
     for (let x = xStart; x <= xEnd; x += 1) {
       if (x === xStart || x === xEnd || y === yStart || y === yEnd) {
