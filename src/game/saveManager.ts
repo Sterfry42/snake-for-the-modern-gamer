@@ -1,5 +1,30 @@
 import type { WorldGenerationIdentity } from '../world/generation/worldGenerationIdentity.js';
 
+const SAVE_KEY = 'snakeGameSave';
+let memorySave: string | null = null;
+
+function getStorage(): Storage | null {
+  return typeof localStorage === 'undefined' ? null : localStorage;
+}
+
+export function getSavedGameData(): string | null {
+  return getStorage()?.getItem(SAVE_KEY) ?? memorySave;
+}
+
+export function setSavedGameData(data: string): void {
+  const storage = getStorage();
+  if (storage) {
+    storage.setItem(SAVE_KEY, data);
+    return;
+  }
+  memorySave = data;
+}
+
+export function clearSavedGameData(): void {
+  getStorage()?.removeItem(SAVE_KEY);
+  memorySave = null;
+}
+
 export interface GameSaveData {
   version: string;
   timestamp: number;
@@ -38,7 +63,6 @@ export interface GameSaveData {
 }
 
 export class SaveManager {
-  private readonly SAVE_KEY = 'snakeGameSave';
   private readonly VERSION = '1.0.0';
 
   constructor() {}
@@ -62,7 +86,7 @@ export class SaveManager {
         data.backgroundMods = backgroundChoice.mods;
       }
 
-      localStorage.setItem(this.SAVE_KEY, JSON.stringify(data));
+      setSavedGameData(JSON.stringify(data));
     } catch (error) {
       console.error('Failed to save game:', error);
     }
@@ -75,7 +99,7 @@ export class SaveManager {
     getBackgroundChoice?: () => any,
   ): boolean {
     try {
-      const saved = localStorage.getItem(this.SAVE_KEY);
+      const saved = getSavedGameData();
       if (!saved) {
         return false;
       }
@@ -89,10 +113,6 @@ export class SaveManager {
 
       const success = game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
 
-      if (success) {
-        console.log(`[SaveManager] Loaded save successfully`);
-      }
-
       return success;
     } catch (error) {
       console.error('Failed to load game:', error);
@@ -102,7 +122,7 @@ export class SaveManager {
 
   hasSave(): boolean {
     try {
-      return Boolean(localStorage.getItem(this.SAVE_KEY));
+      return Boolean(getSavedGameData());
     } catch {
       return false;
     }
@@ -110,7 +130,7 @@ export class SaveManager {
 
   clear(): void {
     try {
-      localStorage.removeItem(this.SAVE_KEY);
+      clearSavedGameData();
     } catch (error) {
       console.error('Failed to clear save:', error);
     }

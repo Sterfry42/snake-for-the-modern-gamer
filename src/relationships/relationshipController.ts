@@ -8,6 +8,7 @@ import type {
   RelationshipCandidateProfile,
   RelationshipChoice,
   RelationshipEncounter,
+  RelationshipCutscene,
   RelationshipEventResult,
   RelationshipMemory,
   RelationshipOutcomeTier,
@@ -28,6 +29,8 @@ interface RelationshipRuntime {
 
 const STATES_FLAG = 'relationships.states';
 const LAST_ENCOUNTER_FLAG = 'relationships.lastEncountered';
+const CUTSCENES_FLAG = 'relationships.cutscenes';
+const LAST_MAJOR_EVENT_ROOM_FLAG = 'relationships.lastMajorEventRoom';
 const MAX_MEMORIES_PER_RELATIONSHIP = 24;
 const FORCEABLE_STAGES = new Set<RelationshipStage>([
   'married',
@@ -84,6 +87,7 @@ export class RelationshipController {
     if (existing) {
       const updated = {
         ...existing,
+        actorId: profile.actorId ?? existing.actorId,
         displayName: profile.displayName,
         portraitId: normalizePortrait(profile.species, profile.portraitId),
         homeRoomId: profile.homeRoomId ?? existing.homeRoomId,
@@ -97,6 +101,7 @@ export class RelationshipController {
 
     const state: RelationshipState = {
       id: profile.id,
+      actorId: profile.actorId,
       displayName: profile.displayName,
       species: profile.species,
       homeRoomId: profile.homeRoomId,
@@ -155,6 +160,54 @@ export class RelationshipController {
 
   getCurrentSpouse(): RelationshipState | undefined {
     return this.getAllStates().find((state) => state.stage === 'married' && !state.flags.dead);
+  }
+
+  getSocialContext(): {
+    spouseId?: string;
+    lovers: string[];
+    dating: string[];
+    crushes: string[];
+    exes: string[];
+    deadRomances: string[];
+  } {
+    const states = this.getAllStates();
+    return {
+      spouseId: states.find((state) => state.stage === 'married' && !state.flags.dead)?.id,
+      lovers: states.filter((state) => state.stage === 'lover' && !state.flags.dead).map((state) => state.id),
+      dating: states.filter((state) => state.stage === 'dating' && !state.flags.dead).map((state) => state.id),
+      crushes: states.filter((state) => state.stage === 'crush' && !state.flags.dead).map((state) => state.id),
+      exes: states
+        .filter((state) => state.stage === 'estranged' || state.stage === 'heartbroken' || state.stage === 'vengeful')
+        .map((state) => state.id),
+      deadRomances: states.filter((state) => state.stage === 'dead' || state.flags.dead).map((state) => state.id),
+    };
+  }
+
+  enqueueCutscene(cutscene: RelationshipCutscene): void {
+    const queue = this.getCutsceneQueue().filter((entry) => entry.id !== cutscene.id);
+    queue.push(cutscene);
+    queue.sort((a, b) => b.priority - a.priority);
+    this.runtime.setFlag(CUTSCENES_FLAG, queue.slice(0, 12));
+  }
+
+  popNextCutscene(relationshipId?: string, roomsVisited?: number): RelationshipCutscene | undefined {
+    const queue = this.getCutsceneQueue();
+    const index = queue.findIndex((cutscene) => !relationshipId || cutscene.relationshipId === relationshipId);
+    if (index < 0) {
+      return undefined;
+    }
+    if (
+      roomsVisited !== undefined &&
+      Number(this.runtime.getFlag<number>(LAST_MAJOR_EVENT_ROOM_FLAG) ?? -1000) === roomsVisited
+    ) {
+      return undefined;
+    }
+    const [cutscene] = queue.splice(index, 1);
+    this.runtime.setFlag(CUTSCENES_FLAG, queue);
+    if (roomsVisited !== undefined) {
+      this.runtime.setFlag(LAST_MAJOR_EVENT_ROOM_FLAG, roomsVisited);
+    }
+    return cutscene;
   }
 
   getAvailableChoices(id: string): Array<RelationshipChoice | 'gift'> {
@@ -435,6 +488,7 @@ export class RelationshipController {
       message: `${saved.displayName} married you. The bouquet is legally and emotionally ridiculous.`,
       color: '#ffbdfd',
       state: saved,
+      reward: this.createRelationshipReward(saved, 'marriage'),
     };
   }
 
@@ -965,6 +1019,10 @@ export class RelationshipController {
         targetRelationshipId: spouse.id,
         summary: `You proposed to ${next.displayName} while already married to ${spouse.displayName}.`,
       });
+      this.enqueueMajorCutscene(next, roomsVisited, 'afterProposal', 80, [
+        `${next.displayName} looks at the invisible ring already on your life.`,
+        '"You are already married. That is not romance. That is calendar fraud."',
+      ]);
       const saved = this.finalize(next);
       return {
         ok: false,
@@ -989,6 +1047,10 @@ export class RelationshipController {
         questId: 'deep-lying-bouquet',
         uniqueKey: `proposal:${next.id}`,
       });
+      this.enqueueMajorCutscene(next, roomsVisited, 'afterProposal', 60, [
+        `${next.displayName} says yes, then immediately makes the romance logistical.`,
+        '"Bring me the Deep-Lying Bouquet. Let the cold prove you can keep a promise."',
+      ]);
       const saved = this.finalize(next);
       return {
         ok: true,
@@ -997,6 +1059,7 @@ export class RelationshipController {
         color: '#ffbdfd',
         state: saved,
         questId: 'deep-lying-bouquet',
+        reward: this.createRelationshipReward(saved, 'proposalAccepted'),
       };
     }
     next.resentment += next.resentment > 20 ? 5 : 1;
@@ -1008,6 +1071,10 @@ export class RelationshipController {
       tone: 'neutral',
       summary: `You proposed before ${next.displayName} was ready.`,
     });
+    this.enqueueMajorCutscene(next, roomsVisited, 'afterProposal', 45, [
+      `${next.displayName} holds the proposal carefully, as if it might bruise.`,
+      '"No. Not because the question is ugly. Because the timing is."',
+    ]);
     const saved = this.finalize(next);
     return {
       ok: false,
@@ -1056,6 +1123,10 @@ export class RelationshipController {
         summary: `${next.displayName} started a family with you. ${child.name} is now everyone's problem.`,
         uniqueKey: `child:${next.id}`,
       });
+      this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 70, [
+        `${next.displayName} introduces ${child.name} with the solemnity of a treaty and the panic of a breakfast accident.`,
+        '"Our family survives another room. I am choosing to find that romantic."',
+      ]);
     }
     const saved = this.finalize(next);
     return {
@@ -1064,6 +1135,7 @@ export class RelationshipController {
       message: `"Our family survives another room. I am choosing to find that romantic."`,
       color: '#ffbdfd',
       state: saved,
+      reward: this.createRelationshipReward(saved, next.children.length === 1 ? 'family' : 'spouseVisit'),
     };
   }
 
@@ -1118,6 +1190,10 @@ export class RelationshipController {
       summary: `You divorced ${next.displayName}.`,
       uniqueKey: `divorce:${next.id}:${roomsVisited}`,
     });
+    this.enqueueMajorCutscene(next, roomsVisited, 'afterDivorce', 85, [
+      `${next.displayName} listens to the divorce as if the room itself said it.`,
+      '"Then let the record show we were real, and then we were not."',
+    ]);
     const saved = this.finalize(next);
     return {
       ok: true,
@@ -1160,6 +1236,7 @@ export class RelationshipController {
       ) {
         next.flags.rivalMurder = true;
         next.flags.forceStage = next.conflictStyle === 'murderous' ? 'murderous' : 'vengeful';
+        this.killRelationshipTarget(newSpouseId, next, roomsVisited);
         this.recordMemory(next, {
           roomsVisited,
           kind: 'rivalMurder',
@@ -1170,8 +1247,114 @@ export class RelationshipController {
           summary: `${next.displayName} decided the new spouse was the problem.`,
           uniqueKey: `rivalMurder:${next.id}:${newSpouseId}`,
         });
+        this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 100, [
+          `${next.displayName} finds you before the room has finished loading.`,
+          '"I do not blame you," they say. "I blamed them."',
+        ]);
       }
       this.finalize(next);
+    }
+  }
+
+  private getCutsceneQueue(): RelationshipCutscene[] {
+    const raw = this.runtime.getFlag<RelationshipCutscene[]>(CUTSCENES_FLAG);
+    return Array.isArray(raw) ? raw.slice() : [];
+  }
+
+  private enqueueMajorCutscene(
+    state: RelationshipState,
+    roomsVisited: number,
+    trigger: RelationshipCutscene['trigger'],
+    priority: number,
+    pages: string[],
+  ): void {
+    if (Number(this.runtime.getFlag<number>(LAST_MAJOR_EVENT_ROOM_FLAG) ?? -1000) === roomsVisited) {
+      return;
+    }
+    this.enqueueCutscene({
+      id: `cutscene:${state.id}:${trigger}:${roomsVisited}:${Math.abs(this.hash(pages.join('|')))}`,
+      relationshipId: state.id,
+      trigger,
+      priority,
+      once: true,
+      pages,
+    });
+  }
+
+  private killRelationshipTarget(victimId: string, killer: RelationshipState, roomsVisited: number): void {
+    const victim = this.getState(victimId);
+    if (!victim || victim.flags.dead || victim.stage === 'dead') {
+      return;
+    }
+    const next: RelationshipState = {
+      ...victim,
+      stage: 'dead',
+      romanceOptIn: false,
+      flags: {
+        ...victim.flags,
+        dead: true,
+        forceStage: 'dead',
+        causeOfDeath: `Killed by ${killer.displayName}`,
+        killedByRelationshipId: killer.id,
+      },
+      memories: [...victim.memories],
+    };
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'death',
+      tags: ['death', 'relationship', 'trauma', 'rival'],
+      intensity: 100,
+      tone: 'traumatic',
+      targetRelationshipId: killer.id,
+      summary: `${next.displayName} was killed by ${killer.displayName} after marriage fallout.`,
+      uniqueKey: `death:${next.id}:${killer.id}`,
+    });
+    this.finalize(next);
+  }
+
+  private createRelationshipReward(
+    state: RelationshipState,
+    occasion: 'proposalAccepted' | 'marriage' | 'family' | 'spouseVisit',
+  ): RelationshipReward {
+    if (occasion === 'proposalAccepted') {
+      if (state.species === 'goblin' || state.species === 'goblin-angel') {
+        return { kind: 'shopDiscount', factionId: state.factionId ?? 'goblin-camps', rooms: 8 };
+      }
+      if (state.species === 'angel') {
+        return { kind: 'rescueChance', percent: 12 };
+      }
+      return { kind: 'mapHint', roomId: state.homeRoomId ?? '0,-1,0' };
+    }
+    if (occasion === 'family') {
+      if (state.species === 'goblin' || state.species === 'goblin-angel') {
+        return { kind: 'perk', perkId: 'relationship.family.contractual-dependent' };
+      }
+      if (state.species === 'angel') {
+        return { kind: 'temporaryBuff', buffId: 'relationship.family.mercy', durationRooms: 12 };
+      }
+      return { kind: 'item', itemId: 'cooked-meat', count: 2 };
+    }
+    if (state.species === 'goblin' || state.species === 'goblin-angel') {
+      return state.exclusivityPreference === 'transactional'
+        ? { kind: 'perk', perkId: 'relationship.spouse.audit-shield' }
+        : { kind: 'item', itemId: 'ring-ledger', count: 1 };
+    }
+    if (state.species === 'angel') {
+      return { kind: 'item', itemId: 'amulet-phoenix', count: 1 };
+    }
+    switch (this.getPersonality(state)) {
+      case 'hungry':
+        return { kind: 'item', itemId: 'cooked-meat', count: 3 };
+      case 'poetic':
+        return { kind: 'cosmetic', cosmeticId: 'relationship-poetic-vow' };
+      case 'deadpan':
+        return { kind: 'temporaryBuff', buffId: 'relationship.deadpan-calm', durationRooms: 10 };
+      case 'regal':
+        return { kind: 'perk', perkId: 'relationship.regal-blessing' };
+      case 'sharp':
+        return { kind: 'card', cardId: 'random' };
+      default:
+        return { kind: 'score', amount: 25 };
     }
   }
 

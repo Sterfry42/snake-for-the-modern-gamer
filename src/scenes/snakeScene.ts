@@ -70,6 +70,7 @@ import type {
   RelationshipEventResult,
   RelationshipOutcomeTier,
   RelationshipPersonality,
+  RelationshipReward,
   RelationshipSpecies,
   RelationshipTag,
 } from '../relationships/relationshipTypes.js';
@@ -578,6 +579,7 @@ export default class SnakeScene extends Phaser.Scene {
   private wandererSprite!: Phaser.GameObjects.Sprite;
   private choicePopupVisible = false;
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
+  private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
   // Religion choice state
@@ -3878,6 +3880,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.questGiverSprite?.setVisible(false);
       this.wandererSprite?.setVisible(false);
       this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
+      this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
       this.isDirty = false;
       return;
     }
@@ -4160,12 +4163,14 @@ export default class SnakeScene extends Phaser.Scene {
       roomId: string;
       name?: string;
       kind?: string;
+      healed?: number;
     }>('ui.enemyEaten');
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
       (this.juice as any).enemyEaten?.(world.x, world.y);
+      const label = enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy';
       const popup = this.add
-        .text(world.x, world.y - 14, enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy', {
+        .text(world.x, world.y - 14, enemyEaten.healed ? `${label}  +${enemyEaten.healed} heart` : label, {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: '#ffcf8a',
@@ -4196,6 +4201,12 @@ export default class SnakeScene extends Phaser.Scene {
       );
       (this.juice as any).wandererReveal?.(world.x, world.y);
       this.snakeGame.setFlag('ui.wandererReveal', undefined);
+    }
+
+    const relationshipReward = this.snakeGame.getFlag<{ reward: RelationshipReward }>('ui.relationshipReward');
+    if (relationshipReward) {
+      this.showQuestHintPopup(this.describeRelationshipReward(relationshipReward.reward), '#ffbdfd');
+      this.snakeGame.setFlag('ui.relationshipReward', undefined);
     }
 
     const playerShot = this.snakeGame.getFlag<{
@@ -7527,7 +7538,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.snakeGame.canPickpocketForCurrentTownGuild() &&
         profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`),
     );
-    const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile));
+    const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile), profile.actorId);
     if (!skipBark) {
       this.setChoicePopupVisible(false);
       this.showQuestDialogue(
@@ -8015,6 +8026,29 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private describeRelationshipReward(reward: RelationshipReward): string {
+    switch (reward.kind) {
+      case 'item':
+        return `Relationship reward: ${reward.itemId} x${reward.count}.`;
+      case 'card':
+        return `Relationship reward: ${reward.cardId === 'random' ? 'a card' : reward.cardId}.`;
+      case 'perk':
+        return 'Relationship perk unlocked.';
+      case 'temporaryBuff':
+        return `Relationship buff active for ${reward.durationRooms} rooms.`;
+      case 'shopDiscount':
+        return `Relationship discount active for ${reward.rooms} rooms.`;
+      case 'mapHint':
+        return 'Relationship map hint recorded.';
+      case 'rescueChance':
+        return `Relationship rescue chance improved by ${reward.percent}%.`;
+      case 'cosmetic':
+        return 'Relationship cosmetic unlocked.';
+      case 'score':
+        return `Relationship reward: +${reward.amount} score.`;
+    }
+  }
+
   private isTownResidentInDistrict(
     workRoomId: string | undefined,
     district: TownDistrictKind | undefined,
@@ -8042,6 +8076,39 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     this.paused = true;
     this.skillTree.hideOverlay();
+    const cutscene = result ? undefined : this.snakeGame.popRelationshipCutscene(profile.id);
+    if (cutscene) {
+      const state = this.snakeGame.getRelationshipState(profile);
+      this.datingScenePopup.show({
+        profile,
+        state,
+        line: cutscene.pages.join('\n\n'),
+        lineIsNarration: true,
+        result: {
+          ok: true,
+          title: profile.displayName,
+          message: cutscene.pages.join('\n'),
+          color: '#ffbdfd',
+          state,
+        },
+        actions: [{ id: 'continue', label: 'Continue' }, { id: 'leave', label: 'Leave', tone: 'quiet' }],
+        onAction: (action) => {
+          if (action === 'leave') {
+            this.datingScenePopup.hide();
+            this.paused = false;
+            return;
+          }
+          this.showDatingScene(profile, {
+            ok: true,
+            title: profile.displayName,
+            message: cutscene.pages[cutscene.pages.length - 1] ?? '',
+            color: '#ffbdfd',
+            state,
+          });
+        },
+      });
+      return;
+    }
     const talk = this.snakeGame.getRelationshipTalk(profile);
     this.datingScenePopup.show({
       profile,
@@ -8944,6 +9011,26 @@ export default class SnakeScene extends Phaser.Scene {
     return sprite;
   }
 
+  private ensureVillageResidentIndicatorText(index: number): Phaser.GameObjects.Text {
+    let text = this.villageResidentIndicatorTexts[index];
+    if (text) {
+      return text;
+    }
+    text = this.add
+      .text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#fff4a8',
+        stroke: '#1b1024',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(30)
+      .setVisible(false);
+    this.villageResidentIndicatorTexts[index] = text;
+    return text;
+  }
+
   private getDefaultNpcTextures(size: number): Record<'idle' | 'blink', string> {
     const palette: QuestGiverSpritePalette = {
       robeColor: '#2f7f5f',
@@ -9097,6 +9184,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private updateVillageResidentSprites(): void {
     this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
+    this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
     if (!this.snakeGame) {
       return;
     }
@@ -9122,11 +9210,13 @@ export default class SnakeScene extends Phaser.Scene {
     }
     residents.forEach((resident, index) => {
       const sprite = this.ensureVillageResidentSprite(index);
+      const indicator = this.ensureVillageResidentIndicatorText(index);
       const isGoblin = room.goblinCamp
         ? goblinResidents.some((goblin) => goblin.id === resident.id)
         : false;
       const relationshipProfile: RelationshipCandidateProfile = {
         id: `resident:${room.id}:${resident.id}`,
+        actorId: 'actorId' in resident ? resident.actorId : undefined,
         displayName: resident.name,
         species: (isGoblin ? 'goblin' : 'human') as RelationshipSpecies,
         portraitId: isGoblin ? 'goblin-neutral' : resident.portraitId,
@@ -9135,6 +9225,7 @@ export default class SnakeScene extends Phaser.Scene {
       };
       if (this.snakeGame.isRelationshipHostile(relationshipProfile)) {
         sprite.setVisible(false);
+        indicator.setVisible(false);
         return;
       }
       const palette = isGoblin ? this.paletteForGoblinResident(goblinStanding) : this.paletteForResident(resident.name, index);
@@ -9158,6 +9249,14 @@ export default class SnakeScene extends Phaser.Scene {
         .setTexture(textures.idle)
         .setPosition(world.x, world.y - 2 + bobOffset)
         .setVisible(true);
+      const actorMenu = relationshipProfile.actorId
+        ? this.snakeGame.getActorInteractionMenu(relationshipProfile.actorId)
+        : null;
+      const glyphs = actorMenu?.indicators.map((entry) => entry.glyph).join(' ');
+      indicator
+        .setText(glyphs ?? '')
+        .setPosition(world.x, world.y - this.grid.cell * 0.58 + bobOffset)
+        .setVisible(Boolean(glyphs));
       if (sprite.anims.currentAnim?.key !== animKey) {
         sprite.play(animKey);
       }

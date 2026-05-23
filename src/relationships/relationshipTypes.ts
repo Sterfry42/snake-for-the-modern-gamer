@@ -63,6 +63,7 @@ export type RelationshipTag =
   | 'marriage'
   | 'family'
   | 'divorce'
+  | 'relationship'
   | 'rival'
   | 'murder'
   | 'death'
@@ -189,6 +190,7 @@ export interface RelationshipPreferenceProfile {
 
 export interface RelationshipState {
   id: string;
+  actorId?: string;
   displayName: string;
   species: RelationshipSpecies;
   homeRoomId?: string;
@@ -285,6 +287,7 @@ export interface RelationshipTalkResult {
 
 export interface RelationshipCandidateProfile {
   id: string;
+  actorId?: string;
   displayName: string;
   species: RelationshipSpecies;
   portraitId?: string;

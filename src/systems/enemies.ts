@@ -6,6 +6,7 @@ import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js
 
 export interface EnemyInstance {
   id: string;
+  actorId?: string;
   roomId: string;
   position: Vector2Like;
   fireCooldown: number;
@@ -121,8 +122,10 @@ export class EnemyManager {
     }
 
     const position = candidates[Math.floor(this.rng() * candidates.length)];
+    const id = `enemy-${this.idCounter++}`;
     const enemy: EnemyInstance = {
-      id: `enemy-${this.idCounter++}`,
+      id,
+      actorId: `enemy:${roomId}:${id}`,
       roomId,
       position,
       fireCooldown: Math.max(4, 8 + biome.enemyFireBias + Math.floor(this.rng() * 5)),
@@ -159,8 +162,10 @@ export class EnemyManager {
     }
 
     const position = candidates[Math.floor(this.rng() * candidates.length)];
+    const id = `shark-${this.idCounter++}`;
     const shark: EnemyInstance = {
-      id: `shark-${this.idCounter++}`,
+      id,
+      actorId: `enemy:${roomId}:${id}`,
       roomId,
       position,
       fireCooldown: 999,
@@ -196,6 +201,7 @@ export class EnemyManager {
     const maxHearts = Math.max(1, hearts);
     const hostileNpc: EnemyInstance = {
       id,
+      actorId: `enemy:${roomId}:${id}`,
       roomId,
       position,
       fireCooldown: 7,
@@ -227,6 +233,7 @@ export class EnemyManager {
     }
     const goblin: EnemyInstance = {
       id,
+      actorId: `enemy:${roomId}:${id}`,
       roomId,
       position,
       fireCooldown: 6,
@@ -274,6 +281,7 @@ export class EnemyManager {
     const position = candidates[Math.floor(this.rng() * candidates.length)];
     const duelist: EnemyInstance = {
       id: options.id,
+      actorId: `enemy:${roomId}:${options.id}`,
       roomId,
       position,
       fireCooldown: 6,
