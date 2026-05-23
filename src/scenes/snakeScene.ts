@@ -10,6 +10,7 @@ import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
 import { SnakeRenderer } from '../ui/snakeRenderer.js';
+import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
 import { SaveUI } from '../ui/saveUI.js';
@@ -44,6 +45,7 @@ import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_HATS,
   VILLAGE_SHOP_STYLES,
+  getBlackMarketDefinition,
   getVillageShopDefinition,
   type VillageShopDefinition,
   type VillageShopEquipmentOffer,
@@ -66,7 +68,10 @@ import type {
   RelationshipCandidateProfile,
   RelationshipChoice,
   RelationshipEventResult,
+  RelationshipOutcomeTier,
+  RelationshipPersonality,
   RelationshipSpecies,
+  RelationshipTag,
 } from '../relationships/relationshipTypes.js';
 import { getLibertyNpcLine, type LibertyNpcRole } from '../world/libertyBadlandsFlavor.js';
 import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
@@ -114,11 +119,17 @@ type AfterlifeDestination = 'heaven' | 'hell';
 type DeathRescuer = 'angel' | 'goblin-angel';
 
 type VillageMarketStock = {
-  version?: number;
+  version: 3;
   equipmentIds: string[];
   styleIds: VillageShopStyleId[];
   hatIds: VillageShopHatId[];
   cardIds: CardId[];
+  supplyCounts: Record<string, number>;
+};
+
+type SupplyStock = {
+  version: 1;
+  supplyCounts: Record<string, number>;
 };
 
 type DeathCutscenePhase = 'intro' | 'angel-dialogue' | 'afterlife' | 'final' | 'revive';
@@ -165,7 +176,70 @@ type DatingBranchResult = {
   text: string;
   outcome?: RelationshipChoice;
   tags?: DatingBranchChoice['tags'];
+  targetTier?: RelationshipOutcomeTier;
   label?: string;
+};
+
+const DATING_PERSONALITY_TAG_WEIGHTS: Record<RelationshipPersonality, Partial<Record<RelationshipTag, number>>> = {
+  poetic: {
+    dramatic: 3,
+    honesty: 4,
+    privateAffection: 3,
+    commitment: 4,
+    bravery: 2,
+    food: -1,
+    selfPreserving: -2,
+    avoidance: -4,
+    betrayal: -8,
+    violence: -3,
+  },
+  deadpan: {
+    honesty: 4,
+    competence: 3,
+    pragmatic: 4,
+    clever: 2,
+    restraint: 3,
+    dramatic: -3,
+    neediness: -2,
+    publicAffection: -1,
+    selfPreserving: 2,
+  },
+  hungry: {
+    food: 6,
+    comfort: 4,
+    protective: 3,
+    loyalty: 4,
+    family: 4,
+    dramatic: 1,
+    neglect: -5,
+    betrayal: -8,
+    selfPreserving: -1,
+  },
+  regal: {
+    bravery: 4,
+    protective: 4,
+    ritual: 5,
+    commitment: 5,
+    humility: 3,
+    publicAffection: 2,
+    clever: 1,
+    avoidance: -4,
+    betrayal: -10,
+    secrecy: -6,
+  },
+  sharp: {
+    clever: 5,
+    pragmatic: 5,
+    selfPreserving: 3,
+    transaction: 4,
+    contract: 5,
+    competence: 4,
+    ledger: 4,
+    goblin: 3,
+    dramatic: -1,
+    neediness: -3,
+    betrayal: -7,
+  },
 };
 
 const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
@@ -220,6 +294,7 @@ const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
 ];
 
 const COWBOY_HAT_COST = 36;
+const MINIMAP_MODULE_COST = 50;
 const LEGACY_COWBOY_HAT_ID: VillageShopHatId = 'cowboy';
 const ANGEL_TEXTURE_KEY = 'death-angel-pixel';
 const GOBLIN_ANGEL_TEXTURE_KEY = 'death-goblin-angel-pixel';
@@ -434,6 +509,7 @@ export default class SnakeScene extends Phaser.Scene {
   private villageShopPopup!: ChoicePopup;
   private datingScenePopup!: DatingScenePopup;
   private snakeRenderer!: SnakeRenderer;
+  private minimapRenderer: MinimapRenderer | null = null;
   juice!: JuiceManager;
   skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
@@ -617,6 +693,14 @@ export default class SnakeScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
     this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.grid);
+    this.minimapRenderer = new MinimapRenderer(this, {
+      x: this.grid.cols * this.grid.cell - 222,
+      y: 14,
+      width: 216,
+      height: 162,
+      grid: this.grid,
+      getRoom: (roomId) => this.snakeGame.getRoom(roomId),
+    });
     this.juice = new JuiceManager(this);
     this.skillTree = new SkillTreeManager(this, this.juice, {
       baseActionStepIntervalMs: this.baseActionStepIntervalMs,
@@ -821,6 +905,12 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (key === 't') this.showSaveUI();
       if (key === 'y') this.hideSaveUI();
+      if (key === 'm') {
+        const result = this.toggleMinimap();
+        if (result) {
+          this.showQuestHintPopup(result.message, result.color);
+        }
+      }
 
       if (key === 'e') {
         if (this.tryInteractQuestTarget()) {
@@ -925,6 +1015,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
+      this.markStaticRoomsDirty(result.roomsChanged);
       this.isDirty = true;
     }
   }
@@ -941,6 +1032,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
+      this.markStaticRoomsDirty(result.roomsChanged);
       this.isDirty = true;
     }
   }
@@ -957,6 +1049,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
+      this.markStaticRoomsDirty(result.roomsChanged);
       this.isDirty = true;
     }
   }
@@ -969,6 +1062,12 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickHouseAmbientEffects();
     this.skillTree.tick();
     this.isDirty = true;
+  }
+
+  private markStaticRoomsDirty(roomIds: ReadonlySet<string>): void {
+    for (const roomId of roomIds) {
+      this.snakeRenderer.markStaticRoomDirty(roomId);
+    }
   }
 
   private advanceSimulationTime(deltaMs: number): void {
@@ -1104,6 +1203,25 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.relationshipEvent', undefined);
       this.skillTree.getOverlay().refresh();
     }
+    const animalHunted = this.snakeGame.getFlag<boolean | { message?: string }>('ui.animalHunted');
+    if (typeof animalHunted === 'object' && animalHunted?.message) {
+      this.showQuestHintPopup(animalHunted.message, '#b6ff6a');
+      this.snakeGame.setFlag('ui.animalHunted', undefined);
+      this.skillTree.getOverlay().refresh();
+    } else if (animalHunted === true) {
+      this.showQuestHintPopup('Animal hunted.', '#b6ff6a');
+      this.snakeGame.setFlag('ui.animalHunted', undefined);
+    }
+    const animalStartled = this.snakeGame.getFlag<{ count?: number }>('ui.animalStartled');
+    if (animalStartled) {
+      this.showQuestHintPopup('The animal startles away. Unlock Predator I or use a weapon to hunt harmless animals.', '#ffd166');
+      this.snakeGame.setFlag('ui.animalStartled', undefined);
+    }
+    const animalTamable = this.snakeGame.getFlag<{ animalName?: string }>('ui.animalTamable');
+    if (animalTamable) {
+      this.showQuestHintPopup(`${animalTamable.animalName ?? 'That animal'} can be tamed with the right lead.`, '#9ad1ff');
+      this.snakeGame.setFlag('ui.animalTamable', undefined);
+    }
     this.tickFreakYouPortalFx();
 
     // Idle apple sparkle
@@ -1129,6 +1247,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     if (result.apple.stateChanged || result.roomChanged || result.roomsChanged.size > 0) {
+      this.markStaticRoomsDirty(result.roomsChanged);
       this.isDirty = true;
     }
 
@@ -2334,6 +2453,8 @@ export default class SnakeScene extends Phaser.Scene {
   private handleShutdown(): void {
     this.mobileControls?.destroy();
     this.mobileControls = null;
+    this.minimapRenderer?.destroy();
+    this.minimapRenderer = null;
   }
 
   addScore(amount: number) {
@@ -2943,16 +3064,15 @@ export default class SnakeScene extends Phaser.Scene {
   ): Phaser.GameObjects.Container {
     const buttonWidth = 210;
     const buttonHeight = 42;
-    const hitPad = 34;
     const shadow = this.add
       .rectangle(4, 5, buttonWidth, buttonHeight, 0x02040a, 0.48)
       .setOrigin(0, 0);
     const bg = this.add
-      .rectangle(0, 0, buttonWidth, buttonHeight, 0x101b25, 0.9)
-      .setStrokeStyle(2, 0xcfa77a)
+      .rectangle(0, 0, buttonWidth, buttonHeight, 0x0b1626, 0.94)
+      .setStrokeStyle(2, 0x4da3ff)
       .setOrigin(0, 0);
     const stripe = this.add
-      .rectangle(8, buttonHeight - 8, buttonWidth - 16, 2, 0x8fb7ff, 0.42)
+      .rectangle(10, buttonHeight - 8, buttonWidth - 20, 2, 0x5dd6a2, 0.58)
       .setOrigin(0, 0);
     const text = this.add
       .text(buttonWidth / 2, 10, label, {
@@ -2962,7 +3082,7 @@ export default class SnakeScene extends Phaser.Scene {
       })
       .setOrigin(0.5, 0);
     const zone = this.add
-      .zone(-hitPad, -hitPad, buttonWidth + hitPad * 2, buttonHeight + hitPad * 2)
+      .zone(0, 0, buttonWidth, buttonHeight)
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
     const button = this.add
@@ -2971,6 +3091,7 @@ export default class SnakeScene extends Phaser.Scene {
     zone.on('pointerover', () => {
       this.juice.startTitleMusic();
       bg.setFillStyle(0x243653, 0.98);
+      bg.setStrokeStyle(2, 0x5dd6a2);
       stripe.setFillStyle(0xfff3a8, 0.9);
       text.setColor('#ffffff');
       this.tweens.add({
@@ -2982,8 +3103,9 @@ export default class SnakeScene extends Phaser.Scene {
       });
     });
     zone.on('pointerout', () => {
-      bg.setFillStyle(0x101b25, 0.9);
-      stripe.setFillStyle(0x8fb7ff, 0.42);
+      bg.setFillStyle(0x0b1626, 0.94);
+      bg.setStrokeStyle(2, 0x4da3ff);
+      stripe.setFillStyle(0x5dd6a2, 0.58);
       text.setColor('#fff4cf');
       this.tweens.add({
         targets: button,
@@ -3710,8 +3832,31 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const stepMs = this.getActionStepIntervalMs();
     const tilesPerSecond = stepMs > 0 ? 1000 / stepMs : 0;
+    const room = this.snakeGame.getCurrentRoom();
+    const render = this.snakeRenderer.getRenderDiagnostics();
+    const scheduler = this.simulationScheduler.getDiagnostics();
+    const clockLines = scheduler.clocks
+      .filter((clock) => clock.id === 'action' || clock.id === 'actor' || clock.id === 'bullet' || clock.id === 'hazard')
+      .map(
+        (clock) =>
+          `${clock.id}: ${clock.accumulatorMs.toFixed(0)}/${clock.intervalMs}ms steps ${clock.stepsLastUpdate}`,
+      );
     hud
-      .setText(`FPS: ${this.displayedFps.toFixed(1)}\nSpeed: ${tilesPerSecond.toFixed(2)} tiles/s (${Math.round(stepMs)}ms)`)
+      .setText(
+        [
+          `FPS: ${this.displayedFps.toFixed(1)}`,
+          `Delta: ${scheduler.clampedDeltaMs.toFixed(1)}ms`,
+          `Clamped: ${scheduler.wasDeltaClamped ? 'yes' : 'no'}`,
+          `Room: ${room.id}`,
+          `Biome: ${room.biomeId}`,
+          `Static: ${render.staticCacheStatus}`,
+          `Tiles: ${render.staticTileCount}`,
+          `Dynamic: ${render.dynamicObjectCount}`,
+          `Forest: trees ${render.treeTileCount} detailed ${render.detailedTreeTileCount} cheap ${render.cheapForestTileCount}`,
+          `Speed: ${tilesPerSecond.toFixed(2)} tiles/s (${Math.round(stepMs)}ms)`,
+          ...clockLines,
+        ].join('\n'),
+      )
       .setPosition(this.scale.width - 10, this.scale.height - 10)
       .setVisible(true);
   }
@@ -3729,11 +3874,21 @@ export default class SnakeScene extends Phaser.Scene {
       this.radiationHud?.setVisible(false);
       this.villageHud?.setVisible(false);
       this.biomeHud?.setVisible(false);
+      this.minimapRenderer?.setVisible(false);
       this.questGiverSprite?.setVisible(false);
       this.wandererSprite?.setVisible(false);
       this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
       this.isDirty = false;
       return;
+    }
+    if (
+      this.paused ||
+      this.skillTree?.isOverlayVisible() ||
+      this.questPopup?.isVisible() ||
+      this.villageShopPopup?.isVisible() ||
+      this.datingScenePopup?.isVisible()
+    ) {
+      this.bossHud?.hide();
     }
     this.updateSimulation(delta);
     this.updatePerformanceHud(delta);
@@ -4348,6 +4503,14 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: this.snakeGame.getFootballs(room.id),
       animals: this.snakeGame.getAnimals(room.id),
     });
+    const minimapVisible = this.isMinimapEnabled();
+    this.minimapRenderer?.setVisible(minimapVisible);
+    if (minimapVisible) {
+      this.minimapRenderer?.render({
+        currentRoomId: room.id,
+        snakeSegments: this.snakeGame.getSnakeBody(),
+      });
+    }
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
     const health = this.snakeGame.getPlayerHealth();
@@ -4623,6 +4786,55 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
+  isMinimapUnlocked(): boolean {
+    return Boolean(this.getFlag<boolean>('ui.minimap.unlocked'));
+  }
+
+  isMinimapEnabled(): boolean {
+    return this.isMinimapUnlocked() && Boolean(this.getFlag<boolean>('ui.minimap.enabled'));
+  }
+
+  purchaseOrToggleMinimap(): { ok: boolean; message: string; color: string } {
+    if (!this.isMinimapUnlocked()) {
+      if (this.score < MINIMAP_MODULE_COST) {
+        return {
+          ok: false,
+          message: `Minimap Module costs ${MINIMAP_MODULE_COST} score.`,
+          color: '#ff6b6b',
+        };
+      }
+      this.addScoreDirect(-MINIMAP_MODULE_COST);
+      this.setFlag('ui.minimap.unlocked', true);
+      this.setFlag('ui.minimap.enabled', true);
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: 'Minimap Module unlocked.',
+        color: '#5dd6a2',
+      };
+    }
+
+    return this.toggleMinimap() ?? {
+      ok: false,
+      message: 'Minimap Module is not unlocked.',
+      color: '#ff6b6b',
+    };
+  }
+
+  toggleMinimap(): { ok: boolean; message: string; color: string } | null {
+    if (!this.isMinimapUnlocked()) {
+      return null;
+    }
+    const enabled = !this.isMinimapEnabled();
+    this.setFlag('ui.minimap.enabled', enabled);
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: `Minimap ${enabled ? 'enabled' : 'disabled'}.`,
+      color: '#9ad1ff',
+    };
+  }
+
   getSnakeThemeDefinitions(): readonly SnakeThemeDefinition[] {
     const merged = new Map<SnakeThemeId, SnakeThemeDefinition>();
     for (const theme of SNAKE_THEME_DEFINITIONS) {
@@ -4664,16 +4876,27 @@ export default class SnakeScene extends Phaser.Scene {
       return null;
     }
     const stock = this.getCurrentVillageMarketStock();
+    const townDistrict = room.town ? getTownDistrictForRoom(room.town, room.id) : undefined;
+    if (townDistrict === 'guildHideout') {
+      const blackMarket = getBlackMarketDefinition();
+      const blackMarketStock = this.getCurrentBlackMarketSupplyStock();
+      return {
+        ...blackMarket,
+        supplies: blackMarket.supplies.filter((offer) => (blackMarketStock.supplyCounts[offer.itemId] ?? 0) > 0),
+      };
+    }
+    const definition = getVillageShopDefinition(room.biomeId);
     return {
-      equipment: VILLAGE_SHOP_EQUIPMENT.filter((offer) =>
+      equipment: definition.equipment.filter((offer) =>
         stock.equipmentIds.includes(offer.id),
       ) as VillageShopEquipmentOffer[],
-      styles: VILLAGE_SHOP_STYLES.filter((offer) =>
+      styles: definition.styles.filter((offer) =>
         stock.styleIds.includes(offer.id),
       ) as VillageShopStyleOffer[],
-      hats: VILLAGE_SHOP_HATS.filter((offer) =>
+      hats: definition.hats.filter((offer) =>
         stock.hatIds.includes(offer.id),
       ) as VillageShopHatOffer[],
+      supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
     };
   }
 
@@ -4682,16 +4905,18 @@ export default class SnakeScene extends Phaser.Scene {
     const key = room.town ? `town.market.stock.${room.town.id}` : `market.stock.${room.id}`;
     const saved = this.getFlag<VillageMarketStock>(key);
     if (
-      saved?.version === 2 &&
+      saved?.version === 3 &&
       Array.isArray(saved.equipmentIds) &&
       Array.isArray(saved.styleIds) &&
       Array.isArray(saved.hatIds) &&
-      Array.isArray(saved.cardIds)
+      Array.isArray(saved.cardIds) &&
+      saved.supplyCounts &&
+      typeof saved.supplyCounts === 'object'
     ) {
       return saved;
     }
     const stock: VillageMarketStock = {
-      version: 2,
+      version: 3,
       equipmentIds: this.pickMarketOffers(
         VILLAGE_SHOP_EQUIPMENT.map((offer) => offer.id),
         room.town ? Math.min(4, VILLAGE_SHOP_EQUIPMENT.length) : 2,
@@ -4705,8 +4930,29 @@ export default class SnakeScene extends Phaser.Scene {
         room.town ? Math.min(4, VILLAGE_SHOP_HATS.length) : 2,
       ) as VillageShopHatId[],
       cardIds: this.pickMarketCardOffers(room.town ? 8 : undefined),
+      supplyCounts: this.rollVillageSupplyStock(room.town ? 'town' : 'village'),
     };
     this.setFlag(key, stock);
+    return stock;
+  }
+
+  private rollVillageSupplyStock(kind: 'village' | 'town'): Record<string, number> {
+    const stock: Record<string, number> = {
+      'healing-potion': 1,
+      senbei: kind === 'town' ? 2 : 1,
+    };
+    if (this.random() < 0.5) {
+      stock['healing-potion'] += 1;
+    }
+    if (this.random() < 1 / 3) {
+      stock['life-tonic'] = 1;
+    }
+    if (this.random() < (kind === 'town' ? 0.7 : 0.45)) {
+      stock.ramen = 1;
+    }
+    if (this.random() < 0.5) {
+      stock['animal-bait'] = 1;
+    }
     return stock;
   }
 
@@ -4717,6 +4963,32 @@ export default class SnakeScene extends Phaser.Scene {
 
   private getCurrentMarketCardOffers(): CardId[] {
     return this.getCurrentVillageMarketStock().cardIds;
+  }
+
+  private getCurrentBlackMarketSupplyStock(): SupplyStock {
+    const room = this.snakeGame.getCurrentRoom();
+    const townId = room.town?.id ?? room.id;
+    const key = `town.blackMarket.supplies.${townId}`;
+    const saved = this.getFlag<SupplyStock>(key);
+    if (saved?.version === 1 && saved.supplyCounts && typeof saved.supplyCounts === 'object') {
+      return saved;
+    }
+    const stock: SupplyStock = {
+      version: 1,
+      supplyCounts: {
+        'healing-potion': 1,
+        ...(this.random() < 1 / 3 ? { 'life-tonic': 1 } : {}),
+        ...(this.random() < 0.5 ? { ofuda: 1 } : {}),
+      },
+    };
+    this.setFlag(key, stock);
+    return stock;
+  }
+
+  private setCurrentBlackMarketSupplyStock(stock: SupplyStock): void {
+    const room = this.snakeGame.getCurrentRoom();
+    const townId = room.town?.id ?? room.id;
+    this.setFlag(`town.blackMarket.supplies.${townId}`, stock);
   }
 
   private pickMarketOffers<T extends string>(ids: readonly T[], count: number): T[] {
@@ -4796,6 +5068,27 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
+  equipOwnedSnakeTheme(themeId: SnakeThemeId): {
+    ok: boolean;
+    message: string;
+    color: string;
+  } {
+    const theme = this.getSnakeThemeDefinitions().find((entry) => entry.id === themeId);
+    if (!theme) {
+      return { ok: false, message: 'Unknown snake palette.', color: '#ff6b6b' };
+    }
+    if (!this.snakeCosmetics.unlockedThemes.includes(themeId)) {
+      return { ok: false, message: `${theme.label} is sold in town and village shops.`, color: '#ff6b6b' };
+    }
+    this.snakeCosmetics.activeTheme = themeId;
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: `${theme.label} equipped.`,
+      color: '#5dd6a2',
+    };
+  }
+
   purchaseVillageEquipment(itemId: string): { ok: boolean; message: string; color: string } {
     const shop = this.getCurrentVillageShop();
     if (!shop) {
@@ -4820,6 +5113,54 @@ export default class SnakeScene extends Phaser.Scene {
     this.equipItem(itemId);
     this.isDirty = true;
     return { ok: true, message: `${item.name} bought and equipped.`, color: '#5dd6a2' };
+  }
+
+  purchaseVillageSupply(itemId: string): { ok: boolean; message: string; color: string } {
+    const shop = this.getCurrentVillageShop();
+    if (!shop) {
+      return { ok: false, message: 'No shop is open here.', color: '#ff6b6b' };
+    }
+    const offer = shop.supplies.find((entry) => entry.itemId === itemId);
+    if (!offer) {
+      return { ok: false, message: 'That supply is not stocked here.', color: '#ff6b6b' };
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const isBlackMarket = Boolean(room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout');
+    const blackMarketStock = isBlackMarket ? this.getCurrentBlackMarketSupplyStock() : null;
+    const stock = isBlackMarket ? null : this.getCurrentVillageMarketStock();
+    const available = stock ? (stock.supplyCounts[itemId] ?? 0) : 1;
+    const blackMarketAvailable = blackMarketStock ? (blackMarketStock.supplyCounts[itemId] ?? 0) : 1;
+    if ((stock && available <= 0) || (blackMarketStock && blackMarketAvailable <= 0)) {
+      return { ok: false, message: 'That shelf is sold out.', color: '#ff6b6b' };
+    }
+    const item = getItem(itemId);
+    if (!item) {
+      return { ok: false, message: 'That supply does not exist.', color: '#ff6b6b' };
+    }
+    if (this.score < offer.price) {
+      return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
+    }
+    this.addScoreDirect(-offer.price);
+    this.snakeGame.addItem(itemId, 1);
+    if (stock) {
+      this.setCurrentVillageMarketStock({
+        ...stock,
+        supplyCounts: {
+          ...stock.supplyCounts,
+          [itemId]: Math.max(0, available - 1),
+        },
+      });
+    } else if (blackMarketStock) {
+      this.setCurrentBlackMarketSupplyStock({
+        ...blackMarketStock,
+        supplyCounts: {
+          ...blackMarketStock.supplyCounts,
+          [itemId]: Math.max(0, blackMarketAvailable - 1),
+        },
+      });
+    }
+    this.isDirty = true;
+    return { ok: true, message: `${item.name} bought. Use it from your pack.`, color: '#5dd6a2' };
   }
 
   purchaseVillageStyle(styleId: VillageShopStyleId): {
@@ -4898,6 +5239,24 @@ export default class SnakeScene extends Phaser.Scene {
 
   purchaseOrToggleCowboyHat(): { ok: boolean; message: string; color: string } {
     return this.purchaseOrToggleVillageHat(LEGACY_COWBOY_HAT_ID);
+  }
+
+  toggleOwnedSnakeHat(hatId: VillageShopHatId): { ok: boolean; message: string; color: string } {
+    const hat = this.getSnakeHatDefinitions().find((entry) => entry.id === hatId);
+    const label = hat?.label ?? 'Hat';
+    if (!this.snakeCosmetics.unlockedHats.includes(hatId)) {
+      return { ok: false, message: `${label} is sold in town and village shops.`, color: '#ff6b6b' };
+    }
+    this.snakeCosmetics.activeHat = this.snakeCosmetics.activeHat === hatId ? null : hatId;
+    this.snakeCosmetics.cowboyHatUnlocked =
+      this.snakeCosmetics.unlockedHats.includes(LEGACY_COWBOY_HAT_ID);
+    this.snakeCosmetics.cowboyHatEquipped = this.snakeCosmetics.activeHat === LEGACY_COWBOY_HAT_ID;
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: this.snakeCosmetics.activeHat === hatId ? `${label} equipped.` : `${label} stowed.`,
+      color: '#9ad1ff',
+    };
   }
 
   private getCardCollection(): CardCollection {
@@ -5362,11 +5721,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (current === 'gate' || current === 'townExit') {
       options.push({
         id: 'town-open-gate',
-        title: current === 'townExit' ? 'Talk to Exit Guard' : 'Talk to Gate Guard',
+        title: current === 'townExit' ? 'Talk to Exit Guard - 75 score' : 'Talk to Gate Guard - 75 score',
         description:
           current === 'townExit'
             ? 'Ask the inner guard to open the back gate. Outsiders do not get this latch.'
-            : 'Ask the guard to open the barrier and pretend this is normal snake paperwork.',
+            : 'Pay the gate tax and ask the guard to open the barrier.',
       });
     }
     if (current === 'market' || current === 'marketStreet') {
@@ -5389,12 +5748,27 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     if (current === 'backAlley') {
+      const guildTest = this.snakeGame.getCurrentTownGuildInitiationStatus();
+      const guildTitle =
+        guildTest.state === 'complete'
+          ? 'Check Guild Grate'
+          : guildTest.state === 'ready'
+            ? 'Return to Guild Grate'
+            : guildTest.state === 'active'
+              ? `Guild Test ${guildTest.pickpockets}/${guildTest.required}`
+              : 'Investigate Grate';
+      const guildDescription =
+        guildTest.state === 'complete'
+          ? 'The grate is open. Enter through the passage, not through a menu.'
+          : guildTest.state === 'ready'
+            ? 'You have three proofs. Knock where the chalk snake bites the coin.'
+            : guildTest.state === 'active'
+              ? 'Pickpocket town residents, then return to the grate.'
+              : 'A chalk snake bites a coin near the drain.';
       options.push({
-        id: freshTown.discoveredGuild ? 'town-guild' : 'town-guild-discover',
-        title: freshTown.discoveredGuild ? 'Enter Thieves Guild' : 'Investigate Graffiti',
-        description: freshTown.discoveredGuild
-          ? 'The cellar door recognizes trouble by silhouette.'
-          : 'A chalk snake bites a coin near the drain.',
+        id: 'town-guild-discover',
+        title: guildTitle,
+        description: guildDescription,
       });
     }
     if (current === 'guildHideout') {
@@ -5443,23 +5817,20 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (id === 'town-rumors') {
-      const updated = this.snakeGame.discoverCurrentTownGuild();
-      this.showQuestHintPopup(
-        updated.ok
-          ? 'The bartender sells you a rumor about a cellar door that was always there.'
-          : updated.message,
-        updated.ok ? '#b6ff6a' : '#ff6b6b',
-      );
-      this.showTownRoom(updated.town ?? town);
+      this.showQuestHintPopup('The bartender says the alley grate only answers proof, not rumors.', '#fff3a8');
+      this.showTownRoom(this.snakeGame.getCurrentTown() ?? town);
       return;
     }
     if (id === 'town-shop') {
-      this.showVillageShopRoot(`${town.name} Market`);
+      this.showVillageShopRoot(`${town.name} Market`, true);
       return;
     }
     if (id === 'town-steal-flower') {
       const result = this.snakeGame.applyCurrentTownCrime('theft', true, 1);
-      this.showQuestHintPopup(result.message, result.ok ? '#fff3a8' : '#ff6b6b');
+      this.showQuestHintPopup(
+        result.message,
+        result.ok ? '#fff3a8' : '#ff6b6b',
+      );
       this.showTownRoom(result.town ?? town);
       return;
     }
@@ -5470,7 +5841,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (id === 'town-guild-discover') {
-      const result = this.snakeGame.discoverCurrentTownGuild();
+      const result = this.snakeGame.investigateCurrentTownGuildGrate();
       this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
       this.showTownRoom(result.town ?? town);
       return;
@@ -5570,7 +5941,7 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       if (id === 'guild-black-market') {
-        this.showVillageShopRoot(`${freshTown.name} Black Market`);
+        this.showVillageShopRoot(`${freshTown.name} Black Market`, true);
         return;
       }
       if (id.startsWith('guild-job:')) {
@@ -5763,31 +6134,62 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private showVillageShopRoot(shopkeeperName: string): void {
+  private showVillageShopRoot(shopkeeperName: string, skipBark = false): void {
     this.paused = true;
     this.hideSaveUI();
     this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [
-      { id: 'equipment', title: 'Equipment', description: 'Weapons, flippers, and weather gear.' },
-      { id: 'styles', title: 'Styles', description: 'Local palettes for your snake.' },
-      {
+    const bark = this.snakeGame.getNpcBark('shopkeeper');
+    if (!skipBark) {
+      this.showQuestDialogue(
+        shopkeeperName,
+        [`"${bark.text}"`],
+        {
+          onClose: () => {
+            this.closeQuestPopup();
+            this.showVillageShopRoot(shopkeeperName, true);
+          },
+        },
+        { closeLabel: 'Shop', nextLabel: 'Listen' },
+        { portraitId: bark.portraitId },
+      );
+      return;
+    }
+    const title = shopkeeperName;
+    const shop = this.getCurrentVillageShop();
+    const options: ChoiceOption[] = [];
+    if ((shop?.equipment.length ?? 0) > 0) {
+      options.push({ id: 'equipment', title: 'Equipment', description: 'Weapons, flippers, and weather gear.' });
+    }
+    if ((shop?.supplies.length ?? 0) > 0) {
+      options.push({ id: 'supplies', title: 'Supplies', description: 'Potions, charms, and little bottles of not dying.' });
+    }
+    if ((shop?.styles.length ?? 0) > 0) {
+      options.push({ id: 'styles', title: 'Styles', description: 'Local palettes for your snake.' });
+    }
+    if ((shop?.hats.length ?? 0) > 0) {
+      options.push({
         id: 'hats',
         title: 'Hats',
         description: 'Village headwear with no tactical justification.',
-      },
-      {
+      });
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const isBlackMarket = Boolean(room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout');
+    const cardOffers = isBlackMarket ? [] : this.getCurrentMarketCardOffers();
+    if (cardOffers.length > 0) {
+      options.push({
         id: 'cards',
         title: 'Cards',
         description: 'Buy tiny competition cards for your personal deck.',
-      },
-      {
+      });
+      options.push({
         id: 'play-cards',
         title: 'Play Cards',
         description: 'Sit at the stall table and chase the score window.',
-      },
-      { id: 'leave', title: 'Leave', description: 'Step away from the counter.' },
-    ];
-    this.villageShopPopup.show(shopkeeperName, options, (id) => {
+      });
+    }
+    options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
+    this.villageShopPopup.show(title, options, (id) => {
       if (id === 'leave') {
         this.closeVillageShop();
         return;
@@ -5796,7 +6198,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.showCardTableRoot(shopkeeperName);
         return;
       }
-      if (id === 'equipment' || id === 'styles' || id === 'hats' || id === 'cards') {
+      if (id === 'equipment' || id === 'supplies' || id === 'styles' || id === 'hats' || id === 'cards') {
         this.showVillageShopCategory(shopkeeperName, id);
       }
     });
@@ -5804,7 +6206,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showVillageShopCategory(
     shopkeeperName: string,
-    category: 'equipment' | 'styles' | 'hats' | 'cards',
+    category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cards',
     page = 0,
   ): void {
     this.paused = true;
@@ -5821,6 +6223,25 @@ export default class SnakeScene extends Phaser.Scene {
         options.push({
           id: `equipment:${offer.itemId}`,
           title: `${item?.name ?? offer.itemId} - ${owned ? 'owned' : `${offer.price} score`}`,
+          description: offer.note,
+        });
+      }
+    } else if (category === 'supplies') {
+      const room = this.snakeGame.getCurrentRoom();
+      const isBlackMarket = Boolean(room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout');
+      const blackMarketStock = isBlackMarket ? this.getCurrentBlackMarketSupplyStock() : null;
+      const stock = isBlackMarket ? null : this.getCurrentVillageMarketStock();
+      for (const offer of shop.supplies) {
+        const item = getItem(offer.itemId);
+        const owned = this.snakeGame.getInventory().getItemCount(offer.itemId);
+        const stocked = stock
+          ? stock.supplyCounts[offer.itemId] ?? 0
+          : blackMarketStock
+            ? blackMarketStock.supplyCounts[offer.itemId] ?? 0
+            : 1;
+        options.push({
+          id: `supply:${offer.itemId}`,
+          title: `${item?.name ?? offer.itemId} - ${offer.price} score, stock x${stocked}${owned > 0 ? `, owned x${owned}` : ''}`,
           description: offer.note,
         });
       }
@@ -5877,7 +6298,7 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
     this.villageShopPopup.show(shopkeeperName, options, (id) => {
       if (id === 'back') {
-        this.showVillageShopRoot(shopkeeperName);
+        this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (id.startsWith('cards-page:')) {
@@ -5889,6 +6310,8 @@ export default class SnakeScene extends Phaser.Scene {
       const result =
         kind === 'equipment'
           ? this.purchaseVillageEquipment(value)
+          : kind === 'supply'
+            ? this.purchaseVillageSupply(value)
           : kind === 'style'
             ? this.purchaseVillageStyle(value as VillageShopStyleId)
             : kind === 'hat'
@@ -5921,7 +6344,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.show(`${shopkeeperName}'s Card Table`, options, (id) => {
       if (id === 'back') {
         if (inVillage) {
-          this.showVillageShopRoot(shopkeeperName);
+          this.showVillageShopRoot(shopkeeperName, true);
         } else {
           this.closeVillageShop();
         }
@@ -7095,11 +7518,32 @@ export default class SnakeScene extends Phaser.Scene {
     return profile;
   }
 
-  private showRelationshipRoot(profile: RelationshipCandidateProfile): void {
+  private showRelationshipRoot(profile: RelationshipCandidateProfile, skipBark = false): void {
     this.paused = true;
     this.setChoicePopupVisible(true);
     const currentTown = this.snakeGame.getCurrentTown();
-    const canPickpocket = Boolean(currentTown?.thievesGuild?.discovered && profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`));
+    const canPickpocket = Boolean(
+      currentTown &&
+        this.snakeGame.canPickpocketForCurrentTownGuild() &&
+        profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`),
+    );
+    const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile));
+    if (!skipBark) {
+      this.setChoicePopupVisible(false);
+      this.showQuestDialogue(
+        profile.displayName,
+        [`"${bark.text}"`],
+        {
+          onClose: () => {
+            this.closeQuestPopup();
+            this.showRelationshipRoot(profile, true);
+          },
+        },
+        { closeLabel: 'Talk', nextLabel: 'Listen' },
+        { portraitId: bark.portraitId ?? profile.portraitId },
+      );
+      return;
+    }
     this.villageShopPopup.show(
       profile.displayName,
       [
@@ -7154,6 +7598,14 @@ export default class SnakeScene extends Phaser.Scene {
         this.showDatingScene(profile);
       },
     );
+  }
+
+  private relationshipNpcVoiceRole(profile: RelationshipCandidateProfile): string {
+    if (/Guard\b/.test(profile.displayName)) return 'guard';
+    if (/Bartender\b/.test(profile.displayName)) return 'bartender';
+    if (/Guild\b/.test(profile.displayName)) return 'thiefContact';
+    if (profile.species === 'goblin' || profile.species === 'goblin-angel') return 'goblin-merchant';
+    return 'romance';
   }
 
   private getLibertyStructureHint(room: ReturnType<SnakeGame['getCurrentRoom']>): string | null {
@@ -7747,6 +8199,7 @@ export default class SnakeScene extends Phaser.Scene {
       label,
       line: result?.text ?? label,
       tags: result?.tags ?? this.inferRelationshipTags(actionId),
+      targetTier: result?.targetTier,
     };
   }
 
@@ -8116,22 +8569,75 @@ export default class SnakeScene extends Phaser.Scene {
         },
       });
     }
-    return this.balanceDatingBranchResults(templates[Math.floor(this.random() * templates.length)] ?? templates[0]!);
+    return this.balanceDatingBranchResults(profile, templates[Math.floor(this.random() * templates.length)] ?? templates[0]!);
   }
 
-  private balanceDatingBranchResults(event: {
+  private balanceDatingBranchResults(profile: RelationshipCandidateProfile, event: {
     pages: DatingSequencePage[];
     branchResults: Record<string, DatingBranchResult>;
   }): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
-    const branchIds = event.pages
+    const pages = event.pages.map((page) => ({ ...page, actions: page.actions ? [...page.actions] : undefined }));
+    const branchPage = pages.find((page) => (page.actions ?? []).some((action) => action.id.startsWith('branch-')));
+    if (branchPage) {
+      const actions = [...(branchPage.actions ?? [])];
+      const branchCount = actions.filter((action) => action.id.startsWith('branch-')).length;
+      if (branchCount < 3) {
+        const leave = actions.find((action) => action.id === 'leave');
+        const withoutLeave = actions.filter((action) => action.id !== 'leave');
+        branchPage.actions = [
+          ...withoutLeave,
+          { id: 'branch-observe', label: 'Read the Room' },
+          ...(leave ? [leave] : []),
+        ];
+      }
+    }
+    const branchIds = pages
       .flatMap((page) => page.actions ?? [])
       .map((action) => action.id)
       .filter((id) => id.startsWith('branch-'));
     if (branchIds.length < 3) {
-      return event;
+      return { ...event, pages };
     }
     const branchResults = { ...event.branchResults };
+    const scored = branchIds.map((id) => {
+      const existing = branchResults[id] ?? { text: id.replace(/^branch-/, '') };
+      const tags = existing.tags ?? this.inferRelationshipTags(id);
+      const score = this.scoreDatingTagsForProfile(profile, tags);
+      return { id, score, tags, existing };
+    });
+    const ranked = [...scored].sort((a, b) => b.score - a.score);
+    const high = ranked[0];
+    const low = ranked[ranked.length - 1];
+    const middle = ranked[Math.floor(ranked.length / 2)];
+    for (const entry of scored) {
+      const current = branchResults[entry.id] ?? entry.existing;
+      branchResults[entry.id] = {
+        ...current,
+        tags: entry.tags,
+        targetTier:
+          entry.id === high?.id
+            ? entry.score >= 9
+              ? 'loved'
+              : 'liked'
+            : entry.id === low?.id
+              ? entry.score <= -9
+                ? 'hated'
+                : 'disliked'
+              : entry.id === middle?.id
+                ? 'neutral'
+                : this.tierForDatingScore(entry.score),
+        outcome:
+          entry.id === low?.id || entry.score <= -4
+            ? (current.outcome ?? 'mean')
+            : current.outcome,
+      };
+    }
     const tierFor = (id: string): 'positive' | 'neutral' | 'negative' => {
+      if (!branchResults[id]) return 'neutral';
+      const targetTier = branchResults[id]?.targetTier;
+      if (targetTier === 'loved' || targetTier === 'liked') return 'positive';
+      if (targetTier === 'neutral') return 'neutral';
+      if (targetTier === 'disliked' || targetTier === 'hated') return 'negative';
       const text = branchResults[id]?.text.toLowerCase() ?? '';
       if (/hated|disliked/.test(text)) return 'negative';
       if (/neutral/.test(text)) return 'neutral';
@@ -8146,6 +8652,7 @@ export default class SnakeScene extends Phaser.Scene {
       branchResults[id] = {
         ...current,
         text: `${tier === 'loved' ? 'Loved' : tier === 'neutral' ? 'Neutral' : 'Disliked'}: ${stripped}`,
+        targetTier: tier,
         tags:
           tier === 'loved'
             ? ['honesty', 'pragmatic', 'clever', 'food', 'comfort', 'bravery', 'commitment', 'privateAffection', 'dramatic']
@@ -8164,7 +8671,51 @@ export default class SnakeScene extends Phaser.Scene {
     if (!hasNegative) {
       setTier(branchIds[branchIds.length - 1]!, 'disliked');
     }
-    return { ...event, branchResults };
+    for (const id of branchIds) {
+      const existing = branchResults[id];
+      if (!existing) {
+        branchResults[id] = {
+          text: `Neutral: ${event.pages[0]?.line ? 'They take the measured answer without protest.' : 'The answer keeps the moment steady.'}`,
+          targetTier: 'neutral',
+          tags: [],
+        };
+      } else if (!existing.targetTier) {
+        branchResults[id] = {
+          ...existing,
+          targetTier: this.tierForDatingScore(this.scoreDatingTagsForProfile(profile, existing.tags ?? this.inferRelationshipTags(id))),
+        };
+      }
+    }
+    return { ...event, pages, branchResults };
+  }
+
+  private scoreDatingTagsForProfile(
+    profile: RelationshipCandidateProfile,
+    tags: readonly RelationshipTag[],
+  ): number {
+    const personality = this.personalityForDatingProfile(profile);
+    const weights = DATING_PERSONALITY_TAG_WEIGHTS[personality];
+    return tags.reduce((total, tag) => total + (weights[tag] ?? 0), 0);
+  }
+
+  private tierForDatingScore(score: number): RelationshipOutcomeTier {
+    if (score >= 10) return 'loved';
+    if (score >= 4) return 'liked';
+    if (score <= -10) return 'hated';
+    if (score <= -4) return 'disliked';
+    return 'neutral';
+  }
+
+  private personalityForDatingProfile(profile: RelationshipCandidateProfile): RelationshipPersonality {
+    if (profile.personality) return profile.personality;
+    if (profile.species === 'goblin' || profile.species === 'goblin-angel') return 'sharp';
+    if (profile.species === 'angel') return 'regal';
+    const options: RelationshipPersonality[] = ['poetic', 'deadpan', 'hungry', 'regal', 'sharp'];
+    let total = 0;
+    for (let i = 0; i < profile.id.length; i += 1) {
+      total = (total * 31 + profile.id.charCodeAt(i)) >>> 0;
+    }
+    return options[total % options.length] ?? 'poetic';
   }
 
   private pickRelationshipLine(profile: RelationshipCandidateProfile, lines: readonly string[]): string {

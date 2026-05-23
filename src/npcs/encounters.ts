@@ -21,7 +21,17 @@ export interface WandererEncounter {
   oneShot?: boolean;
   zoneTags?: EncounterZoneTag[];
   biomeIds?: BiomeId[];
-  portraitId?: 'sage-1' | 'sage-2' | 'sage-3' | 'goblin-happy' | 'goblin-neutral' | 'goblin-hostile';
+  portraitId?:
+    | 'sage-1'
+    | 'sage-2'
+    | 'sage-3'
+    | 'bandit-neutral'
+    | 'bandit-hostile'
+    | 'cardwright-neutral'
+    | 'goblin-happy'
+    | 'goblin-neutral'
+    | 'goblin-hostile'
+    | 'tanuki-neutral';
   pages: string[];
   repeatPages?: string[];
   acceptLabel?: string;
@@ -113,7 +123,7 @@ export const WANDERER_ENCOUNTERS: readonly WandererEncounter[] = [
     minRoomsVisited: 2,
     zoneTags: ['surface', 'upper'],
     biomeIds: ['verdigris-basin', 'moonlit-parish', 'gloam-garden'],
-    portraitId: 'sage-1',
+    portraitId: 'cardwright-neutral',
     pages: [
       'Maribel sits behind a cracked travel case full of painted pasteboard, each card sleeved in wax paper and old superstition.',
       '"Cards are honest in the way knives are honest. They only ruin you if you pretend they are not sharp."',

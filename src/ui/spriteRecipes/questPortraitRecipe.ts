@@ -6,6 +6,7 @@ export type QuestPortraitVariant =
   | 'sage-3'
   | 'bandit-neutral'
   | 'bandit-hostile'
+  | 'cardwright-neutral'
   | 'goblin-happy'
   | 'goblin-neutral'
   | 'goblin-hostile';
@@ -22,6 +23,7 @@ const VARIANTS: readonly QuestPortraitVariant[] = [
   'sage-3',
   'bandit-neutral',
   'bandit-hostile',
+  'cardwright-neutral',
   'goblin-happy',
   'goblin-neutral',
   'goblin-hostile',
@@ -495,6 +497,41 @@ const PORTRAITS: Record<QuestPortraitVariant, PortraitLayers> = {
     beardColor: '#1b1214',
     eyeColor: '#fff2c6',
     trimColor: '#ff8e7a',
+  },
+  'cardwright-neutral': {
+    hood: [
+      [5, 3], [6, 3], [7, 3], [8, 3], [9, 3], [10, 3],
+      [4, 4], [5, 4], [6, 4], [7, 4], [8, 4], [9, 4], [10, 4], [11, 4],
+      [4, 5], [5, 5], [10, 5], [11, 5],
+      [4, 6], [11, 6],
+      [4, 7], [11, 7],
+      [4, 8], [11, 8],
+      [5, 10], [10, 10],
+      [6, 11], [9, 11],
+    ],
+    face: [
+      [5, 5], [6, 5], [7, 5], [8, 5], [9, 5], [10, 5],
+      [5, 6], [6, 6], [7, 6], [8, 6], [9, 6], [10, 6],
+      [5, 7], [6, 7], [7, 7], [8, 7], [9, 7], [10, 7],
+      [5, 8], [6, 8], [7, 8], [8, 8], [9, 8], [10, 8],
+    ],
+    beard: [
+      [6, 9], [7, 9], [8, 9], [9, 9],
+      [5, 11], [6, 11], [9, 11], [10, 11],
+      [6, 12], [9, 12],
+    ],
+    eyes: [[6, 6], [9, 6], [7, 8], [8, 8]],
+    trim: [
+      [5, 3], [10, 3],
+      [4, 4], [11, 4],
+      [5, 10], [10, 10],
+      [6, 12], [9, 12],
+    ],
+    hoodColor: '#2f2738',
+    faceColor: '#e2b58e',
+    beardColor: '#6b4730',
+    eyeColor: '#1a1515',
+    trimColor: '#ffd166',
   },
   'goblin-happy': {
     hood: [

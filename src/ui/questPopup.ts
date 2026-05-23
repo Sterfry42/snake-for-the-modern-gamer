@@ -273,10 +273,23 @@ export class QuestPopup {
     const variant: QuestPortraitVariant =
       portraitId === 'sage-2' ||
       portraitId === 'sage-3' ||
+      portraitId === 'bandit-neutral' ||
+      portraitId === 'bandit-hostile' ||
+      portraitId === 'cardwright-neutral' ||
       portraitId === 'goblin-happy' ||
       portraitId === 'goblin-neutral' ||
       portraitId === 'goblin-hostile'
         ? portraitId
+        : portraitId === 'thiefContact' || portraitId === 'thief'
+          ? 'bandit-neutral'
+          : portraitId === 'guard-neutral'
+            ? 'bandit-hostile'
+            : portraitId === 'shopkeeper-neutral' ||
+                portraitId === 'villager-neutral' ||
+                portraitId === 'villager-old-neutral'
+              ? 'sage-2'
+              : portraitId === 'tanuki-neutral'
+                ? 'bandit-neutral'
         : 'sage-1';
     return this.portraitTextureKeys[variant];
   }

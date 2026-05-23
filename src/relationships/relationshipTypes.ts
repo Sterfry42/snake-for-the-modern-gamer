@@ -272,6 +272,7 @@ export interface DatingBranchChoice {
   label: string;
   line: string;
   tags: RelationshipTag[];
+  targetTier?: RelationshipOutcomeTier;
   outcomeLines?: Partial<Record<RelationshipOutcomeTier, string>>;
 }
 

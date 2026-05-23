@@ -291,6 +291,21 @@ const FORTITUDE_BRANCH: BranchConfig = {
   label: 'Fortitude',
   nodes: [
     {
+      id: 'thickScales',
+      title: 'Thick Scales',
+      shortLabel: 'HEART',
+      description: 'Toughen into a survival snake with one more heart.',
+      ranks: [
+        {
+          description: 'Gain +1 max heart.',
+          cost: 18,
+          effects: [
+            { type: 'setFlag', key: 'player.maxHealth', value: 4, resetValue: 3 },
+          ],
+        },
+      ],
+    },
+    {
       id: 'secondWind',
       title: 'Second Wind',
       shortLabel: 'LIFE',
@@ -565,6 +580,21 @@ const HARVEST_BRANCH: BranchConfig = {
   label: 'Harvest',
   nodes: [
     {
+      id: 'shed',
+      title: 'Shed',
+      shortLabel: 'SHED',
+      description: 'Spend tail length to leave a temporary decoy chunk.',
+      ranks: [
+        {
+          description: 'Unlock Shed: spend 3 length for a decoy chunk.',
+          cost: 16,
+          effects: [
+            { type: 'setFlag', key: 'skill.tailcraft.shed', value: true, resetValue: false },
+          ],
+        },
+      ],
+    },
+    {
       id: 'tailForge',
       title: 'Tail Forge',
       shortLabel: 'TAIL',
@@ -684,6 +714,22 @@ const PREDATION_BRANCH: BranchConfig = {
   id: 'predation',
   label: 'Predation',
   nodes: [
+    {
+      id: 'predatorI',
+      title: 'Predator I',
+      shortLabel: 'HUNT',
+      description: 'Turn animal encounters into food, materials, and decisions.',
+      ranks: [
+        {
+          description: 'Harmless animals can be hunted on contact and meat drops are steadier.',
+          cost: 12,
+          effects: [
+            { type: 'setFlag', key: 'skill.predator.huntHarmless', value: true, resetValue: false },
+            { type: 'setFlag', key: 'skill.predator.dropBonus', value: true, resetValue: false },
+          ],
+        },
+      ],
+    },
     {
       id: 'scoreFlow',
       title: 'Score Flow',
@@ -927,6 +973,21 @@ const TRAVERSAL_BRANCH: BranchConfig = {
   label: 'Traversal',
   nodes: [
     {
+      id: 'deathMarker',
+      title: 'Death Marker',
+      shortLabel: 'MARK',
+      description: 'Remember where disaster found you so the map can teach you.',
+      ranks: [
+        {
+          description: 'Unlock last-death map marker and death reason hints.',
+          cost: 14,
+          effects: [
+            { type: 'setFlag', key: 'skill.cartographer.deathMarker', value: true, resetValue: false },
+          ],
+        },
+      ],
+    },
+    {
       id: 'riftWalker',
       title: 'Rift Walker',
       shortLabel: 'RIFT',
@@ -1117,6 +1178,21 @@ const GEOMETRY_BRANCH: BranchConfig = {
   id: 'geometry',
   label: 'Geometry',
   nodes: [
+    {
+      id: 'campCook',
+      title: 'Camp Cook',
+      shortLabel: 'COOK',
+      description: 'Turn raw animal food into healing meals at cooking sources.',
+      ranks: [
+        {
+          description: 'Unlock basic meat and fish cooking at kitchens, diners, ramen stands, and campfires.',
+          cost: 14,
+          effects: [
+            { type: 'setFlag', key: 'skill.homestead.campCook', value: true, resetValue: false },
+          ],
+        },
+      ],
+    },
     {
       id: 'wallWhisper',
       title: 'Wall Whisper',

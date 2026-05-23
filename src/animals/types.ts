@@ -21,6 +21,8 @@ export type AnimalType =
 export interface DropEntry {
   itemId: string;
   chance: number;
+  minCount?: number;
+  maxCount?: number;
 }
 
 export interface AnimalDefinition {

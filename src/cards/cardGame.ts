@@ -16,7 +16,9 @@ export type CardId =
   | 'angel-audit'
   | 'royal-scale'
   | 'freak-dennis-fog'
-  | 'goblin-receipt'
+  | 'goblin-receipt';
+
+export type LegacyWorldEffectCardId =
   | 'oni-card'
   | 'kitsune-card'
   | 'samurai-card'
@@ -45,6 +47,16 @@ export interface CardTableDefinition {
 }
 
 export type CardCollection = Partial<Record<CardId, number>>;
+
+export const CARD_TO_ITEM_MIGRATION: Record<LegacyWorldEffectCardId, string> = {
+  'oni-card': 'oni-charm',
+  'kitsune-card': 'kitsune-charm',
+  'samurai-card': 'samurai-token',
+  'jizo-card': 'jizo-stone',
+  'raiju-card': 'raiju-bottle',
+  'kappa-card': 'kappa-bowl',
+  'katana-blueprint': 'katana-blueprint',
+};
 
 export interface CardCompetitionState {
   tableId: string;
@@ -211,69 +223,6 @@ export const CARD_DEFINITIONS: readonly CardDefinition[] = [
     rarity: 'rare',
     description: '+12 chips if the hand has a Lantern card. Otherwise it complains and adds 1.',
   },
-  {
-    id: 'oni-card',
-    name: 'Oni Card',
-    suit: 'jade',
-    chips: 5,
-    price: 10,
-    rarity: 'uncommon',
-    description: 'Summons a temporary enemy that attacks other enemies. Friendly chaos.',
-  },
-  {
-    id: 'kitsune-card',
-    name: 'Kitsune Card',
-    suit: 'jade',
-    chips: 4,
-    price: 8,
-    rarity: 'common',
-    description: 'Creates 3 illusory snakes that distract nearby enemies for 5 seconds.',
-  },
-  {
-    id: 'samurai-card',
-    name: 'Samurai Card',
-    suit: 'jade',
-    chips: 10,
-    price: 18,
-    rarity: 'rare',
-    description: 'Instantly kills one enemy on the board.',
-  },
-  {
-    id: 'jizo-card',
-    name: 'Jizo Card',
-    suit: 'jade',
-    chips: 6,
-    price: 12,
-    rarity: 'uncommon',
-    description: 'Places a stone statue that blocks enemy movement in a 3-tile radius for 8 seconds.',
-  },
-  {
-    id: 'raiju-card',
-    name: 'Raiju Card',
-    suit: 'jade',
-    chips: 8,
-    price: 15,
-    rarity: 'rare',
-    description: 'Lightning strike that damages all enemies in a line.',
-  },
-  {
-    id: 'kappa-card',
-    name: 'Kappa Card',
-    suit: 'jade',
-    chips: 7,
-    price: 14,
-    rarity: 'rare',
-    description: 'Summons a kappa ally that fights for 10 seconds.',
-  },
-  {
-    id: 'katana-blueprint',
-    name: 'Katana Blueprint',
-    suit: 'jade',
-    chips: 3,
-    price: 6,
-    rarity: 'uncommon',
-    description: 'A schematic. Craft a katana at the right forge.',
-  },
 ];
 
 export const CARD_SHOP_OFFERS: readonly CardId[] = [
@@ -292,11 +241,6 @@ export const CARD_SHOP_OFFERS: readonly CardId[] = [
   'angel-audit',
   'royal-scale',
   'freak-dennis-fog',
-  'oni-card',
-  'kitsune-card',
-  'samurai-card',
-  'jizo-card',
-  'raiju-card',
 ];
 
 export const CARD_TABLES: readonly CardTableDefinition[] = [

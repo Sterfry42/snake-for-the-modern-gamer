@@ -524,6 +524,7 @@ export class SkillTreeOverlay {
     const scrollMask = this.scrollMaskGraphics.createGeometryMask();
     this.questListText.setMask(scrollMask);
     this.spellsText.setMask(scrollMask);
+    this.customizationText.setMask(scrollMask);
     this.scrollHintText = this.scene.add
       .text(
         this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal,
@@ -540,7 +541,7 @@ export class SkillTreeOverlay {
 
     this.inventoryItemsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== 'inventory') return;
-      const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y);
+      const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y, this.inventoryItemsText);
       const itemId = this.inventoryIndex[index];
       if (!itemId) {
         this.selectedInventoryItemId = null;
@@ -578,6 +579,8 @@ export class SkillTreeOverlay {
         } else {
           this.announce(`Cannot equip ${item.name}.`, '#ff6b6b', 1600);
         }
+      } else {
+        this.showInventoryItemDetails();
       }
     });
     this.customizationText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -587,14 +590,14 @@ export class SkillTreeOverlay {
 
       if (actionId.startsWith('theme:')) {
         const themeId = actionId.split(':')[1] as SnakeThemeId;
-        const result = this.scene.purchaseOrApplySnakeTheme(themeId);
+        const result = this.scene.equipOwnedSnakeTheme(themeId);
         this.announce(result.message, result.color, 1800);
         this.refresh();
         return;
       }
 
       if (actionId === 'hat') {
-        const result = this.scene.purchaseOrToggleCowboyHat();
+        const result = this.scene.toggleOwnedSnakeHat('cowboy');
         this.announce(result.message, result.color, 1800);
         this.refresh();
         return;
@@ -602,7 +605,7 @@ export class SkillTreeOverlay {
 
       if (actionId.startsWith('hat:')) {
         const hatId = actionId.split(':')[1] as VillageShopHatId;
-        const result = this.scene.purchaseOrToggleVillageHat(hatId);
+        const result = this.scene.toggleOwnedSnakeHat(hatId);
         this.announce(result.message, result.color, 1800);
         this.refresh();
         return;
@@ -610,6 +613,12 @@ export class SkillTreeOverlay {
 
       if (actionId === 'walking-noise') {
         const result = this.scene.toggleDisableWalkingNoise();
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+      }
+
+      if (actionId === 'minimap') {
+        const result = this.scene.purchaseOrToggleMinimap();
         this.announce(result.message, result.color, 1800);
         this.refresh();
       }
@@ -634,7 +643,7 @@ export class SkillTreeOverlay {
     });
     this.spellsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== 'spells') return;
-      const row = this.getTextRowIndex(pointer, this.spellsText.y);
+      const row = this.getTextRowIndex(pointer, this.spellsText.y, this.spellsText);
       const entry = this.spellRowMap.find(
         (candidate) => row >= candidate.startRow && row <= candidate.endRow,
       );
@@ -787,7 +796,7 @@ export class SkillTreeOverlay {
     if (!pointer) {
       return false;
     }
-    const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y);
+    const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y, this.inventoryItemsText);
     const id = this.inventoryIndex[index];
     if (!id || id.startsWith('unequip:')) {
       this.clearPerkDetails(true);
@@ -824,13 +833,61 @@ export class SkillTreeOverlay {
     const title = item.name ?? this.selectedInventoryItemId;
     const subtitle =
       (item as any).kind === 'equipment' ? `Equipment · Slot: ${(item as any).slot}` : 'Item';
-    const body = item.description ?? '';
+    const actionHints = this.getInventoryActionHints(this.selectedInventoryItemId);
+    const body = [item.description ?? '', actionHints].filter(Boolean).join('\n\n');
 
     this.detailTitle.setText(title).setVisible(true);
     this.detailSubtitle.setText(subtitle).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
     this.detailBody.setText(body).setVisible(true);
     return true;
+  }
+
+  useSelectedInventoryItem(): boolean {
+    if (!this.visible || this.activeTab !== 'inventory' || !this.selectedInventoryItemId) {
+      return false;
+    }
+    const result = this.scene.snakeGame.useInventoryItem(this.selectedInventoryItemId);
+    this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    this.refresh();
+    this.showInventoryItemDetails();
+    return true;
+  }
+
+  cookSelectedInventoryItem(): boolean {
+    if (!this.visible || this.activeTab !== 'inventory' || !this.selectedInventoryItemId) {
+      return false;
+    }
+    const recipeId =
+      this.selectedInventoryItemId === 'raw-meat'
+        ? 'cook-meat'
+        : this.selectedInventoryItemId === 'fish-meat'
+          ? 'cook-fish'
+          : null;
+    if (!recipeId) {
+      this.announce('That item does not have a quick cooking recipe.', '#ffd166', 2000);
+      return true;
+    }
+    const result = this.scene.snakeGame.cookRecipe(recipeId);
+    this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+    this.refresh();
+    this.showInventoryItemDetails();
+    return true;
+  }
+
+  private getInventoryActionHints(itemId: string): string {
+    const item = getItem(itemId) as any;
+    if (!item || item.kind === 'equipment') {
+      return 'Click to equip or unequip.';
+    }
+    const hints = ['Press I to inspect.'];
+    if (item.category === 'food' || item.kind === 'consumable') {
+      hints.push('Press U to use.');
+    }
+    if (itemId === 'raw-meat' || itemId === 'fish-meat') {
+      hints.push('Press C to cook near a cooking source.');
+    }
+    return hints.join(' ');
   }
 
   handleCheatKeyDown(event: KeyboardEvent): boolean {
@@ -915,11 +972,35 @@ export class SkillTreeOverlay {
   private getTextRowIndex(
     pointer: Phaser.Input.Pointer,
     textY: number,
+    text: Phaser.GameObjects.Text,
     topBias = CLICK_ROW_TOP_BIAS,
   ): number {
-    const lineHeight = 24;
+    const lineHeight = this.getTextLineHeight(text);
     const localY = pointer.worldY - this.container.y - textY - topBias;
     return Math.floor(localY / lineHeight);
+  }
+
+  private getTextLineHeight(text: Phaser.GameObjects.Text): number {
+    const renderedLines = text.getWrappedText(text.text).length;
+    if (renderedLines > 0 && text.height > 0) {
+      return Math.max(1, text.height / renderedLines);
+    }
+    const style = text.style as unknown as {
+      fontSize?: string | number;
+      lineSpacing?: number;
+      metrics?: { fontSize?: number; ascent?: number; descent?: number };
+    };
+    const parsedFontSize =
+      typeof style.fontSize === 'string'
+        ? Number.parseFloat(style.fontSize)
+        : Number(style.fontSize ?? 16);
+    const metricsHeight =
+      typeof style.metrics?.fontSize === 'number'
+        ? style.metrics.fontSize
+        : typeof style.metrics?.ascent === 'number' && typeof style.metrics?.descent === 'number'
+          ? style.metrics.ascent + style.metrics.descent
+          : parsedFontSize;
+    return Math.max(1, Math.ceil((Number.isFinite(metricsHeight) ? metricsHeight : 16) + Number(style.lineSpacing ?? 0)));
   }
 
   private getScrollableViewportHeight(): number {
@@ -927,10 +1008,21 @@ export class SkillTreeOverlay {
   }
 
   private scrollActiveText(deltaY: number): void {
-    if (!this.visible || (this.activeTab !== 'spells' && this.activeTab !== 'quests' && this.activeTab !== 'dating')) {
+    if (
+      !this.visible ||
+      (this.activeTab !== 'spells' &&
+        this.activeTab !== 'quests' &&
+        this.activeTab !== 'dating' &&
+        this.activeTab !== 'customize')
+    ) {
       return;
     }
-    const text = this.activeTab === 'spells' ? this.spellsText : this.questListText;
+    const text =
+      this.activeTab === 'spells'
+        ? this.spellsText
+        : this.activeTab === 'customize'
+          ? this.customizationText
+          : this.questListText;
     const next = (this.scrollOffsets[this.activeTab] ?? 0) + deltaY;
     this.applyScrollableTextOffset(this.activeTab, text, next);
   }
@@ -942,7 +1034,10 @@ export class SkillTreeOverlay {
     text.setY(TREE_PADDING.top - 12 - offset);
     this.scrollHintText
       .setText(maxScroll > 0 ? `Mouse wheel to scroll ${Math.ceil(offset)}/${Math.ceil(maxScroll)}` : '')
-      .setVisible((tab === 'spells' || tab === 'quests' || tab === 'dating') && maxScroll > 0);
+      .setVisible(
+        (tab === 'spells' || tab === 'quests' || tab === 'dating' || tab === 'customize') &&
+          maxScroll > 0,
+      );
   }
 
   private resetScrollableText(text: Phaser.GameObjects.Text): void {
@@ -952,20 +1047,18 @@ export class SkillTreeOverlay {
 
   private highlightCustomizationRow(row: number): void {
     if (!this.visible || this.activeTab !== 'customize') return;
-    const lineHeight = 24;
+    const lineHeight = this.getTextLineHeight(this.customizationText);
     const x = TREE_PADDING.horizontal - 4;
-    const y = TREE_PADDING.top + row * lineHeight - 1;
-    const width =
-      this.options.width -
-      DETAIL_PANEL_WIDTH -
-      DETAIL_PANEL_MARGIN -
-      TREE_PADDING.horizontal * 2 +
-      8;
-    const height = 20;
+    const y = this.customizationText.y + row * lineHeight - 2;
+    const availableWidth =
+      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 + 8;
+    const width = Math.min(390, availableWidth);
+    const height = Math.max(20, lineHeight - 2);
 
     if (!this.customizationHoverHighlight) {
       this.customizationHoverHighlight = this.scene.add
-        .rectangle(x, y, width, height, 0x5dd6a2, 0.16)
+        .rectangle(x, y, width, height, 0x244155, 0.72)
+        .setStrokeStyle(1, 0x5dd6a2, 0.72)
         .setOrigin(0, 0);
       this.container.add(this.customizationHoverHighlight);
     }
@@ -980,7 +1073,7 @@ export class SkillTreeOverlay {
   private getCustomizationHoveredRow(
     pointer: Phaser.Input.Pointer,
   ): { row: number; actionId: string } | null {
-    const visualRow = this.getTextRowIndex(pointer, this.customizationText.y);
+    const visualRow = this.getTextRowIndex(pointer, this.customizationText.y, this.customizationText, 0);
     for (const entry of this.customizationRowMap) {
       if (entry.row === visualRow) {
         return entry;
@@ -1108,7 +1201,7 @@ export class SkillTreeOverlay {
     this.spellsText.setVisible(spellsActive);
     this.questListText.setVisible(questsActive || datingActive);
     this.factionsText.setVisible(factionsActive);
-    if (!spellsActive && !questsActive && !datingActive) {
+    if (!spellsActive && !questsActive && !datingActive && !customizationActive) {
       this.scrollHintText.setVisible(false);
     }
     if (!spellsActive) {
@@ -1116,6 +1209,9 @@ export class SkillTreeOverlay {
     }
     if (!questsActive && !datingActive) {
       this.resetScrollableText(this.questListText);
+    }
+    if (!customizationActive) {
+      this.resetScrollableText(this.customizationText);
     }
     if (!customizationActive) {
       this.clearCustomizationHover();
@@ -1208,14 +1304,15 @@ export class SkillTreeOverlay {
             const isEq = this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
             if (isEq) suffix = ' (equipped)';
           }
-          const prefix = item?.kind === 'equipment' ? '[E] ' : '';
+          const category = item?.category ? String(item.category) : 'item';
+          const prefix = item?.kind === 'equipment' ? '[E] ' : `[${category.charAt(0).toUpperCase()}] `;
           lines.push(`${prefix}${name} x${count}${suffix}`);
           index.push(itemId);
         }
         this.inventoryItemsText.setText(lines.join('\n'));
         this.inventoryIndex = index;
         if (!this.hintSticky) {
-          this.hintText.setText('Inventory: click to equip/unequip items.');
+          this.hintText.setText('Inventory: click an item, U uses food, C cooks raw food.');
           this.hintText.setColor('#9ad1ff');
         }
       }
@@ -1356,11 +1453,12 @@ export class SkillTreeOverlay {
       let visualRow = 0;
       visualRow += this.countRenderedLines(lines[0]);
       visualRow += 1;
-      for (const theme of this.scene.getSnakeThemeDefinitions()) {
-        const unlocked = state.unlockedThemes.includes(theme.id);
+      const ownedThemes = this.scene
+        .getSnakeThemeDefinitions()
+        .filter((theme) => state.unlockedThemes.includes(theme.id) || state.activeTheme === theme.id);
+      for (const theme of ownedThemes) {
         const active = state.activeTheme === theme.id;
-        const price = unlocked ? (active ? 'equipped' : 'owned') : `${theme.cost} score`;
-        const line = `${active ? '> ' : ''}${theme.label} [${price}]`;
+        const line = `${active ? '> ' : ''}${theme.label} [${active ? 'equipped' : 'owned'}]`;
         lines.push(line);
         index.push(`theme:${theme.id}`);
         rowMap.push({ row: visualRow, actionId: `theme:${theme.id}` });
@@ -1369,20 +1467,22 @@ export class SkillTreeOverlay {
       lines.push('', 'Hats');
       index.push('', '');
       visualRow += 2;
-      const hats = this.scene.getSnakeHatDefinitions();
+      const hats = this.scene
+        .getSnakeHatDefinitions()
+        .filter((hat) => state.unlockedHats.includes(hat.id) || state.activeHat === hat.id);
       for (const hat of hats) {
-        const owned = state.unlockedHats.includes(hat.id);
         const equipped = state.activeHat === hat.id;
-        const price = owned ? (equipped ? 'equipped' : 'owned') : `${hat.price} score`;
-        const line = `${equipped ? '> ' : ''}${hat.label} [${price}]`;
+        const line = `${equipped ? '> ' : ''}${hat.label} [${equipped ? 'equipped' : 'owned'}]`;
         lines.push(line);
         index.push(`hat:${hat.id}`);
         rowMap.push({ row: visualRow, actionId: `hat:${hat.id}` });
         visualRow += this.countRenderedLines(line);
       }
-      lines.push('', 'Village shopkeepers sell more hats and local palettes.');
-      index.push('', '');
-      visualRow += 2;
+      if (hats.length === 0) {
+        lines.push('No hats owned.');
+        index.push('');
+        visualRow += 1;
+      }
       lines.push('');
       index.push('');
       visualRow += 1;
@@ -1396,6 +1496,22 @@ export class SkillTreeOverlay {
       index.push('walking-noise');
       rowMap.push({ row: visualRow, actionId: 'walking-noise' });
       visualRow += this.countRenderedLines(walkingNoiseLine);
+      lines.push('');
+      index.push('');
+      visualRow += 1;
+      const minimapUnlocked = this.scene.isMinimapUnlocked();
+      const minimapEnabled = this.scene.isMinimapEnabled();
+      const minimapStatus = minimapUnlocked
+        ? minimapEnabled
+          ? 'On'
+          : 'Off'
+        : `50 score`;
+      const minimapLine = `Minimap Module [${minimapStatus}]`;
+      lines.push(minimapLine, '  Shows nearby rooms, hazards, walls, and snake position.');
+      index.push('minimap', '');
+      rowMap.push({ row: visualRow, actionId: 'minimap' });
+      visualRow += this.countRenderedLines(minimapLine);
+      visualRow += this.countRenderedLines('  Shows nearby rooms, hazards, walls, and snake position.');
       lines.push('');
       index.push('');
       visualRow += 1;
@@ -1413,6 +1529,7 @@ export class SkillTreeOverlay {
       this.customizationText.setText(lines.join('\n'));
       this.customizationIndex = index;
       this.customizationRowMap = rowMap;
+      this.applyScrollableTextOffset('customize', this.customizationText);
       this.detailTitle.setText('Snake Style').setVisible(true);
       this.detailSubtitle.setText('Cosmetics').setVisible(true);
       this.detailRankText.setText('').setVisible(false);
@@ -1421,11 +1538,11 @@ export class SkillTreeOverlay {
         : 'Unlock Spanish language for 200 score.';
       this.detailBody
         .setText(
-          `Equip owned palettes and hats. Village shopkeepers sell the broader catalog. ${languageDesc}`,
+          `Equip owned palettes and hats. The minimap can be unlocked here and toggled with M. ${languageDesc}`,
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText("Customize your serpent's colors and hat.");
+        this.hintText.setText('Equip owned cosmetics, unlock utilities.');
         this.hintText.setColor('#9ad1ff');
       }
     } else if (

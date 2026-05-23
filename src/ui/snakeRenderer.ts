@@ -69,6 +69,15 @@ interface SnakeRenderOptions {
   animals?: readonly AnimalInstance[];
 }
 
+export interface RenderDiagnostics {
+  staticCacheStatus: 'cached' | 'rebuilt' | 'dirty' | 'disabled';
+  staticTileCount: number;
+  dynamicObjectCount: number;
+  treeTileCount: number;
+  detailedTreeTileCount: number;
+  cheapForestTileCount: number;
+}
+
 export class SnakeRenderer {
   private readonly spriteFactory: RuntimeSpriteFactory;
   private readonly snakeSprites: Phaser.GameObjects.Image[] = [];
@@ -88,6 +97,16 @@ export class SnakeRenderer {
   private readonly bulletSprites: Phaser.GameObjects.Image[] = [];
   private readonly furnitureTextureKeys: Record<FurnitureSpriteVariant, string>;
   private readonly furnitureSprites: Phaser.GameObjects.Image[] = [];
+  private readonly staticRoomSignatures = new Map<string, string>();
+  private readonly dirtyStaticRooms = new Set<string>();
+  private renderDiagnostics: RenderDiagnostics = {
+    staticCacheStatus: 'disabled',
+    staticTileCount: 0,
+    dynamicObjectCount: 0,
+    treeTileCount: 0,
+    detailedTreeTileCount: 0,
+    cheapForestTileCount: 0,
+  };
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -160,6 +179,7 @@ export class SnakeRenderer {
     this.graphics.clearMask();
 
     const opts = options ?? {};
+    this.beginRenderDiagnostics(room, snakeBody, appleInfo ?? null, opts);
 
     this.drawRoom(room);
     this.drawTemperatureReliefs(room);
@@ -185,6 +205,50 @@ export class SnakeRenderer {
     this.drawFootballs(opts.footballs ?? []);
   }
 
+  markStaticRoomDirty(roomId: string): void {
+    this.dirtyStaticRooms.add(roomId);
+  }
+
+  markAllStaticRoomsDirty(): void {
+    this.staticRoomSignatures.clear();
+    this.dirtyStaticRooms.clear();
+  }
+
+  getRenderDiagnostics(): RenderDiagnostics {
+    return { ...this.renderDiagnostics };
+  }
+
+  private beginRenderDiagnostics(
+    room: RoomSnapshot,
+    snakeBody: readonly Vector2Like[],
+    appleInfo: AppleSnapshot | null,
+    options: SnakeRenderOptions,
+  ): void {
+    const signature = `${room.biomeId}|${room.layout.join('/')}`;
+    const previous = this.staticRoomSignatures.get(room.id);
+    const wasDirty = this.dirtyStaticRooms.delete(room.id);
+    const staticCacheStatus =
+      wasDirty || previous !== signature ? 'rebuilt' : previous ? 'cached' : 'rebuilt';
+    this.staticRoomSignatures.set(room.id, signature);
+    this.renderDiagnostics = {
+      staticCacheStatus,
+      staticTileCount: 0,
+      dynamicObjectCount:
+        snakeBody.length +
+        (appleInfo ? 1 : 0) +
+        (room.treasure ? 1 : 0) +
+        (room.powerup ? 1 : 0) +
+        (options.enemies?.length ?? 0) +
+        (options.followers?.length ?? 0) +
+        (options.bullets?.length ?? 0) +
+        (options.footballs?.length ?? 0) +
+        (options.animals?.length ?? 0),
+      treeTileCount: 0,
+      detailedTreeTileCount: 0,
+      cheapForestTileCount: 0,
+    };
+  }
+
   private drawRoom(room: RoomSnapshot): void {
     const ladderOutlineColor = darkenColor(
       paletteConfig.ladder.color,
@@ -196,6 +260,7 @@ export class SnakeRenderer {
         const tile = room.layout[y][x];
         const rectX = x * this.grid.cell;
         const rectY = y * this.grid.cell;
+        this.renderDiagnostics.staticTileCount += 1;
         if (tile === '#') {
           if (room.biomeId === 'elderwood-maze') {
             this.drawTreeTile(rectX, rectY, x, y);
@@ -503,6 +568,12 @@ export class SnakeRenderer {
   }
 
   private drawTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    this.renderDiagnostics.treeTileCount += 1;
+    if (!this.shouldDrawDetailedTree(tileX, tileY)) {
+      this.drawCheapTreeTile(rectX, rectY, tileX, tileY);
+      return;
+    }
+    this.renderDiagnostics.detailedTreeTileCount += 1;
     const base = (tileX + tileY) % 2 === 0 ? 0x174f2a : 0x1d5f31;
     const shadow = 0x0b2414;
     const leaf = (tileX * 5 + tileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
@@ -535,6 +606,32 @@ export class SnakeRenderer {
       );
     this.graphics
       .lineStyle(1, shadow, 0.8)
+      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
+  private shouldDrawDetailedTree(tileX: number, tileY: number): boolean {
+    return (tileX * 11 + tileY * 7) % 5 === 0;
+  }
+
+  private drawCheapTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    this.renderDiagnostics.cheapForestTileCount += 1;
+    const base = (tileX + tileY) % 2 === 0 ? 0x174f2a : 0x1d5f31;
+    const shadow = 0x0b2414;
+    const leaf = (tileX * 5 + tileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
+    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+    this.graphics
+      .fillStyle(shadow, 0.35)
+      .fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
+    this.graphics
+      .fillStyle(leaf, 0.72)
+      .fillRect(
+        rectX + this.grid.cell * 0.18,
+        rectY + this.grid.cell * 0.16,
+        this.grid.cell * 0.64,
+        this.grid.cell * 0.48,
+      );
+    this.graphics
+      .lineStyle(1, shadow, 0.55)
       .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
