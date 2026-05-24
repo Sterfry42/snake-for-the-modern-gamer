@@ -1571,6 +1571,15 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
+  private showPendingActorKnownFact(): void {
+    const fact = this.snakeGame.getFlag<{ actorId: string; text: string }>('ui.actorKnownFact');
+    if (!fact) {
+      return;
+    }
+    this.snakeGame.setFlag('ui.actorKnownFact', undefined);
+    this.showQuestHintPopup(`Known fact learned: ${fact.text}`, '#9ad1ff');
+  }
+
   private gameOver(reason?: string | null) {
     this.juice.gameOver();
     this.featureManager.call('onGameOver', this);
@@ -7645,15 +7654,18 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id === 'talk') {
-          const talk = this.snakeGame.getRelationshipTalk(profile);
-          const town = this.snakeGame.getCurrentTown();
-          const townLine = town ? this.townGossipLine(town) : null;
+          const conversation = profile.actorId
+            ? this.snakeGame.getActorConversation(profile.actorId, 'talk')
+            : null;
+          const line = this.snakeGame.formatActorConversation(conversation);
+          const talk = line ? null : this.snakeGame.getRelationshipTalk(profile);
           this.showQuestDialogue(
-            talk.title,
-            townLine ? [`"${townLine}"`, `"${talk.line}"`] : [`"${talk.line}"`],
+            profile.displayName,
+            line ? [line] : [`"${talk?.line ?? 'They watch you with careful uncertainty.'}"`],
             {
               onClose: () => {
                 this.closeQuestPopup();
+                this.showPendingActorKnownFact();
                 this.skillTree.getOverlay().refresh();
               },
             },
@@ -7671,20 +7683,25 @@ export default class SnakeScene extends Phaser.Scene {
         ) {
           const line =
             id === 'ask-rumor'
-              ? this.askActorAround(profile)
+              ? this.snakeGame.formatActorConversation(
+                  profile.actorId ? this.snakeGame.getActorConversation(profile.actorId, 'ask-around') : null,
+                )
               : id === 'apologize'
                 ? this.snakeGame.apologizeToActor(profile.actorId ?? '')
                 : id === 'threaten'
                   ? this.snakeGame.threatenActor(profile.actorId ?? '')
                   : id === 'parley'
                     ? this.snakeGame.parleyWithActor(profile.actorId ?? '')
-                    : this.askActorPersonally(profile);
+                    : this.snakeGame.formatActorConversation(
+                        profile.actorId ? this.snakeGame.getActorConversation(profile.actorId, 'ask-personal') : null,
+                      );
           this.showQuestDialogue(
             profile.displayName,
-            [line ?? `${profile.displayName} has nothing to say about that.`],
+            [line ?? '"Not now."'],
             {
               onClose: () => {
                 this.closeQuestPopup();
+                this.showPendingActorKnownFact();
                 this.skillTree.getOverlay().refresh();
               },
             },

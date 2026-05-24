@@ -1,6 +1,10 @@
 export type WorldEventType =
   | 'actor-spawned'
   | 'actor-talked'
+  | 'actor-asked-around'
+  | 'actor-asked-personally'
+  | 'actor-personal-reveal'
+  | 'actor-rumor-shared'
   | 'animal-hunted'
   | 'animal-startled'
   | 'animal-tamed'
@@ -12,6 +16,10 @@ export type WorldEventType =
   | 'relationship-choice'
   | 'player-death'
   | 'player-revival'
+  | 'bandit-raid-started'
+  | 'bandit-raid-ended'
+  | 'faction-skirmish-started'
+  | 'faction-skirmish-ended'
   | 'room-entered';
 
 export interface WorldEvent {

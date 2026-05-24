@@ -184,8 +184,12 @@ describe('ActorSystem', () => {
       townId: 'eastmere',
       currentRoomId: '0,0,0',
     });
+    actors.registry.update(shopkeeper.id, (actor) => ({
+      ...actor,
+      mood: { ...actor.mood, trust: 40 },
+    }));
 
-    const menu = buildActorInteractionMenu(shopkeeper, {
+    const menu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper, {
       thievesGuildUnlocked: false,
       recentRumorCount: 1,
     });

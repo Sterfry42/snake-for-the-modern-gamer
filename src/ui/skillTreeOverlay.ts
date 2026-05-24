@@ -1766,6 +1766,7 @@ export class SkillTreeOverlay {
           `Mood: ${view.mood}${view.health ? ` | Health: ${view.health}` : ''}`,
           view.socialTies.length > 0 ? `Ties: ${view.socialTies.join(' / ')}` : '',
           view.reveals.length > 0 ? `Reveals: ${view.reveals.join(' / ')}` : '',
+          view.knownFacts.length > 0 ? `Known: ${view.knownFacts.join(' / ')}` : '',
           view.memories.length > 0 ? `Memory: ${view.memories.join(' / ')}` : '',
         ]
           .filter(Boolean)

@@ -86,8 +86,8 @@ describe('world rumors', () => {
     });
 
     const rumors = game.getRecentWorldRumors();
-    expect(rumors[0]?.summary).toBe('A bandit was eaten.');
-    expect(rumors[0]?.tags).toContain('humanoid');
+    expect(rumors.some((rumor) => rumor.summary.includes('bandit') || rumor.summary.includes('humanoid'))).toBe(true);
+    expect(rumors.some((rumor) => rumor.tags.includes('humanoid'))).toBe(true);
     expect(game.getSaveData().flags?.['world.rumors']).toEqual(expect.any(Array));
   });
 
@@ -281,5 +281,160 @@ describe('world rumors', () => {
     expect(state?.stage).toBe('dead');
     expect(state?.flags.causeOfDeath).toBe('Shot by you');
     expect(game.getFlag<{ message: string }>('ui.relationshipEvent')?.message).toContain('shot down');
+  });
+});
+
+describe('actor conversations', () => {
+  it('records personal reveals as known facts and marks soul details revealed', () => {
+    const game = createGame();
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: game.getCurrentRoom().id,
+    });
+
+    const result = game.getActorConversation(actor.id, 'ask-personal');
+
+    expect(result?.bucket).toBe('ask-personal');
+    expect(game.formatActorConversation(result)).toContain('"');
+    const updated = game.getActorSystem().getActor(actor.id);
+    expect(updated?.knownToPlayer).toBe(true);
+    expect(Object.values(updated?.soul?.revealed ?? {}).some(Boolean)).toBe(true);
+    expect(game.getFlag<Array<{ actorId: string; text: string }>>('actors.knownFacts')?.[0]?.actorId).toBe(actor.id);
+    expect(game.getFlag<{ actorId: string; text: string }>('ui.actorKnownFact')?.actorId).toBe(actor.id);
+    expect(game.getActorSystem().events.getRecent().some((event) => event.type === 'actor-personal-reveal')).toBe(true);
+  });
+
+  it('uses ask around to share rumors without coordinate-heavy speaker framing', () => {
+    const game = createGame();
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: game.getCurrentRoom().id,
+    });
+    game.emitWorldEvent({
+      type: 'humanoid-eaten',
+      roomId: game.getCurrentRoom().id,
+      targetActorIds: ['enemy:bandit'],
+      severity: 60,
+      loudness: 30,
+      tags: ['combat', 'eaten', 'humanoid'],
+      summary: 'A bandit was eaten outside the gate.',
+      createdAtRoomNumber: 7,
+    });
+
+    const result = game.getActorConversation(actor.id, 'ask-around');
+    const formatted = game.formatActorConversation(result);
+
+    expect(result?.bucket).toBe('ask-around');
+    expect(formatted).not.toContain(`${actor.displayName} says`);
+    expect(formatted).not.toContain(game.getCurrentRoom().id);
+    expect(game.getActorSystem().getActor(actor.id)?.memory.some((memory) => memory.source === 'rumor')).toBe(true);
+  });
+
+  it('generates local social links when asking personally and shows them in People', () => {
+    const game = createGame();
+    const roomId = game.getCurrentRoom().id;
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: roomId,
+    });
+    const target = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: roomId,
+    });
+    game.getActorSystem().registry.update(actor.id, (current) => ({
+      ...current,
+      personality: ['practical', 'deadpan'],
+      lore: undefined,
+    }));
+
+    const result = game.getActorConversation(actor.id, 'ask-personal');
+    const updated = game.getActorSystem().getActor(actor.id);
+    const journal = game.getPeopleJournalView();
+
+    expect(result?.source).toBe('social');
+    expect(updated?.relationships.some((link) => link.actorId === target.id && link.knownToPlayer)).toBe(true);
+    expect(journal.find((entry) => entry.id === actor.id)?.socialTies.join(' ')).toContain('Marta');
+    expect(journal.find((entry) => entry.id === actor.id)?.knownFacts.join(' ')).toContain('Marta');
+  });
+
+  it('uses town rumors as ask around material', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.town = {
+      id: 'eastmere',
+      name: 'Eastmere',
+      reputation: 0,
+      suspicion: 0,
+      wantedLevel: 0,
+      rumors: [
+        {
+          id: 'town-rumor:missing-bread',
+          townId: 'eastmere',
+          kind: 'crime',
+          summary: 'Someone stole the ceremonial bread knife.',
+          roomsRemaining: 8,
+          severity: 44,
+        },
+      ],
+    } as any;
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: room.id,
+    });
+
+    const result = game.getActorConversation(actor.id, 'ask-around');
+
+    expect(result?.bucket).toBe('ask-around');
+    expect(result?.source).toBe('rumor');
+    expect(game.getActorSystem().getActor(actor.id)?.memory.some((memory) => memory.summary.includes('bread knife'))).toBe(true);
+  });
+
+  it('turns public danger into modern rumors and faction current events', () => {
+    const game = createGame();
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: game.getCurrentRoom().id,
+    });
+
+    game.emitWorldEvent({
+      type: 'humanoid-eaten',
+      roomId: game.getCurrentRoom().id,
+      targetActorIds: ['enemy:bandit'],
+      witnessActorIds: [actor.id],
+      severity: 70,
+      loudness: 50,
+      tags: ['combat', 'eaten', 'humanoid', 'bandit'],
+      summary: 'A bandit was eaten beside the gate.',
+      createdAtRoomNumber: 9,
+    });
+
+    expect(game.getFlag<{ rumors: unknown[] }>('rumors.save')?.rumors.length).toBeGreaterThan(0);
+    expect(game.getFlag<{ currentEvents: unknown[] }>('factions.v2.save')?.currentEvents.length).toBeGreaterThan(0);
+    expect(game.getRecentWorldRumors()[0]?.summary).not.toBe('A bandit was eaten beside the gate.');
+    expect(game.getCurrentFactionEvents()[0]?.tags).toContain('faction');
   });
 });

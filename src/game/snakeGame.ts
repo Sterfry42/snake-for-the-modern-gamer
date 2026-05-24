@@ -71,6 +71,10 @@ import {
   type FactionCardView,
   type FactionId,
 } from '../factions/factions.js';
+import { FactionEventSystem } from '../factions/factionEvents.js';
+import type { FactionCurrentEvent, FactionSaveData } from '../factions/factionTypes.js';
+import { RumorSystem } from '../rumors/rumorSystem.js';
+import type { Rumor, RumorSaveData } from '../rumors/rumorTypes.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
@@ -91,6 +95,13 @@ import {
   buildActorInteractionMenu,
   type ActorInteractionMenuModel,
 } from '../actors/actorInteractions.js';
+import { selectActorConversation } from '../actors/voice/voiceSelector.js';
+import type {
+  ActorConversationBucket,
+  ActorConversationResult,
+  ActorConversationRumor,
+  ActorFactionConversationState,
+} from '../actors/voice/voiceTypes.js';
 import { selectActorVoiceLine } from '../actors/actorVoice.js';
 import type { CreateWorldEventInput, WorldEvent } from '../events/worldEventTypes.js';
 
@@ -123,6 +134,15 @@ export interface ActorJournalEntry {
   memories: string[];
   socialTies: string[];
   reveals: string[];
+  knownFacts: string[];
+}
+
+export interface ActorKnownFact {
+  id: string;
+  actorId: string;
+  kind: 'social' | 'soul' | 'lore' | 'faction' | 'memory';
+  text: string;
+  learnedAtRoom: number;
 }
 
 interface NpcBodyState {
@@ -506,6 +526,8 @@ export class SnakeGame implements QuestRuntime {
   private readonly questController: QuestController;
   private readonly relationshipController: RelationshipController;
   private readonly actors: ActorSystem;
+  private readonly rumors: RumorSystem;
+  private readonly factionEvents: FactionEventSystem;
   private readonly inventory: InventorySystem;
   private readonly visitedRooms: Set<string>;
   private readonly npcDisposition = new Map<
@@ -558,6 +580,8 @@ export class SnakeGame implements QuestRuntime {
       setFlag: (key, value) => this.setFlag(key, value),
     });
     this.actors = new ActorSystem();
+    this.rumors = new RumorSystem();
+    this.factionEvents = new FactionEventSystem();
     this.inventory = new InventorySystem();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
 
@@ -575,6 +599,8 @@ export class SnakeGame implements QuestRuntime {
     this.animals.clearAll();
     this.questController.reset(this);
     this.actors.reset();
+    this.rumors.load(undefined);
+    this.factionEvents.load(undefined);
     this.inventory.clear();
     this.visitedRooms.clear();
     this.npcDisposition.clear();
@@ -630,6 +656,8 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('quest.staged.failedNow', undefined);
     this.setFlag('ui.questInteraction', undefined);
     this.setFlag('factions.alignment', undefined);
+    this.setFlag('rumors.save', undefined);
+    this.setFlag('factions.v2.save', undefined);
     this.setFlag('actors.save', undefined);
     this.setFlag('events.save', undefined);
     this.setFlag('wards.contracts', undefined);
@@ -2448,6 +2476,402 @@ export class SnakeGame implements QuestRuntime {
     return this.actors.getStableTownResidentActorId(`quest:${roomId}`, npcId, 'questGiver');
   }
 
+  getActorConversation(
+    actorId: string,
+    bucket: ActorConversationBucket,
+  ): ActorConversationResult | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return null;
+    }
+    const room = this.getCurrentRoom();
+    const biome = getBiomeDefinition(room.biomeId);
+    const health = this.getPlayerHealth();
+    const socialLink = this.ensureConversationSocialLink(actor.id, bucket);
+    const socialTargetName = socialLink ? this.actors.getActor(socialLink.actorId)?.displayName : undefined;
+    const currentActor = this.actors.getActor(actor.id) ?? actor;
+    const relationshipId = typeof actor.flags.relationshipId === 'string' ? actor.flags.relationshipId : undefined;
+    const relationship = relationshipId ? this.relationshipController.getState(relationshipId) : undefined;
+    const result = selectActorConversation({
+      actor: currentActor,
+      bucket,
+      biomeId: room.biomeId,
+      dangerLevel: biome.dangerLevel,
+      playerHealth: health.current,
+      playerMaxHealth: health.max,
+      snakeLength: this.snake.bodySegments.length,
+      roomsVisited: this.getRoomsVisitedCount(),
+      flags: this.snake.flags,
+      recentEvents: ['recent.animalHunted', 'recent.deathReason'].filter((key) => this.getFlag(key) !== undefined),
+      rumors: this.getConversationRumorsForActor(currentActor),
+      factionEvents: this.getConversationFactionEvents(currentActor),
+      town: room.town
+        ? {
+            id: room.town.id,
+            name: room.town.name,
+            wantedLevel: room.town.wantedLevel,
+            suspicion: room.town.suspicion,
+            reputation: room.town.reputation,
+          }
+        : undefined,
+      relationship: relationship
+        ? {
+            stage: relationship.stage,
+            affection: relationship.affection,
+            trust: relationship.trust,
+            resentment: relationship.resentment,
+            jealousy: relationship.jealousy,
+            fear: relationship.fear,
+          }
+        : undefined,
+      socialLink,
+      socialTargetName,
+      random: this.rng,
+    });
+    const recentConversationKey = `actor.conversation.recent.${actor.id}.${bucket}`;
+    const recentConversationRaw = this.getFlag<unknown>(recentConversationKey);
+    const recentConversationIds = Array.isArray(recentConversationRaw)
+      ? recentConversationRaw.filter((item): item is string => typeof item === 'string')
+      : [];
+    this.setFlag(`actor.conversation.last.${actor.id}.${bucket}`, result.id);
+    this.setFlag(
+      recentConversationKey,
+      [result.id, ...recentConversationIds.filter((id) => id !== result.id)].slice(0, 4),
+    );
+    this.applyActorConversationResult(currentActor, result);
+    this.emitWorldEvent({
+      type:
+        bucket === 'ask-around'
+          ? 'actor-asked-around'
+          : bucket === 'ask-personal'
+            ? 'actor-asked-personally'
+            : 'actor-talked',
+      roomId: this.snake.currentRoomId,
+      sourceActorId: currentActor.id,
+      severity: result.source === 'faction' || result.source === 'rumor' ? 14 : 6,
+      loudness: 2,
+      tags: ['conversation', bucket, result.source, ...result.tags],
+      summary: `${currentActor.displayName} spoke about ${result.topic}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+    });
+    return result;
+  }
+
+  private ensureConversationSocialLink(
+    actorId: string,
+    bucket: ActorConversationBucket,
+  ): ActorSocialLink | undefined {
+    const actor = this.actors.getActor(actorId);
+    if (!actor || bucket === 'talk') {
+      return actor?.relationships.find((entry) => !entry.knownToPlayer) ?? actor?.relationships[0];
+    }
+    const existing = actor.relationships.find((entry) => !entry.knownToPlayer) ?? actor.relationships[0];
+    if (existing && this.actors.getActor(existing.actorId)) {
+      return existing;
+    }
+    const target = this.findConversationSocialTarget(actor);
+    if (!target) {
+      return existing;
+    }
+    const relationship = conversationSocialRelationshipFor(actor, target);
+    const strength = relationship === 'family' ? 74 : relationship === 'rival' ? 62 : relationship === 'friend' ? 58 : 48;
+    const link: ActorSocialLink = {
+      actorId: target.id,
+      relationship,
+      strength,
+      knownToPlayer: false,
+    };
+    const reciprocal: ActorSocialLink = {
+      actorId: actor.id,
+      relationship: reciprocalSocialRelationship(relationship),
+      strength: Math.max(35, strength - 8),
+      knownToPlayer: false,
+    };
+    this.actors.registry.update(actor.id, (current) => ({
+      ...current,
+      relationships: [
+        ...current.relationships.filter((entry) => entry.actorId !== target.id),
+        link,
+      ].slice(-8),
+    }));
+    this.actors.registry.update(target.id, (current) => ({
+      ...current,
+      relationships: current.relationships.some((entry) => entry.actorId === actor.id)
+        ? current.relationships
+        : [...current.relationships, reciprocal].slice(-8),
+    }));
+    return link;
+  }
+
+  private findConversationSocialTarget(actor: Actor): Actor | undefined {
+    const candidates = this.actors.registry
+      .getAll()
+      .filter((candidate) => {
+        if (candidate.id === actor.id || candidate.kind === 'animal' || candidate.kind === 'enemy') {
+          return false;
+        }
+        if (candidate.hostility === 'dead' || candidate.health?.state === 'dead') {
+          return false;
+        }
+        if (actor.townId && candidate.townId === actor.townId) {
+          return true;
+        }
+        if (actor.currentRoomId && candidate.currentRoomId === actor.currentRoomId) {
+          return true;
+        }
+        return false;
+      })
+      .sort((a, b) => {
+        const sameRoomA = a.currentRoomId === actor.currentRoomId ? 1 : 0;
+        const sameRoomB = b.currentRoomId === actor.currentRoomId ? 1 : 0;
+        if (sameRoomA !== sameRoomB) return sameRoomB - sameRoomA;
+        return stableHash(`${actor.id}:${a.id}`) - stableHash(`${actor.id}:${b.id}`);
+      });
+    return candidates[0];
+  }
+
+  formatActorConversation(result: ActorConversationResult | null): string | null {
+    if (!result) {
+      return null;
+    }
+    const spoken = `"${result.line}"`;
+    return result.beat ? `*${result.beat}*\n\n${spoken}` : spoken;
+  }
+
+  private getConversationRumorsForActor(actor: Actor): ActorConversationRumor[] {
+    const room = this.getCurrentRoom();
+    const townRumors = (room.town?.rumors ?? [])
+      .slice(-6)
+      .map((rumor) => ({
+        id: rumor.id,
+        summary: rumor.summary,
+        tags: [rumor.kind, 'town', 'rumor'],
+        severity: rumor.severity,
+        townId: rumor.townId,
+        factionIds: rumor.kind === 'crime' ? ['hearthbound-remnant'] : [],
+      }));
+    const publicRumors = this.getRecentWorldRumors(6).map((rumor) => ({
+      id: rumor.id,
+      summary: rumor.summary,
+      tags: rumor.tags,
+      severity: rumor.severity,
+      townId: rumor.townId,
+      factionIds: rumor.tags.filter((tag) => tag.includes('-')),
+    }));
+    const memoryRumors = actor.memory
+      .filter((memory) => memory.source === 'rumor' || memory.tags.includes('rumor'))
+      .slice(-4)
+      .map((memory) => ({
+        id: memory.id,
+        summary: memory.summary,
+        tags: memory.tags,
+        severity: memory.intensity,
+        townId: undefined,
+        factionIds: memory.tags.filter((tag) => tag.includes('-')),
+      }));
+    return [...memoryRumors, ...townRumors, ...publicRumors]
+      .filter((rumor) => !this.isConversationMetaRumor(rumor))
+      .filter((rumor, index, all) => all.findIndex((entry) => entry.id === rumor.id) === index)
+      .sort((a, b) => b.severity - a.severity);
+  }
+
+  private getConversationFactionEvents(actor: Actor): ActorFactionConversationState[] {
+    const room = this.getCurrentRoom();
+    const events: ActorFactionConversationState[] = this.factionEvents
+      .getEventsForActor(actor, 6)
+      .map((event) => ({
+        relation: factionRelationForCurrentEvent(event),
+        factionIds: [...event.factionIds],
+        townId: event.townId,
+        severity: event.severity,
+        tags: [...event.tags, event.phase],
+        summary: event.summary,
+      }));
+    if (room.town && room.town.wantedLevel > 0) {
+      events.push({
+        relation: room.town.wantedLevel >= 3 ? 'hostile' : 'tense',
+        factionIds: ['hearthbound-remnant'],
+        townId: room.town.id,
+        severity: Math.min(20, room.town.wantedLevel * 5 + Math.floor((room.town.suspicion ?? 0) / 20)),
+        tags: ['wanted', 'crime', 'town'],
+        summary: `Wanted level ${room.town.wantedLevel} in ${room.town.name}.`,
+      });
+    }
+    if (room.town && (room.town.suspicion ?? 0) >= 50) {
+      events.push({
+        relation: 'tense',
+        factionIds: ['hearthbound-remnant', String(actor.factionId ?? 'locals')],
+        townId: room.town.id,
+        severity: Math.min(18, Math.floor((room.town.suspicion ?? 0) / 6)),
+        tags: ['suspicion', 'town', 'witness'],
+        summary: `${room.town.name} is watching strangers carefully.`,
+      });
+    }
+    if (room.town && (room.town.reputation ?? 0) <= -20) {
+      events.push({
+        relation: 'hostile',
+        factionIds: ['hearthbound-remnant', String(actor.factionId ?? 'locals')],
+        townId: room.town.id,
+        severity: Math.min(20, Math.abs(room.town.reputation ?? 0)),
+        tags: ['reputation', 'town', 'resentment'],
+        summary: `${room.town.name} has started turning bad stories into policy.`,
+      });
+    }
+    const isGoblinSide = actor.species === 'goblin' || actor.personality.includes('goblin') || actor.factionId === 'goblin-camps';
+    const isHumanSide = actor.species === 'human' || actor.factionId === 'hearthbound-remnant';
+    if (isGoblinSide || isHumanSide) {
+      events.push({
+        relation: 'tense',
+        factionIds: ['hearthbound-remnant', 'goblin-camps'],
+        townId: room.town?.id,
+        severity: 8,
+        tags: ['goblin', 'human', 'truce'],
+        summary: 'Human guards and goblin traders are maintaining a tense truce.',
+      });
+    }
+    const banditRumor = this.getRecentWorldRumors(8).find((rumor) =>
+      rumor.tags.some((tag) => tag.includes('bandit') || tag === 'hostile-kill'),
+    );
+    if (banditRumor) {
+      events.push({
+        relation: 'skirmishing',
+        factionIds: ['bandits', String(actor.factionId ?? 'locals')],
+        townId: room.town?.id,
+        severity: Math.min(20, Math.max(8, Math.floor(banditRumor.severity / 4))),
+        tags: ['bandit', 'danger'],
+        summary: banditRumor.summary,
+      });
+    }
+    const raidWarning = this.factionEvents.maybeCreateRaidWarning({
+      roomId: room.id,
+      townId: room.town?.id ?? room.goblinCamp?.id,
+      biomeDanger: getBiomeDefinition(room.biomeId).dangerLevel,
+      wantedLevel: room.town?.wantedLevel,
+      createdAt: this.getRoomsVisitedCount(),
+    });
+    if (raidWarning) {
+      this.recordRumorFromFactionEvent(raidWarning);
+      events.push({
+        relation: 'skirmishing',
+        factionIds: [...raidWarning.factionIds],
+        townId: raidWarning.townId,
+        severity: raidWarning.severity,
+        tags: [...raidWarning.tags, raidWarning.phase],
+        summary: raidWarning.summary,
+      });
+    }
+    return events
+      .filter((event, index, all) => all.findIndex((entry) => entry.summary === event.summary) === index)
+      .sort((a, b) => b.severity - a.severity);
+  }
+
+  private isConversationMetaRumor(rumor: ActorConversationRumor): boolean {
+    if (rumor.tags.includes('conversation') || rumor.tags.includes('actor-asked-around')) {
+      return true;
+    }
+    return /\bspoke about (around|talk|personal)\./i.test(rumor.summary);
+  }
+
+  private applyActorConversationResult(actor: Actor, result: ActorConversationResult): void {
+    if (result.revealsSoul || result.socialLinkActorId || result.knownFact) {
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        knownToPlayer: true,
+        focus: Math.min(100, (current.focus ?? 0) + (result.bucket === 'ask-personal' ? 8 : 3)),
+        soul:
+          result.revealsSoul && current.soul
+            ? {
+                ...current.soul,
+                revealed: { ...current.soul.revealed, [result.revealsSoul]: true },
+              }
+            : current.soul,
+        lore:
+          result.topic === 'personal.king' && current.lore
+            ? {
+                ...current.lore,
+                revealedLoreIds: [
+                  ...new Set([
+                    ...current.lore.revealedLoreIds,
+                    `king:${current.lore.kingOpinion ?? 'unknown'}:${current.lore.anchorInstitution ?? 'road'}`,
+                  ]),
+                ].slice(-12),
+              }
+            : current.lore,
+        relationships: result.socialLinkActorId
+          ? current.relationships.map((entry) =>
+              entry.actorId === result.socialLinkActorId ? { ...entry, knownToPlayer: true } : entry,
+            )
+          : current.relationships,
+      }));
+    }
+    if (result.knownFact) {
+      this.recordActorKnownFact(actor.id, result.source, result.knownFact);
+    }
+    if (result.revealsSoul || result.topic === 'personal.king') {
+      this.emitWorldEvent({
+        type: 'actor-personal-reveal',
+        roomId: this.snake.currentRoomId,
+        sourceActorId: actor.id,
+        severity: result.revealsSoul === 'secret' || result.topic === 'personal.king' ? 38 : 18,
+        loudness: 1,
+        tags: ['personal', 'reveal', result.source, ...result.tags],
+        summary: `${actor.displayName} revealed something personal.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: {
+          topic: result.topic,
+          reveal: result.revealsSoul,
+          knownFact: result.knownFact,
+        },
+      });
+    }
+    if (result.source === 'rumor') {
+      const rumor = this.getConversationRumorsForActor(actor)[0];
+      if (rumor) {
+        this.rememberActorRumor(actor.id, {
+          id: `memory:${rumor.id}:${actor.id}`,
+          eventId: rumor.id,
+          type: 'rumor',
+          summary: rumor.summary,
+          source: 'rumor',
+          intensity: rumor.severity,
+          tags: [...rumor.tags, 'rumor'],
+          createdAtRoomNumber: this.getRoomsVisitedCount(),
+        });
+      }
+    }
+  }
+
+  private recordActorKnownFact(actorId: string, source: ActorConversationResult['source'], text: string): void {
+    const existing = this.getFlag<ActorKnownFact[]>('actors.knownFacts') ?? [];
+    const id = `fact:${actorId}:${this.hashText(text)}`;
+    if (existing.some((fact) => fact.id === id)) {
+      return;
+    }
+    const kind: ActorKnownFact['kind'] =
+      source === 'social'
+        ? 'social'
+        : source === 'lore'
+          ? 'lore'
+          : source === 'faction'
+            ? 'faction'
+            : source === 'memory' || source === 'rumor'
+              ? 'memory'
+              : 'soul';
+    this.setFlag(
+      'actors.knownFacts',
+      [...existing, { id, actorId, kind, text, learnedAtRoom: this.getRoomsVisitedCount() }].slice(-80),
+    );
+    this.setFlag('ui.actorKnownFact', { actorId, text });
+  }
+
+  private hashText(text: string): string {
+    let hash = 0;
+    for (let i = 0; i < text.length; i += 1) {
+      hash = (hash * 31 + text.charCodeAt(i)) | 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
   askActorRumor(actorId: string): string | null {
     const actor = this.actors.getActor(actorId);
     if (!actor) {
@@ -2669,6 +3093,13 @@ export class SnakeGame implements QuestRuntime {
   emitWorldEvent(input: CreateWorldEventInput): WorldEvent {
     const event = this.actors.emitWorldEvent(input);
     this.recordRumorFromWorldEvent(event);
+    const factionEvents = this.factionEvents.createEventsFromWorldEvent(
+      event,
+      this.actors.registry.getAll(),
+    );
+    for (const factionEvent of factionEvents) {
+      this.recordRumorFromFactionEvent(factionEvent);
+    }
     this.propagateWorldEvent(event);
     this.propagateSocialConsequences(event);
     this.applyFactionReportsForEvent(event);
@@ -2676,45 +3107,70 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getRecentWorldRumors(limit = 8): readonly WorldRumor[] {
+    const modern = this.rumors.getRecent(limit).map(rumorToWorldRumor);
+    if (modern.length > 0) {
+      return modern;
+    }
     const rumors = this.getFlag<WorldRumor[]>('world.rumors') ?? [];
     return rumors.slice(-Math.max(0, limit)).reverse();
   }
 
+  getCurrentFactionEvents(limit = 12): readonly FactionCurrentEvent[] {
+    return this.factionEvents.getEvents(limit);
+  }
+
   getPeopleJournalView(limit = 24): ActorJournalEntry[] {
+    const knownFacts = this.getFlag<ActorKnownFact[]>('actors.knownFacts') ?? [];
     return this.actors.registry
       .getAll()
       .filter((actor) => actor.kind !== 'animal' && actor.kind !== 'enemy' && actor.hostility !== 'dead')
       .sort((a, b) => {
-        const knownA = a.knownToPlayer || a.memory.length > 0 || a.relationships.some((link) => link.knownToPlayer);
-        const knownB = b.knownToPlayer || b.memory.length > 0 || b.relationships.some((link) => link.knownToPlayer);
+        const knownA =
+          a.knownToPlayer ||
+          a.memory.length > 0 ||
+          a.relationships.some((link) => link.knownToPlayer) ||
+          knownFacts.some((fact) => fact.actorId === a.id);
+        const knownB =
+          b.knownToPlayer ||
+          b.memory.length > 0 ||
+          b.relationships.some((link) => link.knownToPlayer) ||
+          knownFacts.some((fact) => fact.actorId === b.id);
         if (knownA !== knownB) return knownA ? -1 : 1;
         return (b.focus ?? 0) - (a.focus ?? 0);
       })
       .slice(0, limit)
-      .map((actor) => ({
-        id: actor.id,
-        name: actor.displayName,
-        role: actor.role,
-        faction: actor.factionId ? String(actor.factionId) : undefined,
-        roomId: actor.currentRoomId,
-        mood: summarizeActorMoodForJournal(actor),
-        health: actor.health ? `${actor.health.state} ${actor.health.current}/${actor.health.max}` : undefined,
-        memories: actor.memory.slice(-3).map((memory) => memory.summary),
-        socialTies: actor.relationships
-          .filter((link) => link.knownToPlayer)
-          .slice(0, 3)
-          .map((link) => {
-            const target = this.actors.getActor(link.actorId);
-            return `${link.relationship}: ${target?.displayName ?? link.actorId}`;
-          }),
-        reveals: actor.soul
-          ? [
-              actor.soul.revealed.wound ? `Wound: ${actor.soul.wound}` : '',
-              actor.soul.revealed.insecurity ? `Insecurity: ${actor.soul.insecurity}` : '',
-              actor.soul.revealed.secret ? `Secret: ${actor.soul.secret}` : '',
-            ].filter(Boolean)
-          : [],
-      }));
+      .map((actor) => {
+        const actorFacts = knownFacts
+          .filter((fact) => fact.actorId === actor.id)
+          .slice(-4)
+          .map((fact) => fact.text);
+        return {
+          id: actor.id,
+          name: actor.displayName,
+          role: actor.role,
+          faction: actor.factionId ? String(actor.factionId) : undefined,
+          roomId: actor.currentRoomId,
+          mood: summarizeActorMoodForJournal(actor),
+          health: actor.health ? `${actor.health.state} ${actor.health.current}/${actor.health.max}` : undefined,
+          memories: actor.memory.slice(-3).map((memory) => memory.summary),
+          socialTies: actor.relationships
+            .filter((link) => link.knownToPlayer)
+            .slice(0, 3)
+            .map((link) => {
+              const target = this.actors.getActor(link.actorId);
+              return `${link.relationship}: ${target?.displayName ?? link.actorId}`;
+            }),
+          reveals: actor.soul
+            ? [
+                actor.soul.revealed.wound ? `Wound: ${actor.soul.wound}` : '',
+                actor.soul.revealed.insecurity ? `Insecurity: ${actor.soul.insecurity}` : '',
+                actor.soul.revealed.contradiction ? `Contradiction: ${actor.soul.contradiction}` : '',
+                actor.soul.revealed.secret ? `Secret: ${actor.soul.secret}` : '',
+              ].filter(Boolean)
+            : [],
+          knownFacts: actorFacts,
+        };
+      });
   }
 
   private isHostileHumanoidEnemy(enemy?: EnemyInstance): boolean {
@@ -2727,6 +3183,48 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private recordRumorFromWorldEvent(event: WorldEvent): void {
+    const room = event.roomId ? this.world.getRoom(event.roomId) : undefined;
+    const modernRumor = this.rumors.createFromWorldEvent(
+      event,
+      room?.town?.id ?? room?.goblinCamp?.id,
+    );
+    if (!modernRumor) {
+      return;
+    }
+    this.syncRumorFlags();
+    this.seedTownRumorFromModernRumor(event, modernRumor);
+  }
+
+  private recordRumorFromFactionEvent(event: FactionCurrentEvent): void {
+    const rumor = this.rumors.createFromFactionEvent(event, this.getRoomsVisitedCount());
+    this.syncRumorFlags();
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    this.seedTownRumorFromModernRumor(
+      {
+        id: event.id,
+        type: 'faction-skirmish-started',
+        roomId: event.roomId,
+        sourceActorId: event.actorIds[0],
+        targetActorIds: event.actorIds,
+        witnessActorIds: event.actorIds,
+        severity: event.severity,
+        loudness: event.severity,
+        tags: event.tags,
+        summary: event.summary,
+        createdAtRoomNumber: event.createdAt,
+        createdAtMs: Date.now(),
+        data: { townId: event.townId },
+      },
+      rumor,
+    );
+  }
+
+  private syncRumorFlags(): void {
+    this.setFlag('rumors.save', this.rumors.save());
+    this.setFlag('world.rumors', this.rumors.getAll().map(rumorToWorldRumor).slice(-100));
+  }
+
+  private recordLegacyRumorFromWorldEvent(event: WorldEvent): void {
     if (!this.shouldBecomeRumor(event)) {
       return;
     }
@@ -2884,6 +3382,42 @@ export class SnakeGame implements QuestRuntime {
           relatedRelationshipId:
             typeof event.data?.relationshipId === 'string' ? event.data.relationshipId : undefined,
           relatedNpcId: event.targetActorIds[0],
+        },
+      ].slice(-12),
+    });
+    room.town = nextTown;
+    this.saveTownRuntimeState(nextTown);
+    this.world.updateTown(nextTown);
+  }
+
+  private seedTownRumorFromModernRumor(event: WorldEvent, rumor: Rumor): void {
+    if (!event.roomId || !rumor.townId) {
+      return;
+    }
+    const room = this.world.getRoom(event.roomId);
+    if (!room.town || room.town.id !== rumor.townId) {
+      return;
+    }
+    const exists = room.town.rumors.some((entry) => entry.id === rumor.id);
+    if (exists) {
+      return;
+    }
+    const nextTown = cloneTown({
+      ...room.town,
+      rumors: [
+        ...room.town.rumors,
+        {
+          id: rumor.id,
+          townId: room.town.id,
+          kind: townRumorKindForModernRumor(rumor),
+          summary: rumor.summary,
+          roomsRemaining: rumor.expiresAt
+            ? Math.max(3, rumor.expiresAt - this.getRoomsVisitedCount())
+            : 12,
+          severity: rumor.severity,
+          relatedRelationshipId:
+            typeof event.data?.relationshipId === 'string' ? event.data.relationshipId : undefined,
+          relatedNpcId: rumor.subjectActorId ?? event.targetActorIds[0],
         },
       ].slice(-12),
     });
@@ -6009,6 +6543,8 @@ export class SnakeGame implements QuestRuntime {
     for (const key of [
       'cards.collection',
       'factions.alignment',
+      'rumors.save',
+      'factions.v2.save',
       'wards.contracts',
       'wards.usage',
       'followers.active',
@@ -6059,6 +6595,8 @@ export class SnakeGame implements QuestRuntime {
     const actorSave = this.actors.toSaveData();
     characterFlags['actors.save'] = actorSave.actors;
     characterFlags['events.save'] = actorSave.events;
+    characterFlags['rumors.save'] = this.rumors.save();
+    characterFlags['factions.v2.save'] = this.factionEvents.save();
     const data: GameSaveData = {
       version: '1.0.0',
       timestamp: Date.now(),
@@ -6183,6 +6721,8 @@ export class SnakeGame implements QuestRuntime {
           events: [],
         },
       });
+      this.rumors.load(this.getFlag<RumorSaveData>('rumors.save'));
+      this.factionEvents.load(this.getFlag<FactionSaveData>('factions.v2.save'));
       this.migrateWorldEffectCardsToItems();
 
       this.questController.restoreQuestIds(
@@ -9636,6 +10176,91 @@ function townRumorKindForEvent(event: WorldEvent): 'crime' | 'romance' | 'marria
   if (event.tags.includes('crime') || event.type === 'town-crime') return 'crime';
   if (event.tags.includes('combat') || event.tags.includes('eaten')) return 'weird';
   return 'weird';
+}
+
+function townRumorKindForModernRumor(rumor: Rumor): 'crime' | 'romance' | 'marriage' | 'divorce' | 'guild' | 'heroic' | 'weird' {
+  if (rumor.tags.includes('marriage')) return 'marriage';
+  if (rumor.tags.includes('divorce')) return 'divorce';
+  if (rumor.type === 'romance') return 'romance';
+  if (rumor.tags.includes('guild') || rumor.factionIds.includes('thieves-guild')) return 'guild';
+  if (rumor.type === 'crime') return 'crime';
+  if (rumor.tags.includes('heroic')) return 'heroic';
+  return 'weird';
+}
+
+function rumorToWorldRumor(rumor: Rumor): WorldRumor {
+  return {
+    id: rumor.id,
+    eventId: rumor.sourceEventId ?? rumor.id,
+    roomId: rumor.roomId,
+    townId: rumor.townId,
+    summary: rumor.summary,
+    tags: [...rumor.tags, rumor.type, rumor.sourceKind],
+    severity: rumor.severity,
+    createdAtRoomNumber: rumor.createdAt,
+    heardByActorIds: [...rumor.knownByActorIds],
+  };
+}
+
+function factionRelationForCurrentEvent(event: FactionCurrentEvent): ActorFactionConversationState['relation'] {
+  if (event.phase === 'resolved') return 'neutral';
+  switch (event.type) {
+    case 'raid-active':
+      return 'war';
+    case 'raid-warning':
+    case 'raid-aftermath':
+    case 'skirmish':
+      return 'skirmishing';
+    case 'guard-crackdown':
+    case 'market-shutdown':
+      return event.severity >= 55 ? 'hostile' : 'tense';
+    case 'inspection':
+    case 'debt-collection':
+    case 'trade-dispute':
+    case 'guild-exposure':
+      return 'tense';
+    default:
+      return event.severity >= 45 ? 'tense' : 'neutral';
+  }
+}
+
+function conversationSocialRelationshipFor(actor: Actor, target: Actor): ActorSocialLink['relationship'] {
+  if (actor.factionId && target.factionId && actor.factionId !== target.factionId) {
+    return stableHash(`${actor.id}:rival:${target.id}`) % 3 === 0 ? 'rival' : 'factionAlly';
+  }
+  if (actor.role === 'shopkeeper' && target.role === 'guard') return 'creditor';
+  if (actor.role === 'guard' && target.role === 'shopkeeper') return 'debtor';
+  if (actor.personality.includes('romantic') && target.personality.includes('romantic')) {
+    return stableHash(`${actor.id}:ex:${target.id}`) % 4 === 0 ? 'ex' : 'friend';
+  }
+  const roll = stableHash(`${actor.id}->${target.id}`) % 8;
+  if (roll === 0) return 'family';
+  if (roll === 1) return 'rival';
+  if (roll === 2) return 'creditor';
+  if (roll === 3) return 'debtor';
+  if (roll === 4) return 'ex';
+  return 'friend';
+}
+
+function reciprocalSocialRelationship(relationship: ActorSocialLink['relationship']): ActorSocialLink['relationship'] {
+  switch (relationship) {
+    case 'creditor':
+      return 'debtor';
+    case 'debtor':
+      return 'creditor';
+    case 'boss':
+      return 'friend';
+    default:
+      return relationship;
+  }
+}
+
+function stableHash(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
 }
 
 function summarizeActorMoodForJournal(actor: Actor): string {

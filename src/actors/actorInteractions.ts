@@ -60,8 +60,7 @@ export function buildActorInteractionMenu(
     options.push({
       id: 'ask-rumor',
       label: 'Ask Around',
-      enabled: (context.recentRumorCount ?? 0) > 0 || actor.memory.length > 0,
-      reason: (context.recentRumorCount ?? 0) > 0 || actor.memory.length > 0 ? undefined : 'No rumors yet',
+      enabled: true,
       priority: 58,
     });
     const playerOpinion = actor.opinions.player;
@@ -71,13 +70,14 @@ export function buildActorInteractionMenu(
       actor.mood.affection >= 35 ||
       (playerOpinion?.trust ?? 0) >= 18 ||
       (playerOpinion?.affection ?? 0) >= 18;
-    options.push({
-      id: 'ask-personal',
-      label: 'Ask Personally',
-      enabled: Boolean(actor.soul) && friendlyEnough,
-      reason: actor.soul ? (friendlyEnough ? undefined : 'Not friendly enough') : 'No personal reveal',
-      priority: 48,
-    });
+    if (actor.soul && friendlyEnough) {
+      options.push({
+        id: 'ask-personal',
+        label: 'Ask Personally',
+        enabled: true,
+        priority: 48,
+      });
+    }
   }
 
   if (actor.role === 'shopkeeper' || actor.role === 'bartender' || actor.role === 'blackMarketMerchant') {
