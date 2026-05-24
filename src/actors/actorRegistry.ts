@@ -200,8 +200,13 @@ function mergeActor(existing: Actor, incoming: Actor): Actor {
     incoming.hostility === 'hostile' &&
     existing.hostility !== 'dead' &&
     existing.hostility !== 'downed';
+  const preserveIdentity = existing.flags.source === 'townResident' || existing.flags.relationshipId;
   return {
     ...incoming,
+    kind: preserveIdentity ? existing.kind : incoming.kind,
+    role: preserveIdentity ? existing.role : incoming.role,
+    species: preserveIdentity ? existing.species : incoming.species,
+    personality: preserveIdentity ? existing.personality : incoming.personality,
     knownToPlayer: existing.knownToPlayer || incoming.knownToPlayer,
     focus: Math.max(existing.focus ?? 0, incoming.focus ?? 0),
     mood: existing.mood,

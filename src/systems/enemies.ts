@@ -50,7 +50,9 @@ interface EnemyStepParams {
 
 interface EnemyStepResult {
   bulletHits: number;
+  meleeHits?: number;
   hitStyle?: BulletInstance['style'];
+  defeatedEnemies?: EnemyInstance[];
 }
 
 function localToGlobal(roomId: string, position: Vector2Like, grid: GridConfig): Vector2Like {
@@ -67,6 +69,14 @@ function globalToLocal(roomId: string, position: Vector2Like, grid: GridConfig):
     x: position.x - roomX * grid.cols,
     y: position.y - roomY * grid.rows,
   };
+}
+
+function canEatEnemyKind(kind: EnemyInstance['encounterKind']): boolean {
+  return kind === 'enemy' || kind === 'npc-hostile' || kind === 'goblin' || kind === 'duelist';
+}
+
+function canHumanoidSlash(kind: EnemyInstance['encounterKind']): boolean {
+  return canEatEnemyKind(kind);
 }
 
 export class EnemyManager {
@@ -187,25 +197,31 @@ export class EnemyManager {
     hearts: number,
     idSuffix?: string,
     currentHearts = hearts,
+    actorId?: string,
   ): EnemyInstance {
     const id = `npc-hostile:${idSuffix ?? roomId}`;
     const existing = (this.enemies.get(roomId) ?? []).find((enemy) => enemy.id === id);
     if (existing) {
+      existing.actorId = actorId ?? existing.actorId;
+      existing.position = { ...position };
       existing.currentHearts = Math.min(
+        existing.currentHearts ?? currentHearts,
         Math.max(1, currentHearts),
         Math.max(1, existing.maxHearts ?? hearts),
       );
+      existing.fireCooldown = Math.min(existing.fireCooldown, 3);
+      existing.moveCooldown = Math.min(existing.moveCooldown, 2);
       existing.flashTicks = Math.max(existing.flashTicks, 2);
       return existing;
     }
     const maxHearts = Math.max(1, hearts);
     const hostileNpc: EnemyInstance = {
       id,
-      actorId: `enemy:${roomId}:${id}`,
+      actorId: actorId ?? `enemy:${roomId}:${id}`,
       roomId,
       position,
-      fireCooldown: 7,
-      moveCooldown: 3,
+      fireCooldown: 3,
+      moveCooldown: 2,
       aimDirection: { x: 0, y: 1 },
       flashTicks: 0,
       name,
@@ -313,14 +329,20 @@ export class EnemyManager {
 
   step(params: EnemyStepParams): EnemyStepResult {
     const bulletStep = this.stepBullets(params);
-    this.stepEnemies(params);
-    return bulletStep;
+    const meleeStep = this.stepEnemies(params);
+    return {
+      bulletHits: bulletStep.bulletHits,
+      meleeHits: meleeStep.meleeHits,
+      hitStyle: bulletStep.hitStyle ?? meleeStep.hitStyle,
+      defeatedEnemies: bulletStep.defeatedEnemies,
+    };
   }
 
   stepBullets(params: EnemyStepParams): EnemyStepResult {
     const { getRoom, snake, currentRoomId } = params;
     let bulletHits = 0;
     let hitStyle: BulletInstance['style'] | undefined;
+    const defeatedEnemies: EnemyInstance[] = [];
 
     for (const [roomId, bullets] of this.bullets) {
       const room = getRoom(roomId);
@@ -361,7 +383,10 @@ export class EnemyManager {
             (enemy) => enemy.position.x === nextPosition.x && enemy.position.y === nextPosition.y,
           );
           if (hitEnemy) {
-            this.damageEnemyById(roomId, hitEnemy.id, 1);
+            const defeated = this.damageEnemyById(roomId, hitEnemy.id, 1);
+            if (defeated) {
+              defeatedEnemies.push(defeated);
+            }
             continue;
           }
         }
@@ -376,24 +401,26 @@ export class EnemyManager {
       }
     }
 
-    return { bulletHits, hitStyle };
+    return { bulletHits, hitStyle, defeatedEnemies };
   }
 
-  stepEnemies(params: EnemyStepParams): void {
+  stepEnemies(params: EnemyStepParams): EnemyStepResult {
     const { getRoom, snake, currentRoomId, snakeDirection } = params;
     const head = snake[0];
     if (!head) {
-      return;
+      return { bulletHits: 0, meleeHits: 0 };
     }
 
     const roomEnemies = this.enemies.get(currentRoomId) ?? [];
     if (roomEnemies.length === 0) {
-      return;
+      return { bulletHits: 0, meleeHits: 0 };
     }
 
     const room = getRoom(currentRoomId);
     const headLocal = globalToLocal(currentRoomId, head, this.grid);
     const nextEnemies: EnemyInstance[] = [];
+    let meleeHits = 0;
+    let meleeHitStyle: BulletInstance['style'] | undefined;
 
     for (const enemy of roomEnemies) {
       if (enemy.position.x === headLocal.x && enemy.position.y === headLocal.y) {
@@ -405,7 +432,7 @@ export class EnemyManager {
         continue;
       }
 
-      const nextCooldown = enemy.fireCooldown - 1;
+      let nextCooldown = enemy.fireCooldown - 1;
       let moveCooldown = enemy.moveCooldown - 1;
       let position = enemy.position;
       let aimDirection = enemy.aimDirection;
@@ -428,7 +455,9 @@ export class EnemyManager {
               ? (snakeCharging ? 4 : 2) + Math.floor(this.rng() * 2)
               : enemy.encounterKind === 'goblin'
                 ? (snakeCharging ? 5 : 3) + Math.floor(this.rng() * 3)
-              : (snakeCharging ? 7 : 5) + Math.floor(this.rng() * 5);
+                : enemy.encounterKind === 'npc-hostile'
+                  ? (snakeCharging ? 4 : 2) + Math.floor(this.rng() * 3)
+                  : (snakeCharging ? 7 : 5) + Math.floor(this.rng() * 5);
       }
 
       if (nextCooldown <= 0 && !snakeCharging && enemy.encounterKind !== 'shark') {
@@ -450,13 +479,30 @@ export class EnemyManager {
                 ? 4 + Math.floor(this.rng() * 3)
                 : enemy.encounterKind === 'goblin'
                   ? 7 + Math.floor(this.rng() * 4)
-                : 12 + Math.floor(this.rng() * 6),
+                  : enemy.encounterKind === 'npc-hostile'
+                    ? 5 + Math.floor(this.rng() * 3)
+                    : 12 + Math.floor(this.rng() * 6),
           });
           continue;
         }
       }
 
       const trackedAim = this.resolveAimDirection(position, headLocal) ?? aimDirection;
+      const adjacentToHead =
+        Math.abs(position.x - headLocal.x) + Math.abs(position.y - headLocal.y) === 1;
+      if (adjacentToHead && canHumanoidSlash(enemy.encounterKind) && nextCooldown <= 0) {
+        meleeHits += 1;
+        meleeHitStyle =
+          enemy.encounterKind === 'goblin'
+            ? 'goblin'
+            : enemy.encounterKind === 'duelist'
+              ? 'duelist'
+              : enemy.encounterKind === 'npc-hostile'
+                ? 'npc-hostile'
+                : 'enemy';
+        flashTicks = Math.max(flashTicks, 2);
+        nextCooldown = enemy.encounterKind === 'goblin' ? 4 : 5;
+      }
 
       nextEnemies.push({
         ...enemy,
@@ -473,6 +519,7 @@ export class EnemyManager {
     } else {
       this.enemies.delete(currentRoomId);
     }
+    return { bulletHits: 0, meleeHits, hitStyle: meleeHitStyle };
   }
 
   consumeEnemyAt(roomId: string, head: Vector2Like): { eaten: boolean; enemy?: EnemyInstance } {
@@ -485,7 +532,7 @@ export class EnemyManager {
     const target = enemies.find(
       (enemy) => enemy.position.x === headLocal.x && enemy.position.y === headLocal.y,
     );
-    if (!target || (target.encounterKind !== 'enemy' && target.encounterKind !== 'npc-hostile')) {
+    if (!target || !canEatEnemyKind(target.encounterKind)) {
       return { eaten: false };
     }
     const remaining = enemies.filter((enemy) => enemy.id !== target.id);

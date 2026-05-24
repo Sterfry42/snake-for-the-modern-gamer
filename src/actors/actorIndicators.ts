@@ -53,7 +53,16 @@ export function getActorIndicators(actor: Actor, max = 2): ActorIndicator[] {
   if (actor.memory.length > 0) {
     indicators.push({ kind: 'witness', glyph: 'o', priority: 55, label: 'Remembers something' });
   }
-  if (actor.lore?.revealedLoreIds.length || actor.soul?.revealed.secret === false) {
+  if (actor.memory.some((memory) => memory.source === 'rumor' || memory.source === 'heard')) {
+    indicators.push({ kind: 'rumor', glyph: '~', priority: 58, label: 'Has heard a rumor' });
+  }
+  if (actor.relationships.some((link) => link.relationship === 'creditor' || link.relationship === 'debtor')) {
+    indicators.push({ kind: 'debt', glyph: '%', priority: 50, label: 'Debt tie' });
+  }
+  if (
+    (actor.soul && Object.values(actor.soul.revealed).some(Boolean)) ||
+    actor.lore?.revealedLoreIds.length
+  ) {
     indicators.push({ kind: 'secret', glyph: '*', priority: 45, label: 'Personal reveal' });
   }
   if (indicators.length === 0 && actor.kind !== 'animal' && actor.kind !== 'enemy') {

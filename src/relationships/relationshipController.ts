@@ -222,6 +222,62 @@ export class RelationshipController {
     return ['talk', 'gift', 'flirt'];
   }
 
+  applyActorInteraction(
+    id: string,
+    kind: 'apologize' | 'threaten' | 'parley' | 'attack',
+    roomsVisited: number,
+  ): RelationshipState | undefined {
+    const state = this.getState(id);
+    if (!state) return undefined;
+    const next = { ...state, flags: { ...state.flags }, memories: [...state.memories], lastSeenRoomsVisited: roomsVisited };
+    if (kind === 'apologize') {
+      next.trust += 6;
+      next.resentment -= 10;
+      next.fear -= 2;
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'apology',
+        tags: ['honesty', 'humility'],
+        intensity: 6,
+        tone: 'positive',
+        summary: `You apologized to ${next.displayName} outside the romance menu.`,
+      });
+    } else if (kind === 'threaten') {
+      next.trust -= 12;
+      next.affection -= 8;
+      next.resentment += 18;
+      next.fear += 10;
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'hostility',
+        tags: ['violence', 'avoidance', 'betrayal'],
+        intensity: 16,
+        tone: 'negative',
+        summary: `You threatened ${next.displayName}.`,
+      });
+    } else if (kind === 'attack') {
+      next.trust -= 18;
+      next.affection -= 16;
+      next.resentment += 28;
+      next.fear += 14;
+      next.flags.forceStage = 'hostile';
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'hurt',
+        tags: ['violence', 'betrayal'],
+        intensity: 24,
+        tone: 'traumatic',
+        summary: `You hurt ${next.displayName}.`,
+      });
+    } else {
+      next.trust += 4;
+      next.resentment -= 6;
+      next.fear -= 2;
+    }
+    const saved = this.finalize(next, roomsVisited);
+    return saved;
+  }
+
   applyChoice(id: string, choice: RelationshipChoice, roomsVisited: number): RelationshipEventResult {
     const state = this.getState(id);
     if (!state) {
@@ -376,7 +432,7 @@ export class RelationshipController {
     }
     this.recordChoiceUse(next, choice, roomsVisited);
 
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
@@ -428,7 +484,7 @@ export class RelationshipController {
       tone: tier === 'loved' || tier === 'liked' ? 'positive' : tier === 'neutral' ? 'neutral' : 'negative',
       summary,
     });
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
@@ -480,7 +536,7 @@ export class RelationshipController {
       questId: 'deep-lying-bouquet',
       uniqueKey: `marriage:${next.id}`,
     });
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     this.resolveMarriageFallout(saved.id, roomsVisited);
     return {
       ok: true,
@@ -565,7 +621,7 @@ export class RelationshipController {
         : `You gave ${next.displayName} ${itemName}.`,
     });
 
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
@@ -601,7 +657,7 @@ export class RelationshipController {
         summary: this.neglectSummaryFor(next, tier),
         uniqueKey: `neglect:${state.id}:${tier}`,
       });
-      const saved = this.finalize(next);
+      const saved = this.finalize(next, roomsVisited);
       results.push({
         ok: true,
         title: saved.displayName,
@@ -683,7 +739,7 @@ export class RelationshipController {
       next.resentment += 9;
       next.jealousy += 6;
     }
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
@@ -727,12 +783,55 @@ export class RelationshipController {
       summary: `${state.displayName} was eaten by you and will not let the tracker downgrade it.`,
       uniqueKey: `eaten:${state.id}`,
     });
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
       message: `${saved.displayName} was eaten by you. The relationship tracker is keeping the receipt.`,
       color: '#ff6b6b',
+      state: saved,
+    };
+  }
+
+  recordKilledByPlayer(id: string, roomsVisited: number, method = 'shot'): RelationshipEventResult {
+    const state = this.getState(id);
+    if (!state) {
+      return { ok: false, title: 'No One', message: 'No relationship remembered the killing.', color: '#ff6b6b' };
+    }
+    const next: RelationshipState = {
+      ...state,
+      stage: 'dead',
+      affection: -100,
+      trust: -100,
+      resentment: 100,
+      fear: 100,
+      lastSeenRoomsVisited: roomsVisited,
+      romanceOptIn: false,
+      flags: {
+        ...state.flags,
+        dead: true,
+        killedByPlayer: true,
+        killedRoomsVisited: roomsVisited,
+        causeOfDeath: method === 'shot' ? 'Shot by you' : 'Killed by you',
+        forceStage: 'dead',
+        stageReason: `killedByPlayer:${method}`,
+      },
+    };
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'death',
+      tags: ['betrayal', 'violence', 'death', 'trauma'],
+      intensity: 100,
+      tone: 'traumatic',
+      summary: `${state.displayName} was ${method === 'shot' ? 'shot down' : 'killed'} by you.`,
+      uniqueKey: `killed:${state.id}:${method}`,
+    });
+    const saved = this.finalize(next, roomsVisited);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: `${saved.displayName} was ${method === 'shot' ? 'shot down' : 'killed'} by you.`,
+      color: this.colorFor(saved),
       state: saved,
     };
   }
@@ -752,7 +851,8 @@ export class RelationshipController {
     this.runtime.setFlag(STATES_FLAG, states);
   }
 
-  private finalize(state: RelationshipState): RelationshipState {
+  private finalize(state: RelationshipState, roomsVisited?: number): RelationshipState {
+    const previousStage = state.stage;
     const next = this.normalizeState({
       ...state,
       affection: clamp(state.affection, -100, 100),
@@ -763,6 +863,9 @@ export class RelationshipController {
       fascination: clamp(state.fascination, -100, 100),
     });
     next.stage = this.deriveStage(next);
+    if (roomsVisited !== undefined && previousStage !== next.stage) {
+      this.enqueueStageCutscene(next, previousStage, next.stage, roomsVisited);
+    }
     this.saveState(next);
     return next;
   }
@@ -1023,7 +1126,7 @@ export class RelationshipController {
         `${next.displayName} looks at the invisible ring already on your life.`,
         '"You are already married. That is not romance. That is calendar fraud."',
       ]);
-      const saved = this.finalize(next);
+      const saved = this.finalize(next, roomsVisited);
       return {
         ok: false,
         title: saved.displayName,
@@ -1051,7 +1154,7 @@ export class RelationshipController {
         `${next.displayName} says yes, then immediately makes the romance logistical.`,
         '"Bring me the Deep-Lying Bouquet. Let the cold prove you can keep a promise."',
       ]);
-      const saved = this.finalize(next);
+      const saved = this.finalize(next, roomsVisited);
       return {
         ok: true,
         title: saved.displayName,
@@ -1075,7 +1178,7 @@ export class RelationshipController {
       `${next.displayName} holds the proposal carefully, as if it might bruise.`,
       '"No. Not because the question is ugly. Because the timing is."',
     ]);
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: false,
       title: saved.displayName,
@@ -1128,7 +1231,7 @@ export class RelationshipController {
         '"Our family survives another room. I am choosing to find that romantic."',
       ]);
     }
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
@@ -1158,7 +1261,7 @@ export class RelationshipController {
       tone: tier === 'liked' || tier === 'loved' ? 'positive' : 'negative',
       summary: `You discussed other lovers with ${next.displayName}.`,
     });
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
@@ -1194,7 +1297,7 @@ export class RelationshipController {
       `${next.displayName} listens to the divorce as if the room itself said it.`,
       '"Then let the record show we were real, and then we were not."',
     ]);
-    const saved = this.finalize(next);
+    const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
@@ -1252,7 +1355,7 @@ export class RelationshipController {
           '"I do not blame you," they say. "I blamed them."',
         ]);
       }
-      this.finalize(next);
+      this.finalize(next, state.lastSeenRoomsVisited);
     }
   }
 
@@ -1279,6 +1382,26 @@ export class RelationshipController {
       once: true,
       pages,
     });
+  }
+
+  private enqueueStageCutscene(
+    state: RelationshipState,
+    previousStage: RelationshipStage,
+    nextStage: RelationshipStage,
+    roomsVisited: number,
+  ): void {
+    if (previousStage === nextStage || nextStage === 'stranger' || nextStage === 'acquaintance') {
+      return;
+    }
+    const personality = this.getPersonality(state);
+    const line = stageChangeLine(state.displayName, personality, nextStage);
+    if (!line) {
+      return;
+    }
+    this.enqueueMajorCutscene(state, roomsVisited, 'onEnterRomanceScreen', 52, [
+      `${state.displayName} stops you before the usual options can arrange themselves.`,
+      line,
+    ]);
   }
 
   private killRelationshipTarget(victimId: string, killer: RelationshipState, roomsVisited: number): void {
@@ -1309,7 +1432,7 @@ export class RelationshipController {
       summary: `${next.displayName} was killed by ${killer.displayName} after marriage fallout.`,
       uniqueKey: `death:${next.id}:${killer.id}`,
     });
-    this.finalize(next);
+    this.finalize(next, roomsVisited);
   }
 
   private createRelationshipReward(
@@ -1409,7 +1532,7 @@ export class RelationshipController {
         targetRelationshipId: exceptId,
         summary: `${state.displayName} noticed your attention wandering.`,
       });
-      this.finalize(next);
+      this.finalize(next, state.lastSeenRoomsVisited);
     }
   }
 
@@ -1916,4 +2039,56 @@ export class RelationshipController {
     if (!raw || typeof raw !== 'object') return {};
     return raw as Record<string, { room: number; count: number }>;
   }
+}
+
+function stageChangeLine(
+  name: string,
+  personality: RelationshipPersonality,
+  stage: RelationshipStage,
+): string | null {
+  const templates: Partial<Record<RelationshipStage, Partial<Record<RelationshipPersonality, string>>>> = {
+    friendly: {
+      poetic: `"I have begun to trust the shape of your shadow," ${name} says.`,
+      deadpan: `"You are tolerable in a statistically noticeable way," ${name} says.`,
+      hungry: `"I would share emergency snacks with you," ${name} says. "That is serious."`,
+      regal: `"You have earned informal favor," ${name} says, making informal sound notarized.`,
+      sharp: `"You are becoming useful in a way I do not dislike," ${name} says.`,
+    },
+    crush: {
+      poetic: `"This is becoming dangerous in the soft way," ${name} says.`,
+      deadpan: `"I have developed an inconvenient preference," ${name} says.`,
+      hungry: `"When you leave, food tastes less victorious," ${name} says.`,
+      regal: `"I acknowledge a fondness. Do not make it undignified," ${name} says.`,
+      sharp: `"I have recalculated you. The result is annoying," ${name} says.`,
+    },
+    dating: {
+      poetic: `"Let us call this a date before fate files the paperwork," ${name} says.`,
+      deadpan: `"We appear to be dating. Try not to make the evidence embarrassing," ${name} says.`,
+      hungry: `"Fine. Dates. But I choose snacks sometimes," ${name} says.`,
+      regal: `"You may court me openly," ${name} says.`,
+      sharp: `"This arrangement has risks. I am interested anyway," ${name} says.`,
+    },
+    lover: {
+      poetic: `"I love you with the terror of someone who understands doors can close," ${name} says.`,
+      deadpan: `"I love you. I have checked the symptoms," ${name} says.`,
+      hungry: `"I love you more than second dinner. Do not test that often," ${name} says.`,
+      regal: `"My heart recognizes you. Behave accordingly," ${name} says.`,
+      sharp: `"I love you. This is strategically indefensible," ${name} says.`,
+    },
+    estranged: {
+      poetic: `"Something between us has learned to limp," ${name} says.`,
+      deadpan: `"We are not fine. I dislike pretending otherwise," ${name} says.`,
+      hungry: `"I do not feel full around you anymore," ${name} says.`,
+      regal: `"You have damaged your standing with me," ${name} says.`,
+      sharp: `"Trust has become expensive," ${name} says.`,
+    },
+    hostile: {
+      poetic: `"Do not come closer. I am trying to leave you one beautiful warning," ${name} says.`,
+      deadpan: `"The next part is not dialogue," ${name} says.`,
+      hungry: `"I am angry enough to lose my appetite. That is your warning," ${name} says.`,
+      regal: `"You are no longer under my mercy," ${name} says.`,
+      sharp: `"Conversation has failed cost-benefit analysis," ${name} says.`,
+    },
+  };
+  return templates[stage]?.[personality] ?? null;
 }

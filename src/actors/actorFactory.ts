@@ -14,6 +14,8 @@ import type {
   ActorNeeds,
   ActorPersonalityTag,
   ActorRole,
+  ActorSoulProfile,
+  ActorLoreProfile,
   ActorSpecies,
   ActorThickness,
   EnsureAnimalActorArgs,
@@ -97,14 +99,135 @@ export function createBaseActor(args: {
     health: args.health,
     combat: args.combat,
     hostility: args.hostility,
+    soul: createSoulProfile(args.id, args.role, args.species, personality),
+    lore: createLoreProfile(args.id, args.role, args.species, args.townId),
     brainId: args.brainId,
     flags: args.flags ?? {},
     createdAtRoomNumber: args.createdAtRoomNumber,
   };
 }
 
+function createSoulProfile(
+  id: string,
+  role: ActorRole,
+  species: ActorSpecies,
+  personality: readonly ActorPersonalityTag[],
+): ActorSoulProfile | undefined {
+  if (species === 'animal' || species === 'beast' || species === 'shark' || role === 'boss') {
+    return undefined;
+  }
+  const seed = hashString(id);
+  const wounds = [
+    'They once abandoned a friend at a gate and still count every hinge.',
+    'They survived a winter by lying to someone kinder than them.',
+    'They were praised for courage on the day they were most afraid.',
+    'They lost family to a law everyone now pretends was mercy.',
+    'They keep a private list of names they could not save.',
+  ];
+  const insecurities = [
+    'They fear being useful is the only reason anyone stays.',
+    'They suspect their jokes are a door with no room behind it.',
+    'They think their hands look guilty even when empty.',
+    'They worry they are ordinary in a world that punishes ordinary people.',
+    'They believe every kindness toward them has an invoice hidden in it.',
+  ];
+  const longings = [
+    'They want one quiet morning where no one needs anything from them.',
+    'They want to leave town and be missed for the correct reasons.',
+    'They want proof that bravery is not just fear with witnesses.',
+    'They want a promise that does not become paperwork.',
+    'They want to hear the old songs without flinching.',
+  ];
+  const secrets = [
+    'They know where a sealed town ledger was buried.',
+    'They once carried a message from a royal courier and never delivered it.',
+    'They have a forbidden shrine mark hidden under their clothes.',
+    'They are paying a debt under a false family name.',
+    'They recognized the King in a story that was supposed to be fiction.',
+  ];
+  return {
+    wound: pick(wounds, seed),
+    insecurity: pick(insecurities, seed >> 3),
+    longing: pick(longings, seed >> 5),
+    contradiction: personality.includes('lawful')
+      ? 'They trust laws most when laws protect them from choosing.'
+      : personality.includes('criminal')
+        ? 'They hate authority and still want permission to be forgiven.'
+        : 'They want to be known and also safely misunderstood.',
+    secret: pick(secrets, seed >> 7),
+    relationshipFear: 'They fear affection that changes the public story of their life.',
+    confessionStyle: personality.includes('deadpan')
+      ? 'dry'
+      : personality.includes('poetic') || personality.includes('romantic')
+        ? 'dramatic'
+        : 'guarded',
+    revealed: {},
+  };
+}
+
+function createLoreProfile(
+  id: string,
+  role: ActorRole,
+  species: ActorSpecies,
+  townId?: string,
+): ActorLoreProfile | undefined {
+  if (species === 'animal' || species === 'beast' || species === 'shark') {
+    return undefined;
+  }
+  const seed = hashString(id);
+  const kingOpinionOptions: NonNullable<ActorLoreProfile['kingOpinion']>[] = [
+    'loyal',
+    'afraid',
+    'bitter',
+    'mocking',
+    'conflicted',
+    'secretlyRoyal',
+  ];
+  const secretTypes: NonNullable<ActorLoreProfile['secretType']>[] = [
+    'royal',
+    'war',
+    'religion',
+    'crime',
+    'family',
+    'exile',
+    'guild',
+    'debt',
+  ];
+  return {
+    scale: role === 'guard' || role === 'gateGuard' ? 'kingdom' : species === 'goblin' ? 'regional' : 'local',
+    knowsAboutKing: role === 'guard' || role === 'gateGuard' || role === 'bartender' || seed % 3 === 0,
+    kingOpinion: pick(kingOpinionOptions, seed >> 2),
+    secretType: pick(secretTypes, seed >> 4),
+    anchorEvent: seed % 2 === 0 ? 'the Bellgrave tax winter' : 'the night the west road bells stopped',
+    anchorPlace: townId ?? 'the old road',
+    anchorInstitution: species === 'goblin' ? 'the Ledger Below' : role === 'guard' ? 'the gate office' : 'the town hall',
+    officialVersionBelief: seed % 101,
+    bitternessTowardKing: (seed >> 5) % 101,
+    revealedLoreIds: [],
+  };
+}
+
+function pick<T>(items: readonly T[], seed: number): T {
+  return items[Math.abs(seed) % items.length]!;
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash);
+}
+
 export function actorIdForTownResident(townId: string, residentId: string, role: string): string {
-  const actorRole = role === 'shopkeeper' ? 'shopkeeper' : role === 'guard' ? 'guard' : 'resident';
+  const actorRole =
+    role === 'shopkeeper'
+      ? 'shopkeeper'
+      : role === 'guard'
+        ? 'guard'
+        : role === 'questGiver'
+          ? 'questGiver'
+          : 'resident';
   return `town:${townId}:${actorRole}:${residentId}`;
 }
 
@@ -129,7 +252,7 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
   const kind = mapTownResidentKind(role);
   const species: ActorSpecies = args.factionId === 'goblin-camps' ? 'goblin' : 'human';
   const personality = personalityForTownRole(role, species);
-  const maxHealth = role === 'guard' ? 3 : role === 'shopkeeper' ? 3 : 2;
+  const maxHealth = 3;
   return createBaseActor({
     id: args.actorId ?? actorIdForTownResident(args.townId, args.residentId, args.role),
     kind,
@@ -145,17 +268,14 @@ export function createActorFromTownResident(args: EnsureTownResidentActorArgs): 
     workRoomId: args.workRoomId,
     portraitId: args.portraitId,
     health: { current: maxHealth, max: maxHealth, state: 'healthy' },
-    combat:
-      role === 'guard' || role === 'thief' || role === 'thiefContact' || role === 'shopkeeper'
-        ? {
-            armed: true,
-            ranged: true,
-            melee: true,
-            canBeEatenWhenHostile: true,
-            slashCooldown: 0,
-            surrenderChance: role === 'guard' ? 0.15 : 0.3,
-          }
-        : undefined,
+    combat: {
+      armed: true,
+      ranged: true,
+      melee: true,
+      canBeEatenWhenHostile: true,
+      slashCooldown: 0,
+      surrenderChance: role === 'guard' ? 0.15 : role === 'resident' ? 0.45 : 0.3,
+    },
     hostility: 'neutral',
     brainId: brainForRole(role),
     flags: { source: 'townResident', residentId: args.residentId },
@@ -369,6 +489,8 @@ function mapTownResidentRole(role: string): ActorRole {
       return 'bartender';
     case 'guard':
       return 'guard';
+    case 'questGiver':
+      return 'questGiver';
     case 'thiefContact':
       return 'thiefContact';
     case 'thief':
@@ -383,6 +505,7 @@ function mapTownResidentRole(role: string): ActorRole {
 function mapTownResidentKind(role: ActorRole): ActorKind {
   if (role === 'shopkeeper' || role === 'bartender') return 'shopkeeper';
   if (role === 'guard' || role === 'gateGuard') return 'guard';
+  if (role === 'questGiver') return 'civilian';
   if (role === 'thief' || role === 'thiefContact' || role === 'guildContact') return 'criminal';
   return 'civilian';
 }
@@ -390,6 +513,7 @@ function mapTownResidentKind(role: ActorRole): ActorKind {
 function brainForRole(role: ActorRole): ActorBrainId {
   if (role === 'shopkeeper' || role === 'bartender') return 'shopkeeper';
   if (role === 'guard' || role === 'gateGuard') return 'guard';
+  if (role === 'questGiver') return 'resident';
   if (role === 'thief' || role === 'thiefContact') return 'thief';
   return 'resident';
 }
@@ -405,6 +529,8 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
       return ['nosy', 'deadpan', 'practical'];
     case 'guard':
       return ['lawful', 'bureaucratic', 'brave'];
+    case 'questGiver':
+      return ['nosy', 'sentimental', 'practical'];
     case 'thief':
     case 'thiefContact':
       return ['criminal', 'sharp', 'paranoid'];

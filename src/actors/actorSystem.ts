@@ -7,7 +7,14 @@ import type { EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
 import type { TownStructure } from '../world/town.js';
 import { ActorRegistry } from './actorRegistry.js';
-import type { Actor, ActorMemory, ActorMood, ActorOpinion, ActorSaveData } from './actorTypes.js';
+import type {
+  Actor,
+  ActorMemory,
+  ActorMood,
+  ActorOpinion,
+  ActorSaveData,
+  ActorSocialLink,
+} from './actorTypes.js';
 import {
   actorIdForAnimal,
   actorIdForEnemy,
@@ -44,6 +51,45 @@ export class ActorSystem {
 
     if (room.town) {
       actors.push(...this.syncTown(room.town, room.id, roomNumber));
+    }
+    if (room.village) {
+      actors.push(
+        ...this.syncLooseHumanoids(
+          `village:${room.id}`,
+          room.id,
+          [
+            ...room.village.residents.map((resident) => ({ ...resident, role: 'resident' })),
+            { ...room.village.shopkeeper, role: 'shopkeeper' },
+          ],
+          'hearthbound-remnant',
+          roomNumber,
+        ),
+      );
+    }
+    if (room.questGiver) {
+      actors.push(
+        ...this.syncLooseHumanoids(
+          `quest:${room.id}`,
+          room.id,
+          [{ ...room.questGiver, role: 'questGiver' }],
+          'hearthbound-remnant',
+          roomNumber,
+        ),
+      );
+    }
+    if (room.goblinCamp) {
+      actors.push(
+        ...this.syncLooseHumanoids(
+          room.goblinCamp.id,
+          room.id,
+          [
+            { ...room.goblinCamp.shopkeeper, role: 'shopkeeper' },
+            ...room.goblinCamp.guards.map((guard) => ({ ...guard, role: 'guard' })),
+          ],
+          'goblin-camps',
+          roomNumber,
+        ),
+      );
     }
 
     for (const animal of context.animals ?? []) {
@@ -113,7 +159,7 @@ export class ActorSystem {
   }
 
   syncTown(town: TownStructure, roomId: string, roomNumber?: number): Actor[] {
-    return town.residents
+    const actors = town.residents
       .filter((resident) => resident.homeRoomId === roomId || resident.workRoomId === roomId)
       .map((resident) =>
         this.registry.ensureTownResidentActor({
@@ -130,6 +176,34 @@ export class ActorSystem {
           createdAtRoomNumber: roomNumber,
         }),
       );
+    this.ensureLocalSocialLinks(actors);
+    return actors;
+  }
+
+  private syncLooseHumanoids(
+    townId: string,
+    roomId: string,
+    residents: Array<{ id: string; name: string; role: string; x: number; y: number; portraitId?: string }>,
+    factionId: string,
+    roomNumber?: number,
+  ): Actor[] {
+    const actors = residents.map((resident) =>
+      this.registry.ensureTownResidentActor({
+        actorId: actorIdForTownResident(townId, resident.id, resident.role),
+        residentId: resident.id,
+        name: resident.name,
+        role: resident.role,
+        factionId,
+        townId,
+        currentRoomId: roomId,
+        homeRoomId: roomId,
+        workRoomId: roomId,
+        portraitId: resident.portraitId,
+        createdAtRoomNumber: roomNumber,
+      }),
+    );
+    this.ensureLocalSocialLinks(actors);
+    return actors;
   }
 
   getActorsInRoom(roomId: string): Actor[] {
@@ -223,6 +297,48 @@ export class ActorSystem {
       });
     }
   }
+
+  private ensureLocalSocialLinks(actors: readonly Actor[]): void {
+    const socialActors = actors.filter((actor) => actor.species === 'human' || actor.species === 'goblin');
+    if (socialActors.length < 2) {
+      return;
+    }
+    socialActors.forEach((actor, index) => {
+      const target = socialActors[(index + 1) % socialActors.length];
+      if (!target || target.id === actor.id || actor.relationships.some((link) => link.actorId === target.id)) {
+        return;
+      }
+      const relationship = socialRelationshipFor(actor.id, target.id);
+      this.registry.update(actor.id, (current) => ({
+        ...current,
+        relationships: [
+          ...current.relationships,
+          {
+            actorId: target.id,
+            relationship,
+            strength: relationship === 'family' ? 72 : relationship === 'rival' ? 58 : 46,
+            knownToPlayer: false,
+          },
+        ].slice(-6),
+      }));
+    });
+  }
+}
+
+function socialRelationshipFor(actorId: string, targetId: string): ActorSocialLink['relationship'] {
+  const roll = Math.abs(hashString(`${actorId}->${targetId}`)) % 5;
+  if (roll === 0) return 'family';
+  if (roll === 1) return 'rival';
+  if (roll === 2) return 'creditor';
+  return 'friend';
+}
+
+function hashString(value: string): number {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = (hash * 31 + value.charCodeAt(index)) | 0;
+  }
+  return hash;
 }
 
 function applyEventConsequences(

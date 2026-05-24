@@ -1,4 +1,5 @@
 import { defaultGameConfig } from '../../config/gameConfig.js';
+import type { Vector2Like } from '../../core/math.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { SnakeGame } from '../snakeGame.js';
 
@@ -66,5 +67,219 @@ describe('Liberty footballs', () => {
     game.stepFootballs({ x: 0, y: 0 });
 
     expect(game.getFootballs('0,0,0')).toHaveLength(0);
+  });
+});
+
+describe('world rumors', () => {
+  it('records severe actor events as persistent rumors', () => {
+    const game = createGame();
+
+    game.emitWorldEvent({
+      type: 'humanoid-eaten',
+      roomId: '0,0,0',
+      targetActorIds: ['enemy:0,0,0:bandit-1'],
+      severity: 65,
+      loudness: 45,
+      tags: ['combat', 'eaten', 'humanoid'],
+      summary: 'A bandit was eaten.',
+      createdAtRoomNumber: 3,
+    });
+
+    const rumors = game.getRecentWorldRumors();
+    expect(rumors[0]?.summary).toBe('A bandit was eaten.');
+    expect(rumors[0]?.tags).toContain('humanoid');
+    expect(game.getSaveData().flags?.['world.rumors']).toEqual(expect.any(Array));
+  });
+
+  it('propagates loud actor events into nearby heard memories and faction reports', () => {
+    const game = createGame();
+    const listener = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '1,0,0',
+    });
+    const before = game.getFactionAlignment('hearthbound-remnant').value;
+
+    game.emitWorldEvent({
+      type: 'humanoid-eaten',
+      roomId: '0,0,0',
+      targetActorIds: ['enemy:0,0,0:bandit-1'],
+      severity: 65,
+      loudness: 45,
+      tags: ['combat', 'eaten', 'humanoid'],
+      summary: 'A bandit was eaten.',
+      createdAtRoomNumber: 3,
+    });
+
+    expect(game.getActorSystem().getActor(listener.id)?.memory[0]?.source).toBe('heard');
+    expect(game.getFactionAlignment('hearthbound-remnant').value).toBeLessThan(before);
+  });
+
+  it('applies actor interaction consequences for apology, threat, and parley', () => {
+    const game = createGame();
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    game.getActorSystem().registry.update(actor.id, (current) => ({
+      ...current,
+      hostility: 'suspicious',
+      mood: { ...current.mood, anger: 60, fear: 75 },
+    }));
+
+    expect(game.apologizeToActor(actor.id)).toContain('apology');
+    expect(game.getActorSystem().getActor(actor.id)?.hostility).toBe('neutral');
+
+    expect(game.threatenActor(actor.id)).toContain('threat');
+    expect(game.getActorSystem().getActor(actor.id)?.hostility).toBe('suspicious');
+
+    game.getActorSystem().registry.update(actor.id, (current) => ({
+      ...current,
+      hostility: 'hostile',
+      mood: { ...current.mood, fear: 80, anger: 20 },
+    }));
+    expect(game.parleyWithActor(actor.id)).toContain('talk');
+    expect(game.getActorSystem().getActor(actor.id)?.hostility).toBe('suspicious');
+  });
+
+  it('notifies socially linked actors about major harm', () => {
+    const game = createGame();
+    const target = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'marta',
+      name: 'Marta',
+      role: 'shopkeeper',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '0,0,0',
+    });
+    const sibling = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: '4,4,0',
+    });
+    game.getActorSystem().registry.update(sibling.id, (actor) => ({
+      ...actor,
+      relationships: [{ actorId: target.id, relationship: 'family', strength: 80 }],
+    }));
+
+    game.emitWorldEvent({
+      type: 'humanoid-eaten',
+      roomId: '0,0,0',
+      targetActorIds: [target.id],
+      severity: 70,
+      loudness: 20,
+      tags: ['combat', 'eaten', 'humanoid'],
+      summary: 'Marta was eaten.',
+    });
+
+    const updated = game.getActorSystem().getActor(sibling.id);
+    expect(updated?.memory[0]?.tags).toContain('socialLink');
+    expect(updated?.mood.grief).toBeGreaterThan(0);
+    expect(updated?.hostility).toBe('suspicious');
+  });
+
+  it('shooting a visible town NPC creates one fused hostile combat body', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    room.village = {
+      residents: [{ id: 'lina', name: 'Lina', x: 5, y: 4, portraitId: 'sage-1' }],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
+    } as any;
+    (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
+    game.setFlag('equipment.gunEnabled', true);
+
+    expect(game.firePlayerShot({ x: 1, y: 0 })).toBe(true);
+
+    const enemies = game.getEnemies(room.id).filter((enemy) => enemy.encounterKind === 'npc-hostile');
+    expect(enemies).toHaveLength(1);
+    expect(enemies[0]?.id).toBe(`npc-hostile:resident:${room.id}:lina`);
+    expect(enemies[0]?.actorId).toBe(game.getVillageActorId(room.id, 'lina', 'resident'));
+    expect(enemies[0]?.position).toEqual(game.getRelationshipNpcBodyPosition({
+      id: `resident:${room.id}:lina`,
+      actorId: game.getVillageActorId(room.id, 'lina', 'resident'),
+      displayName: 'Lina',
+      species: 'human',
+      homeRoomId: room.id,
+      factionId: 'hearthbound-remnant',
+    }));
+    expect(game.getRelationshipState({
+      id: `resident:${room.id}:lina`,
+      displayName: 'Lina',
+      species: 'human',
+    })?.stage).toBe('hostile');
+  });
+
+  it('does not recreate an NPC combat body after that NPC has been eaten', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    room.village = {
+      residents: [{ id: 'lina', name: 'Lina', x: 5, y: 4, portraitId: 'sage-1' }],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
+    } as any;
+    const relationshipId = `resident:${room.id}:lina`;
+    (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
+    game.setFlag('equipment.gunEnabled', true);
+
+    game.firePlayerShot({ x: 1, y: 0 });
+    const hostile = game.getEnemies(room.id).find((enemy) => enemy.id === `npc-hostile:${relationshipId}`)!;
+    expect((game as any).enemies.consumeEnemyAt(room.id, hostile.position).eaten).toBe(true);
+    (game as any).relationshipController.recordEaten(relationshipId, 1);
+    (game as any).npcBodies.delete(relationshipId);
+    expect(game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`)).toBe(false);
+
+    (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
+    game.firePlayerShot({ x: 1, y: 0 });
+
+    expect(game.getRelationshipState({
+      id: relationshipId,
+      displayName: 'Lina',
+      species: 'human',
+    })?.flags.eatenByPlayer).toBe(true);
+    expect(game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`)).toBe(false);
+  });
+
+  it('shooting a hostile NPC down marks the relationship dead and reports it', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    room.village = {
+      residents: [{ id: 'lina', name: 'Lina', x: 5, y: 4, portraitId: 'sage-1' }],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
+    } as any;
+    const relationshipId = `resident:${room.id}:lina`;
+    (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
+    game.setFlag('equipment.gunEnabled', true);
+
+    for (let i = 0; i < 3; i++) {
+      expect(game.firePlayerShot({ x: 1, y: 0 })).toBe(true);
+      game.bulletClockStep();
+    }
+
+    const state = game.getRelationshipState({
+      id: relationshipId,
+      displayName: 'Lina',
+      species: 'human',
+    });
+    expect(state?.stage).toBe('dead');
+    expect(state?.flags.causeOfDeath).toBe('Shot by you');
+    expect(game.getFlag<{ message: string }>('ui.relationshipEvent')?.message).toContain('shot down');
   });
 });

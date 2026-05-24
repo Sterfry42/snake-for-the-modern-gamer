@@ -130,4 +130,54 @@ describe('RelationshipController', () => {
     expect(rival?.memories.some((memory) => memory.kind === 'rivalMurder')).toBe(true);
     expect(controller.getSocialContext().deadRomances).toContain('spouse');
   });
+
+  it('applies direct attacks to relationship resentment and queues a stage confession', () => {
+    const { flags, controller } = createRuntime();
+    flags['relationships.states'] = {
+      nina: makeState({
+        id: 'nina',
+        displayName: 'Nina',
+        stage: 'friendly',
+        affection: 40,
+        trust: 20,
+        resentment: 30,
+        actorId: 'town:eastmere:guard:nina',
+      }),
+    };
+
+    const updated = controller.applyActorInteraction('nina', 'attack', 42);
+
+    expect(updated?.stage).toBe('hostile');
+    expect(updated?.resentment).toBe(58);
+    expect(updated?.trust).toBe(2);
+    expect(updated?.memories.some((memory) => memory.kind === 'hurt')).toBe(true);
+    expect(controller.popNextCutscene('nina', 42)?.pages[0]).toContain('Nina');
+  });
+
+  it('applies actor-menu threats and apologies to the same relationship stats', () => {
+    const { flags, controller } = createRuntime();
+    flags['relationships.states'] = {
+      marta: makeState({
+        id: 'marta',
+        displayName: 'Marta',
+        stage: 'friendly',
+        affection: 40,
+        trust: 30,
+        resentment: 10,
+        actorId: 'town:eastmere:shopkeeper:marta',
+      }),
+    };
+
+    controller.applyActorInteraction('marta', 'threaten', 12);
+    expect(controller.getState('marta')?.resentment).toBe(28);
+    expect(controller.getState('marta')?.trust).toBe(18);
+
+    controller.applyActorInteraction('marta', 'apologize', 13);
+    expect(controller.getState('marta')?.resentment).toBe(18);
+    expect(controller.getState('marta')?.trust).toBe(24);
+    expect(controller.getState('marta')?.memories.map((memory) => memory.kind)).toEqual([
+      'hostility',
+      'apology',
+    ]);
+  });
 });

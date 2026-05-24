@@ -20,6 +20,8 @@ interface ActorVoiceLine extends NpcVoiceLine {
   hostility?: ActorHostilityState[];
   memoryTags?: string[];
   minimumFocus?: number;
+  requiresSoul?: 'wound' | 'secret' | 'insecurity';
+  requiresKingLore?: boolean;
 }
 
 const ACTOR_VOICE_LINES: readonly ActorVoiceLine[] = [
@@ -84,6 +86,56 @@ const ACTOR_VOICE_LINES: readonly ActorVoiceLine[] = [
     portraitId: 'goblin-clerk-suspicious',
   },
   {
+    id: 'actor-soul-wound',
+    text: 'Do not ask where I learned to stand near exits. Ask why I still stay.',
+    priority: 104,
+    minimumFocus: 10,
+    requiresSoul: 'wound',
+    tags: ['soul', 'wound'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
+    id: 'actor-secret-royal',
+    text: 'The King is not a person here. He is weather with a signature.',
+    priority: 82,
+    requiresKingLore: true,
+    tags: ['king', 'lore'],
+    portraitId: 'guard-neutral',
+  },
+  {
+    id: 'actor-rumor-memory',
+    text: 'Rumors get fat when people feed them. This one has been eating well.',
+    priority: 78,
+    memoryTags: ['rumor'],
+    tags: ['rumor', 'memory'],
+    portraitId: 'villager-neutral',
+  },
+  {
+    id: 'actor-heard-nearby',
+    text: 'I did not see it. I heard enough to know everyone will claim they saw it by supper.',
+    priority: 86,
+    memoryTags: ['heard'],
+    tags: ['heard', 'memory'],
+    portraitId: 'villager-neutral',
+  },
+  {
+    id: 'actor-witness-crime-guard',
+    text: 'There is a difference between confusion and evidence. I am paid to pretend there is not.',
+    priority: 98,
+    actorRoles: ['guard', 'gateGuard'],
+    memoryTags: ['crime'],
+    tags: ['crime', 'law', 'memory'],
+    portraitId: 'guard-neutral',
+  },
+  {
+    id: 'actor-remembers-humanoid-eaten',
+    text: 'People are not food. The fact that I had to say that has changed the room.',
+    priority: 110,
+    memoryTags: ['humanoid', 'eaten'],
+    tags: ['memory', 'fear'],
+    portraitId: 'villager-old-neutral',
+  },
+  {
     id: 'actor-guard-king',
     text: 'Roads, gates, taxes, guns. Civilization is just fear with receipts.',
     priority: 48,
@@ -116,8 +168,13 @@ export function selectActorVoiceLine(context: ActorVoiceContext): NpcVoiceLine {
   }
   const highestPriority = Math.max(...valid.map((line) => line.priority + moodPriorityBonus(line, context)));
   const best = valid.filter((line) => line.priority + moodPriorityBonus(line, context) === highestPriority);
+  const lastId = context.flags[`actor.voice.last.${context.actor.id}`];
+  const freshBest =
+    best.length > 1 && typeof lastId === 'string'
+      ? best.filter((line) => line.id !== lastId)
+      : best;
   const random = context.random ?? Math.random;
-  return best[Math.floor(random() * best.length)] ?? best[0] ?? fallback;
+  return freshBest[Math.floor(random() * freshBest.length)] ?? freshBest[0] ?? best[0] ?? fallback;
 }
 
 function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boolean {
@@ -141,6 +198,12 @@ function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boo
     return false;
   }
   if (line.minimumFocus && (actor.focus ?? 0) < line.minimumFocus) {
+    return false;
+  }
+  if (line.requiresSoul && !actor.soul?.[line.requiresSoul]) {
+    return false;
+  }
+  if (line.requiresKingLore && !actor.lore?.knowsAboutKing) {
     return false;
   }
   if (line.tags?.includes('health') && !isLowHealth(context)) {

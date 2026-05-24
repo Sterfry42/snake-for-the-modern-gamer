@@ -5,11 +5,15 @@ export type ActorInteractionId =
   | 'inspect'
   | 'talk'
   | 'ask-rumor'
+  | 'ask-personal'
+  | 'take-quest'
   | 'shop'
   | 'romance'
   | 'give-gift'
+  | 'apologize'
   | 'pickpocket'
-  | 'attack'
+  | 'threaten'
+  | 'parley'
   | 'eat'
   | 'spare'
   | 'leave';
@@ -35,6 +39,7 @@ export interface ActorInteractionMenuModel {
 export interface ActorInteractionContext {
   thievesGuildUnlocked?: boolean;
   canUseRelationshipActions?: boolean;
+  recentRumorCount?: number;
 }
 
 export function buildActorInteractionMenu(
@@ -49,7 +54,30 @@ export function buildActorInteractionMenu(
 
   if (actor.kind !== 'animal' && actor.kind !== 'enemy') {
     options.push({ id: 'talk', label: 'Talk', enabled: true, priority: 90 });
-    options.push({ id: 'ask-rumor', label: 'Ask Rumor', enabled: true, priority: 50 });
+    if (actor.role === 'questGiver') {
+      options.push({ id: 'take-quest', label: 'Take Quest', enabled: !hostile, priority: 86 });
+    }
+    options.push({
+      id: 'ask-rumor',
+      label: 'Ask Around',
+      enabled: (context.recentRumorCount ?? 0) > 0 || actor.memory.length > 0,
+      reason: (context.recentRumorCount ?? 0) > 0 || actor.memory.length > 0 ? undefined : 'No rumors yet',
+      priority: 58,
+    });
+    const playerOpinion = actor.opinions.player;
+    const friendlyEnough =
+      actor.hostility === 'friendly' ||
+      actor.mood.trust >= 32 ||
+      actor.mood.affection >= 35 ||
+      (playerOpinion?.trust ?? 0) >= 18 ||
+      (playerOpinion?.affection ?? 0) >= 18;
+    options.push({
+      id: 'ask-personal',
+      label: 'Ask Personally',
+      enabled: Boolean(actor.soul) && friendlyEnough,
+      reason: actor.soul ? (friendlyEnough ? undefined : 'Not friendly enough') : 'No personal reveal',
+      priority: 48,
+    });
   }
 
   if (actor.role === 'shopkeeper' || actor.role === 'bartender' || actor.role === 'blackMarketMerchant') {
@@ -74,6 +102,9 @@ export function buildActorInteractionMenu(
   }
 
   if (humanoid) {
+    if (actor.mood.anger >= 35 || actor.opinions.player?.resentment >= 20) {
+      options.push({ id: 'apologize', label: 'Apologize', enabled: !hostile, priority: 68 });
+    }
     options.push({
       id: 'pickpocket',
       label: 'Pickpocket',
@@ -81,7 +112,14 @@ export function buildActorInteractionMenu(
       reason: context.thievesGuildUnlocked ? undefined : 'Join the thieves guild',
       priority: 35,
     });
-    options.push({ id: 'attack', label: 'Attack', enabled: true, priority: 20 });
+    options.push({ id: 'threaten', label: 'Threaten', enabled: !hostile, priority: 18 });
+    options.push({
+      id: 'parley',
+      label: 'Parley',
+      enabled: hostile,
+      reason: hostile ? undefined : 'Not hostile',
+      priority: hostile ? 82 : 8,
+    });
   }
 
   if (hostile && actor.combat?.canBeEatenWhenHostile) {

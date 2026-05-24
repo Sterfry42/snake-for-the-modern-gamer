@@ -9,7 +9,7 @@ import {
   type SnakeStepOutcome,
 } from '../systems/snakeState.js';
 import { BossManager } from '../systems/boss.js';
-import { EnemyManager, type BulletInstance } from '../systems/enemies.js';
+import { EnemyManager, type BulletInstance, type EnemyInstance } from '../systems/enemies.js';
 import { AnimalManager } from '../animals/animalManager.js';
 import type { HuntedAnimalResult } from '../animals/animalManager.js';
 import { rollAnimalDrops } from '../animals/animalDrops.js';
@@ -86,7 +86,7 @@ import type {
   RelationshipTalkResult,
 } from '../relationships/relationshipTypes.js';
 import { ActorSystem, type ActorSystemSaveData } from '../actors/actorSystem.js';
-import type { Actor } from '../actors/actorTypes.js';
+import type { Actor, ActorMemory, ActorSocialLink, ActorSoulRevealKey } from '../actors/actorTypes.js';
 import {
   buildActorInteractionMenu,
   type ActorInteractionMenuModel,
@@ -99,6 +99,48 @@ type GuildInitiationStatus = {
   pickpockets: number;
   required: number;
 };
+
+export interface WorldRumor {
+  id: string;
+  eventId: string;
+  roomId?: string;
+  townId?: string;
+  summary: string;
+  tags: string[];
+  severity: number;
+  createdAtRoomNumber?: number;
+  heardByActorIds: string[];
+}
+
+export interface ActorJournalEntry {
+  id: string;
+  name: string;
+  role: string;
+  faction?: string;
+  roomId?: string;
+  mood: string;
+  health?: string;
+  memories: string[];
+  socialTies: string[];
+  reveals: string[];
+}
+
+interface NpcBodyState {
+  relationshipId: string;
+  actorId?: string;
+  roomId: string;
+  position: Vector2Like;
+  anchor: Vector2Like;
+  wanderRadius: number;
+  moveCooldown: number;
+  stationary: boolean;
+}
+
+interface RoomNpcBodyCandidate {
+  profile: RelationshipCandidateProfile;
+  position: Vector2Like;
+  stationary: boolean;
+}
 
 export interface FootballInstance {
   id: string;
@@ -470,6 +512,7 @@ export class SnakeGame implements QuestRuntime {
     string,
     { anger: number; hostility: 'friendly' | 'warning' | 'hostile' }
   >();
+  private readonly npcBodies = new Map<string, NpcBodyState>();
   private readonly resolvedWandererEncounters = new Set<string>();
   private readonly wandererHistory = new Map<string, EncounterHistoryEntry>();
   private lastWandererEncounterRoomCount = -999;
@@ -1070,48 +1113,10 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (currentHead) {
-      const harmfulEnemy = this.enemies.getHarmfulOccupantAt(this.snake.currentRoomId, currentHead);
-      if (harmfulEnemy) {
-        const deathReason = harmfulEnemy.encounterKind === 'shark' ? 'shark' : 'boss';
-        if (
-          this.tryFortitudePhoenix(
-            { status: 'dead', reason: deathReason === 'shark' ? 'boss' : deathReason },
-            roomsChanged,
-            previousRoom,
-          )
-        ) {
-          return this.createAliveStepResult({
-            appleEaten,
-            appleRewards,
-            appleWorldPosition,
-            appleSnapshot,
-            appleStateChanged,
-            roomsChanged,
-            roomHasChanged,
-            appleTypeId,
-          });
-        }
-        this.markDeathAtCurrentHead(deathReason);
-        return {
-          status: 'dead',
-          deathReason,
-          apple: {
-            eaten: appleEaten,
-            rewards: appleRewards,
-            worldPosition: appleWorldPosition,
-            current: appleSnapshot,
-            stateChanged: appleStateChanged,
-          },
-          roomsChanged,
-          roomChanged: roomHasChanged,
-          questOffer: null,
-          questsCompleted: [],
-        };
-      }
       const enemyEat = this.enemies.consumeEnemyAt(this.snake.currentRoomId, currentHead);
       if (enemyEat.eaten) {
         const eatenName = enemyEat.enemy?.name;
-        const eatenHostileNpc = enemyEat.enemy?.encounterKind === 'npc-hostile';
+        const eatenHumanoid = this.isHostileHumanoidEnemy(enemyEat.enemy);
         const eatenActorId =
           enemyEat.enemy?.actorId ??
           (enemyEat.enemy
@@ -1129,8 +1134,8 @@ export class SnakeGame implements QuestRuntime {
             createdAtRoomNumber: this.getRoomsVisitedCount(),
           });
         }
-        const healed = eatenHostileNpc ? this.healPlayer(1) : 0;
-        this.addScore(eatenHostileNpc ? 6 : 3);
+        const healed = eatenHumanoid ? this.healPlayer(1) : 0;
+        this.addScore(eatenHumanoid ? 6 : 3);
         this.snake.grow(1);
         this.setFlag('ui.enemyEaten', {
           x: currentHead.x,
@@ -1142,20 +1147,20 @@ export class SnakeGame implements QuestRuntime {
         });
         if (enemyEat.enemy && eatenActorId) {
           this.emitWorldEvent({
-            type: eatenHostileNpc ? 'humanoid-eaten' : 'enemy-defeated',
+            type: eatenHumanoid ? 'humanoid-eaten' : 'enemy-defeated',
             roomId: this.snake.currentRoomId,
             targetActorIds: [eatenActorId],
-            severity: eatenHostileNpc ? 65 : 28,
-            loudness: eatenHostileNpc ? 45 : 20,
+            severity: eatenHumanoid ? 65 : 28,
+            loudness: eatenHumanoid ? 45 : 20,
             tags: [
               'combat',
               'eaten',
               enemyEat.enemy.encounterKind ?? 'enemy',
-              ...(eatenHostileNpc ? ['hostile-kill', 'healing', 'humanoid'] : []),
+              ...(eatenHumanoid ? ['hostile-kill', 'healing', 'humanoid'] : []),
             ],
             summary: eatenName
               ? `${eatenName} was eaten.`
-              : eatenHostileNpc
+              : eatenHumanoid
                 ? 'A hostile person was eaten.'
                 : 'An enemy was defeated.',
             createdAtRoomNumber: this.getRoomsVisitedCount(),
@@ -1168,6 +1173,7 @@ export class SnakeGame implements QuestRuntime {
         }
         const relationshipId = this.getRelationshipIdFromHostileNpc(enemyEat.enemy?.id);
         if (relationshipId) {
+          this.npcBodies.delete(relationshipId);
           const event = this.relationshipController.recordEaten(
             relationshipId,
             this.getRoomsVisitedCount(),
@@ -1179,8 +1185,47 @@ export class SnakeGame implements QuestRuntime {
               color: event.color,
             });
           }
-        } else if (eatenHostileNpc && eatenName) {
+        } else if (eatenHumanoid && eatenName) {
           this.setFlag('ui.questInteraction', { message: `${eatenName} has been eaten by you.` });
+        }
+      } else {
+        const harmfulEnemy = this.enemies.getHarmfulOccupantAt(this.snake.currentRoomId, currentHead);
+        if (harmfulEnemy) {
+          const deathReason = harmfulEnemy.encounterKind === 'shark' ? 'shark' : 'boss';
+          if (
+            this.tryFortitudePhoenix(
+              { status: 'dead', reason: deathReason === 'shark' ? 'boss' : deathReason },
+              roomsChanged,
+              previousRoom,
+            )
+          ) {
+            return this.createAliveStepResult({
+              appleEaten,
+              appleRewards,
+              appleWorldPosition,
+              appleSnapshot,
+              appleStateChanged,
+              roomsChanged,
+              roomHasChanged,
+              appleTypeId,
+            });
+          }
+          this.markDeathAtCurrentHead(deathReason);
+          return {
+            status: 'dead',
+            deathReason,
+            apple: {
+              eaten: appleEaten,
+              rewards: appleRewards,
+              worldPosition: appleWorldPosition,
+              current: appleSnapshot,
+              stateChanged: appleStateChanged,
+            },
+            roomsChanged,
+            roomChanged: roomHasChanged,
+            questOffer: null,
+            questsCompleted: [],
+          };
         }
       }
     }
@@ -1330,6 +1375,7 @@ export class SnakeGame implements QuestRuntime {
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
     });
+    this.handlePlayerBulletDefeats(bulletStep.defeatedEnemies ?? []);
     if (
       bulletStep.bulletHits <= 0 ||
       !this.applyBulletDamage(bulletStep.bulletHits, bulletStep.hitStyle)
@@ -1461,6 +1507,10 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private actorStep(): {
+    enemyStep: {
+      meleeHits: number;
+      hitStyle?: BulletInstance['style'];
+    };
     animalStep: {
       tames: number;
       damageDealt: number;
@@ -1470,12 +1520,16 @@ export class SnakeGame implements QuestRuntime {
       huntedAnimals: HuntedAnimalResult[];
     };
   } {
-    this.enemies.stepEnemies({
+    const enemyStepResult = this.enemies.stepEnemies({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.snake.bodySegments,
       currentRoomId: this.snake.currentRoomId,
       snakeDirection: this.snake.directionVector,
     });
+    const enemyStep = {
+      meleeHits: enemyStepResult.meleeHits ?? 0,
+      hitStyle: enemyStepResult.hitStyle,
+    };
     const animalStep = this.animals.step({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.snake.bodySegments,
@@ -1486,9 +1540,10 @@ export class SnakeGame implements QuestRuntime {
 
     const room = this.world.getRoom(this.snake.currentRoomId);
     this.applyTownRuntimeToRoom(room);
+    this.tickNpcBodies(room);
     this.syncActorsForRoom(room);
 
-    return { animalStep };
+    return { enemyStep, animalStep };
   }
 
   private actorStepPhase(options: {
@@ -1501,8 +1556,9 @@ export class SnakeGame implements QuestRuntime {
     appleSnapshot: AppleSnapshot | null;
     appleStateChanged: boolean;
   }): StepResult | null {
-    const { animalStep } = this.actorStep();
-    if (animalStep.damageTaken > 0) {
+    const { enemyStep, animalStep } = this.actorStep();
+    const enemyMeleeDamageKills = this.applyBulletDamage(enemyStep.meleeHits, enemyStep.hitStyle);
+    if (animalStep.damageTaken > 0 || enemyMeleeDamageKills) {
       if (
         this.tryFortitudePhoenix(
           { status: 'dead', reason: 'boss' },
@@ -2037,20 +2093,37 @@ export class SnakeGame implements QuestRuntime {
           : fallback;
     const existing = new Set(this.enemies.getEnemiesInRoom(room.id).map((enemy) => enemy.id));
     selected.slice(0, 5).forEach((resident, index) => {
-      const idSuffix = `town-${town.id}-${resident.id}-${index}`;
-      if (existing.has(`npc-hostile:${idSuffix}`)) {
+      const relationshipId = `resident:${room.id}:${resident.id}`;
+      if (existing.has(`npc-hostile:${relationshipId}`)) {
         return;
       }
       if (room.layout[resident.y]?.[resident.x] === 'G') {
         const row = room.layout[resident.y]!;
         room.layout[resident.y] = row.substring(0, resident.x) + '.' + row.substring(resident.x + 1);
       }
+      const actorId =
+        resident.actorId ?? this.actors.getStableTownResidentActorId(town.id, resident.id, resident.role);
+      const body = this.ensureNpcBody(
+        {
+          id: relationshipId,
+          actorId,
+          displayName: resident.name,
+          species: 'human',
+          portraitId: resident.portraitId,
+          homeRoomId: room.id,
+          factionId: 'hearthbound-remnant',
+        },
+        { x: resident.x, y: resident.y },
+        resident.role === 'guard' || resident.role === 'shopkeeper' || resident.role === 'bartender',
+      );
       this.enemies.spawnHostileNpc(
         room.id,
-        { x: resident.x, y: resident.y },
+        body.position,
         resident.name,
-        resident.role === 'guard' ? 4 : 2,
-        idSuffix,
+        3,
+        relationshipId,
+        3,
+        actorId,
       );
     });
     this.setFlag('ui.townHostility', {
@@ -2355,14 +2428,490 @@ export class SnakeGame implements QuestRuntime {
     return buildActorInteractionMenu(actor, {
       thievesGuildUnlocked: guildUnlocked,
       canUseRelationshipActions: true,
+      recentRumorCount: this.getRecentWorldRumors().length,
     });
   }
 
+  getTownResidentActorId(townId: string, residentId: string, role: string): string {
+    return this.actors.getStableTownResidentActorId(townId, residentId, role);
+  }
+
+  getVillageActorId(roomId: string, npcId: string, role: string): string {
+    return this.actors.getStableTownResidentActorId(`village:${roomId}`, npcId, role);
+  }
+
+  getGoblinCampActorId(campId: string, npcId: string, role: string): string {
+    return this.actors.getStableTownResidentActorId(campId, npcId, role);
+  }
+
+  getQuestGiverActorId(roomId: string, npcId: string): string {
+    return this.actors.getStableTownResidentActorId(`quest:${roomId}`, npcId, 'questGiver');
+  }
+
+  askActorRumor(actorId: string): string | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return null;
+    }
+    const rumor = this.getRecentWorldRumors(1)[0];
+    const fallbackMemory = actor.memory[actor.memory.length - 1];
+    if (!rumor && !fallbackMemory) {
+      return `${actor.displayName} has heard nothing worth sharpening into a rumor.`;
+    }
+    if (rumor) {
+      this.rememberActorRumor(actorId, {
+        id: `memory:${rumor.id}:${actorId}`,
+        eventId: rumor.eventId,
+        type: 'rumor',
+        summary: rumor.summary,
+        source: 'rumor',
+        intensity: rumor.severity,
+        roomId: rumor.roomId,
+        tags: [...rumor.tags, 'rumor'],
+        createdAtRoomNumber: rumor.createdAtRoomNumber,
+      });
+      return formatActorRumorLine(actor.displayName, rumor.summary);
+    }
+    return `${actor.displayName} says, "I remember this: ${fallbackMemory?.summary}"`;
+  }
+
+  askActorPersonalReveal(actorId: string): string | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor?.soul) {
+      return null;
+    }
+    const reveal = nextSoulReveal(actor);
+    if (!reveal) {
+      return `${actor.displayName} has told you what they can bear to tell.`;
+    }
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      focus: Math.min(100, (current.focus ?? 0) + 8),
+      soul: current.soul
+        ? {
+            ...current.soul,
+            revealed: { ...current.soul.revealed, [reveal.key]: true },
+          }
+        : current.soul,
+    }));
+    return `${actor.displayName} lets something private show: ${reveal.text}`;
+  }
+
+  askActorSocialTie(actorId: string): string | null {
+    const actor = this.actors.getActor(actorId);
+    const link = actor?.relationships.find((entry) => !entry.knownToPlayer) ?? actor?.relationships[0];
+    if (!actor || !link) {
+      return actor ? `${actor.displayName} does not offer any names.` : null;
+    }
+    const target = this.actors.getActor(link.actorId);
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      relationships: current.relationships.map((entry) =>
+        entry.actorId === link.actorId ? { ...entry, knownToPlayer: true } : entry,
+      ),
+    }));
+    return socialTieLine(actor.displayName, link, target?.displayName);
+  }
+
+  askActorKingLore(actorId: string): string | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor?.lore?.knowsAboutKing) {
+      return actor ? `${actor.displayName} knows only the little laws, not the royal story.` : null;
+    }
+    const loreId = `king:${actor.id}:${actor.lore.kingOpinion ?? 'unknown'}`;
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      focus: Math.min(100, (current.focus ?? 0) + 5),
+      lore: current.lore
+        ? {
+            ...current.lore,
+            revealedLoreIds: current.lore.revealedLoreIds.includes(loreId)
+              ? current.lore.revealedLoreIds
+              : [...current.lore.revealedLoreIds, loreId].slice(-8),
+          }
+        : current.lore,
+    }));
+    const place = formatLorePlace(actor.lore.anchorPlace);
+    const institution = actor.lore.anchorInstitution ?? 'the office';
+    return formatActorKingLoreLine(actor.displayName, place, institution, actor.lore.kingOpinion);
+  }
+
+  apologizeToActor(actorId: string): string | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return null;
+    }
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      hostility: current.hostility === 'suspicious' ? 'neutral' : current.hostility,
+      mood: {
+        ...current.mood,
+        anger: Math.max(0, current.mood.anger - 18),
+        stress: Math.max(0, current.mood.stress - 8),
+        trust: Math.min(100, current.mood.trust + 6),
+      },
+      opinions: {
+        ...current.opinions,
+        player: {
+          targetId: 'player',
+          trust: Math.min(100, (current.opinions.player?.trust ?? 0) + 8),
+          fear: Math.max(-100, (current.opinions.player?.fear ?? 0) - 3),
+          respect: current.opinions.player?.respect ?? 0,
+          affection: current.opinions.player?.affection ?? 0,
+          resentment: Math.max(-100, (current.opinions.player?.resentment ?? 0) - 12),
+          attraction: current.opinions.player?.attraction ?? 0,
+          debt: current.opinions.player?.debt ?? 0,
+        },
+      },
+    }));
+    this.applyActorRelationshipInteraction(actorId, 'apologize');
+    return `${actor.displayName} accepts the apology as a down payment, not a miracle.`;
+  }
+
+  threatenActor(actorId: string): string | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return null;
+    }
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      hostility: current.hostility === 'friendly' || current.hostility === 'neutral' ? 'suspicious' : current.hostility,
+      mood: {
+        ...current.mood,
+        fear: Math.min(100, current.mood.fear + 16),
+        anger: Math.min(100, current.mood.anger + 12),
+        trust: Math.max(-100, current.mood.trust - 14),
+      },
+    }));
+    this.emitWorldEvent({
+      type: 'town-crime',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [actorId],
+      severity: 28,
+      loudness: 30,
+      tags: ['crime', 'threat', 'actorInteraction'],
+      summary: `${actor.displayName} was threatened.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+    });
+    this.applyActorRelationshipInteraction(actorId, 'threaten');
+    return `${actor.displayName} remembers the threat immediately. So may everyone else.`;
+  }
+
+  parleyWithActor(actorId: string): string | null {
+    const actor = this.actors.getActor(actorId);
+    if (!actor) {
+      return null;
+    }
+    const fear = actor.mood.fear;
+    const anger = actor.mood.anger;
+    const succeeds = fear >= anger || actor.hostility === 'surrendering';
+    this.actors.registry.update(actorId, (current) => ({
+      ...current,
+      hostility: succeeds ? 'suspicious' : current.hostility,
+      mood: {
+        ...current.mood,
+        anger: succeeds ? Math.max(0, current.mood.anger - 14) : Math.min(100, current.mood.anger + 8),
+        stress: Math.max(0, current.mood.stress - (succeeds ? 6 : 0)),
+      },
+    }));
+    this.applyActorRelationshipInteraction(actorId, succeeds ? 'parley' : 'threaten');
+    return succeeds
+      ? `${actor.displayName} lowers the weapon a little. Not enough. Enough to talk.`
+      : `${actor.displayName} hears parley and keeps the dangerous part of the conversation.`;
+  }
+
+  private applyActorRelationshipInteraction(
+    actorId: string,
+    kind: 'apologize' | 'threaten' | 'parley' | 'attack',
+  ): void {
+    const actor = this.actors.getActor(actorId);
+    const relationshipId =
+      typeof actor?.flags.relationshipId === 'string' ? actor.flags.relationshipId : undefined;
+    if (!relationshipId) {
+      return;
+    }
+    const state = this.relationshipController.applyActorInteraction(
+      relationshipId,
+      kind,
+      this.getRoomsVisitedCount(),
+    );
+    if (state) {
+      this.ensureRelationshipActorForState(state);
+    }
+  }
+
+  private handlePlayerBulletDefeats(defeatedEnemies: readonly EnemyInstance[]): void {
+    for (const enemy of defeatedEnemies) {
+      if (enemy.encounterKind !== 'npc-hostile') {
+        continue;
+      }
+      const relationshipId = this.getRelationshipIdFromHostileNpc(enemy.id);
+      if (relationshipId) {
+        this.npcBodies.delete(relationshipId);
+        const event = this.relationshipController.recordKilledByPlayer(
+          relationshipId,
+          this.getRoomsVisitedCount(),
+          'shot',
+        );
+        this.setFlag('ui.relationshipEvent', {
+          title: event.title,
+          message: event.message,
+          color: event.color,
+        });
+      } else {
+        this.setFlag('ui.questInteraction', {
+          message: `${enemy.name ?? 'The hostile NPC'} was shot down.`,
+        });
+      }
+    }
+  }
+
   emitWorldEvent(input: CreateWorldEventInput): WorldEvent {
-    return this.actors.emitWorldEvent(input);
+    const event = this.actors.emitWorldEvent(input);
+    this.recordRumorFromWorldEvent(event);
+    this.propagateWorldEvent(event);
+    this.propagateSocialConsequences(event);
+    this.applyFactionReportsForEvent(event);
+    return event;
+  }
+
+  getRecentWorldRumors(limit = 8): readonly WorldRumor[] {
+    const rumors = this.getFlag<WorldRumor[]>('world.rumors') ?? [];
+    return rumors.slice(-Math.max(0, limit)).reverse();
+  }
+
+  getPeopleJournalView(limit = 24): ActorJournalEntry[] {
+    return this.actors.registry
+      .getAll()
+      .filter((actor) => actor.kind !== 'animal' && actor.kind !== 'enemy' && actor.hostility !== 'dead')
+      .sort((a, b) => {
+        const knownA = a.knownToPlayer || a.memory.length > 0 || a.relationships.some((link) => link.knownToPlayer);
+        const knownB = b.knownToPlayer || b.memory.length > 0 || b.relationships.some((link) => link.knownToPlayer);
+        if (knownA !== knownB) return knownA ? -1 : 1;
+        return (b.focus ?? 0) - (a.focus ?? 0);
+      })
+      .slice(0, limit)
+      .map((actor) => ({
+        id: actor.id,
+        name: actor.displayName,
+        role: actor.role,
+        faction: actor.factionId ? String(actor.factionId) : undefined,
+        roomId: actor.currentRoomId,
+        mood: summarizeActorMoodForJournal(actor),
+        health: actor.health ? `${actor.health.state} ${actor.health.current}/${actor.health.max}` : undefined,
+        memories: actor.memory.slice(-3).map((memory) => memory.summary),
+        socialTies: actor.relationships
+          .filter((link) => link.knownToPlayer)
+          .slice(0, 3)
+          .map((link) => {
+            const target = this.actors.getActor(link.actorId);
+            return `${link.relationship}: ${target?.displayName ?? link.actorId}`;
+          }),
+        reveals: actor.soul
+          ? [
+              actor.soul.revealed.wound ? `Wound: ${actor.soul.wound}` : '',
+              actor.soul.revealed.insecurity ? `Insecurity: ${actor.soul.insecurity}` : '',
+              actor.soul.revealed.secret ? `Secret: ${actor.soul.secret}` : '',
+            ].filter(Boolean)
+          : [],
+      }));
+  }
+
+  private isHostileHumanoidEnemy(enemy?: EnemyInstance): boolean {
+    return (
+      enemy?.encounterKind === 'enemy' ||
+      enemy?.encounterKind === 'npc-hostile' ||
+      enemy?.encounterKind === 'goblin' ||
+      enemy?.encounterKind === 'duelist'
+    );
+  }
+
+  private recordRumorFromWorldEvent(event: WorldEvent): void {
+    if (!this.shouldBecomeRumor(event)) {
+      return;
+    }
+    const existing = this.getFlag<WorldRumor[]>('world.rumors') ?? [];
+    if (existing.some((rumor) => rumor.eventId === event.id)) {
+      return;
+    }
+    const room = event.roomId ? this.world.getRoom(event.roomId) : undefined;
+    const rumor: WorldRumor = {
+      id: `rumor:${event.id}`,
+      eventId: event.id,
+      roomId: event.roomId,
+      townId: room?.town?.id ?? room?.goblinCamp?.id,
+      summary: event.summary,
+      tags: [...event.tags],
+      severity: event.severity,
+      createdAtRoomNumber: event.createdAtRoomNumber,
+      heardByActorIds: [...event.witnessActorIds],
+    };
+    this.setFlag('world.rumors', [...existing, rumor].slice(-50));
+    this.seedTownRumorFromWorldEvent(event, rumor);
+  }
+
+  private shouldBecomeRumor(event: WorldEvent): boolean {
+    if (event.severity >= 35 || event.loudness >= 35) {
+      return true;
+    }
+    return event.tags.some((tag) =>
+      ['crime', 'pickpocket', 'eaten', 'humanoid', 'relationship', 'marriage', 'guild'].includes(
+        tag,
+      ),
+    );
+  }
+
+  private rememberActorRumor(actorId: string, memory: ActorMemory): void {
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      memory: [...actor.memory.filter((item) => item.id !== memory.id), memory].slice(
+        actor.thickness === 'thick' ? -40 : actor.thickness === 'medium' ? -20 : -6,
+      ),
+    }));
+  }
+
+  private propagateWorldEvent(event: WorldEvent): void {
+    if (!event.roomId || event.loudness < 35) {
+      return;
+    }
+    const nearbyRoomIds = this.getNeighborRoomIds(event.roomId);
+    for (const actor of this.actors.registry.getAll()) {
+      if (
+        !actor.currentRoomId ||
+        actor.currentRoomId === event.roomId ||
+        !nearbyRoomIds.includes(actor.currentRoomId) ||
+        event.targetActorIds.includes(actor.id) ||
+        actor.id === event.sourceActorId
+      ) {
+        continue;
+      }
+      this.rememberActorRumor(actor.id, {
+        id: `memory:heard:${event.id}:${actor.id}`,
+        eventId: event.id,
+        type: event.type,
+        summary: `Heard nearby: ${event.summary}`,
+        source: 'heard',
+        intensity: Math.max(1, Math.round(event.severity * 0.6)),
+        roomId: event.roomId,
+        targetActorIds: event.targetActorIds,
+        tags: [...event.tags, 'heard'],
+        createdAtRoomNumber: event.createdAtRoomNumber,
+      });
+    }
+  }
+
+  private applyFactionReportsForEvent(event: WorldEvent): void {
+    if (event.tags.includes('goblin') && event.tags.includes('eaten')) {
+      this.adjustFactionAlignment('goblin-camps', -8);
+    }
+    if (event.type === 'town-crime' && event.tags.includes('witnessed')) {
+      this.adjustFactionAlignment('hearthbound-remnant', -2);
+    }
+    if (event.type === 'humanoid-eaten' && event.tags.includes('humanoid')) {
+      this.adjustFactionAlignment('hearthbound-remnant', -4);
+    }
+    if (event.tags.includes('marriage')) {
+      this.adjustFactionAlignment('hearthbound-remnant', 1);
+    }
+  }
+
+  private propagateSocialConsequences(event: WorldEvent): void {
+    if (event.severity < 45 || event.targetActorIds.length === 0) {
+      return;
+    }
+    const targets = new Set(event.targetActorIds);
+    for (const actor of this.actors.registry.getAll()) {
+      const affectedLink = actor.relationships.find((link) => targets.has(link.actorId));
+      if (!affectedLink || event.witnessActorIds.includes(actor.id) || targets.has(actor.id)) {
+        continue;
+      }
+      const target = this.actors.getActor(affectedLink.actorId);
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        hostility:
+          event.type === 'humanoid-eaten' && affectedLink.relationship !== 'rival'
+            ? 'suspicious'
+            : current.hostility,
+        mood: {
+          ...current.mood,
+          grief: Math.min(100, current.mood.grief + socialGriefFor(affectedLink.relationship)),
+          anger: Math.min(100, current.mood.anger + socialAngerFor(affectedLink.relationship)),
+          stress: Math.min(100, current.mood.stress + 12),
+        },
+        memory: [
+          ...current.memory.filter((memory) => memory.id !== `memory:social:${event.id}:${current.id}`),
+          {
+            id: `memory:social:${event.id}:${current.id}`,
+            eventId: event.id,
+            type: event.type,
+            summary: `${target?.displayName ?? 'Someone connected to them'} was involved: ${event.summary}`,
+            source: 'heard' as const,
+            intensity: event.severity,
+            roomId: event.roomId,
+            targetActorIds: event.targetActorIds,
+            tags: [...event.tags, 'socialLink', affectedLink.relationship],
+            createdAtRoomNumber: event.createdAtRoomNumber,
+          },
+        ].slice(current.thickness === 'thick' ? -40 : current.thickness === 'medium' ? -20 : -6),
+      }));
+    }
+  }
+
+  private seedTownRumorFromWorldEvent(event: WorldEvent, rumor: WorldRumor): void {
+    if (!event.roomId || !rumor.townId) {
+      return;
+    }
+    const room = this.world.getRoom(event.roomId);
+    if (!room.town || room.town.id !== rumor.townId) {
+      return;
+    }
+    const exists = room.town.rumors.some((entry) => entry.id === rumor.id);
+    if (exists) {
+      return;
+    }
+    const kind = townRumorKindForEvent(event);
+    const nextTown = cloneTown({
+      ...room.town,
+      rumors: [
+        ...room.town.rumors,
+        {
+          id: rumor.id,
+          townId: room.town.id,
+          kind,
+          summary: rumor.summary,
+          roomsRemaining: 12,
+          severity: rumor.severity,
+          relatedRelationshipId:
+            typeof event.data?.relationshipId === 'string' ? event.data.relationshipId : undefined,
+          relatedNpcId: event.targetActorIds[0],
+        },
+      ].slice(-12),
+    });
+    room.town = nextTown;
+    this.saveTownRuntimeState(nextTown);
+    this.world.updateTown(nextTown);
+  }
+
+  private getNeighborRoomIds(roomId: string): string[] {
+    const [x, y, z = 0] = roomId.split(',').map(Number);
+    return [
+      `${x + 1},${y},${z}`,
+      `${x - 1},${y},${z}`,
+      `${x},${y + 1},${z}`,
+      `${x},${y - 1},${z}`,
+    ];
+  }
+
+  private worldToLocalInRoom(roomId: string, position: Vector2Like): Vector2Like {
+    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
+    return {
+      x: position.x - roomX * this.config.grid.cols,
+      y: position.y - roomY * this.config.grid.rows,
+    };
   }
 
   private syncActorsForRoom(room: RoomSnapshot): void {
+    this.syncNpcBodiesForRoom(room);
     this.actors.syncRoom({
       room,
       animals: this.animals.getAnimalsInRoom(room.id),
@@ -2370,6 +2919,250 @@ export class SnakeGame implements QuestRuntime {
       relationships: this.relationshipController.getAllStates(),
       roomNumber: this.getRoomsVisitedCount(),
     });
+  }
+
+  private syncNpcBodiesForRoom(room: RoomSnapshot): void {
+    const candidates = this.collectRoomNpcBodyCandidates(room);
+    const activeIds = new Set(candidates.map((candidate) => candidate.profile.id));
+    for (const candidate of candidates) {
+      this.ensureNpcBody(candidate.profile, candidate.position, candidate.stationary);
+    }
+    for (const [id, body] of this.npcBodies) {
+      if (body.roomId === room.id && !activeIds.has(id)) {
+        this.npcBodies.delete(id);
+      }
+    }
+    this.syncHostileNpcBodiesFromEnemies(room.id);
+  }
+
+  private collectRoomNpcBodyCandidates(room: RoomSnapshot): RoomNpcBodyCandidate[] {
+    const candidates: RoomNpcBodyCandidate[] = [];
+    const addCandidate = (candidate: RoomNpcBodyCandidate): void => {
+      const state = this.relationshipController.getState(candidate.profile.id);
+      if (state?.stage === 'dead' || state?.flags.dead || state?.flags.eatenByPlayer) {
+        return;
+      }
+      candidates.push(candidate);
+    };
+    if (room.village) {
+      for (const resident of room.village.residents) {
+        addCandidate({
+          profile: {
+            id: `resident:${room.id}:${resident.id}`,
+            actorId: this.getVillageActorId(room.id, resident.id, 'resident'),
+            displayName: resident.name,
+            species: 'human',
+            portraitId: resident.portraitId,
+            homeRoomId: room.id,
+            factionId: 'hearthbound-remnant',
+          },
+          position: { x: resident.x, y: resident.y },
+          stationary: false,
+        });
+      }
+      addCandidate({
+        profile: {
+          id: `resident:${room.id}:${room.village.shopkeeper.id}`,
+          actorId: this.getVillageActorId(room.id, room.village.shopkeeper.id, 'shopkeeper'),
+          displayName: room.village.shopkeeper.name,
+          species: 'human',
+          portraitId: room.village.shopkeeper.portraitId,
+          homeRoomId: room.id,
+          factionId: 'hearthbound-remnant',
+        },
+        position: { x: room.village.shopkeeper.x, y: room.village.shopkeeper.y },
+        stationary: true,
+      });
+    }
+    if (room.questGiver) {
+      addCandidate({
+        profile: {
+          id: `quest:${room.id}:${room.questGiver.id}`,
+          actorId: this.getQuestGiverActorId(room.id, room.questGiver.id),
+          displayName: room.questGiver.name,
+          species: 'human',
+          portraitId: room.questGiver.portraitId,
+          homeRoomId: room.id,
+          factionId: 'hearthbound-remnant',
+        },
+        position: { x: room.questGiver.x, y: room.questGiver.y },
+        stationary: true,
+      });
+    }
+    if (room.town) {
+      for (const resident of room.town.residents) {
+        addCandidate({
+          profile: {
+            id: `resident:${room.id}:${resident.id}`,
+            actorId:
+              resident.actorId ??
+              this.getTownResidentActorId(room.town.id, resident.id, resident.role),
+            displayName: resident.name,
+            species: 'human',
+            portraitId: resident.portraitId,
+            homeRoomId: resident.homeRoomId ?? room.id,
+            factionId: 'hearthbound-remnant',
+          },
+          position: { x: resident.x, y: resident.y },
+          stationary: resident.role === 'guard' || resident.role === 'shopkeeper' || resident.role === 'bartender',
+        });
+      }
+    }
+    if (room.goblinCamp) {
+      addCandidate({
+        profile: {
+          id: `resident:${room.id}:${room.goblinCamp.shopkeeper.id}`,
+          actorId: this.getGoblinCampActorId(room.goblinCamp.id, room.goblinCamp.shopkeeper.id, 'shopkeeper'),
+          displayName: room.goblinCamp.shopkeeper.name,
+          species: 'goblin',
+          portraitId: room.goblinCamp.shopkeeper.portraitId ?? 'goblin-neutral',
+          homeRoomId: room.id,
+          factionId: 'goblin-camps',
+        },
+        position: { x: room.goblinCamp.shopkeeper.x, y: room.goblinCamp.shopkeeper.y },
+        stationary: true,
+      });
+      for (const guard of room.goblinCamp.guards) {
+        addCandidate({
+          profile: {
+            id: `resident:${room.id}:${guard.id}`,
+            actorId: this.getGoblinCampActorId(room.goblinCamp.id, guard.id, 'guard'),
+            displayName: guard.name,
+            species: 'goblin',
+            portraitId: guard.portraitId ?? 'goblin-neutral',
+            homeRoomId: room.id,
+            factionId: 'goblin-camps',
+          },
+          position: { x: guard.x, y: guard.y },
+          stationary: true,
+        });
+      }
+    }
+    return candidates;
+  }
+
+  private ensureNpcBody(
+    profile: RelationshipCandidateProfile,
+    anchor: Vector2Like,
+    stationary: boolean,
+  ): NpcBodyState {
+    const existing = this.npcBodies.get(profile.id);
+    if (existing) {
+      existing.actorId = profile.actorId ?? existing.actorId;
+      existing.roomId = profile.homeRoomId ?? existing.roomId;
+      existing.anchor = { ...anchor };
+      existing.stationary = stationary;
+      existing.wanderRadius = stationary ? 0 : Math.max(1, existing.wanderRadius);
+      return existing;
+    }
+    const body: NpcBodyState = {
+      relationshipId: profile.id,
+      actorId: profile.actorId,
+      roomId: profile.homeRoomId ?? this.snake.currentRoomId,
+      position: { ...anchor },
+      anchor: { ...anchor },
+      wanderRadius: stationary ? 0 : 2,
+      moveCooldown: 1 + Math.floor(this.rng() * 5),
+      stationary,
+    };
+    this.npcBodies.set(profile.id, body);
+    return body;
+  }
+
+  getRelationshipNpcBodyPosition(
+    profile: RelationshipCandidateProfile,
+    fallback?: Vector2Like,
+  ): Vector2Like {
+    const body =
+      this.npcBodies.get(profile.id) ??
+      this.ensureNpcBody(profile, fallback ?? { x: 3, y: 3 }, true);
+    return { ...body.position };
+  }
+
+  private tickNpcBodies(room: RoomSnapshot): void {
+    const bodies = [...this.npcBodies.values()].filter((body) => body.roomId === room.id);
+    if (bodies.length === 0) {
+      return;
+    }
+    const occupied = new Set<string>();
+    for (const enemy of this.enemies.getEnemiesInRoom(room.id)) {
+      occupied.add(`${enemy.position.x},${enemy.position.y}`);
+    }
+    for (const animal of this.animals.getAnimalsInRoom(room.id)) {
+      occupied.add(`${animal.position.x},${animal.position.y}`);
+    }
+    for (const segment of this.snake.bodySegments) {
+      const local = this.worldToLocalInRoom(room.id, segment);
+      occupied.add(`${local.x},${local.y}`);
+    }
+    const directions = [
+      { x: 0, y: 0 },
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ];
+    for (const body of bodies) {
+      const state = this.relationshipController.getState(body.relationshipId);
+      const isHostile = state?.stage === 'hostile' || state?.stage === 'murderous';
+      if (body.stationary && !isHostile) {
+        occupied.add(`${body.position.x},${body.position.y}`);
+        continue;
+      }
+      body.moveCooldown -= 1;
+      if (body.moveCooldown > 0) {
+        occupied.add(`${body.position.x},${body.position.y}`);
+        continue;
+      }
+      body.moveCooldown = isHostile ? 2 + Math.floor(this.rng() * 3) : 5 + Math.floor(this.rng() * 7);
+      const shuffled = directions
+        .map((direction) => ({ direction, roll: this.rng() }))
+        .sort((a, b) => a.roll - b.roll)
+        .map((entry) => entry.direction);
+      occupied.delete(`${body.position.x},${body.position.y}`);
+      for (const direction of shuffled) {
+        const next = { x: body.position.x + direction.x, y: body.position.y + direction.y };
+        if (!this.canNpcBodyStandAt(room, body, next, occupied)) {
+          continue;
+        }
+        body.position = next;
+        break;
+      }
+      occupied.add(`${body.position.x},${body.position.y}`);
+    }
+  }
+
+  private canNpcBodyStandAt(
+    room: RoomSnapshot,
+    body: NpcBodyState,
+    position: Vector2Like,
+    occupied: ReadonlySet<string>,
+  ): boolean {
+    if (position.x < 0 || position.x >= this.config.grid.cols || position.y < 0 || position.y >= this.config.grid.rows) {
+      return false;
+    }
+    const tile = room.layout[position.y]?.[position.x];
+    if (!tile || tile === '#' || tile === '~' || tile === 'S') {
+      return false;
+    }
+    if (Math.abs(position.x - body.anchor.x) > body.wanderRadius || Math.abs(position.y - body.anchor.y) > body.wanderRadius) {
+      return false;
+    }
+    return !occupied.has(`${position.x},${position.y}`);
+  }
+
+  private syncHostileNpcBodiesFromEnemies(roomId: string): void {
+    for (const enemy of this.enemies.getEnemiesInRoom(roomId)) {
+      const relationshipId = this.getRelationshipIdFromHostileNpc(enemy.id);
+      if (!relationshipId) {
+        continue;
+      }
+      const body = this.npcBodies.get(relationshipId);
+      if (body) {
+        body.position = { ...enemy.position };
+        body.roomId = roomId;
+      }
+    }
   }
 
   private applyTownRuntimeToRoom(room: RoomSnapshot): void {
@@ -3696,9 +4489,37 @@ export class SnakeGame implements QuestRuntime {
       });
       return true;
     }
+    const shotNpc = this.findVisibleNpcInLineOfFire(room, localHead, direction);
+    if (shotNpc) {
+      this.turnVisibleNpcHostileFromShot(shotNpc.profile, shotNpc.position);
+      const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
+      if (fired) {
+        this.setFlag('ui.playerShot', {
+          x: head.x,
+          y: head.y,
+          roomId: this.snake.currentRoomId,
+          dx: direction.x,
+          dy: direction.y,
+          style: 'bullet',
+        });
+      }
+      return fired;
+    }
     const giver = room.questGiver;
-    if (giver && this.isNpcInLineOfFire(room, localHead, direction, { x: giver.x, y: giver.y })) {
-      this.angerNpc(this.snake.currentRoomId, 'shot');
+    if (giver) {
+      const profile: RelationshipCandidateProfile = {
+        id: `quest:${room.id}:${giver.id}`,
+        actorId: this.getQuestGiverActorId(room.id, giver.id),
+        displayName: giver.name,
+        species: 'human',
+        portraitId: giver.portraitId,
+        homeRoomId: room.id,
+        factionId: 'hearthbound-remnant',
+      };
+      const position = this.getRelationshipNpcBodyPosition(profile, { x: giver.x, y: giver.y });
+      if (this.isNpcInLineOfFire(room, localHead, direction, position)) {
+        this.damageVisibleNpcActor(profile, position);
+        this.angerNpc(this.snake.currentRoomId, 'shot');
       this.setFlag('ui.playerShot', {
         x: head.x,
         y: head.y,
@@ -3707,6 +4528,7 @@ export class SnakeGame implements QuestRuntime {
         dy: direction.y,
       });
       return true;
+      }
     }
     const goblinActors = room.goblinCamp
       ? [room.goblinCamp.shopkeeper, ...room.goblinCamp.guards]
@@ -3716,6 +4538,22 @@ export class SnakeGame implements QuestRuntime {
     );
     if (shotGoblin) {
       this.adjustFactionAlignment('goblin-camps', -50);
+      this.damageVisibleNpcActor(
+        {
+          id: `resident:${room.id}:${shotGoblin.id}`,
+          actorId: this.getGoblinCampActorId(
+            room.goblinCamp!.id,
+            shotGoblin.id,
+            shotGoblin.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
+          ),
+          displayName: shotGoblin.name,
+          species: 'goblin',
+          portraitId: shotGoblin.portraitId ?? 'goblin-neutral',
+          homeRoomId: room.id,
+          factionId: 'goblin-camps',
+        },
+        { x: shotGoblin.x, y: shotGoblin.y },
+      );
       this.handleGoblinCampEntered(this.snake.currentRoomId, room);
       this.setFlag('ui.playerShot', {
         x: head.x,
@@ -3748,6 +4586,100 @@ export class SnakeGame implements QuestRuntime {
     hostility: 'friendly' | 'warning' | 'hostile';
   } {
     return this.npcDisposition.get(roomId) ?? { anger: 0, hostility: 'friendly' };
+  }
+
+  private findVisibleNpcInLineOfFire(
+    room: RoomSnapshot,
+    localHead: Vector2Like,
+    direction: Vector2Like,
+  ): { profile: RelationshipCandidateProfile; position: Vector2Like } | null {
+    const candidates = this.collectRoomNpcBodyCandidates(room).map((candidate) => ({
+      profile: candidate.profile,
+      position: this.getRelationshipNpcBodyPosition(candidate.profile, candidate.position),
+    }));
+    return (
+      candidates.find((candidate) =>
+        this.isNpcInLineOfFire(room, localHead, direction, candidate.position),
+      ) ?? null
+    );
+  }
+
+  private damageVisibleNpcActor(profile: RelationshipCandidateProfile, position: Vector2Like): void {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const actorId = this.ensureRelationshipActorForProfile(profile, state);
+    this.actors.registry.update(actorId, (actor) => {
+      const max = actor.health?.max ?? 3;
+      const current = Math.max(0, (actor.health?.current ?? max) - 1);
+      return {
+        ...actor,
+        health: { current, max, state: current <= 0 ? 'downed' : 'wounded' },
+        hostility: current <= 0 ? 'downed' : 'hostile',
+        mood: {
+          ...actor.mood,
+          anger: Math.min(100, actor.mood.anger + 28),
+          fear: Math.min(100, actor.mood.fear + 16),
+          trust: Math.max(-100, actor.mood.trust - 25),
+        },
+      };
+    });
+    const next = this.relationshipController.applyActorInteraction(
+      state.id,
+      'attack',
+      this.getRoomsVisitedCount(),
+    );
+    const latest = next ?? this.relationshipController.getState(state.id) ?? state;
+    this.ensureHostileNpcCombatBody(profile.homeRoomId ?? this.snake.currentRoomId, latest.id, latest.displayName, position);
+    this.applyCurrentTownCrime('assault', true, 3);
+    this.emitWorldEvent({
+      type: 'town-crime',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [actorId],
+      severity: 52,
+      loudness: 45,
+      tags: ['crime', 'assault', 'shot', 'actorInteraction'],
+      summary: `${profile.displayName} was shot.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { relationshipId: state.id },
+    });
+  }
+
+  private turnVisibleNpcHostileFromShot(profile: RelationshipCandidateProfile, position: Vector2Like): void {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const actorId = this.ensureRelationshipActorForProfile(profile, state);
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      hostility: 'hostile',
+      mood: {
+        ...actor.mood,
+        anger: Math.min(100, actor.mood.anger + 28),
+        fear: Math.min(100, actor.mood.fear + 12),
+        trust: Math.max(-100, actor.mood.trust - 20),
+      },
+    }));
+    const next = this.relationshipController.applyActorInteraction(
+      state.id,
+      'attack',
+      this.getRoomsVisitedCount(),
+    );
+    const latest = next ?? this.relationshipController.getState(state.id) ?? state;
+    this.ensureHostileNpcCombatBody(profile.homeRoomId ?? this.snake.currentRoomId, latest.id, latest.displayName, position);
+    if (profile.factionId === 'goblin-camps') {
+      this.adjustFactionAlignment('goblin-camps', -50);
+      this.handleGoblinCampEntered(this.snake.currentRoomId, this.world.getRoom(this.snake.currentRoomId));
+    } else {
+      this.applyCurrentTownCrime('assault', true, 3);
+    }
+    this.emitWorldEvent({
+      type: 'town-crime',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [actorId],
+      severity: 52,
+      loudness: 45,
+      tags: ['crime', 'assault', 'shot', 'actorInteraction'],
+      summary: `${profile.displayName} was shot at.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { relationshipId: state.id },
+    });
   }
 
   getFactionAlignment(factionId: FactionId): FactionAlignmentState {
@@ -4179,6 +5111,10 @@ export class SnakeGame implements QuestRuntime {
     if (!profile.homeRoomId) {
       return null;
     }
+    const body = this.npcBodies.get(profile.id);
+    if (body) {
+      return { ...body.position };
+    }
     const room = this.world.getRoom(profile.homeRoomId);
     const localIdParts = profile.id.split(':');
     const localId = localIdParts[localIdParts.length - 1];
@@ -4201,25 +5137,50 @@ export class SnakeGame implements QuestRuntime {
     return null;
   }
 
-  private spawnRelationshipHostile(
+  private ensureHostileNpcCombatBody(
     roomId: string,
     relationshipId: string,
     name: string,
     position?: Vector2Like | null,
   ): void {
     const room = this.world.getRoom(roomId);
-    const spawn = position ?? this.findEncounterSpawn(roomId) ?? room.questGiver ?? { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
-    this.enemies.spawnHostileNpc(
+    const body = this.npcBodies.get(relationshipId);
+    const spawn = position ?? body?.position ?? this.findEncounterSpawn(roomId) ?? room.questGiver ?? { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
+    const state = this.relationshipController.getState(relationshipId);
+    if (state?.stage === 'dead' || state?.flags.dead || state?.flags.eatenByPlayer) {
+      this.npcBodies.delete(relationshipId);
+      return;
+    }
+    const enemy = this.enemies.spawnHostileNpc(
       roomId,
       spawn,
       name,
-      Math.max(4, this.getRoomsVisitedCount()),
+      3,
       relationshipId,
+      3,
+      body?.actorId ?? state?.actorId ?? this.actors.getStableRelationshipActorId(relationshipId),
     );
+    enemy.fireCooldown = Math.min(enemy.fireCooldown, 1);
+    enemy.moveCooldown = Math.min(enemy.moveCooldown, 1);
+    if (body) {
+      body.position = { ...enemy.position };
+      body.roomId = roomId;
+      body.stationary = false;
+      body.wanderRadius = Math.max(2, body.wanderRadius);
+    }
     this.setFlag('ui.questInteraction', {
       message: `${name} has stopped being a relationship and started being a consequence.`,
     });
     this.setFlag(`relationships.hostileSpawned.${relationshipId}`, true);
+  }
+
+  private spawnRelationshipHostile(
+    roomId: string,
+    relationshipId: string,
+    name: string,
+    position?: Vector2Like | null,
+  ): void {
+    this.ensureHostileNpcCombatBody(roomId, relationshipId, name, position);
   }
 
   private getRelationshipIdFromHostileNpc(enemyId?: string): string | null {
@@ -4420,7 +5381,7 @@ export class SnakeGame implements QuestRuntime {
       (key) => this.getFlag(key) !== undefined,
     );
     if (actor) {
-      return selectActorVoiceLine({
+      const line = selectActorVoiceLine({
         actor,
         biomeId: room.biomeId,
         dangerLevel: biome.dangerLevel,
@@ -4431,6 +5392,8 @@ export class SnakeGame implements QuestRuntime {
         recentEvents,
         random: this.rng,
       });
+      this.setFlag(`actor.voice.last.${actor.id}`, line.id);
+      return line;
     }
     return selectNpcVoiceLine({
       role,
@@ -4557,6 +5520,15 @@ export class SnakeGame implements QuestRuntime {
     return state?.stage === 'hostile' || state?.stage === 'murderous';
   }
 
+  isRelationshipNpcCombatHostile(profile: RelationshipCandidateProfile): boolean {
+    const roomId = profile.homeRoomId ?? this.snake.currentRoomId;
+    return this.enemies.getEnemiesInRoom(roomId).some(
+      (enemy) =>
+        enemy.id === `npc-hostile:${profile.id}` ||
+        (profile.actorId !== undefined && enemy.actorId === profile.actorId),
+    );
+  }
+
   private ensureRelationshipActorForProfile(
     profile: RelationshipCandidateProfile,
     state?: RelationshipState,
@@ -4575,6 +5547,7 @@ export class SnakeGame implements QuestRuntime {
       portraitId: profile.portraitId,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
     });
+    this.syncActorFromRelationshipState(actor.id, relationshipState);
     return actor.id;
   }
 
@@ -4593,7 +5566,47 @@ export class SnakeGame implements QuestRuntime {
       stage: state.stage,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
     });
+    this.syncActorFromRelationshipState(actor.id, state);
     return actor.id;
+  }
+
+  private syncActorFromRelationshipState(actorId: string, state: RelationshipState): void {
+    this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      hostility:
+        state.stage === 'hostile' || state.stage === 'murderous'
+          ? 'hostile'
+          : state.stage === 'estranged' || state.resentment >= 35
+            ? 'suspicious'
+            : state.stage === 'friendly' ||
+                state.stage === 'crush' ||
+                state.stage === 'dating' ||
+                state.stage === 'lover' ||
+                state.stage === 'married'
+              ? 'friendly'
+              : actor.hostility,
+      mood: {
+        ...actor.mood,
+        affection: Math.max(actor.mood.affection, Math.max(0, state.affection)),
+        trust: Math.max(actor.mood.trust, state.trust),
+        anger: Math.max(actor.mood.anger, state.resentment),
+        fear: Math.max(actor.mood.fear, state.fear),
+        curiosity: Math.max(actor.mood.curiosity, Math.max(0, state.fascination)),
+      },
+      opinions: {
+        ...actor.opinions,
+        player: {
+          targetId: 'player',
+          trust: state.trust,
+          fear: state.fear,
+          respect: Math.max(-100, Math.min(100, state.trust - state.resentment)),
+          affection: state.affection,
+          resentment: state.resentment,
+          attraction: state.romanceOptIn ? state.affection : Math.floor(state.affection / 2),
+          debt: actor.opinions.player?.debt ?? 0,
+        },
+      },
+    }));
   }
 
   getRelationshipTalk(profile: RelationshipCandidateProfile): RelationshipTalkResult {
@@ -5025,6 +6038,7 @@ export class SnakeGame implements QuestRuntime {
       'ui.minimap.enabled',
       'player.health',
       'player.maxHealth',
+      'world.rumors',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -6617,6 +7631,7 @@ export class SnakeGame implements QuestRuntime {
         maxHearts,
         undefined,
         reason === 'shot' ? Math.max(1, maxHearts - 1) : maxHearts,
+        undefined,
       );
     }
     return next;
@@ -8535,5 +9550,132 @@ export class SnakeGame implements QuestRuntime {
     const roomY = Math.floor(position.y / this.config.grid.rows);
     const [, , roomZ = '0'] = this.snake.currentRoomId.split(',');
     return `${roomX},${roomY},${roomZ}`;
+  }
+}
+
+function nextSoulReveal(actor: Actor): { key: ActorSoulRevealKey; text: string } | null {
+  const soul = actor.soul;
+  if (!soul) {
+    return null;
+  }
+  const revealOrder: Array<{ key: ActorSoulRevealKey; text?: string }> = [
+    { key: 'wound', text: soul.wound },
+    { key: 'insecurity', text: soul.insecurity },
+    { key: 'contradiction', text: soul.contradiction },
+    { key: 'secret', text: soul.secret },
+  ];
+  const reveal = revealOrder.find((entry) => entry.text && !soul.revealed[entry.key]);
+  return reveal?.text ? { key: reveal.key, text: reveal.text } : null;
+}
+
+function socialTieLine(actorName: string, link: ActorSocialLink, targetName = 'someone nearby'): string {
+  switch (link.relationship) {
+    case 'family':
+      return `${actorName} admits ${targetName} is family, which makes every public disaster personal.`;
+    case 'rival':
+      return `${actorName} says ${targetName} is a rival, then pretends that was not the main fact of the day.`;
+    case 'creditor':
+      return `${actorName} says ${targetName} is owed something. The word "something" does work here.`;
+    case 'debtor':
+      return `${actorName} says ${targetName} owes them, spiritually or financially. Possibly both.`;
+    case 'lover':
+    case 'spouse':
+    case 'ex':
+      return `${actorName} names ${targetName} carefully, like a cup already cracked.`;
+    default:
+      return `${actorName} says ${targetName} matters around here.`;
+  }
+}
+
+function formatActorRumorLine(actorName: string, summary: string): string {
+  const lines = [
+    `${actorName} says, "People are saying this: ${summary}"`,
+    `${actorName} lowers their voice. "The current rumor is simple: ${summary}"`,
+    `${actorName} says the room has been chewing on this: ${summary}`,
+    `${actorName} says, "I did not invent this rumor. I am only delivering it: ${summary}"`,
+  ];
+  return lines[Math.floor(Math.random() * lines.length)]!;
+}
+
+function formatActorKingLoreLine(
+  actorName: string,
+  place: string,
+  institution: string,
+  opinion?: string,
+): string {
+  const tone =
+    opinion === 'loyal'
+      ? 'with the careful pride of someone watched by a portrait'
+      : opinion === 'mocking'
+        ? 'like the crown is a joke with teeth'
+        : opinion === 'bitter'
+          ? 'like the sentence has old blood in it'
+          : 'carefully';
+  const lines = [
+    `${actorName} speaks ${tone}: "The King reached ${place} through ${institution}. The official version leaves things out."`,
+    `${actorName} says, "Ask ${institution} about ${place}. Then ask why the royal records disagree."`,
+    `${actorName} says the King's story bends around ${place}, and ${institution} knows where it bent first.`,
+    `${actorName} says, "The crown calls it order. Around ${place}, people remember it differently."`,
+  ];
+  return lines[Math.floor(Math.random() * lines.length)]!;
+}
+
+function formatLorePlace(place?: string): string {
+  if (!place) return 'the old road';
+  if (/^-?\d+,-?\d+,-?\d+$/.test(place) || place.includes(':')) {
+    return 'this district';
+  }
+  return place;
+}
+
+function townRumorKindForEvent(event: WorldEvent): 'crime' | 'romance' | 'marriage' | 'divorce' | 'guild' | 'heroic' | 'weird' {
+  if (event.tags.includes('marriage')) return 'marriage';
+  if (event.tags.includes('divorce')) return 'divorce';
+  if (event.tags.includes('relationship')) return 'romance';
+  if (event.tags.includes('guild')) return 'guild';
+  if (event.tags.includes('crime') || event.type === 'town-crime') return 'crime';
+  if (event.tags.includes('combat') || event.tags.includes('eaten')) return 'weird';
+  return 'weird';
+}
+
+function summarizeActorMoodForJournal(actor: Actor): string {
+  if (actor.hostility === 'hostile') return 'hostile';
+  if (actor.mood.anger >= 60) return 'angry';
+  if (actor.mood.fear >= 60) return 'afraid';
+  if (actor.mood.grief >= 55) return 'grieving';
+  if (actor.mood.affection >= 55) return 'fond';
+  if (actor.mood.curiosity >= 55) return 'curious';
+  if (actor.mood.trust >= 50) return 'trusting';
+  return 'neutral';
+}
+
+function socialGriefFor(relationship: ActorSocialLink['relationship']): number {
+  switch (relationship) {
+    case 'family':
+    case 'lover':
+    case 'spouse':
+      return 28;
+    case 'friend':
+      return 16;
+    case 'rival':
+      return 4;
+    default:
+      return 10;
+  }
+}
+
+function socialAngerFor(relationship: ActorSocialLink['relationship']): number {
+  switch (relationship) {
+    case 'family':
+    case 'lover':
+    case 'spouse':
+      return 24;
+    case 'rival':
+      return 6;
+    case 'creditor':
+    case 'debtor':
+      return 14;
+    default:
+      return 10;
   }
 }
