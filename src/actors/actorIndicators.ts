@@ -11,6 +11,7 @@ export type ActorIndicatorKind =
   | 'suspicious'
   | 'wounded'
   | 'witness'
+  | 'faction'
   | 'debt'
   | 'locked'
   | 'secret'
@@ -37,6 +38,9 @@ export function getActorIndicators(actor: Actor, max = 2): ActorIndicator[] {
   }
   if (actor.role === 'questGiver') {
     indicators.push({ kind: 'quest', glyph: '!', priority: 80, label: 'Quest' });
+  }
+  if (actor.flags.activeFactionEventId || actor.flags.raidDefender || actor.flags.raidShelter) {
+    indicators.push({ kind: 'faction', glyph: '^', priority: 76, label: 'Faction event' });
   }
   if (actor.role === 'shopkeeper' || actor.role === 'bartender' || actor.role === 'blackMarketMerchant') {
     indicators.push({ kind: 'shop', glyph: '$', priority: 70, label: 'Shop' });

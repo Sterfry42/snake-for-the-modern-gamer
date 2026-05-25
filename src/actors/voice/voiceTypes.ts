@@ -138,6 +138,7 @@ export interface ActorConversationResult {
   bucket: ActorConversationBucket;
   topic: ActorVoiceTopic;
   source: ActorVoiceSource;
+  rumorId?: string;
   beat?: string;
   line: string;
   knownFact?: string;

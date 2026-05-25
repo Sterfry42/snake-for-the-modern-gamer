@@ -81,7 +81,15 @@ export function buildActorInteractionMenu(
   }
 
   if (actor.role === 'shopkeeper' || actor.role === 'bartender' || actor.role === 'blackMarketMerchant') {
-    options.push({ id: 'shop', label: 'Shop', enabled: !hostile, reason: hostile ? 'Too hostile' : undefined, priority: 80 });
+    const shopClosedReason =
+      typeof actor.flags.shopClosedReason === 'string' ? actor.flags.shopClosedReason : undefined;
+    options.push({
+      id: 'shop',
+      label: 'Shop',
+      enabled: !hostile && !shopClosedReason,
+      reason: hostile ? 'Too hostile' : shopClosedReason,
+      priority: 80,
+    });
   }
 
   if (actor.role === 'romanceCandidate' || (humanoid && !hostile)) {

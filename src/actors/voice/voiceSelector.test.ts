@@ -1,6 +1,6 @@
 import { createBaseActor } from '../actorFactory.js';
 import { selectActorConversation } from './voiceSelector.js';
-import type { ActorConversationContext } from './voiceTypes.js';
+import type { ActorConversationContext, ActorConversationResult } from './voiceTypes.js';
 
 function baseContext(overrides: Partial<ActorConversationContext> = {}): ActorConversationContext {
   const actor =
@@ -36,6 +36,32 @@ function baseContext(overrides: Partial<ActorConversationContext> = {}): ActorCo
     socialLink: overrides.socialLink,
     random: overrides.random ?? (() => 0),
   };
+}
+
+function collectConversationSamples(
+  context: ActorConversationContext,
+  count: number,
+): ActorConversationResult[] {
+  const flags: Record<string, unknown> = { ...context.flags };
+  const results: ActorConversationResult[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const result = selectActorConversation({ ...context, flags });
+    const recentKey = `actor.conversation.recent.${context.actor.id}.${context.bucket}`;
+    const previous = Array.isArray(flags[recentKey])
+      ? (flags[recentKey] as string[]).filter((item): item is string => typeof item === 'string')
+      : [];
+    flags[`actor.conversation.last.${context.actor.id}.${context.bucket}`] = result.id;
+    flags[recentKey] = [result.id, ...previous.filter((id) => id !== result.id)].slice(0, 4);
+    if (result.rumorId) {
+      const recentRumorKey = `actor.conversation.recentRumors.${context.actor.id}.${context.bucket}`;
+      const previousRumors = Array.isArray(flags[recentRumorKey])
+        ? (flags[recentRumorKey] as string[]).filter((item): item is string => typeof item === 'string')
+        : [];
+      flags[recentRumorKey] = [result.rumorId, ...previousRumors.filter((id) => id !== result.rumorId)].slice(0, 4);
+    }
+    results.push(result);
+  }
+  return results;
 }
 
 describe('selectActorConversation', () => {
@@ -238,5 +264,199 @@ describe('selectActorConversation', () => {
 
     expect(second.id).not.toBe(first.id);
     expect(second.source).toBe('rumor');
+  });
+
+  it('does not let ambient faction context monopolize ask-around forever', () => {
+    const actor = createBaseActor({
+      id: 'actor:test:grib',
+      kind: 'civilian',
+      role: 'resident',
+      species: 'goblin',
+      thickness: 'medium',
+      displayName: 'Grib',
+      personality: ['practical'],
+      factionId: 'goblin-camps',
+    });
+    const factionEvents = [
+      {
+        relation: 'tense' as const,
+        factionIds: ['hearthbound-remnant', 'goblin-camps'],
+        severity: 4,
+        tags: ['goblin', 'human', 'truce', 'ambient'],
+        summary: 'Human guards and goblin traders are maintaining a tense truce.',
+      },
+    ];
+    const first = selectActorConversation(
+      baseContext({
+        actor,
+        bucket: 'ask-around',
+        factionEvents,
+      }),
+    );
+    const second = selectActorConversation(
+      baseContext({
+        actor,
+        bucket: 'ask-around',
+        factionEvents,
+        flags: {
+          [`actor.conversation.last.${actor.id}.ask-around`]: first.id,
+          [`actor.conversation.recent.${actor.id}.ask-around`]: [first.id],
+        },
+      }),
+    );
+
+    expect(first.source).toBe('faction');
+    expect(second.source).toBe('faction');
+    expect(second.id).not.toBe(first.id);
+  });
+
+  it('keeps repeated talk from collapsing to one remembered bandit line', () => {
+    const actor = createBaseActor({
+      id: 'actor:test:nessa',
+      kind: 'guard',
+      role: 'guard',
+      species: 'human',
+      thickness: 'medium',
+      displayName: 'Nessa',
+      personality: ['lawful', 'deadpan'],
+      factionId: 'hearthbound-remnant',
+    });
+    actor.memory = [
+      {
+        id: 'memory:bandit:eaten',
+        type: 'humanoid-eaten',
+        summary: 'A bandit was eaten outside the gate.',
+        source: 'witnessed',
+        intensity: 60,
+        tags: ['combat', 'eaten', 'humanoid', 'bandit'],
+      },
+    ];
+
+    const samples = collectConversationSamples(
+      baseContext({
+        actor,
+        bucket: 'talk',
+        random: () => 0,
+      }),
+      6,
+    );
+
+    expect(new Set(samples.map((sample) => sample.id)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(samples.map((sample) => sample.line)).size).toBeGreaterThanOrEqual(3);
+    const counts = samples.reduce<Record<string, number>>((acc, sample) => {
+      acc[sample.id] = (acc[sample.id] ?? 0) + 1;
+      return acc;
+    }, {});
+    expect(Math.max(...Object.values(counts))).toBeLessThanOrEqual(3);
+  });
+
+  it('keeps repeated ask-around from collapsing to deterministic bandit talk', () => {
+    const actor = createBaseActor({
+      id: 'actor:test:grib',
+      kind: 'civilian',
+      role: 'resident',
+      species: 'goblin',
+      thickness: 'medium',
+      displayName: 'Grib',
+      personality: ['goblin', 'practical', 'nosy'],
+      factionId: 'goblin-camps',
+    });
+    const samples = collectConversationSamples(
+      baseContext({
+        actor,
+        bucket: 'ask-around',
+        rumors: [
+          {
+            id: 'rumor:bandit:gate',
+            summary: 'Bandits were seen testing the gate hinges.',
+            tags: ['rumor', 'bandit', 'raid'],
+            severity: 30,
+          },
+        ],
+        factionEvents: [
+          {
+            relation: 'war',
+            factionIds: ['bandits', 'hearthbound-remnant'],
+            severity: 28,
+            tags: ['bandit', 'raid', 'faction'],
+            summary: 'Bandits are pressing the town gate.',
+          },
+        ],
+        random: () => 0,
+      }),
+      8,
+    );
+
+    expect(new Set(samples.map((sample) => sample.id)).size).toBeGreaterThanOrEqual(4);
+    expect(new Set(samples.map((sample) => sample.line)).size).toBeGreaterThanOrEqual(4);
+    expect(samples.some((sample) => sample.source === 'rumor')).toBe(true);
+    expect(samples.some((sample) => sample.source === 'faction')).toBe(true);
+  });
+
+  it('does not let one rumor fill half of repeated ask-around lines', () => {
+    const actor = createBaseActor({
+      id: 'actor:test:ilyra',
+      kind: 'guard',
+      role: 'guard',
+      species: 'human',
+      thickness: 'medium',
+      displayName: 'Ilyra',
+      personality: ['lawful', 'deadpan'],
+      factionId: 'hearthbound-remnant',
+    });
+    const samples = collectConversationSamples(
+      baseContext({
+        actor,
+        bucket: 'ask-around',
+        rumors: [
+          {
+            id: 'rumor:hostile-person-eaten',
+            summary: 'A hostile person was eaten. By noon, someone will swear the snake called it medicine.',
+            tags: ['rumor', 'eaten', 'humanoid'],
+            severity: 38,
+          },
+        ],
+        random: () => 0,
+      }),
+      8,
+    );
+
+    const rumorUses = samples.filter((sample) => sample.rumorId === 'rumor:hostile-person-eaten');
+    expect(rumorUses.length).toBeLessThanOrEqual(3);
+    expect(samples.filter((sample) => sample.line.includes('A hostile person was eaten')).length).toBeLessThanOrEqual(3);
+  });
+
+  it('keeps repeated ask-personal from collapsing once a personal fact is known', () => {
+    const actor = createBaseActor({
+      id: 'actor:test:maribel',
+      kind: 'civilian',
+      role: 'resident',
+      species: 'human',
+      thickness: 'medium',
+      displayName: 'Maribel',
+      personality: ['kind', 'sentimental'],
+    });
+    actor.soul = {
+      wound: 'She lost a brother to a smiling official version.',
+      insecurity: 'She thinks everyone hears the tremor in her voice.',
+      longing: 'She wants one ordinary dinner nobody weaponizes.',
+      contradiction: 'She loves ceremony and distrusts every institution.',
+      secret: 'She has been hiding letters from the capital.',
+      revealed: {},
+    };
+    actor.lore = undefined;
+
+    const samples = collectConversationSamples(
+      baseContext({
+        actor,
+        bucket: 'ask-personal',
+        random: () => 0,
+      }),
+      6,
+    );
+
+    expect(new Set(samples.map((sample) => sample.id)).size).toBeGreaterThanOrEqual(3);
+    expect(new Set(samples.map((sample) => sample.line)).size).toBeGreaterThanOrEqual(3);
+    expect(samples.some((sample) => sample.source === 'soul')).toBe(true);
   });
 });

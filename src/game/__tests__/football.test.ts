@@ -338,6 +338,33 @@ describe('actor conversations', () => {
     expect(game.getActorSystem().getActor(actor.id)?.memory.some((memory) => memory.source === 'rumor')).toBe(true);
   });
 
+  it('does not render the same single rumor in half of repeated ask-around conversations', () => {
+    const game = createGame();
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'ilyra',
+      name: 'Ilyra',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: game.getCurrentRoom().id,
+    });
+    game.emitWorldEvent({
+      type: 'humanoid-eaten',
+      roomId: game.getCurrentRoom().id,
+      targetActorIds: ['enemy:hostile-person'],
+      severity: 38,
+      loudness: 38,
+      tags: ['combat', 'eaten', 'humanoid'],
+      summary: 'A hostile person was eaten.',
+      createdAtRoomNumber: 4,
+    });
+
+    const lines = Array.from({ length: 8 }, () => game.getActorConversation(actor.id, 'ask-around')?.line ?? '');
+
+    expect(lines.filter((line) => line.includes('A hostile person was eaten')).length).toBeLessThanOrEqual(3);
+    expect(new Set(lines).size).toBeGreaterThanOrEqual(5);
+  });
+
   it('generates local social links when asking personally and shows them in People', () => {
     const game = createGame();
     const roomId = game.getCurrentRoom().id;
@@ -436,5 +463,201 @@ describe('actor conversations', () => {
     expect(game.getFlag<{ currentEvents: unknown[] }>('factions.v2.save')?.currentEvents.length).toBeGreaterThan(0);
     expect(game.getRecentWorldRumors()[0]?.summary).not.toBe('A bandit was eaten beside the gate.');
     expect(game.getCurrentFactionEvents()[0]?.tags).toContain('faction');
+  });
+
+  it('does not create bandit raid warnings just because someone asks around', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    room.biomeId = 'ember-waste';
+    room.village = {
+      name: 'Test Village',
+      center: { x: 8, y: 8 },
+      residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
+    } as any;
+    (game as any).syncActorsForRoom(room);
+    const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
+
+    for (let index = 0; index < 5; index += 1) {
+      game.getActorConversation(actorId, 'ask-around');
+    }
+
+    expect(game.getCurrentFactionEvents().some((event) => event.type === 'raid-warning')).toBe(false);
+    expect(game.getRecentWorldRumors().some((rumor) => rumor.tags.includes('raid-warning'))).toBe(false);
+  });
+
+  it('lets old non-local bandit rumors fall out of conversation context', () => {
+    const game = createGame();
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: 'nina',
+      name: 'Nina',
+      role: 'guard',
+      factionId: 'hearthbound-remnant',
+      townId: 'eastmere',
+      currentRoomId: game.getCurrentRoom().id,
+    });
+    game.emitWorldEvent({
+      type: 'humanoid-eaten',
+      roomId: '99,99,0',
+      targetActorIds: ['enemy:bandit'],
+      severity: 55,
+      loudness: 45,
+      tags: ['combat', 'eaten', 'humanoid', 'bandit'],
+      summary: 'A bandit was eaten far away.',
+      createdAtRoomNumber: -30,
+    });
+
+    const result = game.getActorConversation(actor.id, 'ask-around');
+
+    expect(result?.line).not.toContain('far away');
+    expect(result?.line).not.toContain('Bandit violence has left the market');
+  });
+
+  it('starts a bandit raid as hostile bandit actors and records aftermath', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+
+    const event = game.startBanditRaidForCurrentRoom(55);
+    const bandits = game.getEnemies(room.id).filter((enemy) => enemy.id.startsWith('npc-hostile:raidBandit-'));
+
+    expect(event.type).toBe('raid-active');
+    expect(bandits.length).toBeGreaterThanOrEqual(3);
+    expect(bandits.every((enemy) => enemy.maxHearts === 1 && enemy.encounterKind === 'npc-hostile')).toBe(true);
+    expect(game.getActorSystem().getActor(bandits[0]!.actorId!)?.factionId).toBe('bandits');
+
+    for (const bandit of bandits) {
+      (game as any).noteBanditRaidDefeat(bandit, false);
+      (game as any).enemies.damageEnemyAt(room.id, bandit.position, 1);
+    }
+    (game as any).tickFactionRaidGameplay();
+
+    const aftermath = game
+      .getCurrentFactionEvents()
+      .find((current) => current.type === 'raid-aftermath' && current.roomId === room.id);
+    expect(aftermath?.tags).toContain('player-helped');
+    expect(game.getRecentWorldRumors().some((rumor) => rumor.tags.includes('raid-aftermath'))).toBe(true);
+  });
+
+  it('marks local shopkeepers and guards as raid responders while shops close', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    room.village = {
+      name: 'Test Village',
+      center: { x: 8, y: 8 },
+      residents: [{ id: 'guard', name: 'Nessa', x: 6, y: 5, portraitId: 'sage-1' }],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 5, portraitId: 'sage-2' },
+    } as any;
+
+    game.startBanditRaidForCurrentRoom(55);
+
+    const shopActorId = game.getVillageActorId(room.id, 'shop', 'shopkeeper');
+    const guardActorId = game.getVillageActorId(room.id, 'guard', 'resident');
+    const shop = game.getActorSystem().getActor(shopActorId);
+    const guard = game.getActorSystem().getActor(guardActorId);
+
+    expect(shop?.flags.shopClosedReason).toBe('Closed during the raid');
+    expect(shop?.flags.raidDefender).toBe(true);
+    expect(guard?.flags.raidShelter).toBe(true);
+    expect(game.getActorInteractionMenu(shopActorId)?.options.find((option) => option.id === 'shop')?.enabled).toBe(false);
+    expect(game.getActorInteractionMenu(shopActorId)?.indicators.some((indicator) => indicator.kind === 'faction')).toBe(true);
+  });
+});
+
+describe('actor room brains', () => {
+  it('moves threatened civilians away from active room danger', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    room.village = {
+      name: 'Test Village',
+      center: { x: 8, y: 8 },
+      residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
+    } as any;
+    (game as any).syncActorsForRoom(room);
+    const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
+    const relationshipId = `resident:${room.id}:marta`;
+    const body = (game as any).npcBodies.get(relationshipId);
+    body.position = { x: 7, y: 7 };
+    body.anchor = { x: 7, y: 7 };
+    body.wanderRadius = 4;
+    body.moveCooldown = 0;
+    game.getActorSystem().registry.update(actorId, (actor) => ({
+      ...actor,
+      mood: { ...actor.mood, fear: 55, stress: 55 },
+      flags: { ...actor.flags, raidShelter: true },
+    }));
+    (game as any).enemies.spawnHostileNpc(room.id, { x: 6, y: 7 }, 'Bandit', 1, 'brain-test-bandit');
+
+    (game as any).tickNpcBodies(room);
+
+    expect(body.position.x).toBeGreaterThan(7);
+  });
+
+  it('lets nearby linked actors share remembered rumors', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.layout = Array.from({ length: defaultGameConfig.grid.rows }, () =>
+      '.'.repeat(defaultGameConfig.grid.cols),
+    );
+    room.village = {
+      name: 'Test Village',
+      center: { x: 8, y: 8 },
+      residents: [
+        { id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' },
+        { id: 'nina', name: 'Nina', x: 8, y: 7, portraitId: 'sage-2' },
+      ],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-3' },
+    } as any;
+    (game as any).syncActorsForRoom(room);
+    const sourceActorId = game.getVillageActorId(room.id, 'marta', 'resident');
+    const targetActorId = game.getVillageActorId(room.id, 'nina', 'resident');
+    game.getActorSystem().registry.update(sourceActorId, (actor) => ({
+      ...actor,
+      relationships: [
+        ...actor.relationships.filter((link) => link.actorId !== targetActorId),
+        { actorId: targetActorId, relationship: 'friend', strength: 80 },
+      ],
+      memory: [
+        ...actor.memory,
+        {
+          id: 'memory:raid-warning:test',
+          type: 'bandit-raid-started',
+          summary: 'Bandits were seen testing the gate hinges.',
+          source: 'rumor',
+          intensity: 36,
+          roomId: room.id,
+          tags: ['rumor', 'bandit', 'raid'],
+          createdAtRoomNumber: 4,
+        },
+      ],
+    }));
+    const sourceBody = (game as any).npcBodies.get(`resident:${room.id}:marta`);
+    const targetBody = (game as any).npcBodies.get(`resident:${room.id}:nina`);
+    sourceBody.position = { x: 7, y: 7 };
+    sourceBody.moveCooldown = 0;
+    targetBody.position = { x: 8, y: 7 };
+
+    (game as any).shareActorGossip(
+      room,
+      game.getActorSystem().getActor(sourceActorId),
+      targetActorId,
+      game.getActorSystem().getActor(sourceActorId)?.memory.slice(-1)[0],
+    );
+
+    const target = game.getActorSystem().getActor(targetActorId);
+    expect(target?.memory.some((memory) => memory.source === 'heard' && memory.tags.includes('gossip'))).toBe(true);
+    expect(game.getActorSystem().events.getRecent().some((event) => event.type === 'actor-rumor-shared')).toBe(true);
   });
 });

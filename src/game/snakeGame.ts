@@ -91,6 +91,7 @@ import type {
 } from '../relationships/relationshipTypes.js';
 import { ActorSystem, type ActorSystemSaveData } from '../actors/actorSystem.js';
 import type { Actor, ActorMemory, ActorSocialLink, ActorSoulRevealKey } from '../actors/actorTypes.js';
+import { decideActorBrain, type ActorBrainSocialTarget } from '../actors/actorBrains.js';
 import {
   buildActorInteractionMenu,
   type ActorInteractionMenuModel,
@@ -121,6 +122,16 @@ export interface WorldRumor {
   severity: number;
   createdAtRoomNumber?: number;
   heardByActorIds: string[];
+}
+
+interface BanditRaidRuntimeState {
+  eventId: string;
+  roomId: string;
+  banditEnemyIds: string[];
+  banditsKilled: number;
+  banditsEaten: number;
+  startedAtRoom: number;
+  aftermathRecorded?: boolean;
 }
 
 export interface ActorJournalEntry {
@@ -1143,6 +1154,9 @@ export class SnakeGame implements QuestRuntime {
     if (currentHead) {
       const enemyEat = this.enemies.consumeEnemyAt(this.snake.currentRoomId, currentHead);
       if (enemyEat.eaten) {
+        if (enemyEat.enemy) {
+          this.noteBanditRaidDefeat(enemyEat.enemy, true);
+        }
         const eatenName = enemyEat.enemy?.name;
         const eatenHumanoid = this.isHostileHumanoidEnemy(enemyEat.enemy);
         const eatenActorId =
@@ -1184,6 +1198,7 @@ export class SnakeGame implements QuestRuntime {
               'combat',
               'eaten',
               enemyEat.enemy.encounterKind ?? 'enemy',
+              ...(enemyEat.enemy.id.startsWith('npc-hostile:raidBandit-') ? ['bandit', 'raid'] : []),
               ...(eatenHumanoid ? ['hostile-kill', 'healing', 'humanoid'] : []),
             ],
             summary: eatenName
@@ -1548,6 +1563,7 @@ export class SnakeGame implements QuestRuntime {
       huntedAnimals: HuntedAnimalResult[];
     };
   } {
+    this.tickFactionRaidGameplay();
     const enemyStepResult = this.enemies.stepEnemies({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       snake: this.snake.bodySegments,
@@ -1568,6 +1584,7 @@ export class SnakeGame implements QuestRuntime {
 
     const room = this.world.getRoom(this.snake.currentRoomId);
     this.applyTownRuntimeToRoom(room);
+    this.syncActorsForRoom(room);
     this.tickNpcBodies(room);
     this.syncActorsForRoom(room);
 
@@ -2538,6 +2555,17 @@ export class SnakeGame implements QuestRuntime {
       recentConversationKey,
       [result.id, ...recentConversationIds.filter((id) => id !== result.id)].slice(0, 4),
     );
+    if (result.rumorId) {
+      const recentRumorKey = `actor.conversation.recentRumors.${actor.id}.${bucket}`;
+      const recentRumorRaw = this.getFlag<unknown>(recentRumorKey);
+      const recentRumorIds = Array.isArray(recentRumorRaw)
+        ? recentRumorRaw.filter((item): item is string => typeof item === 'string')
+        : [];
+      this.setFlag(
+        recentRumorKey,
+        [result.rumorId, ...recentRumorIds.filter((id) => id !== result.rumorId)].slice(0, 4),
+      );
+    }
     this.applyActorConversationResult(currentActor, result);
     this.emitWorldEvent({
       type:
@@ -2650,14 +2678,17 @@ export class SnakeGame implements QuestRuntime {
         townId: rumor.townId,
         factionIds: rumor.kind === 'crime' ? ['hearthbound-remnant'] : [],
       }));
-    const publicRumors = this.getRecentWorldRumors(6).map((rumor) => ({
-      id: rumor.id,
-      summary: rumor.summary,
-      tags: rumor.tags,
-      severity: rumor.severity,
-      townId: rumor.townId,
-      factionIds: rumor.tags.filter((tag) => tag.includes('-')),
-    }));
+    const publicRumors = this.getRecentWorldRumors(12)
+      .filter((rumor) => this.isConversationRelevantWorldRumor(rumor, room))
+      .slice(0, 6)
+      .map((rumor) => ({
+        id: rumor.id,
+        summary: rumor.summary,
+        tags: rumor.tags,
+        severity: rumor.severity,
+        townId: rumor.townId,
+        factionIds: rumor.tags.filter((tag) => tag.includes('-')),
+      }));
     const memoryRumors = actor.memory
       .filter((memory) => memory.source === 'rumor' || memory.tags.includes('rumor'))
       .slice(-4)
@@ -2679,6 +2710,7 @@ export class SnakeGame implements QuestRuntime {
     const room = this.getCurrentRoom();
     const events: ActorFactionConversationState[] = this.factionEvents
       .getEventsForActor(actor, 6)
+      .filter((event) => this.isConversationRelevantFactionEvent(event, room))
       .map((event) => ({
         relation: factionRelationForCurrentEvent(event),
         factionIds: [...event.factionIds],
@@ -2724,14 +2756,14 @@ export class SnakeGame implements QuestRuntime {
         relation: 'tense',
         factionIds: ['hearthbound-remnant', 'goblin-camps'],
         townId: room.town?.id,
-        severity: 8,
-        tags: ['goblin', 'human', 'truce'],
+        severity: 4,
+        tags: ['goblin', 'human', 'truce', 'ambient'],
         summary: 'Human guards and goblin traders are maintaining a tense truce.',
       });
     }
-    const banditRumor = this.getRecentWorldRumors(8).find((rumor) =>
-      rumor.tags.some((tag) => tag.includes('bandit') || tag === 'hostile-kill'),
-    );
+    const banditRumor = this.getRecentWorldRumors(12)
+      .filter((rumor) => this.isConversationRelevantWorldRumor(rumor, room))
+      .find((rumor) => rumor.tags.some((tag) => tag.includes('bandit') || tag === 'hostile-kill'));
     if (banditRumor) {
       events.push({
         relation: 'skirmishing',
@@ -2742,27 +2774,42 @@ export class SnakeGame implements QuestRuntime {
         summary: banditRumor.summary,
       });
     }
-    const raidWarning = this.factionEvents.maybeCreateRaidWarning({
-      roomId: room.id,
-      townId: room.town?.id ?? room.goblinCamp?.id,
-      biomeDanger: getBiomeDefinition(room.biomeId).dangerLevel,
-      wantedLevel: room.town?.wantedLevel,
-      createdAt: this.getRoomsVisitedCount(),
-    });
-    if (raidWarning) {
-      this.recordRumorFromFactionEvent(raidWarning);
-      events.push({
-        relation: 'skirmishing',
-        factionIds: [...raidWarning.factionIds],
-        townId: raidWarning.townId,
-        severity: raidWarning.severity,
-        tags: [...raidWarning.tags, raidWarning.phase],
-        summary: raidWarning.summary,
-      });
-    }
     return events
       .filter((event, index, all) => all.findIndex((entry) => entry.summary === event.summary) === index)
       .sort((a, b) => b.severity - a.severity);
+  }
+
+  private isConversationRelevantWorldRumor(rumor: WorldRumor, room: RoomSnapshot): boolean {
+    const currentRoomNumber = this.getRoomsVisitedCount();
+    const age = Math.max(0, currentRoomNumber - (rumor.createdAtRoomNumber ?? currentRoomNumber));
+    const localToRoom = rumor.roomId === room.id;
+    const localToTown = Boolean(rumor.townId && room.town?.id === rumor.townId);
+    const isBanditThread = rumor.tags.some((tag) => tag.includes('bandit') || tag === 'raid');
+    if (localToRoom || localToTown) {
+      return age <= (isBanditThread ? 18 : 30) || rumor.severity >= 65;
+    }
+    if (isBanditThread) {
+      return age <= 8;
+    }
+    return age <= 16 || rumor.severity >= 70;
+  }
+
+  private isConversationRelevantFactionEvent(event: FactionCurrentEvent, room: RoomSnapshot): boolean {
+    const currentRoomNumber = this.getRoomsVisitedCount();
+    if (event.phase === 'resolved' || (event.expiresAt !== undefined && event.expiresAt <= currentRoomNumber)) {
+      return false;
+    }
+    const age = Math.max(0, currentRoomNumber - event.createdAt);
+    const localToRoom = event.roomId === room.id;
+    const localToTown = Boolean(event.townId && room.town?.id === event.townId);
+    const isBanditThread = event.tags.some((tag) => tag.includes('bandit') || tag === 'raid');
+    if (localToRoom || localToTown) {
+      return age <= (isBanditThread ? 18 : 30) || event.phase === 'active';
+    }
+    if (isBanditThread) {
+      return age <= 8 && event.phase === 'active';
+    }
+    return age <= 16;
   }
 
   private isConversationMetaRumor(rumor: ActorConversationRumor): boolean {
@@ -3066,6 +3113,26 @@ export class SnakeGame implements QuestRuntime {
 
   private handlePlayerBulletDefeats(defeatedEnemies: readonly EnemyInstance[]): void {
     for (const enemy of defeatedEnemies) {
+      const defeatedRaidBandit = enemy.id.startsWith('npc-hostile:raidBandit-');
+      if (defeatedRaidBandit) {
+        this.noteBanditRaidDefeat(enemy, false);
+        const actorId = enemy.actorId ?? this.actors.getStableEnemyActorId(enemy.roomId, enemy.id);
+        this.emitWorldEvent({
+          type: 'enemy-defeated',
+          roomId: enemy.roomId,
+          targetActorIds: [actorId],
+          severity: 48,
+          loudness: 45,
+          tags: ['combat', 'shot', 'hostile-kill', 'humanoid', 'bandit', 'raid'],
+          summary: `${enemy.name ?? 'A raid bandit'} was shot down.`,
+          createdAtRoomNumber: this.getRoomsVisitedCount(),
+          data: { enemyId: enemy.id, encounterKind: enemy.encounterKind },
+        });
+        this.setFlag('ui.questInteraction', {
+          message: `${enemy.name ?? 'The raid bandit'} was shot down.`,
+        });
+        continue;
+      }
       if (enemy.encounterKind !== 'npc-hostile') {
         continue;
       }
@@ -3117,6 +3184,43 @@ export class SnakeGame implements QuestRuntime {
 
   getCurrentFactionEvents(limit = 12): readonly FactionCurrentEvent[] {
     return this.factionEvents.getEvents(limit);
+  }
+
+  startBanditRaidForCurrentRoom(severity = 48): FactionCurrentEvent {
+    const room = this.getCurrentRoom();
+    this.syncActorsForRoom(room);
+    const event = this.factionEvents.createEvent({
+      type: 'raid-active',
+      factionIds: ['bandits', 'guards', 'shopkeepers'],
+      townId: room.town?.id ?? room.goblinCamp?.id,
+      roomId: room.id,
+      severity,
+      phase: 'active',
+      createdAt: this.getRoomsVisitedCount(),
+      expiresAt: this.getRoomsVisitedCount() + 10,
+      summary: 'Bandits are attacking while everyone argues about whose job prevention was.',
+      tags: ['bandit', 'raid', 'active', 'danger'],
+    });
+    this.recordRumorFromFactionEvent(event);
+    this.spawnBanditRaidForEvent(event, room);
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+    return event;
+  }
+
+  isCurrentRoomRaidActive(): boolean {
+    return this.factionEvents
+      .getEventsForRoom(this.snake.currentRoomId, 8)
+      .some((event) => event.type === 'raid-active' && event.phase === 'active');
+  }
+
+  getCurrentRoomRaidMessage(): string | null {
+    const event = this.factionEvents
+      .getEventsForRoom(this.snake.currentRoomId, 8)
+      .find((current) => current.type === 'raid-active' && current.phase === 'active');
+    if (!event) {
+      return null;
+    }
+    return event.summary;
   }
 
   getPeopleJournalView(limit = 24): ActorJournalEntry[] {
@@ -3182,6 +3286,280 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
+  private tickFactionRaidGameplay(): void {
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const currentRoomNumber = this.getRoomsVisitedCount();
+    this.rumors.tick(currentRoomNumber);
+    this.factionEvents.tick(currentRoomNumber);
+    for (const event of this.factionEvents.getEventsForRoom(room.id, 8)) {
+      if (event.type === 'raid-warning' && event.phase === 'brewing' && event.createdAt < currentRoomNumber) {
+        const active = this.factionEvents.activateRaidWarning(event.id, currentRoomNumber);
+        if (active) {
+          this.recordRumorFromFactionEvent(active);
+          this.spawnBanditRaidForEvent(active, room);
+        }
+      } else if (event.type === 'raid-active' && event.phase === 'active') {
+        this.spawnBanditRaidForEvent(event, room);
+        this.maybeRecordBanditRaidAftermath(event, room);
+      }
+    }
+    this.setFlag('factions.v2.save', this.factionEvents.save());
+  }
+
+  private spawnBanditRaidForEvent(event: FactionCurrentEvent, room: RoomSnapshot): void {
+    const raidKey = this.banditRaidFlagKey(event.id);
+    const existingState = this.getFlag<BanditRaidRuntimeState>(raidKey);
+    if (existingState?.banditEnemyIds.length) {
+      return;
+    }
+    const count = event.severity >= 62 ? 4 : event.severity >= 48 ? 3 : 2;
+    const spawns = this.findBanditRaidSpawnPositions(room, count);
+    if (spawns.length === 0) {
+      return;
+    }
+    const banditEnemyIds: string[] = [];
+    spawns.forEach((position, index) => {
+      const idSuffix = `raidBandit-${this.hashText(event.id)}-${index}`;
+      const actorId = `enemy:${room.id}:${idSuffix}`;
+      const enemy = this.enemies.spawnHostileNpc(
+        room.id,
+        position,
+        `Raid Bandit ${index + 1}`,
+        1,
+        idSuffix,
+        1,
+        actorId,
+      );
+      enemy.fireCooldown = Math.min(enemy.fireCooldown, 1 + index);
+      enemy.moveCooldown = Math.min(enemy.moveCooldown, 1);
+      banditEnemyIds.push(enemy.id);
+      this.actors.registry.ensureEnemyActor({
+        actorId,
+        enemyId: enemy.id,
+        roomId: room.id,
+        name: enemy.name,
+        encounterKind: enemy.encounterKind,
+        currentHearts: enemy.currentHearts,
+        maxHearts: enemy.maxHearts,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+      });
+    });
+    this.setFlag(raidKey, {
+      eventId: event.id,
+      roomId: room.id,
+      banditEnemyIds,
+      banditsKilled: 0,
+      banditsEaten: 0,
+      startedAtRoom: this.getRoomsVisitedCount(),
+    } satisfies BanditRaidRuntimeState);
+    this.activateBanditRaidDefenders(event, room);
+    this.setFlag('ui.questInteraction', {
+      message: `Bandits are raiding ${room.town?.name ?? room.goblinCamp?.name ?? 'this place'}.`,
+    });
+    this.emitWorldEvent({
+      type: 'bandit-raid-started',
+      roomId: room.id,
+      targetActorIds: banditEnemyIds,
+      severity: event.severity,
+      loudness: 55,
+      tags: ['bandit', 'raid', 'combat', 'faction'],
+      summary: `Bandits started a raid in ${room.town?.name ?? room.goblinCamp?.name ?? 'the room'}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: room.town?.id ?? room.goblinCamp?.id, factionEventId: event.id },
+    });
+  }
+
+  private maybeRecordBanditRaidAftermath(event: FactionCurrentEvent, room: RoomSnapshot): void {
+    const raidKey = this.banditRaidFlagKey(event.id);
+    const state = this.getFlag<BanditRaidRuntimeState>(raidKey);
+    if (!state || state.aftermathRecorded) {
+      return;
+    }
+    const activeIds = new Set(this.enemies.getEnemiesInRoom(room.id).map((enemy) => enemy.id));
+    if (state.banditEnemyIds.some((id) => activeIds.has(id))) {
+      return;
+    }
+    const aftermath = this.factionEvents.recordRaidAftermath({
+      roomId: room.id,
+      townId: room.town?.id ?? room.goblinCamp?.id,
+      createdAt: this.getRoomsVisitedCount(),
+      banditsKilled: state.banditsKilled + state.banditsEaten,
+      banditsEaten: state.banditsEaten,
+      playerHelped: state.banditsKilled + state.banditsEaten > 0,
+    });
+    this.resolveBanditRaidDefenders(aftermath, room, state);
+    this.recordRumorFromFactionEvent(aftermath);
+    this.setFlag(raidKey, { ...state, aftermathRecorded: true } satisfies BanditRaidRuntimeState);
+    this.setFlag('ui.questInteraction', {
+      message:
+        state.banditsEaten > 0
+          ? `The raid is over. The bandits learned about emergency medicine.`
+          : `The raid is over. Everyone is deciding how grateful to sound.`,
+    });
+  }
+
+  private noteBanditRaidDefeat(enemy: EnemyInstance, eaten: boolean): void {
+    if (!enemy.id.startsWith('npc-hostile:raidBandit-')) {
+      return;
+    }
+    for (const event of this.factionEvents.getEventsForRoom(enemy.roomId, 12)) {
+      if (event.type !== 'raid-active') {
+        continue;
+      }
+      const key = this.banditRaidFlagKey(event.id);
+      const state = this.getFlag<BanditRaidRuntimeState>(key);
+      if (!state?.banditEnemyIds.includes(enemy.id)) {
+        continue;
+      }
+      this.setFlag(key, {
+        ...state,
+        banditsKilled: state.banditsKilled + (eaten ? 0 : 1),
+        banditsEaten: state.banditsEaten + (eaten ? 1 : 0),
+      } satisfies BanditRaidRuntimeState);
+      return;
+    }
+  }
+
+  private activateBanditRaidDefenders(event: FactionCurrentEvent, room: RoomSnapshot): void {
+    for (const actor of this.actors.registry.getByRoom(room.id)) {
+      if (actor.kind === 'animal' || actor.kind === 'enemy' || actor.factionId === 'bandits') {
+        continue;
+      }
+      const canDefend =
+        actor.role === 'guard' ||
+        actor.role === 'gateGuard' ||
+        actor.role === 'shopkeeper' ||
+        actor.role === 'goblinMerchant' ||
+        actor.role === 'bartender';
+      const shopClosed =
+        actor.role === 'shopkeeper' || actor.role === 'goblinMerchant' || actor.role === 'bartender';
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        hostility: canDefend && current.hostility !== 'dead' ? 'suspicious' : current.hostility,
+        mood: {
+          ...current.mood,
+          fear: Math.min(100, current.mood.fear + (canDefend ? 18 : 30)),
+          anger: Math.min(100, current.mood.anger + (canDefend ? 24 : 8)),
+          stress: Math.min(100, current.mood.stress + 34),
+          trust: current.mood.trust,
+        },
+        memory: [
+          ...current.memory.filter((memory) => memory.id !== `memory:raid:defender:${event.id}:${current.id}`),
+          {
+            id: `memory:raid:defender:${event.id}:${current.id}`,
+            eventId: event.id,
+            type: 'bandit-raid-started',
+            summary: canDefend
+              ? 'They took position during a bandit raid.'
+              : 'They hid during a bandit raid.',
+            source: 'witnessed' as const,
+            intensity: event.severity,
+            roomId: room.id,
+            targetActorIds: event.actorIds,
+            tags: ['bandit', 'raid', canDefend ? 'defender' : 'shelter'],
+            createdAtRoomNumber: this.getRoomsVisitedCount(),
+          },
+        ].slice(current.thickness === 'thick' ? -40 : current.thickness === 'medium' ? -20 : -6),
+        flags: {
+          ...current.flags,
+          activeFactionEventId: event.id,
+          raidDefender: canDefend || undefined,
+          raidShelter: !canDefend || undefined,
+          shopClosedReason: shopClosed ? 'Closed during the raid' : current.flags.shopClosedReason,
+        },
+      }));
+    }
+  }
+
+  private resolveBanditRaidDefenders(
+    aftermath: FactionCurrentEvent,
+    room: RoomSnapshot,
+    state: BanditRaidRuntimeState,
+  ): void {
+    for (const actor of this.actors.registry.getByRoom(room.id)) {
+      if (actor.flags.activeFactionEventId !== state.eventId) {
+        continue;
+      }
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        hostility:
+          current.hostility === 'suspicious' && current.flags.raidDefender ? 'neutral' : current.hostility,
+        mood: {
+          ...current.mood,
+          fear: Math.max(0, current.mood.fear - 8),
+          anger: Math.max(0, current.mood.anger - 4),
+          stress: Math.max(0, current.mood.stress - 10),
+          trust: Math.min(100, current.mood.trust + (state.banditsKilled + state.banditsEaten > 0 ? 8 : 0)),
+        },
+        memory: [
+          ...current.memory.filter((memory) => memory.id !== `memory:raid:aftermath:${aftermath.id}:${current.id}`),
+          {
+            id: `memory:raid:aftermath:${aftermath.id}:${current.id}`,
+            eventId: aftermath.id,
+            type: 'bandit-raid-ended',
+            summary:
+              state.banditsEaten > 0
+                ? 'The raid ended after the snake ate some of the attackers.'
+                : 'The raid ended and the town started counting damage.',
+            source: 'witnessed' as const,
+            intensity: aftermath.severity,
+            roomId: room.id,
+            tags: ['bandit', 'raid', 'aftermath'],
+            createdAtRoomNumber: this.getRoomsVisitedCount(),
+          },
+        ].slice(current.thickness === 'thick' ? -40 : current.thickness === 'medium' ? -20 : -6),
+        flags: {
+          ...current.flags,
+          activeFactionEventId: undefined,
+          raidDefender: undefined,
+          raidShelter: undefined,
+          shopClosedReason: undefined,
+        },
+      }));
+    }
+  }
+
+  private findBanditRaidSpawnPositions(room: RoomSnapshot, count: number): Vector2Like[] {
+    const [roomX, roomY] = room.id.split(',').map(Number);
+    const head = this.snake.bodySegments[0];
+    const headLocal = head
+      ? {
+          x: head.x - roomX * this.config.grid.cols,
+          y: head.y - roomY * this.config.grid.rows,
+        }
+      : { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
+    const occupied = new Set<string>();
+    for (const body of this.npcBodies.values()) {
+      if (body.roomId === room.id) occupied.add(`${body.position.x},${body.position.y}`);
+    }
+    for (const enemy of this.enemies.getEnemiesInRoom(room.id)) {
+      occupied.add(`${enemy.position.x},${enemy.position.y}`);
+    }
+    const candidates: Array<Vector2Like & { distance: number; order: string }> = [];
+    for (let y = 0; y < this.config.grid.rows; y += 1) {
+      for (let x = 0; x < this.config.grid.cols; x += 1) {
+        if (!this.isBanditRaidSpawnTile(room.layout[y]?.[x])) continue;
+        if (occupied.has(`${x},${y}`)) continue;
+        if (room.questGiver && room.questGiver.x === x && room.questGiver.y === y) continue;
+        const distance = Math.abs(x - headLocal.x) + Math.abs(y - headLocal.y);
+        if (distance < 5) continue;
+        candidates.push({ x, y, distance, order: this.hashText(`${room.id}:${x}:${y}`) });
+      }
+    }
+    return candidates
+      .sort((a, b) => b.distance - a.distance || a.order.localeCompare(b.order))
+      .slice(0, count)
+      .map(({ x, y }) => ({ x, y }));
+  }
+
+  private isBanditRaidSpawnTile(tile: string | undefined): boolean {
+    return Boolean(tile && tile !== '#' && tile !== '~');
+  }
+
+  private banditRaidFlagKey(eventId: string): string {
+    return `factions.raid.${this.hashText(eventId)}`;
+  }
+
   private recordRumorFromWorldEvent(event: WorldEvent): void {
     const room = event.roomId ? this.world.getRoom(event.roomId) : undefined;
     const modernRumor = this.rumors.createFromWorldEvent(
@@ -3196,7 +3574,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private recordRumorFromFactionEvent(event: FactionCurrentEvent): void {
-    const rumor = this.rumors.createFromFactionEvent(event, this.getRoomsVisitedCount());
+    const rumor = this.rumors.createFromFactionEvent(event, event.createdAt);
     this.syncRumorFlags();
     this.setFlag('factions.v2.save', this.factionEvents.save());
     this.seedTownRumorFromModernRumor(
@@ -3618,8 +3996,14 @@ export class SnakeGame implements QuestRuntime {
     if (bodies.length === 0) {
       return;
     }
+    const enemies = this.enemies.getEnemiesInRoom(room.id);
+    const threats = enemies
+      .filter((enemy) => enemy.encounterKind === 'npc-hostile' || enemy.encounterKind === 'goblin' || enemy.encounterKind === 'duelist' || enemy.encounterKind === 'enemy')
+      .map((enemy) => enemy.position);
+    const roomDangerActive = this.isCurrentRoomRaidActive() || threats.length > 0;
+    const socialTargetsByActorId = this.buildNpcBodySocialTargets(bodies);
     const occupied = new Set<string>();
-    for (const enemy of this.enemies.getEnemiesInRoom(room.id)) {
+    for (const enemy of enemies) {
       occupied.add(`${enemy.position.x},${enemy.position.y}`);
     }
     for (const animal of this.animals.getAnimalsInRoom(room.id)) {
@@ -3629,17 +4013,25 @@ export class SnakeGame implements QuestRuntime {
       const local = this.worldToLocalInRoom(room.id, segment);
       occupied.add(`${local.x},${local.y}`);
     }
-    const directions = [
-      { x: 0, y: 0 },
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ];
     for (const body of bodies) {
       const state = this.relationshipController.getState(body.relationshipId);
       const isHostile = state?.stage === 'hostile' || state?.stage === 'murderous';
-      if (body.stationary && !isHostile) {
+      const actor = body.actorId ? this.actors.getActor(body.actorId) : undefined;
+      if (actor?.flags.raidShelter === true) {
+        body.wanderRadius = Math.max(body.wanderRadius, 4);
+      }
+      const decision = decideActorBrain({
+        actor,
+        body,
+        threats,
+        socialTargets: body.actorId ? (socialTargetsByActorId.get(body.actorId) ?? []) : [],
+        roomDangerActive,
+        random: this.rng,
+      });
+      if (decision.kind === 'shareRumor' && actor && decision.targetActorId && decision.memoryToShare) {
+        this.shareActorGossip(room, actor, decision.targetActorId, decision.memoryToShare);
+      }
+      if (body.stationary && !isHostile && decision.kind === 'hold') {
         occupied.add(`${body.position.x},${body.position.y}`);
         continue;
       }
@@ -3648,13 +4040,9 @@ export class SnakeGame implements QuestRuntime {
         occupied.add(`${body.position.x},${body.position.y}`);
         continue;
       }
-      body.moveCooldown = isHostile ? 2 + Math.floor(this.rng() * 3) : 5 + Math.floor(this.rng() * 7);
-      const shuffled = directions
-        .map((direction) => ({ direction, roll: this.rng() }))
-        .sort((a, b) => a.roll - b.roll)
-        .map((entry) => entry.direction);
+      body.moveCooldown = decision.moveCooldown;
       occupied.delete(`${body.position.x},${body.position.y}`);
-      for (const direction of shuffled) {
+      for (const direction of decision.preferredDirections) {
         const next = { x: body.position.x + direction.x, y: body.position.y + direction.y };
         if (!this.canNpcBodyStandAt(room, body, next, occupied)) {
           continue;
@@ -3664,6 +4052,83 @@ export class SnakeGame implements QuestRuntime {
       }
       occupied.add(`${body.position.x},${body.position.y}`);
     }
+  }
+
+  private buildNpcBodySocialTargets(bodies: readonly NpcBodyState[]): Map<string, ActorBrainSocialTarget[]> {
+    const targets = new Map<string, ActorBrainSocialTarget[]>();
+    const actorBodies = bodies
+      .map((body) => ({
+        body,
+        actor: body.actorId ? this.actors.getActor(body.actorId) : undefined,
+      }))
+      .filter((entry): entry is { body: NpcBodyState; actor: Actor } => Boolean(entry.actor));
+    for (const entry of actorBodies) {
+      targets.set(
+        entry.actor.id,
+        actorBodies
+          .filter((candidate) => candidate.actor.id !== entry.actor.id)
+          .map((candidate) => {
+            const link = entry.actor.relationships.find((relationship) => relationship.actorId === candidate.actor.id);
+            return {
+              actorId: candidate.actor.id,
+              position: { ...candidate.body.position },
+              relationship: link?.relationship ?? 'unknown',
+              knownToPlayer: link?.knownToPlayer,
+            };
+          }),
+      );
+    }
+    return targets;
+  }
+
+  private shareActorGossip(
+    room: RoomSnapshot,
+    sourceActor: Actor,
+    targetActorId: string,
+    memory: ActorMemory,
+  ): void {
+    const target = this.actors.getActor(targetActorId);
+    if (!target || target.hostility === 'dead' || target.health?.state === 'dead') {
+      return;
+    }
+    const eventId = `actor-gossip:${sourceActor.id}:${target.id}:${memory.id}`;
+    if (
+      target.memory.some(
+        (entry) =>
+          entry.eventId === eventId ||
+          (entry.source === 'heard' && entry.summary === memory.summary && entry.tags.includes('gossip')),
+      )
+    ) {
+      return;
+    }
+    const event = this.actors.emitWorldEvent({
+      type: 'actor-rumor-shared',
+      roomId: room.id,
+      sourceActorId: sourceActor.id,
+      targetActorIds: [target.id],
+      witnessActorIds: [],
+      severity: Math.max(8, Math.min(30, Math.floor(memory.intensity * 0.75))),
+      loudness: 2,
+      tags: [...new Set([...memory.tags, 'gossip', 'actor-talk'])],
+      summary: `${sourceActor.displayName} quietly shared a rumor with ${target.displayName}: ${memory.summary}`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: {
+        sourceMemoryId: memory.id,
+      },
+    });
+    this.actors.registry.update(target.id, (current) => ({
+      ...current,
+      memory: current.memory.map((entry) =>
+        entry.id === `memory:${event.id}:${target.id}`
+          ? {
+              ...entry,
+              source: 'heard' as const,
+              summary: memory.summary,
+              tags: [...new Set([...entry.tags, 'rumor', 'gossip'])],
+            }
+          : entry,
+      ),
+    }));
   }
 
   private canNpcBodyStandAt(
@@ -5026,7 +5491,7 @@ export class SnakeGame implements QuestRuntime {
     const shotNpc = this.findVisibleNpcInLineOfFire(room, localHead, direction);
     if (shotNpc) {
       this.turnVisibleNpcHostileFromShot(shotNpc.profile, shotNpc.position);
-      const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
+      const fired = this.firePlayerBulletAndHandleDefeats(localHead, direction);
       if (fired) {
         this.setFlag('ui.playerShot', {
           x: head.x,
@@ -5098,7 +5563,7 @@ export class SnakeGame implements QuestRuntime {
       });
       return true;
     }
-    const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
+    const fired = this.firePlayerBulletAndHandleDefeats(localHead, direction);
     if (fired) {
       if (hasFootball && !hasGunEquipped && !hasLegacyGunPowerup) {
         this.setFlag('equipment.libertyFootballCharges', Math.max(0, footballCharges - 1));
@@ -5113,6 +5578,24 @@ export class SnakeGame implements QuestRuntime {
       });
     }
     return fired;
+  }
+
+  private firePlayerBulletAndHandleDefeats(
+    localHead: Vector2Like,
+    direction: Vector2Like,
+  ): boolean {
+    const before = this.enemies.getEnemiesInRoom(this.snake.currentRoomId);
+    const beforeIds = new Set(before.map((enemy) => enemy.id));
+    const fired = this.enemies.firePlayerBullet(this.snake.currentRoomId, localHead, direction);
+    if (!fired) {
+      return false;
+    }
+    const afterIds = new Set(this.enemies.getEnemiesInRoom(this.snake.currentRoomId).map((enemy) => enemy.id));
+    const defeated = before.filter((enemy) => beforeIds.has(enemy.id) && !afterIds.has(enemy.id));
+    if (defeated.length > 0) {
+      this.handlePlayerBulletDefeats(defeated);
+    }
+    return true;
   }
 
   getNpcDisposition(roomId: string): {

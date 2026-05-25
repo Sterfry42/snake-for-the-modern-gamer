@@ -5685,6 +5685,13 @@ export default class SnakeScene extends Phaser.Scene {
     if (!shopkeeper || this.distanceFromHeadToLocal(shopkeeper) > 1) {
       return false;
     }
+    if (this.snakeGame.isCurrentRoomRaidActive()) {
+      this.showQuestHintPopup(
+        this.snakeGame.getCurrentRoomRaidMessage() ?? 'The shop is closed during the raid.',
+        '#ffce7a',
+      );
+      return true;
+    }
     this.showVillageShopRoot(shopkeeper.name ?? 'Village Shopkeeper');
     return true;
   }
@@ -5998,6 +6005,13 @@ export default class SnakeScene extends Phaser.Scene {
     const shopkeeper = room.goblinCamp?.shopkeeper;
     if (!shopkeeper || this.distanceFromHeadToLocal(shopkeeper) > 1) {
       return false;
+    }
+    if (this.snakeGame.isCurrentRoomRaidActive()) {
+      this.showQuestHintPopup(
+        this.snakeGame.getCurrentRoomRaidMessage() ?? 'The contract stump is closed during the raid.',
+        '#ffce7a',
+      );
+      return true;
     }
     this.showGoblinShopRoot(shopkeeper.name ?? 'Goblin Clerk');
     return true;
@@ -7717,6 +7731,13 @@ export default class SnakeScene extends Phaser.Scene {
         }
         if (id === 'shop') {
           this.paused = false;
+          if (this.snakeGame.isCurrentRoomRaidActive()) {
+            this.showQuestHintPopup(
+              this.snakeGame.getCurrentRoomRaidMessage() ?? 'The shop is closed during the raid.',
+              '#ffce7a',
+            );
+            return;
+          }
           if (profile.species === 'goblin') {
             this.showGoblinShopRoot(profile.displayName);
           } else {

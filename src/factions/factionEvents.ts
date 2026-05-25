@@ -32,6 +32,17 @@ export class FactionEventSystem {
     return this.currentEvents.slice(-Math.max(0, limit)).reverse();
   }
 
+  getEvent(id: string): FactionCurrentEvent | undefined {
+    return this.currentEvents.find((event) => event.id === id);
+  }
+
+  getEventsForRoom(roomId: string, limit = 12): FactionCurrentEvent[] {
+    return this.currentEvents
+      .filter((event) => event.roomId === roomId && event.phase !== 'resolved')
+      .slice(-Math.max(0, limit))
+      .reverse();
+  }
+
   getEventsForActor(actor: Actor, limit = 8): FactionCurrentEvent[] {
     const factionId = actorPrimaryFaction(actor);
     return this.currentEvents
@@ -148,6 +159,23 @@ export class FactionEventSystem {
       );
     }
 
+    if (event.type === 'bandit-raid-started' && typeof event.data?.factionEventId !== 'string') {
+      created.push(
+        this.createEvent({
+          type: 'raid-active',
+          factionIds: ['bandits', 'guards', 'shopkeepers'],
+          actorIds,
+          townId: typeof event.data?.townId === 'string' ? event.data.townId : undefined,
+          roomId: event.roomId,
+          severity: Math.max(35, event.severity),
+          phase: 'active',
+          createdAt: currentRoom,
+          summary: event.summary || 'Bandits are attacking while everyone argues about whose job prevention was.',
+          tags: [...event.tags, 'bandit', 'raid', 'active'],
+        }),
+      );
+    }
+
     if (event.tags.includes('goblin') && (event.tags.includes('crime') || event.tags.includes('eaten'))) {
       created.push(
         this.createEvent({
@@ -211,6 +239,67 @@ export class FactionEventSystem {
       createdAt: context.createdAt,
       summary: 'Bandits are close enough that the shops have started counting exits.',
       tags: ['bandit', 'raid', 'warning', 'danger'],
+    });
+  }
+
+  activateRaidWarning(eventId: string, createdAt: number): FactionCurrentEvent | undefined {
+    const warning = this.currentEvents.find(
+      (event) => event.id === eventId && event.type === 'raid-warning' && event.phase === 'brewing',
+    );
+    if (!warning) return undefined;
+    const active = this.createEvent({
+      type: 'raid-active',
+      factionIds: warning.factionIds,
+      actorIds: warning.actorIds,
+      townId: warning.townId,
+      roomId: warning.roomId,
+      severity: Math.max(35, warning.severity + 8),
+      phase: 'active',
+      createdAt,
+      expiresAt: createdAt + 10,
+      summary: 'Bandits are attacking while everyone argues about whose job prevention was.',
+      tags: [...warning.tags, 'active'],
+      flags: { sourceWarningId: warning.id },
+    });
+    this.currentEvents = this.currentEvents.map((event) =>
+      event.id === warning.id ? { ...event, phase: 'resolved', expiresAt: createdAt + 1 } : event,
+    );
+    return active;
+  }
+
+  recordRaidAftermath(input: {
+    roomId: string;
+    townId?: string;
+    createdAt: number;
+    banditsKilled: number;
+    banditsEaten: number;
+    playerHelped: boolean;
+  }): FactionCurrentEvent {
+    const severity = Math.max(24, 30 + input.banditsKilled * 6 + input.banditsEaten * 8);
+    return this.createEvent({
+      type: 'raid-aftermath',
+      factionIds: ['bandits', 'guards', 'shopkeepers'],
+      townId: input.townId,
+      roomId: input.roomId,
+      severity,
+      phase: 'aftermath',
+      createdAt: input.createdAt,
+      expiresAt: input.createdAt + 36,
+      summary: input.playerHelped
+        ? `The raid ended with ${input.banditsKilled} bandit${input.banditsKilled === 1 ? '' : 's'} down and everyone deciding how grateful to sound.`
+        : 'The raid ended badly enough that people are measuring silence for damage.',
+      tags: [
+        'bandit',
+        'raid',
+        'aftermath',
+        input.playerHelped ? 'player-helped' : 'unresolved',
+        input.banditsEaten > 0 ? 'eaten' : 'defeated',
+      ],
+      flags: {
+        banditsKilled: input.banditsKilled,
+        banditsEaten: input.banditsEaten,
+        playerHelped: input.playerHelped,
+      },
     });
   }
 

@@ -41,19 +41,48 @@ export function selectActorConversation(
     ALL_VOICE_ENTRIES.find((entry) => entry.bucket === context.bucket && entry.source === 'fallback') ??
     ALL_VOICE_ENTRIES[ALL_VOICE_ENTRIES.length - 1];
   const pool = valid.length > 0 ? valid : fallback ? [fallback] : [];
-  const scored = pool.map((entry) => ({ entry, score: entry.priority + priorityBonus(entry, context) }));
+  const recentIds = recentConversationIds(context);
+  const scored = pool.map((entry) => ({
+    entry,
+    score: entry.priority + priorityBonus(entry, context) - recencyPenalty(entry, recentIds, context),
+  }));
   const highest = Math.max(...scored.map((item) => item.score));
-  const closeEnough = context.bucket === 'ask-around' ? 8 : 0;
+  const closeEnough = recentIds.length === 0 ? 0 : context.bucket === 'ask-around' ? 10 : 10;
   const best = scored
     .filter((item) => item.score >= highest - closeEnough)
     .map((item) => item.entry);
-  const recentIds = recentConversationIds(context);
   const fresh = best.filter((entry) => !recentIds.includes(entry.id));
-  const rotationPool = fresh.length > 0 ? fresh : best.filter((entry) => entry.id !== recentIds[0]);
+  const expandedFresh =
+    fresh.length > 0
+      ? fresh
+      : scored
+          .filter(
+            (item) =>
+              !recentIds.includes(item.entry.id) &&
+              !entryUsesRecentlySelectedRumor(item.entry, context) &&
+              item.score >= highest - 40,
+          )
+          .map((item) => item.entry);
+  const rotationPool =
+    expandedFresh.length > 0 ? expandedFresh : best.filter((entry) => entry.id !== recentIds[0]);
   const candidates = rotationPool.length > 0 ? rotationPool : best;
   const random = context.random ?? Math.random;
   const selected = candidates[Math.floor(random() * candidates.length)] ?? candidates[0] ?? best[0] ?? fallback!;
   return materialize(selected, context);
+}
+
+function recencyPenalty(
+  entry: ActorVoiceEntry,
+  recentIds: readonly string[],
+  context: ActorConversationContext,
+): number {
+  const index = recentIds.indexOf(entry.id);
+  if (index < 0) {
+    return 0;
+  }
+  return context.bucket === 'ask-around'
+    ? ([24, 18, 12, 6][index] ?? 3)
+    : ([42, 28, 18, 10][index] ?? 4);
 }
 
 function recentConversationIds(context: ActorConversationContext): string[] {
@@ -103,8 +132,22 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
 
 function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext): number {
   let bonus = 0;
-  if (entry.source === 'rumor' && context.rumors.length > 0) bonus += Math.min(18, context.rumors[0]?.severity ?? 0);
-  if (entry.source === 'faction' && context.factionEvents.length > 0) bonus += Math.min(16, context.factionEvents[0]?.severity ?? 0);
+  if (entry.source === 'rumor' && context.rumors.length > 0) {
+    const rumor = chooseRumorForEntry(entry, context);
+    bonus += Math.min(18, rumor?.severity ?? 0);
+    if (rumor && recentRumorIds(context).includes(rumor.id)) {
+      bonus -= 160;
+    }
+  }
+  if (entry.source === 'faction' && context.factionEvents.length > 0) {
+    const faction = context.factionEvents[0];
+    const isAmbientTruce =
+      faction.severity <= 8 &&
+      faction.tags.includes('truce') &&
+      faction.factionIds.includes('hearthbound-remnant') &&
+      faction.factionIds.includes('goblin-camps');
+    bonus += isAmbientTruce ? 2 : Math.min(16, faction.severity);
+  }
   if (entry.source === 'social' && context.socialLink && !context.socialLink.knownToPlayer) bonus += 12;
   if (entry.source === 'soul' && context.actor.focus >= 8) bonus += 8;
   if (entry.tags.includes('health') && healthBand(context) === 'critical') bonus += 10;
@@ -119,13 +162,15 @@ function materialize(
   context: ActorConversationContext,
 ): ActorConversationResult {
   const source = entry.source ?? inferSource(entry);
-  const line = fillSlots(entry.text, context);
-  const beat = entry.beat ? fillSlots(entry.beat, context) : undefined;
+  const rumor = chooseRumorForEntry(entry, context);
+  const line = fillSlots(entry.text, context, entry);
+  const beat = entry.beat ? fillSlots(entry.beat, context, entry) : undefined;
   return {
     id: entry.id,
     bucket: entry.bucket,
     topic: entry.topic,
     source,
+    rumorId: source === 'rumor' ? rumor?.id : undefined,
     beat,
     line,
     knownFact: knownFactFor(entry, context),
@@ -135,8 +180,8 @@ function materialize(
   };
 }
 
-function fillSlots(text: string, context: ActorConversationContext): string {
-  const rumor = context.rumors[0];
+function fillSlots(text: string, context: ActorConversationContext, entry?: ActorVoiceEntry): string {
+  const rumor = chooseRumorForEntry(entry, context);
   const faction = context.factionEvents[0];
   return text
     .split('{{name}}')
@@ -149,6 +194,39 @@ function fillSlots(text: string, context: ActorConversationContext): string {
     .join(rumor?.summary ?? 'the rumor')
     .split('{{factionEvent}}')
     .join(faction?.summary ?? 'the trouble');
+}
+
+function chooseRumorForEntry(
+  entry: ActorVoiceEntry | undefined,
+  context: ActorConversationContext,
+): ActorConversationContext['rumors'][number] | undefined {
+  if (context.rumors.length === 0) {
+    return undefined;
+  }
+  const recent = recentRumorIds(context);
+  const tagged = entry?.tags.includes('eaten')
+    ? context.rumors.filter((rumor) => rumor.tags.includes('eaten') || rumor.tags.includes('humanoid'))
+    : entry?.tags.includes('crime')
+      ? context.rumors.filter((rumor) => rumor.tags.includes('crime') || rumor.tags.includes('pickpocket'))
+      : entry?.tags.includes('goblin')
+        ? context.rumors.filter((rumor) => rumor.tags.includes('goblin'))
+        : context.rumors;
+  const pool = tagged.length > 0 ? tagged : context.rumors;
+  return pool.find((rumor) => !recent.includes(rumor.id)) ?? pool[0];
+}
+
+function recentRumorIds(context: ActorConversationContext): string[] {
+  const recentKey = `actor.conversation.recentRumors.${context.actor.id}.${context.bucket}`;
+  const recent = context.flags[recentKey];
+  return Array.isArray(recent) ? recent.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function entryUsesRecentlySelectedRumor(entry: ActorVoiceEntry, context: ActorConversationContext): boolean {
+  if (entry.source !== 'rumor') {
+    return false;
+  }
+  const rumor = chooseRumorForEntry(entry, context);
+  return Boolean(rumor && recentRumorIds(context).includes(rumor.id));
 }
 
 function knownFactFor(entry: ActorVoiceEntry, context: ActorConversationContext): string | undefined {
