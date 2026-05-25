@@ -492,7 +492,7 @@ type GameMode =
 const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
   title: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
   action: { boss: true, action: true, actor: true, bullet: true, hazard: true, 'manual-world': false },
-  'manual-room': { boss: false, action: 'manual', actor: false, bullet: true, hazard: false, 'manual-world': true },
+  'manual-room': { boss: false, action: 'manual', actor: true, bullet: true, hazard: false, 'manual-world': true },
   dialogue: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
   shop: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
   dating: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
@@ -7642,6 +7642,7 @@ export default class SnakeScene extends Phaser.Scene {
         profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`),
     );
     const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile), profile.actorId);
+    const conversationPortraitId = profile.portraitId ?? bark.portraitId;
     if (!skipBark) {
       this.setChoicePopupVisible(false);
       this.showQuestDialogue(
@@ -7654,7 +7655,7 @@ export default class SnakeScene extends Phaser.Scene {
           },
         },
         { closeLabel: 'Talk', nextLabel: 'Listen' },
-        { portraitId: bark.portraitId ?? profile.portraitId },
+        { portraitId: conversationPortraitId },
       );
       return;
     }
@@ -7684,7 +7685,7 @@ export default class SnakeScene extends Phaser.Scene {
               },
             },
             { closeLabel: 'Leave', nextLabel: 'Listen' },
-            { portraitId: profile.portraitId },
+            { portraitId: conversationPortraitId },
           );
           return;
         }
@@ -7720,7 +7721,7 @@ export default class SnakeScene extends Phaser.Scene {
               },
             },
             { closeLabel: 'Leave', nextLabel: 'Listen' },
-            { portraitId: profile.portraitId },
+            { portraitId: conversationPortraitId },
           );
           return;
         }

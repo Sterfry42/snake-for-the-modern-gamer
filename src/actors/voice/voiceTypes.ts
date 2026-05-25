@@ -22,6 +22,7 @@ export type ActorVoiceTopic =
   | 'talk.player.hunt'
   | 'talk.player.humanoidEaten'
   | 'talk.player.wanted'
+  | 'talk.introduction'
   | 'talk.local.biome'
   | 'talk.local.town'
   | 'talk.generic'
@@ -129,6 +130,7 @@ export interface ActorVoiceEntry {
   revealsSoul?: ActorSoulRevealKey;
   requiresLore?: 'king' | 'goblinReligion' | 'faction' | 'any';
   socialLinkKinds?: ActorSocialLink['relationship'][];
+  oncePerActor?: boolean;
   tags: string[];
   source?: ActorVoiceSource;
 }

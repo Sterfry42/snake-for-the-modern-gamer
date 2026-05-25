@@ -421,6 +421,8 @@ export class EnemyManager {
     const nextEnemies: EnemyInstance[] = [];
     let meleeHits = 0;
     let meleeHitStyle: BulletInstance['style'] | undefined;
+    const occupied = new Set(roomEnemies.map((enemy) => `${enemy.position.x},${enemy.position.y}`));
+    occupied.add(`${headLocal.x},${headLocal.y}`);
 
     for (const enemy of roomEnemies) {
       if (enemy.position.x === headLocal.x && enemy.position.y === headLocal.y) {
@@ -440,13 +442,14 @@ export class EnemyManager {
 
       const snakeCharging = this.isSnakeChargingEnemy(enemy.position, headLocal, snakeDirection);
 
+      occupied.delete(`${enemy.position.x},${enemy.position.y}`);
       if (moveCooldown <= 0) {
         if (enemy.encounterKind === 'shark') {
-          position = this.tryMoveShark(enemy, room, headLocal);
+          position = this.tryMoveShark(enemy, room, headLocal, occupied);
         } else {
           position = snakeCharging
-            ? this.tryMoveEnemyAway(enemy, room, headLocal)
-            : this.tryMoveEnemy(enemy, room, headLocal);
+            ? this.tryMoveEnemyAway(enemy, room, headLocal, occupied)
+            : this.tryMoveEnemy(enemy, room, headLocal, occupied);
         }
         moveCooldown =
           enemy.encounterKind === 'shark'
@@ -512,6 +515,7 @@ export class EnemyManager {
         flashTicks,
         fireCooldown: snakeCharging ? Math.max(2, nextCooldown) : Math.max(0, nextCooldown),
       });
+      occupied.add(`${position.x},${position.y}`);
     }
 
     if (nextEnemies.length > 0) {
@@ -770,6 +774,7 @@ export class EnemyManager {
     enemy: EnemyInstance,
     room: RoomSnapshot,
     headLocal: Vector2Like,
+    occupied: ReadonlySet<string>,
   ): Vector2Like {
     const directions: Vector2Like[] = [
       { x: 1, y: 0 },
@@ -797,6 +802,9 @@ export class EnemyManager {
       if (next.x === headLocal.x && next.y === headLocal.y) {
         continue;
       }
+      if (occupied.has(`${next.x},${next.y}`)) {
+        continue;
+      }
       return next;
     }
 
@@ -807,6 +815,7 @@ export class EnemyManager {
     enemy: EnemyInstance,
     room: RoomSnapshot,
     headLocal: Vector2Like,
+    occupied: ReadonlySet<string>,
   ): Vector2Like {
     const dx = Math.sign(enemy.position.x - headLocal.x);
     const dy = Math.sign(enemy.position.y - headLocal.y);
@@ -849,6 +858,9 @@ export class EnemyManager {
       ) {
         continue;
       }
+      if (occupied.has(`${next.x},${next.y}`)) {
+        continue;
+      }
       const distance = Math.abs(next.x - headLocal.x) + Math.abs(next.y - headLocal.y);
       if (distance > bestDistance) {
         best = next;
@@ -862,6 +874,7 @@ export class EnemyManager {
     enemy: EnemyInstance,
     room: RoomSnapshot,
     headLocal: Vector2Like,
+    occupied: ReadonlySet<string>,
   ): Vector2Like {
     const dx = Math.sign(headLocal.x - enemy.position.x);
     const dy = Math.sign(headLocal.y - enemy.position.y);
@@ -897,6 +910,9 @@ export class EnemyManager {
       }
       if (next.x === headLocal.x && next.y === headLocal.y) {
         return next;
+      }
+      if (occupied.has(`${next.x},${next.y}`)) {
+        continue;
       }
       if (room.layout[next.y]?.[next.x] !== '~') {
         continue;

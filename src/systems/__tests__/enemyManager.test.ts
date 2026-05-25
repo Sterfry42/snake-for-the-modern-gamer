@@ -67,6 +67,25 @@ describe('EnemyManager', () => {
     expect(result.hitStyle).toBe('npc-hostile');
   });
 
+  it('keeps hostile NPCs from moving onto each other', () => {
+    const rolls = [0, 0.1, 0.2, 0.3, 0, 0.1, 0.2, 0.3];
+    const manager = new EnemyManager(defaultGameConfig.grid, () => rolls.shift() ?? 0.5);
+    const first = manager.spawnHostileNpc('0,0,0', { x: 5, y: 5 }, 'First', 3, 'first');
+    const second = manager.spawnHostileNpc('0,0,0', { x: 6, y: 5 }, 'Second', 3, 'second');
+    first.moveCooldown = 0;
+    second.moveCooldown = 0;
+
+    manager.stepEnemies({
+      getRoom: () => makeRoom(),
+      snake: [{ x: 10, y: 10 }],
+      currentRoomId: '0,0,0',
+      snakeDirection: { x: 0, y: 1 },
+    });
+
+    const positions = manager.getEnemiesInRoom('0,0,0').map((enemy) => `${enemy.position.x},${enemy.position.y}`);
+    expect(new Set(positions).size).toBe(positions.length);
+  });
+
   it('does not allow non-humanoid sharks to be eaten', () => {
     const manager = new EnemyManager(defaultGameConfig.grid, () => 0);
     manager.ensureEnemy('0,0,0', makeRoom('sunken-ocean'), []);

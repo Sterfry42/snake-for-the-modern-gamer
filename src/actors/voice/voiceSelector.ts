@@ -76,13 +76,27 @@ function recencyPenalty(
   recentIds: readonly string[],
   context: ActorConversationContext,
 ): number {
+  const countKey = `actor.conversation.count.${context.actor.id}.${context.bucket}.${entry.id}`;
+  const heardCount = Math.max(0, Number(context.flags[countKey] ?? 0));
+  const heardPenalty = Math.min(context.bucket === 'ask-around' ? 70 : 56, heardCount * (context.bucket === 'ask-around' ? 14 : 10));
   const index = recentIds.indexOf(entry.id);
-  if (index < 0) {
-    return 0;
-  }
-  return context.bucket === 'ask-around'
-    ? ([24, 18, 12, 6][index] ?? 3)
-    : ([42, 28, 18, 10][index] ?? 4);
+  const directPenalty =
+    index < 0
+      ? 0
+      : context.bucket === 'ask-around'
+        ? ([24, 18, 12, 6][index] ?? 3)
+        : ([42, 28, 18, 10][index] ?? 4);
+  const recentTopicIndex = recentIds.findIndex((id) => {
+    const recentEntry = ALL_VOICE_ENTRIES.find((candidate) => candidate.id === id);
+    return recentEntry?.topic === entry.topic;
+  });
+  const topicPenalty =
+    recentTopicIndex < 0
+      ? 0
+      : context.bucket === 'ask-around'
+        ? ([20, 12, 6, 3][recentTopicIndex] ?? 2)
+        : ([12, 8, 4, 2][recentTopicIndex] ?? 1);
+  return directPenalty + topicPenalty + heardPenalty;
 }
 
 function recentConversationIds(context: ActorConversationContext): string[] {
@@ -99,6 +113,7 @@ function recentConversationIds(context: ActorConversationContext): string[] {
 function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext): boolean {
   const { actor } = context;
   if (entry.bucket !== context.bucket) return false;
+  if (entry.tags.includes('introduction') && healthBand(context) !== 'steady') return false;
   if (entry.roles && !entry.roles.includes(actor.role)) return false;
   if (entry.kinds && !entry.kinds.includes(actor.kind)) return false;
   if (entry.species && !entry.species.includes(actor.species)) return false;
@@ -127,11 +142,15 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
   if (entry.requiresLore && !hasLoreRequirement(entry.requiresLore, context)) return false;
   if (entry.socialLinkKinds && (!context.socialLink || !entry.socialLinkKinds.includes(context.socialLink.relationship))) return false;
   if (entry.source === 'rumor' && context.rumors.length === 0 && !entry.memoryTags) return false;
+  if (entry.oncePerActor && wasEntryHeard(entry, context)) return false;
   return true;
 }
 
 function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext): number {
   let bonus = 0;
+  if (entry.oncePerActor && entry.tags.includes('introduction') && context.bucket === 'talk') {
+    bonus += hasActorTalked(context) ? -180 : 90;
+  }
   if (entry.source === 'rumor' && context.rumors.length > 0) {
     const rumor = chooseRumorForEntry(entry, context);
     bonus += Math.min(18, rumor?.severity ?? 0);
@@ -146,7 +165,7 @@ function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext
       faction.tags.includes('truce') &&
       faction.factionIds.includes('hearthbound-remnant') &&
       faction.factionIds.includes('goblin-camps');
-    bonus += isAmbientTruce ? 2 : Math.min(16, faction.severity);
+    bonus += isAmbientTruce ? -90 : Math.min(16, faction.severity);
   }
   if (entry.source === 'social' && context.socialLink && !context.socialLink.knownToPlayer) bonus += 12;
   if (entry.source === 'soul' && context.actor.focus >= 8) bonus += 8;
@@ -155,6 +174,14 @@ function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext
   if (entry.tags.includes('wanted') && (context.town?.wantedLevel ?? 0) >= 3) bonus += 10;
   if (entry.tags.includes('goblin') && context.actor.personality.includes('goblin')) bonus += 4;
   return bonus;
+}
+
+function hasActorTalked(context: ActorConversationContext): boolean {
+  return Number(context.flags[`actor.conversation.total.${context.actor.id}.talk`] ?? 0) > 0;
+}
+
+function wasEntryHeard(entry: ActorVoiceEntry, context: ActorConversationContext): boolean {
+  return Number(context.flags[`actor.conversation.count.${context.actor.id}.${entry.bucket}.${entry.id}`] ?? 0) > 0;
 }
 
 function materialize(

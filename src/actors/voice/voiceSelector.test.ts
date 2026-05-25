@@ -52,6 +52,10 @@ function collectConversationSamples(
       : [];
     flags[`actor.conversation.last.${context.actor.id}.${context.bucket}`] = result.id;
     flags[recentKey] = [result.id, ...previous.filter((id) => id !== result.id)].slice(0, 4);
+    const lineCountKey = `actor.conversation.count.${context.actor.id}.${context.bucket}.${result.id}`;
+    const totalCountKey = `actor.conversation.total.${context.actor.id}.${context.bucket}`;
+    flags[lineCountKey] = Number(flags[lineCountKey] ?? 0) + 1;
+    flags[totalCountKey] = Number(flags[totalCountKey] ?? 0) + 1;
     if (result.rumorId) {
       const recentRumorKey = `actor.conversation.recentRumors.${context.actor.id}.${context.bucket}`;
       const previousRumors = Array.isArray(flags[recentRumorKey])
@@ -152,7 +156,7 @@ describe('selectActorConversation', () => {
     expect(result.knownFact).toContain('family');
   });
 
-  it('can use biome and danger context for talk lines', () => {
+  it('introduces an actor before ordinary biome and danger talk', () => {
     const result = selectActorConversation(
       baseContext({
         biomeId: 'ember-waste',
@@ -170,21 +174,27 @@ describe('selectActorConversation', () => {
     );
 
     expect(result.bucket).toBe('talk');
-    expect(result.tags.some((tag) => tag === 'biome' || tag === 'danger')).toBe(true);
+    expect(result.topic).toBe('talk.introduction');
+    expect(result.line).toContain('Rook');
   });
 
-  it('uses the deep voice pack for less common personality talk coverage', () => {
+  it('uses the deep voice pack for less common personality talk after the introduction', () => {
+    const actor = createBaseActor({
+      id: 'actor:test:vel',
+      kind: 'wanderer',
+      role: 'wanderingCounterpart',
+      species: 'human',
+      thickness: 'medium',
+      displayName: 'Vel',
+      personality: ['statusHungry'],
+    });
     const result = selectActorConversation(
       baseContext({
-        actor: createBaseActor({
-          id: 'actor:test:vel',
-          kind: 'wanderer',
-          role: 'wanderingCounterpart',
-          species: 'human',
-          thickness: 'medium',
-          displayName: 'Vel',
-          personality: ['statusHungry'],
-        }),
+        actor,
+        flags: {
+          [`actor.conversation.total.${actor.id}.talk`]: 1,
+          [`actor.conversation.count.${actor.id}.talk.talk-intro-fallback`]: 1,
+        },
       }),
     );
 
@@ -305,8 +315,8 @@ describe('selectActorConversation', () => {
       }),
     );
 
-    expect(first.source).toBe('faction');
-    expect(second.source).toBe('faction');
+    expect(first.source).not.toBe('faction');
+    expect(second.source).not.toBe('faction');
     expect(second.id).not.toBe(first.id);
   });
 

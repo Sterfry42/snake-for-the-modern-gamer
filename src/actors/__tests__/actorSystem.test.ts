@@ -198,6 +198,12 @@ describe('ActorSystem', () => {
     expect(menu.options.find((option) => option.id === 'ask-rumor')?.enabled).toBe(true);
     expect(menu.options.find((option) => option.id === 'pickpocket')?.enabled).toBe(false);
     expect(menu.indicators.map((indicator) => indicator.kind)).toContain('shop');
+
+    const initiationMenu = buildActorInteractionMenu(actors.getActor(shopkeeper.id) ?? shopkeeper, {
+      thievesGuildUnlocked: false,
+      canPickpocket: true,
+    });
+    expect(initiationMenu.options.find((option) => option.id === 'pickpocket')?.enabled).toBe(true);
   });
 
   it('enriches resident actors with relationship state without replacing their role', () => {

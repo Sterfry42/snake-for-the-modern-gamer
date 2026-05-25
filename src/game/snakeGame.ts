@@ -1350,6 +1350,18 @@ export class SnakeGame implements QuestRuntime {
     }
 
     const questsCompleted = this.questController.handleCompletions(this);
+    for (const quest of questsCompleted) {
+      this.emitWorldEvent({
+        type: 'quest-completed',
+        roomId: this.snake.currentRoomId,
+        severity: 20,
+        loudness: 8,
+        tags: ['quest', 'completed', quest.id],
+        summary: `${quest.label} was completed.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { questId: quest.id, label: quest.label },
+      });
+    }
     const questOffer = this.questController.maybeCreateOffer(paused, this) ?? undefined;
 
     return {
@@ -2338,6 +2350,19 @@ export class SnakeGame implements QuestRuntime {
     this.openTownGateBarrierTiles(room, district);
     this.setFlag(this.townGateFlagKey(town.id, district), true);
     this.saveTownRuntimeState(town);
+    this.emitWorldEvent({
+      type: 'gate-opened',
+      roomId: room.id,
+      severity: 12,
+      loudness: 8,
+      tags: ['town', 'gate', 'tax', district],
+      summary:
+        district === 'townExit'
+          ? `${town.name}'s back gate opened after the snake paid the exit tax.`
+          : `${town.name}'s front gate opened after the snake paid the gate tax.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { townId: town.id, district, gateTax },
+    });
     return {
       ok: true,
       message:
@@ -2442,6 +2467,17 @@ export class SnakeGame implements QuestRuntime {
       direction: this.snake.directionVector,
       reason,
     });
+    this.setFlag('recent.deathReason', reason ?? 'unknown');
+    this.emitWorldEvent({
+      type: 'player-death',
+      roomId,
+      severity: 65,
+      loudness: 35,
+      tags: ['player', 'death', String(reason ?? 'unknown')],
+      summary: `The snake died${reason ? ` to ${reason}` : ''}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { reason: reason ?? 'unknown', local },
+    });
   }
 
   getRoom(roomId: string) {
@@ -2469,9 +2505,10 @@ export class SnakeGame implements QuestRuntime {
       return null;
     }
     const room = this.world.getRoom(this.snake.currentRoomId);
-    const guildUnlocked = Boolean(room.town?.thievesGuild?.discovered);
+    const canPickpocket = Boolean(room.town) && this.canPickpocketForCurrentTownGuild();
     return buildActorInteractionMenu(actor, {
-      thievesGuildUnlocked: guildUnlocked,
+      thievesGuildUnlocked: Boolean(room.town?.thievesGuild?.discovered),
+      canPickpocket,
       canUseRelationshipActions: true,
       recentRumorCount: this.getRecentWorldRumors().length,
     });
@@ -2555,6 +2592,10 @@ export class SnakeGame implements QuestRuntime {
       recentConversationKey,
       [result.id, ...recentConversationIds.filter((id) => id !== result.id)].slice(0, 4),
     );
+    const lineCountKey = `actor.conversation.count.${actor.id}.${bucket}.${result.id}`;
+    const totalCountKey = `actor.conversation.total.${actor.id}.${bucket}`;
+    this.setFlag(lineCountKey, Number(this.getFlag<number>(lineCountKey) ?? 0) + 1);
+    this.setFlag(totalCountKey, Number(this.getFlag<number>(totalCountKey) ?? 0) + 1);
     if (result.rumorId) {
       const recentRumorKey = `actor.conversation.recentRumors.${actor.id}.${bucket}`;
       const recentRumorRaw = this.getFlag<unknown>(recentRumorKey);
@@ -4008,6 +4049,9 @@ export class SnakeGame implements QuestRuntime {
     }
     for (const animal of this.animals.getAnimalsInRoom(room.id)) {
       occupied.add(`${animal.position.x},${animal.position.y}`);
+    }
+    for (const body of bodies) {
+      occupied.add(`${body.position.x},${body.position.y}`);
     }
     for (const segment of this.snake.bodySegments) {
       const local = this.worldToLocalInRoom(room.id, segment);
@@ -6266,6 +6310,16 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('ui.livesRevealed', true);
       this.inventory.removeItem(itemId, 1);
       this.setFlag('ui.itemUsed', { itemId, itemName: item.name, lifeCharge: true });
+      this.emitWorldEvent({
+        type: 'item-used',
+        roomId: this.snake.currentRoomId,
+        severity: 10,
+        loudness: 3,
+        tags: ['item', 'charm', itemId],
+        summary: `The snake used ${item.name}.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { itemId, itemName: item.name, lifeCharge: true },
+      });
       return { ok: true, message: `Used ${item.name}. Extra life charge added.`, color: '#9cff9c', consume: true };
     }
 
@@ -6283,6 +6337,16 @@ export class SnakeGame implements QuestRuntime {
     }
 
     this.inventory.removeItem(itemId, 1);
+    this.emitWorldEvent({
+      type: 'item-used',
+      roomId: this.snake.currentRoomId,
+      severity: healed > 0 ? 12 : 8,
+      loudness: 3,
+      tags: ['item', item.category ?? 'consumable', itemId, effect.hunger ? 'food' : 'consumable'],
+      summary: `The snake used ${item.name}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { itemId, itemName: item.name, healed, hunger: effect.hunger ?? 0 },
+    });
     const parts = [`Used ${item.name}.`];
     if (healed > 0) {
       parts.push(`Healed ${healed} heart${healed === 1 ? '' : 's'}.`);
@@ -6319,6 +6383,16 @@ export class SnakeGame implements QuestRuntime {
     this.inventory.removeItem(recipe.input, 1);
     this.inventory.addItem(recipe.output, 1);
     this.setFlag('ui.itemUsed', { itemId: recipe.output, itemName: getItem(recipe.output)?.name });
+    this.emitWorldEvent({
+      type: 'food-cooked',
+      roomId: this.snake.currentRoomId,
+      severity: 8,
+      loudness: 4,
+      tags: ['food', 'cooking', recipe.input, recipe.output],
+      summary: recipe.label,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { inputItemId: recipe.input, outputItemId: recipe.output, recipeId },
+    });
     return { ok: true, message: recipe.label, color: '#9cff9c', consume: true };
   }
 
@@ -6350,6 +6424,28 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('player.health', next);
     this.setFlag('ui.healthRevealed', true);
     return next - current;
+  }
+
+  private emitPlayerLowHealthEvent(current: number, max: number, source: string): void {
+    if (max <= 0 || current <= 0 || current / max > 0.5) {
+      return;
+    }
+    const band = current / max <= 0.25 ? 'critical' : 'low';
+    const key = `world.playerHealth.${band}.${this.snake.currentRoomId}.${current}`;
+    if (this.getFlag<boolean>(key)) {
+      return;
+    }
+    this.setFlag(key, true);
+    this.emitWorldEvent({
+      type: 'player-low-health',
+      roomId: this.snake.currentRoomId,
+      severity: band === 'critical' ? 30 : 18,
+      loudness: 10,
+      tags: ['player', 'health', band, source],
+      summary: `The snake is ${band === 'critical' ? 'critically wounded' : 'hurt'} nearby.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { current, max, source },
+    });
   }
 
   restoreHunger(amount: number): void {
@@ -8096,6 +8192,16 @@ export class SnakeGame implements QuestRuntime {
       this.completeRelationshipMarriage(instance.relationshipId);
     }
     this.setFlag('quest.staged.completedNow', { questId: instance.questId });
+    this.emitWorldEvent({
+      type: 'quest-completed',
+      roomId,
+      severity: 24,
+      loudness: 10,
+      tags: ['quest', 'completed', instance.questId],
+      summary: `${quest.label} was completed.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { questId: instance.questId, label: quest.label },
+    });
     return { quest: completed ?? quest, state: 'completed' };
   }
 
@@ -8411,6 +8517,7 @@ export class SnakeGame implements QuestRuntime {
     }
     this.setFlag('player.temperatureDamageProgressMs', damageProgressMs);
     this.setFlag('player.health', Math.max(0, currentHealth));
+    this.emitPlayerLowHealthEvent(Math.max(0, currentHealth), maxHealth, 'temperature');
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('ui.playerHit', {
       x: head.x,
@@ -8474,6 +8581,7 @@ export class SnakeGame implements QuestRuntime {
     const current = Number(this.getFlag<number>('player.health') ?? max);
     const next = Math.max(0, current - 1);
     this.setFlag('player.health', next);
+    this.emitPlayerLowHealthEvent(next, max, style ?? 'bullet');
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('player.bulletInvulnTicks', 10);
     const head = this.snake.bodySegments[0];
@@ -8892,6 +9000,7 @@ export class SnakeGame implements QuestRuntime {
     roomsChanged.add(previousRoomId);
     this.setFlag('fortitude.phoenixTriggered', { reason: outcome.reason ?? 'unknown' });
     this.setFlag('traversal.manualResumePending', true);
+    this.emitPlayerRevivalEvent(outcome.reason ?? 'unknown', 'phoenix');
 
     const base = this.getFlag<{ duration?: number }>('fortitude.invulnerability');
     const bonus = this.getFlag<number>('fortitude.invulnerabilityBonus') ?? 0;
@@ -8913,6 +9022,20 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('fortitude.phoenixTriggered', undefined);
     this.setFlag('traversal.manualResumePending', true);
+    this.emitPlayerRevivalEvent(reason ?? 'unknown', 'extra-life');
+  }
+
+  private emitPlayerRevivalEvent(reason: string, source: string): void {
+    this.emitWorldEvent({
+      type: 'player-revival',
+      roomId: this.snake.currentRoomId,
+      severity: 50,
+      loudness: 25,
+      tags: ['player', 'revival', source, reason],
+      summary: `The snake revived after ${reason}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { reason, source },
+    });
   }
 
   returnFromManualResumePause(): boolean {

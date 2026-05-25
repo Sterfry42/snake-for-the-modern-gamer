@@ -38,6 +38,7 @@ export interface ActorInteractionMenuModel {
 
 export interface ActorInteractionContext {
   thievesGuildUnlocked?: boolean;
+  canPickpocket?: boolean;
   canUseRelationshipActions?: boolean;
   recentRumorCount?: number;
 }
@@ -49,6 +50,7 @@ export function buildActorInteractionMenu(
   const options: ActorInteractionOption[] = [];
   const hostile = actor.hostility === 'hostile' || actor.hostility === 'surrendering';
   const humanoid = actor.species === 'human' || actor.species === 'goblin' || actor.species === 'angel' || actor.species === 'goblinAngel';
+  const canPickpocket = Boolean(context.canPickpocket ?? context.thievesGuildUnlocked);
 
   options.push({ id: 'inspect', label: 'Inspect', enabled: true, priority: 10 });
 
@@ -116,8 +118,8 @@ export function buildActorInteractionMenu(
     options.push({
       id: 'pickpocket',
       label: 'Pickpocket',
-      enabled: Boolean(context.thievesGuildUnlocked) && !hostile,
-      reason: context.thievesGuildUnlocked ? undefined : 'Join the thieves guild',
+      enabled: canPickpocket && !hostile,
+      reason: canPickpocket ? undefined : 'Find the thieves guild test',
       priority: 35,
     });
     options.push({ id: 'threaten', label: 'Threaten', enabled: !hostile, priority: 18 });
