@@ -201,6 +201,7 @@ export interface ThievesGuildJob {
 }
 
 export interface TownResident extends Omit<NpcProfile, 'role'> {
+  actorId?: string;
   x: number;
   y: number;
   role: 'shopkeeper' | 'bartender' | 'guard' | 'resident' | 'thiefContact' | 'thief' | 'scribe';
@@ -497,6 +498,7 @@ export function generateHumanTown(options: TownGenOptions): TownStructure {
     residents: [],
     shopkeeper: {
       ...buildHouseNpcProfile('Town Clerk', 'sage-1'),
+      actorId: `town:${townId}:shopkeeper:npc-town-clerk`,
       x: 0,
       y: 0,
       role: 'shopkeeper',
@@ -559,6 +561,9 @@ export function createPhysicalHumanTown(args: {
       spot.name,
       spot.role === 'thief' || spot.role === 'thiefContact' ? pick(BANDIT_PORTRAITS, rng) : pick(PORTRAITS, rng),
     ),
+    actorId: `town:${town.id}:${
+      spot.role === 'shopkeeper' ? 'shopkeeper' : spot.role === 'guard' ? 'guard' : 'resident'
+    }:${town.id}:resident:${spot.role}:${index}`,
     x: 0,
     y: 0,
     role: spot.role,

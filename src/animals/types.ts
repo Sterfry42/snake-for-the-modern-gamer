@@ -41,6 +41,7 @@ export interface AnimalDefinition {
 
 export interface AnimalInstance {
   id: string;
+  actorId?: string;
   type: AnimalType;
   roomId: string;
   position: Vector2Like;

@@ -32,6 +32,7 @@ interface AnimalStepResult {
 
 export interface HuntedAnimalResult {
   animalId: string;
+  actorId?: string;
   animalType: AnimalDefinition['type'];
   animalName: string;
   position: Vector2Like;
@@ -198,8 +199,10 @@ export class AnimalManager {
       { x: 0, y: -1 },
     ];
 
+    const id = `animal-${this.nextId++}`;
     return {
-      id: `animal-${this.nextId++}`,
+      id,
+      actorId: `animal:${roomId}:${id}`,
       type: def.type,
       roomId,
       position,
@@ -684,6 +687,7 @@ export class AnimalManager {
   ): HuntedAnimalResult {
     return {
       animalId: animal.id,
+      actorId: animal.actorId,
       animalType: animal.type,
       animalName: def.name,
       position: { ...animal.position },

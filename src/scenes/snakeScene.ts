@@ -62,6 +62,7 @@ import {
   type WardDeathSource,
 } from '../shops/goblinShop.js';
 import type { FactionCardView } from '../factions/factions.js';
+import type { ActorJournalEntry } from '../game/snakeGame.js';
 import type {
   DatingCandidateView,
   DatingBranchChoice,
@@ -70,6 +71,7 @@ import type {
   RelationshipEventResult,
   RelationshipOutcomeTier,
   RelationshipPersonality,
+  RelationshipReward,
   RelationshipSpecies,
   RelationshipTag,
 } from '../relationships/relationshipTypes.js';
@@ -490,7 +492,7 @@ type GameMode =
 const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
   title: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
   action: { boss: true, action: true, actor: true, bullet: true, hazard: true, 'manual-world': false },
-  'manual-room': { boss: false, action: 'manual', actor: false, bullet: true, hazard: false, 'manual-world': true },
+  'manual-room': { boss: false, action: 'manual', actor: true, bullet: true, hazard: false, 'manual-world': true },
   dialogue: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
   shop: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
   dating: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
@@ -578,6 +580,7 @@ export default class SnakeScene extends Phaser.Scene {
   private wandererSprite!: Phaser.GameObjects.Sprite;
   private choicePopupVisible = false;
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
+  private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
   // Religion choice state
@@ -928,13 +931,13 @@ export default class SnakeScene extends Phaser.Scene {
         if (this.tryInteractLibertyStructure()) {
           return;
         }
+        if (this.tryInteractRelationshipNpc()) {
+          return;
+        }
         if (this.tryInteractVillageShopkeeper()) {
           return;
         }
         if (this.tryInteractGoblinShopkeeper()) {
-          return;
-        }
-        if (this.tryInteractRelationshipNpc()) {
           return;
         }
         if (this.tryInteractQuestGiver()) {
@@ -1566,6 +1569,15 @@ export default class SnakeScene extends Phaser.Scene {
       ease: 'Cubic.easeOut',
       onComplete: () => popup.destroy(),
     });
+  }
+
+  private showPendingActorKnownFact(): void {
+    const fact = this.snakeGame.getFlag<{ actorId: string; text: string }>('ui.actorKnownFact');
+    if (!fact) {
+      return;
+    }
+    this.snakeGame.setFlag('ui.actorKnownFact', undefined);
+    this.showQuestHintPopup(`Known fact learned: ${fact.text}`, '#9ad1ff');
   }
 
   private gameOver(reason?: string | null) {
@@ -3499,6 +3511,10 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getFactionCards();
   }
 
+  getPeopleJournalView(): ActorJournalEntry[] {
+    return this.snakeGame.getPeopleJournalView();
+  }
+
   getCardCollectionForMenu(): CardCollection {
     return this.getCardCollection();
   }
@@ -3878,6 +3894,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.questGiverSprite?.setVisible(false);
       this.wandererSprite?.setVisible(false);
       this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
+      this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
       this.isDirty = false;
       return;
     }
@@ -4160,12 +4177,14 @@ export default class SnakeScene extends Phaser.Scene {
       roomId: string;
       name?: string;
       kind?: string;
+      healed?: number;
     }>('ui.enemyEaten');
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
       (this.juice as any).enemyEaten?.(world.x, world.y);
+      const label = enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy';
       const popup = this.add
-        .text(world.x, world.y - 14, enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy', {
+        .text(world.x, world.y - 14, enemyEaten.healed ? `${label}  +${enemyEaten.healed} heart` : label, {
           fontFamily: 'monospace',
           fontSize: '14px',
           color: '#ffcf8a',
@@ -4196,6 +4215,12 @@ export default class SnakeScene extends Phaser.Scene {
       );
       (this.juice as any).wandererReveal?.(world.x, world.y);
       this.snakeGame.setFlag('ui.wandererReveal', undefined);
+    }
+
+    const relationshipReward = this.snakeGame.getFlag<{ reward: RelationshipReward }>('ui.relationshipReward');
+    if (relationshipReward) {
+      this.showQuestHintPopup(this.describeRelationshipReward(relationshipReward.reward), '#ffbdfd');
+      this.snakeGame.setFlag('ui.relationshipReward', undefined);
     }
 
     const playerShot = this.snakeGame.getFlag<{
@@ -5660,6 +5685,13 @@ export default class SnakeScene extends Phaser.Scene {
     if (!shopkeeper || this.distanceFromHeadToLocal(shopkeeper) > 1) {
       return false;
     }
+    if (this.snakeGame.isCurrentRoomRaidActive()) {
+      this.showQuestHintPopup(
+        this.snakeGame.getCurrentRoomRaidMessage() ?? 'The shop is closed during the raid.',
+        '#ffce7a',
+      );
+      return true;
+    }
     this.showVillageShopRoot(shopkeeper.name ?? 'Village Shopkeeper');
     return true;
   }
@@ -5973,6 +6005,13 @@ export default class SnakeScene extends Phaser.Scene {
     const shopkeeper = room.goblinCamp?.shopkeeper;
     if (!shopkeeper || this.distanceFromHeadToLocal(shopkeeper) > 1) {
       return false;
+    }
+    if (this.snakeGame.isCurrentRoomRaidActive()) {
+      this.showQuestHintPopup(
+        this.snakeGame.getCurrentRoomRaidMessage() ?? 'The contract stump is closed during the raid.',
+        '#ffce7a',
+      );
+      return true;
     }
     this.showGoblinShopRoot(shopkeeper.name ?? 'Goblin Clerk');
     return true;
@@ -7429,11 +7468,8 @@ export default class SnakeScene extends Phaser.Scene {
     if (!profile) {
       return false;
     }
+    this.snakeGame.getActorsInCurrentRoom();
     this.snakeGame.ensureRelationshipCandidate(profile);
-    if (this.snakeGame.isRelationshipHostile(profile)) {
-      this.showQuestHintPopup(`${profile.displayName} is no longer here to talk.`, '#ff6b6b');
-      return true;
-    }
     this.showRelationshipRoot(profile);
     return true;
   }
@@ -7447,28 +7483,70 @@ export default class SnakeScene extends Phaser.Scene {
     const candidates: Array<RelationshipCandidateProfile & { x: number; y: number }> = [];
     if (room.village) {
       candidates.push(
-        ...room.village.residents.map((resident) => ({
+        ...[...room.village.residents, room.village.shopkeeper].map((resident) => ({
           id: `resident:${room.id}:${resident.id}`,
+          actorId: this.snakeGame.getVillageActorId(
+            room.id,
+            resident.id,
+            resident.id === room.village!.shopkeeper.id ? 'shopkeeper' : 'resident',
+          ),
           displayName: resident.name,
           species: 'human' as RelationshipSpecies,
           portraitId: resident.portraitId,
           homeRoomId: room.id,
           factionId: 'hearthbound-remnant' as const,
-          x: resident.x,
-          y: resident.y,
+          ...this.snakeGame.getRelationshipNpcBodyPosition(
+            {
+              id: `resident:${room.id}:${resident.id}`,
+              actorId: this.snakeGame.getVillageActorId(
+                room.id,
+                resident.id,
+                resident.id === room.village!.shopkeeper.id ? 'shopkeeper' : 'resident',
+              ),
+              displayName: resident.name,
+              species: 'human' as RelationshipSpecies,
+              portraitId: resident.portraitId,
+              homeRoomId: room.id,
+              factionId: 'hearthbound-remnant' as const,
+            },
+            { x: resident.x, y: resident.y },
+          ),
         })),
       );
     }
+    if (room.questGiver) {
+      candidates.push({
+        id: `quest:${room.id}:${room.questGiver.id}`,
+        actorId: this.snakeGame.getQuestGiverActorId(room.id, room.questGiver.id),
+        displayName: room.questGiver.name,
+        species: 'human' as RelationshipSpecies,
+        portraitId: room.questGiver.portraitId,
+        homeRoomId: room.id,
+        factionId: 'hearthbound-remnant' as const,
+        ...this.snakeGame.getRelationshipNpcBodyPosition(
+          {
+            id: `quest:${room.id}:${room.questGiver.id}`,
+            actorId: this.snakeGame.getQuestGiverActorId(room.id, room.questGiver.id),
+            displayName: room.questGiver.name,
+            species: 'human' as RelationshipSpecies,
+            portraitId: room.questGiver.portraitId,
+            homeRoomId: room.id,
+            factionId: 'hearthbound-remnant' as const,
+          },
+          { x: room.questGiver.x, y: room.questGiver.y },
+        ),
+      });
+    }
     if (room.town) {
-      if (this.snakeGame.isTownHostileForRoom(room.town, room.id)) {
-        return null;
-      }
       const district = getTownDistrictForRoom(room.town, room.id);
       candidates.push(
         ...room.town.residents
           .filter((resident) => this.isTownResidentInDistrict(resident.workRoomId, district))
           .map((resident) => ({
             id: `resident:${room.id}:${resident.id}`,
+            actorId:
+              resident.actorId ??
+              this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role),
             displayName: `${resident.name}${
               resident.role === 'bartender'
                 ? ' the Bartender'
@@ -7483,26 +7561,62 @@ export default class SnakeScene extends Phaser.Scene {
             homeRoomId: resident.homeRoomId ?? room.id,
             factionId: 'hearthbound-remnant' as const,
             personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-            x: resident.x,
-            y: resident.y,
+            ...this.snakeGame.getRelationshipNpcBodyPosition(
+              {
+                id: `resident:${room.id}:${resident.id}`,
+                actorId:
+                  resident.actorId ??
+                  this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role),
+                displayName: resident.name,
+                species: 'human' as RelationshipSpecies,
+                portraitId: resident.portraitId,
+                homeRoomId: resident.homeRoomId ?? room.id,
+                factionId: 'hearthbound-remnant' as const,
+                personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+              },
+              { x: resident.x, y: resident.y },
+            ),
           })),
       );
     }
     if (room.goblinCamp) {
       candidates.push(
-        ...room.goblinCamp.guards.map((guard) => ({
+        ...[room.goblinCamp.shopkeeper, ...room.goblinCamp.guards].map((guard) => ({
           id: `resident:${room.id}:${guard.id}`,
+          actorId: this.snakeGame.getGoblinCampActorId(
+            room.goblinCamp!.id,
+            guard.id,
+            guard.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
+          ),
           displayName: guard.name,
           species: 'goblin' as RelationshipSpecies,
           portraitId: guard.portraitId ?? 'goblin-neutral',
           homeRoomId: room.id,
           factionId: 'goblin-camps' as const,
-          x: guard.x,
-          y: guard.y,
+          ...this.snakeGame.getRelationshipNpcBodyPosition(
+            {
+              id: `resident:${room.id}:${guard.id}`,
+              actorId: this.snakeGame.getGoblinCampActorId(
+                room.goblinCamp!.id,
+                guard.id,
+                guard.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
+              ),
+              displayName: guard.name,
+              species: 'goblin' as RelationshipSpecies,
+              portraitId: guard.portraitId ?? 'goblin-neutral',
+              homeRoomId: room.id,
+              factionId: 'goblin-camps' as const,
+            },
+            { x: guard.x, y: guard.y },
+          ),
         })),
       );
     }
     const nearest = candidates
+      .filter((candidate) => {
+        const state = this.snakeGame.getRelationshipState(candidate);
+        return !(state?.stage === 'dead' || state?.flags.dead || state?.flags.eatenByPlayer);
+      })
       .map((candidate) => ({
         candidate,
         distance: Math.abs(candidate.x - local.x) + Math.abs(candidate.y - local.y),
@@ -7527,7 +7641,8 @@ export default class SnakeScene extends Phaser.Scene {
         this.snakeGame.canPickpocketForCurrentTownGuild() &&
         profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`),
     );
-    const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile));
+    const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile), profile.actorId);
+    const conversationPortraitId = profile.portraitId ?? bark.portraitId;
     if (!skipBark) {
       this.setChoicePopupVisible(false);
       this.showQuestDialogue(
@@ -7540,30 +7655,13 @@ export default class SnakeScene extends Phaser.Scene {
           },
         },
         { closeLabel: 'Talk', nextLabel: 'Listen' },
-        { portraitId: bark.portraitId ?? profile.portraitId },
+        { portraitId: conversationPortraitId },
       );
       return;
     }
     this.villageShopPopup.show(
-      profile.displayName,
-      [
-        {
-          id: 'talk',
-          title: 'Talk',
-          description: 'Get a line from them. This does not start romance.',
-        },
-        { id: 'romance', title: 'Romance', description: 'Open the dating scene and opt into dating-game nonsense.' },
-        ...(canPickpocket
-          ? [
-              {
-                id: 'pickpocket',
-                title: 'Pick Pocket',
-                description: 'Lift score or contraband. Trust is also in the pocket, unfortunately.',
-              },
-            ]
-          : []),
-        { id: 'leave', title: 'Leave', description: 'Keep things safely ordinary.' },
-      ],
+      this.actorInteractionTitle(profile),
+      this.actorInteractionOptions(profile, canPickpocket),
       (id) => {
         this.setChoicePopupVisible(false);
         if (id === 'leave') {
@@ -7571,21 +7669,81 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id === 'talk') {
-          const talk = this.snakeGame.getRelationshipTalk(profile);
-          const town = this.snakeGame.getCurrentTown();
-          const townLine = town ? this.townGossipLine(town) : null;
+          const conversation = profile.actorId
+            ? this.snakeGame.getActorConversation(profile.actorId, 'talk')
+            : null;
+          const line = this.snakeGame.formatActorConversation(conversation);
+          const talk = line ? null : this.snakeGame.getRelationshipTalk(profile);
           this.showQuestDialogue(
-            talk.title,
-            townLine ? [`"${townLine}"`, `"${talk.line}"`] : [`"${talk.line}"`],
+            profile.displayName,
+            line ? [line] : [`"${talk?.line ?? 'They watch you with careful uncertainty.'}"`],
             {
               onClose: () => {
                 this.closeQuestPopup();
+                this.showPendingActorKnownFact();
                 this.skillTree.getOverlay().refresh();
               },
             },
             { closeLabel: 'Leave', nextLabel: 'Listen' },
-            { portraitId: profile.portraitId },
+            { portraitId: conversationPortraitId },
           );
+          return;
+        }
+        if (
+          id === 'ask-rumor' ||
+          id === 'ask-personal' ||
+          id === 'apologize' ||
+          id === 'threaten' ||
+          id === 'parley'
+        ) {
+          const line =
+            id === 'ask-rumor'
+              ? this.snakeGame.formatActorConversation(
+                  profile.actorId ? this.snakeGame.getActorConversation(profile.actorId, 'ask-around') : null,
+                )
+              : id === 'apologize'
+                ? this.snakeGame.apologizeToActor(profile.actorId ?? '')
+                : id === 'threaten'
+                  ? this.snakeGame.threatenActor(profile.actorId ?? '')
+                  : id === 'parley'
+                    ? this.snakeGame.parleyWithActor(profile.actorId ?? '')
+                    : this.snakeGame.formatActorConversation(
+                        profile.actorId ? this.snakeGame.getActorConversation(profile.actorId, 'ask-personal') : null,
+                      );
+          this.showQuestDialogue(
+            profile.displayName,
+            [line ?? '"Not now."'],
+            {
+              onClose: () => {
+                this.closeQuestPopup();
+                this.showPendingActorKnownFact();
+                this.skillTree.getOverlay().refresh();
+              },
+            },
+            { closeLabel: 'Leave', nextLabel: 'Listen' },
+            { portraitId: conversationPortraitId },
+          );
+          return;
+        }
+        if (id === 'take-quest') {
+          this.paused = false;
+          this.tryInteractQuestGiver();
+          return;
+        }
+        if (id === 'shop') {
+          this.paused = false;
+          if (this.snakeGame.isCurrentRoomRaidActive()) {
+            this.showQuestHintPopup(
+              this.snakeGame.getCurrentRoomRaidMessage() ?? 'The shop is closed during the raid.',
+              '#ffce7a',
+            );
+            return;
+          }
+          if (profile.species === 'goblin') {
+            this.showGoblinShopRoot(profile.displayName);
+          } else {
+            this.showVillageShopRoot(profile.displayName);
+          }
           return;
         }
         if (id === 'pickpocket') {
@@ -7598,6 +7756,94 @@ export default class SnakeScene extends Phaser.Scene {
         this.showDatingScene(profile);
       },
     );
+  }
+
+  private actorInteractionOptions(
+    profile: RelationshipCandidateProfile,
+    canPickpocket: boolean,
+  ): Array<{ id: string; title: string; description: string }> {
+    const actorMenu = profile.actorId ? this.snakeGame.getActorInteractionMenu(profile.actorId) : null;
+    if (!actorMenu) {
+      return [
+        {
+          id: 'talk',
+          title: 'Talk',
+          description: 'Get a line from them. This does not start romance.',
+        },
+        {
+          id: 'romance',
+          title: 'Romance',
+          description: 'Open the dating scene and opt into dating-game nonsense.',
+        },
+        ...(canPickpocket
+          ? [
+              {
+                id: 'pickpocket',
+                title: 'Pick Pocket',
+                description: 'Lift score or contraband. Trust is also in the pocket, unfortunately.',
+              },
+            ]
+          : []),
+        { id: 'leave', title: 'Leave', description: 'Keep things safely ordinary.' },
+      ];
+    }
+    const supported = new Set([
+      'talk',
+      'ask-rumor',
+      'ask-personal',
+      'take-quest',
+      'shop',
+      'apologize',
+      'threaten',
+      'parley',
+      'romance',
+      'pickpocket',
+      'leave',
+    ]);
+    return actorMenu.options
+      .filter((option) => option.enabled && supported.has(option.id))
+      .filter((option) => option.id !== 'pickpocket' || canPickpocket)
+      .map((option) => ({
+        id: option.id,
+        title: option.label,
+        description: actorInteractionDescription(option.id),
+      }));
+  }
+
+  private actorInteractionTitle(profile: RelationshipCandidateProfile): string {
+    const actorMenu = profile.actorId ? this.snakeGame.getActorInteractionMenu(profile.actorId) : null;
+    return actorMenu
+      ? `${actorMenu.title} (${actorMenu.moodSummary})`
+      : profile.displayName;
+  }
+
+  private currentTownActorLine(displayName: string): string {
+    const town = this.snakeGame.getCurrentTown();
+    return town
+      ? this.townGossipLine(town)
+      : `${displayName} says this place has not organized itself enough to gossip properly.`;
+  }
+
+  private askActorAround(profile: RelationshipCandidateProfile): string | null {
+    const actorId = profile.actorId ?? '';
+    const options = [
+      () => this.snakeGame.askActorRumor(actorId),
+      () => this.currentTownActorLine(profile.displayName),
+      () => this.snakeGame.askActorKingLore(actorId),
+    ];
+    const start = Math.floor(Math.random() * options.length);
+    for (let offset = 0; offset < options.length; offset += 1) {
+      const line = options[(start + offset) % options.length]?.();
+      if (line) return line;
+    }
+    return null;
+  }
+
+  private askActorPersonally(profile: RelationshipCandidateProfile): string | null {
+    const actorId = profile.actorId ?? '';
+    return Math.random() < 0.5
+      ? (this.snakeGame.askActorSocialTie(actorId) ?? this.snakeGame.askActorPersonalReveal(actorId))
+      : (this.snakeGame.askActorPersonalReveal(actorId) ?? this.snakeGame.askActorSocialTie(actorId));
   }
 
   private relationshipNpcVoiceRole(profile: RelationshipCandidateProfile): string {
@@ -8015,6 +8261,29 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private describeRelationshipReward(reward: RelationshipReward): string {
+    switch (reward.kind) {
+      case 'item':
+        return `Relationship reward: ${reward.itemId} x${reward.count}.`;
+      case 'card':
+        return `Relationship reward: ${reward.cardId === 'random' ? 'a card' : reward.cardId}.`;
+      case 'perk':
+        return 'Relationship perk unlocked.';
+      case 'temporaryBuff':
+        return `Relationship buff active for ${reward.durationRooms} rooms.`;
+      case 'shopDiscount':
+        return `Relationship discount active for ${reward.rooms} rooms.`;
+      case 'mapHint':
+        return 'Relationship map hint recorded.';
+      case 'rescueChance':
+        return `Relationship rescue chance improved by ${reward.percent}%.`;
+      case 'cosmetic':
+        return 'Relationship cosmetic unlocked.';
+      case 'score':
+        return `Relationship reward: +${reward.amount} score.`;
+    }
+  }
+
   private isTownResidentInDistrict(
     workRoomId: string | undefined,
     district: TownDistrictKind | undefined,
@@ -8042,6 +8311,39 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     this.paused = true;
     this.skillTree.hideOverlay();
+    const cutscene = result ? undefined : this.snakeGame.popRelationshipCutscene(profile.id);
+    if (cutscene) {
+      const state = this.snakeGame.getRelationshipState(profile);
+      this.datingScenePopup.show({
+        profile,
+        state,
+        line: cutscene.pages.join('\n\n'),
+        lineIsNarration: true,
+        result: {
+          ok: true,
+          title: profile.displayName,
+          message: cutscene.pages.join('\n'),
+          color: '#ffbdfd',
+          state,
+        },
+        actions: [{ id: 'continue', label: 'Continue' }, { id: 'leave', label: 'Leave', tone: 'quiet' }],
+        onAction: (action) => {
+          if (action === 'leave') {
+            this.datingScenePopup.hide();
+            this.paused = false;
+            return;
+          }
+          this.showDatingScene(profile, {
+            ok: true,
+            title: profile.displayName,
+            message: cutscene.pages[cutscene.pages.length - 1] ?? '',
+            color: '#ffbdfd',
+            state,
+          });
+        },
+      });
+      return;
+    }
     const talk = this.snakeGame.getRelationshipTalk(profile);
     this.datingScenePopup.show({
       profile,
@@ -8944,6 +9246,26 @@ export default class SnakeScene extends Phaser.Scene {
     return sprite;
   }
 
+  private ensureVillageResidentIndicatorText(index: number): Phaser.GameObjects.Text {
+    let text = this.villageResidentIndicatorTexts[index];
+    if (text) {
+      return text;
+    }
+    text = this.add
+      .text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#fff4a8',
+        stroke: '#1b1024',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 1)
+      .setDepth(30)
+      .setVisible(false);
+    this.villageResidentIndicatorTexts[index] = text;
+    return text;
+  }
+
   private getDefaultNpcTextures(size: number): Record<'idle' | 'blink', string> {
     const palette: QuestGiverSpritePalette = {
       robeColor: '#2f7f5f',
@@ -9097,6 +9419,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private updateVillageResidentSprites(): void {
     this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
+    this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
     if (!this.snakeGame) {
       return;
     }
@@ -9122,19 +9445,41 @@ export default class SnakeScene extends Phaser.Scene {
     }
     residents.forEach((resident, index) => {
       const sprite = this.ensureVillageResidentSprite(index);
+      const indicator = this.ensureVillageResidentIndicatorText(index);
       const isGoblin = room.goblinCamp
         ? goblinResidents.some((goblin) => goblin.id === resident.id)
         : false;
       const relationshipProfile: RelationshipCandidateProfile = {
         id: `resident:${room.id}:${resident.id}`,
+        actorId: isGoblin
+          ? this.snakeGame.getGoblinCampActorId(
+              room.goblinCamp!.id,
+              resident.id,
+              resident.id === room.goblinCamp!.shopkeeper.id ? 'shopkeeper' : 'guard',
+            )
+          : room.town
+            ? 'actorId' in resident && typeof resident.actorId === 'string'
+              ? resident.actorId
+              : this.snakeGame.getTownResidentActorId(room.town.id, resident.id, (resident as any).role ?? 'resident')
+            : this.snakeGame.getVillageActorId(
+                room.id,
+                resident.id,
+                room.village?.shopkeeper.id === resident.id ? 'shopkeeper' : 'resident',
+              ),
         displayName: resident.name,
         species: (isGoblin ? 'goblin' : 'human') as RelationshipSpecies,
         portraitId: isGoblin ? 'goblin-neutral' : resident.portraitId,
         homeRoomId: room.id,
         factionId: isGoblin ? 'goblin-camps' : 'hearthbound-remnant',
       };
-      if (this.snakeGame.isRelationshipHostile(relationshipProfile)) {
+      const relationshipState = this.snakeGame.getRelationshipState(relationshipProfile);
+      if (
+        relationshipState?.stage === 'dead' ||
+        this.snakeGame.isRelationshipHostile(relationshipProfile) ||
+        this.snakeGame.isRelationshipNpcCombatHostile(relationshipProfile)
+      ) {
         sprite.setVisible(false);
+        indicator.setVisible(false);
         return;
       }
       const palette = isGoblin ? this.paletteForGoblinResident(goblinStanding) : this.paletteForResident(resident.name, index);
@@ -9152,12 +9497,24 @@ export default class SnakeScene extends Phaser.Scene {
           repeat: -1,
         });
       }
-      const world = this.tileToWorldLocalInRoom({ x: resident.x, y: resident.y });
+      const bodyPosition = this.snakeGame.getRelationshipNpcBodyPosition(relationshipProfile, {
+        x: resident.x,
+        y: resident.y,
+      });
+      const world = this.tileToWorldLocalInRoom(bodyPosition);
       const bobOffset = Math.sin(this.time.now / (220 + index * 17)) * 1.8;
       sprite
         .setTexture(textures.idle)
         .setPosition(world.x, world.y - 2 + bobOffset)
         .setVisible(true);
+      const actorMenu = relationshipProfile.actorId
+        ? this.snakeGame.getActorInteractionMenu(relationshipProfile.actorId)
+        : null;
+      const glyphs = actorMenu?.indicators.map((entry) => entry.glyph).join(' ');
+      indicator
+        .setText(glyphs ?? '')
+        .setPosition(world.x, world.y - this.grid.cell * 0.58 + bobOffset)
+        .setVisible(Boolean(glyphs));
       if (sprite.anims.currentAnim?.key !== animKey) {
         sprite.play(animKey);
       }
@@ -9472,5 +9829,34 @@ export default class SnakeScene extends Phaser.Scene {
       message: 'Language set to Spanish.',
       color: '#5dd6a2',
     };
+  }
+}
+
+function actorInteractionDescription(id: string): string {
+  switch (id) {
+    case 'talk':
+      return 'Get a line from them. This does not start romance.';
+    case 'ask-rumor':
+      return 'Ask about rumors, town trouble, and the official story.';
+    case 'ask-personal':
+      return 'Ask about their ties, fears, and private life.';
+    case 'take-quest':
+      return 'Hear the job they are standing here to make your problem.';
+    case 'shop':
+      return 'Open their shop after the social contract has been acknowledged.';
+    case 'apologize':
+      return 'Try to lower resentment before it becomes policy.';
+    case 'threaten':
+      return 'Apply pressure. Witnesses and rumors may object.';
+    case 'parley':
+      return 'Try to turn hostility back into a conversation.';
+    case 'romance':
+      return 'Open the dating scene and opt into dating-game nonsense.';
+    case 'pickpocket':
+      return 'Lift score or contraband. Trust is also in the pocket, unfortunately.';
+    case 'leave':
+      return 'Keep things safely ordinary.';
+    default:
+      return 'Do the available actor interaction.';
   }
 }

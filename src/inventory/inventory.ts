@@ -1,4 +1,5 @@
 import type { EquipableItem, EquipmentSlot, Item } from './item.js';
+import { getItem } from './itemRegistry.js';
 
 export class InventorySystem {
   private readonly items: Map<string, number> = new Map();
@@ -48,13 +49,14 @@ export class InventorySystem {
     return Array.from(this.equipped.entries());
   }
 
-  equip(item: Item): boolean {
-    const equip = item as EquipableItem;
+  equip(item: Item | string): boolean {
+    const resolvedItem = typeof item === 'string' ? getItem(item) : item;
+    const equip = resolvedItem as EquipableItem | undefined;
     if (!equip || equip.kind !== 'equipment') {
       return false;
     }
     // Ensure we have the item in inventory
-    const count = this.getItemCount(item.id);
+    const count = this.getItemCount(equip.id);
     if (count <= 0) {
       return false;
     }

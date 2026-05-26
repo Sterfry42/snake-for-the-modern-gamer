@@ -1,15 +1,23 @@
-import { SnakeGame } from "../src/game/snakeGame.js";
-import { QuestRegistry } from "../src/quests/questRegistry.js";
-import { saveManager } from "../src/game/saveManager.js";
-import type { QuestRegistry } from "../src/quests/questRegistry.js";
+import { SnakeGame } from "./src/game/snakeGame.js";
+import { defaultGameConfig } from "./src/config/gameConfig.js";
+import { QuestRegistry } from "./src/quests/questRegistry.js";
+import { saveManager } from "./src/game/saveManager.js";
 
 describe("Save and Load System", () => {
   let game: SnakeGame;
   let registry: QuestRegistry;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     registry = new QuestRegistry();
-    game = new SnakeGame(undefined, registry);
+    await registry.loadBuiltIns();
+    game = new SnakeGame(
+      {
+        ...defaultGameConfig,
+        quests: { ...defaultGameConfig.quests, initialQuestCount: 3 },
+      },
+      registry,
+    );
+    game.reset();
   });
 
   afterEach(() => {
@@ -43,7 +51,7 @@ describe("Save and Load System", () => {
     game.getInventory().addItem("weapon-revolver", 1);
     game.getInventory().equip("weapon-revolver");
 
-    const saveData = game.getSaveData();
+    game.saveGame();
 
     expect(game.getSnakeLength()).toBe(initialLength + 10);
     expect(game.getScore()).toBe(initialScore + 500);
@@ -117,5 +125,34 @@ describe("Save and Load System", () => {
 
     expect(newInventory.length).toBe(1);
     expect(newEquipped.length).toBe(1);
+  });
+
+  test("should save and load actor memories and world events", () => {
+    const actor = game.getActorSystem().registry.ensureTownResidentActor({
+      residentId: "nina",
+      name: "Nina",
+      role: "guard",
+      factionId: "hearthbound-remnant",
+      townId: "eastmere",
+      currentRoomId: game.getCurrentRoom().id,
+    });
+
+    game.emitWorldEvent({
+      type: "town-crime",
+      roomId: game.getCurrentRoom().id,
+      witnessActorIds: [actor.id],
+      severity: 34,
+      tags: ["crime", "theft", "witnessed"],
+      summary: "A theft was witnessed.",
+    });
+    game.saveGame();
+
+    game.reset("0,-1,0");
+    game.loadGame();
+
+    const restoredActor = game.getActorSystem().getActor(actor.id);
+    expect(restoredActor?.memory[0]?.type).toBe("town-crime");
+    expect(restoredActor?.hostility).toBe("suspicious");
+    expect(game.getActorSystem().events.getAll()).toHaveLength(1);
   });
 });

@@ -17,6 +17,7 @@ import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
+import type { ActorJournalEntry } from '../game/snakeGame.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -40,6 +41,7 @@ interface OverlayHandlers {
   getSpellSlotView?: () => readonly ActionAbilityView[];
   onBindSpellSlot?: (abilityId: string) => void;
   getDatingView?: () => readonly DatingCandidateView[];
+  getPeopleView?: () => readonly ActorJournalEntry[];
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
@@ -63,6 +65,7 @@ type TabId =
   | 'customize'
   | 'cards'
   | 'map'
+  | 'people'
   | 'dating'
   | 'quests'
   | 'factions'
@@ -85,6 +88,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
   { id: 'cards', label: 'Cards', group: 'gear' },
   { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
+  { id: 'people', label: 'People', group: 'world' },
   { id: 'dating', label: 'Dating', group: 'world' },
   { id: 'quests', label: 'Quests', group: 'world' },
   { id: 'factions', label: 'Factions', group: 'world' },
@@ -1012,6 +1016,7 @@ export class SkillTreeOverlay {
       !this.visible ||
       (this.activeTab !== 'spells' &&
         this.activeTab !== 'quests' &&
+        this.activeTab !== 'people' &&
         this.activeTab !== 'dating' &&
         this.activeTab !== 'customize')
     ) {
@@ -1035,7 +1040,11 @@ export class SkillTreeOverlay {
     this.scrollHintText
       .setText(maxScroll > 0 ? `Mouse wheel to scroll ${Math.ceil(offset)}/${Math.ceil(maxScroll)}` : '')
       .setVisible(
-        (tab === 'spells' || tab === 'quests' || tab === 'dating' || tab === 'customize') &&
+        (tab === 'spells' ||
+          tab === 'quests' ||
+          tab === 'people' ||
+          tab === 'dating' ||
+          tab === 'customize') &&
           maxScroll > 0,
       );
   }
@@ -1189,6 +1198,7 @@ export class SkillTreeOverlay {
     const cardsActive = this.activeTab === 'cards';
     const spellsActive = this.activeTab === 'spells';
     const cheatsActive = this.activeTab === 'cheats';
+    const peopleActive = this.activeTab === 'people';
     const datingActive = this.activeTab === 'dating';
     const questsActive = this.activeTab === 'quests';
     const factionsActive = this.activeTab === 'factions';
@@ -1199,15 +1209,15 @@ export class SkillTreeOverlay {
     this.customizationText.setVisible(customizationActive);
     this.cardsText.setVisible(cardsActive);
     this.spellsText.setVisible(spellsActive);
-    this.questListText.setVisible(questsActive || datingActive);
+    this.questListText.setVisible(questsActive || datingActive || peopleActive);
     this.factionsText.setVisible(factionsActive);
-    if (!spellsActive && !questsActive && !datingActive && !customizationActive) {
+    if (!spellsActive && !questsActive && !datingActive && !peopleActive && !customizationActive) {
       this.scrollHintText.setVisible(false);
     }
     if (!spellsActive) {
       this.resetScrollableText(this.spellsText);
     }
-    if (!questsActive && !datingActive) {
+    if (!questsActive && !datingActive && !peopleActive) {
       this.resetScrollableText(this.questListText);
     }
     if (!customizationActive) {
@@ -1259,6 +1269,7 @@ export class SkillTreeOverlay {
         !mapActive &&
         !graphActive &&
         !cheatsActive &&
+        !peopleActive &&
         !datingActive &&
         !questsActive &&
         !factionsActive &&
@@ -1380,6 +1391,23 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         this.hintText.setText('Dating: affection, trust, jealousy, resentment.');
         this.hintText.setColor('#ffbdfd');
+      }
+    }
+
+    if (peopleActive) {
+      this.questListText.setText(this.formatPeopleInfo(this.handlers.getPeopleView?.() ?? []));
+      this.applyScrollableTextOffset('people', this.questListText);
+      this.detailTitle.setText('People').setVisible(true);
+      this.detailSubtitle.setText('Actor Journal').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(
+          'People collects actor memories, social ties, revealed secrets, and current moods. Ask NPCs about rumors, family, the King, or themselves to fill it.',
+        )
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('People: living actors, rumors, ties, and personal reveals.');
+        this.hintText.setColor('#9ad1ff');
       }
     }
 
@@ -1550,6 +1578,7 @@ export class SkillTreeOverlay {
       this.activeTab !== 'skills' &&
       this.activeTab !== 'spells' &&
       this.activeTab !== 'cards' &&
+      this.activeTab !== 'people' &&
       this.activeTab !== 'dating' &&
       this.activeTab !== 'quests' &&
       this.activeTab !== 'factions' &&
@@ -1717,6 +1746,32 @@ export class SkillTreeOverlay {
           .filter(Boolean)
           .join('\n');
       })
+      .join('\n\n');
+  }
+
+  private formatPeopleInfo(views: readonly ActorJournalEntry[]): string {
+    if (views.length === 0) {
+      return [
+        'No people known yet.',
+        '',
+        'Talk to town residents, witness events, ask rumors, or create relationship routes.',
+        'The actor journal fills when the simulation has facts worth remembering.',
+      ].join('\n');
+    }
+    return views
+      .map((view) =>
+        [
+          view.name,
+          `${view.role}${view.faction ? ` / ${view.faction}` : ''}${view.roomId ? ` / ${view.roomId}` : ''}`,
+          `Mood: ${view.mood}${view.health ? ` | Health: ${view.health}` : ''}`,
+          view.socialTies.length > 0 ? `Ties: ${view.socialTies.join(' / ')}` : '',
+          view.reveals.length > 0 ? `Reveals: ${view.reveals.join(' / ')}` : '',
+          view.knownFacts.length > 0 ? `Known: ${view.knownFacts.join(' / ')}` : '',
+          view.memories.length > 0 ? `Memory: ${view.memories.join(' / ')}` : '',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+      )
       .join('\n\n');
   }
 

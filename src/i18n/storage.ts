@@ -1,13 +1,17 @@
 const STORAGE_KEY = 'preferredLanguage';
 
+function getStorage(): Storage | null {
+  return typeof localStorage === 'undefined' ? null : localStorage;
+}
+
 export const loadLanguagePreference = (): string | null => {
-  return localStorage.getItem(STORAGE_KEY);
+  return getStorage()?.getItem(STORAGE_KEY) ?? null;
 };
 
 export const saveLanguagePreference = (languageId: string): void => {
-  localStorage.setItem(STORAGE_KEY, languageId);
+  getStorage()?.setItem(STORAGE_KEY, languageId);
 };
 
 export const clearLanguagePreference = (): void => {
-  localStorage.removeItem(STORAGE_KEY);
+  getStorage()?.removeItem(STORAGE_KEY);
 };
