@@ -524,17 +524,35 @@ function createDefaultPredationState(): PredationRuntimeState {
   };
 }
 
+function createRunSeed(): string {
+  const randomPart =
+    typeof globalThis.crypto?.getRandomValues === 'function'
+      ? cryptoRandomHex()
+      : Math.floor(Math.random() * 0xffffffff).toString(36).padStart(7, '0');
+  return `run:${Date.now().toString(36)}:${randomPart}`;
+}
+
+function cryptoRandomHex(): string {
+  const bytes = new Uint32Array(2);
+  globalThis.crypto!.getRandomValues(bytes);
+  return [...bytes].map((value) => value.toString(36).padStart(7, '0')).join('');
+}
+
+function logRunSeed(seed: string, reason: 'new' | 'reset' | 'load'): void {
+  console.info(`[SnakeGame] ${reason} run seed: ${seed}`);
+}
+
 export class SnakeGame implements QuestRuntime {
   readonly config: GameConfig;
 
-  private readonly rng: RandomGenerator;
+  private rng: RandomGenerator;
   private world: WorldService;
-  private readonly apples: AppleService;
+  private apples: AppleService;
   private readonly snake: SnakeState;
   public readonly bosses: BossManager;
-  private readonly enemies: EnemyManager;
-  private readonly animals: AnimalManager;
-  private readonly questController: QuestController;
+  private enemies: EnemyManager;
+  private animals: AnimalManager;
+  private questController: QuestController;
   private readonly relationshipController: RelationshipController;
   private readonly actors: ActorSystem;
   private readonly rumors: RumorSystem;
@@ -571,8 +589,12 @@ export class SnakeGame implements QuestRuntime {
     rng?: RandomGenerator,
   ) {
     this.config = config;
-    this.worldGenerationIdentity = createWorldGenerationIdentity(config.rng.seed);
-    this.rng = rng ?? createRng(config.rng.seed);
+    const runSeed = config.rng.seed ?? createRunSeed();
+    this.worldGenerationIdentity = createWorldGenerationIdentity(runSeed);
+    this.rng = rng ?? createRng(runSeed);
+    if (!config.rng.seed) {
+      logRunSeed(runSeed, 'new');
+    }
     this.world = new WorldService(config.grid, config.world, this.rng, this.worldGenerationIdentity);
     this.apples = new AppleService(config.apples, config.grid, this.world, this.rng);
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
@@ -599,7 +621,10 @@ export class SnakeGame implements QuestRuntime {
     this.loadLanguagePreference();
   }
 
-  reset(): void {
+  reset(options: { preserveRunSeed?: boolean } = {}): void {
+    if (!options.preserveRunSeed && !this.config.rng.seed) {
+      this.reseedFreshRun();
+    }
     this.world.clear();
     this.apples.clearAll();
     this.snake.reset(this.config.world.originRoomId);
@@ -721,6 +746,24 @@ export class SnakeGame implements QuestRuntime {
         this.config.snake.initialBody,
       );
     }
+  }
+
+  private reseedFreshRun(): void {
+    const runSeed = createRunSeed();
+    this.worldGenerationIdentity = createWorldGenerationIdentity(runSeed);
+    this.rng = createRng(runSeed);
+    this.world = new WorldService(this.config.grid, this.config.world, this.rng, this.worldGenerationIdentity);
+    this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
+    this.enemies = new EnemyManager(this.config.grid, this.rng);
+    this.animals = new AnimalManager(this.config.grid, this.rng);
+    this.questController = new QuestController(this.registry, {
+      initialQuestCount: this.config.quests.initialQuestCount,
+      initialQuestIds: this.config.quests.initialQuestIds ?? [],
+      maxActiveQuests: this.config.quests.maxActiveQuests,
+      questOfferChance: this.config.quests.questOfferChance,
+      rng: this.rng,
+    });
+    logRunSeed(runSeed, 'reset');
   }
 
   loadLanguagePreference(): void {
@@ -7250,10 +7293,22 @@ export class SnakeGame implements QuestRuntime {
 
       const data = JSON.parse(saved) as GameSaveData;
 
-      this.reset();
+      this.reset({ preserveRunSeed: true });
       if (data.worldGeneration) {
         this.worldGenerationIdentity = data.worldGeneration;
+        this.rng = createRng(data.worldGeneration.seed);
         this.world = new WorldService(this.config.grid, this.config.world, this.rng, this.worldGenerationIdentity);
+        this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
+        this.enemies = new EnemyManager(this.config.grid, this.rng);
+        this.animals = new AnimalManager(this.config.grid, this.rng);
+        this.questController = new QuestController(this.registry, {
+          initialQuestCount: this.config.quests.initialQuestCount,
+          initialQuestIds: this.config.quests.initialQuestIds ?? [],
+          maxActiveQuests: this.config.quests.maxActiveQuests,
+          questOfferChance: this.config.quests.questOfferChance,
+          rng: this.rng,
+        });
+        logRunSeed(data.worldGeneration.seed, 'load');
       }
       if (data.snakeBody?.length && data.snakeDirection && data.snakeRoomId) {
         this.snake.restoreFromSave(
