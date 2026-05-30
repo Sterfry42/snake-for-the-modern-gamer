@@ -278,7 +278,9 @@ export class QuestPopup {
       portraitId === 'cardwright-neutral' ||
       portraitId === 'goblin-happy' ||
       portraitId === 'goblin-neutral' ||
-      portraitId === 'goblin-hostile'
+      portraitId === 'goblin-hostile' ||
+      portraitId === 'ocean-fisher-neutral' ||
+      portraitId === 'ocean-fisher-happy'
         ? portraitId
         : portraitId === 'thiefContact' || portraitId === 'thief'
           ? 'bandit-neutral'

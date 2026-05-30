@@ -22,16 +22,18 @@ export interface WandererEncounter {
   zoneTags?: EncounterZoneTag[];
   biomeIds?: BiomeId[];
   portraitId?:
-    | 'sage-1'
-    | 'sage-2'
-    | 'sage-3'
-    | 'bandit-neutral'
-    | 'bandit-hostile'
-    | 'cardwright-neutral'
-    | 'goblin-happy'
-    | 'goblin-neutral'
-    | 'goblin-hostile'
-    | 'tanuki-neutral';
+     | 'sage-1'
+     | 'sage-2'
+     | 'sage-3'
+     | 'bandit-neutral'
+     | 'bandit-hostile'
+     | 'cardwright-neutral'
+     | 'goblin-happy'
+     | 'goblin-neutral'
+     | 'goblin-hostile'
+     | 'tanuki-neutral'
+     | 'ocean-fisher-neutral'
+     | 'ocean-fisher-happy';
   pages: string[];
   repeatPages?: string[];
   acceptLabel?: string;
@@ -278,8 +280,31 @@ export const WANDERER_ENCOUNTERS: readonly WandererEncounter[] = [
       '"Still alive. That means you are either learning, or the grave has misplaced your name for another day. I advise you not to grow arrogant about either possibility."',
     ],
     acceptLabel: 'Listen',
-    rejectLabel: 'Leave',
+   rejectLabel: 'Leave',
     rewardScore: 5,
+  },
+  {
+    id: 'sterling-fisher',
+    name: 'Sterling Fisher',
+    kind: 'quest',
+    weight: 1.0,
+    minRoomsVisited: 3,
+    oneShot: false,
+    zoneTags: ['depths'],
+    biomeIds: ['sunken-ocean', 'gloam-garden'],
+    portraitId: 'ocean-fisher-neutral',
+    pages: [
+      'A weathered figure sits cross-legged beside a collapsible fishing pole, watching the water with the patient stillness of someone who has been told the ocean listens.',
+      '"The deep water does not forgive speed. It eats fast things first. You want fish? You learn to wait."',
+      '"I have a task for you. Five fish in the sunken ocean. Not for me — for the ones back home who have not tasted clean meat in too long."',
+    ],
+    repeatPages: [
+      'Sterling adjusts his line without looking up. The water ripples with something that almost looks like patience.',
+      '"Still hunting? Good. The water remembers who comes back. It respects that more than most things down there."',
+    ],
+    acceptLabel: 'Accept the hunt',
+    rejectLabel: 'Not my kind of water',
+    questId: 'fisherman',
   },
 ];
 

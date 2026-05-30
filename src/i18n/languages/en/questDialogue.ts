@@ -120,12 +120,20 @@ export const QUEST_DIALOGUE_EN: QuestTranslations = {
       'Survive twenty seconds without eating. Carry the old rite for one brief moment and prove your will can still sit beside an empty mouth.',
     ],
   },
-  'treasure-hunter': {
-    title: 'The Gilded Remains',
+'treasure-hunter': {
+     title: 'The Gilded Remains',
+     pages: [
+       'The treasure chests here were lowered down after the collapse by families who believed valuables might ransom the dead back from the dark.',
+       'The rope always came up lighter than it went down. Sometimes empty. Sometimes wet. Never once carrying who they had asked for.',
+       'Recover two treasures. We owe the buried at least the courtesy of admitting their offerings were never answered.',
+     ],
+   },
+  'fisherman': {
+    title: 'Deep Waters',
     pages: [
-      'The treasure chests here were lowered down after the collapse by families who believed valuables might ransom the dead back from the dark.',
-      'The rope always came up lighter than it went down. Sometimes empty. Sometimes wet. Never once carrying who they had asked for.',
-      'Recover two treasures. We owe the buried at least the courtesy of admitting their offerings were never answered.',
+      'The sunken ocean has its own currents, its own patience. The fish down there do not care about your length or your speed — only whether you are persistent enough to outwait the deep.',
+      'Sterling has caught five fish in the dark. Five. They do not scream, they do not fight back, but the water is heavy and the silence is worse. He does this for the cooked meat, not for glory.',
+      'Hunt five fish in the sunken ocean. Return when your hands are clean and your belly remembers what food tastes like.',
     ],
   },
 } as const;

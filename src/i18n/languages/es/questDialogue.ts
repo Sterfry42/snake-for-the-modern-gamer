@@ -120,12 +120,20 @@ export const QUEST_DIALOGUE_ES: QuestTranslations = {
       'Sobrevive veinte segundos sin comer. Lleva el antiguo ritual por un momento breve y demuestra que tu voluntad puede sentarse aún al lado de una boca vacía.',
     ],
   },
-  'treasure-hunter': {
-    title: 'Los Restos Dorados',
+'treasure-hunter': {
+     title: 'Los Restos Dorados',
+     pages: [
+       'Las cajas de tesoro aquí se bajaron después del colapso por familias que creían que los valores podrían rescatar a los muertos del oscuro.',
+       'La cuerda siempre regresó más ligera de lo que fue. A veces vacía. A veces mojada. Nunca una vez portando a quien habían pedido.',
+       'Recupera dos tesoros. Deberíamos al menos tener la cortesía de admitir que sus ofertas nunca fueron respondidas.',
+     ],
+   },
+  'fisherman': {
+    title: 'Aguas Profundas',
     pages: [
-      'Las cajas de tesoro aquí se bajaron después del colapso por familias que creían que los valores podrían rescatar a los muertos del oscuro.',
-      'La cuerda siempre regresó más ligera de lo que fue. A veces vacía. A veces mojada. Nunca una vez portando a quien habían pedido.',
-      'Recupera dos tesoros. Deberíamos al menos tener la cortesía de admitir que sus ofertas nunca fueron respondidas.',
+      'El océano sumergido tiene sus propias corrientes, su propia paciencia. Los peces de abajo no le importan tu longitud ni tu velocidad — solo si eres lo suficientemente persistente para superar la profundidad.',
+      'Sterling ha atrapado cinco peces en la oscuridad. Cinco. No gritan, no luchan, pero el agua es pesada y el silencio es peor. Él hace esto por la carne cocida, no por la gloria.',
+      'Caza cinco peces en el océano sumergido. Regresa cuando tus manos estén limpias y tu vientre recuerde cómo sabe la comida.',
     ],
   },
 } as const;

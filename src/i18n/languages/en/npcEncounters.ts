@@ -138,18 +138,32 @@ export const NPC_ENCOUNTERS_EN: NpcTranslations = {
     rejectLabel: 'Decline',
     rewardScore: 10,
   },
-  'cyrene-wanderer': {
+'cyrene-wanderer': {
+     pages: [
+       'Cyrene draws a circle in the dust and the dust hesitates, as if uncertain whether it still belongs more to gravity or to whatever old vow animates her hand.',
+       '"Every chamber in this place teaches the same lesson in a different dialect: remain moving, remain doubtful, and never mistake survival for pardon."',
+       '"Your gift is speed. Guard it carefully. Velocity becomes stupidity the moment it starts believing itself chosen."',
+     ],
+     repeatPages: [
+       'Cyrene recognizes you with a look too measured to count as warmth and too gentle to be called indifference.',
+       '"Still alive. That means you are either learning, or the grave has misplaced your name for another day. I advise you not to grow arrogant about either possibility."',
+     ],
+     acceptLabel: 'Listen',
+     rejectLabel: 'Leave',
+     rewardScore: 5,
+   },
+  'sterling-fisher': {
     pages: [
-      'Cyrene draws a circle in the dust and the dust hesitates, as if uncertain whether it still belongs more to gravity or to whatever old vow animates her hand.',
-      '"Every chamber in this place teaches the same lesson in a different dialect: remain moving, remain doubtful, and never mistake survival for pardon."',
-      '"Your gift is speed. Guard it carefully. Velocity becomes stupidity the moment it starts believing itself chosen."',
+      'A weathered figure sits cross-legged beside a collapsible fishing pole, watching the water with the patient stillness of someone who has been told the ocean listens.',
+      '"The deep water does not forgive speed. It eats fast things first. You want fish? You learn to wait."',
+      '"I have a task for you. Five fish in the sunken ocean. Not for me — for the ones back home who have not tasted clean meat in too long."',
     ],
     repeatPages: [
-      'Cyrene recognizes you with a look too measured to count as warmth and too gentle to be called indifference.',
-      '"Still alive. That means you are either learning, or the grave has misplaced your name for another day. I advise you not to grow arrogant about either possibility."',
+      'Sterling adjusts his line without looking up. The water ripples with something that almost looks like patience.',
+      '"Still hunting? Good. The water remembers who comes back. It respects that more than most things down there."',
     ],
-    acceptLabel: 'Listen',
-    rejectLabel: 'Leave',
-    rewardScore: 5,
+    acceptLabel: 'Accept the hunt',
+    rejectLabel: 'Not my kind of water',
+    questId: 'fisherman',
   },
 } as const;
