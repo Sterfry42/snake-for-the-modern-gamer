@@ -158,7 +158,7 @@ export class SnakeRenderer {
   }
 
   getWorldPosition(position: Vector2Like, currentRoomId: string): { x: number; y: number } {
-    const [roomX, roomY] = currentRoomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const localX = position.x - roomX * this.grid.cols;
     const localY = position.y - roomY * this.grid.rows;
 
@@ -282,9 +282,15 @@ export class SnakeRenderer {
             Number(destZ) >= Number(currentZ) ? 'up' : 'down',
             ladderOutlineColor,
           );
+        } else if (tile === 'V') {
+          this.drawCaveEntranceTile(rectX, rectY, false);
+        } else if (tile === 'X') {
+          this.drawCaveExitTile(rectX, rectY);
+        } else if (tile === 'Q') {
+          this.drawCaveEntranceTile(rectX, rectY, true);
         } else if (tile === '~') {
           this.drawWaterTile(rectX, rectY, x, y, room.biomeId === 'sunken-ocean');
-      } else if (tile === 'O') {
+        } else if (tile === 'O') {
           if (room.biomeId === 'jade-peak-province') {
             const base = 0x5bb8d4;
             const deep = 0x3a8fad;
@@ -292,7 +298,12 @@ export class SnakeRenderer {
             this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
             this.graphics
               .fillStyle(deep, 0.35)
-              .fillRect(rectX, rectY + this.grid.cell * 0.52, this.grid.cell, this.grid.cell * 0.48);
+              .fillRect(
+                rectX,
+                rectY + this.grid.cell * 0.52,
+                this.grid.cell,
+                this.grid.cell * 0.48,
+              );
             if ((x * 3 + y * 5) % 4 === 0) {
               const waveY = rectY + Math.floor(this.grid.cell * 0.38);
               this.graphics.lineStyle(2, foam, 0.5);
@@ -305,7 +316,10 @@ export class SnakeRenderer {
           } else {
             this.drawBoatTile(rectX, rectY, x, y);
           }
-        } else if (room.biomeId === 'liberty-badlands' && ['A', 'E', 'F', 'G', 'L', 'M', 'N', 'O', 'P', 'W'].includes(tile)) {
+        } else if (
+          room.biomeId === 'liberty-badlands' &&
+          ['A', 'E', 'F', 'G', 'L', 'M', 'N', 'O', 'P', 'W'].includes(tile)
+        ) {
           this.drawLibertyTile(rectX, rectY, tile, x, y);
         } else if (tile === 'W') {
           // Wooden floor for house interior
@@ -325,14 +339,25 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.6)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-        } else if (tile === 'N' || tile === 'U' || tile === 'M' || tile === 'R' || tile === 'F' || tile === 'P') {
+        } else if (
+          tile === 'N' ||
+          tile === 'U' ||
+          tile === 'M' ||
+          tile === 'R' ||
+          tile === 'F' ||
+          tile === 'P'
+        ) {
           this.drawTownSymbolTile(rectX, rectY, tile);
         } else if (tile === 'S') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0xd4c5a9;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.5)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
             this.drawMarketCanopyTile(rectX, rectY, x, y);
           }
@@ -345,44 +370,62 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.35)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-       } else if (tile === 'K') {
+        } else if (tile === 'K') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0xff8c42;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.5)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
             const color = 0x6d5845;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
             this.graphics
               .lineStyle(1, outline, 0.35)
               .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           }
-      } else if (tile === 'B') {
+        } else if (tile === 'B') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0x3a7d44;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(1, outline, 0.7).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.7)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
             const color = 0x6d5845;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
             this.graphics
               .lineStyle(1, outline, 0.35)
               .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           }
-     } else if (tile === 'P') {
+        } else if (tile === 'P') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0xf8d5e0;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 0.7).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(1, outline, 0.4).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+            this.graphics
+              .fillStyle(color, 0.7)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.4)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
             const color = 0x6d5845;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
             this.graphics
               .lineStyle(1, outline, 0.35)
               .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
@@ -394,12 +437,16 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.35)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-     } else if (tile === 'E') {
+        } else if (tile === 'E') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0xe8e0d4;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.5)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
             const color = 0x8ea1ff;
             const outline = darkenColor(color, 0.45);
@@ -418,14 +465,20 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.35)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-      } else if (tile === 'R') {
+        } else if (tile === 'R') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0x8b5e3c;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.5)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
-            this.graphics.fillStyle(0xffffff, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .fillStyle(0xffffff, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
             this.graphics
               .lineStyle(1, 0xcccccc, 0.6)
               .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
@@ -434,8 +487,12 @@ export class SnakeRenderer {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0x6b4c3b;
             const outline = darkenColor(color, 0.35);
-            this.graphics.fillStyle(color, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(1, outline, 0.5).strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.5)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           }
         } else {
           this.graphics.fillStyle(room.backgroundColor, 1);
@@ -443,6 +500,50 @@ export class SnakeRenderer {
           this.drawBiomeAccent(biome.id, biome.accentColor, x, y, rectX, rectY);
         }
       }
+    }
+    this.drawCaveLakeRewards(room);
+  }
+
+  private drawCaveEntranceTile(rectX: number, rectY: number, collapsed: boolean): void {
+    const cell = this.grid.cell;
+    this.graphics.fillStyle(collapsed ? 0x5b5147 : 0x1a101f, 1).fillRect(rectX, rectY, cell, cell);
+    this.graphics.lineStyle(2, collapsed ? 0x9b8b73 : 0xb69cff, 0.75);
+    this.graphics.strokeRect(rectX + 2, rectY + 2, cell - 4, cell - 4);
+    if (!collapsed) {
+      this.graphics
+        .fillStyle(0x050308, 0.95)
+        .fillEllipse(rectX + cell / 2, rectY + cell * 0.58, cell * 0.68, cell * 0.72);
+      this.graphics
+        .fillStyle(0xd8ccff, 0.35)
+        .fillEllipse(rectX + cell / 2, rectY + cell * 0.34, cell * 0.48, cell * 0.18);
+    } else {
+      this.graphics
+        .fillStyle(0x2e2924, 1)
+        .fillCircle(rectX + cell * 0.35, rectY + cell * 0.58, cell * 0.18);
+      this.graphics.fillCircle(rectX + cell * 0.62, rectY + cell * 0.5, cell * 0.14);
+    }
+  }
+
+  private drawCaveExitTile(rectX: number, rectY: number): void {
+    const cell = this.grid.cell;
+    this.graphics.fillStyle(0x2b2435, 1).fillRect(rectX, rectY, cell, cell);
+    this.graphics
+      .fillStyle(0xfff1aa, 0.55)
+      .fillRect(rectX + cell * 0.35, rectY + 3, cell * 0.3, cell - 6);
+    this.graphics.lineStyle(2, 0xfff1aa, 0.8).strokeRect(rectX + 4, rectY + 4, cell - 8, cell - 8);
+  }
+
+  private drawCaveLakeRewards(room: RoomSnapshot): void {
+    const rewards = room.cave?.lakeRewards ?? [];
+    const cell = this.grid.cell;
+    for (const reward of rewards) {
+      const cx = reward.x * cell + cell / 2;
+      const cy = reward.y * cell + cell / 2;
+      this.graphics.fillStyle(0xfff1aa, 0.92).fillCircle(cx, cy, cell * 0.25);
+      this.graphics.lineStyle(2, 0x5a3b10, 0.8).strokeCircle(cx, cy, cell * 0.25);
+      this.graphics
+        .fillStyle(0xffffff, 0.7)
+        .fillCircle(cx - cell * 0.08, cy - cell * 0.08, cell * 0.07);
     }
   }
 
@@ -503,7 +604,8 @@ export class SnakeRenderer {
 
   private drawTownSymbolTile(rectX: number, rectY: number, tile: string): void {
     const cell = this.grid.cell;
-    const base = tile === 'U' ? 0x333844 : tile === 'N' ? 0x8b5f32 : tile === 'M' ? 0xc7433d : 0x6d5845;
+    const base =
+      tile === 'U' ? 0x333844 : tile === 'N' ? 0x8b5f32 : tile === 'M' ? 0xc7433d : 0x6d5845;
     const accent =
       tile === 'U'
         ? 0x9aa4b2
@@ -518,10 +620,14 @@ export class SnakeRenderer {
                 : 0x9f6b3f;
     const outline = darkenColor(base, 0.42);
     this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
-    this.graphics.lineStyle(1, outline, 0.75).strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+    this.graphics
+      .lineStyle(1, outline, 0.75)
+      .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
 
     if (tile === 'N') {
-      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.22, rectY + cell * 0.18, cell * 0.56, cell * 0.58);
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillRect(rectX + cell * 0.22, rectY + cell * 0.18, cell * 0.56, cell * 0.58);
       this.graphics.lineStyle(1, outline, 0.8);
       this.graphics.beginPath();
       this.graphics.moveTo(rectX + cell * 0.3, rectY + cell * 0.36);
@@ -532,21 +638,39 @@ export class SnakeRenderer {
     } else if (tile === 'U') {
       for (let i = 0; i < 4; i += 1) {
         const x = rectX + cell * (0.24 + i * 0.14);
-        this.graphics.fillStyle(accent, 0.85).fillRect(x, rectY + cell * 0.18, Math.max(2, cell * 0.06), cell * 0.64);
+        this.graphics
+          .fillStyle(accent, 0.85)
+          .fillRect(x, rectY + cell * 0.18, Math.max(2, cell * 0.06), cell * 0.64);
       }
     } else if (tile === 'M') {
       this.graphics.fillStyle(accent, 1).fillRect(rectX + 2, rectY + 3, cell - 4, cell * 0.28);
-      this.graphics.fillStyle(0x7a5232, 1).fillRect(rectX + cell * 0.2, rectY + cell * 0.58, cell * 0.6, cell * 0.18);
+      this.graphics
+        .fillStyle(0x7a5232, 1)
+        .fillRect(rectX + cell * 0.2, rectY + cell * 0.58, cell * 0.6, cell * 0.18);
     } else if (tile === 'R') {
-      this.graphics.fillStyle(accent, 1).fillCircle(rectX + cell * 0.5, rectY + cell * 0.48, cell * 0.22);
-      this.graphics.fillStyle(outline, 0.85).fillRect(rectX + cell * 0.46, rectY + cell * 0.62, cell * 0.08, cell * 0.18);
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillCircle(rectX + cell * 0.5, rectY + cell * 0.48, cell * 0.22);
+      this.graphics
+        .fillStyle(outline, 0.85)
+        .fillRect(rectX + cell * 0.46, rectY + cell * 0.62, cell * 0.08, cell * 0.18);
     } else if (tile === 'P') {
-      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.25, rectY + cell * 0.22, cell * 0.5, cell * 0.42);
-      this.graphics.fillStyle(outline, 1).fillRect(rectX + cell * 0.32, rectY + cell * 0.64, cell * 0.36, cell * 0.12);
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillRect(rectX + cell * 0.25, rectY + cell * 0.22, cell * 0.5, cell * 0.42);
+      this.graphics
+        .fillStyle(outline, 1)
+        .fillRect(rectX + cell * 0.32, rectY + cell * 0.64, cell * 0.36, cell * 0.12);
     } else {
-      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.2, rectY + cell * 0.42, cell * 0.6, cell * 0.14);
-      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.28, rectY + cell * 0.2, cell * 0.12, cell * 0.6);
-      this.graphics.fillStyle(accent, 1).fillRect(rectX + cell * 0.6, rectY + cell * 0.2, cell * 0.12, cell * 0.6);
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillRect(rectX + cell * 0.2, rectY + cell * 0.42, cell * 0.6, cell * 0.14);
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillRect(rectX + cell * 0.28, rectY + cell * 0.2, cell * 0.12, cell * 0.6);
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillRect(rectX + cell * 0.6, rectY + cell * 0.2, cell * 0.12, cell * 0.6);
     }
   }
 
@@ -783,7 +907,9 @@ export class SnakeRenderer {
         const base = 0x2f3032;
         this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
         if ((tileX + tileY) % 4 === 0) {
-          this.graphics.fillStyle(0xffffff, 0.18).fillRect(rectX + 3, rectY + cell * 0.48, cell - 6, 2);
+          this.graphics
+            .fillStyle(0xffffff, 0.18)
+            .fillRect(rectX + 3, rectY + cell * 0.48, cell - 6, 2);
         }
         break;
       }
@@ -791,7 +917,9 @@ export class SnakeRenderer {
         const color = 0xd9d2c4;
         const outline = darkenColor(color, 0.28);
         this.graphics.fillStyle(color, 0.92).fillRect(rectX, rectY, cell, cell);
-        this.graphics.lineStyle(1, outline, 0.36).strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+        this.graphics
+          .lineStyle(1, outline, 0.36)
+          .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
         break;
       }
       case 'F': {
@@ -799,40 +927,62 @@ export class SnakeRenderer {
         const outline = darkenColor(color, 0.35);
         this.graphics.fillStyle(color, 1).fillRect(rectX + 3, rectY + 5, cell - 6, cell - 8);
         this.graphics.fillStyle(0xe7ded0, 0.9).fillRect(rectX + 5, rectY + 7, cell - 10, 3);
-        this.graphics.lineStyle(1, outline, 0.72).strokeRect(rectX + 3.5, rectY + 5.5, cell - 7, cell - 9);
+        this.graphics
+          .lineStyle(1, outline, 0.72)
+          .strokeRect(rectX + 3.5, rectY + 5.5, cell - 7, cell - 9);
         break;
       }
       case 'G': {
-        this.graphics.fillStyle(0xe6d8c7, 0.78).fillCircle(rectX + cell / 2, rectY + cell * 0.46, cell * 0.28);
-        this.graphics.fillStyle(0x315f7d, 0.95).fillRect(rectX + cell * 0.25, rectY + cell * 0.18, cell * 0.5, cell * 0.24);
-        this.graphics.fillStyle(0xb5362f, 0.95).fillRect(rectX + cell * 0.3, rectY + cell * 0.55, cell * 0.4, cell * 0.28);
-        this.graphics.lineStyle(1, 0xf3eee2, 0.8).strokeRect(rectX + cell * 0.3, rectY + cell * 0.55, cell * 0.4, cell * 0.28);
+        this.graphics
+          .fillStyle(0xe6d8c7, 0.78)
+          .fillCircle(rectX + cell / 2, rectY + cell * 0.46, cell * 0.28);
+        this.graphics
+          .fillStyle(0x315f7d, 0.95)
+          .fillRect(rectX + cell * 0.25, rectY + cell * 0.18, cell * 0.5, cell * 0.24);
+        this.graphics
+          .fillStyle(0xb5362f, 0.95)
+          .fillRect(rectX + cell * 0.3, rectY + cell * 0.55, cell * 0.4, cell * 0.28);
+        this.graphics
+          .lineStyle(1, 0xf3eee2, 0.8)
+          .strokeRect(rectX + cell * 0.3, rectY + cell * 0.55, cell * 0.4, cell * 0.28);
         break;
       }
       case 'L': {
-        this.graphics.fillStyle(0x6fa8dc, 0.38).fillCircle(rectX + cell / 2, rectY + cell / 2, Math.max(3, cell * 0.22));
-        this.graphics.fillStyle(0xf6f0df, 0.95).fillCircle(rectX + cell / 2, rectY + cell / 2, Math.max(1.5, cell * 0.08));
+        this.graphics
+          .fillStyle(0x6fa8dc, 0.38)
+          .fillCircle(rectX + cell / 2, rectY + cell / 2, Math.max(3, cell * 0.22));
+        this.graphics
+          .fillStyle(0xf6f0df, 0.95)
+          .fillCircle(rectX + cell / 2, rectY + cell / 2, Math.max(1.5, cell * 0.08));
         break;
       }
       case 'M': {
         const color = 0xe8e2d4;
         const outline = 0x82786b;
         this.graphics.fillStyle(color, 1).fillRect(rectX + 2, rectY + 2, cell - 4, cell - 4);
-        this.graphics.lineStyle(1, outline, 0.75).strokeRect(rectX + 2.5, rectY + 2.5, cell - 5, cell - 5);
-        this.graphics.fillStyle(0x5f8fbf, 0.45).fillRect(rectX + cell * 0.25, rectY + 4, cell * 0.5, 2);
+        this.graphics
+          .lineStyle(1, outline, 0.75)
+          .strokeRect(rectX + 2.5, rectY + 2.5, cell - 5, cell - 5);
+        this.graphics
+          .fillStyle(0x5f8fbf, 0.45)
+          .fillRect(rectX + cell * 0.25, rectY + 4, cell * 0.5, 2);
         break;
       }
       case 'N': {
         const base = 0x315f7d;
         this.graphics.fillStyle(base, 1).fillRect(rectX + 2, rectY + 4, cell - 4, cell - 8);
         this.graphics.fillStyle(0xbfe9ff, 0.85).fillRect(rectX + 5, rectY + 7, cell - 10, 2);
-        this.graphics.lineStyle(1, 0xbfe9ff, 0.55).strokeRect(rectX + 2.5, rectY + 4.5, cell - 5, cell - 9);
+        this.graphics
+          .lineStyle(1, 0xbfe9ff, 0.55)
+          .strokeRect(rectX + 2.5, rectY + 4.5, cell - 5, cell - 9);
         break;
       }
       case 'O': {
         const color = 0x2c6e91;
         this.graphics.fillStyle(color, 0.42).fillRect(rectX, rectY, cell, cell);
-        this.graphics.lineStyle(1, 0x9ad4e8, 0.5).strokeRect(rectX + 2, rectY + 2, cell - 4, cell - 4);
+        this.graphics
+          .lineStyle(1, 0x9ad4e8, 0.5)
+          .strokeRect(rectX + 2, rectY + 2, cell - 4, cell - 4);
         break;
       }
       case 'P': {
@@ -841,9 +991,13 @@ export class SnakeRenderer {
         break;
       }
       case 'W': {
-        this.graphics.fillStyle(0xf3eee2, 0.9).fillRect(rectX + cell * 0.38, rectY, Math.max(2, cell * 0.24), cell);
+        this.graphics
+          .fillStyle(0xf3eee2, 0.9)
+          .fillRect(rectX + cell * 0.38, rectY, Math.max(2, cell * 0.24), cell);
         if ((tileX + tileY) % 2 === 0) {
-          this.graphics.fillStyle(0x5f8fbf, 0.22).fillRect(rectX + cell * 0.42, rectY + 4, Math.max(1, cell * 0.16), 4);
+          this.graphics
+            .fillStyle(0x5f8fbf, 0.22)
+            .fillRect(rectX + cell * 0.42, rectY + 4, Math.max(1, cell * 0.16), 4);
         }
         break;
       }
@@ -865,10 +1019,16 @@ export class SnakeRenderer {
       this.graphics.fillStyle(rust, 0.38).fillRect(rectX + cell - 5, rectY + 3, 2, cell - 6);
     }
     if ((tileX * 7 + tileY) % 9 === 0) {
-      this.graphics.fillStyle(highlight, 0.35).fillCircle(rectX + cell * 0.28, rectY + cell * 0.35, 1.6);
-      this.graphics.fillStyle(highlight, 0.35).fillCircle(rectX + cell * 0.72, rectY + cell * 0.35, 1.6);
+      this.graphics
+        .fillStyle(highlight, 0.35)
+        .fillCircle(rectX + cell * 0.28, rectY + cell * 0.35, 1.6);
+      this.graphics
+        .fillStyle(highlight, 0.35)
+        .fillCircle(rectX + cell * 0.72, rectY + cell * 0.35, 1.6);
     }
-    this.graphics.lineStyle(1, 0x07152c, 0.75).strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+    this.graphics
+      .lineStyle(1, 0x07152c, 0.75)
+      .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
   }
 
   private highlightWalls(
@@ -881,7 +1041,7 @@ export class SnakeRenderer {
       return;
     }
     const head = snakeBody[0];
-    const [roomX, roomY] = currentRoomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const localHeadX = head.x - roomX * this.grid.cols;
     const localHeadY = head.y - roomY * this.grid.rows;
     if (
@@ -1095,7 +1255,7 @@ export class SnakeRenderer {
     activeHat: SnakeHatStyle | null = null,
   ): void {
     void room;
-    const [roomX, roomY] = currentRoomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
     const tintColor = typeof overrideColor === 'number' ? overrideColor : 0xffffff;
@@ -1527,13 +1687,7 @@ export class SnakeRenderer {
   private resolveAnimalVariant(animal: AnimalInstance): AnimalSpriteVariant {
     const direction = animal.direction;
     const suffix =
-      direction.x > 0
-        ? 'right'
-        : direction.x < 0
-          ? 'left'
-          : direction.y < 0
-            ? 'up'
-            : 'down';
+      direction.x > 0 ? 'right' : direction.x < 0 ? 'left' : direction.y < 0 ? 'up' : 'down';
     const flashSuffix = animal.flashTicks > 0 ? 'flash-' : '';
     return `${animal.type}-${flashSuffix}${suffix}` as AnimalSpriteVariant;
   }
@@ -1816,5 +1970,13 @@ export class SnakeRenderer {
       default:
         return null;
     }
+  }
+
+  private parseRoomCoordinates(roomId: string): [number, number, number] {
+    if (roomId.startsWith('cave:')) {
+      return [0, 0, 0];
+    }
+    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+    return [x, y, z];
   }
 }

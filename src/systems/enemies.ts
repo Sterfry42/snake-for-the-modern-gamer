@@ -56,6 +56,9 @@ interface EnemyStepResult {
 }
 
 function localToGlobal(roomId: string, position: Vector2Like, grid: GridConfig): Vector2Like {
+  if (isCaveRoomId(roomId)) {
+    return { ...position };
+  }
   const [roomX, roomY] = roomId.split(',').map(Number);
   return {
     x: roomX * grid.cols + position.x,
@@ -64,11 +67,18 @@ function localToGlobal(roomId: string, position: Vector2Like, grid: GridConfig):
 }
 
 function globalToLocal(roomId: string, position: Vector2Like, grid: GridConfig): Vector2Like {
+  if (isCaveRoomId(roomId)) {
+    return { ...position };
+  }
   const [roomX, roomY] = roomId.split(',').map(Number);
   return {
     x: position.x - roomX * grid.cols,
     y: position.y - roomY * grid.rows,
   };
+}
+
+function isCaveRoomId(roomId: string): boolean {
+  return roomId.startsWith('cave:');
 }
 
 function canEatEnemyKind(kind: EnemyInstance['encounterKind']): boolean {
@@ -147,6 +157,55 @@ export class EnemyManager {
       encounterKind: 'enemy',
     };
     this.enemies.set(roomId, [enemy]);
+  }
+
+  ensureCaveEnemies(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+    count: number,
+  ): void {
+    if ((this.enemies.get(roomId)?.length ?? 0) > 0) {
+      return;
+    }
+    const occupiedLocals = this.toLocalOccupied(roomId, occupied);
+    const candidates: Vector2Like[] = [];
+    for (let y = 0; y < this.grid.rows; y += 1) {
+      for (let x = 0; x < this.grid.cols; x += 1) {
+        if (!this.isDryEnemyTile(room.layout[y]?.[x])) continue;
+        if (room.apple && room.apple.x === x && room.apple.y === y) continue;
+        if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
+        if (
+          occupiedLocals.some((segment) => Math.abs(segment.x - x) + Math.abs(segment.y - y) <= 3)
+        )
+          continue;
+        candidates.push({ x, y });
+      }
+    }
+    const enemies: EnemyInstance[] = [];
+    for (let index = 0; index < count && candidates.length > 0; index += 1) {
+      const pickIndex = Math.floor(this.rng() * candidates.length);
+      const [position] = candidates.splice(pickIndex, 1);
+      if (!position) continue;
+      const id = `cave-enemy-${this.idCounter++}`;
+      enemies.push({
+        id,
+        actorId: `enemy:${roomId}:${id}`,
+        roomId,
+        position,
+        fireCooldown: 7 + Math.floor(this.rng() * 5),
+        moveCooldown: 3 + Math.floor(this.rng() * 4),
+        aimDirection: { x: 0, y: 1 },
+        flashTicks: 0,
+        name: 'Cave Monster',
+        currentHearts: 1,
+        maxHearts: 1,
+        encounterKind: 'enemy',
+      });
+    }
+    if (enemies.length > 0) {
+      this.enemies.set(roomId, enemies);
+    }
   }
 
   private ensureShark(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
@@ -629,7 +688,7 @@ export class EnemyManager {
     if (!duelist || duelist.currentHearts === undefined || duelist.maxHearts === undefined) {
       return null;
     }
-    const [roomX, roomY] = roomId.split(',').map(Number);
+    const [roomX, roomY] = isCaveRoomId(roomId) ? [0, 0] : roomId.split(',').map(Number);
     return {
       id: duelist.id,
       name: duelist.name ?? 'Nameless Horror',
@@ -712,11 +771,11 @@ export class EnemyManager {
           ? 'npc-hostile'
           : enemy.encounterKind === 'goblin'
             ? 'goblin'
-          : enemy.encounterKind === 'duelist' && enemy.id === 'freak-joey'
-            ? 'freak-joey'
-            : enemy.encounterKind === 'duelist'
-              ? 'duelist'
-              : 'enemy',
+            : enemy.encounterKind === 'duelist' && enemy.id === 'freak-joey'
+              ? 'freak-joey'
+              : enemy.encounterKind === 'duelist'
+                ? 'duelist'
+                : 'enemy',
     };
   }
 
@@ -928,6 +987,9 @@ export class EnemyManager {
   }
 
   private toLocalOccupied(roomId: string, occupied: readonly Vector2Like[]): Vector2Like[] {
+    if (isCaveRoomId(roomId)) {
+      return occupied.map((segment) => ({ ...segment }));
+    }
     const [roomX, roomY] = roomId.split(',').map(Number);
     return occupied.map((segment) => {
       if (

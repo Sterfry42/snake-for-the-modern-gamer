@@ -97,6 +97,37 @@ export class AppleService {
     return { snapshot: instance.getSnapshot(), changed: true };
   }
 
+  placeApple(
+    roomId: string,
+    position: Vector2Like,
+    typeId: string,
+    snake: Vector2Like[] = [],
+  ): AppleSpawnResult {
+    const room = this.world.getRoom(roomId);
+    const tile = room.layout[position.y]?.[position.x];
+    if (tile !== '.' && tile !== '~') {
+      return { snapshot: this.getSnapshot(roomId), changed: false };
+    }
+    const global = this.toGlobal(roomId, position);
+    if (this.isSnakeAtGlobal(snake, global.x, global.y)) {
+      return { snapshot: this.getSnapshot(roomId), changed: false };
+    }
+    const appleType = this.registry.getTypes().find((type) => type.id === typeId);
+    if (!appleType) {
+      return { snapshot: this.getSnapshot(roomId), changed: false };
+    }
+    this.clearApple(roomId);
+    const instance = this.registry.createInstance(appleType, roomId, position);
+    instance.initialize({ rng: this.rng });
+    this.apples.set(roomId, instance);
+    this.world.setApple(roomId, position);
+    return { snapshot: instance.getSnapshot(), changed: true };
+  }
+
+  clearRoomApple(roomId: string): void {
+    this.clearApple(roomId);
+  }
+
   moveApples(snake: Vector2Like[]): Set<string> {
     const affectedRooms = new Set<string>();
     for (const apple of Array.from(this.apples.values())) {
@@ -379,6 +410,9 @@ export class AppleService {
   }
 
   private toGlobal(roomId: string, position: Vector2Like): Vector2Like {
+    if (roomId.startsWith('cave:')) {
+      return { x: position.x, y: position.y };
+    }
     const [roomX, roomY] = roomId.split(',').map(Number);
     return {
       x: roomX * this.grid.cols + position.x,

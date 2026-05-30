@@ -14,7 +14,11 @@ import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
 import { SaveUI } from '../ui/saveUI.js';
-import { DatingScenePopup, type DatingSceneAction, type DatingSceneButton } from '../ui/datingScenePopup.js';
+import {
+  DatingScenePopup,
+  type DatingSceneAction,
+  type DatingSceneButton,
+} from '../ui/datingScenePopup.js';
 import { saveManager } from '../game/saveManager.js';
 import { RuntimeSpriteFactory } from '../ui/runtimeSpriteFactory.js';
 import {
@@ -182,7 +186,10 @@ type DatingBranchResult = {
   label?: string;
 };
 
-const DATING_PERSONALITY_TAG_WEIGHTS: Record<RelationshipPersonality, Partial<Record<RelationshipTag, number>>> = {
+const DATING_PERSONALITY_TAG_WEIGHTS: Record<
+  RelationshipPersonality,
+  Partial<Record<RelationshipTag, number>>
+> = {
   poetic: {
     dramatic: 3,
     honesty: 4,
@@ -373,22 +380,10 @@ const REVIVE_DIALOGUE_BRANCHES: readonly string[][] = [
 ];
 
 const GOBLIN_WARD_REVIVE_DIALOGUE: Partial<Record<string, readonly string[]>> = {
-  wall: [
-    'Stone had you fair and square.',
-    'Lucky for you, some idiot bought paperwork.',
-  ],
-  self: [
-    'You tied yourself into a funeral knot.',
-    'I cut it. You owe the camp a nicer story.',
-  ],
-  boss: [
-    'Big thing ate your future.',
-    'I reached in and pulled out the cheap part.',
-  ],
-  shark: [
-    'Teeth from below, clause from above.',
-    'Do not look grateful. It makes the ink bubble.',
-  ],
+  wall: ['Stone had you fair and square.', 'Lucky for you, some idiot bought paperwork.'],
+  self: ['You tied yourself into a funeral knot.', 'I cut it. You owe the camp a nicer story.'],
+  boss: ['Big thing ate your future.', 'I reached in and pulled out the cheap part.'],
+  shark: ['Teeth from below, clause from above.', 'Do not look grateful. It makes the ink bubble.'],
   bullet: [
     'Fast little metal thing. Very confident. Very wrong.',
     'Your contract caught it with its ugly little hands.',
@@ -397,14 +392,8 @@ const GOBLIN_WARD_REVIVE_DIALOGUE: Partial<Record<string, readonly string[]>> = 
     'The air tried to repossess you.',
     'I repossessed you first. Different department.',
   ],
-  water: [
-    'The water signed for your body.',
-    'I forged a better signature.',
-  ],
-  shielded: [
-    'Protection bit you. Classic.',
-    'The ward bit back harder.',
-  ],
+  water: ['The water signed for your body.', 'I forged a better signature.'],
+  shielded: ['Protection bit you. Classic.', 'The ward bit back harder.'],
 };
 
 const FINAL_DIALOGUE_BRANCHES: readonly string[][] = [
@@ -431,10 +420,7 @@ const HEAVEN_DIALOGUE_BRANCHES: readonly string[][] = [
     'A light took thee, and it was not unkind.',
     'Rest now, little serpent. Thy length has found its measure.',
   ],
-  [
-    'Thy body became dust. Thy length became light.',
-    'Even snakes dream of flying, at the end.',
-  ],
+  ['Thy body became dust. Thy length became light.', 'Even snakes dream of flying, at the end.'],
 ];
 
 const HELL_DIALOGUE_BRANCHES: readonly string[][] = [
@@ -442,14 +428,8 @@ const HELL_DIALOGUE_BRANCHES: readonly string[][] = [
     'Thy soul fell like a stone in a dry well.',
     'The fire did not rage. It merely opened and let thee through.',
   ],
-  [
-    'Down went the little serpent, all hunger and heat.',
-    'Hell does not punish. It receives.',
-  ],
-  [
-    'A darker current caught what the light would not.',
-    'Even descent has its own geometry.',
-  ],
+  ['Down went the little serpent, all hunger and heat.', 'Hell does not punish. It receives.'],
+  ['A darker current caught what the light would not.', 'Even descent has its own geometry.'],
 ];
 
 const ANGEL_TAUNT_DIALOGUE: readonly string[][] = [
@@ -490,15 +470,78 @@ type GameMode =
   | 'paused';
 
 const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
-  title: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
-  action: { boss: true, action: true, actor: true, bullet: true, hazard: true, 'manual-world': false },
-  'manual-room': { boss: false, action: 'manual', actor: true, bullet: true, hazard: false, 'manual-world': true },
-  dialogue: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
-  shop: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
-  dating: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
-  'card-game': { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
-  'death-cutscene': { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
-  paused: { boss: false, action: false, actor: false, bullet: false, hazard: false, 'manual-world': false },
+  title: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  action: {
+    boss: true,
+    action: true,
+    actor: true,
+    bullet: true,
+    hazard: true,
+    'manual-world': false,
+  },
+  'manual-room': {
+    boss: false,
+    action: 'manual',
+    actor: true,
+    bullet: true,
+    hazard: false,
+    'manual-world': true,
+  },
+  dialogue: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  shop: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  dating: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  'card-game': {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  'death-cutscene': {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  paused: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
 };
 
 export default class SnakeScene extends Phaser.Scene {
@@ -1162,11 +1205,7 @@ export default class SnakeScene extends Phaser.Scene {
           violenceLevel,
         );
         const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
-        this.juice.appleStreak(
-          result.apple.worldPosition.x,
-          result.apple.worldPosition.y,
-          streak,
-        );
+        this.juice.appleStreak(result.apple.worldPosition.x, result.apple.worldPosition.y, streak);
         if (
           this.snakeGame.getCurrentRoom().biomeId === 'liberty-badlands' &&
           this.snakeGame.getCurrentRoom().archetypeId === 'gridiron-yard'
@@ -1218,12 +1257,18 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const animalStartled = this.snakeGame.getFlag<{ count?: number }>('ui.animalStartled');
     if (animalStartled) {
-      this.showQuestHintPopup('The animal startles away. Unlock Predator I or use a weapon to hunt harmless animals.', '#ffd166');
+      this.showQuestHintPopup(
+        'The animal startles away. Unlock Predator I or use a weapon to hunt harmless animals.',
+        '#ffd166',
+      );
       this.snakeGame.setFlag('ui.animalStartled', undefined);
     }
     const animalTamable = this.snakeGame.getFlag<{ animalName?: string }>('ui.animalTamable');
     if (animalTamable) {
-      this.showQuestHintPopup(`${animalTamable.animalName ?? 'That animal'} can be tamed with the right lead.`, '#9ad1ff');
+      this.showQuestHintPopup(
+        `${animalTamable.animalName ?? 'That animal'} can be tamed with the right lead.`,
+        '#9ad1ff',
+      );
       this.snakeGame.setFlag('ui.animalTamable', undefined);
     }
     this.tickFreakYouPortalFx();
@@ -1310,7 +1355,7 @@ export default class SnakeScene extends Phaser.Scene {
     // Room transition pulse from snake head
     if (result.roomChanged) {
       const currHead = this.getFlag<{ x: number; y: number }>('internal.currentHead');
-      const [roomX, roomY] = this.currentRoomId.split(',').map(Number);
+      const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
       if (currHead) {
         const localX = currHead.x - roomX * this.grid.cols;
         const localY = currHead.y - roomY * this.grid.rows;
@@ -1535,7 +1580,7 @@ export default class SnakeScene extends Phaser.Scene {
     const x = this.scale.width / 2;
     const y = 76;
     const noticeColor = Phaser.Display.Color.HexStringToColor(color).color;
-    const urgent = color.toLowerCase() === "#ff6b6b" || color.toLowerCase() === "#ff3b3b";
+    const urgent = color.toLowerCase() === '#ff6b6b' || color.toLowerCase() === '#ff3b3b';
     this.juice.notice(x, y, noticeColor, urgent);
     const text = this.add
       .text(0, 0, message, {
@@ -1713,7 +1758,14 @@ export default class SnakeScene extends Phaser.Scene {
       .setAlpha(0)
       .setTint(isGoblinAngel ? 0xcaff76 : 0xfffbdf);
     const halo = this.add
-      .ellipse(width / 2, height * 0.17, width * 0.42, 44, isGoblinAngel ? 0x93d146 : 0xfff4a8, 0.35)
+      .ellipse(
+        width / 2,
+        height * 0.17,
+        width * 0.42,
+        44,
+        isGoblinAngel ? 0x93d146 : 0xfff4a8,
+        0.35,
+      )
       .setAlpha(0)
       .setBlendMode(Phaser.BlendModes.ADD);
 
@@ -1750,7 +1802,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.time.delayedCall(1250, () => this.showAngelDeathDialogue());
   }
 
- private advanceDeathCutscene(): void {
+  private advanceDeathCutscene(): void {
     const cutscene = this.deathCutscene;
     if (!cutscene || !cutscene.canAdvance || cutscene.completed) {
       return;
@@ -2324,7 +2376,7 @@ export default class SnakeScene extends Phaser.Scene {
     const width = this.grid.cols * this.grid.cell;
     const height = this.grid.rows * this.grid.cell;
 
-     (container as any).children?.forEach?.((child: Phaser.GameObjects.GameObject) => {
+    (container as any).children?.forEach?.((child: Phaser.GameObjects.GameObject) => {
       child.destroy();
     });
 
@@ -3794,7 +3846,11 @@ export default class SnakeScene extends Phaser.Scene {
           const dx = Math.abs(enemy.position.x - head.x);
           const dy = Math.abs(enemy.position.y - head.y);
           if (dx <= 5 && dy <= 5) {
-            const hit = (this.snakeGame as any).enemies.damageEnemyAt(currentRoomId, enemy.position, 1);
+            const hit = (this.snakeGame as any).enemies.damageEnemyAt(
+              currentRoomId,
+              enemy.position,
+              1,
+            );
           }
         }
       }
@@ -3866,7 +3922,13 @@ export default class SnakeScene extends Phaser.Scene {
     const render = this.snakeRenderer.getRenderDiagnostics();
     const scheduler = this.simulationScheduler.getDiagnostics();
     const clockLines = scheduler.clocks
-      .filter((clock) => clock.id === 'action' || clock.id === 'actor' || clock.id === 'bullet' || clock.id === 'hazard')
+      .filter(
+        (clock) =>
+          clock.id === 'action' ||
+          clock.id === 'actor' ||
+          clock.id === 'bullet' ||
+          clock.id === 'hazard',
+      )
       .map(
         (clock) =>
           `${clock.id}: ${clock.accumulatorMs.toFixed(0)}/${clock.intervalMs}ms steps ${clock.stepsLastUpdate}`,
@@ -4028,7 +4090,7 @@ export default class SnakeScene extends Phaser.Scene {
       y: this.grid.rows / 2,
     };
     const point = position ?? fallback;
-    const [roomX, roomY] = this.currentRoomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
     const localX = point.x - roomX * this.grid.cols;
     const localY = point.y - roomY * this.grid.rows;
     return { x: localX * cell + cell / 2, y: localY * cell + cell / 2 };
@@ -4036,7 +4098,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private tileToWorldInRoom(position: Vector2Like, roomId: string): { x: number; y: number } {
     const cell = this.grid.cell;
-    const [roomX, roomY] = roomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
     const localX = position.x - roomX * this.grid.cols;
     const localY = position.y - roomY * this.grid.rows;
     return { x: localX * cell + cell / 2, y: localY * cell + cell / 2 };
@@ -4045,6 +4107,14 @@ export default class SnakeScene extends Phaser.Scene {
   private tileToWorldLocalInRoom(position: Vector2Like): { x: number; y: number } {
     const cell = this.grid.cell;
     return { x: position.x * cell + cell / 2, y: position.y * cell + cell / 2 };
+  }
+
+  private parseRoomCoordinates(roomId: string): [number, number, number] {
+    if (roomId.startsWith('cave:')) {
+      return [0, 0, 0];
+    }
+    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+    return [x, y, z];
   }
 
   private handlePredationFeedback(): void {
@@ -4198,11 +4268,16 @@ export default class SnakeScene extends Phaser.Scene {
       (this.juice as any).enemyEaten?.(world.x, world.y);
       const label = enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy';
       const popup = this.add
-        .text(world.x, world.y - 14, enemyEaten.healed ? `${label}  +${enemyEaten.healed} heart` : label, {
-          fontFamily: 'monospace',
-          fontSize: '14px',
-          color: '#ffcf8a',
-        })
+        .text(
+          world.x,
+          world.y - 14,
+          enemyEaten.healed ? `${label}  +${enemyEaten.healed} heart` : label,
+          {
+            fontFamily: 'monospace',
+            fontSize: '14px',
+            color: '#ffcf8a',
+          },
+        )
         .setDepth(26)
         .setOrigin(0.5, 1);
       this.tweens.add({
@@ -4231,9 +4306,14 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.wandererReveal', undefined);
     }
 
-    const relationshipReward = this.snakeGame.getFlag<{ reward: RelationshipReward }>('ui.relationshipReward');
+    const relationshipReward = this.snakeGame.getFlag<{ reward: RelationshipReward }>(
+      'ui.relationshipReward',
+    );
     if (relationshipReward) {
-      this.showQuestHintPopup(this.describeRelationshipReward(relationshipReward.reward), '#ffbdfd');
+      this.showQuestHintPopup(
+        this.describeRelationshipReward(relationshipReward.reward),
+        '#ffbdfd',
+      );
       this.snakeGame.setFlag('ui.relationshipReward', undefined);
     }
 
@@ -4272,7 +4352,10 @@ export default class SnakeScene extends Phaser.Scene {
       score: number;
     }>('ui.footballCatch');
     if (footballCatch) {
-      const world = this.tileToWorldInRoom({ x: footballCatch.x, y: footballCatch.y }, footballCatch.roomId);
+      const world = this.tileToWorldInRoom(
+        { x: footballCatch.x, y: footballCatch.y },
+        footballCatch.roomId,
+      );
       (this.juice as any).footballCatch?.(world.x, world.y);
       this.showQuestHintPopup(`Football caught. +${footballCatch.score} score.`, '#f3eee2');
       this.snakeGame.setFlag('ui.footballCatch', undefined);
@@ -4283,7 +4366,10 @@ export default class SnakeScene extends Phaser.Scene {
       y: number;
     }>('ui.footballFumble');
     if (footballFumble) {
-      const world = this.tileToWorldInRoom({ x: footballFumble.x, y: footballFumble.y }, footballFumble.roomId);
+      const world = this.tileToWorldInRoom(
+        { x: footballFumble.x, y: footballFumble.y },
+        footballFumble.roomId,
+      );
       (this.juice as any).footballFumble?.(world.x, world.y);
       this.snakeGame.setFlag('ui.footballFumble', undefined);
     }
@@ -4357,7 +4443,9 @@ export default class SnakeScene extends Phaser.Scene {
       const world = this.tileToWorldInRoom({ x: townReveal.x, y: townReveal.y }, townReveal.roomId);
       (this.juice as any).villageReveal?.(world.x, world.y);
       this.villageHud
-        .setText(`${townReveal.name.toUpperCase()}\n${formatTownMood(townReveal.mood as any)} | Wanted ${townReveal.wantedLevel}`)
+        .setText(
+          `${townReveal.name.toUpperCase()}\n${formatTownMood(townReveal.mood as any)} | Wanted ${townReveal.wantedLevel}`,
+        )
         .setAlpha(0)
         .setY(12)
         .setVisible(true);
@@ -4432,7 +4520,10 @@ export default class SnakeScene extends Phaser.Scene {
       label: string;
     }>('ui.townHostility');
     if (townHostility) {
-      const world = this.tileToWorldInRoom({ x: townHostility.x, y: townHostility.y }, townHostility.roomId);
+      const world = this.tileToWorldInRoom(
+        { x: townHostility.x, y: townHostility.y },
+        townHostility.roomId,
+      );
       this.juice.notice(world.x, world.y, 0xff6b6b, true);
       this.showQuestHintPopup(townHostility.label, '#ff6b6b');
       this.snakeGame.setFlag('ui.townHostility', undefined);
@@ -4563,7 +4654,9 @@ export default class SnakeScene extends Phaser.Scene {
       `Hearts: ${'♥'.repeat(Math.max(0, health.current))}${'♡'.repeat(Math.max(0, health.max - health.current))}`,
     );
     const head = this.snakeGame.getSnakeBody()[0];
-    this.heartsHud.setText(`Hearts: ${"♥".repeat(Math.max(0, health.current))}${"♡".repeat(Math.max(0, health.max - health.current))}`);
+    this.heartsHud.setText(
+      `Hearts: ${'♥'.repeat(Math.max(0, health.current))}${'♡'.repeat(Math.max(0, health.max - health.current))}`,
+    );
     this.heartsHud.setVisible(!this.isInHouse() && healthRevealed);
     if (!this.isInHouse() && head && healthRevealed && health.current < health.max) {
       const missingRatio = health.max > 0 ? (health.max - health.current) / health.max : 0;
@@ -4594,7 +4687,11 @@ export default class SnakeScene extends Phaser.Scene {
       this.temperatureHud.setColor(color);
       this.temperatureHud.setText(`${label}: ${'■'.repeat(filled)}${'□'.repeat(empty)}`);
       this.temperatureHud.setVisible(true);
-      if (head && filled >= Math.ceil(temperature.max * 0.66) && this.time.now >= this.nextDangerPulseAtMs) {
+      if (
+        head &&
+        filled >= Math.ceil(temperature.max * 0.66) &&
+        this.time.now >= this.nextDangerPulseAtMs
+      ) {
         const world = this.tileToWorld(head);
         this.juice.dangerPulse(world.x, world.y, filled / Math.max(1, temperature.max));
         this.nextDangerPulseAtMs = this.time.now + 360;
@@ -4605,7 +4702,13 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (!this.isInHouse() && head && pActive && this.time.now >= this.nextPowerupSparkAtMs) {
       const world = this.tileToWorld(head);
-      this.juice.powerupTick(world.x, world.y, pActive.kind, pActive.remaining, pActive.total ?? pActive.remaining);
+      this.juice.powerupTick(
+        world.x,
+        world.y,
+        pActive.kind,
+        pActive.remaining,
+        pActive.total ?? pActive.remaining,
+      );
       const progress = pActive.remaining / Math.max(1, pActive.total ?? pActive.remaining);
       this.nextPowerupSparkAtMs = this.time.now + (progress < 0.22 ? 90 : 150);
     }
@@ -4665,7 +4768,7 @@ export default class SnakeScene extends Phaser.Scene {
 
       for (let index = 0; index < boss.body.length; index += 1) {
         const segment = boss.body[index];
-        const [roomX, roomY] = room.id.split(',').map(Number);
+        const [roomX, roomY] = this.parseRoomCoordinates(room.id);
         const localX = segment.x - roomX * this.grid.cols;
         const localY = segment.y - roomY * this.grid.rows;
         if (localX >= 0 && localX < this.grid.cols && localY >= 0 && localY < this.grid.rows) {
@@ -4854,11 +4957,13 @@ export default class SnakeScene extends Phaser.Scene {
       };
     }
 
-    return this.toggleMinimap() ?? {
-      ok: false,
-      message: 'Minimap Module is not unlocked.',
-      color: '#ff6b6b',
-    };
+    return (
+      this.toggleMinimap() ?? {
+        ok: false,
+        message: 'Minimap Module is not unlocked.',
+        color: '#ff6b6b',
+      }
+    );
   }
 
   toggleMinimap(): { ok: boolean; message: string; color: string } | null {
@@ -4922,7 +5027,9 @@ export default class SnakeScene extends Phaser.Scene {
       const blackMarketStock = this.getCurrentBlackMarketSupplyStock();
       return {
         ...blackMarket,
-        supplies: blackMarket.supplies.filter((offer) => (blackMarketStock.supplyCounts[offer.itemId] ?? 0) > 0),
+        supplies: blackMarket.supplies.filter(
+          (offer) => (blackMarketStock.supplyCounts[offer.itemId] ?? 0) > 0,
+        ),
       };
     }
     const definition = getVillageShopDefinition(room.biomeId);
@@ -4998,7 +5105,10 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setCurrentVillageMarketStock(stock: VillageMarketStock): void {
     const room = this.snakeGame.getCurrentRoom();
-    this.setFlag(room.town ? `town.market.stock.${room.town.id}` : `market.stock.${room.id}`, stock);
+    this.setFlag(
+      room.town ? `town.market.stock.${room.town.id}` : `market.stock.${room.id}`,
+      stock,
+    );
   }
 
   private getCurrentMarketCardOffers(): CardId[] {
@@ -5118,7 +5228,11 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: false, message: 'Unknown snake palette.', color: '#ff6b6b' };
     }
     if (!this.snakeCosmetics.unlockedThemes.includes(themeId)) {
-      return { ok: false, message: `${theme.label} is sold in town and village shops.`, color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: `${theme.label} is sold in town and village shops.`,
+        color: '#ff6b6b',
+      };
     }
     this.snakeCosmetics.activeTheme = themeId;
     this.isDirty = true;
@@ -5165,11 +5279,15 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: false, message: 'That supply is not stocked here.', color: '#ff6b6b' };
     }
     const room = this.snakeGame.getCurrentRoom();
-    const isBlackMarket = Boolean(room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout');
+    const isBlackMarket = Boolean(
+      room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
+    );
     const blackMarketStock = isBlackMarket ? this.getCurrentBlackMarketSupplyStock() : null;
     const stock = isBlackMarket ? null : this.getCurrentVillageMarketStock();
     const available = stock ? (stock.supplyCounts[itemId] ?? 0) : 1;
-    const blackMarketAvailable = blackMarketStock ? (blackMarketStock.supplyCounts[itemId] ?? 0) : 1;
+    const blackMarketAvailable = blackMarketStock
+      ? (blackMarketStock.supplyCounts[itemId] ?? 0)
+      : 1;
     if ((stock && available <= 0) || (blackMarketStock && blackMarketAvailable <= 0)) {
       return { ok: false, message: 'That shelf is sold out.', color: '#ff6b6b' };
     }
@@ -5285,7 +5403,11 @@ export default class SnakeScene extends Phaser.Scene {
     const hat = this.getSnakeHatDefinitions().find((entry) => entry.id === hatId);
     const label = hat?.label ?? 'Hat';
     if (!this.snakeCosmetics.unlockedHats.includes(hatId)) {
-      return { ok: false, message: `${label} is sold in town and village shops.`, color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: `${label} is sold in town and village shops.`,
+        color: '#ff6b6b',
+      };
     }
     this.snakeCosmetics.activeHat = this.snakeCosmetics.activeHat === hatId ? null : hatId;
     this.snakeCosmetics.cowboyHatUnlocked =
@@ -5483,10 +5605,7 @@ export default class SnakeScene extends Phaser.Scene {
     const room = this.snakeGame.getCurrentRoom();
     const district = room.town ? getTownDistrictForRoom(room.town, room.id) : undefined;
     const insideTownInterior = Boolean(
-      district &&
-        district !== 'outskirts' &&
-        district !== 'gate' &&
-        district !== 'townExit',
+      district && district !== 'outskirts' && district !== 'gate' && district !== 'townExit',
     );
     if (insideTownInterior && !this.townMusicActive) {
       (this.juice as any).startTownMusic?.();
@@ -5518,7 +5637,8 @@ export default class SnakeScene extends Phaser.Scene {
     return (
       !this.paused &&
       !this.offeredQuest &&
-      (this.isTurnBasedFreeZone() || Boolean(this.getFlag<boolean>('traversal.manualResumePending')))
+      (this.isTurnBasedFreeZone() ||
+        Boolean(this.getFlag<boolean>('traversal.manualResumePending')))
     );
   }
 
@@ -5540,7 +5660,7 @@ export default class SnakeScene extends Phaser.Scene {
     const head = this.snakeGame.getSnakeBody()[0];
     if (!head) return null;
     const room = this.snakeGame.getCurrentRoom();
-    const [rx, ry] = room.id.split(',').map(Number);
+    const [rx, ry] = this.parseRoomCoordinates(room.id);
     const local = {
       x: head.x - rx * this.grid.cols,
       y: head.y - ry * this.grid.rows,
@@ -5685,7 +5805,7 @@ export default class SnakeScene extends Phaser.Scene {
       return Number.POSITIVE_INFINITY;
     }
     const room = this.snakeGame.getCurrentRoom();
-    const [roomX, roomY] = room.id.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
     const localX = head.x - roomX * this.grid.cols;
     const localY = head.y - roomY * this.grid.rows;
     return Math.abs(localX - target.x) + Math.abs(localY - target.y);
@@ -5768,7 +5888,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (current === 'gate' || current === 'townExit') {
       options.push({
         id: 'town-open-gate',
-        title: current === 'townExit' ? 'Talk to Exit Guard - 75 score' : 'Talk to Gate Guard - 75 score',
+        title:
+          current === 'townExit'
+            ? 'Talk to Exit Guard - 75 score'
+            : 'Talk to Gate Guard - 75 score',
         description:
           current === 'townExit'
             ? 'Ask the inner guard to open the back gate. Outsiders do not get this latch.'
@@ -5832,7 +5955,10 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'A residential job-shaped bad idea with witnesses nearby.',
       });
     }
-    if (freshTown.wantedLevel > 0 && (current === 'gate' || current === 'square' || current === 'townExit' || current === 'exit')) {
+    if (
+      freshTown.wantedLevel > 0 &&
+      (current === 'gate' || current === 'square' || current === 'townExit' || current === 'exit')
+    ) {
       const fine = 8 + freshTown.wantedLevel * 7;
       options.push({
         id: `town-pay-fine:${fine}`,
@@ -5864,7 +5990,10 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (id === 'town-rumors') {
-      this.showQuestHintPopup('The bartender says the alley grate only answers proof, not rumors.', '#fff3a8');
+      this.showQuestHintPopup(
+        'The bartender says the alley grate only answers proof, not rumors.',
+        '#fff3a8',
+      );
       this.showTownRoom(this.snakeGame.getCurrentTown() ?? town);
       return;
     }
@@ -5874,10 +6003,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'town-steal-flower') {
       const result = this.snakeGame.applyCurrentTownCrime('theft', true, 1);
-      this.showQuestHintPopup(
-        result.message,
-        result.ok ? '#fff3a8' : '#ff6b6b',
-      );
+      this.showQuestHintPopup(result.message, result.ok ? '#fff3a8' : '#ff6b6b');
       this.showTownRoom(result.town ?? town);
       return;
     }
@@ -5906,9 +6032,15 @@ export default class SnakeScene extends Phaser.Scene {
       }
       this.addScoreDirect(-fine);
       const current = this.snakeGame.getCurrentTown() ?? town;
-      const next = { ...current, wantedLevel: Math.max(0, current.wantedLevel - 1) as TownStructure['wantedLevel'] };
+      const next = {
+        ...current,
+        wantedLevel: Math.max(0, current.wantedLevel - 1) as TownStructure['wantedLevel'],
+      };
       const updated = this.snakeGame.updateCurrentTown(next) ?? current;
-      this.showQuestHintPopup('Fine paid. The wanted poster gets a little less personal.', '#b6ff6a');
+      this.showQuestHintPopup(
+        'Fine paid. The wanted poster gets a little less personal.',
+        '#b6ff6a',
+      );
       this.showTownRoom(updated);
     }
   }
@@ -5949,7 +6081,10 @@ export default class SnakeScene extends Phaser.Scene {
       {
         id: 'guild-lower-wanted',
         title: 'Lower Wanted',
-        description: freshTown.wantedLevel > 0 ? 'Pay the guild to make posters less accurate.' : 'You are not wanted here yet.',
+        description:
+          freshTown.wantedLevel > 0
+            ? 'Pay the guild to make posters less accurate.'
+            : 'You are not wanted here yet.',
       },
       {
         id: 'guild-fence',
@@ -5983,7 +6118,10 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id === 'guild-fence') {
         this.addScoreDirect(6);
-        this.showQuestHintPopup('The fence buys what nobody can prove was stolen. +6 score.', '#b6ff6a');
+        this.showQuestHintPopup(
+          'The fence buys what nobody can prove was stolen. +6 score.',
+          '#b6ff6a',
+        );
         this.showTownGuild(this.snakeGame.getCurrentTown() ?? freshTown);
         return;
       }
@@ -6023,7 +6161,8 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.snakeGame.isCurrentRoomRaidActive()) {
       this.showQuestHintPopup(
-        this.snakeGame.getCurrentRoomRaidMessage() ?? 'The contract stump is closed during the raid.',
+        this.snakeGame.getCurrentRoomRaidMessage() ??
+          'The contract stump is closed during the raid.',
         '#ffce7a',
       );
       return true;
@@ -6038,23 +6177,28 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.hideOverlay();
     const standing = this.snakeGame.getFactionAlignment('goblin-camps').standing;
     if (standing === 'violent' || standing === 'angry') {
-      this.villageShopPopup.show(`${shopkeeperName}'s Contract Stump`, [
-        {
-          id: 'leave',
-          title: standing === 'violent' ? 'Leave quickly' : 'No Sale',
-          description:
-            standing === 'violent'
-              ? 'The goblins are done pricing miracles and have moved to murder.'
-              : 'The clerk recognizes you and closes the ledger with insulting care.',
-        },
-      ], () => this.closeVillageShop());
+      this.villageShopPopup.show(
+        `${shopkeeperName}'s Contract Stump`,
+        [
+          {
+            id: 'leave',
+            title: standing === 'violent' ? 'Leave quickly' : 'No Sale',
+            description:
+              standing === 'violent'
+                ? 'The goblins are done pricing miracles and have moved to murder.'
+                : 'The clerk recognizes you and closes the ledger with insulting care.',
+          },
+        ],
+        () => this.closeVillageShop(),
+      );
       return;
     }
 
     const contracts = this.snakeGame.getWardContracts();
     const usage = this.snakeGame.getWardUsage();
     const options: ChoiceOption[] = GOBLIN_WARD_SCROLLS.map((offer) => {
-      const price = getWardPrice(offer, standing, Number(usage[offer.source] ?? 0)) ?? offer.basePrice;
+      const price =
+        getWardPrice(offer, standing, Number(usage[offer.source] ?? 0)) ?? offer.basePrice;
       const owned = Number(contracts[offer.source] ?? 0);
       const used = Number(usage[offer.source] ?? 0);
       return {
@@ -6095,7 +6239,8 @@ export default class SnakeScene extends Phaser.Scene {
       options.push({
         id: 'quest:goblin-ledger-turnin',
         title: 'Return Ledger-Stamp',
-        description: 'Hand over the sticky little authority and collect whatever mercy counts as pay.',
+        description:
+          'Hand over the sticky little authority and collect whatever mercy counts as pay.',
       });
     } else if (goblinQuest === 'completed') {
       options.push({
@@ -6212,13 +6357,25 @@ export default class SnakeScene extends Phaser.Scene {
     const shop = this.getCurrentVillageShop();
     const options: ChoiceOption[] = [];
     if ((shop?.equipment.length ?? 0) > 0) {
-      options.push({ id: 'equipment', title: 'Equipment', description: 'Weapons, flippers, and weather gear.' });
+      options.push({
+        id: 'equipment',
+        title: 'Equipment',
+        description: 'Weapons, flippers, and weather gear.',
+      });
     }
     if ((shop?.supplies.length ?? 0) > 0) {
-      options.push({ id: 'supplies', title: 'Supplies', description: 'Potions, charms, and little bottles of not dying.' });
+      options.push({
+        id: 'supplies',
+        title: 'Supplies',
+        description: 'Potions, charms, and little bottles of not dying.',
+      });
     }
     if ((shop?.styles.length ?? 0) > 0) {
-      options.push({ id: 'styles', title: 'Styles', description: 'Local palettes for your snake.' });
+      options.push({
+        id: 'styles',
+        title: 'Styles',
+        description: 'Local palettes for your snake.',
+      });
     }
     if ((shop?.hats.length ?? 0) > 0) {
       options.push({
@@ -6228,7 +6385,9 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     const room = this.snakeGame.getCurrentRoom();
-    const isBlackMarket = Boolean(room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout');
+    const isBlackMarket = Boolean(
+      room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
+    );
     const cardOffers = isBlackMarket ? [] : this.getCurrentMarketCardOffers();
     if (cardOffers.length > 0) {
       options.push({
@@ -6252,7 +6411,13 @@ export default class SnakeScene extends Phaser.Scene {
         this.showCardTableRoot(shopkeeperName);
         return;
       }
-      if (id === 'equipment' || id === 'supplies' || id === 'styles' || id === 'hats' || id === 'cards') {
+      if (
+        id === 'equipment' ||
+        id === 'supplies' ||
+        id === 'styles' ||
+        id === 'hats' ||
+        id === 'cards'
+      ) {
         this.showVillageShopCategory(shopkeeperName, id);
       }
     });
@@ -6282,16 +6447,18 @@ export default class SnakeScene extends Phaser.Scene {
       }
     } else if (category === 'supplies') {
       const room = this.snakeGame.getCurrentRoom();
-      const isBlackMarket = Boolean(room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout');
+      const isBlackMarket = Boolean(
+        room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
+      );
       const blackMarketStock = isBlackMarket ? this.getCurrentBlackMarketSupplyStock() : null;
       const stock = isBlackMarket ? null : this.getCurrentVillageMarketStock();
       for (const offer of shop.supplies) {
         const item = getItem(offer.itemId);
         const owned = this.snakeGame.getInventory().getItemCount(offer.itemId);
         const stocked = stock
-          ? stock.supplyCounts[offer.itemId] ?? 0
+          ? (stock.supplyCounts[offer.itemId] ?? 0)
           : blackMarketStock
-            ? blackMarketStock.supplyCounts[offer.itemId] ?? 0
+            ? (blackMarketStock.supplyCounts[offer.itemId] ?? 0)
             : 1;
         options.push({
           id: `supply:${offer.itemId}`,
@@ -6366,13 +6533,13 @@ export default class SnakeScene extends Phaser.Scene {
           ? this.purchaseVillageEquipment(value)
           : kind === 'supply'
             ? this.purchaseVillageSupply(value)
-          : kind === 'style'
-            ? this.purchaseVillageStyle(value as VillageShopStyleId)
-            : kind === 'hat'
-              ? this.purchaseOrToggleVillageHat(value as VillageShopHatId)
-              : kind === 'card'
-                ? this.purchaseVillageCard(value as CardId)
-                : null;
+            : kind === 'style'
+              ? this.purchaseVillageStyle(value as VillageShopStyleId)
+              : kind === 'hat'
+                ? this.purchaseOrToggleVillageHat(value as VillageShopHatId)
+                : kind === 'card'
+                  ? this.purchaseVillageCard(value as CardId)
+                  : null;
       if (result) {
         this.showQuestHintPopup(result.message, result.color);
         this.showVillageShopCategory(shopkeeperName, category, page);
@@ -6549,7 +6716,12 @@ export default class SnakeScene extends Phaser.Scene {
           const next = new Set(selected);
           const willSelect = !next.has(index);
           const cardDefinition = getCardDefinition(cardId);
-          this.juice.cardSelect(x + card.x + 51, y + card.y + 75, willSelect, cardDefinition.rarity);
+          this.juice.cardSelect(
+            x + card.x + 51,
+            y + card.y + 75,
+            willSelect,
+            cardDefinition.rarity,
+          );
           if (next.has(index)) {
             next.delete(index);
           } else {
@@ -6567,7 +6739,7 @@ export default class SnakeScene extends Phaser.Scene {
             alpha: 1,
             duration: 180,
             delay: index * 55,
-            ease: "Back.easeOut",
+            ease: 'Back.easeOut',
           });
         }
         root.add(card);
@@ -6693,7 +6865,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'quest:goblin-ledger-debt') {
       const quest = this.snakeGame.offerGoblinLedgerQuestFromCurrentRoom();
       this.showQuestHintPopup(
-        quest ? 'Ugly Errand accepted. Find the ledger-stamp.' : 'The clerk cannot start that errand here.',
+        quest
+          ? 'Ugly Errand accepted. Find the ledger-stamp.'
+          : 'The clerk cannot start that errand here.',
         quest ? '#b6ff6a' : '#ff6b6b',
       );
       this.showGoblinShopRoot(shopkeeperName);
@@ -6702,7 +6876,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'quest:goblin-ledger-turnin') {
       const quest = this.snakeGame.turnInGoblinLedgerQuestAtCurrentRoom();
       this.showQuestHintPopup(
-        quest ? 'Ledger-stamp returned. The debt is settled.' : 'The clerk still wants the ledger-stamp.',
+        quest
+          ? 'Ledger-stamp returned. The debt is settled.'
+          : 'The clerk still wants the ledger-stamp.',
         quest ? '#b6ff6a' : '#ff6b6b',
       );
       this.showGoblinShopRoot(shopkeeperName);
@@ -6817,13 +6993,23 @@ export default class SnakeScene extends Phaser.Scene {
           .lineBetween(x + cell * 0.5, y + cell * 0.82, x + cell * 0.32, y + cell * 0.26)
           .lineBetween(x + cell * 0.5, y + cell * 0.82, x + cell * 0.5, y + cell * 0.2)
           .lineBetween(x + cell * 0.5, y + cell * 0.82, x + cell * 0.68, y + cell * 0.26);
-        this.graphics.fillStyle(0xffbdfd, 1).fillCircle(x + cell * 0.32, y + cell * 0.24, cell * 0.12);
-        this.graphics.fillStyle(0xffffff, 1).fillCircle(x + cell * 0.5, y + cell * 0.18, cell * 0.13);
-        this.graphics.fillStyle(0xaec4ff, 1).fillCircle(x + cell * 0.68, y + cell * 0.24, cell * 0.12);
+        this.graphics
+          .fillStyle(0xffbdfd, 1)
+          .fillCircle(x + cell * 0.32, y + cell * 0.24, cell * 0.12);
+        this.graphics
+          .fillStyle(0xffffff, 1)
+          .fillCircle(x + cell * 0.5, y + cell * 0.18, cell * 0.13);
+        this.graphics
+          .fillStyle(0xaec4ff, 1)
+          .fillCircle(x + cell * 0.68, y + cell * 0.24, cell * 0.12);
       } else if (actor.kind === 'heliopause-artifact') {
         const pulse = 0.75 + Math.sin(this.time.now / 120) * 0.22;
-        this.graphics.lineStyle(3, 0x9df7ff, pulse).strokeCircle(x + cell / 2, y + cell / 2, cell * 0.48);
-        this.graphics.lineStyle(1, 0xf2f7ff, 0.78).strokeCircle(x + cell / 2, y + cell / 2, cell * 0.28);
+        this.graphics
+          .lineStyle(3, 0x9df7ff, pulse)
+          .strokeCircle(x + cell / 2, y + cell / 2, cell * 0.48);
+        this.graphics
+          .lineStyle(1, 0xf2f7ff, 0.78)
+          .strokeCircle(x + cell / 2, y + cell / 2, cell * 0.28);
         this.graphics.fillStyle(0xe8f8ff, 0.92).fillCircle(x + cell / 2, y + cell / 2, cell * 0.2);
         this.graphics.fillStyle(0x5dd6a2, 0.78).fillCircle(x + cell / 2, y + cell / 2, cell * 0.1);
       }
@@ -6846,7 +7032,10 @@ export default class SnakeScene extends Phaser.Scene {
           eyeColor: '#e8f8ff',
         },
       );
-      this.starforgedEnvoySprite = this.add.sprite(0, 0, textures.idle).setDepth(25).setVisible(false);
+      this.starforgedEnvoySprite = this.add
+        .sprite(0, 0, textures.idle)
+        .setDepth(25)
+        .setVisible(false);
     }
     const textures = this.runtimeSpriteFactory.ensureRecipe(
       questGiverSpriteRecipe,
@@ -6957,7 +7146,7 @@ export default class SnakeScene extends Phaser.Scene {
         })
         .setOrigin(0.5, 0);
       root.add(empty);
-      this.time.delayedCall(180, () => this.juice.cardBust(x + width / 2, y + 154, "empty"));
+      this.time.delayedCall(180, () => this.juice.cardBust(x + width / 2, y + 154, 'empty'));
     } else {
       for (const cardId of visibleCards) {
         const sprite = this.createCardSprite(cardId, true, () => undefined);
@@ -7033,7 +7222,9 @@ export default class SnakeScene extends Phaser.Scene {
         ease: 'Sine.easeInOut',
       });
       result.details.slice(0, 4).forEach((detail, index) => {
-        this.time.delayedCall(index * 120, () => this.juice.cardRuleTrigger(x + width / 2, y + 92 + index * 18, detail, index));
+        this.time.delayedCall(index * 120, () =>
+          this.juice.cardRuleTrigger(x + width / 2, y + 92 + index * 18, detail, index),
+        );
       });
     });
     delay += 520;
@@ -7283,7 +7474,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!head) {
       return false;
     }
-    const [roomX, roomY] = room.id.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
     const localX = head.x - roomX * this.grid.cols;
     const localY = head.y - roomY * this.grid.rows;
     const dist = Math.abs(localX - giver.x) + Math.abs(localY - giver.y);
@@ -7436,7 +7627,10 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private handleMcDonaldsChoice(id: string, mc: NonNullable<ReturnType<SnakeGame['getCurrentRoom']>['snakeMcDonalds']>): void {
+  private handleMcDonaldsChoice(
+    id: string,
+    mc: NonNullable<ReturnType<SnakeGame['getCurrentRoom']>['snakeMcDonalds']>,
+  ): void {
     if (id === 'leave') {
       this.closeVillageShop();
       return;
@@ -7710,8 +7904,8 @@ export default class SnakeScene extends Phaser.Scene {
     const currentTown = this.snakeGame.getCurrentTown();
     const canPickpocket = Boolean(
       currentTown &&
-        this.snakeGame.canPickpocketForCurrentTownGuild() &&
-        profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`),
+      this.snakeGame.canPickpocketForCurrentTownGuild() &&
+      profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`),
     );
     const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile), profile.actorId);
     const conversationPortraitId = profile.portraitId ?? bark.portraitId;
@@ -7771,7 +7965,9 @@ export default class SnakeScene extends Phaser.Scene {
           const line =
             id === 'ask-rumor'
               ? this.snakeGame.formatActorConversation(
-                  profile.actorId ? this.snakeGame.getActorConversation(profile.actorId, 'ask-around') : null,
+                  profile.actorId
+                    ? this.snakeGame.getActorConversation(profile.actorId, 'ask-around')
+                    : null,
                 )
               : id === 'apologize'
                 ? this.snakeGame.apologizeToActor(profile.actorId ?? '')
@@ -7780,7 +7976,9 @@ export default class SnakeScene extends Phaser.Scene {
                   : id === 'parley'
                     ? this.snakeGame.parleyWithActor(profile.actorId ?? '')
                     : this.snakeGame.formatActorConversation(
-                        profile.actorId ? this.snakeGame.getActorConversation(profile.actorId, 'ask-personal') : null,
+                        profile.actorId
+                          ? this.snakeGame.getActorConversation(profile.actorId, 'ask-personal')
+                          : null,
                       );
           this.showQuestDialogue(
             profile.displayName,
@@ -7834,7 +8032,9 @@ export default class SnakeScene extends Phaser.Scene {
     profile: RelationshipCandidateProfile,
     canPickpocket: boolean,
   ): Array<{ id: string; title: string; description: string }> {
-    const actorMenu = profile.actorId ? this.snakeGame.getActorInteractionMenu(profile.actorId) : null;
+    const actorMenu = profile.actorId
+      ? this.snakeGame.getActorInteractionMenu(profile.actorId)
+      : null;
     if (!actorMenu) {
       return [
         {
@@ -7852,7 +8052,8 @@ export default class SnakeScene extends Phaser.Scene {
               {
                 id: 'pickpocket',
                 title: 'Pick Pocket',
-                description: 'Lift score or contraband. Trust is also in the pocket, unfortunately.',
+                description:
+                  'Lift score or contraband. Trust is also in the pocket, unfortunately.',
               },
             ]
           : []),
@@ -7883,10 +8084,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private actorInteractionTitle(profile: RelationshipCandidateProfile): string {
-    const actorMenu = profile.actorId ? this.snakeGame.getActorInteractionMenu(profile.actorId) : null;
-    return actorMenu
-      ? `${actorMenu.title} (${actorMenu.moodSummary})`
-      : profile.displayName;
+    const actorMenu = profile.actorId
+      ? this.snakeGame.getActorInteractionMenu(profile.actorId)
+      : null;
+    return actorMenu ? `${actorMenu.title} (${actorMenu.moodSummary})` : profile.displayName;
   }
 
   private currentTownActorLine(displayName: string): string {
@@ -7914,56 +8115,74 @@ export default class SnakeScene extends Phaser.Scene {
   private askActorPersonally(profile: RelationshipCandidateProfile): string | null {
     const actorId = profile.actorId ?? '';
     return Math.random() < 0.5
-      ? (this.snakeGame.askActorSocialTie(actorId) ?? this.snakeGame.askActorPersonalReveal(actorId))
-      : (this.snakeGame.askActorPersonalReveal(actorId) ?? this.snakeGame.askActorSocialTie(actorId));
+      ? (this.snakeGame.askActorSocialTie(actorId) ??
+          this.snakeGame.askActorPersonalReveal(actorId))
+      : (this.snakeGame.askActorPersonalReveal(actorId) ??
+          this.snakeGame.askActorSocialTie(actorId));
   }
 
   private relationshipNpcVoiceRole(profile: RelationshipCandidateProfile): string {
     if (/Guard\b/.test(profile.displayName)) return 'guard';
     if (/Bartender\b/.test(profile.displayName)) return 'bartender';
     if (/Guild\b/.test(profile.displayName)) return 'thiefContact';
-    if (profile.species === 'goblin' || profile.species === 'goblin-angel') return 'goblin-merchant';
+    if (profile.species === 'goblin' || profile.species === 'goblin-angel')
+      return 'goblin-merchant';
     return 'romance';
   }
 
   private getLibertyStructureHint(room: ReturnType<SnakeGame['getCurrentRoom']>): string | null {
     if (
       room.gridironYard &&
-      [room.gridironYard.coach, ...room.gridironYard.players].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.gridironYard.coach, ...room.gridironYard.players].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       return `Play football at ${room.gridironYard.fieldName} (press E)`;
     }
     if (
       room.allNiteDiner &&
-      [room.allNiteDiner.cook, room.allNiteDiner.waitress, room.allNiteDiner.regular].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.allNiteDiner.cook, room.allNiteDiner.waitress, room.allNiteDiner.regular].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       return `Order at ${room.allNiteDiner.dinerName} (press E)`;
     }
     if (
       room.fireworkStand &&
-      [room.fireworkStand.vendor, room.fireworkStand.inspector].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.fireworkStand.vendor, room.fireworkStand.inspector].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       return `Shop at ${room.fireworkStand.standName} (press E)`;
     }
     if (
       room.roadsideMonument &&
-      [room.roadsideMonument.docent, room.roadsideMonument.ranger].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.roadsideMonument.docent, room.roadsideMonument.ranger].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       return `Visit ${room.roadsideMonument.monumentName} (press E)`;
     }
     if (
       room.jackalopeLodge &&
-      [room.jackalopeLodge.elder, ...room.jackalopeLodge.witnesses].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.jackalopeLodge.elder, ...room.jackalopeLodge.witnesses].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       return `Hear a tall tale at ${room.jackalopeLodge.lodgeName} (press E)`;
     }
     if (
       room.motelPool &&
-      [room.motelPool.clerk, room.motelPool.maintenance].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.motelPool.clerk, room.motelPool.maintenance].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       return `Check in at ${room.motelPool.poolName} (press E)`;
     }
-    if (room.billboardOracle && this.distanceFromHeadToLocal(room.billboardOracle.signPainter) <= 2) {
+    if (
+      room.billboardOracle &&
+      this.distanceFromHeadToLocal(room.billboardOracle.signPainter) <= 2
+    ) {
       return `Read the billboard prophecy (press E)`;
     }
     if (room.roadCrew && this.distanceFromHeadToLocal(room.roadCrew.ranger) <= 2) {
@@ -7989,7 +8208,9 @@ export default class SnakeScene extends Phaser.Scene {
     let title = 'Liberty Badlands';
     if (
       room.gridironYard &&
-      [room.gridironYard.coach, ...room.gridironYard.players].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.gridironYard.coach, ...room.gridironYard.players].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       title = room.gridironYard.fieldName;
       choices.push(
@@ -8006,7 +8227,9 @@ export default class SnakeScene extends Phaser.Scene {
       );
     } else if (
       room.allNiteDiner &&
-      [room.allNiteDiner.cook, room.allNiteDiner.waitress, room.allNiteDiner.regular].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.allNiteDiner.cook, room.allNiteDiner.waitress, room.allNiteDiner.regular].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       title = room.allNiteDiner.dinerName;
       choices.push(
@@ -8033,7 +8256,9 @@ export default class SnakeScene extends Phaser.Scene {
       );
     } else if (
       room.fireworkStand &&
-      [room.fireworkStand.vendor, room.fireworkStand.inspector].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.fireworkStand.vendor, room.fireworkStand.inspector].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       title = room.fireworkStand.standName;
       choices.push(
@@ -8055,7 +8280,9 @@ export default class SnakeScene extends Phaser.Scene {
       );
     } else if (
       room.roadsideMonument &&
-      [room.roadsideMonument.docent, room.roadsideMonument.ranger].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.roadsideMonument.docent, room.roadsideMonument.ranger].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       title = room.roadsideMonument.monumentName;
       choices.push(
@@ -8072,7 +8299,9 @@ export default class SnakeScene extends Phaser.Scene {
       );
     } else if (
       room.jackalopeLodge &&
-      [room.jackalopeLodge.elder, ...room.jackalopeLodge.witnesses].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.jackalopeLodge.elder, ...room.jackalopeLodge.witnesses].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       title = room.jackalopeLodge.lodgeName;
       choices.push(
@@ -8089,7 +8318,9 @@ export default class SnakeScene extends Phaser.Scene {
       );
     } else if (
       room.motelPool &&
-      [room.motelPool.clerk, room.motelPool.maintenance].some((npc) => this.distanceFromHeadToLocal(npc) <= 2)
+      [room.motelPool.clerk, room.motelPool.maintenance].some(
+        (npc) => this.distanceFromHeadToLocal(npc) <= 2,
+      )
     ) {
       title = room.motelPool.poolName;
       choices.push(
@@ -8104,7 +8335,10 @@ export default class SnakeScene extends Phaser.Scene {
           description: this.libertyLine('maintenance', 2),
         },
       );
-    } else if (room.billboardOracle && this.distanceFromHeadToLocal(room.billboardOracle.signPainter) <= 2) {
+    } else if (
+      room.billboardOracle &&
+      this.distanceFromHeadToLocal(room.billboardOracle.signPainter) <= 2
+    ) {
       title = room.billboardOracle.slogan;
       choices.push({
         id: 'liberty-billboard-contract',
@@ -8154,14 +8388,20 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(12, 'Pie Slice')) return;
       this.snakeGame.growSnake(2);
       this.snakeGame.setFlag('player.temperatureExposureMs', 0);
-      this.showQuestHintPopup('Pie acquired. +2 length. The heat looks briefly embarrassed.', '#9ad1ff');
+      this.showQuestHintPopup(
+        'Pie acquired. +2 length. The heat looks briefly embarrassed.',
+        '#9ad1ff',
+      );
       return;
     }
     if (id === 'liberty-diner-coffee') {
       if (!this.spendScore(8, 'Bottomless Coffee')) return;
       this.snakeGame.setFlag('liberty.caffeineCatches', 2);
       (this.juice as any).neonFlicker?.(this.scale.width / 2, 80);
-      this.showQuestHintPopup('Coffee hits like a legal document with caffeine. Next two football catches pay double.', '#9ad1ff');
+      this.showQuestHintPopup(
+        'Coffee hits like a legal document with caffeine. Next two football catches pay double.',
+        '#9ad1ff',
+      );
       return;
     }
     if (id === 'liberty-diner-blue-plate') {
@@ -8172,11 +8412,17 @@ export default class SnakeScene extends Phaser.Scene {
         this.showQuestHintPopup('Blue Plate Special: Monumental Appetite. +3 length.', '#f3eee2');
       } else if (roll === 1) {
         this.grantFootballThrow(2);
-        this.showQuestHintPopup('Blue Plate Special: Fourth Quarter Arm. +2 football throws.', '#9ad1ff');
+        this.showQuestHintPopup(
+          'Blue Plate Special: Fourth Quarter Arm. +2 football throws.',
+          '#9ad1ff',
+        );
       } else {
         this.snakeGame.setFlag('player.temperatureExposureMs', 0);
         this.snakeGame.setFlag('liberty.nextAppleBonus', 35);
-        this.showQuestHintPopup('Blue Plate Special: Long Weekend. Heat reset and next apple gets +35 score.', '#f3eee2');
+        this.showQuestHintPopup(
+          'Blue Plate Special: Long Weekend. Heat reset and next apple gets +35 score.',
+          '#f3eee2',
+        );
       }
       (this.juice as any).neonFlicker?.(this.scale.width / 2, 80);
       return;
@@ -8192,7 +8438,10 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(18, 'Bottle-Rocket Football')) return;
       this.grantFootballThrow(1);
       (this.juice as any).fireworkPop?.(this.scale.width / 2, 90);
-      this.showQuestHintPopup('One bottle-rocket football ready. Click or tap to throw it.', '#9ad1ff');
+      this.showQuestHintPopup(
+        'One bottle-rocket football ready. Click or tap to throw it.',
+        '#9ad1ff',
+      );
       return;
     }
     if (id === 'liberty-firework-roman-candle') {
@@ -8222,13 +8471,19 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('liberty.nextAppleBonus', 45);
       this.grantFootballThrow(1);
       (this.juice as any).monumentSparkle?.(this.scale.width / 2, 86);
-      this.showQuestHintPopup('Donation receipt blessed. Next apple gets +45 score and one commemorative football.', '#f3eee2');
+      this.showQuestHintPopup(
+        'Donation receipt blessed. Next apple gets +45 score and one commemorative football.',
+        '#f3eee2',
+      );
       return;
     }
     if (id === 'liberty-lodge-tale') {
       this.snakeGame.addScore(12);
       this.snakeGame.growSnake(1);
-      this.showQuestHintPopup('The story grows in the telling. So do you. +1 length, +12 score.', '#f3eee2');
+      this.showQuestHintPopup(
+        'The story grows in the telling. So do you. +1 length, +12 score.',
+        '#f3eee2',
+      );
       return;
     }
     if (id === 'liberty-lodge-whistle') {
@@ -8236,7 +8491,10 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.growSnake(2);
       this.snakeGame.addScore(10);
       (this.juice as any).monumentSparkle?.(this.scale.width / 2, 86);
-      this.showQuestHintPopup('The whistle makes a sound only witnesses understand. +2 length.', '#f3eee2');
+      this.showQuestHintPopup(
+        'The whistle makes a sound only witnesses understand. +2 length.',
+        '#f3eee2',
+      );
       return;
     }
     if (id === 'liberty-motel-cooldown') {
@@ -8251,7 +8509,10 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(14, 'Lost & Found Dive')) return;
       this.grantFootballThrow(1);
       this.snakeGame.addScore(22);
-      this.showQuestHintPopup('You skim up a room key and a football. +22 score, +1 throw.', '#9ad1ff');
+      this.showQuestHintPopup(
+        'You skim up a room key and a football. +22 score, +1 throw.',
+        '#9ad1ff',
+      );
       return;
     }
     if (id === 'liberty-billboard-contract') {
@@ -8264,7 +8525,10 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(10, 'Roadside Assistance')) return;
       this.snakeGame.setFlag('player.temperatureExposureMs', 0);
       this.grantFootballThrow(1);
-      this.showQuestHintPopup('Detour approved. Heat reset and one football throw ready.', '#f3eee2');
+      this.showQuestHintPopup(
+        'Detour approved. Heat reset and one football throw ready.',
+        '#f3eee2',
+      );
     }
   }
 
@@ -8288,7 +8552,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!room.gridironYard || !head) {
       return;
     }
-    const [roomX, roomY] = room.id.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
     const local = { x: head.x - roomX * this.grid.cols, y: head.y - roomY * this.grid.rows };
     const coachWorld = this.tileToWorldLocalInRoom(room.gridironYard.coach);
     const catchWorld = this.tileToWorldLocalInRoom(local);
@@ -8302,7 +8566,10 @@ export default class SnakeScene extends Phaser.Scene {
       maxAge: 12,
     });
     if (spawned) {
-      this.showQuestHintPopup('Ball is live. Run it down and catch it before the desert does.', '#f3eee2');
+      this.showQuestHintPopup(
+        'Ball is live. Run it down and catch it before the desert does.',
+        '#f3eee2',
+      );
     } else {
       this.grantFootballThrow(1);
       this.showQuestHintPopup('Coach hands you the ball. One football throw ready.', '#f3eee2');
@@ -8398,7 +8665,10 @@ export default class SnakeScene extends Phaser.Scene {
           color: '#ffbdfd',
           state,
         },
-        actions: [{ id: 'continue', label: 'Continue' }, { id: 'leave', label: 'Leave', tone: 'quiet' }],
+        actions: [
+          { id: 'continue', label: 'Continue' },
+          { id: 'leave', label: 'Leave', tone: 'quiet' },
+        ],
         onAction: (action) => {
           if (action === 'leave') {
             this.datingScenePopup.hide();
@@ -8422,7 +8692,10 @@ export default class SnakeScene extends Phaser.Scene {
       state: result?.state ?? this.snakeGame.getRelationshipState(profile) ?? talk.state,
       line: this.extractFirstQuotedLine(result?.message) ?? talk.line,
       result: result as any,
-      actions: this.getDatingSceneActions(profile, result?.state ?? this.snakeGame.getRelationshipState(profile) ?? talk.state),
+      actions: this.getDatingSceneActions(
+        profile,
+        result?.state ?? this.snakeGame.getRelationshipState(profile) ?? talk.state,
+      ),
       onAction: (action) => this.handleDatingSceneAction(profile, action),
     });
   }
@@ -8432,7 +8705,10 @@ export default class SnakeScene extends Phaser.Scene {
     state?: { stage?: string; romanceOptIn?: boolean; resentment?: number; jealousy?: number },
   ): readonly DatingSceneButton[] {
     const stage = state?.stage ?? 'stranger';
-    const needsApology = Number(state?.resentment ?? 0) > 0 || Number(state?.jealousy ?? 0) > 0 || stage === 'estranged';
+    const needsApology =
+      Number(state?.resentment ?? 0) > 0 ||
+      Number(state?.jealousy ?? 0) > 0 ||
+      stage === 'estranged';
     const labels: Record<string, string> = {
       talk: 'Talk',
       gift: 'Gift',
@@ -8462,7 +8738,10 @@ export default class SnakeScene extends Phaser.Scene {
     return [...actions, { id: 'leave', label: 'Leave' }];
   }
 
-  private handleDatingSceneAction(profile: RelationshipCandidateProfile, action: DatingSceneAction): void {
+  private handleDatingSceneAction(
+    profile: RelationshipCandidateProfile,
+    action: DatingSceneAction,
+  ): void {
     if (this.activeDatingSequence) {
       this.handleDatingSequenceAction(action);
       return;
@@ -8531,7 +8810,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (!sequence) return;
     if (sequence.index >= sequence.pages.length) {
       const branch = sequence.branchChoice
-        ? this.snakeGame.applyRelationshipBranchChoice(sequence.profile, sequence.branchChoice, sequence.kind)
+        ? this.snakeGame.applyRelationshipBranchChoice(
+            sequence.profile,
+            sequence.branchChoice,
+            sequence.kind,
+          )
         : null;
       const main = branch
         ? null
@@ -8561,12 +8844,18 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#ffbdfd',
         state,
       },
-      actions: page.actions ?? [{ id: 'continue', label: 'Continue' }, { id: 'leave', label: 'Back', tone: 'quiet' }],
+      actions: page.actions ?? [
+        { id: 'continue', label: 'Continue' },
+        { id: 'leave', label: 'Back', tone: 'quiet' },
+      ],
       onAction: (action) => this.handleDatingSceneAction(sequence.profile, action),
     });
   }
 
-  private normalizeDatingBranchChoice(actionId: string, result?: DatingBranchResult): DatingBranchChoice {
+  private normalizeDatingBranchChoice(
+    actionId: string,
+    result?: DatingBranchResult,
+  ): DatingBranchChoice {
     const label = result?.label ?? actionId.replace(/^branch-/, '').replace(/-/g, ' ');
     return {
       id: actionId,
@@ -8578,13 +8867,15 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private inferRelationshipTags(actionId: string): DatingBranchChoice['tags'] {
-    if (/protect|sharecloak/.test(actionId)) return ['protective', 'selfless', 'bravery', 'privateAffection'];
+    if (/protect|sharecloak/.test(actionId))
+      return ['protective', 'selfless', 'bravery', 'privateAffection'];
     if (/run|floor|coward|skip/.test(actionId)) return ['selfPreserving', 'avoidance'];
     if (/joke|counter|mooncrime/.test(actionId)) return ['clever', 'dramatic'];
     if (/honest|sincere/.test(actionId)) return ['honesty', 'privateAffection'];
     if (/knife|stone|betrayer/.test(actionId)) return ['violence', 'danger', 'dramatic'];
     if (/pastry|pepperoni|pineapple|mushroom/.test(actionId)) return ['food', 'comfort'];
-    if (/married|slowdance|eyes|smile|rose/.test(actionId)) return ['commitment', 'publicAffection', 'dramatic'];
+    if (/married|slowdance|eyes|smile|rose/.test(actionId))
+      return ['commitment', 'publicAffection', 'dramatic'];
     if (/home/.test(actionId)) return ['comfort', 'loyalty'];
     if (/thief|mastermind|rival/.test(actionId)) return ['clever', 'ambition'];
     if (/mock|complain/.test(actionId)) return ['betrayal', 'neediness'];
@@ -8595,49 +8886,71 @@ export default class SnakeScene extends Phaser.Scene {
     profile: RelationshipCandidateProfile,
     kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>,
   ): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
-    const voice = (line: string): DatingSequencePage => ({ line, result: `${profile.displayName}'s expression changes before their voice does.` });
+    const voice = (line: string): DatingSequencePage => ({
+      line,
+      result: `${profile.displayName}'s expression changes before their voice does.`,
+    });
     const speciesLine = (human: string, goblin: string, angel: string): string => {
       if (profile.species === 'goblin' || profile.species === 'goblin-angel') return goblin;
       if (profile.species === 'angel') return angel;
       return human;
     };
-    const templates: Array<{ pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> }> = [];
+    const templates: Array<{
+      pages: DatingSequencePage[];
+      branchResults: Record<string, DatingBranchResult>;
+    }> = [];
     if (kind === 'talk') {
       templates.push({
         pages: [
-        { line: `You and ${profile.displayName} step aside where the room noise thins.`, lineIsNarration: true },
-        voice(this.pickRelationshipLine(profile, [
-          'I was going to make a joke, but then you arrived looking like the punchline had unionized.',
-          'Tell me something true and small. Large truths always arrive overdressed.',
-          'If this is small talk, why does it keep looking at me like a duel?',
-        ])),
-        {
-          line: `${profile.displayName} makes a joke that is either flirtation, accusation, or advanced local weather.`,
-          lineIsNarration: true,
-          actions: [
-            { id: 'branch-joke', label: 'Joke Back' },
-            { id: 'branch-honest', label: 'Answer Honestly' },
-            { id: 'leave', label: 'Back', tone: 'quiet' },
-          ],
-        },
-        voice(this.pickRelationshipLine(profile, [
-          'Not terrible. I reserve the right to become fond of this version of you.',
-          'Careful. Competence is dangerously close to charm.',
-        ])),
+          {
+            line: `You and ${profile.displayName} step aside where the room noise thins.`,
+            lineIsNarration: true,
+          },
+          voice(
+            this.pickRelationshipLine(profile, [
+              'I was going to make a joke, but then you arrived looking like the punchline had unionized.',
+              'Tell me something true and small. Large truths always arrive overdressed.',
+              'If this is small talk, why does it keep looking at me like a duel?',
+            ]),
+          ),
+          {
+            line: `${profile.displayName} makes a joke that is either flirtation, accusation, or advanced local weather.`,
+            lineIsNarration: true,
+            actions: [
+              { id: 'branch-joke', label: 'Joke Back' },
+              { id: 'branch-honest', label: 'Answer Honestly' },
+              { id: 'leave', label: 'Back', tone: 'quiet' },
+            ],
+          },
+          voice(
+            this.pickRelationshipLine(profile, [
+              'Not terrible. I reserve the right to become fond of this version of you.',
+              'Careful. Competence is dangerously close to charm.',
+            ]),
+          ),
         ],
         branchResults: {
-          'branch-joke': { text: `Liked: ${profile.displayName} laughs despite themselves. The joke clearly landed.` },
-          'branch-honest': { text: `Liked: ${profile.displayName} goes quiet because the honest answer mattered.` },
+          'branch-joke': {
+            text: `Liked: ${profile.displayName} laughs despite themselves. The joke clearly landed.`,
+          },
+          'branch-honest': {
+            text: `Liked: ${profile.displayName} goes quiet because the honest answer mattered.`,
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `${profile.displayName} points at a cracked map and asks where you would go if no one needed anything from you.`, lineIsNarration: true },
-          voice(speciesLine(
-            'Choose carefully. I judge imaginary vacations with real severity.',
-            'Say treasure cave and I may respect you. Say tax office and I may propose immediately.',
-            'Do not say heaven. I have seen the management.',
-          )),
+          {
+            line: `${profile.displayName} points at a cracked map and asks where you would go if no one needed anything from you.`,
+            lineIsNarration: true,
+          },
+          voice(
+            speciesLine(
+              'Choose carefully. I judge imaginary vacations with real severity.',
+              'Say treasure cave and I may respect you. Say tax office and I may propose immediately.',
+              'Do not say heaven. I have seen the management.',
+            ),
+          ),
           {
             line: `The map waits like a tiny, rude oracle.`,
             lineIsNarration: true,
@@ -8651,14 +8964,23 @@ export default class SnakeScene extends Phaser.Scene {
           voice('Interesting. I can work with that answer. I may also weaponize it.'),
         ],
         branchResults: {
-          'branch-sea': { text: `Liked: ${profile.displayName} likes the sea answer and softens at the image.` },
-          'branch-mountain': { text: `Neutral: ${profile.displayName} respects the mountain answer, but it does not quite reach them.` },
-          'branch-home': { text: `Loved: ${profile.displayName} liked "home" more than they expected.` },
+          'branch-sea': {
+            text: `Liked: ${profile.displayName} likes the sea answer and softens at the image.`,
+          },
+          'branch-mountain': {
+            text: `Neutral: ${profile.displayName} respects the mountain answer, but it does not quite reach them.`,
+          },
+          'branch-home': {
+            text: `Loved: ${profile.displayName} liked "home" more than they expected.`,
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `${profile.displayName} tells you a joke so dry it may technically be kindling.`, lineIsNarration: true },
+          {
+            line: `${profile.displayName} tells you a joke so dry it may technically be kindling.`,
+            lineIsNarration: true,
+          },
           voice('Laugh if you understand it. Laugh harder if you do not.'),
           {
             line: `The joke hangs there with ceremonial arrogance.`,
@@ -8674,18 +8996,27 @@ export default class SnakeScene extends Phaser.Scene {
         ],
         branchResults: {
           'branch-laugh': { text: `Liked: ${profile.displayName} looks pleased that you laughed.` },
-          'branch-groan': { text: `Neutral: ${profile.displayName} accepts the groan, but wanted a laugh.` },
-          'branch-counterjoke': { text: `Loved: ${profile.displayName} loves that you answered with a joke of your own.` },
+          'branch-groan': {
+            text: `Neutral: ${profile.displayName} accepts the groan, but wanted a laugh.`,
+          },
+          'branch-counterjoke': {
+            text: `Loved: ${profile.displayName} loves that you answered with a joke of your own.`,
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `${profile.displayName} asks what rumor about you is closest to true.`, lineIsNarration: true },
-          voice(speciesLine(
-            'Careful. I prefer truth wearing a dramatic hat.',
-            'If it involves theft, say it proudly. If it involves taxes, lie.',
-            'The universe keeps records. I prefer hearing the annotated version.',
-          )),
+          {
+            line: `${profile.displayName} asks what rumor about you is closest to true.`,
+            lineIsNarration: true,
+          },
+          voice(
+            speciesLine(
+              'Careful. I prefer truth wearing a dramatic hat.',
+              'If it involves theft, say it proudly. If it involves taxes, lie.',
+              'The universe keeps records. I prefer hearing the annotated version.',
+            ),
+          ),
           {
             line: `Three rumors volunteer themselves with terrible posture.`,
             lineIsNarration: true,
@@ -8699,44 +9030,63 @@ export default class SnakeScene extends Phaser.Scene {
           voice('Good. A person without rumors is either boring or dangerously efficient.'),
         ],
         branchResults: {
-          'branch-rumor-hero': { text: `Liked: ${profile.displayName} likes the heroic answer, even if they call it suspicious.` },
-          'branch-rumor-thief': { text: `Liked: ${profile.displayName} finds the thief answer entertaining.` },
-          'branch-rumor-coward': { text: `Disliked: ${profile.displayName} appreciates the honesty, but cowardice clearly bothers them.`, outcome: 'mean' },
+          'branch-rumor-hero': {
+            text: `Liked: ${profile.displayName} likes the heroic answer, even if they call it suspicious.`,
+          },
+          'branch-rumor-thief': {
+            text: `Liked: ${profile.displayName} finds the thief answer entertaining.`,
+          },
+          'branch-rumor-coward': {
+            text: `Disliked: ${profile.displayName} appreciates the honesty, but cowardice clearly bothers them.`,
+            outcome: 'mean',
+          },
         },
       });
     } else if (kind === 'flirt') {
       templates.push({
         pages: [
-        { line: `You lean into the ridiculous tension like someone opening a cursed love letter.`, lineIsNarration: true },
-        voice(this.pickRelationshipLine(profile, [
-          'That line was indecently confident for someone shaped like consequences.',
-          'Say that again slower. I want to decide whether to reward you or ruin you socially.',
-          'You are flirting like a person trying to negotiate with lightning. Continue.',
-        ])),
-        {
-          line: `${profile.displayName} asks, with suspicious gravity: "What is your kind of pizza?"`,
-          lineIsNarration: true,
-          actions: [
-            { id: 'branch-pineapple', label: 'Pineapple' },
-            { id: 'branch-pepperoni', label: 'Pepperoni' },
-            { id: 'branch-mushroom', label: 'Mushroom' },
-            { id: 'leave', label: 'Back', tone: 'quiet' },
-          ],
-        },
-        voice(this.pickRelationshipLine(profile, [
-          'I hate that I asked. I hate more that your answer helps.',
-          'Fine. The flirtation survives cross-examination. Barely.',
-        ])),
+          {
+            line: `You lean into the ridiculous tension like someone opening a cursed love letter.`,
+            lineIsNarration: true,
+          },
+          voice(
+            this.pickRelationshipLine(profile, [
+              'That line was indecently confident for someone shaped like consequences.',
+              'Say that again slower. I want to decide whether to reward you or ruin you socially.',
+              'You are flirting like a person trying to negotiate with lightning. Continue.',
+            ]),
+          ),
+          {
+            line: `${profile.displayName} asks, with suspicious gravity: "What is your kind of pizza?"`,
+            lineIsNarration: true,
+            actions: [
+              { id: 'branch-pineapple', label: 'Pineapple' },
+              { id: 'branch-pepperoni', label: 'Pepperoni' },
+              { id: 'branch-mushroom', label: 'Mushroom' },
+              { id: 'leave', label: 'Back', tone: 'quiet' },
+            ],
+          },
+          voice(
+            this.pickRelationshipLine(profile, [
+              'I hate that I asked. I hate more that your answer helps.',
+              'Fine. The flirtation survives cross-examination. Barely.',
+            ]),
+          ),
         ],
         branchResults: {
           'branch-pineapple': { text: `Liked: "pineapple? Bold. I like bold."` },
           'branch-pepperoni': { text: `Neutral: "pepperoni? Direct. I can respect direct."` },
-          'branch-mushroom': { text: `Liked: "mushroom? Mysterious. I like that more than I should."` },
+          'branch-mushroom': {
+            text: `Liked: "mushroom? Mysterious. I like that more than I should."`,
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `${profile.displayName} asks what kind of villain you would be in a melodrama.`, lineIsNarration: true },
+          {
+            line: `${profile.displayName} asks what kind of villain you would be in a melodrama.`,
+            lineIsNarration: true,
+          },
           voice('Do not disappoint me with a humble answer.'),
           {
             line: `The question has no innocent exits.`,
@@ -8751,19 +9101,31 @@ export default class SnakeScene extends Phaser.Scene {
           voice('That answer is either attractive or a warning label. Fortunately, I read both.'),
         ],
         branchResults: {
-          'branch-rival': { text: `Loved: ${profile.displayName} clearly approves of the elegant rival answer.` },
-          'branch-mastermind': { text: `Liked: ${profile.displayName} likes the ambition, even while judging your imaginary lair.` },
-          'branch-betrayer': { text: `Disliked: ${profile.displayName} does not like betrayal jokes. Resentment takes notes.`, outcome: 'mean' },
+          'branch-rival': {
+            text: `Loved: ${profile.displayName} clearly approves of the elegant rival answer.`,
+          },
+          'branch-mastermind': {
+            text: `Liked: ${profile.displayName} likes the ambition, even while judging your imaginary lair.`,
+          },
+          'branch-betrayer': {
+            text: `Disliked: ${profile.displayName} does not like betrayal jokes. Resentment takes notes.`,
+            outcome: 'mean',
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `${profile.displayName} dares you to compliment them without using a single normal word.`, lineIsNarration: true },
-          voice(speciesLine(
-            'Go on. Fail creatively.',
-            'If you compare me to money, it had better be rare money.',
-            'Do not say radiant. I have union restrictions on that word.',
-          )),
+          {
+            line: `${profile.displayName} dares you to compliment them without using a single normal word.`,
+            lineIsNarration: true,
+          },
+          voice(
+            speciesLine(
+              'Go on. Fail creatively.',
+              'If you compare me to money, it had better be rare money.',
+              'Do not say radiant. I have union restrictions on that word.',
+            ),
+          ),
           {
             line: `You have one theatrical compliment and absolutely no dignity.`,
             lineIsNarration: true,
@@ -8777,15 +9139,26 @@ export default class SnakeScene extends Phaser.Scene {
           voice('Infuriating. That was better than it deserved to be.'),
         ],
         branchResults: {
-          'branch-mooncrime': { text: `Liked: ${profile.displayName} likes the phrase "moon crime" enough to repeat it.` },
-          'branch-knifepoem': { text: `Loved: ${profile.displayName} is delighted by the dangerous compliment.` },
-          'branch-sincere': { text: `Loved: the sincere compliment lands hard. They liked that a lot.` },
+          'branch-mooncrime': {
+            text: `Liked: ${profile.displayName} likes the phrase "moon crime" enough to repeat it.`,
+          },
+          'branch-knifepoem': {
+            text: `Loved: ${profile.displayName} is delighted by the dangerous compliment.`,
+          },
+          'branch-sincere': {
+            text: `Loved: the sincere compliment lands hard. They liked that a lot.`,
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `${profile.displayName} asks where your eyes are supposed to be during a flirtation this dramatic.`, lineIsNarration: true },
-          voice('Answer wrong and I will become insufferable. Answer right and I may become worse.'),
+          {
+            line: `${profile.displayName} asks where your eyes are supposed to be during a flirtation this dramatic.`,
+            lineIsNarration: true,
+          },
+          voice(
+            'Answer wrong and I will become insufferable. Answer right and I may become worse.',
+          ),
           {
             line: `The bottom third of reality becomes a court of romantic law.`,
             lineIsNarration: true,
@@ -8799,42 +9172,63 @@ export default class SnakeScene extends Phaser.Scene {
           voice('I will be unbearable about this later. You have been warned.'),
         ],
         branchResults: {
-          'branch-eyes': { text: `Loved: ${profile.displayName} likes the eye contact and does not look away first.` },
-          'branch-smile': { text: `Liked: ${profile.displayName} liked being told their smile matters.` },
-          'branch-floor': { text: `Disliked: ${profile.displayName} thinks looking away was cowardly, but not unforgivable.` },
+          'branch-eyes': {
+            text: `Loved: ${profile.displayName} likes the eye contact and does not look away first.`,
+          },
+          'branch-smile': {
+            text: `Liked: ${profile.displayName} liked being told their smile matters.`,
+          },
+          'branch-floor': {
+            text: `Disliked: ${profile.displayName} thinks looking away was cowardly, but not unforgivable.`,
+          },
         },
       });
     } else {
       templates.push({
         pages: [
-          { line: `You and ${profile.displayName} go to a tavern. ${profile.displayName} kicks back a drink like it personally offended them.`, lineIsNarration: true },
-      voice(this.pickRelationshipLine(profile, [
-        'This place is awful. Good. Perfect dates should have one obvious enemy.',
-        'If you planned this, I am impressed. If you improvised it, I am concerned and impressed.',
-        'Do not look so relieved. The date has only survived the opening argument.',
-      ])),
-      {
-        line: `A bear crashes through the side wall. The tavern immediately develops opinions about exits.`,
-        lineIsNarration: true,
-        actions: [
-          { id: 'branch-protect', label: 'Protect Them' },
-          { id: 'branch-run', label: 'Run Off', tone: 'danger' },
-          { id: 'leave', label: 'Back', tone: 'quiet' },
-        ],
-      },
-      voice(this.pickRelationshipLine(profile, [
-        'I cannot believe the bear was not the strangest part of tonight.',
-        'You are either heroic or wildly committed to the bit. I am not immune to either.',
-      ])),
+          {
+            line: `You and ${profile.displayName} go to a tavern. ${profile.displayName} kicks back a drink like it personally offended them.`,
+            lineIsNarration: true,
+          },
+          voice(
+            this.pickRelationshipLine(profile, [
+              'This place is awful. Good. Perfect dates should have one obvious enemy.',
+              'If you planned this, I am impressed. If you improvised it, I am concerned and impressed.',
+              'Do not look so relieved. The date has only survived the opening argument.',
+            ]),
+          ),
+          {
+            line: `A bear crashes through the side wall. The tavern immediately develops opinions about exits.`,
+            lineIsNarration: true,
+            actions: [
+              { id: 'branch-protect', label: 'Protect Them' },
+              { id: 'branch-run', label: 'Run Off', tone: 'danger' },
+              { id: 'leave', label: 'Back', tone: 'quiet' },
+            ],
+          },
+          voice(
+            this.pickRelationshipLine(profile, [
+              'I cannot believe the bear was not the strangest part of tonight.',
+              'You are either heroic or wildly committed to the bit. I am not immune to either.',
+            ]),
+          ),
         ],
         branchResults: {
-          'branch-protect': { text: `Loved: ${profile.displayName} liked that you protected them. It mattered.` },
-          'branch-run': { text: `Hated: you ran. ${profile.displayName} survives, but they hated being abandoned.`, outcome: 'mean' },
+          'branch-protect': {
+            text: `Loved: ${profile.displayName} liked that you protected them. It mattered.`,
+          },
+          'branch-run': {
+            text: `Hated: you ran. ${profile.displayName} survives, but they hated being abandoned.`,
+            outcome: 'mean',
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `You and ${profile.displayName} find a night market where every stall sells something probably cursed.`, lineIsNarration: true },
+          {
+            line: `You and ${profile.displayName} find a night market where every stall sells something probably cursed.`,
+            lineIsNarration: true,
+          },
           voice('Romance is mostly choosing which obvious trap to enter together.'),
           {
             line: `A vendor offers a black rose, a brass knife, and a pastry shaped like a legal document.`,
@@ -8849,14 +9243,23 @@ export default class SnakeScene extends Phaser.Scene {
           voice('A suspicious choice. Naturally, I respect it.'),
         ],
         branchResults: {
-          'branch-rose': { text: `Liked: ${profile.displayName} liked the rose, even while pretending it was too obvious.` },
-          'branch-knife': { text: `Loved: ${profile.displayName} loved the knife choice. That says something about them.` },
-          'branch-pastry': { text: `Liked: ${profile.displayName} liked the absurd pastry more than expected.` },
+          'branch-rose': {
+            text: `Liked: ${profile.displayName} liked the rose, even while pretending it was too obvious.`,
+          },
+          'branch-knife': {
+            text: `Loved: ${profile.displayName} loved the knife choice. That says something about them.`,
+          },
+          'branch-pastry': {
+            text: `Liked: ${profile.displayName} liked the absurd pastry more than expected.`,
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `Rain traps you and ${profile.displayName} under a collapsing awning. It is extremely dramatic for weather.`, lineIsNarration: true },
+          {
+            line: `Rain traps you and ${profile.displayName} under a collapsing awning. It is extremely dramatic for weather.`,
+            lineIsNarration: true,
+          },
           voice('If the sky is trying to set a mood, it is overqualified.'),
           {
             line: `${profile.displayName} is close enough to hear your heroic lack of plan.`,
@@ -8871,14 +9274,24 @@ export default class SnakeScene extends Phaser.Scene {
           voice('Fine. The rain may continue. Briefly.'),
         ],
         branchResults: {
-          'branch-sharecloak': { text: `Loved: ${profile.displayName} liked sharing the cloak and moved closer on purpose.` },
-          'branch-dance': { text: `Liked: ${profile.displayName} calls you absurd, but they liked the dance.` },
-          'branch-complainrain': { text: `Disliked: ${profile.displayName} did not like you ruining the mood by complaining.`, outcome: 'mean' },
+          'branch-sharecloak': {
+            text: `Loved: ${profile.displayName} liked sharing the cloak and moved closer on purpose.`,
+          },
+          'branch-dance': {
+            text: `Liked: ${profile.displayName} calls you absurd, but they liked the dance.`,
+          },
+          'branch-complainrain': {
+            text: `Disliked: ${profile.displayName} did not like you ruining the mood by complaining.`,
+            outcome: 'mean',
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `The date reaches a quiet bridge. Below it, something large moves through the dark water.`, lineIsNarration: true },
+          {
+            line: `The date reaches a quiet bridge. Below it, something large moves through the dark water.`,
+            lineIsNarration: true,
+          },
           voice('This is either romantic or a monster introduction. Possibly both.'),
           {
             line: `A glowing bottle floats near the bank with a note inside.`,
@@ -8893,14 +9306,24 @@ export default class SnakeScene extends Phaser.Scene {
           voice('I will remember this as atmospheric. Do not make me revise it.'),
         ],
         branchResults: {
-          'branch-readnote': { text: `Loved: the note says, "Kiss the fool or flee the bridge." ${profile.displayName} liked that you read it.` },
-          'branch-skipnote': { text: `Neutral: ${profile.displayName} respects ignoring the bottle, but wanted curiosity.` },
-          'branch-throwstone': { text: `Disliked: ${profile.displayName} did not like your survival instincts here.`, outcome: 'mean' },
+          'branch-readnote': {
+            text: `Loved: the note says, "Kiss the fool or flee the bridge." ${profile.displayName} liked that you read it.`,
+          },
+          'branch-skipnote': {
+            text: `Neutral: ${profile.displayName} respects ignoring the bottle, but wanted curiosity.`,
+          },
+          'branch-throwstone': {
+            text: `Disliked: ${profile.displayName} did not like your survival instincts here.`,
+            outcome: 'mean',
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `A street musician recognizes ${profile.displayName} and starts playing something violently sentimental.`, lineIsNarration: true },
+          {
+            line: `A street musician recognizes ${profile.displayName} and starts playing something violently sentimental.`,
+            lineIsNarration: true,
+          },
           voice('If you laugh, I will deny everything. If you dance, I may deny less.'),
           {
             line: `The song waits, shameless and overproduced.`,
@@ -8915,14 +9338,24 @@ export default class SnakeScene extends Phaser.Scene {
           voice('No one will speak of this accurately, which is probably mercy.'),
         ],
         branchResults: {
-          'branch-slowdance': { text: `Loved: ${profile.displayName} loved the slow dance and is trying to hide it.` },
-          'branch-tipband': { text: `Liked: ${profile.displayName} liked that you tipped the band.` },
-          'branch-mockmusic': { text: `Hated: ${profile.displayName} hated that you mocked something sentimental.`, outcome: 'mean' },
+          'branch-slowdance': {
+            text: `Loved: ${profile.displayName} loved the slow dance and is trying to hide it.`,
+          },
+          'branch-tipband': {
+            text: `Liked: ${profile.displayName} liked that you tipped the band.`,
+          },
+          'branch-mockmusic': {
+            text: `Hated: ${profile.displayName} hated that you mocked something sentimental.`,
+            outcome: 'mean',
+          },
         },
       });
       templates.push({
         pages: [
-          { line: `The date is interrupted by a child asking if you two are married, doomed, or both.`, lineIsNarration: true },
+          {
+            line: `The date is interrupted by a child asking if you two are married, doomed, or both.`,
+            lineIsNarration: true,
+          },
           voice('Children should not be allowed to perceive subtext.'),
           {
             line: `The child waits with the brutal patience of prophecy.`,
@@ -8937,21 +9370,38 @@ export default class SnakeScene extends Phaser.Scene {
           voice('I am choosing not to analyze how quickly you answered.'),
         ],
         branchResults: {
-          'branch-married': { text: `Loved: ${profile.displayName} is flustered because the answer pleased them.` },
-          'branch-doomed': { text: `Liked: ${profile.displayName} liked the dramatic answer more than the sensible one.` },
-          'branch-none': { text: `Neutral: ${profile.displayName} respects the evasion, but wanted a braver answer.` },
+          'branch-married': {
+            text: `Loved: ${profile.displayName} is flustered because the answer pleased them.`,
+          },
+          'branch-doomed': {
+            text: `Liked: ${profile.displayName} liked the dramatic answer more than the sensible one.`,
+          },
+          'branch-none': {
+            text: `Neutral: ${profile.displayName} respects the evasion, but wanted a braver answer.`,
+          },
         },
       });
     }
-    return this.balanceDatingBranchResults(profile, templates[Math.floor(this.random() * templates.length)] ?? templates[0]!);
+    return this.balanceDatingBranchResults(
+      profile,
+      templates[Math.floor(this.random() * templates.length)] ?? templates[0]!,
+    );
   }
 
-  private balanceDatingBranchResults(profile: RelationshipCandidateProfile, event: {
-    pages: DatingSequencePage[];
-    branchResults: Record<string, DatingBranchResult>;
-  }): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
-    const pages = event.pages.map((page) => ({ ...page, actions: page.actions ? [...page.actions] : undefined }));
-    const branchPage = pages.find((page) => (page.actions ?? []).some((action) => action.id.startsWith('branch-')));
+  private balanceDatingBranchResults(
+    profile: RelationshipCandidateProfile,
+    event: {
+      pages: DatingSequencePage[];
+      branchResults: Record<string, DatingBranchResult>;
+    },
+  ): { pages: DatingSequencePage[]; branchResults: Record<string, DatingBranchResult> } {
+    const pages = event.pages.map((page) => ({
+      ...page,
+      actions: page.actions ? [...page.actions] : undefined,
+    }));
+    const branchPage = pages.find((page) =>
+      (page.actions ?? []).some((action) => action.id.startsWith('branch-')),
+    );
     if (branchPage) {
       const actions = [...(branchPage.actions ?? [])];
       const branchCount = actions.filter((action) => action.id.startsWith('branch-')).length;
@@ -9001,9 +9451,7 @@ export default class SnakeScene extends Phaser.Scene {
                 ? 'neutral'
                 : this.tierForDatingScore(entry.score),
         outcome:
-          entry.id === low?.id || entry.score <= -4
-            ? (current.outcome ?? 'mean')
-            : current.outcome,
+          entry.id === low?.id || entry.score <= -4 ? (current.outcome ?? 'mean') : current.outcome,
       };
     }
     const tierFor = (id: string): 'positive' | 'neutral' | 'negative' => {
@@ -9029,7 +9477,17 @@ export default class SnakeScene extends Phaser.Scene {
         targetTier: tier,
         tags:
           tier === 'loved'
-            ? ['honesty', 'pragmatic', 'clever', 'food', 'comfort', 'bravery', 'commitment', 'privateAffection', 'dramatic']
+            ? [
+                'honesty',
+                'pragmatic',
+                'clever',
+                'food',
+                'comfort',
+                'bravery',
+                'commitment',
+                'privateAffection',
+                'dramatic',
+              ]
             : tier === 'neutral'
               ? []
               : ['betrayal', 'avoidance', 'neediness'],
@@ -9056,7 +9514,12 @@ export default class SnakeScene extends Phaser.Scene {
       } else if (!existing.targetTier) {
         branchResults[id] = {
           ...existing,
-          targetTier: this.tierForDatingScore(this.scoreDatingTagsForProfile(profile, existing.tags ?? this.inferRelationshipTags(id))),
+          targetTier: this.tierForDatingScore(
+            this.scoreDatingTagsForProfile(
+              profile,
+              existing.tags ?? this.inferRelationshipTags(id),
+            ),
+          ),
         };
       }
     }
@@ -9080,7 +9543,9 @@ export default class SnakeScene extends Phaser.Scene {
     return 'neutral';
   }
 
-  private personalityForDatingProfile(profile: RelationshipCandidateProfile): RelationshipPersonality {
+  private personalityForDatingProfile(
+    profile: RelationshipCandidateProfile,
+  ): RelationshipPersonality {
     if (profile.personality) return profile.personality;
     if (profile.species === 'goblin' || profile.species === 'goblin-angel') return 'sharp';
     if (profile.species === 'angel') return 'regal';
@@ -9092,12 +9557,17 @@ export default class SnakeScene extends Phaser.Scene {
     return options[total % options.length] ?? 'poetic';
   }
 
-  private pickRelationshipLine(profile: RelationshipCandidateProfile, lines: readonly string[]): string {
+  private pickRelationshipLine(
+    profile: RelationshipCandidateProfile,
+    lines: readonly string[],
+  ): string {
     if (profile.species === 'goblin' || profile.species === 'goblin-angel') {
       return lines[Math.floor(this.random() * lines.length)] ?? lines[0]!;
     }
     if (profile.species === 'angel') {
-      return lines[Math.floor(this.random() * lines.length)]?.replace('date', 'judgment') ?? lines[0]!;
+      return (
+        lines[Math.floor(this.random() * lines.length)]?.replace('date', 'judgment') ?? lines[0]!
+      );
     }
     return lines[Math.floor(this.random() * lines.length)] ?? lines[0]!;
   }
@@ -9405,7 +9875,7 @@ export default class SnakeScene extends Phaser.Scene {
     const head = this.snakeGame.getSnakeBody()[0];
     let flipX = false;
     if (head) {
-      const [roomX, roomY] = room.id.split(',').map(Number);
+      const [roomX, roomY] = this.parseRoomCoordinates(room.id);
       const headLocalX = head.x - roomX * this.grid.cols;
       if (disposition.hostility !== 'friendly' && headLocalX !== giver.x) {
         flipX = headLocalX < giver.x;
@@ -9463,7 +9933,7 @@ export default class SnakeScene extends Phaser.Scene {
     let renderLocal = { x: encounter.x, y: encounter.y };
     let flipX = false;
     if (head && triggerAtMs > revealAtMs) {
-      const [roomX, roomY] = this.currentRoomId.split(',').map(Number);
+      const [roomX, roomY] = this.parseRoomCoordinates(this.currentRoomId);
       const headLocal = {
         x: head.x - roomX * this.grid.cols,
         y: head.y - roomY * this.grid.rows,
@@ -9507,7 +9977,10 @@ export default class SnakeScene extends Phaser.Scene {
         ? this.snakeGame.isTownHostileForRoom(room.town, room.id)
           ? []
           : room.town.residents.filter((resident) =>
-              this.isTownResidentInDistrict(resident.workRoomId, getTownDistrictForRoom(room.town!, room.id)),
+              this.isTownResidentInDistrict(
+                resident.workRoomId,
+                getTownDistrictForRoom(room.town!, room.id),
+              ),
             )
         : []),
       ...goblinResidents,
@@ -9532,7 +10005,11 @@ export default class SnakeScene extends Phaser.Scene {
           : room.town
             ? 'actorId' in resident && typeof resident.actorId === 'string'
               ? resident.actorId
-              : this.snakeGame.getTownResidentActorId(room.town.id, resident.id, (resident as any).role ?? 'resident')
+              : this.snakeGame.getTownResidentActorId(
+                  room.town.id,
+                  resident.id,
+                  (resident as any).role ?? 'resident',
+                )
             : this.snakeGame.getVillageActorId(
                 room.id,
                 resident.id,
@@ -9554,7 +10031,9 @@ export default class SnakeScene extends Phaser.Scene {
         indicator.setVisible(false);
         return;
       }
-      const palette = isGoblin ? this.paletteForGoblinResident(goblinStanding) : this.paletteForResident(resident.name, index);
+      const palette = isGoblin
+        ? this.paletteForGoblinResident(goblinStanding)
+        : this.paletteForResident(resident.name, index);
       const textures = this.runtimeSpriteFactory.ensureRecipe(
         questGiverSpriteRecipe,
         Math.max(16, Math.floor(this.grid.cell * 0.84)),
@@ -9613,8 +10092,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     if (Math.random() < 0.08) {
-      const lantern =
-        villageLike.lanterns[Math.floor(Math.random() * villageLike.lanterns.length)];
+      const lantern = villageLike.lanterns[Math.floor(Math.random() * villageLike.lanterns.length)];
       if (lantern) {
         const world = this.tileToWorldLocalInRoom(lantern);
         (this.juice as any).villageLantern?.(world.x, world.y);

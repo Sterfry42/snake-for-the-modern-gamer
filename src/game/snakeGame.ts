@@ -110,6 +110,16 @@ import type {
 } from '../actors/voice/voiceTypes.js';
 import { selectActorVoiceLine } from '../actors/actorVoice.js';
 import type { CreateWorldEventInput, WorldEvent } from '../events/worldEventTypes.js';
+import {
+  CAVE_EXIT_TILE,
+  CAVE_RUBBLE_TILE,
+  type CaveEntrance,
+  type CaveInstanceSaveData,
+  type CaveRuntimeState,
+  type CaveSaveState,
+} from '../caves/caveTypes.js';
+import { createDefaultCaveSave, isCaveRoomId } from '../caves/caveGenerator.js';
+import { getCaveTemplate } from '../caves/caveTemplates.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -711,6 +721,9 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('factions.v2.save', undefined);
     this.setFlag('actors.save', undefined);
     this.setFlag('events.save', undefined);
+    this.setFlag('caves.save', undefined);
+    this.setFlag('caves.active', undefined);
+    this.setFlag('caves.timer', undefined);
     this.setFlag('wards.contracts', undefined);
     this.setFlag('wards.usage', undefined);
     this.setFlag('wards.lastTriggered', undefined);
@@ -722,7 +735,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('roomEntryTimeMs', 0);
     const head = this.snake.bodySegments[0];
     if (head) {
-      const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
+      const [roomX, roomY] = this.parseRoomCoordinates(this.snake.currentRoomId);
       this.setFlag('roomEntryLocalPos', {
         x: head.x - roomX * this.config.grid.cols,
         y: head.y - roomY * this.config.grid.rows,
@@ -811,6 +824,15 @@ export class SnakeGame implements QuestRuntime {
     }
 
     this.preSnakeStep(previousRoom, roomsChanged);
+    if (this.tickActiveCaveTimer(roomsChanged)) {
+      return this.createAliveStepResult({
+        appleEaten: false,
+        appleSnapshot: appleBeforeStep,
+        appleStateChanged: roomsChanged.has(previousRoom),
+        roomsChanged,
+        roomHasChanged: true,
+      });
+    }
 
     const preSnakeDeath = this.checkPreSnakeBossDeath(appleBeforeStep, roomsChanged, previousRoom);
     if (preSnakeDeath) {
@@ -818,6 +840,9 @@ export class SnakeGame implements QuestRuntime {
     }
 
     let outcome = this.snakeStep(roomsChanged);
+    if (outcome.status === 'alive') {
+      this.handleCaveTransitionAtHead(previousRoom, roomsChanged);
+    }
 
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
@@ -1104,15 +1129,20 @@ export class SnakeGame implements QuestRuntime {
         this.snake.grow(extraGrowth);
       }
 
-      const spawn = this.apples.spawnApple(
-        this.snake.currentRoomId,
-        Array.from(this.snake.bodySegments),
-        this.snake.score,
-      );
-      if (spawn.changed) {
+      if (isCaveRoomId(this.snake.currentRoomId)) {
+        appleSnapshot = this.handleCaveAppleEaten(roomsChanged);
         appleStateChanged = true;
+      } else {
+        const spawn = this.apples.spawnApple(
+          this.snake.currentRoomId,
+          Array.from(this.snake.bodySegments),
+          this.snake.score,
+        );
+        if (spawn.changed) {
+          appleStateChanged = true;
+        }
+        appleSnapshot = spawn.snapshot;
       }
-      appleSnapshot = spawn.snapshot;
 
       const seismicRadius =
         (this.getFlag<number>('geometry.seismicPulseRadius') ?? 0) +
@@ -1134,43 +1164,51 @@ export class SnakeGame implements QuestRuntime {
     // Treasure pickup: collect and grant a random item
     if (currentHead) {
       const room = this.world.getRoom(this.snake.currentRoomId);
-      const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
-      const localX = currentHead.x - roomX * this.config.grid.cols;
-      const localY = currentHead.y - roomY * this.config.grid.rows;
+      const local = this.worldToLocal(this.snake.currentRoomId, currentHead);
+      const localX = local.x;
+      const localY = local.y;
       if (room.treasure && room.treasure.x === localX && room.treasure.y === localY) {
-        let awardedName: string | undefined;
-        let awardedId: string | undefined;
-        if (this.rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
-          const cardId = this.pickRandomCardId();
-          const card = getCardDefinition(cardId);
-          this.addCardToCollection(cardId, 1);
-          awardedName = `${card.name} card`;
-          awardedId = `card:${card.id}`;
-        } else if (CHEST_LOOT_ITEMS.length > 0) {
-          const idx = Math.floor(this.rng() * CHEST_LOOT_ITEMS.length);
-          const awarded = CHEST_LOOT_ITEMS[Math.max(0, Math.min(CHEST_LOOT_ITEMS.length - 1, idx))];
-          this.inventory.addItem(awarded.id, 1);
-          awardedName = awarded.name;
-          awardedId = awarded.id;
+        if (room.cave?.lockedReward && this.enemies.getEnemiesInRoom(room.id).length > 0) {
+          this.setFlag('ui.questInteraction', {
+            message: 'The cave chest is sealed until the den is clear.',
+          });
+        } else {
+          let awardedName: string | undefined;
+          let awardedId: string | undefined;
+          if (this.rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
+            const cardId = this.pickRandomCardId();
+            const card = getCardDefinition(cardId);
+            this.addCardToCollection(cardId, 1);
+            awardedName = `${card.name} card`;
+            awardedId = `card:${card.id}`;
+          } else if (CHEST_LOOT_ITEMS.length > 0) {
+            const idx = Math.floor(this.rng() * CHEST_LOOT_ITEMS.length);
+            const awarded =
+              CHEST_LOOT_ITEMS[Math.max(0, Math.min(CHEST_LOOT_ITEMS.length - 1, idx))];
+            this.inventory.addItem(awarded.id, 1);
+            awardedName = awarded.name;
+            awardedId = awarded.id;
+          }
+          // Score bonus for treasure pickup
+          this.addScore(5);
+          this.world.setTreasure(this.snake.currentRoomId, undefined);
+          roomsChanged.add(this.snake.currentRoomId);
+          const treasureCount = Number(this.getFlag<number>('treasurePicked') ?? 0);
+          this.setFlag('treasurePicked', treasureCount + 1);
+          // Notify UI for juice + hint
+          this.setFlag('loot.itemPicked', {
+            head: currentHead,
+            itemName: awardedName,
+            itemId: awardedId,
+          });
+          // Treasure-specific pickup FX at the pickup tile
+          this.setFlag('ui.treasurePickup', {
+            x: currentHead.x,
+            y: currentHead.y,
+            roomId: this.snake.currentRoomId,
+          });
+          this.markCaveRewardClaimed(room.id);
         }
-        // Score bonus for treasure pickup
-        this.addScore(5);
-        this.world.setTreasure(this.snake.currentRoomId, undefined);
-        roomsChanged.add(this.snake.currentRoomId);
-        const treasureCount = Number(this.getFlag<number>('treasurePicked') ?? 0);
-        this.setFlag('treasurePicked', treasureCount + 1);
-        // Notify UI for juice + hint
-        this.setFlag('loot.itemPicked', {
-          head: currentHead,
-          itemName: awardedName,
-          itemId: awardedId,
-        });
-        // Treasure-specific pickup FX at the pickup tile
-        this.setFlag('ui.treasurePickup', {
-          x: currentHead.x,
-          y: currentHead.y,
-          roomId: this.snake.currentRoomId,
-        });
       }
       // Powerup pickup: instant short effect
       if (room.powerup && room.powerup.x === localX && room.powerup.y === localY) {
@@ -1212,6 +1250,13 @@ export class SnakeGame implements QuestRuntime {
           roomId: this.snake.currentRoomId,
           kind,
         });
+      }
+      const lakeReward = room.cave?.lakeRewards?.find(
+        (reward) => reward.x === localX && reward.y === localY,
+      );
+      if (lakeReward) {
+        this.claimCaveLakeReward(room.id, lakeReward.id, currentHead);
+        roomsChanged.add(room.id);
       }
     }
 
@@ -1627,6 +1672,312 @@ export class SnakeGame implements QuestRuntime {
     };
 
     return this.snake.step(dependencies);
+  }
+
+  private handleCaveTransitionAtHead(previousRoom: string, roomsChanged: Set<string>): void {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return;
+    }
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const local = this.worldToLocal(room.id, head);
+    if (room.cave && room.layout[local.y]?.[local.x] === CAVE_EXIT_TILE) {
+      this.exitCurrentCave(roomsChanged, 'manual');
+      return;
+    }
+    const entrance = room.caveEntrances?.find(
+      (entry) => !entry.collapsed && entry.x === local.x && entry.y === local.y,
+    );
+    if (!entrance || previousRoom !== room.id) {
+      return;
+    }
+    this.enterCave(entrance, room.id, local, roomsChanged);
+  }
+
+  private enterCave(
+    entrance: CaveEntrance,
+    parentRoomId: string,
+    returnPosition: Vector2Like,
+    roomsChanged: Set<string>,
+  ): void {
+    const save = this.ensureCaveSave(entrance, parentRoomId);
+    if (save.state === 'collapsed') {
+      this.setFlag('ui.questInteraction', { message: 'The cave has collapsed.' });
+      return;
+    }
+    save.state = 'active';
+    this.writeCaveSave(save);
+    this.world.setCaveSave(save);
+    const caveRoom = this.world.getRoom(entrance.caveId);
+    const spawn = caveRoom.cave?.spawn ?? {
+      x: Math.floor(this.config.grid.cols / 2),
+      y: this.config.grid.rows - 3,
+    };
+    this.snake.teleportTo(entrance.caveId, spawn, { x: 0, y: -1 });
+    this.visitedRooms.add(entrance.caveId);
+    const template = getCaveTemplate(entrance.templateId);
+    const runtime: CaveRuntimeState = {
+      caveId: entrance.caveId,
+      parentRoomId,
+      entranceId: entrance.id,
+      returnPosition,
+      templateId: entrance.templateId,
+    };
+    if (template.timerSeconds) {
+      const ticks = Math.max(1, Math.round((template.timerSeconds * 1000) / 100));
+      runtime.timerTicks = ticks;
+      runtime.timerTotalTicks = ticks;
+      runtime.appleRushRemaining = this.resolveCaveAppleCount(entrance.templateId, entrance.caveId);
+      this.spawnNextCaveRushApple(caveRoom.id, entrance.templateId, runtime);
+    }
+    if (caveRoom.cave?.enemyCount) {
+      this.enemies.ensureCaveEnemies(
+        caveRoom.id,
+        caveRoom,
+        this.snake.bodySegments,
+        caveRoom.cave.enemyCount,
+      );
+    }
+    this.setFlag('caves.active', runtime);
+    this.setFlag('traversal.manualResumePending', true);
+    this.setFlag('ui.questInteraction', { message: 'You descend into the cave.' });
+    roomsChanged.add(parentRoomId);
+    roomsChanged.add(entrance.caveId);
+  }
+
+  private exitCurrentCave(
+    roomsChanged: Set<string>,
+    reason: 'manual' | 'timer' | 'reward' = 'manual',
+  ): void {
+    const runtime = this.getFlag<CaveRuntimeState>('caves.active');
+    if (!runtime) {
+      return;
+    }
+    const template = getCaveTemplate(runtime.templateId);
+    const save = this.ensureCaveSave(
+      {
+        id: runtime.entranceId,
+        caveId: runtime.caveId,
+        x: runtime.returnPosition.x,
+        y: runtime.returnPosition.y,
+        templateId: runtime.templateId,
+        collapsed: false,
+      },
+      runtime.parentRoomId,
+    );
+    const collapse = reason === 'timer' ? template.collapseOnTimerEnd : template.collapseOnExit;
+    save.state = collapse ? 'collapsed' : 'completed';
+    this.writeCaveSave(save);
+    this.world.setCaveSave(save);
+    this.collapseParentEntrance(runtime, collapse);
+    this.apples.clearRoomApple(runtime.caveId);
+    this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, { x: 0, y: 1 });
+    this.setFlag('caves.active', undefined);
+    this.setFlag('caves.timer', undefined);
+    this.setFlag('traversal.manualResumePending', true);
+    this.setFlag('ui.caveTransition', {
+      caveId: runtime.caveId,
+      parentRoomId: runtime.parentRoomId,
+      collapsed: collapse,
+      reason,
+    });
+    this.setFlag('ui.questInteraction', {
+      message: collapse ? 'The cave collapses behind you.' : 'You climb back out of the cave.',
+    });
+    roomsChanged.add(runtime.caveId);
+    roomsChanged.add(runtime.parentRoomId);
+  }
+
+  private tickActiveCaveTimer(roomsChanged: Set<string>): boolean {
+    const runtime = this.getFlag<CaveRuntimeState>('caves.active');
+    if (!runtime?.timerTicks) {
+      return false;
+    }
+    if (this.snake.currentRoomId !== runtime.caveId) {
+      return false;
+    }
+    const next = Math.max(0, runtime.timerTicks - 1);
+    const updated = { ...runtime, timerTicks: next };
+    this.setFlag('caves.active', updated);
+    this.setFlag('caves.timer', {
+      caveId: runtime.caveId,
+      remaining: next,
+      total: runtime.timerTotalTicks ?? next,
+    });
+    if (next > 0) {
+      return false;
+    }
+    this.exitCurrentCave(roomsChanged, 'timer');
+    return true;
+  }
+
+  private handleCaveAppleEaten(roomsChanged: Set<string>): AppleSnapshot | null {
+    const runtime = this.getFlag<CaveRuntimeState>('caves.active');
+    if (!runtime || runtime.caveId !== this.snake.currentRoomId) {
+      return this.apples.getSnapshot(this.snake.currentRoomId);
+    }
+    const remaining = Math.max(0, (runtime.appleRushRemaining ?? 0) - 1);
+    const updated = { ...runtime, appleRushRemaining: remaining };
+    this.setFlag('caves.active', updated);
+    roomsChanged.add(runtime.caveId);
+    if (remaining <= 0) {
+      this.exitCurrentCave(roomsChanged, 'reward');
+      return null;
+    }
+    return this.spawnNextCaveRushApple(runtime.caveId, runtime.templateId, updated);
+  }
+
+  private spawnNextCaveRushApple(
+    caveId: string,
+    templateId: CaveRuntimeState['templateId'],
+    runtime: CaveRuntimeState,
+  ): AppleSnapshot | null {
+    const room = this.world.getRoom(caveId);
+    const template = getCaveTemplate(templateId);
+    const typeId = template.applePool?.typeId ?? 'gold';
+    const occupied = Array.from(this.snake.bodySegments);
+    const seed = `${caveId}:${runtime.appleRushRemaining ?? 0}:${typeId}`;
+    let hash = 0;
+    for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+    const options: Vector2Like[] = [];
+    for (let y = 2; y < this.config.grid.rows - 4; y += 1) {
+      for (let x = 2; x < this.config.grid.cols - 2; x += 1) {
+        if (room.layout[y]?.[x] !== '.') continue;
+        if (occupied.some((segment) => segment.x === x && segment.y === y)) continue;
+        options.push({ x, y });
+      }
+    }
+    const position = options[hash % Math.max(1, options.length)] ?? room.cave?.spawn;
+    if (!position) {
+      return null;
+    }
+    return this.apples.placeApple(caveId, position, typeId, occupied).snapshot;
+  }
+
+  private resolveCaveAppleCount(
+    templateId: CaveRuntimeState['templateId'],
+    caveId: string,
+  ): number {
+    const pool = getCaveTemplate(templateId).applePool;
+    if (!pool) {
+      return 0;
+    }
+    if (pool.minCount !== undefined && pool.maxCount !== undefined) {
+      let hash = 0;
+      for (let i = 0; i < caveId.length; i += 1) hash = (hash * 31 + caveId.charCodeAt(i)) >>> 0;
+      return pool.minCount + (hash % (pool.maxCount - pool.minCount + 1));
+    }
+    return pool.count;
+  }
+
+  private ensureCaveSave(entrance: CaveEntrance, parentRoomId: string): CaveInstanceSaveData {
+    const caveState = this.getCaveSaveState();
+    const existing = caveState.caveInstances[entrance.caveId];
+    if (existing) {
+      return { ...existing };
+    }
+    return createDefaultCaveSave(entrance.caveId, parentRoomId, entrance.templateId);
+  }
+
+  private getCaveSaveState(): CaveSaveState {
+    return this.getFlag<CaveSaveState>('caves.save') ?? { caveInstances: {} };
+  }
+
+  private writeCaveSave(save: CaveInstanceSaveData): void {
+    const state = this.getCaveSaveState();
+    this.setFlag('caves.save', {
+      caveInstances: {
+        ...state.caveInstances,
+        [save.id]: save,
+      },
+    } satisfies CaveSaveState);
+  }
+
+  private markCaveRewardClaimed(roomId: string): void {
+    if (!isCaveRoomId(roomId)) {
+      return;
+    }
+    const runtime = this.getFlag<CaveRuntimeState>('caves.active');
+    const room = this.world.getRoom(roomId);
+    const templateId = runtime?.templateId ?? room.cave?.templateId;
+    const parentRoomId = runtime?.parentRoomId ?? room.cave?.parentRoomId;
+    if (!templateId || !parentRoomId) {
+      return;
+    }
+    const save = this.ensureCaveSave(
+      {
+        id: `${roomId}:entrance`,
+        caveId: roomId,
+        x: 0,
+        y: 0,
+        templateId,
+        collapsed: false,
+      },
+      parentRoomId,
+    );
+    save.rewardClaimed = true;
+    save.openedChestIds = Array.from(new Set([...save.openedChestIds, `${roomId}:chest`]));
+    save.state = 'completed';
+    this.writeCaveSave(save);
+    this.world.setCaveSave(save);
+  }
+
+  private claimCaveLakeReward(roomId: string, itemId: string, head: Vector2Like): void {
+    const room = this.world.getRoom(roomId);
+    if (!room.cave) {
+      return;
+    }
+    const save = this.ensureCaveSave(
+      {
+        id: `${roomId}:entrance`,
+        caveId: roomId,
+        x: 0,
+        y: 0,
+        templateId: room.cave.templateId,
+        collapsed: false,
+      },
+      room.cave.parentRoomId,
+    );
+    if (save.collectedItemIds.includes(itemId)) {
+      return;
+    }
+    const rewardId = this.pickCaveRewardId(room.cave.templateId, itemId);
+    this.inventory.addItem(rewardId, 1);
+    save.collectedItemIds = [...save.collectedItemIds, itemId];
+    this.writeCaveSave(save);
+    this.world.setCaveSave(save);
+    this.setFlag('loot.itemPicked', {
+      head,
+      itemName: getItem(rewardId)?.name ?? rewardId,
+      itemId: rewardId,
+    });
+    this.setFlag('ui.treasurePickup', { x: head.x, y: head.y, roomId });
+  }
+
+  private pickCaveRewardId(templateId: CaveRuntimeState['templateId'], salt: string): string {
+    const table =
+      templateId === 'lakeTreasure'
+        ? ['boots-swim-fins', 'weapon-revolver', 'ring-seismic', 'ramen']
+        : ['ramen', 'ring-seismic', 'weapon-revolver'];
+    let hash = 0;
+    for (let i = 0; i < salt.length + templateId.length; i += 1) {
+      hash =
+        (hash * 31 + `${templateId}:${salt}`.charCodeAt(i % `${templateId}:${salt}`.length)) >>> 0;
+    }
+    return table[hash % table.length] ?? table[0]!;
+  }
+
+  private collapseParentEntrance(runtime: CaveRuntimeState, collapse?: boolean): void {
+    if (!collapse) {
+      return;
+    }
+    const room = this.world.getRoom(runtime.parentRoomId);
+    const entrance = room.caveEntrances?.find((entry) => entry.caveId === runtime.caveId);
+    if (!entrance) {
+      return;
+    }
+    entrance.collapsed = true;
+    this.setRoomTile(runtime.parentRoomId, entrance.x, entrance.y, CAVE_RUBBLE_TILE);
   }
 
   private actorStep(): {
@@ -4038,7 +4389,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private worldToLocalInRoom(roomId: string, position: Vector2Like): Vector2Like {
-    const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
+    const [roomX = 0, roomY = 0] = this.parseRoomCoordinates(roomId);
     return {
       x: position.x - roomX * this.config.grid.cols,
       y: position.y - roomY * this.config.grid.rows,
@@ -6482,7 +6833,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private worldToLocal(roomId: string, position: Vector2Like): Vector2Like {
-    const [roomX, roomY] = roomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
     return {
       x: position.x - roomX * this.config.grid.cols,
       y: position.y - roomY * this.config.grid.rows,
@@ -6490,11 +6841,19 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private localToWorld(roomId: string, position: Vector2Like): Vector2Like {
-    const [roomX, roomY] = roomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
     return {
       x: roomX * this.config.grid.cols + position.x,
       y: roomY * this.config.grid.rows + position.y,
     };
+  }
+
+  private parseRoomCoordinates(roomId: string): [number, number, number] {
+    if (isCaveRoomId(roomId)) {
+      return [0, 0, 0];
+    }
+    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+    return [x, y, z];
   }
 
   private distance(a: Vector2Like, b: Vector2Like): number {
@@ -7616,6 +7975,7 @@ export class SnakeGame implements QuestRuntime {
       'starforged.abilityEnergy',
       'starforged.effects',
       'starforged.wallSenseBonus',
+      'caves.save',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -7764,6 +8124,12 @@ export class SnakeGame implements QuestRuntime {
       for (const [key, value] of Object.entries(data.flags ?? {})) {
         if (value !== undefined) {
           this.setFlag(key, value);
+        }
+      }
+      const caveSave = this.getFlag<CaveSaveState>('caves.save');
+      if (caveSave) {
+        for (const save of Object.values(caveSave.caveInstances)) {
+          this.world.setCaveSave(save);
         }
       }
       this.actors.loadSaveData({
@@ -11264,7 +11630,7 @@ export class SnakeGame implements QuestRuntime {
     localY: number;
   } | null {
     const roomId = position.roomId ?? this.getRoomIdForPosition(position);
-    const [roomX, roomY] = roomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
     const localX = position.x - roomX * this.config.grid.cols;
     const localY = position.y - roomY * this.config.grid.rows;
     if (
@@ -11295,6 +11661,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private getRoomIdForPosition(position: Vector2Like): string {
+    if (isCaveRoomId(this.snake.currentRoomId)) {
+      return this.snake.currentRoomId;
+    }
     const roomX = Math.floor(position.x / this.config.grid.cols);
     const roomY = Math.floor(position.y / this.config.grid.rows);
     const [, , roomZ = '0'] = this.snake.currentRoomId.split(',');
