@@ -151,12 +151,20 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
       'Find what it is guarding. Or what it is pretending to guard. The difference is mostly a matter of which story you prefer.',
     ],
   },
-  'kappas-challenge': {
-    title: 'Water on the Head',
+'kappas-challenge': {
+     title: 'Water on the Head',
+     pages: [
+       'The kappa\'s dish holds a lake no one can see. It is the size of a saucer and as deep as the first time someone realized water could spill and never come back.',
+       'It does not want a fight. It wants a cucumber -- not for eating, but for the way a cucumber sounds when a kappa rolls it across stone in the dark.',
+       'Prove yourself worthy. By fighting or by bringing the vegetable. The kappa respects resolve more than victory.',
+     ],
+   },
+  'fisherman': {
+    title: 'Deep Waters',
     pages: [
-      'The kappa\'s dish holds a lake no one can see. It is the size of a saucer and as deep as the first time someone realized water could spill and never come back.',
-      'It does not want a fight. It wants a cucumber -- not for eating, but for the way a cucumber sounds when a kappa rolls it across stone in the dark.',
-      'Prove yourself worthy. By fighting or by bringing the vegetable. The kappa respects resolve more than victory.',
+      'The sunken ocean has its own currents, its own patience. The fish down there do not care about your length or your speed — only whether you are persistent enough to outwait the deep.',
+      'Five fish. Not for glory. For the ones back home who have not tasted clean meat in too long. They count on you.',
+      'Hunt five fish in the sunken ocean. Come back when your hands are clean and your belly remembers what food tastes like.',
     ],
   },
   'seven-dragon-temples': {

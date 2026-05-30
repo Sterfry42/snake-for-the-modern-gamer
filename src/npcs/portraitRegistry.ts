@@ -23,6 +23,7 @@ const PORTRAITS: readonly PortraitDefinition[] = [
   { id: 'angel-neutral', textureKey: 'portrait:angel-neutral', role: 'angel', expression: 'neutral' },
   { id: 'forest-hermit-worried', textureKey: 'portrait:forest-hermit-worried', role: 'forest-hermit', expression: 'worried', biomeFlavor: 'forest' },
   { id: 'ocean-fisher-neutral', textureKey: 'portrait:ocean-fisher-neutral', role: 'ocean-fisher', expression: 'neutral', biomeFlavor: 'ocean' },
+  { id: 'sterling-fisher-happy', textureKey: 'portrait:sterling-fisher-happy', role: 'ocean-fisher', expression: 'happy', biomeFlavor: 'ocean' },
   { id: 'desert-peddler-suspicious', textureKey: 'portrait:desert-peddler-suspicious', role: 'desert-peddler', expression: 'suspicious', biomeFlavor: 'hot' },
   { id: 'cold-trapper-worried', textureKey: 'portrait:cold-trapper-worried', role: 'cold-trapper', expression: 'worried', biomeFlavor: 'cold' },
   { id: 'badlands-ranger-neutral', textureKey: 'portrait:badlands-ranger-neutral', role: 'badlands-ranger', expression: 'neutral' },

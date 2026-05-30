@@ -49,6 +49,8 @@ export function buildNpcStats(name: string): NpcStats {
       return { str: 6, dex: 7, con: 6, int: 8, wis: 7, cha: 8 };
     case 'Freak Joey':
       return { str: 8, dex: 9, con: 8, int: 5, wis: 4, cha: 7 };
+    case 'Sterling Fisher':
+      return { str: 3, dex: 5, con: 4, int: 7, wis: 8, cha: 5 };
     default:
       return buildGeneratedStats(name);
   }

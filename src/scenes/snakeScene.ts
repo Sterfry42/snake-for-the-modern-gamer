@@ -10277,6 +10277,13 @@ export default class SnakeScene extends Phaser.Scene {
           outlineColor: '#1a0a0a',
           eyeColor: '#ffd700',
         };
+      case 'sterling-fisher':
+        return {
+          robeColor: '#2a7a8a',
+          trimColor: '#7ad4e0',
+          outlineColor: '#1a3a4a',
+          eyeColor: '#e0f8ff',
+        };
       default:
         return {
           robeColor: '#2f7f5f',
