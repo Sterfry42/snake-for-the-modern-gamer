@@ -311,7 +311,9 @@ class KillstreakArsenalFeature extends Feature {
       return;
     }
 
-    const [roomX, roomY] = scene.currentRoomId.split(',').map(Number);
+    const [roomX, roomY] = scene.currentRoomId.startsWith('cave:')
+      ? [0, 0]
+      : scene.currentRoomId.split(',').map(Number);
     const localX = head.x - roomX * scene.grid.cols;
     const localY = head.y - roomY * scene.grid.rows;
     const cell = scene.grid.cell;
@@ -320,14 +322,19 @@ class KillstreakArsenalFeature extends Feature {
 
     const config = this.state.tier > 0 ? TIER_CONFIGS[this.state.tier - 1] : null;
     const color = config ? toHex(config.color) : '#5bc0eb';
-const text = scene.add
-       .text(worldX, worldY - 14, `${i18n.getFeatureString('killConfirmed')} x${this.state.streak}`, {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color,
-        stroke: '#05060a',
-        strokeThickness: 4,
-      })
+    const text = scene.add
+      .text(
+        worldX,
+        worldY - 14,
+        `${i18n.getFeatureString('killConfirmed')} x${this.state.streak}`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color,
+          stroke: '#05060a',
+          strokeThickness: 4,
+        },
+      )
       .setOrigin(0.5, 1)
       .setDepth(32)
       .setAlpha(0.95);
@@ -377,7 +384,10 @@ const text = scene.add
 
   private spawnDropText(scene: SnakeScene, reason: 'timeout' | 'death'): void {
     const width = scene.grid.cols * scene.grid.cell;
-    const label = reason === 'death' ? i18n.getFeatureString('streakReset') : i18n.getFeatureString('streakLost');
+    const label =
+      reason === 'death'
+        ? i18n.getFeatureString('streakReset')
+        : i18n.getFeatureString('streakLost');
     const text = scene.add
       .text(width / 2, 128, label, {
         fontFamily: 'monospace',
@@ -431,10 +441,14 @@ const text = scene.add
       const currentDelay = scene.getActionStepIntervalMs();
       const secondsLeft = estimateSeconds(this.state.buffTicks, currentDelay);
       lines.push(`${i18n.getFeatureString(config.labelKey)}`);
-      lines.push(`${i18n.getFeatureString('killstreakScoreTime')} ${config.multiplier} | ${secondsLeft}s`);
+      lines.push(
+        `${i18n.getFeatureString('killstreakScoreTime')} ${config.multiplier} | ${secondsLeft}s`,
+      );
     } else if (nextThreshold !== null) {
       const remaining = Math.max(0, nextThreshold - this.state.streak);
-      lines.push(`${remaining} ${i18n.getFeatureString('killstreakToNext')} ${i18n.getFeatureString(TIER_CONFIGS[0].labelKey)}`);
+      lines.push(
+        `${remaining} ${i18n.getFeatureString('killstreakToNext')} ${i18n.getFeatureString(TIER_CONFIGS[0].labelKey)}`,
+      );
     } else {
       lines.push(i18n.getFeatureString('killstreakMaxStreak'));
     }

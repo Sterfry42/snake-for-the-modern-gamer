@@ -192,7 +192,7 @@ export class SnakeState {
       const head0 = this.body[0];
       const isBlocked = (dir: Vector2Like): boolean => {
         const candidate = addVectors(head0, dir);
-        const [roomX, roomY] = this.roomId.split(',').map(Number);
+        const [roomX, roomY] = this.parseRoomCoordinates(this.roomId);
         const localX = candidate.x - roomX * this.grid.cols;
         const localY = candidate.y - roomY * this.grid.rows;
         // Allow leaving the room freely; only block on solid wall tiles
@@ -226,14 +226,29 @@ export class SnakeState {
     delete this.flags['geometry.wallEaten'];
     delete this.flags['geometry.terraShieldTriggered'];
 
-    const head = addVectors(this.body[0], this.direction);
+    let head = addVectors(this.body[0], this.direction);
 
     let roomChanged = false;
     let verticalRoomChanged = false;
 
-    const [roomX, roomY, roomZ = 0] = this.roomId.split(',').map(Number);
-    const localHeadX = head.x - roomX * this.grid.cols;
-    const localHeadY = head.y - roomY * this.grid.rows;
+    const [roomX, roomY, roomZ = 0] = this.parseRoomCoordinates(this.roomId);
+    let localHeadX = head.x - roomX * this.grid.cols;
+    let localHeadY = head.y - roomY * this.grid.rows;
+    if (currentRoom.cave) {
+      if (currentRoom.cave.boundaryMode === 'wrap') {
+        localHeadX = (localHeadX + this.grid.cols) % this.grid.cols;
+        localHeadY = (localHeadY + this.grid.rows) % this.grid.rows;
+        head = { x: localHeadX, y: localHeadY };
+      } else if (
+        localHeadX < 0 ||
+        localHeadY < 0 ||
+        localHeadX >= this.grid.cols ||
+        localHeadY >= this.grid.rows
+      ) {
+        this.markDeathPosition(head, this.roomId, { x: localHeadX, y: localHeadY }, '#');
+        return { status: 'dead', reason: 'wall' };
+      }
+    }
     const portal = currentRoom.portals.find((p) => p.x === localHeadX && p.y === localHeadY);
     if (portal) {
       const [, , destZ = '0'] = portal.destRoomId.split(',');
@@ -244,7 +259,7 @@ export class SnakeState {
 
     const newRoomX = Math.floor(head.x / this.grid.cols);
     const newRoomY = Math.floor(head.y / this.grid.rows);
-    if (newRoomX !== roomX || newRoomY !== roomY) {
+    if (!currentRoom.cave && (newRoomX !== roomX || newRoomY !== roomY)) {
       this.roomId = `${newRoomX},${newRoomY},${roomZ}`;
       roomChanged = true;
     }
@@ -254,8 +269,8 @@ export class SnakeState {
     }
 
     const finalizedRoom = deps.getRoom(this.roomId);
-    const baseRoomX = Math.floor(head.x / this.grid.cols) * this.grid.cols;
-    const baseRoomY = Math.floor(head.y / this.grid.rows) * this.grid.rows;
+    const baseRoomX = finalizedRoom.cave ? 0 : Math.floor(head.x / this.grid.cols) * this.grid.cols;
+    const baseRoomY = finalizedRoom.cave ? 0 : Math.floor(head.y / this.grid.rows) * this.grid.rows;
     const finalLocalHeadX = head.x - baseRoomX;
     const finalLocalHeadY = head.y - baseRoomY;
 
@@ -340,11 +355,13 @@ export class SnakeState {
       if (removed) {
         const tailRoomX = Math.floor(removed.x / this.grid.cols);
         const tailRoomY = Math.floor(removed.y / this.grid.rows);
-        const [, , roomZ = '0'] = this.roomId.split(',');
+        const [, , roomZ = 0] = this.parseRoomCoordinates(this.roomId);
         this.flags['internal.lastRemovedTail'] = {
           x: removed.x,
           y: removed.y,
-          roomId: `${tailRoomX},${tailRoomY},${roomZ}`,
+          roomId: this.roomId.startsWith('cave:')
+            ? this.roomId
+            : `${tailRoomX},${tailRoomY},${roomZ}`,
         };
       } else {
         delete this.flags['internal.lastRemovedTail'];
@@ -402,7 +419,7 @@ export class SnakeState {
     if (!head) {
       return false;
     }
-    const [roomX, roomY] = this.roomId.split(',').map(Number);
+    const [roomX, roomY] = this.parseRoomCoordinates(this.roomId);
     const localX = head.x - roomX * this.grid.cols;
     const localY = head.y - roomY * this.grid.rows;
     if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows) {
@@ -461,6 +478,24 @@ export class SnakeState {
     }
   }
 
+  teleportTo(
+    roomId: string,
+    localPosition: Vector2Like,
+    direction: Vector2Like = this.direction,
+  ): void {
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+    const world = {
+      x: roomX * this.grid.cols + localPosition.x,
+      y: roomY * this.grid.rows + localPosition.y,
+    };
+    this.body = this.body.map(() => ({ ...world }));
+    this.roomId = roomId;
+    this.direction = { ...direction };
+    this.nextDirection = { ...direction };
+    this.bufferedDirection = null;
+    this.flags['internal.currentHead'] = { ...world };
+  }
+
   private resolveSelfCollision(
     head: Vector2Like,
     collisionIndex: number,
@@ -512,9 +547,12 @@ export class SnakeState {
   }
 
   private getRoomIdForPosition(position: Vector2Like): string {
+    if (this.roomId.startsWith('cave:')) {
+      return this.roomId;
+    }
     const roomX = Math.floor(position.x / this.grid.cols);
     const roomY = Math.floor(position.y / this.grid.rows);
-    const [, , roomZ = '0'] = this.roomId.split(',');
+    const [, , roomZ = 0] = this.parseRoomCoordinates(this.roomId);
     return `${roomX},${roomY},${roomZ}`;
   }
 
@@ -540,7 +578,7 @@ export class SnakeState {
           charges: Math.max(0, traversalCharges - 1),
         };
         this.flags['traversal.ghostShield'] = nextTraversal;
-        const [roomX, roomY] = this.roomId.split(',').map(Number);
+        const [roomX, roomY] = this.parseRoomCoordinates(this.roomId);
         const worldX = roomX * this.grid.cols + localX;
         const worldY = roomY * this.grid.rows + localY;
         this.flags['traversal.ghostShieldTriggered'] = {
@@ -561,7 +599,7 @@ export class SnakeState {
           recharge: shieldState?.recharge,
         };
         this.flags['geometry.terraShield'] = nextShield;
-        const [roomX, roomY] = this.roomId.split(',').map(Number);
+        const [roomX, roomY] = this.parseRoomCoordinates(this.roomId);
         const worldX = roomX * this.grid.cols + localX;
         const worldY = roomY * this.grid.rows + localY;
         this.flags['geometry.terraShieldTriggered'] = { x: worldX, y: worldY, roomId: this.roomId };
@@ -610,5 +648,13 @@ export class SnakeState {
     if (endMs <= 0) return false;
     const nowMs = Number(this.flags['timeMs'] ?? 0);
     return nowMs < endMs;
+  }
+
+  private parseRoomCoordinates(roomId: string): [number, number, number] {
+    if (roomId.startsWith('cave:')) {
+      return [0, 0, 0];
+    }
+    const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+    return [x, y, z];
   }
 }

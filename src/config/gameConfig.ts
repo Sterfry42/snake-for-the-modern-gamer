@@ -51,7 +51,16 @@ export interface AppleTypeConfig {
   color: number;
   outlineDarkenFactor: number;
   spawn: AppleSpawnWeightConfig;
-  behavior: 'normal' | 'shielded' | 'gold' | 'skittish' | 'mochi' | 'wasabi' | 'yuzu' | 'koi' | 'amacha';
+  behavior:
+    | 'normal'
+    | 'shielded'
+    | 'gold'
+    | 'skittish'
+    | 'mochi'
+    | 'wasabi'
+    | 'yuzu'
+    | 'koi'
+    | 'amacha';
 }
 
 export interface AppleSystemConfig {
@@ -253,6 +262,7 @@ export const defaultGameConfig: GameConfig = {
       'hungerTimer',
       'religionChoice',
       'killstreakArsenal',
+      'starforgedVanguard',
       'coordinates',
     ],
   },

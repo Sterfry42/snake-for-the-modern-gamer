@@ -5,11 +5,17 @@ import { RoomGenerator } from './roomGenerator.js';
 import type { RoomSnapshot } from './types.js';
 import { cloneTownForRoom, type TownStructure } from './town.js';
 import type { WorldGenerationIdentity } from './generation/worldGenerationIdentity.js';
+import { maybePlaceCaveEntrance } from '../caves/caveEntrancePlacement.js';
+import { generateCave, isCaveRoomId } from '../caves/caveGenerator.js';
+import type { CaveInstanceSaveData, CaveTemplateId } from '../caves/caveTypes.js';
 
 export class WorldService {
   private readonly rooms = new Map<string, RoomSnapshot>();
   private readonly generator: RoomGenerator;
   private readonly rng: RandomGenerator;
+  private readonly worldSeed: string;
+  private readonly generatorWorldConfig: WorldConfig;
+  private readonly caveSaves = new Map<string, CaveInstanceSaveData>();
 
   constructor(
     private readonly grid: GridConfig,
@@ -19,10 +25,27 @@ export class WorldService {
   ) {
     this.generator = new RoomGenerator(grid, worldConfig, rng, identity);
     this.rng = rng;
+    this.worldSeed = identity?.seed ?? 'default-world';
+    this.generatorWorldConfig = worldConfig;
   }
 
   getRoom(roomId: string): RoomSnapshot {
     if (!this.rooms.has(roomId)) {
+      if (isCaveRoomId(roomId)) {
+        const save = this.caveSaves.get(roomId);
+        const parsed = parseCaveRoomId(roomId, save?.templateId);
+        const generated = generateCave({
+          caveId: roomId,
+          parentRoomId: parsed.parentRoomId,
+          templateId: parsed.templateId,
+          grid: this.grid,
+          worldSeed: this.worldSeed,
+          returnPosition: { x: Math.floor(this.grid.cols / 2), y: this.grid.rows - 3 },
+          save,
+        });
+        this.rooms.set(roomId, generated.room);
+        return generated.room;
+      }
       const room = this.generator.generate(roomId, this.grid);
       this.addReciprocalPortalsFromExistingRooms(room);
       const suppressPickupSpawns = Boolean(room.town || room.townPerimeter);
@@ -42,6 +65,12 @@ export class WorldService {
           room.powerup = { x: spot.x, y: spot.y, kind };
         }
       }
+      maybePlaceCaveEntrance({
+        room,
+        grid: this.grid,
+        worldConfig: this.generatorWorldConfig,
+        worldSeed: this.worldSeed,
+      });
       this.rooms.set(roomId, room);
       this.addReciprocalPortalsForRoom(room);
     }
@@ -97,6 +126,21 @@ export class WorldService {
 
   clear(): void {
     this.rooms.clear();
+  }
+
+  setCaveSave(save: CaveInstanceSaveData): void {
+    this.caveSaves.set(save.id, { ...save });
+    this.rooms.delete(save.id);
+    const parent = this.rooms.get(save.parentRoomId);
+    const entrance = parent?.caveEntrances?.find((entry) => entry.caveId === save.id);
+    if (entrance) {
+      entrance.collapsed = save.state === 'collapsed';
+    }
+  }
+
+  getCaveSave(caveId: string): CaveInstanceSaveData | undefined {
+    const save = this.caveSaves.get(caveId);
+    return save ? { ...save } : undefined;
   }
 
   snapshot(): Map<string, RoomSnapshot> {
@@ -206,4 +250,15 @@ export class WorldService {
     }
     return null;
   }
+}
+
+function parseCaveRoomId(
+  caveId: string,
+  savedTemplateId?: CaveTemplateId,
+): { parentRoomId: string; templateId: CaveTemplateId } {
+  const parts = caveId.split(':');
+  return {
+    parentRoomId: parts[1] || '0,0,0',
+    templateId: savedTemplateId ?? 'simpleTreasure',
+  };
 }

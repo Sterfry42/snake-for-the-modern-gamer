@@ -70,6 +70,37 @@ describe('Liberty footballs', () => {
   });
 });
 
+describe('run seeds', () => {
+  it('creates a fresh world seed for each unseeded game', () => {
+    const first = createGame().getSaveData().worldGeneration?.seed;
+    const second = createGame().getSaveData().worldGeneration?.seed;
+
+    expect(first).toMatch(/^run:/);
+    expect(second).toMatch(/^run:/);
+    expect(second).not.toBe(first);
+  });
+
+  it('preserves explicit config seeds for reproducible fixtures', () => {
+    const config = { ...defaultGameConfig, rng: { seed: 'fixture-seed' } };
+    const first = new SnakeGame(config, new QuestRegistry(), {}).getSaveData().worldGeneration;
+    const second = new SnakeGame(config, new QuestRegistry(), {}).getSaveData().worldGeneration;
+
+    expect(first?.seed).toBe('fixture-seed');
+    expect(second?.townSalt).toBe(first?.townSalt);
+  });
+
+  it('generates a new world seed on reset for unseeded runs', () => {
+    const game = createGame();
+    const before = game.getSaveData().worldGeneration?.seed;
+
+    game.reset();
+
+    const after = game.getSaveData().worldGeneration?.seed;
+    expect(after).toMatch(/^run:/);
+    expect(after).not.toBe(before);
+  });
+});
+
 describe('world rumors', () => {
   it('records severe actor events as persistent rumors', () => {
     const game = createGame();

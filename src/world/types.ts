@@ -2,6 +2,12 @@ import type { Vector2Like } from '../core/math.js';
 import type { NpcProfile } from '../npcs/profiles.js';
 import type { BiomeId } from './biomes.js';
 import type { TownStructure } from './town.js';
+import type {
+  CaveBoundaryMode,
+  CaveEntrance,
+  CaveInstanceState,
+  CaveTemplateId,
+} from '../caves/caveTypes.js';
 
 export interface PortalConfig {
   x: number;
@@ -26,6 +32,22 @@ export interface RoomSnapshot {
   apple?: Vector2Like;
   treasure?: Vector2Like;
   powerup?: { x: number; y: number; kind: 'phase' | 'smite' | 'gun' };
+  caveEntrances?: CaveEntrance[];
+  cave?: {
+    id: string;
+    parentRoomId: string;
+    templateId: CaveTemplateId;
+    zoneId: string;
+    exit: Vector2Like;
+    spawn: Vector2Like;
+    boundaryMode: CaveBoundaryMode;
+    state: CaveInstanceState;
+    lockedReward?: boolean;
+    enemyCount?: number;
+    forcedStructureId?: string;
+    dwellerRewardClaimed?: boolean;
+    lakeRewards?: Array<{ id: string; x: number; y: number }>;
+  };
   questGiver?: NpcProfile & { x: number; y: number };
   village?: {
     name: string;

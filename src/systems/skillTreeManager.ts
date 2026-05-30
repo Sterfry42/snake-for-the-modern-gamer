@@ -38,6 +38,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       onBindSpellSlot: (abilityId) => this.bindQSlot(abilityId),
       getDatingView: () => this.scene.getDatingCandidateViews(),
       getPeopleView: () => this.scene.getPeopleJournalView(),
+      getDestinyView: () => this.scene.getStarforgedPauseMenuLines(),
     });
     this.overlay.hide();
   }
