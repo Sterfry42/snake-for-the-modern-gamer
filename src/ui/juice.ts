@@ -2838,6 +2838,179 @@ export class JuiceManager {
     });
   }
 
+  // Ability: type-specific visual effect for companion abilities
+  creatureAbilityEffect(effect: string, worldX: number, worldY: number): void {
+    switch (effect) {
+      case 'heal':
+        this.playTone({ frequency: 520, duration: 0.15, type: 'sine', volume: 0.12 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0x5dd6a2, 0x9ad1ff, 0xc8ffe1],
+          count: 16,
+          radius: 24,
+        });
+        this.ringPulse(worldX, worldY, 0x5dd6a2, 8, 2, 300);
+        this.floatingLabel(worldX, worldY - 12, 'HEAL', '#5dd6a2', 14);
+        break;
+      case 'shield':
+        this.playTone({ frequency: 360, duration: 0.2, type: 'triangle', volume: 0.1 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0x9ad1ff, 0x4da3ff, 0xcfe5ff],
+          count: 14,
+          radius: 22,
+        });
+        const shieldRing = this.scene.add.circle(
+          worldX, worldY, 4, 0x9ad1ff, 0.6
+        ).setDepth(29).setBlendMode(Phaser.BlendModes.ADD);
+        this.overlayLayer.add(shieldRing);
+        this.scene.tweens.add({
+          targets: shieldRing,
+          scale: 8,
+          alpha: 0,
+          duration: 600,
+          ease: 'Cubic.easeOut',
+          onComplete: () => shieldRing.destroy(),
+        });
+        this.floatingLabel(worldX, worldY - 12, 'SHIELD', '#9ad1ff', 14);
+        break;
+      case 'dash':
+        this.playTone({ frequency: 220, frequencyEnd: 880, duration: 0.12, type: 'square', volume: 0.1 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xffd166, 0xffc857, 0xfff3a8],
+          count: 10,
+          radius: 16,
+        });
+        this.ringPulse(worldX, worldY, 0xffd166, 6, 2, 200);
+        this.floatingLabel(worldX, worldY - 12, 'DASH', '#ffd166', 14);
+        break;
+      case 'reveal':
+        this.playTone({ frequency: 660, duration: 0.18, type: 'sine', volume: 0.09 });
+        this.playTone({ frequency: 880, duration: 0.22, type: 'triangle', volume: 0.07 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xc77dff, 0x9b5de5, 0xe8ddff],
+          count: 18,
+          radius: 28,
+        });
+        this.ringPulse(worldX, worldY, 0xc77dff, 10, 2, 340);
+        this.floatingLabel(worldX, worldY - 12, 'REVEAL', '#c77dff', 14);
+        break;
+      case 'buff':
+        this.playTone({ frequency: 440, frequencyEnd: 660, duration: 0.16, type: 'triangle', volume: 0.11 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xff8450, 0xffc857, 0xfff3a8],
+          count: 12,
+          radius: 20,
+        });
+        this.ringPulse(worldX, worldY, 0xffc857, 8, 2, 260);
+        this.floatingLabel(worldX, worldY - 12, 'BUFF', '#ff8450', 14);
+        break;
+      case 'attack':
+        this.playTone({ frequency: 180, frequencyEnd: 420, duration: 0.1, type: 'sawtooth', volume: 0.14 });
+        this.playTone({ frequency: 720, duration: 0.08, type: 'square', volume: 0.08 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xff6b6b, 0xff8f5a, 0xffcf5a],
+          count: 20,
+          radius: 26,
+        });
+        this.kickCamera(0.012, 80);
+        this.ringPulse(worldX, worldY, 0xff6b6b, 10, 2, 220);
+        this.floatingLabel(worldX, worldY - 12, 'ATTACK', '#ff6b6b', 14);
+        break;
+      case 'summon':
+        this.playTone({ frequency: 300, duration: 0.2, type: 'sine', volume: 0.12 });
+        this.playTone({ frequency: 500, duration: 0.24, type: 'triangle', volume: 0.09 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0x5dd6a2, 0x9ad1ff, 0xc77dff, 0xfff3a8],
+          count: 24,
+          radius: 32,
+        });
+        this.blastWave(worldX, worldY, [0x5dd6a2, 0x9ad1ff], 24);
+        this.floatingLabel(worldX, worldY - 12, 'SUMMON', '#5dd6a2', 14);
+        break;
+      case 'mount':
+        this.playTone({ frequency: 260, frequencyEnd: 520, duration: 0.14, type: 'square', volume: 0.1 });
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xc77dff, 0x9ad1ff, 0x5dd6a2],
+          count: 14,
+          radius: 24,
+        });
+        this.ringPulse(worldX, worldY, 0xc77dff, 8, 2, 280);
+        this.floatingLabel(worldX, worldY - 12, 'MOUNT', '#c77dff', 14);
+        break;
+      default:
+        this.spawnBurst(worldX, worldY, {
+          colors: [0x9ad1ff, 0xc77dff, 0xffd166],
+          count: 10,
+          radius: 16,
+        });
+    }
+  }
+
+  // Ability: particle burst with type-colored particles for companion spawn
+  creatureSpawnBurst(worldX: number, worldY: number, companionId: string): void {
+    // Rarity-based colors
+    const rarityColors: Record<string, number[]> = {
+      'common': [0x5dd6a2, 0x9ad1ff, 0xfff3a8],
+      'uncommon': [0x9ad1ff, 0xc77dff, 0x5dd6a2],
+      'rare': [0xc77dff, 0xffd166, 0x9ad1ff],
+      'epic': [0xffd166, 0xc77dff, 0xff6b6b],
+      'legendary': [0xff6b6b, 0xffd166, 0xff8450, 0xfff3a8],
+    };
+    const colors = rarityColors[companionId] ?? rarityColors['common'];
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: 20,
+      radius: 30,
+    });
+    this.ringPulse(worldX, worldY, 0xffffff, 6, 2, 400);
+  }
+
+  // Ability: floating heart particles for bond increase
+  creatureHeartParticles(worldX: number, worldY: number): void {
+    for (let i = 0; i < 8; i++) {
+      const heartX = worldX + Phaser.Math.Between(-12, 12);
+      const heartY = worldY + Phaser.Math.Between(-4, 4);
+      const heart = this.scene.add.text(heartX, heartY, '\u{1F496}', {
+        fontSize: '12px',
+      })
+      .setDepth(31)
+      .setAlpha(0.9);
+      this.overlayLayer.add(heart);
+      this.scene.tweens.add({
+        targets: heart,
+        y: heartY - Phaser.Math.Between(16, 32),
+        x: heartX + Phaser.Math.Between(-6, 6),
+        alpha: 0,
+        scale: 0.6,
+        duration: 800 + Math.random() * 400,
+        ease: 'Cubic.easeOut',
+        onComplete: () => heart.destroy(),
+      });
+    }
+  }
+
+  // Ability: screen flash + ring pulse for taming
+  creatureTamingEffect(worldX: number, worldY: number, success: boolean): void {
+    if (success) {
+      // Success: golden flash + expanding rings
+      this.scene.cameras.main.flash(180, 255, 220, 120, true);
+      this.ringPulse(worldX, worldY, 0xffd166, 8, 3, 400);
+      this.spawnBurst(worldX, worldY, {
+        colors: [0xffd166, 0xfff3a8, 0x5dd6a2],
+        count: 24,
+        radius: 34,
+      });
+      this.punchZoom(1.03, 200);
+    } else {
+      // Failure: gray flash + small burst
+      this.scene.cameras.main.flash(140, 180, 180, 80, true);
+      this.spawnBurst(worldX, worldY, {
+        colors: [0x808080, 0xb0b0b0, 0xd0d0d0],
+        count: 12,
+        radius: 20,
+      });
+    }
+  }
+
   private flashLine(
     x1: number,
     y1: number,
