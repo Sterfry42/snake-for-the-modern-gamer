@@ -2516,8 +2516,13 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: true, message: 'Cheat active: apple score x100.', color: '#5dd6a2' };
     }
     if (code === '90fps240hz') {
-      this.setPerformanceHudVisible(true);
-      return { ok: true, message: 'Performance counter enabled.', color: '#5dd6a2' };
+      const nextVisible = !this.performanceHudVisible;
+      this.setPerformanceHudVisible(nextVisible);
+      return {
+        ok: true,
+        message: nextVisible ? 'Performance counter enabled.' : 'Performance counter disabled.',
+        color: nextVisible ? '#5dd6a2' : '#9ad1ff',
+      };
     }
     if (code === 'imawiddlebabywhoneedshelp') {
       this.skillTree.addExtraLifeCharge(100);

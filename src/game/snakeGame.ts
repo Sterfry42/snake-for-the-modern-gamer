@@ -8352,7 +8352,7 @@ export class SnakeGame implements QuestRuntime {
   private isOpenQuestActorTile(room: RoomSnapshot, position: Vector2Like): boolean {
     const row = room.layout[position.y];
     const tile = row?.[position.x];
-    return tile === '.' || tile === ' ' || tile === 'f' || tile === 'r';
+    return tile === '.';
   }
 
   private tryActivateQuestTeleporterAtHead(): boolean {
@@ -8634,7 +8634,9 @@ export class SnakeGame implements QuestRuntime {
         actor.kind === 'deep-teleporter' ||
         actor.kind === 'deep-merchant'
           ? 7
-          : 3;
+          : actor.kind === 'starforged-envoy'
+            ? 0
+            : 3;
       for (let dy = -radius; dy <= radius; dy += 1) {
         for (let dx = -radius; dx <= radius; dx += 1) {
           const x = actor.x + dx;
