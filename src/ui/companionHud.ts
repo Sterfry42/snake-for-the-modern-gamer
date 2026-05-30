@@ -1,5 +1,6 @@
 // Companion HUD panel — shows active companions at the top-left of the screen.
 // Displays companion icons with bond hearts, auto-hides when no companions are active.
+// Quick menu supports: Feed, Ability, Dismiss actions with expanded bond progress.
 
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
@@ -14,6 +15,7 @@ interface CompanionHudEntry {
   bondLevel: number;
   bondProgress: number;
   kind: string;
+  definitionId?: string;
 }
 
 const ICON_SIZE = 40;
@@ -164,6 +166,7 @@ export class CompanionHud {
 
   /**
    * Create a quick-use menu for a companion.
+   * Includes Feed, Ability, and Dismiss options with expanded bond progress.
    */
   showQuickMenu(companionId: string, worldX: number, worldY: number): void {
     // Remove existing quick menu
@@ -172,8 +175,8 @@ export class CompanionHud {
     const companion = this.entries.find((e) => e.id === companionId);
     if (!companion) return;
 
-    const menuWidth = 120;
-    const menuHeight = 80;
+    const menuWidth = 140;
+    const menuHeight = 130;
     const menuX = Math.min(worldX + 20, this.scene.scale.width - menuWidth - 10);
     const menuY = Math.min(worldY + 20, this.scene.scale.height - menuHeight - 10);
 
@@ -181,8 +184,30 @@ export class CompanionHud {
       .rectangle(menuWidth / 2, menuHeight / 2, menuWidth, menuHeight, 0x0b1622, 0.92)
       .setStrokeStyle(1, 0x9ad1ff, 0.6);
 
+    // Bond progress bar in expanded view (top section)
+    const progressWidth = menuWidth - 24;
+    const progressHeight = 6;
+    const progressBg = this.scene.add
+      .rectangle(menuWidth / 2, 20, progressWidth, progressHeight, 0x1a2a3a, 1);
+    const progressFill = this.scene.add
+      .rectangle(
+        menuWidth / 2 - progressWidth / 2 + 1,
+        20,
+        progressWidth - 2,
+        progressHeight,
+        0x5dd6a2,
+        companion.bondProgress / 100,
+      );
+    const bondLabel = this.scene.add
+      .text(menuWidth / 2, 10, `Bond: ${companion.bondLevel}/${BOND_LEVELS}`, {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#9ad1ff',
+      })
+      .setOrigin(0.5, 0.5);
+
     const feedBtn = this.scene.add
-      .text(menuWidth / 2, 24, 'Feed', {
+      .text(menuWidth / 2, 44, 'Feed', {
         fontFamily: 'monospace',
         fontSize: '13px',
         color: '#5dd6a2',
@@ -193,11 +218,22 @@ export class CompanionHud {
       .setInteractive({ useHandCursor: true });
 
     const abilityBtn = this.scene.add
-      .text(menuWidth / 2, 56, 'Ability', {
+      .text(menuWidth / 2, 72, 'Ability', {
         fontFamily: 'monospace',
         fontSize: '13px',
         color: '#9ad1ff',
         backgroundColor: '#22334a',
+        padding: { left: 8, right: 8, top: 4, bottom: 4 },
+      })
+      .setOrigin(0.5, 0.5)
+      .setInteractive({ useHandCursor: true });
+
+    const dismissBtn = this.scene.add
+      .text(menuWidth / 2, 100, 'Dismiss', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#ff6b6b',
+        backgroundColor: '#442222',
         padding: { left: 8, right: 8, top: 4, bottom: 4 },
       })
       .setOrigin(0.5, 0.5)
@@ -215,18 +251,24 @@ export class CompanionHud {
       this.quickMenu = undefined;
     });
 
-    [feedBtn, abilityBtn].forEach((btn) => {
+    dismissBtn.on('pointerdown', () => {
+      (this.scene as any).companionDismissAction?.(companionId);
+      this.quickMenu?.destroy();
+      this.quickMenu = undefined;
+    });
+
+    [feedBtn, abilityBtn, dismissBtn].forEach((btn) => {
       btn?.on('pointerover', () => btn?.setScale(1.08));
       btn?.on('pointerout', () => btn?.setScale(1));
     });
 
     this.quickMenu = this.scene.add
-      .container(menuX, menuY, [bg, feedBtn, abilityBtn])
+      .container(menuX, menuY, [bg, progressBg, progressFill, bondLabel, feedBtn, abilityBtn, dismissBtn])
       .setDepth(25)
       .setVisible(true);
 
-    // Auto-hide after 3 seconds
-    this.scene.time.delayedCall(3000, () => {
+    // Auto-hide after 5 seconds
+    this.scene.time.delayedCall(5000, () => {
       if (this.quickMenu) {
         this.quickMenu.destroy();
         this.quickMenu = undefined;

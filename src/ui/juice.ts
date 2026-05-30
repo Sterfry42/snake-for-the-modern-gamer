@@ -3011,6 +3011,78 @@ export class JuiceManager {
     }
   }
 
+  // Neglect: creature sprite fades slightly, sad particles
+  creatureNeglectEffect(worldX: number, worldY: number): void {
+    // Sad descending tone
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 180,
+      duration: 0.22,
+      type: 'sine',
+      volume: 0.07,
+    });
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 120,
+      duration: 0.28,
+      type: 'triangle',
+      volume: 0.05,
+    });
+    // Dark gray falling particles (sad droplets)
+    for (let i = 0; i < 6; i++) {
+      const particle = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-10, 10),
+        worldY + Phaser.Math.Between(-4, 4),
+        Phaser.Math.Between(2, 3),
+        Phaser.Utils.Array.GetRandom([0x606060, 0x808080, 0x404050]),
+      );
+      particle.setDepth(27).setAlpha(0.7);
+      this.overlayLayer.add(particle);
+      this.scene.tweens.add({
+        targets: particle,
+        y: worldY + Phaser.Math.Between(16, 36),
+        x: particle.x + Phaser.Math.Between(-4, 4),
+        alpha: 0,
+        duration: 1000 + Math.random() * 400,
+        ease: 'Cubic.easeIn',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  // New discovery: spotlight effect + name reveal
+  creatureDiscoveryEffect(worldX: number, worldY: number, companionId: string): void {
+    // Bright ascending tone
+    this.playTone({
+      frequency: 440,
+      frequencyEnd: 880,
+      duration: 0.24,
+      type: 'sine',
+      volume: 0.12,
+    });
+    this.playTone({
+      frequency: 660,
+      duration: 0.3,
+      type: 'triangle',
+      volume: 0.09,
+    });
+    // Spotlight ring expanding outward
+    this.ringPulse(worldX, worldY, 0xffffff, 4, 4, 600);
+    this.ringPulse(worldX, worldY, 0xffd166, 8, 3, 500);
+    // Burst of golden particles
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0xffffff, 0x9ad1ff],
+      count: 28,
+      radius: 36,
+    });
+    // Screen flash (brief)
+    this.scene.cameras.main.flash(160, 255, 255, 100, true);
+    // Floating name reveal
+    this.scene.time.delayedCall(200, () => {
+      this.floatingLabel(worldX, worldY - 16, companionId, '#ffd166', 16);
+    });
+  }
+
   private flashLine(
     x1: number,
     y1: number,
