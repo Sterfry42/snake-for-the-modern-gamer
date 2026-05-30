@@ -2743,6 +2743,101 @@ export class JuiceManager {
     this.fillPulse(worldX, worldY, 4, 18, color, 0.08, 240);
   }
 
+  // Creature: a wild creature appears in the room
+  creatureAppear(worldX: number, worldY: number, _companionId: string): void {
+    // Descending arpeggio (pitch varies by creature)
+    const notes = [880, 660, 440];
+    notes.forEach((freq, i) => {
+      globalThis.setTimeout(
+        () => this.playTone({ frequency: freq, duration: 0.1, type: 'sine', volume: 0.08 }),
+        i * 80,
+      );
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0x9ad1ff, 0xfff3a8],
+      count: 8,
+      radius: 18,
+    });
+  }
+
+  // Creature: feeding animation
+  creatureFeed(worldX: number, worldY: number): void {
+    this.playTone({ frequency: 660, duration: 0.08, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.08, type: 'sine', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xc8ffe1, 0xfff3a8],
+      count: 6,
+      radius: 12,
+    });
+  }
+
+  // Creature: bond increased
+  creatureBondIncrease(worldX: number, worldY: number): void {
+    this.playTone({
+      frequency: 520,
+      frequencyEnd: 780,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.12,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff8fab, 0xffb3c6, 0xfff3a8],
+      count: 12,
+      radius: 22,
+    });
+  }
+
+  // Creature: taming succeeded
+  creatureTameSuccess(worldX: number, worldY: number): void {
+    // Ascending 3-note fanfare
+    const fanfare = [523.25, 659.25, 783.99];
+    fanfare.forEach((freq, i) => {
+      globalThis.setTimeout(
+        () => this.playTone({ frequency: freq, duration: 0.14, type: 'triangle', volume: 0.1 }),
+        i * 100,
+      );
+    });
+    this.scene.cameras.main.flash(120, 93, 214, 140, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2],
+      count: 20,
+      radius: 30,
+    });
+  }
+
+  // Creature: taming failed
+  creatureTameFail(worldX: number, worldY: number): void {
+    // Descending sad tone
+    this.playTone({
+      frequency: 440,
+      frequencyEnd: 220,
+      duration: 0.28,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x808080, 0xb0b0b0, 0xd0d0d0],
+      count: 8,
+      radius: 16,
+    });
+  }
+
+  // Creature: ability used
+  creatureAbility(worldX: number, worldY: number, _abilityId: string): void {
+    this.playTone({
+      frequency: 740,
+      frequencyEnd: 980,
+      duration: 0.16,
+      type: 'square',
+      volume: 0.1,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xc77dff, 0xffd166],
+      count: 14,
+      radius: 24,
+    });
+  }
+
   private flashLine(
     x1: number,
     y1: number,
