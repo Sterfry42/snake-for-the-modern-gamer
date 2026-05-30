@@ -62,6 +62,9 @@ src/
 │   ├── compendiumOverlay.ts             ← NEW
 │   └── spriteRecipes/
 │       └── companionRecipe.ts           ← NEW
+├── assets/
+│   └── sprites/
+│       └── companions/                  # NEW — creature sprite sheets (one per creature type)
 ├── i18n/
 │   └── languages/
 │       ├── companion_en.ts              ← NEW
@@ -128,8 +131,8 @@ Actively help in combat against enemies and bosses.
 
 | Creature | Rarity | Biome | Combat Effect | Unlock |
 |----------|--------|-------|---------------|--------|
+| **Jade Panther** | Epic | Jade Peak Province | +15% fighter damage against bosses | Clear Jade Peak Province |
 | **Thorn Viper** | Rare | Elderwood Maze | 10% chance to dodge enemy bullets | Defeat 5 enemies |
-| **Ashen Hound** | Epic | Ember Waste | 5% chance to damage nearby enemies on apple | See protector |
 | **Freak Biter** | Legendary | Any (post-Dennis) | Reduces boss pull strength by 15% | Defeat Freak Dennis |
 | **Shadow Jackal** | Legendary | Any (night) | +20% enemy kill score | Survive 10 night encounters |
 
@@ -146,8 +149,7 @@ Rideable creatures for faster exploration (with tradeoffs).
 
 ### 3.2 Creature Definition Interface
 
-```typescript
-// src/companions/companionTypes.ts
+**All types live in `src/companions/companionTypes.ts`** — the following sections define types that all belong in this single file for cohesion. Cross-references (§7.1 `SpawnTableEntry`, §4.2 `TameCost`, §3.3 `CompanionAbility`, §6.2 `CompanionInstance`, §6.2 `CompanionRenderData`, §14.1 `CompanionSaveData`, §14.1 `CompendiumSaveData`, §6.1 `TameResult`, §6.1 `FeedResult`, §6.1 `AbilityResult`) all reference types defined in this file.
 
 export type CompanionKind = 'follower' | 'protector' | 'scout' | 'forager' | 'fighter' | 'mount';
 export type CompanionRarity = 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
@@ -160,9 +162,17 @@ export type CompanionTraitId =
 
 export interface CompanionTrait {
   traitId: CompanionTraitId;
-  value: number;  // Scaled: 0.05 = 5%, 10 = 10 ticks, etc.
+  value: number;  // Interpretation depends on traitId (see trait-specific documentation below)
   description: string;
 }
+```
+
+**Trait value interpretation** (add to companionTypes.ts as inline documentation):
+- `fireResistance`, `coldResistance`, `appleScoreBonus`, `appleSpawnBonus`, `shopDiscount`, `bulletDodgeChance`, `bossPullReduction`, `companionDamageBonus` — **Decimal multiplier** (0.05 = 5%, 0.15 = 15%)
+- `movementSpeed` — **Flat speed addition** (1 = +1 cell/tick, 4 = +4 cells/tick for mounts)
+- `wallSenseRadius` — **Pixel radius** (64 = 64px around snake head)
+- `waterSafe`, `hazardDetection`, `damageMitigation` — **Integer threshold** (1 = once, 30 = every 30s, etc.)
+- `cooldownReduction` — **Decimal multiplier** (0.2 = 20% reduction)
 
 export interface CompanionDefinition {
   id: string;                          // e.g., 'ember-wisp'
@@ -177,11 +187,11 @@ export interface CompanionDefinition {
   maxBonds: number;                    // Max bonding level (affects ability unlocks)
   traits: CompanionTrait[];
   abilities: CompanionAbility[];       // Active abilities unlocked at bond levels
-  spawnTable: SpawnTableEntry[];       // Where/when they can be encountered
-  tameCost: TameCost;                  // What it takes to tame
+  spawnTable: SpawnTableEntry[];       // Where/when they can be encountered (see §7.1)
+  tameCost: TameCost;                  // What it takes to tame (see §4.2)
   description: string;
   lore?: string;                       // Flavor text for compendium
-  minRoomsVisited?: number;            // Minimum rooms to encounter
+  minRoomsVisited?: number;            // Minimum rooms to encounter (defaults to 0)
 }
 ```
 
@@ -194,11 +204,14 @@ export interface CompanionAbility {
   description: string;
   requiresBondLevel: number;           // Bond level to unlock
   cooldownRooms: number;               // Cooldown in rooms (not time!)
-  cooldownTicks?: number;              // Alternative: cooldown in ticks
+  cooldownTicks?: number;              // Alternative: cooldown in ticks (used if cooldownRooms not set)
   effect: 'heal' | 'shield' | 'dash' | 'reveal' | 'buff' | 'attack' | 'summon' | 'mount';
   parameters: Record<string, number>;  // Effect-specific parameters
   soundEffectId?: string;              // Juice sound to play
 }
+```
+
+**Cooldown resolution**: `cooldownRooms` is checked on room change (player enters a new room). `cooldownTicks` is checked each game tick (useful for time-based abilities). Only one cooldown type should be set per ability — using both is an error.
 ```
 
 ---
@@ -215,7 +228,7 @@ Encounter → Observe → Feed → Bond → Tame
 
 1. **Encounter**: Creature appears in the world (random spawn, quest reward, or structure)
 2. **Observe**: Player interacts to learn about the creature (dialogue + info panel)
-3. **Feed**: Player must feed the creature a specific item/food (varies by creature type)
+3. **Feed**: Player must feed the creature a specific item/food (varies by creature type). The `preferredBy` field on food items specifies which creatures accept that food. Feeding preferred food grants +50% bond progress (see `tameBonus` on food items).
 4. **Bond**: Player must interact multiple times over time (days/rooms) to build trust
 5. **Tame**: Final interaction after bond threshold reached — creature becomes permanent
 
@@ -263,11 +276,11 @@ Bond levels mirror the existing relationship system's heart progression but simp
 
 | Bond Level | Hearts | Name | Description |
 |------------|--------|------|-------------|
-| 1 | | Fledgling | Just tamed. Doesn't fully trust you. |
-| 2 | | Trusted | Follows reliably. First ability unlocked. |
-| 3 | | Devoted | Strong bond. Second ability unlocked. |
-| 4 | | Kindred | Deep connection. Third ability unlocked. |
-| 5 | | Legendary | Unbreakable bond. All abilities + unique passive. |
+| 1 | 💔 | Fledgling | Just tamed. Doesn't fully trust you. |
+| 2 | 💛 | Trusted | Follows reliably. First ability unlocked. |
+| 3 | ❤️ | Devoted | Strong bond. Second ability unlocked. |
+| 4 | 💖 | Kindred | Deep connection. Third ability unlocked. |
+| 5 | 💝 | Legendary | Unbreakable bond. All abilities + unique passive. |
 
 ### 5.2 Bond Progression
 
@@ -281,6 +294,10 @@ Bond increases through:
 
 Bond is tracked as `companions.bonds.{companionId}` with value 0-100 (percentage toward next level).
 
+**Bond reaching 0**: If neglect or other penalties reduce bondProgress to 0 and bondLevel is 1, the companion leaves (becomes wild again or flees). This is irreversible — the player must re-encounter and re-tame the creature. Bond progress resets to 0 when this happens.
+
+**Companion dismissal**: Players can voluntarily dismiss a companion (returns it to "wild" state). Dismissal does not affect compendium progress (discovered status is permanent). Dismissed companions can be re-tamed with reduced bond progress requirements (minimum 1 bond level, no re-tame success check).
+
 ### 5.3 Bond Effects on Gameplay
 
 Bond level affects:
@@ -288,6 +305,7 @@ Bond level affects:
 - **Ability unlocks**: Abilities gated behind bond levels (see §3.3)
 - **Passive strength**: Some passive buffs scale with bond level (e.g., 5% → 10% → 15% at bond 5)
 - **Creature AI**: Higher bond = more proactive ability usage
+- **Protector cooldown visualization**: When a protector uses its ability, a cooldown indicator appears above the creature sprite (pulsing ring that shrinks over the cooldown duration)
 - **Creature voice lines**: More expressive dialogue at higher bonds
 - **Emotional events**: At bond 5, special cutscene plays (creature "saves" you with unique animation)
 
@@ -303,7 +321,12 @@ Bond level affects:
 export class CompanionService {
   private readonly snakeGame: SnakeGame;
   private readonly companions: Map<string, CompanionInstance> = new Map();
-  private readonly juicemanager: JuiceManager;
+  private readonly juiceManager: JuiceManager;  // Note: camelCase (matches existing JuiceManager convention)
+  private readonly inventoryService: InventoryService;
+  private readonly questService: QuestService;
+  private readonly compendium: CompendiumSystem;
+
+  constructor(snakeGame: SnakeGame, juiceManager: JuiceManager, inventoryService: InventoryService, questService: QuestService);
 
   // Spawn a new companion
   spawnCompanion(companionId: string, roomId: string, x: number, y: number): void;
@@ -313,6 +336,34 @@ export class CompanionService {
 
   // Feed a companion
   feedCompanion(companionId: string, itemId: string): FeedResult;
+```
+
+**Return types** (add to companionTypes.ts):
+```typescript
+export interface TameResult {
+  success: boolean;
+  companionId: string;
+  message: string;                    // i18n key for UI display
+  failedReason?: 'insufficientFood' | 'bondTooLow' | 'conditionsNotMet' | 'tamingFailed';
+  nextEncounterRoom?: number;         // If failed, room number until next encounter
+}
+
+export interface FeedResult {
+  success: boolean;
+  bondGain: number;                   // 0-100 raw bond progress points
+  feedsRemainingToday: number;
+  message: string;                    // i18n key for UI display
+  failedReason?: 'noFood' | 'dailyLimitReached' | 'notPreferred' | 'companionNotFound';
+}
+
+export interface AbilityResult {
+  success: boolean;
+  abilityId: string;
+  cooldownRemaining?: number;         // Rooms or ticks remaining
+  message: string;                    // i18n key for UI display
+  failedReason?: 'onCooldown' | 'bondTooLow' | 'companionNotFound' | 'invalidAbility';
+}
+```
 
   // Increase bond with a companion
   increaseBond(companionId: string, amount: number): void;
@@ -325,9 +376,28 @@ export class CompanionService {
 
   // Get companion positions for rendering
   getCompanionRenderData(): CompanionRenderData[];
+```
+
+**CompanionRenderData type** (add to companionTypes.ts):
+```typescript
+export interface CompanionRenderData {
+  companionId: string;                // Instance ID
+  sprite: Phaser.GameObjects.Sprite;  // The sprite object (created by rendering system)
+  gridX: number;                      // Current grid position
+  gridY: number;
+  targetX: number;                    // Interpolation target
+  targetY: number;
+  followIndex: number;                // Position in follower chain (0 = closest to head)
+  mood: CompanionInstance['mood'];    // Current mood for animation selection
+  isMount: boolean;                   // Whether this is the active mount
+}
+```
 
   // Tick-based updates (movement, cooldowns, abilities)
   step(stepMs: number): void;
+
+  // Resolve cooldowns on room change (for cooldownRooms-based abilities)
+  onRoomChange(newRoomId: string): void;
 
   // Save/Load
   getSnapshot(): CompanionSaveData;
@@ -355,6 +425,11 @@ export interface CompanionInstance {
   mood: 'happy' | 'neutral' | 'sad' | 'excited' | 'protective';
   flags: Record<string, unknown>;
 }
+
+**Global settings** (not per-instance, stored at top level in flags):
+- `companions.settings.followerLimit` — Maximum number of active followers (default: 3, can be increased by equipment)
+- `companions.settings.mountAutoEnabled` — Whether the mount ability activates automatically (default: false)
+- `companions.settings.uiExpanded` — Whether the companion panel is expanded in UI (default: false)
 ```
 
 ### 6.3 Companion Rendering
@@ -400,13 +475,19 @@ Creatures can appear through:
 5. **Breeding**: Two companions of the same type can produce offspring (§9)
 6. **World events**: Rare events spawn unique creatures (storm spawns Storm Hawk)
 
+**Spawn caps**: At most 2 wild creatures active per biome at any time to prevent encounter spam. When the cap is reached, new spawns are suppressed until one despawns. Wild creatures despawn after 10 rooms without player interaction.
+
+**Biome uniqueness**: Each creature can only be encountered once per biome per playthrough (tracked via flags: `companions.encountered.{creatureId}.{biomeId}`). This prevents re-encountering the same wild creature in the same biome.
+
 ### 7.3 Spawn Weight Calculation
 
 ```
-effectiveWeight = baseWeight × scoreMultiplier × roomConditionMultiplier
+effectiveWeight = baseWeight × scoreMultiplier × roomConditionMultiplier × timeBiasMultiplier × eventBiasMultiplier
 
 scoreMultiplier = 1 + (score / 1000) * 0.1    // Diminishing returns
 roomConditionMultiplier = { any: 1.0, structure: 2.0, dangerous: 0.5, water: 0.8 }
+timeBiasMultiplier = { any: 1.0, day: 1.5, night: 1.5 }  // Only applies during matching time of day
+eventBiasMultiplier = 1.0 (no event) or 3.0 (during matching event)
 ```
 
 ---
@@ -474,10 +555,16 @@ Reaching milestones unlocks cosmetic rewards:
 
 At bond level 5, two compatible companions can breed to produce offspring:
 
+**Compatibility rules**: Both companions must share at least one of:
+- Same `kind` (e.g., two Protectors, or two Scouts)
+- Same biome origin (both from Elderwood Maze)
+- Same `rarity` tier (e.g., both Rare)
+
 ```
 Requirements:
 - Both parents at bond level 5
 - Both currently tamed and present in the same room
+- Compatible per rules above
 - Player has breeding food item
 - One-time "breeding event" dialogue
 ```
@@ -550,11 +637,19 @@ companions.settings.followerLimit                     — number (max followers,
 // In snakeState.ts — add to SnakeState class
 
 getActiveCompanions(): CompanionInstance[];
-getPassiveEffects(): CompanionTrait[];
-applyPassiveEffects(): void;
-canSpawnCompanion(companionId: string): boolean;
-getMaxFollowers(): number;
-getMount(): CompanionInstance | null;
+ getPassiveEffects(): CompanionTrait[];
+ applyPassiveEffects(): void;
+ canSpawnCompanion(companionId: string): boolean;
+ getMaxFollowers(): number;
+ getMount(): CompanionInstance | null;
+
+ **Companion limits** (enforced by SnakeState):
+- Max total active companions: determined by `maxCompanions` (default: 4, can be increased by equipment)
+- Max followers: determined by `followerLimit` (default: 3, adjustable via settings)
+- Max mounts: 1 (only one active mount at a time)
+- Max protectors: 2 (to prevent over-mitigation)
+- Max scouts: 2 (to prevent information overload)
+- Max fighters: 2 (to prevent combat trivialization)
 ```
 
 ---
@@ -565,7 +660,7 @@ getMount(): CompanionInstance | null;
 
 Small panel showing active companions — similar to quest tracker:
 
-- Shows 1-3 companion icons at top of screen
+- Shows companion icons at top of screen (up to max active companions, default 4, adjustable via `followerLimit` setting)
 - Bond hearts indicator under each icon
 - Click to open quick menu: Feed / Use Ability / Compendium
 - Disappears if no companions active (auto-collapses)
@@ -686,6 +781,8 @@ Full-screen bestiary (similar to skill tree screen). Opens with "B" key or from 
 }
 ```
 
+**Item balancing notes**: Creature food items should be obtainable through normal gameplay (shop purchases, drops, quest rewards). No food item should be so rare that it creates a soft lock on creature progression. Common food (wild-herbs, meat-skewer) should drop at ~2% rate from normal rooms. Preferred food (fire-pepper, fresh-fish) should be shop-stock with score cost proportional to creature rarity.
+
 ### 12.2 Equipment that Boosts Companions
 
 ```typescript
@@ -713,6 +810,12 @@ Full-screen bestiary (similar to skill tree screen). Opens with "B" key or from 
   }
 }
 ```
+
+**Modifier type definitions** (add to existing equipment modifiers system):
+- `bondGainMultiplier` — Multiplier applied to bond increase events (default: 1.0)
+- `maxCompanions` — Hard cap on total active companions (overrides default)
+- `abilityCooldownReduction` — Percentage reduction on ability cooldowns (0.8 = 20% reduction)
+- `companionDamageBonus` — Multiplier on fighter companion damage output
 
 ---
 
@@ -755,7 +858,7 @@ All sounds use existing `JuiceManager` procedural audio.
 interface CompanionSaveData {
   version: number;                     // 1
   instances: Record<string, CompanionInstance>;
-  compositum: CompendiumSaveData;
+  compendium: CompendiumSaveData;
   settings: {
     mountAutoEnabled: boolean;
     followerLimit: number;
@@ -776,6 +879,13 @@ interface CompendiumSaveData {
 2. **On save**: `saveManager.save()` includes companion state via existing save hooks
 3. **On load**: All companion instances restored with bond levels, abilities, positions
 4. **On position change**: Companion currentRoomId updated (creatures teleport to player's room)
+5. **On room change**: `CompanionService.onRoomChange(newRoomId)` is called — resolves cooldowns, updates positions
+
+**Version migration**: The `version` field in `CompanionSaveData` enables forward/backward compatibility. When the save format changes:
+- Increment `version` and add migration logic in `loadSnapshot()`
+- Old saves (version < current) are migrated to the new format
+- Unmigratable format changes require a hard reset of companion data (compendium data is preserved)
+- Minimum supported save version is tracked: `MIN_COMPATIBLE_SAVE_VERSION = 1`
 
 ---
 
@@ -824,6 +934,8 @@ getBondLevel(companionId: string): number;
 - [ ] Integration with existing save system
 - [ ] Basic sound effects via JuiceManager
 - **Test**: Spawn creature → Observe → Feed → Tame → Follow snake
+- **Unit tests**: CompanionService.tame() success/failure paths, feedCompanion() bond increment, save/load round-trip
+- **Edge cases**: Tame during active hazard, feed wrong food type, neglect until bond drops to 0
 
 ### Phase 2: Passive Traits & Bond System (Week 3)
 
@@ -837,6 +949,8 @@ getBondLevel(companionId: string): number;
 - [ ] Compendium system basics (discovery tracking)
 - [ ] Compendium UI overlay
 - **Test**: Multiple companions with stacked passive effects work correctly
+- **Unit tests**: Passive trait evaluation with 3+ companions, equipment modifier interaction, bond decay calculation
+- **Edge cases**: Two companions with same trait (should stack additively per §17.3), bond at exactly 0, negative bond progress
 
 ### Phase 3: Abilities & Combat (Week 4)
 
@@ -849,6 +963,8 @@ getBondLevel(companionId: string): number;
 - [ ] Protector ability (hazard blocking)
 - [ ] Integration with existing combat systems
 - **Test**: Abilities trigger correctly with proper cooldowns
+- **Unit tests**: Ability cooldown management, fighter damage calculation, protector hazard blocking
+- **Edge cases**: Two abilities on same cooldown tick, protector blocks damage while shield active, fighter ability triggers while companion is at bond 1 (unlocked)
 
 ### Phase 4: Mount System & Polish (Week 5)
 
@@ -862,6 +978,8 @@ getBondLevel(companionId: string): number;
 - [ ] Creature voice lines / dialogue
 - [ ] Polish all visual effects
 - **Test**: Mount/unmount smoothly, tradeoffs balance correctly
+- **Unit tests**: Mount speed modifier application, mount tradeoff enforcement (e.g., River Koi cannot eat apples)
+- **Edge cases**: Mount dies while riding, unmount during hazard, mount tradeoff conflicts (Desert Strider in cold biome)
 
 ### Phase 5: Breeding & Bestiary (Week 6)
 
@@ -874,6 +992,8 @@ getBondLevel(companionId: string): number;
 - [ ] Compendium milestone rewards
 - [ ] Breeding UI
 - **Test**: Breed creatures, offspring inherit traits correctly
+- **Unit tests**: Breeding compatibility checks, offspring trait inheritance (50% per trait), rarity upgrade cap (max +1 tier)
+- **Edge cases**: Breed incompatible pair, breed while one parent dies mid-process, breed with same creature twice, offspring exceeding max companion limit
 
 ### Phase 6: Integration & Content (Week 7)
 
@@ -887,6 +1007,8 @@ getBondLevel(companionId: string): number;
 - [ ] NPC companion creatures (visual only)
 - [ ] Balance tuning (spawn rates, bond speeds, ability power)
 - **Test**: Full playtest of companion system end-to-end
+- **Integration tests**: Quest completion triggers, world event creature spawns, I18n string resolution, save/load with all system components active
+- **Balance tests**: Automated checks that no passive effect combination exceeds defined caps (§17.3), spawn rate verification across biomes, time-to-first-tame validation (target 10-20 min)
 
 ---
 
@@ -941,9 +1063,24 @@ getBondLevel(companionId: string): number;
 - Feeding/ability UI adapted for touch (larger buttons)
 - Companion sprites slightly larger on mobile for visibility
 
-### 18.4 i18n
+### 18.5 Testing Strategy
 
-All creature names, descriptions, and UI text use the existing `i18n` system:
+Each phase includes dedicated test targets:
+
+- **Unit tests**: CompanionService methods (tame, feed, bond, ability usage) in `src/companions/__tests__/`
+- **Integration tests**: Companion system with existing systems (inventory, quests, save)
+- **Visual tests**: Sprite rendering and follow-path interpolation
+- **Balance tests**: Automated checks that no passive effect combination exceeds defined caps
+- **Save/load tests**: Round-trip serialization with version migration
+
+### 18.6 Asset Pipeline
+
+All companion sprites must follow the existing sprite recipe system (`RuntimeSpriteFactory`). Creature sprites should:
+- Use the same pixel art style as existing entities
+- Have a base sprite + animated idle state (breathing, bobbing)
+- Support mood states via sprite swapping (happy = brighter, sad = desaturated)
+- Be generated from palette entries defined in §Appendix B
+- No new sprite tools — all assets use existing pipeline
 
 ```typescript
 // In companion_en.ts
@@ -970,6 +1107,9 @@ export const companionStrings = {
 | Content creation bottleneck (36 creatures is a lot) | Medium | Use sprite variations + recolors for similar creatures; focus on quality over quantity |
 | Bond system overlapping with relationship system | Low | Bond system is simpler (5 levels vs 13 stages); keep separate but compatible |
 | Save data bloat | Low | Each companion instance is ~200 bytes; 36 max = ~7KB total |
+| Companion food items compete with player inventory | Medium | Food items should be common drops; limit stacking to prevent hoarding |
+| Companion system adds complexity to already large SnakeScene | Medium | Keep CompanionService self-contained; use clear interface contracts for SnakeScene integration |
+| Save format drift as system evolves | Low | Use version field + migration logic (see §14.2); maintain minimum compatible version |
 
 ---
 
@@ -1040,20 +1180,20 @@ This system is successful when:
 
 ## Appendix B: Sprite Palette Suggestions
 
-Creature sprites should use the game's existing palette system with creature-specific accents:
+Creature sprites should use the game's existing palette system with creature-specific accents. Each creature's `spriteRecipeId` in `CompanionDefinition` maps to a sprite recipe entry that defines the visual appearance.
 
-| Creature | Base Palette | Accent Color |
-|----------|-------------|-------------|
-| Ember Wisp | `ember-waste` | #ff6600 (warm orange) |
-| Frost Sprite | `moonlit-parish` | #88ccff (ice blue) |
-| Dust Bunny | `liberty-badlands` | #d4a76a (sandy) |
-| Moss Imp | `elderwood-maze` | #55aa55 (leaf green) |
-| Gloom Moth | `gloam-garden` | #cc88ff (mystic purple) |
-| Silt Salamander | `sunken-ocean` | #44aacc (marine teal) |
-| Owl of the Thorn | `elderwood-maze` | #664422 (bark brown) |
-| Goldfinch | `verdigris-basin` | #ffcc00 (gold) |
-| Stoneback Turtle | `verdigris-basin` | #888899 (stone grey) |
-| Shadow Jackal | `moonlit-parish` | #440066 (deep purple) |
+| Creature | Base Palette | Accent Color | Sprite Recipe ID |
+|----------|-------------|-------------|-----------------|
+| Ember Wisp | `ember-waste` | #ff6600 (warm orange) | `companion-ember-wisp` |
+| Frost Sprite | `moonlit-parish` | #88ccff (ice blue) | `companion-frost-sprite` |
+| Dust Bunny | `liberty-badlands` | #d4a76a (sandy) | `companion-dust-bunny` |
+| Moss Imp | `elderwood-maze` | #55aa55 (leaf green) | `companion-moss-imp` |
+| Gloom Moth | `gloam-garden` | #cc88ff (mystic purple) | `companion-gloom-moth` |
+| Silt Salamander | `sunken-ocean` | #44aacc (marine teal) | `companion-silt-salamander` |
+| Owl of the Thorn | `elderwood-maze` | #664422 (bark brown) | `companion-owl-thorn` |
+| Goldfinch | `verdigris-basin` | #ffcc00 (gold) | `companion-goldfinch` |
+| Stoneback Turtle | `verdigris-basin` | #888899 (stone grey) | `companion-stoneback` |
+| Shadow Jackal | `moonlit-parish` | #440066 (deep purple) | `companion-shadow-jackal` |
 
 ---
 
