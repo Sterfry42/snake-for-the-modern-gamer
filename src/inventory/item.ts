@@ -52,6 +52,15 @@ export interface EquipableItem extends BaseItem {
     yokaiInsight?: boolean;
     // Passive length growth (spiritual discipline).
     spiritualLength?: boolean;
+    // Companion system modifiers.
+    // Multiplier on bond gain when feeding companions.
+    bondGainMultiplier?: number;
+    // Hard cap on active companion count.
+    maxCompanions?: number;
+    // Percentage reduction on companion ability cooldowns (0.8 = 20% reduction).
+    abilityCooldownReduction?: number;
+    // Multiplier on fighter companion damage output.
+    companionDamageBonus?: number;
   };
 }
 

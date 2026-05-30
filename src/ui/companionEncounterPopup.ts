@@ -6,7 +6,7 @@ import type SnakeScene from '../scenes/snakeScene.js';
 import type { CompanionDefinition } from '../companions/companionTypes.js';
 import { RuntimeSpriteFactory } from './runtimeSpriteFactory.js';
 
-const RARITY_COLORS: Record<string, string> = {
+export const RARITY_COLORS: Record<string, string> = {
   common: '#b0b0b0',
   uncommon: '#5dd6a2',
   rare: '#9ad1ff',
@@ -14,7 +14,7 @@ const RARITY_COLORS: Record<string, string> = {
   legendary: '#ffd166',
 };
 
-const KIND_LABELS: Record<string, string> = {
+export const KIND_LABELS: Record<string, string> = {
   follower: 'Follower',
   protector: 'Protector',
   scout: 'Scout',

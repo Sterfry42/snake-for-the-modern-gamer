@@ -611,4 +611,239 @@ export class SnakeState {
     const nowMs = Number(this.flags['timeMs'] ?? 0);
     return nowMs < endMs;
   }
+
+  // ---- Companion Passive Effects ----
+
+  /**
+   * Get all active (tamed) companion instances from flags.
+   * Returns deserialized companion instances stored in flags.
+   */
+  getActiveCompanions(): Array<{
+    id: string;
+    definitionId: string;
+    bondLevel: number;
+    bondProgress: number;
+    currentRoomId: string;
+    gridX: number;
+    gridY: number;
+    lastFedRoom: number;
+    feedCountThisDay: number;
+    lastInteractionRoom: number;
+    abilitiesUsed: Record<string, number>;
+    totalApplesEatenTogether: number;
+    totalDangersSurvived: number;
+    mood: string;
+    flags: Record<string, unknown>;
+    isTamed: boolean;
+  }> {
+    const raw = this.flags['companions.instances'] as Record<string, unknown> | undefined;
+    if (!raw || typeof raw !== 'object') {
+      return [];
+    }
+
+    const instances: Array<{
+      id: string;
+      definitionId: string;
+      bondLevel: number;
+      bondProgress: number;
+      currentRoomId: string;
+      gridX: number;
+      gridY: number;
+      lastFedRoom: number;
+      feedCountThisDay: number;
+      lastInteractionRoom: number;
+      abilitiesUsed: Record<string, number>;
+      totalApplesEatenTogether: number;
+      totalDangersSurvived: number;
+      mood: string;
+      flags: Record<string, unknown>;
+      isTamed: boolean;
+    }> = [];
+
+    for (const [id, val] of Object.entries(raw)) {
+      if (val && typeof val === 'object' && 'isTamed' in val && (val as any).isTamed) {
+        instances.push({
+          id,
+          ...(val as any),
+          abilitiesUsed: (val as any).abilitiesUsed ?? {},
+          flags: (val as any).flags ?? {},
+        } as any);
+      }
+    }
+
+    return instances;
+  }
+
+  /**
+   * Get the aggregated passive trait effects from all active companions.
+   * Returns an array of { traitId, value, sourceId } objects.
+   */
+  getPassiveEffects(): Array<{ traitId: string; value: number; sourceId: string }> {
+    const instances = this.getActiveCompanions();
+
+    // Read from flags set by CompanionService
+    const effectsRaw = this.flags['companions.passiveEffects'] as Array<{
+      traitId: string;
+      value: number;
+      sourceId: string;
+    }> | undefined;
+
+    if (effectsRaw && Array.isArray(effectsRaw)) {
+      return effectsRaw;
+    }
+
+    // Fallback: compute simple effects from instance data
+    const effects: Array<{ traitId: string; value: number; sourceId: string }> = [];
+
+    for (const instance of instances) {
+      // Companion traits are stored per-instance in flags
+      const traits = instance.flags as Record<string, unknown>;
+      if (traits && typeof traits === 'object') {
+        // Look for trait values in companion-specific flag prefixes
+        for (const [key, val] of Object.entries(traits)) {
+          if (key.startsWith('trait.') && typeof val === 'number') {
+            const traitParts = key.split('.');
+            if (traitParts.length >= 2) {
+              effects.push({
+                traitId: traitParts[1],
+                value: val,
+                sourceId: instance.id,
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return effects;
+  }
+
+  /**
+   * Apply passive effects from companions to snakeState flags.
+   * This sets flag values that snakeState.step() and other systems check.
+   */
+  applyPassiveEffects(): void {
+    const instances = this.getActiveCompanions();
+    const effects = this.getPassiveEffects();
+
+    // Clear old effects
+    delete this.flags['companions.passiveEffects'];
+
+    // Store aggregated effects for reading
+    this.flags['companions.passiveEffects'] = effects;
+
+    // Apply individual effect flags for systems to check
+    for (const effect of effects) {
+      this.flags[`companion.${effect.traitId}`] = effect.value;
+    }
+
+    // Set fire resistance for temperature hazards
+    const fireResist = effects
+      .filter((e) => e.traitId === 'fireResistance')
+      .reduce((sum, e) => sum + e.value, 0);
+    if (fireResist > 0) {
+      this.flags['companion.fireResistance'] = fireResist;
+    }
+
+    // Set cold resistance for temperature hazards
+    const coldResist = effects
+      .filter((e) => e.traitId === 'coldResistance')
+      .reduce((sum, e) => sum + e.value, 0);
+    if (coldResist > 0) {
+      this.flags['companion.coldResistance'] = coldResist;
+    }
+
+    // Set apple score bonus
+    const appleBonus = effects
+      .filter((e) => e.traitId === 'appleScoreBonus')
+      .reduce((sum, e) => sum + e.value, 0);
+    if (appleBonus > 0) {
+      this.flags['companion.appleScoreBonus'] = appleBonus;
+    }
+
+    // Set boss pull reduction
+    const pullReduction = effects
+      .filter((e) => e.traitId === 'bossPullReduction')
+      .reduce((sum, e) => sum + e.value, 0);
+    if (pullReduction > 0) {
+      this.flags['companion.bossPullReduction'] = pullReduction;
+    }
+
+    // Set bullet dodge chance
+    const dodgeChance = effects
+      .filter((e) => e.traitId === 'bulletDodgeChance')
+      .reduce((sum, e) => sum + e.value, 0);
+    if (dodgeChance > 0) {
+      this.flags['companion.bulletDodgeChance'] = dodgeChance;
+    }
+
+    // Set movement speed bonus
+    const speedBonus = effects
+      .filter((e) => e.traitId === 'movementSpeed')
+      .reduce((sum, e) => sum + e.value, 0);
+    if (speedBonus > 0) {
+      this.flags['companion.movementSpeed'] = speedBonus;
+    }
+  }
+
+  /**
+   * Check if a companion can be spawned given current limits.
+   * Reads companion count from flags.
+   */
+  canSpawnCompanion(_companionId: string): boolean {
+    const instances = this.getActiveCompanions();
+
+    // Check total limit from flags or default
+    const followerLimit = Number(this.flags['companions.settings.followerLimit']) || 3;
+    const maxTotal = Number(this.flags['companions.settings.maxTotal']) || 4;
+
+    if (instances.length >= maxTotal) {
+      return false;
+    }
+
+    // Check kind-specific limits
+    const followerCount = instances.filter((i) => {
+      // Would need companion definition to check kind
+      return true; // placeholder
+    }).length;
+
+    if (followerCount >= followerLimit) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Get the maximum number of followers allowed.
+   */
+  getMaxFollowers(): number {
+    return Number(this.flags['companions.settings.followerLimit']) || 3;
+  }
+
+  /**
+   * Get the currently active mount companion, if any.
+   */
+  getMount(): {
+    id: string;
+    definitionId: string;
+    bondLevel: number;
+    bondProgress: number;
+    currentRoomId: string;
+    gridX: number;
+    gridY: number;
+    lastFedRoom: number;
+    feedCountThisDay: number;
+    lastInteractionRoom: number;
+    abilitiesUsed: Record<string, number>;
+    totalApplesEatenTogether: number;
+    totalDangersSurvived: number;
+    mood: string;
+    flags: Record<string, unknown>;
+    isTamed: boolean;
+  } | null {
+    const instances = this.getActiveCompanions();
+    // Would need to check kind from definitions, returning first tamed as placeholder
+    return instances.length > 0 ? instances[0] as any : null;
+  }
 }

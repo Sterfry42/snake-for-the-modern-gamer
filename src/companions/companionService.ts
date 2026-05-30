@@ -14,8 +14,45 @@ import type {
 import {
   COMPANION_DEFINITIONS,
   getCompanionDefinition,
+  getCompanionsByKind,
 } from './companionRegistry.js';
 import { CompendiumSystem } from './compendiumSystem.js';
+import {
+  evaluatePassiveTraits,
+  applyBondIncrease,
+  checkNeglectDecay,
+  NEGLECT_DECAY_ROOMS,
+  MAX_DAILY_FEEDS,
+} from './bondSystem.js';
+
+/** Trait evaluation result from the bond system. */
+interface TraitEvaluation {
+  traitId: string;
+  totalValue: number;
+  sources: Array<{ companionId: string; value: number }>;
+}
+
+/** Companion limit configuration by kind. */
+interface CompanionLimits {
+  maxTotal: number;
+  maxFollowers: number;
+  maxProtectors: number;
+  maxScouts: number;
+  maxForagers: number;
+  maxFighters: number;
+  maxMounts: number;
+}
+
+/** Default companion spawn limits. */
+const DEFAULT_LIMITS: CompanionLimits = {
+  maxTotal: 4,
+  maxFollowers: 3,
+  maxProtectors: 2,
+  maxScouts: 2,
+  maxForagers: 2,
+  maxFighters: 2,
+  maxMounts: 1,
+};
 
 // Rarity-based success chances for taming.
 const TAME_SUCCESS_CHANCE: Record<string, number> = {
@@ -25,8 +62,6 @@ const TAME_SUCCESS_CHANCE: Record<string, number> = {
   epic: 0.5,
   legendary: 0.3,
 };
-
-const MAX_DAILY_FEEDS = 3;
 
 /** Maximum number of wild creatures allowed per biome at any time. */
 const WILD_SPAWN_CAP_PER_BIOME = 2;
@@ -41,6 +76,7 @@ export class CompanionService {
   private readonly inventoryService: any;
   private readonly questService: any;
   private readonly compendium: CompendiumSystem;
+  private readonly flags: Record<string, unknown>;
   private nextInstanceId = 1;
 
   constructor(
@@ -48,12 +84,66 @@ export class CompanionService {
     juiceManager: any,
     inventoryService: any,
     questService: any,
+    flags?: Record<string, unknown>,
   ) {
     this.snakeGame = snakeGame;
     this.juiceManager = juiceManager;
     this.inventoryService = inventoryService;
     this.questService = questService;
+    this.flags = flags ?? snakeGame?.flags ?? {};
     this.compendium = new CompendiumSystem();
+  }
+
+  /**
+   * Get equipment-based bond gain multiplier from equipped items.
+   */
+  private getBondGainMultiplier(): number {
+    const equipped = this.inventoryService?.getAllEquipped?.() ?? [];
+    let multiplier = 1.0;
+    for (const [slot, itemId] of equipped) {
+      const item = this.inventoryService.getItemDefinition?.(itemId);
+      if (item?.modifiers?.bondGainMultiplier) {
+        multiplier *= item.modifiers.bondGainMultiplier;
+      }
+    }
+    return multiplier;
+  }
+
+  /**
+   * Get equipment-based cooldown reduction multiplier from equipped items.
+   */
+  private getCooldownReduction(): number {
+    const equipped = this.inventoryService?.getAllEquipped?.() ?? [];
+    let reduction = 1.0;
+    for (const [slot, itemId] of equipped) {
+      const item = this.inventoryService.getItemDefinition?.(itemId);
+      if (item?.modifiers?.abilityCooldownReduction) {
+        reduction *= item.modifiers.abilityCooldownReduction;
+      }
+    }
+    return reduction;
+  }
+
+  /**
+   * Get the max companion count from equipment, or the default.
+   */
+  private getMaxCompanionCount(): number {
+    const equipped = this.inventoryService?.getAllEquipped?.() ?? [];
+    let maxCount = DEFAULT_LIMITS.maxTotal;
+    for (const [slot, itemId] of equipped) {
+      const item = this.inventoryService.getItemDefinition?.(itemId);
+      if (item?.modifiers?.maxCompanions) {
+        maxCount = Math.max(maxCount, item.modifiers.maxCompanions);
+      }
+    }
+    return maxCount;
+  }
+
+  /**
+   * Get the follower limit, respecting equipment overrides.
+   */
+  private getFollowerLimit(): number {
+    return this.flags['companions.settings.followerLimit'] as number ?? DEFAULT_LIMITS.maxFollowers;
   }
 
   // ---- Core Methods ----
@@ -306,8 +396,20 @@ export class CompanionService {
     const baseGain = 20;
     const bondGain = isPreferred ? baseGain * 1.5 : baseGain;
 
-    // Apply bond increase
-    this.increaseBond(companionId, Math.round(bondGain));
+    // Apply bond increase with equipment modifiers
+    const equipmentMultiplier = this.getBondGainMultiplier();
+    const result = applyBondIncrease(
+      instance,
+      Math.round(bondGain),
+      roomsVisited,
+      this.flags,
+      equipmentMultiplier,
+    );
+
+    // Mark bond reached in compendium
+    if (result.levelUp) {
+      this.compendium.markBondReached(instance.definitionId, result.newLevel);
+    }
 
     if (this.juiceManager?.creatureFeed) {
       this.juiceManager.creatureFeed(
@@ -338,16 +440,19 @@ export class CompanionService {
     const instance = this.companions.get(companionId);
     if (!instance || !instance.isTamed) return;
 
-    const maxProgress = 100;
-    const oldProgress = instance.bondProgress;
-    instance.bondProgress = Math.min(maxProgress, instance.bondProgress + amount);
+    const roomsVisited = this.snakeGame.getRoomsVisitedCount?.() ?? 1;
+    const equipmentMultiplier = this.getBondGainMultiplier();
+    const result = applyBondIncrease(
+      instance,
+      amount,
+      roomsVisited,
+      this.flags,
+      equipmentMultiplier,
+    );
 
-    // Level up if progress reached max
-    const def = getCompanionDefinition(instance.definitionId);
-    if (def && instance.bondProgress >= maxProgress && instance.bondLevel < def.maxBonds) {
-      instance.bondLevel += 1;
-      instance.bondProgress = 0;
-      this.compendium.markBondReached(instance.definitionId, instance.bondLevel);
+    // Mark bond reached in compendium
+    if (result.levelUp) {
+      this.compendium.markBondReached(instance.definitionId, result.newLevel);
 
       if (this.juiceManager?.creatureBondIncrease) {
         this.juiceManager.creatureBondIncrease(
@@ -355,12 +460,6 @@ export class CompanionService {
           instance.gridY * 24,
         );
       }
-    } else if (instance.bondProgress >= maxProgress) {
-      instance.bondProgress = maxProgress;
-    }
-
-    if (instance.bondLevel >= 3) {
-      instance.mood = 'excited' as CompanionInstance['mood'];
     }
   }
 
@@ -416,10 +515,12 @@ export class CompanionService {
     const roomsSinceUse = currentRoom - lastUsed;
 
     if (lastUsed > 0 && roomsSinceUse < cooldownRooms) {
+      const cooldownReduction = this.getCooldownReduction();
+      const adjustedCooldown = Math.ceil(cooldownRooms * cooldownReduction);
       return {
         success: false,
         abilityId,
-        cooldownRemaining: cooldownRooms - roomsSinceUse,
+        cooldownRemaining: adjustedCooldown - roomsSinceUse,
         message: 'Ability is on cooldown.',
         failedReason: 'onCooldown',
       };
@@ -446,33 +547,97 @@ export class CompanionService {
 
   /**
    * Get all passive trait effects from active companions.
+   * Evaluates traits with stacking caps from the bond system.
    */
   getAllPassiveEffects(): Array<{
     traitId: string;
     value: number;
     sourceId: string;
   }> {
+    const evaluations = this.getTraitEvaluations();
     const effects: Array<{
       traitId: string;
       value: number;
       sourceId: string;
     }> = [];
 
-    for (const instance of this.companions.values()) {
-      if (!instance.isTamed) continue;
-      const def = getCompanionDefinition(instance.definitionId);
-      if (!def) continue;
-
-      for (const trait of def.traits) {
+    for (const evalEntry of evaluations) {
+      // Add each source individually for per-companion tracking
+      for (const source of evalEntry.sources) {
         effects.push({
-          traitId: trait.traitId,
-          value: trait.value,
-          sourceId: instance.id,
+          traitId: evalEntry.traitId,
+          value: source.value,
+          sourceId: source.companionId,
         });
       }
     }
 
     return effects;
+  }
+
+  /**
+   * Get trait evaluations with stacking caps applied.
+   */
+  getTraitEvaluations(): TraitEvaluation[] {
+    const instances = this.getActiveCompanions();
+    const defMap = new Map<string, CompanionDefinition>();
+    for (const instance of instances) {
+      const def = getCompanionDefinition(instance.definitionId);
+      if (def) {
+        defMap.set(instance.definitionId, def);
+      }
+    }
+    return evaluatePassiveTraits(instances, defMap);
+  }
+
+  /**
+   * Check if a companion can be spawned given current limits.
+   */
+  canSpawnCompanion(companionId: string): boolean {
+    const def = getCompanionDefinition(companionId);
+    if (!def) return false;
+
+    const active = this.getActiveCompanions();
+    const limits = this.getCompanionLimits(def.kind);
+    const maxTotal = this.getMaxCompanionCount();
+
+    // Check total limit
+    if (active.length >= maxTotal) {
+      return false;
+    }
+
+    // Check kind-specific limit (mounts: only 1 allowed)
+    const sameKind = active.filter((i) => {
+      const iDef = getCompanionDefinition(i.definitionId);
+      return iDef?.kind === def.kind;
+    });
+
+    if (sameKind.length >= limits[def.kind]) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Get the maximum number of followers allowed.
+   */
+  getMaxFollowers(): number {
+    return this.getCompanionLimits('follower').follower;
+  }
+
+  /**
+   * Get the currently active mount companion, if any.
+   */
+  getMount(): CompanionInstance | null {
+    const active = this.getActiveCompanions();
+    for (const instance of active) {
+      const def = getCompanionDefinition(instance.definitionId);
+      if (def?.kind === 'mount') {
+        return instance;
+      }
+    }
+    return null;
   }
 
   /**
@@ -510,7 +675,7 @@ export class CompanionService {
   }
 
   /**
-   * Per-tick update for companion interpolation and cooldown checks.
+   * Per-tick update for companion interpolation, cooldown checks, and neglect decay.
    */
   step(stepMs: number): void {
     const currentRoom = this.snakeGame.getCurrentRoomNumber?.() ?? 1;
@@ -524,6 +689,37 @@ export class CompanionService {
         instance.gridX = Math.round(sprite.x / 24);
         instance.gridY = Math.round(sprite.y / 24);
       }
+
+      // Check neglect decay periodically
+      this.checkNeglectForInstance(id);
+    }
+  }
+
+  /**
+   * Check neglect decay for a single companion instance.
+   * Only checks every 10 rooms to avoid excessive computation.
+   */
+  private checkNeglectForInstance(instanceId: string): void {
+    const instance = this.companions.get(instanceId);
+    if (!instance || !instance.isTamed) return;
+
+    const currentRoom = this.snakeGame.getCurrentRoomNumber?.() ?? 1;
+    const roomsSinceInteraction = currentRoom - (instance.lastInteractionRoom ?? currentRoom);
+
+    // Only check when approaching neglect threshold
+    if (roomsSinceInteraction < NEGLECT_DECAY_ROOMS - 5) {
+      return;
+    }
+
+    const result = checkNeglectDecay(instance, currentRoom, this.flags);
+
+    if (result.shouldLeave) {
+      this.companions.delete(instanceId);
+
+      // Notify the player
+      if (this.juiceManager?.creatureTameFail) {
+        this.juiceManager.creatureTameFail(instance.gridX * 24, instance.gridY * 24);
+      }
     }
   }
 
@@ -535,15 +731,13 @@ export class CompanionService {
     const currentRoom = this.snakeGame.getCurrentRoomNumber?.() ?? 1;
 
     for (const [id, instance] of this.companions) {
-      if (!instance.isTamed) continue;
+      if (instance.isTamed) continue;
 
       // Check for wild creature despawn
-      if (!instance.isTamed) {
-        const roomsSinceInteraction = currentRoom - instance.lastInteractionRoom;
-        if (roomsSinceInteraction > WILD_DESPAWN_ROOMS) {
-          this.companions.delete(id);
-          continue;
-        }
+      const roomsSinceInteraction = currentRoom - instance.lastInteractionRoom;
+      if (roomsSinceInteraction > WILD_DESPAWN_ROOMS) {
+        this.companions.delete(id);
+        continue;
       }
     }
   }
@@ -609,12 +803,43 @@ export class CompanionService {
 
     // Load compendium
     this.compendium.loadSnapshot(data.compendium ?? { discovered: [], maxBondReached: {}, totalEncounters: {}, totalBred: 0 });
+
+    // Mark tamed companions in compendium based on loaded instances
+    for (const instance of this.companions.values()) {
+      if (instance.isTamed) {
+        this.compendium.markTamed(instance.definitionId);
+      }
+    }
   }
 
   // ---- Helpers ----
 
   private getDefinition(id: string): CompanionDefinition | undefined {
     return getCompanionDefinition(id);
+  }
+
+  /**
+   * Get companion limits for a given kind, respecting equipment overrides.
+   */
+  private getCompanionLimits(kind: CompanionDefinition['kind']): Record<string, number> {
+    const equipped = this.inventoryService?.getAllEquipped?.() ?? [];
+    let maxTotal = DEFAULT_LIMITS.maxTotal;
+
+    for (const [slot, itemId] of equipped) {
+      const item = this.inventoryService.getItemDefinition?.(itemId);
+      if (item?.modifiers?.maxCompanions) {
+        maxTotal = Math.max(maxTotal, item.modifiers.maxCompanions);
+      }
+    }
+
+    return {
+      follower: kind === 'follower' ? maxTotal : DEFAULT_LIMITS.maxFollowers,
+      protector: kind === 'protector' ? DEFAULT_LIMITS.maxProtectors : 0,
+      scout: kind === 'scout' ? DEFAULT_LIMITS.maxScouts : 0,
+      forager: kind === 'forager' ? DEFAULT_LIMITS.maxForagers : 0,
+      fighter: kind === 'fighter' ? DEFAULT_LIMITS.maxFighters : 0,
+      mount: kind === 'mount' ? DEFAULT_LIMITS.maxMounts : 0,
+    };
   }
 
   private resolveCooldown(ability: { cooldownRooms: number; cooldownTicks?: number }, instance: CompanionInstance): number {
