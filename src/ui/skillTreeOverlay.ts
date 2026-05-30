@@ -42,6 +42,7 @@ interface OverlayHandlers {
   onBindSpellSlot?: (abilityId: string) => void;
   getDatingView?: () => readonly DatingCandidateView[];
   getPeopleView?: () => readonly ActorJournalEntry[];
+  getDestinyView?: () => readonly string[];
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
@@ -64,6 +65,7 @@ type TabId =
   | 'inventory'
   | 'customize'
   | 'cards'
+  | 'destiny'
   | 'map'
   | 'people'
   | 'dating'
@@ -87,6 +89,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'inventory', label: 'Inventory', group: 'gear', placeholder: 'Items you collect will appear here.' },
   { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
   { id: 'cards', label: 'Cards', group: 'gear' },
+  { id: 'destiny', label: 'Destiny 3', group: 'gear' },
   { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
   { id: 'people', label: 'People', group: 'world' },
   { id: 'dating', label: 'Dating', group: 'world' },
@@ -1018,6 +1021,7 @@ export class SkillTreeOverlay {
         this.activeTab !== 'quests' &&
         this.activeTab !== 'people' &&
         this.activeTab !== 'dating' &&
+        this.activeTab !== 'destiny' &&
         this.activeTab !== 'customize')
     ) {
       return;
@@ -1170,6 +1174,11 @@ export class SkillTreeOverlay {
   }
 
   refresh(): void {
+    if (!this.isTabAvailable(this.activeTab)) {
+      this.activeTab = 'skills';
+      this.activePrimaryTab = 'growth';
+      this.updateTabVisuals();
+    }
     const stats = this.system.getStats();
     const perks = this.system.getPerks();
 
@@ -1202,6 +1211,7 @@ export class SkillTreeOverlay {
     const datingActive = this.activeTab === 'dating';
     const questsActive = this.activeTab === 'quests';
     const factionsActive = this.activeTab === 'factions';
+    const destinyActive = this.activeTab === 'destiny';
     const infoActive = this.activeTab === 'info';
     const graphActive = this.activeTab === 'graph';
     this.connectionGraphics.setVisible(skillsActive);
@@ -1209,15 +1219,22 @@ export class SkillTreeOverlay {
     this.customizationText.setVisible(customizationActive);
     this.cardsText.setVisible(cardsActive);
     this.spellsText.setVisible(spellsActive);
-    this.questListText.setVisible(questsActive || datingActive || peopleActive);
+    this.questListText.setVisible(questsActive || datingActive || peopleActive || destinyActive);
     this.factionsText.setVisible(factionsActive);
-    if (!spellsActive && !questsActive && !datingActive && !peopleActive && !customizationActive) {
+    if (
+      !spellsActive &&
+      !questsActive &&
+      !datingActive &&
+      !peopleActive &&
+      !destinyActive &&
+      !customizationActive
+    ) {
       this.scrollHintText.setVisible(false);
     }
     if (!spellsActive) {
       this.resetScrollableText(this.spellsText);
     }
-    if (!questsActive && !datingActive && !peopleActive) {
+    if (!questsActive && !datingActive && !peopleActive && !destinyActive) {
       this.resetScrollableText(this.questListText);
     }
     if (!customizationActive) {
@@ -1271,6 +1288,7 @@ export class SkillTreeOverlay {
         !cheatsActive &&
         !peopleActive &&
         !datingActive &&
+        !destinyActive &&
         !questsActive &&
         !factionsActive &&
         !infoActive;
@@ -1432,6 +1450,24 @@ export class SkillTreeOverlay {
       }
     }
 
+    if (destinyActive) {
+      const lines = this.handlers.getDestinyView?.() ?? [];
+      this.questListText.setText(lines.length > 0 ? lines.join('\n') : 'DESTINY 3 systems offline.');
+      this.applyScrollableTextOffset('destiny', this.questListText);
+      this.detailTitle.setText('Destiny 3').setVisible(true);
+      this.detailSubtitle.setText('Guardian State').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(
+          'Tracks current Starforged activity, power, equipment, ability charge, super charge, active surges, and recent rewards.',
+        )
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('Destiny 3: Starforged power, activity, gear, and surges.');
+        this.hintText.setColor('#9df7ff');
+      }
+    }
+
     if (infoActive) {
       this.questListText.setVisible(true);
       this.questListText.setText('Use the grouped tabs above to manage growth, gear, world state, and system tools.');
@@ -1580,6 +1616,7 @@ export class SkillTreeOverlay {
       this.activeTab !== 'cards' &&
       this.activeTab !== 'people' &&
       this.activeTab !== 'dating' &&
+      this.activeTab !== 'destiny' &&
       this.activeTab !== 'quests' &&
       this.activeTab !== 'factions' &&
       this.activeTab !== 'map' &&
@@ -1758,6 +1795,7 @@ export class SkillTreeOverlay {
         'The actor journal fills when the simulation has facts worth remembering.',
       ].join('\n');
     }
+
     return views
       .map((view) =>
         [
@@ -2405,6 +2443,9 @@ export class SkillTreeOverlay {
     if (this.activeTab === tabId) {
       return;
     }
+    if (!this.isTabAvailable(tabId)) {
+      return;
+    }
     this.activeTab = tabId;
     this.activePrimaryTab =
       TAB_DEFINITIONS.find((tab) => tab.id === tabId)?.group ?? this.activePrimaryTab;
@@ -2419,7 +2460,9 @@ export class SkillTreeOverlay {
 
   private setActivePrimaryTab(primaryTabId: PrimaryTabId): void {
     this.activePrimaryTab = primaryTabId;
-    const firstChild = TAB_DEFINITIONS.find((tab) => tab.group === primaryTabId);
+    const firstChild = TAB_DEFINITIONS.find(
+      (tab) => tab.group === primaryTabId && this.isTabAvailable(tab.id),
+    );
     if (firstChild) {
       this.activeTab = firstChild.id;
     }
@@ -2440,7 +2483,7 @@ export class SkillTreeOverlay {
     for (const tab of TAB_DEFINITIONS) {
       const label = this.tabLabels.get(tab.id);
       if (!label) continue;
-      const visible = tab.group === this.activePrimaryTab;
+      const visible = tab.group === this.activePrimaryTab && this.isTabAvailable(tab.id);
       label.setVisible(visible);
       if (!visible) continue;
       label.setX(currentX);
@@ -2468,6 +2511,10 @@ export class SkillTreeOverlay {
       if (!label) {
         continue;
       }
+      if (!this.isTabAvailable(tab.id)) {
+        label.setVisible(false);
+        continue;
+      }
       if (tab.id === this.activeTab) {
         label.setColor('#ffffff');
         label.setFontStyle('bold');
@@ -2478,6 +2525,13 @@ export class SkillTreeOverlay {
         label.setBackgroundColor('rgba(0,0,0,0)');
       }
     }
+  }
+
+  private isTabAvailable(tabId: TabId): boolean {
+    if (tabId !== 'destiny') {
+      return true;
+    }
+    return (this.handlers.getDestinyView?.().length ?? 0) > 0;
   }
 
   getHoveredPerkId(): string | null {

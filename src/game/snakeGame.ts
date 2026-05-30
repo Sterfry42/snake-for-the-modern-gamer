@@ -90,7 +90,12 @@ import type {
   RelationshipTalkResult,
 } from '../relationships/relationshipTypes.js';
 import { ActorSystem, type ActorSystemSaveData } from '../actors/actorSystem.js';
-import type { Actor, ActorMemory, ActorSocialLink, ActorSoulRevealKey } from '../actors/actorTypes.js';
+import type {
+  Actor,
+  ActorMemory,
+  ActorSocialLink,
+  ActorSoulRevealKey,
+} from '../actors/actorTypes.js';
 import { decideActorBrain, type ActorBrainSocialTarget } from '../actors/actorBrains.js';
 import {
   buildActorInteractionMenu,
@@ -195,6 +200,7 @@ type StagedQuestStage =
   | 'carry-goblin-stamp'
   | 'survive-freak-you'
   | 'find-forest-teleporter'
+  | 'find-heliopause-artifact'
   | 'buy-substance'
   | 'escape-radiation'
   | 'completed'
@@ -256,7 +262,9 @@ export interface QuestRoomActor {
     | 'goblin-ledger-stamp'
     | 'forest-teleporter'
     | 'deep-merchant'
-    | 'deep-teleporter';
+    | 'deep-teleporter'
+    | 'starforged-envoy'
+    | 'heliopause-artifact';
   label: string;
 }
 
@@ -528,7 +536,9 @@ function createRunSeed(): string {
   const randomPart =
     typeof globalThis.crypto?.getRandomValues === 'function'
       ? cryptoRandomHex()
-      : Math.floor(Math.random() * 0xffffffff).toString(36).padStart(7, '0');
+      : Math.floor(Math.random() * 0xffffffff)
+          .toString(36)
+          .padStart(7, '0');
   return `run:${Date.now().toString(36)}:${randomPart}`;
 }
 
@@ -595,7 +605,12 @@ export class SnakeGame implements QuestRuntime {
     if (!config.rng.seed) {
       logRunSeed(runSeed, 'new');
     }
-    this.world = new WorldService(config.grid, config.world, this.rng, this.worldGenerationIdentity);
+    this.world = new WorldService(
+      config.grid,
+      config.world,
+      this.rng,
+      this.worldGenerationIdentity,
+    );
     this.apples = new AppleService(config.apples, config.grid, this.world, this.rng);
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid);
@@ -740,7 +755,8 @@ export class SnakeGame implements QuestRuntime {
         startingRoom,
         this.config.snake.initialBody,
       );
-      this.animals.ensureAnimals( // TODO: Create test
+      this.animals.ensureAnimals(
+        // TODO: Create test
         this.snake.currentRoomId,
         startingRoom,
         this.config.snake.initialBody,
@@ -752,7 +768,12 @@ export class SnakeGame implements QuestRuntime {
     const runSeed = createRunSeed();
     this.worldGenerationIdentity = createWorldGenerationIdentity(runSeed);
     this.rng = createRng(runSeed);
-    this.world = new WorldService(this.config.grid, this.config.world, this.rng, this.worldGenerationIdentity);
+    this.world = new WorldService(
+      this.config.grid,
+      this.config.world,
+      this.rng,
+      this.worldGenerationIdentity,
+    );
     this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
     this.enemies = new EnemyManager(this.config.grid, this.rng);
     this.animals = new AnimalManager(this.config.grid, this.rng);
@@ -865,7 +886,9 @@ export class SnakeGame implements QuestRuntime {
       }
       this.recordRoomTravelMetrics(previousRoom);
       this.setFlag('roomsVisited', this.visitedRooms.size);
-      const relationshipTicks = this.relationshipController.tickNeglect(this.getRoomsVisitedCount());
+      const relationshipTicks = this.relationshipController.tickNeglect(
+        this.getRoomsVisitedCount(),
+      );
       if (relationshipTicks.length > 0) {
         const latest = relationshipTicks[relationshipTicks.length - 1];
         this.setFlag('ui.relationshipEvent', {
@@ -1071,7 +1094,9 @@ export class SnakeGame implements QuestRuntime {
       if (libertyAppleBonus > 0) {
         this.addScore(libertyAppleBonus);
         this.setFlag('liberty.nextAppleBonus', undefined);
-        this.setFlag('ui.questInteraction', { message: `Liberty sparkle bonus: +${libertyAppleBonus} score.` });
+        this.setFlag('ui.questInteraction', {
+          message: `Liberty sparkle bonus: +${libertyAppleBonus} score.`,
+        });
       }
 
       const extraGrowth = Math.max(0, consumption.rewards.growth - 1);
@@ -1241,7 +1266,9 @@ export class SnakeGame implements QuestRuntime {
               'combat',
               'eaten',
               enemyEat.enemy.encounterKind ?? 'enemy',
-              ...(enemyEat.enemy.id.startsWith('npc-hostile:raidBandit-') ? ['bandit', 'raid'] : []),
+              ...(enemyEat.enemy.id.startsWith('npc-hostile:raidBandit-')
+                ? ['bandit', 'raid']
+                : []),
               ...(eatenHumanoid ? ['hostile-kill', 'healing', 'humanoid'] : []),
             ],
             summary: eatenName
@@ -1275,7 +1302,10 @@ export class SnakeGame implements QuestRuntime {
           this.setFlag('ui.questInteraction', { message: `${eatenName} has been eaten by you.` });
         }
       } else {
-        const harmfulEnemy = this.enemies.getHarmfulOccupantAt(this.snake.currentRoomId, currentHead);
+        const harmfulEnemy = this.enemies.getHarmfulOccupantAt(
+          this.snake.currentRoomId,
+          currentHead,
+        );
         if (harmfulEnemy) {
           const deathReason = harmfulEnemy.encounterKind === 'shark' ? 'shark' : 'boss';
           if (
@@ -1325,11 +1355,7 @@ export class SnakeGame implements QuestRuntime {
       );
       if (animalResult.damaged) {
         if (
-          this.tryFortitudePhoenix(
-            { status: 'dead', reason: 'boss' },
-            roomsChanged,
-            previousRoom,
-          )
+          this.tryFortitudePhoenix({ status: 'dead', reason: 'boss' }, roomsChanged, previousRoom)
         ) {
           return this.createAliveStepResult({
             appleEaten,
@@ -1550,7 +1576,6 @@ export class SnakeGame implements QuestRuntime {
 
     const skittishRooms = this.apples.moveApples(snakeSegments);
     skittishRooms.forEach((roomId) => roomsChanged.add(roomId));
-
   }
 
   private checkPreSnakeBossDeath(
@@ -1834,15 +1859,13 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  private getLibertyLandmarkReveal(room: RoomSnapshot):
-    | {
-        name: string;
-        subtitle: string;
-        x: number;
-        y: number;
-        kind: string;
-      }
-    | null {
+  private getLibertyLandmarkReveal(room: RoomSnapshot): {
+    name: string;
+    subtitle: string;
+    x: number;
+    y: number;
+    kind: string;
+  } | null {
     if (room.allNiteDiner) {
       return {
         name: room.allNiteDiner.dinerName,
@@ -2078,7 +2101,11 @@ export class SnakeGame implements QuestRuntime {
     return room.town;
   }
 
-  applyCurrentTownCrime(kind: TownCrimeKind, witnessed = true, severity = 1): {
+  applyCurrentTownCrime(
+    kind: TownCrimeKind,
+    witnessed = true,
+    severity = 1,
+  ): {
     ok: boolean;
     town?: TownStructure;
     message: string;
@@ -2117,7 +2144,11 @@ export class SnakeGame implements QuestRuntime {
       },
     });
     if (this.isTownInOpenHostility(next)) {
-      this.activateTownHostility(room, next, 'The town alarm goes up. Guards are done asking questions.');
+      this.activateTownHostility(
+        room,
+        next,
+        'The town alarm goes up. Guards are done asking questions.',
+      );
     }
     return {
       ok: true,
@@ -2134,7 +2165,11 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     if (this.isTownInOpenHostility(town)) {
-      this.activateTownHostility(room, town, 'The town alarm is still ringing. Guards move to intercept.');
+      this.activateTownHostility(
+        room,
+        town,
+        'The town alarm is still ringing. Guards move to intercept.',
+      );
       return;
     }
     const district = town.districtByRoomId[room.id];
@@ -2150,7 +2185,9 @@ export class SnakeGame implements QuestRuntime {
     if (hostilityChance <= 0 || this.rng() >= hostilityChance) {
       return;
     }
-    const label = guardDistrict ? 'The guards have gone hostile.' : 'The alley thieves have gone hostile.';
+    const label = guardDistrict
+      ? 'The guards have gone hostile.'
+      : 'The alley thieves have gone hostile.';
     this.activateTownHostility(room, town, label);
   }
 
@@ -2178,12 +2215,18 @@ export class SnakeGame implements QuestRuntime {
     const townWideHostility = Boolean(this.getFlag<boolean>(`town.hostile.${town.id}.all`));
     const currentDistrict = town.districtByRoomId[room.id];
     const hostileResidents = town.residents.filter((resident) => {
-      const workDistrict = resident.workRoomId ? town.districtByRoomId[resident.workRoomId] : undefined;
+      const workDistrict = resident.workRoomId
+        ? town.districtByRoomId[resident.workRoomId]
+        : undefined;
       return workDistrict === currentDistrict;
     });
     const guards = hostileResidents.filter((resident) => resident.role === 'guard');
-    const thieves = hostileResidents.filter((resident) => resident.role === 'thief' || resident.role === 'thiefContact');
-    const fallback = hostileResidents.filter((resident) => resident.role !== 'shopkeeper' && resident.role !== 'bartender');
+    const thieves = hostileResidents.filter(
+      (resident) => resident.role === 'thief' || resident.role === 'thiefContact',
+    );
+    const fallback = hostileResidents.filter(
+      (resident) => resident.role !== 'shopkeeper' && resident.role !== 'bartender',
+    );
     const selected = townWideHostility
       ? [...guards, ...thieves, ...fallback]
       : guards.length > 0
@@ -2199,10 +2242,12 @@ export class SnakeGame implements QuestRuntime {
       }
       if (room.layout[resident.y]?.[resident.x] === 'G') {
         const row = room.layout[resident.y]!;
-        room.layout[resident.y] = row.substring(0, resident.x) + '.' + row.substring(resident.x + 1);
+        room.layout[resident.y] =
+          row.substring(0, resident.x) + '.' + row.substring(resident.x + 1);
       }
       const actorId =
-        resident.actorId ?? this.actors.getStableTownResidentActorId(town.id, resident.id, resident.role);
+        resident.actorId ??
+        this.actors.getStableTownResidentActorId(town.id, resident.id, resident.role);
       const body = this.ensureNpcBody(
         {
           id: relationshipId,
@@ -2214,7 +2259,9 @@ export class SnakeGame implements QuestRuntime {
           factionId: 'hearthbound-remnant',
         },
         { x: resident.x, y: resident.y },
-        resident.role === 'guard' || resident.role === 'shopkeeper' || resident.role === 'bartender',
+        resident.role === 'guard' ||
+          resident.role === 'shopkeeper' ||
+          resident.role === 'bartender',
       );
       this.enemies.spawnHostileNpc(
         room.id,
@@ -2244,7 +2291,10 @@ export class SnakeGame implements QuestRuntime {
       return { state: 'complete', pickpockets: 3, required: 3 };
     }
     const started = this.getFlag<boolean>(this.guildInitiationStartedFlagKey(town.id));
-    const pickpockets = Math.min(3, Math.max(0, this.getFlag<number>(this.guildInitiationPickpocketsFlagKey(town.id)) ?? 0));
+    const pickpockets = Math.min(
+      3,
+      Math.max(0, this.getFlag<number>(this.guildInitiationPickpocketsFlagKey(town.id)) ?? 0),
+    );
     if (!started) {
       return { state: 'not-started', pickpockets, required: 3 };
     }
@@ -2273,7 +2323,11 @@ export class SnakeGame implements QuestRuntime {
     const status = this.getCurrentTownGuildInitiationStatus();
     if (status.state === 'complete') {
       this.openGuildGrateTiles(room);
-      return { ok: true, town, message: 'The grate is already unlocked. Enter through the passage.' };
+      return {
+        ok: true,
+        town,
+        message: 'The grate is already unlocked. Enter through the passage.',
+      };
     }
     if (status.state === 'not-started') {
       this.setFlag(this.guildInitiationStartedFlagKey(town.id), true);
@@ -2299,7 +2353,11 @@ export class SnakeGame implements QuestRuntime {
     this.saveTownRuntimeState(next);
     this.world.updateTown(next);
     this.openGuildGrateTiles(room);
-    return { ok: true, town: next, message: 'The grate clicks open. The Thieves Guild accepts your proof.' };
+    return {
+      ok: true,
+      town: next,
+      message: 'The grate clicks open. The Thieves Guild accepts your proof.',
+    };
   }
 
   reduceCurrentTownWantedViaGuild(): {
@@ -2331,7 +2389,10 @@ export class SnakeGame implements QuestRuntime {
     return { ok: true, town: result.town, message: result.message, cost: result.cost };
   }
 
-  resolveCurrentTownGuildJob(jobId: string, success: boolean): {
+  resolveCurrentTownGuildJob(
+    jobId: string,
+    success: boolean,
+  ): {
     ok: boolean;
     town?: TownStructure;
     message: string;
@@ -2344,7 +2405,12 @@ export class SnakeGame implements QuestRuntime {
     }
     const job = town.guildJobs.find((entry) => entry.id === jobId);
     if (!job) {
-      return { ok: false, town, message: 'That guild job is no longer on the board.', rewardScore: 0 };
+      return {
+        ok: false,
+        town,
+        message: 'That guild job is no longer on the board.',
+        rewardScore: 0,
+      };
     }
     const next = resolveGuildJob(town, jobId, success);
     const resolvedJob = next.guildJobs.find((entry) => entry.id === jobId);
@@ -2374,7 +2440,10 @@ export class SnakeGame implements QuestRuntime {
     }
     const district = town.districtByRoomId[room.id];
     if (district !== 'gate' && district !== 'townExit') {
-      return { ok: false, message: 'The guard looks around for a gate and finds only awkwardness.' };
+      return {
+        ok: false,
+        message: 'The guard looks around for a gate and finds only awkwardness.',
+      };
     }
     if (this.isTownRoomHostile(town, room.id)) {
       return { ok: false, message: 'The guards are hostile. No one is opening gates for you now.' };
@@ -2383,7 +2452,10 @@ export class SnakeGame implements QuestRuntime {
       return { ok: true, message: 'The gate is already open.' };
     }
     if (district === 'townExit' && !this.isInsideTownExitLatchSide(town, room)) {
-      return { ok: false, message: 'The outside latch has no handle. This exit only opens from inside town.' };
+      return {
+        ok: false,
+        message: 'The outside latch has no handle. This exit only opens from inside town.',
+      };
     }
     const gateTax = 75;
     if (this.getScore() < gateTax) {
@@ -2442,8 +2514,12 @@ export class SnakeGame implements QuestRuntime {
       reputation: town.reputation,
       discoveredGuild: town.discoveredGuild,
       openedGates: [
-        ...(this.getFlag<boolean>(this.townGateFlagKey(town.id, 'gate')) ? [town.entranceRoomId] : []),
-        ...(this.getFlag<boolean>(this.townGateFlagKey(town.id, 'townExit')) ? [...town.exitRoomIds] : []),
+        ...(this.getFlag<boolean>(this.townGateFlagKey(town.id, 'gate'))
+          ? [town.entranceRoomId]
+          : []),
+        ...(this.getFlag<boolean>(this.townGateFlagKey(town.id, 'townExit'))
+          ? [...town.exitRoomIds]
+          : []),
       ],
       completedGuildJobs: town.thievesGuild?.completedJobs ?? [],
       failedGuildJobs: town.thievesGuild?.failedJobs ?? [],
@@ -2585,10 +2661,15 @@ export class SnakeGame implements QuestRuntime {
     const biome = getBiomeDefinition(room.biomeId);
     const health = this.getPlayerHealth();
     const socialLink = this.ensureConversationSocialLink(actor.id, bucket);
-    const socialTargetName = socialLink ? this.actors.getActor(socialLink.actorId)?.displayName : undefined;
+    const socialTargetName = socialLink
+      ? this.actors.getActor(socialLink.actorId)?.displayName
+      : undefined;
     const currentActor = this.actors.getActor(actor.id) ?? actor;
-    const relationshipId = typeof actor.flags.relationshipId === 'string' ? actor.flags.relationshipId : undefined;
-    const relationship = relationshipId ? this.relationshipController.getState(relationshipId) : undefined;
+    const relationshipId =
+      typeof actor.flags.relationshipId === 'string' ? actor.flags.relationshipId : undefined;
+    const relationship = relationshipId
+      ? this.relationshipController.getState(relationshipId)
+      : undefined;
     const result = selectActorConversation({
       actor: currentActor,
       bucket,
@@ -2599,7 +2680,9 @@ export class SnakeGame implements QuestRuntime {
       snakeLength: this.snake.bodySegments.length,
       roomsVisited: this.getRoomsVisitedCount(),
       flags: this.snake.flags,
-      recentEvents: ['recent.animalHunted', 'recent.deathReason'].filter((key) => this.getFlag(key) !== undefined),
+      recentEvents: ['recent.animalHunted', 'recent.deathReason'].filter(
+        (key) => this.getFlag(key) !== undefined,
+      ),
       rumors: this.getConversationRumorsForActor(currentActor),
       factionEvents: this.getConversationFactionEvents(currentActor),
       town: room.town
@@ -2677,7 +2760,8 @@ export class SnakeGame implements QuestRuntime {
     if (!actor || bucket === 'talk') {
       return actor?.relationships.find((entry) => !entry.knownToPlayer) ?? actor?.relationships[0];
     }
-    const existing = actor.relationships.find((entry) => !entry.knownToPlayer) ?? actor.relationships[0];
+    const existing =
+      actor.relationships.find((entry) => !entry.knownToPlayer) ?? actor.relationships[0];
     if (existing && this.actors.getActor(existing.actorId)) {
       return existing;
     }
@@ -2686,7 +2770,14 @@ export class SnakeGame implements QuestRuntime {
       return existing;
     }
     const relationship = conversationSocialRelationshipFor(actor, target);
-    const strength = relationship === 'family' ? 74 : relationship === 'rival' ? 62 : relationship === 'friend' ? 58 : 48;
+    const strength =
+      relationship === 'family'
+        ? 74
+        : relationship === 'rival'
+          ? 62
+          : relationship === 'friend'
+            ? 58
+            : 48;
     const link: ActorSocialLink = {
       actorId: target.id,
       relationship,
@@ -2719,7 +2810,11 @@ export class SnakeGame implements QuestRuntime {
     const candidates = this.actors.registry
       .getAll()
       .filter((candidate) => {
-        if (candidate.id === actor.id || candidate.kind === 'animal' || candidate.kind === 'enemy') {
+        if (
+          candidate.id === actor.id ||
+          candidate.kind === 'animal' ||
+          candidate.kind === 'enemy'
+        ) {
           return false;
         }
         if (candidate.hostility === 'dead' || candidate.health?.state === 'dead') {
@@ -2752,16 +2847,14 @@ export class SnakeGame implements QuestRuntime {
 
   private getConversationRumorsForActor(actor: Actor): ActorConversationRumor[] {
     const room = this.getCurrentRoom();
-    const townRumors = (room.town?.rumors ?? [])
-      .slice(-6)
-      .map((rumor) => ({
-        id: rumor.id,
-        summary: rumor.summary,
-        tags: [rumor.kind, 'town', 'rumor'],
-        severity: rumor.severity,
-        townId: rumor.townId,
-        factionIds: rumor.kind === 'crime' ? ['hearthbound-remnant'] : [],
-      }));
+    const townRumors = (room.town?.rumors ?? []).slice(-6).map((rumor) => ({
+      id: rumor.id,
+      summary: rumor.summary,
+      tags: [rumor.kind, 'town', 'rumor'],
+      severity: rumor.severity,
+      townId: rumor.townId,
+      factionIds: rumor.kind === 'crime' ? ['hearthbound-remnant'] : [],
+    }));
     const publicRumors = this.getRecentWorldRumors(12)
       .filter((rumor) => this.isConversationRelevantWorldRumor(rumor, room))
       .slice(0, 6)
@@ -2808,7 +2901,10 @@ export class SnakeGame implements QuestRuntime {
         relation: room.town.wantedLevel >= 3 ? 'hostile' : 'tense',
         factionIds: ['hearthbound-remnant'],
         townId: room.town.id,
-        severity: Math.min(20, room.town.wantedLevel * 5 + Math.floor((room.town.suspicion ?? 0) / 20)),
+        severity: Math.min(
+          20,
+          room.town.wantedLevel * 5 + Math.floor((room.town.suspicion ?? 0) / 20),
+        ),
         tags: ['wanted', 'crime', 'town'],
         summary: `Wanted level ${room.town.wantedLevel} in ${room.town.name}.`,
       });
@@ -2833,7 +2929,10 @@ export class SnakeGame implements QuestRuntime {
         summary: `${room.town.name} has started turning bad stories into policy.`,
       });
     }
-    const isGoblinSide = actor.species === 'goblin' || actor.personality.includes('goblin') || actor.factionId === 'goblin-camps';
+    const isGoblinSide =
+      actor.species === 'goblin' ||
+      actor.personality.includes('goblin') ||
+      actor.factionId === 'goblin-camps';
     const isHumanSide = actor.species === 'human' || actor.factionId === 'hearthbound-remnant';
     if (isGoblinSide || isHumanSide) {
       events.push({
@@ -2859,7 +2958,9 @@ export class SnakeGame implements QuestRuntime {
       });
     }
     return events
-      .filter((event, index, all) => all.findIndex((entry) => entry.summary === event.summary) === index)
+      .filter(
+        (event, index, all) => all.findIndex((entry) => entry.summary === event.summary) === index,
+      )
       .sort((a, b) => b.severity - a.severity);
   }
 
@@ -2878,9 +2979,15 @@ export class SnakeGame implements QuestRuntime {
     return age <= 16 || rumor.severity >= 70;
   }
 
-  private isConversationRelevantFactionEvent(event: FactionCurrentEvent, room: RoomSnapshot): boolean {
+  private isConversationRelevantFactionEvent(
+    event: FactionCurrentEvent,
+    room: RoomSnapshot,
+  ): boolean {
     const currentRoomNumber = this.getRoomsVisitedCount();
-    if (event.phase === 'resolved' || (event.expiresAt !== undefined && event.expiresAt <= currentRoomNumber)) {
+    if (
+      event.phase === 'resolved' ||
+      (event.expiresAt !== undefined && event.expiresAt <= currentRoomNumber)
+    ) {
       return false;
     }
     const age = Math.max(0, currentRoomNumber - event.createdAt);
@@ -2930,7 +3037,9 @@ export class SnakeGame implements QuestRuntime {
             : current.lore,
         relationships: result.socialLinkActorId
           ? current.relationships.map((entry) =>
-              entry.actorId === result.socialLinkActorId ? { ...entry, knownToPlayer: true } : entry,
+              entry.actorId === result.socialLinkActorId
+                ? { ...entry, knownToPlayer: true }
+                : entry,
             )
           : current.relationships,
       }));
@@ -2972,7 +3081,11 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private recordActorKnownFact(actorId: string, source: ActorConversationResult['source'], text: string): void {
+  private recordActorKnownFact(
+    actorId: string,
+    source: ActorConversationResult['source'],
+    text: string,
+  ): void {
     const existing = this.getFlag<ActorKnownFact[]>('actors.knownFacts') ?? [];
     const id = `fact:${actorId}:${this.hashText(text)}`;
     if (existing.some((fact) => fact.id === id)) {
@@ -2990,7 +3103,9 @@ export class SnakeGame implements QuestRuntime {
               : 'soul';
     this.setFlag(
       'actors.knownFacts',
-      [...existing, { id, actorId, kind, text, learnedAtRoom: this.getRoomsVisitedCount() }].slice(-80),
+      [...existing, { id, actorId, kind, text, learnedAtRoom: this.getRoomsVisitedCount() }].slice(
+        -80,
+      ),
     );
     this.setFlag('ui.actorKnownFact', { actorId, text });
   }
@@ -3054,7 +3169,8 @@ export class SnakeGame implements QuestRuntime {
 
   askActorSocialTie(actorId: string): string | null {
     const actor = this.actors.getActor(actorId);
-    const link = actor?.relationships.find((entry) => !entry.knownToPlayer) ?? actor?.relationships[0];
+    const link =
+      actor?.relationships.find((entry) => !entry.knownToPlayer) ?? actor?.relationships[0];
     if (!actor || !link) {
       return actor ? `${actor.displayName} does not offer any names.` : null;
     }
@@ -3130,7 +3246,10 @@ export class SnakeGame implements QuestRuntime {
     }
     this.actors.registry.update(actorId, (current) => ({
       ...current,
-      hostility: current.hostility === 'friendly' || current.hostility === 'neutral' ? 'suspicious' : current.hostility,
+      hostility:
+        current.hostility === 'friendly' || current.hostility === 'neutral'
+          ? 'suspicious'
+          : current.hostility,
       mood: {
         ...current.mood,
         fear: Math.min(100, current.mood.fear + 16),
@@ -3165,7 +3284,9 @@ export class SnakeGame implements QuestRuntime {
       hostility: succeeds ? 'suspicious' : current.hostility,
       mood: {
         ...current.mood,
-        anger: succeeds ? Math.max(0, current.mood.anger - 14) : Math.min(100, current.mood.anger + 8),
+        anger: succeeds
+          ? Math.max(0, current.mood.anger - 14)
+          : Math.min(100, current.mood.anger + 8),
         stress: Math.max(0, current.mood.stress - (succeeds ? 6 : 0)),
       },
     }));
@@ -3311,7 +3432,9 @@ export class SnakeGame implements QuestRuntime {
     const knownFacts = this.getFlag<ActorKnownFact[]>('actors.knownFacts') ?? [];
     return this.actors.registry
       .getAll()
-      .filter((actor) => actor.kind !== 'animal' && actor.kind !== 'enemy' && actor.hostility !== 'dead')
+      .filter(
+        (actor) => actor.kind !== 'animal' && actor.kind !== 'enemy' && actor.hostility !== 'dead',
+      )
       .sort((a, b) => {
         const knownA =
           a.knownToPlayer ||
@@ -3339,7 +3462,9 @@ export class SnakeGame implements QuestRuntime {
           faction: actor.factionId ? String(actor.factionId) : undefined,
           roomId: actor.currentRoomId,
           mood: summarizeActorMoodForJournal(actor),
-          health: actor.health ? `${actor.health.state} ${actor.health.current}/${actor.health.max}` : undefined,
+          health: actor.health
+            ? `${actor.health.state} ${actor.health.current}/${actor.health.max}`
+            : undefined,
           memories: actor.memory.slice(-3).map((memory) => memory.summary),
           socialTies: actor.relationships
             .filter((link) => link.knownToPlayer)
@@ -3352,7 +3477,9 @@ export class SnakeGame implements QuestRuntime {
             ? [
                 actor.soul.revealed.wound ? `Wound: ${actor.soul.wound}` : '',
                 actor.soul.revealed.insecurity ? `Insecurity: ${actor.soul.insecurity}` : '',
-                actor.soul.revealed.contradiction ? `Contradiction: ${actor.soul.contradiction}` : '',
+                actor.soul.revealed.contradiction
+                  ? `Contradiction: ${actor.soul.contradiction}`
+                  : '',
                 actor.soul.revealed.secret ? `Secret: ${actor.soul.secret}` : '',
               ].filter(Boolean)
             : [],
@@ -3376,7 +3503,11 @@ export class SnakeGame implements QuestRuntime {
     this.rumors.tick(currentRoomNumber);
     this.factionEvents.tick(currentRoomNumber);
     for (const event of this.factionEvents.getEventsForRoom(room.id, 8)) {
-      if (event.type === 'raid-warning' && event.phase === 'brewing' && event.createdAt < currentRoomNumber) {
+      if (
+        event.type === 'raid-warning' &&
+        event.phase === 'brewing' &&
+        event.createdAt < currentRoomNumber
+      ) {
         const active = this.factionEvents.activateRaidWarning(event.id, currentRoomNumber);
         if (active) {
           this.recordRumorFromFactionEvent(active);
@@ -3516,7 +3647,9 @@ export class SnakeGame implements QuestRuntime {
         actor.role === 'goblinMerchant' ||
         actor.role === 'bartender';
       const shopClosed =
-        actor.role === 'shopkeeper' || actor.role === 'goblinMerchant' || actor.role === 'bartender';
+        actor.role === 'shopkeeper' ||
+        actor.role === 'goblinMerchant' ||
+        actor.role === 'bartender';
       this.actors.registry.update(actor.id, (current) => ({
         ...current,
         hostility: canDefend && current.hostility !== 'dead' ? 'suspicious' : current.hostility,
@@ -3528,7 +3661,9 @@ export class SnakeGame implements QuestRuntime {
           trust: current.mood.trust,
         },
         memory: [
-          ...current.memory.filter((memory) => memory.id !== `memory:raid:defender:${event.id}:${current.id}`),
+          ...current.memory.filter(
+            (memory) => memory.id !== `memory:raid:defender:${event.id}:${current.id}`,
+          ),
           {
             id: `memory:raid:defender:${event.id}:${current.id}`,
             eventId: event.id,
@@ -3567,16 +3702,23 @@ export class SnakeGame implements QuestRuntime {
       this.actors.registry.update(actor.id, (current) => ({
         ...current,
         hostility:
-          current.hostility === 'suspicious' && current.flags.raidDefender ? 'neutral' : current.hostility,
+          current.hostility === 'suspicious' && current.flags.raidDefender
+            ? 'neutral'
+            : current.hostility,
         mood: {
           ...current.mood,
           fear: Math.max(0, current.mood.fear - 8),
           anger: Math.max(0, current.mood.anger - 4),
           stress: Math.max(0, current.mood.stress - 10),
-          trust: Math.min(100, current.mood.trust + (state.banditsKilled + state.banditsEaten > 0 ? 8 : 0)),
+          trust: Math.min(
+            100,
+            current.mood.trust + (state.banditsKilled + state.banditsEaten > 0 ? 8 : 0),
+          ),
         },
         memory: [
-          ...current.memory.filter((memory) => memory.id !== `memory:raid:aftermath:${aftermath.id}:${current.id}`),
+          ...current.memory.filter(
+            (memory) => memory.id !== `memory:raid:aftermath:${aftermath.id}:${current.id}`,
+          ),
           {
             id: `memory:raid:aftermath:${aftermath.id}:${current.id}`,
             eventId: aftermath.id,
@@ -3799,7 +3941,9 @@ export class SnakeGame implements QuestRuntime {
           stress: Math.min(100, current.mood.stress + 12),
         },
         memory: [
-          ...current.memory.filter((memory) => memory.id !== `memory:social:${event.id}:${current.id}`),
+          ...current.memory.filter(
+            (memory) => memory.id !== `memory:social:${event.id}:${current.id}`,
+          ),
           {
             id: `memory:social:${event.id}:${current.id}`,
             eventId: event.id,
@@ -3890,12 +4034,7 @@ export class SnakeGame implements QuestRuntime {
 
   private getNeighborRoomIds(roomId: string): string[] {
     const [x, y, z = 0] = roomId.split(',').map(Number);
-    return [
-      `${x + 1},${y},${z}`,
-      `${x - 1},${y},${z}`,
-      `${x},${y + 1},${z}`,
-      `${x},${y - 1},${z}`,
-    ];
+    return [`${x + 1},${y},${z}`, `${x - 1},${y},${z}`, `${x},${y + 1},${z}`, `${x},${y - 1},${z}`];
   }
 
   private worldToLocalInRoom(roomId: string, position: Vector2Like): Vector2Like {
@@ -4000,7 +4139,10 @@ export class SnakeGame implements QuestRuntime {
             factionId: 'hearthbound-remnant',
           },
           position: { x: resident.x, y: resident.y },
-          stationary: resident.role === 'guard' || resident.role === 'shopkeeper' || resident.role === 'bartender',
+          stationary:
+            resident.role === 'guard' ||
+            resident.role === 'shopkeeper' ||
+            resident.role === 'bartender',
         });
       }
     }
@@ -4008,7 +4150,11 @@ export class SnakeGame implements QuestRuntime {
       addCandidate({
         profile: {
           id: `resident:${room.id}:${room.goblinCamp.shopkeeper.id}`,
-          actorId: this.getGoblinCampActorId(room.goblinCamp.id, room.goblinCamp.shopkeeper.id, 'shopkeeper'),
+          actorId: this.getGoblinCampActorId(
+            room.goblinCamp.id,
+            room.goblinCamp.shopkeeper.id,
+            'shopkeeper',
+          ),
           displayName: room.goblinCamp.shopkeeper.name,
           species: 'goblin',
           portraitId: room.goblinCamp.shopkeeper.portraitId ?? 'goblin-neutral',
@@ -4082,7 +4228,13 @@ export class SnakeGame implements QuestRuntime {
     }
     const enemies = this.enemies.getEnemiesInRoom(room.id);
     const threats = enemies
-      .filter((enemy) => enemy.encounterKind === 'npc-hostile' || enemy.encounterKind === 'goblin' || enemy.encounterKind === 'duelist' || enemy.encounterKind === 'enemy')
+      .filter(
+        (enemy) =>
+          enemy.encounterKind === 'npc-hostile' ||
+          enemy.encounterKind === 'goblin' ||
+          enemy.encounterKind === 'duelist' ||
+          enemy.encounterKind === 'enemy',
+      )
       .map((enemy) => enemy.position);
     const roomDangerActive = this.isCurrentRoomRaidActive() || threats.length > 0;
     const socialTargetsByActorId = this.buildNpcBodySocialTargets(bodies);
@@ -4115,7 +4267,12 @@ export class SnakeGame implements QuestRuntime {
         roomDangerActive,
         random: this.rng,
       });
-      if (decision.kind === 'shareRumor' && actor && decision.targetActorId && decision.memoryToShare) {
+      if (
+        decision.kind === 'shareRumor' &&
+        actor &&
+        decision.targetActorId &&
+        decision.memoryToShare
+      ) {
         this.shareActorGossip(room, actor, decision.targetActorId, decision.memoryToShare);
       }
       if (body.stationary && !isHostile && decision.kind === 'hold') {
@@ -4141,7 +4298,9 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private buildNpcBodySocialTargets(bodies: readonly NpcBodyState[]): Map<string, ActorBrainSocialTarget[]> {
+  private buildNpcBodySocialTargets(
+    bodies: readonly NpcBodyState[],
+  ): Map<string, ActorBrainSocialTarget[]> {
     const targets = new Map<string, ActorBrainSocialTarget[]>();
     const actorBodies = bodies
       .map((body) => ({
@@ -4155,7 +4314,9 @@ export class SnakeGame implements QuestRuntime {
         actorBodies
           .filter((candidate) => candidate.actor.id !== entry.actor.id)
           .map((candidate) => {
-            const link = entry.actor.relationships.find((relationship) => relationship.actorId === candidate.actor.id);
+            const link = entry.actor.relationships.find(
+              (relationship) => relationship.actorId === candidate.actor.id,
+            );
             return {
               actorId: candidate.actor.id,
               position: { ...candidate.body.position },
@@ -4183,7 +4344,9 @@ export class SnakeGame implements QuestRuntime {
       target.memory.some(
         (entry) =>
           entry.eventId === eventId ||
-          (entry.source === 'heard' && entry.summary === memory.summary && entry.tags.includes('gossip')),
+          (entry.source === 'heard' &&
+            entry.summary === memory.summary &&
+            entry.tags.includes('gossip')),
       )
     ) {
       return;
@@ -4224,14 +4387,22 @@ export class SnakeGame implements QuestRuntime {
     position: Vector2Like,
     occupied: ReadonlySet<string>,
   ): boolean {
-    if (position.x < 0 || position.x >= this.config.grid.cols || position.y < 0 || position.y >= this.config.grid.rows) {
+    if (
+      position.x < 0 ||
+      position.x >= this.config.grid.cols ||
+      position.y < 0 ||
+      position.y >= this.config.grid.rows
+    ) {
       return false;
     }
     const tile = room.layout[position.y]?.[position.x];
     if (!tile || tile === '#' || tile === '~' || tile === 'S') {
       return false;
     }
-    if (Math.abs(position.x - body.anchor.x) > body.wanderRadius || Math.abs(position.y - body.anchor.y) > body.wanderRadius) {
+    if (
+      Math.abs(position.x - body.anchor.x) > body.wanderRadius ||
+      Math.abs(position.y - body.anchor.y) > body.wanderRadius
+    ) {
       return false;
     }
     return !occupied.has(`${position.x},${position.y}`);
@@ -4309,7 +4480,11 @@ export class SnakeGame implements QuestRuntime {
     if (district !== 'backAlley' && district !== 'guildHideout') {
       return;
     }
-    const side = this.getSideToTownDistrict(town, room.id, district === 'backAlley' ? 'guildHideout' : 'backAlley');
+    const side = this.getSideToTownDistrict(
+      town,
+      room.id,
+      district === 'backAlley' ? 'guildHideout' : 'backAlley',
+    );
     if (!side) {
       return;
     }
@@ -4328,7 +4503,10 @@ export class SnakeGame implements QuestRuntime {
       { side: 'east', id: `${roomX + 1},${roomY},${roomZ}` },
       { side: 'west', id: `${roomX - 1},${roomY},${roomZ}` },
     ];
-    return neighbors.find((neighbor) => town.districtByRoomId[neighbor.id] === targetDistrict)?.side ?? null;
+    return (
+      neighbors.find((neighbor) => town.districtByRoomId[neighbor.id] === targetDistrict)?.side ??
+      null
+    );
   }
 
   private openRoomEdgeTiles(room: RoomSnapshot, side: 'north' | 'south' | 'east' | 'west'): void {
@@ -4398,14 +4576,18 @@ export class SnakeGame implements QuestRuntime {
       { side: 'east', id: `${roomX + 1},${roomY},${roomZ}` },
       { side: 'west', id: `${roomX - 1},${roomY},${roomZ}` },
     ];
-    const interior = neighbors.find((neighbor) => Boolean(town.districtByRoomId[neighbor.id]))?.side;
+    const interior = neighbors.find((neighbor) =>
+      Boolean(town.districtByRoomId[neighbor.id]),
+    )?.side;
     if (!interior) {
       return null;
     }
     return this.oppositeSide(interior);
   }
 
-  private oppositeSide(side: 'north' | 'south' | 'east' | 'west'): 'north' | 'south' | 'east' | 'west' {
+  private oppositeSide(
+    side: 'north' | 'south' | 'east' | 'west',
+  ): 'north' | 'south' | 'east' | 'west' {
     switch (side) {
       case 'north':
         return 'south';
@@ -4532,7 +4714,12 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (this.inventory.getItemCount(itemId) <= 0) {
-      return { success: false, message: `No ${item.name} remaining.`, lengthGained: 0, invulnerabilityTicks: 0 };
+      return {
+        success: false,
+        message: `No ${item.name} remaining.`,
+        lengthGained: 0,
+        invulnerabilityTicks: 0,
+      };
     }
 
     let lengthGained = 0;
@@ -4549,7 +4736,12 @@ export class SnakeGame implements QuestRuntime {
         invulnerabilityTicks = 300;
         break;
       default:
-        return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
+        return {
+          success: false,
+          message: 'Unknown item.',
+          lengthGained: 0,
+          invulnerabilityTicks: 0,
+        };
     }
 
     this.inventory.removeItem(itemId, 1);
@@ -4568,8 +4760,7 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  flushToilet(): void {
-  }
+  flushToilet(): void {}
 
   setDirection(x: number, y: number): void {
     this.snake.setDirection(x, y);
@@ -4807,7 +4998,8 @@ export class SnakeGame implements QuestRuntime {
           color: carrying ? 0x5dd6a2 : 0x9ad1ff,
         });
       } else if (instance.questId === 'deep-lying-bouquet') {
-        const carrying = instance.stage === 'carry-bouquet' || instance.carriedItemId === 'deep-lying-bouquet';
+        const carrying =
+          instance.stage === 'carry-bouquet' || instance.carriedItemId === 'deep-lying-bouquet';
         markers.push({
           questId: instance.questId,
           roomId: carrying ? instance.giverRoomId : (instance.targetRoomId ?? instance.giverRoomId),
@@ -4865,6 +5057,14 @@ export class SnakeGame implements QuestRuntime {
             color: buying ? 0xffd166 : escaping ? 0x7cff3a : 0x51ff8a,
           });
         }
+      } else if (instance.questId === 'starforged-heliopause') {
+        markers.push({
+          questId: instance.questId,
+          roomId: instance.targetRoomId ?? instance.giverRoomId,
+          kind: 'target',
+          label: 'Heliopause Artifact',
+          color: 0x9df7ff,
+        });
       }
     }
     return markers;
@@ -4927,6 +5127,11 @@ export class SnakeGame implements QuestRuntime {
         `${instance.stage === 'buy-substance' ? '[ ]' : instance.stage === 'find-forest-teleporter' ? '[ ]' : '[x]'} Reach the deep merchant and buy the substance`,
         `${hasReturnedFromDeep || instance.stage === 'return-to-giver' ? '[x]' : '[ ]'} Use the deep teleporter to return to the forest`,
         '[ ] Return to the original buyer before the timer expires',
+      ];
+    }
+    if (questId === 'starforged-heliopause') {
+      return [
+        `${instance.stage === 'find-heliopause-artifact' ? '[ ]' : '[x]'} Find the marked Heliopause Artifact`,
       ];
     }
     return [];
@@ -5049,7 +5254,32 @@ export class SnakeGame implements QuestRuntime {
             label: 'UP',
           });
         }
+      } else if (instance.questId === 'starforged-heliopause') {
+        if (instance.targetRoomId === roomId && instance.stage === 'find-heliopause-artifact') {
+          const artifactPosition = this.getHeliopauseArtifactActorPosition();
+          actors.push({
+            id: 'heliopause-artifact',
+            questId: instance.questId,
+            roomId,
+            x: artifactPosition.x,
+            y: artifactPosition.y,
+            kind: 'heliopause-artifact',
+            label: '???',
+          });
+        }
       }
+    }
+    if (this.shouldShowStarforgedEnvoy(roomId)) {
+      const envoyPosition = this.getStarforgedEnvoyActorPosition(roomId);
+      actors.push({
+        id: 'starforged-envoy',
+        questId: 'starforged-heliopause',
+        roomId,
+        x: envoyPosition.x,
+        y: envoyPosition.y,
+        kind: 'starforged-envoy',
+        label: 'ENV',
+      });
     }
     return actors;
   }
@@ -5170,6 +5400,46 @@ export class SnakeGame implements QuestRuntime {
         closeLabel: 'Return',
       };
     }
+    if (actor.kind === 'starforged-envoy') {
+      if (this.getFlag<boolean>('starforged.active')) {
+        return {
+          kind: 'dialogue',
+          title: 'The Armored Stranger',
+          pages: [
+            'The figure in impossible armor lifts one hand. Their visor reflects a battlefield made of stars.',
+            'Now that the artifact has chosen you, their little war-table unfolds without touching the floor.',
+          ],
+          closeLabel: 'Open services',
+        };
+      }
+      return {
+        kind: 'choice',
+        title: 'The Armored Stranger',
+        options: [
+          {
+            id: 'starforged:accept',
+            title: 'Take the signal job',
+            description: 'They mark a distant artifact on your quest map.',
+          },
+          {
+            id: 'starforged:leave',
+            title: 'Walk away',
+            description: 'The stranger waits, helmet still pointed at tomorrow.',
+          },
+        ],
+      };
+    }
+    if (actor.kind === 'heliopause-artifact') {
+      return {
+        kind: 'dialogue',
+        title: 'Heliopause Artifact',
+        pages: [
+          'The object rests in the room like a dead star pretending to be furniture.',
+          'It has no buttons, no inscription, and no respect for your current save file.',
+        ],
+        closeLabel: 'Touch artifact',
+      };
+    }
     return null;
   }
 
@@ -5192,6 +5462,12 @@ export class SnakeGame implements QuestRuntime {
       case 'forest-teleporter':
       case 'deep-teleporter':
         return 'Teleporter pad activates when you slither onto it';
+      case 'starforged-envoy':
+        return this.getFlag<boolean>('starforged.active')
+          ? 'Speak with the armored stranger (press E)'
+          : 'Speak with the armored stranger (press E)';
+      case 'heliopause-artifact':
+        return 'Inspect the strange artifact (press E)';
     }
   }
 
@@ -5225,6 +5501,21 @@ export class SnakeGame implements QuestRuntime {
     }
     if (actor?.kind === 'deep-teleporter') {
       return this.useGreenTeleporter(actor.questId);
+    }
+    if (actor?.kind === 'starforged-envoy') {
+      if (this.getFlag<boolean>('starforged.active')) {
+        this.setFlag('starforged.openVendorRequested', { at: this.getFlag<number>('timeMs') ?? 0 });
+        return { message: 'The stranger opens a star-map inside the tavern shadow.' };
+      }
+      if (actionId === 'starforged:leave') {
+        return { message: 'The armored stranger waits without moving.' };
+      }
+      if (actionId === 'starforged:accept') {
+        return this.startStarforgedHeliopauseQuest(actor.roomId);
+      }
+    }
+    if (actor?.kind === 'heliopause-artifact') {
+      return this.touchHeliopauseArtifact(actor.questId);
     }
     return {};
   }
@@ -5310,7 +5601,8 @@ export class SnakeGame implements QuestRuntime {
   catchFootball(roomId: string, localPosition: Vector2Like): boolean {
     const footballs = this.footballs.get(roomId) ?? [];
     const target = footballs.find(
-      (football) => football.position.x === localPosition.x && football.position.y === localPosition.y,
+      (football) =>
+        football.position.x === localPosition.x && football.position.y === localPosition.y,
     );
     if (!target) {
       return false;
@@ -5606,14 +5898,14 @@ export class SnakeGame implements QuestRuntime {
       if (this.isNpcInLineOfFire(room, localHead, direction, position)) {
         this.damageVisibleNpcActor(profile, position);
         this.angerNpc(this.snake.currentRoomId, 'shot');
-      this.setFlag('ui.playerShot', {
-        x: head.x,
-        y: head.y,
-        roomId: this.snake.currentRoomId,
-        dx: direction.x,
-        dy: direction.y,
-      });
-      return true;
+        this.setFlag('ui.playerShot', {
+          x: head.x,
+          y: head.y,
+          roomId: this.snake.currentRoomId,
+          dx: direction.x,
+          dy: direction.y,
+        });
+        return true;
       }
     }
     const goblinActors = room.goblinCamp
@@ -5677,7 +5969,9 @@ export class SnakeGame implements QuestRuntime {
     if (!fired) {
       return false;
     }
-    const afterIds = new Set(this.enemies.getEnemiesInRoom(this.snake.currentRoomId).map((enemy) => enemy.id));
+    const afterIds = new Set(
+      this.enemies.getEnemiesInRoom(this.snake.currentRoomId).map((enemy) => enemy.id),
+    );
     const defeated = before.filter((enemy) => beforeIds.has(enemy.id) && !afterIds.has(enemy.id));
     if (defeated.length > 0) {
       this.handlePlayerBulletDefeats(defeated);
@@ -5708,7 +6002,10 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
-  private damageVisibleNpcActor(profile: RelationshipCandidateProfile, position: Vector2Like): void {
+  private damageVisibleNpcActor(
+    profile: RelationshipCandidateProfile,
+    position: Vector2Like,
+  ): void {
     const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     const actorId = this.ensureRelationshipActorForProfile(profile, state);
     this.actors.registry.update(actorId, (actor) => {
@@ -5732,7 +6029,12 @@ export class SnakeGame implements QuestRuntime {
       this.getRoomsVisitedCount(),
     );
     const latest = next ?? this.relationshipController.getState(state.id) ?? state;
-    this.ensureHostileNpcCombatBody(profile.homeRoomId ?? this.snake.currentRoomId, latest.id, latest.displayName, position);
+    this.ensureHostileNpcCombatBody(
+      profile.homeRoomId ?? this.snake.currentRoomId,
+      latest.id,
+      latest.displayName,
+      position,
+    );
     this.applyCurrentTownCrime('assault', true, 3);
     this.emitWorldEvent({
       type: 'town-crime',
@@ -5747,7 +6049,10 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  private turnVisibleNpcHostileFromShot(profile: RelationshipCandidateProfile, position: Vector2Like): void {
+  private turnVisibleNpcHostileFromShot(
+    profile: RelationshipCandidateProfile,
+    position: Vector2Like,
+  ): void {
     const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     const actorId = this.ensureRelationshipActorForProfile(profile, state);
     this.actors.registry.update(actorId, (actor) => ({
@@ -5766,10 +6071,18 @@ export class SnakeGame implements QuestRuntime {
       this.getRoomsVisitedCount(),
     );
     const latest = next ?? this.relationshipController.getState(state.id) ?? state;
-    this.ensureHostileNpcCombatBody(profile.homeRoomId ?? this.snake.currentRoomId, latest.id, latest.displayName, position);
+    this.ensureHostileNpcCombatBody(
+      profile.homeRoomId ?? this.snake.currentRoomId,
+      latest.id,
+      latest.displayName,
+      position,
+    );
     if (profile.factionId === 'goblin-camps') {
       this.adjustFactionAlignment('goblin-camps', -50);
-      this.handleGoblinCampEntered(this.snake.currentRoomId, this.world.getRoom(this.snake.currentRoomId));
+      this.handleGoblinCampEntered(
+        this.snake.currentRoomId,
+        this.world.getRoom(this.snake.currentRoomId),
+      );
     } else {
       this.applyCurrentTownCrime('assault', true, 3);
     }
@@ -5887,7 +6200,10 @@ export class SnakeGame implements QuestRuntime {
     return this.getFollowerState().length > 0;
   }
 
-  hireGoblinMercenary(name = 'Goblin Mercenary', price = 55): {
+  hireGoblinMercenary(
+    name = 'Goblin Mercenary',
+    price = 55,
+  ): {
     ok: boolean;
     message: string;
     color: string;
@@ -5929,7 +6245,10 @@ export class SnakeGame implements QuestRuntime {
     this.setFollowerState(followers.map((follower) => ({ ...follower, mode: nextMode })));
     return {
       ok: true,
-      message: nextMode === 'guard' ? 'Mercenary is guarding and hunting nearby.' : 'Mercenary is following.',
+      message:
+        nextMode === 'guard'
+          ? 'Mercenary is guarding and hunting nearby.'
+          : 'Mercenary is following.',
       color: '#b6ff6a',
     };
   }
@@ -6010,7 +6329,10 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private setFollowerState(followers: readonly FollowerInstance[]): void {
-    this.setFlag('followers.active', followers.length > 0 ? followers.map((follower) => ({ ...follower })) : undefined);
+    this.setFlag(
+      'followers.active',
+      followers.length > 0 ? followers.map((follower) => ({ ...follower })) : undefined,
+    );
   }
 
   private tickFollowers(): { enemyDefeats: number; animalDefeats: number } {
@@ -6249,7 +6571,13 @@ export class SnakeGame implements QuestRuntime {
   ): void {
     const room = this.world.getRoom(roomId);
     const body = this.npcBodies.get(relationshipId);
-    const spawn = position ?? body?.position ?? this.findEncounterSpawn(roomId) ?? room.questGiver ?? { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) };
+    const spawn = position ??
+      body?.position ??
+      this.findEncounterSpawn(roomId) ??
+      room.questGiver ?? {
+        x: Math.floor(this.config.grid.cols / 2),
+        y: Math.floor(this.config.grid.rows / 2),
+      };
     const state = this.relationshipController.getState(relationshipId);
     if (state?.stage === 'dead' || state?.flags.dead || state?.flags.eatenByPlayer) {
       this.npcBodies.delete(relationshipId);
@@ -6332,20 +6660,21 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, message: 'That item is not in your pack.', color: '#ff6b6b' };
     }
 
-    const effects: Record<string, { hunger?: number; heal?: number; temperatureRelief?: number }> = {
-      'raw-meat': { hunger: 35 },
-      'fish-meat': { hunger: 30 },
-      'cooked-meat': { hunger: 70, heal: 1 },
-      'cooked-fish': { hunger: 65, temperatureRelief: 1200 },
-      honey: { heal: 1, temperatureRelief: 1800 },
-      ramen: { hunger: 999, heal: 1, temperatureRelief: 3500 },
-      senbei: { hunger: 30 },
-      egg: { hunger: 25 },
-      'food-snake-burger': { hunger: 999 },
-      'food-snake-fries': { hunger: 70 },
-      'food-snake-nuggets': { hunger: 45 },
-      'healing-potion': { heal: 2 },
-    };
+    const effects: Record<string, { hunger?: number; heal?: number; temperatureRelief?: number }> =
+      {
+        'raw-meat': { hunger: 35 },
+        'fish-meat': { hunger: 30 },
+        'cooked-meat': { hunger: 70, heal: 1 },
+        'cooked-fish': { hunger: 65, temperatureRelief: 1200 },
+        honey: { heal: 1, temperatureRelief: 1800 },
+        ramen: { hunger: 999, heal: 1, temperatureRelief: 3500 },
+        senbei: { hunger: 30 },
+        egg: { hunger: 25 },
+        'food-snake-burger': { hunger: 999 },
+        'food-snake-fries': { hunger: 70 },
+        'food-snake-nuggets': { hunger: 45 },
+        'healing-potion': { heal: 2 },
+      };
 
     if (itemId === 'life-tonic' || itemId === 'ofuda') {
       const charges = Math.max(0, Number(this.getFlag<number>('equipment.phoenixCharges') ?? 0));
@@ -6363,7 +6692,12 @@ export class SnakeGame implements QuestRuntime {
         createdAtRoomNumber: this.getRoomsVisitedCount(),
         data: { itemId, itemName: item.name, lifeCharge: true },
       });
-      return { ok: true, message: `Used ${item.name}. Extra life charge added.`, color: '#9cff9c', consume: true };
+      return {
+        ok: true,
+        message: `Used ${item.name}. Extra life charge added.`,
+        color: '#9cff9c',
+        consume: true,
+      };
     }
 
     const effect = effects[itemId];
@@ -6409,8 +6743,18 @@ export class SnakeGame implements QuestRuntime {
       string,
       { input: string; output: string; label: string; sourceRequired?: boolean }
     > = {
-      'cook-meat': { input: 'raw-meat', output: 'cooked-meat', label: 'Cooked Raw Meat into Cooked Meat.', sourceRequired: true },
-      'cook-fish': { input: 'fish-meat', output: 'cooked-fish', label: 'Grilled Fish Meat into Cooked Fish.', sourceRequired: true },
+      'cook-meat': {
+        input: 'raw-meat',
+        output: 'cooked-meat',
+        label: 'Cooked Raw Meat into Cooked Meat.',
+        sourceRequired: true,
+      },
+      'cook-fish': {
+        input: 'fish-meat',
+        output: 'cooked-fish',
+        label: 'Grilled Fish Meat into Cooked Fish.',
+        sourceRequired: true,
+      },
     };
     const recipe = recipes[recipeId];
     if (!recipe) {
@@ -6439,7 +6783,13 @@ export class SnakeGame implements QuestRuntime {
     return { ok: true, message: recipe.label, color: '#9cff9c', consume: true };
   }
 
-  getCurrentCookingSource(): 'house-kitchen' | 'campfire' | 'diner' | 'ramen-stand' | 'cookpot' | null {
+  getCurrentCookingSource():
+    | 'house-kitchen'
+    | 'campfire'
+    | 'diner'
+    | 'ramen-stand'
+    | 'cookpot'
+    | null {
     const room = this.getCurrentRoom();
     if (room.id === '0,-1,0') {
       return 'house-kitchen';
@@ -6569,7 +6919,7 @@ export class SnakeGame implements QuestRuntime {
   private canHuntHarmlessAnimals(): boolean {
     return Boolean(
       this.getFlag<boolean>('skill.predator.huntHarmless') ||
-        this.getFlag<boolean>('predation.config.scoreFlow'),
+      this.getFlag<boolean>('predation.config.scoreFlow'),
     );
   }
 
@@ -6594,11 +6944,10 @@ export class SnakeGame implements QuestRuntime {
     }
 
     const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
-    const worldPosition =
-      fallbackWorldPosition ?? {
-        x: roomX * this.config.grid.cols + huntedAnimal.position.x,
-        y: roomY * this.config.grid.rows + huntedAnimal.position.y,
-      };
+    const worldPosition = fallbackWorldPosition ?? {
+      x: roomX * this.config.grid.cols + huntedAnimal.position.x,
+      y: roomY * this.config.grid.rows + huntedAnimal.position.y,
+    };
     this.addScore(drops.length > 0 ? 2 : 1);
     this.setFlag('recent.animalHunted', huntedAnimal.animalType);
     const huntedActorId =
@@ -6638,7 +6987,10 @@ export class SnakeGame implements QuestRuntime {
       message:
         drops.length > 0
           ? `${huntedAnimal.animalName} hunted. Found: ${drops
-              .map((drop) => `${getItem(drop.itemId)?.name ?? drop.itemId}${drop.count > 1 ? ` x${drop.count}` : ''}`)
+              .map(
+                (drop) =>
+                  `${getItem(drop.itemId)?.name ?? drop.itemId}${drop.count > 1 ? ` x${drop.count}` : ''}`,
+              )
               .join(', ')}.`
           : `${huntedAnimal.animalName} hunted.`,
     });
@@ -6656,9 +7008,8 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getDatingCandidateViews(): DatingCandidateView[] {
-    return this.relationshipController.getDatingTabView(
-      this.getRoomsVisitedCount(),
-      (factionId) => (factionId ? getFactionName(factionId) : 'Unaffiliated'),
+    return this.relationshipController.getDatingTabView(this.getRoomsVisitedCount(), (factionId) =>
+      factionId ? getFactionName(factionId) : 'Unaffiliated',
     );
   }
 
@@ -6666,7 +7017,9 @@ export class SnakeGame implements QuestRuntime {
     return this.relationshipController.getState(profile.id);
   }
 
-  getRelationshipActions(profile: RelationshipCandidateProfile): Array<RelationshipChoice | 'gift'> {
+  getRelationshipActions(
+    profile: RelationshipCandidateProfile,
+  ): Array<RelationshipChoice | 'gift'> {
     this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     return this.relationshipController.getAvailableChoices(profile.id);
   }
@@ -6678,11 +7031,13 @@ export class SnakeGame implements QuestRuntime {
 
   isRelationshipNpcCombatHostile(profile: RelationshipCandidateProfile): boolean {
     const roomId = profile.homeRoomId ?? this.snake.currentRoomId;
-    return this.enemies.getEnemiesInRoom(roomId).some(
-      (enemy) =>
-        enemy.id === `npc-hostile:${profile.id}` ||
-        (profile.actorId !== undefined && enemy.actorId === profile.actorId),
-    );
+    return this.enemies
+      .getEnemiesInRoom(roomId)
+      .some(
+        (enemy) =>
+          enemy.id === `npc-hostile:${profile.id}` ||
+          (profile.actorId !== undefined && enemy.actorId === profile.actorId),
+      );
   }
 
   private ensureRelationshipActorForProfile(
@@ -6767,13 +7122,16 @@ export class SnakeGame implements QuestRuntime {
 
   getRelationshipTalk(profile: RelationshipCandidateProfile): RelationshipTalkResult {
     const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
-    const result =
-      this.relationshipController.getTalkLine(state.id, this.getRoomsVisitedCount(), this.rng) ?? {
-        title: profile.displayName,
-        line: 'The silence is so pointed it may qualify as dialogue.',
-        color: '#9ad1ff',
-        state,
-      };
+    const result = this.relationshipController.getTalkLine(
+      state.id,
+      this.getRoomsVisitedCount(),
+      this.rng,
+    ) ?? {
+      title: profile.displayName,
+      line: 'The silence is so pointed it may qualify as dialogue.',
+      color: '#9ad1ff',
+      state,
+    };
     this.emitWorldEvent({
       type: 'actor-talked',
       roomId: this.snake.currentRoomId,
@@ -6830,10 +7188,20 @@ export class SnakeGame implements QuestRuntime {
     kind: Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>,
   ): RelationshipEventResult {
     const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
-    const result = this.relationshipController.applyBranchChoice(state.id, branch, this.getRoomsVisitedCount(), kind);
+    const result = this.relationshipController.applyBranchChoice(
+      state.id,
+      branch,
+      this.getRoomsVisitedCount(),
+      kind,
+    );
     this.applyRelationshipReward(result.reward);
     if (result.becameHostile && profile.homeRoomId) {
-      this.spawnRelationshipHostile(profile.homeRoomId, state.id, state.displayName, this.getRelationshipNpcPosition(profile));
+      this.spawnRelationshipHostile(
+        profile.homeRoomId,
+        state.id,
+        state.displayName,
+        this.getRelationshipNpcPosition(profile),
+      );
     }
     this.emitWorldEvent({
       type: 'relationship-choice',
@@ -6850,7 +7218,10 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private completeRelationshipMarriage(relationshipId: string): void {
-    const result = this.relationshipController.completeMarriage(relationshipId, this.getRoomsVisitedCount());
+    const result = this.relationshipController.completeMarriage(
+      relationshipId,
+      this.getRoomsVisitedCount(),
+    );
     this.applyRelationshipReward(result.reward);
     const state = this.relationshipController.getState(relationshipId) ?? result.state;
     if (state) {
@@ -6873,7 +7244,10 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  giveRelationshipGift(profile: RelationshipCandidateProfile, itemId: string): RelationshipEventResult {
+  giveRelationshipGift(
+    profile: RelationshipCandidateProfile,
+    itemId: string,
+  ): RelationshipEventResult {
     const item = getItem(itemId);
     if (!item || this.inventory.getItemCount(itemId) <= 0) {
       return {
@@ -6922,7 +7296,12 @@ export class SnakeGame implements QuestRuntime {
     const room = this.getCurrentRoom();
     const town = room.town;
     const initiationStatus = this.getCurrentTownGuildInitiationStatus();
-    if (!town || (initiationStatus.state !== 'active' && initiationStatus.state !== 'ready' && initiationStatus.state !== 'complete')) {
+    if (
+      !town ||
+      (initiationStatus.state !== 'active' &&
+        initiationStatus.state !== 'ready' &&
+        initiationStatus.state !== 'complete')
+    ) {
       return {
         ok: false,
         title: profile.displayName,
@@ -6944,9 +7323,20 @@ export class SnakeGame implements QuestRuntime {
     this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     const targetActorId = this.ensureRelationshipActorForProfile(profile);
     const caught =
-      this.rng() < Math.min(0.65, 0.18 + town.wantedLevel * 0.08 - Math.max(0, town.thievesGuild?.karma ?? 0) / 300);
-    const rewardScore = caught ? Math.max(1, 3 + Math.floor(this.rng() * 5)) : 8 + Math.floor(this.rng() * 15);
-    const itemId = !caught && this.rng() < 0.35 ? (this.rng() < 0.5 ? 'stolen-signet' : 'forged-town-permit') : undefined;
+      this.rng() <
+      Math.min(
+        0.65,
+        0.18 + town.wantedLevel * 0.08 - Math.max(0, town.thievesGuild?.karma ?? 0) / 300,
+      );
+    const rewardScore = caught
+      ? Math.max(1, 3 + Math.floor(this.rng() * 5))
+      : 8 + Math.floor(this.rng() * 15);
+    const itemId =
+      !caught && this.rng() < 0.35
+        ? this.rng() < 0.5
+          ? 'stolen-signet'
+          : 'forged-town-permit'
+        : undefined;
     this.addScore(rewardScore);
     if (itemId) {
       this.inventory.addItem(itemId, 1);
@@ -6963,7 +7353,11 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (caught) {
-      const relationship = this.relationshipController.applyChoice(profile.id, 'mean', this.getRoomsVisitedCount());
+      const relationship = this.relationshipController.applyChoice(
+        profile.id,
+        'mean',
+        this.getRoomsVisitedCount(),
+      );
       const crime = this.applyCurrentTownCrime('theft', true, 2);
       this.emitWorldEvent({
         type: 'pickpocket',
@@ -6994,7 +7388,11 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (this.rng() < 0.25) {
-      const relationship = this.relationshipController.applyChoice(profile.id, 'mean', this.getRoomsVisitedCount());
+      const relationship = this.relationshipController.applyChoice(
+        profile.id,
+        'mean',
+        this.getRoomsVisitedCount(),
+      );
       this.emitWorldEvent({
         type: 'pickpocket',
         roomId: room.id,
@@ -7050,9 +7448,17 @@ export class SnakeGame implements QuestRuntime {
   romanceDeathRescuer(rescuer: 'angel' | 'goblin-angel'): RelationshipEventResult {
     const profile = this.createDeathRescuerRelationship(rescuer);
     this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
-    const first = this.relationshipController.applyChoice(profile.id, 'flirt', this.getRoomsVisitedCount());
+    const first = this.relationshipController.applyChoice(
+      profile.id,
+      'flirt',
+      this.getRoomsVisitedCount(),
+    );
     if (!first.ok) return first;
-    return this.relationshipController.applyChoice(profile.id, 'ask-out', this.getRoomsVisitedCount());
+    return this.relationshipController.applyChoice(
+      profile.id,
+      'ask-out',
+      this.getRoomsVisitedCount(),
+    );
   }
 
   popRelationshipCutscene(relationshipId?: string): RelationshipCutscene | undefined {
@@ -7070,7 +7476,11 @@ export class SnakeGame implements QuestRuntime {
     switch (reward.kind) {
       case 'item':
         this.inventory.addItem(reward.itemId, reward.count);
-        this.setFlag('ui.itemReward', { itemId: reward.itemId, count: reward.count, source: 'relationship' });
+        this.setFlag('ui.itemReward', {
+          itemId: reward.itemId,
+          count: reward.count,
+          source: 'relationship',
+        });
         break;
       case 'card': {
         const cardId = reward.cardId === 'random' ? this.pickRandomCardId() : reward.cardId;
@@ -7197,6 +7607,15 @@ export class SnakeGame implements QuestRuntime {
       'player.health',
       'player.maxHealth',
       'world.rumors',
+      'starforged.state',
+      'starforged.active',
+      'starforged.available',
+      'starforged.panelOpen',
+      'starforged.power',
+      'starforged.superEnergy',
+      'starforged.abilityEnergy',
+      'starforged.effects',
+      'starforged.wallSenseBonus',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -7297,7 +7716,12 @@ export class SnakeGame implements QuestRuntime {
       if (data.worldGeneration) {
         this.worldGenerationIdentity = data.worldGeneration;
         this.rng = createRng(data.worldGeneration.seed);
-        this.world = new WorldService(this.config.grid, this.config.world, this.rng, this.worldGenerationIdentity);
+        this.world = new WorldService(
+          this.config.grid,
+          this.config.world,
+          this.rng,
+          this.worldGenerationIdentity,
+        );
         this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
         this.enemies = new EnemyManager(this.config.grid, this.rng);
         this.animals = new AnimalManager(this.config.grid, this.rng);
@@ -7510,7 +7934,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private startDeepLyingBouquetQuest(relationshipId: string): void {
-    if (this.getStagedQuestInstances().some((instance) => instance.questId === 'deep-lying-bouquet')) {
+    if (
+      this.getStagedQuestInstances().some((instance) => instance.questId === 'deep-lying-bouquet')
+    ) {
       return;
     }
     const giverRoomId = this.snake.currentRoomId;
@@ -7527,7 +7953,8 @@ export class SnakeGame implements QuestRuntime {
       7,
       15,
       31,
-      (candidate) => candidate !== giverRoomId && getBiomeForRoom(candidate).temperatureHazard === 'cold',
+      (candidate) =>
+        candidate !== giverRoomId && getBiomeForRoom(candidate).temperatureHazard === 'cold',
     );
     this.setStagedQuestInstances([
       ...this.getStagedQuestInstances(),
@@ -7625,6 +8052,38 @@ export class SnakeGame implements QuestRuntime {
         targetRoomId,
       },
     ]);
+  }
+
+  private startStarforgedHeliopauseQuest(giverRoomId: string): { message?: string } {
+    if (
+      this.getStagedQuestInstances().some(
+        (instance) =>
+          instance.questId === 'starforged-heliopause' &&
+          instance.stage !== 'failed' &&
+          instance.stage !== 'completed',
+      ) ||
+      this.getFlag<boolean>('starforged.active')
+    ) {
+      return { message: 'The signal is already on your map.' };
+    }
+    const targetRoomId = this.pickObjectiveRoom(
+      giverRoomId,
+      6,
+      10,
+      37,
+      (candidate) => candidate !== giverRoomId && getBiomeForRoom(candidate).id !== 'sunken-ocean',
+    );
+    this.setFlag('starforged.envoyRoomId', giverRoomId);
+    this.setStagedQuestInstances([
+      ...this.getStagedQuestInstances(),
+      {
+        questId: 'starforged-heliopause',
+        giverRoomId,
+        stage: 'find-heliopause-artifact',
+        targetRoomId,
+      },
+    ]);
+    return { message: 'A strange artifact signal has been marked on your quest map.' };
   }
 
   private ensureGreenPurchaseCheatGiver(): void {
@@ -7830,6 +8289,72 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
+  private getHeliopauseArtifactActorPosition(): Vector2Like {
+    return {
+      x: Math.floor(this.config.grid.cols / 2),
+      y: Math.floor(this.config.grid.rows / 2),
+    };
+  }
+
+  private shouldShowStarforgedEnvoy(roomId: string): boolean {
+    if (
+      this.getFlag<boolean>('starforged.pendingFakeTitle') ||
+      this.getStagedQuestInstances().some(
+        (instance) =>
+          instance.questId === 'starforged-heliopause' &&
+          instance.stage !== 'failed' &&
+          instance.stage !== 'completed',
+      )
+    ) {
+      return this.getFlag<string>('starforged.envoyRoomId') === roomId;
+    }
+    const savedRoomId = this.getFlag<string>('starforged.envoyRoomId');
+    if (this.getFlag<boolean>('starforged.active')) {
+      return savedRoomId === roomId;
+    }
+    const room = this.world.getRoom(roomId);
+    const district = room.town?.districtByRoomId[room.id];
+    return (
+      district === 'tavernInterior' ||
+      district === 'tavern' ||
+      district === 'marketStreet' ||
+      district === 'market'
+    );
+  }
+
+  private getStarforgedEnvoyActorPosition(roomId: string): Vector2Like {
+    const room = this.world.getRoom(roomId);
+    const preferred = [
+      { x: this.config.grid.cols - 6, y: 6 },
+      { x: this.config.grid.cols - 8, y: 8 },
+      { x: 6, y: 6 },
+      { x: 8, y: 8 },
+    ];
+    for (const position of preferred) {
+      if (this.isOpenQuestActorTile(room, position)) {
+        return position;
+      }
+    }
+    for (let y = 3; y < this.config.grid.rows - 3; y += 1) {
+      for (let x = this.config.grid.cols - 4; x >= 3; x -= 1) {
+        const position = { x, y };
+        if (this.isOpenQuestActorTile(room, position)) {
+          return position;
+        }
+      }
+    }
+    return {
+      x: Math.floor(this.config.grid.cols / 2),
+      y: Math.floor(this.config.grid.rows / 2),
+    };
+  }
+
+  private isOpenQuestActorTile(room: RoomSnapshot, position: Vector2Like): boolean {
+    const row = room.layout[position.y];
+    const tile = row?.[position.x];
+    return tile === '.' || tile === ' ' || tile === 'f' || tile === 'r';
+  }
+
   private tryActivateQuestTeleporterAtHead(): boolean {
     const actor = this.getQuestActorAtHead();
     if (!actor || (actor.kind !== 'forest-teleporter' && actor.kind !== 'deep-teleporter')) {
@@ -7881,6 +8406,23 @@ export class SnakeGame implements QuestRuntime {
     return { message: 'Receipt stamped. Your future body becomes slightly less illegal.' };
   }
 
+  private touchHeliopauseArtifact(questId: string): { message?: string } {
+    const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
+    if (
+      !instance ||
+      instance.questId !== 'starforged-heliopause' ||
+      instance.stage !== 'find-heliopause-artifact'
+    ) {
+      return {};
+    }
+    this.updateStagedQuestInstance(questId, (current) => ({
+      ...current,
+      stage: 'completed',
+    }));
+    this.setFlag('starforged.pendingFakeTitle', { at: this.getFlag<number>('timeMs') ?? 0 });
+    return { message: 'The artifact accepts your hand. The room forgets which game this is.' };
+  }
+
   private pickUpQuestBaby(questId: string): { message?: string } {
     const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
     if (!instance || instance.questId !== 'find-my-baby' || instance.stage !== 'find-baby') {
@@ -7915,7 +8457,11 @@ export class SnakeGame implements QuestRuntime {
 
   private pickUpDeepLyingBouquet(questId: string): { message?: string } {
     const instance = this.getStagedQuestInstances().find((quest) => quest.questId === questId);
-    if (!instance || instance.questId !== 'deep-lying-bouquet' || instance.stage !== 'find-bouquet') {
+    if (
+      !instance ||
+      instance.questId !== 'deep-lying-bouquet' ||
+      instance.stage !== 'find-bouquet'
+    ) {
       return {};
     }
     this.updateStagedQuestInstance(questId, (current) => ({
@@ -7923,7 +8469,9 @@ export class SnakeGame implements QuestRuntime {
       stage: 'return-to-giver',
       carriedItemId: 'deep-lying-bouquet',
     }));
-    return { message: 'The Deep-Lying Bouquet joins your pack. It is cold enough to remember forever.' };
+    return {
+      message: 'The Deep-Lying Bouquet joins your pack. It is cold enough to remember forever.',
+    };
   }
 
   private useGreenTeleporter(questId: string): { message?: string } {
@@ -8521,7 +9069,8 @@ export class SnakeGame implements QuestRuntime {
     const isAtPeakCold = roomZ <= peakZThreshold && peakColdRate > 0;
     const exposureRate = Math.max(
       0.05,
-      ((biome.temperatureRate ?? 1) + (isAtPeakCold ? peakColdRate : 0)) * Math.max(0, 1 - resistance),
+      ((biome.temperatureRate ?? 1) + (isAtPeakCold ? peakColdRate : 0)) *
+        Math.max(0, 1 - resistance),
     );
     let exposureMs = Math.max(0, Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0));
     let damageProgressMs = Math.max(
@@ -8618,10 +9167,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private applyBulletDamage(
-    hits: number,
-    style?: BulletInstance['style'],
-  ): boolean {
+  private applyBulletDamage(hits: number, style?: BulletInstance['style']): boolean {
     if (hits <= 0) {
       return false;
     }
@@ -10769,7 +11315,11 @@ function nextSoulReveal(actor: Actor): { key: ActorSoulRevealKey; text: string }
   return reveal?.text ? { key: reveal.key, text: reveal.text } : null;
 }
 
-function socialTieLine(actorName: string, link: ActorSocialLink, targetName = 'someone nearby'): string {
+function socialTieLine(
+  actorName: string,
+  link: ActorSocialLink,
+  targetName = 'someone nearby',
+): string {
   switch (link.relationship) {
     case 'family':
       return `${actorName} admits ${targetName} is family, which makes every public disaster personal.`;
@@ -10829,7 +11379,9 @@ function formatLorePlace(place?: string): string {
   return place;
 }
 
-function townRumorKindForEvent(event: WorldEvent): 'crime' | 'romance' | 'marriage' | 'divorce' | 'guild' | 'heroic' | 'weird' {
+function townRumorKindForEvent(
+  event: WorldEvent,
+): 'crime' | 'romance' | 'marriage' | 'divorce' | 'guild' | 'heroic' | 'weird' {
   if (event.tags.includes('marriage')) return 'marriage';
   if (event.tags.includes('divorce')) return 'divorce';
   if (event.tags.includes('relationship')) return 'romance';
@@ -10839,7 +11391,9 @@ function townRumorKindForEvent(event: WorldEvent): 'crime' | 'romance' | 'marria
   return 'weird';
 }
 
-function townRumorKindForModernRumor(rumor: Rumor): 'crime' | 'romance' | 'marriage' | 'divorce' | 'guild' | 'heroic' | 'weird' {
+function townRumorKindForModernRumor(
+  rumor: Rumor,
+): 'crime' | 'romance' | 'marriage' | 'divorce' | 'guild' | 'heroic' | 'weird' {
   if (rumor.tags.includes('marriage')) return 'marriage';
   if (rumor.tags.includes('divorce')) return 'divorce';
   if (rumor.type === 'romance') return 'romance';
@@ -10863,7 +11417,9 @@ function rumorToWorldRumor(rumor: Rumor): WorldRumor {
   };
 }
 
-function factionRelationForCurrentEvent(event: FactionCurrentEvent): ActorFactionConversationState['relation'] {
+function factionRelationForCurrentEvent(
+  event: FactionCurrentEvent,
+): ActorFactionConversationState['relation'] {
   if (event.phase === 'resolved') return 'neutral';
   switch (event.type) {
     case 'raid-active':
@@ -10885,7 +11441,10 @@ function factionRelationForCurrentEvent(event: FactionCurrentEvent): ActorFactio
   }
 }
 
-function conversationSocialRelationshipFor(actor: Actor, target: Actor): ActorSocialLink['relationship'] {
+function conversationSocialRelationshipFor(
+  actor: Actor,
+  target: Actor,
+): ActorSocialLink['relationship'] {
   if (actor.factionId && target.factionId && actor.factionId !== target.factionId) {
     return stableHash(`${actor.id}:rival:${target.id}`) % 3 === 0 ? 'rival' : 'factionAlly';
   }
@@ -10903,7 +11462,9 @@ function conversationSocialRelationshipFor(actor: Actor, target: Actor): ActorSo
   return 'friend';
 }
 
-function reciprocalSocialRelationship(relationship: ActorSocialLink['relationship']): ActorSocialLink['relationship'] {
+function reciprocalSocialRelationship(
+  relationship: ActorSocialLink['relationship'],
+): ActorSocialLink['relationship'] {
   switch (relationship) {
     case 'creditor':
       return 'debtor';

@@ -577,6 +577,7 @@ export default class SnakeScene extends Phaser.Scene {
   private biomeHud!: Phaser.GameObjects.Text;
   private performanceHud: Phaser.GameObjects.Text | null = null;
   private questGiverSprite!: Phaser.GameObjects.Sprite;
+  private starforgedEnvoySprite: Phaser.GameObjects.Sprite | null = null;
   private wandererSprite!: Phaser.GameObjects.Sprite;
   private choicePopupVisible = false;
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
@@ -3507,6 +3508,14 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getQuestMapMarkers();
   }
 
+  getStarforgedPauseMenuLines(): readonly string[] {
+    if (!this.getFlag<boolean>('starforged.active')) {
+      return [];
+    }
+    const lines = this.getFlag<string[]>('starforged.pauseMenuLines');
+    return Array.isArray(lines) ? lines : [];
+  }
+
   getFactionCards(): FactionCardView[] {
     return this.snakeGame.getFactionCards();
   }
@@ -4500,12 +4509,13 @@ export default class SnakeScene extends Phaser.Scene {
       'powerup.active',
     );
     const snakeColor = pActive ? 0x9b5de5 : undefined;
+    const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
     this.snakeRenderer.render(room, this.snakeGame.getSnakeBody(), room.id, this.currentApple, {
       wallSenseRadius,
       snakeColor,
       poweredUp: Boolean(pActive),
       direction: this.snakeGame.getDirection(),
-      snakePalette: this.getActiveSnakeTheme().palette,
+      snakePalette: starforgedSnakePalette ?? this.getActiveSnakeTheme().palette,
       activeHat: this.snakeCosmetics.activeHat,
       enemies: this.snakeGame.getEnemies(room.id),
       followers: this.snakeGame
@@ -6760,6 +6770,8 @@ export default class SnakeScene extends Phaser.Scene {
 
   private drawQuestRoomActors(actors: QuestRoomActor[]): void {
     const cell = this.grid.cell;
+    const envoy = actors.find((actor) => actor.kind === 'starforged-envoy') ?? null;
+    this.updateStarforgedEnvoySprite(envoy);
     for (const actor of actors) {
       const x = actor.x * cell;
       const y = actor.y * cell;
@@ -6803,8 +6815,63 @@ export default class SnakeScene extends Phaser.Scene {
         this.graphics.fillStyle(0xffbdfd, 1).fillCircle(x + cell * 0.32, y + cell * 0.24, cell * 0.12);
         this.graphics.fillStyle(0xffffff, 1).fillCircle(x + cell * 0.5, y + cell * 0.18, cell * 0.13);
         this.graphics.fillStyle(0xaec4ff, 1).fillCircle(x + cell * 0.68, y + cell * 0.24, cell * 0.12);
+      } else if (actor.kind === 'heliopause-artifact') {
+        const pulse = 0.75 + Math.sin(this.time.now / 120) * 0.22;
+        this.graphics.lineStyle(3, 0x9df7ff, pulse).strokeCircle(x + cell / 2, y + cell / 2, cell * 0.48);
+        this.graphics.lineStyle(1, 0xf2f7ff, 0.78).strokeCircle(x + cell / 2, y + cell / 2, cell * 0.28);
+        this.graphics.fillStyle(0xe8f8ff, 0.92).fillCircle(x + cell / 2, y + cell / 2, cell * 0.2);
+        this.graphics.fillStyle(0x5dd6a2, 0.78).fillCircle(x + cell / 2, y + cell / 2, cell * 0.1);
       }
     }
+  }
+
+  private updateStarforgedEnvoySprite(actor: QuestRoomActor | null): void {
+    if (!actor) {
+      this.starforgedEnvoySprite?.setVisible(false);
+      return;
+    }
+    if (!this.starforgedEnvoySprite) {
+      const textures = this.runtimeSpriteFactory.ensureRecipe(
+        questGiverSpriteRecipe,
+        Math.max(19, Math.floor(this.grid.cell * 0.98)),
+        {
+          robeColor: '#172044',
+          trimColor: '#9df7ff',
+          outlineColor: '#050812',
+          eyeColor: '#e8f8ff',
+        },
+      );
+      this.starforgedEnvoySprite = this.add.sprite(0, 0, textures.idle).setDepth(25).setVisible(false);
+    }
+    const textures = this.runtimeSpriteFactory.ensureRecipe(
+      questGiverSpriteRecipe,
+      Math.max(19, Math.floor(this.grid.cell * 0.98)),
+      {
+        robeColor: '#172044',
+        trimColor: '#9df7ff',
+        outlineColor: '#050812',
+        eyeColor: '#e8f8ff',
+      },
+    );
+    const animKey = 'starforged-envoy-idle';
+    if (!this.anims.exists(animKey)) {
+      this.anims.create({
+        key: animKey,
+        frames: [{ key: textures.idle }, { key: textures.blink }],
+        frameRate: 3,
+        repeat: -1,
+      });
+    }
+    if (this.starforgedEnvoySprite.anims.currentAnim?.key !== animKey) {
+      this.starforgedEnvoySprite.play(animKey);
+    }
+    const world = this.tileToWorldLocalInRoom({ x: actor.x, y: actor.y });
+    const bobOffset = Math.sin(this.time.now / 180) * 2;
+    this.starforgedEnvoySprite
+      .setTexture(textures.idle)
+      .setPosition(world.x, world.y - 2 + bobOffset)
+      .setAlpha(0.92 + Math.sin(this.time.now / 220) * 0.08)
+      .setVisible(!this.questPopup.isVisible());
   }
 
   private hideCardGamePopup(updateChoiceState = true): void {
