@@ -57,14 +57,14 @@ describe('CompendiumSystem', () => {
     });
 
     it('returns total definitions count', () => {
-      expect(compendium.getTotalCompanions()).toBe(12);
+      expect(compendium.getTotalCompanions()).toBe(36);
     });
   });
 
   describe('getCompendiumView', () => {
     it('shows silhouettes for undiscovered creatures', () => {
       const view = compendium.getCompendiumView(COMPANION_DEFINITIONS);
-      expect(view.length).toBe(12);
+      expect(view.length).toBe(36);
       expect(view.every((v) => v.discovered === false)).toBe(true);
     });
 

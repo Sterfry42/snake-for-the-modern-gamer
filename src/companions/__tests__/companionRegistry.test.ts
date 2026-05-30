@@ -10,8 +10,8 @@ import {
 import type { CompanionKind } from '../companionTypes.js';
 
 describe('companionRegistry', () => {
-  it('exports exactly 12 definitions', () => {
-    expect(COMPANION_DEFINITIONS.length).toBe(12);
+  it('exports exactly 36 definitions', () => {
+    expect(COMPANION_DEFINITIONS.length).toBe(36);
   });
 
   it('all definitions have non-empty required fields', () => {
@@ -44,24 +44,24 @@ describe('companionRegistry', () => {
 
   it('getCompanionsByKind returns correct subsets', () => {
     const followers = getCompanionsByKind('follower');
-    expect(followers.length).toBe(2);
+    expect(followers.length).toBe(6);
     expect(followers.every((d) => d.kind === 'follower')).toBe(true);
 
     const mounts = getCompanionsByKind('mount');
-    expect(mounts.length).toBe(2);
+    expect(mounts.length).toBe(5);
     expect(mounts.every((d) => d.kind === 'mount')).toBe(true);
 
     const fighters = getCompanionsByKind('fighter');
-    expect(fighters.length).toBe(2);
+    expect(fighters.length).toBe(5);
 
     const protectors = getCompanionsByKind('protector');
-    expect(protectors.length).toBe(2);
+    expect(protectors.length).toBe(6);
 
     const scouts = getCompanionsByKind('scout');
-    expect(scouts.length).toBe(2);
+    expect(scouts.length).toBe(5);
 
     const foragers = getCompanionsByKind('forager');
-    expect(foragers.length).toBe(2);
+    expect(foragers.length).toBe(8);
   });
 
   it('getCompanionsByBiome returns creatures for known biomes', () => {
@@ -150,11 +150,11 @@ describe('companionRegistry', () => {
       rarityCounts[def.rarity] = (rarityCounts[def.rarity] ?? 0) + 1;
     }
     // All 5 rarity tiers should be represented
-    expect(rarityCounts.common).toBeGreaterThan(0);
-    expect(rarityCounts.uncommon).toBeGreaterThan(0);
-    expect(rarityCounts.rare).toBeGreaterThan(0);
-    expect(rarityCounts.epic).toBeGreaterThan(0);
-    // Legendary can be 0 for Phase 1 (only 12 creatures)
+    expect(rarityCounts.common).toBe(10);
+    expect(rarityCounts.uncommon).toBe(10);
+    expect(rarityCounts.rare).toBe(8);
+    expect(rarityCounts.epic).toBe(5);
+    expect(rarityCounts.legendary).toBe(3);
   });
 
   it('follower follow offsets are sequential', () => {
