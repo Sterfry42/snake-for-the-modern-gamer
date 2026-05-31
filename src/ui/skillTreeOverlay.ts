@@ -17,7 +17,7 @@ import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
-import type { ActorJournalEntry } from '../game/snakeGame.js';
+import type { ActorJournalEntry, QuestObjectiveSummary } from '../game/snakeGame.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -159,6 +159,7 @@ export class SkillTreeOverlay {
   private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
   private readonly customizationText: Phaser.GameObjects.Text;
   private readonly questListText: Phaser.GameObjects.Text;
+  private questRowMap: Array<{ startRow: number; endRow: number; questId: string }> = [];
   private readonly cardsText: Phaser.GameObjects.Text;
   private readonly factionsText: Phaser.GameObjects.Text;
   private readonly spellsText: Phaser.GameObjects.Text;
@@ -473,6 +474,7 @@ export class SkillTreeOverlay {
             TREE_PADDING.horizontal * 2,
         },
       })
+      .setInteractive({ useHandCursor: true })
       .setVisible(false);
     this.cardsText = this.scene.add
       .text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, '', {
@@ -660,6 +662,23 @@ export class SkillTreeOverlay {
         return;
       }
       this.handlers.onBindSpellSlot?.(entry.abilityId);
+    });
+    this.questListText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'quests') return;
+      const row = this.getTextRowIndex(pointer, this.questListText.y, this.questListText);
+      const entry = this.questRowMap.find(
+        (candidate) => row >= candidate.startRow && row <= candidate.endRow,
+      );
+      if (!entry) return;
+      const setter = (this.scene as any).setActiveQuestMarkerQuestId;
+      if (typeof setter !== 'function') return;
+      const ok = setter.call(this.scene, entry.questId);
+      this.announce(
+        ok ? 'Tracking quest marker.' : 'Quest marker unavailable.',
+        ok ? '#9ad1ff' : '#ff6b6b',
+        1600,
+      );
+      this.refresh();
     });
     this.scene.input.on(
       'wheel',
@@ -1722,6 +1741,7 @@ export class SkillTreeOverlay {
   }
 
   private formatQuestInfo(quests: Quest[]): string {
+    this.questRowMap = [];
     if (quests.length === 0) {
       return 'No accepted quests.';
     }
@@ -1729,26 +1749,53 @@ export class SkillTreeOverlay {
     const activeIds = new Set(this.scene.activeQuests.map((quest) => quest.id));
     const completedIds = new Set(this.scene.completedQuests);
     const acceptedIds = new Set(this.scene.acceptedQuests);
+    const trackedQuestId =
+      typeof (this.scene as any).getActiveQuestMarkerQuestId === 'function'
+        ? ((this.scene as any).getActiveQuestMarkerQuestId() as string | undefined)
+        : undefined;
+    let row = 0;
 
-    return quests
-      .map((quest) => {
-        const marker = completedIds.has(quest.id)
-          ? '[x]'
-          : activeIds.has(quest.id)
-            ? '[>]'
-            : acceptedIds.has(quest.id)
-              ? '[-]'
-              : '[ ]';
-        const subtasks =
-          typeof (this.scene as any).getQuestSubtasks === 'function'
-            ? ((this.scene as any).getQuestSubtasks(quest.id) as string[])
-            : [];
-        const subtaskText =
-          subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
-        const questStrings = i18n.getQuestString(quest.id) ?? { label: quest.label, description: quest.description };
-        return `${marker} ${questStrings.label}: ${questStrings.description}${subtaskText}`;
-      })
-      .join('\n\n');
+    const blocks = quests.map((quest) => {
+      const marker = completedIds.has(quest.id)
+        ? '[x]'
+        : activeIds.has(quest.id)
+          ? '[>]'
+          : acceptedIds.has(quest.id)
+            ? '[-]'
+            : '[ ]';
+      const trackingMarker = trackedQuestId === quest.id ? '[*]' : '[ ]';
+      const subtasks =
+        typeof (this.scene as any).getQuestSubtasks === 'function'
+          ? ((this.scene as any).getQuestSubtasks(quest.id) as string[])
+          : [];
+      const objectives =
+        typeof (this.scene as any).getQuestObjectiveSummaries === 'function'
+          ? ((this.scene as any).getQuestObjectiveSummaries(quest.id) as QuestObjectiveSummary[])
+          : [];
+      const subtaskText =
+        subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
+      const objectiveText =
+        objectives.length > 0
+          ? `\n  Objective: ${objectives
+              .map((objective) => this.formatQuestObjective(objective))
+              .join(' / ')}`
+          : '\n  Objective: no fixed room';
+      const questStrings = i18n.getQuestString(quest.id) ?? {
+        label: quest.label,
+        description: quest.description,
+      };
+      const block = `${trackingMarker}${marker} ${questStrings.label}: ${questStrings.description}${objectiveText}${subtaskText}`;
+      const lineCount = block.split('\n').length;
+      this.questRowMap.push({ startRow: row, endRow: row + lineCount - 1, questId: quest.id });
+      row += lineCount + 2;
+      return block;
+    });
+    return blocks.join('\n\n');
+  }
+
+  private formatQuestObjective(objective: QuestObjectiveSummary): string {
+    const { x, y, z } = objective.coordinates;
+    return `${objective.label} (${x}, ${y}, ${z})`;
   }
 
   private formatDatingInfo(views: readonly DatingCandidateView[]): string {

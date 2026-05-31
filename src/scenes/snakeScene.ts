@@ -1,7 +1,13 @@
 import Phaser from 'phaser';
 import { defaultGameConfig } from '../config/gameConfig.js';
+import {
+  RESOLUTION_SETTINGS,
+  loadResolutionSetting,
+  saveResolutionSetting,
+  type ResolutionSettingId,
+} from '../config/resolutionSettings.js';
 import { SnakeGame } from '../game/snakeGame.js';
-import type { QuestRoomActor } from '../game/snakeGame.js';
+import type { QuestObjectiveSummary, QuestRoomActor } from '../game/snakeGame.js';
 import { FeatureManager } from '../systems/features.js';
 import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
@@ -1239,6 +1245,9 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (this.tryInteractMcDonaldsToilet()) {
+          return;
+        }
+        if (this.tryInteractTownQuestBoard()) {
           return;
         }
         if (this.tryInteractTown()) {
@@ -3442,7 +3451,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const settings = this.add.container(0, 0).setVisible(false);
     const panel = this.add
-      .rectangle(width / 2, height / 2 + 44, 300, 190, 0x071019, 0.88)
+      .rectangle(width / 2, height / 2 + 44, 300, 300, 0x071019, 0.88)
       .setStrokeStyle(2, 0x8fb7ff)
       .setOrigin(0.5);
     const settingsTitle = this.add
@@ -3452,18 +3461,28 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#fff4cf',
       })
       .setOrigin(0.5);
+    const currentResolution = loadResolutionSetting();
     const settingsBody = this.add
-      .text(width / 2, height / 2 + 10, 'More settings will live here.', {
+      .text(width / 2, height / 2 + 2, `Resolution: ${currentResolution.label}`, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#c8ffe1',
       })
       .setOrigin(0.5);
+    const resolutionButtons = RESOLUTION_SETTINGS.map((setting, index) =>
+      this.createTitleButton(
+        width / 2 - 105,
+        height / 2 + 30 + index * 42,
+        `${setting.label}${setting.id === currentResolution.id ? ' *' : ''}`,
+        () => this.applyTitleResolutionSetting(setting.id),
+      ),
+    );
     settings.add([
       panel,
       settingsTitle,
       settingsBody,
-      this.createTitleButton(width / 2 - 105, height / 2 + 54, 'Back', () =>
+      ...resolutionButtons,
+      this.createTitleButton(width / 2 - 105, height / 2 + 168, 'Back', () =>
         this.showTitleScreen('main'),
       ),
     ]);
@@ -3660,6 +3679,12 @@ export default class SnakeScene extends Phaser.Scene {
     });
     zone.on('pointerdown', onClick);
     return button;
+  }
+
+  private applyTitleResolutionSetting(id: ResolutionSettingId): void {
+    saveResolutionSetting(id);
+    this.titleMessageText?.setText('Resolution saved. Reloading...');
+    this.time.delayedCall(120, () => window.location.reload());
   }
 
   private startTitleTweens(
@@ -4036,6 +4061,22 @@ export default class SnakeScene extends Phaser.Scene {
 
   getQuestMapMarkers() {
     return this.snakeGame.getQuestMapMarkers();
+  }
+
+  getQuestObjectiveSummaries(questId: string): QuestObjectiveSummary[] {
+    return this.snakeGame.getQuestObjectiveSummaries(questId);
+  }
+
+  getActiveQuestMarkerQuestId(): string | undefined {
+    return this.snakeGame.getActiveQuestMarkerQuestId();
+  }
+
+  setActiveQuestMarkerQuestId(questId: string): boolean {
+    const ok = this.snakeGame.setActiveQuestMarkerQuestId(questId);
+    if (ok) {
+      this.showQuestHintPopup('Quest marker updated.', '#9ad1ff');
+    }
+    return ok;
   }
 
   getStarforgedPauseMenuLines(): readonly string[] {
@@ -4683,6 +4724,18 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.collapseControl', undefined);
     }
 
+    const caveTransition = this.snakeGame.getFlag<{
+      caveId: string;
+      parentRoomId: string;
+      collapsed: boolean;
+      reason: 'manual' | 'timer' | 'reward';
+    }>('ui.caveTransition');
+    if (caveTransition) {
+      const world = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
+      (this.juice as any).caveEjection?.(world.x, world.y, caveTransition.collapsed, caveTransition.reason);
+      this.snakeGame.setFlag('ui.caveTransition', undefined);
+    }
+
     const chomp = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>('ui.wallChomp');
     if (chomp) {
       const world = this.tileToWorldInRoom({ x: chomp.x, y: chomp.y }, chomp.roomId);
@@ -5187,6 +5240,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     const radiation = this.snakeGame.getRadiationTimer();
+    const caveTimer = this.snakeGame.getFlag<{ remaining: number; total: number }>('caves.timer');
     if (!this.isInHouse() && radiation) {
       const remainingSeconds = Math.ceil(radiation.remainingMs / 1000);
       const minutes = Math.floor(remainingSeconds / 60)
@@ -5202,6 +5256,22 @@ export default class SnakeScene extends Phaser.Scene {
         const world = this.tileToWorld(head);
         this.juice.dangerPulse(world.x, world.y, remainingSeconds <= 15 ? 1 : 0.72);
         this.nextDangerPulseAtMs = this.time.now + (remainingSeconds <= 15 ? 260 : 420);
+      }
+    } else if (!this.isInHouse() && caveTimer) {
+      const remainingSeconds = Math.ceil(caveTimer.remaining / 10);
+      const minutes = Math.floor(remainingSeconds / 60)
+        .toString()
+        .padStart(2, '0');
+      const seconds = (remainingSeconds % 60).toString().padStart(2, '0');
+      const progress = caveTimer.remaining / Math.max(1, caveTimer.total);
+      const color = progress <= 0.25 ? '#ff3b3b' : progress <= 0.5 ? '#ff9f1c' : '#ffd166';
+      this.radiationHud.setColor(color);
+      this.radiationHud.setText(`CAVE COLLAPSE: ${minutes}:${seconds}`);
+      this.radiationHud.setVisible(true);
+      if (head && remainingSeconds <= 10 && this.time.now >= this.nextDangerPulseAtMs) {
+        const world = this.tileToWorld(head);
+        this.juice.dangerPulse(world.x, world.y, progress <= 0.15 ? 1 : 0.72);
+        this.nextDangerPulseAtMs = this.time.now + (progress <= 0.15 ? 220 : 360);
       }
     } else {
       this.radiationHud.setVisible(false);
@@ -6249,6 +6319,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (libertyHint) {
       return { text: libertyHint };
     }
+    if (this.isNearTownTile('N')) {
+      return { text: 'Read quest board (press E)' };
+    }
     const town = room.town;
     if (town && this.distanceFromHeadToLocal(town.center) <= 3) {
       const current = getTownDistrictForRoom(town, room.id);
@@ -6273,15 +6346,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private distanceFromHeadToLocal(target: { x: number; y: number }): number {
-    const head = this.snakeGame.getSnakeBody()[0];
-    if (!head) {
+    const local = this.getHeadLocalPosition();
+    if (!local) {
       return Number.POSITIVE_INFINITY;
     }
-    const room = this.snakeGame.getCurrentRoom();
-    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
-    const localX = head.x - roomX * this.grid.cols;
-    const localY = head.y - roomY * this.grid.rows;
-    return Math.abs(localX - target.x) + Math.abs(localY - target.y);
+    return Math.abs(local.x - target.x) + Math.abs(local.y - target.y);
   }
 
   private tryInteractVillageShopkeeper(): boolean {
@@ -6302,6 +6371,86 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.showVillageShopRoot(shopkeeper.name ?? 'Village Shopkeeper');
     return true;
+  }
+
+  private tryInteractTownQuestBoard(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible || !this.isNearTownTile('N')) {
+      return false;
+    }
+    const town = this.snakeGame.getCurrentTown();
+    if (!town) {
+      return false;
+    }
+    const quests = this.snakeGame.getTownQuestBoardOptions();
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    const options: ChoiceOption[] =
+      quests.length > 0
+        ? quests.map((quest) => ({
+            id: `quest:${quest.id}`,
+            title: quest.label,
+            description: quest.description,
+          }))
+        : [
+            {
+              id: 'empty',
+              title: 'No Work Posted',
+              description: 'Every useful notice has already been claimed.',
+            },
+          ];
+    options.push({ id: 'leave', title: 'Step Back', description: 'Return to the room.' });
+    this.villageShopPopup.show(`${town.name} Quest Board`, options, (id) => {
+      if (id === 'leave' || id === 'empty') {
+        this.closeVillageShop();
+        return;
+      }
+      const questId = id.replace(/^quest:/, '');
+      const result = this.snakeGame.acceptTownQuestBoardQuest(questId);
+      this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+      this.closeVillageShop();
+      if (result.ok) {
+        this.isDirty = true;
+        this.applyPendingQuestCosmeticRewards();
+      }
+    });
+    return true;
+  }
+
+  private isNearTownTile(symbol: string): boolean {
+    const room = this.snakeGame.getCurrentRoom();
+    if (!room.town) {
+      return false;
+    }
+    const local = this.getHeadLocalPosition();
+    if (!local) {
+      return false;
+    }
+    for (let y = Math.max(0, local.y - 1); y <= Math.min(this.grid.rows - 1, local.y + 1); y++) {
+      const row = room.layout[y] ?? '';
+      for (let x = Math.max(0, local.x - 1); x <= Math.min(this.grid.cols - 1, local.x + 1); x++) {
+        if (Math.abs(local.x - x) + Math.abs(local.y - y) <= 1 && row[x] === symbol) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private getHeadLocalPosition(): Vector2Like | null {
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (!head) {
+      return null;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    if (room.cave) {
+      return { x: head.x, y: head.y };
+    }
+    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+    return {
+      x: head.x - roomX * this.grid.cols,
+      y: head.y - roomY * this.grid.rows,
+    };
   }
 
   private tryInteractTown(): boolean {
@@ -6351,13 +6500,6 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    if (current === 'square' || current === 'gate' || current === 'townExit') {
-      options.push({
-        id: 'town-notices',
-        title: 'Read Notice Board',
-        description: `${freshTown.notices.length} notices, at least one written by someone enjoying authority.`,
-      });
-    }
     if (current === 'gate' || current === 'townExit') {
       options.push({
         id: 'town-open-gate',
@@ -6450,10 +6592,6 @@ export default class SnakeScene extends Phaser.Scene {
   private handleTownChoice(id: string, town: TownStructure): void {
     if (id === 'leave' || id === 'town-status') {
       this.closeVillageShop();
-      return;
-    }
-    if (id === 'town-notices') {
-      this.showTownNotices(town);
       return;
     }
     if (id === 'town-open-gate') {
@@ -7943,14 +8081,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (!giver) {
       return false;
     }
-    const head = this.snakeGame.getSnakeBody()[0];
-    if (!head) {
+    const local = this.getHeadLocalPosition();
+    if (!local) {
       return false;
     }
-    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
-    const localX = head.x - roomX * this.grid.cols;
-    const localY = head.y - roomY * this.grid.rows;
-    const dist = Math.abs(localX - giver.x) + Math.abs(localY - giver.y);
+    const dist = Math.abs(local.x - giver.x) + Math.abs(local.y - giver.y);
     if (dist > 1) {
       return false;
     }
@@ -7958,9 +8093,34 @@ export default class SnakeScene extends Phaser.Scene {
     if (disposition.hostility === 'hostile') {
       return true;
     }
-    const request = this.snakeGame.requestQuestFromGiver(room.id);
     const giverName = giver.name ?? 'Quest Giver';
     const speaker = { portraitId: giver.portraitId };
+
+    if (room.cave?.templateId === 'caveDweller') {
+      const result = this.snakeGame.claimCaveDwellerReward();
+      this.showQuestDialogue(
+        giverName,
+        result.pages.length > 0
+          ? result.pages
+          : ['The cave dweller listens to the stone, then shakes their head. Nothing answers.'],
+        {
+          onClose: () => {
+            this.closeQuestPopup();
+            if (result.state === 'available') {
+              this.applyEquipmentEffects();
+              this.isDirty = true;
+            }
+          },
+        },
+        {
+          closeLabel: result.state === 'available' ? 'Take Gift' : 'Close',
+        },
+        speaker,
+      );
+      return true;
+    }
+
+    const request = this.snakeGame.requestQuestFromGiver(room.id);
 
     if (request.state === 'available' && request.quest) {
       const dialogue = getQuestDialogue(request.quest);
@@ -8293,6 +8453,8 @@ export default class SnakeScene extends Phaser.Scene {
                   ? ' the Guard'
                   : resident.role === 'thief' || resident.role === 'thiefContact'
                     ? ' of the Guild'
+                    : resident.role === 'questGiver'
+                      ? ' the Quest Broker'
                     : ''
             }`,
             species: 'human' as RelationshipSpecies,
@@ -8469,6 +8631,20 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id === 'take-quest') {
+          if (
+            profile.actorId &&
+            this.snakeGame.isCurrentTownLargeQuestGiverActor(profile.actorId)
+          ) {
+            const result = this.snakeGame.acceptTownLargeQuest(profile.actorId);
+            this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+            this.closeVillageShop();
+            this.paused = false;
+            if (result.ok) {
+              this.isDirty = true;
+              this.applyPendingQuestCosmeticRewards();
+            }
+            return;
+          }
           this.paused = false;
           this.tryInteractQuestGiver();
           return;

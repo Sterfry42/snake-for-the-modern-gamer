@@ -67,6 +67,32 @@ export class SkittishApple extends AppleInstance {
     context: AppleMoveContext,
     head: Vector2Like,
   ): { dir: Vector2Like; distance: number; blocked: boolean } {
+    if (this.roomId.startsWith('cave:')) {
+      const targetLocalX = this.position.x + dir.x;
+      const targetLocalY = this.position.y + dir.y;
+      if (
+        targetLocalX < 0 ||
+        targetLocalY < 0 ||
+        targetLocalX >= context.grid.cols ||
+        targetLocalY >= context.grid.rows
+      ) {
+        return { dir, distance: 0, blocked: true };
+      }
+      const targetRoom = context.getRoom(this.roomId);
+      const tile = targetRoom.layout[targetLocalY]?.[targetLocalX];
+      const candidateLocal = { x: targetLocalX, y: targetLocalY };
+      const blockedByApple = context.isAppleOccupied(this.roomId, candidateLocal);
+      const blockedBySnake = context.snake.some(
+        (segment) => segment.x === targetLocalX && segment.y === targetLocalY,
+      );
+      const distance = Math.abs(head.x - targetLocalX) + Math.abs(head.y - targetLocalY);
+      return {
+        dir,
+        distance,
+        blocked: tile !== '.' || blockedByApple || blockedBySnake,
+      };
+    }
+
     const [roomX, roomY, roomZ = 0] = this.roomId.split(',').map(Number);
     let targetLocalX = this.position.x + dir.x;
     let targetLocalY = this.position.y + dir.y;

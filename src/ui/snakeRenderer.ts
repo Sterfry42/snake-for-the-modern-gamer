@@ -85,7 +85,7 @@ export class SnakeRenderer {
   private readonly hatSprite: Phaser.GameObjects.Image;
   private readonly defaultSnakeTextureKeys: Record<SnakeSpriteVariant, string>;
   private readonly appleTextureKeys: Record<AppleSpriteVariant, string>;
-  private readonly appleSprite: Phaser.GameObjects.Image;
+  private readonly appleSprites: Phaser.GameObjects.Image[] = [];
   private readonly hatTextureKeys: Record<SnakeHatVariant, string>;
   private readonly hatTextureCache: Partial<
     Record<SnakeHatStyle, Record<SnakeHatVariant, string>>
@@ -124,11 +124,7 @@ export class SnakeRenderer {
       this.grid.cell,
       this.buildApplePalette(),
     );
-    this.appleSprite = this.scene.add
-      .image(0, 0, this.appleTextureKeys.normal)
-      .setDepth(APPLE_LAYER_DEPTH)
-      .setVisible(false)
-      .setOrigin(0.5, 0.5);
+    this.appleSprites.push(this.createAppleSprite());
     this.hatTextureKeys = this.spriteFactory.ensureRecipe(
       snakeHatRecipe,
       this.grid.cell,
@@ -1118,29 +1114,51 @@ export class SnakeRenderer {
   }
 
   private drawApple(room: RoomSnapshot, appleInfo?: AppleSnapshot): void {
-    const apple = room.apple;
-    if (!apple) {
-      this.appleSprite.setVisible(false);
+    const apples = room.apples && room.apples.length > 0 ? room.apples : room.apple ? [room.apple] : [];
+    if (apples.length === 0) {
+      this.appleSprites.forEach((sprite) => sprite.setVisible(false));
       return;
     }
 
     const appleColor = appleInfo?.color ?? paletteConfig.apple.colors.normal;
     const appleOutlineColor = darkenColor(appleColor, paletteConfig.apple.outlineDarkenFactor);
+    const variant = this.resolveAppleVariant(appleInfo);
 
-    const x = apple.x * this.grid.cell;
-    const y = apple.y * this.grid.cell;
-    this.appleSprite
-      .setTexture(this.appleTextureKeys[this.resolveAppleVariant(appleInfo)])
-      .setPosition(x + this.grid.cell / 2, y + this.grid.cell / 2)
-      .setDisplaySize(this.grid.cell, this.grid.cell)
-      .setTint(appleColor)
-      .setVisible(true);
+    this.appleSprites.forEach((sprite) => sprite.setVisible(false));
+    apples.forEach((apple, index) => {
+      const x = apple.x * this.grid.cell;
+      const y = apple.y * this.grid.cell;
+      this.ensureAppleSprite(index)
+        .setTexture(this.appleTextureKeys[variant])
+        .setPosition(x + this.grid.cell / 2, y + this.grid.cell / 2)
+        .setDisplaySize(this.grid.cell, this.grid.cell)
+        .setTint(appleColor)
+        .setVisible(true);
+    });
 
     const shieldDirs = this.extractShieldDirs(appleInfo);
-    if (shieldDirs) {
+    if (shieldDirs && apples.length === 1) {
+      const apple = apples[0]!;
+      const x = apple.x * this.grid.cell;
+      const y = apple.y * this.grid.cell;
       this.graphics.lineStyle(APPLE_OUTLINE_WIDTH, appleOutlineColor, APPLE_OUTLINE_ALPHA);
       this.drawShieldIndicators(x, y, shieldDirs);
     }
+  }
+
+  private createAppleSprite(): Phaser.GameObjects.Image {
+    return this.scene.add
+      .image(0, 0, this.appleTextureKeys.normal)
+      .setDepth(APPLE_LAYER_DEPTH)
+      .setVisible(false)
+      .setOrigin(0.5, 0.5);
+  }
+
+  private ensureAppleSprite(index: number): Phaser.GameObjects.Image {
+    while (this.appleSprites.length <= index) {
+      this.appleSprites.push(this.createAppleSprite());
+    }
+    return this.appleSprites[index]!;
   }
 
   private drawTreasure(room: RoomSnapshot): void {

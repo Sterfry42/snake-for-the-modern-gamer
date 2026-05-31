@@ -1,7 +1,12 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { createRng } from '../core/rng.js';
+import { tryPlaceGoblinCamp } from '../world/goblinCamp.js';
+import { tryPlaceQuestHouse } from '../world/questHouse.js';
+import { tryPlaceShrine } from '../world/shrine.js';
+import { tryPlaceSnakeMcDonalds } from '../world/snakeMcDonalds.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { tryPlaceVillage } from '../world/village.js';
 import {
   CAVE_EXIT_TILE,
   CAVE_ZONE_ORIGIN_ID,
@@ -185,21 +190,21 @@ function stampCaveDweller(
 
 function stampRandomStructureRoom(room: RoomSnapshot, layout: string[][], rng: () => number): void {
   const selected = pickStructure(rng);
-  const left = 8;
-  const top = 5;
-  const width = 16;
-  const height = 9;
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      const border = x === left || y === top || x === left + width - 1 || y === top + height - 1;
-      setTile(layout, x, y, border ? '#' : 'W');
+  const attempts = [
+    selected,
+    ...CAVE_STRUCTURE_TABLE.map((entry) => entry.structureId).filter((id) => id !== selected),
+  ];
+  const forbiddenCells = createCaveStructureForbiddenCells(room);
+
+  for (const structureId of attempts) {
+    if (tryStampCaveStructure(room, layout, structureId, rng, forbiddenCells)) {
+      room.cave!.forcedStructureId = structureId;
+      return;
     }
   }
-  setTile(layout, left + Math.floor(width / 2), top + height - 1, '.');
-  setTile(layout, left + Math.floor(width / 2), top + height - 2, 'E');
-  setTile(layout, left + 3, top + 3, 'G');
-  setTile(layout, left + width - 4, top + 3, 'L');
-  room.cave!.forcedStructureId = selected;
+
+  room.treasure = { x: Math.floor(layout[0]!.length / 2), y: 8 };
+  room.cave!.forcedStructureId = 'fallbackTreasure';
 }
 
 function stampPillars(layout: string[][], grid: GridConfig): void {
@@ -224,6 +229,83 @@ function pickStructure(rng: () => number): string {
     }
   }
   return 'shrine';
+}
+
+function tryStampCaveStructure(
+  room: RoomSnapshot,
+  layout: string[][],
+  structureId: string,
+  rng: () => number,
+  forbiddenCells: ReadonlySet<string>,
+): boolean {
+  const grid = { cols: layout[0]?.length ?? 0, rows: layout.length, cell: 24 };
+  const options = { forbiddenCells, margin: 2 };
+  switch (structureId) {
+    case 'snakeMcDonalds': {
+      const placement = tryPlaceSnakeMcDonalds(layout, grid, rng, options);
+      if (!placement) return false;
+      room.snakeMcDonalds = placement;
+      return true;
+    }
+    case 'goblinCamp': {
+      const placement = tryPlaceGoblinCamp(layout, grid, rng, options);
+      if (!placement) return false;
+      room.goblinCamp = placement;
+      return true;
+    }
+    case 'shrine': {
+      const placement = tryPlaceShrine(layout, grid, rng, options);
+      if (!placement) return false;
+      room.shrine = placement;
+      room.questGiver = placement.maiden;
+      return true;
+    }
+    case 'questHouse': {
+      const placement = tryPlaceQuestHouse(layout, grid, rng, options);
+      if (!placement) return false;
+      room.questGiver = placement.questGiver;
+      return true;
+    }
+    case 'villageShop': {
+      const placement = tryPlaceVillage(layout, grid, rng, 'verdigris-basin', options);
+      if (!placement) return false;
+      room.questGiver = placement.questGiver;
+      room.village = placement.village;
+      return true;
+    }
+    default:
+      return false;
+  }
+}
+
+function createCaveStructureForbiddenCells(room: RoomSnapshot): ReadonlySet<string> {
+  const cells = new Set<string>();
+  const spawn = room.cave?.spawn;
+  const exit = room.cave?.exit;
+  if (spawn) {
+    addForbiddenRadius(cells, spawn, 3);
+  }
+  if (exit) {
+    addForbiddenRadius(cells, exit, 3);
+  }
+  if (spawn && exit) {
+    const minY = Math.min(spawn.y, exit.y);
+    const maxY = Math.max(spawn.y, exit.y);
+    for (let y = minY - 1; y <= maxY + 1; y += 1) {
+      for (let x = spawn.x - 2; x <= spawn.x + 2; x += 1) {
+        cells.add(`${x},${y}`);
+      }
+    }
+  }
+  return cells;
+}
+
+function addForbiddenRadius(cells: Set<string>, center: Vector2Like, radius: number): void {
+  for (let y = center.y - radius; y <= center.y + radius; y += 1) {
+    for (let x = center.x - radius; x <= center.x + radius; x += 1) {
+      cells.add(`${x},${y}`);
+    }
+  }
 }
 
 function clearAround(layout: string[][], center: Vector2Like, radius: number): void {

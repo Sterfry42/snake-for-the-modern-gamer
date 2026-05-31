@@ -30,6 +30,7 @@ export interface RoomSnapshot {
   archetypeId?: string;
   portals: PortalConfig[];
   apple?: Vector2Like;
+  apples?: Vector2Like[];
   treasure?: Vector2Like;
   powerup?: { x: number; y: number; kind: 'phase' | 'smite' | 'gun' };
   caveEntrances?: CaveEntrance[];

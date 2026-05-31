@@ -2385,6 +2385,42 @@ export class JuiceManager {
     });
   }
 
+  caveEjection(worldX: number, worldY: number, collapsed: boolean, reason: 'manual' | 'timer' | 'reward') {
+    const urgent = collapsed || reason === 'timer';
+    const colors = urgent
+      ? [0x7b5f8f, 0xb8865e, 0xffd166, 0xff6b6b]
+      : [0x5dd6a2, 0x9ad1ff, 0xd8c3a5];
+    this.playTone({
+      frequency: urgent ? 120 : 180,
+      frequencyEnd: urgent ? 58 : 92,
+      duration: urgent ? 0.36 : 0.22,
+      type: 'sawtooth',
+      volume: urgent ? 0.16 : 0.1,
+    });
+    if (!urgent) {
+      this.playTone({ frequency: 420, frequencyEnd: 260, duration: 0.16, type: 'triangle', volume: 0.06 });
+    }
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: urgent ? 28 : 16,
+      radius: urgent ? 36 : 24,
+    });
+    this.ringPulse(worldX, worldY, urgent ? 0xffd166 : 0x9ad1ff, urgent ? 16 : 10, urgent ? 3 : 2, 260);
+    globalThis.setTimeout(
+      () => this.ringPulse(worldX, worldY, urgent ? 0xff6b6b : 0x5dd6a2, urgent ? 24 : 16, 2, 240),
+      70,
+    );
+    this.kickCamera(urgent ? 0.034 : 0.018, urgent ? 230 : 120);
+    this.punchZoom(urgent ? 1.045 : 1.02, urgent ? 180 : 110);
+    this.scene.cameras.main.flash(
+      urgent ? 160 : 80,
+      urgent ? 255 : 120,
+      urgent ? 210 : 190,
+      urgent ? 120 : 255,
+      true,
+    );
+  }
+
   // Geometry: wall chomp debris burst
   wallChomp(worldX: number, worldY: number) {
     this.playTone({ frequency: 140, duration: 0.1, type: 'sawtooth', volume: 0.08 });

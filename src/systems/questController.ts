@@ -151,6 +151,18 @@ export class QuestController {
     return quest;
   }
 
+  getOfferableQuests(runtime: QuestRuntime, giverRoomId?: string): Quest[] {
+    return this.collectEligibleQuests(runtime, giverRoomId);
+  }
+
+  acceptSpecificQuestById(id: string, runtime: QuestRuntime, giverRoomId?: string): Quest | null {
+    const quest = this.offerSpecificQuestById(id, runtime, giverRoomId);
+    if (!quest || this.active.some((activeQuest) => activeQuest.id === quest.id)) {
+      return quest;
+    }
+    return this.acceptOffered(runtime);
+  }
+
   offerNow(_runtime: QuestRuntime): Quest | null {
     return null;
   }

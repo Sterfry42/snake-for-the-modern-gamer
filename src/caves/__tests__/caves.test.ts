@@ -91,6 +91,33 @@ describe('cave determinism', () => {
       'lake-2',
     ]);
   });
+
+  it('generates random structure caves from real structure stamps', () => {
+    const result = generateCave({
+      caveId: 'cave:6,0,0:0',
+      parentRoomId: '6,0,0',
+      templateId: 'randomStructureRoom',
+      grid: defaultGameConfig.grid,
+      worldSeed: 'structure-cave-test',
+      returnPosition: { x: 8, y: 8 },
+    });
+
+    const room = result.room;
+    const hasStampedStructure = Boolean(
+      room.village ||
+        room.goblinCamp ||
+        room.snakeMcDonalds ||
+        room.shrine ||
+        room.questGiver,
+    );
+
+    expect(room.cave?.forcedStructureId).toBeDefined();
+    expect(room.cave?.forcedStructureId).not.toBe('fallbackTreasure');
+    expect(hasStampedStructure).toBe(true);
+    expect(room.layout[result.spawn.y]?.[result.spawn.x]).toBe('.');
+    expect(room.layout[result.exit.y]?.[result.exit.x]).toBe('X');
+    expect(hasDryPath(room.layout, result.spawn, result.exit)).toBe(true);
+  });
 });
 
 describe('cave spawn rate', () => {
@@ -117,9 +144,9 @@ describe('cave spawn rate', () => {
     const rate = caves / generated;
     expect({ generated, caves, rate }).toMatchInlineSnapshot(`
       {
-        "caves": 540,
+        "caves": 549,
         "generated": 5329,
-        "rate": 0.10133233252017264,
+        "rate": 0.10302120472884219,
       }
     `);
     expect(rate).toBeGreaterThanOrEqual(0.085);
