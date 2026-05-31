@@ -81,7 +81,9 @@ export class CrossRoomFeatureOperations {
             ];
     if (
       involvedRooms.some(
-        ([x, y]) => this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id === 'sunken-ocean',
+        ([x, y]) =>
+          this.isSpecialHouseRoom(x, y, roomZ) ||
+          this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id === 'sunken-ocean',
       )
     ) {
       return null;
@@ -210,7 +212,7 @@ export class CrossRoomFeatureOperations {
         '~',
         protectedCells,
       );
-      if (segmentIndex === river.bridgeIndex) {
+      if (this.shouldPlaceBridge(river, anchorX, anchorY, roomZ, segmentIndex)) {
         this.drawGlobalRect(
           layout,
           grid,
@@ -247,7 +249,7 @@ export class CrossRoomFeatureOperations {
         '~',
         protectedCells,
       );
-      if (segmentIndex === river.bridgeIndex) {
+      if (this.shouldPlaceBridge(river, anchorX, anchorY, roomZ, segmentIndex)) {
         this.drawGlobalRect(
           layout,
           grid,
@@ -301,6 +303,22 @@ export class CrossRoomFeatureOperations {
     return { orientation, offset, width, length, bridgeIndex };
   }
 
+  private shouldPlaceBridge(
+    river: { bridgeIndex: number; length: number },
+    anchorX: number,
+    anchorY: number,
+    roomZ: number,
+    segmentIndex: number,
+  ): boolean {
+    if (segmentIndex === river.bridgeIndex) {
+      return true;
+    }
+    if (segmentIndex <= 0 || segmentIndex >= river.length - 1) {
+      return false;
+    }
+    return this.hashRoom(anchorX + segmentIndex, anchorY - segmentIndex, roomZ, 0x76d) % 100 < 40;
+  }
+
   private drawGlobalRect(
     layout: string[][],
     grid: GridConfig,
@@ -352,6 +370,10 @@ export class CrossRoomFeatureOperations {
 
   private isStartingArea(roomX: number, roomY: number, roomZ: number): boolean {
     return roomZ === 0 && Math.abs(roomX) <= 1 && Math.abs(roomY) <= 1;
+  }
+
+  private isSpecialHouseRoom(roomX: number, roomY: number, roomZ: number): boolean {
+    return roomX === 0 && roomY === -1 && roomZ === 0;
   }
 
   private hashRoom(roomX: number, roomY: number, roomZ: number, salt: number): number {

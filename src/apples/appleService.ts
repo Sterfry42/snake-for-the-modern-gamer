@@ -32,6 +32,7 @@ interface AppleSpawnOption extends Vector2Like {
 export class AppleService {
   private readonly registry: AppleRegistry;
   private readonly apples = new Map<string, AppleInstance>();
+  private nextAppleId = 0;
 
   constructor(
     private readonly config: AppleSystemConfig,
@@ -47,8 +48,12 @@ export class AppleService {
   }
 
   getSnapshot(roomId: string): AppleSnapshot | null {
-    const apple = this.apples.get(roomId);
+    const apple = this.getRoomApples(roomId)[0];
     return apple ? apple.getSnapshot() : null;
+  }
+
+  getSnapshots(roomId: string): AppleSnapshot[] {
+    return this.getRoomApples(roomId).map((apple) => apple.getSnapshot());
   }
 
   ensureApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
@@ -57,11 +62,11 @@ export class AppleService {
       return { snapshot: null, changed: false };
     }
     const room = this.world.getRoom(roomId);
-    if (room.town || room.townPerimeter) {
+    if (room.town) {
       this.clearApple(roomId);
       return { snapshot: null, changed: false };
     }
-    const existing = this.apples.get(roomId);
+    const existing = this.getRoomApples(roomId)[0];
     if (existing) {
       return { snapshot: existing.getSnapshot(), changed: false };
     }
@@ -73,7 +78,7 @@ export class AppleService {
       return { snapshot: null, changed: false };
     }
     const room = this.world.getRoom(roomId);
-    if (room.town || room.townPerimeter) {
+    if (room.town) {
       this.clearApple(roomId);
       return { snapshot: null, changed: false };
     }
@@ -92,8 +97,9 @@ export class AppleService {
     const instance = this.registry.createInstance(appleType, roomId, position);
     instance.initialize({ rng: this.rng });
 
-    this.apples.set(roomId, instance);
-    this.world.setApple(roomId, position);
+    this.clearRoomApple(roomId);
+    this.trackApple(instance);
+    this.syncRoomApples(roomId);
     return { snapshot: instance.getSnapshot(), changed: true };
   }
 
@@ -102,6 +108,7 @@ export class AppleService {
     position: Vector2Like,
     typeId: string,
     snake: Vector2Like[] = [],
+    allowMultiple = false,
   ): AppleSpawnResult {
     const room = this.world.getRoom(roomId);
     const tile = room.layout[position.y]?.[position.x];
@@ -116,16 +123,18 @@ export class AppleService {
     if (!appleType) {
       return { snapshot: this.getSnapshot(roomId), changed: false };
     }
-    this.clearApple(roomId);
+    if (!allowMultiple) {
+      this.clearRoomApple(roomId);
+    }
     const instance = this.registry.createInstance(appleType, roomId, position);
     instance.initialize({ rng: this.rng });
-    this.apples.set(roomId, instance);
-    this.world.setApple(roomId, position);
+    this.trackApple(instance);
+    this.syncRoomApples(roomId);
     return { snapshot: instance.getSnapshot(), changed: true };
   }
 
   clearRoomApple(roomId: string): void {
-    this.clearApple(roomId);
+    this.clearRoomApplesInternal(roomId);
   }
 
   moveApples(snake: Vector2Like[]): Set<string> {
@@ -165,8 +174,9 @@ export class AppleService {
     roomId: string,
     direction: Vector2Like,
     phasing = false,
+    position?: Vector2Like,
   ): AppleConsumptionResult {
-    const apple = this.apples.get(roomId) ?? null;
+    const apple = this.findApple(roomId, position) ?? null;
     if (!apple) {
       return {
         fatal: false,
@@ -191,7 +201,8 @@ export class AppleService {
 
     const rewards = apple.onConsume();
     const worldPosition = this.appleWorldPosition(apple);
-    this.clearApple(roomId);
+    this.untrackApple(apple);
+    this.syncRoomApples(roomId);
 
     return {
       fatal: false,
@@ -204,18 +215,21 @@ export class AppleService {
   }
 
   clearApple(roomId: string): void {
-    if (!this.apples.has(roomId)) {
-      return;
-    }
-    this.apples.delete(roomId);
-    this.world.setApple(roomId, undefined);
+    this.clearRoomApplesInternal(roomId);
   }
 
   clearAll(): void {
     this.apples.clear();
+    this.nextAppleId = 0;
   }
 
   private appleWorldPosition(apple: AppleInstance): Vector2Like {
+    if (apple.roomId.startsWith('cave:')) {
+      return {
+        x: (apple.position.x + 0.5) * this.grid.cell,
+        y: (apple.position.y + 0.5) * this.grid.cell,
+      };
+    }
     const [roomX, roomY] = apple.roomId.split(',').map(Number);
     const worldX = (roomX * this.grid.cols + apple.position.x + 0.5) * this.grid.cell;
     const worldY = (roomY * this.grid.rows + apple.position.y + 0.5) * this.grid.cell;
@@ -251,7 +265,7 @@ export class AppleService {
     }
     const fromRoom = apple.roomId;
 
-    const occupant = this.apples.get(roomId);
+    const occupant = this.findApple(roomId, position);
     if (
       occupant &&
       occupant !== apple &&
@@ -266,16 +280,13 @@ export class AppleService {
       return null;
     }
 
+    this.untrackApple(apple);
     if (fromRoom !== roomId) {
-      this.world.setApple(fromRoom, undefined);
+      this.syncRoomApples(fromRoom);
     }
-
     apple.relocate(roomId, position);
-    this.apples.set(roomId, apple);
-    this.world.setApple(roomId, position);
-    if (fromRoom !== roomId) {
-      this.apples.delete(fromRoom);
-    }
+    this.trackApple(apple);
+    this.syncRoomApples(roomId);
 
     return { from: fromRoom, to: apple.roomId };
   }
@@ -285,6 +296,37 @@ export class AppleService {
     dir: Vector2Like,
     snake: Vector2Like[],
   ): { roomId: string; position: Vector2Like } | null {
+    if (apple.roomId.startsWith('cave:')) {
+      const localX = apple.position.x + dir.x;
+      const localY = apple.position.y + dir.y;
+      if (
+        localX < 0 ||
+        localY < 0 ||
+        localX >= this.grid.cols ||
+        localY >= this.grid.rows
+      ) {
+        return null;
+      }
+      const targetRoom = this.world.getRoom(apple.roomId);
+      const tile = targetRoom.layout[localY]?.[localX];
+      if (tile !== '.') {
+        return null;
+      }
+      const occupant = this.findApple(apple.roomId, { x: localX, y: localY });
+      if (
+        occupant &&
+        occupant !== apple &&
+        occupant.position.x === localX &&
+        occupant.position.y === localY
+      ) {
+        return null;
+      }
+      if (this.isSnakeAtGlobal(snake, localX, localY)) {
+        return null;
+      }
+      return { roomId: apple.roomId, position: { x: localX, y: localY } };
+    }
+
     let localX = apple.position.x + dir.x;
     let localY = apple.position.y + dir.y;
     let [roomX, roomY, roomZ = 0] = apple.roomId.split(',').map(Number);
@@ -315,7 +357,7 @@ export class AppleService {
       return null;
     }
 
-    const occupant = this.apples.get(targetRoomId);
+    const occupant = this.findApple(targetRoomId, { x: localX, y: localY });
     if (
       occupant &&
       occupant !== apple &&
@@ -341,10 +383,10 @@ export class AppleService {
       currentRoom: this.world.getRoom(apple.roomId),
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       isAppleOccupied: (roomId: string, position: Vector2Like) => {
-        const occupant = this.apples.get(roomId);
+        const occupant = this.findApple(roomId, position);
         if (!occupant) return false;
         if (occupant === apple) return false;
-        return occupant.position.x === position.x && occupant.position.y === position.y;
+        return true;
       },
     };
   }
@@ -389,8 +431,9 @@ export class AppleService {
     snake: Vector2Like[],
   ): AppleSpawnOption[] {
     const options: AppleSpawnOption[] = [];
-    const [roomX, roomY] = roomId.split(',').map(Number);
-    const occupant = this.apples.get(roomId);
+    const isCaveRoom = roomId.startsWith('cave:');
+    const [roomX, roomY] = isCaveRoom ? [0, 0] : roomId.split(',').map(Number);
+    const roomApples = this.getRoomApples(roomId);
 
     for (let y = 0; y < layout.length; y++) {
       const row = layout[y];
@@ -399,7 +442,7 @@ export class AppleService {
         if (tile !== '.' && tile !== '~') continue;
         // Avoid spawning on treasure chests
         if (this.world.hasTreasureAt(roomId, x, y)) continue;
-        if (occupant && occupant.position.x === x && occupant.position.y === y) continue;
+        if (roomApples.some((apple) => apple.position.x === x && apple.position.y === y)) continue;
         const globalX = roomX * this.grid.cols + x;
         const globalY = roomY * this.grid.rows + y;
         if (this.isSnakeAtGlobal(snake, globalX, globalY)) continue;
@@ -422,5 +465,55 @@ export class AppleService {
 
   private isSnakeAtGlobal(snake: Vector2Like[], x: number, y: number): boolean {
     return snake.some((segment) => segment.x === x && segment.y === y);
+  }
+
+  private getRoomApples(roomId: string): AppleInstance[] {
+    return Array.from(this.apples.values()).filter((apple) => apple.roomId === roomId);
+  }
+
+  private findApple(roomId: string, position?: Vector2Like): AppleInstance | undefined {
+    const apples = this.getRoomApples(roomId);
+    if (!position) {
+      return apples[0];
+    }
+    return apples.find(
+      (apple) => apple.position.x === position.x && apple.position.y === position.y,
+    );
+  }
+
+  private trackApple(apple: AppleInstance): void {
+    this.apples.set(`apple:${this.nextAppleId++}`, apple);
+  }
+
+  private untrackApple(apple: AppleInstance): void {
+    for (const [key, candidate] of this.apples) {
+      if (candidate === apple) {
+        this.apples.delete(key);
+        return;
+      }
+    }
+  }
+
+  private clearRoomApplesInternal(roomId: string): void {
+    let changed = false;
+    for (const [key, apple] of Array.from(this.apples.entries())) {
+      if (apple.roomId === roomId) {
+        this.apples.delete(key);
+        changed = true;
+      }
+    }
+    if (changed) {
+      this.syncRoomApples(roomId);
+    } else {
+      this.world.setApple(roomId, undefined);
+      this.world.getRoom(roomId).apples = undefined;
+    }
+  }
+
+  private syncRoomApples(roomId: string): void {
+    const positions = this.getRoomApples(roomId).map((apple) => ({ ...apple.position }));
+    const primary = positions[0];
+    this.world.setApple(roomId, primary);
+    this.world.getRoom(roomId).apples = positions.length > 1 ? positions : undefined;
   }
 }

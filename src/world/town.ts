@@ -204,7 +204,15 @@ export interface TownResident extends Omit<NpcProfile, 'role'> {
   actorId?: string;
   x: number;
   y: number;
-  role: 'shopkeeper' | 'bartender' | 'guard' | 'resident' | 'thiefContact' | 'thief' | 'scribe';
+  role:
+    | 'shopkeeper'
+    | 'bartender'
+    | 'guard'
+    | 'resident'
+    | 'thiefContact'
+    | 'thief'
+    | 'scribe'
+    | 'questGiver';
   homeRoomId?: string;
   workRoomId?: string;
   townId: string;
@@ -539,6 +547,7 @@ export function createPhysicalHumanTown(args: {
   const residentSpots = [
     { role: 'shopkeeper' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'marketStreet' as const },
     { role: 'bartender' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'tavernInterior' as const },
+    { role: 'questGiver' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'tavernInterior' as const },
     { role: 'guard' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'gate' as const },
     { role: 'guard' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'gate' as const },
     { role: 'guard' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'square' as const },
@@ -562,14 +571,26 @@ export function createPhysicalHumanTown(args: {
       spot.role === 'thief' || spot.role === 'thiefContact' ? pick(BANDIT_PORTRAITS, rng) : pick(PORTRAITS, rng),
     ),
     actorId: `town:${town.id}:${
-      spot.role === 'shopkeeper' ? 'shopkeeper' : spot.role === 'guard' ? 'guard' : 'resident'
+      spot.role === 'shopkeeper'
+        ? 'shopkeeper'
+        : spot.role === 'guard'
+          ? 'guard'
+          : spot.role === 'questGiver'
+            ? 'questGiver'
+            : 'resident'
     }:${town.id}:resident:${spot.role}:${index}`,
     x: 0,
     y: 0,
     role: spot.role,
     townId: town.id,
     factionId: spot.role === 'thiefContact' || spot.role === 'thief' ? 'thieves-guild' : 'human-town',
-    homeRoomId: roomFor(spot.role === 'resident' ? 'residentialStreet' : 'square'),
+    homeRoomId: roomFor(
+      spot.role === 'resident'
+        ? 'residentialStreet'
+        : spot.role === 'questGiver' || spot.role === 'bartender'
+          ? 'tavernInterior'
+          : 'square',
+    ),
     workRoomId: roomFor(spot.workDistrict),
     id: `${town.id}:resident:${spot.role}:${index}`,
   }));

@@ -224,6 +224,53 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'amulet-scavenger',
+    name: 'Scavenger Amulet',
+    description:
+      'A cave-worn charm that listens for useful hollows. Apples send a wider pulse through stone.',
+    kind: 'equipment',
+    slot: 'amulet',
+    modifiers: {
+      seismicPulseBonus: 2,
+      hazardMapSense: 1,
+    },
+  },
+  {
+    id: 'ring-back-alley-dividend',
+    name: 'Back-Alley Dividend',
+    description:
+      'A crooked silver ring that pays out when you keep moving, but its weight slows the rhythm.',
+    kind: 'equipment',
+    slot: 'ring',
+    modifiers: {
+      refundEveryRooms: { interval: 8, score: 18 },
+      tickDelayScalar: 1.04,
+    },
+  },
+  {
+    id: 'helm-cave-echo',
+    name: 'Cave Echo Helm',
+    description: 'A battered helm that makes nearby walls feel louder and cold tunnels less cruel.',
+    kind: 'equipment',
+    slot: 'helm',
+    modifiers: {
+      wallSenseBonus: 2,
+      coldResistance: 0.3,
+    },
+  },
+  {
+    id: 'belt-smuggler-cache',
+    name: 'Smuggler Cache Belt',
+    description:
+      'A hidden-pocket belt that slowly finds room for more snake, provided you survive long enough.',
+    kind: 'equipment',
+    slot: 'belt',
+    modifiers: {
+      regenerator: { interval: 18, amount: 1 },
+      tickDelayScalar: 1.03,
+    },
+  },
+  {
     id: 'raw-meat',
     name: 'Raw Meat',
     description: 'A strip of raw meat, still warm. Cooking it would make it safe and nourishing.',

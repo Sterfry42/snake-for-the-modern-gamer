@@ -297,9 +297,12 @@ export class SnakeState {
     }
 
     const appleEaten = Boolean(
-      finalizedRoom.apple &&
-      finalizedRoom.apple.x === finalLocalHeadX &&
-      finalizedRoom.apple.y === finalLocalHeadY,
+      (finalizedRoom.apple &&
+        finalizedRoom.apple.x === finalLocalHeadX &&
+        finalizedRoom.apple.y === finalLocalHeadY) ||
+        finalizedRoom.apples?.some(
+          (apple) => apple.x === finalLocalHeadX && apple.y === finalLocalHeadY,
+        ),
     );
     const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTailStack();
     const koiFlowActive = this.isKoiFlowActive();

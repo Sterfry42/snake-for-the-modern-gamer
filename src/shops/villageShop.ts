@@ -81,25 +81,25 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
 
 export const BLACK_MARKET_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
   {
-    id: 'black-ledger-ring',
-    itemId: 'ring-ledger',
-    price: 54,
+    id: 'black-dividend-ring',
+    itemId: 'ring-back-alley-dividend',
+    price: 58,
     slot: 'ring',
-    note: 'A debt-ring that refunds score, then quietly taxes your apples.',
+    note: 'A crooked payout ring for snakes who can afford the heavier rhythm.',
   },
   {
-    id: 'black-hazard-halo',
-    itemId: 'helm-hazard-halo',
-    price: 48,
+    id: 'black-cave-echo-helm',
+    itemId: 'helm-cave-echo',
+    price: 50,
     slot: 'helm',
-    note: 'Contraband hazard sense for rooms that should have been condemned.',
+    note: 'A tunnel-listening helm for snakes who want the wall to confess first.',
   },
   {
-    id: 'black-time-splinter',
-    itemId: 'amulet-time-splinter',
-    price: 62,
+    id: 'black-scavenger-amulet',
+    itemId: 'amulet-scavenger',
+    price: 64,
     slot: 'amulet',
-    note: 'Stolen future-glass. Fast, fragile, and probably watching you.',
+    note: 'Finds trouble, treasure, and sometimes the difference between them.',
   },
   {
     id: 'black-market-revolver',

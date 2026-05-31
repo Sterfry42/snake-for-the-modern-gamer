@@ -259,6 +259,19 @@ export interface QuestMapMarker {
   color: number;
 }
 
+export interface QuestObjectiveSummary {
+  roomId: string;
+  label: string;
+  kind: QuestMapMarker['kind'];
+  coordinates: { x: number; y: number; z: number };
+}
+
+export interface TownQuestOption {
+  id: string;
+  label: string;
+  description: string;
+}
+
 export interface QuestRoomActor {
   id: string;
   questId: string;
@@ -342,6 +355,15 @@ export interface DeathDebugSnapshot {
 }
 
 const POST_DEATH_INVULNERABILITY_TICKS = 30;
+const LARGE_TOWN_QUEST_IDS = new Set([
+  'tax-collector-future-body',
+  'green-purchase',
+  'find-my-baby',
+  'goblin-ledger-debt',
+  'freak-you',
+  'starforged-heliopause',
+]);
+const TOWN_QUEST_EXCLUDED_IDS = new Set(['deep-lying-bouquet']);
 
 interface MomentumComputedConfig {
   enabled: boolean;
@@ -1050,6 +1072,7 @@ export class SnakeGame implements QuestRuntime {
         this.snake.currentRoomId,
         this.snake.directionVector,
         phasePowerupActive,
+        this.worldToLocal(this.snake.currentRoomId, currentHead),
       );
       if (consumption.fatal) {
         if (this.isImmortal()) {
@@ -1057,6 +1080,7 @@ export class SnakeGame implements QuestRuntime {
             this.snake.currentRoomId,
             this.snake.directionVector,
             true,
+            this.worldToLocal(this.snake.currentRoomId, currentHead),
           );
           appleRewards = normalConsumption.rewards;
           appleWorldPosition = normalConsumption.worldPosition ?? null;
@@ -1186,7 +1210,11 @@ export class SnakeGame implements QuestRuntime {
         } else {
           let awardedName: string | undefined;
           let awardedId: string | undefined;
-          if (this.rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
+          if (room.cave) {
+            awardedId = this.pickCaveRewardId(room.cave.templateId, `chest:${room.id}`);
+            this.inventory.addItem(awardedId, 1);
+            awardedName = getItem(awardedId)?.name ?? awardedId;
+          } else if (this.rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
             const cardId = this.pickRandomCardId();
             const card = getCardDefinition(cardId);
             this.addCardToCollection(cardId, 1);
@@ -1673,7 +1701,7 @@ export class SnakeGame implements QuestRuntime {
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       ensureApple: (roomId: string, snake, score) => {
         const room = this.world.getRoom(roomId);
-        if (room.town || room.townPerimeter) {
+        if (room.town) {
           this.apples.clearApple(roomId);
           return;
         }
@@ -1742,7 +1770,7 @@ export class SnakeGame implements QuestRuntime {
       runtime.timerTicks = ticks;
       runtime.timerTotalTicks = ticks;
       runtime.appleRushRemaining = this.resolveCaveAppleCount(entrance.templateId, entrance.caveId);
-      this.spawnNextCaveRushApple(caveRoom.id, entrance.templateId, runtime);
+      this.refillCaveRushApples(caveRoom.id, entrance.templateId, runtime);
     }
     if (caveRoom.cave?.enemyCount) {
       this.enemies.ensureCaveEnemies(
@@ -1838,19 +1866,48 @@ export class SnakeGame implements QuestRuntime {
       this.exitCurrentCave(roomsChanged, 'reward');
       return null;
     }
-    return this.spawnNextCaveRushApple(runtime.caveId, runtime.templateId, updated);
+    this.refillCaveRushApples(runtime.caveId, runtime.templateId, updated);
+    return this.apples.getSnapshot(runtime.caveId);
   }
 
-  private spawnNextCaveRushApple(
+  private refillCaveRushApples(
     caveId: string,
     templateId: CaveRuntimeState['templateId'],
     runtime: CaveRuntimeState,
+  ): void {
+    const remaining = Math.max(0, runtime.appleRushRemaining ?? 0);
+    const target = Math.min(remaining, this.getCaveRushActiveAppleLimit(templateId, remaining));
+    const current = this.apples.getSnapshots(caveId).length;
+    for (let i = current; i < target; i += 1) {
+      this.spawnCaveRushApple(caveId, templateId, runtime, i);
+    }
+  }
+
+  private getCaveRushActiveAppleLimit(
+    templateId: CaveRuntimeState['templateId'],
+    remaining: number,
+  ): number {
+    if (templateId === 'skittishAppleRush') {
+      return remaining;
+    }
+    if (templateId === 'goldenAppleRush') {
+      return Math.min(3, remaining);
+    }
+    return Math.min(1, remaining);
+  }
+
+  private spawnCaveRushApple(
+    caveId: string,
+    templateId: CaveRuntimeState['templateId'],
+    runtime: CaveRuntimeState,
+    index: number,
   ): AppleSnapshot | null {
     const room = this.world.getRoom(caveId);
     const template = getCaveTemplate(templateId);
     const typeId = template.applePool?.typeId ?? 'gold';
     const occupied = Array.from(this.snake.bodySegments);
-    const seed = `${caveId}:${runtime.appleRushRemaining ?? 0}:${typeId}`;
+    const existing = this.apples.getSnapshots(caveId).map((apple) => apple.position);
+    const seed = `${caveId}:${runtime.appleRushRemaining ?? 0}:${typeId}:${index}`;
     let hash = 0;
     for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
     const options: Vector2Like[] = [];
@@ -1858,6 +1915,7 @@ export class SnakeGame implements QuestRuntime {
       for (let x = 2; x < this.config.grid.cols - 2; x += 1) {
         if (room.layout[y]?.[x] !== '.') continue;
         if (occupied.some((segment) => segment.x === x && segment.y === y)) continue;
+        if (existing.some((apple) => apple.x === x && apple.y === y)) continue;
         options.push({ x, y });
       }
     }
@@ -1865,7 +1923,7 @@ export class SnakeGame implements QuestRuntime {
     if (!position) {
       return null;
     }
-    return this.apples.placeApple(caveId, position, typeId, occupied).snapshot;
+    return this.apples.placeApple(caveId, position, typeId, occupied, true).snapshot;
   }
 
   private resolveCaveAppleCount(
@@ -1968,17 +2026,105 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.treasurePickup', { x: head.x, y: head.y, roomId });
   }
 
+  claimCaveDwellerReward(): {
+    state: 'none' | 'claimed' | 'available';
+    itemId?: string;
+    itemName?: string;
+    pages: string[];
+  } {
+    const room = this.getCurrentRoom();
+    if (!room.cave || room.cave.templateId !== 'caveDweller') {
+      return { state: 'none', pages: [] };
+    }
+    const save = this.ensureCaveSave(
+      {
+        id: `${room.id}:entrance`,
+        caveId: room.id,
+        x: 0,
+        y: 0,
+        templateId: room.cave.templateId,
+        collapsed: false,
+      },
+      room.cave.parentRoomId,
+    );
+    if (save.rewardClaimed || room.cave.dwellerRewardClaimed) {
+      return {
+        state: 'claimed',
+        pages: [
+          'The cave dweller taps the wall twice and listens.',
+          'I already gave you what the stone owed me. If the cave still wants payment, make sure it pays you first.',
+        ],
+      };
+    }
+    const rewardId = 'helm-cave-echo';
+    const itemName = getItem(rewardId)?.name ?? rewardId;
+    const head = this.snake.bodySegments[0] ?? { x: 0, y: 0 };
+    this.inventory.addItem(rewardId, 1);
+    save.rewardClaimed = true;
+    save.state = 'completed';
+    this.writeCaveSave(save);
+    this.world.setCaveSave(save);
+    room.cave.dwellerRewardClaimed = true;
+    this.setFlag('loot.itemPicked', {
+      head,
+      itemName,
+      itemId: rewardId,
+    });
+    this.setFlag('ui.treasurePickup', { x: head.x, y: head.y, roomId: room.id });
+    return {
+      state: 'available',
+      itemId: rewardId,
+      itemName,
+      pages: [
+        'The cave dweller does not look surprised to see a snake. They look surprised the cave let you keep your shape.',
+        'Most caves are not cold. This one is. Stone has moods, and old stone remembers winter better than sunlight.',
+        `A snake should never enter a cave unarmed. Take the ${itemName}. It makes walls speak before they bite.`,
+      ],
+    };
+  }
+
   private pickCaveRewardId(templateId: CaveRuntimeState['templateId'], salt: string): string {
-    const table =
+    const table: Array<{ id: string; weight: number }> =
       templateId === 'lakeTreasure'
-        ? ['boots-swim-fins', 'weapon-revolver', 'ring-seismic', 'ramen']
-        : ['ramen', 'ring-seismic', 'weapon-revolver'];
+        ? [
+            { id: 'amulet-phoenix', weight: 3 },
+            { id: 'boots-lead-flippers', weight: 3 },
+            { id: 'amulet-scavenger', weight: 2 },
+            { id: 'belt-regenerator', weight: 2 },
+            { id: 'belt-smuggler-cache', weight: 1 },
+            { id: 'ring-seismic', weight: 2 },
+            { id: 'weapon-revolver', weight: 1 },
+            { id: 'helm-cave-echo', weight: 1 },
+          ]
+        : templateId === 'monsterDen'
+          ? [
+              { id: 'amulet-phoenix', weight: 4 },
+              { id: 'boots-lead-flippers', weight: 3 },
+              { id: 'amulet-scavenger', weight: 2 },
+              { id: 'belt-regenerator', weight: 2 },
+              { id: 'ring-back-alley-dividend', weight: 1 },
+              { id: 'ring-seismic', weight: 1 },
+            ]
+          : [
+              { id: 'ring-seismic', weight: 2 },
+              { id: 'weapon-revolver', weight: 2 },
+              { id: 'boots-swim-fins', weight: 1 },
+              { id: 'amulet-phoenix', weight: 1 },
+            ];
     let hash = 0;
     for (let i = 0; i < salt.length + templateId.length; i += 1) {
       hash =
         (hash * 31 + `${templateId}:${salt}`.charCodeAt(i % `${templateId}:${salt}`.length)) >>> 0;
     }
-    return table[hash % table.length] ?? table[0]!;
+    const total = table.reduce((sum, entry) => sum + entry.weight, 0);
+    let cursor = hash % total;
+    for (const entry of table) {
+      cursor -= entry.weight;
+      if (cursor < 0) {
+        return entry.id;
+      }
+    }
+    return table[0]?.id ?? 'ring-seismic';
   }
 
   private collapseParentEntrance(runtime: CaveRuntimeState, collapse?: boolean): void {
@@ -4507,7 +4653,8 @@ export class SnakeGame implements QuestRuntime {
           stationary:
             resident.role === 'guard' ||
             resident.role === 'shopkeeper' ||
-            resident.role === 'bartender',
+            resident.role === 'bartender' ||
+            resident.role === 'questGiver',
         });
       }
     }
@@ -5180,6 +5327,118 @@ export class SnakeGame implements QuestRuntime {
     return this.registry.getAll();
   }
 
+  getTownQuestBoardOptions(): TownQuestOption[] {
+    const town = this.getCurrentTown();
+    if (!town) {
+      return [];
+    }
+    return this.questController
+      .getOfferableQuests(this)
+      .filter((quest) => !TOWN_QUEST_EXCLUDED_IDS.has(quest.id))
+      .filter((quest) => this.getQuestScale(quest.id) === 'small')
+      .sort(
+        (a, b) =>
+          this.stableQuestSortValue(`${town.id}:board:${a.id}`) -
+          this.stableQuestSortValue(`${town.id}:board:${b.id}`),
+      )
+      .slice(0, 4)
+      .map((quest) => this.toTownQuestOption(quest));
+  }
+
+  acceptTownQuestBoardQuest(questId: string): { ok: boolean; message: string; quest?: Quest } {
+    const options = this.getTownQuestBoardOptions();
+    if (!options.some((option) => option.id === questId)) {
+      return { ok: false, message: 'That notice is no longer available.' };
+    }
+    const accepted = this.questController.acceptSpecificQuestById(questId, this);
+    if (!accepted) {
+      return { ok: false, message: 'That notice has already been handled.' };
+    }
+    this.setActiveQuestMarkerQuestId(accepted.id);
+    return { ok: true, message: `Accepted: ${accepted.label}.`, quest: accepted };
+  }
+
+  getTownLargeQuestOption(): TownQuestOption | null {
+    const town = this.getCurrentTown();
+    if (!town) {
+      return null;
+    }
+    if (!this.getCurrentTownLargeQuestGiver(town)) {
+      return null;
+    }
+    const quest = this.getTownLargeQuestForTown(town);
+    return quest ? this.toTownQuestOption(quest) : null;
+  }
+
+  acceptTownLargeQuest(actorId?: string): { ok: boolean; message: string; quest?: Quest } {
+    if (actorId && !this.isCurrentTownLargeQuestGiverActor(actorId)) {
+      return { ok: false, message: 'That person has no large job for you.' };
+    }
+    const option = this.getTownLargeQuestOption();
+    if (!option) {
+      return { ok: false, message: 'No larger work is available here right now.' };
+    }
+    const accepted = this.questController.acceptSpecificQuestById(
+      option.id,
+      this,
+      this.snake.currentRoomId,
+    );
+    if (!accepted) {
+      return { ok: false, message: 'That job slipped away before you could accept it.' };
+    }
+    this.setActiveQuestMarkerQuestId(accepted.id);
+    return { ok: true, message: `Accepted: ${accepted.label}.`, quest: accepted };
+  }
+
+  isCurrentTownLargeQuestGiverActor(actorId: string): boolean {
+    const town = this.getCurrentTown();
+    if (!town) {
+      return false;
+    }
+    const giver = this.getCurrentTownLargeQuestGiver(town);
+    if (!giver) {
+      return false;
+    }
+    const expected =
+      giver.actorId ?? this.getTownResidentActorId(town.id, giver.id, giver.role);
+    return actorId === expected;
+  }
+
+  setActiveQuestMarkerQuestId(questId: string | undefined): boolean {
+    if (!questId) {
+      this.setFlag('quest.activeMarkerId', undefined);
+      return true;
+    }
+    const known = new Set([
+      ...this.questController.getAcceptedIds(),
+      ...this.questController.getActive().map((quest) => quest.id),
+      ...this.questController.getCompletedIds(),
+    ]);
+    if (!known.has(questId)) {
+      return false;
+    }
+    this.setFlag('quest.activeMarkerId', questId);
+    return true;
+  }
+
+  getActiveQuestMarkerQuestId(): string | undefined {
+    return this.getFlag<string>('quest.activeMarkerId');
+  }
+
+  getQuestObjectiveSummaries(questId: string): QuestObjectiveSummary[] {
+    return this.collectQuestMapMarkers()
+      .filter((marker) => marker.questId === questId)
+      .map((marker) => {
+        const [x = 0, y = 0, z = 0] = marker.roomId.split(',').map((part) => Number(part));
+        return {
+          roomId: marker.roomId,
+          label: marker.label,
+          kind: marker.kind,
+          coordinates: { x, y, z },
+        };
+      });
+  }
+
   getOfferedQuest(): Quest | null {
     return this.questController.getOffered();
   }
@@ -5291,6 +5550,64 @@ export class SnakeGame implements QuestRuntime {
     return this.questController.getQuestForGiver(roomId, this);
   }
 
+  private getQuestScale(questId: string): 'small' | 'large' {
+    return LARGE_TOWN_QUEST_IDS.has(questId) || this.requiresQuestGiver(questId)
+      ? 'large'
+      : 'small';
+  }
+
+  private getCurrentTownLargeQuestGiver(town: TownStructure): TownStructure['residents'][number] | null {
+    const roomId = this.snake.currentRoomId;
+    return (
+      town.residents.find(
+        (resident) => resident.role === 'questGiver' && resident.workRoomId === roomId,
+      ) ?? null
+    );
+  }
+
+  private getTownLargeQuestForTown(town: TownStructure): Quest | null {
+    const key = `town.largeQuest.${town.id}`;
+    const selectedQuestId = this.getFlag<string>(key);
+    const offerable = this.questController
+      .getOfferableQuests(this, this.snake.currentRoomId)
+      .filter((candidate) => !TOWN_QUEST_EXCLUDED_IDS.has(candidate.id))
+      .filter((candidate) => this.getQuestScale(candidate.id) === 'large');
+    if (selectedQuestId) {
+      return offerable.find((quest) => quest.id === selectedQuestId) ?? null;
+    }
+    const quest = offerable.sort(
+      (a, b) =>
+        this.stableQuestSortValue(`${town.id}:large:${a.id}`) -
+        this.stableQuestSortValue(`${town.id}:large:${b.id}`),
+    )[0];
+    if (!quest) {
+      return null;
+    }
+    this.setFlag(key, quest.id);
+    return quest;
+  }
+
+  private toTownQuestOption(quest: Quest): TownQuestOption {
+    const questStrings = i18n.getQuestString(quest.id) ?? {
+      label: quest.label,
+      description: quest.description,
+    };
+    return {
+      id: quest.id,
+      label: questStrings.label,
+      description: questStrings.description,
+    };
+  }
+
+  private stableQuestSortValue(input: string): number {
+    let hash = 2166136261;
+    for (let i = 0; i < input.length; i++) {
+      hash ^= input.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
   requiresQuestGiver(questId: string): boolean {
     return (
       questId === 'tax-collector-future-body' ||
@@ -5326,6 +5643,16 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getQuestMapMarkers(): QuestMapMarker[] {
+    const markers = this.collectQuestMapMarkers();
+    const activeQuestId = this.getActiveQuestMarkerQuestId();
+    if (!activeQuestId) {
+      return markers;
+    }
+    const filtered = markers.filter((marker) => marker.questId === activeQuestId);
+    return filtered.length > 0 ? filtered : markers;
+  }
+
+  private collectQuestMapMarkers(): QuestMapMarker[] {
     const markers: QuestMapMarker[] = [];
     for (const instance of this.getStagedQuestInstances()) {
       if (instance.stage === 'failed' || instance.stage === 'completed') {
@@ -6095,7 +6422,9 @@ export class SnakeGame implements QuestRuntime {
         encounter.roomId,
       );
       if (quest) {
-        this.ensureEncounterQuestGiver(encounter);
+        if (this.requiresQuestGiver(quest.id)) {
+          this.ensureEncounterQuestGiver(encounter);
+        }
         if (encounter.oneShot) {
           this.resolvedWandererEncounters.add(encounter.id);
         }
@@ -7975,6 +8304,7 @@ export class SnakeGame implements QuestRuntime {
       'quest.staged.completedNow',
       'quest.staged.failedNow',
       'quest.staged.radiationLastTickMs',
+      'quest.activeMarkerId',
       'ui.minimap.unlocked',
       'ui.minimap.enabled',
       'player.health',
@@ -10029,6 +10359,11 @@ export class SnakeGame implements QuestRuntime {
   returnFromManualResumePause(): boolean {
     if (!this.getFlag<boolean>('traversal.manualResumePending')) {
       return false;
+    }
+    const caveRuntime = this.getFlag<CaveRuntimeState>('caves.active');
+    if (caveRuntime && this.snake.currentRoomId === caveRuntime.caveId) {
+      this.exitCurrentCave(new Set([caveRuntime.caveId, caveRuntime.parentRoomId]), 'manual');
+      return true;
     }
     if (!this.getFlag('internal.previousSnapshot')) {
       return false;

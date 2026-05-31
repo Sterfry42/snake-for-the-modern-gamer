@@ -214,6 +214,48 @@ function sharedWallRun(
   return best;
 }
 
+function oppositeEdgeTile(
+  room: RoomSnapshot,
+  direction: 'east' | 'south',
+  index: number,
+  grid: GridConfig,
+): string | undefined {
+  return direction === 'east'
+    ? room.layout[index]?.[grid.cols - 1]
+    : room.layout[grid.rows - 1]?.[index];
+}
+
+function neighborEdgeTile(
+  room: RoomSnapshot,
+  direction: 'east' | 'south',
+  index: number,
+): string | undefined {
+  return direction === 'east' ? room.layout[index]?.[0] : room.layout[0]?.[index];
+}
+
+function passableEdgeRunupClear(
+  room: RoomSnapshot,
+  side: 'east' | 'west' | 'south' | 'north',
+  index: number,
+  grid: GridConfig,
+): boolean {
+  const inward =
+    side === 'east'
+      ? { x: grid.cols - 1, y: index, dx: -1, dy: 0 }
+      : side === 'west'
+        ? { x: 0, y: index, dx: 1, dy: 0 }
+        : side === 'south'
+          ? { x: index, y: grid.rows - 1, dx: 0, dy: -1 }
+          : { x: index, y: 0, dx: 0, dy: 1 };
+  for (let step = 0; step < HARD_RUNUP_TILES; step += 1) {
+    const tile = room.layout[inward.y + inward.dy * step]?.[inward.x + inward.dx * step];
+    if (!isImmediatelySafe(tile)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 describe('world generation fairness', () => {
   it('provides a hard five-tile run-up inward from every safe border entry tile', () => {
     const failures: string[] = [];
@@ -340,6 +382,51 @@ describe('world generation fairness', () => {
     expect(questHouses.length).toBeGreaterThan(0);
     expect(rivers.length).toBeGreaterThan(0);
     expect(crossRoomBoundaryWalls).toBeGreaterThan(0);
+  });
+
+  it('keeps adjacent cross-room barrier edges mutually blocked or mutually passable', () => {
+    const min = -18;
+    const max = 18;
+    const rooms = generateArea('cross-room-edge-consistency', min, max, min, max);
+    const failures: string[] = [];
+
+    for (let y = min; y <= max; y += 1) {
+      for (let x = min; x <= max; x += 1) {
+        for (const direction of ['east', 'south'] as const) {
+          const first = rooms.get(`${x},${y},0`);
+          const second = rooms.get(
+            direction === 'east' ? `${x + 1},${y},0` : `${x},${y + 1},0`,
+          );
+          if (!first || !second) {
+            continue;
+          }
+          const length = direction === 'east' ? defaultGameConfig.grid.rows : defaultGameConfig.grid.cols;
+          for (let index = 0; index < length; index += 1) {
+            const firstTile = oppositeEdgeTile(first, direction, index, defaultGameConfig.grid);
+            const secondTile = neighborEdgeTile(second, direction, index);
+            const firstBlocked = firstTile === '#';
+            const secondBlocked = secondTile === '#';
+            if (firstBlocked === secondBlocked) {
+              continue;
+            }
+            const openRoom = firstBlocked ? second : first;
+            const openSide = firstBlocked
+              ? direction === 'east'
+                ? 'west'
+                : 'north'
+              : direction;
+            if (passableEdgeRunupClear(openRoom, openSide, index, defaultGameConfig.grid)) {
+              failures.push(
+                `${first.id} ${direction} edge ${index}=${firstTile} mismatches ${second.id} opposite=${secondTile}`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    expect(failures.slice(0, 12)).toEqual([]);
+    expect(failures).toHaveLength(0);
   });
 
   it('assigns multiple first-class room archetypes across generated rooms', () => {

@@ -282,12 +282,10 @@ export class MultiRoomStructureResolver {
     if (townOffsetKeys.has(`${dx - 1},${dy}`)) sides.push('west');
     if (townOffsetKeys.has(`${dx + 1},${dy}`)) sides.push('east');
     const corners: Array<'northWest' | 'northEast' | 'southWest' | 'southEast'> = [];
-    if (sides.length === 0) {
-      if (townOffsetKeys.has(`${dx - 1},${dy - 1}`)) corners.push('northWest');
-      if (townOffsetKeys.has(`${dx + 1},${dy - 1}`)) corners.push('northEast');
-      if (townOffsetKeys.has(`${dx - 1},${dy + 1}`)) corners.push('southWest');
-      if (townOffsetKeys.has(`${dx + 1},${dy + 1}`)) corners.push('southEast');
-    }
+    if (townOffsetKeys.has(`${dx - 1},${dy - 1}`)) corners.push('northWest');
+    if (townOffsetKeys.has(`${dx + 1},${dy - 1}`)) corners.push('northEast');
+    if (townOffsetKeys.has(`${dx - 1},${dy + 1}`)) corners.push('southWest');
+    if (townOffsetKeys.has(`${dx + 1},${dy + 1}`)) corners.push('southEast');
     if (sides.length === 0 && corners.length === 0) {
       return null;
     }
