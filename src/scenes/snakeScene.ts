@@ -701,6 +701,8 @@ export default class SnakeScene extends Phaser.Scene {
   private performanceSampleMs = 0;
   private performanceSampleFrames = 0;
   private displayedFps = 0;
+  minecraftMode = false;
+  private minecraftFeature: import('../minecraft/MinecraftFeature.js').MinecraftFeature | null = null;
 
   constructor() {
     super('SnakeScene');
@@ -959,6 +961,13 @@ export default class SnakeScene extends Phaser.Scene {
         }
       }
 
+      // Shift+C: Toggle Minecraft mode
+      if (key === 'c' && event.shiftKey) {
+        event.preventDefault();
+        if (this.deathCutscene || this.paused) return;
+        this.toggleMinecraftMode();
+      }
+
       if (key === 'e') {
         if (this.tryInteractQuestTarget()) {
           return;
@@ -1013,6 +1022,12 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.paused || this.questPopup.isVisible()) {
         return;
       }
+      // Handle Minecraft mode pointer events
+      if (this.minecraftMode && this.minecraftFeature) {
+        this.minecraftFeature.handlePointerDown(this, pointer.worldX, pointer.worldY, pointer.button);
+        this.isDirty = true;
+        return;
+      }
       const head = this.snakeGame?.getSnakeBody?.()[0];
       if (!head) {
         return;
@@ -1029,6 +1044,13 @@ export default class SnakeScene extends Phaser.Scene {
           : { x: 0, y: dy >= 0 ? 1 : -1 };
       if (this.snakeGame.firePlayerShot(direction)) {
         this.isDirty = true;
+      }
+    });
+
+    // Prevent context menu in Minecraft mode
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.minecraftMode && pointer.button === 2) {
+        pointer.event.preventDefault();
       }
     });
   }
@@ -1109,6 +1131,20 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickHouseAmbientEffects();
     this.skillTree.tick();
     this.isDirty = true;
+  }
+
+  private toggleMinecraftMode(): void {
+    this.minecraftMode = !this.minecraftMode;
+
+    if (this.minecraftMode) {
+      // Switch to Minecraft mode
+      this.setFlag('ui.suppressHud', true);
+      this.setFlag('ui.questInteraction', { message: 'Minecraft mode: Shift+C to toggle. Left-click to break blocks, right-click to place. WASD to move. E for crafting.' });
+    } else {
+      // Switch back to snake mode
+      this.setFlag('ui.suppressHud', undefined);
+      this.setFlag('ui.questInteraction', undefined);
+    }
   }
 
   private markStaticRoomsDirty(roomIds: ReadonlySet<string>): void {
@@ -2830,6 +2866,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   prepareCharacterSave(): void {
     this.setFlag('skills.ranks', this.skillTree.exportRanks());
+    this.minecraftFeature?.saveToScene(this);
   }
 
   restoreCharacterSaveState(): void {

@@ -2767,4 +2767,38 @@ export class JuiceManager {
       onComplete: () => g.destroy(),
     });
   }
+
+  // ─── Minecraft Juice ─────────────────────────────────────────────────────
+
+  blockBreak(worldX: number, worldY: number) {
+    this.playTone({ frequency: 200, frequencyEnd: 80, duration: 0.12, type: 'sawtooth', volume: 0.1 });
+    this.kickCamera(0.012, 70);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x8B6914, 0x6B5A3C, 0xA0926B],
+      count: 10,
+      radius: 16,
+    });
+    this.ringPulse(worldX, worldY, 0x8B6914, 6, 2, 180);
+  }
+
+  blockPlace(worldX: number, worldY: number) {
+    this.playTone({ frequency: 340, duration: 0.08, type: 'triangle', volume: 0.08 });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 8, 2, 160);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff, 0x5dd6a2],
+      count: 6,
+      radius: 12,
+    });
+  }
+
+  mobHit(worldX: number, worldY: number) {
+    this.playTone({ frequency: 260, frequencyEnd: 120, duration: 0.14, type: 'sawtooth', volume: 0.09 });
+    this.kickCamera(0.014, 90);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffa36c, 0xfff3a8],
+      count: 8,
+      radius: 14,
+    });
+    this.ringPulse(worldX, worldY, 0xff8f5a, 10, 2, 180);
+  }
 }

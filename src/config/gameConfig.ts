@@ -113,6 +113,10 @@ export interface FreakerDennisConfig {
   };
 }
 
+export interface MinecraftConfig {
+  enabled: boolean;
+}
+
 export interface GameConfig {
   grid: GridConfig;
   snake: SnakeConfig;
@@ -121,6 +125,7 @@ export interface GameConfig {
   apples: AppleSystemConfig;
   quests: QuestSystemConfig;
   features: FeatureSystemConfig;
+  minecraft?: MinecraftConfig;
   freakerDennis?: FreakerDennisConfig;
 }
 

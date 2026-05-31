@@ -147,6 +147,7 @@ export interface RoomSnapshot {
     roadName: string;
   };
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
+  minecraftBlocks?: Record<string, string>;
   biomeId: BiomeId;
   biomeTitle: string;
   backgroundColor: number;

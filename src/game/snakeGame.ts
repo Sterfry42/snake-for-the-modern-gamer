@@ -7990,6 +7990,7 @@ export class SnakeGame implements QuestRuntime {
       'starforged.effects',
       'starforged.wallSenseBonus',
       'caves.save',
+      'minecraft.save',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {

@@ -1,0 +1,210 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { tryBreakBlock, tryPlaceBlock, type BreakResult, type PlaceResult } from '../blockInteraction.js';
+import { MinecraftPlayer } from '../player.js';
+import type { RoomSnapshot } from '../../world/types.js';
+import type SnakeScene from '../../scenes/snakeScene.js';
+
+// Create a minimal mock scene for testing
+function createMockScene(): any {
+  return {
+    grid: { cell: 24 },
+    snakeGame: {
+      getCurrentRoom: () => mockRoom,
+    },
+    juice: {
+      blockBreak: vi.fn(),
+      blockPlace: vi.fn(),
+    },
+  };
+}
+
+function createMockRoom(): RoomSnapshot {
+  return {
+    id: '0,0,0',
+    layout: ['................'],
+    portals: [],
+    biomeId: 'verdigris-basin',
+    biomeTitle: 'Test',
+    backgroundColor: 0xffffff,
+    wallColor: 0x000000,
+    wallOutlineColor: 0x333333,
+    minecraftBlocks: {},
+  } as unknown as RoomSnapshot;
+}
+
+const mockRoom = createMockRoom();
+
+function createMockPlayer(): MinecraftPlayer {
+  const player = new MinecraftPlayer();
+  player.addItem('cobblestone', 10);
+  player.addItem('torch_item', 5);
+  return player;
+}
+
+beforeEach(() => {
+  Object.assign(mockRoom, createMockRoom());
+});
+
+describe('Block Interaction - Special Tile Protection', () => {
+  it('should not place on portal', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      portals: [{ x: 5, y: 5, destRoomId: '0,0,1', destX: 10, destY: 10 }],
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('portal');
+  });
+
+  it('should not place on shrine maiden', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      shrine: {
+        maiden: { x: 5, y: 5, name: 'Test' } as any,
+        hasBlessings: false,
+      },
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('shrine');
+  });
+
+  it('should not place on ramen chef', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      ramenStand: {
+        chef: { x: 5, y: 5, name: 'Chef' } as any,
+        sellsRamen: true,
+      },
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('ramen');
+  });
+
+  it('should not place on koi pond center', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      koiPond: {
+        center: { x: 5, y: 5 },
+        waterTiles: [{ x: 6, y: 5 }],
+      },
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('koi');
+  });
+
+  it('should not place on koi pond water tiles', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      koiPond: {
+        center: { x: 3, y: 3 },
+        waterTiles: [{ x: 5, y: 5 }],
+      },
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('koi');
+  });
+
+  it('should not place on McDonalds locations', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      snakeMcDonalds: {
+        cashier: { name: 'Cashier', x: 5, y: 5 },
+        toilet: { x: 8, y: 8 },
+        bounds: { left: 0, top: 0, width: 24, height: 24 },
+      },
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result1 = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result1.success).toBe(false);
+    expect(result1.message).toContain('McDonalds');
+
+    const result2 = tryPlaceBlock(scene as any, createMockPlayer(), 8, 8, 'dirt');
+    expect(result2.success).toBe(false);
+    expect(result2.message).toContain('McDonalds');
+  });
+
+  it('should not place on quest giver', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      questGiver: { x: 5, y: 5, name: 'Quest Giver' } as any,
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('quest');
+  });
+
+  it('should not place on village residents', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      village: {
+        name: 'Test Village',
+        center: { x: 10, y: 10 },
+        safeArea: { left: 0, top: 0, width: 24, height: 24 },
+        lanterns: [],
+        residents: [{ x: 5, y: 5, name: 'Resident' } as any],
+        shopkeeper: { x: 20, y: 20, name: 'Shopkeeper' } as any,
+      },
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('village');
+  });
+
+  it('should not place on goblin camp guards', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      goblinCamp: {
+        id: 'goblin1',
+        name: 'Goblin Camp',
+        center: { x: 10, y: 10 },
+        safeArea: { left: 0, top: 0, width: 24, height: 24 },
+        tents: [],
+        fires: [],
+        guards: [{ x: 5, y: 5, name: 'Guard' } as any],
+        shopkeeper: { x: 20, y: 20, name: 'Goblin Shopkeeper' } as any,
+      },
+    } as any;
+
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('goblin');
+  });
+});
