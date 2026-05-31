@@ -156,7 +156,7 @@ type DeathCutsceneState = {
   afterlifeDialogueShown: boolean;
 };
 
-type TitleMenuMode = 'main' | 'settings';
+type TitleMenuMode = 'main' | 'settings' | 'credits';
 
 type LocalRect = { left: number; top: number; width: number; height: number };
 
@@ -458,6 +458,252 @@ const ANGEL_EXECUTION_DIALOGUE: readonly string[][] = [
 
 const LANGUAGE_SELECTOR_COST = 200;
 
+const CREDITS_SECTION_HEADERS: string[] = [
+  'CREDITS',
+  'GAME DESIGN & CODE',
+  'WANDERER ENCOUNTERS',
+  'DUEL BOSSES',
+  'QUEST GIVERS',
+  'NAMED ENEMIES',
+  'BOSS ENEMIES',
+  'WORLD CHARACTERS',
+  'PORTRAITS & SPRITES',
+  'APPLE VARIETIES',
+  'SUPPORTED LANGUAGES',
+  'TECHNOLOGY',
+  'THANK YOU',
+];
+
+const CREDITS_CONTENT: string[] = [
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  'CREDITS',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'GAME DESIGN & CODE',
+  '',
+  'Snake for the Modern Gamer',
+  'was created, designed, and programmed',
+  'by the developer behind this masterpiece.',
+  '',
+  'FREAK DENNIS FEARS IT. ANGELS PREORDERED IT.',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'WANDERER ENCOUNTERS',
+  '',
+  'Nackle the Receipt-Biter  —  "Take receipt-card.',
+  '  It proves nothing, which makes it very flexible."',
+  '',
+  'Mott of the Split Nail  —  "Snake goes fast,',
+  '  snake dies flat."',
+  '',
+  'Vellum-Fang  —  "Stamp first. Talking after.',
+  '  That is civilized order."',
+  '',
+  'Maribel Cardwright  —  "Cards are honest',
+  '  in the way knives are honest."',
+  '',
+  'Osric Window  —  "Too little score is cowardice.',
+  '  Too much score is vanity."',
+  '',
+  'Lindsey  —  "The dark means to keep swallowing',
+  '  memory. Make it choke on record-keeping."',
+  '',
+  'Ryan  —  "If gunfire starts, do not defend',
+  '  your pride. Pride is plentiful down here.',
+  '  Blood is not."',
+  '',
+  'Aurex  —  "Carry the old fast for me.',
+  '  Twenty seconds beside an empty mouth',
+  '  is not holiness, but it is long enough',
+  '  for the soul to reveal whether it',
+  '  still commands the body at all."',
+  '',
+  'Belisar  —  "No prayer. No bargain.',
+  '  I have listened to both from the mouths',
+  '  of dying things, and neither improved the ending."',
+  '',
+  'Cyrene  —  "Your gift is speed.',
+  '  Guard it carefully. Velocity becomes stupidity',
+  '  the moment it starts believing itself chosen."',
+  '',
+  'Shrine Maiden Miko  —  "Even the smallest gift',
+  '  carries the weight of intention."',
+  '',
+  'The Ramen Master  —  "The best broth in all',
+  '  the provinces. Or the dimension."',
+  '',
+  'Kappa of the Mountain Stream  —  "Hmph.',
+  '  Bring me something I truly want.',
+  '  Not that I care. It is just... refreshing."',
+  '',
+  'Tanuki the Trickster  —  "Find it.',
+  '  I shall take credit either way."',
+  '',
+  'The Ronin  —  "I do not seek glory.',
+  '  I seek clarity."',
+  '',
+  'Tengu of the Mountain  —  "The mountain',
+  '  remembers. So do I."',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'DUEL BOSSES',
+  '',
+  'Freak Joey  —  "Not because I was born wrong.',
+  '  Because I kept agreeing to become more wrong',
+  '  each time the tunnels asked."',
+  '',
+  'Belisar  —  "Fight me. If your nerve is true,',
+  '  let it ring. If it is false, let the stone',
+  '  hear that as well."',
+  '',
+  'Kappa of the Mountain Stream  —  "Duel me',
+  '  or bring me cucumber. Not that I care."',
+  '',
+  'The Ronin  —  "Draw steel.',
+  '  Let the mountain decide who speaks first —',
+  '  the victor or the wind."',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'QUEST GIVERS',
+  '',
+  'Lindsey  —  Explore 6 Rooms',
+  'Aurex  —  Survive 20 Seconds Without Eating',
+  'Vellum-Fang  —  The Goblin Ledger Debt',
+  'The Ramen Master  —  Ramen Recipe Hunt',
+  "Tanuki's Shenanigans",
+  "Shrine Maiden's Request",
+  "Kappa's Challenge",
+  'Ryan  —  Listen (Flavor)',
+  'Cyrene  —  Listen (Flavor)',
+  'Maribel Cardwright  —  Take Card (Flavor)',
+  "Mott of the Split Nail  —  Take Crumb (Flavor)",
+  "Nackle the Receipt-Biter  —  Take Card (Flavor)",
+  'Osric Window  —  Play Cards (Duel)',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'NAMED ENEMIES',
+  '',
+  'Shark  —  "The ocean has teeth."',
+  'Cave Monster  —  "The dark below hungers."',
+  'Raid Bandit  —  "Thieves of the underdark."',
+  'Goblin  —  "Small. Fierce. Ledgers everywhere."',
+  'Dread Revenant  —  "The dread that walks',
+  '  the passages between rooms."',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'BOSS ENEMIES',
+  '',
+  'Freak Dennis  —  "The dread that walks',
+  '  the passages between rooms."',
+  '',
+  'Freaker Dennis  —  "Freak Dennis\'s darker,',
+  '  taller cousin."',
+  '',
+  'Freak You  —  "The mirror that hunts."',
+  '',
+  'The Angel, Insulted  —  "Even heavens',
+  '  have tempers."',
+  '',
+  'Dread Revenant  —  "A boss born of',
+  '  the deepest dark."',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'WORLD CHARACTERS',
+  '',
+  'Wise Old Snake  —  "To grow long,',
+  '  one must eat many apples.',
+  '  To grow wise, one must learn',
+  '  to survive even when hungry."',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'PORTRAITS & SPRITES',
+  '',
+  'Villager  •  Villager (Old)  •  Villager (Young)',
+  'Shopkeeper  •  Guard  •  Hunter',
+  'Cook  •  Goblin (Clerk / Merchant)',
+  'Angel  •  Forest Hermit •  Ocean Fisher',
+  'Desert Peddler  •  Cold Trapper',
+  'Badlands Ranger  •  Jade Monk',
+  'Ramen Cook  •  Diner Worker  •  Tanuki',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'APPLE VARIETIES',
+  '',
+  'Normal Apple  •  Gold Apple  •  Shielded Apple',
+  'Skittish Apple  •  Yuzu Apple  •  Koi Apple',
+  'Amacha Apple  •  Mochi Apple  •  Wasabi Apple',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'SUPPORTED LANGUAGES',
+  '',
+  '🇺🇸  English  (English)',
+  '🇪🇸  Español  (Spanish)',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'TECHNOLOGY',
+  '',
+  'Phaser 3  —  The 2D game framework',
+  'TypeScript  —  For type-safe development',
+  'Vite  —  For blazing fast builds',
+  'Vitest  —  For testing',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '',
+  'THANK YOU',
+  '',
+  '',
+  'Thank you, brave snake,',
+  'for slithering through',
+  'the dark and the beautiful.',
+  '',
+  'May your hunger be brief,',
+  'your score be high,',
+  'and Freak Dennis never catch you.',
+  '',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+  '',
+  '  Press Enter or Space to continue',
+  '',
+  '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+];
+
 type GameMode =
   | 'title'
   | 'action'
@@ -695,6 +941,13 @@ export default class SnakeScene extends Phaser.Scene {
   private titleMessageText: Phaser.GameObjects.Text | null = null;
   private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
+  private titleCreditsMode = false;
+  private creditsTextLines: Phaser.GameObjects.Text[] = [];
+  private creditsContainer: Phaser.GameObjects.Container | null = null;
+  private creditsScrollContainer: Phaser.GameObjects.Container | null = null;
+  private creditsScrollTween: Phaser.Tweens.Tween | null = null;
+  private creditsCanDismiss = false;
+  private creditsDismissZone: Phaser.GameObjects.Container | null = null;
   private cardGameContainer: Phaser.GameObjects.Container | null = null;
   private cardTooltipText: Phaser.GameObjects.Text | null = null;
   private performanceHudVisible = false;
@@ -882,6 +1135,16 @@ export default class SnakeScene extends Phaser.Scene {
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
+      if (this.titleCreditsMode) {
+        if (key === 'enter' || key === ' ') {
+          event.preventDefault();
+          if (this.creditsCanDismiss) {
+            this.hideCreditsScreen();
+            this.showTitleScreen('main');
+          }
+        }
+        return;
+      }
       if (this.titleVisible) {
         event.preventDefault();
         return;
@@ -2552,6 +2815,20 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    if (this.creditsScrollTween) {
+      this.creditsScrollTween.destroy();
+    }
+    this.creditsTextLines.forEach((t) => {
+      t.destroy();
+    });
+    this.creditsTextLines = [];
+    this.creditsContainer?.destroy();
+    this.creditsContainer = null;
+    this.creditsScrollContainer?.destroy();
+    this.creditsScrollContainer = null;
+    this.creditsDismissZone?.destroy();
+    this.creditsDismissZone = null;
+
     this.mobileControls?.destroy();
     this.mobileControls = null;
     this.minimapRenderer?.destroy();
@@ -2897,6 +3174,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup.hide();
     this.villageShopPopup?.hide();
 
+    if (this.titleCreditsMode) {
+      this.hideCreditsScreen();
+    }
+
+    if (mode === 'credits') {
+      this.showCreditsScreen();
+      return;
+    }
+
     if (!this.titleContainer) {
       this.buildTitleScreen();
     }
@@ -2909,6 +3195,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private hideTitleScreen(): void {
+    if (this.titleCreditsMode) {
+      this.hideCreditsScreen();
+    }
+
     this.titleVisible = false;
     this.titleContainer?.setVisible(false);
     this.titleMessageText?.setText('');
@@ -2919,6 +3209,148 @@ export default class SnakeScene extends Phaser.Scene {
   private showTitleMode(mode: TitleMenuMode): void {
     this.titleMainContainer?.setVisible(mode === 'main');
     this.titleSettingsContainer?.setVisible(mode === 'settings');
+
+    if (mode === 'credits') {
+      this.showCreditsScreen();
+    }
+  }
+
+  private showCreditsScreen(): void {
+    if (this.titleCreditsMode) return;
+
+    this.titleCreditsMode = true;
+    this.creditsCanDismiss = false;
+
+    this.titleMainContainer?.setVisible(false);
+    this.titleSettingsContainer?.setVisible(false);
+
+    if (!this.creditsContainer) {
+      this.buildCreditsScreen();
+    }
+
+    this.creditsContainer?.setVisible(true).setAlpha(1);
+
+    this.startCreditsScroll();
+  }
+
+  private hideCreditsScreen(): void {
+    this.titleCreditsMode = false;
+    this.creditsCanDismiss = false;
+
+    if (this.creditsScrollTween) {
+      this.creditsScrollTween.destroy();
+      this.creditsScrollTween = null;
+    }
+
+    this.creditsContainer?.setVisible(false);
+    this.creditsDismissZone?.destroy();
+    this.creditsDismissZone = null;
+  }
+
+  private buildCreditsScreen(): void {
+    const width = this.scale.width;
+    const height = this.scale.height;
+
+    const root = this.add.container(0, 0).setDepth(220).setScrollFactor(0);
+
+    const backdrop = this.add.rectangle(0, 0, width, height, 0x02030a, 0.7)
+      .setOrigin(0, 0).setDepth(219);
+    root.add(backdrop);
+
+    const scrollContainer = this.add.container(0, 0).setDepth(225);
+
+    const contentWidth = width - 120;
+    const centerX = width / 2;
+    let yPos = -200;
+
+    for (const line of CREDITS_CONTENT) {
+      if (line === '') continue;
+
+      let fontSize = 14;
+      let color = '#c8d6e5';
+      let strokeThickness = 2;
+
+      if (line.length < 40 && CREDITS_SECTION_HEADERS.includes(line.trim())) {
+        fontSize = 16;
+        color = '#d4a843';
+        strokeThickness = 3;
+      }
+      else if (line.trim().startsWith('━')) {
+        fontSize = 12;
+        color = '#8b6914';
+      }
+      else if (line.includes('Thank you') || line.includes('brave snake') ||
+               line.includes('May your hunger') || line.includes('Freak Dennis never catch')) {
+        fontSize = 16;
+        color = '#fff4cf';
+      }
+      else if (line.includes('Press Enter') || line.includes('Space to continue')) {
+        fontSize = 13;
+        color = '#b89a5c';
+      }
+
+      const text = this.add.text(centerX, yPos, line, {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: `${fontSize}px`,
+        color: color,
+        stroke: '#0a0f1a',
+        strokeThickness: strokeThickness,
+        align: 'center',
+        wordWrap: { width: contentWidth },
+      }).setOrigin(0.5, 0);
+
+      scrollContainer.add(text);
+      this.creditsTextLines.push(text);
+
+      const lines = line.split('\n');
+      const lineH = fontSize + 10;
+      yPos += lines.length * lineH + 4;
+    }
+
+    const totalHeight = Math.abs(yPos) + 40;
+    const scrollDistance = Math.max(0, totalHeight - height + 100);
+
+    scrollContainer.y = -scrollDistance;
+
+    root.add(scrollContainer);
+    this.creditsContainer = root;
+    this.creditsScrollContainer = scrollContainer;
+
+    const dismissZone = this.add.zone(0, 0, width, height)
+      .setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    dismissZone.on('pointerdown', () => {
+      if (this.creditsCanDismiss) {
+        this.hideCreditsScreen();
+        this.showTitleScreen('main');
+      }
+    });
+    this.creditsDismissZone = this.add.container(0, 0, [dismissZone]).setDepth(230);
+    root.add(this.creditsDismissZone);
+
+    if (scrollDistance <= 0) {
+      this.creditsCanDismiss = true;
+    }
+  }
+
+  private startCreditsScroll(): void {
+    if (!this.creditsScrollContainer) return;
+
+    const scrollDistance = Math.abs(this.creditsScrollContainer.y);
+    if (scrollDistance <= 0) return;
+
+    const pixelsPerSecond = 60;
+    const duration = (scrollDistance / pixelsPerSecond) * 1000;
+
+    this.creditsScrollTween = this.tweens.add({
+      targets: this.creditsScrollContainer,
+      y: 0,
+      duration: duration,
+      ease: 'Linear',
+      onComplete: () => {
+        this.creditsScrollContainer = null;
+        this.creditsCanDismiss = true;
+      },
+    });
   }
 
   private startNewGameFromTitle(): void {
@@ -3000,6 +3432,10 @@ export default class SnakeScene extends Phaser.Scene {
       }),
       this.createTitleButton(buttonX, buttonY + 138, 'Settings', () =>
         this.showTitleScreen('settings'),
+      ),
+      // --- Credits button placed below the error text area ---
+      this.createTitleButton(buttonX, buttonY + 210, 'Credits', () =>
+        this.showCreditsScreen(),
       ),
     ];
     main.add(buttons);
