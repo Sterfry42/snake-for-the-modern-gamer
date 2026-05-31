@@ -25,6 +25,37 @@ export function clearSavedGameData(): void {
   memorySave = null;
 }
 
+export interface MinecraftBlockEntry {
+  roomId: string;
+  x: number;
+  y: number;
+  blockType: string;
+}
+
+export interface MinecraftMobEntry {
+  id: string;
+  type: string;
+  roomId: string;
+  x: number;
+  y: number;
+  health: number;
+}
+
+export interface MinecraftPlayerSaveData {
+  health: number;
+  maxHealth: number;
+  hunger: number;
+  maxHunger: number;
+  xp: number;
+  xpLevel: number;
+  armorPoints: number;
+  spawnX: number;
+  spawnY: number;
+  spawnRoomId: string;
+  inventory: Array<{ itemId: string; count: number }>;
+  equippedTool: string | null;
+}
+
 export interface GameSaveData {
   version: string;
   timestamp: number;
@@ -60,10 +91,16 @@ export interface GameSaveData {
     languageSelected: boolean;
     languageSet: boolean;
   };
+  // Minecraft fields
+  minecraftBlocks?: MinecraftBlockEntry[];
+  minecraftPlayerState?: MinecraftPlayerSaveData;
+  minecraftDayNight?: { day: number; timeOfDay: number };
+  minecraftMobState?: MinecraftMobEntry[];
+  minecraftInventory?: Array<{ itemId: string; count: number }>;
 }
 
 export class SaveManager {
-  private readonly VERSION = '1.0.0';
+  private readonly VERSION = '2.0.0';
 
   constructor() {}
 
@@ -107,8 +144,14 @@ export class SaveManager {
       const data = JSON.parse(saved) as GameSaveData;
 
       if (data.version !== this.VERSION) {
-        console.error('Save version mismatch:', data.version, this.VERSION);
-        return false;
+        // Migrate from v1.x to v2.0.0
+        const currentVersion = data.version ?? '0.0.0';
+        if (isVersionLessThan(currentVersion, '2.0.0')) {
+          migrateV1toV2(data);
+        } else {
+          console.error('Save version mismatch:', data.version, this.VERSION);
+          return false;
+        }
       }
 
       const success = game.loadGame(getReligionChoice, getClassChoice, getBackgroundChoice);
@@ -134,6 +177,53 @@ export class SaveManager {
     } catch (error) {
       console.error('Failed to clear save:', error);
     }
+  }
+}
+
+function isVersionLessThan(version: string, target: string): boolean {
+  const parts = version.split('.').map(Number);
+  const targetParts = target.split('.').map(Number);
+
+  for (let i = 0; i < Math.max(parts.length, targetParts.length); i++) {
+    const a = parts[i] ?? 0;
+    const b = targetParts[i] ?? 0;
+    if (a < b) return true;
+    if (a > b) return false;
+  }
+  return false;
+}
+
+function migrateV1toV2(data: GameSaveData): void {
+  console.info('[SaveManager] Migrating from v1.x to v2.0.0');
+  data.version = '2.0.0';
+
+  if (!data.minecraftBlocks) {
+    data.minecraftBlocks = [];
+  }
+  if (!data.minecraftPlayerState) {
+    data.minecraftPlayerState = {
+      health: 20,
+      maxHealth: 20,
+      hunger: 20,
+      maxHunger: 20,
+      xp: 0,
+      xpLevel: 0,
+      armorPoints: 0,
+      spawnX: 0,
+      spawnY: 0,
+      spawnRoomId: '0,0,0',
+      inventory: [],
+      equippedTool: null,
+    };
+  }
+  if (!data.minecraftDayNight) {
+    data.minecraftDayNight = { day: 1, timeOfDay: 0 };
+  }
+  if (!data.minecraftMobState) {
+    data.minecraftMobState = [];
+  }
+  if (!data.minecraftInventory) {
+    data.minecraftInventory = [];
   }
 }
 

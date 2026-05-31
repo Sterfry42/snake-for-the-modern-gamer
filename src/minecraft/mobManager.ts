@@ -1,0 +1,262 @@
+import type { MobTypeId, MobState, MobDefinition } from './types.js';
+import { MAX_MOBS_PER_CHUNK, MAX_PASSIVE_MOBS_PER_CHUNK } from './config.js';
+import { getMinecraftItem } from './itemRegistry.js';
+
+const MOB_DEFINITIONS: Record<MobTypeId, MobDefinition> = {
+  zombie: {
+    id: 'zombie',
+    hostile: true,
+    hp: 20,
+    speed: 1,
+    color: '#2D5A1E',
+    drops: [
+      { itemId: 'rotten_flesh', count: 2, chance: 1 },
+      { itemId: 'armors', count: 1, chance: 0.3 },
+    ],
+  },
+  skeleton: {
+    id: 'skeleton',
+    hostile: true,
+    hp: 20,
+    speed: 1,
+    color: '#E8E4D4',
+    drops: [
+      { itemId: 'bones', count: 2, chance: 1 },
+      { itemId: 'arrows', count: 3, chance: 1 },
+      { itemId: 'bow', count: 1, chance: 0.05 },
+    ],
+  },
+  creeper: {
+    id: 'creeper',
+    hostile: true,
+    hp: 20,
+    speed: 1.2,
+    color: '#5B8C2A',
+    drops: [
+      { itemId: 'gunpowder', count: 2, chance: 1 },
+      { itemId: 'fire_charge', count: 1, chance: 0.3 },
+    ],
+  },
+  cow: {
+    id: 'cow',
+    hostile: false,
+    hp: 10,
+    speed: 0.5,
+    color: '#8B5A2B',
+    drops: [
+      { itemId: 'raw_beef', count: 1, chance: 1 },
+      { itemId: 'leather', count: 1, chance: 0.7 },
+    ],
+  },
+};
+
+const MOB_AI_CONFIG: Record<MobTypeId, { chaseRange: number; fleeRange: number }> = {
+  zombie: { chaseRange: 12, fleeRange: 0 },
+  skeleton: { chaseRange: 8, fleeRange: 0 },
+  creeper: { chaseRange: 10, fleeRange: 0 },
+  cow: { chaseRange: 0, fleeRange: 5 },
+};
+
+function generateMobId(): string {
+  return `mc_mob_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export class MobManager {
+  private mobs: Map<string, MobState> = new Map();
+  private mobIdCounter = 0;
+
+  init(): void {
+    this.mobs.clear();
+  }
+
+  spawnMob(
+    roomId: string,
+    type: MobTypeId,
+    x: number,
+    y: number,
+  ): MobState {
+    const def = MOB_DEFINITIONS[type];
+    if (!def) {
+      throw new Error(`Unknown mob type: ${type}`);
+    }
+
+    const mob: MobState = {
+      id: generateMobId(),
+      type,
+      x,
+      y,
+      roomId,
+      health: def.hp,
+      maxHealth: def.hp,
+      ai: def.hostile ? 'hostile' : 'passive',
+      lastMoveTick: 0,
+    };
+
+    this.mobs.set(mob.id, mob);
+    return mob;
+  }
+
+  despawnMob(mobId: string): boolean {
+    return this.mobs.delete(mobId);
+  }
+
+  getMob(mobId: string): MobState | undefined {
+    return this.mobs.get(mobId);
+  }
+
+  getMobsInRoom(roomId: string): MobState[] {
+    const result: MobState[] = [];
+    for (const mob of this.mobs.values()) {
+      if (mob.roomId === roomId) {
+        result.push(mob);
+      }
+    }
+    return result;
+  }
+
+  getMobsNearPosition(
+    x: number,
+    y: number,
+    roomId: string,
+    radius: number,
+  ): MobState[] {
+    return Array.from(this.mobs.values()).filter((mob) => {
+      if (mob.roomId !== roomId) return false;
+      const dx = mob.x - x;
+      const dy = mob.y - y;
+      return dx * dx + dy * dy <= radius * radius;
+    });
+  }
+
+  tickMobs(
+    currentTime: number,
+    playerX: number,
+    playerY: number,
+    playerRoomId: string,
+    lightLevelAt: (x: number, y: number, roomId: string) => number,
+    onMobDeath: (mobId: string, x: number, y: number, roomId: string) => void,
+  ): void {
+    for (const mob of this.mobs.values()) {
+      const def = MOB_DEFINITIONS[mob.type];
+      if (!def) continue;
+
+      const aiConfig = MOB_AI_CONFIG[mob.type];
+      const distToPlayer = Math.abs(mob.x - playerX) + Math.abs(mob.y - playerY);
+
+      // AI movement
+      if (currentTime - mob.lastMoveTick >= 8) {
+        this.tickMobAI(
+          mob,
+          def,
+          aiConfig,
+          playerX,
+          playerY,
+          playerRoomId,
+          lightLevelAt,
+          distToPlayer,
+        );
+        mob.lastMoveTick = currentTime;
+      }
+
+      // Hostile mobs take damage at light level > 12 during daytime
+      if (def.hostile) {
+        const lightAtMob = lightLevelAt(mob.x, mob.y, mob.roomId);
+        if (lightAtMob > 12) {
+          mob.health -= 1;
+          if (mob.health <= 0) {
+            onMobDeath(mob.id, mob.x, mob.y, mob.roomId);
+          }
+        }
+      }
+    }
+  }
+
+  private tickMobAI(
+    mob: MobState,
+    def: MobDefinition,
+    aiConfig: { chaseRange: number; fleeRange: number },
+    playerX: number,
+    playerY: number,
+    playerRoomId: string,
+    lightLevelAt: (x: number, y: number, roomId: string) => number,
+    distToPlayer: number,
+  ): void {
+    let dx = 0;
+    let dy = 0;
+
+    if (mob.ai === 'hostile') {
+      // Check for light-based spawning - only spawn in dark
+      const lightAtPos = lightLevelAt(mob.x, mob.y, mob.roomId);
+      if (distToPlayer <= aiConfig.chaseRange && playerRoomId === mob.roomId) {
+        // Chase player
+        dx = playerX - mob.x;
+        dy = playerY - mob.y;
+
+        // Normalize
+        const mag = Math.sqrt(dx * dx + dy * dy);
+        if (mag > 0) {
+          dx = Math.round(dx / mag);
+          dy = Math.round(dy / mag);
+        }
+      }
+    } else if (mob.ai === 'passive') {
+      // Cow: wander randomly or flee
+      if (distToPlayer <= aiConfig.fleeRange) {
+        dx = mob.x - playerX;
+        dy = mob.y - playerY;
+      } else {
+        // Wander
+        if (Math.random() < 0.3) {
+          dx = Math.random() < 0.5 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+          dy = Math.random() < 0.5 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+        }
+      }
+
+      // Normalize
+      if (dx !== 0 || dy !== 0) {
+        const mag = Math.sqrt(dx * dx + dy * dy);
+        if (mag > 0) {
+          dx = Math.round(dx / mag);
+          dy = Math.round(dy / mag);
+        }
+      }
+    }
+
+    // Apply movement
+    if (dx !== 0 || dy !== 0) {
+      const speed = def.speed;
+      mob.x += Math.round(dx * speed);
+      mob.y += Math.round(dy * speed);
+    }
+  }
+
+  onMobDeath(
+    mobId: string,
+    onDropItem: (itemId: string, count: number) => void,
+  ): boolean {
+    const mob = this.mobs.get(mobId);
+    if (!mob) return false;
+
+    const def = MOB_DEFINITIONS[mob.type];
+    if (def && def.drops) {
+      for (const drop of def.drops) {
+        if (Math.random() < drop.chance) {
+          for (let i = 0; i < drop.count; i++) {
+            onDropItem(drop.itemId, 1);
+          }
+        }
+      }
+    }
+
+    this.mobs.delete(mobId);
+    return true;
+  }
+
+  getMobCount(): number {
+    return this.mobs.size;
+  }
+
+  destroy(): void {
+    this.mobs.clear();
+  }
+}

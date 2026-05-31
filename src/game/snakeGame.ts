@@ -1052,7 +1052,17 @@ export class SnakeGame implements QuestRuntime {
         phasePowerupActive,
       );
       if (consumption.fatal) {
-        if (
+        if (this.isImmortal()) {
+          const normalConsumption = this.apples.handleConsumption(
+            this.snake.currentRoomId,
+            this.snake.directionVector,
+            true,
+          );
+          appleRewards = normalConsumption.rewards;
+          appleWorldPosition = normalConsumption.worldPosition ?? null;
+          appleStateChanged = true;
+          appleTypeId = normalConsumption.typeId;
+        } else if (
           this.tryFortitudePhoenix(
             { status: 'dead', reason: 'shielded' },
             roomsChanged,
@@ -1067,21 +1077,22 @@ export class SnakeGame implements QuestRuntime {
             roomHasChanged,
             appleTypeId,
           });
+        } else {
+          this.markDeathAtCurrentHead('shielded');
+          return {
+            status: 'dead',
+            deathReason: 'shielded',
+            apple: {
+              eaten: true,
+              current: appleBeforeStep,
+              stateChanged: true,
+            },
+            roomsChanged,
+            roomChanged: roomHasChanged,
+            questOffer: null,
+            questsCompleted: [],
+          };
         }
-        this.markDeathAtCurrentHead('shielded');
-        return {
-          status: 'dead',
-          deathReason: 'shielded',
-          apple: {
-            eaten: true,
-            current: appleBeforeStep,
-            stateChanged: true,
-          },
-          roomsChanged,
-          roomChanged: roomHasChanged,
-          questOffer: null,
-          questsCompleted: [],
-        };
       }
 
       appleRewards = consumption.rewards;
@@ -1399,36 +1410,38 @@ export class SnakeGame implements QuestRuntime {
         this.canHuntHarmlessAnimals(),
       );
       if (animalResult.damaged) {
-        if (
-          this.tryFortitudePhoenix({ status: 'dead', reason: 'boss' }, roomsChanged, previousRoom)
-        ) {
-          return this.createAliveStepResult({
-            appleEaten,
-            appleRewards,
-            appleWorldPosition,
-            appleSnapshot,
-            appleStateChanged,
+        if (!this.isImmortal()) {
+          if (
+            this.tryFortitudePhoenix({ status: 'dead', reason: 'boss' }, roomsChanged, previousRoom)
+          ) {
+            return this.createAliveStepResult({
+              appleEaten,
+              appleRewards,
+              appleWorldPosition,
+              appleSnapshot,
+              appleStateChanged,
+              roomsChanged,
+              roomHasChanged,
+              appleTypeId,
+            });
+          }
+          this.markDeathAtCurrentHead('boss');
+          return {
+            status: 'dead',
+            deathReason: 'boss',
+            apple: {
+              eaten: appleEaten,
+              rewards: appleRewards,
+              worldPosition: appleWorldPosition,
+              current: appleSnapshot,
+              stateChanged: appleStateChanged,
+            },
             roomsChanged,
-            roomHasChanged,
-            appleTypeId,
-          });
+            roomChanged: roomHasChanged,
+            questOffer: null,
+            questsCompleted: [],
+          };
         }
-        this.markDeathAtCurrentHead('boss');
-        return {
-          status: 'dead',
-          deathReason: 'boss',
-          apple: {
-            eaten: appleEaten,
-            rewards: appleRewards,
-            worldPosition: appleWorldPosition,
-            current: appleSnapshot,
-            stateChanged: appleStateChanged,
-          },
-          roomsChanged,
-          roomChanged: roomHasChanged,
-          questOffer: null,
-          questsCompleted: [],
-        };
       }
       if (animalResult.hunted) {
         this.awardHuntedAnimal(animalResult.huntedAnimal, currentHead);
@@ -1632,6 +1645,7 @@ export class SnakeGame implements QuestRuntime {
     const bossOnHead = headBeforeSnakeStep
       ? this.bosses.getBossAtPosition(headBeforeSnakeStep, this.snake.currentRoomId)
       : null;
+    if (this.isImmortal()) return null;
     if (!bossOnHead || (bossOnHead.kind !== 'angel' && bossOnHead.kind !== 'freak-you')) {
       return null;
     }
@@ -7976,6 +7990,7 @@ export class SnakeGame implements QuestRuntime {
       'starforged.effects',
       'starforged.wallSenseBonus',
       'caves.save',
+      'minecraft.save',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -9119,7 +9134,7 @@ export class SnakeGame implements QuestRuntime {
         if (remaining > 0) {
           return { ...instance, remainingRadiationMs: remaining };
         }
-        timedOut = true;
+        timedOut = !this.isImmortal();
         this.questController.failQuestById(instance.questId);
         this.setFlag('quest.staged.failedNow', {
           questId: instance.questId,
@@ -9367,6 +9382,10 @@ export class SnakeGame implements QuestRuntime {
     tryPlace('K');
 
     room.layout = layout.map((r) => r.join(''));
+  }
+
+  private isImmortal(): boolean {
+    return Boolean(this.getFlag('cheat.immortal'));
   }
 
   private tickFortitudeStates(): void {

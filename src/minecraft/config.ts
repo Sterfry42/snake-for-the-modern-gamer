@@ -1,0 +1,16 @@
+export const CHUNK_SIZE = 16;
+export const RENDER_DISTANCE = 3;
+export const DAY_LENGTH_TICKS = 24000;
+export const MAX_MOBS_PER_CHUNK = 4;
+export const MAX_PASSIVE_MOBS_PER_CHUNK = 2;
+export const LIGHT_LEVEL_TORCH = 14;
+export const LIGHT_LEVEL_LAVA = 15;
+export const LIGHT_LEVEL_MOB_SPAWN_THRESHOLD = 7;
+export const MAX_WORLD_CHUNKS = 1000;
+export const SAVE_SIZE_LIMIT_BYTES = 2 * 1024 * 1024;
+export const PLAYER_MAX_HEALTH = 20;
+export const PLAYER_MAX_HUNGER = 20;
+export const HUNGER_DAMAGE_INTERVAL_TICKS = 600;
+export const MOB_SPAWN_CHECK_INTERVAL_TICKS = 600;
+export const MOB_AI_MOVE_INTERVAL_TICKS = 8;
+export const DAY_NIGHT_SPEED_TICKS_PER_MS = 1000 / 1000;
