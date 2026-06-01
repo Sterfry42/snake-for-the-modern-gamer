@@ -1,6 +1,5 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
-import { saveManager } from '../game/saveManager.js';
 
 export class SaveUI {
   private saveButton?: Phaser.GameObjects.Text;
@@ -94,8 +93,7 @@ export class SaveUI {
 
   private saveGame(): void {
     this.scene.prepareCharacterSave();
-    saveManager.save(
-      this.scene.snakeGame,
+    this.scene.saveGameToSession(
       this.scene.getChosenReligionId()
         ? { id: this.scene.getChosenReligionId(), mods: this.scene.getReligionMods() }
         : undefined,
@@ -111,13 +109,12 @@ export class SaveUI {
   }
 
   private loadGame(): void {
-    if (!saveManager.hasSave()) {
+    if (!this.scene.hasSessionSave()) {
       this.scene.juice.announce('No save file found!', '#ff6b6b', 1000);
       return;
     }
 
-    const success = saveManager.load(
-      this.scene.snakeGame,
+    const success = this.scene.loadGameFromSession(
       () =>
         this.scene.getChosenReligionId()
           ? { id: this.scene.getChosenReligionId(), mods: this.scene.getReligionMods() }
@@ -141,7 +138,7 @@ export class SaveUI {
   }
 
   private clearSave(): void {
-    saveManager.clear();
+    this.scene.clearSessionSave();
     this.scene.juice.announce('Save file cleared!', '#4da3ff', 1000);
   }
 

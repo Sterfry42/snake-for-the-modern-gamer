@@ -9,6 +9,8 @@ export interface EnemyInstance {
   actorId?: string;
   roomId: string;
   position: Vector2Like;
+  body?: Vector2Like[];
+  score?: number;
   fireCooldown: number;
   moveCooldown: number;
   aimDirection: Vector2Like;
@@ -16,7 +18,7 @@ export interface EnemyInstance {
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
-  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark' | 'goblin';
+  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark' | 'goblin' | 'rival-snake';
 }
 
 export interface BulletInstance {
@@ -82,11 +84,17 @@ function isCaveRoomId(roomId: string): boolean {
 }
 
 function canEatEnemyKind(kind: EnemyInstance['encounterKind']): boolean {
-  return kind === 'enemy' || kind === 'npc-hostile' || kind === 'goblin' || kind === 'duelist';
+  return (
+    kind === 'enemy' ||
+    kind === 'npc-hostile' ||
+    kind === 'goblin' ||
+    kind === 'duelist' ||
+    kind === 'rival-snake'
+  );
 }
 
 function canHumanoidSlash(kind: EnemyInstance['encounterKind']): boolean {
-  return canEatEnemyKind(kind);
+  return kind === 'enemy' || kind === 'npc-hostile' || kind === 'goblin' || kind === 'duelist';
 }
 
 export class EnemyManager {
@@ -119,23 +127,16 @@ export class EnemyManager {
       this.ensureShark(roomId, room, occupied);
       return;
     }
+    const occupiedLocals = this.toLocalOccupied(roomId, occupied);
+    if (this.rng() < 0.1 && this.spawnRivalSnake(roomId, room, occupiedLocals)) {
+      return;
+    }
     const biome = getBiomeDefinition(room.biomeId);
     if (this.rng() > getBiomeEnemySpawnChance(biome)) {
       return;
     }
 
-    const candidates: Vector2Like[] = [];
-    for (let y = 0; y < this.grid.rows; y++) {
-      for (let x = 0; x < this.grid.cols; x++) {
-        if (!this.isDryEnemyTile(room.layout[y]?.[x])) continue;
-        if (room.apple && room.apple.x === x && room.apple.y === y) continue;
-        if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
-        if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
-        if (room.questGiver && room.questGiver.x === x && room.questGiver.y === y) continue;
-        if (occupied.some((segment) => segment.x === x && segment.y === y)) continue;
-        candidates.push({ x, y });
-      }
-    }
+    const candidates = this.collectDryEnemyCandidates(room, occupiedLocals);
 
     if (candidates.length === 0) {
       return;
@@ -157,6 +158,74 @@ export class EnemyManager {
       encounterKind: 'enemy',
     };
     this.enemies.set(roomId, [enemy]);
+  }
+
+  spawnRivalSnake(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+  ): EnemyInstance | null {
+    const candidates = this.collectRivalSnakeCandidates(room, occupied);
+    if (candidates.length === 0) {
+      return null;
+    }
+
+    const head = candidates[Math.floor(this.rng() * candidates.length)];
+    const body = [{ ...head }, { x: head.x - 1, y: head.y }, { x: head.x - 2, y: head.y }];
+    const id = `rival-snake-${this.idCounter++}`;
+    const rival: EnemyInstance = {
+      id,
+      actorId: `enemy:${roomId}:${id}`,
+      roomId,
+      position: { ...head },
+      body,
+      score: 0,
+      fireCooldown: 999,
+      moveCooldown: 0,
+      aimDirection: { x: 1, y: 0 },
+      flashTicks: 0,
+      name: 'Rival Snake',
+      currentHearts: 1,
+      maxHearts: 1,
+      encounterKind: 'rival-snake',
+    };
+    const current = this.enemies.get(roomId) ?? [];
+    current.push(rival);
+    this.enemies.set(roomId, current);
+    return rival;
+  }
+
+  private collectDryEnemyCandidates(
+    room: RoomSnapshot,
+    occupiedLocals: readonly Vector2Like[],
+  ): Vector2Like[] {
+    const candidates: Vector2Like[] = [];
+    for (let y = 0; y < this.grid.rows; y++) {
+      for (let x = 0; x < this.grid.cols; x++) {
+        if (!this.isDryEnemyTile(room.layout[y]?.[x])) continue;
+        if (room.apple && room.apple.x === x && room.apple.y === y) continue;
+        if (room.treasure && room.treasure.x === x && room.treasure.y === y) continue;
+        if (room.powerup && room.powerup.x === x && room.powerup.y === y) continue;
+        if (room.questGiver && room.questGiver.x === x && room.questGiver.y === y) continue;
+        if (occupiedLocals.some((segment) => segment.x === x && segment.y === y)) continue;
+        candidates.push({ x, y });
+      }
+    }
+    return candidates;
+  }
+
+  private collectRivalSnakeCandidates(
+    room: RoomSnapshot,
+    occupiedLocals: readonly Vector2Like[],
+  ): Vector2Like[] {
+    return this.collectDryEnemyCandidates(room, occupiedLocals).filter((head) =>
+      [head, { x: head.x - 1, y: head.y }, { x: head.x - 2, y: head.y }].every(
+        (segment) =>
+          segment.x >= 0 &&
+          this.isDryEnemyTile(room.layout[segment.y]?.[segment.x]) &&
+          !occupiedLocals.some((occupied) => occupied.x === segment.x && occupied.y === segment.y),
+      ),
+    );
   }
 
   ensureCaveEnemies(
@@ -484,6 +553,16 @@ export class EnemyManager {
     occupied.add(`${headLocal.x},${headLocal.y}`);
 
     for (const enemy of roomEnemies) {
+      if (enemy.encounterKind === 'rival-snake') {
+        nextEnemies.push({
+          ...enemy,
+          fireCooldown: 999,
+          moveCooldown: enemy.moveCooldown,
+          flashTicks: Math.max(0, enemy.flashTicks - 1),
+        });
+        continue;
+      }
+
       if (enemy.position.x === headLocal.x && enemy.position.y === headLocal.y) {
         nextEnemies.push({
           ...enemy,
@@ -613,6 +692,50 @@ export class EnemyManager {
     return { eaten: true, enemy: target };
   }
 
+  getRivalSnakes(): readonly EnemyInstance[] {
+    const rivals: EnemyInstance[] = [];
+    for (const enemies of this.enemies.values()) {
+      rivals.push(...enemies.filter((enemy) => enemy.encounterKind === 'rival-snake'));
+    }
+    return rivals;
+  }
+
+  updateEnemy(enemy: EnemyInstance): void {
+    for (const [roomId, enemies] of this.enemies) {
+      const index = enemies.findIndex((candidate) => candidate.id === enemy.id);
+      if (index < 0) {
+        continue;
+      }
+      const nextEnemies = enemies.filter((candidate) => candidate.id !== enemy.id);
+      if (nextEnemies.length > 0) {
+        this.enemies.set(roomId, nextEnemies);
+      } else {
+        this.enemies.delete(roomId);
+      }
+      const targetRoomEnemies = this.enemies.get(enemy.roomId) ?? [];
+      targetRoomEnemies.push(enemy);
+      this.enemies.set(enemy.roomId, targetRoomEnemies);
+      return;
+    }
+  }
+
+  removeEnemy(enemyId: string): EnemyInstance | null {
+    for (const [roomId, enemies] of this.enemies) {
+      const target = enemies.find((enemy) => enemy.id === enemyId);
+      if (!target) {
+        continue;
+      }
+      const remaining = enemies.filter((enemy) => enemy.id !== enemyId);
+      if (remaining.length > 0) {
+        this.enemies.set(roomId, remaining);
+      } else {
+        this.enemies.delete(roomId);
+      }
+      return target;
+    }
+    return null;
+  }
+
   getEnemiesInRoom(roomId: string): readonly EnemyInstance[] {
     return this.enemies.get(roomId) ?? [];
   }
@@ -632,7 +755,8 @@ export class EnemyManager {
         (enemy) =>
           enemy.position.x === local.x &&
           enemy.position.y === local.y &&
-          enemy.encounterKind !== 'enemy',
+          enemy.encounterKind !== 'enemy' &&
+          enemy.encounterKind !== 'rival-snake',
       ) ?? null
     );
   }

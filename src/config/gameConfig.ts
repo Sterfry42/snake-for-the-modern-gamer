@@ -60,7 +60,8 @@ export interface AppleTypeConfig {
     | 'wasabi'
     | 'yuzu'
     | 'koi'
-    | 'amacha';
+    | 'amacha'
+    | 'caffeinated';
 }
 
 export interface AppleSystemConfig {
@@ -249,6 +250,14 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0 },
         behavior: 'amacha',
+      },
+      {
+        id: 'caffeinated',
+        label: 'Caffeinated Apple',
+        color: 0xc47a3a,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.18, scoreThreshold: 12 },
+        behavior: 'caffeinated',
       },
     ],
     skittishMoveChance: 0.225,

@@ -19,7 +19,12 @@ import { QuestController } from '../systems/questController.js';
 import type { QuestGiverRequest } from '../systems/questController.js';
 import type { Quest } from '../quests/quest.js';
 import type { QuestRegistry } from '../quests/questRegistry.js';
-import { getSavedGameData, setSavedGameData, type GameSaveData } from './saveManager.js';
+import {
+  clearSavedGameData,
+  getSavedGameData,
+  setSavedGameData,
+  type GameSaveData,
+} from './saveManager.js';
 import { InventorySystem } from '../inventory/inventory.js';
 import { CHEST_LOOT_ITEMS, getItem } from '../inventory/itemRegistry.js';
 import {
@@ -120,6 +125,9 @@ import {
 } from '../caves/caveTypes.js';
 import { createDefaultCaveSave, isCaveRoomId } from '../caves/caveGenerator.js';
 import { getCaveTemplate } from '../caves/caveTemplates.js';
+import type { PlayerId, PlayerRuntime } from '../players/playerTypes.js';
+import type { ClientCommand } from '../session/ClientCommand.js';
+import type { GameSnapshot } from '../session/GameSnapshot.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -327,6 +335,16 @@ export interface StepResult {
   roomChanged: boolean;
   questOffer?: Quest | null;
   questsCompleted: Quest[];
+}
+
+export interface DebugPlayerStepResult {
+  stepped: boolean;
+  alive: boolean;
+  died: boolean;
+  deathReason?: string;
+  appleEaten: boolean;
+  appleTypeId?: string;
+  roomsChanged: Set<string>;
 }
 
 export interface DeathDebugRoomSnapshot {
@@ -600,6 +618,13 @@ export class SnakeGame implements QuestRuntime {
   private readonly rumors: RumorSystem;
   private readonly factionEvents: FactionEventSystem;
   private readonly inventory: InventorySystem;
+  private readonly localPlayerId: PlayerId = 'player-1';
+  private readonly debugSecondPlayerId: PlayerId = 'debug-player-2';
+  private readonly players = new Map<PlayerId, PlayerRuntime>();
+  private debugSecondSnake: SnakeState | null = null;
+  private debugSecondPlayerAlive = false;
+  private debugSecondPlayerStepCount = 0;
+  private debugSecondPlayerDeathReason: string | undefined;
   private readonly visitedRooms: Set<string>;
   private readonly npcDisposition = new Map<
     string,
@@ -663,6 +688,7 @@ export class SnakeGame implements QuestRuntime {
     this.rumors = new RumorSystem();
     this.factionEvents = new FactionEventSystem();
     this.inventory = new InventorySystem();
+    this.syncPlayerMap();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
 
     this.loadLanguagePreference();
@@ -685,6 +711,10 @@ export class SnakeGame implements QuestRuntime {
     this.rumors.load(undefined);
     this.factionEvents.load(undefined);
     this.inventory.clear();
+    this.debugSecondSnake = null;
+    this.debugSecondPlayerAlive = false;
+    this.debugSecondPlayerStepCount = 0;
+    this.syncPlayerMap();
     this.visitedRooms.clear();
     this.npcDisposition.clear();
     this.resolvedWandererEncounters.clear();
@@ -833,6 +863,487 @@ export class SnakeGame implements QuestRuntime {
     saveLanguagePreference(languageId);
   }
 
+  getLocalPlayerId(): PlayerId {
+    return this.localPlayerId;
+  }
+
+  getPlayer(playerId: PlayerId): PlayerRuntime | null {
+    this.syncPlayerMap();
+    return this.players.get(playerId) ?? null;
+  }
+
+  getPlayers(): readonly PlayerRuntime[] {
+    this.syncPlayerMap();
+    return Array.from(this.players.values());
+  }
+
+  handleCommand(command: ClientCommand): void {
+    const player = this.getPlayer(command.playerId);
+    if (!player) {
+      return;
+    }
+
+    switch (command.type) {
+      case 'setDirection':
+        player.snake.setDirection(command.direction.x, command.direction.y);
+        return;
+      case 'forceDirection':
+        player.snake.forceDirection(command.direction.x, command.direction.y);
+        return;
+      case 'pause':
+      case 'resume':
+      case 'interact':
+      case 'useItem':
+      case 'chooseOption':
+        return;
+    }
+  }
+
+  getSnapshot(localPlayerId: PlayerId = this.localPlayerId): GameSnapshot {
+    this.syncPlayerMap();
+    const room = this.getCurrentRoom();
+    const roomId = room.id;
+    const players = Object.fromEntries(
+      Array.from(this.players.values(), (player) => [
+        player.id,
+        {
+          id: player.id,
+          name: player.name,
+          roomId: player.snake.currentRoomId,
+          body: Array.from(player.snake.bodySegments, (segment) => ({ ...segment })),
+          direction: { ...player.snake.directionVector },
+          score: player.snake.score,
+          alive: player.alive,
+          isLocal: player.id === localPlayerId,
+        },
+      ]),
+    );
+
+    return {
+      tick: Number(this.getFlag<number>('timeMs') ?? 0),
+      localPlayerId,
+      viewport: {
+        centerRoomId: roomId,
+        rooms: {
+          [roomId]: {
+            id: roomId,
+            room,
+            layout: [...room.layout],
+            biomeId: room.biomeId,
+            biomeTitle: room.biomeTitle,
+            backgroundColor: room.backgroundColor,
+            wallColor: room.wallColor,
+            wallOutlineColor: room.wallOutlineColor,
+            portals: room.portals,
+            caveEntrances: room.caveEntrances,
+            apples: this.getApple(roomId),
+            enemies: this.getEnemies(roomId),
+            followers: this.getFollowers()
+              .filter((follower) => follower.roomId === roomId)
+              .map((follower) => ({
+                id: follower.id,
+                roomId: follower.roomId,
+                position: follower.position,
+                fireCooldown: 0,
+                moveCooldown: 0,
+                aimDirection: follower.direction,
+                flashTicks: 0,
+                name: follower.name,
+                currentHearts: 1,
+                maxHearts: 1,
+                encounterKind: 'goblin' as const,
+              })),
+            bullets: this.getEnemyBullets(roomId),
+            footballs: this.getFootballs(roomId),
+            animals: this.getAnimals(roomId),
+          },
+        },
+      },
+      players,
+      ui: {
+        messages: this.getSnapshotMessages(),
+        activeQuest: this.questController.getActive()[0]?.id,
+        health: this.getPlayerHealth(),
+      },
+    };
+  }
+
+  private getSnapshotMessages(): string[] {
+    const messages: string[] = [];
+    const questInteraction = this.getFlag<{ message?: string }>('ui.questInteraction');
+    if (questInteraction?.message) {
+      messages.push(questInteraction.message);
+    }
+    const relationshipEvent = this.getFlag<{ message?: string }>('ui.relationshipEvent');
+    if (relationshipEvent?.message) {
+      messages.push(relationshipEvent.message);
+    }
+    const itemReward = this.getFlag<{ message?: string }>('ui.itemReward');
+    if (itemReward?.message) {
+      messages.push(itemReward.message);
+    }
+    return messages;
+  }
+
+  setDebugSecondPlayerEnabled(enabled: boolean): void {
+    if (!enabled) {
+      console.info('[SnakeGame] Debug second snake disabled.');
+      this.debugSecondSnake = null;
+      this.debugSecondPlayerAlive = false;
+      this.debugSecondPlayerStepCount = 0;
+      this.debugSecondPlayerDeathReason = undefined;
+      this.syncPlayerMap();
+      return;
+    }
+    if (!this.debugSecondSnake) {
+      this.debugSecondSnake = new SnakeState(
+        this.config.grid,
+        this.config.snake,
+        this.snake.currentRoomId,
+      );
+      this.positionDebugSecondSnake();
+    }
+    this.debugSecondPlayerAlive = true;
+    this.debugSecondPlayerDeathReason = undefined;
+    this.syncPlayerMap();
+    const snapshot = this.debugSecondSnake?.bodySegments[0];
+    console.info('[SnakeGame] Debug second snake enabled.', {
+      playerId: this.debugSecondPlayerId,
+      roomId: this.debugSecondSnake?.currentRoomId,
+      head: snapshot ? { x: snapshot.x, y: snapshot.y } : null,
+      players: Array.from(this.players.keys()),
+    });
+  }
+
+  isDebugSecondPlayerEnabled(): boolean {
+    return Boolean(this.debugSecondSnake);
+  }
+
+  stepDebugPlayers(): DebugPlayerStepResult {
+    const roomsChanged = new Set<string>();
+    if (!this.debugSecondSnake || !this.debugSecondPlayerAlive) {
+      return {
+        stepped: false,
+        alive: Boolean(this.debugSecondSnake && this.debugSecondPlayerAlive),
+        died: false,
+        appleEaten: false,
+        roomsChanged,
+      };
+    }
+    const previousRoomId = this.debugSecondSnake.currentRoomId;
+    this.steerDebugSecondSnake();
+    const outcome = this.debugSecondSnake.step({
+      getRoom: (roomId) => this.world.getRoom(roomId),
+      ensureApple: (roomId, snake, score) => {
+        const { changed } = this.apples.ensureApple(roomId, Array.from(snake), score);
+        if (changed) {
+          roomsChanged.add(roomId);
+        }
+      },
+      getBossManager: () => this.bosses,
+    });
+    let appleEaten = false;
+    let appleTypeId: string | undefined;
+    if (outcome.status === 'dead') {
+      this.killDebugSecondPlayer(outcome.reason ?? 'unknown');
+      console.info('[SnakeGame] Debug second snake died.', {
+        reason: outcome.reason ?? 'unknown',
+        roomId: this.debugSecondSnake.currentRoomId,
+        head: this.debugSecondSnake.bodySegments[0] ?? null,
+        step: this.debugSecondPlayerStepCount,
+      });
+    } else if (this.isSnakeHeadCollidingWithOtherSnake(this.debugSecondSnake, this.snake)) {
+      this.killDebugSecondPlayer('player');
+      console.info('[SnakeGame] Debug second snake died from player collision.', {
+        roomId: this.debugSecondSnake.currentRoomId,
+        head: this.debugSecondSnake.bodySegments[0] ?? null,
+        localPlayerHead: this.snake.bodySegments[0] ?? null,
+        step: this.debugSecondPlayerStepCount,
+      });
+    } else {
+      if (outcome.appleEaten) {
+        const consumption = this.consumeAppleForDebugSecondSnake();
+        appleEaten = consumption.appleEaten;
+        appleTypeId = consumption.appleTypeId;
+        for (const roomId of consumption.roomsChanged) {
+          roomsChanged.add(roomId);
+        }
+      }
+    }
+    if (previousRoomId !== this.debugSecondSnake.currentRoomId) {
+      console.info('[SnakeGame] Debug second snake changed rooms.', {
+        fromRoomId: previousRoomId,
+        toRoomId: this.debugSecondSnake.currentRoomId,
+        head: this.debugSecondSnake.bodySegments[0] ?? null,
+        step: this.debugSecondPlayerStepCount,
+      });
+    }
+    this.debugSecondPlayerStepCount += 1;
+    this.syncPlayerMap();
+    return {
+      stepped: true,
+      alive: this.debugSecondPlayerAlive,
+      died: !this.debugSecondPlayerAlive,
+      deathReason: this.debugSecondPlayerAlive ? undefined : this.debugSecondPlayerDeathReason,
+      appleEaten,
+      appleTypeId,
+      roomsChanged,
+    };
+  }
+
+  private syncPlayerMap(): void {
+    this.players.clear();
+    this.players.set(this.localPlayerId, {
+      id: this.localPlayerId,
+      name: 'Player 1',
+      snake: this.snake,
+      inventory: this.inventory,
+      flags: this.snake.flags,
+      alive: true,
+    });
+    if (this.debugSecondSnake) {
+      this.players.set(this.debugSecondPlayerId, {
+        id: this.debugSecondPlayerId,
+        name: 'Debug Player 2',
+        snake: this.debugSecondSnake,
+        flags: this.debugSecondSnake.flags,
+        alive: this.debugSecondPlayerAlive,
+      });
+    }
+  }
+
+  private positionDebugSecondSnake(): void {
+    if (!this.debugSecondSnake) {
+      return;
+    }
+    const roomId = this.snake.currentRoomId;
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+    const room = this.world.getRoom(roomId);
+    const localAnchor = this.findDebugSecondSnakeSpawn(room);
+    const anchor = {
+      x: roomX * this.config.grid.cols + localAnchor.x,
+      y: roomY * this.config.grid.rows + localAnchor.y,
+    };
+    this.debugSecondSnake.restoreFromSave(
+      [anchor, { x: anchor.x - 1, y: anchor.y }, { x: anchor.x - 2, y: anchor.y }],
+      { x: 1, y: 0 },
+      roomId,
+      3,
+    );
+    console.info('[SnakeGame] Debug second snake spawned.', {
+      roomId,
+      localHead: localAnchor,
+      worldHead: anchor,
+      body: this.debugSecondSnake.bodySegments.map((segment) => ({ ...segment })),
+    });
+  }
+
+  private findDebugSecondSnakeSpawn(room: RoomSnapshot): Vector2Like {
+    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+    const localPlayerHead = this.snake.head
+      ? {
+          x: this.snake.head.x - roomX * this.config.grid.cols,
+          y: this.snake.head.y - roomY * this.config.grid.rows,
+        }
+      : { x: 5, y: 12 };
+    const candidates: Vector2Like[] = [
+      { x: localPlayerHead.x + 6, y: localPlayerHead.y },
+      { x: localPlayerHead.x + 5, y: localPlayerHead.y + 2 },
+      { x: localPlayerHead.x + 5, y: localPlayerHead.y - 2 },
+      { x: this.config.grid.cols - 6, y: this.config.grid.rows - 6 },
+      { x: this.config.grid.cols - 8, y: 6 },
+      { x: 8, y: this.config.grid.rows - 6 },
+      { x: Math.floor(this.config.grid.cols / 2), y: Math.floor(this.config.grid.rows / 2) },
+    ];
+    for (const candidate of candidates) {
+      if (this.canPlaceDebugSecondSnakeAt(room, candidate)) {
+        return candidate;
+      }
+    }
+    for (let y = 3; y < this.config.grid.rows - 3; y += 1) {
+      for (let x = 3; x < this.config.grid.cols - 3; x += 1) {
+        const candidate = { x, y };
+        if (this.canPlaceDebugSecondSnakeAt(room, candidate)) {
+          return candidate;
+        }
+      }
+    }
+    return { x: localPlayerHead.x, y: localPlayerHead.y };
+  }
+
+  private canPlaceDebugSecondSnakeAt(room: RoomSnapshot, localHead: Vector2Like): boolean {
+    const body = [
+      localHead,
+      { x: localHead.x - 1, y: localHead.y },
+      { x: localHead.x - 2, y: localHead.y },
+    ];
+    return body.every((segment) => this.isDebugSecondSnakeLocalTileOpen(room, segment));
+  }
+
+  private isDebugSecondSnakeLocalTileOpen(room: RoomSnapshot, local: Vector2Like): boolean {
+    if (
+      local.x < 0 ||
+      local.y < 0 ||
+      local.x >= this.config.grid.cols ||
+      local.y >= this.config.grid.rows
+    ) {
+      return false;
+    }
+    const tile = room.layout[local.y]?.[local.x];
+    return Boolean(tile && tile !== '#' && tile !== '~');
+  }
+
+  private steerDebugSecondSnake(): void {
+    if (!this.debugSecondSnake) {
+      return;
+    }
+    const snake = this.debugSecondSnake;
+    const room = this.world.getRoom(snake.currentRoomId);
+    const head = snake.bodySegments[0];
+    if (!head) {
+      return;
+    }
+    const [roomX, roomY] = this.parseRoomCoordinates(snake.currentRoomId);
+    const apple = this.apples.getSnapshot(snake.currentRoomId)?.position;
+    const appleWorld = apple
+      ? {
+          x: roomX * this.config.grid.cols + apple.x,
+          y: roomY * this.config.grid.rows + apple.y,
+        }
+      : null;
+    const preferred = appleWorld
+      ? [
+          { x: Math.sign(appleWorld.x - head.x), y: 0 },
+          { x: 0, y: Math.sign(appleWorld.y - head.y) },
+        ]
+      : [];
+    const fallback =
+      this.debugSecondPlayerStepCount % 16 < 8
+        ? [
+            { x: 1, y: 0 },
+            { x: 0, y: 1 },
+            { x: -1, y: 0 },
+            { x: 0, y: -1 },
+          ]
+        : [
+            { x: 0, y: -1 },
+            { x: 1, y: 0 },
+            { x: 0, y: 1 },
+            { x: -1, y: 0 },
+          ];
+    const directions = [...preferred, ...fallback].filter(
+      (direction) => direction.x !== 0 || direction.y !== 0,
+    );
+    const next = directions.find((direction) =>
+      this.isDebugSecondSnakeDirectionOpen(room, snake, direction),
+    );
+    if (next) {
+      snake.setDirection(next.x, next.y);
+    }
+  }
+
+  private isDebugSecondSnakeDirectionOpen(
+    room: RoomSnapshot,
+    snake: SnakeState,
+    direction: Vector2Like,
+  ): boolean {
+    const head = snake.bodySegments[0];
+    if (!head) {
+      return false;
+    }
+    const [roomX, roomY] = this.parseRoomCoordinates(snake.currentRoomId);
+    const next = { x: head.x + direction.x, y: head.y + direction.y };
+    const localX = next.x - roomX * this.config.grid.cols;
+    const localY = next.y - roomY * this.config.grid.rows;
+    if (
+      localX < 0 ||
+      localY < 0 ||
+      localX >= this.config.grid.cols ||
+      localY >= this.config.grid.rows
+    ) {
+      return false;
+    }
+    const tile = room.layout[localY]?.[localX];
+    if (!tile || tile === '#' || tile === '~') {
+      return false;
+    }
+    return !snake.bodySegments.some((segment) => segment.x === next.x && segment.y === next.y);
+  }
+
+  private consumeAppleForDebugSecondSnake(): {
+    appleEaten: boolean;
+    appleTypeId?: string;
+    roomsChanged: Set<string>;
+  } {
+    const roomsChanged = new Set<string>();
+    if (!this.debugSecondSnake) {
+      return { appleEaten: false, roomsChanged };
+    }
+    const head = this.debugSecondSnake.bodySegments[0];
+    if (!head) {
+      return { appleEaten: false, roomsChanged };
+    }
+    const roomId = this.debugSecondSnake.currentRoomId;
+    const consumption = this.apples.handleConsumption(
+      roomId,
+      this.debugSecondSnake.directionVector,
+      false,
+      this.worldToLocal(roomId, head),
+    );
+    if (!consumption.changed && !consumption.typeId) {
+      return { appleEaten: false, roomsChanged };
+    }
+    if (consumption.fatal) {
+      this.killDebugSecondPlayer('shielded');
+      console.info('[SnakeGame] Debug second snake died eating apple.', {
+        roomId,
+        head,
+        appleTypeId: consumption.typeId,
+      });
+      return { appleEaten: false, appleTypeId: consumption.typeId, roomsChanged };
+    }
+
+    this.debugSecondSnake.addScore(Math.max(0, consumption.rewards.bonusScore));
+    this.debugSecondSnake.grow(Math.max(0, consumption.rewards.growth - 1));
+    const spawn = this.apples.ensureApple(
+      roomId,
+      [...Array.from(this.snake.bodySegments), ...Array.from(this.debugSecondSnake.bodySegments)],
+      this.debugSecondSnake.score,
+    );
+    roomsChanged.add(roomId);
+    if (spawn.changed) {
+      roomsChanged.add(roomId);
+    }
+    console.info('[SnakeGame] Debug second snake ate apple.', {
+      roomId,
+      head,
+      appleTypeId: consumption.typeId,
+      score: this.debugSecondSnake.score,
+      length: this.debugSecondSnake.bodySegments.length,
+      spawnedReplacement: spawn.changed,
+    });
+    return { appleEaten: true, appleTypeId: consumption.typeId, roomsChanged };
+  }
+
+  private killDebugSecondPlayer(reason: string): void {
+    this.debugSecondPlayerAlive = false;
+    this.debugSecondPlayerDeathReason = reason;
+    if (this.debugSecondSnake) {
+      this.debugSecondSnake.flags['debug.deathReason'] = reason;
+    }
+  }
+
+  private isSnakeHeadCollidingWithOtherSnake(
+    movingSnake: SnakeState | null,
+    otherSnake: SnakeState | null,
+  ): boolean {
+    const head = movingSnake?.bodySegments[0];
+    if (!head || !otherSnake) {
+      return false;
+    }
+    return otherSnake.bodySegments.some((segment) => segment.x === head.x && segment.y === head.y);
+  }
+
   step(paused: boolean): StepResult {
     return this.actionStep(paused);
   }
@@ -946,6 +1457,20 @@ export class SnakeGame implements QuestRuntime {
       }
       this.handleEquipmentRoomRefund();
       this.handleStagedQuestRoomEntered(newRoomId);
+    }
+
+    if (
+      outcome.status === 'alive' &&
+      this.debugSecondPlayerAlive &&
+      this.isSnakeHeadCollidingWithOtherSnake(this.snake, this.debugSecondSnake)
+    ) {
+      this.markDeathAtCurrentHead('self');
+      outcome = { status: 'dead', reason: 'self', appleEaten: false };
+      console.info('[SnakeGame] Local snake died from debug player collision.', {
+        roomId: this.snake.currentRoomId,
+        localHead: this.snake.bodySegments[0] ?? null,
+        debugHead: this.debugSecondSnake?.bodySegments[0] ?? null,
+      });
     }
 
     if (outcome.status === 'dead') {
@@ -1527,6 +2052,7 @@ export class SnakeGame implements QuestRuntime {
         worldPosition: appleWorldPosition,
         current: appleSnapshot,
         stateChanged: appleStateChanged,
+        typeId: appleTypeId,
       },
       roomsChanged,
       roomChanged: roomHasChanged,
@@ -2193,6 +2719,11 @@ export class SnakeGame implements QuestRuntime {
     appleStateChanged: boolean;
   }): StepResult | null {
     const { enemyStep, animalStep } = this.actorStep();
+    const rivalStep = this.stepRivalSnakeEnemies(options.roomsChanged);
+    if (rivalStep.currentRoomAppleChanged) {
+      options.appleSnapshot = this.apples.getSnapshot(this.snake.currentRoomId);
+      options.appleStateChanged = true;
+    }
     const enemyMeleeDamageKills = this.applyBulletDamage(enemyStep.meleeHits, enemyStep.hitStyle);
     if (animalStep.damageTaken > 0 || enemyMeleeDamageKills) {
       if (
@@ -2234,6 +2765,374 @@ export class SnakeGame implements QuestRuntime {
     }
 
     return null;
+  }
+
+  private stepRivalSnakeEnemies(roomsChanged: Set<string>): { currentRoomAppleChanged: boolean } {
+    let currentRoomAppleChanged = false;
+    const rivals = [...this.enemies.getRivalSnakes()];
+    for (const rival of rivals) {
+      const body = rival.body?.map((segment) => ({ ...segment })) ?? [{ ...rival.position }];
+      if (body.length === 0) {
+        this.enemies.removeEnemy(rival.id);
+        roomsChanged.add(rival.roomId);
+        continue;
+      }
+
+      if (rival.moveCooldown > 0) {
+        this.enemies.updateEnemy({
+          ...rival,
+          body,
+          moveCooldown: Math.max(0, rival.moveCooldown - 1),
+          fireCooldown: 999,
+        });
+        continue;
+      }
+
+      const move = this.resolveRivalSnakeMove({ ...rival, body });
+      if (!move) {
+        this.enemies.updateEnemy({
+          ...rival,
+          body,
+          moveCooldown: 2,
+          fireCooldown: 999,
+          flashTicks: Math.max(0, rival.flashTicks - 1),
+        });
+        continue;
+      }
+
+      const nextRival: EnemyInstance = {
+        ...rival,
+        roomId: move.roomId,
+        position: { ...move.body[0] },
+        body: move.body,
+        aimDirection: move.direction,
+        moveCooldown: 1,
+        fireCooldown: 999,
+        flashTicks: Math.max(0, rival.flashTicks - 1),
+      };
+      const previousRoomId = rival.roomId;
+      this.enemies.updateEnemy(nextRival);
+      roomsChanged.add(previousRoomId);
+      roomsChanged.add(nextRival.roomId);
+      if (previousRoomId !== nextRival.roomId) {
+        console.info('[SnakeGame] Rival snake changed rooms.', {
+          enemyId: nextRival.id,
+          fromRoomId: previousRoomId,
+          toRoomId: nextRival.roomId,
+          head: nextRival.position,
+        });
+      }
+
+      const ateCurrentRoomApple = this.consumeAppleForRivalSnake(nextRival, roomsChanged);
+      currentRoomAppleChanged ||= ateCurrentRoomApple;
+    }
+    return { currentRoomAppleChanged };
+  }
+
+  private consumeAppleForRivalSnake(rival: EnemyInstance, roomsChanged: Set<string>): boolean {
+    const consumption = this.apples.handleConsumption(
+      rival.roomId,
+      rival.aimDirection,
+      false,
+      rival.position,
+    );
+    if (!consumption.changed && !consumption.typeId) {
+      return false;
+    }
+
+    roomsChanged.add(rival.roomId);
+    if (consumption.fatal) {
+      this.enemies.removeEnemy(rival.id);
+      console.info('[SnakeGame] Rival snake died eating apple.', {
+        enemyId: rival.id,
+        roomId: rival.roomId,
+        head: rival.position,
+        appleTypeId: consumption.typeId,
+      });
+      return rival.roomId === this.snake.currentRoomId;
+    }
+
+    const score = Math.max(0, (rival.score ?? 0) + Math.max(0, consumption.rewards.bonusScore));
+    const body = rival.body?.map((segment) => ({ ...segment })) ?? [{ ...rival.position }];
+    const tail = body[body.length - 1] ?? rival.position;
+    for (let i = 0; i < Math.max(0, consumption.rewards.growth); i += 1) {
+      body.push({ ...tail });
+    }
+    const updated: EnemyInstance = {
+      ...rival,
+      body,
+      score,
+      flashTicks: 2,
+    };
+    this.enemies.updateEnemy(updated);
+    const spawn = this.apples.ensureApple(
+      rival.roomId,
+      this.getRivalAppleOccupiedSegments(rival.roomId),
+      score,
+    );
+    if (spawn.changed) {
+      roomsChanged.add(rival.roomId);
+    }
+    console.info('[SnakeGame] Rival snake ate apple.', {
+      enemyId: rival.id,
+      roomId: rival.roomId,
+      head: rival.position,
+      appleTypeId: consumption.typeId,
+      score,
+      length: body.length,
+      spawnedReplacement: spawn.changed,
+    });
+    return rival.roomId === this.snake.currentRoomId;
+  }
+
+  private resolveRivalSnakeMove(
+    rival: EnemyInstance & { body: Vector2Like[] },
+  ): { roomId: string; body: Vector2Like[]; direction: Vector2Like } | null {
+    const directions = this.getRivalSnakeDirections(rival);
+    for (const direction of directions) {
+      const move = this.getRivalSnakeMoveTarget(rival, direction);
+      if (!move) {
+        continue;
+      }
+      const nextBody =
+        move.roomId === rival.roomId
+          ? [move.position, ...rival.body.slice(0, -1).map((segment) => ({ ...segment }))]
+          : this.buildRivalSnakeBodyAfterRoomChange(
+              move.roomId,
+              move.position,
+              direction,
+              rival.body.length,
+            );
+      if (this.canRivalSnakeOccupy(move.roomId, nextBody, rival.id)) {
+        return { roomId: move.roomId, body: nextBody, direction };
+      }
+    }
+    return null;
+  }
+
+  private getRivalSnakeDirections(rival: EnemyInstance & { body?: Vector2Like[] }): Vector2Like[] {
+    const apple = this.apples.getSnapshot(rival.roomId)?.position;
+    const pathDirection = apple ? this.findRivalSnakePathDirection(rival, apple) : null;
+    const preferred = pathDirection ? [pathDirection] : [];
+    const fallback =
+      (rival.score ?? 0) % 2 === 0
+        ? [
+            { x: 1, y: 0 },
+            { x: 0, y: 1 },
+            { x: -1, y: 0 },
+            { x: 0, y: -1 },
+          ]
+        : [
+            { x: 0, y: -1 },
+            { x: 1, y: 0 },
+            { x: 0, y: 1 },
+            { x: -1, y: 0 },
+          ];
+    const seen = new Set<string>();
+    return [...preferred, ...fallback].filter((direction) => {
+      if (direction.x === 0 && direction.y === 0) return false;
+      const key = `${direction.x},${direction.y}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  private findRivalSnakePathDirection(
+    rival: EnemyInstance & { body?: Vector2Like[] },
+    target: Vector2Like,
+  ): Vector2Like | null {
+    const start = rival.position;
+    if (start.x === target.x && start.y === target.y) {
+      return null;
+    }
+
+    const body = rival.body ?? [rival.position];
+    const blocked = new Set(
+      body
+        .slice(0, -1)
+        .filter((segment) => segment.x !== start.x || segment.y !== start.y)
+        .map((segment) => `${segment.x},${segment.y}`),
+    );
+    const playerLocals =
+      rival.roomId === this.snake.currentRoomId
+        ? this.snake.bodySegments.map((segment) => this.worldToLocal(rival.roomId, segment))
+        : [];
+    for (const segment of playerLocals) {
+      blocked.add(`${segment.x},${segment.y}`);
+    }
+    for (const enemy of this.enemies.getEnemiesInRoom(rival.roomId)) {
+      if (enemy.id !== rival.id) {
+        blocked.add(`${enemy.position.x},${enemy.position.y}`);
+      }
+    }
+
+    const queue: Array<{ position: Vector2Like; first: Vector2Like | null }> = [
+      { position: start, first: null },
+    ];
+    const visited = new Set([`${start.x},${start.y}`]);
+    const directions: Vector2Like[] = [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ];
+
+    while (queue.length > 0) {
+      const current = queue.shift();
+      if (!current) {
+        break;
+      }
+      for (const direction of directions) {
+        const next = {
+          x: current.position.x + direction.x,
+          y: current.position.y + direction.y,
+        };
+        const key = `${next.x},${next.y}`;
+        if (
+          visited.has(key) ||
+          blocked.has(key) ||
+          !this.isRivalSnakeLocalTileOpen(rival.roomId, next)
+        ) {
+          continue;
+        }
+        const first = current.first ?? direction;
+        if (next.x === target.x && next.y === target.y) {
+          return first;
+        }
+        visited.add(key);
+        queue.push({ position: next, first });
+      }
+    }
+
+    return null;
+  }
+
+  private getRivalSnakeMoveTarget(
+    rival: EnemyInstance,
+    direction: Vector2Like,
+  ): { roomId: string; position: Vector2Like } | null {
+    if (isCaveRoomId(rival.roomId)) {
+      const position = {
+        x: rival.position.x + direction.x,
+        y: rival.position.y + direction.y,
+      };
+      return { roomId: rival.roomId, position };
+    }
+
+    let roomId = rival.roomId;
+    let x = rival.position.x + direction.x;
+    let y = rival.position.y + direction.y;
+    let roomDx = 0;
+    let roomDy = 0;
+    if (x < 0) {
+      x = this.config.grid.cols - 1;
+      roomDx = -1;
+    } else if (x >= this.config.grid.cols) {
+      x = 0;
+      roomDx = 1;
+    }
+    if (y < 0) {
+      y = this.config.grid.rows - 1;
+      roomDy = -1;
+    } else if (y >= this.config.grid.rows) {
+      y = 0;
+      roomDy = 1;
+    }
+    if (roomDx !== 0 || roomDy !== 0) {
+      const shifted = this.shiftRoomId(roomId, roomDx, roomDy);
+      if (!shifted) {
+        return null;
+      }
+      roomId = shifted;
+    }
+    return { roomId, position: { x, y } };
+  }
+
+  private buildRivalSnakeBodyAfterRoomChange(
+    roomId: string,
+    head: Vector2Like,
+    direction: Vector2Like,
+    length: number,
+  ): Vector2Like[] {
+    const body: Vector2Like[] = [];
+    for (let i = 0; i < Math.max(1, length); i += 1) {
+      body.push({
+        x: Math.min(Math.max(head.x + direction.x * i, 0), this.config.grid.cols - 1),
+        y: Math.min(Math.max(head.y + direction.y * i, 0), this.config.grid.rows - 1),
+      });
+    }
+    return body.filter((segment) => this.isRivalSnakeLocalTileOpen(roomId, segment));
+  }
+
+  private canRivalSnakeOccupy(
+    roomId: string,
+    body: readonly Vector2Like[],
+    enemyId: string,
+  ): boolean {
+    if (body.length === 0) {
+      return false;
+    }
+    const seen = new Set<string>();
+    for (const segment of body) {
+      const key = `${segment.x},${segment.y}`;
+      if (seen.has(key) || !this.isRivalSnakeLocalTileOpen(roomId, segment)) {
+        return false;
+      }
+      seen.add(key);
+    }
+    const playerLocals =
+      roomId === this.snake.currentRoomId
+        ? this.snake.bodySegments.map((segment) => this.worldToLocal(roomId, segment))
+        : [];
+    if (
+      body.some((segment) =>
+        playerLocals.some((player) => player.x === segment.x && player.y === segment.y),
+      )
+    ) {
+      return false;
+    }
+    const otherEnemies = this.enemies
+      .getEnemiesInRoom(roomId)
+      .filter((enemy) => enemy.id !== enemyId);
+    return !body.some((segment) =>
+      otherEnemies.some(
+        (enemy) => enemy.position.x === segment.x && enemy.position.y === segment.y,
+      ),
+    );
+  }
+
+  private isRivalSnakeLocalTileOpen(roomId: string, local: Vector2Like): boolean {
+    if (
+      local.x < 0 ||
+      local.y < 0 ||
+      local.x >= this.config.grid.cols ||
+      local.y >= this.config.grid.rows
+    ) {
+      return false;
+    }
+    const room = this.world.getRoom(roomId);
+    const tile = room.layout[local.y]?.[local.x];
+    return Boolean(tile && tile !== '#' && tile !== '~');
+  }
+
+  private getRivalAppleOccupiedSegments(roomId: string): Vector2Like[] {
+    const occupied = Array.from(this.snake.bodySegments);
+    for (const rival of this.enemies.getRivalSnakes()) {
+      const body = rival.body ?? [rival.position];
+      for (const segment of body) {
+        occupied.push(this.localToWorld(rival.roomId, segment));
+      }
+    }
+    return occupied.filter((segment) => {
+      const local = this.worldToLocal(roomId, segment);
+      return (
+        local.x >= 0 &&
+        local.y >= 0 &&
+        local.x < this.config.grid.cols &&
+        local.y < this.config.grid.rows
+      );
+    });
   }
 
   private createActorDeathStepResult(
@@ -4951,7 +5850,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private openTownGateTiles(room: RoomSnapshot): void {
-    const district = room.town?.districtByRoomId[room.id];
+    const district = room.town?.districtByRoomId?.[room.id];
     if (district !== 'gate' && district !== 'townExit') {
       return;
     }
@@ -5399,8 +6298,7 @@ export class SnakeGame implements QuestRuntime {
     if (!giver) {
       return false;
     }
-    const expected =
-      giver.actorId ?? this.getTownResidentActorId(town.id, giver.id, giver.role);
+    const expected = giver.actorId ?? this.getTownResidentActorId(town.id, giver.id, giver.role);
     return actorId === expected;
   }
 
@@ -5556,7 +6454,9 @@ export class SnakeGame implements QuestRuntime {
       : 'small';
   }
 
-  private getCurrentTownLargeQuestGiver(town: TownStructure): TownStructure['residents'][number] | null {
+  private getCurrentTownLargeQuestGiver(
+    town: TownStructure,
+  ): TownStructure['residents'][number] | null {
     const roomId = this.snake.currentRoomId;
     return (
       town.residents.find(
@@ -7884,6 +8784,67 @@ export class SnakeGame implements QuestRuntime {
     return result;
   }
 
+  canCompleteWeddingWithProfile(profile: RelationshipCandidateProfile): boolean {
+    return this.getStagedQuestInstances().some(
+      (instance) =>
+        instance.questId === 'deep-lying-bouquet' &&
+        instance.relationshipId === profile.id &&
+        instance.stage === 'return-to-giver' &&
+        instance.carriedItemId === 'deep-lying-bouquet',
+    );
+  }
+
+  completeWeddingWithProfile(profile: RelationshipCandidateProfile): RelationshipEventResult {
+    const instance = this.getStagedQuestInstances().find(
+      (candidate) =>
+        candidate.questId === 'deep-lying-bouquet' &&
+        candidate.relationshipId === profile.id &&
+        candidate.stage === 'return-to-giver' &&
+        candidate.carriedItemId === 'deep-lying-bouquet',
+    );
+    if (!instance) {
+      return {
+        ok: false,
+        title: profile.displayName,
+        message: 'The wedding still needs the Deep-Lying Bouquet.',
+        color: '#ff6b6b',
+        state: this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount()),
+      };
+    }
+
+    this.updateStagedQuestInstance(instance.questId, (current) =>
+      current === instance
+        ? {
+            ...current,
+            stage: 'completed',
+            carriedItemId: undefined,
+          }
+        : current,
+    );
+    this.questController.completeQuestById(instance.questId, this);
+    this.setFlag('quest.staged.completedNow', { questId: instance.questId });
+    const result = this.relationshipController.completeMarriage(
+      profile.id,
+      this.getRoomsVisitedCount(),
+    );
+    this.applyRelationshipReward(result.reward);
+    const actorState =
+      result.state ??
+      this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    this.emitWorldEvent({
+      type: 'relationship-choice',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [this.ensureRelationshipActorForProfile(profile, actorState)],
+      severity: 45,
+      loudness: 12,
+      tags: ['relationship', 'marriage', 'deep-lying-bouquet'],
+      summary: `${profile.displayName} married you after the bouquet returned.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { relationshipId: profile.id, questId: instance.questId, ok: result.ok },
+    });
+    return result;
+  }
+
   applyRelationshipBranchChoice(
     profile: RelationshipCandidateProfile,
     branch: DatingBranchChoice,
@@ -8561,7 +9522,7 @@ export class SnakeGame implements QuestRuntime {
 
   clearSaveFile(): void {
     try {
-      localStorage.removeItem('snakeGameSave');
+      clearSavedGameData();
     } catch (error) {
       console.error('Failed to clear save file:', error);
     }
@@ -9024,7 +9985,7 @@ export class SnakeGame implements QuestRuntime {
       return savedRoomId === roomId;
     }
     const room = this.world.getRoom(roomId);
-    const district = room.town?.districtByRoomId[room.id];
+    const district = room.town?.districtByRoomId?.[room.id];
     return (
       district === 'tavernInterior' ||
       district === 'tavern' ||
@@ -9181,7 +10142,8 @@ export class SnakeGame implements QuestRuntime {
       carriedItemId: 'deep-lying-bouquet',
     }));
     return {
-      message: 'The Deep-Lying Bouquet joins your pack. It is cold enough to remember forever.',
+      message:
+        'The Deep-Lying Bouquet joins your pack. Return to your partner and choose Complete Wedding.',
     };
   }
 

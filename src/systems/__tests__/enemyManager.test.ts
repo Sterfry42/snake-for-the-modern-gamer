@@ -35,9 +35,7 @@ describe('EnemyManager', () => {
     );
 
     expect(enemy.actorId).toBe('town:eastmere:resident:lindsey');
-    expect(manager.getEnemiesInRoom('0,0,0')[0]?.actorId).toBe(
-      'town:eastmere:resident:lindsey',
-    );
+    expect(manager.getEnemiesInRoom('0,0,0')[0]?.actorId).toBe('town:eastmere:resident:lindsey');
   });
 
   it('allows hostile humanoids beyond npc-hostile to be eaten', () => {
@@ -48,6 +46,27 @@ describe('EnemyManager', () => {
 
     expect(result.eaten).toBe(true);
     expect(result.enemy?.encounterKind).toBe('goblin');
+    expect(manager.getEnemiesInRoom('0,0,0')).toHaveLength(0);
+  });
+
+  it('spawns rival snakes at the rare enemy spawn roll', () => {
+    const manager = new EnemyManager(defaultGameConfig.grid, () => 0.05);
+
+    manager.ensureEnemy('0,0,0', makeRoom(), []);
+
+    const enemy = manager.getEnemiesInRoom('0,0,0')[0];
+    expect(enemy?.encounterKind).toBe('rival-snake');
+    expect(enemy?.body).toHaveLength(3);
+  });
+
+  it('allows rival snakes to be eaten by the player', () => {
+    const manager = new EnemyManager(defaultGameConfig.grid, () => 0.5);
+    const rival = manager.spawnRivalSnake('0,0,0', makeRoom(), []);
+
+    const result = manager.consumeEnemyAt('0,0,0', rival?.position ?? { x: -1, y: -1 });
+
+    expect(result.eaten).toBe(true);
+    expect(result.enemy?.encounterKind).toBe('rival-snake');
     expect(manager.getEnemiesInRoom('0,0,0')).toHaveLength(0);
   });
 
@@ -82,7 +101,9 @@ describe('EnemyManager', () => {
       snakeDirection: { x: 0, y: 1 },
     });
 
-    const positions = manager.getEnemiesInRoom('0,0,0').map((enemy) => `${enemy.position.x},${enemy.position.y}`);
+    const positions = manager
+      .getEnemiesInRoom('0,0,0')
+      .map((enemy) => `${enemy.position.x},${enemy.position.y}`);
     expect(new Set(positions).size).toBe(positions.length);
   });
 

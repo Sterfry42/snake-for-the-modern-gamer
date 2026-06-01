@@ -59,6 +59,12 @@ interface SnakeRenderOptions {
   snakeColor?: number;
   poweredUp?: boolean;
   direction?: Vector2Like;
+  otherPlayers?: readonly {
+    id: string;
+    body: readonly Vector2Like[];
+    direction: Vector2Like;
+    color?: number;
+  }[];
   snakePalette?: SnakeSpritePalette;
   cowboyHat?: boolean;
   activeHat?: SnakeHatStyle | null;
@@ -99,6 +105,7 @@ export class SnakeRenderer {
   private readonly furnitureSprites: Phaser.GameObjects.Image[] = [];
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
+  private readonly loggedOtherPlayerRenderIds = new Set<string>();
   private renderDiagnostics: RenderDiagnostics = {
     staticCacheStatus: 'disabled',
     staticTileCount: 0,
@@ -195,6 +202,7 @@ export class SnakeRenderer {
       opts.snakePalette,
       opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
     );
+    this.drawOtherPlayers(room, currentRoomId, opts.otherPlayers ?? []);
     this.drawAnimals(opts.animals ?? []);
     this.drawEnemies([...(opts.enemies ?? []), ...(opts.followers ?? [])]);
     this.drawBullets(opts.bullets ?? []);
@@ -1114,7 +1122,8 @@ export class SnakeRenderer {
   }
 
   private drawApple(room: RoomSnapshot, appleInfo?: AppleSnapshot): void {
-    const apples = room.apples && room.apples.length > 0 ? room.apples : room.apple ? [room.apple] : [];
+    const apples =
+      room.apples && room.apples.length > 0 ? room.apples : room.apple ? [room.apple] : [];
     if (apples.length === 0) {
       this.appleSprites.forEach((sprite) => sprite.setVisible(false));
       return;
@@ -1317,6 +1326,76 @@ export class SnakeRenderer {
           .setVisible(true);
       }
     });
+  }
+
+  private drawOtherPlayers(
+    room: RoomSnapshot,
+    currentRoomId: string,
+    players: readonly {
+      id: string;
+      body: readonly Vector2Like[];
+      direction: Vector2Like;
+      color?: number;
+    }[],
+  ): void {
+    void room;
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
+    for (const player of players) {
+      const color = player.color ?? 0x4ecdc4;
+      let visibleSegments = 0;
+      player.body.forEach((segment, index) => {
+        const localX = segment.x - roomX * this.grid.cols;
+        const localY = segment.y - roomY * this.grid.rows;
+        if (localX < 0 || localX >= this.grid.cols || localY < 0 || localY >= this.grid.rows) {
+          return;
+        }
+        visibleSegments += 1;
+        const inset = index === 0 ? 2 : 3;
+        const alpha = Math.max(0.35, 0.9 - index * 0.06);
+        this.graphics.fillStyle(color, alpha);
+        this.graphics.fillRoundedRect(
+          localX * this.grid.cell + inset,
+          localY * this.grid.cell + inset,
+          this.grid.cell - inset * 2,
+          this.grid.cell - inset * 2,
+          3,
+        );
+        if (index === 0) {
+          this.graphics.lineStyle(2, 0xffffff, 0.95);
+          this.graphics.strokeRoundedRect(
+            localX * this.grid.cell + inset,
+            localY * this.grid.cell + inset,
+            this.grid.cell - inset * 2,
+            this.grid.cell - inset * 2,
+            3,
+          );
+          this.graphics.fillStyle(0xffffff, 0.95);
+          this.graphics.fillTriangle(
+            localX * this.grid.cell + this.grid.cell / 2,
+            localY * this.grid.cell - 5,
+            localX * this.grid.cell + this.grid.cell / 2 - 5,
+            localY * this.grid.cell + 2,
+            localX * this.grid.cell + this.grid.cell / 2 + 5,
+            localY * this.grid.cell + 2,
+          );
+          this.graphics.lineStyle(2, color, 0.95);
+          this.graphics.strokeCircle(
+            localX * this.grid.cell + this.grid.cell / 2,
+            localY * this.grid.cell + this.grid.cell / 2,
+            this.grid.cell * 0.62,
+          );
+        }
+      });
+      if (!this.loggedOtherPlayerRenderIds.has(player.id)) {
+        this.loggedOtherPlayerRenderIds.add(player.id);
+        console.info('[SnakeRenderer] Other player render check.', {
+          playerId: player.id,
+          roomId: currentRoomId,
+          visibleSegments,
+          head: player.body[0] ?? null,
+        });
+      }
+    }
   }
 
   private buildSnakePalette(): SnakeSpritePalette {
@@ -1553,22 +1632,32 @@ export class SnakeRenderer {
 
   private drawEnemies(enemies: readonly EnemyInstance[]): void {
     this.enemySprites.forEach((sprite) => sprite.setVisible(false));
-    enemies.forEach((enemy, index) => {
-      const sprite = this.ensureEnemySprite(index);
-      const variant = this.resolveEnemyVariant(enemy);
+    let spriteIndex = 0;
+    enemies.forEach((enemy) => {
+      const segments =
+        enemy.encounterKind === 'rival-snake' && enemy.body?.length ? enemy.body : [enemy.position];
       const textureKeys = this.spriteFactory.ensureRecipe(
         enemySpriteRecipe,
         this.grid.cell,
         this.paletteForEnemy(enemy),
       );
-      sprite
-        .setTexture(textureKeys[variant])
-        .setPosition(
-          enemy.position.x * this.grid.cell + this.grid.cell / 2,
-          enemy.position.y * this.grid.cell + this.grid.cell / 2,
-        )
-        .setDisplaySize(this.grid.cell, this.grid.cell)
-        .setVisible(true);
+      segments.forEach((segment, segmentIndex) => {
+        const sprite = this.ensureEnemySprite(spriteIndex);
+        spriteIndex += 1;
+        const variant =
+          segmentIndex === 0
+            ? this.resolveEnemyVariant(enemy)
+            : ('enemy-down' as EnemySpriteVariant);
+        const size = enemy.encounterKind === 'rival-snake' ? this.grid.cell * 0.82 : this.grid.cell;
+        sprite
+          .setTexture(textureKeys[variant])
+          .setPosition(
+            segment.x * this.grid.cell + this.grid.cell / 2,
+            segment.y * this.grid.cell + this.grid.cell / 2,
+          )
+          .setDisplaySize(size, size)
+          .setVisible(true);
+      });
     });
   }
 
@@ -1915,6 +2004,16 @@ export class SnakeRenderer {
         eyeColor: '#fff6e8',
         bulletColor: '#9ed8e8',
         bulletOutlineColor: '#123746',
+      };
+    }
+    if (enemy.encounterKind === 'rival-snake') {
+      return {
+        bodyColor: '#28c48f',
+        accentColor: '#d9fff0',
+        outlineColor: '#064433',
+        eyeColor: '#02231b',
+        bulletColor: '#73ffd0',
+        bulletOutlineColor: '#0b5c46',
       };
     }
     return this.buildEnemyPalette();
