@@ -3,6 +3,7 @@ import type { CaveTemplate, CaveTemplateId } from './caveTypes.js';
 export const CAVE_TEMPLATE_TABLE: Array<{ id: CaveTemplateId; weight: number }> = [
   { id: 'goldenAppleRush', weight: 3 },
   { id: 'skittishAppleRush', weight: 3 },
+  { id: 'caffeinatedAppleRush', weight: 2 },
   { id: 'simpleTreasure', weight: 3 },
   { id: 'monsterDen', weight: 2 },
   { id: 'randomStructureRoom', weight: 2 },
@@ -44,6 +45,19 @@ export const CAVE_TEMPLATES: Record<CaveTemplateId, CaveTemplate> = {
     collapseOnTimerEnd: true,
     forcedEjectionOnTimerEnd: true,
     applePool: { typeId: 'skittish', count: 10, minCount: 10, maxCount: 20 },
+  },
+  caffeinatedAppleRush: {
+    id: 'caffeinatedAppleRush',
+    label: 'Caffeinated Apple Rush',
+    category: 'appleRush',
+    layoutId: 'appleRush',
+    boundaryMode: 'solidWalls',
+    exitMode: 'timerForced',
+    timerSeconds: 15,
+    collapseOnExit: true,
+    collapseOnTimerEnd: true,
+    forcedEjectionOnTimerEnd: true,
+    applePool: { typeId: 'caffeinated', count: 20 },
   },
   simpleTreasure: {
     id: 'simpleTreasure',

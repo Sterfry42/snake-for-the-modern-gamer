@@ -59,6 +59,7 @@ interface SnakeRenderOptions {
   snakeColor?: number;
   poweredUp?: boolean;
   direction?: Vector2Like;
+  snakeRenderStyle?: 'sprite' | 'retro-grid';
   otherPlayers?: readonly {
     id: string;
     body: readonly Vector2Like[];
@@ -192,16 +193,26 @@ export class SnakeRenderer {
     this.drawApple(room, appleInfo ?? undefined);
     this.drawTreasure(room);
     this.drawPowerup(room);
-    this.drawSnake(
-      room,
-      snakeBody,
-      currentRoomId,
-      opts.direction ?? { x: 1, y: 0 },
-      opts.snakeColor,
-      opts.poweredUp ?? false,
-      opts.snakePalette,
-      opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
-    );
+    if (opts.snakeRenderStyle === 'retro-grid') {
+      this.drawRetroGridSnake(
+        snakeBody,
+        currentRoomId,
+        opts.direction ?? { x: 1, y: 0 },
+        opts.poweredUp ?? false,
+        opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
+      );
+    } else {
+      this.drawSnake(
+        room,
+        snakeBody,
+        currentRoomId,
+        opts.direction ?? { x: 1, y: 0 },
+        opts.snakeColor,
+        opts.poweredUp ?? false,
+        opts.snakePalette,
+        opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
+      );
+    }
     this.drawOtherPlayers(room, currentRoomId, opts.otherPlayers ?? []);
     this.drawAnimals(opts.animals ?? []);
     this.drawEnemies([...(opts.enemies ?? []), ...(opts.followers ?? [])]);
@@ -1328,6 +1339,57 @@ export class SnakeRenderer {
     });
   }
 
+  private drawRetroGridSnake(
+    snakeBody: readonly Vector2Like[],
+    currentRoomId: string,
+    direction: Vector2Like,
+    poweredUp: boolean,
+    activeHat: SnakeHatStyle | null,
+  ): void {
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const pulse = poweredUp ? 0.88 + 0.12 * Math.sin(now / 180) : 1;
+    this.snakeSprites.forEach((sprite) => sprite.setVisible(false));
+    this.hatSprite.setVisible(false);
+
+    snakeBody.forEach((segment) => {
+      const localX = segment.x - roomX * this.grid.cols;
+      const localY = segment.y - roomY * this.grid.rows;
+      if (localX < 0 || localX >= this.grid.cols || localY < 0 || localY >= this.grid.rows) {
+        return;
+      }
+
+      const x = localX * this.grid.cell;
+      const y = localY * this.grid.cell;
+      this.graphics.fillStyle(0x266f4f, 0.96 * pulse);
+      this.graphics.fillRect(x, y, this.grid.cell, this.grid.cell);
+      this.graphics.fillStyle(0x5dd6a2, pulse);
+      this.graphics.fillRect(x + 2, y + 2, this.grid.cell - 4, this.grid.cell - 4);
+      this.graphics.lineStyle(1, 0x1c513a, 0.9 * pulse);
+      this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    });
+
+    const head = snakeBody[0];
+    if (!activeHat || !head) return;
+
+    const localX = head.x - roomX * this.grid.cols;
+    const localY = head.y - roomY * this.grid.rows;
+    if (localX < 0 || localX >= this.grid.cols || localY < 0 || localY >= this.grid.rows) {
+      return;
+    }
+
+    const hatTextures = this.getHatTextureKeys(activeHat);
+    this.hatSprite
+      .setTexture(hatTextures[this.hatVariantFor(direction)])
+      .setPosition(
+        localX * this.grid.cell + this.grid.cell / 2,
+        localY * this.grid.cell + this.grid.cell / 2 - this.grid.cell * 0.12,
+      )
+      .setDisplaySize(this.grid.cell, this.grid.cell)
+      .setAlpha(pulse)
+      .setVisible(true);
+  }
+
   private drawOtherPlayers(
     room: RoomSnapshot,
     currentRoomId: string,
@@ -1407,6 +1469,16 @@ export class SnakeRenderer {
         darkenColor(paletteConfig.snake.bodyColor, paletteConfig.snake.outlineDarkenFactor),
       ),
       eyeColor: this.toCssColor(paletteConfig.snake.eyeColor),
+    };
+  }
+
+  private buildRivalSnakePalette(): SnakeSpritePalette {
+    return {
+      baseColor: '#d96a1f',
+      bellyColor: '#ffb35f',
+      patternColor: '#7a2f11',
+      outlineColor: '#3b1308',
+      eyeColor: '#fff0c7',
     };
   }
 
@@ -1634,6 +1706,11 @@ export class SnakeRenderer {
     this.enemySprites.forEach((sprite) => sprite.setVisible(false));
     let spriteIndex = 0;
     enemies.forEach((enemy) => {
+      if (enemy.encounterKind === 'rival-snake' && enemy.body?.length) {
+        spriteIndex = this.drawRivalSnakeEnemy(enemy, spriteIndex);
+        return;
+      }
+
       const segments =
         enemy.encounterKind === 'rival-snake' && enemy.body?.length ? enemy.body : [enemy.position];
       const textureKeys = this.spriteFactory.ensureRecipe(
@@ -1656,9 +1733,45 @@ export class SnakeRenderer {
             segment.y * this.grid.cell + this.grid.cell / 2,
           )
           .setDisplaySize(size, size)
+          .setAngle(0)
+          .setAlpha(1)
+          .clearTint()
           .setVisible(true);
       });
     });
+  }
+
+  private drawRivalSnakeEnemy(enemy: EnemyInstance, spriteIndex: number): number {
+    const segments = enemy.body?.length ? enemy.body : [enemy.position];
+    const textureKeys = this.spriteFactory.ensureRecipe(
+      snakeSpriteRecipe,
+      this.grid.cell,
+      this.buildRivalSnakePalette(),
+    );
+    const direction =
+      enemy.aimDirection.x !== 0 || enemy.aimDirection.y !== 0 ? enemy.aimDirection : { x: 1, y: 0 };
+
+    segments.forEach((segment, segmentIndex) => {
+      const sprite = this.ensureEnemySprite(spriteIndex);
+      spriteIndex += 1;
+      const variant = this.resolveVariant(segments, segmentIndex, direction);
+      const size = this.grid.cell * (segmentIndex === 0 ? 0.8 : 0.74);
+      const twist = segmentIndex > 0 && variant.startsWith('body') ? (segmentIndex % 2 ? 2 : -2) : 0;
+
+      sprite
+        .setTexture(textureKeys[variant])
+        .setPosition(
+          segment.x * this.grid.cell + this.grid.cell / 2,
+          segment.y * this.grid.cell + this.grid.cell / 2,
+        )
+        .setDisplaySize(size, size)
+        .setAngle(twist)
+        .setAlpha(Math.max(0.48, 0.96 - segmentIndex * 0.045))
+        .clearTint()
+        .setVisible(true);
+    });
+
+    return spriteIndex;
   }
 
   private drawBullets(bullets: readonly BulletInstance[]): void {
@@ -2008,12 +2121,12 @@ export class SnakeRenderer {
     }
     if (enemy.encounterKind === 'rival-snake') {
       return {
-        bodyColor: '#28c48f',
-        accentColor: '#d9fff0',
-        outlineColor: '#064433',
-        eyeColor: '#02231b',
-        bulletColor: '#73ffd0',
-        bulletOutlineColor: '#0b5c46',
+        bodyColor: '#d96a1f',
+        accentColor: '#ffb35f',
+        outlineColor: '#3b1308',
+        eyeColor: '#fff0c7',
+        bulletColor: '#ff9f43',
+        bulletOutlineColor: '#7a2f11',
       };
     }
     return this.buildEnemyPalette();

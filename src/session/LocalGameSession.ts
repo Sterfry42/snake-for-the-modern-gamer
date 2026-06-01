@@ -2,21 +2,17 @@ import { saveManager, type GameSaveData } from '../game/saveManager.js';
 import type { SnakeGame, StepResult } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { SaveStore } from '../storage/SaveStore.js';
-import type { ClientCommand } from './ClientCommand.js';
+import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameEvent } from './GameEvent.js';
+import type { LocalAuthoritativeRuntime, LocalAuthoritativeRuntimeArgs } from './GameRuntime.js';
 import type { GameSnapshot } from './GameSnapshot.js';
 
-export interface LocalGameSessionArgs {
-  game: SnakeGame;
-  localPlayerId?: PlayerId;
-  saveStore?: SaveStore<GameSaveData>;
-  saveSlotId?: string;
-}
+export type LocalGameSessionArgs = LocalAuthoritativeRuntimeArgs;
 
 type SnapshotHandler = (snapshot: GameSnapshot) => void;
 type EventHandler = (event: GameEvent) => void;
 
-export class LocalGameSession {
+export class LocalGameSession implements LocalAuthoritativeRuntime {
   private readonly game: SnakeGame;
   private readonly localPlayerId: PlayerId;
   private readonly saveStore?: SaveStore<GameSaveData>;
@@ -33,9 +29,35 @@ export class LocalGameSession {
     this.lastSnapshot = this.game.getSnapshot(this.localPlayerId);
   }
 
-  handleCommand(command: ClientCommand): void {
+  handleCommand(command: ClientCommand): CommandResult {
+    const player = this.game.getPlayer(command.playerId);
+    if (!player) {
+      return { ok: false, reason: 'unknown-player' };
+    }
+
+    if (command.type === 'saveGame') {
+      this.saveGame(command.religionChoice, command.classChoice, command.backgroundChoice);
+      return { ok: true, saved: true };
+    }
+
+    if (command.type === 'loadGame') {
+      const loaded = this.loadGame(
+        () => command.religionChoice ?? null,
+        () => command.classChoice ?? null,
+        () => command.backgroundChoice ?? null,
+      );
+      return { ok: loaded, loaded };
+    }
+
+    if (command.type === 'clearSave') {
+      this.clearSaveSync();
+      this.emitSnapshot();
+      return { ok: true, cleared: true };
+    }
+
     this.game.handleCommand(command);
     this.emitSnapshot();
+    return { ok: true };
   }
 
   actionStep(paused: boolean): StepResult {
@@ -193,6 +215,39 @@ export class LocalGameSession {
         type: 'player.died',
         playerId: this.localPlayerId,
         reason: result.deathReason ?? 'unknown',
+      });
+      this.emit({
+        type: 'sound.play',
+        soundId: 'death',
+      });
+      this.emit({
+        type: 'screen.shake',
+        intensity: 0.006,
+        durationMs: 220,
+      });
+    }
+    if (result.apple.eaten) {
+      this.emit({
+        type: 'item.picked_up',
+        playerId: this.localPlayerId,
+        itemId: result.apple.typeId ?? 'apple',
+        label: result.apple.typeId ?? 'apple',
+      });
+      this.emit({
+        type: 'sound.play',
+        soundId: 'apple.eat',
+      });
+    }
+    for (const quest of result.questsCompleted) {
+      this.emit({
+        type: 'quest.completed',
+        playerId: this.localPlayerId,
+        questId: quest.id,
+        label: quest.label,
+      });
+      this.emit({
+        type: 'sound.play',
+        soundId: 'quest.completed',
       });
     }
   }

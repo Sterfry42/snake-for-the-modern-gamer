@@ -15,6 +15,18 @@ export type GameEvent =
       message: string;
     }
   | {
+      type: 'item.picked_up';
+      playerId: PlayerId;
+      itemId: string;
+      label?: string;
+    }
+  | {
+      type: 'quest.completed';
+      playerId: PlayerId;
+      questId: string;
+      label: string;
+    }
+  | {
       type: 'player.died';
       playerId: PlayerId;
       reason: string;

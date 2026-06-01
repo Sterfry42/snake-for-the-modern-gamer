@@ -21,6 +21,11 @@ export interface ViewportSnapshot {
 
 export interface ClientRoomSnapshot {
   id: string;
+  /**
+   * Compatibility bridge for the current Phaser renderer. New client code should
+   * prefer the explicit DTO fields below while the room snapshot is being
+   * disentangled from browser rendering.
+   */
   room: RoomSnapshot;
   layout: string[];
   biomeId?: string;

@@ -3,6 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 export type CaveTemplateId =
   | 'goldenAppleRush'
   | 'skittishAppleRush'
+  | 'caffeinatedAppleRush'
   | 'simpleTreasure'
   | 'lakeTreasure'
   | 'caveDweller'

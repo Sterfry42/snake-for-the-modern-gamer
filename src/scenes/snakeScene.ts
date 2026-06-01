@@ -6,10 +6,16 @@ import {
   saveResolutionSetting,
   type ResolutionSettingId,
 } from '../config/resolutionSettings.js';
+import {
+  BrowserMultiplayerShellClient,
+  submitMultiplayerShell,
+} from '../client/multiplayerShell.js';
+import { calculateCaffeinatedAppleIntervalScalar } from '../apples/caffeinatedBoost.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type { QuestObjectiveSummary, QuestRoomActor } from '../game/snakeGame.js';
 import type { GameConnection } from '../session/GameConnection.js';
 import type { GameSnapshot } from '../session/GameSnapshot.js';
+import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
 import { FeatureManager } from '../systems/features.js';
@@ -166,7 +172,7 @@ type DeathCutsceneState = {
   afterlifeDialogueShown: boolean;
 };
 
-type TitleMenuMode = 'main' | 'settings' | 'credits';
+type TitleMenuMode = 'main' | 'settings' | 'credits' | 'multiplayer';
 
 type LocalRect = { left: number; top: number; width: number; height: number };
 
@@ -805,7 +811,7 @@ export default class SnakeScene extends Phaser.Scene {
   readonly grid = defaultGameConfig.grid;
 
   public snakeGame!: SnakeGame;
-  private gameSession!: LocalGameSession;
+  private gameSession!: LocalAuthoritativeRuntime;
   private gameConnection!: GameConnection;
   private currentSnapshot: GameSnapshot | null = null;
   private unsubscribeSnapshot: (() => void) | null = null;
@@ -826,7 +832,7 @@ export default class SnakeScene extends Phaser.Scene {
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
-  private caffeinatedAppleBoostUntilMs = 0;
+  private caffeinatedAppleBoostExpirationsMs: number[] = [];
   private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
   private static readonly CAFFEINATED_APPLE_BOOST_MS = 2000;
   private static readonly CAFFEINATED_APPLE_BASE_SPEED_BONUS = 0.25;
@@ -958,9 +964,14 @@ export default class SnakeScene extends Phaser.Scene {
   private titleContainer: Phaser.GameObjects.Container | null = null;
   private titleMainContainer: Phaser.GameObjects.Container | null = null;
   private titleSettingsContainer: Phaser.GameObjects.Container | null = null;
+  private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
   private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
+  private readonly multiplayerShell = new BrowserMultiplayerShellClient();
+  private multiplayerDisplayName = 'Player';
+  private multiplayerDisplayNameText: Phaser.GameObjects.Text | null = null;
+  private multiplayerDisplayNameActive = false;
   private titleCreditsMode = false;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
@@ -1074,6 +1085,15 @@ export default class SnakeScene extends Phaser.Scene {
       if (event.type === 'toast') {
         this.showQuestHintPopup(event.message, '#9ad1ff');
       }
+      if (event.type === 'quest.completed') {
+        this.showQuestHintPopup(`Quest complete: ${event.label}`, '#fff3a8');
+      }
+      if (event.type === 'sound.play') {
+        this.playRuntimeSoundCue(event.soundId);
+      }
+      if (event.type === 'screen.shake') {
+        this.cameras.main.shake(event.durationMs, event.intensity);
+      }
     });
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
@@ -1179,6 +1199,10 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       if (this.titleVisible) {
+        if (this.handleTitleMultiplayerKey(event)) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
         return;
       }
@@ -1496,7 +1520,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.reset(startPaused);
     // Reset equipment effects (no equipment contributes to tick delay until equipped)
     this.skillTree.applyActionStepIntervalScalar(1, 'equipment:boots');
-    this.caffeinatedAppleBoostUntilMs = 0;
+    this.caffeinatedAppleBoostExpirationsMs = [];
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
     this.snakeGame.reset();
     this.juice.stopBossMusic();
@@ -3256,7 +3280,13 @@ export default class SnakeScene extends Phaser.Scene {
     classChoice?: unknown,
     backgroundChoice?: unknown,
   ): void {
-    this.gameSession.saveGame(religionChoice, classChoice, backgroundChoice);
+    this.gameConnection.send({
+      type: 'saveGame',
+      playerId: this.snakeGame.getLocalPlayerId(),
+      religionChoice,
+      classChoice,
+      backgroundChoice,
+    });
     this.currentSnapshot = this.gameSession.getSnapshot();
   }
 
@@ -3269,11 +3299,14 @@ export default class SnakeScene extends Phaser.Scene {
     getClassChoice?: () => unknown,
     getBackgroundChoice?: () => unknown,
   ): boolean {
-    const loaded = this.gameSession.loadGame(
-      getReligionChoice,
-      getClassChoice,
-      getBackgroundChoice,
-    );
+    const result = this.gameConnection.send({
+      type: 'loadGame',
+      playerId: this.snakeGame.getLocalPlayerId(),
+      religionChoice: getReligionChoice?.() ?? null,
+      classChoice: getClassChoice?.() ?? null,
+      backgroundChoice: getBackgroundChoice?.() ?? null,
+    });
+    const loaded = Boolean(result.loaded);
     if (loaded) {
       this.currentSnapshot = this.gameSession.getSnapshot();
     }
@@ -3281,7 +3314,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   clearSessionSave(): void {
-    this.gameSession.clearSaveSync();
+    this.gameConnection.send({
+      type: 'clearSave',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
   }
 
   showSaveUI(): void {
@@ -3335,6 +3371,11 @@ export default class SnakeScene extends Phaser.Scene {
   private showTitleMode(mode: TitleMenuMode): void {
     this.titleMainContainer?.setVisible(mode === 'main');
     this.titleSettingsContainer?.setVisible(mode === 'settings');
+    this.titleMultiplayerContainer?.setVisible(mode === 'multiplayer');
+    this.multiplayerDisplayNameActive = mode === 'multiplayer';
+    if (mode === 'multiplayer') {
+      this.refreshMultiplayerDisplayNameText();
+    }
 
     if (mode === 'credits') {
       this.showCreditsScreen();
@@ -3349,6 +3390,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.titleMainContainer?.setVisible(false);
     this.titleSettingsContainer?.setVisible(false);
+    this.titleMultiplayerContainer?.setVisible(false);
+    this.multiplayerDisplayNameActive = false;
 
     if (!this.creditsContainer) {
       this.buildCreditsScreen();
@@ -3562,11 +3605,18 @@ export default class SnakeScene extends Phaser.Scene {
       this.createTitleButton(buttonX, buttonY + 92, 'Learn More', () => {
         window.location.href = 'https://www.youtube.com/watch?v=WGvH11I6Rnk';
       }),
-      this.createTitleButton(buttonX, buttonY + 138, 'Settings', () =>
+      this.createTitleButton(
+        buttonX,
+        buttonY + 138,
+        'Multiplayer',
+        () => this.showTitleScreen('multiplayer'),
+        { disabled: true },
+      ),
+      this.createTitleButton(buttonX, buttonY + 184, 'Settings', () =>
         this.showTitleScreen('settings'),
       ),
       // --- Credits button placed below the error text area ---
-      this.createTitleButton(buttonX, buttonY + 210, 'Credits', () => this.showCreditsScreen()),
+      this.createTitleButton(buttonX, buttonY + 230, 'Credits', () => this.showCreditsScreen()),
     ];
     main.add(buttons);
 
@@ -3604,6 +3654,56 @@ export default class SnakeScene extends Phaser.Scene {
       settingsBody,
       ...resolutionButtons,
       this.createTitleButton(width / 2 - 105, height / 2 + 168, 'Back', () =>
+        this.showTitleScreen('main'),
+      ),
+    ]);
+
+    const multiplayer = this.add.container(0, 0).setVisible(false);
+    const multiplayerPanel = this.add
+      .rectangle(width / 2, height / 2 + 34, 340, 256, 0x071019, 0.9)
+      .setStrokeStyle(2, 0x5dd6a2)
+      .setOrigin(0.5);
+    const multiplayerTitle = this.add
+      .text(width / 2, height / 2 - 66, 'Multiplayer', {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: '26px',
+        color: '#fff4cf',
+      })
+      .setOrigin(0.5);
+    const multiplayerPrompt = this.add
+      .text(width / 2, height / 2 - 28, 'Display Name', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#c8ffe1',
+      })
+      .setOrigin(0.5);
+    this.multiplayerDisplayName = this.multiplayerShell.loadDisplayName();
+    this.multiplayerDisplayNameText = this.add
+      .text(width / 2, height / 2 + 2, '', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ffffff',
+        backgroundColor: '#0b1626',
+        padding: { left: 14, right: 14, top: 8, bottom: 8 },
+        fixedWidth: 250,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    this.multiplayerDisplayNameText.on('pointerdown', () => {
+      this.multiplayerDisplayNameActive = true;
+      this.refreshMultiplayerDisplayNameText();
+    });
+    this.refreshMultiplayerDisplayNameText();
+    multiplayer.add([
+      multiplayerPanel,
+      multiplayerTitle,
+      multiplayerPrompt,
+      this.multiplayerDisplayNameText,
+      this.createTitleButton(width / 2 - 105, height / 2 + 62, 'Submit', () =>
+        this.submitMultiplayerShell(),
+      ),
+      this.createTitleButton(width / 2 - 105, height / 2 + 116, 'Back', () =>
         this.showTitleScreen('main'),
       ),
     ]);
@@ -3718,11 +3818,13 @@ export default class SnakeScene extends Phaser.Scene {
       subtitle,
       main,
       settings,
+      multiplayer,
       this.titleMessageText,
     ]);
     this.titleContainer = root;
     this.titleMainContainer = main;
     this.titleSettingsContainer = settings;
+    this.titleMultiplayerContainer = multiplayer;
     this.startTitleTweens(
       title,
       subtitle,
@@ -3744,33 +3846,41 @@ export default class SnakeScene extends Phaser.Scene {
     y: number,
     label: string,
     onClick: () => void,
+    options: { disabled?: boolean } = {},
   ): Phaser.GameObjects.Container {
+    const disabled = options.disabled ?? false;
     const buttonWidth = 210;
     const buttonHeight = 42;
     const shadow = this.add
       .rectangle(4, 5, buttonWidth, buttonHeight, 0x02040a, 0.48)
       .setOrigin(0, 0);
     const bg = this.add
-      .rectangle(0, 0, buttonWidth, buttonHeight, 0x0b1626, 0.94)
-      .setStrokeStyle(2, 0x4da3ff)
+      .rectangle(0, 0, buttonWidth, buttonHeight, disabled ? 0x1e232b : 0x0b1626, 0.94)
+      .setStrokeStyle(2, disabled ? 0x5a6470 : 0x4da3ff)
       .setOrigin(0, 0);
     const stripe = this.add
-      .rectangle(10, buttonHeight - 8, buttonWidth - 20, 2, 0x5dd6a2, 0.58)
+      .rectangle(10, buttonHeight - 8, buttonWidth - 20, 2, disabled ? 0x6b7280 : 0x5dd6a2, 0.58)
       .setOrigin(0, 0);
     const text = this.add
       .text(buttonWidth / 2, 10, label, {
         fontFamily: 'monospace',
         fontSize: '16px',
-        color: '#fff4cf',
+        color: disabled ? '#8b939f' : '#fff4cf',
       })
       .setOrigin(0.5, 0);
     const zone = this.add
       .zone(0, 0, buttonWidth, buttonHeight)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0, 0);
+    if (!disabled) {
+      zone.setInteractive({ useHandCursor: true });
+    }
     const button = this.add
       .container(x, y, [shadow, bg, stripe, text, zone])
       .setSize(buttonWidth, buttonHeight);
+    if (disabled) {
+      button.setAlpha(0.78);
+      return button;
+    }
     zone.on('pointerover', () => {
       this.juice.startTitleMusic();
       bg.setFillStyle(0x243653, 0.98);
@@ -3800,6 +3910,64 @@ export default class SnakeScene extends Phaser.Scene {
     });
     zone.on('pointerdown', onClick);
     return button;
+  }
+
+  private handleTitleMultiplayerKey(event: KeyboardEvent): boolean {
+    if (!this.titleMultiplayerContainer?.visible || !this.multiplayerDisplayNameActive) {
+      return false;
+    }
+
+    if (event.key === 'Enter') {
+      this.submitMultiplayerShell();
+      return true;
+    }
+
+    if (event.key === 'Escape') {
+      this.showTitleScreen('main');
+      return true;
+    }
+
+    if (event.key === 'Backspace') {
+      this.multiplayerDisplayName = this.multiplayerDisplayName.slice(0, -1);
+      this.refreshMultiplayerDisplayNameText();
+      return true;
+    }
+
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (this.multiplayerDisplayName.length < 24) {
+        this.multiplayerDisplayName += event.key;
+        this.refreshMultiplayerDisplayNameText();
+      }
+      return true;
+    }
+
+    return ['Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'].includes(event.key);
+  }
+
+  private refreshMultiplayerDisplayNameText(): void {
+    if (!this.multiplayerDisplayNameText) return;
+
+    const displayName = this.multiplayerDisplayName || 'Player';
+    const cursor = this.multiplayerDisplayNameActive ? '|' : '';
+    this.multiplayerDisplayNameText.setText(`${displayName}${cursor}`);
+  }
+
+  private submitMultiplayerShell(): void {
+    const result = submitMultiplayerShell(this.multiplayerShell, this.multiplayerDisplayName);
+    this.multiplayerDisplayName = result.displayName;
+    this.refreshMultiplayerDisplayNameText();
+    this.titleMessageText?.setText(result.message);
+    this.showQuestHintPopup(result.message, '#9ad1ff');
+  }
+
+  private playRuntimeSoundCue(soundId: string): void {
+    if (soundId === 'death') {
+      this.juice.gameOver();
+      return;
+    }
+    if (soundId === 'quest.completed') {
+      this.juice.questCompleted();
+    }
   }
 
   private applyTitleResolutionSetting(id: ResolutionSettingId): void {
@@ -5249,28 +5417,47 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private activateCaffeinatedAppleBoost(): void {
+    this.caffeinatedAppleBoostExpirationsMs = [
+      ...this.caffeinatedAppleBoostExpirationsMs.filter((expiresAt) => this.time.now < expiresAt),
+      this.time.now + SnakeScene.CAFFEINATED_APPLE_BOOST_MS,
+    ];
+    this.applyCaffeinatedAppleBoostScalar();
+    const stacks = this.caffeinatedAppleBoostExpirationsMs.length;
+    this.showQuestHintPopup(
+      stacks > 1 ? `Caffeinated apple: speed boost x${stacks}!` : 'Caffeinated apple: speed boost!',
+      '#c47a3a',
+    );
+  }
+
+  private applyCaffeinatedAppleBoostScalar(): void {
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
+    const stacks = this.caffeinatedAppleBoostExpirationsMs.length;
+    if (stacks <= 0) {
+      return;
+    }
     const currentIntervalMs = this.getActionStepIntervalMs();
-    const baseSpeed = 1000 / this.baseActionStepIntervalMs;
-    const currentSpeed = 1000 / currentIntervalMs;
-    const boostedSpeed = currentSpeed + baseSpeed * SnakeScene.CAFFEINATED_APPLE_BASE_SPEED_BONUS;
-    const boostedIntervalMs = 1000 / boostedSpeed;
-    const scalar = boostedIntervalMs / currentIntervalMs;
+    const scalar = calculateCaffeinatedAppleIntervalScalar({
+      currentIntervalMs,
+      baseIntervalMs: this.baseActionStepIntervalMs,
+      stackCount: stacks,
+      baseSpeedBonus: SnakeScene.CAFFEINATED_APPLE_BASE_SPEED_BONUS,
+    });
 
     this.skillTree.applyActionStepIntervalScalar(scalar, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
-    this.caffeinatedAppleBoostUntilMs = this.time.now + SnakeScene.CAFFEINATED_APPLE_BOOST_MS;
-    this.showQuestHintPopup('Caffeinated apple: speed boost!', '#c47a3a');
   }
 
   private tickCaffeinatedAppleBoost(): void {
-    if (
-      this.caffeinatedAppleBoostUntilMs <= 0 ||
-      this.time.now < this.caffeinatedAppleBoostUntilMs
-    ) {
+    if (this.caffeinatedAppleBoostExpirationsMs.length === 0) {
       return;
     }
-    this.caffeinatedAppleBoostUntilMs = 0;
-    this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
+    const active = this.caffeinatedAppleBoostExpirationsMs.filter(
+      (expiresAt) => this.time.now < expiresAt,
+    );
+    if (active.length === this.caffeinatedAppleBoostExpirationsMs.length) {
+      return;
+    }
+    this.caffeinatedAppleBoostExpirationsMs = active;
+    this.applyCaffeinatedAppleBoostScalar();
   }
 
   private draw(): void {
@@ -5292,11 +5479,13 @@ export default class SnakeScene extends Phaser.Scene {
     );
     const snakeColor = pActive ? 0x9b5de5 : undefined;
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
+    const activeSnakeTheme = this.getActiveSnakeTheme();
     this.snakeRenderer.render(room, snakeBody, room.id, currentApple, {
       wallSenseRadius,
       snakeColor,
       poweredUp: Boolean(pActive),
       direction: localPlayer?.direction ?? this.snakeGame.getDirection(),
+      snakeRenderStyle: activeSnakeTheme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
       otherPlayers: Object.values(snapshot.players)
         .filter((player) => !player.isLocal && player.roomId === room.id && player.alive)
         .map((player) => ({
@@ -5305,7 +5494,7 @@ export default class SnakeScene extends Phaser.Scene {
           direction: player.direction,
           color: 0x4ecdc4,
         })),
-      snakePalette: starforgedSnakePalette ?? this.getActiveSnakeTheme().palette,
+      snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
       activeHat: this.snakeCosmetics.activeHat,
       enemies: roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id),
       followers: roomSnapshot?.followers ?? [],

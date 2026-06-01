@@ -895,6 +895,9 @@ export class SnakeGame implements QuestRuntime {
       case 'interact':
       case 'useItem':
       case 'chooseOption':
+      case 'saveGame':
+      case 'loadGame':
+      case 'clearSave':
         return;
     }
   }
@@ -2415,6 +2418,9 @@ export class SnakeGame implements QuestRuntime {
   ): number {
     if (templateId === 'skittishAppleRush') {
       return remaining;
+    }
+    if (templateId === 'caffeinatedAppleRush') {
+      return Math.min(5, remaining);
     }
     if (templateId === 'goldenAppleRush') {
       return Math.min(3, remaining);

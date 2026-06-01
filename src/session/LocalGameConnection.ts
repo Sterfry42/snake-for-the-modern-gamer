@@ -1,22 +1,22 @@
-import type { ClientCommand } from './ClientCommand.js';
+import type { ClientCommand, CommandResult } from './ClientCommand.js';
 import type { GameConnection } from './GameConnection.js';
 import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
-import type { LocalGameSession } from './LocalGameSession.js';
+import type { LocalAuthoritativeRuntime } from './GameRuntime.js';
 
 export class LocalGameConnection implements GameConnection {
-  constructor(private readonly session: LocalGameSession) {}
+  constructor(private readonly runtime: LocalAuthoritativeRuntime) {}
 
-  send(command: ClientCommand): void {
-    this.session.handleCommand(command);
+  send(command: ClientCommand): CommandResult {
+    return this.runtime.handleCommand(command);
   }
 
   onSnapshot(handler: (snapshot: GameSnapshot) => void): () => void {
-    return this.session.onSnapshot(handler);
+    return this.runtime.onSnapshot(handler);
   }
 
   onEvent(handler: (event: GameEvent) => void): () => void {
-    return this.session.onEvent(handler);
+    return this.runtime.onEvent(handler);
   }
 
   disconnect(): void {

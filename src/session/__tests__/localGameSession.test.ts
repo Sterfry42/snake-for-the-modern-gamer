@@ -53,12 +53,13 @@ describe('LocalGameSession', () => {
     const connection = new LocalGameConnection(session);
     const playerId = game.getLocalPlayerId();
 
-    connection.send({
+    const result = connection.send({
       type: 'setDirection',
       playerId,
       direction: { x: 0, y: -1 },
     });
 
+    expect(result).toEqual({ ok: true });
     expect(session.getSnapshot().players[playerId]?.direction).toEqual({ x: 1, y: 0 });
 
     session.actionStep(false);
@@ -76,7 +77,7 @@ describe('LocalGameSession', () => {
       snapshots.push(snapshot.tick);
     });
 
-    session.handleCommand({
+    const result = session.handleCommand({
       type: 'setDirection',
       playerId: game.getLocalPlayerId(),
       direction: { x: 0, y: -1 },
@@ -84,6 +85,7 @@ describe('LocalGameSession', () => {
     session.actionStep(false);
     unsubscribe();
 
+    expect(result.ok).toBe(true);
     expect(snapshots.length).toBeGreaterThanOrEqual(3);
   });
 
@@ -93,13 +95,29 @@ describe('LocalGameSession', () => {
     const session = new LocalGameSession({ game });
     const before = session.getSnapshot().players[game.getLocalPlayerId()]?.direction;
 
-    session.handleCommand({
+    const result = session.handleCommand({
       type: 'setDirection',
       playerId: 'missing-player',
       direction: { x: 0, y: -1 },
     });
 
+    expect(result).toEqual({ ok: false, reason: 'unknown-player' });
     expect(session.getSnapshot().players[game.getLocalPlayerId()]?.direction).toEqual(before);
+  });
+
+  it('routes pause and resume commands through the runtime boundary', () => {
+    const game = createGame();
+    game.reset({ preserveRunSeed: true });
+    const session = new LocalGameSession({ game });
+    const connection = new LocalGameConnection(session);
+    const playerId = game.getLocalPlayerId();
+    const snapshots: number[] = [];
+    session.onSnapshot((snapshot) => snapshots.push(snapshot.tick));
+
+    expect(connection.send({ type: 'pause', playerId })).toEqual({ ok: true });
+    expect(connection.send({ type: 'resume', playerId })).toEqual({ ok: true });
+
+    expect(snapshots.length).toBeGreaterThanOrEqual(3);
   });
 
   it('can include and step a debug second player without changing the local player id', () => {
@@ -199,5 +217,46 @@ describe('LocalGameSession', () => {
 
     session.clearSaveSync();
     expect(session.hasSaveSync()).toBe(false);
+  });
+
+  it('routes save, load, and clear through client commands', () => {
+    const game = createGame();
+    game.reset({ preserveRunSeed: true });
+    const session = new LocalGameSession({ game });
+    const connection = new LocalGameConnection(session);
+    const playerId = game.getLocalPlayerId();
+    game.addScore(7);
+
+    expect(connection.send({ type: 'saveGame', playerId })).toEqual({ ok: true, saved: true });
+    expect(session.hasSaveSync()).toBe(true);
+
+    game.setScore(0);
+
+    expect(connection.send({ type: 'loadGame', playerId })).toEqual({ ok: true, loaded: true });
+    expect(game.getScore()).toBe(7);
+
+    expect(connection.send({ type: 'clearSave', playerId })).toEqual({ ok: true, cleared: true });
+    expect(session.hasSaveSync()).toBe(false);
+  });
+
+  it('emits runtime events for apple pickup and death outcomes', () => {
+    const game = createGame();
+    game.reset({ preserveRunSeed: true });
+    const head = game.getSnakeBody()[0]!;
+    const roomId = game.getCurrentRoom().id;
+    const localApple = { x: head.x + 1, y: head.y };
+    const room = game.getRoom(roomId);
+    const rows = room.layout.map((row) => row.split(''));
+    rows[localApple.y]![localApple.x] = '.';
+    room.layout = rows.map((row) => row.join(''));
+    (game as any).apples.placeApple(roomId, localApple, 'normal', game.getSnakeBody());
+    const session = new LocalGameSession({ game });
+    const events: string[] = [];
+    session.onEvent((event) => events.push(event.type));
+
+    session.actionStep(false);
+
+    expect(events).toContain('item.picked_up');
+    expect(events).toContain('sound.play');
   });
 });

@@ -33,8 +33,34 @@ export type ClientCommand =
   | {
       type: 'resume';
       playerId: PlayerId;
+    }
+  | {
+      type: 'saveGame';
+      playerId: PlayerId;
+      religionChoice?: unknown;
+      classChoice?: unknown;
+      backgroundChoice?: unknown;
+    }
+  | {
+      type: 'loadGame';
+      playerId: PlayerId;
+      religionChoice?: unknown;
+      classChoice?: unknown;
+      backgroundChoice?: unknown;
+    }
+  | {
+      type: 'clearSave';
+      playerId: PlayerId;
     };
 
+export interface CommandResult {
+  ok: boolean;
+  loaded?: boolean;
+  saved?: boolean;
+  cleared?: boolean;
+  reason?: string;
+}
+
 export interface CommandHandler {
-  handleCommand(command: ClientCommand): void;
+  handleCommand(command: ClientCommand): CommandResult;
 }
