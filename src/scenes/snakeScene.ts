@@ -6,8 +6,18 @@ import {
   saveResolutionSetting,
   type ResolutionSettingId,
 } from '../config/resolutionSettings.js';
+import {
+  BrowserMultiplayerShellClient,
+  submitMultiplayerShell,
+} from '../client/multiplayerShell.js';
+import { calculateCaffeinatedAppleIntervalScalar } from '../apples/caffeinatedBoost.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type { QuestObjectiveSummary, QuestRoomActor } from '../game/snakeGame.js';
+import type { GameConnection } from '../session/GameConnection.js';
+import type { GameSnapshot } from '../session/GameSnapshot.js';
+import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
+import { LocalGameConnection } from '../session/LocalGameConnection.js';
+import { LocalGameSession } from '../session/LocalGameSession.js';
 import { FeatureManager } from '../systems/features.js';
 import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
@@ -25,7 +35,6 @@ import {
   type DatingSceneAction,
   type DatingSceneButton,
 } from '../ui/datingScenePopup.js';
-import { saveManager } from '../game/saveManager.js';
 import { RuntimeSpriteFactory } from '../ui/runtimeSpriteFactory.js';
 import {
   questGiverSpriteRecipe,
@@ -55,6 +64,7 @@ import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_HATS,
   VILLAGE_SHOP_STYLES,
+  BLACK_MARKET_STYLES,
   getBlackMarketDefinition,
   getVillageShopDefinition,
   type VillageShopDefinition,
@@ -162,7 +172,7 @@ type DeathCutsceneState = {
   afterlifeDialogueShown: boolean;
 };
 
-type TitleMenuMode = 'main' | 'settings' | 'credits';
+type TitleMenuMode = 'main' | 'settings' | 'credits' | 'multiplayer';
 
 type LocalRect = { left: number; top: number; width: number; height: number };
 
@@ -595,8 +605,8 @@ const CREDITS_CONTENT: string[] = [
   'Ryan  —  Listen (Flavor)',
   'Cyrene  —  Listen (Flavor)',
   'Maribel Cardwright  —  Take Card (Flavor)',
-  "Mott of the Split Nail  —  Take Crumb (Flavor)",
-  "Nackle the Receipt-Biter  —  Take Card (Flavor)",
+  'Mott of the Split Nail  —  Take Crumb (Flavor)',
+  'Nackle the Receipt-Biter  —  Take Card (Flavor)',
   'Osric Window  —  Play Cards (Duel)',
   '',
   '',
@@ -801,6 +811,11 @@ export default class SnakeScene extends Phaser.Scene {
   readonly grid = defaultGameConfig.grid;
 
   public snakeGame!: SnakeGame;
+  private gameSession!: LocalAuthoritativeRuntime;
+  private gameConnection!: GameConnection;
+  private currentSnapshot: GameSnapshot | null = null;
+  private unsubscribeSnapshot: (() => void) | null = null;
+  private unsubscribeEvents: (() => void) | null = null;
   private questHud!: QuestHud;
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
@@ -817,6 +832,11 @@ export default class SnakeScene extends Phaser.Scene {
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
+  private caffeinatedAppleBoostExpirationsMs: number[] = [];
+  private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
+  private static readonly CAFFEINATED_APPLE_BOOST_MS = 2000;
+  private static readonly CAFFEINATED_APPLE_BASE_SPEED_BONUS = 0.25;
+  private debugTwoSnakesRequested = false;
   private readonly featureManager = new FeatureManager();
   private readonly baseActionStepIntervalMs = 100;
   private readonly baseBossStepIntervalMs = 100;
@@ -944,9 +964,14 @@ export default class SnakeScene extends Phaser.Scene {
   private titleContainer: Phaser.GameObjects.Container | null = null;
   private titleMainContainer: Phaser.GameObjects.Container | null = null;
   private titleSettingsContainer: Phaser.GameObjects.Container | null = null;
+  private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
   private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
+  private readonly multiplayerShell = new BrowserMultiplayerShellClient();
+  private multiplayerDisplayName = 'Player';
+  private multiplayerDisplayNameText: Phaser.GameObjects.Text | null = null;
+  private multiplayerDisplayNameActive = false;
   private titleCreditsMode = false;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
@@ -961,7 +986,8 @@ export default class SnakeScene extends Phaser.Scene {
   private performanceSampleFrames = 0;
   private displayedFps = 0;
   minecraftMode = false;
-  private minecraftFeature: import('../minecraft/MinecraftFeature.js').MinecraftFeature | null = null;
+  private minecraftFeature: import('../minecraft/MinecraftFeature.js').MinecraftFeature | null =
+    null;
 
   constructor() {
     super('SnakeScene');
@@ -1048,6 +1074,27 @@ export default class SnakeScene extends Phaser.Scene {
 
     const registry = await createQuestRegistry();
     this.snakeGame = new SnakeGame(defaultGameConfig, registry, this);
+    this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
+    console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
+    this.gameSession = new LocalGameSession({ game: this.snakeGame });
+    this.gameConnection = new LocalGameConnection(this.gameSession);
+    this.unsubscribeSnapshot = this.gameConnection.onSnapshot((snapshot) => {
+      this.currentSnapshot = snapshot;
+    });
+    this.unsubscribeEvents = this.gameConnection.onEvent((event) => {
+      if (event.type === 'toast') {
+        this.showQuestHintPopup(event.message, '#9ad1ff');
+      }
+      if (event.type === 'quest.completed') {
+        this.showQuestHintPopup(`Quest complete: ${event.label}`, '#fff3a8');
+      }
+      if (event.type === 'sound.play') {
+        this.playRuntimeSoundCue(event.soundId);
+      }
+      if (event.type === 'screen.shake') {
+        this.cameras.main.shake(event.durationMs, event.intensity);
+      }
+    });
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
@@ -1152,6 +1199,10 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       if (this.titleVisible) {
+        if (this.handleTitleMultiplayerKey(event)) {
+          event.preventDefault();
+          return;
+        }
         event.preventDefault();
         return;
       }
@@ -1237,7 +1288,24 @@ export default class SnakeScene extends Phaser.Scene {
         this.toggleMinecraftMode();
       }
 
+      if (key === '2' && event.shiftKey) {
+        event.preventDefault();
+        const enabled = !this.snakeGame.isDebugSecondPlayerEnabled();
+        this.debugTwoSnakesRequested = enabled;
+        this.snakeGame.setDebugSecondPlayerEnabled(enabled);
+        this.currentSnapshot = this.gameSession.getSnapshot();
+        this.isDirty = true;
+        this.showQuestHintPopup(
+          enabled ? 'Debug second snake enabled.' : 'Debug second snake disabled.',
+          '#9ad1ff',
+        );
+      }
+
       if (key === 'e') {
+        this.gameConnection.send({
+          type: 'interact',
+          playerId: this.snakeGame.getLocalPlayerId(),
+        });
         if (this.tryInteractQuestTarget()) {
           return;
         }
@@ -1296,7 +1364,12 @@ export default class SnakeScene extends Phaser.Scene {
       }
       // Handle Minecraft mode pointer events
       if (this.minecraftMode && this.minecraftFeature) {
-        this.minecraftFeature.handlePointerDown(this, pointer.worldX, pointer.worldY, pointer.button);
+        this.minecraftFeature.handlePointerDown(
+          this,
+          pointer.worldX,
+          pointer.worldY,
+          pointer.button,
+        );
         this.isDirty = true;
         return;
       }
@@ -1338,14 +1411,14 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused) {
       return;
     }
-    this.snakeGame.bossStep();
+    this.gameSession.bossStep();
   }
 
   private runActorClockStep(): void {
     if (this.paused) {
       return;
     }
-    const result = this.snakeGame.actorClockStep();
+    const result = this.gameSession.actorClockStep();
     if (!result) {
       return;
     }
@@ -1365,7 +1438,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused) {
       return;
     }
-    const result = this.snakeGame.hazardClockStep();
+    const result = this.gameSession.hazardClockStep();
     if (!result) {
       return;
     }
@@ -1382,7 +1455,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused) {
       return;
     }
-    const result = this.snakeGame.bulletClockStep();
+    const result = this.gameSession.bulletClockStep();
     if (!result) {
       return;
     }
@@ -1411,7 +1484,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.minecraftMode) {
       // Switch to Minecraft mode
       this.setFlag('ui.suppressHud', true);
-      this.setFlag('ui.questInteraction', { message: 'Minecraft mode: Shift+C to toggle. Left-click to break blocks, right-click to place. WASD to move. E for crafting.' });
+      this.setFlag('ui.questInteraction', {
+        message:
+          'Minecraft mode: Shift+C to toggle. Left-click to break blocks, right-click to place. WASD to move. E for crafting.',
+      });
     } else {
       // Switch back to snake mode
       this.setFlag('ui.suppressHud', undefined);
@@ -1444,6 +1520,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.reset(startPaused);
     // Reset equipment effects (no equipment contributes to tick delay until equipped)
     this.skillTree.applyActionStepIntervalScalar(1, 'equipment:boots');
+    this.caffeinatedAppleBoostExpirationsMs = [];
+    this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
     this.snakeGame.reset();
     this.juice.stopBossMusic();
     this.juice.stopHeavenMusic();
@@ -1457,6 +1535,11 @@ export default class SnakeScene extends Phaser.Scene {
         this.snakeGame.setFlag(key, value);
       }
     }
+    if (this.debugTwoSnakesRequested) {
+      console.info('[SnakeScene] Enabling debug second snake after game init/reset.');
+      this.snakeGame.setDebugSecondPlayerEnabled(true);
+    }
+    this.currentSnapshot = this.gameSession.getSnapshot();
     this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
     this.lastJuicedScore = this.snakeGame.getScore();
     this.lastJuicedLength = this.snakeGame.getSnakeLength();
@@ -1489,7 +1572,7 @@ export default class SnakeScene extends Phaser.Scene {
   private runActionStep(): void {
     const scoreBefore = this.snakeGame.getScore();
     const lengthBefore = this.snakeGame.getSnakeLength();
-    const result = this.snakeGame.actionStep(this.paused);
+    const result = this.gameSession.actionStep(this.paused);
     this.updateHouseAmbience();
 
     if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
@@ -1505,6 +1588,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (result.apple.eaten) {
       this.featureManager.call('onAppleEaten', this);
       this.applyJadePeakAppleEffects(result.apple.typeId);
+      if (result.apple.typeId === 'caffeinated') {
+        this.activateCaffeinatedAppleBoost();
+      }
       if (result.apple.worldPosition) {
         const violenceLevel = Number(this.getFlag<number>('killstreak.appleJuiceLevel') ?? 0);
         this.juice.appleChomp(
@@ -2794,12 +2880,25 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   setDir(x: number, y: number) {
-    this.snakeGame.setDirection(x, y);
+    this.gameConnection.send({
+      type: 'setDirection',
+      playerId: this.snakeGame.getLocalPlayerId(),
+      direction: { x, y },
+    });
+  }
+
+  private isDebugTwoSnakeRequested(): boolean {
+    const search = globalThis.location?.search ?? '';
+    return new URLSearchParams(search).get('debugTwoSnakes') === '1';
   }
 
   setManualResumeDir(x: number, y: number) {
     if (this.getFlag<boolean>('traversal.manualResumePending')) {
-      this.snakeGame.forceDirection(x, y);
+      this.gameConnection.send({
+        type: 'forceDirection',
+        playerId: this.snakeGame.getLocalPlayerId(),
+        direction: { x, y },
+      });
     } else {
       this.setDir(x, y);
     }
@@ -2813,6 +2912,10 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.paused = nextState;
+    this.gameConnection.send({
+      type: this.paused ? 'pause' : 'resume',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
     this.skillTree.toggleOverlay(this.paused ? true : false);
     if (this.paused) {
       this.hideSaveUI();
@@ -2824,6 +2927,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    this.unsubscribeSnapshot?.();
+    this.unsubscribeSnapshot = null;
+    this.unsubscribeEvents?.();
+    this.unsubscribeEvents = null;
+    this.gameConnection?.disconnect();
     if (this.creditsScrollTween) {
       this.creditsScrollTween.destroy();
     }
@@ -3167,6 +3275,51 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
   }
 
+  saveGameToSession(
+    religionChoice?: unknown,
+    classChoice?: unknown,
+    backgroundChoice?: unknown,
+  ): void {
+    this.gameConnection.send({
+      type: 'saveGame',
+      playerId: this.snakeGame.getLocalPlayerId(),
+      religionChoice,
+      classChoice,
+      backgroundChoice,
+    });
+    this.currentSnapshot = this.gameSession.getSnapshot();
+  }
+
+  hasSessionSave(): boolean {
+    return this.gameSession.hasSaveSync();
+  }
+
+  loadGameFromSession(
+    getReligionChoice?: () => unknown,
+    getClassChoice?: () => unknown,
+    getBackgroundChoice?: () => unknown,
+  ): boolean {
+    const result = this.gameConnection.send({
+      type: 'loadGame',
+      playerId: this.snakeGame.getLocalPlayerId(),
+      religionChoice: getReligionChoice?.() ?? null,
+      classChoice: getClassChoice?.() ?? null,
+      backgroundChoice: getBackgroundChoice?.() ?? null,
+    });
+    const loaded = Boolean(result.loaded);
+    if (loaded) {
+      this.currentSnapshot = this.gameSession.getSnapshot();
+    }
+    return loaded;
+  }
+
+  clearSessionSave(): void {
+    this.gameConnection.send({
+      type: 'clearSave',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+  }
+
   showSaveUI(): void {
     this.saveUI.show();
   }
@@ -3218,6 +3371,11 @@ export default class SnakeScene extends Phaser.Scene {
   private showTitleMode(mode: TitleMenuMode): void {
     this.titleMainContainer?.setVisible(mode === 'main');
     this.titleSettingsContainer?.setVisible(mode === 'settings');
+    this.titleMultiplayerContainer?.setVisible(mode === 'multiplayer');
+    this.multiplayerDisplayNameActive = mode === 'multiplayer';
+    if (mode === 'multiplayer') {
+      this.refreshMultiplayerDisplayNameText();
+    }
 
     if (mode === 'credits') {
       this.showCreditsScreen();
@@ -3232,6 +3390,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.titleMainContainer?.setVisible(false);
     this.titleSettingsContainer?.setVisible(false);
+    this.titleMultiplayerContainer?.setVisible(false);
+    this.multiplayerDisplayNameActive = false;
 
     if (!this.creditsContainer) {
       this.buildCreditsScreen();
@@ -3262,8 +3422,10 @@ export default class SnakeScene extends Phaser.Scene {
 
     const root = this.add.container(0, 0).setDepth(220).setScrollFactor(0);
 
-    const backdrop = this.add.rectangle(0, 0, width, height, 0x02030a, 0.7)
-      .setOrigin(0, 0).setDepth(219);
+    const backdrop = this.add
+      .rectangle(0, 0, width, height, 0x02030a, 0.7)
+      .setOrigin(0, 0)
+      .setDepth(219);
     root.add(backdrop);
 
     const scrollContainer = this.add.container(0, 0).setDepth(225);
@@ -3283,30 +3445,33 @@ export default class SnakeScene extends Phaser.Scene {
         fontSize = 16;
         color = '#d4a843';
         strokeThickness = 3;
-      }
-      else if (line.trim().startsWith('━')) {
+      } else if (line.trim().startsWith('━')) {
         fontSize = 12;
         color = '#8b6914';
-      }
-      else if (line.includes('Thank you') || line.includes('brave snake') ||
-               line.includes('May your hunger') || line.includes('Freak Dennis never catch')) {
+      } else if (
+        line.includes('Thank you') ||
+        line.includes('brave snake') ||
+        line.includes('May your hunger') ||
+        line.includes('Freak Dennis never catch')
+      ) {
         fontSize = 16;
         color = '#fff4cf';
-      }
-      else if (line.includes('Press Enter') || line.includes('Space to continue')) {
+      } else if (line.includes('Press Enter') || line.includes('Space to continue')) {
         fontSize = 13;
         color = '#b89a5c';
       }
 
-      const text = this.add.text(centerX, yPos, line, {
-        fontFamily: "Georgia, 'Times New Roman', serif",
-        fontSize: `${fontSize}px`,
-        color: color,
-        stroke: '#0a0f1a',
-        strokeThickness: strokeThickness,
-        align: 'center',
-        wordWrap: { width: contentWidth },
-      }).setOrigin(0.5, 0);
+      const text = this.add
+        .text(centerX, yPos, line, {
+          fontFamily: "Georgia, 'Times New Roman', serif",
+          fontSize: `${fontSize}px`,
+          color: color,
+          stroke: '#0a0f1a',
+          strokeThickness: strokeThickness,
+          align: 'center',
+          wordWrap: { width: contentWidth },
+        })
+        .setOrigin(0.5, 0);
 
       scrollContainer.add(text);
       this.creditsTextLines.push(text);
@@ -3325,8 +3490,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.creditsContainer = root;
     this.creditsScrollContainer = scrollContainer;
 
-    const dismissZone = this.add.zone(0, 0, width, height)
-      .setOrigin(0, 0).setInteractive({ useHandCursor: true });
+    const dismissZone = this.add
+      .zone(0, 0, width, height)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
     dismissZone.on('pointerdown', () => {
       if (this.creditsCanDismiss) {
         this.hideCreditsScreen();
@@ -3372,13 +3539,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private loadGameFromTitle(): void {
-    if (!saveManager.hasSave()) {
+    if (!this.hasSessionSave()) {
       this.titleMessageText?.setText('No save file found.');
       return;
     }
 
-    const success = saveManager.load(
-      this.snakeGame,
+    const success = this.loadGameFromSession(
       () => (this.chosenReligionId ? { id: this.chosenReligionId, mods: this.religionMods } : null),
       () => (this.chosenClassId ? { id: this.chosenClassId, mods: this.classMods } : null),
       () =>
@@ -3439,13 +3605,18 @@ export default class SnakeScene extends Phaser.Scene {
       this.createTitleButton(buttonX, buttonY + 92, 'Learn More', () => {
         window.location.href = 'https://www.youtube.com/watch?v=WGvH11I6Rnk';
       }),
-      this.createTitleButton(buttonX, buttonY + 138, 'Settings', () =>
+      this.createTitleButton(
+        buttonX,
+        buttonY + 138,
+        'Multiplayer',
+        () => this.showTitleScreen('multiplayer'),
+        { disabled: true },
+      ),
+      this.createTitleButton(buttonX, buttonY + 184, 'Settings', () =>
         this.showTitleScreen('settings'),
       ),
       // --- Credits button placed below the error text area ---
-      this.createTitleButton(buttonX, buttonY + 210, 'Credits', () =>
-        this.showCreditsScreen(),
-      ),
+      this.createTitleButton(buttonX, buttonY + 230, 'Credits', () => this.showCreditsScreen()),
     ];
     main.add(buttons);
 
@@ -3483,6 +3654,56 @@ export default class SnakeScene extends Phaser.Scene {
       settingsBody,
       ...resolutionButtons,
       this.createTitleButton(width / 2 - 105, height / 2 + 168, 'Back', () =>
+        this.showTitleScreen('main'),
+      ),
+    ]);
+
+    const multiplayer = this.add.container(0, 0).setVisible(false);
+    const multiplayerPanel = this.add
+      .rectangle(width / 2, height / 2 + 34, 340, 256, 0x071019, 0.9)
+      .setStrokeStyle(2, 0x5dd6a2)
+      .setOrigin(0.5);
+    const multiplayerTitle = this.add
+      .text(width / 2, height / 2 - 66, 'Multiplayer', {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: '26px',
+        color: '#fff4cf',
+      })
+      .setOrigin(0.5);
+    const multiplayerPrompt = this.add
+      .text(width / 2, height / 2 - 28, 'Display Name', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#c8ffe1',
+      })
+      .setOrigin(0.5);
+    this.multiplayerDisplayName = this.multiplayerShell.loadDisplayName();
+    this.multiplayerDisplayNameText = this.add
+      .text(width / 2, height / 2 + 2, '', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ffffff',
+        backgroundColor: '#0b1626',
+        padding: { left: 14, right: 14, top: 8, bottom: 8 },
+        fixedWidth: 250,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    this.multiplayerDisplayNameText.on('pointerdown', () => {
+      this.multiplayerDisplayNameActive = true;
+      this.refreshMultiplayerDisplayNameText();
+    });
+    this.refreshMultiplayerDisplayNameText();
+    multiplayer.add([
+      multiplayerPanel,
+      multiplayerTitle,
+      multiplayerPrompt,
+      this.multiplayerDisplayNameText,
+      this.createTitleButton(width / 2 - 105, height / 2 + 62, 'Submit', () =>
+        this.submitMultiplayerShell(),
+      ),
+      this.createTitleButton(width / 2 - 105, height / 2 + 116, 'Back', () =>
         this.showTitleScreen('main'),
       ),
     ]);
@@ -3597,11 +3818,13 @@ export default class SnakeScene extends Phaser.Scene {
       subtitle,
       main,
       settings,
+      multiplayer,
       this.titleMessageText,
     ]);
     this.titleContainer = root;
     this.titleMainContainer = main;
     this.titleSettingsContainer = settings;
+    this.titleMultiplayerContainer = multiplayer;
     this.startTitleTweens(
       title,
       subtitle,
@@ -3623,33 +3846,41 @@ export default class SnakeScene extends Phaser.Scene {
     y: number,
     label: string,
     onClick: () => void,
+    options: { disabled?: boolean } = {},
   ): Phaser.GameObjects.Container {
+    const disabled = options.disabled ?? false;
     const buttonWidth = 210;
     const buttonHeight = 42;
     const shadow = this.add
       .rectangle(4, 5, buttonWidth, buttonHeight, 0x02040a, 0.48)
       .setOrigin(0, 0);
     const bg = this.add
-      .rectangle(0, 0, buttonWidth, buttonHeight, 0x0b1626, 0.94)
-      .setStrokeStyle(2, 0x4da3ff)
+      .rectangle(0, 0, buttonWidth, buttonHeight, disabled ? 0x1e232b : 0x0b1626, 0.94)
+      .setStrokeStyle(2, disabled ? 0x5a6470 : 0x4da3ff)
       .setOrigin(0, 0);
     const stripe = this.add
-      .rectangle(10, buttonHeight - 8, buttonWidth - 20, 2, 0x5dd6a2, 0.58)
+      .rectangle(10, buttonHeight - 8, buttonWidth - 20, 2, disabled ? 0x6b7280 : 0x5dd6a2, 0.58)
       .setOrigin(0, 0);
     const text = this.add
       .text(buttonWidth / 2, 10, label, {
         fontFamily: 'monospace',
         fontSize: '16px',
-        color: '#fff4cf',
+        color: disabled ? '#8b939f' : '#fff4cf',
       })
       .setOrigin(0.5, 0);
     const zone = this.add
       .zone(0, 0, buttonWidth, buttonHeight)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0, 0);
+    if (!disabled) {
+      zone.setInteractive({ useHandCursor: true });
+    }
     const button = this.add
       .container(x, y, [shadow, bg, stripe, text, zone])
       .setSize(buttonWidth, buttonHeight);
+    if (disabled) {
+      button.setAlpha(0.78);
+      return button;
+    }
     zone.on('pointerover', () => {
       this.juice.startTitleMusic();
       bg.setFillStyle(0x243653, 0.98);
@@ -3679,6 +3910,64 @@ export default class SnakeScene extends Phaser.Scene {
     });
     zone.on('pointerdown', onClick);
     return button;
+  }
+
+  private handleTitleMultiplayerKey(event: KeyboardEvent): boolean {
+    if (!this.titleMultiplayerContainer?.visible || !this.multiplayerDisplayNameActive) {
+      return false;
+    }
+
+    if (event.key === 'Enter') {
+      this.submitMultiplayerShell();
+      return true;
+    }
+
+    if (event.key === 'Escape') {
+      this.showTitleScreen('main');
+      return true;
+    }
+
+    if (event.key === 'Backspace') {
+      this.multiplayerDisplayName = this.multiplayerDisplayName.slice(0, -1);
+      this.refreshMultiplayerDisplayNameText();
+      return true;
+    }
+
+    if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      if (this.multiplayerDisplayName.length < 24) {
+        this.multiplayerDisplayName += event.key;
+        this.refreshMultiplayerDisplayNameText();
+      }
+      return true;
+    }
+
+    return ['Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'].includes(event.key);
+  }
+
+  private refreshMultiplayerDisplayNameText(): void {
+    if (!this.multiplayerDisplayNameText) return;
+
+    const displayName = this.multiplayerDisplayName || 'Player';
+    const cursor = this.multiplayerDisplayNameActive ? '|' : '';
+    this.multiplayerDisplayNameText.setText(`${displayName}${cursor}`);
+  }
+
+  private submitMultiplayerShell(): void {
+    const result = submitMultiplayerShell(this.multiplayerShell, this.multiplayerDisplayName);
+    this.multiplayerDisplayName = result.displayName;
+    this.refreshMultiplayerDisplayNameText();
+    this.titleMessageText?.setText(result.message);
+    this.showQuestHintPopup(result.message, '#9ad1ff');
+  }
+
+  private playRuntimeSoundCue(soundId: string): void {
+    if (soundId === 'death') {
+      this.juice.gameOver();
+      return;
+    }
+    if (soundId === 'quest.completed') {
+      this.juice.questCompleted();
+    }
   }
 
   private applyTitleResolutionSetting(id: ResolutionSettingId): void {
@@ -4515,6 +4804,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (mode === 'action' || mode === 'manual-room') {
       this.advanceSimulationTime(Math.max(0, Math.min(deltaMs, 250)));
     }
+    this.tickCaffeinatedAppleBoost();
     this.simulationScheduler.update(deltaMs, SIMULATION_MODE_RULES[mode]);
   }
 
@@ -4732,7 +5022,12 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.caveTransition');
     if (caveTransition) {
       const world = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
-      (this.juice as any).caveEjection?.(world.x, world.y, caveTransition.collapsed, caveTransition.reason);
+      (this.juice as any).caveEjection?.(
+        world.x,
+        world.y,
+        caveTransition.collapsed,
+        caveTransition.reason,
+      );
       this.snakeGame.setFlag('ui.caveTransition', undefined);
     }
 
@@ -5120,10 +5415,62 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastJuicedScore = scoreAfter;
     this.lastJuicedLength = lengthAfter;
   }
+
+  private activateCaffeinatedAppleBoost(): void {
+    this.caffeinatedAppleBoostExpirationsMs = [
+      ...this.caffeinatedAppleBoostExpirationsMs.filter((expiresAt) => this.time.now < expiresAt),
+      this.time.now + SnakeScene.CAFFEINATED_APPLE_BOOST_MS,
+    ];
+    this.applyCaffeinatedAppleBoostScalar();
+    const stacks = this.caffeinatedAppleBoostExpirationsMs.length;
+    this.showQuestHintPopup(
+      stacks > 1 ? `Caffeinated apple: speed boost x${stacks}!` : 'Caffeinated apple: speed boost!',
+      '#c47a3a',
+    );
+  }
+
+  private applyCaffeinatedAppleBoostScalar(): void {
+    this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
+    const stacks = this.caffeinatedAppleBoostExpirationsMs.length;
+    if (stacks <= 0) {
+      return;
+    }
+    const currentIntervalMs = this.getActionStepIntervalMs();
+    const scalar = calculateCaffeinatedAppleIntervalScalar({
+      currentIntervalMs,
+      baseIntervalMs: this.baseActionStepIntervalMs,
+      stackCount: stacks,
+      baseSpeedBonus: SnakeScene.CAFFEINATED_APPLE_BASE_SPEED_BONUS,
+    });
+
+    this.skillTree.applyActionStepIntervalScalar(scalar, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
+  }
+
+  private tickCaffeinatedAppleBoost(): void {
+    if (this.caffeinatedAppleBoostExpirationsMs.length === 0) {
+      return;
+    }
+    const active = this.caffeinatedAppleBoostExpirationsMs.filter(
+      (expiresAt) => this.time.now < expiresAt,
+    );
+    if (active.length === this.caffeinatedAppleBoostExpirationsMs.length) {
+      return;
+    }
+    this.caffeinatedAppleBoostExpirationsMs = active;
+    this.applyCaffeinatedAppleBoostScalar();
+  }
+
   private draw(): void {
     // Suppress generic HUDs in house
     this.setFlag('ui.suppressHud', this.titleVisible || this.isInHouse());
-    const room = this.snakeGame.getCurrentRoom();
+    const snapshot = this.gameSession.getSnapshot();
+    this.currentSnapshot = snapshot;
+    const localPlayer = snapshot.players[snapshot.localPlayerId];
+    const roomSnapshot =
+      snapshot.viewport.rooms[localPlayer?.roomId ?? snapshot.viewport.centerRoomId];
+    const room = roomSnapshot?.room ?? this.snakeGame.getCurrentRoom();
+    const snakeBody = localPlayer?.body ?? Array.from(this.snakeGame.getSnakeBody());
+    const currentApple = roomSnapshot?.apples ?? this.currentApple;
     const baseSense = this.getFlag<number>('geometry.wallSenseRadius') ?? 0;
     const equipSense = this.getFlag<number>('equipment.wallSenseRadiusBonus') ?? 0;
     const wallSenseRadius = Math.max(0, baseSense + equipSense);
@@ -5132,45 +5479,40 @@ export default class SnakeScene extends Phaser.Scene {
     );
     const snakeColor = pActive ? 0x9b5de5 : undefined;
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
-    this.snakeRenderer.render(room, this.snakeGame.getSnakeBody(), room.id, this.currentApple, {
+    const activeSnakeTheme = this.getActiveSnakeTheme();
+    this.snakeRenderer.render(room, snakeBody, room.id, currentApple, {
       wallSenseRadius,
       snakeColor,
       poweredUp: Boolean(pActive),
-      direction: this.snakeGame.getDirection(),
-      snakePalette: starforgedSnakePalette ?? this.getActiveSnakeTheme().palette,
-      activeHat: this.snakeCosmetics.activeHat,
-      enemies: this.snakeGame.getEnemies(room.id),
-      followers: this.snakeGame
-        .getFollowers()
-        .filter((follower) => follower.roomId === room.id)
-        .map((follower) => ({
-          id: follower.id,
-          roomId: follower.roomId,
-          position: follower.position,
-          fireCooldown: 0,
-          moveCooldown: 0,
-          aimDirection: follower.direction,
-          flashTicks: 0,
-          name: follower.name,
-          currentHearts: 1,
-          maxHearts: 1,
-          encounterKind: 'goblin' as const,
+      direction: localPlayer?.direction ?? this.snakeGame.getDirection(),
+      snakeRenderStyle: activeSnakeTheme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
+      otherPlayers: Object.values(snapshot.players)
+        .filter((player) => !player.isLocal && player.roomId === room.id && player.alive)
+        .map((player) => ({
+          id: player.id,
+          body: player.body,
+          direction: player.direction,
+          color: 0x4ecdc4,
         })),
-      bullets: this.snakeGame.getEnemyBullets(room.id),
-      footballs: this.snakeGame.getFootballs(room.id),
-      animals: this.snakeGame.getAnimals(room.id),
+      snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
+      activeHat: this.snakeCosmetics.activeHat,
+      enemies: roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id),
+      followers: roomSnapshot?.followers ?? [],
+      bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
+      footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
+      animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
     });
     const minimapVisible = this.isMinimapEnabled();
     this.minimapRenderer?.setVisible(minimapVisible);
     if (minimapVisible) {
       this.minimapRenderer?.render({
         currentRoomId: room.id,
-        snakeSegments: this.snakeGame.getSnakeBody(),
+        snakeSegments: snakeBody,
       });
     }
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
-    const health = this.snakeGame.getPlayerHealth();
+    const health = snapshot.ui.health ?? this.snakeGame.getPlayerHealth();
     const healthRevealed =
       Boolean(this.getFlag<boolean>('ui.healthRevealed')) || health.current < health.max;
     if (health.current < health.max) {
@@ -5544,6 +5886,14 @@ export default class SnakeScene extends Phaser.Scene {
         label: GOBLIN_SNAKE_STYLE.label,
         cost: GOBLIN_SNAKE_STYLE.price,
         palette: GOBLIN_SNAKE_STYLE.palette,
+      });
+    }
+    for (const style of BLACK_MARKET_STYLES.filter((entry) => unlocked.has(entry.id))) {
+      merged.set(style.id, {
+        id: style.id,
+        label: style.label,
+        cost: style.price,
+        palette: style.palette,
       });
     }
     return Array.from(merged.values());
@@ -8455,7 +8805,7 @@ export default class SnakeScene extends Phaser.Scene {
                     ? ' of the Guild'
                     : resident.role === 'questGiver'
                       ? ' the Quest Broker'
-                    : ''
+                      : ''
             }`,
             species: 'human' as RelationshipSpecies,
             portraitId: resident.portraitId,
@@ -8672,6 +9022,13 @@ export default class SnakeScene extends Phaser.Scene {
           this.paused = false;
           return;
         }
+        if (id === 'complete-wedding') {
+          const result = this.snakeGame.completeWeddingWithProfile(profile);
+          this.showQuestHintPopup(result.message, result.color);
+          this.skillTree.getOverlay().refresh();
+          this.showDatingScene(profile, result);
+          return;
+        }
         this.showDatingScene(profile);
       },
     );
@@ -8684,8 +9041,18 @@ export default class SnakeScene extends Phaser.Scene {
     const actorMenu = profile.actorId
       ? this.snakeGame.getActorInteractionMenu(profile.actorId)
       : null;
+    const weddingOptions = this.snakeGame.canCompleteWeddingWithProfile(profile)
+      ? [
+          {
+            id: 'complete-wedding',
+            title: 'Complete Wedding',
+            description: 'Give them the Deep-Lying Bouquet and make the proposal official.',
+          },
+        ]
+      : [];
     if (!actorMenu) {
       return [
+        ...weddingOptions,
         {
           id: 'talk',
           title: 'Talk',
@@ -8722,7 +9089,7 @@ export default class SnakeScene extends Phaser.Scene {
       'pickpocket',
       'leave',
     ]);
-    return actorMenu.options
+    const options = actorMenu.options
       .filter((option) => option.enabled && supported.has(option.id))
       .filter((option) => option.id !== 'pickpocket' || canPickpocket)
       .map((option) => ({
@@ -8730,6 +9097,7 @@ export default class SnakeScene extends Phaser.Scene {
         title: option.label,
         description: actorInteractionDescription(option.id),
       }));
+    return [...weddingOptions, ...options];
   }
 
   private actorInteractionTitle(profile: RelationshipCandidateProfile): string {

@@ -1,28 +1,20 @@
 import type { WorldGenerationIdentity } from '../world/generation/worldGenerationIdentity.js';
+import { LocalStorageStringSaveStore } from '../storage/LocalStorageStringSaveStore.js';
 
 const SAVE_KEY = 'snakeGameSave';
-let memorySave: string | null = null;
-
-function getStorage(): Storage | null {
-  return typeof localStorage === 'undefined' ? null : localStorage;
-}
+const DEFAULT_SAVE_SLOT = '';
+const saveStore = new LocalStorageStringSaveStore(SAVE_KEY);
 
 export function getSavedGameData(): string | null {
-  return getStorage()?.getItem(SAVE_KEY) ?? memorySave;
+  return saveStore.load(DEFAULT_SAVE_SLOT);
 }
 
 export function setSavedGameData(data: string): void {
-  const storage = getStorage();
-  if (storage) {
-    storage.setItem(SAVE_KEY, data);
-    return;
-  }
-  memorySave = data;
+  saveStore.save(DEFAULT_SAVE_SLOT, data);
 }
 
 export function clearSavedGameData(): void {
-  getStorage()?.removeItem(SAVE_KEY);
-  memorySave = null;
+  saveStore.clear(DEFAULT_SAVE_SLOT);
 }
 
 export interface MinecraftBlockEntry {

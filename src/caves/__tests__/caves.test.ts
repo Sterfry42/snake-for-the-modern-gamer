@@ -5,7 +5,7 @@ import { createWorldGenerationIdentity } from '../../world/generation/worldGener
 import { WorldService } from '../../world/worldService.js';
 import { findCaveEntranceCandidates, createCaveId } from '../caveEntrancePlacement.js';
 import { generateCave } from '../caveGenerator.js';
-import { pickWeightedCaveTemplate } from '../caveTemplates.js';
+import { getCaveTemplate, pickWeightedCaveTemplate } from '../caveTemplates.js';
 import type { RoomSnapshot } from '../../world/types.js';
 
 function baseRoom(layout: string[]): RoomSnapshot {
@@ -117,6 +117,24 @@ describe('cave determinism', () => {
     expect(room.layout[result.spawn.y]?.[result.spawn.x]).toBe('.');
     expect(room.layout[result.exit.y]?.[result.exit.x]).toBe('X');
     expect(hasDryPath(room.layout, result.spawn, result.exit)).toBe(true);
+  });
+
+  it('defines a 20-apple caffeinated rush cave with a 15-second timer', () => {
+    const template = getCaveTemplate('caffeinatedAppleRush');
+    const result = generateCave({
+      caveId: 'cave:7,0,0:0',
+      parentRoomId: '7,0,0',
+      templateId: 'caffeinatedAppleRush',
+      grid: defaultGameConfig.grid,
+      worldSeed: 'caffeinated-cave-test',
+      returnPosition: { x: 8, y: 8 },
+    });
+
+    expect(template.timerSeconds).toBe(15);
+    expect(template.applePool).toEqual({ typeId: 'caffeinated', count: 20 });
+    expect(result.room.biomeTitle).toBe('Caffeinated Apple Rush');
+    expect(result.room.cave?.templateId).toBe('caffeinatedAppleRush');
+    expect(hasDryPath(result.room.layout, result.spawn, result.exit)).toBe(true);
   });
 });
 

@@ -10,7 +10,8 @@ export type VillageShopStyleId =
   | 'market-moss'
   | 'charcoal-silk'
   | 'pearlwake'
-  | 'goblin-hide';
+  | 'goblin-hide'
+  | 'retro-grid';
 export type VillageShopHatId = 'cowboy' | 'market-cap' | 'ember-cowl' | 'pearl-crown';
 
 export interface VillageShopEquipmentOffer {
@@ -203,6 +204,21 @@ export const VILLAGE_SHOP_STYLES: readonly VillageShopStyleOffer[] = [
   },
 ];
 
+export const BLACK_MARKET_STYLES: readonly VillageShopStyleOffer[] = [
+  {
+    id: 'retro-grid',
+    label: 'Retro Grid',
+    price: 27,
+    palette: {
+      baseColor: '#5dd6a2',
+      bellyColor: '#5dd6a2',
+      patternColor: '#5dd6a2',
+      outlineColor: '#5dd6a2',
+      eyeColor: '#5dd6a2',
+    },
+  },
+];
+
 export const VILLAGE_SHOP_HATS: readonly VillageShopHatOffer[] = [
   { id: 'cowboy', label: 'Cowboy Hat', price: 36 },
   { id: 'market-cap', label: 'Market Cap', price: 18 },
@@ -282,7 +298,7 @@ export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinitio
 export function getBlackMarketDefinition(): VillageShopDefinition {
   return {
     equipment: [...BLACK_MARKET_EQUIPMENT],
-    styles: [],
+    styles: [...BLACK_MARKET_STYLES],
     hats: [],
     supplies: [...BLACK_MARKET_SUPPLIES],
   };
