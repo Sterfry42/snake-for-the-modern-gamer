@@ -50,6 +50,10 @@ export const COMMON_EN: CommonTranslations = {
     load: 'Load',
     quit: 'Quit',
     restart: 'Restart',
+    // Roaming snake death
+    roamingSnakeDeath: 'A wild serpent claimed you.',
+    roamingSnakeDeathAlt: 'The untamed ones do not negotiate.',
+    roamingSnakeDeathShort: 'Wild Serpent',
     // Minecraft
     minecraft: 'Minecraft Mode',
     break: 'Break',

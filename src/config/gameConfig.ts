@@ -1,4 +1,8 @@
 import type { Vector2Like } from '../core/math.js';
+import {
+  defaultRoamingSnakeConfig,
+  type RoamingSnakeConfig,
+} from './roamingSnakeConfig.js';
 
 export interface GridConfig {
   cols: number;
@@ -128,6 +132,7 @@ export interface GameConfig {
   features: FeatureSystemConfig;
   minecraft?: MinecraftConfig;
   freakerDennis?: FreakerDennisConfig;
+  roamingSnakes?: RoamingSnakeConfig;
 }
 
 export type PowerupKind = 'phase' | 'smite' | 'gun';
@@ -303,4 +308,5 @@ export const defaultGameConfig: GameConfig = {
       damageResistance: 0.2,
     },
   },
+  roamingSnakes: defaultRoamingSnakeConfig,
 };
