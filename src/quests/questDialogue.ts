@@ -151,15 +151,15 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
       'Find what it is guarding. Or what it is pretending to guard. The difference is mostly a matter of which story you prefer.',
     ],
   },
-'kappas-challenge': {
-     title: 'Water on the Head',
-     pages: [
-       'The kappa\'s dish holds a lake no one can see. It is the size of a saucer and as deep as the first time someone realized water could spill and never come back.',
-       'It does not want a fight. It wants a cucumber -- not for eating, but for the way a cucumber sounds when a kappa rolls it across stone in the dark.',
-       'Prove yourself worthy. By fighting or by bringing the vegetable. The kappa respects resolve more than victory.',
-     ],
-   },
-  'fisherman': {
+  'kappas-challenge': {
+    title: 'Water on the Head',
+    pages: [
+      "The kappa's dish holds a lake no one can see. It is the size of a saucer and as deep as the first time someone realized water could spill and never come back.",
+      'It does not want a fight. It wants a cucumber -- not for eating, but for the way a cucumber sounds when a kappa rolls it across stone in the dark.',
+      'Prove yourself worthy. By fighting or by bringing the vegetable. The kappa respects resolve more than victory.',
+    ],
+  },
+  fisherman: {
     title: 'Deep Waters',
     pages: [
       'The sunken ocean has its own currents, its own patience. The fish down there do not care about your length or your speed — only whether you are persistent enough to outwait the deep.',
@@ -178,7 +178,7 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
   'ramen-recipe-hunt': {
     title: 'The Broth That Remembers',
     pages: [
-      'The ramen master\'s broth has no business being this good in a place where water tastes like old decisions and the walls occasionally weep.',
+      "The ramen master's broth has no business being this good in a place where water tastes like old decisions and the walls occasionally weep.",
       'Three rare ingredients -- not because three is a magic number, but because the broth refuses to work with fewer. This is not negotiation. It is a boundary.',
       'Collect them from different parts of the biome. Each ingredient remembers a different season. The broth needs all of them to dream properly.',
     ],
@@ -195,11 +195,63 @@ export function getQuestDialogue(quest: Quest): QuestDialogue {
   return (
     CUSTOM_DIALOGUES[quest.id] ?? {
       title: i18n.getQuestString(quest.id)?.label ?? quest.label,
-      pages: [
-        `There is work to be done: ${i18n.getQuestString(quest.id)?.description ?? quest.description}.`,
-        'I have outlived too many companions to mistake errands for small things. Every task here leans against some older sorrow.',
-        'Take the burden if you mean to, but do not insult it by calling it simple.',
-      ],
+      pages: buildFallbackQuestPages(quest),
     }
   );
+}
+
+function buildFallbackQuestPages(quest: Quest): string[] {
+  const description = i18n.getQuestString(quest.id)?.description ?? quest.description;
+  const voice = questVoiceFor(quest.id);
+  return [voice.opening(description), voice.stakes, voice.ask];
+}
+
+function questVoiceFor(id: string): {
+  opening(description: string): string;
+  stakes: string;
+  ask: string;
+} {
+  if (/hunt|bear|rabbit|wolf|hide|herd/i.test(id)) {
+    return {
+      opening: (description) =>
+        `"Tracks crossed the road this morning, and none of them looked polite. ${description}. Do not make that face; brave faces get bitten first."`,
+      stakes:
+        '"If the beasts keep learning our paths, the village becomes a pantry with lanterns. I refuse to be shelved."',
+      ask: '"Go handle it. Come back with proof, and if the proof is ugly, good. Ugly proof lies less."',
+    };
+  }
+  if (/apple|honey|food|snack|ramen/i.test(id)) {
+    return {
+      opening: (description) =>
+        `"I need food moved before hunger starts making speeches. ${description}. Simple? No. Nothing edible stays simple down here."`,
+      stakes:
+        '"People get poetic about starvation after they have eaten. The rest of us count portions and pretend counting is hope."',
+      ask: '"Bring what I asked for. I will thank you properly, which means quickly, before pride ruins the useful part."',
+    };
+  }
+  if (/room|explore|treasure|loot|power|length|score/i.test(id)) {
+    return {
+      opening: (description) =>
+        `"The maze has been acting smug. ${description}. I want you to bruise its confidence."`,
+      stakes:
+        '"Every room you survive becomes a witness. Every witness makes the dark less comfortable with its own story."',
+      ask: '"Go on, then. Make progress loud enough that even the walls have to admit it happened."',
+    };
+  }
+  if (/goblin|ledger|tax|debt|purchase/i.test(id)) {
+    return {
+      opening: (description) =>
+        `"A ledger has developed an appetite, and unfortunately it has learned your shape. ${description}."`,
+      stakes:
+        '"Debt is just a ghost that discovered arithmetic. Ignore it too long and it starts wearing official shoes."',
+      ask: '"Settle the matter before someone stamps your name so hard it becomes a sentence."',
+    };
+  }
+  return {
+    opening: (description) =>
+      `"Listen. I would not ask if the task were only a task. ${description}. Around here, errands grow teeth when ignored."`,
+    stakes:
+      '"I have outlived too many companions to mistake small work for harmless work. Every request leans against some older sorrow."',
+    ask: '"Take the burden if you mean to. Refuse if you must. But do not insult either choice by pretending it weighs nothing."',
+  };
 }

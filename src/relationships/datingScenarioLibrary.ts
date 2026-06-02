@@ -1,0 +1,1296 @@
+import type {
+  DatingBranchChoice,
+  RelationshipCandidateProfile,
+  RelationshipChoice,
+  RelationshipOutcomeTier,
+  RelationshipPersonality,
+  RelationshipTag,
+} from './relationshipTypes.js';
+
+export type DatingScenarioKind = Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>;
+
+export interface DatingScenarioPage {
+  line: string;
+  result?: string;
+  lineIsNarration?: boolean;
+  actions?: ReadonlyArray<{
+    id: `branch-${string}` | 'leave';
+    label: string;
+    tone?: 'romance' | 'danger' | 'quiet';
+  }>;
+  juiceTier?: RelationshipOutcomeTier;
+}
+
+export interface DatingScenarioBranchResult {
+  text: string;
+  outcome?: RelationshipChoice;
+  tags?: DatingBranchChoice['tags'];
+  targetTier?: RelationshipOutcomeTier;
+  label?: string;
+  followUpPages?: DatingScenarioPage[];
+}
+
+export interface DatingScenarioEvent {
+  scenarioId: string;
+  pages: DatingScenarioPage[];
+  branchResults: Record<string, DatingScenarioBranchResult>;
+}
+
+interface BranchBlueprint {
+  id: `branch-${string}`;
+  label: string;
+  tags: RelationshipTag[];
+  tier: RelationshipOutcomeTier;
+  tierByPersonality?: Partial<Record<RelationshipPersonality, RelationshipOutcomeTier>>;
+  response: Record<RelationshipPersonality, readonly string[]>;
+  outcome?: RelationshipChoice;
+  tone?: 'romance' | 'danger' | 'quiet';
+}
+
+interface ScenarioBlueprint {
+  id: string;
+  kind: DatingScenarioKind;
+  preferredPersonalities?: RelationshipPersonality[];
+  setup: string;
+  npcPrompt: Record<RelationshipPersonality, readonly string[]>;
+  question: string;
+  branches: readonly BranchBlueprint[];
+  after: Record<RelationshipPersonality, readonly string[]>;
+}
+
+const PERSONALITY_STAGE_DIRECTIONS: Record<RelationshipPersonality, string> = {
+  poetic: 'They turn the moment over like a wet letter, searching for the sentence that survived.',
+  deadpan: 'Their face barely moves, which somehow makes the silence louder.',
+  hungry: 'They watches your answer like it might be edible, warm, or both.',
+  regal: 'They straighten as if the room has accidentally become a court.',
+  sharp: 'Their attention clicks into place, bright as a knife hidden inside a contract.',
+};
+
+const PERSONALITY_BRANCH_TAG_WEIGHTS: Record<
+  RelationshipPersonality,
+  Partial<Record<RelationshipTag, number>>
+> = {
+  poetic: {
+    dramatic: 4,
+    honesty: 4,
+    privateAffection: 4,
+    commitment: 3,
+    bravery: 2,
+    mercy: 3,
+    comfort: 2,
+    clever: 1,
+    food: -1,
+    pragmatic: -1,
+    selfPreserving: -2,
+    publicAffection: -1,
+    avoidance: -5,
+    neediness: -3,
+    betrayal: -9,
+    violence: -3,
+    neglect: -6,
+  },
+  deadpan: {
+    honesty: 4,
+    competence: 4,
+    pragmatic: 5,
+    clever: 3,
+    restraint: 4,
+    selfPreserving: 2,
+    protective: 1,
+    comfort: 1,
+    transaction: 2,
+    ledger: 2,
+    dramatic: -4,
+    neediness: -3,
+    publicAffection: -2,
+    betrayal: -8,
+    avoidance: -2,
+    violence: -2,
+    neglect: -6,
+  },
+  hungry: {
+    food: 6,
+    comfort: 5,
+    protective: 3,
+    loyalty: 4,
+    family: 5,
+    mercy: 3,
+    commitment: 2,
+    privateAffection: 2,
+    neediness: 1,
+    dramatic: 1,
+    selfPreserving: -1,
+    publicAffection: -1,
+    neglect: -7,
+    betrayal: -9,
+    avoidance: -4,
+    violence: -2,
+  },
+  regal: {
+    bravery: 5,
+    protective: 3,
+    ritual: 5,
+    commitment: 5,
+    humility: 4,
+    honesty: 3,
+    publicAffection: 2,
+    privateAffection: 2,
+    clever: 1,
+    violence: -2,
+    neediness: -5,
+    avoidance: -5,
+    betrayal: -10,
+    secrecy: -6,
+    neglect: -8,
+    selfPreserving: -2,
+  },
+  sharp: {
+    clever: 5,
+    pragmatic: 5,
+    selfPreserving: 4,
+    transaction: 5,
+    contract: 5,
+    competence: 4,
+    ledger: 5,
+    goblin: 3,
+    honesty: 2,
+    protective: 2,
+    restraint: 2,
+    publicAffection: -2,
+    neediness: -5,
+    dramatic: -1,
+    betrayal: -8,
+    neglect: -5,
+    avoidance: -2,
+    violence: -1,
+  },
+};
+
+const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
+  {
+    id: 'flirt-pizza-confession',
+    kind: 'flirt',
+    setup:
+      'A late snack stall has one candle, three plates, and a vendor who clearly expects romance to become a public hazard.',
+    npcPrompt: {
+      poetic: [
+        'Choose carefully. A topping is never only a topping. It is a tiny flag planted in the disputed country of desire.',
+        'If you say something boring, I will mourn the part of you that could have been moonlit.',
+      ],
+      deadpan: [
+        'This is a compatibility audit disguised as dinner. I apologize for neither half.',
+        'Answer plainly. I am measuring risk, taste, and your capacity for needless chaos.',
+      ],
+      hungry: [
+        'Finally, a serious romantic question. Toppings reveal the soul and sometimes rescue the evening.',
+        'If you choose badly, I may still eat it. That is not forgiveness. That is discipline.',
+      ],
+      regal: [
+        'A table can be a throne if the company behaves with sufficient conviction.',
+        'Name your topping. I will know whether you understand ceremony, appetite, or merely noise.',
+      ],
+      sharp: [
+        'Pizza is a contract with cheese. Do not sign carelessly.',
+        'Your topping preference will be entered into evidence. I advise precision.',
+      ],
+    },
+    question:
+      'They lean closer over the candle. "What topping do you choose when no one is pretending to be sensible?"',
+    branches: [
+      {
+        id: 'branch-pineapple',
+        label: 'Pineapple',
+        tags: ['food', 'clever', 'dramatic'],
+        tier: 'loved',
+        tierByPersonality: {
+          poetic: 'liked',
+          deadpan: 'neutral',
+          hungry: 'loved',
+          regal: 'disliked',
+          sharp: 'liked',
+        },
+        response: {
+          poetic: [
+            'Pineapple. Sweetness with teeth. A little sun smuggled into a guilty place.',
+            'I like it because it refuses to apologize for being bright where salt expected obedience.',
+          ],
+          deadpan: [
+            'Pineapple. Controversial, structurally juicy, and loud about itself.',
+            'I am not moved. I am, however, forced to update the file on you.',
+          ],
+          hungry: [
+            'Pineapple. Yes. Sweet, warm, dangerous to cowards.',
+            'You understand that dinner should occasionally start an argument and then win it.',
+          ],
+          regal: [
+            'Pineapple. A tropical banner raised over a battlefield no one asked to visit.',
+            'Bold, yes. Also disorderly. I do not permit every scandal merely because it stands tall.',
+          ],
+          sharp: [
+            'Pineapple. High-risk sweetness. Excellent leverage against boring people.',
+            'I like choices that make enemies reveal themselves before dessert.',
+          ],
+        },
+      },
+      {
+        id: 'branch-pepperoni',
+        label: 'Pepperoni',
+        tags: ['food', 'pragmatic', 'comfort'],
+        tier: 'liked',
+        tierByPersonality: {
+          poetic: 'neutral',
+          deadpan: 'liked',
+          hungry: 'liked',
+          regal: 'neutral',
+          sharp: 'liked',
+        },
+        response: {
+          poetic: [
+            'Pepperoni. A red little certainty. Not daring, but honest enough to warm the plate.',
+            'I can respect a comfort that does not pretend to be prophecy.',
+          ],
+          deadpan: [
+            'Pepperoni. Standard answer. Strong fundamentals. Low embarrassment risk.',
+            'I like reliability more than I advertise.',
+          ],
+          hungry: [
+            'Pepperoni. Good. Salty. Direct. Not every meal needs a thesis.',
+            'I could share that without suspecting you of sabotaging dinner.',
+          ],
+          regal: [
+            'Pepperoni. Traditional, perhaps overly safe, but not without dignity.',
+            'A court survives on dependable staples as much as grand declarations.',
+          ],
+          sharp: [
+            'Pepperoni. Predictable, but profitable. There is value in a choice that knows its market.',
+            'I would not brag about it. I would eat it.',
+          ],
+        },
+      },
+      {
+        id: 'branch-mushroom',
+        label: 'Mushroom',
+        tags: ['food', 'comfort', 'secrecy'],
+        tier: 'disliked',
+        tierByPersonality: {
+          poetic: 'neutral',
+          deadpan: 'disliked',
+          hungry: 'neutral',
+          regal: 'disliked',
+          sharp: 'loved',
+        },
+        response: {
+          poetic: [
+            'Mushroom. Earthy, secretive, a little grave-adjacent.',
+            'I do not hate it. I only worry you flirt like someone who stores feelings underground.',
+          ],
+          deadpan: [
+            'Mushroom. Acceptable fungus. Unclear romantic signal.',
+            'I asked for preference and received damp ambiguity.',
+          ],
+          hungry: [
+            'Mushroom. Fine in stew. Suspicious on a romantic plate.',
+            'You can do better than choosing the topping that tastes like a cellar practicing manners.',
+          ],
+          regal: [
+            'Mushroom. Humble to the point of disappearing.',
+            'I prefer a suitor who can be gentle without becoming subterranean.',
+          ],
+          sharp: [
+            'Mushroom. Quiet, cheap, and very good at hiding among stronger ingredients.',
+            'I dislike how much that sounds like a strategy.',
+          ],
+        },
+      },
+    ],
+    after: {
+      poetic: [
+        'They glance at the candle. "Absurd. I am learning your soul through dinner. Somehow the method works."',
+      ],
+      deadpan: ['They nod once. "The courtship data set expands. Alarmingly useful."'],
+      hungry: ['They steals a bite. "If romance fails, at least dinner provided testimony."'],
+      regal: ['They fold their napkin like a treaty. "The evening survives preliminary judgment."'],
+      sharp: [
+        'They smiles thinly. "Good. Now I know what kind of chaos you order under pressure."',
+      ],
+    },
+  },
+  {
+    id: 'talk-faction-aftershock',
+    kind: 'talk',
+    setup:
+      'The street outside is still arguing about a faction fight. Someone has washed the stones, but not well.',
+    npcPrompt: {
+      poetic: [
+        'Do you hear that? The town is quiet in the wrong key.',
+        'When violence ends, the walls keep humming the name of whoever started it.',
+      ],
+      deadpan: [
+        'There was a fight. People are pretending it was smaller than it was.',
+        'I dislike public denial. It makes cleanup inefficient.',
+      ],
+      hungry: [
+        'No one eats properly after bloodshed. Soup curdles. Bread gets judgmental.',
+        'Tell me what part of this disaster you think belongs to you.',
+      ],
+      regal: [
+        'A faction wound is a public wound. It does not vanish because private affection asks politely.',
+        'Speak clearly. I will not have tenderness used as a curtain.',
+      ],
+      sharp: [
+        'People are pricing silence by the minute. Impressive market instability.',
+        'Before you smile at me, account for the damage.',
+      ],
+    },
+    question:
+      'They stop walking. "When your actions hurt a faction I know, what do you expect me to do with my affection?"',
+    branches: [
+      {
+        id: 'branch-own-harm',
+        label: 'Own the Harm',
+        tags: ['honesty', 'humility', 'commitment'],
+        tier: 'loved',
+        response: {
+          poetic: [
+            'Good. Do not polish it. Let the ugly fact keep its weather.',
+            'I can love someone who kneels beside the damage and names it without perfume.',
+          ],
+          deadpan: [
+            'Correct. Responsibility detected. Rare sample.',
+            'I can work with guilt that does not outsource itself.',
+          ],
+          hungry: [
+            'Yes. Own it. Bad stew does not improve because the cook whistles.',
+            'I like that you did not make me swallow the excuse first.',
+          ],
+          regal: [
+            'That is the first answer worthy of standing in this street.',
+            'A vow without accountability is costume jewelry.',
+          ],
+          sharp: [
+            'Good. Liability acknowledged.',
+            'Now we can discuss repair instead of wasting time repossessing your denial.',
+          ],
+        },
+      },
+      {
+        id: 'branch-deflect-faction',
+        label: 'Blame the Faction',
+        tags: ['avoidance', 'betrayal', 'secrecy'],
+        tier: 'hated',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: [
+            'No. You do not get to turn their dead into scenery for your innocence.',
+            'If you need me blind to love you, then you do not want love. You want shelter.',
+          ],
+          deadpan: [
+            'Bad answer. Cowardly structure. Predictable load-bearing failure.',
+            'Do not bring me excuses and call them context.',
+          ],
+          hungry: [
+            'That excuse tastes rotten.',
+            'I will not eat blame you scraped off your own plate and served as justice.',
+          ],
+          regal: [
+            'You disgrace the moment by asking me to applaud evasion.',
+            'Affection does not outrank the blood on public stone.',
+          ],
+          sharp: ['Ah. Transfer of liability attempted.', 'Denied. With fees.'],
+        },
+      },
+      {
+        id: 'branch-promise-repair',
+        label: 'Promise Repair',
+        tags: ['commitment', 'protective', 'pragmatic'],
+        tier: 'liked',
+        response: {
+          poetic: [
+            'Repair is not a word. It is a road that cuts the feet.',
+            'Still. I heard the promise put weight on itself. That matters.',
+          ],
+          deadpan: [
+            'Action plan pending. Sentiment provisionally accepted.',
+            'Bring evidence next time. I like evidence more than posture.',
+          ],
+          hungry: [
+            'Fix it, then. Feed the people your chaos starved.',
+            'I like promises better when they come with bread and a schedule.',
+          ],
+          regal: [
+            'A promise of repair is not absolution. It is an opening stance.',
+            'Make it real and I may call it honorable.',
+          ],
+          sharp: [
+            'Repair terms accepted for review.',
+            'Miss the deadline and I become less romantic and more accurate.',
+          ],
+        },
+      },
+    ],
+    after: {
+      poetic: ['They exhales slowly. "There. Now affection has a place to stand without lying."'],
+      deadpan: ['They folds their arms. "Conversation complete. Consequences remain open."'],
+      hungry: [
+        'They looks toward the market. "Good. Now feed someone who had to hear your name today."',
+      ],
+      regal: [
+        'They inclines their head. "This is not forgiveness. It is the gate forgiveness may enter through."',
+      ],
+      sharp: ['They taps two fingers together. "Better. Not clean. Better."'],
+    },
+  },
+  {
+    id: 'date-bear-pride',
+    kind: 'date',
+    setup:
+      'Your date reaches a tavern where the stew is hot, the door is weak, and a bear has opinions about architecture.',
+    npcPrompt: {
+      poetic: [
+        'This place smells like pepper, rain, and a tragic third thing I refuse to identify.',
+        'If destiny interrupts dinner, I am charging it for the table.',
+      ],
+      deadpan: [
+        'The stew is adequate. The door is not. The evening has structural concerns.',
+        'Do not look pleased. I have not yet ruled out disaster.',
+      ],
+      hungry: [
+        'Finally. Stew. If romance intends to compete with stew, romance should work harder.',
+        'I am happy, which means something loud will happen in three seconds.',
+      ],
+      regal: [
+        'A humble room can be dignified when the company understands posture.',
+        'The stew is beneath ceremony. Fortunately, hunger is above pride.',
+      ],
+      sharp: [
+        'Bad hinges, decent stew, two exits, one bartender lying about the bill.',
+        'Romance is mostly risk assessment with better lighting.',
+      ],
+    },
+    question:
+      'The wall explodes inward. A bear lands in the tavern and roars. Your date does not look helpless; they look offended.',
+    branches: [
+      {
+        id: 'branch-stand-with-them',
+        label: 'Stand With Them',
+        tags: ['protective', 'bravery', 'commitment'],
+        tier: 'loved',
+        tierByPersonality: {
+          poetic: 'loved',
+          deadpan: 'liked',
+          hungry: 'loved',
+          regal: 'loved',
+          sharp: 'liked',
+        },
+        response: {
+          poetic: [
+            'There. Beside me, not in front of me. You understood the difference.',
+            'I do not need a cage shaped like devotion. I wanted a witness with teeth.',
+          ],
+          deadpan: [
+            'Good positioning. Respectful. Combat-adjacent romance improves by ninety percent.',
+            'You did not assume incompetence. I noticed.',
+          ],
+          hungry: [
+            'Yes. You guarded the stew and my dignity. That is basically courtship.',
+            'We fight together, then eat quickly before courage cools.',
+          ],
+          regal: [
+            'You stood beside me. Not above me. Not before me.',
+            'That is how one protects a sovereign heart without insulting it.',
+          ],
+          sharp: [
+            'Correct. Partnership, not ownership.',
+            'You protected the flank and avoided the expensive mistake of treating me like cargo.',
+          ],
+        },
+      },
+      {
+        id: 'branch-protect',
+        label: 'Shield Them',
+        tags: ['protective', 'neediness', 'publicAffection'],
+        tier: 'disliked',
+        tierByPersonality: {
+          poetic: 'disliked',
+          deadpan: 'neutral',
+          hungry: 'liked',
+          regal: 'disliked',
+          sharp: 'disliked',
+        },
+        response: {
+          poetic: [
+            'Hmph. You made me smaller to make your courage prettier.',
+            'Do not build a wall around me and call the bricks romance.',
+          ],
+          deadpan: [
+            'Unrequested shielding. Tactical value mixed. Emotional cost unclear.',
+            'I can fight a bear. I am still deciding whether you helped or obstructed.',
+          ],
+          hungry: [
+            'You put yourself between me and teeth. I am annoyed. I am also warm about it.',
+            'Next time protect my dinner and trust my bite. This time, I noticed the care.',
+          ],
+          regal: [
+            'You presumed frailty. That is not gallantry; it is decorative insult.',
+            'Stand with me, snake. Do not stand where my agency was breathing.',
+          ],
+          sharp: [
+            'Ah. Hero pose. Expensive, obstructive, flattering in the least useful way.',
+            'Try partnership next time. It has better margins.',
+          ],
+        },
+      },
+      {
+        id: 'branch-run',
+        label: 'Run Off',
+        tags: ['avoidance', 'betrayal', 'selfPreserving'],
+        tier: 'hated',
+        tierByPersonality: {
+          poetic: 'hated',
+          deadpan: 'disliked',
+          hungry: 'hated',
+          regal: 'hated',
+          sharp: 'disliked',
+        },
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: [
+            'You left me in the mouth of the story.',
+            'The bear was honest. It roared before it wounded me.',
+          ],
+          deadpan: ['You ran. Data received.', 'I survived the bear. Your reputation did not.'],
+          hungry: [
+            'You abandoned me and the stew. One of those is unforgivable. The other is you.',
+            'Do not come back hungry for tenderness.',
+          ],
+          regal: [
+            'Cowardice is not merely flight. It is leaving another to pay for your speed.',
+            'You are dismissed from my favor until the word honor stops avoiding you.',
+          ],
+          sharp: [
+            'Breach of contract. Witnessed by bear, bartender, and every table with ears.',
+            'I hope running was profitable. It was not romantic.',
+          ],
+        },
+      },
+    ],
+    after: {
+      poetic: [
+        'They wipes bear dust from their sleeve. "I hate that this is now one of our memories."',
+      ],
+      deadpan: [
+        'They checks the broken wall. "The date has moved from poor venue choice to evidence."',
+      ],
+      hungry: ['They points at the table. "If the stew is cold, I am billing the bear."'],
+      regal: [
+        'They steps over splinters. "Continue the date. Dignity survives worse rooms than this."',
+      ],
+      sharp: [
+        'They eyes the bartender. "The bear damaged the wall. We are not paying for ambience."',
+      ],
+    },
+  },
+  {
+    id: 'date-abandoned-shrine',
+    kind: 'date',
+    setup:
+      'A rain path leads you to an abandoned shrine where votive candles still burn for people no one admits missing.',
+    npcPrompt: {
+      poetic: [
+        'Do not speak too loudly. Some places remember better in whispers.',
+        'I brought you here because beauty with a wound tells the truth faster.',
+      ],
+      deadpan: [
+        'This shrine is abandoned except for the candles, which is statistically unsettling.',
+        'I am not scared. I am respectfully unconvinced by architecture that glows unattended.',
+      ],
+      hungry: [
+        'There is no food here. That means the date is depending entirely on atmosphere. Risky.',
+        'Still... the candles are warm. Warm counts.',
+      ],
+      regal: [
+        'A ruined altar is still an altar. Behave accordingly.',
+        'We may be ridiculous, but we need not be careless.',
+      ],
+      sharp: [
+        'Unattended flame, old offerings, no visible caretaker. Either sacred or a trap with excellent branding.',
+        'I like it. Do not make me regret that in front of ghosts.',
+      ],
+    },
+    question:
+      'Three offerings sit before the altar: a clean coin, a wilted flower, and a folded apology note addressed to no one.',
+    branches: [
+      {
+        id: 'branch-clean-coin',
+        label: 'Clean Coin',
+        tags: ['transaction', 'pragmatic', 'ritual'],
+        tier: 'liked',
+        response: {
+          poetic: [
+            'A coin. Practical grief. The kind that admits the world still charges admission.',
+            'I like it, though part of me wanted a softer wound.',
+          ],
+          deadpan: [
+            'Coin selected. Clean, symbolic, financially legible.',
+            'A reasonable offering. I am almost moved. Terrible development.',
+          ],
+          hungry: [
+            'A coin cannot be eaten, but it can become food later. Sensible.',
+            'I like practical romance. It has pockets.',
+          ],
+          regal: [
+            'A coin acknowledges duty. Not grand, but properly weighted.',
+            'Respectable. Ceremony does not always require flowers.',
+          ],
+          sharp: [
+            'A coin. Transfer complete. The altar receives liquidity.',
+            'I like that you understand symbolic payment. It prevents worse invoices.',
+          ],
+        },
+      },
+      {
+        id: 'branch-wilted-flower',
+        label: 'Wilted Flower',
+        tags: ['privateAffection', 'dramatic', 'comfort'],
+        tier: 'loved',
+        response: {
+          poetic: [
+            'The dying flower. Of course.',
+            'The thing still trying to be beautiful after its best hour. I am not immune to that.',
+          ],
+          deadpan: [
+            'Wilted flower. Emotionally obvious. Annoyingly effective.',
+            'I wanted to mock it. The flower has defeated me.',
+          ],
+          hungry: [
+            'It is sad and useless and somehow sweet.',
+            'Fine. I love the doomed little flower. Do not tell anyone I said that.',
+          ],
+          regal: [
+            'A fading flower given with care outranks a fresh one given for display.',
+            'Tenderness without spectacle. Good.',
+          ],
+          sharp: [
+            'Wilted flower. Low market value. High emotional leverage.',
+            'I respect an offering that knows exactly where to press.',
+          ],
+        },
+      },
+      {
+        id: 'branch-read-apology',
+        label: 'Read Note',
+        tags: ['secrecy', 'betrayal', 'clever'],
+        tier: 'hated',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: [
+            'No. Some apologies are graves with paper doors.',
+            'You do not enter every sorrow just because curiosity learned hands.',
+          ],
+          deadpan: [
+            'Private note. You read it. Boundary failure confirmed.',
+            "I dislike being shown how you treat other people's sealed pain.",
+          ],
+          hungry: ['That was not yours to open.', 'You made the air taste mean.'],
+          regal: [
+            'A sealed apology is not public entertainment.',
+            'You have mistaken access for permission. Correct yourself.',
+          ],
+          sharp: [
+            'Unauthorized document access. Interesting, ugly, informative.',
+            'I will remember that you call invasion curiosity when the handwriting tempts you.',
+          ],
+        },
+      },
+    ],
+    after: {
+      poetic: ['They bows their head. "The shrine will remember us incorrectly. Most places do."'],
+      deadpan: [
+        'They studies the candles. "Nothing exploded. Intimacy remains statistically possible."',
+      ],
+      hungry: [
+        'They tucks their hands close to the candle warmth. "Next sacred place needs snacks."',
+      ],
+      regal: ['They turns from the altar. "The date may continue. Quietly."'],
+      sharp: [
+        'They looks back once. "That place knows more than it should. I approve reluctantly."',
+      ],
+    },
+  },
+  {
+    id: 'flirt-compliment-trial',
+    kind: 'flirt',
+    setup:
+      'A cracked mirror in a shop window catches both of you and immediately begins acting like a witness.',
+    npcPrompt: {
+      poetic: ['Compliment me, snake, but do not bring me a dead sentence dressed as a flower.'],
+      deadpan: ['Compliment audit. Three seconds. Try not to injure language.'],
+      hungry: ['Say something sweet enough to be useful and strange enough to be yours.'],
+      regal: ['Address me as though the room deserves to overhear and fear your taste.'],
+      sharp: ['Compliments are leverage with perfume on them. Show me your hand.'],
+    },
+    question: 'Which part of them do you praise?',
+    branches: [
+      {
+        id: 'branch-praise-scars',
+        label: 'Scars',
+        tags: ['honesty', 'danger', 'privateAffection'],
+        tier: 'loved',
+        response: {
+          poetic: ['My scars? Hah. You flirt with the weather that already struck me.'],
+          deadpan: ['Scars. Specific. Evidence-based. Annoyingly effective.'],
+          hungry: ['You noticed the hard parts and did not chew on them. Good.'],
+          regal: ['A compliment to survival is braver than a compliment to symmetry.'],
+          sharp: ['You saw the history and did not ask to own it. Good instincts.'],
+        },
+      },
+      {
+        id: 'branch-praise-smile',
+        label: 'Smile',
+        tags: ['comfort', 'publicAffection', 'food'],
+        tier: 'liked',
+        response: {
+          poetic: ['My smile? Soft answer. Dangerous if sincere. I may permit it.'],
+          deadpan: ['Smile. Conventional. Still not incorrect. Proceed carefully.'],
+          hungry: ['Yes, yes, the smile. It has teeth. Respect the teeth.'],
+          regal: ['A courtly answer. Familiar, but nicely polished.'],
+          sharp: ['Safe target. Pleasant hit. I expected sharper, but I am not offended.'],
+        },
+      },
+      {
+        id: 'branch-praise-usefulness',
+        label: 'Usefulness',
+        tags: ['transaction', 'pragmatic', 'avoidance'],
+        tier: 'disliked',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: ['Useful? Romance limps when you put it in work boots too early.'],
+          deadpan: ['Usefulness is not a compliment. It is an invoice with eyelashes.'],
+          hungry: ['I am not a tool rack with a pulse, snake. Try again later.'],
+          regal: ['You praise utility as if I am furniture with excellent posture. No.'],
+          sharp: ['Useful. There it is. The dullest blade in the drawer.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The mirror keeps the answer and smirks in silver.'],
+      deadpan: ['The mirror records no objections, which is legally suspicious.'],
+      hungry: ['The shop window fogs from somebody pretending not to breathe hard.'],
+      regal: ['The reflection bows with entirely unearned authority.'],
+      sharp: ['The reflected version of them looks like it knows what you meant.'],
+    },
+  },
+  {
+    id: 'talk-boundary-test',
+    kind: 'talk',
+    setup:
+      'A festival crowd presses too close, and someone mistakes your closeness for permission to comment.',
+    npcPrompt: {
+      poetic: ['Crowds turn love into theater and then complain about the ending.'],
+      deadpan: ['External commentary detected. Response requested.'],
+      hungry: ['Too many strangers near the soft parts. I may bite a metaphor.'],
+      regal: ['The public has mistaken itself for a council. Correct it.'],
+      sharp: ['A crowd is just a blade with many handles. What do you grab?'],
+    },
+    question: 'How do you answer the crowd?',
+    branches: [
+      {
+        id: 'branch-set-boundary',
+        label: 'Set Boundary',
+        tags: ['protective', 'restraint', 'loyalty'],
+        tier: 'loved',
+        response: {
+          poetic: ['You made a wall without making a cage. That is harder than heroics.'],
+          deadpan: ['Boundary established. Minimal spectacle. Strong result.'],
+          hungry: ['You kept the strangers out and left me room to breathe. Good.'],
+          regal: ['A clean border. No begging, no boasting. Well done.'],
+          sharp: ['You defended the line without grabbing my leash. I noticed.'],
+        },
+      },
+      {
+        id: 'branch-perform-romance',
+        label: 'Perform',
+        tags: ['publicAffection', 'dramatic', 'recklessness'],
+        tier: 'liked',
+        response: {
+          poetic: ['A public flourish. Ridiculous. Bright. I may forgive the sparkle.'],
+          deadpan: ['Performance excessive. Charm present. Complaint pending.'],
+          hungry: ['You fed the crowd drama and kept a bite for me. Acceptable.'],
+          regal: ['The spectacle was unnecessary, which is not the same as unwelcome.'],
+          sharp: ['Loud move. Some cover, some risk. I am amused despite myself.'],
+        },
+      },
+      {
+        id: 'branch-ignore-discomfort',
+        label: 'Ignore Them',
+        tags: ['avoidance', 'neglect', 'selfPreserving'],
+        tier: 'hated',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: ['You let the crowd put hands on the moment. I dislike the fingerprints.'],
+          deadpan: ['Discomfort ignored. Trust reduction obvious.'],
+          hungry: ['You heard the room chewing on us and offered no spoon, no knife, nothing.'],
+          regal: ['Silence can be a betrayal when the court is staring.'],
+          sharp: ['You chose convenience over cover. I will remember the math.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The crowd drifts away, deprived of its favorite wound.'],
+      deadpan: ['Public interest drops to survivable levels.'],
+      hungry: ['The air becomes edible again. Barely.'],
+      regal: ['The room remembers who was permitted to speak.'],
+      sharp: ['The crowd loses interest when it stops drawing blood.'],
+    },
+  },
+  {
+    id: 'date-sickroom-vigil',
+    kind: 'date',
+    setup:
+      'A planned date detours into a sickroom where an old neighbor needs medicine, quiet, and no heroic speeches.',
+    npcPrompt: {
+      poetic: ['Romance has been interrupted by mortality with a cough. What do you do?'],
+      deadpan: ['Date objective changed. Care task active.'],
+      hungry: ['This is not glamorous. That is how you know it might matter.'],
+      regal: ['A household in need outranks entertainment. Prove you know that.'],
+      sharp: ['Care is where charming people often reveal the bill.'],
+    },
+    question: 'How do you spend the hour?',
+    branches: [
+      {
+        id: 'branch-sit-vigil',
+        label: 'Sit Quietly',
+        tags: ['mercy', 'restraint', 'commitment'],
+        tier: 'loved',
+        response: {
+          poetic: ['You sat still where usefulness had no applause. That was beautiful.'],
+          deadpan: ['Quiet care performed well. No wasted drama. Strong result.'],
+          hungry: ['You made patience warm. I did not expect that from you.'],
+          regal: ['Service without spectacle is difficult. You managed it.'],
+          sharp: ['No speech, no claim, no audience. Just care. I respect that.'],
+        },
+      },
+      {
+        id: 'branch-fetch-medicine',
+        label: 'Fetch Medicine',
+        tags: ['competence', 'pragmatic', 'protective'],
+        tier: 'liked',
+        response: {
+          poetic: ['Swift hands, useful heart. Not poetry, maybe, but close enough tonight.'],
+          deadpan: ['Medicine acquired. Competence remains attractive.'],
+          hungry: ['You brought what was needed before anyone had to beg. Good.'],
+          regal: ['A practical service, cleanly done. The household notices. So do I.'],
+          sharp: ['Fast, useful, no fuss. That kind of competence is dangerous.'],
+        },
+      },
+      {
+        id: 'branch-resent-detour',
+        label: 'Resent Detour',
+        tags: ['neglect', 'selfPreserving', 'avoidance'],
+        tier: 'hated',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: ['You looked at need and mourned only your interrupted evening. Ugly.'],
+          deadpan: ['Care failure. Romantic value decreased.'],
+          hungry: ['You made sickness compete with your appetite. I hate that.'],
+          regal: ['A person who resents duty should not ask for devotion.'],
+          sharp: ['When the room needed care, you counted inconvenience. Useful data.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The sickroom exhales, and the date becomes something older than flirting.'],
+      deadpan: ['The original itinerary is dead. The evening is not.'],
+      hungry: ['The medicine smells bitter. The silence smells honest.'],
+      regal: ['The hour leaves with the dignity of a closed door.'],
+      sharp: ['The detour has sharper records than the planned date would have.'],
+    },
+  },
+  {
+    id: 'talk-first-revelation',
+    kind: 'talk',
+    setup:
+      'The room goes quiet in the unnatural way rooms do when someone nearly says the true thing.',
+    npcPrompt: {
+      poetic: ['There is a story I usually keep under the floorboards. Do not pry. Invite.'],
+      deadpan: ['Personal disclosure may occur. Mishandling will be remembered.'],
+      hungry: ['Some memories are leftovers. Still warm. Still dangerous.'],
+      regal: ['A private history approaches the throne. Treat it with ceremony or leave it alone.'],
+      sharp: ['I am considering showing you a weak point. Do not make it cheap.'],
+    },
+    question: 'How do you meet the almost-confession?',
+    branches: [
+      {
+        id: 'branch-invite-truth',
+        label: 'Invite Truth',
+        tags: ['honesty', 'restraint', 'privateAffection'],
+        tier: 'loved',
+        response: {
+          poetic: [
+            'You did not drag the story into daylight. You opened a window and waited.',
+            'Fine. I had someone once who taught me goodbye before they taught me love.',
+          ],
+          deadpan: [
+            'Good. No interrogation posture. That helps.',
+            'I left home because staying would have made me smaller. I still measure doors.',
+          ],
+          hungry: [
+            'You waited. Waiting is a kind of feeding when it has warmth in it.',
+            'I learned hunger from people who called crumbs a lesson. I am still angry.',
+          ],
+          regal: [
+            'You offered respect before curiosity. That is the correct order.',
+            'I was once sworn to people who loved obedience more than me. I survived them.',
+          ],
+          sharp: [
+            'You invited without bidding. Good distinction.',
+            'I learned early that affection can hide clauses. I read everything now.',
+          ],
+        },
+      },
+      {
+        id: 'branch-make-joke',
+        label: 'Make Joke',
+        tags: ['clever', 'avoidance', 'dramatic'],
+        tier: 'neutral',
+        tierByPersonality: {
+          poetic: 'disliked',
+          deadpan: 'liked',
+          hungry: 'neutral',
+          regal: 'disliked',
+          sharp: 'liked',
+        },
+        response: {
+          poetic: ['You made a joke at the door of a grave. I know why. I dislike it anyway.'],
+          deadpan: ['Joke detected. Avoidance detected. Also, timing was not incompetent.'],
+          hungry: ['A joke. Crunchy shell. I am still waiting for the filling.'],
+          regal: ['Levity has a place. This was not its appointed chair.'],
+          sharp: ['A joke to test the lock. Fine. I know that tool. Do not overuse it.'],
+        },
+      },
+      {
+        id: 'branch-demand-story',
+        label: 'Demand Story',
+        tags: ['neediness', 'publicAffection', 'betrayal'],
+        tier: 'hated',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: ['You yanked the floorboards up and called the splinters intimacy. No.'],
+          deadpan: ['Demand denied. Trust loss immediate.'],
+          hungry: ['Do not grab at old hunger with both hands. I will bite.'],
+          regal: ['Private history is not tribute owed to your impatience.'],
+          sharp: ['You treated my weak point like a purchase order. Bad move.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The almost-confession either blooms or retreats under the floor.'],
+      deadpan: ['The disclosure window closes with updated permissions.'],
+      hungry: ['The air tastes like old bread and possible trust.'],
+      regal: ['The private court adjourns without witnesses.'],
+      sharp: ['A hidden clause has either been shared or buried deeper.'],
+    },
+  },
+  {
+    id: 'date-ruined-feast',
+    kind: 'date',
+    setup:
+      'A carefully planned dinner collapses: cold soup, wrong table, and a musician playing the breakup song by mistake.',
+    npcPrompt: {
+      poetic: ['The night has fallen down the stairs. How do you court me among the pieces?'],
+      deadpan: ['Date failure cascade active. Your salvage attempt begins now.'],
+      hungry: ['The soup is cold. The evening is not dead unless you make it boring.'],
+      regal: ['The feast is ruined. Dignity is still available, if you know where to stand.'],
+      sharp: ['Bad venue, bad music, bad soup. Excellent test conditions.'],
+    },
+    question: 'How do you save the date?',
+    branches: [
+      {
+        id: 'branch-laugh-and-share',
+        label: 'Laugh and Share',
+        tags: ['comfort', 'humility', 'privateAffection'],
+        tier: 'loved',
+        response: {
+          poetic: ['You laughed with the ruin, not at me. That is the secret door.'],
+          deadpan: ['Shared disaster reframed successfully. I am impressed against policy.'],
+          hungry: ['Cold soup becomes funny soup when someone warm is holding the spoon.'],
+          regal: ['Grace under absurdity. A useful royal talent.'],
+          sharp: ['You converted loss into intimacy. Very efficient. Very dangerous.'],
+        },
+      },
+      {
+        id: 'branch-demand-refund',
+        label: 'Demand Refund',
+        tags: ['transaction', 'pragmatic', 'ledger'],
+        tier: 'neutral',
+        tierByPersonality: {
+          poetic: 'disliked',
+          deadpan: 'liked',
+          hungry: 'neutral',
+          regal: 'neutral',
+          sharp: 'loved',
+        },
+        response: {
+          poetic: ['The moon is in the soup and you are counting coins. Tragic.'],
+          deadpan: ['Refund pursuit reasonable. Romance impact unexpectedly stable.'],
+          hungry: ['Get the coin back, sure, but do not make me eat the argument.'],
+          regal: ['A refund is fair. It is not, by itself, romance.'],
+          sharp: ['Yes. Recover value, preserve leverage, then salvage the night. Good.'],
+        },
+      },
+      {
+        id: 'branch-blame-them',
+        label: 'Blame Them',
+        tags: ['betrayal', 'avoidance', 'neediness'],
+        tier: 'hated',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: ['You handed me the broken evening as if I ordered the storm. Ugly.'],
+          deadpan: ['Blame assignment inaccurate and unattractive.'],
+          hungry: ['You made me swallow the bad night for you. I hate that taste.'],
+          regal: ['A companion does not throw failure like table scraps.'],
+          sharp: ['You passed the cost to me because you panicked. I noticed.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The breakup song changes key and pretends it never accused anyone.'],
+      deadpan: ['Dinner remains failed. The date does not necessarily share its fate.'],
+      hungry: ['The soup is still cold. The room is warmer or worse.'],
+      regal: ['The table is cleared with more drama than it earned.'],
+      sharp: ['The receipt becomes evidence. So does your face.'],
+    },
+  },
+  {
+    id: 'talk-child-future',
+    kind: 'talk',
+    setup:
+      'A child nearby asks whether snakes get married, have babies, divorce, or simply become longer from drama.',
+    npcPrompt: {
+      poetic: [
+        'Children are terrifying because they ask questions before shame can get dressed.',
+        'Do not answer quickly. Quick answers to future questions grow claws.',
+      ],
+      deadpan: [
+        'A child has identified the unresolved relationship architecture.',
+        'We can ignore them, but they will remain accurate.',
+      ],
+      hungry: [
+        'That child has snack crumbs and prophetic violence.',
+        'Answer carefully. I refuse to be bullied by someone sticky unless they are correct.',
+      ],
+      regal: [
+        'The small citizen has raised a constitutional matter.',
+        'We shall respond with dignity, despite the jam on their sleeve.',
+      ],
+      sharp: [
+        'Children are just auditors who have not learned invoice formatting.',
+        'They found the soft liability. Impressive.',
+      ],
+    },
+    question:
+      'The child points at you both. "So are you two serious, doomed, or just being weird in public?"',
+    branches: [
+      {
+        id: 'branch-serious',
+        label: 'Serious',
+        tags: ['commitment', 'publicAffection', 'honesty'],
+        tier: 'loved',
+        response: {
+          poetic: [
+            'Serious. You said it like a match struck in a chapel.',
+            'I am frightened. I am pleased. These are not enemies today.',
+          ],
+          deadpan: [
+            'Public seriousness declared. Unexpectedly acceptable.',
+            'I will be embarrassed later. Current status: not fleeing.',
+          ],
+          hungry: [
+            'Serious means shared meals and not disappearing when the bread burns.',
+            'I liked hearing it out loud. There. Are you happy?',
+          ],
+          regal: [
+            'You named us serious before witness, however sticky.',
+            'That courage pleases me.',
+          ],
+          sharp: [
+            'Public disclosure. Risky. Clean. Hard to exploit against you because you named it first.',
+            'I like that more than I planned.',
+          ],
+        },
+      },
+      {
+        id: 'branch-doomed',
+        label: 'Doomed',
+        tags: ['dramatic', 'clever', 'avoidance'],
+        tier: 'liked',
+        response: {
+          poetic: [
+            'Doomed. Romantic answer, cowardly hinge.',
+            'I like the drama. I dislike that it lets you dodge the living part.',
+          ],
+          deadpan: [
+            'Doomed. Funny. Also a convenient legal shelter.',
+            'I permit the joke while noting the evasion.',
+          ],
+          hungry: [
+            'Doomed is funny until dinner gets cold.',
+            'I liked the joke. Feed the future something sturdier next time.',
+          ],
+          regal: [
+            'Doom is not a banner I prefer, but you carried it with style.',
+            'Style is not enough. It is, however, not nothing.',
+          ],
+          sharp: [
+            'Doomed. Excellent branding. Poor risk management.',
+            'I like the wit. I am watching the escape hatch.',
+          ],
+        },
+      },
+      {
+        id: 'branch-just-weird',
+        label: 'Just Weird',
+        tags: ['avoidance', 'publicAffection', 'humility'],
+        tier: 'disliked',
+        response: {
+          poetic: [
+            'Just weird. You made us smaller for an audience with crumbs.',
+            'I dislike when tenderness flinches and calls it comedy.',
+          ],
+          deadpan: [
+            'Minimization detected.',
+            'You may call yourself weird. Do not use it as a tarp for us.',
+          ],
+          hungry: [
+            'Just weird? Rude. I am at least complicated with good cheekbones.',
+            'Do not make affection sound like leftovers.',
+          ],
+          regal: [
+            'You reduced us to a shrug. I dislike public shrinking.',
+            'If you cannot name a thing, do not parade it.',
+          ],
+          sharp: [
+            'Just weird. Cheap answer. Low courage. Bad cover.',
+            'I expected better camouflage from someone with scales.',
+          ],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The child wanders off. They mutters, "Tiny oracle. Horrible timing."'],
+      deadpan: ['They watches the child leave. "We have been reviewed by jam. Useful."'],
+      hungry: ['They exhales. "I need a pastry after being perceived that accurately."'],
+      regal: ['They smooths their sleeve. "That child may one day govern badly."'],
+      sharp: ['They narrows their eyes. "We should hire that child or avoid them forever."'],
+    },
+  },
+];
+
+export function createPersonalityDatingScenario(
+  profile: RelationshipCandidateProfile,
+  kind: DatingScenarioKind,
+  personality: RelationshipPersonality,
+  rng: () => number,
+): DatingScenarioEvent {
+  const candidates = ROMANCE_SCENARIOS.filter((scenario) => scenario.kind === kind);
+  const weightedCandidates = candidates.flatMap((scenario) =>
+    scenario.preferredPersonalities?.includes(personality) ? [scenario, scenario] : [scenario],
+  );
+  const scenario =
+    weightedCandidates[Math.floor(rng() * weightedCandidates.length)] ??
+    candidates[0] ??
+    ROMANCE_SCENARIOS[0]!;
+  return materializeScenario(profile, personality, scenario);
+}
+
+function materializeScenario(
+  profile: RelationshipCandidateProfile,
+  personality: RelationshipPersonality,
+  scenario: ScenarioBlueprint,
+): DatingScenarioEvent {
+  const actions = scenario.branches.map((branch) => ({
+    id: branch.id,
+    label: branch.label,
+    tone: branch.tone,
+  }));
+  const pages: DatingScenarioPage[] = [
+    { line: scenario.setup, lineIsNarration: true },
+    { line: pickPersonalityLine(scenario.npcPrompt, personality) },
+    {
+      line: scenario.question,
+      lineIsNarration: true,
+      actions: [...actions, { id: 'leave', label: 'Back', tone: 'quiet' }],
+    },
+    { line: pickPersonalityLine(scenario.after, personality) },
+  ];
+  const branchResults: Record<string, DatingScenarioBranchResult> = {};
+  for (const branch of scenario.branches) {
+    const responseLines = branch.response[personality] ?? branch.response.poetic;
+    const memoryLine = responseLines[responseLines.length - 1] ?? responseLines[0] ?? branch.label;
+    const tier =
+      branch.tierByPersonality?.[personality] ?? tierForBranchPersonality(branch, personality);
+    branchResults[branch.id] = {
+      label: branch.label,
+      text: `${profile.displayName} says, "${memoryLine}"`,
+      tags: branch.tags,
+      targetTier: tier,
+      outcome: branch.outcome,
+      followUpPages: [
+        {
+          line: PERSONALITY_STAGE_DIRECTIONS[personality],
+          lineIsNarration: true,
+        },
+        ...responseLines.map((line, index) => ({
+          line,
+          juiceTier: index === 0 ? tier : undefined,
+        })),
+      ],
+    };
+  }
+  return { scenarioId: scenario.id, pages, branchResults };
+}
+
+function pickPersonalityLine(
+  lines: Record<RelationshipPersonality, readonly string[]>,
+  personality: RelationshipPersonality,
+): string {
+  const pool = lines[personality] ?? lines.poetic;
+  return pool[0] ?? '';
+}
+
+function tierForBranchPersonality(
+  branch: BranchBlueprint,
+  personality: RelationshipPersonality,
+): RelationshipOutcomeTier {
+  const weights = PERSONALITY_BRANCH_TAG_WEIGHTS[personality] ?? {};
+  const score =
+    branch.tags.reduce((total, tag) => total + (weights[tag] ?? 0), 0) + baseTierBias(branch.tier);
+  if (score >= 9) return 'loved';
+  if (score >= 3) return 'liked';
+  if (score <= -9) return 'hated';
+  if (score <= -3) return 'disliked';
+  return 'neutral';
+}
+
+function baseTierBias(tier: RelationshipOutcomeTier): number {
+  switch (tier) {
+    case 'loved':
+      return 2;
+    case 'liked':
+      return 1;
+    case 'disliked':
+      return -1;
+    case 'hated':
+      return -2;
+    default:
+      return 0;
+  }
+}

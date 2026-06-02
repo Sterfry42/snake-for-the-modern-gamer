@@ -1,6 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
+import { pickNpcName } from '../npcs/npcNames.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import type { NpcProfile } from '../npcs/profiles.js';
 import type { BiomeId } from './biomes.js';
@@ -186,7 +187,10 @@ export interface ThievesGuildJob {
   targetNpcId?: string;
   targetItemId?: string;
   status: GuildJobStatus;
-  reward: { kind: 'currency' | 'wantedReduction' | 'guildKarma' | 'blackMarketUnlock'; amount?: number };
+  reward: {
+    kind: 'currency' | 'wantedReduction' | 'guildKarma' | 'blackMarketUnlock';
+    amount?: number;
+  };
   wantedRisk: number;
   karmaReward: number;
   karmaPenalty: number;
@@ -278,19 +282,6 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   ],
 };
 
-const HUMAN_NAMES = [
-  'Marlow',
-  'Tillia',
-  'Penny Coil',
-  'Brindle',
-  'Cassia',
-  'Rowan',
-  'Ilyra',
-  'Nessa',
-  'Bram',
-  'Oren',
-] as const;
-
 const PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 const BANDIT_PORTRAITS = ['bandit-neutral', 'bandit-hostile'] as const;
 const TOWN_INTERACTION_SYMBOLS: Partial<Record<TownDistrictKind, string>> = {
@@ -319,15 +310,80 @@ const ROOM_BLUEPRINTS: Array<{
   hidden?: boolean;
   guarded?: boolean;
 }> = [
-  { kind: 'outskirts', displayName: 'Outskirts', tags: ['social'], npcSlots: 1, shopSlots: 0, eventSlots: 1 },
-  { kind: 'gate', displayName: 'Town Gate', tags: ['law'], npcSlots: 1, shopSlots: 0, eventSlots: 1, guarded: true },
-  { kind: 'square', displayName: 'Town Square', tags: ['social', 'law', 'quest'], npcSlots: 2, shopSlots: 0, eventSlots: 2 },
-  { kind: 'market', displayName: 'Market', tags: ['commerce', 'social', 'romance'], npcSlots: 2, shopSlots: 4, eventSlots: 2 },
-  { kind: 'tavern', displayName: 'Tavern', tags: ['social', 'romance', 'quest'], npcSlots: 2, shopSlots: 1, eventSlots: 2 },
-  { kind: 'residential', displayName: 'Residential District', tags: ['residential', 'romance'], npcSlots: 2, shopSlots: 0, eventSlots: 2 },
-  { kind: 'backAlley', displayName: 'Back Alley', tags: ['crime', 'danger', 'hidden'], npcSlots: 1, shopSlots: 0, eventSlots: 2 },
-  { kind: 'guildHideout', displayName: 'Thieves Guild', tags: ['crime', 'quest', 'hidden'], npcSlots: 1, shopSlots: 1, eventSlots: 3, hidden: true },
-  { kind: 'exit', displayName: 'Back Road Exit', tags: ['exit'], npcSlots: 0, shopSlots: 0, eventSlots: 1 },
+  {
+    kind: 'outskirts',
+    displayName: 'Outskirts',
+    tags: ['social'],
+    npcSlots: 1,
+    shopSlots: 0,
+    eventSlots: 1,
+  },
+  {
+    kind: 'gate',
+    displayName: 'Town Gate',
+    tags: ['law'],
+    npcSlots: 1,
+    shopSlots: 0,
+    eventSlots: 1,
+    guarded: true,
+  },
+  {
+    kind: 'square',
+    displayName: 'Town Square',
+    tags: ['social', 'law', 'quest'],
+    npcSlots: 2,
+    shopSlots: 0,
+    eventSlots: 2,
+  },
+  {
+    kind: 'market',
+    displayName: 'Market',
+    tags: ['commerce', 'social', 'romance'],
+    npcSlots: 2,
+    shopSlots: 4,
+    eventSlots: 2,
+  },
+  {
+    kind: 'tavern',
+    displayName: 'Tavern',
+    tags: ['social', 'romance', 'quest'],
+    npcSlots: 2,
+    shopSlots: 1,
+    eventSlots: 2,
+  },
+  {
+    kind: 'residential',
+    displayName: 'Residential District',
+    tags: ['residential', 'romance'],
+    npcSlots: 2,
+    shopSlots: 0,
+    eventSlots: 2,
+  },
+  {
+    kind: 'backAlley',
+    displayName: 'Back Alley',
+    tags: ['crime', 'danger', 'hidden'],
+    npcSlots: 1,
+    shopSlots: 0,
+    eventSlots: 2,
+  },
+  {
+    kind: 'guildHideout',
+    displayName: 'Thieves Guild',
+    tags: ['crime', 'quest', 'hidden'],
+    npcSlots: 1,
+    shopSlots: 1,
+    eventSlots: 3,
+    hidden: true,
+  },
+  {
+    kind: 'exit',
+    displayName: 'Back Road Exit',
+    tags: ['exit'],
+    npcSlots: 0,
+    shopSlots: 0,
+    eventSlots: 1,
+  },
 ];
 
 const DISTRICT_DISPLAY_NAMES: Record<TownDistrictKind, string> = {
@@ -364,7 +420,14 @@ function setChar(layout: string[][], x: number, y: number, ch: string): void {
   layout[y][x] = ch;
 }
 
-function fillRect(layout: string[][], left: number, top: number, width: number, height: number, ch: string): void {
+function fillRect(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  ch: string,
+): void {
   for (let y = top; y < top + height; y += 1) {
     for (let x = left; x < left + width; x += 1) {
       setChar(layout, x, y, ch);
@@ -545,30 +608,84 @@ export function createPhysicalHumanTown(args: {
     Object.entries(args.districtRoomIds).find(([, kind]) => kind === district)?.[0] ??
     args.entranceRoomId;
   const residentSpots = [
-    { role: 'shopkeeper' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'marketStreet' as const },
-    { role: 'bartender' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'tavernInterior' as const },
-    { role: 'questGiver' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'tavernInterior' as const },
-    { role: 'guard' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'gate' as const },
-    { role: 'guard' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'gate' as const },
-    { role: 'guard' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'square' as const },
-    { role: 'guard' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'townExit' as const },
-    { role: 'scribe' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'square' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'square' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'marketStreet' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'marketStreet' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'tavernInterior' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'residentialStreet' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'residentialStreet' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'residentialStreet' as const },
-    { role: 'resident' as const, name: pick(HUMAN_NAMES, rng), workDistrict: 'residentialStreet' as const },
-    { role: 'thiefContact' as const, name: 'Chalk-Eye', workDistrict: 'backAlley' as const },
-    { role: 'thief' as const, name: 'Latch', workDistrict: 'backAlley' as const },
-    { role: 'thief' as const, name: 'Moth-Key', workDistrict: 'guildHideout' as const },
+    {
+      role: 'shopkeeper' as const,
+      name: pickNpcName('merchant', rng),
+      workDistrict: 'marketStreet' as const,
+    },
+    {
+      role: 'bartender' as const,
+      name: pickNpcName('keeper', rng),
+      workDistrict: 'tavernInterior' as const,
+    },
+    {
+      role: 'questGiver' as const,
+      name: pickNpcName('wanderer', rng),
+      workDistrict: 'tavernInterior' as const,
+    },
+    { role: 'guard' as const, name: pickNpcName('guard', rng), workDistrict: 'gate' as const },
+    { role: 'guard' as const, name: pickNpcName('guard', rng), workDistrict: 'gate' as const },
+    { role: 'guard' as const, name: pickNpcName('guard', rng), workDistrict: 'square' as const },
+    { role: 'guard' as const, name: pickNpcName('guard', rng), workDistrict: 'townExit' as const },
+    { role: 'scribe' as const, name: pickNpcName('scribe', rng), workDistrict: 'square' as const },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'square' as const,
+    },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'marketStreet' as const,
+    },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'marketStreet' as const,
+    },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'tavernInterior' as const,
+    },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'residentialStreet' as const,
+    },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'residentialStreet' as const,
+    },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'residentialStreet' as const,
+    },
+    {
+      role: 'resident' as const,
+      name: pickNpcName('resident', rng),
+      workDistrict: 'residentialStreet' as const,
+    },
+    {
+      role: 'thiefContact' as const,
+      name: pickNpcName('thief', rng),
+      workDistrict: 'backAlley' as const,
+    },
+    { role: 'thief' as const, name: pickNpcName('thief', rng), workDistrict: 'backAlley' as const },
+    {
+      role: 'thief' as const,
+      name: pickNpcName('thief', rng),
+      workDistrict: 'guildHideout' as const,
+    },
   ];
   town.residents = residentSpots.map((spot, index) => ({
     ...buildHouseNpcProfile(
       spot.name,
-      spot.role === 'thief' || spot.role === 'thiefContact' ? pick(BANDIT_PORTRAITS, rng) : pick(PORTRAITS, rng),
+      spot.role === 'thief' || spot.role === 'thiefContact'
+        ? pick(BANDIT_PORTRAITS, rng)
+        : pick(PORTRAITS, rng),
     ),
     actorId: `town:${town.id}:${
       spot.role === 'shopkeeper'
@@ -583,7 +700,8 @@ export function createPhysicalHumanTown(args: {
     y: 0,
     role: spot.role,
     townId: town.id,
-    factionId: spot.role === 'thiefContact' || spot.role === 'thief' ? 'thieves-guild' : 'human-town',
+    factionId:
+      spot.role === 'thiefContact' || spot.role === 'thief' ? 'thieves-guild' : 'human-town',
     homeRoomId: roomFor(
       spot.role === 'resident'
         ? 'residentialStreet'
@@ -594,7 +712,8 @@ export function createPhysicalHumanTown(args: {
     workRoomId: roomFor(spot.workDistrict),
     id: `${town.id}:resident:${spot.role}:${index}`,
   }));
-  town.shopkeeper = town.residents.find((resident) => resident.role === 'shopkeeper') ?? town.shopkeeper;
+  town.shopkeeper =
+    town.residents.find((resident) => resident.role === 'shopkeeper') ?? town.shopkeeper;
   return town;
 }
 
@@ -628,7 +747,11 @@ export function applyTownCrime(town: TownStructure, crime: TownCrime): TownStruc
   const next = cloneTown(town);
   next.wantedLevel = clampWanted(next.wantedLevel + wantedDelta);
   next.reputation = clamp(next.reputation + reputationDelta, -100, 100);
-  next.suspicion = clamp((next.suspicion ?? 0) + crime.severity * (crime.witnessed ? 12 : 3), 0, 100);
+  next.suspicion = clamp(
+    (next.suspicion ?? 0) + crime.severity * (crime.witnessed ? 12 : 3),
+    0,
+    100,
+  );
   next.rumors = [rumorFromCrime(next, crime), ...next.rumors].slice(0, 8);
   if (crime.kind === 'guildJobDiscovered' && next.thievesGuild) {
     next.thievesGuild.karma = clamp(next.thievesGuild.karma - 5, -100, 100);
@@ -688,7 +811,8 @@ export function discoverThievesGuild(town: TownStructure): TownStructure {
       betrayedGuild: false,
     }),
     discovered: true,
-    rank: next.thievesGuild?.rank === 'unknown' ? 'contact' : (next.thievesGuild?.rank ?? 'contact'),
+    rank:
+      next.thievesGuild?.rank === 'unknown' ? 'contact' : (next.thievesGuild?.rank ?? 'contact'),
   };
   next.rooms = next.rooms.map((room) =>
     room.kind === 'guildHideout' ? { ...room, discovered: true, hidden: false } : room,
@@ -707,7 +831,11 @@ export function discoverThievesGuild(town: TownStructure): TownStructure {
   return next;
 }
 
-export function reduceWantedViaGuild(town: TownStructure): { town: TownStructure; message: string; cost: number } {
+export function reduceWantedViaGuild(town: TownStructure): {
+  town: TownStructure;
+  message: string;
+  cost: number;
+} {
   const next = cloneTown(town);
   const guild = next.thievesGuild;
   if (!guild?.discovered) {
@@ -724,7 +852,11 @@ export function reduceWantedViaGuild(town: TownStructure): { town: TownStructure
   return { town: next, message: 'The guild makes the posters less accurate.', cost };
 }
 
-export function resolveGuildJob(town: TownStructure, jobId: string, success: boolean): TownStructure {
+export function resolveGuildJob(
+  town: TownStructure,
+  jobId: string,
+  success: boolean,
+): TownStructure {
   const next = cloneTown(town);
   const guild = next.thievesGuild;
   const job = next.guildJobs.find((entry) => entry.id === jobId);
@@ -750,7 +882,11 @@ export function resolveGuildJob(town: TownStructure, jobId: string, success: boo
 export function cloneTown(town: TownStructure): TownStructure {
   return {
     ...town,
-    rooms: town.rooms.map((room) => ({ ...room, connections: [...room.connections], tags: [...room.tags] })),
+    rooms: town.rooms.map((room) => ({
+      ...room,
+      connections: [...room.connections],
+      tags: [...room.tags],
+    })),
     physicalRoomIds: [...town.physicalRoomIds],
     districtByRoomId: { ...town.districtByRoomId },
     townTags: [...town.townTags],
@@ -868,7 +1004,8 @@ function generateTownNotices(
 }
 
 function createGuildJobs(townId: string, rooms: TownRoomNode[]): ThievesGuildJob[] {
-  const room = (kind: TownRoomKind) => rooms.find((entry) => entry.kind === kind)?.id ?? roomId(townId, kind);
+  const room = (kind: TownRoomKind) =>
+    rooms.find((entry) => entry.kind === kind)?.id ?? roomId(townId, kind);
   return [
     {
       id: `${townId}:job:pickpocket`,
@@ -1079,7 +1216,10 @@ function connectedRoadMode(openSides: readonly ExitSide[]): 'horizontal' | 'vert
   return vertical ? 'vertical' : 'horizontal';
 }
 
-function drawConnectedRoad(layout: string[][], openSides: readonly ExitSide[]): 'horizontal' | 'vertical' | 'cross' {
+function drawConnectedRoad(
+  layout: string[][],
+  openSides: readonly ExitSide[],
+): 'horizontal' | 'vertical' | 'cross' {
   const mode = connectedRoadMode(openSides);
   if (mode === 'horizontal' || mode === 'cross') {
     drawRoad(layout, true);
@@ -1104,7 +1244,12 @@ function stampNpc(layout: string[][], x: number, y: number): void {
   setChar(layout, x, y, 'G');
 }
 
-function stampTownInteraction(layout: string[][], district: TownDistrictKind, x: number, y: number): void {
+function stampTownInteraction(
+  layout: string[][],
+  district: TownDistrictKind,
+  x: number,
+  y: number,
+): void {
   setChar(layout, x, y, TOWN_INTERACTION_SYMBOLS[district] ?? 'T');
 }
 
@@ -1247,7 +1392,11 @@ export function createTownDistrictRoom(args: {
     case 'exit':
     case 'townExit':
       drawConnectedRoad(layout, openSides);
-      if (exteriorConnectionSides(args.connections, town).some((side) => side === 'east' || side === 'west')) {
+      if (
+        exteriorConnectionSides(args.connections, town).some(
+          (side) => side === 'east' || side === 'west',
+        )
+      ) {
         fillRect(layout, center.x - 2, 2, 5, args.grid.rows - 4, '#');
         fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'S');
       } else {
@@ -1265,8 +1414,7 @@ export function createTownDistrictRoom(args: {
       normalizeDistrictKind(
         (resident.workRoomId ? town.districtByRoomId[resident.workRoomId] : undefined) ??
           (resident.workRoomId?.split(':').pop() as TownDistrictKind | undefined),
-      ) ===
-      normalizeDistrictKind(district),
+      ) === normalizeDistrictKind(district),
   );
   const residentPositions = [
     { x: center.x - 8, y: center.y + 4 },
@@ -1295,7 +1443,8 @@ export function createTownDistrictRoom(args: {
   town.residents
     .filter((resident) => residents.some((entry) => entry.id === resident.id))
     .forEach((resident) => stampNpc(layout, resident.x, resident.y));
-  town.shopkeeper = town.residents.find((resident) => resident.role === 'shopkeeper') ?? town.shopkeeper;
+  town.shopkeeper =
+    town.residents.find((resident) => resident.role === 'shopkeeper') ?? town.shopkeeper;
 
   return {
     id: args.roomId,

@@ -1,3 +1,5 @@
+import { inferNpcNameArchetype } from './npcNames.js';
+
 export interface NpcStats {
   str: number;
   dex: number;
@@ -31,13 +33,59 @@ function hashName(name: string): number {
 
 function buildGeneratedStats(name: string): NpcStats {
   const hash = hashName(name.toLowerCase());
-  return {
+  const base = {
     str: clampStat((hash % 10) + 1),
     dex: clampStat((Math.floor(hash / 10) % 10) + 1),
     con: clampStat((Math.floor(hash / 100) % 10) + 1),
     int: clampStat((Math.floor(hash / 1000) % 10) + 1),
     wis: clampStat((Math.floor(hash / 10000) % 10) + 1),
     cha: clampStat((Math.floor(hash / 100000) % 10) + 1),
+  };
+  return tuneStatsForNameArchetype(base, inferNpcNameArchetype(name));
+}
+
+function tuneStatsForNameArchetype(
+  stats: NpcStats,
+  archetype: ReturnType<typeof inferNpcNameArchetype>,
+): NpcStats {
+  const next = { ...stats };
+  if (archetype === 'guard') {
+    next.str += 2;
+    next.con += 2;
+    next.wis += 1;
+  } else if (archetype === 'merchant') {
+    next.int += 2;
+    next.cha += 2;
+    next.str -= 1;
+  } else if (archetype === 'scribe') {
+    next.int += 3;
+    next.wis += 2;
+    next.str -= 2;
+  } else if (archetype === 'thief') {
+    next.dex += 3;
+    next.int += 1;
+    next.cha += 1;
+    next.con -= 1;
+  } else if (archetype === 'goblin') {
+    next.dex += 2;
+    next.int += 2;
+    next.cha += 1;
+  } else if (archetype === 'mystic') {
+    next.wis += 3;
+    next.cha += 1;
+    next.con -= 1;
+  } else if (archetype === 'wanderer') {
+    next.con += 2;
+    next.wis += 1;
+    next.dex += 1;
+  }
+  return {
+    str: clampStat(next.str),
+    dex: clampStat(next.dex),
+    con: clampStat(next.con),
+    int: clampStat(next.int),
+    wis: clampStat(next.wis),
+    cha: clampStat(next.cha),
   };
 }
 

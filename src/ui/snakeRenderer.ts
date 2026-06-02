@@ -1749,14 +1749,17 @@ export class SnakeRenderer {
       this.buildRivalSnakePalette(),
     );
     const direction =
-      enemy.aimDirection.x !== 0 || enemy.aimDirection.y !== 0 ? enemy.aimDirection : { x: 1, y: 0 };
+      enemy.aimDirection.x !== 0 || enemy.aimDirection.y !== 0
+        ? enemy.aimDirection
+        : { x: 1, y: 0 };
 
     segments.forEach((segment, segmentIndex) => {
       const sprite = this.ensureEnemySprite(spriteIndex);
       spriteIndex += 1;
       const variant = this.resolveVariant(segments, segmentIndex, direction);
       const size = this.grid.cell * (segmentIndex === 0 ? 0.8 : 0.74);
-      const twist = segmentIndex > 0 && variant.startsWith('body') ? (segmentIndex % 2 ? 2 : -2) : 0;
+      const twist =
+        segmentIndex > 0 && variant.startsWith('body') ? (segmentIndex % 2 ? 2 : -2) : 0;
 
       sprite
         .setTexture(textureKeys[variant])
@@ -2087,6 +2090,16 @@ export class SnakeRenderer {
         eyeColor: '#fff4c2',
         bulletColor: '#b6ff6a',
         bulletOutlineColor: '#315a1f',
+      };
+    }
+    if (enemy.encounterKind === 'baby') {
+      return {
+        bodyColor: '#ffd7b8',
+        accentColor: '#a8ffe0',
+        outlineColor: '#18352d',
+        eyeColor: '#f6fbff',
+        bulletColor: '#ffbdfd',
+        bulletOutlineColor: '#5d2b5d',
       };
     }
     if (enemy.encounterKind === 'duelist') {

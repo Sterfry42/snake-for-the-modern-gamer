@@ -18,7 +18,7 @@ export interface EnemyInstance {
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
-  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark' | 'goblin' | 'rival-snake';
+  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark' | 'goblin' | 'rival-snake' | 'baby';
 }
 
 export interface BulletInstance {

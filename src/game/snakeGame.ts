@@ -250,7 +250,7 @@ interface StagedQuestInstance {
 
 export interface FollowerInstance {
   id: string;
-  kind: 'goblin-mercenary';
+  kind: 'goblin-mercenary' | 'family-baby';
   name: string;
   roomId: string;
   position: Vector2Like;
@@ -954,7 +954,8 @@ export class SnakeGame implements QuestRuntime {
                 name: follower.name,
                 currentHearts: 1,
                 maxHearts: 1,
-                encounterKind: 'goblin' as const,
+                encounterKind:
+                  follower.kind === 'family-baby' ? ('baby' as const) : ('goblin' as const),
               })),
             bullets: this.getEnemyBullets(roomId),
             footballs: this.getFootballs(roomId),
@@ -4259,6 +4260,21 @@ export class SnakeGame implements QuestRuntime {
     }
     const spoken = `"${result.line}"`;
     return result.beat ? `*${result.beat}*\n\n${spoken}` : spoken;
+  }
+
+  formatActorConversationPages(result: ActorConversationResult | null): string[] | null {
+    if (!result) {
+      return null;
+    }
+    const pages: string[] = [];
+    if (result.beat) {
+      pages.push(`*${result.beat}*`);
+    }
+    pages.push(`"${result.line}"`);
+    if (result.knownFact) {
+      pages.push(`Known fact learned: ${result.knownFact}`);
+    }
+    return pages;
   }
 
   private getConversationRumorsForActor(actor: Actor): ActorConversationRumor[] {
@@ -7809,7 +7825,7 @@ export class SnakeGame implements QuestRuntime {
     color: string;
   } {
     if (this.hasFollowers()) {
-      return { ok: false, message: 'You already have a mercenary on contract.', color: '#9ad1ff' };
+      return { ok: false, message: 'You already have a companion in that slot.', color: '#9ad1ff' };
     }
     if (this.getScore() < price) {
       return { ok: false, message: `Goblin mercenary costs ${price} score.`, color: '#ff6b6b' };
@@ -7839,16 +7855,19 @@ export class SnakeGame implements QuestRuntime {
   commandFollowers(): { ok: boolean; message: string; color: string } {
     const followers = this.getFollowerState();
     if (followers.length === 0) {
-      return { ok: false, message: 'No mercenary to command.', color: '#ff6b6b' };
+      return { ok: false, message: 'No companion to command.', color: '#ff6b6b' };
     }
     const nextMode = followers.some((follower) => follower.mode === 'follow') ? 'guard' : 'follow';
     this.setFollowerState(followers.map((follower) => ({ ...follower, mode: nextMode })));
+    const label = followers.some((follower) => follower.kind === 'family-baby')
+      ? 'Baby'
+      : 'Mercenary';
     return {
       ok: true,
       message:
         nextMode === 'guard'
-          ? 'Mercenary is guarding and hunting nearby.'
-          : 'Mercenary is following.',
+          ? `${label} is guarding and hunting nearby.`
+          : `${label} is following.`,
       color: '#b6ff6a',
     };
   }
@@ -7857,7 +7876,7 @@ export class SnakeGame implements QuestRuntime {
     const followers = this.getFollowerState();
     const head = this.snake.bodySegments[0];
     if (followers.length === 0 || !head) {
-      return { ok: false, message: 'No mercenary to recall.', color: '#ff6b6b' };
+      return { ok: false, message: 'No companion to recall.', color: '#ff6b6b' };
     }
     const roomId = this.snake.currentRoomId;
     const localHead = this.worldToLocal(roomId, head);
@@ -7869,7 +7888,7 @@ export class SnakeGame implements QuestRuntime {
         mode: 'follow',
       })),
     );
-    return { ok: true, message: 'Mercenary recalled.', color: '#b6ff6a' };
+    return { ok: true, message: 'Companion recalled.', color: '#b6ff6a' };
   }
 
   tryConsumeWardForDeath(reason?: string | null): boolean {
@@ -7919,7 +7938,10 @@ export class SnakeGame implements QuestRuntime {
       return [];
     }
     return raw
-      .filter((follower) => follower && follower.kind === 'goblin-mercenary')
+      .filter(
+        (follower) =>
+          follower && (follower.kind === 'goblin-mercenary' || follower.kind === 'family-baby'),
+      )
       .map((follower) => ({
         ...follower,
         direction: follower.direction ?? { x: 0, y: 1 },
@@ -8776,6 +8798,9 @@ export class SnakeGame implements QuestRuntime {
         this.getRelationshipNpcPosition(profile),
       );
     }
+    if (choice === 'family' && result.ok && result.state?.children.length) {
+      this.activateFamilyBabyFollower(result.state);
+    }
     this.emitWorldEvent({
       type: 'relationship-choice',
       roomId: this.snake.currentRoomId,
@@ -8786,6 +8811,56 @@ export class SnakeGame implements QuestRuntime {
       summary: `${profile.displayName} reacted to ${choice}.`,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
       data: { relationshipId: state.id, choice, ok: result.ok },
+    });
+    return result;
+  }
+
+  private activateFamilyBabyFollower(state: RelationshipState): void {
+    const child = state.children[state.children.length - 1];
+    const head = this.snake.bodySegments[0];
+    if (!child || !head) {
+      return;
+    }
+    const roomId = this.snake.currentRoomId;
+    const localHead = this.worldToLocal(roomId, head);
+    const follower: FollowerInstance = {
+      id: `follower-family-baby-${child.id}`,
+      kind: 'family-baby',
+      name: child.name,
+      roomId,
+      position: this.findFollowerStandPosition(roomId, localHead),
+      direction: { x: 0, y: 1 },
+      mode: 'follow',
+      attackCooldown: 0,
+    };
+    this.setFollowerState([follower]);
+    this.setFlag('ui.followerAction', {
+      message: `${child.name} takes the companion slot. Q toggles follow/guard.`,
+      color: '#ffbdfd',
+      count: 1,
+    });
+  }
+
+  applyRelationshipArrangement(
+    profile: RelationshipCandidateProfile,
+    arrangement: 'monogamy' | 'open-honesty' | 'transactional' | 'reassure',
+  ): RelationshipEventResult {
+    const state = this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
+    const result = this.relationshipController.applyArrangementChoice(
+      state.id,
+      arrangement,
+      this.getRoomsVisitedCount(),
+    );
+    this.emitWorldEvent({
+      type: 'relationship-choice',
+      roomId: this.snake.currentRoomId,
+      targetActorIds: [this.ensureRelationshipActorForProfile(profile, result.state ?? state)],
+      severity: result.becameHostile ? 45 : 16,
+      loudness: 8,
+      tags: ['relationship', 'arrangement', arrangement, result.state?.stage ?? state.stage],
+      summary: `${profile.displayName} discussed ${arrangement.replace('-', ' ')}.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { relationshipId: state.id, arrangement, ok: result.ok },
     });
     return result;
   }
@@ -10857,10 +10932,16 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     if (this.getFlag<boolean>('cheat.immortal')) {
+      this.setFlag('ui.questInteraction', {
+        message: 'Enemy hit ignored: immortality cheat is active.',
+      });
       return false;
     }
     const invuln = Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0);
     if (invuln > 0) {
+      this.setFlag('ui.questInteraction', {
+        message: `Enemy hit ignored: ${invuln} invulnerability ticks remain.`,
+      });
       return false;
     }
     const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);

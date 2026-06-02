@@ -84,7 +84,12 @@ export class DatingScenePopup {
         : 'Stage stranger   Affection 0   Trust 0   Jealousy 0   Resentment 0',
     );
     this.lineText?.setText(options.lineIsNarration ? options.line : `"${options.line}"`);
-    this.resultText?.setText(options.result?.message ?? '');
+    const resultMessage = this.formatResultMessage(
+      options.result?.message ?? '',
+      options.line,
+      profile.displayName,
+    );
+    this.resultText?.setText(resultMessage).setVisible(resultMessage.length > 0);
     this.resultText?.setColor(options.result?.color ?? '#ffbdfd');
     this.layoutActions(width, height, options.actions);
     this.container?.setVisible(true).setDepth(76).setAlpha(1);
@@ -97,6 +102,17 @@ export class DatingScenePopup {
 
   isVisible(): boolean {
     return Boolean(this.container?.visible);
+  }
+
+  private formatResultMessage(message: string, visibleLine: string, displayName: string): string {
+    const match = message.match(/^(Loved|Liked|Neutral|Disliked|Hated):\s*[^"]*"([^"]+)"\s*$/i);
+    if (!match) return message;
+    const tier = match[1] ?? '';
+    const spoken = match[2] ?? '';
+    if (spoken === visibleLine) {
+      return `${displayName} ${tier.toLowerCase()} that.`;
+    }
+    return message;
   }
 
   private setPortrait(
@@ -150,16 +166,22 @@ export class DatingScenePopup {
     result?: RelationshipEventResult,
   ): DatingPortraitMood {
     const message = result?.message ?? '';
-    if (/Hated|Disliked|hostile|murderous|knife|cruel|already married/i.test(message)) return 'angry';
-    if (/proposal before|hurt|divorced|breakup|neglect|silence|rejected/i.test(message)) return 'sad';
+    if (/Hated|Disliked|hostile|murderous|knife|cruel|already married/i.test(message))
+      return 'angry';
+    if (/proposal before|hurt|divorced|breakup|neglect|silence|rejected/i.test(message))
+      return 'sad';
     if (/Loved|Liked|married|accepted|reassured|apologized/i.test(message)) return 'happy';
     if (!state) return 'neutral';
     const latest = state.memories[state.memories.length - 1];
-    if (state.stage === 'murderous' || state.stage === 'hostile' || state.resentment >= 55) return 'angry';
-    if (state.stage === 'heartbroken' || state.stage === 'estranged' || state.jealousy >= 55) return 'sad';
+    if (state.stage === 'murderous' || state.stage === 'hostile' || state.resentment >= 55)
+      return 'angry';
+    if (state.stage === 'heartbroken' || state.stage === 'estranged' || state.jealousy >= 55)
+      return 'sad';
     if (latest?.tone === 'traumatic') return 'angry';
-    if (latest?.tone === 'negative') return latest.kind === 'neglect' || latest.kind === 'proposalRejected' ? 'sad' : 'angry';
-    if (latest?.tone === 'positive' || state.stage === 'lover' || state.stage === 'married') return 'happy';
+    if (latest?.tone === 'negative')
+      return latest.kind === 'neglect' || latest.kind === 'proposalRejected' ? 'sad' : 'angry';
+    if (latest?.tone === 'positive' || state.stage === 'lover' || state.stage === 'married')
+      return 'happy';
     return 'neutral';
   }
 
@@ -203,13 +225,13 @@ export class DatingScenePopup {
       })
       .setOrigin(0, 0);
     const dialoguePanel = this.scene.add
-      .rectangle(24, height * 0.66, width - 48, 88, 0x080610, 0.82)
+      .rectangle(24, height * 0.64, width - 48, 118, 0x080610, 0.82)
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0xffbdfd, 0.58);
     this.lineText = this.scene.add
-      .text(42, height * 0.675, '', {
+      .text(42, height * 0.655, '', {
         fontFamily: "Georgia, 'Times New Roman', serif",
-        fontSize: '19px',
+        fontSize: '18px',
         color: '#fff6fb',
         wordWrap: { width: width - 84 },
       })
@@ -217,7 +239,7 @@ export class DatingScenePopup {
     this.resultText = this.scene.add
       .text(42, height * 0.735, '', {
         fontFamily: 'monospace',
-        fontSize: '14px',
+        fontSize: '13px',
         color: '#ffbdfd',
         wordWrap: { width: width - 84 },
       })
@@ -237,7 +259,11 @@ export class DatingScenePopup {
       .setVisible(false);
   }
 
-  private layoutActions(width: number, height: number, overrideActions?: readonly DatingSceneButton[]): void {
+  private layoutActions(
+    width: number,
+    height: number,
+    overrideActions?: readonly DatingSceneButton[],
+  ): void {
     const actions: readonly DatingSceneButton[] = overrideActions ?? [
       { id: 'talk', label: 'Talk' },
       { id: 'gift', label: 'Gift' },
@@ -252,7 +278,11 @@ export class DatingScenePopup {
     this.layoutActionButtons(actions, width, height);
   }
 
-  private layoutActionButtons(actions: readonly DatingSceneButton[], width: number, height: number): void {
+  private layoutActionButtons(
+    actions: readonly DatingSceneButton[],
+    width: number,
+    height: number,
+  ): void {
     this.actionTexts.forEach((text) => text.destroy());
     this.actionTexts = [];
     const bottomY = height - 62;
@@ -264,15 +294,26 @@ export class DatingScenePopup {
       const danger = action.tone === 'danger';
       const disabled = Boolean(action.disabled);
       const text = this.scene.add
-        .text(x + buttonWidth / 2, bottomY, disabled && action.reason ? `${action.label}\n${action.reason}` : action.label, {
-          fontFamily: 'monospace',
-          fontSize: disabled || actions.length > 8 ? '12px' : '15px',
-          color: disabled ? '#7b7b86' : quiet ? '#9ad1ff' : danger ? '#ffc0b8' : '#ffe6f4',
-          backgroundColor: disabled ? '#211d28' : quiet ? '#172438' : danger ? '#4a1717' : '#4a1738',
-          padding: { left: 8, right: 8, top: 7, bottom: 7 },
-          fixedWidth: buttonWidth,
-          align: 'center',
-        })
+        .text(
+          x + buttonWidth / 2,
+          bottomY,
+          disabled && action.reason ? `${action.label}\n${action.reason}` : action.label,
+          {
+            fontFamily: 'monospace',
+            fontSize: disabled || actions.length > 8 ? '12px' : '15px',
+            color: disabled ? '#7b7b86' : quiet ? '#9ad1ff' : danger ? '#ffc0b8' : '#ffe6f4',
+            backgroundColor: disabled
+              ? '#211d28'
+              : quiet
+                ? '#172438'
+                : danger
+                  ? '#4a1717'
+                  : '#4a1738',
+            padding: { left: 8, right: 8, top: 7, bottom: 7 },
+            fixedWidth: buttonWidth,
+            align: 'center',
+          },
+        )
         .setOrigin(0.5, 0)
         .setAlpha(disabled ? 0.62 : 1);
       if (!disabled) {
@@ -319,10 +360,38 @@ export class DatingScenePopup {
       };
     }
     const palettes: DatingPortraitPalette[] = [
-      { skin: '#d9a37f', hair: '#2a1713', accent: '#ff8fb8', outfit: '#293b5f', eye: '#5dd6a2', blush: '#ff8fb8' },
-      { skin: '#f0c6a6', hair: '#5b2b46', accent: '#9ad1ff', outfit: '#4c2742', eye: '#8bdcff', blush: '#ff9fc6' },
-      { skin: '#b9836f', hair: '#111827', accent: '#ffd166', outfit: '#263d36', eye: '#ffd166', blush: '#ff8a90' },
-      { skin: '#e4b58f', hair: '#8b5a2b', accent: '#c8ffe1', outfit: '#3f2c5f', eye: '#c8ffe1', blush: '#ff9fc6' },
+      {
+        skin: '#d9a37f',
+        hair: '#2a1713',
+        accent: '#ff8fb8',
+        outfit: '#293b5f',
+        eye: '#5dd6a2',
+        blush: '#ff8fb8',
+      },
+      {
+        skin: '#f0c6a6',
+        hair: '#5b2b46',
+        accent: '#9ad1ff',
+        outfit: '#4c2742',
+        eye: '#8bdcff',
+        blush: '#ff9fc6',
+      },
+      {
+        skin: '#b9836f',
+        hair: '#111827',
+        accent: '#ffd166',
+        outfit: '#263d36',
+        eye: '#ffd166',
+        blush: '#ff8a90',
+      },
+      {
+        skin: '#e4b58f',
+        hair: '#8b5a2b',
+        accent: '#c8ffe1',
+        outfit: '#3f2c5f',
+        eye: '#c8ffe1',
+        blush: '#ff9fc6',
+      },
     ];
     return palettes[hue % palettes.length];
   }
