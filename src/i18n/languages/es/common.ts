@@ -50,5 +50,9 @@ export const COMMON_ES: CommonTranslations = {
     load: 'Cargar',
     quit: 'Salir',
     restart: 'Reiniciar',
+    // Roaming snake death
+    roamingSnakeDeath: 'Una serpiente salvaje te reclamó.',
+    roamingSnakeDeathAlt: 'Los indómitos no negocian.',
+    roamingSnakeDeathShort: 'Serpiente Salvaje',
   },
 } as const;

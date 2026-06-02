@@ -378,6 +378,10 @@ const DEATH_REASON_DIALOGUE: Partial<Record<string, readonly string[]>> = {
     'Even protection has its appetite.',
     'Thou reached for safety and found its hidden blade.',
   ],
+  'roaming-snake': [
+    'A wild serpent claimed thee without ceremony.',
+    'The untamed ones do not negotiate.',
+  ],
 };
 
 const REVIVE_DIALOGUE_BRANCHES: readonly string[][] = [
@@ -1414,11 +1418,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.gameSession.bossStep();
   }
 
-  private runActorClockStep(): void {
+  private async runActorClockStep(): Promise<void> {
     if (this.paused) {
       return;
     }
-    const result = this.gameSession.actorClockStep();
+    const result = await this.gameSession.actorClockStep();
     if (!result) {
       return;
     }

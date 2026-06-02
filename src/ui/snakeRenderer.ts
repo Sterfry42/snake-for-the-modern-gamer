@@ -1706,8 +1706,11 @@ export class SnakeRenderer {
     this.enemySprites.forEach((sprite) => sprite.setVisible(false));
     let spriteIndex = 0;
     enemies.forEach((enemy) => {
-      if (enemy.encounterKind === 'rival-snake' && enemy.body?.length) {
-        spriteIndex = this.drawRivalSnakeEnemy(enemy, spriteIndex);
+      if (
+        (enemy.encounterKind === 'rival-snake' || enemy.encounterKind === 'roaming-snake') &&
+        enemy.body?.length
+      ) {
+        spriteIndex = this.drawEnemySnake(enemy, spriteIndex);
         return;
       }
 
@@ -1741,22 +1744,31 @@ export class SnakeRenderer {
     });
   }
 
-  private drawRivalSnakeEnemy(enemy: EnemyInstance, spriteIndex: number): number {
+  private drawEnemySnake(enemy: EnemyInstance, spriteIndex: number): number {
     const segments = enemy.body?.length ? enemy.body : [enemy.position];
     const textureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
       this.grid.cell,
-      this.buildRivalSnakePalette(),
+      this.buildEnemySnakePalette(enemy),
     );
-    const direction =
-      enemy.aimDirection.x !== 0 || enemy.aimDirection.y !== 0 ? enemy.aimDirection : { x: 1, y: 0 };
 
     segments.forEach((segment, segmentIndex) => {
       const sprite = this.ensureEnemySprite(spriteIndex);
       spriteIndex += 1;
-      const variant = this.resolveVariant(segments, segmentIndex, direction);
+
+      const variant = this.resolveVariant(
+        segments,
+        segmentIndex,
+        enemy.aimDirection ?? { x: 1, y: 0 },
+      );
       const size = this.grid.cell * (segmentIndex === 0 ? 0.8 : 0.74);
-      const twist = segmentIndex > 0 && variant.startsWith('body') ? (segmentIndex % 2 ? 2 : -2) : 0;
+      const twist =
+        segmentIndex > 0 && variant.startsWith('body') ? (segmentIndex % 2 ? 2 : -2) : 0;
+
+      const alpha =
+        enemy.encounterKind === 'roaming-snake'
+          ? Math.max(0.35, 0.8 - segmentIndex * 0.035)
+          : Math.max(0.48, 0.96 - segmentIndex * 0.045);
 
       sprite
         .setTexture(textureKeys[variant])
@@ -1766,12 +1778,64 @@ export class SnakeRenderer {
         )
         .setDisplaySize(size, size)
         .setAngle(twist)
-        .setAlpha(Math.max(0.48, 0.96 - segmentIndex * 0.045))
+        .setAlpha(alpha)
         .clearTint()
         .setVisible(true);
     });
 
     return spriteIndex;
+  }
+
+  private buildEnemySnakePalette(enemy: EnemyInstance): SnakeSpritePalette {
+    if (enemy.encounterKind === 'roaming-snake') {
+      const colorHex = (enemy as any)._colorHex;
+      if (colorHex) {
+        return this.hexToSnakePalette(colorHex);
+      }
+      return {
+        baseColor: '#888888',
+        bellyColor: '#bbbbbb',
+        patternColor: '#666666',
+        outlineColor: '#444444',
+        eyeColor: '#dddddd',
+      };
+    }
+
+    return this.buildRivalSnakePalette();
+  }
+
+  private hexToSnakePalette(hex: string): SnakeSpritePalette {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+
+    return {
+      baseColor: hex,
+      bellyColor: this.lightenHex(hex, 0.25),
+      patternColor: this.darkenHex(hex, 0.3),
+      outlineColor: this.darkenHex(hex, 0.5),
+      eyeColor: '#ffffff',
+    };
+  }
+
+  private lightenHex(hex: string, amount: number): string {
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    r = Math.min(255, Math.round(r + (255 - r) * amount));
+    g = Math.min(255, Math.round(g + (255 - g) * amount));
+    b = Math.min(255, Math.round(b + (255 - b) * amount));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+  }
+
+  private darkenHex(hex: string, amount: number): string {
+    let r = parseInt(hex.slice(1, 3), 16);
+    let g = parseInt(hex.slice(3, 5), 16);
+    let b = parseInt(hex.slice(5, 7), 16);
+    r = Math.max(0, Math.round(r * (1 - amount)));
+    g = Math.max(0, Math.round(g * (1 - amount)));
+    b = Math.max(0, Math.round(b * (1 - amount)));
+    return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
   }
 
   private drawBullets(bullets: readonly BulletInstance[]): void {
@@ -2119,7 +2183,7 @@ export class SnakeRenderer {
         bulletOutlineColor: '#123746',
       };
     }
-    if (enemy.encounterKind === 'rival-snake') {
+  if (enemy.encounterKind === 'rival-snake') {
       return {
         bodyColor: '#d96a1f',
         accentColor: '#ffb35f',
@@ -2127,6 +2191,16 @@ export class SnakeRenderer {
         eyeColor: '#fff0c7',
         bulletColor: '#ff9f43',
         bulletOutlineColor: '#7a2f11',
+      };
+    }
+    if (enemy.encounterKind === 'roaming-snake') {
+      return {
+        bodyColor: '#888888',
+        accentColor: '#aaaaaa',
+        outlineColor: '#555555',
+        eyeColor: '#cccccc',
+        bulletColor: '#ffffff',
+        bulletOutlineColor: '#888888',
       };
     }
     return this.buildEnemyPalette();
