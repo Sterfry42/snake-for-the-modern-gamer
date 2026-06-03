@@ -2,6 +2,20 @@ import type { MobTypeId, MobState, MobDefinition } from './types.js';
 import { MAX_MOBS_PER_CHUNK, MAX_PASSIVE_MOBS_PER_CHUNK } from './config.js';
 import { getMinecraftItem } from './itemRegistry.js';
 
+const MOB_ATTACK_DAMAGE: Record<MobTypeId, number> = {
+  zombie: 3,
+  skeleton: 2,
+  creeper: 4,
+  cow: 0,
+};
+
+const MOB_ATTACK_COOLDOWN: Record<MobTypeId, number> = {
+  zombie: 40,
+  skeleton: 30,
+  creeper: 40,
+  cow: 0,
+};
+
 const MOB_DEFINITIONS: Record<MobTypeId, MobDefinition> = {
   zombie: {
     id: 'zombie',
@@ -90,6 +104,7 @@ export class MobManager {
       maxHealth: def.hp,
       ai: def.hostile ? 'hostile' : 'passive',
       lastMoveTick: 0,
+      lastAttackTick: 0,
     };
 
     this.mobs.set(mob.id, mob);
@@ -135,6 +150,7 @@ export class MobManager {
     playerRoomId: string,
     lightLevelAt: (x: number, y: number, roomId: string) => number,
     onMobDeath: (mobId: string, x: number, y: number, roomId: string) => void,
+    onPlayerHit?: (damage: number) => void,
   ): void {
     for (const mob of this.mobs.values()) {
       const def = MOB_DEFINITIONS[mob.type];
@@ -156,6 +172,18 @@ export class MobManager {
           distToPlayer,
         );
         mob.lastMoveTick = currentTime;
+      }
+
+      // Combat: hostile mobs attack player on contact
+      const attackDamage = MOB_ATTACK_DAMAGE[mob.type];
+      const attackCooldown = MOB_ATTACK_COOLDOWN[mob.type];
+      if (attackDamage > 0 && mob.ai === 'hostile' && distToPlayer <= 1) {
+        if (currentTime - mob.lastAttackTick >= attackCooldown) {
+          mob.lastAttackTick = currentTime;
+          if (onPlayerHit) {
+            onPlayerHit(attackDamage);
+          }
+        }
       }
 
       // Hostile mobs take damage at light level > 12 during daytime

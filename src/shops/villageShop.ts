@@ -35,6 +35,15 @@ export interface VillageShopHatOffer {
   price: number;
 }
 
+export type VillageShopCowbellId = 'cowbell';
+
+export interface VillageShopCowbellOffer {
+  id: VillageShopCowbellId;
+  label: string;
+  price: number;
+  description: string;
+}
+
 export interface VillageShopSupplyOffer {
   id: string;
   itemId: string;
@@ -46,6 +55,7 @@ export interface VillageShopDefinition {
   equipment: VillageShopEquipmentOffer[];
   styles: VillageShopStyleOffer[];
   hats: VillageShopHatOffer[];
+  cowbells: VillageShopCowbellOffer[];
   supplies: VillageShopSupplyOffer[];
 }
 
@@ -226,6 +236,15 @@ export const VILLAGE_SHOP_HATS: readonly VillageShopHatOffer[] = [
   { id: 'pearl-crown', label: 'Pearl Crown', price: 42 },
 ];
 
+export const VILLAGE_SHOP_COWBELLS: readonly VillageShopCowbellOffer[] = [
+  {
+    id: 'cowbell',
+    label: 'Cowbell',
+    price: 45,
+    description: 'Swing it on a chain and let every step announce your presence.',
+  },
+];
+
 const REGIONAL_EQUIPMENT: Partial<Record<BiomeId, readonly VillageShopEquipmentOffer[]>> = {
   'elderwood-maze': [
     {
@@ -291,6 +310,7 @@ export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinitio
     equipment: uniqueOffers([...regional, ...VILLAGE_SHOP_EQUIPMENT]),
     styles: [...VILLAGE_SHOP_STYLES],
     hats: [...VILLAGE_SHOP_HATS],
+    cowbells: [...VILLAGE_SHOP_COWBELLS],
     supplies: [...VILLAGE_SHOP_SUPPLIES],
   };
 }
@@ -300,6 +320,7 @@ export function getBlackMarketDefinition(): VillageShopDefinition {
     equipment: [...BLACK_MARKET_EQUIPMENT],
     styles: [...BLACK_MARKET_STYLES],
     hats: [],
+    cowbells: [],
     supplies: [...BLACK_MARKET_SUPPLIES],
   };
 }

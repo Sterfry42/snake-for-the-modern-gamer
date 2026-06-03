@@ -2,7 +2,7 @@ import type { Vector2Like } from '../core/math.js';
 
 // ─── Block System ────────────────────────────────────────────────────────────
 
-export type BlockKind = 'solid' | 'transparent' | 'light';
+export type BlockKind = 'solid' | 'transparent' | 'light' | 'crop' | 'special';
 
 export interface BlockType {
   id: string;
@@ -31,7 +31,13 @@ export type BlockTypeId =
   | 'diamond_ore'
   | 'iron_block'
   | 'gold_block'
-  | 'crafting_table';
+  | 'crafting_table'
+  | 'furnace'
+  | 'chest'
+  | 'bed'
+  | 'pumpkin'
+  | 'farmland'
+  | 'wheat_crop';
 
 // ─── Mob System ──────────────────────────────────────────────────────────────
 
@@ -56,6 +62,7 @@ export interface MobState {
   maxHealth: number;
   ai: 'hostile' | 'passive' | 'neutral';
   lastMoveTick: number;
+  lastAttackTick: number;
 }
 
 // ─── Player State ────────────────────────────────────────────────────────────
@@ -142,6 +149,7 @@ export interface MinecraftSaveData {
     spawnRoomId: string;
     inventory: Array<{ itemId: string; count: number }>;
     equippedTool: string | null;
+    armorSlots: Record<string, string | null>;
   };
   dayNight: { day: number; timeOfDay: number };
   mobs: Array<{
@@ -153,4 +161,7 @@ export interface MinecraftSaveData {
     health: number;
   }>;
   dirtyChunks: Array<{ roomId: string; chunkX: number; chunkY: number }>;
+  furnaces: Array<{ x: number; y: number; roomId: string; progress: number; inputItem: string | null; outputItem: string | null; outputCount: number; fuelItem: string | null; fuelRemaining: number; burning: boolean }>;
+  chests: Array<{ x: number; y: number; roomId: string; slots: Array<{ itemId: string; count: number }> }>;
+  beds: Array<{ x: number; y: number; roomId: string; occupied: boolean }>;
 }
