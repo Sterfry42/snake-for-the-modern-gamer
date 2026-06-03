@@ -37,6 +37,7 @@ export class MinecraftFeature extends Feature {
   private chests: Map<string, import('./chest.js').ChestState> = new Map();
   private beds: Map<string, import('./bed.js').BedState> = new Map();
   private lastActionStep: number = 0;
+  private borderOverlay: Phaser.GameObjects.Graphics | null = null;
 
   constructor() {
     super('minecraft', 'Minecraft block building mode');
@@ -51,6 +52,7 @@ export class MinecraftFeature extends Feature {
     this.dayNight = new DayNightCycle();
     this.lighting = new LightingSystem();
     this.skyOverlay = scene.add.graphics().setDepth(0).setAlpha(0);
+    this.borderOverlay = scene.add.graphics().setDepth(100).setAlpha(0);
     this.minecraftMode = false;
 
     // Initialize from saved data if available
@@ -114,8 +116,25 @@ export class MinecraftFeature extends Feature {
   override onRender(scene: SnakeScene): void {
     if (!this.minecraftMode) {
       this.skyOverlay?.setAlpha(0);
+      this.borderOverlay?.clear().setAlpha(0);
       return;
     }
+
+    // Draw green border to indicate Minecraft mode
+    const width = scene.scale.width;
+    const height = scene.scale.height;
+    const borderWidth = 16;
+    this.borderOverlay?.clear();
+    this.borderOverlay?.fillStyle(0x33ff33, 0.6);
+    // Top
+    this.borderOverlay?.fillRect(0, 0, width, borderWidth);
+    // Bottom
+    this.borderOverlay?.fillRect(0, height - borderWidth, width, borderWidth);
+    // Left
+    this.borderOverlay?.fillRect(0, 0, borderWidth, height);
+    // Right
+    this.borderOverlay?.fillRect(width - borderWidth, 0, borderWidth, height);
+    this.borderOverlay?.setAlpha(1);
 
     // Render minecraft layer
     this.renderLayer?.render(scene);
@@ -670,5 +689,6 @@ export class MinecraftFeature extends Feature {
     this.lighting?.destroy();
     this.chunkManager?.destroy();
     this.skyOverlay?.destroy();
+    this.borderOverlay?.destroy();
   }
 }

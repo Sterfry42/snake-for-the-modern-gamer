@@ -1057,6 +1057,8 @@ export default class SnakeScene extends Phaser.Scene {
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
           this.takeManualTurn();
+        } else if (this.minecraftMode && !this.deathCutscene) {
+          this.takeManualTurn();
         }
       },
       onTogglePause: () => {
@@ -1237,6 +1239,29 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (this.skillTree.handleKeyDown(key, this.paused)) {
         return;
+      }
+
+      if (this.minecraftMode && !this.deathCutscene) {
+        if (['arrowup', 'w'].includes(key)) {
+          this.setDir(0, -1);
+          this.takeManualTurn();
+          return;
+        }
+        if (['arrowdown', 's'].includes(key)) {
+          this.setDir(0, 1);
+          this.takeManualTurn();
+          return;
+        }
+        if (['arrowleft', 'a'].includes(key)) {
+          this.setDir(-1, 0);
+          this.takeManualTurn();
+          return;
+        }
+        if (['arrowright', 'd'].includes(key)) {
+          this.setDir(1, 0);
+          this.takeManualTurn();
+          return;
+        }
       }
 
       if (this.isManualHouseMovementActive()) {
@@ -1486,14 +1511,16 @@ export default class SnakeScene extends Phaser.Scene {
     this.minecraftMode = !this.minecraftMode;
 
     if (this.minecraftMode) {
-      // Switch to Minecraft mode
+      // Switch to Minecraft mode - enter manual movement mode
+      this.setFlag('traversal.manualResumePending', true);
       this.setFlag('ui.suppressHud', true);
       this.setFlag('ui.questInteraction', {
         message:
           'Minecraft mode: Shift+C to toggle. Left-click to break blocks, right-click to place. WASD to move. E for crafting.',
       });
     } else {
-      // Switch back to snake mode
+      // Switch back to snake mode - resume auto-movement
+      this.setFlag('traversal.manualResumePending', undefined);
       this.setFlag('ui.suppressHud', undefined);
       this.setFlag('ui.questInteraction', undefined);
     }
