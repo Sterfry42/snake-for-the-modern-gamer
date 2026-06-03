@@ -545,6 +545,7 @@ export class EnemyManager {
       roomId,
       position: { ...head },
       body,
+      fireCooldown: 0,
       moveCooldown: 0,
       flashTicks: 0,
       name: 'Wild Snake',

@@ -89,8 +89,8 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     this.emitSnapshot();
   }
 
-  actorClockStep(): StepResult | null {
-    return this.runClockStep(() => this.game.actorClockStep());
+  async actorClockStep(): Promise<StepResult | null> {
+    return this.runAsyncClockStep(() => this.game.actorClockStep());
   }
 
   hazardClockStep(): StepResult | null {
@@ -190,6 +190,16 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   private runClockStep(step: () => StepResult | null): StepResult | null {
     const previousRoomId = this.getSnapshot().players[this.localPlayerId]?.roomId;
     const result = step();
+    this.emitSnapshot();
+    if (result) {
+      this.emitStepEvents(previousRoomId, result);
+    }
+    return result;
+  }
+
+  private async runAsyncClockStep(step: () => Promise<StepResult | null>): Promise<StepResult | null> {
+    const previousRoomId = this.getSnapshot().players[this.localPlayerId]?.roomId;
+    const result = await step();
     this.emitSnapshot();
     if (result) {
       this.emitStepEvents(previousRoomId, result);

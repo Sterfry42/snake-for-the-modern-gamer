@@ -2726,7 +2726,7 @@ export class SnakeGame implements QuestRuntime {
     appleWorldPosition?: Vector2Like | null;
     appleSnapshot: AppleSnapshot | null;
     appleStateChanged: boolean;
-  }): StepResult | null {
+  }): Promise<StepResult | null> {
     const { enemyStep, animalStep } = this.actorStep();
     const rivalStep = this.stepRivalSnakeEnemies(options.roomsChanged);
     if (rivalStep.currentRoomAppleChanged) {
@@ -2852,8 +2852,6 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private async stepRoamingSnakes(roomsChanged: Set<string>): Promise<void> {
-    if (!this.snake.alive) return;
-
     const roamingSnakes = this.enemies.getRoamingSnakes();
     if (roamingSnakes.length === 0) return;
 
@@ -2921,8 +2919,8 @@ export class SnakeGame implements QuestRuntime {
             continue;
           }
           newRoomId = shifted;
-          newHead.x = Math.max(0, Math.min(newHead.x, this.grid.cols - 1));
-          newHead.y = Math.max(0, Math.min(newHead.y, this.grid.rows - 1));
+          newHead.x = Math.max(0, Math.min(newHead.x, this.config.grid.cols - 1));
+          newHead.y = Math.max(0, Math.min(newHead.y, this.config.grid.rows - 1));
         }
       }
 
@@ -3294,7 +3292,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private createActorDeathStepResult(
-    deathReason: 'boss' | 'bullet',
+    deathReason: 'boss' | 'bullet' | 'roaming-snake',
     options: {
       roomsChanged: Set<string>;
       roomHasChanged: boolean;
