@@ -64,6 +64,7 @@ import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_HATS,
   VILLAGE_SHOP_STYLES,
+  VILLAGE_SHOP_COWBELLS,
   BLACK_MARKET_STYLES,
   getBlackMarketDefinition,
   getVillageShopDefinition,
@@ -71,6 +72,8 @@ import {
   type VillageShopEquipmentOffer,
   type VillageShopHatId,
   type VillageShopHatOffer,
+  type VillageShopCowbellId,
+  type VillageShopCowbellOffer,
   type VillageShopStyleOffer,
   type VillageShopStyleId,
 } from '../shops/villageShop.js';
@@ -123,6 +126,8 @@ type SnakeCosmeticState = {
   activeHat: VillageShopHatId | null;
   cowboyHatUnlocked: boolean;
   cowboyHatEquipped: boolean;
+  cowbellUnlocked: boolean;
+  cowbellEquipped: boolean;
   loudWalkingNoiseUnlocked: boolean;
   loudWalkingNoiseEnabled: boolean;
   languageSelected: boolean;
@@ -949,6 +954,8 @@ export default class SnakeScene extends Phaser.Scene {
     activeHat: null,
     cowboyHatUnlocked: false,
     cowboyHatEquipped: false,
+    cowbellUnlocked: false,
+    cowbellEquipped: false,
     loudWalkingNoiseUnlocked: false,
     loudWalkingNoiseEnabled: false,
     languageSelected: false,
@@ -1593,6 +1600,8 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: null,
       cowboyHatUnlocked: false,
       cowboyHatEquipped: false,
+      cowbellUnlocked: false,
+      cowbellEquipped: false,
       loudWalkingNoiseUnlocked: false,
       loudWalkingNoiseEnabled: false,
       languageSelected: false,
@@ -5833,6 +5842,8 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: this.snakeCosmetics.activeHat,
       cowboyHatUnlocked: this.snakeCosmetics.cowboyHatUnlocked,
       cowboyHatEquipped: this.snakeCosmetics.cowboyHatEquipped,
+      cowbellUnlocked: this.snakeCosmetics.cowbellUnlocked,
+      cowbellEquipped: this.snakeCosmetics.cowbellEquipped,
       loudWalkingNoiseUnlocked: this.snakeCosmetics.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
       languageSelected: this.snakeCosmetics.languageSelected,
@@ -5848,6 +5859,8 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: state.activeHat,
       cowboyHatUnlocked: state.cowboyHatUnlocked,
       cowboyHatEquipped: state.cowboyHatEquipped,
+      cowbellUnlocked: state.cowbellUnlocked,
+      cowbellEquipped: state.cowbellEquipped,
       loudWalkingNoiseUnlocked: state.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: state.loudWalkingNoiseEnabled,
       languageSelected: state.languageSelected,
@@ -5974,11 +5987,12 @@ export default class SnakeScene extends Phaser.Scene {
       styles: definition.styles.filter((offer) =>
         stock.styleIds.includes(offer.id),
       ) as VillageShopStyleOffer[],
-      hats: definition.hats.filter((offer) =>
-        stock.hatIds.includes(offer.id),
-      ) as VillageShopHatOffer[],
-      supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
-    };
+  hats: definition.hats.filter((offer) =>
+         stock.hatIds.includes(offer.id),
+       ) as VillageShopHatOffer[],
+       cowbells: definition.cowbells.filter((offer) => true),
+       supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
+     };
   }
 
   private getCurrentVillageMarketStock(): VillageMarketStock {
@@ -6450,11 +6464,37 @@ export default class SnakeScene extends Phaser.Scene {
     this.juice.setMovementNoiseMultiplier(this.snakeCosmetics.loudWalkingNoiseEnabled ? 5 : 1);
     this.isDirty = true;
     return {
+       ok: true,
+       message: this.snakeCosmetics.loudWalkingNoiseEnabled
+         ? 'Walking noise disabled.'
+         : 'Walking noise restored.',
+       color: '#9ad1ff',
+     };
+   }
+
+   toggleCowbell(): { ok: boolean; message: string; color: string } {
+    const cost = 45;
+    if (!this.snakeCosmetics.cowbellUnlocked) {
+      if (this.score < cost) {
+        return {
+          ok: false,
+          message: `Cowbell costs ${cost} score.`,
+          color: '#ff6b6b',
+        };
+      }
+      this.addScoreDirect(-cost);
+      this.snakeCosmetics.cowbellUnlocked = true;
+    }
+
+    this.snakeCosmetics.cowbellEquipped = !this.snakeCosmetics.cowbellEquipped;
+    this.juice.setCowbellEnabled(this.snakeCosmetics.cowbellEquipped);
+    this.isDirty = true;
+    return {
       ok: true,
-      message: this.snakeCosmetics.loudWalkingNoiseEnabled
-        ? 'Walking noise disabled.'
-        : 'Walking noise restored.',
-      color: '#9ad1ff',
+      message: this.snakeCosmetics.cowbellEquipped
+        ? 'Cowbell equipped. Let every step jingle.'
+        : 'Cowbell stowed.',
+      color: '#5dd6a2',
     };
   }
 
@@ -7386,6 +7426,13 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Village headwear with no tactical justification.',
       });
     }
+    if ((shop?.cowbells.length ?? 0) > 0) {
+      options.push({
+        id: 'cowbells',
+        title: 'Cowbells',
+        description: 'For snakes who like their footsteps to clatter.',
+      });
+    }
     const room = this.snakeGame.getCurrentRoom();
     const isBlackMarket = Boolean(
       room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
@@ -7413,13 +7460,14 @@ export default class SnakeScene extends Phaser.Scene {
         this.showCardTableRoot(shopkeeperName);
         return;
       }
-      if (
-        id === 'equipment' ||
-        id === 'supplies' ||
-        id === 'styles' ||
-        id === 'hats' ||
-        id === 'cards'
-      ) {
+if (
+         id === 'equipment' ||
+         id === 'supplies' ||
+         id === 'styles' ||
+         id === 'hats' ||
+         id === 'cowbells' ||
+         id === 'cards'
+       ) {
         this.showVillageShopCategory(shopkeeperName, id);
       }
     });
@@ -7427,7 +7475,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showVillageShopCategory(
     shopkeeperName: string,
-    category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cards',
+    category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cowbells' | 'cards',
     page = 0,
   ): void {
     this.paused = true;
@@ -7477,17 +7525,27 @@ export default class SnakeScene extends Phaser.Scene {
           description: owned ? 'Equip this village style.' : 'Buy and equip this village style.',
         });
       }
-    } else if (category === 'hats') {
-      for (const hat of shop.hats) {
-        const owned = this.snakeCosmetics.unlockedHats.includes(hat.id);
-        const equipped = this.snakeCosmetics.activeHat === hat.id;
-        options.push({
-          id: `hat:${hat.id}`,
-          title: `${hat.label} - ${owned ? (equipped ? 'equipped' : 'owned') : `${hat.price} score`}`,
-          description: owned ? 'Toggle this hat.' : 'Buy and equip this hat.',
-        });
-      }
-    } else {
+  } else if (category === 'hats') {
+       for (const hat of shop.hats) {
+         const owned = this.snakeCosmetics.unlockedHats.includes(hat.id);
+         const equipped = this.snakeCosmetics.activeHat === hat.id;
+         options.push({
+           id: `hat:${hat.id}`,
+           title: `${hat.label} - ${owned ? (equipped ? 'equipped' : 'owned') : `${hat.price} score`}`,
+           description: owned ? 'Toggle this hat.' : 'Buy and equip this hat.',
+         });
+       }
+     } else if (category === 'cowbells') {
+       for (const cowbell of shop.cowbells) {
+         const owned = this.snakeCosmetics.cowbellUnlocked;
+         const equipped = this.snakeCosmetics.cowbellEquipped;
+         options.push({
+           id: `cowbell:${cowbell.id}`,
+           title: `${cowbell.label} - ${owned ? (equipped ? 'equipped' : 'owned') : `${cowbell.price} score`}`,
+           description: owned ? (equipped ? 'Toggle cowbell off.' : 'Toggle cowbell on.') : cowbell.description,
+         });
+       }
+     } else {
       const collection = this.getCardCollection();
       const cardOffers = this.getCurrentMarketCardOffers();
       const pageSize = 5;
@@ -7539,9 +7597,11 @@ export default class SnakeScene extends Phaser.Scene {
               ? this.purchaseVillageStyle(value as VillageShopStyleId)
               : kind === 'hat'
                 ? this.purchaseOrToggleVillageHat(value as VillageShopHatId)
-                : kind === 'card'
-                  ? this.purchaseVillageCard(value as CardId)
-                  : null;
+                : kind === 'cowbell'
+                  ? this.toggleCowbell()
+                  : kind === 'card'
+                    ? this.purchaseVillageCard(value as CardId)
+                    : null;
       if (result) {
         this.showQuestHintPopup(result.message, result.color);
         this.showVillageShopCategory(shopkeeperName, category, page);

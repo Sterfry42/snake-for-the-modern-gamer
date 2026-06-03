@@ -15,6 +15,7 @@ export class JuiceManager {
   private readonly particleLayer: Phaser.GameObjects.Layer;
   private readonly overlayLayer: Phaser.GameObjects.Layer;
   private movementNoiseMultiplier = 1;
+  private cowbellEnabled = false;
   private bossMusic?: {
     id: string;
     gain: GainNode;
@@ -1000,6 +1001,26 @@ export class JuiceManager {
 
   setMovementNoiseMultiplier(multiplier: number) {
     this.movementNoiseMultiplier = Math.max(0, multiplier);
+  }
+
+  setCowbellEnabled(enabled: boolean) {
+    this.cowbellEnabled = enabled;
+  }
+
+  playCowbell() {
+    // Bright metallic cowbell: fast attack, short decay, slight shimmer
+    this.playTone({
+      frequency: 3920,
+      duration: 0.08,
+      type: 'square',
+      volume: 0.06,
+    });
+    this.playTone({
+      frequency: 5880,
+      duration: 0.05,
+      type: 'triangle',
+      volume: 0.03,
+    });
   }
 
   // Soft idle sparkle for apples
@@ -2276,12 +2297,16 @@ export class JuiceManager {
 
   // Optional subtle trail at the snake head position if provided
   movementTick(worldX?: number, worldY?: number) {
-    this.playTone({
-      frequency: 60,
-      duration: 0.05,
-      type: 'square',
-      volume: 0.04 * this.movementNoiseMultiplier,
-    });
+    if (this.cowbellEnabled) {
+      this.playCowbell();
+    } else {
+      this.playTone({
+        frequency: 60,
+        duration: 0.05,
+        type: 'square',
+        volume: 0.04 * this.movementNoiseMultiplier,
+      });
+    }
 
     if (worldX !== undefined && worldY !== undefined) {
       // Spawn a tiny fading dot and occasional spark to suggest momentum.

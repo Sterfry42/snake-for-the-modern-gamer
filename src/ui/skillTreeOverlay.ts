@@ -620,13 +620,19 @@ export class SkillTreeOverlay {
         return;
       }
 
-      if (actionId === 'walking-noise') {
-        const result = this.scene.toggleDisableWalkingNoise();
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
-      }
+if (actionId === 'walking-noise') {
+         const result = this.scene.toggleDisableWalkingNoise();
+         this.announce(result.message, result.color, 1800);
+         this.refresh();
+       }
 
-      if (actionId === 'minimap') {
+       if (actionId === 'cowbell') {
+         const result = this.scene.toggleCowbell();
+         this.announce(result.message, result.color, 1800);
+         this.refresh();
+       }
+
+       if (actionId === 'minimap') {
         const result = this.scene.purchaseOrToggleMinimap();
         this.announce(result.message, result.color, 1800);
         this.refresh();
@@ -1574,15 +1580,28 @@ export class SkillTreeOverlay {
         : state.loudWalkingNoiseEnabled
           ? 'enabled'
           : 'owned';
-      const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
-      lines.push(walkingNoiseLine);
-      index.push('walking-noise');
-      rowMap.push({ row: visualRow, actionId: 'walking-noise' });
-      visualRow += this.countRenderedLines(walkingNoiseLine);
-      lines.push('');
-      index.push('');
-      visualRow += 1;
-      const minimapUnlocked = this.scene.isMinimapUnlocked();
+const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
+       lines.push(walkingNoiseLine);
+       index.push('walking-noise');
+       rowMap.push({ row: visualRow, actionId: 'walking-noise' });
+       visualRow += this.countRenderedLines(walkingNoiseLine);
+       lines.push('');
+       index.push('');
+       visualRow += 1;
+       const cowbellStatus = !state.cowbellUnlocked
+         ? '45 score'
+         : state.cowbellEquipped
+           ? 'enabled'
+           : 'owned';
+       const cowbellLine = `Cowbell [${cowbellStatus}]`;
+       lines.push(cowbellLine);
+       index.push('cowbell');
+       rowMap.push({ row: visualRow, actionId: 'cowbell' });
+       visualRow += this.countRenderedLines(cowbellLine);
+       lines.push('');
+       index.push('');
+       visualRow += 1;
+       const minimapUnlocked = this.scene.isMinimapUnlocked();
       const minimapEnabled = this.scene.isMinimapEnabled();
       const minimapStatus = minimapUnlocked
         ? minimapEnabled
