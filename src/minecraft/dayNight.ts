@@ -96,6 +96,11 @@ export class DayNightCycle {
     if (tod >= 12000 && tod < 14000) return 'dusk';
     return 'night';
   }
+
+  skipNight(): void {
+    this.timeOfDay = 0;
+    this.day += 1;
+  }
 }
 
 function interpolateColor(c1: number, c2: number, t: number): number {

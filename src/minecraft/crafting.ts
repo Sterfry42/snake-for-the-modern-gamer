@@ -260,6 +260,128 @@ export const RECIPES: readonly CraftingRecipe[] = [
     ],
     craftingTable: false,
   },
+  // Armor — Leather
+  {
+    id: 'leather_helmet',
+    name: 'Leather Helmet',
+    result: { itemId: 'leather_helmet', count: 1 },
+    ingredients: [
+      { itemId: 'leather', count: 5 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'leather_chestplate',
+    name: 'Leather Chestplate',
+    result: { itemId: 'leather_chestplate', count: 1 },
+    ingredients: [
+      { itemId: 'leather', count: 8 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'leather_leggings',
+    name: 'Leather Leggings',
+    result: { itemId: 'leather_leggings', count: 1 },
+    ingredients: [
+      { itemId: 'leather', count: 7 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'leather_boots',
+    name: 'Leather Boots',
+    result: { itemId: 'leather_boots', count: 1 },
+    ingredients: [
+      { itemId: 'leather', count: 4 },
+    ],
+    craftingTable: true,
+  },
+  // Armor — Iron
+  {
+    id: 'iron_helmet',
+    name: 'Iron Helmet',
+    result: { itemId: 'iron_helmet', count: 1 },
+    ingredients: [
+      { itemId: 'iron_ingot', count: 5 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'iron_chestplate',
+    name: 'Iron Chestplate',
+    result: { itemId: 'iron_chestplate', count: 1 },
+    ingredients: [
+      { itemId: 'iron_ingot', count: 8 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'iron_leggings',
+    name: 'Iron Leggings',
+    result: { itemId: 'iron_leggings', count: 1 },
+    ingredients: [
+      { itemId: 'iron_ingot', count: 7 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'iron_boots',
+    name: 'Iron Boots',
+    result: { itemId: 'iron_boots', count: 1 },
+    ingredients: [
+      { itemId: 'iron_ingot', count: 4 },
+    ],
+    craftingTable: true,
+  },
+  // Armor — Diamond
+  {
+    id: 'diamond_helmet',
+    name: 'Diamond Helmet',
+    result: { itemId: 'diamond_helmet', count: 1 },
+    ingredients: [
+      { itemId: 'diamond', count: 5 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'diamond_chestplate',
+    name: 'Diamond Chestplate',
+    result: { itemId: 'diamond_chestplate', count: 1 },
+    ingredients: [
+      { itemId: 'diamond', count: 8 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'diamond_leggings',
+    name: 'Diamond Leggings',
+    result: { itemId: 'diamond_leggings', count: 1 },
+    ingredients: [
+      { itemId: 'diamond', count: 7 },
+    ],
+    craftingTable: true,
+  },
+  {
+    id: 'diamond_boots',
+    name: 'Diamond Boots',
+    result: { itemId: 'diamond_boots', count: 1 },
+    ingredients: [
+      { itemId: 'diamond', count: 4 },
+    ],
+    craftingTable: true,
+  },
+  // Bed
+  {
+    id: 'bed_recipe',
+    name: 'Red Bed',
+    result: { itemId: 'bed', count: 1 },
+    ingredients: [
+      { itemId: 'planks_item', count: 3 },
+      { itemId: 'raw_beef', count: 3 },
+    ],
+    craftingTable: true,
+  },
 ];
 
 export function getRecipeById(id: string): CraftingRecipe | undefined {

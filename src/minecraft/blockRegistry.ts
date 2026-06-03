@@ -19,6 +19,17 @@ const BLOCK_DEFINITIONS: BlockType[] = [
   { id: 'iron_block', kind: 'solid', color: '#D4D4D4', hardness: 5, tool: 'pickaxe' },
   { id: 'gold_block', kind: 'solid', color: '#FFD700', hardness: 5, tool: 'pickaxe' },
   { id: 'crafting_table', kind: 'solid', color: '#8B5E3C', hardness: 2, tool: 'axe' },
+  { id: 'furnace', kind: 'solid', color: '#808080', hardness: 3.5, tool: 'pickaxe' },
+  { id: 'chest', kind: 'solid', color: '#9C6C28', hardness: 2 },
+  { id: 'bed', kind: 'solid', color: '#CC0000', hardness: 1 },
+  { id: 'pumpkin', kind: 'solid', color: '#E8872A', hardness: 2 },
+  { id: 'farmland', kind: 'solid', color: '#5C3A1E', hardness: 1 },
+  { id: 'wheat_crop', kind: 'crop', color: '#D4C44A', hardness: 0 },
+  { id: 'farmland', kind: 'special', color: '#5C3A1E', hardness: 1 },
+  { id: 'furnace', kind: 'special', color: '#808080', hardness: 3.5, tool: 'pickaxe' },
+  { id: 'chest', kind: 'special', color: '#9C6C28', hardness: 2 },
+  { id: 'bed', kind: 'special', color: '#CC0000', hardness: 1 },
+  { id: 'pumpkin', kind: 'solid', color: '#E8872A', hardness: 2 },
 ];
 
 const BLOCK_MAP = new Map<string, BlockType>(
@@ -62,4 +73,30 @@ export function getBlockDrops(id: string): string {
 
 export function isMinecraftBlockType(id: string): boolean {
   return BLOCK_MAP.has(id);
+}
+
+export function isCropBlock(id: string): boolean {
+  const bt = BLOCK_MAP.get(id);
+  return bt !== undefined && bt.kind === 'crop';
+}
+
+export function isSpecialBlock(id: string): boolean {
+  const bt = BLOCK_MAP.get(id);
+  return bt !== undefined && bt.kind === 'special';
+}
+
+export function isPlaceableSpecialBlock(id: string): boolean {
+  return ['furnace', 'chest', 'bed', 'crafting_table'].includes(id);
+}
+
+export function isBlockableBlock(id: string): boolean {
+  // Blocks that prevent player movement
+  const bt = BLOCK_MAP.get(id);
+  if (!bt) return false;
+  return bt.kind === 'solid' || bt.kind === 'special';
+}
+
+export function isCropGrown(blockId: string): boolean {
+  // Wheat is grown at maturity (fully grown = harvestable)
+  return blockId === 'wheat_crop';
 }

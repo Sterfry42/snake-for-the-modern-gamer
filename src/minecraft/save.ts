@@ -16,11 +16,15 @@ export function serializeMinecraftState(
     spawnRoomId: string;
     inventory: Array<{ itemId: string; count: number }>;
     equippedTool: string | null;
+    armorSlots?: Record<string, string | null>;
   },
   dayNight: { day: number; timeOfDay: number },
   mobs: Array<{ id: string; type: string; roomId: string; x: number; y: number; health: number }>,
   minecraftBlocks: Array<{ roomId: string; x: number; y: number; blockType: string }>,
   dirtyChunks: Array<{ roomId: string; chunkX: number; chunkY: number }>,
+  furnaces?: Array<{ x: number; y: number; roomId: string; progress: number; inputItem: string | null; outputItem: string | null; outputCount: number; fuelItem: string | null; fuelRemaining: number; burning: boolean }>,
+  chests?: Array<{ x: number; y: number; roomId: string; slots: Array<{ itemId: string; count: number }> }>,
+  beds?: Array<{ x: number; y: number; roomId: string; occupied: boolean }>,
 ): MinecraftSaveData {
   return {
     version: '1.0.0',
@@ -38,6 +42,7 @@ export function serializeMinecraftState(
       spawnRoomId: playerState.spawnRoomId,
       inventory: playerState.inventory,
       equippedTool: playerState.equippedTool,
+      armorSlots: playerState.armorSlots ?? { head: null, torso: null, legs: null, feet: null },
     },
     dayNight: {
       day: dayNight.day,
@@ -45,6 +50,9 @@ export function serializeMinecraftState(
     },
     mobs,
     dirtyChunks,
+    furnaces: furnaces ?? [],
+    chests: chests ?? [],
+    beds: beds ?? [],
   };
 }
 
@@ -65,6 +73,7 @@ export function deserializeMinecraftState(data: MinecraftSaveData): MinecraftSav
       spawnRoomId: data.playerState?.spawnRoomId ?? '0,0,0',
       inventory: data.playerState?.inventory ?? [],
       equippedTool: data.playerState?.equippedTool ?? null,
+      armorSlots: data.playerState?.armorSlots ?? { head: null, torso: null, legs: null, feet: null },
     },
     dayNight: {
       day: data.dayNight?.day ?? 1,
@@ -72,6 +81,9 @@ export function deserializeMinecraftState(data: MinecraftSaveData): MinecraftSav
     },
     mobs: data.mobs ?? [],
     dirtyChunks: data.dirtyChunks ?? [],
+    furnaces: data.furnaces ?? [],
+    chests: data.chests ?? [],
+    beds: data.beds ?? [],
   };
 }
 
@@ -110,10 +122,14 @@ export function migrateMinecraftState(
       spawnRoomId: oldPlayerState.spawnRoomId,
       inventory: oldPlayerState.inventory,
       equippedTool: oldPlayerState.equippedTool,
+      armorSlots: { head: null, torso: null, legs: null, feet: null },
     },
     dayNight: oldDayNight ?? { day: 1, timeOfDay: 0 },
     mobs: oldMobs ?? [],
     dirtyChunks: [],
+    furnaces: [],
+    chests: [],
+    beds: [],
   };
 }
 
@@ -131,6 +147,7 @@ export function getDefaultPlayerState() {
     spawnRoomId: '0,0,0',
     inventory: [] as Array<{ itemId: string; count: number }>,
     equippedTool: null as string | null,
+    armorSlots: { head: null, torso: null, legs: null, feet: null } as Record<string, string | null>,
   };
 }
 
@@ -142,5 +159,8 @@ export function getDefaultSaveData(): MinecraftSaveData {
     dayNight: { day: 1, timeOfDay: 0 },
     mobs: [],
     dirtyChunks: [],
+    furnaces: [],
+    chests: [],
+    beds: [],
   };
 }
