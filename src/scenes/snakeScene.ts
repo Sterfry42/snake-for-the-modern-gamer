@@ -919,6 +919,10 @@ const DEATH_REASON_DIALOGUE: Partial<Record<string, readonly string[]>> = {
     'Even protection has its appetite.',
     'Thou reached for safety and found its hidden blade.',
   ],
+  'roaming-snake': [
+    'A wild serpent claimed thee without ceremony.',
+    'The untamed ones do not negotiate.',
+  ],
 };
 
 const REVIVE_DIALOGUE_BRANCHES: readonly string[][] = [
@@ -1956,11 +1960,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.gameSession.bossStep();
   }
 
-  private runActorClockStep(): void {
+  private async runActorClockStep(): Promise<void> {
     if (this.paused) {
       return;
     }
-    const result = this.gameSession.actorClockStep();
+    const result = await this.gameSession.actorClockStep();
     if (!result) {
       return;
     }
@@ -10534,13 +10538,30 @@ export default class SnakeScene extends Phaser.Scene {
     const personality = this.personalityForDatingProfile(profile);
     const recentKey = `${profile.id}:${kind}`;
     const recentScenarioIds = this.recentAuthoredDatingScenarioIds.get(recentKey) ?? [];
-    let authored = createPersonalityDatingScenario(profile, kind, personality, () => this.random());
+    const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
+    const scenarioContext = {
+      ...(actorRole ? { actorRole } : {}),
+      contextTags: this.currentDatingContextTags(profile, actorRole),
+    };
+    let authored = createPersonalityDatingScenario(
+      profile,
+      kind,
+      personality,
+      () => this.random(),
+      scenarioContext,
+    );
     for (
       let attempt = 0;
       attempt < 4 && recentScenarioIds.includes(authored.scenarioId);
       attempt += 1
     ) {
-      authored = createPersonalityDatingScenario(profile, kind, personality, () => this.random());
+      authored = createPersonalityDatingScenario(
+        profile,
+        kind,
+        personality,
+        () => this.random(),
+        scenarioContext,
+      );
     }
     if (this.random() < 0.35) {
       this.rememberAuthoredDatingScenario(recentKey, authored.scenarioId);
@@ -11058,6 +11079,36 @@ export default class SnakeScene extends Phaser.Scene {
       profile,
       templates[Math.floor(this.random() * templates.length)] ?? templates[0]!,
     );
+  }
+
+  private currentDatingContextTags(
+    profile: RelationshipCandidateProfile,
+    actorRole: ReturnType<SnakeGame['getActorRole']>,
+  ): readonly string[] {
+    const tags: string[] = [];
+    const state = this.snakeGame.getRelationshipState(profile);
+    const town = this.snakeGame.getCurrentTown();
+    if (state?.stage === 'married') tags.push('married');
+    if (Number(state?.resentment ?? 0) > 20) tags.push('hurt');
+    if (Number(state?.jealousy ?? 0) > 20) tags.push('jealous');
+    if (profile.factionId) tags.push(`faction:${profile.factionId}`);
+    if (town) tags.push('town');
+    if ((town?.wantedLevel ?? 0) > 0) tags.push('crime');
+    if ((town?.wantedLevel ?? 0) >= 3 || (town?.suspicion ?? 0) >= 65) tags.push('curfew');
+    if (
+      actorRole === 'shopkeeper' ||
+      actorRole === 'goblinMerchant' ||
+      actorRole === 'blackMarketMerchant'
+    ) {
+      tags.push('market', 'food-shortage');
+    }
+    if (actorRole === 'bartender' || actorRole === 'cook') tags.push('rumor');
+    if (actorRole === 'thief' || actorRole === 'thiefContact' || actorRole === 'guildContact') {
+      tags.push('guild', 'crime');
+    }
+    if (actorRole === 'questGiver') tags.push('quest');
+    if (this.snakeGame.getFlag<boolean>('ui.healthRevealed')) tags.push('danger');
+    return Array.from(new Set(tags));
   }
 
   private rememberAuthoredDatingScenario(key: string, scenarioId: string): void {

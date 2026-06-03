@@ -1,4 +1,5 @@
 import type { GridConfig } from '../config/gameConfig.js';
+import type { RoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
@@ -18,7 +19,15 @@ export interface EnemyInstance {
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
-  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark' | 'goblin' | 'rival-snake' | 'baby';
+  encounterKind?:
+    | 'enemy'
+    | 'duelist'
+    | 'npc-hostile'
+    | 'shark'
+    | 'goblin'
+    | 'rival-snake'
+    | 'roaming-snake'
+    | 'baby';
 }
 
 export interface BulletInstance {
@@ -102,10 +111,24 @@ export class EnemyManager {
   private readonly bullets = new Map<string, BulletInstance[]>();
   private idCounter = 0;
 
+  private roamingSnakeConfig: RoamingSnakeConfig | null = null;
+
   constructor(
     private readonly grid: GridConfig,
     private readonly rng: RandomGenerator,
   ) {}
+
+  setRoamingSnakeConfig(config: RoamingSnakeConfig): void {
+    this.roamingSnakeConfig = config;
+  }
+
+  getRoamingSnakes(): readonly EnemyInstance[] {
+    const roamers: EnemyInstance[] = [];
+    for (const enemies of this.enemies.values()) {
+      roamers.push(...enemies.filter((enemy) => enemy.encounterKind === 'roaming-snake'));
+    }
+    return roamers;
+  }
 
   clearAll(): void {
     this.enemies.clear();
@@ -131,6 +154,11 @@ export class EnemyManager {
     if (this.rng() < 0.1 && this.spawnRivalSnake(roomId, room, occupiedLocals)) {
       return;
     }
+
+    if (this.roamingSnakeConfig && this.rng() < this.roamingSnakeConfig.spawnChance) {
+      this.ensureRoamingSnakes(roomId, room, occupiedLocals, this.roamingSnakeConfig, this.rng);
+    }
+
     const biome = getBiomeDefinition(room.biomeId);
     if (this.rng() > getBiomeEnemySpawnChance(biome)) {
       return;
@@ -455,6 +483,174 @@ export class EnemyManager {
     });
   }
 
+  ensureRoamingSnakes(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+    config: RoamingSnakeConfig,
+    rng: RandomGenerator,
+  ): void {
+    if (roomId === '0,-1,0') return;
+    if (room.village || room.town || room.townPerimeter) return;
+
+    const existingRoamers = (this.enemies.get(roomId) ?? []).filter(
+      (e) => e.encounterKind === 'roaming-snake',
+    );
+    if (existingRoamers.length >= config.maxPerRoom) return;
+
+    if (rng() > config.spawnChance) return;
+
+    const occupiedLocals = this.toLocalOccupied(roomId, occupied);
+    const candidates: Vector2Like[] = [];
+
+    for (let y = 0; y < this.grid.rows; y++) {
+      for (let x = 0; x < this.grid.cols; x++) {
+        const tile = room.layout[y]?.[x];
+        if (!tile || tile === '#' || tile === '~') continue;
+        if (room.apple && room.apple.x === x && room.apple.y === y) continue;
+        if (occupiedLocals.some((seg) => seg.x === x && seg.y === y)) continue;
+        candidates.push({ x, y });
+      }
+    }
+
+    if (candidates.length === 0) return;
+
+    const head = candidates[Math.floor(rng() * candidates.length)];
+
+    const bodyLength =
+      config.minBodyLength + Math.floor(rng() * (config.maxBodyLength - config.minBodyLength + 1));
+
+    const body: Vector2Like[] = [];
+    for (let i = 0; i < bodyLength; i++) {
+      const segX = head.x - i;
+      if (segX < 0) break;
+      const tile = room.layout[head.y]?.[segX];
+      if (tile === '#' || tile === '~') break;
+      if (occupiedLocals.some((seg) => seg.x === segX && seg.y === head.y)) break;
+      body.push({ x: segX, y: head.y });
+    }
+
+    if (body.length < 2) return;
+
+    const hue = Math.floor(rng() * 360);
+    const saturation = 0.65 + rng() * 0.25;
+    const lightness = 0.45 + rng() * 0.15;
+    const colorHex = this.hslToHex(hue, saturation, lightness);
+
+    const id = `roaming-snake-${this.idCounter++}`;
+    const roaming: EnemyInstance = {
+      id,
+      roomId,
+      position: { ...head },
+      body,
+      fireCooldown: 999,
+      moveCooldown: 0,
+      flashTicks: 0,
+      name: 'Wild Snake',
+      encounterKind: 'roaming-snake',
+      aimDirection: { x: 1, y: 0 },
+    };
+    (roaming as any)._colorHex = colorHex;
+
+    const current = this.enemies.get(roomId) ?? [];
+    current.push(roaming);
+    this.enemies.set(roomId, current);
+  }
+
+  getRoamingSnakeMoveTarget(
+    snake: EnemyInstance & { body: Vector2Like[] },
+    roomId: string,
+    room: RoomSnapshot,
+    obstacleSet: ReadonlySet<string>,
+    rng: RandomGenerator,
+  ): { dir: Vector2Like; nextLocal: Vector2Like } | null {
+    const head = snake.body[0];
+    const currentDir = snake.aimDirection ?? { x: 1, y: 0 };
+
+    const preferredDirs: Vector2Like[] = [
+      currentDir,
+      { x: -currentDir.y, y: currentDir.x },
+      { x: currentDir.y, y: -currentDir.x },
+      { x: -currentDir.x, y: -currentDir.y },
+    ];
+
+    const allDirs: Vector2Like[] = [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ];
+
+    const tried = new Set<string>();
+    for (const dir of [...preferredDirs, ...allDirs]) {
+      const key = `${dir.x},${dir.y}`;
+      if (tried.has(key)) continue;
+      tried.add(key);
+
+      const next = { x: head.x + dir.x, y: head.y + dir.y };
+      const nextLocal = globalToLocal(roomId, next, this.grid);
+
+      const isRoomTransition =
+        nextLocal.x < 0 ||
+        nextLocal.y < 0 ||
+        nextLocal.x >= this.grid.cols ||
+        nextLocal.y >= this.grid.rows;
+
+      if (isRoomTransition) {
+        return {
+          dir,
+          nextLocal: {
+            x: Math.max(0, Math.min(next.x, this.grid.cols - 1)),
+            y: Math.max(0, Math.min(next.y, this.grid.rows - 1)),
+          },
+        };
+      }
+
+      const tile = room.layout[nextLocal.y]?.[nextLocal.x];
+      if (!tile || tile === '#' || tile === '~') continue;
+      if (obstacleSet.has(`${nextLocal.x},${nextLocal.y}`)) continue;
+
+      return { dir, nextLocal };
+    }
+
+    return null;
+  }
+
+  private hslToHex(h: number, s: number, l: number): string {
+    const hue = (h % 360) / 360;
+    const chroma = (1 - Math.abs(2 * l - 1)) * s;
+    const hPrime = hue * 6;
+    const x = chroma * (1 - Math.abs((hPrime % 2) - 1));
+    let r = 0,
+      g = 0,
+      b = 0;
+
+    if (hPrime >= 0 && hPrime < 1) {
+      r = chroma;
+      g = x;
+    } else if (hPrime >= 1 && hPrime < 2) {
+      r = x;
+      g = chroma;
+    } else if (hPrime >= 2 && hPrime < 3) {
+      g = chroma;
+      b = x;
+    } else if (hPrime >= 3 && hPrime < 4) {
+      g = x;
+      b = chroma;
+    } else if (hPrime >= 4 && hPrime < 5) {
+      r = x;
+      b = chroma;
+    } else {
+      r = chroma;
+      b = x;
+    }
+
+    const m = l - chroma / 2;
+    const toChannel = (v: number) => Math.max(0, Math.min(255, Math.round((v + m) * 255)));
+
+    return `#${((toChannel(r) << 16) | (toChannel(g) << 8) | toChannel(b)).toString(16).padStart(6, '0')}`;
+  }
+
   step(params: EnemyStepParams): EnemyStepResult {
     const bulletStep = this.stepBullets(params);
     const meleeStep = this.stepEnemies(params);
@@ -553,7 +749,7 @@ export class EnemyManager {
     occupied.add(`${headLocal.x},${headLocal.y}`);
 
     for (const enemy of roomEnemies) {
-      if (enemy.encounterKind === 'rival-snake') {
+      if (enemy.encounterKind === 'rival-snake' || enemy.encounterKind === 'roaming-snake') {
         nextEnemies.push({
           ...enemy,
           fireCooldown: 999,
@@ -756,7 +952,8 @@ export class EnemyManager {
           enemy.position.x === local.x &&
           enemy.position.y === local.y &&
           enemy.encounterKind !== 'enemy' &&
-          enemy.encounterKind !== 'rival-snake',
+          enemy.encounterKind !== 'rival-snake' &&
+          enemy.encounterKind !== 'roaming-snake', // Not a talkable NPC
       ) ?? null
     );
   }

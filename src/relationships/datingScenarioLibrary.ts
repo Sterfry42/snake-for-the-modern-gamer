@@ -6,6 +6,7 @@ import type {
   RelationshipPersonality,
   RelationshipTag,
 } from './relationshipTypes.js';
+import type { ActorRole } from '../actors/actorTypes.js';
 
 export type DatingScenarioKind = Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>;
 
@@ -36,6 +37,11 @@ export interface DatingScenarioEvent {
   branchResults: Record<string, DatingScenarioBranchResult>;
 }
 
+export interface DatingScenarioContext {
+  actorRole?: ActorRole;
+  contextTags?: readonly string[];
+}
+
 interface BranchBlueprint {
   id: `branch-${string}`;
   label: string;
@@ -50,6 +56,8 @@ interface BranchBlueprint {
 interface ScenarioBlueprint {
   id: string;
   kind: DatingScenarioKind;
+  roles?: readonly ActorRole[];
+  contextTags?: readonly string[];
   preferredPersonalities?: RelationshipPersonality[];
   setup: string;
   npcPrompt: Record<RelationshipPersonality, readonly string[]>;
@@ -1070,6 +1078,415 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
     },
   },
   {
+    id: 'talk-guard-law-mercy',
+    kind: 'talk',
+    roles: ['guard', 'gateGuard'],
+    contextTags: ['crime', 'faction'],
+    setup: 'Their post overlooks the town road. The wanted notices flutter like nervous witnesses.',
+    npcPrompt: {
+      poetic: [
+        'Law is a lantern until someone uses it to burn a house down. Tell me what you see.',
+      ],
+      deadpan: [
+        'Professional question. The law failed someone today. Diagnose without grandstanding.',
+      ],
+      hungry: ['The town is hungry for blame. Hungry towns bite the nearest hand.'],
+      regal: ['A guard serves order. A lover must decide whether order deserves the whole heart.'],
+      sharp: ['Law is a contract enforced by boots. I am asking whether you read the small print.'],
+    },
+    question: 'A guard asks what should happen to a thief who stole grain for children.',
+    branches: [
+      {
+        id: 'branch-praise-law',
+        label: 'Praise Law',
+        tags: ['ritual', 'contract', 'publicAffection'],
+        tier: 'neutral',
+        response: {
+          poetic: ['Law without mercy is just a cage that learned grammar.'],
+          deadpan: ['Law praise logged. Useful, incomplete, low compassion.'],
+          hungry: ['Law does not fill a bowl. It only labels the empty one.'],
+          regal: ['Order matters. So does knowing when order has become vanity.'],
+          sharp: [
+            'Law is leverage. Praising leverage without asking who holds it is amateur work.',
+          ],
+        },
+      },
+      {
+        id: 'branch-show-mercy',
+        label: 'Show Mercy',
+        tags: ['mercy', 'humility', 'protective'],
+        tier: 'liked',
+        response: {
+          poetic: ['Mercy. Good. Not softness. A blade turned sideways.'],
+          deadpan: [
+            'Mercy recommendation accepted. It may even reduce future theft. Imagine that.',
+          ],
+          hungry: ['Feed the children first. Then lecture the thief where nobody is starving.'],
+          regal: ['Mercy is order remembering it has a soul.'],
+          sharp: ['Mercy can be profitable when punishment would create three new thieves. Fine.'],
+        },
+      },
+      {
+        id: 'branch-threaten-thief',
+        label: 'Threaten Thief',
+        tags: ['violence', 'recklessness', 'publicAffection'],
+        tier: 'disliked',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: ['You fed a hungry story more teeth. I dislike that instinct.'],
+          deadpan: ['Threat-first policy. Efficient at creating worse problems.'],
+          hungry: ['Threats do not cook grain. They just make fear chew faster.'],
+          regal: ['Punishment without judgment is not justice. It is appetite in uniform.'],
+          sharp: ['Free violence. No leverage. Bad investment.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The noticeboard keeps fluttering, unconvinced by everyone.'],
+      deadpan: ['The guard resumes watching the road with updated suspicion.'],
+      hungry: ['Somewhere nearby, bread smells like politics.'],
+      regal: ['The post feels less like a job and more like a vow under audit.'],
+      sharp: ['The road remains open. The question does not.'],
+    },
+  },
+  {
+    id: 'flirt-shopkeeper-scarcity',
+    kind: 'flirt',
+    roles: ['shopkeeper', 'goblinMerchant', 'blackMarketMerchant'],
+    contextTags: ['food-shortage', 'market'],
+    setup:
+      'They close the shop ledger with one finger still holding the page, as if affection might try to steal inventory.',
+    npcPrompt: {
+      poetic: ['Scarcity makes poets of cowards and accountants of lovers. Which are you today?'],
+      deadpan: ['Romantic compatibility question: a shipment is late and customers are panicking.'],
+      hungry: ['The shelves are thin. The town is pretending not to lick its teeth.'],
+      regal: ['A merchant under shortage holds a small kingdom together with string and prices.'],
+      sharp: ['Shortage is when affection learns whether it has a price ceiling. Speak carefully.'],
+    },
+    question: 'They ask what you would do with the last warm loaf in town.',
+    branches: [
+      {
+        id: 'branch-sell-fair',
+        label: 'Sell Fair',
+        tags: ['pragmatic', 'ledger', 'mercy'],
+        tier: 'liked',
+        response: {
+          poetic: ['Fair price. Not glamorous, but neither is winter. I respect it.'],
+          deadpan: ['Correct. Fair pricing prevents riots and boring speeches.'],
+          hungry: ['Fair price means more people eat. I like math when it has bread in it.'],
+          regal: ['A fair market is a quiet form of mercy.'],
+          sharp: ['Fair price protects reputation and repeat customers. Good margin long-term.'],
+        },
+      },
+      {
+        id: 'branch-give-hungry',
+        label: 'Give Hungry',
+        tags: ['mercy', 'selfless', 'food'],
+        tier: 'loved',
+        response: {
+          poetic: [
+            'You give it where hunger is loudest. Dangerous kindness. Beautiful, if costly.',
+          ],
+          deadpan: [
+            'Charity noted. Financially poor. Socially powerful. Emotionally inconvenient.',
+          ],
+          hungry: ['Yes. Feed the empty mouth first. Romance can wait its turn and still be warm.'],
+          regal: ['A ruler is judged by who eats when the table is small.'],
+          sharp: ['Gift the loaf, buy loyalty, reduce panic. Surprisingly efficient tenderness.'],
+        },
+      },
+      {
+        id: 'branch-auction-loaf',
+        label: 'Auction It',
+        tags: ['transaction', 'ambition', 'betrayal'],
+        tier: 'disliked',
+        outcome: 'mean',
+        response: {
+          poetic: ['You turned hunger into theater and sold tickets. No.'],
+          deadpan: ['Maximum profit. Maximum resentment. Poor civic hygiene.'],
+          hungry: ['You made starving people bid against each other. I hate that taste.'],
+          regal: ['Profit without duty is a crown made of teeth.'],
+          sharp: ['Short-term gain. Long-term knives. Amateur greed.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The ledger shuts, but the page keeps its finger on you.'],
+      deadpan: ['The shop remains open. The moral inventory is less stable.'],
+      hungry: ['The idea of bread has become unreasonably intimate.'],
+      regal: ['Their counter looks briefly like a judgment bench.'],
+      sharp: ['Somewhere in the ledger, your answer becomes a risk category.'],
+    },
+  },
+  {
+    id: 'talk-bartender-rumor-truth',
+    kind: 'talk',
+    roles: ['bartender', 'cook'],
+    contextTags: ['rumor', 'crime'],
+    setup: 'The tavern is busy enough that every table can pretend it is not listening.',
+    npcPrompt: {
+      poetic: ['Rumor is just truth wearing perfume and a knife. Which bottle do you open?'],
+      deadpan: ['A customer lied loudly. The room enjoyed it. Response?'],
+      hungry: ['People gossip better when fed. That does not make them kinder.'],
+      regal: ['A tavern is a court where the witnesses are drunk and the judge wants stew.'],
+      sharp: ['Rumor is currency. Spend it, save it, or counterfeit it.'],
+    },
+    question: 'They ask whether to bury an ugly truth or serve it with the ale.',
+    branches: [
+      {
+        id: 'branch-serve-truth',
+        label: 'Serve Truth',
+        tags: ['honesty', 'publicAffection', 'bravery'],
+        tier: 'liked',
+        response: {
+          poetic: ['Truth on the table. Messy, shining, impossible to unspill.'],
+          deadpan: ['Public truth. High splash radius. Sometimes necessary.'],
+          hungry: ['Serve it hot or it curdles. I like that instinct.'],
+          regal: ['Truth publicly served can restore order, if the hand is steady.'],
+          sharp: ['Disclosure creates enemies and useful clarity. Acceptable risk.'],
+        },
+      },
+      {
+        id: 'branch-protect-secret',
+        label: 'Protect Secret',
+        tags: ['secrecy', 'protective', 'restraint'],
+        tier: 'neutral',
+        response: {
+          poetic: ['A secret protected can be mercy or rot. I need to know which.'],
+          deadpan: ['Confidentiality preserved. Motive still under review.'],
+          hungry: ['Some secrets need a lid. Some need a spoon and witnesses.'],
+          regal: ['Discretion is honorable only when it does not shelter cruelty.'],
+          sharp: ['Protected secret. Valuable asset. Dangerous liability.'],
+        },
+      },
+      {
+        id: 'branch-twist-rumor',
+        label: 'Twist Rumor',
+        tags: ['clever', 'secrecy', 'betrayal'],
+        tier: 'disliked',
+        outcome: 'mean',
+        response: {
+          poetic: ['You taught the lie to dance. I dislike how pretty it looked.'],
+          deadpan: ['Manipulated rumor. Clever. Untrustworthy.'],
+          hungry: ['You seasoned a lie and fed it to the room. Bad kitchen.'],
+          regal: ['A twisted rumor is poison with manners.'],
+          sharp: ['Useful lie. Expensive if traced. I am listening for your price.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The tavern exhales like it has been spared or sentenced.'],
+      deadpan: ['Two tables immediately pretend they heard nothing.'],
+      hungry: ['The stew tastes more political than before.'],
+      regal: ['Every mug in the room becomes a listening post.'],
+      sharp: ['The rumor market adjusts before anyone admits there is a market.'],
+    },
+  },
+  {
+    id: 'flirt-thief-stolen-first',
+    kind: 'flirt',
+    roles: ['thief', 'thiefContact', 'guildContact', 'blackMarketMerchant'],
+    contextTags: ['guild', 'crime'],
+    setup:
+      'They roll a coin over their knuckles and watch whether your eyes follow the shine or the hand.',
+    npcPrompt: {
+      poetic: ['The law calls it theft when the wrong hands learn hunger. Convince me otherwise.'],
+      deadpan: ['Flirtation prompt: who stole first, the thief or the crown?'],
+      hungry: ['Some theft is hunger. Some theft is boredom with sharper shoes.'],
+      regal: ['A thief asks whether law is justice or merely possession with banners.'],
+      sharp: ['Every theft has a first thief. Usually they own a desk.'],
+    },
+    question: 'They ask who deserves punishment when a thief steals from a corrupt tax office.',
+    branches: [
+      {
+        id: 'branch-blame-king',
+        label: 'Blame King',
+        tags: ['clever', 'ambition', 'publicAffection'],
+        tier: 'liked',
+        response: {
+          poetic: ['You aim upward. Dangerous. Romantic, in the way lightning is romantic.'],
+          deadpan: ['King blamed. Plausible. Treason-adjacent.'],
+          hungry: ['If the crown ate first, I care less who stole crumbs.'],
+          regal: ['A ruler may deserve blame. Say it with evidence, not appetite.'],
+          sharp: ['Good. Always audit the largest pocket first.'],
+        },
+      },
+      {
+        id: 'branch-protect-poor',
+        label: 'Protect Poor',
+        tags: ['mercy', 'loyalty', 'selfless'],
+        tier: 'loved',
+        response: {
+          poetic: ['You protect the hands with nothing in them. That is a dangerous tenderness.'],
+          deadpan: ['Protecting the poor is morally efficient and legally inconvenient. Good.'],
+          hungry: ['Yes. Empty stomachs are not moral failures. They are alarms.'],
+          regal: ['Nobility without protection is costume. You remembered protection.'],
+          sharp: ['Good alliance choice. The poor remember favors with frightening accuracy.'],
+        },
+      },
+      {
+        id: 'branch-praise-prison',
+        label: 'Praise Prison',
+        tags: ['ritual', 'violence', 'betrayal'],
+        tier: 'hated',
+        outcome: 'mean',
+        tone: 'danger',
+        response: {
+          poetic: ['You praised the cage before asking who built hunger. Ugly.'],
+          deadpan: ['Prison enthusiasm noted. Trust reduced.'],
+          hungry: ['You cannot jail an empty belly into becoming full.'],
+          regal: ['Justice that begins and ends with chains is not justice.'],
+          sharp: ['Prison is expensive theater unless it solves motive. Bad answer.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The coin vanishes. The question does not.'],
+      deadpan: ['They still have the coin. You are almost certain.'],
+      hungry: ['The room smells like metal and somebody skipping dinner.'],
+      regal: ['The stolen coin becomes a tiny crown in their palm.'],
+      sharp: ['They know exactly what you watched. That was the test.'],
+    },
+  },
+  {
+    id: 'date-questgiver-duty',
+    kind: 'date',
+    roles: ['questGiver'],
+    contextTags: ['quest'],
+    setup:
+      'The date begins beside a quest board because duty has terrible timing and excellent posture.',
+    npcPrompt: {
+      poetic: [
+        'Work follows me like a ghost with a clipboard. Tell me whether love must outrun it.',
+      ],
+      deadpan: ['Date compromised by unfinished work. Prioritization test begins.'],
+      hungry: ['A quest before dinner is a crime unless someone is bleeding. Is someone bleeding?'],
+      regal: [
+        'Duty interrupts pleasure. This is not an accident; it is character revealing itself.',
+      ],
+      sharp: [
+        'A quest board on a date is either disrespect or useful disclosure. Choose the interpretation.',
+      ],
+    },
+    question: 'They ask what you do when romance and urgent work collide.',
+    branches: [
+      {
+        id: 'branch-help-first',
+        label: 'Help First',
+        tags: ['commitment', 'protective', 'selfless'],
+        tier: 'liked',
+        response: {
+          poetic: ['You put the wound before the wine. I resent how much I admire that.'],
+          deadpan: ['Help first. Correct if urgent. Emotionally salvageable.'],
+          hungry: ['Fine. Save the person, then feed me twice.'],
+          regal: ['Duty before indulgence. Good. But do not use duty to avoid intimacy.'],
+          sharp: ['You chose urgent work. Sensible. Now prove I was not merely postponed.'],
+        },
+      },
+      {
+        id: 'branch-date-first',
+        label: 'Date First',
+        tags: ['privateAffection', 'avoidance', 'neediness'],
+        tier: 'neutral',
+        response: {
+          poetic: ['Choosing me feels sweet until the unattended wound starts speaking.'],
+          deadpan: ['Date first. Romantic. Potentially negligent. Mixed score.'],
+          hungry: ['I like being chosen. I do not like hearing trouble starve outside.'],
+          regal: ['Affection that ignores duty curdles into selfishness. Carefully.'],
+          sharp: ['You chose me. Flattering. Liability pending.'],
+        },
+      },
+      {
+        id: 'branch-share-burden',
+        label: 'Share Burden',
+        tags: ['loyalty', 'competence', 'commitment'],
+        tier: 'loved',
+        response: {
+          poetic: ['Together, then. Romance with sleeves rolled up. Beautiful and inconvenient.'],
+          deadpan: ['Shared workload. Best option. Disturbingly attractive.'],
+          hungry: ['Yes. We solve it together and call the meal after a victory.'],
+          regal: [
+            'Partnership is not escape from duty. It is duty with another hand on the banner.',
+          ],
+          sharp: ['Shared burden. Efficient, intimate, hard to exploit. Excellent.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The quest board creaks like it thinks it is part of the relationship.'],
+      deadpan: ['The date has acquired objectives. Romance survives worse.'],
+      hungry: ['Dinner is now a reward, a threat, or both.'],
+      regal: ['Duty and affection stand beside each other, both waiting to be chosen correctly.'],
+      sharp: ['The board records nothing. They record everything.'],
+    },
+  },
+  {
+    id: 'talk-resident-curfew',
+    kind: 'talk',
+    roles: ['resident'],
+    contextTags: ['curfew', 'town'],
+    setup: 'A curfew bell rings early. Windows close one by one, each with a different opinion.',
+    npcPrompt: {
+      poetic: ['The town is tucking fear into bed and calling it safety. Do you believe it?'],
+      deadpan: ['Curfew active. Evaluate civic fear versus actual protection.'],
+      hungry: ['Curfew means cold dinners and quiet streets. Sometimes quiet is hungry too.'],
+      regal: ['A town may command doors closed. It cannot command hearts calm.'],
+      sharp: ['Curfew moves risk off the street and into houses. Convenient for officials.'],
+    },
+    question: 'They ask whether the curfew protects people or controls them.',
+    branches: [
+      {
+        id: 'branch-support-curfew',
+        label: 'Support Curfew',
+        tags: ['protective', 'ritual', 'pragmatic'],
+        tier: 'neutral',
+        response: {
+          poetic: ['Protection can be real. It can also learn to enjoy the lock.'],
+          deadpan: [
+            'Curfew support is defensible under actual threat. Keep watching the enforcers.',
+          ],
+          hungry: ['If it gets people home alive, fine. If it keeps bread from moving, less fine.'],
+          regal: ['Order may protect. It must answer to the people it confines.'],
+          sharp: ['Curfew is a tool. Tools reveal owners.'],
+        },
+      },
+      {
+        id: 'branch-mock-curfew',
+        label: 'Mock Curfew',
+        tags: ['clever', 'recklessness', 'publicAffection'],
+        tier: 'disliked',
+        response: {
+          poetic: ['A joke can loosen fear. It can also spit on it. Yours did both.'],
+          deadpan: ['Mockery provides morale and no shelter. Limited utility.'],
+          hungry: ['Funny, sure. Still cold outside. Still people scared.'],
+          regal: ['Fear deserves more than a clever bootprint.'],
+          sharp: ['Mockery is cheap cover. I prefer plans.'],
+        },
+      },
+      {
+        id: 'branch-walk-them-home',
+        label: 'Walk Home',
+        tags: ['protective', 'privateAffection', 'bravery'],
+        tier: 'loved',
+        response: {
+          poetic: ['You answer the bell with a walk beside me. Small vow, long shadow.'],
+          deadpan: ['Escort offered. Practical, respectful, quietly effective.'],
+          hungry: ['Walk me home and I may forgive the bell for ruining the evening.'],
+          regal: ['You do not argue safety; you practice it. Good.'],
+          sharp: ['Low speech, high utility. I like that shape of care.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The bell fades, but every door keeps listening.'],
+      deadpan: ['The town becomes quieter and not automatically safer.'],
+      hungry: ['Somewhere, soup is being eaten in a hurry.'],
+      regal: ['The street bows to the bell without liking it.'],
+      sharp: ['The curfew creates shadows with better paperwork.'],
+    },
+  },
+  {
     id: 'talk-child-future',
     kind: 'talk',
     setup:
@@ -1199,16 +1616,37 @@ export function createPersonalityDatingScenario(
   kind: DatingScenarioKind,
   personality: RelationshipPersonality,
   rng: () => number,
+  context: DatingScenarioContext = {},
 ): DatingScenarioEvent {
   const candidates = ROMANCE_SCENARIOS.filter((scenario) => scenario.kind === kind);
   const weightedCandidates = candidates.flatMap((scenario) =>
-    scenario.preferredPersonalities?.includes(personality) ? [scenario, scenario] : [scenario],
+    Array.from({ length: scenarioWeight(scenario, personality, context) }, () => scenario),
   );
   const scenario =
     weightedCandidates[Math.floor(rng() * weightedCandidates.length)] ??
     candidates[0] ??
     ROMANCE_SCENARIOS[0]!;
   return materializeScenario(profile, personality, scenario);
+}
+
+function scenarioWeight(
+  scenario: ScenarioBlueprint,
+  personality: RelationshipPersonality,
+  context: DatingScenarioContext,
+): number {
+  let weight = 1;
+  if (scenario.preferredPersonalities?.includes(personality)) weight += 1;
+  if (context.actorRole && scenario.roles?.includes(context.actorRole)) weight += 4;
+  const contextMatches =
+    scenario.contextTags?.filter((tag) => context.contextTags?.includes(tag)).length ?? 0;
+  weight += contextMatches * 2;
+  if (
+    scenario.roles?.length &&
+    (!context.actorRole || !scenario.roles.includes(context.actorRole))
+  ) {
+    weight = Math.max(1, weight - 1);
+  }
+  return Math.max(1, weight);
 }
 
 function materializeScenario(

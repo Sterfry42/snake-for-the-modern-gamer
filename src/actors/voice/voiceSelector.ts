@@ -15,6 +15,11 @@ import {
   EXPANDED_ASK_PERSONAL_VOICE,
   EXPANDED_TALK_VOICE,
 } from './voicePacks/expandedVoice.js';
+import {
+  ROLE_CONTEXT_ASK_AROUND_VOICE,
+  ROLE_CONTEXT_ASK_PERSONAL_VOICE,
+  ROLE_CONTEXT_TALK_VOICE,
+} from './voicePacks/roleContextVoice.js';
 import { TALK_VOICE } from './voicePacks/talkVoice.js';
 import type {
   ActorConversationContext,
@@ -34,11 +39,14 @@ const ALL_VOICE_ENTRIES: readonly ActorVoiceEntry[] = [
   ...EXPANDED_ASK_AROUND_VOICE,
   ...DEEP_ASK_AROUND_VOICE,
   ...CONSISTENCY_ASK_AROUND_VOICE,
+  ...ROLE_CONTEXT_ASK_AROUND_VOICE,
   ...ASK_PERSONAL_VOICE,
   ...EXPANDED_ASK_PERSONAL_VOICE,
   ...DEEP_ASK_PERSONAL_VOICE,
   ...CONSISTENCY_ASK_PERSONAL_VOICE,
+  ...ROLE_CONTEXT_ASK_PERSONAL_VOICE,
   ...CONSISTENCY_TALK_VOICE,
+  ...ROLE_CONTEXT_TALK_VOICE,
 ];
 
 export function selectActorConversation(

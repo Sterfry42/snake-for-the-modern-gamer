@@ -1,4 +1,5 @@
 import { defaultGameConfig, type GameConfig, type PowerupKind } from '../config/gameConfig.js';
+import { defaultRoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
 import { AppleService, type AppleConsumptionResult } from '../apples/appleService.js';
@@ -322,7 +323,8 @@ export interface StepResult {
     | 'bullet'
     | 'temperature'
     | 'water'
-    | 'shark';
+    | 'shark'
+    | 'roaming-snake';
   apple: {
     eaten: boolean;
     rewards?: AppleConsumptionResult['rewards'];
@@ -672,6 +674,7 @@ export class SnakeGame implements QuestRuntime {
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid);
     this.enemies = new EnemyManager(config.grid, this.rng);
+    this.enemies.setRoamingSnakeConfig(config.roamingSnakes);
     this.animals = new AnimalManager(config.grid, this.rng);
     this.questController = new QuestController(registry, {
       initialQuestCount: config.quests.initialQuestCount,
@@ -2731,6 +2734,19 @@ export class SnakeGame implements QuestRuntime {
       options.appleSnapshot = this.apples.getSnapshot(this.snake.currentRoomId);
       options.appleStateChanged = true;
     }
+
+    // 3. stepRoamingSnakes (roaming snake movement)
+    this.stepRoamingSnakes(options.roomsChanged);
+
+    // 4. Check: roaming snake head on player body → roaming snake dies
+    this.resolveRoamingSnakeHeadCollision(options.roomsChanged);
+
+    // 5. Check: player head on roaming snake body → player dies
+    if (this.checkRoamingSnakeBodyCollision()) {
+      this.markDeathAtCurrentHead('roaming-snake');
+      return this.createActorDeathStepResult('roaming-snake', options);
+    }
+
     const enemyMeleeDamageKills = this.applyBulletDamage(enemyStep.meleeHits, enemyStep.hitStyle);
     if (animalStep.damageTaken > 0 || enemyMeleeDamageKills) {
       if (
@@ -2834,6 +2850,142 @@ export class SnakeGame implements QuestRuntime {
       currentRoomAppleChanged ||= ateCurrentRoomApple;
     }
     return { currentRoomAppleChanged };
+  }
+
+  private stepRoamingSnakes(roomsChanged: Set<string>): void {
+    if (this.snake.bodySegments.length === 0) return;
+
+    const roamingSnakes = this.enemies.getRoamingSnakes();
+    if (roamingSnakes.length === 0) return;
+
+    for (const snake of roamingSnakes) {
+      const body = snake.body?.map((seg) => ({ ...seg })) ?? [{ ...snake.position }];
+      if (body.length === 0) {
+        this.enemies.removeEnemy(snake.id);
+        roomsChanged.add(snake.roomId);
+        continue;
+      }
+
+      if (snake.moveCooldown > 0) {
+        snake.moveCooldown--;
+        this.enemies.updateEnemy(snake);
+        continue;
+      }
+
+      const room = this.world.getRoom(snake.roomId);
+
+      const allBodySegments: Vector2Like[] = [];
+
+      for (const rival of this.enemies.getRivalSnakes()) {
+        if (rival.body) {
+          allBodySegments.push(...rival.body.map((s) => ({ ...s })));
+        }
+      }
+
+      for (const other of this.enemies.getRoamingSnakes()) {
+        if (other.body) {
+          allBodySegments.push(...other.body.map((s) => ({ ...s })));
+        }
+      }
+
+      const obstacleSet = new Set(allBodySegments.map((s) => `${s.x},${s.y}`));
+
+      const result = this.enemies.getRoamingSnakeMoveTarget(
+        { ...snake, body } as EnemyInstance & { body: Vector2Like[] },
+        snake.roomId,
+        room,
+        obstacleSet,
+        this.rng,
+      );
+
+      if (!result) {
+        snake.moveCooldown = (this.config.roamingSnakes ?? defaultRoamingSnakeConfig).moveCooldown;
+        this.enemies.updateEnemy(snake);
+        continue;
+      }
+
+      const newHead = { x: snake.position.x + result.dir.x, y: snake.position.y + result.dir.y };
+      let newRoomId = snake.roomId;
+
+      if (!isCaveRoomId(snake.roomId)) {
+        const [roomX, roomY] = snake.roomId.split(',').map(Number);
+        const newLocalX = newHead.x - roomX * this.config.grid.cols;
+        const newLocalY = newHead.y - roomY * this.config.grid.rows;
+        const roomDx = newLocalX < 0 ? -1 : newLocalX >= this.config.grid.cols ? 1 : 0;
+        const roomDy = newLocalY < 0 ? -1 : newLocalY >= this.config.grid.rows ? 1 : 0;
+
+        if (roomDx !== 0 || roomDy !== 0) {
+          const shifted = this.shiftRoomId(snake.roomId, roomDx, roomDy);
+          if (!shifted) {
+            snake.moveCooldown = 1;
+            this.enemies.updateEnemy(snake);
+            continue;
+          }
+          newRoomId = shifted;
+          newHead.x = Math.max(0, Math.min(newHead.x, this.config.grid.cols - 1));
+          newHead.y = Math.max(0, Math.min(newHead.y, this.config.grid.rows - 1));
+        }
+      }
+
+      const newBody: Vector2Like[] = [newHead, ...body.slice(0, -1)];
+
+      const targetRoom = this.world.getRoom(newRoomId);
+      const targetLocal = this.worldToLocal(newRoomId, newHead);
+      const tile = targetRoom.layout[targetLocal.y]?.[targetLocal.x];
+      if (tile === '#' || tile === '~') {
+        snake.moveCooldown = 1;
+        this.enemies.updateEnemy(snake);
+        continue;
+      }
+
+      const previousRoomId = snake.roomId;
+      this.enemies.updateEnemy({
+        ...snake,
+        roomId: newRoomId,
+        position: { ...newHead },
+        body: newBody,
+        aimDirection: result.dir,
+        moveCooldown: (this.config.roamingSnakes ?? defaultRoamingSnakeConfig).moveCooldown,
+        flashTicks: Math.max(0, snake.flashTicks - 1),
+      });
+      roomsChanged.add(previousRoomId);
+      if (previousRoomId !== newRoomId) {
+        roomsChanged.add(newRoomId);
+      }
+    }
+  }
+
+  private resolveRoamingSnakeHeadCollision(roomsChanged: Set<string>): void {
+    const playerSegments = Array.from(this.snake.bodySegments);
+    const roamingSnakes = this.enemies.getRoamingSnakes();
+
+    for (const snake of roamingSnakes) {
+      const body = snake.body?.map((seg) => ({ ...seg })) ?? [{ ...snake.position }];
+      if (body.length === 0) continue;
+
+      const head = body[0];
+      if (playerSegments.some((p) => p.x === head.x && p.y === head.y)) {
+        this.enemies.removeEnemy(snake.id);
+        roomsChanged.add(snake.roomId);
+      }
+    }
+  }
+
+  private checkRoamingSnakeBodyCollision(): boolean {
+    const playerHead = this.snake.bodySegments[0];
+    if (!playerHead) return false;
+
+    const roamingSnakes = this.enemies.getRoamingSnakes();
+
+    for (const snake of roamingSnakes) {
+      const body = snake.body ?? [snake.position];
+      for (const segment of body) {
+        if (segment.x === playerHead.x && segment.y === playerHead.y) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private consumeAppleForRivalSnake(rival: EnemyInstance, roomsChanged: Set<string>): boolean {
@@ -3143,7 +3295,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private createActorDeathStepResult(
-    deathReason: 'boss' | 'bullet',
+    deathReason: 'boss' | 'bullet' | 'roaming-snake',
     options: {
       roomsChanged: Set<string>;
       roomHasChanged: boolean;
@@ -4048,6 +4200,10 @@ export class SnakeGame implements QuestRuntime {
       canUseRelationshipActions: true,
       recentRumorCount: this.getRecentWorldRumors().length,
     });
+  }
+
+  getActorRole(actorId: string): Actor['role'] | undefined {
+    return this.actors.getActor(actorId)?.role;
   }
 
   getTownResidentActorId(townId: string, residentId: string, role: string): string {
