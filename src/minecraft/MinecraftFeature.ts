@@ -220,7 +220,7 @@ export class MinecraftFeature extends Feature {
     if (this.minecraftMode) {
       // Switch to Minecraft mode
       scene.setFlag('ui.suppressHud', true);
-      scene.setFlag('ui.questInteraction', { message: 'Minecraft mode: Left-click to break blocks, right-click to place. WASD to move. E for crafting.' });
+      scene.setFlag('ui.questInteraction', { message: 'Minecraft mode: Q to break block, R to place block. WASD to move. E for crafting.' });
 
       // Set player spawn to current position
       const head = scene.snakeGame.getSnakeBody()[0];
@@ -622,6 +622,109 @@ export class MinecraftFeature extends Feature {
         }
       }
     }
+  }
+
+  handleKeyboardBreak(scene: SnakeScene): boolean {
+    if (!this.minecraftMode || !this.player) return false;
+
+    const room = scene.snakeGame.getCurrentRoom();
+    const head = scene.snakeGame.getSnakeBody()[0];
+    if (!head) return false;
+
+    const blockType = room.minecraftBlocks?.[`${head.x},${head.y}`];
+
+    // Harvest crops
+    if (blockType === 'wheat_crop' || blockType === 'pumpkin') {
+      const result = tryHarvestCrop(room, this.player, head.x, head.y, blockType);
+      if (result.success) {
+        scene.juice.blockBreak(head.x * scene.grid.cell + scene.grid.cell / 2, head.y * scene.grid.cell + scene.grid.cell / 2);
+      }
+      if (result.message) {
+        scene.setFlag('ui.questInteraction', { message: result.message });
+      }
+      return true;
+    }
+
+    // Break block
+    const result = tryBreakBlock(scene, this.player, head.x, head.y);
+    if (result.success) {
+      if (result.droppedItem) {
+        this.player.addItem(result.droppedItem, result.droppedCount ?? 1);
+        scene.setFlag('loot.itemPicked', {
+          head: { x: head.x, y: head.y },
+          itemName: getMinecraftItem(result.droppedItem)?.name ?? result.droppedItem,
+          itemId: result.droppedItem,
+        });
+      }
+      // If breaking a furnace, chest, or bed, remove from tracking
+      if (isPlaceableSpecialBlock(blockType)) {
+        const key = `${head.x},${head.y},${room.id}`;
+        if (blockType === 'furnace') this.furnaces.delete(key);
+        if (blockType === 'chest') this.chests.delete(key);
+        if (blockType === 'bed') this.beds.delete(key);
+      }
+    }
+    if (result.message) {
+      scene.setFlag('ui.questInteraction', { message: result.message });
+    }
+    return true;
+  }
+
+  handleKeyboardPlace(scene: SnakeScene): boolean {
+    if (!this.minecraftMode || !this.player) return false;
+
+    const room = scene.snakeGame.getCurrentRoom();
+    const head = scene.snakeGame.getSnakeBody()[0];
+    if (!head) return false;
+
+    const blockType = room.minecraftBlocks?.[`${head.x},${head.y}`];
+
+    // Try special block interactions first
+    if (blockType === 'furnace') {
+      const result = this.interactWithFurnace(scene, head.x, head.y);
+      if (result) {
+        scene.setFlag('ui.questInteraction', { message: result });
+        return true;
+      }
+      return true;
+    }
+
+    if (blockType === 'chest') {
+      const result = this.interactWithChest(scene, head.x, head.y);
+      if (result) {
+        scene.setFlag('ui.questInteraction', { message: result });
+        return true;
+      }
+      return true;
+    }
+
+    if (blockType === 'bed') {
+      const result = this.tryBedSleep(scene, head.x, head.y);
+      scene.setFlag('ui.questInteraction', { message: result });
+      return true;
+    }
+
+    if (blockType === 'crafting_table') {
+      this.toggleCraftingUI(scene);
+      return true;
+    }
+
+    // Try farming interaction
+    if (blockType === 'farmland') {
+      const result = this.tryFarmInteraction(scene, head.x, head.y, room);
+      if (result) {
+        scene.setFlag('ui.questInteraction', { message: result });
+        return true;
+      }
+      return true;
+    }
+
+    // Place block
+    const placeResult = this.tryPlaceBlockWithSelection(scene, head.x, head.y);
+    if (!placeResult.success && placeResult.message) {
+      scene.setFlag('ui.questInteraction', { message: placeResult.message });
+    }
+    return true;
   }
 
   saveToScene(scene: SnakeScene): void {

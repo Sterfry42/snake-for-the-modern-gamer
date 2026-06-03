@@ -1242,6 +1242,16 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       if (this.minecraftMode && !this.deathCutscene) {
+        if (key === 'q') {
+          this.minecraftFeature?.handleKeyboardBreak(this);
+          this.isDirty = true;
+          return;
+        }
+        if (key === 'r') {
+          this.minecraftFeature?.handleKeyboardPlace(this);
+          this.isDirty = true;
+          return;
+        }
         if (['arrowup', 'w'].includes(key)) {
           this.setDir(0, -1);
           this.takeManualTurn();
@@ -1516,7 +1526,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.setFlag('ui.suppressHud', true);
       this.setFlag('ui.questInteraction', {
         message:
-          'Minecraft mode: Shift+C to toggle. Left-click to break blocks, right-click to place. WASD to move. E for crafting.',
+          'Minecraft mode: Shift+C to toggle. Q to break block, R to place block. WASD to move. E for crafting.',
       });
     } else {
       // Switch back to snake mode - resume auto-movement
