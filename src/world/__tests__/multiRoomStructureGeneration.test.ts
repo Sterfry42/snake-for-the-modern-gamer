@@ -237,26 +237,34 @@ describe('multi-room structure generation', () => {
     }
   });
 
-  it('keeps guild services unavailable until discovery', () => {
+  it('keeps thieves guild off the physical town footprint until grate discovery', () => {
     const squareId = findTownRoom();
     const resolver = createResolver();
     const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
     const guildId = `${anchor.x + 3},${anchor.y + 2},${anchor.z}`;
     const room = generateRoomsInOrder([guildId])[0]!;
-    expect(room.town?.districtByRoomId[guildId]).toBe('guildHideout');
-    expect(room.town?.discoveredGuild).toBe(false);
-    expect(room.town?.thievesGuild?.discovered).toBe(false);
+    expect(room.town?.districtByRoomId[guildId]).not.toBe('guildHideout');
+    const alley = generateRoomsInOrder([`${anchor.x + 2},${anchor.y + 2},${anchor.z}`])[0]!;
+    expect(alley.town?.rooms.find((townRoom) => townRoom.kind === 'guildHideout')?.hidden).toBe(true);
+    expect(alley.town?.discoveredGuild).toBe(false);
+    expect(alley.town?.thievesGuild?.discovered).toBe(false);
   });
 
-  it('adds visible district symbols and more guards and thieves', () => {
+  it('adds physical service residents and a back-alley guild grate', () => {
     const squareId = findTownRoom();
     const resolver = createResolver();
     const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
     const gate = generateRoomsInOrder([`${anchor.x + 1},${anchor.y},${anchor.z}`])[0]!;
     const alley = generateRoomsInOrder([`${anchor.x + 2},${anchor.y + 2},${anchor.z}`])[0]!;
-    expect(gate.layout.join('').includes('N')).toBe(true);
+    const market = generateRoomsInOrder([`${anchor.x + 3},${anchor.y},${anchor.z}`])[0]!;
+    const tavern = generateRoomsInOrder([`${anchor.x + 2},${anchor.y + 1},${anchor.z}`])[0]!;
+    expect(gate.layout.join('').includes('G')).toBe(true);
     expect(alley.layout.join('').includes('U')).toBe(true);
     expect(gate.town?.residents.filter((resident) => resident.role === 'guard').length).toBeGreaterThanOrEqual(4);
-    expect(alley.town?.residents.filter((resident) => resident.role === 'thief' || resident.role === 'thiefContact').length).toBeGreaterThanOrEqual(3);
+    expect(market.town?.residents.some((resident) => resident.role === 'equipmentMerchant')).toBe(true);
+    expect(market.town?.residents.some((resident) => resident.role === 'potionMaker')).toBe(true);
+    expect(market.town?.residents.some((resident) => resident.role === 'butcher')).toBe(true);
+    expect(tavern.town?.residents.some((resident) => resident.role === 'cardDealer')).toBe(true);
+    expect(alley.town?.residents.filter((resident) => resident.role === 'thief' || resident.role === 'thiefContact').length).toBeGreaterThanOrEqual(2);
   });
 });

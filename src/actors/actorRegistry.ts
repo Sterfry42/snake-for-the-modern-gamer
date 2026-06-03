@@ -103,8 +103,12 @@ export class ActorRegistry {
     if (args.actorId) {
       const existing = this.actors.get(args.actorId);
       if (existing) {
+        const relationshipDead = args.stage === 'dead';
         const next: Actor = {
           ...existing,
+          health: relationshipDead
+            ? { current: 0, max: existing.health?.max ?? 1, state: 'dead' }
+            : existing.health,
           thickness:
             args.stage === 'married' || args.stage === 'lover' || existing.thickness === 'thick'
               ? 'thick'
@@ -115,8 +119,9 @@ export class ActorRegistry {
           homeRoomId: existing.homeRoomId ?? args.homeRoomId,
           factionId: existing.factionId ?? args.factionId,
           brainId: existing.brainId === 'none' || !existing.brainId ? 'romance' : existing.brainId,
-          hostility:
-            args.stage === 'hostile' || args.stage === 'murderous'
+          hostility: relationshipDead
+            ? 'dead'
+            : args.stage === 'hostile' || args.stage === 'murderous'
               ? 'hostile'
               : existing.hostility,
           flags: {
@@ -127,6 +132,9 @@ export class ActorRegistry {
           },
         };
         this.actors.set(existing.id, next);
+        if (relationshipDead) {
+          this.deadActorIds.add(existing.id);
+        }
         return next;
       }
     }
@@ -200,7 +208,8 @@ function mergeActor(existing: Actor, incoming: Actor): Actor {
     incoming.hostility === 'hostile' &&
     existing.hostility !== 'dead' &&
     existing.hostility !== 'downed';
-  const preserveIdentity = existing.flags.source === 'townResident' || existing.flags.relationshipId;
+  const preserveIdentity =
+    existing.flags.source === 'townResident' || existing.flags.relationshipId;
   return {
     ...incoming,
     kind: preserveIdentity ? existing.kind : incoming.kind,
@@ -212,10 +221,15 @@ function mergeActor(existing: Actor, incoming: Actor): Actor {
     mood: existing.mood,
     needs: existing.needs,
     opinions: { ...incoming.opinions, ...existing.opinions },
-    relationships: existing.relationships.length > 0 ? existing.relationships : incoming.relationships,
+    relationships:
+      existing.relationships.length > 0 ? existing.relationships : incoming.relationships,
     memory: existing.memory.length > 0 ? existing.memory : incoming.memory,
     health: existingDead ? existing.health : (incoming.health ?? existing.health),
-    hostility: existingDead ? 'dead' : incomingHostile ? incoming.hostility : (existing.hostility ?? incoming.hostility),
+    hostility: existingDead
+      ? 'dead'
+      : incomingHostile
+        ? incoming.hostility
+        : (existing.hostility ?? incoming.hostility),
     soul: existing.soul ?? incoming.soul,
     lore: existing.lore ?? incoming.lore,
     flags: { ...incoming.flags, ...existing.flags },

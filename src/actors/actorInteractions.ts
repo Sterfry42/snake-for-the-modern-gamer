@@ -82,7 +82,15 @@ export function buildActorInteractionMenu(
     }
   }
 
-  if (actor.role === 'shopkeeper' || actor.role === 'bartender' || actor.role === 'blackMarketMerchant') {
+  if (
+    actor.role === 'shopkeeper' ||
+    actor.role === 'equipmentMerchant' ||
+    actor.role === 'potionMaker' ||
+    actor.role === 'butcher' ||
+    actor.role === 'cardDealer' ||
+    actor.role === 'bartender' ||
+    actor.role === 'blackMarketMerchant'
+  ) {
     const shopClosedReason =
       typeof actor.flags.shopClosedReason === 'string' ? actor.flags.shopClosedReason : undefined;
     options.push({

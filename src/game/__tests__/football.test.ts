@@ -117,7 +117,11 @@ describe('world rumors', () => {
     });
 
     const rumors = game.getRecentWorldRumors();
-    expect(rumors.some((rumor) => rumor.summary.includes('bandit') || rumor.summary.includes('humanoid'))).toBe(true);
+    expect(
+      rumors.some(
+        (rumor) => rumor.summary.includes('bandit') || rumor.summary.includes('humanoid'),
+      ),
+    ).toBe(true);
     expect(rumors.some((rumor) => rumor.tags.includes('humanoid'))).toBe(true);
     expect(game.getSaveData().flags?.['world.rumors']).toEqual(expect.any(Array));
   });
@@ -234,23 +238,29 @@ describe('world rumors', () => {
 
     expect(game.firePlayerShot({ x: 1, y: 0 })).toBe(true);
 
-    const enemies = game.getEnemies(room.id).filter((enemy) => enemy.encounterKind === 'npc-hostile');
+    const enemies = game
+      .getEnemies(room.id)
+      .filter((enemy) => enemy.encounterKind === 'npc-hostile');
     expect(enemies).toHaveLength(1);
     expect(enemies[0]?.id).toBe(`npc-hostile:resident:${room.id}:lina`);
     expect(enemies[0]?.actorId).toBe(game.getVillageActorId(room.id, 'lina', 'resident'));
-    expect(enemies[0]?.position).toEqual(game.getRelationshipNpcBodyPosition({
-      id: `resident:${room.id}:lina`,
-      actorId: game.getVillageActorId(room.id, 'lina', 'resident'),
-      displayName: 'Lina',
-      species: 'human',
-      homeRoomId: room.id,
-      factionId: 'hearthbound-remnant',
-    }));
-    expect(game.getRelationshipState({
-      id: `resident:${room.id}:lina`,
-      displayName: 'Lina',
-      species: 'human',
-    })?.stage).toBe('hostile');
+    expect(enemies[0]?.position).toEqual(
+      game.getRelationshipNpcBodyPosition({
+        id: `resident:${room.id}:lina`,
+        actorId: game.getVillageActorId(room.id, 'lina', 'resident'),
+        displayName: 'Lina',
+        species: 'human',
+        homeRoomId: room.id,
+        factionId: 'hearthbound-remnant',
+      }),
+    );
+    expect(
+      game.getRelationshipState({
+        id: `resident:${room.id}:lina`,
+        displayName: 'Lina',
+        species: 'human',
+      })?.stage,
+    ).toBe('hostile');
   });
 
   it('does not recreate an NPC combat body after that NPC has been eaten', () => {
@@ -268,21 +278,36 @@ describe('world rumors', () => {
     game.setFlag('equipment.gunEnabled', true);
 
     game.firePlayerShot({ x: 1, y: 0 });
-    const hostile = game.getEnemies(room.id).find((enemy) => enemy.id === `npc-hostile:${relationshipId}`)!;
+    const hostile = game
+      .getEnemies(room.id)
+      .find((enemy) => enemy.id === `npc-hostile:${relationshipId}`)!;
     expect((game as any).enemies.consumeEnemyAt(room.id, hostile.position).eaten).toBe(true);
     (game as any).relationshipController.recordEaten(relationshipId, 1);
     (game as any).npcBodies.delete(relationshipId);
-    expect(game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`)).toBe(false);
+    expect(
+      game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`),
+    ).toBe(false);
 
     (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
     game.firePlayerShot({ x: 1, y: 0 });
 
-    expect(game.getRelationshipState({
-      id: relationshipId,
-      displayName: 'Lina',
-      species: 'human',
-    })?.flags.eatenByPlayer).toBe(true);
-    expect(game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`)).toBe(false);
+    expect(
+      game.getRelationshipState({
+        id: relationshipId,
+        displayName: 'Lina',
+        species: 'human',
+      })?.stage,
+    ).toBe('dead');
+    expect(
+      game.getRelationshipState({
+        id: relationshipId,
+        displayName: 'Lina',
+        species: 'human',
+      })?.flags.eatenByPlayer,
+    ).toBe(true);
+    expect(
+      game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`),
+    ).toBe(false);
   });
 
   it('shooting a hostile NPC down marks the relationship dead and reports it', () => {
@@ -311,7 +336,75 @@ describe('world rumors', () => {
     });
     expect(state?.stage).toBe('dead');
     expect(state?.flags.causeOfDeath).toBe('Shot by you');
-    expect(game.getFlag<{ message: string }>('ui.relationshipEvent')?.message).toContain('shot down');
+    expect(
+      game.getActorSystem().registry.get(game.getVillageActorId(room.id, 'lina', 'resident'))
+        ?.health?.state,
+    ).toBe('dead');
+    expect(
+      game.getActorSystem().registry.get(game.getVillageActorId(room.id, 'lina', 'resident'))
+        ?.hostility,
+    ).toBe('dead');
+    expect(game.getFlag<{ message: string }>('ui.relationshipEvent')?.message).toContain(
+      'shot down',
+    );
+  });
+});
+
+describe('length economy', () => {
+  it('scales apple score around a 2x length-150 multiplier curve', () => {
+    const game = createGame();
+
+    expect((game as any).calculateAppleLengthScoreMultiplier()).toBe(1);
+
+    game.growSnake(97);
+    expect(game.getSnakeLength()).toBe(100);
+    expect((game as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(Math.SQRT2, 4);
+
+    game.growSnake(50);
+    expect(game.getSnakeLength()).toBe(150);
+    expect((game as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(2, 4);
+
+    game.growSnake(150);
+    expect(game.getSnakeLength()).toBe(300);
+    expect((game as any).calculateAppleLengthScoreMultiplier()).toBeGreaterThan(4);
+    expect((game as any).applyLengthScoreMultiplier(1, 1.5)).toBe(2);
+  });
+
+  it('lets village shopkeepers trim length a limited number of times without payment', () => {
+    const game = createGame();
+    const room = game.getCurrentRoom();
+    room.village = {
+      residents: [],
+      shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
+    } as any;
+    game.growSnake(20);
+    const before = game.getSnakeLength();
+
+    const result = game.sellSnakeLengthToButcher();
+
+    expect(result.ok).toBe(true);
+    expect(game.getSnakeLength()).toBe(before - 10);
+    expect(game.getScore()).toBe(0);
+  });
+});
+
+describe('town and guild hostility split', () => {
+  it('does not treat thieves guild districts as hostile just because the town guard is hostile', () => {
+    const game = createGame();
+    const town = {
+      id: 'split-town',
+      wantedLevel: 5,
+      suspicion: 90,
+      reputation: -60,
+      districtByRoomId: {
+        '0,0,0': 'backAlley',
+        '1,0,0': 'gate',
+      },
+      thievesGuild: { karma: 0 },
+    } as any;
+
+    expect(game.isTownHostileForRoom(town, '0,0,0')).toBe(false);
+    expect(game.isTownHostileForRoom(town, '1,0,0')).toBe(true);
   });
 });
 
@@ -334,9 +427,18 @@ describe('actor conversations', () => {
     const updated = game.getActorSystem().getActor(actor.id);
     expect(updated?.knownToPlayer).toBe(true);
     expect(Object.values(updated?.soul?.revealed ?? {}).some(Boolean)).toBe(true);
-    expect(game.getFlag<Array<{ actorId: string; text: string }>>('actors.knownFacts')?.[0]?.actorId).toBe(actor.id);
-    expect(game.getFlag<{ actorId: string; text: string }>('ui.actorKnownFact')?.actorId).toBe(actor.id);
-    expect(game.getActorSystem().events.getRecent().some((event) => event.type === 'actor-personal-reveal')).toBe(true);
+    expect(
+      game.getFlag<Array<{ actorId: string; text: string }>>('actors.knownFacts')?.[0]?.actorId,
+    ).toBe(actor.id);
+    expect(game.getFlag<{ actorId: string; text: string }>('ui.actorKnownFact')?.actorId).toBe(
+      actor.id,
+    );
+    expect(
+      game
+        .getActorSystem()
+        .events.getRecent()
+        .some((event) => event.type === 'actor-personal-reveal'),
+    ).toBe(true);
   });
 
   it('uses ask around to share rumors without coordinate-heavy speaker framing', () => {
@@ -366,7 +468,12 @@ describe('actor conversations', () => {
     expect(result?.bucket).toBe('ask-around');
     expect(formatted).not.toContain(`${actor.displayName} says`);
     expect(formatted).not.toContain(game.getCurrentRoom().id);
-    expect(game.getActorSystem().getActor(actor.id)?.memory.some((memory) => memory.source === 'rumor')).toBe(true);
+    expect(
+      game
+        .getActorSystem()
+        .getActor(actor.id)
+        ?.memory.some((memory) => memory.source === 'rumor'),
+    ).toBe(true);
   });
 
   it('does not render the same single rumor in half of repeated ask-around conversations', () => {
@@ -390,9 +497,14 @@ describe('actor conversations', () => {
       createdAtRoomNumber: 4,
     });
 
-    const lines = Array.from({ length: 8 }, () => game.getActorConversation(actor.id, 'ask-around')?.line ?? '');
+    const lines = Array.from(
+      { length: 8 },
+      () => game.getActorConversation(actor.id, 'ask-around')?.line ?? '',
+    );
 
-    expect(lines.filter((line) => line.includes('A hostile person was eaten')).length).toBeLessThanOrEqual(3);
+    expect(
+      lines.filter((line) => line.includes('A hostile person was eaten')).length,
+    ).toBeLessThanOrEqual(3);
     expect(new Set(lines).size).toBeGreaterThanOrEqual(5);
   });
 
@@ -426,7 +538,9 @@ describe('actor conversations', () => {
     const journal = game.getPeopleJournalView();
 
     expect(result?.source).toBe('social');
-    expect(updated?.relationships.some((link) => link.actorId === target.id && link.knownToPlayer)).toBe(true);
+    expect(
+      updated?.relationships.some((link) => link.actorId === target.id && link.knownToPlayer),
+    ).toBe(true);
     expect(journal.find((entry) => entry.id === actor.id)?.socialTies.join(' ')).toContain('Marta');
     expect(journal.find((entry) => entry.id === actor.id)?.knownFacts.join(' ')).toContain('Marta');
   });
@@ -464,7 +578,12 @@ describe('actor conversations', () => {
 
     expect(result?.bucket).toBe('ask-around');
     expect(result?.source).toBe('rumor');
-    expect(game.getActorSystem().getActor(actor.id)?.memory.some((memory) => memory.summary.includes('bread knife'))).toBe(true);
+    expect(
+      game
+        .getActorSystem()
+        .getActor(actor.id)
+        ?.memory.some((memory) => memory.summary.includes('bread knife')),
+    ).toBe(true);
   });
 
   it('turns public danger into modern rumors and faction current events', () => {
@@ -491,7 +610,9 @@ describe('actor conversations', () => {
     });
 
     expect(game.getFlag<{ rumors: unknown[] }>('rumors.save')?.rumors.length).toBeGreaterThan(0);
-    expect(game.getFlag<{ currentEvents: unknown[] }>('factions.v2.save')?.currentEvents.length).toBeGreaterThan(0);
+    expect(
+      game.getFlag<{ currentEvents: unknown[] }>('factions.v2.save')?.currentEvents.length,
+    ).toBeGreaterThan(0);
     expect(game.getRecentWorldRumors()[0]?.summary).not.toBe('A bandit was eaten beside the gate.');
     expect(game.getCurrentFactionEvents()[0]?.tags).toContain('faction');
   });
@@ -516,8 +637,12 @@ describe('actor conversations', () => {
       game.getActorConversation(actorId, 'ask-around');
     }
 
-    expect(game.getCurrentFactionEvents().some((event) => event.type === 'raid-warning')).toBe(false);
-    expect(game.getRecentWorldRumors().some((rumor) => rumor.tags.includes('raid-warning'))).toBe(false);
+    expect(game.getCurrentFactionEvents().some((event) => event.type === 'raid-warning')).toBe(
+      false,
+    );
+    expect(game.getRecentWorldRumors().some((rumor) => rumor.tags.includes('raid-warning'))).toBe(
+      false,
+    );
   });
 
   it('lets old non-local bandit rumors fall out of conversation context', () => {
@@ -555,11 +680,15 @@ describe('actor conversations', () => {
     );
 
     const event = game.startBanditRaidForCurrentRoom(55);
-    const bandits = game.getEnemies(room.id).filter((enemy) => enemy.id.startsWith('npc-hostile:raidBandit-'));
+    const bandits = game
+      .getEnemies(room.id)
+      .filter((enemy) => enemy.id.startsWith('npc-hostile:raidBandit-'));
 
     expect(event.type).toBe('raid-active');
     expect(bandits.length).toBeGreaterThanOrEqual(3);
-    expect(bandits.every((enemy) => enemy.maxHearts === 1 && enemy.encounterKind === 'npc-hostile')).toBe(true);
+    expect(
+      bandits.every((enemy) => enemy.maxHearts === 1 && enemy.encounterKind === 'npc-hostile'),
+    ).toBe(true);
     expect(game.getActorSystem().getActor(bandits[0]!.actorId!)?.factionId).toBe('bandits');
 
     for (const bandit of bandits) {
@@ -572,7 +701,9 @@ describe('actor conversations', () => {
       .getCurrentFactionEvents()
       .find((current) => current.type === 'raid-aftermath' && current.roomId === room.id);
     expect(aftermath?.tags).toContain('player-helped');
-    expect(game.getRecentWorldRumors().some((rumor) => rumor.tags.includes('raid-aftermath'))).toBe(true);
+    expect(game.getRecentWorldRumors().some((rumor) => rumor.tags.includes('raid-aftermath'))).toBe(
+      true,
+    );
   });
 
   it('marks local shopkeepers and guards as raid responders while shops close', () => {
@@ -598,8 +729,15 @@ describe('actor conversations', () => {
     expect(shop?.flags.shopClosedReason).toBe('Closed during the raid');
     expect(shop?.flags.raidDefender).toBe(true);
     expect(guard?.flags.raidShelter).toBe(true);
-    expect(game.getActorInteractionMenu(shopActorId)?.options.find((option) => option.id === 'shop')?.enabled).toBe(false);
-    expect(game.getActorInteractionMenu(shopActorId)?.indicators.some((indicator) => indicator.kind === 'faction')).toBe(true);
+    expect(
+      game.getActorInteractionMenu(shopActorId)?.options.find((option) => option.id === 'shop')
+        ?.enabled,
+    ).toBe(false);
+    expect(
+      game
+        .getActorInteractionMenu(shopActorId)
+        ?.indicators.some((indicator) => indicator.kind === 'faction'),
+    ).toBe(true);
   });
 });
 
@@ -629,7 +767,13 @@ describe('actor room brains', () => {
       mood: { ...actor.mood, fear: 55, stress: 55 },
       flags: { ...actor.flags, raidShelter: true },
     }));
-    (game as any).enemies.spawnHostileNpc(room.id, { x: 6, y: 7 }, 'Bandit', 1, 'brain-test-bandit');
+    (game as any).enemies.spawnHostileNpc(
+      room.id,
+      { x: 6, y: 7 },
+      'Bandit',
+      1,
+      'brain-test-bandit',
+    );
 
     (game as any).tickNpcBodies(room);
 
@@ -688,7 +832,14 @@ describe('actor room brains', () => {
     );
 
     const target = game.getActorSystem().getActor(targetActorId);
-    expect(target?.memory.some((memory) => memory.source === 'heard' && memory.tags.includes('gossip'))).toBe(true);
-    expect(game.getActorSystem().events.getRecent().some((event) => event.type === 'actor-rumor-shared')).toBe(true);
+    expect(
+      target?.memory.some((memory) => memory.source === 'heard' && memory.tags.includes('gossip')),
+    ).toBe(true);
+    expect(
+      game
+        .getActorSystem()
+        .events.getRecent()
+        .some((event) => event.type === 'actor-rumor-shared'),
+    ).toBe(true);
   });
 });

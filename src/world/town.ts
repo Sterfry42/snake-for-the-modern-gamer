@@ -209,8 +209,12 @@ export interface TownResident extends Omit<NpcProfile, 'role'> {
   x: number;
   y: number;
   role:
-    | 'shopkeeper'
-    | 'bartender'
+  | 'shopkeeper'
+  | 'equipmentMerchant'
+  | 'potionMaker'
+  | 'butcher'
+  | 'cardDealer'
+  | 'bartender'
     | 'guard'
     | 'resident'
     | 'thiefContact'
@@ -295,7 +299,6 @@ const TOWN_INTERACTION_SYMBOLS: Partial<Record<TownDistrictKind, string>> = {
   residential: 'P',
   residentialStreet: 'P',
   backAlley: 'U',
-  guildHideout: 'U',
   exit: 'N',
   townExit: 'N',
 };
@@ -410,7 +413,6 @@ export const PHYSICAL_TOWN_DISTRICTS: readonly TownDistrictKind[] = [
   'tavernInterior',
   'backAlley',
   'residentialStreet',
-  'guildHideout',
   'townExit',
 ] as const;
 
@@ -609,13 +611,28 @@ export function createPhysicalHumanTown(args: {
     args.entranceRoomId;
   const residentSpots = [
     {
-      role: 'shopkeeper' as const,
+      role: 'equipmentMerchant' as const,
       name: pickNpcName('merchant', rng),
+      workDistrict: 'marketStreet' as const,
+    },
+    {
+      role: 'potionMaker' as const,
+      name: pickNpcName('scribe', rng),
+      workDistrict: 'marketStreet' as const,
+    },
+    {
+      role: 'butcher' as const,
+      name: pickNpcName('keeper', rng),
       workDistrict: 'marketStreet' as const,
     },
     {
       role: 'bartender' as const,
       name: pickNpcName('keeper', rng),
+      workDistrict: 'tavernInterior' as const,
+    },
+    {
+      role: 'cardDealer' as const,
+      name: pickNpcName('thief', rng),
       workDistrict: 'tavernInterior' as const,
     },
     {
@@ -674,22 +691,23 @@ export function createPhysicalHumanTown(args: {
       workDistrict: 'backAlley' as const,
     },
     { role: 'thief' as const, name: pickNpcName('thief', rng), workDistrict: 'backAlley' as const },
-    {
-      role: 'thief' as const,
-      name: pickNpcName('thief', rng),
-      workDistrict: 'guildHideout' as const,
-    },
   ];
   town.residents = residentSpots.map((spot, index) => ({
     ...buildHouseNpcProfile(
       spot.name,
-      spot.role === 'thief' || spot.role === 'thiefContact'
+      spot.role === 'thief' || spot.role === 'thiefContact' || spot.role === 'cardDealer'
         ? pick(BANDIT_PORTRAITS, rng)
         : pick(PORTRAITS, rng),
     ),
     actorId: `town:${town.id}:${
-      spot.role === 'shopkeeper'
-        ? 'shopkeeper'
+      spot.role === 'equipmentMerchant'
+        ? 'equipmentMerchant'
+        : spot.role === 'potionMaker'
+          ? 'potionMaker'
+          : spot.role === 'butcher'
+            ? 'butcher'
+            : spot.role === 'cardDealer'
+              ? 'cardDealer'
         : spot.role === 'guard'
           ? 'guard'
           : spot.role === 'questGiver'
@@ -705,15 +723,17 @@ export function createPhysicalHumanTown(args: {
     homeRoomId: roomFor(
       spot.role === 'resident'
         ? 'residentialStreet'
-        : spot.role === 'questGiver' || spot.role === 'bartender'
+        : spot.role === 'questGiver' || spot.role === 'bartender' || spot.role === 'cardDealer'
           ? 'tavernInterior'
+          : spot.role === 'equipmentMerchant' || spot.role === 'potionMaker' || spot.role === 'butcher'
+            ? 'marketStreet'
           : 'square',
     ),
     workRoomId: roomFor(spot.workDistrict),
     id: `${town.id}:resident:${spot.role}:${index}`,
   }));
   town.shopkeeper =
-    town.residents.find((resident) => resident.role === 'shopkeeper') ?? town.shopkeeper;
+    town.residents.find((resident) => resident.role === 'equipmentMerchant') ?? town.shopkeeper;
   return town;
 }
 
@@ -1292,7 +1312,6 @@ export function createTownDistrictRoom(args: {
       for (let x = 4; x < args.grid.cols - 4; x += 6) {
         setChar(layout, x, center.y - 8, 'F');
       }
-      stampTownInteraction(layout, district, center.x - 5, center.y - 2);
       stampNpc(layout, center.x, center.y);
       break;
     case 'gate':
@@ -1307,7 +1326,6 @@ export function createTownDistrictRoom(args: {
       stampNpc(layout, center.x + 4, center.y + 2);
       stampNpc(layout, center.x - 4, center.y + 2);
       stampNpc(layout, center.x + 4, center.y - 2);
-      stampTownInteraction(layout, district, center.x - 7, center.y + 3);
       setChar(layout, center.x - 7, center.y, 'L');
       setChar(layout, center.x + 7, center.y, 'L');
       break;
@@ -1315,7 +1333,7 @@ export function createTownDistrictRoom(args: {
       drawRoad(layout, true);
       drawRoad(layout, false);
       fillRect(layout, center.x - 3, center.y - 2, 7, 5, 'E');
-      stampTownInteraction(layout, district, center.x, center.y);
+      setChar(layout, center.x, center.y, 'N');
       setChar(layout, center.x - 7, center.y - 3, 'S');
       setChar(layout, center.x + 7, center.y + 3, 'L');
       setChar(layout, center.x - 7, center.y + 3, 'L');
@@ -1331,7 +1349,6 @@ export function createTownDistrictRoom(args: {
         setChar(layout, x + 2, center.y - 4, 'M');
         setChar(layout, x + 2, center.y + 6, 'A');
       }
-      stampTownInteraction(layout, district, center.x + 8, center.y);
       setChar(layout, center.x + 2, center.y - 2, 'L');
       setChar(layout, center.x - 2, center.y + 2, 'L');
       stampNpc(layout, center.x - 8, center.y);
@@ -1345,7 +1362,6 @@ export function createTownDistrictRoom(args: {
         setChar(layout, x, center.y + 2, 'R');
         setChar(layout, x + 1, center.y + 2, 'E');
       }
-      stampTownInteraction(layout, district, center.x - 7, center.y - 1);
       setChar(layout, center.x + 8, center.y - 1, 'L');
       stampNpc(layout, center.x, 5);
       stampNpc(layout, center.x + 6, center.y + 3);
@@ -1362,7 +1378,6 @@ export function createTownDistrictRoom(args: {
         setChar(layout, args.grid.cols - 5, y + 1, 'P');
       }
       stampNpc(layout, center.x - 3, center.y);
-      stampTownInteraction(layout, district, center.x + 4, center.y);
       break;
     case 'backAlley':
       fillRect(layout, 3, 3, args.grid.cols - 6, args.grid.rows - 6, 'E');
@@ -1371,7 +1386,7 @@ export function createTownDistrictRoom(args: {
         fillRect(layout, 4, y, args.grid.cols - 8, 1, '#');
         setChar(layout, 6 + (y % 5), y, '.');
       }
-      stampTownInteraction(layout, district, center.x - 5, center.y);
+      setChar(layout, center.x - 5, center.y, 'U');
       setChar(layout, center.x + 5, center.y, 'S');
       setChar(layout, center.x + 8, center.y + 2, 'U');
       setChar(layout, center.x - 8, center.y - 2, 'P');
@@ -1403,7 +1418,6 @@ export function createTownDistrictRoom(args: {
         fillRect(layout, 2, args.grid.rows - 6, args.grid.cols - 4, 3, '#');
         fillRect(layout, center.x - 1, args.grid.rows - 6, 3, 3, 'S');
       }
-      stampTownInteraction(layout, district, center.x - 4, center.y - 2);
       setChar(layout, center.x + 5, center.y - 2, 'L');
       stampNpc(layout, center.x + 3, center.y);
       break;

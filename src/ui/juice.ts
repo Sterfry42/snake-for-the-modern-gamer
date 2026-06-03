@@ -1837,44 +1837,60 @@ export class JuiceManager {
     gain.connect(this.masterGain);
     const root = this.ctx.createOscillator();
     root.type = 'triangle';
-    root.frequency.value = 329.63;
+    root.frequency.value = 392.0;
     const fifth = this.ctx.createOscillator();
-    fifth.type = 'sine';
-    fifth.frequency.value = 493.88;
+    fifth.type = 'triangle';
+    fifth.frequency.value = 587.33;
     const lilt = this.ctx.createOscillator();
     lilt.type = 'square';
-    lilt.frequency.value = 5.4;
+    lilt.frequency.value = 7.2;
+    const bounce = this.ctx.createOscillator();
+    bounce.type = 'sine';
+    bounce.frequency.value = 3.6;
+    const counter = this.ctx.createOscillator();
+    counter.type = 'sine';
+    counter.frequency.value = 523.25;
     const bell = this.ctx.createOscillator();
     bell.type = 'triangle';
-    bell.frequency.value = 659.25;
+    bell.frequency.value = 783.99;
     const rootGain = this.ctx.createGain();
-    rootGain.gain.value = 0.032;
+    rootGain.gain.value = 0.028;
     const fifthGain = this.ctx.createGain();
-    fifthGain.gain.value = 0.03;
+    fifthGain.gain.value = 0.024;
     const liltGain = this.ctx.createGain();
-    liltGain.gain.value = 0.018;
+    liltGain.gain.value = 0.016;
+    const bounceGain = this.ctx.createGain();
+    bounceGain.gain.value = 0.012;
+    const counterGain = this.ctx.createGain();
+    counterGain.gain.value = 0.018;
     const bellGain = this.ctx.createGain();
-    bellGain.gain.value = 0.018;
+    bellGain.gain.value = 0.014;
     root.connect(rootGain);
     fifth.connect(fifthGain);
+    bounce.connect(bounceGain);
+    counter.connect(counterGain);
     lilt.connect(liltGain);
     bell.connect(bellGain);
     rootGain.connect(gain);
     fifthGain.connect(gain);
+    counterGain.connect(gain);
     bellGain.connect(gain);
+    bounceGain.connect(rootGain.gain);
     liltGain.connect(fifthGain.gain);
     liltGain.connect(bellGain.gain);
     root.start(now);
     fifth.start(now);
+    bounce.start(now);
+    counter.start(now);
     lilt.start(now);
     bell.start(now);
     try {
-      gain.gain.exponentialRampToValueAtTime(0.16, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.28);
     } catch {}
     this.townMusic = {
       gain,
-      sources: [root, fifth, lilt, bell],
-      cleanup: [rootGain, fifthGain, liltGain, bellGain],
+      sources: [root, fifth, bounce, counter, lilt, bell],
+      cleanup: [rootGain, fifthGain, bounceGain, counterGain, liltGain, bellGain],
     };
   }
 

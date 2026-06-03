@@ -994,7 +994,7 @@ export class RelationshipController {
     }
     const next: RelationshipState = {
       ...state,
-      stage: 'murderous',
+      stage: 'dead',
       affection: -100,
       trust: -100,
       resentment: 100,
@@ -1003,9 +1003,12 @@ export class RelationshipController {
       romanceOptIn: false,
       flags: {
         ...state.flags,
+        dead: true,
         eatenByPlayer: true,
         eatenRoomsVisited: roomsVisited,
-        forceStage: 'murderous',
+        killedByPlayer: true,
+        causeOfDeath: 'Eaten by you',
+        forceStage: 'dead',
         stageReason: 'eatenByPlayer',
       },
     };
@@ -1015,14 +1018,14 @@ export class RelationshipController {
       tags: ['betrayal', 'violence', 'death', 'trauma'],
       intensity: 100,
       tone: 'traumatic',
-      summary: `${state.displayName} was eaten by you and will not let the tracker downgrade it.`,
+      summary: `${state.displayName} was eaten by you.`,
       uniqueKey: `eaten:${state.id}`,
     });
     const saved = this.finalize(next, roomsVisited);
     return {
       ok: true,
       title: saved.displayName,
-      message: `${saved.displayName} was eaten by you. The relationship tracker is keeping the receipt.`,
+      message: `${saved.displayName} was eaten by you.`,
       color: '#ff6b6b',
       state: saved,
     };

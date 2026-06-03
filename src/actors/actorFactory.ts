@@ -223,6 +223,14 @@ export function actorIdForTownResident(townId: string, residentId: string, role:
   const actorRole =
     role === 'shopkeeper'
       ? 'shopkeeper'
+      : role === 'equipmentMerchant'
+        ? 'equipmentMerchant'
+        : role === 'potionMaker'
+          ? 'potionMaker'
+          : role === 'butcher'
+            ? 'butcher'
+            : role === 'cardDealer'
+              ? 'cardDealer'
       : role === 'guard'
         ? 'guard'
         : role === 'questGiver'
@@ -485,6 +493,14 @@ function mapTownResidentRole(role: string): ActorRole {
   switch (role) {
     case 'shopkeeper':
       return 'shopkeeper';
+    case 'equipmentMerchant':
+      return 'equipmentMerchant';
+    case 'potionMaker':
+      return 'potionMaker';
+    case 'butcher':
+      return 'butcher';
+    case 'cardDealer':
+      return 'cardDealer';
     case 'bartender':
       return 'bartender';
     case 'guard':
@@ -503,7 +519,16 @@ function mapTownResidentRole(role: string): ActorRole {
 }
 
 function mapTownResidentKind(role: ActorRole): ActorKind {
-  if (role === 'shopkeeper' || role === 'bartender') return 'shopkeeper';
+  if (
+    role === 'shopkeeper' ||
+    role === 'equipmentMerchant' ||
+    role === 'potionMaker' ||
+    role === 'butcher' ||
+    role === 'cardDealer' ||
+    role === 'bartender'
+  ) {
+    return 'shopkeeper';
+  }
   if (role === 'guard' || role === 'gateGuard') return 'guard';
   if (role === 'questGiver') return 'civilian';
   if (role === 'thief' || role === 'thiefContact' || role === 'guildContact') return 'criminal';
@@ -511,7 +536,16 @@ function mapTownResidentKind(role: ActorRole): ActorKind {
 }
 
 function brainForRole(role: ActorRole): ActorBrainId {
-  if (role === 'shopkeeper' || role === 'bartender') return 'shopkeeper';
+  if (
+    role === 'shopkeeper' ||
+    role === 'equipmentMerchant' ||
+    role === 'potionMaker' ||
+    role === 'butcher' ||
+    role === 'cardDealer' ||
+    role === 'bartender'
+  ) {
+    return 'shopkeeper';
+  }
   if (role === 'guard' || role === 'gateGuard') return 'guard';
   if (role === 'questGiver') return 'resident';
   if (role === 'thief' || role === 'thiefContact') return 'thief';
@@ -525,6 +559,14 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
   switch (role) {
     case 'shopkeeper':
       return ['practical', 'greedy', 'sharp'];
+    case 'equipmentMerchant':
+      return ['practical', 'sharp', 'statusHungry'];
+    case 'potionMaker':
+      return ['practical', 'nosy', 'softhearted'];
+    case 'butcher':
+      return ['practical', 'hungry', 'deadpan'];
+    case 'cardDealer':
+      return ['greedy', 'sharp', 'nosy'];
     case 'bartender':
       return ['nosy', 'deadpan', 'practical'];
     case 'guard':

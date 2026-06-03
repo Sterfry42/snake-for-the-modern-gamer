@@ -1864,7 +1864,7 @@ export default class SnakeScene extends Phaser.Scene {
         if (this.tryInteractTownQuestBoard()) {
           return;
         }
-        if (this.tryInteractTown()) {
+        if (this.tryInteractTownGuildGrate()) {
           return;
         }
         if (this.tryInteractLibertyStructure()) {
@@ -5955,7 +5955,6 @@ export default class SnakeScene extends Phaser.Scene {
     if (lengthDelta > 0 && lengthAfter !== this.lastJuicedLength) {
       this.juice.lengthGain(world.x, world.y, lengthDelta);
     }
-
     this.lastJuicedScore = scoreAfter;
     this.lastJuicedLength = lengthAfter;
   }
@@ -7217,10 +7216,13 @@ export default class SnakeScene extends Phaser.Scene {
       return { text: 'Read quest board (press E)' };
     }
     const town = room.town;
-    if (town && this.distanceFromHeadToLocal(town.center) <= 3) {
-      const current = getTownDistrictForRoom(town, room.id);
+    if (town && this.isNearTownGuildGrate(town)) {
+      const status = this.snakeGame.getCurrentTownGuildInitiationStatus();
       return {
-        text: `${town.name}${current ? `: ${townDistrictDisplayName(current)}` : ''} (press E)`,
+        text:
+          status.state === 'complete'
+            ? 'Enter thieves guild grate (press E)'
+            : 'Inspect thieves guild grate (press E)',
       };
     }
     const giver = room.questGiver;
@@ -7331,6 +7333,51 @@ export default class SnakeScene extends Phaser.Scene {
     return false;
   }
 
+  private tryInteractTownGuildGrate(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const town = this.snakeGame.getCurrentTown();
+    if (!town || !this.isNearTownGuildGrate(town)) {
+      return false;
+    }
+    const current = getTownDistrictForRoom(town, this.snakeGame.getCurrentRoom().id);
+    if (current === 'guildHideout') {
+      this.showTownGuild(town);
+      return true;
+    }
+    const result = this.snakeGame.investigateCurrentTownGuildGrate();
+    this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+    return true;
+  }
+
+  private isNearTownGuildGrate(town: TownStructure): boolean {
+    const room = this.snakeGame.getCurrentRoom();
+    const current = getTownDistrictForRoom(town, room.id);
+    if (current !== 'backAlley' && current !== 'guildHideout') {
+      return false;
+    }
+    return this.isNearTownTile('U');
+  }
+
+  private getSideToTownDistrict(
+    town: TownStructure,
+    roomId: string,
+    targetDistrict: TownDistrictKind,
+  ): 'north' | 'south' | 'east' | 'west' | null {
+    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
+    const neighbors: Array<{ side: 'north' | 'south' | 'east' | 'west'; id: string }> = [
+      { side: 'north', id: `${roomX},${roomY - 1},${roomZ}` },
+      { side: 'south', id: `${roomX},${roomY + 1},${roomZ}` },
+      { side: 'east', id: `${roomX + 1},${roomY},${roomZ}` },
+      { side: 'west', id: `${roomX - 1},${roomY},${roomZ}` },
+    ];
+    return (
+      neighbors.find((neighbor) => getTownDistrictForRoom(town, neighbor.id) === targetDistrict)
+        ?.side ?? null
+    );
+  }
+
   private getHeadLocalPosition(): Vector2Like | null {
     const head = this.snakeGame.getSnakeBody()[0];
     if (!head) {
@@ -7347,239 +7394,11 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private tryInteractTown(): boolean {
-    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
-      return false;
-    }
-    const town = this.snakeGame.getCurrentTown();
-    if (!town || this.distanceFromHeadToLocal(town.center) > 4) {
-      return false;
-    }
-    this.showTownRoom(town);
-    return true;
-  }
-
-  private showTownRoom(town: TownStructure): void {
-    const freshTown = this.snakeGame.getCurrentTown() ?? town;
-    const room = this.snakeGame.getCurrentRoom();
-    const current = getTownDistrictForRoom(freshTown, room.id);
-    if (!current) {
-      this.showQuestHintPopup('The town map has misplaced itself.', '#ff6b6b');
-      return;
-    }
-    const hostileTown = this.snakeGame.isTownHostileForRoom(freshTown, room.id);
-    this.paused = true;
-    this.hideSaveUI();
-    this.skillTree.hideOverlay();
-    const options: ChoiceOption[] = [];
-    const description = [
-      this.snakeGame.describeTownRoom(current),
-      `Wanted ${freshTown.wantedLevel}/5. Reputation ${freshTown.reputation}.`,
-      freshTown.thievesGuild?.discovered
-        ? `Guild karma ${freshTown.thievesGuild.karma}.`
-        : 'The back alley has opinions it has not shared yet.',
-    ].join(' ');
-
-    if (hostileTown) {
-      options.push({
-        id: 'leave',
-        title: 'Run',
-        description: 'The town is openly hostile. No one here is offering services.',
-      });
-      this.villageShopPopup.show(
-        `${freshTown.name} - Alarm`,
-        [{ id: 'town-status', title: 'Town Hostile', description }, ...options],
-        (id) => this.handleTownChoice(id, freshTown),
-      );
-      return;
-    }
-
-    if (current === 'gate' || current === 'townExit') {
-      options.push({
-        id: 'town-open-gate',
-        title:
-          current === 'townExit'
-            ? 'Talk to Exit Guard - 75 score'
-            : 'Talk to Gate Guard - 75 score',
-        description:
-          current === 'townExit'
-            ? 'Ask the inner guard to open the back gate. Outsiders do not get this latch.'
-            : 'Pay the gate tax and ask the guard to open the barrier.',
-      });
-    }
-    if (current === 'market' || current === 'marketStreet') {
-      options.push({
-        id: 'town-shop',
-        title: 'Town Market',
-        description: 'A larger town counter with more stock than a village stall.',
-      });
-      options.push({
-        id: 'town-steal-flower',
-        title: 'Steal a Flower',
-        description: 'A relationship gift, a tiny crime, and a classic bad idea.',
-      });
-    }
-    if (current === 'tavern' || current === 'tavernInterior') {
-      options.push({
-        id: 'town-rumors',
-        title: 'Buy Tavern Rumor',
-        description: 'Hear what the town thinks happened before it becomes true.',
-      });
-    }
-    if (current === 'backAlley') {
-      const guildTest = this.snakeGame.getCurrentTownGuildInitiationStatus();
-      const guildTitle =
-        guildTest.state === 'complete'
-          ? 'Check Guild Grate'
-          : guildTest.state === 'ready'
-            ? 'Return to Guild Grate'
-            : guildTest.state === 'active'
-              ? `Guild Test ${guildTest.pickpockets}/${guildTest.required}`
-              : 'Investigate Grate';
-      const guildDescription =
-        guildTest.state === 'complete'
-          ? 'The grate is open. Enter through the passage, not through a menu.'
-          : guildTest.state === 'ready'
-            ? 'You have three proofs. Knock where the chalk snake bites the coin.'
-            : guildTest.state === 'active'
-              ? 'Pickpocket town residents, then return to the grate.'
-              : 'A chalk snake bites a coin near the drain.';
-      options.push({
-        id: 'town-guild-discover',
-        title: guildTitle,
-        description: guildDescription,
-      });
-    }
-    if (current === 'guildHideout') {
-      options.push({
-        id: 'town-guild',
-        title: 'Guild Business',
-        description: 'Jobs, services, and people who pronounce legality as a dare.',
-      });
-    }
-    if (current === 'residential' || current === 'residentialStreet') {
-      options.push({
-        id: 'town-break-in',
-        title: 'Break In',
-        description: 'A residential job-shaped bad idea with witnesses nearby.',
-      });
-    }
-    if (
-      freshTown.wantedLevel > 0 &&
-      (current === 'gate' || current === 'square' || current === 'townExit' || current === 'exit')
-    ) {
-      const fine = 8 + freshTown.wantedLevel * 7;
-      options.push({
-        id: `town-pay-fine:${fine}`,
-        title: `Pay Fine - ${fine} score`,
-        description: 'Lower wanted by one and let a clerk feel powerful.',
-      });
-    }
-    options.push({ id: 'leave', title: 'Step Back', description: 'Return to the room.' });
-    this.villageShopPopup.show(
-      `${freshTown.name} - ${townDistrictDisplayName(current)}`,
-      [{ id: 'town-status', title: formatTownMood(freshTown.mood), description }, ...options],
-      (id) => this.handleTownChoice(id, freshTown),
-    );
-  }
-
-  private handleTownChoice(id: string, town: TownStructure): void {
-    if (id === 'leave' || id === 'town-status') {
-      this.closeVillageShop();
-      return;
-    }
-    if (id === 'town-open-gate') {
-      const result = this.snakeGame.openCurrentTownGate();
-      this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
-      this.showTownRoom(this.snakeGame.getCurrentTown() ?? town);
-      return;
-    }
-    if (id === 'town-rumors') {
-      this.showQuestHintPopup(
-        'The bartender says the alley grate only answers proof, not rumors.',
-        '#fff3a8',
-      );
-      this.showTownRoom(this.snakeGame.getCurrentTown() ?? town);
-      return;
-    }
-    if (id === 'town-shop') {
-      this.showVillageShopRoot(`${town.name} Market`, true);
-      return;
-    }
-    if (id === 'town-steal-flower') {
-      const result = this.snakeGame.applyCurrentTownCrime('theft', true, 1);
-      this.showQuestHintPopup(result.message, result.ok ? '#fff3a8' : '#ff6b6b');
-      this.showTownRoom(result.town ?? town);
-      return;
-    }
-    if (id === 'town-break-in') {
-      const result = this.snakeGame.applyCurrentTownCrime('breakIn', true, 2);
-      this.showQuestHintPopup(result.message, result.ok ? '#fff3a8' : '#ff6b6b');
-      this.showTownRoom(result.town ?? town);
-      return;
-    }
-    if (id === 'town-guild-discover') {
-      const result = this.snakeGame.investigateCurrentTownGuildGrate();
-      this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
-      this.showTownRoom(result.town ?? town);
-      return;
-    }
-    if (id === 'town-guild') {
-      this.showTownGuild(town);
-      return;
-    }
-    if (id.startsWith('town-pay-fine:')) {
-      const fine = Number(id.split(':')[1] ?? 0);
-      if (this.score < fine) {
-        this.showQuestHintPopup(`The fine is ${fine} score.`, '#ff6b6b');
-        this.showTownRoom(town);
-        return;
-      }
-      this.addScoreDirect(-fine);
-      const current = this.snakeGame.getCurrentTown() ?? town;
-      const next = {
-        ...current,
-        wantedLevel: Math.max(0, current.wantedLevel - 1) as TownStructure['wantedLevel'],
-      };
-      const updated = this.snakeGame.updateCurrentTown(next) ?? current;
-      this.showQuestHintPopup(
-        'Fine paid. The wanted poster gets a little less personal.',
-        '#b6ff6a',
-      );
-      this.showTownRoom(updated);
-    }
-  }
-
-  private showTownNotices(town: TownStructure): void {
-    const freshTown = this.snakeGame.getCurrentTown() ?? town;
-    const options: ChoiceOption[] = freshTown.notices.map((notice) => ({
-      id: `notice:${notice.id}`,
-      title: notice.title,
-      description: notice.body,
-    }));
-    if (freshTown.rumors.length > 0) {
-      options.push(
-        ...freshTown.rumors.slice(0, 4).map((rumor) => ({
-          id: `rumor:${rumor.id}`,
-          title: 'Rumor',
-          description: rumor.summary,
-        })),
-      );
-    }
-    options.push({ id: 'back', title: 'Back', description: 'Return to town business.' });
-    this.villageShopPopup.show(`${freshTown.name} Notice Board`, options, (id) => {
-      if (id === 'back') {
-        this.showTownRoom(freshTown);
-      }
-    });
-  }
-
   private showTownGuild(town: TownStructure): void {
     const freshTown = this.snakeGame.getCurrentTown() ?? town;
     const guild = freshTown.thievesGuild;
     if (!guild?.discovered) {
       this.showQuestHintPopup('The guild is still only a rumor.', '#ff6b6b');
-      this.showTownRoom(freshTown);
       return;
     }
     const options: ChoiceOption[] = [
@@ -7612,7 +7431,7 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Return to the district.' });
     this.villageShopPopup.show(`${freshTown.name} Thieves Guild`, options, (id) => {
       if (id === 'back') {
-        this.showTownRoom(freshTown);
+        this.closeVillageShop();
         return;
       }
       if (id === 'guild-lower-wanted') {
@@ -7893,7 +7712,17 @@ export default class SnakeScene extends Phaser.Scene {
     const isBlackMarket = Boolean(
       room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
     );
-    const cardOffers = isBlackMarket ? [] : this.getCurrentMarketCardOffers();
+    const hasButcher = Boolean(room.village);
+    if (!isBlackMarket && hasButcher) {
+      options.push({
+        id: 'butcher',
+        title: room.town ? 'Sell Length' : 'Trim Length',
+        description: room.town
+          ? 'The butcher buys snake length at an insulting but useful rate.'
+          : 'The shopkeeper can trim a few segments for free.',
+      });
+    }
+    const cardOffers = isBlackMarket || room.town ? [] : this.getCurrentMarketCardOffers();
     if (cardOffers.length > 0) {
       options.push({
         id: 'cards',
@@ -7914,6 +7743,12 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id === 'play-cards') {
         this.showCardTableRoot(shopkeeperName);
+        return;
+      }
+      if (id === 'butcher') {
+        const result = this.snakeGame.sellSnakeLengthToButcher();
+        this.showQuestHintPopup(result.message, result.color);
+        this.showVillageShopRoot(shopkeeperName, true);
         return;
       }
       if (
@@ -8052,24 +7887,29 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private showCardTableRoot(shopkeeperName: string): void {
+  private showCardTableRoot(
+    shopkeeperName: string,
+    fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
+    highStakes = false,
+  ): void {
     this.paused = true;
     const collection = this.getCardCollection();
     const ownedCount = countCards(collection);
-    const inVillage = Boolean(this.snakeGame.getCurrentRoom().village);
     const options: ChoiceOption[] = CARD_TABLES.map((table) => ({
       id: `table:${table.id}`,
-      title: table.name,
-      description: `Best of 3. Land between ${table.minScore} and ${table.maxScore}. Choose your wager next. ${i18n.getFeatureString('cardInfo')} ${ownedCount} cards.`,
+      title: highStakes ? `${table.name} - Sharp Table` : table.name,
+      description: `Best of 3. Land between ${table.minScore} and ${table.maxScore}. Choose your wager next. ${i18n.getFeatureString('cardInfo')} ${ownedCount} cards.${highStakes ? ' Tavern runner allows bigger bets.' : ''}`,
     }));
     options.push({
       id: 'back',
-      title: inVillage ? 'Back' : 'Leave',
-      description: inVillage ? 'Return to the shop counter.' : 'Step away from the card table.',
+      title: fromVillageShop ? 'Back' : 'Leave',
+      description: fromVillageShop
+        ? 'Return to the shop counter.'
+        : 'Step away from the card table.',
     });
     this.villageShopPopup.show(`${shopkeeperName}'s Card Table`, options, (id) => {
       if (id === 'back') {
-        if (inVillage) {
+        if (fromVillageShop) {
           this.showVillageShopRoot(shopkeeperName, true);
         } else {
           this.closeVillageShop();
@@ -8077,16 +7917,21 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       const [, tableId] = id.split(':');
-      this.showCardBetMenu(shopkeeperName, tableId);
+      this.showCardBetMenu(shopkeeperName, tableId, fromVillageShop, highStakes);
     });
   }
 
-  private showCardBetMenu(shopkeeperName: string, tableId: string): void {
+  private showCardBetMenu(
+    shopkeeperName: string,
+    tableId: string,
+    fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
+    highStakes = false,
+  ): void {
     const table = getCardTable(tableId);
-    const wagers = this.getCardBetOptions();
+    const wagers = this.getCardBetOptions(highStakes);
     if (wagers.length === 0) {
       this.showQuestHintPopup('You need score to place a card wager.', '#ff6b6b');
-      this.showCardTableRoot(shopkeeperName);
+      this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes);
       return;
     }
     const options: ChoiceOption[] = wagers.map((wager) => ({
@@ -8097,15 +7942,21 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Choose a different card table.' });
     this.villageShopPopup.show(`${table.name} Wager`, options, (id) => {
       if (id === 'back') {
-        this.showCardTableRoot(shopkeeperName);
+        this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes);
         return;
       }
       const [, amount] = id.split(':');
-      this.startCardCompetition(shopkeeperName, tableId, Number(amount));
+      this.startCardCompetition(
+        shopkeeperName,
+        tableId,
+        Number(amount),
+        fromVillageShop,
+        highStakes,
+      );
     });
   }
 
-  private getCardBetOptions(): Array<{ label: string; amount: number }> {
+  private getCardBetOptions(highStakes = false): Array<{ label: string; amount: number }> {
     const score = Math.max(0, Math.floor(this.score));
     const candidates: Array<{ label: string; amount: number }> = [];
     if (score >= 5) {
@@ -8114,9 +7965,15 @@ export default class SnakeScene extends Phaser.Scene {
     if (score >= 25) {
       candidates.push({ label: 'Bet 25', amount: 25 });
     }
+    if (highStakes && score >= 100) {
+      candidates.push({ label: 'Bet 100', amount: 100 });
+    }
     if (score > 0) {
       candidates.push({ label: 'Bet 10%', amount: Math.max(1, Math.floor(score * 0.1)) });
       candidates.push({ label: 'Bet 50%', amount: Math.max(1, Math.floor(score * 0.5)) });
+      if (highStakes) {
+        candidates.push({ label: 'Bet 75%', amount: Math.max(1, Math.floor(score * 0.75)) });
+      }
       candidates.push({ label: 'Bet All Score', amount: score });
     }
     const seen = new Set<number>();
@@ -8129,10 +7986,16 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private startCardCompetition(shopkeeperName: string, tableId: string, wagerScore: number): void {
+  private startCardCompetition(
+    shopkeeperName: string,
+    tableId: string,
+    wagerScore: number,
+    fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
+    highStakes = false,
+  ): void {
     if (wagerScore <= 0 || this.score < wagerScore) {
       this.showQuestHintPopup('That wager is not available.', '#ff6b6b');
-      this.showCardBetMenu(shopkeeperName, tableId);
+      this.showCardBetMenu(shopkeeperName, tableId, fromVillageShop, highStakes);
       return;
     }
     this.addScoreDirect(-wagerScore);
@@ -9343,6 +9206,14 @@ export default class SnakeScene extends Phaser.Scene {
             displayName: `${resident.name}${
               resident.role === 'bartender'
                 ? ' the Bartender'
+                : resident.role === 'equipmentMerchant'
+                  ? ' the Equipment Merchant'
+                  : resident.role === 'potionMaker'
+                    ? ' the Potion Maker'
+                    : resident.role === 'butcher'
+                      ? ' the Butcher'
+                      : resident.role === 'cardDealer'
+                        ? ' the Card Dealer'
                 : resident.role === 'guard'
                   ? ' the Guard'
                   : resident.role === 'thief' || resident.role === 'thiefContact'
@@ -9459,6 +9330,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.actorInteractionOptions(profile, canPickpocket),
       (id) => {
         this.setChoicePopupVisible(false);
+        const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
         if (id === 'leave') {
           this.paused = false;
           return;
@@ -9529,18 +9401,106 @@ export default class SnakeScene extends Phaser.Scene {
             profile.actorId &&
             this.snakeGame.isCurrentTownLargeQuestGiverActor(profile.actorId)
           ) {
-            const result = this.snakeGame.acceptTownLargeQuest(profile.actorId);
-            this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
-            this.closeVillageShop();
-            this.paused = false;
-            if (result.ok) {
-              this.isDirty = true;
-              this.applyPendingQuestCosmeticRewards();
+            const quest = this.snakeGame.getTownLargeQuestForActor(profile.actorId);
+            if (!quest) {
+              this.showQuestHintPopup('No larger work is available here right now.', '#ff6b6b');
+              this.closeVillageShop();
+              this.paused = false;
+              return;
             }
+            const dialogue = getQuestDialogue(quest);
+            this.paused = false;
+            this.juice.questOffered();
+            this.showQuestDialogue(
+              profile.displayName,
+              dialogue.pages,
+              {
+                onAccept: () => {
+                  this.juice.questAccepted();
+                  const result = this.snakeGame.acceptTownLargeQuest(profile.actorId);
+                  if (result.ok) {
+                    this.isDirty = true;
+                    this.applyPendingQuestCosmeticRewards();
+                  } else {
+                    this.showQuestHintPopup(result.message, '#ff6b6b');
+                  }
+                  this.closeQuestPopup();
+                },
+                onReject: () => {
+                  this.juice.questRejected();
+                  this.closeQuestPopup();
+                },
+              },
+              {
+                acceptLabel: i18n.getCommon('quest.accept'),
+                rejectLabel: i18n.getCommon('quest.refuse'),
+                nextLabel: 'Next',
+              },
+              { portraitId: conversationPortraitId },
+            );
             return;
           }
           this.paused = false;
           this.tryInteractQuestGiver();
+          return;
+        }
+        if (id === 'open-gate') {
+          const result = this.snakeGame.openCurrentTownGate();
+          this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+          this.closeVillageShop();
+          this.paused = false;
+          return;
+        }
+        if (id.startsWith('pay-fine:')) {
+          const fine = Number(id.split(':')[1] ?? 0);
+          if (this.score < fine) {
+            this.showQuestHintPopup(`The fine is ${fine} score.`, '#ff6b6b');
+            this.closeVillageShop();
+            this.paused = false;
+            return;
+          }
+          this.addScoreDirect(-fine);
+          const town = this.snakeGame.getCurrentTown();
+          if (town) {
+            this.snakeGame.updateCurrentTown({
+              ...town,
+              wantedLevel: Math.max(0, town.wantedLevel - 1) as TownStructure['wantedLevel'],
+            });
+          }
+          this.showQuestHintPopup(
+            `${profile.displayName} stamps the fine. Wanted level drops by one.`,
+            '#b6ff6a',
+          );
+          this.closeVillageShop();
+          this.paused = false;
+          return;
+        }
+        if (id === 'equipment-shop') {
+          this.paused = false;
+          this.showVillageShopCategory(profile.displayName, 'equipment');
+          return;
+        }
+        if (id === 'supplies-shop') {
+          this.paused = false;
+          this.showVillageShopCategory(profile.displayName, 'supplies');
+          return;
+        }
+        if (id === 'butcher') {
+          const result = this.snakeGame.sellSnakeLengthToButcher();
+          this.showQuestHintPopup(result.message, result.color);
+          this.closeVillageShop();
+          this.paused = false;
+          return;
+        }
+        if (id === 'card-table') {
+          this.paused = false;
+          this.showCardTableRoot(profile.displayName, false, true);
+          return;
+        }
+        if (id === 'buy-rumor') {
+          this.showQuestHintPopup(this.currentTownActorLine(profile.displayName), '#fff3a8');
+          this.closeVillageShop();
+          this.paused = false;
           return;
         }
         if (id === 'shop') {
@@ -9554,6 +9514,15 @@ export default class SnakeScene extends Phaser.Scene {
           }
           if (profile.species === 'goblin') {
             this.showGoblinShopRoot(profile.displayName);
+          } else if (actorRole === 'equipmentMerchant') {
+            this.showVillageShopCategory(profile.displayName, 'equipment');
+          } else if (actorRole === 'potionMaker') {
+            this.showVillageShopCategory(profile.displayName, 'supplies');
+          } else if (actorRole === 'butcher') {
+            const result = this.snakeGame.sellSnakeLengthToButcher();
+            this.showQuestHintPopup(result.message, result.color);
+          } else if (actorRole === 'cardDealer') {
+            this.showCardTableRoot(profile.displayName, false, true);
           } else {
             this.showVillageShopRoot(profile.displayName);
           }
@@ -9641,7 +9610,94 @@ export default class SnakeScene extends Phaser.Scene {
         title: option.label,
         description: actorInteractionDescription(option.id),
       }));
-    return [...weddingOptions, ...options];
+    return [
+      ...weddingOptions,
+      ...this.townSpecialistInteractionOptions(profile),
+      ...options.filter((option) => !this.shouldSuppressGenericTownOption(profile, option.id)),
+    ];
+  }
+
+  private townSpecialistInteractionOptions(
+    profile: RelationshipCandidateProfile,
+  ): Array<{ id: string; title: string; description: string }> {
+    const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
+    const room = this.snakeGame.getCurrentRoom();
+    const town = room.town;
+    const district = town ? getTownDistrictForRoom(town, room.id) : undefined;
+    const options: Array<{ id: string; title: string; description: string }> = [];
+    if (actorRole === 'equipmentMerchant') {
+      options.push({
+        id: 'equipment-shop',
+        title: 'Buy Equipment',
+        description: 'Browse weapons, boots, rings, cloaks, and practical survival mistakes.',
+      });
+    }
+    if (actorRole === 'potionMaker') {
+      options.push({
+        id: 'supplies-shop',
+        title: 'Buy Supplies',
+        description: 'Browse tonics, food, bait, and bottles that insist they are medicine.',
+      });
+    }
+    if (actorRole === 'butcher') {
+      options.push({
+        id: 'butcher',
+        title: 'Sell Length',
+        description: 'Sell snake length at an abysmal but occasionally useful rate.',
+      });
+    }
+    if (actorRole === 'cardDealer') {
+      options.push({
+        id: 'card-table',
+        title: 'Play Cards',
+        description: 'Sit at the hard table for heavier wagers.',
+      });
+    }
+    if (actorRole === 'bartender') {
+      options.push({
+        id: 'buy-rumor',
+        title: 'Buy Rumor',
+        description: 'Hear what the town thinks happened before it becomes true.',
+      });
+    }
+    if (town && (actorRole === 'guard' || actorRole === 'gateGuard')) {
+      if (district === 'gate' || district === 'townExit') {
+        options.push({
+          id: 'open-gate',
+          title: district === 'townExit' ? 'Open Back Gate' : 'Open Gate',
+          description: 'Pay the gate tax through a guard instead of a floating town menu.',
+        });
+      }
+    }
+    if (
+      town &&
+      town.wantedLevel > 0 &&
+      (actorRole === 'guard' || actorRole === 'gateGuard' || actorRole === 'resident')
+    ) {
+      const fine = 8 + town.wantedLevel * 7;
+      options.push({
+        id: `pay-fine:${fine}`,
+        title: `Pay Fine - ${fine} score`,
+        description: 'Lower wanted by one and give paperwork a brief victory.',
+      });
+    }
+    return options;
+  }
+
+  private shouldSuppressGenericTownOption(
+    profile: RelationshipCandidateProfile,
+    optionId: string,
+  ): boolean {
+    if (optionId !== 'shop') {
+      return false;
+    }
+    const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
+    return (
+      actorRole === 'equipmentMerchant' ||
+      actorRole === 'potionMaker' ||
+      actorRole === 'butcher' ||
+      actorRole === 'cardDealer'
+    );
   }
 
   private actorInteractionTitle(profile: RelationshipCandidateProfile): string {

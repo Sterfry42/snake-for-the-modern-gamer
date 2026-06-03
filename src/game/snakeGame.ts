@@ -1678,7 +1678,9 @@ export class SnakeGame implements QuestRuntime {
         0,
         Number(this.getFlag<number>('equipment.appleScorePenalty') ?? 0),
       );
-      const appleScore = Math.max(0, consumption.rewards.bonusScore - appleScorePenalty);
+      const lengthScoreMultiplier = this.calculateAppleLengthScoreMultiplier();
+      const baseAppleScore = Math.max(0, consumption.rewards.bonusScore - appleScorePenalty);
+      const appleScore = this.applyLengthScoreMultiplier(baseAppleScore, lengthScoreMultiplier);
       if (appleScore > 0) {
         this.addScore(appleScore * appleScoreMultiplier);
       }
@@ -1907,6 +1909,7 @@ export class SnakeGame implements QuestRuntime {
             relationshipId,
             this.getRoomsVisitedCount(),
           );
+          this.markRelationshipActorDead(event.state, 'eaten');
           if (event.ok) {
             this.setFlag('ui.relationshipEvent', {
               title: event.title,
@@ -3769,6 +3772,15 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private isTownRoomHostile(town: TownStructure, roomId: string): boolean {
+    const district = town.districtByRoomId[roomId];
+    const guildDistrict = district === 'backAlley' || district === 'guildHideout';
+    if (guildDistrict) {
+      return (
+        Boolean(this.getFlag<boolean>(`town.hostile.${town.id}.${roomId}`)) ||
+        Boolean(this.getFlag<boolean>(`town.guildHostile.${town.id}`)) ||
+        Boolean(town.thievesGuild && town.thievesGuild.karma < -20)
+      );
+    }
     return (
       this.isTownInOpenHostility(town) ||
       Boolean(this.getFlag<boolean>(`town.hostile.${town.id}.all`)) ||
@@ -3796,13 +3808,18 @@ export class SnakeGame implements QuestRuntime {
     const fallback = hostileResidents.filter(
       (resident) => resident.role !== 'shopkeeper' && resident.role !== 'bartender',
     );
-    const selected = townWideHostility
-      ? [...guards, ...thieves, ...fallback]
-      : guards.length > 0
-        ? guards
-        : thieves.length > 0
+    const selected =
+      currentDistrict === 'backAlley' || currentDistrict === 'guildHideout'
+        ? thieves.length > 0
           ? thieves
-          : fallback;
+          : fallback
+        : townWideHostility
+          ? [...guards, ...fallback.filter((resident) => resident.role !== 'thiefContact')]
+          : guards.length > 0
+            ? guards
+            : fallback.filter(
+                (resident) => resident.role !== 'thief' && resident.role !== 'thiefContact',
+              );
     const existing = new Set(this.enemies.getEnemiesInRoom(room.id).map((enemy) => enemy.id));
     selected.slice(0, 5).forEach((resident, index) => {
       const relationshipId = `resident:${room.id}:${resident.id}`;
@@ -4937,6 +4954,7 @@ export class SnakeGame implements QuestRuntime {
           this.getRoomsVisitedCount(),
           'shot',
         );
+        this.markRelationshipActorDead(event.state, 'shot');
         this.setFlag('ui.relationshipEvent', {
           title: event.title,
           message: event.message,
@@ -4947,6 +4965,48 @@ export class SnakeGame implements QuestRuntime {
           message: `${enemy.name ?? 'The hostile NPC'} was shot down.`,
         });
       }
+    }
+  }
+
+  private markRelationshipActorDead(
+    state: RelationshipState | undefined,
+    cause: 'eaten' | 'shot' | 'killed',
+  ): void {
+    if (!state) {
+      return;
+    }
+    const actorId = state.actorId ?? this.actors.getStableRelationshipActorId(state.id);
+    const updated = this.actors.registry.update(actorId, (actor) => ({
+      ...actor,
+      health: { current: 0, max: actor.health?.max ?? 1, state: 'dead' },
+      hostility: 'dead',
+      mood: {
+        ...actor.mood,
+        fear: 100,
+        stress: 100,
+      },
+      flags: {
+        ...actor.flags,
+        relationshipId: state.id,
+        relationshipStage: 'dead',
+        dead: true,
+        eaten: cause === 'eaten' ? true : actor.flags.eaten,
+        causeOfDeath:
+          cause === 'eaten' ? 'Eaten by you' : cause === 'shot' ? 'Shot by you' : 'Killed by you',
+      },
+    }));
+    if (!updated) {
+      this.actors.registry.ensureRelationshipActor({
+        actorId,
+        relationshipId: state.id,
+        displayName: state.displayName,
+        species: state.species,
+        factionId: state.factionId,
+        homeRoomId: state.homeRoomId,
+        portraitId: state.portraitId,
+        stage: 'dead',
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+      });
     }
   }
 
@@ -6066,18 +6126,20 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     const district = town.districtByRoomId[room.id];
-    if (district !== 'backAlley' && district !== 'guildHideout') {
+    if (district !== 'backAlley') {
       return;
     }
-    const side = this.getSideToTownDistrict(
-      town,
-      room.id,
-      district === 'backAlley' ? 'guildHideout' : 'backAlley',
-    );
-    if (!side) {
-      return;
+    const centerX = Math.floor(this.config.grid.cols / 2);
+    const centerY = Math.floor(this.config.grid.rows / 2);
+    const layout = room.layout.map((row) => row.split(''));
+    for (let y = centerY - 1; y <= centerY + 1; y += 1) {
+      for (let x = centerX - 6; x <= centerX - 4; x += 1) {
+        if (layout[y]?.[x] && layout[y][x] !== 'G') {
+          layout[y][x] = 'E';
+        }
+      }
     }
-    this.openRoomEdgeTiles(room, side);
+    room.layout = layout.map((row) => row.join(''));
   }
 
   private getSideToTownDistrict(
@@ -6287,8 +6349,84 @@ export class SnakeGame implements QuestRuntime {
     return this.snake.bodySegments.length;
   }
 
+  private calculateAppleLengthScoreMultiplier(): number {
+    const length = this.getSnakeLength();
+    if (length < 50) {
+      return 1;
+    }
+    return 2 ** ((length - 50) / 100);
+  }
+
+  private applyLengthScoreMultiplier(baseScore: number, multiplier: number): number {
+    if (baseScore <= 0) {
+      return 0;
+    }
+    if (multiplier <= 1) {
+      return Math.floor(baseScore);
+    }
+    return Math.max(baseScore, Math.ceil(baseScore * multiplier));
+  }
+
   growSnake(extraSegments: number): void {
     this.snake.grow(extraSegments);
+  }
+
+  sellSnakeLengthToButcher(): { ok: boolean; message: string; color: string } {
+    const room = this.getCurrentRoom();
+    const townDistrict = room.town ? room.town.districtByRoomId[room.id] : null;
+    const isTownButcher = townDistrict === 'market' || townDistrict === 'marketStreet';
+    const isVillageTrim = Boolean(room.village);
+    if (!isTownButcher && !isVillageTrim) {
+      return {
+        ok: false,
+        message: 'No butcher is willing to discuss snake logistics here.',
+        color: '#ff6b6b',
+      };
+    }
+    const length = this.getSnakeLength();
+    if (length <= 5) {
+      return {
+        ok: false,
+        message:
+          'The butcher refuses. "Come back when selling length will not leave you a rumor with eyes."',
+        color: '#ff6b6b',
+      };
+    }
+    const segments = Math.min(10, Math.max(1, length - 5));
+    if (!this.snake.shrinkTail(segments)) {
+      return {
+        ok: false,
+        message:
+          'The butcher squints. "I cannot trim that without turning the customer into punctuation."',
+        color: '#ff6b6b',
+      };
+    }
+    if (isTownButcher) {
+      const score = Math.max(1, Math.floor(segments / 5));
+      this.addScore(score);
+      return {
+        ok: true,
+        message: `The butcher buys ${segments} length for ${score} score. "Abysmal rate, honest knife."`,
+        color: '#b6ff6a',
+      };
+    }
+    const trimKey = `village.butcherTrims.${room.id}`;
+    const trims = Number(this.getFlag<number>(trimKey) ?? 0);
+    if (trims >= 3) {
+      this.snake.grow(segments);
+      return {
+        ok: false,
+        message:
+          'The shopkeeper hides the cleaver. "Three mercy trims. After that, be long responsibly."',
+        color: '#ff6b6b',
+      };
+    }
+    this.setFlag(trimKey, trims + 1);
+    return {
+      ok: true,
+      message: `The shopkeeper trims ${segments} length for free and refuses to call it a business model.`,
+      color: '#b6ff6a',
+    };
   }
 
   consumeMcDonaldsFood(itemId: string): {
@@ -6445,6 +6583,20 @@ export class SnakeGame implements QuestRuntime {
     }
     const quest = this.getTownLargeQuestForTown(town);
     return quest ? this.toTownQuestOption(quest) : null;
+  }
+
+  getTownLargeQuestForActor(actorId?: string): Quest | null {
+    const town = this.getCurrentTown();
+    if (!town) {
+      return null;
+    }
+    if (actorId && !this.isCurrentTownLargeQuestGiverActor(actorId)) {
+      return null;
+    }
+    if (!this.getCurrentTownLargeQuestGiver(town)) {
+      return null;
+    }
+    return this.getTownLargeQuestForTown(town);
   }
 
   acceptTownLargeQuest(actorId?: string): { ok: boolean; message: string; quest?: Quest } {
@@ -10223,12 +10375,7 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(roomId);
     const district = room.town?.districtByRoomId?.[room.id];
-    return (
-      district === 'tavernInterior' ||
-      district === 'tavern' ||
-      district === 'marketStreet' ||
-      district === 'market'
-    );
+    return district === 'tavernInterior' || district === 'tavern';
   }
 
   private getStarforgedEnvoyActorPosition(roomId: string): Vector2Like {
