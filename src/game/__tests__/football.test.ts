@@ -370,21 +370,37 @@ describe('length economy', () => {
     expect((game as any).applyLengthScoreMultiplier(1, 1.5)).toBe(2);
   });
 
-  it('lets village shopkeepers trim length a limited number of times without payment', () => {
+  it('sells length only through a physical butcher actor', () => {
     const game = createGame();
     const room = game.getCurrentRoom();
-    room.village = {
-      residents: [],
-      shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
+    room.town = {
+      id: 'town-test',
+      residents: [
+        {
+          id: 'butcher-1',
+          actorId: 'town:town-test:butcher:butcher-1',
+          name: 'Rook',
+          x: 8,
+          y: 4,
+          role: 'butcher',
+          townId: 'town-test',
+          factionId: 'human-town',
+          homeRoomId: room.id,
+          workRoomId: room.id,
+        },
+      ],
+      districtByRoomId: { [room.id]: 'marketStreet' },
     } as any;
     game.growSnake(20);
     const before = game.getSnakeLength();
 
-    const result = game.sellSnakeLengthToButcher();
+    expect(game.sellSnakeLengthToButcher().ok).toBe(false);
+
+    const result = game.sellSnakeLengthToButcher('town:town-test:butcher:butcher-1');
 
     expect(result.ok).toBe(true);
     expect(game.getSnakeLength()).toBe(before - 10);
-    expect(game.getScore()).toBe(0);
+    expect(game.getScore()).toBe(2);
   });
 });
 

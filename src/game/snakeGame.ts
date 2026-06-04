@@ -64,6 +64,12 @@ import {
   type TownRoomKind,
   type TownStructure,
 } from '../world/town.js';
+import {
+  isStationaryTownRole,
+  isTownCriminalRole,
+  isTownGuardRole,
+  isTownShopRole,
+} from '../world/townRoles.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { loadLanguagePreference, saveLanguagePreference } from '../i18n/storage.js';
 import {
@@ -2079,11 +2085,11 @@ export class SnakeGame implements QuestRuntime {
     this.reconcileStagedQuestBosses();
   }
 
-  actorClockStep(): StepResult | null {
+  async actorClockStep(): Promise<StepResult | null> {
     const roomsChanged = new Set<string>();
     const currentRoom = this.snake.currentRoomId;
     const appleSnapshot = this.apples.getSnapshot(currentRoom);
-    const result = this.actorStepPhase({
+    const result = await this.actorStepPhase({
       roomsChanged,
       previousRoom: currentRoom,
       roomHasChanged: false,
@@ -2721,7 +2727,7 @@ export class SnakeGame implements QuestRuntime {
     return { enemyStep, animalStep };
   }
 
-  private actorStepPhase(options: {
+  private async actorStepPhase(options: {
     roomsChanged: Set<string>;
     previousRoom: string;
     roomHasChanged: boolean;
@@ -2730,7 +2736,7 @@ export class SnakeGame implements QuestRuntime {
     appleWorldPosition?: Vector2Like | null;
     appleSnapshot: AppleSnapshot | null;
     appleStateChanged: boolean;
-  }): StepResult | null {
+  }): Promise<StepResult | null> {
     const { enemyStep, animalStep } = this.actorStep();
     const rivalStep = this.stepRivalSnakeEnemies(options.roomsChanged);
     if (rivalStep.currentRoomAppleChanged) {
@@ -3801,13 +3807,9 @@ export class SnakeGame implements QuestRuntime {
         : undefined;
       return workDistrict === currentDistrict;
     });
-    const guards = hostileResidents.filter((resident) => resident.role === 'guard');
-    const thieves = hostileResidents.filter(
-      (resident) => resident.role === 'thief' || resident.role === 'thiefContact',
-    );
-    const fallback = hostileResidents.filter(
-      (resident) => resident.role !== 'shopkeeper' && resident.role !== 'bartender',
-    );
+    const guards = hostileResidents.filter((resident) => isTownGuardRole(resident.role));
+    const thieves = hostileResidents.filter((resident) => isTownCriminalRole(resident.role));
+    const fallback = hostileResidents.filter((resident) => !isTownShopRole(resident.role));
     const selected =
       currentDistrict === 'backAlley' || currentDistrict === 'guildHideout'
         ? thieves.length > 0
@@ -3842,12 +3844,10 @@ export class SnakeGame implements QuestRuntime {
           species: 'human',
           portraitId: resident.portraitId,
           homeRoomId: room.id,
-          factionId: 'hearthbound-remnant',
+          factionId: resident.factionId as FactionId,
         },
         { x: resident.x, y: resident.y },
-        resident.role === 'guard' ||
-          resident.role === 'shopkeeper' ||
-          resident.role === 'bartender',
+        isStationaryTownRole(resident.role),
       );
       this.enemies.spawnHostileNpc(
         room.id,
@@ -5289,15 +5289,10 @@ export class SnakeGame implements QuestRuntime {
         continue;
       }
       const canDefend =
-        actor.role === 'guard' ||
-        actor.role === 'gateGuard' ||
-        actor.role === 'shopkeeper' ||
-        actor.role === 'goblinMerchant' ||
-        actor.role === 'bartender';
-      const shopClosed =
-        actor.role === 'shopkeeper' ||
-        actor.role === 'goblinMerchant' ||
-        actor.role === 'bartender';
+        isTownGuardRole(actor.role) ||
+        isTownShopRole(actor.role) ||
+        actor.role === 'goblinMerchant';
+      const shopClosed = isTownShopRole(actor.role) || actor.role === 'goblinMerchant';
       this.actors.registry.update(actor.id, (current) => ({
         ...current,
         hostility: canDefend && current.hostility !== 'dead' ? 'suspicious' : current.hostility,
@@ -5784,14 +5779,10 @@ export class SnakeGame implements QuestRuntime {
             species: 'human',
             portraitId: resident.portraitId,
             homeRoomId: resident.homeRoomId ?? room.id,
-            factionId: 'hearthbound-remnant',
+            factionId: resident.factionId as FactionId,
           },
           position: { x: resident.x, y: resident.y },
-          stationary:
-            resident.role === 'guard' ||
-            resident.role === 'shopkeeper' ||
-            resident.role === 'bartender' ||
-            resident.role === 'questGiver',
+          stationary: isStationaryTownRole(resident.role),
         });
       }
     }
@@ -6371,15 +6362,21 @@ export class SnakeGame implements QuestRuntime {
     this.snake.grow(extraSegments);
   }
 
-  sellSnakeLengthToButcher(): { ok: boolean; message: string; color: string } {
+  sellSnakeLengthToButcher(actorId?: string): { ok: boolean; message: string; color: string } {
     const room = this.getCurrentRoom();
-    const townDistrict = room.town ? room.town.districtByRoomId[room.id] : null;
-    const isTownButcher = townDistrict === 'market' || townDistrict === 'marketStreet';
-    const isVillageTrim = Boolean(room.village);
-    if (!isTownButcher && !isVillageTrim) {
+    const actorRole =
+      actorId !== undefined
+        ? (this.actors.getActor(actorId)?.role ??
+          room.town?.residents.find(
+            (resident) =>
+              (resident.actorId ??
+                this.getTownResidentActorId(room.town!.id, resident.id, resident.role)) === actorId,
+          )?.role)
+        : undefined;
+    if (actorRole !== 'butcher') {
       return {
         ok: false,
-        message: 'No butcher is willing to discuss snake logistics here.',
+        message: 'No physical butcher is close enough to discuss snake logistics.',
         color: '#ff6b6b',
       };
     }
@@ -6401,30 +6398,11 @@ export class SnakeGame implements QuestRuntime {
         color: '#ff6b6b',
       };
     }
-    if (isTownButcher) {
-      const score = Math.max(1, Math.floor(segments / 5));
-      this.addScore(score);
-      return {
-        ok: true,
-        message: `The butcher buys ${segments} length for ${score} score. "Abysmal rate, honest knife."`,
-        color: '#b6ff6a',
-      };
-    }
-    const trimKey = `village.butcherTrims.${room.id}`;
-    const trims = Number(this.getFlag<number>(trimKey) ?? 0);
-    if (trims >= 3) {
-      this.snake.grow(segments);
-      return {
-        ok: false,
-        message:
-          'The shopkeeper hides the cleaver. "Three mercy trims. After that, be long responsibly."',
-        color: '#ff6b6b',
-      };
-    }
-    this.setFlag(trimKey, trims + 1);
+    const score = Math.max(1, Math.floor(segments / 5));
+    this.addScore(score);
     return {
       ok: true,
-      message: `The shopkeeper trims ${segments} length for free and refuses to call it a business model.`,
+      message: `The butcher buys ${segments} length for ${score} score. "Abysmal rate, honest knife."`,
       color: '#b6ff6a',
     };
   }

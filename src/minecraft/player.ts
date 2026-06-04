@@ -2,10 +2,11 @@ import type { MinecraftPlayerState } from './types.js';
 import { PLAYER_MAX_HEALTH, PLAYER_MAX_HUNGER } from './config.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getMinecraftItem } from './itemRegistry.js';
-import { isMinecraftBlockType, isSolidBlock } from './blockRegistry.js';
+import { isMinecraftBlockType, isSolidBlock, isBlockableBlock } from './blockRegistry.js';
 
 export class MinecraftPlayer {
   state: MinecraftPlayerState;
+  armorSlots: Record<string, string | null>;
 
   constructor() {
     this.state = {
@@ -22,15 +23,12 @@ export class MinecraftPlayer {
       inventory: [],
       equippedTool: null,
     };
-  }
-
-  reset(): void {
-    this.state.health = this.state.maxHealth;
-    this.state.hunger = this.state.maxHunger;
-    this.state.xp = 0;
-    this.state.xpLevel = 0;
-    this.state.armorPoints = 0;
-    this.state.equippedTool = null;
+    this.armorSlots = {
+      head: null,
+      torso: null,
+      legs: null,
+      feet: null,
+    };
   }
 
   resetHealth(): void {
@@ -142,6 +140,94 @@ export class MinecraftPlayer {
         return 0;
     }
   }
+
+  equipArmor(itemId: string): boolean {
+    const slot = getArmorSlot(itemId);
+    if (!slot) return false;
+    // Unequip current armor in that slot
+    const currentEquipped = this.armorSlots[slot];
+    if (currentEquipped) {
+      this.addItem(currentEquipped, 1);
+    }
+    // Remove from inventory and equip
+    if (this.removeItem(itemId, 1)) {
+      this.armorSlots[slot] = itemId;
+      this.recalculateArmor();
+      return true;
+    }
+    return false;
+  }
+
+  unequipArmor(slot: string): boolean {
+    const equipped = this.armorSlots[slot];
+    if (!equipped) return false;
+    this.addItem(equipped, 1);
+    this.armorSlots[slot] = null;
+    this.recalculateArmor();
+    return true;
+  }
+
+  getArmorPoints(): number {
+    let total = 0;
+    for (const slotId of Object.keys(this.armorSlots)) {
+      const armorItem = this.armorSlots[slotId];
+      if (armorItem) {
+        total += ARMOR_VALUES[armorItem] ?? 0;
+      }
+    }
+    this.state.armorPoints = total;
+    return total;
+  }
+
+  takeDamageWithArmor(amount: number): number {
+    const armorPoints = this.getArmorPoints();
+    const reduction = Math.min(armorPoints / 25, 0.8);
+    const damage = Math.max(1, Math.floor(amount * (1 - reduction)));
+    this.takeDamage(damage);
+    return damage;
+  }
+
+  recalculateArmor(): void {
+    this.getArmorPoints();
+  }
+
+  reset(): void {
+    this.state.health = this.state.maxHealth;
+    this.state.hunger = this.state.maxHunger;
+    this.state.xp = 0;
+    this.state.xpLevel = 0;
+    this.state.armorPoints = 0;
+    this.state.equippedTool = null;
+    this.armorSlots = {
+      head: null,
+      torso: null,
+      legs: null,
+      feet: null,
+    };
+  }
+}
+
+const ARMOR_VALUES: Record<string, number> = {
+  leather_helmet: 2,
+  leather_chestplate: 5,
+  leather_leggings: 4,
+  leather_boots: 2,
+  iron_helmet: 6,
+  iron_chestplate: 15,
+  iron_leggings: 9,
+  iron_boots: 4,
+  diamond_helmet: 8,
+  diamond_chestplate: 20,
+  diamond_leggings: 12,
+  diamond_boots: 4,
+};
+
+function getArmorSlot(itemId: string): string | null {
+  if (itemId.endsWith('_helmet')) return 'head';
+  if (itemId.endsWith('_chestplate')) return 'torso';
+  if (itemId.endsWith('_leggings')) return 'legs';
+  if (itemId.endsWith('_boots')) return 'feet';
+  return null;
 }
 
 export function isWalkable(room: RoomSnapshot, x: number, y: number): boolean {
@@ -151,7 +237,9 @@ export function isWalkable(room: RoomSnapshot, x: number, y: number): boolean {
 
   if (room.minecraftBlocks) {
     const blockType = room.minecraftBlocks[`${x},${y}`];
-    if (blockType && isSolidBlock(blockType)) return false;
+    if (blockType && isBlockableBlock(blockType)) return false;
+    // Lava blocks movement
+    if (blockType === 'lava') return false;
   }
 
   return true;

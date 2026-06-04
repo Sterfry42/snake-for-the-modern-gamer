@@ -57,6 +57,7 @@ interface ScenarioBlueprint {
   id: string;
   kind: DatingScenarioKind;
   roles?: readonly ActorRole[];
+  roleMatchMode?: 'weighted' | 'required';
   contextTags?: readonly string[];
   preferredPersonalities?: RelationshipPersonality[];
   setup: string;
@@ -69,7 +70,7 @@ interface ScenarioBlueprint {
 const PERSONALITY_STAGE_DIRECTIONS: Record<RelationshipPersonality, string> = {
   poetic: 'They turn the moment over like a wet letter, searching for the sentence that survived.',
   deadpan: 'Their face barely moves, which somehow makes the silence louder.',
-  hungry: 'They watches your answer like it might be edible, warm, or both.',
+  hungry: 'They watch your answer like it might be edible, warm, or both.',
   regal: 'They straighten as if the room has accidentally become a court.',
   sharp: 'Their attention clicks into place, bright as a knife hidden inside a contract.',
 };
@@ -438,15 +439,15 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
       },
     ],
     after: {
-      poetic: ['They exhales slowly. "There. Now affection has a place to stand without lying."'],
-      deadpan: ['They folds their arms. "Conversation complete. Consequences remain open."'],
+      poetic: ['They exhale slowly. "There. Now affection has a place to stand without lying."'],
+      deadpan: ['They fold their arms. "Conversation complete. Consequences remain open."'],
       hungry: [
-        'They looks toward the market. "Good. Now feed someone who had to hear your name today."',
+        'They look toward the market. "Good. Now feed someone who had to hear your name today."',
       ],
       regal: [
-        'They inclines their head. "This is not forgiveness. It is the gate forgiveness may enter through."',
+        'They incline their head. "This is not forgiveness. It is the gate forgiveness may enter through."',
       ],
-      sharp: ['They taps two fingers together. "Better. Not clean. Better."'],
+      sharp: ['They tap two fingers together. "Better. Not clean. Better."'],
     },
   },
   {
@@ -724,7 +725,7 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
       ],
       regal: ['They turns from the altar. "The date may continue. Quietly."'],
       sharp: [
-        'They looks back once. "That place knows more than it should. I approve reluctantly."',
+        'They look back once. "That place knows more than it should. I approve reluctantly."',
       ],
     },
   },
@@ -1081,6 +1082,7 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
     id: 'talk-guard-law-mercy',
     kind: 'talk',
     roles: ['guard', 'gateGuard'],
+    roleMatchMode: 'required',
     contextTags: ['crime', 'faction'],
     setup: 'Their post overlooks the town road. The wanted notices flutter like nervous witnesses.',
     npcPrompt: {
@@ -1153,7 +1155,15 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
   {
     id: 'flirt-shopkeeper-scarcity',
     kind: 'flirt',
-    roles: ['shopkeeper', 'goblinMerchant', 'blackMarketMerchant'],
+    roles: [
+      'shopkeeper',
+      'potionMaker',
+      'butcher',
+      'bartender',
+      'goblinMerchant',
+      'blackMarketMerchant',
+    ],
+    roleMatchMode: 'required',
     contextTags: ['food-shortage', 'market'],
     setup:
       'They close the shop ledger with one finger still holding the page, as if affection might try to steal inventory.',
@@ -1222,7 +1232,8 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
   {
     id: 'talk-bartender-rumor-truth',
     kind: 'talk',
-    roles: ['bartender', 'cook'],
+    roles: ['bartender', 'cardDealer', 'cook'],
+    roleMatchMode: 'required',
     contextTags: ['rumor', 'crime'],
     setup: 'The tavern is busy enough that every table can pretend it is not listening.',
     npcPrompt: {
@@ -1287,6 +1298,7 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
     id: 'flirt-thief-stolen-first',
     kind: 'flirt',
     roles: ['thief', 'thiefContact', 'guildContact', 'blackMarketMerchant'],
+    roleMatchMode: 'required',
     contextTags: ['guild', 'crime'],
     setup:
       'They roll a coin over their knuckles and watch whether your eyes follow the shine or the hand.',
@@ -1353,6 +1365,7 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
     id: 'date-questgiver-duty',
     kind: 'date',
     roles: ['questGiver'],
+    roleMatchMode: 'required',
     contextTags: ['quest'],
     setup:
       'The date begins beside a quest board because duty has terrible timing and excellent posture.',
@@ -1602,11 +1615,11 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
       },
     ],
     after: {
-      poetic: ['The child wanders off. They mutters, "Tiny oracle. Horrible timing."'],
-      deadpan: ['They watches the child leave. "We have been reviewed by jam. Useful."'],
-      hungry: ['They exhales. "I need a pastry after being perceived that accurately."'],
-      regal: ['They smooths their sleeve. "That child may one day govern badly."'],
-      sharp: ['They narrows their eyes. "We should hire that child or avoid them forever."'],
+      poetic: ['The child wanders off. They mutter, "Tiny oracle. Horrible timing."'],
+      deadpan: ['They watch the child leave. "We have been reviewed by jam. Useful."'],
+      hungry: ['They exhale. "I need a pastry after being perceived that accurately."'],
+      regal: ['They smooth their sleeve. "That child may one day govern badly."'],
+      sharp: ['They narrow their eyes. "We should hire that child or avoid them forever."'],
     },
   },
 ];
@@ -1619,14 +1632,18 @@ export function createPersonalityDatingScenario(
   context: DatingScenarioContext = {},
 ): DatingScenarioEvent {
   const candidates = ROMANCE_SCENARIOS.filter((scenario) => scenario.kind === kind);
-  const weightedCandidates = candidates.flatMap((scenario) =>
-    Array.from({ length: scenarioWeight(scenario, personality, context) }, () => scenario),
+  const weightedCandidates = candidates.flatMap((scenario) => {
+    const weight = scenarioWeight(scenario, personality, context);
+    return Array.from({ length: weight }, () => scenario);
+  });
+  const fallbackCandidates = candidates.filter(
+    (scenario) => scenarioWeight(scenario, personality, context) > 0,
   );
   const scenario =
     weightedCandidates[Math.floor(rng() * weightedCandidates.length)] ??
-    candidates[0] ??
+    fallbackCandidates[0] ??
     ROMANCE_SCENARIOS[0]!;
-  return materializeScenario(profile, personality, scenario);
+  return materializeScenario(profile, personality, scenario, rng);
 }
 
 function scenarioWeight(
@@ -1635,6 +1652,13 @@ function scenarioWeight(
   context: DatingScenarioContext,
 ): number {
   let weight = 1;
+  if (
+    scenario.roleMatchMode === 'required' &&
+    scenario.roles?.length &&
+    (!context.actorRole || !scenario.roles.includes(context.actorRole))
+  ) {
+    return 0;
+  }
   if (scenario.preferredPersonalities?.includes(personality)) weight += 1;
   if (context.actorRole && scenario.roles?.includes(context.actorRole)) weight += 4;
   const contextMatches =
@@ -1653,6 +1677,7 @@ function materializeScenario(
   profile: RelationshipCandidateProfile,
   personality: RelationshipPersonality,
   scenario: ScenarioBlueprint,
+  rng: () => number,
 ): DatingScenarioEvent {
   const actions = scenario.branches.map((branch) => ({
     id: branch.id,
@@ -1661,13 +1686,13 @@ function materializeScenario(
   }));
   const pages: DatingScenarioPage[] = [
     { line: scenario.setup, lineIsNarration: true },
-    { line: pickPersonalityLine(scenario.npcPrompt, personality) },
+    { line: pickPersonalityLine(scenario.npcPrompt, personality, rng) },
     {
       line: scenario.question,
       lineIsNarration: true,
       actions: [...actions, { id: 'leave', label: 'Back', tone: 'quiet' }],
     },
-    { line: pickPersonalityLine(scenario.after, personality) },
+    { line: pickPersonalityLine(scenario.after, personality, rng) },
   ];
   const branchResults: Record<string, DatingScenarioBranchResult> = {};
   for (const branch of scenario.branches) {
@@ -1699,9 +1724,10 @@ function materializeScenario(
 function pickPersonalityLine(
   lines: Record<RelationshipPersonality, readonly string[]>,
   personality: RelationshipPersonality,
+  rng: () => number,
 ): string {
   const pool = lines[personality] ?? lines.poetic;
-  return pool[0] ?? '';
+  return pool[Math.floor(rng() * pool.length)] ?? '';
 }
 
 function tierForBranchPersonality(

@@ -1,6 +1,7 @@
 import type { AnimalDefinition, AnimalInstance } from '../animals/types.js';
 import type { EnemyInstance } from '../systems/enemies.js';
 import type { TownResident, TownStructure } from '../world/town.js';
+import { isTownCriminalRole, isTownGuardRole, isTownShopRole } from '../world/townRoles.js';
 import type {
   RelationshipCandidateProfile,
   RelationshipState,
@@ -194,13 +195,25 @@ function createLoreProfile(
     'debt',
   ];
   return {
-    scale: role === 'guard' || role === 'gateGuard' ? 'kingdom' : species === 'goblin' ? 'regional' : 'local',
-    knowsAboutKing: role === 'guard' || role === 'gateGuard' || role === 'bartender' || seed % 3 === 0,
+    scale:
+      role === 'guard' || role === 'gateGuard'
+        ? 'kingdom'
+        : species === 'goblin'
+          ? 'regional'
+          : 'local',
+    knowsAboutKing:
+      role === 'guard' || role === 'gateGuard' || role === 'bartender' || seed % 3 === 0,
     kingOpinion: pick(kingOpinionOptions, seed >> 2),
     secretType: pick(secretTypes, seed >> 4),
-    anchorEvent: seed % 2 === 0 ? 'the Bellgrave tax winter' : 'the night the west road bells stopped',
+    anchorEvent:
+      seed % 2 === 0 ? 'the Bellgrave tax winter' : 'the night the west road bells stopped',
     anchorPlace: townId ?? 'the old road',
-    anchorInstitution: species === 'goblin' ? 'the Ledger Below' : role === 'guard' ? 'the gate office' : 'the town hall',
+    anchorInstitution:
+      species === 'goblin'
+        ? 'the Ledger Below'
+        : role === 'guard'
+          ? 'the gate office'
+          : 'the town hall',
     officialVersionBelief: seed % 101,
     bitternessTowardKing: (seed >> 5) % 101,
     revealedLoreIds: [],
@@ -231,11 +244,11 @@ export function actorIdForTownResident(townId: string, residentId: string, role:
             ? 'butcher'
             : role === 'cardDealer'
               ? 'cardDealer'
-      : role === 'guard'
-        ? 'guard'
-        : role === 'questGiver'
-          ? 'questGiver'
-          : 'resident';
+              : role === 'guard'
+                ? 'guard'
+                : role === 'questGiver'
+                  ? 'questGiver'
+                  : 'resident';
   return `town:${townId}:${actorRole}:${residentId}`;
 }
 
@@ -375,7 +388,13 @@ export function createActorFromEnemy(args: EnsureEnemyActorArgs): Actor {
   return createBaseActor({
     id: args.actorId ?? actorIdForEnemy(args.roomId, args.enemyId),
     kind: isShark ? 'enemy' : isDuelist ? 'boss' : isGoblin ? 'criminal' : 'enemy',
-    role: isDuelist ? 'duelist' : isGoblin ? 'goblinMerchant' : isShark ? 'animalPredator' : 'bandit',
+    role: isDuelist
+      ? 'duelist'
+      : isGoblin
+        ? 'goblinMerchant'
+        : isShark
+          ? 'animalPredator'
+          : 'bandit',
     species: isShark ? 'shark' : isGoblin ? 'goblin' : 'human',
     thickness: isDuelist || args.encounterKind === 'npc-hostile' ? 'medium' : 'thin',
     displayName,
@@ -422,7 +441,12 @@ export function createActorFromRelationship(args: EnsureRelationshipActorArgs): 
   const species = mapRelationshipSpecies(args.species);
   return createBaseActor({
     id: args.actorId ?? actorIdForRelationship(args.relationshipId),
-    kind: species === 'goblin' ? 'criminal' : species === 'angel' || species === 'goblinAngel' ? 'supernatural' : 'civilian',
+    kind:
+      species === 'goblin'
+        ? 'criminal'
+        : species === 'angel' || species === 'goblinAngel'
+          ? 'supernatural'
+          : 'civilian',
     role: 'romanceCandidate',
     species,
     thickness: args.stage === 'married' || args.stage === 'lover' ? 'thick' : 'medium',
@@ -519,34 +543,20 @@ function mapTownResidentRole(role: string): ActorRole {
 }
 
 function mapTownResidentKind(role: ActorRole): ActorKind {
-  if (
-    role === 'shopkeeper' ||
-    role === 'equipmentMerchant' ||
-    role === 'potionMaker' ||
-    role === 'butcher' ||
-    role === 'cardDealer' ||
-    role === 'bartender'
-  ) {
+  if (isTownShopRole(role)) {
     return 'shopkeeper';
   }
-  if (role === 'guard' || role === 'gateGuard') return 'guard';
+  if (isTownGuardRole(role)) return 'guard';
   if (role === 'questGiver') return 'civilian';
-  if (role === 'thief' || role === 'thiefContact' || role === 'guildContact') return 'criminal';
+  if (isTownCriminalRole(role)) return 'criminal';
   return 'civilian';
 }
 
 function brainForRole(role: ActorRole): ActorBrainId {
-  if (
-    role === 'shopkeeper' ||
-    role === 'equipmentMerchant' ||
-    role === 'potionMaker' ||
-    role === 'butcher' ||
-    role === 'cardDealer' ||
-    role === 'bartender'
-  ) {
+  if (isTownShopRole(role)) {
     return 'shopkeeper';
   }
-  if (role === 'guard' || role === 'gateGuard') return 'guard';
+  if (isTownGuardRole(role)) return 'guard';
   if (role === 'questGiver') return 'resident';
   if (role === 'thief' || role === 'thiefContact') return 'thief';
   return 'resident';

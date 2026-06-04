@@ -4,7 +4,9 @@ import { createRng, type RandomGenerator } from '../core/rng.js';
 import { pickNpcName } from '../npcs/npcNames.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import type { NpcProfile } from '../npcs/profiles.js';
+import { actorIdForTownResident } from '../actors/actorFactory.js';
 import type { BiomeId } from './biomes.js';
+import { selectPrimaryTownMerchant, shopKindForTownRole } from './townRoles.js';
 import type { RoomArea, RoomSnapshot } from './types.js';
 
 export type WantedLevel = 0 | 1 | 2 | 3 | 4 | 5;
@@ -85,6 +87,10 @@ export type TownCrimeKind =
 
 export type TownShopKind =
   | 'general'
+  | 'equipment'
+  | 'potion'
+  | 'butcher'
+  | 'cards'
   | 'food'
   | 'florist'
   | 'jeweler'
@@ -209,12 +215,12 @@ export interface TownResident extends Omit<NpcProfile, 'role'> {
   x: number;
   y: number;
   role:
-  | 'shopkeeper'
-  | 'equipmentMerchant'
-  | 'potionMaker'
-  | 'butcher'
-  | 'cardDealer'
-  | 'bartender'
+    | 'shopkeeper'
+    | 'equipmentMerchant'
+    | 'potionMaker'
+    | 'butcher'
+    | 'cardDealer'
+    | 'bartender'
     | 'guard'
     | 'resident'
     | 'thiefContact'
@@ -699,21 +705,11 @@ export function createPhysicalHumanTown(args: {
         ? pick(BANDIT_PORTRAITS, rng)
         : pick(PORTRAITS, rng),
     ),
-    actorId: `town:${town.id}:${
-      spot.role === 'equipmentMerchant'
-        ? 'equipmentMerchant'
-        : spot.role === 'potionMaker'
-          ? 'potionMaker'
-          : spot.role === 'butcher'
-            ? 'butcher'
-            : spot.role === 'cardDealer'
-              ? 'cardDealer'
-        : spot.role === 'guard'
-          ? 'guard'
-          : spot.role === 'questGiver'
-            ? 'questGiver'
-            : 'resident'
-    }:${town.id}:resident:${spot.role}:${index}`,
+    actorId: actorIdForTownResident(
+      town.id,
+      `${town.id}:resident:${spot.role}:${index}`,
+      spot.role,
+    ),
     x: 0,
     y: 0,
     role: spot.role,
@@ -725,16 +721,21 @@ export function createPhysicalHumanTown(args: {
         ? 'residentialStreet'
         : spot.role === 'questGiver' || spot.role === 'bartender' || spot.role === 'cardDealer'
           ? 'tavernInterior'
-          : spot.role === 'equipmentMerchant' || spot.role === 'potionMaker' || spot.role === 'butcher'
+          : spot.role === 'equipmentMerchant' ||
+              spot.role === 'potionMaker' ||
+              spot.role === 'butcher'
             ? 'marketStreet'
-          : 'square',
+            : 'square',
     ),
     workRoomId: roomFor(spot.workDistrict),
     id: `${town.id}:resident:${spot.role}:${index}`,
   }));
-  town.shopkeeper =
-    town.residents.find((resident) => resident.role === 'equipmentMerchant') ?? town.shopkeeper;
+  town.shopkeeper = selectPrimaryTownMerchant(town.residents, town.shopkeeper);
   return town;
+}
+
+export function townShopKindForResidentRole(role: string): TownShopKind | undefined {
+  return shopKindForTownRole(role);
 }
 
 export function townDistrictDisplayName(kind: TownDistrictKind): string {
@@ -1457,8 +1458,7 @@ export function createTownDistrictRoom(args: {
   town.residents
     .filter((resident) => residents.some((entry) => entry.id === resident.id))
     .forEach((resident) => stampNpc(layout, resident.x, resident.y));
-  town.shopkeeper =
-    town.residents.find((resident) => resident.role === 'shopkeeper') ?? town.shopkeeper;
+  town.shopkeeper = selectPrimaryTownMerchant(town.residents, town.shopkeeper);
 
   return {
     id: args.roomId,

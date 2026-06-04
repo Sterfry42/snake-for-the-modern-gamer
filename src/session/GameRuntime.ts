@@ -9,7 +9,7 @@ import type { GameSnapshot } from './GameSnapshot.js';
 export interface LocalAuthoritativeRuntime extends CommandHandler {
   actionStep(paused: boolean): StepResult;
   bossStep(): void;
-  actorClockStep(): StepResult | null;
+  actorClockStep(): Promise<StepResult | null>;
   hazardClockStep(): StepResult | null;
   bulletClockStep(): StepResult | null;
   getSnapshot(): GameSnapshot;

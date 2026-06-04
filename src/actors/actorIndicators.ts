@@ -1,4 +1,5 @@
 import type { Actor } from './actorTypes.js';
+import { isTownShopRole } from '../world/townRoles.js';
 
 export type ActorIndicatorKind =
   | 'quest'
@@ -42,7 +43,7 @@ export function getActorIndicators(actor: Actor, max = 2): ActorIndicator[] {
   if (actor.flags.activeFactionEventId || actor.flags.raidDefender || actor.flags.raidShelter) {
     indicators.push({ kind: 'faction', glyph: '^', priority: 76, label: 'Faction event' });
   }
-  if (actor.role === 'shopkeeper' || actor.role === 'bartender' || actor.role === 'blackMarketMerchant') {
+  if (isTownShopRole(actor.role)) {
     indicators.push({ kind: 'shop', glyph: '$', priority: 70, label: 'Shop' });
   }
   if (actor.role === 'romanceCandidate' || actor.flags.romanceCandidate) {
@@ -60,7 +61,11 @@ export function getActorIndicators(actor: Actor, max = 2): ActorIndicator[] {
   if (actor.memory.some((memory) => memory.source === 'rumor' || memory.source === 'heard')) {
     indicators.push({ kind: 'rumor', glyph: '~', priority: 58, label: 'Has heard a rumor' });
   }
-  if (actor.relationships.some((link) => link.relationship === 'creditor' || link.relationship === 'debtor')) {
+  if (
+    actor.relationships.some(
+      (link) => link.relationship === 'creditor' || link.relationship === 'debtor',
+    )
+  ) {
     indicators.push({ kind: 'debt', glyph: '%', priority: 50, label: 'Debt tie' });
   }
   if (

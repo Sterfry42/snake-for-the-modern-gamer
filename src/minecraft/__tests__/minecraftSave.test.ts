@@ -55,10 +55,14 @@ describe('Minecraft Save System', () => {
         spawnRoomId: '0,0,0',
         inventory: [],
         equippedTool: null,
+        armorSlots: { head: null, torso: null, legs: null, feet: null },
       },
       dayNight: { day: 1, timeOfDay: 0 },
       mobs: [],
       dirtyChunks: [],
+      furnaces: [],
+      chests: [],
+      beds: [],
     };
 
     const result = deserializeMinecraftState(data);

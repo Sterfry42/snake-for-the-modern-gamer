@@ -30,6 +30,8 @@ import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
 import { SaveUI } from '../ui/saveUI.js';
+import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
+import type { FactionId } from '../factions/factions.js';
 import {
   DatingScenePopup,
   type DatingSceneAction,
@@ -64,6 +66,7 @@ import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_HATS,
   VILLAGE_SHOP_STYLES,
+  VILLAGE_SHOP_COWBELLS,
   BLACK_MARKET_STYLES,
   getBlackMarketDefinition,
   getVillageShopDefinition,
@@ -71,6 +74,8 @@ import {
   type VillageShopEquipmentOffer,
   type VillageShopHatId,
   type VillageShopHatOffer,
+  type VillageShopCowbellId,
+  type VillageShopCowbellOffer,
   type VillageShopStyleOffer,
   type VillageShopStyleId,
 } from '../shops/villageShop.js';
@@ -124,6 +129,8 @@ type SnakeCosmeticState = {
   activeHat: VillageShopHatId | null;
   cowboyHatUnlocked: boolean;
   cowboyHatEquipped: boolean;
+  cowbellUnlocked: boolean;
+  cowbellEquipped: boolean;
   loudWalkingNoiseUnlocked: boolean;
   loudWalkingNoiseEnabled: boolean;
   languageSelected: boolean;
@@ -1490,6 +1497,8 @@ export default class SnakeScene extends Phaser.Scene {
     activeHat: null,
     cowboyHatUnlocked: false,
     cowboyHatEquipped: false,
+    cowbellUnlocked: false,
+    cowbellEquipped: false,
     loudWalkingNoiseUnlocked: false,
     loudWalkingNoiseEnabled: false,
     languageSelected: false,
@@ -1598,6 +1607,8 @@ export default class SnakeScene extends Phaser.Scene {
         this.setDir(x, y);
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
+          this.takeManualTurn();
+        } else if (this.minecraftMode && !this.deathCutscene) {
           this.takeManualTurn();
         }
       },
@@ -1779,6 +1790,39 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (this.skillTree.handleKeyDown(key, this.paused)) {
         return;
+      }
+
+      if (this.minecraftMode && !this.deathCutscene) {
+        if (key === 'q') {
+          this.minecraftFeature?.handleKeyboardBreak(this);
+          this.isDirty = true;
+          return;
+        }
+        if (key === 'r') {
+          this.minecraftFeature?.handleKeyboardPlace(this);
+          this.isDirty = true;
+          return;
+        }
+        if (['arrowup', 'w'].includes(key)) {
+          this.setDir(0, -1);
+          this.takeManualTurn();
+          return;
+        }
+        if (['arrowdown', 's'].includes(key)) {
+          this.setDir(0, 1);
+          this.takeManualTurn();
+          return;
+        }
+        if (['arrowleft', 'a'].includes(key)) {
+          this.setDir(-1, 0);
+          this.takeManualTurn();
+          return;
+        }
+        if (['arrowright', 'd'].includes(key)) {
+          this.setDir(1, 0);
+          this.takeManualTurn();
+          return;
+        }
       }
 
       if (this.isManualHouseMovementActive()) {
@@ -2028,14 +2072,16 @@ export default class SnakeScene extends Phaser.Scene {
     this.minecraftMode = !this.minecraftMode;
 
     if (this.minecraftMode) {
-      // Switch to Minecraft mode
+      // Switch to Minecraft mode - enter manual movement mode
+      this.setFlag('traversal.manualResumePending', true);
       this.setFlag('ui.suppressHud', true);
       this.setFlag('ui.questInteraction', {
         message:
-          'Minecraft mode: Shift+C to toggle. Left-click to break blocks, right-click to place. WASD to move. E for crafting.',
+          'Minecraft mode: Shift+C to toggle. Q to break block, R to place block. WASD to move. E for crafting.',
       });
     } else {
-      // Switch back to snake mode
+      // Switch back to snake mode - resume auto-movement
+      this.setFlag('traversal.manualResumePending', undefined);
       this.setFlag('ui.suppressHud', undefined);
       this.setFlag('ui.questInteraction', undefined);
     }
@@ -2098,6 +2144,8 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: null,
       cowboyHatUnlocked: false,
       cowboyHatEquipped: false,
+      cowbellUnlocked: false,
+      cowbellEquipped: false,
       loudWalkingNoiseUnlocked: false,
       loudWalkingNoiseEnabled: false,
       languageSelected: false,
@@ -6335,6 +6383,8 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: this.snakeCosmetics.activeHat,
       cowboyHatUnlocked: this.snakeCosmetics.cowboyHatUnlocked,
       cowboyHatEquipped: this.snakeCosmetics.cowboyHatEquipped,
+      cowbellUnlocked: this.snakeCosmetics.cowbellUnlocked,
+      cowbellEquipped: this.snakeCosmetics.cowbellEquipped,
       loudWalkingNoiseUnlocked: this.snakeCosmetics.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
       languageSelected: this.snakeCosmetics.languageSelected,
@@ -6350,6 +6400,8 @@ export default class SnakeScene extends Phaser.Scene {
       activeHat: state.activeHat,
       cowboyHatUnlocked: state.cowboyHatUnlocked,
       cowboyHatEquipped: state.cowboyHatEquipped,
+      cowbellUnlocked: state.cowbellUnlocked,
+      cowbellEquipped: state.cowbellEquipped,
       loudWalkingNoiseUnlocked: state.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: state.loudWalkingNoiseEnabled,
       languageSelected: state.languageSelected,
@@ -6479,6 +6531,7 @@ export default class SnakeScene extends Phaser.Scene {
       hats: definition.hats.filter((offer) =>
         stock.hatIds.includes(offer.id),
       ) as VillageShopHatOffer[],
+      cowbells: definition.cowbells.filter((offer) => true),
       supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
     };
   }
@@ -6957,6 +7010,32 @@ export default class SnakeScene extends Phaser.Scene {
         ? 'Walking noise disabled.'
         : 'Walking noise restored.',
       color: '#9ad1ff',
+    };
+  }
+
+  toggleCowbell(): { ok: boolean; message: string; color: string } {
+    const cost = 45;
+    if (!this.snakeCosmetics.cowbellUnlocked) {
+      if (this.score < cost) {
+        return {
+          ok: false,
+          message: `Cowbell costs ${cost} score.`,
+          color: '#ff6b6b',
+        };
+      }
+      this.addScoreDirect(-cost);
+      this.snakeCosmetics.cowbellUnlocked = true;
+    }
+
+    this.snakeCosmetics.cowbellEquipped = !this.snakeCosmetics.cowbellEquipped;
+    this.juice.setCowbellEnabled(this.snakeCosmetics.cowbellEquipped);
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: this.snakeCosmetics.cowbellEquipped
+        ? 'Cowbell equipped. Let every step jingle.'
+        : 'Cowbell stowed.',
+      color: '#5dd6a2',
     };
   }
 
@@ -7708,20 +7787,17 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Village headwear with no tactical justification.',
       });
     }
+    if ((shop?.cowbells.length ?? 0) > 0) {
+      options.push({
+        id: 'cowbells',
+        title: 'Cowbells',
+        description: 'For snakes who like their footsteps to clatter.',
+      });
+    }
     const room = this.snakeGame.getCurrentRoom();
     const isBlackMarket = Boolean(
       room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
     );
-    const hasButcher = Boolean(room.village);
-    if (!isBlackMarket && hasButcher) {
-      options.push({
-        id: 'butcher',
-        title: room.town ? 'Sell Length' : 'Trim Length',
-        description: room.town
-          ? 'The butcher buys snake length at an insulting but useful rate.'
-          : 'The shopkeeper can trim a few segments for free.',
-      });
-    }
     const cardOffers = isBlackMarket || room.town ? [] : this.getCurrentMarketCardOffers();
     if (cardOffers.length > 0) {
       options.push({
@@ -7745,12 +7821,6 @@ export default class SnakeScene extends Phaser.Scene {
         this.showCardTableRoot(shopkeeperName);
         return;
       }
-      if (id === 'butcher') {
-        const result = this.snakeGame.sellSnakeLengthToButcher();
-        this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopRoot(shopkeeperName, true);
-        return;
-      }
       if (
         id === 'equipment' ||
         id === 'supplies' ||
@@ -7765,7 +7835,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showVillageShopCategory(
     shopkeeperName: string,
-    category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cards',
+    category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cowbells' | 'cards',
     page = 0,
   ): void {
     this.paused = true;
@@ -7825,6 +7895,20 @@ export default class SnakeScene extends Phaser.Scene {
           description: owned ? 'Toggle this hat.' : 'Buy and equip this hat.',
         });
       }
+    } else if (category === 'cowbells') {
+      for (const cowbell of shop.cowbells) {
+        const owned = this.snakeCosmetics.cowbellUnlocked;
+        const equipped = this.snakeCosmetics.cowbellEquipped;
+        options.push({
+          id: `cowbell:${cowbell.id}`,
+          title: `${cowbell.label} - ${owned ? (equipped ? 'equipped' : 'owned') : `${cowbell.price} score`}`,
+          description: owned
+            ? equipped
+              ? 'Toggle cowbell off.'
+              : 'Toggle cowbell on.'
+            : cowbell.description,
+        });
+      }
     } else {
       const collection = this.getCardCollection();
       const cardOffers = this.getCurrentMarketCardOffers();
@@ -7877,9 +7961,11 @@ export default class SnakeScene extends Phaser.Scene {
               ? this.purchaseVillageStyle(value as VillageShopStyleId)
               : kind === 'hat'
                 ? this.purchaseOrToggleVillageHat(value as VillageShopHatId)
-                : kind === 'card'
-                  ? this.purchaseVillageCard(value as CardId)
-                  : null;
+                : kind === 'cowbell'
+                  ? this.toggleCowbell()
+                  : kind === 'card'
+                    ? this.purchaseVillageCard(value as CardId)
+                    : null;
       if (result) {
         this.showQuestHintPopup(result.message, result.color);
         this.showVillageShopCategory(shopkeeperName, category, page);
@@ -9214,18 +9300,18 @@ export default class SnakeScene extends Phaser.Scene {
                       ? ' the Butcher'
                       : resident.role === 'cardDealer'
                         ? ' the Card Dealer'
-                : resident.role === 'guard'
-                  ? ' the Guard'
-                  : resident.role === 'thief' || resident.role === 'thiefContact'
-                    ? ' of the Guild'
-                    : resident.role === 'questGiver'
-                      ? ' the Quest Broker'
-                      : ''
+                        : resident.role === 'guard'
+                          ? ' the Guard'
+                          : resident.role === 'thief' || resident.role === 'thiefContact'
+                            ? ' of the Guild'
+                            : resident.role === 'questGiver'
+                              ? ' the Quest Broker'
+                              : ''
             }`,
             species: 'human' as RelationshipSpecies,
             portraitId: resident.portraitId,
             homeRoomId: resident.homeRoomId ?? room.id,
-            factionId: 'hearthbound-remnant' as const,
+            factionId: resident.factionId as FactionId,
             personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
             ...this.snakeGame.getRelationshipNpcBodyPosition(
               {
@@ -9237,7 +9323,7 @@ export default class SnakeScene extends Phaser.Scene {
                 species: 'human' as RelationshipSpecies,
                 portraitId: resident.portraitId,
                 homeRoomId: resident.homeRoomId ?? room.id,
-                factionId: 'hearthbound-remnant' as const,
+                factionId: resident.factionId as FactionId,
                 personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
               },
               { x: resident.x, y: resident.y },
@@ -9330,7 +9416,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.actorInteractionOptions(profile, canPickpocket),
       (id) => {
         this.setChoicePopupVisible(false);
-        const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
+        const actorRole = profile.actorId
+          ? this.snakeGame.getActorRole(profile.actorId)
+          : undefined;
         if (id === 'leave') {
           this.paused = false;
           return;
@@ -9486,7 +9574,7 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id === 'butcher') {
-          const result = this.snakeGame.sellSnakeLengthToButcher();
+          const result = this.snakeGame.sellSnakeLengthToButcher(profile.actorId);
           this.showQuestHintPopup(result.message, result.color);
           this.closeVillageShop();
           this.paused = false;
@@ -9519,7 +9607,7 @@ export default class SnakeScene extends Phaser.Scene {
           } else if (actorRole === 'potionMaker') {
             this.showVillageShopCategory(profile.displayName, 'supplies');
           } else if (actorRole === 'butcher') {
-            const result = this.snakeGame.sellSnakeLengthToButcher();
+            const result = this.snakeGame.sellSnakeLengthToButcher(profile.actorId);
             this.showQuestHintPopup(result.message, result.color);
           } else if (actorRole === 'cardDealer') {
             this.showCardTableRoot(profile.displayName, false, true);
@@ -11151,15 +11239,14 @@ export default class SnakeScene extends Phaser.Scene {
     if (town) tags.push('town');
     if ((town?.wantedLevel ?? 0) > 0) tags.push('crime');
     if ((town?.wantedLevel ?? 0) >= 3 || (town?.suspicion ?? 0) >= 65) tags.push('curfew');
-    if (
-      actorRole === 'shopkeeper' ||
-      actorRole === 'goblinMerchant' ||
-      actorRole === 'blackMarketMerchant'
-    ) {
+    if (actorRole && (isTownShopRole(actorRole) || actorRole === 'goblinMerchant')) {
       tags.push('market', 'food-shortage');
     }
+    if (actorRole === 'potionMaker') tags.push('healing');
+    if (actorRole === 'butcher') tags.push('food');
+    if (actorRole === 'cardDealer') tags.push('cards', 'rumor');
     if (actorRole === 'bartender' || actorRole === 'cook') tags.push('rumor');
-    if (actorRole === 'thief' || actorRole === 'thiefContact' || actorRole === 'guildContact') {
+    if (actorRole && isTownCriminalRole(actorRole)) {
       tags.push('guild', 'crime');
     }
     if (actorRole === 'questGiver') tags.push('quest');

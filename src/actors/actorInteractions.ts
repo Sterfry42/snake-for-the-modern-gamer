@@ -1,5 +1,6 @@
 import type { Actor } from './actorTypes.js';
 import { getActorIndicators, type ActorIndicator } from './actorIndicators.js';
+import { isTownShopRole } from '../world/townRoles.js';
 
 export type ActorInteractionId =
   | 'inspect'
@@ -49,7 +50,11 @@ export function buildActorInteractionMenu(
 ): ActorInteractionMenuModel {
   const options: ActorInteractionOption[] = [];
   const hostile = actor.hostility === 'hostile' || actor.hostility === 'surrendering';
-  const humanoid = actor.species === 'human' || actor.species === 'goblin' || actor.species === 'angel' || actor.species === 'goblinAngel';
+  const humanoid =
+    actor.species === 'human' ||
+    actor.species === 'goblin' ||
+    actor.species === 'angel' ||
+    actor.species === 'goblinAngel';
   const canPickpocket = Boolean(context.canPickpocket ?? context.thievesGuildUnlocked);
 
   options.push({ id: 'inspect', label: 'Inspect', enabled: true, priority: 10 });
@@ -82,15 +87,7 @@ export function buildActorInteractionMenu(
     }
   }
 
-  if (
-    actor.role === 'shopkeeper' ||
-    actor.role === 'equipmentMerchant' ||
-    actor.role === 'potionMaker' ||
-    actor.role === 'butcher' ||
-    actor.role === 'cardDealer' ||
-    actor.role === 'bartender' ||
-    actor.role === 'blackMarketMerchant'
-  ) {
+  if (isTownShopRole(actor.role)) {
     const shopClosedReason =
       typeof actor.flags.shopClosedReason === 'string' ? actor.flags.shopClosedReason : undefined;
     options.push({
@@ -143,7 +140,13 @@ export function buildActorInteractionMenu(
   if (hostile && actor.combat?.canBeEatenWhenHostile) {
     options.push({ id: 'eat', label: 'Eat', enabled: true, priority: 95 });
   } else if (humanoid) {
-    options.push({ id: 'eat', label: 'Eat', enabled: false, reason: 'Target is not hostile', priority: 5 });
+    options.push({
+      id: 'eat',
+      label: 'Eat',
+      enabled: false,
+      reason: 'Target is not hostile',
+      priority: 5,
+    });
   }
 
   if (actor.hostility === 'surrendering') {
