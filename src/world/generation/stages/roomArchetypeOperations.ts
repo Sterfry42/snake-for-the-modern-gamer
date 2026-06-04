@@ -56,8 +56,18 @@ const BILLBOARD_SLOGANS = [
   'VACANCY: PROBABLY',
   'FOURTH QUARTER FOREVER',
 ] as const;
-const ROAD_NAMES = ['Liberty Spur', 'Blue State Route', 'Old Glory Bypass', 'The Long Weekend'] as const;
-const MOTEL_POOL_NAMES = ['Vacancy Wells', 'Chlorine Shrine', 'The Last Pool', 'No-Dive Motor Court'] as const;
+const ROAD_NAMES = [
+  'Liberty Spur',
+  'Blue State Route',
+  'Old Glory Bypass',
+  'The Long Weekend',
+] as const;
+const MOTEL_POOL_NAMES = [
+  'Vacancy Wells',
+  'Chlorine Shrine',
+  'The Last Pool',
+  'No-Dive Motor Court',
+] as const;
 
 export class RoomArchetypeOperations {
   constructor(
@@ -121,6 +131,9 @@ export class RoomArchetypeOperations {
   }
 
   private chooseArchetype(context: RoomGenerationContext): RoomArchetype {
+    if (context.townMembership?.role === 'inside') {
+      return { id: 'classic', suppressRandomObstacles: true };
+    }
     if (context.isOcean) {
       return { id: 'ocean', suppressRandomObstacles: true };
     }
@@ -215,7 +228,7 @@ export class RoomArchetypeOperations {
     const safe = this.createEntranceRunupCells(context, 4);
     const roomWidth = context.grid.cols;
     const roomHeight = context.grid.rows;
-    const petalCount = Math.floor((roomWidth * roomHeight) * 0.08);
+    const petalCount = Math.floor(roomWidth * roomHeight * 0.08);
     let placed = 0;
     let attempts = 0;
     while (placed < petalCount && attempts < petalCount * 5) {
@@ -254,7 +267,7 @@ export class RoomArchetypeOperations {
       const startX = 3 + this.randomInt(Math.max(1, roomWidth - 8));
       const height = Math.floor(roomHeight * 0.4) + this.randomInt(Math.floor(roomHeight * 0.3));
       const wallLength = 3 + this.randomInt(3);
-      for (let i = 0; i < wallLength && (startX + i) < roomWidth - 2; i++) {
+      for (let i = 0; i < wallLength && startX + i < roomWidth - 2; i++) {
         const y = 3 + this.randomInt(Math.max(1, roomHeight - 8));
         const key = vectorKey({ x: startX + i, y });
         if (!safe.has(key)) {
@@ -405,9 +418,16 @@ export class RoomArchetypeOperations {
         const onRightEdge = x === centerX + halfW || x === centerX + halfW + wallThickness;
         const onTopEdge = y === centerY - halfH - wallThickness || y === centerY - halfH - 1;
         const onBottomEdge = y === centerY + halfH || y === centerY + halfH + wallThickness;
-        if ((onLeftEdge && (onTopEdge || onBottomEdge)) || (onRightEdge && (onTopEdge || onBottomEdge)) || (onTopEdge && (onLeftEdge || onRightEdge))) {
+        if (
+          (onLeftEdge && (onTopEdge || onBottomEdge)) ||
+          (onRightEdge && (onTopEdge || onBottomEdge)) ||
+          (onTopEdge && (onLeftEdge || onRightEdge))
+        ) {
           context.canvas.set(x, y, '#');
-        } else if ((onLeftEdge || onRightEdge || onTopEdge || onBottomEdge) && (dx >= halfW || dy >= halfH)) {
+        } else if (
+          (onLeftEdge || onRightEdge || onTopEdge || onBottomEdge) &&
+          (dx >= halfW || dy >= halfH)
+        ) {
           context.canvas.set(x, y, '#');
         } else if (dx < halfW && dy < halfH) {
           context.canvas.set(x, y, 'E');
@@ -440,7 +460,15 @@ export class RoomArchetypeOperations {
     for (let i = 0; i < crateClusters; i += 1) {
       const left = 5 + this.randomInt(Math.max(1, roomWidth - 12));
       const top = 5 + this.randomInt(Math.max(1, roomHeight - 10));
-      this.fillVisualRect(context, left, top, 2 + this.randomInt(2), 1 + this.randomInt(2), 'F', safe);
+      this.fillVisualRect(
+        context,
+        left,
+        top,
+        2 + this.randomInt(2),
+        1 + this.randomInt(2),
+        'F',
+        safe,
+      );
     }
   }
 
@@ -488,7 +516,10 @@ export class RoomArchetypeOperations {
       context.canvas.set(painter.x, painter.y, 'G');
       context.billboardOracle = {
         signPainter: {
-          ...buildHouseNpcProfile(this.pick(['Sign-Paint Marlene', 'Billboard Dale', 'Ad-Man Walt']), 'sage-1'),
+          ...buildHouseNpcProfile(
+            this.pick(['Sign-Paint Marlene', 'Billboard Dale', 'Ad-Man Walt']),
+            'sage-1',
+          ),
           x: painter.x,
           y: painter.y,
         },
@@ -565,12 +596,18 @@ export class RoomArchetypeOperations {
     }
     context.motelPool = {
       clerk: {
-        ...buildHouseNpcProfile(this.pick(['Vacancy Vera', 'Clerk Connie', 'Pool Key Dale']), 'sage-1'),
+        ...buildHouseNpcProfile(
+          this.pick(['Vacancy Vera', 'Clerk Connie', 'Pool Key Dale']),
+          'sage-1',
+        ),
         x: clerk.x,
         y: clerk.y,
       },
       maintenance: {
-        ...buildHouseNpcProfile(this.pick(['Skimmer Hank', 'Chlorine Tammy', 'Net Earl']), 'sage-2'),
+        ...buildHouseNpcProfile(
+          this.pick(['Skimmer Hank', 'Chlorine Tammy', 'Net Earl']),
+          'sage-2',
+        ),
         x: maintenance.x,
         y: maintenance.y,
       },
@@ -599,7 +636,10 @@ export class RoomArchetypeOperations {
         context.canvas.set(ranger.x, ranger.y, 'G');
         context.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']), 'sage-1'),
+            ...buildHouseNpcProfile(
+              this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']),
+              'sage-1',
+            ),
             x: ranger.x,
             y: ranger.y,
           },
@@ -620,7 +660,10 @@ export class RoomArchetypeOperations {
         context.canvas.set(ranger.x, ranger.y, 'G');
         context.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']), 'sage-1'),
+            ...buildHouseNpcProfile(
+              this.pick(['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale']),
+              'sage-1',
+            ),
             x: ranger.x,
             y: ranger.y,
           },
@@ -666,7 +709,8 @@ export class RoomArchetypeOperations {
       },
       players: playerSpots.map((spot, index) => ({
         ...buildHouseNpcProfile(
-          ['Left Tackle Tammy', 'Wide Earl', 'Safety Sue', 'Bobby-Joe Blitz'][index] ?? 'Yard Player',
+          ['Left Tackle Tammy', 'Wide Earl', 'Safety Sue', 'Bobby-Joe Blitz'][index] ??
+            'Yard Player',
           'sage-1',
         ),
         x: spot.x,
@@ -720,7 +764,11 @@ export class RoomArchetypeOperations {
     }
   }
 
-  private placeGlints(context: RoomGenerationContext, safe: ReadonlySet<string>, count: number): void {
+  private placeGlints(
+    context: RoomGenerationContext,
+    safe: ReadonlySet<string>,
+    count: number,
+  ): void {
     let placed = 0;
     let attempts = 0;
     while (placed < count && attempts < count * 12) {

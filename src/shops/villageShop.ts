@@ -156,13 +156,13 @@ export const VILLAGE_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     id: 'beer',
     itemId: 'beer',
     price: 7,
-    note: 'Cheap tavern courage. Disorients your steering for about a minute.',
+    note: 'Cheap tavern courage. Briefly makes your path drift side to side.',
   },
   {
     id: 'wine',
     itemId: 'wine',
     price: 13,
-    note: 'A stronger pour. Longer disorientation, smoother bad decisions.',
+    note: 'A stronger pour. Brief but wobblier drifting, with smoother bad decisions.',
   },
 ];
 

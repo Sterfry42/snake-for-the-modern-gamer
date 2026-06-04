@@ -35,6 +35,9 @@ class CoordinatesFeature extends Feature {
     if (roomId.startsWith('cave:')) {
       return 'Pos: Cave | Local Subroom';
     }
+    if (!/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {
+      return 'Pos: Interior | Local Room';
+    }
     const [roomX, roomY, roomZ] = roomId.split(',').map(Number);
     return `Pos: X=${roomX} Y=${roomY} | Z=${roomZ}`;
   }

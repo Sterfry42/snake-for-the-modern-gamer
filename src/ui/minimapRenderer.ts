@@ -74,8 +74,12 @@ export class MinimapRenderer {
 
     const { x, y, width, height } = this.options;
     this.graphics.clear();
-    this.graphics.fillStyle(COLORS.panel, 0.72).fillRoundedRect(x - 6, y - 6, width + 12, height + 12, 6);
-    this.graphics.lineStyle(1, 0x9ad1ff, 0.34).strokeRoundedRect(x - 6.5, y - 6.5, width + 13, height + 13, 6);
+    this.graphics
+      .fillStyle(COLORS.panel, 0.72)
+      .fillRoundedRect(x - 6, y - 6, width + 12, height + 12, 6);
+    this.graphics
+      .lineStyle(1, 0x9ad1ff, 0.34)
+      .strokeRoundedRect(x - 6.5, y - 6.5, width + 13, height + 13, 6);
 
     const current = parseRoomId(snapshot.currentRoomId);
     for (let index = 0; index < ROOM_OFFSETS.length; index += 1) {
@@ -99,7 +103,9 @@ export class MinimapRenderer {
   private renderRoom(room: RoomSnapshot, x: number, y: number, current: boolean): void {
     const tileW = this.roomWidth / this.options.grid.cols;
     const tileH = this.roomHeight / this.options.grid.rows;
-    this.graphics.fillStyle(COLORS.room, current ? 0.88 : 0.64).fillRect(x, y, this.roomWidth, this.roomHeight);
+    this.graphics
+      .fillStyle(COLORS.room, current ? 0.88 : 0.64)
+      .fillRect(x, y, this.roomWidth, this.roomHeight);
 
     for (let tileY = 0; tileY < this.options.grid.rows; tileY += 1) {
       const row = room.layout[tileY] ?? '';
@@ -108,7 +114,8 @@ export class MinimapRenderer {
         if (kind === 'empty') {
           continue;
         }
-        const color = kind === 'wall' ? COLORS.wall : kind === 'water' ? COLORS.water : COLORS.barrier;
+        const color =
+          kind === 'wall' ? COLORS.wall : kind === 'water' ? COLORS.water : COLORS.barrier;
         const alpha = kind === 'water' ? 0.84 : current ? 0.9 : 0.68;
         this.graphics
           .fillStyle(color, alpha)
@@ -117,14 +124,20 @@ export class MinimapRenderer {
     }
 
     this.graphics
-      .lineStyle(current ? 2 : 1, current ? COLORS.currentBorder : COLORS.neighborBorder, current ? 0.95 : 0.72)
+      .lineStyle(
+        current ? 2 : 1,
+        current ? COLORS.currentBorder : COLORS.neighborBorder,
+        current ? 0.95 : 0.72,
+      )
       .strokeRect(x + 0.5, y + 0.5, this.roomWidth - 1, this.roomHeight - 1);
   }
 
   private renderSnake(snapshot: MinimapSnapshot, levelZ: number): void {
     const current = parseRoomId(snapshot.currentRoomId);
     const visibleRooms = new Set(
-      ROOM_OFFSETS.map((offset) => makeRoomId(current.x + offset.dx, current.y + offset.dy, current.z)),
+      ROOM_OFFSETS.map((offset) =>
+        makeRoomId(current.x + offset.dx, current.y + offset.dy, current.z),
+      ),
     );
     const tileW = this.roomWidth / this.options.grid.cols;
     const tileH = this.roomHeight / this.options.grid.rows;
@@ -159,6 +172,7 @@ function getMinimapTileKind(tile: string): MinimapTileKind {
     case 'A':
     case 'B':
     case 'C':
+    case 'D':
     case 'E':
     case 'F':
     case 'K':
@@ -170,6 +184,7 @@ function getMinimapTileKind(tile: string): MinimapTileKind {
     case 'S':
     case 'T':
     case 'U':
+    case 'Y':
     case 'W':
       return 'barrier';
     default:
@@ -178,6 +193,9 @@ function getMinimapTileKind(tile: string): MinimapTileKind {
 }
 
 function parseRoomId(roomId: string): { x: number; y: number; z: number } {
+  if (!/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {
+    return { x: 0, y: 0, z: 0 };
+  }
   const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
   return { x, y, z };
 }

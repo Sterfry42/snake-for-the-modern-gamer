@@ -1388,13 +1388,14 @@ export class SnakeGame implements QuestRuntime {
     let outcome = this.snakeStep(roomsChanged);
     if (outcome.status === 'alive') {
       this.handleCaveTransitionAtHead(previousRoom, roomsChanged);
+      this.handleTownInteriorTransitionAtHead(previousRoom, roomsChanged);
     }
 
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
       const newRoomId = this.snake.currentRoomId;
-      const previousDepth = Number(previousRoom.split(',')[2] ?? 0);
-      const newDepth = Number(newRoomId.split(',')[2] ?? 0);
+      const [, , previousDepth = 0] = this.parseRoomCoordinates(previousRoom);
+      const [, , newDepth = 0] = this.parseRoomCoordinates(newRoomId);
       if (previousDepth !== newDepth) {
         this.setFlag('traversal.manualResumePending', true);
       }
@@ -2276,6 +2277,94 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     this.enterCave(entrance, room.id, local, roomsChanged);
+  }
+
+  private handleTownInteriorTransitionAtHead(
+    previousRoom: string,
+    roomsChanged: Set<string>,
+  ): void {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return;
+    }
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    if (!room.id.startsWith('town-interior:')) {
+      return;
+    }
+    const local = this.worldToLocal(room.id, head);
+    const tile = room.layout[local.y]?.[local.x];
+    if (tile !== 'Y' && tile !== 'H') {
+      return;
+    }
+    if (previousRoom !== room.id) {
+      return;
+    }
+    const exit =
+      this.getTownInteriorReturnPortal(room) ??
+      room.portals.find((portal) => portal.x === local.x && portal.y === local.y);
+    if (!exit) {
+      return;
+    }
+    this.snake.teleportTo(exit.destRoomId, { x: exit.destX, y: exit.destY }, { x: 0, y: 1 });
+    this.setFlag('traversal.manualResumePending', true);
+    this.setFlag('ui.questInteraction', { message: 'You climb back out through the grate.' });
+    roomsChanged.add(room.id);
+    roomsChanged.add(exit.destRoomId);
+  }
+
+  private getTownInteriorReturnPortal(
+    room: RoomSnapshot,
+  ): { destRoomId: string; destX: number; destY: number } | null {
+    const town = room.town;
+    const roomTownId = this.parseTownInteriorRoomId(room.id)?.townId;
+    const resolvedTown = town ?? (roomTownId ? this.world.getTownById(roomTownId) : undefined);
+    if (!resolvedTown) {
+      const parsed = roomTownId ? this.tryParseTownAnchorFromId(roomTownId) : null;
+      if (!parsed) {
+        return null;
+      }
+      return {
+        destRoomId: `${parsed.x + 2},${parsed.y + 2},${parsed.z}`,
+        destX: Math.max(1, Math.floor(this.config.grid.cols / 2) - 5),
+        destY: Math.floor(this.config.grid.rows / 2) + 1,
+      };
+    }
+    const backAlleyRoomId =
+      resolvedTown.rooms.find((entry) => entry.kind === 'backAlley')?.id ??
+      Object.entries(resolvedTown.districtByRoomId).find(
+        ([, district]) => district === 'backAlley',
+      )?.[0];
+    if (!backAlleyRoomId) {
+      return null;
+    }
+    return {
+      destRoomId: backAlleyRoomId,
+      destX: Math.max(1, Math.floor(this.config.grid.cols / 2) - 5),
+      destY: Math.floor(this.config.grid.rows / 2) + 1,
+    };
+  }
+
+  private parseTownInteriorRoomId(roomId: string): { townId: string; kind: string } | null {
+    if (!roomId.startsWith('town-interior:')) {
+      return null;
+    }
+    const parts = roomId.split(':');
+    const kind = parts[parts.length - 1] ?? 'interior';
+    const townId = parts.slice(1, -1).join(':');
+    return townId ? { townId, kind } : null;
+  }
+
+  private tryParseTownAnchorFromId(townId: string): { x: number; y: number; z: number } | null {
+    const match = /^human-town:(-?\d+),(-?\d+),(-?\d+):/.exec(townId);
+    if (!match) {
+      return null;
+    }
+    const [, x, y, z] = match;
+    return {
+      x: Number(x),
+      y: Number(y),
+      z: Number(z),
+    };
   }
 
   private enterCave(
@@ -3695,6 +3784,7 @@ export class SnakeGame implements QuestRuntime {
     room.town = cloneTown(town);
     this.saveTownRuntimeState(room.town);
     this.world.updateTown(room.town);
+    this.clearTownDispositionHostilityIfResolved(room.town);
     return room.town;
   }
 
@@ -3811,6 +3901,50 @@ export class SnakeGame implements QuestRuntime {
       Boolean(this.getFlag<boolean>(`town.hostile.${town.id}.all`)) ||
       Boolean(this.getFlag<boolean>(`town.hostile.${town.id}.${roomId}`))
     );
+  }
+
+  private clearTownDispositionHostilityIfResolved(town: TownStructure): void {
+    if (this.isTownInOpenHostility(town)) {
+      return;
+    }
+    this.setFlag(`town.hostile.${town.id}.all`, undefined);
+    for (const roomId of Object.keys(town.districtByRoomId)) {
+      this.setFlag(`town.hostile.${town.id}.${roomId}`, undefined);
+    }
+    const residentRelationshipIds = new Set(
+      town.residents.map((resident) => this.getTownResidentRelationshipId(town.id, resident.id)),
+    );
+    for (const room of this.world.snapshot().values()) {
+      if (room.town?.id !== town.id) continue;
+      for (const enemy of this.enemies.getEnemiesInRoom(room.id)) {
+        const relationshipId = this.getRelationshipIdFromHostileNpc(enemy.id);
+        if (relationshipId && residentRelationshipIds.has(relationshipId)) {
+          this.enemies.removeEnemy(enemy.id);
+          this.npcBodies.delete(relationshipId);
+        }
+      }
+    }
+    for (const actor of this.actors.registry.getByTown(town.id)) {
+      if (
+        actor.hostility !== 'hostile' ||
+        actor.health?.state === 'dead' ||
+        actor.flags.dead ||
+        actor.flags.eaten ||
+        actor.flags.relationshipStage === 'dead'
+      ) {
+        continue;
+      }
+      this.actors.registry.update(actor.id, (current) => ({
+        ...current,
+        hostility: 'neutral',
+        mood: {
+          ...current.mood,
+          anger: Math.min(current.mood.anger, 25),
+          fear: Math.min(current.mood.fear, 35),
+          stress: Math.min(current.mood.stress, 35),
+        },
+      }));
+    }
   }
 
   private activateTownHostility(room: RoomSnapshot, town: TownStructure, label: string): void {
@@ -3936,11 +4070,11 @@ export class SnakeGame implements QuestRuntime {
     }
     const status = this.getCurrentTownGuildInitiationStatus();
     if (status.state === 'complete') {
-      this.openGuildGrateTiles(room);
+      this.addGuildGratePortal(room);
       return {
         ok: true,
         town,
-        message: 'The grate is already unlocked. Enter through the passage.',
+        message: 'The grate is unlocked. Step onto it to descend into the Thieves Guild.',
       };
     }
     if (status.state === 'not-started') {
@@ -3966,7 +4100,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag(this.guildInitiationCompleteFlagKey(town.id), true);
     this.saveTownRuntimeState(next);
     this.world.updateTown(next);
-    this.openGuildGrateTiles(room);
+    this.addGuildGratePortal(room);
     return {
       ok: true,
       town: next,
@@ -5829,7 +5963,7 @@ export class SnakeGame implements QuestRuntime {
             displayName: resident.name,
             species: 'human',
             portraitId: resident.portraitId,
-            homeRoomId: resident.homeRoomId ?? room.id,
+            homeRoomId: room.id,
             factionId: resident.factionId as FactionId,
           },
           position: { x: resident.x, y: resident.y },
@@ -5895,7 +6029,7 @@ export class SnakeGame implements QuestRuntime {
       position: { ...anchor },
       anchor: { ...anchor },
       wanderRadius: stationary ? 0 : 2,
-      moveCooldown: 1 + Math.floor(this.rng() * 5),
+      moveCooldown: stationary ? 999 : 15 + Math.floor(this.rng() * 18),
       stationary,
     };
     this.npcBodies.set(profile.id, body);
@@ -5975,7 +6109,10 @@ export class SnakeGame implements QuestRuntime {
         occupied.add(`${body.position.x},${body.position.y}`);
         continue;
       }
-      body.moveCooldown = decision.moveCooldown;
+      body.moveCooldown =
+        !isHostile && !roomDangerActive
+          ? Math.max(15, decision.moveCooldown * 3)
+          : decision.moveCooldown;
       occupied.delete(`${body.position.x},${body.position.y}`);
       for (const direction of decision.preferredDirections) {
         const next = { x: body.position.x + direction.x, y: body.position.y + direction.y };
@@ -6118,6 +6255,7 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     room.town = this.applyTownRuntimeState(room.town);
+    this.normalizeTownQuestBoardTiles(room);
     if (
       this.getFlag<boolean>(this.townGateFlagKey(room.town.id, 'gate')) ||
       this.getFlag<boolean>(this.townGateFlagKey(room.town.id, 'townExit'))
@@ -6125,8 +6263,29 @@ export class SnakeGame implements QuestRuntime {
       this.openTownGateTiles(room);
     }
     if (room.town.discoveredGuild) {
-      this.openGuildGrateTiles(room);
+      this.addGuildGratePortal(room);
     }
+  }
+
+  private normalizeTownQuestBoardTiles(room: RoomSnapshot): void {
+    const district = room.town?.districtByRoomId[room.id];
+    if (district !== 'square') {
+      return;
+    }
+    const centerX = Math.floor(this.config.grid.cols / 2);
+    const centerY = Math.floor(this.config.grid.rows / 2);
+    const layout = room.layout.map((row) => row.split(''));
+    if (layout[centerY]?.[centerX] === 'N') {
+      layout[centerY][centerX] = 'E';
+    }
+    const board = {
+      x: Math.min(this.config.grid.cols - 2, centerX + 7),
+      y: Math.max(1, centerY - 3),
+    };
+    if (layout[board.y]?.[board.x] && layout[board.y][board.x] !== 'G') {
+      layout[board.y][board.x] = 'D';
+    }
+    room.layout = layout.map((row) => row.join(''));
   }
 
   private openTownGateTiles(room: RoomSnapshot): void {
@@ -6162,44 +6321,36 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private openGuildGrateTiles(room: RoomSnapshot): void {
+  private addGuildGratePortal(room: RoomSnapshot): void {
     const town = room.town;
     if (!town?.discoveredGuild) {
       return;
     }
     const district = town.districtByRoomId[room.id];
-    if (district !== 'backAlley' && district !== 'guildHideout') {
+    if (district !== 'backAlley') {
       return;
     }
     const centerX = Math.floor(this.config.grid.cols / 2);
     const centerY = Math.floor(this.config.grid.rows / 2);
     const layout = room.layout.map((row) => row.split(''));
-    const carve = (left: number, top: number, width: number, height: number): void => {
-      for (let y = top; y < top + height; y += 1) {
-        for (let x = left; x < left + width; x += 1) {
-          if (layout[y]?.[x] && layout[y][x] !== 'G') {
-            layout[y][x] = 'E';
-          }
-        }
-      }
-    };
-    if (district === 'backAlley') {
-      carve(centerX - 6, centerY - 1, 3, 3);
-    }
-    const side =
-      district === 'backAlley'
-        ? this.getSideToTownDistrict(town, room.id, 'guildHideout')
-        : this.getSideToTownDistrict(town, room.id, 'backAlley');
-    if (side === 'west' || side === 'east') {
-      const x = side === 'west' ? 0 : this.config.grid.cols - 1;
-      carve(x, centerY - 2, 1, 5);
-      carve(side === 'west' ? 1 : this.config.grid.cols - 2, centerY - 1, 1, 3);
-    } else if (side === 'north' || side === 'south') {
-      const y = side === 'north' ? 0 : this.config.grid.rows - 1;
-      carve(centerX - 2, y, 5, 1);
-      carve(centerX - 1, side === 'north' ? 1 : this.config.grid.rows - 2, 3, 1);
+    const grate = { x: Math.max(1, centerX - 5), y: centerY };
+    if (layout[grate.y]?.[grate.x]) {
+      layout[grate.y][grate.x] = 'Y';
     }
     room.layout = layout.map((row) => row.join(''));
+    const destRoomId = this.getTownGuildInteriorRoomId(town.id);
+    room.portals = room.portals.filter((portal) => portal.x !== grate.x || portal.y !== grate.y);
+    room.portals.push({
+      x: grate.x,
+      y: grate.y,
+      destRoomId,
+      destX: Math.floor(this.config.grid.cols / 2),
+      destY: this.config.grid.rows - 4,
+    });
+  }
+
+  private getTownGuildInteriorRoomId(townId: string): string {
+    return `town-interior:${townId}:thieves-guild`;
   }
 
   private getSideToTownDistrict(
@@ -6431,6 +6582,23 @@ export class SnakeGame implements QuestRuntime {
     this.snake.grow(extraSegments);
   }
 
+  private removeSafeSnakeLength(maxSegments: number): {
+    ok: boolean;
+    removed: number;
+    reason?: string;
+  } {
+    const length = this.getSnakeLength();
+    const minimumLength = 5;
+    if (length <= minimumLength) {
+      return { ok: false, removed: 0, reason: 'too-short' };
+    }
+    const segments = Math.min(maxSegments, Math.max(1, length - minimumLength));
+    if (!this.snake.shrinkTail(segments)) {
+      return { ok: false, removed: 0, reason: 'unsafe' };
+    }
+    return { ok: true, removed: segments };
+  }
+
   sellSnakeLengthToButcher(actorId?: string): { ok: boolean; message: string; color: string } {
     const room = this.getCurrentRoom();
     const actorRole =
@@ -6449,29 +6617,51 @@ export class SnakeGame implements QuestRuntime {
         color: '#ff6b6b',
       };
     }
-    const length = this.getSnakeLength();
-    if (length <= 5) {
+    const removal = this.removeSafeSnakeLength(10);
+    if (!removal.ok) {
       return {
         ok: false,
         message:
-          'The butcher refuses. "Come back when selling length will not leave you a rumor with eyes."',
+          removal.reason === 'too-short'
+            ? 'The butcher refuses. "Come back when selling length will not leave you a rumor with eyes."'
+            : 'The butcher squints. "I cannot trim that without turning the customer into punctuation."',
         color: '#ff6b6b',
       };
     }
-    const segments = Math.min(10, Math.max(1, length - 5));
-    if (!this.snake.shrinkTail(segments)) {
-      return {
-        ok: false,
-        message:
-          'The butcher squints. "I cannot trim that without turning the customer into punctuation."',
-        color: '#ff6b6b',
-      };
-    }
-    const score = Math.max(1, Math.floor(segments / 5));
+    const score = Math.max(1, Math.floor(removal.removed / 5));
     this.addScore(score);
     return {
       ok: true,
-      message: `The butcher buys ${segments} length for ${score} score. "Abysmal rate, honest knife."`,
+      message: `The butcher buys ${removal.removed} length for ${score} score. "Abysmal rate, honest knife."`,
+      color: '#b6ff6a',
+    };
+  }
+
+  trimSnakeLengthAtVillageShop(shopKey: string): { ok: boolean; message: string; color: string } {
+    const key = `village.trim.remaining.${shopKey}`;
+    const remaining = Number(this.getFlag<number>(key) ?? 2);
+    if (remaining <= 0) {
+      return {
+        ok: false,
+        message: 'The shop has no trimming time left today.',
+        color: '#ff6b6b',
+      };
+    }
+    const removal = this.removeSafeSnakeLength(6);
+    if (!removal.ok) {
+      return {
+        ok: false,
+        message:
+          removal.reason === 'too-short'
+            ? 'The shopkeeper refuses to trim you any shorter.'
+            : 'The trim would be unsafe.',
+        color: '#ff6b6b',
+      };
+    }
+    this.setFlag(key, remaining - 1);
+    return {
+      ok: true,
+      message: `Trimmed ${removal.removed} length. No money changes hands.`,
       color: '#b6ff6a',
     };
   }
@@ -8475,11 +8665,15 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (isCaveRoomId(roomId)) {
+    if (!this.isCoordinateRoomId(roomId)) {
       return [0, 0, 0];
     }
     const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
     return [x, y, z];
+  }
+
+  private isCoordinateRoomId(roomId: string): boolean {
+    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
   }
 
   private distance(a: Vector2Like, b: Vector2Like): number {
@@ -8661,8 +8855,8 @@ export class SnakeGame implements QuestRuntime {
       'food-snake-fries': { hunger: 70 },
       'food-snake-nuggets': { hunger: 45 },
       'healing-potion': { heal: 2 },
-      beer: { disorientTicks: 600 },
-      wine: { disorientTicks: 900 },
+      beer: { disorientTicks: 100 },
+      wine: { disorientTicks: 140 },
     };
 
     if (itemId === 'life-tonic' || itemId === 'ofuda') {
@@ -8704,6 +8898,7 @@ export class SnakeGame implements QuestRuntime {
     if (effect.disorientTicks) {
       const current = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
       this.setFlag('status.disorientedTicks', Math.max(current, effect.disorientTicks));
+      this.setFlag('status.disorientedDriftInterval', itemId === 'wine' ? 4 : 5);
       this.setFlag('ui.statusEffect', {
         id: 'disoriented',
         message: 'Disoriented: your head stumbles side to side.',
@@ -13440,7 +13635,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private getRoomIdForPosition(position: Vector2Like): string {
-    if (isCaveRoomId(this.snake.currentRoomId)) {
+    if (!this.isCoordinateRoomId(this.snake.currentRoomId)) {
       return this.snake.currentRoomId;
     }
     const roomX = Math.floor(position.x / this.config.grid.cols);

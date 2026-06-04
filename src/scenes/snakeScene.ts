@@ -1385,6 +1385,7 @@ export default class SnakeScene extends Phaser.Scene {
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
+  private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
   private caffeinatedAppleBoostExpirationsMs: number[] = [];
   private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
   private static readonly CAFFEINATED_APPLE_BOOST_MS = 2000;
@@ -5507,11 +5508,15 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (roomId.startsWith('cave:')) {
+    if (!this.isCoordinateRoomId(roomId)) {
       return [0, 0, 0];
     }
     const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
     return [x, y, z];
+  }
+
+  private isCoordinateRoomId(roomId: string): boolean {
+    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
   }
 
   private handlePredationFeedback(): void {
@@ -6094,6 +6099,7 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
     });
+    this.updateIntoxicationVisuals();
     const minimapVisible = this.isMinimapEnabled();
     this.minimapRenderer?.setVisible(minimapVisible);
     if (minimapVisible) {
@@ -6318,6 +6324,30 @@ export default class SnakeScene extends Phaser.Scene {
       this.questHint.setVisible(false);
       this.questHintPanel.setVisible(false);
     }
+  }
+
+  private updateIntoxicationVisuals(): void {
+    const ticks = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
+    const active = ticks > 0 && !this.paused;
+    if (!active) {
+      this.intoxicationOverlay?.setVisible(false);
+      this.cameras.main.setRotation(0);
+      return;
+    }
+    if (!this.intoxicationOverlay) {
+      this.intoxicationOverlay = this.add
+        .rectangle(0, 0, this.scale.width, this.scale.height, 0x6f4ab8, 0)
+        .setOrigin(0, 0)
+        .setScrollFactor(0)
+        .setDepth(90)
+        .setBlendMode(Phaser.BlendModes.ADD);
+    }
+    this.intoxicationOverlay
+      .setSize(this.scale.width, this.scale.height)
+      .setFillStyle(this.time.now % 900 < 450 ? 0x6f4ab8 : 0x3abf8f, 0.08)
+      .setVisible(true);
+    const wobble = Math.sin(this.time.now / 170) * 0.006;
+    this.cameras.main.setRotation(wobble);
   }
 
   // Called by the religion feature to persist the choice for this run
@@ -7358,7 +7388,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (libertyHint) {
       return { text: libertyHint };
     }
-    if (this.isNearTownTile('N')) {
+    if (this.isNearTownQuestBoard()) {
       return { text: 'Read quest board (press E)' };
     }
     const town = room.town;
@@ -7416,7 +7446,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private tryInteractTownQuestBoard(): boolean {
-    if (this.paused || this.offeredQuest || this.choicePopupVisible || !this.isNearTownTile('N')) {
+    if (
+      this.paused ||
+      this.offeredQuest ||
+      this.choicePopupVisible ||
+      !this.isNearTownQuestBoard()
+    ) {
       return false;
     }
     const town = this.snakeGame.getCurrentTown();
@@ -7432,7 +7467,7 @@ export default class SnakeScene extends Phaser.Scene {
         ? quests.map((quest) => ({
             id: `quest:${quest.id}`,
             title: quest.label,
-            description: quest.description,
+            description: this.townQuestBoardDescription(quest),
           }))
         : [
             {
@@ -7459,11 +7494,30 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
-  private isNearTownTile(symbol: string): boolean {
+  private isNearTownQuestBoard(): boolean {
     const room = this.snakeGame.getCurrentRoom();
     if (!room.town) {
       return false;
     }
+    const district = getTownDistrictForRoom(room.town, room.id);
+    return district === 'square' && this.isNearTownTile('D');
+  }
+
+  private townQuestBoardDescription(quest: { id: string; description: string }): string {
+    const summaries = this.snakeGame.getQuestObjectiveSummaries(quest.id);
+    const objective = summaries[0];
+    if (!objective) {
+      return `${quest.description} The notice is smudged, but official enough to pay out.`;
+    }
+    return `${quest.description} Objective: ${objective.label} near X=${objective.coordinates.x}, Y=${objective.coordinates.y}, Z=${objective.coordinates.z}.`;
+  }
+
+  private isNearTownTile(symbol: string | readonly string[]): boolean {
+    const room = this.snakeGame.getCurrentRoom();
+    if (!room.town) {
+      return false;
+    }
+    const symbols = new Set(Array.isArray(symbol) ? symbol : [symbol]);
     const local = this.getHeadLocalPosition();
     if (!local) {
       return false;
@@ -7471,7 +7525,7 @@ export default class SnakeScene extends Phaser.Scene {
     for (let y = Math.max(0, local.y - 1); y <= Math.min(this.grid.rows - 1, local.y + 1); y++) {
       const row = room.layout[y] ?? '';
       for (let x = Math.max(0, local.x - 1); x <= Math.min(this.grid.cols - 1, local.x + 1); x++) {
-        if (Math.abs(local.x - x) + Math.abs(local.y - y) <= 1 && row[x] === symbol) {
+        if (Math.abs(local.x - x) + Math.abs(local.y - y) <= 1 && symbols.has(row[x] ?? '')) {
           return true;
         }
       }
@@ -7487,11 +7541,6 @@ export default class SnakeScene extends Phaser.Scene {
     if (!town || !this.isNearTownGuildGrate(town)) {
       return false;
     }
-    const current = getTownDistrictForRoom(town, this.snakeGame.getCurrentRoom().id);
-    if (current === 'guildHideout') {
-      this.showTownGuild(town);
-      return true;
-    }
     const result = this.snakeGame.investigateCurrentTownGuildGrate();
     this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
     return true;
@@ -7500,10 +7549,10 @@ export default class SnakeScene extends Phaser.Scene {
   private isNearTownGuildGrate(town: TownStructure): boolean {
     const room = this.snakeGame.getCurrentRoom();
     const current = getTownDistrictForRoom(town, room.id);
-    if (current !== 'backAlley' && current !== 'guildHideout') {
+    if (current !== 'backAlley') {
       return false;
     }
-    return this.isNearTownTile('U');
+    return this.isNearTownTile(['U', 'Y']);
   }
 
   private getSideToTownDistrict(
@@ -7885,6 +7934,25 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Sit at the stall table and chase the score window.',
       });
     }
+    if (actorRole === 'butcher') {
+      options.push({
+        id: 'sell-length',
+        title: 'Sell Length',
+        description: 'Sell snake length for score. No exhaustion cap, just minimum safe length.',
+      });
+    } else if (room.village && !actorRole) {
+      const trimKey = this.villageTrimServiceKey();
+      const remaining = Number(
+        this.snakeGame.getFlag<number>(`village.trim.remaining.${trimKey}`) ?? 2,
+      );
+      if (remaining > 0) {
+        options.push({
+          id: 'trim-length',
+          title: 'Trim Length',
+          description: `Shorten safely without payment. Uses left: ${remaining}.`,
+        });
+      }
+    }
     options.push({ id: 'leave', title: 'Leave', description: 'Step away from the counter.' });
     this.villageShopPopup.show(title, options, (id) => {
       if (id === 'leave') {
@@ -7893,6 +7961,20 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (id === 'play-cards') {
         this.showCardTableRoot(shopkeeperName, true, actorRole === 'cardDealer', actorRole);
+        return;
+      }
+      if (id === 'sell-length') {
+        const result = this.snakeGame.sellSnakeLengthToButcher(
+          this.currentShopActorIdForRole('butcher'),
+        );
+        this.showQuestHintPopup(result.message, result.color);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        return;
+      }
+      if (id === 'trim-length') {
+        const result = this.snakeGame.trimSnakeLengthAtVillageShop(this.villageTrimServiceKey());
+        this.showQuestHintPopup(result.message, result.color);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole);
         return;
       }
       if (
@@ -7906,6 +7988,16 @@ export default class SnakeScene extends Phaser.Scene {
         this.showVillageShopCategory(shopkeeperName, id, 0, actorRole);
       }
     });
+  }
+
+  private villageTrimServiceKey(): string {
+    const room = this.snakeGame.getCurrentRoom();
+    return room.village ? room.id : (room.town?.id ?? room.id);
+  }
+
+  private currentShopActorIdForRole(role: string): string | undefined {
+    const room = this.snakeGame.getCurrentRoom();
+    return room.town?.residents.find((resident) => resident.role === role)?.actorId;
   }
 
   private showVillageShopCategory(
@@ -9646,13 +9738,6 @@ export default class SnakeScene extends Phaser.Scene {
           this.paused = false;
           return;
         }
-        if (id === 'butcher') {
-          const result = this.snakeGame.sellSnakeLengthToButcher(profile.actorId);
-          this.showQuestHintPopup(result.message, result.color);
-          this.closeVillageShop();
-          this.paused = false;
-          return;
-        }
         if (id === 'card-table') {
           this.paused = false;
           this.showCardTableRoot(profile.displayName, false, true);
@@ -9662,6 +9747,14 @@ export default class SnakeScene extends Phaser.Scene {
           this.showQuestHintPopup(this.currentTownActorLine(profile.displayName), '#fff3a8');
           this.closeVillageShop();
           this.paused = false;
+          return;
+        }
+        if (id === 'guild-menu') {
+          const town = this.snakeGame.getCurrentTown();
+          this.paused = false;
+          if (town) {
+            this.showTownGuild(town);
+          }
           return;
         }
         if (id === 'shop') {
@@ -9675,9 +9768,6 @@ export default class SnakeScene extends Phaser.Scene {
           }
           if (profile.species === 'goblin') {
             this.showGoblinShopRoot(profile.displayName);
-          } else if (actorRole === 'butcher') {
-            const result = this.snakeGame.sellSnakeLengthToButcher(profile.actorId);
-            this.showQuestHintPopup(result.message, result.color);
           } else {
             this.showVillageShopRoot(profile.displayName, true, actorRole);
           }
@@ -9779,14 +9869,12 @@ export default class SnakeScene extends Phaser.Scene {
     const room = this.snakeGame.getCurrentRoom();
     const town = room.town;
     const district = town ? getTownDistrictForRoom(town, room.id) : undefined;
+    const guildActor =
+      String(profile.factionId) === 'thieves-guild' ||
+      actorRole === 'thiefContact' ||
+      actorRole === 'thief' ||
+      /Guild\b/.test(profile.displayName);
     const options: Array<{ id: string; title: string; description: string }> = [];
-    if (actorRole === 'butcher') {
-      options.push({
-        id: 'butcher',
-        title: 'Sell Length',
-        description: 'Sell snake length at an abysmal but occasionally useful rate.',
-      });
-    }
     if (actorRole === 'bartender') {
       options.push({
         id: 'buy-rumor',
@@ -9815,6 +9903,13 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Lower wanted by one and give paperwork a brief victory.',
       });
     }
+    if (town && district === 'guildHideout' && guildActor) {
+      options.push({
+        id: 'guild-menu',
+        title: 'Guild Business',
+        description: 'Talk jobs, fences, wanted posters, and black-market access.',
+      });
+    }
     return options;
   }
 
@@ -9826,7 +9921,7 @@ export default class SnakeScene extends Phaser.Scene {
       return false;
     }
     const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
-    return actorRole === 'butcher';
+    return false;
   }
 
   private actorInteractionTitle(profile: RelationshipCandidateProfile): string {

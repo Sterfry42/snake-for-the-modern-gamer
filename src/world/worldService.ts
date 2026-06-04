@@ -3,7 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { RoomGenerator } from './roomGenerator.js';
 import type { RoomSnapshot } from './types.js';
-import { cloneTownForRoom, type TownStructure } from './town.js';
+import { cloneTownForRoom, type TownRoomKind, type TownStructure } from './town.js';
 import type { WorldGenerationIdentity } from './generation/worldGenerationIdentity.js';
 import { maybePlaceCaveEntrance } from '../caves/caveEntrancePlacement.js';
 import { generateCave, isCaveRoomId } from '../caves/caveGenerator.js';
@@ -16,6 +16,7 @@ export class WorldService {
   private readonly worldSeed: string;
   private readonly generatorWorldConfig: WorldConfig;
   private readonly caveSaves = new Map<string, CaveInstanceSaveData>();
+  private readonly townsById = new Map<string, TownStructure>();
 
   constructor(
     private readonly grid: GridConfig,
@@ -31,6 +32,11 @@ export class WorldService {
 
   getRoom(roomId: string): RoomSnapshot {
     if (!this.rooms.has(roomId)) {
+      if (roomId.startsWith('town-interior:')) {
+        const room = this.createTownInteriorRoom(roomId);
+        this.rooms.set(roomId, room);
+        return room;
+      }
       if (isCaveRoomId(roomId)) {
         const save = this.caveSaves.get(roomId);
         const parsed = parseCaveRoomId(roomId, save?.templateId);
@@ -147,15 +153,35 @@ export class WorldService {
     return new Map(this.rooms);
   }
 
+  getTownById(townId: string): TownStructure | undefined {
+    const town = this.townsById.get(townId);
+    return town ? { ...town } : undefined;
+  }
+
   updateTown(town: TownStructure): void {
+    this.townsById.set(town.id, town);
     for (const [roomId, room] of this.rooms) {
-      const districtKind = town.districtByRoomId[roomId];
+      const interiorDistrict: TownRoomKind | undefined =
+        roomId.startsWith(`town-interior:${town.id}:thieves-guild`) && room.town?.id === town.id
+          ? 'guildHideout'
+          : undefined;
+      const districtKind = town.districtByRoomId[roomId] ?? interiorDistrict;
       if (room.town?.id === town.id && districtKind) {
+        const townForRoom =
+          interiorDistrict && !town.districtByRoomId[roomId]
+            ? {
+                ...town,
+                districtByRoomId: { ...town.districtByRoomId, [roomId]: interiorDistrict },
+                physicalRoomIds: town.physicalRoomIds.includes(roomId)
+                  ? town.physicalRoomIds
+                  : [...town.physicalRoomIds, roomId],
+              }
+            : town;
         const positionedResidents = room.town.residents;
         const roomCenter = room.town.center;
         const roomSafeArea = room.town.safeArea;
         const roomLanterns = room.town.lanterns;
-        const next = cloneTownForRoom(town, roomId, districtKind);
+        const next = cloneTownForRoom(townForRoom, roomId, districtKind);
         next.center = { ...roomCenter };
         next.safeArea = { ...roomSafeArea };
         next.lanterns = roomLanterns.map((lantern) => ({ ...lantern }));
@@ -172,6 +198,114 @@ export class WorldService {
         room.town = next;
       }
     }
+  }
+
+  private createTownInteriorRoom(roomId: string): RoomSnapshot {
+    const parts = roomId.split(':');
+    const kind = parts[parts.length - 1] ?? 'interior';
+    const townId = parts.slice(1, -1).join(':') || 'unknown-town';
+    const town = this.townsById.get(townId);
+    const districtKind = kind === 'thieves-guild' ? 'guildHideout' : undefined;
+    const roomTown =
+      town && districtKind
+        ? cloneTownForRoom(
+            {
+              ...town,
+              districtByRoomId: {
+                ...town.districtByRoomId,
+                [roomId]: districtKind,
+              },
+              physicalRoomIds: town.physicalRoomIds.includes(roomId)
+                ? town.physicalRoomIds
+                : [...town.physicalRoomIds, roomId],
+            },
+            roomId,
+            districtKind,
+          )
+        : undefined;
+    const backAlleyRoomId =
+      town?.rooms.find((room) => room.kind === 'backAlley')?.id ??
+      Object.entries(town?.districtByRoomId ?? {}).find(
+        ([, district]) => district === 'backAlley',
+      )?.[0] ??
+      this.generatorWorldConfig.originRoomId;
+    const centerX = Math.floor(this.grid.cols / 2);
+    const centerY = Math.floor(this.grid.rows / 2);
+    const rows = Array.from({ length: this.grid.rows }, (_, y) => {
+      const chars = Array.from({ length: this.grid.cols }, (_, x) =>
+        x === 0 || y === 0 || x === this.grid.cols - 1 || y === this.grid.rows - 1 ? '#' : 'W',
+      );
+      return chars.join('');
+    });
+    const setTile = (x: number, y: number, tile: string): void => {
+      const row = rows[y];
+      if (!row || x < 0 || x >= row.length) return;
+      rows[y] = row.substring(0, x) + tile + row.substring(x + 1);
+    };
+    for (let x = centerX - 8; x <= centerX + 8; x += 1) {
+      setTile(x, centerY - 3, 'E');
+      setTile(x, centerY + 3, 'E');
+    }
+    setTile(centerX, this.grid.rows - 3, 'Y');
+    setTile(centerX - 5, centerY, 'S');
+    setTile(centerX + 5, centerY, 'A');
+    setTile(centerX, centerY, 'E');
+    if (roomTown && districtKind) {
+      const guildResidents = roomTown.residents.filter((resident) => {
+        const workDistrict = resident.workRoomId
+          ? roomTown.districtByRoomId[resident.workRoomId]
+          : undefined;
+        return (
+          workDistrict === districtKind ||
+          resident.role === 'thiefContact' ||
+          resident.role === 'thief'
+        );
+      });
+      const residentPositions = [
+        { x: centerX - 8, y: centerY + 4 },
+        { x: centerX - 4, y: centerY + 4 },
+        { x: centerX + 4, y: centerY + 4 },
+        { x: centerX + 8, y: centerY + 4 },
+        { x: centerX - 6, y: centerY - 4 },
+        { x: centerX + 6, y: centerY - 4 },
+      ];
+      roomTown.residents = roomTown.residents.map((resident) => {
+        const index = guildResidents.findIndex((entry) => entry.id === resident.id);
+        if (index < 0) {
+          return resident;
+        }
+        const position = residentPositions[index % residentPositions.length] ?? {
+          x: centerX,
+          y: centerY + 4,
+        };
+        setTile(position.x, position.y, 'G');
+        return {
+          ...resident,
+          x: Math.max(2, Math.min(this.grid.cols - 3, position.x)),
+          y: Math.max(2, Math.min(this.grid.rows - 3, position.y)),
+          workRoomId: roomId,
+        };
+      });
+    }
+    return {
+      id: roomId,
+      layout: rows,
+      portals: [
+        {
+          x: centerX,
+          y: this.grid.rows - 3,
+          destRoomId: backAlleyRoomId,
+          destX: Math.max(1, centerX - 5),
+          destY: centerY + 1,
+        },
+      ],
+      biomeId: town?.biomeId ?? 'verdigris-basin',
+      biomeTitle: kind === 'thieves-guild' ? 'Thieves Guild' : 'Town Interior',
+      backgroundColor: 0x17111f,
+      wallColor: 0x3a243b,
+      wallOutlineColor: 0x8f6aa8,
+      town: roomTown,
+    };
   }
 
   private addReciprocalPortalsFromExistingRooms(room: RoomSnapshot): void {

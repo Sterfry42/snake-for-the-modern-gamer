@@ -344,14 +344,14 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'beer',
     name: 'Beer',
-    description: 'A tavern drink. Causes brief disorientation and lateral stumbles.',
+    description: 'A tavern drink. Briefly makes your path drift side to side.',
     kind: 'consumable',
     category: 'consumable',
   },
   {
     id: 'wine',
     name: 'Wine',
-    description: 'A stronger tavern drink. Causes disorientation and lateral stumbles.',
+    description: 'A stronger tavern drink. Briefly makes your path drift side to side.',
     kind: 'consumable',
     category: 'consumable',
   },

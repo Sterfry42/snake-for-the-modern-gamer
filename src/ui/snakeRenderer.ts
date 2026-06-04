@@ -355,8 +355,10 @@ export class SnakeRenderer {
             .lineStyle(1, outline, 0.6)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
         } else if (
+          tile === 'D' ||
           tile === 'N' ||
           tile === 'U' ||
+          tile === 'Y' ||
           tile === 'M' ||
           tile === 'R' ||
           tile === 'F' ||
@@ -620,26 +622,36 @@ export class SnakeRenderer {
   private drawTownSymbolTile(rectX: number, rectY: number, tile: string): void {
     const cell = this.grid.cell;
     const base =
-      tile === 'U' ? 0x333844 : tile === 'N' ? 0x8b5f32 : tile === 'M' ? 0xc7433d : 0x6d5845;
+      tile === 'U'
+        ? 0x333844
+        : tile === 'Y'
+          ? 0x1f2128
+          : tile === 'D' || tile === 'N'
+            ? 0x8b5f32
+            : tile === 'M'
+              ? 0xc7433d
+              : 0x6d5845;
     const accent =
       tile === 'U'
         ? 0x9aa4b2
-        : tile === 'N'
-          ? 0xffe0a3
-          : tile === 'M'
+        : tile === 'Y'
+          ? 0x79f2b4
+          : tile === 'D' || tile === 'N'
             ? 0xffe0a3
-            : tile === 'R'
-              ? 0xf4d08b
-              : tile === 'P'
-                ? 0x8fd1ff
-                : 0x9f6b3f;
+            : tile === 'M'
+              ? 0xffe0a3
+              : tile === 'R'
+                ? 0xf4d08b
+                : tile === 'P'
+                  ? 0x8fd1ff
+                  : 0x9f6b3f;
     const outline = darkenColor(base, 0.42);
     this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
     this.graphics
       .lineStyle(1, outline, 0.75)
       .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
 
-    if (tile === 'N') {
+    if (tile === 'D' || tile === 'N') {
       this.graphics
         .fillStyle(accent, 1)
         .fillRect(rectX + cell * 0.22, rectY + cell * 0.18, cell * 0.56, cell * 0.58);
@@ -657,6 +669,14 @@ export class SnakeRenderer {
           .fillStyle(accent, 0.85)
           .fillRect(x, rectY + cell * 0.18, Math.max(2, cell * 0.06), cell * 0.64);
       }
+    } else if (tile === 'Y') {
+      this.graphics.fillStyle(0x05070a, 1).fillRect(rectX + 3, rectY + 3, cell - 6, cell - 6);
+      this.graphics
+        .lineStyle(2, accent, 0.86)
+        .strokeRect(rectX + cell * 0.2, rectY + cell * 0.2, cell * 0.6, cell * 0.6);
+      this.graphics
+        .fillStyle(accent, 0.42)
+        .fillCircle(rectX + cell * 0.5, rectY + cell * 0.5, cell * 0.18);
     } else if (tile === 'M') {
       this.graphics.fillStyle(accent, 1).fillRect(rectX + 2, rectY + 3, cell - 4, cell * 0.28);
       this.graphics
@@ -2287,10 +2307,14 @@ export class SnakeRenderer {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (roomId.startsWith('cave:')) {
+    if (!this.isCoordinateRoomId(roomId)) {
       return [0, 0, 0];
     }
     const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
     return [x, y, z];
+  }
+
+  private isCoordinateRoomId(roomId: string): boolean {
+    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
   }
 }

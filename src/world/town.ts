@@ -510,7 +510,6 @@ export function generateHumanTown(options: TownGenOptions): TownStructure {
   connect(rooms, 'square', 'residential');
   connect(rooms, 'tavern', 'backAlley');
   connect(rooms, 'backAlley', 'exit');
-  connect(rooms, 'backAlley', 'guildHideout');
 
   const laws = rollTownLaws(townId, mood, rng);
   const prosperity = rollInt(rng, 35, 88);
@@ -1320,7 +1319,8 @@ export function createTownDistrictRoom(args: {
       drawRoad(layout, true);
       drawRoad(layout, false);
       fillRect(layout, center.x - 3, center.y - 2, 7, 5, 'E');
-      setChar(layout, center.x, center.y, 'N');
+      setChar(layout, center.x, center.y, 'E');
+      setChar(layout, center.x + 7, center.y - 3, 'D');
       setChar(layout, center.x - 7, center.y - 3, 'S');
       setChar(layout, center.x + 7, center.y + 3, 'L');
       setChar(layout, center.x - 7, center.y + 3, 'L');
@@ -1375,7 +1375,6 @@ export function createTownDistrictRoom(args: {
       }
       setChar(layout, center.x - 5, center.y, 'U');
       setChar(layout, center.x + 5, center.y, 'S');
-      setChar(layout, center.x + 8, center.y + 2, 'U');
       setChar(layout, center.x - 8, center.y - 2, 'P');
       stampNpc(layout, center.x, center.y + 3);
       stampNpc(layout, center.x + 4, center.y - 3);
@@ -1417,18 +1416,28 @@ export function createTownDistrictRoom(args: {
           (resident.workRoomId?.split(':').pop() as TownDistrictKind | undefined),
       ) === normalizeDistrictKind(district),
   );
-  const residentPositions = [
-    { x: center.x - 8, y: center.y + 4 },
-    { x: center.x - 4, y: center.y + 4 },
-    { x: center.x, y: center.y + 4 },
-    { x: center.x + 4, y: center.y + 4 },
-    { x: center.x + 8, y: center.y + 4 },
-    { x: center.x - 8, y: center.y - 4 },
-    { x: center.x - 4, y: center.y - 4 },
-    { x: center.x, y: center.y - 4 },
-    { x: center.x + 4, y: center.y - 4 },
-    { x: center.x + 8, y: center.y - 4 },
-  ];
+  const residentPositions =
+    district === 'gate' || district === 'townExit'
+      ? [
+          { x: center.x + 8, y: center.y },
+          { x: center.x - 8, y: center.y },
+          { x: center.x + 5, y: center.y + 3 },
+          { x: center.x - 5, y: center.y - 3 },
+          { x: center.x + 5, y: center.y - 3 },
+          { x: center.x - 5, y: center.y + 3 },
+        ]
+      : [
+          { x: center.x - 8, y: center.y + 4 },
+          { x: center.x - 4, y: center.y + 4 },
+          { x: center.x, y: center.y + 4 },
+          { x: center.x + 4, y: center.y + 4 },
+          { x: center.x + 8, y: center.y + 4 },
+          { x: center.x - 8, y: center.y - 4 },
+          { x: center.x - 4, y: center.y - 4 },
+          { x: center.x, y: center.y - 4 },
+          { x: center.x + 4, y: center.y - 4 },
+          { x: center.x + 8, y: center.y - 4 },
+        ];
   town.residents = town.residents.map((resident) => {
     const index = residents.findIndex((entry) => entry.id === resident.id);
     if (index < 0) {

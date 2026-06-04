@@ -282,6 +282,12 @@ describe('multi-room structure generation', () => {
     expect(
       gate.town?.residents.filter((resident) => resident.role === 'guard').length,
     ).toBeGreaterThanOrEqual(4);
+    expect(
+      gate.town?.residents.some(
+        (resident) =>
+          resident.role === 'guard' && resident.x > Math.floor(defaultGameConfig.grid.cols / 2),
+      ),
+    ).toBe(true);
     expect(market.town?.residents.some((resident) => resident.role === 'equipmentMerchant')).toBe(
       true,
     );
@@ -311,5 +317,69 @@ describe('multi-room structure generation', () => {
 
     const thiefContact = alley.town?.residents.find((resident) => resident.role === 'thiefContact');
     expect(thiefContact?.factionId).toBe('thieves-guild');
+  });
+
+  it('materializes thieves guild interior as a town guild district with guild residents', () => {
+    const squareId = findTownRoom();
+    const resolver = createResolver();
+    const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
+    const alleyId = `${anchor.x + 2},${anchor.y + 2},${anchor.z}`;
+    const world = new WorldService(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng('guild-interior-town'),
+      identity,
+    );
+    const alley = world.getRoom(alleyId);
+    expect(alley.town).toBeTruthy();
+    const discoveredTown = {
+      ...alley.town!,
+      discoveredGuild: true,
+      thievesGuild: alley.town!.thievesGuild
+        ? { ...alley.town!.thievesGuild, discovered: true }
+        : alley.town!.thievesGuild,
+    };
+    world.updateTown(discoveredTown);
+
+    const interior = world.getRoom(`town-interior:${alley.town!.id}:thieves-guild`);
+
+    expect(interior.town?.districtByRoomId[interior.id]).toBe('guildHideout');
+    expect(interior.town?.residents.some((resident) => resident.role === 'thiefContact')).toBe(
+      true,
+    );
+    expect(
+      interior.town?.residents.some((resident) => resident.factionId === 'thieves-guild'),
+    ).toBe(true);
+    const guildResident = interior.town?.residents.find(
+      (resident) => resident.role === 'thiefContact' || resident.role === 'thief',
+    );
+    expect(guildResident?.workRoomId).toBe(interior.id);
+    expect(guildResident?.x).toBeGreaterThan(1);
+    expect(guildResident?.y).toBeGreaterThan(1);
+    expect(interior.layout.join('').includes('G')).toBe(true);
+  });
+
+  it('uses a side quest-board tile instead of a central town interaction marker', () => {
+    const squareId = findTownRoom();
+    const square = generateRoomsInOrder([squareId])[0]!;
+    const centerX = Math.floor(defaultGameConfig.grid.cols / 2);
+    const centerY = Math.floor(defaultGameConfig.grid.rows / 2);
+
+    expect(square.town?.districtByRoomId[square.id]).toBe('square');
+    expect(square.layout[centerY]?.[centerX]).not.toBe('N');
+    expect(square.layout.join('').includes('D')).toBe(true);
+  });
+
+  it('suppresses special room archetype metadata inside town rooms', () => {
+    const squareId = findTownRoom();
+    const room = generateRoomsInOrder([squareId])[0]!;
+
+    expect(room.town).toBeTruthy();
+    expect(room.archetypeId).toBeUndefined();
+    expect(room.gridironYard).toBeUndefined();
+    expect(room.motelPool).toBeUndefined();
+    expect(room.billboardOracle).toBeUndefined();
+    expect(room.roadCrew).toBeUndefined();
+    expect(room.fireworkStand).toBeUndefined();
   });
 });
