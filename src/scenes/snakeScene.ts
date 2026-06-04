@@ -101,6 +101,7 @@ import type {
   RelationshipTag,
 } from '../relationships/relationshipTypes.js';
 import { createPersonalityDatingScenario } from '../relationships/datingScenarioLibrary.js';
+import { shuffleDatingBranchActions } from '../relationships/datingActionOrder.js';
 import { getLibertyNpcLine, type LibertyNpcRole } from '../world/libertyBadlandsFlavor.js';
 import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
 import {
@@ -6536,6 +6537,55 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
+  private getFilteredVillageShop(actorRole?: string): VillageShopDefinition | null {
+    const shop = this.getCurrentVillageShop();
+    if (!shop) {
+      return null;
+    }
+    switch (actorRole) {
+      case 'equipmentMerchant':
+        return {
+          ...shop,
+          supplies: shop.supplies.filter((offer) => offer.itemId === 'animal-bait'),
+          styles: [],
+          hats: [],
+        };
+      case 'potionMaker':
+        return {
+          ...shop,
+          equipment: [],
+          styles: [],
+          hats: [],
+          cowbells: [],
+          supplies: shop.supplies.filter((offer) =>
+            ['healing-potion', 'life-tonic', 'senbei', 'ramen'].includes(offer.itemId),
+          ),
+        };
+      case 'bartender':
+        return {
+          ...shop,
+          equipment: [],
+          styles: [],
+          hats: [],
+          cowbells: [],
+          supplies: shop.supplies.filter(
+            (offer) => offer.itemId === 'beer' || offer.itemId === 'wine',
+          ),
+        };
+      case 'cardDealer':
+        return {
+          ...shop,
+          equipment: [],
+          supplies: [],
+          styles: [],
+          hats: [],
+          cowbells: [],
+        };
+      default:
+        return shop;
+    }
+  }
+
   private getCurrentVillageMarketStock(): VillageMarketStock {
     const room = this.snakeGame.getCurrentRoom();
     const key = room.town ? `town.market.stock.${room.town.id}` : `market.stock.${room.id}`;
@@ -6549,6 +6599,21 @@ export default class SnakeScene extends Phaser.Scene {
       saved.supplyCounts &&
       typeof saved.supplyCounts === 'object'
     ) {
+      if (
+        room.town &&
+        (saved.supplyCounts.beer === undefined || saved.supplyCounts.wine === undefined)
+      ) {
+        const migrated = {
+          ...saved,
+          supplyCounts: {
+            ...saved.supplyCounts,
+            beer: saved.supplyCounts.beer ?? 3,
+            wine: saved.supplyCounts.wine ?? 2,
+          },
+        };
+        this.setFlag(key, migrated);
+        return migrated;
+      }
       return saved;
     }
     const stock: VillageMarketStock = {
@@ -6576,6 +6641,8 @@ export default class SnakeScene extends Phaser.Scene {
     const stock: Record<string, number> = {
       'healing-potion': 1,
       senbei: kind === 'town' ? 2 : 1,
+      beer: kind === 'town' ? 3 : 0,
+      wine: kind === 'town' ? 2 : 0,
     };
     if (this.random() < 0.5) {
       stock['healing-potion'] += 1;
@@ -7736,7 +7803,7 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
-  private showVillageShopRoot(shopkeeperName: string, skipBark = false): void {
+  private showVillageShopRoot(shopkeeperName: string, skipBark = false, actorRole?: string): void {
     this.paused = true;
     this.hideSaveUI();
     this.skillTree.hideOverlay();
@@ -7748,7 +7815,7 @@ export default class SnakeScene extends Phaser.Scene {
         {
           onClose: () => {
             this.closeQuestPopup();
-            this.showVillageShopRoot(shopkeeperName, true);
+            this.showVillageShopRoot(shopkeeperName, true, actorRole);
           },
         },
         { closeLabel: 'Shop', nextLabel: 'Listen' },
@@ -7757,7 +7824,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const title = shopkeeperName;
-    const shop = this.getCurrentVillageShop();
+    const shop = this.getFilteredVillageShop(actorRole);
     const options: ChoiceOption[] = [];
     if ((shop?.equipment.length ?? 0) > 0) {
       options.push({
@@ -7798,13 +7865,20 @@ export default class SnakeScene extends Phaser.Scene {
     const isBlackMarket = Boolean(
       room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
     );
-    const cardOffers = isBlackMarket || room.town ? [] : this.getCurrentMarketCardOffers();
+    const cardOffers =
+      actorRole === 'cardDealer'
+        ? this.getCurrentMarketCardOffers()
+        : isBlackMarket || room.town
+          ? []
+          : this.getCurrentMarketCardOffers();
     if (cardOffers.length > 0) {
       options.push({
         id: 'cards',
         title: 'Cards',
         description: 'Buy tiny competition cards for your personal deck.',
       });
+    }
+    if (cardOffers.length > 0 || actorRole === 'cardDealer') {
       options.push({
         id: 'play-cards',
         title: 'Play Cards',
@@ -7818,7 +7892,7 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       if (id === 'play-cards') {
-        this.showCardTableRoot(shopkeeperName);
+        this.showCardTableRoot(shopkeeperName, true, actorRole === 'cardDealer', actorRole);
         return;
       }
       if (
@@ -7826,9 +7900,10 @@ export default class SnakeScene extends Phaser.Scene {
         id === 'supplies' ||
         id === 'styles' ||
         id === 'hats' ||
+        id === 'cowbells' ||
         id === 'cards'
       ) {
-        this.showVillageShopCategory(shopkeeperName, id);
+        this.showVillageShopCategory(shopkeeperName, id, 0, actorRole);
       }
     });
   }
@@ -7837,9 +7912,10 @@ export default class SnakeScene extends Phaser.Scene {
     shopkeeperName: string,
     category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cowbells' | 'cards',
     page = 0,
+    actorRole?: string,
   ): void {
     this.paused = true;
-    const shop = this.getCurrentVillageShop();
+    const shop = this.getFilteredVillageShop(actorRole);
     if (!shop) {
       this.closeVillageShop();
       return;
@@ -7943,12 +8019,12 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Return to the shop counter.' });
     this.villageShopPopup.show(shopkeeperName, options, (id) => {
       if (id === 'back') {
-        this.showVillageShopRoot(shopkeeperName, true);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole);
         return;
       }
       if (id.startsWith('cards-page:')) {
         const [, nextPage] = id.split(':');
-        this.showVillageShopCategory(shopkeeperName, category, Number(nextPage));
+        this.showVillageShopCategory(shopkeeperName, category, Number(nextPage), actorRole);
         return;
       }
       const [kind, value] = id.split(':');
@@ -7968,7 +8044,7 @@ export default class SnakeScene extends Phaser.Scene {
                     : null;
       if (result) {
         this.showQuestHintPopup(result.message, result.color);
-        this.showVillageShopCategory(shopkeeperName, category, page);
+        this.showVillageShopCategory(shopkeeperName, category, page, actorRole);
       }
     });
   }
@@ -7977,6 +8053,7 @@ export default class SnakeScene extends Phaser.Scene {
     shopkeeperName: string,
     fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
     highStakes = false,
+    actorRole?: string,
   ): void {
     this.paused = true;
     const collection = this.getCardCollection();
@@ -7996,14 +8073,14 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.show(`${shopkeeperName}'s Card Table`, options, (id) => {
       if (id === 'back') {
         if (fromVillageShop) {
-          this.showVillageShopRoot(shopkeeperName, true);
+          this.showVillageShopRoot(shopkeeperName, true, actorRole);
         } else {
           this.closeVillageShop();
         }
         return;
       }
       const [, tableId] = id.split(':');
-      this.showCardBetMenu(shopkeeperName, tableId, fromVillageShop, highStakes);
+      this.showCardBetMenu(shopkeeperName, tableId, fromVillageShop, highStakes, actorRole);
     });
   }
 
@@ -8012,12 +8089,13 @@ export default class SnakeScene extends Phaser.Scene {
     tableId: string,
     fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
     highStakes = false,
+    actorRole?: string,
   ): void {
     const table = getCardTable(tableId);
     const wagers = this.getCardBetOptions(highStakes);
     if (wagers.length === 0) {
       this.showQuestHintPopup('You need score to place a card wager.', '#ff6b6b');
-      this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes);
+      this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes, actorRole);
       return;
     }
     const options: ChoiceOption[] = wagers.map((wager) => ({
@@ -8028,7 +8106,7 @@ export default class SnakeScene extends Phaser.Scene {
     options.push({ id: 'back', title: 'Back', description: 'Choose a different card table.' });
     this.villageShopPopup.show(`${table.name} Wager`, options, (id) => {
       if (id === 'back') {
-        this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes);
+        this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes, actorRole);
         return;
       }
       const [, amount] = id.split(':');
@@ -9284,51 +9362,56 @@ export default class SnakeScene extends Phaser.Scene {
       candidates.push(
         ...room.town.residents
           .filter((resident) => this.isTownResidentInDistrict(resident.workRoomId, district))
-          .map((resident) => ({
-            id: `resident:${room.id}:${resident.id}`,
-            actorId:
+          .map((resident) => {
+            const relationshipId = this.snakeGame.getTownResidentRelationshipId(
+              room.town!.id,
+              resident.id,
+            );
+            const actorId =
               resident.actorId ??
-              this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role),
-            displayName: `${resident.name}${
-              resident.role === 'bartender'
-                ? ' the Bartender'
-                : resident.role === 'equipmentMerchant'
-                  ? ' the Equipment Merchant'
-                  : resident.role === 'potionMaker'
-                    ? ' the Potion Maker'
-                    : resident.role === 'butcher'
-                      ? ' the Butcher'
-                      : resident.role === 'cardDealer'
-                        ? ' the Card Dealer'
-                        : resident.role === 'guard'
-                          ? ' the Guard'
-                          : resident.role === 'thief' || resident.role === 'thiefContact'
-                            ? ' of the Guild'
-                            : resident.role === 'questGiver'
-                              ? ' the Quest Broker'
-                              : ''
-            }`,
-            species: 'human' as RelationshipSpecies,
-            portraitId: resident.portraitId,
-            homeRoomId: resident.homeRoomId ?? room.id,
-            factionId: resident.factionId as FactionId,
-            personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-            ...this.snakeGame.getRelationshipNpcBodyPosition(
-              {
-                id: `resident:${room.id}:${resident.id}`,
-                actorId:
-                  resident.actorId ??
-                  this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role),
-                displayName: resident.name,
-                species: 'human' as RelationshipSpecies,
-                portraitId: resident.portraitId,
-                homeRoomId: resident.homeRoomId ?? room.id,
-                factionId: resident.factionId as FactionId,
-                personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-              },
-              { x: resident.x, y: resident.y },
-            ),
-          })),
+              this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role);
+            return {
+              id: relationshipId,
+              actorId,
+              displayName: `${resident.name}${
+                resident.role === 'bartender'
+                  ? ' the Bartender'
+                  : resident.role === 'equipmentMerchant'
+                    ? ' the Equipment Merchant'
+                    : resident.role === 'potionMaker'
+                      ? ' the Potion Maker'
+                      : resident.role === 'butcher'
+                        ? ' the Butcher'
+                        : resident.role === 'cardDealer'
+                          ? ' the Card Dealer'
+                          : resident.role === 'guard'
+                            ? ' the Guard'
+                            : resident.role === 'thief' || resident.role === 'thiefContact'
+                              ? ' of the Guild'
+                              : resident.role === 'questGiver'
+                                ? ' the Quest Broker'
+                                : ''
+              }`,
+              species: 'human' as RelationshipSpecies,
+              portraitId: resident.portraitId,
+              homeRoomId: resident.homeRoomId ?? room.id,
+              factionId: resident.factionId as FactionId,
+              personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+              ...this.snakeGame.getRelationshipNpcBodyPosition(
+                {
+                  id: relationshipId,
+                  actorId,
+                  displayName: resident.name,
+                  species: 'human' as RelationshipSpecies,
+                  portraitId: resident.portraitId,
+                  homeRoomId: resident.homeRoomId ?? room.id,
+                  factionId: resident.factionId as FactionId,
+                  personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+                },
+                { x: resident.x, y: resident.y },
+              ),
+            };
+          }),
       );
     }
     if (room.goblinCamp) {
@@ -9391,7 +9474,7 @@ export default class SnakeScene extends Phaser.Scene {
     const canPickpocket = Boolean(
       currentTown &&
       this.snakeGame.canPickpocketForCurrentTownGuild() &&
-      profile.id.startsWith(`resident:${this.snakeGame.getCurrentRoom().id}:`),
+      profile.id.startsWith(`resident:${currentTown.id}:`),
     );
     const bark = this.snakeGame.getNpcBark(this.relationshipNpcVoiceRole(profile), profile.actorId);
     const conversationPortraitId = profile.portraitId ?? bark.portraitId;
@@ -9563,16 +9646,6 @@ export default class SnakeScene extends Phaser.Scene {
           this.paused = false;
           return;
         }
-        if (id === 'equipment-shop') {
-          this.paused = false;
-          this.showVillageShopCategory(profile.displayName, 'equipment');
-          return;
-        }
-        if (id === 'supplies-shop') {
-          this.paused = false;
-          this.showVillageShopCategory(profile.displayName, 'supplies');
-          return;
-        }
         if (id === 'butcher') {
           const result = this.snakeGame.sellSnakeLengthToButcher(profile.actorId);
           this.showQuestHintPopup(result.message, result.color);
@@ -9602,17 +9675,11 @@ export default class SnakeScene extends Phaser.Scene {
           }
           if (profile.species === 'goblin') {
             this.showGoblinShopRoot(profile.displayName);
-          } else if (actorRole === 'equipmentMerchant') {
-            this.showVillageShopCategory(profile.displayName, 'equipment');
-          } else if (actorRole === 'potionMaker') {
-            this.showVillageShopCategory(profile.displayName, 'supplies');
           } else if (actorRole === 'butcher') {
             const result = this.snakeGame.sellSnakeLengthToButcher(profile.actorId);
             this.showQuestHintPopup(result.message, result.color);
-          } else if (actorRole === 'cardDealer') {
-            this.showCardTableRoot(profile.displayName, false, true);
           } else {
-            this.showVillageShopRoot(profile.displayName);
+            this.showVillageShopRoot(profile.displayName, true, actorRole);
           }
           return;
         }
@@ -9713,32 +9780,11 @@ export default class SnakeScene extends Phaser.Scene {
     const town = room.town;
     const district = town ? getTownDistrictForRoom(town, room.id) : undefined;
     const options: Array<{ id: string; title: string; description: string }> = [];
-    if (actorRole === 'equipmentMerchant') {
-      options.push({
-        id: 'equipment-shop',
-        title: 'Buy Equipment',
-        description: 'Browse weapons, boots, rings, cloaks, and practical survival mistakes.',
-      });
-    }
-    if (actorRole === 'potionMaker') {
-      options.push({
-        id: 'supplies-shop',
-        title: 'Buy Supplies',
-        description: 'Browse tonics, food, bait, and bottles that insist they are medicine.',
-      });
-    }
     if (actorRole === 'butcher') {
       options.push({
         id: 'butcher',
         title: 'Sell Length',
         description: 'Sell snake length at an abysmal but occasionally useful rate.',
-      });
-    }
-    if (actorRole === 'cardDealer') {
-      options.push({
-        id: 'card-table',
-        title: 'Play Cards',
-        description: 'Sit at the hard table for heavier wagers.',
       });
     }
     if (actorRole === 'bartender') {
@@ -9780,12 +9826,7 @@ export default class SnakeScene extends Phaser.Scene {
       return false;
     }
     const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
-    return (
-      actorRole === 'equipmentMerchant' ||
-      actorRole === 'potionMaker' ||
-      actorRole === 'butcher' ||
-      actorRole === 'cardDealer'
-    );
+    return actorRole === 'butcher';
   }
 
   private actorInteractionTitle(profile: RelationshipCandidateProfile): string {
@@ -11291,6 +11332,7 @@ export default class SnakeScene extends Phaser.Scene {
       .map((action) => action.id)
       .filter((id) => id.startsWith('branch-'));
     if (branchIds.length < 3) {
+      this.shuffleDatingBranchPageActions(pages);
       return { ...event, pages };
     }
     const branchResults = { ...event.branchResults };
@@ -11299,6 +11341,7 @@ export default class SnakeScene extends Phaser.Scene {
       return Boolean(branch?.targetTier && branch?.followUpPages?.length);
     });
     if (allBranchesAuthored) {
+      this.shuffleDatingBranchPageActions(pages);
       return { ...event, pages, branchResults };
     }
     const scored = branchIds.map((id) => {
@@ -11424,7 +11467,15 @@ export default class SnakeScene extends Phaser.Scene {
         ],
       };
     }
+    this.shuffleDatingBranchPageActions(pages);
     return { ...event, pages, branchResults };
+  }
+
+  private shuffleDatingBranchPageActions(pages: DatingSequencePage[]): void {
+    for (const page of pages) {
+      if (!page.actions?.some((action) => action.id.startsWith('branch-'))) continue;
+      page.actions = shuffleDatingBranchActions(page.actions, () => this.random());
+    }
   }
 
   private createDatingReactionBeat(
@@ -12090,8 +12141,12 @@ export default class SnakeScene extends Phaser.Scene {
       const isGoblin = room.goblinCamp
         ? goblinResidents.some((goblin) => goblin.id === resident.id)
         : false;
+      const isTownResident = Boolean(room.town && !isGoblin);
+      const relationshipId = isTownResident
+        ? this.snakeGame.getTownResidentRelationshipId(room.town!.id, resident.id)
+        : `resident:${room.id}:${resident.id}`;
       const relationshipProfile: RelationshipCandidateProfile = {
-        id: `resident:${room.id}:${resident.id}`,
+        id: relationshipId,
         actorId: isGoblin
           ? this.snakeGame.getGoblinCampActorId(
               room.goblinCamp!.id,
@@ -12115,7 +12170,11 @@ export default class SnakeScene extends Phaser.Scene {
         species: (isGoblin ? 'goblin' : 'human') as RelationshipSpecies,
         portraitId: isGoblin ? 'goblin-neutral' : resident.portraitId,
         homeRoomId: room.id,
-        factionId: isGoblin ? 'goblin-camps' : 'hearthbound-remnant',
+        factionId: isGoblin
+          ? 'goblin-camps'
+          : isTownResident && 'factionId' in resident
+            ? ((resident as { factionId?: FactionId }).factionId ?? 'hearthbound-remnant')
+            : 'hearthbound-remnant',
       };
       const relationshipState = this.snakeGame.getRelationshipState(relationshipProfile);
       if (

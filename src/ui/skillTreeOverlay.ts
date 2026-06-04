@@ -86,17 +86,26 @@ interface TabDefinition {
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'skills', label: 'Skill Tree', group: 'growth' },
   { id: 'spells', label: 'Spells', group: 'growth' },
-  { id: 'inventory', label: 'Inventory', group: 'gear', placeholder: 'Items you collect will appear here.' },
+  {
+    id: 'inventory',
+    label: 'Inventory',
+    group: 'gear',
+    placeholder: 'Items you collect will appear here.',
+  },
   { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
   { id: 'cards', label: 'Cards', group: 'gear' },
   { id: 'destiny', label: 'Destiny 3', group: 'gear' },
   { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
-  { id: 'people', label: 'People', group: 'world' },
   { id: 'dating', label: 'Dating', group: 'world' },
   { id: 'quests', label: 'Quests', group: 'world' },
   { id: 'factions', label: 'Factions', group: 'world' },
   { id: 'graph', label: 'Graph', group: 'system' },
-  { id: 'cheats', label: 'Cheats', group: 'system', placeholder: 'Enter cheat strings: freakdennis, freakerdennis' },
+  {
+    id: 'cheats',
+    label: 'Cheats',
+    group: 'system',
+    placeholder: 'Enter cheat strings: freakdennis, freakerdennis',
+  },
   { id: 'info', label: 'Info', group: 'system' },
 ];
 
@@ -550,7 +559,11 @@ export class SkillTreeOverlay {
 
     this.inventoryItemsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== 'inventory') return;
-      const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y, this.inventoryItemsText);
+      const index = this.getTextRowIndex(
+        pointer,
+        this.inventoryItemsText.y,
+        this.inventoryItemsText,
+      );
       const itemId = this.inventoryIndex[index];
       if (!itemId) {
         this.selectedInventoryItemId = null;
@@ -620,19 +633,19 @@ export class SkillTreeOverlay {
         return;
       }
 
-if (actionId === 'walking-noise') {
-         const result = this.scene.toggleDisableWalkingNoise();
-         this.announce(result.message, result.color, 1800);
-         this.refresh();
-       }
+      if (actionId === 'walking-noise') {
+        const result = this.scene.toggleDisableWalkingNoise();
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+      }
 
-       if (actionId === 'cowbell') {
-         const result = this.scene.toggleCowbell();
-         this.announce(result.message, result.color, 1800);
-         this.refresh();
-       }
+      if (actionId === 'cowbell') {
+        const result = this.scene.toggleCowbell();
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+      }
 
-       if (actionId === 'minimap') {
+      if (actionId === 'minimap') {
         const result = this.scene.purchaseOrToggleMinimap();
         this.announce(result.message, result.color, 1800);
         this.refresh();
@@ -1032,7 +1045,12 @@ if (actionId === 'walking-noise') {
         : typeof style.metrics?.ascent === 'number' && typeof style.metrics?.descent === 'number'
           ? style.metrics.ascent + style.metrics.descent
           : parsedFontSize;
-    return Math.max(1, Math.ceil((Number.isFinite(metricsHeight) ? metricsHeight : 16) + Number(style.lineSpacing ?? 0)));
+    return Math.max(
+      1,
+      Math.ceil(
+        (Number.isFinite(metricsHeight) ? metricsHeight : 16) + Number(style.lineSpacing ?? 0),
+      ),
+    );
   }
 
   private getScrollableViewportHeight(): number {
@@ -1061,13 +1079,19 @@ if (actionId === 'walking-noise') {
     this.applyScrollableTextOffset(this.activeTab, text, next);
   }
 
-  private applyScrollableTextOffset(tab: TabId, text: Phaser.GameObjects.Text, rawOffset?: number): void {
+  private applyScrollableTextOffset(
+    tab: TabId,
+    text: Phaser.GameObjects.Text,
+    rawOffset?: number,
+  ): void {
     const maxScroll = Math.max(0, text.height - this.getScrollableViewportHeight());
     const offset = Phaser.Math.Clamp(rawOffset ?? this.scrollOffsets[tab] ?? 0, 0, maxScroll);
     this.scrollOffsets[tab] = offset;
     text.setY(TREE_PADDING.top - 12 - offset);
     this.scrollHintText
-      .setText(maxScroll > 0 ? `Mouse wheel to scroll ${Math.ceil(offset)}/${Math.ceil(maxScroll)}` : '')
+      .setText(
+        maxScroll > 0 ? `Mouse wheel to scroll ${Math.ceil(offset)}/${Math.ceil(maxScroll)}` : '',
+      )
       .setVisible(
         (tab === 'spells' ||
           tab === 'quests' ||
@@ -1089,7 +1113,11 @@ if (actionId === 'walking-noise') {
     const x = TREE_PADDING.horizontal - 4;
     const y = this.customizationText.y + row * lineHeight - 2;
     const availableWidth =
-      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2 + 8;
+      this.options.width -
+      DETAIL_PANEL_WIDTH -
+      DETAIL_PANEL_MARGIN -
+      TREE_PADDING.horizontal * 2 +
+      8;
     const width = Math.min(390, availableWidth);
     const height = Math.max(20, lineHeight - 2);
 
@@ -1111,7 +1139,12 @@ if (actionId === 'walking-noise') {
   private getCustomizationHoveredRow(
     pointer: Phaser.Input.Pointer,
   ): { row: number; actionId: string } | null {
-    const visualRow = this.getTextRowIndex(pointer, this.customizationText.y, this.customizationText, 0);
+    const visualRow = this.getTextRowIndex(
+      pointer,
+      this.customizationText.y,
+      this.customizationText,
+      0,
+    );
     for (const entry of this.customizationRowMap) {
       if (entry.row === visualRow) {
         return entry;
@@ -1359,7 +1392,8 @@ if (actionId === 'walking-noise') {
             if (isEq) suffix = ' (equipped)';
           }
           const category = item?.category ? String(item.category) : 'item';
-          const prefix = item?.kind === 'equipment' ? '[E] ' : `[${category.charAt(0).toUpperCase()}] `;
+          const prefix =
+            item?.kind === 'equipment' ? '[E] ' : `[${category.charAt(0).toUpperCase()}] `;
           lines.push(`${prefix}${name} x${count}${suffix}`);
           index.push(itemId);
         }
@@ -1456,10 +1490,7 @@ if (actionId === 'walking-noise') {
 
     if (factionsActive) {
       this.factionsText.setText(
-        this.formatFactionCards(
-          this.scene.getFactionCards(),
-          this.scene.getWardContractsForMenu(),
-        ),
+        this.formatFactionCards(this.scene.getFactionCards(), this.scene.getWardContractsForMenu()),
       );
       this.detailTitle.setText('Factions').setVisible(true);
       this.detailSubtitle.setText('Standing').setVisible(true);
@@ -1477,7 +1508,9 @@ if (actionId === 'walking-noise') {
 
     if (destinyActive) {
       const lines = this.handlers.getDestinyView?.() ?? [];
-      this.questListText.setText(lines.length > 0 ? lines.join('\n') : 'DESTINY 3 systems offline.');
+      this.questListText.setText(
+        lines.length > 0 ? lines.join('\n') : 'DESTINY 3 systems offline.',
+      );
       this.applyScrollableTextOffset('destiny', this.questListText);
       this.detailTitle.setText('Destiny 3').setVisible(true);
       this.detailSubtitle.setText('Guardian State').setVisible(true);
@@ -1495,12 +1528,16 @@ if (actionId === 'walking-noise') {
 
     if (infoActive) {
       this.questListText.setVisible(true);
-      this.questListText.setText('Use the grouped tabs above to manage growth, gear, world state, and system tools.');
+      this.questListText.setText(
+        'Use the grouped tabs above to manage growth, gear, world state, and system tools.',
+      );
       this.detailTitle.setText('Info').setVisible(true);
       this.detailSubtitle.setText('Menu').setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
-        .setText('Growth holds skills. Gear holds items, style, and cards. World holds map, quests, and factions.')
+        .setText(
+          'Growth holds skills. Gear holds items, style, and cards. World holds map, quests, and factions.',
+        )
         .setVisible(true);
     }
 
@@ -1544,7 +1581,9 @@ if (actionId === 'walking-noise') {
       visualRow += 1;
       const ownedThemes = this.scene
         .getSnakeThemeDefinitions()
-        .filter((theme) => state.unlockedThemes.includes(theme.id) || state.activeTheme === theme.id);
+        .filter(
+          (theme) => state.unlockedThemes.includes(theme.id) || state.activeTheme === theme.id,
+        );
       for (const theme of ownedThemes) {
         const active = state.activeTheme === theme.id;
         const line = `${active ? '> ' : ''}${theme.label} [${active ? 'equipped' : 'owned'}]`;
@@ -1580,40 +1619,38 @@ if (actionId === 'walking-noise') {
         : state.loudWalkingNoiseEnabled
           ? 'enabled'
           : 'owned';
-const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
-       lines.push(walkingNoiseLine);
-       index.push('walking-noise');
-       rowMap.push({ row: visualRow, actionId: 'walking-noise' });
-       visualRow += this.countRenderedLines(walkingNoiseLine);
-       lines.push('');
-       index.push('');
-       visualRow += 1;
-       const cowbellStatus = !state.cowbellUnlocked
-         ? '45 score'
-         : state.cowbellEquipped
-           ? 'enabled'
-           : 'owned';
-       const cowbellLine = `Cowbell [${cowbellStatus}]`;
-       lines.push(cowbellLine);
-       index.push('cowbell');
-       rowMap.push({ row: visualRow, actionId: 'cowbell' });
-       visualRow += this.countRenderedLines(cowbellLine);
-       lines.push('');
-       index.push('');
-       visualRow += 1;
-       const minimapUnlocked = this.scene.isMinimapUnlocked();
+      const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
+      lines.push(walkingNoiseLine);
+      index.push('walking-noise');
+      rowMap.push({ row: visualRow, actionId: 'walking-noise' });
+      visualRow += this.countRenderedLines(walkingNoiseLine);
+      lines.push('');
+      index.push('');
+      visualRow += 1;
+      const cowbellStatus = !state.cowbellUnlocked
+        ? '45 score'
+        : state.cowbellEquipped
+          ? 'enabled'
+          : 'owned';
+      const cowbellLine = `Cowbell [${cowbellStatus}]`;
+      lines.push(cowbellLine);
+      index.push('cowbell');
+      rowMap.push({ row: visualRow, actionId: 'cowbell' });
+      visualRow += this.countRenderedLines(cowbellLine);
+      lines.push('');
+      index.push('');
+      visualRow += 1;
+      const minimapUnlocked = this.scene.isMinimapUnlocked();
       const minimapEnabled = this.scene.isMinimapEnabled();
-      const minimapStatus = minimapUnlocked
-        ? minimapEnabled
-          ? 'On'
-          : 'Off'
-        : `50 score`;
+      const minimapStatus = minimapUnlocked ? (minimapEnabled ? 'On' : 'Off') : `50 score`;
       const minimapLine = `Minimap Module [${minimapStatus}]`;
       lines.push(minimapLine, '  Shows nearby rooms, hazards, walls, and snake position.');
       index.push('minimap', '');
       rowMap.push({ row: visualRow, actionId: 'minimap' });
       visualRow += this.countRenderedLines(minimapLine);
-      visualRow += this.countRenderedLines('  Shows nearby rooms, hazards, walls, and snake position.');
+      visualRow += this.countRenderedLines(
+        '  Shows nearby rooms, hazards, walls, and snake position.',
+      );
       lines.push('');
       index.push('');
       visualRow += 1;
@@ -2708,9 +2745,7 @@ const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
     }
 
     if (stats.arcanePulseUnlocked) {
-      this.hintText.setText(
-        'Arcane Pulse ready - press Q or bind another Q option in Spells.',
-      );
+      this.hintText.setText('Arcane Pulse ready - press Q or bind another Q option in Spells.');
       this.hintText.setColor('#ffbdfd');
     } else if (stats.manaMax > 0) {
       this.hintText.setText(

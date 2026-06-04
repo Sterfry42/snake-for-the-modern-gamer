@@ -2743,6 +2743,11 @@ export class SnakeGame implements QuestRuntime {
       options.appleSnapshot = this.apples.getSnapshot(this.snake.currentRoomId);
       options.appleStateChanged = true;
     }
+    this.resolveRivalSnakeHeadCollision(options.roomsChanged);
+    if (this.checkRivalSnakeBodyCollision()) {
+      this.markDeathAtCurrentHead('roaming-snake');
+      return this.createActorDeathStepResult('roaming-snake', options);
+    }
 
     // 3. stepRoamingSnakes (roaming snake movement)
     this.stepRoamingSnakes(options.roomsChanged);
@@ -2825,7 +2830,7 @@ export class SnakeGame implements QuestRuntime {
         this.enemies.updateEnemy({
           ...rival,
           body,
-          moveCooldown: 2,
+          moveCooldown: 1,
           fireCooldown: 999,
           flashTicks: Math.max(0, rival.flashTicks - 1),
         });
@@ -2838,7 +2843,7 @@ export class SnakeGame implements QuestRuntime {
         position: { ...move.body[0] },
         body: move.body,
         aimDirection: move.direction,
-        moveCooldown: 1,
+        moveCooldown: 0,
         fireCooldown: 999,
         flashTicks: Math.max(0, rival.flashTicks - 1),
       };
@@ -2859,6 +2864,38 @@ export class SnakeGame implements QuestRuntime {
       currentRoomAppleChanged ||= ateCurrentRoomApple;
     }
     return { currentRoomAppleChanged };
+  }
+
+  private resolveRivalSnakeHeadCollision(roomsChanged: Set<string>): void {
+    const playerSegments = Array.from(this.snake.bodySegments);
+    for (const rival of this.enemies.getRivalSnakes()) {
+      if (rival.roomId !== this.snake.currentRoomId) continue;
+      const body = rival.body?.map((segment) => ({ ...segment })) ?? [{ ...rival.position }];
+      const head = body[0] ?? rival.position;
+      const localPlayerSegments = playerSegments.map((segment) =>
+        this.worldToLocal(rival.roomId, segment),
+      );
+      if (localPlayerSegments.some((segment) => segment.x === head.x && segment.y === head.y)) {
+        this.enemies.removeEnemy(rival.id);
+        roomsChanged.add(rival.roomId);
+      }
+    }
+  }
+
+  private checkRivalSnakeBodyCollision(): boolean {
+    const playerHead = this.snake.bodySegments[0];
+    if (!playerHead) return false;
+    for (const rival of this.enemies.getRivalSnakes()) {
+      if (rival.roomId !== this.snake.currentRoomId) continue;
+      const localHead = this.worldToLocal(rival.roomId, playerHead);
+      const body = rival.body ?? [rival.position];
+      for (const segment of body.slice(1)) {
+        if (segment.x === localHead.x && segment.y === localHead.y) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private stepRoamingSnakes(roomsChanged: Set<string>): void {
@@ -3122,13 +3159,6 @@ export class SnakeGame implements QuestRuntime {
         .filter((segment) => segment.x !== start.x || segment.y !== start.y)
         .map((segment) => `${segment.x},${segment.y}`),
     );
-    const playerLocals =
-      rival.roomId === this.snake.currentRoomId
-        ? this.snake.bodySegments.map((segment) => this.worldToLocal(rival.roomId, segment))
-        : [];
-    for (const segment of playerLocals) {
-      blocked.add(`${segment.x},${segment.y}`);
-    }
     for (const enemy of this.enemies.getEnemiesInRoom(rival.roomId)) {
       if (enemy.id !== rival.id) {
         blocked.add(`${enemy.position.x},${enemy.position.y}`);
@@ -3248,17 +3278,6 @@ export class SnakeGame implements QuestRuntime {
         return false;
       }
       seen.add(key);
-    }
-    const playerLocals =
-      roomId === this.snake.currentRoomId
-        ? this.snake.bodySegments.map((segment) => this.worldToLocal(roomId, segment))
-        : [];
-    if (
-      body.some((segment) =>
-        playerLocals.some((player) => player.x === segment.x && player.y === segment.y),
-      )
-    ) {
-      return false;
     }
     const otherEnemies = this.enemies
       .getEnemiesInRoom(roomId)
@@ -3824,7 +3843,7 @@ export class SnakeGame implements QuestRuntime {
               );
     const existing = new Set(this.enemies.getEnemiesInRoom(room.id).map((enemy) => enemy.id));
     selected.slice(0, 5).forEach((resident, index) => {
-      const relationshipId = `resident:${room.id}:${resident.id}`;
+      const relationshipId = this.getTownResidentRelationshipId(town.id, resident.id);
       if (existing.has(`npc-hostile:${relationshipId}`)) {
         return;
       }
@@ -3836,6 +3855,15 @@ export class SnakeGame implements QuestRuntime {
       const actorId =
         resident.actorId ??
         this.actors.getStableTownResidentActorId(town.id, resident.id, resident.role);
+      const actor = this.actors.registry.get(actorId);
+      if (
+        actor?.hostility === 'dead' ||
+        actor?.health?.state === 'dead' ||
+        actor?.flags.dead ||
+        actor?.flags.eaten
+      ) {
+        return;
+      }
       const body = this.ensureNpcBody(
         {
           id: relationshipId,
@@ -4225,6 +4253,10 @@ export class SnakeGame implements QuestRuntime {
 
   getTownResidentActorId(townId: string, residentId: string, role: string): string {
     return this.actors.getStableTownResidentActorId(townId, residentId, role);
+  }
+
+  getTownResidentRelationshipId(townId: string, residentId: string): string {
+    return `resident:${townId}:${residentId}`;
   }
 
   getVillageActorId(roomId: string, npcId: string, role: string): string {
@@ -5720,6 +5752,17 @@ export class SnakeGame implements QuestRuntime {
       if (state?.stage === 'dead' || state?.flags.dead || state?.flags.eatenByPlayer) {
         return;
       }
+      const actor = candidate.profile.actorId
+        ? this.actors.registry.get(candidate.profile.actorId)
+        : undefined;
+      if (
+        actor?.hostility === 'dead' ||
+        actor?.health?.state === 'dead' ||
+        actor?.flags.dead ||
+        actor?.flags.eaten
+      ) {
+        return;
+      }
       candidates.push(candidate);
     };
     if (room.village) {
@@ -5768,10 +5811,18 @@ export class SnakeGame implements QuestRuntime {
       });
     }
     if (room.town) {
+      const district = room.town.districtByRoomId[room.id];
       for (const resident of room.town.residents) {
+        const workDistrict = resident.workRoomId
+          ? room.town.districtByRoomId[resident.workRoomId]
+          : undefined;
+        if (workDistrict !== district) {
+          continue;
+        }
+        const relationshipId = this.getTownResidentRelationshipId(room.town.id, resident.id);
         addCandidate({
           profile: {
-            id: `resident:${room.id}:${resident.id}`,
+            id: relationshipId,
             actorId:
               resident.actorId ??
               this.getTownResidentActorId(room.town.id, resident.id, resident.role),
@@ -6117,18 +6168,36 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
     const district = town.districtByRoomId[room.id];
-    if (district !== 'backAlley') {
+    if (district !== 'backAlley' && district !== 'guildHideout') {
       return;
     }
     const centerX = Math.floor(this.config.grid.cols / 2);
     const centerY = Math.floor(this.config.grid.rows / 2);
     const layout = room.layout.map((row) => row.split(''));
-    for (let y = centerY - 1; y <= centerY + 1; y += 1) {
-      for (let x = centerX - 6; x <= centerX - 4; x += 1) {
-        if (layout[y]?.[x] && layout[y][x] !== 'G') {
-          layout[y][x] = 'E';
+    const carve = (left: number, top: number, width: number, height: number): void => {
+      for (let y = top; y < top + height; y += 1) {
+        for (let x = left; x < left + width; x += 1) {
+          if (layout[y]?.[x] && layout[y][x] !== 'G') {
+            layout[y][x] = 'E';
+          }
         }
       }
+    };
+    if (district === 'backAlley') {
+      carve(centerX - 6, centerY - 1, 3, 3);
+    }
+    const side =
+      district === 'backAlley'
+        ? this.getSideToTownDistrict(town, room.id, 'guildHideout')
+        : this.getSideToTownDistrict(town, room.id, 'backAlley');
+    if (side === 'west' || side === 'east') {
+      const x = side === 'west' ? 0 : this.config.grid.cols - 1;
+      carve(x, centerY - 2, 1, 5);
+      carve(side === 'west' ? 1 : this.config.grid.cols - 2, centerY - 1, 1, 3);
+    } else if (side === 'north' || side === 'south') {
+      const y = side === 'north' ? 0 : this.config.grid.rows - 1;
+      carve(centerX - 2, y, 5, 1);
+      carve(centerX - 1, side === 'north' ? 1 : this.config.grid.rows - 2, 3, 1);
     }
     room.layout = layout.map((row) => row.join(''));
   }
@@ -8576,21 +8645,25 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, message: 'That item is not in your pack.', color: '#ff6b6b' };
     }
 
-    const effects: Record<string, { hunger?: number; heal?: number; temperatureRelief?: number }> =
-      {
-        'raw-meat': { hunger: 35 },
-        'fish-meat': { hunger: 30 },
-        'cooked-meat': { hunger: 70, heal: 1 },
-        'cooked-fish': { hunger: 65, temperatureRelief: 1200 },
-        honey: { heal: 1, temperatureRelief: 1800 },
-        ramen: { hunger: 999, heal: 1, temperatureRelief: 3500 },
-        senbei: { hunger: 30 },
-        egg: { hunger: 25 },
-        'food-snake-burger': { hunger: 999 },
-        'food-snake-fries': { hunger: 70 },
-        'food-snake-nuggets': { hunger: 45 },
-        'healing-potion': { heal: 2 },
-      };
+    const effects: Record<
+      string,
+      { hunger?: number; heal?: number; temperatureRelief?: number; disorientTicks?: number }
+    > = {
+      'raw-meat': { hunger: 35 },
+      'fish-meat': { hunger: 30 },
+      'cooked-meat': { hunger: 70, heal: 1 },
+      'cooked-fish': { hunger: 65, temperatureRelief: 1200 },
+      honey: { heal: 1, temperatureRelief: 1800 },
+      ramen: { hunger: 999, heal: 1, temperatureRelief: 3500 },
+      senbei: { hunger: 30 },
+      egg: { hunger: 25 },
+      'food-snake-burger': { hunger: 999 },
+      'food-snake-fries': { hunger: 70 },
+      'food-snake-nuggets': { hunger: 45 },
+      'healing-potion': { heal: 2 },
+      beer: { disorientTicks: 600 },
+      wine: { disorientTicks: 900 },
+    };
 
     if (itemId === 'life-tonic' || itemId === 'ofuda') {
       const charges = Math.max(0, Number(this.getFlag<number>('equipment.phoenixCharges') ?? 0));
@@ -8628,6 +8701,15 @@ export class SnakeGame implements QuestRuntime {
     if (effect.temperatureRelief) {
       this.relieveTemperatureExposure(effect.temperatureRelief);
     }
+    if (effect.disorientTicks) {
+      const current = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
+      this.setFlag('status.disorientedTicks', Math.max(current, effect.disorientTicks));
+      this.setFlag('ui.statusEffect', {
+        id: 'disoriented',
+        message: 'Disoriented: your head stumbles side to side.',
+        color: '#d6a2ff',
+      });
+    }
 
     this.inventory.removeItem(itemId, 1);
     this.emitWorldEvent({
@@ -8635,7 +8717,13 @@ export class SnakeGame implements QuestRuntime {
       roomId: this.snake.currentRoomId,
       severity: healed > 0 ? 12 : 8,
       loudness: 3,
-      tags: ['item', item.category ?? 'consumable', itemId, effect.hunger ? 'food' : 'consumable'],
+      tags: [
+        'item',
+        item.category ?? 'consumable',
+        itemId,
+        effect.hunger ? 'food' : 'consumable',
+        ...(effect.disorientTicks ? ['alcohol', 'disorientation'] : []),
+      ],
       summary: `The snake used ${item.name}.`,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
       data: { itemId, itemName: item.name, healed, hunger: effect.hunger ?? 0 },
@@ -8643,6 +8731,9 @@ export class SnakeGame implements QuestRuntime {
     const parts = [`Used ${item.name}.`];
     if (healed > 0) {
       parts.push(`Healed ${healed} heart${healed === 1 ? '' : 's'}.`);
+    }
+    if (effect.disorientTicks) {
+      parts.push('You feel disoriented.');
     }
     this.setFlag('ui.itemUsed', { itemId, itemName: item.name, healed });
     return { ok: true, message: parts.join(' '), color: '#9cff9c', consume: true };
@@ -11053,6 +11144,10 @@ export class SnakeGame implements QuestRuntime {
     const invuln = Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0);
     if (invuln > 0) {
       this.setFlag('player.bulletInvulnTicks', invuln - 1);
+    }
+    const disoriented = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
+    if (disoriented > 0) {
+      this.setFlag('status.disorientedTicks', Math.max(0, disoriented - 1));
     }
   }
 

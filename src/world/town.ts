@@ -294,20 +294,6 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
 
 const PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
 const BANDIT_PORTRAITS = ['bandit-neutral', 'bandit-hostile'] as const;
-const TOWN_INTERACTION_SYMBOLS: Partial<Record<TownDistrictKind, string>> = {
-  outskirts: 'F',
-  gate: 'N',
-  square: 'N',
-  market: 'M',
-  marketStreet: 'M',
-  tavern: 'R',
-  tavernInterior: 'R',
-  residential: 'P',
-  residentialStreet: 'P',
-  backAlley: 'U',
-  exit: 'N',
-  townExit: 'N',
-};
 
 const ROOM_BLUEPRINTS: Array<{
   kind: TownRoomKind;
@@ -698,7 +684,16 @@ export function createPhysicalHumanTown(args: {
     },
     { role: 'thief' as const, name: pickNpcName('thief', rng), workDistrict: 'backAlley' as const },
   ];
-  town.residents = residentSpots.map((spot, index) => ({
+  const usedNames = new Map<string, number>();
+  const uniqueResidentSpots = residentSpots.map((spot) => {
+    const count = usedNames.get(spot.name) ?? 0;
+    usedNames.set(spot.name, count + 1);
+    return {
+      ...spot,
+      name: count === 0 ? spot.name : `${spot.name} ${count + 1}`,
+    };
+  });
+  town.residents = uniqueResidentSpots.map((spot, index) => ({
     ...buildHouseNpcProfile(
       spot.name,
       spot.role === 'thief' || spot.role === 'thiefContact' || spot.role === 'cardDealer'
@@ -1265,15 +1260,6 @@ function stampNpc(layout: string[][], x: number, y: number): void {
   setChar(layout, x, y, 'G');
 }
 
-function stampTownInteraction(
-  layout: string[][],
-  district: TownDistrictKind,
-  x: number,
-  y: number,
-): void {
-  setChar(layout, x, y, TOWN_INTERACTION_SYMBOLS[district] ?? 'T');
-}
-
 export function createTownDistrictRoom(args: {
   town: TownStructure;
   roomId: string;
@@ -1399,7 +1385,7 @@ export function createTownDistrictRoom(args: {
       drawTownWalls(layout, openSides);
       fillRect(layout, center.x - 8, center.y - 3, 16, 6, 'E');
       setChar(layout, center.x - 6, center.y, 'S');
-      stampTownInteraction(layout, district, center.x, center.y);
+      setChar(layout, center.x, center.y, 'E');
       setChar(layout, center.x + 2, center.y + 2, 'A');
       setChar(layout, center.x - 2, center.y - 2, 'P');
       stampNpc(layout, center.x + 5, center.y);

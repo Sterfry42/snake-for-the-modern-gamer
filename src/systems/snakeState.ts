@@ -177,6 +177,7 @@ export class SnakeState {
     } else {
       this.direction = { ...this.nextDirection };
     }
+    this.applyDisorientationStumble();
 
     const currentRoom = deps.getRoom(this.roomId);
     const safeZoneActive = this.isInSafeZone(currentRoom, currentHeadBeforeMove);
@@ -300,9 +301,9 @@ export class SnakeState {
       (finalizedRoom.apple &&
         finalizedRoom.apple.x === finalLocalHeadX &&
         finalizedRoom.apple.y === finalLocalHeadY) ||
-        finalizedRoom.apples?.some(
-          (apple) => apple.x === finalLocalHeadX && apple.y === finalLocalHeadY,
-        ),
+      finalizedRoom.apples?.some(
+        (apple) => apple.x === finalLocalHeadX && apple.y === finalLocalHeadY,
+      ),
     );
     const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTailStack();
     const koiFlowActive = this.isKoiFlowActive();
@@ -310,8 +311,8 @@ export class SnakeState {
       ? -1
       : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1 && !koiFlowActive) {
-      if (cheatImmortal) {
-        // Immortal cheat phases through the body instead of slicing or dying.
+      if (cheatImmortal || invulnTicks > 0) {
+        // Immortal and invulnerability states phase through the body instead of slicing or dying.
       } else if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
@@ -508,6 +509,27 @@ export class SnakeState {
       return true;
     }
     return this.tryConsumeSelfCollision(head);
+  }
+
+  private applyDisorientationStumble(): void {
+    const ticks = Number(this.flags['status.disorientedTicks'] ?? 0);
+    if (ticks <= 0) {
+      this.flags['status.disorientedStep'] = undefined;
+      return;
+    }
+    const step = Number(this.flags['status.disorientedStep'] ?? 0) + 1;
+    this.flags['status.disorientedStep'] = step;
+    if (step % 7 !== 0) {
+      return;
+    }
+    const left = { x: -this.direction.y, y: this.direction.x };
+    const right = { x: this.direction.y, y: -this.direction.x };
+    const stumble = Math.floor(step / 7) % 2 === 0 ? left : right;
+    if (stumble.x === 0 && stumble.y === 0) {
+      return;
+    }
+    this.direction = stumble;
+    this.nextDirection = stumble;
   }
 
   private getBodyWithoutMovingTailStack(): Vector2Like[] {

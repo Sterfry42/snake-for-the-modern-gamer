@@ -7,6 +7,7 @@ import type {
   RelationshipTag,
 } from './relationshipTypes.js';
 import type { ActorRole } from '../actors/actorTypes.js';
+import { shuffleDatingBranchActions } from './datingActionOrder.js';
 
 export type DatingScenarioKind = Extract<RelationshipChoice, 'talk' | 'flirt' | 'date'>;
 
@@ -56,6 +57,8 @@ interface BranchBlueprint {
 interface ScenarioBlueprint {
   id: string;
   kind: DatingScenarioKind;
+  intent?: readonly string[];
+  romanceReason?: string;
   roles?: readonly ActorRole[];
   roleMatchMode?: 'weighted' | 'required';
   contextTags?: readonly string[];
@@ -1081,6 +1084,9 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
   {
     id: 'talk-guard-law-mercy',
     kind: 'talk',
+    intent: ['values test', 'law versus mercy', 'public duty versus affection'],
+    romanceReason:
+      'A guard uses a legal dilemma to test whether private affection can survive public duty.',
     roles: ['guard', 'gateGuard'],
     roleMatchMode: 'required',
     contextTags: ['crime', 'faction'],
@@ -1155,6 +1161,8 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
   {
     id: 'flirt-shopkeeper-scarcity',
     kind: 'flirt',
+    intent: ['low-stakes values test', 'commerce under pressure', 'care versus profit'],
+    romanceReason: 'Scarcity lets a merchant reveal whether affection changes how they price care.',
     roles: [
       'shopkeeper',
       'potionMaker',
@@ -1230,8 +1238,353 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
     },
   },
   {
+    id: 'flirt-equipment-merchant-protection',
+    kind: 'flirt',
+    intent: ['role-flavor flirt', 'violence versus protection', 'status test'],
+    romanceReason:
+      'An equipment merchant uses gear talk to ask whether the player values safety, spectacle, or leverage.',
+    roles: ['equipmentMerchant'],
+    roleMatchMode: 'required',
+    contextTags: ['market', 'danger'],
+    preferredPersonalities: ['deadpan', 'sharp', 'regal'],
+    setup:
+      'The equipment rack gleams behind them, each blade polished enough to make danger look employed.',
+    npcPrompt: {
+      poetic: [
+        'Steel is a promise with an edge. Tell me whether promises should shine before they cut.',
+        'Every buckle here has heard someone swear they only wanted protection.',
+      ],
+      deadpan: [
+        'Romantic inventory check: armor protects people and occasionally their worst decisions.',
+        'I need to know whether you buy safety, status, or an excuse to stand closer to trouble.',
+      ],
+      hungry: [
+        'A good shield is like a good meal. You notice it most when someone tries to take it away.',
+        'Weapons are expensive hunger with handles. Convince me yours has manners.',
+      ],
+      regal: [
+        'Arms reveal station, restraint, and whether the wearer mistakes shine for honor.',
+        'A proper tool serves the hand. A vain hand serves the tool. Which are you?',
+      ],
+      sharp: [
+        'Protection is a sales category. Violence is a customer habit. Pick which one you are.',
+        'Every weapon claims self-defense until the receipt dries.',
+      ],
+    },
+    question: 'They ask what a lover should carry into a dangerous road.',
+    branches: [
+      {
+        id: 'branch-buy-protection',
+        label: 'Buy Protection',
+        tags: ['protective', 'pragmatic', 'transaction'],
+        tier: 'liked',
+        response: {
+          poetic: ['Protection first. Good. Love should arrive with a roof and a warning bell.'],
+          deadpan: ['Practical answer. Low poetry. High survival rate. I approve.'],
+          hungry: ['Yes. Bring a shield, then dinner. I respect proper ordering.'],
+          regal: ['Preparedness honors the beloved by refusing theatrical helplessness.'],
+          sharp: ['Good purchase logic. Romance is cheaper when nobody bleeds unnecessarily.'],
+        },
+      },
+      {
+        id: 'branch-praise-steel',
+        label: 'Praise Steel',
+        tags: ['danger', 'publicAffection', 'ritual'],
+        tier: 'neutral',
+        response: {
+          poetic: ['You heard the shine but not the wound. Still, shine has its uses.'],
+          deadpan: ['Aesthetic confidence noted. Please do not romance the inventory.'],
+          hungry: ['Steel is not dinner. It can guard dinner. Partial credit.'],
+          regal: ['Ceremony has value when it remembers the person under the mail.'],
+          sharp: ['You like symbols. Fine. Symbols still need maintenance and consequences.'],
+        },
+      },
+      {
+        id: 'branch-mock-armor',
+        label: 'Mock Armor',
+        tags: ['recklessness', 'clever', 'betrayal'],
+        tier: 'disliked',
+        outcome: 'mean',
+        response: {
+          poetic: [
+            'Mock the shell if you must. Some hearts survive because something took the dent.',
+          ],
+          deadpan: ['Armor mockery logged. Future funeral expenses projected upward.'],
+          hungry: ['No. Soup spills less when the bowl exists. Basic doctrine.'],
+          regal: ['Disrespecting protection is not courage. It is vanity without witnesses yet.'],
+          sharp: ['Cheap joke. Expensive lesson. I sell the lesson too.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['A breastplate catches the candlelight like a moon trying to be useful.'],
+      deadpan: ['They rehang a helmet with unnecessary precision.'],
+      hungry: ['The rack smells faintly of oil, road dust, and missed lunches.'],
+      regal: ['The shop feels briefly like an armory for vows.'],
+      sharp: ['Their eyes move from the weapons to you, calculating repair costs.'],
+    },
+  },
+  {
+    id: 'talk-potion-maker-triage',
+    kind: 'talk',
+    intent: ['care versus profit', 'political fear', 'healing ethics'],
+    romanceReason:
+      'A potion maker tests whether the player treats care as mercy, commerce, or political risk.',
+    roles: ['potionMaker'],
+    roleMatchMode: 'required',
+    contextTags: ['healing', 'wanted', 'market'],
+    preferredPersonalities: ['deadpan', 'sharp', 'poetic'],
+    setup:
+      'Bottles crowd the workbench. One is labeled medicine, one is labeled probably medicine, and one has no label on purpose.',
+    npcPrompt: {
+      poetic: [
+        'Every cure asks what the wound has earned. I hate that question. Answer it anyway.',
+        'A body can be mended. A town keeps deciding which bodies count.',
+      ],
+      deadpan: [
+        'Triage problem. The patient caused the riot and is currently leaking on my floor.',
+        'Medical ethics have arrived without an appointment. Terrible habit.',
+      ],
+      hungry: [
+        'Medicine is just food with a deadline and worse flavor. Who gets the dose?',
+        'Someone is hurt, someone is guilty, and the bottle is not big enough to care.',
+      ],
+      regal: [
+        'A healer holds a court where pain speaks before rank. In theory.',
+        'Mercy administered badly becomes favoritism with clean hands.',
+      ],
+      sharp: [
+        'A cure is leverage when demand exceeds supply. Tell me what kind of monster notices.',
+        'The bottle is small. The politics are not. Choose.',
+      ],
+    },
+    question: 'They ask whether to treat a hated patient first.',
+    branches: [
+      {
+        id: 'branch-protect-patient',
+        label: 'Protect Patient',
+        tags: ['mercy', 'protective', 'bravery'],
+        tier: 'liked',
+        response: {
+          poetic: ['Good. A pulse is not a referendum. Let the living answer later.'],
+          deadpan: ['Correct. Triage before punishment. Annoyingly humane.'],
+          hungry: ['Patch them first. Scold them after broth. This is civilization.'],
+          regal: ['Mercy before judgment. Not weakness. Procedure with a soul.'],
+          sharp: ['Useful. Keeps options alive, including accountability. Efficient mercy.'],
+        },
+      },
+      {
+        id: 'branch-question-cure',
+        label: 'Question Cure',
+        tags: ['clever', 'selfPreserving', 'pragmatic'],
+        tier: 'neutral',
+        response: {
+          poetic: ['Doubt can be a lantern or a locked door. Yours still has oil.'],
+          deadpan: ['Verification request accepted. Suspicion is not always cruelty.'],
+          hungry: ['Sniff the bottle. Ask questions. Do not drink mystery on an empty stomach.'],
+          regal: ['Prudence is honorable when it does not become abandonment.'],
+          sharp: ['Good. Trust is better with a receipt and a second sample.'],
+        },
+      },
+      {
+        id: 'branch-blame-king',
+        label: 'Blame King',
+        tags: ['publicAffection', 'danger', 'recklessness'],
+        tier: 'disliked',
+        outcome: 'mean',
+        response: {
+          poetic: [
+            'Perhaps true. Also loud. Loud gets patients killed before truth gets boots on.',
+          ],
+          deadpan: ['Political diagnosis noted. Patient still bleeding. Prioritize better.'],
+          hungry: ['Kings cause plenty. They are rarely useful bandages.'],
+          regal: ['Blame may be deserved. Timing is still a discipline.'],
+          sharp: ['Correct target, terrible moment. You made accuracy look unserious.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The unlabeled bottle glows like a secret deciding whether to help.'],
+      deadpan: ['They move the fragile bottles farther from your tail. Sensible.'],
+      hungry: ['The room smells bitter enough to count as medicine.'],
+      regal: ['Their workbench becomes a small court of glass and consequence.'],
+      sharp: ['They cork the bottle like punctuation.'],
+    },
+  },
+  {
+    id: 'flirt-butcher-length-offer',
+    kind: 'flirt',
+    intent: ['dark comedy flirt', 'body economy', 'practical intimacy'],
+    romanceReason:
+      'A butcher turns snake length and appetite into a blunt test of comfort with bodily reality.',
+    roles: ['butcher'],
+    roleMatchMode: 'required',
+    contextTags: ['food', 'market'],
+    preferredPersonalities: ['hungry', 'deadpan', 'sharp'],
+    setup:
+      'The butcher sharpens a knife slowly, not threateningly, which somehow makes it more sincere.',
+    npcPrompt: {
+      poetic: [
+        'Bodies are honest ledgers. Hunger signs them in red. Tell me how romantic that is allowed to be.',
+        'Do not flinch at the knife unless you mean it poetically.',
+      ],
+      deadpan: [
+        'Flirtation has reached the practical anatomy portion. I apologize to nobody.',
+        'Question. If affection costs length, are you generous or just poorly measured?',
+      ],
+      hungry: [
+        'Finally, romance with marrow in it. Speak before I get sentimental and season something.',
+        'Length is not love. It can buy dinner, which has historically helped love.',
+      ],
+      regal: [
+        'A blade may be vulgar and still honest. Courtly lies rarely cut so cleanly.',
+        'Appetite without manners is beastly. Appetite with manners is dinner.',
+      ],
+      sharp: [
+        'You are long, valuable, and pretending that is not a market condition.',
+        'The knife is honest. People get stranger around honest tools.',
+      ],
+    },
+    question: 'They ask what you would offer when hunger reaches the door.',
+    branches: [
+      {
+        id: 'branch-offer-length',
+        label: 'Offer Length',
+        tags: ['food', 'selfless', 'transaction'],
+        tier: 'liked',
+        response: {
+          poetic: ['Generous. Horrifying. Tender in a way nobody should embroider.'],
+          deadpan: ['Offer recorded. Disturbing, useful, oddly intimate.'],
+          hungry: ['That is either love or lunch accounting. I respect both.'],
+          regal: ['Sacrifice with consent has dignity, even when the metaphor is chewy.'],
+          sharp: ['Clean offer. Clear terms. Slightly alarming margins.'],
+        },
+      },
+      {
+        id: 'branch-praise-knife',
+        label: 'Praise Knife',
+        tags: ['ritual', 'danger', 'publicAffection'],
+        tier: 'neutral',
+        response: {
+          poetic: ['The knife accepts compliments poorly. I accept them slightly better.'],
+          deadpan: ['Tool praise noted. Try not to court the cutlery instead of me.'],
+          hungry: ['Sharp tools make cleaner meals. This is not nothing.'],
+          regal: ['Respect for craft is welcome. Worship of edge is tedious.'],
+          sharp: ['You admire function. Good. Do not confuse it with permission.'],
+        },
+      },
+      {
+        id: 'branch-flinch',
+        label: 'Flinch',
+        tags: ['avoidance', 'selfPreserving', 'comfort'],
+        tier: 'neutral',
+        response: {
+          poetic: ['Fear has manners today. I can work with manners.'],
+          deadpan: ['Flinch detected. Sensible nervous system. No penalty.'],
+          hungry: ['Good. If you did not flinch, I would worry about the soup of your soul.'],
+          regal: ['Caution is not cowardice when the blade is real.'],
+          sharp: ['Honest reaction. Better than bravado with bad balance.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The whetstone sings a small, ugly love song.'],
+      deadpan: ['They set the knife down exactly where both of you can see it.'],
+      hungry: ['Somewhere nearby, stew becomes more philosophical than requested.'],
+      regal: ['The block between you looks like an altar that learned trade.'],
+      sharp: ['Their smile is narrow, practical, and not unkind.'],
+    },
+  },
+  {
+    id: 'flirt-card-dealer-tells',
+    kind: 'flirt',
+    intent: ['risk flirt', 'honesty versus play', 'secrets and tells'],
+    romanceReason:
+      'A card dealer frames intimacy as a wager where honesty, cheating, and restraint reveal trust.',
+    roles: ['cardDealer'],
+    roleMatchMode: 'required',
+    contextTags: ['cards', 'rumor'],
+    preferredPersonalities: ['sharp', 'deadpan', 'poetic'],
+    setup:
+      'The card dealer shuffles without looking down. Every card sounds like a tiny door locking.',
+    npcPrompt: {
+      poetic: [
+        'Chance is a candle in a crooked room. Tell me whether love should count cards.',
+        'The deck lies beautifully. People lie worse. Which should I forgive?',
+      ],
+      deadpan: [
+        'Compatibility exercise. I know your tell. You may attempt to make that romantic.',
+        'We are pretending this is a game because honesty needs furniture.',
+      ],
+      hungry: [
+        'Cards are snacks for risk. I prefer mine salted and not hidden in sleeves.',
+        'You can bluff hunger. You cannot bluff dessert. Usually.',
+      ],
+      regal: [
+        'A wager can be vulgar, ceremonial, or both. Conduct yourself accordingly.',
+        'The table recognizes nerve faster than rank. I enjoy that about it.',
+      ],
+      sharp: [
+        'I know when you are bluffing. The interesting question is whether you know when I let you.',
+        'Romance is a table with stakes. Do not sit down and call it weather.',
+      ],
+    },
+    question: 'They ask whether honesty ruins the game.',
+    branches: [
+      {
+        id: 'branch-play-honest',
+        label: 'Play Honest',
+        tags: ['honesty', 'restraint', 'privateAffection'],
+        tier: 'liked',
+        response: {
+          poetic: ['Honesty does not ruin the game. It makes the silence dangerous. Good.'],
+          deadpan: ['Honest play. Lower profit. Higher long-term survivability. Interesting.'],
+          hungry: ['Good. I like knowing what is in the pot before I eat it.'],
+          regal: ['Honor at a table is not innocence. It is chosen constraint.'],
+          sharp: ['Honesty as strategy. Risky. Attractive when done on purpose.'],
+        },
+      },
+      {
+        id: 'branch-call-bluff',
+        label: 'Call Bluff',
+        tags: ['clever', 'bravery', 'publicAffection'],
+        tier: 'neutral',
+        response: {
+          poetic: ['You named the mask without demanding the face. Acceptable nerve.'],
+          deadpan: ['Bluff called. Evidence pending. Confidence mildly entertaining.'],
+          hungry: ['You bit the lie before it bit you. Fine table manners.'],
+          regal: ['A challenge can be graceful when it bows before drawing blood.'],
+          sharp: ['Good eye. Now prove you can survive being right.'],
+        },
+      },
+      {
+        id: 'branch-cheat-back',
+        label: 'Cheat Back',
+        tags: ['betrayal', 'clever', 'recklessness'],
+        tier: 'disliked',
+        outcome: 'mean',
+        response: {
+          poetic: ['A mirror trick. Pretty, petty, and less brave than you hoped.'],
+          deadpan: ['Counter-cheat selected. Trust value depreciating.'],
+          hungry: ['No. If everyone poisons the pot, nobody eats.'],
+          regal: ['Retaliatory dishonor remains dishonor, however symmetrical.'],
+          sharp: ['Cute. Obvious. I taught that move to someone worse.'],
+        },
+      },
+    ],
+    after: {
+      poetic: ['The deck settles like it has learned a secret about both of you.'],
+      deadpan: ['They square the cards. The cards look more organized than the feeling.'],
+      hungry: ['The table smells like wax, risk, and someone skipping dinner.'],
+      regal: ['For a moment, the table becomes court, altar, and trap.'],
+      sharp: ['They leave one card face down between you. Invitation or warning.'],
+    },
+  },
+  {
     id: 'talk-bartender-rumor-truth',
     kind: 'talk',
+    intent: ['truth versus secrecy', 'rumor ethics', 'emotional labor'],
+    romanceReason: 'A bartender tests whether intimacy means protecting secrets or serving truth.',
     roles: ['bartender', 'cardDealer', 'cook'],
     roleMatchMode: 'required',
     contextTags: ['rumor', 'crime'],
@@ -1297,6 +1650,8 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
   {
     id: 'flirt-thief-stolen-first',
     kind: 'flirt',
+    intent: ['trust test', 'law versus theft', 'heat versus profit'],
+    romanceReason: 'A thief asks whether the player understands betrayal, power, and shared risk.',
     roles: ['thief', 'thiefContact', 'guildContact', 'blackMarketMerchant'],
     roleMatchMode: 'required',
     contextTags: ['guild', 'crime'],
@@ -1364,6 +1719,8 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
   {
     id: 'date-questgiver-duty',
     kind: 'date',
+    intent: ['commitment test', 'duty versus intimacy', 'unfinished work'],
+    romanceReason: 'A quest giver tests whether the player values them beyond the task board.',
     roles: ['questGiver'],
     roleMatchMode: 'required',
     contextTags: ['quest'],
@@ -1437,6 +1794,9 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
   {
     id: 'talk-resident-curfew',
     kind: 'talk',
+    intent: ['civic fear', 'ordinary survival', 'control versus protection'],
+    romanceReason:
+      'A resident brings up curfew because romance in town still happens under public fear.',
     roles: ['resident'],
     contextTags: ['curfew', 'town'],
     setup: 'A curfew bell rings early. Windows close one by one, each with a different opinion.',
@@ -1679,11 +2039,14 @@ function materializeScenario(
   scenario: ScenarioBlueprint,
   rng: () => number,
 ): DatingScenarioEvent {
-  const actions = scenario.branches.map((branch) => ({
-    id: branch.id,
-    label: branch.label,
-    tone: branch.tone,
-  }));
+  const actions = shuffleDatingBranchActions(
+    scenario.branches.map((branch) => ({
+      id: branch.id,
+      label: branch.label,
+      tone: branch.tone,
+    })),
+    rng,
+  );
   const pages: DatingScenarioPage[] = [
     { line: scenario.setup, lineIsNarration: true },
     { line: pickPersonalityLine(scenario.npcPrompt, personality, rng) },
