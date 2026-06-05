@@ -26,6 +26,7 @@ class CoordinatesFeature extends Feature {
     const suppressed = !!scene.getFlag<boolean>('ui.suppressHud');
     this.coordinatesText?.setVisible(!suppressed);
     if (!suppressed) {
+      this.coordinatesText?.setPosition(10, scene.snakeGame.isRaccoonMode() ? 82 : 54);
       this.coordinatesText?.setText(this.composeLabel(scene));
     }
   }

@@ -60,6 +60,7 @@ interface SnakeRenderOptions {
   poweredUp?: boolean;
   direction?: Vector2Like;
   snakeRenderStyle?: 'sprite' | 'retro-grid';
+  characterMode?: 'snake' | 'raccoon';
   otherPlayers?: readonly {
     id: string;
     body: readonly Vector2Like[];
@@ -193,7 +194,14 @@ export class SnakeRenderer {
     this.drawApple(room, appleInfo ?? undefined);
     this.drawTreasure(room);
     this.drawPowerup(room);
-    if (opts.snakeRenderStyle === 'retro-grid') {
+    if (opts.characterMode === 'raccoon') {
+      this.drawRaccoonPlayer(
+        snakeBody,
+        currentRoomId,
+        opts.direction ?? { x: 1, y: 0 },
+        opts.poweredUp ?? false,
+      );
+    } else if (opts.snakeRenderStyle === 'retro-grid') {
       this.drawRetroGridSnake(
         snakeBody,
         currentRoomId,
@@ -1357,6 +1365,116 @@ export class SnakeRenderer {
           .setVisible(true);
       }
     });
+  }
+
+  private drawRaccoonPlayer(
+    snakeBody: readonly Vector2Like[],
+    currentRoomId: string,
+    direction: Vector2Like,
+    poweredUp: boolean,
+  ): void {
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
+    const head = snakeBody[0];
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
+    this.snakeSprites.forEach((sprite) => sprite.setVisible(false));
+    this.hatSprite.setVisible(false);
+    if (!head) {
+      return;
+    }
+    const localX = head.x - roomX * this.grid.cols;
+    const localY = head.y - roomY * this.grid.rows;
+    if (localX < 0 || localX >= this.grid.cols || localY < 0 || localY >= this.grid.rows) {
+      return;
+    }
+    const x = localX * this.grid.cell;
+    const y = localY * this.grid.cell;
+    this.drawRaccoonCell(x, y, direction, pulse);
+  }
+
+  private drawRaccoonCell(x: number, y: number, direction: Vector2Like, alpha: number): void {
+    const cell = this.grid.cell;
+    const cx = x + cell / 2;
+    const cy = y + cell / 2;
+    const facingX = direction.x === 0 ? 0 : Math.sign(direction.x);
+    const facingY = direction.y === 0 ? 0 : Math.sign(direction.y);
+    const sideX = direction.y !== 0 ? 1 : 0;
+    const sideY = direction.x !== 0 ? 1 : 0;
+    const outline = 0x171a19;
+    const fur = 0x747c78;
+    const belly = 0xbec8c2;
+    const mask = 0x202728;
+    const tail = 0x565f5b;
+    const tailBand = 0xd5ddd8;
+    const ear = 0x8a938e;
+    const eye = 0xfff2c2;
+    const nose = 0x0f1212;
+    const sparkle = 0x72ffd2;
+    const backX = -facingX * cell * 0.24 + (facingY !== 0 ? -sideX * cell * 0.2 : 0);
+    const backY = -facingY * cell * 0.24 + (facingX !== 0 ? -sideY * cell * 0.2 : 0);
+    const snoutX = facingX * cell * 0.15;
+    const snoutY = facingY * cell * 0.15;
+
+    this.graphics.lineStyle(Math.max(1, cell * 0.07), outline, 0.95 * alpha);
+    this.graphics.fillStyle(tail, 0.95 * alpha);
+    this.graphics.fillEllipse(cx + backX, cy + backY, cell * 0.34, cell * 0.5);
+    this.graphics.lineStyle(Math.max(1, cell * 0.045), tailBand, 0.95 * alpha);
+    this.graphics.lineBetween(
+      cx + backX - cell * 0.09,
+      cy + backY - cell * 0.16,
+      cx + backX + cell * 0.09,
+      cy + backY + cell * 0.16,
+    );
+    this.graphics.lineBetween(
+      cx + backX - cell * 0.1,
+      cy + backY + cell * 0.08,
+      cx + backX + cell * 0.1,
+      cy + backY - cell * 0.08,
+    );
+
+    this.graphics.lineStyle(Math.max(1, cell * 0.08), outline, 0.98 * alpha);
+    this.graphics.fillStyle(fur, alpha);
+    this.graphics.fillEllipse(cx, cy + cell * 0.04, cell * 0.78, cell * 0.68);
+    this.graphics.fillStyle(belly, 0.88 * alpha);
+    this.graphics.fillEllipse(
+      cx - facingX * cell * 0.07,
+      cy + cell * 0.12,
+      cell * 0.32,
+      cell * 0.28,
+    );
+
+    this.graphics.fillStyle(ear, alpha);
+    this.graphics.fillTriangle(
+      cx - cell * 0.28,
+      cy - cell * 0.21,
+      cx - cell * 0.12,
+      cy - cell * 0.43,
+      cx - cell * 0.04,
+      cy - cell * 0.18,
+    );
+    this.graphics.fillTriangle(
+      cx + cell * 0.28,
+      cy - cell * 0.21,
+      cx + cell * 0.12,
+      cy - cell * 0.43,
+      cx + cell * 0.04,
+      cy - cell * 0.18,
+    );
+
+    this.graphics.fillStyle(mask, 0.98 * alpha);
+    this.graphics.fillEllipse(cx + snoutX, cy - cell * 0.07 + snoutY, cell * 0.54, cell * 0.24);
+    this.graphics.fillStyle(eye, alpha);
+    this.graphics.fillCircle(cx - cell * 0.12 + snoutX, cy - cell * 0.1 + snoutY, cell * 0.045);
+    this.graphics.fillCircle(cx + cell * 0.12 + snoutX, cy - cell * 0.1 + snoutY, cell * 0.045);
+    this.graphics.fillStyle(nose, alpha);
+    this.graphics.fillCircle(
+      cx + facingX * cell * 0.23,
+      cy - cell * 0.01 + facingY * cell * 0.23,
+      cell * 0.055,
+    );
+
+    this.graphics.fillStyle(sparkle, 0.72 * alpha);
+    this.graphics.fillCircle(cx + cell * 0.24, cy + cell * 0.23, cell * 0.035);
   }
 
   private drawRetroGridSnake(

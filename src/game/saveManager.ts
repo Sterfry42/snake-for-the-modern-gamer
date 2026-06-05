@@ -1,5 +1,6 @@
 import type { WorldGenerationIdentity } from '../world/generation/worldGenerationIdentity.js';
 import { LocalStorageStringSaveStore } from '../storage/LocalStorageStringSaveStore.js';
+import type { CharacterMode } from '../player/raccoonMode.js';
 
 const SAVE_KEY = 'snakeGameSave';
 const DEFAULT_SAVE_SLOT = '';
@@ -51,6 +52,12 @@ export interface MinecraftPlayerSaveData {
 export interface GameSaveData {
   version: string;
   timestamp: number;
+  characterMode?: CharacterMode;
+  raccoonWeight?: number;
+  raccoonHunger?: number;
+  raccoonHungerTimer?: number;
+  raccoonBanditMeter?: number;
+  raccoonStashedTotal?: number;
   snakeLength?: number;
   score: number;
   snakeBody?: Array<{ x: number; y: number }>;

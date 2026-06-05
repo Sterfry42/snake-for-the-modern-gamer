@@ -149,7 +149,7 @@ class KillstreakArsenalFeature extends Feature {
       this.state.buffTicks = config.duration;
     }
 
-    if (this.state.multiplier > 1) {
+    if (this.state.multiplier > 1 && !scene.snakeGame.isRaccoonMode()) {
       scene.addScore(this.state.multiplier - 1);
     }
 
@@ -274,7 +274,9 @@ class KillstreakArsenalFeature extends Feature {
     this.state.multiplier = config.multiplier;
     this.state.buffTicks = config.duration;
 
-    scene.addScore(config.activationBonus);
+    if (!scene.snakeGame.isRaccoonMode()) {
+      scene.addScore(config.activationBonus);
+    }
     this.spawnCallout(scene, i18n.getFeatureString(config.calloutKey), config.color);
     this.updateHud(scene);
   }

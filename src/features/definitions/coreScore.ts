@@ -24,6 +24,11 @@ class ScoreFeature extends Feature {
   }
 
   override onAppleEaten(scene: SnakeScene): void {
+    if (scene.snakeGame.isRaccoonMode()) {
+      const apples = (scene.getFlag<number>('applesEaten') ?? 0) + 1;
+      scene.setFlag('applesEaten', apples);
+      return;
+    }
     const multiplier = Math.max(
       1,
       Number(scene.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
@@ -47,8 +52,11 @@ class ScoreFeature extends Feature {
 
   private composeLabel(scene: SnakeScene, scoreOverride?: number): string {
     const score = scoreOverride ?? scene.score;
-    const length = scene.snake.length;
-    return `${i18n.getFeatureString('scoreLabel')}: ${score}\n${i18n.getFeatureString('lengthLabel')}: ${length}`;
+    if (scene.snakeGame.isRaccoonMode()) {
+      const bandit = Math.round(scene.snakeGame.getRaccoonBanditMeter());
+      return `${i18n.getFeatureString('scoreLabel')}: ${score}\nWeight: ${scene.snakeGame.getRaccoonHudWeightText()}\nBandit: ${bandit}`;
+    }
+    return `${i18n.getFeatureString('scoreLabel')}: ${score}\n${i18n.getFeatureString('lengthLabel')}: ${scene.snake.length}`;
   }
 }
 

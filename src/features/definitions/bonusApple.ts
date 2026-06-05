@@ -28,7 +28,7 @@ class BonusAppleFeature extends Feature {
   }
 
   override onAppleEaten(scene: SnakeScene): void {
-    if (scene.getFlag<boolean>('bonusActive')) {
+    if (scene.getFlag<boolean>('bonusActive') && !scene.snakeGame.isRaccoonMode()) {
       scene.addScore(4);
     }
     scene.setFlag('bonusActive', false);
@@ -46,6 +46,7 @@ class BonusAppleFeature extends Feature {
       !scene.getFlag<boolean>('ui.suppressHud') &&
       !(scene as any).paused,
     );
+    this.statusText?.setPosition(10, scene.snakeGame.isRaccoonMode() ? 106 : 78);
     this.statusText?.setVisible(visible);
   }
 }

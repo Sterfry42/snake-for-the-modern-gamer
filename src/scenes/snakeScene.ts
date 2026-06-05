@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
-import { defaultGameConfig } from '../config/gameConfig.js';
+import { defaultGameConfig, type GameConfig } from '../config/gameConfig.js';
+import type { CharacterMode } from '../player/raccoonMode.js';
 import {
   RESOLUTION_SETTINGS,
   loadResolutionSetting,
@@ -181,7 +182,22 @@ type DeathCutsceneState = {
   afterlifeDialogueShown: boolean;
 };
 
-type TitleMenuMode = 'main' | 'settings' | 'credits' | 'multiplayer';
+type TitleMenuMode =
+  | 'main'
+  | 'settings'
+  | 'settings-resolution'
+  | 'settings-difficulty'
+  | 'credits'
+  | 'multiplayer';
+const CHARACTER_MODE_STORAGE_KEY = 'snakeGameCharacterMode';
+const RACCOON_STASH_POPUP_TEXTURE_KEY = 'raccoon-popup-stash';
+const RACCOON_SAD_POPUP_TEXTURE_KEY = 'raccoon-popup-sad';
+const RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY = 'raccoon-weight-threshold';
+const RACCOON_STASH_POPUP_ASSET =
+  'assets/raccoon_pics/raccoon-giving-a-thumbs-up-with-a-cheerful-expression-isolated-on-a-transparent-background-raccoon-giving-thumbsup-isolated-on-transparent-background-free-png.webp';
+const RACCOON_SAD_POPUP_ASSET =
+  'assets/raccoon_pics/pngtree-racoon-with-sad-face-png-image_13342713.png';
+const RACCOON_WEIGHT_THRESHOLD_ASSET = 'assets/raccoon_pics/Gf6Vx1MWIAAkUrs.jpg';
 
 type LocalRect = { left: number; top: number; width: number; height: number };
 
@@ -923,6 +939,10 @@ const DEATH_REASON_DIALOGUE: Partial<Record<string, readonly string[]>> = {
     'The air itself judged thee wanting.',
     'Heat and cold are old gods. They do not need faces to be cruel.',
   ],
+  starvation: [
+    'The raccoon found no next bite, and hunger collected the debt.',
+    'A light paw is not enough when the belly becomes a clock.',
+  ],
   shielded: [
     'Even protection has its appetite.',
     'Thou reached for safety and found its hidden blade.',
@@ -1438,6 +1458,7 @@ export default class SnakeScene extends Phaser.Scene {
   private housePanel!: Phaser.GameObjects.Rectangle;
   private questHint!: Phaser.GameObjects.Text;
   private questHintPanel!: Phaser.GameObjects.Rectangle;
+  private raccoonHungerTimerBar!: Phaser.GameObjects.Graphics;
   private heartsHud!: Phaser.GameObjects.Text;
   private livesHud!: Phaser.GameObjects.Text;
   private temperatureHud!: Phaser.GameObjects.Text;
@@ -1521,10 +1542,18 @@ export default class SnakeScene extends Phaser.Scene {
   private titleContainer: Phaser.GameObjects.Container | null = null;
   private titleMainContainer: Phaser.GameObjects.Container | null = null;
   private titleSettingsContainer: Phaser.GameObjects.Container | null = null;
+  private titleResolutionSettingsContainer: Phaser.GameObjects.Container | null = null;
+  private titleDifficultySettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
+  private titleHeadingText: Phaser.GameObjects.Text | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
+  private titleCharacterModeText: Phaser.GameObjects.Text | null = null;
+  private titleNormalModeButton: Phaser.GameObjects.Container | null = null;
+  private titleRaccoonModeButton: Phaser.GameObjects.Container | null = null;
   private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
+  private selectedCharacterMode: CharacterMode = this.loadCharacterModeSetting();
+  private raccoonColorMuteFx: Phaser.FX.ColorMatrix | null = null;
   private readonly multiplayerShell = new BrowserMultiplayerShellClient();
   private multiplayerDisplayName = 'Player';
   private multiplayerDisplayNameText: Phaser.GameObjects.Text | null = null;
@@ -1542,6 +1571,7 @@ export default class SnakeScene extends Phaser.Scene {
   private performanceSampleMs = 0;
   private performanceSampleFrames = 0;
   private displayedFps = 0;
+  private lastRaccoonHungerForPopup: number | null = null;
   minecraftMode = false;
   private minecraftFeature: import('../minecraft/MinecraftFeature.js').MinecraftFeature | null =
     null;
@@ -1576,6 +1606,12 @@ export default class SnakeScene extends Phaser.Scene {
       }
       this.load.start();
     });
+  }
+
+  preload(): void {
+    this.load.image(RACCOON_STASH_POPUP_TEXTURE_KEY, RACCOON_STASH_POPUP_ASSET);
+    this.load.image(RACCOON_SAD_POPUP_TEXTURE_KEY, RACCOON_SAD_POPUP_ASSET);
+    this.load.image(RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY, RACCOON_WEIGHT_THRESHOLD_ASSET);
   }
 
   async create() {
@@ -1632,7 +1668,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics.setDepth(0);
 
     const registry = await createQuestRegistry();
-    this.snakeGame = new SnakeGame(defaultGameConfig, registry, this);
+    this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
     this.gameSession = new LocalGameSession({ game: this.snakeGame });
@@ -1681,6 +1717,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setDepth(27)
       .setVisible(false)
       .setStrokeStyle(1, 0x6fd9b7, 0.6);
+    this.raccoonHungerTimerBar = this.add.graphics().setDepth(28).setVisible(false);
     this.heartsHud = this.add
       .text(8, this.grid.rows * this.grid.cell - 26, '', {
         fontFamily: 'monospace',
@@ -2116,7 +2153,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, 'equipment:boots');
     this.caffeinatedAppleBoostExpirationsMs = [];
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
+    this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
+    this.applyRaccoonActionStepInterval();
     this.juice.stopBossMusic();
     this.juice.stopHeavenMusic();
     (this.juice as any).stopPowerupMusic?.();
@@ -2139,6 +2178,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastJuicedLength = this.snakeGame.getSnakeLength();
     this.nextDangerPulseAtMs = 0;
     this.nextPowerupSparkAtMs = 0;
+    this.lastRaccoonHungerForPopup = null;
     this.snakeCosmetics = {
       unlockedThemes: ['classic'],
       activeTheme: 'classic',
@@ -2196,6 +2236,10 @@ export default class SnakeScene extends Phaser.Scene {
         );
         const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
         this.juice.appleStreak(result.apple.worldPosition.x, result.apple.worldPosition.y, streak);
+        this.showRaccoonForageFeedbackAt(
+          result.apple.worldPosition.x,
+          result.apple.worldPosition.y,
+        );
         if (
           this.snakeGame.getCurrentRoom().biomeId === 'liberty-badlands' &&
           this.snakeGame.getCurrentRoom().archetypeId === 'gridiron-yard'
@@ -2207,6 +2251,10 @@ export default class SnakeScene extends Phaser.Scene {
         }
         this.setFlag('killstreak.appleJuiceLevel', undefined);
       }
+      if (this.snakeGame.isRaccoonMode()) {
+        this.snakeGame.setFlag('ui.raccoonForageFeedback', undefined);
+      }
+      this.applyRaccoonActionStepInterval();
     }
 
     this.tickHouseAmbientEffects();
@@ -2226,6 +2274,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup(questInteraction.message, '#9ad1ff');
       this.snakeGame.setFlag('ui.questInteraction', undefined);
     }
+    this.handleRaccoonPopupFlag();
     const relationshipEvent = this.snakeGame.getFlag<{
       title?: string;
       message?: string;
@@ -2605,6 +2654,148 @@ export default class SnakeScene extends Phaser.Scene {
       ease: 'Cubic.easeOut',
       onComplete: () => popup.destroy(),
     });
+  }
+
+  private handleRaccoonPopupFlag(): void {
+    const popup = this.snakeGame.getFlag<{ kind?: 'stash' | 'sad' }>('ui.raccoonPopup');
+    if (!popup?.kind) {
+      return;
+    }
+    this.snakeGame.setFlag('ui.raccoonPopup', undefined);
+    this.showRaccoonImagePopup(popup.kind);
+  }
+
+  private showRaccoonImagePopup(kind: 'stash' | 'sad'): void {
+    const textureKey =
+      kind === 'stash' ? RACCOON_STASH_POPUP_TEXTURE_KEY : RACCOON_SAD_POPUP_TEXTURE_KEY;
+    if (!this.textures.exists(textureKey)) {
+      return;
+    }
+
+    this.juice.raccoonPopup(kind);
+
+    const targetSize = Math.min(this.scale.width, this.scale.height) * 0.5;
+    const startY = this.scale.height + targetSize * 0.65;
+    const targetY = this.scale.height - targetSize * 0.56;
+    const image = this.add
+      .image(this.scale.width * 0.5, startY, textureKey)
+      .setDepth(80)
+      .setScrollFactor(0)
+      .setOrigin(0.5, 0.5)
+      .setAlpha(0);
+    const source = this.textures.get(textureKey).getSourceImage() as
+      | HTMLCanvasElement
+      | HTMLImageElement;
+    const scale = targetSize / Math.max(1, source.width, source.height);
+    image.setScale(scale);
+
+    this.tweens.add({
+      targets: image,
+      y: targetY,
+      alpha: 1,
+      scale: scale * 1.04,
+      duration: 260,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: image,
+          y: targetY + targetSize * 0.12,
+          alpha: 0,
+          scale,
+          delay: 1000,
+          duration: 260,
+          ease: 'Cubic.easeIn',
+          onComplete: () => image.destroy(),
+        });
+      },
+    });
+  }
+
+  private showRaccoonForageFeedbackAt(worldX: number, worldY: number): void {
+    const raccoonForage = this.snakeGame.getFlag<{
+      weightGain?: number;
+      weight?: number;
+      nextThreshold?: number;
+      tierChanged?: boolean;
+      tierLabel?: string;
+    }>('ui.raccoonForageFeedback');
+    if (!this.snakeGame.isRaccoonMode() || !raccoonForage) {
+      return;
+    }
+
+    const label =
+      raccoonForage.tierChanged && raccoonForage.tierLabel
+        ? `+${raccoonForage.weightGain ?? 1} wt  ${raccoonForage.tierLabel}`
+        : `+${raccoonForage.weightGain ?? 1} wt`;
+    this.juice.raccoonForagePickup(worldX, worldY, label, Boolean(raccoonForage.tierChanged));
+    if (raccoonForage.tierChanged) {
+      this.showRaccoonWeightThresholdFlash();
+    }
+    this.snakeGame.setFlag('ui.raccoonForageFeedback', undefined);
+  }
+
+  private showRaccoonWeightThresholdFlash(): void {
+    if (!this.textures.exists(RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY)) {
+      return;
+    }
+
+    this.juice.raccoonWeightThreshold();
+
+    const source = this.textures.get(RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY).getSourceImage() as
+      | HTMLCanvasElement
+      | HTMLImageElement;
+    const scaleX = this.scale.width / Math.max(1, source.width);
+    const scaleY = this.scale.height / Math.max(1, source.height);
+    const image = this.add
+      .image(this.scale.width * 0.5, this.scale.height * 0.5, RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY)
+      .setDepth(76)
+      .setScrollFactor(0)
+      .setOrigin(0.5, 0.5)
+      .setScale(scaleX * 1.03, scaleY * 1.03)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: image,
+      alpha: 0.56,
+      scaleX,
+      scaleY,
+      duration: 90,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        this.tweens.add({
+          targets: image,
+          alpha: 0,
+          delay: 140,
+          duration: 360,
+          ease: 'Cubic.easeIn',
+          onComplete: () => image.destroy(),
+        });
+      },
+    });
+  }
+
+  private drawRaccoonHungerTimerBar(healthVisible: boolean): void {
+    const bar = this.raccoonHungerTimerBar;
+    bar.clear();
+    const visible = healthVisible && this.snakeGame.isRaccoonMode();
+    bar.setVisible(visible);
+    if (!visible) {
+      return;
+    }
+
+    const x = 10;
+    const y = this.grid.rows * this.grid.cell - 36;
+    const width = 132;
+    const height = 5;
+    const ratio = this.snakeGame.getRaccoonHungerTimerRatio();
+    const fill = ratio <= 0.28 ? 0xff6b6b : ratio <= 0.55 ? 0xffd166 : 0x5dd6a2;
+
+    bar.fillStyle(0x05090c, 0.78);
+    bar.fillRect(x, y, width, height);
+    bar.lineStyle(1, 0xff8f8f, 0.75);
+    bar.strokeRect(x - 1, y - 1, width + 2, height + 2);
+    bar.fillStyle(fill, 0.95);
+    bar.fillRect(x, y, Math.round(width * ratio), height);
   }
 
   private showPendingActorKnownFact(): void {
@@ -3767,6 +3958,35 @@ export default class SnakeScene extends Phaser.Scene {
     return this.actionStepIntervalMs;
   }
 
+  private applyRaccoonActionStepInterval(): void {
+    if (!this.skillTree || !this.snakeGame) {
+      return;
+    }
+    const speedMultiplier = this.snakeGame.getRaccoonSpeedMultiplier();
+    const scalar = this.snakeGame.isRaccoonMode() ? 1 / Math.max(0.1, speedMultiplier) : 1;
+    this.skillTree.applyActionStepIntervalScalar(scalar, 'character:raccoon');
+    this.applyRaccoonColorMuteFilter(this.snakeGame.isRaccoonMode() && !this.titleVisible);
+  }
+
+  private applyRaccoonColorMuteFilter(enabled: boolean): void {
+    const postFx = this.cameras.main.postFX;
+    if (!enabled) {
+      if (this.raccoonColorMuteFx) {
+        (
+          postFx as Phaser.GameObjects.Components.FX & {
+            remove(fx: Phaser.FX.ColorMatrix): Phaser.GameObjects.Components.FX;
+          }
+        ).remove(this.raccoonColorMuteFx);
+        this.raccoonColorMuteFx = null;
+      }
+      return;
+    }
+    if (this.raccoonColorMuteFx) {
+      return;
+    }
+    this.raccoonColorMuteFx = postFx.addColorMatrix().grayscale(1);
+  }
+
   setBossStepIntervalMs(intervalMs: number): void {
     this.bossStepIntervalMs = Math.max(20, intervalMs);
     this.simulationScheduler.setClockInterval('boss', this.bossStepIntervalMs);
@@ -3931,6 +4151,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.hideOverlay();
     this.questPopup.hide();
     this.villageShopPopup?.hide();
+    this.applyRaccoonColorMuteFilter(false);
 
     if (this.titleCreditsMode) {
       this.hideCreditsScreen();
@@ -3967,6 +4188,8 @@ export default class SnakeScene extends Phaser.Scene {
   private showTitleMode(mode: TitleMenuMode): void {
     this.titleMainContainer?.setVisible(mode === 'main');
     this.titleSettingsContainer?.setVisible(mode === 'settings');
+    this.titleResolutionSettingsContainer?.setVisible(mode === 'settings-resolution');
+    this.titleDifficultySettingsContainer?.setVisible(mode === 'settings-difficulty');
     this.titleMultiplayerContainer?.setVisible(mode === 'multiplayer');
     this.multiplayerDisplayNameActive = mode === 'multiplayer';
     if (mode === 'multiplayer') {
@@ -3978,6 +4201,62 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private loadCharacterModeSetting(): CharacterMode {
+    try {
+      return globalThis.localStorage?.getItem(CHARACTER_MODE_STORAGE_KEY) === 'raccoon'
+        ? 'raccoon'
+        : 'snake';
+    } catch {
+      return 'snake';
+    }
+  }
+
+  private saveCharacterModeSetting(mode: CharacterMode): void {
+    try {
+      globalThis.localStorage?.setItem(CHARACTER_MODE_STORAGE_KEY, mode);
+    } catch {
+      // Settings persistence is best-effort in private or restricted contexts.
+    }
+  }
+
+  private createGameConfigForCharacterMode(): GameConfig {
+    return {
+      ...defaultGameConfig,
+      character: {
+        ...defaultGameConfig.character,
+        mode: this.selectedCharacterMode,
+        raccoon: {
+          ...defaultGameConfig.character.raccoon,
+          weightTiers: [...defaultGameConfig.character.raccoon.weightTiers],
+          stashMultipliers: [...defaultGameConfig.character.raccoon.stashMultipliers],
+          bandit: { ...defaultGameConfig.character.raccoon.bandit },
+        },
+      },
+    };
+  }
+
+  private setTitleCharacterMode(mode: CharacterMode): void {
+    this.selectedCharacterMode = mode;
+    this.saveCharacterModeSetting(mode);
+    this.refreshTitleCharacterModeText();
+    this.setTitleButtonSelected(this.titleNormalModeButton, mode === 'snake');
+    this.setTitleButtonSelected(this.titleRaccoonModeButton, mode === 'raccoon');
+  }
+
+  private refreshTitleCharacterModeText(): void {
+    const label = this.selectedCharacterMode === 'raccoon' ? 'Raccoon' : 'Normal';
+    const description =
+      this.selectedCharacterMode === 'raccoon'
+        ? 'Raccoon: Apples increase weight. Stash apples before hunger and weight become a problem.'
+        : 'Normal: Apples increase length.';
+    this.titleCharacterModeText?.setText(`Current: ${label}\n${description}`);
+    this.titleHeadingText?.setText(
+      this.selectedCharacterMode === 'raccoon'
+        ? 'Raccoon for the Modern Gamer'
+        : 'Snake for the Modern Gamer',
+    );
+  }
+
   private showCreditsScreen(): void {
     if (this.titleCreditsMode) return;
 
@@ -3986,6 +4265,8 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.titleMainContainer?.setVisible(false);
     this.titleSettingsContainer?.setVisible(false);
+    this.titleResolutionSettingsContainer?.setVisible(false);
+    this.titleDifficultySettingsContainer?.setVisible(false);
     this.titleMultiplayerContainer?.setVisible(false);
     this.multiplayerDisplayNameActive = false;
 
@@ -4154,6 +4435,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.hideTitleScreen();
     this.restoreCharacterSaveState();
+    this.applyRaccoonActionStepInterval();
     this.paused = false;
     this.showSaveUI();
     this.isDirty = true;
@@ -4168,7 +4450,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const veil = this.add.rectangle(0, 0, width, height, 0x02030a, 0.18).setOrigin(0, 0);
     const title = this.add
-      .text(width / 2, 38, 'Snake for the Modern Gamer', {
+      .text(width / 2, 38, '', {
         fontFamily: "Georgia, 'Times New Roman', serif",
         fontSize: '38px',
         color: '#fff4cf',
@@ -4176,6 +4458,7 @@ export default class SnakeScene extends Phaser.Scene {
         strokeThickness: 5,
       })
       .setOrigin(0.5, 0);
+    this.titleHeadingText = title;
     const subtitle = this.add
       .text(
         width / 2,
@@ -4217,12 +4500,38 @@ export default class SnakeScene extends Phaser.Scene {
     main.add(buttons);
 
     const settings = this.add.container(0, 0).setVisible(false);
-    const panel = this.add
-      .rectangle(width / 2, height / 2 + 44, 300, 300, 0x071019, 0.88)
+    const settingsPanel = this.add
+      .rectangle(width / 2, height / 2 + 44, 330, 250, 0x071019, 0.88)
       .setStrokeStyle(2, 0x8fb7ff)
       .setOrigin(0.5);
     const settingsTitle = this.add
-      .text(width / 2, height / 2 - 30, 'Settings', {
+      .text(width / 2, height / 2 - 48, 'Settings', {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: '26px',
+        color: '#fff4cf',
+      })
+      .setOrigin(0.5);
+    settings.add([
+      settingsPanel,
+      settingsTitle,
+      this.createTitleButton(width / 2 - 105, height / 2 - 8, 'Resolution', () =>
+        this.showTitleScreen('settings-resolution'),
+      ),
+      this.createTitleButton(width / 2 - 105, height / 2 + 44, 'Difficulty', () =>
+        this.showTitleScreen('settings-difficulty'),
+      ),
+      this.createTitleButton(width / 2 - 105, height / 2 + 96, 'Back', () =>
+        this.showTitleScreen('main'),
+      ),
+    ]);
+
+    const resolutionSettings = this.add.container(0, 0).setVisible(false);
+    const resolutionPanel = this.add
+      .rectangle(width / 2, height / 2 + 44, 330, 336, 0x071019, 0.88)
+      .setStrokeStyle(2, 0x8fb7ff)
+      .setOrigin(0.5);
+    const resolutionTitle = this.add
+      .text(width / 2, height / 2 - 86, 'Resolution', {
         fontFamily: "Georgia, 'Times New Roman', serif",
         fontSize: '26px',
         color: '#fff4cf',
@@ -4230,7 +4539,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setOrigin(0.5);
     const currentResolution = loadResolutionSetting();
     const settingsBody = this.add
-      .text(width / 2, height / 2 + 2, `Resolution: ${currentResolution.label}`, {
+      .text(width / 2, height / 2 - 44, `Current: ${currentResolution.label}`, {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#c8ffe1',
@@ -4239,18 +4548,66 @@ export default class SnakeScene extends Phaser.Scene {
     const resolutionButtons = RESOLUTION_SETTINGS.map((setting, index) =>
       this.createTitleButton(
         width / 2 - 105,
-        height / 2 + 30 + index * 42,
-        `${setting.label}${setting.id === currentResolution.id ? ' *' : ''}`,
+        height / 2 - 12 + index * 48,
+        setting.label,
         () => this.applyTitleResolutionSetting(setting.id),
+        { selected: setting.id === currentResolution.id },
       ),
     );
-    settings.add([
-      panel,
-      settingsTitle,
+    resolutionSettings.add([
+      resolutionPanel,
+      resolutionTitle,
       settingsBody,
       ...resolutionButtons,
-      this.createTitleButton(width / 2 - 105, height / 2 + 168, 'Back', () =>
-        this.showTitleScreen('main'),
+      this.createTitleButton(width / 2 - 105, height / 2 + 146, 'Back', () =>
+        this.showTitleScreen('settings'),
+      ),
+    ]);
+
+    const difficultySettings = this.add.container(0, 0).setVisible(false);
+    const difficultyPanel = this.add
+      .rectangle(width / 2, height / 2 + 44, 330, 318, 0x071019, 0.88)
+      .setStrokeStyle(2, 0x8fb7ff)
+      .setOrigin(0.5);
+    const difficultyTitle = this.add
+      .text(width / 2, height / 2 - 76, 'Difficulty', {
+        fontFamily: "Georgia, 'Times New Roman', serif",
+        fontSize: '26px',
+        color: '#fff4cf',
+      })
+      .setOrigin(0.5);
+    this.titleCharacterModeText = this.add
+      .text(width / 2, height / 2 - 32, '', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#fff3a8',
+        align: 'center',
+        wordWrap: { width: 250 },
+      })
+      .setOrigin(0.5);
+    this.titleNormalModeButton = this.createTitleButton(
+      width / 2 - 105,
+      height / 2 + 28,
+      'Normal',
+      () => this.setTitleCharacterMode('snake'),
+      { selected: this.selectedCharacterMode === 'snake' },
+    );
+    this.titleRaccoonModeButton = this.createTitleButton(
+      width / 2 - 105,
+      height / 2 + 80,
+      'Raccoon',
+      () => this.setTitleCharacterMode('raccoon'),
+      { selected: this.selectedCharacterMode === 'raccoon' },
+    );
+    this.refreshTitleCharacterModeText();
+    difficultySettings.add([
+      difficultyPanel,
+      difficultyTitle,
+      this.titleCharacterModeText,
+      this.titleNormalModeButton,
+      this.titleRaccoonModeButton,
+      this.createTitleButton(width / 2 - 105, height / 2 + 132, 'Back', () =>
+        this.showTitleScreen('settings'),
       ),
     ]);
 
@@ -4414,13 +4771,18 @@ export default class SnakeScene extends Phaser.Scene {
       subtitle,
       main,
       settings,
+      resolutionSettings,
+      difficultySettings,
       multiplayer,
       this.titleMessageText,
     ]);
     this.titleContainer = root;
     this.titleMainContainer = main;
     this.titleSettingsContainer = settings;
+    this.titleResolutionSettingsContainer = resolutionSettings;
+    this.titleDifficultySettingsContainer = difficultySettings;
     this.titleMultiplayerContainer = multiplayer;
+    this.refreshTitleCharacterModeText();
     this.startTitleTweens(
       title,
       subtitle,
@@ -4442,26 +4804,34 @@ export default class SnakeScene extends Phaser.Scene {
     y: number,
     label: string,
     onClick: () => void,
-    options: { disabled?: boolean } = {},
+    options: { disabled?: boolean; selected?: boolean } = {},
   ): Phaser.GameObjects.Container {
     const disabled = options.disabled ?? false;
+    const selected = options.selected ?? false;
     const buttonWidth = 210;
     const buttonHeight = 42;
     const shadow = this.add
       .rectangle(4, 5, buttonWidth, buttonHeight, 0x02040a, 0.48)
       .setOrigin(0, 0);
     const bg = this.add
-      .rectangle(0, 0, buttonWidth, buttonHeight, disabled ? 0x1e232b : 0x0b1626, 0.94)
-      .setStrokeStyle(2, disabled ? 0x5a6470 : 0x4da3ff)
+      .rectangle(0, 0, buttonWidth, buttonHeight, disabled || selected ? 0x1e232b : 0x0b1626, 0.94)
+      .setStrokeStyle(2, disabled || selected ? 0x5a6470 : 0x4da3ff)
       .setOrigin(0, 0);
     const stripe = this.add
-      .rectangle(10, buttonHeight - 8, buttonWidth - 20, 2, disabled ? 0x6b7280 : 0x5dd6a2, 0.58)
+      .rectangle(
+        10,
+        buttonHeight - 8,
+        buttonWidth - 20,
+        2,
+        disabled || selected ? 0x6b7280 : 0x5dd6a2,
+        0.58,
+      )
       .setOrigin(0, 0);
     const text = this.add
-      .text(buttonWidth / 2, 10, label, {
+      .text(buttonWidth / 2, 10, selected ? `${label} *` : label, {
         fontFamily: 'monospace',
         fontSize: '16px',
-        color: disabled ? '#8b939f' : '#fff4cf',
+        color: disabled || selected ? '#8b939f' : '#fff4cf',
       })
       .setOrigin(0.5, 0);
     const zone = this.add.zone(0, 0, buttonWidth, buttonHeight).setOrigin(0, 0);
@@ -4471,11 +4841,19 @@ export default class SnakeScene extends Phaser.Scene {
     const button = this.add
       .container(x, y, [shadow, bg, stripe, text, zone])
       .setSize(buttonWidth, buttonHeight);
+    button.setData('titleBaseLabel', label);
+    button.setData('titleLabelText', text);
+    button.setData('titleButtonBg', bg);
+    button.setData('titleButtonStripe', stripe);
+    button.setData('titleSelected', selected);
     if (disabled) {
       button.setAlpha(0.78);
       return button;
     }
     zone.on('pointerover', () => {
+      if (button.getData('titleSelected')) {
+        return;
+      }
       this.juice.startTitleMusic();
       bg.setFillStyle(0x243653, 0.98);
       bg.setStrokeStyle(2, 0x5dd6a2);
@@ -4490,6 +4868,9 @@ export default class SnakeScene extends Phaser.Scene {
       });
     });
     zone.on('pointerout', () => {
+      if (button.getData('titleSelected')) {
+        return;
+      }
       bg.setFillStyle(0x0b1626, 0.94);
       bg.setStrokeStyle(2, 0x4da3ff);
       stripe.setFillStyle(0x5dd6a2, 0.58);
@@ -4504,6 +4885,27 @@ export default class SnakeScene extends Phaser.Scene {
     });
     zone.on('pointerdown', onClick);
     return button;
+  }
+
+  private setTitleButtonSelected(
+    button: Phaser.GameObjects.Container | null,
+    selected: boolean,
+  ): void {
+    if (!button) {
+      return;
+    }
+    const label = String(button.getData('titleBaseLabel') ?? '');
+    const text = button.getData('titleLabelText') as Phaser.GameObjects.Text | undefined;
+    const bg = button.getData('titleButtonBg') as Phaser.GameObjects.Rectangle | undefined;
+    const stripe = button.getData('titleButtonStripe') as Phaser.GameObjects.Rectangle | undefined;
+    button.setData('titleSelected', selected);
+    button.setAlpha(selected ? 0.78 : 1);
+    button.setScale(1);
+    text?.setText(selected ? `${label} *` : label);
+    text?.setColor(selected ? '#8b939f' : '#fff4cf');
+    bg?.setFillStyle(selected ? 0x1e232b : 0x0b1626, 0.94);
+    bg?.setStrokeStyle(2, selected ? 0x5a6470 : 0x4da3ff);
+    stripe?.setFillStyle(selected ? 0x6b7280 : 0x5dd6a2, 0.58);
   }
 
   private handleTitleMultiplayerKey(event: KeyboardEvent): boolean {
@@ -5685,6 +6087,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
       (this.juice as any).enemyEaten?.(world.x, world.y);
+      this.showRaccoonForageFeedbackAt(world.x, world.y);
       const label = enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy';
       const popup = this.add
         .text(
@@ -6082,6 +6485,7 @@ export default class SnakeScene extends Phaser.Scene {
       snakeColor,
       poweredUp: Boolean(pActive),
       direction: localPlayer?.direction ?? this.snakeGame.getDirection(),
+      characterMode: this.snakeGame.getCharacterMode(),
       snakeRenderStyle: activeSnakeTheme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
       otherPlayers: Object.values(snapshot.players)
         .filter((player) => !player.isLocal && player.roomId === room.id && player.alive)
@@ -6123,7 +6527,17 @@ export default class SnakeScene extends Phaser.Scene {
     this.heartsHud.setText(
       `Hearts: ${'♥'.repeat(Math.max(0, health.current))}${'♡'.repeat(Math.max(0, health.max - health.current))}`,
     );
+    if (this.snakeGame.isRaccoonMode()) {
+      this.heartsHud.setText(this.heartsHud.text.replace('Hearts:', 'Hunger:'));
+      if (health.current === 1 && this.lastRaccoonHungerForPopup !== 1) {
+        this.showRaccoonImagePopup('sad');
+      }
+      this.lastRaccoonHungerForPopup = health.current;
+    } else {
+      this.lastRaccoonHungerForPopup = null;
+    }
     this.heartsHud.setVisible(!this.isInHouse() && healthRevealed);
+    this.drawRaccoonHungerTimerBar(!this.isInHouse() && !this.titleVisible);
     if (!this.isInHouse() && head && healthRevealed && health.current < health.max) {
       const missingRatio = health.max > 0 ? (health.max - health.current) / health.max : 0;
       if (this.time.now >= this.nextDangerPulseAtMs) {
@@ -6142,7 +6556,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastVisibleLifeCharges = lifeCharges;
     this.livesHud.setText(`Lives: ${lifeCharges + 1}`);
     this.livesHud.setVisible(
-      !this.isInHouse() && Boolean(this.getFlag<boolean>('ui.livesRevealed')),
+      !this.isInHouse() &&
+        !this.snakeGame.isRaccoonMode() &&
+        Boolean(this.getFlag<boolean>('ui.livesRevealed')),
     );
     const temperature = this.snakeGame.getPlayerTemperature();
     if (!this.isInHouse() && temperature.active) {
@@ -7934,7 +8350,13 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Sit at the stall table and chase the score window.',
       });
     }
-    if (actorRole === 'butcher') {
+    if (this.snakeGame.isRaccoonMode() && (actorRole === 'butcher' || actorRole)) {
+      options.push({
+        id: 'stash-apples',
+        title: 'Stash Apples',
+        description: 'Cash out carried apples for score and drop back to a fast raccoon load.',
+      });
+    } else if (actorRole === 'butcher') {
       options.push({
         id: 'sell-length',
         title: 'Sell Length',
@@ -7968,6 +8390,15 @@ export default class SnakeScene extends Phaser.Scene {
           this.currentShopActorIdForRole('butcher'),
         );
         this.showQuestHintPopup(result.message, result.color);
+        this.showVillageShopRoot(shopkeeperName, true, actorRole);
+        return;
+      }
+      if (id === 'stash-apples') {
+        const result = this.snakeGame.stashRaccoonApples(
+          actorRole ? this.currentShopActorIdForRole(actorRole) : undefined,
+        );
+        this.showQuestHintPopup(result.message, result.color);
+        this.applyRaccoonActionStepInterval();
         this.showVillageShopRoot(shopkeeperName, true, actorRole);
         return;
       }
