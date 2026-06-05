@@ -132,6 +132,12 @@ import {
 } from '../caves/caveTypes.js';
 import { createDefaultCaveSave, isCaveRoomId } from '../caves/caveGenerator.js';
 import { getCaveTemplate } from '../caves/caveTemplates.js';
+import {
+  LAYER_ENTRANCE_TILE,
+  LAYER_EXIT_TILE,
+  type LayerEntrance,
+  type LayerRuntimeState,
+} from '../layers/layerTypes.js';
 import type { PlayerId, PlayerRuntime } from '../players/playerTypes.js';
 import type { ClientCommand } from '../session/ClientCommand.js';
 import type { GameSnapshot } from '../session/GameSnapshot.js';
@@ -948,6 +954,7 @@ export class SnakeGame implements QuestRuntime {
             wallOutlineColor: room.wallOutlineColor,
             portals: room.portals,
             caveEntrances: room.caveEntrances,
+            layerEntrances: room.layerEntrances,
             apples: this.getApple(roomId),
             enemies: this.getEnemies(roomId),
             followers: this.getFollowers()
@@ -1388,7 +1395,7 @@ export class SnakeGame implements QuestRuntime {
     let outcome = this.snakeStep(roomsChanged);
     if (outcome.status === 'alive') {
       this.handleCaveTransitionAtHead(previousRoom, roomsChanged);
-      this.handleTownInteriorTransitionAtHead(previousRoom, roomsChanged);
+      this.handleLayerTransitionAtHead(previousRoom, roomsChanged);
     }
 
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
@@ -2279,92 +2286,73 @@ export class SnakeGame implements QuestRuntime {
     this.enterCave(entrance, room.id, local, roomsChanged);
   }
 
-  private handleTownInteriorTransitionAtHead(
-    previousRoom: string,
-    roomsChanged: Set<string>,
-  ): void {
+  private handleLayerTransitionAtHead(previousRoom: string, roomsChanged: Set<string>): void {
     const head = this.snake.bodySegments[0];
     if (!head) {
       return;
     }
     const room = this.world.getRoom(this.snake.currentRoomId);
-    if (!room.id.startsWith('town-interior:')) {
-      return;
-    }
     const local = this.worldToLocal(room.id, head);
     const tile = room.layout[local.y]?.[local.x];
-    if (tile !== 'Y' && tile !== 'H') {
+    if (room.layer && tile === LAYER_EXIT_TILE && previousRoom === room.id) {
+      this.exitCurrentLayer(roomsChanged);
       return;
     }
-    if (previousRoom !== room.id) {
+    const entrance = room.layerEntrances?.find(
+      (entry) => !entry.locked && entry.x === local.x && entry.y === local.y,
+    );
+    if (!entrance || previousRoom !== room.id) {
       return;
     }
-    const exit =
-      this.getTownInteriorReturnPortal(room) ??
-      room.portals.find((portal) => portal.x === local.x && portal.y === local.y);
-    if (!exit) {
+    this.enterLayer(entrance, roomsChanged);
+  }
+
+  private enterLayer(entrance: LayerEntrance, roomsChanged: Set<string>): void {
+    if (entrance.locked) {
+      this.setFlag('ui.questInteraction', { message: 'The entrance is locked.' });
       return;
     }
-    this.snake.teleportTo(exit.destRoomId, { x: exit.destX, y: exit.destY }, { x: 0, y: 1 });
+    const ensured = this.world.ensureLayerInstance(entrance);
+    const instance = this.world.setLayerInstanceState(ensured.id, 'active') ?? ensured;
+    const layerRoom = this.world.getRoom(instance.id);
+    this.snake.teleportTo(instance.id, instance.spawn, { x: 0, y: -1 });
+    this.visitedRooms.add(instance.id);
+    const runtime: LayerRuntimeState = {
+      layerId: instance.id,
+      parentRoomId: instance.parentRoomId,
+      entranceId: instance.entranceId,
+      returnPosition: instance.returnPosition,
+      templateId: instance.templateId,
+      roomStack: [instance.id],
+    };
+    this.setFlag('layers.active', runtime);
+    this.setFlag('traversal.manualResumePending', true);
+    this.setFlag('ui.questInteraction', {
+      message:
+        instance.kind === 'townInterior' && instance.templateId === 'thievesGuild'
+          ? 'You slip down into the Thieves Guild.'
+          : 'You enter the hidden room.',
+    });
+    if (layerRoom.town) {
+      this.applyTownRuntimeToRoom(layerRoom);
+      this.maybeMarkTownHostility(layerRoom);
+    }
+    roomsChanged.add(instance.parentRoomId);
+    roomsChanged.add(instance.id);
+  }
+
+  private exitCurrentLayer(roomsChanged: Set<string>): void {
+    const runtime = this.getFlag<LayerRuntimeState>('layers.active');
+    if (!runtime) {
+      return;
+    }
+    this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, { x: 0, y: 1 });
+    this.world.setLayerInstanceState(runtime.layerId, 'completed');
+    this.setFlag('layers.active', undefined);
     this.setFlag('traversal.manualResumePending', true);
     this.setFlag('ui.questInteraction', { message: 'You climb back out through the grate.' });
-    roomsChanged.add(room.id);
-    roomsChanged.add(exit.destRoomId);
-  }
-
-  private getTownInteriorReturnPortal(
-    room: RoomSnapshot,
-  ): { destRoomId: string; destX: number; destY: number } | null {
-    const town = room.town;
-    const roomTownId = this.parseTownInteriorRoomId(room.id)?.townId;
-    const resolvedTown = town ?? (roomTownId ? this.world.getTownById(roomTownId) : undefined);
-    if (!resolvedTown) {
-      const parsed = roomTownId ? this.tryParseTownAnchorFromId(roomTownId) : null;
-      if (!parsed) {
-        return null;
-      }
-      return {
-        destRoomId: `${parsed.x + 2},${parsed.y + 2},${parsed.z}`,
-        destX: Math.max(1, Math.floor(this.config.grid.cols / 2) - 5),
-        destY: Math.floor(this.config.grid.rows / 2) + 1,
-      };
-    }
-    const backAlleyRoomId =
-      resolvedTown.rooms.find((entry) => entry.kind === 'backAlley')?.id ??
-      Object.entries(resolvedTown.districtByRoomId).find(
-        ([, district]) => district === 'backAlley',
-      )?.[0];
-    if (!backAlleyRoomId) {
-      return null;
-    }
-    return {
-      destRoomId: backAlleyRoomId,
-      destX: Math.max(1, Math.floor(this.config.grid.cols / 2) - 5),
-      destY: Math.floor(this.config.grid.rows / 2) + 1,
-    };
-  }
-
-  private parseTownInteriorRoomId(roomId: string): { townId: string; kind: string } | null {
-    if (!roomId.startsWith('town-interior:')) {
-      return null;
-    }
-    const parts = roomId.split(':');
-    const kind = parts[parts.length - 1] ?? 'interior';
-    const townId = parts.slice(1, -1).join(':');
-    return townId ? { townId, kind } : null;
-  }
-
-  private tryParseTownAnchorFromId(townId: string): { x: number; y: number; z: number } | null {
-    const match = /^human-town:(-?\d+),(-?\d+),(-?\d+):/.exec(townId);
-    if (!match) {
-      return null;
-    }
-    const [, x, y, z] = match;
-    return {
-      x: Number(x),
-      y: Number(y),
-      z: Number(z),
-    };
+    roomsChanged.add(runtime.layerId);
+    roomsChanged.add(runtime.parentRoomId);
   }
 
   private enterCave(
@@ -3991,6 +3979,7 @@ export class SnakeGame implements QuestRuntime {
         this.actors.getStableTownResidentActorId(town.id, resident.id, resident.role);
       const actor = this.actors.registry.get(actorId);
       if (
+        actor?.hostility === 'hostile' ||
         actor?.hostility === 'dead' ||
         actor?.health?.state === 'dead' ||
         actor?.flags.dead ||
@@ -6335,22 +6324,33 @@ export class SnakeGame implements QuestRuntime {
     const layout = room.layout.map((row) => row.split(''));
     const grate = { x: Math.max(1, centerX - 5), y: centerY };
     if (layout[grate.y]?.[grate.x]) {
-      layout[grate.y][grate.x] = 'Y';
+      layout[grate.y][grate.x] = LAYER_ENTRANCE_TILE;
     }
     room.layout = layout.map((row) => row.join(''));
     const destRoomId = this.getTownGuildInteriorRoomId(town.id);
     room.portals = room.portals.filter((portal) => portal.x !== grate.x || portal.y !== grate.y);
-    room.portals.push({
+    const entrance: LayerEntrance = {
+      id: `town:${town.id}:guild-grate`,
+      layerId: destRoomId,
+      parentRoomId: room.id,
       x: grate.x,
       y: grate.y,
-      destRoomId,
-      destX: Math.floor(this.config.grid.cols / 2),
-      destY: this.config.grid.rows - 4,
-    });
+      kind: 'townInterior',
+      templateId: 'thievesGuild',
+      label: 'Thieves Guild grate',
+      discovered: true,
+      returnPosition: { ...grate },
+      tile: LAYER_ENTRANCE_TILE,
+    };
+    room.layerEntrances = [
+      ...(room.layerEntrances ?? []).filter((entry) => entry.id !== entrance.id),
+      entrance,
+    ];
+    this.world.registerLayerEntrance(entrance);
   }
 
   private getTownGuildInteriorRoomId(townId: string): string {
-    return `town-interior:${townId}:thieves-guild`;
+    return `layer:townInterior:${townId}:thievesGuild`;
   }
 
   private getSideToTownDistrict(

@@ -58,7 +58,7 @@ describe('SnakeState portals', () => {
         {
           x: 4,
           y: 4,
-          destRoomId: 'town-interior:test-town:thieves-guild',
+          destRoomId: 'building:test-room',
           destX: 6,
           destY: 7,
         },
@@ -66,7 +66,7 @@ describe('SnakeState portals', () => {
     };
     const interiorRoom: RoomSnapshot = {
       ...room,
-      id: 'town-interior:test-town:thieves-guild',
+      id: 'building:test-room',
       portals: [],
     };
     const snake = new SnakeState(grid, snakeConfig, sourceRoom.id);
@@ -92,7 +92,21 @@ describe('SnakeState portals', () => {
   it('repairs an invalid snake body inside non-coordinate rooms', () => {
     const interiorRoom: RoomSnapshot = {
       ...room,
-      id: 'town-interior:test-town:thieves-guild',
+      id: 'layer:townInterior:test-town:thievesGuild',
+      layer: {
+        id: 'layer:townInterior:test-town:thievesGuild',
+        kind: 'townInterior',
+        parentRoomId: '0,0,0',
+        entranceId: 'test-entrance',
+        templateId: 'thievesGuild',
+        seed: 'test',
+        state: 'available',
+        spawn: { x: 6, y: 7 },
+        exit: { x: 6, y: 8 },
+        returnPosition: { x: 4, y: 4 },
+        zones: [{ id: 'test-zone', templateId: 'thievesGuild', localCoord: { x: 0, y: 0 } }],
+        boundaryMode: 'solidWalls',
+      },
     };
     const snake = new SnakeState(grid, snakeConfig, interiorRoom.id);
     snake.restoreFromSave(
@@ -119,5 +133,50 @@ describe('SnakeState portals', () => {
     expect(Number.isFinite(snake.head.x)).toBe(true);
     expect(Number.isFinite(snake.head.y)).toBe(true);
     expect(snake.currentRoomId).toBe(interiorRoom.id);
+  });
+
+  it('uses layer metadata for solid local-room boundaries', () => {
+    const layerRoom: RoomSnapshot = {
+      ...room,
+      id: 'layer:townInterior:test-town:thievesGuild',
+      layer: {
+        id: 'layer:townInterior:test-town:thievesGuild',
+        kind: 'townInterior',
+        parentRoomId: '0,0,0',
+        entranceId: 'test-entrance',
+        templateId: 'thievesGuild',
+        seed: 'test',
+        state: 'available',
+        spawn: { x: 1, y: 4 },
+        exit: { x: 6, y: 8 },
+        returnPosition: { x: 4, y: 4 },
+        zones: [{ id: 'test-zone', templateId: 'thievesGuild', localCoord: { x: 0, y: 0 } }],
+        boundaryMode: 'solidWalls',
+      },
+    };
+    const snake = new SnakeState(grid, snakeConfig, layerRoom.id);
+    snake.restoreFromSave(
+      [
+        { x: 0, y: 4 },
+        { x: 1, y: 4 },
+      ],
+      { x: -1, y: 0 },
+      layerRoom.id,
+      2,
+    );
+
+    const result = snake.step({
+      getRoom: () => layerRoom,
+      ensureApple: () => undefined,
+      getBossManager: () =>
+        ({
+          getPullFor: () => null,
+          getBossAtPosition: () => null,
+        }) as any,
+    });
+
+    expect(result.status).toBe('dead');
+    expect(result.reason).toBe('wall');
+    expect(snake.currentRoomId).toBe(layerRoom.id);
   });
 });

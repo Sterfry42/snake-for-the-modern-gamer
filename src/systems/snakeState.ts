@@ -236,8 +236,9 @@ export class SnakeState {
     const [roomX, roomY, roomZ = 0] = this.parseRoomCoordinates(this.roomId);
     let localHeadX = head.x - roomX * this.grid.cols;
     let localHeadY = head.y - roomY * this.grid.rows;
-    if (currentRoom.cave) {
-      if (currentRoom.cave.boundaryMode === 'wrap') {
+    const boundaryMode = currentRoom.cave?.boundaryMode ?? currentRoom.layer?.boundaryMode;
+    if (boundaryMode) {
+      if (boundaryMode === 'wrap') {
         localHeadX = (localHeadX + this.grid.cols) % this.grid.cols;
         localHeadY = (localHeadY + this.grid.rows) % this.grid.rows;
         head = { x: localHeadX, y: localHeadY };
@@ -251,7 +252,7 @@ export class SnakeState {
         return { status: 'dead', reason: 'wall' };
       }
     }
-    const portal = this.roomId.startsWith('town-interior:')
+    const portal = currentRoom.layer
       ? undefined
       : currentRoom.portals.find((p) => p.x === localHeadX && p.y === localHeadY);
     if (portal) {
@@ -270,7 +271,12 @@ export class SnakeState {
     const coordinateRoom = this.isCoordinateRoomId(this.roomId);
     const newRoomX = Math.floor(head.x / this.grid.cols);
     const newRoomY = Math.floor(head.y / this.grid.rows);
-    if (!currentRoom.cave && coordinateRoom && (newRoomX !== roomX || newRoomY !== roomY)) {
+    if (
+      !currentRoom.cave &&
+      !currentRoom.layer &&
+      coordinateRoom &&
+      (newRoomX !== roomX || newRoomY !== roomY)
+    ) {
       this.roomId = `${newRoomX},${newRoomY},${roomZ}`;
       roomChanged = true;
     }
@@ -281,8 +287,8 @@ export class SnakeState {
 
     const finalizedRoom = deps.getRoom(this.roomId);
     const finalizedOrigin = this.getRoomWorldOrigin(this.roomId);
-    const baseRoomX = finalizedRoom.cave ? 0 : finalizedOrigin.x;
-    const baseRoomY = finalizedRoom.cave ? 0 : finalizedOrigin.y;
+    const baseRoomX = finalizedRoom.cave || finalizedRoom.layer ? 0 : finalizedOrigin.x;
+    const baseRoomY = finalizedRoom.cave || finalizedRoom.layer ? 0 : finalizedOrigin.y;
     const finalLocalHeadX = head.x - baseRoomX;
     const finalLocalHeadY = head.y - baseRoomY;
 
@@ -374,7 +380,7 @@ export class SnakeState {
         this.flags['internal.lastRemovedTail'] = {
           x: removed.x,
           y: removed.y,
-          roomId: this.roomId.startsWith('cave:')
+          roomId: !this.isCoordinateRoomId(this.roomId)
             ? this.roomId
             : `${tailRoomX},${tailRoomY},${roomZ}`,
         };

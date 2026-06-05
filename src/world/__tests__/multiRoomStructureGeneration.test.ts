@@ -288,6 +288,23 @@ describe('multi-room structure generation', () => {
           resident.role === 'guard' && resident.x > Math.floor(defaultGameConfig.grid.cols / 2),
       ),
     ).toBe(true);
+    const gateConnections = resolver.getTownConnections(gate.id);
+    const gateCenter = {
+      x: Math.floor(defaultGameConfig.grid.cols / 2),
+      y: Math.floor(defaultGameConfig.grid.rows / 2),
+    };
+    for (const side of Object.keys(gateConnections) as Array<
+      'north' | 'south' | 'east' | 'west'
+    >) {
+      const hasGuardOnSide = gate.town?.residents.some((resident) => {
+        if (resident.role !== 'guard') return false;
+        if (side === 'north') return resident.y < gateCenter.y - 3;
+        if (side === 'south') return resident.y > gateCenter.y + 3;
+        if (side === 'east') return resident.x > gateCenter.x + 3;
+        return resident.x < gateCenter.x - 3;
+      });
+      expect(hasGuardOnSide).toBe(true);
+    }
     expect(market.town?.residents.some((resident) => resident.role === 'equipmentMerchant')).toBe(
       true,
     );
@@ -341,8 +358,26 @@ describe('multi-room structure generation', () => {
     };
     world.updateTown(discoveredTown);
 
-    const interior = world.getRoom(`town-interior:${alley.town!.id}:thieves-guild`);
+    const centerX = Math.floor(defaultGameConfig.grid.cols / 2);
+    const centerY = Math.floor(defaultGameConfig.grid.rows / 2);
+    const grate = { x: Math.max(1, centerX - 5), y: centerY };
+    const entrance = {
+      id: `town:${alley.town!.id}:guild-grate`,
+      layerId: `layer:townInterior:${alley.town!.id}:thievesGuild`,
+      parentRoomId: alley.id,
+      x: grate.x,
+      y: grate.y,
+      kind: 'townInterior' as const,
+      templateId: 'thievesGuild' as const,
+      returnPosition: grate,
+      tile: 'Y',
+    };
+    const instance = world.ensureLayerInstance(entrance);
+    const interior = world.getRoom(instance.id);
 
+    expect(interior.layer?.parentRoomId).toBe(alley.id);
+    expect(interior.layer?.entranceId).toBe(entrance.id);
+    expect(interior.layer?.returnPosition).toEqual(grate);
     expect(interior.town?.districtByRoomId[interior.id]).toBe('guildHideout');
     expect(interior.town?.residents.some((resident) => resident.role === 'thiefContact')).toBe(
       true,
@@ -357,6 +392,22 @@ describe('multi-room structure generation', () => {
     expect(guildResident?.x).toBeGreaterThan(1);
     expect(guildResident?.y).toBeGreaterThan(1);
     expect(interior.layout.join('').includes('G')).toBe(true);
+    expect(interior.layout.join('').includes('D')).toBe(false);
+    expect(interior.portals).toEqual([]);
+    expect(interior.layout[interior.layer!.exit.y]?.[interior.layer!.exit.x]).toBe('Y');
+  });
+
+  it('rejects unresolved layer room ids instead of generating fallback rooms', () => {
+    const world = new WorldService(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng('missing-layer-room'),
+      identity,
+    );
+
+    expect(() => world.getRoom('layer:townInterior:missing-town:thievesGuild')).toThrow(
+      /Unknown layer room/,
+    );
   });
 
   it('uses a side quest-board tile instead of a central town interaction marker', () => {

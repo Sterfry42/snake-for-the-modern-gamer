@@ -8,6 +8,7 @@ import type { WorldGenerationIdentity } from './generation/worldGenerationIdenti
 import { maybePlaceCaveEntrance } from '../caves/caveEntrancePlacement.js';
 import { generateCave, isCaveRoomId } from '../caves/caveGenerator.js';
 import type { CaveInstanceSaveData, CaveTemplateId } from '../caves/caveTypes.js';
+import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 
 export class WorldService {
   private readonly rooms = new Map<string, RoomSnapshot>();
@@ -17,6 +18,8 @@ export class WorldService {
   private readonly generatorWorldConfig: WorldConfig;
   private readonly caveSaves = new Map<string, CaveInstanceSaveData>();
   private readonly townsById = new Map<string, TownStructure>();
+  private readonly layerEntrances = new Map<string, LayerEntrance>();
+  private readonly layerInstances = new Map<string, LayerInstance>();
 
   constructor(
     private readonly grid: GridConfig,
@@ -32,8 +35,12 @@ export class WorldService {
 
   getRoom(roomId: string): RoomSnapshot {
     if (!this.rooms.has(roomId)) {
-      if (roomId.startsWith('town-interior:')) {
-        const room = this.createTownInteriorRoom(roomId);
+      if (roomId.startsWith('layer:')) {
+        const instance = this.layerInstances.get(roomId);
+        if (!instance) {
+          throw new Error(`Unknown layer room "${roomId}". Layer rooms must be entered through a registered LayerEntrance.`);
+        }
+        const room = this.createLayerRoom(instance);
         this.rooms.set(roomId, room);
         return room;
       }
@@ -158,11 +165,56 @@ export class WorldService {
     return town ? { ...town } : undefined;
   }
 
+  registerLayerEntrance(entrance: LayerEntrance): void {
+    this.layerEntrances.set(entrance.id, {
+      ...entrance,
+      returnPosition: { ...entrance.returnPosition },
+    });
+  }
+
+  getLayerEntrance(entranceId: string): LayerEntrance | undefined {
+    const entrance = this.layerEntrances.get(entranceId);
+    return entrance ? { ...entrance, returnPosition: { ...entrance.returnPosition } } : undefined;
+  }
+
+  getLayerInstance(layerId: string): LayerInstance | undefined {
+    const instance = this.layerInstances.get(layerId);
+    return instance ? cloneLayerInstance(instance) : undefined;
+  }
+
+  setLayerInstanceState(
+    layerId: string,
+    state: LayerInstance['state'],
+  ): LayerInstance | undefined {
+    const existing = this.layerInstances.get(layerId);
+    if (!existing) {
+      return undefined;
+    }
+    const next = { ...existing, state };
+    this.layerInstances.set(layerId, next);
+    this.rooms.delete(layerId);
+    return cloneLayerInstance(next);
+  }
+
+  ensureLayerInstance(entrance: LayerEntrance): LayerInstance {
+    this.registerLayerEntrance(entrance);
+    const existing = this.layerInstances.get(entrance.layerId);
+    if (existing) {
+      return cloneLayerInstance(existing);
+    }
+    const instance = this.createLayerInstance(entrance);
+    this.layerInstances.set(instance.id, instance);
+    return cloneLayerInstance(instance);
+  }
+
   updateTown(town: TownStructure): void {
     this.townsById.set(town.id, town);
     for (const [roomId, room] of this.rooms) {
       const interiorDistrict: TownRoomKind | undefined =
-        roomId.startsWith(`town-interior:${town.id}:thieves-guild`) && room.town?.id === town.id
+        room.layer?.kind === 'townInterior' &&
+        room.layer.templateId === 'thievesGuild' &&
+        room.layer.townId === town.id &&
+        room.town?.id === town.id
           ? 'guildHideout'
           : undefined;
       const districtKind = town.districtByRoomId[roomId] ?? interiorDistrict;
@@ -200,35 +252,62 @@ export class WorldService {
     }
   }
 
-  private createTownInteriorRoom(roomId: string): RoomSnapshot {
-    const parts = roomId.split(':');
-    const kind = parts[parts.length - 1] ?? 'interior';
-    const townId = parts.slice(1, -1).join(':') || 'unknown-town';
-    const town = this.townsById.get(townId);
-    const districtKind = kind === 'thieves-guild' ? 'guildHideout' : undefined;
+  private createLayerInstance(entrance: LayerEntrance): LayerInstance {
+    const centerX = Math.floor(this.grid.cols / 2);
+    return {
+      id: entrance.layerId,
+      kind: entrance.kind,
+      parentRoomId: entrance.parentRoomId,
+      entranceId: entrance.id,
+      templateId: entrance.templateId,
+      seed: `${this.worldSeed}:${entrance.id}`,
+      state: 'available',
+      spawn: { x: centerX, y: this.grid.rows - 4 },
+      exit: { x: centerX, y: this.grid.rows - 3 },
+      returnPosition: { ...entrance.returnPosition },
+      zones: [
+        {
+          id: `${entrance.layerId}:main`,
+          templateId: entrance.templateId,
+          localCoord: { x: 0, y: 0 },
+        },
+      ],
+      boundaryMode: 'solidWalls',
+      townId:
+        entrance.kind === 'townInterior'
+          ? this.parseTownIdFromLayerId(entrance.layerId)
+          : undefined,
+      tags: [entrance.kind, entrance.templateId],
+    };
+  }
+
+  private createLayerRoom(instance: LayerInstance): RoomSnapshot {
+    if (instance.kind === 'townInterior' && instance.templateId === 'thievesGuild') {
+      return this.createThievesGuildLayerRoom(instance);
+    }
+    throw new Error(`Unsupported layer template "${instance.kind}:${instance.templateId}".`);
+  }
+
+  private createThievesGuildLayerRoom(instance: LayerInstance): RoomSnapshot {
+    const town = instance.townId ? this.townsById.get(instance.townId) : undefined;
+    const districtKind: TownRoomKind = 'guildHideout';
     const roomTown =
-      town && districtKind
+      town
         ? cloneTownForRoom(
             {
               ...town,
               districtByRoomId: {
                 ...town.districtByRoomId,
-                [roomId]: districtKind,
+                [instance.id]: districtKind,
               },
-              physicalRoomIds: town.physicalRoomIds.includes(roomId)
+              physicalRoomIds: town.physicalRoomIds.includes(instance.id)
                 ? town.physicalRoomIds
-                : [...town.physicalRoomIds, roomId],
+                : [...town.physicalRoomIds, instance.id],
             },
-            roomId,
+            instance.id,
             districtKind,
           )
         : undefined;
-    const backAlleyRoomId =
-      town?.rooms.find((room) => room.kind === 'backAlley')?.id ??
-      Object.entries(town?.districtByRoomId ?? {}).find(
-        ([, district]) => district === 'backAlley',
-      )?.[0] ??
-      this.generatorWorldConfig.originRoomId;
     const centerX = Math.floor(this.grid.cols / 2);
     const centerY = Math.floor(this.grid.rows / 2);
     const rows = Array.from({ length: this.grid.rows }, (_, y) => {
@@ -246,11 +325,11 @@ export class WorldService {
       setTile(x, centerY - 3, 'E');
       setTile(x, centerY + 3, 'E');
     }
-    setTile(centerX, this.grid.rows - 3, 'Y');
+    setTile(instance.exit.x, instance.exit.y, 'Y');
     setTile(centerX - 5, centerY, 'S');
     setTile(centerX + 5, centerY, 'A');
     setTile(centerX, centerY, 'E');
-    if (roomTown && districtKind) {
+    if (roomTown) {
       const guildResidents = roomTown.residents.filter((resident) => {
         const workDistrict = resident.workRoomId
           ? roomTown.districtByRoomId[resident.workRoomId]
@@ -283,29 +362,35 @@ export class WorldService {
           ...resident,
           x: Math.max(2, Math.min(this.grid.cols - 3, position.x)),
           y: Math.max(2, Math.min(this.grid.rows - 3, position.y)),
-          workRoomId: roomId,
+          workRoomId: instance.id,
         };
       });
     }
     return {
-      id: roomId,
+      id: instance.id,
       layout: rows,
-      portals: [
-        {
-          x: centerX,
-          y: this.grid.rows - 3,
-          destRoomId: backAlleyRoomId,
-          destX: Math.max(1, centerX - 5),
-          destY: centerY + 1,
-        },
-      ],
+      portals: [],
+      layer: cloneLayerInstance(instance),
       biomeId: town?.biomeId ?? 'verdigris-basin',
-      biomeTitle: kind === 'thieves-guild' ? 'Thieves Guild' : 'Town Interior',
+      biomeTitle: 'Thieves Guild',
       backgroundColor: 0x17111f,
       wallColor: 0x3a243b,
       wallOutlineColor: 0x8f6aa8,
       town: roomTown,
     };
+  }
+
+  private parseTownIdFromLayerId(layerId: string): string | undefined {
+    const parts = layerId.split(':');
+    if (parts[0] !== 'layer' || parts[1] !== 'townInterior') {
+      return undefined;
+    }
+    const template = parts[parts.length - 1];
+    if (template !== 'thievesGuild') {
+      return undefined;
+    }
+    const townId = parts.slice(2, -1).join(':');
+    return townId || undefined;
   }
 
   private addReciprocalPortalsFromExistingRooms(room: RoomSnapshot): void {
@@ -394,5 +479,19 @@ function parseCaveRoomId(
   return {
     parentRoomId: parts[1] || '0,0,0',
     templateId: savedTemplateId ?? 'simpleTreasure',
+  };
+}
+
+function cloneLayerInstance(instance: LayerInstance): LayerInstance {
+  return {
+    ...instance,
+    spawn: { ...instance.spawn },
+    exit: { ...instance.exit },
+    returnPosition: { ...instance.returnPosition },
+    zones: instance.zones.map((zone) => ({
+      ...zone,
+      localCoord: { ...zone.localCoord },
+    })),
+    tags: instance.tags ? [...instance.tags] : undefined,
   };
 }

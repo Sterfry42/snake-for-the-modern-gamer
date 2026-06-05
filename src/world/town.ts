@@ -1259,6 +1259,60 @@ function stampNpc(layout: string[][], x: number, y: number): void {
   setChar(layout, x, y, 'G');
 }
 
+function gateGuardPositionForSide(
+  side: ExitSide,
+  center: { x: number; y: number },
+): { x: number; y: number } {
+  switch (side) {
+    case 'north':
+      return { x: center.x, y: center.y - 6 };
+    case 'south':
+      return { x: center.x, y: center.y + 6 };
+    case 'east':
+      return { x: center.x + 8, y: center.y };
+    case 'west':
+      return { x: center.x - 8, y: center.y };
+  }
+}
+
+function gateGuardResidentPositions(args: {
+  district: TownDistrictKind;
+  center: { x: number; y: number };
+  openSides: readonly ExitSide[];
+  connections: Partial<Record<ExitSide, string>>;
+  town: TownStructure;
+}): Array<{ x: number; y: number }> {
+  const fallback = [
+    { x: args.center.x + 5, y: args.center.y + 3 },
+    { x: args.center.x - 5, y: args.center.y - 3 },
+    { x: args.center.x + 5, y: args.center.y - 3 },
+    { x: args.center.x - 5, y: args.center.y + 3 },
+  ];
+  const openSides =
+    args.district === 'townExit'
+      ? [
+          ...args.openSides.filter((side) => {
+            const neighborId = args.connections[side];
+            return Boolean(neighborId && args.town.districtByRoomId[neighborId]);
+          }),
+          ...args.openSides.filter((side) => {
+            const neighborId = args.connections[side];
+            return !neighborId || !args.town.districtByRoomId[neighborId];
+          }),
+        ]
+      : [...args.openSides];
+  const seen = new Set<string>();
+  const positions = [...openSides.map((side) => gateGuardPositionForSide(side, args.center)), ...fallback];
+  return positions.filter((position) => {
+    const key = vectorKey(position);
+    if (seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
 export function createTownDistrictRoom(args: {
   town: TownStructure;
   roomId: string;
@@ -1418,14 +1472,13 @@ export function createTownDistrictRoom(args: {
   );
   const residentPositions =
     district === 'gate' || district === 'townExit'
-      ? [
-          { x: center.x + 8, y: center.y },
-          { x: center.x - 8, y: center.y },
-          { x: center.x + 5, y: center.y + 3 },
-          { x: center.x - 5, y: center.y - 3 },
-          { x: center.x + 5, y: center.y - 3 },
-          { x: center.x - 5, y: center.y + 3 },
-        ]
+      ? gateGuardResidentPositions({
+          district,
+          center,
+          openSides,
+          connections: args.connections,
+          town,
+        })
       : [
           { x: center.x - 8, y: center.y + 4 },
           { x: center.x - 4, y: center.y + 4 },
