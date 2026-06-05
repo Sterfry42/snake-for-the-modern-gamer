@@ -1,7 +1,13 @@
 import type { Vector2Like } from '../core/math.js';
 import type { Actor, ActorMemory, ActorRole } from './actorTypes.js';
+import { isStationaryTownRole, isTownGuardRole } from '../world/townRoles.js';
 
-export type ActorBrainIntentKind = 'hold' | 'wander' | 'fleeThreat' | 'approachSocialLink' | 'shareRumor';
+export type ActorBrainIntentKind =
+  | 'hold'
+  | 'wander'
+  | 'fleeThreat'
+  | 'approachSocialLink'
+  | 'shareRumor';
 
 export interface ActorBrainBodySnapshot {
   relationshipId: string;
@@ -44,21 +50,13 @@ const CARDINAL_DIRECTIONS: Vector2Like[] = [
   { x: 0, y: -1 },
 ];
 
-const ANCHORED_ROLES = new Set<ActorRole>([
-  'shopkeeper',
-  'blackMarketMerchant',
-  'goblinMerchant',
-  'bartender',
-  'gateGuard',
-  'guard',
-  'questGiver',
-]);
-
 export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision {
   const actor = context.actor;
   const fear = actor?.mood.fear ?? 0;
   const stress = actor?.mood.stress ?? 0;
-  const isAnchored = context.body.stationary || (actor ? ANCHORED_ROLES.has(actor.role) : false);
+  const isAnchored =
+    context.body.stationary ||
+    (actor ? isStationaryTownRole(actor.role) || actor.role === 'goblinMerchant' : false);
   const isHostile =
     actor?.hostility === 'hostile' ||
     actor?.hostility === 'fleeing' ||
@@ -111,7 +109,9 @@ export function decideActorBrain(context: ActorBrainContext): ActorBrainDecision
   return {
     kind: 'wander',
     preferredDirections: shuffleDirections([HOLD, ...CARDINAL_DIRECTIONS], context.random),
-    moveCooldown: isHostile ? 2 + Math.floor(context.random() * 2) : 5 + Math.floor(context.random() * 7),
+    moveCooldown: isHostile
+      ? 2 + Math.floor(context.random() * 2)
+      : 5 + Math.floor(context.random() * 7),
   };
 }
 
@@ -149,10 +149,13 @@ function chooseNearbySocialTarget(context: ActorBrainContext): ActorBrainSocialT
 }
 
 function isCombatDutyRole(role: ActorRole | undefined): boolean {
-  return role === 'guard' || role === 'gateGuard' || role === 'bandit' || role === 'duelist';
+  return Boolean(role && isTownGuardRole(role)) || role === 'bandit' || role === 'duelist';
 }
 
-function directionsAwayFromNearest(position: Vector2Like, threats: readonly Vector2Like[]): Vector2Like[] {
+function directionsAwayFromNearest(
+  position: Vector2Like,
+  threats: readonly Vector2Like[],
+): Vector2Like[] {
   const nearest = threats
     .map((threat) => ({ threat, distance: manhattanDistance(position, threat) }))
     .sort((a, b) => a.distance - b.distance)[0]?.threat;
@@ -178,7 +181,10 @@ function directionsToward(position: Vector2Like, target: Vector2Like): Vector2Li
     .concat(HOLD);
 }
 
-function shuffleDirections(directions: readonly Vector2Like[], random: () => number): Vector2Like[] {
+function shuffleDirections(
+  directions: readonly Vector2Like[],
+  random: () => number,
+): Vector2Like[] {
   return directions
     .map((direction) => ({ direction, roll: random() }))
     .sort((a, b) => a.roll - b.roll)

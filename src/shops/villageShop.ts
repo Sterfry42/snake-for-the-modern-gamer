@@ -152,6 +152,18 @@ export const VILLAGE_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     price: 18,
     note: 'Useful when dinner has legs and better instincts.',
   },
+  {
+    id: 'beer',
+    itemId: 'beer',
+    price: 7,
+    note: 'Cheap tavern courage. Briefly makes your path drift side to side.',
+  },
+  {
+    id: 'wine',
+    itemId: 'wine',
+    price: 13,
+    note: 'A stronger pour. Brief but wobblier drifting, with smoother bad decisions.',
+  },
 ];
 
 export const BLACK_MARKET_SUPPLIES: readonly VillageShopSupplyOffer[] = [

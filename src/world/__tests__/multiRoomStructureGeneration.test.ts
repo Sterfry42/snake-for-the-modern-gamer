@@ -9,6 +9,7 @@ import { MultiRoomStructureResolver } from '../generation/townStructureResolver.
 import { createWorldGenerationIdentity } from '../generation/worldGenerationIdentity.js';
 import { RoomGenerator } from '../roomGenerator.js';
 import { WorldService } from '../worldService.js';
+import { isTownShopRole } from '../townRoles.js';
 
 const identity = createWorldGenerationIdentity('multi-room-structure-test');
 
@@ -69,7 +70,9 @@ describe('multi-room structure generation', () => {
     forward.forEach((room, index) => {
       expect(room.layout).toEqual(reverse[index]?.layout);
       expect(room.town?.id).toEqual(reverse[index]?.town?.id);
-      expect(room.town?.districtByRoomId[room.id]).toEqual(reverse[index]?.town?.districtByRoomId[room.id]);
+      expect(room.town?.districtByRoomId[room.id]).toEqual(
+        reverse[index]?.town?.districtByRoomId[room.id],
+      );
     });
   });
 
@@ -135,7 +138,8 @@ describe('multi-room structure generation', () => {
     }
     const blockedTiles = blockedPerimeter.layout.filter((row) => row[0] === '#').length;
     expect(blockedTiles).toBeGreaterThan(10);
-    const exitWallTiles = outsiderExit.layout[0]?.split('').filter((tile) => tile === '#').length ?? 0;
+    const exitWallTiles =
+      outsiderExit.layout[0]?.split('').filter((tile) => tile === '#').length ?? 0;
     expect(exitWallTiles).toBeGreaterThan(0);
     const exitPlan = {
       side: 'north' as const,
@@ -155,10 +159,16 @@ describe('multi-room structure generation', () => {
     const squareId = findTownRoom();
     const resolver = createResolver();
     const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
-    const emptyInteriorSlot = generateRoomsInOrder([`${anchor.x + 1},${anchor.y + 1},${anchor.z}`])[0]!;
+    const emptyInteriorSlot = generateRoomsInOrder([
+      `${anchor.x + 1},${anchor.y + 1},${anchor.z}`,
+    ])[0]!;
 
     expect(emptyInteriorSlot.townPerimeter).toBeTruthy();
-    expect(emptyInteriorSlot.townPerimeter?.sidesFacingTown?.sort()).toEqual(['east', 'north', 'south']);
+    expect(emptyInteriorSlot.townPerimeter?.sidesFacingTown?.sort()).toEqual([
+      'east',
+      'north',
+      'south',
+    ]);
     expect(emptyInteriorSlot.layout[0]?.includes('#')).toBe(true);
     expect(emptyInteriorSlot.layout.some((row) => row[row.length - 1] === '#')).toBe(true);
     expect(emptyInteriorSlot.layout[emptyInteriorSlot.layout.length - 1]?.includes('#')).toBe(true);
@@ -168,9 +178,14 @@ describe('multi-room structure generation', () => {
     const squareId = findTownRoom();
     const resolver = createResolver();
     const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
-    const diagonalCorner = generateRoomsInOrder([`${anchor.x - 1},${anchor.y - 1},${anchor.z}`])[0]!;
+    const diagonalCorner = generateRoomsInOrder([
+      `${anchor.x - 1},${anchor.y - 1},${anchor.z}`,
+    ])[0]!;
     const exit = generateRoomsInOrder([`${anchor.x + 2},${anchor.y + 3},${anchor.z}`])[0]!;
-    const gateRows = exit.layout.slice(defaultGameConfig.grid.rows - 6, defaultGameConfig.grid.rows - 3);
+    const gateRows = exit.layout.slice(
+      defaultGameConfig.grid.rows - 6,
+      defaultGameConfig.grid.rows - 3,
+    );
 
     expect(diagonalCorner.townPerimeter?.cornersFacingTown?.sort()).toEqual(['southEast']);
     expect(diagonalCorner.layout.slice(-6).some((row) => row.slice(-6).includes('#'))).toBe(true);
@@ -179,7 +194,9 @@ describe('multi-room structure generation', () => {
         .slice(6, defaultGameConfig.grid.rows - 6)
         .some((row) => row[row.length - 1] === '#'),
     ).toBe(false);
-    expect(gateRows.every((row) => row.slice(2, defaultGameConfig.grid.cols - 2).includes('#'))).toBe(true);
+    expect(
+      gateRows.every((row) => row.slice(2, defaultGameConfig.grid.cols - 2).includes('#')),
+    ).toBe(true);
     expect(gateRows.some((row) => row.includes('S'))).toBe(true);
   });
 
@@ -237,26 +254,183 @@ describe('multi-room structure generation', () => {
     }
   });
 
-  it('keeps guild services unavailable until discovery', () => {
+  it('keeps thieves guild off the physical town footprint until grate discovery', () => {
     const squareId = findTownRoom();
     const resolver = createResolver();
     const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
     const guildId = `${anchor.x + 3},${anchor.y + 2},${anchor.z}`;
     const room = generateRoomsInOrder([guildId])[0]!;
-    expect(room.town?.districtByRoomId[guildId]).toBe('guildHideout');
-    expect(room.town?.discoveredGuild).toBe(false);
-    expect(room.town?.thievesGuild?.discovered).toBe(false);
+    expect(room.town?.districtByRoomId[guildId]).not.toBe('guildHideout');
+    const alley = generateRoomsInOrder([`${anchor.x + 2},${anchor.y + 2},${anchor.z}`])[0]!;
+    expect(alley.town?.rooms.find((townRoom) => townRoom.kind === 'guildHideout')?.hidden).toBe(
+      true,
+    );
+    expect(alley.town?.discoveredGuild).toBe(false);
+    expect(alley.town?.thievesGuild?.discovered).toBe(false);
   });
 
-  it('adds visible district symbols and more guards and thieves', () => {
+  it('adds physical service residents and a back-alley guild grate', () => {
     const squareId = findTownRoom();
     const resolver = createResolver();
     const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
     const gate = generateRoomsInOrder([`${anchor.x + 1},${anchor.y},${anchor.z}`])[0]!;
     const alley = generateRoomsInOrder([`${anchor.x + 2},${anchor.y + 2},${anchor.z}`])[0]!;
-    expect(gate.layout.join('').includes('N')).toBe(true);
+    const market = generateRoomsInOrder([`${anchor.x + 3},${anchor.y},${anchor.z}`])[0]!;
+    const tavern = generateRoomsInOrder([`${anchor.x + 2},${anchor.y + 1},${anchor.z}`])[0]!;
+    expect(gate.layout.join('').includes('G')).toBe(true);
     expect(alley.layout.join('').includes('U')).toBe(true);
-    expect(gate.town?.residents.filter((resident) => resident.role === 'guard').length).toBeGreaterThanOrEqual(4);
-    expect(alley.town?.residents.filter((resident) => resident.role === 'thief' || resident.role === 'thiefContact').length).toBeGreaterThanOrEqual(3);
+    expect(
+      gate.town?.residents.filter((resident) => resident.role === 'guard').length,
+    ).toBeGreaterThanOrEqual(4);
+    expect(
+      gate.town?.residents.some(
+        (resident) =>
+          resident.role === 'guard' && resident.x > Math.floor(defaultGameConfig.grid.cols / 2),
+      ),
+    ).toBe(true);
+    const gateConnections = resolver.getTownConnections(gate.id);
+    const gateCenter = {
+      x: Math.floor(defaultGameConfig.grid.cols / 2),
+      y: Math.floor(defaultGameConfig.grid.rows / 2),
+    };
+    for (const side of Object.keys(gateConnections) as Array<
+      'north' | 'south' | 'east' | 'west'
+    >) {
+      const hasGuardOnSide = gate.town?.residents.some((resident) => {
+        if (resident.role !== 'guard') return false;
+        if (side === 'north') return resident.y < gateCenter.y - 3;
+        if (side === 'south') return resident.y > gateCenter.y + 3;
+        if (side === 'east') return resident.x > gateCenter.x + 3;
+        return resident.x < gateCenter.x - 3;
+      });
+      expect(hasGuardOnSide).toBe(true);
+    }
+    expect(market.town?.residents.some((resident) => resident.role === 'equipmentMerchant')).toBe(
+      true,
+    );
+    expect(market.town?.residents.some((resident) => resident.role === 'potionMaker')).toBe(true);
+    expect(market.town?.residents.some((resident) => resident.role === 'butcher')).toBe(true);
+    expect(tavern.town?.residents.some((resident) => resident.role === 'cardDealer')).toBe(true);
+    expect(
+      alley.town?.residents.filter(
+        (resident) => resident.role === 'thief' || resident.role === 'thiefContact',
+      ).length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(market.town?.shopkeeper.role).toBe('equipmentMerchant');
+    expect(market.town?.shopkeeper.name).not.toBe('Town Clerk');
+    expect(market.town?.shopkeeper.actorId).toBeTruthy();
+    expect(market.town?.shopkeeper.factionId).toBe('human-town');
+    expect(isTownShopRole(market.town?.shopkeeper.role ?? '')).toBe(true);
+
+    const equipmentMerchant = market.town?.residents.find(
+      (resident) => resident.role === 'equipmentMerchant',
+    );
+    expect(equipmentMerchant?.actorId).toBe(
+      `town:${market.town!.id}:equipmentMerchant:${equipmentMerchant!.id}`,
+    );
+    expect(equipmentMerchant?.actorId).not.toContain(
+      `${market.town!.id}:resident:${market.town!.id}`,
+    );
+
+    const thiefContact = alley.town?.residents.find((resident) => resident.role === 'thiefContact');
+    expect(thiefContact?.factionId).toBe('thieves-guild');
+  });
+
+  it('materializes thieves guild interior as a town guild district with guild residents', () => {
+    const squareId = findTownRoom();
+    const resolver = createResolver();
+    const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
+    const alleyId = `${anchor.x + 2},${anchor.y + 2},${anchor.z}`;
+    const world = new WorldService(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng('guild-interior-town'),
+      identity,
+    );
+    const alley = world.getRoom(alleyId);
+    expect(alley.town).toBeTruthy();
+    const discoveredTown = {
+      ...alley.town!,
+      discoveredGuild: true,
+      thievesGuild: alley.town!.thievesGuild
+        ? { ...alley.town!.thievesGuild, discovered: true }
+        : alley.town!.thievesGuild,
+    };
+    world.updateTown(discoveredTown);
+
+    const centerX = Math.floor(defaultGameConfig.grid.cols / 2);
+    const centerY = Math.floor(defaultGameConfig.grid.rows / 2);
+    const grate = { x: Math.max(1, centerX - 5), y: centerY };
+    const entrance = {
+      id: `town:${alley.town!.id}:guild-grate`,
+      layerId: `layer:townInterior:${alley.town!.id}:thievesGuild`,
+      parentRoomId: alley.id,
+      x: grate.x,
+      y: grate.y,
+      kind: 'townInterior' as const,
+      templateId: 'thievesGuild' as const,
+      returnPosition: grate,
+      tile: 'Y',
+    };
+    const instance = world.ensureLayerInstance(entrance);
+    const interior = world.getRoom(instance.id);
+
+    expect(interior.layer?.parentRoomId).toBe(alley.id);
+    expect(interior.layer?.entranceId).toBe(entrance.id);
+    expect(interior.layer?.returnPosition).toEqual(grate);
+    expect(interior.town?.districtByRoomId[interior.id]).toBe('guildHideout');
+    expect(interior.town?.residents.some((resident) => resident.role === 'thiefContact')).toBe(
+      true,
+    );
+    expect(
+      interior.town?.residents.some((resident) => resident.factionId === 'thieves-guild'),
+    ).toBe(true);
+    const guildResident = interior.town?.residents.find(
+      (resident) => resident.role === 'thiefContact' || resident.role === 'thief',
+    );
+    expect(guildResident?.workRoomId).toBe(interior.id);
+    expect(guildResident?.x).toBeGreaterThan(1);
+    expect(guildResident?.y).toBeGreaterThan(1);
+    expect(interior.layout.join('').includes('G')).toBe(true);
+    expect(interior.layout.join('').includes('D')).toBe(false);
+    expect(interior.portals).toEqual([]);
+    expect(interior.layout[interior.layer!.exit.y]?.[interior.layer!.exit.x]).toBe('Y');
+  });
+
+  it('rejects unresolved layer room ids instead of generating fallback rooms', () => {
+    const world = new WorldService(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng('missing-layer-room'),
+      identity,
+    );
+
+    expect(() => world.getRoom('layer:townInterior:missing-town:thievesGuild')).toThrow(
+      /Unknown layer room/,
+    );
+  });
+
+  it('uses a side quest-board tile instead of a central town interaction marker', () => {
+    const squareId = findTownRoom();
+    const square = generateRoomsInOrder([squareId])[0]!;
+    const centerX = Math.floor(defaultGameConfig.grid.cols / 2);
+    const centerY = Math.floor(defaultGameConfig.grid.rows / 2);
+
+    expect(square.town?.districtByRoomId[square.id]).toBe('square');
+    expect(square.layout[centerY]?.[centerX]).not.toBe('N');
+    expect(square.layout.join('').includes('D')).toBe(true);
+  });
+
+  it('suppresses special room archetype metadata inside town rooms', () => {
+    const squareId = findTownRoom();
+    const room = generateRoomsInOrder([squareId])[0]!;
+
+    expect(room.town).toBeTruthy();
+    expect(room.archetypeId).toBeUndefined();
+    expect(room.gridironYard).toBeUndefined();
+    expect(room.motelPool).toBeUndefined();
+    expect(room.billboardOracle).toBeUndefined();
+    expect(room.roadCrew).toBeUndefined();
+    expect(room.fireworkStand).toBeUndefined();
   });
 });

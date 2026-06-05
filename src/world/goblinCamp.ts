@@ -1,6 +1,7 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
+import { pickNpcName } from '../npcs/npcNames.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import type { RoomSnapshot } from './types.js';
 
@@ -12,7 +13,6 @@ const CAMP_NAMES = [
   'The Green Notary',
 ] as const;
 
-const GOBLIN_NAMES = ['Grib', 'Nackle', 'Mott', 'Scrip', 'Vellum-Fang', 'Dreg Penny'] as const;
 const CAMP_ATTEMPTS = 32;
 const CAMP_MARGIN = 5;
 const SAFE_AREA_PADDING = 5;
@@ -67,7 +67,7 @@ function drawTent(layout: string[][], left: number, top: number): void {
 }
 
 function randomName(rng: RandomGenerator): string {
-  return GOBLIN_NAMES[Math.floor(rng() * GOBLIN_NAMES.length)]!;
+  return pickNpcName('goblin', rng);
 }
 
 export function tryPlaceGoblinCamp(

@@ -18,6 +18,10 @@ export type ActorKind =
 export type ActorRole =
   | 'resident'
   | 'shopkeeper'
+  | 'equipmentMerchant'
+  | 'potionMaker'
+  | 'butcher'
+  | 'cardDealer'
   | 'guard'
   | 'gateGuard'
   | 'bartender'

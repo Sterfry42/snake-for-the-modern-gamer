@@ -1,6 +1,11 @@
 import { ASK_AROUND_VOICE } from './voicePacks/askAroundVoice.js';
 import { ASK_PERSONAL_VOICE } from './voicePacks/askPersonalVoice.js';
 import {
+  CONSISTENCY_ASK_AROUND_VOICE,
+  CONSISTENCY_ASK_PERSONAL_VOICE,
+  CONSISTENCY_TALK_VOICE,
+} from './voicePacks/consistencyDepthVoice.js';
+import {
   DEEP_ASK_AROUND_VOICE,
   DEEP_ASK_PERSONAL_VOICE,
   DEEP_TALK_VOICE,
@@ -10,6 +15,11 @@ import {
   EXPANDED_ASK_PERSONAL_VOICE,
   EXPANDED_TALK_VOICE,
 } from './voicePacks/expandedVoice.js';
+import {
+  ROLE_CONTEXT_ASK_AROUND_VOICE,
+  ROLE_CONTEXT_ASK_PERSONAL_VOICE,
+  ROLE_CONTEXT_TALK_VOICE,
+} from './voicePacks/roleContextVoice.js';
 import { TALK_VOICE } from './voicePacks/talkVoice.js';
 import type {
   ActorConversationContext,
@@ -28,9 +38,15 @@ const ALL_VOICE_ENTRIES: readonly ActorVoiceEntry[] = [
   ...ASK_AROUND_VOICE,
   ...EXPANDED_ASK_AROUND_VOICE,
   ...DEEP_ASK_AROUND_VOICE,
+  ...CONSISTENCY_ASK_AROUND_VOICE,
+  ...ROLE_CONTEXT_ASK_AROUND_VOICE,
   ...ASK_PERSONAL_VOICE,
   ...EXPANDED_ASK_PERSONAL_VOICE,
   ...DEEP_ASK_PERSONAL_VOICE,
+  ...CONSISTENCY_ASK_PERSONAL_VOICE,
+  ...ROLE_CONTEXT_ASK_PERSONAL_VOICE,
+  ...CONSISTENCY_TALK_VOICE,
+  ...ROLE_CONTEXT_TALK_VOICE,
 ];
 
 export function selectActorConversation(
@@ -38,13 +54,15 @@ export function selectActorConversation(
 ): ActorConversationResult {
   const valid = ALL_VOICE_ENTRIES.filter((entry) => isEntryValid(entry, context));
   const fallback =
-    ALL_VOICE_ENTRIES.find((entry) => entry.bucket === context.bucket && entry.source === 'fallback') ??
-    ALL_VOICE_ENTRIES[ALL_VOICE_ENTRIES.length - 1];
+    ALL_VOICE_ENTRIES.find(
+      (entry) => entry.bucket === context.bucket && entry.source === 'fallback',
+    ) ?? ALL_VOICE_ENTRIES[ALL_VOICE_ENTRIES.length - 1];
   const pool = valid.length > 0 ? valid : fallback ? [fallback] : [];
   const recentIds = recentConversationIds(context);
   const scored = pool.map((entry) => ({
     entry,
-    score: entry.priority + priorityBonus(entry, context) - recencyPenalty(entry, recentIds, context),
+    score:
+      entry.priority + priorityBonus(entry, context) - recencyPenalty(entry, recentIds, context),
   }));
   const highest = Math.max(...scored.map((item) => item.score));
   const closeEnough = recentIds.length === 0 ? 0 : context.bucket === 'ask-around' ? 10 : 10;
@@ -67,7 +85,8 @@ export function selectActorConversation(
     expandedFresh.length > 0 ? expandedFresh : best.filter((entry) => entry.id !== recentIds[0]);
   const candidates = rotationPool.length > 0 ? rotationPool : best;
   const random = context.random ?? Math.random;
-  const selected = candidates[Math.floor(random() * candidates.length)] ?? candidates[0] ?? best[0] ?? fallback!;
+  const selected =
+    candidates[Math.floor(random() * candidates.length)] ?? candidates[0] ?? best[0] ?? fallback!;
   return materialize(selected, context);
 }
 
@@ -78,7 +97,10 @@ function recencyPenalty(
 ): number {
   const countKey = `actor.conversation.count.${context.actor.id}.${context.bucket}.${entry.id}`;
   const heardCount = Math.max(0, Number(context.flags[countKey] ?? 0));
-  const heardPenalty = Math.min(context.bucket === 'ask-around' ? 70 : 56, heardCount * (context.bucket === 'ask-around' ? 14 : 10));
+  const heardPenalty = Math.min(
+    context.bucket === 'ask-around' ? 70 : 56,
+    heardCount * (context.bucket === 'ask-around' ? 14 : 10),
+  );
   const index = recentIds.indexOf(entry.id);
   const directPenalty =
     index < 0
@@ -103,7 +125,9 @@ function recentConversationIds(context: ActorConversationContext): string[] {
   const recentKey = `actor.conversation.recent.${context.actor.id}.${context.bucket}`;
   const recent = context.flags[recentKey];
   const last = context.flags[`actor.conversation.last.${context.actor.id}.${context.bucket}`];
-  const ids = Array.isArray(recent) ? recent.filter((item): item is string => typeof item === 'string') : [];
+  const ids = Array.isArray(recent)
+    ? recent.filter((item): item is string => typeof item === 'string')
+    : [];
   if (typeof last === 'string' && !ids.includes(last)) {
     ids.unshift(last);
   }
@@ -118,29 +142,56 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
   if (entry.kinds && !entry.kinds.includes(actor.kind)) return false;
   if (entry.species && !entry.species.includes(actor.species)) return false;
   if (entry.biomeIds && !entry.biomeIds.includes(context.biomeId)) return false;
-  if (entry.minDangerLevel !== undefined && context.dangerLevel < entry.minDangerLevel) return false;
-  if (entry.maxDangerLevel !== undefined && context.dangerLevel > entry.maxDangerLevel) return false;
-  if (entry.factions && (!actor.factionId || !entry.factions.includes(String(actor.factionId)))) return false;
-  if (entry.personalityTags && !entry.personalityTags.some((tag) => actor.personality.includes(tag))) return false;
+  if (entry.minDangerLevel !== undefined && context.dangerLevel < entry.minDangerLevel)
+    return false;
+  if (entry.maxDangerLevel !== undefined && context.dangerLevel > entry.maxDangerLevel)
+    return false;
+  if (entry.factions && (!actor.factionId || !entry.factions.includes(String(actor.factionId))))
+    return false;
+  if (
+    entry.personalityTags &&
+    !entry.personalityTags.some((tag) => actor.personality.includes(tag))
+  )
+    return false;
   if (entry.hostility && !entry.hostility.includes(actor.hostility)) return false;
   if (entry.attitudes && !entry.attitudes.includes(resolveAttitude(context))) return false;
-  if (entry.relationshipStages && (!context.relationship || !entry.relationshipStages.includes(context.relationship.stage))) return false;
-  if (entry.snakeLengthBands && !entry.snakeLengthBands.includes(snakeLengthBand(context.snakeLength))) return false;
+  if (
+    entry.relationshipStages &&
+    (!context.relationship || !entry.relationshipStages.includes(context.relationship.stage))
+  )
+    return false;
+  if (
+    entry.snakeLengthBands &&
+    !entry.snakeLengthBands.includes(snakeLengthBand(context.snakeLength))
+  )
+    return false;
   if (entry.healthBands && !entry.healthBands.includes(healthBand(context))) return false;
-  if (entry.memoryTags && !actor.memory.some((memory) => entry.memoryTags?.every((tag) => memory.tags.includes(tag)))) return false;
+  if (
+    entry.memoryTags &&
+    !actor.memory.some((memory) => entry.memoryTags?.every((tag) => memory.tags.includes(tag)))
+  )
+    return false;
   if (
     entry.worldEventTypes &&
     !actor.memory.some((memory) => entry.worldEventTypes?.includes(memory.type as WorldEventType))
   ) {
     return false;
   }
-  if (entry.factionStates && !context.factionEvents.some((event) => entry.factionStates?.includes(event.relation))) return false;
+  if (
+    entry.factionStates &&
+    !context.factionEvents.some((event) => entry.factionStates?.includes(event.relation))
+  )
+    return false;
   if (entry.townMoodTags?.includes('wanted') && (context.town?.wantedLevel ?? 0) <= 0) return false;
   if (entry.minFocus !== undefined && (actor.focus ?? 0) < entry.minFocus) return false;
   if (entry.maxFocus !== undefined && (actor.focus ?? 0) > entry.maxFocus) return false;
   if (entry.requiresSoul && !hasSoulRequirement(entry.requiresSoul, context)) return false;
   if (entry.requiresLore && !hasLoreRequirement(entry.requiresLore, context)) return false;
-  if (entry.socialLinkKinds && (!context.socialLink || !entry.socialLinkKinds.includes(context.socialLink.relationship))) return false;
+  if (
+    entry.socialLinkKinds &&
+    (!context.socialLink || !entry.socialLinkKinds.includes(context.socialLink.relationship))
+  )
+    return false;
   if (entry.source === 'rumor' && context.rumors.length === 0 && !entry.memoryTags) return false;
   if (entry.oncePerActor && wasEntryHeard(entry, context)) return false;
   return true;
@@ -167,7 +218,8 @@ function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext
       faction.factionIds.includes('goblin-camps');
     bonus += isAmbientTruce ? -90 : Math.min(16, faction.severity);
   }
-  if (entry.source === 'social' && context.socialLink && !context.socialLink.knownToPlayer) bonus += 12;
+  if (entry.source === 'social' && context.socialLink && !context.socialLink.knownToPlayer)
+    bonus += 12;
   if (entry.source === 'soul' && context.actor.focus >= 8) bonus += 8;
   if (entry.tags.includes('health') && healthBand(context) === 'critical') bonus += 10;
   if (entry.tags.includes('danger') && context.dangerLevel >= 6) bonus += 8;
@@ -181,7 +233,12 @@ function hasActorTalked(context: ActorConversationContext): boolean {
 }
 
 function wasEntryHeard(entry: ActorVoiceEntry, context: ActorConversationContext): boolean {
-  return Number(context.flags[`actor.conversation.count.${context.actor.id}.${entry.bucket}.${entry.id}`] ?? 0) > 0;
+  return (
+    Number(
+      context.flags[`actor.conversation.count.${context.actor.id}.${entry.bucket}.${entry.id}`] ??
+        0,
+    ) > 0
+  );
 }
 
 function materialize(
@@ -207,7 +264,11 @@ function materialize(
   };
 }
 
-function fillSlots(text: string, context: ActorConversationContext, entry?: ActorVoiceEntry): string {
+function fillSlots(
+  text: string,
+  context: ActorConversationContext,
+  entry?: ActorVoiceEntry,
+): string {
   const rumor = chooseRumorForEntry(entry, context);
   const faction = context.factionEvents[0];
   return text
@@ -232,9 +293,13 @@ function chooseRumorForEntry(
   }
   const recent = recentRumorIds(context);
   const tagged = entry?.tags.includes('eaten')
-    ? context.rumors.filter((rumor) => rumor.tags.includes('eaten') || rumor.tags.includes('humanoid'))
+    ? context.rumors.filter(
+        (rumor) => rumor.tags.includes('eaten') || rumor.tags.includes('humanoid'),
+      )
     : entry?.tags.includes('crime')
-      ? context.rumors.filter((rumor) => rumor.tags.includes('crime') || rumor.tags.includes('pickpocket'))
+      ? context.rumors.filter(
+          (rumor) => rumor.tags.includes('crime') || rumor.tags.includes('pickpocket'),
+        )
       : entry?.tags.includes('goblin')
         ? context.rumors.filter((rumor) => rumor.tags.includes('goblin'))
         : context.rumors;
@@ -245,10 +310,15 @@ function chooseRumorForEntry(
 function recentRumorIds(context: ActorConversationContext): string[] {
   const recentKey = `actor.conversation.recentRumors.${context.actor.id}.${context.bucket}`;
   const recent = context.flags[recentKey];
-  return Array.isArray(recent) ? recent.filter((item): item is string => typeof item === 'string') : [];
+  return Array.isArray(recent)
+    ? recent.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
-function entryUsesRecentlySelectedRumor(entry: ActorVoiceEntry, context: ActorConversationContext): boolean {
+function entryUsesRecentlySelectedRumor(
+  entry: ActorVoiceEntry,
+  context: ActorConversationContext,
+): boolean {
   if (entry.source !== 'rumor') {
     return false;
   }
@@ -256,7 +326,10 @@ function entryUsesRecentlySelectedRumor(entry: ActorVoiceEntry, context: ActorCo
   return Boolean(rumor && recentRumorIds(context).includes(rumor.id));
 }
 
-function knownFactFor(entry: ActorVoiceEntry, context: ActorConversationContext): string | undefined {
+function knownFactFor(
+  entry: ActorVoiceEntry,
+  context: ActorConversationContext,
+): string | undefined {
   if (entry.source === 'social' && context.socialLink && context.socialTargetName) {
     return `${context.actor.displayName} has a ${context.socialLink.relationship} tie to ${context.socialTargetName}.`;
   }
@@ -278,16 +351,30 @@ function knownFactFor(entry: ActorVoiceEntry, context: ActorConversationContext)
   return undefined;
 }
 
-function hasSoulRequirement(requirement: ActorVoiceEntry['requiresSoul'], context: ActorConversationContext): boolean {
+function hasSoulRequirement(
+  requirement: ActorVoiceEntry['requiresSoul'],
+  context: ActorConversationContext,
+): boolean {
   const soul = context.actor.soul;
   if (!soul || !requirement) return false;
-  if (requirement === 'any') return Boolean(soul.wound || soul.insecurity || soul.longing || soul.contradiction || soul.secret);
+  if (requirement === 'any')
+    return Boolean(
+      soul.wound || soul.insecurity || soul.longing || soul.contradiction || soul.secret,
+    );
   if (requirement === 'socialLink') return context.actor.relationships.length > 0;
-  if (requirement === 'opinionHint' || requirement === 'personalityHint' || requirement === 'loreBomb') return true;
+  if (
+    requirement === 'opinionHint' ||
+    requirement === 'personalityHint' ||
+    requirement === 'loreBomb'
+  )
+    return true;
   return Boolean(soul[requirement]);
 }
 
-function hasLoreRequirement(requirement: ActorVoiceEntry['requiresLore'], context: ActorConversationContext): boolean {
+function hasLoreRequirement(
+  requirement: ActorVoiceEntry['requiresLore'],
+  context: ActorConversationContext,
+): boolean {
   if (!requirement) return false;
   if (requirement === 'any') return Boolean(context.actor.lore);
   if (requirement === 'king') return Boolean(context.actor.lore?.knowsAboutKing);
@@ -296,7 +383,9 @@ function hasLoreRequirement(requirement: ActorVoiceEntry['requiresLore'], contex
   return false;
 }
 
-function resolveAttitude(context: ActorConversationContext): NonNullable<ActorVoiceEntry['attitudes']>[number] {
+function resolveAttitude(
+  context: ActorConversationContext,
+): NonNullable<ActorVoiceEntry['attitudes']>[number] {
   const actor = context.actor;
   if (actor.hostility === 'hostile') return 'hostile';
   if (actor.mood.anger >= 60 || (actor.opinions.player?.resentment ?? 0) >= 45) return 'angry';

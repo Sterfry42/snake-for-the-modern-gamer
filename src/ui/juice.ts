@@ -95,12 +95,23 @@ export class JuiceManager {
       frequency: gain ? 440 + magnitude * 8 : 240,
       frequencyEnd: gain ? 620 + magnitude * 10 : 120,
       duration: 0.12 + Math.min(0.18, magnitude * 0.006),
-      type: gain ? "triangle" : "sawtooth",
+      type: gain ? 'triangle' : 'sawtooth',
       volume: 0.08 + Math.min(0.08, magnitude * 0.004),
     });
     if (Math.abs(amount) >= 5) {
-      this.spawnBurst(worldX, worldY, { colors, count: 8 + Math.floor(magnitude * 0.55), radius: 16 + magnitude * 0.45 });
-      this.ringPulse(worldX, worldY, color, 8 + Math.min(12, magnitude * 0.35), 2, 180 + magnitude * 4);
+      this.spawnBurst(worldX, worldY, {
+        colors,
+        count: 8 + Math.floor(magnitude * 0.55),
+        radius: 16 + magnitude * 0.45,
+      });
+      this.ringPulse(
+        worldX,
+        worldY,
+        color,
+        8 + Math.min(12, magnitude * 0.35),
+        2,
+        180 + magnitude * 4,
+      );
     }
     if (Math.abs(amount) >= 20) {
       this.scene.cameras.main.flash(90, gain ? 255 : 255, gain ? 230 : 90, gain ? 120 : 90, true);
@@ -113,9 +124,19 @@ export class JuiceManager {
       return;
     }
     const magnitude = Math.min(12, amount);
-    this.playTone({ frequency: 300, frequencyEnd: 360 + magnitude * 36, duration: 0.18, type: "sine", volume: 0.08 });
+    this.playTone({
+      frequency: 300,
+      frequencyEnd: 360 + magnitude * 36,
+      duration: 0.18,
+      type: 'sine',
+      volume: 0.08,
+    });
     this.ringPulse(worldX, worldY, 0x5dd6a2, 10 + magnitude * 2, 2, 240);
-    this.spawnBurst(worldX, worldY, { colors: [0x5dd6a2, 0xc8ffe1, 0x9ad1ff], count: 5 + magnitude * 2, radius: 14 + magnitude * 2 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xc8ffe1, 0x9ad1ff],
+      count: 5 + magnitude * 2,
+      radius: 14 + magnitude * 2,
+    });
   }
 
   appleStreak(worldX: number, worldY: number, streak: number) {
@@ -124,13 +145,36 @@ export class JuiceManager {
     }
     const capped = Math.min(12, streak);
     const hot = streak >= 5;
-    this.playTone({ frequency: 520 + capped * 28, frequencyEnd: 720 + capped * 42, duration: 0.16, type: hot ? "square" : "triangle", volume: 0.09 + capped * 0.008 });
+    this.playTone({
+      frequency: 520 + capped * 28,
+      frequencyEnd: 720 + capped * 42,
+      duration: 0.16,
+      type: hot ? 'square' : 'triangle',
+      volume: 0.09 + capped * 0.008,
+    });
     if (hot) {
-      this.playTone({ frequency: 130, frequencyEnd: 72, duration: 0.18, type: "sawtooth", volume: 0.08 });
+      this.playTone({
+        frequency: 130,
+        frequencyEnd: 72,
+        duration: 0.18,
+        type: 'sawtooth',
+        volume: 0.08,
+      });
       this.kickCamera(0.01 + capped * 0.0015, 90 + capped * 8);
     }
-    this.blastWave(worldX, worldY, hot ? [0xff8450, 0xffc857, 0xfff3a8] : [0x5dd6a2, 0xfff3a8], 14 + capped * 2);
-    this.floatingLabel(worldX, worldY - 18, `x${streak}`, hot ? "#ffcf5a" : "#c8ffe1", 18 + Math.min(8, capped));
+    this.blastWave(
+      worldX,
+      worldY,
+      hot ? [0xff8450, 0xffc857, 0xfff3a8] : [0x5dd6a2, 0xfff3a8],
+      14 + capped * 2,
+    );
+    this.floatingLabel(
+      worldX,
+      worldY - 18,
+      `x${streak}`,
+      hot ? '#ffcf5a' : '#c8ffe1',
+      18 + Math.min(8, capped),
+    );
   }
 
   skillTreeOpened() {
@@ -568,28 +612,53 @@ export class JuiceManager {
     this.punchZoom(1.012, 80);
   }
 
-  cardPurchased(worldX: number, worldY: number, rarity: "common" | "uncommon" | "rare"): void {
-    const rare = rarity === "rare";
-    const uncommon = rarity === "uncommon";
-    const colors = rare ? [0xffd166, 0xfff3a8, 0xc77dff] : uncommon ? [0x9ad1ff, 0xcfe5ff, 0x5dd6a2] : [0x5dd6a2, 0xc8ffe1, 0xfff3a8];
-    this.playTone({ frequency: rare ? 520 : uncommon ? 440 : 360, frequencyEnd: rare ? 980 : uncommon ? 720 : 560, duration: rare ? 0.24 : 0.16, type: "triangle", volume: rare ? 0.13 : 0.09 });
+  cardPurchased(worldX: number, worldY: number, rarity: 'common' | 'uncommon' | 'rare'): void {
+    const rare = rarity === 'rare';
+    const uncommon = rarity === 'uncommon';
+    const colors = rare
+      ? [0xffd166, 0xfff3a8, 0xc77dff]
+      : uncommon
+        ? [0x9ad1ff, 0xcfe5ff, 0x5dd6a2]
+        : [0x5dd6a2, 0xc8ffe1, 0xfff3a8];
+    this.playTone({
+      frequency: rare ? 520 : uncommon ? 440 : 360,
+      frequencyEnd: rare ? 980 : uncommon ? 720 : 560,
+      duration: rare ? 0.24 : 0.16,
+      type: 'triangle',
+      volume: rare ? 0.13 : 0.09,
+    });
     if (rare) {
-      this.playTone({ frequency: 1174.66, duration: 0.18, type: "sine", volume: 0.08 });
+      this.playTone({ frequency: 1174.66, duration: 0.18, type: 'sine', volume: 0.08 });
       this.scene.cameras.main.flash(120, 255, 220, 120, true);
     }
-    this.spawnBurst(worldX, worldY, { colors, count: rare ? 24 : uncommon ? 16 : 10, radius: rare ? 30 : uncommon ? 22 : 16 });
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: rare ? 24 : uncommon ? 16 : 10,
+      radius: rare ? 30 : uncommon ? 22 : 16,
+    });
     this.ringPulse(worldX, worldY, colors[0]!, rare ? 16 : 10, 2, rare ? 280 : 210);
-    this.floatingLabel(worldX, worldY - 10, rare ? "RARE CARD" : uncommon ? "UNCOMMON CARD" : "+CARD", rare ? "#ffd166" : "#c8ffe1", rare ? 18 : 14);
+    this.floatingLabel(
+      worldX,
+      worldY - 10,
+      rare ? 'RARE CARD' : uncommon ? 'UNCOMMON CARD' : '+CARD',
+      rare ? '#ffd166' : '#c8ffe1',
+      rare ? 18 : 14,
+    );
   }
 
   cardSuitSpark(worldX: number, worldY: number, suit: string): void {
     const color =
-      suit === "moss" ? 0x5dd66f :
-      suit === "teeth" ? 0xff6b6b :
-      suit === "lanterns" ? 0xffd166 :
-      suit === "moons" ? 0x9ad1ff :
-      suit === "smoke" ? 0xc77dff :
-      0xfff3a8;
+      suit === 'moss'
+        ? 0x5dd66f
+        : suit === 'teeth'
+          ? 0xff6b6b
+          : suit === 'lanterns'
+            ? 0xffd166
+            : suit === 'moons'
+              ? 0x9ad1ff
+              : suit === 'smoke'
+                ? 0xc77dff
+                : 0xfff3a8;
     this.ringPulse(worldX, worldY, color, 5, 1, 140);
     this.spawnBurst(worldX, worldY, { colors: [color, 0xfff3a8], count: 4, radius: 9 });
   }
@@ -608,23 +677,31 @@ export class JuiceManager {
 
   cardRuleTrigger(worldX: number, worldY: number, detail: string, index: number): void {
     const text = detail.toLowerCase();
-    const harmful = text.includes("cost") || text.includes("worse") || text.includes("narrows");
-    const color =
-      text.includes("moss") ? 0x5dd66f :
-      text.includes("smoke") ? 0xc77dff :
-      text.includes("angel") || text.includes("moon") ? 0x9ad1ff :
-      text.includes("market") || text.includes("accountant") ? 0xffd166 :
-      harmful ? 0xff6b6b :
-      0xfff3a8;
+    const harmful = text.includes('cost') || text.includes('worse') || text.includes('narrows');
+    const color = text.includes('moss')
+      ? 0x5dd66f
+      : text.includes('smoke')
+        ? 0xc77dff
+        : text.includes('angel') || text.includes('moon')
+          ? 0x9ad1ff
+          : text.includes('market') || text.includes('accountant')
+            ? 0xffd166
+            : harmful
+              ? 0xff6b6b
+              : 0xfff3a8;
     this.playTone({
       frequency: harmful ? 220 : 540 + index * 42,
       frequencyEnd: harmful ? 110 : 740 + index * 38,
       duration: harmful ? 0.16 : 0.14,
-      type: harmful ? "sawtooth" : "triangle",
+      type: harmful ? 'sawtooth' : 'triangle',
       volume: 0.07,
     });
     this.ringPulse(worldX, worldY, color, 8 + index * 2, 1, 190);
-    this.spawnBurst(worldX, worldY, { colors: [color, harmful ? 0xff6b6b : 0xfff3a8], count: harmful ? 8 : 6, radius: 14 + index * 2 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [color, harmful ? 0xff6b6b : 0xfff3a8],
+      count: harmful ? 8 : 6,
+      radius: 14 + index * 2,
+    });
   }
 
   cardRoundResult(won: boolean): void {
@@ -646,77 +723,136 @@ export class JuiceManager {
 
   cardWager(amount: number): void {
     const size = Math.min(36, Math.max(4, amount));
-    this.playTone({ frequency: 240, frequencyEnd: 160, duration: 0.12, type: "triangle", volume: 0.08 });
-    this.playTone({ frequency: 420 + size * 4, duration: 0.1, type: "square", volume: 0.07 });
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 160,
+      duration: 0.12,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.playTone({ frequency: 420 + size * 4, duration: 0.1, type: 'square', volume: 0.07 });
     const cam = this.scene.cameras.main;
     this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffd166, 12 + size * 0.35, 2, 220);
   }
 
   cardHandDealt(worldX: number, worldY: number, count: number): void {
     const safeCount = Math.max(1, count);
-    this.playTone({ frequency: 320, frequencyEnd: 520, duration: 0.16, type: "triangle", volume: 0.07 });
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 520,
+      duration: 0.16,
+      type: 'triangle',
+      volume: 0.07,
+    });
     for (let i = 0; i < safeCount; i += 1) {
       globalThis.setTimeout(() => {
-        this.playTone({ frequency: 420 + i * 42, duration: 0.055, type: "square", volume: 0.045 });
-        this.spawnBurst(worldX + (i - safeCount / 2) * 22, worldY, { colors: [0xfff3a8, 0xcfa77a, 0x9ad1ff], count: 3, radius: 8 });
+        this.playTone({ frequency: 420 + i * 42, duration: 0.055, type: 'square', volume: 0.045 });
+        this.spawnBurst(worldX + (i - safeCount / 2) * 22, worldY, {
+          colors: [0xfff3a8, 0xcfa77a, 0x9ad1ff],
+          count: 3,
+          radius: 8,
+        });
       }, i * 45);
     }
   }
 
-  cardSelect(worldX: number, worldY: number, selected: boolean, rarity: "common" | "uncommon" | "rare"): void {
-    const rare = rarity === "rare";
-    const uncommon = rarity === "uncommon";
+  cardSelect(
+    worldX: number,
+    worldY: number,
+    selected: boolean,
+    rarity: 'common' | 'uncommon' | 'rare',
+  ): void {
+    const rare = rarity === 'rare';
+    const uncommon = rarity === 'uncommon';
     const color = rare ? 0xffd166 : uncommon ? 0x9ad1ff : 0x5dd6a2;
     this.playTone({
       frequency: selected ? (rare ? 680 : uncommon ? 560 : 460) : 260,
       frequencyEnd: selected ? (rare ? 920 : uncommon ? 700 : 560) : 190,
       duration: selected ? 0.12 : 0.08,
-      type: selected ? "triangle" : "sine",
+      type: selected ? 'triangle' : 'sine',
       volume: rare && selected ? 0.09 : 0.055,
     });
     this.ringPulse(worldX, worldY, color, selected ? 8 : 5, selected ? 2 : 1, 160);
     if (selected || rare) {
-      this.spawnBurst(worldX, worldY, { colors: [color, 0xfff3a8], count: rare ? 10 : 5, radius: rare ? 16 : 10 });
+      this.spawnBurst(worldX, worldY, {
+        colors: [color, 0xfff3a8],
+        count: rare ? 10 : 5,
+        radius: rare ? 16 : 10,
+      });
     }
   }
 
   cardScoreCommit(worldX: number, worldY: number, selectedCount: number): void {
     const count = Math.max(0, selectedCount);
     if (count === 0) {
-      this.playTone({ frequency: 180, frequencyEnd: 120, duration: 0.12, type: "sawtooth", volume: 0.07 });
+      this.playTone({
+        frequency: 180,
+        frequencyEnd: 120,
+        duration: 0.12,
+        type: 'sawtooth',
+        volume: 0.07,
+      });
       this.kickCamera(0.004, 70);
       return;
     }
-    this.playTone({ frequency: 360, frequencyEnd: 560 + count * 70, duration: 0.18, type: "square", volume: 0.09 });
+    this.playTone({
+      frequency: 360,
+      frequencyEnd: 560 + count * 70,
+      duration: 0.18,
+      type: 'square',
+      volume: 0.09,
+    });
     this.punchZoom(1.018 + Math.min(0.02, count * 0.004), 110);
     this.blastWave(worldX, worldY, [0xfff3a8, 0x9ad1ff], 16 + count * 3);
   }
 
-  cardBust(worldX: number, worldY: number, reason: "empty" | "low" | "high"): void {
-    const label = reason === "empty" ? "EMPTY" : reason === "low" ? "TOO LOW" : "TOO HIGH";
-    this.playTone({ frequency: reason === "high" ? 260 : 190, frequencyEnd: reason === "high" ? 80 : 120, duration: 0.2, type: "sawtooth", volume: 0.085 });
-    this.kickCamera(reason === "empty" ? 0.006 : 0.011, 110);
+  cardBust(worldX: number, worldY: number, reason: 'empty' | 'low' | 'high'): void {
+    const label = reason === 'empty' ? 'EMPTY' : reason === 'low' ? 'TOO LOW' : 'TOO HIGH';
+    this.playTone({
+      frequency: reason === 'high' ? 260 : 190,
+      frequencyEnd: reason === 'high' ? 80 : 120,
+      duration: 0.2,
+      type: 'sawtooth',
+      volume: 0.085,
+    });
+    this.kickCamera(reason === 'empty' ? 0.006 : 0.011, 110);
     this.ringPulse(worldX, worldY, 0xff6b6b, 14, 2, 230);
-    this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffb3a8], count: reason === "empty" ? 6 : 12, radius: reason === "empty" ? 13 : 20 });
-    this.floatingLabel(worldX, worldY - 8, label, "#ffb3a8", 16);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffb3a8],
+      count: reason === 'empty' ? 6 : 12,
+      radius: reason === 'empty' ? 13 : 20,
+    });
+    this.floatingLabel(worldX, worldY - 8, label, '#ffb3a8', 16);
   }
 
   cardMatchResult(won: boolean, payout = 0): void {
     const cam = this.scene.cameras.main;
     if (won) {
-      this.playTone({ frequency: 392, duration: 0.1, type: "triangle", volume: 0.11 });
-      this.playTone({ frequency: 587.33, duration: 0.14, type: "triangle", volume: 0.1 });
-      this.playTone({ frequency: 783.99, duration: 0.22, type: "sine", volume: 0.11 });
+      this.playTone({ frequency: 392, duration: 0.1, type: 'triangle', volume: 0.11 });
+      this.playTone({ frequency: 587.33, duration: 0.14, type: 'triangle', volume: 0.1 });
+      this.playTone({ frequency: 783.99, duration: 0.22, type: 'sine', volume: 0.11 });
       this.scene.cameras.main.flash(170, 255, 220, 120, true);
       this.punchZoom(1.06, 200);
       this.blastWave(cam.midPoint.x, cam.midPoint.y, [0x5dd6a2, 0xfff3a8, 0xffd166], 38);
-      this.floatingLabel(cam.midPoint.x, 76, payout > 0 ? `+${payout} SCORE` : "MATCH WON", "#fff3a8", 18);
+      this.floatingLabel(
+        cam.midPoint.x,
+        76,
+        payout > 0 ? `+${payout} SCORE` : 'MATCH WON',
+        '#fff3a8',
+        18,
+      );
     } else {
-      this.playTone({ frequency: 240, frequencyEnd: 80, duration: 0.34, type: "sawtooth", volume: 0.1 });
+      this.playTone({
+        frequency: 240,
+        frequencyEnd: 80,
+        duration: 0.34,
+        type: 'sawtooth',
+        volume: 0.1,
+      });
       this.scene.cameras.main.flash(120, 255, 80, 80, true);
       this.kickCamera(0.014, 180);
       this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xff6b6b, 28, 2, 280);
-      this.floatingLabel(cam.midPoint.x, 76, "MATCH LOST", "#ffb3a8", 18);
+      this.floatingLabel(cam.midPoint.x, 76, 'MATCH LOST', '#ffb3a8', 18);
     }
   }
 
@@ -798,10 +934,26 @@ export class JuiceManager {
   }
 
   enemyEaten(worldX: number, worldY: number) {
-    this.playTone({ frequency: 260, frequencyEnd: 120, duration: 0.16, type: "sawtooth", volume: 0.11 });
-    this.playTone({ frequency: 520, frequencyEnd: 720, duration: 0.12, type: "square", volume: 0.08 });
+    this.playTone({
+      frequency: 260,
+      frequencyEnd: 120,
+      duration: 0.16,
+      type: 'sawtooth',
+      volume: 0.11,
+    });
+    this.playTone({
+      frequency: 520,
+      frequencyEnd: 720,
+      duration: 0.12,
+      type: 'square',
+      volume: 0.08,
+    });
     this.kickCamera(0.016, 90);
-    this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xffcf8a, 0xfff3a8], count: 18, radius: 24 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffcf8a, 0xfff3a8],
+      count: 18,
+      radius: 24,
+    });
     this.ringPulse(worldX, worldY, 0xff8f5a, 12, 2, 190);
   }
 
@@ -988,7 +1140,7 @@ export class JuiceManager {
       frequency: urgent ? 220 : 460,
       frequencyEnd: urgent ? 160 : 620,
       duration: urgent ? 0.14 : 0.12,
-      type: urgent ? "sawtooth" : "triangle",
+      type: urgent ? 'sawtooth' : 'triangle',
       volume: urgent ? 0.08 : 0.055,
     });
     this.ringPulse(worldX, worldY, color, urgent ? 10 : 7, 1, 190);
@@ -1126,15 +1278,17 @@ export class JuiceManager {
     const progress = Phaser.Math.Clamp(remaining / safeTotal, 0, 1);
     const ending = progress < 0.22;
     const colors =
-      kind === "gun" ? [0xf6bd60, 0xffe0a3, 0xff8c42] :
-      kind === "smite" ? [0xff6b6b, 0xd7263d, 0xffd166] :
-      [0x9b5de5, 0xc77dff, 0x7ad1ff];
+      kind === 'gun'
+        ? [0xf6bd60, 0xffe0a3, 0xff8c42]
+        : kind === 'smite'
+          ? [0xff6b6b, 0xd7263d, 0xffd166]
+          : [0x9b5de5, 0xc77dff, 0x7ad1ff];
     const mote = this.scene.add.circle(
       worldX + Phaser.Math.Between(-8, 8),
       worldY + Phaser.Math.Between(-8, 8),
       Phaser.Math.Between(2, ending ? 4 : 3),
       Phaser.Utils.Array.GetRandom(colors),
-      ending ? 0.9 : 0.58
+      ending ? 0.9 : 0.58,
     );
     mote.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
     this.overlayLayer.add(mote);
@@ -1145,11 +1299,17 @@ export class JuiceManager {
       alpha: 0,
       scale: ending ? 0.25 : 0.45,
       duration: ending ? 260 : 420,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => mote.destroy(),
     });
     if (ending) {
-      this.playTone({ frequency: 760, frequencyEnd: 420, duration: 0.08, type: "triangle", volume: 0.035 });
+      this.playTone({
+        frequency: 760,
+        frequencyEnd: 420,
+        duration: 0.08,
+        type: 'triangle',
+        volume: 0.035,
+      });
     }
   }
 
@@ -1340,9 +1500,24 @@ export class JuiceManager {
     });
     this.ringPulse(muzzleX, muzzleY, 0xffc857, 6, 1, 120);
     this.flashLine(muzzleX, muzzleY, muzzleX + dx * 34, muzzleY + dy * 34, 0xffd166, 3, 90);
-    this.flashLine(muzzleX - dy * 2, muzzleY + dx * 2, muzzleX + dx * 22 - dy * 2, muzzleY + dy * 22 + dx * 2, 0xfff3a8, 1, 120);
+    this.flashLine(
+      muzzleX - dy * 2,
+      muzzleY + dx * 2,
+      muzzleX + dx * 22 - dy * 2,
+      muzzleY + dy * 22 + dx * 2,
+      0xfff3a8,
+      1,
+      120,
+    );
     this.kickCamera(0.009, 60);
-    const casing = this.scene.add.rectangle(worldX - dx * 3 - dy * 5, worldY - dy * 3 + dx * 5, 3, 2, 0xffd166, 0.9);
+    const casing = this.scene.add.rectangle(
+      worldX - dx * 3 - dy * 5,
+      worldY - dy * 3 + dx * 5,
+      3,
+      2,
+      0xffd166,
+      0.9,
+    );
     casing.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
     this.overlayLayer.add(casing);
     this.scene.tweens.add({
@@ -1352,13 +1527,19 @@ export class JuiceManager {
       alpha: 0,
       angle: Phaser.Math.Between(-160, 160),
       duration: 320,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => casing.destroy(),
     });
   }
 
   footballShot(worldX: number, worldY: number, dx: number, dy: number) {
-    this.playTone({ frequency: 180, frequencyEnd: 420, duration: 0.18, type: 'triangle', volume: 0.1 });
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 420,
+      duration: 0.18,
+      type: 'triangle',
+      volume: 0.1,
+    });
     const startX = worldX + dx * 10;
     const startY = worldY + dy * 10;
     const ball = this.scene.add.ellipse(startX, startY, 12, 8, 0x8b4a24, 1).setDepth(31);
@@ -1381,7 +1562,13 @@ export class JuiceManager {
   }
 
   footballPass(fromX: number, fromY: number, toX: number, toY: number) {
-    this.playTone({ frequency: 220, frequencyEnd: 520, duration: 0.2, type: 'triangle', volume: 0.08 });
+    this.playTone({
+      frequency: 220,
+      frequencyEnd: 520,
+      duration: 0.2,
+      type: 'triangle',
+      volume: 0.08,
+    });
     this.gridironCrowdRoar(toX, toY);
     const ball = this.scene.add.ellipse(fromX, fromY, 10, 7, 0x8b4a24, 1).setDepth(32);
     ball.setStrokeStyle(2, 0xf3eee2, 0.9);
@@ -1403,20 +1590,40 @@ export class JuiceManager {
         ball.setAngle(t * 720);
       },
       onComplete: () => {
-        this.spawnBurst(toX, toY, { colors: [0xf3eee2, 0x74b8ff, 0xb5362f], count: 14, radius: 18 });
+        this.spawnBurst(toX, toY, {
+          colors: [0xf3eee2, 0x74b8ff, 0xb5362f],
+          count: 14,
+          radius: 18,
+        });
         ball.destroy();
       },
     });
   }
 
   footballCatch(worldX: number, worldY: number) {
-    this.playTone({ frequency: 330, frequencyEnd: 660, duration: 0.14, type: 'triangle', volume: 0.08 });
+    this.playTone({
+      frequency: 330,
+      frequencyEnd: 660,
+      duration: 0.14,
+      type: 'triangle',
+      volume: 0.08,
+    });
     this.ringPulse(worldX, worldY, 0xf3eee2, 8, 2, 220);
-    this.spawnBurst(worldX, worldY, { colors: [0x8b4a24, 0xf3eee2, 0x244f87], count: 10, radius: 16 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x8b4a24, 0xf3eee2, 0x244f87],
+      count: 10,
+      radius: 16,
+    });
   }
 
   footballFumble(worldX: number, worldY: number) {
-    this.playTone({ frequency: 180, frequencyEnd: 120, duration: 0.12, type: 'sawtooth', volume: 0.045 });
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 120,
+      duration: 0.12,
+      type: 'sawtooth',
+      volume: 0.045,
+    });
     this.ringPulse(worldX, worldY, 0x8b4a24, 5, 1, 180);
     this.spawnBurst(worldX, worldY, { colors: [0x8b4a24, 0xd9b18c], count: 5, radius: 10 });
   }
@@ -1457,7 +1664,13 @@ export class JuiceManager {
     if (level <= 0) {
       return;
     }
-    this.playTone({ frequency: 90 + level * 50, frequencyEnd: 60, duration: 0.16, type: "sine", volume: 0.035 + level * 0.045 });
+    this.playTone({
+      frequency: 90 + level * 50,
+      frequencyEnd: 60,
+      duration: 0.16,
+      type: 'sine',
+      volume: 0.035 + level * 0.045,
+    });
     this.ringPulse(worldX, worldY, 0xff3b3b, 8 + level * 10, 1 + Math.round(level), 220);
     if (level > 0.65) {
       this.kickCamera(0.006 + level * 0.006, 70);
@@ -1645,41 +1858,61 @@ export class JuiceManager {
     gain.connect(this.masterGain);
     const root = this.ctx.createOscillator();
     root.type = 'triangle';
-    root.frequency.value = 329.63;
+    root.frequency.value = 392.0;
     const fifth = this.ctx.createOscillator();
-    fifth.type = 'sine';
-    fifth.frequency.value = 493.88;
+    fifth.type = 'triangle';
+    fifth.frequency.value = 587.33;
     const lilt = this.ctx.createOscillator();
     lilt.type = 'square';
-    lilt.frequency.value = 5.4;
+    lilt.frequency.value = 7.2;
+    const bounce = this.ctx.createOscillator();
+    bounce.type = 'sine';
+    bounce.frequency.value = 3.6;
+    const counter = this.ctx.createOscillator();
+    counter.type = 'sine';
+    counter.frequency.value = 523.25;
     const bell = this.ctx.createOscillator();
     bell.type = 'triangle';
-    bell.frequency.value = 659.25;
+    bell.frequency.value = 783.99;
     const rootGain = this.ctx.createGain();
-    rootGain.gain.value = 0.032;
+    rootGain.gain.value = 0.028;
     const fifthGain = this.ctx.createGain();
-    fifthGain.gain.value = 0.03;
+    fifthGain.gain.value = 0.024;
     const liltGain = this.ctx.createGain();
-    liltGain.gain.value = 0.018;
+    liltGain.gain.value = 0.016;
+    const bounceGain = this.ctx.createGain();
+    bounceGain.gain.value = 0.012;
+    const counterGain = this.ctx.createGain();
+    counterGain.gain.value = 0.018;
     const bellGain = this.ctx.createGain();
-    bellGain.gain.value = 0.018;
+    bellGain.gain.value = 0.014;
     root.connect(rootGain);
     fifth.connect(fifthGain);
+    bounce.connect(bounceGain);
+    counter.connect(counterGain);
     lilt.connect(liltGain);
     bell.connect(bellGain);
     rootGain.connect(gain);
     fifthGain.connect(gain);
+    counterGain.connect(gain);
     bellGain.connect(gain);
+    bounceGain.connect(rootGain.gain);
     liltGain.connect(fifthGain.gain);
     liltGain.connect(bellGain.gain);
     root.start(now);
     fifth.start(now);
+    bounce.start(now);
+    counter.start(now);
     lilt.start(now);
     bell.start(now);
     try {
-      gain.gain.exponentialRampToValueAtTime(0.16, now + 0.35);
+      gain.gain.exponentialRampToValueAtTime(0.18, now + 0.28);
     } catch {}
-    this.townMusic = { gain, sources: [root, fifth, lilt, bell], cleanup: [rootGain, fifthGain, liltGain, bellGain] };
+    this.townMusic = {
+      gain,
+      sources: [root, fifth, bounce, counter, lilt, bell],
+      cleanup: [rootGain, fifthGain, bounceGain, counterGain, liltGain, bellGain],
+    };
   }
 
   stopTownMusic(): void {
@@ -2128,7 +2361,67 @@ export class JuiceManager {
     const cam = this.scene.cameras.main;
     this.punchZoom(1.055, 180);
     this.blastWave(cam.midPoint.x, cam.midPoint.y, [0x5dd6a2, 0xfff3a8, 0x9ad1ff], 32);
-    this.floatingLabel(cam.midPoint.x, 74, "QUEST COMPLETE", "#fff3a8", 18);
+    this.floatingLabel(cam.midPoint.x, 74, 'QUEST COMPLETE', '#fff3a8', 18);
+  }
+
+  relationshipChoice(tier: 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated') {
+    const cam = this.scene.cameras.main;
+    if (tier === 'loved') {
+      this.playTone({
+        frequency: 520,
+        frequencyEnd: 760,
+        duration: 0.18,
+        type: 'sine',
+        volume: 0.16,
+      });
+      this.playTone({ frequency: 880, duration: 0.12, type: 'triangle', volume: 0.09 });
+      this.punchZoom(1.035, 130);
+      this.scene.cameras.main.flash(90, 255, 190, 235, true);
+      this.blastWave(cam.midPoint.x, cam.midPoint.y, [0xffbdfd, 0xfff3a8, 0x9ad1ff], 24);
+      return;
+    }
+    if (tier === 'liked') {
+      this.playTone({
+        frequency: 420,
+        frequencyEnd: 560,
+        duration: 0.14,
+        type: 'triangle',
+        volume: 0.1,
+      });
+      this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffbdfd, 22, 2, 220);
+      return;
+    }
+    if (tier === 'disliked') {
+      this.playTone({
+        frequency: 220,
+        frequencyEnd: 140,
+        duration: 0.16,
+        type: 'sawtooth',
+        volume: 0.1,
+      });
+      this.kickCamera(0.006, 110);
+      return;
+    }
+    if (tier === 'hated') {
+      this.playTone({
+        frequency: 180,
+        frequencyEnd: 52,
+        duration: 0.28,
+        type: 'sawtooth',
+        volume: 0.16,
+      });
+      this.playTone({
+        frequency: 72,
+        frequencyEnd: 40,
+        duration: 0.18,
+        type: 'square',
+        volume: 0.08,
+      });
+      this.scene.cameras.main.shake(280, 0.018);
+      this.scene.cameras.main.flash(140, 255, 70, 70, true);
+      return;
+    }
+    this.playTone({ frequency: 300, duration: 0.08, type: 'sine', volume: 0.045 });
   }
 
   gameOver() {
@@ -2233,14 +2526,24 @@ export class JuiceManager {
     }
   }
 
-  private floatingLabel(worldX: number, worldY: number, label: string, color: string, fontSize: number) {
-    const text = this.scene.add.text(worldX, worldY, label, {
-      fontFamily: "monospace",
-      fontSize: `${fontSize}px`,
-      color,
-      stroke: "#1b1f2a",
-      strokeThickness: 3,
-    }).setDepth(33).setOrigin(0.5, 1).setAlpha(0.98);
+  private floatingLabel(
+    worldX: number,
+    worldY: number,
+    label: string,
+    color: string,
+    fontSize: number,
+  ) {
+    const text = this.scene.add
+      .text(worldX, worldY, label, {
+        fontFamily: 'monospace',
+        fontSize: `${fontSize}px`,
+        color,
+        stroke: '#1b1f2a',
+        strokeThickness: 3,
+      })
+      .setDepth(33)
+      .setOrigin(0.5, 1)
+      .setAlpha(0.98);
     this.overlayLayer.add(text);
     this.scene.tweens.add({
       targets: text,
@@ -2248,7 +2551,7 @@ export class JuiceManager {
       alpha: 0,
       scale: 1.22,
       duration: 620,
-      ease: "Cubic.easeOut",
+      ease: 'Cubic.easeOut',
       onComplete: () => text.destroy(),
     });
   }
@@ -2410,7 +2713,12 @@ export class JuiceManager {
     });
   }
 
-  caveEjection(worldX: number, worldY: number, collapsed: boolean, reason: 'manual' | 'timer' | 'reward') {
+  caveEjection(
+    worldX: number,
+    worldY: number,
+    collapsed: boolean,
+    reason: 'manual' | 'timer' | 'reward',
+  ) {
     const urgent = collapsed || reason === 'timer';
     const colors = urgent
       ? [0x7b5f8f, 0xb8865e, 0xffd166, 0xff6b6b]
@@ -2423,14 +2731,27 @@ export class JuiceManager {
       volume: urgent ? 0.16 : 0.1,
     });
     if (!urgent) {
-      this.playTone({ frequency: 420, frequencyEnd: 260, duration: 0.16, type: 'triangle', volume: 0.06 });
+      this.playTone({
+        frequency: 420,
+        frequencyEnd: 260,
+        duration: 0.16,
+        type: 'triangle',
+        volume: 0.06,
+      });
     }
     this.spawnBurst(worldX, worldY, {
       colors,
       count: urgent ? 28 : 16,
       radius: urgent ? 36 : 24,
     });
-    this.ringPulse(worldX, worldY, urgent ? 0xffd166 : 0x9ad1ff, urgent ? 16 : 10, urgent ? 3 : 2, 260);
+    this.ringPulse(
+      worldX,
+      worldY,
+      urgent ? 0xffd166 : 0x9ad1ff,
+      urgent ? 16 : 10,
+      urgent ? 3 : 2,
+      260,
+    );
     globalThis.setTimeout(
       () => this.ringPulse(worldX, worldY, urgent ? 0xff6b6b : 0x5dd6a2, urgent ? 24 : 16, 2, 240),
       70,
@@ -2688,7 +3009,13 @@ export class JuiceManager {
       .setOrigin(0.5);
     eagle.setRotation(fromLeft ? 0.35 : -0.35);
     this.particleLayer.add(eagle);
-    this.playTone({ frequency: 880, frequencyEnd: 660, duration: 0.18, type: 'triangle', volume: 0.045 });
+    this.playTone({
+      frequency: 880,
+      frequencyEnd: 660,
+      duration: 0.18,
+      type: 'triangle',
+      volume: 0.045,
+    });
     this.scene.tweens.add({
       targets: eagle,
       x: endX,
@@ -2763,7 +3090,13 @@ export class JuiceManager {
   }
 
   neonFlicker(worldX: number, worldY: number) {
-    this.playTone({ frequency: 620, frequencyEnd: 700, duration: 0.07, type: 'sine', volume: 0.025 });
+    this.playTone({
+      frequency: 620,
+      frequencyEnd: 700,
+      duration: 0.07,
+      type: 'sine',
+      volume: 0.025,
+    });
     this.ringPulse(worldX, worldY, 0x8fd8ff, 5, 1, 150);
     const glow = this.scene.add.rectangle(worldX, worldY, 22, 8, 0x5f8fbf, 0.28).setDepth(26);
     glow.setBlendMode(Phaser.BlendModes.ADD);
@@ -2778,7 +3111,13 @@ export class JuiceManager {
   }
 
   fireworkPop(worldX: number, worldY: number) {
-    this.playTone({ frequency: 520, frequencyEnd: 920, duration: 0.12, type: 'triangle', volume: 0.055 });
+    this.playTone({
+      frequency: 520,
+      frequencyEnd: 920,
+      duration: 0.12,
+      type: 'triangle',
+      volume: 0.055,
+    });
     this.spawnBurst(worldX, worldY, {
       colors: [0xb5362f, 0xf3eee2, 0x5f8fbf],
       count: 12,
@@ -2793,8 +3132,20 @@ export class JuiceManager {
   }
 
   gridironCrowdRoar(worldX: number, worldY: number) {
-    this.playTone({ frequency: 110, frequencyEnd: 82, duration: 0.22, type: 'sawtooth', volume: 0.07 });
-    this.playTone({ frequency: 220, frequencyEnd: 180, duration: 0.18, type: 'triangle', volume: 0.035 });
+    this.playTone({
+      frequency: 110,
+      frequencyEnd: 82,
+      duration: 0.22,
+      type: 'sawtooth',
+      volume: 0.07,
+    });
+    this.playTone({
+      frequency: 220,
+      frequencyEnd: 180,
+      duration: 0.18,
+      type: 'triangle',
+      volume: 0.035,
+    });
     this.ringPulse(worldX, worldY, 0xf3eee2, 12, 2, 240);
   }
 
@@ -2832,14 +3183,20 @@ export class JuiceManager {
   // ─── Minecraft Juice ─────────────────────────────────────────────────────
 
   blockBreak(worldX: number, worldY: number) {
-    this.playTone({ frequency: 200, frequencyEnd: 80, duration: 0.12, type: 'sawtooth', volume: 0.1 });
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 80,
+      duration: 0.12,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
     this.kickCamera(0.012, 70);
     this.spawnBurst(worldX, worldY, {
-      colors: [0x8B6914, 0x6B5A3C, 0xA0926B],
+      colors: [0x8b6914, 0x6b5a3c, 0xa0926b],
       count: 10,
       radius: 16,
     });
-    this.ringPulse(worldX, worldY, 0x8B6914, 6, 2, 180);
+    this.ringPulse(worldX, worldY, 0x8b6914, 6, 2, 180);
   }
 
   blockPlace(worldX: number, worldY: number) {
@@ -2853,7 +3210,13 @@ export class JuiceManager {
   }
 
   mobHit(worldX: number, worldY: number) {
-    this.playTone({ frequency: 260, frequencyEnd: 120, duration: 0.14, type: 'sawtooth', volume: 0.09 });
+    this.playTone({
+      frequency: 260,
+      frequencyEnd: 120,
+      duration: 0.14,
+      type: 'sawtooth',
+      volume: 0.09,
+    });
     this.kickCamera(0.014, 90);
     this.spawnBurst(worldX, worldY, {
       colors: [0xff6b6b, 0xffa36c, 0xfff3a8],

@@ -22,7 +22,6 @@ export const HUMAN_TOWN_DISTRICTS: Readonly<Record<string, TownPhysicalDistrictK
   '2,1': 'tavernInterior',
   '1,2': 'residentialStreet',
   '2,2': 'backAlley',
-  '3,2': 'guildHideout',
   '2,3': 'townExit',
 };
 

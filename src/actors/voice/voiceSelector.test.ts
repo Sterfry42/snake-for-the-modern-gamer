@@ -59,9 +59,14 @@ function collectConversationSamples(
     if (result.rumorId) {
       const recentRumorKey = `actor.conversation.recentRumors.${context.actor.id}.${context.bucket}`;
       const previousRumors = Array.isArray(flags[recentRumorKey])
-        ? (flags[recentRumorKey] as string[]).filter((item): item is string => typeof item === 'string')
+        ? (flags[recentRumorKey] as string[]).filter(
+            (item): item is string => typeof item === 'string',
+          )
         : [];
-      flags[recentRumorKey] = [result.rumorId, ...previousRumors.filter((id) => id !== result.rumorId)].slice(0, 4);
+      flags[recentRumorKey] = [
+        result.rumorId,
+        ...previousRumors.filter((id) => id !== result.rumorId),
+      ].slice(0, 4);
     }
     results.push(result);
   }
@@ -212,7 +217,9 @@ describe('selectActorConversation', () => {
       displayName: 'Sol',
       personality: ['statusHungry'],
     });
-    actor.relationships = [{ actorId: 'actor:test:ally', relationship: 'factionAlly', strength: 60 }];
+    actor.relationships = [
+      { actorId: 'actor:test:ally', relationship: 'factionAlly', strength: 60 },
+    ];
     actor.lore = undefined;
     actor.soul = undefined;
 
@@ -421,7 +428,8 @@ describe('selectActorConversation', () => {
         rumors: [
           {
             id: 'rumor:hostile-person-eaten',
-            summary: 'A hostile person was eaten. By noon, someone will swear the snake called it medicine.',
+            summary:
+              'A hostile person was eaten. By noon, someone will swear the snake called it medicine.',
             tags: ['rumor', 'eaten', 'humanoid'],
             severity: 38,
           },
@@ -433,7 +441,9 @@ describe('selectActorConversation', () => {
 
     const rumorUses = samples.filter((sample) => sample.rumorId === 'rumor:hostile-person-eaten');
     expect(rumorUses.length).toBeLessThanOrEqual(3);
-    expect(samples.filter((sample) => sample.line.includes('A hostile person was eaten')).length).toBeLessThanOrEqual(3);
+    expect(
+      samples.filter((sample) => sample.line.includes('A hostile person was eaten')).length,
+    ).toBeLessThanOrEqual(3);
   });
 
   it('keeps repeated ask-personal from collapsing once a personal fact is known', () => {

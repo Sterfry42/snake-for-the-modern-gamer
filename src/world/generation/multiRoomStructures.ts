@@ -39,7 +39,6 @@ export type TownPhysicalDistrictKind =
   | 'tavernInterior'
   | 'residentialStreet'
   | 'backAlley'
-  | 'guildHideout'
   | 'townExit';
 
 export interface TownRoomMembership extends StructureRoomMembership {

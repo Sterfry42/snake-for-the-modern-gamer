@@ -19,7 +19,15 @@ export interface EnemyInstance {
   name?: string;
   currentHearts?: number;
   maxHearts?: number;
-  encounterKind?: 'enemy' | 'duelist' | 'npc-hostile' | 'shark' | 'goblin' | 'rival-snake' | 'roaming-snake';
+  encounterKind?:
+    | 'enemy'
+    | 'duelist'
+    | 'npc-hostile'
+    | 'shark'
+    | 'goblin'
+    | 'rival-snake'
+    | 'roaming-snake'
+    | 'baby';
 }
 
 export interface BulletInstance {
@@ -147,17 +155,8 @@ export class EnemyManager {
       return;
     }
 
-    if (
-      this.roamingSnakeConfig &&
-      this.rng() < this.roamingSnakeConfig.spawnChance
-    ) {
-      this.ensureRoamingSnakes(
-        roomId,
-        room,
-        occupiedLocals,
-        this.roamingSnakeConfig,
-        this.rng,
-      );
+    if (this.roamingSnakeConfig && this.rng() < this.roamingSnakeConfig.spawnChance) {
+      this.ensureRoamingSnakes(roomId, room, occupiedLocals, this.roamingSnakeConfig, this.rng);
     }
 
     const biome = getBiomeDefinition(room.biomeId);
@@ -519,8 +518,7 @@ export class EnemyManager {
     const head = candidates[Math.floor(rng() * candidates.length)];
 
     const bodyLength =
-      config.minBodyLength +
-      Math.floor(rng() * (config.maxBodyLength - config.minBodyLength + 1));
+      config.minBodyLength + Math.floor(rng() * (config.maxBodyLength - config.minBodyLength + 1));
 
     const body: Vector2Like[] = [];
     for (let i = 0; i < bodyLength; i++) {
@@ -545,7 +543,7 @@ export class EnemyManager {
       roomId,
       position: { ...head },
       body,
-      fireCooldown: 0,
+      fireCooldown: 999,
       moveCooldown: 0,
       flashTicks: 0,
       name: 'Wild Snake',
@@ -599,10 +597,13 @@ export class EnemyManager {
         nextLocal.y >= this.grid.rows;
 
       if (isRoomTransition) {
-        return { dir, nextLocal: {
-          x: Math.max(0, Math.min(next.x, this.grid.cols - 1)),
-          y: Math.max(0, Math.min(next.y, this.grid.rows - 1)),
-        }};
+        return {
+          dir,
+          nextLocal: {
+            x: Math.max(0, Math.min(next.x, this.grid.cols - 1)),
+            y: Math.max(0, Math.min(next.y, this.grid.rows - 1)),
+          },
+        };
       }
 
       const tile = room.layout[nextLocal.y]?.[nextLocal.x];
@@ -620,18 +621,32 @@ export class EnemyManager {
     const chroma = (1 - Math.abs(2 * l - 1)) * s;
     const hPrime = hue * 6;
     const x = chroma * (1 - Math.abs((hPrime % 2) - 1));
-    let r = 0, g = 0, b = 0;
+    let r = 0,
+      g = 0,
+      b = 0;
 
-    if (hPrime >= 0 && hPrime < 1) { r = chroma; g = x; }
-    else if (hPrime >= 1 && hPrime < 2) { r = x; g = chroma; }
-    else if (hPrime >= 2 && hPrime < 3) { g = chroma; b = x; }
-    else if (hPrime >= 3 && hPrime < 4) { g = x; b = chroma; }
-    else if (hPrime >= 4 && hPrime < 5) { r = x; b = chroma; }
-    else { r = chroma; b = x; }
+    if (hPrime >= 0 && hPrime < 1) {
+      r = chroma;
+      g = x;
+    } else if (hPrime >= 1 && hPrime < 2) {
+      r = x;
+      g = chroma;
+    } else if (hPrime >= 2 && hPrime < 3) {
+      g = chroma;
+      b = x;
+    } else if (hPrime >= 3 && hPrime < 4) {
+      g = x;
+      b = chroma;
+    } else if (hPrime >= 4 && hPrime < 5) {
+      r = x;
+      b = chroma;
+    } else {
+      r = chroma;
+      b = x;
+    }
 
     const m = l - chroma / 2;
-    const toChannel = (v: number) =>
-      Math.max(0, Math.min(255, Math.round((v + m) * 255)));
+    const toChannel = (v: number) => Math.max(0, Math.min(255, Math.round((v + m) * 255)));
 
     return `#${((toChannel(r) << 16) | (toChannel(g) << 8) | toChannel(b)).toString(16).padStart(6, '0')}`;
   }
@@ -734,10 +749,7 @@ export class EnemyManager {
     occupied.add(`${headLocal.x},${headLocal.y}`);
 
     for (const enemy of roomEnemies) {
-      if (
-        enemy.encounterKind === 'rival-snake' ||
-        enemy.encounterKind === 'roaming-snake'
-      ) {
+      if (enemy.encounterKind === 'rival-snake' || enemy.encounterKind === 'roaming-snake') {
         nextEnemies.push({
           ...enemy,
           fireCooldown: 999,
@@ -932,7 +944,7 @@ export class EnemyManager {
     return this.getHarmfulOccupantAt(roomId, worldPosition) !== null;
   }
 
- getHarmfulOccupantAt(roomId: string, worldPosition: Vector2Like): EnemyInstance | null {
+  getHarmfulOccupantAt(roomId: string, worldPosition: Vector2Like): EnemyInstance | null {
     const local = globalToLocal(roomId, worldPosition, this.grid);
     return (
       (this.enemies.get(roomId) ?? []).find(

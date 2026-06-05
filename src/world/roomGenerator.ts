@@ -45,7 +45,9 @@ export class RoomGenerator {
     const legacySignature = typeof configOrRng === 'function';
     this.grid = legacySignature ? { cols: 32, rows: 24, cell: 24 } : (gridOrConfig as GridConfig);
     this.config = legacySignature ? (gridOrConfig as WorldConfig) : (configOrRng as WorldConfig);
-    this.rng = legacySignature ? (configOrRng as RandomGenerator) : (rngOrIdentity as RandomGenerator);
+    this.rng = legacySignature
+      ? (configOrRng as RandomGenerator)
+      : (rngOrIdentity as RandomGenerator);
     const resolvedIdentity = legacySignature
       ? (rngOrIdentity as WorldGenerationIdentity | undefined)
       : identity;
@@ -62,7 +64,11 @@ export class RoomGenerator {
     this.portalOperations = new PortalOperations(this.config, this.rng);
     this.roomArchetypeOperations = new RoomArchetypeOperations(this.config, this.rng);
     this.safetyOperations = new SafetyOperations(this.config);
-    this.structureOperations = new StructureOperations(this.config, this.rng, this.structureResolver);
+    this.structureOperations = new StructureOperations(
+      this.config,
+      this.rng,
+      this.structureResolver,
+    );
     this.pipeline = new RoomGenerationPipeline(this);
   }
 
@@ -96,30 +102,31 @@ export class RoomGenerator {
   }
 
   finalizeGenerationContext(context: RoomGenerationContext): RoomSnapshot {
+    const townRoom = Boolean(context.town);
     return {
       id: context.roomId,
       layout: context.canvas.toRows(),
-      archetypeId: context.archetype?.id,
+      archetypeId: townRoom ? undefined : context.archetype?.id,
       portals: context.portals,
       questGiver: context.questGiver,
       village: context.village,
       goblinCamp: context.goblinCamp,
       town: context.town,
       townPerimeter: context.townPerimeter,
-      snakeMcDonalds: context.snakeMcDonalds,
-      shrine: context.shrine,
-      ramenStand: context.ramenStand,
-      koiPond: context.koiPond,
-      motelPool: context.motelPool,
-      tenguCamp: context.tenguCamp,
-      roadsideMonument: context.roadsideMonument,
-      allNiteDiner: context.allNiteDiner,
-      fireworkStand: context.fireworkStand,
-      jackalopeLodge: context.jackalopeLodge,
-      gridironYard: context.gridironYard,
-      billboardOracle: context.billboardOracle,
-      roadCrew: context.roadCrew,
-      temperatureReliefs: context.temperatureReliefs,
+      snakeMcDonalds: townRoom ? undefined : context.snakeMcDonalds,
+      shrine: townRoom ? undefined : context.shrine,
+      ramenStand: townRoom ? undefined : context.ramenStand,
+      koiPond: townRoom ? undefined : context.koiPond,
+      motelPool: townRoom ? undefined : context.motelPool,
+      tenguCamp: townRoom ? undefined : context.tenguCamp,
+      roadsideMonument: townRoom ? undefined : context.roadsideMonument,
+      allNiteDiner: townRoom ? undefined : context.allNiteDiner,
+      fireworkStand: townRoom ? undefined : context.fireworkStand,
+      jackalopeLodge: townRoom ? undefined : context.jackalopeLodge,
+      gridironYard: townRoom ? undefined : context.gridironYard,
+      billboardOracle: townRoom ? undefined : context.billboardOracle,
+      roadCrew: townRoom ? undefined : context.roadCrew,
+      temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,
       biomeId: context.palette.biomeId,
       biomeTitle: context.palette.biomeTitle,
       backgroundColor: context.palette.backgroundColor,

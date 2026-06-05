@@ -36,6 +36,7 @@ export interface ClientRoomSnapshot {
   portals?: unknown[];
   structures?: unknown[];
   caveEntrances?: unknown[];
+  layerEntrances?: unknown[];
   apples?: AppleSnapshot | null;
   enemies?: readonly EnemyInstance[];
   followers?: readonly EnemyInstance[];

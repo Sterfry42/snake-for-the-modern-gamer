@@ -164,6 +164,7 @@ export class SnakeState {
       bufferedDirection: this.bufferedDirection ? { ...this.bufferedDirection } : null,
     };
     this.flags['internal.previousSnapshot'] = previousSnapshot;
+    this.repairInvalidBodyPosition();
 
     const bossManager = deps.getBossManager();
     const cheatImmortal = Boolean(this.flags['cheat.immortal']);
@@ -226,16 +227,18 @@ export class SnakeState {
     delete this.flags['geometry.wallEaten'];
     delete this.flags['geometry.terraShieldTriggered'];
 
-    let head = addVectors(this.body[0], this.direction);
+    let head = this.applyDisorientationDrift(addVectors(this.body[0], this.direction));
 
     let roomChanged = false;
     let verticalRoomChanged = false;
+    let portalTransition = false;
 
     const [roomX, roomY, roomZ = 0] = this.parseRoomCoordinates(this.roomId);
     let localHeadX = head.x - roomX * this.grid.cols;
     let localHeadY = head.y - roomY * this.grid.rows;
-    if (currentRoom.cave) {
-      if (currentRoom.cave.boundaryMode === 'wrap') {
+    const boundaryMode = currentRoom.cave?.boundaryMode ?? currentRoom.layer?.boundaryMode;
+    if (boundaryMode) {
+      if (boundaryMode === 'wrap') {
         localHeadX = (localHeadX + this.grid.cols) % this.grid.cols;
         localHeadY = (localHeadY + this.grid.rows) % this.grid.rows;
         head = { x: localHeadX, y: localHeadY };
@@ -249,17 +252,31 @@ export class SnakeState {
         return { status: 'dead', reason: 'wall' };
       }
     }
-    const portal = currentRoom.portals.find((p) => p.x === localHeadX && p.y === localHeadY);
+    const portal = currentRoom.layer
+      ? undefined
+      : currentRoom.portals.find((p) => p.x === localHeadX && p.y === localHeadY);
     if (portal) {
-      const [, , destZ = '0'] = portal.destRoomId.split(',');
-      verticalRoomChanged = Number(destZ) !== roomZ;
+      const [, , destZ = 0] = this.parseRoomCoordinates(portal.destRoomId);
+      const destinationOrigin = this.getRoomWorldOrigin(portal.destRoomId);
+      head = {
+        x: destinationOrigin.x + portal.destX,
+        y: destinationOrigin.y + portal.destY,
+      };
+      verticalRoomChanged = destZ !== roomZ;
       this.roomId = portal.destRoomId;
       roomChanged = true;
+      portalTransition = true;
     }
 
+    const coordinateRoom = this.isCoordinateRoomId(this.roomId);
     const newRoomX = Math.floor(head.x / this.grid.cols);
     const newRoomY = Math.floor(head.y / this.grid.rows);
-    if (!currentRoom.cave && (newRoomX !== roomX || newRoomY !== roomY)) {
+    if (
+      !currentRoom.cave &&
+      !currentRoom.layer &&
+      coordinateRoom &&
+      (newRoomX !== roomX || newRoomY !== roomY)
+    ) {
       this.roomId = `${newRoomX},${newRoomY},${roomZ}`;
       roomChanged = true;
     }
@@ -269,8 +286,9 @@ export class SnakeState {
     }
 
     const finalizedRoom = deps.getRoom(this.roomId);
-    const baseRoomX = finalizedRoom.cave ? 0 : Math.floor(head.x / this.grid.cols) * this.grid.cols;
-    const baseRoomY = finalizedRoom.cave ? 0 : Math.floor(head.y / this.grid.rows) * this.grid.rows;
+    const finalizedOrigin = this.getRoomWorldOrigin(this.roomId);
+    const baseRoomX = finalizedRoom.cave || finalizedRoom.layer ? 0 : finalizedOrigin.x;
+    const baseRoomY = finalizedRoom.cave || finalizedRoom.layer ? 0 : finalizedOrigin.y;
     const finalLocalHeadX = head.x - baseRoomX;
     const finalLocalHeadY = head.y - baseRoomY;
 
@@ -300,9 +318,9 @@ export class SnakeState {
       (finalizedRoom.apple &&
         finalizedRoom.apple.x === finalLocalHeadX &&
         finalizedRoom.apple.y === finalLocalHeadY) ||
-        finalizedRoom.apples?.some(
-          (apple) => apple.x === finalLocalHeadX && apple.y === finalLocalHeadY,
-        ),
+      finalizedRoom.apples?.some(
+        (apple) => apple.x === finalLocalHeadX && apple.y === finalLocalHeadY,
+      ),
     );
     const bodyForSelfCollision = appleEaten ? this.body : this.getBodyWithoutMovingTailStack();
     const koiFlowActive = this.isKoiFlowActive();
@@ -310,8 +328,8 @@ export class SnakeState {
       ? -1
       : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1 && !koiFlowActive) {
-      if (cheatImmortal) {
-        // Immortal cheat phases through the body instead of slicing or dying.
+      if (cheatImmortal || invulnTicks > 0) {
+        // Immortal and invulnerability states phase through the body instead of slicing or dying.
       } else if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
@@ -362,7 +380,7 @@ export class SnakeState {
         this.flags['internal.lastRemovedTail'] = {
           x: removed.x,
           y: removed.y,
-          roomId: this.roomId.startsWith('cave:')
+          roomId: !this.isCoordinateRoomId(this.roomId)
             ? this.roomId
             : `${tailRoomX},${tailRoomY},${roomZ}`,
         };
@@ -373,7 +391,7 @@ export class SnakeState {
       delete this.flags['internal.lastRemovedTail'];
     }
 
-    if (verticalRoomChanged) {
+    if (verticalRoomChanged || portalTransition) {
       this.body = this.body.map(() => ({ x: head.x, y: head.y }));
       delete this.flags['internal.lastRemovedTail'];
     }
@@ -486,10 +504,10 @@ export class SnakeState {
     localPosition: Vector2Like,
     direction: Vector2Like = this.direction,
   ): void {
-    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+    const origin = this.getRoomWorldOrigin(roomId);
     const world = {
-      x: roomX * this.grid.cols + localPosition.x,
-      y: roomY * this.grid.rows + localPosition.y,
+      x: origin.x + localPosition.x,
+      y: origin.y + localPosition.y,
     };
     this.body = this.body.map(() => ({ ...world }));
     this.roomId = roomId;
@@ -508,6 +526,27 @@ export class SnakeState {
       return true;
     }
     return this.tryConsumeSelfCollision(head);
+  }
+
+  private applyDisorientationDrift(head: Vector2Like): Vector2Like {
+    const ticks = Number(this.flags['status.disorientedTicks'] ?? 0);
+    if (ticks <= 0) {
+      this.flags['status.disorientedStep'] = undefined;
+      return head;
+    }
+    const step = Number(this.flags['status.disorientedStep'] ?? 0) + 1;
+    this.flags['status.disorientedStep'] = step;
+    const interval = Number(this.flags['status.disorientedDriftInterval'] ?? 5);
+    if (step % Math.max(2, interval) !== 0) {
+      return head;
+    }
+    const left = { x: -this.direction.y, y: this.direction.x };
+    const right = { x: this.direction.y, y: -this.direction.x };
+    const stumble = Math.floor(step / 7) % 2 === 0 ? left : right;
+    if (stumble.x === 0 && stumble.y === 0) {
+      return head;
+    }
+    return { x: head.x + stumble.x, y: head.y + stumble.y };
   }
 
   private getBodyWithoutMovingTailStack(): Vector2Like[] {
@@ -550,7 +589,7 @@ export class SnakeState {
   }
 
   private getRoomIdForPosition(position: Vector2Like): string {
-    if (this.roomId.startsWith('cave:')) {
+    if (!this.isCoordinateRoomId(this.roomId)) {
       return this.roomId;
     }
     const roomX = Math.floor(position.x / this.grid.cols);
@@ -654,10 +693,41 @@ export class SnakeState {
   }
 
   private parseRoomCoordinates(roomId: string): [number, number, number] {
-    if (roomId.startsWith('cave:')) {
+    if (!this.isCoordinateRoomId(roomId)) {
       return [0, 0, 0];
     }
     const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
     return [x, y, z];
+  }
+
+  private getRoomWorldOrigin(roomId: string): Vector2Like {
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+    return {
+      x: roomX * this.grid.cols,
+      y: roomY * this.grid.rows,
+    };
+  }
+
+  private repairInvalidBodyPosition(): void {
+    const head = this.body[0];
+    if (head && Number.isFinite(head.x) && Number.isFinite(head.y)) {
+      return;
+    }
+    const origin = this.getRoomWorldOrigin(this.roomId);
+    const repaired = {
+      x: origin.x + Math.floor(this.grid.cols / 2),
+      y: origin.y + Math.floor(this.grid.rows / 2),
+    };
+    this.body = this.body.length > 0 ? this.body.map(() => ({ ...repaired })) : [{ ...repaired }];
+    this.flags['internal.currentHead'] = { ...repaired };
+    this.flags['internal.repairedInvalidSnakePosition'] = {
+      roomId: this.roomId,
+      x: repaired.x,
+      y: repaired.y,
+    };
+  }
+
+  private isCoordinateRoomId(roomId: string): boolean {
+    return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
   }
 }

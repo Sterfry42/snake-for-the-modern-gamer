@@ -8,6 +8,7 @@ import type {
   CaveInstanceState,
   CaveTemplateId,
 } from '../caves/caveTypes.js';
+import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 
 export interface PortalConfig {
   x: number;
@@ -34,6 +35,8 @@ export interface RoomSnapshot {
   treasure?: Vector2Like;
   powerup?: { x: number; y: number; kind: 'phase' | 'smite' | 'gun' };
   caveEntrances?: CaveEntrance[];
+  layerEntrances?: LayerEntrance[];
+  layer?: LayerInstance;
   cave?: {
     id: string;
     parentRoomId: string;
