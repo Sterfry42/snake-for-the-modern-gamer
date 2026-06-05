@@ -139,6 +139,16 @@ import {
   type LayerRuntimeState,
 } from '../layers/layerTypes.js';
 import type { PlayerId, PlayerRuntime } from '../players/playerTypes.js';
+import {
+  calculateRaccoonStashReward,
+  getNextRaccoonWeightThreshold,
+  getRaccoonRenderableBody,
+  getRaccoonSpeedMultiplier,
+  normalizeCharacterMode,
+  restoreRaccoonHunger,
+  tickRaccoonHunger,
+  type CharacterMode,
+} from '../player/raccoonMode.js';
 import type { ClientCommand } from '../session/ClientCommand.js';
 import type { GameSnapshot } from '../session/GameSnapshot.js';
 
@@ -336,7 +346,8 @@ export interface StepResult {
     | 'temperature'
     | 'water'
     | 'shark'
-    | 'roaming-snake';
+    | 'roaming-snake'
+    | 'starvation';
   apple: {
     eaten: boolean;
     rewards?: AppleConsumptionResult['rewards'];
@@ -659,6 +670,11 @@ export class SnakeGame implements QuestRuntime {
   private traversalState: TraversalRuntimeState = createDefaultTraversalState();
 
   private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
+  private characterMode: CharacterMode;
+  private raccoonWeight = 0;
+  private raccoonHungerTimerMs = 0;
+  private raccoonBanditMeter = 0;
+  private raccoonStashedTotal = 0;
   private worldGenerationIdentity: WorldGenerationIdentity;
   private readonly footballs = new Map<string, FootballInstance[]>();
   private footballIdCounter = 0;
@@ -670,6 +686,7 @@ export class SnakeGame implements QuestRuntime {
     rng?: RandomGenerator,
   ) {
     this.config = config;
+    this.characterMode = normalizeCharacterMode(config.character?.mode);
     const runSeed = config.rng.seed ?? createRunSeed();
     this.worldGenerationIdentity = createWorldGenerationIdentity(runSeed);
     this.rng = rng ?? createRng(runSeed);
@@ -740,6 +757,15 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('timeMs', 0);
     this.setFlag('player.health', 3);
     this.setFlag('player.maxHealth', 3);
+    this.characterMode = normalizeCharacterMode(this.config.character?.mode);
+    this.raccoonWeight = 0;
+    this.raccoonHungerTimerMs = 0;
+    this.raccoonBanditMeter = 0;
+    this.raccoonStashedTotal = 0;
+    this.syncRaccoonFlags();
+    if (this.isRaccoonMode()) {
+      this.snake.keepHeadOnly();
+    }
     this.setFlag('ui.healthRevealed', undefined);
     this.setFlag('ui.livesRevealed', undefined);
     this.setFlag('player.bulletInvulnTicks', 0);
@@ -1684,30 +1710,58 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('appleStreakMax', best);
       this.setFlag('lastAppleTimeMs', nowMs);
 
-      const appleScoreMultiplier = Math.max(
-        1,
-        Number(this.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
-      );
-      const appleScorePenalty = Math.max(
-        0,
-        Number(this.getFlag<number>('equipment.appleScorePenalty') ?? 0),
-      );
-      const lengthScoreMultiplier = this.calculateAppleLengthScoreMultiplier();
-      const baseAppleScore = Math.max(0, consumption.rewards.bonusScore - appleScorePenalty);
-      const appleScore = this.applyLengthScoreMultiplier(baseAppleScore, lengthScoreMultiplier);
-      if (appleScore > 0) {
-        this.addScore(appleScore * appleScoreMultiplier);
+      if (this.isRaccoonMode()) {
+        const weightGain = Math.max(1, consumption.rewards.growth);
+        const previousWeight = this.raccoonWeight;
+        const previousTier = this.getRaccoonWeightTierLabel();
+        this.addRaccoonWeight(weightGain);
+        this.restoreRaccoonHungerForPickup();
+        this.addRaccoonBanditForage();
+        const nextTier = this.getRaccoonWeightTierLabel();
+        const nextThreshold = this.getNextRaccoonWeightThreshold();
+        const crossedThreshold = this.config.character.raccoon.weightTiers
+          .map((tier) => tier.minWeight)
+          .filter((threshold) => threshold > 0)
+          .some((threshold) => threshold > previousWeight && threshold <= this.raccoonWeight);
+        this.setFlag('ui.raccoonForageFeedback', {
+          weightGain,
+          weight: this.raccoonWeight,
+          nextThreshold,
+          tierChanged: crossedThreshold,
+          tierLabel: nextTier,
+          message:
+            previousTier !== nextTier
+              ? `Raccoon load: +${weightGain} weight. ${nextTier} pace.`
+              : `Raccoon load: +${weightGain} weight${nextThreshold ? ` (${this.raccoonWeight}/${nextThreshold})` : ''}.`,
+        });
+      } else {
+        const appleScoreMultiplier = Math.max(
+          1,
+          Number(this.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
+        );
+        const appleScorePenalty = Math.max(
+          0,
+          Number(this.getFlag<number>('equipment.appleScorePenalty') ?? 0),
+        );
+        const lengthScoreMultiplier = this.calculateAppleLengthScoreMultiplier();
+        const baseAppleScore = Math.max(0, consumption.rewards.bonusScore - appleScorePenalty);
+        const appleScore = this.applyLengthScoreMultiplier(baseAppleScore, lengthScoreMultiplier);
+        if (appleScore > 0) {
+          this.addScore(appleScore * appleScoreMultiplier);
+        }
       }
       const libertyAppleBonus = Number(this.getFlag<number>('liberty.nextAppleBonus') ?? 0);
       if (libertyAppleBonus > 0) {
-        this.addScore(libertyAppleBonus);
         this.setFlag('liberty.nextAppleBonus', undefined);
-        this.setFlag('ui.questInteraction', {
-          message: `Liberty sparkle bonus: +${libertyAppleBonus} score.`,
-        });
+        if (!this.isRaccoonMode()) {
+          this.addScore(libertyAppleBonus);
+          this.setFlag('ui.questInteraction', {
+            message: `Liberty sparkle bonus: +${libertyAppleBonus} score.`,
+          });
+        }
       }
 
-      const extraGrowth = Math.max(0, consumption.rewards.growth - 1);
+      const extraGrowth = this.isRaccoonMode() ? 0 : Math.max(0, consumption.rewards.growth - 1);
       if (extraGrowth > 0) {
         this.snake.grow(extraGrowth);
       }
@@ -1878,7 +1932,25 @@ export class SnakeGame implements QuestRuntime {
         }
         const healed = eatenHumanoid ? this.healPlayer(1) : 0;
         this.addScore(eatenHumanoid ? 6 : 3);
-        this.snake.grow(1);
+        if (this.isRaccoonMode()) {
+          const weightGain = 5;
+          const previousWeight = this.raccoonWeight;
+          this.addRaccoonWeight(weightGain);
+          const nextThreshold = this.getNextRaccoonWeightThreshold();
+          const crossedThreshold = this.config.character.raccoon.weightTiers
+            .map((tier) => tier.minWeight)
+            .filter((threshold) => threshold > 0)
+            .some((threshold) => threshold > previousWeight && threshold <= this.raccoonWeight);
+          this.setFlag('ui.raccoonForageFeedback', {
+            weightGain,
+            weight: this.raccoonWeight,
+            nextThreshold,
+            tierChanged: crossedThreshold,
+            tierLabel: this.getRaccoonWeightTierLabel(),
+          });
+        } else {
+          this.snake.grow(5);
+        }
         this.setFlag('ui.enemyEaten', {
           x: currentHead.x,
           y: currentHead.y,
@@ -2176,6 +2248,10 @@ export class SnakeGame implements QuestRuntime {
       appleSnapshot,
       appleStateChanged: false,
     };
+    const hungerDeath = this.tickRaccoonHungerClock(100, options);
+    if (hungerDeath) {
+      return hungerDeath;
+    }
     if (this.tickTemperatureState()) {
       return this.createTemperatureDeathOrPhoenixResult(options);
     }
@@ -2183,6 +2259,70 @@ export class SnakeGame implements QuestRuntime {
       return this.createTemperatureDeathOrPhoenixResult(options);
     }
     return null;
+  }
+
+  private tickRaccoonHungerClock(
+    elapsedMs: number,
+    options: {
+      roomsChanged: Set<string>;
+      previousRoom: string;
+      roomHasChanged: boolean;
+      appleEaten: boolean;
+      appleSnapshot: AppleSnapshot | null;
+      appleStateChanged: boolean;
+    },
+  ): StepResult | null {
+    if (!this.isRaccoonMode()) {
+      return null;
+    }
+    this.decayRaccoonBandit(elapsedMs);
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
+    const result = tickRaccoonHunger({
+      elapsedMs,
+      currentHunger: current,
+      maxHunger: max,
+      timerMs: this.raccoonHungerTimerMs,
+      config: this.config.character.raccoon,
+    });
+    this.raccoonHungerTimerMs = result.timerMs;
+    if (result.hungerLost > 0) {
+      this.setFlag('player.health', result.currentHunger);
+      this.setFlag('ui.healthRevealed', true);
+      this.setFlag('ui.questInteraction', {
+        message:
+          result.currentHunger > 0
+            ? `Hunger slips: -${result.hungerLost}. Find forage.`
+            : 'Starving. The raccoon run ends.',
+      });
+    }
+    this.syncRaccoonFlags();
+    if (result.currentHunger > 0) {
+      return null;
+    }
+    if (
+      this.tryFortitudePhoenix(
+        { status: 'dead', reason: 'temperature' },
+        options.roomsChanged,
+        options.previousRoom,
+      )
+    ) {
+      return this.createAliveStepResult(options);
+    }
+    this.markDeathAtCurrentHead('temperature');
+    return {
+      status: 'dead',
+      deathReason: 'starvation',
+      apple: {
+        eaten: false,
+        current: options.appleSnapshot,
+        stateChanged: options.appleStateChanged,
+      },
+      roomsChanged: options.roomsChanged,
+      roomChanged: options.roomHasChanged,
+      questOffer: null,
+      questsCompleted: [],
+    };
   }
 
   private createNoopActionStepResult(
@@ -2261,9 +2401,14 @@ export class SnakeGame implements QuestRuntime {
         }
       },
       getBossManager: () => this.bosses,
+      skipSelfCollision: this.isRaccoonMode(),
     };
 
-    return this.snake.step(dependencies);
+    const outcome = this.snake.step(dependencies);
+    if (this.isRaccoonMode()) {
+      this.snake.keepHeadOnly();
+    }
+    return outcome;
   }
 
   private handleCaveTransitionAtHead(previousRoom: string, roomsChanged: Set<string>): void {
@@ -6483,7 +6628,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getSnakeBody(): readonly Vector2Like[] {
-    return this.snake.bodySegments;
+    return this.isRaccoonMode()
+      ? getRaccoonRenderableBody(this.snake.bodySegments)
+      : this.snake.bodySegments;
   }
 
   createDeathDebugSnapshot(reason?: StepResult['deathReason'] | string | null): DeathDebugSnapshot {
@@ -6558,6 +6705,154 @@ export class SnakeGame implements QuestRuntime {
 
   getSnakeLength(): number {
     return this.snake.bodySegments.length;
+  }
+
+  getCharacterMode(): CharacterMode {
+    return this.characterMode;
+  }
+
+  isRaccoonMode(): boolean {
+    return this.characterMode === 'raccoon';
+  }
+
+  setCharacterModeForNewRun(mode: CharacterMode): void {
+    this.characterMode = normalizeCharacterMode(mode);
+    this.config.character.mode = this.characterMode;
+  }
+
+  getRaccoonWeight(): number {
+    return this.raccoonWeight;
+  }
+
+  getRaccoonBanditMeter(): number {
+    return this.raccoonBanditMeter;
+  }
+
+  getRaccoonHungerTimerRatio(): number {
+    if (!this.isRaccoonMode()) {
+      return 0;
+    }
+    const decayMs = Math.max(1, this.config.character.raccoon.hungerDecaySeconds * 1000);
+    return Math.max(0, Math.min(1, 1 - this.raccoonHungerTimerMs / decayMs));
+  }
+
+  getRaccoonSpeedMultiplier(): number {
+    return this.isRaccoonMode()
+      ? getRaccoonSpeedMultiplier(this.raccoonWeight, this.config.character.raccoon)
+      : 1;
+  }
+
+  getNextRaccoonWeightThreshold(): number | undefined {
+    return getNextRaccoonWeightThreshold(this.raccoonWeight, this.config.character.raccoon);
+  }
+
+  getRaccoonHudWeightText(): string {
+    const nextThreshold = this.getNextRaccoonWeightThreshold();
+    return nextThreshold ? `${this.raccoonWeight} / ${nextThreshold}` : `${this.raccoonWeight}`;
+  }
+
+  private addRaccoonWeight(amount: number): void {
+    this.raccoonWeight = Math.max(0, this.raccoonWeight + Math.max(0, Math.floor(amount)));
+    this.syncRaccoonFlags();
+  }
+
+  private restoreRaccoonHungerForPickup(): void {
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
+    const next = restoreRaccoonHunger(
+      current,
+      max,
+      this.config.character.raccoon.hungerRestoreOnPickup,
+    );
+    this.setFlag('player.health', next);
+    this.raccoonHungerTimerMs = 0;
+    this.syncRaccoonFlags();
+  }
+
+  private addRaccoonBanditForage(): void {
+    const config = this.config.character.raccoon.bandit;
+    this.raccoonBanditMeter = Math.min(config.max, this.raccoonBanditMeter + config.gainPerForage);
+    this.syncRaccoonFlags();
+  }
+
+  private decayRaccoonBandit(elapsedMs: number): void {
+    const config = this.config.character.raccoon.bandit;
+    if (this.raccoonBanditMeter <= 0) {
+      return;
+    }
+    this.raccoonBanditMeter = Math.max(
+      0,
+      this.raccoonBanditMeter - config.decayPerSecond * (elapsedMs / 1000),
+    );
+    this.syncRaccoonFlags();
+  }
+
+  private getRaccoonWeightTierLabel(): string {
+    const tier = this.config.character.raccoon.weightTiers.reduce((selected, candidate) =>
+      candidate.minWeight <= this.raccoonWeight && candidate.minWeight >= selected.minWeight
+        ? candidate
+        : selected,
+    );
+    return tier.label;
+  }
+
+  private syncRaccoonFlags(): void {
+    this.setFlag('character.mode', this.characterMode);
+    this.setFlag('raccoon.weight', this.raccoonWeight);
+    this.setFlag('raccoon.hungerTimerMs', this.raccoonHungerTimerMs);
+    this.setFlag('raccoon.banditMeter', Math.round(this.raccoonBanditMeter));
+    this.setFlag('raccoon.stashedTotal', this.raccoonStashedTotal);
+  }
+
+  stashRaccoonApples(actorId?: string): { ok: boolean; message: string; color: string } {
+    if (!this.isRaccoonMode()) {
+      return {
+        ok: false,
+        message: 'Only raccoons can stash carried apples.',
+        color: '#ff6b6b',
+      };
+    }
+    const room = this.getCurrentRoom();
+    const actorRole =
+      actorId !== undefined
+        ? (this.actors.getActor(actorId)?.role ??
+          room.town?.residents.find(
+            (resident) =>
+              (resident.actorId ??
+                this.getTownResidentActorId(room.town!.id, resident.id, resident.role)) === actorId,
+          )?.role)
+        : undefined;
+    if (actorRole && actorRole !== 'butcher' && !isTownShopRole(actorRole)) {
+      return {
+        ok: false,
+        message: 'That counter is not ready to hide a raccoon apple pile.',
+        color: '#ff6b6b',
+      };
+    }
+    if (this.raccoonWeight <= 0) {
+      return { ok: false, message: 'No apples to stash.', color: '#ffb36b' };
+    }
+    const result = calculateRaccoonStashReward(
+      this.raccoonWeight,
+      this.raccoonBanditMeter,
+      this.config.character.raccoon,
+    );
+    this.addScore(result.score);
+    this.raccoonStashedTotal += result.depositedWeight;
+    this.raccoonWeight = 0;
+    this.raccoonBanditMeter = 0;
+    if (result.depositedWeight >= 10) {
+      const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+      const current = Number(this.getFlag<number>('player.health') ?? max);
+      this.setFlag('player.health', Math.min(max, current + 1));
+    }
+    this.syncRaccoonFlags();
+    this.setFlag('ui.raccoonPopup', { kind: 'stash' });
+    return {
+      ok: true,
+      message: `Stashed ${result.depositedWeight} weight for ${result.score} score. Bandit cashout x${result.banditBonus.toFixed(2)}.`,
+      color: '#b6ff6a',
+    };
   }
 
   private calculateAppleLengthScoreMultiplier(): number {
@@ -9018,6 +9313,11 @@ export class SnakeGame implements QuestRuntime {
     const next = Math.min(max, current + Math.max(0, Math.floor(amount)));
     this.setFlag('player.health', next);
     this.setFlag('ui.healthRevealed', true);
+    if (this.isRaccoonMode() && next > current) {
+      this.raccoonHungerTimerMs = 0;
+      this.addRaccoonBanditForage();
+      this.syncRaccoonFlags();
+    }
     return next - current;
   }
 
@@ -9960,6 +10260,12 @@ export class SnakeGame implements QuestRuntime {
     const data: GameSaveData = {
       version: '1.0.0',
       timestamp: Date.now(),
+      characterMode: this.characterMode,
+      raccoonWeight: this.raccoonWeight,
+      raccoonHunger: this.getPlayerHealth().current,
+      raccoonHungerTimer: this.raccoonHungerTimerMs,
+      raccoonBanditMeter: this.raccoonBanditMeter,
+      raccoonStashedTotal: this.raccoonStashedTotal,
       snakeLength: this.snake.bodySegments.length,
       snakeBody: Array.from(this.snake.bodySegments, (segment) => ({ ...segment })),
       snakeDirection: { ...this.snake.directionVector },
@@ -10032,6 +10338,25 @@ export class SnakeGame implements QuestRuntime {
       const data = JSON.parse(saved) as GameSaveData;
 
       this.reset({ preserveRunSeed: true });
+      this.characterMode = normalizeCharacterMode(
+        data.characterMode ?? data.flags?.['character.mode'],
+      );
+      this.raccoonWeight = Math.max(
+        0,
+        Math.floor(Number(data.raccoonWeight ?? data.flags?.['raccoon.weight'] ?? 0)),
+      );
+      this.raccoonHungerTimerMs = Math.max(
+        0,
+        Number(data.raccoonHungerTimer ?? data.flags?.['raccoon.hungerTimerMs'] ?? 0),
+      );
+      this.raccoonBanditMeter = Math.max(
+        0,
+        Number(data.raccoonBanditMeter ?? data.flags?.['raccoon.banditMeter'] ?? 0),
+      );
+      this.raccoonStashedTotal = Math.max(
+        0,
+        Number(data.raccoonStashedTotal ?? data.flags?.['raccoon.stashedTotal'] ?? 0),
+      );
       if (data.worldGeneration) {
         this.worldGenerationIdentity = data.worldGeneration;
         this.rng = createRng(data.worldGeneration.seed);
@@ -10065,8 +10390,15 @@ export class SnakeGame implements QuestRuntime {
       if (typeof data.playerHealth === 'number') {
         this.setFlag('player.health', data.playerHealth);
       }
+      if (this.isRaccoonMode() && typeof data.raccoonHunger === 'number') {
+        this.setFlag('player.health', data.raccoonHunger);
+      }
       if (typeof data.playerMaxHealth === 'number') {
         this.setFlag('player.maxHealth', data.playerMaxHealth);
+      }
+      if (this.isRaccoonMode()) {
+        this.snake.keepHeadOnly();
+        this.syncRaccoonFlags();
       }
 
       for (const [key, value] of Object.entries(data.inventory)) {

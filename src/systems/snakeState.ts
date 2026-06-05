@@ -14,6 +14,7 @@ export interface SnakeStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   ensureApple(roomId: string, snake: readonly Vector2Like[], score: number): void;
   getBossManager(): BossManager;
+  skipSelfCollision?: boolean;
 }
 
 export class SnakeState {
@@ -141,6 +142,11 @@ export class SnakeState {
     for (let i = 0; i < extraSegments; i++) {
       this.body.push({ x: tail.x, y: tail.y });
     }
+  }
+
+  keepHeadOnly(): void {
+    const head = this.body[0];
+    this.body = head ? [{ x: head.x, y: head.y }] : [];
   }
 
   shrinkTail(segments: number): boolean {
@@ -326,7 +332,9 @@ export class SnakeState {
     const koiFlowActive = this.isKoiFlowActive();
     const selfCollisionIndex = verticalRoomChanged
       ? -1
-      : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
+      : deps.skipSelfCollision
+        ? -1
+        : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1 && !koiFlowActive) {
       if (cheatImmortal || invulnTicks > 0) {
         // Immortal and invulnerability states phase through the body instead of slicing or dying.

@@ -225,6 +225,102 @@ export class JuiceManager {
     this.kickCamera(0.02, 140);
   }
 
+  raccoonPopup(kind: 'stash' | 'sad') {
+    const cam = this.scene.cameras.main;
+    const x = cam.midPoint.x;
+    const y = cam.midPoint.y;
+    const triumphant = kind === 'stash';
+    const colors = triumphant ? [0xfff3a8, 0x5dd6a2, 0x9ad1ff] : [0xff6b6b, 0xffb3a8, 0xfff3a8];
+
+    if (triumphant) {
+      this.playTone({ frequency: 392, duration: 0.14, type: 'triangle', volume: 0.14 });
+      globalThis.setTimeout(
+        () => this.playTone({ frequency: 523.25, duration: 0.16, type: 'triangle', volume: 0.15 }),
+        70,
+      );
+      globalThis.setTimeout(
+        () => this.playTone({ frequency: 783.99, duration: 0.28, type: 'sine', volume: 0.16 }),
+        150,
+      );
+      this.scene.cameras.main.flash(170, 255, 243, 168, true);
+    } else {
+      this.playTone({ frequency: 220, duration: 0.16, type: 'square', volume: 0.13 });
+      globalThis.setTimeout(
+        () => this.playTone({ frequency: 164.81, duration: 0.22, type: 'sawtooth', volume: 0.11 }),
+        90,
+      );
+      this.scene.cameras.main.flash(150, 255, 110, 110, true);
+    }
+
+    this.kickCamera(triumphant ? 0.048 : 0.04, triumphant ? 300 : 240);
+    this.punchZoom(triumphant ? 1.095 : 1.07, triumphant ? 240 : 200);
+    this.blastWave(x, y, colors, triumphant ? 52 : 40);
+    this.spawnBurst(x, y, { colors, count: triumphant ? 54 : 36, radius: triumphant ? 58 : 42 });
+    this.ringPulse(x, y, triumphant ? 0xfff3a8 : 0xff6b6b, triumphant ? 34 : 28, 3, 330);
+  }
+
+  raccoonForagePickup(worldX: number, worldY: number, label: string, tierChanged = false) {
+    const colors = tierChanged ? [0xfff3a8, 0x5dd6a2, 0x9ad1ff] : [0x5dd6a2, 0xc8ffe1];
+    this.playTone({
+      frequency: tierChanged ? 620 : 420,
+      frequencyEnd: tierChanged ? 820 : 540,
+      duration: tierChanged ? 0.2 : 0.12,
+      type: tierChanged ? 'triangle' : 'sine',
+      volume: tierChanged ? 0.12 : 0.08,
+    });
+    this.floatingLabel(worldX, worldY - 16, label, tierChanged ? '#fff3a8' : '#c8ffe1', 15);
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: tierChanged ? 14 : 7,
+      radius: tierChanged ? 22 : 12,
+    });
+    this.ringPulse(worldX, worldY, tierChanged ? 0xfff3a8 : 0x5dd6a2, tierChanged ? 12 : 7, 2, 190);
+  }
+
+  raccoonWeightThreshold() {
+    const cam = this.scene.cameras.main;
+    this.playTone({
+      frequency: 72,
+      frequencyEnd: 58,
+      duration: 1.35,
+      type: 'sawtooth',
+      volume: 0.2,
+    });
+    this.playTone({
+      frequency: 148,
+      frequencyEnd: 132,
+      duration: 1.25,
+      type: 'triangle',
+      volume: 0.13,
+    });
+    globalThis.setTimeout(
+      () =>
+        this.playTone({
+          frequency: 96,
+          frequencyEnd: 92,
+          duration: 1.05,
+          type: 'sawtooth',
+          volume: 0.1,
+        }),
+      140,
+    );
+    globalThis.setTimeout(
+      () =>
+        this.playTone({
+          frequency: 48,
+          frequencyEnd: 52,
+          duration: 0.82,
+          type: 'square',
+          volume: 0.08,
+        }),
+      360,
+    );
+    this.kickCamera(0.04, 460);
+    this.punchZoom(1.06, 240);
+    this.scene.cameras.main.flash(110, 230, 230, 210, true);
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xfff3a8, 42, 3, 360);
+  }
+
   babyCry() {
     const cries = [
       { delayMs: 0, start: 760, end: 420, duration: 0.42, volume: 0.095 },

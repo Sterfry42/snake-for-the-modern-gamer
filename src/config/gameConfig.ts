@@ -1,8 +1,10 @@
 import type { Vector2Like } from '../core/math.js';
 import {
-  defaultRoamingSnakeConfig,
-  type RoamingSnakeConfig,
-} from './roamingSnakeConfig.js';
+  DEFAULT_RACCOON_MODE_CONFIG,
+  type CharacterMode,
+  type RaccoonModeConfig,
+} from '../player/raccoonMode.js';
+import { defaultRoamingSnakeConfig, type RoamingSnakeConfig } from './roamingSnakeConfig.js';
 
 export interface GridConfig {
   cols: number;
@@ -122,6 +124,11 @@ export interface MinecraftConfig {
   enabled: boolean;
 }
 
+export interface CharacterConfig {
+  mode: CharacterMode;
+  raccoon: RaccoonModeConfig;
+}
+
 export interface GameConfig {
   grid: GridConfig;
   snake: SnakeConfig;
@@ -130,6 +137,7 @@ export interface GameConfig {
   apples: AppleSystemConfig;
   quests: QuestSystemConfig;
   features: FeatureSystemConfig;
+  character: CharacterConfig;
   minecraft?: MinecraftConfig;
   freakerDennis?: FreakerDennisConfig;
   roamingSnakes?: RoamingSnakeConfig;
@@ -284,6 +292,10 @@ export const defaultGameConfig: GameConfig = {
       'starforgedVanguard',
       'coordinates',
     ],
+  },
+  character: {
+    mode: 'snake',
+    raccoon: DEFAULT_RACCOON_MODE_CONFIG,
   },
   freakerDennis: {
     rainbowPalette: {

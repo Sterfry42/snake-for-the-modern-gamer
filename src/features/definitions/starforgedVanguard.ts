@@ -100,17 +100,24 @@ class StarforgedVanguardFeature extends Feature {
 
     if (state.active) {
       const effects = this.system.computeAppliedEffects(state);
-      if (effects.scoreBonus > 0) {
+      if (effects.scoreBonus > 0 && !scene.snakeGame.isRaccoonMode()) {
         scene.addScore(effects.scoreBonus);
       }
       if (effects.growthBonus > 0 && Number(scene.getFlag<number>('appleStreak') ?? 0) % 5 === 0) {
         scene.growSnake(effects.growthBonus);
       }
-      const lightbindCharges = Number(scene.getFlag<number>('starforged.lightbindAppleCharges') ?? 0);
+      const lightbindCharges = Number(
+        scene.getFlag<number>('starforged.lightbindAppleCharges') ?? 0,
+      );
       if (lightbindCharges > 0) {
-        scene.setFlag('starforged.lightbindAppleCharges', lightbindCharges > 1 ? lightbindCharges - 1 : undefined);
+        scene.setFlag(
+          'starforged.lightbindAppleCharges',
+          lightbindCharges > 1 ? lightbindCharges - 1 : undefined,
+        );
         scene.growSnake(1);
-        scene.addScore(4);
+        if (!scene.snakeGame.isRaccoonMode()) {
+          scene.addScore(4);
+        }
         state.superEnergy = Math.min(100, state.superEnergy + 8);
         this.spawnCallout(scene, 'Lightbind apple: +1 length, +8 super.');
       }
@@ -230,11 +237,20 @@ class StarforgedVanguardFeature extends Feature {
       return;
     }
 
-    const lightbindTicks = Math.max(0, Number(scene.getFlag<number>('starforged.lightbindTicks') ?? 0) - 1);
+    const lightbindTicks = Math.max(
+      0,
+      Number(scene.getFlag<number>('starforged.lightbindTicks') ?? 0) - 1,
+    );
     scene.setFlag('starforged.lightbindTicks', lightbindTicks > 0 ? lightbindTicks : undefined);
-    scene.skillTree.applyActionStepIntervalScalar(lightbindTicks > 0 ? 0.82 : 1, 'starforged:lightbind');
+    scene.skillTree.applyActionStepIntervalScalar(
+      lightbindTicks > 0 ? 0.82 : 1,
+      'starforged:lightbind',
+    );
 
-    const superTicks = Math.max(0, Number(scene.getFlag<number>('starforged.superSurgeTicks') ?? 0) - 1);
+    const superTicks = Math.max(
+      0,
+      Number(scene.getFlag<number>('starforged.superSurgeTicks') ?? 0) - 1,
+    );
     scene.setFlag('starforged.superSurgeTicks', superTicks > 0 ? superTicks : undefined);
     scene.skillTree.applyActionStepIntervalScalar(superTicks > 0 ? 0.72 : 1, 'starforged:super');
     if (superTicks > 0) {
@@ -252,7 +268,10 @@ class StarforgedVanguardFeature extends Feature {
       0,
       Number(scene.getFlag<number>('starforged.publicEventTicks') ?? 0) - 1,
     );
-    scene.setFlag('starforged.publicEventTicks', publicEventTicks > 0 ? publicEventTicks : undefined);
+    scene.setFlag(
+      'starforged.publicEventTicks',
+      publicEventTicks > 0 ? publicEventTicks : undefined,
+    );
     if (publicEventTicks > 0 && state.tick % 8 === 0) {
       this.advancePublicEvent(scene, state, superTicks > 0 ? 9 : 4, 'survival');
     }
@@ -307,13 +326,25 @@ class StarforgedVanguardFeature extends Feature {
     }
   }
 
-  private startPublicEvent(scene: SnakeScene, state: StarforgedRuntimeState, signalTitle: string): void {
+  private startPublicEvent(
+    scene: SnakeScene,
+    state: StarforgedRuntimeState,
+    signalTitle: string,
+  ): void {
     const name = `Public Event: ${signalTitle}`;
     scene.setFlag('starforged.publicEventTicks', 150);
     scene.setFlag('starforged.publicEventProgress', 0);
     scene.setFlag('starforged.publicEventName', name);
-    state.recentRewards = [`${name} has begun. Charge apples, rooms, and supers.`, ...state.recentRewards].slice(0, 6);
-    this.spawnLootBanner(scene, name, 'Heroic trigger: keep moving and spend Lightbind energy.', '#fff3a8');
+    state.recentRewards = [
+      `${name} has begun. Charge apples, rooms, and supers.`,
+      ...state.recentRewards,
+    ].slice(0, 6);
+    this.spawnLootBanner(
+      scene,
+      name,
+      'Heroic trigger: keep moving and spend Lightbind energy.',
+      '#fff3a8',
+    );
     scene.cameras.main.flash(180, 157, 247, 255, false);
   }
 
@@ -489,11 +520,7 @@ class StarforgedVanguardFeature extends Feature {
       this.fakeTitle = null;
       this.activateRelic(scene, state);
       scene.paused = false;
-      this.announce(
-        scene,
-        'DESTINY 3 loaded. Starforged Vanguard online.',
-        '#9df7ff',
-      );
+      this.announce(scene, 'DESTINY 3 loaded. Starforged Vanguard online.', '#9df7ff');
     };
     button.on('pointerdown', start);
     scene.input.keyboard?.once('keydown-ENTER', start);
@@ -557,7 +584,10 @@ class StarforgedVanguardFeature extends Feature {
     this.cinematicBountyText
       .setText(
         bounties
-          .map((bounty) => `${bounty.name}: ${bounty.objective.replace('Complete a Destiny 3 loop: ', '')}`)
+          .map(
+            (bounty) =>
+              `${bounty.name}: ${bounty.objective.replace('Complete a Destiny 3 loop: ', '')}`,
+          )
           .join('\n'),
       )
       .setColor('#fff3a8');
@@ -900,7 +930,10 @@ class StarforgedVanguardFeature extends Feature {
     );
     scene.setFlag('starforged.superEnergy', state.active ? state.superEnergy : undefined);
     scene.setFlag('starforged.abilityEnergy', state.active ? state.abilityEnergy : undefined);
-    scene.setFlag('starforged.pauseMenuLines', state.active ? this.buildPauseMenuLines(scene, state) : undefined);
+    scene.setFlag(
+      'starforged.pauseMenuLines',
+      state.active ? this.buildPauseMenuLines(scene, state) : undefined,
+    );
     scene.setFlag('starforged.guardianSuitName', suit?.name);
     scene.setFlag('starforged.guardianShaderName', suit?.shaderName);
     scene.setFlag('starforged.guardianSuitElement', suit?.element);
@@ -997,7 +1030,9 @@ class StarforgedVanguardFeature extends Feature {
       ...(equipped.length > 0 ? equipped : ['No gear equipped.']),
       '',
       'Recent',
-      ...(state.recentRewards.length > 0 ? state.recentRewards.slice(0, 6) : ['No recent rewards.']),
+      ...(state.recentRewards.length > 0
+        ? state.recentRewards.slice(0, 6)
+        : ['No recent rewards.']),
     ];
   }
 
@@ -1370,7 +1405,14 @@ class StarforgedVanguardFeature extends Feature {
   private spawnDestinationSweep(scene: SnakeScene, element: string): void {
     const color = this.colorForElement(element);
     const sweep = scene.add
-      .rectangle(-scene.scale.width * 0.25, scene.scale.height / 2, scene.scale.width * 0.45, scene.scale.height * 1.4, color, 0.12)
+      .rectangle(
+        -scene.scale.width * 0.25,
+        scene.scale.height / 2,
+        scene.scale.width * 0.45,
+        scene.scale.height * 1.4,
+        color,
+        0.12,
+      )
       .setAngle(-18)
       .setDepth(88)
       .setScrollFactor(0)
