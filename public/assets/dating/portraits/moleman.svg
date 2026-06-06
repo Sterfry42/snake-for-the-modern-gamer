@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Moleman portrait">
+  <rect width="256" height="256" fill="#201711"/>
+  <ellipse cx="128" cy="142" rx="78" ry="86" fill="#7b5a3a"/>
+  <ellipse cx="88" cy="118" rx="30" ry="38" fill="#6a4a31"/>
+  <ellipse cx="156" cy="118" rx="30" ry="38" fill="#6a4a31"/>
+  <ellipse cx="99" cy="115" rx="18" ry="24" fill="#fff4be"/>
+  <ellipse cx="154" cy="115" rx="18" ry="24" fill="#fff4be"/>
+  <circle cx="104" cy="119" r="8" fill="#17110d"/>
+  <circle cx="149" cy="119" r="8" fill="#17110d"/>
+  <ellipse cx="128" cy="143" rx="18" ry="12" fill="#3d2619"/>
+  <path d="M94 166c18 18 45 21 66 0" fill="none" stroke="#2a1a12" stroke-width="7" stroke-linecap="round"/>
+  <path d="M52 190c-18 18-20 36-6 46 18-2 33-15 44-39z" fill="#b79662"/>
+  <path d="M204 190c18 18 20 36 6 46-18-2-33-15-44-39z" fill="#b79662"/>
+  <path d="M76 54c24-22 72-26 104 4" fill="none" stroke="#3b2a1d" stroke-width="18" stroke-linecap="round"/>
+  <circle cx="69" cy="87" r="9" fill="#2e2118"/>
+  <circle cx="190" cy="88" r="10" fill="#2e2118"/>
+  <path d="M55 209l29-18M200 209l-29-18" stroke="#f1d08b" stroke-width="8" stroke-linecap="round"/>
+  <g fill="#a17a4f" opacity=".65">
+    <circle cx="80" cy="72" r="4"/>
+    <circle cx="178" cy="64" r="5"/>
+    <circle cx="125" cy="201" r="4"/>
+    <circle cx="111" cy="58" r="3"/>
+  </g>
+</svg>

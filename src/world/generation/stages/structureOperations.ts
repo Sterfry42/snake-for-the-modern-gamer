@@ -21,6 +21,7 @@ import { tryPlaceRoadsideMonument } from '../../roadsideMonument.js';
 import { tryPlaceAllNiteDiner } from '../../allNiteDiner.js';
 import { tryPlaceFireworkStand } from '../../fireworkStand.js';
 import { tryPlaceJackalopeLodge } from '../../jackalopeLodge.js';
+import { tryPlaceMolemanDigSite } from '../../molemanDigSite.js';
 import { cellsForEdgeRunup, mergeProtectedCells, type EdgeSide } from '../edgeAccess.js';
 import {
   getHumanTownDistricts,
@@ -42,7 +43,8 @@ type SettlementKind =
   | 'roadside-monument'
   | 'all-nite-diner'
   | 'firework-stand'
-  | 'jackalope-lodge';
+  | 'jackalope-lodge'
+  | 'moleman-dig-site';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
 const VILLAGE_CHANCE = 0.09;
@@ -58,6 +60,7 @@ const ROADSIDE_MONUMENT_CHANCE = 0.10;
 const ALL_NITE_DINER_CHANCE = 0.08;
 const FIREWORK_STAND_CHANCE = 0.08;
 const JACKALOPE_LODGE_CHANCE = 0.10;
+const MOLEMAN_DIG_SITE_CHANCE = 0.09;
 const MOTEL_POOL_CHANCE = 0.10;
 const SETTLEMENT_ANCHOR_SPACING = 5;
 const GUARANTEED_SETTLEMENT_KINDS = [
@@ -71,6 +74,7 @@ const GUARANTEED_SETTLEMENT_KINDS = [
   'all-nite-diner',
   'firework-stand',
   'jackalope-lodge',
+  'moleman-dig-site',
 ] as const;
 const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house', 'shrine'] as const;
 
@@ -118,6 +122,7 @@ export class StructureOperations {
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
+      !context.molemanDigSite &&
       !this.hasLibertyStructure(context)
     ) {
       this.placeSettlement(context, entranceRunups, shouldGuaranteeStructure);
@@ -133,6 +138,7 @@ export class StructureOperations {
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
+      !context.molemanDigSite &&
       !this.hasLibertyStructure(context) &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
@@ -151,6 +157,7 @@ export class StructureOperations {
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
+      !context.molemanDigSite &&
       !this.hasLibertyStructure(context)
     ) {
       const koiChance = context.isJadePeak ? 0.12 : context.isLibertyBadlands ? MOTEL_POOL_CHANCE : 0.03;
@@ -175,6 +182,7 @@ export class StructureOperations {
       !context.ramenStand &&
       !context.koiPond &&
       !context.tenguCamp &&
+      !context.molemanDigSite &&
       !this.hasLibertyStructure(context)
     ) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
@@ -261,6 +269,9 @@ export class StructureOperations {
       if (roll < 0.75) {
         return 'goblin-camp';
       }
+      if (roll < 0.88) {
+        return 'moleman-dig-site';
+      }
       return 'quest-house';
     }
 
@@ -330,6 +341,10 @@ export class StructureOperations {
     threshold += QUEST_HOUSE_CHANCE;
     if (roll < threshold) {
       return 'quest-house';
+    }
+    threshold += MOLEMAN_DIG_SITE_CHANCE;
+    if (roll < threshold) {
+      return 'moleman-dig-site';
     }
     return null;
   }
@@ -471,6 +486,18 @@ export class StructureOperations {
         context.questGiver = lodge.elder;
         return true;
       }
+      case 'moleman-dig-site': {
+        const digSite = tryPlaceMolemanDigSite(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+          biomeId: context.palette.biomeId,
+        });
+        if (!digSite) {
+          return false;
+        }
+        context.molemanDigSite = digSite;
+        return true;
+      }
     }
   }
 
@@ -480,7 +507,8 @@ export class StructureOperations {
         context.allNiteDiner ||
         context.fireworkStand ||
         context.jackalopeLodge ||
-        context.motelPool,
+        context.motelPool ||
+        context.molemanDigSite,
     );
   }
 
@@ -519,6 +547,7 @@ export class StructureOperations {
     context.jackalopeLodge = undefined;
     context.billboardOracle = undefined;
     context.roadCrew = undefined;
+    context.molemanDigSite = undefined;
   }
 
   private renderTownPerimeter(context: RoomGenerationContext): void {

@@ -151,6 +151,13 @@ import {
 } from '../player/raccoonMode.js';
 import type { ClientCommand } from '../session/ClientCommand.js';
 import type { GameSnapshot } from '../session/GameSnapshot.js';
+import {
+  getArtifactDefinition,
+  toArtifactView,
+  type ArtifactDefinition,
+  type ArtifactView,
+} from '../artifacts/artifacts.js';
+import type { ArchaeologyRewardBundle, ArchaeologyTuning } from '../archaeology/molemanArchaeology.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -820,6 +827,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('wards.contracts', undefined);
     this.setFlag('wards.usage', undefined);
     this.setFlag('wards.lastTriggered', undefined);
+    this.setFlag('artifacts.run', undefined);
     this.setFlag('followers.active', undefined);
     this.setFlag('equipment.refundEveryRooms', undefined);
     this.setFlag('equipment.appleScorePenalty', undefined);
@@ -2280,7 +2288,7 @@ export class SnakeGame implements QuestRuntime {
     const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     const current = Number(this.getFlag<number>('player.health') ?? max);
     const result = tickRaccoonHunger({
-      elapsedMs,
+      elapsedMs: elapsedMs * this.getArtifactHungerDrainScalar(),
       currentHunger: current,
       maxHunger: max,
       timerMs: this.raccoonHungerTimerMs,
@@ -6701,7 +6709,87 @@ export class SnakeGame implements QuestRuntime {
   }
 
   addScore(amount: number): void {
-    this.snake.addScore(amount);
+    const multiplier = this.getArtifactScoreMultiplier();
+    const adjusted = amount > 0 && multiplier > 1 ? Math.max(1, Math.ceil(amount * multiplier)) : amount;
+    this.snake.addScore(adjusted);
+  }
+
+  getArtifactViews(): ArtifactView[] {
+    return this.getRunArtifacts().map(toArtifactView);
+  }
+
+  getRunArtifacts(): ArtifactDefinition[] {
+    const ids = this.getFlag<string[]>('artifacts.run') ?? [];
+    return ids.map((id) => getArtifactDefinition(id)).filter((artifact): artifact is ArtifactDefinition => Boolean(artifact));
+  }
+
+  addRunArtifact(artifactId: string): boolean {
+    if (!getArtifactDefinition(artifactId)) {
+      return false;
+    }
+    const ids = this.getFlag<string[]>('artifacts.run') ?? [];
+    if (ids.includes(artifactId)) {
+      return false;
+    }
+    this.setFlag('artifacts.run', [...ids, artifactId]);
+    return true;
+  }
+
+  getArtifactTuning(): ArchaeologyTuning {
+    const tuning: ArchaeologyTuning = {};
+    for (const artifact of this.getRunArtifacts()) {
+      tuning.rewardLuck = (tuning.rewardLuck ?? 0) + (artifact.modifiers.rewardLuck ?? 0);
+      tuning.equipmentRewardChance =
+        (tuning.equipmentRewardChance ?? 0) + (artifact.modifiers.equipmentRewardChance ?? 0);
+      tuning.excavationAppleBonus =
+        (tuning.excavationAppleBonus ?? 0) + (artifact.modifiers.excavationAppleBonus ?? 0);
+      tuning.goldAppleFrequency =
+        (tuning.goldAppleFrequency ?? 0) + (artifact.modifiers.goldAppleFrequency ?? 0);
+    }
+    return tuning;
+  }
+
+  getArtifactHungerDrainScalar(): number {
+    return this.getRunArtifacts().reduce(
+      (scalar, artifact) => scalar * (artifact.modifiers.hungerDrainScalar ?? 1),
+      1,
+    );
+  }
+
+  hasArtifactCoordinatesAlwaysVisible(): boolean {
+    return this.getRunArtifacts().some((artifact) => artifact.modifiers.coordinatesAlwaysVisible);
+  }
+
+  applyArchaeologyRewards(rewards: ArchaeologyRewardBundle): {
+    score: number;
+    itemCount: number;
+    artifactCount: number;
+  } {
+    const scoreBefore = this.getScore();
+    this.addScore(rewards.score);
+    let itemCount = 0;
+    const itemRewards = [rewards.apples, rewards.equipment, rewards.supplies];
+    for (const bucket of itemRewards) {
+      for (const [itemId, count] of Object.entries(bucket)) {
+        if (count <= 0) continue;
+        this.inventory.addItem(itemId, count);
+        itemCount += count;
+      }
+    }
+    let artifactCount = 0;
+    for (const artifactId of rewards.artifacts) {
+      if (this.addRunArtifact(artifactId)) {
+        artifactCount += 1;
+      }
+    }
+    return { score: this.getScore() - scoreBefore, itemCount, artifactCount };
+  }
+
+  private getArtifactScoreMultiplier(): number {
+    return this.getRunArtifacts().reduce(
+      (multiplier, artifact) => multiplier * (artifact.modifiers.scoreMultiplier ?? 1),
+      1,
+    );
   }
 
   getSnakeLength(): number {
@@ -10234,6 +10322,7 @@ export class SnakeGame implements QuestRuntime {
       'starforged.abilityEnergy',
       'starforged.effects',
       'starforged.wallSenseBonus',
+      'artifacts.run',
       'caves.save',
       'minecraft.save',
       'fishing.caughtFish',

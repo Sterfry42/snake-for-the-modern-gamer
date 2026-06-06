@@ -126,6 +126,7 @@ export class RoomGenerator {
       gridironYard: townRoom ? undefined : context.gridironYard,
       billboardOracle: townRoom ? undefined : context.billboardOracle,
       roadCrew: townRoom ? undefined : context.roadCrew,
+      molemanDigSite: townRoom ? undefined : context.molemanDigSite,
       temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,
       biomeId: context.palette.biomeId,
       biomeTitle: context.palette.biomeTitle,

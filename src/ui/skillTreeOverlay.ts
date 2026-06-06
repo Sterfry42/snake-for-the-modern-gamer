@@ -18,6 +18,7 @@ import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
 import type { ActorJournalEntry, QuestObjectiveSummary } from '../game/snakeGame.js';
+import type { ArtifactView } from '../artifacts/artifacts.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -43,6 +44,7 @@ interface OverlayHandlers {
   getDatingView?: () => readonly DatingCandidateView[];
   getPeopleView?: () => readonly ActorJournalEntry[];
   getDestinyView?: () => readonly string[];
+  getArtifactView?: () => readonly ArtifactView[];
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
@@ -66,6 +68,7 @@ type TabId =
   | 'customize'
   | 'cards'
   | 'destiny'
+  | 'artifacts'
   | 'map'
   | 'people'
   | 'dating'
@@ -95,6 +98,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
   { id: 'cards', label: 'Cards', group: 'gear' },
   { id: 'destiny', label: 'Destiny 3', group: 'gear' },
+  { id: 'artifacts', label: 'Artifacts', group: 'gear' },
   { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
   { id: 'dating', label: 'Dating', group: 'world' },
   { id: 'quests', label: 'Quests', group: 'world' },
@@ -1270,6 +1274,7 @@ export class SkillTreeOverlay {
     const questsActive = this.activeTab === 'quests';
     const factionsActive = this.activeTab === 'factions';
     const destinyActive = this.activeTab === 'destiny';
+    const artifactsActive = this.activeTab === 'artifacts';
     const infoActive = this.activeTab === 'info';
     const graphActive = this.activeTab === 'graph';
     this.connectionGraphics.setVisible(skillsActive);
@@ -1277,7 +1282,9 @@ export class SkillTreeOverlay {
     this.customizationText.setVisible(customizationActive);
     this.cardsText.setVisible(cardsActive);
     this.spellsText.setVisible(spellsActive);
-    this.questListText.setVisible(questsActive || datingActive || peopleActive || destinyActive);
+    this.questListText.setVisible(
+      questsActive || datingActive || peopleActive || destinyActive || artifactsActive,
+    );
     this.factionsText.setVisible(factionsActive);
     if (
       !spellsActive &&
@@ -1285,6 +1292,7 @@ export class SkillTreeOverlay {
       !datingActive &&
       !peopleActive &&
       !destinyActive &&
+      !artifactsActive &&
       !customizationActive
     ) {
       this.scrollHintText.setVisible(false);
@@ -1292,7 +1300,7 @@ export class SkillTreeOverlay {
     if (!spellsActive) {
       this.resetScrollableText(this.spellsText);
     }
-    if (!questsActive && !datingActive && !peopleActive && !destinyActive) {
+    if (!questsActive && !datingActive && !peopleActive && !destinyActive && !artifactsActive) {
       this.resetScrollableText(this.questListText);
     }
     if (!customizationActive) {
@@ -1347,6 +1355,7 @@ export class SkillTreeOverlay {
         !peopleActive &&
         !datingActive &&
         !destinyActive &&
+        !artifactsActive &&
         !questsActive &&
         !factionsActive &&
         !infoActive;
@@ -1523,6 +1532,24 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         this.hintText.setText('Destiny 3: Starforged power, activity, gear, and surges.');
         this.hintText.setColor('#9df7ff');
+      }
+    }
+
+    if (artifactsActive) {
+      const artifacts = this.handlers.getArtifactView?.() ?? [];
+      this.questListText.setText(this.formatArtifactsInfo(artifacts));
+      this.applyScrollableTextOffset('artifacts', this.questListText);
+      this.detailTitle.setText('Artifacts').setVisible(true);
+      this.detailSubtitle.setText('Run Modifiers').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(
+          'Artifacts are passive run modifiers recovered from Moleman excavation caches. No inventory management required.',
+        )
+        .setVisible(true);
+      if (!this.hintSticky) {
+        this.hintText.setText('Artifacts: passive modifiers recovered this run.');
+        this.hintText.setColor('#d8b4ff');
       }
     }
 
@@ -1912,6 +1939,25 @@ export class SkillTreeOverlay {
         ]
           .filter(Boolean)
           .join('\n'),
+      )
+      .join('\n\n');
+  }
+
+  private formatArtifactsInfo(artifacts: readonly ArtifactView[]): string {
+    if (artifacts.length === 0) {
+      return [
+        'No artifacts recovered yet.',
+        '',
+        'Find a Moleman Dig Site, expose Artifact Caches, and keep the strange little advantages for this run.',
+      ].join('\n');
+    }
+    return artifacts
+      .map((artifact) =>
+        [
+          `${artifact.icon} ${artifact.name}`,
+          `Rarity: ${artifact.rarity}`,
+          artifact.description,
+        ].join('\n'),
       )
       .join('\n\n');
   }

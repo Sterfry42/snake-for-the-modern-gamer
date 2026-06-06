@@ -9,6 +9,7 @@ import type {
   CaveTemplateId,
 } from '../caves/caveTypes.js';
 import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
+import type { DigSiteVariantId } from '../archaeology/molemanArchaeology.js';
 
 export interface PortalConfig {
   x: number;
@@ -149,6 +150,14 @@ export interface RoomSnapshot {
   roadCrew?: {
     ranger: NpcProfile & { x: number; y: number };
     roadName: string;
+  };
+  molemanDigSite?: {
+    id: string;
+    name: string;
+    variantId: DigSiteVariantId;
+    foreman: NpcProfile & { x: number; y: number };
+    bounds: { left: number; top: number; width: number; height: number };
+    pit: Vector2Like;
   };
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   minecraftBlocks?: Record<string, string>;

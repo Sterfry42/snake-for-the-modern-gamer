@@ -23,7 +23,9 @@ class CoordinatesFeature extends Feature {
   }
 
   override onRender(scene: SnakeScene): void {
-    const suppressed = !!scene.getFlag<boolean>('ui.suppressHud');
+    const suppressed =
+      !!scene.getFlag<boolean>('ui.suppressHud') &&
+      !scene.snakeGame.hasArtifactCoordinatesAlwaysVisible();
     this.coordinatesText?.setVisible(!suppressed);
     if (!suppressed) {
       this.coordinatesText?.setPosition(10, scene.snakeGame.isRaccoonMode() ? 82 : 54);

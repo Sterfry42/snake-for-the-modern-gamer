@@ -2,6 +2,48 @@ import type { Item } from './item.js';
 
 export const ITEMS: readonly Item[] = [
   {
+    id: 'apple-normal',
+    name: 'Recovered Standard Apple',
+    description: 'An apple recovered from an excavation. It counts as supplies for now.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'apple-skittish',
+    name: 'Recovered Skittish Apple',
+    description: 'A twitchy apple recovered from Moleman work. It still seems nervous.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'apple-pearl',
+    name: 'Recovered Pearl Apple',
+    description: 'A pale apple polished by underground water.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'apple-yuzu',
+    name: 'Recovered Yuzu Apple',
+    description: 'A sharp citrus apple recovered from strange wet clay.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'apple-gold',
+    name: 'Recovered Golden Apple',
+    description: 'A gleaming excavation apple. Molemen insist these show up sometimes.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'apple-wasabi',
+    name: 'Recovered Wasabi Apple',
+    description: 'A hot green apple pulled from deep rubble.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
     id: 'weapon-revolver',
     name: 'Pilgrim Revolver',
     description: 'A worn sidearm for formal disagreements. Equip it in your weapon slot to fire.',

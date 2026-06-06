@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-label="Moleman dating portrait">
+  <rect width="256" height="256" fill="#241811"/>
+  <ellipse cx="128" cy="146" rx="76" ry="84" fill="#7b5a3a"/>
+  <path d="M78 169h100v62H78z" fill="#4c2430"/>
+  <path d="M98 171h60l-30 35z" fill="#f4e7c0"/>
+  <path d="M116 183h24l-12 20z" fill="#a92d41"/>
+  <ellipse cx="94" cy="116" rx="19" ry="25" fill="#fff4be"/>
+  <ellipse cx="153" cy="116" rx="19" ry="25" fill="#fff4be"/>
+  <circle cx="100" cy="120" r="8" fill="#17110d"/>
+  <circle cx="148" cy="120" r="8" fill="#17110d"/>
+  <ellipse cx="128" cy="145" rx="17" ry="12" fill="#3d2619"/>
+  <path d="M98 165c18 14 40 15 58 0" fill="none" stroke="#2a1a12" stroke-width="7" stroke-linecap="round"/>
+  <path d="M78 58c28-23 72-23 103 0" fill="none" stroke="#2f2218" stroke-width="16" stroke-linecap="round"/>
+  <path d="M95 49c4-15 13-21 26-17-3 11-10 17-21 19z" fill="#5aa06f"/>
+  <circle cx="121" cy="33" r="8" fill="#f2a7c5"/>
+  <path d="M50 194c-17 17-19 34-5 44 18-2 32-14 42-37z" fill="#b99662"/>
+  <path d="M206 194c17 17 19 34 5 44-18-2-32-14-42-37z" fill="#b99662"/>
+  <path d="M54 210l31-17M202 210l-31-17" stroke="#ffe1a0" stroke-width="8" stroke-linecap="round"/>
+  <g fill="#a17a4f" opacity=".55">
+    <circle cx="67" cy="86" r="4"/>
+    <circle cx="185" cy="84" r="5"/>
+    <circle cx="141" cy="72" r="3"/>
+  </g>
+</svg>
