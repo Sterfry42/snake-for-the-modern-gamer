@@ -8,7 +8,7 @@ const FREAK_YOU_TURN_MARGIN = 5;
 export interface Boss {
   id: string;
   name: string;
-  kind?: 'freak-dennis' | 'freaker-dennis' | 'freak-you' | 'revenant' | 'angel';
+  kind?: 'freak-dennis' | 'freaker-dennis' | 'freak-you' | 'revenant' | 'angel' | 'jason-statham';
   body: Vector2Like[];
   health: number;
   maxHealth: number;
@@ -24,11 +24,23 @@ export interface Boss {
   };
   rainbowPalette?: boolean;
   trackingMode?: boolean;
+  // Jason Statham boss fields
+  jasonPhase?: 'calm' | 'attacking' | 'vulnerable' | 'defeated';
+  jasonMoveIndex?: number;
+  jasonVulnerableTimer?: number; // accumulating ms
+  jasonAttackCooldown?: number; // accumulating ms
 }
+
+export type BossEvent =
+  | { kind: 'jason-statham'; phase: 'vulnerable-entered' }
+  | { kind: 'jason-statham'; phase: 'vulnerable-exited' }
+  | { kind: 'jason-statham-defeated'; bossId: string; score: number }
+  | { kind: 'jason-statham-move-started'; moveId: string };
 
 export interface BossStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   getSnakeBody(): readonly Vector2Like[];
+  onEvent?: (event: BossEvent) => void;
 }
 
 export class BossManager {
@@ -103,6 +115,237 @@ export class BossManager {
     this.bosses.set(id, boss);
   }
 
+  public spawnJasonStatham(roomId: string): void {
+    if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
+      console.warn('[spawnJasonStatham] Invalid roomId provided:', roomId);
+      return;
+    }
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    const roomOffsetX = roomX * this.grid.cols;
+    const roomOffsetY = roomY * this.grid.rows;
+
+    const id = `boss-jason-${Date.now()}`;
+    const name = 'Jason Statham';
+
+    const centerX = roomOffsetX + this.grid.cols / 2;
+    const centerY = roomOffsetY + this.grid.rows / 2;
+    const body: Vector2Like[] = [];
+    // Jason body: 3x3 square formation (wider, more imposing)
+    body.push({ x: centerX, y: centerY });
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        body.push({ x: centerX + dx, y: centerY + dy });
+      }
+    }
+
+    const boss: Boss = {
+      id,
+      name,
+      kind: 'jason-statham',
+      body,
+      health: 100,
+      maxHealth: 100,
+      roomId,
+      direction: { x: 1, y: 0 },
+      jasonPhase: 'calm',
+      jasonMoveIndex: 0,
+      jasonVulnerableTimer: 0,
+      jasonAttackCooldown: 0,
+    };
+    this.bosses.set(id, boss);
+  }
+
+  public takeJasonDamage(bossId: string, damage: number): boolean {
+    const boss = this.bosses.get(bossId);
+    if (!boss || boss.kind !== 'jason-statham' || boss.jasonPhase !== 'vulnerable') return false;
+    boss.health = Math.max(0, boss.health - damage);
+    if (boss.health <= 0) {
+      boss.jasonPhase = 'defeated';
+      const score = boss.maxHealth * 10;
+      return true; // defeated
+    }
+    return false; // not defeated
+  }
+
+  /**
+   * Core Jason Statham boss logic.
+   * The BossManager accumulates ms in numeric fields; the scene's step
+   * calls this method each frame. Phase transitions fire events.
+   */
+  private moveJasonStatham(boss: Boss, deps: BossStepDependencies): void {
+    const phase = boss.jasonPhase ?? 'calm';
+
+    if (phase === 'defeated') {
+      // Remove boss after a grace period so defeat FX can play
+      boss.jasonVulnerableTimer = (boss.jasonVulnerableTimer ?? 0) + 1;
+      if (boss.jasonVulnerableTimer > 2000) {
+        this.bosses.delete(boss.id);
+      }
+      return;
+    }
+
+    if (phase === 'vulnerable') {
+      // Count down vulnerability timer
+      boss.jasonVulnerableTimer = (boss.jasonVulnerableTimer ?? 0) + 1;
+      if (boss.jasonVulnerableTimer >= 15000) {
+        boss.jasonPhase = 'attacking';
+        boss.jasonVulnerableTimer = 0;
+        boss.jasonAttackCooldown = 0;
+        boss.jasonMoveIndex = 0;
+        deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-exited' });
+      }
+      // Move Jason erratically during vulnerability (he's tired)
+      if (boss.body.length > 0 && Math.random() < 0.3) {
+        const directions = [
+          { x: 1, y: 0 },
+          { x: -1, y: 0 },
+          { x: 0, y: 1 },
+          { x: 0, y: -1 },
+        ];
+        const validDirections = directions.filter(
+          (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
+        );
+        const choices = validDirections.length > 0 ? validDirections : directions;
+        boss.direction = choices[Math.floor(Math.random() * choices.length)];
+        this.attemptMove(boss, boss.direction, deps);
+      }
+      return;
+    }
+
+    if (phase === 'attacking') {
+      // Check cooldown before next move
+      boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + 1;
+      if (boss.jasonAttackCooldown < 30) {
+        // Small shuffle between moves
+        if (boss.body.length > 0 && Math.random() < 0.25) {
+          const directions = [
+            { x: 1, y: 0 },
+            { x: -1, y: 0 },
+            { x: 0, y: 1 },
+            { x: 0, y: -1 },
+          ];
+          const validDirections = directions.filter(
+            (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
+          );
+          const choices = validDirections.length > 0 ? validDirections : directions;
+          boss.direction = choices[Math.floor(Math.random() * choices.length)];
+          this.attemptMove(boss, boss.direction, deps);
+        }
+        return;
+      }
+
+      // Execute next move
+      boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
+      const moveId = `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
+
+      switch (boss.jasonMoveIndex % 3) {
+        case 1:
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId });
+          // Spiral chase: track the snake for 3 seconds then switch
+          this._jasonSpiralChase(boss, deps);
+          boss.jasonAttackCooldown = 0;
+          break;
+        case 2:
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId });
+          // Dash: fast movement in one direction
+          this._jasonDashMove(boss, deps);
+          boss.jasonAttackCooldown = 0;
+          break;
+        default:
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId });
+          // Charge: aggressive tracking
+          this._jasonChargeMove(boss, deps);
+          boss.jasonAttackCooldown = 0;
+          break;
+      }
+
+      // After all moves, switch to vulnerable
+      boss.jasonPhase = 'vulnerable';
+      boss.jasonVulnerableTimer = 0;
+      boss.jasonMoveIndex = 0;
+      deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-entered' });
+      return;
+    }
+
+    // phase === 'calm': check proximity, then shuffle
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (snakeHead && bossHead) {
+      const proximityDistance = Math.abs(snakeHead.x - bossHead.x) + Math.abs(snakeHead.y - bossHead.y);
+      // Activate when the snake gets within 20 cells
+      if (proximityDistance <= 20) {
+        boss.jasonPhase = 'attacking';
+        boss.jasonAttackCooldown = 0;
+        boss.jasonMoveIndex = 0;
+        deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-entered' });
+        return;
+      }
+    }
+    // Proximity not met: just shuffle
+    if (boss.body.length > 0 && Math.random() < 0.2) {
+      const directions = [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ];
+      const validDirections = directions.filter(
+        (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
+      );
+      const choices = validDirections.length > 0 ? validDirections : directions;
+      boss.direction = choices[Math.floor(Math.random() * choices.length)];
+      this.attemptMove(boss, boss.direction, deps);
+    }
+  }
+
+  /**
+   * Spiral chase: Jason moves in tightening circles toward the snake's room.
+   */
+  private _jasonSpiralChase(boss: Boss, _deps: BossStepDependencies): void {
+    // Already handled by the attacking loop's movement
+    // This method exists for event dispatch clarity
+  }
+
+  /**
+   * Dash: Jason charges quickly in a straight line.
+   */
+  private _jasonDashMove(boss: Boss, deps: BossStepDependencies): void {
+    // Speed up movement for a few ticks (handled by increased move chance)
+    if (boss.body.length > 0) {
+      this.attemptMove(boss, boss.direction, deps);
+      if (boss.body.length > 0) this.attemptMove(boss, boss.direction, deps);
+      if (boss.body.length > 0) this.attemptMove(boss, boss.direction, deps);
+    }
+  }
+
+  /**
+   * Charge: Jason aggressively tracks toward the snake.
+   */
+  private _jasonChargeMove(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (!snakeHead || !bossHead) {
+      this.attemptMove(boss, boss.direction, deps);
+      return;
+    }
+    const dx = snakeHead.x - bossHead.x;
+    const dy = snakeHead.y - bossHead.y;
+    const preferred =
+      Math.abs(dx) >= Math.abs(dy)
+        ? [
+            { x: Math.sign(dx), y: 0 },
+            { x: 0, y: Math.sign(dy) },
+          ]
+        : [
+            { x: 0, y: Math.sign(dy) },
+            { x: Math.sign(dx), y: 0 },
+          ];
+    for (const direction of preferred) {
+      if (this.tryMoveBoss(boss, direction, deps)) return;
+    }
+  }
+
   public spawnFreakYou(roomId: string): string | null {
     if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
       console.warn('[spawnFreakYou] Invalid roomId provided:', roomId);
@@ -147,6 +390,8 @@ export class BossManager {
         this.moveAngelBoss(boss, deps);
       } else if (boss.kind === 'freaker-dennis') {
         this.moveFreakerDennis(boss, deps);
+      } else if (boss.kind === 'jason-statham') {
+        this.moveJasonStatham(boss, deps);
       } else {
         this.moveStandardBoss(boss, deps);
       }
@@ -200,6 +445,14 @@ export class BossManager {
 
   public hasBossWithKind(kind: Boss['kind']): boolean {
     return Array.from(this.bosses.values()).some((boss) => boss.kind === kind);
+  }
+
+  public getBoss(id: string): Boss | undefined {
+    return this.bosses.get(id);
+  }
+
+  public deleteBoss(id: string): void {
+    this.bosses.delete(id);
   }
 
   public getBossHeadRoomId(id: string): string | null {

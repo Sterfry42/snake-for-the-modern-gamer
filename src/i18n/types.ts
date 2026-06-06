@@ -109,4 +109,15 @@ export interface FeatureStrings {
   fishingQuestFishTitle: string;
   fishingQuestFishDesc: string;
   fishingQuestCatchLabel: string;
+  // Jason Statham Boss
+  jason_statham_name?: string;
+  jason_statham_intro?: string;
+  jason_statham_tired?: string;
+  jason_statham_tired_sub?: string;
+  jason_statham_attack_charge?: string;
+  jason_statham_attack_spiral?: string;
+  jason_statham_attack_dash?: string;
+  jason_statham_defeated?: string;
+  jason_statham_victory?: string;
+  jason_statham_score_bonus?: string;
 }

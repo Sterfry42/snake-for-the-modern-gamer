@@ -63,4 +63,15 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   fishingQuestFishTitle: 'Catch Fish',
   fishingQuestFishDesc: 'Catch fish using your fishing rod. The water remembers who comes back.',
   fishingQuestCatchLabel: 'Caught {count} fish',
+  // Jason Statham Boss
+  jason_statham_name: 'Jason Statham',
+  jason_statham_intro: 'He came for the snake. The snake did not send a receipt.',
+  jason_statham_tired: "I'm Tired",
+  jason_statham_tired_sub: 'Catch your breath. You have 15 seconds.',
+  jason_statham_attack_charge: 'Statham Charges',
+  jason_statham_attack_spiral: 'Statham Spirals',
+  jason_statham_attack_dash: 'Statham Dashes',
+  jason_statham_defeated: 'He just... stops. Like a bad movie.',
+  jason_statham_victory: "I guess Beekeeper 2 isn't coming out after all...",
+  jason_statham_score_bonus: 'Jason Statham Score Bonus',
 };

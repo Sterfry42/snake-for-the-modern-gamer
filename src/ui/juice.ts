@@ -1278,6 +1278,82 @@ export class JuiceManager {
     this.spawnBurst(worldX, worldY, { colors: [0xff6b6b, 0xc27dff], count: 12, radius: 22 });
   }
 
+  /** Jason Statham vulnerability pulse */
+  stathamVulnerable(worldX: number, worldY: number) {
+    // Red warning pulse for vulnerability
+    this.playTone({
+      frequency: 220,
+      frequencyEnd: 440,
+      duration: 0.28,
+      type: 'triangle',
+      volume: 0.14,
+    });
+    this.kickCamera(0.018, 180);
+    this.scene.cameras.main.flash(160, 255, 80, 80, true);
+    this.ringPulse(worldX, worldY, 0xff2d2d, 20, 3, 300);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff2d2d, 0xff8c42, 0xfff3a8],
+      count: 20,
+      radius: 30,
+    });
+    this.blastWave(worldX, worldY, [0xff2d2d, 0xff8c42], 28);
+  }
+
+  /** Jason Statham attack charge warning */
+  stathamAttackCharge(worldX: number, worldY: number) {
+    // Warning rumble
+    this.playTone({
+      frequency: 120,
+      frequencyEnd: 80,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.15,
+    });
+    this.kickCamera(0.022, 200);
+    this.scene.cameras.main.flash(100, 255, 50, 50, true);
+    this.ringPulse(worldX, worldY, 0xffd166, 12, 2, 240);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xff8c42, 0xff2d2d],
+      count: 14,
+      radius: 24,
+    });
+  }
+
+  /** Jason Statham defeat: massive explosion + calm */
+  stathamDefeated(worldX: number, worldY: number) {
+    // Big boom then sudden silence
+    this.playTone({
+      frequency: 100,
+      frequencyEnd: 30,
+      duration: 0.8,
+      type: 'sawtooth',
+      volume: 0.24,
+    });
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 80,
+      duration: 0.6,
+      type: 'square',
+      volume: 0.16,
+    });
+    this.kickCamera(0.05, 400);
+    this.scene.cameras.main.shake(340, 0.035);
+    this.scene.cameras.main.flash(260, 255, 255, 255, true);
+    this.blastWave(worldX, worldY, [0xff2d2d, 0xff8c42, 0xffd166, 0xfff3a8], 48);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff2d2d, 0xff8c42, 0xffd166, 0xfff3a8, 0xc27dff],
+      count: 40,
+      radius: 52,
+    });
+    this.ringPulse(worldX, worldY, 0xffd166, 18, 4, 400);
+    globalThis.setTimeout(() => {
+      this.ringPulse(worldX, worldY, 0xfff3a8, 12, 2, 320);
+    }, 120);
+    globalThis.setTimeout(() => {
+      this.ringPulse(worldX, worldY, 0xc27dff, 8, 1, 280);
+    }, 240);
+  }
+
   startBossMusic(bossId: string) {
     if (this.bossMusic?.id === bossId) {
       return;

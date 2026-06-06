@@ -30,6 +30,7 @@ import { SnakeRenderer } from '../ui/snakeRenderer.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
+import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
@@ -1437,6 +1438,8 @@ export default class SnakeScene extends Phaser.Scene {
   private mobileControls: MobileControls | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
+  private jasonVulnerableDialogueShown = false;
+  private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
@@ -1722,6 +1725,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
+    this.snakeGame.setJasonDamageCallback((_bossId, defeated, _scoreBonus) => {
+      if (defeated) {
+        // The defeat event will be handled by the boss event callback
+      }
+    });
     this.gameSession = new LocalGameSession({ game: this.snakeGame });
     this.gameConnection = new LocalGameConnection(this.gameSession);
     this.unsubscribeSnapshot = this.gameConnection.onSnapshot((snapshot) => {
@@ -2149,7 +2157,53 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused) {
       return;
     }
-    this.gameSession.bossStep();
+    this.gameSession.bossStep((event) => this.handleBossEvent(event));
+  }
+
+private handleBossEvent(event: BossEvent): void {
+    const head = this.snakeGame.getSnakeBody()[0];
+    const worldX = head ? head.x * this.grid.cell + this.grid.cell / 2 : this.scale.width / 2;
+    const worldY = head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2;
+    if (event.kind === 'jason-statham' && event.phase === 'vulnerable-entered') {
+      this.juice.stathamVulnerable(worldX, worldY);
+      this.juice.announce(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b', 2000);
+      this.jasonVulnerableDialogueShown = true;
+    } else if (event.kind === 'jason-statham' && event.phase === 'vulnerable-exited') {
+      this.jasonVulnerableDialogueShown = false;
+    } else if (event.kind === 'jason-statham-move-started') {
+      // Play warning sound
+      this.juice.stathamAttackCharge(worldX, worldY);
+    } else if (event.kind === 'jason-statham-defeated') {
+      this.handleJasonDefeat(event.bossId, event.score);
+    }
+  }
+
+  private handleJasonDefeat(bossId: string, score: number): void {
+    // Stop boss music
+    this.juice.stopBossMusic();
+
+    // Hide boss HUD
+    this.bossHud.hide();
+
+    // Remove boss immediately
+    this.snakeGame.bosses.deleteBoss(bossId);
+
+    // Award score bonus
+    this.snakeGame.addScore(score);
+
+    // Juice
+    const head = this.snakeGame.getSnakeBody()[0];
+    this.juice.stathamDefeated(
+      head ? head.x * this.grid.cell + this.grid.cell / 2 : this.scale.width / 2,
+      head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2,
+    );
+
+    // Show defeat announcements
+    this.juice.announce(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166', 2500);
+    this.juice.announce(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2', 3000);
+
+    // Clean up defeat timer if set
+    this.jasonDefeatTimer?.remove(false);
   }
 
   private async runActorClockStep(): Promise<void> {
@@ -6787,6 +6841,23 @@ export default class SnakeScene extends Phaser.Scene {
       } else if (boss.kind === 'freak-you') {
         bossColor = 0xff2d55;
         bossAlpha = 0.9;
+      } else if (boss.kind === 'jason-statham') {
+        // Jason: red, with pulsing glow during vulnerability
+        if (boss.jasonPhase === 'vulnerable') {
+          // Pulsing red glow
+          const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
+          bossColor = 0xff2d2d;
+          bossAlpha = Math.max(0.5, pulse);
+        } else if (boss.jasonPhase === 'attacking') {
+          bossColor = 0xcc0000;
+          bossAlpha = 0.95;
+        } else if (boss.jasonPhase === 'calm') {
+          bossColor = 0x881111;
+          bossAlpha = 0.5;
+        } else {
+          bossColor = 0x333333;
+          bossAlpha = 0.3;
+        }
       } else if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {
         const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
         if (palette && palette.enabled) {

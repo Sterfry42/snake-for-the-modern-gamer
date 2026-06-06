@@ -84,8 +84,8 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     return result;
   }
 
-  bossStep(): void {
-    this.game.bossStep();
+  bossStep(onEvent?: (event: import('../systems/boss.js').BossEvent) => void): void {
+    this.game.bossStep(onEvent);
     this.emitSnapshot();
   }
 

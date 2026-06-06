@@ -9,7 +9,7 @@ import {
   type SnakeStepDependencies,
   type SnakeStepOutcome,
 } from '../systems/snakeState.js';
-import { BossManager } from '../systems/boss.js';
+import { BossManager, type BossEvent } from '../systems/boss.js';
 import { EnemyManager, type BulletInstance, type EnemyInstance } from '../systems/enemies.js';
 import { AnimalManager } from '../animals/animalManager.js';
 import type { HuntedAnimalResult } from '../animals/animalManager.js';
@@ -642,6 +642,7 @@ export class SnakeGame implements QuestRuntime {
   private apples: AppleService;
   private readonly snake: SnakeState;
   public readonly bosses: BossManager;
+  private jasonDamageCallback?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
   private enemies: EnemyManager;
   private animals: AnimalManager;
   private questController: QuestController;
@@ -2171,12 +2172,17 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  bossStep(): void {
+  bossStep(onEvent?: (event: BossEvent) => void): void {
     this.bosses.step({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       getSnakeBody: () => this.snake.bodySegments,
+      onEvent,
     });
     this.reconcileStagedQuestBosses();
+  }
+
+  setJasonDamageCallback(callback: (bossId: string, defeated: boolean, scoreBonus: number) => void): void {
+    this.jasonDamageCallback = callback;
   }
 
   async actorClockStep(): Promise<StepResult | null> {
@@ -2416,6 +2422,9 @@ export class SnakeGame implements QuestRuntime {
       },
       getBossManager: () => this.bosses,
       skipSelfCollision: this.isRaccoonMode(),
+      onJasonDamage: (bossId, defeated, scoreBonus) => {
+        this.jasonDamageCallback?.(bossId, defeated, scoreBonus);
+      },
     };
 
     const outcome = this.snake.step(dependencies);

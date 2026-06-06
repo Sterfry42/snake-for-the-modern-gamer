@@ -15,6 +15,7 @@ export interface SnakeStepDependencies {
   ensureApple(roomId: string, snake: readonly Vector2Like[], score: number): void;
   getBossManager(): BossManager;
   skipSelfCollision?: boolean;
+  onJasonDamage?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
 }
 
 export class SnakeState {
@@ -368,6 +369,16 @@ export class SnakeState {
           y: head.y,
           roomId: this.getRoomIdForPosition(head),
         };
+      } else if (
+        collidedBoss.kind === 'jason-statham' &&
+        collidedBoss.jasonPhase === 'vulnerable'
+      ) {
+        // Jason is vulnerable: damage him instead of dying
+        const defeated = bossManager.takeJasonDamage(collidedBoss.id, 25);
+        const scoreBonus = defeated ? collidedBoss.maxHealth * 10 : 0;
+        this.flags['internal.killedByBossKind'] = collidedBoss.kind;
+        this.flags['internal.killedByBossName'] = collidedBoss.name;
+        deps.onJasonDamage?.(collidedBoss.id, defeated, scoreBonus);
       } else {
         this.flags['internal.killedByBossKind'] = collidedBoss.kind;
         this.flags['internal.killedByBossName'] = collidedBoss.name;

@@ -8,7 +8,7 @@ import type { GameSnapshot } from './GameSnapshot.js';
 
 export interface LocalAuthoritativeRuntime extends CommandHandler {
   actionStep(paused: boolean): StepResult;
-  bossStep(): void;
+  bossStep(onEvent?: (event: import('../systems/boss.js').BossEvent) => void): void;
   actorClockStep(): Promise<StepResult | null>;
   hazardClockStep(): StepResult | null;
   bulletClockStep(): StepResult | null;
