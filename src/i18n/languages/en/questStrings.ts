@@ -37,6 +37,22 @@ export const QUEST_STRINGS_EN: QuestStringsType = {
     label: 'Deep Waters',
     description: 'Hunt 5 fish in the sunken ocean',
   },
+  'biome-explorer': {
+    label: "Angler's Atlas",
+    description: 'Catch fish in 5 different biomes',
+  },
+  'rare-collector': {
+    label: 'Rare Collection',
+    description: 'Collect 3 different rare or legendary fish types',
+  },
+  'big-catcher': {
+    label: 'The Big One',
+    description: 'Catch a fish weighing at least 5.0 kg',
+  },
+  'legendary-hunter': {
+    label: 'Legend Chaser',
+    description: 'Catch 2 legendary fish',
+  },
   'freak-you': {
     label: 'Freak You',
     description: 'Protect a terrified time traveler from the future version of you that learned how to hunt backward.',

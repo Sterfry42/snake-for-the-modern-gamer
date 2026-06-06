@@ -1,5 +1,6 @@
 import type { FactionStanding } from '../factions/factions.js';
 import type { VillageShopStyleOffer } from './villageShop.js';
+import type { EquipmentSlot } from '../inventory/item.js';
 
 export type WardDeathSource =
   | 'wall'
@@ -17,6 +18,15 @@ export interface WardScrollOffer {
   label: string;
   basePrice: number;
   description: string;
+}
+
+export interface GoblinSupplyOffer {
+  id: string;
+  itemId: string;
+  name: string;
+  price: number;
+  note: string;
+  slot?: EquipmentSlot;
 }
 
 export const GOBLIN_WARD_SCROLLS: readonly WardScrollOffer[] = [
@@ -90,6 +100,33 @@ export const GOBLIN_SNAKE_STYLE: VillageShopStyleOffer = {
     eyeColor: '#fff2c6',
   },
 };
+
+export const GOBLIN_SUPPLIES: readonly GoblinSupplyOffer[] = [
+  {
+    id: 'goblin-fishing-rod',
+    itemId: 'fishing-rod',
+    name: 'Fishing Rod',
+    price: 42,
+    note: 'A goblin-modified rod. The line is frayed but serviceable.',
+    slot: 'gloves',
+  },
+  {
+    id: 'goblin-fishing-rod-carpenter',
+    itemId: 'fishing-rod-carpenter',
+    name: 'Carpenter\'s Rod',
+    price: 70,
+    note: 'Goblin-reinforced. The line is braided with wire. It bites back less.',
+    slot: 'gloves',
+  },
+  {
+    id: 'goblin-fishing-rod-master',
+    itemId: 'fishing-rod-master',
+    name: 'Master Angler\'s Rod',
+    price: 100,
+    note: 'Goblin-forged masterwork. The legendary fish have heard the rumors.',
+    slot: 'gloves',
+  },
+];
 
 export function getWardScrollOffer(id: string): WardScrollOffer | undefined {
   return GOBLIN_WARD_SCROLLS.find((offer) => offer.id === id);

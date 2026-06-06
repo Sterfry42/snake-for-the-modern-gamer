@@ -52,6 +52,10 @@ export interface EquipableItem extends BaseItem {
     yokaiInsight?: boolean;
     // Passive length growth (spiritual discipline).
     spiritualLength?: boolean;
+    // Enables the fishing minigame overlay.
+    fishingEnabled?: boolean;
+    // Multiplies fish sell prices and score when fishing.
+    fishingMod?: number;
   };
 }
 
