@@ -37,6 +37,22 @@ export const QUEST_STRINGS_ES: QuestStringsType = {
     label: 'Aguas Profundas',
     description: 'Caza 5 peces en el océano sumergido',
   },
+  'biome-explorer': {
+    label: 'Atlas del Angler',
+    description: 'Atrapa peces en 5 biomas diferentes',
+  },
+  'rare-collector': {
+    label: 'Colección Rara',
+    description: 'Recoge 3 tipos de peces raros o legendarios diferentes',
+  },
+  'big-catcher': {
+    label: 'El Gran Cazador',
+    description: 'Atrapa un pez de al menos 5.0 kg',
+  },
+  'legendary-hunter': {
+    label: 'Cazador de Leyendas',
+    description: 'Atrapa 2 peces legendarios',
+  },
   'freak-you': {
     label: 'Freak You',
     description: 'Protege a un viajero del tiempo aterrorizado de la versión futura de ti que aprendió a cazar hacia atrás.',

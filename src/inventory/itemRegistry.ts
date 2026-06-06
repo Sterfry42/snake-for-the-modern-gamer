@@ -630,6 +630,217 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'food',
   },
+  // ===== FISHING ITEMS =====
+  {
+    id: 'fishing-rod',
+    name: 'Fishing Rod',
+    description: 'A collapsible fishing pole. Equip it in your gloves slot to start fishing.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      fishingEnabled: true,
+      fishingMod: 1.0,
+    },
+  },
+  {
+    id: 'fishing-rod-carpenter',
+    name: 'Carpenter\'s Rod',
+    description: 'A reinforced fishing rod with a stiffer line. Better catches, better prices.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      fishingEnabled: true,
+      fishingMod: 1.25,
+    },
+  },
+  {
+    id: 'fishing-rod-master',
+    name: 'Master Angler\'s Rod',
+    description: 'The finest fishing rod in the realm. Legendary fish know its approach.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      fishingEnabled: true,
+      fishingMod: 1.5,
+    },
+  },
+  // Verdigris Basin
+  {
+    id: 'fish-minnow',
+    name: 'Minnow',
+    description: 'A tiny silver fish. Barely fights, barely matters.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-perch',
+    name: 'Perch',
+    description: 'A sturdy little fish with spikes and a grudge.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Ember Waste
+  {
+    id: 'fish-desert-catfish',
+    name: 'Desert Catfish',
+    description: 'Barely alive, still thrashing. The desert\'s idea of a meal.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-fire-eel',
+    name: 'Fire Eel',
+    description: 'Warm to the touch. Some say it still sparkles.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Moonlit Parish
+  {
+    id: 'fish-ice-perch',
+    name: 'Ice Perch',
+    description: 'Cold as regret. Crunches when you bite.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-frost-trout',
+    name: 'Frost Trout',
+    description: 'Shimmers with a cold light. Beautiful and unforgiving.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Sable Depths
+  {
+    id: 'fish-deep-minnow',
+    name: 'Deep Minnow',
+    description: 'Smaller than it should be. Blind, but angry.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-abyss-catfish',
+    name: 'Abyss Catfish',
+    description: 'Whiskers like cable. Mouth like a vault.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-shadow-eel',
+    name: 'Shadow Eel',
+    description: 'You cannot see it, but you feel it pulling.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Gloam Garden
+  {
+    id: 'fish-garden-carp',
+    name: 'Garden Carp',
+    description: 'Fat and patient. It knew you were coming.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-moon-perch',
+    name: 'Moon Perch',
+    description: 'Reflects moonlight even when the sky is gone.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Elderwood Maze
+  {
+    id: 'fish-swamp-catfish',
+    name: 'Swamp Catfish',
+    description: 'Mud in its gills, mud in its eyes, mud in its soul.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-forest-eel',
+    name: 'Forest Eel',
+    description: 'Root-tangled and venomous. Do not let it touch you.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-kelp-serpent',
+    name: 'Kelp Serpent',
+    description: 'Long as a corridor. Hungrier than a promise.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Sunken Ocean
+  {
+    id: 'fish-reef-fish',
+    name: 'Reef Fish',
+    description: 'Colorful, confused, and very willing to bite.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-ocean-bass',
+    name: 'Ocean Bass',
+    description: 'Heavy as a brick. Fast as a grudge.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-blue-marlin',
+    name: 'Blue Marlin',
+    description: 'A blade with fins. You respect it. It may respect you back.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-kraken-baitfish',
+    name: 'Kraken Baitfish',
+    description: 'Not the kraken itself. Just what the kraken wants for breakfast.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Jade Peak Province
+  {
+    id: 'fish-koi',
+    name: 'Koi',
+    description: 'Painted by monks. Swum by pilgrims. Caught by you.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-golden-koi',
+    name: 'Golden Koi',
+    description: 'The color of a wish you did not make soon enough.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-dragon-carp',
+    name: 'Dragon Carp',
+    description: 'Old enough to remember the mountain as it was.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Liberty Badlands
+  {
+    id: 'fish-prairie-minnow',
+    name: 'Prairie Minnow',
+    description: 'Tiny, tough, and absolutely unimpressed by you.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-badlands-bass',
+    name: 'Badlands Bass',
+    description: 'Built for dust and drought. Still fights.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-jackalope-lure',
+    name: 'Jackalope Lure',
+    description: 'Part fish, part myth, all trouble.',
+    kind: 'consumable',
+    category: 'food',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));

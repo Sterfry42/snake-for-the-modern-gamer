@@ -167,6 +167,38 @@ const CUSTOM_DIALOGUES: Record<string, QuestDialogue> = {
       'Hunt five fish in the sunken ocean. Come back when your hands are clean and your belly remembers what food tastes like.',
     ],
   },
+  'biome-explorer': {
+    title: "Angler's Atlas",
+    pages: [
+      'Every biome has its own water, its own rules, its own appetite. A fisherman who stays in one place learns a trade. A fisherman who travels learns the world.',
+      'I have seen nets haul minnows from the basin and drag shadows out of the depths. Five biomes is the minimum. The world is larger than five.',
+      'Catch fish in five different biomes. Map them in your mind like a living atlas. Let each catch be a coordinate you can return to.',
+    ],
+  },
+  'rare-collector': {
+    title: 'Rare Collection',
+    pages: [
+      'Most fish are abundant by nature. Rarity is a statement about how much effort the world requires to produce them.',
+      'Rare and legendary catches are not just heavier or shinier. They are rarer for reasons that have nothing to do with you and everything to do with the water they call home.',
+      'Collect three different types of rare or legendary fish. Build a collection that tells a story the water remembers.',
+    ],
+  },
+  'big-catcher': {
+    title: 'The Big One',
+    pages: [
+      'There is a difference between many small catches and one that matters. The big ones do not come often, and when they do, they do not ask twice.',
+      'Five kilograms is not a lot of weight for the deep, but it is enough to prove you are no longer fishing by yourself.',
+      'Catch a single fish that tips the scales at five kilograms or more. Let the journal remember that day.',
+    ],
+  },
+  'legendary-hunter': {
+    title: 'Legend Chaser',
+    pages: [
+      'Legendary fish are not a category. They are an event. You do not catch them every season — sometimes you catch them once in a lifetime, and that is enough to talk about in the taverns.',
+      'Two legendary catches. Not one, not by accident. Two, so the story cannot be dismissed as a fluke.',
+      'Hunt them down. Let the deep learn that you are still hunting.',
+    ],
+  },
   'seven-dragon-temples': {
     title: 'Seven Shrines, Seven Silences',
     pages: [

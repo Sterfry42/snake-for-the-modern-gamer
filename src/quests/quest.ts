@@ -1,5 +1,18 @@
 import type { CardId } from '../cards/cardGame.js';
 
+/**
+ * CatchJournal access for fishing quests.
+ */
+export interface CatchJournalAccess {
+  getEntries(): Array<{
+    typeId: string;
+    biomeId: string;
+    rarity: string;
+    weight: number;
+    timestamp: number;
+  }>;
+}
+
 export interface QuestRuntime {
   getSnakeLength(): number;
   getScore(): number;
@@ -12,6 +25,8 @@ export interface QuestRuntime {
   requiresQuestGiver?(questId: string): boolean;
   canOfferQuestFromGiver?(questId: string, giverRoomId: string): boolean;
   onQuestAcceptedFromGiver?(quest: Quest, giverRoomId?: string): void;
+  /** Optional: access to the catch journal for fishing quests */
+  getCatchJournal?(): CatchJournalAccess | undefined;
 }
 
 export abstract class Quest {
