@@ -5713,6 +5713,12 @@ export default class SnakeScene extends Phaser.Scene {
         phoenix += this.classMods.phoenixCharges;
     }
 
+    // Orange Juice speed boost
+    const orangeJuiceSpeedBoost = this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0;
+    if (orangeJuiceSpeedBoost > 0) {
+      tickScalar *= 0.75;
+    }
+
     // Apply speed scalar via skill system
     this.skillTree.applyActionStepIntervalScalar(tickScalar, 'equipment:boots');
 

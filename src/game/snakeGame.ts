@@ -1744,10 +1744,15 @@ export class SnakeGame implements QuestRuntime {
               : `Raccoon load: +${weightGain} weight${nextThreshold ? ` (${this.raccoonWeight}/${nextThreshold})` : ''}.`,
         });
       } else {
-        const appleScoreMultiplier = Math.max(
+        const cheatMultiplier = Math.max(
           1,
           Number(this.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
         );
+        const orangeJuiceMultiplier = Math.max(
+          1,
+          Number(this.getFlag<number>('status.orangeJuiceScoreMult') ?? 1),
+        );
+        const appleScoreMultiplier = cheatMultiplier * orangeJuiceMultiplier;
         const appleScorePenalty = Math.max(
           0,
           Number(this.getFlag<number>('equipment.appleScorePenalty') ?? 0),
@@ -9267,6 +9272,39 @@ export class SnakeGame implements QuestRuntime {
       };
     }
 
+    if (itemId === 'orange-juice') {
+      this.setFlag('status.orangeJuiceSpeedBoostTicks', 60);
+      const currentInvuln = Number(
+        this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0,
+      );
+      this.setFlag('fortitude.invulnerabilityTicks', Math.max(currentInvuln, 50));
+      this.setFlag('status.orangeJuiceScoreMult', 2);
+      this.restoreHunger(80);
+      this.inventory.removeItem(itemId, 1);
+      this.emitWorldEvent({
+        type: 'item-used',
+        roomId: this.snake.currentRoomId,
+        severity: 14,
+        loudness: 5,
+        tags: [
+          'item',
+          'consumable',
+          itemId,
+          'orange-juice',
+          'powerup',
+        ],
+        summary: `The snake drank Orange Juice and glowed with citrus power.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { itemId, itemName: item.name },
+      });
+      return {
+        ok: true,
+        message: 'Orange Juice! Speed, shield, and doubled fortune!',
+        color: '#ffb347',
+        consume: true,
+      };
+    }
+
     const effect = effects[itemId];
     if (!effect) {
       return { ok: false, message: `${item.name} cannot be used right now.`, color: '#ffd166' };
@@ -11772,6 +11810,14 @@ export class SnakeGame implements QuestRuntime {
     const disoriented = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
     if (disoriented > 0) {
       this.setFlag('status.disorientedTicks', Math.max(0, disoriented - 1));
+    }
+    const speedBoost = Number(this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0);
+    if (speedBoost > 0) {
+      this.setFlag('status.orangeJuiceSpeedBoostTicks', speedBoost - 1);
+    }
+    const scoreMult = Number(this.getFlag<number>('status.orangeJuiceScoreMult') ?? 0);
+    if (scoreMult > 0) {
+      this.setFlag('status.orangeJuiceScoreMult', scoreMult - 1);
     }
   }
 
