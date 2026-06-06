@@ -43,6 +43,10 @@ import {
   questGiverSpriteRecipe,
   type QuestGiverSpritePalette,
 } from '../ui/spriteRecipes/questGiverRecipe.js';
+import {
+  molemanSpriteRecipe,
+  type MolemanSpritePalette,
+} from '../ui/spriteRecipes/molemanRecipe.js';
 import { getQuestDialogue } from '../quests/questDialogue.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { createMobileControls, type MobileControls } from '../ui/mobileControls.js';
@@ -121,6 +125,15 @@ import {
   type CardId,
   type CardScoreResult,
 } from '../cards/cardGame.js';
+import {
+  ARCHAEOLOGY_TILE_DEFINITIONS,
+  getDigSiteVariant,
+  MolemanArchaeologySession,
+  type ArchaeologySessionSnapshot,
+  type ArchaeologyTileKind,
+  type DigSiteVariantId,
+} from '../archaeology/molemanArchaeology.js';
+import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.js';
 
 type SnakeThemeId = VillageShopStyleId;
 
@@ -1469,6 +1482,15 @@ export default class SnakeScene extends Phaser.Scene {
   private questGiverSprite!: Phaser.GameObjects.Sprite;
   private starforgedEnvoySprite: Phaser.GameObjects.Sprite | null = null;
   private wandererSprite!: Phaser.GameObjects.Sprite;
+  private archaeologySession: MolemanArchaeologySession | null = null;
+  private archaeologyOverlay: Phaser.GameObjects.Container | null = null;
+  private archaeologyBoardGraphics: Phaser.GameObjects.Graphics | null = null;
+  private archaeologyText: Phaser.GameObjects.Text | null = null;
+  private readonly archaeologySymbolTexts: Phaser.GameObjects.Text[] = [];
+  private readonly archaeologyLogMessages: string[] = [];
+  private archaeologyLastTickMs = 0;
+  private archaeologyLastTensionPulseMs = 0;
+  private archaeologyFinalRewards: ArchaeologyRewardBundle | null = null;
   private choicePopupVisible = false;
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
   private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
@@ -1813,6 +1835,13 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
 
+      if (this.archaeologySession) {
+        if (this.handleArchaeologyKey(key)) {
+          event.preventDefault();
+        }
+        return;
+      }
+
       if (this.skillTree.handleTextInput(event)) {
         event.preventDefault();
         return;
@@ -1951,6 +1980,9 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (this.tryInteractLibertyStructure()) {
+          return;
+        }
+        if (this.tryInteractMolemanDigSite()) {
           return;
         }
         if (this.tryInteractRelationshipNpc()) {
@@ -3815,6 +3847,10 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#5dd6a2',
       };
     }
+    if (code === 'molemandig' || code === 'archaeology') {
+      this.openMolemanArchaeologyCheat();
+      return { ok: true, message: 'Cheat active: Moleman Archaeology opened.', color: '#d8b4ff' };
+    }
     if (code === 'teleporterquest' || code === 'greenpurchase') {
       const started = this.snakeGame.startGreenPurchaseCheat();
       if (started) {
@@ -5325,7 +5361,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private isModalPopupVisible(): boolean {
-    return Boolean(this.questPopup?.isVisible() || this.choicePopupVisible);
+    return Boolean(
+      this.questPopup?.isVisible() || this.choicePopupVisible || this.archaeologySession,
+    );
   }
 
   get acceptedQuests(): string[] {
@@ -5378,6 +5416,10 @@ export default class SnakeScene extends Phaser.Scene {
 
   getPeopleJournalView(): ActorJournalEntry[] {
     return this.snakeGame.getPeopleJournalView();
+  }
+
+  getArtifactViews() {
+    return this.snakeGame.getArtifactViews();
   }
 
   getCardCollectionForMenu(): CardCollection {
@@ -5772,6 +5814,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.villageResidentIndicatorTexts.forEach((text) => text.setVisible(false));
       this.isDirty = false;
       return;
+    }
+    if (this.archaeologySession) {
+      this.updateArchaeologyOverlay();
     }
     if (
       this.paused ||
@@ -7804,6 +7849,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (libertyHint) {
       return { text: libertyHint };
     }
+    const digSite = room.molemanDigSite;
+    if (digSite && this.distanceFromHeadToLocal(digSite.foreman) <= 2) {
+      return { text: `Start excavation with ${digSite.foreman.name} (press E)` };
+    }
     if (this.isNearTownQuestBoard()) {
       return { text: 'Read quest board (press E)' };
     }
@@ -9817,6 +9866,498 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
+  private tryInteractMolemanDigSite(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible || this.archaeologySession) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const digSite = room.molemanDigSite;
+    if (!digSite || this.distanceFromHeadToLocal(digSite.foreman) > 2) {
+      return false;
+    }
+    const variant = getDigSiteVariant(digSite.variantId);
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    const options: ChoiceOption[] = [
+      {
+        id: 'dig',
+        title: 'Dig',
+        description: 'Start Moleman Archaeology. Match three, ride the rising stack, keep the finds.',
+      },
+      {
+        id: 'talk',
+        title: 'Talk',
+        description: 'Hear the foreman explain why this hole has apples in it.',
+      },
+      {
+        id: 'date',
+        title: 'Bond',
+        description: 'Spend time with the moleman foreman.',
+      },
+      { id: 'leave', title: 'Leave', description: 'Step away from the dig site.' },
+    ];
+    this.villageShopPopup.show(digSite.foreman.name, options, (id) => {
+      if (id === 'dig') {
+        this.startMolemanExcavation(digSite.variantId);
+        return;
+      }
+      if (id === 'talk') {
+        this.showQuestDialogue(
+          digSite.foreman.name,
+          [
+            `"${variant.foremanLine}"`,
+            '"Rows come up pixel by pixel. Space swaps the two under the bracket. Three alike vanish, then the rocks fall. If the ceiling wins, you still keep the finds."',
+            '"Found six apples and a sword once. Found a tiny church the next day. We stopped asking."',
+          ],
+          {
+            onAccept: () => {
+              this.closeQuestPopup();
+              this.paused = false;
+              this.showSaveUI();
+            },
+          },
+          { acceptLabel: 'Back', nextLabel: 'More' },
+          { portraitId: 'moleman-foreman' },
+        );
+        return;
+      }
+      if (id === 'date') {
+        const profile = this.getMolemanRelationshipProfile(room);
+        this.snakeGame.ensureRelationshipCandidate(profile);
+        this.showRelationshipRoot(profile);
+        return;
+      }
+      this.paused = false;
+      this.showSaveUI();
+    });
+    return true;
+  }
+
+  private getMolemanRelationshipProfile(room = this.snakeGame.getCurrentRoom()): RelationshipCandidateProfile {
+    const digSite = room.molemanDigSite;
+    if (!digSite) {
+      throw new Error('Moleman relationship profile requested without a dig site');
+    }
+    const foreman = digSite.foreman;
+    return {
+      id: `moleman:${room.id}:${foreman.id}`,
+      displayName: foreman.name,
+      species: 'moleman' as RelationshipSpecies,
+      portraitId: 'moleman-date',
+      homeRoomId: room.id,
+      factionId: 'hearthbound-remnant' as const,
+      personality: 'deadpan' as const,
+    };
+  }
+
+  private openMolemanArchaeologyCheat(): void {
+    if (this.archaeologySession) {
+      return;
+    }
+    this.closeQuestPopup();
+    this.villageShopPopup.hide();
+    this.datingScenePopup?.hide();
+    this.skillTree.hideOverlay();
+    this.hideSaveUI();
+    const room = this.snakeGame.getCurrentRoom();
+    const variantId = room.molemanDigSite?.variantId ?? 'forest';
+    this.startMolemanExcavation(variantId);
+    this.showQuestHintPopup('Cheat opened Moleman Archaeology.', '#d8b4ff');
+  }
+
+  private startMolemanExcavation(variantId: DigSiteVariantId): void {
+    this.archaeologySession = new MolemanArchaeologySession(
+      getDigSiteVariant(variantId),
+      () => this.snakeGame.random(),
+      this.snakeGame.getArtifactTuning(),
+    );
+    this.archaeologyFinalRewards = null;
+    this.archaeologyLogMessages.length = 0;
+    this.archaeologyLastTickMs = this.time.now;
+    this.paused = true;
+    this.ensureArchaeologyOverlay();
+    this.archaeologyOverlay?.setVisible(true);
+    this.juice.startArchaeologyMusic();
+    this.showQuestHintPopup('Moleman Archaeology started. Match three, chase depth.', '#d8b4ff');
+  }
+
+  private handleArchaeologyKey(key: string): boolean {
+    if (!this.archaeologySession) return false;
+    if (['arrowup', 'w'].includes(key)) this.archaeologySession.moveCursor(0, -1);
+    else if (['arrowdown', 's'].includes(key)) this.archaeologySession.moveCursor(0, 1);
+    else if (['arrowleft', 'a'].includes(key)) this.archaeologySession.moveCursor(-1, 0);
+    else if (['arrowright', 'd'].includes(key)) this.archaeologySession.moveCursor(1, 0);
+    else if (key === ' ' || key === 'enter' || key === 'e') {
+      const swapped = this.archaeologySession.swap();
+      if (!swapped) {
+        this.juice.archaeologyBlocked();
+      }
+    }
+    else if (key === 'escape' || key === 'q') this.finishMolemanExcavation('leave');
+    else return false;
+    if (this.archaeologySession) {
+      this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
+    }
+    return true;
+  }
+
+  private updateArchaeologyOverlay(): void {
+    if (!this.archaeologySession) {
+      return;
+    }
+    const now = this.time.now;
+    const delta = Math.max(0, now - this.archaeologyLastTickMs);
+    this.archaeologyLastTickMs = now;
+    this.archaeologySession.tick(delta);
+    for (const message of this.archaeologySession.consumeMessages()) {
+      this.archaeologyLogMessages.push(message);
+    }
+    this.archaeologyLogMessages.splice(0, Math.max(0, this.archaeologyLogMessages.length - 6));
+    for (const event of this.archaeologySession.consumeEvents()) {
+      if (event.kind === 'swap') this.juice.archaeologySwap();
+      else if (event.kind === 'match') this.juice.archaeologyMatch(event.chain, event.cells.length);
+      else if (event.kind === 'pop') this.juice.archaeologyPop(event.index, event.total);
+      else if (event.kind === 'gravity') this.juice.archaeologyGravity(event.moves.length);
+      else if (event.kind === 'raise') this.juice.archaeologyRaise(event.depth);
+      else if (event.kind === 'cache') this.juice.archaeologyCache();
+    }
+    const snapshot = this.archaeologySession.getSnapshot();
+    this.updateArchaeologyTension(snapshot);
+    this.renderArchaeologyOverlay(snapshot);
+    if (snapshot.gameOver) {
+      this.finishMolemanExcavation('failure');
+    }
+  }
+
+  private ensureArchaeologyOverlay(): void {
+    if (this.archaeologyOverlay) {
+      return;
+    }
+    const width = this.scale.width;
+    const height = this.scale.height;
+    const shade = this.add.rectangle(0, 0, width, height, 0x03070b, 0.9).setOrigin(0, 0);
+    const panel = this.add
+      .rectangle(width / 2, height / 2, Math.min(680, width - 28), Math.min(520, height - 28), 0x11161f, 0.96)
+      .setStrokeStyle(2, 0xb784ff);
+    this.archaeologyBoardGraphics = this.add.graphics();
+    this.archaeologyText = this.add.text(0, 0, '', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#f4f0ff',
+      lineSpacing: 4,
+      wordWrap: { width: Math.min(300, width * 0.42) },
+    });
+    this.archaeologyOverlay = this.add
+      .container(0, 0, [shade, panel, this.archaeologyBoardGraphics, this.archaeologyText])
+      .setDepth(120)
+      .setVisible(false);
+  }
+
+  private updateArchaeologyTension(snapshot: ArchaeologySessionSnapshot): void {
+    this.juice.setArchaeologyTension(snapshot.stackDanger);
+    if (snapshot.stackDanger <= 0) {
+      return;
+    }
+    const intervalMs = Phaser.Math.Linear(760, 210, snapshot.stackDanger);
+    if (this.time.now - this.archaeologyLastTensionPulseMs < intervalMs) {
+      return;
+    }
+    this.archaeologyLastTensionPulseMs = this.time.now;
+    this.juice.archaeologyTension(snapshot.stackDanger);
+  }
+
+  private renderArchaeologyOverlay(snapshot: ArchaeologySessionSnapshot): void {
+    this.ensureArchaeologyOverlay();
+    const graphics = this.archaeologyBoardGraphics;
+    const text = this.archaeologyText;
+    if (!graphics || !text) return;
+    for (const symbol of this.archaeologySymbolTexts) {
+      symbol.setVisible(false);
+    }
+    const boardCell = Math.max(24, Math.min(38, Math.floor(this.scale.height / 15)));
+    const boardWidth = snapshot.board[0]!.length * boardCell;
+    const boardHeight = snapshot.board.length * boardCell;
+    const boardX = Math.floor(this.scale.width / 2 - boardWidth / 2 - 110);
+    const boardY = Math.floor(this.scale.height / 2 - boardHeight / 2 + 18);
+    const riseOffset = Math.floor(snapshot.riseProgress * boardCell);
+    const pulse = 0.72 + 0.28 * Math.sin(this.time.now / 70);
+    const highlightKeys = new Set(snapshot.highlightedCells.map((cell) => `${cell.x},${cell.y}`));
+    const fallingDestinations = new Map(
+      snapshot.fallingMoves.map((move) => [`${move.toX},${move.toY}`, move] as const),
+    );
+    const dangerShake =
+      snapshot.stackDanger > 0
+        ? Math.sin(this.time.now / 34) * Math.min(3.5, snapshot.stackDanger * 4)
+        : 0;
+    graphics.clear();
+    graphics.fillStyle(0x080c12, 1).fillRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
+    graphics.lineStyle(2, 0x43315c, 1).strokeRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
+    for (let y = -1; y <= snapshot.board.length; y += 1) {
+      for (let x = 0; x < snapshot.board[0]!.length; x += 1) {
+        const px = boardX + x * boardCell;
+        const py = boardY + y * boardCell - riseOffset;
+        if (py < boardY || py >= boardY + boardHeight) continue;
+        graphics.fillStyle(0x151d27, 1).fillRect(px + 1, py + 1, boardCell - 2, boardCell - 2);
+      }
+    }
+    snapshot.board.forEach((row, y) => {
+      row.forEach((tile, x) => {
+        const px = boardX + x * boardCell;
+        const py = boardY + y * boardCell - riseOffset;
+        if (py < boardY - boardCell || py > boardY + boardHeight) return;
+        if (tile) {
+          if (fallingDestinations.has(`${x},${y}`)) {
+            return;
+          }
+          const popping = snapshot.poppingCell?.x === x && snapshot.poppingCell.y === y;
+          const highlighted = highlightKeys.has(`${x},${y}`);
+          this.drawArchaeologyTile(graphics, tile, px + dangerShake, py, boardCell, {
+            highlighted,
+            popping,
+            pulse,
+          });
+        }
+      });
+    });
+    snapshot.incomingRow.forEach((tile, x) => {
+      const px = boardX + x * boardCell;
+      const py = boardY + boardHeight - riseOffset;
+      if (py < boardY || py >= boardY + boardHeight) return;
+      graphics.fillStyle(0x101722, 0.92).fillRect(px + 1, py + 1, boardCell - 2, boardCell - 2);
+      if (!tile) return;
+      this.drawArchaeologyTile(graphics, tile, px + dangerShake, py, boardCell, { highlighted: false, popping: false, pulse });
+    });
+    const gravityEase = Phaser.Math.Easing.Bounce.Out(snapshot.gravityProgress);
+    for (const move of snapshot.fallingMoves) {
+      const px = boardX + move.toX * boardCell + dangerShake;
+      const fromY = boardY + move.fromY * boardCell - riseOffset;
+      const toY = boardY + move.toY * boardCell - riseOffset;
+      const py = Phaser.Math.Linear(fromY, toY, gravityEase);
+      if (py < boardY - boardCell || py > boardY + boardHeight) continue;
+      this.drawArchaeologyTile(graphics, move.tile, px, py, boardCell, {
+        highlighted: false,
+        popping: false,
+        pulse,
+      });
+    }
+    const cursorX = boardX + snapshot.cursor.x * boardCell + dangerShake;
+    const cursorY = boardY + snapshot.cursor.y * boardCell - riseOffset;
+    graphics.lineStyle(3, 0xfff3a8, 1).strokeRoundedRect(cursorX, cursorY, boardCell * 2, boardCell, 6);
+    graphics.lineStyle(1, 0x1b1024, 0.85).strokeRoundedRect(cursorX + 3, cursorY + 3, boardCell * 2 - 6, boardCell - 6, 4);
+    graphics.fillStyle(0xb784ff, 0.85).fillRect(boardX - 8, boardY + boardHeight + 10, Math.floor((boardWidth + 16) * snapshot.riseProgress), 5);
+    const rewardLines = this.formatArchaeologyRewardLines(snapshot.rewards).slice(0, 8);
+    const logLines = this.archaeologyLogMessages.slice(-4);
+    text
+      .setPosition(boardX + boardWidth + 38, boardY - 6)
+      .setText([
+        `MOLEMAN ARCHAEOLOGY`,
+        snapshot.variant.name,
+        `Depth ${snapshot.depth}  Score ${snapshot.score}`,
+        `Chain ${snapshot.chain}  Best ${snapshot.maxChain}`,
+        '',
+        'WASD/Arrows move cursor',
+        'Space/E/Enter swaps tiles',
+        'Q/Esc leaves with rewards',
+        snapshot.resolving ? 'Gravity paused while the chain pops' : 'Stack rising pixel by pixel',
+        '',
+        'Recovered:',
+        ...(rewardLines.length ? rewardLines : ['Nothing yet.']),
+        '',
+        ...logLines,
+      ].join('\n'));
+  }
+
+  private ensureArchaeologySymbolText(index: number): Phaser.GameObjects.Text {
+    let symbol = this.archaeologySymbolTexts[index];
+    if (symbol) {
+      symbol.setAlpha(1);
+      return symbol;
+    }
+    symbol = this.add
+      .text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffffff',
+        stroke: '#080c12',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5)
+      .setDepth(121)
+      .setVisible(false);
+    this.archaeologyOverlay?.add(symbol);
+    this.archaeologySymbolTexts[index] = symbol;
+    return symbol;
+  }
+
+  private drawArchaeologyTile(
+    graphics: Phaser.GameObjects.Graphics,
+    tile: ArchaeologyTileKind,
+    x: number,
+    y: number,
+    size: number,
+    state: { highlighted: boolean; popping: boolean; pulse: number },
+  ): void {
+    const def = ARCHAEOLOGY_TILE_DEFINITIONS[tile];
+    const inset = state.popping ? 7 : 4;
+    const fill = state.highlighted ? this.mixColor(def.color, 0xfff3a8, 0.32 * state.pulse) : def.color;
+    const face = state.popping ? size - inset * 2 : size - inset * 2 - 1;
+    graphics.fillStyle(0x07101a, 0.72).fillRoundedRect(x + 2, y + 3, size - 4, size - 3, 5);
+    graphics.fillStyle(fill, state.popping ? 0.72 : 1).fillRoundedRect(x + inset, y + inset, face, face, 5);
+    graphics.fillStyle(this.scaleColor(fill, 1.16), 0.55).fillRoundedRect(x + inset + 2, y + inset + 2, face - 4, Math.max(4, size * 0.2), 3);
+    graphics
+      .fillStyle(this.scaleColor(fill, 0.78), 0.42)
+      .fillRoundedRect(
+        x + inset + 2,
+        y + size - inset - Math.max(4, size * 0.18),
+        face - 4,
+        Math.max(4, size * 0.18),
+        3,
+      );
+    graphics.lineStyle(3, 0x06101a, 1).strokeRoundedRect(x + inset, y + inset, face, face, 5);
+    graphics.lineStyle(1, 0xffffff, state.highlighted ? 0.95 : 0.38).strokeRoundedRect(x + inset + 3, y + inset + 3, face - 6, face - 6, 3);
+    this.drawArchaeologyTileIcon(graphics, tile, x + size / 2, y + size / 2, size, def.textColor);
+    if (state.highlighted) {
+      graphics.lineStyle(4, 0xfff3a8, 0.52 + state.pulse * 0.44).strokeRoundedRect(x + 1, y + 1, size - 2, size - 2, 6);
+      graphics.lineStyle(2, 0xffffff, 0.36).strokeRoundedRect(x - 2, y - 2, size + 4, size + 4, 8);
+    }
+  }
+
+  private drawArchaeologyTileIcon(
+    graphics: Phaser.GameObjects.Graphics,
+    tile: ArchaeologyTileKind,
+    cx: number,
+    cy: number,
+    size: number,
+    colorText: string,
+  ): void {
+    const color = Phaser.Display.Color.HexStringToColor(colorText).color;
+    const dark = this.scaleColor(color, 0.72);
+    const r = size * 0.18;
+    graphics.fillStyle(color, 0.96);
+    graphics.lineStyle(Math.max(2, Math.floor(size * 0.07)), dark, 0.9);
+    switch (tile) {
+      case 'normal':
+      case 'skittish':
+      case 'pearl':
+      case 'yuzu':
+      case 'gold':
+      case 'wasabi':
+        graphics.fillCircle(cx - r * 0.35, cy + r * 0.2, r * 0.98);
+        graphics.fillCircle(cx + r * 0.35, cy + r * 0.2, r * 0.98);
+        graphics.fillTriangle(cx - r * 1.2, cy + r * 0.25, cx, cy + r * 1.45, cx + r * 1.2, cy + r * 0.25);
+        graphics.strokeCircle(cx - r * 0.35, cy + r * 0.2, r * 0.98);
+        graphics.lineStyle(Math.max(2, Math.floor(size * 0.055)), dark, 0.95).lineBetween(cx, cy - r * 0.95, cx + r * 0.45, cy - r * 1.55);
+        graphics.fillStyle(dark, 0.95).fillEllipse(cx + r * 0.9, cy - r * 1.45, r * 0.9, r * 0.45);
+        break;
+      case 'roots':
+        graphics.lineStyle(Math.max(3, Math.floor(size * 0.09)), color, 1);
+        graphics.beginPath();
+        graphics.moveTo(cx - r * 1.35, cy + r * 1.2);
+        graphics.lineTo(cx - r * 0.4, cy + r * 0.25);
+        graphics.lineTo(cx, cy - r * 1.25);
+        graphics.lineTo(cx + r * 0.55, cy + r * 0.25);
+        graphics.lineTo(cx + r * 1.35, cy + r * 1.1);
+        graphics.strokePath();
+        graphics.fillStyle(color, 0.95).fillEllipse(cx - r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
+        graphics.fillEllipse(cx + r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
+        break;
+      case 'stone':
+        graphics.fillStyle(color, 0.95).fillTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
+        graphics.fillTriangle(cx, cy - r * 1.7, cx - r * 1.55, cy, cx, cy + r * 1.65);
+        graphics.lineStyle(Math.max(2, Math.floor(size * 0.06)), dark, 0.9).strokeTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
+        graphics.strokeTriangle(cx, cy - r * 1.7, cx - r * 1.55, cy, cx, cy + r * 1.65);
+        break;
+      case 'dirt':
+        graphics.fillStyle(color, 0.95).fillEllipse(cx, cy + r * 0.55, r * 3.0, r * 1.6);
+        graphics.fillStyle(dark, 0.9).fillCircle(cx - r * 0.8, cy + r * 0.35, r * 0.22);
+        graphics.fillCircle(cx + r * 0.25, cy + r * 0.6, r * 0.18);
+        graphics.fillCircle(cx + r * 0.95, cy + r * 0.25, r * 0.16);
+        break;
+      case 'clay':
+        graphics.fillStyle(color, 0.95).fillRoundedRect(cx - r * 1.1, cy - r * 0.9, r * 2.2, r * 2.2, 4);
+        graphics.fillStyle(dark, 0.8).fillRect(cx - r * 1.1, cy - r * 0.1, r * 2.2, r * 0.28);
+        break;
+      case 'shell':
+        graphics.fillStyle(color, 0.95).fillEllipse(cx, cy + r * 0.15, r * 2.65, r * 2.05);
+        graphics.lineStyle(Math.max(2, Math.floor(size * 0.045)), dark, 0.78);
+        graphics.lineBetween(cx, cy - r * 0.85, cx, cy + r * 1.1);
+        graphics.lineBetween(cx - r * 0.75, cy - r * 0.62, cx, cy + r * 1.1);
+        graphics.lineBetween(cx + r * 0.75, cy - r * 0.62, cx, cy + r * 1.1);
+        break;
+      case 'bone':
+        graphics.lineStyle(Math.max(4, Math.floor(size * 0.11)), color, 1).lineBetween(cx - r, cy + r, cx + r, cy - r);
+        graphics.fillStyle(color, 1).fillCircle(cx - r * 1.25, cy + r * 1.25, r * 0.45);
+        graphics.fillCircle(cx - r * 0.75, cy + r * 1.55, r * 0.45);
+        graphics.fillCircle(cx + r * 1.25, cy - r * 1.25, r * 0.45);
+        graphics.fillCircle(cx + r * 0.75, cy - r * 1.55, r * 0.45);
+        break;
+      case 'artifact-cache':
+        graphics.fillStyle(color, 0.96).fillRoundedRect(cx - r * 1.35, cy - r * 0.8, r * 2.7, r * 1.9, 4);
+        graphics.fillStyle(dark, 0.9).fillRect(cx - r * 0.18, cy - r * 0.8, r * 0.36, r * 1.9);
+        graphics.fillRect(cx - r * 1.35, cy - r * 0.15, r * 2.7, r * 0.28);
+        break;
+    }
+  }
+
+  private scaleColor(color: number, scalar: number): number {
+    const r = Phaser.Math.Clamp(Math.round(((color >> 16) & 0xff) * scalar), 0, 255);
+    const g = Phaser.Math.Clamp(Math.round(((color >> 8) & 0xff) * scalar), 0, 255);
+    const b = Phaser.Math.Clamp(Math.round((color & 0xff) * scalar), 0, 255);
+    return (r << 16) | (g << 8) | b;
+  }
+
+  private mixColor(a: number, b: number, amount: number): number {
+    const t = Phaser.Math.Clamp(amount, 0, 1);
+    const r = Math.round(((a >> 16) & 0xff) * (1 - t) + ((b >> 16) & 0xff) * t);
+    const g = Math.round(((a >> 8) & 0xff) * (1 - t) + ((b >> 8) & 0xff) * t);
+    const blue = Math.round((a & 0xff) * (1 - t) + (b & 0xff) * t);
+    return (r << 16) | (g << 8) | blue;
+  }
+
+  private formatArchaeologyRewardLines(rewards: ArchaeologyRewardBundle): string[] {
+    const lines: string[] = [];
+    for (const [itemId, count] of Object.entries(rewards.apples)) {
+      lines.push(`${getItem(itemId)?.name ?? itemId} x${count}`);
+    }
+    for (const [itemId, count] of Object.entries(rewards.supplies)) {
+      lines.push(`${getItem(itemId)?.name ?? itemId} x${count}`);
+    }
+    for (const [itemId, count] of Object.entries(rewards.equipment)) {
+      lines.push(`${getItem(itemId)?.name ?? itemId} x${count}`);
+    }
+    if (rewards.artifacts.length > 0) {
+      lines.push(`Artifacts x${rewards.artifacts.length}`);
+    }
+    if (rewards.score > 0) {
+      lines.push(`Score ${rewards.score}`);
+    }
+    return lines;
+  }
+
+  private finishMolemanExcavation(reason: 'leave' | 'failure'): void {
+    const session = this.archaeologySession;
+    if (!session) return;
+    const rewards = this.archaeologyFinalRewards ?? session.getSnapshot().rewards;
+    this.archaeologyFinalRewards = rewards;
+    this.archaeologySession = null;
+    this.archaeologyOverlay?.setVisible(false);
+    for (const symbol of this.archaeologySymbolTexts) {
+      symbol.setVisible(false);
+    }
+    this.juice.stopArchaeologyMusic();
+    const payout = this.snakeGame.applyArchaeologyRewards(rewards);
+    this.isDirty = true;
+    this.paused = false;
+    this.showSaveUI();
+    this.showQuestHintPopup(
+      reason === 'failure'
+        ? `Excavation overwhelmed. Kept ${payout.itemCount} items, ${payout.artifactCount} artifacts, +${payout.score} score.`
+        : `Excavation ended. Kept ${payout.itemCount} items, ${payout.artifactCount} artifacts, +${payout.score} score.`,
+      '#d8b4ff',
+    );
+  }
+
   private getNearbyRelationshipProfile(): RelationshipCandidateProfile | null {
     const room = this.snakeGame.getCurrentRoom();
     const local = this.getHeadLocalInCurrentRoom();
@@ -9878,6 +10419,14 @@ export default class SnakeScene extends Phaser.Scene {
           },
           { x: room.questGiver.x, y: room.questGiver.y },
         ),
+      });
+    }
+    if (room.molemanDigSite) {
+      const foreman = room.molemanDigSite.foreman;
+      candidates.push({
+        ...this.getMolemanRelationshipProfile(room),
+        x: foreman.x,
+        y: foreman.y,
       });
     }
     if (room.town) {
@@ -12496,7 +13045,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
-    const giver = room.questGiver;
+    const giver = room.questGiver ?? room.molemanDigSite?.foreman;
     if (!giver) {
       this.questGiverSprite.setVisible(false);
       return;
@@ -12509,7 +13058,15 @@ export default class SnakeScene extends Phaser.Scene {
       this.questGiverSprite.setVisible(false);
       return;
     }
-    const palette = giver.portraitId?.startsWith('goblin-')
+    const isMoleman = giver.portraitId === 'moleman-foreman';
+    const palette = giver.portraitId === 'moleman-foreman'
+      ? {
+          robeColor: '#5b4630',
+          trimColor: '#d6b36a',
+          outlineColor: '#1b130c',
+          eyeColor: '#fff7cf',
+        }
+      : giver.portraitId?.startsWith('goblin-')
       ? this.paletteForGoblinResident(
           disposition.hostility === 'hostile'
             ? 'violent'
@@ -12518,17 +13075,33 @@ export default class SnakeScene extends Phaser.Scene {
               : this.snakeGame.getFactionAlignment('goblin-camps').standing,
         )
       : this.paletteForQuestGiverDisposition(disposition.hostility);
-    const textures = this.runtimeSpriteFactory.ensureRecipe(
-      questGiverSpriteRecipe,
-      Math.max(18, Math.floor(this.grid.cell * 0.92)),
-      palette,
-    );
-    const animKey = `quest-giver-${disposition.hostility}-idle`;
+    const spriteSize = Math.max(18, Math.floor(this.grid.cell * 0.92));
+    const textures = isMoleman
+      ? this.runtimeSpriteFactory.ensureRecipe(molemanSpriteRecipe, spriteSize, {
+          furColor: '#5b4630',
+          bellyColor: '#e0c089',
+          clawColor: '#fff2ba',
+          helmetColor: '#54706f',
+          outlineColor: '#1b130c',
+          eyeColor: '#fff7cf',
+        } satisfies MolemanSpritePalette)
+      : this.runtimeSpriteFactory.ensureRecipe(questGiverSpriteRecipe, spriteSize, palette);
+    const animKey = isMoleman ? `moleman-${room.id}-idle` : `quest-giver-${disposition.hostility}-idle`;
+    const animFrames = isMoleman
+      ? [
+          { key: textures.idle },
+          {
+            key: (textures as Record<'idle' | 'blink' | 'dig', string>).dig,
+          },
+          { key: textures.idle },
+          { key: textures.blink },
+        ]
+      : [{ key: textures.idle }, { key: textures.blink }];
     if (!this.anims.exists(animKey)) {
       this.anims.create({
         key: animKey,
-        frames: [{ key: textures.idle }, { key: textures.blink }],
-        frameRate: disposition.hostility === 'hostile' ? 4 : 2,
+        frames: animFrames,
+        frameRate: isMoleman ? 3 : disposition.hostility === 'hostile' ? 4 : 2,
         repeat: -1,
       });
     }

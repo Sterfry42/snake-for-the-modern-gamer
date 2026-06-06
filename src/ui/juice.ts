@@ -31,6 +31,8 @@ export class JuiceManager {
   private titleMusicTimer?: Phaser.Time.TimerEvent;
   private cardMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private cardMusicTimer?: Phaser.Time.TimerEvent;
+  private archaeologyMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private archaeologyMusicTimer?: Phaser.Time.TimerEvent;
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
@@ -695,6 +697,207 @@ export class JuiceManager {
       } catch {}
     }, 420);
     this.cardMusic = undefined;
+  }
+
+  startArchaeologyMusic(): void {
+    if (this.archaeologyMusic) {
+      return;
+    }
+    if (!this.scene.sound.locked && this.ctx.state === 'suspended') {
+      void this.ctx.resume();
+    }
+    this.stopTitleMusic();
+    this.stopCardMusic();
+
+    const now = this.ctx.currentTime;
+    const gain = this.ctx.createGain();
+    gain.gain.value = 0.0001;
+    gain.connect(this.masterGain);
+
+    const bass = this.ctx.createOscillator();
+    bass.type = 'triangle';
+    bass.frequency.setValueAtTime(110, now);
+    const bassGain = this.ctx.createGain();
+    bassGain.gain.value = 0.095;
+    bass.connect(bassGain);
+    bassGain.connect(gain);
+
+    const bell = this.ctx.createOscillator();
+    bell.type = 'sine';
+    bell.frequency.setValueAtTime(880, now);
+    const bellGain = this.ctx.createGain();
+    bellGain.gain.value = 0.025;
+    bell.connect(bellGain);
+    bellGain.connect(gain);
+
+    bass.start(now);
+    bell.start(now);
+    gain.gain.exponentialRampToValueAtTime(0.15, now + 0.32);
+    this.archaeologyMusic = { gain, sources: [bass, bell], cleanup: [bassGain, bellGain] };
+
+    let step = 0;
+    const melody = [440, 523.25, 659.25, 587.33, 523.25, 659.25, 783.99, 659.25];
+    const bassline = [110, 110, 164.81, 164.81, 98, 98, 146.83, 146.83];
+    this.archaeologyMusicTimer?.remove(false);
+    this.archaeologyMusicTimer = this.scene.time.addEvent({
+      delay: 145,
+      loop: true,
+      callback: () => {
+        if (!this.archaeologyMusic) return;
+        const index = step % melody.length;
+        this.playTone({
+          frequency: melody[index]!,
+          duration: 0.08,
+          type: step % 2 === 0 ? 'square' : 'triangle',
+          volume: 0.05,
+        });
+        if (step % 2 === 0) {
+          this.playTone({
+            frequency: bassline[index]!,
+            frequencyEnd: bassline[index]! * 0.72,
+            duration: 0.13,
+            type: 'sawtooth',
+            volume: 0.055,
+          });
+        }
+        if (step % 8 === 7) {
+          this.playTone({ frequency: 1046.5, duration: 0.1, type: 'sine', volume: 0.035 });
+        }
+        step += 1;
+      },
+    });
+  }
+
+  stopArchaeologyMusic(): void {
+    if (!this.archaeologyMusic) {
+      return;
+    }
+    this.archaeologyMusicTimer?.remove(false);
+    this.archaeologyMusicTimer = undefined;
+    const { gain, sources, cleanup } = this.archaeologyMusic;
+    const now = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(Math.max(gain.gain.value, 0.0001), now);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
+    for (const source of sources) {
+      try {
+        source.stop(now + 0.32);
+      } catch {}
+    }
+    globalThis.setTimeout(() => {
+      for (const source of sources) {
+        try {
+          source.disconnect();
+        } catch {}
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {}
+      }
+      try {
+        gain.disconnect();
+      } catch {}
+    }, 380);
+    this.archaeologyMusic = undefined;
+  }
+
+  archaeologySwap(): void {
+    this.playTone({ frequency: 360, frequencyEnd: 520, duration: 0.08, type: 'square', volume: 0.08 });
+  }
+
+  archaeologyMatch(chain: number, count: number): void {
+    const cappedChain = Math.min(8, Math.max(1, chain));
+    this.playTone({
+      frequency: 520 + cappedChain * 45,
+      frequencyEnd: 700 + cappedChain * 55,
+      duration: 0.16,
+      type: 'triangle',
+      volume: 0.09 + Math.min(0.04, count * 0.004),
+    });
+    this.scene.cameras.main.flash(70, 255, 243, 168, true);
+    this.kickCamera(0.006 + Math.min(0.014, cappedChain * 0.002), 70);
+    if (chain > 1) {
+      this.playTone({
+        frequency: 880 + cappedChain * 35,
+        duration: 0.18,
+        type: 'sine',
+        volume: 0.08,
+      });
+      this.punchZoom(1.015 + cappedChain * 0.003, 100);
+    }
+  }
+
+  archaeologyPop(index: number, total: number): void {
+    this.playTone({
+      frequency: 460 + index * 34,
+      frequencyEnd: 620 + index * 24,
+      duration: 0.055,
+      type: 'square',
+      volume: 0.055,
+    });
+    if (index === total - 1) {
+      this.kickCamera(0.006 + Math.min(0.01, total * 0.001), 70);
+      this.scene.cameras.main.flash(50, 255, 255, 255, true);
+    }
+  }
+
+  archaeologyGravity(moveCount: number): void {
+    if (moveCount <= 0) return;
+    this.playTone({
+      frequency: 180 + Math.min(180, moveCount * 8),
+      frequencyEnd: 120,
+      duration: 0.13,
+      type: 'sawtooth',
+      volume: 0.06,
+    });
+    this.kickCamera(0.004 + Math.min(0.012, moveCount * 0.0008), 90);
+  }
+
+  archaeologyRaise(depth: number): void {
+    this.playTone({
+      frequency: 150 + Math.min(180, depth * 4),
+      frequencyEnd: 190 + Math.min(220, depth * 5),
+      duration: 0.1,
+      type: 'triangle',
+      volume: 0.055,
+    });
+  }
+
+  archaeologyCache(): void {
+    this.playTone({ frequency: 660, duration: 0.1, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 990, duration: 0.16, type: 'sine', volume: 0.07 });
+    this.scene.cameras.main.flash(90, 183, 132, 255, true);
+  }
+
+  setArchaeologyTension(level: number): void {
+    const tension = Phaser.Math.Clamp(level, 0, 1);
+    if (this.archaeologyMusicTimer) {
+      this.archaeologyMusicTimer.timeScale = 1 + tension * 1.35;
+    }
+  }
+
+  archaeologyTension(level: number): void {
+    const tension = Phaser.Math.Clamp(level, 0, 1);
+    this.setArchaeologyTension(tension);
+    this.playTone({
+      frequency: 240 + tension * 220,
+      frequencyEnd: 180 + tension * 180,
+      duration: 0.07,
+      type: 'square',
+      volume: 0.045 + tension * 0.035,
+    });
+    this.kickCamera(0.003 + tension * 0.01, 60 + tension * 70);
+  }
+
+  archaeologyBlocked(): void {
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 120,
+      duration: 0.06,
+      type: 'square',
+      volume: 0.055,
+    });
   }
 
   cardScoreTick(value: number): void {

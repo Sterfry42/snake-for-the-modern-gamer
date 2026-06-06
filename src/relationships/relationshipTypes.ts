@@ -1,6 +1,6 @@
 import type { FactionId } from '../factions/factions.js';
 
-export type RelationshipSpecies = 'human' | 'goblin' | 'angel' | 'goblin-angel';
+export type RelationshipSpecies = 'human' | 'goblin' | 'angel' | 'goblin-angel' | 'moleman';
 
 export type RelationshipStage =
   | 'stranger'

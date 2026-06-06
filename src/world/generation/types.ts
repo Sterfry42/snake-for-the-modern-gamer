@@ -69,6 +69,7 @@ export interface RoomGenerationContext {
   gridironYard?: RoomSnapshot['gridironYard'];
   billboardOracle?: RoomSnapshot['billboardOracle'];
   roadCrew?: RoomSnapshot['roadCrew'];
+  molemanDigSite?: RoomSnapshot['molemanDigSite'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   townMembership?: TownRoomMembership | null;
   townAdjacency?: TownRoomMembership | null;

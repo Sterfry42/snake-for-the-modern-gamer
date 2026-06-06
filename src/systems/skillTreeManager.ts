@@ -39,6 +39,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       getDatingView: () => this.scene.getDatingCandidateViews(),
       getPeopleView: () => this.scene.getPeopleJournalView(),
       getDestinyView: () => this.scene.getStarforgedPauseMenuLines(),
+      getArtifactView: () => this.scene.getArtifactViews(),
     });
     this.overlay.hide();
   }

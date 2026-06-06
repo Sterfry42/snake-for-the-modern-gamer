@@ -182,6 +182,22 @@ export const DATING_PORTRAIT_ASSETS: readonly DatingPortraitAsset[] = [
     family: 'goblin-angel',
     mood: 'neutral',
   },
+  {
+    key: 'dating-portrait-moleman',
+    url: `${PORTRAIT_ROOT}/moleman.svg`,
+    species: 'moleman',
+    tags: ['moleman', 'dig', 'earnest'],
+    family: 'moleman',
+    mood: 'neutral',
+  },
+  {
+    key: 'dating-portrait-moleman-date',
+    url: `${PORTRAIT_ROOT}/moleman_date.svg`,
+    species: 'moleman',
+    tags: ['moleman', 'dig', 'formal', 'awkward', 'date'],
+    family: 'moleman-date',
+    mood: 'happy',
+  },
   ...createMoodVariantAssets([
     ['human-femme', 'human-femme', 'human', ['happy', 'sad', 'angry']],
     ['human-masc', 'human-masc', 'human', ['happy', 'sad', 'angry']],
@@ -194,6 +210,7 @@ export const DATING_PORTRAIT_ASSETS: readonly DatingPortraitAsset[] = [
     ['angel', 'angel', 'angel', ['happy', 'sad', 'angry']],
     ['angel-crimson', 'angel-crimson', 'angel', ['happy', 'sad']],
     ['goblin-angel', 'goblin-angel', 'goblin-angel', ['happy', 'sad', 'angry']],
+    ['moleman', 'moleman', 'moleman', ['happy', 'sad', 'angry']],
   ]),
 ];
 
@@ -236,6 +253,11 @@ function getBaseDatingPortraitAsset(profile: RelationshipCandidateProfile): Dati
     return pick(profile.id, ['dating-portrait-angel', 'dating-portrait-angel-crimson']);
   }
   if (profile.species === 'goblin-angel') return getAsset('dating-portrait-goblin-angel');
+  if (profile.species === 'moleman') {
+    return profile.portraitId === 'moleman-date'
+      ? getAsset('dating-portrait-moleman-date')
+      : getAsset('dating-portrait-moleman');
+  }
   return pick(profile.id, portraitKeysForHuman(profile.portraitId));
 }
 
