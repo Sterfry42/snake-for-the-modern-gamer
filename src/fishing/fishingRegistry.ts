@@ -184,10 +184,14 @@ export class FishingRegistry {
 
   /**
    * Calculate the sell price for a fish.
-   * Formula: Math.max(1, Math.floor(fish.baseScore * 0.6))
+   * Formula: max(1, floor(baseScore × RARITY_MULTIPLIERS[rarity] × fishingMod))
    */
-  calculateSellPrice(baseScore: number): number {
-    return calculateFishSellPrice(baseScore);
+  calculateSellPrice(
+    baseScore: number,
+    rarity: string = 'common',
+    fishingMod: number = 1.0,
+  ): number {
+    return calculateFishSellPrice(baseScore, rarity as any, fishingMod);
   }
 
   /**

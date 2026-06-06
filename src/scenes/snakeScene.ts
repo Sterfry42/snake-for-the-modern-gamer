@@ -130,8 +130,10 @@ import type {
   FishingSessionResult,
   FishCatchResult,
   FishDefinition as FishingFishDef,
+  CatchEntry,
 } from '../fishing/types.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
+import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
 
 type SnakeThemeId = VillageShopStyleId;
 
@@ -1825,6 +1827,24 @@ export default class SnakeScene extends Phaser.Scene {
         }
       },
     });
+
+    // Set up catchJournal persistence — syncs with snakeGame's flags
+    setPersistence({
+      get: () => {
+        const saved = this.snakeGame.getFlag<CatchEntry[]>('fishing.catchJournal');
+        return Array.isArray(saved) ? saved : [];
+      },
+      set: (newEntries) => {
+        this.snakeGame.setFlag('fishing.catchJournal', newEntries);
+      },
+    });
+
+    // Load saved journal entries
+    const savedJournal = this.snakeGame.getFlag<unknown>('fishing.catchJournal');
+    if (Array.isArray(savedJournal)) {
+      // Entries are already in the persistence layer; no need to load into memory
+      // The get() callback above handles reading from persistence
+    }
 
     this.showTitleScreen('main');
   }
@@ -7368,7 +7388,13 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: false, message: 'No position available.', color: '#ff6b6b' };
     }
 
-    if (!hasAdjacentWater(head.x, head.y, room)) {
+    const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+    const localHead = {
+      x: head.x - roomX * this.grid.cols,
+      y: head.y - roomY * this.grid.rows,
+    };
+
+    if (!hasAdjacentWater(localHead.x, localHead.y, room)) {
       return { ok: false, message: 'There is no water nearby.', color: '#ff6b6b' };
     }
 
@@ -7419,12 +7445,32 @@ export default class SnakeScene extends Phaser.Scene {
     caughtFish[result.fish.typeId] = (caughtFish[result.fish.typeId] ?? 0) + 1;
     this.snakeGame.setFlag('fishing.caughtFish', caughtFish);
 
+    // Append to catch journal
+    catchJournal.appendCatchEntry(
+      result.fish.typeId,
+      result.fish.biomeId,
+      result.fish.rarity,
+      result.weight,
+    );
+
     // Update quest tracking
     this.setFlag('fishCaught', true);
 
+    // Calculate adjusted score with fishingMod from equipped rod
+    const equippedRodId = this.snakeGame.getInventory().getEquipped('gloves');
+    const equippedRodItem = equippedRodId ? (getItem(equippedRodId) as any) : null;
+    const fishingMod = equippedRodItem?.modifiers?.fishingMod ?? 1.0;
+    const adjustedScore = Math.max(
+      1,
+      Math.floor(result.fish.baseScore * (result.fish.rarity === 'common' ? 0.5 : result.fish.rarity === 'uncommon' ? 0.7 : result.fish.rarity === 'rare' ? 1.0 : 1.5) * fishingMod),
+    );
+
+    // Add adjusted score to the game
+    this.addScoreDirect(adjustedScore);
+
     // Show toast
     this.showQuestHintPopup(
-      `Caught ${result.fish.name}! (+${result.totalScore} score)`,
+      `Caught ${result.fish.name}! (+${adjustedScore} score)`,
       '#44ddff',
     );
 
@@ -7434,13 +7480,17 @@ export default class SnakeScene extends Phaser.Scene {
       0,
     );
     if (totalItems >= 30) {
-      this.showInventoryFullPopup(result);
+      this.showInventoryFullPopup(result, fishingMod);
     }
   }
 
   /** Show popup when inventory is full */
-  private showInventoryFullPopup(result: FishCatchResult): void {
-    const sellPrice = this.fishingRegistry.calculateSellPrice(result.fish.baseScore);
+  private showInventoryFullPopup(result: FishCatchResult, fishingMod: number = 1.0): void {
+    const sellPrice = this.fishingRegistry.calculateSellPrice(
+      result.fish.baseScore,
+      result.fish.rarity,
+      fishingMod,
+    );
     const fish = result.fish;
 
     this.villageShopPopup.show(

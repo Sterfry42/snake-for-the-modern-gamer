@@ -98,12 +98,14 @@ export interface GameSaveData {
   minecraftInventory?: Array<{ itemId: string; count: number }>;
   // Fishing fields
   fishing?: {
-    caughtFish: Record<string, number>;
+    caughtFish?: Record<string, number>;
+    catchJournal?: unknown[];
+    equippedRod?: string;
   };
 }
 
 export class SaveManager {
-  private readonly VERSION = '2.0.0';
+  private readonly VERSION = '3.0.0';
 
   constructor() {}
 
@@ -151,9 +153,10 @@ export class SaveManager {
         const currentVersion = data.version ?? '0.0.0';
         if (isVersionLessThan(currentVersion, '2.0.0')) {
           migrateV1toV2(data);
-        } else {
-          console.error('Save version mismatch:', data.version, this.VERSION);
-          return false;
+        }
+        // Migrate from v2.x to v3.0.0
+        if (isVersionLessThan(currentVersion, '3.0.0')) {
+          migrateV2toV3(data);
         }
       }
 
@@ -227,6 +230,21 @@ function migrateV1toV2(data: GameSaveData): void {
   }
   if (!data.minecraftInventory) {
     data.minecraftInventory = [];
+  }
+}
+
+function migrateV2toV3(data: GameSaveData): void {
+  console.info('[SaveManager] Migrating from v2.x to v3.0.0');
+  data.version = '3.0.0';
+  data.fishing = data.fishing ?? {};
+  if (!data.fishing.catchJournal) {
+    data.fishing.catchJournal = [];
+  }
+  if (!data.fishing.equippedRod) {
+    data.fishing.equippedRod = 'none';
+  }
+  if (!data.fishing.caughtFish) {
+    data.fishing.caughtFish = {};
   }
 }
 

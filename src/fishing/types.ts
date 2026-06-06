@@ -3,6 +3,30 @@ import type { BiomeId } from '../world/biomes.js';
 /** Rarity tiers for fish */
 export type FishRarity = 'common' | 'uncommon' | 'rare' | 'legendary';
 
+/** Sell price multipliers per rarity tier */
+export const RARITY_MULTIPLIERS: Readonly<Record<FishRarity, number>> = {
+  common: 0.5,
+  uncommon: 0.7,
+  rare: 1.0,
+  legendary: 1.5,
+};
+
+/** A single entry in the catch journal */
+export interface CatchEntry {
+  /** Unique identifier for this catch event */
+  id: string;
+  /** The fish type that was caught */
+  typeId: FishTypeId;
+  /** The biome where the fish was caught */
+  biomeId: BiomeId;
+  /** Rarity tier of the caught fish */
+  rarity: FishRarity;
+  /** Weight in kilograms, rounded to 2 decimal places */
+  weight: number;
+  /** Timestamp in milliseconds (Date.now()) */
+  timestamp: number;
+}
+
 /** Unique identifier for each fish type */
 export type FishTypeId =
   // Verdigris Basin

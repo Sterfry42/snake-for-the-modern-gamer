@@ -110,6 +110,22 @@ export const GOBLIN_SUPPLIES: readonly GoblinSupplyOffer[] = [
     note: 'A goblin-modified rod. The line is frayed but serviceable.',
     slot: 'gloves',
   },
+  {
+    id: 'goblin-fishing-rod-carpenter',
+    itemId: 'fishing-rod-carpenter',
+    name: 'Carpenter\'s Rod',
+    price: 70,
+    note: 'Goblin-reinforced. The line is braided with wire. It bites back less.',
+    slot: 'gloves',
+  },
+  {
+    id: 'goblin-fishing-rod-master',
+    itemId: 'fishing-rod-master',
+    name: 'Master Angler\'s Rod',
+    price: 100,
+    note: 'Goblin-forged masterwork. The legendary fish have heard the rumors.',
+    slot: 'gloves',
+  },
 ];
 
 export function getWardScrollOffer(id: string): WardScrollOffer | undefined {

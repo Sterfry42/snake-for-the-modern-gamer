@@ -1,5 +1,8 @@
 import type { FishDefinition, FishSellOffer } from './types.js';
 import type { BiomeId } from '../world/biomes.js';
+import { RARITY_MULTIPLIERS } from './types.js';
+
+export { RARITY_MULTIPLIERS };
 
 export const FISH_DEFINITIONS: readonly FishDefinition[] = [
   // ===== VERDIGRIS BASIN =====
@@ -386,5 +389,5 @@ export const FISH_SELL_OFFERS: readonly FishSellOffer[] = FISH_DEFINITIONS.map((
   id: `fish-${f.typeId}`,
   itemId: `fish-${f.typeId}`,
   name: f.name,
-  sellPrice: Math.max(1, Math.floor(f.baseScore * 0.6)),
+  sellPrice: Math.max(1, Math.floor(f.baseScore * RARITY_MULTIPLIERS[f.rarity])),
 }));

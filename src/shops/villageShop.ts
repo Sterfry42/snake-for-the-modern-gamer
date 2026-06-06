@@ -105,6 +105,20 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     slot: 'gloves',
     note: 'A collapsible fishing pole. Cast it near water and wait.',
   },
+  {
+    id: 'fishing-rod-carpenter',
+    itemId: 'fishing-rod-carpenter',
+    price: 60,
+    slot: 'gloves',
+    note: 'A reinforced rod with a stiffer line. Better catches, better prices.',
+  },
+  {
+    id: 'fishing-rod-master',
+    itemId: 'fishing-rod-master',
+    price: 90,
+    slot: 'gloves',
+    note: 'The finest fishing rod in the realm. Legendary fish know its approach.',
+  },
 ];
 
 export const BLACK_MARKET_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [

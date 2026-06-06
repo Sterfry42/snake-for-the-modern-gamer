@@ -54,6 +54,8 @@ export interface EquipableItem extends BaseItem {
     spiritualLength?: boolean;
     // Enables the fishing minigame overlay.
     fishingEnabled?: boolean;
+    // Multiplies fish sell prices and score when fishing.
+    fishingMod?: number;
   };
 }
 

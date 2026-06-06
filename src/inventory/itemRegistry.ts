@@ -639,6 +639,29 @@ export const ITEMS: readonly Item[] = [
     slot: 'gloves',
     modifiers: {
       fishingEnabled: true,
+      fishingMod: 1.0,
+    },
+  },
+  {
+    id: 'fishing-rod-carpenter',
+    name: 'Carpenter\'s Rod',
+    description: 'A reinforced fishing rod with a stiffer line. Better catches, better prices.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      fishingEnabled: true,
+      fishingMod: 1.25,
+    },
+  },
+  {
+    id: 'fishing-rod-master',
+    name: 'Master Angler\'s Rod',
+    description: 'The finest fishing rod in the realm. Legendary fish know its approach.',
+    kind: 'equipment',
+    slot: 'gloves',
+    modifiers: {
+      fishingEnabled: true,
+      fishingMod: 1.5,
     },
   },
   // Verdigris Basin

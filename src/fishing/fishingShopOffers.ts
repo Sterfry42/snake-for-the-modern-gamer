@@ -1,12 +1,23 @@
-import type { FishSellOffer } from './types.js';
-import { FISH_DEFINITIONS } from './fishDefinitions.js';
+import type { FishRarity, FishSellOffer } from './types.js';
+import { FISH_DEFINITIONS, RARITY_MULTIPLIERS } from './fishDefinitions.js';
 
 /**
  * Calculate the sell price for a caught fish.
- * Formula: Math.max(1, Math.floor(fish.baseScore * 0.6))
+ *
+ * Unified formula:
+ *   sellPrice = max(1, floor(baseScore × RARITY_MULTIPLIERS[rarity] × fishingMod))
+ *
+ * @param baseScore — the fish's base score value
+ * @param rarity — the rarity tier of the fish
+ * @param fishingMod — multiplier from the equipped rod (default 1.0)
  */
-export function calculateFishSellPrice(baseScore: number): number {
-  return Math.max(1, Math.floor(baseScore * 0.6));
+export function calculateFishSellPrice(
+  baseScore: number,
+  rarity: FishRarity = 'common',
+  fishingMod: number = 1.0,
+): number {
+  const multiplier = RARITY_MULTIPLIERS[rarity] ?? 0.5;
+  return Math.max(1, Math.floor(baseScore * multiplier * fishingMod));
 }
 
 /**
@@ -19,7 +30,7 @@ export function getFishSellOffers(): FishSellOffer[] {
     typeId: fish.typeId,
     itemId: `fish-${fish.typeId}`,
     name: fish.name,
-    sellPrice: calculateFishSellPrice(fish.baseScore),
+    sellPrice: calculateFishSellPrice(fish.baseScore, fish.rarity),
   }));
 }
 
