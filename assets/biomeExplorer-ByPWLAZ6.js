@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-Bpr_u20u.js";class t extends s{constructor(){super("biome-explorer","Angler's Atlas","Catch fish in 5 different biomes")}isCompleted(e){const o=e.getCatchJournal?.();return o?new Set(o.getEntries().map(r=>r.biomeId)).size>=5:!1}onReward(e){e.addScore(25)}}const l=new t;export{l as default};

@@ -1,0 +1,1 @@
+import{Q as n}from"./quest-Bpr_u20u.js";class a extends n{constructor(){super("legendary-hunter","Legend Chaser","Catch 2 legendary fish")}isCompleted(e){const r=e.getCatchJournal?.();return r?r.getEntries().filter(t=>t.rarity==="legendary").length>=2:!1}onReward(e){e.addScore(50)}}const u=new a;export{u as default};

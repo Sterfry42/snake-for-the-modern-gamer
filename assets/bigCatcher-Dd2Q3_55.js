@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-Bpr_u20u.js";class a extends s{constructor(){super("big-catcher","The Big One","Catch a fish weighing at least 5.0 kg")}isCompleted(e){const t=e.getCatchJournal?.();return t?t.getEntries().some(r=>r.weight>=5):!1}onReward(e){e.addScore(30)}}const c=new a;export{c as default};
