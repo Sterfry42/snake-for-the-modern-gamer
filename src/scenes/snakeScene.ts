@@ -121,6 +121,17 @@ import {
   type CardId,
   type CardScoreResult,
 } from '../cards/cardGame.js';
+import { FishingRegistry, type FishingRegistryOptions } from '../fishing/fishingRegistry.js';
+import { FishingMinigame } from '../fishing/fishingMinigame.js';
+import { hasAdjacentWater, roomHasWater } from '../fishing/waterDetection.js';
+import { getFishDefinition } from '../fishing/fishDefinitions.js';
+import type {
+  FishingState as FishingGameState,
+  FishingSessionResult,
+  FishCatchResult,
+  FishDefinition as FishingFishDef,
+} from '../fishing/types.js';
+import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
 
 type SnakeThemeId = VillageShopStyleId;
 
@@ -1302,6 +1313,7 @@ type GameMode =
   | 'dating'
   | 'card-game'
   | 'death-cutscene'
+  | 'fishing'
   | 'paused';
 
 const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
@@ -1370,6 +1382,14 @@ const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
     'manual-world': false,
   },
   paused: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  fishing: {
     boss: false,
     action: false,
     actor: false,
@@ -1575,6 +1595,13 @@ export default class SnakeScene extends Phaser.Scene {
   minecraftMode = false;
   private minecraftFeature: import('../minecraft/MinecraftFeature.js').MinecraftFeature | null =
     null;
+  // Fishing state
+  private fishingRegistry!: FishingRegistry;
+  private fishingActive = false;
+  private fishingGameState: FishingGameState | null = null;
+  private fishingEscapePending = false;
+  private fishingGloveLocked = false;
+  private fishingMinigame!: FishingMinigame;
 
   constructor() {
     super('SnakeScene');
@@ -1778,6 +1805,27 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.initQuestGiverSprite();
     this.initWandererSprite();
+
+    // Initialize fishing registry and minigame
+    this.fishingRegistry = new FishingRegistry({
+      rng: () => this.random(),
+    });
+
+    this.fishingMinigame = new FishingMinigame({
+      scene: this,
+      fishingRegistry: this.fishingRegistry,
+      onComplete: (result) => {
+        this.endFishing(result);
+      },
+      playSound: (key: string) => {
+        try {
+          this.sound.play(key, { volume: 0.4 });
+        } catch {
+          // Sound not available
+        }
+      },
+    });
+
     this.showTitleScreen('main');
   }
 
@@ -1828,6 +1876,15 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       if (this.skillTree.handleKeyDown(key, this.paused)) {
+        return;
+      }
+
+      // Fishing input (F key in action mode)
+      if (key === 'f' && !this.fishingActive && !this.paused && !this.titleVisible) {
+        const result = this.startFishing();
+        if (!result.ok) {
+          this.showQuestHintPopup(result.message, '#ff6b6b');
+        }
         return;
       }
 
@@ -2822,6 +2879,9 @@ export default class SnakeScene extends Phaser.Scene {
     reason?: string | null,
     options: { reviveOnComplete?: boolean; slainByAngel?: boolean; rescuer?: DeathRescuer } = {},
   ): void {
+    // Auto-escape from fishing before death
+    this.autoEscapeFromFishing();
+
     if (reason === 'water') {
       this.playDrowningAnimation(() => this.startDeathCutscene(mode, reason, options));
       return;
@@ -3714,6 +3774,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleShutdown(): void {
+    // Auto-escape from fishing
+    this.autoEscapeFromFishing();
+
     this.unsubscribeSnapshot?.();
     this.unsubscribeSnapshot = null;
     this.unsubscribeEvents?.();
@@ -4096,6 +4159,9 @@ export default class SnakeScene extends Phaser.Scene {
     classChoice?: unknown,
     backgroundChoice?: unknown,
   ): void {
+    // Auto-escape from fishing before saving
+    this.autoEscapeFromFishing();
+
     this.gameConnection.send({
       type: 'saveGame',
       playerId: this.snakeGame.getLocalPlayerId(),
@@ -5823,6 +5889,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.questPopup?.isVisible()) {
       return 'dialogue';
     }
+    if (this.fishingActive) {
+      return 'fishing';
+    }
     if (this.paused) {
       return 'paused';
     }
@@ -6980,6 +7049,7 @@ export default class SnakeScene extends Phaser.Scene {
       ) as VillageShopHatOffer[],
       cowbells: definition.cowbells.filter((offer) => true),
       supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
+      fishSales: definition.fishSales,
     };
   }
 
@@ -7269,6 +7339,182 @@ export default class SnakeScene extends Phaser.Scene {
     this.equipItem(itemId);
     this.isDirty = true;
     return { ok: true, message: `${item.name} bought and equipped.`, color: '#5dd6a2' };
+  }
+
+  // ===== FISHING =====
+
+  /** Start fishing if conditions are met */
+  startFishing(): { ok: boolean; message: string; color: string } {
+    // Check if player has fishing rod equipped
+    const rod = this.snakeGame.getInventory().getEquipped('gloves');
+    if (!rod) {
+      return { ok: false, message: 'You need a fishing rod equipped.', color: '#ff6b6b' };
+    }
+    const rodItem = getItem(rod);
+    if (!rodItem || rodItem.kind !== 'equipment' || !rodItem.modifiers?.fishingEnabled) {
+      return { ok: false, message: 'That equipment does not support fishing.', color: '#ff6b6b' };
+    }
+
+    // Check if we are already fishing
+    if (this.fishingActive) {
+      return { ok: false, message: 'You are already fishing.', color: '#ff6b6b' };
+    }
+
+    // Check if player has adjacent water (4-directional)
+    const room = this.snakeGame.getCurrentRoom();
+    const body = this.snakeGame.getSnakeBody();
+    const head = body[0];
+    if (!head) {
+      return { ok: false, message: 'No position available.', color: '#ff6b6b' };
+    }
+
+    if (!hasAdjacentWater(head.x, head.y, room)) {
+      return { ok: false, message: 'There is no water nearby.', color: '#ff6b6b' };
+    }
+
+    // Check if biome has fish
+    const biomeId = room.biomeId;
+    const fish = this.fishingRegistry.pickRandomFish(biomeId);
+    if (!fish) {
+      return { ok: false, message: 'No fish available in this area.', color: '#ff6b6b' };
+    }
+
+    // Lock gloves slot
+    this.fishingGloveLocked = true;
+
+    // Create initial fishing state
+    const fishingState = this.fishingRegistry.startFishing(biomeId, fish);
+    this.fishingGameState = fishingState;
+    this.fishingActive = true;
+    this.fishingEscapePending = false;
+
+    // Start the minigame
+    this.fishingMinigame?.start(fishingState);
+
+    return { ok: true, message: 'You cast your line into the water.', color: '#44ddff' };
+  }
+
+  /** End the fishing minigame and process the result */
+  endFishing(result: FishingSessionResult): void {
+    this.fishingActive = false;
+    this.fishingGloveLocked = false;
+    this.fishingMinigame?.stop();
+
+    if (result.caught && result.result) {
+      this.handleFishCaught(result.result);
+    } else {
+      this.handleFishEscape(result.reason);
+    }
+
+    this.fishingGameState = null;
+  }
+
+  /** Handle a caught fish */
+  private handleFishCaught(result: FishCatchResult): void {
+    const itemId = `fish-${result.fish.typeId}`;
+    this.snakeGame.addItem(itemId, 1);
+
+    // Track fish caught for quest
+    const caughtFish = this.snakeGame.getFlag<Record<string, number>>('fishing.caughtFish') ?? {};
+    caughtFish[result.fish.typeId] = (caughtFish[result.fish.typeId] ?? 0) + 1;
+    this.snakeGame.setFlag('fishing.caughtFish', caughtFish);
+
+    // Update quest tracking
+    this.setFlag('fishCaught', true);
+
+    // Show toast
+    this.showQuestHintPopup(
+      `Caught ${result.fish.name}! (+${result.totalScore} score)`,
+      '#44ddff',
+    );
+
+    // Check if inventory is full
+    const totalItems = this.snakeGame.getInventory().getAllItems().reduce(
+      (sum, [, count]) => sum + count,
+      0,
+    );
+    if (totalItems >= 30) {
+      this.showInventoryFullPopup(result);
+    }
+  }
+
+  /** Show popup when inventory is full */
+  private showInventoryFullPopup(result: FishCatchResult): void {
+    const sellPrice = this.fishingRegistry.calculateSellPrice(result.fish.baseScore);
+    const fish = result.fish;
+
+    this.villageShopPopup.show(
+      'Inventory Full!',
+      [
+        {
+          id: 'sell',
+          title: `Sell for ${sellPrice} score`,
+          description: `Sell the ${fish.name} for ${sellPrice} score.`,
+        },
+        {
+          id: 'discard',
+          title: 'Discard',
+          description: 'Discard the fish to make room.',
+        },
+        {
+          id: 'keep',
+          title: 'Keep (overwrites oldest)',
+          description: 'Keep the fish and auto-discard oldest item.',
+        },
+      ],
+      (choiceId: string) => {
+        const itemId = `fish-${fish.typeId}`;
+        if (choiceId === 'sell') {
+          // Sell the fish
+          this.snakeGame.getInventory().removeItem(itemId, 1);
+          this.addScoreDirect(sellPrice);
+          this.showQuestHintPopup(
+            `Sold ${fish.name} for ${sellPrice} score.`,
+            '#ffd700',
+          );
+        } else if (choiceId === 'discard') {
+          this.snakeGame.getInventory().removeItem(itemId, 1);
+          this.showQuestHintPopup(`Discarded ${fish.name}.`, '#ff8888');
+        } else {
+          // Keep - auto-discard oldest
+          this.showQuestHintPopup(
+            `Kept ${fish.name}. Auto-discard activated.`,
+            '#44ff44',
+          );
+        }
+      },
+    );
+  }
+
+  /** Handle fish escape */
+  private handleFishEscape(reason: 'escape' | 'lineBroken' | 'playerAbort' | undefined): void {
+    switch (reason) {
+      case 'lineBroken':
+        this.showQuestHintPopup('Your line snapped!', '#ff8800');
+        break;
+      case 'escape':
+        this.showQuestHintPopup('The fish got away!', '#ff6666');
+        break;
+      case 'playerAbort':
+        this.showQuestHintPopup('You pulled the line back.', '#aabbcc');
+        break;
+      default:
+        this.showQuestHintPopup('The fishing attempt ended.', '#aabbcc');
+    }
+  }
+
+  /** Auto-escape from fishing on death or save */
+  autoEscapeFromFishing(): void {
+    if (!this.fishingActive) return;
+
+    this.fishingEscapePending = true;
+    const result = this.fishingRegistry.abortFishing(this.fishingGameState!);
+    this.fishingMinigame?.stop();
+    this.fishingActive = false;
+    this.fishingGloveLocked = false;
+    this.fishingGameState = null;
+
+    // Don't show message during death - it will be handled by death sequence
   }
 
   purchaseVillageSupply(itemId: string): { ok: boolean; message: string; color: string } {
@@ -8149,6 +8395,13 @@ export default class SnakeScene extends Phaser.Scene {
       title: `${GOBLIN_SNAKE_STYLE.label} - ${styleOwned ? (styleEquipped ? 'equipped' : 'owned') : `${GOBLIN_SNAKE_STYLE.price} score`}`,
       description: 'A green, sharp-eyed snake style sold only by goblin merchants.',
     });
+    // Goblin fishing rod supply
+    const rodOwned = this.snakeGame.getInventory().getItemCount('fishing-rod') > 0;
+    options.push({
+      id: 'supply:fishing-rod',
+      title: `Fishing Rod - ${42} score${rodOwned ? ' (owned)' : ''}`,
+      description: 'A goblin-modified rod. The line is frayed but serviceable.',
+    });
     const goblinQuest = this.snakeGame.getGoblinLedgerQuestStatus();
     const hasMercenary = this.snakeGame.hasFollowers();
     options.push({
@@ -8210,6 +8463,32 @@ export default class SnakeScene extends Phaser.Scene {
         this.showQuestHintPopup(result.message, result.color);
         this.showGoblinShopRoot(shopkeeperName);
         return;
+      }
+      if (id.startsWith('supply:')) {
+        const supplyId = id.split(':')[1];
+        if (supplyId === 'fishing-rod') {
+          const item = getItem('fishing-rod');
+          if (!item || item.kind !== 'equipment') {
+            this.showQuestHintPopup('That item does not exist.', '#ff6b6b');
+            this.showGoblinShopRoot(shopkeeperName);
+            return;
+          }
+          if (this.snakeGame.getInventory().getItemCount('fishing-rod') > 0) {
+            this.showQuestHintPopup('You already have a fishing rod.', '#9ad1ff');
+            this.showGoblinShopRoot(shopkeeperName);
+            return;
+          }
+          if (this.score < 42) {
+            this.showQuestHintPopup('A goblin fishing rod costs 42 score.', '#ff6b6b');
+            this.showGoblinShopRoot(shopkeeperName);
+            return;
+          }
+          this.addScoreDirect(-42);
+          this.snakeGame.addItem('fishing-rod', 1);
+          this.showQuestHintPopup('Bought a goblin-modified fishing rod.', '#5dd6a2');
+          this.showGoblinShopRoot(shopkeeperName);
+          return;
+        }
       }
       const result = this.purchaseGoblinWard(offerId);
       this.showQuestHintPopup(result.message, result.color);

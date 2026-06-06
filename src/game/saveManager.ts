@@ -96,6 +96,10 @@ export interface GameSaveData {
   minecraftDayNight?: { day: number; timeOfDay: number };
   minecraftMobState?: MinecraftMobEntry[];
   minecraftInventory?: Array<{ itemId: string; count: number }>;
+  // Fishing fields
+  fishing?: {
+    caughtFish: Record<string, number>;
+  };
 }
 
 export class SaveManager {

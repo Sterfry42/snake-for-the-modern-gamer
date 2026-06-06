@@ -82,4 +82,31 @@ export interface FeatureStrings {
   snakeNuggets: string;
   flushToilet: string;
   mcCashierDialogue: string;
+  // Fishing
+  fishingCast: string;
+  fishingBite: string;
+  fishingTug: string;
+  fishingStruggle: string;
+  fishingCaught: string;
+  fishingEscaped: string;
+  fishingLineBroken: string;
+  fishingNoRod: string;
+  fishingNoWater: string;
+  fishingInWater: string;
+  fishingProgress: string;
+  fishingTension: string;
+  fishingZoneSafe: string;
+  fishingZoneWarning: string;
+  fishingZoneDanger: string;
+  fishingZoneCritical: string;
+  fishingReleaseNow: string;
+  fishingAdjustReeling: string;
+  fishingHoldLeftRight: string;
+  fishingFishCaught: string;
+  fishingSellOffer: string;
+  fishingInventoryFull: string;
+  fishingSellOrDiscard: string;
+  fishingQuestFishTitle: string;
+  fishingQuestFishDesc: string;
+  fishingQuestCatchLabel: string;
 }

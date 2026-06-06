@@ -825,6 +825,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.appleScorePenalty', undefined);
     this.setFlag('equipment.hazardMapSense', undefined);
     this.setFlag('equipment.radiationTimerScalar', undefined);
+    this.setFlag('fishing.caughtFish', {});
     this.setFlag('roomEntryTimeMs', 0);
     const head = this.snake.bodySegments[0];
     if (head) {
@@ -10235,6 +10236,7 @@ export class SnakeGame implements QuestRuntime {
       'starforged.wallSenseBonus',
       'caves.save',
       'minecraft.save',
+      'fishing.caughtFish',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -10309,6 +10311,12 @@ export class SnakeGame implements QuestRuntime {
     if (this.snakeScene && typeof this.snakeScene.getSnakeCustomizationState === 'function') {
       const cosmetics = this.snakeScene.getSnakeCustomizationState();
       data.cosmetics = cosmetics;
+    }
+
+    // Fishing data
+    const caughtFish = this.getFlag<Record<string, number>>('fishing.caughtFish');
+    if (caughtFish && Object.keys(caughtFish).length > 0) {
+      data.fishing = { caughtFish };
     }
 
     return data;

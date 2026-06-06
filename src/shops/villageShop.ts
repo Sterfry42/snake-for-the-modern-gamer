@@ -1,6 +1,7 @@
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { BiomeId } from '../world/biomes.js';
+import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
 
 export type VillageShopStyleId =
   | 'classic'
@@ -57,6 +58,15 @@ export interface VillageShopDefinition {
   hats: VillageShopHatOffer[];
   cowbells: VillageShopCowbellOffer[];
   supplies: VillageShopSupplyOffer[];
+  fishSales: VillageShopFishSaleOffer[];
+}
+
+export interface VillageShopFishSaleOffer {
+  id: string;
+  typeId: string;
+  itemId: string;
+  name: string;
+  sellPrice: number;
 }
 
 export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
@@ -87,6 +97,13 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     price: 34,
     slot: 'cloak',
     note: 'Cold resistance for snakes who read weather as criticism.',
+  },
+  {
+    id: 'fishing-rod',
+    itemId: 'fishing-rod',
+    price: 36,
+    slot: 'gloves',
+    note: 'A collapsible fishing pole. Cast it near water and wait.',
   },
 ];
 
@@ -324,6 +341,7 @@ export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinitio
     hats: [...VILLAGE_SHOP_HATS],
     cowbells: [...VILLAGE_SHOP_COWBELLS],
     supplies: [...VILLAGE_SHOP_SUPPLIES],
+    fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }
 
@@ -334,5 +352,6 @@ export function getBlackMarketDefinition(): VillageShopDefinition {
     hats: [],
     cowbells: [],
     supplies: [...BLACK_MARKET_SUPPLIES],
+    fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }
