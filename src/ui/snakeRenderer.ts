@@ -37,6 +37,11 @@ import {
   type AnimalSpritePalette,
   type AnimalSpriteVariant,
 } from './spriteRecipes/animalRecipe.js';
+import {
+  vegetationSpriteRecipe,
+  type VegetationSpritePalette,
+  type VegetationSpriteVariant,
+} from './spriteRecipes/vegetationRecipe.js';
 import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { FootballInstance } from '../game/snakeGame.js';
@@ -53,6 +58,7 @@ const ANIMAL_LAYER_DEPTH = 2;
 const ENEMY_LAYER_DEPTH = 6;
 const BULLET_LAYER_DEPTH = 7;
 const FURNITURE_LAYER_DEPTH = 3;
+const VEGETATION_LAYER_DEPTH = 1;
 
 interface SnakeRenderOptions {
   wallSenseRadius?: number;
@@ -105,6 +111,8 @@ export class SnakeRenderer {
   private readonly bulletSprites: Phaser.GameObjects.Image[] = [];
   private readonly furnitureTextureKeys: Record<FurnitureSpriteVariant, string>;
   private readonly furnitureSprites: Phaser.GameObjects.Image[] = [];
+  private readonly vegetationTextureKeys: Record<VegetationSpriteVariant, string>;
+  private readonly vegetationSprites: Phaser.GameObjects.Image[] = [];
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
   private readonly loggedOtherPlayerRenderIds = new Set<string>();
@@ -149,6 +157,11 @@ export class SnakeRenderer {
       this.grid.cell,
       this.buildFurniturePalette(),
     );
+    this.vegetationTextureKeys = this.spriteFactory.ensureRecipe(
+      vegetationSpriteRecipe,
+      this.grid.cell,
+      this.buildVegetationPalette(),
+    );
     this.animalTextureKeys = this.spriteFactory.ensureRecipe(
       animalSpriteRecipe,
       this.grid.cell,
@@ -189,6 +202,7 @@ export class SnakeRenderer {
     this.drawRoom(room);
     this.drawTemperatureReliefs(room);
     this.drawFurniture(room);
+    this.drawVegetation(room);
     this.highlightWalls(room, snakeBody, currentRoomId, opts.wallSenseRadius ?? 0);
     this.drawGrid();
     this.drawApple(room, appleInfo ?? undefined);
@@ -1160,6 +1174,36 @@ export class SnakeRenderer {
     }
   }
 
+  private drawVegetation(room: RoomSnapshot): void {
+    const veg = room.vegetation;
+    if (!veg || veg.length === 0) {
+      this.vegetationSprites.forEach((sprite) => sprite.setVisible(false));
+      return;
+    }
+
+    const biome = getBiomeDefinition(room.biomeId);
+    const tintHex = biome.accentColor ?? 0x888888;
+
+    for (let i = 0; i < veg.length; i++) {
+      const instance = veg[i];
+      const sprite = this.ensureVegetationSprite(i);
+      sprite
+        .setTexture(this.vegetationTextureKeys[instance.variant])
+        .setTint(tintHex)
+        .setAlpha(0.55)
+        .setPosition(
+          instance.x * this.grid.cell + this.grid.cell / 2,
+          instance.y * this.grid.cell + this.grid.cell / 2,
+        )
+        .setDisplaySize(this.grid.cell, this.grid.cell)
+        .setVisible(true);
+    }
+
+    for (let i = veg.length; i < this.vegetationSprites.length; i++) {
+      this.vegetationSprites[i]!.setVisible(false);
+    }
+  }
+
   private drawApple(room: RoomSnapshot, appleInfo?: AppleSnapshot): void {
     const apples =
       room.apples && room.apples.length > 0 ? room.apples : room.apple ? [room.apple] : [];
@@ -1713,6 +1757,10 @@ export class SnakeRenderer {
     };
   }
 
+  private buildVegetationPalette(): VegetationSpritePalette {
+    return { biomeAccentColor: 0xffffff, paletteSize: this.grid.cell };
+  }
+
   private buildFurniturePalette(): FurnitureSpritePalette {
     return {
       couch: { fill: '#ffb26b', accent: '#ffd8a8', outline: '#7c4a27' },
@@ -2068,6 +2116,18 @@ export class SnakeRenderer {
       .setVisible(false)
       .setOrigin(0.5, 0.5);
     this.furnitureSprites[index] = sprite;
+    return sprite;
+  }
+
+  private ensureVegetationSprite(index: number): Phaser.GameObjects.Image {
+    let sprite = this.vegetationSprites[index];
+    if (sprite) return sprite;
+    sprite = this.scene.add
+      .image(0, 0, this.vegetationTextureKeys['grass-1'])
+      .setDepth(VEGETATION_LAYER_DEPTH)
+      .setVisible(false)
+      .setOrigin(0.5, 0.5);
+    this.vegetationSprites[index] = sprite;
     return sprite;
   }
 

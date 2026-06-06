@@ -13,6 +13,7 @@ import { OceanOperations } from './generation/stages/oceanOperations.js';
 import { CrossRoomFeatureOperations } from './generation/stages/crossRoomFeatureOperations.js';
 import { ForestOperations } from './generation/stages/forestOperations.js';
 import { RoomArchetypeOperations } from './generation/stages/roomArchetypeOperations.js';
+import { VegetationOperations } from './generation/stages/vegetationOperations.js';
 import { MultiRoomStructureResolver } from './generation/townStructureResolver.js';
 import {
   createWorldGenerationIdentity,
@@ -35,6 +36,7 @@ export class RoomGenerator {
   private readonly roomArchetypeOperations: RoomArchetypeOperations;
   private readonly safetyOperations: SafetyOperations;
   private readonly structureOperations: StructureOperations;
+  private readonly vegetationOperations: VegetationOperations;
 
   constructor(
     gridOrConfig: GridConfig | WorldConfig,
@@ -69,6 +71,7 @@ export class RoomGenerator {
       this.rng,
       this.structureResolver,
     );
+    this.vegetationOperations = new VegetationOperations();
     this.pipeline = new RoomGenerationPipeline(this);
   }
 
@@ -98,6 +101,7 @@ export class RoomGenerator {
       isJadePeak,
       isLibertyBadlands,
       spawnGuard,
+      vegetation: [],
     };
   }
 
@@ -133,6 +137,7 @@ export class RoomGenerator {
       backgroundColor: context.palette.backgroundColor,
       wallColor: context.palette.wallColor,
       wallOutlineColor: context.palette.wallOutlineColor,
+      vegetation: context.vegetation.length > 0 ? context.vegetation : undefined,
     };
   }
 
@@ -191,5 +196,9 @@ export class RoomGenerator {
 
   validateRoomSafety(context: RoomGenerationContext): void {
     this.safetyOperations.validate(context);
+  }
+
+  placeVegetation(context: RoomGenerationContext): void {
+    this.vegetationOperations.place(context);
   }
 }

@@ -11,6 +11,7 @@ import {
   RoomArchetypeStage,
   SafetyValidationStage,
   StructureStage,
+  VegetationStage,
 } from './stages/currentRoomStages.js';
 import type { RoomGenerationOperations, RoomGenerationStage } from './types.js';
 
@@ -26,6 +27,7 @@ export class RoomGenerationPipeline {
       new CrossRoomFeatureStage(operations),
       new StructureStage(operations),
       new RandomObstacleStage(operations),
+      new VegetationStage(operations),
       new PortalStage(operations),
       new SafetyValidationStage(operations),
     ];
