@@ -2180,11 +2180,12 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  bossStep(onEvent?: (event: BossEvent) => void): void {
+  bossStep(onEvent?: (event: BossEvent) => void, stepMs?: number): void {
     this.bosses.step({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       getSnakeBody: () => this.snake.bodySegments,
       onEvent,
+      stepMs,
     });
     this.reconcileStagedQuestBosses();
   }

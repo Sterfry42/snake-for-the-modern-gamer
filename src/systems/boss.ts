@@ -43,6 +43,7 @@ export interface BossStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   getSnakeBody(): readonly Vector2Like[];
   onEvent?: (event: BossEvent) => void;
+  stepMs?: number;
 }
 
 export class BossManager {
@@ -237,7 +238,7 @@ export class BossManager {
 
     if (phase === 'defeated') {
       // Remove boss after a grace period so defeat FX can play
-      boss.jasonDefeatedTimer = (boss.jasonDefeatedTimer ?? 0) + 1;
+      boss.jasonDefeatedTimer = (boss.jasonDefeatedTimer ?? 0) + (deps.stepMs ?? 1);
       if (boss.jasonDefeatedTimer > 2000) {
         this.bosses.delete(boss.id);
       }
@@ -245,8 +246,8 @@ export class BossManager {
     }
 
     if (phase === 'vulnerable') {
-      // Count down vulnerability timer
-      boss.jasonVulnerableTimer = (boss.jasonVulnerableTimer ?? 0) + 1;
+      // Count down vulnerability timer (accumulates ms)
+      boss.jasonVulnerableTimer = (boss.jasonVulnerableTimer ?? 0) + (deps.stepMs ?? 1);
       if (boss.jasonVulnerableTimer >= 15000) {
         boss.jasonPhase = 'attacking';
         boss.jasonVulnerableTimer = 0;
@@ -283,9 +284,9 @@ export class BossManager {
     }
 
     if (phase === 'attacking') {
-      // Check cooldown before next move
-      boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + 1;
-      if (boss.jasonAttackCooldown < 30) {
+      // Check cooldown before next move (accumulates ms)
+      boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + (deps.stepMs ?? 1);
+      if (boss.jasonAttackCooldown < 3000) {
         // Small shuffle between moves, biased toward center
         if (boss.body.length > 0 && Math.random() < 0.25) {
           const dir = this._pickDirectionTowardCenter(boss, Math.random);

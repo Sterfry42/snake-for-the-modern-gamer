@@ -2157,7 +2157,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused) {
       return;
     }
-    this.gameSession.bossStep((event) => this.handleBossEvent(event));
+    this.gameSession.bossStep((event) => this.handleBossEvent(event), this.bossStepIntervalMs);
   }
 
 private handleBossEvent(event: BossEvent): void {
