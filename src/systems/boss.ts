@@ -611,10 +611,26 @@ const dx = snakeHead.x - bossHead.x;
     return Boolean(this.getBossAtPosition(position, roomId));
   }
 
-  public getBossAtPosition(position: Vector2Like, roomId: string): Boss | null {
+ public getBossAtPosition(position: Vector2Like, roomId: string): Boss | null {
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {
       if (boss.body.some((segment) => segment.x === position.x && segment.y === position.y)) {
+        return boss;
+      }
+    }
+    return null;
+  }
+
+  public getVulnerableJasonNearby(position: Vector2Like, roomId: string): Boss | null {
+    const bossesInRoom = this.getBossesInRoom(roomId);
+    for (const boss of bossesInRoom) {
+      if (boss.kind !== 'jason-statham' || boss.jasonPhase !== 'vulnerable') continue;
+      // Check if the head overlaps any segment or is adjacent (including diagonals)
+      const nearbySegments = boss.body.filter(
+        (segment) =>
+          Math.abs(segment.x - position.x) <= 1 && Math.abs(segment.y - position.y) <= 1,
+      );
+      if (nearbySegments.length > 0) {
         return boss;
       }
     }

@@ -356,7 +356,8 @@ export class SnakeState {
       }
     }
 
-    const collidedBoss = bossManager.getBossAtPosition(head, this.roomId);
+    const vulnerableJason = bossManager.getVulnerableJasonNearby(head, this.roomId);
+    const collidedBoss = vulnerableJason ?? bossManager.getBossAtPosition(head, this.roomId);
     if (collidedBoss && invulnTicks <= 0 && !cheatImmortal) {
       const smite = Number(this.flags['powerup.smiteTicks'] ?? 0);
       if (smite > 0) {
