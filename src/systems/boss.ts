@@ -288,9 +288,9 @@ export class BossManager {
     }
 
     if (phase === 'attacking') {
-      // Track total attack phase duration (10 seconds)
+      // Track total attack phase duration (20 seconds)
       boss.jasonAttackingTimer = (boss.jasonAttackingTimer ?? 0) + (deps.stepMs ?? 1);
-      if (boss.jasonAttackingTimer >= 10000) {
+      if (boss.jasonAttackingTimer >= 20000) {
         boss.jasonPhase = 'vulnerable';
         boss.jasonVulnerableTimer = 0;
         boss.jasonAttackingTimer = 0;
@@ -300,26 +300,20 @@ export class BossManager {
         return;
       }
 
-      // Check cooldown before next attack (3 seconds between attacks)
+      // Check cooldown before next attack (1.2 seconds between attacks)
       boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + (deps.stepMs ?? 1);
-      if (boss.jasonAttackCooldown < 3000) {
-        // Small shuffle between attacks, biased toward center
-        if (boss.body.length > 0 && Math.random() < 0.25) {
-          const dir = this._pickDirectionTowardCenter(boss, Math.random);
-          if (dir) {
-            boss.direction = dir;
-            this.attemptMove(boss, boss.direction, deps, true);
-          }
-        }
+      if (boss.jasonAttackCooldown < 1200) {
+        // Aggressively track the snake between attacks
+        this._jasonHuntSnake(boss, deps);
         return;
       }
 
       // Determine which attack type to execute based on the cycle offset
-      const cyclePosition = Math.floor(boss.jasonAttackingTimer / 3000);
+      const cyclePosition = Math.floor(boss.jasonAttackingTimer / 1200);
       const attackOffset = boss.jasonAttackStartOffset ?? 0;
       const attackType = (cyclePosition + attackOffset) % 3;
 
-      // Execute the chosen attack
+      // Execute the chosen attack with multiple moves
       boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
       const moveId = `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
 
@@ -373,42 +367,71 @@ export class BossManager {
     }
   }
 
-  /**
-   * Spiral chase: Jason moves in tightening circles toward the snake's room.
+ /**
+   * Aggressively hunt the snake: move toward it every frame during cooldown.
    */
-  private _jasonSpiralChase(boss: Boss, deps: BossStepDependencies): void {
+  private _jasonHuntSnake(boss: Boss, deps: BossStepDependencies): void {
     const snakeHead = deps.getSnakeBody()[0];
     const bossHead = boss.body[0];
     if (!snakeHead || !bossHead) {
-      this.attemptMove(boss, boss.direction, deps, true);
       return;
     }
-
-    // Move Jason toward the snake's current position in a spiral pattern
     const dx = snakeHead.x - bossHead.x;
     const dy = snakeHead.y - bossHead.y;
-    const spiralAngle = Math.atan2(dy, dx);
-    const spiralOffset = (boss.jasonMoveIndex ?? 0) * (Math.PI / 3);
-
-    // Try the spiral direction plus offset for spiraling effect
-    const spiralDx = Math.cos(spiralAngle + spiralOffset);
-    const spiralDy = Math.sin(spiralAngle + spiralOffset);
-
-    const preferred: Vector2Like[] = [
-      { x: Math.round(spiralDx), y: 0 },
-      { x: 0, y: Math.round(spiralDy) },
-      { x: Math.sign(dx), y: 0 },
-      { x: 0, y: Math.sign(dy) },
-    ];
+    const preferred =
+      Math.abs(dx) >= Math.abs(dy)
+        ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }]
+        : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
 
     for (const direction of preferred) {
       if (direction.x === 0 && direction.y === 0) continue;
       if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
       if (this.tryMoveBoss(boss, direction, deps, true)) return;
     }
+  }
 
-    // Fallback: try any valid move
-    this.attemptMove(boss, boss.direction, deps, true);
+/**
+   * Spiral chase: Jason moves in tightening circles toward the snake.
+   */
+  private _jasonSpiralChase(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    if (!snakeHead) {
+      return;
+    }
+
+    // Perform multiple spiral moves
+    const steps = 5;
+    for (let step = 0; step < steps; step++) {
+      const bossHead = boss.body[0];
+      if (!bossHead) break;
+      const dx = snakeHead.x - bossHead.x;
+      const dy = snakeHead.y - bossHead.y;
+      const spiralAngle = Math.atan2(dy, dx);
+      const spiralOffset = (boss.jasonMoveIndex ?? 0) * (Math.PI / 3) + step * 0.4;
+
+      const spiralDx = Math.cos(spiralAngle + spiralOffset);
+      const spiralDy = Math.sin(spiralAngle + spiralOffset);
+
+      const preferred: Vector2Like[] = [
+        { x: Math.round(spiralDx), y: 0 },
+        { x: 0, y: Math.round(spiralDy) },
+        { x: Math.sign(dx), y: 0 },
+        { x: 0, y: Math.sign(dy) },
+      ];
+
+      let moved = false;
+      for (const direction of preferred) {
+        if (direction.x === 0 && direction.y === 0) continue;
+        if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+        if (this.tryMoveBoss(boss, direction, deps, true)) {
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) {
+        this.attemptMove(boss, boss.direction, deps, true);
+      }
+    }
   }
 
   /**
@@ -422,7 +445,7 @@ export class BossManager {
       return;
     }
 
-    const dx = snakeHead.x - bossHead.x;
+const dx = snakeHead.x - bossHead.x;
     const dy = snakeHead.y - bossHead.y;
 
     // Determine the primary direction toward the snake
@@ -442,14 +465,17 @@ export class BossManager {
       }
     }
 
-    // Charge toward the snake with multiple moves
+    // Charge toward the snake with rapid succession of moves
     boss.direction = chargeDirection;
-    this.tryMoveBoss(boss, chargeDirection, deps, true);
-    if (boss.body.length > 0) {
-      this.tryMoveBoss(boss, chargeDirection, deps, true);
-    }
-    if (boss.body.length > 0) {
-      this.tryMoveBoss(boss, chargeDirection, deps, true);
+    const dashSteps = 6;
+    for (let i = 0; i < dashSteps; i++) {
+      if (boss.body.length > 0) {
+        if (!this.tryMoveBoss(boss, chargeDirection, deps, true)) {
+          // If blocked, try perpendicular direction
+          const perp = { x: chargeDirection.y, y: chargeDirection.x };
+          this.tryMoveBoss(boss, perp, deps, true);
+        }
+      }
     }
   }
 
@@ -458,42 +484,58 @@ export class BossManager {
    */
   private _jasonChargeMove(boss: Boss, deps: BossStepDependencies): void {
     const snakeHead = deps.getSnakeBody()[0];
-    const bossHead = boss.body[0];
-    if (!snakeHead || !bossHead) {
-      this.attemptMove(boss, boss.direction, deps, true);
+    if (!snakeHead) {
       return;
     }
-    const dx = snakeHead.x - bossHead.x;
-    const dy = snakeHead.y - bossHead.y;
-    const preferred =
-      Math.abs(dx) >= Math.abs(dy)
-        ? [
-            { x: Math.sign(dx), y: 0 },
-            { x: 0, y: Math.sign(dy) },
-          ]
-        : [
-            { x: 0, y: Math.sign(dy) },
-            { x: Math.sign(dx), y: 0 },
-          ];
 
-    for (const direction of preferred) {
-      if (direction.x === 0 && direction.y === 0) continue;
-      if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
-      if (this.tryMoveBoss(boss, direction, deps, true)) return;
+    // Perform multiple aggressive tracking moves
+    const chargeSteps = 5;
+    for (let step = 0; step < chargeSteps; step++) {
+      const bossHead = boss.body[0];
+      if (!bossHead) break;
+
+      const dx = snakeHead.x - bossHead.x;
+      const dy = snakeHead.y - bossHead.y;
+      const preferred =
+        Math.abs(dx) >= Math.abs(dy)
+          ? [
+              { x: Math.sign(dx), y: 0 },
+              { x: 0, y: Math.sign(dy) },
+            ]
+          : [
+              { x: 0, y: Math.sign(dy) },
+              { x: Math.sign(dx), y: 0 },
+            ];
+
+      let moved = false;
+      for (const direction of preferred) {
+        if (direction.x === 0 && direction.y === 0) continue;
+        if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+        if (this.tryMoveBoss(boss, direction, deps, true)) {
+          moved = true;
+          break;
+        }
+      }
+
+      if (!moved) {
+        // Fallback: try the perpendicular direction
+        const secondaryOptions = preferred
+          .map((d) => ({ x: d.y, y: d.x }))
+          .filter(
+            (d) => (d.x !== 0 || d.y !== 0) && d.x + boss.direction.x !== 0 && d.y + boss.direction.y !== 0,
+          );
+        for (const direction of secondaryOptions) {
+          if (this.tryMoveBoss(boss, direction, deps, true)) {
+            moved = true;
+            break;
+          }
+        }
+      }
+
+      if (!moved) {
+        this.attemptMove(boss, boss.direction, deps, true);
+      }
     }
-
-    // Fallback: try the perpendicular direction
-    const secondaryOptions = preferred
-      .map((d) => ({ x: d.y, y: d.x }))
-      .filter(
-        (d) => (d.x !== 0 || d.y !== 0) && d.x + boss.direction.x !== 0 && d.y + boss.direction.y !== 0,
-      );
-    for (const direction of secondaryOptions) {
-      if (this.tryMoveBoss(boss, direction, deps, true)) return;
-    }
-
-    // Last resort: any valid direction
-    this.attemptMove(boss, boss.direction, deps, true);
   }
 
   public spawnFreakYou(roomId: string): string | null {
