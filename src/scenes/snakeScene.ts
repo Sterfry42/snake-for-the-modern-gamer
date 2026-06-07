@@ -6101,7 +6101,7 @@ private handleBossEvent(event: BossEvent): void {
       this.lastBossHealth.set(boss.id, boss.health ?? boss.maxHealth ?? 0);
 
       if (this.activeBossId !== boss.id) {
-        this.juice.startBossMusic(boss.id);
+        this.juice.startBossMusic(boss.kind ?? 'default');
         this.activeBossId = boss.id;
       }
       // Danger vignette based on boss presence
