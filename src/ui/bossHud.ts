@@ -5,6 +5,7 @@ interface BossHudDisplay {
   readonly name: string;
   readonly health: number;
   readonly maxHealth: number;
+  readonly phaseText?: string;
 }
 
 export class BossHud {
@@ -13,6 +14,7 @@ export class BossHud {
   private readonly barOutline: Phaser.GameObjects.Rectangle;
   private readonly barFill: Phaser.GameObjects.Rectangle;
   private readonly nameText: Phaser.GameObjects.Text;
+  private readonly phaseText: Phaser.GameObjects.Text;
   private readonly barWidth: number;
   private visible = false;
 
@@ -44,11 +46,22 @@ export class BossHud {
       })
       .setOrigin(0.5, 0.5);
 
+    this.phaseText = this.scene.add
+      .text(0, 36, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#a0a0a0',
+        stroke: '#1c0b0b',
+        strokeThickness: 2,
+      })
+      .setOrigin(0.5, 0.5);
+
     this.container = this.scene.add.container(width / 2, height - 70, [
       this.background,
       this.barOutline,
       this.barFill,
       this.nameText,
+      this.phaseText,
     ]);
     this.container.setDepth(80);
     this.container.setVisible(false);
@@ -59,6 +72,7 @@ export class BossHud {
     const pct = Phaser.Math.Clamp(info.health / safeMax, 0, 1);
     this.barFill.setDisplaySize(Math.max(1, this.barWidth * pct), 14);
     this.nameText.setText(info.name.toUpperCase());
+    this.phaseText.setText(info.phaseText ?? '');
     this.container.setVisible(true);
     this.visible = true;
   }

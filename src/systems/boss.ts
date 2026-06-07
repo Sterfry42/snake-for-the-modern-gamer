@@ -27,7 +27,8 @@ export interface Boss {
   // Jason Statham boss fields
   jasonPhase?: 'calm' | 'attacking' | 'vulnerable' | 'defeated';
   jasonMoveIndex?: number;
-  jasonVulnerableTimer?: number; // accumulating ms
+  jasonVulnerableTimer?: number; // accumulating ms for vulnerability countdown
+  jasonDefeatedTimer?: number; // accumulating ms for defeated removal grace period
   jasonAttackCooldown?: number; // accumulating ms
 }
 
@@ -152,6 +153,7 @@ export class BossManager {
       jasonPhase: 'calm',
       jasonMoveIndex: 0,
       jasonVulnerableTimer: 0,
+      jasonDefeatedTimer: 0,
       jasonAttackCooldown: 0,
     };
     this.bosses.set(id, boss);
@@ -179,8 +181,8 @@ export class BossManager {
 
     if (phase === 'defeated') {
       // Remove boss after a grace period so defeat FX can play
-      boss.jasonVulnerableTimer = (boss.jasonVulnerableTimer ?? 0) + 1;
-      if (boss.jasonVulnerableTimer > 2000) {
+      boss.jasonDefeatedTimer = (boss.jasonDefeatedTimer ?? 0) + 1;
+      if (boss.jasonDefeatedTimer > 2000) {
         this.bosses.delete(boss.id);
       }
       return;
@@ -359,14 +361,44 @@ export class BossManager {
   }
 
   /**
-   * Dash: Jason charges quickly in a straight line.
+   * Dash: Jason charges quickly toward the snake in a straight line.
    */
   private _jasonDashMove(boss: Boss, deps: BossStepDependencies): void {
-    // Speed up movement for a few ticks (handled by increased move chance)
-    if (boss.body.length > 0) {
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (!snakeHead || !bossHead || !boss.body.length) {
       this.attemptMove(boss, boss.direction, deps);
-      if (boss.body.length > 0) this.attemptMove(boss, boss.direction, deps);
-      if (boss.body.length > 0) this.attemptMove(boss, boss.direction, deps);
+      return;
+    }
+
+    const dx = snakeHead.x - bossHead.x;
+    const dy = snakeHead.y - bossHead.y;
+
+    // Determine the primary direction toward the snake
+    let chargeDirection: Vector2Like;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      chargeDirection = { x: Math.sign(dx), y: 0 };
+    } else {
+      chargeDirection = { x: 0, y: Math.sign(dy) };
+    }
+
+    // Prevent reversing direction
+    if (chargeDirection.x + boss.direction.x === 0 && chargeDirection.y + boss.direction.y === 0) {
+      if (boss.direction.x !== 0) {
+        chargeDirection = { x: 0, y: Math.sign(dy) };
+      } else {
+        chargeDirection = { x: Math.sign(dx), y: 0 };
+      }
+    }
+
+    // Charge toward the snake with multiple moves
+    boss.direction = chargeDirection;
+    this.tryMoveBoss(boss, chargeDirection, deps);
+    if (boss.body.length > 0) {
+      this.tryMoveBoss(boss, chargeDirection, deps);
+    }
+    if (boss.body.length > 0) {
+      this.tryMoveBoss(boss, chargeDirection, deps);
     }
   }
 
@@ -392,9 +424,25 @@ export class BossManager {
             { x: 0, y: Math.sign(dy) },
             { x: Math.sign(dx), y: 0 },
           ];
+
     for (const direction of preferred) {
+      if (direction.x === 0 && direction.y === 0) continue;
+      if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
       if (this.tryMoveBoss(boss, direction, deps)) return;
     }
+
+    // Fallback: try the perpendicular direction
+    const secondaryOptions = preferred
+      .map((d) => ({ x: d.y, y: d.x }))
+      .filter(
+        (d) => (d.x !== 0 || d.y !== 0) && d.x + boss.direction.x !== 0 && d.y + boss.direction.y !== 0,
+      );
+    for (const direction of secondaryOptions) {
+      if (this.tryMoveBoss(boss, direction, deps)) return;
+    }
+
+    // Last resort: any valid direction
+    this.attemptMove(boss, boss.direction, deps);
   }
 
   public spawnFreakYou(roomId: string): string | null {

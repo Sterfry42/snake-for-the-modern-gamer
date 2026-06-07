@@ -130,7 +130,7 @@ describe('Jason Statham Boss', () => {
       getSnakeBody: () => [{ x: 0, y: 0 }],
     };
 
-    // Each step adds 1ms to jasonVulnerableTimer
+    // Each step adds 1ms to jasonDefeatedTimer
     // Need 2000ms (2000 steps) for boss removal
     for (let i = 0; i < 2001; i++) {
       bossManager.step(deps);

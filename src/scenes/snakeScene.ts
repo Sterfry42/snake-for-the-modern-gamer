@@ -2167,6 +2167,7 @@ private handleBossEvent(event: BossEvent): void {
     if (event.kind === 'jason-statham' && event.phase === 'vulnerable-entered') {
       this.juice.stathamVulnerable(worldX, worldY);
       this.juice.announce(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b', 2000);
+      this.juice.announce(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166', 2000);
       this.jasonVulnerableDialogueShown = true;
     } else if (event.kind === 'jason-statham' && event.phase === 'vulnerable-exited') {
       this.jasonVulnerableDialogueShown = false;
@@ -6073,10 +6074,21 @@ private handleBossEvent(event: BossEvent): void {
     const boss = bosses[0];
 
     if (boss) {
+      let hudPhaseText: string | undefined;
+      if (boss.kind === 'jason-statham') {
+        const phase = boss.jasonPhase ?? 'calm';
+        if (phase === 'attacking') hudPhaseText = 'ATTACKING!';
+        else if (phase === 'vulnerable') {
+          const remaining = Math.max(0, ((15000 - (boss.jasonVulnerableTimer ?? 0)) / 1000));
+          hudPhaseText = `VULNERABLE! ${remaining.toFixed(1)}s`;
+        }
+        else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
+      }
       this.bossHud.show({
         name: boss.name ?? 'Nameless Horror',
         health: boss.health ?? 0,
         maxHealth: boss.maxHealth ?? Math.max(1, boss.health ?? 1),
+        phaseText: hudPhaseText,
       });
       const previous = this.lastBossHealth.get(boss.id);
       if (typeof previous === 'number' && boss.health !== undefined && boss.health < previous) {
