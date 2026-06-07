@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
+import { i18n } from '../i18n/i18nManager.js';
 
 export interface ChoiceOption {
   id: string;
@@ -64,9 +65,9 @@ export class ChoicePopup {
     this.container?.setPosition(x, rootY);
     this.background?.setSize(this.width, popupHeight);
     this.optionContainer?.setPosition(16, 60);
-    this.scrollHintText
-      ?.setText(this.contentHeight > this.viewportHeight ? 'Mouse wheel to scroll' : '')
-      .setPosition(this.width / 2, popupHeight - 24);
+this.scrollHintText
+       ?.setText(this.contentHeight > this.viewportHeight ? i18n.getFeatureString('hintScroll') : '')
+       .setPosition(this.width / 2, popupHeight - 24);
     this.updateMask(x, rootY);
     this.applyScroll(0);
     this.container?.setVisible(true).setDepth(35);

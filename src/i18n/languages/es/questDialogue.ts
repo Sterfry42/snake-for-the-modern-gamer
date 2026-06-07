@@ -44,7 +44,7 @@ export const QUEST_DIALOGUE_ES: QuestTranslations = {
     title: 'En Contra de la Ruina',
     pages: [
       'Cuando murió mi pareja, desarmé nuestra habitación tablero por tablero y la quemé para calentarnos. Me dije que las cenizas honrarían mejor a ellos que una cama vacía alguna vez podría.',
-      'He arrepentido esa crueldad práctica todos los días desde entonces. La ruina es fácil. Hacer refugio después de la ruina es el trabajo más santo.',
+      'Me he arrepentido de esa crueldad práctica todos los días desde entonces. La ruina es fácil. Hacer refugio después de la ruina es el trabajo más santo.',
       'Compra cuatro mejoras. Si no podemos salvar la casa vieja, al menos enseñémosle a la nueva cómo resistir.',
     ],
   },
@@ -73,7 +73,7 @@ export const QUEST_DIALOGUE_ES: QuestTranslations = {
     ],
   },
   'reach-length-15': {
-    title: 'El Duelo Largo',
+    title: 'El Luto Largo',
     pages: [
       'Había ancianos una vez tan largos que proyectaban su propio clima en la luz de la lámpara. Cuando se movían, podías escuchar a las serpientes más jóvenes caer silenciosas desde habitaciones lejos.',
       'La mayoría de ellos ya están gone. El laberinto tomó a algunos. El desesperación tomó a más. La longitud sola no los salvó, pero significó que el mundo tuvo que esforzarse apropiadamente cuando los deseaba muertos.',
@@ -133,7 +133,7 @@ export const QUEST_DIALOGUE_ES: QuestTranslations = {
      pages: [
        'El océano sumergido tiene sus propias corrientes, su propia paciencia. Los peces de abajo no le importan tu longitud ni tu velocidad — solo si eres lo suficientemente persistente para superar la profundidad.',
        'Sterling ha atrapado cinco peces en la oscuridad. Cinco. No gritan, no luchan, pero el agua es pesada y el silencio es peor. Él hace esto por la carne cocida, no por la gloria.',
-       'Caza cinco peces en el océano sumergido. Regresa cuando tus manos estén limpias y tu vientre recuerde cómo sabe la comida.',
+        'Caza cinco peces en el océano sumergido. Regresa cuando tus manos estén limpias y tu vientre recuerde el sabor de la comida.',
      ],
    },
    'biome-explorer': {

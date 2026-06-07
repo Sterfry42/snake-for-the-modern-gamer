@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { FishingState, FishingSessionResult, FishCatchResult } from './types.js';
 import type { FishingRegistry } from './fishingRegistry.js';
+import { i18n } from '../i18n/i18nManager.js';
 
 export interface FishingMinigameConfig {
   scene: Phaser.Scene;
@@ -120,7 +121,7 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
 
     // Zone text
     this.zoneText = scene.add
-      .text(centerX, centerY - 120, 'SAFE', {
+      .text(centerX, centerY - 120, '', {
         fontFamily: 'monospace',
         fontSize: '18px',
         color: '#44ff44',
@@ -140,7 +141,7 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
 
     // Tension value text
     this.tensionText = scene.add
-      .text(centerX, centerY - 60, 'Tension: 50', {
+      .text(centerX, centerY - 60, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#ffffff',
@@ -152,7 +153,7 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
 
     // Progress text
     this.progressText = scene.add
-      .text(centerX, centerY - 40, 'Progress: 0%', {
+      .text(centerX, centerY - 40, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#ffffff',
@@ -345,9 +346,15 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
     }
 
     // Update texts
-    this.tensionText!.setText(`Tension: ${Math.round(state.tension)}`);
-    this.progressText!.setText(`Progress: ${Math.round(state.progress)}%`);
-    this.zoneText!.setText(zoneInfo.zone.toUpperCase());
+    const tensionLabel = i18n.getFeatureString('fishingTensionLabel');
+    this.tensionText!.setText(`${tensionLabel}: ${Math.round(state.tension)}`);
+    const progressLabel = i18n.getFeatureString('fishingProgressLabel');
+    this.progressText!.setText(`${progressLabel}: ${Math.round(state.progress)}%`);
+
+    // Resolve zone label via i18n
+    const zoneKey = `fishingZone${zoneInfo.zone.charAt(0).toUpperCase() + zoneInfo.zone.slice(1)}` as string;
+    const resolvedZone = i18n.getFeatureString(zoneKey) ?? zoneInfo.zone.toUpperCase();
+    this.zoneText!.setText(resolvedZone);
 
     const zoneColors: Record<string, string> = {
       safe: '#44ff44',
@@ -362,11 +369,11 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
 
     // Update message
     if (zoneInfo.dangerLevel === 'critical') {
-      this.messageText!.setText('CRITICAL! Release now or risk losing the fish!');
+      this.messageText!.setText(i18n.getFeatureString('fishingReleaseNow'));
     } else if (zoneInfo.dangerLevel === 'danger') {
-      this.messageText!.setText('Danger zone! Adjust your reeling!');
+      this.messageText!.setText(i18n.getFeatureString('fishingAdjustReeling'));
     } else {
-      this.messageText!.setText('Hold LEFT or RIGHT to reel in!');
+      this.messageText!.setText(i18n.getFeatureString('fishingHoldLeftRight'));
     }
   }
 

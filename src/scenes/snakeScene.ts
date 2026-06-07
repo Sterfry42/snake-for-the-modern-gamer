@@ -10417,6 +10417,7 @@ private handleBossEvent(event: BossEvent): void {
       () => this.snakeGame.random(),
       this.snakeGame.getArtifactTuning(),
     );
+    this.archaeologySession.setI18nResolver((key) => i18n.getFeatureString(key));
     this.archaeologyFinalRewards = null;
     this.archaeologyLogMessages.length = 0;
     this.archaeologyLastTickMs = this.time.now;
@@ -10596,18 +10597,18 @@ private handleBossEvent(event: BossEvent): void {
     text
       .setPosition(boardX + boardWidth + 38, boardY - 6)
       .setText([
-        `MOLEMAN ARCHAEOLOGY`,
-        snapshot.variant.name,
+        i18n.getFeatureString('archaeologyTitle'),
+        i18n.getFeatureString(snapshot.variant.i18nNameKey),
         `Depth ${snapshot.depth}  Score ${snapshot.score}`,
         `Chain ${snapshot.chain}  Best ${snapshot.maxChain}`,
         '',
-        'WASD/Arrows move cursor',
-        'Space/E/Enter swaps tiles',
-        'Q/Esc leaves with rewards',
-        snapshot.resolving ? 'Gravity paused while the chain pops' : 'Stack rising pixel by pixel',
+        i18n.getFeatureString('archaeologyControls'),
+        i18n.getFeatureString('archaeologySwap'),
+        i18n.getFeatureString('archaeologyQuit'),
+        snapshot.resolving ? i18n.getFeatureString('archaeologyPaused') : i18n.getFeatureString('archaeologyRising'),
         '',
-        'Recovered:',
-        ...(rewardLines.length ? rewardLines : ['Nothing yet.']),
+        i18n.getFeatureString('archaeologyRecovered'),
+        ...(rewardLines.length ? rewardLines : [i18n.getFeatureString('archaeologyNothingYet')]),
         '',
         ...logLines,
       ].join('\n'));
