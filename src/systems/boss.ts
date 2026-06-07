@@ -287,7 +287,7 @@ export class BossManager {
       return;
     }
 
-    if (phase === 'attacking') {
+ if (phase === 'attacking') {
       // Track total attack phase duration (20 seconds)
       boss.jasonAttackingTimer = (boss.jasonAttackingTimer ?? 0) + (deps.stepMs ?? 1);
       if (boss.jasonAttackingTimer >= 20000) {
@@ -300,20 +300,20 @@ export class BossManager {
         return;
       }
 
-      // Check cooldown before next attack (1.2 seconds between attacks)
+      // Check cooldown before next attack (10 seconds between attacks)
       boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + (deps.stepMs ?? 1);
-      if (boss.jasonAttackCooldown < 1200) {
-        // Aggressively track the snake between attacks
+      if (boss.jasonAttackCooldown < 10000) {
+        // Slowly track the snake between attacks
         this._jasonHuntSnake(boss, deps);
         return;
       }
 
       // Determine which attack type to execute based on the cycle offset
-      const cyclePosition = Math.floor(boss.jasonAttackingTimer / 1200);
+      const cyclePosition = Math.floor(boss.jasonAttackingTimer / 10000);
       const attackOffset = boss.jasonAttackStartOffset ?? 0;
       const attackType = (cyclePosition + attackOffset) % 3;
 
-      // Execute the chosen attack with multiple moves
+      // Execute the chosen attack
       boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
       const moveId = `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
 
@@ -368,7 +368,7 @@ export class BossManager {
   }
 
  /**
-   * Aggressively hunt the snake: move toward it every frame during cooldown.
+   * Hunt the snake: move toward it slowly during cooldown.
    */
   private _jasonHuntSnake(boss: Boss, deps: BossStepDependencies): void {
     const snakeHead = deps.getSnakeBody()[0];
@@ -383,10 +383,12 @@ export class BossManager {
         ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }]
         : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
 
-    for (const direction of preferred) {
-      if (direction.x === 0 && direction.y === 0) continue;
-      if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
-      if (this.tryMoveBoss(boss, direction, deps, true)) return;
+    if (Math.random() < 0.6) {
+      for (const direction of preferred) {
+        if (direction.x === 0 && direction.y === 0) continue;
+        if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+        if (this.tryMoveBoss(boss, direction, deps, true)) return;
+      }
     }
   }
 
@@ -399,8 +401,8 @@ export class BossManager {
       return;
     }
 
-    // Perform multiple spiral moves
-    const steps = 5;
+    // Perform a couple of spiral moves
+    const steps = 2;
     for (let step = 0; step < steps; step++) {
       const bossHead = boss.body[0];
       if (!bossHead) break;
@@ -465,9 +467,9 @@ const dx = snakeHead.x - bossHead.x;
       }
     }
 
-    // Charge toward the snake with rapid succession of moves
+    // Charge toward the snake with a few steps
     boss.direction = chargeDirection;
-    const dashSteps = 6;
+    const dashSteps = 2;
     for (let i = 0; i < dashSteps; i++) {
       if (boss.body.length > 0) {
         if (!this.tryMoveBoss(boss, chargeDirection, deps, true)) {
@@ -480,7 +482,7 @@ const dx = snakeHead.x - bossHead.x;
   }
 
   /**
-   * Charge: Jason aggressively tracks toward the snake.
+   * Charge: Jason tracks toward the snake.
    */
   private _jasonChargeMove(boss: Boss, deps: BossStepDependencies): void {
     const snakeHead = deps.getSnakeBody()[0];
@@ -488,8 +490,8 @@ const dx = snakeHead.x - bossHead.x;
       return;
     }
 
-    // Perform multiple aggressive tracking moves
-    const chargeSteps = 5;
+    // Perform a couple of tracking moves
+    const chargeSteps = 2;
     for (let step = 0; step < chargeSteps; step++) {
       const bossHead = boss.body[0];
       if (!bossHead) break;
