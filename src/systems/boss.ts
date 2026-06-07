@@ -176,6 +176,62 @@ export class BossManager {
    * The BossManager accumulates ms in numeric fields; the scene's step
    * calls this method each frame. Phase transitions fire events.
    */
+  private _getRoomCenter(roomId: string): Vector2Like {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    return {
+      x: roomX * this.grid.cols + this.grid.cols / 2,
+      y: roomY * this.grid.rows + this.grid.rows / 2,
+    };
+  }
+
+  private _pickDirectionTowardCenter(boss: Boss, rng: () => number): Vector2Like | null {
+    const head = boss.body[0];
+    if (!head) return null;
+    const center = this._getRoomCenter(boss.roomId);
+    const dx = center.x - head.x;
+    const dy = center.y - head.y;
+
+    // Build a weighted pool: towards center appears 3x, away appears 1x
+    const pool: Vector2Like[] = [];
+    if (dx > 0) { pool.push({ x: 1, y: 0 }); pool.push({ x: 1, y: 0 }); pool.push({ x: 1, y: 0 }); pool.push({ x: -1, y: 0 }); }
+    else if (dx < 0) { pool.push({ x: -1, y: 0 }); pool.push({ x: -1, y: 0 }); pool.push({ x: -1, y: 0 }); pool.push({ x: 1, y: 0 }); }
+
+    if (dy > 0) { pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: -1 }); }
+    else if (dy < 0) { pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: 1 }); }
+
+    if (pool.length === 0) {
+      const directions = [
+        { x: 1, y: 0 }, { x: -1, y: 0 },
+        { x: 0, y: 1 }, { x: 0, y: -1 },
+      ];
+      const valid = directions.filter(
+        (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
+      );
+      const choices = valid.length > 0 ? valid : directions;
+      return choices[Math.floor(rng() * choices.length)];
+    }
+
+    // Shuffle and pick first valid
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    for (const dir of pool) {
+      if (dir.x + boss.direction.x !== 0 || dir.y + boss.direction.y !== 0) {
+        return dir;
+      }
+    }
+    // Fallback: any direction that isn't a direct reversal
+    const all = [
+      { x: 1, y: 0 }, { x: -1, y: 0 },
+      { x: 0, y: 1 }, { x: 0, y: -1 },
+    ];
+    const valid = all.filter(
+      (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
+    );
+    return valid.length > 0 ? valid[Math.floor(rng() * valid.length)] : null;
+  }
+
   private moveJasonStatham(boss: Boss, deps: BossStepDependencies): void {
     const phase = boss.jasonPhase ?? 'calm';
 
@@ -212,23 +268,16 @@ export class BossManager {
 
         for (const direction of fleeDirections) {
           if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
-          if (this.tryMoveBoss(boss, direction, deps)) break;
+          if (this.tryMoveBoss(boss, direction, deps, true)) break;
         }
       }
-      // Fallback: random movement if no flee direction works
+      // Fallback: biased toward center if no flee direction works
       if (boss.body.length > 0 && Math.random() < 0.5) {
-        const directions = [
-          { x: 1, y: 0 },
-          { x: -1, y: 0 },
-          { x: 0, y: 1 },
-          { x: 0, y: -1 },
-        ];
-        const validDirections = directions.filter(
-          (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
-        );
-        const choices = validDirections.length > 0 ? validDirections : directions;
-        boss.direction = choices[Math.floor(Math.random() * choices.length)];
-        this.attemptMove(boss, boss.direction, deps);
+        const dir = this._pickDirectionTowardCenter(boss, Math.random);
+        if (dir) {
+          boss.direction = dir;
+          this.attemptMove(boss, boss.direction, deps, true);
+        }
       }
       return;
     }
@@ -237,20 +286,13 @@ export class BossManager {
       // Check cooldown before next move
       boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + 1;
       if (boss.jasonAttackCooldown < 30) {
-        // Small shuffle between moves
+        // Small shuffle between moves, biased toward center
         if (boss.body.length > 0 && Math.random() < 0.25) {
-          const directions = [
-            { x: 1, y: 0 },
-            { x: -1, y: 0 },
-            { x: 0, y: 1 },
-            { x: 0, y: -1 },
-          ];
-          const validDirections = directions.filter(
-            (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
-          );
-          const choices = validDirections.length > 0 ? validDirections : directions;
-          boss.direction = choices[Math.floor(Math.random() * choices.length)];
-          this.attemptMove(boss, boss.direction, deps);
+          const dir = this._pickDirectionTowardCenter(boss, Math.random);
+          if (dir) {
+            boss.direction = dir;
+            this.attemptMove(boss, boss.direction, deps, true);
+          }
         }
         return;
       }
@@ -305,20 +347,13 @@ export class BossManager {
         return;
       }
     }
-    // Proximity not met: just shuffle
+    // Proximity not met: shuffle biased toward center
     if (boss.body.length > 0 && Math.random() < 0.2) {
-      const directions = [
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-      ];
-      const validDirections = directions.filter(
-        (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
-      );
-      const choices = validDirections.length > 0 ? validDirections : directions;
-      boss.direction = choices[Math.floor(Math.random() * choices.length)];
-      this.attemptMove(boss, boss.direction, deps);
+      const dir = this._pickDirectionTowardCenter(boss, Math.random);
+      if (dir) {
+        boss.direction = dir;
+        this.attemptMove(boss, boss.direction, deps, true);
+      }
     }
   }
 
@@ -329,7 +364,7 @@ export class BossManager {
     const snakeHead = deps.getSnakeBody()[0];
     const bossHead = boss.body[0];
     if (!snakeHead || !bossHead) {
-      this.attemptMove(boss, boss.direction, deps);
+      this.attemptMove(boss, boss.direction, deps, true);
       return;
     }
 
@@ -353,11 +388,11 @@ export class BossManager {
     for (const direction of preferred) {
       if (direction.x === 0 && direction.y === 0) continue;
       if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
-      if (this.tryMoveBoss(boss, direction, deps)) return;
+      if (this.tryMoveBoss(boss, direction, deps, true)) return;
     }
 
     // Fallback: try any valid move
-    this.attemptMove(boss, boss.direction, deps);
+    this.attemptMove(boss, boss.direction, deps, true);
   }
 
   /**
@@ -367,7 +402,7 @@ export class BossManager {
     const snakeHead = deps.getSnakeBody()[0];
     const bossHead = boss.body[0];
     if (!snakeHead || !bossHead || !boss.body.length) {
-      this.attemptMove(boss, boss.direction, deps);
+      this.attemptMove(boss, boss.direction, deps, true);
       return;
     }
 
@@ -393,12 +428,12 @@ export class BossManager {
 
     // Charge toward the snake with multiple moves
     boss.direction = chargeDirection;
-    this.tryMoveBoss(boss, chargeDirection, deps);
+    this.tryMoveBoss(boss, chargeDirection, deps, true);
     if (boss.body.length > 0) {
-      this.tryMoveBoss(boss, chargeDirection, deps);
+      this.tryMoveBoss(boss, chargeDirection, deps, true);
     }
     if (boss.body.length > 0) {
-      this.tryMoveBoss(boss, chargeDirection, deps);
+      this.tryMoveBoss(boss, chargeDirection, deps, true);
     }
   }
 
@@ -409,7 +444,7 @@ export class BossManager {
     const snakeHead = deps.getSnakeBody()[0];
     const bossHead = boss.body[0];
     if (!snakeHead || !bossHead) {
-      this.attemptMove(boss, boss.direction, deps);
+      this.attemptMove(boss, boss.direction, deps, true);
       return;
     }
     const dx = snakeHead.x - bossHead.x;
@@ -428,7 +463,7 @@ export class BossManager {
     for (const direction of preferred) {
       if (direction.x === 0 && direction.y === 0) continue;
       if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
-      if (this.tryMoveBoss(boss, direction, deps)) return;
+      if (this.tryMoveBoss(boss, direction, deps, true)) return;
     }
 
     // Fallback: try the perpendicular direction
@@ -438,11 +473,11 @@ export class BossManager {
         (d) => (d.x !== 0 || d.y !== 0) && d.x + boss.direction.x !== 0 && d.y + boss.direction.y !== 0,
       );
     for (const direction of secondaryOptions) {
-      if (this.tryMoveBoss(boss, direction, deps)) return;
+      if (this.tryMoveBoss(boss, direction, deps, true)) return;
     }
 
     // Last resort: any valid direction
-    this.attemptMove(boss, boss.direction, deps);
+    this.attemptMove(boss, boss.direction, deps, true);
   }
 
   public spawnFreakYou(roomId: string): string | null {
@@ -922,7 +957,12 @@ export class BossManager {
     room.layout[localY] = `${row.slice(0, localX)}.${row.slice(localX + 1)}`;
   }
 
-  private tryMoveBoss(boss: Boss, direction: Vector2Like, deps: BossStepDependencies): boolean {
+  private tryMoveBoss(
+    boss: Boss,
+    direction: Vector2Like,
+    deps: BossStepDependencies,
+    stayInRoom = false,
+  ): boolean {
     const nextHead = addVectors(boss.body[0], direction);
     const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
     const targetRoomX = Math.floor(nextHead.x / this.grid.cols);
@@ -932,6 +972,12 @@ export class BossManager {
     const localHeadX = nextHead.x - baseRoomX;
     const localHeadY = nextHead.y - baseRoomY;
     const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
+    if (stayInRoom) {
+      const [currentRoomX, currentRoomY] = boss.roomId.split(',').map(Number);
+      if (targetRoomX !== currentRoomX || targetRoomY !== currentRoomY) {
+        return false;
+      }
+    }
     const targetRoom = deps.getRoom(targetRoomId);
     if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === '#') {
       return false;
@@ -947,7 +993,7 @@ export class BossManager {
     this.bosses.clear();
   }
 
-  private attemptMove(boss: Boss, direction: Vector2Like, deps: BossStepDependencies): void {
+  private attemptMove(boss: Boss, direction: Vector2Like, deps: BossStepDependencies, stayInRoom = false): void {
     const nextHead = addVectors(boss.body[0], direction);
     const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
 
@@ -958,16 +1004,24 @@ export class BossManager {
     const localHeadX = nextHead.x - baseRoomX;
     const localHeadY = nextHead.y - baseRoomY;
 
+    if (stayInRoom) {
+      const [currentRoomX, currentRoomY] = boss.roomId.split(',').map(Number);
+      if (targetRoomX !== currentRoomX || targetRoomY !== currentRoomY) {
+        boss.direction = { x: -direction.x, y: -direction.y };
+        return;
+      }
+    }
+
     const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
     const targetRoom = deps.getRoom(targetRoomId);
     if (!targetRoom) {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
+      boss.direction = { x: -direction.x, y: -direction.y };
       return;
     }
 
     const tile = targetRoom.layout[localHeadY]?.[localHeadX];
     if (tile === '#') {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
+      boss.direction = { x: -direction.x, y: -direction.y };
       return;
     }
 
