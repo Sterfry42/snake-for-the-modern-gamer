@@ -27,6 +27,8 @@ export interface Boss {
   // Jason Statham boss fields
   jasonPhase?: 'calm' | 'attacking' | 'vulnerable' | 'defeated';
   jasonMoveIndex?: number;
+  jasonAttackingTimer?: number; // accumulating ms for attack phase duration
+  jasonAttackStartOffset?: number; // which attack type (0, 1, 2) starts the sequence
   jasonVulnerableTimer?: number; // accumulating ms for vulnerability countdown
   jasonDefeatedTimer?: number; // accumulating ms for defeated removal grace period
   jasonAttackCooldown?: number; // accumulating ms
@@ -251,8 +253,10 @@ export class BossManager {
       if (boss.jasonVulnerableTimer >= 15000) {
         boss.jasonPhase = 'attacking';
         boss.jasonVulnerableTimer = 0;
+        boss.jasonAttackingTimer = 0;
         boss.jasonAttackCooldown = 0;
         boss.jasonMoveIndex = 0;
+        boss.jasonAttackStartOffset = Math.floor(Math.random() * 3);
         deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-exited' });
         return;
       }
@@ -284,10 +288,22 @@ export class BossManager {
     }
 
     if (phase === 'attacking') {
-      // Check cooldown before next move (accumulates ms)
+      // Track total attack phase duration (10 seconds)
+      boss.jasonAttackingTimer = (boss.jasonAttackingTimer ?? 0) + (deps.stepMs ?? 1);
+      if (boss.jasonAttackingTimer >= 10000) {
+        boss.jasonPhase = 'vulnerable';
+        boss.jasonVulnerableTimer = 0;
+        boss.jasonAttackingTimer = 0;
+        boss.jasonAttackCooldown = 0;
+        boss.jasonMoveIndex = 0;
+        deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-entered' });
+        return;
+      }
+
+      // Check cooldown before next attack (3 seconds between attacks)
       boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + (deps.stepMs ?? 1);
       if (boss.jasonAttackCooldown < 3000) {
-        // Small shuffle between moves, biased toward center
+        // Small shuffle between attacks, biased toward center
         if (boss.body.length > 0 && Math.random() < 0.25) {
           const dir = this._pickDirectionTowardCenter(boss, Math.random);
           if (dir) {
@@ -298,39 +314,36 @@ export class BossManager {
         return;
       }
 
-      // Execute next move
+      // Determine which attack type to execute based on the cycle offset
+      const cyclePosition = Math.floor(boss.jasonAttackingTimer / 3000);
+      const attackOffset = boss.jasonAttackStartOffset ?? 0;
+      const attackType = (cyclePosition + attackOffset) % 3;
+
+      // Execute the chosen attack
       boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
       const moveId = `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
 
-      switch (boss.jasonMoveIndex % 3) {
-        case 1:
+      switch (attackType) {
+        case 0:
           const spiralId = `jason-move-${boss.id}-spiral`;
           deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: spiralId, moveType: 'spiral' });
-          // Spiral chase: track the snake for 3 seconds then switch
           this._jasonSpiralChase(boss, deps);
           boss.jasonAttackCooldown = 0;
           break;
-        case 2:
+        case 1:
           const dashId = `jason-move-${boss.id}-dash`;
           deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: dashId, moveType: 'dash' });
-          // Dash: fast movement in one direction
           this._jasonDashMove(boss, deps);
           boss.jasonAttackCooldown = 0;
           break;
-        default:
+        case 2:
           const chargeId = `jason-move-${boss.id}-charge`;
           deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: chargeId, moveType: 'charge' });
-          // Charge: aggressive tracking
           this._jasonChargeMove(boss, deps);
           boss.jasonAttackCooldown = 0;
           break;
       }
 
-      // After all moves, switch to vulnerable
-      boss.jasonPhase = 'vulnerable';
-      boss.jasonVulnerableTimer = 0;
-      boss.jasonMoveIndex = 0;
-      deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-entered' });
       return;
     }
 
@@ -343,7 +356,9 @@ export class BossManager {
       if (proximityDistance <= 20) {
         boss.jasonPhase = 'attacking';
         boss.jasonAttackCooldown = 0;
+        boss.jasonAttackingTimer = 0;
         boss.jasonMoveIndex = 0;
+        boss.jasonAttackStartOffset = Math.floor(Math.random() * 3);
         deps.onEvent?.({ kind: 'jason-statham-attacking' });
         return;
       }
