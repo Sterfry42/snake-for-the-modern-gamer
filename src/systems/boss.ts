@@ -35,7 +35,8 @@ export type BossEvent =
   | { kind: 'jason-statham'; phase: 'vulnerable-entered' }
   | { kind: 'jason-statham'; phase: 'vulnerable-exited' }
   | { kind: 'jason-statham-defeated'; bossId: string; score: number }
-  | { kind: 'jason-statham-move-started'; moveId: string };
+  | { kind: 'jason-statham-move-started'; moveId: string; moveType: 'spiral' | 'dash' | 'charge' }
+  | { kind: 'jason-statham-attacking' };
 
 export interface BossStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
@@ -194,9 +195,26 @@ export class BossManager {
         boss.jasonAttackCooldown = 0;
         boss.jasonMoveIndex = 0;
         deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-exited' });
+        return;
       }
-      // Move Jason erratically during vulnerability (he's tired)
-      if (boss.body.length > 0 && Math.random() < 0.3) {
+      // Jason tries to flee from the snake during vulnerability (he's tired)
+      const snakeHead = deps.getSnakeBody()[0];
+      const bossHead = boss.body[0];
+      if (bossHead && snakeHead) {
+        const fleeDx = bossHead.x - snakeHead.x;
+        const fleeDy = bossHead.y - snakeHead.y;
+        const fleeDirections: Vector2Like[] = [
+          { x: Math.sign(fleeDx), y: 0 },
+          { x: 0, y: Math.sign(fleeDy) },
+        ].filter((d) => d.x !== 0 || d.y !== 0);
+
+        for (const direction of fleeDirections) {
+          if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+          if (this.tryMoveBoss(boss, direction, deps)) break;
+        }
+      }
+      // Fallback: random movement if no flee direction works
+      if (boss.body.length > 0 && Math.random() < 0.5) {
         const directions = [
           { x: 1, y: 0 },
           { x: -1, y: 0 },
@@ -241,19 +259,22 @@ export class BossManager {
 
       switch (boss.jasonMoveIndex % 3) {
         case 1:
-          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId });
+          const spiralId = `jason-move-${boss.id}-spiral`;
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: spiralId, moveType: 'spiral' });
           // Spiral chase: track the snake for 3 seconds then switch
           this._jasonSpiralChase(boss, deps);
           boss.jasonAttackCooldown = 0;
           break;
         case 2:
-          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId });
+          const dashId = `jason-move-${boss.id}-dash`;
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: dashId, moveType: 'dash' });
           // Dash: fast movement in one direction
           this._jasonDashMove(boss, deps);
           boss.jasonAttackCooldown = 0;
           break;
         default:
-          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId });
+          const chargeId = `jason-move-${boss.id}-charge`;
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: chargeId, moveType: 'charge' });
           // Charge: aggressive tracking
           this._jasonChargeMove(boss, deps);
           boss.jasonAttackCooldown = 0;
@@ -278,7 +299,7 @@ export class BossManager {
         boss.jasonPhase = 'attacking';
         boss.jasonAttackCooldown = 0;
         boss.jasonMoveIndex = 0;
-        deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-entered' });
+        deps.onEvent?.({ kind: 'jason-statham-attacking' });
         return;
       }
     }
@@ -302,9 +323,39 @@ export class BossManager {
   /**
    * Spiral chase: Jason moves in tightening circles toward the snake's room.
    */
-  private _jasonSpiralChase(boss: Boss, _deps: BossStepDependencies): void {
-    // Already handled by the attacking loop's movement
-    // This method exists for event dispatch clarity
+  private _jasonSpiralChase(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (!snakeHead || !bossHead) {
+      this.attemptMove(boss, boss.direction, deps);
+      return;
+    }
+
+    // Move Jason toward the snake's current position in a spiral pattern
+    const dx = snakeHead.x - bossHead.x;
+    const dy = snakeHead.y - bossHead.y;
+    const spiralAngle = Math.atan2(dy, dx);
+    const spiralOffset = (boss.jasonMoveIndex ?? 0) * (Math.PI / 3);
+
+    // Try the spiral direction plus offset for spiraling effect
+    const spiralDx = Math.cos(spiralAngle + spiralOffset);
+    const spiralDy = Math.sin(spiralAngle + spiralOffset);
+
+    const preferred: Vector2Like[] = [
+      { x: Math.round(spiralDx), y: 0 },
+      { x: 0, y: Math.round(spiralDy) },
+      { x: Math.sign(dx), y: 0 },
+      { x: 0, y: Math.sign(dy) },
+    ];
+
+    for (const direction of preferred) {
+      if (direction.x === 0 && direction.y === 0) continue;
+      if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+      if (this.tryMoveBoss(boss, direction, deps)) return;
+    }
+
+    // Fallback: try any valid move
+    this.attemptMove(boss, boss.direction, deps);
   }
 
   /**

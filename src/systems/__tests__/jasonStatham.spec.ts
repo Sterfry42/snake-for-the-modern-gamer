@@ -70,7 +70,7 @@ describe('Jason Statham Boss', () => {
 
     const boss = bossManager.getBossesInRoom('0,0,0')[0];
     expect(boss?.jasonPhase).toBe('attacking');
-    expect(eventKind).toBe('jason-statham');
+    expect(eventKind).toBe('jason-statham-attacking');
   });
 
   it('should take damage when vulnerable', () => {

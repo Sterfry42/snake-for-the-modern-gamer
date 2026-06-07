@@ -1725,9 +1725,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
-    this.snakeGame.setJasonDamageCallback((_bossId, defeated, _scoreBonus) => {
+    this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
       if (defeated) {
-        // The defeat event will be handled by the boss event callback
+        this.handleJasonDefeat(bossId, scoreBonus);
       }
     });
     this.gameSession = new LocalGameSession({ game: this.snakeGame });
@@ -2171,8 +2171,23 @@ private handleBossEvent(event: BossEvent): void {
     } else if (event.kind === 'jason-statham' && event.phase === 'vulnerable-exited') {
       this.jasonVulnerableDialogueShown = false;
     } else if (event.kind === 'jason-statham-move-started') {
-      // Play warning sound
+      // Play warning sound and announce attack type
+      const moveType = (event as any).moveType;
+      if (moveType === 'charge') {
+        this.juice.stathamAttackCharge(worldX, worldY);
+        this.juice.announce(i18n.getFeatureString('jason_statham_attack_charge')!, '#ff6b6b', 1500);
+      } else if (moveType === 'spiral') {
+        this.juice.stathamAttackCharge(worldX, worldY);
+        this.juice.announce(i18n.getFeatureString('jason_statham_attack_spiral')!, '#ffd166', 1500);
+      } else if (moveType === 'dash') {
+        this.juice.stathamAttackCharge(worldX, worldY);
+        this.juice.announce(i18n.getFeatureString('jason_statham_attack_dash')!, '#ff8c42', 1500);
+      } else {
+        this.juice.stathamAttackCharge(worldX, worldY);
+      }
+    } else if (event.kind === 'jason-statham-attacking') {
       this.juice.stathamAttackCharge(worldX, worldY);
+      this.juice.announce(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b', 2500);
     } else if (event.kind === 'jason-statham-defeated') {
       this.handleJasonDefeat(event.bossId, event.score);
     }
@@ -2201,6 +2216,7 @@ private handleBossEvent(event: BossEvent): void {
     // Show defeat announcements
     this.juice.announce(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166', 2500);
     this.juice.announce(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2', 3000);
+    this.juice.announce(`${i18n.getFeatureString('jason_statham_score_bonus')}: +${score}`, '#5dd6a2', 2500);
 
     // Clean up defeat timer if set
     this.jasonDefeatTimer?.remove(false);
@@ -4039,6 +4055,17 @@ private handleBossEvent(event: BossEvent): void {
       if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
         this.snakeGame.bosses.spawnBoss(this.currentRoomId, 'freaker-dennis');
         return { ok: true, message: 'Spawned Freaker Dennis!', color: '#5dd6a2' };
+      }
+      return {
+        ok: false,
+        message: 'Cannot spawn boss - game not in valid state',
+        color: '#ff6b6b',
+      };
+    }
+    if (code === 'jasonstatham') {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnJasonStatham(this.currentRoomId);
+        return { ok: true, message: 'Spawned Jason Statham!', color: '#5dd6a2' };
       }
       return {
         ok: false,

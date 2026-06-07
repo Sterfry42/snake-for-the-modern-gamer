@@ -858,6 +858,10 @@ export class SnakeGame implements QuestRuntime {
       // 1% chance to spawn Freaker Dennis on reset
       this.bosses.spawnBoss(this.snake.currentRoomId, 'freaker-dennis');
     }
+    if (!startingRoomIsTown && this.rng() < 0.002) {
+      // 0.2% chance to spawn Jason Statham on reset
+      this.bosses.spawnJasonStatham(this.snake.currentRoomId);
+    }
 
     this.resetPredation();
     if (!startingRoomIsTown) {
@@ -1454,6 +1458,10 @@ export class SnakeGame implements QuestRuntime {
         if (!newRoomIsTown && this.rng() < 0.01) {
           // 1% chance to spawn Freaker Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freaker-dennis');
+        }
+        if (!newRoomIsTown && this.rng() < 0.002) {
+          // 0.2% chance to spawn Jason Statham in a new room
+          this.bosses.spawnJasonStatham(newRoomId);
         }
         if (!newRoomIsTown) {
           this.enemies.ensureEnemy(newRoomId, newRoom, []);
