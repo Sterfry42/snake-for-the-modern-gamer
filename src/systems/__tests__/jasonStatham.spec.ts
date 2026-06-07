@@ -81,14 +81,14 @@ describe('Jason Statham Boss', () => {
     boss!.health = 100;
 
     // Take damage
-    const notDefeated = bossManager.takeJasonDamage(boss!.id, 25);
+    const notDefeated = bossManager.takeJasonDamage(boss!.id, 12);
     expect(notDefeated).toBe(false);
-    expect(boss!.health).toBe(75);
+    expect(boss!.health).toBe(88);
 
     // More damage
-    const stillAlive = bossManager.takeJasonDamage(boss!.id, 25);
+    const stillAlive = bossManager.takeJasonDamage(boss!.id, 12);
     expect(stillAlive).toBe(false);
-    expect(boss!.health).toBe(50);
+    expect(boss!.health).toBe(76);
   });
 
   it('should defeat when health reaches 0', () => {
@@ -110,7 +110,7 @@ describe('Jason Statham Boss', () => {
     const boss = bossManager.getBossesInRoom('0,0,0')[0];
     boss!.jasonPhase = 'calm';
 
-    const result = bossManager.takeJasonDamage(boss!.id, 25);
+    const result = bossManager.takeJasonDamage(boss!.id, 12);
     expect(result).toBe(false);
     expect(boss!.health).toBe(100); // unchanged
   });

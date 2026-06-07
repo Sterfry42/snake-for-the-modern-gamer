@@ -375,7 +375,7 @@ export class SnakeState {
         collidedBoss.jasonPhase === 'vulnerable'
       ) {
         // Jason is vulnerable: damage him instead of dying
-        const defeated = bossManager.takeJasonDamage(collidedBoss.id, 25);
+        const defeated = bossManager.takeJasonDamage(collidedBoss.id, 12);
         const scoreBonus = defeated ? collidedBoss.maxHealth * 10 : 0;
         this.flags['internal.killedByBossKind'] = collidedBoss.kind;
         this.flags['internal.killedByBossName'] = collidedBoss.name;
