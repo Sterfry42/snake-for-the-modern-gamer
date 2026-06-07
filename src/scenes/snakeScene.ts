@@ -2166,8 +2166,8 @@ private handleBossEvent(event: BossEvent): void {
     const worldY = head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2;
     if (event.kind === 'jason-statham' && event.phase === 'vulnerable-entered') {
       this.juice.stathamVulnerable(worldX, worldY);
-      this.juice.announce(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b', 2000);
-      this.juice.announce(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166', 2000);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166');
       this.jasonVulnerableDialogueShown = true;
     } else if (event.kind === 'jason-statham' && event.phase === 'vulnerable-exited') {
       this.jasonVulnerableDialogueShown = false;
@@ -2176,19 +2176,19 @@ private handleBossEvent(event: BossEvent): void {
       const moveType = (event as any).moveType;
       if (moveType === 'charge') {
         this.juice.stathamAttackCharge(worldX, worldY);
-        this.juice.announce(i18n.getFeatureString('jason_statham_attack_charge')!, '#ff6b6b', 1500);
+        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_charge')!, '#ff6b6b');
       } else if (moveType === 'spiral') {
         this.juice.stathamAttackCharge(worldX, worldY);
-        this.juice.announce(i18n.getFeatureString('jason_statham_attack_spiral')!, '#ffd166', 1500);
+        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_spiral')!, '#ffd166');
       } else if (moveType === 'dash') {
         this.juice.stathamAttackCharge(worldX, worldY);
-        this.juice.announce(i18n.getFeatureString('jason_statham_attack_dash')!, '#ff8c42', 1500);
+        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_dash')!, '#ff8c42');
       } else {
         this.juice.stathamAttackCharge(worldX, worldY);
       }
     } else if (event.kind === 'jason-statham-attacking') {
       this.juice.stathamAttackCharge(worldX, worldY);
-      this.juice.announce(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b', 2500);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b');
     } else if (event.kind === 'jason-statham-defeated') {
       this.handleJasonDefeat(event.bossId, event.score);
     }
@@ -2215,9 +2215,9 @@ private handleBossEvent(event: BossEvent): void {
     );
 
     // Show defeat announcements
-    this.juice.announce(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166', 2500);
-    this.juice.announce(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2', 3000);
-    this.juice.announce(`${i18n.getFeatureString('jason_statham_score_bonus')}: +${score}`, '#5dd6a2', 2500);
+    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166');
+    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2');
+    this.showQuestHintPopup(`${i18n.getFeatureString('jason_statham_score_bonus')}: +${score}`, '#5dd6a2');
 
     // Clean up defeat timer if set
     this.jasonDefeatTimer?.remove(false);
