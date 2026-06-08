@@ -8,7 +8,7 @@ const FREAK_YOU_TURN_MARGIN = 5;
 export interface Boss {
   id: string;
   name: string;
-  kind?: 'freak-dennis' | 'freaker-dennis' | 'freak-you' | 'revenant' | 'angel';
+  kind?: 'freak-dennis' | 'freaker-dennis' | 'freak-you' | 'revenant' | 'angel' | 'jason-statham';
   body: Vector2Like[];
   health: number;
   maxHealth: number;
@@ -24,11 +24,28 @@ export interface Boss {
   };
   rainbowPalette?: boolean;
   trackingMode?: boolean;
+  // Jason Statham boss fields
+  jasonPhase?: 'calm' | 'attacking' | 'vulnerable' | 'defeated';
+  jasonMoveIndex?: number;
+  jasonAttackingTimer?: number; // accumulating ms for attack phase duration
+  jasonAttackStartOffset?: number; // which attack type (0, 1, 2) starts the sequence
+  jasonVulnerableTimer?: number; // accumulating ms for vulnerability countdown
+  jasonDefeatedTimer?: number; // accumulating ms for defeated removal grace period
+  jasonAttackCooldown?: number; // accumulating ms
 }
+
+export type BossEvent =
+  | { kind: 'jason-statham'; phase: 'vulnerable-entered' }
+  | { kind: 'jason-statham'; phase: 'vulnerable-exited' }
+  | { kind: 'jason-statham-defeated'; bossId: string; score: number }
+  | { kind: 'jason-statham-move-started'; moveId: string; moveType: 'spiral' | 'dash' | 'charge' }
+  | { kind: 'jason-statham-attacking' };
 
 export interface BossStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   getSnakeBody(): readonly Vector2Like[];
+  onEvent?: (event: BossEvent) => void;
+  stepMs?: number;
 }
 
 export class BossManager {
@@ -103,6 +120,426 @@ export class BossManager {
     this.bosses.set(id, boss);
   }
 
+  public spawnJasonStatham(roomId: string): void {
+    if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
+      console.warn('[spawnJasonStatham] Invalid roomId provided:', roomId);
+      return;
+    }
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    const roomOffsetX = roomX * this.grid.cols;
+    const roomOffsetY = roomY * this.grid.rows;
+
+    const id = `boss-jason-${Date.now()}`;
+    const name = 'Jason Statham';
+
+    const centerX = roomOffsetX + this.grid.cols / 2;
+    const centerY = roomOffsetY + this.grid.rows / 2;
+    const body: Vector2Like[] = [];
+    // Jason body: 3x3 square formation (wider, more imposing)
+    body.push({ x: centerX, y: centerY });
+    for (let dy = -1; dy <= 1; dy++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        body.push({ x: centerX + dx, y: centerY + dy });
+      }
+    }
+
+    const boss: Boss = {
+      id,
+      name,
+      kind: 'jason-statham',
+      body,
+      health: 100,
+      maxHealth: 100,
+      roomId,
+      direction: { x: 1, y: 0 },
+      jasonPhase: 'calm',
+      jasonMoveIndex: 0,
+      jasonVulnerableTimer: 0,
+      jasonDefeatedTimer: 0,
+      jasonAttackCooldown: 0,
+    };
+    this.bosses.set(id, boss);
+  }
+
+  public takeJasonDamage(bossId: string, damage: number): boolean {
+    const boss = this.bosses.get(bossId);
+    if (!boss || boss.kind !== 'jason-statham' || boss.jasonPhase !== 'vulnerable') return false;
+    boss.health = Math.max(0, boss.health - damage);
+    if (boss.health <= 0) {
+      boss.jasonPhase = 'defeated';
+      const score = boss.maxHealth * 10;
+      return true; // defeated
+    }
+    return false; // not defeated
+  }
+
+  /**
+   * Core Jason Statham boss logic.
+   * The BossManager accumulates ms in numeric fields; the scene's step
+   * calls this method each frame. Phase transitions fire events.
+   */
+  private _getRoomCenter(roomId: string): Vector2Like {
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    return {
+      x: roomX * this.grid.cols + this.grid.cols / 2,
+      y: roomY * this.grid.rows + this.grid.rows / 2,
+    };
+  }
+
+  private _pickDirectionTowardCenter(boss: Boss, rng: () => number): Vector2Like | null {
+    const head = boss.body[0];
+    if (!head) return null;
+    const center = this._getRoomCenter(boss.roomId);
+    const dx = center.x - head.x;
+    const dy = center.y - head.y;
+
+    // Build a weighted pool: towards center appears 3x, away appears 1x
+    const pool: Vector2Like[] = [];
+    if (dx > 0) { pool.push({ x: 1, y: 0 }); pool.push({ x: 1, y: 0 }); pool.push({ x: 1, y: 0 }); pool.push({ x: -1, y: 0 }); }
+    else if (dx < 0) { pool.push({ x: -1, y: 0 }); pool.push({ x: -1, y: 0 }); pool.push({ x: -1, y: 0 }); pool.push({ x: 1, y: 0 }); }
+
+    if (dy > 0) { pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: -1 }); }
+    else if (dy < 0) { pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: 1 }); }
+
+    if (pool.length === 0) {
+      const directions = [
+        { x: 1, y: 0 }, { x: -1, y: 0 },
+        { x: 0, y: 1 }, { x: 0, y: -1 },
+      ];
+      const valid = directions.filter(
+        (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
+      );
+      const choices = valid.length > 0 ? valid : directions;
+      return choices[Math.floor(rng() * choices.length)];
+    }
+
+    // Shuffle and pick first valid
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    for (const dir of pool) {
+      if (dir.x + boss.direction.x !== 0 || dir.y + boss.direction.y !== 0) {
+        return dir;
+      }
+    }
+    // Fallback: any direction that isn't a direct reversal
+    const all = [
+      { x: 1, y: 0 }, { x: -1, y: 0 },
+      { x: 0, y: 1 }, { x: 0, y: -1 },
+    ];
+    const valid = all.filter(
+      (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
+    );
+    return valid.length > 0 ? valid[Math.floor(rng() * valid.length)] : null;
+  }
+
+  private moveJasonStatham(boss: Boss, deps: BossStepDependencies): void {
+    const phase = boss.jasonPhase ?? 'calm';
+
+    if (phase === 'defeated') {
+      // Remove boss after a grace period so defeat FX can play
+      boss.jasonDefeatedTimer = (boss.jasonDefeatedTimer ?? 0) + (deps.stepMs ?? 1);
+      if (boss.jasonDefeatedTimer > 2000) {
+        this.bosses.delete(boss.id);
+      }
+      return;
+    }
+
+    if (phase === 'vulnerable') {
+      // Count down vulnerability timer (accumulates ms)
+      boss.jasonVulnerableTimer = (boss.jasonVulnerableTimer ?? 0) + (deps.stepMs ?? 1);
+      if (boss.jasonVulnerableTimer >= 15000) {
+        boss.jasonPhase = 'attacking';
+        boss.jasonVulnerableTimer = 0;
+        boss.jasonAttackingTimer = 0;
+        boss.jasonAttackCooldown = 0;
+        boss.jasonMoveIndex = 0;
+        boss.jasonAttackStartOffset = Math.floor(Math.random() * 3);
+        deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-exited' });
+        return;
+      }
+      // Jason tries to flee from the snake during vulnerability (he's tired)
+      const snakeHead = deps.getSnakeBody()[0];
+      const bossHead = boss.body[0];
+      if (bossHead && snakeHead) {
+        const fleeDx = bossHead.x - snakeHead.x;
+        const fleeDy = bossHead.y - snakeHead.y;
+        const fleeDirections: Vector2Like[] = [
+          { x: Math.sign(fleeDx), y: 0 },
+          { x: 0, y: Math.sign(fleeDy) },
+        ].filter((d) => d.x !== 0 || d.y !== 0);
+
+        for (const direction of fleeDirections) {
+          if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+          if (this.tryMoveBoss(boss, direction, deps, true)) break;
+        }
+      }
+      // Fallback: biased toward center if no flee direction works
+      if (boss.body.length > 0 && Math.random() < 0.5) {
+        const dir = this._pickDirectionTowardCenter(boss, Math.random);
+        if (dir) {
+          boss.direction = dir;
+          this.attemptMove(boss, boss.direction, deps, true);
+        }
+      }
+      return;
+    }
+
+ if (phase === 'attacking') {
+      // Track total attack phase duration (20 seconds)
+      boss.jasonAttackingTimer = (boss.jasonAttackingTimer ?? 0) + (deps.stepMs ?? 1);
+      if (boss.jasonAttackingTimer >= 20000) {
+        boss.jasonPhase = 'vulnerable';
+        boss.jasonVulnerableTimer = 0;
+        boss.jasonAttackingTimer = 0;
+        boss.jasonAttackCooldown = 0;
+        boss.jasonMoveIndex = 0;
+        deps.onEvent?.({ kind: 'jason-statham', phase: 'vulnerable-entered' });
+        return;
+      }
+
+      // Check cooldown before next attack (10 seconds between attacks)
+      boss.jasonAttackCooldown = (boss.jasonAttackCooldown ?? 0) + (deps.stepMs ?? 1);
+      if (boss.jasonAttackCooldown < 10000) {
+        // Slowly track the snake between attacks
+        this._jasonHuntSnake(boss, deps);
+        return;
+      }
+
+      // Determine which attack type to execute based on the cycle offset
+      const cyclePosition = Math.floor(boss.jasonAttackingTimer / 10000);
+      const attackOffset = boss.jasonAttackStartOffset ?? 0;
+      const attackType = (cyclePosition + attackOffset) % 3;
+
+      // Execute the chosen attack
+      boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
+      const moveId = `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
+
+      switch (attackType) {
+        case 0:
+          const spiralId = `jason-move-${boss.id}-spiral`;
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: spiralId, moveType: 'spiral' });
+          this._jasonSpiralChase(boss, deps);
+          boss.jasonAttackCooldown = 0;
+          break;
+        case 1:
+          const dashId = `jason-move-${boss.id}-dash`;
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: dashId, moveType: 'dash' });
+          this._jasonDashMove(boss, deps);
+          boss.jasonAttackCooldown = 0;
+          break;
+        case 2:
+          const chargeId = `jason-move-${boss.id}-charge`;
+          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: chargeId, moveType: 'charge' });
+          this._jasonChargeMove(boss, deps);
+          boss.jasonAttackCooldown = 0;
+          break;
+      }
+
+      return;
+    }
+
+    // phase === 'calm': check proximity, then shuffle
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (snakeHead && bossHead) {
+      const proximityDistance = Math.abs(snakeHead.x - bossHead.x) + Math.abs(snakeHead.y - bossHead.y);
+      // Activate when the snake gets within 20 cells
+      if (proximityDistance <= 20) {
+        boss.jasonPhase = 'attacking';
+        boss.jasonAttackCooldown = 0;
+        boss.jasonAttackingTimer = 0;
+        boss.jasonMoveIndex = 0;
+        boss.jasonAttackStartOffset = Math.floor(Math.random() * 3);
+        deps.onEvent?.({ kind: 'jason-statham-attacking' });
+        return;
+      }
+    }
+    // Proximity not met: shuffle biased toward center
+    if (boss.body.length > 0 && Math.random() < 0.2) {
+      const dir = this._pickDirectionTowardCenter(boss, Math.random);
+      if (dir) {
+        boss.direction = dir;
+        this.attemptMove(boss, boss.direction, deps, true);
+      }
+    }
+  }
+
+ /**
+   * Hunt the snake: move toward it slowly during cooldown.
+   */
+  private _jasonHuntSnake(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (!snakeHead || !bossHead) {
+      return;
+    }
+    const dx = snakeHead.x - bossHead.x;
+    const dy = snakeHead.y - bossHead.y;
+    const preferred =
+      Math.abs(dx) >= Math.abs(dy)
+        ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }]
+        : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
+
+    if (Math.random() < 0.6) {
+      for (const direction of preferred) {
+        if (direction.x === 0 && direction.y === 0) continue;
+        if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+        if (this.tryMoveBoss(boss, direction, deps, true)) return;
+      }
+    }
+  }
+
+/**
+   * Spiral chase: Jason moves in tightening circles toward the snake.
+   */
+  private _jasonSpiralChase(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    if (!snakeHead) {
+      return;
+    }
+
+    // Perform a couple of spiral moves
+    const steps = 2;
+    for (let step = 0; step < steps; step++) {
+      const bossHead = boss.body[0];
+      if (!bossHead) break;
+      const dx = snakeHead.x - bossHead.x;
+      const dy = snakeHead.y - bossHead.y;
+      const spiralAngle = Math.atan2(dy, dx);
+      const spiralOffset = (boss.jasonMoveIndex ?? 0) * (Math.PI / 3) + step * 0.4;
+
+      const spiralDx = Math.cos(spiralAngle + spiralOffset);
+      const spiralDy = Math.sin(spiralAngle + spiralOffset);
+
+      const preferred: Vector2Like[] = [
+        { x: Math.round(spiralDx), y: 0 },
+        { x: 0, y: Math.round(spiralDy) },
+        { x: Math.sign(dx), y: 0 },
+        { x: 0, y: Math.sign(dy) },
+      ];
+
+      let moved = false;
+      for (const direction of preferred) {
+        if (direction.x === 0 && direction.y === 0) continue;
+        if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+        if (this.tryMoveBoss(boss, direction, deps, true)) {
+          moved = true;
+          break;
+        }
+      }
+      if (!moved) {
+        this.attemptMove(boss, boss.direction, deps, true);
+      }
+    }
+  }
+
+  /**
+   * Dash: Jason charges quickly toward the snake in a straight line.
+   */
+  private _jasonDashMove(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    const bossHead = boss.body[0];
+    if (!snakeHead || !bossHead || !boss.body.length) {
+      this.attemptMove(boss, boss.direction, deps, true);
+      return;
+    }
+
+const dx = snakeHead.x - bossHead.x;
+    const dy = snakeHead.y - bossHead.y;
+
+    // Determine the primary direction toward the snake
+    let chargeDirection: Vector2Like;
+    if (Math.abs(dx) >= Math.abs(dy)) {
+      chargeDirection = { x: Math.sign(dx), y: 0 };
+    } else {
+      chargeDirection = { x: 0, y: Math.sign(dy) };
+    }
+
+    // Prevent reversing direction
+    if (chargeDirection.x + boss.direction.x === 0 && chargeDirection.y + boss.direction.y === 0) {
+      if (boss.direction.x !== 0) {
+        chargeDirection = { x: 0, y: Math.sign(dy) };
+      } else {
+        chargeDirection = { x: Math.sign(dx), y: 0 };
+      }
+    }
+
+    // Charge toward the snake with a few steps
+    boss.direction = chargeDirection;
+    const dashSteps = 2;
+    for (let i = 0; i < dashSteps; i++) {
+      if (boss.body.length > 0) {
+        if (!this.tryMoveBoss(boss, chargeDirection, deps, true)) {
+          // If blocked, try perpendicular direction
+          const perp = { x: chargeDirection.y, y: chargeDirection.x };
+          this.tryMoveBoss(boss, perp, deps, true);
+        }
+      }
+    }
+  }
+
+  /**
+   * Charge: Jason tracks toward the snake.
+   */
+  private _jasonChargeMove(boss: Boss, deps: BossStepDependencies): void {
+    const snakeHead = deps.getSnakeBody()[0];
+    if (!snakeHead) {
+      return;
+    }
+
+    // Perform a couple of tracking moves
+    const chargeSteps = 2;
+    for (let step = 0; step < chargeSteps; step++) {
+      const bossHead = boss.body[0];
+      if (!bossHead) break;
+
+      const dx = snakeHead.x - bossHead.x;
+      const dy = snakeHead.y - bossHead.y;
+      const preferred =
+        Math.abs(dx) >= Math.abs(dy)
+          ? [
+              { x: Math.sign(dx), y: 0 },
+              { x: 0, y: Math.sign(dy) },
+            ]
+          : [
+              { x: 0, y: Math.sign(dy) },
+              { x: Math.sign(dx), y: 0 },
+            ];
+
+      let moved = false;
+      for (const direction of preferred) {
+        if (direction.x === 0 && direction.y === 0) continue;
+        if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+        if (this.tryMoveBoss(boss, direction, deps, true)) {
+          moved = true;
+          break;
+        }
+      }
+
+      if (!moved) {
+        // Fallback: try the perpendicular direction
+        const secondaryOptions = preferred
+          .map((d) => ({ x: d.y, y: d.x }))
+          .filter(
+            (d) => (d.x !== 0 || d.y !== 0) && d.x + boss.direction.x !== 0 && d.y + boss.direction.y !== 0,
+          );
+        for (const direction of secondaryOptions) {
+          if (this.tryMoveBoss(boss, direction, deps, true)) {
+            moved = true;
+            break;
+          }
+        }
+      }
+
+      if (!moved) {
+        this.attemptMove(boss, boss.direction, deps, true);
+      }
+    }
+  }
+
   public spawnFreakYou(roomId: string): string | null {
     if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
       console.warn('[spawnFreakYou] Invalid roomId provided:', roomId);
@@ -147,6 +584,8 @@ export class BossManager {
         this.moveAngelBoss(boss, deps);
       } else if (boss.kind === 'freaker-dennis') {
         this.moveFreakerDennis(boss, deps);
+      } else if (boss.kind === 'jason-statham') {
+        this.moveJasonStatham(boss, deps);
       } else {
         this.moveStandardBoss(boss, deps);
       }
@@ -172,10 +611,26 @@ export class BossManager {
     return Boolean(this.getBossAtPosition(position, roomId));
   }
 
-  public getBossAtPosition(position: Vector2Like, roomId: string): Boss | null {
+ public getBossAtPosition(position: Vector2Like, roomId: string): Boss | null {
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {
       if (boss.body.some((segment) => segment.x === position.x && segment.y === position.y)) {
+        return boss;
+      }
+    }
+    return null;
+  }
+
+  public getVulnerableJasonNearby(position: Vector2Like, roomId: string): Boss | null {
+    const bossesInRoom = this.getBossesInRoom(roomId);
+    for (const boss of bossesInRoom) {
+      if (boss.kind !== 'jason-statham' || boss.jasonPhase !== 'vulnerable') continue;
+      // Check if the head overlaps any segment or is adjacent (including diagonals)
+      const nearbySegments = boss.body.filter(
+        (segment) =>
+          Math.abs(segment.x - position.x) <= 1 && Math.abs(segment.y - position.y) <= 1,
+      );
+      if (nearbySegments.length > 0) {
         return boss;
       }
     }
@@ -200,6 +655,14 @@ export class BossManager {
 
   public hasBossWithKind(kind: Boss['kind']): boolean {
     return Array.from(this.bosses.values()).some((boss) => boss.kind === kind);
+  }
+
+  public getBoss(id: string): Boss | undefined {
+    return this.bosses.get(id);
+  }
+
+  public deleteBoss(id: string): void {
+    this.bosses.delete(id);
   }
 
   public getBossHeadRoomId(id: string): string | null {
@@ -570,7 +1033,12 @@ export class BossManager {
     room.layout[localY] = `${row.slice(0, localX)}.${row.slice(localX + 1)}`;
   }
 
-  private tryMoveBoss(boss: Boss, direction: Vector2Like, deps: BossStepDependencies): boolean {
+  private tryMoveBoss(
+    boss: Boss,
+    direction: Vector2Like,
+    deps: BossStepDependencies,
+    stayInRoom = false,
+  ): boolean {
     const nextHead = addVectors(boss.body[0], direction);
     const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
     const targetRoomX = Math.floor(nextHead.x / this.grid.cols);
@@ -580,6 +1048,12 @@ export class BossManager {
     const localHeadX = nextHead.x - baseRoomX;
     const localHeadY = nextHead.y - baseRoomY;
     const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
+    if (stayInRoom) {
+      const [currentRoomX, currentRoomY] = boss.roomId.split(',').map(Number);
+      if (targetRoomX !== currentRoomX || targetRoomY !== currentRoomY) {
+        return false;
+      }
+    }
     const targetRoom = deps.getRoom(targetRoomId);
     if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === '#') {
       return false;
@@ -595,7 +1069,7 @@ export class BossManager {
     this.bosses.clear();
   }
 
-  private attemptMove(boss: Boss, direction: Vector2Like, deps: BossStepDependencies): void {
+  private attemptMove(boss: Boss, direction: Vector2Like, deps: BossStepDependencies, stayInRoom = false): void {
     const nextHead = addVectors(boss.body[0], direction);
     const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
 
@@ -606,16 +1080,24 @@ export class BossManager {
     const localHeadX = nextHead.x - baseRoomX;
     const localHeadY = nextHead.y - baseRoomY;
 
+    if (stayInRoom) {
+      const [currentRoomX, currentRoomY] = boss.roomId.split(',').map(Number);
+      if (targetRoomX !== currentRoomX || targetRoomY !== currentRoomY) {
+        boss.direction = { x: -direction.x, y: -direction.y };
+        return;
+      }
+    }
+
     const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
     const targetRoom = deps.getRoom(targetRoomId);
     if (!targetRoom) {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
+      boss.direction = { x: -direction.x, y: -direction.y };
       return;
     }
 
     const tile = targetRoom.layout[localHeadY]?.[localHeadX];
     if (tile === '#') {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
+      boss.direction = { x: -direction.x, y: -direction.y };
       return;
     }
 

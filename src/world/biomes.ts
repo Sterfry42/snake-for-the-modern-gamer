@@ -28,6 +28,8 @@ export interface BiomeDefinition {
   enemyMoveBias: number;
   animalSpawnChance: number;
   animalSpawnBias: Record<string, number>;
+  /** Density: 0–100, percentage of eligible floor cells that roll for vegetation. 0 means no vegetation. */
+  vegetationDensity?: number;
   peakZThreshold?: number;
   peakColdRate?: number;
 }
@@ -58,6 +60,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 0,
       snake: 0,
     },
+    vegetationDensity: 12,
   },
   'ember-waste': {
     id: 'ember-waste',
@@ -84,6 +87,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 0,
       snake: 2,
     },
+    vegetationDensity: 4,
   },
   'moonlit-parish': {
     id: 'moonlit-parish',
@@ -110,6 +114,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 0,
       snake: 0,
     },
+    vegetationDensity: 10,
   },
   'sable-depths': {
     id: 'sable-depths',
@@ -136,6 +141,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 0,
       snake: 2,
     },
+    vegetationDensity: 8,
   },
   'gloam-garden': {
     id: 'gloam-garden',
@@ -162,6 +168,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 3,
       snake: 0,
     },
+    vegetationDensity: 14,
   },
   'elderwood-maze': {
     id: 'elderwood-maze',
@@ -188,6 +195,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 0,
       snake: 2,
     },
+    vegetationDensity: 0,
   },
   'sunken-ocean': {
     id: 'sunken-ocean',
@@ -214,6 +222,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 5,
       snake: 0,
     },
+    vegetationDensity: 0,
   },
   'home-hearth': {
     id: 'home-hearth',
@@ -240,6 +249,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       fish: 0,
       snake: 0,
     },
+    vegetationDensity: 2,
   },
   'jade-peak-province': {
     id: 'jade-peak-province',
@@ -270,6 +280,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       tanuki: 3,
       kappa: 2,
     },
+    vegetationDensity: 10,
     peakZThreshold: -2,
     peakColdRate: 1,
   },
@@ -306,6 +317,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       possum: 3,
       armadillo: 2,
     },
+    vegetationDensity: 6,
   },
 };
 

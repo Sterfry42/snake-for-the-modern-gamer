@@ -83,3 +83,11 @@ export class SafetyValidationStage extends CurrentRoomStage {
     this.operations.validateRoomSafety(context);
   }
 }
+
+export class VegetationStage extends CurrentRoomStage {
+  readonly id = 'vegetation';
+
+  apply(context: RoomGenerationContext): void {
+    this.operations.placeVegetation(context);
+  }
+}

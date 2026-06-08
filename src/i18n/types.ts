@@ -109,4 +109,361 @@ export interface FeatureStrings {
   fishingQuestFishTitle: string;
   fishingQuestFishDesc: string;
   fishingQuestCatchLabel: string;
+  // Jason Statham Boss
+  jason_statham_name?: string;
+  jason_statham_intro?: string;
+  jason_statham_tired?: string;
+  jason_statham_tired_sub?: string;
+  jason_statham_attack_charge?: string;
+  jason_statham_attack_spiral?: string;
+  jason_statham_attack_dash?: string;
+  jason_statham_defeated?: string;
+  jason_statham_victory?: string;
+  jason_statham_score_bonus?: string;
+
+  // === SAVE SYSTEM ===
+  saveButton: string;
+  loadButton: string;
+  clearButton: string;
+  gameSaved: string;
+  noSaveFound: string;
+  gameLoaded: string;
+  loadFailed: string;
+  saveCleared: string;
+
+  // === CARD GAME NAMES & DESCRIPTIONS ===
+  cardMossTwo: string;
+  cardMossFive: string;
+  cardMossEight: string;
+  cardTeethThree: string;
+  cardTeethSeven: string;
+  cardLanternThree: string;
+  cardMarketAce: string;
+  cardMoonJack: string;
+  cardSmokeSmog: string;
+  cardCarefulFive: string;
+  cardAccountantOne: string;
+  cardTooMuchSauce: string;
+  cardAngelAudit: string;
+  cardRoyalScale: string;
+  cardFreakDennisFog: string;
+  cardGoblinReceipt: string;
+  cardMossTwoDesc: string;
+  cardMossFiveDesc: string;
+  cardMossEightDesc: string;
+  cardTeethThreeDesc: string;
+  cardTeethSevenDesc: string;
+  cardLanternThreeDesc: string;
+  cardMarketAceDesc: string;
+  cardMoonJackDesc: string;
+  cardSmokeSmogDesc: string;
+  cardCarefulFiveDesc: string;
+  cardAccountantOneDesc: string;
+  cardTooMuchSauceDesc: string;
+  cardAngelAuditDesc: string;
+  cardRoyalScaleDesc: string;
+  cardFreakDennisFogDesc: string;
+  cardGoblinReceiptDesc: string;
+  cardTablePorch: string;
+  cardTableMarket: string;
+  cardTableDennisDare: string;
+
+  // === CARD SCORING MESSAGES ===
+  cardScoreMoonJack: string;
+  cardScoreMossEight: string;
+  cardScoreTeethThree: string;
+  cardScoreTeethSeven: string;
+  cardScoreLanternThree: string;
+  cardScoreMarketAce: string;
+  cardScoreSmokeSmogDoubled: string;
+  cardScoreSmokeSmogPenalty: string;
+  cardScoreAccountantOne: string;
+  cardScoreAngelAudit: string;
+  cardScoreRoyalScale: string;
+  cardScoreFreakDennisFog: string;
+  cardScoreGoblinReceiptSuccess: string;
+  cardScoreGoblinReceiptFail: string;
+  cardScoreCarefulFive: string;
+
+  // === CARD UI ===
+  cardHoverHint: string;
+  cardNoCardsInDeck: string;
+  cardChipsLabel: string;
+  cardMultiplierLabel: string;
+  cardModifiersResolve: string;
+  cardRoundWon: string;
+  cardTooLow: string;
+  cardTooHigh: string;
+  cardTargetWindow: string;
+  cardBestOf3: string;
+  cardWagerLabel: string;
+  cardDetailCollection: string;
+  cardCollectionInfo: string;
+  cardHintCards: string;
+  cardDeckLabel: string;
+  cardOwnedLabel: string;
+  cardNoCardsOwned: string;
+
+  // === TAB LABELS ===
+  tabSkills: string;
+  tabSpells: string;
+  tabInventory: string;
+  tabCustomize: string;
+  tabCards: string;
+  tabDestiny: string;
+  tabArtifacts: string;
+  tabMap: string;
+  tabDating: string;
+  tabQuests: string;
+  tabFactions: string;
+  tabGraph: string;
+  tabCheats: string;
+  tabInfo: string;
+  tabPeople: string;
+
+  // === PRIMARY TAB LABELS ===
+  primaryGrowth: string;
+  primaryGear: string;
+  primaryWorld: string;
+  primarySystem: string;
+
+  // === TAB PLACEHOLDER TEXT ===
+  placeholderInventory: string;
+  placeholderCustomize: string;
+  placeholderMap: string;
+  placeholderCheats: string;
+
+  // === HUD ===
+  hudHearts: string;
+  hudLives: string;
+  hudHeat: string;
+  hudCold: string;
+
+  // === TITLE SCREEN ===
+  titleRaccoon: string;
+  titleNormal: string;
+  titleRaccoonLabel: string;
+  titleNormalLabel: string;
+  titleRaccoonDesc: string;
+  titleNormalDesc: string;
+
+  // === POPUP LABELS ===
+  popupNewQuest: string;
+  popupAccept: string;
+  popupReject: string;
+  popupNext: string;
+  popupClose: string;
+
+  // === ARCHAEOLOGY ===
+  archaeologyTitle: string;
+  archaeologyControls: string;
+  archaeologySwap: string;
+  archaeologyQuit: string;
+  archaeologyRising: string;
+  archaeologyPaused: string;
+  archaeologyRecovered: string;
+  archaeologyNothingYet: string;
+  archaeologyDepth: string;
+  archaeologyScore: string;
+  archaeologyChain: string;
+  archaeologyBest: string;
+  archaeologyTileDirt: string;
+  archaeologyTileStone: string;
+  archaeologyTileRoots: string;
+  archaeologyTileClay: string;
+  archaeologyTileShell: string;
+  archaeologyTileBone: string;
+  archaeologyTileNormalApple: string;
+  archaeologyTileSkittishApple: string;
+  archaeologyTilePearlApple: string;
+  archaeologyTileYuzuApple: string;
+  archaeologyTileGoldenApple: string;
+  archaeologyTileWasabiApple: string;
+  archaeologyTileArtifactCache: string;
+  archaeologyForestDig: string;
+  archaeologyOceanDig: string;
+  archaeologyDeepDig: string;
+  archaeologyGameOver: string;
+  archaeologyDepthMessage: string;
+  archaeologyMatchTile: string;
+
+  // === SKILL TREE ===
+  skillTreeScore: string;
+  skillTreeTypeCheat: string;
+  skillTreeUnequipped: string;
+  skillTreeCannotEquip: string;
+  skillTreeQOptionUnavailable: string;
+  skillTreeUnknownItem: string;
+  skillTreeHoverSkill: string;
+  skillTreeUnableToDisplay: string;
+  skillTreeManaUnlocked: string;
+  skillTreeArcanePulseUnlocked: string;
+  skillTreeStarlightVeilPriming: string;
+  skillTreeArcanePulseSurges: string;
+  skillTreeStarlightVeilAbsorbed: string;
+  skillTreeCouldNotInvest: string;
+  skillTreeCouldNotUnlock: string;
+  skillTreeHoverItem: string;
+  skillTreeItemAcquired: string;
+  skillTreeChosenFaith: string;
+  skillTreeChosenBackground: string;
+  skillTreeChosenClass: string;
+  skillTreeCannotUseCheats: string;
+  skillTreeNotQuickCookable: string;
+  skillTreeStubText: string;
+  skillTreeExploreHint: string;
+  skillTreeMouseScrollHint: string;
+  skillTreeScrollProgress: string;
+  skillTreeRankLabel: string;
+  skillTreeCostLabel: string;
+  skillTreeMaxedLabel: string;
+  skillTreeRequiresLabel: string;
+  skillTreeNextLabel: string;
+
+  // === RACCOON MODE ===
+  raccoonLoad: string;
+  raccoonLibertyBonus: string;
+  raccoonNoGuildJob: string;
+  raccoonTierLight: string;
+  raccoonTierPocketed: string;
+  raccoonTierLoaded: string;
+  raccoonTierPacked: string;
+  raccoonTierBurdened: string;
+  raccoonTierHeavy: string;
+  raccoonTierHefty: string;
+  raccoonTierDragging: string;
+  raccoonTierSagging: string;
+  raccoonTierStraining: string;
+  raccoonTierOverloaded: string;
+  raccoonTierBuried: string;
+
+  // === FISHING ===
+  fishingTensionLabel: string;
+  fishingProgressLabel: string;
+
+  // === DATING ===
+  datingTitle: string;
+  datingHint: string;
+  datingCounter: string;
+  datingRelationships: string;
+  datingNoRelationships: string;
+
+  // === PEOPLE ===
+  peopleTitle: string;
+  peopleHint: string;
+  peopleJournal: string;
+  peopleNoPeople: string;
+
+  // === FACTIONS ===
+  factionsTitle: string;
+  factionsHint: string;
+  factionsStanding: string;
+
+  // === DESTINY ===
+  destinyTitle: string;
+  destinyHint: string;
+  destinyGuardianState: string;
+  destinySystemsOffline: string;
+
+  // === ARTIFACTS ===
+  artifactsTitle: string;
+  artifactsHint: string;
+  artifactsRunModifiers: string;
+  artifactsNoArtifacts: string;
+
+  // === MISCELLANEOUS UI ===
+  noItemsInInventory: string;
+  noSaveFoundNoFile: string;
+  loadFailedMessage: string;
+  gameSavedTitle: string;
+  noSaveFoundTitle: string;
+  gameLoadedTitle: string;
+  loadFailedTitle: string;
+  saveClearedTitle: string;
+  houseHudLabel: string;
+  radioactiveSubstance: string;
+  caveCollapse: string;
+  pauseMenu: string;
+  manaLatent: string;
+  hintScroll: string;
+  hintSelectTab: string;
+  hintArcanePulseReady: string;
+  hintManaBlooms: string;
+  hintInspectItem: string;
+  hintPressInspect: string;
+  hintClickAvailableAbility: string;
+  moreModulesComingSoon: string;
+  questBoardLabel: string;
+  thievesGuildLabel: string;
+  wardContractsLabel: string;
+  cardTableLabel: string;
+  shopkeepersCounterLabel: string;
+  tavernRunnerNote: string;
+  actionUnlockArcanePulse: string;
+  actionArcanePulseMana: string;
+  actionArcanePulseFizzle: string;
+  arcanePulseLabel: string;
+
+  // === CARD SUITS & RARITY ===
+  cardSuitMoss: string;
+  cardSuitTeeth: string;
+  cardSuitLanterns: string;
+  cardSuitMoons: string;
+  cardSuitSmoke: string;
+  cardSuitJade: string;
+  cardRarityCommon: string;
+  cardRarityUncommon: string;
+  cardRarityRare: string;
+  cardRarityLegendary: string;
+
+  // === JASON STATHAM VICTORY ===
+  jasonStathamVictory: string;
+
+  // === ARCHITECTURE / GROWTH TABS ===
+  detailQSlot: string;
+  detailSpellsTitle: string;
+  hintSpells: string;
+  detailAcceptedTasks: string;
+  hintQuests: string;
+  detailRelationships: string;
+  hintDating: string;
+  detailActorJournal: string;
+  hintPeople: string;
+  detailStanding: string;
+  hintFactions: string;
+  detailGuardianState: string;
+  hintDestiny: string;
+  detailRunModifiers: string;
+  hintArtifacts: string;
+  detailMenu: string;
+  hintCheats: string;
+  detailSnakeStyle: string;
+  detailCosmetics: string;
+  hintCustomization: string;
+  detailStyle: string;
+  detailHats: string;
+  noHatsOwned: string;
+  labelEnabled: string;
+  labelOwned: string;
+  labelOn: string;
+  labelOff: string;
+  labelEquipped: string;
+  hintInventory: string;
+  luckGraphTitle: string;
+  luckGraphSubtitle: string;
+  hintGraph: string;
+  luckGraphYAxis: string;
+  luckGraphXAxis: string;
+  cheatApply: string;
+  hintCheatInput: string;
+  noAcceptedQuests: string;
+  noActiveRelationships: string;
+  noArtifactsRecovery: string;
+  noSpellAvailable: string;
+
+  // === SHOP LABELS ===
+  shopTitlePrefix: string;
+
+  // === HUD MISC ===
+  hudScore: string;
 }

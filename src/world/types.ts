@@ -11,6 +11,24 @@ import type {
 import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 import type { DigSiteVariantId } from '../archaeology/molemanArchaeology.js';
 
+/** A single vegetation instance placed on the room grid. */
+export interface VegetationInstance {
+  x: number;
+  y: number;
+  variant: VegetationType;
+}
+
+/** All 40 vegetation type string literals. */
+export type VegetationType =
+  | 'grass-1' | 'grass-2' | 'grass-3' | 'grass-4' | 'grass-5'
+  | 'flower-1' | 'flower-2' | 'flower-3' | 'flower-4' | 'flower-5'
+  | 'bush-1' | 'bush-2' | 'bush-3' | 'bush-4' | 'bush-5'
+  | 'mushroom-1' | 'mushroom-2' | 'mushroom-3' | 'mushroom-4' | 'mushroom-5'
+  | 'vine-1' | 'vine-2' | 'vine-3' | 'vine-4' | 'vine-5'
+  | 'rock-1' | 'rock-2' | 'rock-3' | 'rock-4' | 'rock-5'
+  | 'tree-1' | 'tree-2' | 'tree-3' | 'tree-4' | 'tree-5'
+  | 'decor-1' | 'decor-2' | 'decor-3' | 'decor-4' | 'decor-5';
+
 export interface PortalConfig {
   x: number;
   y: number;
@@ -161,6 +179,7 @@ export interface RoomSnapshot {
   };
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   minecraftBlocks?: Record<string, string>;
+  vegetation?: VegetationInstance[];
   biomeId: BiomeId;
   biomeTitle: string;
   backgroundColor: number;

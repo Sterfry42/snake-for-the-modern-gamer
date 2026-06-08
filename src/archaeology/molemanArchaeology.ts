@@ -19,7 +19,7 @@ export type ArchaeologyTileKind =
 
 export interface ArchaeologyTileDefinition {
   id: ArchaeologyTileKind;
-  label: string;
+  i18nLabel: string;
   color: number;
   textColor: string;
   matchable: boolean;
@@ -28,7 +28,7 @@ export interface ArchaeologyTileDefinition {
 
 export interface DigSiteVariant {
   id: DigSiteVariantId;
-  name: string;
+  i18nNameKey: string;
   tilePool: readonly ArchaeologyTileKind[];
   appleTiles: readonly ArchaeologyTileKind[];
   foremanLine: string;
@@ -105,15 +105,15 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   ArchaeologyTileKind,
   ArchaeologyTileDefinition
 > = {
-  dirt: { id: 'dirt', label: 'Dirt', color: 0xd8a35a, textColor: '#33220f', matchable: true },
-  stone: { id: 'stone', label: 'Stone', color: 0xb9c6d2, textColor: '#19212a', matchable: true },
-  roots: { id: 'roots', label: 'Roots', color: 0x63c66f, textColor: '#113218', matchable: true },
-  clay: { id: 'clay', label: 'Clay', color: 0xf08b6d, textColor: '#3b1810', matchable: true },
-  shell: { id: 'shell', label: 'Shell', color: 0xfff0c9, textColor: '#4b3516', matchable: true },
-  bone: { id: 'bone', label: 'Bone', color: 0xf0e6c9, textColor: '#3a321f', matchable: true },
+  dirt: { id: 'dirt', i18nLabel: 'archaeologyTileDirt', color: 0xd8a35a, textColor: '#33220f', matchable: true },
+  stone: { id: 'stone', i18nLabel: 'archaeologyTileStone', color: 0xb9c6d2, textColor: '#19212a', matchable: true },
+  roots: { id: 'roots', i18nLabel: 'archaeologyTileRoots', color: 0x63c66f, textColor: '#113218', matchable: true },
+  clay: { id: 'clay', i18nLabel: 'archaeologyTileClay', color: 0xf08b6d, textColor: '#3b1810', matchable: true },
+  shell: { id: 'shell', i18nLabel: 'archaeologyTileShell', color: 0xfff0c9, textColor: '#4b3516', matchable: true },
+  bone: { id: 'bone', i18nLabel: 'archaeologyTileBone', color: 0xf0e6c9, textColor: '#3a321f', matchable: true },
   normal: {
     id: 'normal',
-    label: 'Standard Apple',
+    i18nLabel: 'archaeologyTileNormalApple',
     color: 0xff5555,
     textColor: '#4a0505',
     matchable: true,
@@ -121,7 +121,7 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   },
   skittish: {
     id: 'skittish',
-    label: 'Skittish Apple',
+    i18nLabel: 'archaeologyTileSkittishApple',
     color: 0xff7f73,
     textColor: '#520b0b',
     matchable: true,
@@ -129,7 +129,7 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   },
   pearl: {
     id: 'pearl',
-    label: 'Pearl Apple',
+    i18nLabel: 'archaeologyTilePearlApple',
     color: 0x8df3ff,
     textColor: '#08323a',
     matchable: true,
@@ -137,7 +137,7 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   },
   yuzu: {
     id: 'yuzu',
-    label: 'Yuzu Apple',
+    i18nLabel: 'archaeologyTileYuzuApple',
     color: 0xffe45f,
     textColor: '#4c3200',
     matchable: true,
@@ -145,7 +145,7 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   },
   gold: {
     id: 'gold',
-    label: 'Golden Apple',
+    i18nLabel: 'archaeologyTileGoldenApple',
     color: 0xffce37,
     textColor: '#4a2f00',
     matchable: true,
@@ -153,7 +153,7 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   },
   wasabi: {
     id: 'wasabi',
-    label: 'Wasabi Apple',
+    i18nLabel: 'archaeologyTileWasabiApple',
     color: 0x9ee84a,
     textColor: '#183005',
     matchable: true,
@@ -161,36 +161,44 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   },
   'artifact-cache': {
     id: 'artifact-cache',
-    label: 'Artifact Cache',
+    i18nLabel: 'archaeologyTileArtifactCache',
     color: 0xc18cff,
     textColor: '#2a0b44',
     matchable: false,
   },
 };
 
+export function resolveTileLabel(kind: ArchaeologyTileKind): string {
+  return ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel;
+}
+
 export const DIG_SITE_VARIANTS: readonly DigSiteVariant[] = [
   {
     id: 'forest',
-    name: 'Forest Dig',
+    i18nNameKey: 'archaeologyForestDig',
     tilePool: ['dirt', 'stone', 'roots', 'normal'],
     appleTiles: ['normal'],
     foremanLine: 'Found roots, stones, and apples. That is normal enough. We keep digging.',
   },
   {
     id: 'ocean',
-    name: 'Ocean Dig',
+    i18nNameKey: 'archaeologyOceanDig',
     tilePool: ['dirt', 'clay', 'shell', 'pearl', 'yuzu'],
     appleTiles: ['pearl', 'yuzu'],
     foremanLine: 'Not sure why the sea is under here. Good shells, though.',
   },
   {
     id: 'deep',
-    name: 'Deep Dig',
+    i18nNameKey: 'archaeologyDeepDig',
     tilePool: ['stone', 'bone', 'roots', 'gold', 'wasabi'],
     appleTiles: ['gold', 'wasabi'],
     foremanLine: 'Found six apples and a sword once. We filed it under Tuesday.',
   },
 ];
+
+export function resolveVariantName(variant: DigSiteVariant): string {
+  return variant.i18nNameKey;
+}
 
 const SUPPLY_REWARDS = ['rope', 'lead', 'animal-bait', 'healing-potion'] as const;
 const EQUIPMENT_REWARDS = [
@@ -250,6 +258,7 @@ export class MolemanArchaeologySession {
     artifacts: [],
     score: 0,
   };
+  private i18nResolveFn?: (key: string) => string;
 
   constructor(
     variant: DigSiteVariant,
@@ -267,7 +276,23 @@ export class MolemanArchaeologySession {
     }
     this.scrubInitialMatches();
     this.incomingRow = this.createIncomingRow();
-    this.pendingMessages.push(`${variant.name}: ${variant.foremanLine}`);
+    this.pendingMessages.push(`${this.resolveVariantName(variant)}: ${variant.foremanLine}`);
+  }
+
+  setI18nResolver(resolveFn: (key: string) => string): void {
+    this.i18nResolveFn = resolveFn;
+  }
+
+  private resolveTileLabel(kind: ArchaeologyTileKind): string {
+    return this.i18nResolveFn
+      ? this.i18nResolveFn(ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel)
+      : ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel;
+  }
+
+  private resolveVariantName(v: DigSiteVariant): string {
+    return this.i18nResolveFn
+      ? this.i18nResolveFn(v.i18nNameKey)
+      : v.i18nNameKey;
   }
 
   getSnapshot(): ArchaeologySessionSnapshot {
@@ -363,7 +388,7 @@ export class MolemanArchaeologySession {
   private pushRow(): void {
     if (this.board[0]?.some(Boolean)) {
       this.gameOver = true;
-      this.pendingMessages.push('The dig reached the ceiling. Rewards recovered.');
+      this.pendingMessages.push(this.i18nResolveFn ? this.i18nResolveFn('archaeologyGameOver') : 'The dig reached the ceiling. Rewards recovered.');
       this.pendingEvents.push({ kind: 'game-over' });
       return;
     }
@@ -372,7 +397,11 @@ export class MolemanArchaeologySession {
     this.incomingRow = this.createIncomingRow();
     this.cursor.y = clamp(this.cursor.y - 1, 0, this.rows - 1);
     this.depth += 1;
-    this.pendingMessages.push(`Depth ${this.depth}. Stuff keeps showing up.`);
+    this.pendingMessages.push(
+        this.i18nResolveFn
+          ? this.i18nResolveFn('archaeologyDepthMessage').replace('{depth}', String(this.depth))
+          : `Depth ${this.depth}. Stuff keeps showing up.`,
+      );
     this.pendingEvents.push({ kind: 'raise', depth: this.depth });
     this.tryBeginMatchResolution(1);
   }
@@ -670,7 +699,12 @@ export class MolemanArchaeologySession {
         this.rewards.apples[itemId] = (this.rewards.apples[itemId] ?? 0) + amount;
       }
       this.pendingMessages.push(
-        `${ARCHAEOLOGY_TILE_DEFINITIONS[tile].label} x${count}: +${matchScore} score`,
+        this.i18nResolveFn
+          ? this.i18nResolveFn('archaeologyMatchTile')
+              .replace('{tile}', this.resolveTileLabel(tile))
+              .replace('{count}', String(count))
+              .replace('{score}', String(matchScore))
+          : `${ARCHAEOLOGY_TILE_DEFINITIONS[tile].i18nLabel} x${count}: +${matchScore} score`,
       );
       this.rollChainRewards(chain);
     }

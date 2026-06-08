@@ -66,8 +66,8 @@ export const QUEST_STRINGS_ES: QuestStringsType = {
     description: 'Compra 4 mejoras para la casa',
   },
   'goblin-ledger-debt': {
-    label: 'Deuda del Libro de Goblines',
-    description: 'Encuentra el tampón de libro de goblines perdido y devuélvelo antes de que el dependiente decida que tu columna vertebral es colateral aceptable.',
+    label: 'Deuda del Libro de los Goblins',
+    description: 'Encuentra el tampón de libro de goblins perdido y devuélvelo antes de que el dependiente decida que tu columna vertebral es colateral aceptable.',
   },
   'green-purchase': {
     label: 'La Compra Verde',

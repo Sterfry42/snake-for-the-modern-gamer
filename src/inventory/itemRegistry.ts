@@ -432,6 +432,13 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
   },
   {
+    id: 'orange-juice',
+    name: 'Orange Juice',
+    description: 'A bright, tangy drink. Grants speed, a citrus shield, and doubled fortune.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
     id: 'ofuda',
     name: 'Ofuda',
     description:
@@ -918,6 +925,7 @@ const CHEST_LOOT_ITEM_IDS = [
   'jizo-stone',
   'raiju-bottle',
   'kappa-bowl',
+  'orange-juice',
 ] as const;
 const CHEST_LOOT_EXCLUDED_IDS = new Set([
   'weapon-market-revolver',

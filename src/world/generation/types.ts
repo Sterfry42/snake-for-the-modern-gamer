@@ -3,6 +3,7 @@ import type { RoomSnapshot } from '../types.js';
 import type { EdgeAccessPlan } from './edgeAccess.js';
 import type { TownRoomMembership } from './multiRoomStructures.js';
 import type { TerrainCanvas } from './terrainCanvas.js';
+import type { VegetationInstance } from '../types.js';
 
 export type RoomLayout = string[][];
 export type ProtectedCells = ReadonlySet<string> | undefined;
@@ -82,6 +83,7 @@ export interface RoomGenerationContext {
   isJadePeak: boolean;
   isLibertyBadlands: boolean;
   spawnGuard: SpawnGuard | null;
+  vegetation: VegetationInstance[];
 }
 
 export interface RoomGenerationStage {
@@ -100,5 +102,6 @@ export interface RoomGenerationOperations {
   placeCrossRoomFeatures(context: RoomGenerationContext): void;
   placeRoomStructures(context: RoomGenerationContext): void;
   placePortals(context: RoomGenerationContext): void;
+  placeVegetation(context: RoomGenerationContext): void;
   validateRoomSafety(context: RoomGenerationContext): void;
 }

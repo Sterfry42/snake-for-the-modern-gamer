@@ -81,44 +81,57 @@ type SnakeThemeId = VillageShopStyleId;
 
 interface TabDefinition {
   id: TabId;
-  label: string;
-  placeholder?: string;
+  i18nKey: string;
+  i18nPlaceholderKey?: string;
   group: PrimaryTabId;
 }
 
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
-  { id: 'skills', label: 'Skill Tree', group: 'growth' },
-  { id: 'spells', label: 'Spells', group: 'growth' },
+  { id: 'skills', i18nKey: 'tabSkills', group: 'growth' },
+  { id: 'spells', i18nKey: 'tabSpells', group: 'growth' },
   {
     id: 'inventory',
-    label: 'Inventory',
+    i18nKey: 'tabInventory',
+    i18nPlaceholderKey: 'placeholderInventory',
     group: 'gear',
-    placeholder: 'Items you collect will appear here.',
   },
-  { id: 'customize', label: 'Style', group: 'gear', placeholder: 'Buy palettes and swagger.' },
-  { id: 'cards', label: 'Cards', group: 'gear' },
-  { id: 'destiny', label: 'Destiny 3', group: 'gear' },
-  { id: 'artifacts', label: 'Artifacts', group: 'gear' },
-  { id: 'map', label: 'Map', group: 'world', placeholder: 'Explore to reveal more rooms.' },
-  { id: 'dating', label: 'Dating', group: 'world' },
-  { id: 'quests', label: 'Quests', group: 'world' },
-  { id: 'factions', label: 'Factions', group: 'world' },
-  { id: 'graph', label: 'Graph', group: 'system' },
+  { id: 'customize', i18nKey: 'tabCustomize', i18nPlaceholderKey: 'placeholderCustomize', group: 'gear' },
+  { id: 'cards', i18nKey: 'tabCards', group: 'gear' },
+  { id: 'destiny', i18nKey: 'tabDestiny', group: 'gear' },
+  { id: 'artifacts', i18nKey: 'tabArtifacts', group: 'gear' },
+  { id: 'map', i18nKey: 'tabMap', i18nPlaceholderKey: 'placeholderMap', group: 'world' },
+  { id: 'dating', i18nKey: 'tabDating', group: 'world' },
+  { id: 'quests', i18nKey: 'tabQuests', group: 'world' },
+  { id: 'factions', i18nKey: 'tabFactions', group: 'world' },
+  { id: 'graph', i18nKey: 'tabGraph', group: 'system' },
   {
     id: 'cheats',
-    label: 'Cheats',
+    i18nKey: 'tabCheats',
+    i18nPlaceholderKey: 'placeholderCheats',
     group: 'system',
-    placeholder: 'Enter cheat strings: freakdennis, freakerdennis',
   },
-  { id: 'info', label: 'Info', group: 'system' },
+  { id: 'info', i18nKey: 'tabInfo', group: 'system' },
 ];
 
-const PRIMARY_TAB_DEFINITIONS: readonly { id: PrimaryTabId; label: string }[] = [
-  { id: 'growth', label: 'Growth' },
-  { id: 'gear', label: 'Gear' },
-  { id: 'world', label: 'World' },
-  { id: 'system', label: 'System' },
+const PRIMARY_TAB_DEFINITIONS: readonly { id: PrimaryTabId; i18nKey: string }[] = [
+  { id: 'growth', i18nKey: 'primaryGrowth' },
+  { id: 'gear', i18nKey: 'primaryGear' },
+  { id: 'world', i18nKey: 'primaryWorld' },
+  { id: 'system', i18nKey: 'primarySystem' },
 ];
+
+function resolveTabLabel(tab: TabDefinition): string {
+  return i18n.getFeatureString(tab.i18nKey);
+}
+
+function resolvePrimaryLabel(id: PrimaryTabId): string {
+  const entry = PRIMARY_TAB_DEFINITIONS.find((e) => e.id === id);
+  return entry ? i18n.getFeatureString(entry.i18nKey) : id;
+}
+
+function resolvePlaceholder(tab: TabDefinition): string | undefined {
+  return tab.i18nPlaceholderKey ? i18n.getFeatureString(tab.i18nPlaceholderKey) : undefined;
+}
 
 const LUCK_GRAPH_POINTS: readonly { outOf10: number; luck: number }[] = [
   { outOf10: 130, luck: -0.13 },
@@ -241,7 +254,7 @@ export class SkillTreeOverlay {
       .setOrigin(0, 0)
       .setVisible(false);
     this.mapTitle = this.scene.add
-      .text(mapX + 10, mapY + 8, 'Map', {
+      .text(mapX + 10, mapY + 8, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#9ad1ff',
@@ -263,7 +276,7 @@ export class SkillTreeOverlay {
       .setOrigin(0, 0)
       .setVisible(false);
     this.graphTitle = this.scene.add
-      .text(graphX + 10, graphY + 8, 'Luck Graph', {
+      .text(graphX + 10, graphY + 8, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#9ad1ff',
@@ -298,7 +311,7 @@ export class SkillTreeOverlay {
       .setOrigin(0, 0)
       .setVisible(false);
     this.cheatTitle = this.scene.add
-      .text(cheatX + 10, cheatY + 8, 'Cheat Menu', {
+      .text(cheatX + 10, cheatY + 8, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#9ad1ff',
@@ -319,10 +332,10 @@ export class SkillTreeOverlay {
       if (!this.visible || this.activeTab !== 'cheats') return;
       this.cheatInputFocused = true;
       this.refreshCheatInputText();
-      this.announce('Type a cheat, then press Enter.', '#9ad1ff', 1600);
+      this.announce(i18n.getFeatureString('skillTreeTypeCheat'), '#9ad1ff', 1600);
     });
     this.cheatApplyButton = this.scene.add
-      .text(cheatX + 14, cheatY + 110, 'Apply', {
+      .text(cheatX + 14, cheatY + 110, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#5dd6a2',
@@ -345,7 +358,7 @@ export class SkillTreeOverlay {
       .setVisible(false);
 
     this.title = this.scene.add
-      .text(this.options.width / 2, 24, 'Pause Menu', {
+      .text(this.options.width / 2, 24, '', {
         fontFamily: 'monospace',
         fontSize: '26px',
         color: '#9ad1ff',
@@ -353,7 +366,7 @@ export class SkillTreeOverlay {
       })
       .setOrigin(0.5, 0);
 
-    this.scoreText = this.scene.add.text(24, 66, 'Score: 0', {
+    this.scoreText = this.scene.add.text(24, 66, '', {
       fontFamily: 'monospace',
       fontSize: '18px',
       color: '#ffffff',
@@ -578,7 +591,7 @@ export class SkillTreeOverlay {
         const slot = itemId.split(':')[1] as EquipmentSlot;
         const ok = this.scene.unequipSlot(slot);
         if (ok) {
-          this.announce(`Unequipped ${slot}.`, '#9ad1ff', 1600);
+          this.announce(i18n.getFeatureString('skillTreeUnequipped') + ' ' + slot, '#9ad1ff', 1600);
           this.refresh();
         }
         return;
@@ -603,7 +616,7 @@ export class SkillTreeOverlay {
           this.refresh();
           this.highlightInventoryItem(this.selectedInventoryItemId ?? itemId);
         } else {
-          this.announce(`Cannot equip ${item.name}.`, '#ff6b6b', 1600);
+          this.announce(i18n.getFeatureString('skillTreeCannotEquip') + ' ' + item.name, '#ff6b6b', 1600);
         }
       } else {
         this.showInventoryItemDetails();
@@ -681,7 +694,7 @@ export class SkillTreeOverlay {
       );
       if (!entry) return;
       if (!entry.canBind) {
-        this.announce('That Q option is not available yet.', '#ff6b6b', 1800);
+        this.announce(i18n.getFeatureString('skillTreeQOptionUnavailable'), '#ff6b6b', 1800);
         return;
       }
       this.handlers.onBindSpellSlot?.(entry.abilityId);
@@ -871,12 +884,12 @@ export class SkillTreeOverlay {
 
   showInventoryItemDetails(): boolean {
     if (!this.selectedInventoryItemId) {
-      this.announce('Click an item, then press I to inspect.', '#9ad1ff', 2200);
+      this.announce(i18n.getFeatureString('hintInspectItem'), '#9ad1ff', 2200);
       return false;
     }
     const item = getItem(this.selectedInventoryItemId);
     if (!item) {
-      this.announce('Unknown item.', '#ff6b6b', 1600);
+      this.announce(i18n.getFeatureString('skillTreeUnknownItem'), '#ff6b6b', 1600);
       return false;
     }
     const title = item.name ?? this.selectedInventoryItemId;
@@ -929,7 +942,7 @@ export class SkillTreeOverlay {
     if (!item || item.kind === 'equipment') {
       return 'Click to equip or unequip.';
     }
-    const hints = ['Press I to inspect.'];
+    const hints = [i18n.getFeatureString('hintPressInspect')];
     if (item.category === 'food' || item.kind === 'consumable') {
       hints.push('Press U to use.');
     }
@@ -1094,7 +1107,12 @@ export class SkillTreeOverlay {
     text.setY(TREE_PADDING.top - 12 - offset);
     this.scrollHintText
       .setText(
-        maxScroll > 0 ? `Mouse wheel to scroll ${Math.ceil(offset)}/${Math.ceil(maxScroll)}` : '',
+        maxScroll > 0
+          ? i18n
+              .getFeatureString('skillTreeScrollProgress')
+              .replace('{current}', String(Math.ceil(offset)))
+              .replace('{max}', String(Math.ceil(maxScroll)))
+          : '',
       )
       .setVisible(
         (tab === 'spells' ||
@@ -1176,7 +1194,8 @@ export class SkillTreeOverlay {
   private refreshSpellsText(): void {
     const views = this.handlers.getSpellSlotView?.() ?? [];
     const bound = views.find((view) => view.bound);
-    const lines: string[] = [`Q Slot: ${bound?.label ?? 'Unbound'}`, ''];
+    const qSlotLabel = i18n.getFeatureString('detailQSlot');
+    const lines: string[] = [`${qSlotLabel}: ${bound?.label ?? i18n.getFeatureString('skillTreeUnequipped')}`, ''];
     const rowMap: Array<{
       startRow: number;
       endRow: number;
@@ -1186,13 +1205,13 @@ export class SkillTreeOverlay {
     let visualRow = 2;
 
     if (views.length === 0) {
-      lines.push('No spells or commands discovered yet.');
+      lines.push(i18n.getFeatureString('noSpellAvailable'));
       this.spellRowMap = [];
       this.spellsText.setText(lines.join('\n'));
       return;
     }
 
-    lines.push('Click an available ability to bind Q.', '');
+    lines.push(i18n.getFeatureString('hintClickAvailableAbility'), '');
     visualRow += 2;
 
     for (const view of views) {
@@ -1244,7 +1263,7 @@ export class SkillTreeOverlay {
     const stats = this.system.getStats();
     const perks = this.system.getPerks();
 
-    this.scoreText.setText('Score: ' + this.scene.score);
+    this.scoreText.setText(i18n.getFeatureString('hudScore') + ': ' + this.scene.score);
     if (stats.manaMax > 0) {
       const manaLine =
         'Mana: ' +
@@ -1256,7 +1275,7 @@ export class SkillTreeOverlay {
         '/tick)';
       this.manaText.setText(manaLine);
     } else {
-      this.manaText.setText('Mana: latent');
+      this.manaText.setText(i18n.getFeatureString('manaLatent'));
     }
 
     if (!this.hintSticky) {
@@ -1362,14 +1381,14 @@ export class SkillTreeOverlay {
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(tab?.placeholder ?? 'More modules are coming soon.');
+        this.stubText.setText(tab?.i18nPlaceholderKey ? resolvePlaceholder(tab) : i18n.getFeatureString('skillTreeStubText'));
       }
     }
 
     if (inventoryActive) {
       const items = this.scene.inventory.getAllItems();
       if (items.length === 0) {
-        this.inventoryItemsText.setText('No items in inventory.');
+        this.inventoryItemsText.setText(i18n.getFeatureString('noItemsInInventory'));
         this.inventoryIndex = [];
       } else {
         const lines: string[] = [];
@@ -1398,7 +1417,7 @@ export class SkillTreeOverlay {
           let suffix = '';
           if (item && item.kind === 'equipment') {
             const isEq = this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
-            if (isEq) suffix = ' (equipped)';
+            if (isEq) suffix = ` (${i18n.getFeatureString('labelEquipped')})`;
           }
           const category = item?.category ? String(item.category) : 'item';
           const prefix =
@@ -1409,7 +1428,7 @@ export class SkillTreeOverlay {
         this.inventoryItemsText.setText(lines.join('\n'));
         this.inventoryIndex = index;
         if (!this.hintSticky) {
-          this.hintText.setText('Inventory: click an item, U uses food, C cooks raw food.');
+          this.hintText.setText(i18n.getFeatureString('hintInventory'));
           this.hintText.setColor('#9ad1ff');
         }
       }
@@ -1417,14 +1436,14 @@ export class SkillTreeOverlay {
 
     if (cardsActive) {
       this.cardsText.setText(this.formatCardCollection(this.scene.getCardCollectionForMenu()));
-      this.detailTitle.setText('Cards').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('cardDetailCollection')).setVisible(true);
       this.detailSubtitle.setText('Collection').setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
-        .setText('Cards bought from villages appear here. They can be used at card tables.')
+        .setText(i18n.getFeatureString('cardCollectionInfo'))
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Card collection: owned cards and counts.');
+        this.hintText.setText(i18n.getFeatureString('cardHintCards'));
         this.hintText.setColor('#9ad1ff');
       }
     }
@@ -1432,8 +1451,8 @@ export class SkillTreeOverlay {
     if (spellsActive) {
       this.refreshSpellsText();
       this.applyScrollableTextOffset('spells', this.spellsText);
-      this.detailTitle.setText('Q Slot').setVisible(true);
-      this.detailSubtitle.setText('Spells And Commands').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('detailQSlot')).setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailSpellsTitle')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1441,7 +1460,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Spells: click an available row to bind Q.');
+        this.hintText.setText(i18n.getFeatureString('hintSpells'));
         this.hintText.setColor('#ffbdfd');
       }
     }
@@ -1450,7 +1469,7 @@ export class SkillTreeOverlay {
       this.questListText.setText(this.formatQuestInfo(this.scene.getAcceptedQuestList()));
       this.applyScrollableTextOffset('quests', this.questListText);
       this.detailTitle.setText('Quests').setVisible(true);
-      this.detailSubtitle.setText('Accepted Tasks').setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailAcceptedTasks')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1458,7 +1477,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Accepted quests are listed here.');
+        this.hintText.setText(i18n.getFeatureString('hintQuests'));
         this.hintText.setColor('#9ad1ff');
       }
     }
@@ -1466,8 +1485,8 @@ export class SkillTreeOverlay {
     if (datingActive) {
       this.questListText.setText(this.formatDatingInfo(this.handlers.getDatingView?.() ?? []));
       this.applyScrollableTextOffset('dating', this.questListText);
-      this.detailTitle.setText('Dating').setVisible(true);
-      this.detailSubtitle.setText('Relationships').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('datingTitle')).setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailRelationships')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1475,7 +1494,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Dating: affection, trust, jealousy, resentment.');
+        this.hintText.setText(i18n.getFeatureString('hintDating'));
         this.hintText.setColor('#ffbdfd');
       }
     }
@@ -1483,8 +1502,8 @@ export class SkillTreeOverlay {
     if (peopleActive) {
       this.questListText.setText(this.formatPeopleInfo(this.handlers.getPeopleView?.() ?? []));
       this.applyScrollableTextOffset('people', this.questListText);
-      this.detailTitle.setText('People').setVisible(true);
-      this.detailSubtitle.setText('Actor Journal').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('peopleTitle')).setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailActorJournal')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1492,7 +1511,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('People: living actors, rumors, ties, and personal reveals.');
+        this.hintText.setText(i18n.getFeatureString('hintPeople'));
         this.hintText.setColor('#9ad1ff');
       }
     }
@@ -1502,7 +1521,7 @@ export class SkillTreeOverlay {
         this.formatFactionCards(this.scene.getFactionCards(), this.scene.getWardContractsForMenu()),
       );
       this.detailTitle.setText('Factions').setVisible(true);
-      this.detailSubtitle.setText('Standing').setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailStanding')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1510,7 +1529,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Factions: who likes you, who sells to you, and who may bite.');
+        this.hintText.setText(i18n.getFeatureString('hintFactions'));
         this.hintText.setColor('#9ad1ff');
       }
     }
@@ -1521,8 +1540,8 @@ export class SkillTreeOverlay {
         lines.length > 0 ? lines.join('\n') : 'DESTINY 3 systems offline.',
       );
       this.applyScrollableTextOffset('destiny', this.questListText);
-      this.detailTitle.setText('Destiny 3').setVisible(true);
-      this.detailSubtitle.setText('Guardian State').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('destinyTitle')).setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('destinyGuardianState')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1530,7 +1549,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Destiny 3: Starforged power, activity, gear, and surges.');
+        this.hintText.setText(i18n.getFeatureString('hintDestiny'));
         this.hintText.setColor('#9df7ff');
       }
     }
@@ -1539,8 +1558,8 @@ export class SkillTreeOverlay {
       const artifacts = this.handlers.getArtifactView?.() ?? [];
       this.questListText.setText(this.formatArtifactsInfo(artifacts));
       this.applyScrollableTextOffset('artifacts', this.questListText);
-      this.detailTitle.setText('Artifacts').setVisible(true);
-      this.detailSubtitle.setText('Run Modifiers').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('artifactsTitle')).setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailRunModifiers')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1548,7 +1567,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Artifacts: passive modifiers recovered this run.');
+        this.hintText.setText(i18n.getFeatureString('hintArtifacts'));
         this.hintText.setColor('#d8b4ff');
       }
     }
@@ -1559,7 +1578,7 @@ export class SkillTreeOverlay {
         'Use the grouped tabs above to manage growth, gear, world state, and system tools.',
       );
       this.detailTitle.setText('Info').setVisible(true);
-      this.detailSubtitle.setText('Menu').setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailMenu')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1569,7 +1588,7 @@ export class SkillTreeOverlay {
     }
 
     if (cheatsActive) {
-      this.detailTitle.setText('Cheats').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('tabCheats')).setVisible(true);
       this.detailSubtitle.setText('String Input').setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
@@ -1578,14 +1597,14 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Type a cheat string and press Enter.');
+        this.hintText.setText(i18n.getFeatureString('hintCheats'));
         this.hintText.setColor('#9ad1ff');
       }
     }
 
     if (graphActive) {
-      this.detailTitle.setText('Luck Graph').setVisible(true);
-      this.detailSubtitle.setText('Out Of 10 vs Luck').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('luckGraphTitle')).setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('luckGraphSubtitle')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
@@ -1593,7 +1612,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Graph tab: provided luck data.');
+        this.hintText.setText(i18n.getFeatureString('hintGraph'));
         this.hintText.setColor('#9ad1ff');
       }
     }
@@ -1613,13 +1632,13 @@ export class SkillTreeOverlay {
         );
       for (const theme of ownedThemes) {
         const active = state.activeTheme === theme.id;
-        const line = `${active ? '> ' : ''}${theme.label} [${active ? 'equipped' : 'owned'}]`;
+        const line = `${active ? '> ' : ''}${theme.label} [${active ? i18n.getFeatureString('labelEquipped') : i18n.getFeatureString('labelOwned')}]`;
         lines.push(line);
         index.push(`theme:${theme.id}`);
         rowMap.push({ row: visualRow, actionId: `theme:${theme.id}` });
         visualRow += this.countRenderedLines(line);
       }
-      lines.push('', 'Hats');
+      lines.push('', i18n.getFeatureString('detailHats'));
       index.push('', '');
       visualRow += 2;
       const hats = this.scene
@@ -1627,14 +1646,14 @@ export class SkillTreeOverlay {
         .filter((hat) => state.unlockedHats.includes(hat.id) || state.activeHat === hat.id);
       for (const hat of hats) {
         const equipped = state.activeHat === hat.id;
-        const line = `${equipped ? '> ' : ''}${hat.label} [${equipped ? 'equipped' : 'owned'}]`;
+        const line = `${equipped ? '> ' : ''}${hat.label} [${equipped ? i18n.getFeatureString('labelEquipped') : i18n.getFeatureString('labelOwned')}]`;
         lines.push(line);
         index.push(`hat:${hat.id}`);
         rowMap.push({ row: visualRow, actionId: `hat:${hat.id}` });
         visualRow += this.countRenderedLines(line);
       }
       if (hats.length === 0) {
-        lines.push('No hats owned.');
+        lines.push(i18n.getFeatureString('noHatsOwned'));
         index.push('');
         visualRow += 1;
       }
@@ -1644,8 +1663,8 @@ export class SkillTreeOverlay {
       const walkingNoiseStatus = !state.loudWalkingNoiseUnlocked
         ? '100 score'
         : state.loudWalkingNoiseEnabled
-          ? 'enabled'
-          : 'owned';
+          ? i18n.getFeatureString('labelEnabled')
+          : i18n.getFeatureString('labelOwned');
       const walkingNoiseLine = `Disable Walking Noise [${walkingNoiseStatus}]`;
       lines.push(walkingNoiseLine);
       index.push('walking-noise');
@@ -1657,8 +1676,8 @@ export class SkillTreeOverlay {
       const cowbellStatus = !state.cowbellUnlocked
         ? '45 score'
         : state.cowbellEquipped
-          ? 'enabled'
-          : 'owned';
+          ? i18n.getFeatureString('labelEnabled')
+          : i18n.getFeatureString('labelOwned');
       const cowbellLine = `Cowbell [${cowbellStatus}]`;
       lines.push(cowbellLine);
       index.push('cowbell');
@@ -1669,7 +1688,7 @@ export class SkillTreeOverlay {
       visualRow += 1;
       const minimapUnlocked = this.scene.isMinimapUnlocked();
       const minimapEnabled = this.scene.isMinimapEnabled();
-      const minimapStatus = minimapUnlocked ? (minimapEnabled ? 'On' : 'Off') : `50 score`;
+      const minimapStatus = minimapUnlocked ? (minimapEnabled ? i18n.getFeatureString('labelOn') : i18n.getFeatureString('labelOff')) : `50 score`;
       const minimapLine = `Minimap Module [${minimapStatus}]`;
       lines.push(minimapLine, '  Shows nearby rooms, hazards, walls, and snake position.');
       index.push('minimap', '');
@@ -1685,9 +1704,9 @@ export class SkillTreeOverlay {
         ? `${200} score`
         : state.languageSet
           ? i18n.getCurrentLanguage() === 'es'
-            ? 'Spanish (enabled)'
-            : 'Spanish (disabled)'
-          : 'Spanish (enabled)';
+            ? `${i18n.getFeatureString('titleNormal')} (${i18n.getFeatureString('labelEnabled')})`
+            : `${i18n.getFeatureString('titleNormal')} (${i18n.getFeatureString('labelOff')})`
+          : `${i18n.getFeatureString('titleNormal')} (${i18n.getFeatureString('labelEnabled')})`;
       const languageLine = `Spanish Language [${languageStatus}]`;
       lines.push(languageLine);
       index.push('language');
@@ -1696,11 +1715,11 @@ export class SkillTreeOverlay {
       this.customizationIndex = index;
       this.customizationRowMap = rowMap;
       this.applyScrollableTextOffset('customize', this.customizationText);
-      this.detailTitle.setText('Snake Style').setVisible(true);
-      this.detailSubtitle.setText('Cosmetics').setVisible(true);
+      this.detailTitle.setText(i18n.getFeatureString('detailSnakeStyle')).setVisible(true);
+      this.detailSubtitle.setText(i18n.getFeatureString('detailCosmetics')).setVisible(true);
       this.detailRankText.setText('').setVisible(false);
       const languageDesc = state.languageSelected
-        ? 'Set your game language to Spanish.'
+        ? i18n.getFeatureString('hintInventory')
         : 'Unlock Spanish language for 200 score.';
       this.detailBody
         .setText(
@@ -1708,7 +1727,7 @@ export class SkillTreeOverlay {
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText('Equip owned cosmetics, unlock utilities.');
+        this.hintText.setText(i18n.getFeatureString('hintCustomization'));
         this.hintText.setColor('#9ad1ff');
       }
     } else if (
@@ -1754,11 +1773,11 @@ export class SkillTreeOverlay {
       const maxRank = visual.definition.costByRank.length;
       const nextCost = state.status === 'maxed' ? undefined : state.cost;
 
-      visual.rankText.setText('Rank ' + Math.min(state.rank, maxRank) + '/' + maxRank);
+      visual.rankText.setText(i18n.getFeatureString('skillTreeRankLabel').replace('{rank}', String(Math.min(state.rank, maxRank))).replace('{max}', String(maxRank)));
       if (state.status === 'maxed') {
-        visual.costText.setText('Maxed');
+        visual.costText.setText(i18n.getFeatureString('skillTreeMaxedLabel'));
       } else if (nextCost !== undefined) {
-        visual.costText.setText('Cost ' + nextCost);
+        visual.costText.setText(i18n.getFeatureString('skillTreeCostLabel') + ' ' + nextCost);
       } else {
         visual.costText.setText('');
       }
@@ -1826,7 +1845,7 @@ export class SkillTreeOverlay {
   private formatQuestInfo(quests: Quest[]): string {
     this.questRowMap = [];
     if (quests.length === 0) {
-      return 'No accepted quests.';
+      return i18n.getFeatureString('noAcceptedQuests');
     }
 
     const activeIds = new Set(this.scene.activeQuests.map((quest) => quest.id));
@@ -1884,7 +1903,7 @@ export class SkillTreeOverlay {
   private formatDatingInfo(views: readonly DatingCandidateView[]): string {
     if (views.length === 0) {
       return [
-        'No active relationships.',
+        i18n.getFeatureString('noActiveRelationships'),
         '',
         'Talk to village residents, goblin guards, wanderers, or stranger things.',
         'Choose Flirt, Gift, or Ask out to opt in. Ignoring romance choices keeps this system quiet.',
@@ -1946,7 +1965,7 @@ export class SkillTreeOverlay {
   private formatArtifactsInfo(artifacts: readonly ArtifactView[]): string {
     if (artifacts.length === 0) {
       return [
-        'No artifacts recovered yet.',
+        i18n.getFeatureString('noArtifactsRecovery'),
         '',
         'Find a Moleman Dig Site, expose Artifact Caches, and keep the strange little advantages for this run.',
       ].join('\n');
@@ -2277,8 +2296,9 @@ export class SkillTreeOverlay {
 
     let primaryX = startX;
     for (const primary of PRIMARY_TAB_DEFINITIONS) {
+      const resolvedLabel = resolvePrimaryLabel(primary.id);
       const label = this.scene.add
-        .text(primaryX, primaryY, primary.label, {
+        .text(primaryX, primaryY, resolvedLabel, {
           fontFamily: 'monospace',
           fontSize: '17px',
           color: '#7895b4',
@@ -2307,8 +2327,9 @@ export class SkillTreeOverlay {
 
     let currentX = startX;
     for (const tab of TAB_DEFINITIONS) {
+      const resolvedLabel = resolveTabLabel(tab);
       const label = this.scene.add
-        .text(currentX, secondaryY, tab.label, {
+        .text(currentX, secondaryY, resolvedLabel, {
           fontFamily: 'monospace',
           fontSize: '16px',
           color: '#7895b4',
@@ -2362,7 +2383,7 @@ export class SkillTreeOverlay {
         .setOrigin(0.5);
 
       const rankText = this.scene.add
-        .text(0, 17, 'Rank 0/0', {
+        .text(0, 17, i18n.getFeatureString('skillTreeRankLabel').replace('{rank}', '0').replace('{max}', '0'), {
           fontFamily: 'monospace',
           fontSize: '10px',
           color: '#7d9bb8',
@@ -2370,7 +2391,7 @@ export class SkillTreeOverlay {
         .setOrigin(0.5, 0);
 
       const costText = this.scene.add
-        .text(0, 30, 'Cost', {
+        .text(0, 30, i18n.getFeatureString('skillTreeCostLabel'), {
           fontFamily: 'monospace',
           fontSize: '10px',
           color: '#7d9bb8',
@@ -2783,23 +2804,23 @@ export class SkillTreeOverlay {
     if (this.activeTab !== 'skills') {
       if (this.stubText) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(tab?.placeholder ?? 'More modules are coming soon.');
+        this.stubText.setText(tab?.i18nPlaceholderKey ? resolvePlaceholder(tab) : i18n.getFeatureString('skillTreeStubText'));
       }
-      this.hintText.setText('Select a tab to manage your serpent.');
+      this.hintText.setText(i18n.getFeatureString('hintSelectTab'));
       this.hintText.setColor('#9ad1ff');
       return;
     }
 
     if (stats.arcanePulseUnlocked) {
-      this.hintText.setText('Arcane Pulse ready - press Q or bind another Q option in Spells.');
+      this.hintText.setText(i18n.getFeatureString('hintArcanePulseReady'));
       this.hintText.setColor('#ffbdfd');
     } else if (stats.manaMax > 0) {
       this.hintText.setText(
-        'Mana blooms while you slither - spend it wisely. Press I over a skill for details.',
+        i18n.getFeatureString('hintManaBlooms') + ' ' + i18n.getFeatureString('skillTreeHoverSkill'),
       );
       this.hintText.setColor('#5dd6a2');
     } else {
-      this.hintText.setText('Hover a skill node and press I for details.');
+      this.hintText.setText(i18n.getFeatureString('skillTreeHoverSkill'));
       this.hintText.setColor('#5dd6a2');
     }
   }

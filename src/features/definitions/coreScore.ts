@@ -29,10 +29,15 @@ class ScoreFeature extends Feature {
       scene.setFlag('applesEaten', apples);
       return;
     }
-    const multiplier = Math.max(
+    const cheatMultiplier = Math.max(
       1,
       Number(scene.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
     );
+    const orangeJuiceMultiplier = Math.max(
+      1,
+      Number(scene.getFlag<number>('status.orangeJuiceScoreMult') ?? 1),
+    );
+    const multiplier = cheatMultiplier * orangeJuiceMultiplier;
     scene.addScore(multiplier);
     const apples = (scene.getFlag<number>('applesEaten') ?? 0) + 1;
     scene.setFlag('applesEaten', apples);
