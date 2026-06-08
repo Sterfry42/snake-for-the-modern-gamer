@@ -1,21 +1,12 @@
 import type { LightSourceType, LightSource } from './types.js';
-import {
-  LIGHT_LEVEL_TORCH,
-  LIGHT_LEVEL_LAVA,
-  LIGHT_LEVEL_MOB_SPAWN_THRESHOLD,
-} from './config.js';
+import { LIGHT_LEVEL_TORCH, LIGHT_LEVEL_LAVA, LIGHT_LEVEL_MOB_SPAWN_THRESHOLD } from './config.js';
 import { isLightSource as isBlockLightSource } from './blockRegistry.js';
 
 export class LightingSystem {
   private lightSources: Map<string, LightSource> = new Map();
   private cachedLightMap = new Map<string, Map<string, number>>();
 
-  addLightSource(
-    x: number,
-    y: number,
-    roomId: string,
-    type: LightSourceType = 'torch',
-  ): void {
+  addLightSource(x: number, y: number, roomId: string, type: LightSourceType = 'torch'): void {
     const key = `${roomId}:${x},${y}`;
     const level = type === 'lava' ? LIGHT_LEVEL_LAVA : LIGHT_LEVEL_TORCH;
 

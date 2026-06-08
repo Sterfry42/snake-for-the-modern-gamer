@@ -10,7 +10,10 @@ export interface CropState {
 
 export function tryCreateFarmland(
   room: RoomSnapshot,
-  player: { getItemCount: (id: string) => number; removeItem: (id: string, count?: number) => boolean },
+  player: {
+    getItemCount: (id: string) => number;
+    removeItem: (id: string, count?: number) => boolean;
+  },
   x: number,
   y: number,
   blockType: string | undefined,
@@ -37,7 +40,10 @@ export function tryCreateFarmland(
 
 export function tryPlantSeeds(
   room: RoomSnapshot,
-  player: { getItemCount: (id: string) => number; removeItem: (id: string, count?: number) => boolean },
+  player: {
+    getItemCount: (id: string) => number;
+    removeItem: (id: string, count?: number) => boolean;
+  },
   x: number,
   y: number,
   blockType: string | undefined,
@@ -62,7 +68,10 @@ export function tryPlantSeeds(
 
 export function tryPlantPumpkin(
   room: RoomSnapshot,
-  player: { getItemCount: (id: string) => number; removeItem: (id: string, count?: number) => boolean },
+  player: {
+    getItemCount: (id: string) => number;
+    removeItem: (id: string, count?: number) => boolean;
+  },
   x: number,
   y: number,
   blockType: string | undefined,
@@ -76,12 +85,7 @@ export function tryPlantPumpkin(
   }
 
   // Check if pumpkin can grow here (needs empty space and adjacent pumpkin)
-  const neighbors = [
-    `${x - 1},${y}`,
-    `${x + 1},${y}`,
-    `${x},${y - 1}`,
-    `${x},${y + 1}`,
-  ];
+  const neighbors = [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`];
   const hasPumpkin = neighbors.some((n) => room.minecraftBlocks?.[n] === 'pumpkin');
 
   // Always allow planting for simplicity (pumpkin block itself can be the "seed")

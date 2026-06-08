@@ -33,7 +33,7 @@ export const QUEST_STRINGS_ES: QuestStringsType = {
     label: 'Encuentra a Mi Bebé',
     description: 'Encuentra al bebé perdido y tráelo de vuelta al extraño afligido.',
   },
-  'fisherman': {
+  fisherman: {
     label: 'Aguas Profundas',
     description: 'Caza 5 peces en el océano sumergido',
   },
@@ -55,9 +55,10 @@ export const QUEST_STRINGS_ES: QuestStringsType = {
   },
   'freak-you': {
     label: 'Freak You',
-    description: 'Protege a un viajero del tiempo aterrorizado de la versión futura de ti que aprendió a cazar hacia atrás.',
+    description:
+      'Protege a un viajero del tiempo aterrorizado de la versión futura de ti que aprendió a cazar hacia atrás.',
   },
-  'furnisher': {
+  furnisher: {
     label: 'Amenizador',
     description: 'Compra 2 mejoras para la casa',
   },
@@ -66,12 +67,14 @@ export const QUEST_STRINGS_ES: QuestStringsType = {
     description: 'Compra 4 mejoras para la casa',
   },
   'goblin-ledger-debt': {
-    label: 'Deuda del Libro de Goblines',
-    description: 'Encuentra el tampón de libro de goblines perdido y devuélvelo antes de que el dependiente decida que tu columna vertebral es colateral aceptable.',
+    label: 'Deuda del Libro de los Goblins',
+    description:
+      'Encuentra el tampón de libro de goblins perdido y devuélvelo antes de que el dependiente decida que tu columna vertebral es colateral aceptable.',
   },
   'green-purchase': {
     label: 'La Compra Verde',
-    description: 'Encuentra el teletransporte del bosque, compra la sustancia radiactiva a 100 niveles de profundidad, y regresa antes de que el temporizador te mate.',
+    description:
+      'Encuentra el teletransporte del bosque, compra la sustancia radiactiva a 100 niveles de profundidad, y regresa antes de que el temporizador te mate.',
   },
   'herd-master': {
     label: 'Maestro del Rebaño',
@@ -131,7 +134,8 @@ export const QUEST_STRINGS_ES: QuestStringsType = {
   },
   'tax-collector-future-body': {
     label: 'El Cobrador de Impuestos de Tu Cuerpo Futuro',
-    description: 'Visita tres oficinas de impuestos, liquida la deuda de tu cuerpo futuro, luego regresa al cobrador.',
+    description:
+      'Visita tres oficinas de impuestos, liquida la deuda de tu cuerpo futuro, luego regresa al cobrador.',
   },
   'treasure-hunter': {
     label: 'Cazador de Tesoros',

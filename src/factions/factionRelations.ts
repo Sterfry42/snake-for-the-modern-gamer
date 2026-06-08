@@ -132,9 +132,11 @@ export function factionsInWorldEvent(event: WorldEvent): string[] {
   const factions = new Set<string>();
   for (const tag of event.tags) {
     if (tag === 'goblin' || tag === 'goblin-camps') factions.add('goblin-camps');
-    if (tag === 'human' || tag === 'town' || tag === 'guard' || tag === 'hearthbound-remnant') factions.add('hearthbound-remnant');
+    if (tag === 'human' || tag === 'town' || tag === 'guard' || tag === 'hearthbound-remnant')
+      factions.add('hearthbound-remnant');
     if (tag === 'bandit' || tag === 'bandits') factions.add('bandits');
-    if (tag === 'guild' || tag === 'thieves-guild' || tag === 'pickpocket') factions.add('thieves-guild');
+    if (tag === 'guild' || tag === 'thieves-guild' || tag === 'pickpocket')
+      factions.add('thieves-guild');
     if (tag === 'shop') factions.add('shopkeepers');
     if (tag === 'wildlife' || tag === 'animal') factions.add('wildlife');
     if (tag === 'predator') factions.add('predators');
@@ -165,4 +167,3 @@ export function relationSeverityBump(relation: FactionRelationState): number {
       return 0;
   }
 }
-

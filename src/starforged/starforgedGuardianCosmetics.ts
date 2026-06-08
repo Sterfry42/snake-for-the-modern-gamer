@@ -1,4 +1,8 @@
-﻿import type { StarforgedElement, StarforgedGearDefinition, StarforgedSlot } from './starforgedTypes.js';
+﻿import type {
+  StarforgedElement,
+  StarforgedGearDefinition,
+  StarforgedSlot,
+} from './starforgedTypes.js';
 
 export interface GuardianSuitProfile {
   id: string;
@@ -45,7 +49,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-1',
@@ -59,7 +64,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-2',
@@ -73,7 +79,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-3',
@@ -87,7 +94,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-4',
@@ -101,7 +109,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-5',
@@ -115,7 +124,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-6',
@@ -129,7 +139,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-7',
@@ -143,7 +154,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-8',
@@ -157,7 +169,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-9',
@@ -171,7 +184,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-10',
@@ -185,7 +199,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-11',
@@ -199,7 +214,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-12',
@@ -213,7 +229,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-13',
@@ -227,7 +244,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-14',
@@ -241,7 +259,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-15',
@@ -255,7 +274,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-16',
@@ -269,7 +289,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-17',
@@ -283,7 +304,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-18',
@@ -297,7 +319,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-19',
@@ -311,7 +334,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-20',
@@ -325,7 +349,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-21',
@@ -339,7 +364,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-22',
@@ -353,7 +379,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-23',
@@ -367,7 +394,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-24',
@@ -381,7 +409,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-25',
@@ -395,7 +424,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-26',
@@ -409,7 +439,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-27',
@@ -423,7 +454,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-28',
@@ -437,7 +469,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-29',
@@ -451,7 +484,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-30',
@@ -465,7 +499,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-31',
@@ -479,7 +514,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-32',
@@ -493,7 +529,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-33',
@@ -507,7 +544,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-34',
@@ -521,7 +559,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-35',
@@ -535,7 +574,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-36',
@@ -549,7 +589,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-37',
@@ -563,7 +604,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-38',
@@ -577,7 +619,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-39',
@@ -591,7 +634,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-40',
@@ -605,7 +649,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-41',
@@ -619,7 +664,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-42',
@@ -633,7 +679,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-43',
@@ -647,7 +694,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-44',
@@ -661,7 +709,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-45',
@@ -675,7 +724,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-46',
@@ -689,7 +739,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-47',
@@ -703,7 +754,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-48',
@@ -717,7 +769,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-49',
@@ -731,7 +784,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-50',
@@ -745,7 +799,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-51',
@@ -759,7 +814,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-52',
@@ -773,7 +829,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-53',
@@ -787,7 +844,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-54',
@@ -801,7 +859,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-55',
@@ -815,7 +874,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-56',
@@ -829,7 +889,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-57',
@@ -843,7 +904,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-58',
@@ -857,7 +919,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-59',
@@ -871,7 +934,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-60',
@@ -885,7 +949,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-61',
@@ -899,7 +964,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-62',
@@ -913,7 +979,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-63',
@@ -927,7 +994,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-64',
@@ -941,7 +1009,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-65',
@@ -955,7 +1024,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-66',
@@ -969,7 +1039,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-67',
@@ -983,7 +1054,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-68',
@@ -997,7 +1069,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-69',
@@ -1011,7 +1084,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-70',
@@ -1025,7 +1099,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-71',
@@ -1039,7 +1114,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-72',
@@ -1053,7 +1129,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-73',
@@ -1067,7 +1144,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-74',
@@ -1081,7 +1159,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-75',
@@ -1095,7 +1174,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-76',
@@ -1109,7 +1189,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-77',
@@ -1123,7 +1204,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-78',
@@ -1137,7 +1219,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-79',
@@ -1151,7 +1234,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-80',
@@ -1165,7 +1249,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-81',
@@ -1179,7 +1264,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-82',
@@ -1193,7 +1279,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-83',
@@ -1207,7 +1294,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-84',
@@ -1221,7 +1309,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-85',
@@ -1235,7 +1324,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-86',
@@ -1249,7 +1339,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-87',
@@ -1263,7 +1354,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-88',
@@ -1277,7 +1369,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-89',
@@ -1291,7 +1384,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-90',
@@ -1305,7 +1399,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-91',
@@ -1319,7 +1414,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-92',
@@ -1333,7 +1429,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-93',
@@ -1347,7 +1444,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-94',
@@ -1361,7 +1459,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-95',
@@ -1375,7 +1474,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-96',
@@ -1389,7 +1489,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-97',
@@ -1403,7 +1504,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-98',
@@ -1417,7 +1519,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-99',
@@ -1431,7 +1534,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-100',
@@ -1445,7 +1549,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-101',
@@ -1459,7 +1564,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-102',
@@ -1473,7 +1579,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-103',
@@ -1487,7 +1594,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-104',
@@ -1501,7 +1609,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-105',
@@ -1515,7 +1624,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-106',
@@ -1529,7 +1639,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-107',
@@ -1543,7 +1654,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-108',
@@ -1557,7 +1669,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-109',
@@ -1571,7 +1684,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-110',
@@ -1585,7 +1699,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-111',
@@ -1599,7 +1714,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-112',
@@ -1613,7 +1729,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-113',
@@ -1627,7 +1744,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-114',
@@ -1641,7 +1759,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-115',
@@ -1655,7 +1774,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-116',
@@ -1669,7 +1789,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-117',
@@ -1683,7 +1804,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-118',
@@ -1697,7 +1819,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-119',
@@ -1711,7 +1834,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-120',
@@ -1725,7 +1849,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-121',
@@ -1739,7 +1864,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-122',
@@ -1753,7 +1879,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-123',
@@ -1767,7 +1894,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-124',
@@ -1781,7 +1909,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-125',
@@ -1795,7 +1924,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-126',
@@ -1809,7 +1939,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-127',
@@ -1823,7 +1954,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-128',
@@ -1837,7 +1969,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-129',
@@ -1851,7 +1984,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-130',
@@ -1865,7 +1999,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-131',
@@ -1879,7 +2014,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-132',
@@ -1893,7 +2029,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-133',
@@ -1907,7 +2044,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-134',
@@ -1921,7 +2059,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-135',
@@ -1935,7 +2074,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-136',
@@ -1949,7 +2089,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-137',
@@ -1963,7 +2104,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-138',
@@ -1977,7 +2119,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-139',
@@ -1991,7 +2134,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-140',
@@ -2005,7 +2149,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-141',
@@ -2019,7 +2164,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-142',
@@ -2033,7 +2179,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-143',
@@ -2047,7 +2194,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-144',
@@ -2061,7 +2209,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-145',
@@ -2075,7 +2224,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-146',
@@ -2089,7 +2239,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-147',
@@ -2103,7 +2254,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-148',
@@ -2117,7 +2269,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-149',
@@ -2131,7 +2284,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-150',
@@ -2145,7 +2299,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-151',
@@ -2159,7 +2314,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-152',
@@ -2173,7 +2329,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-153',
@@ -2187,7 +2344,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-154',
@@ -2201,7 +2359,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-155',
@@ -2215,7 +2374,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-156',
@@ -2229,7 +2389,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-157',
@@ -2243,7 +2404,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-158',
@@ -2257,7 +2419,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-159',
@@ -2271,7 +2434,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-160',
@@ -2285,7 +2449,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-161',
@@ -2299,7 +2464,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-162',
@@ -2313,7 +2479,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-163',
@@ -2327,7 +2494,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-164',
@@ -2341,7 +2509,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-165',
@@ -2355,7 +2524,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-166',
@@ -2369,7 +2539,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-167',
@@ -2383,7 +2554,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-168',
@@ -2397,7 +2569,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-169',
@@ -2411,7 +2584,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-170',
@@ -2425,7 +2599,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-171',
@@ -2439,7 +2614,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-172',
@@ -2453,7 +2629,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-173',
@@ -2467,7 +2644,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-174',
@@ -2481,7 +2659,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-175',
@@ -2495,7 +2674,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-176',
@@ -2509,7 +2689,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-177',
@@ -2523,7 +2704,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-178',
@@ -2537,7 +2719,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-179',
@@ -2551,7 +2734,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-180',
@@ -2565,7 +2749,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-181',
@@ -2579,7 +2764,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-182',
@@ -2593,7 +2779,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-183',
@@ -2607,7 +2794,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-184',
@@ -2621,7 +2809,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-185',
@@ -2635,7 +2824,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-186',
@@ -2649,7 +2839,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-187',
@@ -2663,7 +2854,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-188',
@@ -2677,7 +2869,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-189',
@@ -2691,7 +2884,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-190',
@@ -2705,7 +2899,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-191',
@@ -2719,7 +2914,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-192',
@@ -2733,7 +2929,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-193',
@@ -2747,7 +2944,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-194',
@@ -2761,7 +2959,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-195',
@@ -2775,7 +2974,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-196',
@@ -2789,7 +2989,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-197',
@@ -2803,7 +3004,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-198',
@@ -2817,7 +3019,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-199',
@@ -2831,7 +3034,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-200',
@@ -2845,7 +3049,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-201',
@@ -2859,7 +3064,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-202',
@@ -2873,7 +3079,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-203',
@@ -2887,7 +3094,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-204',
@@ -2901,7 +3109,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-205',
@@ -2915,7 +3124,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-206',
@@ -2929,7 +3139,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-207',
@@ -2943,7 +3154,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-208',
@@ -2957,7 +3169,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-209',
@@ -2971,7 +3184,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-210',
@@ -2985,7 +3199,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-211',
@@ -2999,7 +3214,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-212',
@@ -3013,7 +3229,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-213',
@@ -3027,7 +3244,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-214',
@@ -3041,7 +3259,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-215',
@@ -3055,7 +3274,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-216',
@@ -3069,7 +3289,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-217',
@@ -3083,7 +3304,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-218',
@@ -3097,7 +3319,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-219',
@@ -3111,7 +3334,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-220',
@@ -3125,7 +3349,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-221',
@@ -3139,7 +3364,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-222',
@@ -3153,7 +3379,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-223',
@@ -3167,7 +3394,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-224',
@@ -3181,7 +3409,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-225',
@@ -3195,7 +3424,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-226',
@@ -3209,7 +3439,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-227',
@@ -3223,7 +3454,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-228',
@@ -3237,7 +3469,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-229',
@@ -3251,7 +3484,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-230',
@@ -3265,7 +3499,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-231',
@@ -3279,7 +3514,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-232',
@@ -3293,7 +3529,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-233',
@@ -3307,7 +3544,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-234',
@@ -3321,7 +3559,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-235',
@@ -3335,7 +3574,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-236',
@@ -3349,7 +3589,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-237',
@@ -3363,7 +3604,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-238',
@@ -3377,7 +3619,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-239',
@@ -3391,7 +3634,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-240',
@@ -3405,7 +3649,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-241',
@@ -3419,7 +3664,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-242',
@@ -3433,7 +3679,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-243',
@@ -3447,7 +3694,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-244',
@@ -3461,7 +3709,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-245',
@@ -3475,7 +3724,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-246',
@@ -3489,7 +3739,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-247',
@@ -3503,7 +3754,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-248',
@@ -3517,7 +3769,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-249',
@@ -3531,7 +3784,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-250',
@@ -3545,7 +3799,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-251',
@@ -3559,7 +3814,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-252',
@@ -3573,7 +3829,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-253',
@@ -3587,7 +3844,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-254',
@@ -3601,7 +3859,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-255',
@@ -3615,7 +3874,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-256',
@@ -3629,7 +3889,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-257',
@@ -3643,7 +3904,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-258',
@@ -3657,7 +3919,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-259',
@@ -3671,7 +3934,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-260',
@@ -3685,7 +3949,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-261',
@@ -3699,7 +3964,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-262',
@@ -3713,7 +3979,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-263',
@@ -3727,7 +3994,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-264',
@@ -3741,7 +4009,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-265',
@@ -3755,7 +4024,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-266',
@@ -3769,7 +4039,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-267',
@@ -3783,7 +4054,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-268',
@@ -3797,7 +4069,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-269',
@@ -3811,7 +4084,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-270',
@@ -3825,7 +4099,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-271',
@@ -3839,7 +4114,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-272',
@@ -3853,7 +4129,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-273',
@@ -3867,7 +4144,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-274',
@@ -3881,7 +4159,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-275',
@@ -3895,7 +4174,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-276',
@@ -3909,7 +4189,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-277',
@@ -3923,7 +4204,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-278',
@@ -3937,7 +4219,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-279',
@@ -3951,7 +4234,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-280',
@@ -3965,7 +4249,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-281',
@@ -3979,7 +4264,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-282',
@@ -3993,7 +4279,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-283',
@@ -4007,7 +4294,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-284',
@@ -4021,7 +4309,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-285',
@@ -4035,7 +4324,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-286',
@@ -4049,7 +4339,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-287',
@@ -4063,7 +4354,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-288',
@@ -4077,7 +4369,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-289',
@@ -4091,7 +4384,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-290',
@@ -4105,7 +4399,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-291',
@@ -4119,7 +4414,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-292',
@@ -4133,7 +4429,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-293',
@@ -4147,7 +4444,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-294',
@@ -4161,7 +4459,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-295',
@@ -4175,7 +4474,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-296',
@@ -4189,7 +4489,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-297',
@@ -4203,7 +4504,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-298',
@@ -4217,7 +4519,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-299',
@@ -4231,7 +4534,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-300',
@@ -4245,7 +4549,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-301',
@@ -4259,7 +4564,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-302',
@@ -4273,7 +4579,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-303',
@@ -4287,7 +4594,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-304',
@@ -4301,7 +4609,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-305',
@@ -4315,7 +4624,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-306',
@@ -4329,7 +4639,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-307',
@@ -4343,7 +4654,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-308',
@@ -4357,7 +4669,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-309',
@@ -4371,7 +4684,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-310',
@@ -4385,7 +4699,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-311',
@@ -4399,7 +4714,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-312',
@@ -4413,7 +4729,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-313',
@@ -4427,7 +4744,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-314',
@@ -4441,7 +4759,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-315',
@@ -4455,7 +4774,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-316',
@@ -4469,7 +4789,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-317',
@@ -4483,7 +4804,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-318',
@@ -4497,7 +4819,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-319',
@@ -4511,7 +4834,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-320',
@@ -4525,7 +4849,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-321',
@@ -4539,7 +4864,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-322',
@@ -4553,7 +4879,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-323',
@@ -4567,7 +4894,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-324',
@@ -4581,7 +4909,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-325',
@@ -4595,7 +4924,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-326',
@@ -4609,7 +4939,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-327',
@@ -4623,7 +4954,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-328',
@@ -4637,7 +4969,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-329',
@@ -4651,7 +4984,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-330',
@@ -4665,7 +4999,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for solar light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-331',
@@ -4679,7 +5014,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for void light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-332',
@@ -4693,7 +5029,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for arc light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-333',
@@ -4707,7 +5044,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for stasis light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-334',
@@ -4721,7 +5059,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for strand light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-335',
@@ -4735,7 +5074,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for prismatic light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-336',
@@ -4749,7 +5089,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Radiant dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for solar light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-337',
@@ -4763,7 +5104,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Abyssal iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for void light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-338',
@@ -4777,7 +5119,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Orbital foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for arc light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-339',
@@ -4791,7 +5134,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Thunder raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for stasis light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-340',
@@ -4805,7 +5149,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Crowned vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for strand light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-341',
@@ -4819,7 +5164,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Astral reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for prismatic light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-342',
@@ -4833,7 +5179,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Prismatic seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for solar light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-343',
@@ -4847,7 +5194,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Lucent heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for void light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-344',
@@ -4861,7 +5209,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Glass trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for arc light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-345',
@@ -4875,7 +5224,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Runic deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for stasis light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-346',
@@ -4889,7 +5239,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Woven dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for strand light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-347',
@@ -4903,7 +5254,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Iron iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for prismatic light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-348',
@@ -4917,7 +5269,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Radiant foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for solar light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-349',
@@ -4931,7 +5284,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Abyssal raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for void light and arc conduit armor plates.',
   },
   {
     id: 'guardian-suit-350',
@@ -4945,7 +5299,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Orbital vanguard plasteel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a vanguard space suit tuned for arc light and plasteel armor plates.',
   },
   {
     id: 'guardian-suit-351',
@@ -4959,7 +5314,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Thunder reef spinmetal',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a reef space suit tuned for stasis light and spinmetal armor plates.',
   },
   {
     id: 'guardian-suit-352',
@@ -4973,7 +5329,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#e8f8ff',
     shaderName: 'Crowned seasonal star-silk',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a seasonal space suit tuned for strand light and star-silk armor plates.',
   },
   {
     id: 'guardian-suit-353',
@@ -4987,7 +5344,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#78ff9d',
     shaderName: 'Astral heliopause memory alloy',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a heliopause space suit tuned for prismatic light and memory alloy armor plates.',
   },
   {
     id: 'guardian-suit-354',
@@ -5001,7 +5359,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffd166',
     shaderName: 'Prismatic trials moon glass',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, solar tail contrail',
-    playerFacingLine: 'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a trials space suit tuned for solar light and moon glass armor plates.',
   },
   {
     id: 'guardian-suit-355',
@@ -5015,7 +5374,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffffff',
     shaderName: 'Lucent deep reef ceramic',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, void tail contrail',
-    playerFacingLine: 'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a deep space suit tuned for void light and reef ceramic armor plates.',
   },
   {
     id: 'guardian-suit-356',
@@ -5029,7 +5389,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#9df7ff',
     shaderName: 'Glass dungeon burnished iron',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, arc tail contrail',
-    playerFacingLine: 'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a dungeon space suit tuned for arc light and burnished iron armor plates.',
   },
   {
     id: 'guardian-suit-357',
@@ -5043,7 +5404,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#fff3a8',
     shaderName: 'Runic iron void enamel',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, stasis tail contrail',
-    playerFacingLine: 'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a iron space suit tuned for stasis light and void enamel armor plates.',
   },
   {
     id: 'guardian-suit-358',
@@ -5057,7 +5419,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#ffbdfd',
     shaderName: 'Woven foundry solar foil',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, strand tail contrail',
-    playerFacingLine: 'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a foundry space suit tuned for strand light and solar foil armor plates.',
   },
   {
     id: 'guardian-suit-359',
@@ -5071,7 +5434,8 @@ export const GUARDIAN_SUIT_PROFILES: readonly GuardianSuitProfile[] = [
     eyeColor: '#7cf7ff',
     shaderName: 'Iron raid arc conduit',
     silhouette: 'helmet glow, class-band saddle, plated belly seam, prismatic tail contrail',
-    playerFacingLine: 'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
+    playerFacingLine:
+      'Your snake is wearing a raid space suit tuned for prismatic light and arc conduit armor plates.',
   },
 ];
 
@@ -5081,9 +5445,11 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     slot: 'kinetic',
     element: 'solar',
     label: 'Radiant Serpent kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-1',
@@ -5092,7 +5458,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Astral Pilgrim energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-2',
@@ -5101,7 +5468,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-3',
@@ -5110,16 +5478,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-4',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Glass Voyager gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-5',
@@ -5128,7 +5499,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-6',
@@ -5137,34 +5509,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-7',
     slot: 'classItem',
     element: 'arc',
     label: 'Iron Oath classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-8',
     slot: 'artifact',
     element: 'strand',
     label: 'Crowned Runner artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-9',
     slot: 'kinetic',
     element: 'solar',
     label: 'Runic Fang kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-10',
@@ -5173,7 +5552,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Orbital Guardian energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-11',
@@ -5182,7 +5562,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-12',
@@ -5191,16 +5572,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-13',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Astral Pilgrim gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-14',
@@ -5209,7 +5593,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-15',
@@ -5218,34 +5603,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-16',
     slot: 'classItem',
     element: 'arc',
     label: 'Glass Voyager classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-17',
     slot: 'artifact',
     element: 'strand',
     label: 'Abyssal Courier artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-18',
     slot: 'kinetic',
     element: 'solar',
     label: 'Prismatic Rook kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-19',
@@ -5254,7 +5646,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Iron Oath energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-20',
@@ -5263,7 +5656,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-21',
@@ -5272,16 +5666,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-22',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Orbital Guardian gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-23',
@@ -5290,7 +5687,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-24',
@@ -5299,34 +5697,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-25',
     slot: 'classItem',
     element: 'arc',
     label: 'Astral Pilgrim classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-26',
     slot: 'artifact',
     element: 'strand',
     label: 'Woven Comet artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-27',
     slot: 'kinetic',
     element: 'solar',
     label: 'Thunder Wyrm kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-28',
@@ -5335,7 +5740,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Glass Voyager energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-29',
@@ -5344,7 +5750,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-30',
@@ -5353,16 +5760,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-31',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Iron Oath gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-32',
@@ -5371,7 +5781,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-33',
@@ -5380,34 +5791,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-34',
     slot: 'classItem',
     element: 'arc',
     label: 'Orbital Guardian classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-35',
     slot: 'artifact',
     element: 'strand',
     label: 'Lucent Viper artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-36',
     slot: 'kinetic',
     element: 'solar',
     label: 'Radiant Serpent kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-37',
@@ -5416,7 +5834,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Astral Pilgrim energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-38',
@@ -5425,7 +5844,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-39',
@@ -5434,16 +5854,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-40',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Glass Voyager gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-41',
@@ -5452,7 +5875,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-42',
@@ -5461,34 +5885,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-43',
     slot: 'classItem',
     element: 'arc',
     label: 'Iron Oath classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-44',
     slot: 'artifact',
     element: 'strand',
     label: 'Crowned Runner artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-45',
     slot: 'kinetic',
     element: 'solar',
     label: 'Runic Fang kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-46',
@@ -5497,7 +5928,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Orbital Guardian energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-47',
@@ -5506,7 +5938,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-48',
@@ -5515,16 +5948,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-49',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Astral Pilgrim gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-50',
@@ -5533,7 +5969,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-51',
@@ -5542,34 +5979,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-52',
     slot: 'classItem',
     element: 'arc',
     label: 'Glass Voyager classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-53',
     slot: 'artifact',
     element: 'strand',
     label: 'Abyssal Courier artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-54',
     slot: 'kinetic',
     element: 'solar',
     label: 'Prismatic Rook kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-55',
@@ -5578,7 +6022,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Iron Oath energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-56',
@@ -5587,7 +6032,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-57',
@@ -5596,16 +6042,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-58',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Orbital Guardian gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-59',
@@ -5614,7 +6063,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-60',
@@ -5623,34 +6073,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-61',
     slot: 'classItem',
     element: 'arc',
     label: 'Astral Pilgrim classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-62',
     slot: 'artifact',
     element: 'strand',
     label: 'Woven Comet artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-63',
     slot: 'kinetic',
     element: 'solar',
     label: 'Thunder Wyrm kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-64',
@@ -5659,7 +6116,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Glass Voyager energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-65',
@@ -5668,7 +6126,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-66',
@@ -5677,16 +6136,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-67',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Iron Oath gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-68',
@@ -5695,7 +6157,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-69',
@@ -5704,34 +6167,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-70',
     slot: 'classItem',
     element: 'arc',
     label: 'Orbital Guardian classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-71',
     slot: 'artifact',
     element: 'strand',
     label: 'Lucent Viper artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-72',
     slot: 'kinetic',
     element: 'solar',
     label: 'Radiant Serpent kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-73',
@@ -5740,7 +6210,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Astral Pilgrim energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-74',
@@ -5749,7 +6220,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-75',
@@ -5758,16 +6230,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-76',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Glass Voyager gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-77',
@@ -5776,7 +6251,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-78',
@@ -5785,34 +6261,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-79',
     slot: 'classItem',
     element: 'arc',
     label: 'Iron Oath classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-80',
     slot: 'artifact',
     element: 'strand',
     label: 'Crowned Runner artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-81',
     slot: 'kinetic',
     element: 'solar',
     label: 'Runic Fang kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-82',
@@ -5821,7 +6304,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Orbital Guardian energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-83',
@@ -5830,7 +6314,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-84',
@@ -5839,16 +6324,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-85',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Astral Pilgrim gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-86',
@@ -5857,7 +6345,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-87',
@@ -5866,34 +6355,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-88',
     slot: 'classItem',
     element: 'arc',
     label: 'Glass Voyager classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-89',
     slot: 'artifact',
     element: 'strand',
     label: 'Abyssal Courier artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-90',
     slot: 'kinetic',
     element: 'solar',
     label: 'Prismatic Rook kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-91',
@@ -5902,7 +6398,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Iron Oath energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-92',
@@ -5911,7 +6408,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-93',
@@ -5920,16 +6418,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-94',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Orbital Guardian gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-95',
@@ -5938,7 +6439,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-96',
@@ -5947,34 +6449,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-97',
     slot: 'classItem',
     element: 'arc',
     label: 'Astral Pilgrim classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-98',
     slot: 'artifact',
     element: 'strand',
     label: 'Woven Comet artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-99',
     slot: 'kinetic',
     element: 'solar',
     label: 'Thunder Wyrm kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-100',
@@ -5983,7 +6492,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Glass Voyager energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-101',
@@ -5992,7 +6502,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-102',
@@ -6001,16 +6512,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-103',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Iron Oath gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-104',
@@ -6019,7 +6533,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-105',
@@ -6028,34 +6543,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-106',
     slot: 'classItem',
     element: 'arc',
     label: 'Orbital Guardian classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-107',
     slot: 'artifact',
     element: 'strand',
     label: 'Lucent Viper artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-108',
     slot: 'kinetic',
     element: 'solar',
     label: 'Radiant Serpent kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-109',
@@ -6064,7 +6586,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Astral Pilgrim energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-110',
@@ -6073,7 +6596,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-111',
@@ -6082,16 +6606,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-112',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Glass Voyager gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-113',
@@ -6100,7 +6627,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-114',
@@ -6109,34 +6637,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-115',
     slot: 'classItem',
     element: 'arc',
     label: 'Iron Oath classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-116',
     slot: 'artifact',
     element: 'strand',
     label: 'Crowned Runner artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-117',
     slot: 'kinetic',
     element: 'solar',
     label: 'Runic Fang kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-118',
@@ -6145,7 +6680,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Orbital Guardian energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-119',
@@ -6154,7 +6690,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-120',
@@ -6163,16 +6700,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-121',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Astral Pilgrim gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-122',
@@ -6181,7 +6721,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-123',
@@ -6190,34 +6731,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-124',
     slot: 'classItem',
     element: 'arc',
     label: 'Glass Voyager classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-125',
     slot: 'artifact',
     element: 'strand',
     label: 'Abyssal Courier artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-126',
     slot: 'kinetic',
     element: 'solar',
     label: 'Prismatic Rook kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-127',
@@ -6226,7 +6774,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Iron Oath energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-128',
@@ -6235,7 +6784,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-129',
@@ -6244,16 +6794,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-130',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Orbital Guardian gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-131',
@@ -6262,7 +6815,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-132',
@@ -6271,34 +6825,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-133',
     slot: 'classItem',
     element: 'arc',
     label: 'Astral Pilgrim classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-134',
     slot: 'artifact',
     element: 'strand',
     label: 'Woven Comet artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-135',
     slot: 'kinetic',
     element: 'solar',
     label: 'Thunder Wyrm kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-136',
@@ -6307,7 +6868,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Glass Voyager energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-137',
@@ -6316,7 +6878,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-138',
@@ -6325,16 +6888,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-139',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Iron Oath gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-140',
@@ -6343,7 +6909,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-141',
@@ -6352,34 +6919,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-142',
     slot: 'classItem',
     element: 'arc',
     label: 'Orbital Guardian classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-143',
     slot: 'artifact',
     element: 'strand',
     label: 'Lucent Viper artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-144',
     slot: 'kinetic',
     element: 'solar',
     label: 'Radiant Serpent kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-145',
@@ -6388,7 +6962,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Astral Pilgrim energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-146',
@@ -6397,7 +6972,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-147',
@@ -6406,16 +6982,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-148',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Glass Voyager gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-149',
@@ -6424,7 +7003,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-150',
@@ -6433,34 +7013,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-151',
     slot: 'classItem',
     element: 'arc',
     label: 'Iron Oath classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-152',
     slot: 'artifact',
     element: 'strand',
     label: 'Crowned Runner artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-153',
     slot: 'kinetic',
     element: 'solar',
     label: 'Runic Fang kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-154',
@@ -6469,7 +7056,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Orbital Guardian energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-155',
@@ -6478,7 +7066,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-156',
@@ -6487,16 +7076,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-157',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Astral Pilgrim gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-158',
@@ -6505,7 +7097,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Woven Comet chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-159',
@@ -6514,34 +7107,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Thunder Wyrm boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-160',
     slot: 'classItem',
     element: 'arc',
     label: 'Glass Voyager classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-161',
     slot: 'artifact',
     element: 'strand',
     label: 'Abyssal Courier artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-162',
     slot: 'kinetic',
     element: 'solar',
     label: 'Prismatic Rook kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-163',
@@ -6550,7 +7150,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Iron Oath energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-164',
@@ -6559,7 +7160,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-165',
@@ -6568,16 +7170,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-166',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Orbital Guardian gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-167',
@@ -6586,7 +7191,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Lucent Viper chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-168',
@@ -6595,34 +7201,41 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Radiant Serpent boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Radiant motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-169',
     slot: 'classItem',
     element: 'arc',
     label: 'Astral Pilgrim classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Astral motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-170',
     slot: 'artifact',
     element: 'strand',
     label: 'Woven Comet artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Woven motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-171',
     slot: 'kinetic',
     element: 'solar',
     label: 'Thunder Wyrm kinetic ornament',
-    ornament: 'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'kinetic adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped kinetic gear pushes the suit toward solar glow, Thunder motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-172',
@@ -6631,7 +7244,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Glass Voyager energy ornament',
     ornament: 'energy adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#bde6ff',
-    effectLine: 'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped energy gear pushes the suit toward arc glow, Glass motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-173',
@@ -6640,7 +7254,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Abyssal Courier heavy ornament',
     ornament: 'heavy adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#78ff9d',
-    effectLine: 'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped heavy gear pushes the suit toward strand glow, Abyssal motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-174',
@@ -6649,16 +7264,19 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Prismatic Rook helmet ornament',
     ornament: 'helmet adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffbdfd',
-    effectLine: 'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped helmet gear pushes the suit toward solar glow, Prismatic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-175',
     slot: 'gauntlets',
     element: 'arc',
     label: 'Iron Oath gauntlets ornament',
-    ornament: 'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'gauntlets adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#e8f8ff',
-    effectLine: 'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped gauntlets gear pushes the suit toward arc glow, Iron motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-176',
@@ -6667,7 +7285,8 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Crowned Runner chest ornament',
     ornament: 'chest adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#9df7ff',
-    effectLine: 'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped chest gear pushes the suit toward strand glow, Crowned motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-177',
@@ -6676,25 +7295,30 @@ export const GUARDIAN_GEAR_VISUAL_RULES: readonly GuardianGearVisualRule[] = [
     label: 'Runic Fang boots ornament',
     ornament: 'boots adds a visible solar circuit, plated scale, or class mark to the snake suit.',
     tint: '#ffd166',
-    effectLine: 'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped boots gear pushes the suit toward solar glow, Runic motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-178',
     slot: 'classItem',
     element: 'arc',
     label: 'Orbital Guardian classItem ornament',
-    ornament: 'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'classItem adds a visible arc circuit, plated scale, or class mark to the snake suit.',
     tint: '#b58cff',
-    effectLine: 'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped classItem gear pushes the suit toward arc glow, Orbital motion trails, and clearer reward identity.',
   },
   {
     id: 'guardian-gear-rule-179',
     slot: 'artifact',
     element: 'strand',
     label: 'Lucent Viper artifact ornament',
-    ornament: 'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
+    ornament:
+      'artifact adds a visible strand circuit, plated scale, or class mark to the snake suit.',
     tint: '#7cf7ff',
-    effectLine: 'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
+    effectLine:
+      'Equipped artifact gear pushes the suit toward strand glow, Lucent motion trails, and clearer reward identity.',
   },
 ];
 
@@ -6703,726 +7327,849 @@ export const GUARDIAN_TRANSMAT_LINES: readonly GuardianTransmatLine[] = [
     id: 'guardian-transmat-0',
     title: 'Radiant Serpent Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 1 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 1 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-1',
     title: 'Iron Oath Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 2 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 2 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-2',
     title: 'Woven Comet Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 3 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 3 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-3',
     title: 'Runic Fang Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 4 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 4 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-4',
     title: 'Glass Voyager Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 5 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 5 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-5',
     title: 'Lucent Viper Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 6 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 6 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-6',
     title: 'Prismatic Rook Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 7 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 7 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-7',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 8 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 8 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-8',
     title: 'Crowned Runner Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 9 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 9 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-9',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 10 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 10 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-10',
     title: 'Orbital Guardian Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 11 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 11 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-11',
     title: 'Abyssal Courier Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 12 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 12 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-12',
     title: 'Radiant Serpent Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 13 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 13 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-13',
     title: 'Iron Oath Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 14 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 14 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-14',
     title: 'Woven Comet Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 15 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 15 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-15',
     title: 'Runic Fang Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 16 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 16 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-16',
     title: 'Glass Voyager Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 17 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 17 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-17',
     title: 'Lucent Viper Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 18 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 18 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-18',
     title: 'Prismatic Rook Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 19 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 19 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-19',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 20 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 20 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-20',
     title: 'Crowned Runner Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 21 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 21 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-21',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 22 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 22 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-22',
     title: 'Orbital Guardian Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 23 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 23 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-23',
     title: 'Abyssal Courier Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 24 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 24 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-24',
     title: 'Radiant Serpent Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 25 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 25 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-25',
     title: 'Iron Oath Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 26 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 26 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-26',
     title: 'Woven Comet Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 27 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 27 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-27',
     title: 'Runic Fang Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 28 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 28 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-28',
     title: 'Glass Voyager Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 29 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 29 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-29',
     title: 'Lucent Viper Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 30 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 30 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-30',
     title: 'Prismatic Rook Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 31 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 31 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-31',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 32 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 32 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-32',
     title: 'Crowned Runner Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 33 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 33 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-33',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 34 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 34 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-34',
     title: 'Orbital Guardian Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 35 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 35 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-35',
     title: 'Abyssal Courier Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 36 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 36 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-36',
     title: 'Radiant Serpent Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 37 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 37 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-37',
     title: 'Iron Oath Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 38 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 38 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-38',
     title: 'Woven Comet Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 39 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 39 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-39',
     title: 'Runic Fang Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 40 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 40 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-40',
     title: 'Glass Voyager Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 41 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 41 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-41',
     title: 'Lucent Viper Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 42 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 42 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-42',
     title: 'Prismatic Rook Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 43 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 43 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-43',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 44 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 44 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-44',
     title: 'Crowned Runner Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 45 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 45 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-45',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 46 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 46 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-46',
     title: 'Orbital Guardian Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 47 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 47 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-47',
     title: 'Abyssal Courier Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 48 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 48 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-48',
     title: 'Radiant Serpent Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 49 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 49 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-49',
     title: 'Iron Oath Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 50 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 50 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-50',
     title: 'Woven Comet Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 51 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 51 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-51',
     title: 'Runic Fang Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 52 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 52 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-52',
     title: 'Glass Voyager Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 53 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 53 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-53',
     title: 'Lucent Viper Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 54 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 54 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-54',
     title: 'Prismatic Rook Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 55 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 55 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-55',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 56 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 56 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-56',
     title: 'Crowned Runner Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 57 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 57 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-57',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 58 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 58 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-58',
     title: 'Orbital Guardian Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 59 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 59 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-59',
     title: 'Abyssal Courier Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 60 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 60 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-60',
     title: 'Radiant Serpent Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 61 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 61 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-61',
     title: 'Iron Oath Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 62 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 62 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-62',
     title: 'Woven Comet Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 63 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 63 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-63',
     title: 'Runic Fang Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 64 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 64 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-64',
     title: 'Glass Voyager Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 65 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 65 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-65',
     title: 'Lucent Viper Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 66 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 66 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-66',
     title: 'Prismatic Rook Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 67 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 67 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-67',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 68 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 68 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-68',
     title: 'Crowned Runner Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 69 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 69 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-69',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 70 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 70 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-70',
     title: 'Orbital Guardian Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 71 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 71 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-71',
     title: 'Abyssal Courier Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 72 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 72 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-72',
     title: 'Radiant Serpent Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 73 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 73 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-73',
     title: 'Iron Oath Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 74 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 74 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-74',
     title: 'Woven Comet Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 75 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 75 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-75',
     title: 'Runic Fang Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 76 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 76 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-76',
     title: 'Glass Voyager Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 77 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 77 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-77',
     title: 'Lucent Viper Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 78 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 78 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-78',
     title: 'Prismatic Rook Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 79 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 79 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-79',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 80 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 80 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-80',
     title: 'Crowned Runner Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 81 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 81 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-81',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 82 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 82 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-82',
     title: 'Orbital Guardian Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 83 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 83 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-83',
     title: 'Abyssal Courier Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 84 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 84 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-84',
     title: 'Radiant Serpent Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 85 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 85 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-85',
     title: 'Iron Oath Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 86 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 86 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-86',
     title: 'Woven Comet Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 87 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 87 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-87',
     title: 'Runic Fang Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 88 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 88 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-88',
     title: 'Glass Voyager Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 89 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 89 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-89',
     title: 'Lucent Viper Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 90 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 90 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-90',
     title: 'Prismatic Rook Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 91 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 91 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-91',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 92 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 92 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-92',
     title: 'Crowned Runner Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 93 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 93 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-93',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 94 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 94 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-94',
     title: 'Orbital Guardian Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 95 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 95 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-95',
     title: 'Abyssal Courier Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 96 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 96 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-96',
     title: 'Radiant Serpent Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 97 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 97 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-97',
     title: 'Iron Oath Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 98 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 98 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-98',
     title: 'Woven Comet Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 99 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 99 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-99',
     title: 'Runic Fang Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 100 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 100 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-100',
     title: 'Glass Voyager Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 101 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 101 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-101',
     title: 'Lucent Viper Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 102 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 102 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-102',
     title: 'Prismatic Rook Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 103 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 103 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-103',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 104 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 104 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-104',
     title: 'Crowned Runner Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 105 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 105 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-105',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 106 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 106 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-106',
     title: 'Orbital Guardian Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 107 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 107 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-107',
     title: 'Abyssal Courier Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 108 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 108 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-108',
     title: 'Radiant Serpent Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 109 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 109 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-109',
     title: 'Iron Oath Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 110 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 110 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-110',
     title: 'Woven Comet Transmat',
     subtitle: 'vanguard suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 111 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 111 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-111',
     title: 'Runic Fang Transmat',
     subtitle: 'heliopause suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 112 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 112 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-112',
     title: 'Glass Voyager Transmat',
     subtitle: 'dungeon suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 113 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 113 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-113',
     title: 'Lucent Viper Transmat',
     subtitle: 'raid suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 114 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 114 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-114',
     title: 'Prismatic Rook Transmat',
     subtitle: 'seasonal suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 115 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 115 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-115',
     title: 'Astral Pilgrim Transmat',
     subtitle: 'deep suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 116 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 116 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-116',
     title: 'Crowned Runner Transmat',
     subtitle: 'foundry suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 117 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 117 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-117',
     title: 'Thunder Wyrm Transmat',
     subtitle: 'reef suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 118 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 118 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-118',
     title: 'Orbital Guardian Transmat',
     subtitle: 'trials suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 119 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 119 confirms the sequel is now visible on the player, not just the HUD.',
   },
   {
     id: 'guardian-transmat-119',
     title: 'Abyssal Courier Transmat',
     subtitle: 'iron suit pressure sealed; snake guardian profile refreshed.',
-    announcer: 'Envoy: armor sync 120 confirms the sequel is now visible on the player, not just the HUD.',
+    announcer:
+      'Envoy: armor sync 120 confirms the sequel is now visible on the player, not just the HUD.',
   },
 ];
 
 export function pickGuardianSuitProfile(index: number): GuardianSuitProfile {
-  return GUARDIAN_SUIT_PROFILES[Math.abs(Math.floor(index)) % GUARDIAN_SUIT_PROFILES.length] ?? GUARDIAN_SUIT_PROFILES[0]!;
+  return (
+    GUARDIAN_SUIT_PROFILES[Math.abs(Math.floor(index)) % GUARDIAN_SUIT_PROFILES.length] ??
+    GUARDIAN_SUIT_PROFILES[0]!
+  );
 }
 
 export function pickGuardianGearRule(slot: StarforgedSlot, index: number): GuardianGearVisualRule {
@@ -7431,19 +8178,20 @@ export function pickGuardianGearRule(slot: StarforgedSlot, index: number): Guard
 }
 
 export function pickGuardianTransmatLine(index: number): GuardianTransmatLine {
-  return GUARDIAN_TRANSMAT_LINES[Math.abs(Math.floor(index)) % GUARDIAN_TRANSMAT_LINES.length] ?? GUARDIAN_TRANSMAT_LINES[0]!;
+  return (
+    GUARDIAN_TRANSMAT_LINES[Math.abs(Math.floor(index)) % GUARDIAN_TRANSMAT_LINES.length] ??
+    GUARDIAN_TRANSMAT_LINES[0]!
+  );
 }
 
-export function buildGuardianSuitSummary(index: number, equipped: readonly StarforgedGearDefinition[]): string[] {
+export function buildGuardianSuitSummary(
+  index: number,
+  equipped: readonly StarforgedGearDefinition[],
+): string[] {
   const suit = pickGuardianSuitProfile(index + equipped.length);
   const gearLines = equipped.slice(0, 6).map((gear, offset) => {
     const rule = pickGuardianGearRule(gear.slot, index + offset);
     return `${gear.slot}: ${gear.name} -> ${rule.label}`;
   });
-  return [
-    `Suit: ${suit.name}`,
-    `Shader: ${suit.shaderName}`,
-    suit.playerFacingLine,
-    ...gearLines,
-  ];
+  return [`Suit: ${suit.name}`, `Shader: ${suit.shaderName}`, suit.playerFacingLine, ...gearLines];
 }

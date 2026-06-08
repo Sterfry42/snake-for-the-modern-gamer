@@ -3,7 +3,11 @@ import type { QuestRuntime } from '../quest.js';
 
 class ShrineMaidensRequest extends Quest {
   constructor() {
-    super('shrine-maidens-request', "The Shrine Maiden's Request", 'Deliver 10 apples to the shrine maiden');
+    super(
+      'shrine-maidens-request',
+      "The Shrine Maiden's Request",
+      'Deliver 10 apples to the shrine maiden',
+    );
   }
 
   override baselineKeys(): readonly string[] {

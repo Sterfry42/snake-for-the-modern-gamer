@@ -15,7 +15,7 @@ describe('farming', () => {
         minecraftBlocks: { '2,1': 'dirt' },
       } as any;
       const player = {
-        getItemCount: (id: string) => id === 'wooden_shovel' ? 1 : 0,
+        getItemCount: (id: string) => (id === 'wooden_shovel' ? 1 : 0),
       } as any;
 
       const result = tryCreateFarmland(room, player, 2, 1, 'dirt');
@@ -42,7 +42,7 @@ describe('farming', () => {
         minecraftBlocks: { '2,1': 'stone' },
       } as any;
       const player = {
-        getItemCount: (id: string) => id === 'wooden_shovel' ? 1 : 0,
+        getItemCount: (id: string) => (id === 'wooden_shovel' ? 1 : 0),
       } as any;
 
       const result = tryCreateFarmland(room, player, 2, 1, 'stone');
@@ -57,7 +57,7 @@ describe('farming', () => {
         minecraftBlocks: { '2,1': 'farmland' },
       } as any;
       const player = {
-        getItemCount: (id: string) => id === 'seeds' ? 5 : 0,
+        getItemCount: (id: string) => (id === 'seeds' ? 5 : 0),
         removeItem: (id: string, count?: number) => {
           if (id === 'seeds') return true;
           return false;
@@ -91,7 +91,7 @@ describe('farming', () => {
         minecraftBlocks: { '2,1': 'farmland' },
       } as any;
       const player = {
-        getItemCount: (id: string) => id === 'pumpkin_item' ? 3 : 0,
+        getItemCount: (id: string) => (id === 'pumpkin_item' ? 3 : 0),
         removeItem: (id: string, count?: number) => {
           if (id === 'pumpkin_item') return true;
           return false;

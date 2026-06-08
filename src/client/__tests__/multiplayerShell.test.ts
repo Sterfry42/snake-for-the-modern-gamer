@@ -79,9 +79,7 @@ describe('BrowserMultiplayerShellClient', () => {
 
     FakeWebSocket.instances[0].emit('open');
 
-    expect(FakeWebSocket.instances[0].sentMessages[0]).toContain(
-      'multiplayer-shell-smoke',
-    );
+    expect(FakeWebSocket.instances[0].sentMessages[0]).toContain('multiplayer-shell-smoke');
     expect(FakeWebSocket.instances[0].closed).toBe(true);
     expect(infoSpy).toHaveBeenCalledWith(
       '[MultiplayerShell] WebSocket smoke succeeded.',

@@ -6,6 +6,7 @@ import type { SkillTreeStats } from './skillTypes.js';
 import { ActionSlotController } from './actionSlots.js';
 
 import { JuiceManager } from '../ui/juice.js';
+import { i18n } from '../i18n/i18nManager.js';
 
 export interface SkillTreeManagerOptions {
   baseActionStepIntervalMs: number;
@@ -93,12 +94,12 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
       const hovered = this.overlay.getHoveredPerkId();
       if (!hovered) {
-        this.overlay.announce('Hover a skill node and press I to inspect it.', '#9ad1ff', 2000);
+        this.overlay.announce(i18n.getFeatureString('skillTreeHoverSkill'), '#9ad1ff', 2000);
         return true;
       }
 
       if (!this.overlay.showPerkDetails(hovered)) {
-        this.overlay.announce('Unable to display that skill yet.', '#ff6b6b', 2000);
+        this.overlay.announce(i18n.getFeatureString('skillTreeUnableToDisplay'), '#ff6b6b', 2000);
       }
       return true;
     }

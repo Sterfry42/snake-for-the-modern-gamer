@@ -1,9 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  tryPlaceBed,
-  trySleep,
-  tryBreakBed,
-} from '../bed.js';
+import { tryPlaceBed, trySleep, tryBreakBed } from '../bed.js';
 
 describe('bed', () => {
   describe('bed placement', () => {
@@ -32,7 +28,9 @@ describe('bed', () => {
       let spawnSet = false;
       const dayNight = { day: 1, timeOfDay: 15000 }; // night time
       const player = {
-        setSpawn: () => { spawnSet = true; },
+        setSpawn: () => {
+          spawnSet = true;
+        },
         heal: () => {},
         state: { health: 10, maxHealth: 20 },
       } as any;
@@ -44,8 +42,12 @@ describe('bed', () => {
         5,
         '0,0,0',
         dayNight,
-        () => { nightSkipped = true; },
-        (bx, by, bRoomId) => { spawnSet = true; },
+        () => {
+          nightSkipped = true;
+        },
+        (bx, by, bRoomId) => {
+          spawnSet = true;
+        },
       );
 
       expect(nightSkipped).toBe(true);

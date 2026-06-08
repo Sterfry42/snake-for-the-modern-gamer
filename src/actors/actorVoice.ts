@@ -166,8 +166,12 @@ export function selectActorVoiceLine(context: ActorVoiceContext): NpcVoiceLine {
   if (valid.length === 0) {
     return fallback;
   }
-  const highestPriority = Math.max(...valid.map((line) => line.priority + moodPriorityBonus(line, context)));
-  const best = valid.filter((line) => line.priority + moodPriorityBonus(line, context) === highestPriority);
+  const highestPriority = Math.max(
+    ...valid.map((line) => line.priority + moodPriorityBonus(line, context)),
+  );
+  const best = valid.filter(
+    (line) => line.priority + moodPriorityBonus(line, context) === highestPriority,
+  );
   const lastId = context.flags[`actor.voice.last.${context.actor.id}`];
   const freshBest =
     best.length > 1 && typeof lastId === 'string'
@@ -191,10 +195,16 @@ function isActorLineValid(line: ActorVoiceLine, context: ActorVoiceContext): boo
   if (line.hostility && (!actor.hostility || !line.hostility.includes(actor.hostility))) {
     return false;
   }
-  if (line.personalityTags && !line.personalityTags.some((tag) => actor.personality.includes(tag))) {
+  if (
+    line.personalityTags &&
+    !line.personalityTags.some((tag) => actor.personality.includes(tag))
+  ) {
     return false;
   }
-  if (line.memoryTags && !actor.memory.some((memory) => line.memoryTags?.some((tag) => memory.tags.includes(tag)))) {
+  if (
+    line.memoryTags &&
+    !actor.memory.some((memory) => line.memoryTags?.some((tag) => memory.tags.includes(tag)))
+  ) {
     return false;
   }
   if (line.minimumFocus && (actor.focus ?? 0) < line.minimumFocus) {

@@ -70,7 +70,7 @@ export const NPC_ENCOUNTERS_ES: NpcTranslations = {
   },
   'tengu-encounter': {
     pages: [
-      'Un espíritu bird-like gigante se posa en el borde de un acantilado, alas dobladas, ojos penetrantes. El aire se vuelve tranquilo a su alrededor.',
+      'Un espíritu gigantesco similar a un ave se posa en el borde de un acantilado, alas dobladas, ojos penetrantes. El aire se vuelve tranquilo a su alrededor.',
       '"Los mortales que traen ofrendas a la montaña reciben favores. Tráeme una rama de cerezo, y te dejaré volar."',
     ],
     repeatPages: [
@@ -84,7 +84,7 @@ export const NPC_ENCOUNTERS_ES: NpcTranslations = {
   'freak-joey': {
     pages: [
       'Sale de las profundidades oscuras con una sonrisa demasiado ansiosa para pertenecer a algo vivo. Las habitaciones a su alrededor se callan de la manera en que lo hacen las antiguas capillas cuando alguien entra llevando asesinato como un sacramento.',
-      '"Me llaman Freak Joey. No porque nací mal. Porque seguí acordándome de volverse cada vez más mal cada vez que los túneles me preguntaron."',
+      '"Me llaman Freak Joey. No porque nací mal. Porque seguí eligiendo volverme cada vez más cruel cada vez que los túneles me preguntaron."',
       '"Acepta el duelo. Que la piedra escuche si tu coraje es un principio vivo o simplemente un ruido que hace tu cuerpo antes de ser abierto."',
     ],
     acceptLabel: 'Duelo',
@@ -112,7 +112,7 @@ export const NPC_ENCOUNTERS_ES: NpcTranslations = {
   },
   'aurex-wanderer': {
     pages: [
-      'Aurex seStanding donde un filo de luz pálida ha logrado, contra todo sentido, sobrevivir tan profundo bajo la tierra. Su inmovilidad parece ceremonial.',
+      'Aurex se mantiene donde un filo de luz pálida ha logrado, contra todo sentido, sobrevivir tan profundo bajo la tierra. Su inmovilidad parece ceremonial.',
       '"Los pasillos superiores recuerdan el orden como un cadáver recuerda el calor. No de manera útil. Solo suficiente para ser trágico."',
       '"Carga el ayuno antiguo por mí. Veinte segundos al lado de una boca vacía no es santidad, pero es suficiente para que el alma revele si todavía comanda al cuerpo en absoluto."',
     ],
@@ -138,20 +138,20 @@ export const NPC_ENCOUNTERS_ES: NpcTranslations = {
     rejectLabel: 'Rechazar',
     rewardScore: 10,
   },
-'cyrene-wanderer': {
-     pages: [
-       'Cyrene dibuja un círculo en el polvo y el polvo duda, como si incertamente perteneciera más a la gravedad o a cualquier viejo voto que le da vida a su mano.',
-       '"Cada cámara en este lugar enseña la misma lección en un dialecto diferente: permanece en movimiento, permanece dudoso, y nunca confundas la supervivencia con el perdón."',
-       '"Tu regalo es la velocidad. Cuidado con ello. La velocidad se vuelve estupidez en el momento en que empieza a creerse elegido."',
-     ],
-     repeatPages: [
-       'Cyrene te reconoce con una mirada demasiado medida para contar como calidez y demasiado suave para ser llamada indiferencia.',
-       '"Todavía vivo. Eso significa que o estás aprendiendo, o la tumba ha puesto mal tu nombre para otro día. Te recomiendo que no te hagas arrogante sobre ninguna de las posibilidades."',
-     ],
-     acceptLabel: 'Escuchar',
-     rejectLabel: 'Salir',
-     rewardScore: 5,
-   },
+  'cyrene-wanderer': {
+    pages: [
+      'Cyrene dibuja un círculo en el polvo y el polvo duda, como si incertamente perteneciera más a la gravedad o a cualquier viejo voto que le da vida a su mano.',
+      '"Cada cámara en este lugar enseña la misma lección en un dialecto diferente: permanece en movimiento, permanece dudoso, y nunca confundas la supervivencia con el perdón."',
+      '"Tu regalo es la velocidad. Cuidado con ello. La velocidad se vuelve estupidez en el momento en que empieza a creerse elegido."',
+    ],
+    repeatPages: [
+      'Cyrene te reconoce con una mirada demasiado medida para contar como calidez y demasiado suave para ser llamada indiferencia.',
+      '"Todavía vivo. Eso significa que o estás aprendiendo, o la tumba ha puesto mal tu nombre para otro día. Te recomiendo que no te hagas arrogante sobre ninguna de las posibilidades."',
+    ],
+    acceptLabel: 'Escuchar',
+    rejectLabel: 'Salir',
+    rewardScore: 5,
+  },
   'sterling-fisher': {
     pages: [
       'Una figura desgastada se sienta en cuclillas junto a una caña plegable, observando el agua con la quietud paciente de alguien a quien le han dicho que el océano escucha.',

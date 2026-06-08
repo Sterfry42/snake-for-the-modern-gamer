@@ -38,7 +38,7 @@ export function tryPlaceMolemanDigSite(
     const variant = chooseDigSiteVariant(options.biomeId ?? '', rng);
     return {
       id: `dig:${left},${top}`,
-      name: `${variant.name} Site`,
+      name: `${variant.i18nNameKey} Site`,
       variantId: variant.id,
       foreman: {
         id: `moleman-foreman-${left}-${top}`,

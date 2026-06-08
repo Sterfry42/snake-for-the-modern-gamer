@@ -3,7 +3,11 @@ import type { QuestRuntime } from '../quest.js';
 
 class TanukisShenanigans extends Quest {
   constructor() {
-    super('tanukis-shenanigans', "Tanuki's Shenanigans", 'Find the mischievous tanuki hiding in the bamboo grove');
+    super(
+      'tanukis-shenanigans',
+      "Tanuki's Shenanigans",
+      'Find the mischievous tanuki hiding in the bamboo grove',
+    );
   }
 
   override isCompleted(runtime): boolean {

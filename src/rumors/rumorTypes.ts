@@ -47,4 +47,3 @@ export interface RumorSaveData {
   version: number;
   rumors: Rumor[];
 }
-

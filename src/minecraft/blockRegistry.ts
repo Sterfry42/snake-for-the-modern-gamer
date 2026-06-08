@@ -32,9 +32,7 @@ const BLOCK_DEFINITIONS: BlockType[] = [
   { id: 'pumpkin', kind: 'solid', color: '#E8872A', hardness: 2 },
 ];
 
-const BLOCK_MAP = new Map<string, BlockType>(
-  BLOCK_DEFINITIONS.map((b) => [b.id, b]),
-);
+const BLOCK_MAP = new Map<string, BlockType>(BLOCK_DEFINITIONS.map((b) => [b.id, b]));
 
 export function getBlockType(id: string): BlockType | undefined {
   return BLOCK_MAP.get(id);

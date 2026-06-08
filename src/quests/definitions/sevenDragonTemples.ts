@@ -3,7 +3,11 @@ import type { QuestRuntime } from '../quest.js';
 
 class SevenDragonTemples extends Quest {
   constructor() {
-    super('seven-dragon-temples', 'Seven Dragon Temples', 'Find 7 hidden shrine rooms scattered across the biome');
+    super(
+      'seven-dragon-temples',
+      'Seven Dragon Temples',
+      'Find 7 hidden shrine rooms scattered across the biome',
+    );
   }
 
   override baselineKeys(): readonly string[] {

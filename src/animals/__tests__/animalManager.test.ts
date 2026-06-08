@@ -8,9 +8,7 @@ import { createRng } from '../../core/rng.js';
 
 const grid = { cols: 32, rows: 24, cell: 24 };
 
-function createTestRoom(
-  overrides: Partial<RoomSnapshot> = {},
-): RoomSnapshot {
+function createTestRoom(overrides: Partial<RoomSnapshot> = {}): RoomSnapshot {
   const layout: string[] = [];
   for (let y = 0; y < 24; y++) {
     const row: string[] = [];

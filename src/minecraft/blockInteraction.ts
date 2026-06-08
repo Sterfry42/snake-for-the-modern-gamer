@@ -51,7 +51,10 @@ export function tryBreakBlock(
     player.addItem(drops, 1);
   }
 
-  scene.juice.blockBreak(tileX * scene.grid.cell + scene.grid.cell / 2, tileY * scene.grid.cell + scene.grid.cell / 2);
+  scene.juice.blockBreak(
+    tileX * scene.grid.cell + scene.grid.cell / 2,
+    tileY * scene.grid.cell + scene.grid.cell / 2,
+  );
 
   return {
     success: true,
@@ -87,12 +90,19 @@ export function tryPlaceBlock(
     room.minecraftBlocks[`${tileX},${tileY}`] = blockType;
   }
 
-  scene.juice.blockPlace(tileX * scene.grid.cell + scene.grid.cell / 2, tileY * scene.grid.cell + scene.grid.cell / 2);
+  scene.juice.blockPlace(
+    tileX * scene.grid.cell + scene.grid.cell / 2,
+    tileY * scene.grid.cell + scene.grid.cell / 2,
+  );
 
   return { success: true };
 }
 
-function checkSpecialTileProtection(room: RoomSnapshot, tileX: number, tileY: number): string | undefined {
+function checkSpecialTileProtection(
+  room: RoomSnapshot,
+  tileX: number,
+  tileY: number,
+): string | undefined {
   if (room.portals.some((p) => p.x === tileX && p.y === tileY)) {
     return 'Cannot place on a portal!';
   }

@@ -38,7 +38,8 @@ export function rollAnimalDrops(
     for (const entry of drops) {
       const chance = Math.max(0, Math.min(1, entry.chance + (modifiers.bonusChance ?? 0)));
       const isGuaranteedMeat =
-        Boolean(modifiers.guaranteedMeat) && (entry.itemId === 'raw-meat' || entry.itemId === 'fish-meat');
+        Boolean(modifiers.guaranteedMeat) &&
+        (entry.itemId === 'raw-meat' || entry.itemId === 'fish-meat');
       if (!isGuaranteedMeat && rng() >= chance) {
         continue;
       }

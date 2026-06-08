@@ -298,7 +298,7 @@ export const MINECRAFT_ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'material',
   },
-{
+  {
     id: 'fire_charge',
     name: 'Fire Charge',
     description: 'A burning ember. From creepers.',
@@ -440,9 +440,7 @@ export const MINECRAFT_ITEMS: readonly Item[] = [
   },
 ];
 
-const MC_ITEM_MAP = new Map<string, Item>(
-  MINECRAFT_ITEMS.map((item) => [item.id, item]),
-);
+const MC_ITEM_MAP = new Map<string, Item>(MINECRAFT_ITEMS.map((item) => [item.id, item]));
 
 export function getMinecraftItem(id: string): Item | undefined {
   return MC_ITEM_MAP.get(id);

@@ -30,17 +30,9 @@ export function cellsForEdgeRunup(grid: GridConfig, plan: EdgeAccessPlan): Reado
   for (let offset = 0; offset < plan.runupDepth; offset += 1) {
     for (let along = start; along <= end; along += 1) {
       const x =
-        plan.side === 'west'
-          ? offset
-          : plan.side === 'east'
-            ? grid.cols - 1 - offset
-            : along;
+        plan.side === 'west' ? offset : plan.side === 'east' ? grid.cols - 1 - offset : along;
       const y =
-        plan.side === 'north'
-          ? offset
-          : plan.side === 'south'
-            ? grid.rows - 1 - offset
-            : along;
+        plan.side === 'north' ? offset : plan.side === 'south' ? grid.rows - 1 - offset : along;
       if (x >= 0 && y >= 0 && x < grid.cols && y < grid.rows) {
         cells.add(vectorKey({ x, y }));
       }
@@ -90,4 +82,3 @@ export function assertEdgeRunupClear(
   }
   return true;
 }
-

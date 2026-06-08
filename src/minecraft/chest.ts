@@ -133,7 +133,10 @@ export function tryWithdrawFromChest(
   if (remaining > 0) {
     // Not enough — return what we withdrew
     // (Already added to player, so we're good — partial withdrawal)
-    return { success: true, message: `Only got ${count - remaining} of ${itemId}. Chest didn't have enough.` };
+    return {
+      success: true,
+      message: `Only got ${count - remaining} of ${itemId}. Chest didn't have enough.`,
+    };
   }
 
   return { success: true };

@@ -7,7 +7,7 @@ import type { QuestRuntime, CatchJournalAccess } from '../quest.js';
  */
 class BiomeExplorerQuest extends Quest {
   constructor() {
-    super('biome-explorer', 'Angler\'s Atlas', 'Catch fish in 5 different biomes');
+    super('biome-explorer', "Angler's Atlas", 'Catch fish in 5 different biomes');
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

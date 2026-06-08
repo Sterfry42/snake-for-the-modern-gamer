@@ -39,9 +39,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-000: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-000: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -51,9 +54,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-001: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-001: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -63,9 +69,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-002: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-002: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -75,9 +84,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-003: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-003: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -87,9 +99,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-004: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-004: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -99,10 +114,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-005: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-005: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -111,9 +130,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-006: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-006: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -123,9 +145,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-007: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-007: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -135,9 +160,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-008: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-008: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -147,9 +175,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-009: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-009: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -159,9 +190,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-010: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-010: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -171,10 +205,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-011: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-011: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -183,9 +221,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-012: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-012: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -195,9 +236,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-013: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-013: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -207,9 +251,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-014: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-014: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -219,9 +266,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-015: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-015: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -231,9 +281,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-016: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-016: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -243,10 +296,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-017: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-017: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -255,9 +312,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-018: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-018: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -267,9 +327,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-019: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-019: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -279,9 +342,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-020: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-020: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -291,9 +357,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-021: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-021: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -303,9 +372,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-022: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-022: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -315,10 +387,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-023: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-023: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -327,9 +403,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-024: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-024: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -339,9 +418,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-025: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-025: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -351,9 +433,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-026: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-026: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -363,9 +448,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-027: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-027: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -375,9 +463,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-028: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-028: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -387,10 +478,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-029: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-029: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -399,9 +494,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-030: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-030: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -411,9 +509,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-031: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-031: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -423,9 +524,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-032: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-032: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -435,9 +539,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-033: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-033: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -447,9 +554,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-034: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-034: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -459,10 +569,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-035: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-035: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -471,9 +585,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-036: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-036: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -483,9 +600,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-037: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-037: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -495,9 +615,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-038: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-038: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -507,9 +630,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-039: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-039: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -519,9 +645,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-040: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-040: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -531,10 +660,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-041: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-041: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -543,9 +676,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-042: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-042: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -555,9 +691,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-043: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-043: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -567,9 +706,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-044: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-044: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -579,9 +721,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-045: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-045: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -591,9 +736,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-046: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-046: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -603,10 +751,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-047: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-047: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -615,9 +767,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-048: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-048: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -627,9 +782,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-049: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-049: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -639,9 +797,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-050: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-050: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -651,9 +812,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-051: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-051: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -663,9 +827,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-052: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-052: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -675,10 +842,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-053: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-053: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -687,9 +858,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-054: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-054: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -699,9 +873,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-055: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-055: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -711,9 +888,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-056: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-056: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -723,9 +903,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-057: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-057: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -735,9 +918,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-058: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-058: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -747,10 +933,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-059: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-059: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -759,9 +949,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-060: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-060: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -771,9 +964,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-061: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-061: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -783,9 +979,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-062: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-062: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -795,9 +994,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-063: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-063: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -807,9 +1009,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-064: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-064: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -819,10 +1024,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-065: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-065: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -831,9 +1040,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-066: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-066: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -843,9 +1055,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-067: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-067: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -855,9 +1070,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-068: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-068: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -867,9 +1085,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-069: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-069: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -879,9 +1100,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-070: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-070: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -891,10 +1115,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-071: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-071: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -903,9 +1131,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-072: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-072: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -915,9 +1146,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-073: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-073: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -927,9 +1161,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-074: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-074: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -939,9 +1176,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-075: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-075: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -951,9 +1191,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-076: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-076: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -963,10 +1206,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-077: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-077: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -975,9 +1222,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-078: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-078: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -987,9 +1237,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-079: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-079: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -999,9 +1252,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-080: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-080: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1011,9 +1267,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-081: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-081: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1023,9 +1282,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-082: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-082: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1035,10 +1297,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-083: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-083: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1047,9 +1313,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-084: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-084: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1059,9 +1328,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-085: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-085: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1071,9 +1343,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-086: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-086: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1083,9 +1358,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-087: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-087: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1095,9 +1373,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-088: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-088: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1107,10 +1388,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-089: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-089: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1119,9 +1404,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-090: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-090: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1131,9 +1419,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-091: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-091: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1143,9 +1434,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-092: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-092: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1155,9 +1449,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-093: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-093: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1167,9 +1464,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-094: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-094: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1179,10 +1479,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-095: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-095: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1191,9 +1495,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-096: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-096: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1203,9 +1510,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-097: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-097: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1215,9 +1525,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-098: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-098: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1227,9 +1540,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-099: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-099: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1239,9 +1555,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-100: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-100: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1251,10 +1570,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-101: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-101: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1263,9 +1586,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-102: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-102: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1275,9 +1601,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-103: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-103: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1287,9 +1616,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-104: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-104: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1299,9 +1631,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-105: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-105: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1311,9 +1646,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-106: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-106: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1323,10 +1661,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-107: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-107: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1335,9 +1677,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-108: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-108: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1347,9 +1692,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-109: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-109: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1359,9 +1707,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-110: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-110: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1371,9 +1722,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-111: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-111: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1383,9 +1737,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-112: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-112: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1395,10 +1752,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-113: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-113: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1407,9 +1768,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-114: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-114: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1419,9 +1783,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-115: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-115: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1431,9 +1798,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-116: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-116: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1443,9 +1813,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-117: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-117: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1455,9 +1828,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-118: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-118: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1467,10 +1843,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-119: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-119: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1479,9 +1859,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-120: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-120: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1491,9 +1874,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-121: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-121: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1503,9 +1889,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-122: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-122: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1515,9 +1904,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-123: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-123: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1527,9 +1919,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-124: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-124: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1539,10 +1934,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-125: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-125: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1551,9 +1950,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-126: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-126: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1563,9 +1965,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-127: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-127: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1575,9 +1980,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-128: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-128: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1587,9 +1995,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-129: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-129: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1599,9 +2010,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-130: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-130: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1611,10 +2025,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-131: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-131: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1623,9 +2041,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-132: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-132: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1635,9 +2056,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-133: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-133: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1647,9 +2071,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-134: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-134: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1659,9 +2086,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-135: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-135: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1671,9 +2101,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-136: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-136: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1683,10 +2116,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-137: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-137: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1695,9 +2132,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-138: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-138: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1707,9 +2147,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-139: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-139: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1719,9 +2162,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-140: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-140: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1731,9 +2177,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-141: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-141: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1743,9 +2192,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-142: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-142: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1755,10 +2207,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-143: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-143: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1767,9 +2223,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-144: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-144: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1779,9 +2238,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-145: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-145: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1791,9 +2253,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-146: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-146: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1803,9 +2268,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-147: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-147: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1815,9 +2283,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-148: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-148: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1827,10 +2298,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-149: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-149: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1839,9 +2314,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-150: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-150: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1851,9 +2329,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-151: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-151: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1863,9 +2344,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-152: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-152: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1875,9 +2359,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-153: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-153: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1887,9 +2374,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-154: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-154: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1899,10 +2389,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-155: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-155: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1911,9 +2405,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-156: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-156: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1923,9 +2420,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-157: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-157: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1935,9 +2435,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-158: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-158: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1947,9 +2450,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-159: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-159: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -1959,9 +2465,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-160: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-160: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1971,10 +2480,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-161: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-161: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -1983,9 +2496,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-162: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-162: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -1995,9 +2511,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-163: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-163: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2007,9 +2526,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-164: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-164: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2019,9 +2541,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-165: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-165: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2031,9 +2556,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-166: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-166: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2043,10 +2571,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-167: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-167: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2055,9 +2587,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-168: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-168: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2067,9 +2602,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-169: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-169: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2079,9 +2617,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-170: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-170: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2091,9 +2632,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-171: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-171: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2103,9 +2647,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-172: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-172: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2115,10 +2662,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-173: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-173: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2127,9 +2678,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-174: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-174: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2139,9 +2693,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-175: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-175: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2151,9 +2708,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-176: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-176: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2163,9 +2723,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-177: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-177: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2175,9 +2738,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-178: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-178: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2187,10 +2753,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-179: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-179: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2199,9 +2769,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-180: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-180: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2211,9 +2784,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-181: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-181: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2223,9 +2799,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-182: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-182: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2235,9 +2814,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-183: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-183: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2247,9 +2829,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-184: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-184: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2259,10 +2844,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-185: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-185: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2271,9 +2860,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-186: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-186: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2283,9 +2875,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-187: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-187: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2295,9 +2890,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-188: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-188: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2307,9 +2905,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-189: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-189: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2319,9 +2920,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-190: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-190: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2331,10 +2935,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-191: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-191: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2343,9 +2951,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-192: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-192: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2355,9 +2966,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-193: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-193: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2367,9 +2981,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-194: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-194: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2379,9 +2996,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-195: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-195: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2391,9 +3011,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-196: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-196: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2403,10 +3026,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-197: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-197: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2415,9 +3042,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-198: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-198: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2427,9 +3057,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-199: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-199: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2439,9 +3072,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-200: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-200: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2451,9 +3087,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-201: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-201: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2463,9 +3102,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-202: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-202: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2475,10 +3117,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-203: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-203: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2487,9 +3133,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-204: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-204: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2499,9 +3148,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-205: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-205: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2511,9 +3163,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-206: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-206: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2523,9 +3178,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-207: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-207: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2535,9 +3193,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-208: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-208: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2547,10 +3208,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-209: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-209: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2559,9 +3224,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-210: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-210: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2571,9 +3239,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-211: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-211: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2583,9 +3254,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-212: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-212: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2595,9 +3269,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-213: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-213: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2607,9 +3284,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-214: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-214: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2619,10 +3299,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-215: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-215: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2631,9 +3315,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-216: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-216: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2643,9 +3330,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-217: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-217: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2655,9 +3345,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-218: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-218: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2667,9 +3360,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-219: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-219: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2679,9 +3375,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-220: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-220: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2691,10 +3390,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-221: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-221: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2703,9 +3406,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-222: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-222: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2715,9 +3421,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-223: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-223: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2727,9 +3436,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-224: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-224: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2739,9 +3451,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-225: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-225: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2751,9 +3466,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-226: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-226: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2763,10 +3481,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-227: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-227: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2775,9 +3497,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-228: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-228: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2787,9 +3512,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-229: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-229: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2799,9 +3527,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-230: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-230: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2811,9 +3542,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-231: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-231: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2823,9 +3557,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-232: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-232: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2835,10 +3572,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-233: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-233: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2847,9 +3588,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-234: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-234: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2859,9 +3603,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-235: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-235: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2871,9 +3618,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-236: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-236: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2883,9 +3633,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-237: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-237: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2895,9 +3648,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-238: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-238: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2907,10 +3663,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-239: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-239: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2919,9 +3679,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-240: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-240: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2931,9 +3694,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-241: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-241: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2943,9 +3709,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-242: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-242: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2955,9 +3724,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-243: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-243: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -2967,9 +3739,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-244: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-244: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -2979,10 +3754,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-245: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-245: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -2991,9 +3770,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-246: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-246: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3003,9 +3785,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-247: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-247: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3015,9 +3800,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-248: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-248: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3027,9 +3815,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-249: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-249: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3039,9 +3830,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-250: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-250: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3051,10 +3845,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-251: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-251: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3063,9 +3861,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-252: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-252: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3075,9 +3876,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-253: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-253: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3087,9 +3891,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-254: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-254: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3099,9 +3906,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-255: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-255: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3111,9 +3921,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-256: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-256: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3123,10 +3936,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-257: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-257: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3135,9 +3952,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-258: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-258: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3147,9 +3967,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-259: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-259: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3159,9 +3982,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-260: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-260: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3171,9 +3997,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-261: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-261: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3183,9 +4012,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-262: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-262: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3195,10 +4027,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-263: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-263: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3207,9 +4043,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-264: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-264: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3219,9 +4058,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-265: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-265: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3231,9 +4073,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-266: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-266: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3243,9 +4088,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-267: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-267: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3255,9 +4103,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-268: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-268: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3267,10 +4118,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-269: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-269: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3279,9 +4134,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-270: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-270: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3291,9 +4149,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-271: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-271: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3303,9 +4164,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-272: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-272: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3315,9 +4179,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-273: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-273: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3327,9 +4194,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-274: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-274: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3339,10 +4209,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-275: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-275: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3351,9 +4225,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-276: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-276: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3363,9 +4240,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-277: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-277: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3375,9 +4255,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-278: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-278: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3387,9 +4270,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-279: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-279: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3399,9 +4285,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-280: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-280: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3411,10 +4300,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-281: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-281: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3423,9 +4316,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-282: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-282: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3435,9 +4331,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-283: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-283: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3447,9 +4346,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-284: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-284: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3459,9 +4361,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-285: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-285: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3471,9 +4376,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-286: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-286: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3483,10 +4391,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-287: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-287: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3495,9 +4407,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-288: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-288: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3507,9 +4422,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-289: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-289: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3519,9 +4437,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-290: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-290: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3531,9 +4452,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-291: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-291: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3543,9 +4467,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-292: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-292: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3555,10 +4482,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-293: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-293: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3567,9 +4498,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-294: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-294: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3579,9 +4513,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-295: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-295: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3591,9 +4528,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-296: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-296: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3603,9 +4543,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-297: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-297: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3615,9 +4558,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-298: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-298: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3627,10 +4573,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-299: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-299: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3639,9 +4589,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-300: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-300: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3651,9 +4604,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-301: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-301: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3663,9 +4619,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-302: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-302: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3675,9 +4634,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-303: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-303: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3687,9 +4649,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-304: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-304: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3699,10 +4664,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-305: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-305: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3711,9 +4680,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-306: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-306: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3723,9 +4695,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-307: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-307: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3735,9 +4710,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-308: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-308: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3747,9 +4725,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-309: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-309: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3759,9 +4740,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-310: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-310: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3771,10 +4755,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-311: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-311: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3783,9 +4771,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-312: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-312: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3795,9 +4786,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-313: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-313: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3807,9 +4801,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-314: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-314: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3819,9 +4816,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-315: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-315: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3831,9 +4831,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-316: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-316: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3843,10 +4846,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-317: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-317: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3855,9 +4862,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-318: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-318: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3867,9 +4877,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-319: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-319: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3879,9 +4892,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-320: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-320: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3891,9 +4907,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-321: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-321: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3903,9 +4922,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-322: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-322: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3915,10 +4937,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-323: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-323: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3927,9 +4953,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-324: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-324: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3939,9 +4968,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-325: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-325: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3951,9 +4983,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-326: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-326: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3963,9 +4998,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-327: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-327: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -3975,9 +5013,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-328: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-328: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -3987,10 +5028,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-329: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-329: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -3999,9 +5044,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-330: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-330: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4011,9 +5059,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-331: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-331: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4023,9 +5074,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-332: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-332: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4035,9 +5089,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-333: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-333: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4047,9 +5104,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-334: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-334: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4059,10 +5119,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-335: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-335: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4071,9 +5135,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-336: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-336: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4083,9 +5150,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-337: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-337: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4095,9 +5165,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-338: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-338: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4107,9 +5180,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-339: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-339: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4119,9 +5195,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-340: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-340: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4131,10 +5210,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-341: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-341: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4143,9 +5226,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-342: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-342: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4155,9 +5241,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-343: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-343: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4167,9 +5256,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-344: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-344: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4179,9 +5271,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-345: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-345: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4191,9 +5286,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-346: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-346: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4203,10 +5301,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-347: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-347: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4215,9 +5317,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-348: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-348: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4227,9 +5332,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-349: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-349: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4239,9 +5347,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-350: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-350: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4251,9 +5362,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-351: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-351: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4263,9 +5377,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-352: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-352: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4275,10 +5392,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-353: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-353: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4287,9 +5408,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-354: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-354: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4299,9 +5423,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-355: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-355: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4311,9 +5438,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-356: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-356: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4323,9 +5453,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-357: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-357: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4335,9 +5468,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-358: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-358: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4347,10 +5483,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-359: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-359: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4359,9 +5499,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-360: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-360: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4371,9 +5514,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-361: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-361: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4383,9 +5529,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-362: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-362: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4395,9 +5544,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-363: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-363: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4407,9 +5559,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-364: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-364: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4419,10 +5574,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-365: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-365: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4431,9 +5590,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-366: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-366: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4443,9 +5605,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-367: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-367: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4455,9 +5620,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-368: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-368: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4467,9 +5635,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-369: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-369: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4479,9 +5650,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-370: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-370: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4491,10 +5665,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-371: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-371: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4503,9 +5681,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-372: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-372: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4515,9 +5696,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-373: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-373: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4527,9 +5711,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-374: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-374: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4539,9 +5726,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-375: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-375: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4551,9 +5741,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-376: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-376: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4563,10 +5756,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-377: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-377: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4575,9 +5772,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-378: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-378: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4587,9 +5787,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-379: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-379: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4599,9 +5802,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-380: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-380: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4611,9 +5817,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-381: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-381: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4623,9 +5832,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-382: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-382: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4635,10 +5847,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-383: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-383: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4647,9 +5863,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-384: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-384: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4659,9 +5878,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-385: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-385: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4671,9 +5893,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-386: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-386: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4683,9 +5908,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-387: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-387: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4695,9 +5923,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-388: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-388: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4707,10 +5938,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-389: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-389: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4719,9 +5954,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'solar',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-390: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-390: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4731,9 +5969,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'void',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-391: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-391: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4743,9 +5984,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'arc',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-392: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-392: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4755,9 +5999,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'stasis',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-393: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-393: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4767,9 +6014,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'strand',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-394: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-394: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4779,10 +6029,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'prismatic',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-395: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-395: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4791,9 +6045,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'solar',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-396: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-396: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4803,9 +6060,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'void',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-397: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-397: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4815,9 +6075,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'arc',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-398: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-398: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4827,9 +6090,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'stasis',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-399: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-399: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4839,9 +6105,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'strand',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-400: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-400: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4851,10 +6120,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'prismatic',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-401: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-401: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4863,9 +6136,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'solar',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-402: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-402: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4875,9 +6151,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'void',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-403: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-403: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4887,9 +6166,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'arc',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-404: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-404: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4899,9 +6181,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'stasis',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-405: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-405: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4911,9 +6196,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'strand',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-406: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-406: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4923,10 +6211,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'prismatic',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-407: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-407: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -4935,9 +6227,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'solar',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-408: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-408: Ignite vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4947,9 +6242,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'void',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-409: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-409: Breach vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4959,9 +6257,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'patrol',
     element: 'arc',
     mood: 'cathedral static',
-    directive: 'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-410: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a patrol: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-410: Overload vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4971,9 +6272,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'strike',
     element: 'stasis',
     mood: 'orbital thunder',
-    directive: 'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-411: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a strike: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-411: Thread vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -4983,9 +6287,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'nightfall',
     element: 'strand',
     mood: 'neon dusk',
-    directive: 'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-412: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a nightfall: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-412: Collapse vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -4995,10 +6302,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'raid',
     element: 'prismatic',
     mood: 'glacier vacuum',
-    directive: 'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-413: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a raid: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-413: Refit vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 1: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
   {
@@ -5007,9 +6318,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'dungeon',
     element: 'solar',
     mood: 'garden recursion',
-    directive: 'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-414: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a dungeon: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-414: Decode vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'SOLAR surge 2: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward solar gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -5019,9 +6333,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'gambit',
     element: 'void',
     mood: 'war-table panic',
-    directive: 'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-415: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a gambit: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-415: Pursue vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'VOID surge 3: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward void gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -5031,9 +6348,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'crucible',
     element: 'arc',
     mood: 'afterburn hymn',
-    directive: 'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-416: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
-    modifier: 'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a crucible: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-416: Consecrate vector confirmed. The Serpent is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'ARC surge 4: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward arc gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -5043,9 +6363,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'seasonal',
     element: 'stasis',
     mood: 'machine choir',
-    directive: 'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-417: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
-    modifier: 'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a seasonal: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-417: Shatter vector confirmed. The Relic is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STASIS surge 5: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward stasis gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
@@ -5055,9 +6378,12 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'campaign',
     element: 'strand',
     mood: 'lost-sector hush',
-    directive: 'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-418: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
-    modifier: 'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    directive:
+      'Turn the room into a campaign: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-418: Overclock vector confirmed. The Night Market is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'STRAND surge 6: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
     rewardHook: 'Drops bias toward strand gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'ring-lit visor bloom',
   },
@@ -5067,10 +6393,14 @@ export const DESTINY3_SIGNAL_CARDS: readonly Destiny3SignalCard[] = [
     activityKind: 'exoticMission',
     element: 'prismatic',
     mood: 'helmets-down triumph',
-    directive: 'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
-    radio: 'Envoy-419: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
-    modifier: 'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
-    rewardHook: 'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
+    directive:
+      'Turn the room into a exoticMission: move fast, keep the light meter loud, and make the snake feel like a fireteam of one.',
+    radio:
+      'Envoy-419: Reclaim vector confirmed. The Iron Orchard is singing through teeth, apples, and bad geometry.',
+    modifier:
+      'PRISMATIC surge 7: ability energy, shield pressure, and reward cadence spike when momentum stays high.',
+    rewardHook:
+      'Drops bias toward prismatic gear, high mobility rolls, and activity streak rewards.',
     visualMotif: 'void lens vignette',
   },
 ];
@@ -5089,7 +6419,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-1',
     name: 'Pursue Ghostline Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5098,7 +6429,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-2',
     name: 'Overload Sky Furnace Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+75 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5107,7 +6439,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-3',
     name: 'Shatter Relic Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5179,7 +6512,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-11',
     name: 'Refit Sunken Gate Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5188,7 +6522,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-12',
     name: 'Ignite Serpent Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+25 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5197,7 +6532,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-13',
     name: 'Pursue Ghostline Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5269,7 +6605,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-21',
     name: 'Thread Iron Orchard Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5278,7 +6615,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-22',
     name: 'Overclock Vanguard Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+75 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5287,7 +6625,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-23',
     name: 'Refit Sunken Gate Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5359,7 +6698,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-31',
     name: 'Breach Wyrm Signal Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5368,7 +6708,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-32',
     name: 'Consecrate Apple Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+25 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5377,7 +6718,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-33',
     name: 'Thread Iron Orchard Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5449,7 +6791,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-41',
     name: 'Reclaim Heliopause Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5458,7 +6801,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-42',
     name: 'Decode Night Market Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+75 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5467,7 +6811,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-43',
     name: 'Breach Wyrm Signal Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5539,7 +6884,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-51',
     name: 'Shatter Relic Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5548,7 +6894,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-52',
     name: 'Collapse Star Chapel Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+25 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5557,7 +6904,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-53',
     name: 'Reclaim Heliopause Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5629,7 +6977,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-61',
     name: 'Pursue Ghostline Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5638,7 +6987,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-62',
     name: 'Overload Sky Furnace Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+75 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5647,7 +6997,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-63',
     name: 'Shatter Relic Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5719,7 +7070,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-71',
     name: 'Refit Sunken Gate Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5728,7 +7080,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-72',
     name: 'Ignite Serpent Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+25 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5737,7 +7090,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-73',
     name: 'Pursue Ghostline Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5809,7 +7163,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-81',
     name: 'Thread Iron Orchard Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5818,7 +7173,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-82',
     name: 'Overclock Vanguard Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+75 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5827,7 +7183,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-83',
     name: 'Refit Sunken Gate Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5899,7 +7256,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-91',
     name: 'Breach Wyrm Signal Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5908,7 +7266,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-92',
     name: 'Consecrate Apple Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+25 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5917,7 +7276,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-93',
     name: 'Thread Iron Orchard Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5989,7 +7349,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-101',
     name: 'Reclaim Heliopause Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -5998,7 +7359,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-102',
     name: 'Decode Night Market Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+75 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6007,7 +7369,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-103',
     name: 'Breach Wyrm Signal Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6079,7 +7442,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-111',
     name: 'Shatter Relic Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6088,7 +7452,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-112',
     name: 'Collapse Star Chapel Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+25 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6097,7 +7462,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-113',
     name: 'Reclaim Heliopause Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6169,7 +7535,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-121',
     name: 'Pursue Ghostline Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6178,7 +7545,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-122',
     name: 'Overload Sky Furnace Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+75 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6187,7 +7555,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-123',
     name: 'Shatter Relic Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6259,7 +7628,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-131',
     name: 'Refit Sunken Gate Bounty',
     element: 'strand',
-    objective: 'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: clear rooms without turning back while Starforged is active.',
     cadence: 'Rotates every 3 activity beats and refreshes the director feed.',
     reward: '+100 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6268,7 +7638,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-132',
     name: 'Ignite Serpent Bounty',
     element: 'solar',
-    objective: 'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: chain streaks through hostile rooms while Starforged is active.',
     cadence: 'Rotates every 4 activity beats and refreshes the director feed.',
     reward: '+25 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6277,7 +7648,8 @@ export const DESTINY3_BOUNTIES: readonly Destiny3BountyCard[] = [
     id: 'd3-bounty-133',
     name: 'Pursue Ghostline Bounty',
     element: 'arc',
-    objective: 'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
+    objective:
+      'Complete a Destiny 3 loop: collect powerups under surge while Starforged is active.',
     cadence: 'Rotates every 5 activity beats and refreshes the director feed.',
     reward: '+50 glimmer, reputation pulse, and a chance at a themed gear roll.',
     flavor: 'The Envoy files this as proof that sequels can survive inside smaller games.',
@@ -6712,22 +8084,38 @@ export const DESTINY3_TITLE_SPLASHES: readonly string[] = [
 ];
 
 export function pickDestiny3Signal(index: number): Destiny3SignalCard {
-  return DESTINY3_SIGNAL_CARDS[Math.abs(Math.floor(index)) % DESTINY3_SIGNAL_CARDS.length] ?? DESTINY3_SIGNAL_CARDS[0]!;
+  return (
+    DESTINY3_SIGNAL_CARDS[Math.abs(Math.floor(index)) % DESTINY3_SIGNAL_CARDS.length] ??
+    DESTINY3_SIGNAL_CARDS[0]!
+  );
 }
 
 export function pickDestiny3Bounties(index: number, count: number): readonly Destiny3BountyCard[] {
   const safeCount = Math.max(0, Math.min(count, DESTINY3_BOUNTIES.length));
-  return Array.from({ length: safeCount }, (_, offset) => DESTINY3_BOUNTIES[(Math.abs(Math.floor(index)) + offset * 17) % DESTINY3_BOUNTIES.length]!);
+  return Array.from(
+    { length: safeCount },
+    (_, offset) =>
+      DESTINY3_BOUNTIES[(Math.abs(Math.floor(index)) + offset * 17) % DESTINY3_BOUNTIES.length]!,
+  );
 }
 
 export function pickDestiny3DirectorLine(index: number): string {
-  return DESTINY3_DIRECTOR_STRINGS[Math.abs(Math.floor(index)) % DESTINY3_DIRECTOR_STRINGS.length] ?? DESTINY3_DIRECTOR_STRINGS[0]!;
+  return (
+    DESTINY3_DIRECTOR_STRINGS[Math.abs(Math.floor(index)) % DESTINY3_DIRECTOR_STRINGS.length] ??
+    DESTINY3_DIRECTOR_STRINGS[0]!
+  );
 }
 
 export function pickDestiny3TitleSplash(index: number): string {
-  return DESTINY3_TITLE_SPLASHES[Math.abs(Math.floor(index)) % DESTINY3_TITLE_SPLASHES.length] ?? DESTINY3_TITLE_SPLASHES[0]!;
+  return (
+    DESTINY3_TITLE_SPLASHES[Math.abs(Math.floor(index)) % DESTINY3_TITLE_SPLASHES.length] ??
+    DESTINY3_TITLE_SPLASHES[0]!
+  );
 }
 
 export function pickDestiny3Palette(index: number): Destiny3OverlayPalette {
-  return DESTINY3_OVERLAY_PALETTES[Math.abs(Math.floor(index)) % DESTINY3_OVERLAY_PALETTES.length] ?? DESTINY3_OVERLAY_PALETTES[0]!;
+  return (
+    DESTINY3_OVERLAY_PALETTES[Math.abs(Math.floor(index)) % DESTINY3_OVERLAY_PALETTES.length] ??
+    DESTINY3_OVERLAY_PALETTES[0]!
+  );
 }

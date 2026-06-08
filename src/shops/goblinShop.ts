@@ -56,7 +56,7 @@ export const GOBLIN_WARD_SCROLLS: readonly WardScrollOffer[] = [
     source: 'bullet',
     label: 'Bullet Ward',
     basePrice: 44,
-    description: 'Redirects one small metallic sermon into somebody else\'s paperwork.',
+    description: "Redirects one small metallic sermon into somebody else's paperwork.",
   },
   {
     id: 'ward-temperature',
@@ -113,7 +113,7 @@ export const GOBLIN_SUPPLIES: readonly GoblinSupplyOffer[] = [
   {
     id: 'goblin-fishing-rod-carpenter',
     itemId: 'fishing-rod-carpenter',
-    name: 'Carpenter\'s Rod',
+    name: "Carpenter's Rod",
     price: 70,
     note: 'Goblin-reinforced. The line is braided with wire. It bites back less.',
     slot: 'gloves',
@@ -121,7 +121,7 @@ export const GOBLIN_SUPPLIES: readonly GoblinSupplyOffer[] = [
   {
     id: 'goblin-fishing-rod-master',
     itemId: 'fishing-rod-master',
-    name: 'Master Angler\'s Rod',
+    name: "Master Angler's Rod",
     price: 100,
     note: 'Goblin-forged masterwork. The legendary fish have heard the rumors.',
     slot: 'gloves',

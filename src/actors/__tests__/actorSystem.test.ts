@@ -322,7 +322,9 @@ describe('ActorSystem', () => {
         : actor.soul,
     }));
 
-    const kinds = getActorIndicators(actors.getActor(resident.id)!, 6).map((indicator) => indicator.kind);
+    const kinds = getActorIndicators(actors.getActor(resident.id)!, 6).map(
+      (indicator) => indicator.kind,
+    );
     expect(kinds).toContain('rumor');
     expect(kinds).toContain('secret');
   });

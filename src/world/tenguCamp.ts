@@ -14,7 +14,15 @@ const CAMP_NAMES = [
   "Raven's Perch Camp",
 ] as const;
 
-const TENGU_NAMES = ['Karasu', 'Tengu no Yashiro', 'Soba', 'Kuro', 'Beni', 'Yamabiko', 'Kamui'] as const;
+const TENGU_NAMES = [
+  'Karasu',
+  'Tengu no Yashiro',
+  'Soba',
+  'Kuro',
+  'Beni',
+  'Yamabiko',
+  'Kamui',
+] as const;
 const TENGU_ATTEMPTS = 32;
 const TENGU_MARGIN = 5;
 const SAFE_AREA_PADDING = 5;

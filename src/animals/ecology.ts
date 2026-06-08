@@ -64,10 +64,7 @@ export function shouldFlee(
   nearbyAnimalType: AnimalType,
   distance: number,
 ): boolean {
-  const { predators } = findPredatorPreyRelations(
-    createEcologySystem(),
-    animalType,
-  );
+  const { predators } = findPredatorPreyRelations(createEcologySystem(), animalType);
 
   if (predators.includes(nearbyAnimalType)) {
     const range = getHuntRange(createEcologySystem(), nearbyAnimalType, animalType);

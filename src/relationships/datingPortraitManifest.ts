@@ -245,7 +245,9 @@ export function getDatingPortraitAsset(
   return getMoodVariant(base, mood) ?? base;
 }
 
-function getBaseDatingPortraitAsset(profile: RelationshipCandidateProfile): DatingPortraitAsset | null {
+function getBaseDatingPortraitAsset(
+  profile: RelationshipCandidateProfile,
+): DatingPortraitAsset | null {
   if (profile.species === 'goblin') {
     return pick(profile.id, portraitKeysForGoblin(profile.portraitId));
   }
@@ -261,12 +263,17 @@ function getBaseDatingPortraitAsset(profile: RelationshipCandidateProfile): Dati
   return pick(profile.id, portraitKeysForHuman(profile.portraitId));
 }
 
-function getMoodVariant(base: DatingPortraitAsset, mood: DatingPortraitMood): DatingPortraitAsset | null {
+function getMoodVariant(
+  base: DatingPortraitAsset,
+  mood: DatingPortraitMood,
+): DatingPortraitAsset | null {
   if (mood === 'neutral') return base;
   if (!base.family) return null;
   return (
     DATING_PORTRAIT_ASSETS.find((asset) => asset.family === base.family && asset.mood === mood) ??
-    DATING_PORTRAIT_ASSETS.find((asset) => asset.family === base.family && asset.mood === 'happy') ??
+    DATING_PORTRAIT_ASSETS.find(
+      (asset) => asset.family === base.family && asset.mood === 'happy',
+    ) ??
     null
   );
 }

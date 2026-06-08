@@ -9,7 +9,7 @@ import {
   type SnakeStepDependencies,
   type SnakeStepOutcome,
 } from '../systems/snakeState.js';
-import { BossManager } from '../systems/boss.js';
+import { BossManager, type BossEvent } from '../systems/boss.js';
 import { EnemyManager, type BulletInstance, type EnemyInstance } from '../systems/enemies.js';
 import { AnimalManager } from '../animals/animalManager.js';
 import type { HuntedAnimalResult } from '../animals/animalManager.js';
@@ -157,7 +157,10 @@ import {
   type ArtifactDefinition,
   type ArtifactView,
 } from '../artifacts/artifacts.js';
-import type { ArchaeologyRewardBundle, ArchaeologyTuning } from '../archaeology/molemanArchaeology.js';
+import type {
+  ArchaeologyRewardBundle,
+  ArchaeologyTuning,
+} from '../archaeology/molemanArchaeology.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -642,6 +645,7 @@ export class SnakeGame implements QuestRuntime {
   private apples: AppleService;
   private readonly snake: SnakeState;
   public readonly bosses: BossManager;
+  private jasonDamageCallback?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
   private enemies: EnemyManager;
   private animals: AnimalManager;
   private questController: QuestController;
@@ -856,6 +860,10 @@ export class SnakeGame implements QuestRuntime {
     if (!startingRoomIsTown && this.rng() < 0.01) {
       // 1% chance to spawn Freaker Dennis on reset
       this.bosses.spawnBoss(this.snake.currentRoomId, 'freaker-dennis');
+    }
+    if (!startingRoomIsTown && startingRoom.biomeId === 'sunken-ocean' && this.rng() < 0.1) {
+      // 10% chance to spawn Jason Statham in the Sunken Ocean on reset
+      this.bosses.spawnJasonStatham(this.snake.currentRoomId);
     }
 
     this.resetPredation();
@@ -1454,6 +1462,10 @@ export class SnakeGame implements QuestRuntime {
           // 1% chance to spawn Freaker Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freaker-dennis');
         }
+        if (!newRoomIsTown && newRoom.biomeId === 'sunken-ocean' && this.rng() < 0.1) {
+          // 10% chance to spawn Jason Statham in the Sunken Ocean
+          this.bosses.spawnJasonStatham(newRoomId);
+        }
         if (!newRoomIsTown) {
           this.enemies.ensureEnemy(newRoomId, newRoom, []);
           this.animals.ensureAnimals(newRoomId, newRoom, []);
@@ -1744,10 +1756,15 @@ export class SnakeGame implements QuestRuntime {
               : `Raccoon load: +${weightGain} weight${nextThreshold ? ` (${this.raccoonWeight}/${nextThreshold})` : ''}.`,
         });
       } else {
-        const appleScoreMultiplier = Math.max(
+        const cheatMultiplier = Math.max(
           1,
           Number(this.getFlag<number>('cheat.appleScoreMultiplier') ?? 1),
         );
+        const orangeJuiceMultiplier = Math.max(
+          1,
+          Number(this.getFlag<number>('status.orangeJuiceScoreMult') ?? 1),
+        );
+        const appleScoreMultiplier = cheatMultiplier * orangeJuiceMultiplier;
         const appleScorePenalty = Math.max(
           0,
           Number(this.getFlag<number>('equipment.appleScorePenalty') ?? 0),
@@ -2166,12 +2183,20 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  bossStep(): void {
+  bossStep(onEvent?: (event: BossEvent) => void, stepMs?: number): void {
     this.bosses.step({
       getRoom: (roomId: string) => this.world.getRoom(roomId),
       getSnakeBody: () => this.snake.bodySegments,
+      onEvent,
+      stepMs,
     });
     this.reconcileStagedQuestBosses();
+  }
+
+  setJasonDamageCallback(
+    callback: (bossId: string, defeated: boolean, scoreBonus: number) => void,
+  ): void {
+    this.jasonDamageCallback = callback;
   }
 
   async actorClockStep(): Promise<StepResult | null> {
@@ -2411,6 +2436,9 @@ export class SnakeGame implements QuestRuntime {
       },
       getBossManager: () => this.bosses,
       skipSelfCollision: this.isRaccoonMode(),
+      onJasonDamage: (bossId, defeated, scoreBonus) => {
+        this.jasonDamageCallback?.(bossId, defeated, scoreBonus);
+      },
     };
 
     const outcome = this.snake.step(dependencies);
@@ -6710,7 +6738,8 @@ export class SnakeGame implements QuestRuntime {
 
   addScore(amount: number): void {
     const multiplier = this.getArtifactScoreMultiplier();
-    const adjusted = amount > 0 && multiplier > 1 ? Math.max(1, Math.ceil(amount * multiplier)) : amount;
+    const adjusted =
+      amount > 0 && multiplier > 1 ? Math.max(1, Math.ceil(amount * multiplier)) : amount;
     this.snake.addScore(adjusted);
   }
 
@@ -6720,7 +6749,9 @@ export class SnakeGame implements QuestRuntime {
 
   getRunArtifacts(): ArtifactDefinition[] {
     const ids = this.getFlag<string[]>('artifacts.run') ?? [];
-    return ids.map((id) => getArtifactDefinition(id)).filter((artifact): artifact is ArtifactDefinition => Boolean(artifact));
+    return ids
+      .map((id) => getArtifactDefinition(id))
+      .filter((artifact): artifact is ArtifactDefinition => Boolean(artifact));
   }
 
   addRunArtifact(artifactId: string): boolean {
@@ -9283,6 +9314,31 @@ export class SnakeGame implements QuestRuntime {
       };
     }
 
+    if (itemId === 'orange-juice') {
+      this.setFlag('status.orangeJuiceSpeedBoostTicks', 60);
+      const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
+      this.setFlag('fortitude.invulnerabilityTicks', Math.max(currentInvuln, 50));
+      this.setFlag('status.orangeJuiceScoreMult', 2);
+      this.restoreHunger(80);
+      this.inventory.removeItem(itemId, 1);
+      this.emitWorldEvent({
+        type: 'item-used',
+        roomId: this.snake.currentRoomId,
+        severity: 14,
+        loudness: 5,
+        tags: ['item', 'consumable', itemId, 'orange-juice', 'powerup'],
+        summary: `The snake drank Orange Juice and glowed with citrus power.`,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
+        data: { itemId, itemName: item.name },
+      });
+      return {
+        ok: true,
+        message: 'Orange Juice! Speed, shield, and doubled fortune!',
+        color: '#ffb347',
+        consume: true,
+      };
+    }
+
     const effect = effects[itemId];
     if (!effect) {
       return { ok: false, message: `${item.name} cannot be used right now.`, color: '#ffd166' };
@@ -11788,6 +11844,14 @@ export class SnakeGame implements QuestRuntime {
     const disoriented = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
     if (disoriented > 0) {
       this.setFlag('status.disorientedTicks', Math.max(0, disoriented - 1));
+    }
+    const speedBoost = Number(this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0);
+    if (speedBoost > 0) {
+      this.setFlag('status.orangeJuiceSpeedBoostTicks', speedBoost - 1);
+    }
+    const scoreMult = Number(this.getFlag<number>('status.orangeJuiceScoreMult') ?? 0);
+    if (scoreMult > 0) {
+      this.setFlag('status.orangeJuiceScoreMult', scoreMult - 1);
     }
   }
 

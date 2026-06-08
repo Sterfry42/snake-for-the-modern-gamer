@@ -87,8 +87,20 @@ describe('SimulationScheduler', () => {
   it('reports scheduler diagnostics for clamping and per-clock steps', () => {
     let steps = 0;
     const scheduler = new SimulationScheduler([
-      { id: 'action', intervalMs: 100, step: () => { steps += 1; } },
-      { id: 'actor', intervalMs: 200, step: () => { steps += 1; } },
+      {
+        id: 'action',
+        intervalMs: 100,
+        step: () => {
+          steps += 1;
+        },
+      },
+      {
+        id: 'actor',
+        intervalMs: 200,
+        step: () => {
+          steps += 1;
+        },
+      },
     ]);
 
     scheduler.update(300, { action: true, actor: true });

@@ -105,13 +105,7 @@ describe('Minecraft Save System', () => {
       equippedTool: 'stone_pickaxe',
     };
 
-    const original = serializeMinecraftState(
-      state,
-      { day: 10, timeOfDay: 8000 },
-      [],
-      [],
-      [],
-    );
+    const original = serializeMinecraftState(state, { day: 10, timeOfDay: 8000 }, [], [], []);
 
     const restored = deserializeMinecraftState(original);
     expect(restored.playerState.health).toBe(12);
@@ -169,10 +163,18 @@ describe('Minecraft Save System', () => {
 
     const data = serializeMinecraftState(
       {
-        health: 20, maxHealth: 20, hunger: 20, maxHunger: 20,
-        xp: 0, xpLevel: 0, armorPoints: 0,
-        spawnX: 0, spawnY: 0, spawnRoomId: '0,0,0',
-        inventory: [], equippedTool: null,
+        health: 20,
+        maxHealth: 20,
+        hunger: 20,
+        maxHunger: 20,
+        xp: 0,
+        xpLevel: 0,
+        armorPoints: 0,
+        spawnX: 0,
+        spawnY: 0,
+        spawnRoomId: '0,0,0',
+        inventory: [],
+        equippedTool: null,
       },
       { day: 1, timeOfDay: 0 },
       mobs,
@@ -193,10 +195,18 @@ describe('Minecraft Save System', () => {
 
     const data = serializeMinecraftState(
       {
-        health: 20, maxHealth: 20, hunger: 20, maxHunger: 20,
-        xp: 0, xpLevel: 0, armorPoints: 0,
-        spawnX: 0, spawnY: 0, spawnRoomId: '0,0,0',
-        inventory: [], equippedTool: null,
+        health: 20,
+        maxHealth: 20,
+        hunger: 20,
+        maxHunger: 20,
+        xp: 0,
+        xpLevel: 0,
+        armorPoints: 0,
+        spawnX: 0,
+        spawnY: 0,
+        spawnRoomId: '0,0,0',
+        inventory: [],
+        equippedTool: null,
       },
       { day: 1, timeOfDay: 0 },
       [],

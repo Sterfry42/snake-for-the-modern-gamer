@@ -179,9 +179,15 @@ describe('AnimalRegistry', () => {
   describe('definition constraints', () => {
     it('all definitions have valid biome IDs', () => {
       const validBiomes = [
-        'verdigris-basin', 'ember-waste', 'moonlit-parish',
-        'sable-depths', 'gloam-garden', 'elderwood-maze',
-        'sunken-ocean', 'home-hearth', 'jade-peak-province',
+        'verdigris-basin',
+        'ember-waste',
+        'moonlit-parish',
+        'sable-depths',
+        'gloam-garden',
+        'elderwood-maze',
+        'sunken-ocean',
+        'home-hearth',
+        'jade-peak-province',
         'liberty-badlands',
       ];
       for (const def of AnimalRegistry.getAll()) {

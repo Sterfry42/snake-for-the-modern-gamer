@@ -30,6 +30,7 @@ import { SnakeRenderer } from '../ui/snakeRenderer.js';
 import { MinimapRenderer } from '../ui/minimapRenderer.js';
 import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
+import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
@@ -64,7 +65,7 @@ import {
   type TownDistrictKind,
   type TownStructure,
 } from '../world/town.js';
-import { getItem } from '../inventory/itemRegistry.js';
+import { getItem, ITEMS } from '../inventory/itemRegistry.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { WandererEncounter } from '../npcs/encounters.js';
 import {
@@ -1437,6 +1438,8 @@ export default class SnakeScene extends Phaser.Scene {
   private mobileControls: MobileControls | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
+  private jasonVulnerableDialogueShown = false;
+  private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
@@ -1724,6 +1727,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
+    this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
+      if (defeated) {
+        this.handleJasonDefeat(bossId, scoreBonus);
+      }
+    });
     this.gameSession = new LocalGameSession({ game: this.snakeGame });
     this.gameConnection = new LocalGameConnection(this.gameSession);
     this.unsubscribeSnapshot = this.gameConnection.onSnapshot((snapshot) => {
@@ -2151,7 +2159,73 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.paused) {
       return;
     }
-    this.gameSession.bossStep();
+    this.gameSession.bossStep((event) => this.handleBossEvent(event), this.bossStepIntervalMs);
+  }
+
+  private handleBossEvent(event: BossEvent): void {
+    const head = this.snakeGame.getSnakeBody()[0];
+    const worldX = head ? head.x * this.grid.cell + this.grid.cell / 2 : this.scale.width / 2;
+    const worldY = head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2;
+    if (event.kind === 'jason-statham' && event.phase === 'vulnerable-entered') {
+      this.juice.stathamVulnerable(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166');
+      this.jasonVulnerableDialogueShown = true;
+    } else if (event.kind === 'jason-statham' && event.phase === 'vulnerable-exited') {
+      this.jasonVulnerableDialogueShown = false;
+    } else if (event.kind === 'jason-statham-move-started') {
+      // Play warning sound and announce attack type
+      const moveType = (event as any).moveType;
+      if (moveType === 'charge') {
+        this.juice.stathamAttackCharge(worldX, worldY);
+        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_charge')!, '#ff6b6b');
+      } else if (moveType === 'spiral') {
+        this.juice.stathamAttackCharge(worldX, worldY);
+        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_spiral')!, '#ffd166');
+      } else if (moveType === 'dash') {
+        this.juice.stathamAttackCharge(worldX, worldY);
+        this.showQuestHintPopup(i18n.getFeatureString('jason_statham_attack_dash')!, '#ff8c42');
+      } else {
+        this.juice.stathamAttackCharge(worldX, worldY);
+      }
+    } else if (event.kind === 'jason-statham-attacking') {
+      this.juice.stathamAttackCharge(worldX, worldY);
+      this.showQuestHintPopup(i18n.getFeatureString('jason_statham_intro')!, '#ff6b6b');
+    } else if (event.kind === 'jason-statham-defeated') {
+      this.handleJasonDefeat(event.bossId, event.score);
+    }
+  }
+
+  private handleJasonDefeat(bossId: string, score: number): void {
+    // Stop boss music
+    this.juice.stopBossMusic();
+
+    // Hide boss HUD
+    this.bossHud.hide();
+
+    // Remove boss immediately
+    this.snakeGame.bosses.deleteBoss(bossId);
+
+    // Award score bonus
+    this.snakeGame.addScore(score);
+
+    // Juice
+    const head = this.snakeGame.getSnakeBody()[0];
+    this.juice.stathamDefeated(
+      head ? head.x * this.grid.cell + this.grid.cell / 2 : this.scale.width / 2,
+      head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2,
+    );
+
+    // Show defeat announcements
+    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166');
+    this.showQuestHintPopup(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2');
+    this.showQuestHintPopup(
+      `${i18n.getFeatureString('jason_statham_score_bonus')}: +${score}`,
+      '#5dd6a2',
+    );
+
+    // Clean up defeat timer if set
+    this.jasonDefeatTimer?.remove(false);
   }
 
   private async runActorClockStep(): Promise<void> {
@@ -3994,6 +4068,72 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#ff6b6b',
       };
     }
+    if (code === 'jasonstatham') {
+      if (this.snakeGame && this.snakeGame.bosses && this.currentRoomId) {
+        this.snakeGame.bosses.spawnJasonStatham(this.currentRoomId);
+        return { ok: true, message: 'Spawned Jason Statham!', color: '#5dd6a2' };
+      }
+      return {
+        ok: false,
+        message: 'Cannot spawn boss - game not in valid state',
+        color: '#ff6b6b',
+      };
+    }
+    if (code === "ryan's closet" || code === 'ryans closet') {
+      // Ryan's Closet: give the player everything useful.
+      // Excludes: Minecraft items (out of scope), beer/wine (movement debuffs)
+      const excludedIds = new Set([
+        // Movement debuffs
+        'beer',
+        'wine',
+        // Minecraft items (out of scope for this game)
+        'cobblestone',
+        'torch_item',
+        'raw_beef',
+        'cooked_beef',
+        'bread',
+        'stick',
+        'planks_item',
+        'iron_ingot',
+        'coal',
+        'diamond',
+        'wooden_pickaxe',
+        'stone_pickaxe',
+        'iron_pickaxe',
+        'diamond_pickaxe',
+        'wooden_sword',
+        'stone_sword',
+        'iron_sword',
+        'rotten_flesh',
+      ]);
+      let addedCount = 0;
+      for (const item of ITEMS) {
+        if (!excludedIds.has(item.id)) {
+          this.snakeGame.addItem(item.id, 1);
+          addedCount++;
+        }
+      }
+      this.isDirty = true;
+      // Auto-equip key equipment items.
+      const marketRevolver = getItem('weapon-market-revolver');
+      if (marketRevolver) {
+        this.snakeGame.getInventory().equip(marketRevolver);
+      }
+      const leadFlippers = getItem('boots-lead-flippers');
+      if (leadFlippers) {
+        this.snakeGame.getInventory().equip(leadFlippers);
+      }
+      const phoenixCharm = getItem('amulet-phoenix');
+      if (phoenixCharm) {
+        this.snakeGame.getInventory().equip(phoenixCharm);
+      }
+      this.applyEquipmentEffects();
+      return {
+        ok: true,
+        message: `Ryan's closet opened. All ${addedCount} items acquired!`,
+        color: '#5dd6a2',
+      };
+    }
     return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: '#ff6b6b' };
   }
 
@@ -5715,6 +5855,12 @@ export default class SnakeScene extends Phaser.Scene {
         phoenix += this.classMods.phoenixCharges;
     }
 
+    // Orange Juice speed boost
+    const orangeJuiceSpeedBoost = this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0;
+    if (orangeJuiceSpeedBoost > 0) {
+      tickScalar *= 0.75;
+    }
+
     // Apply speed scalar via skill system
     this.skillTree.applyActionStepIntervalScalar(tickScalar, 'equipment:boots');
 
@@ -5988,10 +6134,20 @@ export default class SnakeScene extends Phaser.Scene {
     const boss = bosses[0];
 
     if (boss) {
+      let hudPhaseText: string | undefined;
+      if (boss.kind === 'jason-statham') {
+        const phase = boss.jasonPhase ?? 'calm';
+        if (phase === 'attacking') hudPhaseText = 'ATTACKING!';
+        else if (phase === 'vulnerable') {
+          const remaining = Math.max(0, (15000 - (boss.jasonVulnerableTimer ?? 0)) / 1000);
+          hudPhaseText = `VULNERABLE! ${remaining.toFixed(1)}s`;
+        } else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
+      }
       this.bossHud.show({
         name: boss.name ?? 'Nameless Horror',
         health: boss.health ?? 0,
         maxHealth: boss.maxHealth ?? Math.max(1, boss.health ?? 1),
+        phaseText: hudPhaseText,
       });
       const previous = this.lastBossHealth.get(boss.id);
       if (typeof previous === 'number' && boss.health !== undefined && boss.health < previous) {
@@ -6004,7 +6160,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.lastBossHealth.set(boss.id, boss.health ?? boss.maxHealth ?? 0);
 
       if (this.activeBossId !== boss.id) {
-        this.juice.startBossMusic(boss.id);
+        this.juice.startBossMusic(boss.kind ?? 'default');
         this.activeBossId = boss.id;
       }
       // Danger vignette based on boss presence
@@ -6783,6 +6939,23 @@ export default class SnakeScene extends Phaser.Scene {
       } else if (boss.kind === 'freak-you') {
         bossColor = 0xff2d55;
         bossAlpha = 0.9;
+      } else if (boss.kind === 'jason-statham') {
+        // Jason: red, with pulsing glow during vulnerability
+        if (boss.jasonPhase === 'vulnerable') {
+          // Pulsing red glow
+          const pulse = Math.sin(timeMs / 200) * 0.3 + 0.7;
+          bossColor = 0xff2d2d;
+          bossAlpha = Math.max(0.5, pulse);
+        } else if (boss.jasonPhase === 'attacking') {
+          bossColor = 0xcc0000;
+          bossAlpha = 0.95;
+        } else if (boss.jasonPhase === 'calm') {
+          bossColor = 0x881111;
+          bossAlpha = 0.5;
+        } else {
+          bossColor = 0x333333;
+          bossAlpha = 0.3;
+        }
       } else if (boss.kind === 'freaker-dennis' && boss.rainbowPalette) {
         const palette = defaultGameConfig.freakerDennis?.rainbowPalette;
         if (palette && palette.enabled) {
@@ -7509,23 +7682,30 @@ export default class SnakeScene extends Phaser.Scene {
     const fishingMod = equippedRodItem?.modifiers?.fishingMod ?? 1.0;
     const adjustedScore = Math.max(
       1,
-      Math.floor(result.fish.baseScore * (result.fish.rarity === 'common' ? 0.5 : result.fish.rarity === 'uncommon' ? 0.7 : result.fish.rarity === 'rare' ? 1.0 : 1.5) * fishingMod),
+      Math.floor(
+        result.fish.baseScore *
+          (result.fish.rarity === 'common'
+            ? 0.5
+            : result.fish.rarity === 'uncommon'
+              ? 0.7
+              : result.fish.rarity === 'rare'
+                ? 1.0
+                : 1.5) *
+          fishingMod,
+      ),
     );
 
     // Add adjusted score to the game
     this.addScoreDirect(adjustedScore);
 
     // Show toast
-    this.showQuestHintPopup(
-      `Caught ${result.fish.name}! (+${adjustedScore} score)`,
-      '#44ddff',
-    );
+    this.showQuestHintPopup(`Caught ${result.fish.name}! (+${adjustedScore} score)`, '#44ddff');
 
     // Check if inventory is full
-    const totalItems = this.snakeGame.getInventory().getAllItems().reduce(
-      (sum, [, count]) => sum + count,
-      0,
-    );
+    const totalItems = this.snakeGame
+      .getInventory()
+      .getAllItems()
+      .reduce((sum, [, count]) => sum + count, 0);
     if (totalItems >= 30) {
       this.showInventoryFullPopup(result, fishingMod);
     }
@@ -7565,19 +7745,13 @@ export default class SnakeScene extends Phaser.Scene {
           // Sell the fish
           this.snakeGame.getInventory().removeItem(itemId, 1);
           this.addScoreDirect(sellPrice);
-          this.showQuestHintPopup(
-            `Sold ${fish.name} for ${sellPrice} score.`,
-            '#ffd700',
-          );
+          this.showQuestHintPopup(`Sold ${fish.name} for ${sellPrice} score.`, '#ffd700');
         } else if (choiceId === 'discard') {
           this.snakeGame.getInventory().removeItem(itemId, 1);
           this.showQuestHintPopup(`Discarded ${fish.name}.`, '#ff8888');
         } else {
           // Keep - auto-discard oldest
-          this.showQuestHintPopup(
-            `Kept ${fish.name}. Auto-discard activated.`,
-            '#44ff44',
-          );
+          this.showQuestHintPopup(`Kept ${fish.name}. Auto-discard activated.`, '#44ff44');
         }
       },
     );
@@ -10279,7 +10453,9 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private getMolemanRelationshipProfile(room = this.snakeGame.getCurrentRoom()): RelationshipCandidateProfile {
+  private getMolemanRelationshipProfile(
+    room = this.snakeGame.getCurrentRoom(),
+  ): RelationshipCandidateProfile {
     const digSite = room.molemanDigSite;
     if (!digSite) {
       throw new Error('Moleman relationship profile requested without a dig site');
@@ -10318,6 +10494,7 @@ export default class SnakeScene extends Phaser.Scene {
       () => this.snakeGame.random(),
       this.snakeGame.getArtifactTuning(),
     );
+    this.archaeologySession.setI18nResolver((key) => i18n.getFeatureString(key));
     this.archaeologyFinalRewards = null;
     this.archaeologyReturnRoomId = room.id;
     this.archaeologyReturnForemanId = room.molemanDigSite?.foreman.id ?? null;
@@ -10341,8 +10518,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (!swapped) {
         this.juice.archaeologyBlocked();
       }
-    }
-    else if (key === 'escape' || key === 'q') this.finishMolemanExcavation('leave');
+    } else if (key === 'escape' || key === 'q') this.finishMolemanExcavation('leave');
     else return false;
     if (this.archaeologySession) {
       this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
@@ -10469,7 +10645,14 @@ export default class SnakeScene extends Phaser.Scene {
     const height = this.scale.height;
     const shade = this.add.rectangle(0, 0, width, height, 0x03070b, 0.9).setOrigin(0, 0);
     const panel = this.add
-      .rectangle(width / 2, height / 2, Math.min(680, width - 28), Math.min(520, height - 28), 0x11161f, 0.96)
+      .rectangle(
+        width / 2,
+        height / 2,
+        Math.min(680, width - 28),
+        Math.min(520, height - 28),
+        0x11161f,
+        0.96,
+      )
       .setStrokeStyle(2, 0xb784ff);
     this.archaeologyBoardGraphics = this.add.graphics();
     this.archaeologyText = this.add.text(0, 0, '', {
@@ -10519,8 +10702,12 @@ export default class SnakeScene extends Phaser.Scene {
         : 0;
     const compressed = snapshot.topGraceActive;
     graphics.clear();
-    graphics.fillStyle(0x080c12, 1).fillRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
-    graphics.lineStyle(2, 0x43315c, 1).strokeRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
+    graphics
+      .fillStyle(0x080c12, 1)
+      .fillRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
+    graphics
+      .lineStyle(2, 0x43315c, 1)
+      .strokeRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
     for (let y = -1; y <= snapshot.board.length; y += 1) {
       for (let x = 0; x < snapshot.board[0]!.length; x += 1) {
         const px = boardX + x * boardCell;
@@ -10601,7 +10788,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setPosition(boardX + boardWidth + 38, boardY - 6)
       .setText([
         this.tArchaeology('title'),
-        snapshot.variant.name,
+        this.tArchaeology(`${snapshot.variant.id}Name`),
         this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score }),
         this.tArchaeology('chainBest', { chain: snapshot.chain, best: snapshot.maxChain }),
         '',
@@ -10680,7 +10867,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.drawArchaeologyTileIcon(graphics, tile, x + size / 2, y + size / 2, size, def.textColor);
     }
     if (state.highlighted) {
-      graphics.lineStyle(4, 0xfff3a8, 0.52 + state.pulse * 0.44).strokeRoundedRect(x + 1, y + 1, size - 2, size - 2, 6);
+      graphics
+        .lineStyle(4, 0xfff3a8, 0.52 + state.pulse * 0.44)
+        .strokeRoundedRect(x + 1, y + 1, size - 2, size - 2, 6);
       graphics.lineStyle(2, 0xffffff, 0.36).strokeRoundedRect(x - 2, y - 2, size + 4, size + 4, 8);
     }
   }
@@ -10707,9 +10896,18 @@ export default class SnakeScene extends Phaser.Scene {
       case 'wasabi':
         graphics.fillCircle(cx - r * 0.35, cy + r * 0.2, r * 0.98);
         graphics.fillCircle(cx + r * 0.35, cy + r * 0.2, r * 0.98);
-        graphics.fillTriangle(cx - r * 1.2, cy + r * 0.25, cx, cy + r * 1.45, cx + r * 1.2, cy + r * 0.25);
+        graphics.fillTriangle(
+          cx - r * 1.2,
+          cy + r * 0.25,
+          cx,
+          cy + r * 1.45,
+          cx + r * 1.2,
+          cy + r * 0.25,
+        );
         graphics.strokeCircle(cx - r * 0.35, cy + r * 0.2, r * 0.98);
-        graphics.lineStyle(Math.max(2, Math.floor(size * 0.055)), dark, 0.95).lineBetween(cx, cy - r * 0.95, cx + r * 0.45, cy - r * 1.55);
+        graphics
+          .lineStyle(Math.max(2, Math.floor(size * 0.055)), dark, 0.95)
+          .lineBetween(cx, cy - r * 0.95, cx + r * 0.45, cy - r * 1.55);
         graphics.fillStyle(dark, 0.95).fillEllipse(cx + r * 0.9, cy - r * 1.45, r * 0.9, r * 0.45);
         break;
       case 'roots':
@@ -10721,13 +10919,19 @@ export default class SnakeScene extends Phaser.Scene {
         graphics.lineTo(cx + r * 0.55, cy + r * 0.25);
         graphics.lineTo(cx + r * 1.35, cy + r * 1.1);
         graphics.strokePath();
-        graphics.fillStyle(color, 0.95).fillEllipse(cx - r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
+        graphics
+          .fillStyle(color, 0.95)
+          .fillEllipse(cx - r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
         graphics.fillEllipse(cx + r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
         break;
       case 'stone':
-        graphics.fillStyle(color, 0.95).fillTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
+        graphics
+          .fillStyle(color, 0.95)
+          .fillTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
         graphics.fillTriangle(cx, cy - r * 1.7, cx - r * 1.55, cy, cx, cy + r * 1.65);
-        graphics.lineStyle(Math.max(2, Math.floor(size * 0.06)), dark, 0.9).strokeTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
+        graphics
+          .lineStyle(Math.max(2, Math.floor(size * 0.06)), dark, 0.9)
+          .strokeTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
         graphics.strokeTriangle(cx, cy - r * 1.7, cx - r * 1.55, cy, cx, cy + r * 1.65);
         break;
       case 'dirt':
@@ -10737,7 +10941,9 @@ export default class SnakeScene extends Phaser.Scene {
         graphics.fillCircle(cx + r * 0.95, cy + r * 0.25, r * 0.16);
         break;
       case 'clay':
-        graphics.fillStyle(color, 0.95).fillRoundedRect(cx - r * 1.1, cy - r * 0.9, r * 2.2, r * 2.2, 4);
+        graphics
+          .fillStyle(color, 0.95)
+          .fillRoundedRect(cx - r * 1.1, cy - r * 0.9, r * 2.2, r * 2.2, 4);
         graphics.fillStyle(dark, 0.8).fillRect(cx - r * 1.1, cy - r * 0.1, r * 2.2, r * 0.28);
         break;
       case 'shell':
@@ -10748,14 +10954,18 @@ export default class SnakeScene extends Phaser.Scene {
         graphics.lineBetween(cx + r * 0.75, cy - r * 0.62, cx, cy + r * 1.1);
         break;
       case 'bone':
-        graphics.lineStyle(Math.max(4, Math.floor(size * 0.11)), color, 1).lineBetween(cx - r, cy + r, cx + r, cy - r);
+        graphics
+          .lineStyle(Math.max(4, Math.floor(size * 0.11)), color, 1)
+          .lineBetween(cx - r, cy + r, cx + r, cy - r);
         graphics.fillStyle(color, 1).fillCircle(cx - r * 1.25, cy + r * 1.25, r * 0.45);
         graphics.fillCircle(cx - r * 0.75, cy + r * 1.55, r * 0.45);
         graphics.fillCircle(cx + r * 1.25, cy - r * 1.25, r * 0.45);
         graphics.fillCircle(cx + r * 0.75, cy - r * 1.55, r * 0.45);
         break;
       case 'artifact-cache':
-        graphics.fillStyle(color, 0.96).fillRoundedRect(cx - r * 1.35, cy - r * 0.8, r * 2.7, r * 1.9, 4);
+        graphics
+          .fillStyle(color, 0.96)
+          .fillRoundedRect(cx - r * 1.35, cy - r * 0.8, r * 2.7, r * 1.9, 4);
         graphics.fillStyle(dark, 0.9).fillRect(cx - r * 0.18, cy - r * 0.8, r * 0.36, r * 1.9);
         graphics.fillRect(cx - r * 1.35, cy - r * 0.15, r * 2.7, r * 0.28);
         break;
@@ -10841,7 +11051,7 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     const rewardLines = this.formatArchaeologyRewardLines(rewards);
     const summaryLines = [
-      `${snapshot.variant.name}  ${this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score })}`,
+      `${this.tArchaeology(`${snapshot.variant.id}Name`)}  ${this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score })}`,
       this.tArchaeology('digScore', { score: snapshot.score }),
       this.tArchaeology('runScore', { score: payout.score }),
       this.tArchaeology('applesRecovered', { count: payout.appleCount }),
@@ -13593,22 +13803,23 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const isMoleman = giver.portraitId === 'moleman-foreman';
-    const palette = giver.portraitId === 'moleman-foreman'
-      ? {
-          robeColor: '#5b4630',
-          trimColor: '#d6b36a',
-          outlineColor: '#1b130c',
-          eyeColor: '#fff7cf',
-        }
-      : giver.portraitId?.startsWith('goblin-')
-      ? this.paletteForGoblinResident(
-          disposition.hostility === 'hostile'
-            ? 'violent'
-            : disposition.hostility === 'warning'
-              ? 'wary'
-              : this.snakeGame.getFactionAlignment('goblin-camps').standing,
-        )
-      : this.paletteForQuestGiverDisposition(disposition.hostility);
+    const palette =
+      giver.portraitId === 'moleman-foreman'
+        ? {
+            robeColor: '#5b4630',
+            trimColor: '#d6b36a',
+            outlineColor: '#1b130c',
+            eyeColor: '#fff7cf',
+          }
+        : giver.portraitId?.startsWith('goblin-')
+          ? this.paletteForGoblinResident(
+              disposition.hostility === 'hostile'
+                ? 'violent'
+                : disposition.hostility === 'warning'
+                  ? 'wary'
+                  : this.snakeGame.getFactionAlignment('goblin-camps').standing,
+            )
+          : this.paletteForQuestGiverDisposition(disposition.hostility);
     const spriteSize = Math.max(18, Math.floor(this.grid.cell * 0.92));
     const textures = isMoleman
       ? this.runtimeSpriteFactory.ensureRecipe(molemanSpriteRecipe, spriteSize, {
@@ -13620,7 +13831,9 @@ export default class SnakeScene extends Phaser.Scene {
           eyeColor: '#fff7cf',
         } satisfies MolemanSpritePalette)
       : this.runtimeSpriteFactory.ensureRecipe(questGiverSpriteRecipe, spriteSize, palette);
-    const animKey = isMoleman ? `moleman-${room.id}-idle` : `quest-giver-${disposition.hostility}-idle`;
+    const animKey = isMoleman
+      ? `moleman-${room.id}-idle`
+      : `quest-giver-${disposition.hostility}-idle`;
     const animFrames = isMoleman
       ? [
           { key: textures.idle },

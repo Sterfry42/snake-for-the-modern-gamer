@@ -46,8 +46,23 @@ export type ActorVoiceTopic =
 
 export type SnakeLengthBand = 'tiny' | 'normal' | 'long' | 'veryLong' | 'absurd' | 'legendary';
 export type PlayerHealthBand = 'critical' | 'low' | 'steady';
-export type ActorVoiceSource = 'memory' | 'rumor' | 'faction' | 'soul' | 'lore' | 'social' | 'fallback';
-export type FactionRelationState = 'allied' | 'friendly' | 'neutral' | 'tense' | 'truce' | 'skirmishing' | 'hostile' | 'war';
+export type ActorVoiceSource =
+  | 'memory'
+  | 'rumor'
+  | 'faction'
+  | 'soul'
+  | 'lore'
+  | 'social'
+  | 'fallback';
+export type FactionRelationState =
+  | 'allied'
+  | 'friendly'
+  | 'neutral'
+  | 'tense'
+  | 'truce'
+  | 'skirmishing'
+  | 'hostile'
+  | 'war';
 
 export interface ActorConversationRumor {
   id: string;

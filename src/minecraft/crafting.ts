@@ -137,18 +137,14 @@ export const RECIPES: readonly CraftingRecipe[] = [
     id: 'planks_from_wood',
     name: 'Planks',
     result: { itemId: 'planks_item', count: 4 },
-    ingredients: [
-      { itemId: 'wood', count: 1 },
-    ],
+    ingredients: [{ itemId: 'wood', count: 1 }],
     craftingTable: false,
   },
   {
     id: 'sticks',
     name: 'Sticks',
     result: { itemId: 'stick', count: 4 },
-    ingredients: [
-      { itemId: 'planks_item', count: 2 },
-    ],
+    ingredients: [{ itemId: 'planks_item', count: 2 }],
     craftingTable: false,
   },
   {
@@ -165,99 +161,77 @@ export const RECIPES: readonly CraftingRecipe[] = [
     id: 'crafting_table',
     name: 'Crafting Table',
     result: { itemId: 'crafting_table', count: 1 },
-    ingredients: [
-      { itemId: 'planks_item', count: 4 },
-    ],
+    ingredients: [{ itemId: 'planks_item', count: 4 }],
     craftingTable: false,
   },
   {
     id: 'furnace_recipe',
     name: 'Furnace',
     result: { itemId: 'furnace', count: 1 },
-    ingredients: [
-      { itemId: 'cobblestone', count: 8 },
-    ],
+    ingredients: [{ itemId: 'cobblestone', count: 8 }],
     craftingTable: true,
   },
   {
     id: 'bread_recipe',
     name: 'Bread',
     result: { itemId: 'bread', count: 3 },
-    ingredients: [
-      { itemId: 'wheat', count: 3 },
-    ],
+    ingredients: [{ itemId: 'wheat', count: 3 }],
     craftingTable: false,
   },
   {
     id: 'bucket_recipe',
     name: 'Bucket',
     result: { itemId: 'bucket', count: 1 },
-    ingredients: [
-      { itemId: 'iron_ingot', count: 3 },
-    ],
+    ingredients: [{ itemId: 'iron_ingot', count: 3 }],
     craftingTable: true,
   },
   {
     id: 'boat_recipe',
     name: 'Boat',
     result: { itemId: 'boat', count: 1 },
-    ingredients: [
-      { itemId: 'planks_item', count: 5 },
-    ],
+    ingredients: [{ itemId: 'planks_item', count: 5 }],
     craftingTable: true,
   },
   {
     id: 'chest_recipe',
     name: 'Chest',
     result: { itemId: 'chest', count: 1 },
-    ingredients: [
-      { itemId: 'planks_item', count: 8 },
-    ],
+    ingredients: [{ itemId: 'planks_item', count: 8 }],
     craftingTable: true,
   },
   {
     id: 'ladder_recipe',
     name: 'Ladder',
     result: { itemId: 'ladder', count: 3 },
-    ingredients: [
-      { itemId: 'stick', count: 7 },
-    ],
+    ingredients: [{ itemId: 'stick', count: 7 }],
     craftingTable: false,
   },
   {
     id: 'door_recipe',
     name: 'Door',
     result: { itemId: 'door', count: 3 },
-    ingredients: [
-      { itemId: 'planks_item', count: 3 },
-    ],
+    ingredients: [{ itemId: 'planks_item', count: 3 }],
     craftingTable: false,
   },
   {
     id: 'cooked_beef_recipe',
     name: 'Cooked Beef',
     result: { itemId: 'cooked_beef', count: 1 },
-    ingredients: [
-      { itemId: 'raw_beef', count: 1 },
-    ],
+    ingredients: [{ itemId: 'raw_beef', count: 1 }],
     craftingTable: false,
   },
   {
     id: 'iron_ingot_smelt',
     name: 'Iron Ingot',
     result: { itemId: 'iron_ingot', count: 1 },
-    ingredients: [
-      { itemId: 'raw_iron', count: 1 },
-    ],
+    ingredients: [{ itemId: 'raw_iron', count: 1 }],
     craftingTable: false,
   },
   {
     id: 'gold_ingot_smelt',
     name: 'Gold Ingot',
     result: { itemId: 'gold_ingot', count: 1 },
-    ingredients: [
-      { itemId: 'raw_gold', count: 1 },
-    ],
+    ingredients: [{ itemId: 'raw_gold', count: 1 }],
     craftingTable: false,
   },
   // Armor — Leather
@@ -265,36 +239,28 @@ export const RECIPES: readonly CraftingRecipe[] = [
     id: 'leather_helmet',
     name: 'Leather Helmet',
     result: { itemId: 'leather_helmet', count: 1 },
-    ingredients: [
-      { itemId: 'leather', count: 5 },
-    ],
+    ingredients: [{ itemId: 'leather', count: 5 }],
     craftingTable: true,
   },
   {
     id: 'leather_chestplate',
     name: 'Leather Chestplate',
     result: { itemId: 'leather_chestplate', count: 1 },
-    ingredients: [
-      { itemId: 'leather', count: 8 },
-    ],
+    ingredients: [{ itemId: 'leather', count: 8 }],
     craftingTable: true,
   },
   {
     id: 'leather_leggings',
     name: 'Leather Leggings',
     result: { itemId: 'leather_leggings', count: 1 },
-    ingredients: [
-      { itemId: 'leather', count: 7 },
-    ],
+    ingredients: [{ itemId: 'leather', count: 7 }],
     craftingTable: true,
   },
   {
     id: 'leather_boots',
     name: 'Leather Boots',
     result: { itemId: 'leather_boots', count: 1 },
-    ingredients: [
-      { itemId: 'leather', count: 4 },
-    ],
+    ingredients: [{ itemId: 'leather', count: 4 }],
     craftingTable: true,
   },
   // Armor — Iron
@@ -302,36 +268,28 @@ export const RECIPES: readonly CraftingRecipe[] = [
     id: 'iron_helmet',
     name: 'Iron Helmet',
     result: { itemId: 'iron_helmet', count: 1 },
-    ingredients: [
-      { itemId: 'iron_ingot', count: 5 },
-    ],
+    ingredients: [{ itemId: 'iron_ingot', count: 5 }],
     craftingTable: true,
   },
   {
     id: 'iron_chestplate',
     name: 'Iron Chestplate',
     result: { itemId: 'iron_chestplate', count: 1 },
-    ingredients: [
-      { itemId: 'iron_ingot', count: 8 },
-    ],
+    ingredients: [{ itemId: 'iron_ingot', count: 8 }],
     craftingTable: true,
   },
   {
     id: 'iron_leggings',
     name: 'Iron Leggings',
     result: { itemId: 'iron_leggings', count: 1 },
-    ingredients: [
-      { itemId: 'iron_ingot', count: 7 },
-    ],
+    ingredients: [{ itemId: 'iron_ingot', count: 7 }],
     craftingTable: true,
   },
   {
     id: 'iron_boots',
     name: 'Iron Boots',
     result: { itemId: 'iron_boots', count: 1 },
-    ingredients: [
-      { itemId: 'iron_ingot', count: 4 },
-    ],
+    ingredients: [{ itemId: 'iron_ingot', count: 4 }],
     craftingTable: true,
   },
   // Armor — Diamond
@@ -339,36 +297,28 @@ export const RECIPES: readonly CraftingRecipe[] = [
     id: 'diamond_helmet',
     name: 'Diamond Helmet',
     result: { itemId: 'diamond_helmet', count: 1 },
-    ingredients: [
-      { itemId: 'diamond', count: 5 },
-    ],
+    ingredients: [{ itemId: 'diamond', count: 5 }],
     craftingTable: true,
   },
   {
     id: 'diamond_chestplate',
     name: 'Diamond Chestplate',
     result: { itemId: 'diamond_chestplate', count: 1 },
-    ingredients: [
-      { itemId: 'diamond', count: 8 },
-    ],
+    ingredients: [{ itemId: 'diamond', count: 8 }],
     craftingTable: true,
   },
   {
     id: 'diamond_leggings',
     name: 'Diamond Leggings',
     result: { itemId: 'diamond_leggings', count: 1 },
-    ingredients: [
-      { itemId: 'diamond', count: 7 },
-    ],
+    ingredients: [{ itemId: 'diamond', count: 7 }],
     craftingTable: true,
   },
   {
     id: 'diamond_boots',
     name: 'Diamond Boots',
     result: { itemId: 'diamond_boots', count: 1 },
-    ingredients: [
-      { itemId: 'diamond', count: 4 },
-    ],
+    ingredients: [{ itemId: 'diamond', count: 4 }],
     craftingTable: true,
   },
   // Bed
@@ -396,7 +346,10 @@ export function getCraftingTableRecipes(): CraftingRecipe[] {
   return RECIPES.filter((r) => r.craftingTable);
 }
 
-export function canCraft(recipeId: string, playerInventory: Array<{ itemId: string; count: number }>): boolean {
+export function canCraft(
+  recipeId: string,
+  playerInventory: Array<{ itemId: string; count: number }>,
+): boolean {
   const recipe = getRecipeById(recipeId);
   if (!recipe) return false;
 

@@ -90,7 +90,11 @@ class KamiBlessingFeature extends Feature {
       if (this.state.buffHungerTicks <= 0) changed = true;
     }
 
-    if (this.state.buffSpeedTicks > 0 || this.state.buffWallSenseTicks > 0 || this.state.buffHungerTicks > 0) {
+    if (
+      this.state.buffSpeedTicks > 0 ||
+      this.state.buffWallSenseTicks > 0 ||
+      this.state.buffHungerTicks > 0
+    ) {
       this.state.shrineTimer += 1;
       if (this.state.shrineTimer >= this.state.shrineCooldown) {
         this.state.shrineTimer = 0;

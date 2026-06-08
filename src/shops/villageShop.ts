@@ -195,6 +195,12 @@ export const VILLAGE_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     price: 13,
     note: 'A stronger pour. Brief but wobblier drifting, with smoother bad decisions.',
   },
+  {
+    id: 'orange-juice',
+    itemId: 'orange-juice',
+    price: 35,
+    note: 'A tangy elixir that quickens the body and sweetens fortune.',
+  },
 ];
 
 export const BLACK_MARKET_SUPPLIES: readonly VillageShopSupplyOffer[] = [

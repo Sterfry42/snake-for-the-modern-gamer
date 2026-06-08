@@ -40,7 +40,10 @@ export class ScrollableTabbedMenu {
   private activeTabId: string;
   private readonly tabState = new Map<string, TabState>();
 
-  constructor(private readonly tabs: readonly MenuTab[], private readonly visibleItems = 8) {
+  constructor(
+    private readonly tabs: readonly MenuTab[],
+    private readonly visibleItems = 8,
+  ) {
     if (tabs.length === 0) {
       throw new Error('ScrollableTabbedMenu requires at least one tab.');
     }
@@ -84,7 +87,11 @@ export class ScrollableTabbedMenu {
   select(delta: number): void {
     const state = this.getActiveState();
     const items = this.getActiveItems();
-    state.selectedIndex = this.clamp(state.selectedIndex + Math.trunc(delta), 0, Math.max(0, items.length - 1));
+    state.selectedIndex = this.clamp(
+      state.selectedIndex + Math.trunc(delta),
+      0,
+      Math.max(0, items.length - 1),
+    );
     if (state.selectedIndex < state.scrollIndex) {
       state.scrollIndex = state.selectedIndex;
     }
@@ -150,7 +157,11 @@ export class ScrollableTabbedMenu {
     const state = this.getActiveState();
     const items = this.getActiveItems();
     state.selectedIndex = this.clamp(state.selectedIndex, 0, Math.max(0, items.length - 1));
-    state.scrollIndex = this.clamp(state.scrollIndex, 0, Math.max(0, items.length - this.visibleItems));
+    state.scrollIndex = this.clamp(
+      state.scrollIndex,
+      0,
+      Math.max(0, items.length - this.visibleItems),
+    );
   }
 
   private clamp(value: number, min: number, max: number): number {

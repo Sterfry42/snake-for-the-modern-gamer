@@ -55,13 +55,13 @@ const RAMEN_STAND_CHANCE = 0.04;
 const TENGU_CAMP_CHANCE = 0.04;
 const SHRINE_JADE_PEAK_CHANCE = 0.12;
 const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;
-const TENGU_CAMP_JADE_PEAK_CHANCE = 0.10;
-const ROADSIDE_MONUMENT_CHANCE = 0.10;
+const TENGU_CAMP_JADE_PEAK_CHANCE = 0.1;
+const ROADSIDE_MONUMENT_CHANCE = 0.1;
 const ALL_NITE_DINER_CHANCE = 0.08;
 const FIREWORK_STAND_CHANCE = 0.08;
-const JACKALOPE_LODGE_CHANCE = 0.10;
+const JACKALOPE_LODGE_CHANCE = 0.1;
 const MOLEMAN_DIG_SITE_CHANCE = 0.09;
-const MOTEL_POOL_CHANCE = 0.10;
+const MOTEL_POOL_CHANCE = 0.1;
 const SETTLEMENT_ANCHOR_SPACING = 5;
 const GUARANTEED_SETTLEMENT_KINDS = [
   'village',
@@ -160,7 +160,11 @@ export class StructureOperations {
       !context.molemanDigSite &&
       !this.hasLibertyStructure(context)
     ) {
-      const koiChance = context.isJadePeak ? 0.12 : context.isLibertyBadlands ? MOTEL_POOL_CHANCE : 0.03;
+      const koiChance = context.isJadePeak
+        ? 0.12
+        : context.isLibertyBadlands
+          ? MOTEL_POOL_CHANCE
+          : 0.03;
       if (this.rng() < koiChance) {
         const koiPond = tryPlaceKoiPond(context.layout, context.grid, this.rng, {
           forbiddenCells: entranceRunups,
@@ -291,14 +295,7 @@ export class StructureOperations {
       if (roll < shrineChance + ramenChance + tenguChance + VILLAGE_CHANCE) {
         return 'village';
       }
-      if (
-        roll <
-        shrineChance +
-          ramenChance +
-          tenguChance +
-          VILLAGE_CHANCE +
-          QUEST_HOUSE_CHANCE
-      ) {
+      if (roll < shrineChance + ramenChance + tenguChance + VILLAGE_CHANCE + QUEST_HOUSE_CHANCE) {
         return 'quest-house';
       }
       return null;
@@ -504,11 +501,11 @@ export class StructureOperations {
   private hasLibertyStructure(context: RoomGenerationContext): boolean {
     return Boolean(
       context.roadsideMonument ||
-        context.allNiteDiner ||
-        context.fireworkStand ||
-        context.jackalopeLodge ||
-        context.motelPool ||
-        context.molemanDigSite,
+      context.allNiteDiner ||
+      context.fireworkStand ||
+      context.jackalopeLodge ||
+      context.motelPool ||
+      context.molemanDigSite,
     );
   }
 
@@ -570,9 +567,10 @@ export class StructureOperations {
       sidesFacingTown: [...sides],
       cornersFacingTown: [...corners],
     };
-    const openingSide = adjacency.isEntranceApproach || adjacency.isExitApproach
-      ? adjacency.adjacentSideFacingTown
-      : undefined;
+    const openingSide =
+      adjacency.isEntranceApproach || adjacency.isExitApproach
+        ? adjacency.adjacentSideFacingTown
+        : undefined;
     let rows = context.layout.map((row) => row.join(''));
     for (const side of sides) {
       rows = stampTownBoundaryApproach(rows, side, side === openingSide);
@@ -621,11 +619,7 @@ export class StructureOperations {
     });
   }
 
-  private edgeAccessPlanForSide(
-    side: EdgeSide,
-    reason: 'townGate' | 'townExit',
-    grid: GridConfig,
-  ) {
+  private edgeAccessPlanForSide(side: EdgeSide, reason: 'townGate' | 'townExit', grid: GridConfig) {
     const horizontal = side === 'north' || side === 'south';
     return {
       side,
@@ -751,7 +745,10 @@ export class StructureOperations {
     const chunkY = Math.floor(roomY / SETTLEMENT_ANCHOR_SPACING);
     const hash = this.hashRoom(chunkX, chunkY, roomZ, 0x5e771e);
     const targetX = this.positiveMod(hash, SETTLEMENT_ANCHOR_SPACING);
-    const targetY = this.positiveMod(Math.floor(hash / SETTLEMENT_ANCHOR_SPACING), SETTLEMENT_ANCHOR_SPACING);
+    const targetY = this.positiveMod(
+      Math.floor(hash / SETTLEMENT_ANCHOR_SPACING),
+      SETTLEMENT_ANCHOR_SPACING,
+    );
     return (
       this.positiveMod(roomX, SETTLEMENT_ANCHOR_SPACING) === targetX &&
       this.positiveMod(roomY, SETTLEMENT_ANCHOR_SPACING) === targetY

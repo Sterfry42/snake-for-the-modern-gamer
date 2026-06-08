@@ -145,9 +145,7 @@ export class BrowserMultiplayerShellClient implements MultiplayerShellClient {
       const search = browser?.location?.search ?? '';
       const params = new URLSearchParams(search);
       return (
-        params.get('multiplayerSmokeUrl')?.trim() ||
-        params.get('multiplayerWsUrl')?.trim() ||
-        null
+        params.get('multiplayerSmokeUrl')?.trim() || params.get('multiplayerWsUrl')?.trim() || null
       );
     } catch {
       return null;

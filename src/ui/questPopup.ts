@@ -103,7 +103,7 @@ export class QuestPopup {
 
   show(quest: Quest, callbacks: QuestPopupCallbacks): void {
     this.showDialogue(
-      'New Quest!',
+      i18n.getFeatureString('popupNewQuest'),
       [quest.description],
       {
         onAccept: callbacks.onAccept,
@@ -112,6 +112,8 @@ export class QuestPopup {
       {
         acceptLabel: i18n.getCommon('quest.accept') as string,
         rejectLabel: i18n.getCommon('quest.refuse') as string,
+        nextLabel: i18n.getCommon('quest.next') as string,
+        closeLabel: i18n.getCommon('quest.close') as string,
       },
     );
   }
@@ -138,7 +140,9 @@ export class QuestPopup {
     this.rejectButton?.setText(labels.rejectLabel ?? (i18n.getCommon('quest.refuse') as string));
     this.nextButton?.setText(
       labels.nextLabel ??
-        (callbacks.onAccept || callbacks.onReject ? 'Next' : (labels.closeLabel ?? 'Close')),
+        (callbacks.onAccept || callbacks.onReject
+          ? (i18n.getCommon('quest.next') as string)
+          : (labels.closeLabel ?? (i18n.getCommon('quest.close') as string))),
     );
     this.refreshDialoguePage();
     this.container?.setVisible(true);
@@ -194,7 +198,7 @@ export class QuestPopup {
       .setWordWrapWidth(size.width - 160);
 
     this.acceptButton = this.scene.add
-      .text(size.width / 2 - buttonSpacing / 2, size.height - 30, 'Accept', {
+      .text(size.width / 2 - buttonSpacing / 2, size.height - 30, '', {
         ...this.options.buttonStyle,
         color: '#5dd6a2',
         backgroundColor: '#224433',
@@ -203,7 +207,7 @@ export class QuestPopup {
       .setInteractive({ useHandCursor: true });
 
     this.rejectButton = this.scene.add
-      .text(size.width / 2 + buttonSpacing / 2, size.height - 30, 'Reject', {
+      .text(size.width / 2 + buttonSpacing / 2, size.height - 30, '', {
         ...this.options.buttonStyle,
         color: '#ff6b6b',
         backgroundColor: '#442222',
@@ -212,7 +216,7 @@ export class QuestPopup {
       .setInteractive({ useHandCursor: true });
 
     this.nextButton = this.scene.add
-      .text(size.width / 2, size.height - 30, 'Next', {
+      .text(size.width / 2, size.height - 30, '', {
         ...this.options.buttonStyle,
         color: '#9ad1ff',
         backgroundColor: '#22334a',
@@ -292,7 +296,7 @@ export class QuestPopup {
               ? 'sage-2'
               : portraitId === 'tanuki-neutral'
                 ? 'bandit-neutral'
-        : 'sage-1';
+                : 'sage-1';
     return this.portraitTextureKeys[variant];
   }
 }

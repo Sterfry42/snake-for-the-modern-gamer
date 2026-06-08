@@ -84,8 +84,11 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     return result;
   }
 
-  bossStep(): void {
-    this.game.bossStep();
+  bossStep(
+    onEvent?: (event: import('../systems/boss.js').BossEvent) => void,
+    stepMs?: number,
+  ): void {
+    this.game.bossStep(onEvent, stepMs);
     this.emitSnapshot();
   }
 
@@ -197,7 +200,9 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     return result;
   }
 
-  private async runAsyncClockStep(step: () => Promise<StepResult | null>): Promise<StepResult | null> {
+  private async runAsyncClockStep(
+    step: () => Promise<StepResult | null>,
+  ): Promise<StepResult | null> {
     const previousRoomId = this.getSnapshot().players[this.localPlayerId]?.roomId;
     const result = await step();
     this.emitSnapshot();

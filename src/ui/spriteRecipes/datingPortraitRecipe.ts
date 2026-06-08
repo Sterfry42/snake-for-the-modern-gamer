@@ -93,7 +93,11 @@ function drawSparkles(context: CanvasRenderingContext2D, color: string): void {
   }
 }
 
-function drawEyes(context: CanvasRenderingContext2D, eye: string, variant: DatingPortraitVariant): void {
+function drawEyes(
+  context: CanvasRenderingContext2D,
+  eye: string,
+  variant: DatingPortraitVariant,
+): void {
   const eyeY = variant.includes('goblin') ? 207 : 197;
   const leftX = 206;
   const rightX = 306;
@@ -107,7 +111,11 @@ function drawEyes(context: CanvasRenderingContext2D, eye: string, variant: Datin
   rect(context, 276, eyeY - 50, 60, 8, '#140910', 0.8);
 }
 
-function drawHuman(context: CanvasRenderingContext2D, palette: DatingPortraitPalette, masc: boolean): void {
+function drawHuman(
+  context: CanvasRenderingContext2D,
+  palette: DatingPortraitPalette,
+  masc: boolean,
+): void {
   rect(context, 0, 0, 512, 512, '#1a1726');
   ellipse(context, 256, 478, masc ? 168 : 146, masc ? 118 : 104, palette.outfit);
   ellipse(context, 182, 414, masc ? 72 : 48, masc ? 92 : 76, palette.skin);
@@ -136,7 +144,11 @@ function drawHuman(context: CanvasRenderingContext2D, palette: DatingPortraitPal
   drawSparkles(context, palette.accent);
 }
 
-function drawGoblin(context: CanvasRenderingContext2D, palette: DatingPortraitPalette, angel: boolean): void {
+function drawGoblin(
+  context: CanvasRenderingContext2D,
+  palette: DatingPortraitPalette,
+  angel: boolean,
+): void {
   rect(context, 0, 0, 512, 512, angel ? '#1d2512' : '#172417');
   if (angel) {
     strokeEllipse(context, 256, 91, 104, 23, '#d7ff8f', 10, 0.72);
@@ -172,11 +184,21 @@ function drawAngel(context: CanvasRenderingContext2D, palette: DatingPortraitPal
   ellipse(context, 400, 310, 82, 154, '#fff7d6', 0.28);
 }
 
-export const datingPortraitRecipe: RuntimeSpriteRecipe<DatingPortraitVariant, DatingPortraitPalette> = {
+export const datingPortraitRecipe: RuntimeSpriteRecipe<
+  DatingPortraitVariant,
+  DatingPortraitPalette
+> = {
   id: 'dating-portrait',
   variants: ['human-masc', 'human-femme', 'goblin', 'angel', 'goblin-angel'],
   getPaletteKey(palette): string {
-    return [palette.skin, palette.hair, palette.accent, palette.outfit, palette.eye, palette.blush].join('-');
+    return [
+      palette.skin,
+      palette.hair,
+      palette.accent,
+      palette.outfit,
+      palette.eye,
+      palette.blush,
+    ].join('-');
   },
   draw(context, variant, size, palette): void {
     const scale = size / 512;

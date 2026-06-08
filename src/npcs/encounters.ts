@@ -22,18 +22,18 @@ export interface WandererEncounter {
   zoneTags?: EncounterZoneTag[];
   biomeIds?: BiomeId[];
   portraitId?:
-     | 'sage-1'
-     | 'sage-2'
-     | 'sage-3'
-     | 'bandit-neutral'
-     | 'bandit-hostile'
-     | 'cardwright-neutral'
-     | 'goblin-happy'
-     | 'goblin-neutral'
-     | 'goblin-hostile'
-     | 'tanuki-neutral'
-     | 'ocean-fisher-neutral'
-     | 'ocean-fisher-happy';
+    | 'sage-1'
+    | 'sage-2'
+    | 'sage-3'
+    | 'bandit-neutral'
+    | 'bandit-hostile'
+    | 'cardwright-neutral'
+    | 'goblin-happy'
+    | 'goblin-neutral'
+    | 'goblin-hostile'
+    | 'tanuki-neutral'
+    | 'ocean-fisher-neutral'
+    | 'ocean-fisher-happy';
   pages: string[];
   repeatPages?: string[];
   acceptLabel?: string;
@@ -280,7 +280,7 @@ export const WANDERER_ENCOUNTERS: readonly WandererEncounter[] = [
       '"Still alive. That means you are either learning, or the grave has misplaced your name for another day. I advise you not to grow arrogant about either possibility."',
     ],
     acceptLabel: 'Listen',
-   rejectLabel: 'Leave',
+    rejectLabel: 'Leave',
     rewardScore: 5,
   },
   {
@@ -322,28 +322,30 @@ export function chooseWandererEncounter(
   context: WandererEncounterSelectionContext,
 ): WandererEncounter | null {
   const allEncounters = [...WANDERER_ENCOUNTERS, ...JADE_PEAK_ENCOUNTERS];
-  const candidates = allEncounters.filter((encounter) => {
-    if (context.roomsVisited < encounter.minRoomsVisited) {
-      return false;
-    }
-    if (context.excludedIds.has(encounter.id)) {
-      return false;
-    }
-    if (encounter.zoneTags && !encounter.zoneTags.some((tag) => context.zoneTags.has(tag))) {
-      return false;
-    }
-    return true;
-  }).map((encounter) => {
-    const history = context.history.get(encounter.id);
-    const seen = history?.seen ?? 0;
-    const rejected = history?.rejected ?? 0;
-    const biomeBias = encounter.biomeIds?.includes(context.biomeId) ? 1.5 : 1;
-    const adjustedWeight = Math.max(
-      0.15,
-      (encounter.weight * biomeBias) / (1 + seen * 0.35 + rejected * 0.25),
-    );
-    return { encounter, adjustedWeight };
-  });
+  const candidates = allEncounters
+    .filter((encounter) => {
+      if (context.roomsVisited < encounter.minRoomsVisited) {
+        return false;
+      }
+      if (context.excludedIds.has(encounter.id)) {
+        return false;
+      }
+      if (encounter.zoneTags && !encounter.zoneTags.some((tag) => context.zoneTags.has(tag))) {
+        return false;
+      }
+      return true;
+    })
+    .map((encounter) => {
+      const history = context.history.get(encounter.id);
+      const seen = history?.seen ?? 0;
+      const rejected = history?.rejected ?? 0;
+      const biomeBias = encounter.biomeIds?.includes(context.biomeId) ? 1.5 : 1;
+      const adjustedWeight = Math.max(
+        0.15,
+        (encounter.weight * biomeBias) / (1 + seen * 0.35 + rejected * 0.25),
+      );
+      return { encounter, adjustedWeight };
+    });
 
   if (candidates.length === 0) {
     return null;
@@ -484,7 +486,7 @@ export const JADE_PEAK_ENCOUNTERS: readonly WandererEncounter[] = [
       '"Draw steel. Let the mountain decide who speaks first -- the victor or the wind."',
     ],
     repeatPages: [
-      'The ronin\'s hand rests on his hilt. The bamboo bends around him as if apologizing to the mountain.',
+      "The ronin's hand rests on his hilt. The bamboo bends around him as if apologizing to the mountain.",
       '"Still breathing. Still trying. How tedious. How admirable."',
     ],
     acceptLabel: 'Draw steel',

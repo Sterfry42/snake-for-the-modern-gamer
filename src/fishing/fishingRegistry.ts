@@ -6,11 +6,7 @@ import type {
   FishingSessionResult,
 } from './types.js';
 import type { BiomeId } from '../world/biomes.js';
-import {
-  FISH_DEFINITIONS,
-  getFishDefinition,
-  pickRandomFish,
-} from './fishDefinitions.js';
+import { FISH_DEFINITIONS, getFishDefinition, pickRandomFish } from './fishDefinitions.js';
 import {
   getTensionZone,
   getEscapeChance,
@@ -164,7 +160,8 @@ export class FishingRegistry {
     // Check for successful catch
     if (updated.progress >= 100) {
       updated.complete = true;
-      const weight = state.fish.minWeight + this.rng() * (state.fish.maxWeight - state.fish.minWeight);
+      const weight =
+        state.fish.minWeight + this.rng() * (state.fish.maxWeight - state.fish.minWeight);
       const weightBonus = Math.floor((weight - state.fish.minWeight) * 0.5);
       const totalScore = state.fish.baseScore + weightBonus;
       const result: FishCatchResult = {

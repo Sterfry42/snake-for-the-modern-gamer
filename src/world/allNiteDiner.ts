@@ -16,9 +16,23 @@ const DINER_NAMES = [
   'Dustfork Diner',
 ] as const;
 
-const DINER_NPC_NAMES = ['Earl', 'Tammy', 'Sue', 'Hank', 'Jolene', 'Bobby-Joe', 'Marlene', 'Dale'] as const;
+const DINER_NPC_NAMES = [
+  'Earl',
+  'Tammy',
+  'Sue',
+  'Hank',
+  'Jolene',
+  'Bobby-Joe',
+  'Marlene',
+  'Dale',
+] as const;
 const WAITRESS_NAMES = ['Jolene', 'Counter Sue', 'Tammy Two-Trays', 'Marlene Mugful'] as const;
-const REGULAR_NAMES = ['Dale at Booth 4', 'Hank Who Nods', 'Bobby-Joe Hashbrown', 'Earl the Regular'] as const;
+const REGULAR_NAMES = [
+  'Dale at Booth 4',
+  'Hank Who Nods',
+  'Bobby-Joe Hashbrown',
+  'Earl the Regular',
+] as const;
 const DINER_ATTEMPTS = 28;
 
 interface PlacementOptions {
@@ -32,7 +46,14 @@ function setChar(layout: string[][], x: number, y: number, ch: string): void {
   layout[y][x] = ch;
 }
 
-function fillRect(layout: string[][], left: number, top: number, width: number, height: number, ch: string): void {
+function fillRect(
+  layout: string[][],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  ch: string,
+): void {
   for (let y = top; y < top + height; y += 1) {
     for (let x = left; x < left + width; x += 1) {
       setChar(layout, x, y, ch);

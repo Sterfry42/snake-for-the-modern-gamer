@@ -47,7 +47,14 @@ function setChar(layout: string[], x: number, y: number, ch: string): void {
   layout[y] = chars.join('');
 }
 
-function fillRect(layout: string[], left: number, top: number, width: number, height: number, ch: string): void {
+function fillRect(
+  layout: string[],
+  left: number,
+  top: number,
+  width: number,
+  height: number,
+  ch: string,
+): void {
   for (let y = top; y < top + height; y += 1) {
     for (let x = left; x < left + width; x += 1) {
       setChar(layout, x, y, ch);
