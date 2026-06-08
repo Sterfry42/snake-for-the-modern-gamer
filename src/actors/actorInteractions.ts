@@ -1,5 +1,6 @@
 import type { Actor } from './actorTypes.js';
 import { getActorIndicators, type ActorIndicator } from './actorIndicators.js';
+import { i18n } from '../i18n/i18nManager.js';
 import { isTownShopRole } from '../world/townRoles.js';
 
 export type ActorInteractionId =
@@ -57,16 +58,16 @@ export function buildActorInteractionMenu(
     actor.species === 'goblinAngel';
   const canPickpocket = Boolean(context.canPickpocket ?? context.thievesGuildUnlocked);
 
-  options.push({ id: 'inspect', label: 'Inspect', enabled: true, priority: 10 });
+  options.push({ id: 'inspect', label: tActor('inspect'), enabled: true, priority: 10 });
 
   if (actor.kind !== 'animal' && actor.kind !== 'enemy') {
-    options.push({ id: 'talk', label: 'Talk', enabled: true, priority: 90 });
+    options.push({ id: 'talk', label: tActor('talk'), enabled: true, priority: 90 });
     if (actor.role === 'questGiver') {
-      options.push({ id: 'take-quest', label: 'Take Quest', enabled: !hostile, priority: 86 });
+      options.push({ id: 'take-quest', label: tActor('takeQuest'), enabled: !hostile, priority: 86 });
     }
     options.push({
       id: 'ask-rumor',
-      label: 'Ask Around',
+      label: tActor('askAround'),
       enabled: true,
       priority: 58,
     });
@@ -80,7 +81,7 @@ export function buildActorInteractionMenu(
     if (actor.soul && friendlyEnough) {
       options.push({
         id: 'ask-personal',
-        label: 'Ask Personally',
+        label: tActor('askPersonally'),
         enabled: true,
         priority: 48,
       });
@@ -92,9 +93,9 @@ export function buildActorInteractionMenu(
       typeof actor.flags.shopClosedReason === 'string' ? actor.flags.shopClosedReason : undefined;
     options.push({
       id: 'shop',
-      label: 'Shop',
+      label: tActor('shop'),
       enabled: !hostile && !shopClosedReason,
-      reason: hostile ? 'Too hostile' : shopClosedReason,
+      reason: hostile ? tActor('tooHostile') : shopClosedReason,
       priority: 80,
     });
   }
@@ -102,58 +103,58 @@ export function buildActorInteractionMenu(
   if (actor.role === 'romanceCandidate' || (humanoid && !hostile)) {
     options.push({
       id: 'romance',
-      label: 'Romance',
+      label: tActor('romance'),
       enabled: !hostile && context.canUseRelationshipActions !== false,
-      reason: hostile ? 'Too hostile' : undefined,
+      reason: hostile ? tActor('tooHostile') : undefined,
       priority: 60,
     });
     options.push({
       id: 'give-gift',
-      label: 'Give Gift',
+      label: tActor('giveGift'),
       enabled: !hostile,
-      reason: hostile ? 'Too hostile' : undefined,
+      reason: hostile ? tActor('tooHostile') : undefined,
       priority: 55,
     });
   }
 
   if (humanoid) {
     if (actor.mood.anger >= 35 || actor.opinions.player?.resentment >= 20) {
-      options.push({ id: 'apologize', label: 'Apologize', enabled: !hostile, priority: 68 });
+      options.push({ id: 'apologize', label: tActor('apologize'), enabled: !hostile, priority: 68 });
     }
     options.push({
       id: 'pickpocket',
-      label: 'Pickpocket',
+      label: tActor('pickpocket'),
       enabled: canPickpocket && !hostile,
-      reason: canPickpocket ? undefined : 'Find the thieves guild test',
+      reason: canPickpocket ? undefined : tActor('findThievesGuildTest'),
       priority: 35,
     });
-    options.push({ id: 'threaten', label: 'Threaten', enabled: !hostile, priority: 18 });
+    options.push({ id: 'threaten', label: tActor('threaten'), enabled: !hostile, priority: 18 });
     options.push({
       id: 'parley',
-      label: 'Parley',
+      label: tActor('parley'),
       enabled: hostile,
-      reason: hostile ? undefined : 'Not hostile',
+      reason: hostile ? undefined : tActor('notHostile'),
       priority: hostile ? 82 : 8,
     });
   }
 
   if (hostile && actor.combat?.canBeEatenWhenHostile) {
-    options.push({ id: 'eat', label: 'Eat', enabled: true, priority: 95 });
+    options.push({ id: 'eat', label: tActor('eat'), enabled: true, priority: 95 });
   } else if (humanoid) {
     options.push({
       id: 'eat',
-      label: 'Eat',
+      label: tActor('eat'),
       enabled: false,
-      reason: 'Target is not hostile',
+      reason: tActor('targetNotHostile'),
       priority: 5,
     });
   }
 
   if (actor.hostility === 'surrendering') {
-    options.push({ id: 'spare', label: 'Spare', enabled: true, priority: 85 });
+    options.push({ id: 'spare', label: tActor('spare'), enabled: true, priority: 85 });
   }
 
-  options.push({ id: 'leave', label: 'Leave', enabled: true, priority: 0 });
+  options.push({ id: 'leave', label: tActor('leave'), enabled: true, priority: 0 });
 
   const sorted = options.sort((a, b) => b.priority - a.priority);
   return {
@@ -179,15 +180,19 @@ function roleLabel(role: Actor['role']): string {
 }
 
 function summarizeMood(actor: Actor): string {
-  if (actor.hostility === 'hostile') return 'hostile';
-  if (actor.mood.fear >= 65 && actor.mood.affection >= 45) return 'worried for you';
-  if (actor.mood.greed >= 60) return 'commercially alert';
-  if (actor.mood.affection >= 60) return 'fond';
-  if (actor.mood.fear >= 55) return 'afraid';
-  if (actor.mood.anger >= 55) return 'angry';
-  if (actor.mood.trust >= 50) return 'trusting';
-  if (actor.mood.curiosity >= 55) return 'intrigued';
-  return 'neutral';
+  if (actor.hostility === 'hostile') return tActor('moodHostile');
+  if (actor.mood.fear >= 65 && actor.mood.affection >= 45) return tActor('moodWorried');
+  if (actor.mood.greed >= 60) return tActor('moodCommercial');
+  if (actor.mood.affection >= 60) return tActor('moodFond');
+  if (actor.mood.fear >= 55) return tActor('moodAfraid');
+  if (actor.mood.anger >= 55) return tActor('moodAngry');
+  if (actor.mood.trust >= 50) return tActor('moodTrusting');
+  if (actor.mood.curiosity >= 55) return tActor('moodIntrigued');
+  return tActor('moodNeutral');
+}
+
+function tActor(key: string): string {
+  return i18n.getCommon(`actorInteractions.${key}`);
 }
 
 function menuSizeFor(optionCount: number): ActorInteractionMenuModel['size'] {

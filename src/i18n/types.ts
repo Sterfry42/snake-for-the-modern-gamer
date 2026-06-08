@@ -467,3 +467,10 @@ export interface FeatureStrings {
   // === HUD MISC ===
   hudScore: string;
 }
+
+export interface ActorVoiceTranslations {
+  [entryId: string]: {
+    line?: string;
+    beat?: string;
+  };
+}

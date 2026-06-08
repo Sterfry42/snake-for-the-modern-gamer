@@ -10,12 +10,14 @@ import { QUEST_STRINGS_EN } from './languages/en/questStrings.js';
 import { QUEST_STRINGS_ES } from './languages/es/questStrings.js';
 import { FEATURE_STRINGS_EN } from './languages/en/featureStrings.js';
 import { FEATURE_STRINGS_ES } from './languages/es/featureStrings.js';
+import { ACTOR_VOICE_ES } from './languages/es/actorVoice.js';
 import type {
   QuestTranslations,
   NpcTranslations,
   CommonTranslations,
   QuestStrings,
   FeatureStrings,
+  ActorVoiceTranslations,
 } from './types.js';
 
 class I18nManager {
@@ -28,6 +30,7 @@ class I18nManager {
       common: CommonTranslations;
       questStrings: QuestStrings;
       featureStrings: FeatureStrings;
+      actorVoice?: ActorVoiceTranslations;
     }
   > = {
     en: {
@@ -43,6 +46,7 @@ class I18nManager {
       common: COMMON_ES,
       questStrings: QUEST_STRINGS_ES,
       featureStrings: FEATURE_STRINGS_ES,
+      actorVoice: ACTOR_VOICE_ES,
     },
   };
 
@@ -82,14 +86,25 @@ class I18nManager {
   }
 
   getCommon(key: string): string {
-    const keys = key.split('.');
-    let value: unknown = this.translations[this.currentLanguage]?.common;
-    for (const k of keys) {
-      if (value == null || typeof value !== 'object') return key;
-      value = (value as Record<string, unknown>)[k];
-    }
-    return String(value ?? key);
+    return getNestedString(this.translations[this.currentLanguage]?.common, key) ?? key;
+  }
+
+  getActorVoice(entryId: string, part: 'line' | 'beat'): string | undefined {
+    return this.translations[this.currentLanguage]?.actorVoice?.[entryId]?.[part];
   }
 }
 
 export const i18n = new I18nManager();
+
+function getNestedString(translations: CommonTranslations | undefined, key: string): string | undefined {
+  if (!translations) return undefined;
+  const direct = translations[key];
+  if (typeof direct === 'string') return direct;
+  const value = key.split('.').reduce<unknown>((current, part) => {
+    if (current && typeof current === 'object' && part in current) {
+      return (current as Record<string, unknown>)[part];
+    }
+    return undefined;
+  }, translations);
+  return typeof value === 'string' ? value : undefined;
+}

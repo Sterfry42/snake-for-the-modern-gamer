@@ -30,6 +30,7 @@ import type {
   SnakeLengthBand,
 } from './voiceTypes.js';
 import type { WorldEventType } from '../../events/worldEventTypes.js';
+import { i18n } from '../../i18n/i18nManager.js';
 
 const ALL_VOICE_ENTRIES: readonly ActorVoiceEntry[] = [
   ...TALK_VOICE,
@@ -247,8 +248,13 @@ function materialize(
 ): ActorConversationResult {
   const source = entry.source ?? inferSource(entry);
   const rumor = chooseRumorForEntry(entry, context);
-  const line = fillSlots(entry.text, context, entry);
-  const beat = entry.beat ? fillSlots(entry.beat, context, entry) : undefined;
+  const line = fillSlots(i18n.getActorVoice(entry.id, 'line') ?? entry.text, context, entry);
+  const translatedBeat = i18n.getActorVoice(entry.id, 'beat');
+  const beat = translatedBeat
+    ? fillSlots(translatedBeat, context, entry)
+    : entry.beat
+      ? fillSlots(entry.beat, context, entry)
+      : undefined;
   return {
     id: entry.id,
     bucket: entry.bucket,
