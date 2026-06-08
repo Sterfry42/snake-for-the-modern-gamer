@@ -1,4 +1,5 @@
 import { ARTIFACT_DEFINITIONS, type ArtifactDefinition } from '../artifacts/artifacts.js';
+import { getItem } from '../inventory/itemRegistry.js';
 
 export type DigSiteVariantId = 'forest' | 'ocean' | 'deep';
 
@@ -70,6 +71,7 @@ export type ArchaeologySessionEvent =
   | { kind: 'pop'; cell: ArchaeologyBoardCell; index: number; total: number; chain: number }
   | { kind: 'gravity'; moves: ArchaeologyGravityMove[] }
   | { kind: 'raise'; depth: number }
+  | { kind: 'reward'; label: string; cells?: ArchaeologyBoardCell[] }
   | { kind: 'cache'; artifactName: string }
   | { kind: 'game-over' };
 
@@ -92,6 +94,8 @@ export interface ArchaeologySessionSnapshot {
   fallingMoves: readonly ArchaeologyGravityMove[];
   gravityProgress: number;
   stackDanger: number;
+  topGraceProgress: number;
+  topGraceActive: boolean;
 }
 
 export interface ArchaeologyTuning {
@@ -100,6 +104,8 @@ export interface ArchaeologyTuning {
   excavationAppleBonus?: number;
   goldAppleFrequency?: number;
 }
+
+const TOP_GRACE_MS = 3000;
 
 export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
   ArchaeologyTileKind,
@@ -220,6 +226,7 @@ export class MolemanArchaeologySession {
   private maxChain = 0;
   private riseProgress = 0;
   private gameOver = false;
+  private topGraceRemainingMs = 0;
   private resolver:
     | { kind: 'highlight'; timerMs: number; cells: ArchaeologyBoardCell[]; chain: number }
     | {
@@ -304,6 +311,9 @@ export class MolemanArchaeologySession {
       fallingMoves: this.visibleGravityMoves.map((move) => ({ ...move })),
       gravityProgress,
       stackDanger: this.getStackDanger(),
+      topGraceProgress:
+        this.topGraceRemainingMs > 0 ? clamp(1 - this.topGraceRemainingMs / TOP_GRACE_MS, 0, 1) : 0,
+      topGraceActive: this.topGraceRemainingMs > 0,
     };
   }
 
@@ -337,8 +347,8 @@ export class MolemanArchaeologySession {
     if (!this.resolver) {
       this.chain = 0;
       this.chainSeed = 0;
-      if (!this.tryBeginMatchResolution(1)) {
-        this.tryBeginGravityResolution(0);
+      if (!this.tryBeginGravityResolution(0)) {
+        this.tryBeginMatchResolution(1);
       }
     }
     return true;
@@ -352,7 +362,26 @@ export class MolemanArchaeologySession {
     }
     this.activePoppingCell = null;
     this.visibleGravityMoves = [];
-    const speed = 0.00028 + this.depth * 0.000022;
+    if (!this.board[0]?.some(Boolean)) {
+      this.topGraceRemainingMs = 0;
+    }
+    else if (this.topGraceRemainingMs <= 0) {
+      this.topGraceRemainingMs = TOP_GRACE_MS;
+      this.riseProgress = 0;
+      this.pendingMessages.push('Ceiling pressure. Three seconds to clear space.');
+      return;
+    }
+    if (this.topGraceRemainingMs > 0) {
+      this.topGraceRemainingMs -= deltaMs;
+      this.riseProgress = 0;
+      if (this.topGraceRemainingMs <= 0 && this.board[0]?.some(Boolean)) {
+        this.gameOver = true;
+        this.pendingMessages.push('The dig reached the ceiling. Rewards recovered.');
+        this.pendingEvents.push({ kind: 'game-over' });
+      }
+      return;
+    }
+    const speed = 0.000224 + this.depth * 0.000022;
     this.riseProgress += deltaMs * speed;
     while (this.riseProgress >= 1 && !this.gameOver) {
       this.riseProgress -= 1;
@@ -362,9 +391,9 @@ export class MolemanArchaeologySession {
 
   private pushRow(): void {
     if (this.board[0]?.some(Boolean)) {
-      this.gameOver = true;
-      this.pendingMessages.push('The dig reached the ceiling. Rewards recovered.');
-      this.pendingEvents.push({ kind: 'game-over' });
+      this.topGraceRemainingMs = TOP_GRACE_MS;
+      this.riseProgress = 0;
+      this.pendingMessages.push('Ceiling pressure. Three seconds to clear space.');
       return;
     }
     this.board.shift();
@@ -372,9 +401,10 @@ export class MolemanArchaeologySession {
     this.incomingRow = this.createIncomingRow();
     this.cursor.y = clamp(this.cursor.y - 1, 0, this.rows - 1);
     this.depth += 1;
-    this.pendingMessages.push(`Depth ${this.depth}. Stuff keeps showing up.`);
     this.pendingEvents.push({ kind: 'raise', depth: this.depth });
-    this.tryBeginMatchResolution(1);
+    if (!this.tryBeginGravityResolution(0)) {
+      this.tryBeginMatchResolution(1);
+    }
   }
 
   private createIncomingRow(): (ArchaeologyTileKind | null)[] {
@@ -531,6 +561,9 @@ export class MolemanArchaeologySession {
           this.activePoppingCell = null;
           this.visibleGravityMoves = [];
           this.recoverExposedCaches();
+          if (this.tryBeginGravityResolution(state.chain)) {
+            return;
+          }
           if (!this.tryBeginMatchResolution(state.chain + 1)) {
             this.chain = 0;
             this.chainSeed = 0;
@@ -544,6 +577,9 @@ export class MolemanArchaeologySession {
       this.activePoppingCell = null;
       this.visibleGravityMoves = [];
       this.recoverExposedCaches();
+      if (this.tryBeginGravityResolution(state.chain)) {
+        return;
+      }
       if (!this.tryBeginMatchResolution(state.chain + 1)) {
         this.chain = 0;
         this.chainSeed = 0;
@@ -553,6 +589,9 @@ export class MolemanArchaeologySession {
   }
 
   private tryBeginMatchResolution(chain: number): boolean {
+    if (this.tryBeginGravityResolution(Math.max(0, chain - 1))) {
+      return true;
+    }
     const cells = this.findMatchCells();
     if (cells.length === 0) return false;
     this.chainSeed = Math.max(this.chainSeed, chain);
@@ -653,7 +692,7 @@ export class MolemanArchaeologySession {
     for (const count of byTile.values()) {
       total += count * 3 + Math.max(0, count - 3) * 5 + Math.max(0, chain - 1) * 8;
     }
-    return total;
+    return Math.max(1, Math.ceil(total / 3));
   }
 
   private scoreAndRewardMatches(cells: readonly ArchaeologyBoardCell[], chain: number): void {
@@ -662,16 +701,18 @@ export class MolemanArchaeologySession {
       byTile.set(cell.tile, (byTile.get(cell.tile) ?? 0) + 1);
     }
     for (const [tile, count] of byTile) {
-      const matchScore = count * 3 + Math.max(0, count - 3) * 5 + Math.max(0, chain - 1) * 8;
+      const rawScore = count * 3 + Math.max(0, count - 3) * 5 + Math.max(0, chain - 1) * 8;
+      const matchScore = Math.max(1, Math.ceil(rawScore / 3));
       this.score += matchScore;
       this.rewards.score += matchScore;
       const apples = this.appleRewardFor(tile, count);
       for (const [itemId, amount] of Object.entries(apples)) {
         this.rewards.apples[itemId] = (this.rewards.apples[itemId] ?? 0) + amount;
       }
-      this.pendingMessages.push(
-        `${ARCHAEOLOGY_TILE_DEFINITIONS[tile].label} x${count}: +${matchScore} score`,
-      );
+      const appleCount = Object.values(apples).reduce((total, amount) => total + amount, 0);
+      const label = appleCount > 0 ? `Apple x${appleCount}  +${matchScore}` : `+${matchScore} score`;
+      this.pendingMessages.push(label);
+      this.pendingEvents.push({ kind: 'reward', label, cells: cells.filter((cell) => cell.tile === tile) });
       this.rollChainRewards(chain);
     }
   }
@@ -726,14 +767,16 @@ export class MolemanArchaeologySession {
   private recoverArtifact(): void {
     const artifact = this.rollArtifact();
     if (this.rewards.artifacts.includes(artifact.id)) {
-      this.score += 25;
-      this.rewards.score += 25;
-      this.pendingMessages.push(`${artifact.name} duplicate cataloged: +25 score`);
+      this.score += 8;
+      this.rewards.score += 8;
+      this.pendingMessages.push(`${artifact.name} duplicate cataloged: +8 score`);
+      this.pendingEvents.push({ kind: 'reward', label: `${artifact.name} duplicate: +8 score` });
       this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
       return;
     }
     this.rewards.artifacts.push(artifact.id);
     this.pendingMessages.push(`Artifact recovered: ${artifact.name}`);
+    this.pendingEvents.push({ kind: 'reward', label: `Artifact recovered: ${artifact.name}` });
     this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
   }
 
@@ -747,7 +790,9 @@ export class MolemanArchaeologySession {
 
   private addReward(target: Record<string, number>, itemId: string, count: number): void {
     target[itemId] = (target[itemId] ?? 0) + count;
-    this.pendingMessages.push(`Recovered ${itemId.replace(/-/g, ' ')}.`);
+    const label = `Recovered ${getItem(itemId)?.name ?? itemId.replace(/-/g, ' ')}.`;
+    this.pendingMessages.push(label);
+    this.pendingEvents.push({ kind: 'reward', label });
   }
 
   private getStackDanger(): number {
@@ -758,8 +803,10 @@ export class MolemanArchaeologySession {
         break;
       }
     }
-    const dangerRows = Math.max(0, 5 - topOccupied);
-    return clamp(dangerRows / 5, 0, 1);
+    if (this.topGraceRemainingMs > 0) return 0;
+    const dangerStartRow = Math.max(0, Math.floor(this.rows / 3) - 1);
+    if (topOccupied > dangerStartRow) return 0;
+    return clamp((dangerStartRow - topOccupied + 1) / (dangerStartRow + 1), 0, 1);
   }
 }
 

@@ -6764,11 +6764,20 @@ export class SnakeGame implements QuestRuntime {
     score: number;
     itemCount: number;
     artifactCount: number;
+    appleCount: number;
+    appleLengthGained: number;
+    appleScoreGained: number;
   } {
     const scoreBefore = this.getScore();
-    this.addScore(rewards.score);
+    const appleCount = Object.values(rewards.apples).reduce((total, count) => total + Math.max(0, count), 0);
+    const appleLengthGained = Math.floor(appleCount / 4);
+    const appleScoreGained = appleLengthGained;
+    this.addScore(rewards.score + appleScoreGained);
+    if (appleLengthGained > 0) {
+      this.growSnake(appleLengthGained);
+    }
     let itemCount = 0;
-    const itemRewards = [rewards.apples, rewards.equipment, rewards.supplies];
+    const itemRewards = [rewards.equipment, rewards.supplies];
     for (const bucket of itemRewards) {
       for (const [itemId, count] of Object.entries(bucket)) {
         if (count <= 0) continue;
@@ -6782,7 +6791,14 @@ export class SnakeGame implements QuestRuntime {
         artifactCount += 1;
       }
     }
-    return { score: this.getScore() - scoreBefore, itemCount, artifactCount };
+    return {
+      score: this.getScore() - scoreBefore,
+      itemCount,
+      artifactCount,
+      appleCount,
+      appleLengthGained,
+      appleScoreGained,
+    };
   }
 
   private getArtifactScoreMultiplier(): number {

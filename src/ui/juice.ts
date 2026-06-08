@@ -826,6 +826,15 @@ export class JuiceManager {
       });
       this.punchZoom(1.015 + cappedChain * 0.003, 100);
     }
+    if (count >= 4) {
+      this.playTone({
+        frequency: 760 + Math.min(360, count * 34),
+        frequencyEnd: 940 + Math.min(420, count * 36),
+        duration: 0.11,
+        type: 'triangle',
+        volume: 0.055 + Math.min(0.035, count * 0.004),
+      });
+    }
   }
 
   archaeologyPop(index: number, total: number): void {
@@ -868,6 +877,12 @@ export class JuiceManager {
     this.playTone({ frequency: 660, duration: 0.1, type: 'triangle', volume: 0.08 });
     this.playTone({ frequency: 990, duration: 0.16, type: 'sine', volume: 0.07 });
     this.scene.cameras.main.flash(90, 183, 132, 255, true);
+  }
+
+  archaeologyReward(): void {
+    this.playTone({ frequency: 720, frequencyEnd: 1040, duration: 0.09, type: 'triangle', volume: 0.07 });
+    this.playTone({ frequency: 1180, duration: 0.12, type: 'sine', volume: 0.045 });
+    this.punchZoom(1.01, 80);
   }
 
   setArchaeologyTension(level: number): void {
