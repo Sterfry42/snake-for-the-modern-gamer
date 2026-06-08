@@ -65,7 +65,7 @@ import {
   type TownDistrictKind,
   type TownStructure,
 } from '../world/town.js';
-import { getItem } from '../inventory/itemRegistry.js';
+import { getItem, ITEMS } from '../inventory/itemRegistry.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { WandererEncounter } from '../npcs/encounters.js';
 import {
@@ -2160,7 +2160,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.gameSession.bossStep((event) => this.handleBossEvent(event), this.bossStepIntervalMs);
   }
 
-private handleBossEvent(event: BossEvent): void {
+  private handleBossEvent(event: BossEvent): void {
     const head = this.snakeGame.getSnakeBody()[0];
     const worldX = head ? head.x * this.grid.cell + this.grid.cell / 2 : this.scale.width / 2;
     const worldY = head ? head.y * this.grid.cell + this.grid.cell / 2 : this.scale.height / 2;
@@ -2217,7 +2217,10 @@ private handleBossEvent(event: BossEvent): void {
     // Show defeat announcements
     this.showQuestHintPopup(i18n.getFeatureString('jason_statham_defeated')!, '#ffd166');
     this.showQuestHintPopup(i18n.getFeatureString('jason_statham_victory')!, '#5dd6a2');
-    this.showQuestHintPopup(`${i18n.getFeatureString('jason_statham_score_bonus')}: +${score}`, '#5dd6a2');
+    this.showQuestHintPopup(
+      `${i18n.getFeatureString('jason_statham_score_bonus')}: +${score}`,
+      '#5dd6a2',
+    );
 
     // Clean up defeat timer if set
     this.jasonDefeatTimer?.remove(false);
@@ -4072,6 +4075,61 @@ private handleBossEvent(event: BossEvent): void {
         ok: false,
         message: 'Cannot spawn boss - game not in valid state',
         color: '#ff6b6b',
+      };
+    }
+    if (code === "ryan's closet" || code === 'ryans closet') {
+      // Ryan's Closet: give the player everything useful.
+      // Excludes: Minecraft items (out of scope), beer/wine (movement debuffs)
+      const excludedIds = new Set([
+        // Movement debuffs
+        'beer',
+        'wine',
+        // Minecraft items (out of scope for this game)
+        'cobblestone',
+        'torch_item',
+        'raw_beef',
+        'cooked_beef',
+        'bread',
+        'stick',
+        'planks_item',
+        'iron_ingot',
+        'coal',
+        'diamond',
+        'wooden_pickaxe',
+        'stone_pickaxe',
+        'iron_pickaxe',
+        'diamond_pickaxe',
+        'wooden_sword',
+        'stone_sword',
+        'iron_sword',
+        'rotten_flesh',
+      ]);
+      let addedCount = 0;
+      for (const item of ITEMS) {
+        if (!excludedIds.has(item.id)) {
+          this.snakeGame.addItem(item.id, 1);
+          addedCount++;
+        }
+      }
+      this.isDirty = true;
+      // Auto-equip key equipment items.
+      const marketRevolver = getItem('weapon-market-revolver');
+      if (marketRevolver) {
+        this.snakeGame.getInventory().equip(marketRevolver);
+      }
+      const leadFlippers = getItem('boots-lead-flippers');
+      if (leadFlippers) {
+        this.snakeGame.getInventory().equip(leadFlippers);
+      }
+      const phoenixCharm = getItem('amulet-phoenix');
+      if (phoenixCharm) {
+        this.snakeGame.getInventory().equip(phoenixCharm);
+      }
+      this.applyEquipmentEffects();
+      return {
+        ok: true,
+        message: `Ryan's closet opened. All ${addedCount} items acquired!`,
+        color: '#5dd6a2',
       };
     }
     return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: '#ff6b6b' };
@@ -6079,10 +6137,9 @@ private handleBossEvent(event: BossEvent): void {
         const phase = boss.jasonPhase ?? 'calm';
         if (phase === 'attacking') hudPhaseText = 'ATTACKING!';
         else if (phase === 'vulnerable') {
-          const remaining = Math.max(0, ((15000 - (boss.jasonVulnerableTimer ?? 0)) / 1000));
+          const remaining = Math.max(0, (15000 - (boss.jasonVulnerableTimer ?? 0)) / 1000);
           hudPhaseText = `VULNERABLE! ${remaining.toFixed(1)}s`;
-        }
-        else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
+        } else if (phase === 'defeated') hudPhaseText = 'DEFEATED';
       }
       this.bossHud.show({
         name: boss.name ?? 'Nameless Horror',
@@ -7623,23 +7680,30 @@ private handleBossEvent(event: BossEvent): void {
     const fishingMod = equippedRodItem?.modifiers?.fishingMod ?? 1.0;
     const adjustedScore = Math.max(
       1,
-      Math.floor(result.fish.baseScore * (result.fish.rarity === 'common' ? 0.5 : result.fish.rarity === 'uncommon' ? 0.7 : result.fish.rarity === 'rare' ? 1.0 : 1.5) * fishingMod),
+      Math.floor(
+        result.fish.baseScore *
+          (result.fish.rarity === 'common'
+            ? 0.5
+            : result.fish.rarity === 'uncommon'
+              ? 0.7
+              : result.fish.rarity === 'rare'
+                ? 1.0
+                : 1.5) *
+          fishingMod,
+      ),
     );
 
     // Add adjusted score to the game
     this.addScoreDirect(adjustedScore);
 
     // Show toast
-    this.showQuestHintPopup(
-      `Caught ${result.fish.name}! (+${adjustedScore} score)`,
-      '#44ddff',
-    );
+    this.showQuestHintPopup(`Caught ${result.fish.name}! (+${adjustedScore} score)`, '#44ddff');
 
     // Check if inventory is full
-    const totalItems = this.snakeGame.getInventory().getAllItems().reduce(
-      (sum, [, count]) => sum + count,
-      0,
-    );
+    const totalItems = this.snakeGame
+      .getInventory()
+      .getAllItems()
+      .reduce((sum, [, count]) => sum + count, 0);
     if (totalItems >= 30) {
       this.showInventoryFullPopup(result, fishingMod);
     }
@@ -7679,19 +7743,13 @@ private handleBossEvent(event: BossEvent): void {
           // Sell the fish
           this.snakeGame.getInventory().removeItem(itemId, 1);
           this.addScoreDirect(sellPrice);
-          this.showQuestHintPopup(
-            `Sold ${fish.name} for ${sellPrice} score.`,
-            '#ffd700',
-          );
+          this.showQuestHintPopup(`Sold ${fish.name} for ${sellPrice} score.`, '#ffd700');
         } else if (choiceId === 'discard') {
           this.snakeGame.getInventory().removeItem(itemId, 1);
           this.showQuestHintPopup(`Discarded ${fish.name}.`, '#ff8888');
         } else {
           // Keep - auto-discard oldest
-          this.showQuestHintPopup(
-            `Kept ${fish.name}. Auto-discard activated.`,
-            '#44ff44',
-          );
+          this.showQuestHintPopup(`Kept ${fish.name}. Auto-discard activated.`, '#44ff44');
         }
       },
     );
@@ -10328,7 +10386,8 @@ private handleBossEvent(event: BossEvent): void {
       {
         id: 'dig',
         title: 'Dig',
-        description: 'Start Moleman Archaeology. Match three, ride the rising stack, keep the finds.',
+        description:
+          'Start Moleman Archaeology. Match three, ride the rising stack, keep the finds.',
       },
       {
         id: 'talk',
@@ -10379,7 +10438,9 @@ private handleBossEvent(event: BossEvent): void {
     return true;
   }
 
-  private getMolemanRelationshipProfile(room = this.snakeGame.getCurrentRoom()): RelationshipCandidateProfile {
+  private getMolemanRelationshipProfile(
+    room = this.snakeGame.getCurrentRoom(),
+  ): RelationshipCandidateProfile {
     const digSite = room.molemanDigSite;
     if (!digSite) {
       throw new Error('Moleman relationship profile requested without a dig site');
@@ -10439,8 +10500,7 @@ private handleBossEvent(event: BossEvent): void {
       if (!swapped) {
         this.juice.archaeologyBlocked();
       }
-    }
-    else if (key === 'escape' || key === 'q') this.finishMolemanExcavation('leave');
+    } else if (key === 'escape' || key === 'q') this.finishMolemanExcavation('leave');
     else return false;
     if (this.archaeologySession) {
       this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
@@ -10484,7 +10544,14 @@ private handleBossEvent(event: BossEvent): void {
     const height = this.scale.height;
     const shade = this.add.rectangle(0, 0, width, height, 0x03070b, 0.9).setOrigin(0, 0);
     const panel = this.add
-      .rectangle(width / 2, height / 2, Math.min(680, width - 28), Math.min(520, height - 28), 0x11161f, 0.96)
+      .rectangle(
+        width / 2,
+        height / 2,
+        Math.min(680, width - 28),
+        Math.min(520, height - 28),
+        0x11161f,
+        0.96,
+      )
       .setStrokeStyle(2, 0xb784ff);
     this.archaeologyBoardGraphics = this.add.graphics();
     this.archaeologyText = this.add.text(0, 0, '', {
@@ -10537,8 +10604,12 @@ private handleBossEvent(event: BossEvent): void {
         ? Math.sin(this.time.now / 34) * Math.min(3.5, snapshot.stackDanger * 4)
         : 0;
     graphics.clear();
-    graphics.fillStyle(0x080c12, 1).fillRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
-    graphics.lineStyle(2, 0x43315c, 1).strokeRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
+    graphics
+      .fillStyle(0x080c12, 1)
+      .fillRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
+    graphics
+      .lineStyle(2, 0x43315c, 1)
+      .strokeRoundedRect(boardX - 8, boardY - 8, boardWidth + 16, boardHeight + 16, 8);
     for (let y = -1; y <= snapshot.board.length; y += 1) {
       for (let x = 0; x < snapshot.board[0]!.length; x += 1) {
         const px = boardX + x * boardCell;
@@ -10572,7 +10643,11 @@ private handleBossEvent(event: BossEvent): void {
       if (py < boardY || py >= boardY + boardHeight) return;
       graphics.fillStyle(0x101722, 0.92).fillRect(px + 1, py + 1, boardCell - 2, boardCell - 2);
       if (!tile) return;
-      this.drawArchaeologyTile(graphics, tile, px + dangerShake, py, boardCell, { highlighted: false, popping: false, pulse });
+      this.drawArchaeologyTile(graphics, tile, px + dangerShake, py, boardCell, {
+        highlighted: false,
+        popping: false,
+        pulse,
+      });
     });
     const gravityEase = Phaser.Math.Easing.Bounce.Out(snapshot.gravityProgress);
     for (const move of snapshot.fallingMoves) {
@@ -10589,29 +10664,44 @@ private handleBossEvent(event: BossEvent): void {
     }
     const cursorX = boardX + snapshot.cursor.x * boardCell + dangerShake;
     const cursorY = boardY + snapshot.cursor.y * boardCell - riseOffset;
-    graphics.lineStyle(3, 0xfff3a8, 1).strokeRoundedRect(cursorX, cursorY, boardCell * 2, boardCell, 6);
-    graphics.lineStyle(1, 0x1b1024, 0.85).strokeRoundedRect(cursorX + 3, cursorY + 3, boardCell * 2 - 6, boardCell - 6, 4);
-    graphics.fillStyle(0xb784ff, 0.85).fillRect(boardX - 8, boardY + boardHeight + 10, Math.floor((boardWidth + 16) * snapshot.riseProgress), 5);
+    graphics
+      .lineStyle(3, 0xfff3a8, 1)
+      .strokeRoundedRect(cursorX, cursorY, boardCell * 2, boardCell, 6);
+    graphics
+      .lineStyle(1, 0x1b1024, 0.85)
+      .strokeRoundedRect(cursorX + 3, cursorY + 3, boardCell * 2 - 6, boardCell - 6, 4);
+    graphics
+      .fillStyle(0xb784ff, 0.85)
+      .fillRect(
+        boardX - 8,
+        boardY + boardHeight + 10,
+        Math.floor((boardWidth + 16) * snapshot.riseProgress),
+        5,
+      );
     const rewardLines = this.formatArchaeologyRewardLines(snapshot.rewards).slice(0, 8);
     const logLines = this.archaeologyLogMessages.slice(-4);
     text
       .setPosition(boardX + boardWidth + 38, boardY - 6)
-      .setText([
-        i18n.getFeatureString('archaeologyTitle'),
-        i18n.getFeatureString(snapshot.variant.i18nNameKey),
-        `Depth ${snapshot.depth}  Score ${snapshot.score}`,
-        `Chain ${snapshot.chain}  Best ${snapshot.maxChain}`,
-        '',
-        i18n.getFeatureString('archaeologyControls'),
-        i18n.getFeatureString('archaeologySwap'),
-        i18n.getFeatureString('archaeologyQuit'),
-        snapshot.resolving ? i18n.getFeatureString('archaeologyPaused') : i18n.getFeatureString('archaeologyRising'),
-        '',
-        i18n.getFeatureString('archaeologyRecovered'),
-        ...(rewardLines.length ? rewardLines : [i18n.getFeatureString('archaeologyNothingYet')]),
-        '',
-        ...logLines,
-      ].join('\n'));
+      .setText(
+        [
+          i18n.getFeatureString('archaeologyTitle'),
+          i18n.getFeatureString(snapshot.variant.i18nNameKey),
+          `Depth ${snapshot.depth}  Score ${snapshot.score}`,
+          `Chain ${snapshot.chain}  Best ${snapshot.maxChain}`,
+          '',
+          i18n.getFeatureString('archaeologyControls'),
+          i18n.getFeatureString('archaeologySwap'),
+          i18n.getFeatureString('archaeologyQuit'),
+          snapshot.resolving
+            ? i18n.getFeatureString('archaeologyPaused')
+            : i18n.getFeatureString('archaeologyRising'),
+          '',
+          i18n.getFeatureString('archaeologyRecovered'),
+          ...(rewardLines.length ? rewardLines : [i18n.getFeatureString('archaeologyNothingYet')]),
+          '',
+          ...logLines,
+        ].join('\n'),
+      );
   }
 
   private ensureArchaeologySymbolText(index: number): Phaser.GameObjects.Text {
@@ -10646,11 +10736,17 @@ private handleBossEvent(event: BossEvent): void {
   ): void {
     const def = ARCHAEOLOGY_TILE_DEFINITIONS[tile];
     const inset = state.popping ? 7 : 4;
-    const fill = state.highlighted ? this.mixColor(def.color, 0xfff3a8, 0.32 * state.pulse) : def.color;
+    const fill = state.highlighted
+      ? this.mixColor(def.color, 0xfff3a8, 0.32 * state.pulse)
+      : def.color;
     const face = state.popping ? size - inset * 2 : size - inset * 2 - 1;
     graphics.fillStyle(0x07101a, 0.72).fillRoundedRect(x + 2, y + 3, size - 4, size - 3, 5);
-    graphics.fillStyle(fill, state.popping ? 0.72 : 1).fillRoundedRect(x + inset, y + inset, face, face, 5);
-    graphics.fillStyle(this.scaleColor(fill, 1.16), 0.55).fillRoundedRect(x + inset + 2, y + inset + 2, face - 4, Math.max(4, size * 0.2), 3);
+    graphics
+      .fillStyle(fill, state.popping ? 0.72 : 1)
+      .fillRoundedRect(x + inset, y + inset, face, face, 5);
+    graphics
+      .fillStyle(this.scaleColor(fill, 1.16), 0.55)
+      .fillRoundedRect(x + inset + 2, y + inset + 2, face - 4, Math.max(4, size * 0.2), 3);
     graphics
       .fillStyle(this.scaleColor(fill, 0.78), 0.42)
       .fillRoundedRect(
@@ -10661,10 +10757,14 @@ private handleBossEvent(event: BossEvent): void {
         3,
       );
     graphics.lineStyle(3, 0x06101a, 1).strokeRoundedRect(x + inset, y + inset, face, face, 5);
-    graphics.lineStyle(1, 0xffffff, state.highlighted ? 0.95 : 0.38).strokeRoundedRect(x + inset + 3, y + inset + 3, face - 6, face - 6, 3);
+    graphics
+      .lineStyle(1, 0xffffff, state.highlighted ? 0.95 : 0.38)
+      .strokeRoundedRect(x + inset + 3, y + inset + 3, face - 6, face - 6, 3);
     this.drawArchaeologyTileIcon(graphics, tile, x + size / 2, y + size / 2, size, def.textColor);
     if (state.highlighted) {
-      graphics.lineStyle(4, 0xfff3a8, 0.52 + state.pulse * 0.44).strokeRoundedRect(x + 1, y + 1, size - 2, size - 2, 6);
+      graphics
+        .lineStyle(4, 0xfff3a8, 0.52 + state.pulse * 0.44)
+        .strokeRoundedRect(x + 1, y + 1, size - 2, size - 2, 6);
       graphics.lineStyle(2, 0xffffff, 0.36).strokeRoundedRect(x - 2, y - 2, size + 4, size + 4, 8);
     }
   }
@@ -10691,9 +10791,18 @@ private handleBossEvent(event: BossEvent): void {
       case 'wasabi':
         graphics.fillCircle(cx - r * 0.35, cy + r * 0.2, r * 0.98);
         graphics.fillCircle(cx + r * 0.35, cy + r * 0.2, r * 0.98);
-        graphics.fillTriangle(cx - r * 1.2, cy + r * 0.25, cx, cy + r * 1.45, cx + r * 1.2, cy + r * 0.25);
+        graphics.fillTriangle(
+          cx - r * 1.2,
+          cy + r * 0.25,
+          cx,
+          cy + r * 1.45,
+          cx + r * 1.2,
+          cy + r * 0.25,
+        );
         graphics.strokeCircle(cx - r * 0.35, cy + r * 0.2, r * 0.98);
-        graphics.lineStyle(Math.max(2, Math.floor(size * 0.055)), dark, 0.95).lineBetween(cx, cy - r * 0.95, cx + r * 0.45, cy - r * 1.55);
+        graphics
+          .lineStyle(Math.max(2, Math.floor(size * 0.055)), dark, 0.95)
+          .lineBetween(cx, cy - r * 0.95, cx + r * 0.45, cy - r * 1.55);
         graphics.fillStyle(dark, 0.95).fillEllipse(cx + r * 0.9, cy - r * 1.45, r * 0.9, r * 0.45);
         break;
       case 'roots':
@@ -10705,13 +10814,19 @@ private handleBossEvent(event: BossEvent): void {
         graphics.lineTo(cx + r * 0.55, cy + r * 0.25);
         graphics.lineTo(cx + r * 1.35, cy + r * 1.1);
         graphics.strokePath();
-        graphics.fillStyle(color, 0.95).fillEllipse(cx - r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
+        graphics
+          .fillStyle(color, 0.95)
+          .fillEllipse(cx - r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
         graphics.fillEllipse(cx + r * 0.72, cy - r * 0.45, r * 1.25, r * 0.65);
         break;
       case 'stone':
-        graphics.fillStyle(color, 0.95).fillTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
+        graphics
+          .fillStyle(color, 0.95)
+          .fillTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
         graphics.fillTriangle(cx, cy - r * 1.7, cx - r * 1.55, cy, cx, cy + r * 1.65);
-        graphics.lineStyle(Math.max(2, Math.floor(size * 0.06)), dark, 0.9).strokeTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
+        graphics
+          .lineStyle(Math.max(2, Math.floor(size * 0.06)), dark, 0.9)
+          .strokeTriangle(cx, cy - r * 1.7, cx + r * 1.55, cy, cx, cy + r * 1.65);
         graphics.strokeTriangle(cx, cy - r * 1.7, cx - r * 1.55, cy, cx, cy + r * 1.65);
         break;
       case 'dirt':
@@ -10721,7 +10836,9 @@ private handleBossEvent(event: BossEvent): void {
         graphics.fillCircle(cx + r * 0.95, cy + r * 0.25, r * 0.16);
         break;
       case 'clay':
-        graphics.fillStyle(color, 0.95).fillRoundedRect(cx - r * 1.1, cy - r * 0.9, r * 2.2, r * 2.2, 4);
+        graphics
+          .fillStyle(color, 0.95)
+          .fillRoundedRect(cx - r * 1.1, cy - r * 0.9, r * 2.2, r * 2.2, 4);
         graphics.fillStyle(dark, 0.8).fillRect(cx - r * 1.1, cy - r * 0.1, r * 2.2, r * 0.28);
         break;
       case 'shell':
@@ -10732,14 +10849,18 @@ private handleBossEvent(event: BossEvent): void {
         graphics.lineBetween(cx + r * 0.75, cy - r * 0.62, cx, cy + r * 1.1);
         break;
       case 'bone':
-        graphics.lineStyle(Math.max(4, Math.floor(size * 0.11)), color, 1).lineBetween(cx - r, cy + r, cx + r, cy - r);
+        graphics
+          .lineStyle(Math.max(4, Math.floor(size * 0.11)), color, 1)
+          .lineBetween(cx - r, cy + r, cx + r, cy - r);
         graphics.fillStyle(color, 1).fillCircle(cx - r * 1.25, cy + r * 1.25, r * 0.45);
         graphics.fillCircle(cx - r * 0.75, cy + r * 1.55, r * 0.45);
         graphics.fillCircle(cx + r * 1.25, cy - r * 1.25, r * 0.45);
         graphics.fillCircle(cx + r * 0.75, cy - r * 1.55, r * 0.45);
         break;
       case 'artifact-cache':
-        graphics.fillStyle(color, 0.96).fillRoundedRect(cx - r * 1.35, cy - r * 0.8, r * 2.7, r * 1.9, 4);
+        graphics
+          .fillStyle(color, 0.96)
+          .fillRoundedRect(cx - r * 1.35, cy - r * 0.8, r * 2.7, r * 1.9, 4);
         graphics.fillStyle(dark, 0.9).fillRect(cx - r * 0.18, cy - r * 0.8, r * 0.36, r * 1.9);
         graphics.fillRect(cx - r * 1.35, cy - r * 0.15, r * 2.7, r * 0.28);
         break;
@@ -13505,22 +13626,23 @@ private handleBossEvent(event: BossEvent): void {
       return;
     }
     const isMoleman = giver.portraitId === 'moleman-foreman';
-    const palette = giver.portraitId === 'moleman-foreman'
-      ? {
-          robeColor: '#5b4630',
-          trimColor: '#d6b36a',
-          outlineColor: '#1b130c',
-          eyeColor: '#fff7cf',
-        }
-      : giver.portraitId?.startsWith('goblin-')
-      ? this.paletteForGoblinResident(
-          disposition.hostility === 'hostile'
-            ? 'violent'
-            : disposition.hostility === 'warning'
-              ? 'wary'
-              : this.snakeGame.getFactionAlignment('goblin-camps').standing,
-        )
-      : this.paletteForQuestGiverDisposition(disposition.hostility);
+    const palette =
+      giver.portraitId === 'moleman-foreman'
+        ? {
+            robeColor: '#5b4630',
+            trimColor: '#d6b36a',
+            outlineColor: '#1b130c',
+            eyeColor: '#fff7cf',
+          }
+        : giver.portraitId?.startsWith('goblin-')
+          ? this.paletteForGoblinResident(
+              disposition.hostility === 'hostile'
+                ? 'violent'
+                : disposition.hostility === 'warning'
+                  ? 'wary'
+                  : this.snakeGame.getFactionAlignment('goblin-camps').standing,
+            )
+          : this.paletteForQuestGiverDisposition(disposition.hostility);
     const spriteSize = Math.max(18, Math.floor(this.grid.cell * 0.92));
     const textures = isMoleman
       ? this.runtimeSpriteFactory.ensureRecipe(molemanSpriteRecipe, spriteSize, {
@@ -13532,7 +13654,9 @@ private handleBossEvent(event: BossEvent): void {
           eyeColor: '#fff7cf',
         } satisfies MolemanSpritePalette)
       : this.runtimeSpriteFactory.ensureRecipe(questGiverSpriteRecipe, spriteSize, palette);
-    const animKey = isMoleman ? `moleman-${room.id}-idle` : `quest-giver-${disposition.hostility}-idle`;
+    const animKey = isMoleman
+      ? `moleman-${room.id}-idle`
+      : `quest-giver-${disposition.hostility}-idle`;
     const animFrames = isMoleman
       ? [
           { key: textures.idle },

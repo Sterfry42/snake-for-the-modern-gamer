@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { canCraft, craft, getRecipeById, getInventoryRecipes, getCraftingTableRecipes } from '../crafting.js';
+import {
+  canCraft,
+  craft,
+  getRecipeById,
+  getInventoryRecipes,
+  getCraftingTableRecipes,
+} from '../crafting.js';
 
 describe('Crafting System', () => {
   it('should return correct recipe by id', () => {
@@ -30,18 +36,14 @@ describe('Crafting System', () => {
   });
 
   it('should check crafting requirements correctly', () => {
-    const inventory: Array<{ itemId: string; count: number }> = [
-      { itemId: 'wood', count: 1 },
-    ];
+    const inventory: Array<{ itemId: string; count: number }> = [{ itemId: 'wood', count: 1 }];
 
     expect(canCraft('planks_from_wood', inventory)).toBe(true);
     expect(canCraft('planks_from_wood', [])).toBe(false);
   });
 
   it('should craft successfully when ingredients are available', () => {
-    const inventory: Array<{ itemId: string; count: number }> = [
-      { itemId: 'wood', count: 1 },
-    ];
+    const inventory: Array<{ itemId: string; count: number }> = [{ itemId: 'wood', count: 1 }];
 
     // Craft once
     const result = craft('planks_from_wood', inventory);

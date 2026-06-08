@@ -296,7 +296,7 @@ export class QuestPopup {
               ? 'sage-2'
               : portraitId === 'tanuki-neutral'
                 ? 'bandit-neutral'
-        : 'sage-1';
+                : 'sage-1';
     return this.portraitTextureKeys[variant];
   }
 }

@@ -157,7 +157,10 @@ import {
   type ArtifactDefinition,
   type ArtifactView,
 } from '../artifacts/artifacts.js';
-import type { ArchaeologyRewardBundle, ArchaeologyTuning } from '../archaeology/molemanArchaeology.js';
+import type {
+  ArchaeologyRewardBundle,
+  ArchaeologyTuning,
+} from '../archaeology/molemanArchaeology.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -2190,7 +2193,9 @@ export class SnakeGame implements QuestRuntime {
     this.reconcileStagedQuestBosses();
   }
 
-  setJasonDamageCallback(callback: (bossId: string, defeated: boolean, scoreBonus: number) => void): void {
+  setJasonDamageCallback(
+    callback: (bossId: string, defeated: boolean, scoreBonus: number) => void,
+  ): void {
     this.jasonDamageCallback = callback;
   }
 
@@ -6733,7 +6738,8 @@ export class SnakeGame implements QuestRuntime {
 
   addScore(amount: number): void {
     const multiplier = this.getArtifactScoreMultiplier();
-    const adjusted = amount > 0 && multiplier > 1 ? Math.max(1, Math.ceil(amount * multiplier)) : amount;
+    const adjusted =
+      amount > 0 && multiplier > 1 ? Math.max(1, Math.ceil(amount * multiplier)) : amount;
     this.snake.addScore(adjusted);
   }
 
@@ -6743,7 +6749,9 @@ export class SnakeGame implements QuestRuntime {
 
   getRunArtifacts(): ArtifactDefinition[] {
     const ids = this.getFlag<string[]>('artifacts.run') ?? [];
-    return ids.map((id) => getArtifactDefinition(id)).filter((artifact): artifact is ArtifactDefinition => Boolean(artifact));
+    return ids
+      .map((id) => getArtifactDefinition(id))
+      .filter((artifact): artifact is ArtifactDefinition => Boolean(artifact));
   }
 
   addRunArtifact(artifactId: string): boolean {
@@ -9292,9 +9300,7 @@ export class SnakeGame implements QuestRuntime {
 
     if (itemId === 'orange-juice') {
       this.setFlag('status.orangeJuiceSpeedBoostTicks', 60);
-      const currentInvuln = Number(
-        this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0,
-      );
+      const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
       this.setFlag('fortitude.invulnerabilityTicks', Math.max(currentInvuln, 50));
       this.setFlag('status.orangeJuiceScoreMult', 2);
       this.restoreHunger(80);
@@ -9304,13 +9310,7 @@ export class SnakeGame implements QuestRuntime {
         roomId: this.snake.currentRoomId,
         severity: 14,
         loudness: 5,
-        tags: [
-          'item',
-          'consumable',
-          itemId,
-          'orange-juice',
-          'powerup',
-        ],
+        tags: ['item', 'consumable', itemId, 'orange-juice', 'powerup'],
         summary: `The snake drank Orange Juice and glowed with citrus power.`,
         createdAtRoomNumber: this.getRoomsVisitedCount(),
         data: { itemId, itemName: item.name },

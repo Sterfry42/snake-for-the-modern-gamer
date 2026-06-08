@@ -138,20 +138,20 @@ export const NPC_ENCOUNTERS_ES: NpcTranslations = {
     rejectLabel: 'Rechazar',
     rewardScore: 10,
   },
-'cyrene-wanderer': {
-     pages: [
-       'Cyrene dibuja un círculo en el polvo y el polvo duda, como si incertamente perteneciera más a la gravedad o a cualquier viejo voto que le da vida a su mano.',
-       '"Cada cámara en este lugar enseña la misma lección en un dialecto diferente: permanece en movimiento, permanece dudoso, y nunca confundas la supervivencia con el perdón."',
-       '"Tu regalo es la velocidad. Cuidado con ello. La velocidad se vuelve estupidez en el momento en que empieza a creerse elegido."',
-     ],
-     repeatPages: [
-       'Cyrene te reconoce con una mirada demasiado medida para contar como calidez y demasiado suave para ser llamada indiferencia.',
-       '"Todavía vivo. Eso significa que o estás aprendiendo, o la tumba ha puesto mal tu nombre para otro día. Te recomiendo que no te hagas arrogante sobre ninguna de las posibilidades."',
-     ],
-     acceptLabel: 'Escuchar',
-     rejectLabel: 'Salir',
-     rewardScore: 5,
-   },
+  'cyrene-wanderer': {
+    pages: [
+      'Cyrene dibuja un círculo en el polvo y el polvo duda, como si incertamente perteneciera más a la gravedad o a cualquier viejo voto que le da vida a su mano.',
+      '"Cada cámara en este lugar enseña la misma lección en un dialecto diferente: permanece en movimiento, permanece dudoso, y nunca confundas la supervivencia con el perdón."',
+      '"Tu regalo es la velocidad. Cuidado con ello. La velocidad se vuelve estupidez en el momento en que empieza a creerse elegido."',
+    ],
+    repeatPages: [
+      'Cyrene te reconoce con una mirada demasiado medida para contar como calidez y demasiado suave para ser llamada indiferencia.',
+      '"Todavía vivo. Eso significa que o estás aprendiendo, o la tumba ha puesto mal tu nombre para otro día. Te recomiendo que no te hagas arrogante sobre ninguna de las posibilidades."',
+    ],
+    acceptLabel: 'Escuchar',
+    rejectLabel: 'Salir',
+    rewardScore: 5,
+  },
   'sterling-fisher': {
     pages: [
       'Una figura desgastada se sienta en cuclillas junto a una caña plegable, observando el agua con la quietud paciente de alguien a quien le han dicho que el océano escucha.',

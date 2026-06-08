@@ -120,52 +120,52 @@ export const QUEST_DIALOGUE_EN: QuestTranslations = {
       'Survive twenty seconds without eating. Carry the old rite for one brief moment and prove your will can still sit beside an empty mouth.',
     ],
   },
-'treasure-hunter': {
-     title: 'The Gilded Remains',
-     pages: [
-       'The treasure chests here were lowered down after the collapse by families who believed valuables might ransom the dead back from the dark.',
-       'The rope always came up lighter than it went down. Sometimes empty. Sometimes wet. Never once carrying who they had asked for.',
-       'Recover two treasures. We owe the buried at least the courtesy of admitting their offerings were never answered.',
-     ],
-   },
-'fisherman': {
-     title: 'Deep Waters',
-     pages: [
-       'The sunken ocean has its own currents, its own patience. The fish down there do not care about your length or your speed — only whether you are persistent enough to outwait the deep.',
-       'Sterling has caught five fish in the dark. Five. They do not scream, they do not fight back, but the water is heavy and the silence is worse. He does this for the cooked meat, not for glory.',
-       'Hunt five fish in the sunken ocean. Return when your hands are clean and your belly remembers what food tastes like.',
-     ],
-   },
-   'biome-explorer': {
-     title: "Angler's Atlas",
-     pages: [
-       'Every biome has its own water, its own rules, its own appetite. A fisherman who stays in one place learns a trade. A fisherman who travels learns the world.',
-       'I have seen nets haul minnows from the basin and drag shadows out of the depths. Five biomes is the minimum. The world is larger than five.',
-       'Catch fish in five different biomes. Map them in your mind like a living atlas. Let each catch be a coordinate you can return to.',
-     ],
-   },
-   'rare-collector': {
-     title: 'Rare Collection',
-     pages: [
-       'Most fish are abundant by nature. Rarity is a statement about how much effort the world requires to produce them.',
-       'Rare and legendary catches are not just heavier or shinier. They are rarer for reasons that have nothing to do with you and everything to do with the water they call home.',
-       'Collect three different types of rare or legendary fish. Build a collection that tells a story the water remembers.',
-     ],
-   },
-   'big-catcher': {
-     title: 'The Big One',
-     pages: [
-       'There is a difference between many small catches and one that matters. The big ones do not come often, and when they do, they do not ask twice.',
-       'Five kilograms is not a lot of weight for the deep, but it is enough to prove you are no longer fishing by yourself.',
-       'Catch a single fish that tips the scales at five kilograms or more. Let the journal remember that day.',
-     ],
-   },
-   'legendary-hunter': {
-     title: 'Legend Chaser',
-     pages: [
-       'Legendary fish are not a category. They are an event. You do not catch them every season — sometimes you catch them once in a lifetime, and that is enough to talk about in the taverns.',
-       'Two legendary catches. Not one, not by accident. Two, so the story cannot be dismissed as a fluke.',
-       'Hunt them down. Let the deep learn that you are still hunting.',
-     ],
-   },
- } as const;
+  'treasure-hunter': {
+    title: 'The Gilded Remains',
+    pages: [
+      'The treasure chests here were lowered down after the collapse by families who believed valuables might ransom the dead back from the dark.',
+      'The rope always came up lighter than it went down. Sometimes empty. Sometimes wet. Never once carrying who they had asked for.',
+      'Recover two treasures. We owe the buried at least the courtesy of admitting their offerings were never answered.',
+    ],
+  },
+  fisherman: {
+    title: 'Deep Waters',
+    pages: [
+      'The sunken ocean has its own currents, its own patience. The fish down there do not care about your length or your speed — only whether you are persistent enough to outwait the deep.',
+      'Sterling has caught five fish in the dark. Five. They do not scream, they do not fight back, but the water is heavy and the silence is worse. He does this for the cooked meat, not for glory.',
+      'Hunt five fish in the sunken ocean. Return when your hands are clean and your belly remembers what food tastes like.',
+    ],
+  },
+  'biome-explorer': {
+    title: "Angler's Atlas",
+    pages: [
+      'Every biome has its own water, its own rules, its own appetite. A fisherman who stays in one place learns a trade. A fisherman who travels learns the world.',
+      'I have seen nets haul minnows from the basin and drag shadows out of the depths. Five biomes is the minimum. The world is larger than five.',
+      'Catch fish in five different biomes. Map them in your mind like a living atlas. Let each catch be a coordinate you can return to.',
+    ],
+  },
+  'rare-collector': {
+    title: 'Rare Collection',
+    pages: [
+      'Most fish are abundant by nature. Rarity is a statement about how much effort the world requires to produce them.',
+      'Rare and legendary catches are not just heavier or shinier. They are rarer for reasons that have nothing to do with you and everything to do with the water they call home.',
+      'Collect three different types of rare or legendary fish. Build a collection that tells a story the water remembers.',
+    ],
+  },
+  'big-catcher': {
+    title: 'The Big One',
+    pages: [
+      'There is a difference between many small catches and one that matters. The big ones do not come often, and when they do, they do not ask twice.',
+      'Five kilograms is not a lot of weight for the deep, but it is enough to prove you are no longer fishing by yourself.',
+      'Catch a single fish that tips the scales at five kilograms or more. Let the journal remember that day.',
+    ],
+  },
+  'legendary-hunter': {
+    title: 'Legend Chaser',
+    pages: [
+      'Legendary fish are not a category. They are an event. You do not catch them every season — sometimes you catch them once in a lifetime, and that is enough to talk about in the taverns.',
+      'Two legendary catches. Not one, not by accident. Two, so the story cannot be dismissed as a fluke.',
+      'Hunt them down. Let the deep learn that you are still hunting.',
+    ],
+  },
+} as const;

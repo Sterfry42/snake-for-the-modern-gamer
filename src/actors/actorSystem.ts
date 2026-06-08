@@ -1,8 +1,15 @@
 import { AnimalRegistry } from '../animals/animalRegistry.js';
 import type { AnimalInstance } from '../animals/types.js';
-import type { CreateWorldEventInput, WorldEvent, WorldEventSaveData } from '../events/worldEventTypes.js';
+import type {
+  CreateWorldEventInput,
+  WorldEvent,
+  WorldEventSaveData,
+} from '../events/worldEventTypes.js';
 import { WorldEventLog } from '../events/worldEventLog.js';
-import type { RelationshipCandidateProfile, RelationshipState } from '../relationships/relationshipTypes.js';
+import type {
+  RelationshipCandidateProfile,
+  RelationshipState,
+} from '../relationships/relationshipTypes.js';
 import type { EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
 import type { TownStructure } from '../world/town.js';
@@ -183,7 +190,14 @@ export class ActorSystem {
   private syncLooseHumanoids(
     townId: string,
     roomId: string,
-    residents: Array<{ id: string; name: string; role: string; x: number; y: number; portraitId?: string }>,
+    residents: Array<{
+      id: string;
+      name: string;
+      role: string;
+      x: number;
+      y: number;
+      portraitId?: string;
+    }>,
     factionId: string,
     roomNumber?: number,
   ): Actor[] {
@@ -220,7 +234,10 @@ export class ActorSystem {
       (input.roomId
         ? this.getActorsInRoom(input.roomId)
             .map((actor) => actor.id)
-            .filter((actorId) => actorId !== input.sourceActorId && !(input.targetActorIds ?? []).includes(actorId))
+            .filter(
+              (actorId) =>
+                actorId !== input.sourceActorId && !(input.targetActorIds ?? []).includes(actorId),
+            )
         : []);
     const event = this.events.add({ ...input, witnessActorIds });
     this.applyEventMemory(event);
@@ -299,13 +316,19 @@ export class ActorSystem {
   }
 
   private ensureLocalSocialLinks(actors: readonly Actor[]): void {
-    const socialActors = actors.filter((actor) => actor.species === 'human' || actor.species === 'goblin');
+    const socialActors = actors.filter(
+      (actor) => actor.species === 'human' || actor.species === 'goblin',
+    );
     if (socialActors.length < 2) {
       return;
     }
     socialActors.forEach((actor, index) => {
       const target = socialActors[(index + 1) % socialActors.length];
-      if (!target || target.id === actor.id || actor.relationships.some((link) => link.actorId === target.id)) {
+      if (
+        !target ||
+        target.id === actor.id ||
+        actor.relationships.some((link) => link.actorId === target.id)
+      ) {
         return;
       }
       const relationship = socialRelationshipFor(actor.id, target.id);
@@ -364,12 +387,19 @@ function applyEventConsequences(
       return {
         ...actor,
         hostility: actor.hostility === 'friendly' ? 'suspicious' : actor.hostility,
-        mood: shiftMood(actor.mood, { fear: 28, stress: 22, anger: actor.kind === 'guard' ? 18 : 8 }),
+        mood: shiftMood(actor.mood, {
+          fear: 28,
+          stress: 22,
+          anger: actor.kind === 'guard' ? 18 : 8,
+        }),
         opinions: updateOpinion(actor.opinions, 'player', {
           ...playerOpinion,
           trust: shift(playerOpinion?.trust ?? 0, -18),
           fear: shift(playerOpinion?.fear ?? 0, 28),
-          respect: shift(playerOpinion?.respect ?? 0, actor.personality.includes('violent') ? 8 : -6),
+          respect: shift(
+            playerOpinion?.respect ?? 0,
+            actor.personality.includes('violent') ? 8 : -6,
+          ),
           resentment: shift(playerOpinion?.resentment ?? 0, actor.kind === 'guard' ? 22 : 10),
         }),
       };

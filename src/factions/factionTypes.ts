@@ -75,4 +75,3 @@ export interface FactionSaveData {
   localStates: LocalFactionState[];
   currentEvents: FactionCurrentEvent[];
 }
-

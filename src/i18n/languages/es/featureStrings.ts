@@ -3,7 +3,8 @@ import type { FeatureStrings as FeatureStringsType } from '../../types.js';
 export const FEATURE_STRINGS_ES: FeatureStringsType = {
   questLabel: 'Tarea',
   questsHeader: 'Tareas:',
-  noCardsOwned: 'Sin cartas poseídas.\n\nLos tenderos del pueblo venden cartas para tu mazo personal.',
+  noCardsOwned:
+    'Sin cartas poseídas.\n\nLos tenderos del pueblo venden cartas para tu mazo personal.',
   cardsOwnedHeader: 'Cartas poseídas:',
   cardsInfo: 'Los tenderos del pueblo venden cartas para tu mazo personal.',
   scoreLabel: 'Puntuación',
@@ -35,7 +36,8 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   snakeFries: 'Papas Fritas de Serpiente',
   snakeNuggets: 'Nuggets de Serpiente',
   flushToilet: 'El inodoro hace un ruido de desag\u00fce.',
-  mcCashierDialogue: '\u00a1Bienvenido a Snake McDonalds! Comida de serpiente fresca, servida r\u00e1pido, servida fr\u00eda.',
+  mcCashierDialogue:
+    '\u00a1Bienvenido a Snake McDonalds! Comida de serpiente fresca, servida r\u00e1pido, servida fr\u00eda.',
   // Fishing
   fishingCast: 'Lanzas tu ca\u00f1a al agua.',
   fishingBite: '\u00a1Algo mordio! La ca\u00f1a se tensa.',
@@ -61,7 +63,8 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   fishingInventoryFull: '\u00a1Inventario lleno!',
   fishingSellOrDiscard: 'Vende el pez por {price} puntos, o desecha para hacer espacio.',
   fishingQuestFishTitle: 'Atrapar Peces',
-  fishingQuestFishDesc: 'Atrapar peces usando tu ca\u00f1a de pescar. El agua recuerda quien vuelve.',
+  fishingQuestFishDesc:
+    'Atrapar peces usando tu ca\u00f1a de pescar. El agua recuerda quien vuelve.',
   fishingQuestCatchLabel: 'Atrapaste {count} peces',
   // Jason Statham Boss
   jason_statham_name: 'Jason Statham',
@@ -139,7 +142,8 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   cardScoreAngelAudit: 'Aud\u00e1ngel aprob\u00f3 una mano limpia.',
   cardScoreRoyalScale: 'Balanza Real gobern\u00f3 la mano.',
   cardScoreFreakDennisFog: 'Niebla Dennis Bizarro empeor\u00f3 y agrand\u00f3 todo.',
-  cardScoreGoblinReceiptSuccess: 'Recibo Goblin encontr\u00f3 un sello de linterna y sum\u00f3 12 fichas.',
+  cardScoreGoblinReceiptSuccess:
+    'Recibo Goblin encontr\u00f3 un sello de linterna y sum\u00f3 12 fichas.',
   cardScoreGoblinReceiptFail: 'Recibo Goblin sum\u00f3 1 ficha sin lograr verse oficial.',
   cardScoreCarefulFive: 'Cuidadoso Cinco recuper\u00f3 el puntaje.',
 
@@ -187,7 +191,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   placeholderInventory: 'Los objetos que recolectes aparecer\u00e1n aqu\u00ed.',
   placeholderCustomize: 'Compra paletas y estilo.',
   placeholderMap: 'Explora para revelar m\u00e1s habitaciones.',
-  placeholderCheats: 'Ingresa strings de trucos: freakdennis, freakerdennis',
+  placeholderCheats: "Ingresa strings de trucos: freakdennis, freakerdennis, ryan's closet",
 
   // HUD
   hudHearts: 'Corazones',
@@ -200,7 +204,8 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   titleNormal: 'Serpiente para el Jugador Moderno',
   titleRaccoonLabel: 'Mapache',
   titleNormalLabel: 'Normal',
-  titleRaccoonDesc: 'Mapache: Las manzanas aumentan el peso. Almacena manzanas antes de que el hambre y el peso sean un problema.',
+  titleRaccoonDesc:
+    'Mapache: Las manzanas aumentan el peso. Almacena manzanas antes de que el hambre y el peso sean un problema.',
   titleNormalDesc: 'Normal: Las manzanas aumentan la longitud.',
 
   // Popup Labels

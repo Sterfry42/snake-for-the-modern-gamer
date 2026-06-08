@@ -394,13 +394,12 @@ describe('world generation fairness', () => {
       for (let x = min; x <= max; x += 1) {
         for (const direction of ['east', 'south'] as const) {
           const first = rooms.get(`${x},${y},0`);
-          const second = rooms.get(
-            direction === 'east' ? `${x + 1},${y},0` : `${x},${y + 1},0`,
-          );
+          const second = rooms.get(direction === 'east' ? `${x + 1},${y},0` : `${x},${y + 1},0`);
           if (!first || !second) {
             continue;
           }
-          const length = direction === 'east' ? defaultGameConfig.grid.rows : defaultGameConfig.grid.cols;
+          const length =
+            direction === 'east' ? defaultGameConfig.grid.rows : defaultGameConfig.grid.cols;
           for (let index = 0; index < length; index += 1) {
             const firstTile = oppositeEdgeTile(first, direction, index, defaultGameConfig.grid);
             const secondTile = neighborEdgeTile(second, direction, index);
@@ -410,11 +409,7 @@ describe('world generation fairness', () => {
               continue;
             }
             const openRoom = firstBlocked ? second : first;
-            const openSide = firstBlocked
-              ? direction === 'east'
-                ? 'west'
-                : 'north'
-              : direction;
+            const openSide = firstBlocked ? (direction === 'east' ? 'west' : 'north') : direction;
             if (passableEdgeRunupClear(openRoom, openSide, index, defaultGameConfig.grid)) {
               failures.push(
                 `${first.id} ${direction} edge ${index}=${firstTile} mismatches ${second.id} opposite=${secondTile}`,

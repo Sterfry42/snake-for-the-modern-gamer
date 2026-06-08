@@ -22,4 +22,3 @@ export interface TownResidentRuntimeState {
   hidden?: boolean;
   relationshipId?: string;
 }
-

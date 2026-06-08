@@ -3,7 +3,11 @@ import type { QuestRuntime } from '../quest.js';
 
 class RamenRecipeHunt extends Quest {
   constructor() {
-    super('ramen-recipe-hunt', 'Ramen Recipe Hunt', 'Collect 3 rare ingredients from different biome areas');
+    super(
+      'ramen-recipe-hunt',
+      'Ramen Recipe Hunt',
+      'Collect 3 rare ingredients from different biome areas',
+    );
   }
 
   override baselineKeys(): readonly string[] {

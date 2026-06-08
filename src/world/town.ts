@@ -1302,7 +1302,10 @@ function gateGuardResidentPositions(args: {
         ]
       : [...args.openSides];
   const seen = new Set<string>();
-  const positions = [...openSides.map((side) => gateGuardPositionForSide(side, args.center)), ...fallback];
+  const positions = [
+    ...openSides.map((side) => gateGuardPositionForSide(side, args.center)),
+    ...fallback,
+  ];
   return positions.filter((position) => {
     const key = vectorKey(position);
     if (seen.has(key)) {

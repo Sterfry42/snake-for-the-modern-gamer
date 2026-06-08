@@ -338,12 +338,7 @@ export const snakeHatRecipe: RuntimeSpriteRecipe<SnakeHatVariant, SnakeHatPalett
         palette.outlineColor,
       );
       drawPixels(context, rotatePoints(CHEF_TOP, turns), pixelSize, palette.fillColor);
-      drawPixels(
-        context,
-        rotatePoints(CHEF_BAND, turns),
-        pixelSize,
-        palette.bandColor,
-      );
+      drawPixels(context, rotatePoints(CHEF_BAND, turns), pixelSize, palette.bandColor);
     } else {
       drawPixels(context, rotatePoints(HAT_TOP, turns), pixelSize, palette.outlineColor);
       drawPixels(context, rotatePoints(HAT_BRIM, turns), pixelSize, palette.outlineColor);

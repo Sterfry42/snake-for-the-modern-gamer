@@ -38,7 +38,7 @@ export const FISH_DEFINITIONS: readonly FishDefinition[] = [
   {
     typeId: 'desert-catfish',
     name: 'Desert Catfish',
-    description: 'Barely alive, still thrashing. The desert\'s idea of a meal.',
+    description: "Barely alive, still thrashing. The desert's idea of a meal.",
     biomeId: 'ember-waste',
     rarity: 'common',
     baseScore: 3,
@@ -353,9 +353,7 @@ export const FISH_DEFINITIONS: readonly FishDefinition[] = [
 ];
 
 /** Mapping from fish type id to definition */
-const FISH_MAP = new Map<string, FishDefinition>(
-  FISH_DEFINITIONS.map((f) => [f.typeId, f]),
-);
+const FISH_MAP = new Map<string, FishDefinition>(FISH_DEFINITIONS.map((f) => [f.typeId, f]));
 
 /** Lookup a fish definition by type id */
 export function getFishDefinition(typeId: string): FishDefinition | undefined {

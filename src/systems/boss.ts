@@ -196,16 +196,36 @@ export class BossManager {
 
     // Build a weighted pool: towards center appears 3x, away appears 1x
     const pool: Vector2Like[] = [];
-    if (dx > 0) { pool.push({ x: 1, y: 0 }); pool.push({ x: 1, y: 0 }); pool.push({ x: 1, y: 0 }); pool.push({ x: -1, y: 0 }); }
-    else if (dx < 0) { pool.push({ x: -1, y: 0 }); pool.push({ x: -1, y: 0 }); pool.push({ x: -1, y: 0 }); pool.push({ x: 1, y: 0 }); }
+    if (dx > 0) {
+      pool.push({ x: 1, y: 0 });
+      pool.push({ x: 1, y: 0 });
+      pool.push({ x: 1, y: 0 });
+      pool.push({ x: -1, y: 0 });
+    } else if (dx < 0) {
+      pool.push({ x: -1, y: 0 });
+      pool.push({ x: -1, y: 0 });
+      pool.push({ x: -1, y: 0 });
+      pool.push({ x: 1, y: 0 });
+    }
 
-    if (dy > 0) { pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: 1 }); pool.push({ x: 0, y: -1 }); }
-    else if (dy < 0) { pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: -1 }); pool.push({ x: 0, y: 1 }); }
+    if (dy > 0) {
+      pool.push({ x: 0, y: 1 });
+      pool.push({ x: 0, y: 1 });
+      pool.push({ x: 0, y: 1 });
+      pool.push({ x: 0, y: -1 });
+    } else if (dy < 0) {
+      pool.push({ x: 0, y: -1 });
+      pool.push({ x: 0, y: -1 });
+      pool.push({ x: 0, y: -1 });
+      pool.push({ x: 0, y: 1 });
+    }
 
     if (pool.length === 0) {
       const directions = [
-        { x: 1, y: 0 }, { x: -1, y: 0 },
-        { x: 0, y: 1 }, { x: 0, y: -1 },
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
       ];
       const valid = directions.filter(
         (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
@@ -226,12 +246,12 @@ export class BossManager {
     }
     // Fallback: any direction that isn't a direct reversal
     const all = [
-      { x: 1, y: 0 }, { x: -1, y: 0 },
-      { x: 0, y: 1 }, { x: 0, y: -1 },
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
     ];
-    const valid = all.filter(
-      (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
-    );
+    const valid = all.filter((d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0);
     return valid.length > 0 ? valid[Math.floor(rng() * valid.length)] : null;
   }
 
@@ -272,7 +292,8 @@ export class BossManager {
         ].filter((d) => d.x !== 0 || d.y !== 0);
 
         for (const direction of fleeDirections) {
-          if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0) continue;
+          if (direction.x + boss.direction.x === 0 && direction.y + boss.direction.y === 0)
+            continue;
           if (this.tryMoveBoss(boss, direction, deps, true)) break;
         }
       }
@@ -287,7 +308,7 @@ export class BossManager {
       return;
     }
 
- if (phase === 'attacking') {
+    if (phase === 'attacking') {
       // Track total attack phase duration (20 seconds)
       boss.jasonAttackingTimer = (boss.jasonAttackingTimer ?? 0) + (deps.stepMs ?? 1);
       if (boss.jasonAttackingTimer >= 20000) {
@@ -320,7 +341,11 @@ export class BossManager {
       switch (attackType) {
         case 0:
           const spiralId = `jason-move-${boss.id}-spiral`;
-          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: spiralId, moveType: 'spiral' });
+          deps.onEvent?.({
+            kind: 'jason-statham-move-started',
+            moveId: spiralId,
+            moveType: 'spiral',
+          });
           this._jasonSpiralChase(boss, deps);
           boss.jasonAttackCooldown = 0;
           break;
@@ -332,7 +357,11 @@ export class BossManager {
           break;
         case 2:
           const chargeId = `jason-move-${boss.id}-charge`;
-          deps.onEvent?.({ kind: 'jason-statham-move-started', moveId: chargeId, moveType: 'charge' });
+          deps.onEvent?.({
+            kind: 'jason-statham-move-started',
+            moveId: chargeId,
+            moveType: 'charge',
+          });
           this._jasonChargeMove(boss, deps);
           boss.jasonAttackCooldown = 0;
           break;
@@ -345,7 +374,8 @@ export class BossManager {
     const snakeHead = deps.getSnakeBody()[0];
     const bossHead = boss.body[0];
     if (snakeHead && bossHead) {
-      const proximityDistance = Math.abs(snakeHead.x - bossHead.x) + Math.abs(snakeHead.y - bossHead.y);
+      const proximityDistance =
+        Math.abs(snakeHead.x - bossHead.x) + Math.abs(snakeHead.y - bossHead.y);
       // Activate when the snake gets within 20 cells
       if (proximityDistance <= 20) {
         boss.jasonPhase = 'attacking';
@@ -367,7 +397,7 @@ export class BossManager {
     }
   }
 
- /**
+  /**
    * Hunt the snake: move toward it slowly during cooldown.
    */
   private _jasonHuntSnake(boss: Boss, deps: BossStepDependencies): void {
@@ -380,8 +410,14 @@ export class BossManager {
     const dy = snakeHead.y - bossHead.y;
     const preferred =
       Math.abs(dx) >= Math.abs(dy)
-        ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }]
-        : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
+        ? [
+            { x: Math.sign(dx), y: 0 },
+            { x: 0, y: Math.sign(dy) },
+          ]
+        : [
+            { x: 0, y: Math.sign(dy) },
+            { x: Math.sign(dx), y: 0 },
+          ];
 
     if (Math.random() < 0.6) {
       for (const direction of preferred) {
@@ -392,7 +428,7 @@ export class BossManager {
     }
   }
 
-/**
+  /**
    * Spiral chase: Jason moves in tightening circles toward the snake.
    */
   private _jasonSpiralChase(boss: Boss, deps: BossStepDependencies): void {
@@ -447,7 +483,7 @@ export class BossManager {
       return;
     }
 
-const dx = snakeHead.x - bossHead.x;
+    const dx = snakeHead.x - bossHead.x;
     const dy = snakeHead.y - bossHead.y;
 
     // Determine the primary direction toward the snake
@@ -524,7 +560,10 @@ const dx = snakeHead.x - bossHead.x;
         const secondaryOptions = preferred
           .map((d) => ({ x: d.y, y: d.x }))
           .filter(
-            (d) => (d.x !== 0 || d.y !== 0) && d.x + boss.direction.x !== 0 && d.y + boss.direction.y !== 0,
+            (d) =>
+              (d.x !== 0 || d.y !== 0) &&
+              d.x + boss.direction.x !== 0 &&
+              d.y + boss.direction.y !== 0,
           );
         for (const direction of secondaryOptions) {
           if (this.tryMoveBoss(boss, direction, deps, true)) {
@@ -611,7 +650,7 @@ const dx = snakeHead.x - bossHead.x;
     return Boolean(this.getBossAtPosition(position, roomId));
   }
 
- public getBossAtPosition(position: Vector2Like, roomId: string): Boss | null {
+  public getBossAtPosition(position: Vector2Like, roomId: string): Boss | null {
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {
       if (boss.body.some((segment) => segment.x === position.x && segment.y === position.y)) {
@@ -627,8 +666,7 @@ const dx = snakeHead.x - bossHead.x;
       if (boss.kind !== 'jason-statham' || boss.jasonPhase !== 'vulnerable') continue;
       // Check if the head overlaps any segment or is adjacent (including diagonals)
       const nearbySegments = boss.body.filter(
-        (segment) =>
-          Math.abs(segment.x - position.x) <= 1 && Math.abs(segment.y - position.y) <= 1,
+        (segment) => Math.abs(segment.x - position.x) <= 1 && Math.abs(segment.y - position.y) <= 1,
       );
       if (nearbySegments.length > 0) {
         return boss;
@@ -1069,7 +1107,12 @@ const dx = snakeHead.x - bossHead.x;
     this.bosses.clear();
   }
 
-  private attemptMove(boss: Boss, direction: Vector2Like, deps: BossStepDependencies, stayInRoom = false): void {
+  private attemptMove(
+    boss: Boss,
+    direction: Vector2Like,
+    deps: BossStepDependencies,
+    stayInRoom = false,
+  ): void {
     const nextHead = addVectors(boss.body[0], direction);
     const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
 

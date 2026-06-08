@@ -38,7 +38,9 @@ export class WorldService {
       if (roomId.startsWith('layer:')) {
         const instance = this.layerInstances.get(roomId);
         if (!instance) {
-          throw new Error(`Unknown layer room "${roomId}". Layer rooms must be entered through a registered LayerEntrance.`);
+          throw new Error(
+            `Unknown layer room "${roomId}". Layer rooms must be entered through a registered LayerEntrance.`,
+          );
         }
         const room = this.createLayerRoom(instance);
         this.rooms.set(roomId, room);
@@ -182,10 +184,7 @@ export class WorldService {
     return instance ? cloneLayerInstance(instance) : undefined;
   }
 
-  setLayerInstanceState(
-    layerId: string,
-    state: LayerInstance['state'],
-  ): LayerInstance | undefined {
+  setLayerInstanceState(layerId: string, state: LayerInstance['state']): LayerInstance | undefined {
     const existing = this.layerInstances.get(layerId);
     if (!existing) {
       return undefined;
@@ -291,23 +290,22 @@ export class WorldService {
   private createThievesGuildLayerRoom(instance: LayerInstance): RoomSnapshot {
     const town = instance.townId ? this.townsById.get(instance.townId) : undefined;
     const districtKind: TownRoomKind = 'guildHideout';
-    const roomTown =
-      town
-        ? cloneTownForRoom(
-            {
-              ...town,
-              districtByRoomId: {
-                ...town.districtByRoomId,
-                [instance.id]: districtKind,
-              },
-              physicalRoomIds: town.physicalRoomIds.includes(instance.id)
-                ? town.physicalRoomIds
-                : [...town.physicalRoomIds, instance.id],
+    const roomTown = town
+      ? cloneTownForRoom(
+          {
+            ...town,
+            districtByRoomId: {
+              ...town.districtByRoomId,
+              [instance.id]: districtKind,
             },
-            instance.id,
-            districtKind,
-          )
-        : undefined;
+            physicalRoomIds: town.physicalRoomIds.includes(instance.id)
+              ? town.physicalRoomIds
+              : [...town.physicalRoomIds, instance.id],
+          },
+          instance.id,
+          districtKind,
+        )
+      : undefined;
     const centerX = Math.floor(this.grid.cols / 2);
     const centerY = Math.floor(this.grid.rows / 2);
     const rows = Array.from({ length: this.grid.rows }, (_, y) => {

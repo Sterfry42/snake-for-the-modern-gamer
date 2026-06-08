@@ -38,12 +38,7 @@ function smoothNoise(x: number, y: number, seed: number): number {
   const sx = fx * fx * (3 - 2 * fx);
   const sy = fy * fy * (3 - 2 * fy);
 
-  return (
-    v00 * (1 - sx) * (1 - sy) +
-    v10 * sx * (1 - sy) +
-    v01 * (1 - sx) * sy +
-    v11 * sx * sy
-  );
+  return v00 * (1 - sx) * (1 - sy) + v10 * sx * (1 - sy) + v01 * (1 - sx) * sy + v11 * sx * sy;
 }
 
 function generateTerrainBlock(
@@ -54,16 +49,8 @@ function generateTerrainBlock(
   roomSeed: number,
 ): string {
   const seed = hashString(`${roomSeed}:${chunkX},${chunkY}`);
-  const noise1 = smoothNoise(
-    localX * 0.15 + chunkX * 10,
-    localY * 0.15 + chunkY * 10,
-    seed,
-  );
-  const noise2 = smoothNoise(
-    localX * 0.08 + chunkX * 20,
-    localY * 0.08 + chunkY * 20,
-    seed + 1000,
-  );
+  const noise1 = smoothNoise(localX * 0.15 + chunkX * 10, localY * 0.15 + chunkY * 10, seed);
+  const noise2 = smoothNoise(localX * 0.08 + chunkX * 20, localY * 0.08 + chunkY * 20, seed + 1000);
 
   const combined = (noise1 + noise2) / 2;
 
@@ -92,11 +79,7 @@ export function chunkSeed(roomId: string, chunkX: number, chunkY: number): numbe
   return hashString(`${roomId}:${chunkX},${chunkY}`);
 }
 
-export function generateChunk(
-  roomId: string,
-  chunkX: number,
-  chunkY: number,
-): Map<string, string> {
+export function generateChunk(roomId: string, chunkX: number, chunkY: number): Map<string, string> {
   const seed = chunkSeed(roomId, chunkX, chunkY);
   const blocks = new Map<string, string>();
 
@@ -155,12 +138,25 @@ export class ChunkManager {
     this.chunks.delete(key);
   }
 
-  getBlock(roomId: string, chunkX: number, chunkY: number, localX: number, localY: number): string | undefined {
+  getBlock(
+    roomId: string,
+    chunkX: number,
+    chunkY: number,
+    localX: number,
+    localY: number,
+  ): string | undefined {
     const blockKey = `${localX},${localY}`;
     return this.loadChunk(roomId, chunkX, chunkY).get(blockKey);
   }
 
-  setBlock(roomId: string, chunkX: number, chunkY: number, localX: number, localY: number, blockType: string): void {
+  setBlock(
+    roomId: string,
+    chunkX: number,
+    chunkY: number,
+    localX: number,
+    localY: number,
+    blockType: string,
+  ): void {
     const key = { roomId, chunkX, chunkY };
     const mapKey = this.toKey(key);
     const state = this.chunks.get(mapKey);
@@ -181,7 +177,13 @@ export class ChunkManager {
     }
   }
 
-  removeBlock(roomId: string, chunkX: number, chunkY: number, localX: number, localY: number): void {
+  removeBlock(
+    roomId: string,
+    chunkX: number,
+    chunkY: number,
+    localX: number,
+    localY: number,
+  ): void {
     const key = { roomId, chunkX, chunkY };
     const mapKey = this.toKey(key);
     const state = this.chunks.get(mapKey);
@@ -216,7 +218,10 @@ export class ChunkManager {
 
           const dx = worldX - centerX;
           const dy = worldY - centerY;
-          if (Math.abs(dx) <= CHUNK_SIZE * (rangeChunks + 1) && Math.abs(dy) <= CHUNK_SIZE * (rangeChunks + 1)) {
+          if (
+            Math.abs(dx) <= CHUNK_SIZE * (rangeChunks + 1) &&
+            Math.abs(dy) <= CHUNK_SIZE * (rangeChunks + 1)
+          ) {
             result.push({
               x: worldX,
               y: worldY,
@@ -257,8 +262,18 @@ export class ChunkManager {
     }
   }
 
-  serialize(): Array<{ roomId: string; chunkX: number; chunkY: number; blocks: Array<{ x: number; y: number; blockType: string }> }> {
-    const result: Array<{ roomId: string; chunkX: number; chunkY: number; blocks: Array<{ x: number; y: number; blockType: string }> }> = [];
+  serialize(): Array<{
+    roomId: string;
+    chunkX: number;
+    chunkY: number;
+    blocks: Array<{ x: number; y: number; blockType: string }>;
+  }> {
+    const result: Array<{
+      roomId: string;
+      chunkX: number;
+      chunkY: number;
+      blocks: Array<{ x: number; y: number; blockType: string }>;
+    }> = [];
     for (const state of this.chunks.values()) {
       if (state.dirty || state.blocks.size > 0) {
         const blocks: Array<{ x: number; y: number; blockType: string }> = [];
@@ -281,7 +296,14 @@ export class ChunkManager {
     return result;
   }
 
-  deserialize(data: Array<{ roomId: string; chunkX: number; chunkY: number; blocks: Array<{ x: number; y: number; blockType: string }> }>): void {
+  deserialize(
+    data: Array<{
+      roomId: string;
+      chunkX: number;
+      chunkY: number;
+      blocks: Array<{ x: number; y: number; blockType: string }>;
+    }>,
+  ): void {
     for (const entry of data) {
       const chunkX = Math.floor(entry.blocks[0]?.x / CHUNK_SIZE) ?? entry.chunkX;
       const chunkY = Math.floor(entry.blocks[0]?.y / CHUNK_SIZE) ?? entry.chunkY;

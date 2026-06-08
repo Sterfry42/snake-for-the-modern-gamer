@@ -23,7 +23,7 @@ export class FishingMinigame {
   private fishNameText: Phaser.GameObjects.Text | null = null;
   private messageText: Phaser.GameObjects.Text | null = null;
   private hookSprite: Phaser.GameObjects.Graphics | null = null;
-private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
+  private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
   private struggleBar: Phaser.GameObjects.Graphics | null = null;
   private struggleIndicator: Phaser.GameObjects.Graphics | null = null;
   private activeState: FishingState | null = null;
@@ -339,9 +339,23 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
       const indicatorX = struggleX + (state.struggleDirection === 1 ? 180 : 20);
       this.struggleIndicator.fillStyle(0xffffff, 1);
       if (state.struggleDirection === 1) {
-        this.struggleIndicator.fillTriangle(indicatorX, struggleBarY, indicatorX + 20, struggleBarY + 20, indicatorX - 5, struggleBarY + 20);
+        this.struggleIndicator.fillTriangle(
+          indicatorX,
+          struggleBarY,
+          indicatorX + 20,
+          struggleBarY + 20,
+          indicatorX - 5,
+          struggleBarY + 20,
+        );
       } else {
-        this.struggleIndicator.fillTriangle(indicatorX, struggleBarY, indicatorX - 20, struggleBarY + 20, indicatorX + 5, struggleBarY + 20);
+        this.struggleIndicator.fillTriangle(
+          indicatorX,
+          struggleBarY,
+          indicatorX - 20,
+          struggleBarY + 20,
+          indicatorX + 5,
+          struggleBarY + 20,
+        );
       }
     }
 
@@ -352,7 +366,8 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
     this.progressText!.setText(`${progressLabel}: ${Math.round(state.progress)}%`);
 
     // Resolve zone label via i18n
-    const zoneKey = `fishingZone${zoneInfo.zone.charAt(0).toUpperCase() + zoneInfo.zone.slice(1)}` as string;
+    const zoneKey =
+      `fishingZone${zoneInfo.zone.charAt(0).toUpperCase() + zoneInfo.zone.slice(1)}` as string;
     const resolvedZone = i18n.getFeatureString(zoneKey) ?? zoneInfo.zone.toUpperCase();
     this.zoneText!.setText(resolvedZone);
 
@@ -378,7 +393,6 @@ private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
   }
 
   private cleanup(): void {
-
     if (this.container) {
       this.container.destroy();
       this.container = null;

@@ -70,7 +70,7 @@ export class DayNightCycle {
     if (tod >= 12000 && tod < 14000) {
       // Sunset: warm orange to dark
       const progress = (tod - 12000) / 2000;
-      return interpolateColor(0xFFFFE0, 0x141430, progress);
+      return interpolateColor(0xffffe0, 0x141430, progress);
     }
     if (tod >= 14000 && tod < 24000) {
       return 0x141430; // Night
@@ -82,11 +82,11 @@ export class DayNightCycle {
     if (tod >= 2000 && tod < 4000) {
       // Sunrise: dark to warm orange
       const progress = (tod - 2000) / 2000;
-      return interpolateColor(0x141430, 0xFFFFE0, progress);
+      return interpolateColor(0x141430, 0xffffe0, progress);
     }
 
     // Day
-    return 0xFFFFE0;
+    return 0xffffe0;
   }
 
   getDayPhase(): 'dawn' | 'day' | 'dusk' | 'night' {

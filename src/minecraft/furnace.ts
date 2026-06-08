@@ -109,7 +109,10 @@ export function tryLoadFurnace(
   if (!furnace.inputItem) {
     const output = canSmelt(itemId);
     if (!output) {
-      return { success: false, message: 'Cannot smelt that. Try raw_iron, raw_gold, raw_beef, cobblestone, or sand.' };
+      return {
+        success: false,
+        message: 'Cannot smelt that. Try raw_iron, raw_gold, raw_beef, cobblestone, or sand.',
+      };
     }
     if (player.removeItem(itemId)) {
       furnace.inputItem = itemId;

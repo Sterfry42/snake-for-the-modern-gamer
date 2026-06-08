@@ -23,4 +23,3 @@ export function createWorldGenerationIdentity(seed = 'default-world'): WorldGene
     townSalt: salt('town'),
   };
 }
-

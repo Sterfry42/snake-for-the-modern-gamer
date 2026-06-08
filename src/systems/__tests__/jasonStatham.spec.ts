@@ -27,11 +27,12 @@ describe('Jason Statham Boss', () => {
     const bossManager = new BossManager(grid);
     bossManager.spawnJasonStatham('5,0,0');
     const deps = {
-      getRoom: (_roomId: string) => ({
-        id: '5,0,0',
-        layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
-        portals: [],
-      }) as any,
+      getRoom: (_roomId: string) =>
+        ({
+          id: '5,0,0',
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as any,
       getSnakeBody: () => [{ x: 0, y: 0 }],
       onEvent: () => {},
     };
@@ -50,13 +51,16 @@ describe('Jason Statham Boss', () => {
     bossManager.spawnJasonStatham('0,0,0');
     let eventKind: string | undefined;
     const deps = {
-      getRoom: (roomId: string) => ({
-        id: roomId,
-        layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
-        portals: [],
-      }) as any,
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as any,
       getSnakeBody: () => [{ x: 2, y: 2 }], // Near the boss
-      onEvent: (event: { kind: string }) => { eventKind = event.kind; },
+      onEvent: (event: { kind: string }) => {
+        eventKind = event.kind;
+      },
     };
 
     // Run steps until proximity triggers
@@ -122,11 +126,12 @@ describe('Jason Statham Boss', () => {
     boss!.jasonPhase = 'defeated';
 
     const deps = {
-      getRoom: (roomId: string) => ({
-        id: roomId,
-        layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
-        portals: [],
-      }) as any,
+      getRoom: (roomId: string) =>
+        ({
+          id: roomId,
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        }) as any,
       getSnakeBody: () => [{ x: 0, y: 0 }],
     };
 

@@ -33,7 +33,7 @@ export const QUEST_STRINGS_EN: QuestStringsType = {
     label: 'Find My Baby',
     description: 'Find the missing baby and bring it back to the grieving stranger.',
   },
-  'fisherman': {
+  fisherman: {
     label: 'Deep Waters',
     description: 'Hunt 5 fish in the sunken ocean',
   },
@@ -55,9 +55,10 @@ export const QUEST_STRINGS_EN: QuestStringsType = {
   },
   'freak-you': {
     label: 'Freak You',
-    description: 'Protect a terrified time traveler from the future version of you that learned how to hunt backward.',
+    description:
+      'Protect a terrified time traveler from the future version of you that learned how to hunt backward.',
   },
-  'furnisher': {
+  furnisher: {
     label: 'Furnisher',
     description: 'Buy 2 house upgrades',
   },
@@ -67,11 +68,13 @@ export const QUEST_STRINGS_EN: QuestStringsType = {
   },
   'goblin-ledger-debt': {
     label: 'Goblin Ledger Debt',
-    description: 'Find the missing goblin ledger-stamp and return it before the clerk decides your spine is acceptable collateral.',
+    description:
+      'Find the missing goblin ledger-stamp and return it before the clerk decides your spine is acceptable collateral.',
   },
   'green-purchase': {
     label: 'The Green Purchase',
-    description: 'Find the forest teleporter, buy the radioactive substance 100 depths below, and return before the timer kills you.',
+    description:
+      'Find the forest teleporter, buy the radioactive substance 100 depths below, and return before the timer kills you.',
   },
   'herd-master': {
     label: 'Herd Master',
@@ -131,7 +134,8 @@ export const QUEST_STRINGS_EN: QuestStringsType = {
   },
   'tax-collector-future-body': {
     label: 'The Tax Collector Of Your Future Body',
-    description: 'Visit three tax offices, settle your future-body debt, then return to the collector.',
+    description:
+      'Visit three tax offices, settle your future-body debt, then return to the collector.',
   },
   'treasure-hunter': {
     label: 'Treasure Hunter',

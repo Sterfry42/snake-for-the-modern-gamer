@@ -62,7 +62,8 @@ const RELIGIONS: Religion[] = [
   {
     id: 'kami',
     name: 'Kami Worship',
-    description: 'Gameplay bonuses: periodic shrine blessings, yokai insight, and passive spiritual length growth.',
+    description:
+      'Gameplay bonuses: periodic shrine blessings, yokai insight, and passive spiritual length growth.',
     mods: { shrineBlessing: true, yokaiInsight: true, spiritualLength: true },
   },
 ];

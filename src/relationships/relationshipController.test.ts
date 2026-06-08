@@ -19,7 +19,9 @@ function createRuntime() {
   };
 }
 
-function makeState(overrides: Partial<RelationshipState> & Pick<RelationshipState, 'id' | 'displayName'>): RelationshipState {
+function makeState(
+  overrides: Partial<RelationshipState> & Pick<RelationshipState, 'id' | 'displayName'>,
+): RelationshipState {
   return {
     id: overrides.id,
     displayName: overrides.displayName,

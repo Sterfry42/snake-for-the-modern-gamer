@@ -83,12 +83,7 @@ export class MobManager {
     this.mobs.clear();
   }
 
-  spawnMob(
-    roomId: string,
-    type: MobTypeId,
-    x: number,
-    y: number,
-  ): MobState {
+  spawnMob(roomId: string, type: MobTypeId, x: number, y: number): MobState {
     const def = MOB_DEFINITIONS[type];
     if (!def) {
       throw new Error(`Unknown mob type: ${type}`);
@@ -129,12 +124,7 @@ export class MobManager {
     return result;
   }
 
-  getMobsNearPosition(
-    x: number,
-    y: number,
-    roomId: string,
-    radius: number,
-  ): MobState[] {
+  getMobsNearPosition(x: number, y: number, roomId: string, radius: number): MobState[] {
     return Array.from(this.mobs.values()).filter((mob) => {
       if (mob.roomId !== roomId) return false;
       const dx = mob.x - x;
@@ -258,10 +248,7 @@ export class MobManager {
     }
   }
 
-  onMobDeath(
-    mobId: string,
-    onDropItem: (itemId: string, count: number) => void,
-  ): boolean {
+  onMobDeath(mobId: string, onDropItem: (itemId: string, count: number) => void): boolean {
     const mob = this.mobs.get(mobId);
     if (!mob) return false;
 

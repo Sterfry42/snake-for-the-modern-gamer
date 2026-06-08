@@ -104,11 +104,7 @@ describe('cave determinism', () => {
 
     const room = result.room;
     const hasStampedStructure = Boolean(
-      room.village ||
-        room.goblinCamp ||
-        room.snakeMcDonalds ||
-        room.shrine ||
-        room.questGiver,
+      room.village || room.goblinCamp || room.snakeMcDonalds || room.shrine || room.questGiver,
     );
 
     expect(room.cave?.forcedStructureId).toBeDefined();
