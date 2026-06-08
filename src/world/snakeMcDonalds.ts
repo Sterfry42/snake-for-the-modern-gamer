@@ -69,7 +69,16 @@ export function tryPlaceSnakeMcDonalds(
     const left = minLeft + Math.floor(rng() * (maxLeft - minLeft + 1));
     const top = minTop + Math.floor(rng() * (maxTop - minTop + 1));
 
-    if (!canPlaceRect(layout, left, top, MC_BUILDING_WIDTH, MC_BUILDING_HEIGHT, options.forbiddenCells)) {
+    if (
+      !canPlaceRect(
+        layout,
+        left,
+        top,
+        MC_BUILDING_WIDTH,
+        MC_BUILDING_HEIGHT,
+        options.forbiddenCells,
+      )
+    ) {
       continue;
     }
 

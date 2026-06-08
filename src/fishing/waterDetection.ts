@@ -17,20 +17,16 @@ function isInRoom(x: number, y: number, room: RoomSnapshot): boolean {
  * Check if a tile at position is a water tile ('~').
  * 4-directional only.
  */
-export function hasAdjacentWater(
-  x: number,
-  y: number,
-  room: RoomSnapshot,
-): boolean {
+export function hasAdjacentWater(x: number, y: number, room: RoomSnapshot): boolean {
   const layout = room.layout;
   if (!layout || layout.length === 0) return false;
 
   // Check all 4 cardinal directions
   const directions: Vector2Like[] = [
     { x: 0, y: -1 }, // up
-    { x: 0, y: 1 },  // down
+    { x: 0, y: 1 }, // down
     { x: -1, y: 0 }, // left
-    { x: 1, y: 0 },  // right
+    { x: 1, y: 0 }, // right
   ];
 
   for (const dir of directions) {

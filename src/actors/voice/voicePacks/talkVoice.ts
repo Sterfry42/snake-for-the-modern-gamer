@@ -154,7 +154,7 @@ export const TALK_VOICE: readonly ActorVoiceEntry[] = [
     id: 'talk-length-tiny-sharp',
     bucket: 'talk',
     topic: 'talk.player.length',
-    text: 'Garden snake energy. Brave of you to make it everyone\'s problem.',
+    text: "Garden snake energy. Brave of you to make it everyone's problem.",
     priority: 64,
     personalityTags: ['sharp', 'deadpan'],
     snakeLengthBands: ['tiny'],

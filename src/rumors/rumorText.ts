@@ -3,13 +3,26 @@ import type { FactionCurrentEvent } from '../factions/factionTypes.js';
 import type { Rumor, RumorSourceKind, RumorType } from './rumorTypes.js';
 
 export function rumorTypeForWorldEvent(event: WorldEvent): RumorType {
-  if (event.tags.includes('marriage') || event.tags.includes('divorce') || event.tags.includes('relationship')) {
+  if (
+    event.tags.includes('marriage') ||
+    event.tags.includes('divorce') ||
+    event.tags.includes('relationship')
+  ) {
     return 'romance';
   }
-  if (event.tags.includes('guild') || event.tags.includes('pickpocket') || event.tags.includes('crime') || event.type === 'town-crime') {
+  if (
+    event.tags.includes('guild') ||
+    event.tags.includes('pickpocket') ||
+    event.tags.includes('crime') ||
+    event.type === 'town-crime'
+  ) {
     return 'crime';
   }
-  if (event.tags.includes('faction') || event.tags.includes('goblin') || event.tags.includes('bandit')) {
+  if (
+    event.tags.includes('faction') ||
+    event.tags.includes('goblin') ||
+    event.tags.includes('bandit')
+  ) {
     return 'faction';
   }
   if (event.tags.includes('lore') || event.tags.includes('king')) {
@@ -18,7 +31,11 @@ export function rumorTypeForWorldEvent(event: WorldEvent): RumorType {
   if (event.tags.includes('shop')) {
     return 'shop';
   }
-  if (event.tags.includes('combat') || event.tags.includes('eaten') || event.tags.includes('hunting')) {
+  if (
+    event.tags.includes('combat') ||
+    event.tags.includes('eaten') ||
+    event.tags.includes('hunting')
+  ) {
     return 'danger';
   }
   return 'player-action';
@@ -67,7 +84,8 @@ export function factionIdsForWorldEvent(event: WorldEvent): string[] {
   const factions = new Set<string>();
   for (const tag of event.tags) {
     if (tag === 'goblin' || tag === 'goblin-camps') factions.add('goblin-camps');
-    if (tag === 'town' || tag === 'guard' || tag === 'human' || tag === 'hearthbound-remnant') factions.add('hearthbound-remnant');
+    if (tag === 'town' || tag === 'guard' || tag === 'human' || tag === 'hearthbound-remnant')
+      factions.add('hearthbound-remnant');
     if (tag === 'bandit' || tag === 'bandits') factions.add('bandits');
     if (tag === 'guild' || tag === 'thieves-guild') factions.add('thieves-guild');
     if (tag === 'angel' || tag === 'angels') factions.add('angels');
@@ -135,7 +153,11 @@ export function rumorFromFactionEvent(event: FactionCurrentEvent, createdAt: num
     roomId: event.roomId,
     factionIds: [...event.factionIds],
     type: 'faction',
-    sourceKind: event.type.includes('raid') ? 'bandit' : event.tags.includes('goblin') ? 'goblin' : 'official',
+    sourceKind: event.type.includes('raid')
+      ? 'bandit'
+      : event.tags.includes('goblin')
+        ? 'goblin'
+        : 'official',
     truthLevel: 84,
     exaggeration: Math.min(35, Math.max(5, Math.round(event.severity / 3))),
     severity: event.severity,

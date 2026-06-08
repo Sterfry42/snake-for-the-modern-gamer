@@ -9,9 +9,7 @@ const definition: AnimalDefinition = {
   moveInterval: 2,
   behavior: 'school',
   snakeEncounter: 'harmless',
-  drops: [
-    { itemId: 'fish-meat', chance: 0.6 },
-  ],
+  drops: [{ itemId: 'fish-meat', chance: 0.6 }],
   spritePrefix: 'fish',
   maxHearts: 1,
 };

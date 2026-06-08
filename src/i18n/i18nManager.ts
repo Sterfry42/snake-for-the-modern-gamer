@@ -69,10 +69,14 @@ class I18nManager {
   }
 
   getFeatureString(key: string): string {
-    const current = (this.translations[this.currentLanguage]?.featureStrings as unknown as Record<string, string>)?.[key];
+    const current = (
+      this.translations[this.currentLanguage]?.featureStrings as unknown as Record<string, string>
+    )?.[key];
     if (current !== undefined && current !== null) return current;
     // Fallback to English
-    const en = (this.translations['en']?.featureStrings as unknown as Record<string, string>)?.[key];
+    const en = (this.translations['en']?.featureStrings as unknown as Record<string, string>)?.[
+      key
+    ];
     if (en !== undefined && en !== null) return en;
     return key;
   }

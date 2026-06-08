@@ -73,11 +73,7 @@ export class AnimalManager {
     private readonly rng: RandomGenerator,
   ) {}
 
-  ensureAnimals(
-    roomId: string,
-    room: RoomSnapshot,
-    occupied: readonly Vector2Like[],
-  ): void {
+  ensureAnimals(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
     if (roomId === '0,-1,0') {
       return;
     }
@@ -234,13 +230,7 @@ export class AnimalManager {
   }
 
   step(params: AnimalStepParams): AnimalStepResult {
-    const {
-      getRoom,
-      snake,
-      currentRoomId,
-      snakeDirection,
-      tameCallback,
-    } = params;
+    const { getRoom, snake, currentRoomId, snakeDirection, tameCallback } = params;
 
     const result: AnimalStepResult = {
       tames: 0,
@@ -355,7 +345,10 @@ export class AnimalManager {
     headLocal: Vector2Like,
     snakeDirection: Vector2Like,
   ): AnimalInstance {
-    if (def.snakeEncounter === 'dangerous' && this.isSnakeCharging(animal.position, headLocal, snakeDirection)) {
+    if (
+      def.snakeEncounter === 'dangerous' &&
+      this.isSnakeCharging(animal.position, headLocal, snakeDirection)
+    ) {
       const next = this.tryMoveAway(animal, room, headLocal, this.isWalkableAnimalTile);
       return next ? { ...animal, position: next } : animal;
     }
@@ -411,15 +404,12 @@ export class AnimalManager {
     headLocal: Vector2Like,
     tileCheck: (tile: string, x: number, y: number) => boolean,
   ): Vector2Like | null {
-    const directions = shuffle(
-      this.rng,
-      [
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-      ],
-    );
+    const directions = shuffle(this.rng, [
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
+    ]);
 
     for (const dir of directions) {
       const next = { x: animal.position.x + dir.x, y: animal.position.y + dir.y };
@@ -445,12 +435,14 @@ export class AnimalManager {
     if (dy !== 0) {
       preferred.push({ x: 0, y: dy });
     }
-    preferred.push(...shuffle(this.rng, [
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ]));
+    preferred.push(
+      ...shuffle(this.rng, [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ]),
+    );
 
     for (const dir of preferred) {
       const next = { x: animal.position.x + dir.x, y: animal.position.y + dir.y };
@@ -476,12 +468,14 @@ export class AnimalManager {
     if (dy !== 0) {
       preferred.push({ x: 0, y: dy });
     }
-    preferred.push(...shuffle(this.rng, [
-      { x: 1, y: 0 },
-      { x: -1, y: 0 },
-      { x: 0, y: 1 },
-      { x: 0, y: -1 },
-    ]));
+    preferred.push(
+      ...shuffle(this.rng, [
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+        { x: 0, y: 1 },
+        { x: 0, y: -1 },
+      ]),
+    );
 
     let best: Vector2Like | null = null;
     let bestDist = manhattanDistance(animal.position, target);
@@ -633,9 +627,7 @@ export class AnimalManager {
       return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
     }
 
-    const target = roomAnimals.find(
-      (a) => a.position.x === local.x && a.position.y === local.y,
-    );
+    const target = roomAnimals.find((a) => a.position.x === local.x && a.position.y === local.y);
 
     if (!target) {
       return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
@@ -719,9 +711,7 @@ export class AnimalManager {
 
     if (nextHearts > 0) {
       defeated.flashTicks = 3;
-      const remaining = roomAnimals.map((a) =>
-        a.id === target.id ? defeated : a,
-      );
+      const remaining = roomAnimals.map((a) => (a.id === target.id ? defeated : a));
       this.animals.set(roomId, remaining);
       return { hit: true };
     }

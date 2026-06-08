@@ -101,14 +101,18 @@ export class RumorSystem {
 
   addRumor(rumor: Rumor): Rumor {
     this.rumors = [
-      ...this.rumors.filter((entry) => entry.id !== rumor.id && entry.sourceEventId !== rumor.sourceEventId),
+      ...this.rumors.filter(
+        (entry) => entry.id !== rumor.id && entry.sourceEventId !== rumor.sourceEventId,
+      ),
       rumor,
     ].slice(-this.maxRumors);
     return rumor;
   }
 
   tick(currentRoomNumber: number): void {
-    this.rumors = this.rumors.filter((rumor) => rumor.expiresAt === undefined || rumor.expiresAt > currentRoomNumber);
+    this.rumors = this.rumors.filter(
+      (rumor) => rumor.expiresAt === undefined || rumor.expiresAt > currentRoomNumber,
+    );
   }
 
   save(): RumorSaveData {
@@ -140,4 +144,3 @@ function truthLevelForWorldEvent(event: WorldEvent): number {
   if (event.severity >= 70) value -= 5;
   return Math.max(5, Math.min(100, value));
 }
-

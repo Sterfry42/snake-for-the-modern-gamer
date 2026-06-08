@@ -56,7 +56,10 @@ export class FactionEventSystem {
       .reverse();
   }
 
-  ensureState(factionId: string, scope: { townId?: string; roomId?: string } = {}): LocalFactionState {
+  ensureState(
+    factionId: string,
+    scope: { townId?: string; roomId?: string } = {},
+  ): LocalFactionState {
     const id = stateIdFor(factionId, scope);
     const existing = this.localStates.get(id);
     if (existing) return existing;
@@ -111,25 +114,37 @@ export class FactionEventSystem {
       tags: [...new Set([...(input.tags ?? []), 'faction', input.type])],
       flags: input.flags ?? {},
     };
-    this.currentEvents = [...this.currentEvents.filter((entry) => entry.id !== event.id), event].slice(-this.maxEvents);
+    this.currentEvents = [
+      ...this.currentEvents.filter((entry) => entry.id !== event.id),
+      event,
+    ].slice(-this.maxEvents);
     for (const factionId of factionIds) {
       this.applyEventToState(factionId, event);
     }
     return event;
   }
 
-  createEventsFromWorldEvent(event: WorldEvent, actors: readonly Actor[] = []): FactionCurrentEvent[] {
+  createEventsFromWorldEvent(
+    event: WorldEvent,
+    actors: readonly Actor[] = [],
+  ): FactionCurrentEvent[] {
     const factionIds = factionsInWorldEvent(event);
     const currentRoom = event.createdAtRoomNumber ?? 0;
     const created: FactionCurrentEvent[] = [];
     const actorIds = actors
-      .filter((actor) => event.witnessActorIds.includes(actor.id) || event.targetActorIds.includes(actor.id))
+      .filter(
+        (actor) =>
+          event.witnessActorIds.includes(actor.id) || event.targetActorIds.includes(actor.id),
+      )
       .map((actor) => actor.id);
 
     if (event.type === 'town-crime' || event.tags.includes('pickpocket')) {
       created.push(
         this.createEvent({
-          type: event.tags.includes('guild') || event.tags.includes('pickpocket') ? 'guild-exposure' : 'guard-crackdown',
+          type:
+            event.tags.includes('guild') || event.tags.includes('pickpocket')
+              ? 'guild-exposure'
+              : 'guard-crackdown',
           factionIds: [...new Set([...factionIds, 'guards', 'thieves-guild'])],
           actorIds,
           townId: typeof event.data?.townId === 'string' ? event.data.townId : undefined,
@@ -153,7 +168,8 @@ export class FactionEventSystem {
           roomId: event.roomId,
           severity: Math.max(24, event.severity),
           createdAt: currentRoom,
-          summary: 'A humanoid was eaten, and every faction nearby is deciding whether that was medicine or policy.',
+          summary:
+            'A humanoid was eaten, and every faction nearby is deciding whether that was medicine or policy.',
           tags: [...event.tags, 'skirmish', 'player-action'],
         }),
       );
@@ -170,13 +186,18 @@ export class FactionEventSystem {
           severity: Math.max(35, event.severity),
           phase: 'active',
           createdAt: currentRoom,
-          summary: event.summary || 'Bandits are attacking while everyone argues about whose job prevention was.',
+          summary:
+            event.summary ||
+            'Bandits are attacking while everyone argues about whose job prevention was.',
           tags: [...event.tags, 'bandit', 'raid', 'active'],
         }),
       );
     }
 
-    if (event.tags.includes('goblin') && (event.tags.includes('crime') || event.tags.includes('eaten'))) {
+    if (
+      event.tags.includes('goblin') &&
+      (event.tags.includes('crime') || event.tags.includes('eaten'))
+    ) {
       created.push(
         this.createEvent({
           type: 'trade-dispute',
@@ -200,9 +221,10 @@ export class FactionEventSystem {
           roomId: event.roomId,
           severity: Math.max(18, event.severity),
           createdAt: currentRoom,
-          summary: event.severity >= 50
-            ? 'Bandit violence has left the market counting what can still stand.'
-            : 'Bandits have been seen close enough for shopkeepers to price fear.',
+          summary:
+            event.severity >= 50
+              ? 'Bandit violence has left the market counting what can still stand.'
+              : 'Bandits have been seen close enough for shopkeepers to price fear.',
           tags: [...event.tags, 'bandit', 'raid'],
         }),
       );
@@ -314,13 +336,18 @@ export class FactionEventSystem {
         }
         continue;
       }
-      if (event.phase !== 'resolved' || (event.expiresAt ?? currentRoomNumber + 1) > currentRoomNumber) {
+      if (
+        event.phase !== 'resolved' ||
+        (event.expiresAt ?? currentRoomNumber + 1) > currentRoomNumber
+      ) {
         nextEvents.push(event);
       }
     }
     this.currentEvents = nextEvents.slice(-this.maxEvents);
     for (const state of this.localStates.values()) {
-      state.activeEvents = state.activeEvents.filter((id) => this.currentEvents.some((event) => event.id === id && event.phase !== 'resolved'));
+      state.activeEvents = state.activeEvents.filter((id) =>
+        this.currentEvents.some((event) => event.id === id && event.phase !== 'resolved'),
+      );
       state.recentEvents = state.recentEvents.slice(-12);
       state.tension = Math.max(0, Math.round(state.tension * 0.98));
       state.danger = Math.max(0, Math.round(state.danger * 0.98));
@@ -353,7 +380,10 @@ export class FactionEventSystem {
       relationPressure += relationSeverityBump(relation);
       state.relations[other] = escalateRelation(relation, event);
     }
-    state.tension = Math.min(100, state.tension + Math.round(event.severity / 3) + relationPressure);
+    state.tension = Math.min(
+      100,
+      state.tension + Math.round(event.severity / 3) + relationPressure,
+    );
     state.danger = Math.min(100, state.danger + eventDanger(event));
     state.resources = Math.max(0, Math.min(100, state.resources + eventResourceDelta(event)));
     state.activeEvents = [...new Set([...state.activeEvents, event.id])].slice(-10);
@@ -366,7 +396,13 @@ function stateIdFor(factionId: string, scope: { townId?: string; roomId?: string
 }
 
 function phaseForEventType(type: FactionCurrentEventType): FactionCurrentEventPhase {
-  if (type === 'raid-active' || type === 'skirmish' || type === 'guard-crackdown' || type === 'market-shutdown') return 'active';
+  if (
+    type === 'raid-active' ||
+    type === 'skirmish' ||
+    type === 'guard-crackdown' ||
+    type === 'market-shutdown'
+  )
+    return 'active';
   if (type === 'raid-aftermath') return 'aftermath';
   return 'brewing';
 }
@@ -388,7 +424,10 @@ function expiryForEventType(type: FactionCurrentEventType): number {
   }
 }
 
-function defaultFactionEventSummary(type: FactionCurrentEventType, factionIds: readonly string[]): string {
+function defaultFactionEventSummary(
+  type: FactionCurrentEventType,
+  factionIds: readonly string[],
+): string {
   const factions = factionIds.join(' and ');
   switch (type) {
     case 'argument':
@@ -452,7 +491,10 @@ function eventResourceDelta(event: FactionCurrentEvent): number {
   }
 }
 
-function escalateRelation(relation: LocalFactionState['relations'][string], event: FactionCurrentEvent): LocalFactionState['relations'][string] {
+function escalateRelation(
+  relation: LocalFactionState['relations'][string],
+  event: FactionCurrentEvent,
+): LocalFactionState['relations'][string] {
   if (event.type === 'raid-active' || event.type === 'skirmish') {
     if (relation === 'allied' || relation === 'friendly') return relation;
     if (relation === 'neutral') return 'tense';
@@ -461,7 +503,11 @@ function escalateRelation(relation: LocalFactionState['relations'][string], even
     if (relation === 'skirmishing') return 'hostile';
     return relation;
   }
-  if (event.type === 'trade-dispute' || event.type === 'inspection' || event.type === 'debt-collection') {
+  if (
+    event.type === 'trade-dispute' ||
+    event.type === 'inspection' ||
+    event.type === 'debt-collection'
+  ) {
     if (relation === 'friendly') return 'neutral';
     if (relation === 'neutral') return 'tense';
     if (relation === 'truce') return 'tense';

@@ -10,7 +10,11 @@ export class RandomObstacleOperations {
   ) {}
 
   place(context: RoomGenerationContext): void {
-    if (context.archetype?.suppressRandomObstacles || context.townMembership || context.townAdjacency) {
+    if (
+      context.archetype?.suppressRandomObstacles ||
+      context.townMembership ||
+      context.townAdjacency
+    ) {
       return;
     }
 

@@ -299,9 +299,7 @@ const FORTITUDE_BRANCH: BranchConfig = {
         {
           description: 'Gain +1 max heart.',
           cost: 18,
-          effects: [
-            { type: 'setFlag', key: 'player.maxHealth', value: 4, resetValue: 3 },
-          ],
+          effects: [{ type: 'setFlag', key: 'player.maxHealth', value: 4, resetValue: 3 }],
         },
       ],
     },
@@ -982,7 +980,12 @@ const TRAVERSAL_BRANCH: BranchConfig = {
           description: 'Unlock last-death map marker and death reason hints.',
           cost: 14,
           effects: [
-            { type: 'setFlag', key: 'skill.cartographer.deathMarker', value: true, resetValue: false },
+            {
+              type: 'setFlag',
+              key: 'skill.cartographer.deathMarker',
+              value: true,
+              resetValue: false,
+            },
           ],
         },
       ],
@@ -1185,7 +1188,8 @@ const GEOMETRY_BRANCH: BranchConfig = {
       description: 'Turn raw animal food into healing meals at cooking sources.',
       ranks: [
         {
-          description: 'Unlock basic meat and fish cooking at kitchens, diners, ramen stands, and campfires.',
+          description:
+            'Unlock basic meat and fish cooking at kitchens, diners, ramen stands, and campfires.',
           cost: 14,
           effects: [
             { type: 'setFlag', key: 'skill.homestead.campCook', value: true, resetValue: false },

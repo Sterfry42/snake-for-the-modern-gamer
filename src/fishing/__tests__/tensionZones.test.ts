@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import {
-  getTensionZone,
-  TENSION_ZONES,
-} from '../tensionZones.js';
+import { getTensionZone, TENSION_ZONES } from '../tensionZones.js';
 
 describe('Tension Zone Partition', () => {
   it('should be a strict mathematical partition covering 0-100 with no gaps', () => {
@@ -13,15 +10,17 @@ describe('Tension Zone Partition', () => {
     }
 
     // All 7 zones must be present
-    expect(zones).toEqual(new Set([
-      'critical-low',
-      'warning-low',
-      'danger-low',
-      'safe',
-      'danger-high',
-      'warning-high',
-      'critical-high',
-    ]));
+    expect(zones).toEqual(
+      new Set([
+        'critical-low',
+        'warning-low',
+        'danger-low',
+        'safe',
+        'danger-high',
+        'warning-high',
+        'critical-high',
+      ]),
+    );
   });
 
   it('should assign correct zones for boundary values', () => {

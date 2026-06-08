@@ -90,7 +90,10 @@ export function getFactionEffects(id: FactionId, standing: FactionStanding): str
         return ['Goblin shopkeeps refuse service.', 'Camp guards are close to violence.'];
       }
       if (standing === 'wary') {
-        return ['Ward scrolls are available at higher prices.', 'Camp dialogue is less charitable.'];
+        return [
+          'Ward scrolls are available at higher prices.',
+          'Camp dialogue is less charitable.',
+        ];
       }
       return ['Ward scrolls are available.', 'Buying contracts improves relations slightly.'];
   }

@@ -154,14 +154,14 @@ export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
     biomeIds: ['liberty-badlands'],
     portraitId: 'badlands-ranger-neutral',
   },
- {
-     id: 'ocean-resident',
-     text: 'If the floor starts waving, wave back. It likes manners.',
-     priority: 30,
-     roles: ['resident', 'romance', 'villager'],
-     biomeIds: ['sunken-ocean'],
-     portraitId: 'ocean-fisher-neutral',
-   },
+  {
+    id: 'ocean-resident',
+    text: 'If the floor starts waving, wave back. It likes manners.',
+    priority: 30,
+    roles: ['resident', 'romance', 'villager'],
+    biomeIds: ['sunken-ocean'],
+    portraitId: 'ocean-fisher-neutral',
+  },
   {
     id: 'sterling-ocean-greeting',
     text: '"The water down here does not forgive speed. It eats fast things first."',
@@ -254,13 +254,19 @@ function isConditionMet(condition: NpcVoiceCondition, context: NpcVoiceContext):
     case 'dangerAtLeast':
       return context.dangerLevel >= condition.value;
     case 'healthBelowPercent':
-      return context.playerMaxHealth > 0 && context.playerHealth / context.playerMaxHealth <= condition.value;
+      return (
+        context.playerMaxHealth > 0 &&
+        context.playerHealth / context.playerMaxHealth <= condition.value
+      );
     case 'flag':
       return condition.equals === undefined
         ? context.flags[condition.key] !== undefined
         : context.flags[condition.key] === condition.equals;
     case 'recentEvent':
-      return context.recentEvents.includes(condition.eventId) || context.flags[condition.eventId] !== undefined;
+      return (
+        context.recentEvents.includes(condition.eventId) ||
+        context.flags[condition.eventId] !== undefined
+      );
     case 'hasItem':
       return Boolean(context.hasItem?.(condition.itemId));
     case 'hasSkill':

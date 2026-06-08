@@ -693,7 +693,7 @@ export const ITEMS: readonly Item[] = [
   },
   {
     id: 'fishing-rod-carpenter',
-    name: 'Carpenter\'s Rod',
+    name: "Carpenter's Rod",
     description: 'A reinforced fishing rod with a stiffer line. Better catches, better prices.',
     kind: 'equipment',
     slot: 'gloves',
@@ -704,7 +704,7 @@ export const ITEMS: readonly Item[] = [
   },
   {
     id: 'fishing-rod-master',
-    name: 'Master Angler\'s Rod',
+    name: "Master Angler's Rod",
     description: 'The finest fishing rod in the realm. Legendary fish know its approach.',
     kind: 'equipment',
     slot: 'gloves',
@@ -732,7 +732,7 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'fish-desert-catfish',
     name: 'Desert Catfish',
-    description: 'Barely alive, still thrashing. The desert\'s idea of a meal.',
+    description: "Barely alive, still thrashing. The desert's idea of a meal.",
     kind: 'consumable',
     category: 'food',
   },

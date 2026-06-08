@@ -111,7 +111,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   cardTeethSevenDesc: '+7 chips. Doubles if played with another Teeth card.',
   cardLanternThreeDesc: '+3 chips. +5 if town is active.',
   cardMarketAceDesc: 'Doubles your chips. Window +2.',
-  cardMoonJackDesc: 'Copies the left card\'s chips and suits.',
+  cardMoonJackDesc: "Copies the left card's chips and suits.",
   cardSmokeSmogDesc: '+6 chips. Doubled alone, halved with other Smoke.',
   cardCarefulFiveDesc: '+5 chips. Can reduce opponent chips.',
   cardAccountantOneDesc: '+1 chip. Adjusts score by -2 if alone.',
@@ -187,7 +187,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   placeholderInventory: 'Items you collect will appear here.',
   placeholderCustomize: 'Buy palettes and swagger.',
   placeholderMap: 'Explore to reveal more rooms.',
-  placeholderCheats: 'Enter cheat strings: freakdennis, freakerdennis',
+  placeholderCheats: "Enter cheat strings: freakdennis, freakerdennis, ryan's closet",
 
   // HUD
   hudHearts: 'Hearts',
@@ -200,7 +200,8 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   titleNormal: 'Snake for the Modern Gamer',
   titleRaccoonLabel: 'Raccoon',
   titleNormalLabel: 'Normal',
-  titleRaccoonDesc: 'Raccoon: Apples increase weight. Stash apples before hunger and weight become a problem.',
+  titleRaccoonDesc:
+    'Raccoon: Apples increase weight. Stash apples before hunger and weight become a problem.',
   titleNormalDesc: 'Normal: Apples increase length.',
 
   // Popup Labels

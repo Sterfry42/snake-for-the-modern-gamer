@@ -48,7 +48,16 @@ describe('Save Migration v2→v3', () => {
       flags: {},
       fishing: {
         caughtFish: { 'fish-minnow': 1 },
-        catchJournal: [{ id: 'existing-entry', typeId: 'minnow', biomeId: 'verdigris-basin', rarity: 'common', weight: 0.2, timestamp: 0 }],
+        catchJournal: [
+          {
+            id: 'existing-entry',
+            typeId: 'minnow',
+            biomeId: 'verdigris-basin',
+            rarity: 'common',
+            weight: 0.2,
+            timestamp: 0,
+          },
+        ],
         equippedRod: 'fishing-rod',
       },
     };

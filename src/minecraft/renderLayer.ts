@@ -2,7 +2,12 @@ import type { BlockData, ChunkKey } from './types.js';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { CHUNK_SIZE, RENDER_DISTANCE } from './config.js';
 import { ChunkManager, chunkSeed } from './chunk.js';
-import { isMinecraftBlockType, blockIdToColor, isSolidBlock, getBlockType } from './blockRegistry.js';
+import {
+  isMinecraftBlockType,
+  blockIdToColor,
+  isSolidBlock,
+  getBlockType,
+} from './blockRegistry.js';
 
 export class MinecraftRenderLayer {
   private graphics: Phaser.GameObjects.Graphics;

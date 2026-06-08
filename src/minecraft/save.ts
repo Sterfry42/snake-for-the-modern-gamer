@@ -22,8 +22,24 @@ export function serializeMinecraftState(
   mobs: Array<{ id: string; type: string; roomId: string; x: number; y: number; health: number }>,
   minecraftBlocks: Array<{ roomId: string; x: number; y: number; blockType: string }>,
   dirtyChunks: Array<{ roomId: string; chunkX: number; chunkY: number }>,
-  furnaces?: Array<{ x: number; y: number; roomId: string; progress: number; inputItem: string | null; outputItem: string | null; outputCount: number; fuelItem: string | null; fuelRemaining: number; burning: boolean }>,
-  chests?: Array<{ x: number; y: number; roomId: string; slots: Array<{ itemId: string; count: number }> }>,
+  furnaces?: Array<{
+    x: number;
+    y: number;
+    roomId: string;
+    progress: number;
+    inputItem: string | null;
+    outputItem: string | null;
+    outputCount: number;
+    fuelItem: string | null;
+    fuelRemaining: number;
+    burning: boolean;
+  }>,
+  chests?: Array<{
+    x: number;
+    y: number;
+    roomId: string;
+    slots: Array<{ itemId: string; count: number }>;
+  }>,
   beds?: Array<{ x: number; y: number; roomId: string; occupied: boolean }>,
 ): MinecraftSaveData {
   return {
@@ -73,7 +89,12 @@ export function deserializeMinecraftState(data: MinecraftSaveData): MinecraftSav
       spawnRoomId: data.playerState?.spawnRoomId ?? '0,0,0',
       inventory: data.playerState?.inventory ?? [],
       equippedTool: data.playerState?.equippedTool ?? null,
-      armorSlots: data.playerState?.armorSlots ?? { head: null, torso: null, legs: null, feet: null },
+      armorSlots: data.playerState?.armorSlots ?? {
+        head: null,
+        torso: null,
+        legs: null,
+        feet: null,
+      },
     },
     dayNight: {
       day: data.dayNight?.day ?? 1,
@@ -104,7 +125,14 @@ export function migrateMinecraftState(
   },
   oldBlocks?: Array<{ roomId: string; x: number; y: number; blockType: string }>,
   oldDayNight?: { day: number; timeOfDay: number },
-  oldMobs?: Array<{ id: string; type: string; roomId: string; x: number; y: number; health: number }>,
+  oldMobs?: Array<{
+    id: string;
+    type: string;
+    roomId: string;
+    x: number;
+    y: number;
+    health: number;
+  }>,
 ): MinecraftSaveData {
   return {
     version: '1.0.0',
@@ -147,7 +175,10 @@ export function getDefaultPlayerState() {
     spawnRoomId: '0,0,0',
     inventory: [] as Array<{ itemId: string; count: number }>,
     equippedTool: null as string | null,
-    armorSlots: { head: null, torso: null, legs: null, feet: null } as Record<string, string | null>,
+    armorSlots: { head: null, torso: null, legs: null, feet: null } as Record<
+      string,
+      string | null
+    >,
   };
 }
 

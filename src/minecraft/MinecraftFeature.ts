@@ -15,12 +15,36 @@ import {
   getDefaultPlayerState,
 } from './save.js';
 import { PLAYER_MAX_HEALTH, PLAYER_MAX_HUNGER, DAY_LENGTH_TICKS } from './config.js';
-import { blockIdToColor, getBlockType, isSpecialBlock, isPlaceableSpecialBlock, isBlockableBlock } from './blockRegistry.js';
+import {
+  blockIdToColor,
+  getBlockType,
+  isSpecialBlock,
+  isPlaceableSpecialBlock,
+  isBlockableBlock,
+} from './blockRegistry.js';
 import { getMinecraftItem } from './itemRegistry.js';
-import { tryPlaceFurnace, tryLoadFurnace, tickFurnaces, tryCollectFurnaceOutput, createFurnaceState } from './furnace.js';
-import { tryPlaceChest, tryDepositToChest, tryWithdrawFromChest, tryBreakChest, getChestContents } from './chest.js';
+import {
+  tryPlaceFurnace,
+  tryLoadFurnace,
+  tickFurnaces,
+  tryCollectFurnaceOutput,
+  createFurnaceState,
+} from './furnace.js';
+import {
+  tryPlaceChest,
+  tryDepositToChest,
+  tryWithdrawFromChest,
+  tryBreakChest,
+  getChestContents,
+} from './chest.js';
 import { tryPlaceBed, trySleep, tryBreakBed } from './bed.js';
-import { tryCreateFarmland, tryPlantSeeds, tryPlantPumpkin, tickCrops, tryHarvestCrop } from './farming.js';
+import {
+  tryCreateFarmland,
+  tryPlantSeeds,
+  tryPlantPumpkin,
+  tickCrops,
+  tryHarvestCrop,
+} from './farming.js';
 
 export class MinecraftFeature extends Feature {
   private player: MinecraftPlayer | null = null;
@@ -70,10 +94,7 @@ export class MinecraftFeature extends Feature {
 
     // Hunger tick
     if (tick % 600 === 0) {
-      this.player.state.hunger = Math.max(
-        0,
-        this.player.state.hunger - 1,
-      );
+      this.player.state.hunger = Math.max(0, this.player.state.hunger - 1);
       if (this.player.state.hunger <= 0) {
         this.player.takeDamage(1);
       }
@@ -197,7 +218,9 @@ export class MinecraftFeature extends Feature {
         .setDepth(30);
 
       scene.events.on('update', () => {
-        hudText.setText(`HP: ${this.player?.state.health ?? 0}/${this.player?.state.maxHealth ?? 20}  Food: ${this.player?.state.hunger ?? 0}/${this.player?.state.maxHunger ?? 20}`);
+        hudText.setText(
+          `HP: ${this.player?.state.health ?? 0}/${this.player?.state.maxHealth ?? 20}  Food: ${this.player?.state.hunger ?? 0}/${this.player?.state.maxHunger ?? 20}`,
+        );
       });
     }
   }
@@ -211,7 +234,9 @@ export class MinecraftFeature extends Feature {
     this.player?.resetHunger();
 
     // Keep blocks, mobs, inventory, day/night
-    scene.setFlag('ui.questInteraction', { message: 'You died. Your Minecraft world was preserved.' });
+    scene.setFlag('ui.questInteraction', {
+      message: 'You died. Your Minecraft world was preserved.',
+    });
   }
 
   toggleMode(scene: SnakeScene): void {
@@ -220,7 +245,10 @@ export class MinecraftFeature extends Feature {
     if (this.minecraftMode) {
       // Switch to Minecraft mode
       scene.setFlag('ui.suppressHud', true);
-      scene.setFlag('ui.questInteraction', { message: 'Minecraft mode: Q to break block, R to place block. WASD to move. E for crafting.' });
+      scene.setFlag('ui.questInteraction', {
+        message:
+          'Minecraft mode: Q to break block, R to place block. WASD to move. E for crafting.',
+      });
 
       // Set player spawn to current position
       const head = scene.snakeGame.getSnakeBody()[0];
@@ -239,25 +267,29 @@ export class MinecraftFeature extends Feature {
     return this.minecraftMode;
   }
 
-  handlePointerDown(
-    scene: SnakeScene,
-    worldX: number,
-    worldY: number,
-    button: number,
-  ): boolean {
+  handlePointerDown(scene: SnakeScene, worldX: number, worldY: number, button: number): boolean {
     if (!this.minecraftMode || !this.player) return false;
 
     const room = scene.snakeGame.getCurrentRoom();
     const [roomX, roomY] = this.parseRoomCoordinates(room.id);
-    const localX = Math.floor((worldX - roomX * scene.grid.cols * scene.grid.cell) / scene.grid.cell);
-    const localY = Math.floor((worldY - roomY * scene.grid.rows * scene.grid.cell) / scene.grid.cell);
+    const localX = Math.floor(
+      (worldX - roomX * scene.grid.cols * scene.grid.cell) / scene.grid.cell,
+    );
+    const localY = Math.floor(
+      (worldY - roomY * scene.grid.rows * scene.grid.cell) / scene.grid.cell,
+    );
 
     // Convert to world coordinates in room
     const worldTileX = localX + roomX * scene.grid.cols;
     const worldTileY = localY + roomY * scene.grid.rows;
 
     // Clamp to room bounds
-    if (worldTileX < 0 || worldTileY < 0 || worldTileX >= scene.grid.cols || worldTileY >= scene.grid.rows) {
+    if (
+      worldTileX < 0 ||
+      worldTileY < 0 ||
+      worldTileX >= scene.grid.cols ||
+      worldTileY >= scene.grid.rows
+    ) {
       return false;
     }
 
@@ -268,7 +300,10 @@ export class MinecraftFeature extends Feature {
       if (blockType === 'wheat_crop' || blockType === 'pumpkin') {
         const result = tryHarvestCrop(room, this.player, worldTileX, worldTileY, blockType);
         if (result.success) {
-          scene.juice.blockBreak(worldTileX * scene.grid.cell + scene.grid.cell / 2, worldTileY * scene.grid.cell + scene.grid.cell / 2);
+          scene.juice.blockBreak(
+            worldTileX * scene.grid.cell + scene.grid.cell / 2,
+            worldTileY * scene.grid.cell + scene.grid.cell / 2,
+          );
         }
         if (result.message) {
           scene.setFlag('ui.questInteraction', { message: result.message });
@@ -356,7 +391,13 @@ export class MinecraftFeature extends Feature {
     if (!this.player) return 'No player.';
 
     // Try to collect output first
-    const collectResult = tryCollectFurnaceOutput(this.furnaces, this.player, x, y, scene.snakeGame.getCurrentRoom().id);
+    const collectResult = tryCollectFurnaceOutput(
+      this.furnaces,
+      this.player,
+      x,
+      y,
+      scene.snakeGame.getCurrentRoom().id,
+    );
     if (collectResult.success) {
       return 'Collected smelted items!';
     }
@@ -372,7 +413,14 @@ export class MinecraftFeature extends Feature {
     const fuelItems = ['coal', 'stick', 'planks_item', 'wood'];
     for (const itemId of fuelItems) {
       if (this.player.getItemCount(itemId) > 0) {
-        const result = tryLoadFurnace(this.furnaces, this.player, x, y, scene.snakeGame.getCurrentRoom().id, itemId);
+        const result = tryLoadFurnace(
+          this.furnaces,
+          this.player,
+          x,
+          y,
+          scene.snakeGame.getCurrentRoom().id,
+          itemId,
+        );
         if (result.success) {
           return 'Furnace fueled and ready!';
         }
@@ -383,7 +431,14 @@ export class MinecraftFeature extends Feature {
     const inputItems = ['raw_iron', 'raw_gold', 'raw_beef', 'cobblestone', 'sand'];
     for (const itemId of inputItems) {
       if (this.player.getItemCount(itemId) > 0) {
-        const result = tryLoadFurnace(this.furnaces, this.player, x, y, scene.snakeGame.getCurrentRoom().id, itemId);
+        const result = tryLoadFurnace(
+          this.furnaces,
+          this.player,
+          x,
+          y,
+          scene.snakeGame.getCurrentRoom().id,
+          itemId,
+        );
         if (result.success) {
           return 'Item loaded into furnace!';
         }
@@ -412,7 +467,15 @@ export class MinecraftFeature extends Feature {
     const heldItems = ['cobblestone', 'dirt', 'stone', 'wood', 'coal', 'raw_iron'];
     for (const itemId of heldItems) {
       if (this.player.getItemCount(itemId) > 0) {
-        const result = tryDepositToChest(this.chests, this.player, x, y, scene.snakeGame.getCurrentRoom().id, itemId, this.player.getItemCount(itemId));
+        const result = tryDepositToChest(
+          this.chests,
+          this.player,
+          x,
+          y,
+          scene.snakeGame.getCurrentRoom().id,
+          itemId,
+          this.player.getItemCount(itemId),
+        );
         if (result.success) {
           return `Stored ${itemId} in chest!`;
         }
@@ -423,10 +486,25 @@ export class MinecraftFeature extends Feature {
     }
 
     // Auto-withdraw: try to withdraw common items
-    const wantedItems = ['iron_ingot', 'gold_ingot', 'cooked_beef', 'bread', 'diamond', 'torch_item'];
+    const wantedItems = [
+      'iron_ingot',
+      'gold_ingot',
+      'cooked_beef',
+      'bread',
+      'diamond',
+      'torch_item',
+    ];
     for (const itemId of wantedItems) {
       if (contents.some((s) => s.itemId === itemId)) {
-        const result = tryWithdrawFromChest(this.chests, this.player, x, y, scene.snakeGame.getCurrentRoom().id, itemId, 1);
+        const result = tryWithdrawFromChest(
+          this.chests,
+          this.player,
+          x,
+          y,
+          scene.snakeGame.getCurrentRoom().id,
+          itemId,
+          1,
+        );
         if (result.success) {
           return `Took ${itemId} from chest!`;
         }
@@ -455,7 +533,12 @@ export class MinecraftFeature extends Feature {
     return result.message || 'Done.';
   }
 
-  private tryFarmInteraction(scene: SnakeScene, x: number, y: number, room: import('../world/types.js').RoomSnapshot): string | null {
+  private tryFarmInteraction(
+    scene: SnakeScene,
+    x: number,
+    y: number,
+    room: import('../world/types.js').RoomSnapshot,
+  ): string | null {
     if (!this.player) return null;
 
     const blockType = room.minecraftBlocks?.[`${x},${y}`];
@@ -481,13 +564,26 @@ export class MinecraftFeature extends Feature {
   private toggleCraftingUI(scene: SnakeScene): void {
     this.craftingTableNearby = !this.craftingTableNearby;
     if (this.craftingTableNearby) {
-      scene.setFlag('ui.questInteraction', { message: 'Crafting table open. Use recipes to craft items.' });
+      scene.setFlag('ui.questInteraction', {
+        message: 'Crafting table open. Use recipes to craft items.',
+      });
     }
   }
 
   private getHeldBlockType(scene: SnakeScene): string | null {
     const inventory = this.player?.state.inventory ?? [];
-    const blockTypes = ['dirt', 'cobblestone', 'planks', 'stone', 'sand', 'torch', 'furnace', 'chest', 'bed', 'pumpkin'];
+    const blockTypes = [
+      'dirt',
+      'cobblestone',
+      'planks',
+      'stone',
+      'sand',
+      'torch',
+      'furnace',
+      'chest',
+      'bed',
+      'pumpkin',
+    ];
     for (const bt of blockTypes) {
       if (this.player?.getItemCount(bt) > 0) {
         return bt;
@@ -496,7 +592,11 @@ export class MinecraftFeature extends Feature {
     return 'dirt';
   }
 
-  private tryPlaceBlockWithSelection(scene: SnakeScene, x: number, y: number): { success: boolean; message?: string } {
+  private tryPlaceBlockWithSelection(
+    scene: SnakeScene,
+    x: number,
+    y: number,
+  ): { success: boolean; message?: string } {
     if (!this.player) return { success: false };
 
     const room = scene.snakeGame.getCurrentRoom();
@@ -538,7 +638,13 @@ export class MinecraftFeature extends Feature {
     return tryPlaceBlock(scene, this.player, x, y, blockType);
   }
 
-  private handleMobDeath(mobId: string, x: number, y: number, roomId: string, scene: SnakeScene): void {
+  private handleMobDeath(
+    mobId: string,
+    x: number,
+    y: number,
+    roomId: string,
+    scene: SnakeScene,
+  ): void {
     if (!this.player) return;
 
     this.mobManager?.onMobDeath(mobId, (itemId, count) => {
@@ -555,7 +661,10 @@ export class MinecraftFeature extends Feature {
       });
     }
 
-    scene.juice.mobHit(x * scene.grid.cell + scene.grid.cell / 2, y * scene.grid.cell + scene.grid.cell / 2);
+    scene.juice.mobHit(
+      x * scene.grid.cell + scene.grid.cell / 2,
+      y * scene.grid.cell + scene.grid.cell / 2,
+    );
   }
 
   private getMobDropType(roomId: string): string | null {
@@ -612,7 +721,13 @@ export class MinecraftFeature extends Feature {
       // Restore chests
       if (data.chests) {
         for (const c of data.chests) {
-          this.chests.set(`${c.x},${c.y},${c.roomId}`, { x: c.x, y: c.y, roomId: c.roomId, slots: c.slots, locked: false });
+          this.chests.set(`${c.x},${c.y},${c.roomId}`, {
+            x: c.x,
+            y: c.y,
+            roomId: c.roomId,
+            slots: c.slots,
+            locked: false,
+          });
         }
       }
       // Restore beds
@@ -637,7 +752,10 @@ export class MinecraftFeature extends Feature {
     if (blockType === 'wheat_crop' || blockType === 'pumpkin') {
       const result = tryHarvestCrop(room, this.player, head.x, head.y, blockType);
       if (result.success) {
-        scene.juice.blockBreak(head.x * scene.grid.cell + scene.grid.cell / 2, head.y * scene.grid.cell + scene.grid.cell / 2);
+        scene.juice.blockBreak(
+          head.x * scene.grid.cell + scene.grid.cell / 2,
+          head.y * scene.grid.cell + scene.grid.cell / 2,
+        );
       }
       if (result.message) {
         scene.setFlag('ui.questInteraction', { message: result.message });
@@ -731,7 +849,8 @@ export class MinecraftFeature extends Feature {
     if (!this.player || !this.dayNight) return;
 
     const blocks: Array<{ roomId: string; x: number; y: number; blockType: string }> = [];
-    const dirtyChunks = this.chunkManager?.getDirtyChunks(scene.snakeGame.getCurrentRoom().id) ?? [];
+    const dirtyChunks =
+      this.chunkManager?.getDirtyChunks(scene.snakeGame.getCurrentRoom().id) ?? [];
 
     // Serialize blocks from room
     const room = scene.snakeGame.getCurrentRoom();
@@ -755,13 +874,29 @@ export class MinecraftFeature extends Feature {
       : [];
 
     // Serialize furnaces
-    const furnaces: Array<{ x: number; y: number; roomId: string; progress: number; inputItem: string | null; outputItem: string | null; outputCount: number; fuelItem: string | null; fuelRemaining: number; burning: boolean }> = [];
+    const furnaces: Array<{
+      x: number;
+      y: number;
+      roomId: string;
+      progress: number;
+      inputItem: string | null;
+      outputItem: string | null;
+      outputCount: number;
+      fuelItem: string | null;
+      fuelRemaining: number;
+      burning: boolean;
+    }> = [];
     for (const f of this.furnaces.values()) {
       furnaces.push(f);
     }
 
     // Serialize chests
-    const chests: Array<{ x: number; y: number; roomId: string; slots: Array<{ itemId: string; count: number }> }> = [];
+    const chests: Array<{
+      x: number;
+      y: number;
+      roomId: string;
+      slots: Array<{ itemId: string; count: number }>;
+    }> = [];
     for (const c of this.chests.values()) {
       chests.push({ x: c.x, y: c.y, roomId: c.roomId, slots: c.slots });
     }

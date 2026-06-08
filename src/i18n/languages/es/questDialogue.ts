@@ -120,52 +120,52 @@ export const QUEST_DIALOGUE_ES: QuestTranslations = {
       'Sobrevive veinte segundos sin comer. Lleva el antiguo ritual por un momento breve y demuestra que tu voluntad puede sentarse aún al lado de una boca vacía.',
     ],
   },
-'treasure-hunter': {
-     title: 'Los Restos Dorados',
-     pages: [
-       'Las cajas de tesoro aquí se bajaron después del colapso por familias que creían que los valores podrían rescatar a los muertos del oscuro.',
-       'La cuerda siempre regresó más ligera de lo que fue. A veces vacía. A veces mojada. Nunca una vez portando a quien habían pedido.',
-       'Recupera dos tesoros. Deberíamos al menos tener la cortesía de admitir que sus ofertas nunca fueron respondidas.',
-     ],
-   },
-'fisherman': {
-     title: 'Aguas Profundas',
-     pages: [
-       'El océano sumergido tiene sus propias corrientes, su propia paciencia. Los peces de abajo no le importan tu longitud ni tu velocidad — solo si eres lo suficientemente persistente para superar la profundidad.',
-       'Sterling ha atrapado cinco peces en la oscuridad. Cinco. No gritan, no luchan, pero el agua es pesada y el silencio es peor. Él hace esto por la carne cocida, no por la gloria.',
-        'Caza cinco peces en el océano sumergido. Regresa cuando tus manos estén limpias y tu vientre recuerde el sabor de la comida.',
-     ],
-   },
-   'biome-explorer': {
-     title: 'Atlas del Angler',
-     pages: [
-       'Cada bioma tiene su propia agua, sus propias reglas, su propio apetito. Un pescador que se queda en un solo lugar aprende un oficio. Un pescador que viaja aprende el mundo.',
-       'He visto redes arrastrar minnows desde la cuenca y arrarrar sombras de las profundidades. Cinco biomas es el mínimo. El mundo es más grande que cinco.',
-       'Atrapa peces en cinco biomas diferentes. Mapéalos en tu mente como un atlas viviente. Que cada captura sea una coordenada a la que puedas regresar.',
-     ],
-   },
-   'rare-collector': {
-     title: 'Colección Rara',
-     pages: [
-       'La mayoría de los peces son abundantes por naturaleza. La rareza es una declaración sobre cuánto esfuerzo requiere el mundo para producirlos.',
-       'Las capturas raras y legendarias no son solo más pesadas o brillantes. Son más raras por razones que no tienen nada que ver contigo y todo que ver con el agua que llaman hogar.',
-       'Recoge tres tipos diferentes de peces raros o legendarios. Construye una colección que cuente una historia que el agua recuerda.',
-     ],
-   },
-   'big-catcher': {
-     title: 'El Gran Cazador',
-     pages: [
-       'Hay una diferencia entre muchas capturas pequeñas y una que importa. Los grandes no vienen a menudo, y cuando lo hacen, no preguntan dos veces.',
-       'Cinco kilogramos no es mucho peso para las profundidades, pero es suficiente para demostrar que ya no pescas solo.',
-       'Atrapa un solo pez que pese cinco kilogramos o más. Que el diario recuerde ese día.',
-     ],
-   },
-   'legendary-hunter': {
-     title: 'Cazador de Leyendas',
-     pages: [
-       'Los peces legendarios no son una categoría. Son un evento. No los atrapas cada temporada — a veces los atrapas una vez en la vida, y eso es suficiente para hablar en las tabernas.',
-       'Dos capturas legendarias. No una, no por accidente. Dos, para que la historia no pueda ser descartada como un accidente.',
-       'Cázalos. Que las profundidades aprendan que sigues cazando.',
-     ],
-   },
- } as const;
+  'treasure-hunter': {
+    title: 'Los Restos Dorados',
+    pages: [
+      'Las cajas de tesoro aquí se bajaron después del colapso por familias que creían que los valores podrían rescatar a los muertos del oscuro.',
+      'La cuerda siempre regresó más ligera de lo que fue. A veces vacía. A veces mojada. Nunca una vez portando a quien habían pedido.',
+      'Recupera dos tesoros. Deberíamos al menos tener la cortesía de admitir que sus ofertas nunca fueron respondidas.',
+    ],
+  },
+  fisherman: {
+    title: 'Aguas Profundas',
+    pages: [
+      'El océano sumergido tiene sus propias corrientes, su propia paciencia. Los peces de abajo no le importan tu longitud ni tu velocidad — solo si eres lo suficientemente persistente para superar la profundidad.',
+      'Sterling ha atrapado cinco peces en la oscuridad. Cinco. No gritan, no luchan, pero el agua es pesada y el silencio es peor. Él hace esto por la carne cocida, no por la gloria.',
+      'Caza cinco peces en el océano sumergido. Regresa cuando tus manos estén limpias y tu vientre recuerde el sabor de la comida.',
+    ],
+  },
+  'biome-explorer': {
+    title: 'Atlas del Angler',
+    pages: [
+      'Cada bioma tiene su propia agua, sus propias reglas, su propio apetito. Un pescador que se queda en un solo lugar aprende un oficio. Un pescador que viaja aprende el mundo.',
+      'He visto redes arrastrar minnows desde la cuenca y arrarrar sombras de las profundidades. Cinco biomas es el mínimo. El mundo es más grande que cinco.',
+      'Atrapa peces en cinco biomas diferentes. Mapéalos en tu mente como un atlas viviente. Que cada captura sea una coordenada a la que puedas regresar.',
+    ],
+  },
+  'rare-collector': {
+    title: 'Colección Rara',
+    pages: [
+      'La mayoría de los peces son abundantes por naturaleza. La rareza es una declaración sobre cuánto esfuerzo requiere el mundo para producirlos.',
+      'Las capturas raras y legendarias no son solo más pesadas o brillantes. Son más raras por razones que no tienen nada que ver contigo y todo que ver con el agua que llaman hogar.',
+      'Recoge tres tipos diferentes de peces raros o legendarios. Construye una colección que cuente una historia que el agua recuerda.',
+    ],
+  },
+  'big-catcher': {
+    title: 'El Gran Cazador',
+    pages: [
+      'Hay una diferencia entre muchas capturas pequeñas y una que importa. Los grandes no vienen a menudo, y cuando lo hacen, no preguntan dos veces.',
+      'Cinco kilogramos no es mucho peso para las profundidades, pero es suficiente para demostrar que ya no pescas solo.',
+      'Atrapa un solo pez que pese cinco kilogramos o más. Que el diario recuerde ese día.',
+    ],
+  },
+  'legendary-hunter': {
+    title: 'Cazador de Leyendas',
+    pages: [
+      'Los peces legendarios no son una categoría. Son un evento. No los atrapas cada temporada — a veces los atrapas una vez en la vida, y eso es suficiente para hablar en las tabernas.',
+      'Dos capturas legendarias. No una, no por accidente. Dos, para que la historia no pueda ser descartada como un accidente.',
+      'Cázalos. Que las profundidades aprendan que sigues cazando.',
+    ],
+  },
+} as const;

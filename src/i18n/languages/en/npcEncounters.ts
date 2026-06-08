@@ -61,7 +61,7 @@ export const NPC_ENCOUNTERS_EN: NpcTranslations = {
       '"Draw steel. Let the mountain decide who speaks first -- the victor or the wind."',
     ],
     repeatPages: [
-      'The ronin\'s hand rests on his hilt. The bamboo bends around him as if apologizing to the mountain.',
+      "The ronin's hand rests on his hilt. The bamboo bends around him as if apologizing to the mountain.",
       '"Still breathing. Still trying. How tedious. How admirable."',
     ],
     acceptLabel: 'Draw steel',
@@ -138,20 +138,20 @@ export const NPC_ENCOUNTERS_EN: NpcTranslations = {
     rejectLabel: 'Decline',
     rewardScore: 10,
   },
-'cyrene-wanderer': {
-     pages: [
-       'Cyrene draws a circle in the dust and the dust hesitates, as if uncertain whether it still belongs more to gravity or to whatever old vow animates her hand.',
-       '"Every chamber in this place teaches the same lesson in a different dialect: remain moving, remain doubtful, and never mistake survival for pardon."',
-       '"Your gift is speed. Guard it carefully. Velocity becomes stupidity the moment it starts believing itself chosen."',
-     ],
-     repeatPages: [
-       'Cyrene recognizes you with a look too measured to count as warmth and too gentle to be called indifference.',
-       '"Still alive. That means you are either learning, or the grave has misplaced your name for another day. I advise you not to grow arrogant about either possibility."',
-     ],
-     acceptLabel: 'Listen',
-     rejectLabel: 'Leave',
-     rewardScore: 5,
-   },
+  'cyrene-wanderer': {
+    pages: [
+      'Cyrene draws a circle in the dust and the dust hesitates, as if uncertain whether it still belongs more to gravity or to whatever old vow animates her hand.',
+      '"Every chamber in this place teaches the same lesson in a different dialect: remain moving, remain doubtful, and never mistake survival for pardon."',
+      '"Your gift is speed. Guard it carefully. Velocity becomes stupidity the moment it starts believing itself chosen."',
+    ],
+    repeatPages: [
+      'Cyrene recognizes you with a look too measured to count as warmth and too gentle to be called indifference.',
+      '"Still alive. That means you are either learning, or the grave has misplaced your name for another day. I advise you not to grow arrogant about either possibility."',
+    ],
+    acceptLabel: 'Listen',
+    rejectLabel: 'Leave',
+    rewardScore: 5,
+  },
   'sterling-fisher': {
     pages: [
       'A weathered figure sits cross-legged beside a collapsible fishing pole, watching the water with the patient stillness of someone who has been told the ocean listens.',

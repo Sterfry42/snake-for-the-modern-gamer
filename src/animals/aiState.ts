@@ -23,7 +23,12 @@ const STATE_DURATIONS: Record<AnimalState, number> = {
 };
 
 export function getInitialState(): AnimalAIAState {
-  return { ...DEFAULT_AI_STATE, state: 'WANDER', stateEnterTick: 0, stateDuration: STATE_DURATIONS.WANDER };
+  return {
+    ...DEFAULT_AI_STATE,
+    state: 'WANDER',
+    stateEnterTick: 0,
+    stateDuration: STATE_DURATIONS.WANDER,
+  };
 }
 
 export function tickState(

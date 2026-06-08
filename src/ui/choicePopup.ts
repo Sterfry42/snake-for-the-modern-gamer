@@ -65,9 +65,9 @@ export class ChoicePopup {
     this.container?.setPosition(x, rootY);
     this.background?.setSize(this.width, popupHeight);
     this.optionContainer?.setPosition(16, 60);
-this.scrollHintText
-       ?.setText(this.contentHeight > this.viewportHeight ? i18n.getFeatureString('hintScroll') : '')
-       .setPosition(this.width / 2, popupHeight - 24);
+    this.scrollHintText
+      ?.setText(this.contentHeight > this.viewportHeight ? i18n.getFeatureString('hintScroll') : '')
+      .setPosition(this.width / 2, popupHeight - 24);
     this.updateMask(x, rootY);
     this.applyScroll(0);
     this.container?.setVisible(true).setDepth(35);

@@ -293,9 +293,7 @@ describe('multi-room structure generation', () => {
       x: Math.floor(defaultGameConfig.grid.cols / 2),
       y: Math.floor(defaultGameConfig.grid.rows / 2),
     };
-    for (const side of Object.keys(gateConnections) as Array<
-      'north' | 'south' | 'east' | 'west'
-    >) {
+    for (const side of Object.keys(gateConnections) as Array<'north' | 'south' | 'east' | 'west'>) {
       const hasGuardOnSide = gate.town?.residents.some((resident) => {
         if (resident.role !== 'guard') return false;
         if (side === 'north') return resident.y < gateCenter.y - 3;

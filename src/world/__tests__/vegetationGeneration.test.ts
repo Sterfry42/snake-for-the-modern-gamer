@@ -5,7 +5,11 @@ import { createRng } from '../../core/rng.js';
 import type { RoomSnapshot } from '../types.js';
 import { ALL_VEGETATION_VARIANTS } from '../generation/stages/vegetationOperations.js';
 
-function generateRoom(roomId: string, seed: string, grid: GridConfig = defaultGameConfig.grid): RoomSnapshot {
+function generateRoom(
+  roomId: string,
+  seed: string,
+  grid: GridConfig = defaultGameConfig.grid,
+): RoomSnapshot {
   const rng = createRng(seed);
   const generator = new RoomGenerator(grid, defaultGameConfig.world, rng);
   return generator.generate(roomId, grid);

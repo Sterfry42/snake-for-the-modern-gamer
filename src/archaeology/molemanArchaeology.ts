@@ -101,72 +101,106 @@ export interface ArchaeologyTuning {
   goldAppleFrequency?: number;
 }
 
-export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<
-  ArchaeologyTileKind,
-  ArchaeologyTileDefinition
-> = {
-  dirt: { id: 'dirt', i18nLabel: 'archaeologyTileDirt', color: 0xd8a35a, textColor: '#33220f', matchable: true },
-  stone: { id: 'stone', i18nLabel: 'archaeologyTileStone', color: 0xb9c6d2, textColor: '#19212a', matchable: true },
-  roots: { id: 'roots', i18nLabel: 'archaeologyTileRoots', color: 0x63c66f, textColor: '#113218', matchable: true },
-  clay: { id: 'clay', i18nLabel: 'archaeologyTileClay', color: 0xf08b6d, textColor: '#3b1810', matchable: true },
-  shell: { id: 'shell', i18nLabel: 'archaeologyTileShell', color: 0xfff0c9, textColor: '#4b3516', matchable: true },
-  bone: { id: 'bone', i18nLabel: 'archaeologyTileBone', color: 0xf0e6c9, textColor: '#3a321f', matchable: true },
-  normal: {
-    id: 'normal',
-    i18nLabel: 'archaeologyTileNormalApple',
-    color: 0xff5555,
-    textColor: '#4a0505',
-    matchable: true,
-    appleItemId: 'apple-normal',
-  },
-  skittish: {
-    id: 'skittish',
-    i18nLabel: 'archaeologyTileSkittishApple',
-    color: 0xff7f73,
-    textColor: '#520b0b',
-    matchable: true,
-    appleItemId: 'apple-skittish',
-  },
-  pearl: {
-    id: 'pearl',
-    i18nLabel: 'archaeologyTilePearlApple',
-    color: 0x8df3ff,
-    textColor: '#08323a',
-    matchable: true,
-    appleItemId: 'apple-pearl',
-  },
-  yuzu: {
-    id: 'yuzu',
-    i18nLabel: 'archaeologyTileYuzuApple',
-    color: 0xffe45f,
-    textColor: '#4c3200',
-    matchable: true,
-    appleItemId: 'apple-yuzu',
-  },
-  gold: {
-    id: 'gold',
-    i18nLabel: 'archaeologyTileGoldenApple',
-    color: 0xffce37,
-    textColor: '#4a2f00',
-    matchable: true,
-    appleItemId: 'apple-gold',
-  },
-  wasabi: {
-    id: 'wasabi',
-    i18nLabel: 'archaeologyTileWasabiApple',
-    color: 0x9ee84a,
-    textColor: '#183005',
-    matchable: true,
-    appleItemId: 'apple-wasabi',
-  },
-  'artifact-cache': {
-    id: 'artifact-cache',
-    i18nLabel: 'archaeologyTileArtifactCache',
-    color: 0xc18cff,
-    textColor: '#2a0b44',
-    matchable: false,
-  },
-};
+export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<ArchaeologyTileKind, ArchaeologyTileDefinition> =
+  {
+    dirt: {
+      id: 'dirt',
+      i18nLabel: 'archaeologyTileDirt',
+      color: 0xd8a35a,
+      textColor: '#33220f',
+      matchable: true,
+    },
+    stone: {
+      id: 'stone',
+      i18nLabel: 'archaeologyTileStone',
+      color: 0xb9c6d2,
+      textColor: '#19212a',
+      matchable: true,
+    },
+    roots: {
+      id: 'roots',
+      i18nLabel: 'archaeologyTileRoots',
+      color: 0x63c66f,
+      textColor: '#113218',
+      matchable: true,
+    },
+    clay: {
+      id: 'clay',
+      i18nLabel: 'archaeologyTileClay',
+      color: 0xf08b6d,
+      textColor: '#3b1810',
+      matchable: true,
+    },
+    shell: {
+      id: 'shell',
+      i18nLabel: 'archaeologyTileShell',
+      color: 0xfff0c9,
+      textColor: '#4b3516',
+      matchable: true,
+    },
+    bone: {
+      id: 'bone',
+      i18nLabel: 'archaeologyTileBone',
+      color: 0xf0e6c9,
+      textColor: '#3a321f',
+      matchable: true,
+    },
+    normal: {
+      id: 'normal',
+      i18nLabel: 'archaeologyTileNormalApple',
+      color: 0xff5555,
+      textColor: '#4a0505',
+      matchable: true,
+      appleItemId: 'apple-normal',
+    },
+    skittish: {
+      id: 'skittish',
+      i18nLabel: 'archaeologyTileSkittishApple',
+      color: 0xff7f73,
+      textColor: '#520b0b',
+      matchable: true,
+      appleItemId: 'apple-skittish',
+    },
+    pearl: {
+      id: 'pearl',
+      i18nLabel: 'archaeologyTilePearlApple',
+      color: 0x8df3ff,
+      textColor: '#08323a',
+      matchable: true,
+      appleItemId: 'apple-pearl',
+    },
+    yuzu: {
+      id: 'yuzu',
+      i18nLabel: 'archaeologyTileYuzuApple',
+      color: 0xffe45f,
+      textColor: '#4c3200',
+      matchable: true,
+      appleItemId: 'apple-yuzu',
+    },
+    gold: {
+      id: 'gold',
+      i18nLabel: 'archaeologyTileGoldenApple',
+      color: 0xffce37,
+      textColor: '#4a2f00',
+      matchable: true,
+      appleItemId: 'apple-gold',
+    },
+    wasabi: {
+      id: 'wasabi',
+      i18nLabel: 'archaeologyTileWasabiApple',
+      color: 0x9ee84a,
+      textColor: '#183005',
+      matchable: true,
+      appleItemId: 'apple-wasabi',
+    },
+    'artifact-cache': {
+      id: 'artifact-cache',
+      i18nLabel: 'archaeologyTileArtifactCache',
+      color: 0xc18cff,
+      textColor: '#2a0b44',
+      matchable: false,
+    },
+  };
 
 export function resolveTileLabel(kind: ArchaeologyTileKind): string {
   return ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel;
@@ -290,9 +324,7 @@ export class MolemanArchaeologySession {
   }
 
   private resolveVariantName(v: DigSiteVariant): string {
-    return this.i18nResolveFn
-      ? this.i18nResolveFn(v.i18nNameKey)
-      : v.i18nNameKey;
+    return this.i18nResolveFn ? this.i18nResolveFn(v.i18nNameKey) : v.i18nNameKey;
   }
 
   getSnapshot(): ArchaeologySessionSnapshot {
@@ -388,7 +420,11 @@ export class MolemanArchaeologySession {
   private pushRow(): void {
     if (this.board[0]?.some(Boolean)) {
       this.gameOver = true;
-      this.pendingMessages.push(this.i18nResolveFn ? this.i18nResolveFn('archaeologyGameOver') : 'The dig reached the ceiling. Rewards recovered.');
+      this.pendingMessages.push(
+        this.i18nResolveFn
+          ? this.i18nResolveFn('archaeologyGameOver')
+          : 'The dig reached the ceiling. Rewards recovered.',
+      );
       this.pendingEvents.push({ kind: 'game-over' });
       return;
     }
@@ -398,10 +434,10 @@ export class MolemanArchaeologySession {
     this.cursor.y = clamp(this.cursor.y - 1, 0, this.rows - 1);
     this.depth += 1;
     this.pendingMessages.push(
-        this.i18nResolveFn
-          ? this.i18nResolveFn('archaeologyDepthMessage').replace('{depth}', String(this.depth))
-          : `Depth ${this.depth}. Stuff keeps showing up.`,
-      );
+      this.i18nResolveFn
+        ? this.i18nResolveFn('archaeologyDepthMessage').replace('{depth}', String(this.depth))
+        : `Depth ${this.depth}. Stuff keeps showing up.`,
+    );
     this.pendingEvents.push({ kind: 'raise', depth: this.depth });
     this.tryBeginMatchResolution(1);
   }
@@ -434,8 +470,7 @@ export class MolemanArchaeologySession {
       const tile = this.rollTile();
       const horizontal =
         x >= 2 && this.board[y]?.[x - 1] === tile && this.board[y]?.[x - 2] === tile;
-      const vertical =
-        y >= 2 && this.board[y - 1]?.[x] === tile && this.board[y - 2]?.[x] === tile;
+      const vertical = y >= 2 && this.board[y - 1]?.[x] === tile && this.board[y - 2]?.[x] === tile;
       if (!horizontal && !vertical) return tile;
     }
     return this.rollTile();
@@ -659,11 +694,7 @@ export class MolemanArchaeologySession {
     return [...matched.values()].sort((a, b) => a.y - b.y || a.x - b.x);
   }
 
-  private addMatchedCell(
-    matched: Map<string, ArchaeologyBoardCell>,
-    x: number,
-    y: number,
-  ): void {
+  private addMatchedCell(matched: Map<string, ArchaeologyBoardCell>, x: number, y: number): void {
     const tile = this.board[y]?.[x] ?? null;
     if (!tile) return;
     matched.set(key(x, y), { x, y, tile });

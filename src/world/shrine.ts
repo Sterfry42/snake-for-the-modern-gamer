@@ -163,10 +163,7 @@ export function tryPlaceShrine(
   ];
 
   shimenawaTiles.forEach((tile) => {
-    if (
-      layout[tile.y]?.[tile.x] === '.' ||
-      layout[tile.y]?.[tile.x] === 'E'
-    ) {
+    if (layout[tile.y]?.[tile.x] === '.' || layout[tile.y]?.[tile.x] === 'E') {
       setChar(layout, tile.x, tile.y, 'S');
     }
   });

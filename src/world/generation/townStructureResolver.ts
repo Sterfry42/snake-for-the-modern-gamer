@@ -75,25 +75,38 @@ const HUMAN_TOWN_FOOTPRINTS: readonly HumanTownFootprint[] = [0, 1, 2, 3].map((t
 });
 
 function footprintForSeed(seed: number): HumanTownFootprint {
-  return HUMAN_TOWN_FOOTPRINTS[positiveMod(seed, HUMAN_TOWN_FOOTPRINTS.length)] ?? HUMAN_TOWN_FOOTPRINTS[0]!;
+  return (
+    HUMAN_TOWN_FOOTPRINTS[positiveMod(seed, HUMAN_TOWN_FOOTPRINTS.length)] ??
+    HUMAN_TOWN_FOOTPRINTS[0]!
+  );
 }
 
 export function getHumanTownFootprint(placement: MultiRoomStructurePlacement): HumanTownFootprint {
   return footprintForSeed(placement.seed);
 }
 
-export function getHumanTownDistricts(placement: MultiRoomStructurePlacement): Readonly<Record<string, TownPhysicalDistrictKind>> {
+export function getHumanTownDistricts(
+  placement: MultiRoomStructurePlacement,
+): Readonly<Record<string, TownPhysicalDistrictKind>> {
   return getHumanTownFootprint(placement).districts;
 }
 
 export function getHumanTownEntranceRoomId(placement: MultiRoomStructurePlacement): string {
   const offset = getHumanTownFootprint(placement).entranceOffset;
-  return formatRoomId({ x: placement.anchor.x + offset.dx, y: placement.anchor.y + offset.dy, z: placement.anchor.z });
+  return formatRoomId({
+    x: placement.anchor.x + offset.dx,
+    y: placement.anchor.y + offset.dy,
+    z: placement.anchor.z,
+  });
 }
 
 export function getHumanTownExitRoomIds(placement: MultiRoomStructurePlacement): string[] {
   return getHumanTownFootprint(placement).exitOffsets.map((offset) =>
-    formatRoomId({ x: placement.anchor.x + offset.dx, y: placement.anchor.y + offset.dy, z: placement.anchor.z }),
+    formatRoomId({
+      x: placement.anchor.x + offset.dx,
+      y: placement.anchor.y + offset.dy,
+      z: placement.anchor.z,
+    }),
   );
 }
 
@@ -141,7 +154,9 @@ export class MultiRoomStructureResolver {
     const connections: Partial<Record<'north' | 'south' | 'east' | 'west', string>> = {};
     const addIfTown = (side: 'north' | 'south' | 'east' | 'west', dx: number, dy: number): void => {
       const neighbor = { x: coord.x + dx, y: coord.y + dy, z: coord.z };
-      if (this.getTownMembership(formatRoomId(neighbor))?.placement.id === membership.placement.id) {
+      if (
+        this.getTownMembership(formatRoomId(neighbor))?.placement.id === membership.placement.id
+      ) {
         connections[side] = formatRoomId(neighbor);
       }
     };
@@ -152,11 +167,19 @@ export class MultiRoomStructureResolver {
 
     if (membership.district === 'outskirts') {
       const offset = offsetForSide(footprint.entranceSide);
-      connections[footprint.entranceSide] = formatRoomId({ x: coord.x + offset.dx, y: coord.y + offset.dy, z: coord.z });
+      connections[footprint.entranceSide] = formatRoomId({
+        x: coord.x + offset.dx,
+        y: coord.y + offset.dy,
+        z: coord.z,
+      });
     }
     if (membership.district === 'townExit') {
       const offset = offsetForSide(footprint.exitSide);
-      connections[footprint.exitSide] = formatRoomId({ x: coord.x + offset.dx, y: coord.y + offset.dy, z: coord.z });
+      connections[footprint.exitSide] = formatRoomId({
+        x: coord.x + offset.dx,
+        y: coord.y + offset.dy,
+        z: coord.z,
+      });
     }
     return connections;
   }
@@ -186,7 +209,11 @@ export class MultiRoomStructureResolver {
     return placements;
   }
 
-  private resolveRegionTown(regionX: number, regionY: number, z: number): MultiRoomStructurePlacement | null {
+  private resolveRegionTown(
+    regionX: number,
+    regionY: number,
+    z: number,
+  ): MultiRoomStructurePlacement | null {
     for (let attempt = 0; attempt < HUMAN_TOWN_CANDIDATE_ATTEMPTS; attempt += 1) {
       const placement = this.createRegionPlacement(regionX, regionY, z, attempt);
       if (this.isValidTownPlacement(placement)) {
@@ -230,7 +257,9 @@ export class MultiRoomStructureResolver {
       seed,
       bounds: { left: anchor.x, top: anchor.y, width: 4, height: 4, z },
     };
-    const townBiomeId = this.biomeMap.getBiomeForRoomId(getHumanTownEntranceRoomId(tempPlacement)).id;
+    const townBiomeId = this.biomeMap.getBiomeForRoomId(
+      getHumanTownEntranceRoomId(tempPlacement),
+    ).id;
     return {
       id: tempPlacement.id,
       kind: 'humanTown',

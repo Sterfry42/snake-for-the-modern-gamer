@@ -74,7 +74,7 @@ describe('furnace', () => {
       const furnaces = new Map();
       tryPlaceFurnace(furnaces, 5, 5, '0,0,0');
       const player = {
-        getItemCount: (id: string) => id === 'coal' ? 5 : 0,
+        getItemCount: (id: string) => (id === 'coal' ? 5 : 0),
         removeItem: (id: string, count?: number) => {
           if (id === 'coal') return true;
           return false;
@@ -90,7 +90,7 @@ describe('furnace', () => {
       const furnaces = new Map();
       tryPlaceFurnace(furnaces, 5, 5, '0,0,0');
       const player = {
-        getItemCount: (id: string) => id === 'coal' ? 5 : (id === 'raw_iron' ? 3 : 0),
+        getItemCount: (id: string) => (id === 'coal' ? 5 : id === 'raw_iron' ? 3 : 0),
         removeItem: (id: string, count?: number) => {
           if (id === 'coal' || id === 'raw_iron') return true;
           return false;
@@ -111,8 +111,11 @@ describe('furnace', () => {
       const furnaces = new Map();
       tryPlaceFurnace(furnaces, 5, 5, '0,0,0');
       const player = {
-        getItemCount: (id: string) => id === 'coal' ? 10 : (id === 'raw_iron' ? 3 : 0),
-        removeItem: (id: string) => { if (id === 'coal' || id === 'raw_iron') return true; return false; },
+        getItemCount: (id: string) => (id === 'coal' ? 10 : id === 'raw_iron' ? 3 : 0),
+        removeItem: (id: string) => {
+          if (id === 'coal' || id === 'raw_iron') return true;
+          return false;
+        },
         addItem: () => {},
       } as any;
 
@@ -161,7 +164,9 @@ describe('furnace', () => {
       const player = {
         getItemCount: () => 0,
         removeItem: () => true,
-        addItem: (id: string) => { outputItems.push(id); },
+        addItem: (id: string) => {
+          outputItems.push(id);
+        },
       } as any;
 
       const result = tryCollectFurnaceOutput(furnaces, player, 5, 5, '0,0,0');

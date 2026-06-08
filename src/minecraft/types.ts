@@ -161,7 +161,23 @@ export interface MinecraftSaveData {
     health: number;
   }>;
   dirtyChunks: Array<{ roomId: string; chunkX: number; chunkY: number }>;
-  furnaces: Array<{ x: number; y: number; roomId: string; progress: number; inputItem: string | null; outputItem: string | null; outputCount: number; fuelItem: string | null; fuelRemaining: number; burning: boolean }>;
-  chests: Array<{ x: number; y: number; roomId: string; slots: Array<{ itemId: string; count: number }> }>;
+  furnaces: Array<{
+    x: number;
+    y: number;
+    roomId: string;
+    progress: number;
+    inputItem: string | null;
+    outputItem: string | null;
+    outputCount: number;
+    fuelItem: string | null;
+    fuelRemaining: number;
+    burning: boolean;
+  }>;
+  chests: Array<{
+    x: number;
+    y: number;
+    roomId: string;
+    slots: Array<{ itemId: string; count: number }>;
+  }>;
   beds: Array<{ x: number; y: number; roomId: string; occupied: boolean }>;
 }

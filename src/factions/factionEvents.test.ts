@@ -19,22 +19,45 @@ describe('FactionEventSystem', () => {
 
     expect(events[0]?.type).toBe('guild-exposure');
     expect(events[0]?.factionIds).toContain('thieves-guild');
-    expect(factions.getEventsForActor({
-      id: 'actor:guard',
-      kind: 'guard',
-      role: 'guard',
-      species: 'human',
-      thickness: 'medium',
-      displayName: 'Nina',
-      personality: [],
-      mood: { fear: 0, anger: 0, trust: 0, affection: 0, greed: 0, hunger: 0, curiosity: 0, grief: 0, stress: 0 },
-      needs: { food: 0, safety: 0, money: 0, social: 0, rest: 0, duty: 0, curiosity: 0, revenge: 0, faith: 0, status: 0 },
-      opinions: {},
-      relationships: [],
-      memory: [],
-      flags: {},
-      factionId: 'guards',
-    }).length).toBeGreaterThan(0);
+    expect(
+      factions.getEventsForActor({
+        id: 'actor:guard',
+        kind: 'guard',
+        role: 'guard',
+        species: 'human',
+        thickness: 'medium',
+        displayName: 'Nina',
+        personality: [],
+        mood: {
+          fear: 0,
+          anger: 0,
+          trust: 0,
+          affection: 0,
+          greed: 0,
+          hunger: 0,
+          curiosity: 0,
+          grief: 0,
+          stress: 0,
+        },
+        needs: {
+          food: 0,
+          safety: 0,
+          money: 0,
+          social: 0,
+          rest: 0,
+          duty: 0,
+          curiosity: 0,
+          revenge: 0,
+          faith: 0,
+          status: 0,
+        },
+        opinions: {},
+        relationships: [],
+        memory: [],
+        flags: {},
+        factionId: 'guards',
+      }).length,
+    ).toBeGreaterThan(0);
   });
 
   it('moves events through aftermath and resolved phases', () => {

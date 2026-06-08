@@ -36,4 +36,3 @@ export function hashChance(hash: number, chancePercent: number): boolean {
   const clamped = Math.max(0, Math.min(100, chancePercent));
   return (hash / 0xffffffff) * 100 < clamped;
 }
-

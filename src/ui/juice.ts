@@ -101,9 +101,13 @@ const BOSS_MUSIC_REGISTRY: Record<string, BossMusicDefinition> = {
       sources.push(leadVibrato);
       cleanup.push(vibratoGain);
 
-      return { sources, cleanup, onBuild: (g: GainNode) => {
-        g.gain.setValueAtTime(0.28, now + 0.6);
-      }};
+      return {
+        sources,
+        cleanup,
+        onBuild: (g: GainNode) => {
+          g.gain.setValueAtTime(0.28, now + 0.6);
+        },
+      };
     },
   },
 };
@@ -944,7 +948,13 @@ export class JuiceManager {
   }
 
   archaeologySwap(): void {
-    this.playTone({ frequency: 360, frequencyEnd: 520, duration: 0.08, type: 'square', volume: 0.08 });
+    this.playTone({
+      frequency: 360,
+      frequencyEnd: 520,
+      duration: 0.08,
+      type: 'square',
+      volume: 0.08,
+    });
   }
 
   archaeologyMatch(chain: number, count: number): void {

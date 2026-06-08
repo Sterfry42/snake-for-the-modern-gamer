@@ -299,12 +299,7 @@ export class AppleService {
     if (apple.roomId.startsWith('cave:')) {
       const localX = apple.position.x + dir.x;
       const localY = apple.position.y + dir.y;
-      if (
-        localX < 0 ||
-        localY < 0 ||
-        localX >= this.grid.cols ||
-        localY >= this.grid.rows
-      ) {
+      if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows) {
         return null;
       }
       const targetRoom = this.world.getRoom(apple.roomId);

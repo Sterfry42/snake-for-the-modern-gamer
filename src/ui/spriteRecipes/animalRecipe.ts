@@ -288,7 +288,7 @@ export const animalSpriteRecipe: RuntimeSpriteRecipe<AnimalSpriteVariant, Animal
 
     drawPoints(BODY, palette.bodyColor);
     drawPoints(HEAD, palette.bodyColor);
-    drawPoints(EYES, isFlash ? palette.flashColor ?? palette.eyeColor : palette.eyeColor);
+    drawPoints(EYES, isFlash ? (palette.flashColor ?? palette.eyeColor) : palette.eyeColor);
 
     drawPoints(BODY, palette.outlineColor);
     drawPoints(HEAD, palette.outlineColor);

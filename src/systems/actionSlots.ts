@@ -29,9 +29,7 @@ interface ActionAbilityDefinition {
   use: (stats: SkillTreeStats) => ActionSlotUseResult;
 }
 
-export type ActionSlotUseResult =
-  | { ok: true; label: string }
-  | { ok: false; reason: string };
+export type ActionSlotUseResult = { ok: true; label: string } | { ok: false; reason: string };
 
 export interface ActionSlotRuntime {
   getStats(): SkillTreeStats;
