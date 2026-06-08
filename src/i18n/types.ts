@@ -110,3 +110,10 @@ export interface FeatureStrings {
   fishingQuestFishDesc: string;
   fishingQuestCatchLabel: string;
 }
+
+export interface ActorVoiceTranslations {
+  [entryId: string]: {
+    line?: string;
+    beat?: string;
+  };
+}

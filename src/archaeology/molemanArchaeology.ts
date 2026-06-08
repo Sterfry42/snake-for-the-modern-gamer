@@ -1,4 +1,5 @@
 import { ARTIFACT_DEFINITIONS, type ArtifactDefinition } from '../artifacts/artifacts.js';
+import { i18n } from '../i18n/i18nManager.js';
 import { getItem } from '../inventory/itemRegistry.js';
 
 export type DigSiteVariantId = 'forest' | 'ocean' | 'deep';
@@ -368,7 +369,7 @@ export class MolemanArchaeologySession {
     else if (this.topGraceRemainingMs <= 0) {
       this.topGraceRemainingMs = TOP_GRACE_MS;
       this.riseProgress = 0;
-      this.pendingMessages.push('Ceiling pressure. Three seconds to clear space.');
+      this.pendingMessages.push(t('ceilingPressure'));
       return;
     }
     if (this.topGraceRemainingMs > 0) {
@@ -376,7 +377,7 @@ export class MolemanArchaeologySession {
       this.riseProgress = 0;
       if (this.topGraceRemainingMs <= 0 && this.board[0]?.some(Boolean)) {
         this.gameOver = true;
-        this.pendingMessages.push('The dig reached the ceiling. Rewards recovered.');
+        this.pendingMessages.push(t('ceilingReached'));
         this.pendingEvents.push({ kind: 'game-over' });
       }
       return;
@@ -393,7 +394,7 @@ export class MolemanArchaeologySession {
     if (this.board[0]?.some(Boolean)) {
       this.topGraceRemainingMs = TOP_GRACE_MS;
       this.riseProgress = 0;
-      this.pendingMessages.push('Ceiling pressure. Three seconds to clear space.');
+      this.pendingMessages.push(t('ceilingPressure'));
       return;
     }
     this.board.shift();
@@ -690,9 +691,9 @@ export class MolemanArchaeologySession {
     for (const cell of cells) byTile.set(cell.tile, (byTile.get(cell.tile) ?? 0) + 1);
     let total = 0;
     for (const count of byTile.values()) {
-      total += count * 3 + Math.max(0, count - 3) * 5 + Math.max(0, chain - 1) * 8;
+      total += this.scoreForMatch(count, chain);
     }
-    return Math.max(1, Math.ceil(total / 3));
+    return total;
   }
 
   private scoreAndRewardMatches(cells: readonly ArchaeologyBoardCell[], chain: number): void {
@@ -701,8 +702,7 @@ export class MolemanArchaeologySession {
       byTile.set(cell.tile, (byTile.get(cell.tile) ?? 0) + 1);
     }
     for (const [tile, count] of byTile) {
-      const rawScore = count * 3 + Math.max(0, count - 3) * 5 + Math.max(0, chain - 1) * 8;
-      const matchScore = Math.max(1, Math.ceil(rawScore / 3));
+      const matchScore = this.scoreForMatch(count, chain);
       this.score += matchScore;
       this.rewards.score += matchScore;
       const apples = this.appleRewardFor(tile, count);
@@ -710,7 +710,10 @@ export class MolemanArchaeologySession {
         this.rewards.apples[itemId] = (this.rewards.apples[itemId] ?? 0) + amount;
       }
       const appleCount = Object.values(apples).reduce((total, amount) => total + amount, 0);
-      const label = appleCount > 0 ? `Apple x${appleCount}  +${matchScore}` : `+${matchScore} score`;
+      const label =
+        appleCount > 0
+          ? t('appleScore', { count: appleCount, score: matchScore })
+          : t('plusScore', { score: matchScore });
       this.pendingMessages.push(label);
       this.pendingEvents.push({ kind: 'reward', label, cells: cells.filter((cell) => cell.tile === tile) });
       this.rollChainRewards(chain);
@@ -767,16 +770,20 @@ export class MolemanArchaeologySession {
   private recoverArtifact(): void {
     const artifact = this.rollArtifact();
     if (this.rewards.artifacts.includes(artifact.id)) {
-      this.score += 8;
-      this.rewards.score += 8;
-      this.pendingMessages.push(`${artifact.name} duplicate cataloged: +8 score`);
-      this.pendingEvents.push({ kind: 'reward', label: `${artifact.name} duplicate: +8 score` });
+      const duplicateScore = 4;
+      this.score += duplicateScore;
+      this.rewards.score += duplicateScore;
+      this.pendingMessages.push(t('artifactDuplicate', { name: artifact.name }));
+      this.pendingEvents.push({
+        kind: 'reward',
+        label: t('artifactDuplicateShort', { name: artifact.name }),
+      });
       this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
       return;
     }
     this.rewards.artifacts.push(artifact.id);
-    this.pendingMessages.push(`Artifact recovered: ${artifact.name}`);
-    this.pendingEvents.push({ kind: 'reward', label: `Artifact recovered: ${artifact.name}` });
+    this.pendingMessages.push(t('artifactRecovered', { name: artifact.name }));
+    this.pendingEvents.push({ kind: 'reward', label: t('artifactRecovered', { name: artifact.name }) });
     this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
   }
 
@@ -790,9 +797,15 @@ export class MolemanArchaeologySession {
 
   private addReward(target: Record<string, number>, itemId: string, count: number): void {
     target[itemId] = (target[itemId] ?? 0) + count;
-    const label = `Recovered ${getItem(itemId)?.name ?? itemId.replace(/-/g, ' ')}.`;
+    const label = t('recoveredItem', { name: getItem(itemId)?.name ?? itemId.replace(/-/g, ' ') });
     this.pendingMessages.push(label);
     this.pendingEvents.push({ kind: 'reward', label });
+  }
+
+  private scoreForMatch(count: number, chain: number): number {
+    const matchScore = count <= 3 ? 1 : 1 + (count - 3) * 2;
+    const chainBonus = Math.max(0, chain - 1);
+    return matchScore + chainBonus;
   }
 
   private getStackDanger(): number {
@@ -811,7 +824,12 @@ export class MolemanArchaeologySession {
 }
 
 export function getDigSiteVariant(id: DigSiteVariantId): DigSiteVariant {
-  return DIG_SITE_VARIANTS.find((variant) => variant.id === id) ?? DIG_SITE_VARIANTS[0]!;
+  const variant = DIG_SITE_VARIANTS.find((candidate) => candidate.id === id) ?? DIG_SITE_VARIANTS[0]!;
+  return {
+    ...variant,
+    name: i18n.getCommon(`archaeology.${variant.id}Name`),
+    foremanLine: i18n.getCommon(`archaeology.${variant.id}Line`),
+  };
 }
 
 export function chooseDigSiteVariant(
@@ -834,4 +852,11 @@ function key(x: number, y: number): string {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
+}
+
+function t(key: string, replacements: Record<string, string | number> = {}): string {
+  return Object.entries(replacements).reduce(
+    (text, [name, value]) => text.split(`{${name}}`).join(String(value)),
+    i18n.getCommon(`archaeology.${key}`),
+  );
 }

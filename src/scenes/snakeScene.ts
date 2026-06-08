@@ -10224,20 +10224,24 @@ export default class SnakeScene extends Phaser.Scene {
     const options: ChoiceOption[] = [
       {
         id: 'dig',
-        title: 'Dig',
-        description: 'Start Moleman Archaeology. Match three, ride the rising stack, keep the finds.',
+        title: this.tArchaeology('digWarningTitle'),
+        description: this.tArchaeology('digDescription'),
       },
       {
         id: 'talk',
-        title: 'Talk',
-        description: 'Hear the foreman explain why this hole has apples in it.',
+        title: this.tArchaeology('talkTitle'),
+        description: this.tArchaeology('talkDescription'),
       },
       {
         id: 'date',
-        title: 'Bond',
-        description: 'Spend time with the moleman foreman.',
+        title: this.tArchaeology('bondTitle'),
+        description: this.tArchaeology('bondDescription'),
       },
-      { id: 'leave', title: 'Leave', description: 'Step away from the dig site.' },
+      {
+        id: 'leave',
+        title: this.tArchaeology('leaveTitle'),
+        description: this.tArchaeology('leaveDescription'),
+      },
     ];
     this.villageShopPopup.show(digSite.foreman.name, options, (id) => {
       if (id === 'dig') {
@@ -10249,8 +10253,8 @@ export default class SnakeScene extends Phaser.Scene {
           digSite.foreman.name,
           [
             `"${variant.foremanLine}"`,
-            '"Rows come up pixel by pixel. Space swaps the two under the bracket. Three alike vanish, then the rocks fall. If the ceiling wins, you still keep the finds."',
-            '"Found six apples and a sword once. Found a tiny church the next day. We stopped asking."',
+            `"${this.tArchaeology('foremanHowTo')}"`,
+            `"${this.tArchaeology('foremanOddFind')}"`,
           ],
           {
             onAccept: () => {
@@ -10259,7 +10263,7 @@ export default class SnakeScene extends Phaser.Scene {
               this.showSaveUI();
             },
           },
-          { acceptLabel: 'Back', nextLabel: 'More' },
+          { acceptLabel: this.tArchaeology('back'), nextLabel: this.tArchaeology('more') },
           { portraitId: 'moleman-foreman' },
         );
         return;
@@ -10323,7 +10327,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.ensureArchaeologyOverlay();
     this.archaeologyOverlay?.setVisible(true);
     this.juice.startArchaeologyMusic();
-    this.showQuestHintPopup('Moleman Archaeology started. Match three, chase depth.', '#d8b4ff');
+    this.showQuestHintPopup(this.tArchaeology('started'), '#d8b4ff');
   }
 
   private handleArchaeologyKey(key: string): boolean {
@@ -10589,21 +10593,21 @@ export default class SnakeScene extends Phaser.Scene {
     const logLines = this.archaeologyLogMessages.slice(-4);
     const graceSeconds = Math.max(0, 3 - snapshot.topGraceProgress * 3).toFixed(1);
     const statusLine = snapshot.topGraceActive
-      ? `CEILING JAM ${graceSeconds}s`
+      ? this.tArchaeology('ceilingJam', { seconds: graceSeconds })
       : snapshot.resolving
-        ? 'Resolving pattern and gravity'
-        : 'Stack rising pixel by pixel';
+        ? this.tArchaeology('resolving')
+        : this.tArchaeology('rising');
     text
       .setPosition(boardX + boardWidth + 38, boardY - 6)
       .setText([
-        `MOLEMAN ARCHAEOLOGY`,
+        this.tArchaeology('title'),
         snapshot.variant.name,
-        `Depth ${snapshot.depth}  Score ${snapshot.score}`,
-        `Chain ${snapshot.chain}  Best ${snapshot.maxChain}`,
+        this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score }),
+        this.tArchaeology('chainBest', { chain: snapshot.chain, best: snapshot.maxChain }),
         '',
-        'WASD/Arrows move cursor',
-        'Space/E/Enter swaps tiles',
-        'Q/Esc leaves with rewards',
+        this.tArchaeology('moveHelp'),
+        this.tArchaeology('swapHelp'),
+        this.tArchaeology('leaveHelp'),
         statusLine,
         '',
         ...logLines,
@@ -10773,6 +10777,13 @@ export default class SnakeScene extends Phaser.Scene {
     return (r << 16) | (g << 8) | blue;
   }
 
+  private tArchaeology(key: string, replacements: Record<string, string | number> = {}): string {
+    return Object.entries(replacements).reduce(
+      (text, [name, value]) => text.split(`{${name}}`).join(String(value)),
+      i18n.getCommon(`archaeology.${key}`),
+    );
+  }
+
   private formatArchaeologyRewardLines(rewards: ArchaeologyRewardBundle): string[] {
     const lines: string[] = [];
     for (const [itemId, count] of Object.entries(rewards.apples)) {
@@ -10785,10 +10796,10 @@ export default class SnakeScene extends Phaser.Scene {
       lines.push(`${getItem(itemId)?.name ?? itemId} x${count}`);
     }
     if (rewards.artifacts.length > 0) {
-      lines.push(`Artifacts x${rewards.artifacts.length}`);
+      lines.push(this.tArchaeology('artifacts', { count: rewards.artifacts.length }));
     }
     if (rewards.score > 0) {
-      lines.push(`Score ${rewards.score}`);
+      lines.push(this.tArchaeology('scoreReward', { score: rewards.score }));
     }
     return lines;
   }
@@ -10830,25 +10841,31 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     const rewardLines = this.formatArchaeologyRewardLines(rewards);
     const summaryLines = [
-      `${snapshot.variant.name}  Depth ${snapshot.depth}`,
-      `Dig score: ${snapshot.score}`,
-      `Run score received: +${payout.score}`,
-      `Apples recovered: ${payout.appleCount}`,
-      `Apple resolution: +${payout.appleLengthGained} length, +${payout.appleScoreGained} score`,
-      `Items recovered: ${payout.itemCount}`,
-      `Artifacts recovered: ${payout.artifactCount}`,
+      `${snapshot.variant.name}  ${this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score })}`,
+      this.tArchaeology('digScore', { score: snapshot.score }),
+      this.tArchaeology('runScore', { score: payout.score }),
+      this.tArchaeology('applesRecovered', { count: payout.appleCount }),
+      this.tArchaeology('appleResolution', {
+        length: payout.appleLengthGained,
+        score: payout.appleScoreGained,
+      }),
+      this.tArchaeology('itemsRecovered', { count: payout.itemCount }),
+      this.tArchaeology('artifactsRecovered', { count: payout.artifactCount }),
       '',
-      ...(rewardLines.length ? rewardLines.slice(0, 10) : ['No loose finds recovered.']),
+      ...(rewardLines.length ? rewardLines.slice(0, 10) : [this.tArchaeology('noFinds')]),
       '',
-      'Four recovered apples become +1 length and +1 score. Supplies move to inventory.',
+      this.tArchaeology('appleRule'),
     ];
-    const title = reason === 'failure' ? 'Game Over - Excavation Summary' : 'Excavation Summary';
+    const title =
+      reason === 'failure'
+        ? this.tArchaeology('gameOverSummary')
+        : this.tArchaeology('summary');
     this.villageShopPopup.show(
       title,
       [
         {
           id: 'continue',
-          title: 'Continue',
+          title: this.tArchaeology('continue'),
           description: summaryLines.join('\n'),
         },
       ],
