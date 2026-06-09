@@ -205,7 +205,7 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<ArchaeologyTileKind, Archaeolo
       i18nLabel: 'archaeologyTileArtifactCache',
       color: 0xc18cff,
       textColor: '#2a0b44',
-      matchable: false,
+      matchable: true,
     },
   };
 
@@ -468,7 +468,7 @@ export class MolemanArchaeologySession {
   private createIncomingRow(): (ArchaeologyTileKind | null)[] {
     const row: (ArchaeologyTileKind | null)[] = [];
     for (let x = 0; x < this.cols; x += 1) {
-      const cacheChance = Math.min(0.035 + this.depth * 0.0025, 0.11);
+      const cacheChance = Math.min(0.02 + this.depth * 0.001, 0.08);
       if (this.rng() < cacheChance) {
         row.push('artifact-cache');
         continue;
@@ -617,10 +617,6 @@ export class MolemanArchaeologySession {
         if (!this.tryBeginGravityResolution(state.chain)) {
           this.activePoppingCell = null;
           this.visibleGravityMoves = [];
-          this.recoverExposedCaches();
-          if (this.tryBeginGravityResolution(state.chain)) {
-            return;
-          }
           if (!this.tryBeginMatchResolution(state.chain + 1)) {
             this.chain = 0;
             this.chainSeed = 0;
@@ -633,7 +629,6 @@ export class MolemanArchaeologySession {
     if (state.kind === 'gravity' && state.timerMs <= 0) {
       this.activePoppingCell = null;
       this.visibleGravityMoves = [];
-      this.recoverExposedCaches();
       if (this.tryBeginGravityResolution(state.chain)) {
         return;
       }
@@ -755,17 +750,21 @@ export class MolemanArchaeologySession {
     }
     for (const [tile, count] of byTile) {
       const matchScore = this.scoreForMatch(count, chain);
-      this.score += matchScore;
-      this.rewards.score += matchScore;
+      let awardedScore = matchScore;
+      this.score += awardedScore;
+      this.rewards.score += awardedScore;
       const apples = this.appleRewardFor(tile, count);
       for (const [itemId, amount] of Object.entries(apples)) {
         this.rewards.apples[itemId] = (this.rewards.apples[itemId] ?? 0) + amount;
       }
+      if (tile === 'artifact-cache') {
+        awardedScore += this.recoverArtifact({ baseScore: 9, duplicateBonus: 5 });
+      }
       const appleCount = Object.values(apples).reduce((total, amount) => total + amount, 0);
       const label =
         appleCount > 0
-          ? t('appleScore', { count: appleCount, score: matchScore })
-          : t('plusScore', { score: matchScore });
+          ? t('appleScore', { count: appleCount, score: awardedScore })
+          : t('plusScore', { score: awardedScore });
       this.pendingMessages.push(label);
       this.pendingEvents.push({ kind: 'reward', label, cells: cells.filter((cell) => cell.tile === tile) });
       this.rollChainRewards(chain);
@@ -796,47 +795,31 @@ export class MolemanArchaeologySession {
     }
   }
 
-  private recoverExposedCaches(): void {
-    const recovered: Array<{ x: number; y: number }> = [];
-    for (let y = 0; y < this.rows; y += 1) {
-      for (let x = 0; x < this.cols; x += 1) {
-        if (this.board[y]?.[x] !== 'artifact-cache') continue;
-        if (this.hasEmptyNeighbor(x, y)) recovered.push({ x, y });
-      }
-    }
-    for (const cache of recovered) {
-      this.board[cache.y]![cache.x] = null;
-      this.recoverArtifact();
-    }
-  }
-
-  private hasEmptyNeighbor(x: number, y: number): boolean {
-    return [
-      [1, 0],
-      [-1, 0],
-      [0, 1],
-      [0, -1],
-    ].some(([dx, dy]) => (this.board[y + dy!]?.[x + dx!] ?? null) === null);
-  }
-
-  private recoverArtifact(): void {
+  private recoverArtifact(options: { baseScore?: number; duplicateBonus?: number } = {}): number {
     const artifact = this.rollArtifact();
+    const baseScore = options.baseScore ?? 0;
     if (this.rewards.artifacts.includes(artifact.id)) {
-      const duplicateScore = 4;
-      this.score += duplicateScore;
-      this.rewards.score += duplicateScore;
+      const duplicateScore = options.duplicateBonus ?? 4;
+      const score = baseScore + duplicateScore;
+      this.score += score;
+      this.rewards.score += score;
       this.pendingMessages.push(t('artifactDuplicate', { name: artifact.name }));
       this.pendingEvents.push({
         kind: 'reward',
         label: t('artifactDuplicateShort', { name: artifact.name }),
       });
       this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
-      return;
+      return score;
+    }
+    if (baseScore > 0) {
+      this.score += baseScore;
+      this.rewards.score += baseScore;
     }
     this.rewards.artifacts.push(artifact.id);
     this.pendingMessages.push(t('artifactRecovered', { name: artifact.name }));
     this.pendingEvents.push({ kind: 'reward', label: t('artifactRecovered', { name: artifact.name }) });
     this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
+    return baseScore;
   }
 
   private rollArtifact(): ArtifactDefinition {

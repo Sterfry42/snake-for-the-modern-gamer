@@ -6801,8 +6801,8 @@ export class SnakeGame implements QuestRuntime {
   } {
     const scoreBefore = this.getScore();
     const appleCount = Object.values(rewards.apples).reduce((total, count) => total + Math.max(0, count), 0);
-    const appleLengthGained = Math.floor(appleCount / 4);
-    const appleScoreGained = appleLengthGained;
+    const appleLengthGained = appleCount;
+    const appleScoreGained = appleCount;
     this.addScore(rewards.score + appleScoreGained);
     if (appleLengthGained > 0) {
       this.growSnake(appleLengthGained);

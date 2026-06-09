@@ -108,7 +108,7 @@ export const COMMON_ES: CommonTranslations = {
     artifactsRecovered: 'Artefactos recuperados: {count}',
     noFinds: 'No se recuperaron hallazgos sueltos.',
     appleRule:
-      'Cuatro manzanas recuperadas se vuelven +1 longitud y +1 puntuacion. Los suministros van al inventario.',
+      'Cada manzana recuperada se vuelve +1 longitud y +1 puntuacion. Los suministros van al inventario.',
     gameOverSummary: 'Fin del juego - Resumen de excavacion',
     summary: 'Resumen de excavacion',
     continue: 'Continuar',

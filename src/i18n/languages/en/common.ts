@@ -107,7 +107,7 @@ export const COMMON_EN: CommonTranslations = {
     itemsRecovered: 'Items recovered: {count}',
     artifactsRecovered: 'Artifacts recovered: {count}',
     noFinds: 'No loose finds recovered.',
-    appleRule: 'Four recovered apples become +1 length and +1 score. Supplies move to inventory.',
+    appleRule: 'Each recovered apple becomes +1 length and +1 score. Supplies move to inventory.',
     gameOverSummary: 'Game Over - Excavation Summary',
     summary: 'Excavation Summary',
     continue: 'Continue',
