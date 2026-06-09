@@ -15,21 +15,35 @@ import {
   getProgressGain,
 } from './tensionZones.js';
 import { calculateFishSellPrice } from './fishingShopOffers.js';
+import type { FishingSpecialModifiers } from '../stats/fishingSpecial.js';
+import { applyBonus, applyReduction } from '../stats/statModifiers.js';
 
 export interface FishingRegistryOptions {
   /** Random number generator (0-1) */
   rng: () => number;
   /** Whether debug mode is enabled */
   debug?: boolean;
+  /** Runtime SPECIAL-derived modifiers. Defaults to neutral behavior. */
+  getModifiers?: () => FishingSpecialModifiers;
 }
 
 export class FishingRegistry {
   private readonly rng: () => number;
   private readonly debug: boolean;
+  private readonly getModifiers: () => FishingSpecialModifiers;
 
   constructor(options: FishingRegistryOptions) {
     this.rng = options.rng;
     this.debug = options.debug ?? false;
+    this.getModifiers =
+      options.getModifiers ??
+      (() => ({
+        fishingControl: 0,
+        fishingStability: 0,
+        fishRetention: 0,
+        catchProgressBonus: 0,
+        rareFishChance: 0,
+      }));
   }
 
   /** Get all fish definitions */
@@ -51,7 +65,25 @@ export class FishingRegistry {
    * Pick a random fish for a biome using weighted random selection.
    */
   pickRandomFish(biomeId: BiomeId): FishDefinition | undefined {
-    return pickRandomFish(biomeId, this.rng);
+    const fish = this.getFishByBiome(biomeId);
+    if (fish.length === 0) return undefined;
+
+    const rareFishChance = this.getModifiers().rareFishChance;
+    const totalWeight = fish.reduce(
+      (sum, entry) => sum + this.getEffectiveFishSpawnWeight(entry, rareFishChance),
+      0,
+    );
+    if (totalWeight <= 0) {
+      return pickRandomFish(biomeId, this.rng);
+    }
+
+    let roll = this.rng() * totalWeight;
+    for (const entry of fish) {
+      roll -= this.getEffectiveFishSpawnWeight(entry, rareFishChance);
+      if (roll <= 0) return entry;
+    }
+
+    return fish[fish.length - 1];
   }
 
   /**
@@ -93,11 +125,12 @@ export class FishingRegistry {
 
     // Calculate tension change from player input
     if (pullDirection !== 0) {
+      const control = this.getModifiers().fishingControl;
       updated.tension = calculateTensionChange(
         updated.tension,
         pullDirection,
         updated.struggleDirection,
-        state.fish.difficulty,
+        Math.max(1, applyReduction(state.fish.difficulty, control)),
       );
     }
 
@@ -105,7 +138,11 @@ export class FishingRegistry {
     const zone = getTensionZone(updated.tension);
 
     // Check for line break (critical zones)
-    const lineBreakChance = getLineBreakChance(zone);
+    const modifiers = this.getModifiers();
+    const lineBreakChance = applyReduction(
+      getLineBreakChance(zone),
+      modifiers.fishingStability,
+    );
     if (lineBreakChance > 0 && this.rng() < lineBreakChance) {
       updated.lineBroken = true;
       updated.complete = true;
@@ -118,7 +155,7 @@ export class FishingRegistry {
 
     // Check for escape (critical zones have high escape chance)
     if (zone === 'critical-low' || zone === 'critical-high') {
-      if (this.rng() < 0.5) {
+      if (this.rng() < applyReduction(0.5, modifiers.fishRetention)) {
         updated.escaped = true;
         updated.complete = true;
         const result: FishingSessionResult = {
@@ -131,10 +168,13 @@ export class FishingRegistry {
 
     // Check for danger zone escape chance
     if (zone === 'danger-low' || zone === 'danger-high') {
-      const dangerEscapeChance = getEscapeChance(zone, state.fish.fightAggression);
+      const dangerEscapeChance = applyReduction(
+        getEscapeChance(zone, state.fish.fightAggression),
+        modifiers.fishRetention,
+      );
       if (this.rng() < dangerEscapeChance) {
         // Small chance of line break in danger
-        if (this.rng() < 0.01) {
+        if (this.rng() < applyReduction(0.01, modifiers.fishingStability)) {
           updated.lineBroken = true;
           updated.complete = true;
           const result: FishingSessionResult = {
@@ -154,7 +194,10 @@ export class FishingRegistry {
     }
 
     // Calculate progress gain
-    const progressGain = getProgressGain(zone, state.fish.difficulty);
+    const progressGain = applyBonus(
+      getProgressGain(zone, state.fish.difficulty),
+      modifiers.catchProgressBonus,
+    );
     updated.progress = Math.min(100, updated.progress + progressGain);
 
     // Check for successful catch
@@ -220,5 +263,12 @@ export class FishingRegistry {
       dangerLevel = 'critical';
     }
     return { zone, dangerLevel };
+  }
+
+  private getEffectiveFishSpawnWeight(fish: FishDefinition, rareFishChance: number): number {
+    if (fish.rarity === 'rare' || fish.rarity === 'legendary') {
+      return Math.max(0, fish.spawnWeight * (1 + rareFishChance));
+    }
+    return Math.max(0, fish.spawnWeight);
   }
 }

@@ -164,6 +164,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // Tab Labels
   tabSkills: 'Skill Tree',
+  tabSpecial: 'SPECIAL',
   tabSpells: 'Spells',
   tabInventory: 'Inventory',
   tabCustomize: 'Style',

@@ -10,6 +10,11 @@ import { generateCave, isCaveRoomId } from '../caves/caveGenerator.js';
 import type { CaveInstanceSaveData, CaveTemplateId } from '../caves/caveTypes.js';
 import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 
+export interface PickupChanceProvider {
+  getTreasureChance?: () => number;
+  getPowerupChance?: () => number;
+}
+
 export class WorldService {
   private readonly rooms = new Map<string, RoomSnapshot>();
   private readonly generator: RoomGenerator;
@@ -26,6 +31,7 @@ export class WorldService {
     worldConfig: WorldConfig,
     rng: RandomGenerator,
     identity?: WorldGenerationIdentity,
+    private readonly pickupChanceProvider: PickupChanceProvider = {},
   ) {
     this.generator = new RoomGenerator(grid, worldConfig, rng, identity);
     this.rng = rng;
@@ -65,14 +71,14 @@ export class WorldService {
       this.addReciprocalPortalsFromExistingRooms(room);
       const suppressPickupSpawns = Boolean(room.town || room.townPerimeter);
       // Small chance to spawn a treasure chest in new rooms
-      if (!suppressPickupSpawns && this.rng() < 0.1) {
+      if (!suppressPickupSpawns && this.rng() < (this.pickupChanceProvider.getTreasureChance?.() ?? 0.1)) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           room.treasure = spot;
         }
       }
       // Powerups: 10% chance to spawn in new rooms
-      if (!suppressPickupSpawns && this.rng() < 0.1) {
+      if (!suppressPickupSpawns && this.rng() < (this.pickupChanceProvider.getPowerupChance?.() ?? 0.1)) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           const roll = this.rng();

@@ -136,6 +136,8 @@ import {
 } from '../archaeology/molemanArchaeology.js';
 import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.js';
 import { FishingRegistry, type FishingRegistryOptions } from '../fishing/fishingRegistry.js';
+import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
+import type { SpecialStatId } from '../stats/specialTypes.js';
 import { FishingMinigame } from '../fishing/fishingMinigame.js';
 import { hasAdjacentWater, roomHasWater } from '../fishing/waterDetection.js';
 import { getFishDefinition } from '../fishing/fishDefinitions.js';
@@ -1843,6 +1845,7 @@ export default class SnakeScene extends Phaser.Scene {
     // Initialize fishing registry and minigame
     this.fishingRegistry = new FishingRegistry({
       rng: () => this.random(),
+      getModifiers: () => this.snakeGame.getFishingSpecialModifiers(),
     });
 
     this.fishingMinigame = new FishingMinigame({
@@ -2631,6 +2634,29 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.isDirty = true;
+  }
+
+  getSpecialStatsView(): SpecialStatsView {
+    return this.snakeGame.getSpecialStatsView();
+  }
+
+  previewSpecialStatChange(statId: SpecialStatId, delta: number): boolean {
+    const changed = this.snakeGame.previewSpecialStatChange(statId, delta);
+    if (changed) {
+      this.skillTree?.getOverlay().refresh();
+    }
+    return changed;
+  }
+
+  applySpecialStatPreview(): void {
+    this.snakeGame.applySpecialStatPreview();
+    this.isDirty = true;
+    this.skillTree?.getOverlay().refresh();
+  }
+
+  resetSpecialStatPreview(): void {
+    this.snakeGame.resetSpecialStatPreview();
+    this.skillTree?.getOverlay().refresh();
   }
 
   private handleStepDeath(result: ReturnType<SnakeGame['actionStep']>): boolean {
@@ -3969,6 +3995,12 @@ export default class SnakeScene extends Phaser.Scene {
     const code = rawCode.trim().toLowerCase().replace(/\s+/g, ' ');
     if (!code) {
       return { ok: false, message: 'Enter a cheat string.', color: '#ff6b6b' };
+    }
+    if (code === 'special10' || code === 'special' || code === 'stats10') {
+      this.snakeGame.setAllSpecialStatsToMax();
+      this.isDirty = true;
+      this.skillTree.getOverlay().refresh();
+      return { ok: true, message: 'Cheat active: SPECIAL stats set to 10. Yahoo!', color: '#5dd6a2' };
     }
     if (code === 'investingincrypto') {
       this.setFlag('cheat.appleScoreMultiplier', 100);

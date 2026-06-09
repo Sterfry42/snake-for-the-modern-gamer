@@ -1,6 +1,7 @@
 import type { WorldGenerationIdentity } from '../world/generation/worldGenerationIdentity.js';
 import { LocalStorageStringSaveStore } from '../storage/LocalStorageStringSaveStore.js';
 import type { CharacterMode } from '../player/raccoonMode.js';
+import type { SpecialStatsState } from '../stats/specialTypes.js';
 
 const SAVE_KEY = 'snakeGameSave';
 const DEFAULT_SAVE_SLOT = '';
@@ -102,6 +103,7 @@ export interface GameSaveData {
     catchJournal?: unknown[];
     equippedRod?: string;
   };
+  special?: SpecialStatsState;
 }
 
 export class SaveManager {
