@@ -161,6 +161,14 @@ import type {
   ArchaeologyRewardBundle,
   ArchaeologyTuning,
 } from '../archaeology/molemanArchaeology.js';
+import { getFishByBiome } from '../fishing/fishDefinitions.js';
+import { SpecialStatsService } from '../stats/specialStatsService.js';
+import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
+import type { SpecialStatId } from '../stats/specialTypes.js';
+import {
+  getPowerupDiscoveryChance,
+  getTreasureDiscoveryChance,
+} from '../stats/explorationSpecial.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -654,6 +662,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly rumors: RumorSystem;
   private readonly factionEvents: FactionEventSystem;
   private readonly inventory: InventorySystem;
+  private readonly specialStats = new SpecialStatsService();
   private readonly localPlayerId: PlayerId = 'player-1';
   private readonly debugSecondPlayerId: PlayerId = 'debug-player-2';
   private readonly players = new Map<PlayerId, PlayerRuntime>();
@@ -709,6 +718,7 @@ export class SnakeGame implements QuestRuntime {
       config.world,
       this.rng,
       this.worldGenerationIdentity,
+      this.createPickupChanceProvider(),
     );
     this.apples = new AppleService(config.apples, config.grid, this.world, this.rng);
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
@@ -754,6 +764,7 @@ export class SnakeGame implements QuestRuntime {
     this.rumors.load(undefined);
     this.factionEvents.load(undefined);
     this.inventory.clear();
+    this.specialStats.restore();
     this.debugSecondSnake = null;
     this.debugSecondPlayerAlive = false;
     this.debugSecondPlayerStepCount = 0;
@@ -896,6 +907,7 @@ export class SnakeGame implements QuestRuntime {
       this.config.world,
       this.rng,
       this.worldGenerationIdentity,
+      this.createPickupChanceProvider(),
     );
     this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
     this.enemies = new EnemyManager(this.config.grid, this.rng);
@@ -908,6 +920,17 @@ export class SnakeGame implements QuestRuntime {
       rng: this.rng,
     });
     logRunSeed(runSeed, 'reset');
+  }
+
+  private createPickupChanceProvider(): {
+    getTreasureChance: () => number;
+    getPowerupChance: () => number;
+  } {
+    return {
+      getTreasureChance: () =>
+        getTreasureDiscoveryChance(this.specialStats.getCommittedState().stats),
+      getPowerupChance: () => getPowerupDiscoveryChance(this.specialStats.getCommittedState().stats),
+    };
   }
 
   loadLanguagePreference(): void {
@@ -3941,6 +3964,18 @@ export class SnakeGame implements QuestRuntime {
     return room;
   }
 
+  private isHeadOnWaterTile(): boolean {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return false;
+    }
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const [roomX, roomY] = this.parseRoomCoordinates(this.snake.currentRoomId);
+    const localX = head.x - roomX * this.config.grid.cols;
+    const localY = head.y - roomY * this.config.grid.rows;
+    return room.layout[localY]?.[localX] === '~';
+  }
+
   getCurrentTown(): TownStructure | null {
     const town = this.getCurrentRoom().town ?? null;
     return town ? this.applyTownRuntimeState(town) : null;
@@ -6747,6 +6782,42 @@ export class SnakeGame implements QuestRuntime {
     return this.getRunArtifacts().map(toArtifactView);
   }
 
+  getSpecialStatsView(): SpecialStatsView {
+    const room = this.getCurrentRoom();
+    return this.specialStats.getSpecialStatsView({
+      score: this.getScore(),
+      apples: this.config.apples,
+      fish: getFishByBiome(room.biomeId),
+      isWaterTile: this.isHeadOnWaterTile(),
+    });
+  }
+
+  previewSpecialStatChange(statId: SpecialStatId, delta: number): boolean {
+    const changed =
+      delta > 0
+        ? this.specialStats.previewIncrease(statId)
+        : delta < 0
+          ? this.specialStats.previewDecrease(statId)
+          : false;
+    return changed;
+  }
+
+  applySpecialStatPreview(): void {
+    this.specialStats.applyPreview();
+  }
+
+  resetSpecialStatPreview(): void {
+    this.specialStats.resetPreview();
+  }
+
+  setAllSpecialStatsToMax(): void {
+    this.specialStats.setAllStats(10);
+  }
+
+  getFishingSpecialModifiers() {
+    return this.specialStats.getFishingModifiers();
+  }
+
   getRunArtifacts(): ArtifactDefinition[] {
     const ids = this.getFlag<string[]>('artifacts.run') ?? [];
     return ids
@@ -6767,7 +6838,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   getArtifactTuning(): ArchaeologyTuning {
-    const tuning: ArchaeologyTuning = {};
+    const tuning: ArchaeologyTuning = this.specialStats.getArchaeologyTuning();
     for (const artifact of this.getRunArtifacts()) {
       tuning.rewardLuck = (tuning.rewardLuck ?? 0) + (artifact.modifiers.rewardLuck ?? 0);
       tuning.equipmentRewardChance =
@@ -9596,9 +9667,13 @@ export class SnakeGame implements QuestRuntime {
     }
 
     const dropBonus = this.getFlag<boolean>('skill.predator.dropBonus') ? 0.15 : 0;
+    const specialDropModifiers = this.specialStats.getAnimalDropModifiers(this.rng);
     const drops = rollAnimalDrops(huntedAnimal.drops, this.rng, {
-      bonusChance: dropBonus,
-      guaranteedMeat: this.getFlag<boolean>('skill.predator.guaranteedMeat'),
+      bonusChance: dropBonus + (specialDropModifiers.bonusChance ?? 0),
+      doubleRoll: specialDropModifiers.doubleRoll,
+      guaranteedMeat:
+        Boolean(specialDropModifiers.guaranteedMeat) ||
+        this.getFlag<boolean>('skill.predator.guaranteedMeat'),
     });
     for (const drop of drops) {
       if (getItem(drop.itemId)) {
@@ -10440,6 +10515,7 @@ export class SnakeGame implements QuestRuntime {
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
       flags: characterFlags,
       worldGeneration: this.worldGenerationIdentity,
+      special: this.specialStats.exportState(),
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
       questsCompleted: this.questController.getCompletedIds(),
       questsAccepted: this.questController.getAcceptedIds(),
@@ -10507,6 +10583,7 @@ export class SnakeGame implements QuestRuntime {
       const data = JSON.parse(saved) as GameSaveData;
 
       this.reset({ preserveRunSeed: true });
+      this.specialStats.restore(data.special);
       this.characterMode = normalizeCharacterMode(
         data.characterMode ?? data.flags?.['character.mode'],
       );
@@ -10534,6 +10611,7 @@ export class SnakeGame implements QuestRuntime {
           this.config.world,
           this.rng,
           this.worldGenerationIdentity,
+          this.createPickupChanceProvider(),
         );
         this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
         this.enemies = new EnemyManager(this.config.grid, this.rng);

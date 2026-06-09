@@ -206,6 +206,7 @@ export interface FeatureStrings {
 
   // === TAB LABELS ===
   tabSkills: string;
+  tabSpecial: string;
   tabSpells: string;
   tabInventory: string;
   tabCustomize: string;

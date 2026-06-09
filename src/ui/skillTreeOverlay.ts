@@ -19,6 +19,8 @@ import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
 import type { ActorJournalEntry, QuestObjectiveSummary } from '../game/snakeGame.js';
 import type { ArtifactView } from '../artifacts/artifacts.js';
+import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
+import type { SpecialStatId } from '../stats/specialTypes.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -45,6 +47,10 @@ interface OverlayHandlers {
   getPeopleView?: () => readonly ActorJournalEntry[];
   getDestinyView?: () => readonly string[];
   getArtifactView?: () => readonly ArtifactView[];
+  getSpecialView?: () => SpecialStatsView;
+  onPreviewSpecialChange?: (statId: SpecialStatId, delta: number) => boolean;
+  onApplySpecialChanges?: () => void;
+  onResetSpecialPreview?: () => void;
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
@@ -63,6 +69,7 @@ const CLICK_ROW_TOP_BIAS = 8;
 type PrimaryTabId = 'growth' | 'gear' | 'world' | 'system';
 type TabId =
   | 'skills'
+  | 'special'
   | 'spells'
   | 'inventory'
   | 'customize'
@@ -88,6 +95,7 @@ interface TabDefinition {
 
 const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'skills', i18nKey: 'tabSkills', group: 'growth' },
+  { id: 'special', i18nKey: 'tabSpecial', group: 'growth' },
   { id: 'spells', i18nKey: 'tabSpells', group: 'growth' },
   {
     id: 'inventory',
@@ -191,6 +199,17 @@ export class SkillTreeOverlay {
   private readonly customizationText: Phaser.GameObjects.Text;
   private readonly questListText: Phaser.GameObjects.Text;
   private questRowMap: Array<{ startRow: number; endRow: number; questId: string }> = [];
+  private readonly specialStatsText: Phaser.GameObjects.Text;
+  private readonly specialChanceText: Phaser.GameObjects.Text;
+  private specialRowMap: Array<{
+    startRow: number;
+    endRow: number;
+    action: 'increase' | 'decrease' | 'apply' | 'reset';
+    statId?: SpecialStatId;
+    enabled: boolean;
+    minX?: number;
+    maxX?: number;
+  }> = [];
   private readonly cardsText: Phaser.GameObjects.Text;
   private readonly factionsText: Phaser.GameObjects.Text;
   private readonly spellsText: Phaser.GameObjects.Text;
@@ -201,8 +220,10 @@ export class SkillTreeOverlay {
     canBind: boolean;
   }> = [];
   private readonly scrollMaskGraphics: Phaser.GameObjects.Graphics;
+  private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
+  private specialChanceScrollOffset = 0;
   private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
@@ -507,6 +528,31 @@ export class SkillTreeOverlay {
       })
       .setInteractive({ useHandCursor: true })
       .setVisible(false);
+    this.specialStatsText = this.scene.add
+      .text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#e6f3ff',
+        lineSpacing: 5,
+        wordWrap: {
+          width:
+            this.options.width -
+            DETAIL_PANEL_WIDTH -
+            DETAIL_PANEL_MARGIN -
+            TREE_PADDING.horizontal * 2,
+        },
+      })
+      .setInteractive({ useHandCursor: true })
+      .setVisible(false);
+    this.specialChanceText = this.scene.add
+      .text(detailTextX, detailPanelY + 14, '', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#e6f3ff',
+        lineSpacing: 3,
+        wordWrap: { width: detailTextWidth },
+      })
+      .setVisible(false);
     this.cardsText = this.scene.add
       .text(TREE_PADDING.horizontal, TREE_PADDING.top - 12, '', {
         fontFamily: 'monospace',
@@ -566,6 +612,16 @@ export class SkillTreeOverlay {
     this.spellsText.setMask(scrollMask);
     this.customizationText.setMask(scrollMask);
     this.inventoryItemsText.setMask(scrollMask);
+    this.specialStatsText.setMask(scrollMask);
+    this.specialChanceMaskGraphics = this.scene.add.graphics().setVisible(false);
+    this.specialChanceMaskGraphics.fillStyle(0xffffff, 1);
+    this.specialChanceMaskGraphics.fillRect(
+      x + detailTextX,
+      y + detailPanelY + 14,
+      detailTextWidth,
+      detailPanelHeight - 28,
+    );
+    this.specialChanceText.setMask(this.specialChanceMaskGraphics.createGeometryMask());
     this.scrollHintText = this.scene.add
       .text(
         this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal,
@@ -726,6 +782,29 @@ export class SkillTreeOverlay {
       );
       this.refresh();
     });
+    this.specialStatsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'special') return;
+      const row = this.getTextRowIndex(pointer, this.specialStatsText.y, this.specialStatsText, 0);
+      const localX = pointer.worldX - this.container.x - this.specialStatsText.x;
+      const entry = this.specialRowMap.find(
+        (candidate) =>
+          row >= candidate.startRow &&
+          row <= candidate.endRow &&
+          (candidate.minX === undefined || localX >= candidate.minX) &&
+          (candidate.maxX === undefined || localX <= candidate.maxX),
+      );
+      if (!entry || !entry.enabled) return;
+      if (entry.action === 'increase' && entry.statId) {
+        this.handlers.onPreviewSpecialChange?.(entry.statId, 1);
+      } else if (entry.action === 'decrease' && entry.statId) {
+        this.handlers.onPreviewSpecialChange?.(entry.statId, -1);
+      } else if (entry.action === 'apply') {
+        this.handlers.onApplySpecialChanges?.();
+      } else if (entry.action === 'reset') {
+        this.handlers.onResetSpecialPreview?.();
+      }
+      this.refresh();
+    });
     this.scene.input.on(
       'wheel',
       (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
@@ -752,6 +831,8 @@ export class SkillTreeOverlay {
       this.inventoryItemsText,
       this.customizationText,
       this.questListText,
+      this.specialStatsText,
+      this.specialChanceText,
       this.cardsText,
       this.factionsText,
       this.spellsText,
@@ -1088,6 +1169,7 @@ export class SkillTreeOverlay {
     if (
       !this.visible ||
       (this.activeTab !== 'spells' &&
+        this.activeTab !== 'special' &&
         this.activeTab !== 'quests' &&
         this.activeTab !== 'people' &&
         this.activeTab !== 'dating' &&
@@ -1095,6 +1177,10 @@ export class SkillTreeOverlay {
         this.activeTab !== 'customize' &&
         this.activeTab !== 'inventory')
     ) {
+      return;
+    }
+    if (this.activeTab === 'special') {
+      this.applySpecialChanceScrollOffset(this.specialChanceScrollOffset + deltaY);
       return;
     }
     const text =
@@ -1141,6 +1227,27 @@ export class SkillTreeOverlay {
   private resetScrollableText(text: Phaser.GameObjects.Text): void {
     text.setY(TREE_PADDING.top - 12);
     this.scrollHintText.setVisible(false).setText('');
+  }
+
+  private getSpecialChanceViewportHeight(): number {
+    return this.detailPanel.height - 28;
+  }
+
+  private applySpecialChanceScrollOffset(rawOffset = this.specialChanceScrollOffset): void {
+    const maxScroll = Math.max(0, this.specialChanceText.height - this.getSpecialChanceViewportHeight());
+    const offset = Phaser.Math.Clamp(rawOffset, 0, maxScroll);
+    this.specialChanceScrollOffset = offset;
+    this.specialChanceText.setY(this.detailPanel.y + 14 - offset);
+    this.scrollHintText
+      .setText(
+        maxScroll > 0
+          ? i18n
+              .getFeatureString('skillTreeScrollProgress')
+              .replace('{current}', String(Math.ceil(offset)))
+              .replace('{max}', String(Math.ceil(maxScroll)))
+          : '',
+      )
+      .setVisible(this.activeTab === 'special' && maxScroll > 0);
   }
 
   private highlightCustomizationRow(row: number): void {
@@ -1271,6 +1378,96 @@ export class SkillTreeOverlay {
     this.spellsText.setText(lines.join('\n'));
   }
 
+  private refreshSpecialPanel(): void {
+    const view = this.handlers.getSpecialView?.();
+    if (!view) {
+      this.specialStatsText.setText('SPECIAL data unavailable.');
+      this.specialChanceText.setText('CHANCES\n\nNo stat service is connected.');
+      this.specialRowMap = [];
+      return;
+    }
+
+    const lines: string[] = ['SPECIAL', ''];
+    const rowMap: typeof this.specialRowMap = [];
+    let visualRow = 0;
+    visualRow += this.countRenderedLinesFor(this.specialStatsText, lines[0]);
+    visualRow += 1;
+
+    for (const stat of view.stats) {
+      const statValue =
+        stat.value === stat.committedValue ? `${stat.value}` : `${stat.committedValue}->${stat.value}`;
+      const minus = stat.canDecrease ? '[-]' : '[ ]';
+      const plus = stat.canIncrease ? '[+]' : '[ ]';
+      const row = `${stat.label.padEnd(12, ' ')} ${statValue.padStart(5, ' ')}  ${minus} ${plus}`;
+      const charWidth = 8;
+      const minusIndex = row.indexOf(minus);
+      const plusIndex = row.lastIndexOf(plus);
+      lines.push(row);
+      rowMap.push({
+        startRow: visualRow,
+        endRow: visualRow,
+        action: 'decrease',
+        statId: stat.id,
+        enabled: stat.canDecrease,
+        minX: minusIndex * charWidth - 4,
+        maxX: (minusIndex + minus.length) * charWidth + 4,
+      });
+      rowMap.push({
+        startRow: visualRow,
+        endRow: visualRow,
+        action: 'increase',
+        statId: stat.id,
+        enabled: stat.canIncrease,
+        minX: plusIndex * charWidth - 4,
+        maxX: (plusIndex + plus.length) * charWidth + 4,
+      });
+      visualRow += this.countRenderedLinesFor(this.specialStatsText, row);
+    }
+
+    lines.push('', `Unspent Points: ${view.unspentPoints}`, '');
+    visualRow += 3;
+    const applyLine = view.hasPreviewChanges ? '[Apply Points]' : '[Apply Points disabled]';
+    const resetLine = view.hasPreviewChanges ? '[Reset Preview]' : '[Reset Preview disabled]';
+    lines.push(applyLine, resetLine, '', 'Affected Attributes');
+    rowMap.push({
+      startRow: visualRow,
+      endRow: visualRow,
+      action: 'apply',
+      enabled: view.hasPreviewChanges,
+    });
+    visualRow += this.countRenderedLinesFor(this.specialStatsText, applyLine);
+    rowMap.push({
+      startRow: visualRow,
+      endRow: visualRow,
+      action: 'reset',
+      enabled: view.hasPreviewChanges,
+    });
+    visualRow += this.countRenderedLinesFor(this.specialStatsText, resetLine) + 2;
+
+    for (const stat of view.stats) {
+      lines.push(`${stat.label}: ${stat.description}`);
+    }
+
+    this.specialStatsText.setText(lines.join('\n'));
+    this.specialRowMap = rowMap;
+
+    const chanceLines: string[] = ['CHANCES'];
+    for (const section of view.sections) {
+      chanceLines.push('', section.section);
+      for (const line of section.lines) {
+        chanceLines.push(`${line.label}: ${line.value}`);
+        if (line.detail) {
+          chanceLines.push(`  ${line.detail}`);
+        }
+        if (line.affectedBy?.length) {
+          chanceLines.push(`  Affected by: ${line.affectedBy.join(', ')}`);
+        }
+      }
+    }
+    this.specialChanceText.setText(chanceLines.join('\n'));
+    this.applySpecialChanceScrollOffset();
+  }
+
   refresh(): void {
     if (!this.isTabAvailable(this.activeTab)) {
       this.activeTab = 'skills';
@@ -1300,6 +1497,7 @@ export class SkillTreeOverlay {
     }
 
     const skillsActive = this.activeTab === 'skills';
+    const specialActive = this.activeTab === 'special';
     const inventoryActive = this.activeTab === 'inventory';
     const customizationActive = this.activeTab === 'customize';
     const cardsActive = this.activeTab === 'cards';
@@ -1314,6 +1512,8 @@ export class SkillTreeOverlay {
     const infoActive = this.activeTab === 'info';
     const graphActive = this.activeTab === 'graph';
     this.connectionGraphics.setVisible(skillsActive);
+    this.specialStatsText.setVisible(specialActive);
+    this.specialChanceText.setVisible(specialActive);
     this.inventoryItemsText.setVisible(inventoryActive);
     this.customizationText.setVisible(customizationActive);
     this.cardsText.setVisible(cardsActive);
@@ -1324,6 +1524,7 @@ export class SkillTreeOverlay {
     this.factionsText.setVisible(factionsActive);
     if (
       !spellsActive &&
+      !specialActive &&
       !questsActive &&
       !datingActive &&
       !peopleActive &&
@@ -1335,6 +1536,11 @@ export class SkillTreeOverlay {
     }
     if (!spellsActive) {
       this.resetScrollableText(this.spellsText);
+    }
+    if (!specialActive) {
+      this.resetScrollableText(this.specialStatsText);
+      this.specialChanceText.setY(this.detailPanel.y + 14);
+      this.specialChanceScrollOffset = 0;
     }
     if (!questsActive && !datingActive && !peopleActive && !destinyActive && !artifactsActive) {
       this.resetScrollableText(this.questListText);
@@ -1384,6 +1590,7 @@ export class SkillTreeOverlay {
       const mapActive = this.activeTab === 'map';
       const showStub =
         !skillsActive &&
+        !specialActive &&
         !inventoryActive &&
         !customizationActive &&
         !cardsActive &&
@@ -1406,6 +1613,18 @@ export class SkillTreeOverlay {
             ? resolvePlaceholder(tab)
             : i18n.getFeatureString('skillTreeStubText'),
         );
+      }
+    }
+
+    if (specialActive) {
+      this.refreshSpecialPanel();
+      this.detailTitle.setVisible(false);
+      this.detailSubtitle.setVisible(false);
+      this.detailRankText.setVisible(false);
+      this.detailBody.setVisible(false);
+      if (!this.hintSticky) {
+        this.hintText.setText('SPECIAL: click +/- to preview, then apply or reset.');
+        this.hintText.setColor('#9ad1ff');
       }
     }
 
@@ -1615,7 +1834,7 @@ export class SkillTreeOverlay {
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
-          "Supported cheats:\n\ninvestingincrypto\n90fps240Hz\nimawiddlebabywhoneedshelp\nimmortal\nmammamia\nstarman\nmario\nryan's closet\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis",
+          "Supported cheats:\n\nspecial10\nstats10\ninvestingincrypto\n90fps240Hz\nimawiddlebabywhoneedshelp\nimmortal\nmammamia\nstarman\nmario\nryan's closet\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis",
         )
         .setVisible(true);
       if (!this.hintSticky) {
@@ -1759,6 +1978,7 @@ export class SkillTreeOverlay {
     } else if (
       this.activeTab !== 'inventory' &&
       this.activeTab !== 'skills' &&
+      this.activeTab !== 'special' &&
       this.activeTab !== 'spells' &&
       this.activeTab !== 'cards' &&
       this.activeTab !== 'people' &&
@@ -2834,6 +3054,12 @@ export class SkillTreeOverlay {
     if (this.activeTab === 'spells') {
       this.hintText.setText('Spells: click an available row to bind Q.');
       this.hintText.setColor('#ffbdfd');
+      return;
+    }
+
+    if (this.activeTab === 'special') {
+      this.hintText.setText('SPECIAL: preview stat changes and inspect derived chances.');
+      this.hintText.setColor('#9ad1ff');
       return;
     }
 

@@ -4,6 +4,7 @@ import { SkillTreeSystem, type SkillPerkState, type SkillTreeRuntime } from './s
 import { SkillTreeOverlay } from '../ui/skillTreeOverlay.js';
 import type { SkillTreeStats } from './skillTypes.js';
 import { ActionSlotController } from './actionSlots.js';
+import type { SpecialStatId } from '../stats/specialTypes.js';
 
 import { JuiceManager } from '../ui/juice.js';
 import { i18n } from '../i18n/i18nManager.js';
@@ -41,6 +42,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
       getPeopleView: () => this.scene.getPeopleJournalView(),
       getDestinyView: () => this.scene.getStarforgedPauseMenuLines(),
       getArtifactView: () => this.scene.getArtifactViews(),
+      getSpecialView: () => this.scene.getSpecialStatsView(),
+      onPreviewSpecialChange: (statId: SpecialStatId, delta: number) =>
+        this.scene.previewSpecialStatChange(statId, delta),
+      onApplySpecialChanges: () => this.scene.applySpecialStatPreview(),
+      onResetSpecialPreview: () => this.scene.resetSpecialStatPreview(),
     });
     this.overlay.hide();
   }

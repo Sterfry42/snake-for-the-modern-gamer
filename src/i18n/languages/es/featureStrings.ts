@@ -168,6 +168,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
 
   // Tab Labels
   tabSkills: '\u00c1rbol de Habilidades',
+  tabSpecial: 'SPECIAL',
   tabSpells: 'Hechizos',
   tabInventory: 'Inventario',
   tabCustomize: 'Estilo',
