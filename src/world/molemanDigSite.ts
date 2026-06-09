@@ -84,19 +84,26 @@ function stampDigSite(
   height: number,
 ): void {
   const centerX = left + Math.floor(width / 2);
+  const foremanY = top + height - 3;
   for (let y = top; y < top + height; y += 1) {
     for (let x = left; x < left + width; x += 1) {
-      layout[y]![x] = '.';
+      layout[y]![x] = 'E';
     }
   }
-  for (let x = left + 2; x < left + width - 2; x += 1) {
-    layout[top + 2]![x] = 'W';
-    layout[top + 3]![x] = x % 2 === 0 ? 'C' : 'K';
-    layout[top + 4]![x] = 'W';
+
+  for (let y = top + 1; y < top + height - 1; y += 1) {
+    const inset = Math.min(3, Math.abs(foremanY - y));
+    for (let x = left + inset; x < left + width - inset; x += 1) {
+      layout[y]![x] = y % 2 === 0 ? 'W' : 'T';
+    }
   }
-  for (let x = centerX - 2; x <= centerX + 2; x += 1) {
-    layout[top + 1]![x] = 'T';
+
+  for (let y = top + 2; y <= top + 4; y += 1) {
+    for (let x = centerX - 3; x <= centerX + 3; x += 1) {
+      layout[y]![x] = y === top + 3 ? (x % 2 === 0 ? 'C' : 'K') : 'W';
+    }
   }
+
   layout[top + 3]![centerX - 1] = 'D';
   layout[top + 3]![centerX] = 'D';
   layout[top + 3]![centerX + 1] = 'D';
@@ -104,24 +111,27 @@ function stampDigSite(
   layout[top + 4]![centerX] = 'D';
   layout[top + 4]![centerX + 1] = 'D';
 
-  const rockTiles: Array<readonly [number, number]> = [
-    [left + 1, top + 1],
-    [left + width - 2, top + 1],
-    [left + 1, top + height - 2],
-    [left + width - 2, top + height - 2],
-    [left + 3, top + height - 1],
-    [left + width - 4, top],
+  const decorTiles: Array<readonly [number, number, string]> = [
+    [left + 1, top + 1, 'L'],
+    [left + width - 2, top + 1, 'L'],
+    [left + 1, top + height - 2, 'C'],
+    [left + width - 2, top + height - 2, 'K'],
+    [left + 3, top + height - 1, 'T'],
+    [left + width - 4, top, 'T'],
   ];
-  for (const [x, y] of rockTiles) {
-    layout[y]![x] = '#';
+  for (const [x, y, tile] of decorTiles) {
+    layout[y]![x] = tile;
   }
 
-  layout[top + height - 3]![centerX - 2] = 'T';
-  layout[top + height - 3]![centerX - 1] = 'T';
-  layout[top + height - 3]![centerX + 1] = 'T';
-  layout[top + height - 3]![centerX + 2] = 'T';
-  layout[top + height - 2]![centerX - 3] = 'W';
-  layout[top + height - 2]![centerX + 3] = 'W';
+  for (let y = foremanY - 1; y <= foremanY + 1; y += 1) {
+    for (let x = centerX - 2; x <= centerX + 2; x += 1) {
+      layout[y]![x] = 'E';
+    }
+  }
+  layout[foremanY]![centerX - 3] = 'T';
+  layout[foremanY]![centerX + 3] = 'T';
+  layout[foremanY + 1]![centerX - 3] = 'W';
+  layout[foremanY + 1]![centerX + 3] = 'W';
 }
 
 function randomIntInRange(

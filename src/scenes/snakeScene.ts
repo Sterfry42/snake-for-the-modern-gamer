@@ -8229,6 +8229,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (room.town) {
       return [room.town.safeArea];
     }
+    if (room.molemanDigSite) {
+      return [room.molemanDigSite.bounds];
+    }
     if (
       room.allNiteDiner ||
       room.fireworkStand ||
