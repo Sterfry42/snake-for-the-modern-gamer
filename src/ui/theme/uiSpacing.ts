@@ -1,0 +1,15 @@
+export const uiSpacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 24,
+  panelPadding: 16,
+  sectionGap: 14,
+  cardGap: 10,
+  rowGap: 6,
+  tabGap: 12,
+  footerHeight: 38,
+  headerHeight: 74,
+  detailPaneWidth: 220,
+} as const;
