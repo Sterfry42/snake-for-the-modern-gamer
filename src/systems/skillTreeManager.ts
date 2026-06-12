@@ -114,6 +114,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
       return this.overlay.useSelectedInventoryItem();
     }
 
+    if (key === 'e') {
+      return this.overlay.toggleSelectedEquipment();
+    }
+
     if (key === 'c') {
       return this.overlay.cookSelectedInventoryItem();
     }

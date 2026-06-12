@@ -7,7 +7,7 @@ import type {
   SkillPerkState,
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
-import type { EquipmentSlot } from '../inventory/item.js';
+import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
 import { saveManager } from '../game/saveManager.js';
 import { i18n } from '../i18n/i18nManager.js';
@@ -90,6 +90,13 @@ interface DerivedStatGroupView {
   title: string;
   accent: number;
   rows: DerivedStatRowView[];
+}
+
+interface EquipmentModifierView {
+  label: string;
+  value: string;
+  description: string;
+  accent: number;
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
@@ -292,6 +299,7 @@ export class SkillTreeOverlay {
   private readonly inventoryItemsText: Phaser.GameObjects.Text;
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
+  private equipmentSlotFilter: EquipmentSlot | 'all' = 'all';
   private inventoryHighlight?: Phaser.GameObjects.Rectangle;
   private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
   private readonly customizationText: Phaser.GameObjects.Text;
@@ -1083,7 +1091,8 @@ export class SkillTreeOverlay {
   }
 
   private drawTabPlates(g: Phaser.GameObjects.Graphics, layout: PauseMenuLayout): void {
-    const primaryWidth = Math.min(112, Math.floor((layout.topTabs.width - 30) / 4));
+    const primaryGap = 14;
+    const primaryWidth = Math.min(106, Math.floor((layout.topTabs.width - primaryGap * 3) / 4));
     let x = layout.topTabs.x;
     for (const primary of PRIMARY_TAB_DEFINITIONS) {
       const active = primary.id === this.activePrimaryTab;
@@ -1106,15 +1115,15 @@ export class SkillTreeOverlay {
         2,
         24,
       );
-      x += primaryWidth + 10;
+      x += primaryWidth + primaryGap;
     }
 
     const visibleTabs = TAB_DEFINITIONS.filter(
       (tab) => tab.group === this.activePrimaryTab && this.isTabAvailable(tab.id),
     );
-    const gap = 8;
+    const gap = 14;
     const tabWidth = Math.min(
-      122,
+      112,
       Math.floor(
         (layout.subTabs.width - gap * (visibleTabs.length - 1)) / Math.max(1, visibleTabs.length),
       ),
@@ -2325,13 +2334,259 @@ export class SkillTreeOverlay {
     ] as unknown as EquipmentSlot[];
   }
 
+  private formatSlotLabel(slot: EquipmentSlot | string): string {
+    const value = String(slot);
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  private getEquipmentSlotAccent(slot: EquipmentSlot): number {
+    const accents: Record<EquipmentSlot, number> = {
+      weapon: uiColors.danger,
+      boots: uiColors.accentFlow,
+      helm: uiColors.accentExploration,
+      ring: uiColors.accentArcana,
+      gloves: uiColors.warning,
+      cloak: uiColors.accentSocial,
+      belt: uiColors.accentCommand,
+      amulet: uiColors.accentCore,
+    };
+    return accents[slot] ?? uiColors.accentGear;
+  }
+
+  private drawEquipmentSlotGlyph(
+    g: Phaser.GameObjects.Graphics,
+    slot: EquipmentSlot,
+    cx: number,
+    cy: number,
+    color: number,
+  ): void {
+    g.lineStyle(2, color, 0.95);
+    g.fillStyle(color, 0.9);
+    switch (slot) {
+      case 'weapon':
+        g.lineBetween(cx - 7, cy + 7, cx + 7, cy - 7);
+        g.fillRect(cx - 8, cy + 5, 8, 3);
+        g.fillTriangle(cx + 4, cy - 9, cx + 9, cy - 9, cx + 8, cy - 4);
+        break;
+      case 'boots':
+        g.fillRoundedRect(cx - 7, cy + 1, 15, 6, 2);
+        g.fillTriangle(cx + 3, cy - 4, cx + 10, cy + 1, cx + 3, cy + 1);
+        break;
+      case 'helm':
+        g.fillTriangle(cx - 8, cy + 1, cx, cy - 8, cx + 8, cy + 1);
+        g.fillRect(cx - 8, cy + 1, 16, 5);
+        g.fillRect(cx - 4, cy - 5, 8, 2);
+        break;
+      case 'ring':
+        g.strokeCircle(cx, cy, 7);
+        g.fillCircle(cx, cy - 8, 3);
+        break;
+      case 'gloves':
+        g.fillRoundedRect(cx - 7, cy - 2, 9, 10, 3);
+        g.fillRoundedRect(cx + 1, cy - 6, 6, 11, 3);
+        break;
+      case 'cloak':
+        g.fillTriangle(cx, cy - 8, cx + 9, cy + 8, cx - 9, cy + 8);
+        g.lineStyle(1, uiColors.panelBgPrimary, 0.75).lineBetween(cx, cy - 4, cx, cy + 6);
+        break;
+      case 'belt':
+        g.strokeRoundedRect(cx - 9, cy - 4, 18, 8, 2);
+        g.fillRoundedRect(cx - 3, cy - 5, 6, 10, 2);
+        break;
+      case 'amulet':
+        g.strokeCircle(cx, cy - 1, 7);
+        g.fillTriangle(cx, cy - 6, cx + 5, cy + 4, cx - 5, cy + 4);
+        break;
+    }
+  }
+
+  private formatModifierPercent(value: number, signed = true): string {
+    const rounded = Math.round(value * 100);
+    return signed && rounded > 0 ? `+${rounded}%` : `${rounded}%`;
+  }
+
+  private getEquipmentModifierViews(item: EquipableItem): EquipmentModifierView[] {
+    const modifiers = item.modifiers ?? {};
+    const rows: EquipmentModifierView[] = [];
+    const push = (
+      label: string,
+      value: string,
+      description: string,
+      accent: number = uiColors.accentGear,
+    ) => rows.push({ label, value, description, accent });
+
+    if (typeof modifiers.tickDelayScalar === 'number') {
+      const speedDelta = 1 - modifiers.tickDelayScalar;
+      const abs = Math.abs(Math.round(speedDelta * 100));
+      push(
+        'Speed',
+        this.formatModifierPercent(speedDelta),
+        speedDelta >= 0
+          ? `Movement cadence improves by ${abs}%.`
+          : `Movement cadence slows by ${abs}%.`,
+        speedDelta >= 0 ? uiColors.accentFlow : uiColors.danger,
+      );
+    }
+    if (typeof modifiers.wallSenseBonus === 'number') {
+      push(
+        'Wall Sense',
+        `+${modifiers.wallSenseBonus}`,
+        'Reveals nearby wall pressure before you commit to a line.',
+        uiColors.accentExploration,
+      );
+    }
+    if (typeof modifiers.seismicPulseBonus === 'number') {
+      push(
+        'Seismic Pulse',
+        `+${modifiers.seismicPulseBonus}`,
+        'Apple pickups send a wider pulse through hidden terrain.',
+        uiColors.accentCore,
+      );
+    }
+    if (modifiers.masonryEnabled) {
+      push('Masonry', 'ON', 'Tail movement can lay temporary bricks behind you.', uiColors.warning);
+    }
+    if (typeof modifiers.invulnerabilityBonus === 'number') {
+      push(
+        'Invulnerability',
+        `+${modifiers.invulnerabilityBonus}s`,
+        'Apple safety windows last longer after pickup.',
+        uiColors.accentSurvival,
+      );
+    }
+    if (modifiers.regenerator) {
+      push(
+        'Regenerator',
+        `+${modifiers.regenerator.amount}/${modifiers.regenerator.interval}`,
+        'Passive length growth triggers after enough rooms or ticks.',
+        uiColors.accentGrowth,
+      );
+    }
+    if (typeof modifiers.phoenixCharges === 'number') {
+      push(
+        'Phoenix',
+        `+${modifiers.phoenixCharges}`,
+        'Stores an emergency revive charge for the run.',
+        uiColors.accentSurvival,
+      );
+    }
+    if (modifiers.gunEnabled) {
+      push('Sidearm', 'ON', 'Enables the weapon action for ranged shots.', uiColors.danger);
+    }
+    if (typeof modifiers.heatResistance === 'number') {
+      push(
+        'Heat Resistance',
+        this.formatModifierPercent(modifiers.heatResistance, false),
+        'Reduces pressure from scorching hazard biomes.',
+        uiColors.danger,
+      );
+    }
+    if (typeof modifiers.coldResistance === 'number') {
+      push(
+        'Frost Resistance',
+        this.formatModifierPercent(modifiers.coldResistance, false),
+        'Reduces pressure from freezing hazard biomes.',
+        uiColors.panelGlow,
+      );
+    }
+    if (modifiers.swimmingEnabled) {
+      push('Buoyancy', '+100%', 'Allows safe traversal across water tiles.', uiColors.panelGlow);
+      push('Water Routing', 'OPEN', 'Water paths become valid route options.', uiColors.accentWorld);
+    }
+    if (modifiers.refundEveryRooms) {
+      push(
+        'Room Refund',
+        `${modifiers.refundEveryRooms.score}/${modifiers.refundEveryRooms.interval}`,
+        'Refunds score after clearing a regular room interval.',
+        0xfff3a8,
+      );
+    }
+    if (typeof modifiers.appleScorePenalty === 'number') {
+      push(
+        'Apple Score',
+        this.formatModifierPercent(-modifiers.appleScorePenalty),
+        'Apples pay less score while this tradeoff is active.',
+        uiColors.danger,
+      );
+    }
+    if (typeof modifiers.hazardMapSense === 'number') {
+      push(
+        'Hazard Sense',
+        `+${modifiers.hazardMapSense}`,
+        'Improves map awareness around dangerous rooms.',
+        uiColors.accentExploration,
+      );
+    }
+    if (typeof modifiers.radiationTimerScalar === 'number') {
+      const delta = 1 - modifiers.radiationTimerScalar;
+      push(
+        'Radiation Timer',
+        this.formatModifierPercent(delta),
+        'Changes how quickly radiation pressure advances.',
+        delta >= 0 ? uiColors.accentSurvival : uiColors.danger,
+      );
+    }
+    if (modifiers.wallSmiteEnabled) {
+      push('Wall Smite', 'ON', 'Weapon strikes can break through select walls.', uiColors.warning);
+    }
+    if (modifiers.shrineBlessing) {
+      push('Shrine Blessing', 'ON', 'Kami shrines can send passive aid during the run.', uiColors.accentCore);
+    }
+    if (modifiers.yokaiInsight) {
+      push('Yokai Insight', 'ON', 'Reveals disguised yokai during encounters.', uiColors.accentArcana);
+    }
+    if (modifiers.spiritualLength) {
+      push('Spirit Growth', 'ON', 'Spiritual discipline can add passive length.', uiColors.accentGrowth);
+    }
+    if (modifiers.fishingEnabled) {
+      push('Fishing Kit', 'ON', 'Enables the fishing minigame action.', uiColors.accentWorld);
+    }
+    if (typeof modifiers.fishingMod === 'number') {
+      push(
+        'Fishing Value',
+        this.formatModifierPercent(modifiers.fishingMod - 1),
+        'Improves fish sale value and fishing score payouts.',
+        uiColors.accentWorld,
+      );
+    }
+
+    return rows;
+  }
+
   private buildEquipmentCards(rect: UiRect): void {
     const content = insetRect(rect, 14);
     const offset = this.getStructuredScrollOffset();
-    const headerY = content.y - offset;
+    const slots = this.getEquipmentSlots();
+    const allEquipment = this.scene.inventory
+      .getAllItems()
+      .map(([id, count]) => ({ id, item: getItem(id) as EquipableItem | undefined, count }))
+      .filter((entry): entry is { id: string; item: EquipableItem; count: number } => {
+        return entry.item?.kind === 'equipment';
+      })
+      .sort((a, b) => {
+        const aEquipped = this.scene.inventory.getEquipped(a.item.slot) === a.id ? 0 : 1;
+        const bEquipped = this.scene.inventory.getEquipped(b.item.slot) === b.id ? 0 : 1;
+        const slotDelta = slots.indexOf(a.item.slot) - slots.indexOf(b.item.slot);
+        return aEquipped - bEquipped || slotDelta || a.item.name.localeCompare(b.item.name);
+      });
+    const filteredEquipment =
+      this.equipmentSlotFilter === 'all'
+        ? allEquipment
+        : allEquipment.filter((entry) => entry.item.slot === this.equipmentSlotFilter);
+    const selectedEntry = allEquipment.find((entry) => entry.id === this.selectedInventoryItemId);
+    if (
+      this.equipmentSlotFilter !== 'all' &&
+      selectedEntry &&
+      selectedEntry.item.slot !== this.equipmentSlotFilter
+    ) {
+      this.selectedInventoryItemId = filteredEquipment[0]?.id ?? null;
+    } else if (!selectedEntry && allEquipment.length > 0) {
+      this.selectedInventoryItemId = filteredEquipment[0]?.id ?? allEquipment[0]?.id ?? null;
+    }
+
     addUiText(this.scene, this.structuredContainer, content.x, content.y, 'EQUIPMENT', {
       color: uiColors.textPrimary,
-      fontSize: '14px',
+      fontSize: '13px',
       fontStyle: 'bold',
     });
     addUiBadge(
@@ -2339,120 +2594,211 @@ export class SkillTreeOverlay {
       this.structuredContainer,
       this.structuredGraphics,
       { x: content.x + content.width - 98, y: content.y - 2, width: 86, height: 20 },
-      'SLOTS',
+      `${allEquipment.length} GEAR`,
       uiColors.accentGear,
       uiColors.accentGear,
     );
 
-    const allItems = this.scene.inventory.getAllItems();
-    const equipmentBySlot = new Map<
-      EquipmentSlot,
-      Array<{ id: string; item: any; count: number }>
-    >();
-    for (const [itemId, count] of allItems) {
-      const item = getItem(itemId) as any;
-      if (item?.kind !== 'equipment') continue;
-      const slot = item.slot as EquipmentSlot;
-      const bucket = equipmentBySlot.get(slot) ?? [];
-      bucket.push({ id: itemId, item, count });
-      equipmentBySlot.set(slot, bucket);
-    }
+    const slotTop = content.y + 28;
+    addUiText(this.scene, this.structuredContainer, content.x + 2, slotTop, 'EQUIPPED SLOTS', {
+      color: '#4da3ff',
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x + content.width - 54,
+      slotTop,
+      `${this.scene.inventory.getAllEquipped().length} / ${slots.length}`,
+      { align: 'right', color: uiColors.textPrimary, fontSize: '11px', fontStyle: 'bold' },
+    );
 
-    let y = content.y + 30 - offset;
-    let unscrolledBottom = content.y + 30;
-    for (const slot of this.getEquipmentSlots()) {
+    const slotCardW = Math.floor((content.width - 18) / 4);
+    const slotCardH = 38;
+    slots.forEach((slot, index) => {
       const equippedId = this.scene.inventory.getEquipped(slot);
-      const equipped = equippedId ? (getItem(equippedId) as any) : null;
-      const available = equipmentBySlot.get(slot) ?? [];
-      const card: UiRect = { x: content.x, y, width: content.width, height: 54 };
-      const visible = this.isStructuredRectVisible(card, rect);
-      if (visible) {
+      const equipped = equippedId ? (getItem(equippedId) as EquipableItem | undefined) : undefined;
+      const firstMatchingOwned = allEquipment.find((entry) => entry.item.slot === slot);
+      const accent = this.getEquipmentSlotAccent(slot);
+      const col = index % 4;
+      const row = Math.floor(index / 4);
+      const card: UiRect = {
+        x: content.x + col * (slotCardW + 6),
+        y: slotTop + 20 + row * (slotCardH + 7),
+        width: slotCardW,
+        height: slotCardH,
+      };
       drawUiCard(this.structuredGraphics, {
         rect: card,
         fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
-        stroke: equipped ? uiColors.accentCore : uiColors.panelBorderMuted,
-        alpha: equipped ? 0.16 : 0.62,
-        strokeAlpha: equipped ? 0.9 : 0.58,
+        stroke:
+          this.equipmentSlotFilter === slot
+            ? uiColors.accentCore
+            : equipped
+              ? accent
+              : uiColors.panelBorderMuted,
+        alpha: equipped ? 0.18 : 0.58,
+        strokeAlpha: this.equipmentSlotFilter === slot ? 0.95 : equipped ? 0.78 : 0.52,
+        radius: 5,
       });
-      const slotLabel = String(slot).charAt(0).toUpperCase() + String(slot).slice(1);
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 8, slotLabel, {
+      this.drawEquipmentSlotGlyph(this.structuredGraphics, slot, card.x + 15, card.y + 19, accent);
+      addUiText(this.scene, this.structuredContainer, card.x + 30, card.y + 6, this.formatSlotLabel(slot), {
         color: uiColors.textMuted,
-        fontSize: '10px',
+        fontSize: '9px',
         fontStyle: 'bold',
       });
       addUiText(
         this.scene,
         this.structuredContainer,
-        card.x + 10,
-        card.y + 24,
-        equipped?.name ?? 'Empty slot',
+        card.x + 30,
+        card.y + 21,
+        equipped?.name ?? 'Empty',
         {
           color: equipped ? uiColors.textPrimary : uiColors.textMuted,
-          fontSize: '13px',
+          fontSize: '10px',
           fontStyle: equipped ? 'bold' : 'normal',
+          wordWrapWidth: card.width - 34,
         },
       );
+      this.addStructuredZone(card, () => {
+        this.equipmentSlotFilter = slot;
+        this.selectedInventoryItemId = equippedId ?? firstMatchingOwned?.id ?? null;
+        this.refresh();
+      });
+    });
+
+    const filterY = slotTop + 20 + 2 * (slotCardH + 7) + 10;
+    addUiText(this.scene, this.structuredContainer, content.x + 2, filterY, 'OWNED GEAR', {
+      color: '#4da3ff',
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    const allFilterRect: UiRect = {
+      x: content.x + content.width - 82,
+      y: filterY - 4,
+      width: 70,
+      height: 20,
+    };
+    addUiBadge(
+      this.scene,
+      this.structuredContainer,
+      this.structuredGraphics,
+      allFilterRect,
+      this.equipmentSlotFilter === 'all' ? 'ALL' : this.formatSlotLabel(this.equipmentSlotFilter),
+      this.equipmentSlotFilter === 'all' ? uiColors.accentCore : uiColors.accentGear,
+      this.equipmentSlotFilter === 'all' ? uiColors.accentCore : uiColors.accentGear,
+      this.equipmentSlotFilter === 'all' ? '#101824' : '#ffffff',
+    );
+    this.addStructuredZone(allFilterRect, () => {
+      this.equipmentSlotFilter = 'all';
+      this.refresh();
+    });
+
+    let y = filterY + 24 - offset;
+    let unscrolledBottom = filterY + 24;
+    if (filteredEquipment.length === 0) {
       addUiText(
         this.scene,
         this.structuredContainer,
-        card.x + 10,
-        card.y + 40,
-        available.length > 0
-          ? `${available.length} candidate${available.length === 1 ? '' : 's'}`
-          : 'No gear owned',
-        { color: uiColors.textMuted, fontSize: '10px' },
+        content.x + 4,
+        y + 8,
+        'No owned gear matches this slot yet.',
+        { color: uiColors.textMuted, fontSize: '12px' },
       );
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: card.x + card.width - 78, y: card.y + 17, width: 66, height: 20 },
-        equipped ? 'UNEQUIP' : 'EMPTY',
-        equipped ? uiColors.accentCore : uiColors.locked,
-        equipped ? uiColors.accentCore : uiColors.locked,
-        equipped ? '#101824' : '#ffffff',
-      );
-      this.addStructuredZone(card, () => {
-        if (equippedId) {
-          const ok = this.scene.unequipSlot(slot);
-          this.announce(
-            ok ? `Unequipped ${slotLabel}.` : `Could not unequip ${slotLabel}.`,
-            ok ? '#9ad1ff' : '#ff6b6b',
-            1600,
-          );
-          this.refresh();
-          return;
-        }
-        const first = available[0];
-        if (first) {
-          const ok = this.scene.equipItem(first.id);
-          this.announce(
-            ok ? `${first.item.name} equipped.` : `Cannot equip ${first.item.name}.`,
-            ok ? '#5dd6a2' : '#ff6b6b',
-            1600,
-          );
-          this.refresh();
-        } else {
-          this.detailTitle.setText(slotLabel).setVisible(true);
-          this.detailSubtitle.setText('Equipment Slot').setVisible(true);
-          this.detailRankText.setText('').setVisible(false);
-          this.detailBody.setText('No owned equipment fits this slot yet.').setVisible(true);
-        }
-      });
-      }
-      y += 62;
-      unscrolledBottom += 62;
+      unscrolledBottom += 42;
     }
 
-    this.detailTitle.setText('Equipment').setVisible(true);
-    this.detailSubtitle.setText('Equipped build slots').setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText(
-        'Click a filled slot to unequip it. Empty slots show whether matching gear is owned.',
-      )
-      .setVisible(true);
-    void headerY;
+    for (const entry of filteredEquipment) {
+      const { id: itemId, item, count } = entry;
+      const equipped = this.scene.inventory.getEquipped(item.slot) === itemId;
+      const selected = this.selectedInventoryItemId === itemId;
+      const modifiers = this.getEquipmentModifierViews(item);
+      const accent = this.getEquipmentSlotAccent(item.slot);
+      const card: UiRect = { x: content.x, y, width: content.width, height: 58 };
+      const visible = this.isStructuredRectVisible(card, rect);
+      if (visible) {
+        drawUiCard(this.structuredGraphics, {
+          rect: card,
+          fill: selected ? uiColors.panelGlow : equipped ? uiColors.accentGear : uiColors.panelBgInset,
+          stroke: selected ? uiColors.accentCore : equipped ? accent : uiColors.panelBorderMuted,
+          alpha: selected ? 0.14 : equipped ? 0.16 : 0.62,
+          strokeAlpha: selected ? 0.95 : equipped ? 0.8 : 0.56,
+          radius: 5,
+        });
+        this.structuredGraphics.fillStyle(accent, 0.2).fillRoundedRect(card.x + 8, card.y + 8, 34, 34, 5);
+        this.drawEquipmentSlotGlyph(this.structuredGraphics, item.slot, card.x + 25, card.y + 25, accent);
+        addUiText(this.scene, this.structuredContainer, card.x + 52, card.y + 8, item.name, {
+          color: equipped ? uiColors.valuePositive : selected ? uiColors.valuePrimary : uiColors.textPrimary,
+          fontSize: '13px',
+          fontStyle: 'bold',
+          wordWrapWidth: card.width - 190,
+        });
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 52,
+          card.y + 29,
+          `${this.formatSlotLabel(item.slot)} // x${count}`,
+          { color: uiColors.textMuted, fontSize: '10px' },
+        );
+        let modX = card.x + Math.max(170, card.width - 190);
+        for (const modifier of modifiers.slice(0, 2)) {
+          addUiText(this.scene, this.structuredContainer, modX, card.y + 18, modifier.value, {
+            color: `#${modifier.accent.toString(16).padStart(6, '0')}`,
+            fontSize: '11px',
+            fontStyle: 'bold',
+          });
+          modX += 48;
+        }
+        const actionRect: UiRect = {
+          x: card.x + card.width - 72,
+          y: card.y + 18,
+          width: 60,
+          height: 20,
+        };
+        addUiBadge(
+          this.scene,
+          this.structuredContainer,
+          this.structuredGraphics,
+          actionRect,
+          equipped ? 'UNEQUIP' : 'EQUIP',
+          equipped ? uiColors.warning : uiColors.accentGear,
+          equipped ? uiColors.warning : uiColors.accentGear,
+          equipped ? '#101824' : '#ffffff',
+        );
+      }
+      this.addStructuredZone(card, () => {
+        this.selectedInventoryItemId = itemId;
+        this.showInventoryItemDetails();
+        this.refresh();
+      });
+      if (visible) {
+        const actionRect: UiRect = {
+          x: card.x + card.width - 72,
+          y: card.y + 18,
+          width: 60,
+          height: 20,
+        };
+        this.addStructuredZone(actionRect, () => {
+          this.selectedInventoryItemId = itemId;
+          this.toggleSelectedEquipment();
+        });
+      }
+      y += 66;
+      unscrolledBottom += 66;
+    }
+
+    if (this.selectedInventoryItemId && getItem(this.selectedInventoryItemId)?.kind === 'equipment') {
+      this.showInventoryItemDetails();
+    } else {
+      this.detailTitle.setText('Equipment').setVisible(true);
+      this.detailSubtitle.setText('Build slots and owned gear').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText('Select owned gear to inspect modifiers, compare slots, equip, or unequip.')
+        .setVisible(true);
+    }
     this.setStructuredContentHeight(content, unscrolledBottom);
   }
 
@@ -3207,6 +3553,9 @@ export class SkillTreeOverlay {
     if (!pointer) {
       return false;
     }
+    if (this.activeTab === 'equipment') {
+      return this.showInventoryItemDetails();
+    }
     const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y, this.inventoryItemsText);
     const id = this.inventoryIndex[index];
     if (!id || id.startsWith('unequip:')) {
@@ -3243,6 +3592,19 @@ export class SkillTreeOverlay {
       this.announce(i18n.getFeatureString('skillTreeUnknownItem'), '#ff6b6b', 1600);
       return false;
     }
+    if (item.kind === 'equipment') {
+      const equipped = this.scene.inventory.getEquipped(item.slot) === item.id;
+      const actionHints = this.getInventoryActionHints(this.selectedInventoryItemId);
+      this.detailTitle.setText(item.name ?? this.selectedInventoryItemId).setVisible(true);
+      this.detailSubtitle
+        .setText(`${this.formatSlotLabel(item.slot)} - ${equipped ? 'Equipped' : 'Owned'}`)
+        .setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(this.buildEquipmentDetailBody(item, equipped, actionHints))
+        .setVisible(true);
+      return true;
+    }
     const title = item.name ?? this.selectedInventoryItemId;
     const subtitle =
       (item as any).kind === 'equipment' ? `Equipment · Slot: ${(item as any).slot}` : 'Item';
@@ -3253,6 +3615,75 @@ export class SkillTreeOverlay {
     this.detailSubtitle.setText(subtitle).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
     this.detailBody.setText(body).setVisible(true);
+    return true;
+  }
+
+  private buildEquipmentDetailBody(
+    item: EquipableItem,
+    equipped: boolean,
+    actionHints: string,
+  ): string {
+    const modifiers = this.getEquipmentModifierViews(item);
+    const currentId = this.scene.inventory.getEquipped(item.slot);
+    const current = currentId ? (getItem(currentId) as EquipableItem | undefined) : undefined;
+    const currentModifiers =
+      current && current.kind === 'equipment' ? this.getEquipmentModifierViews(current) : [];
+    const lines: string[] = [];
+    if (item.description) {
+      lines.push(item.description);
+    }
+    lines.push('');
+    lines.push('MODIFIERS');
+    if (modifiers.length === 0) {
+      lines.push('No stat modifiers. This gear is mostly cosmetic or utility-gated.');
+    } else {
+      for (const modifier of modifiers) {
+        lines.push(`${modifier.label}: ${modifier.value}`);
+        lines.push(`  ${modifier.description}`);
+      }
+    }
+    lines.push('');
+    lines.push('CURRENT SLOT');
+    lines.push(current ? `${current.name}${equipped ? ' (this item)' : ''}` : 'Empty');
+
+    if (!equipped && current && current.id !== item.id) {
+      const currentByLabel = new Map(currentModifiers.map((modifier) => [modifier.label, modifier]));
+      const labels = new Set([
+        ...currentModifiers.map((modifier) => modifier.label),
+        ...modifiers.map((modifier) => modifier.label),
+      ]);
+      lines.push('');
+      lines.push('IF EQUIPPED');
+      for (const label of labels) {
+        const from = currentByLabel.get(label)?.value ?? '0';
+        const to = modifiers.find((modifier) => modifier.label === label)?.value ?? '0';
+        lines.push(`${label}: ${from} -> ${to}`);
+      }
+    }
+
+    lines.push('');
+    lines.push(actionHints);
+    return lines.join('\n');
+  }
+
+  toggleSelectedEquipment(): boolean {
+    if (!this.visible || this.activeTab !== 'equipment' || !this.selectedInventoryItemId) {
+      return false;
+    }
+    const item = getItem(this.selectedInventoryItemId) as EquipableItem | undefined;
+    if (!item || item.kind !== 'equipment') {
+      this.announce('Select a gear item first.', '#ffd166', 1800);
+      return true;
+    }
+    const equipped = this.scene.inventory.getEquipped(item.slot) === item.id;
+    const ok = equipped ? this.scene.unequipSlot(item.slot) : this.scene.equipItem(item.id);
+    this.announce(
+      ok ? `${item.name} ${equipped ? 'unequipped' : 'equipped'}.` : `Cannot equip ${item.name}.`,
+      ok ? (equipped ? '#9ad1ff' : '#5dd6a2') : '#ff6b6b',
+      1600,
+    );
+    this.refresh();
+    this.showInventoryItemDetails();
     return true;
   }
 
@@ -3299,7 +3730,7 @@ export class SkillTreeOverlay {
   private getInventoryActionHints(itemId: string): string {
     const item = getItem(itemId) as any;
     if (!item || item.kind === 'equipment') {
-      return 'Click to equip or unequip.';
+      return 'Click rows to inspect. Press E or use the action button to equip or unequip.';
     }
     const hints = [i18n.getFeatureString('hintPressInspect')];
     if (item.category === 'food' || item.kind === 'consumable') {
@@ -4289,7 +4720,7 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         const hintByTab: Partial<Record<TabId, string>> = {
           inventory: i18n.getFeatureString('hintInventory'),
-          equipment: 'Equipment: click slots to equip or unequip.',
+          equipment: 'Equipment: select gear, compare modifiers, press E to equip or unequip.',
           items: 'Items: click rows for details. Press U to use selected consumables.',
           cards: i18n.getFeatureString('cardHintCards'),
           spells: i18n.getFeatureString('hintSpells'),
@@ -5218,7 +5649,8 @@ export class SkillTreeOverlay {
     const primaryY = layout.topTabs.y + 17;
     const secondaryY = layout.subTabs.y + 14;
     const showHand = TAB_DEFINITIONS.length > 1;
-    const primaryTabWidth = Math.min(112, Math.floor((layout.topTabs.width - 30) / 4));
+    const primaryGap = 14;
+    const primaryTabWidth = Math.min(106, Math.floor((layout.topTabs.width - primaryGap * 3) / 4));
     const secondaryStartX = layout.subTabs.x;
     const secondaryTabWidth = 110;
 
@@ -5233,7 +5665,7 @@ export class SkillTreeOverlay {
       const label = this.scene.add
         .text(primaryX + 28, primaryY, resolvedLabel, {
           fontFamily: 'monospace',
-          fontSize: '13px',
+          fontSize: '12px',
           color: '#7895b4',
           backgroundColor: 'rgba(0,0,0,0)',
           fixedWidth: primaryTabWidth - 30,
@@ -5265,7 +5697,7 @@ export class SkillTreeOverlay {
       this.container.add(label);
       this.primaryTabIcons.set(primary.id, icon);
       this.primaryTabLabels.set(primary.id, label);
-      primaryX += primaryTabWidth + 10;
+      primaryX += primaryTabWidth + primaryGap;
     }
 
     let currentX = secondaryStartX;
@@ -5279,7 +5711,7 @@ export class SkillTreeOverlay {
       const label = this.scene.add
         .text(currentX + 26, secondaryY, resolvedLabel, {
           fontFamily: 'monospace',
-          fontSize: '14px',
+          fontSize: '13px',
           color: '#7895b4',
           backgroundColor: 'rgba(0,0,0,0)',
           fixedWidth: secondaryTabWidth - 26,
@@ -5839,9 +6271,9 @@ export class SkillTreeOverlay {
     const visibleTabs = TAB_DEFINITIONS.filter(
       (tab) => tab.group === this.activePrimaryTab && this.isTabAvailable(tab.id),
     );
-    const gap = 8;
+    const gap = 14;
     const tabWidth = Math.min(
-      122,
+      112,
       Math.floor(
         (layout.subTabs.width - gap * (visibleTabs.length - 1)) / Math.max(1, visibleTabs.length),
       ),
@@ -6044,6 +6476,15 @@ export class SkillTreeOverlay {
             ? resolvePlaceholder(tab)
             : i18n.getFeatureString('skillTreeStubText'),
         );
+      }
+      if (this.activeTab === 'equipment') {
+        this.setFooterHints([
+          { key: 'Click', label: 'Select gear' },
+          { key: 'E', label: 'Equip toggle' },
+          { key: 'Wheel', label: 'Scroll list' },
+          { key: 'Esc', label: 'Resume' },
+        ]);
+        return;
       }
       this.setFooterHints([
         { key: 'Click', label: 'Select row/card' },
