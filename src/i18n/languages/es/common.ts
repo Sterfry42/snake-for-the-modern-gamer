@@ -121,17 +121,14 @@ export const COMMON_ES: CommonTranslations = {
     appleScore: 'Manzana x{count}  +{score}',
     plusScore: '+{score} puntuacion',
     forestName: 'Excavacion del bosque',
-    forestLine:
-      'Encontramos raices, piedras y manzanas. Bastante normal. Seguimos excavando.',
+    forestLine: 'Encontramos raices, piedras y manzanas. Bastante normal. Seguimos excavando.',
     oceanName: '海洋挖掘',
     oceanLine: '不确定为什么海在下面。贝壳不错就是了。',
     deepName: 'Excavacion profunda',
-    deepLine:
-      'Una vez encontramos seis manzanas y una espada. Lo archivamos como martes.',
+    deepLine: 'Una vez encontramos seis manzanas y una espada. Lo archivamos como martes.',
     foremanHowTo:
       'Las filas suben pixel a pixel. Espacio intercambia las dos bajo el soporte. Tres iguales desaparecen y luego caen las rocas. Si gana el techo, aun conservas los hallazgos.',
-    foremanOddFind:
-      '有一次我们找到六个苹果和一把剑。第二天又找到一座小教堂。后来就不问了。',
+    foremanOddFind: '有一次我们找到六个苹果和一把剑。第二天又找到一座小教堂。后来就不问了。',
   },
   actorInteractions: {
     inspect: 'Inspeccionar',

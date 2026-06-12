@@ -79,7 +79,8 @@ export const COMMON_EN: CommonTranslations = {
   },
   archaeology: {
     digWarningTitle: '[EPILEPSY WARNING] Dig',
-    digDescription: 'Start Moleman Archaeology. Match three, ride the rising stack, keep the finds.',
+    digDescription:
+      'Start Moleman Archaeology. Match three, ride the rising stack, keep the finds.',
     talkTitle: 'Talk',
     talkDescription: 'Hear the foreman explain why this hole has apples in it.',
     bondTitle: 'Bond',

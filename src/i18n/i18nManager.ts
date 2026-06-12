@@ -96,7 +96,10 @@ class I18nManager {
 
 export const i18n = new I18nManager();
 
-function getNestedString(translations: CommonTranslations | undefined, key: string): string | undefined {
+function getNestedString(
+  translations: CommonTranslations | undefined,
+  key: string,
+): string | undefined {
   if (!translations) return undefined;
   const direct = translations[key];
   if (typeof direct === 'string') return direct;

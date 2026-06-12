@@ -929,7 +929,8 @@ export class SnakeGame implements QuestRuntime {
     return {
       getTreasureChance: () =>
         getTreasureDiscoveryChance(this.specialStats.getCommittedState().stats),
-      getPowerupChance: () => getPowerupDiscoveryChance(this.specialStats.getCommittedState().stats),
+      getPowerupChance: () =>
+        getPowerupDiscoveryChance(this.specialStats.getCommittedState().stats),
     };
   }
 
@@ -6871,7 +6872,10 @@ export class SnakeGame implements QuestRuntime {
     appleScoreGained: number;
   } {
     const scoreBefore = this.getScore();
-    const appleCount = Object.values(rewards.apples).reduce((total, count) => total + Math.max(0, count), 0);
+    const appleCount = Object.values(rewards.apples).reduce(
+      (total, count) => total + Math.max(0, count),
+      0,
+    );
     const appleLengthGained = appleCount;
     const appleScoreGained = appleCount;
     this.addScore(rewards.score + appleScoreGained);

@@ -1031,7 +1031,13 @@ export class JuiceManager {
   }
 
   archaeologyReward(): void {
-    this.playTone({ frequency: 720, frequencyEnd: 1040, duration: 0.09, type: 'triangle', volume: 0.07 });
+    this.playTone({
+      frequency: 720,
+      frequencyEnd: 1040,
+      duration: 0.09,
+      type: 'triangle',
+      volume: 0.07,
+    });
     this.playTone({ frequency: 1180, duration: 0.12, type: 'sine', volume: 0.045 });
     this.punchZoom(1.01, 80);
   }

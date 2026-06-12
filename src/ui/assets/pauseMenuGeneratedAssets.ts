@@ -229,6 +229,8 @@ export function ensurePauseMenuGeneratedAssets(scene: Phaser.Scene): void {
   generateTabIcon(scene, uiTabIconKeys.special, uiColors.accentCore, drawStar);
   generateTabIcon(scene, uiTabIconKeys.spells, uiColors.accentArcana, drawStar);
   generateTabIcon(scene, uiTabIconKeys.inventory, uiColors.accentGear, drawBook);
+  generateTabIcon(scene, uiTabIconKeys.equipment, uiColors.accentGear, drawGear);
+  generateTabIcon(scene, uiTabIconKeys.items, uiColors.accentGear, drawBook);
   generateTabIcon(scene, uiTabIconKeys.customize, uiColors.accentGear, drawStar);
   generateTabIcon(scene, uiTabIconKeys.cards, uiColors.accentGear, drawBook);
   generateTabIcon(scene, uiTabIconKeys.artifacts, uiColors.accentExploration, drawStar);

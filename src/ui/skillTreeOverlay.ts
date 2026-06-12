@@ -7,7 +7,7 @@ import type {
   SkillPerkState,
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
-import type { EquipmentSlot } from '../inventory/item.js';
+import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
 import { saveManager } from '../game/saveManager.js';
 import { i18n } from '../i18n/i18nManager.js';
@@ -31,6 +31,13 @@ import {
   insetRect,
   type UiRect,
 } from './core/UiLayout.js';
+import {
+  computePauseMenuLayoutForTest,
+  DETAIL_PANEL_MARGIN,
+  DETAIL_PANEL_WIDTH,
+  TREE_PADDING,
+  type PauseMenuLayout,
+} from './core/PauseMenuLayout.js';
 import { uiColors, uiMotion, uiSpacing, uiTypography } from './theme/uiTokens.js';
 
 interface SkillTreeOverlayOptions {
@@ -64,17 +71,41 @@ interface OverlayHandlers {
   onResetSpecialPreview?: () => void;
 }
 
+interface FooterHint {
+  icon?: string;
+  key?: string;
+  label: string;
+}
+
+interface DerivedStatRowView {
+  id: string;
+  label: string;
+  value: string;
+  breakdown?: string;
+  accent?: number;
+}
+
+interface DerivedStatGroupView {
+  id: string;
+  title: string;
+  accent: number;
+  rows: DerivedStatRowView[];
+}
+
+interface EquipmentModifierView {
+  label: string;
+  value: string;
+  description: string;
+  accent: number;
+}
+
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
   width: 640,
   height: 520,
   depth: 30,
 };
 
-const TREE_PADDING = { top: 140, bottom: 80, horizontal: 48 };
-
-const DETAIL_PANEL_WIDTH = 220;
-const DETAIL_PANEL_MARGIN = 24;
-const DETAIL_PANEL_PADDING = 16;
+const DETAIL_PANEL_PADDING = 12;
 const CLICK_ROW_TOP_BIAS = 8;
 const MAIN_PANEL_X = TREE_PADDING.horizontal;
 const MAIN_PANEL_Y = TREE_PADDING.top - 12;
@@ -90,6 +121,8 @@ type TabId =
   | 'skills'
   | 'special'
   | 'spells'
+  | 'equipment'
+  | 'items'
   | 'inventory'
   | 'customize'
   | 'cards'
@@ -108,6 +141,7 @@ type SnakeThemeId = VillageShopStyleId;
 interface TabDefinition {
   id: TabId;
   i18nKey: string;
+  label?: string;
   i18nPlaceholderKey?: string;
   group: PrimaryTabId;
 }
@@ -116,6 +150,8 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'skills', i18nKey: 'tabSkills', group: 'growth' },
   { id: 'special', i18nKey: 'tabSpecial', group: 'growth' },
   { id: 'spells', i18nKey: 'tabSpells', group: 'growth' },
+  { id: 'equipment', i18nKey: 'tabInventory', label: 'Equipment', group: 'gear' },
+  { id: 'items', i18nKey: 'tabInventory', label: 'Items', group: 'gear' },
   {
     id: 'inventory',
     i18nKey: 'tabInventory',
@@ -163,6 +199,8 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   skills: uiTabIconKeys.skills,
   special: uiTabIconKeys.special,
   spells: uiTabIconKeys.spells,
+  equipment: uiTabIconKeys.equipment,
+  items: uiTabIconKeys.items,
   inventory: uiTabIconKeys.inventory,
   customize: uiTabIconKeys.customize,
   cards: uiTabIconKeys.cards,
@@ -179,6 +217,9 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
 };
 
 function resolveTabLabel(tab: TabDefinition): string {
+  if (tab.label) {
+    return tab.label;
+  }
   return i18n.getFeatureString(tab.i18nKey);
 }
 
@@ -209,6 +250,11 @@ export class SkillTreeOverlay {
   private readonly specialMainContainer: Phaser.GameObjects.Container;
   private readonly specialMainGraphics: Phaser.GameObjects.Graphics;
   private readonly specialMainObjects: Phaser.GameObjects.GameObject[] = [];
+  private readonly specialDerivedContainer: Phaser.GameObjects.Container;
+  private readonly specialDerivedGraphics: Phaser.GameObjects.Graphics;
+  private specialDerivedContentHeight = 0;
+  private readonly footerHintObjects: Phaser.GameObjects.GameObject[] = [];
+  private currentFooterHints: readonly FooterHint[] = [];
   private readonly skillTreeChromeObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly styleContainer: Phaser.GameObjects.Container;
   private readonly styleGraphics: Phaser.GameObjects.Graphics;
@@ -253,6 +299,7 @@ export class SkillTreeOverlay {
   private readonly inventoryItemsText: Phaser.GameObjects.Text;
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
+  private equipmentSlotFilter: EquipmentSlot | 'all' = 'all';
   private inventoryHighlight?: Phaser.GameObjects.Rectangle;
   private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
   private readonly customizationText: Phaser.GameObjects.Text;
@@ -279,10 +326,16 @@ export class SkillTreeOverlay {
     canBind: boolean;
   }> = [];
   private readonly scrollMaskGraphics: Phaser.GameObjects.Graphics;
+  private contentMask?: Phaser.Display.Masks.GeometryMask;
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
+  private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
+  private skillTreePanX = 0;
+  private skillTreePanY = 0;
+  private skillTreeContentWidth = 0;
+  private skillTreeContentHeight = 0;
   private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
@@ -311,9 +364,15 @@ export class SkillTreeOverlay {
     private readonly handlers: OverlayHandlers,
     options: SkillTreeOverlayOptions = {},
   ) {
+    const responsiveWidth = Math.floor(
+      Math.min(DEFAULT_OPTIONS.width, Math.max(420, this.scene.scale.width - 24)),
+    );
+    const responsiveHeight = Math.floor(
+      Math.min(DEFAULT_OPTIONS.height, Math.max(360, this.scene.scale.height - 24)),
+    );
     this.options = {
-      width: options.width ?? DEFAULT_OPTIONS.width,
-      height: options.height ?? DEFAULT_OPTIONS.height,
+      width: options.width ?? responsiveWidth,
+      height: options.height ?? responsiveHeight,
       depth: options.depth ?? DEFAULT_OPTIONS.depth,
     };
     ensurePauseMenuGeneratedAssets(this.scene);
@@ -330,6 +389,10 @@ export class SkillTreeOverlay {
     this.specialMainGraphics = this.scene.add.graphics();
     this.specialMainContainer = this.scene.add
       .container(0, 0, [this.specialMainGraphics])
+      .setVisible(false);
+    this.specialDerivedGraphics = this.scene.add.graphics();
+    this.specialDerivedContainer = this.scene.add
+      .container(0, 0, [this.specialDerivedGraphics])
       .setVisible(false);
     this.styleGraphics = this.scene.add.graphics();
     this.styleContainer = this.scene.add.container(0, 0, [this.styleGraphics]).setVisible(false);
@@ -477,7 +540,7 @@ export class SkillTreeOverlay {
     this.scoreText.setVisible(false);
 
     this.manaText = this.scene.add
-      .text(this.options.width - 24, 66, '', {
+      .text(this.options.width - 24, this.getPauseMenuLayout().status.y + 9, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#9ad1ff',
@@ -495,8 +558,8 @@ export class SkillTreeOverlay {
       .setOrigin(0.5, 0.5);
 
     const detailPanelX = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN;
-    const detailPanelY = TREE_PADDING.top - 28;
-    const detailPanelHeight = this.options.height - detailPanelY - TREE_PADDING.bottom + 12;
+    const detailPanelY = this.getPauseMenuLayout().detail.y;
+    const detailPanelHeight = this.getPauseMenuLayout().detail.height;
     const detailTextX = detailPanelX + DETAIL_PANEL_PADDING;
     const detailTextWidth = DETAIL_PANEL_WIDTH - DETAIL_PANEL_PADDING * 2;
 
@@ -679,18 +742,23 @@ export class SkillTreeOverlay {
       .setVisible(false);
     this.scrollMaskGraphics = this.scene.add.graphics().setVisible(false);
     this.scrollMaskGraphics.fillStyle(0xffffff, 1);
+    const scrollMaskRect = this.getSkillTreeBounds();
     this.scrollMaskGraphics.fillRect(
-      x + TREE_PADDING.horizontal,
-      y + TREE_PADDING.top - 12,
-      this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN - TREE_PADDING.horizontal * 2,
-      this.getScrollableViewportHeight(),
+      x + scrollMaskRect.x,
+      y + scrollMaskRect.y,
+      scrollMaskRect.width,
+      scrollMaskRect.height,
     );
     const scrollMask = this.scrollMaskGraphics.createGeometryMask();
+    this.contentMask = scrollMask;
     this.questListText.setMask(scrollMask);
     this.spellsText.setMask(scrollMask);
     this.customizationText.setMask(scrollMask);
     this.inventoryItemsText.setMask(scrollMask);
     this.specialStatsText.setMask(scrollMask);
+    this.structuredContainer.setMask(scrollMask);
+    this.connectionGraphics.setMask(scrollMask);
+    this.connectionHighlight.setMask(scrollMask);
     this.specialChanceMaskGraphics = this.scene.add.graphics().setVisible(false);
     this.specialChanceMaskGraphics.fillStyle(0xffffff, 1);
     this.specialChanceMaskGraphics.fillRect(
@@ -885,7 +953,11 @@ export class SkillTreeOverlay {
     });
     this.scene.input.on(
       'wheel',
-      (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
+      (_pointer: Phaser.Input.Pointer, _objects: unknown[], dx: number, dy: number) => {
+        if (this.visible && this.activeTab === 'skills') {
+          this.panSkillTree(dy, dx);
+          return;
+        }
         this.scrollActiveText(dy);
       },
     );
@@ -894,7 +966,9 @@ export class SkillTreeOverlay {
       this.background,
       this.shellGraphics,
       this.specialUiGraphics,
+      this.detailPanel,
       this.specialMainContainer,
+      this.specialDerivedContainer,
       this.styleContainer,
       this.factionContainer,
       this.structuredContainer,
@@ -903,7 +977,6 @@ export class SkillTreeOverlay {
       this.mapContainer,
       this.graphContainer,
       this.cheatContainer,
-      this.detailPanel,
       this.title,
       this.manaText,
       this.detailTitle,
@@ -940,6 +1013,7 @@ export class SkillTreeOverlay {
     g.clear();
     const w = this.options.width;
     const h = this.options.height;
+    const layout = this.getPauseMenuLayout();
 
     g.fillStyle(uiColors.panelBgPrimary, 0.96).fillRoundedRect(0, 0, w, h, 10);
     g.lineStyle(3, uiColors.panelBorder, 0.9).strokeRoundedRect(1.5, 1.5, w - 3, h - 3, 10);
@@ -951,24 +1025,36 @@ export class SkillTreeOverlay {
       6,
     );
 
-    g.fillStyle(0x03070c, 0.38).fillRect(12, 54, w - 24, 1);
-    g.fillStyle(uiColors.panelBorderMuted, 0.58).fillRect(18, 94, w - 36, 1);
-    g.fillStyle(uiColors.panelBorderMuted, 0.5).fillRect(18, 128, w - 36, 1);
+    g.fillStyle(0x03070c, 0.38).fillRect(12, 42, w - 24, 1);
+    g.fillStyle(uiColors.panelBorderMuted, 0.58).fillRect(18, 58, w - 36, 1);
+    g.fillStyle(uiColors.panelBorderMuted, 0.5).fillRect(18, 90, w - 36, 1);
+    for (let lineY = layout.content.y + 10; lineY < layout.footer.y - 8; lineY += 18) {
+      g.fillStyle(uiColors.panelGlow, 0.04).fillRect(20, lineY, w - 40, 1);
+    }
+    g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.2).fillRect(
+      layout.content.x,
+      layout.content.y - 2,
+      layout.content.width,
+      1,
+    );
 
     g.fillStyle(uiColors.panelBgSecondary, 0.82).fillRoundedRect(
-      16,
-      h - uiSpacing.footerHeight - 10,
-      w - 32,
-      uiSpacing.footerHeight,
+      layout.footer.x,
+      layout.footer.y,
+      layout.footer.width,
+      layout.footer.height,
       6,
     );
     g.lineStyle(1, uiColors.panelBorderMuted, 0.82).strokeRoundedRect(
-      16.5,
-      h - uiSpacing.footerHeight - 9.5,
-      w - 33,
-      uiSpacing.footerHeight - 1,
+      layout.footer.x + 0.5,
+      layout.footer.y + 0.5,
+      layout.footer.width - 1,
+      layout.footer.height - 1,
       6,
     );
+
+    this.drawTabPlates(g, layout);
+    this.drawFooterHintBackplates(g, layout, this.currentFooterHints);
 
     this.drawPixelCorner(g, 8, 8, 1);
     this.drawPixelCorner(g, w - 8, 8, -1);
@@ -997,6 +1083,116 @@ export class SkillTreeOverlay {
     g.fillStyle(uiColors.panelBorder, 0.9);
     g.fillRect(innerX, innerY, 8, 2);
     g.fillRect(innerVX, innerVY, 2, 8);
+    g.fillStyle(0xfff3a8, 0.78).fillRect(innerX + dirX * 9, innerY, 3, 2);
+  }
+
+  private getPauseMenuLayout(): PauseMenuLayout {
+    return computePauseMenuLayoutForTest(this.options.width, this.options.height);
+  }
+
+  private drawTabPlates(g: Phaser.GameObjects.Graphics, layout: PauseMenuLayout): void {
+    const primaryGap = 14;
+    const primaryWidth = Math.min(106, Math.floor((layout.topTabs.width - primaryGap * 3) / 4));
+    let x = layout.topTabs.x;
+    for (const primary of PRIMARY_TAB_DEFINITIONS) {
+      const active = primary.id === this.activePrimaryTab;
+      const accent = TAB_ACCENTS[primary.id];
+      g.fillStyle(active ? accent : uiColors.panelBgInset, active ? 0.28 : 0.66).fillRoundedRect(
+        x,
+        layout.topTabs.y,
+        primaryWidth,
+        34,
+        6,
+      );
+      g.lineStyle(
+        2,
+        active ? accent : uiColors.panelBorderMuted,
+        active ? 0.9 : 0.64,
+      ).strokeRoundedRect(x + 1, layout.topTabs.y + 1, primaryWidth - 2, 32, 6);
+      g.fillStyle(active ? accent : uiColors.panelBorderMuted, active ? 0.9 : 0.42).fillRect(
+        x + 9,
+        layout.topTabs.y + 5,
+        2,
+        24,
+      );
+      x += primaryWidth + primaryGap;
+    }
+
+    const visibleTabs = TAB_DEFINITIONS.filter(
+      (tab) => tab.group === this.activePrimaryTab && this.isTabAvailable(tab.id),
+    );
+    const gap = 14;
+    const tabWidth = Math.min(
+      112,
+      Math.floor(
+        (layout.subTabs.width - gap * (visibleTabs.length - 1)) / Math.max(1, visibleTabs.length),
+      ),
+    );
+    x = layout.subTabs.x;
+    for (const tab of visibleTabs) {
+      const active = tab.id === this.activeTab;
+      const accent = TAB_ACCENTS[tab.group];
+      g.fillStyle(active ? accent : uiColors.panelBgInset, active ? 0.24 : 0.58).fillRoundedRect(
+        x,
+        layout.subTabs.y,
+        tabWidth,
+        28,
+        5,
+      );
+      g.lineStyle(
+        1,
+        active ? accent : uiColors.panelBorderMuted,
+        active ? 0.9 : 0.58,
+      ).strokeRoundedRect(x + 0.5, layout.subTabs.y + 0.5, tabWidth - 1, 27, 5);
+      if (active) {
+        g.fillStyle(accent, 0.92).fillRect(x + 8, layout.subTabs.y + 24, tabWidth - 16, 2);
+      }
+      x += tabWidth + gap;
+    }
+
+    g.fillStyle(uiColors.panelBgInset, 0.7).fillRoundedRect(
+      layout.status.x,
+      layout.status.y,
+      layout.status.width,
+      34,
+      6,
+    );
+    g.lineStyle(1, uiColors.panelBorderMuted, 0.68).strokeRoundedRect(
+      layout.status.x + 0.5,
+      layout.status.y + 0.5,
+      layout.status.width - 1,
+      33,
+      6,
+    );
+  }
+
+  private drawFooterHintBackplates(
+    g: Phaser.GameObjects.Graphics,
+    layout: PauseMenuLayout,
+    hints: readonly FooterHint[],
+  ): void {
+    let x = layout.footer.x + 12;
+    const y = layout.footer.y + 10;
+    for (const hint of hints.slice(0, 5)) {
+      const key = hint.key ?? hint.icon ?? '';
+      const label = hint.label;
+      const width = Phaser.Math.Clamp(36 + key.length * 7 + label.length * 6, 92, 172);
+      g.fillStyle(uiColors.panelBgInset, 0.72)
+        .fillRoundedRect(x, y, width, 22, 5)
+        .lineStyle(1, uiColors.panelBorderMuted, 0.72)
+        .strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 21, 5);
+      g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.82).fillRoundedRect(
+        x + 5,
+        y + 5,
+        Math.max(24, key.length * 7 + 10),
+        12,
+        3,
+      );
+      x += width + 8;
+      if (x > layout.footer.x + layout.footer.width - 90) {
+        break;
+      }
+    }
   }
 
   private drawSpecialUi(view: SpecialStatsView): void {
@@ -1025,7 +1221,7 @@ export class SkillTreeOverlay {
       detailY + 12,
       detailH - 24,
       this.getSpecialChanceViewportHeight(),
-      this.specialChanceText.height,
+      this.specialDerivedContentHeight,
       this.specialChanceScrollOffset,
     );
   }
@@ -1130,6 +1326,16 @@ export class SkillTreeOverlay {
     this.specialMainObjects.length = 0;
   }
 
+  private clearSpecialDerivedContent(): void {
+    for (const child of [...this.specialDerivedContainer.list]) {
+      if (child !== this.specialDerivedGraphics) {
+        child.destroy();
+      }
+    }
+    this.specialDerivedGraphics.clear();
+    this.specialDerivedContentHeight = 0;
+  }
+
   private buildSpecialMainContent(view: SpecialStatsView): void {
     this.clearSpecialMainContent();
     const g = this.specialMainGraphics;
@@ -1154,7 +1360,7 @@ export class SkillTreeOverlay {
       x: content.x,
       y: content.y + 28,
       width: content.width,
-      height: 62,
+      height: 50,
     };
     g.fillStyle(uiColors.accentGrowth, 0.14).fillRoundedRect(
       summaryRect.x,
@@ -1170,20 +1376,30 @@ export class SkillTreeOverlay {
       summaryRect.height - 1,
       6,
     );
-    const chipW = Math.floor((summaryRect.width - 14) / 2);
+    const chipColumns = summaryRect.width >= 460 ? 4 : 2;
+    const chipW = Math.floor((summaryRect.width - 8 * (chipColumns + 1)) / chipColumns);
     headline.slice(0, 4).forEach((row, index) => {
-      const col = index % 2;
-      const rowIndex = Math.floor(index / 2);
+      const col = index % chipColumns;
+      const rowIndex = Math.floor(index / chipColumns);
       const x = summaryRect.x + 8 + col * (chipW + 8);
-      const y = summaryRect.y + 9 + rowIndex * 25;
-      addUiText(this.scene, this.specialMainContainer, x, y, row.label, {
-        color: uiColors.textMuted,
-        fontSize: '11px',
+      const y = summaryRect.y + 8 + rowIndex * 22;
+      drawUiCard(g, {
+        rect: { x, y: y - 2, width: chipW, height: 20 },
+        fill: uiColors.panelBgInset,
+        stroke: uiColors.accentGrowth,
+        alpha: 0.58,
+        strokeAlpha: 0.58,
+        radius: 5,
       });
-      addUiText(this.scene, this.specialMainContainer, x + chipW, y, row.value, {
+      g.fillStyle(uiColors.accentGrowth, 0.8).fillRoundedRect(x + 5, y + 3, 12, 12, 3);
+      addUiText(this.scene, this.specialMainContainer, x + 21, y + 3, row.label, {
+        color: uiColors.textMuted,
+        fontSize: '10px',
+      });
+      addUiText(this.scene, this.specialMainContainer, x + chipW - 7, y + 2, row.value, {
         align: 'right',
         color: uiColors.valuePrimary,
-        fontSize: '12px',
+        fontSize: '11px',
         fontStyle: 'bold',
       });
     });
@@ -1197,8 +1413,8 @@ export class SkillTreeOverlay {
       { color: uiColors.valuePrimary, fontSize: '12px', fontStyle: 'bold' },
     );
 
-    const rowTop = summaryRect.y + summaryRect.height + 38;
-    const rowH = 23;
+    const rowTop = summaryRect.y + summaryRect.height + 32;
+    const rowH = 26;
     const rowGap = 4;
     for (let i = 0; i < view.stats.length; i += 1) {
       const stat = view.stats[i];
@@ -1219,30 +1435,26 @@ export class SkillTreeOverlay {
         stat.value === stat.committedValue
           ? `${stat.value}`
           : `${stat.committedValue} -> ${stat.value}`;
-      addUiText(
-        this.scene,
-        this.specialMainContainer,
-        rect.x + 8,
-        rect.y + 4,
-        stat.id.toUpperCase().slice(0, 3),
-        { color: '#5dd6a2', fontSize: '12px' },
-      );
-      addUiText(this.scene, this.specialMainContainer, rect.x + 46, rect.y + 4, stat.label, {
+      const iconAccent = this.getSpecialStatAccent(stat.id);
+      g.fillStyle(iconAccent, 0.82).fillRoundedRect(rect.x + 7, rect.y + 4, 20, 18, 4);
+      this.drawSpecialStatGlyph(g, stat.id, rect.x + 17, rect.y + 13, 0x101824);
+      addUiText(this.scene, this.specialMainContainer, rect.x + 34, rect.y + 6, stat.label, {
         color: uiColors.textPrimary,
         fontSize: '12px',
+        fontStyle: 'bold',
       });
       addUiText(
         this.scene,
         this.specialMainContainer,
-        rect.x + rect.width - 112,
-        rect.y + 4,
+        rect.x + rect.width - 124,
+        rect.y + 5,
         statValue,
-        { align: 'right', color: uiColors.valuePrimary, fontSize: '12px', fontStyle: 'bold' },
+        { align: 'right', color: uiColors.valuePrimary, fontSize: '13px', fontStyle: 'bold' },
       );
 
       addUiButton(this.scene, this.specialMainContainer, g, {
         id: `${stat.id}:decrease`,
-        rect: { x: rect.x + rect.width - 88, y: rect.y + 3, width: 32, height: 17 },
+        rect: { x: rect.x + rect.width - 78, y: rect.y + 4, width: 30, height: 18 },
         label: '-',
         enabled: stat.canDecrease,
         fill: uiColors.danger,
@@ -1256,7 +1468,7 @@ export class SkillTreeOverlay {
       });
       addUiButton(this.scene, this.specialMainContainer, g, {
         id: `${stat.id}:increase`,
-        rect: { x: rect.x + rect.width - 46, y: rect.y + 3, width: 32, height: 17 },
+        rect: { x: rect.x + rect.width - 38, y: rect.y + 4, width: 30, height: 18 },
         label: '+',
         enabled: stat.canIncrease,
         fill: uiColors.success,
@@ -1273,8 +1485,8 @@ export class SkillTreeOverlay {
     const actionY = rowTop + view.stats.length * (rowH + rowGap) + 12;
     addUiButton(this.scene, this.specialMainContainer, g, {
       id: 'special:apply',
-      rect: { x: content.x, y: actionY, width: 138, height: 28 },
-      label: 'Apply Points',
+      rect: { x: content.x, y: actionY, width: 126, height: 26 },
+      label: '> Apply Points',
       enabled: view.hasPreviewChanges,
       fill: uiColors.success,
       stroke: uiColors.success,
@@ -1287,8 +1499,8 @@ export class SkillTreeOverlay {
     });
     addUiButton(this.scene, this.specialMainContainer, g, {
       id: 'special:reset',
-      rect: { x: content.x + 152, y: actionY, width: 142, height: 28 },
-      label: 'Reset Preview',
+      rect: { x: content.x + 138, y: actionY, width: 132, height: 26 },
+      label: 'x Reset Preview',
       enabled: view.hasPreviewChanges,
       fill: uiColors.warning,
       stroke: uiColors.warning,
@@ -1299,6 +1511,87 @@ export class SkillTreeOverlay {
         this.refresh();
       },
     });
+  }
+
+  private getSpecialStatAccent(statId: string): number {
+    const accents: Record<string, number> = {
+      strength: uiColors.accentCommand,
+      perception: uiColors.accentExploration,
+      endurance: uiColors.accentSurvival,
+      charisma: uiColors.accentSocial,
+      intelligence: uiColors.accentArcana,
+      agility: uiColors.accentFlow,
+      luck: uiColors.accentCore,
+    };
+    return accents[statId] ?? uiColors.accentGrowth;
+  }
+
+  private drawSpecialStatGlyph(
+    g: Phaser.GameObjects.Graphics,
+    statId: string,
+    cx: number,
+    cy: number,
+    color: number,
+  ): void {
+    g.lineStyle(2, color, 1);
+    g.fillStyle(color, 1);
+    switch (statId) {
+      case 'strength':
+        g.fillRoundedRect(cx - 8, cy - 5, 4, 8, 2);
+        g.fillRoundedRect(cx - 4, cy - 7, 4, 10, 2);
+        g.fillRoundedRect(cx, cy - 7, 4, 10, 2);
+        g.fillRoundedRect(cx + 4, cy - 5, 4, 8, 2);
+        g.fillRoundedRect(cx - 7, cy + 1, 14, 8, 3);
+        g.fillRect(cx - 1, cy + 7, 5, 5);
+        break;
+      case 'perception':
+        g.strokeEllipse(cx, cy, 16, 9);
+        g.fillCircle(cx, cy, 3);
+        break;
+      case 'endurance':
+        g.beginPath();
+        g.moveTo(cx, cy - 8);
+        g.lineTo(cx + 8, cy - 4);
+        g.lineTo(cx + 6, cy + 6);
+        g.lineTo(cx, cy + 9);
+        g.lineTo(cx - 6, cy + 6);
+        g.lineTo(cx - 8, cy - 4);
+        g.closePath();
+        g.strokePath();
+        break;
+      case 'charisma':
+        g.strokeRoundedRect(cx - 8, cy - 6, 16, 11, 2);
+        g.fillTriangle(cx - 2, cy + 5, cx + 3, cy + 5, cx - 2, cy + 9);
+        break;
+      case 'intelligence':
+        g.fillRoundedRect(cx - 9, cy - 7, 8, 14, 1);
+        g.fillRoundedRect(cx + 1, cy - 7, 8, 14, 1);
+        g.lineStyle(1, uiColors.panelBgPrimary, 0.9);
+        g.lineBetween(cx, cy - 7, cx, cy + 7);
+        g.lineBetween(cx - 7, cy - 3, cx - 3, cy - 3);
+        g.lineBetween(cx + 3, cy - 2, cx + 7, cy - 2);
+        g.lineStyle(2, color, 1);
+        break;
+      case 'agility':
+        g.fillRoundedRect(cx - 7, cy + 2, 15, 6, 2);
+        g.fillTriangle(cx + 4, cy - 3, cx + 10, cy + 3, cx + 4, cy + 3);
+        g.lineStyle(1, uiColors.panelBgPrimary, 0.75);
+        g.lineBetween(cx - 4, cy + 1, cx, cy + 4);
+        g.lineBetween(cx - 1, cy, cx + 3, cy + 4);
+        g.lineStyle(2, color, 1);
+        g.strokeTriangle(cx - 10, cy - 4, cx - 3, cy - 8, cx - 5, cy - 1);
+        g.strokeTriangle(cx - 5, cy - 3, cx + 2, cy - 8, cx, cy - 1);
+        break;
+      case 'luck':
+        g.fillCircle(cx - 4, cy - 4, 4);
+        g.fillCircle(cx + 4, cy - 4, 4);
+        g.fillCircle(cx - 4, cy + 4, 4);
+        g.fillCircle(cx + 4, cy + 4, 4);
+        break;
+      default:
+        g.fillCircle(cx, cy, 6);
+        break;
+    }
   }
 
   private clearStyleContent(): void {
@@ -1887,6 +2180,7 @@ export class SkillTreeOverlay {
     this.inventoryIndex = [];
     this.questRowMap = [];
     this.spellRowMap = [];
+    this.structuredContentHeight = 0;
   }
 
   private buildStructuredTabContent(tab: TabId): void {
@@ -1910,34 +2204,44 @@ export class SkillTreeOverlay {
       strokeAlpha: 0.7,
       radius: 8,
     });
+    const renderRect =
+      tab === 'equipment' || tab === 'items' || tab === 'inventory'
+        ? rect
+        : { ...rect, y: rect.y - this.getStructuredScrollOffset() };
 
     switch (tab) {
+      case 'equipment':
+        this.buildEquipmentCards(renderRect);
+        break;
+      case 'items':
+        this.buildItemCards(renderRect);
+        break;
       case 'inventory':
-        this.buildInventoryCards(rect);
+        this.buildItemCards(renderRect);
         break;
       case 'spells':
-        this.buildSpellCards(rect);
+        this.buildSpellCards(renderRect);
         break;
       case 'cards':
-        this.buildCardCollectionCards(rect);
+        this.buildCardCollectionCards(renderRect);
         break;
       case 'quests':
-        this.buildQuestCards(rect);
+        this.buildQuestCards(renderRect);
         break;
       case 'dating':
-        this.buildDatingCards(rect);
+        this.buildDatingCards(renderRect);
         break;
       case 'people':
-        this.buildPeopleCards(rect);
+        this.buildPeopleCards(renderRect);
         break;
       case 'destiny':
-        this.buildLineCards(rect, 'DESTINY', this.handlers.getDestinyView?.() ?? []);
+        this.buildLineCards(renderRect, 'DESTINY', this.handlers.getDestinyView?.() ?? []);
         break;
       case 'artifacts':
-        this.buildArtifactCards(rect);
+        this.buildArtifactCards(renderRect);
         break;
       case 'info':
-        this.buildLineCards(rect, 'SYSTEM INFO', [
+        this.buildLineCards(renderRect, 'SYSTEM INFO', [
           'Growth manages skills, SPECIAL, and spells.',
           'Gear manages inventory, cosmetics, cards, and artifacts.',
           'World manages map, relationships, quests, and factions.',
@@ -1952,7 +2256,7 @@ export class SkillTreeOverlay {
         break;
       default:
         this.buildLineCards(
-          rect,
+          renderRect,
           resolveTabLabel(TAB_DEFINITIONS.find((entry) => entry.id === tab) ?? TAB_DEFINITIONS[0]),
           [
             resolvePlaceholder(
@@ -1971,6 +2275,621 @@ export class SkillTreeOverlay {
       .setInteractive({ useHandCursor: true });
     zone.on('pointerdown', onClick);
     this.structuredContainer.add(zone);
+  }
+
+  private getStructuredScrollOffset(): number {
+    return this.scrollOffsets[this.activeTab] ?? 0;
+  }
+
+  private toStructuredY(y: number): number {
+    return y - this.getStructuredScrollOffset();
+  }
+
+  private isStructuredRectVisible(rect: UiRect, viewport: UiRect): boolean {
+    return rect.y + rect.height >= viewport.y && rect.y <= viewport.y + viewport.height;
+  }
+
+  private setStructuredContentHeight(content: UiRect, bottomY: number): void {
+    this.structuredContentHeight = Math.max(0, bottomY - content.y + 14);
+    this.drawStructuredScrollRail();
+  }
+
+  private drawStructuredScrollRail(): void {
+    const viewport = this.getStructuredViewport();
+    this.drawScrollRail(
+      this.structuredGraphics,
+      viewport.x + viewport.width - 7,
+      viewport.y + 12,
+      viewport.height - 24,
+      viewport.height,
+      this.structuredContentHeight,
+      this.getStructuredScrollOffset(),
+    );
+  }
+
+  private getStructuredViewport(): UiRect {
+    return {
+      x: TREE_PADDING.horizontal - 12,
+      y: TREE_PADDING.top - 12,
+      width:
+        this.options.width -
+        DETAIL_PANEL_WIDTH -
+        DETAIL_PANEL_MARGIN -
+        TREE_PADDING.horizontal * 2 +
+        24,
+      height: this.getScrollableViewportHeight() + 18,
+    };
+  }
+
+  private getEquipmentSlots(): EquipmentSlot[] {
+    return [
+      'weapon',
+      'boots',
+      'helm',
+      'ring',
+      'gloves',
+      'cloak',
+      'belt',
+      'amulet',
+    ] as unknown as EquipmentSlot[];
+  }
+
+  private formatSlotLabel(slot: EquipmentSlot | string): string {
+    const value = String(slot);
+    return value.charAt(0).toUpperCase() + value.slice(1);
+  }
+
+  private getEquipmentSlotAccent(slot: EquipmentSlot): number {
+    const accents: Record<EquipmentSlot, number> = {
+      weapon: uiColors.danger,
+      boots: uiColors.accentFlow,
+      helm: uiColors.accentExploration,
+      ring: uiColors.accentArcana,
+      gloves: uiColors.warning,
+      cloak: uiColors.accentSocial,
+      belt: uiColors.accentCommand,
+      amulet: uiColors.accentCore,
+    };
+    return accents[slot] ?? uiColors.accentGear;
+  }
+
+  private drawEquipmentSlotGlyph(
+    g: Phaser.GameObjects.Graphics,
+    slot: EquipmentSlot,
+    cx: number,
+    cy: number,
+    color: number,
+  ): void {
+    g.lineStyle(2, color, 0.95);
+    g.fillStyle(color, 0.9);
+    switch (slot) {
+      case 'weapon':
+        g.lineBetween(cx - 7, cy + 7, cx + 7, cy - 7);
+        g.fillRect(cx - 8, cy + 5, 8, 3);
+        g.fillTriangle(cx + 4, cy - 9, cx + 9, cy - 9, cx + 8, cy - 4);
+        break;
+      case 'boots':
+        g.fillRoundedRect(cx - 7, cy + 1, 15, 6, 2);
+        g.fillTriangle(cx + 3, cy - 4, cx + 10, cy + 1, cx + 3, cy + 1);
+        break;
+      case 'helm':
+        g.fillTriangle(cx - 8, cy + 1, cx, cy - 8, cx + 8, cy + 1);
+        g.fillRect(cx - 8, cy + 1, 16, 5);
+        g.fillRect(cx - 4, cy - 5, 8, 2);
+        break;
+      case 'ring':
+        g.strokeCircle(cx, cy, 7);
+        g.fillCircle(cx, cy - 8, 3);
+        break;
+      case 'gloves':
+        g.fillRoundedRect(cx - 7, cy - 2, 9, 10, 3);
+        g.fillRoundedRect(cx + 1, cy - 6, 6, 11, 3);
+        break;
+      case 'cloak':
+        g.fillTriangle(cx, cy - 8, cx + 9, cy + 8, cx - 9, cy + 8);
+        g.lineStyle(1, uiColors.panelBgPrimary, 0.75).lineBetween(cx, cy - 4, cx, cy + 6);
+        break;
+      case 'belt':
+        g.strokeRoundedRect(cx - 9, cy - 4, 18, 8, 2);
+        g.fillRoundedRect(cx - 3, cy - 5, 6, 10, 2);
+        break;
+      case 'amulet':
+        g.strokeCircle(cx, cy - 1, 7);
+        g.fillTriangle(cx, cy - 6, cx + 5, cy + 4, cx - 5, cy + 4);
+        break;
+    }
+  }
+
+  private formatModifierPercent(value: number, signed = true): string {
+    const rounded = Math.round(value * 100);
+    return signed && rounded > 0 ? `+${rounded}%` : `${rounded}%`;
+  }
+
+  private getEquipmentModifierViews(item: EquipableItem): EquipmentModifierView[] {
+    const modifiers = item.modifiers ?? {};
+    const rows: EquipmentModifierView[] = [];
+    const push = (
+      label: string,
+      value: string,
+      description: string,
+      accent: number = uiColors.accentGear,
+    ) => rows.push({ label, value, description, accent });
+
+    if (typeof modifiers.tickDelayScalar === 'number') {
+      const speedDelta = 1 - modifiers.tickDelayScalar;
+      const abs = Math.abs(Math.round(speedDelta * 100));
+      push(
+        'Speed',
+        this.formatModifierPercent(speedDelta),
+        speedDelta >= 0
+          ? `Movement cadence improves by ${abs}%.`
+          : `Movement cadence slows by ${abs}%.`,
+        speedDelta >= 0 ? uiColors.accentFlow : uiColors.danger,
+      );
+    }
+    if (typeof modifiers.wallSenseBonus === 'number') {
+      push(
+        'Wall Sense',
+        `+${modifiers.wallSenseBonus}`,
+        'Reveals nearby wall pressure before you commit to a line.',
+        uiColors.accentExploration,
+      );
+    }
+    if (typeof modifiers.seismicPulseBonus === 'number') {
+      push(
+        'Seismic Pulse',
+        `+${modifiers.seismicPulseBonus}`,
+        'Apple pickups send a wider pulse through hidden terrain.',
+        uiColors.accentCore,
+      );
+    }
+    if (modifiers.masonryEnabled) {
+      push('Masonry', 'ON', 'Tail movement can lay temporary bricks behind you.', uiColors.warning);
+    }
+    if (typeof modifiers.invulnerabilityBonus === 'number') {
+      push(
+        'Invulnerability',
+        `+${modifiers.invulnerabilityBonus}s`,
+        'Apple safety windows last longer after pickup.',
+        uiColors.accentSurvival,
+      );
+    }
+    if (modifiers.regenerator) {
+      push(
+        'Regenerator',
+        `+${modifiers.regenerator.amount}/${modifiers.regenerator.interval}`,
+        'Passive length growth triggers after enough rooms or ticks.',
+        uiColors.accentGrowth,
+      );
+    }
+    if (typeof modifiers.phoenixCharges === 'number') {
+      push(
+        'Phoenix',
+        `+${modifiers.phoenixCharges}`,
+        'Stores an emergency revive charge for the run.',
+        uiColors.accentSurvival,
+      );
+    }
+    if (modifiers.gunEnabled) {
+      push('Sidearm', 'ON', 'Enables the weapon action for ranged shots.', uiColors.danger);
+    }
+    if (typeof modifiers.heatResistance === 'number') {
+      push(
+        'Heat Resistance',
+        this.formatModifierPercent(modifiers.heatResistance, false),
+        'Reduces pressure from scorching hazard biomes.',
+        uiColors.danger,
+      );
+    }
+    if (typeof modifiers.coldResistance === 'number') {
+      push(
+        'Frost Resistance',
+        this.formatModifierPercent(modifiers.coldResistance, false),
+        'Reduces pressure from freezing hazard biomes.',
+        uiColors.panelGlow,
+      );
+    }
+    if (modifiers.swimmingEnabled) {
+      push('Buoyancy', '+100%', 'Allows safe traversal across water tiles.', uiColors.panelGlow);
+      push('Water Routing', 'OPEN', 'Water paths become valid route options.', uiColors.accentWorld);
+    }
+    if (modifiers.refundEveryRooms) {
+      push(
+        'Room Refund',
+        `${modifiers.refundEveryRooms.score}/${modifiers.refundEveryRooms.interval}`,
+        'Refunds score after clearing a regular room interval.',
+        0xfff3a8,
+      );
+    }
+    if (typeof modifiers.appleScorePenalty === 'number') {
+      push(
+        'Apple Score',
+        this.formatModifierPercent(-modifiers.appleScorePenalty),
+        'Apples pay less score while this tradeoff is active.',
+        uiColors.danger,
+      );
+    }
+    if (typeof modifiers.hazardMapSense === 'number') {
+      push(
+        'Hazard Sense',
+        `+${modifiers.hazardMapSense}`,
+        'Improves map awareness around dangerous rooms.',
+        uiColors.accentExploration,
+      );
+    }
+    if (typeof modifiers.radiationTimerScalar === 'number') {
+      const delta = 1 - modifiers.radiationTimerScalar;
+      push(
+        'Radiation Timer',
+        this.formatModifierPercent(delta),
+        'Changes how quickly radiation pressure advances.',
+        delta >= 0 ? uiColors.accentSurvival : uiColors.danger,
+      );
+    }
+    if (modifiers.wallSmiteEnabled) {
+      push('Wall Smite', 'ON', 'Weapon strikes can break through select walls.', uiColors.warning);
+    }
+    if (modifiers.shrineBlessing) {
+      push('Shrine Blessing', 'ON', 'Kami shrines can send passive aid during the run.', uiColors.accentCore);
+    }
+    if (modifiers.yokaiInsight) {
+      push('Yokai Insight', 'ON', 'Reveals disguised yokai during encounters.', uiColors.accentArcana);
+    }
+    if (modifiers.spiritualLength) {
+      push('Spirit Growth', 'ON', 'Spiritual discipline can add passive length.', uiColors.accentGrowth);
+    }
+    if (modifiers.fishingEnabled) {
+      push('Fishing Kit', 'ON', 'Enables the fishing minigame action.', uiColors.accentWorld);
+    }
+    if (typeof modifiers.fishingMod === 'number') {
+      push(
+        'Fishing Value',
+        this.formatModifierPercent(modifiers.fishingMod - 1),
+        'Improves fish sale value and fishing score payouts.',
+        uiColors.accentWorld,
+      );
+    }
+
+    return rows;
+  }
+
+  private buildEquipmentCards(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    const offset = this.getStructuredScrollOffset();
+    const slots = this.getEquipmentSlots();
+    const allEquipment = this.scene.inventory
+      .getAllItems()
+      .map(([id, count]) => ({ id, item: getItem(id) as EquipableItem | undefined, count }))
+      .filter((entry): entry is { id: string; item: EquipableItem; count: number } => {
+        return entry.item?.kind === 'equipment';
+      })
+      .sort((a, b) => {
+        const aEquipped = this.scene.inventory.getEquipped(a.item.slot) === a.id ? 0 : 1;
+        const bEquipped = this.scene.inventory.getEquipped(b.item.slot) === b.id ? 0 : 1;
+        const slotDelta = slots.indexOf(a.item.slot) - slots.indexOf(b.item.slot);
+        return aEquipped - bEquipped || slotDelta || a.item.name.localeCompare(b.item.name);
+      });
+    const filteredEquipment =
+      this.equipmentSlotFilter === 'all'
+        ? allEquipment
+        : allEquipment.filter((entry) => entry.item.slot === this.equipmentSlotFilter);
+    const selectedEntry = allEquipment.find((entry) => entry.id === this.selectedInventoryItemId);
+    if (
+      this.equipmentSlotFilter !== 'all' &&
+      selectedEntry &&
+      selectedEntry.item.slot !== this.equipmentSlotFilter
+    ) {
+      this.selectedInventoryItemId = filteredEquipment[0]?.id ?? null;
+    } else if (!selectedEntry && allEquipment.length > 0) {
+      this.selectedInventoryItemId = filteredEquipment[0]?.id ?? allEquipment[0]?.id ?? null;
+    }
+
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'EQUIPMENT', {
+      color: uiColors.textPrimary,
+      fontSize: '13px',
+      fontStyle: 'bold',
+    });
+    addUiBadge(
+      this.scene,
+      this.structuredContainer,
+      this.structuredGraphics,
+      { x: content.x + content.width - 98, y: content.y - 2, width: 86, height: 20 },
+      `${allEquipment.length} GEAR`,
+      uiColors.accentGear,
+      uiColors.accentGear,
+    );
+
+    const slotTop = content.y + 28;
+    addUiText(this.scene, this.structuredContainer, content.x + 2, slotTop, 'EQUIPPED SLOTS', {
+      color: '#4da3ff',
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x + content.width - 54,
+      slotTop,
+      `${this.scene.inventory.getAllEquipped().length} / ${slots.length}`,
+      { align: 'right', color: uiColors.textPrimary, fontSize: '11px', fontStyle: 'bold' },
+    );
+
+    const slotCardW = Math.floor((content.width - 18) / 4);
+    const slotCardH = 38;
+    slots.forEach((slot, index) => {
+      const equippedId = this.scene.inventory.getEquipped(slot);
+      const equipped = equippedId ? (getItem(equippedId) as EquipableItem | undefined) : undefined;
+      const firstMatchingOwned = allEquipment.find((entry) => entry.item.slot === slot);
+      const accent = this.getEquipmentSlotAccent(slot);
+      const col = index % 4;
+      const row = Math.floor(index / 4);
+      const card: UiRect = {
+        x: content.x + col * (slotCardW + 6),
+        y: slotTop + 20 + row * (slotCardH + 7),
+        width: slotCardW,
+        height: slotCardH,
+      };
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke:
+          this.equipmentSlotFilter === slot
+            ? uiColors.accentCore
+            : equipped
+              ? accent
+              : uiColors.panelBorderMuted,
+        alpha: equipped ? 0.18 : 0.58,
+        strokeAlpha: this.equipmentSlotFilter === slot ? 0.95 : equipped ? 0.78 : 0.52,
+        radius: 5,
+      });
+      this.drawEquipmentSlotGlyph(this.structuredGraphics, slot, card.x + 15, card.y + 19, accent);
+      addUiText(this.scene, this.structuredContainer, card.x + 30, card.y + 6, this.formatSlotLabel(slot), {
+        color: uiColors.textMuted,
+        fontSize: '9px',
+        fontStyle: 'bold',
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 30,
+        card.y + 21,
+        equipped?.name ?? 'Empty',
+        {
+          color: equipped ? uiColors.textPrimary : uiColors.textMuted,
+          fontSize: '10px',
+          fontStyle: equipped ? 'bold' : 'normal',
+          wordWrapWidth: card.width - 34,
+        },
+      );
+      this.addStructuredZone(card, () => {
+        this.equipmentSlotFilter = slot;
+        this.selectedInventoryItemId = equippedId ?? firstMatchingOwned?.id ?? null;
+        this.refresh();
+      });
+    });
+
+    const filterY = slotTop + 20 + 2 * (slotCardH + 7) + 10;
+    addUiText(this.scene, this.structuredContainer, content.x + 2, filterY, 'OWNED GEAR', {
+      color: '#4da3ff',
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    const allFilterRect: UiRect = {
+      x: content.x + content.width - 82,
+      y: filterY - 4,
+      width: 70,
+      height: 20,
+    };
+    addUiBadge(
+      this.scene,
+      this.structuredContainer,
+      this.structuredGraphics,
+      allFilterRect,
+      this.equipmentSlotFilter === 'all' ? 'ALL' : this.formatSlotLabel(this.equipmentSlotFilter),
+      this.equipmentSlotFilter === 'all' ? uiColors.accentCore : uiColors.accentGear,
+      this.equipmentSlotFilter === 'all' ? uiColors.accentCore : uiColors.accentGear,
+      this.equipmentSlotFilter === 'all' ? '#101824' : '#ffffff',
+    );
+    this.addStructuredZone(allFilterRect, () => {
+      this.equipmentSlotFilter = 'all';
+      this.refresh();
+    });
+
+    let y = filterY + 24 - offset;
+    let unscrolledBottom = filterY + 24;
+    if (filteredEquipment.length === 0) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x + 4,
+        y + 8,
+        'No owned gear matches this slot yet.',
+        { color: uiColors.textMuted, fontSize: '12px' },
+      );
+      unscrolledBottom += 42;
+    }
+
+    for (const entry of filteredEquipment) {
+      const { id: itemId, item, count } = entry;
+      const equipped = this.scene.inventory.getEquipped(item.slot) === itemId;
+      const selected = this.selectedInventoryItemId === itemId;
+      const modifiers = this.getEquipmentModifierViews(item);
+      const accent = this.getEquipmentSlotAccent(item.slot);
+      const card: UiRect = { x: content.x, y, width: content.width, height: 58 };
+      const visible = this.isStructuredRectVisible(card, rect);
+      if (visible) {
+        drawUiCard(this.structuredGraphics, {
+          rect: card,
+          fill: selected ? uiColors.panelGlow : equipped ? uiColors.accentGear : uiColors.panelBgInset,
+          stroke: selected ? uiColors.accentCore : equipped ? accent : uiColors.panelBorderMuted,
+          alpha: selected ? 0.14 : equipped ? 0.16 : 0.62,
+          strokeAlpha: selected ? 0.95 : equipped ? 0.8 : 0.56,
+          radius: 5,
+        });
+        this.structuredGraphics.fillStyle(accent, 0.2).fillRoundedRect(card.x + 8, card.y + 8, 34, 34, 5);
+        this.drawEquipmentSlotGlyph(this.structuredGraphics, item.slot, card.x + 25, card.y + 25, accent);
+        addUiText(this.scene, this.structuredContainer, card.x + 52, card.y + 8, item.name, {
+          color: equipped ? uiColors.valuePositive : selected ? uiColors.valuePrimary : uiColors.textPrimary,
+          fontSize: '13px',
+          fontStyle: 'bold',
+          wordWrapWidth: card.width - 190,
+        });
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 52,
+          card.y + 29,
+          `${this.formatSlotLabel(item.slot)} // x${count}`,
+          { color: uiColors.textMuted, fontSize: '10px' },
+        );
+        let modX = card.x + Math.max(170, card.width - 190);
+        for (const modifier of modifiers.slice(0, 2)) {
+          addUiText(this.scene, this.structuredContainer, modX, card.y + 18, modifier.value, {
+            color: `#${modifier.accent.toString(16).padStart(6, '0')}`,
+            fontSize: '11px',
+            fontStyle: 'bold',
+          });
+          modX += 48;
+        }
+        const actionRect: UiRect = {
+          x: card.x + card.width - 72,
+          y: card.y + 18,
+          width: 60,
+          height: 20,
+        };
+        addUiBadge(
+          this.scene,
+          this.structuredContainer,
+          this.structuredGraphics,
+          actionRect,
+          equipped ? 'UNEQUIP' : 'EQUIP',
+          equipped ? uiColors.warning : uiColors.accentGear,
+          equipped ? uiColors.warning : uiColors.accentGear,
+          equipped ? '#101824' : '#ffffff',
+        );
+      }
+      this.addStructuredZone(card, () => {
+        this.selectedInventoryItemId = itemId;
+        this.showInventoryItemDetails();
+        this.refresh();
+      });
+      if (visible) {
+        const actionRect: UiRect = {
+          x: card.x + card.width - 72,
+          y: card.y + 18,
+          width: 60,
+          height: 20,
+        };
+        this.addStructuredZone(actionRect, () => {
+          this.selectedInventoryItemId = itemId;
+          this.toggleSelectedEquipment();
+        });
+      }
+      y += 66;
+      unscrolledBottom += 66;
+    }
+
+    if (this.selectedInventoryItemId && getItem(this.selectedInventoryItemId)?.kind === 'equipment') {
+      this.showInventoryItemDetails();
+    } else {
+      this.detailTitle.setText('Equipment').setVisible(true);
+      this.detailSubtitle.setText('Build slots and owned gear').setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText('Select owned gear to inspect modifiers, compare slots, equip, or unequip.')
+        .setVisible(true);
+    }
+    this.setStructuredContentHeight(content, unscrolledBottom);
+  }
+
+  private buildItemCards(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    const offset = this.getStructuredScrollOffset();
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'ITEMS', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    const items = this.scene.inventory
+      .getAllItems()
+      .filter(([itemId]) => (getItem(itemId) as any)?.kind !== 'equipment');
+    addUiBadge(
+      this.scene,
+      this.structuredContainer,
+      this.structuredGraphics,
+      { x: content.x + content.width - 98, y: content.y - 2, width: 86, height: 20 },
+      `${items.length} STACKS`,
+      uiColors.accentGear,
+      uiColors.accentGear,
+    );
+    let y = content.y + 30 - offset;
+    let unscrolledBottom = content.y + 30;
+    if (items.length === 0) {
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x,
+        y,
+        i18n.getFeatureString('noItemsInInventory'),
+        { color: uiColors.textMuted, fontSize: '13px' },
+      );
+    }
+    for (const [itemId, count] of items.slice(0, 12)) {
+      const item = getItem(itemId) as any;
+      const card: UiRect = { x: content.x, y, width: content.width, height: 48 };
+      const visible = this.isStructuredRectVisible(card, rect);
+      if (visible) {
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: uiColors.panelBgInset,
+        stroke: uiColors.panelBorderMuted,
+        alpha: 0.62,
+        strokeAlpha: 0.58,
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 8,
+        item?.name ?? itemId,
+        {
+          color: uiColors.textPrimary,
+          fontSize: '12px',
+          fontStyle: 'bold',
+        },
+      );
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 27,
+        `${item?.category ?? item?.kind ?? 'misc'} // x${count}`,
+        { color: uiColors.textMuted, fontSize: '10px' },
+      );
+      addUiBadge(
+        this.scene,
+        this.structuredContainer,
+        this.structuredGraphics,
+        { x: card.x + card.width - 62, y: card.y + 14, width: 50, height: 20 },
+        item?.category === 'food' || item?.kind === 'consumable' ? 'USE' : 'VIEW',
+        uiColors.accentGear,
+        uiColors.accentGear,
+      );
+      this.addStructuredZone(card, () => {
+        this.selectedInventoryItemId = itemId;
+        this.showInventoryItemDetails();
+      });
+      }
+      y += 56;
+      unscrolledBottom += 56;
+    }
+    this.detailTitle.setText('Items').setVisible(true);
+    this.detailSubtitle.setText('Food, materials, quest goods').setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText('Click an item row for details. Food and consumables can still use U.')
+      .setVisible(true);
+    this.setStructuredContentHeight(content, unscrolledBottom);
   }
 
   private buildInventoryCards(rect: UiRect): void {
@@ -2187,6 +3106,7 @@ export class SkillTreeOverlay {
         },
       );
     }
+    this.setStructuredContentHeight(content, y);
     this.detailTitle.setText(i18n.getFeatureString('detailQSlot')).setVisible(true);
     this.detailSubtitle.setText(i18n.getFeatureString('detailSpellsTitle')).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
@@ -2251,6 +3171,7 @@ export class SkillTreeOverlay {
       );
       y += 48;
     }
+    this.setStructuredContentHeight(content, y);
     this.detailTitle.setText(i18n.getFeatureString('cardDetailCollection')).setVisible(true);
     this.detailSubtitle.setText('Collection').setVisible(true);
     this.detailRankText.setText('').setVisible(false);
@@ -2321,6 +3242,7 @@ export class SkillTreeOverlay {
       });
       y += 70;
     }
+    this.setStructuredContentHeight(content, y);
     this.detailTitle.setText('Quests').setVisible(true);
     this.detailSubtitle.setText(i18n.getFeatureString('detailAcceptedTasks')).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
@@ -2375,6 +3297,7 @@ export class SkillTreeOverlay {
       );
       y += 66;
     }
+    this.setStructuredContentHeight(content, y);
     this.detailTitle.setText(i18n.getFeatureString('datingTitle')).setVisible(true);
     this.detailSubtitle.setText(i18n.getFeatureString('detailRelationships')).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
@@ -2424,6 +3347,7 @@ export class SkillTreeOverlay {
       );
       y += 54;
     }
+    this.setStructuredContentHeight(content, y);
     this.detailTitle.setText(i18n.getFeatureString('peopleTitle')).setVisible(true);
     this.detailSubtitle.setText(i18n.getFeatureString('detailActorJournal')).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
@@ -2488,6 +3412,7 @@ export class SkillTreeOverlay {
       );
       y += 60;
     }
+    this.setStructuredContentHeight(content, y);
     this.detailTitle.setText(i18n.getFeatureString('artifactsTitle')).setVisible(true);
     this.detailSubtitle.setText(i18n.getFeatureString('detailRunModifiers')).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
@@ -2521,6 +3446,7 @@ export class SkillTreeOverlay {
       });
       y += 40;
     }
+    this.setStructuredContentHeight(content, y);
   }
 
   show(): void {
@@ -2609,16 +3535,26 @@ export class SkillTreeOverlay {
   }
 
   isInventoryTabActive(): boolean {
-    return this.activeTab === 'inventory';
+    return (
+      this.activeTab === 'items' || this.activeTab === 'equipment' || this.activeTab === 'inventory'
+    );
   }
 
   showInventoryDetailsAtPointer(): boolean {
-    if (!this.visible || this.activeTab !== 'inventory') {
+    if (
+      !this.visible ||
+      (this.activeTab !== 'items' &&
+        this.activeTab !== 'equipment' &&
+        this.activeTab !== 'inventory')
+    ) {
       return false;
     }
     const pointer = this.scene.input.activePointer;
     if (!pointer) {
       return false;
+    }
+    if (this.activeTab === 'equipment') {
+      return this.showInventoryItemDetails();
     }
     const index = this.getTextRowIndex(pointer, this.inventoryItemsText.y, this.inventoryItemsText);
     const id = this.inventoryIndex[index];
@@ -2632,7 +3568,9 @@ export class SkillTreeOverlay {
 
   announce(message: string, color = '#5dd6a2', duration = 2200): void {
     this.hintSticky = true;
+    this.setFooterHints([]);
     this.hintText.setText(message);
+    this.hintText.setVisible(true);
     this.hintText.setColor(color);
     this.hintTimer?.remove();
     this.hintTimer = this.scene.time.addEvent({
@@ -2654,6 +3592,19 @@ export class SkillTreeOverlay {
       this.announce(i18n.getFeatureString('skillTreeUnknownItem'), '#ff6b6b', 1600);
       return false;
     }
+    if (item.kind === 'equipment') {
+      const equipped = this.scene.inventory.getEquipped(item.slot) === item.id;
+      const actionHints = this.getInventoryActionHints(this.selectedInventoryItemId);
+      this.detailTitle.setText(item.name ?? this.selectedInventoryItemId).setVisible(true);
+      this.detailSubtitle
+        .setText(`${this.formatSlotLabel(item.slot)} - ${equipped ? 'Equipped' : 'Owned'}`)
+        .setVisible(true);
+      this.detailRankText.setText('').setVisible(false);
+      this.detailBody
+        .setText(this.buildEquipmentDetailBody(item, equipped, actionHints))
+        .setVisible(true);
+      return true;
+    }
     const title = item.name ?? this.selectedInventoryItemId;
     const subtitle =
       (item as any).kind === 'equipment' ? `Equipment · Slot: ${(item as any).slot}` : 'Item';
@@ -2667,8 +3618,81 @@ export class SkillTreeOverlay {
     return true;
   }
 
+  private buildEquipmentDetailBody(
+    item: EquipableItem,
+    equipped: boolean,
+    actionHints: string,
+  ): string {
+    const modifiers = this.getEquipmentModifierViews(item);
+    const currentId = this.scene.inventory.getEquipped(item.slot);
+    const current = currentId ? (getItem(currentId) as EquipableItem | undefined) : undefined;
+    const currentModifiers =
+      current && current.kind === 'equipment' ? this.getEquipmentModifierViews(current) : [];
+    const lines: string[] = [];
+    if (item.description) {
+      lines.push(item.description);
+    }
+    lines.push('');
+    lines.push('MODIFIERS');
+    if (modifiers.length === 0) {
+      lines.push('No stat modifiers. This gear is mostly cosmetic or utility-gated.');
+    } else {
+      for (const modifier of modifiers) {
+        lines.push(`${modifier.label}: ${modifier.value}`);
+        lines.push(`  ${modifier.description}`);
+      }
+    }
+    lines.push('');
+    lines.push('CURRENT SLOT');
+    lines.push(current ? `${current.name}${equipped ? ' (this item)' : ''}` : 'Empty');
+
+    if (!equipped && current && current.id !== item.id) {
+      const currentByLabel = new Map(currentModifiers.map((modifier) => [modifier.label, modifier]));
+      const labels = new Set([
+        ...currentModifiers.map((modifier) => modifier.label),
+        ...modifiers.map((modifier) => modifier.label),
+      ]);
+      lines.push('');
+      lines.push('IF EQUIPPED');
+      for (const label of labels) {
+        const from = currentByLabel.get(label)?.value ?? '0';
+        const to = modifiers.find((modifier) => modifier.label === label)?.value ?? '0';
+        lines.push(`${label}: ${from} -> ${to}`);
+      }
+    }
+
+    lines.push('');
+    lines.push(actionHints);
+    return lines.join('\n');
+  }
+
+  toggleSelectedEquipment(): boolean {
+    if (!this.visible || this.activeTab !== 'equipment' || !this.selectedInventoryItemId) {
+      return false;
+    }
+    const item = getItem(this.selectedInventoryItemId) as EquipableItem | undefined;
+    if (!item || item.kind !== 'equipment') {
+      this.announce('Select a gear item first.', '#ffd166', 1800);
+      return true;
+    }
+    const equipped = this.scene.inventory.getEquipped(item.slot) === item.id;
+    const ok = equipped ? this.scene.unequipSlot(item.slot) : this.scene.equipItem(item.id);
+    this.announce(
+      ok ? `${item.name} ${equipped ? 'unequipped' : 'equipped'}.` : `Cannot equip ${item.name}.`,
+      ok ? (equipped ? '#9ad1ff' : '#5dd6a2') : '#ff6b6b',
+      1600,
+    );
+    this.refresh();
+    this.showInventoryItemDetails();
+    return true;
+  }
+
   useSelectedInventoryItem(): boolean {
-    if (!this.visible || this.activeTab !== 'inventory' || !this.selectedInventoryItemId) {
+    if (
+      !this.visible ||
+      (this.activeTab !== 'items' && this.activeTab !== 'inventory') ||
+      !this.selectedInventoryItemId
+    ) {
       return false;
     }
     const result = this.scene.snakeGame.useInventoryItem(this.selectedInventoryItemId);
@@ -2679,7 +3703,11 @@ export class SkillTreeOverlay {
   }
 
   cookSelectedInventoryItem(): boolean {
-    if (!this.visible || this.activeTab !== 'inventory' || !this.selectedInventoryItemId) {
+    if (
+      !this.visible ||
+      (this.activeTab !== 'items' && this.activeTab !== 'inventory') ||
+      !this.selectedInventoryItemId
+    ) {
       return false;
     }
     const recipeId =
@@ -2702,7 +3730,7 @@ export class SkillTreeOverlay {
   private getInventoryActionHints(itemId: string): string {
     const item = getItem(itemId) as any;
     if (!item || item.kind === 'equipment') {
-      return 'Click to equip or unequip.';
+      return 'Click rows to inspect. Press E or use the action button to equip or unequip.';
     }
     const hints = [i18n.getFeatureString('hintPressInspect')];
     if (item.category === 'food' || item.kind === 'consumable') {
@@ -2766,7 +3794,13 @@ export class SkillTreeOverlay {
   }
 
   private highlightInventoryItem(itemId: string): void {
-    if (!this.visible || this.activeTab !== 'inventory') return;
+    if (
+      !this.visible ||
+      (this.activeTab !== 'items' &&
+        this.activeTab !== 'equipment' &&
+        this.activeTab !== 'inventory')
+    )
+      return;
     const index = this.inventoryIndex.indexOf(itemId);
     if (index < 0) return;
     const lineHeight = 24;
@@ -2846,6 +3880,10 @@ export class SkillTreeOverlay {
         this.activeTab !== 'dating' &&
         this.activeTab !== 'destiny' &&
         this.activeTab !== 'customize' &&
+        this.activeTab !== 'equipment' &&
+        this.activeTab !== 'items' &&
+        this.activeTab !== 'cards' &&
+        this.activeTab !== 'artifacts' &&
         this.activeTab !== 'inventory')
     ) {
       return;
@@ -2854,16 +3892,44 @@ export class SkillTreeOverlay {
       this.applySpecialChanceScrollOffset(this.specialChanceScrollOffset + deltaY);
       return;
     }
+    if (this.isStructuredTab(this.activeTab)) {
+      this.applyStructuredScrollOffset((this.scrollOffsets[this.activeTab] ?? 0) + deltaY);
+      return;
+    }
     const text =
       this.activeTab === 'inventory'
         ? this.inventoryItemsText
-        : this.activeTab === 'spells'
-          ? this.spellsText
-          : this.activeTab === 'customize'
-            ? this.customizationText
-            : this.questListText;
+        : this.activeTab === 'equipment' || this.activeTab === 'items'
+          ? this.questListText
+          : this.activeTab === 'spells'
+            ? this.spellsText
+            : this.activeTab === 'customize'
+              ? this.customizationText
+              : this.questListText;
     const next = (this.scrollOffsets[this.activeTab] ?? 0) + deltaY;
     this.applyScrollableTextOffset(this.activeTab, text, next);
+  }
+
+  private isStructuredTab(tab: TabId): boolean {
+    return (
+      tab === 'equipment' ||
+      tab === 'items' ||
+      tab === 'spells' ||
+      tab === 'cards' ||
+      tab === 'quests' ||
+      tab === 'dating' ||
+      tab === 'people' ||
+      tab === 'destiny' ||
+      tab === 'artifacts' ||
+      tab === 'info'
+    );
+  }
+
+  private applyStructuredScrollOffset(rawOffset: number): void {
+    const viewport = this.getStructuredViewport();
+    const maxScroll = Math.max(0, this.structuredContentHeight - viewport.height);
+    this.scrollOffsets[this.activeTab] = Phaser.Math.Clamp(rawOffset, 0, maxScroll);
+    this.buildStructuredTabContent(this.activeTab);
   }
 
   private applyScrollableTextOffset(
@@ -2890,6 +3956,8 @@ export class SkillTreeOverlay {
           tab === 'people' ||
           tab === 'dating' ||
           tab === 'customize' ||
+          tab === 'equipment' ||
+          tab === 'items' ||
           tab === 'inventory') &&
           maxScroll > 0,
       );
@@ -2907,7 +3975,7 @@ export class SkillTreeOverlay {
   private applySpecialChanceScrollOffset(rawOffset = this.specialChanceScrollOffset): void {
     const maxScroll = Math.max(
       0,
-      this.specialChanceText.height - this.getSpecialChanceViewportHeight(),
+      this.specialDerivedContentHeight - this.getSpecialChanceViewportHeight(),
     );
     const offset = Phaser.Math.Clamp(rawOffset, 0, maxScroll);
     this.specialChanceScrollOffset = offset;
@@ -2915,6 +3983,7 @@ export class SkillTreeOverlay {
     if (this.visible && this.activeTab === 'special') {
       const view = this.handlers.getSpecialView?.();
       if (view) {
+        this.buildSpecialDerivedContent(view);
         this.drawSpecialUi(view);
       }
     }
@@ -3054,6 +4123,7 @@ export class SkillTreeOverlay {
     const view = this.handlers.getSpecialView?.();
     if (!view) {
       this.clearSpecialMainContent();
+      this.clearSpecialDerivedContent();
       addUiText(
         this.scene,
         this.specialMainContainer,
@@ -3070,29 +4140,10 @@ export class SkillTreeOverlay {
 
     this.drawSpecialUi(view);
     this.buildSpecialMainContent(view);
+    this.buildSpecialDerivedContent(view);
     this.specialStatsText.setText('');
+    this.specialChanceText.setText('');
     this.specialRowMap = [];
-
-    const chanceLines: string[] = ['DERIVED STATS'];
-    for (const row of this.buildSpecialCoreDerivedRows(view)) {
-      chanceLines.push(`${row.label.padEnd(27, ' ')} ${row.value}`);
-      if (row.detail) {
-        chanceLines.push(`  ${row.detail}`);
-      }
-    }
-    for (const section of view.sections) {
-      chanceLines.push('', section.section.toUpperCase());
-      for (const line of section.lines) {
-        chanceLines.push(`${line.label.padEnd(27, ' ')} ${line.value}`);
-        if (line.detail) {
-          chanceLines.push(`  ${line.detail}`);
-        }
-        if (line.affectedBy?.length) {
-          chanceLines.push(`  Affected by: ${line.affectedBy.join(', ')}`);
-        }
-      }
-    }
-    this.specialChanceText.setText(chanceLines.join('\n'));
     this.applySpecialChanceScrollOffset();
     this.drawSpecialUi(view);
   }
@@ -3249,7 +4300,229 @@ export class SkillTreeOverlay {
     ];
   }
 
+  private buildSpecialDerivedGroups(view: SpecialStatsView): DerivedStatGroupView[] {
+    const rows = this.buildSpecialCoreDerivedRows(view);
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const fromCore = (id: string, label?: string): DerivedStatRowView | null => {
+      const row = byId.get(id);
+      return row
+        ? { id: row.id, label: label ?? row.label, value: row.value, breakdown: row.detail }
+        : null;
+    };
+    const fromSection = (id: string, fallbackLabel?: string): DerivedStatRowView | null => {
+      const line = view.sections
+        .flatMap((section) => section.lines)
+        .find((entry) => entry.id === id);
+      return line
+        ? {
+            id: line.id,
+            label: fallbackLabel ?? line.label,
+            value: line.value,
+            breakdown: line.detail,
+          }
+        : null;
+    };
+    const compact = (rows: Array<DerivedStatRowView | null>) =>
+      rows.filter(Boolean) as DerivedStatRowView[];
+    const groups: DerivedStatGroupView[] = [
+      {
+        id: 'core',
+        title: 'Core',
+        accent: uiColors.accentCore,
+        rows: compact([
+          fromCore('speed'),
+          fromCore('max-hearts'),
+          fromCore('post-hit-invulnerability'),
+        ]),
+      },
+      {
+        id: 'apples',
+        title: 'Apples',
+        accent: uiColors.accentGrowth,
+        rows: compact([
+          fromCore('apple-invulnerability'),
+          fromSection('apple-bloom'),
+          fromSection('bonus-apple-count'),
+          fromCore('special-apple'),
+          fromCore('rare-apple'),
+          fromSection('apple-score-multiplier'),
+          fromSection('apple-shockwave-radius'),
+        ]),
+      },
+      {
+        id: 'survival',
+        title: 'Survival',
+        accent: uiColors.accentSurvival,
+        rows: compact([
+          fromCore('frost-resistance'),
+          fromCore('heat-resistance'),
+          fromSection('damage-reduction'),
+          fromSection('powerup-invulnerability'),
+        ]),
+      },
+      {
+        id: 'terrain',
+        title: 'Terrain',
+        accent: uiColors.accentUtility,
+        rows: compact([
+          fromCore('buoyancy'),
+          fromCore('water-speed'),
+          fromSection('wall-eating-chance'),
+          fromSection('seismic-radius'),
+          fromSection('terra-shield-charges'),
+        ]),
+      },
+      {
+        id: 'exploration',
+        title: 'Exploration',
+        accent: uiColors.accentExploration,
+        rows: compact([
+          fromCore('treasure-discovery', 'Treasure Discovery Chance'),
+          fromCore('powerup-discovery', 'Powerup Discovery Chance'),
+          fromSection('hazard-sense'),
+          fromSection('wall-sense-radius'),
+        ]),
+      },
+      {
+        id: 'fishing',
+        title: 'Fishing',
+        accent: uiColors.accentFlow,
+        rows: compact([
+          fromCore('fishing-control'),
+          fromSection('fishing-stability'),
+          fromSection('fish-retention'),
+          fromSection('rare-catch'),
+        ]),
+      },
+      {
+        id: 'hunting',
+        title: 'Hunting',
+        accent: uiColors.accentCommand,
+        rows: compact([
+          fromCore('animal-bonus-drop'),
+          fromSection('animal-double-drop'),
+          fromSection('meat-recovery'),
+        ]),
+      },
+      {
+        id: 'social',
+        title: 'Social',
+        accent: uiColors.accentSocial,
+        rows: compact([
+          fromCore('suspicion-reduction'),
+          fromSection('fine-reduction'),
+          fromSection('affection-gain'),
+          fromSection('trust-gain'),
+          fromSection('apology-effectiveness'),
+          fromSection('intimidation-control'),
+        ]),
+      },
+    ];
+    return groups.filter((group) => group.rows.length > 0);
+  }
+
+  private buildSpecialDerivedContent(view: SpecialStatsView): void {
+    this.clearSpecialDerivedContent();
+    const g = this.specialDerivedGraphics;
+    const detailRect: UiRect = {
+      x: this.detailPanel.x,
+      y: this.detailPanel.y,
+      width: this.detailPanel.width,
+      height: this.detailPanel.height,
+    };
+    const content = insetRect(detailRect, 14);
+    const groups = this.buildSpecialDerivedGroups(view);
+    addUiText(this.scene, this.specialDerivedContainer, content.x, content.y, 'DERIVED STATS', {
+      color: uiColors.textPrimary,
+      fontSize: '15px',
+      fontStyle: 'bold',
+    });
+    let y = content.y + 30 - this.specialChanceScrollOffset;
+    const clipTop = content.y + 34;
+    const clipBottom = detailRect.y + detailRect.height - 12;
+    for (const group of groups) {
+      const headerH = 24;
+      if (y >= clipTop && y + headerH <= clipBottom) {
+        drawUiCard(g, {
+          rect: { x: content.x, y, width: content.width - 8, height: headerH },
+          fill: group.accent,
+          stroke: group.accent,
+          alpha: 0.2,
+          strokeAlpha: 0.82,
+          radius: 5,
+        });
+        g.fillStyle(group.accent, 0.18).fillRect(content.x + 2, y + headerH - 3, content.width - 12, 1);
+        g.fillStyle(group.accent, 0.86).fillRoundedRect(content.x + 8, y + 6, 12, 12, 3);
+        addUiText(
+          this.scene,
+          this.specialDerivedContainer,
+          content.x + 28,
+          y + 5,
+          group.title.toUpperCase(),
+          {
+            color: uiColors.textPrimary,
+            fontSize: '11px',
+            fontStyle: 'bold',
+          },
+        );
+      }
+      y += headerH + 6;
+      for (const row of group.rows) {
+        const rowH = row.breakdown ? 40 : 28;
+        if (y >= clipTop && y + rowH <= clipBottom) {
+          drawUiCard(g, {
+            rect: { x: content.x, y, width: content.width - 8, height: rowH },
+            fill: uiColors.panelBgInset,
+            stroke: row.accent ?? group.accent,
+            alpha: 0.58,
+            strokeAlpha: 0.44,
+            radius: 5,
+          });
+          addUiText(this.scene, this.specialDerivedContainer, content.x + 10, y + 7, row.label, {
+            color: uiColors.textSecondary,
+            fontSize: '11px',
+            wordWrapWidth: content.width - 90,
+          });
+          addUiText(
+            this.scene,
+            this.specialDerivedContainer,
+            content.x + content.width - 18,
+            y + 7,
+            row.value,
+            {
+              align: 'right',
+              color: uiColors.valuePrimary,
+              fontSize: '12px',
+              fontStyle: 'bold',
+            },
+          );
+          if (row.breakdown) {
+            addUiText(
+              this.scene,
+              this.specialDerivedContainer,
+              content.x + 10,
+              y + 24,
+              row.breakdown,
+              {
+                color: uiColors.textMuted,
+                fontSize: '9px',
+                wordWrapWidth: content.width - 24,
+              },
+            );
+          }
+        }
+        y += rowH + 6;
+      }
+      y += 4;
+    }
+    this.specialDerivedContentHeight = Math.max(0, y + this.specialChanceScrollOffset - content.y);
+  }
+
   refresh(): void {
+    if (this.activeTab === 'inventory') {
+      this.activeTab = 'items';
+      this.activePrimaryTab = 'gear';
+    }
     if (!this.isTabAvailable(this.activeTab)) {
       this.activeTab = 'skills';
       this.activePrimaryTab = 'growth';
@@ -3279,7 +4552,9 @@ export class SkillTreeOverlay {
 
     const skillsActive = this.activeTab === 'skills';
     const specialActive = this.activeTab === 'special';
-    const inventoryActive = this.activeTab === 'inventory';
+    const equipmentActive = this.activeTab === 'equipment';
+    const itemsActive = this.activeTab === 'items';
+    const inventoryActive = equipmentActive || itemsActive;
     const customizationActive = this.activeTab === 'customize';
     const cardsActive = this.activeTab === 'cards';
     const spellsActive = this.activeTab === 'spells';
@@ -3294,6 +4569,8 @@ export class SkillTreeOverlay {
     const graphActive = this.activeTab === 'graph';
     const structuredActive =
       inventoryActive ||
+      equipmentActive ||
+      itemsActive ||
       cardsActive ||
       spellsActive ||
       peopleActive ||
@@ -3305,8 +4582,9 @@ export class SkillTreeOverlay {
     this.connectionGraphics.setVisible(skillsActive);
     this.specialUiGraphics.setVisible(specialActive);
     this.specialMainContainer.setVisible(specialActive);
+    this.specialDerivedContainer.setVisible(specialActive);
     this.specialStatsText.setVisible(false);
-    this.specialChanceText.setVisible(specialActive);
+    this.specialChanceText.setVisible(false);
     this.inventoryItemsText.setVisible(false);
     this.customizationText.setVisible(false);
     this.styleContainer.setVisible(customizationActive);
@@ -3334,6 +4612,7 @@ export class SkillTreeOverlay {
     if (!specialActive) {
       this.specialUiGraphics.clear();
       this.clearSpecialMainContent();
+      this.clearSpecialDerivedContent();
       this.resetScrollableText(this.specialStatsText);
       this.specialChanceText.setY(this.detailPanel.y + 14);
       this.specialChanceScrollOffset = 0;
@@ -3422,6 +4701,7 @@ export class SkillTreeOverlay {
     }
 
     if (specialActive) {
+      this.detailPanel.setVisible(false);
       this.refreshSpecialPanel();
       this.detailTitle.setVisible(false);
       this.detailSubtitle.setVisible(false);
@@ -3431,6 +4711,8 @@ export class SkillTreeOverlay {
         this.hintText.setText('SPECIAL: click +/- to preview, then apply or reset.');
         this.hintText.setColor('#9ad1ff');
       }
+    } else {
+      this.detailPanel.setVisible(true);
     }
 
     if (structuredActive) {
@@ -3438,6 +4720,8 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         const hintByTab: Partial<Record<TabId, string>> = {
           inventory: i18n.getFeatureString('hintInventory'),
+          equipment: 'Equipment: select gear, compare modifiers, press E to equip or unequip.',
+          items: 'Items: click rows for details. Press U to use selected consumables.',
           cards: i18n.getFeatureString('cardHintCards'),
           spells: i18n.getFeatureString('hintSpells'),
           people: i18n.getFeatureString('hintPeople'),
@@ -3681,7 +4965,8 @@ export class SkillTreeOverlay {
         this.hintText.setColor('#9ad1ff');
       }
     } else if (
-      this.activeTab !== 'inventory' &&
+      this.activeTab !== 'equipment' &&
+      this.activeTab !== 'items' &&
       this.activeTab !== 'skills' &&
       this.activeTab !== 'special' &&
       this.activeTab !== 'spells' &&
@@ -3711,6 +4996,7 @@ export class SkillTreeOverlay {
       return;
     }
 
+    this.updateSkillTreeNodeLayout(perks);
     this.drawConnections(perks);
 
     for (const [perkId, visual] of this.nodeVisuals) {
@@ -4358,13 +5644,15 @@ export class SkillTreeOverlay {
   }
 
   private buildTabs(): void {
-    const startX = 96;
-    const primaryY = 78;
-    const secondaryY = 112;
+    const layout = this.getPauseMenuLayout();
+    const startX = layout.topTabs.x;
+    const primaryY = layout.topTabs.y + 17;
+    const secondaryY = layout.subTabs.y + 14;
     const showHand = TAB_DEFINITIONS.length > 1;
-    const primaryTabWidth = 132;
-    const secondaryStartX = 54;
-    const secondaryTabWidth = 118;
+    const primaryGap = 14;
+    const primaryTabWidth = Math.min(106, Math.floor((layout.topTabs.width - primaryGap * 3) / 4));
+    const secondaryStartX = layout.subTabs.x;
+    const secondaryTabWidth = 110;
 
     let primaryX = startX;
     for (const primary of PRIMARY_TAB_DEFINITIONS) {
@@ -4377,11 +5665,11 @@ export class SkillTreeOverlay {
       const label = this.scene.add
         .text(primaryX + 28, primaryY, resolvedLabel, {
           fontFamily: 'monospace',
-          fontSize: '17px',
+          fontSize: '12px',
           color: '#7895b4',
           backgroundColor: 'rgba(0,0,0,0)',
-          fixedWidth: primaryTabWidth - 28,
-          padding: { left: 10, right: 10, top: 5, bottom: 5 },
+          fixedWidth: primaryTabWidth - 30,
+          padding: { left: 4, right: 4, top: 4, bottom: 4 },
         })
         .setOrigin(0, 0.5)
         .setInteractive({ useHandCursor: true });
@@ -4409,7 +5697,7 @@ export class SkillTreeOverlay {
       this.container.add(label);
       this.primaryTabIcons.set(primary.id, icon);
       this.primaryTabLabels.set(primary.id, label);
-      primaryX += primaryTabWidth + 18;
+      primaryX += primaryTabWidth + primaryGap;
     }
 
     let currentX = secondaryStartX;
@@ -4423,11 +5711,11 @@ export class SkillTreeOverlay {
       const label = this.scene.add
         .text(currentX + 26, secondaryY, resolvedLabel, {
           fontFamily: 'monospace',
-          fontSize: '16px',
+          fontSize: '13px',
           color: '#7895b4',
           backgroundColor: 'rgba(0,0,0,0)',
           fixedWidth: secondaryTabWidth - 26,
-          padding: { left: 9, right: 9, top: 5, bottom: 5 },
+          padding: { left: 6, right: 6, top: 4, bottom: 4 },
         })
         .setOrigin(0, 0.5)
         .setInteractive({ useHandCursor: showHand });
@@ -4496,30 +5784,108 @@ export class SkillTreeOverlay {
     return uiColors.accentCore;
   }
 
-  private buildNodes(): void {
-    const perks = this.system.getPerks();
+  private getSkillTreeLayout(perks: readonly SkillPerkDefinition[]): {
+    content: UiRect;
+    branches: string[];
+    progressions: number[];
+    branchRow: Map<string, number>;
+    progressionColumn: Map<number, number>;
+    leftLabelWidth: number;
+    topRankHeight: number;
+    rowGap: number;
+    colGap: number;
+  } {
     const bounds = this.getSkillTreeBounds();
     const content = insetRect(bounds, 16);
     const branches = this.getSkillBranches(perks);
     const progressions = [...new Set(perks.map((perk) => perk.position.y))].sort((a, b) => a - b);
     const branchRow = new Map(branches.map((branch, index) => [branch, index]));
     const progressionColumn = new Map(progressions.map((position, index) => [position, index]));
-    const leftLabelWidth = 102;
-    const topRankHeight = 44;
+    const leftLabelWidth = 104;
+    const topRankHeight = 42;
     const rowGap =
-      branches.length > 1 ? (content.height - topRankHeight - 34) / (branches.length - 1) : 0;
-    const colGap =
-      progressions.length > 1
-        ? (content.width - leftLabelWidth - 32) / (progressions.length - 1)
+      branches.length > 1
+        ? Phaser.Math.Clamp(
+            (content.height - topRankHeight - 42) / Math.max(1, branches.length - 1),
+            42,
+            58,
+          )
         : 0;
+    const colGap = 140;
+    this.skillTreeContentWidth = leftLabelWidth + Math.max(0, progressions.length - 1) * colGap + 56;
+    this.skillTreeContentHeight = content.height;
+    this.skillTreePanX = Phaser.Math.Clamp(
+      this.skillTreePanX,
+      0,
+      Math.max(0, this.skillTreeContentWidth - content.width),
+    );
+    this.skillTreePanY = 0;
+    return {
+      content,
+      branches,
+      progressions,
+      branchRow,
+      progressionColumn,
+      leftLabelWidth,
+      topRankHeight,
+      rowGap,
+      colGap,
+    };
+  }
+
+  private panSkillTree(deltaY: number, deltaX = 0): void {
+    const bounds = this.getSkillTreeBounds();
+    const maxX = Math.max(0, this.skillTreeContentWidth - insetRect(bounds, 16).width);
+    const horizontalDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
+    this.skillTreePanX = Phaser.Math.Clamp(this.skillTreePanX + horizontalDelta, 0, maxX);
+    this.skillTreePanY = 0;
+    this.refresh();
+  }
+
+  private updateSkillTreeNodeLayout(perks: readonly SkillPerkDefinition[]): void {
+    const {
+      content,
+      branchRow,
+      progressionColumn,
+      leftLabelWidth,
+      topRankHeight,
+      rowGap,
+      colGap,
+    } = this.getSkillTreeLayout(perks);
+    for (const perk of perks) {
+      const visual = this.nodeVisuals.get(perk.id);
+      if (!visual) continue;
+      const row = branchRow.get(perk.branch) ?? 0;
+      const col = progressionColumn.get(perk.position.y) ?? 0;
+      const px = content.x + leftLabelWidth + col * colGap - this.skillTreePanX;
+      const py = content.y + topRankHeight + row * rowGap - this.skillTreePanY;
+      visual.container.setPosition(px, py);
+      visual.position.set(px, py);
+    }
+  }
+
+  private buildNodes(): void {
+    const perks = this.system.getPerks();
+    const {
+      content,
+      branchRow,
+      progressionColumn,
+      leftLabelWidth,
+      topRankHeight,
+      rowGap,
+      colGap,
+    } = this.getSkillTreeLayout(perks);
     const radius = 16;
 
     for (const perk of perks) {
       const row = branchRow.get(perk.branch) ?? 0;
       const col = progressionColumn.get(perk.position.y) ?? 0;
-      const px = content.x + leftLabelWidth + col * colGap;
-      const py = content.y + topRankHeight + row * rowGap;
+      const px = content.x + leftLabelWidth + col * colGap - this.skillTreePanX;
+      const py = content.y + topRankHeight + row * rowGap - this.skillTreePanY;
       const nodeContainer = this.scene.add.container(px, py);
+      if (this.contentMask) {
+        nodeContainer.setMask(this.contentMask);
+      }
 
       const button = this.scene.add.circle(0, 0, radius, 0x13233a).setStrokeStyle(2, 0x2b4a63);
       button.setInteractive({ useHandCursor: true });
@@ -4748,17 +6114,8 @@ export class SkillTreeOverlay {
       child.destroy();
     }
     const bounds = this.getSkillTreeBounds();
-    const content = insetRect(bounds, 16);
-    const branches = this.getSkillBranches(perks);
-    const progressions = [...new Set(perks.map((perk) => perk.position.y))].sort((a, b) => a - b);
-    const leftLabelWidth = 102;
-    const topRankHeight = 44;
-    const rowGap =
-      branches.length > 1 ? (content.height - topRankHeight - 34) / (branches.length - 1) : 0;
-    const colGap =
-      progressions.length > 1
-        ? (content.width - leftLabelWidth - 32) / (progressions.length - 1)
-        : 0;
+    const { content, branches, progressions, leftLabelWidth, topRankHeight, rowGap, colGap } =
+      this.getSkillTreeLayout(perks);
 
     drawUiCard(this.connectionGraphics, {
       rect: bounds,
@@ -4770,12 +6127,15 @@ export class SkillTreeOverlay {
     });
 
     progressions.forEach((_progression, index) => {
-      const x = content.x + leftLabelWidth + index * colGap;
+      const x = content.x + leftLabelWidth + index * colGap - this.skillTreePanX;
       const rankLabel = addUiText(this.scene, this.container, x, content.y + 12, `R${index}`, {
         align: 'center',
         color: uiColors.textMuted,
         fontSize: '10px',
       }).setDepth(this.options.depth + 1);
+      if (this.contentMask) {
+        rankLabel.setMask(this.contentMask);
+      }
       this.skillTreeChromeObjects.push(rankLabel);
       this.connectionGraphics
         .lineStyle(1, uiColors.panelBorderMuted, 0.28)
@@ -4783,11 +6143,16 @@ export class SkillTreeOverlay {
     });
 
     branches.forEach((branch, index) => {
-      const y = content.y + topRankHeight + index * rowGap;
+      const y = content.y + topRankHeight + index * rowGap - this.skillTreePanY;
       const accent = this.getBranchAccent(branch);
       this.connectionGraphics
         .lineStyle(2, accent, 0.42)
-        .lineBetween(content.x + leftLabelWidth - 12, y, content.x + content.width - 20, y);
+        .lineBetween(
+          content.x + leftLabelWidth - 12 - this.skillTreePanX,
+          y,
+          content.x + this.skillTreeContentWidth - 20 - this.skillTreePanX,
+          y,
+        );
       this.connectionGraphics.fillStyle(accent, 0.16).fillRoundedRect(content.x, y - 18, 86, 36, 6);
       const branchLabel = addUiText(
         this.scene,
@@ -4802,6 +6167,9 @@ export class SkillTreeOverlay {
           fontStyle: 'bold',
         },
       ).setDepth(this.options.depth + 1);
+      if (this.contentMask) {
+        branchLabel.setMask(this.contentMask);
+      }
       this.skillTreeChromeObjects.push(branchLabel);
     });
 
@@ -4827,9 +6195,34 @@ export class SkillTreeOverlay {
           .strokePath();
       }
     }
+    if (this.skillTreeContentWidth > content.width) {
+      const railX = content.x + 10;
+      const railY = content.y + content.height - 8;
+      const railW = content.width - 20;
+      const thumbW = Math.max(34, (content.width / this.skillTreeContentWidth) * railW);
+      const maxOffset = Math.max(1, this.skillTreeContentWidth - content.width);
+      const thumbX = railX + (this.skillTreePanX / maxOffset) * (railW - thumbW);
+      this.connectionGraphics.fillStyle(uiColors.panelBgInset, 0.82).fillRoundedRect(
+        railX,
+        railY,
+        railW,
+        5,
+        2,
+      );
+      this.connectionGraphics.fillStyle(uiColors.panelGlow, 0.9).fillRoundedRect(
+        thumbX,
+        railY,
+        thumbW,
+        5,
+        2,
+      );
+    }
   }
 
   private setActiveTab(tabId: TabId): void {
+    if (tabId === 'inventory') {
+      tabId = 'items';
+    }
     if (this.activeTab === tabId) {
       return;
     }
@@ -4874,8 +6267,18 @@ export class SkillTreeOverlay {
   }
 
   private layoutSecondaryTabs(): void {
-    const startX = 54;
-    const tabWidth = 118;
+    const layout = this.getPauseMenuLayout();
+    const visibleTabs = TAB_DEFINITIONS.filter(
+      (tab) => tab.group === this.activePrimaryTab && this.isTabAvailable(tab.id),
+    );
+    const gap = 14;
+    const tabWidth = Math.min(
+      112,
+      Math.floor(
+        (layout.subTabs.width - gap * (visibleTabs.length - 1)) / Math.max(1, visibleTabs.length),
+      ),
+    );
+    const startX = layout.subTabs.x;
     let currentX = startX;
     for (const tab of TAB_DEFINITIONS) {
       const label = this.tabLabels.get(tab.id);
@@ -4887,11 +6290,13 @@ export class SkillTreeOverlay {
       if (!visible) continue;
       icon.setPosition(currentX + 12, icon.y);
       label.setX(currentX + 26);
-      currentX += tabWidth + 12;
+      label.setFixedSize(Math.max(40, tabWidth - 34), 0);
+      currentX += tabWidth + gap;
     }
   }
 
   private updateTabVisuals(): void {
+    this.drawShellFrame();
     for (const primary of PRIMARY_TAB_DEFINITIONS) {
       const label = this.primaryTabLabels.get(primary.id);
       const icon = this.primaryTabIcons.get(primary.id);
@@ -4944,6 +6349,9 @@ export class SkillTreeOverlay {
   }
 
   private isTabAvailable(tabId: TabId): boolean {
+    if (tabId === 'inventory') {
+      return false;
+    }
     if (tabId !== 'destiny') {
       return true;
     }
@@ -5041,15 +6449,22 @@ export class SkillTreeOverlay {
   }
 
   private updateDefaultHint(stats: SkillTreeStats): void {
+    this.hintText.setVisible(false);
     if (this.activeTab === 'spells') {
-      this.hintText.setText('Spells: click an available row to bind Q.');
-      this.hintText.setColor('#ffbdfd');
+      this.setFooterHints([
+        { key: 'Click', label: 'Bind Q slot' },
+        { key: 'Wheel', label: 'Scroll spells' },
+        { key: 'Esc', label: 'Resume' },
+      ]);
       return;
     }
 
     if (this.activeTab === 'special') {
-      this.hintText.setText('SPECIAL: preview stat changes and inspect derived chances.');
-      this.hintText.setColor('#9ad1ff');
+      this.setFooterHints([
+        { key: '+/-', label: 'Preview stats' },
+        { key: 'Wheel', label: 'Scroll derived' },
+        { key: 'Esc', label: 'Resume' },
+      ]);
       return;
     }
 
@@ -5062,24 +6477,86 @@ export class SkillTreeOverlay {
             : i18n.getFeatureString('skillTreeStubText'),
         );
       }
-      this.hintText.setText(i18n.getFeatureString('hintSelectTab'));
-      this.hintText.setColor('#9ad1ff');
+      if (this.activeTab === 'equipment') {
+        this.setFooterHints([
+          { key: 'Click', label: 'Select gear' },
+          { key: 'E', label: 'Equip toggle' },
+          { key: 'Wheel', label: 'Scroll list' },
+          { key: 'Esc', label: 'Resume' },
+        ]);
+        return;
+      }
+      this.setFooterHints([
+        { key: 'Click', label: 'Select row/card' },
+        { key: 'Wheel', label: 'Scroll panel' },
+        { key: 'Esc', label: 'Resume' },
+      ]);
       return;
     }
 
     if (stats.arcanePulseUnlocked) {
-      this.hintText.setText(i18n.getFeatureString('hintArcanePulseReady'));
-      this.hintText.setColor('#ffbdfd');
+      this.setFooterHints([
+        { key: 'Hover', label: 'Inspect skill' },
+        { key: 'Click', label: 'Invest points' },
+        { key: 'Wheel', label: 'Pan tree' },
+        { key: 'Q', label: 'Arcane pulse ready' },
+        { key: 'Esc', label: 'Resume' },
+      ]);
     } else if (stats.manaMax > 0) {
-      this.hintText.setText(
-        i18n.getFeatureString('hintManaBlooms') +
-          ' ' +
-          i18n.getFeatureString('skillTreeHoverSkill'),
-      );
-      this.hintText.setColor('#5dd6a2');
+      this.setFooterHints([
+        { key: 'Hover', label: 'Inspect skill' },
+        { key: 'Click', label: 'Invest points' },
+        { key: 'Wheel', label: 'Pan tree' },
+        { key: 'Mana', label: `${Math.floor(stats.mana)}/${Math.floor(stats.manaMax)}` },
+        { key: 'Esc', label: 'Resume' },
+      ]);
     } else {
-      this.hintText.setText(i18n.getFeatureString('skillTreeHoverSkill'));
-      this.hintText.setColor('#5dd6a2');
+      this.setFooterHints([
+        { key: 'Hover', label: 'Inspect skill' },
+        { key: 'Click', label: 'Invest points' },
+        { key: 'Wheel', label: 'Pan tree' },
+        { key: 'Esc', label: 'Resume' },
+      ]);
+    }
+  }
+
+  private setFooterHints(hints: readonly FooterHint[]): void {
+    this.currentFooterHints = hints;
+    for (const object of this.footerHintObjects.splice(0)) {
+      object.destroy();
+    }
+    this.drawShellFrame();
+    if (hints.length === 0) {
+      return;
+    }
+    const layout = this.getPauseMenuLayout();
+    const gap = 10;
+    let x = layout.footer.x + 14;
+    const y = layout.footer.y + 10;
+    for (const hint of hints.slice(0, 5)) {
+      const key = hint.key ?? hint.icon ?? '';
+      const label = hint.label;
+      const width = Phaser.Math.Clamp(36 + key.length * 7 + label.length * 6, 92, 172);
+      const keyWidth = Math.max(24, key.length * 7 + 10);
+      const keyText = this.scene.add
+        .text(x + 5 + keyWidth / 2, y + 5, key, {
+          fontFamily: 'monospace',
+          fontSize: '9px',
+          fontStyle: 'bold',
+          color: '#101824',
+        })
+        .setOrigin(0.5, 0);
+      const labelText = this.scene.add.text(x + keyWidth + 12, y + 5, label, {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: uiColors.textSecondary,
+      });
+      this.container.add([keyText, labelText]);
+      this.footerHintObjects.push(keyText, labelText);
+      x += width + 8;
+      if (x > layout.footer.x + layout.footer.width - 120) {
+        break;
+      }
     }
   }
 }

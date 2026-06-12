@@ -422,8 +422,7 @@ export class MolemanArchaeologySession {
     this.visibleGravityMoves = [];
     if (!this.board[0]?.some(Boolean)) {
       this.topGraceRemainingMs = 0;
-    }
-    else if (this.topGraceRemainingMs <= 0) {
+    } else if (this.topGraceRemainingMs <= 0) {
       this.topGraceRemainingMs = TOP_GRACE_MS;
       this.riseProgress = 0;
       this.pendingMessages.push(t('ceilingPressure'));
@@ -766,7 +765,11 @@ export class MolemanArchaeologySession {
           ? t('appleScore', { count: appleCount, score: awardedScore })
           : t('plusScore', { score: awardedScore });
       this.pendingMessages.push(label);
-      this.pendingEvents.push({ kind: 'reward', label, cells: cells.filter((cell) => cell.tile === tile) });
+      this.pendingEvents.push({
+        kind: 'reward',
+        label,
+        cells: cells.filter((cell) => cell.tile === tile),
+      });
       this.rollChainRewards(chain);
     }
   }
@@ -817,7 +820,10 @@ export class MolemanArchaeologySession {
     }
     this.rewards.artifacts.push(artifact.id);
     this.pendingMessages.push(t('artifactRecovered', { name: artifact.name }));
-    this.pendingEvents.push({ kind: 'reward', label: t('artifactRecovered', { name: artifact.name }) });
+    this.pendingEvents.push({
+      kind: 'reward',
+      label: t('artifactRecovered', { name: artifact.name }),
+    });
     this.pendingEvents.push({ kind: 'cache', artifactName: artifact.name });
     return baseScore;
   }
@@ -859,7 +865,8 @@ export class MolemanArchaeologySession {
 }
 
 export function getDigSiteVariant(id: DigSiteVariantId): DigSiteVariant {
-  const variant = DIG_SITE_VARIANTS.find((candidate) => candidate.id === id) ?? DIG_SITE_VARIANTS[0]!;
+  const variant =
+    DIG_SITE_VARIANTS.find((candidate) => candidate.id === id) ?? DIG_SITE_VARIANTS[0]!;
   return {
     ...variant,
     foremanLine: i18n.getCommon(`archaeology.${variant.id}Line`),

@@ -139,10 +139,7 @@ export class FishingRegistry {
 
     // Check for line break (critical zones)
     const modifiers = this.getModifiers();
-    const lineBreakChance = applyReduction(
-      getLineBreakChance(zone),
-      modifiers.fishingStability,
-    );
+    const lineBreakChance = applyReduction(getLineBreakChance(zone), modifiers.fishingStability);
     if (lineBreakChance > 0 && this.rng() < lineBreakChance) {
       updated.lineBroken = true;
       updated.complete = true;

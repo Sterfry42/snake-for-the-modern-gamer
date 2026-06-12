@@ -31,6 +31,8 @@ export const uiTabIconKeys = {
   special: 'ui.icon.tab.special',
   spells: 'ui.icon.tab.spells',
   inventory: 'ui.icon.tab.inventory',
+  equipment: 'ui.icon.tab.equipment',
+  items: 'ui.icon.tab.items',
   customize: 'ui.icon.tab.customize',
   cards: 'ui.icon.tab.cards',
   artifacts: 'ui.icon.tab.artifacts',

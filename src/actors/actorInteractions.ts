@@ -63,7 +63,12 @@ export function buildActorInteractionMenu(
   if (actor.kind !== 'animal' && actor.kind !== 'enemy') {
     options.push({ id: 'talk', label: tActor('talk'), enabled: true, priority: 90 });
     if (actor.role === 'questGiver') {
-      options.push({ id: 'take-quest', label: tActor('takeQuest'), enabled: !hostile, priority: 86 });
+      options.push({
+        id: 'take-quest',
+        label: tActor('takeQuest'),
+        enabled: !hostile,
+        priority: 86,
+      });
     }
     options.push({
       id: 'ask-rumor',
@@ -119,7 +124,12 @@ export function buildActorInteractionMenu(
 
   if (humanoid) {
     if (actor.mood.anger >= 35 || actor.opinions.player?.resentment >= 20) {
-      options.push({ id: 'apologize', label: tActor('apologize'), enabled: !hostile, priority: 68 });
+      options.push({
+        id: 'apologize',
+        label: tActor('apologize'),
+        enabled: !hostile,
+        priority: 68,
+      });
     }
     options.push({
       id: 'pickpocket',
