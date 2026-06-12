@@ -71,14 +71,20 @@ export class WorldService {
       this.addReciprocalPortalsFromExistingRooms(room);
       const suppressPickupSpawns = Boolean(room.town || room.townPerimeter);
       // Small chance to spawn a treasure chest in new rooms
-      if (!suppressPickupSpawns && this.rng() < (this.pickupChanceProvider.getTreasureChance?.() ?? 0.1)) {
+      if (
+        !suppressPickupSpawns &&
+        this.rng() < (this.pickupChanceProvider.getTreasureChance?.() ?? 0.1)
+      ) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           room.treasure = spot;
         }
       }
       // Powerups: 10% chance to spawn in new rooms
-      if (!suppressPickupSpawns && this.rng() < (this.pickupChanceProvider.getPowerupChance?.() ?? 0.1)) {
+      if (
+        !suppressPickupSpawns &&
+        this.rng() < (this.pickupChanceProvider.getPowerupChance?.() ?? 0.1)
+      ) {
         const spot = this.findRandomEmptySpot(room);
         if (spot) {
           const roll = this.rng();

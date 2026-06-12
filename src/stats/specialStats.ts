@@ -61,7 +61,9 @@ export function clampStat(value: unknown): number {
   return Math.max(SPECIAL_MIN, Math.min(SPECIAL_MAX, Math.floor(numeric)));
 }
 
-export function normalizeSpecialStats(input?: Partial<Record<SpecialStatId, number>>): SpecialStats {
+export function normalizeSpecialStats(
+  input?: Partial<Record<SpecialStatId, number>>,
+): SpecialStats {
   const stats = createDefaultSpecialStats();
   for (const id of SPECIAL_STAT_IDS) {
     if (input && Object.prototype.hasOwnProperty.call(input, id)) {
@@ -71,7 +73,9 @@ export function normalizeSpecialStats(input?: Partial<Record<SpecialStatId, numb
   return stats;
 }
 
-export function normalizeSpecialState(input?: Partial<SpecialStatsState> | null): SpecialStatsState {
+export function normalizeSpecialState(
+  input?: Partial<SpecialStatsState> | null,
+): SpecialStatsState {
   return {
     version: 1,
     stats: normalizeSpecialStats(input?.stats),

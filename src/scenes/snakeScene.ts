@@ -4000,7 +4000,11 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setAllSpecialStatsToMax();
       this.isDirty = true;
       this.skillTree.getOverlay().refresh();
-      return { ok: true, message: 'Cheat active: SPECIAL stats set to 10. Yahoo!', color: '#5dd6a2' };
+      return {
+        ok: true,
+        message: 'Cheat active: SPECIAL stats set to 10. Yahoo!',
+        color: '#5dd6a2',
+      };
     }
     if (code === 'investingincrypto') {
       this.setFlag('cheat.appleScoreMultiplier', 100);
@@ -10584,8 +10588,7 @@ export default class SnakeScene extends Phaser.Scene {
           eventSnapshot,
           event.cells,
         );
-      }
-      else if (event.kind === 'pop') this.juice.archaeologyPop(event.index, event.total);
+      } else if (event.kind === 'pop') this.juice.archaeologyPop(event.index, event.total);
       else if (event.kind === 'gravity') this.juice.archaeologyGravity(event.moves.length);
       else if (event.kind === 'raise') this.juice.archaeologyRaise(event.depth);
       else if (event.kind === 'cache') this.juice.archaeologyCache();
@@ -10608,7 +10611,8 @@ export default class SnakeScene extends Phaser.Scene {
     snapshot?: ArchaeologySessionSnapshot,
     cells?: readonly { x: number; y: number }[],
   ): void {
-    const anchor = snapshot && cells && cells.length > 0 ? this.getArchaeologyCellAnchor(snapshot, cells) : null;
+    const anchor =
+      snapshot && cells && cells.length > 0 ? this.getArchaeologyCellAnchor(snapshot, cells) : null;
     const x = Math.floor(anchor?.x ?? this.scale.width / 2 - 185 + this.snakeGame.random() * 48);
     const y = Math.floor(anchor?.y ?? this.scale.height / 2 - 175 + this.snakeGame.random() * 34);
     const label = this.add
@@ -10809,9 +10813,20 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const cursorX = boardX + snapshot.cursor.x * boardCell + dangerShake;
     const cursorY = boardY + snapshot.cursor.y * boardCell - riseOffset;
-    graphics.lineStyle(3, 0xfff3a8, 1).strokeRoundedRect(cursorX, cursorY, boardCell * 2, boardCell, 6);
-    graphics.lineStyle(1, 0x1b1024, 0.85).strokeRoundedRect(cursorX + 3, cursorY + 3, boardCell * 2 - 6, boardCell - 6, 4);
-    graphics.fillStyle(0xb784ff, 0.85).fillRect(boardX - 8, boardY + boardHeight + 10, Math.floor((boardWidth + 16) * snapshot.riseProgress), 5);
+    graphics
+      .lineStyle(3, 0xfff3a8, 1)
+      .strokeRoundedRect(cursorX, cursorY, boardCell * 2, boardCell, 6);
+    graphics
+      .lineStyle(1, 0x1b1024, 0.85)
+      .strokeRoundedRect(cursorX + 3, cursorY + 3, boardCell * 2 - 6, boardCell - 6, 4);
+    graphics
+      .fillStyle(0xb784ff, 0.85)
+      .fillRect(
+        boardX - 8,
+        boardY + boardHeight + 10,
+        Math.floor((boardWidth + 16) * snapshot.riseProgress),
+        5,
+      );
     const logLines = this.archaeologyLogMessages.slice(-4);
     const graceSeconds = Math.max(0, 3 - snapshot.topGraceProgress * 3).toFixed(1);
     const statusLine = snapshot.topGraceActive
@@ -10821,19 +10836,21 @@ export default class SnakeScene extends Phaser.Scene {
         : this.tArchaeology('rising');
     text
       .setPosition(boardX + boardWidth + 38, boardY - 6)
-      .setText([
-        this.tArchaeology('title'),
-        this.tArchaeology(`${snapshot.variant.id}Name`),
-        this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score }),
-        this.tArchaeology('chainBest', { chain: snapshot.chain, best: snapshot.maxChain }),
-        '',
-        this.tArchaeology('moveHelp'),
-        this.tArchaeology('swapHelp'),
-        this.tArchaeology('leaveHelp'),
-        statusLine,
-        '',
-        ...logLines,
-      ].join('\n'));
+      .setText(
+        [
+          this.tArchaeology('title'),
+          this.tArchaeology(`${snapshot.variant.id}Name`),
+          this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score }),
+          this.tArchaeology('chainBest', { chain: snapshot.chain, best: snapshot.maxChain }),
+          '',
+          this.tArchaeology('moveHelp'),
+          this.tArchaeology('swapHelp'),
+          this.tArchaeology('leaveHelp'),
+          statusLine,
+          '',
+          ...logLines,
+        ].join('\n'),
+      );
   }
 
   private ensureArchaeologySymbolText(index: number): Phaser.GameObjects.Text {
@@ -10874,7 +10891,9 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     const def = ARCHAEOLOGY_TILE_DEFINITIONS[tile];
     const inset = state.popping ? 7 : 4;
-    const highlightFill = state.highlighted ? this.mixColor(def.color, 0xfff3a8, 0.32 * state.pulse) : def.color;
+    const highlightFill = state.highlighted
+      ? this.mixColor(def.color, 0xfff3a8, 0.32 * state.pulse)
+      : def.color;
     const revealProgress = state.revealProgress ?? 1;
     const revealedFill = this.mixColor(highlightFill, 0x050811, (1 - revealProgress) * 0.52);
     const fill = state.compressed
@@ -10886,7 +10905,9 @@ export default class SnakeScene extends Phaser.Scene {
     const faceY = y + inset + (state.compressed ? Math.floor((face - faceHeight) / 2) : 0);
     graphics.fillStyle(0x07101a, 0.72).fillRoundedRect(x + 2, y + 3, size - 4, size - 3, 5);
     graphics.fillStyle(fill, tileAlpha).fillRoundedRect(x + inset, faceY, face, faceHeight, 5);
-    graphics.fillStyle(this.scaleColor(fill, 1.16), 0.55 * tileAlpha).fillRoundedRect(x + inset + 2, faceY + 2, face - 4, Math.max(4, size * 0.16), 3);
+    graphics
+      .fillStyle(this.scaleColor(fill, 1.16), 0.55 * tileAlpha)
+      .fillRoundedRect(x + inset + 2, faceY + 2, face - 4, Math.max(4, size * 0.16), 3);
     graphics
       .fillStyle(this.scaleColor(fill, 0.78), 0.42 * tileAlpha)
       .fillRoundedRect(
@@ -10896,8 +10917,12 @@ export default class SnakeScene extends Phaser.Scene {
         Math.max(4, size * 0.15),
         3,
       );
-    graphics.lineStyle(3, 0x06101a, tileAlpha).strokeRoundedRect(x + inset, faceY, face, faceHeight, 5);
-    graphics.lineStyle(1, 0xffffff, (state.highlighted || state.compressed ? 0.95 : 0.38) * tileAlpha).strokeRoundedRect(x + inset + 3, faceY + 3, face - 6, faceHeight - 6, 3);
+    graphics
+      .lineStyle(3, 0x06101a, tileAlpha)
+      .strokeRoundedRect(x + inset, faceY, face, faceHeight, 5);
+    graphics
+      .lineStyle(1, 0xffffff, (state.highlighted || state.compressed ? 0.95 : 0.38) * tileAlpha)
+      .strokeRoundedRect(x + inset + 3, faceY + 3, face - 6, faceHeight - 6, 3);
     if (revealProgress > 0.22) {
       this.drawArchaeologyTileIcon(graphics, tile, x + size / 2, y + size / 2, size, def.textColor);
     }
@@ -11102,9 +11127,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.tArchaeology('appleRule'),
     ];
     const title =
-      reason === 'failure'
-        ? this.tArchaeology('gameOverSummary')
-        : this.tArchaeology('summary');
+      reason === 'failure' ? this.tArchaeology('gameOverSummary') : this.tArchaeology('summary');
     this.villageShopPopup.show(
       title,
       [
