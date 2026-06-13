@@ -1,0 +1,338 @@
+import {
+  AP_PHASE_1_GAME_NAME,
+  AP_PHASE_1_ITEM_LIST,
+  AP_PHASE_1_LOCATION_LIST,
+} from './archipelagoCheckManifest.js';
+import type {
+  ArchipelagoClientEvents,
+  ArchipelagoConnectionConfig,
+  ArchipelagoConnectionDetails,
+  ArchipelagoConnectionStatus,
+  ArchipelagoPrintMessage,
+  ArchipelagoReceivedItem,
+} from './archipelagoConnectionTypes.js';
+
+const ARCHIPELAGO_PROTOCOL_VERSION = { major: 0, minor: 6, build: 0, class: 'Version' };
+const CLIENT_STATUS_GOAL = 30;
+
+type ArchipelagoPacket = Record<string, unknown> & { cmd?: string };
+
+function normalizeServerUrl(serverUrl: string): string {
+  const trimmed = serverUrl.trim();
+  if (!trimmed) return 'ws://localhost:38281';
+  if (/^wss?:\/\//i.test(trimmed)) return trimmed;
+  return `ws://${trimmed}`;
+}
+
+function stringifyPrintJson(parts: unknown): string {
+  if (!Array.isArray(parts)) {
+    return typeof parts === 'string' ? parts : JSON.stringify(parts);
+  }
+  return parts
+    .map((part) => {
+      if (typeof part === 'string') return part;
+      if (part && typeof part === 'object') {
+        const record = part as Record<string, unknown>;
+        return String(record.text ?? record.name ?? '');
+      }
+      return '';
+    })
+    .join('');
+}
+
+export class ArchipelagoClient {
+  private socket: WebSocket | null = null;
+  private status: ArchipelagoConnectionStatus = 'disconnected';
+  private config: ArchipelagoConnectionConfig | null = null;
+  private reconnectTimer: number | null = null;
+  private manualDisconnect = false;
+  private itemNamesById = new Map<number, string>(
+    AP_PHASE_1_ITEM_LIST.map((item) => [item.id, item.name]),
+  );
+  private locationNamesById = new Map<number, string>(
+    AP_PHASE_1_LOCATION_LIST.map((location) => [location.id, location.name]),
+  );
+  private playerNamesBySlot = new Map<number, string>();
+  private details: ArchipelagoConnectionDetails | null = null;
+
+  constructor(private readonly events: ArchipelagoClientEvents = {}) {}
+
+  getStatus(): ArchipelagoConnectionStatus {
+    return this.status;
+  }
+
+  connect(config: ArchipelagoConnectionConfig): void {
+    this.disconnect(false);
+    this.manualDisconnect = false;
+    this.config = {
+      serverUrl: normalizeServerUrl(config.serverUrl),
+      slotName: config.slotName.trim(),
+      password: config.password,
+    };
+
+    if (!this.config.slotName) {
+      this.setStatus('error', 'Slot name is required.');
+      return;
+    }
+
+    if (
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'https:' &&
+      this.config.serverUrl.startsWith('ws://')
+    ) {
+      this.events.onLog?.(
+        'This page is HTTPS. Browser security may block insecure ws:// Archipelago connections.',
+      );
+    }
+
+    const WebSocketCtor = globalThis.WebSocket;
+    if (!WebSocketCtor) {
+      this.setStatus('error', 'WebSocket is unavailable in this browser.');
+      return;
+    }
+
+    try {
+      this.setStatus('connecting', 'Connecting...');
+      const socket = new WebSocketCtor(this.config.serverUrl);
+      this.socket = socket;
+      socket.addEventListener('open', () => this.events.onLog?.('WebSocket opened.'));
+      socket.addEventListener('message', (event) => this.handleSocketMessage(event.data));
+      socket.addEventListener('error', () => this.setStatus('error', 'Archipelago socket error.'));
+      socket.addEventListener('close', () => this.handleSocketClose(socket));
+    } catch {
+      this.setStatus('error', 'Could not start Archipelago connection.');
+    }
+  }
+
+  disconnect(manual = true): void {
+    this.manualDisconnect = manual;
+    if (this.reconnectTimer !== null) {
+      globalThis.clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    const socket = this.socket;
+    this.socket = null;
+    if (
+      socket &&
+      socket.readyState !== WebSocket.CLOSED &&
+      socket.readyState !== WebSocket.CLOSING
+    ) {
+      socket.close();
+    }
+    if (manual) {
+      this.setStatus('disconnected', 'Disconnected.');
+    }
+  }
+
+  sendLocationChecks(locationIds: number[]): void {
+    const uniqueIds = [...new Set(locationIds.filter((id) => Number.isInteger(id)))];
+    if (uniqueIds.length === 0) return;
+    this.send([{ cmd: 'LocationChecks', locations: uniqueIds }]);
+  }
+
+  sync(): void {
+    this.send([{ cmd: 'Sync' }]);
+  }
+
+  sendGoalComplete(): void {
+    this.send([{ cmd: 'StatusUpdate', status: CLIENT_STATUS_GOAL }]);
+  }
+
+  private handleSocketMessage(data: unknown): void {
+    let packets: ArchipelagoPacket[];
+    try {
+      const parsed = JSON.parse(String(data)) as unknown;
+      packets = Array.isArray(parsed)
+        ? (parsed as ArchipelagoPacket[])
+        : [parsed as ArchipelagoPacket];
+    } catch {
+      this.events.onLog?.('Received non-JSON Archipelago packet.');
+      return;
+    }
+
+    for (const packet of packets) {
+      this.handlePacket(packet);
+    }
+  }
+
+  private handlePacket(packet: ArchipelagoPacket): void {
+    switch (packet.cmd) {
+      case 'RoomInfo':
+        this.handleRoomInfo(packet);
+        break;
+      case 'DataPackage':
+        this.handleDataPackage(packet);
+        break;
+      case 'Connected':
+        this.handleConnected(packet);
+        break;
+      case 'ConnectionRefused':
+        this.setStatus('refused', this.getRefusalMessage(packet));
+        break;
+      case 'ReceivedItems':
+        this.handleReceivedItems(packet);
+        break;
+      case 'PrintJSON':
+        this.handlePrintJson(packet);
+        break;
+      default:
+        break;
+    }
+  }
+
+  private handleRoomInfo(packet: ArchipelagoPacket): void {
+    const seedName = typeof packet.seed_name === 'string' ? packet.seed_name : undefined;
+    this.details = {
+      seedName,
+      checkedLocationIds: [],
+    };
+    this.send([{ cmd: 'GetDataPackage', games: [AP_PHASE_1_GAME_NAME] }]);
+    this.sendConnect();
+  }
+
+  private sendConnect(): void {
+    if (!this.config) return;
+    this.send([
+      {
+        cmd: 'Connect',
+        game: AP_PHASE_1_GAME_NAME,
+        name: this.config.slotName,
+        password: this.config.password?.trim() || undefined,
+        uuid: this.getClientUuid(),
+        version: ARCHIPELAGO_PROTOCOL_VERSION,
+        items_handling: 7,
+        tags: ['AP'],
+      },
+    ]);
+  }
+
+  private handleDataPackage(packet: ArchipelagoPacket): void {
+    const games = (packet.data as Record<string, unknown> | undefined)?.games as
+      | Record<string, unknown>
+      | undefined;
+    const game = games?.[AP_PHASE_1_GAME_NAME] as Record<string, unknown> | undefined;
+    const itemNameToId = game?.item_name_to_id as Record<string, unknown> | undefined;
+    const locationNameToId = game?.location_name_to_id as Record<string, unknown> | undefined;
+
+    if (itemNameToId) {
+      for (const [name, id] of Object.entries(itemNameToId)) {
+        if (typeof id === 'number') this.itemNamesById.set(id, name);
+      }
+    }
+    if (locationNameToId) {
+      for (const [name, id] of Object.entries(locationNameToId)) {
+        if (typeof id === 'number') this.locationNamesById.set(id, name);
+      }
+    }
+  }
+
+  private handleConnected(packet: ArchipelagoPacket): void {
+    const players = Array.isArray(packet.players) ? packet.players : [];
+    for (const player of players) {
+      if (!player || typeof player !== 'object') continue;
+      const record = player as Record<string, unknown>;
+      if (typeof record.slot === 'number' && typeof record.name === 'string') {
+        this.playerNamesBySlot.set(record.slot, record.name);
+      }
+    }
+    const checkedLocationIds = Array.isArray(packet.checked_locations)
+      ? packet.checked_locations.filter((id): id is number => Number.isInteger(id))
+      : [];
+    const details: ArchipelagoConnectionDetails = {
+      seedName: this.details?.seedName,
+      team: typeof packet.team === 'number' ? packet.team : undefined,
+      slot: typeof packet.slot === 'number' ? packet.slot : undefined,
+      checkedLocationIds,
+      slotData:
+        packet.slot_data && typeof packet.slot_data === 'object'
+          ? (packet.slot_data as Record<string, unknown>)
+          : undefined,
+    };
+    this.details = details;
+    this.setStatus('connected', 'Connected.');
+    this.events.onConnected?.(details);
+    this.sync();
+  }
+
+  private handleReceivedItems(packet: ArchipelagoPacket): void {
+    const startIndex = typeof packet.index === 'number' ? packet.index : 0;
+    const items = Array.isArray(packet.items) ? packet.items : [];
+    items.forEach((entry, offset) => {
+      if (!entry || typeof entry !== 'object') return;
+      const record = entry as Record<string, unknown>;
+      const itemId = typeof record.item === 'number' ? record.item : undefined;
+      if (itemId === undefined) return;
+      const locationId = typeof record.location === 'number' ? record.location : undefined;
+      const playerSlot = typeof record.player === 'number' ? record.player : undefined;
+      const item: ArchipelagoReceivedItem = {
+        index: startIndex + offset,
+        itemId,
+        itemName: this.itemNamesById.get(itemId) ?? `Item ${itemId}`,
+        playerName: playerSlot !== undefined ? this.playerNamesBySlot.get(playerSlot) : undefined,
+        locationName:
+          locationId !== undefined
+            ? (this.locationNamesById.get(locationId) ?? `Location ${locationId}`)
+            : undefined,
+      };
+      this.events.onReceivedItem?.(item);
+    });
+  }
+
+  private handlePrintJson(packet: ArchipelagoPacket): void {
+    const message: ArchipelagoPrintMessage = {
+      type: typeof packet.type === 'string' ? packet.type : undefined,
+      text: stringifyPrintJson(packet.data),
+    };
+    this.events.onPrint?.(message);
+  }
+
+  private handleSocketClose(socket: WebSocket): void {
+    if (this.socket === socket) {
+      this.socket = null;
+    }
+    if (this.manualDisconnect) {
+      return;
+    }
+    this.setStatus('disconnected', 'Connection closed. Reconnecting...');
+    if (this.config) {
+      this.reconnectTimer = globalThis.setTimeout(() => {
+        this.reconnectTimer = null;
+        if (this.config && !this.manualDisconnect) {
+          this.connect(this.config);
+        }
+      }, 3000);
+    }
+  }
+
+  private send(packets: ArchipelagoPacket[]): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+    this.socket.send(JSON.stringify(packets));
+  }
+
+  private setStatus(status: ArchipelagoConnectionStatus, message?: string): void {
+    this.status = status;
+    this.events.onStatusChanged?.(status, message);
+  }
+
+  private getRefusalMessage(packet: ArchipelagoPacket): string {
+    const errors = Array.isArray(packet.errors) ? packet.errors.map(String).join(', ') : '';
+    return errors ? `Connection refused: ${errors}` : 'Connection refused.';
+  }
+
+  private getClientUuid(): string {
+    const key = 'snake.ap.clientUuid';
+    try {
+      const existing = globalThis.localStorage?.getItem(key);
+      if (existing) return existing;
+      const generated =
+        globalThis.crypto?.randomUUID?.() ??
+        `snake-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      globalThis.localStorage?.setItem(key, generated);
+      return generated;
+    } catch {
+      return `snake-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    }
+  }
+}
