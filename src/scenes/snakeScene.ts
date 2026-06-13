@@ -7,10 +7,30 @@ import {
   saveResolutionSetting,
   type ResolutionSettingId,
 } from '../config/resolutionSettings.js';
+import { ArchipelagoClient } from '../archipelago/archipelagoClient.js';
+import { ArchipelagoCheckTracker } from '../archipelago/archipelagoCheckTracker.js';
 import {
-  BrowserMultiplayerShellClient,
-  submitMultiplayerShell,
-} from '../client/multiplayerShell.js';
+  AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID,
+  AP_CARD_LOCATION_KEY_BY_CARD_ID,
+  AP_ITEM_LOCATION_KEY_BY_ITEM_ID,
+  AP_LOCATION_BY_KEY,
+  AP_PHASE_2_GOAL_CHECK_KEY,
+  type ArchipelagoTrapId,
+} from '../archipelago/archipelagoCheckManifest.js';
+import {
+  BrowserArchipelagoStorage,
+  type ArchipelagoRunSaveData,
+} from '../archipelago/archipelagoStorage.js';
+import {
+  applyArchipelagoReceivedItem,
+  getArchipelagoDurableReward,
+  type ArchipelagoDurableReward,
+} from '../archipelago/archipelagoItemHandlers.js';
+import type {
+  ArchipelagoConnectionDetails,
+  ArchipelagoConnectionStatus,
+  ArchipelagoReceivedItem,
+} from '../archipelago/archipelagoConnectionTypes.js';
 import { calculateCaffeinatedAppleIntervalScalar } from '../apples/caffeinatedBoost.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type { QuestObjectiveSummary, QuestRoomActor } from '../game/snakeGame.js';
@@ -218,6 +238,7 @@ type TitleMenuMode =
   | 'settings-difficulty'
   | 'credits'
   | 'multiplayer';
+type ArchipelagoTitleField = 'serverUrl' | 'slotName' | 'password';
 const CHARACTER_MODE_STORAGE_KEY = 'snakeGameCharacterMode';
 const RACCOON_STASH_POPUP_TEXTURE_KEY = 'raccoon-popup-stash';
 const RACCOON_SAD_POPUP_TEXTURE_KEY = 'raccoon-popup-sad';
@@ -1605,10 +1626,32 @@ export default class SnakeScene extends Phaser.Scene {
   private titleVisible = false;
   private selectedCharacterMode: CharacterMode = this.loadCharacterModeSetting();
   private raccoonColorMuteFx: Phaser.FX.ColorMatrix | null = null;
-  private readonly multiplayerShell = new BrowserMultiplayerShellClient();
-  private multiplayerDisplayName = 'Player';
-  private multiplayerDisplayNameText: Phaser.GameObjects.Text | null = null;
-  private multiplayerDisplayNameActive = false;
+  private readonly archipelagoStorage = new BrowserArchipelagoStorage();
+  private archipelagoRunSave: ArchipelagoRunSaveData | null = null;
+  private readonly archipelagoClient = new ArchipelagoClient({
+    onStatusChanged: (status, message) => this.handleArchipelagoStatus(status, message),
+    onConnected: (details) => this.handleArchipelagoConnected(details),
+    onReceivedItem: (item) => this.handleArchipelagoReceivedItem(item),
+    onPrint: (message) => this.appendArchipelagoLog(message.text),
+    onLog: (message) => this.appendArchipelagoLog(message),
+  });
+  private readonly archipelagoCheckTracker = new ArchipelagoCheckTracker({
+    onCheck: (locationId, locationName) => this.handleArchipelagoCheck(locationId, locationName),
+    onGoalComplete: () => this.handleArchipelagoGoalComplete(),
+  });
+  private archipelagoServerUrl = 'ws://localhost:38281';
+  private archipelagoSlotName = 'Player';
+  private archipelagoPassword = '';
+  private archipelagoStatus: ArchipelagoConnectionStatus = 'disconnected';
+  private archipelagoModeActive = false;
+  private archipelagoFocusedField: ArchipelagoTitleField = 'serverUrl';
+  private archipelagoServerUrlText: Phaser.GameObjects.Text | null = null;
+  private archipelagoSlotNameText: Phaser.GameObjects.Text | null = null;
+  private archipelagoPasswordText: Phaser.GameObjects.Text | null = null;
+  private archipelagoStatusText: Phaser.GameObjects.Text | null = null;
+  private archipelagoLogText: Phaser.GameObjects.Text | null = null;
+  private readonly archipelagoLogLines: string[] = [];
+  private readonly archipelagoTrapQueue: ArchipelagoTrapId[] = [];
   private titleCreditsMode = false;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
@@ -2200,6 +2243,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleJasonDefeat(bossId: string, score: number): void {
+    if (this.archipelagoModeActive) {
+      this.archipelagoCheckTracker.processBossDefeat(bossId);
+      this.saveArchipelagoRunState();
+    }
+
     // Stop boss music
     this.juice.stopBossMusic();
 
@@ -2364,6 +2412,13 @@ export default class SnakeScene extends Phaser.Scene {
     this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
     this.lastJuicedScore = this.snakeGame.getScore();
     this.lastJuicedLength = this.snakeGame.getSnakeLength();
+    if (this.archipelagoModeActive && this.archipelagoRunSave) {
+      this.snakeGame.setFlag('archipelago.modeActive', true);
+      this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
+      this.backfillArchipelagoDurableRewards();
+      this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
+      this.saveArchipelagoRunState();
+    }
     this.nextDangerPulseAtMs = 0;
     this.nextPowerupSparkAtMs = 0;
     this.lastRaccoonHungerForPopup = null;
@@ -2406,6 +2461,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.featureManager.call('onActionStep', this);
 
     this.currentApple = result.apple.current ?? null;
+    if (this.archipelagoModeActive && this.archipelagoRunSave) {
+      this.archipelagoCheckTracker.processStep(this.snakeGame, result);
+      this.drainArchipelagoLocalRewardChecks();
+      this.saveArchipelagoRunState();
+    }
     this.updateBossEncounter();
     this.maybePresentRandomEncounter();
 
@@ -4491,9 +4551,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleResolutionSettingsContainer?.setVisible(mode === 'settings-resolution');
     this.titleDifficultySettingsContainer?.setVisible(mode === 'settings-difficulty');
     this.titleMultiplayerContainer?.setVisible(mode === 'multiplayer');
-    this.multiplayerDisplayNameActive = mode === 'multiplayer';
     if (mode === 'multiplayer') {
-      this.refreshMultiplayerDisplayNameText();
+      this.refreshArchipelagoTitleText();
     }
 
     if (mode === 'credits') {
@@ -4568,7 +4627,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleResolutionSettingsContainer?.setVisible(false);
     this.titleDifficultySettingsContainer?.setVisible(false);
     this.titleMultiplayerContainer?.setVisible(false);
-    this.multiplayerDisplayNameActive = false;
 
     if (!this.creditsContainer) {
       this.buildCreditsScreen();
@@ -4709,6 +4767,7 @@ export default class SnakeScene extends Phaser.Scene {
   private startNewGameFromTitle(): void {
     this.hideTitleScreen();
     this.initGame(true);
+    this.backfillArchipelagoDurableRewards();
     this.resetStartingChoices();
     this.setFlag('run.startChoicesReady', true);
     this.paused = true;
@@ -4736,6 +4795,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.hideTitleScreen();
     this.restoreCharacterSaveState();
     this.applyRaccoonActionStepInterval();
+    this.backfillArchipelagoDurableRewards();
     this.paused = false;
     this.showSaveUI();
     this.isDirty = true;
@@ -4784,12 +4844,8 @@ export default class SnakeScene extends Phaser.Scene {
       this.createTitleButton(buttonX, buttonY + 92, 'Learn More', () => {
         window.location.href = 'https://www.youtube.com/watch?v=WGvH11I6Rnk';
       }),
-      this.createTitleButton(
-        buttonX,
-        buttonY + 138,
-        'Multiplayer',
-        () => this.showTitleScreen('multiplayer'),
-        { disabled: true },
+      this.createTitleButton(buttonX, buttonY + 138, 'Multiplayer', () =>
+        this.showTitleScreen('multiplayer'),
       ),
       this.createTitleButton(buttonX, buttonY + 184, 'Settings', () =>
         this.showTitleScreen('settings'),
@@ -4913,50 +4969,89 @@ export default class SnakeScene extends Phaser.Scene {
 
     const multiplayer = this.add.container(0, 0).setVisible(false);
     const multiplayerPanel = this.add
-      .rectangle(width / 2, height / 2 + 34, 340, 256, 0x071019, 0.9)
+      .rectangle(width / 2, height / 2 + 38, 430, 400, 0x071019, 0.9)
       .setStrokeStyle(2, 0x5dd6a2)
       .setOrigin(0.5);
     const multiplayerTitle = this.add
-      .text(width / 2, height / 2 - 66, 'Multiplayer', {
+      .text(width / 2, height / 2 - 132, 'Archipelago', {
         fontFamily: "Georgia, 'Times New Roman', serif",
         fontSize: '26px',
         color: '#fff4cf',
       })
       .setOrigin(0.5);
-    const multiplayerPrompt = this.add
-      .text(width / 2, height / 2 - 28, 'Display Name', {
+    const onlineDisabled = this.add
+      .text(width / 2, height / 2 - 101, 'Online Multiplayer: under construction', {
         fontFamily: 'monospace',
-        fontSize: '13px',
-        color: '#c8ffe1',
+        fontSize: '12px',
+        color: '#8b939f',
       })
       .setOrigin(0.5);
-    this.multiplayerDisplayName = this.multiplayerShell.loadDisplayName();
-    this.multiplayerDisplayNameText = this.add
-      .text(width / 2, height / 2 + 2, '', {
+    const storedArchipelago = this.archipelagoStorage.loadConnection();
+    this.archipelagoServerUrl = storedArchipelago.serverUrl;
+    this.archipelagoSlotName = storedArchipelago.slotName;
+    this.archipelagoPassword = '';
+    const createApField = (
+      field: ArchipelagoTitleField,
+      label: string,
+      y: number,
+    ): Phaser.GameObjects.Text => {
+      const text = this.add
+        .text(width / 2, y, '', {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#ffffff',
+          backgroundColor: '#0b1626',
+          padding: { left: 12, right: 12, top: 7, bottom: 7 },
+          fixedWidth: 330,
+          align: 'left',
+        })
+        .setOrigin(0.5)
+        .setInteractive({ useHandCursor: true });
+      text.setData('apLabel', label);
+      text.on('pointerdown', () => {
+        this.archipelagoFocusedField = field;
+        this.refreshArchipelagoTitleText();
+      });
+      return text;
+    };
+    this.archipelagoServerUrlText = createApField('serverUrl', 'Server', height / 2 - 66);
+    this.archipelagoSlotNameText = createApField('slotName', 'Slot', height / 2 - 24);
+    this.archipelagoPasswordText = createApField('password', 'Password', height / 2 + 18);
+    this.archipelagoStatusText = this.add
+      .text(width / 2, height / 2 + 58, 'Status: Disconnected', {
         fontFamily: 'monospace',
-        fontSize: '18px',
-        color: '#ffffff',
-        backgroundColor: '#0b1626',
-        padding: { left: 14, right: 14, top: 8, bottom: 8 },
-        fixedWidth: 250,
+        fontSize: '12px',
+        color: '#c8ffe1',
         align: 'center',
+        wordWrap: { width: 360 },
       })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
-    this.multiplayerDisplayNameText.on('pointerdown', () => {
-      this.multiplayerDisplayNameActive = true;
-      this.refreshMultiplayerDisplayNameText();
-    });
-    this.refreshMultiplayerDisplayNameText();
+      .setOrigin(0.5);
+    this.archipelagoLogText = this.add
+      .text(width / 2, height / 2 + 84, '', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#d7f7ff',
+        align: 'center',
+        wordWrap: { width: 360 },
+      })
+      .setOrigin(0.5, 0);
+    this.refreshArchipelagoTitleText();
     multiplayer.add([
       multiplayerPanel,
       multiplayerTitle,
-      multiplayerPrompt,
-      this.multiplayerDisplayNameText,
-      this.createTitleButton(width / 2 - 105, height / 2 + 62, 'Submit', () =>
-        this.submitMultiplayerShell(),
+      onlineDisabled,
+      this.archipelagoServerUrlText,
+      this.archipelagoSlotNameText,
+      this.archipelagoPasswordText,
+      this.archipelagoStatusText,
+      this.archipelagoLogText,
+      this.createTitleButton(width / 2 - 215, height / 2 + 142, 'Connect', () =>
+        this.connectArchipelagoFromTitle(),
       ),
-      this.createTitleButton(width / 2 - 105, height / 2 + 116, 'Back', () =>
+      this.createTitleButton(width / 2 + 5, height / 2 + 142, 'Disconnect', () =>
+        this.disconnectArchipelagoFromTitle(),
+      ),
+      this.createTitleButton(width / 2 - 105, height / 2 + 192, 'Back', () =>
         this.showTitleScreen('main'),
       ),
     ]);
@@ -5209,12 +5304,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleTitleMultiplayerKey(event: KeyboardEvent): boolean {
-    if (!this.titleMultiplayerContainer?.visible || !this.multiplayerDisplayNameActive) {
+    if (!this.titleMultiplayerContainer?.visible) {
       return false;
     }
 
     if (event.key === 'Enter') {
-      this.submitMultiplayerShell();
+      this.connectArchipelagoFromTitle();
       return true;
     }
 
@@ -5224,36 +5319,336 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     if (event.key === 'Backspace') {
-      this.multiplayerDisplayName = this.multiplayerDisplayName.slice(0, -1);
-      this.refreshMultiplayerDisplayNameText();
+      this.updateArchipelagoFocusedField((value) => value.slice(0, -1));
+      return true;
+    }
+
+    if (event.key === 'Tab') {
+      this.focusNextArchipelagoField(event.shiftKey ? -1 : 1);
       return true;
     }
 
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      if (this.multiplayerDisplayName.length < 24) {
-        this.multiplayerDisplayName += event.key;
-        this.refreshMultiplayerDisplayNameText();
-      }
+      const maxLength = this.archipelagoFocusedField === 'serverUrl' ? 96 : 32;
+      this.updateArchipelagoFocusedField((value) =>
+        value.length < maxLength ? `${value}${event.key}` : value,
+      );
       return true;
     }
 
-    return ['Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'Tab'].includes(event.key);
+    return ['Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key);
   }
 
-  private refreshMultiplayerDisplayNameText(): void {
-    if (!this.multiplayerDisplayNameText) return;
-
-    const displayName = this.multiplayerDisplayName || 'Player';
-    const cursor = this.multiplayerDisplayNameActive ? '|' : '';
-    this.multiplayerDisplayNameText.setText(`${displayName}${cursor}`);
+  private focusNextArchipelagoField(direction: 1 | -1): void {
+    const fields: ArchipelagoTitleField[] = ['serverUrl', 'slotName', 'password'];
+    const index = fields.indexOf(this.archipelagoFocusedField);
+    this.archipelagoFocusedField =
+      fields[(index + direction + fields.length) % fields.length] ?? 'serverUrl';
+    this.refreshArchipelagoTitleText();
   }
 
-  private submitMultiplayerShell(): void {
-    const result = submitMultiplayerShell(this.multiplayerShell, this.multiplayerDisplayName);
-    this.multiplayerDisplayName = result.displayName;
-    this.refreshMultiplayerDisplayNameText();
-    this.titleMessageText?.setText(result.message);
-    this.showQuestHintPopup(result.message, '#9ad1ff');
+  private updateArchipelagoFocusedField(update: (value: string) => string): void {
+    if (this.archipelagoFocusedField === 'serverUrl') {
+      this.archipelagoServerUrl = update(this.archipelagoServerUrl);
+    } else if (this.archipelagoFocusedField === 'slotName') {
+      this.archipelagoSlotName = update(this.archipelagoSlotName);
+    } else {
+      this.archipelagoPassword = update(this.archipelagoPassword);
+    }
+    this.refreshArchipelagoTitleText();
+  }
+
+  private refreshArchipelagoTitleText(): void {
+    const renderField = (field: ArchipelagoTitleField, label: string, value: string): string => {
+      const selected = this.archipelagoFocusedField === field;
+      const displayValue = field === 'password' ? '*'.repeat(value.length) : value;
+      return `${selected ? '> ' : '  '}${label}: ${displayValue}${selected ? '|' : ''}`;
+    };
+    this.archipelagoServerUrlText?.setText(
+      renderField('serverUrl', 'Server', this.archipelagoServerUrl),
+    );
+    this.archipelagoSlotNameText?.setText(
+      renderField('slotName', 'Slot', this.archipelagoSlotName),
+    );
+    this.archipelagoPasswordText?.setText(
+      renderField('password', 'Password', this.archipelagoPassword),
+    );
+    this.archipelagoStatusText?.setText(
+      `Status: ${this.archipelagoStatus}${
+        this.archipelagoRunSave
+          ? ` | Checked ${this.archipelagoRunSave.checkedLocationIds.length}/5`
+          : ''
+      }`,
+    );
+    this.archipelagoLogText?.setText(this.archipelagoLogLines.slice(-4).join('\n'));
+  }
+
+  private connectArchipelagoFromTitle(): void {
+    const config = {
+      serverUrl: this.archipelagoServerUrl.trim(),
+      slotName: this.archipelagoSlotName.trim(),
+      password: this.archipelagoPassword.trim() || undefined,
+    };
+    this.archipelagoStorage.saveConnection(config);
+    this.archipelagoClient.connect(config);
+  }
+
+  private disconnectArchipelagoFromTitle(): void {
+    this.archipelagoClient.disconnect();
+  }
+
+  private appendArchipelagoLog(message: string): void {
+    const trimmed = message.trim();
+    if (!trimmed) return;
+    this.archipelagoLogLines.push(trimmed);
+    while (this.archipelagoLogLines.length > 20) {
+      this.archipelagoLogLines.shift();
+    }
+    this.refreshArchipelagoTitleText();
+  }
+
+  private handleArchipelagoStatus(status: ArchipelagoConnectionStatus, message?: string): void {
+    this.archipelagoStatus = status;
+    if (status !== 'connected') {
+      this.archipelagoModeActive = false;
+      this.snakeGame.setFlag('archipelago.modeActive', false);
+    }
+    if (message) {
+      this.appendArchipelagoLog(message);
+    }
+    this.refreshArchipelagoTitleText();
+  }
+
+  private handleArchipelagoConnected(details: ArchipelagoConnectionDetails): void {
+    this.archipelagoModeActive = true;
+    this.snakeGame.setFlag('archipelago.modeActive', true);
+    this.archipelagoRunSave = this.archipelagoStorage.loadRun({
+      serverUrl: this.archipelagoServerUrl,
+      slotName: this.archipelagoSlotName,
+      seedName: details.seedName,
+      team: details.team,
+      slot: details.slot,
+    });
+    const mergedCheckedLocationIds = [
+      ...new Set([...this.archipelagoRunSave.checkedLocationIds, ...details.checkedLocationIds]),
+    ];
+    this.archipelagoRunSave = {
+      ...this.archipelagoRunSave,
+      seedName: details.seedName,
+      team: details.team,
+      slot: details.slot,
+      checkedLocationIds: mergedCheckedLocationIds,
+    };
+    this.archipelagoCheckTracker.setGoalCheckKey(
+      typeof details.slotData?.goal === 'string' ? details.slotData.goal : AP_PHASE_2_GOAL_CHECK_KEY,
+    );
+    this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
+    this.backfillArchipelagoDurableRewards();
+    if (!this.titleVisible) {
+      this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
+    }
+    this.saveArchipelagoRunState();
+    this.archipelagoClient.sendLocationChecks(this.archipelagoRunSave.checkedLocationIds);
+    this.archipelagoClient.sync();
+    this.appendArchipelagoLog('Connected to Archipelago.');
+  }
+
+  private handleArchipelagoCheck(locationId: number, locationName: string): void {
+    const current = this.ensureArchipelagoRunSave();
+    current.checkedLocationIds = [...new Set([...current.checkedLocationIds, locationId])];
+    this.saveArchipelagoRunState();
+    this.archipelagoClient.sendLocationChecks([locationId]);
+    const message = `Checked: ${locationName}`;
+    this.appendArchipelagoLog(message);
+    this.showQuestHintPopup(message, '#5dd6a2');
+  }
+
+  private handleArchipelagoGoalComplete(): void {
+    const current = this.ensureArchipelagoRunSave();
+    if (current.completedGoal) {
+      return;
+    }
+    current.completedGoal = true;
+    this.saveArchipelagoRunState();
+    this.archipelagoClient.sendGoalComplete();
+    this.appendArchipelagoLog('Goal complete.');
+  }
+
+  private handleArchipelagoReceivedItem(item: ArchipelagoReceivedItem): void {
+    const current = this.ensureArchipelagoRunSave();
+    if (item.index <= current.lastReceivedItemIndex) {
+      const seeded = this.persistArchipelagoDurableReward(
+        getArchipelagoDurableReward(item.itemId),
+        item.index,
+      );
+      if (seeded) {
+        this.backfillArchipelagoDurableRewards();
+        this.saveArchipelagoRunState();
+        this.appendArchipelagoLog(`Synced AP reward: ${item.itemName}`);
+      }
+      this.appendArchipelagoLog(`Skipped duplicate item: ${item.itemName}`);
+      return;
+    }
+    current.lastReceivedItemIndex = item.index;
+    const result = applyArchipelagoReceivedItem(this.snakeGame, item);
+    this.persistArchipelagoDurableReward(result.durableReward, item.index);
+    if (result.trapId) {
+      this.archipelagoTrapQueue.push(result.trapId);
+      this.flushArchipelagoTrapQueue();
+    }
+    this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
+    this.saveArchipelagoRunState();
+    const source = item.playerName ? ` from ${item.playerName}` : '';
+    const message = `Received ${item.itemName}${source}`;
+    this.appendArchipelagoLog(`${message}. ${result.message}`);
+    this.showQuestHintPopup(
+      `${message}\n${result.message}`,
+      result.applied ? '#9ad1ff' : '#ffd166',
+    );
+    this.isDirty = true;
+  }
+
+  private markArchipelagoCheckByKey(key: string | undefined): boolean {
+    if (!this.archipelagoModeActive || !key) {
+      return false;
+    }
+    this.archipelagoCheckTracker.markChecked(key);
+    this.saveArchipelagoRunState();
+    return true;
+  }
+
+  private isArchipelagoCheckCompleteByKey(key: string | undefined): boolean {
+    if (!this.archipelagoModeActive || !key) {
+      return false;
+    }
+    const location = AP_LOCATION_BY_KEY[key];
+    if (!location) {
+      return false;
+    }
+    const current = this.ensureArchipelagoRunSave();
+    return current.checkedLocationIds.includes(location.id);
+  }
+
+  private persistArchipelagoDurableReward(
+    reward: ArchipelagoDurableReward | undefined,
+    itemIndex: number,
+  ): boolean {
+    if (!reward) {
+      return false;
+    }
+    const current = this.ensureArchipelagoRunSave();
+    if (current.receivedDurableItemIndices.includes(itemIndex)) {
+      return false;
+    }
+    current.receivedDurableItemIndices = [...current.receivedDurableItemIndices, itemIndex].sort(
+      (a, b) => a - b,
+    );
+    const count = Math.max(1, Math.floor(reward.count));
+    if (reward.kind === 'inventory') {
+      current.receivedDurableRewards.inventory[reward.id] =
+        (current.receivedDurableRewards.inventory[reward.id] ?? 0) + count;
+    } else if (reward.kind === 'card') {
+      current.receivedDurableRewards.cards[reward.id] =
+        (current.receivedDurableRewards.cards[reward.id] ?? 0) + count;
+    } else {
+      current.receivedDurableRewards.artifacts = [
+        ...new Set([...current.receivedDurableRewards.artifacts, reward.id]),
+      ];
+    }
+    return true;
+  }
+
+  private backfillArchipelagoDurableRewards(): void {
+    if (!this.archipelagoModeActive || !this.archipelagoRunSave) {
+      return;
+    }
+    const applied = this.snakeGame.ensureArchipelagoDurableRewards(
+      this.archipelagoRunSave.receivedDurableRewards,
+    );
+    const totalApplied = applied.inventory + applied.cards + applied.artifacts;
+    if (totalApplied <= 0) {
+      return;
+    }
+    this.appendArchipelagoLog(
+      `Backfilled AP rewards: ${applied.inventory} items, ${applied.cards} cards, ${applied.artifacts} artifacts.`,
+    );
+    this.isDirty = true;
+  }
+
+  private markArchipelagoInventoryItem(itemId: string): boolean {
+    return this.markArchipelagoCheckByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId]);
+  }
+
+  private markArchipelagoCard(cardId: CardId): boolean {
+    return this.markArchipelagoCheckByKey(AP_CARD_LOCATION_KEY_BY_CARD_ID[cardId]);
+  }
+
+  private markArchipelagoArtifact(artifactId: string): boolean {
+    return this.markArchipelagoCheckByKey(AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId]);
+  }
+
+  private drainArchipelagoLocalRewardChecks(): void {
+    for (const check of this.snakeGame.drainArchipelagoLocalRewardChecks()) {
+      if (check.kind === 'item') {
+        this.markArchipelagoInventoryItem(check.id);
+      } else if (check.kind === 'card') {
+        this.markArchipelagoCard(check.id as CardId);
+      } else {
+        this.markArchipelagoArtifact(check.id);
+      }
+    }
+  }
+
+  private isArchipelagoTrapSafeNow(): boolean {
+    return (
+      this.archipelagoModeActive &&
+      this.getGameMode() === 'action' &&
+      !this.paused &&
+      !this.deathCutscene
+    );
+  }
+
+  private flushArchipelagoTrapQueue(): void {
+    if (!this.isArchipelagoTrapSafeNow()) {
+      return;
+    }
+    while (this.archipelagoTrapQueue.length > 0 && this.isArchipelagoTrapSafeNow()) {
+      const trapId = this.archipelagoTrapQueue.shift()!;
+      if (this.snakeGame.spawnArchipelagoTrap(trapId)) {
+        const label =
+          trapId === 'freak-dennis'
+            ? 'Freak Dennis'
+            : trapId === 'freaker-dennis'
+              ? 'Freaker Dennis'
+              : 'Jason Statham';
+        const message = `${label} has entered the multiworld.`;
+        this.appendArchipelagoLog(message);
+        this.showQuestHintPopup(message, '#ff8fb3');
+      }
+    }
+  }
+
+  private ensureArchipelagoRunSave(): ArchipelagoRunSaveData {
+    if (!this.archipelagoRunSave) {
+      this.archipelagoRunSave = this.archipelagoStorage.loadRun({
+        serverUrl: this.archipelagoServerUrl,
+        slotName: this.archipelagoSlotName,
+      });
+      this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
+    }
+    return this.archipelagoRunSave;
+  }
+
+  private saveArchipelagoRunState(): void {
+    if (!this.archipelagoRunSave) return;
+    const trackerState = this.archipelagoCheckTracker.snapshot();
+    this.archipelagoRunSave = {
+      ...this.archipelagoRunSave,
+      checkedLocationIds: trackerState.checkedLocationIds,
+      completedGoal: trackerState.completedGoal || this.archipelagoRunSave.completedGoal,
+    };
+    this.archipelagoStorage.saveRun(this.archipelagoRunSave);
+    this.refreshArchipelagoTitleText();
   }
 
   private playRuntimeSoundCue(soundId: string): void {
@@ -6104,6 +6499,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickVillageJuice();
     this.tickBiomeHazardJuice();
     this.tickQuestBabyCry();
+    this.flushArchipelagoTrapQueue();
     if (this.isDirty) {
       this.draw();
       this.isDirty = false;
@@ -7607,10 +8003,17 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.snakeGame.getInventory().getItemCount(itemId) > 0) {
       return { ok: false, message: `${item.name} is already in your pack.`, color: '#9ad1ff' };
     }
+    if (this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId])) {
+      return { ok: false, message: `${item.name} is already checked.`, color: '#9ad1ff' };
+    }
     if (this.score < offer.price) {
       return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
     }
     this.addScoreDirect(-offer.price);
+    if (this.markArchipelagoInventoryItem(itemId)) {
+      this.isDirty = true;
+      return { ok: true, message: `Checked: ${item.name}`, color: '#5dd6a2' };
+    }
     this.snakeGame.addItem(itemId, 1);
     this.equipItem(itemId);
     this.isDirty = true;
@@ -7850,11 +8253,17 @@ export default class SnakeScene extends Phaser.Scene {
     if (!item) {
       return { ok: false, message: 'That supply does not exist.', color: '#ff6b6b' };
     }
+    if (this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId])) {
+      return { ok: false, message: `${item.name} is already checked.`, color: '#9ad1ff' };
+    }
     if (this.score < offer.price) {
       return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
     }
     this.addScoreDirect(-offer.price);
-    this.snakeGame.addItem(itemId, 1);
+    const checkedByArchipelago = this.markArchipelagoInventoryItem(itemId);
+    if (!checkedByArchipelago) {
+      this.snakeGame.addItem(itemId, 1);
+    }
     if (stock) {
       this.setCurrentVillageMarketStock({
         ...stock,
@@ -7873,6 +8282,9 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     this.isDirty = true;
+    if (checkedByArchipelago) {
+      return { ok: true, message: `Checked: ${item.name}`, color: '#5dd6a2' };
+    }
     return { ok: true, message: `${item.name} bought. Use it from your pack.`, color: '#5dd6a2' };
   }
 
@@ -8002,15 +8414,24 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.score < card.price) {
       return { ok: false, message: `${card.name} costs ${card.price} score.`, color: '#ff6b6b' };
     }
+    if (this.isArchipelagoCheckCompleteByKey(AP_CARD_LOCATION_KEY_BY_CARD_ID[cardId])) {
+      return { ok: false, message: `${card.name} is already checked.`, color: '#9ad1ff' };
+    }
     const collection = this.getCardCollection();
     this.addScoreDirect(-card.price);
-    collection[cardId] = Number(collection[cardId] ?? 0) + 1;
-    this.setCardCollection(collection);
+    const checkedByArchipelago = this.markArchipelagoCard(cardId);
+    if (!checkedByArchipelago) {
+      collection[cardId] = Number(collection[cardId] ?? 0) + 1;
+      this.setCardCollection(collection);
+    }
     this.setCurrentVillageMarketStock({
       ...stock,
       cardIds: stock.cardIds.filter((id) => id !== cardId),
     });
     this.juice.cardPurchased(this.scale.width / 2, 94, card.rarity);
+    if (checkedByArchipelago) {
+      return { ok: true, message: `Checked: ${card.name}`, color: '#5dd6a2' };
+    }
     return { ok: true, message: `${card.name} added to your deck.`, color: '#5dd6a2' };
   }
 
@@ -9951,6 +10372,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (state.wins >= 2) {
       const payout = state.wagerScore * 2;
       this.addScoreDirect(payout);
+      if (this.archipelagoModeActive) {
+        this.archipelagoCheckTracker.processCardTableWin(state.tableId);
+        this.saveArchipelagoRunState();
+      }
       this.juice.stopCardMusic();
       this.juice.cardMatchResult(true, payout);
       this.setChoicePopupVisible(false);
@@ -11088,12 +11513,35 @@ export default class SnakeScene extends Phaser.Scene {
     this.juice.stopArchaeologyMusic();
     const scoreBefore = this.snakeGame.getScore();
     const lengthBefore = this.snakeGame.getSnakeLength();
-    const payout = this.snakeGame.applyArchaeologyRewards(rewards);
+    const archipelagoArtifactIds = this.archipelagoModeActive
+      ? rewards.artifacts.filter((artifactId) => AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId])
+      : [];
+    const localRewards =
+      archipelagoArtifactIds.length > 0
+        ? {
+            ...rewards,
+            artifacts: rewards.artifacts.filter(
+              (artifactId) => !AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId],
+            ),
+          }
+        : rewards;
+    const payout = this.snakeGame.applyArchaeologyRewards(localRewards);
+    if (this.archipelagoModeActive) {
+      this.drainArchipelagoLocalRewardChecks();
+      this.archipelagoCheckTracker.processArchaeologyMilestones(
+        snapshot,
+        archipelagoArtifactIds.length + localRewards.artifacts.length,
+      );
+      for (const artifactId of archipelagoArtifactIds) {
+        this.markArchipelagoArtifact(artifactId);
+      }
+      this.saveArchipelagoRunState();
+    }
     this.handleRunDeltaFeedback(scoreBefore, lengthBefore);
     this.isDirty = true;
     this.paused = true;
     this.hideSaveUI();
-    this.showMolemanExcavationSummary(reason, snapshot, rewards, payout);
+    this.showMolemanExcavationSummary(reason, snapshot, localRewards, payout);
   }
 
   private showMolemanExcavationSummary(

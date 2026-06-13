@@ -1,0 +1,17 @@
+{
+  "game": "Snaked. Revised. Revamped.",
+  "phase": 1,
+  "locations": {
+    "score_1": { "name": "Reach Score 1", "id": 912000001 },
+    "score_10": { "name": "Reach Score 10", "id": 912000002 },
+    "length_1": { "name": "Reach Length 1", "id": 912000003 },
+    "length_10": { "name": "Reach Length 10", "id": 912000004 },
+    "first_apple_eaten": { "name": "Eat Your First Apple", "id": 912000005 }
+  },
+  "items": {
+    "score_bundle_5": { "name": "Score Bundle +5", "id": 913000001, "count": 2 },
+    "score_bundle_10": { "name": "Score Bundle +10", "id": 913000002, "count": 2 },
+    "victory": { "name": "Victory", "id": 913000003, "count": 1, "locked": true }
+  },
+  "goal": "score_10"
+}

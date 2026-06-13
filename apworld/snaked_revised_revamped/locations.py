@@ -1,0 +1,229 @@
+from BaseClasses import Location
+
+
+LOCATION_BASE_ID = 912000000
+
+
+def _key_part(value: str) -> str:
+    return value.replace("-", "_")
+
+
+def _location(name: str, offset: int) -> tuple[str, int]:
+    return name, LOCATION_BASE_ID + offset
+
+
+CARD_DEFINITIONS = [
+    ("moss-two", "Moss Two"),
+    ("moss-five", "Moss Five"),
+    ("moss-eight", "Moss Eight"),
+    ("teeth-three", "Teeth Three"),
+    ("teeth-seven", "Teeth Seven"),
+    ("lantern-three", "Lantern Three"),
+    ("market-ace", "Market Ace"),
+    ("moon-jack", "Moon Jack"),
+    ("smoke-smog", "Smoke Smog"),
+    ("careful-five", "Careful Five"),
+    ("accountant-one", "Accountant One"),
+    ("too-much-sauce", "Too Much Sauce"),
+    ("angel-audit", "Angel Audit"),
+    ("royal-scale", "Royal Scale"),
+    ("freak-dennis-fog", "Freak Dennis Fog"),
+    ("goblin-receipt", "Goblin Receipt"),
+]
+
+
+ARTIFACT_DEFINITIONS = [
+    ("moleman-lunchbox", "Moleman Lunchbox"),
+    ("surveyor-compass", "Surveyor Compass"),
+    ("lucky-trowel", "Lucky Trowel"),
+    ("ancient-snake-scale", "Ancient Snake Scale"),
+    ("burrowing-boots", "Burrowing Boots"),
+    ("cracked-shrine-fragment", "Cracked Shrine Fragment"),
+    ("rusted-prospectors-charm", "Rusted Prospector's Charm"),
+    ("cartographers-pencil", "Cartographer's Pencil"),
+    ("preserved-orchard-seed", "Preserved Orchard Seed"),
+    ("pocket-fossil", "Pocket Fossil"),
+    ("molemans-lucky-pebble", "Moleman's Lucky Pebble"),
+]
+
+
+CORE_ITEM_IDS = [
+    "weapon-revolver",
+    "weapon-market-revolver",
+    "weapon-jade-katana",
+    "boots-quick",
+    "boots-heavy",
+    "boots-swim-fins",
+    "boots-lead-flippers",
+    "boots-geta",
+    "helm-seer",
+    "helm-sunshade",
+    "helm-hazard-halo",
+    "helm-cave-echo",
+    "ring-seismic",
+    "ring-ledger",
+    "ring-back-alley-dividend",
+    "gloves-mason",
+    "cloak-veil",
+    "cloak-frostguard",
+    "cloak-firebreak",
+    "cloak-furoshiki",
+    "belt-regenerator",
+    "belt-smuggler-cache",
+    "amulet-phoenix",
+    "amulet-baby-bottle",
+    "amulet-time-splinter",
+    "amulet-scavenger",
+    "fishing-rod",
+    "fishing-rod-carpenter",
+    "fishing-rod-master",
+    "ofuda",
+    "orange-juice",
+    "life-tonic",
+    "healing-potion",
+    "oni-charm",
+    "kitsune-charm",
+    "samurai-token",
+    "jizo-stone",
+    "raiju-bottle",
+    "kappa-bowl",
+    "katana-blueprint",
+]
+
+
+location_table = dict(
+    [
+        _location("Reach Score 1", 1),
+        _location("Reach Score 10", 2),
+        _location("Reach Length 1", 3),
+        _location("Reach Length 10", 4),
+        _location("Eat Your First Apple", 5),
+        _location("Reach Score 100", 6),
+        _location("Reach Score 250", 7),
+        _location("Reach Score 1,000", 8),
+        _location("Reach Score 10,000", 9),
+        _location("Reach Length 100", 10),
+        _location("Reach Length 250", 11),
+    ]
+)
+
+APPLE_TYPES = [
+    "normal",
+    "shielded",
+    "gold",
+    "pearl",
+    "skittish",
+    "mochi",
+    "wasabi",
+    "yuzu",
+    "koi",
+    "amacha",
+    "caffeinated",
+]
+
+for index, apple_type in enumerate(APPLE_TYPES):
+    location_table[f"Eat a {apple_type.replace('-', ' ').title()} Apple"] = LOCATION_BASE_ID + 12 + index
+
+QUESTS = [
+    ("tax-collector-future-body", "Tax Collector Future Body"),
+    ("green-purchase", "Green Purchase"),
+    ("find-my-baby", "Find My Baby"),
+    ("goblin-ledger-debt", "Goblin Ledger Debt"),
+    ("freak-you", "Freak You"),
+    ("starforged-heliopause", "Starforged Heliopause"),
+]
+
+for index, (_, label) in enumerate(QUESTS):
+    location_table[f"Complete {label}"] = LOCATION_BASE_ID + 23 + index
+
+for index, item_id in enumerate(CORE_ITEM_IDS):
+    location_table[f"Find {item_id.replace('-', ' ').title()}"] = LOCATION_BASE_ID + 29 + index
+
+for index, (_, card_name) in enumerate(CARD_DEFINITIONS):
+    location_table[f"Collect {card_name}"] = LOCATION_BASE_ID + 69 + index
+
+location_table.update(
+    {
+        "Win at Porch Table": LOCATION_BASE_ID + 85,
+        "Win at Market Table": LOCATION_BASE_ID + 86,
+        "Win at Freak Dennis Dare": LOCATION_BASE_ID + 87,
+    }
+)
+
+for index, (_, artifact_name) in enumerate(ARTIFACT_DEFINITIONS):
+    location_table[f"Recover {artifact_name}"] = LOCATION_BASE_ID + 88 + index
+
+location_table.update(
+    {
+        "Reach Archaeology Depth 10": LOCATION_BASE_ID + 99,
+        "Reach Archaeology Depth 25": LOCATION_BASE_ID + 100,
+        "Reach Archaeology Depth 50": LOCATION_BASE_ID + 101,
+        "Reach Archaeology Chain 5": LOCATION_BASE_ID + 102,
+        "Reach Archaeology Chain 10": LOCATION_BASE_ID + 103,
+        "Recover First Archaeology Cache": LOCATION_BASE_ID + 104,
+        "Defeat Jason Statham": LOCATION_BASE_ID + 105,
+    }
+)
+
+
+location_key_to_name = {
+    "score_1": "Reach Score 1",
+    "score_10": "Reach Score 10",
+    "length_1": "Reach Length 1",
+    "length_10": "Reach Length 10",
+    "first_apple_eaten": "Eat Your First Apple",
+    "score_100": "Reach Score 100",
+    "score_250": "Reach Score 250",
+    "score_1000": "Reach Score 1,000",
+    "score_10000": "Reach Score 10,000",
+    "length_100": "Reach Length 100",
+    "length_250": "Reach Length 250",
+}
+
+for apple_type in APPLE_TYPES:
+    location_key_to_name[f"apple_{apple_type}"] = f"Eat a {apple_type.replace('-', ' ').title()} Apple"
+for quest_id, label in QUESTS:
+    location_key_to_name[f"quest_{_key_part(quest_id)}"] = f"Complete {label}"
+for item_id in CORE_ITEM_IDS:
+    location_key_to_name[f"item_{_key_part(item_id)}"] = f"Find {item_id.replace('-', ' ').title()}"
+for card_id, card_name in CARD_DEFINITIONS:
+    location_key_to_name[f"card_{_key_part(card_id)}"] = f"Collect {card_name}"
+location_key_to_name.update(
+    {
+        "card_table_porch_table": "Win at Porch Table",
+        "card_table_market_table": "Win at Market Table",
+        "card_table_dennis_dare": "Win at Freak Dennis Dare",
+    }
+)
+for artifact_id, artifact_name in ARTIFACT_DEFINITIONS:
+    location_key_to_name[f"artifact_{_key_part(artifact_id)}"] = f"Recover {artifact_name}"
+location_key_to_name.update(
+    {
+        "archaeology_depth_10": "Reach Archaeology Depth 10",
+        "archaeology_depth_25": "Reach Archaeology Depth 25",
+        "archaeology_depth_50": "Reach Archaeology Depth 50",
+        "archaeology_chain_5": "Reach Archaeology Chain 5",
+        "archaeology_chain_10": "Reach Archaeology Chain 10",
+        "archaeology_first_cache": "Recover First Archaeology Cache",
+        "boss_jason_statham": "Defeat Jason Statham",
+    }
+)
+
+location_name_to_key = {name: key for key, name in location_key_to_name.items()}
+
+
+location_groups = {
+    "Score": {name for name in location_table if name.startswith("Reach Score")},
+    "Length": {name for name in location_table if name.startswith("Reach Length")},
+    "Apples": {name for name in location_table if name.startswith("Eat")},
+    "Quests": {name for name in location_table if name.startswith("Complete")},
+    "Items": {name for name in location_table if name.startswith("Find")},
+    "Cards": {name for name in location_table if name.startswith("Collect")},
+    "Card Tables": {name for name in location_table if name.startswith("Win at")},
+    "Artifacts": {name for name in location_table if name.startswith("Recover")},
+    "Bosses": {"Defeat Jason Statham"},
+}
+
+
+class SnakedLocation(Location):
+    game = "Snaked. Revised. Revamped."
