@@ -6,6 +6,32 @@ export interface ArchipelagoItemApplyResult {
   applied: boolean;
   message: string;
   trapId?: ArchipelagoTrapId;
+  durableReward?: {
+    kind: 'inventory' | 'card' | 'artifact';
+    id: string;
+    count: number;
+  };
+}
+
+export type ArchipelagoDurableReward = NonNullable<ArchipelagoItemApplyResult['durableReward']>;
+
+export function getArchipelagoDurableReward(
+  itemId: number,
+): ArchipelagoDurableReward | undefined {
+  const definition = AP_ITEM_BY_ID[itemId];
+  if (!definition) {
+    return undefined;
+  }
+  if (definition.kind === 'inventory-item' && definition.itemId) {
+    return { kind: 'inventory', id: definition.itemId, count: 1 };
+  }
+  if (definition.kind === 'card' && definition.cardId) {
+    return { kind: 'card', id: definition.cardId, count: 1 };
+  }
+  if (definition.kind === 'artifact' && definition.artifactId) {
+    return { kind: 'artifact', id: definition.artifactId, count: 1 };
+  }
+  return undefined;
 }
 
 export function applyArchipelagoReceivedItem(
@@ -39,6 +65,7 @@ export function applyArchipelagoReceivedItem(
       return {
         applied: true,
         message: `${definition.name} added to your pack.`,
+        durableReward: { kind: 'inventory', id: definition.itemId, count: 1 },
       };
     case 'card':
       if (!definition.cardId) break;
@@ -46,6 +73,7 @@ export function applyArchipelagoReceivedItem(
       return {
         applied: true,
         message: `${definition.name} added to your deck.`,
+        durableReward: { kind: 'card', id: definition.cardId, count: 1 },
       };
     case 'artifact':
       if (!definition.artifactId) break;
@@ -53,6 +81,7 @@ export function applyArchipelagoReceivedItem(
       return {
         applied: true,
         message: `${definition.name} recovered.`,
+        durableReward: { kind: 'artifact', id: definition.artifactId, count: 1 },
       };
     case 'trap':
       if (!definition.trapId) break;

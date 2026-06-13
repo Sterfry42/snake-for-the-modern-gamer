@@ -2695,8 +2695,15 @@ export class SkillTreeOverlay {
       this.refresh();
     });
 
-    let y = filterY + 24 - offset;
-    let unscrolledBottom = filterY + 24;
+    const listTop = filterY + 24;
+    const listViewport: UiRect = {
+      x: content.x,
+      y: listTop,
+      width: content.width,
+      height: Math.max(0, content.y + content.height - listTop - 4),
+    };
+    let y = listTop - offset;
+    let unscrolledBottom = listTop;
     if (filteredEquipment.length === 0) {
       addUiText(
         this.scene,
@@ -2716,7 +2723,10 @@ export class SkillTreeOverlay {
       const modifiers = this.getEquipmentModifierViews(item);
       const accent = this.getEquipmentSlotAccent(item.slot);
       const card: UiRect = { x: content.x, y, width: content.width, height: 58 };
-      const visible = this.isStructuredRectVisible(card, rect);
+      const visible =
+        card.y >= listViewport.y &&
+        card.y + card.height <= listViewport.y + listViewport.height &&
+        this.isStructuredRectVisible(card, rect);
       if (visible) {
         drawUiCard(this.structuredGraphics, {
           rect: card,
@@ -2768,12 +2778,12 @@ export class SkillTreeOverlay {
           equipped ? '#101824' : '#ffffff',
         );
       }
-      this.addStructuredZone(card, () => {
-        this.selectedInventoryItemId = itemId;
-        this.showInventoryItemDetails();
-        this.refresh();
-      });
       if (visible) {
+        this.addStructuredZone(card, () => {
+          this.selectedInventoryItemId = itemId;
+          this.showInventoryItemDetails();
+          this.refresh();
+        });
         const actionRect: UiRect = {
           x: card.x + card.width - 72,
           y: card.y + 18,

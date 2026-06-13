@@ -17,6 +17,12 @@ export interface ArchipelagoRunSaveData {
   checkedLocationIds: number[];
   lastReceivedItemIndex: number;
   completedGoal: boolean;
+  receivedDurableItemIndices: number[];
+  receivedDurableRewards: {
+    inventory: Record<string, number>;
+    cards: Record<string, number>;
+    artifacts: string[];
+  };
 }
 
 function getStorage(): Storage | null {
@@ -102,6 +108,12 @@ export class BrowserArchipelagoStorage {
       checkedLocationIds: [],
       lastReceivedItemIndex: -1,
       completedGoal: false,
+      receivedDurableItemIndices: [],
+      receivedDurableRewards: {
+        inventory: {},
+        cards: {},
+        artifacts: [],
+      },
     };
     const storage = getStorage();
     if (!storage) return fallback;
@@ -119,6 +131,53 @@ export class BrowserArchipelagoStorage {
           ? Number(parsed.lastReceivedItemIndex)
           : -1,
         completedGoal: parsed.completedGoal === true,
+        receivedDurableItemIndices: Array.isArray(parsed.receivedDurableItemIndices)
+          ? [
+              ...new Set(
+                parsed.receivedDurableItemIndices.filter((id): id is number =>
+                  Number.isInteger(id),
+                ),
+              ),
+            ].sort((a, b) => a - b)
+          : [],
+        receivedDurableRewards: {
+          inventory:
+            parsed.receivedDurableRewards &&
+            typeof parsed.receivedDurableRewards.inventory === 'object' &&
+            parsed.receivedDurableRewards.inventory
+              ? Object.entries(parsed.receivedDurableRewards.inventory).reduce(
+                  (lookup, [id, count]) => {
+                    const normalized = Math.max(0, Math.floor(Number(count) || 0));
+                    if (normalized > 0) lookup[id] = normalized;
+                    return lookup;
+                  },
+                  {} as Record<string, number>,
+                )
+              : {},
+          cards:
+            parsed.receivedDurableRewards &&
+            typeof parsed.receivedDurableRewards.cards === 'object' &&
+            parsed.receivedDurableRewards.cards
+              ? Object.entries(parsed.receivedDurableRewards.cards).reduce(
+                  (lookup, [id, count]) => {
+                    const normalized = Math.max(0, Math.floor(Number(count) || 0));
+                    if (normalized > 0) lookup[id] = normalized;
+                    return lookup;
+                  },
+                  {} as Record<string, number>,
+                )
+              : {},
+          artifacts:
+            parsed.receivedDurableRewards && Array.isArray(parsed.receivedDurableRewards.artifacts)
+              ? [
+                  ...new Set(
+                    parsed.receivedDurableRewards.artifacts.filter(
+                      (id): id is string => typeof id === 'string' && id.length > 0,
+                    ),
+                  ),
+                ]
+              : [],
+        },
       };
     } catch {
       return fallback;

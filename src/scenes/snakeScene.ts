@@ -13,6 +13,7 @@ import {
   AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID,
   AP_CARD_LOCATION_KEY_BY_CARD_ID,
   AP_ITEM_LOCATION_KEY_BY_ITEM_ID,
+  AP_LOCATION_BY_KEY,
   AP_PHASE_2_GOAL_CHECK_KEY,
   type ArchipelagoTrapId,
 } from '../archipelago/archipelagoCheckManifest.js';
@@ -20,7 +21,11 @@ import {
   BrowserArchipelagoStorage,
   type ArchipelagoRunSaveData,
 } from '../archipelago/archipelagoStorage.js';
-import { applyArchipelagoReceivedItem } from '../archipelago/archipelagoItemHandlers.js';
+import {
+  applyArchipelagoReceivedItem,
+  getArchipelagoDurableReward,
+  type ArchipelagoDurableReward,
+} from '../archipelago/archipelagoItemHandlers.js';
 import type {
   ArchipelagoConnectionDetails,
   ArchipelagoConnectionStatus,
@@ -2410,6 +2415,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.archipelagoModeActive && this.archipelagoRunSave) {
       this.snakeGame.setFlag('archipelago.modeActive', true);
       this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
+      this.backfillArchipelagoDurableRewards();
       this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
       this.saveArchipelagoRunState();
     }
@@ -4761,6 +4767,7 @@ export default class SnakeScene extends Phaser.Scene {
   private startNewGameFromTitle(): void {
     this.hideTitleScreen();
     this.initGame(true);
+    this.backfillArchipelagoDurableRewards();
     this.resetStartingChoices();
     this.setFlag('run.startChoicesReady', true);
     this.paused = true;
@@ -4788,6 +4795,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.hideTitleScreen();
     this.restoreCharacterSaveState();
     this.applyRaccoonActionStepInterval();
+    this.backfillArchipelagoDurableRewards();
     this.paused = false;
     this.showSaveUI();
     this.isDirty = true;
@@ -5435,6 +5443,7 @@ export default class SnakeScene extends Phaser.Scene {
       typeof details.slotData?.goal === 'string' ? details.slotData.goal : AP_PHASE_2_GOAL_CHECK_KEY,
     );
     this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
+    this.backfillArchipelagoDurableRewards();
     if (!this.titleVisible) {
       this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
     }
@@ -5468,11 +5477,21 @@ export default class SnakeScene extends Phaser.Scene {
   private handleArchipelagoReceivedItem(item: ArchipelagoReceivedItem): void {
     const current = this.ensureArchipelagoRunSave();
     if (item.index <= current.lastReceivedItemIndex) {
+      const seeded = this.persistArchipelagoDurableReward(
+        getArchipelagoDurableReward(item.itemId),
+        item.index,
+      );
+      if (seeded) {
+        this.backfillArchipelagoDurableRewards();
+        this.saveArchipelagoRunState();
+        this.appendArchipelagoLog(`Synced AP reward: ${item.itemName}`);
+      }
       this.appendArchipelagoLog(`Skipped duplicate item: ${item.itemName}`);
       return;
     }
     current.lastReceivedItemIndex = item.index;
     const result = applyArchipelagoReceivedItem(this.snakeGame, item);
+    this.persistArchipelagoDurableReward(result.durableReward, item.index);
     if (result.trapId) {
       this.archipelagoTrapQueue.push(result.trapId);
       this.flushArchipelagoTrapQueue();
@@ -5496,6 +5515,64 @@ export default class SnakeScene extends Phaser.Scene {
     this.archipelagoCheckTracker.markChecked(key);
     this.saveArchipelagoRunState();
     return true;
+  }
+
+  private isArchipelagoCheckCompleteByKey(key: string | undefined): boolean {
+    if (!this.archipelagoModeActive || !key) {
+      return false;
+    }
+    const location = AP_LOCATION_BY_KEY[key];
+    if (!location) {
+      return false;
+    }
+    const current = this.ensureArchipelagoRunSave();
+    return current.checkedLocationIds.includes(location.id);
+  }
+
+  private persistArchipelagoDurableReward(
+    reward: ArchipelagoDurableReward | undefined,
+    itemIndex: number,
+  ): boolean {
+    if (!reward) {
+      return false;
+    }
+    const current = this.ensureArchipelagoRunSave();
+    if (current.receivedDurableItemIndices.includes(itemIndex)) {
+      return false;
+    }
+    current.receivedDurableItemIndices = [...current.receivedDurableItemIndices, itemIndex].sort(
+      (a, b) => a - b,
+    );
+    const count = Math.max(1, Math.floor(reward.count));
+    if (reward.kind === 'inventory') {
+      current.receivedDurableRewards.inventory[reward.id] =
+        (current.receivedDurableRewards.inventory[reward.id] ?? 0) + count;
+    } else if (reward.kind === 'card') {
+      current.receivedDurableRewards.cards[reward.id] =
+        (current.receivedDurableRewards.cards[reward.id] ?? 0) + count;
+    } else {
+      current.receivedDurableRewards.artifacts = [
+        ...new Set([...current.receivedDurableRewards.artifacts, reward.id]),
+      ];
+    }
+    return true;
+  }
+
+  private backfillArchipelagoDurableRewards(): void {
+    if (!this.archipelagoModeActive || !this.archipelagoRunSave) {
+      return;
+    }
+    const applied = this.snakeGame.ensureArchipelagoDurableRewards(
+      this.archipelagoRunSave.receivedDurableRewards,
+    );
+    const totalApplied = applied.inventory + applied.cards + applied.artifacts;
+    if (totalApplied <= 0) {
+      return;
+    }
+    this.appendArchipelagoLog(
+      `Backfilled AP rewards: ${applied.inventory} items, ${applied.cards} cards, ${applied.artifacts} artifacts.`,
+    );
+    this.isDirty = true;
   }
 
   private markArchipelagoInventoryItem(itemId: string): boolean {
@@ -7926,6 +8003,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.snakeGame.getInventory().getItemCount(itemId) > 0) {
       return { ok: false, message: `${item.name} is already in your pack.`, color: '#9ad1ff' };
     }
+    if (this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId])) {
+      return { ok: false, message: `${item.name} is already checked.`, color: '#9ad1ff' };
+    }
     if (this.score < offer.price) {
       return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
     }
@@ -8173,6 +8253,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (!item) {
       return { ok: false, message: 'That supply does not exist.', color: '#ff6b6b' };
     }
+    if (this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId])) {
+      return { ok: false, message: `${item.name} is already checked.`, color: '#9ad1ff' };
+    }
     if (this.score < offer.price) {
       return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
     }
@@ -8330,6 +8413,9 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.score < card.price) {
       return { ok: false, message: `${card.name} costs ${card.price} score.`, color: '#ff6b6b' };
+    }
+    if (this.isArchipelagoCheckCompleteByKey(AP_CARD_LOCATION_KEY_BY_CARD_ID[cardId])) {
+      return { ok: false, message: `${card.name} is already checked.`, color: '#9ad1ff' };
     }
     const collection = this.getCardCollection();
     this.addScoreDirect(-card.price);

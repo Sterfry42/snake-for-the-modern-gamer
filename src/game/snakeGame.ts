@@ -363,6 +363,12 @@ export interface ArchipelagoLocalRewardCheck {
   id: string;
 }
 
+export interface ArchipelagoDurableRewards {
+  inventory: Record<string, number>;
+  cards: Record<string, number>;
+  artifacts: string[];
+}
+
 export interface StepResult {
   status: 'alive' | 'dead';
   deathReason?:
@@ -6866,6 +6872,55 @@ export class SnakeGame implements QuestRuntime {
     }
     this.setFlag('artifacts.run', [...ids, artifactId]);
     return true;
+  }
+
+  ensureArchipelagoDurableRewards(rewards: ArchipelagoDurableRewards): {
+    inventory: number;
+    cards: number;
+    artifacts: number;
+  } {
+    let inventory = 0;
+    for (const [itemId, targetCount] of Object.entries(rewards.inventory)) {
+      const needed = Math.max(0, Math.floor(Number(targetCount) || 0)) - this.inventory.getItemCount(itemId);
+      if (needed > 0) {
+        this.grantInventoryItem(itemId, needed);
+        inventory += needed;
+      }
+    }
+
+    let cards = 0;
+    const collection = this.getFlag<CardCollection>('cards.collection') ?? {};
+    let nextCollection: CardCollection | null = null;
+    for (const [cardId, targetCount] of Object.entries(rewards.cards)) {
+      if (!getCardDefinition(cardId as CardId)) {
+        continue;
+      }
+      const needed = Math.max(0, Math.floor(Number(targetCount) || 0)) - Math.max(0, Number(collection[cardId as CardId] ?? 0));
+      if (needed > 0) {
+        nextCollection = nextCollection ?? { ...collection };
+        nextCollection[cardId as CardId] = Math.max(0, Number(nextCollection[cardId as CardId] ?? 0)) + needed;
+        cards += needed;
+      }
+    }
+    if (nextCollection) {
+      this.setFlag('cards.collection', nextCollection);
+    }
+
+    let artifacts = 0;
+    const artifactIds = this.getFlag<string[]>('artifacts.run') ?? [];
+    const nextArtifactIds = new Set(artifactIds);
+    for (const artifactId of rewards.artifacts) {
+      if (!getArtifactDefinition(artifactId) || nextArtifactIds.has(artifactId)) {
+        continue;
+      }
+      nextArtifactIds.add(artifactId);
+      artifacts += 1;
+    }
+    if (artifacts > 0) {
+      this.setFlag('artifacts.run', [...nextArtifactIds]);
+    }
+
+    return { inventory, cards, artifacts };
   }
 
   getArtifactTuning(): ArchaeologyTuning {
