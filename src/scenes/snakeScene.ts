@@ -10,6 +10,13 @@ import {
 import { ArchipelagoClient } from '../archipelago/archipelagoClient.js';
 import { ArchipelagoCheckTracker } from '../archipelago/archipelagoCheckTracker.js';
 import {
+  AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID,
+  AP_CARD_LOCATION_KEY_BY_CARD_ID,
+  AP_ITEM_LOCATION_KEY_BY_ITEM_ID,
+  AP_PHASE_2_GOAL_CHECK_KEY,
+  type ArchipelagoTrapId,
+} from '../archipelago/archipelagoCheckManifest.js';
+import {
   BrowserArchipelagoStorage,
   type ArchipelagoRunSaveData,
 } from '../archipelago/archipelagoStorage.js';
@@ -1639,6 +1646,7 @@ export default class SnakeScene extends Phaser.Scene {
   private archipelagoStatusText: Phaser.GameObjects.Text | null = null;
   private archipelagoLogText: Phaser.GameObjects.Text | null = null;
   private readonly archipelagoLogLines: string[] = [];
+  private readonly archipelagoTrapQueue: ArchipelagoTrapId[] = [];
   private titleCreditsMode = false;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
@@ -2230,6 +2238,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleJasonDefeat(bossId: string, score: number): void {
+    if (this.archipelagoModeActive) {
+      this.archipelagoCheckTracker.processBossDefeat(bossId);
+      this.saveArchipelagoRunState();
+    }
+
     // Stop boss music
     this.juice.stopBossMusic();
 
@@ -2395,6 +2408,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastJuicedScore = this.snakeGame.getScore();
     this.lastJuicedLength = this.snakeGame.getSnakeLength();
     if (this.archipelagoModeActive && this.archipelagoRunSave) {
+      this.snakeGame.setFlag('archipelago.modeActive', true);
       this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
       this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
       this.saveArchipelagoRunState();
@@ -2443,6 +2457,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.currentApple = result.apple.current ?? null;
     if (this.archipelagoModeActive && this.archipelagoRunSave) {
       this.archipelagoCheckTracker.processStep(this.snakeGame, result);
+      this.drainArchipelagoLocalRewardChecks();
       this.saveArchipelagoRunState();
     }
     this.updateBossEncounter();
@@ -5388,6 +5403,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.archipelagoStatus = status;
     if (status !== 'connected') {
       this.archipelagoModeActive = false;
+      this.snakeGame.setFlag('archipelago.modeActive', false);
     }
     if (message) {
       this.appendArchipelagoLog(message);
@@ -5397,6 +5413,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleArchipelagoConnected(details: ArchipelagoConnectionDetails): void {
     this.archipelagoModeActive = true;
+    this.snakeGame.setFlag('archipelago.modeActive', true);
     this.archipelagoRunSave = this.archipelagoStorage.loadRun({
       serverUrl: this.archipelagoServerUrl,
       slotName: this.archipelagoSlotName,
@@ -5414,6 +5431,9 @@ export default class SnakeScene extends Phaser.Scene {
       slot: details.slot,
       checkedLocationIds: mergedCheckedLocationIds,
     };
+    this.archipelagoCheckTracker.setGoalCheckKey(
+      typeof details.slotData?.goal === 'string' ? details.slotData.goal : AP_PHASE_2_GOAL_CHECK_KEY,
+    );
     this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
     if (!this.titleVisible) {
       this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
@@ -5442,7 +5462,7 @@ export default class SnakeScene extends Phaser.Scene {
     current.completedGoal = true;
     this.saveArchipelagoRunState();
     this.archipelagoClient.sendGoalComplete();
-    this.appendArchipelagoLog('Goal complete: Reach Score 10');
+    this.appendArchipelagoLog('Goal complete.');
   }
 
   private handleArchipelagoReceivedItem(item: ArchipelagoReceivedItem): void {
@@ -5453,6 +5473,10 @@ export default class SnakeScene extends Phaser.Scene {
     }
     current.lastReceivedItemIndex = item.index;
     const result = applyArchipelagoReceivedItem(this.snakeGame, item);
+    if (result.trapId) {
+      this.archipelagoTrapQueue.push(result.trapId);
+      this.flushArchipelagoTrapQueue();
+    }
     this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
     this.saveArchipelagoRunState();
     const source = item.playerName ? ` from ${item.playerName}` : '';
@@ -5463,6 +5487,68 @@ export default class SnakeScene extends Phaser.Scene {
       result.applied ? '#9ad1ff' : '#ffd166',
     );
     this.isDirty = true;
+  }
+
+  private markArchipelagoCheckByKey(key: string | undefined): boolean {
+    if (!this.archipelagoModeActive || !key) {
+      return false;
+    }
+    this.archipelagoCheckTracker.markChecked(key);
+    this.saveArchipelagoRunState();
+    return true;
+  }
+
+  private markArchipelagoInventoryItem(itemId: string): boolean {
+    return this.markArchipelagoCheckByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId]);
+  }
+
+  private markArchipelagoCard(cardId: CardId): boolean {
+    return this.markArchipelagoCheckByKey(AP_CARD_LOCATION_KEY_BY_CARD_ID[cardId]);
+  }
+
+  private markArchipelagoArtifact(artifactId: string): boolean {
+    return this.markArchipelagoCheckByKey(AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId]);
+  }
+
+  private drainArchipelagoLocalRewardChecks(): void {
+    for (const check of this.snakeGame.drainArchipelagoLocalRewardChecks()) {
+      if (check.kind === 'item') {
+        this.markArchipelagoInventoryItem(check.id);
+      } else if (check.kind === 'card') {
+        this.markArchipelagoCard(check.id as CardId);
+      } else {
+        this.markArchipelagoArtifact(check.id);
+      }
+    }
+  }
+
+  private isArchipelagoTrapSafeNow(): boolean {
+    return (
+      this.archipelagoModeActive &&
+      this.getGameMode() === 'action' &&
+      !this.paused &&
+      !this.deathCutscene
+    );
+  }
+
+  private flushArchipelagoTrapQueue(): void {
+    if (!this.isArchipelagoTrapSafeNow()) {
+      return;
+    }
+    while (this.archipelagoTrapQueue.length > 0 && this.isArchipelagoTrapSafeNow()) {
+      const trapId = this.archipelagoTrapQueue.shift()!;
+      if (this.snakeGame.spawnArchipelagoTrap(trapId)) {
+        const label =
+          trapId === 'freak-dennis'
+            ? 'Freak Dennis'
+            : trapId === 'freaker-dennis'
+              ? 'Freaker Dennis'
+              : 'Jason Statham';
+        const message = `${label} has entered the multiworld.`;
+        this.appendArchipelagoLog(message);
+        this.showQuestHintPopup(message, '#ff8fb3');
+      }
+    }
   }
 
   private ensureArchipelagoRunSave(): ArchipelagoRunSaveData {
@@ -6336,6 +6422,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickVillageJuice();
     this.tickBiomeHazardJuice();
     this.tickQuestBabyCry();
+    this.flushArchipelagoTrapQueue();
     if (this.isDirty) {
       this.draw();
       this.isDirty = false;
@@ -7843,6 +7930,10 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
     }
     this.addScoreDirect(-offer.price);
+    if (this.markArchipelagoInventoryItem(itemId)) {
+      this.isDirty = true;
+      return { ok: true, message: `Checked: ${item.name}`, color: '#5dd6a2' };
+    }
     this.snakeGame.addItem(itemId, 1);
     this.equipItem(itemId);
     this.isDirty = true;
@@ -8086,7 +8177,10 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
     }
     this.addScoreDirect(-offer.price);
-    this.snakeGame.addItem(itemId, 1);
+    const checkedByArchipelago = this.markArchipelagoInventoryItem(itemId);
+    if (!checkedByArchipelago) {
+      this.snakeGame.addItem(itemId, 1);
+    }
     if (stock) {
       this.setCurrentVillageMarketStock({
         ...stock,
@@ -8105,6 +8199,9 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     this.isDirty = true;
+    if (checkedByArchipelago) {
+      return { ok: true, message: `Checked: ${item.name}`, color: '#5dd6a2' };
+    }
     return { ok: true, message: `${item.name} bought. Use it from your pack.`, color: '#5dd6a2' };
   }
 
@@ -8236,13 +8333,19 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const collection = this.getCardCollection();
     this.addScoreDirect(-card.price);
-    collection[cardId] = Number(collection[cardId] ?? 0) + 1;
-    this.setCardCollection(collection);
+    const checkedByArchipelago = this.markArchipelagoCard(cardId);
+    if (!checkedByArchipelago) {
+      collection[cardId] = Number(collection[cardId] ?? 0) + 1;
+      this.setCardCollection(collection);
+    }
     this.setCurrentVillageMarketStock({
       ...stock,
       cardIds: stock.cardIds.filter((id) => id !== cardId),
     });
     this.juice.cardPurchased(this.scale.width / 2, 94, card.rarity);
+    if (checkedByArchipelago) {
+      return { ok: true, message: `Checked: ${card.name}`, color: '#5dd6a2' };
+    }
     return { ok: true, message: `${card.name} added to your deck.`, color: '#5dd6a2' };
   }
 
@@ -10183,6 +10286,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (state.wins >= 2) {
       const payout = state.wagerScore * 2;
       this.addScoreDirect(payout);
+      if (this.archipelagoModeActive) {
+        this.archipelagoCheckTracker.processCardTableWin(state.tableId);
+        this.saveArchipelagoRunState();
+      }
       this.juice.stopCardMusic();
       this.juice.cardMatchResult(true, payout);
       this.setChoicePopupVisible(false);
@@ -11320,12 +11427,35 @@ export default class SnakeScene extends Phaser.Scene {
     this.juice.stopArchaeologyMusic();
     const scoreBefore = this.snakeGame.getScore();
     const lengthBefore = this.snakeGame.getSnakeLength();
-    const payout = this.snakeGame.applyArchaeologyRewards(rewards);
+    const archipelagoArtifactIds = this.archipelagoModeActive
+      ? rewards.artifacts.filter((artifactId) => AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId])
+      : [];
+    const localRewards =
+      archipelagoArtifactIds.length > 0
+        ? {
+            ...rewards,
+            artifacts: rewards.artifacts.filter(
+              (artifactId) => !AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId],
+            ),
+          }
+        : rewards;
+    const payout = this.snakeGame.applyArchaeologyRewards(localRewards);
+    if (this.archipelagoModeActive) {
+      this.drainArchipelagoLocalRewardChecks();
+      this.archipelagoCheckTracker.processArchaeologyMilestones(
+        snapshot,
+        archipelagoArtifactIds.length + localRewards.artifacts.length,
+      );
+      for (const artifactId of archipelagoArtifactIds) {
+        this.markArchipelagoArtifact(artifactId);
+      }
+      this.saveArchipelagoRunState();
+    }
     this.handleRunDeltaFeedback(scoreBefore, lengthBefore);
     this.isDirty = true;
     this.paused = true;
     this.hideSaveUI();
-    this.showMolemanExcavationSummary(reason, snapshot, rewards, payout);
+    this.showMolemanExcavationSummary(reason, snapshot, localRewards, payout);
   }
 
   private showMolemanExcavationSummary(

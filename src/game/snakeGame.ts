@@ -35,6 +35,11 @@ import {
   type CardCollection,
   type CardId,
 } from '../cards/cardGame.js';
+import {
+  AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID,
+  AP_CARD_LOCATION_KEY_BY_CARD_ID,
+  AP_ITEM_LOCATION_KEY_BY_ITEM_ID,
+} from '../archipelago/archipelagoCheckManifest.js';
 import type { QuestRuntime } from '../quests/quest.js';
 import {
   chooseWandererEncounter,
@@ -352,6 +357,11 @@ export type QuestInteraction =
       title: string;
       options: Array<{ id: string; title: string; description: string }>;
     };
+
+export interface ArchipelagoLocalRewardCheck {
+  kind: 'item' | 'card' | 'artifact';
+  id: string;
+}
 
 export interface StepResult {
   status: 'alive' | 'dead';
@@ -1864,7 +1874,7 @@ export class SnakeGame implements QuestRuntime {
           let awardedId: string | undefined;
           if (room.cave) {
             awardedId = this.pickCaveRewardId(room.cave.templateId, `chest:${room.id}`);
-            this.inventory.addItem(awardedId, 1);
+            this.addItem(awardedId, 1);
             awardedName = getItem(awardedId)?.name ?? awardedId;
           } else if (this.rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
             const cardId = this.pickRandomCardId();
@@ -1876,7 +1886,7 @@ export class SnakeGame implements QuestRuntime {
             const idx = Math.floor(this.rng() * CHEST_LOOT_ITEMS.length);
             const awarded =
               CHEST_LOOT_ITEMS[Math.max(0, Math.min(CHEST_LOOT_ITEMS.length - 1, idx))];
-            this.inventory.addItem(awarded.id, 1);
+            this.addItem(awarded.id, 1);
             awardedName = awarded.name;
             awardedId = awarded.id;
           }
@@ -6779,6 +6789,10 @@ export class SnakeGame implements QuestRuntime {
     this.snake.addScore(adjusted);
   }
 
+  grantScore(amount: number): void {
+    this.addScore(amount);
+  }
+
   getArtifactViews(): ArtifactView[] {
     return this.getRunArtifacts().map(toArtifactView);
   }
@@ -6827,6 +6841,22 @@ export class SnakeGame implements QuestRuntime {
   }
 
   addRunArtifact(artifactId: string): boolean {
+    if (!getArtifactDefinition(artifactId)) {
+      return false;
+    }
+    if (this.isArchipelagoModeActive() && AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId]) {
+      this.queueArchipelagoLocalRewardCheck({ kind: 'artifact', id: artifactId });
+      return true;
+    }
+    const ids = this.getFlag<string[]>('artifacts.run') ?? [];
+    if (ids.includes(artifactId)) {
+      return false;
+    }
+    this.setFlag('artifacts.run', [...ids, artifactId]);
+    return true;
+  }
+
+  grantArtifact(artifactId: string): boolean {
     if (!getArtifactDefinition(artifactId)) {
       return false;
     }
@@ -6887,7 +6917,7 @@ export class SnakeGame implements QuestRuntime {
     for (const bucket of itemRewards) {
       for (const [itemId, count] of Object.entries(bucket)) {
         if (count <= 0) continue;
-        this.inventory.addItem(itemId, count);
+        this.addItem(itemId, count);
         itemCount += count;
       }
     }
@@ -6916,6 +6946,10 @@ export class SnakeGame implements QuestRuntime {
 
   getSnakeLength(): number {
     return this.snake.bodySegments.length;
+  }
+
+  grantSnakeLength(extraSegments: number): void {
+    this.growSnake(extraSegments);
   }
 
   getCharacterMode(): CharacterMode {
@@ -9325,12 +9359,56 @@ export class SnakeGame implements QuestRuntime {
     return this.inventory;
   }
 
+  private isArchipelagoModeActive(): boolean {
+    return this.getFlag<boolean>('archipelago.modeActive') === true;
+  }
+
+  private queueArchipelagoLocalRewardCheck(check: ArchipelagoLocalRewardCheck): void {
+    const current = this.getFlag<ArchipelagoLocalRewardCheck[]>('archipelago.localRewardChecks') ?? [];
+    this.setFlag('archipelago.localRewardChecks', [...current, check]);
+  }
+
+  drainArchipelagoLocalRewardChecks(): ArchipelagoLocalRewardCheck[] {
+    const current = this.getFlag<ArchipelagoLocalRewardCheck[]>('archipelago.localRewardChecks') ?? [];
+    this.setFlag('archipelago.localRewardChecks', undefined);
+    return current;
+  }
+
   addItem(itemId: string, count = 1): void {
+    if (!getItem(itemId)) {
+      return;
+    }
+    if (this.isArchipelagoModeActive() && AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId]) {
+      this.queueArchipelagoLocalRewardCheck({ kind: 'item', id: itemId });
+      this.setFlag('ui.itemReward', { itemId, count: 0 });
+      return;
+    }
+    this.inventory.addItem(itemId, count);
+    this.setFlag('ui.itemReward', { itemId, count });
+  }
+
+  grantInventoryItem(itemId: string, count = 1): void {
     if (!getItem(itemId)) {
       return;
     }
     this.inventory.addItem(itemId, count);
     this.setFlag('ui.itemReward', { itemId, count });
+  }
+
+  spawnArchipelagoTrap(trapId: string): boolean {
+    if (trapId === 'freak-dennis') {
+      this.bosses.spawnBoss(this.snake.currentRoomId, 'freak-dennis');
+      return true;
+    }
+    if (trapId === 'freaker-dennis') {
+      this.bosses.spawnBoss(this.snake.currentRoomId, 'freaker-dennis');
+      return true;
+    }
+    if (trapId === 'jason-statham') {
+      this.bosses.spawnJasonStatham(this.snake.currentRoomId);
+      return true;
+    }
+    return false;
   }
 
   useInventoryItem(itemId: string): {
@@ -10384,10 +10462,27 @@ export class SnakeGame implements QuestRuntime {
   }
 
   addCardToCollection(cardId: CardId, count = 1): void {
+    if (this.isArchipelagoModeActive() && AP_CARD_LOCATION_KEY_BY_CARD_ID[cardId]) {
+      this.queueArchipelagoLocalRewardCheck({ kind: 'card', id: cardId });
+      this.setFlag('ui.cardReward', { cardId, count: 0 });
+      return;
+    }
     const collection = this.getFlag<CardCollection>('cards.collection') ?? {};
     const next = { ...collection, [cardId]: Math.max(0, Number(collection[cardId] ?? 0)) + count };
     this.setFlag('cards.collection', next);
     this.setFlag('ui.cardReward', { cardId, count });
+  }
+
+  grantCard(cardId: string, count = 1): void {
+    if (getCardDefinition(cardId as CardId)) {
+      const collection = this.getFlag<CardCollection>('cards.collection') ?? {};
+      const next = {
+        ...collection,
+        [cardId]: Math.max(0, Number(collection[cardId as CardId] ?? 0)) + count,
+      };
+      this.setFlag('cards.collection', next);
+      this.setFlag('ui.cardReward', { cardId, count });
+    }
   }
 
   private migrateWorldEffectCardsToItems(): void {
