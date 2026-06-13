@@ -18,11 +18,57 @@ const CLIENT_STATUS_GOAL = 30;
 
 type ArchipelagoPacket = Record<string, unknown> & { cmd?: string };
 
-function normalizeServerUrl(serverUrl: string): string {
+export interface NormalizedArchipelagoUrl {
+  url: string;
+  warning?: string;
+}
+
+export interface ArchipelagoUrlParseError {
+  error: string;
+}
+
+function getPageProtocol(): string {
+  return typeof window !== 'undefined' ? window.location.protocol : 'http:';
+}
+
+export function normalizeArchipelagoServerUrl(
+  serverUrl: string,
+  pageProtocol = getPageProtocol(),
+): NormalizedArchipelagoUrl | ArchipelagoUrlParseError {
   const trimmed = serverUrl.trim();
-  if (!trimmed) return 'ws://localhost:38281';
-  if (/^wss?:\/\//i.test(trimmed)) return trimmed;
-  return `ws://${trimmed}`;
+  const defaultProtocol = pageProtocol === 'https:' ? 'wss:' : 'ws:';
+  const raw = trimmed || 'localhost:38281';
+
+  if (/^[a-z][a-z0-9+.-]*\/\//i.test(raw)) {
+    return { error: `Invalid Archipelago server URL: ${raw}` };
+  }
+
+  let candidate = raw;
+  if (/^https?:\/\//i.test(raw)) {
+    candidate = raw.replace(/^http:/i, 'ws:').replace(/^https:/i, 'wss:');
+  } else if (!/^wss?:\/\//i.test(raw)) {
+    candidate = `${defaultProtocol}//${raw}`;
+  }
+
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    return { error: `Invalid Archipelago server URL: ${raw}` };
+  }
+
+  if (parsed.protocol !== 'ws:' && parsed.protocol !== 'wss:') {
+    return { error: 'Archipelago server URL must use ws://, wss://, http://, or https://.' };
+  }
+
+  const url = parsed.toString();
+  if (pageProtocol === 'https:' && parsed.protocol === 'ws:') {
+    return {
+      url,
+      warning: 'This page is HTTPS. Use a wss:// Archipelago endpoint, or run the game locally.',
+    };
+  }
+  return { url };
 }
 
 function stringifyPrintJson(parts: unknown): string {
@@ -69,8 +115,17 @@ export class ArchipelagoClient {
   connect(config: ArchipelagoConnectionConfig): void {
     this.disconnect(false);
     this.manualDisconnect = false;
+    const normalized = normalizeArchipelagoServerUrl(config.serverUrl);
+    if ('error' in normalized) {
+      this.setStatus('error', normalized.error);
+      return;
+    }
+    if (normalized.warning) {
+      this.setStatus('error', normalized.warning);
+      return;
+    }
     this.config = {
-      serverUrl: normalizeServerUrl(config.serverUrl),
+      serverUrl: normalized.url,
       slotName: config.slotName.trim(),
       password: config.password,
     };
@@ -78,16 +133,6 @@ export class ArchipelagoClient {
     if (!this.config.slotName) {
       this.setStatus('error', 'Slot name is required.');
       return;
-    }
-
-    if (
-      typeof window !== 'undefined' &&
-      window.location.protocol === 'https:' &&
-      this.config.serverUrl.startsWith('ws://')
-    ) {
-      this.events.onLog?.(
-        'This page is HTTPS. Browser security may block insecure ws:// Archipelago connections.',
-      );
     }
 
     const WebSocketCtor = globalThis.WebSocket;
