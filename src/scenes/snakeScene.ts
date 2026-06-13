@@ -239,6 +239,7 @@ type TitleMenuMode =
   | 'credits'
   | 'multiplayer';
 type ArchipelagoTitleField = 'serverUrl' | 'slotName' | 'password';
+type ArchipelagoTitleControl = ArchipelagoTitleField | 'connect' | 'disconnect' | 'back';
 const CHARACTER_MODE_STORAGE_KEY = 'snakeGameCharacterMode';
 const RACCOON_STASH_POPUP_TEXTURE_KEY = 'raccoon-popup-stash';
 const RACCOON_SAD_POPUP_TEXTURE_KEY = 'raccoon-popup-sad';
@@ -1644,12 +1645,20 @@ export default class SnakeScene extends Phaser.Scene {
   private archipelagoPassword = '';
   private archipelagoStatus: ArchipelagoConnectionStatus = 'disconnected';
   private archipelagoModeActive = false;
-  private archipelagoFocusedField: ArchipelagoTitleField = 'serverUrl';
+  private archipelagoFocusedControl: ArchipelagoTitleControl = 'serverUrl';
+  private archipelagoCarets: Record<ArchipelagoTitleField, number> = {
+    serverUrl: 0,
+    slotName: 0,
+    password: 0,
+  };
   private archipelagoServerUrlText: Phaser.GameObjects.Text | null = null;
   private archipelagoSlotNameText: Phaser.GameObjects.Text | null = null;
   private archipelagoPasswordText: Phaser.GameObjects.Text | null = null;
   private archipelagoStatusText: Phaser.GameObjects.Text | null = null;
   private archipelagoLogText: Phaser.GameObjects.Text | null = null;
+  private archipelagoConnectButton: Phaser.GameObjects.Container | null = null;
+  private archipelagoDisconnectButton: Phaser.GameObjects.Container | null = null;
+  private archipelagoBackButton: Phaser.GameObjects.Container | null = null;
   private readonly archipelagoLogLines: string[] = [];
   private readonly archipelagoTrapQueue: ArchipelagoTrapId[] = [];
   private titleCreditsMode = false;
@@ -4990,6 +4999,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.archipelagoServerUrl = storedArchipelago.serverUrl;
     this.archipelagoSlotName = storedArchipelago.slotName;
     this.archipelagoPassword = '';
+    this.archipelagoFocusedControl = 'serverUrl';
+    this.syncArchipelagoCaretToValue('serverUrl');
+    this.syncArchipelagoCaretToValue('slotName');
+    this.syncArchipelagoCaretToValue('password');
     const createApField = (
       field: ArchipelagoTitleField,
       label: string,
@@ -5008,8 +5021,9 @@ export default class SnakeScene extends Phaser.Scene {
         .setOrigin(0.5)
         .setInteractive({ useHandCursor: true });
       text.setData('apLabel', label);
-      text.on('pointerdown', () => {
-        this.archipelagoFocusedField = field;
+      text.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        this.archipelagoFocusedControl = field;
+        this.setArchipelagoCaretFromPointer(field, pointer.worldX);
         this.refreshArchipelagoTitleText();
       });
       return text;
@@ -5035,6 +5049,33 @@ export default class SnakeScene extends Phaser.Scene {
         wordWrap: { width: 360 },
       })
       .setOrigin(0.5, 0);
+    this.archipelagoConnectButton = this.createTitleButton(
+      width / 2 - 215,
+      height / 2 + 142,
+      'Connect',
+      () => {
+        this.archipelagoFocusedControl = 'connect';
+        this.refreshArchipelagoTitleText();
+        this.connectArchipelagoFromTitle();
+      },
+    );
+    this.archipelagoDisconnectButton = this.createTitleButton(
+      width / 2 + 5,
+      height / 2 + 142,
+      'Disconnect',
+      () => {
+        this.archipelagoFocusedControl = 'disconnect';
+        this.refreshArchipelagoTitleText();
+        this.disconnectArchipelagoFromTitle();
+      },
+    );
+    this.archipelagoBackButton = this.createTitleButton(width / 2 - 105, height / 2 + 192, 'Back', () =>
+      {
+        this.archipelagoFocusedControl = 'back';
+        this.refreshArchipelagoTitleText();
+        this.showTitleScreen('main');
+      },
+    );
     this.refreshArchipelagoTitleText();
     multiplayer.add([
       multiplayerPanel,
@@ -5045,15 +5086,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.archipelagoPasswordText,
       this.archipelagoStatusText,
       this.archipelagoLogText,
-      this.createTitleButton(width / 2 - 215, height / 2 + 142, 'Connect', () =>
-        this.connectArchipelagoFromTitle(),
-      ),
-      this.createTitleButton(width / 2 + 5, height / 2 + 142, 'Disconnect', () =>
-        this.disconnectArchipelagoFromTitle(),
-      ),
-      this.createTitleButton(width / 2 - 105, height / 2 + 192, 'Back', () =>
-        this.showTitleScreen('main'),
-      ),
+      this.archipelagoConnectButton,
+      this.archipelagoDisconnectButton,
+      this.archipelagoBackButton,
     ]);
 
     this.titleMessageText = this.add
@@ -5309,60 +5344,197 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     if (event.key === 'Enter') {
-      this.connectArchipelagoFromTitle();
+      if (this.archipelagoFocusedControl === 'disconnect') {
+        this.disconnectArchipelagoFromTitle();
+      } else if (this.archipelagoFocusedControl === 'back') {
+        this.showTitleScreen('main');
+      } else {
+        this.connectArchipelagoFromTitle();
+      }
       return true;
     }
 
     if (event.key === 'Escape') {
-      this.showTitleScreen('main');
+    if (this.getFocusedArchipelagoTextField()) {
+      this.archipelagoFocusedControl = 'back';
+      this.refreshArchipelagoTitleText();
+      } else {
+        this.showTitleScreen('main');
+      }
+      return true;
+    }
+
+    if (event.key === 'ArrowUp') {
+      this.focusNextArchipelagoControl(-1);
+      return true;
+    }
+
+    if (event.key === 'ArrowDown' || event.key === 'Tab') {
+      this.focusNextArchipelagoControl(event.shiftKey ? -1 : 1);
+      return true;
+    }
+
+    const field = this.getFocusedArchipelagoTextField();
+    if (!field) {
+      return ['ArrowLeft', 'ArrowRight', 'Home', 'End', 'Backspace', 'Delete'].includes(event.key);
+    }
+    if (event.ctrlKey && event.key.toLowerCase() === 'v') {
+      void navigator.clipboard
+        ?.readText()
+        .then((text) => {
+          this.insertArchipelagoText(field, text.replace(/[\r\n]+/g, ' '));
+        })
+        .catch(() => undefined);
       return true;
     }
 
     if (event.key === 'Backspace') {
-      this.updateArchipelagoFocusedField((value) => value.slice(0, -1));
+      this.deleteArchipelagoText(field, -1);
       return true;
     }
-
-    if (event.key === 'Tab') {
-      this.focusNextArchipelagoField(event.shiftKey ? -1 : 1);
+    if (event.key === 'Delete') {
+      this.deleteArchipelagoText(field, 1);
       return true;
     }
-
+    if (event.key === 'ArrowLeft') {
+      this.moveArchipelagoCaret(field, -1);
+      return true;
+    }
+    if (event.key === 'ArrowRight') {
+      this.moveArchipelagoCaret(field, 1);
+      return true;
+    }
+    if (event.key === 'Home') {
+      this.archipelagoCarets[field] = 0;
+      this.refreshArchipelagoTitleText();
+      return true;
+    }
+    if (event.key === 'End') {
+      this.syncArchipelagoCaretToValue(field);
+      this.refreshArchipelagoTitleText();
+      return true;
+    }
     if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
-      const maxLength = this.archipelagoFocusedField === 'serverUrl' ? 96 : 32;
-      this.updateArchipelagoFocusedField((value) =>
-        value.length < maxLength ? `${value}${event.key}` : value,
-      );
+      this.insertArchipelagoText(field, event.key);
       return true;
     }
 
-    return ['Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key);
+    return true;
   }
 
-  private focusNextArchipelagoField(direction: 1 | -1): void {
-    const fields: ArchipelagoTitleField[] = ['serverUrl', 'slotName', 'password'];
-    const index = fields.indexOf(this.archipelagoFocusedField);
-    this.archipelagoFocusedField =
-      fields[(index + direction + fields.length) % fields.length] ?? 'serverUrl';
+  private getFocusedArchipelagoTextField(): ArchipelagoTitleField | null {
+    return this.archipelagoFocusedControl === 'serverUrl' ||
+      this.archipelagoFocusedControl === 'slotName' ||
+      this.archipelagoFocusedControl === 'password'
+      ? this.archipelagoFocusedControl
+      : null;
+  }
+
+  private focusNextArchipelagoControl(direction: 1 | -1): void {
+    const controls: ArchipelagoTitleControl[] = [
+      'serverUrl',
+      'slotName',
+      'password',
+      'connect',
+      'disconnect',
+      'back',
+    ];
+    const index = controls.indexOf(this.archipelagoFocusedControl);
+    this.archipelagoFocusedControl =
+      controls[(index + direction + controls.length) % controls.length] ?? 'serverUrl';
+    const field = this.getFocusedArchipelagoTextField();
+    if (field) {
+      this.clampArchipelagoCaret(field);
+    }
     this.refreshArchipelagoTitleText();
   }
 
-  private updateArchipelagoFocusedField(update: (value: string) => string): void {
-    if (this.archipelagoFocusedField === 'serverUrl') {
-      this.archipelagoServerUrl = update(this.archipelagoServerUrl);
-    } else if (this.archipelagoFocusedField === 'slotName') {
-      this.archipelagoSlotName = update(this.archipelagoSlotName);
+  private getArchipelagoFieldValue(field: ArchipelagoTitleField): string {
+    if (field === 'serverUrl') return this.archipelagoServerUrl;
+    if (field === 'slotName') return this.archipelagoSlotName;
+    return this.archipelagoPassword;
+  }
+
+  private setArchipelagoFieldValue(field: ArchipelagoTitleField, value: string): void {
+    if (field === 'serverUrl') {
+      this.archipelagoServerUrl = value;
+    } else if (field === 'slotName') {
+      this.archipelagoSlotName = value;
     } else {
-      this.archipelagoPassword = update(this.archipelagoPassword);
+      this.archipelagoPassword = value;
     }
+  }
+
+  private getArchipelagoFieldMaxLength(field: ArchipelagoTitleField): number {
+    return field === 'serverUrl' ? 128 : 48;
+  }
+
+  private clampArchipelagoCaret(field: ArchipelagoTitleField): void {
+    const value = this.getArchipelagoFieldValue(field);
+    this.archipelagoCarets[field] = Phaser.Math.Clamp(this.archipelagoCarets[field], 0, value.length);
+  }
+
+  private syncArchipelagoCaretToValue(field: ArchipelagoTitleField): void {
+    this.archipelagoCarets[field] = this.getArchipelagoFieldValue(field).length;
+  }
+
+  private insertArchipelagoText(field: ArchipelagoTitleField, text: string): void {
+    const value = this.getArchipelagoFieldValue(field);
+    const caret = Phaser.Math.Clamp(this.archipelagoCarets[field], 0, value.length);
+    const available = Math.max(0, this.getArchipelagoFieldMaxLength(field) - value.length);
+    const inserted = text.slice(0, available);
+    this.setArchipelagoFieldValue(field, `${value.slice(0, caret)}${inserted}${value.slice(caret)}`);
+    this.archipelagoCarets[field] = caret + inserted.length;
+    this.refreshArchipelagoTitleText();
+  }
+
+  private deleteArchipelagoText(field: ArchipelagoTitleField, direction: -1 | 1): void {
+    const value = this.getArchipelagoFieldValue(field);
+    const caret = Phaser.Math.Clamp(this.archipelagoCarets[field], 0, value.length);
+    if (direction < 0 && caret > 0) {
+      this.setArchipelagoFieldValue(field, `${value.slice(0, caret - 1)}${value.slice(caret)}`);
+      this.archipelagoCarets[field] = caret - 1;
+    } else if (direction > 0 && caret < value.length) {
+      this.setArchipelagoFieldValue(field, `${value.slice(0, caret)}${value.slice(caret + 1)}`);
+    }
+    this.refreshArchipelagoTitleText();
+  }
+
+  private moveArchipelagoCaret(field: ArchipelagoTitleField, direction: -1 | 1): void {
+    this.archipelagoCarets[field] += direction;
+    this.clampArchipelagoCaret(field);
+    this.refreshArchipelagoTitleText();
+  }
+
+  private setArchipelagoCaretFromPointer(field: ArchipelagoTitleField, pointerX: number): void {
+    const textObject =
+      field === 'serverUrl'
+        ? this.archipelagoServerUrlText
+        : field === 'slotName'
+          ? this.archipelagoSlotNameText
+          : this.archipelagoPasswordText;
+    const bounds = textObject?.getBounds();
+    if (!bounds) {
+      this.syncArchipelagoCaretToValue(field);
+      return;
+    }
+    const prefixLength = `${this.archipelagoFocusedControl === field ? '> ' : '  '}${field === 'serverUrl' ? 'Server' : field === 'slotName' ? 'Slot' : 'Password'}: `.length;
+    const charWidth = 8.4;
+    const textLeft = bounds.x + 12 + prefixLength * charWidth;
+    this.archipelagoCarets[field] = Math.round((pointerX - textLeft) / charWidth);
+    this.clampArchipelagoCaret(field);
     this.refreshArchipelagoTitleText();
   }
 
   private refreshArchipelagoTitleText(): void {
     const renderField = (field: ArchipelagoTitleField, label: string, value: string): string => {
-      const selected = this.archipelagoFocusedField === field;
+      const selected = this.archipelagoFocusedControl === field;
       const displayValue = field === 'password' ? '*'.repeat(value.length) : value;
-      return `${selected ? '> ' : '  '}${label}: ${displayValue}${selected ? '|' : ''}`;
+      const caret = Phaser.Math.Clamp(this.archipelagoCarets[field], 0, displayValue.length);
+      const displayWithCaret = selected
+        ? `${displayValue.slice(0, caret)}|${displayValue.slice(caret)}`
+        : displayValue;
+      return `${selected ? '> ' : '  '}${label}: ${displayWithCaret}`;
     };
     this.archipelagoServerUrlText?.setText(
       renderField('serverUrl', 'Server', this.archipelagoServerUrl),
@@ -5381,6 +5553,12 @@ export default class SnakeScene extends Phaser.Scene {
       }`,
     );
     this.archipelagoLogText?.setText(this.archipelagoLogLines.slice(-4).join('\n'));
+    this.setTitleButtonSelected(this.archipelagoConnectButton, this.archipelagoFocusedControl === 'connect');
+    this.setTitleButtonSelected(
+      this.archipelagoDisconnectButton,
+      this.archipelagoFocusedControl === 'disconnect',
+    );
+    this.setTitleButtonSelected(this.archipelagoBackButton, this.archipelagoFocusedControl === 'back');
   }
 
   private connectArchipelagoFromTitle(): void {
