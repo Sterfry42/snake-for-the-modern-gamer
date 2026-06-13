@@ -7,7 +7,7 @@ ITEM_BASE_ID = 913000000
 item_table = {
     "Score Bundle +5": ITEM_BASE_ID + 1,
     "Score Bundle +10": ITEM_BASE_ID + 2,
-    "Victory": None,
+    "Victory": ITEM_BASE_ID + 3,
 }
 
 
@@ -20,7 +20,6 @@ item_groups = {
 
 
 item_pool = [
-    "Score Bundle +5",
     "Score Bundle +5",
     "Score Bundle +5",
     "Score Bundle +10",

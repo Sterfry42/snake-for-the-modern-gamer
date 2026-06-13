@@ -13,6 +13,7 @@ import type {
 } from './archipelagoConnectionTypes.js';
 
 const ARCHIPELAGO_PROTOCOL_VERSION = { major: 0, minor: 6, build: 0, class: 'Version' };
+const CLIENT_STATUS_PLAYING = 20;
 const CLIENT_STATUS_GOAL = 30;
 
 type ArchipelagoPacket = Record<string, unknown> & { cmd?: string };
@@ -59,6 +60,10 @@ export class ArchipelagoClient {
 
   getStatus(): ArchipelagoConnectionStatus {
     return this.status;
+  }
+
+  isConnected(): boolean {
+    return this.status === 'connected';
   }
 
   connect(config: ArchipelagoConnectionConfig): void {
@@ -127,18 +132,31 @@ export class ArchipelagoClient {
   sendLocationChecks(locationIds: number[]): void {
     const uniqueIds = [...new Set(locationIds.filter((id) => Number.isInteger(id)))];
     if (uniqueIds.length === 0) return;
+    if (!this.isConnected()) {
+      console.info('[AP] skipped LocationChecks before Connected', uniqueIds);
+      return;
+    }
+    console.info('[AP] sending LocationChecks', uniqueIds);
     this.send([{ cmd: 'LocationChecks', locations: uniqueIds }]);
   }
 
   sync(): void {
+    if (!this.isConnected()) return;
     this.send([{ cmd: 'Sync' }]);
   }
 
+  sendPlaying(): void {
+    if (!this.isConnected()) return;
+    this.send([{ cmd: 'StatusUpdate', status: CLIENT_STATUS_PLAYING }]);
+  }
+
   sendGoalComplete(): void {
+    if (!this.isConnected()) return;
     this.send([{ cmd: 'StatusUpdate', status: CLIENT_STATUS_GOAL }]);
   }
 
   private handleSocketMessage(data: unknown): void {
+    console.info('[AP] recv raw', data);
     let packets: ArchipelagoPacket[];
     try {
       const parsed = JSON.parse(String(data)) as unknown;
@@ -169,6 +187,9 @@ export class ArchipelagoClient {
       case 'ConnectionRefused':
         this.setStatus('refused', this.getRefusalMessage(packet));
         break;
+      case 'InvalidPacket':
+        this.setStatus('error', this.getInvalidPacketMessage(packet));
+        break;
       case 'ReceivedItems':
         this.handleReceivedItems(packet);
         break;
@@ -176,6 +197,9 @@ export class ArchipelagoClient {
         this.handlePrintJson(packet);
         break;
       default:
+        if (typeof packet.cmd === 'string') {
+          console.info('[AP] unhandled packet', packet.cmd, packet);
+        }
         break;
     }
   }
@@ -186,6 +210,7 @@ export class ArchipelagoClient {
       seedName,
       checkedLocationIds: [],
     };
+    console.info('[AP] RoomInfo received', packet);
     this.send([{ cmd: 'GetDataPackage', games: [AP_PHASE_1_GAME_NAME] }]);
     this.sendConnect();
   }
@@ -197,10 +222,11 @@ export class ArchipelagoClient {
         cmd: 'Connect',
         game: AP_PHASE_1_GAME_NAME,
         name: this.config.slotName,
-        password: this.config.password?.trim() || undefined,
+        password: this.config.password?.trim() ?? '',
         uuid: this.getClientUuid(),
         version: ARCHIPELAGO_PROTOCOL_VERSION,
         items_handling: 7,
+        slot_data: true,
         tags: ['AP'],
       },
     ]);
@@ -249,7 +275,8 @@ export class ArchipelagoClient {
           : undefined,
     };
     this.details = details;
-    this.setStatus('connected', 'Connected.');
+    this.setStatus('connected', 'Connected!');
+    this.sendPlaying();
     this.events.onConnected?.(details);
     this.sync();
   }
@@ -306,9 +333,12 @@ export class ArchipelagoClient {
 
   private send(packets: ArchipelagoPacket[]): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      console.info('[AP] skipped send before WebSocket open', packets);
       return;
     }
-    this.socket.send(JSON.stringify(packets));
+    const encoded = JSON.stringify(packets);
+    console.info('[AP] send raw', encoded);
+    this.socket.send(encoded);
   }
 
   private setStatus(status: ArchipelagoConnectionStatus, message?: string): void {
@@ -319,6 +349,16 @@ export class ArchipelagoClient {
   private getRefusalMessage(packet: ArchipelagoPacket): string {
     const errors = Array.isArray(packet.errors) ? packet.errors.map(String).join(', ') : '';
     return errors ? `Connection refused: ${errors}` : 'Connection refused.';
+  }
+
+  private getInvalidPacketMessage(packet: ArchipelagoPacket): string {
+    const text =
+      typeof packet.text === 'string'
+        ? packet.text
+        : typeof packet.original_cmd === 'string'
+          ? `Invalid packet: ${packet.original_cmd}`
+          : 'Invalid Archipelago packet.';
+    return text;
   }
 
   private getClientUuid(): string {

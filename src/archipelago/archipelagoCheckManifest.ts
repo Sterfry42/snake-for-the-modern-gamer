@@ -5,7 +5,7 @@ export type ArchipelagoPhase1CheckKey =
   | 'length_10'
   | 'first_apple_eaten';
 
-export type ArchipelagoPhase1ItemKey = 'score_bundle_5' | 'score_bundle_10';
+export type ArchipelagoPhase1ItemKey = 'score_bundle_5' | 'score_bundle_10' | 'victory';
 
 export interface ArchipelagoLocationDefinition {
   key: ArchipelagoPhase1CheckKey;
@@ -65,6 +65,12 @@ export const AP_PHASE_1_ITEMS = {
     name: 'Score Bundle +10',
     id: AP_PHASE_1_ITEM_BASE_ID + 2,
     amount: 10,
+  },
+  victory: {
+    key: 'victory',
+    name: 'Victory',
+    id: AP_PHASE_1_ITEM_BASE_ID + 3,
+    amount: 0,
   },
 } as const satisfies Record<string, ArchipelagoItemDefinition>;
 

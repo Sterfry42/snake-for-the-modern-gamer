@@ -19,6 +19,13 @@ export function applyArchipelagoReceivedItem(
     };
   }
 
+  if (definition.key === 'victory') {
+    return {
+      applied: true,
+      message: 'Goal complete.',
+    };
+  }
+
   game.addScore(definition.amount);
   return {
     applied: true,

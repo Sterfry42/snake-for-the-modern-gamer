@@ -22,6 +22,7 @@ describe('Archipelago Phase 1 manifest', () => {
   it('keeps the required Phase 1 item IDs stable', () => {
     expect(AP_PHASE_1_ITEMS.scoreBundle5.id).toBe(913000001);
     expect(AP_PHASE_1_ITEMS.scoreBundle10.id).toBe(913000002);
+    expect(AP_PHASE_1_ITEMS.victory.id).toBe(913000003);
   });
 
   it('does not duplicate location or item names, keys, or IDs', () => {

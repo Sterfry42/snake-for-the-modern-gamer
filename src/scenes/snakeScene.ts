@@ -1631,6 +1631,7 @@ export default class SnakeScene extends Phaser.Scene {
   private archipelagoSlotName = 'Player';
   private archipelagoPassword = '';
   private archipelagoStatus: ArchipelagoConnectionStatus = 'disconnected';
+  private archipelagoModeActive = false;
   private archipelagoFocusedField: ArchipelagoTitleField = 'serverUrl';
   private archipelagoServerUrlText: Phaser.GameObjects.Text | null = null;
   private archipelagoSlotNameText: Phaser.GameObjects.Text | null = null;
@@ -2393,7 +2394,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
     this.lastJuicedScore = this.snakeGame.getScore();
     this.lastJuicedLength = this.snakeGame.getSnakeLength();
-    if (this.archipelagoRunSave) {
+    if (this.archipelagoModeActive && this.archipelagoRunSave) {
       this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
       this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
       this.saveArchipelagoRunState();
@@ -2440,7 +2441,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.featureManager.call('onActionStep', this);
 
     this.currentApple = result.apple.current ?? null;
-    if (this.archipelagoRunSave) {
+    if (this.archipelagoModeActive && this.archipelagoRunSave) {
       this.archipelagoCheckTracker.processStep(this.snakeGame, result);
       this.saveArchipelagoRunState();
     }
@@ -4945,18 +4946,18 @@ export default class SnakeScene extends Phaser.Scene {
 
     const multiplayer = this.add.container(0, 0).setVisible(false);
     const multiplayerPanel = this.add
-      .rectangle(width / 2, height / 2 + 42, 430, 380, 0x071019, 0.9)
+      .rectangle(width / 2, height / 2 + 38, 430, 400, 0x071019, 0.9)
       .setStrokeStyle(2, 0x5dd6a2)
       .setOrigin(0.5);
     const multiplayerTitle = this.add
-      .text(width / 2, height / 2 - 124, 'Archipelago', {
+      .text(width / 2, height / 2 - 132, 'Archipelago', {
         fontFamily: "Georgia, 'Times New Roman', serif",
         fontSize: '26px',
         color: '#fff4cf',
       })
       .setOrigin(0.5);
     const onlineDisabled = this.add
-      .text(width / 2, height / 2 - 92, 'Online Multiplayer: under construction', {
+      .text(width / 2, height / 2 - 101, 'Online Multiplayer: under construction', {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#8b939f',
@@ -4990,11 +4991,11 @@ export default class SnakeScene extends Phaser.Scene {
       });
       return text;
     };
-    this.archipelagoServerUrlText = createApField('serverUrl', 'Server', height / 2 - 50);
-    this.archipelagoSlotNameText = createApField('slotName', 'Slot', height / 2 - 6);
-    this.archipelagoPasswordText = createApField('password', 'Password', height / 2 + 38);
+    this.archipelagoServerUrlText = createApField('serverUrl', 'Server', height / 2 - 66);
+    this.archipelagoSlotNameText = createApField('slotName', 'Slot', height / 2 - 24);
+    this.archipelagoPasswordText = createApField('password', 'Password', height / 2 + 18);
     this.archipelagoStatusText = this.add
-      .text(width / 2, height / 2 + 80, 'Status: Disconnected', {
+      .text(width / 2, height / 2 + 58, 'Status: Disconnected', {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#c8ffe1',
@@ -5003,7 +5004,7 @@ export default class SnakeScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     this.archipelagoLogText = this.add
-      .text(width / 2, height / 2 + 126, '', {
+      .text(width / 2, height / 2 + 84, '', {
         fontFamily: 'monospace',
         fontSize: '11px',
         color: '#d7f7ff',
@@ -5021,13 +5022,13 @@ export default class SnakeScene extends Phaser.Scene {
       this.archipelagoPasswordText,
       this.archipelagoStatusText,
       this.archipelagoLogText,
-      this.createTitleButton(width / 2 - 105, height / 2 + 196, 'Connect', () =>
+      this.createTitleButton(width / 2 - 215, height / 2 + 142, 'Connect', () =>
         this.connectArchipelagoFromTitle(),
       ),
-      this.createTitleButton(width / 2 - 105, height / 2 + 244, 'Disconnect', () =>
+      this.createTitleButton(width / 2 + 5, height / 2 + 142, 'Disconnect', () =>
         this.disconnectArchipelagoFromTitle(),
       ),
-      this.createTitleButton(width / 2 - 105, height / 2 + 292, 'Back', () =>
+      this.createTitleButton(width / 2 - 105, height / 2 + 192, 'Back', () =>
         this.showTitleScreen('main'),
       ),
     ]);
@@ -5356,7 +5357,7 @@ export default class SnakeScene extends Phaser.Scene {
           : ''
       }`,
     );
-    this.archipelagoLogText?.setText(this.archipelagoLogLines.slice(-5).join('\n'));
+    this.archipelagoLogText?.setText(this.archipelagoLogLines.slice(-4).join('\n'));
   }
 
   private connectArchipelagoFromTitle(): void {
@@ -5385,14 +5386,17 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleArchipelagoStatus(status: ArchipelagoConnectionStatus, message?: string): void {
     this.archipelagoStatus = status;
+    if (status !== 'connected') {
+      this.archipelagoModeActive = false;
+    }
     if (message) {
       this.appendArchipelagoLog(message);
-      this.titleMessageText?.setText(message);
     }
     this.refreshArchipelagoTitleText();
   }
 
   private handleArchipelagoConnected(details: ArchipelagoConnectionDetails): void {
+    this.archipelagoModeActive = true;
     this.archipelagoRunSave = this.archipelagoStorage.loadRun({
       serverUrl: this.archipelagoServerUrl,
       slotName: this.archipelagoSlotName,
@@ -5416,6 +5420,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.saveArchipelagoRunState();
     this.archipelagoClient.sendLocationChecks(this.archipelagoRunSave.checkedLocationIds);
+    this.archipelagoClient.sync();
     this.appendArchipelagoLog('Connected to Archipelago.');
   }
 

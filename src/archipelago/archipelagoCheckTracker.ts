@@ -41,6 +41,11 @@ export class ArchipelagoCheckTracker {
   }
 
   processStep(game: SnakeGame, result: StepResult): void {
+    console.info('[AP] processStep', {
+      score: game.getScore(),
+      length: game.getSnakeLength(),
+      appleEaten: result.apple.eaten,
+    });
     this.reconcileCurrentState(game);
     if (result.apple.eaten) {
       this.markChecked('first_apple_eaten');
@@ -63,6 +68,7 @@ export class ArchipelagoCheckTracker {
       return;
     }
     this.checkedLocationIds.add(location.id);
+    console.info('[AP] checked', location.id, location.name);
     this.events.onCheck?.(location.id, location.name);
 
     if (key === AP_PHASE_1_GOAL_CHECK_KEY && !this.completedGoal) {

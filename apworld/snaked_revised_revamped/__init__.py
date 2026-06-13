@@ -63,9 +63,7 @@ class SnakedWorld(World):
         return {
             "phase": 1,
             "location_name_to_id": location_table,
-            "item_name_to_id": {
-                name: code for name, code in item_table.items() if code is not None
-            },
+            "item_name_to_id": item_table,
             "checks": {
                 "score_1": location_table["Reach Score 1"],
                 "score_10": location_table["Reach Score 10"],
@@ -76,6 +74,7 @@ class SnakedWorld(World):
             "items": {
                 "score_bundle_5": item_table["Score Bundle +5"],
                 "score_bundle_10": item_table["Score Bundle +10"],
+                "victory": item_table["Victory"],
             },
             "goal": "score_10",
         }
