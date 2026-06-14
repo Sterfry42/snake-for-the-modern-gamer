@@ -211,6 +211,7 @@ export interface RoomSnapshot {
   };
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   minecraftBlocks?: Record<string, string>;
+  minecraftCropData?: Map<string, { stage: number; growthTicks: number }>;
   vegetation?: VegetationInstance[];
   biomeId: BiomeId;
   biomeTitle: string;

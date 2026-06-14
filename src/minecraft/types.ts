@@ -80,6 +80,23 @@ export interface MinecraftPlayerState {
   spawnRoomId: string;
   inventory: Array<{ itemId: string; count: number }>;
   equippedTool: string | null;
+  tickDelayScalar?: number;
+  strengthBonus?: number;
+  regenerationActive?: boolean;
+  regenerationTicks?: number;
+  regenerationRate?: number;
+  fireResistant?: boolean;
+  waterBreathing?: boolean;
+  invisible?: boolean;
+  nightVision?: boolean;
+  nightVisionIntensity?: number;
+  jumpBoost?: boolean;
+  jumpBoostLevel?: number;
+  absorptionHearts?: number;
+  hasteActive?: boolean;
+  damageResistance?: boolean;
+  enchantedItems?: Array<any>;
+  fishingRodDurability?: Record<string, number>;
 }
 
 // ─── Chunk System ────────────────────────────────────────────────────────────
@@ -180,4 +197,6 @@ export interface MinecraftSaveData {
     slots: Array<{ itemId: string; count: number }>;
   }>;
   beds: Array<{ x: number; y: number; roomId: string; occupied: boolean }>;
+  creativeMode: boolean;
+  creativePaletteSlot: number;
 }

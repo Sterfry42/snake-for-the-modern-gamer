@@ -12,16 +12,27 @@ import {
 export class MinecraftRenderLayer {
   private graphics: Phaser.GameObjects.Graphics;
   private chunkManager: ChunkManager;
+  private highlightGraphics: Phaser.GameObjects.Graphics | null = null;
+  private hoveredBlockX: number = -1;
+  private hoveredBlockY: number = -1;
   private readonly textureCache: Map<string, string> = new Map();
 
   constructor(scene: SnakeScene, chunkManager: ChunkManager) {
     this.chunkManager = chunkManager;
     this.graphics = scene.add.graphics().setDepth(1);
     this.graphics.setBlendMode(Phaser.BlendModes.NORMAL);
+    this.highlightGraphics = scene.add.graphics().setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
+  }
+
+  setHoveredBlock(x: number, y: number): void {
+    if (x === this.hoveredBlockX && y === this.hoveredBlockY) return;
+    this.hoveredBlockX = x;
+    this.hoveredBlockY = y;
   }
 
   render(scene: SnakeScene): void {
     this.graphics.clear();
+    this.highlightGraphics?.clear();
 
     const snakeBody = scene.snakeGame.getSnakeBody();
     if (snakeBody.length === 0) return;
@@ -70,11 +81,18 @@ export class MinecraftRenderLayer {
         this.graphics.fillStyle(hexToNumber(darkenColorStr(colorStr, 0.15)), 0.35);
         this.graphics.fillRect(x + 1, y + cellSize - 3, cellSize - 2, 2);
       }
+
+      // Highlight hovered block
+      if (block.x === this.hoveredBlockX && block.y === this.hoveredBlockY) {
+        this.highlightGraphics?.lineStyle(2, 0xffffff, 0.6);
+        this.highlightGraphics?.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
+      }
     }
   }
 
   destroy(): void {
     this.graphics.destroy();
+    this.highlightGraphics?.destroy();
   }
 
   private parseRoomCoordinates(roomId: string): [number, number] {

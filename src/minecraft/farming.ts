@@ -2,6 +2,8 @@ import type { RoomSnapshot } from '../world/types.js';
 
 const GROWTH_STAGES = 4;
 const GROWTH_TIME_PER_STAGE = 300;
+const PUMPKIN_SPREAD_CHANCE = 0.05;
+const PUMPKIN_SPREAD_INTERVAL = 200;
 
 export interface CropState {
   stage: number;
@@ -26,7 +28,6 @@ export function tryCreateFarmland(
     room.minecraftBlocks = {};
   }
 
-  // Consume a tool use (shovel) — for simplicity, just check player has a shovel
   const hasShovel = ['wooden_shovel', 'stone_shovel', 'iron_shovel'].some(
     (t) => player.getItemCount(t) > 0,
   );
@@ -63,6 +64,11 @@ export function tryPlantSeeds(
   player.removeItem('seeds', 1);
   room.minecraftBlocks[`${x},${y}`] = 'wheat_crop';
 
+  if (!room.minecraftCropData) {
+    room.minecraftCropData = new Map();
+  }
+  room.minecraftCropData.set(`${x},${y}`, { stage: 0, growthTicks: 0 });
+
   return { success: true };
 }
 
@@ -84,11 +90,9 @@ export function tryPlantPumpkin(
     room.minecraftBlocks = {};
   }
 
-  // Check if pumpkin can grow here (needs empty space and adjacent pumpkin)
   const neighbors = [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`];
   const hasPumpkin = neighbors.some((n) => room.minecraftBlocks?.[n] === 'pumpkin');
 
-  // Always allow planting for simplicity (pumpkin block itself can be the "seed")
   if (player.getItemCount('pumpkin_item') <= 0) {
     return { success: false, message: "You don't have a pumpkin to plant." };
   }
@@ -101,45 +105,52 @@ export function tryPlantPumpkin(
 
 export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }): void {
   if (!room.minecraftBlocks) return;
+  if (!room.minecraftCropData) return;
 
-  // Only grow during daytime (tick 5000-15000 is daytime-ish)
+  // Only grow during daytime (tick 2000-13000 covers dawn through dusk)
   if (dayNight.timeOfDay < 2000 || dayNight.timeOfDay > 13000) return;
 
-  for (const [key, blockType] of Object.entries(room.minecraftBlocks)) {
+  for (const [key, cropData] of room.minecraftCropData) {
+    const blockType = room.minecraftBlocks[key];
     if (blockType !== 'wheat_crop') continue;
 
-    const [x, y] = key.split(',').map(Number);
+    // Increment growth ticks - crops grow as long as they're on farmland
+    cropData.growthTicks += 1;
 
-    // Check adjacent farmland for moisture
-    const hasAdjacentFarmland = [
-      `${x - 1},${y}`,
-      `${x + 1},${y}`,
-      `${x},${y - 1}`,
-      `${x},${y + 1}`,
-    ].some((n) => room.minecraftBlocks?.[n] === 'farmland');
+    // Calculate stage based on growth ticks
+    const newStage = Math.min(
+      Math.floor(cropData.growthTicks / GROWTH_TIME_PER_STAGE),
+      GROWTH_STAGES - 1,
+    );
 
-    if (!hasAdjacentFarmland) continue;
-
-    // Random growth chance
-    if (Math.random() < 0.01) {
-      // Check if fully grown
-      const stage = getCropStage(room.minecraftBlocks, key);
-      if (stage < GROWTH_STAGES) {
-        room.minecraftBlocks[key] = 'wheat_crop'; // same block, different stage tracked
-      }
+    if (newStage !== cropData.stage) {
+      cropData.stage = newStage;
     }
   }
-}
 
-function getCropStage(blocks: Record<string, string>, key: string): number {
-  // For simplicity, track growth by counting how many ticks this crop has existed
-  // In a real implementation, we'd track stages in a separate map
-  // Here we'll use a heuristic based on the number of wheat crops that exist
-  let count = 0;
-  for (const v of Object.values(blocks)) {
-    if (v === 'wheat_crop') count++;
+  // Pumpkin spread: check placed pumpkin blocks for spread
+  for (const [key, blockType] of Object.entries(room.minecraftBlocks)) {
+    if (blockType !== 'pumpkin') continue;
+
+    const [px, py] = key.split(',').map(Number);
+    const neighbors = [`${px - 1},${py}`, `${px + 1},${py}`, `${px},${py - 1}`, `${px},${py + 1}`];
+
+    // Only spread during daytime with some randomness
+    if (dayNight.timeOfDay % PUMPKIN_SPREAD_INTERVAL !== 0 || Math.random() > PUMPKIN_SPREAD_CHANCE) continue;
+
+    // Check if adjacent to farmland
+    const hasAdjacentFarmland = neighbors.some((n) => room.minecraftBlocks?.[n] === 'farmland');
+    if (!hasAdjacentFarmland) continue;
+
+    // Find adjacent air blocks to place new pumpkins
+    const airNeighbors = neighbors.filter((n) => !room.minecraftBlocks[n]);
+
+    if (airNeighbors.length === 0) continue;
+
+    // Pick a random air neighbor and place a pumpkin
+    const spreadTo = airNeighbors[Math.floor(Math.random() * airNeighbors.length)];
+    room.minecraftBlocks[spreadTo] = 'pumpkin';
   }
-  return Math.min(count % GROWTH_STAGES, GROWTH_STAGES - 1);
 }
 
 export function tryHarvestCrop(
@@ -148,7 +159,7 @@ export function tryHarvestCrop(
   x: number,
   y: number,
   blockType: string | undefined,
-): { success: boolean; drops?: Array<{ itemId: string; count: number }>; message?: string } {
+): { success: boolean; drops?: Array<{ itemId: string; count: number }>; xp?: number; message?: string } {
   if (!blockType) {
     return { success: false, message: 'Nothing to harvest.' };
   }
@@ -158,7 +169,6 @@ export function tryHarvestCrop(
   }
 
   if (blockType === 'wheat_crop') {
-    // Always drop something
     const drops: Array<{ itemId: string; count: number }> = [];
     const wheatCount = Math.floor(Math.random() * 3) + 1;
     const seedDrop = Math.random() < 0.5 ? 1 : 0;
@@ -170,17 +180,21 @@ export function tryHarvestCrop(
 
     delete room.minecraftBlocks[`${x},${y}`];
 
+    if (room.minecraftCropData) {
+      room.minecraftCropData.delete(`${x},${y}`);
+    }
+
     for (const drop of drops) {
       player.addItem(drop.itemId, drop.count);
     }
 
-    return { success: true, drops };
+    return { success: true, drops, xp: Math.floor(Math.random() * 3) + 1 };
   }
 
   if (blockType === 'pumpkin') {
     delete room.minecraftBlocks[`${x},${y}`];
     player.addItem('pumpkin_item', 1);
-    return { success: true, drops: [{ itemId: 'pumpkin_item', count: 1 }] };
+    return { success: true, drops: [{ itemId: 'pumpkin_item', count: 1 }], xp: 3 };
   }
 
   return { success: false, message: "Can't harvest that." };

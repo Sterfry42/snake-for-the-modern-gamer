@@ -63,6 +63,8 @@ describe('Minecraft Save System', () => {
       furnaces: [],
       chests: [],
       beds: [],
+      creativeMode: false,
+      creativePaletteSlot: 0,
     };
 
     const result = deserializeMinecraftState(data);
@@ -217,5 +219,162 @@ describe('Minecraft Save System', () => {
     expect(data.dirtyChunks).toHaveLength(2);
     expect(data.dirtyChunks[0]!.chunkX).toBe(0);
     expect(data.dirtyChunks[0]!.chunkY).toBe(0);
+  });
+});
+
+describe('Creative Mode - Save/Load', () => {
+  it('should serialize creative mode state', () => {
+    const data = serializeMinecraftState(
+      {
+        health: 20,
+        maxHealth: 20,
+        hunger: 20,
+        maxHunger: 20,
+        xp: 0,
+        xpLevel: 0,
+        armorPoints: 0,
+        spawnX: 0,
+        spawnY: 0,
+        spawnRoomId: '0,0,0',
+        inventory: [],
+        equippedTool: null,
+      },
+      { day: 1, timeOfDay: 0 },
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      false,
+      3,
+    );
+
+    expect(data.creativeMode).toBe(false);
+    expect(data.creativePaletteSlot).toBe(3);
+  });
+
+  it('should serialize with creative mode enabled', () => {
+    const data = serializeMinecraftState(
+      {
+        health: 20,
+        maxHealth: 20,
+        hunger: 20,
+        maxHunger: 20,
+        xp: 0,
+        xpLevel: 0,
+        armorPoints: 0,
+        spawnX: 0,
+        spawnY: 0,
+        spawnRoomId: '0,0,0',
+        inventory: [],
+        equippedTool: null,
+      },
+      { day: 1, timeOfDay: 0 },
+      [],
+      [],
+      [],
+      [],
+      [],
+      [],
+      true,
+      7,
+    );
+
+    expect(data.creativeMode).toBe(true);
+    expect(data.creativePaletteSlot).toBe(7);
+  });
+
+  it('should deserialize creative mode state with defaults for old saves', () => {
+    const oldData: Parameters<typeof deserializeMinecraftState>[0] = {
+      version: '1.0.0',
+      minecraftBlocks: [],
+      playerState: {
+        health: 20,
+        maxHealth: 20,
+        hunger: 20,
+        maxHunger: 20,
+        xp: 0,
+        xpLevel: 0,
+        armorPoints: 0,
+        spawnX: 0,
+        spawnY: 0,
+        spawnRoomId: '0,0,0',
+        inventory: [],
+        equippedTool: null,
+        armorSlots: { head: null, torso: null, legs: null, feet: null },
+      },
+      dayNight: { day: 1, timeOfDay: 0 },
+      mobs: [],
+      dirtyChunks: [],
+      furnaces: [],
+      chests: [],
+      beds: [],
+      creativeMode: true,
+      creativePaletteSlot: 7,
+    };
+
+    const result = deserializeMinecraftState(oldData);
+    expect(result.creativeMode).toBe(true);
+    expect(result.creativePaletteSlot).toBe(7);
+  });
+
+  it('should default creative mode to false for old saves without creative fields', () => {
+    const oldData: any = {
+      version: '1.0.0',
+      minecraftBlocks: [],
+      playerState: {
+        health: 20,
+        maxHealth: 20,
+        hunger: 20,
+        maxHunger: 20,
+        xp: 0,
+        xpLevel: 0,
+        armorPoints: 0,
+        spawnX: 0,
+        spawnY: 0,
+        spawnRoomId: '0,0,0',
+        inventory: [],
+        equippedTool: null,
+        armorSlots: { head: null, torso: null, legs: null, feet: null },
+      },
+      dayNight: { day: 1, timeOfDay: 0 },
+      mobs: [],
+      dirtyChunks: [],
+      furnaces: [],
+      chests: [],
+      beds: [],
+    };
+
+    const result = deserializeMinecraftState(oldData);
+    expect(result.creativeMode).toBe(false);
+    expect(result.creativePaletteSlot).toBe(0);
+  });
+
+  it('should default creative mode in getDefaultSaveData', () => {
+    const data = getDefaultSaveData();
+    expect(data.creativeMode).toBe(false);
+    expect(data.creativePaletteSlot).toBe(0);
+  });
+
+  it('should default creative mode in migrateMinecraftState', () => {
+    const oldState = {
+      health: 18,
+      maxHealth: 20,
+      hunger: 20,
+      maxHunger: 20,
+      xp: 0,
+      xpLevel: 0,
+      armorPoints: 0,
+      spawnX: 0,
+      spawnY: 0,
+      spawnRoomId: '0,0,0',
+      inventory: [],
+      equippedTool: null,
+    };
+
+    const result = migrateMinecraftState(oldState);
+    expect(result.creativeMode).toBe(false);
+    expect(result.creativePaletteSlot).toBe(0);
   });
 });

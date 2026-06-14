@@ -173,4 +173,57 @@ describe('furnace', () => {
       expect(result.success).toBe(true);
     });
   });
+
+  describe('unknown input handling', () => {
+    it('should not process items with no smelting recipe', () => {
+      const furnaces = new Map();
+      tryPlaceFurnace(furnaces, 5, 5, '0,0,0');
+      const furnace = furnaces.get('5,5,0,0,0');
+      // Set up with an unknown input (no smelting recipe for dirt)
+      furnace!.inputItem = 'dirt';
+      furnace!.outputItem = null;
+      furnace!.outputCount = 0;
+      furnace!.fuelItem = 'coal';
+      furnace!.fuelRemaining = 10;
+      furnace!.burning = true;
+
+      tickFurnaces(furnaces, []);
+
+      // The furnace continues burning since outputItem is null
+      // (smelting block only runs when both input AND output are set)
+      const updated = furnaces.get('5,5,0,0,0');
+      expect(updated?.inputItem).toBe('dirt');
+      expect(updated?.burning).toBe(true);
+      expect(updated?.fuelRemaining).toBe(9); // Fuel still burns
+    });
+
+    it('should complete smelting when enough fuel is provided', () => {
+      const furnaces = new Map();
+      tryPlaceFurnace(furnaces, 5, 5, '0,0,0');
+      const player = {
+        getItemCount: (id: string) => (id === 'coal' ? 20 : id === 'raw_iron' ? 5 : 0),
+        removeItem: (id: string) => {
+          if (id === 'coal' || id === 'raw_iron') return true;
+          return false;
+        },
+        addItem: () => {},
+      } as any;
+
+      // Load 3 coal (30 burn time total), then raw_iron
+      tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
+      tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
+      tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
+      tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'raw_iron');
+
+      // Run 20 ticks to complete one smelt (raw_iron takes 20 ticks, coal gives 30 fuel)
+      for (let i = 0; i < 20; i++) {
+        tickFurnaces(furnaces, []);
+      }
+
+      const furnace = furnaces.get('5,5,0,0,0');
+      expect(furnace?.inputItem).toBeNull();
+      expect(furnace?.outputItem).toBe('iron_ingot');
+      expect(furnace?.outputCount).toBe(1);
+    });
+  });
 });

@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   tryBreakBlock,
   tryPlaceBlock,
+  tryBreakBlockCreative,
+  tryPlaceBlockCreative,
   type BreakResult,
   type PlaceResult,
 } from '../blockInteraction.js';
@@ -211,5 +213,99 @@ describe('Block Interaction - Special Tile Protection', () => {
     const result = tryPlaceBlock(scene as any, createMockPlayer(), 5, 5, 'dirt');
     expect(result.success).toBe(false);
     expect(result.message).toContain('goblin');
+  });
+});
+
+describe('Creative Block Breaking', () => {
+  it('should break any block without tool requirements', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      minecraftBlocks: { '5,0': 'diamond_ore' },
+    } as any;
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryBreakBlockCreative(scene as any, 5, 0);
+    expect(result.success).toBe(true);
+    expect(result.droppedItem).toBeUndefined();
+  });
+
+  it('should break special blocks (furnace) in creative mode', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      minecraftBlocks: { '5,0': 'furnace' },
+    } as any;
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryBreakBlockCreative(scene as any, 5, 0);
+    expect(result.success).toBe(true);
+    expect(result.droppedItem).toBeUndefined();
+  });
+
+  it('should fail when no block at position', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      minecraftBlocks: {},
+    } as any;
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryBreakBlockCreative(scene as any, 5, 0);
+    expect(result.success).toBe(false);
+  });
+
+  it('should break cobblestone without a pickaxe in creative mode', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      minecraftBlocks: { '5,0': 'cobblestone' },
+    } as any;
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryBreakBlockCreative(scene as any, 5, 0);
+    expect(result.success).toBe(true);
+    expect(result.droppedItem).toBeUndefined();
+  });
+});
+
+describe('Creative Block Placement', () => {
+  it('should place any block type without inventory drain', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      minecraftBlocks: {},
+    } as any;
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlockCreative(scene as any, 5, 0, 'diamond_ore');
+    expect(result.success).toBe(true);
+    expect(room.minecraftBlocks!['5,0']).toBe('diamond_ore');
+  });
+
+  it('should not place on protected tiles in creative mode', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      portals: [{ x: 5, y: 5, destRoomId: '0,0,1', destX: 10, destY: 10 }],
+    } as any;
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlockCreative(scene as any, 5, 5, 'dirt');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('portal');
+  });
+
+  it('should place special blocks in creative mode', () => {
+    const room: RoomSnapshot = {
+      ...mockRoom,
+      minecraftBlocks: {},
+    } as any;
+    const scene = createMockScene();
+    (scene.snakeGame.getCurrentRoom as () => any) = () => room;
+
+    const result = tryPlaceBlockCreative(scene as any, 5, 0, 'furnace');
+    expect(result.success).toBe(true);
+    expect(room.minecraftBlocks!['5,0']).toBe('furnace');
   });
 });

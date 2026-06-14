@@ -8,6 +8,22 @@ export class MinecraftPlayer {
   state: MinecraftPlayerState;
   armorSlots: Record<string, string | null>;
 
+  // Creative mode palette slot (0-indexed, defaults to 0)
+  creativePaletteSlot: number = 0;
+
+  static readonly CREATIVE_BLOCK_TYPES: readonly string[] = [
+    'dirt', 'grass', 'stone', 'cobblestone', 'sand',
+    'gravel', 'wood', 'planks', 'torch', 'glass',
+    'furnace', 'chest', 'bed', 'crafting_table', 'pumpkin',
+    'iron_block', 'gold_block', 'diamond_ore', 'iron_ore', 'coal_ore',
+  ];
+
+  cyclePaletteSlot(delta: number): void {
+    const blocks = MinecraftPlayer.CREATIVE_BLOCK_TYPES;
+    if (blocks.length === 0) return;
+    this.creativePaletteSlot = ((this.creativePaletteSlot + delta) % blocks.length + blocks.length) % blocks.length;
+  }
+
   constructor() {
     this.state = {
       health: PLAYER_MAX_HEALTH,
@@ -167,6 +183,48 @@ export class MinecraftPlayer {
     return true;
   }
 
+  autoEquipArmor(slotName: string): boolean {
+    const slot = getArmorSlotBySuffix(slotName);
+    if (!slot) return false;
+
+    const currentEquipped = this.armorSlots[slot];
+    if (currentEquipped) {
+      this.addItem(currentEquipped, 1);
+    }
+
+    // Find best armor in inventory for this slot
+    let bestItem: { itemId: string; tier: number } | null = null;
+    for (const invItem of this.state.inventory) {
+      const itemSlot = getArmorSlot(invItem.itemId);
+      if (itemSlot === slot && invItem.count > 0) {
+        const tier = ARMOR_VALUES[invItem.itemId] ?? 0;
+        if (!bestItem || tier > bestItem.tier) {
+          bestItem = { itemId: invItem.itemId, tier };
+        }
+      }
+    }
+
+    if (bestItem) {
+      this.removeItem(bestItem.itemId, 1);
+      this.armorSlots[slot] = bestItem.itemId;
+      this.recalculateArmor();
+      return true;
+    }
+    return false;
+  }
+
+  autoUnequipArmor(slotName: string): boolean {
+    const slot = getArmorSlotBySuffix(slotName);
+    if (!slot) return false;
+    return this.unequipArmor(slot);
+  }
+
+  getArmorSlotName(slotName: string): string | null {
+    const slot = getArmorSlotBySuffix(slotName);
+    if (!slot) return null;
+    return this.armorSlots[slot];
+  }
+
   getArmorPoints(): number {
     let total = 0;
     for (const slotId of Object.keys(this.armorSlots)) {
@@ -230,6 +288,16 @@ function getArmorSlot(itemId: string): string | null {
   return null;
 }
 
+function getArmorSlotBySuffix(suffix: string): string | null {
+  const map: Record<string, string> = {
+    helmet: 'head',
+    chestplate: 'torso',
+    leggings: 'legs',
+    boots: 'feet',
+  };
+  return map[suffix] ?? null;
+}
+
 export function isWalkable(room: RoomSnapshot, x: number, y: number): boolean {
   const tile = room.layout[y]?.[x];
   if (tile === '#') return false;
@@ -243,6 +311,30 @@ export function isWalkable(room: RoomSnapshot, x: number, y: number): boolean {
   }
 
   return true;
+}
+
+export function isWalkableWithCreativeOverride(
+  room: RoomSnapshot,
+  x: number,
+  y: number,
+  creativeMode: boolean,
+): boolean {
+  // Check wall tiles - never walkable even in creative mode
+  const tile = room.layout[y]?.[x];
+  if (tile === '#') return false;
+  if (tile === '~') return false;
+
+  if (creativeMode) {
+    // In creative mode, allow walking over any Minecraft block except lava
+    if (room.minecraftBlocks) {
+      const blockType = room.minecraftBlocks[`${x},${y}`];
+      if (blockType === 'lava') return false;
+    }
+    return true;
+  }
+
+  // Non-creative mode: use normal walkability check
+  return isWalkable(room, x, y);
 }
 
 export function canMineBlock(toolId: string, blockId: string): boolean {

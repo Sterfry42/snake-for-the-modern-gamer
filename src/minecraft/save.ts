@@ -41,6 +41,8 @@ export function serializeMinecraftState(
     slots: Array<{ itemId: string; count: number }>;
   }>,
   beds?: Array<{ x: number; y: number; roomId: string; occupied: boolean }>,
+  creativeMode: boolean = false,
+  creativePaletteSlot: number = 0,
 ): MinecraftSaveData {
   return {
     version: '1.0.0',
@@ -69,6 +71,8 @@ export function serializeMinecraftState(
     furnaces: furnaces ?? [],
     chests: chests ?? [],
     beds: beds ?? [],
+    creativeMode,
+    creativePaletteSlot,
   };
 }
 
@@ -105,6 +109,8 @@ export function deserializeMinecraftState(data: MinecraftSaveData): MinecraftSav
     furnaces: data.furnaces ?? [],
     chests: data.chests ?? [],
     beds: data.beds ?? [],
+    creativeMode: data.creativeMode ?? false,
+    creativePaletteSlot: data.creativePaletteSlot ?? 0,
   };
 }
 
@@ -158,6 +164,8 @@ export function migrateMinecraftState(
     furnaces: [],
     chests: [],
     beds: [],
+    creativeMode: false,
+    creativePaletteSlot: 0,
   };
 }
 
@@ -193,5 +201,7 @@ export function getDefaultSaveData(): MinecraftSaveData {
     furnaces: [],
     chests: [],
     beds: [],
+    creativeMode: false,
+    creativePaletteSlot: 0,
   };
 }
