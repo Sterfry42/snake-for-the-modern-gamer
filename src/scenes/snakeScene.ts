@@ -174,6 +174,7 @@ import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
 import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
 import { ACHIEVEMENT_DEFINITIONS } from '../achievements/achievementDefinitions.js';
 import { AchievementManager } from '../achievements/achievementManager.js';
+import { getAchievementScoreReward } from '../achievements/achievementRewards.js';
 import {
   achievementGoalTarget,
   achievementLocationKey,
@@ -2487,7 +2488,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag('timeMs', elapsed);
   }
 
-  private initGame(startPaused = true): void {
+  private initGame(startPaused = true, resetAchievements = false): void {
     this.setBossStepIntervalMs(this.baseBossStepIntervalMs);
     this.setActorStepIntervalMs(this.baseActorStepIntervalMs);
     this.setBulletStepIntervalMs(this.baseBulletStepIntervalMs);
@@ -2505,7 +2506,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
     this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
-    this.achievementManager.resetRunProgress();
+    if (resetAchievements) this.achievementManager.resetForNewRun();
     this.lastAchievementTownId = null;
     this.lastAchievementWaterTile = '';
     this.lastAchievementRoomId = '';
@@ -2536,6 +2537,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('archipelago.modeActive', true);
       this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
       this.backfillArchipelagoDurableRewards();
+      this.backfillArchipelagoAchievementScore();
       this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
       this.saveArchipelagoRunState();
     }
@@ -3227,7 +3229,7 @@ export default class SnakeScene extends Phaser.Scene {
   private gameOver(reason?: string | null) {
     this.juice.gameOver();
     this.featureManager.call('onGameOver', this);
-    this.initGame(true);
+    this.initGame(true, true);
     this.showTitleScreen('main');
     this.skillTree.hideOverlay();
     this.paused = true;
@@ -4278,6 +4280,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleAchievementUnlocks(unlocks: readonly AchievementUnlockResult[]): void {
     for (const unlock of unlocks) {
+      this.addScoreDirect(unlock.scoreReward);
       this.skillTree?.getOverlay().showAchievementUnlock(unlock);
       this.juice?.perkPurchased();
     }
@@ -4292,6 +4295,9 @@ export default class SnakeScene extends Phaser.Scene {
       if (!location) continue;
       this.handleArchipelagoCheck(location.id, location.name);
       this.achievementManager.markApSubmitted(id);
+      const current = this.ensureArchipelagoRunSave();
+      current.rewardedAchievementIds = [...new Set([...current.rewardedAchievementIds, id])];
+      this.saveArchipelagoRunState();
     }
   }
 
@@ -5064,8 +5070,9 @@ export default class SnakeScene extends Phaser.Scene {
 
   private startNewGameFromTitle(): void {
     this.hideTitleScreen();
-    this.initGame(true);
+    this.initGame(true, true);
     this.backfillArchipelagoDurableRewards();
+    this.backfillArchipelagoAchievementScore();
     this.resetStartingChoices();
     this.setFlag('run.startChoicesReady', true);
     this.paused = true;
@@ -5094,6 +5101,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.restoreCharacterSaveState();
     this.applyRaccoonActionStepInterval();
     this.backfillArchipelagoDurableRewards();
+    this.backfillArchipelagoAchievementScore();
     this.paused = false;
     this.showSaveUI();
     this.isDirty = true;
@@ -5943,13 +5951,15 @@ export default class SnakeScene extends Phaser.Scene {
     );
     this.deathLinkMode = Number(details.slotData?.deathLink) === 1 ? 'soft' : 'off';
     this.archipelagoClient.setDeathLinkEnabled(this.deathLinkMode !== 'off');
-    this.achievementManager.reconcileApSubmitted(
+    const importedAchievements = this.achievementManager.reconcileApProgress(
       new Set(mergedCheckedLocationIds),
       (id) => AP_LOCATION_BY_KEY[achievementLocationKey(id)]?.id,
     );
+    if (importedAchievements.length) this.skillTree?.getOverlay().refreshAchievements();
     this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
     this.backfillArchipelagoDurableRewards();
     if (!this.titleVisible) {
+      this.backfillArchipelagoAchievementScore();
       this.archipelagoCheckTracker.reconcileCurrentState(this.snakeGame);
     }
     this.saveArchipelagoRunState();
@@ -6080,6 +6090,31 @@ export default class SnakeScene extends Phaser.Scene {
       `Backfilled AP rewards: ${applied.inventory} items, ${applied.cards} cards, ${applied.artifacts} artifacts.`,
     );
     this.isDirty = true;
+  }
+
+  private backfillArchipelagoAchievementScore(): void {
+    if (!this.archipelagoModeActive || !this.archipelagoRunSave) return;
+    const checked = new Set(this.archipelagoRunSave.checkedLocationIds);
+    const alreadyRewarded = new Set(this.archipelagoRunSave.rewardedAchievementIds);
+    const pending = ACHIEVEMENT_DEFINITIONS.filter((definition) => {
+      const location = AP_LOCATION_BY_KEY[achievementLocationKey(definition.id)];
+      return location && checked.has(location.id) && !alreadyRewarded.has(definition.id);
+    });
+    if (!pending.length) return;
+
+    const reward = pending.reduce(
+      (total, definition) => total + getAchievementScoreReward(definition.difficulty),
+      0,
+    );
+    this.archipelagoRunSave.rewardedAchievementIds = [
+      ...alreadyRewarded,
+      ...pending.map((definition) => definition.id),
+    ];
+    this.addScoreDirect(reward);
+    this.saveArchipelagoRunState();
+    this.appendArchipelagoLog(
+      `Backfilled ${pending.length} achievement reward${pending.length === 1 ? '' : 's'} (+${reward} score).`,
+    );
   }
 
   private markArchipelagoInventoryItem(itemId: string): boolean {

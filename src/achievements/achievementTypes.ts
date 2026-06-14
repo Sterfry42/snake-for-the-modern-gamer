@@ -141,6 +141,7 @@ export interface AchievementUnlockResult {
   name: string;
   description: string;
   icon: AchievementIconSpec;
+  scoreReward: number;
   completedAtMs: number;
   archipelago?: { shouldSubmitLocation: boolean; locationKey: string };
 }

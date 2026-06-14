@@ -18,6 +18,7 @@ export interface ArchipelagoRunSaveData {
   lastReceivedItemIndex: number;
   completedGoal: boolean;
   receivedDurableItemIndices: number[];
+  rewardedAchievementIds: string[];
   receivedDurableRewards: {
     inventory: Record<string, number>;
     cards: Record<string, number>;
@@ -109,6 +110,7 @@ export class BrowserArchipelagoStorage {
       lastReceivedItemIndex: -1,
       completedGoal: false,
       receivedDurableItemIndices: [],
+      rewardedAchievementIds: [],
       receivedDurableRewards: {
         inventory: {},
         cards: {},
@@ -139,6 +141,15 @@ export class BrowserArchipelagoStorage {
                 ),
               ),
             ].sort((a, b) => a - b)
+          : [],
+        rewardedAchievementIds: Array.isArray(parsed.rewardedAchievementIds)
+          ? [
+              ...new Set(
+                parsed.rewardedAchievementIds.filter(
+                  (id): id is string => typeof id === 'string' && id.length > 0,
+                ),
+              ),
+            ]
           : [],
         receivedDurableRewards: {
           inventory:

@@ -177,7 +177,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'quests', i18nKey: 'tabQuests', group: 'world' },
   { id: 'factions', i18nKey: 'tabFactions', group: 'world' },
   { id: 'graph', i18nKey: 'tabGraph', group: 'system' },
-  { id: 'achievements', i18nKey: 'tabInfo', label: 'Achievements', group: 'system' },
+  { id: 'achievements', i18nKey: 'tabInfo', label: 'Progress', group: 'system' },
   {
     id: 'cheats',
     i18nKey: 'tabCheats',

@@ -1,29 +1,54 @@
 import { achievementLocationKey } from './achievementApMapping.js';
+import { getAchievementScoreReward } from './achievementRewards.js';
 import type { AchievementStorage } from './achievementStorage.js';
-import type { AchievementDefinition, AchievementEvent, AchievementId, AchievementSnapshot, AchievementState, AchievementStatus, AchievementUnlockResult } from './achievementTypes.js';
+import type {
+  AchievementDefinition,
+  AchievementEvent,
+  AchievementId,
+  AchievementSnapshot,
+  AchievementState,
+  AchievementStatus,
+  AchievementUnlockResult,
+} from './achievementTypes.js';
 
 export class AchievementManager {
   private state: AchievementState;
   private readonly byId = new Map<AchievementId, AchievementDefinition>();
 
-  constructor(private readonly definitions: readonly AchievementDefinition[], private readonly storage: AchievementStorage) {
+  constructor(
+    private readonly definitions: readonly AchievementDefinition[],
+    private readonly storage: AchievementStorage,
+  ) {
     this.state = storage.load();
     for (const definition of definitions) this.byId.set(definition.id, definition);
   }
 
-  getState(): AchievementState { return structuredClone(this.state); }
-  getDefinitions(): readonly AchievementDefinition[] { return this.definitions; }
-  isCompleted(id: AchievementId): boolean { return Boolean(this.state.completed[id]); }
+  getState(): AchievementState {
+    return structuredClone(this.state);
+  }
+  getDefinitions(): readonly AchievementDefinition[] {
+    return this.definitions;
+  }
+  isCompleted(id: AchievementId): boolean {
+    return Boolean(this.state.completed[id]);
+  }
 
   getAchievementStatus(id: AchievementId): AchievementStatus {
     if (this.isCompleted(id)) return 'completed';
     const definition = this.byId.get(id);
-    return (definition?.prerequisites ?? []).every((parent) => this.isCompleted(parent)) ? 'available' : 'locked';
+    return (definition?.prerequisites ?? []).every((parent) => this.isCompleted(parent))
+      ? 'available'
+      : 'locked';
   }
 
-  getProgress(id: AchievementId) { return this.state.progress[id] ?? null; }
+  getProgress(id: AchievementId) {
+    return this.state.progress[id] ?? null;
+  }
 
-  complete(id: AchievementId, source: 'local' | 'import' | 'debug' = 'local'): AchievementUnlockResult | null {
+  complete(
+    id: AchievementId,
+    source: 'local' | 'import' | 'debug' = 'local',
+  ): AchievementUnlockResult | null {
     if (this.isCompleted(id)) return null;
     const definition = this.byId.get(id);
     if (!definition) return null;
@@ -31,17 +56,35 @@ export class AchievementManager {
     this.state.completed[id] = { completedAtMs, source };
     this.persist();
     return {
-      id, name: definition.name, description: definition.description, icon: definition.icon, completedAtMs,
-      ...(definition.archipelago?.enabledByDefault ? { archipelago: { shouldSubmitLocation: !this.state.apSubmitted[id], locationKey: achievementLocationKey(id) } } : {}),
+      id,
+      name: definition.name,
+      description: definition.description,
+      icon: definition.icon,
+      scoreReward: getAchievementScoreReward(definition.difficulty),
+      completedAtMs,
+      ...(definition.archipelago?.enabledByDefault
+        ? {
+            archipelago: {
+              shouldSubmitLocation: !this.state.apSubmitted[id],
+              locationKey: achievementLocationKey(id),
+            },
+          }
+        : {}),
     };
   }
 
   recordEvent(event: AchievementEvent, snapshot?: AchievementSnapshot): AchievementUnlockResult[] {
     if (event.type === 'water:swamTile') this.state.run.waterTilesSwum += 1;
-    if (event.type === 'item:consumed' && !this.state.run.consumedItemIds.includes(event.itemId)) this.state.run.consumedItemIds.push(event.itemId);
+    if (event.type === 'item:consumed' && !this.state.run.consumedItemIds.includes(event.itemId))
+      this.state.run.consumedItemIds.push(event.itemId);
     const unlocks: AchievementUnlockResult[] = [];
     for (const definition of this.definitions) {
-      if (this.isCompleted(definition.id) || definition.criterion.kind !== 'event' || definition.criterion.eventType !== event.type) continue;
+      if (
+        this.isCompleted(definition.id) ||
+        definition.criterion.kind !== 'event' ||
+        definition.criterion.eventType !== event.type
+      )
+        continue;
       if (!this.matchesEvent(definition, event)) continue;
       const unlocked = this.complete(definition.id);
       if (unlocked) unlocks.push(unlocked);
@@ -52,28 +95,73 @@ export class AchievementManager {
   }
 
   evaluateSnapshot(snapshot: AchievementSnapshot): AchievementUnlockResult[] {
-    for (const id of snapshot.discoveredBiomeIds) if (!this.state.discoveredBiomes.includes(id)) this.state.discoveredBiomes.push(id);
+    for (const id of snapshot.discoveredBiomeIds)
+      if (!this.state.discoveredBiomes.includes(id)) this.state.discoveredBiomes.push(id);
     return this.evaluateDerived(snapshot);
   }
 
-  resetRunProgress(): void {
+  resetForNewRun(): void {
+    this.state.completed = Object.fromEntries(
+      Object.entries(this.state.completed).filter(
+        ([id, completion]) => completion.source === 'import' || this.state.apSubmitted[id],
+      ),
+    );
+    this.state.progress = {};
+    this.state.discoveredBiomes = [];
     this.state.run = { consumedItemIds: [], waterTilesSwum: 0 };
     this.persist();
   }
 
-  markApSubmitted(id: AchievementId): void { this.state.apSubmitted[id] = true; this.persist(); }
+  markApSubmitted(id: AchievementId): void {
+    this.state.apSubmitted[id] = true;
+    if (this.state.completed[id]) this.state.completed[id].source = 'import';
+    this.persist();
+  }
 
-  reconcileApSubmitted(checkedLocationIds: ReadonlySet<number>, locationIdFor: (id: string) => number | undefined): void {
+  reconcileApSubmitted(
+    checkedLocationIds: ReadonlySet<number>,
+    locationIdFor: (id: string) => number | undefined,
+  ): void {
     for (const definition of this.definitions) {
       if (!definition.archipelago?.enabledByDefault) continue;
       const locationId = locationIdFor(definition.id);
-      this.state.apSubmitted[definition.id] = locationId !== undefined && checkedLocationIds.has(locationId);
+      this.state.apSubmitted[definition.id] =
+        locationId !== undefined && checkedLocationIds.has(locationId);
     }
     this.persist();
   }
 
+  reconcileApProgress(
+    checkedLocationIds: ReadonlySet<number>,
+    locationIdFor: (id: string) => number | undefined,
+  ): AchievementUnlockResult[] {
+    const imported: AchievementUnlockResult[] = [];
+    for (const definition of this.definitions) {
+      if (!definition.archipelago?.enabledByDefault) continue;
+      const locationId = locationIdFor(definition.id);
+      const checked = locationId !== undefined && checkedLocationIds.has(locationId);
+      this.state.apSubmitted[definition.id] = checked;
+      if (checked && !this.isCompleted(definition.id)) {
+        const result = this.complete(definition.id, 'import');
+        if (result) imported.push(result);
+      } else if (!checked && this.state.completed[definition.id]?.source === 'import') {
+        delete this.state.completed[definition.id];
+      }
+    }
+    this.persist();
+    return imported;
+  }
+
   getPendingApAchievementIds(enabledKeys?: ReadonlySet<string>): string[] {
-    return this.definitions.filter((d) => d.archipelago?.enabledByDefault && this.isCompleted(d.id) && !this.state.apSubmitted[d.id] && (!enabledKeys || enabledKeys.has(achievementLocationKey(d.id)))).map((d) => d.id);
+    return this.definitions
+      .filter(
+        (d) =>
+          d.archipelago?.enabledByDefault &&
+          this.isCompleted(d.id) &&
+          !this.state.apSubmitted[d.id] &&
+          (!enabledKeys || enabledKeys.has(achievementLocationKey(d.id))),
+      )
+      .map((d) => d.id);
   }
 
   private evaluateDerived(snapshot?: AchievementSnapshot): AchievementUnlockResult[] {
@@ -81,16 +169,24 @@ export class AchievementManager {
     for (const definition of this.definitions) {
       if (definition.criterion.kind === 'event') {
         if (definition.id === 'food.comboMeal') {
-          const count = ['food-snake-burger', 'food-snake-fries', 'food-snake-nuggets'].filter((id) => this.state.run.consumedItemIds.includes(id)).length;
+          const count = ['food-snake-burger', 'food-snake-fries', 'food-snake-nuggets'].filter(
+            (id) => this.state.run.consumedItemIds.includes(id),
+          ).length;
           this.updateProgress(definition, count);
-          if (count >= 3) { const result = this.complete(definition.id); if (result) unlocks.push(result); }
+          if (count >= 3) {
+            const result = this.complete(definition.id);
+            if (result) unlocks.push(result);
+          }
         }
         continue;
       }
       const current = this.currentValue(definition, snapshot);
       this.updateProgress(definition, current);
       const target = definition.criterion.target;
-      if (current >= target) { const result = this.complete(definition.id); if (result) unlocks.push(result); }
+      if (current >= target) {
+        const result = this.complete(definition.id);
+        if (result) unlocks.push(result);
+      }
     }
     this.persist();
     return unlocks;
@@ -98,15 +194,25 @@ export class AchievementManager {
 
   private currentValue(definition: AchievementDefinition, snapshot?: AchievementSnapshot): number {
     switch (definition.criterion.kind) {
-      case 'score': return snapshot?.score ?? 0;
-      case 'length': return snapshot?.length ?? 0;
-      case 'rooms': return snapshot?.roomsVisited ?? 0;
-      case 'biomes': return new Set([...(snapshot?.discoveredBiomeIds ?? []), ...this.state.discoveredBiomes]).size;
-      case 'waterTiles': return this.state.run.waterTilesSwum;
-      case 'cards': return Object.values(snapshot?.cardsOwned ?? {}).filter((count) => count > 0).length;
-      case 'artifacts': return new Set(snapshot?.artifactsOwned ?? []).size;
-      case 'skillBranches': return new Set(snapshot?.skillTreeCompletedBranchIds ?? []).size;
-      default: return 0;
+      case 'score':
+        return snapshot?.score ?? 0;
+      case 'length':
+        return snapshot?.length ?? 0;
+      case 'rooms':
+        return snapshot?.roomsVisited ?? 0;
+      case 'biomes':
+        return new Set([...(snapshot?.discoveredBiomeIds ?? []), ...this.state.discoveredBiomes])
+          .size;
+      case 'waterTiles':
+        return this.state.run.waterTilesSwum;
+      case 'cards':
+        return Object.values(snapshot?.cardsOwned ?? {}).filter((count) => count > 0).length;
+      case 'artifacts':
+        return new Set(snapshot?.artifactsOwned ?? []).size;
+      case 'skillBranches':
+        return new Set(snapshot?.skillTreeCompletedBranchIds ?? []).size;
+      default:
+        return 0;
     }
   }
 
@@ -121,7 +227,14 @@ export class AchievementManager {
       }
     }
     if (!definition.progress) return true;
-    const numeric = event.type === 'archaeology:depthReached' ? event.depth : event.type === 'archaeology:chainReached' ? event.chain : event.type === 'rivalSnake:lengthReached' ? event.length : 0;
+    const numeric =
+      event.type === 'archaeology:depthReached'
+        ? event.depth
+        : event.type === 'archaeology:chainReached'
+          ? event.chain
+          : event.type === 'rivalSnake:lengthReached'
+            ? event.length
+            : 0;
     this.updateProgress(definition, numeric);
     return numeric >= definition.progress.target;
   }
@@ -129,8 +242,14 @@ export class AchievementManager {
   private updateProgress(definition: AchievementDefinition, current: number): void {
     if (!definition.progress) return;
     const previous = this.state.progress[definition.id]?.current ?? 0;
-    this.state.progress[definition.id] = { current: Math.max(previous, Math.min(current, definition.progress.target)), target: definition.progress.target, updatedAtMs: Date.now() };
+    this.state.progress[definition.id] = {
+      current: Math.max(previous, Math.min(current, definition.progress.target)),
+      target: definition.progress.target,
+      updatedAtMs: Date.now(),
+    };
   }
 
-  private persist(): void { this.storage.save(this.state); }
+  private persist(): void {
+    this.storage.save(this.state);
+  }
 }

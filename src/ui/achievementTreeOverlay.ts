@@ -1,6 +1,11 @@
 import Phaser from 'phaser';
+import {
+  computeAchievementDetailLayout,
+  type AchievementDetailLayout,
+} from '../achievements/achievementDetailLayout.js';
 import { ensureAchievementPortrait } from '../achievements/achievementIconCatalog.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
+import { getAchievementScoreReward } from '../achievements/achievementRewards.js';
 import { exceededDragThreshold } from '../achievements/achievementTreeLayout.js';
 import type {
   AchievementDefinition,
@@ -32,13 +37,19 @@ export class AchievementTreeOverlay {
   private readonly chrome: Phaser.GameObjects.Graphics;
   private readonly nodes = new Map<string, NodeView>();
   private readonly detailsTitle: Phaser.GameObjects.Text;
+  private readonly detailsStatusLabel: Phaser.GameObjects.Text;
   private readonly detailsStatus: Phaser.GameObjects.Text;
-  private readonly detailsBody: Phaser.GameObjects.Text;
+  private readonly detailsDescription: Phaser.GameObjects.Text;
+  private readonly detailRows: Array<{
+    label: Phaser.GameObjects.Text;
+    value: Phaser.GameObjects.Text;
+  }>;
   private readonly detailsPortrait: Phaser.GameObjects.Image;
   private readonly summary: Phaser.GameObjects.Text;
   private readonly zoomText: Phaser.GameObjects.Text;
   private readonly viewport: UiRect;
   private readonly detail: UiRect;
+  private readonly detailLayout: AchievementDetailLayout;
   private pan = { x: 0, y: 0 };
   private zoom = 0.9;
   private drag: {
@@ -58,6 +69,7 @@ export class AchievementTreeOverlay {
   ) {
     this.viewport = options.viewport;
     this.detail = options.detail;
+    this.detailLayout = computeAchievementDetailLayout(this.detail);
     this.chrome = scene.add.graphics();
     const viewportZone = scene.add
       .zone(this.viewport.x, this.viewport.y, this.viewport.width, this.viewport.height)
@@ -116,40 +128,80 @@ export class AchievementTreeOverlay {
 
     this.detailsPortrait = scene.add
       .image(
-        this.detail.x + this.detail.width / 2,
-        this.detail.y + 62,
+        this.detailLayout.portrait.x,
+        this.detailLayout.portrait.y,
         ensureAchievementPortrait(scene, this.manager.getDefinitions()[0]),
       )
-      .setDisplaySize(64, 64)
+      .setDisplaySize(this.detailLayout.portrait.size, this.detailLayout.portrait.size)
       .setVisible(false);
     this.detailsTitle = scene.add
-      .text(this.detail.x + 12, this.detail.y + 108, 'Select an achievement', {
+      .text(this.detailLayout.title.x, this.detailLayout.title.y, 'Select an achievement', {
         fontFamily: 'monospace',
         fontSize: '17px',
         color: '#ffffff',
-        wordWrap: { width: this.detail.width - 24 },
+        wordWrap: { width: this.detailLayout.title.width },
         align: 'center',
       })
-      .setOrigin(0, 0);
-    this.detailsStatus = scene.add.text(this.detail.x + 12, this.detail.y + 154, '', {
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      color: '#9ad1ff',
-      wordWrap: { width: this.detail.width - 24 },
-      align: 'center',
-    });
-    this.detailsBody = scene.add.text(
-      this.detail.x + 12,
-      this.detail.y + 184,
-      'Drag to pan.\nMouse wheel zooms around the cursor.\nClick a portrait for details.',
+      .setOrigin(0, 0)
+      .setMaxLines(2);
+    this.detailsDescription = scene.add
+      .text(
+        this.detailLayout.description.x,
+        this.detailLayout.description.y,
+        'Select a portrait to inspect its progress.',
+        {
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          color: '#d7e8f5',
+          wordWrap: { width: this.detailLayout.description.width },
+          align: 'center',
+          lineSpacing: 2,
+        },
+      )
+      .setMaxLines(3);
+    this.detailsStatusLabel = scene.add.text(
+      this.detailLayout.status.x + 9,
+      this.detailLayout.status.y + 6,
+      'STATUS',
       {
         fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#d7e8f5',
-        wordWrap: { width: this.detail.width - 24 },
-        lineSpacing: 4,
+        fontSize: '9px',
+        color: '#6f9fbd',
       },
     );
+    this.detailsStatus = scene.add.text(
+      this.detailLayout.status.x + 9,
+      this.detailLayout.status.y + 20,
+      '',
+      {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#ffffff',
+      },
+    );
+
+    const rowDefinitions = [
+      { label: 'SECTION', rect: this.detailLayout.section },
+      { label: 'CATEGORY', rect: this.detailLayout.category },
+      { label: 'PROGRESS', rect: this.detailLayout.progress },
+      { label: 'REWARD', rect: this.detailLayout.reward },
+    ];
+    this.detailRows = rowDefinitions.map((row) => ({
+      label: scene.add.text(row.rect.x + 8, row.rect.y + 6, row.label, {
+        fontFamily: 'monospace',
+        fontSize: '9px',
+        color: '#6f9fbd',
+      }),
+      value: scene.add
+        .text(row.rect.x + 8, row.rect.y + 21, '--', {
+          fontFamily: 'monospace',
+          fontSize: '11px',
+          color: '#ffffff',
+          wordWrap: { width: row.rect.width - 16 },
+          lineSpacing: 0,
+        })
+        .setMaxLines(2),
+    }));
 
     this.root = scene.add
       .container(0, 0, [
@@ -163,8 +215,10 @@ export class AchievementTreeOverlay {
         zoomOut,
         this.detailsPortrait,
         this.detailsTitle,
+        this.detailsDescription,
+        this.detailsStatusLabel,
         this.detailsStatus,
-        this.detailsBody,
+        ...this.detailRows.flatMap((row) => [row.label, row.value]),
       ])
       .setVisible(false);
     options.parent.add(this.root);
@@ -252,7 +306,7 @@ export class AchievementTreeOverlay {
     const text = this.scene.add.text(
       -width / 2 + 82,
       9,
-      `ACHIEVEMENT GET!\n${unlock.name}\n${unlock.description}`,
+      `ACHIEVEMENT GET!  +${unlock.scoreReward} SCORE\n${unlock.name}\n${unlock.description}`,
       {
         fontFamily: 'monospace',
         fontSize: '13px',
@@ -355,29 +409,29 @@ export class AchievementTreeOverlay {
       status === 'completed' ? '#5dd6a2' : status === 'available' ? '#ffd166' : '#8b99a6';
     this.detailsPortrait
       .setTexture(ensureAchievementPortrait(this.scene, definition))
-      .setDisplaySize(64, 64)
+      .setDisplaySize(this.detailLayout.portrait.size, this.detailLayout.portrait.size)
       .setVisible(true)
       .clearTint();
     if (status === 'locked') this.detailsPortrait.setTint(0x8d99a3);
     this.detailsTitle.setText(definition.name).setColor('#ffffff');
-    this.detailsStatus
-      .setText(`${status.toUpperCase()}  //  ${definition.difficulty.toUpperCase()}`)
-      .setColor(color);
-    this.detailsBody.setText(
-      [
-        definition.secret && status !== 'completed' ? '???' : definition.description,
-        '',
-        `SECTION  ${definition.tree.section.toUpperCase()}`,
-        `CATEGORY ${definition.category.toUpperCase()}`,
-        progress
-          ? `PROGRESS ${progress.current} / ${progress.target} ${definition.progress?.label ?? ''}`
-          : '',
-        missing.length ? `REQUIRES ${missing.join(', ')}` : '',
-        definition.archipelago?.enabledByDefault ? 'ARCHIPELAGO LOCATION' : 'LOCAL ACHIEVEMENT',
-      ]
-        .filter(Boolean)
-        .join('\n'),
+    this.detailsDescription.setText(
+      definition.secret && status !== 'completed' ? '???' : definition.description,
     );
+    this.detailsStatus.setText(status.toUpperCase()).setColor(color);
+    const progressText = progress
+      ? `${progress.current} / ${progress.target} ${definition.progress?.label ?? ''}`
+      : status === 'completed'
+        ? 'COMPLETE'
+        : missing.length
+          ? `REQUIRES ${missing.join(', ')}`
+          : 'READY';
+    const values = [
+      definition.tree.section.toUpperCase(),
+      definition.category.toUpperCase(),
+      progressText,
+      `+${getAchievementScoreReward(definition.difficulty)} SCORE`,
+    ];
+    this.detailRows.forEach((row, index) => row.value.setText(values[index] ?? '--'));
     const view = this.nodes.get(id);
     if (view)
       this.scene.tweens.add({
@@ -420,6 +474,23 @@ export class AchievementTreeOverlay {
         this.detail.height - 2,
         7,
       );
+    const cards = [
+      { rect: this.detailLayout.status, fill: 0x122534, border: 0x426982 },
+      { rect: this.detailLayout.section, fill: 0x101f2c, border: 0x294b61 },
+      { rect: this.detailLayout.category, fill: 0x101f2c, border: 0x294b61 },
+      { rect: this.detailLayout.progress, fill: 0x1e1d16, border: 0x76652e },
+      { rect: this.detailLayout.reward, fill: 0x13251d, border: 0x357255 },
+    ];
+    for (const { rect, fill, border } of cards) {
+      this.chrome
+        .fillStyle(fill, 0.96)
+        .fillRoundedRect(rect.x, rect.y, rect.width, rect.height, 5)
+        .lineStyle(1, border, 0.95)
+        .strokeRoundedRect(rect.x + 0.5, rect.y + 0.5, rect.width - 1, rect.height - 1, 5);
+      this.chrome
+        .fillStyle(border, 0.72)
+        .fillRect(rect.x + 1, rect.y + 7, 3, Math.max(10, rect.height - 14));
+    }
     for (let x = this.viewport.x + 16; x < this.viewport.x + this.viewport.width; x += 32) {
       this.chrome
         .lineStyle(1, 0x1b3342, 0.28)
