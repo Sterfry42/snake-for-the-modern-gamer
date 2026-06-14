@@ -8,6 +8,7 @@ import type {
   ArchipelagoConnectionConfig,
   ArchipelagoConnectionDetails,
   ArchipelagoConnectionStatus,
+  ArchipelagoDeathLink,
   ArchipelagoPrintMessage,
   ArchipelagoReceivedItem,
 } from './archipelagoConnectionTypes.js';
@@ -200,6 +201,16 @@ export class ArchipelagoClient {
     this.send([{ cmd: 'StatusUpdate', status: CLIENT_STATUS_GOAL }]);
   }
 
+  setDeathLinkEnabled(enabled: boolean): void {
+    if (!this.isConnected()) return;
+    this.send([{ cmd: 'ConnectUpdate', tags: enabled ? ['AP', 'DeathLink'] : ['AP'] }]);
+  }
+
+  sendDeathLink(source: string, cause: string): void {
+    if (!this.isConnected()) return;
+    this.send([{ cmd: 'Bounce', tags: ['DeathLink'], data: { time: Date.now() / 1000, source, cause } }]);
+  }
+
   private handleSocketMessage(data: unknown): void {
     console.info('[AP] recv raw', data);
     let packets: ArchipelagoPacket[];
@@ -240,6 +251,9 @@ export class ArchipelagoClient {
         break;
       case 'PrintJSON':
         this.handlePrintJson(packet);
+        break;
+      case 'Bounced':
+        this.handleBounced(packet);
         break;
       default:
         if (typeof packet.cmd === 'string') {
@@ -356,6 +370,17 @@ export class ArchipelagoClient {
       text: stringifyPrintJson(packet.data),
     };
     this.events.onPrint?.(message);
+  }
+
+  private handleBounced(packet: ArchipelagoPacket): void {
+    const tags = Array.isArray(packet.tags) ? packet.tags.map(String) : [];
+    if (!tags.includes('DeathLink') || !packet.data || typeof packet.data !== 'object') return;
+    const data = packet.data as Record<string, unknown>;
+    this.events.onDeathLink?.({
+      source: typeof data.source === 'string' ? data.source : 'Another player',
+      cause: typeof data.cause === 'string' ? data.cause : 'DeathLink',
+      time: typeof data.time === 'number' ? data.time : undefined,
+    });
   }
 
   private handleSocketClose(socket: WebSocket): void {
