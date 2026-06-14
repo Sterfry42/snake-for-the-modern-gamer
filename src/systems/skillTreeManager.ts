@@ -47,6 +47,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
         this.scene.previewSpecialStatChange(statId, delta),
       onApplySpecialChanges: () => this.scene.applySpecialStatPreview(),
       onResetSpecialPreview: () => this.scene.resetSpecialStatPreview(),
+      getAchievementManager: () => this.scene.getAchievementManager(),
     });
     this.overlay.hide();
   }
@@ -177,6 +178,19 @@ export class SkillTreeManager implements SkillTreeRuntime {
     return this.system.getStats();
   }
 
+  getCompletedBranchIds(): string[] {
+    const perks = this.system.getPerks();
+    const branches = new Map<string, typeof perks>();
+    for (const perk of perks) {
+      branches.set(perk.branch, [...(branches.get(perk.branch) ?? []), perk]);
+    }
+    return [...branches.entries()]
+      .filter(([, branchPerks]) =>
+        branchPerks.every((perk) => this.system.getRank(perk.id) >= perk.costByRank.length),
+      )
+      .map(([branch]) => branch);
+  }
+
   getOverlay(): SkillTreeOverlay {
     return this.overlay;
   }
@@ -211,6 +225,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   notifyExtraLifeGained(): void {
     this.juice.extraLifeGained();
+    this.scene.recordAchievementEvent({ type: 'extraLife:gained', amount: 1 });
     this.overlay.refresh();
   }
 

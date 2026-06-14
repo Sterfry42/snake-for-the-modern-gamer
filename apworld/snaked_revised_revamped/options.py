@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Options import Choice, PerGameCommonOptions, Toggle
+from Options import Choice, PerGameCommonOptions, Range, Toggle
 
 
 class Cardsanity(Choice):
@@ -44,6 +44,25 @@ class Goal(Choice):
     option_length_250 = 2
     option_artifact_hunt = 3
     option_dennis_survival = 4
+    option_achievement_percentage = 5
+    default = 5
+
+
+class AchievementGoalPercentage(Range):
+    """Percentage of enabled achievement locations required for the default goal."""
+
+    display_name = "Achievement Goal Percentage"
+    range_start = 40
+    range_end = 100
+    default = 60
+
+
+class DeathLink(Choice):
+    """Incoming DeathLink consumes a life when possible in soft mode."""
+
+    display_name = "DeathLink"
+    option_off = 0
+    option_soft = 1
     default = 0
 
 
@@ -69,3 +88,5 @@ class SnakedOptions(PerGameCommonOptions):
     goal: Goal
     include_card_table_checks: IncludeCardTableChecks
     include_archaeology_checks: IncludeArchaeologyChecks
+    achievement_goal_percentage: AchievementGoalPercentage
+    death_link: DeathLink

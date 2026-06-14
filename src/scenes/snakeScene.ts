@@ -29,6 +29,7 @@ import {
 import type {
   ArchipelagoConnectionDetails,
   ArchipelagoConnectionStatus,
+  ArchipelagoDeathLink,
   ArchipelagoReceivedItem,
 } from '../archipelago/archipelagoConnectionTypes.js';
 import { calculateCaffeinatedAppleIntervalScalar } from '../apples/caffeinatedBoost.js';
@@ -123,6 +124,7 @@ import type {
   RelationshipOutcomeTier,
   RelationshipPersonality,
   RelationshipReward,
+  RelationshipState,
   RelationshipSpecies,
   RelationshipTag,
 } from '../relationships/relationshipTypes.js';
@@ -170,6 +172,20 @@ import type {
 } from '../fishing/types.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
 import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
+import { ACHIEVEMENT_DEFINITIONS } from '../achievements/achievementDefinitions.js';
+import { AchievementManager } from '../achievements/achievementManager.js';
+import {
+  achievementGoalTarget,
+  achievementLocationKey,
+  getApAchievementDefinitions,
+} from '../achievements/achievementApMapping.js';
+import { BrowserAchievementStorage } from '../achievements/achievementStorage.js';
+import type {
+  AchievementEvent,
+  AchievementSnapshot,
+  AchievementUnlockResult,
+} from '../achievements/achievementTypes.js';
+import { shouldSendDeathLink, type DeathLinkMode } from '../archipelago/deathLink.js';
 
 type SnakeThemeId = VillageShopStyleId;
 
@@ -1635,6 +1651,7 @@ export default class SnakeScene extends Phaser.Scene {
     onReceivedItem: (item) => this.handleArchipelagoReceivedItem(item),
     onPrint: (message) => this.appendArchipelagoLog(message.text),
     onLog: (message) => this.appendArchipelagoLog(message),
+    onDeathLink: (deathLink) => this.handleIncomingDeathLink(deathLink),
   });
   private readonly archipelagoCheckTracker = new ArchipelagoCheckTracker({
     onCheck: (locationId, locationName) => this.handleArchipelagoCheck(locationId, locationName),
@@ -1661,6 +1678,19 @@ export default class SnakeScene extends Phaser.Scene {
   private archipelagoBackButton: Phaser.GameObjects.Container | null = null;
   private readonly archipelagoLogLines: string[] = [];
   private readonly archipelagoTrapQueue: ArchipelagoTrapId[] = [];
+  private readonly achievementManager = new AchievementManager(
+    ACHIEVEMENT_DEFINITIONS,
+    new BrowserAchievementStorage(),
+  );
+  private achievementEnabledApKeys = new Set<string>();
+  private achievementGoalPercentage = 60;
+  private lastAchievementTownId: string | null = null;
+  private lastAchievementWaterTile = '';
+  private lastAchievementRoomId = '';
+  private achievementRelationshipStages = new Map<string, string>();
+  private achievementChildren = new Map<string, number>();
+  private deathLinkMode: DeathLinkMode = 'off';
+  private handlingIncomingDeathLink = false;
   private titleCreditsMode = false;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
@@ -1782,6 +1812,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
     this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
+      this.recordAchievementEvent({ type: 'boss:jasonVulnerableDamaged', bossId });
       if (defeated) {
         this.handleJasonDefeat(bossId, scoreBonus);
       }
@@ -2252,6 +2283,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleJasonDefeat(bossId: string, score: number): void {
+    this.recordAchievementEvent({
+      type: 'boss:defeated',
+      bossKind: 'jason-statham',
+      bossName: 'Jason Statham',
+    });
     if (this.archipelagoModeActive) {
       this.archipelagoCheckTracker.processBossDefeat(bossId);
       this.saveArchipelagoRunState();
@@ -2400,6 +2436,12 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
     this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
+    this.achievementManager.resetRunProgress();
+    this.lastAchievementTownId = null;
+    this.lastAchievementWaterTile = '';
+    this.lastAchievementRoomId = '';
+    this.achievementRelationshipStages.clear();
+    this.achievementChildren.clear();
     this.applyRaccoonActionStepInterval();
     this.juice.stopBossMusic();
     this.juice.stopHeavenMusic();
@@ -2479,6 +2521,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.maybePresentRandomEncounter();
 
     if (result.apple.eaten) {
+      this.recordAchievementEvent({
+        type: 'apple:eaten',
+        appleTypeId: result.apple.typeId ?? 'normal',
+      });
       this.featureManager.call('onAppleEaten', this);
       this.applyJadePeakAppleEffects(result.apple.typeId);
       if (result.apple.typeId === 'caffeinated') {
@@ -2515,6 +2561,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.tickHouseAmbientEffects();
+    this.evaluateAchievements();
 
     const consumedPhoenix = this.snakeGame.getFlag<{ itemId: string }>(
       'equipment.itemPhoenixConsumed',
@@ -2752,8 +2799,29 @@ export default class SnakeScene extends Phaser.Scene {
       this.startDeathSequence('revive', result.deathReason, { reviveOnComplete: true });
       return true;
     }
+    if (shouldSendDeathLink(this.deathLinkMode, this.handlingIncomingDeathLink, true)) {
+      this.archipelagoClient.sendDeathLink(
+        this.archipelagoSlotName,
+        `Snake died: ${result.deathReason ?? 'unknown'}`,
+      );
+    }
     this.startDeathSequence('game-over', result.deathReason);
     return true;
+  }
+
+  private handleIncomingDeathLink(deathLink: ArchipelagoDeathLink): void {
+    if (this.deathLinkMode === 'off' || this.deathCutscene || this.titleVisible) return;
+    this.handlingIncomingDeathLink = true;
+    const message = `DeathLink received from ${deathLink.source}: ${deathLink.cause}`;
+    if (this.skillTree.tryConsumeExtraLife()) {
+      this.skillTree.hideOverlay();
+      this.showQuestHintPopup(`${message}\nA life was lost.`, '#ff8f8f');
+      this.handlingIncomingDeathLink = false;
+      return;
+    }
+    this.showQuestHintPopup(`${message}\nThe run ends.`, '#ff6b6b');
+    this.startDeathSequence('game-over', 'deathlink');
+    this.handlingIncomingDeathLink = false;
   }
 
   private handlePhoenixReviveTrigger(): boolean {
@@ -4025,6 +4093,158 @@ export default class SnakeScene extends Phaser.Scene {
     this.minimapRenderer = null;
   }
 
+  getAchievementManager(): AchievementManager {
+    return this.achievementManager;
+  }
+
+  recordAchievementEvent(event: AchievementEvent): void {
+    this.handleAchievementUnlocks(
+      this.achievementManager.recordEvent(event, this.createAchievementSnapshot()),
+    );
+  }
+
+  private evaluateAchievements(): void {
+    const room = this.snakeGame.getCurrentRoom();
+    if (room.id !== this.lastAchievementRoomId) {
+      this.lastAchievementRoomId = room.id;
+      if (room.id.startsWith('cave:'))
+        this.recordAchievementEvent({ type: 'cave:entered', caveId: room.id });
+    }
+    const town = this.snakeGame.getCurrentTown();
+    if (town && town.id !== this.lastAchievementTownId) {
+      this.lastAchievementTownId = town.id;
+      this.recordAchievementEvent({ type: 'town:entered', townId: town.id, name: town.name });
+    }
+
+    const head = this.snakeGame.getSnakeBody()[0];
+    if (head && this.snakeGame.isSnakeHeadOnWaterTile()) {
+      const tileKey = `${room.id}:${head.x},${head.y}`;
+      if (tileKey !== this.lastAchievementWaterTile) {
+        this.lastAchievementWaterTile = tileKey;
+        this.recordAchievementEvent({
+          type: 'water:swamTile',
+          roomId: room.id,
+          biomeId: room.biomeId,
+        });
+      }
+    } else {
+      this.lastAchievementWaterTile = '';
+    }
+
+    const guild = town ? this.snakeGame.getCurrentTownGuildInitiationStatus() : null;
+    if (town && guild?.state === 'complete')
+      this.recordAchievementEvent({ type: 'guild:initiationCompleted', townId: town.id });
+
+    const relationshipStates =
+      this.snakeGame.getFlag<Record<string, RelationshipState>>('relationships.states') ?? {};
+    for (const relationship of this.snakeGame.getDatingCandidateViews()) {
+      const previousStage = this.achievementRelationshipStages.get(relationship.id);
+      if (relationship.stage !== previousStage) {
+        this.achievementRelationshipStages.set(relationship.id, relationship.stage);
+        if (
+          relationship.stage === 'dating' ||
+          relationship.stage === 'lover' ||
+          relationship.stage === 'married'
+        ) {
+          this.recordAchievementEvent({
+            type: 'relationship:dated',
+            relationshipId: relationship.id,
+          });
+        }
+        if (relationship.stage === 'married')
+          this.recordAchievementEvent({
+            type: 'relationship:married',
+            relationshipId: relationship.id,
+          });
+      }
+      const childCount = relationshipStates[relationship.id]?.children.length ?? 0;
+      if (childCount > (this.achievementChildren.get(relationship.id) ?? 0)) {
+        this.recordAchievementEvent({
+          type: 'relationship:child',
+          relationshipId: relationship.id,
+          childKind: relationship.species,
+        });
+      }
+      this.achievementChildren.set(relationship.id, childCount);
+    }
+
+    for (const enemy of this.currentSnapshot?.viewport.rooms[room.id]?.enemies ?? []) {
+      if (
+        (enemy.encounterKind === 'rival-snake' || enemy.encounterKind === 'roaming-snake') &&
+        enemy.body?.length
+      ) {
+        this.recordAchievementEvent({
+          type: 'rivalSnake:lengthReached',
+          enemyId: enemy.id,
+          length: enemy.body.length,
+        });
+      }
+    }
+
+    this.handleAchievementUnlocks(
+      this.achievementManager.evaluateSnapshot(this.createAchievementSnapshot()),
+    );
+    this.submitPendingAchievementChecks();
+    this.evaluateAchievementApGoal();
+  }
+
+  private createAchievementSnapshot(): AchievementSnapshot {
+    const rooms = this.snakeGame.getGeneratedRooms();
+    const discoveredBiomeIds = [
+      ...new Set(rooms.map((roomId) => this.snakeGame.getRoom(roomId)?.biomeId).filter(Boolean)),
+    ];
+    const inventory = this.snakeGame.getInventory();
+    return {
+      score: this.snakeGame.getScore(),
+      length: this.snakeGame.getSnakeLength(),
+      roomsVisited: rooms.length,
+      discoveredBiomeIds,
+      inventoryItemIds: inventory.getAllItems().map(([id]) => id),
+      equippedSlots: inventory.getAllEquipped().map(([slot]) => slot),
+      cardsOwned: this.getCardCollection(),
+      artifactsOwned: this.snakeGame.getRunArtifacts().map((artifact) => artifact.id),
+      skillTreeCompletedBranchIds: this.skillTree.getCompletedBranchIds(),
+    };
+  }
+
+  private handleAchievementUnlocks(unlocks: readonly AchievementUnlockResult[]): void {
+    for (const unlock of unlocks) {
+      this.skillTree?.getOverlay().showAchievementUnlock(unlock);
+      this.juice?.perkPurchased();
+    }
+    if (unlocks.length) this.skillTree?.getOverlay().refreshAchievements();
+  }
+
+  private submitPendingAchievementChecks(): void {
+    if (!this.archipelagoModeActive) return;
+    const enabled = this.achievementEnabledApKeys.size ? this.achievementEnabledApKeys : undefined;
+    for (const id of this.achievementManager.getPendingApAchievementIds(enabled)) {
+      const location = AP_LOCATION_BY_KEY[achievementLocationKey(id)];
+      if (!location) continue;
+      this.handleArchipelagoCheck(location.id, location.name);
+      this.achievementManager.markApSubmitted(id);
+    }
+  }
+
+  private evaluateAchievementApGoal(): void {
+    if (!this.archipelagoModeActive || this.ensureArchipelagoRunSave().completedGoal) return;
+    const enabledDefinitions = getApAchievementDefinitions(ACHIEVEMENT_DEFINITIONS).filter(
+      (definition) =>
+        !this.achievementEnabledApKeys.size ||
+        this.achievementEnabledApKeys.has(achievementLocationKey(definition.id)),
+    );
+    const completed = enabledDefinitions.filter((definition) =>
+      this.achievementManager.isCompleted(definition.id),
+    ).length;
+    if (
+      completed >= achievementGoalTarget(enabledDefinitions.length, this.achievementGoalPercentage)
+    ) {
+      const goalLocation = AP_LOCATION_BY_KEY.achievement_goal;
+      if (goalLocation) this.handleArchipelagoCheck(goalLocation.id, goalLocation.name);
+      this.handleArchipelagoGoalComplete();
+    }
+  }
+
   addScore(amount: number) {
     const applied = this.skillTree ? this.skillTree.modifyScoreGain(amount) : amount;
     this.addScoreDirect(applied);
@@ -5069,8 +5289,11 @@ export default class SnakeScene extends Phaser.Scene {
         this.disconnectArchipelagoFromTitle();
       },
     );
-    this.archipelagoBackButton = this.createTitleButton(width / 2 - 105, height / 2 + 192, 'Back', () =>
-      {
+    this.archipelagoBackButton = this.createTitleButton(
+      width / 2 - 105,
+      height / 2 + 192,
+      'Back',
+      () => {
         this.archipelagoFocusedControl = 'back';
         this.refreshArchipelagoTitleText();
         this.showTitleScreen('main');
@@ -5355,9 +5578,9 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     if (event.key === 'Escape') {
-    if (this.getFocusedArchipelagoTextField()) {
-      this.archipelagoFocusedControl = 'back';
-      this.refreshArchipelagoTitleText();
+      if (this.getFocusedArchipelagoTextField()) {
+        this.archipelagoFocusedControl = 'back';
+        this.refreshArchipelagoTitleText();
       } else {
         this.showTitleScreen('main');
       }
@@ -5471,7 +5694,11 @@ export default class SnakeScene extends Phaser.Scene {
 
   private clampArchipelagoCaret(field: ArchipelagoTitleField): void {
     const value = this.getArchipelagoFieldValue(field);
-    this.archipelagoCarets[field] = Phaser.Math.Clamp(this.archipelagoCarets[field], 0, value.length);
+    this.archipelagoCarets[field] = Phaser.Math.Clamp(
+      this.archipelagoCarets[field],
+      0,
+      value.length,
+    );
   }
 
   private syncArchipelagoCaretToValue(field: ArchipelagoTitleField): void {
@@ -5483,7 +5710,10 @@ export default class SnakeScene extends Phaser.Scene {
     const caret = Phaser.Math.Clamp(this.archipelagoCarets[field], 0, value.length);
     const available = Math.max(0, this.getArchipelagoFieldMaxLength(field) - value.length);
     const inserted = text.slice(0, available);
-    this.setArchipelagoFieldValue(field, `${value.slice(0, caret)}${inserted}${value.slice(caret)}`);
+    this.setArchipelagoFieldValue(
+      field,
+      `${value.slice(0, caret)}${inserted}${value.slice(caret)}`,
+    );
     this.archipelagoCarets[field] = caret + inserted.length;
     this.refreshArchipelagoTitleText();
   }
@@ -5518,7 +5748,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.syncArchipelagoCaretToValue(field);
       return;
     }
-    const prefixLength = `${this.archipelagoFocusedControl === field ? '> ' : '  '}${field === 'serverUrl' ? 'Server' : field === 'slotName' ? 'Slot' : 'Password'}: `.length;
+    const prefixLength =
+      `${this.archipelagoFocusedControl === field ? '> ' : '  '}${field === 'serverUrl' ? 'Server' : field === 'slotName' ? 'Slot' : 'Password'}: `
+        .length;
     const charWidth = 8.4;
     const textLeft = bounds.x + 12 + prefixLength * charWidth;
     this.archipelagoCarets[field] = Math.round((pointerX - textLeft) / charWidth);
@@ -5553,12 +5785,18 @@ export default class SnakeScene extends Phaser.Scene {
       }`,
     );
     this.archipelagoLogText?.setText(this.archipelagoLogLines.slice(-4).join('\n'));
-    this.setTitleButtonSelected(this.archipelagoConnectButton, this.archipelagoFocusedControl === 'connect');
+    this.setTitleButtonSelected(
+      this.archipelagoConnectButton,
+      this.archipelagoFocusedControl === 'connect',
+    );
     this.setTitleButtonSelected(
       this.archipelagoDisconnectButton,
       this.archipelagoFocusedControl === 'disconnect',
     );
-    this.setTitleButtonSelected(this.archipelagoBackButton, this.archipelagoFocusedControl === 'back');
+    this.setTitleButtonSelected(
+      this.archipelagoBackButton,
+      this.archipelagoFocusedControl === 'back',
+    );
   }
 
   private connectArchipelagoFromTitle(): void {
@@ -5618,7 +5856,27 @@ export default class SnakeScene extends Phaser.Scene {
       checkedLocationIds: mergedCheckedLocationIds,
     };
     this.archipelagoCheckTracker.setGoalCheckKey(
-      typeof details.slotData?.goal === 'string' ? details.slotData.goal : AP_PHASE_2_GOAL_CHECK_KEY,
+      typeof details.slotData?.goal === 'string'
+        ? details.slotData.goal
+        : AP_PHASE_2_GOAL_CHECK_KEY,
+    );
+    const enabledAchievementKeys = details.slotData?.enabledAchievementLocationKeys;
+    this.achievementEnabledApKeys = new Set(
+      Array.isArray(enabledAchievementKeys)
+        ? enabledAchievementKeys.filter((key): key is string => typeof key === 'string')
+        : getApAchievementDefinitions(ACHIEVEMENT_DEFINITIONS).map((definition) =>
+            achievementLocationKey(definition.id),
+          ),
+    );
+    this.achievementGoalPercentage = Math.max(
+      1,
+      Math.min(100, Number(details.slotData?.achievementGoalPercentage) || 60),
+    );
+    this.deathLinkMode = Number(details.slotData?.deathLink) === 1 ? 'soft' : 'off';
+    this.archipelagoClient.setDeathLinkEnabled(this.deathLinkMode !== 'off');
+    this.achievementManager.reconcileApSubmitted(
+      new Set(mergedCheckedLocationIds),
+      (id) => AP_LOCATION_BY_KEY[achievementLocationKey(id)]?.id,
     );
     this.archipelagoCheckTracker.hydrate(this.archipelagoRunSave);
     this.backfillArchipelagoDurableRewards();
@@ -5627,6 +5885,8 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.saveArchipelagoRunState();
     this.archipelagoClient.sendLocationChecks(this.archipelagoRunSave.checkedLocationIds);
+    this.submitPendingAchievementChecks();
+    this.evaluateAchievementApGoal();
     this.archipelagoClient.sync();
     this.appendArchipelagoLog('Connected to Archipelago.');
   }
@@ -6282,14 +6542,21 @@ export default class SnakeScene extends Phaser.Scene {
   // Equips an item by id from the menu and applies effects
   equipItem(itemId: string): boolean {
     const item = getItem(itemId);
-    if (!item) return false;
+    if (!item || item.kind !== 'equipment') return false;
     if (this.snakeGame.getInventory().getItemCount(itemId) <= 0) return false;
     const success = this.snakeGame.getInventory().equip(item);
     if (success) {
+      this.recordAchievementEvent({ type: 'equipment:equipped', itemId, slot: item.slot });
       this.applyEquipmentEffects();
       this.juice.equipmentEquip();
     }
     return success;
+  }
+
+  useInventoryItem(itemId: string): { ok: boolean; message: string; color?: string } {
+    const result = this.snakeGame.useInventoryItem(itemId);
+    if (result.ok) this.recordAchievementEvent({ type: 'item:consumed', itemId });
+    return result;
   }
 
   // Unequip a slot and apply effects
@@ -8281,6 +8548,13 @@ export default class SnakeScene extends Phaser.Scene {
     const caughtFish = this.snakeGame.getFlag<Record<string, number>>('fishing.caughtFish') ?? {};
     caughtFish[result.fish.typeId] = (caughtFish[result.fish.typeId] ?? 0) + 1;
     this.snakeGame.setFlag('fishing.caughtFish', caughtFish);
+    this.recordAchievementEvent({
+      type: 'fishing:caught',
+      fishTypeId: result.fish.typeId,
+      rarity: result.fish.rarity,
+      weight: result.weight,
+      biomeId: result.fish.biomeId,
+    });
 
     // Append to catch journal
     catchJournal.appendCatchEntry(
@@ -10548,6 +10822,7 @@ export default class SnakeScene extends Phaser.Scene {
     const detailText = result.details.length > 0 ? ` ${result.details.join(' ')}` : '';
 
     if (state.wins >= 2) {
+      this.recordAchievementEvent({ type: 'cards:tableWon', tableId: state.tableId });
       const payout = state.wagerScore * 2;
       this.addScoreDirect(payout);
       if (this.archipelagoModeActive) {
@@ -10943,6 +11218,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'eat-burger') {
       const result = this.snakeGame.consumeMcDonaldsFood('food-snake-burger');
       if (result.success) {
+        this.recordAchievementEvent({ type: 'item:consumed', itemId: 'food-snake-burger' });
         this.showQuestHintPopup(result.message, '#5dd6a2');
         this.juice.appleChomp(0, 0, 2);
       } else {
@@ -10955,6 +11231,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'eat-fries') {
       const result = this.snakeGame.consumeMcDonaldsFood('food-snake-fries');
       if (result.success) {
+        this.recordAchievementEvent({ type: 'item:consumed', itemId: 'food-snake-fries' });
         this.showQuestHintPopup(result.message, '#5dd6a2');
         this.juice.appleChomp(0, 0, 2);
       } else {
@@ -10967,6 +11244,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'eat-nuggets') {
       const result = this.snakeGame.consumeMcDonaldsFood('food-snake-nuggets');
       if (result.success) {
+        this.recordAchievementEvent({ type: 'item:consumed', itemId: 'food-snake-nuggets' });
         this.showQuestHintPopup(result.message, '#5dd6a2');
         this.juice.appleChomp(0, 0, 2);
       } else {
@@ -11199,6 +11477,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.juice.archaeologyReward();
         this.showArchaeologyFloatingText(event.label, '#9dffcb', eventSnapshot, event.cells);
       }
+      if (event.kind === 'raise')
+        this.recordAchievementEvent({ type: 'archaeology:depthReached', depth: event.depth });
+      if (event.kind === 'match')
+        this.recordAchievementEvent({ type: 'archaeology:chainReached', chain: event.chain });
     }
     const snapshot = this.archaeologySession.getSnapshot();
     this.updateArchaeologyTension(snapshot);
@@ -11692,7 +11974,9 @@ export default class SnakeScene extends Phaser.Scene {
     const scoreBefore = this.snakeGame.getScore();
     const lengthBefore = this.snakeGame.getSnakeLength();
     const archipelagoArtifactIds = this.archipelagoModeActive
-      ? rewards.artifacts.filter((artifactId) => AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId])
+      ? rewards.artifacts.filter(
+          (artifactId) => AP_ARTIFACT_LOCATION_KEY_BY_ARTIFACT_ID[artifactId],
+        )
       : [];
     const localRewards =
       archipelagoArtifactIds.length > 0
@@ -11704,6 +11988,9 @@ export default class SnakeScene extends Phaser.Scene {
           }
         : rewards;
     const payout = this.snakeGame.applyArchaeologyRewards(localRewards);
+    for (const artifactId of rewards.artifacts) {
+      this.recordAchievementEvent({ type: 'archaeology:artifactRecovered', artifactId });
+    }
     if (this.archipelagoModeActive) {
       this.drainArchipelagoLocalRewardChecks();
       this.archipelagoCheckTracker.processArchaeologyMilestones(

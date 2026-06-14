@@ -25,6 +25,7 @@ GOAL_KEY_BY_OPTION = {
     2: "length_250",
     3: "archaeology_first_cache",
     4: "boss_jason_statham",
+    5: "achievement_goal",
 }
 
 TRAP_COUNT_BY_OPTION = {
@@ -81,6 +82,8 @@ class SnakedWorld(World):
             if key.startswith("artifact_") and artifactsanity == 0:
                 continue
             if key.startswith("archaeology_") and not include_archaeology:
+                continue
+            if key == "achievement_goal" and self._goal_key() != "achievement_goal":
                 continue
             enabled[name] = location_id
         goal_name = location_key_to_name[self._goal_key()]
@@ -158,4 +161,16 @@ class SnakedWorld(World):
             "items": {key: item_table[name] for key, name in item_key_to_name.items()},
             "item_metadata": item_metadata,
             "goal": self._goal_key(),
+            "achievementGoalPercentage": self._option_value("achievement_goal_percentage"),
+            "enabledAchievementLocationKeys": [
+                key
+                for key, name in location_key_to_name.items()
+                if key.startswith("achievement_") and key != "achievement_goal" and name in enabled_locations
+            ],
+            "achievementMetadata": {
+                key: {"name": name}
+                for key, name in location_key_to_name.items()
+                if key.startswith("achievement_") and key != "achievement_goal" and name in enabled_locations
+            },
+            "deathLink": self._option_value("death_link"),
         }

@@ -3993,6 +3993,10 @@ export class SnakeGame implements QuestRuntime {
     return room.layout[localY]?.[localX] === '~';
   }
 
+  isSnakeHeadOnWaterTile(): boolean {
+    return this.isHeadOnWaterTile();
+  }
+
   getCurrentTown(): TownStructure | null {
     const town = this.getCurrentRoom().town ?? null;
     return town ? this.applyTownRuntimeState(town) : null;

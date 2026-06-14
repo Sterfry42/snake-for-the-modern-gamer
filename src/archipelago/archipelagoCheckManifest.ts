@@ -1,5 +1,7 @@
 import { ARTIFACT_DEFINITIONS } from '../artifacts/artifacts.js';
 import { CARD_DEFINITIONS } from '../cards/cardGame.js';
+import { ACHIEVEMENT_DEFINITIONS } from '../achievements/achievementDefinitions.js';
+import { achievementLocationId, achievementLocationKey, getApAchievementDefinitions } from '../achievements/achievementApMapping.js';
 
 export type ArchipelagoPhase1CheckKey =
   | 'score_1'
@@ -365,9 +367,24 @@ export const AP_PHASE_2_ITEMS = [
 
 export const AP_PHASE_1_LOCATION_LIST = Object.values(AP_PHASE_1_LOCATIONS);
 export const AP_PHASE_1_ITEM_LIST = Object.values(AP_PHASE_1_ITEMS);
+export const AP_ACHIEVEMENT_LOCATIONS: readonly ArchipelagoLocationDefinition[] =
+  getApAchievementDefinitions(ACHIEVEMENT_DEFINITIONS).map((definition) => ({
+    key: achievementLocationKey(definition.id),
+    name: definition.name,
+    id: achievementLocationId(ACHIEVEMENT_DEFINITIONS, definition.id),
+    category: `achievement:${definition.category}`,
+  }));
+export const AP_ACHIEVEMENT_GOAL_LOCATION: ArchipelagoLocationDefinition = {
+  key: 'achievement_goal',
+  name: 'Achievement Percentage Goal',
+  id: 912001100,
+  category: 'achievement:goal',
+};
 export const AP_ALL_LOCATION_LIST: readonly ArchipelagoLocationDefinition[] = [
   ...AP_PHASE_1_LOCATION_LIST,
   ...AP_PHASE_2_LOCATIONS,
+  ...AP_ACHIEVEMENT_LOCATIONS,
+  AP_ACHIEVEMENT_GOAL_LOCATION,
 ];
 export const AP_ALL_ITEM_LIST: readonly ArchipelagoItemDefinition[] = [
   ...AP_PHASE_1_ITEM_LIST,

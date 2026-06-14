@@ -24,6 +24,12 @@ export interface ArchipelagoPrintMessage {
   text: string;
 }
 
+export interface ArchipelagoDeathLink {
+  source: string;
+  cause: string;
+  time?: number;
+}
+
 export interface ArchipelagoConnectionDetails {
   seedName?: string;
   team?: number;
@@ -38,4 +44,5 @@ export interface ArchipelagoClientEvents {
   onReceivedItem?: (item: ArchipelagoReceivedItem) => void;
   onPrint?: (message: ArchipelagoPrintMessage) => void;
   onLog?: (text: string) => void;
+  onDeathLink?: (deathLink: ArchipelagoDeathLink) => void;
 }

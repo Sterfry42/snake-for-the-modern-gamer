@@ -150,6 +150,48 @@ location_table.update(
     }
 )
 
+ACHIEVEMENT_LOCATIONS = [
+    ("achievement_core_firstApple", "A Classic"),
+    ("achievement_core_bigBite", "Big Bite"),
+    ("achievement_stats_score500", "Making Points"),
+    ("achievement_stats_score1000", "Four Digits"),
+    ("achievement_stats_score10000", "Score Lord"),
+    ("achievement_stats_length100", "Long Snake"),
+    ("achievement_stats_length2500", "World Serpent"),
+    ("achievement_equipment_equipFirst", "Dress for the Job"),
+    ("achievement_equipment_secondChance", "Second Chances"),
+    ("achievement_equipment_swim25", "Olympic Swimmer"),
+    ("achievement_food_drunk", "Get Drunk"),
+    ("achievement_food_comboMeal", "Combo Meal"),
+    ("achievement_exploration_rooms25", "Road Trip"),
+    ("achievement_towns_enterFirst", "City Limits"),
+    ("achievement_biomes_discoverAll", "World Tour"),
+    ("achievement_caves_enterFirst", "Below the Surface"),
+    ("achievement_guild_initiation", "In the Guild"),
+    ("achievement_relationships_firstDate", "First Date"),
+    ("achievement_relationships_married", "Till Death"),
+    ("achievement_relationships_child", "Family Expansion"),
+    ("achievement_fishing_firstCatch", "Gone Fishin'"),
+    ("achievement_fishing_legendary", "Legend of the Lake"),
+    ("achievement_archaeology_firstArtifact", "Dusty Treasure"),
+    ("achievement_archaeology_depth25", "Deep Dig"),
+    ("achievement_archaeology_chain5", "Chain Reaction"),
+    ("achievement_boss_defeatFreakDennis", "Freak Off"),
+    ("achievement_boss_defeatFreakerDennis", "Freakier Friday"),
+    ("achievement_boss_damageJasonVulnerable", "Now He's Vulnerable"),
+    ("achievement_boss_defeatJasonStatham", "Statham Must Fall"),
+    ("achievement_rivals_length25", "Let Them Cook"),
+    ("achievement_skillTree_oneBranch", "Specialist"),
+    ("achievement_skillTree_allBranches", "Fully Realized Snake"),
+    ("achievement_cards_win_porch_table", "Card Sharp: Porch Table"),
+    ("achievement_cards_win_market_table", "Card Sharp: Market Table"),
+    ("achievement_cards_win_dennis_dare", "Card Sharp: Freak Dennis Dare"),
+]
+
+for index, (_, name) in enumerate(ACHIEVEMENT_LOCATIONS):
+    location_table[name] = 912001000 + index
+location_table["Achievement Percentage Goal"] = 912001100
+
 for index, (_, artifact_name) in enumerate(ARTIFACT_DEFINITIONS):
     location_table[f"Recover {artifact_name}"] = LOCATION_BASE_ID + 88 + index
 
@@ -195,6 +237,9 @@ location_key_to_name.update(
         "card_table_dennis_dare": "Win at Freak Dennis Dare",
     }
 )
+for key, name in ACHIEVEMENT_LOCATIONS:
+    location_key_to_name[key] = name
+location_key_to_name["achievement_goal"] = "Achievement Percentage Goal"
 for artifact_id, artifact_name in ARTIFACT_DEFINITIONS:
     location_key_to_name[f"artifact_{_key_part(artifact_id)}"] = f"Recover {artifact_name}"
 location_key_to_name.update(
@@ -222,6 +267,7 @@ location_groups = {
     "Card Tables": {name for name in location_table if name.startswith("Win at")},
     "Artifacts": {name for name in location_table if name.startswith("Recover")},
     "Bosses": {"Defeat Jason Statham"},
+    "Achievements": {name for _, name in ACHIEVEMENT_LOCATIONS},
 }
 
 
