@@ -1840,6 +1840,11 @@ export default class SnakeScene extends Phaser.Scene {
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
+    // Wire up minecraft feature instance from the feature registry
+    this.minecraftFeature = this.featureManager.getFeature<
+      import('../minecraft/MinecraftFeature.js').MinecraftFeature
+    >('minecraft');
+
     this.initGame(true);
 
     // House HUD overlay (hidden by default)
@@ -2460,20 +2465,14 @@ export default class SnakeScene extends Phaser.Scene {
 
   private toggleMinecraftMode(): void {
     this.minecraftMode = !this.minecraftMode;
+    this.minecraftFeature?.toggleMode(this);
 
     if (this.minecraftMode) {
       // Switch to Minecraft mode - enter manual movement mode
       this.setFlag('traversal.manualResumePending', true);
-      this.setFlag('ui.suppressHud', true);
-      this.setFlag('ui.questInteraction', {
-        message:
-          'Minecraft mode: Shift+C to toggle. Q to break block, R to place block. WASD to move. E for crafting.',
-      });
     } else {
       // Switch back to snake mode - resume auto-movement
       this.setFlag('traversal.manualResumePending', undefined);
-      this.setFlag('ui.suppressHud', undefined);
-      this.setFlag('ui.questInteraction', undefined);
     }
   }
 

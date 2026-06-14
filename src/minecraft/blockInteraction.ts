@@ -3,6 +3,8 @@ import type { RoomSnapshot } from '../world/types.js';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { isSolidBlock, getBlockDrops, getBlockHardness } from './blockRegistry.js';
 import { isWalkable } from './player.js';
+import { ChunkManager } from './chunk.js';
+import { CHUNK_SIZE } from './config.js';
 
 export interface BreakResult {
   success: boolean;
@@ -31,6 +33,7 @@ export function tryBreakBlock(
   player: MinecraftPlayer,
   tileX: number,
   tileY: number,
+  chunkManager?: ChunkManager,
 ): BreakResult {
   const room = scene.snakeGame.getCurrentRoom();
   const blockType = room.minecraftBlocks?.[`${tileX},${tileY}`];
@@ -54,7 +57,13 @@ export function tryBreakBlock(
 
   const drops = getBlockDrops(blockType);
 
+  const chunkX = Math.floor(tileX / CHUNK_SIZE);
+  const chunkY = Math.floor(tileY / CHUNK_SIZE);
+  const localX = tileX - chunkX * CHUNK_SIZE;
+  const localY = tileY - chunkY * CHUNK_SIZE;
+
   delete room.minecraftBlocks![`${tileX},${tileY}`];
+  chunkManager?.removeBlock(room.id, chunkX, chunkY, localX, localY);
 
   player.addItem(drops, 1);
 
@@ -74,6 +83,7 @@ export function tryBreakBlockCreative(
   scene: SnakeScene,
   tileX: number,
   tileY: number,
+  chunkManager?: ChunkManager,
 ): BreakResultCreative {
   const room = scene.snakeGame.getCurrentRoom();
   const blockType = room.minecraftBlocks?.[`${tileX},${tileY}`];
@@ -83,7 +93,13 @@ export function tryBreakBlockCreative(
   }
 
   // In creative mode, break any Minecraft block type without tool check
+  const chunkX = Math.floor(tileX / CHUNK_SIZE);
+  const chunkY = Math.floor(tileY / CHUNK_SIZE);
+  const localX = tileX - chunkX * CHUNK_SIZE;
+  const localY = tileY - chunkY * CHUNK_SIZE;
+
   delete room.minecraftBlocks![`${tileX},${tileY}`];
+  chunkManager?.removeBlock(room.id, chunkX, chunkY, localX, localY);
 
   // No drops in creative mode
   scene.juice.blockBreak(
@@ -106,6 +122,7 @@ export function tryPlaceBlock(
   tileX: number,
   tileY: number,
   blockType: string,
+  chunkManager?: ChunkManager,
 ): PlaceResult {
   const room = scene.snakeGame.getCurrentRoom();
 
@@ -122,9 +139,14 @@ export function tryPlaceBlock(
     if (specialBlockMessage) {
       return { success: false, message: specialBlockMessage };
     }
+    const chunkX = Math.floor(tileX / CHUNK_SIZE);
+    const chunkY = Math.floor(tileY / CHUNK_SIZE);
+    const localX = tileX - chunkX * CHUNK_SIZE;
+    const localY = tileY - chunkY * CHUNK_SIZE;
     if (room.minecraftBlocks) {
       room.minecraftBlocks[`${tileX},${tileY}`] = blockType;
     }
+    chunkManager?.setBlock(room.id, chunkX, chunkY, localX, localY, blockType);
     scene.juice.blockPlace(
       tileX * scene.grid.cell + scene.grid.cell / 2,
       tileY * scene.grid.cell + scene.grid.cell / 2,
@@ -142,9 +164,15 @@ export function tryPlaceBlock(
     return { success: false, message: specialBlockMessage };
   }
 
+  const chunkX = Math.floor(tileX / CHUNK_SIZE);
+  const chunkY = Math.floor(tileY / CHUNK_SIZE);
+  const localX = tileX - chunkX * CHUNK_SIZE;
+  const localY = tileY - chunkY * CHUNK_SIZE;
+
   if (room.minecraftBlocks) {
     room.minecraftBlocks[`${tileX},${tileY}`] = blockType;
   }
+  chunkManager?.setBlock(room.id, chunkX, chunkY, localX, localY, blockType);
 
   scene.juice.blockPlace(
     tileX * scene.grid.cell + scene.grid.cell / 2,
@@ -159,6 +187,7 @@ export function tryPlaceBlockCreative(
   tileX: number,
   tileY: number,
   blockType: string,
+  chunkManager?: ChunkManager,
 ): PlaceResultCreative {
   const room = scene.snakeGame.getCurrentRoom();
 
@@ -168,10 +197,16 @@ export function tryPlaceBlockCreative(
     return { success: false, message: specialBlockMessage, creativeMode: true };
   }
 
+  const chunkX = Math.floor(tileX / CHUNK_SIZE);
+  const chunkY = Math.floor(tileY / CHUNK_SIZE);
+  const localX = tileX - chunkX * CHUNK_SIZE;
+  const localY = tileY - chunkY * CHUNK_SIZE;
+
   // Place block in minecraftBlocks map (always visible)
   if (room.minecraftBlocks) {
     room.minecraftBlocks[`${tileX},${tileY}`] = blockType;
   }
+  chunkManager?.setBlock(room.id, chunkX, chunkY, localX, localY, blockType);
 
   scene.juice.blockPlace(
     tileX * scene.grid.cell + scene.grid.cell / 2,
