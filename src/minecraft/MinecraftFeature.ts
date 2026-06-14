@@ -478,7 +478,7 @@ export class MinecraftFeature extends Feature {
 
       // Break block
       if (this.creativeMode) {
-        const creativeResult = tryBreakBlockCreative(scene, worldTileX, worldTileY);
+        const creativeResult = tryBreakBlockCreative(scene, worldTileX, worldTileY, this.chunkManager);
         if (creativeResult.success) {
           // No drops in creative mode
         }
@@ -486,7 +486,7 @@ export class MinecraftFeature extends Feature {
           scene.setFlag('ui.questInteraction', { message: creativeResult.message });
         }
       } else {
-        const result = tryBreakBlock(scene, this.player, worldTileX, worldTileY);
+        const result = tryBreakBlock(scene, this.player, worldTileX, worldTileY, this.chunkManager);
         if (result.success) {
           if (result.droppedItem) {
             this.player.addItem(result.droppedItem, result.droppedCount ?? 1);
@@ -553,7 +553,7 @@ export class MinecraftFeature extends Feature {
       // Place block
       if (this.creativeMode) {
         const blockTypeForPlace = this.getCreativeBlockType();
-        const placeResult = tryPlaceBlockCreative(scene, worldTileX, worldTileY, blockTypeForPlace);
+        const placeResult = tryPlaceBlockCreative(scene, worldTileX, worldTileY, blockTypeForPlace, this.chunkManager);
         if (placeResult.message) {
           scene.setFlag('ui.questInteraction', { message: placeResult.message });
         }
@@ -1075,7 +1075,7 @@ export class MinecraftFeature extends Feature {
     }
 
     // Regular block placement
-    return tryPlaceBlock(scene, this.player, x, y, blockType);
+    return tryPlaceBlock(scene, this.player, x, y, blockType, this.chunkManager);
   }
 
   private handleMobDeath(
@@ -1349,7 +1349,7 @@ export class MinecraftFeature extends Feature {
 
     // In creative mode, break at head position (snake positions itself to reach blocks)
     if (this.creativeMode) {
-      const creativeResult = tryBreakBlockCreative(scene, head.x, head.y);
+      const creativeResult = tryBreakBlockCreative(scene, head.x, head.y, this.chunkManager);
       if (creativeResult.success) {
         // No drops in creative mode
       }
@@ -1380,7 +1380,7 @@ export class MinecraftFeature extends Feature {
     }
 
     // Break block
-    const result = tryBreakBlock(scene, this.player, head.x, head.y);
+    const result = tryBreakBlock(scene, this.player, head.x, head.y, this.chunkManager);
     if (result.success) {
       if (result.droppedItem) {
         this.player.addItem(result.droppedItem, result.droppedCount ?? 1);
@@ -1437,7 +1437,7 @@ export class MinecraftFeature extends Feature {
     // In creative mode with keyboard place: place from palette
     if (this.creativeMode) {
       const blockType = this.getCreativeBlockType();
-      const placeResult = tryPlaceBlockCreative(scene, head.x, head.y, blockType);
+      const placeResult = tryPlaceBlockCreative(scene, head.x, head.y, blockType, this.chunkManager);
       if (placeResult.message) {
         scene.setFlag('ui.questInteraction', { message: placeResult.message });
       }

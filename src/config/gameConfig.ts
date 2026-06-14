@@ -291,6 +291,7 @@ export const defaultGameConfig: GameConfig = {
       'killstreakArsenal',
       'starforgedVanguard',
       'coordinates',
+      'minecraft',
     ],
   },
   character: {
