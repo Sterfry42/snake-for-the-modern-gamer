@@ -41,8 +41,9 @@ export function trySleep(
     return { success: false, message: "Someone's already sleeping." };
   }
 
-  // Check if it's night
-  if (dayNight.timeOfDay < 12000 || dayNight.timeOfDay > 20000) {
+  // Check if it's night using the same logic as the day/night cycle
+  const isNight = dayNight.timeOfDay >= 13000 || dayNight.timeOfDay < 2000;
+  if (!isNight) {
     return { success: false, message: 'No need to sleep now.' };
   }
 

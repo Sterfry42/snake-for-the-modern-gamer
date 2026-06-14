@@ -2013,6 +2013,61 @@ export default class SnakeScene extends Phaser.Scene {
           this.isDirty = true;
           return;
         }
+        if (key === 'e') {
+          this.minecraftFeature?.tryEatFood(this);
+          this.isDirty = true;
+          return;
+        }
+        if (this.minecraftFeature && this.minecraftFeature.isCreativeMode()) {
+          if (key === '[') {
+            this.minecraftFeature.cyclePaletteSlot(-1);
+            this.isDirty = true;
+            return;
+          }
+          if (key === ']') {
+            this.minecraftFeature.cyclePaletteSlot(1);
+            this.isDirty = true;
+            return;
+          }
+        }
+        // Armor equipping: F=helmet, G=chestplate, H=leggings, J=boots
+        // Shift+F/G/H/J = unequip
+        if (key === 'f') {
+          if (event.shiftKey) {
+            this.minecraftFeature?.autoUnequipArmorBySlot('chestplate', this);
+          } else {
+            this.minecraftFeature?.autoEquipArmorBySlot('helmet', this);
+          }
+          this.isDirty = true;
+          return;
+        }
+        if (key === 'g') {
+          if (event.shiftKey) {
+            this.minecraftFeature?.autoUnequipArmorBySlot('leggings', this);
+          } else {
+            this.minecraftFeature?.autoEquipArmorBySlot('chestplate', this);
+          }
+          this.isDirty = true;
+          return;
+        }
+        if (key === 'h') {
+          if (event.shiftKey) {
+            this.minecraftFeature?.autoUnequipArmorBySlot('boots', this);
+          } else {
+            this.minecraftFeature?.autoEquipArmorBySlot('leggings', this);
+          }
+          this.isDirty = true;
+          return;
+        }
+        if (key === 'j') {
+          if (event.shiftKey) {
+            this.minecraftFeature?.autoUnequipArmorBySlot('helmet', this);
+          } else {
+            this.minecraftFeature?.autoEquipArmorBySlot('boots', this);
+          }
+          this.isDirty = true;
+          return;
+        }
         if (['arrowup', 'w'].includes(key)) {
           this.setDir(0, -1);
           this.takeManualTurn();
@@ -2086,6 +2141,20 @@ export default class SnakeScene extends Phaser.Scene {
         event.preventDefault();
         if (this.deathCutscene || this.paused) return;
         this.toggleMinecraftMode();
+      }
+
+      // Shift+M: Toggle creative mode (only in Minecraft mode)
+      if (key === 'm' && event.shiftKey) {
+        event.preventDefault();
+        if (this.deathCutscene || this.paused) return;
+        if (this.minecraftMode && this.minecraftFeature) {
+          this.minecraftFeature.toggleCreativeMode(this);
+          this.isDirty = true;
+          return;
+        }
+        if (!this.minecraftMode) {
+          this.toggleMinecraftMode();
+        }
       }
 
       if (key === '2' && event.shiftKey) {

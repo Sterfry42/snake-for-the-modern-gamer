@@ -11,9 +11,19 @@ export interface BreakResult {
   message?: string;
 }
 
+export interface BreakResultCreative extends BreakResult {
+  creativeMode: boolean;
+  blockType?: string;
+}
+
 export interface PlaceResult {
   success: boolean;
   message?: string;
+}
+
+export interface PlaceResultCreative extends PlaceResult {
+  creativeMode: boolean;
+  blockType?: string;
 }
 
 export function tryBreakBlock(
@@ -43,13 +53,10 @@ export function tryBreakBlock(
   }
 
   const drops = getBlockDrops(blockType);
-  const dropCount = Math.random() < 0.7 ? 1 : 0;
 
   delete room.minecraftBlocks![`${tileX},${tileY}`];
 
-  if (dropCount > 0) {
-    player.addItem(drops, 1);
-  }
+  player.addItem(drops, 1);
 
   scene.juice.blockBreak(
     tileX * scene.grid.cell + scene.grid.cell / 2,
@@ -58,8 +65,38 @@ export function tryBreakBlock(
 
   return {
     success: true,
-    droppedItem: dropCount > 0 ? drops : undefined,
-    droppedCount: dropCount,
+    droppedItem: drops,
+    droppedCount: 1,
+  };
+}
+
+export function tryBreakBlockCreative(
+  scene: SnakeScene,
+  tileX: number,
+  tileY: number,
+): BreakResultCreative {
+  const room = scene.snakeGame.getCurrentRoom();
+  const blockType = room.minecraftBlocks?.[`${tileX},${tileY}`];
+
+  if (!blockType) {
+    return { success: false, message: 'No block here.', creativeMode: true };
+  }
+
+  // In creative mode, break any Minecraft block type without tool check
+  delete room.minecraftBlocks![`${tileX},${tileY}`];
+
+  // No drops in creative mode
+  scene.juice.blockBreak(
+    tileX * scene.grid.cell + scene.grid.cell / 2,
+    tileY * scene.grid.cell + scene.grid.cell / 2,
+  );
+
+  return {
+    success: true,
+    droppedItem: undefined,
+    droppedCount: 0,
+    creativeMode: true,
+    blockType,
   };
 }
 
@@ -74,6 +111,25 @@ export function tryPlaceBlock(
 
   if (!isSolidBlock(blockType) && blockType !== 'torch') {
     return { success: false, message: 'Cannot place this block here.' };
+  }
+
+  // Check for torch - can be placed on any walkable tile
+  if (blockType === 'torch') {
+    if (!isWalkable(room, tileX, tileY)) {
+      return { success: false, message: 'Cannot place torch here.' };
+    }
+    const specialBlockMessage = checkSpecialTileProtection(room, tileX, tileY);
+    if (specialBlockMessage) {
+      return { success: false, message: specialBlockMessage };
+    }
+    if (room.minecraftBlocks) {
+      room.minecraftBlocks[`${tileX},${tileY}`] = blockType;
+    }
+    scene.juice.blockPlace(
+      tileX * scene.grid.cell + scene.grid.cell / 2,
+      tileY * scene.grid.cell + scene.grid.cell / 2,
+    );
+    return { success: true };
   }
 
   if (!isWalkable(room, tileX, tileY)) {
@@ -96,6 +152,33 @@ export function tryPlaceBlock(
   );
 
   return { success: true };
+}
+
+export function tryPlaceBlockCreative(
+  scene: SnakeScene,
+  tileX: number,
+  tileY: number,
+  blockType: string,
+): PlaceResultCreative {
+  const room = scene.snakeGame.getCurrentRoom();
+
+  // Special tile protection still applies in creative mode
+  const specialBlockMessage = checkSpecialTileProtection(room, tileX, tileY);
+  if (specialBlockMessage) {
+    return { success: false, message: specialBlockMessage, creativeMode: true };
+  }
+
+  // Place block in minecraftBlocks map (always visible)
+  if (room.minecraftBlocks) {
+    room.minecraftBlocks[`${tileX},${tileY}`] = blockType;
+  }
+
+  scene.juice.blockPlace(
+    tileX * scene.grid.cell + scene.grid.cell / 2,
+    tileY * scene.grid.cell + scene.grid.cell / 2,
+  );
+
+  return { success: true, creativeMode: true };
 }
 
 function checkSpecialTileProtection(

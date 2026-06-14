@@ -93,4 +93,146 @@ describe('Mob Manager', () => {
 
     manager.destroy();
   });
+
+  describe('spawnMobsForRoom', () => {
+    it('should spawn hostile mobs when it is night', () => {
+      const manager = new MobManager();
+      manager.init();
+
+      const gridSize = 20;
+      const lightLevelAt = () => 0;
+
+      manager.spawnMobsForRoom('room1', true, gridSize, lightLevelAt, 10, 10, 10000);
+
+      const mobs = manager.getMobsInRoom('room1');
+      expect(mobs.length).toBeGreaterThan(0);
+      expect(mobs.every((m) => m.ai === 'hostile')).toBe(true);
+
+      manager.destroy();
+    });
+
+    it('should spawn passive mobs when it is day', () => {
+      const manager = new MobManager();
+      manager.init();
+
+      const gridSize = 20;
+      const lightLevelAt = () => 15;
+
+      manager.spawnMobsForRoom('room1', false, gridSize, lightLevelAt, 10, 10, 10000);
+
+      const mobs = manager.getMobsInRoom('room1');
+      expect(mobs.length).toBeGreaterThan(0);
+      expect(mobs.every((m) => m.ai === 'passive')).toBe(true);
+
+      manager.destroy();
+    });
+
+    it('should not spawn mobs in well-lit areas at night', () => {
+      const manager = new MobManager();
+      manager.init();
+
+      const gridSize = 20;
+      const lightLevelAt = () => 14;
+
+      manager.spawnMobsForRoom('room1', true, gridSize, lightLevelAt, 10, 10, 10000);
+
+      const mobs = manager.getMobsInRoom('room1');
+      expect(mobs.length).toBe(0);
+
+      manager.destroy();
+    });
+
+    it('should respect the mob spawn interval', () => {
+      const manager = new MobManager();
+      manager.init();
+
+      const gridSize = 20;
+      const lightLevelAt = () => 0;
+
+      manager.spawnMobsForRoom('room1', true, gridSize, lightLevelAt, 10, 10, 10000);
+      const firstCount = manager.getMobsInRoom('room1').length;
+
+      manager.spawnMobsForRoom('room1', true, gridSize, lightLevelAt, 10, 10, 10050);
+
+      expect(manager.getMobsInRoom('room1').length).toBe(firstCount);
+
+      manager.destroy();
+    });
+
+    it('should despawn hostile mobs near player during day', () => {
+      const manager = new MobManager();
+      manager.init();
+
+      manager.spawnMob('room1', 'zombie', 10, 10);
+      manager.spawnMob('room1', 'cow', 20, 20);
+      expect(manager.getMobCount()).toBe(2);
+
+      let deathCount = 0;
+      manager.despawnMobsNearPosition('room1', 10, 10, 5, (mobId) => {
+        deathCount++;
+        manager.despawnMob(mobId);
+      });
+
+      expect(deathCount).toBe(1);
+      expect(manager.getMobCount()).toBe(1);
+
+      manager.destroy();
+    });
+
+    it('should damage creeper and call death callback when health reaches 0', () => {
+      const manager = new MobManager();
+      manager.init();
+
+      const creeper = manager.spawnMob('room1', 'creeper', 10, 10);
+      let deathCalled = false;
+
+      manager.damageMob(creeper.id, 20, (mobId) => {
+        deathCalled = true;
+        manager.despawnMob(mobId);
+      });
+
+      expect(deathCalled).toBe(true);
+      expect(manager.getMob(creeper.id)).toBeUndefined();
+
+      manager.destroy();
+    });
+
+    it('should trigger creeper explosion after fuse time when close to player', () => {
+      const manager = new MobManager();
+      manager.init();
+
+      manager.spawnMob('room1', 'creeper', 10, 10);
+
+      let explosionTriggered = false;
+      let playerHit = false;
+
+      // First tick - starts charging
+      manager.tickMobs(
+        100000,
+        10,
+        10,
+        'room1',
+        () => 0,
+        () => {},
+        () => { playerHit = true; },
+        () => { explosionTriggered = true; },
+      );
+
+      // Wait for fuse time (60 ticks)
+      manager.tickMobs(
+        100060,
+        10,
+        10,
+        'room1',
+        () => 0,
+        () => {},
+        () => { playerHit = true; },
+        () => { explosionTriggered = true; },
+      );
+
+      expect(explosionTriggered).toBe(true);
+
+      manager.destroy();
+    });
+  });
 });
