@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { MinecraftPlayer, isWalkable, canMineBlock, getToolTier } from '../player.js';
+import { MinecraftPlayer, isWalkable, isWalkableWithCreativeOverride, canMineBlock, getToolTier } from '../player.js';
+import { getMinecraftItem } from '../itemRegistry.js';
 
 describe('MinecraftPlayer', () => {
   it('should create player with default stats', () => {
@@ -178,5 +179,196 @@ describe('getToolTier', () => {
   it('should return 0 for non-tool items', () => {
     expect(getToolTier('cobblestone')).toBe(0);
     expect(getToolTier('torch_item')).toBe(0);
+  });
+});
+
+describe('MinecraftPlayer creative mode', () => {
+  it('should initialize creativePaletteSlot to 0', () => {
+    const player = new MinecraftPlayer();
+    expect(player.creativePaletteSlot).toBe(0);
+  });
+
+  it('should cycle palette slot forward', () => {
+    const player = new MinecraftPlayer();
+    player.creativePaletteSlot = 0;
+    player.cyclePaletteSlot(1);
+    expect(player.creativePaletteSlot).toBe(1);
+  });
+
+  it('should wrap backward at start of block list', () => {
+    const player = new MinecraftPlayer();
+    player.creativePaletteSlot = 0;
+    player.cyclePaletteSlot(-1);
+    expect(player.creativePaletteSlot).toBe(19);
+  });
+
+  it('should handle multiple backward cycles', () => {
+    const player = new MinecraftPlayer();
+    player.creativePaletteSlot = 0;
+    player.cyclePaletteSlot(-5);
+    expect(player.creativePaletteSlot).toBe(15);
+  });
+
+  it('should have 20 CREATIVE_BLOCK_TYPES', () => {
+    expect(MinecraftPlayer.CREATIVE_BLOCK_TYPES.length).toBe(20);
+  });
+
+  it('should include all expected block types', () => {
+    const expected = [
+      'dirt', 'grass', 'stone', 'cobblestone', 'sand',
+      'gravel', 'wood', 'planks', 'torch', 'glass',
+      'furnace', 'chest', 'bed', 'crafting_table', 'pumpkin',
+      'iron_block', 'gold_block', 'diamond_ore', 'iron_ore', 'coal_ore',
+    ];
+    for (const bt of expected) {
+      expect(MinecraftPlayer.CREATIVE_BLOCK_TYPES).toContain(bt);
+    }
+  });
+});
+
+describe('isWalkableWithCreativeOverride', () => {
+  it('should walk over solid blocks in creative mode', () => {
+    const room = {
+      id: '0,0,0',
+      layout: ['................'],
+      portals: [],
+      biomeId: 'verdigris-basin' as any,
+      biomeTitle: 'Test',
+      backgroundColor: 0xffffff,
+      wallColor: 0x000000,
+      wallOutlineColor: 0x333333,
+      minecraftBlocks: { '5,0': 'stone' },
+    } as any;
+    expect(isWalkableWithCreativeOverride(room, 5, 0, true)).toBe(true);
+  });
+
+  it('should NOT walk over walls in creative mode', () => {
+    const room = {
+      id: '0,0,0',
+      layout: ['##############..'],
+      portals: [],
+      biomeId: 'verdigris-basin' as any,
+      biomeTitle: 'Test',
+      backgroundColor: 0xffffff,
+      wallColor: 0x000000,
+      wallOutlineColor: 0x333333,
+      minecraftBlocks: {},
+    } as any;
+    expect(isWalkableWithCreativeOverride(room, 5, 0, true)).toBe(false);
+  });
+
+  it('should NOT walk over solid blocks in non-creative mode', () => {
+    const room = {
+      id: '0,0,0',
+      layout: ['................'],
+      portals: [],
+      biomeId: 'verdigris-basin' as any,
+      biomeTitle: 'Test',
+      backgroundColor: 0xffffff,
+      wallColor: 0x000000,
+      wallOutlineColor: 0x333333,
+      minecraftBlocks: { '5,0': 'stone' },
+    } as any;
+    expect(isWalkableWithCreativeOverride(room, 5, 0, false)).toBe(false);
+  });
+});
+
+describe('Armor System', () => {
+  it('should start with no armor equipped', () => {
+    const player = new MinecraftPlayer();
+    expect(player.state.armorPoints).toBe(0);
+    expect(player.armorSlots.head).toBeNull();
+    expect(player.armorSlots.torso).toBeNull();
+    expect(player.armorSlots.legs).toBeNull();
+    expect(player.armorSlots.feet).toBeNull();
+  });
+
+  it('should equip armor via equipArmor', () => {
+    const player = new MinecraftPlayer();
+    player.addItem('leather_helmet', 1);
+    const success = player.equipArmor('leather_helmet');
+    expect(success).toBe(true);
+    expect(player.armorSlots.head).toBe('leather_helmet');
+    expect(player.state.armorPoints).toBe(2);
+    expect(player.getItemCount('leather_helmet')).toBe(0);
+  });
+
+  it('should replace existing armor in same slot', () => {
+    const player = new MinecraftPlayer();
+    player.addItem('leather_helmet', 1);
+    player.addItem('iron_helmet', 1);
+    player.equipArmor('leather_helmet');
+    expect(player.armorSlots.head).toBe('leather_helmet');
+    player.equipArmor('iron_helmet');
+    expect(player.armorSlots.head).toBe('iron_helmet');
+    expect(player.state.armorPoints).toBe(6);
+    expect(player.getItemCount('leather_helmet')).toBe(1);
+  });
+
+  it('should unequip armor back to inventory', () => {
+    const player = new MinecraftPlayer();
+    player.addItem('leather_boots', 1);
+    player.equipArmor('leather_boots');
+    expect(player.getItemCount('leather_boots')).toBe(0);
+    player.unequipArmor('feet');
+    expect(player.armorSlots.feet).toBeNull();
+    expect(player.getItemCount('leather_boots')).toBe(1);
+  });
+
+  it('should auto-equip best armor for slot', () => {
+    const player = new MinecraftPlayer();
+    player.addItem('leather_helmet', 1);
+    player.addItem('iron_helmet', 1);
+    player.addItem('diamond_helmet', 1);
+    const success = player.autoEquipArmor('helmet');
+    expect(success).toBe(true);
+    expect(player.armorSlots.head).toBe('diamond_helmet');
+    expect(player.state.armorPoints).toBe(8);
+  });
+
+  it('should fail to auto-equip when no matching armor', () => {
+    const player = new MinecraftPlayer();
+    player.addItem('cobblestone', 5);
+    const success = player.autoEquipArmor('helmet');
+    expect(success).toBe(false);
+    expect(player.armorSlots.head).toBeNull();
+  });
+
+  it('should auto-unequip armor', () => {
+    const player = new MinecraftPlayer();
+    player.addItem('iron_chestplate', 1);
+    player.equipArmor('iron_chestplate');
+    expect(player.armorSlots.torso).toBe('iron_chestplate');
+    const success = player.autoUnequipArmor('chestplate');
+    expect(success).toBe(true);
+    expect(player.armorSlots.torso).toBeNull();
+    expect(player.getItemCount('iron_chestplate')).toBe(1);
+  });
+
+  it('should get equipped armor slot name', () => {
+    const player = new MinecraftPlayer();
+    expect(player.getArmorSlotName('helmet')).toBeNull();
+    player.addItem('diamond_leggings', 1);
+    player.equipArmor('diamond_leggings');
+    expect(player.getArmorSlotName('leggings')).toBe('diamond_leggings');
+  });
+
+  it('should calculate armor reduction correctly', () => {
+    const player = new MinecraftPlayer();
+    // Full diamond armor = 8 + 20 + 12 + 4 = 44 points
+    player.addItem('diamond_helmet', 1);
+    player.addItem('diamond_chestplate', 1);
+    player.addItem('diamond_leggings', 1);
+    player.addItem('diamond_boots', 1);
+    player.equipArmor('diamond_helmet');
+    player.equipArmor('diamond_chestplate');
+    player.equipArmor('diamond_leggings');
+    player.equipArmor('diamond_boots');
+    expect(player.state.armorPoints).toBe(44);
+
+    // 44/25 = 1.76, capped at 0.8 reduction
+    // damage = max(1, floor(10 * 0.2)) = max(1, 2) = 2
+    player.takeDamageWithArmor(10);
+    expect(player.state.health).toBe(19);
   });
 });

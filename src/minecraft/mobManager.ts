@@ -1,5 +1,10 @@
 import type { MobTypeId, MobState, MobDefinition } from './types.js';
-import { MAX_MOBS_PER_CHUNK, MAX_PASSIVE_MOBS_PER_CHUNK } from './config.js';
+import {
+  MAX_MOBS_PER_CHUNK,
+  MAX_PASSIVE_MOBS_PER_CHUNK,
+  LIGHT_LEVEL_MOB_SPAWN_THRESHOLD,
+  MOB_SPAWN_CHECK_INTERVAL_TICKS,
+} from './config.js';
 import { getMinecraftItem } from './itemRegistry.js';
 
 const MOB_ATTACK_DAMAGE: Record<MobTypeId, number> = {
@@ -78,9 +83,128 @@ function generateMobId(): string {
 export class MobManager {
   private mobs: Map<string, MobState> = new Map();
   private mobIdCounter = 0;
+  private lastSpawnCheck: Record<string, number> = {};
+  private creeperExploding: Map<string, { startTime: number }> = new Map();
+  private readonly CREEPER_EXPLOSION_FUSE = 60;
 
   init(): void {
     this.mobs.clear();
+    this.lastSpawnCheck = {};
+  }
+
+  spawnMobsForRoom(
+    roomId: string,
+    isNight: boolean,
+    gridSize: number,
+    lightLevelAt: (x: number, y: number, roomId: string) => number,
+    playerX: number,
+    playerY: number,
+    currentTime: number,
+  ): void {
+    if (this.lastSpawnCheck[roomId] === undefined) {
+      this.lastSpawnCheck[roomId] = 0;
+    }
+
+    if (currentTime - this.lastSpawnCheck[roomId] < MOB_SPAWN_CHECK_INTERVAL_TICKS) {
+      return;
+    }
+    this.lastSpawnCheck[roomId] = currentTime;
+
+    const roomMobs = this.getMobsInRoom(roomId);
+    const hostileMobs = roomMobs.filter((m) => m.ai === 'hostile');
+    const passiveMobs = roomMobs.filter((m) => m.ai === 'passive');
+
+    const hostileLimit = MAX_MOBS_PER_CHUNK;
+    const passiveLimit = MAX_PASSIVE_MOBS_PER_CHUNK;
+
+    if (isNight) {
+      if (hostileMobs.length >= hostileLimit) {
+        return;
+      }
+
+      const maxAttempts = 10;
+      for (let i = 0; i < maxAttempts; i++) {
+        if (hostileMobs.length >= hostileLimit) break;
+
+        const x = Math.floor(Math.random() * gridSize);
+        const y = Math.floor(Math.random() * gridSize);
+        const lightLevel = lightLevelAt(x, y, roomId);
+
+        if (lightLevel > LIGHT_LEVEL_MOB_SPAWN_THRESHOLD) continue;
+
+        if (Math.abs(x - playerX) + Math.abs(y - playerY) < 5) continue;
+
+        if (this.isPositionOccupied(roomId, x, y, 3)) continue;
+
+        const hostileTypes: MobTypeId[] = ['zombie', 'skeleton', 'creeper'];
+        const type = hostileTypes[Math.floor(Math.random() * hostileTypes.length)];
+        this.spawnMob(roomId, type, x, y);
+        hostileMobs.push(this.getMob(this.mobs.keys().next().value!)!);
+      }
+    } else {
+      if (passiveMobs.length >= passiveLimit) {
+        return;
+      }
+
+      const maxAttempts = 5;
+      for (let i = 0; i < maxAttempts; i++) {
+        if (passiveMobs.length >= passiveLimit) break;
+
+        const x = Math.floor(Math.random() * gridSize);
+        const y = Math.floor(Math.random() * gridSize);
+
+        if (Math.abs(x - playerX) + Math.abs(y - playerY) < 3) continue;
+
+        if (this.isPositionOccupied(roomId, x, y, 3)) continue;
+
+        this.spawnMob(roomId, 'cow', x, y);
+        passiveMobs.push(this.getMob(this.mobs.keys().next().value!)!);
+      }
+    }
+  }
+
+  private isPositionOccupied(
+    roomId: string,
+    x: number,
+    y: number,
+    minDistance: number,
+  ): boolean {
+    for (const mob of this.mobs.values()) {
+      if (mob.roomId !== roomId) continue;
+      const dx = mob.x - x;
+      const dy = mob.y - y;
+      if (dx * dx + dy * dy <= minDistance * minDistance) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private triggerCreeperExplosion(
+    creeper: MobState,
+    distToPlayer: number,
+    onPlayerHit: (damage: number) => void,
+    onMobDeath: (mobId: string) => void,
+  ): void {
+    const explosionRadius = 3;
+    const damage = distToPlayer <= 2 ? 8 : Math.max(1, 8 - distToPlayer);
+    onPlayerHit(damage);
+
+    onMobDeath(creeper.id);
+
+    for (const otherMob of this.mobs.values()) {
+      if (otherMob.id === creeper.id) continue;
+      const dx = otherMob.x - creeper.x;
+      const dy = otherMob.y - creeper.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist <= explosionRadius) {
+        const mobDamage = Math.max(1, Math.floor(6 * (1 - dist / explosionRadius)));
+        otherMob.health -= mobDamage;
+        if (otherMob.health <= 0) {
+          onMobDeath(otherMob.id);
+        }
+      }
+    }
   }
 
   spawnMob(roomId: string, type: MobTypeId, x: number, y: number): MobState {
@@ -141,6 +265,7 @@ export class MobManager {
     lightLevelAt: (x: number, y: number, roomId: string) => number,
     onMobDeath: (mobId: string, x: number, y: number, roomId: string) => void,
     onPlayerHit?: (damage: number) => void,
+    onCreeperExplode?: (x: number, y: number, roomId: string) => void,
   ): void {
     for (const mob of this.mobs.values()) {
       const def = MOB_DEFINITIONS[mob.type];
@@ -164,10 +289,39 @@ export class MobManager {
         mob.lastMoveTick = currentTime;
       }
 
+      // Creeper explosion logic
+      if (mob.type === 'creeper' && distToPlayer <= 2) {
+        if (!this.creeperExploding.has(mob.id)) {
+          this.creeperExploding.set(mob.id, { startTime: currentTime });
+        }
+        const explosion = this.creeperExploding.get(mob.id)!;
+        if (currentTime - explosion.startTime >= this.CREEPER_EXPLOSION_FUSE) {
+          const cx = mob.x;
+          const cy = mob.y;
+          const crId = mob.roomId;
+          this.triggerCreeperExplosion(
+            mob,
+            distToPlayer,
+            (damage) => {
+              if (onPlayerHit) onPlayerHit(damage);
+            },
+            (mobId) => {
+              onMobDeath(mobId, mob.x, mob.y, mob.roomId);
+            },
+          );
+          if (onCreeperExplode) {
+            onCreeperExplode(cx, cy, crId);
+          }
+          this.creeperExploding.delete(mob.id);
+        }
+      } else {
+        this.creeperExploding.delete(mob.id);
+      }
+
       // Combat: hostile mobs attack player on contact
       const attackDamage = MOB_ATTACK_DAMAGE[mob.type];
       const attackCooldown = MOB_ATTACK_COOLDOWN[mob.type];
-      if (attackDamage > 0 && mob.ai === 'hostile' && distToPlayer <= 1) {
+      if (attackDamage > 0 && mob.ai === 'hostile' && distToPlayer <= 1 && mob.type !== 'creeper') {
         if (currentTime - mob.lastAttackTick >= attackCooldown) {
           mob.lastAttackTick = currentTime;
           if (onPlayerHit) {
@@ -248,6 +402,22 @@ export class MobManager {
     }
   }
 
+  damageMob(
+    mobId: string,
+    damage: number,
+    onMobDeath: (mobId: string, x: number, y: number, roomId: string) => void,
+  ): boolean {
+    const mob = this.mobs.get(mobId);
+    if (!mob) return false;
+
+    mob.health -= damage;
+    if (mob.health <= 0) {
+      onMobDeath(mob.id, mob.x, mob.y, mob.roomId);
+      return true;
+    }
+    return false;
+  }
+
   onMobDeath(mobId: string, onDropItem: (itemId: string, count: number) => void): boolean {
     const mob = this.mobs.get(mobId);
     if (!mob) return false;
@@ -271,7 +441,23 @@ export class MobManager {
     return this.mobs.size;
   }
 
+  despawnMobsNearPosition(
+    roomId: string,
+    x: number,
+    y: number,
+    radius: number,
+    onMobDeath: (mobId: string, mx: number, my: number, mroomId: string) => void,
+  ): void {
+    const mobs = this.getMobsNearPosition(x, y, roomId, radius);
+    for (const mob of mobs) {
+      const def = MOB_DEFINITIONS[mob.type];
+      if (!def || !def.hostile) continue;
+      onMobDeath(mob.id, mob.x, mob.y, mob.roomId);
+    }
+  }
+
   destroy(): void {
     this.mobs.clear();
+    this.lastSpawnCheck = {};
   }
 }

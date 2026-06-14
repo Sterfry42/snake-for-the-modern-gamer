@@ -67,26 +67,25 @@ export class DayNightCycle {
   getSkyColor(): number {
     const tod = this.timeOfDay;
 
+    if (tod >= 14000) {
+      return 0x141430; // Night
+    }
     if (tod >= 12000 && tod < 14000) {
-      // Sunset: warm orange to dark
+      // Dusk: warm orange to dark
       const progress = (tod - 12000) / 2000;
       return interpolateColor(0xffffe0, 0x141430, progress);
     }
-    if (tod >= 14000 && tod < 24000) {
-      return 0x141430; // Night
-    }
-    if (tod >= 24000 || tod < 2000) {
-      // Night
-      return 0x141430;
+    if (tod >= 4000 && tod < 12000) {
+      return 0xffffe0; // Day
     }
     if (tod >= 2000 && tod < 4000) {
-      // Sunrise: dark to warm orange
+      // Dawn: dark to warm orange
       const progress = (tod - 2000) / 2000;
       return interpolateColor(0x141430, 0xffffe0, progress);
     }
 
-    // Day
-    return 0xffffe0;
+    // Night (0-2000)
+    return 0x141430;
   }
 
   getDayPhase(): 'dawn' | 'day' | 'dusk' | 'night' {

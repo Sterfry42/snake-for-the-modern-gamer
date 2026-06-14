@@ -21,7 +21,7 @@ export interface FurnaceState {
   burning: boolean;
 }
 
-const SMELTING_RECIPES: SmeltingRecipe[] = [
+export const SMELTING_RECIPES: SmeltingRecipe[] = [
   { input: 'raw_iron', fuel: 'coal', output: 'iron_ingot', count: 1, time: 20 },
   { input: 'raw_gold', fuel: 'coal', output: 'gold_ingot', count: 1, time: 20 },
   { input: 'raw_beef', fuel: 'coal', output: 'cooked_beef', count: 1, time: 15 },
@@ -29,7 +29,7 @@ const SMELTING_RECIPES: SmeltingRecipe[] = [
   { input: 'sand', fuel: 'coal', output: 'glass', count: 1, time: 10 },
 ];
 
-const FUEL_MAP: Record<string, number> = {
+export const FUEL_MAP: Record<string, number> = {
   coal: 10,
   stick: 2,
   planks_item: 2,
@@ -87,43 +87,42 @@ export function tryLoadFurnace(
     return { success: false, message: 'Collect output first by breaking the furnace.' };
   }
 
-  // Load fuel if needed
-  if (!furnace.fuelItem || furnace.fuelRemaining <= 0) {
-    if (isFuel(itemId)) {
-      if (player.removeItem(itemId)) {
-        const burnTime = getFuelBurnTime(itemId);
-        if (furnace.burning) {
-          furnace.fuelRemaining += burnTime;
-        } else {
-          furnace.fuelItem = itemId;
-          furnace.fuelRemaining = burnTime;
-          furnace.burning = true;
-        }
-        return { success: true };
-      }
-    }
-    return { success: false, message: 'Place coal or wood to fuel the furnace.' };
-  }
-
-  // Load input item
-  if (!furnace.inputItem) {
-    const output = canSmelt(itemId);
-    if (!output) {
-      return {
-        success: false,
-        message: 'Cannot smelt that. Try raw_iron, raw_gold, raw_beef, cobblestone, or sand.',
-      };
-    }
+  // Check if this is a valid input item for smelting
+  const smeltOutput = canSmelt(itemId);
+  if (smeltOutput && !furnace.inputItem) {
     if (player.removeItem(itemId)) {
       furnace.inputItem = itemId;
-      furnace.outputItem = output;
+      furnace.outputItem = smeltOutput;
       const recipe = SMELTING_RECIPES.find((r) => r.input === itemId)!;
       furnace.outputCount = recipe.count;
+      // Start burning if we have fuel and not already burning
+      if (!furnace.burning && furnace.fuelItem && furnace.fuelRemaining > 0) {
+        furnace.burning = true;
+      }
       return { success: true };
     }
   }
 
-  return { success: false, message: 'Furnace is busy. Wait for it to finish or collect output.' };
+  // Load fuel if needed
+  if (isFuel(itemId)) {
+    if (player.removeItem(itemId)) {
+      const burnTime = getFuelBurnTime(itemId);
+      if (furnace.burning) {
+        furnace.fuelRemaining += burnTime;
+      } else {
+        furnace.fuelItem = itemId;
+        furnace.fuelRemaining = burnTime;
+        furnace.burning = true;
+      }
+      return { success: true };
+    }
+  }
+
+  if (furnace.inputItem) {
+    return { success: false, message: 'Furnace is processing. Wait for it to finish or collect output.' };
+  }
+
+  return { success: false, message: 'Place coal or wood to fuel the furnace, or an item to smelt.' };
 }
 
 export function tickFurnaces(
@@ -146,13 +145,24 @@ export function tickFurnaces(
       if (smeltTime > 0) {
         furnace.progress += 1;
         if (furnace.progress >= smeltTime) {
-          // Done smelting
+          // Smelting complete - keep output for player to collect
           furnace.progress = 0;
           furnace.inputItem = null;
-          furnace.burning = false;
-          furnace.fuelRemaining = 0;
-          furnace.fuelItem = null;
+          furnace.fuelRemaining = Math.max(0, furnace.fuelRemaining - 1);
+          if (furnace.fuelRemaining <= 0) {
+            furnace.burning = false;
+            furnace.fuelItem = null;
+          }
         }
+      } else {
+        // Unknown input - clear and stop
+        furnace.progress = 0;
+        furnace.inputItem = null;
+        furnace.outputItem = null;
+        furnace.outputCount = 0;
+        furnace.fuelRemaining = 0;
+        furnace.burning = false;
+        furnace.fuelItem = null;
       }
     }
   }
