@@ -21,7 +21,7 @@ export class MinecraftRenderLayer {
     this.chunkManager = chunkManager;
    this.graphics = scene.add.graphics().setDepth(3);
     this.graphics.setBlendMode(Phaser.BlendModes.NORMAL);
-    this.highlightGraphics = scene.add.graphics().setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
+    this.highlightGraphics = scene.add.graphics().setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
   }
 
   setHoveredBlock(x: number, y: number): void {
@@ -66,7 +66,7 @@ export class MinecraftRenderLayer {
         this.graphics.fillRect(x, y, cellSize, cellSize);
       }
 
-      this.graphics.fillStyle(color, 0.55);
+      this.graphics.fillStyle(color, 0.35);
       this.graphics.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
 
       const darkColor = hexToNumber(darkenColorStr(colorStr, 0.3));

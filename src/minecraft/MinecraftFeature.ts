@@ -86,7 +86,7 @@ export class MinecraftFeature extends Feature {
     this.lighting = new LightingSystem();
     this.skyOverlay = scene.add.graphics().setDepth(0).setAlpha(0);
     this.borderOverlay = scene.add.graphics().setDepth(100).setAlpha(0);
-    this.hudGraphics = scene.add.graphics().setDepth(30);
+    this.hudGraphics = scene.add.graphics().setDepth(35);
     this.minecraftMode = false;
     this.creativeMode = false;
 
@@ -212,7 +212,7 @@ export class MinecraftFeature extends Feature {
       },
     );
     controlsText.setOrigin(0, 1);
-    controlsText.setDepth(40);
+    controlsText.setDepth(45);
 
     // Render minecraft layer
     this.renderLayer?.render(scene);
@@ -270,7 +270,7 @@ export class MinecraftFeature extends Feature {
             strokeThickness: 3,
           },
         )
-        .setDepth(30);
+        .setDepth(35);
 
       scene.events.on('update', () => {
         if (this.player) {
@@ -800,7 +800,7 @@ export class MinecraftFeature extends Feature {
     bg.fillRect(0, 0, width, height);
     bg.lineStyle(2, 0x888888, 1);
     bg.strokeRect(0, 0, width, height);
-    bg.setDepth(50);
+    bg.setDepth(55);
     container.add(bg);
 
     // Title
@@ -1259,7 +1259,7 @@ export class MinecraftFeature extends Feature {
         },
       )
       .setOrigin(0.5)
-      .setDepth(30);
+      .setDepth(35);
   }
 
   private renderPlayerBars(scene: SnakeScene): void {
