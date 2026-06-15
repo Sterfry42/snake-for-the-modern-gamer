@@ -1,6 +1,6 @@
 import { achievementLocationKey } from './achievementApMapping.js';
-import { getAchievementScoreReward } from './achievementRewards.js';
-import type { AchievementStorage } from './achievementStorage.js';
+import { getAchievementReward } from './achievementRewards.js';
+import { normalizeAchievementState, type AchievementStorage } from './achievementStorage.js';
 import type {
   AchievementDefinition,
   AchievementEvent,
@@ -28,6 +28,11 @@ export class AchievementManager {
   }
   getDefinitions(): readonly AchievementDefinition[] {
     return this.definitions;
+  }
+
+  restoreState(state: AchievementState): void {
+    this.state = normalizeAchievementState(state);
+    this.persist();
   }
   isCompleted(id: AchievementId): boolean {
     return Boolean(this.state.completed[id]);
@@ -60,7 +65,7 @@ export class AchievementManager {
       name: definition.name,
       description: definition.description,
       icon: definition.icon,
-      scoreReward: getAchievementScoreReward(definition.difficulty),
+      scoreReward: getAchievementReward(definition),
       completedAtMs,
       ...(definition.archipelago?.enabledByDefault
         ? {
@@ -100,10 +105,13 @@ export class AchievementManager {
     return this.evaluateDerived(snapshot);
   }
 
-  resetForNewRun(): void {
+  resetForNewRun(preservePendingAp = false): void {
     this.state.completed = Object.fromEntries(
       Object.entries(this.state.completed).filter(
-        ([id, completion]) => completion.source === 'import' || this.state.apSubmitted[id],
+        ([id, completion]) =>
+          completion.source === 'import' ||
+          this.state.apSubmitted[id] ||
+          (preservePendingAp && this.byId.get(id)?.archipelago?.enabledByDefault),
       ),
     );
     this.state.progress = {};
@@ -180,9 +188,9 @@ export class AchievementManager {
         }
         continue;
       }
-      const current = this.currentValue(definition, snapshot);
-      this.updateProgress(definition, current);
-      const target = definition.criterion.target;
+      const current = this.currentValue(definition.criterion.field, snapshot);
+      const target = this.targetValue(definition, snapshot);
+      this.updateProgress(definition, current, target);
       if (current >= target) {
         const result = this.complete(definition.id);
         if (result) unlocks.push(result);
@@ -192,28 +200,36 @@ export class AchievementManager {
     return unlocks;
   }
 
-  private currentValue(definition: AchievementDefinition, snapshot?: AchievementSnapshot): number {
-    switch (definition.criterion.kind) {
-      case 'score':
-        return snapshot?.score ?? 0;
-      case 'length':
-        return snapshot?.length ?? 0;
-      case 'rooms':
-        return snapshot?.roomsVisited ?? 0;
-      case 'biomes':
-        return new Set([...(snapshot?.discoveredBiomeIds ?? []), ...this.state.discoveredBiomes])
-          .size;
-      case 'waterTiles':
+  private currentValue(field: string, snapshot?: AchievementSnapshot): number {
+    if (!snapshot) return field === 'waterTilesSwum' ? this.state.run.waterTilesSwum : 0;
+    switch (field) {
+      case 'discoveredBiomeCount':
+        return new Set(
+          [...snapshot.discoveredBiomeIds, ...this.state.discoveredBiomes].filter((id) =>
+            snapshot.discoverableBiomeIds.includes(id),
+          ),
+        ).size;
+      case 'equippedSlotCount':
+        return new Set(snapshot.equippedSlots).size;
+      case 'cardsOwned':
+        return new Set(snapshot.cardIdsOwned).size;
+      case 'fishTypesCaught':
+        return new Set(snapshot.fishTypeIdsCaught).size;
+      case 'artifactsOwned':
+        return new Set(snapshot.artifactsOwned).size;
+      case 'skillBranchesCompleted':
+        return new Set(snapshot.skillTreeCompletedBranchIds).size;
+      case 'waterTilesSwum':
         return this.state.run.waterTilesSwum;
-      case 'cards':
-        return Object.values(snapshot?.cardsOwned ?? {}).filter((count) => count > 0).length;
-      case 'artifacts':
-        return new Set(snapshot?.artifactsOwned ?? []).size;
-      case 'skillBranches':
-        return new Set(snapshot?.skillTreeCompletedBranchIds ?? []).size;
       default:
-        return 0;
+        return Number(snapshot[field as keyof AchievementSnapshot] ?? 0);
     }
+  }
+
+  private targetValue(definition: AchievementDefinition, snapshot?: AchievementSnapshot): number {
+    if (definition.id === 'skillTree.allBranches')
+      return Math.max(1, snapshot?.skillTreeBranchCount ?? 1);
+    return definition.criterion.kind === 'snapshot' ? definition.criterion.target : 0;
   }
 
   private matchesEvent(definition: AchievementDefinition, event: AchievementEvent): boolean {
@@ -239,12 +255,16 @@ export class AchievementManager {
     return numeric >= definition.progress.target;
   }
 
-  private updateProgress(definition: AchievementDefinition, current: number): void {
+  private updateProgress(
+    definition: AchievementDefinition,
+    current: number,
+    target = definition.progress?.target ?? 0,
+  ): void {
     if (!definition.progress) return;
     const previous = this.state.progress[definition.id]?.current ?? 0;
     this.state.progress[definition.id] = {
-      current: Math.max(previous, Math.min(current, definition.progress.target)),
-      target: definition.progress.target,
+      current: Math.max(previous, Math.min(current, target)),
+      target,
       updatedAtMs: Date.now(),
     };
   }

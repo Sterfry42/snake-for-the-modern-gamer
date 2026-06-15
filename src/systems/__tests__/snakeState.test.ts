@@ -25,6 +25,21 @@ const room: RoomSnapshot = {
   wallOutlineColor: 0,
 };
 
+describe('SnakeState cave exit steering', () => {
+  it('ignores buffered turns while the first cave-exit movement is locked', () => {
+    const snake = new SnakeState(grid, snakeConfig, room.id);
+    snake.flags['traversal.exitDirectionLockTicks'] = 1;
+    snake.setDirection(0, 1);
+    expect(snake.nextDirectionVector).toEqual({ x: 1, y: 0 });
+    snake.forceDirection(0, -1);
+    expect(snake.directionVector).toEqual({ x: 1, y: 0 });
+
+    snake.flags['traversal.exitDirectionLockTicks'] = 0;
+    snake.setDirection(0, 1);
+    expect(snake.nextDirectionVector).toEqual({ x: 0, y: 1 });
+  });
+});
+
 describe('SnakeState disorientation', () => {
   it('applies lateral drift without mutating heading and expires', () => {
     const snake = new SnakeState(grid, snakeConfig, room.id);

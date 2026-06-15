@@ -90,6 +90,9 @@ export class SnakeState {
   }
 
   setDirection(x: number, y: number): void {
+    if (Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0) > 0) {
+      return;
+    }
     const candidate = { x, y };
     if (this.isSameDirection(candidate, this.nextDirection)) {
       return;
@@ -115,6 +118,9 @@ export class SnakeState {
   }
 
   forceDirection(x: number, y: number): void {
+    if (Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0) > 0) {
+      return;
+    }
     const candidate = { x, y };
     if (candidate.x === 0 && candidate.y === 0) {
       return;
@@ -309,6 +315,14 @@ export class SnakeState {
     if (tile === '#') {
       if (wallInvulnTicks > 0) {
         // Invulnerability lets us phase through the wall.
+      } else if (this.flags['equipment.wallSmiteEnabled']) {
+        const row = finalizedRoom.layout[finalLocalHeadY];
+        if (row) {
+          finalizedRoom.layout[finalLocalHeadY] =
+            row.slice(0, finalLocalHeadX) + '.' + row.slice(finalLocalHeadX + 1);
+        }
+        this.flags['equipment.wallSmiteEnabled'] = undefined;
+        this.flags['achievement.jadeKatanaWallSmite'] = { roomId: this.roomId };
       } else if (this.tryConsumeWall(finalizedRoom, finalLocalHeadX, finalLocalHeadY, head)) {
         this.flags['geometry.wallEaten'] = { x: head.x, y: head.y, roomId: this.roomId };
       } else {
@@ -425,6 +439,11 @@ export class SnakeState {
       this.nextDirection = { ...this.direction };
     }
     this.bufferedDirection = null;
+
+    const exitDirectionLockTicks = Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0);
+    if (exitDirectionLockTicks > 0) {
+      this.flags['traversal.exitDirectionLockTicks'] = exitDirectionLockTicks - 1;
+    }
 
     return { status: 'alive', appleEaten };
   }

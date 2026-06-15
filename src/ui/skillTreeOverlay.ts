@@ -333,6 +333,10 @@ export class SkillTreeOverlay {
     canBind: boolean;
   }> = [];
   private readonly scrollMaskGraphics: Phaser.GameObjects.Graphics;
+  private readonly equipmentListMaskGraphics: Phaser.GameObjects.Graphics;
+  private readonly equipmentListMask: Phaser.Display.Masks.GeometryMask;
+  private readonly overlayX: number;
+  private readonly overlayY: number;
   private contentMask?: Phaser.Display.Masks.GeometryMask;
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
@@ -387,6 +391,8 @@ export class SkillTreeOverlay {
 
     const x = (this.scene.scale.width - this.options.width) / 2;
     const y = (this.scene.scale.height - this.options.height) / 2;
+    this.overlayX = x;
+    this.overlayY = y;
 
     this.background = this.scene.add
       .rectangle(0, 0, this.options.width, this.options.height, 0x071019, 0.94)
@@ -767,6 +773,8 @@ export class SkillTreeOverlay {
     this.structuredContainer.setMask(scrollMask);
     this.connectionGraphics.setMask(scrollMask);
     this.connectionHighlight.setMask(scrollMask);
+    this.equipmentListMaskGraphics = this.scene.add.graphics().setVisible(false);
+    this.equipmentListMask = this.equipmentListMaskGraphics.createGeometryMask();
     this.specialChanceMaskGraphics = this.scene.add.graphics().setVisible(false);
     this.specialChanceMaskGraphics.fillStyle(0xffffff, 1);
     this.specialChanceMaskGraphics.fillRect(
@@ -2755,6 +2763,15 @@ export class SkillTreeOverlay {
       width: content.width,
       height: Math.max(0, content.y + content.height - listTop - 4),
     };
+    this.equipmentListMaskGraphics
+      .clear()
+      .fillStyle(0xffffff, 1)
+      .fillRect(
+        this.overlayX + listViewport.x,
+        this.overlayY + listViewport.y,
+        listViewport.width,
+        listViewport.height,
+      );
     let y = listTop - offset;
     let unscrolledBottom = listTop;
     if (filteredEquipment.length === 0) {
@@ -2776,12 +2793,26 @@ export class SkillTreeOverlay {
       const modifiers = this.getEquipmentModifierViews(item);
       const accent = this.getEquipmentSlotAccent(item.slot);
       const card: UiRect = { x: content.x, y, width: content.width, height: 58 };
+      const clippedCard: UiRect = {
+        x: Math.max(card.x, listViewport.x),
+        y: Math.max(card.y, listViewport.y),
+        width:
+          Math.min(card.x + card.width, listViewport.x + listViewport.width) -
+          Math.max(card.x, listViewport.x),
+        height:
+          Math.min(card.y + card.height, listViewport.y + listViewport.height) -
+          Math.max(card.y, listViewport.y),
+      };
       const visible =
-        card.y >= listViewport.y &&
-        card.y + card.height <= listViewport.y + listViewport.height &&
-        this.isStructuredRectVisible(card, rect);
+        clippedCard.width > 0 &&
+        clippedCard.height > 0 &&
+        this.isStructuredRectVisible(clippedCard, rect);
       if (visible) {
-        drawUiCard(this.structuredGraphics, {
+        const rowGraphics = this.scene.add.graphics();
+        const rowContainer = this.scene.add.container(0, 0, [rowGraphics]);
+        rowContainer.setMask(this.equipmentListMask);
+        this.structuredContainer.add(rowContainer);
+        drawUiCard(rowGraphics, {
           rect: card,
           fill: selected
             ? uiColors.panelGlow
@@ -2793,17 +2824,9 @@ export class SkillTreeOverlay {
           strokeAlpha: selected ? 0.95 : equipped ? 0.8 : 0.56,
           radius: 5,
         });
-        this.structuredGraphics
-          .fillStyle(accent, 0.2)
-          .fillRoundedRect(card.x + 8, card.y + 8, 34, 34, 5);
-        this.drawEquipmentSlotGlyph(
-          this.structuredGraphics,
-          item.slot,
-          card.x + 25,
-          card.y + 25,
-          accent,
-        );
-        addUiText(this.scene, this.structuredContainer, card.x + 52, card.y + 8, item.name, {
+        rowGraphics.fillStyle(accent, 0.2).fillRoundedRect(card.x + 8, card.y + 8, 34, 34, 5);
+        this.drawEquipmentSlotGlyph(rowGraphics, item.slot, card.x + 25, card.y + 25, accent);
+        addUiText(this.scene, rowContainer, card.x + 52, card.y + 8, item.name, {
           color: equipped
             ? uiColors.valuePositive
             : selected
@@ -2815,7 +2838,7 @@ export class SkillTreeOverlay {
         });
         addUiText(
           this.scene,
-          this.structuredContainer,
+          rowContainer,
           card.x + 52,
           card.y + 29,
           `${this.formatSlotLabel(item.slot)} // x${count}`,
@@ -2823,7 +2846,7 @@ export class SkillTreeOverlay {
         );
         let modX = card.x + Math.max(170, card.width - 190);
         for (const modifier of modifiers.slice(0, 2)) {
-          addUiText(this.scene, this.structuredContainer, modX, card.y + 18, modifier.value, {
+          addUiText(this.scene, rowContainer, modX, card.y + 18, modifier.value, {
             color: `#${modifier.accent.toString(16).padStart(6, '0')}`,
             fontSize: '11px',
             fontStyle: 'bold',
@@ -2838,8 +2861,8 @@ export class SkillTreeOverlay {
         };
         addUiBadge(
           this.scene,
-          this.structuredContainer,
-          this.structuredGraphics,
+          rowContainer,
+          rowGraphics,
           actionRect,
           equipped ? 'UNEQUIP' : 'EQUIP',
           equipped ? uiColors.warning : uiColors.accentGear,
@@ -2848,7 +2871,7 @@ export class SkillTreeOverlay {
         );
       }
       if (visible) {
-        this.addStructuredZone(card, () => {
+        this.addStructuredZone(clippedCard, () => {
           this.selectedInventoryItemId = itemId;
           this.showInventoryItemDetails();
           this.refresh();
@@ -2859,10 +2882,21 @@ export class SkillTreeOverlay {
           width: 60,
           height: 20,
         };
-        this.addStructuredZone(actionRect, () => {
-          this.selectedInventoryItemId = itemId;
-          this.toggleSelectedEquipment();
-        });
+        const clippedActionRect: UiRect = {
+          x: Math.max(actionRect.x, listViewport.x),
+          y: Math.max(actionRect.y, listViewport.y),
+          width:
+            Math.min(actionRect.x + actionRect.width, listViewport.x + listViewport.width) -
+            Math.max(actionRect.x, listViewport.x),
+          height:
+            Math.min(actionRect.y + actionRect.height, listViewport.y + listViewport.height) -
+            Math.max(actionRect.y, listViewport.y),
+        };
+        if (clippedActionRect.width > 0 && clippedActionRect.height > 0)
+          this.addStructuredZone(clippedActionRect, () => {
+            this.selectedInventoryItemId = itemId;
+            this.toggleSelectedEquipment();
+          });
       }
       y += 66;
       unscrolledBottom += 66;

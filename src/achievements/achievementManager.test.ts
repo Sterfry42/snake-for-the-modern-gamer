@@ -24,7 +24,7 @@ const definitions: AchievementDefinition[] = [
     prerequisites: ['root'],
     tree: { x: 1, y: 0, section: 'test' },
     icon: { kind: 'snake', fallbackGlyph: 'S' },
-    criterion: { kind: 'score', target: 10 },
+    criterion: { kind: 'snapshot', field: 'score', target: 10 },
     progress: { target: 10, label: 'score' },
   },
 ];
@@ -34,11 +34,23 @@ const snapshot = (score: number): AchievementSnapshot => ({
   length: 1,
   roomsVisited: 1,
   discoveredBiomeIds: [],
-  inventoryItemIds: [],
+  waterTilesSwum: 0,
+  discoverableBiomeIds: [],
+  wantedLevel: 0,
+  questsCompleted: 0,
+  treasuresCollected: 0,
   equippedSlots: [],
-  cardsOwned: {},
+  cardIdsOwned: [],
+  fishTypeIdsCaught: [],
   artifactsOwned: [],
   skillTreeCompletedBranchIds: [],
+  skillTreeBranchCount: 3,
+  hotSurvivalMs: 0,
+  coldSurvivalMs: 0,
+  heatResistance: 0,
+  coldResistance: 0,
+  cowbellTilesWalked: 0,
+  wardDamageTypesHeld: 0,
 });
 
 describe('AchievementManager', () => {
@@ -81,5 +93,25 @@ describe('AchievementManager', () => {
     expect(imported.map((unlock) => unlock.id)).toEqual(['root']);
     expect(manager.isCompleted('root')).toBe(true);
     expect(manager.getPendingApAchievementIds()).toEqual([]);
+  });
+
+  it('preserves completed pending AP checks when an AP run resets offline', () => {
+    const manager = new AchievementManager(definitions, new MemoryAchievementStorage());
+    manager.complete('root');
+    manager.resetForNewRun(true);
+    expect(manager.isCompleted('root')).toBe(true);
+    expect(manager.getPendingApAchievementIds()).toEqual(['root']);
+  });
+
+  it('restores local completion and progress from a game save snapshot', () => {
+    const manager = new AchievementManager(definitions, new MemoryAchievementStorage());
+    manager.complete('root');
+    manager.evaluateSnapshot(snapshot(7));
+    const saved = manager.getState();
+
+    const restored = new AchievementManager(definitions, new MemoryAchievementStorage());
+    restored.restoreState(saved);
+    expect(restored.isCompleted('root')).toBe(true);
+    expect(restored.getProgress('locked')?.current).toBe(7);
   });
 });

@@ -18,7 +18,7 @@ export function createDefaultAchievementState(): AchievementState {
   };
 }
 
-function normalize(raw: unknown): AchievementState {
+export function normalizeAchievementState(raw: unknown): AchievementState {
   if (!raw || typeof raw !== 'object' || (raw as { version?: unknown }).version !== 1) {
     return createDefaultAchievementState();
   }
@@ -34,7 +34,11 @@ function normalize(raw: unknown): AchievementState {
       value.apSubmitted && typeof value.apSubmitted === 'object' ? value.apSubmitted : {},
     run: {
       consumedItemIds: Array.isArray(value.run?.consumedItemIds)
-        ? [...new Set(value.run.consumedItemIds.filter((id): id is string => typeof id === 'string'))]
+        ? [
+            ...new Set(
+              value.run.consumedItemIds.filter((id): id is string => typeof id === 'string'),
+            ),
+          ]
         : [],
       waterTilesSwum: Math.max(0, Math.floor(Number(value.run?.waterTilesSwum) || 0)),
     },
@@ -45,7 +49,9 @@ export class BrowserAchievementStorage implements AchievementStorage {
   load(): AchievementState {
     try {
       const storage = globalThis.localStorage;
-      return storage ? normalize(JSON.parse(storage.getItem(ACHIEVEMENT_STORAGE_KEY) ?? 'null')) : createDefaultAchievementState();
+      return storage
+        ? normalizeAchievementState(JSON.parse(storage.getItem(ACHIEVEMENT_STORAGE_KEY) ?? 'null'))
+        : createDefaultAchievementState();
     } catch {
       return createDefaultAchievementState();
     }
@@ -62,6 +68,10 @@ export class BrowserAchievementStorage implements AchievementStorage {
 
 export class MemoryAchievementStorage implements AchievementStorage {
   constructor(private state: AchievementState = createDefaultAchievementState()) {}
-  load(): AchievementState { return structuredClone(this.state); }
-  save(state: AchievementState): void { this.state = structuredClone(state); }
+  load(): AchievementState {
+    return structuredClone(this.state);
+  }
+  save(state: AchievementState): void {
+    this.state = structuredClone(state);
+  }
 }

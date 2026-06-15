@@ -1974,6 +1974,10 @@ export class SnakeGame implements QuestRuntime {
     if (currentHead) {
       const enemyEat = this.enemies.consumeEnemyAt(this.snake.currentRoomId, currentHead);
       if (enemyEat.eaten) {
+        this.setFlag('achievement.enemyDefeated', {
+          enemyId: enemyEat.enemy?.id ?? 'unknown-enemy',
+          method: 'eaten',
+        });
         if (enemyEat.enemy) {
           this.noteBanditRaidDefeat(enemyEat.enemy, true);
         }
@@ -2654,7 +2658,12 @@ export class SnakeGame implements QuestRuntime {
     this.world.setCaveSave(save);
     this.collapseParentEntrance(runtime, collapse);
     this.apples.clearRoomApple(runtime.caveId);
-    this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, { x: 0, y: 1 });
+    const exitDirection = this.findSafeCaveExitDirection(
+      runtime.parentRoomId,
+      runtime.returnPosition,
+    );
+    this.snake.teleportTo(runtime.parentRoomId, runtime.returnPosition, exitDirection);
+    this.setFlag('traversal.exitDirectionLockTicks', 1);
     this.setFlag('caves.active', undefined);
     this.setFlag('caves.timer', undefined);
     this.setFlag('traversal.manualResumePending', true);
@@ -2669,6 +2678,24 @@ export class SnakeGame implements QuestRuntime {
     });
     roomsChanged.add(runtime.caveId);
     roomsChanged.add(runtime.parentRoomId);
+  }
+
+  private findSafeCaveExitDirection(roomId: string, position: Vector2Like): Vector2Like {
+    const room = this.world.getRoom(roomId);
+    const candidates: Vector2Like[] = [
+      { x: 0, y: 1 },
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: -1 },
+    ];
+    return (
+      candidates.find((direction) => {
+        const x = position.x + direction.x;
+        const y = position.y + direction.y;
+        const tile = room.layout[y]?.[x];
+        return Boolean(tile && tile !== '#' && tile !== '~');
+      }) ?? candidates[0]!
+    );
   }
 
   private tickActiveCaveTimer(roomsChanged: Set<string>): boolean {
@@ -2699,11 +2726,18 @@ export class SnakeGame implements QuestRuntime {
     if (!runtime || runtime.caveId !== this.snake.currentRoomId) {
       return this.apples.getSnapshot(this.snake.currentRoomId);
     }
+    if (runtime.appleRushRemaining === undefined) {
+      return this.apples.getSnapshot(runtime.caveId);
+    }
     const remaining = Math.max(0, (runtime.appleRushRemaining ?? 0) - 1);
     const updated = { ...runtime, appleRushRemaining: remaining };
     this.setFlag('caves.active', updated);
     roomsChanged.add(runtime.caveId);
     if (remaining <= 0) {
+      this.setFlag('achievement.caveAppleRushCleared', {
+        caveId: runtime.caveId,
+        templateId: runtime.templateId,
+      });
       this.exitCurrentCave(roomsChanged, 'reward');
       return null;
     }
@@ -5316,6 +5350,8 @@ export class SnakeGame implements QuestRuntime {
 
   private handlePlayerBulletDefeats(defeatedEnemies: readonly EnemyInstance[]): void {
     for (const enemy of defeatedEnemies) {
+      this.setFlag('achievement.enemyDefeated', { enemyId: enemy.id, method: 'gun' });
+      this.setFlag('achievement.gunKill', { targetId: enemy.id });
       const defeatedRaidBandit = enemy.id.startsWith('npc-hostile:raidBandit-');
       if (defeatedRaidBandit) {
         this.noteBanditRaidDefeat(enemy, false);
@@ -6885,7 +6921,8 @@ export class SnakeGame implements QuestRuntime {
   } {
     let inventory = 0;
     for (const [itemId, targetCount] of Object.entries(rewards.inventory)) {
-      const needed = Math.max(0, Math.floor(Number(targetCount) || 0)) - this.inventory.getItemCount(itemId);
+      const needed =
+        Math.max(0, Math.floor(Number(targetCount) || 0)) - this.inventory.getItemCount(itemId);
       if (needed > 0) {
         this.grantInventoryItem(itemId, needed);
         inventory += needed;
@@ -6899,10 +6936,13 @@ export class SnakeGame implements QuestRuntime {
       if (!getCardDefinition(cardId as CardId)) {
         continue;
       }
-      const needed = Math.max(0, Math.floor(Number(targetCount) || 0)) - Math.max(0, Number(collection[cardId as CardId] ?? 0));
+      const needed =
+        Math.max(0, Math.floor(Number(targetCount) || 0)) -
+        Math.max(0, Number(collection[cardId as CardId] ?? 0));
       if (needed > 0) {
         nextCollection = nextCollection ?? { ...collection };
-        nextCollection[cardId as CardId] = Math.max(0, Number(nextCollection[cardId as CardId] ?? 0)) + needed;
+        nextCollection[cardId as CardId] =
+          Math.max(0, Number(nextCollection[cardId as CardId] ?? 0)) + needed;
         cards += needed;
       }
     }
@@ -8992,6 +9032,7 @@ export class SnakeGame implements QuestRuntime {
       attackCooldown: 0,
     };
     this.setFollowerState([follower]);
+    this.setFlag('achievement.companionAcquired', { companionKind: follower.kind });
     this.adjustFactionAlignment('goblin-camps', 3);
     return { ok: true, message: `${name} hired. Q commands are now available.`, color: '#b6ff6a' };
   }
@@ -9423,12 +9464,14 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private queueArchipelagoLocalRewardCheck(check: ArchipelagoLocalRewardCheck): void {
-    const current = this.getFlag<ArchipelagoLocalRewardCheck[]>('archipelago.localRewardChecks') ?? [];
+    const current =
+      this.getFlag<ArchipelagoLocalRewardCheck[]>('archipelago.localRewardChecks') ?? [];
     this.setFlag('archipelago.localRewardChecks', [...current, check]);
   }
 
   drainArchipelagoLocalRewardChecks(): ArchipelagoLocalRewardCheck[] {
-    const current = this.getFlag<ArchipelagoLocalRewardCheck[]>('archipelago.localRewardChecks') ?? [];
+    const current =
+      this.getFlag<ArchipelagoLocalRewardCheck[]>('archipelago.localRewardChecks') ?? [];
     this.setFlag('archipelago.localRewardChecks', undefined);
     return current;
   }
@@ -10083,6 +10126,7 @@ export class SnakeGame implements QuestRuntime {
       attackCooldown: 0,
     };
     this.setFollowerState([follower]);
+    this.setFlag('achievement.companionAcquired', { companionKind: follower.kind });
     this.setFlag('ui.followerAction', {
       message: `${child.name} takes the companion slot. Q toggles follow/guard.`,
       color: '#ffbdfd',
@@ -10631,6 +10675,9 @@ export class SnakeGame implements QuestRuntime {
       'caves.save',
       'minecraft.save',
       'fishing.caughtFish',
+      'achievement.hotSurvivalMs',
+      'achievement.coldSurvivalMs',
+      'achievement.cowbellTilesWalked',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -10706,6 +10753,9 @@ export class SnakeGame implements QuestRuntime {
     if (this.snakeScene && typeof this.snakeScene.getSnakeCustomizationState === 'function') {
       const cosmetics = this.snakeScene.getSnakeCustomizationState();
       data.cosmetics = cosmetics;
+    }
+    if (this.snakeScene && typeof this.snakeScene.getAchievementSaveState === 'function') {
+      data.achievements = this.snakeScene.getAchievementSaveState();
     }
 
     // Fishing data
@@ -10822,6 +10872,7 @@ export class SnakeGame implements QuestRuntime {
           this.setFlag(key, value);
         }
       }
+      this.setFlag('save.loadedAchievements', data.achievements);
       const caveSave = this.getFlag<CaveSaveState>('caves.save');
       if (caveSave) {
         for (const save of Object.values(caveSave.caveInstances)) {

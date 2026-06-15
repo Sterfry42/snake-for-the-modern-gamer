@@ -5,7 +5,7 @@ import {
 } from '../achievements/achievementDetailLayout.js';
 import { ensureAchievementPortrait } from '../achievements/achievementIconCatalog.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
-import { getAchievementScoreReward } from '../achievements/achievementRewards.js';
+import { getAchievementReward } from '../achievements/achievementRewards.js';
 import { exceededDragThreshold } from '../achievements/achievementTreeLayout.js';
 import type {
   AchievementDefinition,
@@ -61,6 +61,8 @@ export class AchievementTreeOverlay {
   } | null = null;
   private selectedId: string | null = null;
   private visible = false;
+  private readonly unlockQueue: AchievementUnlockResult[] = [];
+  private unlockToastActive = false;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -291,6 +293,15 @@ export class AchievementTreeOverlay {
   }
 
   showUnlock(unlock: AchievementUnlockResult): void {
+    this.unlockQueue.push(unlock);
+    this.showNextUnlock();
+  }
+
+  private showNextUnlock(): void {
+    if (this.unlockToastActive) return;
+    const unlock = this.unlockQueue.shift();
+    if (!unlock) return;
+    this.unlockToastActive = true;
     const texture = ensureAchievementPortrait(
       this.scene,
       this.manager.getDefinitions().find((definition) => definition.id === unlock.id) ??
@@ -323,7 +334,11 @@ export class AchievementTreeOverlay {
       duration: 220,
       hold: 2600,
       yoyo: true,
-      onComplete: () => container.destroy(),
+      onComplete: () => {
+        container.destroy();
+        this.unlockToastActive = false;
+        this.showNextUnlock();
+      },
     });
   }
 
@@ -429,7 +444,7 @@ export class AchievementTreeOverlay {
       definition.tree.section.toUpperCase(),
       definition.category.toUpperCase(),
       progressText,
-      `+${getAchievementScoreReward(definition.difficulty)} SCORE`,
+      `+${getAchievementReward(definition)} SCORE`,
     ];
     this.detailRows.forEach((row, index) => row.value.setText(values[index] ?? '--'));
     const view = this.nodes.get(id);
@@ -578,7 +593,7 @@ export class AchievementTreeOverlay {
     rawZoom: number,
     anchor = { x: this.viewport.width / 2, y: this.viewport.height / 2 },
   ): void {
-    const nextZoom = Phaser.Math.Clamp(rawZoom, 0.55, 1.65);
+    const nextZoom = Phaser.Math.Clamp(rawZoom, 0.3, 1.65);
     if (Math.abs(nextZoom - this.zoom) < 0.001) return;
     const worldX = (anchor.x - this.pan.x) / this.zoom;
     const worldY = (anchor.y - this.pan.y) / this.zoom;

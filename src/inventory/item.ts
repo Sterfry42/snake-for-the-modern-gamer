@@ -8,6 +8,17 @@ export type EquipmentSlot =
   | 'belt'
   | 'amulet';
 
+export const EQUIPMENT_SLOTS: readonly EquipmentSlot[] = [
+  'weapon',
+  'boots',
+  'helm',
+  'ring',
+  'gloves',
+  'cloak',
+  'belt',
+  'amulet',
+];
+
 export interface BaseItem {
   id: string;
   name: string;

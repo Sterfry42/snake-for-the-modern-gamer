@@ -191,6 +191,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
       .map(([branch]) => branch);
   }
 
+  getBranchCount(): number {
+    return new Set(this.system.getPerks().map((perk) => perk.branch)).size;
+  }
+
   getOverlay(): SkillTreeOverlay {
     return this.overlay;
   }

@@ -10,6 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "validate:ap": "node scripts/validate-ap-achievement-manifest.mjs",
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "vitest run"
   },

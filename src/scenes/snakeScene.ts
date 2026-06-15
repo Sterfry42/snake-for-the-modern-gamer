@@ -172,9 +172,12 @@ import type {
 } from '../fishing/types.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
 import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
-import { ACHIEVEMENT_DEFINITIONS } from '../achievements/achievementDefinitions.js';
+import {
+  ACHIEVEMENT_DEFINITIONS,
+  DISCOVERABLE_BIOME_IDS,
+} from '../achievements/achievementDefinitions.js';
 import { AchievementManager } from '../achievements/achievementManager.js';
-import { getAchievementScoreReward } from '../achievements/achievementRewards.js';
+import { getAchievementReward } from '../achievements/achievementRewards.js';
 import {
   achievementGoalTarget,
   achievementLocationKey,
@@ -184,6 +187,7 @@ import { BrowserAchievementStorage } from '../achievements/achievementStorage.js
 import type {
   AchievementEvent,
   AchievementSnapshot,
+  AchievementState,
   AchievementUnlockResult,
 } from '../achievements/achievementTypes.js';
 import { shouldSendDeathLink, type DeathLinkMode } from '../archipelago/deathLink.js';
@@ -1687,9 +1691,14 @@ export default class SnakeScene extends Phaser.Scene {
   private achievementGoalPercentage = 60;
   private lastAchievementTownId: string | null = null;
   private lastAchievementWaterTile = '';
+  private lastAchievementCowbellTile = '';
   private lastAchievementRoomId = '';
   private achievementRelationshipStages = new Map<string, string>();
   private achievementChildren = new Map<string, number>();
+  private achievementHotSurvivalMs = 0;
+  private achievementColdSurvivalMs = 0;
+  private achievementCowbellTilesWalked = 0;
+  private achievementLastEvaluationMs = 0;
   private deathLinkMode: DeathLinkMode = 'off';
   private handlingIncomingDeathLink = false;
   private titleCreditsMode = false;
@@ -2506,12 +2515,17 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
     this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
-    if (resetAchievements) this.achievementManager.resetForNewRun();
+    if (resetAchievements) this.achievementManager.resetForNewRun(Boolean(this.archipelagoRunSave));
     this.lastAchievementTownId = null;
     this.lastAchievementWaterTile = '';
+    this.lastAchievementCowbellTile = '';
     this.lastAchievementRoomId = '';
     this.achievementRelationshipStages.clear();
     this.achievementChildren.clear();
+    this.achievementHotSurvivalMs = 0;
+    this.achievementColdSurvivalMs = 0;
+    this.achievementCowbellTilesWalked = 0;
+    this.achievementLastEvaluationMs = Number(this.getFlag<number>('timeMs') ?? 0);
     this.applyRaccoonActionStepInterval();
     this.juice.stopBossMusic();
     this.juice.stopHeavenMusic();
@@ -3457,6 +3471,12 @@ export default class SnakeScene extends Phaser.Scene {
           if (cutscene.reviveOnComplete) {
             this.snakeGame.reviveAfterExtraLife(cutscene.reason);
           }
+          if (this.snakeGame.getPlayerHealth().current > 0) {
+            this.recordAchievementEvent({
+              type: 'divine:angelEncountered',
+              angelKind: cutscene.rescuer === 'goblin-angel' ? 'goblin' : 'normal',
+            });
+          }
           this.paused = false;
           this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
           this.showSaveUI();
@@ -4175,19 +4195,94 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private evaluateAchievements(): void {
+    const enemyDefeated = this.getFlag<{ enemyId: string; method: 'eaten' | 'gun' | 'other' }>(
+      'achievement.enemyDefeated',
+    );
+    if (enemyDefeated) {
+      this.recordAchievementEvent({ type: 'enemy:defeated', ...enemyDefeated });
+      this.setFlag('achievement.enemyDefeated', undefined);
+    }
+    const gunKill = this.getFlag<{ targetId: string }>('achievement.gunKill');
+    if (gunKill) {
+      this.recordAchievementEvent({ type: 'combat:gunKill', targetId: gunKill.targetId });
+      this.setFlag('achievement.gunKill', undefined);
+    }
+    const wallSmite = this.getFlag<{ roomId: string }>('achievement.jadeKatanaWallSmite');
+    if (wallSmite) {
+      this.recordAchievementEvent({ type: 'combat:jadeKatanaWallSmite', roomId: wallSmite.roomId });
+      this.setFlag('achievement.jadeKatanaWallSmite', undefined);
+    }
+    const caveClear = this.getFlag<{ caveId: string; templateId: string }>(
+      'achievement.caveAppleRushCleared',
+    );
+    if (caveClear) {
+      this.recordAchievementEvent({ type: 'cave:appleRushCleared', ...caveClear });
+      this.setFlag('achievement.caveAppleRushCleared', undefined);
+    }
+    const companion = this.getFlag<{ companionKind: string }>('achievement.companionAcquired');
+    if (companion) {
+      this.recordAchievementEvent({ type: 'companion:acquired', ...companion });
+      this.setFlag('achievement.companionAcquired', undefined);
+    }
+    const achievementNowMs = Number(this.getFlag<number>('timeMs') ?? 0);
+    const achievementDeltaMs = Math.max(0, achievementNowMs - this.achievementLastEvaluationMs);
+    this.achievementLastEvaluationMs = achievementNowMs;
+    const temperatureHazard = this.getFlag<'hot' | 'cold'>('player.temperatureHazard');
+    this.achievementHotSurvivalMs = Math.max(
+      this.achievementHotSurvivalMs,
+      Number(this.getFlag<number>('achievement.hotSurvivalMs') ?? 0),
+    );
+    this.achievementColdSurvivalMs = Math.max(
+      this.achievementColdSurvivalMs,
+      Number(this.getFlag<number>('achievement.coldSurvivalMs') ?? 0),
+    );
+    if (temperatureHazard === 'hot') this.achievementHotSurvivalMs += achievementDeltaMs;
+    if (temperatureHazard === 'cold') this.achievementColdSurvivalMs += achievementDeltaMs;
+    this.setFlag('achievement.hotSurvivalMs', this.achievementHotSurvivalMs);
+    this.setFlag('achievement.coldSurvivalMs', this.achievementColdSurvivalMs);
     const room = this.snakeGame.getCurrentRoom();
     if (room.id !== this.lastAchievementRoomId) {
       this.lastAchievementRoomId = room.id;
-      if (room.id.startsWith('cave:'))
-        this.recordAchievementEvent({ type: 'cave:entered', caveId: room.id });
+      if (room.layer?.templateId === 'thievesGuild') {
+        this.recordAchievementEvent({
+          type: 'guild:enteredHideout',
+          townId: room.layer.townId ?? 'unknown-town',
+        });
+      }
     }
     const town = this.snakeGame.getCurrentTown();
     if (town && town.id !== this.lastAchievementTownId) {
       this.lastAchievementTownId = town.id;
       this.recordAchievementEvent({ type: 'town:entered', townId: town.id, name: town.name });
+      if (
+        Boolean(this.getFlag<boolean>('equipment.gunEnabled')) &&
+        this.snakeCosmetics.cowboyHatEquipped
+      ) {
+        this.recordAchievementEvent({ type: 'town:enteredBigIron', townId: town.id });
+      }
+    } else if (!town) {
+      this.lastAchievementTownId = null;
     }
 
     const head = this.snakeGame.getSnakeBody()[0];
+    if (head) {
+      const tileKey = `${room.id}:${head.x},${head.y}`;
+      this.achievementCowbellTilesWalked = Math.max(
+        this.achievementCowbellTilesWalked,
+        Number(this.getFlag<number>('achievement.cowbellTilesWalked') ?? 0),
+      );
+      if (
+        this.snakeCosmetics.cowbellEquipped &&
+        this.lastAchievementCowbellTile &&
+        tileKey !== this.lastAchievementCowbellTile
+      ) {
+        this.achievementCowbellTilesWalked += 1;
+        this.setFlag('achievement.cowbellTilesWalked', this.achievementCowbellTilesWalked);
+      }
+      this.lastAchievementCowbellTile = tileKey;
+    } else {
+      this.lastAchievementCowbellTile = '';
+    }
     if (head && this.snakeGame.isSnakeHeadOnWaterTile()) {
       const tileKey = `${room.id}:${head.x},${head.y}`;
       if (tileKey !== this.lastAchievementWaterTile) {
@@ -4269,12 +4364,28 @@ export default class SnakeScene extends Phaser.Scene {
       score: this.snakeGame.getScore(),
       length: this.snakeGame.getSnakeLength(),
       roomsVisited: rooms.length,
+      waterTilesSwum: this.achievementManager.getState().run.waterTilesSwum,
       discoveredBiomeIds,
-      inventoryItemIds: inventory.getAllItems().map(([id]) => id),
+      discoverableBiomeIds: DISCOVERABLE_BIOME_IDS,
+      wantedLevel: this.snakeGame.getCurrentTown()?.wantedLevel ?? 0,
+      questsCompleted: this.completedQuests.length,
+      treasuresCollected: Number(this.getFlag<number>('treasurePicked') ?? 0),
       equippedSlots: inventory.getAllEquipped().map(([slot]) => slot),
-      cardsOwned: this.getCardCollection(),
+      cardIdsOwned: Object.entries(this.getFlag<Record<string, number>>('cards.collection') ?? {})
+        .filter(([, count]) => Number(count) > 0)
+        .map(([id]) => id),
+      fishTypeIdsCaught: [...catchJournal.getUniqueTypeIds()],
       artifactsOwned: this.snakeGame.getRunArtifacts().map((artifact) => artifact.id),
       skillTreeCompletedBranchIds: this.skillTree.getCompletedBranchIds(),
+      skillTreeBranchCount: this.skillTree.getBranchCount(),
+      hotSurvivalMs: this.achievementHotSurvivalMs,
+      coldSurvivalMs: this.achievementColdSurvivalMs,
+      heatResistance: Number(this.getFlag<number>('equipment.heatResistance') ?? 0),
+      coldResistance: Number(this.getFlag<number>('equipment.coldResistance') ?? 0),
+      cowbellTilesWalked: this.achievementCowbellTilesWalked,
+      wardDamageTypesHeld: Object.values(this.snakeGame.getWardContracts()).filter(
+        (count) => Number(count) > 0,
+      ).length,
     };
   }
 
@@ -4747,9 +4858,24 @@ export default class SnakeScene extends Phaser.Scene {
       this.skillTree.restoreRanks(ranks);
     }
     this.applyEquipmentEffects();
+    const savedAchievements = this.getFlag<AchievementState>('save.loadedAchievements');
+    if (savedAchievements && !this.archipelagoModeActive && !this.archipelagoRunSave) {
+      this.achievementManager.restoreState(savedAchievements);
+    }
+    this.setFlag('save.loadedAchievements', undefined);
+    this.achievementHotSurvivalMs = Number(this.getFlag<number>('achievement.hotSurvivalMs') ?? 0);
+    this.achievementColdSurvivalMs = Number(
+      this.getFlag<number>('achievement.coldSurvivalMs') ?? 0,
+    );
+    this.achievementLastEvaluationMs = Number(this.getFlag<number>('timeMs') ?? 0);
     this.updateHouseAmbience();
     this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
     this.isDirty = true;
+  }
+
+  getAchievementSaveState(): AchievementState | undefined {
+    if (this.archipelagoModeActive || this.archipelagoRunSave) return undefined;
+    return this.achievementManager.getState();
   }
 
   saveGameToSession(
@@ -6103,7 +6229,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!pending.length) return;
 
     const reward = pending.reduce(
-      (total, definition) => total + getAchievementScoreReward(definition.difficulty),
+      (total, definition) => total + getAchievementReward(definition),
       0,
     );
     this.archipelagoRunSave.rewardedAchievementIds = [
@@ -6686,6 +6812,7 @@ export default class SnakeScene extends Phaser.Scene {
     let phoenix = 0;
     let itemPhoenix = 0;
     let gunEnabled = false;
+    let wallSmiteEnabled = false;
     let heatResistance = 0;
     let coldResistance = 0;
     let swimmingEnabled = false;
@@ -6727,6 +6854,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (mods.gunEnabled) {
         gunEnabled = true;
       }
+      if (mods.wallSmiteEnabled) wallSmiteEnabled = true;
       if (typeof mods.heatResistance === 'number') {
         heatResistance += mods.heatResistance;
       }
@@ -6853,6 +6981,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag('equipment.phoenixCharges', phoenix > 0 ? phoenix : undefined);
     this.setFlag('equipment.itemPhoenixCharges', itemPhoenix > 0 ? itemPhoenix : undefined);
     this.setFlag('equipment.gunEnabled', gunEnabled ? true : undefined);
+    this.setFlag('equipment.wallSmiteEnabled', wallSmiteEnabled ? true : undefined);
     const immortalCheat = Boolean(this.getFlag<boolean>('cheat.immortal'));
     this.setFlag(
       'equipment.heatResistance',
@@ -8318,6 +8447,15 @@ export default class SnakeScene extends Phaser.Scene {
           hats: [],
           cowbells: [],
         };
+      case 'butcher':
+        return {
+          ...shop,
+          equipment: [],
+          supplies: [],
+          styles: [],
+          hats: [],
+          cowbells: [],
+        };
       default:
         return shop;
     }
@@ -9103,6 +9241,11 @@ export default class SnakeScene extends Phaser.Scene {
   private tryBuyHouse(kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp'): void {
     const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
+      if (kind === 'expand')
+        this.recordAchievementEvent({
+          type: 'house:expanded',
+          level: Number(this.getFlag<number>('house.expandLevel') ?? 1),
+        });
       this.isDirty = true;
       // Small confirmation popup near top-left
       const popup = this.add
@@ -9913,7 +10056,10 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Buy tiny competition cards for your personal deck.',
       });
     }
-    if (cardOffers.length > 0 || actorRole === 'cardDealer') {
+    const canPlayCards =
+      actorRole === 'cardDealer' ||
+      Boolean(room.village && (!actorRole || actorRole === 'shopkeeper'));
+    if (canPlayCards) {
       options.push({
         id: 'play-cards',
         title: 'Play Cards',
@@ -10136,10 +10282,55 @@ export default class SnakeScene extends Phaser.Scene {
                     ? this.purchaseVillageCard(value as CardId)
                     : null;
       if (result) {
+        if (result.ok) this.maybeCompleteGeneralShopBuyout(actorRole);
         this.showQuestHintPopup(result.message, result.color);
         this.showVillageShopCategory(shopkeeperName, category, page, actorRole);
       }
     });
+  }
+
+  private maybeCompleteGeneralShopBuyout(actorRole?: string): void {
+    if (actorRole && actorRole !== 'shopkeeper') return;
+    const room = this.snakeGame.getCurrentRoom();
+    if (!room.village && !room.town) return;
+    if (room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout') return;
+
+    const stock = this.getCurrentVillageMarketStock();
+    const inventory = this.snakeGame.getInventory();
+    const ownsOrChecked = (itemId: string): boolean =>
+      inventory.getItemCount(itemId) > 0 ||
+      this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId]);
+    const equipmentCleared = stock.equipmentIds.every((offerId) => {
+      const offer = VILLAGE_SHOP_EQUIPMENT.find((entry) => entry.id === offerId);
+      return Boolean(offer && ownsOrChecked(offer.itemId));
+    });
+    const suppliesCleared = Object.entries(stock.supplyCounts).every(
+      ([itemId, count]) =>
+        count <= 0 || this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId]),
+    );
+    const cardsCleared = stock.cardIds.every((cardId) =>
+      this.isArchipelagoCheckCompleteByKey(AP_CARD_LOCATION_KEY_BY_CARD_ID[cardId]),
+    );
+    const stylesCleared = stock.styleIds.every((id) =>
+      this.snakeCosmetics.unlockedThemes.includes(id),
+    );
+    const hatsCleared = stock.hatIds.every((id) => this.snakeCosmetics.unlockedHats.includes(id));
+    const cowbellsCleared =
+      getVillageShopDefinition(room.biomeId).cowbells.length === 0 ||
+      this.snakeCosmetics.cowbellUnlocked;
+    if (
+      equipmentCleared &&
+      suppliesCleared &&
+      cardsCleared &&
+      stylesCleared &&
+      hatsCleared &&
+      cowbellsCleared
+    ) {
+      this.recordAchievementEvent({
+        type: 'shop:generalBoughtOut',
+        shopId: room.town?.id ?? room.id,
+      });
+    }
   }
 
   private showCardTableRoot(
@@ -12508,6 +12699,11 @@ export default class SnakeScene extends Phaser.Scene {
         }
         if (id === 'open-gate') {
           const result = this.snakeGame.openCurrentTownGate();
+          if (result.ok)
+            this.recordAchievementEvent({
+              type: 'town:gateOpened',
+              townId: this.snakeGame.getCurrentTown()?.id ?? 'unknown-town',
+            });
           this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
           this.closeVillageShop();
           this.paused = false;
@@ -13433,6 +13629,8 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const result = this.snakeGame.applyRelationshipChoice(profile, action as RelationshipChoice);
+    if (action === 'divorce')
+      this.recordAchievementEvent({ type: 'relationship:divorced', relationshipId: profile.id });
     this.showDatingScene(profile, result);
     this.skillTree.getOverlay().refresh();
   }
