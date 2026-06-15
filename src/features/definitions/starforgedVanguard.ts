@@ -101,7 +101,7 @@ class StarforgedVanguardFeature extends Feature {
     if (state.active) {
       const effects = this.system.computeAppliedEffects(state);
       if (effects.scoreBonus > 0 && !scene.snakeGame.isRaccoonMode()) {
-        scene.addScore(effects.scoreBonus);
+        scene.addScore(effects.scoreBonus, 'starforged');
       }
       if (effects.growthBonus > 0 && Number(scene.getFlag<number>('appleStreak') ?? 0) % 5 === 0) {
         scene.growSnake(effects.growthBonus);
@@ -824,7 +824,7 @@ class StarforgedVanguardFeature extends Feature {
     const state = this.readState(scene);
     const result = this.system.spendAbility(state);
     if (result.scoreBonus > 0) {
-      scene.addScore(result.scoreBonus);
+      scene.addScore(result.scoreBonus, 'starforged');
     }
     if (result.shieldTicks > 0) {
       const current = Number(scene.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
@@ -844,7 +844,7 @@ class StarforgedVanguardFeature extends Feature {
     const state = this.readState(scene);
     const result = this.system.spendSuper(state);
     if (result.scoreBonus > 0) {
-      scene.addScore(result.scoreBonus);
+      scene.addScore(result.scoreBonus, 'starforged');
     }
     if (result.growthBonus > 0) {
       scene.growSnake(result.growthBonus);
@@ -1238,7 +1238,7 @@ class StarforgedVanguardFeature extends Feature {
     result: StarforgedActivityResult,
   ): void {
     if (result.scoreBonus > 0) {
-      scene.addScore(result.scoreBonus);
+      scene.addScore(result.scoreBonus, 'starforged');
     }
     if (result.growthBonus > 0) {
       scene.growSnake(result.growthBonus);
