@@ -19,7 +19,7 @@ export class MinecraftRenderLayer {
 
   constructor(scene: SnakeScene, chunkManager: ChunkManager) {
     this.chunkManager = chunkManager;
-    this.graphics = scene.add.graphics().setDepth(1);
+   this.graphics = scene.add.graphics().setDepth(3);
     this.graphics.setBlendMode(Phaser.BlendModes.NORMAL);
     this.highlightGraphics = scene.add.graphics().setDepth(2).setBlendMode(Phaser.BlendModes.ADD);
   }
@@ -62,23 +62,23 @@ export class MinecraftRenderLayer {
       const isLight = blockDef?.kind === 'light';
 
       if (isLight) {
-        this.graphics.fillStyle(0x000000, 0.85);
+        this.graphics.fillStyle(0x000000, 0.5);
         this.graphics.fillRect(x, y, cellSize, cellSize);
       }
 
-      this.graphics.fillStyle(color, 0.92);
+      this.graphics.fillStyle(color, 0.55);
       this.graphics.fillRect(x + 1, y + 1, cellSize - 2, cellSize - 2);
 
       const darkColor = hexToNumber(darkenColorStr(colorStr, 0.3));
-      this.graphics.lineStyle(1, darkColor, 0.6);
+      this.graphics.lineStyle(1, darkColor, 0.35);
       this.graphics.strokeRect(x + 0.5, y + 0.5, cellSize - 1, cellSize - 1);
 
       const lightColorStr = lightenColorStr(colorStr, 0.15);
-      this.graphics.fillStyle(hexToNumber(lightColorStr), 0.25);
+      this.graphics.fillStyle(hexToNumber(lightColorStr), 0.15);
       this.graphics.fillRect(x + 1, y + 1, cellSize - 2, 2);
 
       if (isSolidBlock(block.type)) {
-        this.graphics.fillStyle(hexToNumber(darkenColorStr(colorStr, 0.15)), 0.35);
+        this.graphics.fillStyle(hexToNumber(darkenColorStr(colorStr, 0.15)), 0.2);
         this.graphics.fillRect(x + 1, y + cellSize - 3, cellSize - 2, 2);
       }
 
