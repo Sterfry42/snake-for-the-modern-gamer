@@ -40,6 +40,7 @@ export interface AchievementIconSpec {
     | 'bigIron'
     | 'cowbell'
     | 'wards'
+    | 'zoom'
     | 'katana'
     | 'fish'
     | 'fishJournal'
@@ -126,6 +127,7 @@ export type AchievementEvent =
   | { type: 'town:enteredBigIron'; townId: string }
   | { type: 'guild:initiationCompleted'; townId: string }
   | { type: 'guild:enteredHideout'; townId: string }
+  | { type: 'ui:achievementZoomFlurry' }
   | { type: 'house:expanded'; level: number }
   | { type: 'equipment:equipped'; itemId: string; slot: string }
   | { type: 'combat:gunKill'; targetId: string }

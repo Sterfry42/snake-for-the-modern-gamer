@@ -8,6 +8,10 @@ import type { SpecialStatId } from '../stats/specialTypes.js';
 
 import { JuiceManager } from '../ui/juice.js';
 import { i18n } from '../i18n/i18nManager.js';
+import {
+  AchievementZoomTracker,
+  type AchievementZoomExtreme,
+} from '../achievements/achievementZoomTracker.js';
 
 export interface SkillTreeManagerOptions {
   baseActionStepIntervalMs: number;
@@ -17,6 +21,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
   private readonly system: SkillTreeSystem;
   private readonly overlay: SkillTreeOverlay;
   private readonly actionSlots: ActionSlotController;
+  private readonly achievementZoomTracker = new AchievementZoomTracker();
 
   constructor(
     private readonly scene: SnakeScene,
@@ -48,12 +53,19 @@ export class SkillTreeManager implements SkillTreeRuntime {
       onApplySpecialChanges: () => this.scene.applySpecialStatPreview(),
       onResetSpecialPreview: () => this.scene.resetSpecialStatPreview(),
       getAchievementManager: () => this.scene.getAchievementManager(),
+      onAchievementZoomExtreme: (extreme) => this.handleAchievementZoomExtreme(extreme),
     });
     this.overlay.hide();
   }
 
+  private handleAchievementZoomExtreme(extreme: AchievementZoomExtreme): void {
+    if (!this.achievementZoomTracker.record(extreme, this.scene.time.now)) return;
+    this.scene.recordAchievementEvent({ type: 'ui:achievementZoomFlurry' });
+  }
+
   reset(startPaused: boolean): void {
     this.system.reset();
+    this.achievementZoomTracker.reset();
     if (!startPaused) {
       this.overlay.hide();
     }

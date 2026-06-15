@@ -821,4 +821,16 @@ export const ACHIEVEMENT_DEFINITIONS = [
     progress: p(3, 'ward types'),
     archipelago: ap,
   }),
+  d({
+    id: 'system.zoomFlurry',
+    name: 'Enhance! Enhance!',
+    description: 'Fully zoom in and fully zoom out three times.',
+    category: 'skillTree',
+    difficulty: 'medium',
+    scoreReward: 50,
+    tree: { x: 980, y: 720, section: 'System' },
+    icon: icon('zoom', 'Z!'),
+    criterion: event('ui:achievementZoomFlurry'),
+    archipelago: ap,
+  }),
 ] as readonly AchievementDefinition[];
