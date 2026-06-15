@@ -50,6 +50,17 @@ describe('revised achievement catalog', () => {
     expect(manager.isCompleted('core.bigBite')).toBe(true);
   });
 
+  it('shows the zoom challenge plainly and awards 50 score', () => {
+    const definition = ACHIEVEMENT_DEFINITIONS.find(
+      (achievement) => achievement.id === 'system.zoomFlurry',
+    );
+    expect(definition?.secret).not.toBe(true);
+    expect(definition?.description).toContain('Fully zoom in and fully zoom out three times');
+    const manager = new AchievementManager(ACHIEVEMENT_DEFINITIONS, new MemoryAchievementStorage());
+    const [unlock] = manager.recordEvent({ type: 'ui:achievementZoomFlurry' });
+    expect(unlock.scoreReward).toBe(50);
+  });
+
   it('uses the revised length milestones and real branch count', () => {
     const manager = new AchievementManager(ACHIEVEMENT_DEFINITIONS, new MemoryAchievementStorage());
     manager.evaluateSnapshot(
@@ -72,6 +83,7 @@ describe('revised achievement catalog', () => {
       { type: 'guild:enteredHideout', townId: 'town' },
       { type: 'guild:initiationCompleted', townId: 'town' },
       { type: 'town:enteredBigIron', townId: 'town' },
+      { type: 'ui:achievementZoomFlurry' },
       { type: 'house:expanded', level: 1 },
       { type: 'relationship:divorced', relationshipId: 'npc' },
       { type: 'combat:gunKill', targetId: 'enemy' },
@@ -99,6 +111,7 @@ describe('revised achievement catalog', () => {
       'guild.enterHideout',
       'guild.initiation',
       'towns.bigIron',
+      'system.zoomFlurry',
       'house.expansion',
       'relationships.divorced',
       'combat.gunKill',

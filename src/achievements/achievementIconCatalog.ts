@@ -187,6 +187,7 @@ function drawSymbol(context: CanvasRenderingContext2D, kind: string, variant?: s
     bigIron: '#d8b06c',
     cowbell: '#e6bd4f',
     wards: '#b58cff',
+    zoom: '#9ad1ff',
     katana: '#75e0b1',
     loadout: '#77baff',
     hazardHot: '#ff713f',
@@ -269,6 +270,13 @@ function drawSymbol(context: CanvasRenderingContext2D, kind: string, variant?: s
     pixel(context, 3, 3, '#ff713f');
     pixel(context, 12, 3, '#77cfff');
     pixel(context, 12, 12, '#75e0b1');
+  } else if (kind === 'zoom') {
+    rect(context, 3, 3, 8, 8, '#d7e8f5');
+    rect(context, 4, 4, 6, 6, '#315c75');
+    rect(context, 9, 9, 2, 2, '#d7e8f5');
+    rect(context, 10, 10, 4, 3, '#9ad1ff');
+    rect(context, 6, 5, 2, 4, '#fff3a8');
+    rect(context, 5, 6, 4, 2, '#fff3a8');
   } else if (kind === 'gun') {
     rect(context, 3, 6, 9, 3, color);
     rect(context, 8, 9, 3, 4, '#70513e');
@@ -327,6 +335,7 @@ export function ensureAchievementPortrait(
       'bigIron',
       'cowbell',
       'wards',
+      'zoom',
       'katana',
       'loadout',
       'hazardHot',

@@ -30,5 +30,6 @@ describe('achievement AP mapping', () => {
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'cards.win.dennis-dare')).toBe(912001061);
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'equipment.cowbell200')).toBe(912001062);
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'equipment.wardTrinity')).toBe(912001063);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'system.zoomFlurry')).toBe(912001064);
   });
 });

@@ -11,6 +11,7 @@ import type {
   AchievementDefinition,
   AchievementUnlockResult,
 } from '../achievements/achievementTypes.js';
+import type { AchievementZoomExtreme } from '../achievements/achievementZoomTracker.js';
 import type { UiRect } from './core/UiLayout.js';
 
 interface NodeView {
@@ -28,6 +29,7 @@ export interface AchievementTreeOverlayOptions {
   viewport: UiRect;
   detail: UiRect;
   worldOffset: { x: number; y: number };
+  onUserZoomExtreme?: (extreme: AchievementZoomExtreme) => void;
 }
 
 export class AchievementTreeOverlay {
@@ -50,6 +52,7 @@ export class AchievementTreeOverlay {
   private readonly viewport: UiRect;
   private readonly detail: UiRect;
   private readonly detailLayout: AchievementDetailLayout;
+  private readonly onUserZoomExtreme?: (extreme: AchievementZoomExtreme) => void;
   private pan = { x: 0, y: 0 };
   private zoom = 0.9;
   private drag: {
@@ -71,6 +74,7 @@ export class AchievementTreeOverlay {
   ) {
     this.viewport = options.viewport;
     this.detail = options.detail;
+    this.onUserZoomExtreme = options.onUserZoomExtreme;
     this.detailLayout = computeAchievementDetailLayout(this.detail);
     this.chrome = scene.add.graphics();
     const viewportZone = scene.add
@@ -231,8 +235,8 @@ export class AchievementTreeOverlay {
       this.drag = null;
     });
     rootButton.on('pointerdown', () => this.centerOnRoot(true));
-    zoomIn.on('pointerdown', () => this.setZoom(this.zoom + 0.15));
-    zoomOut.on('pointerdown', () => this.setZoom(this.zoom - 0.15));
+    zoomIn.on('pointerdown', () => this.applyUserZoom(this.zoom + 0.15));
+    zoomOut.on('pointerdown', () => this.applyUserZoom(this.zoom - 0.15));
     this.drawChrome();
   }
 
@@ -258,7 +262,10 @@ export class AchievementTreeOverlay {
     if (!this.visible || !this.containsPointer(pointer)) return false;
     const localX = pointer.x - this.root.parentContainer!.x - this.viewport.x;
     const localY = pointer.y - this.root.parentContainer!.y - this.viewport.y;
-    this.setZoom(this.zoom + (deltaY < 0 ? 0.12 : -0.12), { x: localX, y: localY });
+    this.applyUserZoom(this.zoom + (deltaY < 0 ? 0.12 : -0.12), {
+      x: localX,
+      y: localY,
+    });
     return true;
   }
 
@@ -592,14 +599,21 @@ export class AchievementTreeOverlay {
   private setZoom(
     rawZoom: number,
     anchor = { x: this.viewport.width / 2, y: this.viewport.height / 2 },
-  ): void {
+  ): boolean {
     const nextZoom = Phaser.Math.Clamp(rawZoom, 0.3, 1.65);
-    if (Math.abs(nextZoom - this.zoom) < 0.001) return;
+    if (Math.abs(nextZoom - this.zoom) < 0.001) return false;
     const worldX = (anchor.x - this.pan.x) / this.zoom;
     const worldY = (anchor.y - this.pan.y) / this.zoom;
     this.zoom = nextZoom;
     this.setPan({ x: anchor.x - worldX * nextZoom, y: anchor.y - worldY * nextZoom });
     this.zoomText.setText(`${Math.round(this.zoom * 100)}%  WHEEL TO ZOOM`);
+    return true;
+  }
+
+  private applyUserZoom(rawZoom: number, anchor?: { x: number; y: number }): void {
+    if (!this.setZoom(rawZoom, anchor)) return;
+    if (this.zoom <= 0.3001) this.onUserZoomExtreme?.('min');
+    if (this.zoom >= 1.6499) this.onUserZoomExtreme?.('max');
   }
 
   private setPan(pan: { x: number; y: number }): void {

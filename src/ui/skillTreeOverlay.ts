@@ -42,6 +42,7 @@ import { uiColors, uiMotion, uiSpacing, uiTypography } from './theme/uiTokens.js
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import type { AchievementUnlockResult } from '../achievements/achievementTypes.js';
 import { AchievementTreeOverlay } from './achievementTreeOverlay.js';
+import type { AchievementZoomExtreme } from '../achievements/achievementZoomTracker.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -73,6 +74,7 @@ interface OverlayHandlers {
   onApplySpecialChanges?: () => void;
   onResetSpecialPreview?: () => void;
   getAchievementManager?: () => AchievementManager;
+  onAchievementZoomExtreme?: (extreme: AchievementZoomExtreme) => void;
 }
 
 interface FooterHint {
@@ -1034,6 +1036,7 @@ export class SkillTreeOverlay {
           viewport: achievementLayout.main,
           detail: achievementLayout.detail,
           worldOffset: { x, y },
+          onUserZoomExtreme: (extreme) => this.handlers.onAchievementZoomExtreme?.(extreme),
         })
       : null;
 

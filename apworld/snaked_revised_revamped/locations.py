@@ -215,6 +215,7 @@ ACHIEVEMENT_LOCATIONS = [
     ("achievement_cards_win_dennis_dare", "Card Sharp: Freak Dennis Dare"),
     ("achievement_equipment_cowbell200", "For Whom the Bell Coils"),
     ("achievement_equipment_wardTrinity", "Terms and Conditions Apply"),
+    ("achievement_system_zoomFlurry", "Enhance! Enhance!"),
 ]
 
 for index, (_, name) in enumerate(ACHIEVEMENT_LOCATIONS):
