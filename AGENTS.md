@@ -1,49 +1,60 @@
 # Project Overview
 
-This is a modern Phaser-based snake game with RPG elements, featuring:
+This is a modern Phaser-based snake game with deep RPG and simulation elements, featuring:
 
 - **Core Gameplay**: Snake movement, food collection, and survival mechanics
-- **RPG Elements**: Quests, inventory, shops, NPCs, and character progression
-- **Features**: Multiple apple types with behaviors, hunger system, religion choices, and more
+- **RPG Systems**: Quests, inventory, shops, NPCs, factions, relationships, and character progression
+- **Apple Mechanics**: Multiple apple types with unique behaviors (caffeinated, skittish, mochi, wasabi, and more)
+- **World & Survival**: Animal taming, fishing, caves, archaeology, and world generation
+- **Special Modes**: Starforged TTRPG integration, Minecraft mode, Archipelago multiplayer, dating/relationship system
+- **Audio & Polish**: Actor voice packs, music, juice effects, and full i18n (EN/ES)
 
 ## Agent Voice
 
-- Keep responses clear, helpful, and focused on the work.
-- On occasion, add the occasional Mario-style pep to status updates or completion notes: "yahoo!", "let's-a-go!", "mamma mia!", and similar flourishes are welcome.
-- Use the voice as seasoning, not sauce: project accuracy, type safety, and build quality always come first.
+- Keep responses clear, direct, and focused on the work at hand.
+- On occasion, lean into a Brooklyn vibe: "Listen here," "fuhgeddaboudit," "you betcha," "shut the front end," or "that's the ticket" when the mood strikes.
+- Keep it light and useful — the voice is the cherry on top, not the whole sundae. Code quality and type safety come first, always.
 
 ## Project Structure
 
 ```
 src/
-├── apples/          # Apple types and behaviors
-│   ├── behaviors/   # Different apple behaviors (normal, gold, shielded, skittish)
-│   ├── appleRegistry.ts
-│   ├── appleService.ts
-│   └── types.ts
-├── cards/           # Card system
-├── config/          # Game configuration and palettes
-├── core/            # Core utilities (math, random number generation)
-├── features/        # Game features and definitions
-│   ├── definitions/  # Feature definitions (coreScore, hungerTimer, etc.)
-│   ├── feature.ts    # Base feature class
-│   └── npcs/         # NPC definitions
-├── game/            # Game core and save system
-│   └── saveSystem/
-├── i18n/            # Internationalization
-│   └── languages/    # Language files (en, es)
-├── inventory/       # Inventory system
-├── quests/          # Quest system
-│   └── definitions/  # Quest definitions
-├── scenes/          # Phaser scenes
-│   └── __tests__/
-├── shops/           # Shop system
-├── systems/         # Game systems
-│   └── __tests__/
-├── ui/              # User interface
-│   ├── music/        # Music and sound
-│   └── spriteRecipes/
-└── world/           # World-related logic
+├── achievements/    # Achievement definitions, manager, and UI
+├── actors/          # Actor/entity system with AI brains and voice packs
+├── animals/         # Animal life: AI, ecology, taming, herding
+├── apples/          # Apple registry, service, and behavior system
+├── archaeology/     # Archaeology mechanics
+├── archipelago/     # Multi-game Archipelago linking
+├── artifacts/       # Artifact items
+├── cards/           # Card game system
+├── caves/           # Cave generation and entrances
+├── client/          # Client-side multiplayer shell
+├── config/          # Game config, palettes, resolution, snake config
+├── core/            # Math utilities and RNG
+├── events/          # World event log and definitions
+├── factions/        # Faction system and relations
+├── features/        # Feature definitions (RPG mechanics)
+├── fishing/         # Fishing minigame, fish definitions, catch journal
+├── game/            # Core snake game, save manager, scoring
+├── i18n/            # Internationalization (EN, ES)
+├── inventory/       # Inventory, items, and registry
+├── layers/          # Layer type definitions
+├── minecraft/       # Minecraft integration
+├── npcs/            # NPC system
+├── player/          # Player logic and easter eggs
+├── players/         # Player type definitions
+├── quests/          # Quest system and definitions
+├── relationships/   # Dating and relationship system
+├── rumors/          # Rumor system
+├── scenes/          # Phaser scenes (including the big snakeScene.ts)
+├── session/         # Session management and game events
+├── shops/           # Shop implementations (goblin, village)
+├── starforged/      # Starforged TTRPG integration
+├── stats/           # Statistics and special stat system
+├── storage/         # Persistence layer (localStorage, sync)
+├── systems/         # Game systems (bosses, enemies, skills, state)
+├── ui/              # UI: HUD, popups, skill tree, minimap, juice
+└── world/           # World, biomes, rooms, locations, and generation
 ```
 
 ## Development Workflow
@@ -52,14 +63,15 @@ All agents working on this project must follow these steps:
 
 1. **Before completing any task**:
    - Run `npm run typecheck` to ensure all TypeScript types are valid
-   - **Resolve all type errors** before considering the task complete, yahoo!
+   - **Resolve all type errors** before considering the task complete
 
 2. **After fixing type errors**:
    - Run `npm run build` to ensure the project builds successfully
-   - **Verify the build succeeds** before marking tasks complete, let's-a-go!
+   - **Verify the build succeeds** before marking tasks complete
 
 3. **Testing**:
-   - Run `npm run dev` to start the development server for testing
+   - Run `npm run dev` to start the development server for in-browser testing
+   - Run `npm run test` to execute the full test suite
 
 ## Important Notes
 
@@ -67,6 +79,7 @@ All agents working on this project must follow these steps:
 - Tests are written with Vitest
 - The game uses Phaser 3 for rendering and game logic
 - All changes must be type-safe and pass the build process
+- Some files are large (e.g., `snakeScene.ts`, `snakeGame.ts`, `starforgedContent.ts`) — don't be intimidated, they're just packed with game content
 
 ## Required Commands
 
@@ -75,5 +88,8 @@ All agents working on this project must follow these steps:
 - `npm run preview` - Preview production build
 - `npm run typecheck` - Run TypeScript type checking
 - `npm run format` - Format code using Prettier
+- `npm run test` - Run full test suite
+- `npm run test:world-generation` - Run world generation fairness tests
+- `npm run build:apworld` - Build the Archipelago APWorld package
 
-When in doubt, keep it type-safe, build-clean, and just a little spirited. Mamma mia, quality matters.
+When in doubt: check your types, verify the build, and ship it clean. That's how the job gets done right.
