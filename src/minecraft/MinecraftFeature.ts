@@ -193,6 +193,27 @@ export class MinecraftFeature extends Feature {
       this.renderCreativePalette(scene);
     }
 
+    // Persistent controls display in bottom left
+    const controlsText = scene.add
+      .text(12, height - 110, [
+        'WASD: Move',
+        'Q: Break | R: Place',
+        'E: Eat',
+        'F/G/H/J: Armor',
+        'Right-click: Interact',
+        this.creativeMode ? '[/]: Cycle blocks' : '',
+      ].filter(Boolean).join('\n'),
+      {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 3,
+      },
+    );
+    controlsText.setOrigin(0, 1);
+    controlsText.setDepth(40);
+
     // Render minecraft layer
     this.renderLayer?.render(scene);
 
