@@ -10,12 +10,17 @@ export function getApAchievementDefinitions(definitions: readonly AchievementDef
   return definitions.filter((definition) => definition.archipelago?.enabledByDefault);
 }
 
-export function achievementLocationId(definitions: readonly AchievementDefinition[], id: string): number {
-  const index = getApAchievementDefinitions(definitions).findIndex((definition) => definition.id === id);
+export function achievementLocationId(
+  definitions: readonly AchievementDefinition[],
+  id: string,
+): number {
+  const index = getApAchievementDefinitions(definitions).findIndex(
+    (definition) => definition.id === id,
+  );
   if (index < 0) throw new Error(`Achievement is not AP-enabled: ${id}`);
   return ACHIEVEMENT_LOCATION_ID_BASE + index;
 }
 
 export function achievementGoalTarget(enabledCount: number, percentage: number): number {
-  return Math.ceil(Math.max(0, enabledCount) * Math.max(0, Math.min(100, percentage)) / 100);
+  return Math.ceil((Math.max(0, enabledCount) * Math.max(0, Math.min(100, percentage))) / 100);
 }

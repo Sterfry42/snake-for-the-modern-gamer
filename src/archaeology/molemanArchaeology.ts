@@ -438,7 +438,7 @@ export class MolemanArchaeologySession {
       }
       return;
     }
-    const speed = 0.000224 + this.depth * 0.000022;
+    const speed = 0.0002 + this.depth * 0.000018;
     this.riseProgress += deltaMs * speed;
     while (this.riseProgress >= 1 && !this.gameOver) {
       this.riseProgress -= 1;
@@ -610,7 +610,7 @@ export class MolemanArchaeologySession {
           chain: state.chain,
         });
         state.index += 1;
-        state.timerMs += 68;
+        state.timerMs += 82;
       }
       if (state.index >= state.cells.length && state.timerMs <= 0) {
         if (!this.tryBeginGravityResolution(state.chain)) {
@@ -649,7 +649,7 @@ export class MolemanArchaeologySession {
     this.chain = this.chainSeed;
     this.maxChain = Math.max(this.maxChain, this.chain);
     const score = this.estimateMatchScore(cells, this.chain);
-    this.resolver = { kind: 'highlight', timerMs: 180, cells, chain: this.chain };
+    this.resolver = { kind: 'highlight', timerMs: 220, cells, chain: this.chain };
     this.pendingEvents.push({ kind: 'match', cells, chain: this.chain, score });
     return true;
   }
@@ -660,7 +660,7 @@ export class MolemanArchaeologySession {
     if (moves.length === 0) {
       return false;
     }
-    const durationMs = 250;
+    const durationMs = 300;
     this.resolver = {
       kind: 'gravity',
       timerMs: durationMs,

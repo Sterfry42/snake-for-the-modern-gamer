@@ -36,16 +36,11 @@ class TrapFrequency(Choice):
 
 
 class Goal(Choice):
-    """Controls the runtime goal check the browser client reports as completion."""
+    """Complete a percentage of enabled achievement locations."""
 
     display_name = "Goal"
-    option_score_1000 = 0
-    option_score_10000 = 1
-    option_length_250 = 2
-    option_artifact_hunt = 3
-    option_dennis_survival = 4
-    option_achievement_percentage = 5
-    default = 5
+    option_achievement_percentage = 0
+    default = 0
 
 
 class AchievementGoalPercentage(Range):
@@ -67,17 +62,17 @@ class DeathLink(Choice):
 
 
 class IncludeCardTableChecks(Toggle):
-    """Adds card table win checks."""
+    """Deprecated compatibility option. Card table wins are represented by achievements."""
 
     display_name = "Include Card Table Checks"
-    default = 1
+    default = 0
 
 
 class IncludeArchaeologyChecks(Toggle):
-    """Adds Moleman archaeology milestone checks."""
+    """Deprecated compatibility option. Archaeology milestones are represented by achievements."""
 
     display_name = "Include Archaeology Checks"
-    default = 1
+    default = 0
 
 
 @dataclass

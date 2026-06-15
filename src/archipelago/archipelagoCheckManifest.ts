@@ -1,7 +1,11 @@
 import { ARTIFACT_DEFINITIONS } from '../artifacts/artifacts.js';
 import { CARD_DEFINITIONS } from '../cards/cardGame.js';
 import { ACHIEVEMENT_DEFINITIONS } from '../achievements/achievementDefinitions.js';
-import { achievementLocationId, achievementLocationKey, getApAchievementDefinitions } from '../achievements/achievementApMapping.js';
+import {
+  achievementLocationId,
+  achievementLocationKey,
+  getApAchievementDefinitions,
+} from '../achievements/achievementApMapping.js';
 
 export type ArchipelagoPhase1CheckKey =
   | 'score_1'
@@ -232,12 +236,7 @@ export const AP_PHASE_2_CARD_TABLE_LOCATIONS = [
 ] as const;
 
 export const AP_PHASE_2_ARTIFACT_LOCATIONS = ARTIFACT_DEFINITIONS.map((artifact, index) =>
-  location(
-    `artifact_${keyPart(artifact.id)}`,
-    `Recover ${artifact.name}`,
-    88 + index,
-    'Artifacts',
-  ),
+  location(`artifact_${keyPart(artifact.id)}`, `Recover ${artifact.name}`, 88 + index, 'Artifacts'),
 );
 
 export const AP_PHASE_2_ARCHAEOLOGY_LOCATIONS = [
@@ -377,12 +376,13 @@ export const AP_ACHIEVEMENT_LOCATIONS: readonly ArchipelagoLocationDefinition[] 
 export const AP_ACHIEVEMENT_GOAL_LOCATION: ArchipelagoLocationDefinition = {
   key: 'achievement_goal',
   name: 'Achievement Percentage Goal',
-  id: 912001100,
+  id: 912009999,
   category: 'achievement:goal',
 };
 export const AP_ALL_LOCATION_LIST: readonly ArchipelagoLocationDefinition[] = [
-  ...AP_PHASE_1_LOCATION_LIST,
-  ...AP_PHASE_2_LOCATIONS,
+  ...AP_PHASE_2_ITEM_LOCATIONS,
+  ...AP_PHASE_2_CARD_LOCATIONS,
+  ...AP_PHASE_2_ARTIFACT_LOCATIONS,
   ...AP_ACHIEVEMENT_LOCATIONS,
   AP_ACHIEVEMENT_GOAL_LOCATION,
 ];

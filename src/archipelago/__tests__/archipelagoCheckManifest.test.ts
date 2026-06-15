@@ -14,6 +14,7 @@ import {
   AP_PHASE_2_ARTIFACT_LOCATIONS,
   AP_PHASE_2_CARD_ITEMS,
   AP_PHASE_2_CARD_LOCATIONS,
+  AP_ACHIEVEMENT_GOAL_LOCATION,
 } from '../archipelagoCheckManifest.js';
 
 function expectUnique(values: readonly (number | string)[]): void {
@@ -74,4 +75,17 @@ describe('Archipelago Phase 2 manifest', () => {
       expect(AP_PHASE_2_ARTIFACT_ITEMS.some((item) => item.artifactId === artifact.id)).toBe(true);
     }
   });
+
+  it('uses achievements as state checks while retaining item, card, and artifact checks', () => {
+    const keys = AP_ALL_LOCATION_LIST.map((location) => location.key);
+    expect(keys.some((key) => key.startsWith('achievement_'))).toBe(true);
+    expect(keys.some((key) => key.startsWith('item_'))).toBe(true);
+    expect(keys.some((key) => key.startsWith('card_'))).toBe(true);
+    expect(keys.some((key) => key.startsWith('artifact_'))).toBe(true);
+    expect(
+      keys.some((key) => /^(score|length|apple|quest|card_table|archaeology|boss)_/.test(key)),
+    ).toBe(false);
+    expect(AP_ACHIEVEMENT_GOAL_LOCATION.id).toBeGreaterThan(912001999);
+  });
+
 });

@@ -20,12 +20,7 @@ from .options import SnakedOptions
 
 
 GOAL_KEY_BY_OPTION = {
-    0: "score_1000",
-    1: "score_10000",
-    2: "length_250",
-    3: "archaeology_first_cache",
-    4: "boss_jason_statham",
-    5: "achievement_goal",
+    0: "achievement_goal",
 }
 
 TRAP_COUNT_BY_OPTION = {
@@ -65,23 +60,24 @@ class SnakedWorld(World):
         return int(getattr(self.options, name).value)
 
     def _goal_key(self) -> str:
-        return GOAL_KEY_BY_OPTION.get(self._option_value("goal"), "score_1000")
+        return GOAL_KEY_BY_OPTION.get(self._option_value("goal"), "achievement_goal")
 
     def _enabled_location_table(self) -> dict[str, int]:
         cardsanity = self._option_value("cardsanity")
         artifactsanity = self._option_value("artifactsanity")
-        include_card_tables = bool(self._option_value("include_card_table_checks"))
-        include_archaeology = bool(self._option_value("include_archaeology_checks"))
         enabled: dict[str, int] = {}
         for name, location_id in location_table.items():
             key = location_name_to_key[name]
+            if not (
+                key.startswith("achievement_")
+                or key.startswith("item_")
+                or key.startswith("card_") and not key.startswith("card_table_")
+                or key.startswith("artifact_")
+            ):
+                continue
             if key.startswith("card_") and not key.startswith("card_table_") and cardsanity == 0:
                 continue
-            if key.startswith("card_table_") and not include_card_tables:
-                continue
             if key.startswith("artifact_") and artifactsanity == 0:
-                continue
-            if key.startswith("archaeology_") and not include_archaeology:
                 continue
             if key == "achievement_goal" and self._goal_key() != "achievement_goal":
                 continue
