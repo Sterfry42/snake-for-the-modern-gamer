@@ -97,6 +97,7 @@ export class SnakeRenderer {
   private readonly snakeSprites: Phaser.GameObjects.Image[] = [];
   private readonly snakeLayer: Phaser.GameObjects.Container;
   private readonly hatSprite: Phaser.GameObjects.Image;
+  private readonly wallGraphics: Phaser.GameObjects.Graphics;
   private readonly defaultSnakeTextureKeys: Record<SnakeSpriteVariant, string>;
   private readonly appleTextureKeys: Record<AppleSpriteVariant, string>;
   private readonly appleSprites: Phaser.GameObjects.Image[] = [];
@@ -128,8 +129,10 @@ export class SnakeRenderer {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly graphics: Phaser.GameObjects.Graphics,
+    wallGraphics: Phaser.GameObjects.Graphics,
     private readonly grid: GridConfig,
   ) {
+    this.wallGraphics = wallGraphics;
     this.spriteFactory = new RuntimeSpriteFactory(scene);
     this.defaultSnakeTextureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
@@ -195,11 +198,13 @@ export class SnakeRenderer {
   ): void {
     this.graphics.clear();
     this.graphics.clearMask();
+    this.wallGraphics.clear();
 
     const opts = options ?? {};
     this.beginRenderDiagnostics(room, snakeBody, appleInfo ?? null, opts);
 
-    this.drawRoom(room);
+    this.drawRoomFloors(room);
+    this.drawRoomWalls(room);
     this.drawTemperatureReliefs(room);
     this.drawFurniture(room);
     this.drawVegetation(room);
@@ -286,7 +291,7 @@ export class SnakeRenderer {
     };
   }
 
-  private drawRoom(room: RoomSnapshot): void {
+  private drawRoomFloors(room: RoomSnapshot): void {
     const ladderOutlineColor = darkenColor(
       paletteConfig.ladder.color,
       paletteConfig.ladder.outlineDarkenFactor,
@@ -298,18 +303,7 @@ export class SnakeRenderer {
         const rectX = x * this.grid.cell;
         const rectY = y * this.grid.cell;
         this.renderDiagnostics.staticTileCount += 1;
-        if (tile === '#') {
-          if (room.biomeId === 'elderwood-maze') {
-            this.drawTreeTile(rectX, rectY, x, y);
-          } else if (room.biomeId === 'liberty-badlands') {
-            this.drawLibertyWallTile(rectX, rectY, x, y);
-          } else {
-            this.graphics.fillStyle(room.wallColor, 1);
-            this.graphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-            this.graphics.lineStyle(2, room.wallOutlineColor, 0.85);
-            this.graphics.strokeRect(rectX, rectY, this.grid.cell, this.grid.cell);
-          }
-        } else if (tile === 'H') {
+        if (tile === 'H') {
           const portal = room.portals.find((entry) => entry.x === x && entry.y === y);
           const [, , currentZ = '0'] = room.id.split(',');
           const [, , destZ = currentZ] = portal?.destRoomId.split(',') ?? [];
@@ -541,6 +535,112 @@ export class SnakeRenderer {
       }
     }
     this.drawCaveLakeRewards(room);
+  }
+
+  private drawRoomWalls(room: RoomSnapshot): void {
+    const biome = getBiomeDefinition(room.biomeId);
+    for (let y = 0; y < room.layout.length; y++) {
+      for (let x = 0; x < room.layout[y].length; x++) {
+        const tile = room.layout[y][x];
+        if (tile !== '#') {
+          continue;
+        }
+        const rectX = x * this.grid.cell;
+        const rectY = y * this.grid.cell;
+        this.renderDiagnostics.staticTileCount += 1;
+        if (room.biomeId === 'elderwood-maze') {
+          const cell = this.grid.cell;
+          const treeTileX = x;
+          const treeTileY = y;
+          this.renderDiagnostics.treeTileCount += 1;
+          if (!((treeTileX * 11 + treeTileY * 7) % 5 === 0)) {
+            const base = (treeTileX + treeTileY) % 2 === 0 ? 0x174f2a : 0x1d5f31;
+            const shadow = 0x0b2414;
+            const leaf = (treeTileX * 5 + treeTileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
+            this.wallGraphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
+            this.wallGraphics
+              .fillStyle(shadow, 0.35)
+              .fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
+            this.wallGraphics
+              .fillStyle(leaf, 0.72)
+              .fillRect(
+                rectX + cell * 0.18,
+                rectY + cell * 0.16,
+                cell * 0.64,
+                cell * 0.48,
+              );
+            this.wallGraphics
+              .lineStyle(1, shadow, 0.55)
+              .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+          } else {
+            this.renderDiagnostics.detailedTreeTileCount += 1;
+            const base = (treeTileX + treeTileY) % 2 === 0 ? 0x174f2a : 0x1d5f31;
+            const shadow = 0x0b2414;
+            const leaf = (treeTileX * 5 + treeTileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
+            const trunk = 0x5c3a23;
+            this.wallGraphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
+            this.wallGraphics
+              .fillStyle(shadow, 0.45)
+              .fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
+            this.wallGraphics
+              .fillStyle(trunk, 0.95)
+              .fillRect(
+                rectX + cell * 0.43,
+                rectY + cell * 0.48,
+                cell * 0.14,
+                cell * 0.34,
+              );
+            this.wallGraphics
+              .fillStyle(leaf, 0.95)
+              .fillCircle(
+                rectX + cell * 0.5,
+                rectY + cell * 0.38,
+                cell * 0.32,
+              );
+            this.wallGraphics
+              .fillStyle(0x9ddd76, 0.16)
+              .fillCircle(
+                rectX + cell * 0.4,
+                rectY + cell * 0.28,
+                cell * 0.12,
+              );
+            this.wallGraphics
+              .lineStyle(1, shadow, 0.8)
+              .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+          }
+        } else if (room.biomeId === 'liberty-badlands') {
+          const cell = this.grid.cell;
+          const base = (x + y) % 3 === 0 ? 0x244f87 : 0x173b6d;
+          const deep = 0x0d2347;
+          const highlight = 0xf3eee2;
+          const rust = 0xb5362f;
+          this.wallGraphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
+          this.wallGraphics.fillStyle(deep, 0.42).fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
+          if ((x * 2 + y) % 5 === 0) {
+            this.wallGraphics.fillStyle(highlight, 0.42).fillRect(rectX + 3, rectY + 4, cell - 6, 2);
+          }
+          if ((x + y * 3) % 4 === 0) {
+            this.wallGraphics.fillStyle(rust, 0.38).fillRect(rectX + cell - 5, rectY + 3, 2, cell - 6);
+          }
+          if ((x * 7 + y) % 9 === 0) {
+            this.wallGraphics
+              .fillStyle(highlight, 0.35)
+              .fillCircle(rectX + cell * 0.28, rectY + cell * 0.35, 1.6);
+            this.wallGraphics
+              .fillStyle(highlight, 0.35)
+              .fillCircle(rectX + cell * 0.72, rectY + cell * 0.35, 1.6);
+          }
+          this.wallGraphics
+            .lineStyle(1, 0x07152c, 0.75)
+            .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+        } else {
+          this.wallGraphics.fillStyle(room.wallColor, 1);
+          this.wallGraphics.fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+          this.wallGraphics.lineStyle(2, room.wallOutlineColor, 0.85);
+          this.wallGraphics.strokeRect(rectX, rectY, this.grid.cell, this.grid.cell);
+        }
+      }
+    }
   }
 
   private drawCaveEntranceTile(rectX: number, rectY: number, collapsed: boolean): void {
@@ -1110,7 +1210,7 @@ export class SnakeRenderer {
       return;
     }
 
-    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = 0.8 + 0.2 * Math.sin(now / 240);
     for (let dy = -radius; dy <= radius; dy++) {
       for (let dx = -radius; dx <= radius; dx++) {
@@ -1128,8 +1228,8 @@ export class SnakeRenderer {
           continue;
         }
         const alpha = Math.max(0.1, (0.28 - 0.05 * distance) * pulse);
-        this.graphics.fillStyle(0x4da3ff, alpha);
-        this.graphics.fillRect(
+        this.wallGraphics.fillStyle(0x4da3ff, alpha);
+        this.wallGraphics.fillRect(
           targetX * this.grid.cell,
           targetY * this.grid.cell,
           this.grid.cell,

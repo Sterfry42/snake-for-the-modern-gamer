@@ -1462,6 +1462,7 @@ const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
+  wallGraphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
 
   public snakeGame!: SnakeGame;
@@ -1767,10 +1768,11 @@ export default class SnakeScene extends Phaser.Scene {
 
   async create() {
     this.graphics = this.add.graphics();
+    this.wallGraphics = this.add.graphics().setDepth(15);
     // Reduce subpixel jitter and keep lines crisp during shake/zoom
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
-    this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.grid);
+    this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.wallGraphics, this.grid);
     this.minimapRenderer = new MinimapRenderer(this, {
       x: this.grid.cols * this.grid.cell - 222,
       y: 14,
@@ -1816,7 +1818,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup = new ChoicePopup(this);
     await this.loadDatingPortraitAssets();
     this.datingScenePopup = new DatingScenePopup(this);
-    this.graphics.setDepth(15);
+    this.graphics.setDepth(10);
 
     const registry = await createQuestRegistry();
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
