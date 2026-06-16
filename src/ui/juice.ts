@@ -3655,6 +3655,220 @@ export class JuiceManager {
     this.playTone({ frequency: 320, duration: 0.04, type: 'sine', volume: 0.05 });
   }
 
+  // Boundary collision: wall impact with dramatic visual/audio feedback
+  wallImpact(worldX: number, worldY: number, wallKind: 'top' | 'bottom' | 'left' | 'right' | 'corner') {
+    const baseColors = wallKind === 'corner' ? [0xff6b6b, 0xffd166, 0x9ad1ff] :
+                      wallKind === 'left' || wallKind === 'right' ? [0xff8c42, 0xffb3a8] :
+                      [0x9ad1ff, 0xcfe5ff, 0x5dd6a2];
+    
+    const noteFrequency = wallKind === 'corner' ? 220 : wallKind === 'left' || wallKind === 'right' ? 180 : 240;
+    const noteEnd = wallKind === 'corner' ? 110 : wallKind === 'left' || wallKind === 'right' ? 90 : 120;
+    const duration = wallKind === 'corner' ? 0.28 : 0.22;
+    const type = wallKind === 'corner' ? 'sawtooth' : 'square';
+    const volume = wallKind === 'corner' ? 0.18 : 0.14;
+    
+    this.playTone({ frequency: noteFrequency, frequencyEnd: noteEnd, duration, type, volume });
+    
+    // Multi-directional explosion for corner hits
+    const ringCount = wallKind === 'corner' ? 5 : 3;
+    const baseRadius = wallKind === 'corner' ? 24 : 18;
+    const colorSet = baseColors;
+    
+    // Create directional rings based on wall kind
+    for (let i = 0; i < ringCount; i++) {
+      const delay = i * 40;
+      const color = Phaser.Utils.Array.GetRandom(colorSet);
+      const radius = baseRadius + i * (wallKind === 'corner' ? 8 : 6);
+      const lineWidth = i === 0 ? (wallKind === 'corner' ? 4 : 3) : 2;
+      globalThis.setTimeout(() => {
+        this.ringPulse(worldX, worldY, color, radius, lineWidth, 300 + i * 40);
+      }, delay);
+    }
+    
+    // Particle explosion
+    this.spawnBurst(worldX, worldY, {
+      colors: baseColors,
+      count: wallKind === 'corner' ? 28 : 20,
+      radius: wallKind === 'corner' ? 36 : 28,
+    });
+    
+    // Special effects for corner hits
+    if (wallKind === 'corner') {
+      this.scene.cameras.main.flash(100, 255, 150, 150, true);
+      this.kickCamera(0.05, 200);
+      this.punchZoom(1.08, 200);
+      this.scene.cameras.main.shake(100, 0.02);
+      
+      // Diagonal lines for corner impact
+      const g = this.scene.add.graphics().setDepth(28);
+      this.overlayLayer.add(g);
+      const state = { a: 0.8, w: 3 } as any;
+      this.scene.tweens.add({
+        targets: state,
+        a: 0,
+        w: 8,
+        duration: 260,
+        ease: 'Cubic.easeOut',
+        onUpdate: () => {
+          g.clear();
+          g.lineStyle(state.w, 0xff6b6b, state.a);
+          g.beginPath();
+          g.moveTo(worldX, worldY);
+          g.lineTo(worldX + 40, worldY + 40);
+          g.lineTo(worldX - 40, worldY + 40);
+          g.strokePath();
+        },
+        onComplete: () => g.destroy(),
+      });
+    } else {
+      // Standard wall impact
+      this.scene.cameras.main.flash(100, 150, 255, 150, true);
+      this.kickCamera(0.03, 150);
+      this.punchZoom(1.04, 150);
+      
+      // Directional beam effect
+      const dirX = wallKind === 'left' ? -1 : wallKind === 'right' ? 1 : 0;
+      const dirY = wallKind === 'top' ? -1 : wallKind === 'bottom' ? 1 : 0;
+      const beamLength = 60;
+      
+      const beam = this.scene.add.graphics().setDepth(28);
+      this.overlayLayer.add(beam);
+      const beamState = { a: 0.9, l: 2 } as any;
+      this.scene.tweens.add({
+        targets: beamState,
+        a: 0,
+        l: 6,
+        duration: 240,
+        ease: 'Cubic.easeOut',
+        onUpdate: () => {
+          beam.clear();
+          beam.lineStyle(beamState.l, 0x9ad1ff, beamState.a);
+          beam.beginPath();
+          beam.moveTo(worldX, worldY);
+          beam.lineTo(worldX + dirX * beamLength, worldY + dirY * beamLength);
+          beam.strokePath();
+        },
+        onComplete: () => beam.destroy(),
+      });
+    }
+  }
+
+  // Snake growth celebration: spectacular visual/audio feedback
+  snakeGrowthCelebration(worldX: number, worldY: number, growthAmount: number) {
+    const amount = Math.min(12, growthAmount);
+    const colors = [0x5dd6a2, 0xfff3a8, 0x9ad1ff, 0xffd166];
+    
+    // Multi-stage celebration
+    this.playTone({ frequency: 440, duration: 0.18, type: 'triangle', volume: 0.16 });
+    this.playTone({ frequency: 660, duration: 0.24, type: 'sine', volume: 0.14 });
+    this.playTone({ frequency: 880, duration: 0.20, type: 'triangle', volume: 0.12 });
+    
+    this.scene.cameras.main.flash(100, 255, 220, 220, true);
+    this.kickCamera(0.04, 200);
+    this.punchZoom(1.06, 200);
+    this.scene.cameras.main.shake(80, 0.015);
+    
+    // Multiple expanding rings with different colors
+    for (let i = 0; i < 4; i++) {
+      const delay = i * 60;
+      const color = colors[i];
+      const radius = 16 + i * 12;
+      globalThis.setTimeout(() => {
+        this.ringPulse(worldX, worldY, color, radius, 3, 320 + i * 40);
+      }, delay);
+    }
+    
+    // Particle explosion with growth amount multiplier
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: 36 + amount * 2,
+      radius: 42 + amount * 3,
+    });
+    
+    // Floating growth label
+    this.floatingLabel(worldX, worldY - 20, `+${amount}`, '#fff3a8', 22);
+  }
+
+  // Item rarity highlight: special effects for rare item pickups
+  rareItemHighlight(worldX: number, worldY: number, itemName: string) {
+    this.playTone({ frequency: 1046, duration: 0.24, type: 'sine', volume: 0.18 });
+    this.playTone({ frequency: 880, duration: 0.28, type: 'triangle', volume: 0.16 });
+    this.playTone({ frequency: 1320, duration: 0.20, type: 'sine', volume: 0.12 });
+    
+    this.scene.cameras.main.flash(100, 255, 210, 100, true);
+    this.kickCamera(0.06, 240);
+    this.punchZoom(1.08, 240);
+    this.scene.cameras.main.shake(60, 0.02);
+    
+    // Golden aura effect
+    const aura = this.scene.add.circle(worldX, worldY, 20, 0xffd166, 0.2);
+    aura.setDepth(25).setBlendMode(Phaser.BlendModes.ADD);
+    this.particleLayer.add(aura);
+    
+    this.scene.tweens.add({
+      targets: aura,
+      radius: 60,
+      alpha: 0,
+      duration: 600,
+      ease: 'Cubic.easeOut',
+      onComplete: () => aura.destroy(),
+    });
+    
+    // Sparkle particles around the item
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const sparkle = this.scene.add.circle(
+        worldX + Math.cos(angle) * 30,
+        worldY + Math.sin(angle) * 30,
+        3,
+        0xfff3a8,
+        0.9
+      );
+      sparkle.setDepth(26).setBlendMode(Phaser.BlendModes.ADD);
+      this.particleLayer.add(sparkle);
+      
+      this.scene.tweens.add({
+        targets: sparkle,
+        x: sparkle.x + Math.cos(angle) * 20,
+        y: sparkle.y + Math.sin(angle) * 20 - 30,
+        alpha: 0,
+        scale: 0.5,
+        duration: 400,
+        ease: 'Cubic.easeOut',
+        onComplete: () => sparkle.destroy(),
+      });
+    }
+    
+    // Floating item name
+    this.floatingLabel(worldX, worldY - 30, itemName, '#fff3a8', 18);
+  }
+
+  // Environmental interaction: terrain-specific feedback
+  terrainInteraction(worldX: number, worldY: number, terrainType: 'grass' | 'water' | 'sand' | 'rock') {
+    switch (terrainType) {
+      case 'grass':
+        this.playTone({ frequency: 220, duration: 0.08, type: 'sine', volume: 0.06 });
+        this.spawnBurst(worldX, worldY, { colors: [0x5dd6a2, 0xc8ffe1], count: 6, radius: 12 });
+        this.ringPulse(worldX, worldY, 0x5dd6a2, 10, 2, 180);
+        break;
+      case 'water':
+        this.playTone({ frequency: 180, duration: 0.12, type: 'sine', volume: 0.08 });
+        this.spawnBurst(worldX, worldY, { colors: [0x9ad1ff, 0xcfe5ff], count: 8, radius: 14 });
+        this.ringPulse(worldX, worldY, 0x9ad1ff, 12, 2, 200);
+        break;
+      case 'sand':
+        this.playTone({ frequency: 160, duration: 0.06, type: 'square', volume: 0.05 });
+        this.spawnBurst(worldX, worldY, { colors: [0xffd166, 0xffc25f], count: 5, radius: 10 });
+        this.ringPulse(worldX, worldY, 0xffd166, 8, 2, 160);
+        break;
+      case 'rock':
+        this.playTone({ frequency: 140, duration: 0.04, type: 'sawtooth', volume: 0.04 });
+        this.spawnBurst(worldX, worldY, { colors: [0x7b8fa1, 0x9aa6b2], count: 4, radius: 10 });
+        this.ringPulse(worldX, worldY, 0x7b8fa1, 6, 2, 140);
+        break;
+    }
+  }
+
   // Item rarity jingle based on id mapping
   itemRarityJingle(itemId?: string) {
     const rare = new Set(['amulet-phoenix', 'weapon-revolver']);
