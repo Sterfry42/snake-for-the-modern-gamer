@@ -2632,9 +2632,10 @@ export default class SnakeScene extends Phaser.Scene {
           result.apple.worldPosition.x,
           result.apple.worldPosition.y,
           violenceLevel,
+          result.apple.typeId,
         );
         const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
-        this.juice.appleStreak(result.apple.worldPosition.x, result.apple.worldPosition.y, streak);
+        this.juice.appleStreak(result.apple.worldPosition.x, result.apple.worldPosition.y, streak, result.apple.typeId);
         this.showRaccoonForageFeedbackAt(
           result.apple.worldPosition.x,
           result.apple.worldPosition.y,

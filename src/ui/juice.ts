@@ -193,16 +193,123 @@ export class JuiceManager {
     this.overlayLayer = this.scene.add.layer().setDepth(30);
   }
 
-  appleChomp(worldX: number, worldY: number, violenceLevel = 0) {
+  appleChomp(worldX: number, worldY: number, violenceLevel = 0, appleTypeId?: string) {
     const level = Math.max(0, Math.min(3, Math.floor(violenceLevel)));
     const volume = 0.18 + level * 0.04;
     const shake = 0.01 + level * 0.006;
     const burstCount = 6 + level * 5;
+    
+    let baseColor = 0xfff3a8;
+    let baseFrequency = 420;
+    let baseDuration = 0.18;
+    let type = level > 1 ? 'sawtooth' : 'square';
+    
+    switch (appleTypeId) {
+      case 'gold':
+        baseColor = 0xffd166;
+        baseFrequency = 520;
+        baseDuration = 0.22;
+        type = 'triangle';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xffd166, 0xfff3a8, 0xffc25f],
+          count: burstCount + 8,
+          radius: 16 + level * 8,
+        });
+        break;
+      case 'shielded':
+        baseColor = 0x9ad1ff;
+        baseFrequency = 380;
+        baseDuration = 0.20;
+        type = 'sine';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0x9ad1ff, 0xcfe5ff, 0x5dd6a2],
+          count: burstCount + 6,
+          radius: 15 + level * 7,
+        });
+        break;
+      case 'mochi':
+        baseColor = 0xff8c42;
+        baseFrequency = 440;
+        baseDuration = 0.25;
+        type = 'triangle';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xff8c42, 0xffb3a8, 0xff6b6b],
+          count: burstCount + 10,
+          radius: 18 + level * 9,
+        });
+        this.scene.cameras.main.flash(100, 255, 140, 140, true);
+        break;
+      case 'wasabi':
+        baseColor = 0xc77dff;
+        baseFrequency = 240;
+        baseDuration = 0.15;
+        type = 'sawtooth';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xc77dff, 0xe8ddff, 0xb89cff],
+          count: burstCount + 6,
+          radius: 14 + level * 6,
+        });
+        this.kickCamera(shake * 1.5, 80 + level * 30);
+        break;
+      case 'koi':
+        baseColor = 0x5dd66f;
+        baseFrequency = 560;
+        baseDuration = 0.28;
+        type = 'sine';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0x5dd66f, 0xc8ffe1, 0x9ad1ff],
+          count: burstCount + 12,
+          radius: 20 + level * 10,
+        });
+        this.scene.cameras.main.flash(50, 150, 255, 150, true);
+        break;
+      case 'yuzu':
+        baseColor = 0xff6b6b;
+        baseFrequency = 480;
+        baseDuration = 0.20;
+        type = 'triangle';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xff6b6b, 0xffa36c, 0xffd166],
+          count: burstCount + 8,
+          radius: 17 + level * 8,
+        });
+        break;
+      case 'amacha':
+        baseColor = 0xffbdfd;
+        baseFrequency = 340;
+        baseDuration = 0.24;
+        type = 'sine';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xffbdfd, 0xfff3a8, 0x9ad1ff],
+          count: burstCount + 10,
+          radius: 18 + level * 9,
+        });
+        this.scene.cameras.main.flash(90, 255, 255, 253, true);
+        break;
+      case 'skittish':
+        baseColor = 0xff8c42;
+        baseFrequency = 360;
+        baseDuration = 0.18;
+        type = 'square';
+        this.spawnBurst(worldX, worldY, {
+          colors: [0xff8c42, 0xffb3a8, 0xfff3a8],
+          count: burstCount + 8,
+          radius: 16 + level * 8,
+        });
+        this.scene.cameras.main.flash(80, 255, 140, 140, true);
+        break;
+      default:
+        baseColor = 0xfff3a8;
+        baseFrequency = 420;
+        baseDuration = 0.18;
+        type = level > 1 ? 'sawtooth' : 'square';
+    }
+    
     this.playTone({
-      frequency: 420 - level * 35,
+      frequency: baseFrequency - level * 35,
       frequencyEnd: 300 - level * 28,
-      duration: 0.18 + level * 0.03,
-      type: level > 1 ? 'sawtooth' : 'square',
+      duration: baseDuration + level * 0.03,
+      type: type as OscillatorType,
       volume,
     });
     if (level > 0) {
@@ -216,7 +323,7 @@ export class JuiceManager {
     }
     this.kickCamera(shake, 60 + level * 35);
     this.spawnBurst(worldX, worldY, {
-      colors: [0xfff3a8, 0xffc25f, 0xff5f57],
+      colors: [baseColor, 0xfff3a8, 0xc8ffe1],
       count: burstCount,
       radius: 14 + level * 7,
     });
@@ -286,14 +393,63 @@ export class JuiceManager {
     });
   }
 
-  appleStreak(worldX: number, worldY: number, streak: number) {
+  appleStreak(worldX: number, worldY: number, streak: number, appleTypeId?: string) {
     if (streak < 2) {
       return;
     }
     const capped = Math.min(12, streak);
     const hot = streak >= 5;
+    
+    let colors: number[]; let labelColor: string; let frequency = 520 + capped * 28;
+    
+    switch (appleTypeId) {
+      case 'gold':
+        colors = [0xffd166, 0xfff3a8, 0xffc25f];
+        labelColor = '#fff3a8';
+        frequency = 560 + capped * 28;
+        break;
+      case 'shielded':
+        colors = [0x9ad1ff, 0xcfe5ff, 0x5dd6a2];
+        labelColor = '#c8ffe1';
+        frequency = 540 + capped * 28;
+        break;
+      case 'mochi':
+        colors = [0xff8c42, 0xffb3a8, 0xff6b6b];
+        labelColor = '#ffb3a8';
+        frequency = 580 + capped * 28;
+        break;
+      case 'wasabi':
+        colors = [0xc77dff, 0xe8ddff, 0xb89cff];
+        labelColor = '#e8ddff';
+        frequency = 500 + capped * 28;
+        break;
+      case 'koi':
+        colors = [0x5dd66f, 0xc8ffe1, 0x9ad1ff];
+        labelColor = '#c8ffe1';
+        frequency = 600 + capped * 28;
+        break;
+      case 'yuzu':
+        colors = [0xff6b6b, 0xffa36c, 0xffd166];
+        labelColor = '#ffd166';
+        frequency = 540 + capped * 28;
+        break;
+      case 'amacha':
+        colors = [0xffbdfd, 0xfff3a8, 0x9ad1ff];
+        labelColor = '#fff3a8';
+        frequency = 560 + capped * 28;
+        break;
+      case 'skittish':
+        colors = [0xff8c42, 0xffb3a8, 0xfff3a8];
+        labelColor = '#fff3a8';
+        frequency = 540 + capped * 28;
+        break;
+      default:
+        colors = hot ? [0xff8450, 0xffc857, 0xfff3a8] : [0x5dd6a2, 0xfff3a8];
+        labelColor = hot ? '#ffcf5a' : '#c8ffe1';
+    }
+    
     this.playTone({
-      frequency: 520 + capped * 28,
+      frequency,
       frequencyEnd: 720 + capped * 42,
       duration: 0.16,
       type: hot ? 'square' : 'triangle',
@@ -308,20 +464,24 @@ export class JuiceManager {
         volume: 0.08,
       });
       this.kickCamera(0.01 + capped * 0.0015, 90 + capped * 8);
+      this.scene.cameras.main.flash(100, 255, 200, 100, true);
     }
-    this.blastWave(
-      worldX,
-      worldY,
-      hot ? [0xff8450, 0xffc857, 0xfff3a8] : [0x5dd6a2, 0xfff3a8],
-      14 + capped * 2,
-    );
+    this.blastWave(worldX, worldY, colors, 14 + capped * 2);
     this.floatingLabel(
       worldX,
       worldY - 18,
       `x${streak}`,
-      hot ? '#ffcf5a' : '#c8ffe1',
+      labelColor,
       18 + Math.min(8, capped),
     );
+    
+    if (appleTypeId === 'gold' || appleTypeId === 'koi') {
+      this.spawnBurst(worldX, worldY, {
+        colors,
+        count: 8 + capped * 2,
+        radius: 20 + capped * 3,
+      });
+    }
   }
 
   skillTreeOpened() {
@@ -1560,27 +1720,51 @@ export class JuiceManager {
     };
   }
 
-  itemPickup(worldX: number, worldY: number) {
-    // Short uplifting jingle (Zelda-like) + sparkles
+  itemPickup(worldX: number, worldY: number, itemRarity: 'common' | 'uncommon' | 'rare' = 'common') {
+    // Enhanced item pickup with rarity-based effects
     const notes = [660, 880, 1175]; // E5, A5, D6-ish
     const durations = [0.12, 0.12, 0.16];
     const types: OscillatorType[] = ['triangle', 'sine', 'triangle'];
+    
+    // Rarity-based tone adjustments
+    const volume = itemRarity === 'rare' ? 0.18 : itemRarity === 'uncommon' ? 0.16 : 0.14;
+    
     let delay = 0;
     notes.forEach((freq, i) => {
       globalThis.setTimeout(
         () =>
-          this.playTone({ frequency: freq, duration: durations[i], type: types[i], volume: 0.14 }),
+          this.playTone({ 
+            frequency: itemRarity === 'rare' ? freq * 1.1 : freq, 
+            duration: durations[i], 
+            type: types[i], 
+            volume: volume * (i === 2 ? 0.8 : 1) 
+          }),
         delay * 1000,
       );
       delay += durations[i] * 0.7; // slight overlap
     });
-    this.spawnBurst(worldX, worldY, {
-      colors: [0x9ad1ff, 0x5dd6a2, 0xfff3a8],
-      count: 14,
-      radius: 22,
-    });
-    this.ringPulse(worldX, worldY, 0x9ad1ff, 18, 2, 220);
+    
+    // Rarity-based visual effects
+    const colors = itemRarity === 'rare' ? [0xffd166, 0xfff3a8, 0xffc25f] :
+                   itemRarity === 'uncommon' ? [0x9ad1ff, 0xcfe5ff, 0x5dd6a2] :
+                   [0x9ad1ff, 0x5dd6a2, 0xfff3a8];
+    
+    const count = itemRarity === 'rare' ? 20 : itemRarity === 'uncommon' ? 16 : 14;
+    const radius = itemRarity === 'rare' ? 28 : itemRarity === 'uncommon' ? 24 : 22;
+    
+    this.spawnBurst(worldX, worldY, { colors, count, radius });
+    this.ringPulse(worldX, worldY, colors[0], itemRarity === 'rare' ? 24 : itemRarity === 'uncommon' ? 20 : 18, 2, itemRarity === 'rare' ? 260 : itemRarity === 'uncommon' ? 240 : 220);
     this.spawnTreasureChest(worldX, worldY);
+    
+    if (itemRarity === 'rare') {
+      this.scene.cameras.main.flash(100, 255, 220, 100, true);
+      this.kickCamera(0.04, 180);
+      this.punchZoom(1.06, 180);
+      this.scene.cameras.main.shake(50, 0.01);
+    } else if (itemRarity === 'uncommon') {
+      this.scene.cameras.main.flash(100, 150, 255, 150, true);
+      this.kickCamera(0.02, 120);
+    }
   }
 
   private spawnTreasureChest(worldX: number, worldY: number): void {
@@ -1767,29 +1951,97 @@ export class JuiceManager {
   // Powerup pickup: heavy juice
   powerupPickup(worldX: number, worldY: number, kind: 'phase' | 'smite' | 'gun') {
     const colors = kind === 'gun' ? [0xf6bd60, 0xffe0a3, 0xff8c42] : [0x9b5de5, 0xc77dff, 0x7ad1ff];
-    this.playTone({
-      frequency: kind === 'gun' ? 420 : 560,
-      frequencyEnd: kind === 'gun' ? 680 : 920,
-      duration: 0.34,
-      type: kind === 'gun' ? 'square' : 'sine',
-      volume: 0.24,
-    });
-    this.spawnBurst(worldX, worldY, { colors, count: 36, radius: 40 });
-    this.kickCamera(0.038, 220);
-    this.punchZoom(1.085, 220);
-    this.scene.cameras.main.flash(
-      200,
-      kind === 'gun' ? 246 : 155,
-      kind === 'gun' ? 189 : 110,
-      kind === 'gun' ? 96 : 255,
-      true,
-    );
-    this.blastWave(worldX, worldY, colors, 42);
-    this.ringPulse(worldX, worldY, kind === 'gun' ? 0xf6bd60 : 0x9b5de5, 16, 2, 300);
-    globalThis.setTimeout(
-      () => this.ringPulse(worldX, worldY, kind === 'gun' ? 0xffe0a3 : 0xc77dff, 20, 2, 280),
-      100,
-    );
+    
+    // Type-specific enhanced effects
+    switch (kind) {
+      case 'gun':
+        this.playTone({
+          frequency: 420,
+          frequencyEnd: 680,
+          duration: 0.34,
+          type: 'square',
+          volume: 0.24,
+        });
+        this.playTone({
+          frequency: 880,
+          frequencyEnd: 1320,
+          duration: 0.28,
+          type: 'triangle',
+          volume: 0.18,
+        });
+        this.spawnBurst(worldX, worldY, { colors, count: 48, radius: 50 });
+        this.kickCamera(0.045, 240);
+        this.punchZoom(1.095, 240);
+        this.scene.cameras.main.flash(200, 246, 189, 96, true);
+        this.blastWave(worldX, worldY, colors, 48);
+        this.ringPulse(worldX, worldY, 0xf6bd60, 20, 3, 320);
+        globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xffe0a3, 24, 3, 300), 100);
+        globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xff8c42, 28, 2, 280), 200);
+        this.scene.cameras.main.shake(100, 0.015);
+        break;
+      case 'smite':
+        this.playTone({
+          frequency: 560,
+          frequencyEnd: 920,
+          duration: 0.34,
+          type: 'sine',
+          volume: 0.24,
+        });
+        this.playTone({
+          frequency: 220,
+          frequencyEnd: 110,
+          duration: 0.28,
+          type: 'sawtooth',
+          volume: 0.15,
+        });
+        this.spawnBurst(worldX, worldY, { colors, count: 42, radius: 48 });
+        this.kickCamera(0.04, 230);
+        this.punchZoom(1.09, 230);
+        this.scene.cameras.main.flash(155, 110, 255, 255, true);
+        this.blastWave(worldX, worldY, colors, 44);
+        this.ringPulse(worldX, worldY, 0x9b5de5, 18, 3, 320);
+        globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 22, 3, 300), 100);
+        break;
+      case 'phase':
+        this.playTone({
+          frequency: 440,
+          frequencyEnd: 880,
+          duration: 0.34,
+          type: 'triangle',
+          volume: 0.24,
+        });
+        this.playTone({
+          frequency: 1320,
+          frequencyEnd: 660,
+          duration: 0.28,
+          type: 'sine',
+          volume: 0.12,
+        });
+        this.spawnBurst(worldX, worldY, { colors, count: 44, radius: 46 });
+        this.kickCamera(0.04, 230);
+        this.punchZoom(1.09, 230);
+        this.scene.cameras.main.flash(100, 255, 220, 220, true);
+        this.blastWave(worldX, worldY, colors, 46);
+        this.ringPulse(worldX, worldY, 0x9b5de5, 18, 3, 320);
+        globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 22, 3, 300), 100);
+        globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0x7ad1ff, 20, 2, 280), 200);
+        break;
+      default:
+        this.playTone({
+          frequency: 560,
+          frequencyEnd: 920,
+          duration: 0.34,
+          type: 'sine',
+          volume: 0.24,
+        });
+        this.spawnBurst(worldX, worldY, { colors, count: 36, radius: 40 });
+        this.kickCamera(0.038, 220);
+        this.punchZoom(1.085, 220);
+        this.scene.cameras.main.flash(200, 155, 110, 255, true);
+        this.blastWave(worldX, worldY, colors, 42);
+        this.ringPulse(worldX, worldY, 0x9b5de5, 16, 2, 300);
+        globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 20, 2, 280), 100);
+    }
   }
 
   powerupTick(worldX: number, worldY: number, kind: string, remaining: number, total: number) {
@@ -2876,11 +3128,30 @@ export class JuiceManager {
   questCompleted() {
     this.playTone({ frequency: 520, duration: 0.18, volume: 0.2 });
     this.playTone({ frequency: 780, duration: 0.22, volume: 0.15 });
+    this.playTone({ frequency: 1046, duration: 0.24, volume: 0.12 });
     this.scene.cameras.main.flash(160, 120, 200, 255, true);
+    this.scene.cameras.main.shake(80, 0.01);
     const cam = this.scene.cameras.main;
     this.punchZoom(1.055, 180);
     this.blastWave(cam.midPoint.x, cam.midPoint.y, [0x5dd6a2, 0xfff3a8, 0x9ad1ff], 32);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0x5dd6a2, 0xfff3a8, 0x9ad1ff, 0xffd166],
+      count: 36,
+      radius: 40,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xfff3a8, 20, 3, 300);
     this.floatingLabel(cam.midPoint.x, 74, 'QUEST COMPLETE', '#fff3a8', 18);
+    
+    // Additional celebration effects
+    globalThis.setTimeout(() => {
+      this.scene.cameras.main.flash(80, 255, 200, 200, true);
+      this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xfff3a8, 16, 2, 280);
+      this.spawnBurst(cam.midPoint.x, cam.midPoint.y - 40, {
+        colors: [0xffd166, 0xfff3a8, 0xffc25f],
+        count: 20,
+        radius: 30,
+      });
+    }, 200);
   }
 
   relationshipChoice(tier: 'loved' | 'liked' | 'neutral' | 'disliked' | 'hated') {
@@ -3117,50 +3388,80 @@ export class JuiceManager {
     }
   }
 
-  // Optional subtle trail at the snake head position if provided
-  movementTick(worldX?: number, worldY?: number) {
+  // Enhanced movement feedback with type-specific effects
+  movementTick(worldX?: number, worldY?: number, movementType: 'normal' | 'fast' | 'slow' | 'teleport' = 'normal') {
     if (this.cowbellEnabled) {
       this.playCowbell();
     } else {
+      const baseFrequency = movementType === 'fast' ? 80 : movementType === 'slow' ? 40 : 60;
+      const baseVolume = 0.04 * this.movementNoiseMultiplier;
+      const volume = movementType === 'fast' ? baseVolume * 1.5 : movementType === 'slow' ? baseVolume * 0.7 : baseVolume;
+      const type = movementType === 'fast' ? 'square' : movementType === 'slow' ? 'sine' : 'triangle';
       this.playTone({
-        frequency: 60,
+        frequency: baseFrequency,
         duration: 0.05,
-        type: 'square',
-        volume: 0.04 * this.movementNoiseMultiplier,
+        type: type as OscillatorType,
+        volume,
       });
     }
 
     if (worldX !== undefined && worldY !== undefined) {
-      // Spawn a tiny fading dot and occasional spark to suggest momentum.
-      const dot = this.scene.add
-        .circle(worldX, worldY, Phaser.Math.Between(2, 3), 0x5dd6a2)
-        .setAlpha(0.9);
-      dot.setDepth(21);
-      this.particleLayer.add(dot);
-      this.scene.tweens.add({
-        targets: dot,
-        x: worldX + Phaser.Math.Between(-4, 4),
-        y: worldY + Phaser.Math.Between(-4, 4),
-        alpha: 0,
-        scale: 0.6,
-        duration: 220,
-        ease: 'Cubic.easeOut',
-        onComplete: () => dot.destroy(),
-      });
-      if (Math.random() < 0.45) {
+      // Spawn a more dynamic trail effect based on movement type
+      const particleCount = movementType === 'teleport' ? 4 : movementType === 'fast' ? 3 : movementType === 'slow' ? 2 : 1;
+      const colors = movementType === 'fast' ? [0xfff3a8, 0xffc25f] : 
+                     movementType === 'slow' ? [0x9ad1ff, 0xc8ffe1] : 
+                     movementType === 'teleport' ? [0xffd166, 0xff8c42, 0xff6b6b] : 
+                     [0x5dd6a2];
+      
+      for (let i = 0; i < particleCount; i++) {
+        const angle = movementType === 'teleport' ? (Math.PI * 2 * i) / particleCount : 
+                      movementType === 'fast' ? Math.random() * Math.PI * 2 : 0;
+        const dist = movementType === 'teleport' ? 6 : movementType === 'fast' ? 8 : 4;
+        const cx = worldX + (movementType === 'teleport' ? Math.cos(angle) * dist : 0) +
+                   (movementType === 'fast' ? Phaser.Math.Between(-6, 6) : 0);
+        const cy = worldY + (movementType === 'teleport' ? Math.sin(angle) * dist : 0) +
+                   (movementType === 'fast' ? Phaser.Math.Between(-6, 6) : 0);
+        
+        const dot = this.scene.add
+          .circle(cx, cy, movementType === 'teleport' ? Phaser.Math.Between(2, 4) : 
+                          movementType === 'fast' ? Phaser.Math.Between(2, 3) : 2,
+                  Phaser.Utils.Array.GetRandom(colors))
+          .setAlpha(movementType === 'teleport' ? 0.95 : 0.9);
+        dot.setDepth(21);
+        if (movementType !== 'normal') {
+          dot.setBlendMode(Phaser.BlendModes.ADD);
+        }
+        this.particleLayer.add(dot);
+        
+        const duration = movementType === 'teleport' ? 180 : movementType === 'fast' ? 220 : movementType === 'slow' ? 280 : 220;
+        this.scene.tweens.add({
+          targets: dot,
+          x: cx + (movementType === 'fast' ? Phaser.Math.Between(-4, 4) : 0),
+          y: cy + (movementType === 'fast' ? Phaser.Math.Between(-4, 4) : 0) -
+             (movementType === 'slow' ? Phaser.Math.Between(4, 8) : 0) -
+             (movementType === 'teleport' ? Phaser.Math.Between(6, 12) : 0),
+          alpha: 0,
+          scale: movementType === 'teleport' ? 0.8 : movementType === 'fast' ? 0.6 : 0.5,
+          duration,
+          ease: 'Cubic.easeOut',
+          onComplete: () => dot.destroy(),
+        });
+      }
+      
+      if (movementType === 'fast') {
         const spark = this.scene.add
           .circle(
-            worldX + Phaser.Math.Between(-5, 5),
-            worldY + Phaser.Math.Between(-5, 5),
-            Phaser.Math.Between(1, 2),
-            Phaser.Utils.Array.GetRandom([0xc8ffe1, 0x9ad1ff, 0x5dd6a2]),
+            worldX + Phaser.Math.Between(-8, 8),
+            worldY + Phaser.Math.Between(-8, 8),
+            Phaser.Math.Between(2, 3),
+            Phaser.Utils.Array.GetRandom([0xfff3a8, 0xc8ffe1]),
           )
-          .setAlpha(0.65);
+          .setAlpha(0.75);
         spark.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
         this.particleLayer.add(spark);
         this.scene.tweens.add({
           targets: spark,
-          y: spark.y - Phaser.Math.Between(4, 8),
+          y: spark.y - Phaser.Math.Between(6, 12),
           alpha: 0,
           scale: 0.4,
           duration: 160,
