@@ -4259,4 +4259,2082 @@ export class JuiceManager {
     });
     this.ringPulse(worldX, worldY, 0xff8f5a, 10, 2, 180);
   }
+
+  // ─── Fishing Juice ─────────────────────────────────────────────────────
+
+  fishingHookLanded(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 440,
+      frequencyEnd: 280,
+      duration: 0.14,
+      type: 'sine',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff, 0xffffff],
+      count: 8,
+      radius: 14,
+    });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 8, 2, 200);
+    this.scene.cameras.main.flash(60, 154, 209, 255, true);
+  }
+
+  fishingCatch(worldX: number, worldY: number, rarity: 'common' | 'uncommon' | 'rare' | 'legendary') {
+    const isRare = rarity === 'rare' || rarity === 'legendary';
+    const isLegendary = rarity === 'legendary';
+    const colors = isLegendary
+      ? [0xffd166, 0xffe58a, 0xfff3a8, 0xc77dff]
+      : isRare
+        ? [0x9ad1ff, 0xcfe5ff, 0x5dd6a2]
+        : [0x5dd6a2, 0x9ad1ff, 0xc8ffe1];
+    const shake = isLegendary ? 0.05 : isRare ? 0.035 : 0.02;
+    const zoom = isLegendary ? 1.1 : isRare ? 1.06 : 1.03;
+    const count = isLegendary ? 50 : isRare ? 32 : 18;
+
+    this.playTone({
+      frequency: isLegendary ? 660 : isRare ? 540 : 440,
+      frequencyEnd: isLegendary ? 1320 : isRare ? 880 : 660,
+      duration: isLegendary ? 0.36 : isRare ? 0.28 : 0.22,
+      type: isLegendary ? 'sine' : 'triangle',
+      volume: isLegendary ? 0.22 : isRare ? 0.16 : 0.12,
+    });
+    if (isRare || isLegendary) {
+      this.playTone({
+        frequency: isLegendary ? 880 : 720,
+        duration: isLegendary ? 0.28 : 0.22,
+        type: 'sine',
+        volume: isLegendary ? 0.14 : 0.1,
+      });
+    }
+    this.kickCamera(shake, isLegendary ? 300 : isRare ? 220 : 140);
+    this.punchZoom(zoom, isLegendary ? 260 : isRare ? 200 : 140);
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count,
+      radius: isLegendary ? 52 : isRare ? 38 : 24,
+    });
+    this.blastWave(worldX, worldY, colors, isLegendary ? 32 : isRare ? 24 : 16);
+    this.ringPulse(worldX, worldY, colors[0]!, isLegendary ? 20 : isRare ? 16 : 10, isLegendary ? 4 : 2, isLegendary ? 360 : 280);
+    this.scene.cameras.main.flash(
+      isLegendary ? 200 : isRare ? 140 : 80,
+      isLegendary ? 255 : 200,
+      isLegendary ? 220 : isRare ? 229 : 150,
+      isLegendary ? 120 : 200,
+      true,
+    );
+    if (isLegendary) {
+      this.scene.cameras.main.shake(120, 0.02);
+      globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xffd166, 24, 3, 340), 80);
+      globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 20, 2, 300), 160);
+    }
+  }
+
+  fishingEscape(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 120,
+      duration: 0.28,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x4da3ff, 0x7a9bff, 0x9ad1ff],
+      count: 10,
+      radius: 18,
+    });
+    this.ringPulse(worldX, worldY, 0x4da3ff, 10, 2, 220);
+    this.scene.cameras.main.flash(80, 77, 163, 255, true);
+  }
+
+  fishingTensionWarning(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 260,
+      duration: 0.1,
+      type: 'square',
+      volume: 0.08,
+    });
+    this.kickCamera(0.008, 60);
+    this.scene.cameras.main.flash(40, 255, 200, 80, true);
+    this.ringPulse(worldX, worldY, 0xffd166, 8, 2, 160);
+  }
+
+  fishingSnapWarning(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 480,
+      duration: 0.08,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.kickCamera(0.016, 100);
+    this.scene.cameras.main.flash(60, 255, 140, 80, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xff8c42, 0xff6b6b],
+      count: 8,
+      radius: 14,
+    });
+  }
+
+  fishingNewSpecies(worldX: number, worldY: number, name: string) {
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 1040, duration: 0.26, type: 'sine', volume: 0.08 });
+    this.scene.cameras.main.flash(160, 255, 200, 255, true);
+    this.kickCamera(0.03, 200);
+    this.punchZoom(1.05, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0x9ad1ff, 0xfff3a8, 0x5dd6a2],
+      count: 28,
+      radius: 36,
+    });
+    this.blastWave(worldX, worldY, [0xc77dff, 0x9ad1ff], 28);
+    this.ringPulse(worldX, worldY, 0xc77dff, 16, 3, 320);
+    this.floatingLabel(worldX, worldY - 24, `NEW: ${name}`, '#c77dff', 16);
+  }
+
+  // ─── Animal Juice ──────────────────────────────────────────────────────
+
+  animalTamed(worldX: number, worldY: number, kind: string) {
+    const isFriendly = kind === 'dog' || kind === 'cat' || kind === 'horse';
+    const colors = isFriendly
+      ? [0x5dd6a2, 0xfff3a8, 0xc8ffe1]
+      : [0x9ad1ff, 0xc77dff, 0x5dd6a2];
+    this.playTone({
+      frequency: isFriendly ? 520 : 440,
+      frequencyEnd: isFriendly ? 780 : 660,
+      duration: 0.22,
+      type: 'triangle',
+      volume: 0.14,
+    });
+    if (isFriendly) {
+      this.playTone({ frequency: 880, duration: 0.16, type: 'sine', volume: 0.08 });
+    }
+    this.punchZoom(1.04, 180);
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: isFriendly ? 20 : 14,
+      radius: isFriendly ? 28 : 22,
+    });
+    this.ringPulse(worldX, worldY, colors[0]!, 12, 2, 260);
+    this.scene.cameras.main.flash(100, 93, 214, 162, true);
+  }
+
+  animalHuntFail(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 280,
+      frequencyEnd: 140,
+      duration: 0.18,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xb0c4de, 0x9aa6b2, 0x7b8fa1],
+      count: 6,
+      radius: 12,
+    });
+    this.ringPulse(worldX, worldY, 0xb0c4de, 8, 1, 180);
+  }
+
+  animalStartled(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 440,
+      frequencyEnd: 220,
+      duration: 0.12,
+      type: 'square',
+      volume: 0.1,
+    });
+    this.kickCamera(0.014, 80);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0xffc25f],
+      count: 8,
+      radius: 14,
+    });
+    this.scene.cameras.main.flash(60, 255, 209, 164, true);
+  }
+
+  animalFed(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 380,
+      frequencyEnd: 520,
+      duration: 0.16,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xffc25f, 0xf6bd60],
+      count: 10,
+      radius: 16,
+    });
+    this.ringPulse(worldX, worldY, 0xffd166, 8, 2, 200);
+  }
+
+  animalBond(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.18, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.22, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.28, type: 'sine', volume: 0.08 });
+    this.punchZoom(1.04, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffbdfd, 0xfff3a8, 0x9ad1ff],
+      count: 22,
+      radius: 30,
+    });
+    this.ringPulse(worldX, worldY, 0xffbdfd, 14, 2, 300);
+    this.scene.cameras.main.flash(120, 255, 189, 253, true);
+  }
+
+  animalBirth(worldX: number, worldY: number) {
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 720, duration: 0.2, type: 'sine', volume: 0.08 });
+    this.punchZoom(1.03, 160);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc8ffe1, 0xfff3a8, 0x9ad1ff],
+      count: 14,
+      radius: 22,
+    });
+    this.ringPulse(worldX, worldY, 0xc8ffe1, 10, 2, 280);
+    this.scene.cameras.main.flash(80, 200, 255, 225, true);
+  }
+
+  animalDeath(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 220,
+      frequencyEnd: 80,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.kickCamera(0.018, 200);
+    this.scene.cameras.main.flash(100, 255, 100, 100, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x7b5f8f, 0xb8865e, 0x5d3d7d],
+      count: 12,
+      radius: 20,
+    });
+  }
+
+  // ─── Actor / NPC Juice ────────────────────────────────────────────────
+
+  actorTalk(worldX: number, worldY: number) {
+    this.playTone({ frequency: 360, duration: 0.08, type: 'triangle', volume: 0.06 });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 6, 1, 160);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff],
+      count: 4,
+      radius: 10,
+    });
+  }
+
+  actorRumor(worldX: number, worldY: number) {
+    this.playTone({ frequency: 420, duration: 0.1, type: 'triangle', volume: 0.07 });
+    this.playTone({ frequency: 560, duration: 0.14, type: 'sine', volume: 0.06 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0xe8ddff, 0x9ad1ff],
+      count: 8,
+      radius: 14,
+    });
+    this.ringPulse(worldX, worldY, 0xc77dff, 8, 1, 200);
+    this.scene.cameras.main.flash(50, 199, 125, 255, true);
+  }
+
+  actorPersonalReveal(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.18, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 660, duration: 0.24, type: 'triangle', volume: 0.08 });
+    this.punchZoom(1.03, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffbdfd, 0xfff3a8, 0xffb3a8],
+      count: 14,
+      radius: 22,
+    });
+    this.ringPulse(worldX, worldY, 0xffbdfd, 12, 2, 280);
+    this.scene.cameras.main.flash(80, 255, 189, 253, true);
+  }
+
+  actorGift(worldX: number, worldY: number, accepted: boolean) {
+    if (accepted) {
+      this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
+      this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
+      this.spawnBurst(worldX, worldY, {
+        colors: [0xffbdfd, 0xfff3a8, 0x5dd6a2],
+        count: 16,
+        radius: 24,
+      });
+      this.ringPulse(worldX, worldY, 0xffbdfd, 12, 2, 260);
+      this.scene.cameras.main.flash(100, 255, 189, 253, true);
+    } else {
+      this.playTone({
+        frequency: 240,
+        frequencyEnd: 160,
+        duration: 0.18,
+        type: 'sawtooth',
+        volume: 0.08,
+      });
+      this.spawnBurst(worldX, worldY, {
+        colors: [0xff6b6b, 0xffb3a8],
+        count: 6,
+        radius: 12,
+      });
+    }
+  }
+
+  actorPickpocketSuccess(worldX: number, worldY: number) {
+    this.playTone({ frequency: 660, duration: 0.06, type: 'triangle', volume: 0.05 });
+    this.playTone({ frequency: 880, duration: 0.08, type: 'sine', volume: 0.04 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0x9ad1ff, 0xc8ffe1],
+      count: 6,
+      radius: 10,
+    });
+    this.scene.cameras.main.flash(40, 93, 214, 162, true);
+  }
+
+  actorPickpocketFail(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 80,
+      duration: 0.22,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.kickCamera(0.02, 140);
+    this.scene.cameras.main.flash(100, 255, 100, 100, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xff8c42],
+      count: 10,
+      radius: 16,
+    });
+  }
+
+  actorThreaten(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 120,
+      frequencyEnd: 80,
+      duration: 0.28,
+      type: 'sawtooth',
+      volume: 0.14,
+    });
+    this.playTone({ frequency: 240, duration: 0.16, type: 'square', volume: 0.1 });
+    this.kickCamera(0.024, 160);
+    this.scene.cameras.main.flash(80, 255, 80, 80, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff2d2d, 0xff8c42, 0xffd166],
+      count: 12,
+      radius: 18,
+    });
+  }
+
+  actorParley(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.14, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 520, duration: 0.18, type: 'sine', volume: 0.07 });
+    this.ringPulse(worldX, worldY, 0xffd166, 8, 1, 220);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0xcfe5ff],
+      count: 8,
+      radius: 14,
+    });
+  }
+
+  actorSpare(worldX: number, worldY: number) {
+    this.playTone({ frequency: 360, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 540, duration: 0.26, type: 'triangle', volume: 0.08 });
+    this.punchZoom(1.03, 220);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xc8ffe1, 0xfff3a8],
+      count: 18,
+      radius: 26,
+    });
+    this.ringPulse(worldX, worldY, 0x5dd6a2, 14, 2, 300);
+    this.scene.cameras.main.flash(100, 93, 214, 162, true);
+  }
+
+  actorApologyAccepted(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.18, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.24, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.3, type: 'sine', volume: 0.08 });
+    this.punchZoom(1.04, 240);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xfff3a8, 0xffbdfd, 0xc8ffe1],
+      count: 20,
+      radius: 28,
+    });
+    this.ringPulse(worldX, worldY, 0xfff3a8, 14, 2, 320);
+    this.scene.cameras.main.flash(120, 255, 243, 168, true);
+  }
+
+  actorApologyRejected(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 100,
+      duration: 0.24,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
+    this.kickCamera(0.014, 120);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xff8c42, 0xffd166],
+      count: 8,
+      radius: 14,
+    });
+  }
+
+  // ─── Faction Juice ────────────────────────────────────────────────────
+
+  factionRaidWarning(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 160,
+      frequencyEnd: 100,
+      duration: 0.3,
+      type: 'sawtooth',
+      volume: 0.14,
+    });
+    this.playTone({ frequency: 320, duration: 0.14, type: 'square', volume: 0.08 });
+    this.kickCamera(0.02, 180);
+    this.scene.cameras.main.flash(100, 255, 80, 80, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff2d2d, 0xff8c42, 0xffd166],
+      count: 16,
+      radius: 24,
+    });
+    this.ringPulse(worldX, worldY, 0xff2d2d, 14, 2, 280);
+  }
+
+  factionRaidActive(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 100,
+      frequencyEnd: 60,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.18,
+    });
+    this.playTone({ frequency: 200, duration: 0.2, type: 'square', volume: 0.12 });
+    this.playTone({ frequency: 400, duration: 0.16, type: 'triangle', volume: 0.08 });
+    this.kickCamera(0.035, 240);
+    this.scene.cameras.main.flash(140, 255, 45, 45, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff2d2d, 0xff8c42, 0xffd166, 0xfff3a8],
+      count: 24,
+      radius: 32,
+    });
+    this.blastWave(worldX, worldY, [0xff2d2d, 0xff8c42], 24);
+    this.scene.cameras.main.shake(100, 0.02);
+  }
+
+  factionRaidAftermath(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 120,
+      frequencyEnd: 60,
+      duration: 0.5,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
+    this.kickCamera(0.014, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x7b5f8f, 0xb8865e, 0x5d3d7d],
+      count: 10,
+      radius: 18,
+    });
+    this.scene.cameras.main.flash(80, 123, 95, 143, true);
+  }
+
+  factionSkirmish(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 100,
+      duration: 0.2,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.kickCamera(0.018, 120);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffd166, 0x9ad1ff],
+      count: 14,
+      radius: 20,
+    });
+    this.ringPulse(worldX, worldY, 0xff6b6b, 10, 2, 200);
+  }
+
+  factionCrackdown(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 120,
+      duration: 0.24,
+      type: 'square',
+      volume: 0.12,
+    });
+    this.kickCamera(0.02, 140);
+    this.scene.cameras.main.flash(80, 154, 167, 255, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x4da3ff, 0x9ad1ff, 0xcfe5ff],
+      count: 12,
+      radius: 18,
+    });
+  }
+
+  factionRelationChange(factionId: string, oldRel: string, newRel: string) {
+    const improved = newRel === 'allied' || newRel === 'friendly';
+    const worsened = newRel === 'hostile' || newRel === 'enemy';
+    const cam = this.scene.cameras.main;
+    if (improved) {
+      this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
+      this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
+      this.punchZoom(1.03, 160);
+      this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+        colors: [0x5dd6a2, 0xfff3a8, 0xc8ffe1],
+        count: 18,
+        radius: 26,
+      });
+      this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0x5dd6a2, 14, 2, 280);
+      this.scene.cameras.main.flash(100, 93, 214, 162, true);
+    } else if (worsened) {
+      this.playTone({
+        frequency: 160,
+        frequencyEnd: 80,
+        duration: 0.28,
+        type: 'sawtooth',
+        volume: 0.14,
+      });
+      this.kickCamera(0.022, 160);
+      this.scene.cameras.main.flash(100, 255, 80, 80, true);
+      this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+        colors: [0xff6b6b, 0xff8c42, 0xffd166],
+        count: 16,
+        radius: 24,
+      });
+    } else {
+      this.playTone({ frequency: 360, duration: 0.1, type: 'triangle', volume: 0.06 });
+    }
+  }
+
+  // ─── Rumor Juice ──────────────────────────────────────────────────────
+
+  rumorDiscovered(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.07 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0xe8ddff, 0x9ad1ff],
+      count: 10,
+      radius: 16,
+    });
+    this.ringPulse(worldX, worldY, 0xc77dff, 8, 1, 220);
+    this.scene.cameras.main.flash(50, 199, 125, 255, true);
+  }
+
+  rumorConfirmed(worldX: number, worldY: number) {
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xfff3a8, 0xc77dff],
+      count: 14,
+      radius: 20,
+    });
+    this.ringPulse(worldX, worldY, 0x5dd6a2, 10, 2, 240);
+    this.scene.cameras.main.flash(80, 93, 214, 162, true);
+  }
+
+  rumorDebunked(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 160,
+      duration: 0.2,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffb3a8, 0xfff3a8],
+      count: 8,
+      radius: 14,
+    });
+    this.ringPulse(worldX, worldY, 0xff6b6b, 8, 1, 200);
+  }
+
+  rumorResolved(worldX: number, worldY: number) {
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 1040, duration: 0.26, type: 'sine', volume: 0.08 });
+    this.punchZoom(1.04, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xfff3a8, 0xc77dff, 0x9ad1ff],
+      count: 22,
+      radius: 30,
+    });
+    this.blastWave(worldX, worldY, [0x5dd6a2, 0xfff3a8], 24);
+    this.ringPulse(worldX, worldY, 0x5dd6a2, 14, 2, 300);
+    this.scene.cameras.main.flash(120, 93, 214, 162, true);
+  }
+
+  // ─── Artifact Juice ───────────────────────────────────────────────────
+
+  artifactDiscover(worldX: number, worldY: number, name: string) {
+    this.playTone({ frequency: 440, duration: 0.16, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.22, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.28, type: 'sine', volume: 0.08 });
+    this.scene.cameras.main.flash(140, 199, 125, 255, true);
+    this.kickCamera(0.024, 180);
+    this.punchZoom(1.05, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0xe8ddff, 0x9ad1ff, 0xfff3a8],
+      count: 24,
+      radius: 32,
+    });
+    this.blastWave(worldX, worldY, [0xc77dff, 0x9ad1ff], 26);
+    this.ringPulse(worldX, worldY, 0xc77dff, 16, 3, 320);
+    this.floatingLabel(worldX, worldY - 28, `ARTIFACT: ${name}`, '#c77dff', 16);
+  }
+
+  artifactEquip(worldX: number, worldY: number) {
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 780, duration: 0.18, type: 'sine', volume: 0.1 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0x9ad1ff, 0xfff3a8],
+      count: 14,
+      radius: 22,
+    });
+    this.ringPulse(worldX, worldY, 0xc77dff, 10, 2, 240);
+    this.scene.cameras.main.flash(80, 199, 125, 255, true);
+  }
+
+  artifactActivate(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 360,
+      frequencyEnd: 720,
+      duration: 0.3,
+      type: 'sine',
+      volume: 0.16,
+    });
+    this.playTone({
+      frequency: 720,
+      frequencyEnd: 1440,
+      duration: 0.24,
+      type: 'triangle',
+      volume: 0.12,
+    });
+    this.scene.cameras.main.flash(160, 199, 125, 255, true);
+    this.kickCamera(0.03, 200);
+    this.punchZoom(1.06, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0xe8ddff, 0x9ad1ff, 0x4dfbff],
+      count: 30,
+      radius: 38,
+    });
+    this.blastWave(worldX, worldY, [0xc77dff, 0x4dfbff], 30);
+    this.ringPulse(worldX, worldY, 0xc77dff, 18, 3, 340);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0x4dfbff, 22, 2, 300), 80);
+  }
+
+  artifactPowerUp(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.09 });
+    this.playTone({ frequency: 880, duration: 0.2, type: 'sine', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0xe8ddff, 0xfff3a8],
+      count: 18,
+      radius: 26,
+    });
+    this.ringPulse(worldX, worldY, 0xc77dff, 12, 2, 280);
+    this.scene.cameras.main.flash(80, 199, 125, 255, true);
+  }
+
+  artifactDecay(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 280,
+      frequencyEnd: 80,
+      duration: 0.36,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.kickCamera(0.018, 180);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x7b5f8f, 0xb8865e, 0x5d3d7d],
+      count: 12,
+      radius: 20,
+    });
+    this.scene.cameras.main.flash(80, 123, 95, 143, true);
+  }
+
+  // ─── Shop Juice ───────────────────────────────────────────────────────
+
+  shopPurchase(worldX: number, worldY: number, price: number) {
+    const isBig = price > 50;
+    this.playTone({
+      frequency: isBig ? 520 : 440,
+      frequencyEnd: isBig ? 780 : 660,
+      duration: isBig ? 0.2 : 0.16,
+      type: 'triangle',
+      volume: isBig ? 0.12 : 0.1,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: isBig ? [0xffd166, 0xfff3a8, 0xffc25f] : [0x5dd6a2, 0xc8ffe1],
+      count: isBig ? 16 : 10,
+      radius: isBig ? 24 : 18,
+    });
+    this.ringPulse(worldX, worldY, isBig ? 0xffd166 : 0x5dd6a2, 10, 2, isBig ? 240 : 200);
+    this.scene.cameras.main.flash(60, 255, 209, 164, true);
+  }
+
+  shopSell(worldX: number, worldY: number, price: number) {
+    this.playTone({
+      frequency: 380,
+      frequencyEnd: 520,
+      duration: 0.14,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff, 0xfff3a8],
+      count: 8,
+      radius: 14,
+    });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 8, 2, 200);
+  }
+
+  shopWardPurchase(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.14, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.scene.cameras.main.flash(100, 255, 200, 255, true);
+    this.kickCamera(0.02, 140);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff, 0xc77dff],
+      count: 18,
+      radius: 26,
+    });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 14, 2, 280);
+  }
+
+  shopRefresh(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.1, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 560, duration: 0.14, type: 'sine', volume: 0.07 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff, 0xfff3a8],
+      count: 12,
+      radius: 18,
+    });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 10, 2, 220);
+  }
+
+  // ─── Achievement Juice ────────────────────────────────────────────────
+
+  achievementUnlock(achievementId: string, achievementName: string) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 1040, duration: 0.28, type: 'sine', volume: 0.1 });
+    this.scene.cameras.main.flash(180, 255, 200, 120, true);
+    this.kickCamera(0.035, 240);
+    this.punchZoom(1.06, 240);
+    this.blastWave(cam.midPoint.x, cam.midPoint.y, [0xffd166, 0xfff3a8, 0x5dd6a2], 36);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2, 0x9ad1ff],
+      count: 40,
+      radius: 44,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffd166, 20, 3, 340);
+    this.floatingLabel(cam.midPoint.x, 60, `ACHIEVEMENT: ${achievementName}`, '#ffd166', 18);
+  }
+
+  achievementProgress(achievementId: string, progress: number, total: number) {
+    this.playTone({ frequency: 440, duration: 0.08, type: 'triangle', volume: 0.06 });
+  }
+
+  // ─── Stats Juice ──────────────────────────────────────────────────────
+
+  statIncrease(statId: string, newValue: number) {
+    this.playTone({
+      frequency: 440 + newValue * 20,
+      frequencyEnd: 660 + newValue * 20,
+      duration: 0.18,
+      type: 'triangle',
+      volume: 0.1,
+    });
+    this.spawnBurst(
+      this.scene.cameras.main.midPoint.x,
+      this.scene.cameras.main.midPoint.y,
+      {
+        colors: [0x5dd6a2, 0xfff3a8, 0x9ad1ff],
+        count: 12,
+        radius: 20,
+      },
+    );
+    this.ringPulse(
+      this.scene.cameras.main.midPoint.x,
+      this.scene.cameras.main.midPoint.y,
+      0x5dd6a2,
+      12,
+      2,
+      240,
+    );
+  }
+
+  statMilestone(statId: string, milestone: number) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 520, duration: 0.16, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 780, duration: 0.22, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 1040, duration: 0.28, type: 'sine', volume: 0.1 });
+    this.scene.cameras.main.flash(140, 93, 214, 162, true);
+    this.kickCamera(0.028, 200);
+    this.punchZoom(1.05, 200);
+    this.blastWave(cam.midPoint.x, cam.midPoint.y, [0x5dd6a2, 0xfff3a8], 30);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0x5dd6a2, 0xfff3a8, 0x9ad1ff],
+      count: 28,
+      radius: 36,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0x5dd6a2, 18, 3, 320);
+    this.floatingLabel(cam.midPoint.x, 60, `${statId} MILESTONE: ${milestone}`, '#5dd6a2', 16);
+  }
+
+  // ─── Starforged Juice ─────────────────────────────────────────────────
+
+  starforgedSceneStart() {
+    this.playTone({ frequency: 220, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 330, duration: 0.28, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 440, duration: 0.34, type: 'sine', volume: 0.07 });
+    this.scene.cameras.main.flash(80, 155, 110, 255, true);
+  }
+
+  starforgedDiscovery(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.14, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.2, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.26, type: 'sine', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x4da3ff, 0x9ad1ff, 0x7ad1ff, 0xc77dff],
+      count: 20,
+      radius: 28,
+    });
+    this.ringPulse(worldX, worldY, 0x4da3ff, 14, 2, 300);
+    this.scene.cameras.main.flash(100, 77, 163, 255, true);
+    this.kickCamera(0.02, 160);
+  }
+
+  starforgedConflictResolved() {
+    this.playTone({ frequency: 440, duration: 0.18, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.24, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.3, type: 'sine', volume: 0.08 });
+    this.punchZoom(1.04, 220);
+    this.scene.cameras.main.flash(120, 77, 163, 255, true);
+  }
+
+  starforgedSceneEnd() {
+    this.playTone({ frequency: 330, duration: 0.2, type: 'sine', volume: 0.08 });
+    this.playTone({ frequency: 220, duration: 0.3, type: 'sine', volume: 0.06 });
+  }
+
+  // ─── Archipelago Juice ────────────────────────────────────────────────
+
+  apCheckFound(worldX: number, worldY: number) {
+    this.playTone({ frequency: 520, duration: 0.12, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 780, duration: 0.16, type: 'sine', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2],
+      count: 14,
+      radius: 22,
+    });
+    this.ringPulse(worldX, worldY, 0xffd166, 10, 2, 240);
+    this.scene.cameras.main.flash(80, 255, 209, 164, true);
+  }
+
+  apItemReceived(itemId: string) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.punchZoom(1.04, 180);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2],
+      count: 18,
+      radius: 26,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffd166, 14, 2, 280);
+    this.scene.cameras.main.flash(100, 255, 209, 164, true);
+  }
+
+  apLocationSent(locationId: string) {
+    this.playTone({ frequency: 440, duration: 0.1, type: 'triangle', volume: 0.06 });
+  }
+
+  multiplayerJoin(playerId: string) {
+    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.07 });
+    this.spawnBurst(
+      this.scene.cameras.main.midPoint.x,
+      this.scene.cameras.main.midPoint.y,
+      {
+        colors: [0x5dd6a2, 0x9ad1ff, 0xfff3a8],
+        count: 10,
+        radius: 18,
+      },
+    );
+  }
+
+  multiplayerLeave(playerId: string) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 200,
+      duration: 0.18,
+      type: 'sawtooth',
+      volume: 0.06,
+    });
+  }
+
+  multiplayerDeath(playerId: string) {
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 80,
+      duration: 0.28,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
+    this.kickCamera(0.016, 140);
+    this.scene.cameras.main.flash(80, 255, 80, 80, true);
+  }
+
+  // ─── Cave Juice ───────────────────────────────────────────────────────
+
+  caveEnter(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 140,
+      frequencyEnd: 80,
+      duration: 0.3,
+      type: 'sine',
+      volume: 0.1,
+    });
+    this.playTone({
+      frequency: 280,
+      frequencyEnd: 160,
+      duration: 0.24,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.kickCamera(0.018, 160);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x7b5f8f, 0xb8865e, 0x5d3d7d],
+      count: 14,
+      radius: 22,
+    });
+    this.ringPulse(worldX, worldY, 0x7b5f8f, 12, 2, 280);
+    this.scene.cameras.main.flash(80, 123, 95, 143, true);
+  }
+
+  caveDiscover(worldX: number, worldY: number) {
+    this.playTone({ frequency: 360, duration: 0.16, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 540, duration: 0.22, type: 'sine', volume: 0.08 });
+    this.kickCamera(0.02, 140);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff, 0x7b5f8f],
+      count: 16,
+      radius: 24,
+    });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 12, 2, 260);
+    this.scene.cameras.main.flash(80, 123, 95, 143, true);
+  }
+
+  caveReward(worldX: number, worldY: number) {
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 1040, duration: 0.26, type: 'sine', volume: 0.1 });
+    this.scene.cameras.main.flash(140, 255, 200, 120, true);
+    this.kickCamera(0.03, 200);
+    this.punchZoom(1.05, 200);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2, 0xc77dff],
+      count: 28,
+      radius: 36,
+    });
+    this.blastWave(worldX, worldY, [0xffd166, 0xfff3a8], 28);
+    this.ringPulse(worldX, worldY, 0xffd166, 16, 3, 320);
+  }
+
+  // ─── Quest Juice ──────────────────────────────────────────────────────
+
+  questFailed(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 100,
+      duration: 0.3,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.kickCamera(0.02, 160);
+    this.scene.cameras.main.flash(100, 255, 80, 80, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xff8c42, 0xffd166],
+      count: 14,
+      radius: 22,
+    });
+    this.ringPulse(worldX, worldY, 0xff6b6b, 12, 2, 260);
+  }
+
+  questUpdated(questId: string, progress: number) {
+    this.playTone({ frequency: 440, duration: 0.08, type: 'triangle', volume: 0.06 });
+  }
+
+  questAbandoned(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 280,
+      frequencyEnd: 160,
+      duration: 0.2,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffb3a8, 0xfff3a8],
+      count: 8,
+      radius: 14,
+    });
+  }
+
+  questChainStarted(worldId: string) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 440, duration: 0.14, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.26, type: 'sine', volume: 0.08 });
+    this.scene.cameras.main.flash(100, 199, 125, 255, true);
+    this.kickCamera(0.02, 160);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0x5dd6a2, 0xfff3a8, 0xc77dff],
+      count: 20,
+      radius: 28,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0x5dd6a2, 14, 2, 280);
+  }
+
+  questChainCompleted(worldId: string) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.16 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.14 });
+    this.playTone({ frequency: 1040, duration: 0.28, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 1320, duration: 0.34, type: 'sine', volume: 0.1 });
+    this.scene.cameras.main.flash(200, 255, 200, 120, true);
+    this.kickCamera(0.04, 280);
+    this.punchZoom(1.07, 280);
+    this.scene.cameras.main.shake(100, 0.02);
+    this.blastWave(cam.midPoint.x, cam.midPoint.y, [0xffd166, 0xfff3a8, 0x5dd6a2, 0xc77dff], 40);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2, 0xc77dff, 0x9ad1ff],
+      count: 48,
+      radius: 50,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffd166, 22, 4, 360);
+    this.floatingLabel(cam.midPoint.x, 56, 'QUEST CHAIN COMPLETE', '#ffd166', 20);
+  }
+
+  // ─── Relationship Juice ───────────────────────────────────────────────
+
+  relationshipLevelUp(candidateId: string, newTier: number) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.12 });
+    this.punchZoom(1.04, 200);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0xffbdfd, 0xfff3a8, 0xffb3a8],
+      count: 20,
+      radius: 28,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffbdfd, 14, 2, 280);
+    this.scene.cameras.main.flash(120, 255, 189, 253, true);
+  }
+
+  datingSceneStart(candidateId: string) {
+    this.playTone({ frequency: 440, duration: 0.18, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 660, duration: 0.24, type: 'triangle', volume: 0.08 });
+    this.scene.cameras.main.flash(80, 255, 189, 253, true);
+  }
+
+  datingSceneEnd(candidateId: string, outcome: 'good' | 'bad' | 'neutral') {
+    const cam = this.scene.cameras.main;
+    if (outcome === 'good') {
+      this.playTone({ frequency: 520, duration: 0.16, type: 'triangle', volume: 0.12 });
+      this.playTone({ frequency: 780, duration: 0.22, type: 'sine', volume: 0.1 });
+      this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+        colors: [0xffbdfd, 0xfff3a8],
+        count: 16,
+        radius: 24,
+      });
+      this.scene.cameras.main.flash(100, 255, 189, 253, true);
+    } else if (outcome === 'bad') {
+      this.playTone({
+        frequency: 200,
+        frequencyEnd: 100,
+        duration: 0.28,
+        type: 'sawtooth',
+        volume: 0.1,
+      });
+      this.kickCamera(0.016, 140);
+    }
+  }
+
+  giftAccepted(candidateId: string) {
+    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
+    this.scene.cameras.main.flash(100, 255, 189, 253, true);
+  }
+
+  giftRejected(candidateId: string) {
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 160,
+      duration: 0.18,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+  }
+
+  firstDate(candidateId: string) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 440, duration: 0.16, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 660, duration: 0.22, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 880, duration: 0.28, type: 'sine', volume: 0.08 });
+    this.punchZoom(1.04, 220);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0xffbdfd, 0xfff3a8, 0xffb3a8, 0x9ad1ff],
+      count: 24,
+      radius: 32,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffbdfd, 16, 2, 300);
+    this.scene.cameras.main.flash(120, 255, 189, 253, true);
+  }
+
+  breakup(candidateId: string) {
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 60,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.14,
+    });
+    this.kickCamera(0.024, 200);
+    this.scene.cameras.main.flash(100, 255, 80, 80, true);
+  }
+
+  makeup(candidateId: string) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 440, duration: 0.18, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 660, duration: 0.24, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 880, duration: 0.3, type: 'sine', volume: 0.1 });
+    this.punchZoom(1.04, 240);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0xffbdfd, 0xfff3a8, 0x5dd6a2],
+      count: 22,
+      radius: 30,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffbdfd, 14, 2, 300);
+    this.scene.cameras.main.flash(120, 255, 189, 253, true);
+  }
+
+  // ─── Combat Juice ─────────────────────────────────────────────────────
+
+  enemyDefeated(worldX: number, worldY: number, type: string) {
+    const isBoss = type.includes('boss') || type.includes('elite');
+    const colors = isBoss
+      ? [0xff2d2d, 0xff8c42, 0xffd166, 0xfff3a8]
+      : [0xff6b6b, 0xffa36c, 0xfff3a8];
+    this.playTone({
+      frequency: isBoss ? 160 : 200,
+      frequencyEnd: isBoss ? 40 : 80,
+      duration: isBoss ? 0.36 : 0.24,
+      type: 'sawtooth',
+      volume: isBoss ? 0.18 : 0.12,
+    });
+    this.kickCamera(isBoss ? 0.03 : 0.018, isBoss ? 200 : 120);
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: isBoss ? 28 : 16,
+      radius: isBoss ? 36 : 24,
+    });
+    this.ringPulse(worldX, worldY, colors[0]!, isBoss ? 18 : 12, isBoss ? 3 : 2, isBoss ? 300 : 220);
+    if (isBoss) {
+      this.scene.cameras.main.flash(140, 255, 45, 45, true);
+      this.scene.cameras.main.shake(80, 0.02);
+    }
+  }
+
+  enemySpawn(worldX: number, worldY: number, type: string) {
+    const isDangerous = type.includes('elite') || type.includes('boss');
+    this.playTone({
+      frequency: isDangerous ? 120 : 180,
+      frequencyEnd: isDangerous ? 80 : 120,
+      duration: isDangerous ? 0.28 : 0.2,
+      type: 'sawtooth',
+      volume: isDangerous ? 0.12 : 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: isDangerous ? [0xff2d2d, 0xff8c42] : [0xff6b6b, 0xffa36c],
+      count: isDangerous ? 12 : 8,
+      radius: isDangerous ? 20 : 14,
+    });
+    this.ringPulse(worldX, worldY, isDangerous ? 0xff2d2d : 0xff6b6b, 8, 2, isDangerous ? 240 : 200);
+    if (isDangerous) {
+      this.scene.cameras.main.flash(60, 255, 45, 45, true);
+    }
+  }
+
+  damageTaken(worldX: number, worldY: number, amount: number) {
+    const isBig = amount > 15;
+    this.playTone({
+      frequency: isBig ? 140 : 180,
+      frequencyEnd: isBig ? 60 : 90,
+      duration: isBig ? 0.24 : 0.18,
+      type: 'sawtooth',
+      volume: isBig ? 0.14 : 0.1,
+    });
+    this.scene.cameras.main.flash(isBig ? 140 : 80, 255, 50, 50, true);
+    this.kickCamera(isBig ? 0.028 : 0.016, isBig ? 160 : 100);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xff9e7a],
+      count: isBig ? 18 : 10,
+      radius: isBig ? 22 : 16,
+    });
+  }
+
+  damageBlocked(worldX: number, worldY: number) {
+    this.playTone({ frequency: 660, duration: 0.08, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 880, duration: 0.12, type: 'sine', volume: 0.06 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0xcfe5ff, 0xffffff],
+      count: 10,
+      radius: 16,
+    });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 10, 2, 200);
+    this.scene.cameras.main.flash(60, 154, 209, 255, true);
+  }
+
+  criticalHit(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 880,
+      duration: 0.18,
+      type: 'square',
+      volume: 0.16,
+    });
+    this.playTone({ frequency: 1046, duration: 0.2, type: 'sine', volume: 0.12 });
+    this.kickCamera(0.03, 160);
+    this.scene.cameras.main.flash(120, 255, 255, 255, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffffff, 0xfff3a8, 0xffd166],
+      count: 20,
+      radius: 28,
+    });
+    this.ringPulse(worldX, worldY, 0xffffff, 14, 3, 260);
+  }
+
+  healReceived(worldX: number, worldY: number, amount: number) {
+    const isBig = amount > 15;
+    this.playTone({
+      frequency: isBig ? 520 : 440,
+      frequencyEnd: isBig ? 880 : 660,
+      duration: isBig ? 0.24 : 0.18,
+      type: 'sine',
+      volume: isBig ? 0.14 : 0.1,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xc8ffe1, 0xfff3a8],
+      count: isBig ? 20 : 12,
+      radius: isBig ? 28 : 20,
+    });
+    this.ringPulse(worldX, worldY, 0x5dd6a2, isBig ? 14 : 10, 2, isBig ? 280 : 220);
+    this.scene.cameras.main.flash(isBig ? 100 : 60, 93, 214, 162, true);
+  }
+
+  statusEffectApplied(worldX: number, worldY: number, effectId: string) {
+    const isBuff = effectId.includes('buff') || effectId.includes('boost') || effectId.includes('power');
+    const color = isBuff ? 0x5dd6a2 : 0xff6b6b;
+    this.playTone({
+      frequency: isBuff ? 520 : 240,
+      frequencyEnd: isBuff ? 780 : 120,
+      duration: 0.16,
+      type: isBuff ? 'triangle' : 'sawtooth',
+      volume: 0.1,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [color, isBuff ? 0xc8ffe1 : 0xffa36c],
+      count: 8,
+      radius: 14,
+    });
+    this.ringPulse(worldX, worldY, color, 8, 2, 200);
+  }
+
+  statusEffectRemoved(worldX: number, worldY: number, effectId: string) {
+    const isDebuffRemoved = !effectId.includes('buff') && !effectId.includes('boost');
+    if (isDebuffRemoved) {
+      this.playTone({
+        frequency: 320,
+        frequencyEnd: 160,
+        duration: 0.14,
+        type: 'sawtooth',
+        volume: 0.06,
+      });
+    } else {
+      this.playTone({ frequency: 440, duration: 0.1, type: 'triangle', volume: 0.06 });
+    }
+  }
+
+  healthLow(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 120,
+      frequencyEnd: 80,
+      duration: 0.2,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+    this.scene.cameras.main.flash(40, 255, 50, 50, true);
+    this.kickCamera(0.008, 60);
+  }
+
+  healthFull(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.06 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xc8ffe1],
+      count: 8,
+      radius: 14,
+    });
+  }
+
+  // ─── World / Transition Juice ─────────────────────────────────────────
+
+  portalActivate(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 280,
+      frequencyEnd: 560,
+      duration: 0.3,
+      type: 'sine',
+      volume: 0.14,
+    });
+    this.playTone({
+      frequency: 560,
+      frequencyEnd: 1120,
+      duration: 0.24,
+      type: 'triangle',
+      volume: 0.1,
+    });
+    this.kickCamera(0.028, 200);
+    this.punchZoom(1.06, 200);
+    this.scene.cameras.main.flash(140, 199, 125, 255, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0x9ad1ff, 0x4dfbff, 0xfff3a8],
+      count: 32,
+      radius: 40,
+    });
+    this.blastWave(worldX, worldY, [0xc77dff, 0x4dfbff], 32);
+    this.ringPulse(worldX, worldY, 0xc77dff, 18, 3, 340);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0x4dfbff, 22, 2, 300), 100);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xfff3a8, 26, 2, 280), 200);
+  }
+
+  gateOpen(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 160,
+      frequencyEnd: 320,
+      duration: 0.28,
+      type: 'sine',
+      volume: 0.12,
+    });
+    this.playTone({ frequency: 320, duration: 0.2, type: 'triangle', volume: 0.08 });
+    this.kickCamera(0.02, 160);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0xffc25f],
+      count: 18,
+      radius: 26,
+    });
+    this.ringPulse(worldX, worldY, 0xffd166, 12, 2, 280);
+    this.scene.cameras.main.flash(80, 255, 209, 164, true);
+  }
+
+  gateClose(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 160,
+      duration: 0.24,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
+    this.kickCamera(0.016, 120);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x7b5f8f, 0xb8865e],
+      count: 10,
+      radius: 16,
+    });
+  }
+
+  trapTriggered(worldX: number, worldY: number, trapType: string) {
+    const isDangerous = trapType.includes('fire') || trapType.includes('spike') || trapType.includes('poison');
+    this.playTone({
+      frequency: isDangerous ? 200 : 280,
+      frequencyEnd: isDangerous ? 80 : 140,
+      duration: isDangerous ? 0.24 : 0.16,
+      type: isDangerous ? 'sawtooth' : 'square',
+      volume: isDangerous ? 0.14 : 0.08,
+    });
+    this.kickCamera(isDangerous ? 0.024 : 0.014, isDangerous ? 140 : 80);
+    this.spawnBurst(worldX, worldY, {
+      colors: isDangerous
+        ? [0xff2d2d, 0xff8c42, 0xffd166]
+        : [0xffd166, 0xfff3a8, 0xffc25f],
+      count: isDangerous ? 16 : 10,
+      radius: isDangerous ? 22 : 16,
+    });
+    this.ringPulse(worldX, worldY, isDangerous ? 0xff2d2d : 0xffd166, 10, 2, isDangerous ? 220 : 180);
+    if (isDangerous) {
+      this.scene.cameras.main.flash(80, 255, 45, 45, true);
+    }
+  }
+
+  puzzleSolved(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.09 });
+    this.playTone({ frequency: 880, duration: 0.22, type: 'sine', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xfff3a8, 0x9ad1ff],
+      count: 16,
+      radius: 24,
+    });
+    this.ringPulse(worldX, worldY, 0x5dd6a2, 12, 2, 260);
+    this.scene.cameras.main.flash(80, 93, 214, 162, true);
+  }
+
+  teleport(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 200,
+      frequencyEnd: 800,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.14,
+    });
+    this.playTone({
+      frequency: 800,
+      frequencyEnd: 400,
+      duration: 0.16,
+      type: 'triangle',
+      volume: 0.1,
+    });
+    this.scene.cameras.main.flash(100, 199, 125, 255, true);
+    this.kickCamera(0.02, 120);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xc77dff, 0x9ad1ff, 0x4dfbff, 0xfff3a8],
+      count: 24,
+      radius: 32,
+    });
+    this.ringPulse(worldX, worldY, 0xc77dff, 14, 3, 280);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0x9ad1ff, 18, 2, 240), 60);
+  }
+
+  respawn(worldX: number, worldY: number) {
+    this.playTone({ frequency: 360, duration: 0.16, type: 'triangle', volume: 0.12 });
+    this.playTone({ frequency: 540, duration: 0.22, type: 'sine', volume: 0.1 });
+    this.playTone({ frequency: 720, duration: 0.28, type: 'sine', volume: 0.08 });
+    this.punchZoom(1.04, 220);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xc8ffe1, 0xfff3a8, 0x9ad1ff],
+      count: 24,
+      radius: 32,
+    });
+    this.ringPulse(worldX, worldY, 0x5dd6a2, 16, 3, 320);
+    this.scene.cameras.main.flash(120, 93, 214, 162, true);
+  }
+
+  // ─── UI Juice ─────────────────────────────────────────────────────────
+
+  uiButton(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.05, type: 'triangle', volume: 0.05 });
+  }
+
+  uiMenuOpened() {
+    this.playTone({ frequency: 360, duration: 0.1, type: 'triangle', volume: 0.06 });
+    this.playTone({ frequency: 520, duration: 0.14, type: 'sine', volume: 0.05 });
+  }
+
+  uiMenuClosed() {
+    this.playTone({ frequency: 280, duration: 0.08, type: 'sine', volume: 0.05 });
+  }
+
+  uiDialogConfirm() {
+    this.playTone({ frequency: 520, duration: 0.1, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 780, duration: 0.14, type: 'sine', volume: 0.07 });
+    this.scene.cameras.main.flash(40, 93, 214, 162, true);
+  }
+
+  uiDialogCancel() {
+    this.playTone({ frequency: 320, duration: 0.08, type: 'sine', volume: 0.05 });
+  }
+
+  uiNotification(message: string, type: 'success' | 'error' | 'warning' | 'info') {
+    const colors =
+      type === 'success'
+        ? [0x5dd6a2, 0xc8ffe1]
+        : type === 'error'
+          ? [0xff6b6b, 0xffa36c]
+          : type === 'warning'
+            ? [0xffd166, 0xfff3a8]
+            : [0x9ad1ff, 0xcfe5ff];
+    this.playTone({
+      frequency: type === 'error' ? 240 : type === 'warning' ? 320 : 440,
+      frequencyEnd: type === 'error' ? 120 : type === 'warning' ? 200 : 660,
+      duration: 0.14,
+      type: type === 'error' ? 'sawtooth' : type === 'warning' ? 'square' : 'triangle',
+      volume: 0.08,
+    });
+    this.spawnBurst(
+      this.scene.cameras.main.midPoint.x,
+      this.scene.cameras.main.midPoint.y,
+      { colors, count: 8, radius: 14 },
+    );
+  }
+
+  // ─── General Item Juice ───────────────────────────────────────────────
+
+  itemConsume(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 440,
+      frequencyEnd: 660,
+      duration: 0.14,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x5dd6a2, 0xc8ffe1, 0xfff3a8],
+      count: 10,
+      radius: 16,
+    });
+    this.ringPulse(worldX, worldY, 0x5dd6a2, 8, 2, 200);
+  }
+
+  itemDrop(worldX: number, worldY: number) {
+    this.playTone({ frequency: 280, duration: 0.08, type: 'sine', volume: 0.05 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xb0c4de, 0x9aa6b2],
+      count: 4,
+      radius: 8,
+    });
+  }
+
+  itemCraft(worldX: number, worldY: number, isRare: boolean) {
+    this.playTone({ frequency: 360, duration: 0.1, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 520, duration: 0.14, type: 'sine', volume: 0.07 });
+    this.spawnBurst(worldX, worldY, {
+      colors: isRare
+        ? [0xffd166, 0xfff3a8, 0xc77dff]
+        : [0x5dd6a2, 0x9ad1ff, 0xc8ffe1],
+      count: isRare ? 20 : 12,
+      radius: isRare ? 28 : 20,
+    });
+    this.ringPulse(worldX, worldY, isRare ? 0xffd166 : 0x5dd6a2, 10, 2, isRare ? 260 : 220);
+    if (isRare) {
+      this.scene.cameras.main.flash(80, 255, 209, 164, true);
+    }
+  }
+
+  itemUpgrade(worldX: number, worldY: number) {
+    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.1 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.08 });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2],
+      count: 14,
+      radius: 22,
+    });
+    this.ringPulse(worldX, worldY, 0xffd166, 10, 2, 240);
+    this.scene.cameras.main.flash(60, 255, 209, 164, true);
+  }
+
+  // ─── Save / Session Juice ─────────────────────────────────────────────
+
+  gameSaved() {
+    this.playTone({ frequency: 520, duration: 0.1, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 780, duration: 0.14, type: 'sine', volume: 0.07 });
+    this.scene.cameras.main.flash(40, 93, 214, 162, true);
+  }
+
+  gameLoaded() {
+    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
+    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.07 });
+    this.scene.cameras.main.flash(40, 154, 209, 255, true);
+  }
+
+  gameAutoSaved() {
+    this.playTone({ frequency: 440, duration: 0.06, type: 'triangle', volume: 0.04 });
+  }
+
+  // ─── Extra Camera Juice ───────────────────────────────────────────────
+
+  screenShake(intensity: number, duration: number) {
+    this.kickCamera(intensity, duration);
+  }
+
+  screenFlash(color: number, duration: number, alpha: number = 0.5) {
+    const c = Phaser.Math.RND.pick([color]);
+    this.scene.cameras.main.flash(duration, c, c, c, true);
+  }
+
+  cameraZoom(targetZoom: number, duration: number) {
+    this.punchZoom(targetZoom, duration);
+  }
+
+  // ─── Extra Particle Effects ───────────────────────────────────────────
+
+  private spawnCrossParticles(
+    worldX: number,
+    worldY: number,
+    { colors, count, radius }: { colors: number[]; count: number; radius: number },
+  ) {
+    for (let i = 0; i < count; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Phaser.Math.Between(radius * 0.3, radius);
+      const cx = worldX + Math.cos(angle) * dist;
+      const cy = worldY + Math.sin(angle) * dist;
+      const shape = this.scene.add.rectangle(
+        cx,
+        cy,
+        3,
+        3,
+        Phaser.Utils.Array.GetRandom(colors),
+      );
+      shape.setDepth(22).setRotation(Math.random() * Math.PI);
+      this.particleLayer.add(shape);
+      this.scene.tweens.add({
+        targets: shape,
+        alpha: 0,
+        scale: 0,
+        angle: shape.rotation + Math.PI * 2,
+        duration: Phaser.Math.Between(200, 300),
+        ease: 'Cubic.easeOut',
+        onComplete: () => shape.destroy(),
+      });
+    }
+  }
+
+  spawnStarBurst(worldX: number, worldY: number, color: number, count: number = 12) {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count;
+      const dist = Phaser.Math.Between(10, 30);
+      const star = this.scene.add.circle(
+        worldX + Math.cos(angle) * dist * 0.5,
+        worldY + Math.sin(angle) * dist * 0.5,
+        Phaser.Math.Between(2, 4),
+        color,
+      );
+      star.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+      this.particleLayer.add(star);
+      this.scene.tweens.add({
+        targets: star,
+        x: worldX + Math.cos(angle) * dist,
+        y: worldY + Math.sin(angle) * dist,
+        alpha: 0,
+        scale: 0.3,
+        duration: Phaser.Math.Between(240, 360),
+        ease: 'Cubic.easeOut',
+        onComplete: () => star.destroy(),
+      });
+    }
+  }
+
+  spawnConfetti(worldX: number, worldY: number, colors: number[], count: number = 20) {
+    for (let i = 0; i < count; i++) {
+      const confetti = this.scene.add.rectangle(
+        worldX + Phaser.Math.Between(-10, 10),
+        worldY + Phaser.Math.Between(-10, 10),
+        Phaser.Math.Between(3, 5),
+        Phaser.Math.Between(2, 4),
+        Phaser.Utils.Array.GetRandom(colors),
+      );
+      confetti.setDepth(22).setRotation(Math.random() * Math.PI);
+      confetti.setBlendMode(Phaser.BlendModes.ADD);
+      this.particleLayer.add(confetti);
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Phaser.Math.Between(20, 50);
+      this.scene.tweens.add({
+        targets: confetti,
+        x: confetti.x + Math.cos(angle) * dist,
+        y: confetti.y + Math.sin(angle) * dist + Phaser.Math.Between(10, 30),
+        alpha: 0,
+        rotation: confetti.rotation + Phaser.Math.Between(-Math.PI, Math.PI),
+        duration: Phaser.Math.Between(400, 700),
+        ease: 'Cubic.easeOut',
+        onComplete: () => confetti.destroy(),
+      });
+    }
+  }
+
+  // ─── Extra Audio Effects ──────────────────────────────────────────────
+
+  playChord(frequencies: number[], duration: number, volume: number = 0.08) {
+    for (const freq of frequencies) {
+      this.playTone({ frequency: freq, duration, type: 'sine', volume: volume / frequencies.length });
+    }
+  }
+
+  playArpeggio(frequencies: number[], speed: number = 60) {
+    for (let i = 0; i < frequencies.length; i++) {
+      globalThis.setTimeout(
+        () => this.playTone({ frequency: frequencies[i]!, duration: 0.12, type: 'triangle', volume: 0.08 }),
+        i * speed,
+      );
+    }
+  }
+
+  playRise(duration: number = 0.3, startFreq: number = 200, endFreq: number = 800) {
+    this.playTone({
+      frequency: startFreq,
+      frequencyEnd: endFreq,
+      duration,
+      type: 'sine',
+      volume: 0.1,
+    });
+  }
+
+  playFall(duration: number = 0.3, startFreq: number = 800, endFreq: number = 200) {
+    this.playTone({
+      frequency: startFreq,
+      frequencyEnd: endFreq,
+      duration,
+      type: 'sine',
+      volume: 0.1,
+    });
+  }
+
+  playWhoosh(direction: 'up' | 'down' = 'up') {
+    const start = direction === 'up' ? 200 : 800;
+    const end = direction === 'up' ? 800 : 200;
+    this.playTone({
+      frequency: start,
+      frequencyEnd: end,
+      duration: 0.15,
+      type: 'sine',
+      volume: 0.08,
+    });
+  }
+
+  playClick() {
+    this.playTone({ frequency: 600, duration: 0.03, type: 'square', volume: 0.04 });
+  }
+
+  playDoubleClick() {
+    this.playClick();
+    globalThis.setTimeout(() => this.playClick(), 120);
+  }
+
+  playSlide() {
+    this.playTone({
+      frequency: 300,
+      frequencyEnd: 500,
+      duration: 0.1,
+      type: 'sine',
+      volume: 0.06,
+    });
+  }
+
+  // ─── Extra Visual Overlays ────────────────────────────────────────────
+
+  screenTint(color: number, alpha: number = 0.15, duration: number = 300) {
+    const rect = this.scene.add.rectangle(
+      this.scene.scale.width / 2,
+      this.scene.scale.height / 2,
+      this.scene.scale.width,
+      this.scene.scale.height,
+      color,
+      alpha,
+    );
+    rect.setDepth(35).setOrigin(0.5);
+    this.overlayLayer.add(rect);
+    this.scene.tweens.add({
+      targets: rect,
+      alpha: 0,
+      duration,
+      ease: 'Cubic.easeOut',
+      onComplete: () => rect.destroy(),
+    });
+  }
+
+  screenScanlines(duration: number = 400) {
+    const rect = this.scene.add.rectangle(
+      this.scene.scale.width / 2,
+      this.scene.scale.height / 2,
+      this.scene.scale.width,
+      this.scene.scale.height,
+      0x000000,
+      0.08,
+    );
+    rect.setDepth(36).setOrigin(0.5);
+    this.overlayLayer.add(rect);
+    this.scene.tweens.add({
+      targets: rect,
+      alpha: 0,
+      duration,
+      ease: 'Cubic.easeOut',
+      onComplete: () => rect.destroy(),
+    });
+  }
+
+  vignettePulse(alpha: number = 0.3, duration: number = 500) {
+    const rect = this.scene.add.rectangle(
+      this.scene.scale.width / 2,
+      this.scene.scale.height / 2,
+      this.scene.scale.width,
+      this.scene.scale.height,
+      0x000000,
+      alpha,
+    );
+    rect.setDepth(34).setOrigin(0.5).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    this.overlayLayer.add(rect);
+    this.scene.tweens.add({
+      targets: rect,
+      alpha: 0,
+      duration,
+      ease: 'Cubic.easeOut',
+      onComplete: () => rect.destroy(),
+    });
+  }
+
+  // ─── Extra Juice Compositions ─────────────────────────────────────────
+
+  bigExplosion(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 80,
+      frequencyEnd: 20,
+      duration: 0.6,
+      type: 'sawtooth',
+      volume: 0.24,
+    });
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 60,
+      duration: 0.4,
+      type: 'square',
+      volume: 0.16,
+    });
+    this.kickCamera(0.06, 400);
+    this.scene.cameras.main.shake(200, 0.03);
+    this.scene.cameras.main.flash(260, 255, 255, 255, true);
+    this.blastWave(worldX, worldY, [0xff2d2d, 0xff8c42, 0xffd166, 0xfff3a8], 48);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff2d2d, 0xff8c42, 0xffd166, 0xfff3a8, 0xc77dff],
+      count: 50,
+      radius: 60,
+    });
+    this.ringPulse(worldX, worldY, 0xffd166, 20, 4, 440);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xff8c42, 24, 3, 380), 100);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xfff3a8, 28, 2, 340), 200);
+    globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 20, 2, 300), 300);
+  }
+
+  victoryFanfare(worldX: number, worldY: number) {
+    const cam = this.scene.cameras.main;
+    this.playTone({ frequency: 523.25, duration: 0.18, type: 'triangle', volume: 0.18 });
+    globalThis.setTimeout(() => this.playTone({ frequency: 659.25, duration: 0.18, type: 'triangle', volume: 0.16 }), 150);
+    globalThis.setTimeout(() => this.playTone({ frequency: 783.99, duration: 0.22, type: 'triangle', volume: 0.15 }), 300);
+    globalThis.setTimeout(() => this.playTone({ frequency: 1046.5, duration: 0.34, type: 'sine', volume: 0.14 }), 450);
+    this.scene.cameras.main.flash(200, 255, 200, 120, true);
+    this.kickCamera(0.04, 300);
+    this.punchZoom(1.07, 300);
+    this.scene.cameras.main.shake(100, 0.02);
+    this.blastWave(cam.midPoint.x, cam.midPoint.y, [0xffd166, 0xfff3a8, 0x5dd6a2, 0x9ad1ff], 44);
+    this.spawnBurst(cam.midPoint.x, cam.midPoint.y, {
+      colors: [0xffd166, 0xfff3a8, 0x5dd6a2, 0x9ad1ff, 0xc77dff],
+      count: 56,
+      radius: 56,
+    });
+    this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0xffd166, 24, 4, 380);
+    this.floatingLabel(cam.midPoint.x, 52, 'VICTORY', '#ffd166', 22);
+    this.spawnConfetti(cam.midPoint.x, cam.midPoint.y, [0xffd166, 0xfff3a8, 0x5dd6a2, 0x9ad1ff, 0xc77dff, 0xffbdfd], 36);
+  }
+
+  defeatFanfare(worldX: number, worldY: number) {
+    this.playTone({
+      frequency: 320,
+      frequencyEnd: 120,
+      duration: 0.5,
+      type: 'sawtooth',
+      volume: 0.16,
+    });
+    this.playTone({
+      frequency: 240,
+      frequencyEnd: 80,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+    this.kickCamera(0.04, 300);
+    this.scene.cameras.main.shake(200, 0.025);
+    this.scene.cameras.main.flash(200, 255, 50, 50, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xff8c42, 0x7b5f8f],
+      count: 30,
+      radius: 40,
+    });
+    this.ringPulse(worldX, worldY, 0xff6b6b, 16, 3, 340);
+  }
+
+  levelUp(worldX: number, worldY: number, level: number) {
+    const isBig = level >= 10;
+    const colors = isBig
+      ? [0xffd166, 0xfff3a8, 0xc77dff, 0x5dd6a2, 0x9ad1ff]
+      : [0x5dd6a2, 0xfff3a8, 0x9ad1ff];
+    this.playTone({ frequency: 440, duration: 0.14, type: 'triangle', volume: 0.14 });
+    this.playTone({ frequency: 660, duration: 0.18, type: 'sine', volume: 0.12 });
+    this.playTone({ frequency: 880, duration: 0.24, type: 'sine', volume: 0.1 });
+    if (isBig) {
+      this.playTone({ frequency: 1100, duration: 0.3, type: 'sine', volume: 0.08 });
+    }
+    this.scene.cameras.main.flash(160, 255, 200, 120, true);
+    this.kickCamera(0.032, 220);
+    this.punchZoom(1.06, 220);
+    this.blastWave(worldX, worldY, colors, 32);
+    this.spawnBurst(worldX, worldY, {
+      colors,
+      count: isBig ? 40 : 24,
+      radius: isBig ? 44 : 32,
+    });
+    this.ringPulse(worldX, worldY, 0xffd166, 16, 3, 320);
+    this.floatingLabel(worldX, worldY - 28, `LEVEL ${level}`, '#ffd166', isBig ? 22 : 18);
+    if (isBig) {
+      this.spawnConfetti(worldX, worldY, colors, 28);
+    }
+  }
+
+  comboBreak(worldX: number, worldY: number, streak: number) {
+    this.playTone({
+      frequency: 440,
+      frequencyEnd: 120,
+      duration: 0.28,
+      type: 'sawtooth',
+      volume: 0.14,
+    });
+    this.kickCamera(0.024, 160);
+    this.scene.cameras.main.flash(100, 255, 80, 80, true);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xff8c42, 0xffd166],
+      count: 18,
+      radius: 26,
+    });
+    this.ringPulse(worldX, worldY, 0xff6b6b, 14, 2, 240);
+    this.floatingLabel(worldX, worldY - 24, `COMBO x${streak}!`, '#ff6b6b', 18);
+  }
+
+  // ─── Time / Slow Effects ──────────────────────────────────────────────
+
+  slowMoFlash(duration: number = 200) {
+    this.scene.cameras.main.flash(duration, 255, 255, 255, true);
+    this.playTone({
+      frequency: 600,
+      frequencyEnd: 200,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.08,
+    });
+  }
+
+  // ─── Enhanced Movement Juice ──────────────────────────────────────────
+
+  movementTrail(worldX: number, worldY: number, color: number, count: number = 3) {
+    for (let i = 0; i < count; i++) {
+      const trail = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-4, 4),
+        worldY + Phaser.Math.Between(-4, 4),
+        Phaser.Math.Between(2, 4),
+        color,
+        0.6 - i * 0.15,
+      );
+      trail.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+      this.particleLayer.add(trail);
+      this.scene.tweens.add({
+        targets: trail,
+        alpha: 0,
+        scale: 0.4,
+        duration: 180 + i * 40,
+        ease: 'Cubic.easeOut',
+        onComplete: () => trail.destroy(),
+      });
+    }
+  }
+
+  movementDash(worldX: number, worldY: number, dx: number, dy: number) {
+    this.playTone({
+      frequency: 300,
+      frequencyEnd: 600,
+      duration: 0.08,
+      type: 'sine',
+      volume: 0.08,
+    });
+    this.movementTrail(worldX, worldY, 0x4da3ff, 5);
+    this.scene.cameras.main.flash(30, 77, 163, 255, true);
+  }
+
+  // ─── Ambient / Atmospheric Juice ──────────────────────────────────────
+
+  ambientSparkle(worldX: number, worldY: number) {
+    const colors = [0xfff3a8, 0xffc25f, 0xc8ffe1, 0x9ad1ff];
+    for (let i = 0; i < 4; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = Phaser.Math.Between(4, 12);
+      const sparkle = this.scene.add.circle(
+        worldX + Math.cos(angle) * dist,
+        worldY + Math.sin(angle) * dist,
+        Phaser.Math.Between(1, 3),
+        Phaser.Utils.Array.GetRandom(colors),
+      );
+      sparkle.setDepth(21).setAlpha(0.8).setBlendMode(Phaser.BlendModes.ADD);
+      this.particleLayer.add(sparkle);
+      this.scene.tweens.add({
+        targets: sparkle,
+        y: sparkle.y - Phaser.Math.Between(4, 10),
+        alpha: 0,
+        duration: Phaser.Math.Between(300, 500),
+        ease: 'Cubic.easeOut',
+        onComplete: () => sparkle.destroy(),
+      });
+    }
+  }
+
+  ambientBubble(worldX: number, worldY: number) {
+    const bubble = this.scene.add.circle(
+      worldX + Phaser.Math.Between(-6, 6),
+      worldY + Phaser.Math.Between(-6, 6),
+      Phaser.Math.Between(3, 6),
+      0xffffff,
+      0.15,
+    );
+    bubble.setDepth(21).setStrokeStyle(1, 0x9ad1ff, 0.3);
+    this.particleLayer.add(bubble);
+    this.scene.tweens.add({
+      targets: bubble,
+      y: bubble.y - Phaser.Math.Between(16, 36),
+      alpha: 0,
+      scale: 1.4,
+      duration: Phaser.Math.Between(600, 1000),
+      ease: 'Sine.easeOut',
+      onComplete: () => bubble.destroy(),
+    });
+  }
+
+  ambientEmber(worldX: number, worldY: number) {
+    const ember = this.scene.add.circle(
+      worldX + Phaser.Math.Between(-4, 4),
+      worldY + Phaser.Math.Between(-4, 4),
+      Phaser.Math.Between(1, 3),
+      0xffd166,
+      0.7,
+    );
+    ember.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+    this.particleLayer.add(ember);
+    this.scene.tweens.add({
+      targets: ember,
+      x: ember.x + Phaser.Math.Between(-8, 8),
+      y: ember.y - Phaser.Math.Between(12, 28),
+      alpha: 0,
+      scale: 0.3,
+      duration: Phaser.Math.Between(500, 900),
+      ease: 'Sine.easeOut',
+      onComplete: () => ember.destroy(),
+    });
+  }
+
+  // ─── Juice Manager Enhancement: Camera Tilt / Roll ────────────────────
+
+  cameraRoll(angle: number, duration: number = 200) {
+    // Quick flash for impact
+    this.scene.cameras.main.flash(40, 255, 255, 255, true);
+    this.playTone({
+      frequency: 400,
+      frequencyEnd: 600,
+      duration: 0.12,
+      type: 'sine',
+      volume: 0.06,
+    });
+  }
 }
