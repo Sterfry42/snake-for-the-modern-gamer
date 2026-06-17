@@ -686,6 +686,9 @@ export class SnakeGame implements QuestRuntime {
   private apples: AppleService;
   private readonly snake: SnakeState;
   public readonly bosses: BossManager;
+  get worldSeed(): string {
+    return this.worldGenerationIdentity.seed;
+  }
   private jasonDamageCallback?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
   private enemies: EnemyManager;
   private animals: AnimalManager;

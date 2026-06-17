@@ -1675,6 +1675,10 @@ export default class SnakeScene extends Phaser.Scene {
   private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
   private selectedCharacterMode: CharacterMode = this.loadCharacterModeSetting();
+  private selectedSeed = '';
+  private seedInputText: Phaser.GameObjects.Text | null = null;
+  private seedLabel: Phaser.GameObjects.Text | null = null;
+  private seedFocused = false;
   private raccoonColorMuteFx: Phaser.FX.ColorMatrix | null = null;
   private readonly archipelagoStorage = new BrowserArchipelagoStorage();
   private archipelagoRunSave: ArchipelagoRunSaveData | null = null;
@@ -1850,6 +1854,7 @@ export default class SnakeScene extends Phaser.Scene {
     const registry = await createQuestRegistry();
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
     this.snakeGame.setLevelUpCallback((result) => this.presentLevelUp(result));
+    this.saveUI.setSeed(this.snakeGame.worldSeed);
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
     this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
@@ -4337,6 +4342,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.creditsDismissZone?.destroy();
     this.creditsDismissZone = null;
 
+    this.seedLabel?.destroy();
+    this.seedLabel = null;
+    this.seedInputText?.destroy();
+    this.seedInputText = null;
+
     this.mobileControls?.destroy();
     this.mobileControls = null;
     this.minimapRenderer?.destroy();
@@ -5201,6 +5211,7 @@ export default class SnakeScene extends Phaser.Scene {
   private createGameConfigForCharacterMode(): GameConfig {
     return {
       ...defaultGameConfig,
+      rng: { seed: this.selectedSeed || undefined },
       character: {
         ...defaultGameConfig.character,
         mode: this.selectedCharacterMode,
@@ -5544,7 +5555,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const difficultySettings = this.add.container(0, 0).setVisible(false);
     const difficultyPanel = this.add
-      .rectangle(width / 2, height / 2 + 44, 330, 318, 0x071019, 0.88)
+      .rectangle(width / 2, height / 2 + 44, 330, 360, 0x071019, 0.88)
       .setStrokeStyle(2, 0x8fb7ff)
       .setOrigin(0.5);
     const difficultyTitle = this.add
@@ -5578,12 +5589,36 @@ export default class SnakeScene extends Phaser.Scene {
       { selected: this.selectedCharacterMode === 'raccoon' },
     );
     this.refreshTitleCharacterModeText();
+    this.seedLabel = this.add
+      .text(width / 2, height / 2 + 176, 'World Seed:', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#8b939f',
+      })
+      .setOrigin(0.5);
+    this.seedInputText = this.add
+      .text(width / 2, height / 2 + 198, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffffff',
+        backgroundColor: '#0b1626',
+        padding: { left: 12, right: 12, top: 6, bottom: 6 },
+        fixedWidth: 280,
+        align: 'left',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    this.seedInputText.on('pointerdown', () => {
+      this.seedFocused = true;
+    });
     difficultySettings.add([
       difficultyPanel,
       difficultyTitle,
       this.titleCharacterModeText,
       this.titleNormalModeButton,
       this.titleRaccoonModeButton,
+      this.seedLabel,
+      this.seedInputText,
       this.createTitleButton(width / 2 - 105, height / 2 + 132, 'Back', () =>
         this.showTitleScreen('settings'),
       ),
@@ -5955,6 +5990,26 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleTitleMultiplayerKey(event: KeyboardEvent): boolean {
+    if (this.seedFocused) {
+      if (event.key === 'Enter' || event.key === 'Escape') {
+        this.seedFocused = false;
+        return true;
+      }
+      if (event.key === 'Backspace') {
+        this.selectedSeed = this.selectedSeed.slice(0, -1);
+        this.seedInputText?.setText(this.selectedSeed || '');
+        return true;
+      }
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (this.selectedSeed.length < 100) {
+          this.selectedSeed += event.key;
+          this.seedInputText?.setText(this.selectedSeed);
+        }
+        return true;
+      }
+      return true;
+    }
+
     if (!this.titleMultiplayerContainer?.visible) {
       return false;
     }

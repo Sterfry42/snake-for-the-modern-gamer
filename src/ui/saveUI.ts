@@ -5,6 +5,7 @@ export class SaveUI {
   private saveButton?: Phaser.GameObjects.Text;
   private loadButton?: Phaser.GameObjects.Text;
   private clearButton?: Phaser.GameObjects.Text;
+  private seedLabel?: Phaser.GameObjects.Text;
   private scene: SnakeScene;
 
   constructor(scene: SnakeScene) {
@@ -70,6 +71,16 @@ export class SaveUI {
     this.saveButton = saveBtn;
     this.loadButton = loadBtn;
     this.clearButton = clearBtn;
+
+    const seedLabelText = this.scene.add
+      .text(x, y - 24, 'Seed: —', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#8b939f',
+      })
+      .setOrigin(1, 0)
+      .setDepth(100);
+    this.seedLabel = seedLabelText;
 
     console.log(
       `[SaveUI] Created buttons at: SAVE(${x},${y}), LOAD(${x},${y + buttonHeight + buttonGap}), CLEAR(${x},${y + (buttonHeight + buttonGap) * 2})`,
@@ -169,11 +180,15 @@ export class SaveUI {
     this.loadButton?.setVisible(true);
     this.clearButton?.setVisible(true);
     console.log(
-      `[SaveUI] Buttons shown: save=${this.saveButton?.visible}, load=${this.loadButton?.visible}, clear=${this.clearButton?.visible}`,
+      `[SaveUI] Button shown: save=${this.saveButton?.visible}, load=${this.loadButton?.visible}, clear=${this.clearButton?.visible}`,
     );
     console.log(
       `[SaveUI] Button depths: save=${this.saveButton?.depth}, load=${this.loadButton?.depth}, clear=${this.clearButton?.depth}`,
     );
+  }
+
+  setSeed(seed: string): void {
+    this.seedLabel?.setText(`Seed: ${seed}`);
   }
 }
 
