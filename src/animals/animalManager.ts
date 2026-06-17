@@ -47,10 +47,6 @@ export interface SnakeAnimalResult {
   startleCount: number;
 }
 
-function createAnimalId(): string {
-  return `animal-${Math.random().toString(36).slice(2, 10)}`;
-}
-
 function pickRandom<T>(rng: RandomGenerator, arr: T[]): T {
   return arr[Math.floor(rng() * arr.length)];
 }

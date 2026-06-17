@@ -3,11 +3,10 @@ import type { CatchEntry, FishRarity, FishTypeId } from './types.js';
 
 const CATCH_JOURNAL_FLAG = 'fishing.catchJournal';
 
+let catchJournalIdCounter = 0;
+
 function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return `catch-${catchJournalIdCounter++}`;
 }
 
 function roundWeight(weight: number): number {

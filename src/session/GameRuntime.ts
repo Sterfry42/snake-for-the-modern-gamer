@@ -1,4 +1,5 @@
 import type { GameSaveData } from '../game/saveManager.js';
+import type { RandomGenerator } from '../core/rng.js';
 import type { StepResult } from '../game/snakeGame.js';
 import type { PlayerId } from '../players/playerTypes.js';
 import type { SaveStore } from '../storage/SaveStore.js';
@@ -7,6 +8,7 @@ import type { GameEvent } from './GameEvent.js';
 import type { GameSnapshot } from './GameSnapshot.js';
 
 export interface LocalAuthoritativeRuntime extends CommandHandler {
+  readonly rng: RandomGenerator;
   actionStep(paused: boolean): StepResult;
   bossStep(
     onEvent?: (event: import('../systems/boss.js').BossEvent) => void,

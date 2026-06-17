@@ -3155,11 +3155,11 @@ export default class SnakeScene extends Phaser.Scene {
       let x: number;
       let y: number;
       if (lampCenter && this.random() < 0.7) {
-        x = lampCenter.x + (Math.random() - 0.5) * 40;
-        y = lampCenter.y - Math.random() * 40;
+        x = lampCenter.x + (this.random() - 0.5) * 40;
+        y = lampCenter.y - this.random() * 40;
       } else {
-        x = 20 + Math.random() * (w - 40);
-        y = h - 30 - Math.random() * (h * 0.6);
+        x = 20 + this.random() * (w - 40);
+        y = h - 30 - this.random() * (h * 0.6);
       }
       (this.juice as any).houseMote?.(x, y);
     }
@@ -4902,7 +4902,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   random(): number {
-    return this.snakeGame ? this.snakeGame.random() : Math.random();
+    return this.snakeGame ? this.snakeGame.random() : this.random();
   }
 
   setTeleport(flag: boolean): void {
@@ -14034,7 +14034,7 @@ export default class SnakeScene extends Phaser.Scene {
       () => this.currentTownActorLine(profile.displayName),
       () => this.snakeGame.askActorKingLore(actorId),
     ];
-    const start = Math.floor(Math.random() * options.length);
+    const start = Math.floor(this.random() * options.length);
     for (let offset = 0; offset < options.length; offset += 1) {
       const line = options[(start + offset) % options.length]?.();
       if (line) return line;
@@ -14044,7 +14044,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private askActorPersonally(profile: RelationshipCandidateProfile): string | null {
     const actorId = profile.actorId ?? '';
-    return Math.random() < 0.5
+    return this.random() < 0.5
       ? (this.snakeGame.askActorSocialTie(actorId) ??
           this.snakeGame.askActorPersonalReveal(actorId))
       : (this.snakeGame.askActorPersonalReveal(actorId) ??
@@ -14336,7 +14336,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'liberty-diner-blue-plate') {
       if (!this.spendScore(20, 'Blue Plate Special')) return;
-      const roll = Math.floor(Math.random() * 3);
+      const roll = Math.floor(this.random() * 3);
       if (roll === 0) {
         this.snakeGame.growSnake(3);
         this.showQuestHintPopup('Blue Plate Special: Monumental Appetite. +3 length.', '#f3eee2');
@@ -16314,7 +16314,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setPosition(world.x, world.y - 3 + bobOffset)
       .setFlipX(flipX)
       .setVisible(true);
-    if (Math.random() < 0.08) {
+    if (this.random() < 0.08) {
       (this.juice as any).wandererAura?.(world.x, world.y - 6, palette.trimColor);
     }
   }
@@ -16437,10 +16437,10 @@ export default class SnakeScene extends Phaser.Scene {
       if (sprite.anims.currentAnim?.key !== animKey) {
         sprite.play(animKey);
       }
-      if (Math.random() < 0.04) {
+      if (this.random() < 0.04) {
         (this.juice as any).wandererAura?.(world.x, world.y - 4, palette.trimColor);
       }
-      if (!isGoblin && Math.random() < 0.02) {
+      if (!isGoblin && this.random() < 0.02) {
         (this.juice as any).villageResidentMurmur?.(
           world.x,
           world.y - 2,
@@ -16459,14 +16459,14 @@ export default class SnakeScene extends Phaser.Scene {
     if (!villageLike) {
       return;
     }
-    if (Math.random() < 0.08) {
-      const lantern = villageLike.lanterns[Math.floor(Math.random() * villageLike.lanterns.length)];
+    if (this.random() < 0.08) {
+      const lantern = villageLike.lanterns[Math.floor(this.random() * villageLike.lanterns.length)];
       if (lantern) {
         const world = this.tileToWorldLocalInRoom(lantern);
         (this.juice as any).villageLantern?.(world.x, world.y);
       }
     }
-    if (Math.random() < 0.03) {
+    if (this.random() < 0.03) {
       const world = this.tileToWorldLocalInRoom(villageLike.center);
       (this.juice as any).villageBreath?.(world.x, world.y);
     }
@@ -16477,12 +16477,12 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
-    if (room.biomeId === 'sable-depths' && Math.random() < 0.28) {
+    if (room.biomeId === 'sable-depths' && this.random() < 0.28) {
       (this.juice as any).snowDrift?.(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
         Phaser.Math.Between(0, this.grid.rows * this.grid.cell),
       );
-    } else if (room.biomeId === 'ember-waste' && Math.random() < 0.24) {
+    } else if (room.biomeId === 'ember-waste' && this.random() < 0.24) {
       (this.juice as any).heatHaze?.(
         Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
         Phaser.Math.Between(
@@ -16490,31 +16490,31 @@ export default class SnakeScene extends Phaser.Scene {
           this.grid.rows * this.grid.cell - 12,
         ),
       );
-    } else if (room.biomeId === 'moonlit-parish' && Math.random() < 0.12) {
+    } else if (room.biomeId === 'moonlit-parish' && this.random() < 0.12) {
       (this.juice as any).snowDrift?.(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
         Phaser.Math.Between(0, this.grid.rows * this.grid.cell),
       );
-    } else if (room.biomeId === 'gloam-garden' && Math.random() < 0.1) {
+    } else if (room.biomeId === 'gloam-garden' && this.random() < 0.1) {
       (this.juice as any).temperatureReliefPulse?.(
         Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
         Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
-        Math.random() < 0.5 ? 'warm' : 'cool',
+        this.random() < 0.5 ? 'warm' : 'cool',
       );
     } else if (room.biomeId === 'liberty-badlands') {
-      if (Math.random() < 0.05) {
+      if (this.random() < 0.05) {
         (this.juice as any).eagleFlyover?.();
       }
-      if (Math.random() < 0.12) {
+      if (this.random() < 0.12) {
         (this.juice as any).dustDevil?.(
           Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
           Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
         );
       }
-      if (Math.random() < 0.08) {
+      if (this.random() < 0.08) {
         (this.juice as any).tumbleweed?.();
       }
-      if (Math.random() < 0.14) {
+      if (this.random() < 0.14) {
         (this.juice as any).libertyHeatShimmer?.(
           Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
           Phaser.Math.Between(this.grid.cell * 3, this.grid.rows * this.grid.cell - 12),
@@ -16522,7 +16522,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (
         (room.archetypeId === 'firework-field' || room.fireworkStand || room.roadsideMonument) &&
-        Math.random() < 0.16
+        this.random() < 0.16
       ) {
         (this.juice as any).fireworkPop?.(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
@@ -16534,14 +16534,14 @@ export default class SnakeScene extends Phaser.Scene {
           room.fireworkStand ||
           room.archetypeId === 'billboard-maze' ||
           room.archetypeId === 'motel-pool-ruins') &&
-        Math.random() < 0.12
+        this.random() < 0.12
       ) {
         (this.juice as any).neonFlicker?.(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         );
       }
-      if ((room.roadsideMonument || room.archetypeId === 'monument-plaza') && Math.random() < 0.1) {
+      if ((room.roadsideMonument || room.archetypeId === 'monument-plaza') && this.random() < 0.1) {
         (this.juice as any).monumentSparkle?.(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
@@ -16549,9 +16549,9 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
 
-    if (room.temperatureReliefs && Math.random() < 0.08) {
+    if (room.temperatureReliefs && this.random() < 0.08) {
       const relief =
-        room.temperatureReliefs[Math.floor(Math.random() * room.temperatureReliefs.length)];
+        room.temperatureReliefs[Math.floor(this.random() * room.temperatureReliefs.length)];
       if (relief) {
         const world = this.tileToWorldLocalInRoom({ x: relief.x, y: relief.y });
         (this.juice as any).temperatureReliefPulse?.(world.x, world.y, relief.kind);

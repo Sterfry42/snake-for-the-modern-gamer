@@ -196,7 +196,7 @@ export class SnakeState {
     const cheatImmortal = Boolean(this.flags['cheat.immortal']);
     const currentHeadBeforeMove = this.body[0];
     const pullDirection = currentHeadBeforeMove
-      ? bossManager.getPullFor(currentHeadBeforeMove, this.roomId, Math.random)
+      ? bossManager.getPullFor(currentHeadBeforeMove, this.roomId)
       : null;
 
     if (pullDirection) {

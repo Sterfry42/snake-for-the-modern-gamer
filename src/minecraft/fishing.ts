@@ -485,8 +485,8 @@ export function castLine(
   return { success: true };
 }
 
-function calculateBiteDelay(state: FishingState): number {
-  const baseDelay = 100 + Math.random() * 300;
+function calculateBiteDelay(state: FishingState, rng: () => number = Math.random): number {
+  const baseDelay = 100 + rng() * 300;
   const lureMultiplier = getLureSpeedMultiplier(state);
   return Math.floor(baseDelay / lureMultiplier);
 }
@@ -509,6 +509,7 @@ function getLureSpeedMultiplier(state: FishingState): number {
 
 export function tickFishing(
   state: FishingState,
+  rng: () => number = Math.random,
 ): { bite: boolean; fishCaught: FishCaught | null; message?: string } {
   if (!state.casting || !state.inWater) {
     return { bite: false, fishCaught: null };
@@ -522,14 +523,14 @@ export function tickFishing(
     // Chance to bite depends on enchantments and rod
     const biteChance = calculateBiteChance(state);
 
-    if (Math.random() < biteChance) {
-      const fish = tryCatchFish(state);
+    if (rng() < biteChance) {
+      const fish = tryCatchFish(state, rng);
       return { bite: true, fishCaught: fish };
     }
 
     // Reset bite delay
     state.lureTimer = 0;
-    state.biteDelay = calculateBiteDelay(state);
+    state.biteDelay = calculateBiteDelay(state, rng);
   }
 
   return { bite: false, fishCaught: null };
@@ -546,14 +547,14 @@ function calculateBiteChance(state: FishingState): number {
   return Math.min(0.15, chance);
 }
 
-function tryCatchFish(state: FishingState): FishCaught | null {
+function tryCatchFish(state: FishingState, rng: () => number = Math.random): FishCaught | null {
   // Get available fish based on biome
   const availableFish = getAvailableFish();
   if (availableFish.length === 0) return null;
 
   // Weighted random selection
   const totalWeight = availableFish.reduce((sum, f) => sum + getFishWeight(f), 0);
-  let roll = Math.random() * totalWeight;
+  let roll = rng() * totalWeight;
 
   let selected: FishDefinition | null = null;
   for (const fish of availableFish) {
@@ -569,8 +570,8 @@ function tryCatchFish(state: FishingState): FishCaught | null {
   }
 
   // Calculate weight
-  const weight = selected.baseWeight + Math.random() * (selected.maxWeight - selected.baseWeight);
-  const isLegendary = selected.rarity === 'legendary' || (selected.rarity === 'epic' && Math.random() < 0.2);
+  const weight = selected.baseWeight + rng() * (selected.maxWeight - selected.baseWeight);
+  const isLegendary = selected.rarity === 'legendary' || (selected.rarity === 'epic' && rng() < 0.2);
 
   return {
     type: selected.id,
@@ -603,6 +604,7 @@ function getAvailableFish(): FishDefinition[] {
 export function applyFishCatch(
   player: MinecraftPlayer,
   fish: FishCaught,
+  rng: () => number = Math.random,
 ): { success: boolean; message: string } {
   // Add fish to inventory
   player.addItem(fish.itemId, fish.count);
@@ -612,7 +614,7 @@ export function applyFishCatch(
 
   // Chance for bonus drops
   const fishDef = FISH_DEFINITIONS[fish.type];
-  if (fishDef?.dropItem && fishDef.dropItem && Math.random() < 0.3) {
+  if (fishDef?.dropItem && fishDef.dropItem && rng() < 0.3) {
     const dropCount = fishDef.dropCount ?? 1;
     player.addItem(fishDef.dropItem, dropCount);
   }
