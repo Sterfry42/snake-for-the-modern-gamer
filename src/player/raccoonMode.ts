@@ -82,7 +82,7 @@ export const DEFAULT_RACCOON_MODE_CONFIG: RaccoonModeConfig = {
     max: 100,
     gainPerForage: 8,
     decayPerSecond: 1.5,
-    stashBonusPerMeter: 0.005,
+    stashBonusPerMeter: 0.0025,
   },
 };
 

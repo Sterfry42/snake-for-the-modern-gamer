@@ -1462,6 +1462,7 @@ const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
 
 export default class SnakeScene extends Phaser.Scene {
   graphics!: Phaser.GameObjects.Graphics;
+  wallGraphics!: Phaser.GameObjects.Graphics;
   readonly grid = defaultGameConfig.grid;
 
   public snakeGame!: SnakeGame;
@@ -1568,6 +1569,7 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
   private houseRestCounter = 0;
+  private jasonDefeatCount = 0;
   // Religion choice state
   private chosenReligionId: string | null = null;
   private religionMods: {
@@ -1766,10 +1768,11 @@ export default class SnakeScene extends Phaser.Scene {
 
   async create() {
     this.graphics = this.add.graphics();
+    this.wallGraphics = this.add.graphics().setDepth(15);
     // Reduce subpixel jitter and keep lines crisp during shake/zoom
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
-    this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.grid);
+    this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.wallGraphics, this.grid);
     this.minimapRenderer = new MinimapRenderer(this, {
       x: this.grid.cols * this.grid.cell - 222,
       y: 14,
@@ -1815,7 +1818,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup = new ChoicePopup(this);
     await this.loadDatingPortraitAssets();
     this.datingScenePopup = new DatingScenePopup(this);
-    this.graphics.setDepth(0);
+    this.graphics.setDepth(10);
 
     const registry = await createQuestRegistry();
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
@@ -1848,6 +1851,11 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
+
+    // Wire up minecraft feature instance from the feature registry
+    this.minecraftFeature = this.featureManager.getFeature<
+      import('../minecraft/MinecraftFeature.js').MinecraftFeature
+    >('minecraft');
 
     this.initGame(true);
 
@@ -2361,7 +2369,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private handleJasonDefeat(bossId: string, score: number): void {
+  private handleJasonDefeat(bossId: string, _rawScore: number): void {
     this.recordAchievementEvent({
       type: 'boss:defeated',
       bossKind: 'jason-statham',
@@ -2377,6 +2385,14 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Hide boss HUD
     this.bossHud.hide();
+
+    // Capture boss maxHealth before deletion, compute decayed score
+    const boss = this.snakeGame.bosses.getBoss(bossId);
+    const maxHealth = boss?.maxHealth ?? 100;
+    this.jasonDefeatCount += 1;
+    const BASE_JASON_SCORE = 100;
+    const decay = Math.pow(0.6, this.jasonDefeatCount - 1);
+    const score = Math.max(10, Math.floor(BASE_JASON_SCORE * decay));
 
     // Remove boss immediately
     this.snakeGame.bosses.deleteBoss(bossId);
@@ -2469,20 +2485,14 @@ export default class SnakeScene extends Phaser.Scene {
 
   private toggleMinecraftMode(): void {
     this.minecraftMode = !this.minecraftMode;
+    this.minecraftFeature?.toggleMode(this);
 
     if (this.minecraftMode) {
       // Switch to Minecraft mode - enter manual movement mode
       this.setFlag('traversal.manualResumePending', true);
-      this.setFlag('ui.suppressHud', true);
-      this.setFlag('ui.questInteraction', {
-        message:
-          'Minecraft mode: Shift+C to toggle. Q to break block, R to place block. WASD to move. E for crafting.',
-      });
     } else {
       // Switch back to snake mode - resume auto-movement
       this.setFlag('traversal.manualResumePending', undefined);
-      this.setFlag('ui.suppressHud', undefined);
-      this.setFlag('ui.questInteraction', undefined);
     }
   }
 
@@ -2515,6 +2525,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
     this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
+    this.jasonDefeatCount = 0;
     if (resetAchievements) this.achievementManager.resetForNewRun(Boolean(this.archipelagoRunSave));
     this.lastAchievementTownId = null;
     this.lastAchievementWaterTile = '';
@@ -2621,9 +2632,10 @@ export default class SnakeScene extends Phaser.Scene {
           result.apple.worldPosition.x,
           result.apple.worldPosition.y,
           violenceLevel,
+          result.apple.typeId,
         );
         const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
-        this.juice.appleStreak(result.apple.worldPosition.x, result.apple.worldPosition.y, streak);
+        this.juice.appleStreak(result.apple.worldPosition.x, result.apple.worldPosition.y, streak, result.apple.typeId);
         this.showRaccoonForageFeedbackAt(
           result.apple.worldPosition.x,
           result.apple.worldPosition.y,
@@ -2963,7 +2975,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.isInHouse()) {
       this.setFlag('timeSinceEat', 0);
       this.houseRestCounter++;
-      if (this.houseRestCounter >= 30) {
+      if (this.houseRestCounter >= 60) {
         this.houseRestCounter = 0;
         this.addScoreDirect(1);
         this.growSnake(1);
@@ -4431,13 +4443,13 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  addScore(amount: number) {
+  addScore(amount: number, category: import('../game/scoreNormalization.js').ScoreCategory = 'apple') {
     const applied = this.skillTree ? this.skillTree.modifyScoreGain(amount) : amount;
-    this.addScoreDirect(applied);
+    this.addScoreDirect(applied, category);
   }
 
-  addScoreDirect(amount: number): void {
-    this.snakeGame.addScore(amount);
+  addScoreDirect(amount: number, category?: import('../game/scoreNormalization.js').ScoreCategory): void {
+    this.snakeGame.addScore(amount, category ?? 'apple');
     this.isDirty = true;
     // Floating score popup at head
     const head = this.snakeGame.getSnakeBody()[0];

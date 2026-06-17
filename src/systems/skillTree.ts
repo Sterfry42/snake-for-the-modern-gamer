@@ -243,7 +243,7 @@ const MOMENTUM_BRANCH: BranchConfig = {
       description: 'Drifting leaves energy trails that pulse score.',
       ranks: [
         {
-          description: 'Turns spawn 4-tick trails that drip +1 score per tick.',
+          description: 'Turns spawn 4-tick trails that drip +0.25 score per tick.',
           cost: 104,
           effects: [
             {
@@ -251,7 +251,7 @@ const MOMENTUM_BRANCH: BranchConfig = {
               key: 'momentum.config.quantumTrail',
               value: {
                 trailTicks: 4,
-                trailScorePerTick: 1,
+                trailScorePerTick: 0.25,
                 scorePerStackBonus: 0.1,
               },
             },
@@ -832,7 +832,7 @@ const PREDATION_BRANCH: BranchConfig = {
       description: 'Stacks fuel Feral Frenzy for explosive payouts.',
       ranks: [
         {
-          description: 'Frenzy triggers at 5 stacks for 6 ticks (+4 score each tick).',
+          description: 'Frenzy triggers at 5 stacks for 5 ticks (+2 score each tick).',
           cost: 78,
           effects: [
             {
@@ -842,8 +842,8 @@ const PREDATION_BRANCH: BranchConfig = {
                 quickEatWindowBonus: 4,
                 frenzy: {
                   threshold: 5,
-                  duration: 6,
-                  scoreBonus: 4,
+                  duration: 5,
+                  scoreBonus: 2,
                 },
               },
             },
@@ -1071,7 +1071,7 @@ const TRAVERSAL_BRANCH: BranchConfig = {
       description: 'Echoes trail behind, dripping score after a jump.',
       ranks: [
         {
-          description: '+2 phase ticks and 4-tick echoes worth +1 score each.',
+          description: '+2 phase ticks and 4-tick echoes worth +0.25 score each.',
           cost: 72,
           effects: [
             {
@@ -1080,7 +1080,7 @@ const TRAVERSAL_BRANCH: BranchConfig = {
               value: {
                 phaseTicksOnEnterBonus: 2,
                 echoTicks: 4,
-                echoScore: 1,
+                echoScore: 0.25,
               },
             },
           ],
@@ -1317,13 +1317,13 @@ const GEOMETRY_BRANCH: BranchConfig = {
       description: 'Consume the world itself for power.',
       ranks: [
         {
-          description: 'Walls grant +3 score and +1 growth when devoured.',
+          description: 'Walls grant +1 score and +1 growth when devoured.',
           cost: 164,
           effects: [
             {
               type: 'setFlag',
               key: 'geometry.worldEaterReward',
-              value: { score: 3, growth: 1 },
+              value: { score: 1, growth: 1 },
               resetValue: undefined,
             },
           ],

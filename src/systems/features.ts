@@ -14,6 +14,10 @@ export class FeatureManager {
     this.registry.invoke(hook, scene, ...args);
   }
 
+  getFeature<T extends Feature>(id: string): T | undefined {
+    return this.registry.getAll().find((f) => f.id === id) as T | undefined;
+  }
+
   clear(): void {
     this.registry.clear();
   }

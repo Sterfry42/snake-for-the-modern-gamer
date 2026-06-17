@@ -174,6 +174,15 @@ import {
   getPowerupDiscoveryChance,
   getTreasureDiscoveryChance,
 } from '../stats/explorationSpecial.js';
+import {
+  advanceNormalizationTick,
+  applyStackDiminishingReturns,
+  createNormalizationState,
+  type ScoreCategory,
+  normalizeScore,
+  resetNormalizationState,
+  type ScoreNormalizationState,
+} from './scoreNormalization.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -707,6 +716,8 @@ export class SnakeGame implements QuestRuntime {
 
   private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
   private characterMode: CharacterMode;
+  private normalizationState: ScoreNormalizationState = createNormalizationState();
+  private normalizationTick = 0;
   private raccoonWeight = 0;
   private raccoonHungerTimerMs = 0;
   private raccoonBanditMeter = 0;
@@ -792,6 +803,8 @@ export class SnakeGame implements QuestRuntime {
     this.lastWandererEncounterRoomCount = -999;
     this.visitedRooms.add(this.snake.currentRoomId);
     this.powerupState = null;
+    resetNormalizationState(this.normalizationState);
+    this.normalizationTick = 0;
     this.setFlag('timeMs', 0);
     this.setFlag('player.health', 3);
     this.setFlag('player.maxHealth', 3);
@@ -1455,6 +1468,10 @@ export class SnakeGame implements QuestRuntime {
     const roomsChanged = new Set<string>();
     const previousRoom = this.snake.currentRoomId;
     const appleBeforeStep = this.apples.getSnapshot(this.snake.currentRoomId);
+    if (!paused) {
+      this.normalizationTick += 1;
+      advanceNormalizationTick(this.normalizationState);
+    }
     if (paused) {
       return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
@@ -6828,10 +6845,11 @@ export class SnakeGame implements QuestRuntime {
     this.snake.score = Math.max(0, Math.floor(Number(score) || 0));
   }
 
-  addScore(amount: number): void {
+  addScore(amount: number, category: ScoreCategory = 'apple'): void {
+    const normalized = normalizeScore(amount, category, this.normalizationState);
     const multiplier = this.getArtifactScoreMultiplier();
     const adjusted =
-      amount > 0 && multiplier > 1 ? Math.max(1, Math.ceil(amount * multiplier)) : amount;
+      normalized > 0 && multiplier > 1 ? Math.max(1, Math.ceil(normalized * multiplier)) : normalized;
     this.snake.addScore(adjusted);
   }
 
@@ -7181,7 +7199,7 @@ export class SnakeGame implements QuestRuntime {
       this.raccoonBanditMeter,
       this.config.character.raccoon,
     );
-    this.addScore(result.score);
+    this.addScore(result.score, 'raccoon');
     this.raccoonStashedTotal += result.depositedWeight;
     this.raccoonWeight = 0;
     this.raccoonBanditMeter = 0;
@@ -7204,7 +7222,7 @@ export class SnakeGame implements QuestRuntime {
     if (length < 50) {
       return 1;
     }
-    return 2 ** ((length - 50) / 100);
+    return 1 + Math.log2(1 + (length - 50) / 25);
   }
 
   private applyLengthScoreMultiplier(baseScore: number, multiplier: number): number {
@@ -13180,7 +13198,7 @@ export class SnakeGame implements QuestRuntime {
           state.phasingTicks = Math.max(state.phasingTicks, phaseGrant);
         }
         if (config.surgeScore > 0) {
-          this.addScore(config.surgeScore);
+          this.addScore(config.surgeScore, 'combo');
         }
         this.setFlag('momentum.surgeTriggered', {
           roomId: this.snake.currentRoomId,
@@ -13204,9 +13222,11 @@ export class SnakeGame implements QuestRuntime {
     const state = this.ensureMomentumState();
     let bonusScore = 0;
     if (config.scorePerStack > 0 && state.stacks > 0) {
-      const scoreGain = Math.round(config.scorePerStack * state.stacks);
+      const scoreGain = Math.round(
+        applyStackDiminishingReturns(config.scorePerStack, state.stacks),
+      );
       if (scoreGain > 0) {
-        this.addScore(scoreGain);
+        this.addScore(scoreGain, 'combo');
         bonusScore += scoreGain;
       }
     }
@@ -13260,7 +13280,7 @@ export class SnakeGame implements QuestRuntime {
     if (state.trailTicks > 0) {
       state.trailTicks -= 1;
       if (config.trailScorePerTick > 0) {
-        this.addScore(config.trailScorePerTick);
+        this.addScore(config.trailScorePerTick, 'trail');
       }
     }
 
@@ -13543,7 +13563,7 @@ export class SnakeGame implements QuestRuntime {
     if (state.echoTicks > 0) {
       state.echoTicks -= 1;
       if (config.echoScore > 0) {
-        this.addScore(config.echoScore);
+        this.addScore(config.echoScore, 'trail');
       }
     }
 
@@ -13726,9 +13746,11 @@ export class SnakeGame implements QuestRuntime {
     const bonus = { score: 0, growth: 0 };
 
     if (config.scorePerStack > 0 && state.stacks > 0) {
-      const scoreGain = Math.ceil(config.scorePerStack * state.stacks);
+      const scoreGain = Math.ceil(
+        applyStackDiminishingReturns(config.scorePerStack, state.stacks),
+      );
       if (scoreGain > 0) {
-        this.addScore(scoreGain);
+        this.addScore(scoreGain, 'combo');
         bonus.score += scoreGain;
       }
     }
@@ -14149,7 +14171,7 @@ export class SnakeGame implements QuestRuntime {
     const state = this.ensurePredationState();
 
     if (config.enabled && state.frenzyTicks > 0 && config.frenzyScoreBonus > 0) {
-      this.addScore(config.frenzyScoreBonus);
+      this.addScore(config.frenzyScoreBonus, 'frenzy');
     }
 
     if (!config.enabled) {
@@ -14365,7 +14387,7 @@ export class SnakeGame implements QuestRuntime {
     const bonusScore = reward?.score ?? 1;
     const bonusGrowth = reward?.growth ?? 0;
     if (bonusScore !== 0) {
-      this.addScore(bonusScore);
+      this.addScore(bonusScore, 'worldEater');
     }
     if (bonusGrowth > 0) {
       this.snake.grow(bonusGrowth);
