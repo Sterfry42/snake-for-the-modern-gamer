@@ -108,7 +108,7 @@ interface EquipmentModifierView {
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
   width: 640,
   height: 520,
-  depth: 30,
+  depth: 200,
 };
 
 const DETAIL_PANEL_PADDING = 12;

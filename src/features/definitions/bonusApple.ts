@@ -22,7 +22,7 @@ class BonusAppleFeature extends Feature {
           stroke: '#06140b',
           strokeThickness: 3,
         })
-        .setDepth(10)
+        .setDepth(40)
         .setVisible(false);
     }
   }

@@ -60,6 +60,7 @@ export class BossManager {
   public spawnBoss(
     roomId: string,
     bossType: 'freak-dennis' | 'freaker-dennis' | 'random' | 'fallen-angel' = 'random',
+    room?: RoomSnapshot,
   ): void {
     if (!roomId || typeof roomId !== 'string' || !roomId.includes(',')) {
       console.warn('[spawnBoss] Invalid roomId provided:', roomId);
@@ -85,8 +86,15 @@ export class BossManager {
           ? 'freak-dennis'
           : 'freaker-dennis';
 
-    const centerX = roomOffsetX + this.grid.cols / 2 + 5;
-    const centerY = roomOffsetY + this.grid.rows / 2;
+    const preferredLocal = {
+      x: Math.floor(this.grid.cols / 2) + 5,
+      y: Math.floor(this.grid.rows / 2),
+    };
+    const spawnLocal = room
+      ? this.findOpenBossCenter(room, preferredLocal)
+      : preferredLocal;
+    const centerX = roomOffsetX + spawnLocal.x;
+    const centerY = roomOffsetY + spawnLocal.y;
     const body: Vector2Like[] = [];
     body.push({ x: centerX, y: centerY });
     for (let dy = -1; dy <= 1; dy++) {
@@ -118,6 +126,34 @@ export class BossManager {
       },
     };
     this.bosses.set(id, boss);
+  }
+
+  private findOpenBossCenter(room: RoomSnapshot, preferred: Vector2Like): Vector2Like {
+    const candidates: Array<Vector2Like & { distance: number }> = [];
+    for (let y = 1; y < this.grid.rows - 1; y += 1) {
+      for (let x = 1; x < this.grid.cols - 1; x += 1) {
+        let open = true;
+        for (let dy = -1; dy <= 1 && open; dy += 1) {
+          for (let dx = -1; dx <= 1; dx += 1) {
+            const tile = room.layout[y + dy]?.[x + dx];
+            if (!tile || tile === '#' || tile === '~') {
+              open = false;
+              break;
+            }
+          }
+        }
+        if (open) {
+          candidates.push({
+            x,
+            y,
+            distance: Math.abs(x - preferred.x) + Math.abs(y - preferred.y),
+          });
+        }
+      }
+    }
+    candidates.sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x);
+    const selected = candidates[0];
+    return selected ? { x: selected.x, y: selected.y } : preferred;
   }
 
   public spawnJasonStatham(roomId: string): void {

@@ -22,7 +22,7 @@ describe('vegetation generation', () => {
   });
 
   it('does not place vegetation in elderwood-maze', () => {
-    const room = generateRoom('3,-1,0', 'veg-elderwood');
+    const room = generateRoom('6,0,0', 'veg-elderwood');
     expect(room.vegetation).toBeUndefined();
   });
 

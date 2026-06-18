@@ -695,6 +695,9 @@ export class SnakeGame implements QuestRuntime {
   private debugSecondPlayerAlive = false;
   private debugSecondPlayerStepCount = 0;
   private debugSecondPlayerDeathReason: string | undefined;
+  private lethalStepHoldKey: string | null = null;
+  private lethalStepHoldTicks = 0;
+  private lethalStepHoldGraceTicks = 0;
   private readonly visitedRooms: Set<string>;
   private readonly npcDisposition = new Map<
     string,
@@ -895,11 +898,19 @@ export class SnakeGame implements QuestRuntime {
     const startingRoomIsTown = Boolean(startingRoom.town || startingRoom.townPerimeter);
     if (!startingRoomIsTown && this.rng() < 0.03) {
       // 3% chance to spawn a boss on reset
-      this.bosses.spawnBoss(this.snake.currentRoomId, 'freak-dennis');
+      this.bosses.spawnBoss(
+        this.snake.currentRoomId,
+        'freak-dennis',
+        this.world.getRoom(this.snake.currentRoomId),
+      );
     }
     if (!startingRoomIsTown && this.rng() < 0.01) {
       // 1% chance to spawn Freaker Dennis on reset
-      this.bosses.spawnBoss(this.snake.currentRoomId, 'freaker-dennis');
+      this.bosses.spawnBoss(
+        this.snake.currentRoomId,
+        'freaker-dennis',
+        this.world.getRoom(this.snake.currentRoomId),
+      );
     }
     if (!startingRoomIsTown && startingRoom.biomeId === 'sunken-ocean' && this.rng() < 0.1) {
       // 10% chance to spawn Jason Statham in the Sunken Ocean on reset
@@ -1476,6 +1487,28 @@ export class SnakeGame implements QuestRuntime {
       return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
 
+    const lethalStep = this.getImminentLethalStep();
+    if (lethalStep) {
+      if (this.lethalStepHoldKey === lethalStep.key) {
+        this.lethalStepHoldTicks += 1;
+      } else {
+        this.lethalStepHoldKey = lethalStep.key;
+        this.lethalStepHoldTicks = 1;
+        this.lethalStepHoldGraceTicks = lethalStep.graceTicks;
+      }
+      if (this.lethalStepHoldTicks <= this.lethalStepHoldGraceTicks) {
+        this.snake.commitQueuedDirectionWithoutMoving();
+        return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
+      }
+      this.lethalStepHoldKey = null;
+      this.lethalStepHoldTicks = 0;
+      this.lethalStepHoldGraceTicks = 0;
+    } else {
+      this.lethalStepHoldKey = null;
+      this.lethalStepHoldTicks = 0;
+      this.lethalStepHoldGraceTicks = 0;
+    }
+
     this.preSnakeStep(previousRoom, roomsChanged);
     if (this.tickActiveCaveTimer(roomsChanged)) {
       return this.createAliveStepResult({
@@ -1513,11 +1546,11 @@ export class SnakeGame implements QuestRuntime {
         const newRoomIsTown = Boolean(newRoom.town || newRoom.townPerimeter);
         if (!newRoomIsTown && this.rng() < 0.03) {
           // 3% chance to spawn Freak Dennis in a new room
-          this.bosses.spawnBoss(newRoomId, 'freak-dennis');
+          this.bosses.spawnBoss(newRoomId, 'freak-dennis', newRoom);
         }
         if (!newRoomIsTown && this.rng() < 0.01) {
           // 1% chance to spawn Freaker Dennis in a new room
-          this.bosses.spawnBoss(newRoomId, 'freaker-dennis');
+          this.bosses.spawnBoss(newRoomId, 'freaker-dennis', newRoom);
         }
         if (!newRoomIsTown && newRoom.biomeId === 'sunken-ocean' && this.rng() < 0.1) {
           // 10% chance to spawn Jason Statham in the Sunken Ocean
@@ -2509,6 +2542,155 @@ export class SnakeGame implements QuestRuntime {
     return outcome;
   }
 
+  private getImminentLethalStep(): { key: string; graceTicks: number } | null {
+    if (this.isImmortal()) {
+      return null;
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return null;
+    }
+    const currentDirection = this.snake.directionVector;
+    const direction = this.snake.nextDirectionVector;
+    if (direction.x === 0 && direction.y === 0) {
+      return null;
+    }
+    const graceTicks =
+      direction.x === currentDirection.x && direction.y === currentDirection.y ? 2 : 1;
+    const target = { x: head.x + direction.x, y: head.y + direction.y };
+    const info = this.resolveRoomPosition(target);
+    if (!info || info.roomId !== this.snake.currentRoomId) {
+      return null;
+    }
+    const room = this.world.getRoom(info.roomId);
+    const tile = room.layout[info.localY]?.[info.localX];
+    if (tile === '#' && !this.canSurviveWallStep()) {
+      return {
+        key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
+        graceTicks,
+      };
+    }
+    if (tile === '~' && !this.getFlag<boolean>('equipment.swimmingEnabled')) {
+      return {
+        key: `water:${target.x},${target.y}:${direction.x},${direction.y}`,
+        graceTicks,
+      };
+    }
+    if (this.isFatalShieldedAppleStep(info.roomId, info.localX, info.localY, direction)) {
+      return {
+        key: `shielded:${target.x},${target.y}:${direction.x},${direction.y}`,
+        graceTicks,
+      };
+    }
+    if (this.isSelfCollisionStep(target, info.roomId, info.localX, info.localY)) {
+      return {
+        key: `self:${target.x},${target.y}:${direction.x},${direction.y}`,
+        graceTicks,
+      };
+    }
+    if (this.isEnemySnakeBodyCollisionStep(info.roomId, info.localX, info.localY)) {
+      return {
+        key: `enemy-snake:${target.x},${target.y}:${direction.x},${direction.y}`,
+        graceTicks,
+      };
+    }
+    return null;
+  }
+
+  private canSurviveWallStep(): boolean {
+    if (
+      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
+      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
+      this.getFlag<boolean>('equipment.wallSmiteEnabled') ||
+      this.getFlag<boolean>('geometry.canEatWalls')
+    ) {
+      return true;
+    }
+    const terraShield = this.getFlag<{ charges?: number }>('geometry.terraShield');
+    const ghostShield = this.getFlag<{ charges?: number }>('traversal.ghostShield');
+    return Number(terraShield?.charges ?? 0) > 0 || Number(ghostShield?.charges ?? 0) > 0;
+  }
+
+  private isFatalShieldedAppleStep(
+    roomId: string,
+    localX: number,
+    localY: number,
+    direction: Vector2Like,
+  ): boolean {
+    const phasePowerupActive = Boolean(
+      this.powerupState?.kind === 'phase' && this.powerupState.remaining > 0,
+    );
+    if (phasePowerupActive) {
+      return false;
+    }
+    const apple = this.apples.getSnapshot(roomId);
+    if (
+      !apple ||
+      apple.typeId !== 'shielded' ||
+      apple.position.x !== localX ||
+      apple.position.y !== localY
+    ) {
+      return false;
+    }
+    const protectedDirs = apple.metadata?.protectedDirs;
+    return (
+      Array.isArray(protectedDirs) &&
+      protectedDirs.some(
+        (entry) =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          (entry as Vector2Like).x === direction.x &&
+          (entry as Vector2Like).y === direction.y,
+      )
+    );
+  }
+
+  private isSelfCollisionStep(
+    target: Vector2Like,
+    roomId: string,
+    localX: number,
+    localY: number,
+  ): boolean {
+    if (
+      this.isRaccoonMode() ||
+      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
+      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
+      Number(
+        this.getFlag<{ charges?: number }>('fortitude.hardened')?.charges ?? 0,
+      ) > 0 ||
+      Number(this.getFlag<number>('jadePeak.koiFlowEnd') ?? 0) >
+        Number(this.getFlag<number>('timeMs') ?? 0)
+    ) {
+      return false;
+    }
+    const apple = this.apples.getSnapshot(roomId);
+    const appleEaten = Boolean(
+      apple && apple.position.x === localX && apple.position.y === localY,
+    );
+    const body = appleEaten
+      ? Array.from(this.snake.bodySegments)
+      : Array.from(this.snake.bodySegments).slice(0, -1);
+    return body.some((segment) => segment.x === target.x && segment.y === target.y);
+  }
+
+  private isEnemySnakeBodyCollisionStep(roomId: string, localX: number, localY: number): boolean {
+    for (const rival of this.enemies.getRivalSnakes()) {
+      if (rival.roomId !== roomId) continue;
+      const body = rival.body ?? [rival.position];
+      if (body.slice(1).some((segment) => segment.x === localX && segment.y === localY)) {
+        return true;
+      }
+    }
+    for (const snake of this.enemies.getRoamingSnakes()) {
+      if (snake.roomId !== roomId) continue;
+      const body = snake.body ?? [snake.position];
+      if (body.some((segment) => segment.x === localX && segment.y === localY)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   private handleCaveTransitionAtHead(previousRoom: string, roomsChanged: Set<string>): void {
     const head = this.snake.bodySegments[0];
     if (!head) {
@@ -3226,7 +3408,8 @@ export class SnakeGame implements QuestRuntime {
         this.worldToLocal(rival.roomId, segment),
       );
       if (localPlayerSegments.some((segment) => segment.x === head.x && segment.y === head.y)) {
-        this.enemies.removeEnemy(rival.id);
+        const defeated = this.enemies.removeEnemy(rival.id) ?? rival;
+        this.setEnemySnakeDefeatedFeedback(defeated, head, 'ran-into-player');
         roomsChanged.add(rival.roomId);
       }
     }
@@ -3304,11 +3487,8 @@ export class SnakeGame implements QuestRuntime {
       let newRoomId = snake.roomId;
 
       if (!isCaveRoomId(snake.roomId)) {
-        const [roomX, roomY] = snake.roomId.split(',').map(Number);
-        const newLocalX = newHead.x - roomX * this.config.grid.cols;
-        const newLocalY = newHead.y - roomY * this.config.grid.rows;
-        const roomDx = newLocalX < 0 ? -1 : newLocalX >= this.config.grid.cols ? 1 : 0;
-        const roomDy = newLocalY < 0 ? -1 : newLocalY >= this.config.grid.rows ? 1 : 0;
+        const roomDx = newHead.x < 0 ? -1 : newHead.x >= this.config.grid.cols ? 1 : 0;
+        const roomDy = newHead.y < 0 ? -1 : newHead.y >= this.config.grid.rows ? 1 : 0;
 
         if (roomDx !== 0 || roomDy !== 0) {
           const shifted = this.shiftRoomId(snake.roomId, roomDx, roomDy);
@@ -3318,15 +3498,17 @@ export class SnakeGame implements QuestRuntime {
             continue;
           }
           newRoomId = shifted;
-          newHead.x = Math.max(0, Math.min(newHead.x, this.config.grid.cols - 1));
-          newHead.y = Math.max(0, Math.min(newHead.y, this.config.grid.rows - 1));
+          if (newHead.x < 0) newHead.x = this.config.grid.cols - 1;
+          else if (newHead.x >= this.config.grid.cols) newHead.x = 0;
+          if (newHead.y < 0) newHead.y = this.config.grid.rows - 1;
+          else if (newHead.y >= this.config.grid.rows) newHead.y = 0;
         }
       }
 
       const newBody: Vector2Like[] = [newHead, ...body.slice(0, -1)];
 
       const targetRoom = this.world.getRoom(newRoomId);
-      const targetLocal = this.worldToLocal(newRoomId, newHead);
+      const targetLocal = newHead;
       const tile = targetRoom.layout[targetLocal.y]?.[targetLocal.x];
       if (tile === '#' || tile === '~') {
         snake.moveCooldown = 1;
@@ -3360,8 +3542,12 @@ export class SnakeGame implements QuestRuntime {
       if (body.length === 0) continue;
 
       const head = body[0];
-      if (playerSegments.some((p) => p.x === head.x && p.y === head.y)) {
-        this.enemies.removeEnemy(snake.id);
+      const localPlayerSegments = playerSegments.map((segment) =>
+        this.worldToLocal(snake.roomId, segment),
+      );
+      if (localPlayerSegments.some((p) => p.x === head.x && p.y === head.y)) {
+        const defeated = this.enemies.removeEnemy(snake.id) ?? snake;
+        this.setEnemySnakeDefeatedFeedback(defeated, head, 'ran-into-player');
         roomsChanged.add(snake.roomId);
       }
     }
@@ -3374,14 +3560,59 @@ export class SnakeGame implements QuestRuntime {
     const roamingSnakes = this.enemies.getRoamingSnakes();
 
     for (const snake of roamingSnakes) {
+      if (snake.roomId !== this.snake.currentRoomId) continue;
+      const localHead = this.worldToLocal(snake.roomId, playerHead);
       const body = snake.body ?? [snake.position];
       for (const segment of body) {
-        if (segment.x === playerHead.x && segment.y === playerHead.y) {
+        if (segment.x === localHead.x && segment.y === localHead.y) {
           return true;
         }
       }
     }
     return false;
+  }
+
+  private setEnemySnakeDefeatedFeedback(
+    enemy: EnemyInstance,
+    localHead: Vector2Like,
+    reason: 'ran-into-player' | 'apple',
+  ): void {
+    const world = this.localToWorld(enemy.roomId, localHead);
+    this.setFlag('ui.enemySnakeDefeated', {
+      x: world.x,
+      y: world.y,
+      roomId: enemy.roomId,
+      kind: enemy.encounterKind,
+      reason,
+      length: enemy.body?.length ?? 1,
+    });
+  }
+
+  private noteEnemySnakePressure(): void {
+    const head = this.snake.bodySegments[0];
+    if (!head) return;
+    const roomId = this.snake.currentRoomId;
+    const localHead = this.worldToLocal(roomId, head);
+    let closest: { enemy: EnemyInstance; localHead: Vector2Like; distance: number } | null = null;
+    const candidates = [...this.enemies.getRivalSnakes(), ...this.enemies.getRoamingSnakes()].filter(
+      (enemy) => enemy.roomId === roomId,
+    );
+    for (const enemy of candidates) {
+      const enemyHead = enemy.body?.[0] ?? enemy.position;
+      const distance = this.distance(localHead, enemyHead);
+      if (distance <= 3 && (!closest || distance < closest.distance)) {
+        closest = { enemy, localHead: enemyHead, distance };
+      }
+    }
+    if (!closest) return;
+    const world = this.localToWorld(roomId, closest.localHead);
+    this.setFlag('ui.enemySnakeNear', {
+      x: world.x,
+      y: world.y,
+      roomId,
+      distance: closest.distance,
+      kind: closest.enemy.encounterKind,
+    });
   }
 
   private consumeAppleForRivalSnake(rival: EnemyInstance, roomsChanged: Set<string>): boolean {
@@ -3397,7 +3628,8 @@ export class SnakeGame implements QuestRuntime {
 
     roomsChanged.add(rival.roomId);
     if (consumption.fatal) {
-      this.enemies.removeEnemy(rival.id);
+      const defeated = this.enemies.removeEnemy(rival.id) ?? rival;
+      this.setEnemySnakeDefeatedFeedback(defeated, rival.position, 'apple');
       console.info('[SnakeGame] Rival snake died eating apple.', {
         enemyId: rival.id,
         roomId: rival.roomId,
@@ -3730,6 +3962,7 @@ export class SnakeGame implements QuestRuntime {
     this.tickFortitudeStates();
     this.tickPlayerStates();
     this.tickPowerupState();
+    this.noteEnemySnakePressure();
 
     return null;
   }
@@ -6548,7 +6781,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private normalizeTownQuestBoardTiles(room: RoomSnapshot): void {
-    const district = room.town?.districtByRoomId[room.id];
+    const district = room.town?.districtByRoomId?.[room.id];
     if (district !== 'square') {
       return;
     }
@@ -6845,8 +7078,9 @@ export class SnakeGame implements QuestRuntime {
     this.snake.score = Math.max(0, Math.floor(Number(score) || 0));
   }
 
-  addScore(amount: number, category: ScoreCategory = 'apple'): void {
-    const normalized = normalizeScore(amount, category, this.normalizationState);
+  addScore(amount: number, category?: ScoreCategory): void {
+    const normalized =
+      category === undefined ? amount : normalizeScore(amount, category, this.normalizationState);
     const multiplier = this.getArtifactScoreMultiplier();
     const adjusted =
       normalized > 0 && multiplier > 1 ? Math.max(1, Math.ceil(normalized * multiplier)) : normalized;
@@ -7222,7 +7456,7 @@ export class SnakeGame implements QuestRuntime {
     if (length < 50) {
       return 1;
     }
-    return 1 + Math.log2(1 + (length - 50) / 25);
+    return 2 ** ((length - 50) / 100);
   }
 
   private applyLengthScoreMultiplier(baseScore: number, multiplier: number): number {
@@ -8359,7 +8593,11 @@ export class SnakeGame implements QuestRuntime {
   }
 
   spawnInsultedAngelBoss(): void {
-    this.bosses.spawnBoss(this.snake.currentRoomId, 'fallen-angel');
+    this.bosses.spawnBoss(
+      this.snake.currentRoomId,
+      'fallen-angel',
+      this.world.getRoom(this.snake.currentRoomId),
+    );
     this.setFlag('boss.insultedAngel', true);
   }
 
@@ -9517,11 +9755,19 @@ export class SnakeGame implements QuestRuntime {
 
   spawnArchipelagoTrap(trapId: string): boolean {
     if (trapId === 'freak-dennis') {
-      this.bosses.spawnBoss(this.snake.currentRoomId, 'freak-dennis');
+      this.bosses.spawnBoss(
+        this.snake.currentRoomId,
+        'freak-dennis',
+        this.world.getRoom(this.snake.currentRoomId),
+      );
       return true;
     }
     if (trapId === 'freaker-dennis') {
-      this.bosses.spawnBoss(this.snake.currentRoomId, 'freaker-dennis');
+      this.bosses.spawnBoss(
+        this.snake.currentRoomId,
+        'freaker-dennis',
+        this.world.getRoom(this.snake.currentRoomId),
+      );
       return true;
     }
     if (trapId === 'jason-statham') {

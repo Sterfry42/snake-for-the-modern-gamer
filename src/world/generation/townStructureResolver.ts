@@ -271,9 +271,15 @@ export class MultiRoomStructureResolver {
   }
 
   private isValidTownPlacement(placement: MultiRoomStructurePlacement): boolean {
-    const originDistance = Math.abs(placement.anchor.x) + Math.abs(placement.anchor.y);
-    if (placement.anchor.z === 0 && originDistance < 6) {
-      return false;
+    if (placement.anchor.z === 0) {
+      for (const key of Object.keys(getHumanTownDistricts(placement))) {
+        const [dx = 0, dy = 0] = key.split(',').map(Number);
+        const roomX = placement.anchor.x + dx;
+        const roomY = placement.anchor.y + dy;
+        if (Math.max(Math.abs(roomX), Math.abs(roomY)) <= 2) {
+          return false;
+        }
+      }
     }
     for (const [key] of Object.entries(getHumanTownDistricts(placement))) {
       const [dx = 0, dy = 0] = key.split(',').map(Number);

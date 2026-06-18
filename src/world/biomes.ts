@@ -356,22 +356,22 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
   if (x >= -10 && x <= -5 && y >= -8 && y <= -3) {
     return BIOMES['liberty-badlands'];
   }
-  if (z <= -1 || y >= 2) {
+  if (z <= -1 || y >= 6) {
     return BIOMES['sable-depths'];
   }
-  if (y <= -9) {
+  if (y <= -12) {
     return BIOMES['sunken-ocean'];
   }
-  if (x >= 3 && y <= -1 && y >= -6) {
+  if (x >= 6 && x <= 9 && y <= 1 && y >= -8) {
     return BIOMES['elderwood-maze'];
   }
-  if (x >= 6) {
+  if (x >= 10) {
     return BIOMES['moonlit-parish'];
   }
-  if (x <= -3) {
+  if (x <= -6) {
     return BIOMES['ember-waste'];
   }
-  if (y <= -3) {
+  if (y <= -5) {
     return BIOMES['gloam-garden'];
   }
   return BIOMES['verdigris-basin'];

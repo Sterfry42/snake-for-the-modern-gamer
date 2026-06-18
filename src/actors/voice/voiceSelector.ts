@@ -58,7 +58,15 @@ export function selectActorConversation(
     ALL_VOICE_ENTRIES.find(
       (entry) => entry.bucket === context.bucket && entry.source === 'fallback',
     ) ?? ALL_VOICE_ENTRIES[ALL_VOICE_ENTRIES.length - 1];
-  const pool = valid.length > 0 ? valid : fallback ? [fallback] : [];
+  const repeatSafe = valid.filter((entry) => !entryUsesRecentlySelectedRumor(entry, context));
+  const pool =
+    repeatSafe.length > 0
+      ? repeatSafe
+      : valid.length > 0
+        ? valid
+        : fallback
+          ? [fallback]
+          : [];
   const recentIds = recentConversationIds(context);
   const scored = pool.map((entry) => ({
     entry,
@@ -183,6 +191,17 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
     !context.factionEvents.some((event) => entry.factionStates?.includes(event.relation))
   )
     return false;
+  if (
+    entry.source === 'faction' &&
+    context.factionEvents.length > 0 &&
+    context.factionEvents.every(
+      (event) =>
+        event.severity <= 8 &&
+        event.tags.includes('ambient') &&
+        event.tags.includes('truce'),
+    )
+  )
+    return false;
   if (entry.townMoodTags?.includes('wanted') && (context.town?.wantedLevel ?? 0) <= 0) return false;
   if (entry.minFocus !== undefined && (actor.focus ?? 0) < entry.minFocus) return false;
   if (entry.maxFocus !== undefined && (actor.focus ?? 0) > entry.maxFocus) return false;
@@ -220,7 +239,14 @@ function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext
     bonus += isAmbientTruce ? -90 : Math.min(16, faction.severity);
   }
   if (entry.source === 'social' && context.socialLink && !context.socialLink.knownToPlayer)
-    bonus += 12;
+    bonus += context.actor.lore ? 12 : 100;
+  if (
+    context.bucket === 'talk' &&
+    entry.id.startsWith('deep-') &&
+    entry.personalityTags?.some((tag) => context.actor.personality.includes(tag))
+  ) {
+    bonus += 100;
+  }
   if (entry.source === 'soul' && context.actor.focus >= 8) bonus += 8;
   if (entry.tags.includes('health') && healthBand(context) === 'critical') bonus += 10;
   if (entry.tags.includes('danger') && context.dangerLevel >= 6) bonus += 8;

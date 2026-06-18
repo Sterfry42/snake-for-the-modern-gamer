@@ -1,5 +1,34 @@
 export type CardSuit = 'moss' | 'teeth' | 'lanterns' | 'moons' | 'smoke' | 'jade';
 
+export type CardTableId = 'porch-table' | 'market-table' | 'dennis-dare';
+
+export type HouseCardTiming = 'before-draw' | 'score-window' | 'before-score' | 'after-round';
+
+export type HouseCardRarity = 'common' | 'uncommon' | 'rare' | 'freak';
+
+export type HouseCardId =
+  | 'tighten-the-gap'
+  | 'short-hand'
+  | 'chip-tax'
+  | 'dealer-skims'
+  | 'big-blind'
+  | 'no-cowards'
+  | 'two-pair'
+  | 'burn-notice';
+
+export type HouseMode =
+  | {
+      kind: 'fixed';
+      cardsPerRound: number;
+      persistent: boolean;
+    }
+  | {
+      kind: 'variable';
+      minCardsPerRound: number;
+      maxCardsPerRound: number;
+      persistent: boolean;
+    };
+
 export type CardId =
   | 'moss-two'
   | 'moss-five'
@@ -42,13 +71,37 @@ export interface CardDefinition {
 }
 
 export interface CardTableDefinition {
-  id: string;
+  id: CardTableId;
   name: string;
   i18nName: string;
+  description: string;
   minScore: number;
   maxScore: number;
-  entryFee: number;
-  rewardScore: number;
+  maxWager: number;
+  payoutMultiplier: number;
+  houseMode: HouseMode;
+  houseCardPool: HouseCardId[];
+  houseCardWeightOverrides?: Partial<Record<HouseCardId, number>>;
+  riskLabel?: string;
+  tableFlavor?: string;
+  entryFee?: number;
+  rewardScore?: number;
+}
+
+export interface HouseCardDefinition {
+  id: HouseCardId;
+  name: string;
+  shortText: string;
+  description: string;
+  timing: HouseCardTiming;
+  rarity: HouseCardRarity;
+  weight: number;
+}
+
+export interface ActiveHouseCard {
+  id: HouseCardId;
+  roundPlayed: number;
+  persistent: boolean;
 }
 
 export type CardCollection = Partial<Record<CardId, number>>;
@@ -64,7 +117,7 @@ export const CARD_TO_ITEM_MIGRATION: Record<LegacyWorldEffectCardId, string> = {
 };
 
 export interface CardCompetitionState {
-  tableId: string;
+  tableId: CardTableId;
   wagerScore: number;
   round: number;
   wins: number;
@@ -72,6 +125,9 @@ export interface CardCompetitionState {
   spentCards: CardId[];
   deck: CardId[];
   discard: CardId[];
+  activeHouseCards: ActiveHouseCard[];
+  houseCardsThisRound: HouseCardId[];
+  destroyedCards: CardId[];
 }
 
 export interface CardScoreResult {
@@ -81,6 +137,15 @@ export interface CardScoreResult {
   minScore: number;
   maxScore: number;
   details: string[];
+  houseCards: HouseCardId[];
+  scoredCards: CardId[];
+  ignoredCards: CardId[];
+  destroyedCards: CardId[];
+  appliedHouseEffects: string[];
+}
+
+export interface ScoreCardHandOptions {
+  houseCards?: HouseCardId[];
 }
 
 export const CARD_DEFINITIONS: readonly CardDefinition[] = [
@@ -312,13 +377,113 @@ export const CARD_SHOP_OFFERS: readonly CardId[] = [
   'freak-dennis-fog',
 ];
 
+export const HOUSE_CARD_DEFINITIONS: Record<HouseCardId, HouseCardDefinition> = {
+  'tighten-the-gap': {
+    id: 'tighten-the-gap',
+    name: 'Tighten the Gap',
+    shortText: 'Window narrows',
+    description: 'Increase the target minimum by 2 and decrease the maximum by 2.',
+    timing: 'score-window',
+    rarity: 'common',
+    weight: 12,
+  },
+  'short-hand': {
+    id: 'short-hand',
+    name: 'Short Hand',
+    shortText: 'Draw 4',
+    description: 'The player draws 4 cards instead of 5 this round.',
+    timing: 'before-draw',
+    rarity: 'uncommon',
+    weight: 7,
+  },
+  'chip-tax': {
+    id: 'chip-tax',
+    name: 'Chip Tax',
+    shortText: 'Each card -1',
+    description: 'Each scored card contributes 1 fewer chip, to a minimum of 0 per card.',
+    timing: 'before-score',
+    rarity: 'common',
+    weight: 10,
+  },
+  'dealer-skims': {
+    id: 'dealer-skims',
+    name: 'Dealer Skims',
+    shortText: 'Lowest ignored',
+    description: 'The lowest-chip selected card is ignored for scoring. It is still spent.',
+    timing: 'before-score',
+    rarity: 'rare',
+    weight: 4,
+  },
+  'big-blind': {
+    id: 'big-blind',
+    name: 'Big Blind',
+    shortText: 'Score +5',
+    description: 'Add 5 chips to the final score.',
+    timing: 'before-score',
+    rarity: 'uncommon',
+    weight: 8,
+  },
+  'no-cowards': {
+    id: 'no-cowards',
+    name: 'No Cowards',
+    shortText: '1 card = -10',
+    description: 'If exactly 1 card is scored, final score gets -10.',
+    timing: 'before-score',
+    rarity: 'uncommon',
+    weight: 6,
+  },
+  'two-pair': {
+    id: 'two-pair',
+    name: 'Two Pair',
+    shortText: 'Pairs score double',
+    description: 'If the scored hand has at least two different printed chip pairs, multiplier +1.',
+    timing: 'before-score',
+    rarity: 'rare',
+    weight: 4,
+  },
+  'burn-notice': {
+    id: 'burn-notice',
+    name: 'Burn Notice',
+    shortText: 'Played cards destroyed',
+    description: 'Selected cards are permanently removed from your collection after scoring.',
+    timing: 'after-round',
+    rarity: 'freak',
+    weight: 2,
+  },
+};
+
+const ALL_HOUSE_CARD_IDS: HouseCardId[] = [
+  'tighten-the-gap',
+  'short-hand',
+  'chip-tax',
+  'dealer-skims',
+  'big-blind',
+  'no-cowards',
+  'two-pair',
+  'burn-notice',
+];
+
 export const CARD_TABLES: readonly CardTableDefinition[] = [
   {
     id: 'porch-table',
     name: 'Porch Table',
     i18nName: 'cardTablePorch',
+    description: 'A low-stakes table where the house only cheats a little.',
     minScore: 18,
     maxScore: 34,
+    maxWager: 50,
+    payoutMultiplier: 1.5,
+    houseMode: {
+      kind: 'fixed',
+      cardsPerRound: 1,
+      persistent: false,
+    },
+    houseCardPool: ALL_HOUSE_CARD_IDS,
+    houseCardWeightOverrides: {
+      'burn-notice': 1,
+    },
+    riskLabel: 'Low Risk',
+    tableFlavor: 'The porch table smiles like it knows your mother.',
     entryFee: 3,
     rewardScore: 10,
   },
@@ -326,8 +491,23 @@ export const CARD_TABLES: readonly CardTableDefinition[] = [
     id: 'market-table',
     name: 'Market Table',
     i18nName: 'cardTableMarket',
+    description: 'A busy table with flexible rules and flexible morals.',
     minScore: 36,
     maxScore: 62,
+    maxWager: Number.MAX_SAFE_INTEGER,
+    payoutMultiplier: 2,
+    houseMode: {
+      kind: 'variable',
+      minCardsPerRound: 1,
+      maxCardsPerRound: 2,
+      persistent: false,
+    },
+    houseCardPool: ALL_HOUSE_CARD_IDS,
+    houseCardWeightOverrides: {
+      'burn-notice': 2,
+    },
+    riskLabel: 'Medium Risk',
+    tableFlavor: 'Everyone at the market table insists this is normal.',
     entryFee: 9,
     rewardScore: 26,
   },
@@ -335,8 +515,22 @@ export const CARD_TABLES: readonly CardTableDefinition[] = [
     id: 'dennis-dare',
     name: 'Freak Dennis Dare',
     i18nName: 'cardTableDennisDare',
+    description: 'The table where the house remembers.',
     minScore: 78,
     maxScore: 118,
+    maxWager: Number.MAX_SAFE_INTEGER,
+    payoutMultiplier: 3,
+    houseMode: {
+      kind: 'fixed',
+      cardsPerRound: 1,
+      persistent: true,
+    },
+    houseCardPool: ALL_HOUSE_CARD_IDS,
+    houseCardWeightOverrides: {
+      'burn-notice': 3,
+    },
+    riskLabel: 'High Risk',
+    tableFlavor: 'Freak Dennis smiles. The house remembers.',
     entryFee: 18,
     rewardScore: 58,
   },
@@ -356,6 +550,167 @@ export function getCardTable(id: string): CardTableDefinition {
     throw new Error(`Unknown card table id: ${id}`);
   }
   return table;
+}
+
+export const BASE_WAGER_AMOUNTS = [10, 25, 50] as const;
+
+export interface CardWagerOption {
+  label: string;
+  amount: number;
+}
+
+export function getLegalCardWagers(
+  playerScore: number,
+  table: CardTableDefinition,
+): readonly number[] {
+  const score = Math.max(0, Math.floor(playerScore));
+  return BASE_WAGER_AMOUNTS.filter(
+    (amount) => amount <= score && (table.id !== 'porch-table' || amount <= table.maxWager),
+  );
+}
+
+export function getCardWagerOptions(
+  playerScore: number,
+  table: CardTableDefinition,
+): CardWagerOption[] {
+  const score = Math.max(0, Math.floor(playerScore));
+  if (score < 10) {
+    return [];
+  }
+  if (table.id === 'porch-table') {
+    return getLegalCardWagers(score, table).map((amount) => ({
+      label: `Bet ${amount}`,
+      amount,
+    }));
+  }
+  return [
+    { label: 'Bet 10%', amount: Math.max(1, Math.floor(score * 0.1)) },
+    { label: 'Bet 25%', amount: Math.max(1, Math.floor(score * 0.25)) },
+    { label: 'Bet 50%', amount: Math.max(1, Math.floor(score * 0.5)) },
+    { label: `All In (${score})`, amount: score },
+  ];
+}
+
+export function getCardTablePayout(wagerScore: number, table: CardTableDefinition): number {
+  return Math.max(wagerScore + 1, Math.ceil(wagerScore * table.payoutMultiplier));
+}
+
+export function getHouseCardDefinition(id: HouseCardId): HouseCardDefinition {
+  return HOUSE_CARD_DEFINITIONS[id];
+}
+
+export function getActiveHouseCardIds(state: CardCompetitionState): HouseCardId[] {
+  return state.activeHouseCards.map((card) => card.id);
+}
+
+function normalizeScoreWindow(
+  minScore: number,
+  maxScore: number,
+): {
+  minScore: number;
+  maxScore: number;
+} {
+  const clampedMin = Math.max(0, minScore);
+  const clampedMax = Math.max(clampedMin, maxScore);
+  return { minScore: clampedMin, maxScore: clampedMax };
+}
+
+export function getActiveScoreWindow(
+  table: CardTableDefinition,
+  houseCards: readonly HouseCardId[] = [],
+): { minScore: number; maxScore: number } {
+  let minScore = table.minScore;
+  let maxScore = table.maxScore;
+  for (const houseCard of houseCards) {
+    if (houseCard === 'tighten-the-gap') {
+      minScore += 2;
+      maxScore -= 2;
+    }
+  }
+  return normalizeScoreWindow(minScore, maxScore);
+}
+
+export function getHandSizeForRound(houseCards: readonly HouseCardId[] = []): number {
+  return houseCards.includes('short-hand') ? 4 : 5;
+}
+
+function getHouseCardWeight(table: CardTableDefinition, id: HouseCardId): number {
+  return Math.max(0, table.houseCardWeightOverrides?.[id] ?? HOUSE_CARD_DEFINITIONS[id].weight);
+}
+
+function getHouseCardsPerRound(table: CardTableDefinition, random: () => number): number {
+  if (table.houseMode.kind === 'fixed') {
+    return Math.max(0, table.houseMode.cardsPerRound);
+  }
+  const min = Math.max(0, Math.floor(table.houseMode.minCardsPerRound));
+  const max = Math.max(min, Math.floor(table.houseMode.maxCardsPerRound));
+  return min + Math.floor(random() * (max - min + 1));
+}
+
+export function rollHouseCardsForRound(
+  table: CardTableDefinition,
+  random: () => number,
+  activeHouseCards: readonly ActiveHouseCard[] = [],
+): HouseCardId[] {
+  const targetCount = getHouseCardsPerRound(table, random);
+  const rolled: HouseCardId[] = [];
+  const rolledSet = new Set<HouseCardId>();
+  const activeSet = new Set(activeHouseCards.map((card) => card.id));
+
+  for (let i = 0; i < targetCount; i += 1) {
+    const candidates = table.houseCardPool.filter((id) => {
+      if (rolledSet.has(id)) return false;
+      if (table.houseMode.persistent && activeSet.has(id)) return false;
+      return getHouseCardWeight(table, id) > 0;
+    });
+    if (candidates.length === 0) {
+      break;
+    }
+    const totalWeight = candidates.reduce((sum, id) => sum + getHouseCardWeight(table, id), 0);
+    let roll = random() * totalWeight;
+    let selected = candidates[0]!;
+    for (const candidate of candidates) {
+      roll -= getHouseCardWeight(table, candidate);
+      if (roll <= 0) {
+        selected = candidate;
+        break;
+      }
+    }
+    rolled.push(selected);
+    rolledSet.add(selected);
+  }
+
+  return rolled;
+}
+
+export function startCardCompetitionRound(
+  state: CardCompetitionState,
+  table: CardTableDefinition,
+  random: () => number,
+): CardCompetitionState {
+  const persistentCards = state.activeHouseCards.filter((card) => card.persistent);
+  const rolled = rollHouseCardsForRound(table, random, persistentCards);
+  const newlyActive = rolled.map((id) => ({
+    id,
+    roundPlayed: state.round,
+    persistent: table.houseMode.persistent,
+  }));
+
+  return {
+    ...state,
+    activeHouseCards: [...persistentCards, ...newlyActive],
+    houseCardsThisRound: rolled,
+  };
+}
+
+export function beginCardRound(
+  state: CardCompetitionState,
+  table: CardTableDefinition,
+  random: () => number,
+): void {
+  const next = startCardCompetitionRound(state, table, random);
+  state.activeHouseCards = next.activeHouseCards;
+  state.houseCardsThisRound = next.houseCardsThisRound;
 }
 
 export function countCards(collection: CardCollection): number {
@@ -388,8 +743,9 @@ export function createCompetitionState(
   random: () => number,
   wagerScore = 0,
 ): CardCompetitionState {
+  const table = getCardTable(tableId);
   return {
-    tableId,
+    tableId: table.id,
     wagerScore,
     round: 1,
     wins: 0,
@@ -397,6 +753,9 @@ export function createCompetitionState(
     spentCards: [],
     deck: shuffleCards(expandCollection(collection), random),
     discard: [],
+    activeHouseCards: [],
+    houseCardsThisRound: [],
+    destroyedCards: [],
   };
 }
 
@@ -419,17 +778,65 @@ export function finishCompetitionRound(state: CardCompetitionState, playedCards:
   state.round += 1;
 }
 
-export function scoreCardHand(cardIds: CardId[], table: CardTableDefinition): CardScoreResult {
-  const cards = cardIds.map(getCardDefinition);
+export function getDestroyedCardsForRound(
+  playedCards: readonly CardId[],
+  houseCards: readonly HouseCardId[] = [],
+): CardId[] {
+  return houseCards.includes('burn-notice') ? [...playedCards] : [];
+}
+
+export function removeDestroyedCardsFromCollection(
+  collection: CardCollection,
+  destroyedCards: readonly CardId[],
+): CardCollection {
+  if (destroyedCards.length === 0) {
+    return { ...collection };
+  }
+  const next: CardCollection = { ...collection };
+  for (const cardId of destroyedCards) {
+    next[cardId] = Math.max(0, Math.floor(Number(next[cardId] ?? 0)) - 1);
+  }
+  return next;
+}
+
+export function scoreCardHand(
+  cardIds: CardId[],
+  table: CardTableDefinition,
+  options: ScoreCardHandOptions = {},
+): CardScoreResult {
+  const houseCards = options.houseCards ?? [];
+  const selectedCards = cardIds.map(getCardDefinition);
+  const ignoredIndexes = new Set<number>();
+  const ignoredCards: CardId[] = [];
+  const appliedHouseEffects: string[] = [];
+
+  if (houseCards.includes('dealer-skims') && selectedCards.length > 0) {
+    let ignoredIndex = 0;
+    for (let i = 1; i < selectedCards.length; i += 1) {
+      if (selectedCards[i]!.chips < selectedCards[ignoredIndex]!.chips) {
+        ignoredIndex = i;
+      }
+    }
+    ignoredIndexes.add(ignoredIndex);
+    ignoredCards.push(selectedCards[ignoredIndex]!.id);
+    appliedHouseEffects.push(`Dealer Skims ignored ${selectedCards[ignoredIndex]!.name}.`);
+  }
+
+  const cards = selectedCards.filter((_, index) => !ignoredIndexes.has(index));
   let chips = 0;
   let multiplier = 1;
-  let minScore = table.minScore;
-  let maxScore = table.maxScore;
+  let { minScore, maxScore } = getActiveScoreWindow(table, houseCards);
   const details: string[] = [];
+  const chipTaxActive = houseCards.includes('chip-tax');
+
+  if (houseCards.includes('tighten-the-gap')) {
+    appliedHouseEffects.push('Tighten the Gap narrowed the target.');
+  }
 
   for (let i = 0; i < cards.length; i += 1) {
     const card = cards[i];
-    chips += card.chips;
+    // Chip Tax changes scoring contribution only; printed chip values still drive card effects.
+    chips += chipTaxActive ? Math.max(0, card.chips - 1) : card.chips;
     if (card.id === 'moon-jack' && i > 0) {
       chips += cards[i - 1].chips;
       details.push('Moon Jack copied left chips.');
@@ -502,15 +909,51 @@ export function scoreCardHand(cardIds: CardId[], table: CardTableDefinition): Ca
     details.push('Careful Five pulled the score back.');
   }
 
+  if (chipTaxActive) {
+    appliedHouseEffects.push('Chip Tax shaved 1 chip from each scored card.');
+  }
+
+  if (houseCards.includes('two-pair')) {
+    const pairs = new Map<number, number>();
+    for (const card of cards) {
+      pairs.set(card.chips, (pairs.get(card.chips) ?? 0) + 1);
+    }
+    const pairCount = [...pairs.values()].filter((count) => count >= 2).length;
+    if (pairCount >= 2) {
+      multiplier += 1;
+      appliedHouseEffects.push('Two Pair added +1 multiplier.');
+    }
+  }
+
   minScore = Math.max(0, minScore);
   maxScore = Math.max(minScore, maxScore);
   chips = Math.max(0, chips);
+  let finalScore = Math.max(0, Math.round(chips * multiplier));
+  if (houseCards.includes('big-blind')) {
+    finalScore += 5;
+    appliedHouseEffects.push('Big Blind added 5 to the final score.');
+  }
+  if (houseCards.includes('no-cowards') && cards.length === 1) {
+    finalScore = Math.max(0, finalScore - 10);
+    appliedHouseEffects.push('No Cowards punished a one-card score.');
+  }
+
+  const destroyedCards = getDestroyedCardsForRound(cardIds, houseCards);
+  if (destroyedCards.length > 0) {
+    appliedHouseEffects.push('Burn Notice will destroy played cards after scoring.');
+  }
+
   return {
     chips,
     multiplier,
-    finalScore: Math.max(0, Math.round(chips * multiplier)),
+    finalScore,
     minScore,
     maxScore,
-    details,
+    details: [...details, ...appliedHouseEffects],
+    houseCards: [...houseCards],
+    scoredCards: cards.map((card) => card.id),
+    ignoredCards,
+    destroyedCards,
+    appliedHouseEffects,
   };
 }

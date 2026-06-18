@@ -136,17 +136,28 @@ import {
   CARD_DEFINITIONS,
   CARD_SHOP_OFFERS,
   CARD_TABLES,
+  beginCardRound,
   countCards,
   createCompetitionState,
   drawCompetitionHand,
   finishCompetitionRound,
+  getActiveHouseCardIds,
+  getActiveScoreWindow,
   getCardDefinition,
   getCardTable,
+  getCardTablePayout,
+  getCardWagerOptions,
+  getHandSizeForRound,
+  getHouseCardDefinition,
+  getLegalCardWagers,
+  removeDestroyedCardsFromCollection,
   scoreCardHand,
   type CardCollection,
   type CardCompetitionState,
   type CardId,
   type CardScoreResult,
+  type CardTableDefinition,
+  type HouseCardId,
 } from '../cards/cardGame.js';
 import {
   ARCHAEOLOGY_TILE_DEFINITIONS,
@@ -191,6 +202,17 @@ import type {
   AchievementUnlockResult,
 } from '../achievements/achievementTypes.js';
 import { shouldSendDeathLink, type DeathLinkMode } from '../archipelago/deathLink.js';
+
+type CardTableVisualStyle = {
+  wood: number;
+  woodDark: number;
+  cloth: number;
+  clothDark: number;
+  brass: number;
+  accent: number;
+  deckBack: number;
+  prop: 'porch' | 'market' | 'dennis';
+};
 
 type SnakeThemeId = VillageShopStyleId;
 
@@ -1506,6 +1528,7 @@ export default class SnakeScene extends Phaser.Scene {
   private actorStepIntervalMs = this.baseActorStepIntervalMs;
   private bulletStepIntervalMs = this.baseBulletStepIntervalMs;
   private hazardStepIntervalMs = this.baseHazardStepIntervalMs;
+  private lastEnemySnakeNearFxAtMs = 0;
   private readonly simulationScheduler = new SimulationScheduler([
     {
       id: 'boss',
@@ -3475,7 +3498,7 @@ export default class SnakeScene extends Phaser.Scene {
       onComplete: () => {
         cutscene.container.destroy(true);
         this.deathCutscene = null;
-        this.questPopup.setDepth(20);
+        this.questPopup.setDepth(70);
         this.juice.stopHeavenMusic();
         (this.juice as any).stopHellMusic?.();
         if (cutscene.mode === 'revive') {
@@ -4498,6 +4521,20 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
       return { ok: true, message: 'Cheat active: apple score x100.', color: '#5dd6a2' };
     }
+    if (code === 'ebaycollector') {
+      const collection: CardCollection = {};
+      for (const card of CARD_DEFINITIONS) {
+        collection[card.id] = 3;
+      }
+      this.setCardCollection(collection);
+      this.skillTree.getOverlay().refresh();
+      return { ok: true, message: 'Cheat active: all cards acquired.', color: '#5dd6a2' };
+    }
+    if (code === 'cardshark' || code === 'playcards') {
+      this.setFlag('cheat.cardTablesUnlocked', true);
+      this.isDirty = true;
+      return { ok: true, message: 'Cheat active: card tables unlocked in interactions.', color: '#5dd6a2' };
+    }
     if (code === '90fps240hz') {
       const nextVisible = !this.performanceHudVisible;
       this.setPerformanceHudVisible(nextVisible);
@@ -4939,6 +4976,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   showSaveUI(): void {
+    if (this.cardGameContainer || this.villageShopPopup?.isVisible() || this.questPopup?.isVisible()) {
+      return;
+    }
     this.saveUI.show();
   }
 
@@ -7527,6 +7567,62 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.enemyEaten', undefined);
     }
 
+    const enemySnakeDefeated = this.snakeGame.getFlag<{
+      x: number;
+      y: number;
+      roomId: string;
+      kind?: string;
+      reason?: string;
+      length?: number;
+    }>('ui.enemySnakeDefeated');
+    if (enemySnakeDefeated) {
+      const world = this.tileToWorldInRoom(
+        { x: enemySnakeDefeated.x, y: enemySnakeDefeated.y },
+        enemySnakeDefeated.roomId,
+      );
+      this.juice.enemySnakeDefeated(world.x, world.y, enemySnakeDefeated.length ?? 1);
+      const popup = this.add
+        .text(world.x, world.y - 16, '+ Snake Down', {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#ffd166',
+          stroke: '#1a0810',
+          strokeThickness: 3,
+        })
+        .setDepth(27)
+        .setOrigin(0.5, 1);
+      this.tweens.add({
+        targets: popup,
+        y: world.y - 46,
+        alpha: 0,
+        scale: 1.08,
+        duration: 700,
+        ease: 'Cubic.easeOut',
+        onComplete: () => popup.destroy(),
+      });
+      this.snakeGame.setFlag('ui.enemySnakeDefeated', undefined);
+    }
+
+    const enemySnakeNear = this.snakeGame.getFlag<{
+      x: number;
+      y: number;
+      roomId: string;
+      distance?: number;
+      kind?: string;
+    }>('ui.enemySnakeNear');
+    if (enemySnakeNear) {
+      const interval = enemySnakeNear.distance !== undefined && enemySnakeNear.distance <= 1 ? 260 : 520;
+      if (this.time.now - this.lastEnemySnakeNearFxAtMs >= interval) {
+        const world = this.tileToWorldInRoom(
+          { x: enemySnakeNear.x, y: enemySnakeNear.y },
+          enemySnakeNear.roomId,
+        );
+        this.juice.enemySnakeNear(world.x, world.y, enemySnakeNear.distance ?? 3);
+        this.lastEnemySnakeNearFxAtMs = this.time.now;
+      }
+      this.snakeGame.setFlag('ui.enemySnakeNear', undefined);
+    }
+
     const wandererReveal = this.snakeGame.getFlag<{
       x: number;
       y: number;
@@ -9097,7 +9193,7 @@ export default class SnakeScene extends Phaser.Scene {
   private getCardCollection(): CardCollection {
     const saved = this.getFlag<Record<string, unknown>>('cards.collection') ?? {};
     const collection: CardCollection = {};
-    for (const cardId of CARD_SHOP_OFFERS) {
+    for (const { id: cardId } of CARD_DEFINITIONS) {
       const count = Number(saved[cardId] ?? 0);
       if (Number.isFinite(count) && count > 0) {
         collection[cardId] = Math.floor(count);
@@ -10068,16 +10164,6 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'Buy tiny competition cards for your personal deck.',
       });
     }
-    const canPlayCards =
-      actorRole === 'cardDealer' ||
-      Boolean(room.village && (!actorRole || actorRole === 'shopkeeper'));
-    if (canPlayCards) {
-      options.push({
-        id: 'play-cards',
-        title: 'Play Cards',
-        description: 'Sit at the stall table and chase the score window.',
-      });
-    }
     if (this.snakeGame.isRaccoonMode() && (actorRole === 'butcher' || actorRole)) {
       options.push({
         id: 'stash-apples',
@@ -10107,10 +10193,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.show(title, options, (id) => {
       if (id === 'leave') {
         this.closeVillageShop();
-        return;
-      }
-      if (id === 'play-cards') {
-        this.showCardTableRoot(shopkeeperName, true, actorRole === 'cardDealer', actorRole);
         return;
       }
       if (id === 'sell-length') {
@@ -10357,7 +10439,7 @@ export default class SnakeScene extends Phaser.Scene {
     const options: ChoiceOption[] = CARD_TABLES.map((table) => ({
       id: `table:${table.id}`,
       title: highStakes ? `${table.name} - Sharp Table` : table.name,
-      description: `Best of 3. Land between ${table.minScore} and ${table.maxScore}. Choose your wager next. ${i18n.getFeatureString('cardInfo')} ${ownedCount} cards.${highStakes ? ' Tavern runner allows bigger bets.' : ''}`,
+      description: `Best of 3. Target ${table.minScore}-${table.maxScore}. ${this.describeHouseMode(table)} ${table.id === 'porch-table' ? 'Fixed wagers: 10, 25, or 50.' : 'No wager limit.'} Payout ${table.payoutMultiplier}x. ${table.riskLabel ?? 'Risky'}. ${ownedCount} cards owned.`,
     }));
     options.push({
       id: 'back',
@@ -10388,16 +10470,16 @@ export default class SnakeScene extends Phaser.Scene {
     actorRole?: string,
   ): void {
     const table = getCardTable(tableId);
-    const wagers = this.getCardBetOptions(highStakes);
+    const wagers = this.getCardBetOptions(tableId);
     if (wagers.length === 0) {
-      this.showQuestHintPopup('You need score to place a card wager.', '#ff6b6b');
+      this.showQuestHintPopup('You need at least 10 score to sit at this table.', '#ff6b6b');
       this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes, actorRole);
       return;
     }
-    const options: ChoiceOption[] = wagers.map((wager) => ({
-      id: `bet:${wager.amount}`,
+    const options: ChoiceOption[] = wagers.map((wager, index) => ({
+      id: `bet:${index}:${wager.amount}`,
       title: wager.label,
-      description: `Risk ${wager.amount} score. Win the match to receive ${wager.amount * 2} score back.`,
+      description: `Risk ${wager.amount} score. Win the match to receive ${getCardTablePayout(wager.amount, table)} score back.`,
     }));
     options.push({ id: 'back', title: 'Back', description: 'Choose a different card table.' });
     this.villageShopPopup.show(`${table.name} Wager`, options, (id) => {
@@ -10405,7 +10487,8 @@ export default class SnakeScene extends Phaser.Scene {
         this.showCardTableRoot(shopkeeperName, fromVillageShop, highStakes, actorRole);
         return;
       }
-      const [, amount] = id.split(':');
+      const idParts = id.split(':');
+      const amount = idParts[idParts.length - 1];
       this.startCardCompetition(
         shopkeeperName,
         tableId,
@@ -10416,34 +10499,17 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  private getCardBetOptions(highStakes = false): Array<{ label: string; amount: number }> {
-    const score = Math.max(0, Math.floor(this.score));
-    const candidates: Array<{ label: string; amount: number }> = [];
-    if (score >= 5) {
-      candidates.push({ label: 'Bet 5', amount: 5 });
+  private describeHouseMode(table: (typeof CARD_TABLES)[number]): string {
+    if (table.houseMode.kind === 'fixed') {
+      return table.houseMode.persistent
+        ? `House: ${table.houseMode.cardsPerRound} card each round; cards stay active.`
+        : `House: ${table.houseMode.cardsPerRound} card each round.`;
     }
-    if (score >= 25) {
-      candidates.push({ label: 'Bet 25', amount: 25 });
-    }
-    if (highStakes && score >= 100) {
-      candidates.push({ label: 'Bet 100', amount: 100 });
-    }
-    if (score > 0) {
-      candidates.push({ label: 'Bet 10%', amount: Math.max(1, Math.floor(score * 0.1)) });
-      candidates.push({ label: 'Bet 50%', amount: Math.max(1, Math.floor(score * 0.5)) });
-      if (highStakes) {
-        candidates.push({ label: 'Bet 75%', amount: Math.max(1, Math.floor(score * 0.75)) });
-      }
-      candidates.push({ label: 'Bet All Score', amount: score });
-    }
-    const seen = new Set<number>();
-    return candidates.filter((candidate) => {
-      if (candidate.amount <= 0 || candidate.amount > score || seen.has(candidate.amount)) {
-        return false;
-      }
-      seen.add(candidate.amount);
-      return true;
-    });
+    return `House: ${table.houseMode.minCardsPerRound}-${table.houseMode.maxCardsPerRound} cards each round.`;
+  }
+
+  private getCardBetOptions(tableId: string): Array<{ label: string; amount: number }> {
+    return getCardWagerOptions(this.score, getCardTable(tableId));
   }
 
   private startCardCompetition(
@@ -10453,7 +10519,12 @@ export default class SnakeScene extends Phaser.Scene {
     fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
     highStakes = false,
   ): void {
-    if (wagerScore <= 0 || this.score < wagerScore) {
+    const table = getCardTable(tableId);
+    if (
+      wagerScore <= 0 ||
+      this.score < wagerScore ||
+      !this.getCardBetOptions(tableId).some((option) => option.amount === wagerScore)
+    ) {
       this.showQuestHintPopup('That wager is not available.', '#ff6b6b');
       this.showCardBetMenu(shopkeeperName, tableId, fromVillageShop, highStakes);
       return;
@@ -10471,8 +10542,110 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private showNextCardRound(shopkeeperName: string, state: CardCompetitionState): void {
-    const hand = drawCompetitionHand(state, () => this.random());
-    this.showCardHand(shopkeeperName, state, hand, new Set<number>());
+    const table = getCardTable(state.tableId);
+    beginCardRound(state, table, () => this.random());
+    const hand = drawCompetitionHand(
+      state,
+      () => this.random(),
+      getHandSizeForRound(getActiveHouseCardIds(state)),
+    );
+    this.showHouseCardDealAnimation(shopkeeperName, state, hand);
+  }
+
+  private showHouseCardDealAnimation(
+    shopkeeperName: string,
+    state: CardCompetitionState,
+    hand: CardId[],
+  ): void {
+    this.hideSaveUI();
+    const table = getCardTable(state.tableId);
+    const houseCardIds = getActiveHouseCardIds(state);
+    const activeWindow = getActiveScoreWindow(table, houseCardIds);
+    this.hideCardGamePopup();
+    this.villageShopPopup.hide();
+    this.hideSaveUI();
+    this.setChoicePopupVisible(true);
+
+    const width = Math.min(this.scale.width - 44, 720);
+    const height = Math.min(this.scale.height - 44, 500);
+    const x = (this.scale.width - width) / 2;
+    const y = (this.scale.height - height) / 2;
+    const visualStyle = this.getCardTableVisualStyle(state.tableId);
+    const root = this.add.container(x, y).setDepth(60).setScrollFactor(0);
+    const dimmer = this.add
+      .rectangle(-x, -y, this.scale.width, this.scale.height, 0x030207, 0.72)
+      .setOrigin(0, 0);
+    const surface = this.createCardTableSurface(width, height, visualStyle);
+    const title = this.add
+      .text(width / 2, 12, `${table.name} R${state.round} (${state.wins}-${state.losses})`, {
+        fontFamily: 'monospace',
+        fontSize: '22px',
+        color: '#fff3a8',
+      })
+      .setOrigin(0.5, 0);
+    const target = this.add
+      .text(
+        width / 2,
+        48,
+        `Target ${activeWindow.minScore}-${activeWindow.maxScore}   Deck ${state.deck.length}   Spent ${state.spentCards.length}`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#9ad1ff',
+        },
+      )
+      .setOrigin(0.5, 0);
+    root.add([dimmer, surface, title, target]);
+    this.addCardTableProps(root, width, height, visualStyle);
+
+    const houseStartX = 84;
+    const houseDeckShadow = this.add
+      .rectangle(houseStartX + 3, 105, 38, 52, 0x02040a, 0.38)
+      .setOrigin(0, 0);
+    const houseDeck = this.add
+      .rectangle(houseStartX, 101, 38, 52, visualStyle.deckBack, 0.98)
+      .setStrokeStyle(2, visualStyle.brass)
+      .setOrigin(0, 0);
+    const houseDeckInner = this.add
+      .rectangle(houseStartX + 5, 107, 28, 40, 0x101018, 0.32)
+      .setStrokeStyle(1, visualStyle.accent)
+      .setOrigin(0, 0);
+    const houseDeckIcon = this.add.graphics();
+    this.drawHouseDeckIcon(houseDeckIcon, state.tableId, houseStartX + 19, 127, 11);
+    root.add([houseDeckShadow, houseDeck, houseDeckInner, houseDeckIcon]);
+
+    this.cardGameContainer = root;
+    const newlyPlayed =
+      state.houseCardsThisRound.length > 0 ? state.houseCardsThisRound : houseCardIds;
+    let longestDelay = 260;
+    newlyPlayed.forEach((houseCardId, index) => {
+      const card = this.createHouseCardSprite(houseCardId, true, table, activeWindow);
+      const targetX = houseStartX + 52 + houseCardIds.indexOf(houseCardId) * 58;
+      const targetY = 98;
+      card
+        .setPosition(houseStartX + 2, 98)
+        .setAlpha(0)
+        .setScale(0.52);
+      root.add(card);
+      const delay = 140 + index * 220;
+      longestDelay = Math.max(longestDelay, delay + 360);
+      this.time.delayedCall(delay, () => {
+        this.juice.cardRuleTrigger(x + targetX + 38, y + targetY + 52, houseCardId, index);
+        this.tweens.add({
+          targets: card,
+          x: targetX,
+          y: targetY,
+          alpha: 1,
+          scale: 0.72,
+          duration: 260,
+          ease: 'Back.easeOut',
+        });
+      });
+    });
+
+    this.time.delayedCall(longestDelay + 180, () => {
+      this.showCardHand(shopkeeperName, state, hand, new Set<number>());
+    });
   }
 
   private showCardHand(
@@ -10481,50 +10654,106 @@ export default class SnakeScene extends Phaser.Scene {
     hand: CardId[],
     selected: Set<number>,
   ): void {
+    this.hideSaveUI();
     const table = getCardTable(state.tableId);
+    const houseCardIds = getActiveHouseCardIds(state);
+    const activeWindow = getActiveScoreWindow(table, houseCardIds);
+    const selectedState = new Set(selected);
     this.hideCardGamePopup();
     this.villageShopPopup.hide();
     this.setChoicePopupVisible(true);
 
     const width = Math.min(this.scale.width - 44, 720);
-    const height = Math.min(this.scale.height - 44, 430);
+    const height = Math.min(this.scale.height - 44, 500);
     const x = (this.scale.width - width) / 2;
     const y = (this.scale.height - height) / 2;
+    const visualStyle = this.getCardTableVisualStyle(state.tableId);
     const root = this.add.container(x, y).setDepth(60).setScrollFactor(0);
-    const background = this.add
-      .rectangle(0, 0, width, height, 0x071019, 0.96)
-      .setStrokeStyle(2, 0xcfa77a)
+    const dimmer = this.add
+      .rectangle(-x, -y, this.scale.width, this.scale.height, 0x030207, 0.72)
       .setOrigin(0, 0);
+    const surface = this.createCardTableSurface(width, height, visualStyle);
     const title = this.add
-      .text(width / 2, 18, `${table.name} R${state.round} (${state.wins}-${state.losses})`, {
+      .text(width / 2, 12, `${table.name} R${state.round} (${state.wins}-${state.losses})`, {
         fontFamily: 'monospace',
         fontSize: '22px',
         color: '#fff3a8',
       })
       .setOrigin(0.5, 0);
     const target = this.add
-      .text(width / 2, 50, `Target window: ${table.minScore}-${table.maxScore}`, {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#9ad1ff',
-      })
+      .text(
+        width / 2,
+        48,
+        `Target ${activeWindow.minScore}-${activeWindow.maxScore}   Deck ${state.deck.length}   Spent ${state.spentCards.length}`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#9ad1ff',
+        },
+      )
       .setOrigin(0.5, 0);
+    const tooltipWidth = Math.min(width - 180, 500);
     const tooltipPanel = this.add
-      .rectangle(width / 2, height - 112, width - 46, 64, 0x0e1c28, 0.92)
-      .setStrokeStyle(1, 0x4da3ff)
+      .rectangle(width / 2, height - 116, tooltipWidth, 66, 0x2b2117, 0.96)
+      .setStrokeStyle(2, visualStyle.brass)
       .setOrigin(0.5, 0);
-    this.cardTooltipText = this.add.text(38, height - 102, 'Hover a card to read it.', {
-      fontFamily: 'monospace',
-      fontSize: '13px',
-      color: '#ffffff',
-      wordWrap: { width: width - 76 },
+    const tooltipTrim = this.add
+      .rectangle(width / 2, height - 110, tooltipWidth - 24, 2, visualStyle.accent, 0.5)
+      .setOrigin(0.5, 0);
+    this.cardTooltipText = this.add.text(
+      width / 2 - (tooltipWidth - 34) / 2,
+      height - 100,
+      'Hover a card to read it.',
+      {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#fff4cf',
+        wordWrap: { width: tooltipWidth - 34 },
+      },
+    );
+    root.add([
+      dimmer,
+      surface,
+      title,
+      target,
+      tooltipPanel,
+      tooltipTrim,
+      this.cardTooltipText,
+    ]);
+    this.addCardTableProps(root, width, height, visualStyle);
+    this.juice.cardHandDealt(x + width / 2, y + 250, hand.length);
+
+    const houseStartX = 84;
+    const houseDeckShadow = this.add
+      .rectangle(houseStartX + 3, 105, 38, 52, 0x02040a, 0.38)
+      .setOrigin(0, 0);
+    const houseDeck = this.add
+      .rectangle(houseStartX, 101, 38, 52, visualStyle.deckBack, 0.98)
+      .setStrokeStyle(2, visualStyle.brass)
+      .setOrigin(0, 0);
+    const houseDeckInner = this.add
+      .rectangle(houseStartX + 5, 107, 28, 40, 0x101018, 0.32)
+      .setStrokeStyle(1, visualStyle.accent)
+      .setOrigin(0, 0);
+    const houseDeckIcon = this.add.graphics();
+    this.drawHouseDeckIcon(houseDeckIcon, state.tableId, houseStartX + 19, 127, 11);
+    root.add([houseDeckShadow, houseDeck, houseDeckInner, houseDeckIcon]);
+    houseCardIds.forEach((houseCardId, index) => {
+      const card = this.createHouseCardSprite(
+        houseCardId,
+        state.houseCardsThisRound.includes(houseCardId),
+        table,
+        activeWindow,
+      );
+      card.setPosition(houseStartX + 52 + index * 58, 98).setScale(0.72);
+      root.add(card);
     });
-    root.add([background, title, target, tooltipPanel, this.cardTooltipText]);
-    this.juice.cardHandDealt(x + width / 2, y + 132, hand.length);
+
+    let scoreButton: Phaser.GameObjects.Container;
 
     if (hand.length === 0) {
       const empty = this.add
-        .text(width / 2, 146, 'No cards in the deck.', {
+        .text(width / 2, 240, 'No cards in the deck.', {
           fontFamily: 'monospace',
           fontSize: '18px',
           color: '#ffb3a8',
@@ -10539,10 +10768,15 @@ export default class SnakeScene extends Phaser.Scene {
       );
       const totalWidth = cardWidth * hand.length + gap * Math.max(0, hand.length - 1);
       let cardX = (width - totalWidth) / 2;
+      const slotGraphics = this.add.graphics();
+      slotGraphics.lineStyle(1, visualStyle.brass, 0.22);
+      for (let i = 0; i < hand.length; i += 1) {
+        slotGraphics.strokeRect(cardX + i * (cardWidth + gap) + 6, 208, 90, 126);
+      }
+      root.add(slotGraphics);
       hand.forEach((cardId, index) => {
-        const card = this.createCardSprite(cardId, selected.has(index), () => {
-          const next = new Set(selected);
-          const willSelect = !next.has(index);
+        const card = this.createCardSprite(cardId, selectedState.has(index), () => {
+          const willSelect = !selectedState.has(index);
           const cardDefinition = getCardDefinition(cardId);
           this.juice.cardSelect(
             x + card.x + 51,
@@ -10550,17 +10784,20 @@ export default class SnakeScene extends Phaser.Scene {
             willSelect,
             cardDefinition.rarity,
           );
-          if (next.has(index)) {
-            next.delete(index);
+          if (selectedState.has(index)) {
+            selectedState.delete(index);
           } else {
-            next.add(index);
+            selectedState.add(index);
           }
-          this.showCardHand(shopkeeperName, state, hand, next);
+          this.updateCardSpriteSelection(card, selectedState.has(index));
+          this.setCardTableButtonEnabled(scoreButton, selectedState.size > 0);
         });
-        const targetCardY = selected.has(index) ? 88 : 98;
+        const targetCardY = selectedState.has(index) ? 184 : 198;
         card.setPosition(cardX, targetCardY);
+        card.setData('restY', 198);
+        card.setData('selectedY', 184);
         if (selected.size === 0) {
-          card.setAlpha(0).setY(68);
+          card.setAlpha(0).setY(168);
           this.tweens.add({
             targets: card,
             y: targetCardY,
@@ -10575,12 +10812,24 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
 
-    const scoreButton = this.createCardTableButton(38, height - 38, 'Score', () => {
-      this.juice.cardScoreCommit(x + width / 2, y + height / 2, selected.size);
-      this.hideCardGamePopup(false);
-      this.resolveCardRound(shopkeeperName, state, hand, [...selected]);
-    });
-    const allButton = this.createCardTableButton(158, height - 38, 'Play All', () => {
+    scoreButton = this.createCardTableButton(
+      72,
+      height - 38,
+      'Score Hand',
+      () => {
+        if (selectedState.size === 0) {
+          this.showQuestHintPopup('Select at least one card to score.', '#ffb3a8');
+          return;
+        }
+        this.juice.cardScoreCommit(x + width / 2, y + height / 2, selectedState.size);
+        this.hideCardGamePopup(false);
+        this.resolveCardRound(shopkeeperName, state, hand, [...selectedState]);
+      },
+      selectedState.size > 0,
+      'primary',
+      162,
+    );
+    const allButton = this.createCardTableButton(266, height - 36, 'Play All', () => {
       this.juice.cardScoreCommit(x + width / 2, y + height / 2, hand.length);
       this.hideCardGamePopup(false);
       this.resolveCardRound(
@@ -10589,14 +10838,409 @@ export default class SnakeScene extends Phaser.Scene {
         hand,
         hand.map((_, index) => index),
       );
-    });
-    const forfeitButton = this.createCardTableButton(width - 138, height - 38, 'Forfeit', () => {
-      this.hideCardGamePopup();
-      this.showQuestHintPopup('You fold away from the card table.', '#9ad1ff');
-      this.closeVillageShop();
-    });
-    root.add([scoreButton, allButton, forfeitButton]);
+    }, true, 'secondary', 98);
+    const foldButton = this.createCardTableButton(
+      width - 138,
+      height - 36,
+      'Fold',
+      () => {
+        this.confirmCardFold(shopkeeperName, state, hand, selectedState);
+      },
+      true,
+      'danger',
+      98,
+    );
+    root.add([scoreButton, allButton, foldButton]);
     this.cardGameContainer = root;
+  }
+
+  private updateCardSpriteSelection(card: Phaser.GameObjects.Container, selected: boolean): void {
+    const restY = Number(card.getData('restY') ?? card.y);
+    const selectedY = Number(card.getData('selectedY') ?? restY - 14);
+    card.setData('selected', selected);
+    card.setY(selected ? selectedY : restY);
+    const body = card.getByName('card-body') as Phaser.GameObjects.Rectangle | null;
+    const check = card.getByName('card-check') as Phaser.GameObjects.Text | null;
+    const glow = card.getByName('card-selection-glow') as Phaser.GameObjects.Rectangle | null;
+    body?.setFillStyle(selected ? 0xfff3a8 : 0xf4ead2, 1);
+    body?.setStrokeStyle(3, selected ? 0x5dd6a2 : Number(card.getData('suitColor') ?? 0x4da3ff));
+    check?.setText(selected ? 'SEL' : '');
+    glow?.setAlpha(selected ? 0.24 : Number(card.getData('rarityGlowAlpha') ?? 0));
+  }
+
+  private setCardTableButtonEnabled(
+    button: Phaser.GameObjects.Container,
+    enabled: boolean,
+  ): void {
+    button.setData('enabled', enabled);
+    const bg = button.getByName('button-bg') as Phaser.GameObjects.Rectangle | null;
+    const text = button.getByName('button-text') as Phaser.GameObjects.Text | null;
+    const inset = button.getByName('button-inset') as Phaser.GameObjects.Rectangle | null;
+    bg?.setFillStyle(enabled ? 0x3b291c : 0x17130f, 0.96);
+    bg?.setStrokeStyle(2, enabled ? 0xffd166 : 0x66513b);
+    inset?.setFillStyle(0x0d1118, enabled ? 0.24 : 0.12);
+    text?.setColor(enabled ? '#fff4cf' : '#9a8570');
+  }
+
+  private getCardTableVisualStyle(tableId: string): CardTableVisualStyle {
+    if (tableId === 'market-table') {
+      return {
+        wood: 0x52311d,
+        woodDark: 0x26130b,
+        cloth: 0x293d35,
+        clothDark: 0x111c19,
+        brass: 0xd6a94c,
+        accent: 0xf0b64a,
+        deckBack: 0x4a2530,
+        prop: 'market',
+      };
+    }
+    if (tableId === 'dennis-dare') {
+      return {
+        wood: 0x2a1418,
+        woodDark: 0x0d0709,
+        cloth: 0x23182e,
+        clothDark: 0x0c0710,
+        brass: 0xb55d63,
+        accent: 0xff6b6b,
+        deckBack: 0x190914,
+        prop: 'dennis',
+      };
+    }
+    return {
+      wood: 0x5a371f,
+      woodDark: 0x241207,
+      cloth: 0x263f31,
+      clothDark: 0x101c16,
+      brass: 0xcfa77a,
+      accent: 0xffd166,
+      deckBack: 0x2f1c14,
+      prop: 'porch',
+    };
+  }
+
+  private createCardTableSurface(
+    width: number,
+    height: number,
+    style: CardTableVisualStyle,
+  ): Phaser.GameObjects.Container {
+    const container = this.add.container(0, 0);
+    const shadow = this.add.rectangle(8, 10, width, height, 0x02040a, 0.45).setOrigin(0, 0);
+    const wood = this.add
+      .rectangle(0, 0, width, height, style.wood, 0.99)
+      .setStrokeStyle(3, style.brass)
+      .setOrigin(0, 0);
+    const graphics = this.add.graphics();
+    graphics.fillStyle(style.woodDark, 0.24);
+    for (let i = 0; i < 7; i += 1) {
+      const y = 36 + i * 58;
+      graphics.fillRect(18, y, width - 36, 2);
+    }
+    graphics.lineStyle(1, 0xf6d29a, 0.12);
+    for (let i = 0; i < 16; i += 1) {
+      const startX = 24 + ((i * 43) % Math.max(1, width - 70));
+      const startY = 28 + ((i * 31) % Math.max(1, height - 88));
+      graphics.lineBetween(startX, startY, Math.min(width - 24, startX + 28), startY + (i % 3) - 1);
+    }
+    graphics.fillStyle(0x120905, 0.2);
+    for (let i = 0; i < 10; i += 1) {
+      const markX = 34 + ((i * 61) % Math.max(1, width - 90));
+      const markY = 72 + ((i * 47) % Math.max(1, height - 170));
+      graphics.fillRect(markX, markY, 2 + (i % 4), 1);
+    }
+    graphics.fillStyle(style.clothDark, 0.62);
+    graphics.fillRoundedRect(52, 76, width - 104, 292, 12);
+    graphics.fillStyle(style.cloth, 0.94);
+    graphics.fillRoundedRect(58, 82, width - 116, 280, 10);
+    graphics.lineStyle(2, style.brass, 0.45);
+    graphics.strokeRoundedRect(58, 82, width - 116, 280, 10);
+    graphics.lineStyle(1, 0x050704, 0.18);
+    graphics.strokeRect(70, 96, width - 140, 252);
+    graphics.fillStyle(0x050704, 0.12);
+    graphics.fillEllipse(width * 0.42, 178, 42, 14);
+    graphics.fillEllipse(width * 0.66, 306, 58, 16);
+    graphics.lineStyle(1, 0xf4ead2, 0.08);
+    graphics.strokeEllipse(width * 0.21, 306, 46, 18);
+    container.add([shadow, wood, graphics]);
+    return container;
+  }
+
+  private addCardTableProps(
+    root: Phaser.GameObjects.Container,
+    width: number,
+    height: number,
+    style: CardTableVisualStyle,
+  ): void {
+    const props = this.add.graphics();
+    props.fillStyle(0x130b08, 0.35);
+    props.fillEllipse(88, 426, 50, 12);
+    props.fillStyle(style.accent, 0.95);
+    props.fillRect(78, 386, 16, 36);
+    props.fillStyle(0xfff3a8, 0.9);
+    props.fillTriangle(86, 376, 80, 390, 92, 390);
+    props.fillStyle(0xf7d9aa, 0.82);
+    props.fillCircle(98, 416, 5);
+    props.fillStyle(style.brass, 0.85);
+    props.fillCircle(width - 86, 408, 11);
+    props.fillCircle(width - 62, 392, 8);
+    props.fillStyle(style.woodDark, 0.72);
+    props.fillRect(width - 132, 74, 44, 7);
+    props.fillRect(width - 128, 66, 44, 7);
+    props.fillRect(width - 124, 58, 44, 7);
+    props.lineStyle(1, style.brass, 0.7);
+    props.strokeRect(width - 124, 58, 44, 23);
+
+    if (style.prop === 'market') {
+      props.fillStyle(0xf2dfb0, 0.78);
+      props.fillRect(112, 76, 34, 46);
+      props.lineStyle(1, 0x5a371f, 0.45);
+      props.lineBetween(118, 86, 140, 86);
+      props.lineBetween(118, 96, 134, 96);
+      props.fillStyle(style.brass, 0.9);
+      props.fillCircle(156, 118, 7);
+      props.fillCircle(170, 110, 6);
+    } else if (style.prop === 'dennis') {
+      props.lineStyle(2, style.accent, 0.45);
+      props.lineBetween(112, 92, 150, 118);
+      props.lineBetween(130, 86, 118, 132);
+      props.fillStyle(0xe8d7c2, 0.75);
+      props.fillCircle(width - 164, 106, 13);
+      props.fillStyle(0x16070c, 0.9);
+      props.fillCircle(width - 168, 103, 3);
+      props.fillCircle(width - 160, 103, 3);
+      props.fillRect(width - 168, 112, 8, 2);
+    } else {
+      props.fillStyle(0x9d8f78, 0.8);
+      props.fillCircle(142, 112, 8);
+      props.fillStyle(style.brass, 0.75);
+      props.fillCircle(160, 104, 6);
+      props.fillStyle(0xd8c39c, 0.62);
+      props.fillRect(width - 164, 104, 24, 16);
+      props.fillStyle(0x120905, 0.18);
+      props.fillCircle(width - 152, 112, 6);
+    }
+
+    root.add(props);
+  }
+
+  private drawHouseDeckIcon(
+    graphics: Phaser.GameObjects.Graphics,
+    tableId: string,
+    cx: number,
+    cy: number,
+    size: number,
+  ): void {
+    const accent =
+      tableId === 'dennis-dare' ? 0xff6b6b : tableId === 'market-table' ? 0xffd166 : 0xc8ffe1;
+    const dark = tableId === 'dennis-dare' ? 0x2a0714 : 0x130b08;
+    graphics.lineStyle(2, accent, 0.95);
+    this.strokeDiamond(graphics, cx, cy, size * 0.75, size * 0.92);
+    graphics.lineStyle(1, 0xfff3a8, 0.45);
+    this.strokeDiamond(graphics, cx, cy, size * 0.48, size * 0.6);
+    if (tableId === 'market-table') {
+      graphics.fillStyle(accent, 0.9);
+      graphics.fillCircle(cx, cy, size * 0.48);
+      graphics.lineStyle(2, dark, 0.9);
+      graphics.lineBetween(cx, cy - size * 0.7, cx, cy + size * 0.7);
+      graphics.lineBetween(cx - size * 0.42, cy - size * 0.32, cx + size * 0.42, cy - size * 0.32);
+      graphics.lineBetween(cx - size * 0.42, cy + size * 0.32, cx + size * 0.42, cy + size * 0.32);
+      return;
+    }
+    if (tableId === 'dennis-dare') {
+      graphics.fillStyle(accent, 0.75);
+      graphics.fillRect(cx - size * 0.44, cy - size * 0.44, size * 0.88, size * 0.88);
+      graphics.fillStyle(dark, 0.95);
+      graphics.fillRect(cx - size * 0.22, cy - size * 0.22, size * 0.44, size * 0.44);
+      return;
+    }
+    graphics.fillStyle(0xfff3a8, 0.9);
+    graphics.fillEllipse(cx, cy, size * 1.35, size * 0.78);
+    graphics.fillStyle(dark, 0.95);
+    graphics.fillCircle(cx, cy, size * 0.28);
+    graphics.lineStyle(1, accent, 0.85);
+    graphics.strokeEllipse(cx, cy, size * 1.48, size * 0.88);
+  }
+
+  private drawHouseCardIcon(
+    graphics: Phaser.GameObjects.Graphics,
+    houseCardId: HouseCardId,
+    cx: number,
+    cy: number,
+    size: number,
+  ): void {
+    graphics.fillStyle(0x2b170d, 0.9);
+    graphics.lineStyle(2, 0x8a4f2c, 0.9);
+    switch (houseCardId) {
+      case 'tighten-the-gap':
+        graphics.lineBetween(cx - size, cy, cx - size * 0.25, cy);
+        graphics.lineBetween(cx - size * 0.25, cy, cx - size * 0.55, cy - size * 0.3);
+        graphics.lineBetween(cx - size * 0.25, cy, cx - size * 0.55, cy + size * 0.3);
+        graphics.lineBetween(cx + size, cy, cx + size * 0.25, cy);
+        graphics.lineBetween(cx + size * 0.25, cy, cx + size * 0.55, cy - size * 0.3);
+        graphics.lineBetween(cx + size * 0.25, cy, cx + size * 0.55, cy + size * 0.3);
+        break;
+      case 'short-hand':
+        graphics.strokeRoundedRect(cx - size * 0.75, cy - size * 0.58, size * 1.1, size * 1.45, 3);
+        graphics.strokeRoundedRect(cx - size * 0.28, cy - size * 0.74, size * 1.1, size * 1.45, 3);
+        graphics.lineBetween(cx - size, cy + size * 0.88, cx + size, cy + size * 0.88);
+        break;
+      case 'chip-tax':
+        graphics.fillCircle(cx, cy, size * 0.82);
+        graphics.lineStyle(2, 0xf4ead2, 0.85);
+        graphics.lineBetween(cx, cy - size * 0.58, cx, cy + size * 0.58);
+        graphics.lineBetween(cx - size * 0.4, cy - size * 0.22, cx + size * 0.38, cy - size * 0.22);
+        graphics.lineBetween(cx - size * 0.4, cy + size * 0.22, cx + size * 0.38, cy + size * 0.22);
+        break;
+      case 'dealer-skims':
+        graphics.fillRoundedRect(cx - size * 0.85, cy - size * 0.55, size * 1.2, size * 1.5, 3);
+        graphics.lineStyle(3, 0xf4ead2, 0.9);
+        graphics.lineBetween(cx - size * 0.9, cy + size * 0.75, cx + size * 0.9, cy - size * 0.65);
+        break;
+      case 'big-blind':
+        graphics.fillCircle(cx, cy, size * 0.78);
+        graphics.lineStyle(2, 0xf4ead2, 0.9);
+        graphics.lineBetween(cx - size * 0.45, cy, cx + size * 0.45, cy);
+        graphics.lineBetween(cx, cy - size * 0.45, cx, cy + size * 0.45);
+        break;
+      case 'no-cowards':
+        graphics.fillTriangle(
+          cx,
+          cy - size,
+          cx - size * 0.8,
+          cy + size * 0.8,
+          cx + size * 0.8,
+          cy + size * 0.8,
+        );
+        graphics
+          .fillStyle(0xf4ead2, 0.9)
+          .fillRect(cx - size * 0.08, cy - size * 0.45, size * 0.16, size * 0.7);
+        graphics.fillCircle(cx, cy + size * 0.48, size * 0.12);
+        break;
+      case 'two-pair':
+        graphics.strokeRoundedRect(cx - size, cy - size * 0.72, size * 0.9, size * 1.25, 3);
+        graphics.strokeRoundedRect(cx + size * 0.1, cy - size * 0.5, size * 0.9, size * 1.25, 3);
+        graphics.fillCircle(cx - size * 0.55, cy - size * 0.1, size * 0.16);
+        graphics.fillCircle(cx + size * 0.55, cy + size * 0.08, size * 0.16);
+        break;
+      case 'burn-notice':
+        graphics.fillStyle(0x8a1f3d, 0.92);
+        graphics.fillTriangle(
+          cx,
+          cy - size,
+          cx - size * 0.68,
+          cy + size * 0.62,
+          cx + size * 0.68,
+          cy + size * 0.62,
+        );
+        graphics.fillStyle(0xffd166, 0.95);
+        graphics.fillTriangle(
+          cx + size * 0.05,
+          cy - size * 0.48,
+          cx - size * 0.32,
+          cy + size * 0.52,
+          cx + size * 0.38,
+          cy + size * 0.46,
+        );
+        break;
+    }
+  }
+
+  private strokeDiamond(
+    graphics: Phaser.GameObjects.Graphics,
+    cx: number,
+    cy: number,
+    halfWidth: number,
+    halfHeight: number,
+  ): void {
+    graphics.beginPath();
+    graphics.moveTo(cx, cy - halfHeight);
+    graphics.lineTo(cx + halfWidth, cy);
+    graphics.lineTo(cx, cy + halfHeight);
+    graphics.lineTo(cx - halfWidth, cy);
+    graphics.closePath();
+    graphics.strokePath();
+  }
+
+  private createHouseCardSprite(
+    houseCardId: HouseCardId,
+    newlyPlayed: boolean,
+    table: CardTableDefinition,
+    activeWindow: { minScore: number; maxScore: number },
+  ): Phaser.GameObjects.Container {
+    const houseCard = getHouseCardDefinition(houseCardId);
+    const container = this.add.container(0, 0).setSize(78, 104);
+    const inactiveAlpha = newlyPlayed ? 1 : 0.78;
+    const shadow = this.add.rectangle(4, 6, 78, 104, 0x02040a, 0.38).setOrigin(0, 0);
+    const body = this.add
+      .rectangle(0, 0, 78, 104, newlyPlayed ? 0xfff3a8 : 0xf3dec0, 1)
+      .setStrokeStyle(2, newlyPlayed ? 0xffd166 : 0xcfa77a)
+      .setOrigin(0, 0);
+    const header = this.add.rectangle(5, 6, 68, 34, 0x351b23, 0.96).setOrigin(0, 0);
+    const title = this.add
+      .text(39, 9, houseCard.name, {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#fff4cf',
+        align: 'center',
+        wordWrap: { width: 66 },
+      })
+      .setOrigin(0.5, 0);
+    const icon = this.add.graphics();
+    this.drawHouseCardIcon(icon, houseCardId, 39, 70, 21);
+    const newestGlow = this.add
+      .rectangle(3, 3, 72, 98, 0xffd166, newlyPlayed ? 0.1 : 0)
+      .setStrokeStyle(1, 0xfff3a8, newlyPlayed ? 0.45 : 0)
+      .setOrigin(0, 0);
+    const hit = this.add
+      .zone(0, 0, 78, 104)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+    hit.on('pointerover', () => {
+      body.setFillStyle(0xffffff, 1);
+      this.cardTooltipText?.setText(
+        `${houseCard.name} | House Card | ${houseCard.rarity}\n${houseCard.description}\nBase: ${table.minScore}-${table.maxScore} -> Active: ${activeWindow.minScore}-${activeWindow.maxScore}`,
+      );
+    });
+    hit.on('pointerout', () => {
+      body.setFillStyle(newlyPlayed ? 0xfff3a8 : 0xf3dec0, 1);
+    });
+    container.add([shadow, body, newestGlow, header, title, icon, hit]);
+    container.setAlpha(inactiveAlpha);
+    return container;
+  }
+
+  private confirmCardFold(
+    shopkeeperName: string,
+    state: CardCompetitionState,
+    hand: CardId[],
+    selected: Set<number>,
+  ): void {
+    this.hideCardGamePopup(false);
+    this.setChoicePopupVisible(false);
+    this.villageShopPopup.show(
+      'Fold this table?',
+      [
+        {
+          id: 'fold',
+          title: 'Fold',
+          description: 'You will lose your wager.',
+        },
+        {
+          id: 'keep',
+          title: 'Keep Playing',
+          description: 'Return to the table.',
+        },
+      ],
+      (id) => {
+        if (id === 'fold') {
+          this.juice.stopCardMusic();
+          this.showQuestHintPopup('You folded. The house keeps your wager.', '#9ad1ff');
+          this.closeVillageShop();
+          return;
+        }
+        this.showCardHand(shopkeeperName, state, hand, selected);
+      },
+    );
   }
 
   private createCardSprite(
@@ -10606,13 +11250,21 @@ export default class SnakeScene extends Phaser.Scene {
   ): Phaser.GameObjects.Container {
     const card = getCardDefinition(cardId);
     const suitColor = this.getCardSuitColor(card.suit);
+    const suitDark = this.getCardSuitDarkColor(card.suit);
     const container = this.add.container(0, 0).setSize(102, 150);
+    container.setData('suitColor', suitColor);
+    container.setData('selected', selected);
     const shadow = this.add.rectangle(5, 8, 102, 150, 0x02040a, 0.45).setOrigin(0, 0);
     const body = this.add
       .rectangle(0, 0, 102, 150, selected ? 0xfff3a8 : 0xf4ead2, 1)
       .setStrokeStyle(3, selected ? 0x5dd6a2 : suitColor)
+      .setOrigin(0, 0)
+      .setName('card-body');
+    const inner = this.add
+      .rectangle(7, 7, 88, 136, 0xfff8e8, selected ? 0.72 : 0.5)
+      .setStrokeStyle(1, suitColor, 0.35)
       .setOrigin(0, 0);
-    const header = this.add.rectangle(8, 8, 86, 26, suitColor, 0.96).setOrigin(0, 0);
+    const header = this.add.rectangle(8, 8, 86, 28, suitDark, 0.98).setOrigin(0, 0);
     const name = this.add
       .text(51, 13, card.name, {
         fontFamily: 'monospace',
@@ -10622,26 +11274,42 @@ export default class SnakeScene extends Phaser.Scene {
         wordWrap: { width: 78 },
       })
       .setOrigin(0.5, 0);
+    const cornerValue = this.add
+      .text(14, 40, String(card.chips), {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: suitDark === 0xf4ead2 ? '#17202a' : '#17202a',
+      })
+      .setOrigin(0.5, 0);
+    const cornerIcon = this.add.graphics();
+    this.drawCardSuitIcon(cornerIcon, card.suit, 88, 46, 7);
+    const motifBacking = this.add
+      .rectangle(26, 45, 50, 52, suitColor, 0.13)
+      .setStrokeStyle(1, suitColor, 0.22)
+      .setOrigin(0, 0);
+    const motif = this.add.graphics();
+    this.drawCardSuitIcon(motif, card.suit, 51, 68, 19);
     const chips = this.add
-      .text(51, 48, String(card.chips), {
+      .text(51, 73, String(card.chips), {
         fontFamily: "Georgia, 'Times New Roman', serif",
-        fontSize: '36px',
+        fontSize: '34px',
         color: '#17202a',
         stroke: '#ffffff',
         strokeThickness: 2,
       })
       .setOrigin(0.5, 0);
     const suit = this.add
-      .text(51, 91, card.suit.toUpperCase(), {
+      .text(51, 108, card.suit.toUpperCase(), {
         fontFamily: 'monospace',
         fontSize: '10px',
-        color: '#17202a',
+        color: this.toHexColor(suitDark),
       })
       .setOrigin(0.5, 0);
+    const footer = this.add.rectangle(8, 124, 86, 18, suitColor, 0.16).setOrigin(0, 0);
     const rarity = this.add
-      .text(51, 122, card.rarity, {
+      .text(51, 128, card.rarity.toUpperCase(), {
         fontFamily: 'monospace',
-        fontSize: '10px',
+        fontSize: '9px',
         color: selected ? '#12543a' : '#42505c',
       })
       .setOrigin(0.5, 0);
@@ -10654,23 +11322,27 @@ export default class SnakeScene extends Phaser.Scene {
         strokeThickness: 2,
       })
       .setOrigin(0.5, 0);
+    const rarityGlowAlpha = card.rarity === 'common' ? 0 : 0.14;
+    container.setData('rarityGlowAlpha', rarityGlowAlpha);
     const glow = this.add
       .rectangle(
         8,
-        112,
+        123,
         86,
-        28,
+        20,
         card.rarity === 'rare' ? 0xffd166 : 0x4da3ff,
-        card.rarity === 'common' ? 0 : 0.14,
+        selected ? 0.24 : rarityGlowAlpha,
       )
-      .setOrigin(0, 0);
+      .setOrigin(0, 0)
+      .setName('card-selection-glow');
     const check = this.add
-      .text(88, 128, selected ? 'x' : '', {
+      .text(88, 126, selected ? 'SEL' : '', {
         fontFamily: 'monospace',
-        fontSize: '18px',
+        fontSize: '9px',
         color: '#12543a',
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setName('card-check');
     const hit = this.add
       .zone(0, 0, 102, 150)
       .setOrigin(0, 0)
@@ -10682,10 +11354,28 @@ export default class SnakeScene extends Phaser.Scene {
       );
     });
     hit.on('pointerout', () => {
-      body.setFillStyle(selected ? 0xfff3a8 : 0xf4ead2, 1);
+      body.setFillStyle(Boolean(container.getData('selected')) ? 0xfff3a8 : 0xf4ead2, 1);
     });
     hit.on('pointerdown', onClick);
-    container.add([shadow, body, header, name, chips, suit, glow, rarity, shine, check, hit]);
+    container.add([
+      shadow,
+      body,
+      inner,
+      header,
+      name,
+      cornerValue,
+      cornerIcon,
+      motifBacking,
+      motif,
+      chips,
+      suit,
+      glow,
+      footer,
+      rarity,
+      shine,
+      check,
+      hit,
+    ]);
     return container;
   }
 
@@ -10726,35 +11416,56 @@ export default class SnakeScene extends Phaser.Scene {
     y: number,
     label: string,
     onClick: () => void,
+    enabled = true,
+    tone: 'primary' | 'secondary' | 'danger' = 'secondary',
+    buttonWidth = 112,
   ): Phaser.GameObjects.Container {
-    const buttonWidth = 104;
     const buttonHeight = 28;
     const container = this.add.container(x, y).setSize(buttonWidth, buttonHeight);
-    const bg = this.add
-      .rectangle(0, 0, buttonWidth, buttonHeight, 0x101b25, 0.95)
-      .setStrokeStyle(2, 0xcfa77a)
+    container.setData('enabled', enabled);
+    container.setData('tone', tone);
+    const shadow = this.add
+      .rectangle(3, 4, buttonWidth, buttonHeight, 0x02040a, 0.35)
       .setOrigin(0, 0);
+    const activeFill = tone === 'primary' ? 0x3b291c : tone === 'danger' ? 0x2c1614 : 0x2b2117;
+    const activeStroke = tone === 'primary' ? 0xffd166 : tone === 'danger' ? 0xb55d63 : 0xcfa77a;
+    const bg = this.add
+      .rectangle(0, 0, buttonWidth, buttonHeight, enabled ? activeFill : 0x17130f, 0.96)
+      .setStrokeStyle(2, enabled ? activeStroke : 0x66513b)
+      .setOrigin(0, 0)
+      .setName('button-bg');
+    const inset = this.add
+      .rectangle(5, 5, buttonWidth - 10, buttonHeight - 10, 0x0d1118, enabled ? 0.24 : 0.12)
+      .setOrigin(0, 0)
+      .setName('button-inset');
     const text = this.add
       .text(buttonWidth / 2, 6, label, {
         fontFamily: 'monospace',
         fontSize: '13px',
-        color: '#fff4cf',
+        color: enabled ? '#fff4cf' : '#9a8570',
       })
-      .setOrigin(0.5, 0);
+      .setOrigin(0.5, 0)
+      .setName('button-text');
     const hit = this.add
       .zone(0, -8, buttonWidth, buttonHeight + 16)
       .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
+      .setInteractive({ useHandCursor: enabled });
     hit.on('pointerover', () => {
-      bg.setFillStyle(0x243653, 1);
+      if (!container.getData('enabled')) return;
+      bg.setFillStyle(tone === 'danger' ? 0x4a2020 : 0x4b3524, 1);
       text.setColor('#ffffff');
     });
     hit.on('pointerout', () => {
-      bg.setFillStyle(0x101b25, 0.95);
-      text.setColor('#fff4cf');
+      const currentEnabled = Boolean(container.getData('enabled'));
+      bg.setFillStyle(currentEnabled ? activeFill : 0x17130f, 0.96);
+      bg.setStrokeStyle(2, currentEnabled ? activeStroke : 0x66513b);
+      text.setColor(currentEnabled ? '#fff4cf' : '#9a8570');
     });
-    hit.on('pointerdown', onClick);
-    container.add([bg, text, hit]);
+    hit.on('pointerdown', () => {
+      if (!container.getData('enabled')) return;
+      onClick();
+    });
+    container.add([shadow, bg, inset, text, hit]);
     return container;
   }
 
@@ -10775,6 +11486,119 @@ export default class SnakeScene extends Phaser.Scene {
       default:
         return 0x4da3ff;
     }
+  }
+
+  private getCardSuitDarkColor(suit: string): number {
+    switch (suit) {
+      case 'moss':
+        return 0x1f5f32;
+      case 'teeth':
+        return 0x7a2020;
+      case 'lanterns':
+        return 0x9b5d1e;
+      case 'moons':
+        return 0x34447f;
+      case 'smoke':
+        return 0x46315f;
+      case 'jade':
+        return 0x247b61;
+      default:
+        return 0x24496f;
+    }
+  }
+
+  private drawCardSuitIcon(
+    graphics: Phaser.GameObjects.Graphics,
+    suit: string,
+    cx: number,
+    cy: number,
+    size: number,
+  ): void {
+    const color = this.getCardSuitColor(suit);
+    const dark = this.getCardSuitDarkColor(suit);
+    graphics.fillStyle(color, 0.92);
+    graphics.lineStyle(Math.max(1, Math.floor(size * 0.16)), dark, 0.92);
+    switch (suit) {
+      case 'moss':
+        graphics.fillCircle(cx - size * 0.38, cy + size * 0.05, size * 0.52);
+        graphics.fillCircle(cx + size * 0.38, cy + size * 0.05, size * 0.52);
+        graphics.fillCircle(cx, cy - size * 0.42, size * 0.52);
+        graphics.fillRect(cx - size * 0.08, cy + size * 0.1, size * 0.16, size * 0.7);
+        graphics.strokeCircle(cx - size * 0.38, cy + size * 0.05, size * 0.52);
+        graphics.strokeCircle(cx + size * 0.38, cy + size * 0.05, size * 0.52);
+        graphics.strokeCircle(cx, cy - size * 0.42, size * 0.52);
+        break;
+      case 'teeth':
+        graphics.fillStyle(0xf2e7d4, 0.98);
+        graphics.fillTriangle(
+          cx,
+          cy - size * 0.9,
+          cx - size * 0.48,
+          cy + size * 0.74,
+          cx + size * 0.48,
+          cy + size * 0.74,
+        );
+        graphics.strokeTriangle(
+          cx,
+          cy - size * 0.9,
+          cx - size * 0.48,
+          cy + size * 0.74,
+          cx + size * 0.48,
+          cy + size * 0.74,
+        );
+        graphics.fillStyle(color, 0.9).fillCircle(cx, cy + size * 0.56, size * 0.14);
+        break;
+      case 'lanterns':
+        graphics.fillStyle(color, 0.95);
+        graphics.fillRoundedRect(cx - size * 0.52, cy - size * 0.42, size * 1.04, size * 0.98, 3);
+        graphics.lineStyle(Math.max(1, Math.floor(size * 0.14)), dark, 0.95);
+        graphics.strokeRoundedRect(cx - size * 0.52, cy - size * 0.42, size * 1.04, size * 0.98, 3);
+        graphics.lineBetween(
+          cx - size * 0.35,
+          cy - size * 0.68,
+          cx + size * 0.35,
+          cy - size * 0.68,
+        );
+        graphics.lineBetween(cx, cy - size * 0.68, cx, cy - size * 0.42);
+        graphics.fillStyle(0xfff3a8, 0.92);
+        graphics.fillTriangle(
+          cx,
+          cy - size * 0.16,
+          cx - size * 0.18,
+          cy + size * 0.34,
+          cx + size * 0.18,
+          cy + size * 0.34,
+        );
+        break;
+      case 'moons':
+        graphics.fillCircle(cx, cy, size * 0.78);
+        graphics.fillStyle(0xf4ead2, 1).fillCircle(cx + size * 0.34, cy - size * 0.08, size * 0.72);
+        graphics.fillStyle(color, 0.95).fillCircle(cx + size * 0.58, cy - size * 0.58, size * 0.12);
+        break;
+      case 'smoke':
+        graphics.fillStyle(color, 0.82);
+        graphics.fillCircle(cx - size * 0.42, cy + size * 0.14, size * 0.44);
+        graphics.fillCircle(cx, cy - size * 0.18, size * 0.56);
+        graphics.fillCircle(cx + size * 0.42, cy + size * 0.12, size * 0.42);
+        graphics.lineStyle(Math.max(1, Math.floor(size * 0.1)), dark, 0.75);
+        graphics.lineBetween(cx - size * 0.8, cy + size * 0.58, cx + size * 0.7, cy + size * 0.58);
+        graphics.lineBetween(cx - size * 0.5, cy + size * 0.86, cx + size * 0.44, cy + size * 0.86);
+        break;
+      case 'jade':
+        graphics.fillStyle(color, 0.92);
+        graphics.fillTriangle(cx, cy - size * 0.9, cx + size * 0.8, cy, cx, cy + size * 0.9);
+        graphics.fillTriangle(cx, cy - size * 0.9, cx - size * 0.8, cy, cx, cy + size * 0.9);
+        graphics.strokeTriangle(cx, cy - size * 0.9, cx + size * 0.8, cy, cx, cy + size * 0.9);
+        graphics.strokeTriangle(cx, cy - size * 0.9, cx - size * 0.8, cy, cx, cy + size * 0.9);
+        break;
+      default:
+        graphics.fillCircle(cx, cy, size * 0.55);
+        break;
+    }
+  }
+
+  private toHexColor(color: number): string {
+    return `#${color.toString(16).padStart(6, '0')}`;
   }
 
   private drawQuestRoomActors(actors: QuestRoomActor[]): void {
@@ -11096,7 +11920,9 @@ export default class SnakeScene extends Phaser.Scene {
       .sort((a, b) => a - b)
       .map((index) => hand[index])
       .filter((cardId): cardId is CardId => Boolean(cardId));
-    const result = scoreCardHand(selectedCards, table);
+    const result = scoreCardHand(selectedCards, table, {
+      houseCards: getActiveHouseCardIds(state),
+    });
     const won = result.finalScore >= result.minScore && result.finalScore <= result.maxScore;
     this.showCardScoringCutscene(selectedCards, result, won, () => {
       this.finishResolvedCardRound(shopkeeperName, state, selectedCards, result, won);
@@ -11115,6 +11941,12 @@ export default class SnakeScene extends Phaser.Scene {
     } else {
       state.losses += 1;
     }
+    if (result.destroyedCards.length > 0) {
+      this.setCardCollection(
+        removeDestroyedCardsFromCollection(this.getCardCollection(), result.destroyedCards),
+      );
+      state.destroyedCards.push(...result.destroyedCards);
+    }
     finishCompetitionRound(state, selectedCards);
 
     const played =
@@ -11126,11 +11958,17 @@ export default class SnakeScene extends Phaser.Scene {
       : result.finalScore < result.minScore
         ? 'Too low.'
         : 'Too high.';
-    const detailText = result.details.length > 0 ? ` ${result.details.join(' ')}` : '';
+    const destroyedText =
+      result.destroyedCards.length > 0
+        ? ` Burn Notice destroyed ${result.destroyedCards.map((cardId) => getCardDefinition(cardId).name).join(', ')}.`
+        : '';
+    const detailText =
+      result.details.length > 0 ? ` ${result.details.join(' ')}${destroyedText}` : destroyedText;
 
     if (state.wins >= 2) {
       this.recordAchievementEvent({ type: 'cards:tableWon', tableId: state.tableId });
-      const payout = state.wagerScore * 2;
+      const table = getCardTable(state.tableId);
+      const payout = getCardTablePayout(state.wagerScore, table);
       this.addScoreDirect(payout);
       if (this.archipelagoModeActive) {
         this.archipelagoCheckTracker.processCardTableWin(state.tableId);
@@ -11145,7 +11983,7 @@ export default class SnakeScene extends Phaser.Scene {
           {
             id: 'done',
             title: `${payout} score paid out`,
-            description: `${played}. Final ${result.finalScore}, window ${result.minScore}-${result.maxScore}. ${reason}${detailText}`,
+            description: `${played}. Final ${result.finalScore}, window ${result.minScore}-${result.maxScore}. ${reason} Net profit +${payout - state.wagerScore}.${detailText}`,
           },
         ],
         () => this.closeVillageShop(),
@@ -11163,7 +12001,7 @@ export default class SnakeScene extends Phaser.Scene {
           {
             id: 'done',
             title: 'Leave Table',
-            description: `${played}. Final ${result.finalScore}, window ${result.minScore}-${result.maxScore}. ${reason}${detailText}`,
+            description: `${played}. Final ${result.finalScore}, window ${result.minScore}-${result.maxScore}. ${reason} ${state.tableId === 'dennis-dare' ? 'Freak Dennis smiles. ' : ''}The house keeps your wager.${detailText}`,
           },
         ],
         () => this.closeVillageShop(),
@@ -11770,6 +12608,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (event.kind === 'swap') this.juice.archaeologySwap();
       else if (event.kind === 'match') {
         this.juice.archaeologyMatch(event.chain, event.cells.length);
+        this.showArchaeologyMatchFlare(eventSnapshot, event.cells, event.chain);
         this.showArchaeologyFloatingText(
           `${event.cells.length} blocks`,
           event.chain > 1 ? '#fff3a8' : '#d8b4ff',
@@ -11794,6 +12633,41 @@ export default class SnakeScene extends Phaser.Scene {
     this.renderArchaeologyOverlay(snapshot);
     if (snapshot.gameOver) {
       this.finishMolemanExcavation('failure');
+    }
+  }
+
+  private showArchaeologyMatchFlare(
+    snapshot: ArchaeologySessionSnapshot,
+    cells: readonly { x: number; y: number }[],
+    chain: number,
+  ): void {
+    if (!this.archaeologyOverlay || cells.length === 0) return;
+    const metrics = this.getArchaeologyBoardMetrics(snapshot);
+    const color = chain > 1 ? 0xfff3a8 : 0xd8b4ff;
+    for (const cell of cells) {
+      const x = metrics.boardX + cell.x * metrics.boardCell;
+      const y = metrics.boardY + cell.y * metrics.boardCell - metrics.riseOffset;
+      const flare = this.add
+        .rectangle(
+          x + metrics.boardCell / 2,
+          y + metrics.boardCell / 2,
+          metrics.boardCell + 4,
+          metrics.boardCell + 4,
+          color,
+          0.34,
+        )
+        .setStrokeStyle(2, 0xffffff, 0.62)
+        .setOrigin(0.5)
+        .setDepth(121);
+      this.archaeologyOverlay.add(flare);
+      this.tweens.add({
+        targets: flare,
+        scale: 1.18,
+        alpha: 0,
+        duration: 360,
+        ease: 'Cubic.easeOut',
+        onComplete: () => flare.destroy(),
+      });
     }
   }
 
@@ -12084,18 +12958,23 @@ export default class SnakeScene extends Phaser.Scene {
     const def = ARCHAEOLOGY_TILE_DEFINITIONS[tile];
     const inset = state.popping ? 7 : 4;
     const highlightFill = state.highlighted
-      ? this.mixColor(def.color, 0xfff3a8, 0.32 * state.pulse)
+      ? this.mixColor(def.color, 0xfff3a8, 0.42 + 0.18 * state.pulse)
       : def.color;
     const revealProgress = state.revealProgress ?? 1;
     const revealedFill = this.mixColor(highlightFill, 0x050811, (1 - revealProgress) * 0.52);
     const fill = state.compressed
       ? this.mixColor(revealedFill, 0xffffff, 0.16 + state.pulse * 0.08)
       : revealedFill;
-    const tileAlpha = state.popping ? 0.72 : 0.34 + revealProgress * 0.66;
+    const tileAlpha = state.highlighted ? 1 : state.popping ? 0.72 : 0.34 + revealProgress * 0.66;
     const face = state.popping ? size - inset * 2 : size - inset * 2 - 1;
     const faceHeight = state.compressed ? Math.max(8, Math.floor(face * 0.78)) : face;
     const faceY = y + inset + (state.compressed ? Math.floor((face - faceHeight) / 2) : 0);
     graphics.fillStyle(0x07101a, 0.72).fillRoundedRect(x + 2, y + 3, size - 4, size - 3, 5);
+    if (state.highlighted) {
+      graphics
+        .fillStyle(0xfff3a8, 0.12 + state.pulse * 0.12)
+        .fillRoundedRect(x - 3, y - 3, size + 6, size + 6, 8);
+    }
     graphics.fillStyle(fill, tileAlpha).fillRoundedRect(x + inset, faceY, face, faceHeight, 5);
     graphics
       .fillStyle(this.scaleColor(fill, 1.16), 0.55 * tileAlpha)
@@ -12747,7 +13626,7 @@ export default class SnakeScene extends Phaser.Scene {
         }
         if (id === 'card-table') {
           this.paused = false;
-          this.showCardTableRoot(profile.displayName, false, true);
+          this.showCardTableRoot(profile.displayName, false, actorRole === 'cardDealer', actorRole);
           return;
         }
         if (id === 'buy-rumor') {
@@ -12887,6 +13766,18 @@ export default class SnakeScene extends Phaser.Scene {
         id: 'buy-rumor',
         title: 'Buy Rumor',
         description: 'Hear what the town thinks happened before it becomes true.',
+      });
+    }
+    const cardTablesUnlocked = Boolean(this.getFlag<boolean>('cheat.cardTablesUnlocked'));
+    if (
+      actorRole === 'cardDealer' ||
+      (room.village && actorRole === 'shopkeeper') ||
+      (cardTablesUnlocked && profile.actorId)
+    ) {
+      options.push({
+        id: 'card-table',
+        title: 'Play Cards',
+        description: 'Sit at the table and chase the score window.',
       });
     }
     if (town && (actorRole === 'guard' || actorRole === 'gateGuard')) {

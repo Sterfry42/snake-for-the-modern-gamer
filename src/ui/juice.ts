@@ -1126,7 +1126,6 @@ export class JuiceManager {
       type: 'triangle',
       volume: 0.09 + Math.min(0.04, count * 0.004),
     });
-    this.scene.cameras.main.flash(70, 255, 243, 168, true);
     this.kickCamera(0.006 + Math.min(0.014, cappedChain * 0.002), 70);
     if (chain > 1) {
       this.playTone({
@@ -1158,7 +1157,6 @@ export class JuiceManager {
     });
     if (index === total - 1) {
       this.kickCamera(0.006 + Math.min(0.01, total * 0.001), 70);
-      this.scene.cameras.main.flash(50, 255, 255, 255, true);
     }
   }
 
@@ -1586,6 +1584,49 @@ export class JuiceManager {
       radius: 24,
     });
     this.ringPulse(worldX, worldY, 0xff8f5a, 12, 2, 190);
+  }
+
+  enemySnakeDefeated(worldX: number, worldY: number, length: number = 1) {
+    const size = Math.min(8, Math.max(1, length));
+    this.playTone({
+      frequency: 220,
+      frequencyEnd: 90,
+      duration: 0.2,
+      type: 'sawtooth',
+      volume: 0.13,
+    });
+    this.playTone({
+      frequency: 620,
+      frequencyEnd: 880,
+      duration: 0.12,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.kickCamera(0.018 + size * 0.002, 130);
+    this.ringPulse(worldX, worldY, 0xffd166, 14 + size * 2, 3, 260);
+    this.ringPulse(worldX, worldY, 0xff6b6b, 8 + size, 2, 220);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffd166, 0xff6b6b, 0xfff3a8, 0x5dd6a2],
+      count: 16 + size * 2,
+      radius: 24 + size * 3,
+    });
+  }
+
+  enemySnakeNear(worldX: number, worldY: number, distance: number = 3) {
+    const danger = Phaser.Math.Clamp((4 - distance) / 3, 0.25, 1);
+    this.playTone({
+      frequency: 180 + danger * 90,
+      frequencyEnd: 120 + danger * 70,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.035 + danger * 0.035,
+    });
+    this.ringPulse(worldX, worldY, 0xff6b6b, 7 + danger * 8, 1, 180);
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xff6b6b, 0xffd166],
+      count: Math.round(3 + danger * 5),
+      radius: 8 + danger * 10,
+    });
   }
 
   // Big apex moment: shockwave + zoom punch + particles

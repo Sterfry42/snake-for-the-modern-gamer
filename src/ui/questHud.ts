@@ -18,7 +18,7 @@ const DEFAULT_OPTIONS: Required<QuestHudOptions> = {
   fontFamily: 'monospace',
   color: '#e6e6e6',
   lineSpacing: 4,
-  depth: 10,
+  depth: 40,
 };
 
 const MAX_VISIBLE_QUESTS = 3;
