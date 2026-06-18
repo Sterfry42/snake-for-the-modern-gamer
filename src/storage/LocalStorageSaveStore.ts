@@ -5,7 +5,13 @@ export class LocalStorageSaveStore<TSaveData> implements SaveStore<TSaveData> {
 
   async load(slotId: string): Promise<TSaveData | null> {
     const raw = this.getStorage()?.getItem(this.keyFor(slotId)) ?? null;
-    return raw ? (JSON.parse(raw) as TSaveData) : null;
+    if (!raw) return null;
+    try {
+      return JSON.parse(raw) as TSaveData;
+    } catch {
+      console.warn(`[LocalStorageSaveStore] Failed to parse save for slot "${slotId}"`);
+      return null;
+    }
   }
 
   async save(slotId: string, data: TSaveData): Promise<void> {

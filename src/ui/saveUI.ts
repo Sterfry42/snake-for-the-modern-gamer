@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
+import { i18n } from '../i18n/i18nManager.js';
 
 export class SaveUI {
   private saveButton?: Phaser.GameObjects.Text;
@@ -116,12 +117,12 @@ export class SaveUI {
         : undefined,
     );
 
-    this.scene.juice.announce('Game saved!', '#4da3ff', 1000);
+    this.scene.showQuestHintPopup(i18n.getFeatureString('gameSaved')!, '#5dd6a2');
   }
 
   private loadGame(): void {
     if (!this.scene.hasSessionSave()) {
-      this.scene.juice.announce('No save file found!', '#ff6b6b', 1000);
+      this.scene.showQuestHintPopup(i18n.getFeatureString('noSaveFound')!, '#ff6b6b');
       return;
     }
 
@@ -142,15 +143,15 @@ export class SaveUI {
 
     if (success) {
       this.scene.restoreCharacterSaveState();
-      this.scene.juice.announce('Game loaded!', '#4da3ff', 1000);
+      this.scene.showQuestHintPopup(i18n.getFeatureString('gameLoaded')!, '#5dd6a2');
     } else {
-      this.scene.juice.announce('Failed to load game!', '#ff6b6b', 1000);
+      this.scene.showQuestHintPopup(i18n.getFeatureString('loadFailed')!, '#ff6b6b');
     }
   }
 
   private clearSave(): void {
     this.scene.clearSessionSave();
-    this.scene.juice.announce('Save file cleared!', '#4da3ff', 1000);
+    this.scene.showQuestHintPopup(i18n.getFeatureString('saveCleared')!, '#5dd6a2');
   }
 
   isVisible(): boolean {

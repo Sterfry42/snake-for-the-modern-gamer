@@ -53,6 +53,8 @@ import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
 import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
+import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
+import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
 import {
@@ -1504,6 +1506,7 @@ export default class SnakeScene extends Phaser.Scene {
   skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
   private saveUI!: SaveUI;
+  private autosaveTimer: Phaser.Time.TimerEvent | null = null;
   private mobileControls: MobileControls | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
@@ -1892,6 +1895,14 @@ export default class SnakeScene extends Phaser.Scene {
       );
 
     this.initGame(true);
+
+    // Autosave timer: save every 30 seconds during gameplay
+    this.autosaveTimer = this.time.addEvent({
+      delay: 30000,
+      callback: this.triggerAutosave,
+      callbackScope: this,
+      repeat: -1,
+    });
 
     // House HUD overlay (hidden by default)
     this.houseHud = this.add
@@ -3211,7 +3222,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
   }
 
-  private showQuestHintPopup(message: string, color = '#ffe58a'): void {
+  showQuestHintPopup(message: string, color = '#ffe58a'): void {
     const maxWidth = Math.min(720, this.scale.width - 48);
     const x = this.scale.width / 2;
     const y = 76;
@@ -4319,6 +4330,15 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private triggerAutosave(): void {
+    if (this.paused || this.titleVisible || this.deathCutscene) {
+      return;
+    }
+    const data = this.snakeGame.getSaveData();
+    saveManagerV2.save('autosave-current', data);
+    this.showQuestHintPopup(i18n.getFeatureString('autosave')!, '#5dd6a2');
+  }
+
   private handleShutdown(): void {
     // Auto-escape from fishing
     this.autoEscapeFromFishing();
@@ -4351,6 +4371,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.mobileControls = null;
     this.minimapRenderer?.destroy();
     this.minimapRenderer = null;
+    this.autosaveTimer?.remove();
+    this.autosaveTimer = null;
   }
 
   getAchievementManager(): AchievementManager {
@@ -5404,34 +5426,39 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag('run.startChoicesReady', true);
     this.paused = true;
     this.showSaveUI();
+    // Auto-save initial game state
+    const data = this.snakeGame.getSaveData();
+    const dateKey = new Date().toISOString();
+    saveManagerV2.save(dateKey, data);
   }
 
   private loadGameFromTitle(): void {
-    if (!this.hasSessionSave()) {
-      this.titleMessageText?.setText('No save file found.');
-      return;
-    }
-
-    const success = this.loadGameFromSession(
-      () => (this.chosenReligionId ? { id: this.chosenReligionId, mods: this.religionMods } : null),
-      () => (this.chosenClassId ? { id: this.chosenClassId, mods: this.classMods } : null),
-      () =>
-        this.chosenBackgroundId ? { id: this.chosenBackgroundId, mods: this.backgroundMods } : null,
+    const saveLoadMenu = new SaveLoadMenu(this);
+    saveLoadMenu.setDepth(9999);
+    saveLoadMenu.show(
+      async (slotId: string, data: GameSaveData) => {
+        this.hideTitleScreen();
+        const success = this.snakeGame.loadFromSaveData(data);
+        if (!success) {
+          this.titleMessageText?.setText('Failed to load game.');
+          this.showTitleScreen('main');
+          return;
+        }
+        this.currentSnapshot = this.gameSession.getSnapshot();
+        this.restoreCharacterSaveState();
+        this.applyRaccoonActionStepInterval();
+        this.backfillArchipelagoDurableRewards();
+        this.backfillArchipelagoAchievementScore();
+        this.paused = false;
+        this.showSaveUI();
+        this.isDirty = true;
+        saveLoadMenu.hide();
+      },
+      () => {
+        saveLoadMenu.hide();
+        this.showTitleScreen('main');
+      },
     );
-
-    if (!success) {
-      this.titleMessageText?.setText('Failed to load game.');
-      return;
-    }
-
-    this.hideTitleScreen();
-    this.restoreCharacterSaveState();
-    this.applyRaccoonActionStepInterval();
-    this.backfillArchipelagoDurableRewards();
-    this.backfillArchipelagoAchievementScore();
-    this.paused = false;
-    this.showSaveUI();
-    this.isDirty = true;
   }
 
   private buildTitleScreen(): void {

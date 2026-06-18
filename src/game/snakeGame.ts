@@ -11086,7 +11086,29 @@ export class SnakeGame implements QuestRuntime {
       }
 
       const data = JSON.parse(saved) as GameSaveData;
+      return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
+    } catch (error) {
+      console.error('Failed to load game:', error);
+      return false;
+    }
+  }
 
+  loadFromSaveData(
+    data: GameSaveData,
+    getReligionChoice?: () => any,
+    getClassChoice?: () => any,
+    getBackgroundChoice?: () => any,
+  ): boolean {
+    return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
+  }
+
+  private loadFromData(
+    data: GameSaveData,
+    getReligionChoice?: () => any,
+    getClassChoice?: () => any,
+    getBackgroundChoice?: () => any,
+  ): boolean {
+    try {
       this.reset({ preserveRunSeed: true });
       this.specialStats.restore(data.special);
       this.levelProgression = normalizeLevelProgressionState(data.levelProgression, data.score);

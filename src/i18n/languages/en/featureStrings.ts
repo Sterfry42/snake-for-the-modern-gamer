@@ -84,6 +84,18 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   gameLoaded: 'Game loaded!',
   loadFailed: 'Failed to load game!',
   saveCleared: 'Save file cleared!',
+  autosave: 'Game autosaved.',
+
+  // Save Load Menu
+  loadGameMenuTitle: 'Load Game',
+  regularSaves: 'Saves',
+  autosaves: 'Autosaves',
+  load: 'Load',
+  delete: 'Delete',
+  back: 'Back',
+  confirmDelete: 'Delete this save?',
+  noSaves: 'No save files found.',
+  noAutosaves: 'No autosaves.',
 
   // Card Game Names
   cardMossTwo: 'Moss Two',
