@@ -89,6 +89,19 @@ export class SnakeState {
     return this.nextDirection;
   }
 
+  commitQueuedDirectionWithoutMoving(): void {
+    this.direction = { ...this.nextDirection };
+    if (
+      this.bufferedDirection &&
+      !this.isOppositeDirection(this.bufferedDirection, this.direction)
+    ) {
+      this.nextDirection = { ...this.bufferedDirection };
+    } else {
+      this.nextDirection = { ...this.direction };
+    }
+    this.bufferedDirection = null;
+  }
+
   setDirection(x: number, y: number): void {
     if (Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0) > 0) {
       return;
@@ -310,7 +323,10 @@ export class SnakeState {
     }
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
-    const invulnTicks = Number(this.flags['fortitude.invulnerabilityTicks'] ?? 0);
+    const invulnTicks = Math.max(
+      Number(this.flags['fortitude.invulnerabilityTicks'] ?? 0),
+      Number(this.flags['traversal.phaseTicks'] ?? 0),
+    );
     const wallInvulnTicks = Math.max(invulnTicks, safeZoneActive ? 1 : 0, cheatImmortal ? 1 : 0);
     if (tile === '#') {
       if (wallInvulnTicks > 0) {

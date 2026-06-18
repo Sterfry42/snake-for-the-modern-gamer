@@ -254,6 +254,38 @@ describe('multi-room structure generation', () => {
     }
   });
 
+  it('keeps every physical town district outside the two-room spawn radius', () => {
+    const resolver = createResolver();
+    for (let y = -2; y <= 2; y += 1) {
+      for (let x = -2; x <= 2; x += 1) {
+        expect(resolver.getTownMembership(`${x},${y},0`)).toBeNull();
+      }
+    }
+  });
+
+  it('keeps barriers and optional structures stable regardless of room generation order', () => {
+    const roomIds = ['8,3,0', '-7,5,0', '12,-4,0', '-11,-8,0'];
+    const forward = generateRoomsInOrder(roomIds);
+    const reverse = generateRoomsInOrder([...roomIds].reverse()).reverse();
+
+    for (let index = 0; index < roomIds.length; index += 1) {
+      expect(reverse[index]?.layout).toEqual(forward[index]?.layout);
+      expect(reverse[index]?.village).toEqual(forward[index]?.village);
+      expect(reverse[index]?.goblinCamp).toEqual(forward[index]?.goblinCamp);
+      expect(reverse[index]?.questGiver).toEqual(forward[index]?.questGiver);
+      expect(reverse[index]?.snakeMcDonalds).toEqual(forward[index]?.snakeMcDonalds);
+      expect(reverse[index]?.shrine).toEqual(forward[index]?.shrine);
+      expect(reverse[index]?.ramenStand).toEqual(forward[index]?.ramenStand);
+      expect(reverse[index]?.koiPond).toEqual(forward[index]?.koiPond);
+      expect(reverse[index]?.tenguCamp).toEqual(forward[index]?.tenguCamp);
+      expect(reverse[index]?.roadsideMonument).toEqual(forward[index]?.roadsideMonument);
+      expect(reverse[index]?.allNiteDiner).toEqual(forward[index]?.allNiteDiner);
+      expect(reverse[index]?.fireworkStand).toEqual(forward[index]?.fireworkStand);
+      expect(reverse[index]?.jackalopeLodge).toEqual(forward[index]?.jackalopeLodge);
+      expect(reverse[index]?.molemanDigSite).toEqual(forward[index]?.molemanDigSite);
+    }
+  });
+
   it('keeps thieves guild off the physical town footprint until grate discovery', () => {
     const squareId = findTownRoom();
     const resolver = createResolver();

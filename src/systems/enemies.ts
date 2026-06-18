@@ -587,8 +587,7 @@ export class EnemyManager {
       if (tried.has(key)) continue;
       tried.add(key);
 
-      const next = { x: head.x + dir.x, y: head.y + dir.y };
-      const nextLocal = globalToLocal(roomId, next, this.grid);
+      const nextLocal = { x: head.x + dir.x, y: head.y + dir.y };
 
       const isRoomTransition =
         nextLocal.x < 0 ||
@@ -600,8 +599,8 @@ export class EnemyManager {
         return {
           dir,
           nextLocal: {
-            x: Math.max(0, Math.min(next.x, this.grid.cols - 1)),
-            y: Math.max(0, Math.min(next.y, this.grid.rows - 1)),
+            x: nextLocal.x < 0 ? this.grid.cols - 1 : nextLocal.x >= this.grid.cols ? 0 : nextLocal.x,
+            y: nextLocal.y < 0 ? this.grid.rows - 1 : nextLocal.y >= this.grid.rows ? 0 : nextLocal.y,
           },
         };
       }

@@ -1,5 +1,5 @@
 import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
-import type { RandomGenerator } from '../core/rng.js';
+import { createRng, type RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from './types.js';
 import { CoordinateBiomeMap } from './generation/biomeMap.js';
 import { RoomGenerationPipeline } from './generation/roomGenerationPipeline.js';
@@ -30,12 +30,9 @@ export class RoomGenerator {
   private readonly structureResolver: MultiRoomStructureResolver;
   private readonly crossRoomFeatureOperations: CrossRoomFeatureOperations;
   private readonly forestOperations: ForestOperations;
-  private readonly obstacleOperations: RandomObstacleOperations;
   private readonly oceanOperations: OceanOperations;
-  private readonly portalOperations: PortalOperations;
   private readonly roomArchetypeOperations: RoomArchetypeOperations;
   private readonly safetyOperations: SafetyOperations;
-  private readonly structureOperations: StructureOperations;
   private readonly vegetationOperations: VegetationOperations;
 
   constructor(
@@ -61,16 +58,9 @@ export class RoomGenerator {
     );
     this.crossRoomFeatureOperations = new CrossRoomFeatureOperations(this.biomeMap, this.rng);
     this.forestOperations = new ForestOperations(this.biomeMap);
-    this.obstacleOperations = new RandomObstacleOperations(this.config, this.rng);
     this.oceanOperations = new OceanOperations(this.biomeMap, this.rng);
-    this.portalOperations = new PortalOperations(this.config, this.rng);
     this.roomArchetypeOperations = new RoomArchetypeOperations(this.config, this.rng);
     this.safetyOperations = new SafetyOperations(this.config);
-    this.structureOperations = new StructureOperations(
-      this.config,
-      this.rng,
-      this.structureResolver,
-    );
     this.vegetationOperations = new VegetationOperations();
     this.pipeline = new RoomGenerationPipeline(this);
   }
@@ -171,7 +161,12 @@ export class RoomGenerator {
   }
 
   placeRandomObstacles(context: RoomGenerationContext): void {
-    this.obstacleOperations.place(context);
+    new RandomObstacleOperations(
+      this.config,
+      createRng(
+        `${this.worldGenerationIdentity.seed}:barriers:${this.worldGenerationIdentity.barrierSalt}:${context.roomId}`,
+      ),
+    ).place(context);
   }
 
   placeCrossRoomFeatures(context: RoomGenerationContext): void {
@@ -187,11 +182,20 @@ export class RoomGenerator {
   }
 
   placeRoomStructures(context: RoomGenerationContext): void {
-    this.structureOperations.place(context);
+    new StructureOperations(
+      this.config,
+      createRng(
+        `${this.worldGenerationIdentity.seed}:structures:${this.worldGenerationIdentity.structureSalt}:${context.roomId}`,
+      ),
+      this.structureResolver,
+    ).place(context);
   }
 
   placePortals(context: RoomGenerationContext): void {
-    this.portalOperations.place(context);
+    new PortalOperations(
+      this.config,
+      createRng(`${this.worldGenerationIdentity.seed}:portals:${context.roomId}`),
+    ).place(context);
   }
 
   validateRoomSafety(context: RoomGenerationContext): void {

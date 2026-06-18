@@ -458,7 +458,21 @@ describe('world generation fairness', () => {
     expect(
       openClearings.every((room) => {
         const hasNpcStructure = Boolean(
-          room.village || room.goblinCamp || room.town || room.townPerimeter || room.questGiver,
+          room.village ||
+          room.goblinCamp ||
+          room.town ||
+          room.townPerimeter ||
+          room.questGiver ||
+          room.snakeMcDonalds ||
+          room.shrine ||
+          room.ramenStand ||
+          room.koiPond ||
+          room.tenguCamp ||
+          room.roadsideMonument ||
+          room.allNiteDiner ||
+          room.fireworkStand ||
+          room.jackalopeLodge ||
+          room.molemanDigSite,
         );
         const hasLake = countTiles(room, new Set(['~'])) > 0;
         const hasStructuredDressing = countTiles(room, new Set(['G', 'M', 'S', 'A', 'N', 'U'])) > 0;
@@ -480,6 +494,18 @@ describe('world generation fairness', () => {
     expect(getBiomeForRoom('-7,-6,0').id).toBe('liberty-badlands');
     expect(getBiomeForRoom('-5,-3,0').id).toBe('liberty-badlands');
     expect(getBiomeForRoom('-4,-6,0').id).toBe('jade-peak-province');
+  });
+
+  it('keeps the common biome borders several rooms away from spawn', () => {
+    expect(getBiomeForRoom('0,5,0').id).toBe('verdigris-basin');
+    expect(getBiomeForRoom('0,6,0').id).toBe('sable-depths');
+    expect(getBiomeForRoom('-5,0,0').id).toBe('verdigris-basin');
+    expect(getBiomeForRoom('-6,0,0').id).toBe('ember-waste');
+    expect(getBiomeForRoom('5,0,0').id).toBe('verdigris-basin');
+    expect(getBiomeForRoom('6,0,0').id).toBe('elderwood-maze');
+    expect(getBiomeForRoom('10,2,0').id).toBe('moonlit-parish');
+    expect(getBiomeForRoom('0,-4,0').id).toBe('verdigris-basin');
+    expect(getBiomeForRoom('3,-5,0').id).toBe('gloam-garden');
   });
 
   it('generates Liberty Badlands archetypes and signature structures across its region', () => {

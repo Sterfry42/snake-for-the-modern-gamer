@@ -1,4 +1,5 @@
 import type { SpecialStatId } from './specialTypes.js';
+import type { LevelProgressionView } from './levelProgression.js';
 
 export type ChanceBreakdownSection =
   | 'Exploration'
@@ -37,4 +38,5 @@ export interface SpecialStatsView {
   unspentPoints: number;
   hasPreviewChanges: boolean;
   sections: ChanceBreakdownSectionView[];
+  progression: LevelProgressionView;
 }

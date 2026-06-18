@@ -46,6 +46,8 @@ import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { FootballInstance } from '../game/snakeGame.js';
 
+type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
+
 const SNAKE_OUTLINE_ALPHA = 0.9;
 const SNAKE_OUTLINE_WIDTH = 1;
 const LADDER_OUTLINE_ALPHA = 0.8;
@@ -55,10 +57,11 @@ const APPLE_OUTLINE_WIDTH = 1;
 const APPLE_LAYER_DEPTH = 20;
 const SNAKE_LAYER_DEPTH = 22;
 const ANIMAL_LAYER_DEPTH = 18;
-const ENEMY_LAYER_DEPTH = 25;
+const ENEMY_LAYER_DEPTH = 23;
 const BULLET_LAYER_DEPTH = 26;
 const FURNITURE_LAYER_DEPTH = 21;
 const VEGETATION_LAYER_DEPTH = 19;
+const POWERUP_LAYER_DEPTH = 20.5;
 
 interface SnakeRenderOptions {
   wallSenseRadius?: number;
@@ -114,6 +117,8 @@ export class SnakeRenderer {
   private readonly furnitureSprites: Phaser.GameObjects.Image[] = [];
   private readonly vegetationTextureKeys: Record<VegetationSpriteVariant, string>;
   private readonly vegetationSprites: Phaser.GameObjects.Image[] = [];
+  private readonly powerupTextureKeys: Record<PowerupKind, string>;
+  private readonly powerupSprite: Phaser.GameObjects.Image;
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
   private readonly loggedOtherPlayerRenderIds = new Set<string>();
@@ -170,6 +175,12 @@ export class SnakeRenderer {
       this.grid.cell,
       this.buildAnimalPalette(),
     );
+    this.powerupTextureKeys = this.ensurePowerupOrbTextures();
+    this.powerupSprite = this.scene.add
+      .image(0, 0, this.powerupTextureKeys.phase)
+      .setDepth(POWERUP_LAYER_DEPTH)
+      .setVisible(false)
+      .setOrigin(0.5, 0.5);
     this.snakeLayer = this.scene.add.container(0, 0).setDepth(SNAKE_LAYER_DEPTH);
     this.hatSprite = this.scene.add
       .image(0, 0, this.hatTextureKeys['hat-up'])
@@ -1418,15 +1429,67 @@ export class SnakeRenderer {
 
   private drawPowerup(room: RoomSnapshot): void {
     const p = room.powerup;
-    if (!p) return;
-    const x = p.x * this.grid.cell;
-    const y = p.y * this.grid.cell;
-    const color = p.kind === 'gun' ? 0xf6bd60 : p.kind === 'smite' ? 0xd7263d : 0x9b5de5;
-    const outline = darkenColor(color, 0.35);
-    this.graphics.fillStyle(color, 1).fillRect(x, y, this.grid.cell, this.grid.cell);
-    this.graphics
-      .lineStyle(1, outline, 0.9)
-      .strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+    if (!p) {
+      this.powerupSprite.setVisible(false);
+      return;
+    }
+    const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const pulse = 0.92 + 0.08 * Math.sin(now / 140);
+    const bob = Math.sin(now / 210) * this.grid.cell * 0.06;
+    this.powerupSprite
+      .setTexture(this.powerupTextureKeys[p.kind])
+      .setPosition(p.x * this.grid.cell + this.grid.cell / 2, p.y * this.grid.cell + this.grid.cell / 2 + bob)
+      .setDisplaySize(this.grid.cell * 0.86 * pulse, this.grid.cell * 0.86 * pulse)
+      .setAlpha(0.96)
+      .setVisible(true);
+  }
+
+  private ensurePowerupOrbTextures(): Record<PowerupKind, string> {
+    return {
+      phase: this.ensurePowerupOrbTexture('phase', 0x9b5de5, 0xf4ddff),
+      smite: this.ensurePowerupOrbTexture('smite', 0xd7263d, 0xffd166),
+      gun: this.ensurePowerupOrbTexture('gun', 0xf6bd60, 0xfff3a8),
+    };
+  }
+
+  private ensurePowerupOrbTexture(kind: PowerupKind, color: number, shine: number): string {
+    const key = `powerup-orb-${kind}-${this.grid.cell}`;
+    if (this.scene.textures.exists(key)) {
+      return key;
+    }
+    const size = Math.max(24, this.grid.cell * 2);
+    const center = size / 2;
+    const radius = size * 0.34;
+    const g = this.scene.add.graphics();
+    g.fillStyle(0x000000, 0.24);
+    g.fillEllipse(center + size * 0.05, center + size * 0.08, radius * 1.65, radius * 1.25);
+    g.fillStyle(darkenColor(color, 0.48), 0.95);
+    g.fillCircle(center, center, radius);
+    g.fillStyle(color, 1);
+    g.fillCircle(center - size * 0.02, center - size * 0.02, radius * 0.78);
+    g.fillStyle(shine, 0.88);
+    g.fillCircle(center - radius * 0.32, center - radius * 0.36, radius * 0.22);
+    g.lineStyle(Math.max(2, Math.floor(size * 0.05)), shine, 0.72);
+    g.strokeCircle(center, center, radius * 0.94);
+    g.lineStyle(Math.max(1, Math.floor(size * 0.025)), 0xffffff, 0.38);
+    g.strokeCircle(center, center, radius * 1.22);
+    if (kind === 'gun') {
+      g.lineStyle(Math.max(2, Math.floor(size * 0.045)), 0x4d3315, 0.82);
+      g.lineBetween(center - radius * 0.42, center + radius * 0.16, center + radius * 0.46, center - radius * 0.16);
+      g.fillStyle(0x4d3315, 0.85);
+      g.fillRect(center - radius * 0.05, center + radius * 0.06, radius * 0.2, radius * 0.32);
+    } else if (kind === 'smite') {
+      g.fillStyle(shine, 0.92);
+      g.fillTriangle(center + radius * 0.12, center - radius * 0.55, center - radius * 0.16, center + radius * 0.1, center + radius * 0.2, center + radius * 0.02);
+      g.fillTriangle(center - radius * 0.06, center + radius * 0.5, center + radius * 0.2, center - radius * 0.08, center - radius * 0.18, center + radius * 0.02);
+    } else {
+      g.lineStyle(Math.max(2, Math.floor(size * 0.04)), shine, 0.8);
+      g.strokeCircle(center - radius * 0.12, center, radius * 0.34);
+      g.strokeCircle(center + radius * 0.2, center, radius * 0.34);
+    }
+    g.generateTexture(key, size, size);
+    g.destroy();
+    return key;
   }
 
   private extractShieldDirs(appleInfo?: AppleSnapshot): Vector2Like[] | undefined {
@@ -2047,9 +2110,9 @@ export class SnakeRenderer {
       spriteIndex += 1;
 
       const variant = this.resolveVariant(segments, segmentIndex, direction);
-      const size = this.grid.cell * (segmentIndex === 0 ? 0.8 : 0.74);
+      const size = this.grid.cell * (segmentIndex === 0 ? 0.96 : 0.92);
       const twist =
-        segmentIndex > 0 && variant.startsWith('body') ? (segmentIndex % 2 ? 2 : -2) : 0;
+        segmentIndex > 0 && variant.startsWith('body') ? (segmentIndex % 2 ? 1 : -1) : 0;
 
       const alpha =
         enemy.encounterKind === 'roaming-snake'

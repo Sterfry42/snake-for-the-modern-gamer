@@ -19,7 +19,7 @@ class ScoreFeature extends Feature {
           color: '#9ad1ff',
           lineSpacing: 2,
         })
-        .setDepth(10);
+        .setDepth(40);
     }
   }
 

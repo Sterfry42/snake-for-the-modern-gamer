@@ -38,7 +38,7 @@ interface DialogueSpeakerOptions {
 
 const DEFAULT_OPTIONS: Required<QuestPopupOptions> = {
   size: { width: 540, height: 188 },
-  depth: 20,
+  depth: 70,
   backgroundColor: 0x122030,
   backgroundAlpha: 0.9,
   borderColor: 0x9ad1ff,

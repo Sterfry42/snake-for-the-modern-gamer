@@ -38,6 +38,19 @@ describe('SnakeState cave exit steering', () => {
     snake.setDirection(0, 1);
     expect(snake.nextDirectionVector).toEqual({ x: 0, y: 1 });
   });
+
+  it('commits one queued turn without moving and preserves the next buffered turn', () => {
+    const snake = new SnakeState(grid, snakeConfig, room.id);
+    const headBefore = { ...snake.head };
+    snake.setDirection(0, 1);
+    snake.setDirection(-1, 0);
+
+    snake.commitQueuedDirectionWithoutMoving();
+
+    expect(snake.head).toEqual(headBefore);
+    expect(snake.directionVector).toEqual({ x: 0, y: 1 });
+    expect(snake.nextDirectionVector).toEqual({ x: -1, y: 0 });
+  });
 });
 
 describe('SnakeState disorientation', () => {
@@ -53,6 +66,7 @@ describe('SnakeState disorientation', () => {
       getBossManager: () =>
         ({
           getPullFor: () => null,
+          getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
         }) as any,
     });
@@ -92,6 +106,7 @@ describe('SnakeState portals', () => {
       getBossManager: () =>
         ({
           getPullFor: () => null,
+          getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
         }) as any,
     });
@@ -140,6 +155,7 @@ describe('SnakeState portals', () => {
       getBossManager: () =>
         ({
           getPullFor: () => null,
+          getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
         }) as any,
     });

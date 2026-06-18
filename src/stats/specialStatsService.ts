@@ -48,6 +48,7 @@ import {
   getRareArtifactChanceBonus,
 } from './archaeologySpecial.js';
 import { getSocialSpecialModifiers, type SocialSpecialModifiers } from './socialSpecial.js';
+import type { LevelProgressionView } from './levelProgression.js';
 
 export interface SpecialChanceContext {
   score: number;
@@ -155,7 +156,10 @@ export class SpecialStatsService {
     this.resetPreview();
   }
 
-  getSpecialStatsView(context: SpecialChanceContext): SpecialStatsView {
+  getSpecialStatsView(
+    context: SpecialChanceContext,
+    progression: LevelProgressionView,
+  ): SpecialStatsView {
     const stats = this.previewStats;
     return {
       stats: SPECIAL_STAT_IDS.map((id) => ({
@@ -173,6 +177,7 @@ export class SpecialStatsService {
         this.previewUnspentPoints !== this.committed.unspentPoints ||
         !areSpecialStatsEqual(this.previewStats, this.committed.stats),
       sections: this.buildChanceSections(context, stats),
+      progression,
     };
   }
 
