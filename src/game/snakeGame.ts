@@ -171,6 +171,14 @@ import { SpecialStatsService } from '../stats/specialStatsService.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
 import {
+  addLifetimeScore,
+  createDefaultLevelProgressionState,
+  getLevelProgressionView,
+  normalizeLevelProgressionState,
+  type LevelProgressionState,
+  type LevelUpResult,
+} from '../stats/levelProgression.js';
+import {
   getPowerupDiscoveryChance,
   getTreasureDiscoveryChance,
 } from '../stats/explorationSpecial.js';
@@ -688,6 +696,8 @@ export class SnakeGame implements QuestRuntime {
   private readonly factionEvents: FactionEventSystem;
   private readonly inventory: InventorySystem;
   private readonly specialStats = new SpecialStatsService();
+  private levelProgression: LevelProgressionState = createDefaultLevelProgressionState();
+  private levelUpCallback?: (result: LevelUpResult) => void;
   private readonly localPlayerId: PlayerId = 'player-1';
   private readonly debugSecondPlayerId: PlayerId = 'debug-player-2';
   private readonly players = new Map<PlayerId, PlayerRuntime>();
@@ -795,6 +805,7 @@ export class SnakeGame implements QuestRuntime {
     this.factionEvents.load(undefined);
     this.inventory.clear();
     this.specialStats.restore();
+    this.levelProgression = createDefaultLevelProgressionState();
     this.debugSecondSnake = null;
     this.debugSecondPlayerAlive = false;
     this.debugSecondPlayerStepCount = 0;
@@ -2655,18 +2666,14 @@ export class SnakeGame implements QuestRuntime {
       this.isRaccoonMode() ||
       Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
       Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
-      Number(
-        this.getFlag<{ charges?: number }>('fortitude.hardened')?.charges ?? 0,
-      ) > 0 ||
+      Number(this.getFlag<{ charges?: number }>('fortitude.hardened')?.charges ?? 0) > 0 ||
       Number(this.getFlag<number>('jadePeak.koiFlowEnd') ?? 0) >
         Number(this.getFlag<number>('timeMs') ?? 0)
     ) {
       return false;
     }
     const apple = this.apples.getSnapshot(roomId);
-    const appleEaten = Boolean(
-      apple && apple.position.x === localX && apple.position.y === localY,
-    );
+    const appleEaten = Boolean(apple && apple.position.x === localX && apple.position.y === localY);
     const body = appleEaten
       ? Array.from(this.snake.bodySegments)
       : Array.from(this.snake.bodySegments).slice(0, -1);
@@ -3594,9 +3601,10 @@ export class SnakeGame implements QuestRuntime {
     const roomId = this.snake.currentRoomId;
     const localHead = this.worldToLocal(roomId, head);
     let closest: { enemy: EnemyInstance; localHead: Vector2Like; distance: number } | null = null;
-    const candidates = [...this.enemies.getRivalSnakes(), ...this.enemies.getRoamingSnakes()].filter(
-      (enemy) => enemy.roomId === roomId,
-    );
+    const candidates = [
+      ...this.enemies.getRivalSnakes(),
+      ...this.enemies.getRoamingSnakes(),
+    ].filter((enemy) => enemy.roomId === roomId);
     for (const enemy of candidates) {
       const enemyHead = enemy.body?.[0] ?? enemy.position;
       const distance = this.distance(localHead, enemyHead);
@@ -7083,8 +7091,18 @@ export class SnakeGame implements QuestRuntime {
       category === undefined ? amount : normalizeScore(amount, category, this.normalizationState);
     const multiplier = this.getArtifactScoreMultiplier();
     const adjusted =
-      normalized > 0 && multiplier > 1 ? Math.max(1, Math.ceil(normalized * multiplier)) : normalized;
+      normalized > 0 && multiplier > 1
+        ? Math.max(1, Math.ceil(normalized * multiplier))
+        : normalized;
     this.snake.addScore(adjusted);
+    if (adjusted > 0) {
+      const result = addLifetimeScore(this.levelProgression, adjusted);
+      this.levelProgression = result.state;
+      if (result.levelUp) {
+        this.specialStats.grantUnspentPoints(result.levelUp.levelsGained);
+        this.levelUpCallback?.(result.levelUp);
+      }
+    }
   }
 
   grantScore(amount: number): void {
@@ -7097,12 +7115,19 @@ export class SnakeGame implements QuestRuntime {
 
   getSpecialStatsView(): SpecialStatsView {
     const room = this.getCurrentRoom();
-    return this.specialStats.getSpecialStatsView({
-      score: this.getScore(),
-      apples: this.config.apples,
-      fish: getFishByBiome(room.biomeId),
-      isWaterTile: this.isHeadOnWaterTile(),
-    });
+    return this.specialStats.getSpecialStatsView(
+      {
+        score: this.getScore(),
+        apples: this.config.apples,
+        fish: getFishByBiome(room.biomeId),
+        isWaterTile: this.isHeadOnWaterTile(),
+      },
+      getLevelProgressionView(this.levelProgression),
+    );
+  }
+
+  setLevelUpCallback(callback?: (result: LevelUpResult) => void): void {
+    this.levelUpCallback = callback;
   }
 
   previewSpecialStatChange(statId: SpecialStatId, delta: number): boolean {
@@ -10985,6 +11010,7 @@ export class SnakeGame implements QuestRuntime {
       flags: characterFlags,
       worldGeneration: this.worldGenerationIdentity,
       special: this.specialStats.exportState(),
+      levelProgression: this.levelProgression,
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
       questsCompleted: this.questController.getCompletedIds(),
       questsAccepted: this.questController.getAcceptedIds(),
@@ -11056,6 +11082,19 @@ export class SnakeGame implements QuestRuntime {
 
       this.reset({ preserveRunSeed: true });
       this.specialStats.restore(data.special);
+      this.levelProgression = normalizeLevelProgressionState(data.levelProgression, data.score);
+      if (!data.levelProgression) {
+        const committed = this.specialStats.getCommittedState();
+        const allocatedPoints = Object.values(committed.stats).reduce(
+          (total, value) => total + Math.max(0, value - 5),
+          0,
+        );
+        const missingPoints = Math.max(
+          0,
+          this.levelProgression.level - 1 - allocatedPoints - committed.unspentPoints,
+        );
+        this.specialStats.grantUnspentPoints(missingPoints);
+      }
       this.characterMode = normalizeCharacterMode(
         data.characterMode ?? data.flags?.['character.mode'],
       );
@@ -13992,9 +14031,7 @@ export class SnakeGame implements QuestRuntime {
     const bonus = { score: 0, growth: 0 };
 
     if (config.scorePerStack > 0 && state.stacks > 0) {
-      const scoreGain = Math.ceil(
-        applyStackDiminishingReturns(config.scorePerStack, state.stacks),
-      );
+      const scoreGain = Math.ceil(applyStackDiminishingReturns(config.scorePerStack, state.stacks));
       if (scoreGain > 0) {
         this.addScore(scoreGain, 'combo');
         bonus.score += scoreGain;

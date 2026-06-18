@@ -3,6 +3,7 @@ import { LocalStorageStringSaveStore } from '../storage/LocalStorageStringSaveSt
 import type { CharacterMode } from '../player/raccoonMode.js';
 import type { SpecialStatsState } from '../stats/specialTypes.js';
 import type { AchievementState } from '../achievements/achievementTypes.js';
+import type { LevelProgressionState } from '../stats/levelProgression.js';
 
 const SAVE_KEY = 'snakeGameSave';
 const DEFAULT_SAVE_SLOT = '';
@@ -105,6 +106,7 @@ export interface GameSaveData {
     equippedRod?: string;
   };
   special?: SpecialStatsState;
+  levelProgression?: LevelProgressionState;
   achievements?: AchievementState;
 }
 

@@ -171,6 +171,7 @@ import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.
 import { FishingRegistry, type FishingRegistryOptions } from '../fishing/fishingRegistry.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import type { LevelUpResult } from '../stats/levelProgression.js';
 import { FishingMinigame } from '../fishing/fishingMinigame.js';
 import { hasAdjacentWater, roomHasWater } from '../fishing/waterDetection.js';
 import { getFishDefinition } from '../fishing/fishDefinitions.js';
@@ -1652,6 +1653,8 @@ export default class SnakeScene extends Phaser.Scene {
   private lastVisibleLifeCharges = 0;
   private lastJuicedScore = 0;
   private lastJuicedLength = 0;
+  private levelUpPrompt: Phaser.GameObjects.Container | null = null;
+  private awaitingLevelUpDirection = false;
   private nextDangerPulseAtMs = 0;
   private nextPowerupSparkAtMs = 0;
   private nextBabyCryAtMs = 0;
@@ -1818,6 +1821,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.mobileControls = createMobileControls({
       onDirection: (x, y) => {
+        this.resumeAfterLevelUpDirection();
         this.setDir(x, y);
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
@@ -1845,6 +1849,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const registry = await createQuestRegistry();
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
+    this.snakeGame.setLevelUpCallback((result) => this.presentLevelUp(result));
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
     this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
@@ -1876,9 +1881,10 @@ export default class SnakeScene extends Phaser.Scene {
     await this.featureManager.load(this, defaultGameConfig.features.enabled);
 
     // Wire up minecraft feature instance from the feature registry
-    this.minecraftFeature = this.featureManager.getFeature<
-      import('../minecraft/MinecraftFeature.js').MinecraftFeature
-    >('minecraft');
+    this.minecraftFeature =
+      this.featureManager.getFeature<import('../minecraft/MinecraftFeature.js').MinecraftFeature>(
+        'minecraft',
+      );
 
     this.initGame(true);
 
@@ -2050,6 +2056,13 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.skillTree.handleTextInput(event)) {
         event.preventDefault();
         return;
+      }
+
+      if (
+        this.awaitingLevelUpDirection &&
+        ['arrowup', 'w', 'arrowdown', 's', 'arrowleft', 'a', 'arrowright', 'd'].includes(key)
+      ) {
+        this.resumeAfterLevelUpDirection();
       }
 
       if (key === ' ') {
@@ -2658,7 +2671,12 @@ export default class SnakeScene extends Phaser.Scene {
           result.apple.typeId,
         );
         const streak = Number(this.getFlag<number>('appleStreak') ?? 0);
-        this.juice.appleStreak(result.apple.worldPosition.x, result.apple.worldPosition.y, streak, result.apple.typeId);
+        this.juice.appleStreak(
+          result.apple.worldPosition.x,
+          result.apple.worldPosition.y,
+          streak,
+          result.apple.typeId,
+        );
         this.showRaccoonForageFeedbackAt(
           result.apple.worldPosition.x,
           result.apple.worldPosition.y,
@@ -2893,6 +2911,112 @@ export default class SnakeScene extends Phaser.Scene {
   resetSpecialStatPreview(): void {
     this.snakeGame.resetSpecialStatPreview();
     this.skillTree?.getOverlay().refresh();
+  }
+
+  private presentLevelUp(result: LevelUpResult): void {
+    const head = this.snakeGame.getSnakeBody()[0];
+    const world = head
+      ? this.tileToWorld(head)
+      : { x: this.scale.width / 2, y: this.scale.height / 2 };
+    this.juice.levelUp(world.x, world.y, result.levelsGained);
+    this.skillTree?.getOverlay().refresh();
+    this.isDirty = true;
+
+    if (this.titleVisible || this.deathCutscene || this.isModalPopupVisible()) {
+      return;
+    }
+
+    this.paused = true;
+    this.awaitingLevelUpDirection = true;
+    this.gameConnection.send({
+      type: 'pause',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    this.levelUpPrompt?.destroy();
+
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2;
+    const prompt = this.add.container(0, 0).setDepth(260).setScrollFactor(0);
+    const veil = this.add
+      .rectangle(0, 0, this.scale.width, this.scale.height, 0x07120c, 0.38)
+      .setOrigin(0, 0);
+    const title = this.add
+      .text(centerX, centerY - 32, 'LEVEL UP!', {
+        fontFamily: 'monospace',
+        fontSize: '64px',
+        fontStyle: 'bold',
+        color: '#fff3a8',
+        stroke: '#153d25',
+        strokeThickness: 10,
+        shadow: { offsetX: 0, offsetY: 8, color: '#000000', blur: 10, fill: true },
+      })
+      .setOrigin(0.5);
+    const pointsLabel =
+      result.levelsGained === 1 ? '+1 SPECIAL POINT' : `+${result.levelsGained} SPECIAL POINTS`;
+    const subtitle = this.add
+      .text(centerX, centerY + 32, `LEVEL ${result.level}  •  ${pointsLabel}`, {
+        fontFamily: 'monospace',
+        fontSize: '20px',
+        fontStyle: 'bold',
+        color: '#5dd6a2',
+        stroke: '#07120c',
+        strokeThickness: 5,
+      })
+      .setOrigin(0.5);
+    const instruction = this.add
+      .text(centerX, centerY + 72, 'PRESS A DIRECTION TO CONTINUE', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#ffffff',
+        stroke: '#07120c',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5);
+    prompt.add([veil, title, subtitle, instruction]);
+    prompt.setScale(0.35).setAlpha(0);
+    this.tweens.add({
+      targets: prompt,
+      scale: 1,
+      alpha: 1,
+      duration: 320,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        if (!prompt.active) return;
+        this.tweens.add({
+          targets: instruction,
+          alpha: { from: 0.35, to: 1 },
+          duration: 620,
+          yoyo: true,
+          repeat: -1,
+        });
+      },
+    });
+    this.levelUpPrompt = prompt;
+  }
+
+  private resumeAfterLevelUpDirection(): void {
+    if (!this.awaitingLevelUpDirection) {
+      return;
+    }
+    this.awaitingLevelUpDirection = false;
+    this.paused = false;
+    this.gameConnection.send({
+      type: 'resume',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    const prompt = this.levelUpPrompt;
+    this.levelUpPrompt = null;
+    if (prompt) {
+      this.tweens.killTweensOf(prompt);
+      this.tweens.add({
+        targets: prompt,
+        alpha: 0,
+        scale: 1.2,
+        duration: 160,
+        ease: 'Cubic.easeIn',
+        onComplete: () => prompt.destroy(),
+      });
+    }
   }
 
   private handleStepDeath(result: ReturnType<SnakeGame['actionStep']>): boolean {
@@ -4466,12 +4590,18 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  addScore(amount: number, category: import('../game/scoreNormalization.js').ScoreCategory = 'apple') {
+  addScore(
+    amount: number,
+    category: import('../game/scoreNormalization.js').ScoreCategory = 'apple',
+  ) {
     const applied = this.skillTree ? this.skillTree.modifyScoreGain(amount) : amount;
     this.addScoreDirect(applied, category);
   }
 
-  addScoreDirect(amount: number, category?: import('../game/scoreNormalization.js').ScoreCategory): void {
+  addScoreDirect(
+    amount: number,
+    category?: import('../game/scoreNormalization.js').ScoreCategory,
+  ): void {
     this.snakeGame.addScore(amount, category ?? 'apple');
     this.isDirty = true;
     // Floating score popup at head
@@ -4533,7 +4663,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (code === 'cardshark' || code === 'playcards') {
       this.setFlag('cheat.cardTablesUnlocked', true);
       this.isDirty = true;
-      return { ok: true, message: 'Cheat active: card tables unlocked in interactions.', color: '#5dd6a2' };
+      return {
+        ok: true,
+        message: 'Cheat active: card tables unlocked in interactions.',
+        color: '#5dd6a2',
+      };
     }
     if (code === '90fps240hz') {
       const nextVisible = !this.performanceHudVisible;
@@ -4976,7 +5110,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   showSaveUI(): void {
-    if (this.cardGameContainer || this.villageShopPopup?.isVisible() || this.questPopup?.isVisible()) {
+    if (
+      this.cardGameContainer ||
+      this.villageShopPopup?.isVisible() ||
+      this.questPopup?.isVisible()
+    ) {
       return;
     }
     this.saveUI.show();
@@ -7611,7 +7749,8 @@ export default class SnakeScene extends Phaser.Scene {
       kind?: string;
     }>('ui.enemySnakeNear');
     if (enemySnakeNear) {
-      const interval = enemySnakeNear.distance !== undefined && enemySnakeNear.distance <= 1 ? 260 : 520;
+      const interval =
+        enemySnakeNear.distance !== undefined && enemySnakeNear.distance <= 1 ? 260 : 520;
       if (this.time.now - this.lastEnemySnakeNearFxAtMs >= interval) {
         const world = this.tileToWorldInRoom(
           { x: enemySnakeNear.x, y: enemySnakeNear.y },
@@ -10711,15 +10850,7 @@ export default class SnakeScene extends Phaser.Scene {
         wordWrap: { width: tooltipWidth - 34 },
       },
     );
-    root.add([
-      dimmer,
-      surface,
-      title,
-      target,
-      tooltipPanel,
-      tooltipTrim,
-      this.cardTooltipText,
-    ]);
+    root.add([dimmer, surface, title, target, tooltipPanel, tooltipTrim, this.cardTooltipText]);
     this.addCardTableProps(root, width, height, visualStyle);
     this.juice.cardHandDealt(x + width / 2, y + 250, hand.length);
 
@@ -10829,16 +10960,24 @@ export default class SnakeScene extends Phaser.Scene {
       'primary',
       162,
     );
-    const allButton = this.createCardTableButton(266, height - 36, 'Play All', () => {
-      this.juice.cardScoreCommit(x + width / 2, y + height / 2, hand.length);
-      this.hideCardGamePopup(false);
-      this.resolveCardRound(
-        shopkeeperName,
-        state,
-        hand,
-        hand.map((_, index) => index),
-      );
-    }, true, 'secondary', 98);
+    const allButton = this.createCardTableButton(
+      266,
+      height - 36,
+      'Play All',
+      () => {
+        this.juice.cardScoreCommit(x + width / 2, y + height / 2, hand.length);
+        this.hideCardGamePopup(false);
+        this.resolveCardRound(
+          shopkeeperName,
+          state,
+          hand,
+          hand.map((_, index) => index),
+        );
+      },
+      true,
+      'secondary',
+      98,
+    );
     const foldButton = this.createCardTableButton(
       width - 138,
       height - 36,
@@ -10868,10 +11007,7 @@ export default class SnakeScene extends Phaser.Scene {
     glow?.setAlpha(selected ? 0.24 : Number(card.getData('rarityGlowAlpha') ?? 0));
   }
 
-  private setCardTableButtonEnabled(
-    button: Phaser.GameObjects.Container,
-    enabled: boolean,
-  ): void {
+  private setCardTableButtonEnabled(button: Phaser.GameObjects.Container, enabled: boolean): void {
     button.setData('enabled', enabled);
     const bg = button.getByName('button-bg') as Phaser.GameObjects.Rectangle | null;
     const text = button.getByName('button-text') as Phaser.GameObjects.Text | null;

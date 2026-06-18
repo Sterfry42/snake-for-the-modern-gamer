@@ -25,6 +25,12 @@ import {
 } from '../archaeologySpecial.js';
 import { getSocialSpecialModifiers } from '../socialSpecial.js';
 import { SpecialStatsService } from '../specialStatsService.js';
+import {
+  getLevelProgressionView,
+  createDefaultLevelProgressionState,
+} from '../levelProgression.js';
+
+const progression = getLevelProgressionView(createDefaultLevelProgressionState());
 
 describe('SPECIAL stats', () => {
   it('defaults every SPECIAL stat to neutral 5', () => {
@@ -95,17 +101,23 @@ describe('SPECIAL stats', () => {
     expect(service.previewIncrease('perception')).toBe(true);
     expect(service.previewIncrease('strength')).toBe(false);
 
-    let view = service.getSpecialStatsView({
-      score: 30,
-      apples: defaultGameConfig.apples,
-      fish: FISH_DEFINITIONS,
-    });
+    let view = service.getSpecialStatsView(
+      {
+        score: 30,
+        apples: defaultGameConfig.apples,
+        fish: FISH_DEFINITIONS,
+      },
+      progression,
+    );
     expect(view.hasPreviewChanges).toBe(true);
     expect(view.unspentPoints).toBe(0);
     expect(view.stats.find((stat) => stat.id === 'luck')?.value).toBe(6);
 
     service.resetPreview();
-    view = service.getSpecialStatsView({ score: 30, apples: defaultGameConfig.apples });
+    view = service.getSpecialStatsView(
+      { score: 30, apples: defaultGameConfig.apples },
+      progression,
+    );
     expect(view.hasPreviewChanges).toBe(false);
     expect(view.stats.find((stat) => stat.id === 'luck')?.value).toBe(5);
 

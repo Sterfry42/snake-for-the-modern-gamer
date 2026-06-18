@@ -1387,11 +1387,70 @@ export class SkillTreeOverlay {
     const content = insetRect({ x: mainX, y: mainY, width: mainW, height: 330 }, 14);
     const headline = this.buildSpecialHeadlineRows(view);
 
-    addUiText(this.scene, this.specialMainContainer, content.x, content.y, 'SPECIAL COMMAND', {
+    addUiText(this.scene, this.specialMainContainer, content.x, content.y, 'SPECIAL', {
       color: uiColors.textPrimary,
       fontSize: '14px',
       fontStyle: 'bold',
     });
+    const levelLabelX = content.x + 66;
+    addUiText(
+      this.scene,
+      this.specialMainContainer,
+      levelLabelX,
+      content.y + 2,
+      `LV ${view.progression.level}`,
+      {
+        color: uiColors.valuePrimary,
+        fontSize: '11px',
+        fontStyle: 'bold',
+      },
+    );
+    const progressRect: UiRect = {
+      x: content.x + 108,
+      y: content.y + 1,
+      width: Math.max(96, content.width - 108),
+      height: 16,
+    };
+    g.fillStyle(uiColors.panelBgInset, 0.92).fillRoundedRect(
+      progressRect.x,
+      progressRect.y,
+      progressRect.width,
+      progressRect.height,
+      4,
+    );
+    const progressFillWidth = Math.max(
+      0,
+      Math.floor((progressRect.width - 2) * view.progression.progress),
+    );
+    if (progressFillWidth > 0) {
+      g.fillStyle(uiColors.success, 0.82).fillRoundedRect(
+        progressRect.x + 1,
+        progressRect.y + 1,
+        progressFillWidth,
+        progressRect.height - 2,
+        3,
+      );
+    }
+    g.lineStyle(1, uiColors.success, 0.72).strokeRoundedRect(
+      progressRect.x + 0.5,
+      progressRect.y + 0.5,
+      progressRect.width - 1,
+      progressRect.height - 1,
+      4,
+    );
+    addUiText(
+      this.scene,
+      this.specialMainContainer,
+      progressRect.x + progressRect.width / 2,
+      progressRect.y + 3,
+      `${Math.floor(view.progression.lifetimeScore)} / ${view.progression.nextLevelScore}`,
+      {
+        align: 'center',
+        color: uiColors.textPrimary,
+        fontSize: '9px',
+        fontStyle: 'bold',
+      },
+    ).setOrigin(0.5, 0);
 
     const summaryRect: UiRect = {
       x: content.x,
