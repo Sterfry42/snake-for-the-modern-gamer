@@ -4,7 +4,7 @@ describe('Jason Statham Boss', () => {
   const grid = { cols: 16, rows: 12, cell: 24 };
 
   it('should spawn with correct stats', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     const bosses = bossManager.getBossesInRoom('0,0,0');
 
@@ -18,13 +18,13 @@ describe('Jason Statham Boss', () => {
   });
 
   it('should have jason-statham kind in union', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     expect(bossManager.hasBossWithKind('jason-statham')).toBe(true);
   });
 
   it('should remain calm when snake is far away', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('5,0,0');
     const deps = {
       getRoom: (_roomId: string) =>
@@ -47,7 +47,7 @@ describe('Jason Statham Boss', () => {
   });
 
   it('should transition to attacking when snake is nearby', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     let eventKind: string | undefined;
     const deps = {
@@ -78,7 +78,7 @@ describe('Jason Statham Boss', () => {
   });
 
   it('should take damage when vulnerable', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     const boss = bossManager.getBossesInRoom('0,0,0')[0];
     boss!.jasonPhase = 'vulnerable';
@@ -96,7 +96,7 @@ describe('Jason Statham Boss', () => {
   });
 
   it('should defeat when health reaches 0', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     const boss = bossManager.getBossesInRoom('0,0,0')[0];
     boss!.jasonPhase = 'vulnerable';
@@ -109,7 +109,7 @@ describe('Jason Statham Boss', () => {
   });
 
   it('should not take damage when not vulnerable', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     const boss = bossManager.getBossesInRoom('0,0,0')[0];
     boss!.jasonPhase = 'calm';
@@ -120,7 +120,7 @@ describe('Jason Statham Boss', () => {
   });
 
   it('should remove defeated boss after grace period', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     const boss = bossManager.getBossesInRoom('0,0,0')[0];
     boss!.jasonPhase = 'defeated';
@@ -144,13 +144,13 @@ describe('Jason Statham Boss', () => {
   });
 
   it('should return false for non-existent boss', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     const result = bossManager.takeJasonDamage('nonexistent', 25);
     expect(result).toBe(false);
   });
 
   it('should not return boss from getBoss if deleted', () => {
-    const bossManager = new BossManager(grid);
+    const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('0,0,0');
     const boss = bossManager.getBossesInRoom('0,0,0')[0];
     const retrieved = bossManager.getBoss(boss!.id);

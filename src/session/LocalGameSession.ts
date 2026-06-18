@@ -21,6 +21,10 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
   private readonly eventHandlers = new Set<EventHandler>();
   private lastSnapshot: GameSnapshot;
 
+  get rng(): import('../core/rng.js').RandomGenerator {
+    return this.game.rng;
+  }
+
   constructor(args: LocalGameSessionArgs) {
     this.game = args.game;
     this.localPlayerId = args.localPlayerId ?? this.game.getLocalPlayerId();

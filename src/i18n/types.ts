@@ -130,6 +130,18 @@ export interface FeatureStrings {
   gameLoaded: string;
   loadFailed: string;
   saveCleared: string;
+  autosave: string;
+
+  // === SAVE LOAD MENU ===
+  loadGameMenuTitle: string;
+  regularSaves: string;
+  autosaves: string;
+  load: string;
+  delete: string;
+  back: string;
+  confirmDelete: string;
+  noSaves: string;
+  noAutosaves: string;
 
   // === CARD GAME NAMES & DESCRIPTIONS ===
   cardMossTwo: string;

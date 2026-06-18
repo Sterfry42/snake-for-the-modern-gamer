@@ -1,4 +1,5 @@
 import { Feature } from '../features/feature.js';
+import type { RandomGenerator } from '../core/rng.js';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { MinecraftPlayer, isWalkable, canMineBlock, isWalkableWithCreativeOverride } from './player.js';
 import { ChunkManager } from './chunk.js';
@@ -53,6 +54,7 @@ import {
 } from './farming.js';
 
 export class MinecraftFeature extends Feature {
+  private _rng: RandomGenerator | null = null;
   private player: MinecraftPlayer | null = null;
   private chunkManager: ChunkManager | null = null;
   private renderLayer: MinecraftRenderLayer | null = null;
@@ -71,9 +73,26 @@ export class MinecraftFeature extends Feature {
   private lastActionStep: number = 0;
   private borderOverlay: Phaser.GameObjects.Graphics | null = null;
   private creativeMode = false;
+  private _rngInjected = false;
 
   constructor() {
     super('minecraft', 'Minecraft block building mode');
+  }
+
+  private get rng(): RandomGenerator {
+    if (!this._rng) {
+      this._rng = () => Math.random();
+    }
+    return this._rng;
+  }
+
+  initFromGame(scene: SnakeScene): void {
+    if (this._rngInjected || !scene.snakeGame) return;
+    this._rng = scene.snakeGame.rng;
+    this._rngInjected = true;
+    if (this.mobManager) {
+      this.mobManager.setRng(this.rng);
+    }
   }
 
   override onRegister(scene: SnakeScene): void {
@@ -97,6 +116,8 @@ export class MinecraftFeature extends Feature {
   override onActionStep(scene: SnakeScene): void {
     if (!this.minecraftMode || !this.player) return;
 
+    this.initFromGame(scene);
+
     const tick = Number(scene.snakeGame.getFlag<number>('timeMs') ?? 0);
     this.lastActionStep = tick;
 
@@ -116,7 +137,7 @@ export class MinecraftFeature extends Feature {
 
     // Crop growth tick
     const room = scene.snakeGame.getCurrentRoom();
-    tickCrops(room, this.dayNight!);
+    tickCrops(room, this.dayNight!, this.rng);
 
     // Mob tick with combat
     const mobs = this.mobManager?.getMobsInRoom(room.id) ?? [];
@@ -1158,7 +1179,7 @@ export class MinecraftFeature extends Feature {
           const blockType = room.minecraftBlocks[key];
           if (!['creeper', 'cow'].includes(blockType)) {
             const hardness = getBlockHardness(blockType) ?? 1;
-            if (Math.random() < Math.max(0.2, 1 - hardness / 10)) {
+            if (this.rng() < Math.max(0.2, 1 - hardness / 10)) {
               const chunkX = Math.floor(bx / CHUNK_SIZE);
               const chunkY = Math.floor(by / CHUNK_SIZE);
               const localX = bx - chunkX * CHUNK_SIZE;
