@@ -1941,7 +1941,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setStrokeStyle(1, 0x6fd9b7, 0.6);
     this.raccoonHungerTimerBar = this.add.graphics().setDepth(28).setVisible(false);
     this.heartsHud = this.add
-      .text(8, this.grid.rows * this.grid.cell - 26, '', {
+      .text(10, 10, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#ff8f8f',
@@ -1949,7 +1949,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setDepth(28)
       .setVisible(false);
     this.livesHud = this.add
-      .text(8, this.grid.rows * this.grid.cell - 48, '', {
+      .text(10, 30, '', {
         fontFamily: 'monospace',
         fontSize: '16px',
         color: '#fff3a8',
@@ -1957,7 +1957,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setDepth(28)
       .setVisible(false);
     this.temperatureHud = this.add
-      .text(8, this.grid.rows * this.grid.cell - 70, '', {
+      .text(8, this.grid.rows * this.grid.cell - 48, '', {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#9ad1ff',
@@ -2250,8 +2250,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (['arrowleft', 'a'].includes(key)) this.setDir(-1, 0);
       if (['arrowright', 'd'].includes(key)) this.setDir(1, 0);
 
-      if (key === 't') this.showSaveUI();
-      if (key === 'y') this.hideSaveUI();
+      if (key === 'g') this.saveUI?.save();
       if (key === 'm') {
         const result = this.toggleMinimap();
         if (result) {
@@ -2666,11 +2665,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
     this.questPopup.hide();
     this.lastVisibleLifeCharges = 0;
-    if (!this.titleVisible) {
-      this.showSaveUI();
-    } else {
-      this.hideSaveUI();
-    }
+     if (!this.titleVisible) {
+     }
   }
 
   private runActionStep(): void {
@@ -3137,7 +3133,6 @@ export default class SnakeScene extends Phaser.Scene {
 
   private offerQuest(quest: Quest) {
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
     this.juice.questOffered();
 
@@ -3479,7 +3474,6 @@ export default class SnakeScene extends Phaser.Scene {
 
   private playDrowningAnimation(onComplete: () => void): void {
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
 
     const head = this.snakeGame.getSnakeBody()[0] ?? null;
@@ -3565,7 +3559,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
     this.ensureAngelTexture();
     this.ensureGoblinAngelTexture();
@@ -3691,7 +3684,6 @@ export default class SnakeScene extends Phaser.Scene {
           }
           this.paused = false;
           this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
-          this.showSaveUI();
           this.isDirty = true;
           return;
         }
@@ -4359,10 +4351,8 @@ export default class SnakeScene extends Phaser.Scene {
     });
     this.skillTree.toggleOverlay(this.paused ? true : false);
     if (this.paused) {
-      this.hideSaveUI();
       this.juice.skillTreeOpened();
     } else {
-      this.showSaveUI();
       this.juice.skillTreeClosed();
     }
   }
@@ -5166,12 +5156,10 @@ export default class SnakeScene extends Phaser.Scene {
     // Auto-escape from fishing before saving
     this.autoEscapeFromFishing();
 
-    this.gameConnection.send({
-      type: 'saveGame',
-      playerId: this.snakeGame.getLocalPlayerId(),
-      religionChoice,
-      classChoice,
-      backgroundChoice,
+    const data = this.snakeGame.getSaveData();
+    const dateKey = new Date().toISOString();
+    saveManagerV2.save(dateKey, data).catch((err) => {
+      console.error('[SnakeScene] Failed to save game:', err);
     });
     this.currentSnapshot = this.gameSession.getSnapshot();
   }
@@ -5206,25 +5194,9 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
-  showSaveUI(): void {
-    if (
-      this.cardGameContainer ||
-      this.villageShopPopup?.isVisible() ||
-      this.questPopup?.isVisible()
-    ) {
-      return;
-    }
-    this.saveUI.show();
-  }
-
-  hideSaveUI(): void {
-    this.saveUI.hide();
-  }
-
   private showTitleScreen(mode: TitleMenuMode = 'main', message = ''): void {
     this.paused = true;
     this.titleVisible = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
     this.questPopup.hide();
     this.villageShopPopup?.hide();
@@ -5490,7 +5462,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.resetStartingChoices();
     this.setFlag('run.startChoicesReady', true);
     this.paused = true;
-    this.showSaveUI();
     // Auto-save initial game state
     const data = this.snakeGame.getSaveData();
     const dateKey = new Date().toISOString();
@@ -5515,7 +5486,6 @@ export default class SnakeScene extends Phaser.Scene {
         this.backfillArchipelagoDurableRewards();
         this.backfillArchipelagoAchievementScore();
         this.paused = false;
-        this.showSaveUI();
         this.isDirty = true;
         saveLoadMenu.hide();
       },
@@ -8261,7 +8231,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private draw(): void {
     // Suppress generic HUDs in house
-    this.setFlag('ui.suppressHud', this.titleVisible || this.isInHouse());
+    this.setFlag('ui.suppressHud', this.titleVisible || this.isInHouse() || this.deathCutscene !== null);
     const snapshot = this.gameSession.getSnapshot();
     this.currentSnapshot = snapshot;
     const localPlayer = snapshot.players[snapshot.localPlayerId];
@@ -8313,29 +8283,30 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
+    this.saveUI.updateVisibility();
     const health = snapshot.ui.health ?? this.snakeGame.getPlayerHealth();
     const healthRevealed =
       Boolean(this.getFlag<boolean>('ui.healthRevealed')) || health.current < health.max;
     if (health.current < health.max) {
       this.setFlag('ui.healthRevealed', true);
     }
-    this.heartsHud.setText(
-      `Hearts: ${'♥'.repeat(Math.max(0, health.current))}${'♡'.repeat(Math.max(0, health.max - health.current))}`,
-    );
+    const heartsText = `Hearts: ${'♥'.repeat(Math.max(0, health.current))}${'♡'.repeat(Math.max(0, health.max - health.current))}`;
     const head = this.snakeGame.getSnakeBody()[0];
-    this.heartsHud.setText(
-      `Hearts: ${'♥'.repeat(Math.max(0, health.current))}${'♡'.repeat(Math.max(0, health.max - health.current))}`,
-    );
     if (this.snakeGame.isRaccoonMode()) {
-      this.heartsHud.setText(this.heartsHud.text.replace('Hearts:', 'Hunger:'));
+      this.heartsHud.setText(heartsText.replace('Hearts:', 'Hunger:'));
       if (health.current === 1 && this.lastRaccoonHungerForPopup !== 1) {
         this.showRaccoonImagePopup('sad');
       }
       this.lastRaccoonHungerForPopup = health.current;
     } else {
+      this.heartsHud.setText(heartsText);
       this.lastRaccoonHungerForPopup = null;
     }
-    this.heartsHud.setVisible(!this.isInHouse() && healthRevealed);
+    this.heartsHud.setPosition(10, 10);
+    this.heartsHud.setVisible(!this.isInHouse());
+    const heartsBounds = this.heartsHud.getBounds();
+    const livesGap = 4;
+    this.livesHud.setPosition(10, heartsBounds.bottom + livesGap);
     this.drawRaccoonHungerTimerBar(!this.isInHouse() && !this.titleVisible);
     if (!this.isInHouse() && head && healthRevealed && health.current < health.max) {
       const missingRatio = health.max > 0 ? (health.max - health.current) / health.max : 0;
@@ -8354,11 +8325,11 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.lastVisibleLifeCharges = lifeCharges;
     this.livesHud.setText(`Lives: ${lifeCharges + 1}`);
-    this.livesHud.setVisible(
-      !this.isInHouse() &&
-        !this.snakeGame.isRaccoonMode() &&
-        Boolean(this.getFlag<boolean>('ui.livesRevealed')),
-    );
+    this.livesHud.setVisible(!this.isInHouse() && !this.snakeGame.isRaccoonMode());
+    const livesBounds = this.livesHud.getBounds();
+    const screenBottom = this.grid.rows * this.grid.cell;
+    const bottomY = screenBottom - 22;
+    this.temperatureHud.setPosition(8, bottomY);
     const temperature = this.snakeGame.getPlayerTemperature();
     if (!this.isInHouse() && temperature.active) {
       const filled = Math.max(0, Math.min(temperature.max, temperature.current));
@@ -9980,7 +9951,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const quests = this.snakeGame.getTownQuestBoardOptions();
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
     const options: ChoiceOption[] =
       quests.length > 0
@@ -10212,7 +10182,6 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showGoblinShopRoot(shopkeeperName: string): void {
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
     const standing = this.snakeGame.getFactionAlignment('goblin-camps').standing;
     if (standing === 'violent' || standing === 'angry') {
@@ -10407,7 +10376,6 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showVillageShopRoot(shopkeeperName: string, skipBark = false, actorRole?: string): void {
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
     const bark = this.snakeGame.getNpcBark('shopkeeper');
     if (!skipBark) {
@@ -10873,13 +10841,11 @@ export default class SnakeScene extends Phaser.Scene {
     state: CardCompetitionState,
     hand: CardId[],
   ): void {
-    this.hideSaveUI();
     const table = getCardTable(state.tableId);
     const houseCardIds = getActiveHouseCardIds(state);
     const activeWindow = getActiveScoreWindow(table, houseCardIds);
     this.hideCardGamePopup();
     this.villageShopPopup.hide();
-    this.hideSaveUI();
     this.setChoicePopupVisible(true);
 
     const width = Math.min(this.scale.width - 44, 720);
@@ -10970,7 +10936,6 @@ export default class SnakeScene extends Phaser.Scene {
     hand: CardId[],
     selected: Set<number>,
   ): void {
-    this.hideSaveUI();
     const table = getCardTable(state.tableId);
     const houseCardIds = getActiveHouseCardIds(state);
     const activeWindow = getActiveScoreWindow(table, houseCardIds);
@@ -12346,7 +12311,6 @@ export default class SnakeScene extends Phaser.Scene {
   private resumeGameplayAfterModal(): void {
     this.paused = false;
     this.skillTree.hideOverlay();
-    this.showSaveUI();
     this.updateHouseAmbience();
     this.isDirty = true;
   }
@@ -12754,7 +12718,6 @@ export default class SnakeScene extends Phaser.Scene {
 
   private openMcDonaldsMenu(mc: McDonaldsData): void {
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
 
     const inventory = this.snakeGame.getInventory();
@@ -12933,12 +12896,10 @@ export default class SnakeScene extends Phaser.Scene {
     const digSite = room.molemanDigSite;
     if (!digSite) {
       this.paused = false;
-      this.showSaveUI();
       return;
     }
     const variant = getDigSiteVariant(digSite.variantId);
     this.paused = true;
-    this.hideSaveUI();
     this.skillTree.hideOverlay();
     const options: ChoiceOption[] = [
       {
@@ -12979,7 +12940,6 @@ export default class SnakeScene extends Phaser.Scene {
             onAccept: () => {
               this.closeQuestPopup();
               this.paused = false;
-              this.showSaveUI();
             },
           },
           { acceptLabel: this.tArchaeology('back'), nextLabel: this.tArchaeology('more') },
@@ -12994,7 +12954,6 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
       this.paused = false;
-      this.showSaveUI();
     });
   }
 
@@ -13025,7 +12984,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.hide();
     this.datingScenePopup?.hide();
     this.skillTree.hideOverlay();
-    this.hideSaveUI();
     const room = this.snakeGame.getCurrentRoom();
     const variantId = room.molemanDigSite?.variantId ?? 'forest';
     this.startMolemanExcavation(variantId);
@@ -13671,7 +13629,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.handleRunDeltaFeedback(scoreBefore, lengthBefore);
     this.isDirty = true;
     this.paused = true;
-    this.hideSaveUI();
     this.showMolemanExcavationSummary(reason, snapshot, localRewards, payout);
   }
 
@@ -13736,7 +13693,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.archaeologyReturnRoomId = null;
     this.archaeologyReturnForemanId = null;
     this.paused = false;
-    this.showSaveUI();
   }
 
   private getNearbyRelationshipProfile(): RelationshipCandidateProfile | null {
@@ -14995,7 +14951,6 @@ export default class SnakeScene extends Phaser.Scene {
       this.datingScenePopup.hide();
       this.paused = false;
       this.activeDatingSequence = null;
-      this.showSaveUI();
       this.skillTree.getOverlay().refresh();
       return;
     }
