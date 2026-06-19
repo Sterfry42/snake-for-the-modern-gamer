@@ -28,8 +28,10 @@ class CoordinatesFeature extends Feature {
       !scene.snakeGame.hasArtifactCoordinatesAlwaysVisible();
     this.coordinatesText?.setVisible(!suppressed);
     if (!suppressed) {
-      this.coordinatesText?.setPosition(10, scene.snakeGame.isRaccoonMode() ? 82 : 54);
-      this.coordinatesText?.setText(this.composeLabel(scene));
+      const scoreFeature = scene.getFeature('coreScore');
+      const coordsY = scoreFeature ? (scoreFeature as any).getBottomY() : scene.getLeftHudBottomY();
+      this.coordinatesText.setPosition(10, coordsY);
+      this.coordinatesText.setText(this.composeLabel(scene));
     }
   }
 

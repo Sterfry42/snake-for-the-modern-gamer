@@ -8530,6 +8530,18 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  getLeftHudBottomY(): number {
+    if (!this.livesHud.visible) {
+      const heartsBounds = this.heartsHud.getBounds();
+      return heartsBounds.bottom + 4;
+    }
+    return this.livesHud.getBounds().bottom + 4;
+  }
+
+  getFeature<T extends import('../features/feature.js').Feature = import('../features/feature.js').Feature>(id: string): T | undefined {
+    return this.featureManager.getFeature<T>(id);
+  }
+
   private updateIntoxicationVisuals(): void {
     const ticks = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
     const active = ticks > 0 && !this.paused;
