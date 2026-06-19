@@ -11054,6 +11054,9 @@ export class SnakeGame implements QuestRuntime {
     if (this.snakeScene && typeof this.snakeScene.getAchievementSaveState === 'function') {
       data.achievements = this.snakeScene.getAchievementSaveState();
     }
+    if (this.snakeScene && typeof this.snakeScene.getArcadeSnakeSaveData === 'function') {
+      data.arcadeSnake = this.snakeScene.getArcadeSnakeSaveData();
+    }
 
     // Fishing data
     const caughtFish = this.getFlag<Record<string, number>>('fishing.caughtFish');
@@ -11271,6 +11274,9 @@ export class SnakeGame implements QuestRuntime {
         typeof this.snakeScene.setSnakeCosmeticState === 'function'
       ) {
         this.snakeScene.setSnakeCosmeticState(data.cosmetics);
+      }
+      if (this.snakeScene && typeof this.snakeScene.setArcadeSnakeSaveData === 'function') {
+        this.snakeScene.setArcadeSnakeSaveData(data.arcadeSnake);
       }
 
       if (this.getRadiationTimer()) {
@@ -12370,6 +12376,22 @@ export class SnakeGame implements QuestRuntime {
     return true;
   }
 
+  placeHomeArcadeCabinet(): { x: number; y: number } | null {
+    const room = this.world.getRoom('0,-1,0');
+    const bbox = this.getHouseBoundingBox(room);
+    if (!bbox) return null;
+    const position = {
+      x: Math.floor((bbox.left + bbox.right) / 2),
+      y: bbox.top + 2,
+    };
+    const row = room.layout[position.y];
+    if (!row) return null;
+    const chars = row.split('');
+    chars[position.x] = 'Z';
+    room.layout[position.y] = chars.join('');
+    return position;
+  }
+
   private getHouseBoundingBox(room: {
     layout: string[];
   }): { left: number; right: number; top: number; bottom: number } | null {
@@ -12440,6 +12462,7 @@ export class SnakeGame implements QuestRuntime {
     };
     tryPlace('C');
     tryPlace('K');
+    tryPlace('Z');
 
     room.layout = layout.map((r) => r.join(''));
   }

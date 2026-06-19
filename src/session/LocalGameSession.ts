@@ -113,6 +113,11 @@ export class LocalGameSession implements LocalAuthoritativeRuntime {
     return this.lastSnapshot;
   }
 
+  refreshSnapshot(): GameSnapshot {
+    this.emitSnapshot();
+    return this.lastSnapshot;
+  }
+
   onSnapshot(handler: SnapshotHandler): () => void {
     this.snapshotHandlers.add(handler);
     handler(this.getSnapshot());

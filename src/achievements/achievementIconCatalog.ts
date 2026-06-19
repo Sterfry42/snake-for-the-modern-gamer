@@ -277,6 +277,39 @@ function drawSymbol(context: CanvasRenderingContext2D, kind: string, variant?: s
     rect(context, 10, 10, 4, 3, '#9ad1ff');
     rect(context, 6, 5, 2, 4, '#fff3a8');
     rect(context, 5, 6, 4, 2, '#fff3a8');
+  } else if (kind === 'arcadeCabinet') {
+    rect(context, 3, 1, 10, 14, '#332943');
+    rect(context, 4, 2, 8, 7, '#17131f');
+    rect(context, 5, 3, 6, 5, '#082d25');
+    rect(context, 6, 6, 2, 1, '#5dd6a2');
+    rect(context, 8, 5, 2, 1, '#5dd6a2');
+    pixel(context, 10, 4, '#8dff9d');
+    rect(context, 4, 10, 8, 2, '#5a426d');
+    rect(context, 6, 10, 2, 1, '#ef4b4b');
+    pixel(context, 10, 10, '#ffd166');
+    rect(context, 5, 13, 2, 2, '#24172c');
+    rect(context, 9, 13, 2, 2, '#24172c');
+  } else if (kind === 'blueScreen') {
+    rect(context, 1, 2, 14, 12, '#0875c9');
+    rect(context, 2, 3, 12, 10, '#126fba');
+    pixel(context, 5, 6, '#ffffff');
+    pixel(context, 10, 6, '#ffffff');
+    rect(context, 6, 10, 4, 1, '#ffffff');
+    pixel(context, 5, 9, '#ffffff');
+    pixel(context, 10, 9, '#ffffff');
+    rect(context, 3, 12, 2, 1, '#d7efff');
+    rect(context, 6, 12, 5, 1, '#d7efff');
+  } else if (kind === 'specialStat') {
+    const pipColors = ['#ef4b4b', '#f19a62', '#ffd166', '#5dd6a2', '#70d6ff', '#9ad1ff', '#b58cff'];
+    for (let index = 0; index < pipColors.length; index += 1) {
+      pixel(context, 2 + index * 2, 13, pipColors[index]!);
+    }
+    rect(context, 4, 3, 8, 8, '#332943');
+    rect(context, 5, 4, 6, 6, '#ffd166');
+    rect(context, 7, 2, 2, 9, '#fff3a8');
+    rect(context, 5, 4, 6, 2, '#fff3a8');
+    pixel(context, 4, 2, '#fff3a8');
+    pixel(context, 11, 2, '#fff3a8');
   } else if (kind === 'gun') {
     rect(context, 3, 6, 9, 3, color);
     rect(context, 8, 9, 3, 4, '#70513e');
@@ -352,6 +385,9 @@ export function ensureAchievementPortrait(
       'companion',
       'caveRush',
       'shopBuyout',
+      'arcadeCabinet',
+      'blueScreen',
+      'specialStat',
     ].includes(definition.icon.kind)
   )
     drawSymbol(context, definition.icon.kind, definition.icon.variant);

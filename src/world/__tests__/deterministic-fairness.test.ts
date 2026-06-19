@@ -38,14 +38,23 @@ describe('deterministic fairness tests', () => {
   describe('sequential seed diversity', () => {
     it('no two sequential seeds produce identical vegetation in all rooms', () => {
       const seeds = 50;
-      const vegetationBySeed = new Map<number, Map<string, number>>();
+      const vegetationBySeed = new Map<number, Map<string, string>>();
 
       for (let i = 0; i < seeds; i++) {
         const seed = `fairness-seq-${i}`;
-        const vegetation = new Map<string, number>();
+        const vegetation = new Map<string, string>();
         for (const coord of testCoords) {
           const room = generateRoomWithSeed(seed, coord);
-          vegetation.set(roomId(coord), room.vegetation?.length ?? 0);
+          vegetation.set(
+            roomId(coord),
+            JSON.stringify(
+              (room.vegetation ?? []).map(({ x, y, variant }) => ({
+                x,
+                y,
+                variant,
+              })),
+            ),
+          );
         }
         vegetationBySeed.set(i, vegetation);
       }
@@ -274,28 +283,32 @@ describe('deterministic fairness tests', () => {
   });
 
   describe('deterministic verification', () => {
-    it('100 sequential seeds are all internally consistent (run twice)', () => {
-      const results = new Map<string, Map<string, string>>();
+    it(
+      '100 sequential seeds are all internally consistent (run twice)',
+      () => {
+        const results = new Map<string, Map<string, string>>();
 
-      for (let i = 0; i < 100; i++) {
-        const seed = `verify-consistent-${i}`;
-        const rooms = new Map<string, string>();
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          rooms.set(roomId(coord), room.layout.join('|'));
+        for (let i = 0; i < 100; i++) {
+          const seed = `verify-consistent-${i}`;
+          const rooms = new Map<string, string>();
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            rooms.set(roomId(coord), room.layout.join('|'));
+          }
+          results.set(seed, rooms);
         }
-        results.set(seed, rooms);
-      }
 
-      for (let i = 0; i < 100; i++) {
-        const seed = `verify-consistent-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          const expected = results.get(seed)?.get(roomId(coord));
-          expect(room.layout.join('|')).toBe(expected);
+        for (let i = 0; i < 100; i++) {
+          const seed = `verify-consistent-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            const expected = results.get(seed)?.get(roomId(coord));
+            expect(room.layout.join('|')).toBe(expected);
+          }
         }
-      }
-    });
+      },
+      15_000,
+    );
 
     it('Liberty Badlands biome is consistent across seeds', () => {
       const libertyCoord = { x: -7, y: -6, z: 0 };

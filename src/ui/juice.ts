@@ -178,6 +178,9 @@ export class JuiceManager {
   private cardMusicTimer?: Phaser.Time.TimerEvent;
   private archaeologyMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
   private archaeologyMusicTimer?: Phaser.Time.TimerEvent;
+  private arcadeMusic?: { gain: GainNode; sources: OscillatorNode[]; cleanup: AudioNode[] };
+  private arcadeMusicTimer?: Phaser.Time.TimerEvent;
+  private arcadeMusicState: 'run' | 'paused' | 'corrupted' | 'stopped' = 'stopped';
   private zoomBackTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
@@ -1002,6 +1005,119 @@ export class JuiceManager {
       } catch {}
     }, 420);
     this.cardMusic = undefined;
+  }
+
+  setArcadeMusicState(state: 'run' | 'paused' | 'corrupted' | 'stopped'): void {
+    this.arcadeMusicState = state;
+    if (state === 'stopped') {
+      this.stopArcadeMusic();
+      return;
+    }
+    if (!this.arcadeMusic) {
+      if (!this.scene.sound.locked && this.ctx.state === 'suspended') void this.ctx.resume();
+      const now = this.ctx.currentTime;
+      const gain = this.ctx.createGain();
+      gain.gain.value = 0.0001;
+      gain.connect(this.masterGain);
+      const bass = this.ctx.createOscillator();
+      bass.type = 'square';
+      bass.frequency.value = 110;
+      const bassGain = this.ctx.createGain();
+      bassGain.gain.value = 0.04;
+      bass.connect(bassGain);
+      bassGain.connect(gain);
+      bass.start(now);
+      gain.gain.exponentialRampToValueAtTime(0.12, now + 0.2);
+      this.arcadeMusic = { gain, sources: [bass], cleanup: [bassGain] };
+      let step = 0;
+      const melody = [440, 523.25, 659.25, 523.25, 392, 493.88, 587.33, 493.88];
+      this.arcadeMusicTimer = this.scene.time.addEvent({
+        delay: 155,
+        loop: true,
+        callback: () => {
+          if (!this.arcadeMusic) return;
+          const detune = this.arcadeMusicState === 'corrupted' && step % 7 === 0 ? 0.92 : 1;
+          this.playTone({
+            frequency: melody[step % melody.length]! * detune,
+            duration: 0.08,
+            type: 'square',
+            volume: this.arcadeMusicState === 'paused' ? 0.018 : 0.045,
+          });
+          step += 1;
+        },
+      });
+    }
+    const now = this.ctx.currentTime;
+    this.arcadeMusic.gain.gain.cancelScheduledValues(now);
+    this.arcadeMusic.gain.gain.setTargetAtTime(state === 'paused' ? 0.025 : 0.12, now, 0.04);
+  }
+
+  stopArcadeMusic(): void {
+    this.arcadeMusicState = 'stopped';
+    this.arcadeMusicTimer?.remove(false);
+    this.arcadeMusicTimer = undefined;
+    if (!this.arcadeMusic) return;
+    const { gain, sources, cleanup } = this.arcadeMusic;
+    const now = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setTargetAtTime(0.0001, now, 0.04);
+    for (const source of sources) {
+      try {
+        source.stop(now + 0.25);
+      } catch {}
+    }
+    globalThis.setTimeout(() => {
+      for (const source of sources) {
+        try {
+          source.disconnect();
+        } catch {}
+      }
+      for (const node of cleanup) {
+        try {
+          node.disconnect();
+        } catch {}
+      }
+      try {
+        gain.disconnect();
+      } catch {}
+    }, 300);
+    this.arcadeMusic = undefined;
+  }
+
+  arcadeEffect(effect: string): void {
+    const tones: Record<string, ToneOptions[]> = {
+      apple: [{ frequency: 660, frequencyEnd: 880, duration: 0.08, type: 'square', volume: 0.06 }],
+      golden: [
+        { frequency: 880, duration: 0.08, type: 'triangle', volume: 0.07 },
+        { frequency: 1320, duration: 0.13, type: 'sine', volume: 0.06 },
+      ],
+      scurry: [
+        { frequency: 1040, frequencyEnd: 1480, duration: 0.09, type: 'square', volume: 0.05 },
+      ],
+      barrier: [{ frequency: 160, frequencyEnd: 90, duration: 0.13, type: 'square', volume: 0.07 }],
+      corrupted: [
+        { frequency: 240, frequencyEnd: 63, duration: 0.22, type: 'sawtooth', volume: 0.08 },
+      ],
+      'corrupted-hum': [{ frequency: 58, duration: 0.32, type: 'sine', volume: 0.022 }],
+      level: [
+        { frequency: 523, frequencyEnd: 1046, duration: 0.35, type: 'triangle', volume: 0.08 },
+      ],
+      quest: [{ frequency: 784, frequencyEnd: 1175, duration: 0.24, type: 'sine', volume: 0.07 }],
+      dennis: [{ frequency: 72, frequencyEnd: 41, duration: 0.9, type: 'sawtooth', volume: 0.1 }],
+      'blue-screen': [
+        { frequency: 980, frequencyEnd: 80, duration: 0.28, type: 'square', volume: 0.11 },
+      ],
+      'input-lost': [
+        { frequency: 190, frequencyEnd: 95, duration: 0.2, type: 'square', volume: 0.09 },
+      ],
+      'input-rejected': [{ frequency: 95, duration: 0.06, type: 'sawtooth', volume: 0.07 }],
+      resize: [{ frequency: 460, frequencyEnd: 280, duration: 0.08, type: 'square', volume: 0.05 }],
+      'game-over': [
+        { frequency: 330, frequencyEnd: 82, duration: 0.55, type: 'square', volume: 0.08 },
+      ],
+      quit: [{ frequency: 260, frequencyEnd: 130, duration: 0.12, type: 'triangle', volume: 0.05 }],
+    };
+    for (const tone of tones[effect] ?? []) this.playTone(tone);
   }
 
   startArchaeologyMusic(): void {

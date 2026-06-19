@@ -51,6 +51,7 @@ const snapshot = (score: number): AchievementSnapshot => ({
   coldResistance: 0,
   cowbellTilesWalked: 0,
   wardDamageTypesHeld: 0,
+  maxSpecialStat: 5,
 });
 
 describe('AchievementManager', () => {

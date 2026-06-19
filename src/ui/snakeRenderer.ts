@@ -381,6 +381,8 @@ export class SnakeRenderer {
           this.graphics
             .lineStyle(1, outline, 0.6)
             .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+        } else if (tile === 'Z') {
+          this.drawArcadeCabinetTile(rectX, rectY);
         } else if (
           tile === 'D' ||
           tile === 'N' ||
@@ -574,12 +576,7 @@ export class SnakeRenderer {
               .fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
             this.wallGraphics
               .fillStyle(leaf, 0.72)
-              .fillRect(
-                rectX + cell * 0.18,
-                rectY + cell * 0.16,
-                cell * 0.64,
-                cell * 0.48,
-              );
+              .fillRect(rectX + cell * 0.18, rectY + cell * 0.16, cell * 0.64, cell * 0.48);
             this.wallGraphics
               .lineStyle(1, shadow, 0.55)
               .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
@@ -595,26 +592,13 @@ export class SnakeRenderer {
               .fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
             this.wallGraphics
               .fillStyle(trunk, 0.95)
-              .fillRect(
-                rectX + cell * 0.43,
-                rectY + cell * 0.48,
-                cell * 0.14,
-                cell * 0.34,
-              );
+              .fillRect(rectX + cell * 0.43, rectY + cell * 0.48, cell * 0.14, cell * 0.34);
             this.wallGraphics
               .fillStyle(leaf, 0.95)
-              .fillCircle(
-                rectX + cell * 0.5,
-                rectY + cell * 0.38,
-                cell * 0.32,
-              );
+              .fillCircle(rectX + cell * 0.5, rectY + cell * 0.38, cell * 0.32);
             this.wallGraphics
               .fillStyle(0x9ddd76, 0.16)
-              .fillCircle(
-                rectX + cell * 0.4,
-                rectY + cell * 0.28,
-                cell * 0.12,
-              );
+              .fillCircle(rectX + cell * 0.4, rectY + cell * 0.28, cell * 0.12);
             this.wallGraphics
               .lineStyle(1, shadow, 0.8)
               .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
@@ -626,12 +610,18 @@ export class SnakeRenderer {
           const highlight = 0xf3eee2;
           const rust = 0xb5362f;
           this.wallGraphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
-          this.wallGraphics.fillStyle(deep, 0.42).fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
+          this.wallGraphics
+            .fillStyle(deep, 0.42)
+            .fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
           if ((x * 2 + y) % 5 === 0) {
-            this.wallGraphics.fillStyle(highlight, 0.42).fillRect(rectX + 3, rectY + 4, cell - 6, 2);
+            this.wallGraphics
+              .fillStyle(highlight, 0.42)
+              .fillRect(rectX + 3, rectY + 4, cell - 6, 2);
           }
           if ((x + y * 3) % 4 === 0) {
-            this.wallGraphics.fillStyle(rust, 0.38).fillRect(rectX + cell - 5, rectY + 3, 2, cell - 6);
+            this.wallGraphics
+              .fillStyle(rust, 0.38)
+              .fillRect(rectX + cell - 5, rectY + 3, 2, cell - 6);
           }
           if ((x * 7 + y) % 9 === 0) {
             this.wallGraphics
@@ -1438,10 +1428,36 @@ export class SnakeRenderer {
     const bob = Math.sin(now / 210) * this.grid.cell * 0.06;
     this.powerupSprite
       .setTexture(this.powerupTextureKeys[p.kind])
-      .setPosition(p.x * this.grid.cell + this.grid.cell / 2, p.y * this.grid.cell + this.grid.cell / 2 + bob)
+      .setPosition(
+        p.x * this.grid.cell + this.grid.cell / 2,
+        p.y * this.grid.cell + this.grid.cell / 2 + bob,
+      )
       .setDisplaySize(this.grid.cell * 0.86 * pulse, this.grid.cell * 0.86 * pulse)
       .setAlpha(0.96)
       .setVisible(true);
+  }
+
+  private drawArcadeCabinetTile(rectX: number, rectY: number): void {
+    const cell = this.grid.cell;
+    this.graphics.fillStyle(0x17202b, 1).fillRect(rectX, rectY, cell, cell);
+    this.graphics
+      .fillStyle(0x24142f, 1)
+      .fillRoundedRect(rectX + cell * 0.16, rectY + cell * 0.08, cell * 0.68, cell * 0.86, 3);
+    this.graphics
+      .lineStyle(2, 0x08050c, 0.95)
+      .strokeRoundedRect(rectX + cell * 0.16, rectY + cell * 0.08, cell * 0.68, cell * 0.86, 3);
+    this.graphics
+      .fillStyle(0xb86cff, 0.95)
+      .fillRect(rectX + cell * 0.27, rectY + cell * 0.19, cell * 0.46, cell * 0.28);
+    this.graphics
+      .fillStyle(0x8dff9d, 0.8)
+      .fillRect(rectX + cell * 0.32, rectY + cell * 0.24, cell * 0.22, 2);
+    this.graphics
+      .fillStyle(0xffd166, 1)
+      .fillCircle(rectX + cell * 0.38, rectY + cell * 0.63, Math.max(2, cell * 0.07));
+    this.graphics
+      .fillStyle(0xff5d7a, 1)
+      .fillCircle(rectX + cell * 0.62, rectY + cell * 0.65, Math.max(2, cell * 0.06));
   }
 
   private ensurePowerupOrbTextures(): Record<PowerupKind, string> {
@@ -1475,13 +1491,32 @@ export class SnakeRenderer {
     g.strokeCircle(center, center, radius * 1.22);
     if (kind === 'gun') {
       g.lineStyle(Math.max(2, Math.floor(size * 0.045)), 0x4d3315, 0.82);
-      g.lineBetween(center - radius * 0.42, center + radius * 0.16, center + radius * 0.46, center - radius * 0.16);
+      g.lineBetween(
+        center - radius * 0.42,
+        center + radius * 0.16,
+        center + radius * 0.46,
+        center - radius * 0.16,
+      );
       g.fillStyle(0x4d3315, 0.85);
       g.fillRect(center - radius * 0.05, center + radius * 0.06, radius * 0.2, radius * 0.32);
     } else if (kind === 'smite') {
       g.fillStyle(shine, 0.92);
-      g.fillTriangle(center + radius * 0.12, center - radius * 0.55, center - radius * 0.16, center + radius * 0.1, center + radius * 0.2, center + radius * 0.02);
-      g.fillTriangle(center - radius * 0.06, center + radius * 0.5, center + radius * 0.2, center - radius * 0.08, center - radius * 0.18, center + radius * 0.02);
+      g.fillTriangle(
+        center + radius * 0.12,
+        center - radius * 0.55,
+        center - radius * 0.16,
+        center + radius * 0.1,
+        center + radius * 0.2,
+        center + radius * 0.02,
+      );
+      g.fillTriangle(
+        center - radius * 0.06,
+        center + radius * 0.5,
+        center + radius * 0.2,
+        center - radius * 0.08,
+        center - radius * 0.18,
+        center + radius * 0.02,
+      );
     } else {
       g.lineStyle(Math.max(2, Math.floor(size * 0.04)), shine, 0.8);
       g.strokeCircle(center - radius * 0.12, center, radius * 0.34);

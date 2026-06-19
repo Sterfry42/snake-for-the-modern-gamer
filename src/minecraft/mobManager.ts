@@ -91,7 +91,7 @@ export class MobManager {
 
   private get rng(): RandomGenerator {
     if (!this._rng) {
-      this._rng = () => this.rng();
+      this._rng = Math.random;
     }
     return this._rng;
   }

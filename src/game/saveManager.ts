@@ -4,6 +4,7 @@ import type { CharacterMode } from '../player/raccoonMode.js';
 import type { SpecialStatsState } from '../stats/specialTypes.js';
 import type { AchievementState } from '../achievements/achievementTypes.js';
 import type { LevelProgressionState } from '../stats/levelProgression.js';
+import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
 
 const SAVE_KEY = 'snakeGameSave';
 const DEFAULT_SAVE_SLOT = '';
@@ -108,6 +109,7 @@ export interface GameSaveData {
   special?: SpecialStatsState;
   levelProgression?: LevelProgressionState;
   achievements?: AchievementState;
+  arcadeSnake?: ArcadeSnakeSaveData;
 }
 
 export class SaveManager {
