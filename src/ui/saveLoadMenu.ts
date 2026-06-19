@@ -181,8 +181,10 @@ export class SaveLoadMenu {
     const loadText = i18n.getFeatureString('load') || 'Load';
     const deleteText = i18n.getFeatureString('delete') || 'Delete';
 
+    const entryBoxWidth = 488;
+
     const bg = this.scene.add
-      .rectangle(0, 0, this.width - 32, buttonHeight + padding * 2, isAutosave ? 0x0a1628 : 0x0b1622, 0.9)
+      .rectangle(0, 0, entryBoxWidth, buttonHeight + padding * 2, isAutosave ? 0x0a1628 : 0x0b1622, 0.9)
       .setStrokeStyle(1, isAutosave ? 0x3a7bd5 : 0x4da3ff, 0.5)
       .setOrigin(0, 0);
 
@@ -191,12 +193,12 @@ export class SaveLoadMenu {
         fontFamily: 'monospace',
         fontSize: '13px',
         color: '#c8d0da',
-        wordWrap: { width: this.width - 32 - padding * 2 - buttonWidth * 2 - buttonGap },
+        wordWrap: { width: entryBoxWidth - padding * 2 },
       })
       .setOrigin(0, 0);
 
     const loadBtn = this.scene.add
-      .text(this.width - 32 - padding - buttonWidth - buttonGap, buttonHeight / 2 - 8, loadText, {
+      .text(entryBoxWidth - padding - buttonWidth - buttonGap, buttonHeight / 2 - 8, loadText, {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#7ec87e',
@@ -209,7 +211,7 @@ export class SaveLoadMenu {
       .on('pointerdown', () => onAction('load'));
 
     const deleteBtn = this.scene.add
-      .text(this.width - 32 - padding - buttonWidth, buttonHeight / 2 - 8, deleteText, {
+      .text(entryBoxWidth - padding - buttonWidth, buttonHeight / 2 - 8, deleteText, {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#d87e7e',

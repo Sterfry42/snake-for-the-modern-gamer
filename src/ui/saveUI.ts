@@ -78,7 +78,7 @@ export class SaveUI {
       .on('pointerdown', () => this.saveGame());
 
     const container = this.scene.add
-      .container(x, y, [bg, label, hitArea])
+      .container(x, y, [bg, hitArea, label])
       .setDepth(40);
 
     // Seed label below the button
