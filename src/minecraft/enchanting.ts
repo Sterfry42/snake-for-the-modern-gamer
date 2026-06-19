@@ -733,6 +733,7 @@ export function getRandomEnchantment(
   enchantingTableLevel: number,
   bookshelfCount: number,
   existingEnchantments: Map<string, number>,
+  rng: () => number = Math.random,
 ): EnchantmentId | null {
   const available = getAvailableEnchantmentsForItem(
     itemId,
@@ -749,7 +750,7 @@ export function getRandomEnchantment(
     return sum + (enchant?.weight ?? 5);
   }, 0);
 
-  let roll = Math.random() * totalWeight;
+  let roll = rng() * totalWeight;
   for (const eId of available) {
     const enchant = ENCHANTMENTS[eId];
     roll -= (enchant?.weight ?? 5);

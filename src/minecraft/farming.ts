@@ -103,7 +103,7 @@ export function tryPlantPumpkin(
   return { success: true };
 }
 
-export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }): void {
+export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }, rng: () => number = Math.random): void {
   if (!room.minecraftBlocks) return;
   if (!room.minecraftCropData) return;
 
@@ -136,7 +136,7 @@ export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }): 
     const neighbors = [`${px - 1},${py}`, `${px + 1},${py}`, `${px},${py - 1}`, `${px},${py + 1}`];
 
     // Only spread during daytime with some randomness
-    if (dayNight.timeOfDay % PUMPKIN_SPREAD_INTERVAL !== 0 || Math.random() > PUMPKIN_SPREAD_CHANCE) continue;
+    if (dayNight.timeOfDay % PUMPKIN_SPREAD_INTERVAL !== 0 || rng() > PUMPKIN_SPREAD_CHANCE) continue;
 
     // Check if adjacent to farmland
     const hasAdjacentFarmland = neighbors.some((n) => room.minecraftBlocks?.[n] === 'farmland');
@@ -148,7 +148,7 @@ export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }): 
     if (airNeighbors.length === 0) continue;
 
     // Pick a random air neighbor and place a pumpkin
-    const spreadTo = airNeighbors[Math.floor(Math.random() * airNeighbors.length)];
+    const spreadTo = airNeighbors[Math.floor(rng() * airNeighbors.length)];
     room.minecraftBlocks[spreadTo] = 'pumpkin';
   }
 }
@@ -159,6 +159,7 @@ export function tryHarvestCrop(
   x: number,
   y: number,
   blockType: string | undefined,
+  rng: () => number = Math.random,
 ): { success: boolean; drops?: Array<{ itemId: string; count: number }>; xp?: number; message?: string } {
   if (!blockType) {
     return { success: false, message: 'Nothing to harvest.' };
@@ -170,8 +171,8 @@ export function tryHarvestCrop(
 
   if (blockType === 'wheat_crop') {
     const drops: Array<{ itemId: string; count: number }> = [];
-    const wheatCount = Math.floor(Math.random() * 3) + 1;
-    const seedDrop = Math.random() < 0.5 ? 1 : 0;
+    const wheatCount = Math.floor(rng() * 3) + 1;
+    const seedDrop = rng() < 0.5 ? 1 : 0;
 
     drops.push({ itemId: 'wheat', count: wheatCount });
     if (seedDrop > 0) {
@@ -188,7 +189,7 @@ export function tryHarvestCrop(
       player.addItem(drop.itemId, drop.count);
     }
 
-    return { success: true, drops, xp: Math.floor(Math.random() * 3) + 1 };
+    return { success: true, drops, xp: Math.floor(rng() * 3) + 1 };
   }
 
   if (blockType === 'pumpkin') {

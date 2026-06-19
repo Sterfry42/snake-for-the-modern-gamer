@@ -436,13 +436,11 @@ export class ArchipelagoClient {
     try {
       const existing = globalThis.localStorage?.getItem(key);
       if (existing) return existing;
-      const generated =
-        globalThis.crypto?.randomUUID?.() ??
-        `snake-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      const generated = globalThis.crypto?.randomUUID?.() ?? `snake-${Date.now()}`;
       globalThis.localStorage?.setItem(key, generated);
       return generated;
     } catch {
-      return `snake-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+      return `snake-${Date.now()}`;
     }
   }
 }

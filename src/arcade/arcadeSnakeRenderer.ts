@@ -3,6 +3,7 @@ import {
   createArcadeSnakeRun,
   finalizeArcadeRun,
   getArcadeMainGamePayout,
+  getArcadeUnbankedPayout,
   queueArcadeDirection,
   tickArcadeSnake,
 } from './arcadeSnakeLogic.js';
@@ -27,7 +28,9 @@ import {
 export interface ArcadeSnakeRendererOptions {
   saveData: ArcadeSnakeSaveData;
   hatName: string;
-  onBankScore: (score: number) => void;
+  onBankScore: (payout: number) => void;
+  onRunStarted?: () => void;
+  onBlueScreen?: () => void;
   onSaveDataChanged: (save: ArcadeSnakeSaveData) => void;
   onClose: () => void;
   setDennisBossMusic?: (active: boolean) => void;
@@ -79,6 +82,7 @@ export class ArcadeSnakeRenderer {
   private run: ArcadeSnakeRunState | null = null;
   private deadPixels: ArcadeDeadPixel[] = [];
   private finalized = false;
+  private bankedPayout = 0;
   private blueScreenActive = false;
   private systemPauseActive = false;
   private lightModeActive = false;
@@ -104,12 +108,14 @@ export class ArcadeSnakeRenderer {
     this.timers.clear();
     this.destroyObjects();
     this.finalized = false;
+    this.bankedPayout = 0;
     this.blueScreenActive = false;
     this.systemPauseActive = false;
     this.hostileTextUntilMs = 0;
     this.hostileTextPermanent = false;
     this.hostileTitle = 'HELP US';
     this.run = createArcadeSnakeRun(this.options.saveData);
+    this.options.onRunStarted?.();
     this.deadPixels = this.options.saveData.deadPixels.map((pixel) => ({ ...pixel }));
     this.options.onSaveDataChanged(this.options.saveData);
     this.build();
@@ -281,6 +287,7 @@ export class ArcadeSnakeRenderer {
       this.currentTickDelay,
     );
     this.run = result.state;
+    this.bankScoreProgress();
     this.handleEvents(result.events);
     this.updateCorruptedAppleHum();
     this.render();
@@ -348,6 +355,7 @@ export class ArcadeSnakeRenderer {
           this.drawAfterimage(event.from);
           break;
         case 'blue-screen':
+          this.options.onBlueScreen?.();
           this.playFatalBlueScreen();
           break;
         case 'system-pause':
@@ -392,7 +400,7 @@ export class ArcadeSnakeRenderer {
     if (!this.run || this.finalized) return;
     this.finalized = true;
     finalizeArcadeRun(this.options.saveData, this.run);
-    this.options.onBankScore(this.run.score);
+    this.bankScoreProgress();
     this.options.onSaveDataChanged(this.options.saveData);
     if (quit) return;
     this.run.isGameOver = true;
@@ -404,6 +412,15 @@ export class ArcadeSnakeRenderer {
     if (this.run && !this.finalized) this.finishRun(true);
     this.options.playEffect?.('quit');
     this.close();
+  }
+
+  private bankScoreProgress(): void {
+    if (!this.run) return;
+    const earnedPayout = getArcadeMainGamePayout(this.run.score);
+    const unbanked = getArcadeUnbankedPayout(this.run.score, this.bankedPayout);
+    if (unbanked <= 0) return;
+    this.bankedPayout = earnedPayout;
+    this.options.onBankScore(unbanked);
   }
 
   private render(): void {

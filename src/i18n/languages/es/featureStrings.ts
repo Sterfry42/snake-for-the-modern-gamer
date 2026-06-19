@@ -87,6 +87,18 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   gameLoaded: '\u00a1Juego cargado!',
   loadFailed: '\u00a1Error al cargar el juego!',
   saveCleared: '\u00a1Archivo de guardado borrado!',
+  autosave: 'Juego guardado autom\u00e1ticamente.',
+
+  // Save Load Menu
+  loadGameMenuTitle: 'Cargar Juego',
+  regularSaves: 'Guardados',
+  autosaves: 'Guardados Autom\u00e1ticos',
+  load: 'Cargar',
+  delete: 'Borrar',
+  back: 'Atr\u00e1s',
+  confirmDelete: '\u00bfBorrar este guardado?',
+  noSaves: 'No se encontraron archivos de guardado.',
+  noAutosaves: 'No hay guardados autom\u00e1ticos.',
 
   // Card Game Names
   cardMossTwo: 'Musgo Dos',

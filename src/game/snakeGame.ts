@@ -681,11 +681,14 @@ function logRunSeed(seed: string, reason: 'new' | 'reset' | 'load'): void {
 export class SnakeGame implements QuestRuntime {
   readonly config: GameConfig;
 
-  private rng: RandomGenerator;
+  private _rng: RandomGenerator;
   private world: WorldService;
   private apples: AppleService;
   private readonly snake: SnakeState;
   public readonly bosses: BossManager;
+  get worldSeed(): string {
+    return this.worldGenerationIdentity.seed;
+  }
   private jasonDamageCallback?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
   private enemies: EnemyManager;
   private animals: AnimalManager;
@@ -749,29 +752,29 @@ export class SnakeGame implements QuestRuntime {
     this.characterMode = normalizeCharacterMode(config.character?.mode);
     const runSeed = config.rng.seed ?? createRunSeed();
     this.worldGenerationIdentity = createWorldGenerationIdentity(runSeed);
-    this.rng = rng ?? createRng(runSeed);
+    this._rng = rng ?? createRng(runSeed);
     if (!config.rng.seed) {
       logRunSeed(runSeed, 'new');
     }
     this.world = new WorldService(
       config.grid,
       config.world,
-      this.rng,
+      this._rng,
       this.worldGenerationIdentity,
       this.createPickupChanceProvider(),
     );
-    this.apples = new AppleService(config.apples, config.grid, this.world, this.rng);
+    this.apples = new AppleService(config.apples, config.grid, this.world, this._rng);
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
-    this.bosses = new BossManager(config.grid);
-    this.enemies = new EnemyManager(config.grid, this.rng);
+    this.bosses = new BossManager(config.grid, this._rng);
+    this.enemies = new EnemyManager(config.grid, this._rng);
     this.enemies.setRoamingSnakeConfig(config.roamingSnakes);
-    this.animals = new AnimalManager(config.grid, this.rng);
+    this.animals = new AnimalManager(config.grid, this._rng);
     this.questController = new QuestController(registry, {
       initialQuestCount: config.quests.initialQuestCount,
       initialQuestIds: config.quests.initialQuestIds ?? [],
       maxActiveQuests: config.quests.maxActiveQuests,
       questOfferChance: config.quests.questOfferChance,
-      rng: this.rng,
+      rng: this._rng,
     });
     this.relationshipController = new RelationshipController({
       getFlag: (key) => this.getFlag(key),
@@ -907,7 +910,7 @@ export class SnakeGame implements QuestRuntime {
     // TODO: Make this configurable
     const startingRoom = this.world.getRoom(this.snake.currentRoomId);
     const startingRoomIsTown = Boolean(startingRoom.town || startingRoom.townPerimeter);
-    if (!startingRoomIsTown && this.rng() < 0.03) {
+    if (!startingRoomIsTown && this._rng() < 0.03) {
       // 3% chance to spawn a boss on reset
       this.bosses.spawnBoss(
         this.snake.currentRoomId,
@@ -915,7 +918,7 @@ export class SnakeGame implements QuestRuntime {
         this.world.getRoom(this.snake.currentRoomId),
       );
     }
-    if (!startingRoomIsTown && this.rng() < 0.01) {
+    if (!startingRoomIsTown && this._rng() < 0.01) {
       // 1% chance to spawn Freaker Dennis on reset
       this.bosses.spawnBoss(
         this.snake.currentRoomId,
@@ -923,7 +926,7 @@ export class SnakeGame implements QuestRuntime {
         this.world.getRoom(this.snake.currentRoomId),
       );
     }
-    if (!startingRoomIsTown && startingRoom.biomeId === 'sunken-ocean' && this.rng() < 0.1) {
+    if (!startingRoomIsTown && startingRoom.biomeId === 'sunken-ocean' && this._rng() < 0.1) {
       // 10% chance to spawn Jason Statham in the Sunken Ocean on reset
       this.bosses.spawnJasonStatham(this.snake.currentRoomId);
     }
@@ -952,23 +955,23 @@ export class SnakeGame implements QuestRuntime {
   private reseedFreshRun(): void {
     const runSeed = createRunSeed();
     this.worldGenerationIdentity = createWorldGenerationIdentity(runSeed);
-    this.rng = createRng(runSeed);
+    this._rng = createRng(runSeed);
     this.world = new WorldService(
       this.config.grid,
       this.config.world,
-      this.rng,
+      this._rng,
       this.worldGenerationIdentity,
       this.createPickupChanceProvider(),
     );
-    this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
-    this.enemies = new EnemyManager(this.config.grid, this.rng);
-    this.animals = new AnimalManager(this.config.grid, this.rng);
+    this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
+    this.enemies = new EnemyManager(this.config.grid, this._rng);
+    this.animals = new AnimalManager(this.config.grid, this._rng);
     this.questController = new QuestController(this.registry, {
       initialQuestCount: this.config.quests.initialQuestCount,
       initialQuestIds: this.config.quests.initialQuestIds ?? [],
       maxActiveQuests: this.config.quests.maxActiveQuests,
       questOfferChance: this.config.quests.questOfferChance,
-      rng: this.rng,
+      rng: this._rng,
     });
     logRunSeed(runSeed, 'reset');
   }
@@ -1555,15 +1558,15 @@ export class SnakeGame implements QuestRuntime {
         // TODO: Make this configurable
         const newRoom = this.world.getRoom(newRoomId);
         const newRoomIsTown = Boolean(newRoom.town || newRoom.townPerimeter);
-        if (!newRoomIsTown && this.rng() < 0.03) {
+        if (!newRoomIsTown && this._rng() < 0.03) {
           // 3% chance to spawn Freak Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freak-dennis', newRoom);
         }
-        if (!newRoomIsTown && this.rng() < 0.01) {
+        if (!newRoomIsTown && this._rng() < 0.01) {
           // 1% chance to spawn Freaker Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freaker-dennis', newRoom);
         }
-        if (!newRoomIsTown && newRoom.biomeId === 'sunken-ocean' && this.rng() < 0.1) {
+        if (!newRoomIsTown && newRoom.biomeId === 'sunken-ocean' && this._rng() < 0.1) {
           // 10% chance to spawn Jason Statham in the Sunken Ocean
           this.bosses.spawnJasonStatham(newRoomId);
         }
@@ -1943,14 +1946,14 @@ export class SnakeGame implements QuestRuntime {
             awardedId = this.pickCaveRewardId(room.cave.templateId, `chest:${room.id}`);
             this.addItem(awardedId, 1);
             awardedName = getItem(awardedId)?.name ?? awardedId;
-          } else if (this.rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
+          } else if (this._rng() < 0.3 && CARD_SHOP_OFFERS.length > 0) {
             const cardId = this.pickRandomCardId();
             const card = getCardDefinition(cardId);
             this.addCardToCollection(cardId, 1);
             awardedName = `${card.name} card`;
             awardedId = `card:${card.id}`;
           } else if (CHEST_LOOT_ITEMS.length > 0) {
-            const idx = Math.floor(this.rng() * CHEST_LOOT_ITEMS.length);
+            const idx = Math.floor(this._rng() * CHEST_LOOT_ITEMS.length);
             const awarded =
               CHEST_LOOT_ITEMS[Math.max(0, Math.min(CHEST_LOOT_ITEMS.length - 1, idx))];
             this.addItem(awarded.id, 1);
@@ -3481,7 +3484,7 @@ export class SnakeGame implements QuestRuntime {
         snake.roomId,
         room,
         obstacleSet,
-        this.rng,
+        this._rng,
       );
 
       if (!result) {
@@ -4387,7 +4390,7 @@ export class SnakeGame implements QuestRuntime {
         : thiefDistrict && town.thievesGuild && town.thievesGuild.karma < -20
           ? Math.min(0.65, 0.25 + Math.abs(town.thievesGuild.karma) / 180)
           : 0;
-    if (hostilityChance <= 0 || this.rng() >= hostilityChance) {
+    if (hostilityChance <= 0 || this._rng() >= hostilityChance) {
       return;
     }
     const label = guardDistrict
@@ -4981,7 +4984,7 @@ export class SnakeGame implements QuestRuntime {
         : undefined,
       socialLink,
       socialTargetName,
-      random: this.rng,
+      random: this._rng,
     });
     const recentConversationKey = `actor.conversation.recent.${actor.id}.${bucket}`;
     const recentConversationRaw = this.getFlag<unknown>(recentConversationKey);
@@ -6550,7 +6553,7 @@ export class SnakeGame implements QuestRuntime {
       position: { ...anchor },
       anchor: { ...anchor },
       wanderRadius: stationary ? 0 : 2,
-      moveCooldown: stationary ? 999 : 15 + Math.floor(this.rng() * 18),
+      moveCooldown: stationary ? 999 : 15 + Math.floor(this._rng() * 18),
       stationary,
     };
     this.npcBodies.set(profile.id, body);
@@ -6611,7 +6614,7 @@ export class SnakeGame implements QuestRuntime {
         threats,
         socialTargets: body.actorId ? (socialTargetsByActorId.get(body.actorId) ?? []) : [],
         roomDangerActive,
-        random: this.rng,
+        random: this._rng,
       });
       if (
         decision.kind === 'shareRumor' &&
@@ -7662,8 +7665,12 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  get rng(): RandomGenerator {
+    return this._rng;
+  }
+
   random(): number {
-    return this.rng();
+    return this._rng();
   }
 
   enableTeleport(flag: boolean): void {
@@ -10103,7 +10110,7 @@ export class SnakeGame implements QuestRuntime {
         snakeLength: this.snake.bodySegments.length,
         flags: this.snake.flags,
         recentEvents,
-        random: this.rng,
+        random: this._rng,
       });
       this.setFlag(`actor.voice.last.${actor.id}`, line.id);
       return line;
@@ -10119,7 +10126,7 @@ export class SnakeGame implements QuestRuntime {
       recentEvents,
       hasItem: (itemId) => this.inventory.getItemCount(itemId) > 0,
       hasSkill: (skillId) => Boolean(this.getFlag(skillId)),
-      random: this.rng,
+      random: this._rng,
     });
   }
 
@@ -10140,8 +10147,8 @@ export class SnakeGame implements QuestRuntime {
     }
 
     const dropBonus = this.getFlag<boolean>('skill.predator.dropBonus') ? 0.15 : 0;
-    const specialDropModifiers = this.specialStats.getAnimalDropModifiers(this.rng);
-    const drops = rollAnimalDrops(huntedAnimal.drops, this.rng, {
+    const specialDropModifiers = this.specialStats.getAnimalDropModifiers(this._rng);
+    const drops = rollAnimalDrops(huntedAnimal.drops, this._rng, {
       bonusChance: dropBonus + (specialDropModifiers.bonusChance ?? 0),
       doubleRoll: specialDropModifiers.doubleRoll,
       guaranteedMeat:
@@ -10336,7 +10343,7 @@ export class SnakeGame implements QuestRuntime {
     const result = this.relationshipController.getTalkLine(
       state.id,
       this.getRoomsVisitedCount(),
-      this.rng,
+      this._rng,
     ) ?? {
       title: profile.displayName,
       line: 'The silence is so pointed it may qualify as dialogue.',
@@ -10649,17 +10656,17 @@ export class SnakeGame implements QuestRuntime {
     this.relationshipController.ensureCandidate(profile, this.getRoomsVisitedCount());
     const targetActorId = this.ensureRelationshipActorForProfile(profile);
     const caught =
-      this.rng() <
+      this._rng() <
       Math.min(
         0.65,
         0.18 + town.wantedLevel * 0.08 - Math.max(0, town.thievesGuild?.karma ?? 0) / 300,
       );
     const rewardScore = caught
-      ? Math.max(1, 3 + Math.floor(this.rng() * 5))
-      : 8 + Math.floor(this.rng() * 15);
+      ? Math.max(1, 3 + Math.floor(this._rng() * 5))
+      : 8 + Math.floor(this._rng() * 15);
     const itemId =
-      !caught && this.rng() < 0.35
-        ? this.rng() < 0.5
+      !caught && this._rng() < 0.35
+        ? this._rng() < 0.5
           ? 'stolen-signet'
           : 'forged-town-permit'
         : undefined;
@@ -10713,7 +10720,7 @@ export class SnakeGame implements QuestRuntime {
       };
     }
 
-    if (this.rng() < 0.25) {
+    if (this._rng() < 0.25) {
       const relationship = this.relationshipController.applyChoice(
         profile.id,
         'mean',
@@ -10902,7 +10909,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private pickRandomCardId(): CardId {
-    const index = Math.floor(this.rng() * CARD_SHOP_OFFERS.length);
+    const index = Math.floor(this._rng() * CARD_SHOP_OFFERS.length);
     return CARD_SHOP_OFFERS[Math.max(0, Math.min(CARD_SHOP_OFFERS.length - 1, index))]!;
   }
 
@@ -11082,7 +11089,29 @@ export class SnakeGame implements QuestRuntime {
       }
 
       const data = JSON.parse(saved) as GameSaveData;
+      return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
+    } catch (error) {
+      console.error('Failed to load game:', error);
+      return false;
+    }
+  }
 
+  loadFromSaveData(
+    data: GameSaveData,
+    getReligionChoice?: () => any,
+    getClassChoice?: () => any,
+    getBackgroundChoice?: () => any,
+  ): boolean {
+    return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
+  }
+
+  private loadFromData(
+    data: GameSaveData,
+    getReligionChoice?: () => any,
+    getClassChoice?: () => any,
+    getBackgroundChoice?: () => any,
+  ): boolean {
+    try {
       this.reset({ preserveRunSeed: true });
       this.specialStats.restore(data.special);
       this.levelProgression = normalizeLevelProgressionState(data.levelProgression, data.score);
@@ -11119,23 +11148,23 @@ export class SnakeGame implements QuestRuntime {
       );
       if (data.worldGeneration) {
         this.worldGenerationIdentity = data.worldGeneration;
-        this.rng = createRng(data.worldGeneration.seed);
+        this._rng = createRng(data.worldGeneration.seed);
         this.world = new WorldService(
           this.config.grid,
           this.config.world,
-          this.rng,
+          this._rng,
           this.worldGenerationIdentity,
           this.createPickupChanceProvider(),
         );
-        this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this.rng);
-        this.enemies = new EnemyManager(this.config.grid, this.rng);
-        this.animals = new AnimalManager(this.config.grid, this.rng);
+        this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
+        this.enemies = new EnemyManager(this.config.grid, this._rng);
+        this.animals = new AnimalManager(this.config.grid, this._rng);
         this.questController = new QuestController(this.registry, {
           initialQuestCount: this.config.quests.initialQuestCount,
           initialQuestIds: this.config.quests.initialQuestIds ?? [],
           maxActiveQuests: this.config.quests.maxActiveQuests,
           questOfferChance: this.config.quests.questOfferChance,
-          rng: this.rng,
+          rng: this._rng,
         });
         logRunSeed(data.worldGeneration.seed, 'load');
       }
@@ -11568,7 +11597,7 @@ export class SnakeGame implements QuestRuntime {
   ): string {
     const [x = 0, y = 0, z = 0] = originRoomId.split(',').map(Number);
     const distance =
-      minDistance + Math.floor(this.rng() * Math.max(1, maxDistance - minDistance + 1));
+      minDistance + Math.floor(this._rng() * Math.max(1, maxDistance - minDistance + 1));
     const variants = [
       { dx: distance, dy: Math.floor(distance * 0.35) },
       { dx: -distance, dy: -Math.floor(distance * 0.35) },
@@ -11578,7 +11607,7 @@ export class SnakeGame implements QuestRuntime {
       { dx: -distance, dy: Math.floor(distance * 0.4) },
     ];
     const pick =
-      variants[(Math.floor(this.rng() * variants.length) + salt) % variants.length] ?? variants[0];
+      variants[(Math.floor(this._rng() * variants.length) + salt) % variants.length] ?? variants[0];
     return `${x + pick.dx},${y + pick.dy},${z}`;
   }
 
@@ -11590,7 +11619,7 @@ export class SnakeGame implements QuestRuntime {
     predicate: (roomId: string) => boolean = () => true,
   ): string {
     const candidates = this.getObjectiveRoomCandidates(originRoomId, minRadius, maxRadius);
-    const offset = Math.floor(this.rng() * Math.max(1, candidates.length));
+    const offset = Math.floor(this._rng() * Math.max(1, candidates.length));
     for (let index = 0; index < candidates.length; index += 1) {
       const candidate = candidates[(index + offset + salt) % candidates.length];
       if (predicate(candidate)) {
@@ -11634,7 +11663,7 @@ export class SnakeGame implements QuestRuntime {
     if (!randomize) {
       return candidates[0];
     }
-    return candidates[Math.floor(this.rng() * candidates.length)] ?? candidates[0];
+    return candidates[Math.floor(this._rng() * candidates.length)] ?? candidates[0];
   }
 
   private getNearbyQuestActor(): QuestRoomActor | null {
@@ -12672,14 +12701,14 @@ export class SnakeGame implements QuestRuntime {
     if (this.queueRelationshipEncounter(roomId)) {
       return;
     }
-    if (this.rng() > 1 / 15) {
+    if (this._rng() > 1 / 15) {
       return;
     }
     if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 5) {
       return;
     }
     const roomsVisited = Number(this.getFlag<number>('roomsVisited') ?? this.visitedRooms.size);
-    const encounter = chooseWandererEncounter(this.rng, {
+    const encounter = chooseWandererEncounter(this._rng, {
       roomsVisited,
       zoneTags: getRoomEncounterTags(roomId),
       biomeId: room.biomeId,
@@ -12730,12 +12759,12 @@ export class SnakeGame implements QuestRuntime {
     if (this.visitedRooms.size - this.lastWandererEncounterRoomCount < 5) {
       return false;
     }
-    if (this.rng() > 1 / 12) {
+    if (this._rng() > 1 / 12) {
       return false;
     }
     const encounter = this.relationshipController.chooseRelationshipEncounter(
       this.getRoomsVisitedCount(),
-      this.rng,
+      this._rng,
     );
     if (!encounter) {
       return false;

@@ -3,6 +3,7 @@ import {
   createArcadeSnakeRun,
   finalizeArcadeRun,
   getArcadeMainGamePayout,
+  getArcadeUnbankedPayout,
   purchaseHomeArcadeCabinet,
   queueArcadeDirection,
   tickArcadeSnake,
@@ -227,5 +228,17 @@ describe('arcade apples and stats', () => {
     expect(getArcadeMainGamePayout(1)).toBe(1);
     expect(getArcadeMainGamePayout(7)).toBe(4);
     expect(getArcadeMainGamePayout(20)).toBe(10);
+  });
+
+  it('banks cumulative arcade payout exactly once as score increases', () => {
+    let banked = 0;
+    const paid: number[] = [];
+    for (const score of [1, 2, 3, 4, 5, 20, 20]) {
+      const payout = getArcadeUnbankedPayout(score, banked);
+      paid.push(payout);
+      banked += payout;
+    }
+    expect(paid).toEqual([1, 0, 1, 0, 1, 7, 0]);
+    expect(banked).toBe(10);
   });
 });

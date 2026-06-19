@@ -53,6 +53,8 @@ import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
 import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
+import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
+import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
 import {
@@ -84,7 +86,7 @@ import {
   normalizeArcadeSnakeSaveData,
   type ArcadeSnakeSaveData,
 } from '../arcade/arcadeSnakeTypes.js';
-import { getArcadeMainGamePayout, purchaseHomeArcadeCabinet } from '../arcade/arcadeSnakeLogic.js';
+import { purchaseHomeArcadeCabinet } from '../arcade/arcadeSnakeLogic.js';
 import {
   formatTownMood,
   getTownDistrictForRoom,
@@ -1511,6 +1513,7 @@ export default class SnakeScene extends Phaser.Scene {
   skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
   private saveUI!: SaveUI;
+  private autosaveTimer: Phaser.Time.TimerEvent | null = null;
   private mobileControls: MobileControls | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
@@ -1684,6 +1687,10 @@ export default class SnakeScene extends Phaser.Scene {
   private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
   private selectedCharacterMode: CharacterMode = this.loadCharacterModeSetting();
+  private selectedSeed = '';
+  private seedInputText: Phaser.GameObjects.Text | null = null;
+  private seedLabel: Phaser.GameObjects.Text | null = null;
+  private seedFocused = false;
   private raccoonColorMuteFx: Phaser.FX.ColorMatrix | null = null;
   private readonly archipelagoStorage = new BrowserArchipelagoStorage();
   private archipelagoRunSave: ArchipelagoRunSaveData | null = null;
@@ -1863,6 +1870,7 @@ export default class SnakeScene extends Phaser.Scene {
     const registry = await createQuestRegistry();
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
     this.snakeGame.setLevelUpCallback((result) => this.presentLevelUp(result));
+    this.saveUI.setSeed(this.snakeGame.worldSeed);
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
     this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
@@ -1900,6 +1908,14 @@ export default class SnakeScene extends Phaser.Scene {
       );
 
     this.initGame(true);
+
+    // Autosave timer: save every 30 seconds during gameplay
+    this.autosaveTimer = this.time.addEvent({
+      delay: 30000,
+      callback: this.triggerAutosave,
+      callbackScope: this,
+      repeat: -1,
+    });
 
     // House HUD overlay (hidden by default)
     this.houseHud = this.add
@@ -3187,11 +3203,11 @@ export default class SnakeScene extends Phaser.Scene {
       let x: number;
       let y: number;
       if (lampCenter && this.random() < 0.7) {
-        x = lampCenter.x + (Math.random() - 0.5) * 40;
-        y = lampCenter.y - Math.random() * 40;
+        x = lampCenter.x + (this.random() - 0.5) * 40;
+        y = lampCenter.y - this.random() * 40;
       } else {
-        x = 20 + Math.random() * (w - 40);
-        y = h - 30 - Math.random() * (h * 0.6);
+        x = 20 + this.random() * (w - 40);
+        y = h - 30 - this.random() * (h * 0.6);
       }
       (this.juice as any).houseMote?.(x, y);
     }
@@ -3243,7 +3259,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
   }
 
-  private showQuestHintPopup(message: string, color = '#ffe58a'): void {
+  showQuestHintPopup(message: string, color = '#ffe58a'): void {
     const maxWidth = Math.min(720, this.scale.width - 48);
     const x = this.scale.width / 2;
     const y = 76;
@@ -4351,6 +4367,15 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private triggerAutosave(): void {
+    if (this.paused || this.titleVisible || this.deathCutscene) {
+      return;
+    }
+    const data = this.snakeGame.getSaveData();
+    saveManagerV2.save('autosave-current', data);
+    this.showQuestHintPopup(i18n.getFeatureString('autosave')!, '#5dd6a2');
+  }
+
   private handleShutdown(): void {
     // Auto-escape from fishing
     this.autoEscapeFromFishing();
@@ -4374,6 +4399,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.creditsDismissZone?.destroy();
     this.creditsDismissZone = null;
 
+    this.seedLabel?.destroy();
+    this.seedLabel = null;
+    this.seedInputText?.destroy();
+    this.seedInputText = null;
+
     this.mobileControls?.destroy();
     this.mobileControls = null;
     this.minimapRenderer?.destroy();
@@ -4382,6 +4412,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.levelUpDirectionUnlockTimer = null;
     this.arcadeSnakeRenderer?.destroy();
     this.arcadeSnakeRenderer = null;
+    this.autosaveTimer?.remove();
+    this.autosaveTimer = null;
   }
 
   getAchievementManager(): AchievementManager {
@@ -4586,6 +4618,9 @@ export default class SnakeScene extends Phaser.Scene {
       wardDamageTypesHeld: Object.values(this.snakeGame.getWardContracts()).filter(
         (count) => Number(count) > 0,
       ).length,
+      maxSpecialStat: Math.max(
+        ...this.snakeGame.getSpecialStatsView().stats.map((stat) => stat.committedValue),
+      ),
     };
   }
 
@@ -4643,7 +4678,7 @@ export default class SnakeScene extends Phaser.Scene {
     amount: number,
     category?: import('../game/scoreNormalization.js').ScoreCategory,
   ): void {
-    this.snakeGame.addScore(amount, category ?? 'apple');
+    this.snakeGame.addScore(amount, category);
     this.isDirty = true;
     // Floating score popup at head
     const head = this.snakeGame.getSnakeBody()[0];
@@ -4944,7 +4979,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   random(): number {
-    return this.snakeGame ? this.snakeGame.random() : Math.random();
+    return this.snakeGame ? this.snakeGame.random() : this.random();
   }
 
   setTeleport(flag: boolean): void {
@@ -5263,6 +5298,7 @@ export default class SnakeScene extends Phaser.Scene {
   private createGameConfigForCharacterMode(): GameConfig {
     return {
       ...defaultGameConfig,
+      rng: { seed: this.selectedSeed || undefined },
       character: {
         ...defaultGameConfig.character,
         mode: this.selectedCharacterMode,
@@ -5455,34 +5491,39 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag('run.startChoicesReady', true);
     this.paused = true;
     this.showSaveUI();
+    // Auto-save initial game state
+    const data = this.snakeGame.getSaveData();
+    const dateKey = new Date().toISOString();
+    saveManagerV2.save(dateKey, data);
   }
 
   private loadGameFromTitle(): void {
-    if (!this.hasSessionSave()) {
-      this.titleMessageText?.setText('No save file found.');
-      return;
-    }
-
-    const success = this.loadGameFromSession(
-      () => (this.chosenReligionId ? { id: this.chosenReligionId, mods: this.religionMods } : null),
-      () => (this.chosenClassId ? { id: this.chosenClassId, mods: this.classMods } : null),
-      () =>
-        this.chosenBackgroundId ? { id: this.chosenBackgroundId, mods: this.backgroundMods } : null,
+    const saveLoadMenu = new SaveLoadMenu(this);
+    saveLoadMenu.setDepth(9999);
+    saveLoadMenu.show(
+      async (slotId: string, data: GameSaveData) => {
+        this.hideTitleScreen();
+        const success = this.snakeGame.loadFromSaveData(data);
+        if (!success) {
+          this.titleMessageText?.setText('Failed to load game.');
+          this.showTitleScreen('main');
+          return;
+        }
+        this.currentSnapshot = this.gameSession.getSnapshot();
+        this.restoreCharacterSaveState();
+        this.applyRaccoonActionStepInterval();
+        this.backfillArchipelagoDurableRewards();
+        this.backfillArchipelagoAchievementScore();
+        this.paused = false;
+        this.showSaveUI();
+        this.isDirty = true;
+        saveLoadMenu.hide();
+      },
+      () => {
+        saveLoadMenu.hide();
+        this.showTitleScreen('main');
+      },
     );
-
-    if (!success) {
-      this.titleMessageText?.setText('Failed to load game.');
-      return;
-    }
-
-    this.hideTitleScreen();
-    this.restoreCharacterSaveState();
-    this.applyRaccoonActionStepInterval();
-    this.backfillArchipelagoDurableRewards();
-    this.backfillArchipelagoAchievementScore();
-    this.paused = false;
-    this.showSaveUI();
-    this.isDirty = true;
   }
 
   private buildTitleScreen(): void {
@@ -5606,7 +5647,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     const difficultySettings = this.add.container(0, 0).setVisible(false);
     const difficultyPanel = this.add
-      .rectangle(width / 2, height / 2 + 44, 330, 318, 0x071019, 0.88)
+      .rectangle(width / 2, height / 2 + 44, 330, 360, 0x071019, 0.88)
       .setStrokeStyle(2, 0x8fb7ff)
       .setOrigin(0.5);
     const difficultyTitle = this.add
@@ -5640,12 +5681,36 @@ export default class SnakeScene extends Phaser.Scene {
       { selected: this.selectedCharacterMode === 'raccoon' },
     );
     this.refreshTitleCharacterModeText();
+    this.seedLabel = this.add
+      .text(width / 2, height / 2 + 176, 'World Seed:', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#8b939f',
+      })
+      .setOrigin(0.5);
+    this.seedInputText = this.add
+      .text(width / 2, height / 2 + 198, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffffff',
+        backgroundColor: '#0b1626',
+        padding: { left: 12, right: 12, top: 6, bottom: 6 },
+        fixedWidth: 280,
+        align: 'left',
+      })
+      .setOrigin(0.5)
+      .setInteractive({ useHandCursor: true });
+    this.seedInputText.on('pointerdown', () => {
+      this.seedFocused = true;
+    });
     difficultySettings.add([
       difficultyPanel,
       difficultyTitle,
       this.titleCharacterModeText,
       this.titleNormalModeButton,
       this.titleRaccoonModeButton,
+      this.seedLabel,
+      this.seedInputText,
       this.createTitleButton(width / 2 - 105, height / 2 + 132, 'Back', () =>
         this.showTitleScreen('settings'),
       ),
@@ -6017,6 +6082,26 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleTitleMultiplayerKey(event: KeyboardEvent): boolean {
+    if (this.seedFocused) {
+      if (event.key === 'Enter' || event.key === 'Escape') {
+        this.seedFocused = false;
+        return true;
+      }
+      if (event.key === 'Backspace') {
+        this.selectedSeed = this.selectedSeed.slice(0, -1);
+        this.seedInputText?.setText(this.selectedSeed || '');
+        return true;
+      }
+      if (event.key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (this.selectedSeed.length < 100) {
+          this.selectedSeed += event.key;
+          this.seedInputText?.setText(this.selectedSeed);
+        }
+        return true;
+      }
+      return true;
+    }
+
     if (!this.titleMultiplayerContainer?.visible) {
       return false;
     }
@@ -12612,14 +12697,19 @@ export default class SnakeScene extends Phaser.Scene {
     this.arcadeSnakeRenderer = new ArcadeSnakeRenderer(this, {
       saveData: this.arcadeSnakeSaveData,
       hatName: this.snakeCosmetics.activeHat ?? 'None',
-      onBankScore: (score) => {
-        const payout = getArcadeMainGamePayout(score);
+      onBankScore: (payout) => {
         if (payout > 0) {
           this.addScoreDirect(payout);
           this.currentSnapshot = this.gameSession.refreshSnapshot();
           this.snakeGame.saveGame();
           this.isDirty = true;
         }
+      },
+      onRunStarted: () => {
+        this.recordAchievementEvent({ type: 'arcade:played' });
+      },
+      onBlueScreen: () => {
+        this.recordAchievementEvent({ type: 'arcade:blueScreen' });
       },
       onSaveDataChanged: (save) => {
         this.arcadeSnakeSaveData = normalizeArcadeSnakeSaveData(save);
@@ -14233,7 +14323,7 @@ export default class SnakeScene extends Phaser.Scene {
       () => this.currentTownActorLine(profile.displayName),
       () => this.snakeGame.askActorKingLore(actorId),
     ];
-    const start = Math.floor(Math.random() * options.length);
+    const start = Math.floor(this.random() * options.length);
     for (let offset = 0; offset < options.length; offset += 1) {
       const line = options[(start + offset) % options.length]?.();
       if (line) return line;
@@ -14243,7 +14333,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private askActorPersonally(profile: RelationshipCandidateProfile): string | null {
     const actorId = profile.actorId ?? '';
-    return Math.random() < 0.5
+    return this.random() < 0.5
       ? (this.snakeGame.askActorSocialTie(actorId) ??
           this.snakeGame.askActorPersonalReveal(actorId))
       : (this.snakeGame.askActorPersonalReveal(actorId) ??
@@ -14535,7 +14625,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'liberty-diner-blue-plate') {
       if (!this.spendScore(20, 'Blue Plate Special')) return;
-      const roll = Math.floor(Math.random() * 3);
+      const roll = Math.floor(this.random() * 3);
       if (roll === 0) {
         this.snakeGame.growSnake(3);
         this.showQuestHintPopup('Blue Plate Special: Monumental Appetite. +3 length.', '#f3eee2');
@@ -16513,7 +16603,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setPosition(world.x, world.y - 3 + bobOffset)
       .setFlipX(flipX)
       .setVisible(true);
-    if (Math.random() < 0.08) {
+    if (this.random() < 0.08) {
       (this.juice as any).wandererAura?.(world.x, world.y - 6, palette.trimColor);
     }
   }
@@ -16636,10 +16726,10 @@ export default class SnakeScene extends Phaser.Scene {
       if (sprite.anims.currentAnim?.key !== animKey) {
         sprite.play(animKey);
       }
-      if (Math.random() < 0.04) {
+      if (this.random() < 0.04) {
         (this.juice as any).wandererAura?.(world.x, world.y - 4, palette.trimColor);
       }
-      if (!isGoblin && Math.random() < 0.02) {
+      if (!isGoblin && this.random() < 0.02) {
         (this.juice as any).villageResidentMurmur?.(
           world.x,
           world.y - 2,
@@ -16658,14 +16748,14 @@ export default class SnakeScene extends Phaser.Scene {
     if (!villageLike) {
       return;
     }
-    if (Math.random() < 0.08) {
-      const lantern = villageLike.lanterns[Math.floor(Math.random() * villageLike.lanterns.length)];
+    if (this.random() < 0.08) {
+      const lantern = villageLike.lanterns[Math.floor(this.random() * villageLike.lanterns.length)];
       if (lantern) {
         const world = this.tileToWorldLocalInRoom(lantern);
         (this.juice as any).villageLantern?.(world.x, world.y);
       }
     }
-    if (Math.random() < 0.03) {
+    if (this.random() < 0.03) {
       const world = this.tileToWorldLocalInRoom(villageLike.center);
       (this.juice as any).villageBreath?.(world.x, world.y);
     }
@@ -16676,12 +16766,12 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
-    if (room.biomeId === 'sable-depths' && Math.random() < 0.28) {
+    if (room.biomeId === 'sable-depths' && this.random() < 0.28) {
       (this.juice as any).snowDrift?.(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
         Phaser.Math.Between(0, this.grid.rows * this.grid.cell),
       );
-    } else if (room.biomeId === 'ember-waste' && Math.random() < 0.24) {
+    } else if (room.biomeId === 'ember-waste' && this.random() < 0.24) {
       (this.juice as any).heatHaze?.(
         Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
         Phaser.Math.Between(
@@ -16689,31 +16779,31 @@ export default class SnakeScene extends Phaser.Scene {
           this.grid.rows * this.grid.cell - 12,
         ),
       );
-    } else if (room.biomeId === 'moonlit-parish' && Math.random() < 0.12) {
+    } else if (room.biomeId === 'moonlit-parish' && this.random() < 0.12) {
       (this.juice as any).snowDrift?.(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
         Phaser.Math.Between(0, this.grid.rows * this.grid.cell),
       );
-    } else if (room.biomeId === 'gloam-garden' && Math.random() < 0.1) {
+    } else if (room.biomeId === 'gloam-garden' && this.random() < 0.1) {
       (this.juice as any).temperatureReliefPulse?.(
         Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
         Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
-        Math.random() < 0.5 ? 'warm' : 'cool',
+        this.random() < 0.5 ? 'warm' : 'cool',
       );
     } else if (room.biomeId === 'liberty-badlands') {
-      if (Math.random() < 0.05) {
+      if (this.random() < 0.05) {
         (this.juice as any).eagleFlyover?.();
       }
-      if (Math.random() < 0.12) {
+      if (this.random() < 0.12) {
         (this.juice as any).dustDevil?.(
           Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
           Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
         );
       }
-      if (Math.random() < 0.08) {
+      if (this.random() < 0.08) {
         (this.juice as any).tumbleweed?.();
       }
-      if (Math.random() < 0.14) {
+      if (this.random() < 0.14) {
         (this.juice as any).libertyHeatShimmer?.(
           Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
           Phaser.Math.Between(this.grid.cell * 3, this.grid.rows * this.grid.cell - 12),
@@ -16721,7 +16811,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (
         (room.archetypeId === 'firework-field' || room.fireworkStand || room.roadsideMonument) &&
-        Math.random() < 0.16
+        this.random() < 0.16
       ) {
         (this.juice as any).fireworkPop?.(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
@@ -16733,14 +16823,14 @@ export default class SnakeScene extends Phaser.Scene {
           room.fireworkStand ||
           room.archetypeId === 'billboard-maze' ||
           room.archetypeId === 'motel-pool-ruins') &&
-        Math.random() < 0.12
+        this.random() < 0.12
       ) {
         (this.juice as any).neonFlicker?.(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         );
       }
-      if ((room.roadsideMonument || room.archetypeId === 'monument-plaza') && Math.random() < 0.1) {
+      if ((room.roadsideMonument || room.archetypeId === 'monument-plaza') && this.random() < 0.1) {
         (this.juice as any).monumentSparkle?.(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
@@ -16748,9 +16838,9 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
 
-    if (room.temperatureReliefs && Math.random() < 0.08) {
+    if (room.temperatureReliefs && this.random() < 0.08) {
       const relief =
-        room.temperatureReliefs[Math.floor(Math.random() * room.temperatureReliefs.length)];
+        room.temperatureReliefs[Math.floor(this.random() * room.temperatureReliefs.length)];
       if (relief) {
         const world = this.tileToWorldLocalInRoom({ x: relief.x, y: relief.y });
         (this.juice as any).temperatureReliefPulse?.(world.x, world.y, relief.kind);

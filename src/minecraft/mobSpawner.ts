@@ -240,6 +240,18 @@ export const SPAWNER_BLOCK_DEFS: Record<SpawnerBlockId, SpawnerBlockDefinition> 
 
 export class MobSpawnerManager {
   private spawners: Map<string, MobSpawnerState> = new Map();
+  private _rng: (() => number) | null = null;
+
+  private get rng(): () => number {
+    if (!this._rng) {
+      this._rng = () => Math.random();
+    }
+    return this._rng;
+  }
+
+  setRng(rng: () => number): void {
+    this._rng = rng;
+  }
 
   private toKey(x: number, y: number, roomId: string): string {
     return `${roomId}:${x},${y}`;
@@ -329,7 +341,7 @@ export class MobSpawnerManager {
       if (currentTime - spawner.lastSpawn < spawner.delayBetweenSpawns) continue;
 
       // Try to spawn
-      if (Math.random() < 0.05) {
+      if (this.rng() < 0.05) {
         this.trySpawnFromSpawner(spawner, mobManager, currentTime, gridSize, onMobDeath);
         spawner.lastSpawn = currentTime;
       }
@@ -348,7 +360,7 @@ export class MobSpawnerManager {
 
     if (spawnPositions.length === 0) return;
 
-    const chosen = spawnPositions[Math.floor(Math.random() * spawnPositions.length)];
+    const chosen = spawnPositions[Math.floor(this.rng() * spawnPositions.length)];
     mobManager.spawnMob(spawner.roomId, spawner.mobType, chosen.x, chosen.y);
 
     // Handle mob death drops
@@ -468,10 +480,10 @@ export function getSpawnerLoot(): Array<{ itemId: string; count: number }> {
   const loot: Array<{ itemId: string; count: number }> = [];
 
   for (const entry of SPAWNER_LOOT_TABLE) {
-    const roll = Math.random() * 100;
+    const roll = this.rng() * 100;
     if (roll >= entry.weight * 10) continue;
 
-    const count = Math.floor(Math.random() * (entry.maxCount - entry.minCount + 1)) + entry.minCount;
+    const count = Math.floor(this.rng() * (entry.maxCount - entry.minCount + 1)) + entry.minCount;
     loot.push({ itemId: entry.itemId, count });
   }
 

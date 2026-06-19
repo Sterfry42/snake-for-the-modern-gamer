@@ -377,18 +377,19 @@ export function generatePortalParticles(
   width: number,
   height: number,
   count: number,
+  rng: () => number = Math.random,
 ): PortalParticle[] {
   const particles: PortalParticle[] = [];
 
   for (let i = 0; i < count; i++) {
     particles.push({
-      x: portal.x + Math.random() * width,
-      y: portal.y + Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: -Math.random() * 1.5,
+      x: portal.x + rng() * width,
+      y: portal.y + rng() * height,
+      vx: (rng() - 0.5) * 0.5,
+      vy: -rng() * 1.5,
       life: 0,
-      maxLife: 20 + Math.random() * 30,
-      color: Math.random() < 0.5 ? 0x6A0DAD : 0x9400D3,
+      maxLife: 20 + rng() * 30,
+      color: rng() < 0.5 ? 0x6A0DAD : 0x9400D3,
     });
   }
 

@@ -11,7 +11,7 @@ export class WorldEventLog {
 
   add(input: CreateWorldEventInput): WorldEvent {
     const event: WorldEvent = {
-      id: `event:${Date.now()}:${this.counter++}`,
+      id: `event:${this.counter++}`,
       type: input.type,
       roomId: input.roomId,
       sourceActorId: input.sourceActorId,

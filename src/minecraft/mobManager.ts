@@ -1,4 +1,5 @@
 import type { MobTypeId, MobState, MobDefinition } from './types.js';
+import type { RandomGenerator } from '../core/rng.js';
 import {
   MAX_MOBS_PER_CHUNK,
   MAX_PASSIVE_MOBS_PER_CHUNK,
@@ -76,20 +77,37 @@ const MOB_AI_CONFIG: Record<MobTypeId, { chaseRange: number; fleeRange: number }
   cow: { chaseRange: 0, fleeRange: 5 },
 };
 
-function generateMobId(): string {
-  return `mc_mob_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
 export class MobManager {
   private mobs: Map<string, MobState> = new Map();
   private mobIdCounter = 0;
   private lastSpawnCheck: Record<string, number> = {};
   private creeperExploding: Map<string, { startTime: number }> = new Map();
   private readonly CREEPER_EXPLOSION_FUSE = 60;
+  private _rng: RandomGenerator | null = null;
+
+  constructor(rng?: RandomGenerator) {
+    this._rng = rng ?? null;
+  }
+
+  private get rng(): RandomGenerator {
+    if (!this._rng) {
+      this._rng = Math.random;
+    }
+    return this._rng;
+  }
+
+  setRng(rng: RandomGenerator): void {
+    this._rng = rng;
+  }
+
+  private generateMobId(): string {
+    return `mc_mob_${this.mobIdCounter++}`;
+  }
 
   init(): void {
     this.mobs.clear();
     this.lastSpawnCheck = {};
+    this.mobIdCounter = 0;
   }
 
   spawnMobsForRoom(
@@ -126,8 +144,8 @@ export class MobManager {
       for (let i = 0; i < maxAttempts; i++) {
         if (hostileMobs.length >= hostileLimit) break;
 
-        const x = Math.floor(Math.random() * gridSize);
-        const y = Math.floor(Math.random() * gridSize);
+        const x = Math.floor(this.rng() * gridSize);
+        const y = Math.floor(this.rng() * gridSize);
         const lightLevel = lightLevelAt(x, y, roomId);
 
         if (lightLevel > LIGHT_LEVEL_MOB_SPAWN_THRESHOLD) continue;
@@ -137,7 +155,7 @@ export class MobManager {
         if (this.isPositionOccupied(roomId, x, y, 3)) continue;
 
         const hostileTypes: MobTypeId[] = ['zombie', 'skeleton', 'creeper'];
-        const type = hostileTypes[Math.floor(Math.random() * hostileTypes.length)];
+        const type = hostileTypes[Math.floor(this.rng() * hostileTypes.length)];
         this.spawnMob(roomId, type, x, y);
         hostileMobs.push(this.getMob(this.mobs.keys().next().value!)!);
       }
@@ -150,8 +168,8 @@ export class MobManager {
       for (let i = 0; i < maxAttempts; i++) {
         if (passiveMobs.length >= passiveLimit) break;
 
-        const x = Math.floor(Math.random() * gridSize);
-        const y = Math.floor(Math.random() * gridSize);
+        const x = Math.floor(this.rng() * gridSize);
+        const y = Math.floor(this.rng() * gridSize);
 
         if (Math.abs(x - playerX) + Math.abs(y - playerY) < 3) continue;
 
@@ -214,7 +232,7 @@ export class MobManager {
     }
 
     const mob: MobState = {
-      id: generateMobId(),
+      id: this.generateMobId(),
       type,
       x,
       y,
@@ -378,9 +396,9 @@ export class MobManager {
         dy = mob.y - playerY;
       } else {
         // Wander
-        if (Math.random() < 0.3) {
-          dx = Math.random() < 0.5 ? (Math.random() < 0.5 ? 1 : -1) : 0;
-          dy = Math.random() < 0.5 ? (Math.random() < 0.5 ? 1 : -1) : 0;
+        if (this.rng() < 0.3) {
+          dx = this.rng() < 0.5 ? (this.rng() < 0.5 ? 1 : -1) : 0;
+          dy = this.rng() < 0.5 ? (this.rng() < 0.5 ? 1 : -1) : 0;
         }
       }
 
@@ -425,7 +443,7 @@ export class MobManager {
     const def = MOB_DEFINITIONS[mob.type];
     if (def && def.drops) {
       for (const drop of def.drops) {
-        if (Math.random() < drop.chance) {
+        if (this.rng() < drop.chance) {
           for (let i = 0; i < drop.count; i++) {
             onDropItem(drop.itemId, 1);
           }

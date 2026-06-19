@@ -216,6 +216,9 @@ ACHIEVEMENT_LOCATIONS = [
     ("achievement_equipment_cowbell200", "For Whom the Bell Coils"),
     ("achievement_equipment_wardTrinity", "Terms and Conditions Apply"),
     ("achievement_system_zoomFlurry", "Enhance! Enhance!"),
+    ("achievement_arcade_snakeception", "Snakeception"),
+    ("achievement_arcade_blueScreen", "Blue Snake of Death"),
+    ("achievement_stats_special10", "Perfectly S.P.E.C.I.A.L."),
 ]
 
 for index, (_, name) in enumerate(ACHIEVEMENT_LOCATIONS):

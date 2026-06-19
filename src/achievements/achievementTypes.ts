@@ -68,7 +68,10 @@ export interface AchievementIconSpec {
     | 'drink'
     | 'fastFood'
     | 'water'
-    | 'skillTree';
+    | 'skillTree'
+    | 'arcadeCabinet'
+    | 'blueScreen'
+    | 'specialStat';
   variant?: string;
   fallbackGlyph: string;
 }
@@ -101,7 +104,8 @@ export type AchievementNumericSnapshotField =
   | 'heatResistance'
   | 'coldResistance'
   | 'cowbellTilesWalked'
-  | 'wardDamageTypesHeld';
+  | 'wardDamageTypesHeld'
+  | 'maxSpecialStat';
 
 export interface AchievementDefinition {
   id: AchievementId;
@@ -150,6 +154,8 @@ export type AchievementEvent =
   | { type: 'boss:defeated'; bossKind: string; bossName: string }
   | { type: 'boss:jasonVulnerableDamaged'; bossId: string }
   | { type: 'divine:angelEncountered'; angelKind: 'normal' | 'goblin' }
+  | { type: 'arcade:played' }
+  | { type: 'arcade:blueScreen' }
   | { type: 'rivalSnake:lengthReached'; enemyId: string; length: number };
 
 export interface AchievementSnapshot {
@@ -174,6 +180,7 @@ export interface AchievementSnapshot {
   coldResistance: number;
   cowbellTilesWalked: number;
   wardDamageTypesHeld: number;
+  maxSpecialStat: number;
 }
 
 export interface AchievementProgressState {

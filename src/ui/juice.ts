@@ -196,6 +196,10 @@ export class JuiceManager {
     this.overlayLayer = this.scene.add.layer().setDepth(30);
   }
 
+  private get rng(): () => number {
+    return () => this.scene.random();
+  }
+
   appleChomp(worldX: number, worldY: number, violenceLevel = 0, appleTypeId?: string) {
     const level = Math.max(0, Math.min(3, Math.floor(violenceLevel)));
     const volume = 0.18 + level * 0.04;
@@ -2103,7 +2107,7 @@ export class JuiceManager {
     const colors = [0xfff3a8, 0xffc25f, 0xffd38a];
     const count = 3;
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
+      const angle = this.rng() * Math.PI * 2;
       const dist = Phaser.Math.Between(6, 12);
       const cx = worldX + Math.cos(angle) * dist;
       const cy = worldY + Math.sin(angle) * dist;
@@ -2131,7 +2135,7 @@ export class JuiceManager {
     const colors = [0xffd700, 0xffe58a, 0xfff3a8];
     const count = 3;
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
+      const angle = this.rng() * Math.PI * 2;
       const dist = Phaser.Math.Between(5, 10);
       const cx = worldX + Math.cos(angle) * dist;
       const cy = worldY + Math.sin(angle) * dist;
@@ -2427,7 +2431,7 @@ export class JuiceManager {
         onComplete: () => dot.destroy(),
       });
     }
-    if (Math.random() < 0.18) {
+    if (this.rng() < 0.18) {
       this.ringPulse(worldX, worldY, 0xffe8b6, 4, 1, 320);
     }
   }
@@ -2460,7 +2464,7 @@ export class JuiceManager {
         y: mote.y - Phaser.Math.Between(14, 24),
         alpha: 0,
         scale: 0.4,
-        duration: 900 + Math.random() * 300,
+        duration: 900 + this.rng() * 300,
         ease: 'Sine.easeOut',
         onComplete: () => mote.destroy(),
       });
@@ -3092,7 +3096,7 @@ export class JuiceManager {
 
       const lfo = this.ctx.createOscillator();
       lfo.type = 'sine' as OscillatorType;
-      lfo.frequency.value = 0.12 + Math.random() * 0.15;
+      lfo.frequency.value = 0.12 + this.rng() * 0.15;
       const lfoGain = this.ctx.createGain();
       lfoGain.gain.value = note.frequency * 0.015;
       lfo.connect(lfoGain);
@@ -3183,18 +3187,18 @@ export class JuiceManager {
     const rect = this.scene.add.rectangle(x, y, 2, 2, 0xfff3a8, 0.6);
     rect.setDepth(27).setBlendMode(Phaser.BlendModes.ADD);
     this.overlayLayer.add(rect);
-    const dx = (Math.random() - 0.5) * 10;
-    const dy = -20 - Math.random() * 20;
+    const dx = (this.rng() - 0.5) * 10;
+    const dy = -20 - this.rng() * 20;
     this.scene.tweens.add({
       targets: rect,
       x: x + dx,
       y: y + dy,
       alpha: 0,
-      duration: 1600 + Math.random() * 900,
+      duration: 1600 + this.rng() * 900,
       ease: 'Sine.easeOut',
       onComplete: () => rect.destroy(),
     });
-    if (Math.random() < 0.35) {
+    if (this.rng() < 0.35) {
       const ember = this.scene.add.circle(
         x + Phaser.Math.Between(-3, 3),
         y + Phaser.Math.Between(-3, 3),
@@ -3209,7 +3213,7 @@ export class JuiceManager {
         y: ember.y - Phaser.Math.Between(8, 14),
         alpha: 0,
         scale: 0.4,
-        duration: 900 + Math.random() * 400,
+        duration: 900 + this.rng() * 400,
         ease: 'Sine.easeOut',
         onComplete: () => ember.destroy(),
       });
@@ -3659,7 +3663,7 @@ export class JuiceManager {
           movementType === 'teleport'
             ? (Math.PI * 2 * i) / particleCount
             : movementType === 'fast'
-              ? Math.random() * Math.PI * 2
+              ? this.rng() * Math.PI * 2
               : 0;
         const dist = movementType === 'teleport' ? 6 : movementType === 'fast' ? 8 : 4;
         const cx =
@@ -4245,7 +4249,7 @@ export class JuiceManager {
       y: worldY - Phaser.Math.Between(10, 18),
       alpha: 0,
       scale: 0.4,
-      duration: 800 + Math.random() * 400,
+      duration: 800 + this.rng() * 400,
       ease: 'Sine.easeOut',
       onComplete: () => mote.destroy(),
     });
@@ -4271,7 +4275,7 @@ export class JuiceManager {
       x: worldX + Phaser.Math.Between(-12, 12),
       y: worldY + Phaser.Math.Between(12, 24),
       alpha: 0,
-      duration: 1000 + Math.random() * 700,
+      duration: 1000 + this.rng() * 700,
       ease: 'Sine.easeInOut',
       onComplete: () => flake.destroy(),
     });
@@ -4295,7 +4299,7 @@ export class JuiceManager {
       alpha: 0,
       scaleX: 1.3,
       scaleY: 0.7,
-      duration: 700 + Math.random() * 400,
+      duration: 700 + this.rng() * 400,
       ease: 'Sine.easeOut',
       onComplete: () => haze.destroy(),
     });
@@ -4304,7 +4308,7 @@ export class JuiceManager {
   eagleFlyover() {
     const h = this.scene.scale.height;
     const w = this.scene.scale.width;
-    const fromLeft = Math.random() < 0.5;
+    const fromLeft = this.rng() < 0.5;
     const startX = fromLeft ? -32 : w + 32;
     const endX = fromLeft ? w + 32 : -32;
     const y = Phaser.Math.Between(36, Math.max(64, Math.floor(h * 0.35)));
@@ -4356,7 +4360,7 @@ export class JuiceManager {
         y: worldY - Phaser.Math.Between(12, 32),
         alpha: 0,
         scale: 0.5,
-        duration: 900 + Math.random() * 500,
+        duration: 900 + this.rng() * 500,
         ease: 'Sine.easeOut',
         onComplete: () => dot.destroy(),
       });
@@ -4366,7 +4370,7 @@ export class JuiceManager {
   tumbleweed() {
     const h = this.scene.scale.height;
     const w = this.scene.scale.width;
-    const fromLeft = Math.random() < 0.5;
+    const fromLeft = this.rng() < 0.5;
     const startX = fromLeft ? -20 : w + 20;
     const endX = fromLeft ? w + 20 : -20;
     const y = Phaser.Math.Between(Math.floor(h * 0.42), h - 28);
@@ -4395,7 +4399,7 @@ export class JuiceManager {
       y: worldY - Phaser.Math.Between(4, 12),
       alpha: 0,
       scaleX: 1.8,
-      duration: 760 + Math.random() * 320,
+      duration: 760 + this.rng() * 320,
       ease: 'Sine.easeOut',
       onComplete: () => haze.destroy(),
     });
@@ -6172,12 +6176,18 @@ export class JuiceManager {
     { colors, count, radius }: { colors: number[]; count: number; radius: number },
   ) {
     for (let i = 0; i < count; i++) {
-      const angle = Math.random() * Math.PI * 2;
+      const angle = this.rng() * Math.PI * 2;
       const dist = Phaser.Math.Between(radius * 0.3, radius);
       const cx = worldX + Math.cos(angle) * dist;
       const cy = worldY + Math.sin(angle) * dist;
-      const shape = this.scene.add.rectangle(cx, cy, 3, 3, Phaser.Utils.Array.GetRandom(colors));
-      shape.setDepth(22).setRotation(Math.random() * Math.PI);
+      const shape = this.scene.add.rectangle(
+        cx,
+        cy,
+        3,
+        3,
+        Phaser.Utils.Array.GetRandom(colors),
+      );
+      shape.setDepth(22).setRotation(this.rng() * Math.PI);
       this.particleLayer.add(shape);
       this.scene.tweens.add({
         targets: shape,
@@ -6225,10 +6235,10 @@ export class JuiceManager {
         Phaser.Math.Between(2, 4),
         Phaser.Utils.Array.GetRandom(colors),
       );
-      confetti.setDepth(22).setRotation(Math.random() * Math.PI);
+      confetti.setDepth(22).setRotation(this.rng() * Math.PI);
       confetti.setBlendMode(Phaser.BlendModes.ADD);
       this.particleLayer.add(confetti);
-      const angle = Math.random() * Math.PI * 2;
+      const angle = this.rng() * Math.PI * 2;
       const dist = Phaser.Math.Between(20, 50);
       this.scene.tweens.add({
         targets: confetti,
@@ -6550,7 +6560,7 @@ export class JuiceManager {
   ambientSparkle(worldX: number, worldY: number) {
     const colors = [0xfff3a8, 0xffc25f, 0xc8ffe1, 0x9ad1ff];
     for (let i = 0; i < 4; i++) {
-      const angle = Math.random() * Math.PI * 2;
+      const angle = this.rng() * Math.PI * 2;
       const dist = Phaser.Math.Between(4, 12);
       const sparkle = this.scene.add.circle(
         worldX + Math.cos(angle) * dist,

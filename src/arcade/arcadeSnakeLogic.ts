@@ -280,3 +280,7 @@ export function getArcadeAppleScore(type: ArcadeAppleType): number {
 export function getArcadeMainGamePayout(score: number): number {
   return Math.ceil(Math.max(0, score) / 2);
 }
+
+export function getArcadeUnbankedPayout(score: number, bankedPayout: number): number {
+  return Math.max(0, getArcadeMainGamePayout(score) - Math.max(0, Math.floor(bankedPayout)));
+}
