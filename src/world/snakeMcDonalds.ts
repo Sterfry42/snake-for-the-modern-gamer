@@ -12,6 +12,10 @@ export interface McDonaldsData {
     x: number;
     y: number;
   };
+  arcade: {
+    x: number;
+    y: number;
+  };
   bounds: { left: number; top: number; width: number; height: number };
 }
 
@@ -151,6 +155,11 @@ export function tryPlaceSnakeMcDonalds(
     const toiletY = bottom - 2;
     setChar(layout, toiletX, toiletY, 'R');
 
+    // Arcade cabinet on the reachable back-right dining wall.
+    const arcadeX = right - 3;
+    const arcadeY = top + 2;
+    setChar(layout, arcadeX, arcadeY, 'Z');
+
     // South entrance door
     const doorX = left + Math.floor(MC_BUILDING_WIDTH / 2);
     setChar(layout, doorX, bottom, '.');
@@ -161,6 +170,7 @@ export function tryPlaceSnakeMcDonalds(
     return {
       cashier: { name, x: cashierX, y: cashierY },
       toilet: { x: toiletX, y: toiletY },
+      arcade: { x: arcadeX, y: arcadeY },
       bounds: { left, top, width: MC_BUILDING_WIDTH, height: MC_BUILDING_HEIGHT },
     };
   }

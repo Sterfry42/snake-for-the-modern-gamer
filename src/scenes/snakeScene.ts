@@ -78,6 +78,13 @@ import type { Vector2Like } from '../core/math.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
+import { ArcadeSnakeRenderer } from '../arcade/arcadeSnakeRenderer.js';
+import {
+  createDefaultArcadeSnakeSaveData,
+  normalizeArcadeSnakeSaveData,
+  type ArcadeSnakeSaveData,
+} from '../arcade/arcadeSnakeTypes.js';
+import { getArcadeMainGamePayout, purchaseHomeArcadeCabinet } from '../arcade/arcadeSnakeLogic.js';
 import {
   formatTownMood,
   getTownDistrictForRoom,
@@ -1655,6 +1662,8 @@ export default class SnakeScene extends Phaser.Scene {
   private lastJuicedLength = 0;
   private levelUpPrompt: Phaser.GameObjects.Container | null = null;
   private awaitingLevelUpDirection = false;
+  private levelUpDirectionUnlocked = false;
+  private levelUpDirectionUnlockTimer: Phaser.Time.TimerEvent | null = null;
   private nextDangerPulseAtMs = 0;
   private nextPowerupSparkAtMs = 0;
   private nextBabyCryAtMs = 0;
@@ -1738,6 +1747,8 @@ export default class SnakeScene extends Phaser.Scene {
   private creditsDismissZone: Phaser.GameObjects.Container | null = null;
   private cardGameContainer: Phaser.GameObjects.Container | null = null;
   private cardTooltipText: Phaser.GameObjects.Text | null = null;
+  private arcadeSnakeRenderer: ArcadeSnakeRenderer | null = null;
+  private arcadeSnakeSaveData: ArcadeSnakeSaveData = createDefaultArcadeSnakeSaveData();
   private performanceHudVisible = false;
   private performanceSampleMs = 0;
   private performanceSampleFrames = 0;
@@ -1821,7 +1832,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.mobileControls = createMobileControls({
       onDirection: (x, y) => {
-        this.resumeAfterLevelUpDirection();
+        if (this.awaitingLevelUpDirection && !this.resumeAfterLevelUpDirection()) {
+          return;
+        }
         this.setDir(x, y);
         if (this.isManualHouseMovementActive()) {
           this.consumeManualResumePause();
@@ -2017,6 +2030,12 @@ export default class SnakeScene extends Phaser.Scene {
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
+      if (this.arcadeSnakeRenderer?.isOpen()) {
+        if (this.arcadeSnakeRenderer.handleKeyDown(key)) {
+          event.preventDefault();
+        }
+        return;
+      }
       if (this.titleCreditsMode) {
         if (key === 'enter' || key === ' ') {
           event.preventDefault();
@@ -2062,7 +2081,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.awaitingLevelUpDirection &&
         ['arrowup', 'w', 'arrowdown', 's', 'arrowleft', 'a', 'arrowright', 'd'].includes(key)
       ) {
-        this.resumeAfterLevelUpDirection();
+        event.preventDefault();
+        if (!this.resumeAfterLevelUpDirection()) {
+          return;
+        }
       }
 
       if (key === ' ') {
@@ -2263,6 +2285,9 @@ export default class SnakeScene extends Phaser.Scene {
         if (this.tryInteractQuestTarget()) {
           return;
         }
+        if (this.tryInteractArcadeCabinet()) {
+          return;
+        }
         if (this.tryInteractMcDonaldsCashier()) {
           return;
         }
@@ -2305,6 +2330,7 @@ export default class SnakeScene extends Phaser.Scene {
         if (key === '4') this.tryBuyHouse('bed');
         if (key === '5') this.tryBuyHouse('plant');
         if (key === '6') this.tryBuyHouse('lamp');
+        if (key === '7') this.tryBuyHomeArcadeFromHouse();
       }
     });
 
@@ -2928,6 +2954,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.paused = true;
     this.awaitingLevelUpDirection = true;
+    this.levelUpDirectionUnlocked = false;
+    this.levelUpDirectionUnlockTimer?.remove(false);
+    this.levelUpDirectionUnlockTimer = null;
     this.gameConnection.send({
       type: 'pause',
       playerId: this.snakeGame.getLocalPlayerId(),
@@ -2971,7 +3000,8 @@ export default class SnakeScene extends Phaser.Scene {
         stroke: '#07120c',
         strokeThickness: 4,
       })
-      .setOrigin(0.5);
+      .setOrigin(0.5)
+      .setVisible(false);
     prompt.add([veil, title, subtitle, instruction]);
     prompt.setScale(0.35).setAlpha(0);
     this.tweens.add({
@@ -2980,25 +3010,31 @@ export default class SnakeScene extends Phaser.Scene {
       alpha: 1,
       duration: 320,
       ease: 'Back.easeOut',
-      onComplete: () => {
-        if (!prompt.active) return;
-        this.tweens.add({
-          targets: instruction,
-          alpha: { from: 0.35, to: 1 },
-          duration: 620,
-          yoyo: true,
-          repeat: -1,
-        });
-      },
+    });
+    this.levelUpDirectionUnlockTimer = this.time.delayedCall(1000, () => {
+      this.levelUpDirectionUnlockTimer = null;
+      if (!prompt.active || !this.awaitingLevelUpDirection) return;
+      this.levelUpDirectionUnlocked = true;
+      instruction.setVisible(true);
+      this.tweens.add({
+        targets: instruction,
+        alpha: { from: 0.35, to: 1 },
+        duration: 620,
+        yoyo: true,
+        repeat: -1,
+      });
     });
     this.levelUpPrompt = prompt;
   }
 
-  private resumeAfterLevelUpDirection(): void {
-    if (!this.awaitingLevelUpDirection) {
-      return;
+  private resumeAfterLevelUpDirection(): boolean {
+    if (!this.awaitingLevelUpDirection || !this.levelUpDirectionUnlocked) {
+      return false;
     }
     this.awaitingLevelUpDirection = false;
+    this.levelUpDirectionUnlocked = false;
+    this.levelUpDirectionUnlockTimer?.remove(false);
+    this.levelUpDirectionUnlockTimer = null;
     this.paused = false;
     this.gameConnection.send({
       type: 'resume',
@@ -3017,6 +3053,7 @@ export default class SnakeScene extends Phaser.Scene {
         onComplete: () => prompt.destroy(),
       });
     }
+    return true;
   }
 
   private handleStepDeath(result: ReturnType<SnakeGame['actionStep']>): boolean {
@@ -4341,6 +4378,10 @@ export default class SnakeScene extends Phaser.Scene {
     this.mobileControls = null;
     this.minimapRenderer?.destroy();
     this.minimapRenderer = null;
+    this.levelUpDirectionUnlockTimer?.remove(false);
+    this.levelUpDirectionUnlockTimer = null;
+    this.arcadeSnakeRenderer?.destroy();
+    this.arcadeSnakeRenderer = null;
   }
 
   getAchievementManager(): AchievementManager {
@@ -4666,6 +4707,17 @@ export default class SnakeScene extends Phaser.Scene {
       return {
         ok: true,
         message: 'Cheat active: card tables unlocked in interactions.',
+        color: '#5dd6a2',
+      };
+    }
+    if (code === 'homearcade' || code === 'installarcade') {
+      this.arcadeSnakeSaveData.hasHomeCabinet = true;
+      this.ensureHomeArcadeCabinet();
+      this.snakeGame.saveGame();
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: 'Cheat active: home arcade cabinet installed.',
         color: '#5dd6a2',
       };
     }
@@ -5053,7 +5105,17 @@ export default class SnakeScene extends Phaser.Scene {
     this.achievementLastEvaluationMs = Number(this.getFlag<number>('timeMs') ?? 0);
     this.updateHouseAmbience();
     this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
+    this.ensureHomeArcadeCabinet();
     this.isDirty = true;
+  }
+
+  getArcadeSnakeSaveData(): ArcadeSnakeSaveData {
+    return normalizeArcadeSnakeSaveData(this.arcadeSnakeSaveData);
+  }
+
+  setArcadeSnakeSaveData(value: unknown): void {
+    this.arcadeSnakeSaveData = normalizeArcadeSnakeSaveData(value);
+    this.ensureHomeArcadeCabinet();
   }
 
   getAchievementSaveState(): AchievementState | undefined {
@@ -6879,7 +6941,10 @@ export default class SnakeScene extends Phaser.Scene {
 
   private isModalPopupVisible(): boolean {
     return Boolean(
-      this.questPopup?.isVisible() || this.choicePopupVisible || this.archaeologySession,
+      this.questPopup?.isVisible() ||
+      this.choicePopupVisible ||
+      this.archaeologySession ||
+      this.arcadeSnakeRenderer?.isOpen(),
     );
   }
 
@@ -8379,7 +8444,8 @@ export default class SnakeScene extends Phaser.Scene {
         `4) Bed (12) ${purchases['bed'] ? '✓' : ''}`,
         `5) Plant (8) ${purchases['plant'] ? '✓' : ''}`,
         `6) Lamp (14) ${purchases['lamp'] ? '✓' : ''}`,
-        `Press 1, 2, or 3 to buy`,
+        `7) Arcade Cabinet (200) ${this.arcadeSnakeSaveData.hasHomeCabinet ? '✓' : ''}`,
+        `Press 1-7 to buy house upgrades`,
       ];
       this.houseHud.setText(lines.join('\n'));
       this.houseHud.setVisible(true);
@@ -9534,13 +9600,33 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private tryBuyHomeArcadeFromHouse(): void {
+    const result = purchaseHomeArcadeCabinet(this.arcadeSnakeSaveData, this.score);
+    if (!result.ok) {
+      this.showQuestHintPopup(
+        this.arcadeSnakeSaveData.hasHomeCabinet
+          ? 'Home arcade cabinet already installed.'
+          : 'Need 200 score.',
+        '#ff6b6b',
+      );
+      return;
+    }
+    this.addScoreDirect(result.score - this.score);
+    this.ensureHomeArcadeCabinet();
+    this.snakeGame.saveGame();
+    this.juice.perkPurchased();
+    this.showQuestHintPopup('Home arcade cabinet installed.', '#5dd6a2');
+    this.isDirty = true;
+  }
+
   // Monitor room transitions to start/stop house ambience
   private updateHouseAmbience(): void {
     const insideInterior = this.isInPlayerHouseInterior();
-    if (insideInterior && !this.houseMusicActive) {
+    const shouldPlayHouseAmbience = insideInterior && !this.arcadeSnakeRenderer?.isOpen();
+    if (shouldPlayHouseAmbience && !this.houseMusicActive) {
       (this.juice as any).startHouseAmbience?.();
       this.houseMusicActive = true;
-    } else if (!insideInterior && this.houseMusicActive) {
+    } else if (!shouldPlayHouseAmbience && this.houseMusicActive) {
       (this.juice as any).stopHouseAmbience?.();
       this.houseMusicActive = false;
     }
@@ -9578,7 +9664,7 @@ export default class SnakeScene extends Phaser.Scene {
     const tile = room.layout[local.y]?.[local.x];
     if (!tile) return false;
     // Interior tiles (wood, rug, trim, and furniture) across any generated house.
-    return 'WETCKBPL'.includes(tile);
+    return 'WETCKBPLZ'.includes(tile);
   }
 
   private isManualHouseMovementActive(): boolean {
@@ -9652,7 +9738,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.isInHouse()) {
       return [];
     }
-    const bounds = this.getTileBounds(room, 'WETCKBPL');
+    const bounds = this.getTileBounds(room, 'WETCKBPLZ');
     return bounds ? [bounds] : [];
   }
 
@@ -9720,8 +9806,14 @@ export default class SnakeScene extends Phaser.Scene {
       };
     }
     const mc = room.snakeMcDonalds;
+    if (mc && this.distanceFromHeadToLocal(mc.arcade) <= 1) {
+      return { text: 'Play Snake for the Modern Snake (press E)' };
+    }
     if (mc && this.distanceFromHeadToLocal(mc.toilet) <= 1) {
       return { text: 'Press E to flush' };
+    }
+    if (this.isInHouse() && this.arcadeSnakeSaveData.hasHomeCabinet && this.isNearTile('Z')) {
+      return { text: 'Play home arcade (press E)' };
     }
     const libertyHint = this.getLibertyStructureHint(room);
     if (libertyHint) {
@@ -12406,6 +12498,168 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.openMcDonaldsMenu(mc);
     return true;
+  }
+
+  private tryInteractArcadeCabinet(): boolean {
+    if (
+      this.paused ||
+      this.offeredQuest ||
+      this.choicePopupVisible ||
+      this.arcadeSnakeRenderer?.isOpen()
+    ) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const mc = room.snakeMcDonalds;
+    if (mc && this.distanceFromHeadToLocal(mc.arcade) <= 1) {
+      this.openArcadeSnakeMenu('mcdonalds');
+      return true;
+    }
+    if (this.isInHouse() && this.arcadeSnakeSaveData.hasHomeCabinet && this.isNearTile('Z')) {
+      this.openArcadeSnakeMenu('home');
+      return true;
+    }
+    return false;
+  }
+
+  private openArcadeSnakeMenu(context: 'mcdonalds' | 'home'): void {
+    this.paused = true;
+    this.hideSaveUI();
+    this.skillTree.hideOverlay();
+    const options: ChoiceOption[] = [
+      {
+        id: 'play',
+        title: 'Play',
+        description: 'Start a run. Arrow keys or WASD move; Space pauses; Q quits.',
+      },
+      {
+        id: 'stats',
+        title: 'Stats',
+        description: 'Inspect the machine damage and your extremely important arcade career.',
+      },
+    ];
+    if (context === 'mcdonalds' && !this.arcadeSnakeSaveData.hasHomeCabinet) {
+      options.push({
+        id: 'buy-home',
+        title:
+          this.score >= 200
+            ? 'Buy Home Arcade Cabinet - 200 score'
+            : 'Buy Home Arcade Cabinet - Need 200 score',
+        description: 'Put a functional cabinet in the player home.',
+      });
+    }
+    options.push({ id: 'leave', title: 'Leave', description: 'Step away from the cabinet.' });
+    this.villageShopPopup.show('Snake for the Modern Snake', options, (id) => {
+      if (id === 'play') {
+        this.startArcadeSnakeRun();
+        return;
+      }
+      if (id === 'stats') {
+        this.showArcadeSnakeStats(context);
+        return;
+      }
+      if (id === 'buy-home') {
+        const result = purchaseHomeArcadeCabinet(this.arcadeSnakeSaveData, this.score);
+        if (!result.ok) {
+          this.showQuestHintPopup(
+            this.arcadeSnakeSaveData.hasHomeCabinet
+              ? 'You already own the home cabinet.'
+              : 'Need 200 score.',
+            '#ff6b6b',
+          );
+        } else {
+          this.addScoreDirect(result.score - this.score);
+          this.ensureHomeArcadeCabinet();
+          this.snakeGame.saveGame();
+          this.showQuestHintPopup('Home arcade cabinet purchased.', '#5dd6a2');
+          this.juice.perkPurchased();
+        }
+        this.openArcadeSnakeMenu(context);
+        return;
+      }
+      this.closeVillageShop();
+    });
+  }
+
+  private showArcadeSnakeStats(context: 'mcdonalds' | 'home'): void {
+    const stats = this.arcadeSnakeSaveData.stats;
+    this.villageShopPopup.show(
+      'Snake for the Modern Snake - Stats',
+      [
+        {
+          id: 'back',
+          title: 'Arcade Record',
+          description: [
+            `High Score: ${stats.highScore}`,
+            `Lifetime Score: ${stats.lifetimeScore}`,
+            `Times Played: ${stats.playCount}`,
+            `Quests Completed: ${stats.questsCompleted}`,
+            `Screen Loops: ${stats.totalLoops}`,
+          ].join('\n'),
+        },
+      ],
+      () => this.openArcadeSnakeMenu(context),
+    );
+  }
+
+  private startArcadeSnakeRun(): void {
+    this.villageShopPopup.hide();
+    this.paused = true;
+    this.hideSaveUI();
+    (this.juice as any).stopHouseAmbience?.();
+    this.houseMusicActive = false;
+    this.arcadeSnakeRenderer?.destroy();
+    this.arcadeSnakeRenderer = new ArcadeSnakeRenderer(this, {
+      saveData: this.arcadeSnakeSaveData,
+      hatName: this.snakeCosmetics.activeHat ?? 'None',
+      onBankScore: (score) => {
+        const payout = getArcadeMainGamePayout(score);
+        if (payout > 0) {
+          this.addScoreDirect(payout);
+          this.currentSnapshot = this.gameSession.refreshSnapshot();
+          this.snakeGame.saveGame();
+          this.isDirty = true;
+        }
+      },
+      onSaveDataChanged: (save) => {
+        this.arcadeSnakeSaveData = normalizeArcadeSnakeSaveData(save);
+        this.snakeGame.saveGame();
+      },
+      onClose: () => {
+        this.arcadeSnakeRenderer = null;
+        this.resumeGameplayAfterModal();
+      },
+      playEffect: (effect) => (this.juice as any).arcadeEffect?.(effect),
+      setMusicState: (state) => (this.juice as any).setArcadeMusicState?.(state),
+      setDennisBossMusic: (active) => {
+        if (active) {
+          this.juice.startBossMusic('freak-dennis');
+        } else {
+          this.juice.stopBossMusic();
+        }
+      },
+    });
+    this.arcadeSnakeRenderer.startRun();
+  }
+
+  private ensureHomeArcadeCabinet(): void {
+    if (!this.arcadeSnakeSaveData.hasHomeCabinet || !this.snakeGame) return;
+    const position = this.snakeGame.placeHomeArcadeCabinet();
+    if (position) this.snakeRenderer?.markStaticRoomDirty('0,-1,0');
+  }
+
+  private isNearTile(symbol: string): boolean {
+    const local = this.getHeadLocalPosition();
+    if (!local) return false;
+    const room = this.snakeGame.getCurrentRoom();
+    for (let y = Math.max(0, local.y - 1); y <= Math.min(this.grid.rows - 1, local.y + 1); y++) {
+      for (let x = Math.max(0, local.x - 1); x <= Math.min(this.grid.cols - 1, local.x + 1); x++) {
+        if (Math.abs(local.x - x) + Math.abs(local.y - y) <= 1 && room.layout[y]?.[x] === symbol) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   private openMcDonaldsMenu(mc: McDonaldsData): void {

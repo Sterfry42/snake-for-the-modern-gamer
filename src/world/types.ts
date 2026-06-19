@@ -139,6 +139,10 @@ export interface RoomSnapshot {
       x: number;
       y: number;
     };
+    arcade: {
+      x: number;
+      y: number;
+    };
     bounds: { left: number; top: number; width: number; height: number };
   };
   shrine?: {

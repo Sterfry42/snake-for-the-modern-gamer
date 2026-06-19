@@ -16,6 +16,7 @@ export interface LocalAuthoritativeRuntime extends CommandHandler {
   hazardClockStep(): StepResult | null;
   bulletClockStep(): StepResult | null;
   getSnapshot(): GameSnapshot;
+  refreshSnapshot(): GameSnapshot;
   onSnapshot(handler: (snapshot: GameSnapshot) => void): () => void;
   onEvent(handler: (event: GameEvent) => void): () => void;
   save(): Promise<void>;
