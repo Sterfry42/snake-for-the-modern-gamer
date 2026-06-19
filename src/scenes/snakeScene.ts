@@ -8231,7 +8231,14 @@ export default class SnakeScene extends Phaser.Scene {
 
   private draw(): void {
     // Suppress generic HUDs in house
-    this.setFlag('ui.suppressHud', this.titleVisible || this.isInHouse() || this.deathCutscene !== null);
+    this.setFlag(
+      'ui.suppressHud',
+      this.titleVisible ||
+        this.isInHouse() ||
+        this.deathCutscene !== null ||
+        this.choicePopupVisible ||
+        Boolean(this.arcadeSnakeRenderer?.isOpen()),
+    );
     const snapshot = this.gameSession.getSnapshot();
     this.currentSnapshot = snapshot;
     const localPlayer = snapshot.players[snapshot.localPlayerId];
@@ -12325,6 +12332,11 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.hideOverlay();
     this.updateHouseAmbience();
     this.isDirty = true;
+  }
+
+  private hideSaveUI(): void {
+    this.setFlag('ui.suppressHud', true);
+    this.saveUI.updateVisibility();
   }
 
   private tickFreakYouPortalFx(): void {

@@ -184,6 +184,7 @@ describe('SaveManagerV2', () => {
       const data = makeSaveData({ worldGeneration: { seed: 'my-world', worldSalt: 1, biomeSalt: 2, riverSalt: 3, barrierSalt: 4, structureSalt: 5, townSalt: 6 } });
       const label = manager.getDisplayLabel('2026-06-17T14:30:00.000Z', data.worldGeneration!.seed);
       expect(label).toContain('my-world');
+      expect(label).toContain('\nSeed: my-world');
     });
 
     it('does not append default seed', () => {
