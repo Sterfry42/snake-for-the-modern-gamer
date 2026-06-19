@@ -6,7 +6,7 @@ describe('AnimalRegistry', () => {
   describe('getAll', () => {
     it('returns all animal definitions', () => {
       const all = AnimalRegistry.getAll();
-      expect(all).toHaveLength(16);
+      expect(all).toHaveLength(17);
     });
 
     it('contains all expected animal types', () => {
@@ -28,6 +28,7 @@ describe('AnimalRegistry', () => {
         'bass',
         'possum',
         'armadillo',
+        'frog',
       ];
       for (const type of expected) {
         expect(all).toContain(type);

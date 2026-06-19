@@ -21,6 +21,10 @@ const PREDATOR_PREY_RELATIONS: PredatorPreyRelation[] = [
   { predator: 'coyote', prey: 'jackalope', huntRange: 4 },
   { predator: 'coyote', prey: 'possum', huntRange: 3 },
   { predator: 'snake', prey: 'possum', huntRange: 2 },
+  { predator: 'snake', prey: 'frog', huntRange: 3 },
+  { predator: 'bird', prey: 'frog', huntRange: 3 },
+  { predator: 'eagle', prey: 'frog', huntRange: 4 },
+  { predator: 'fox', prey: 'frog', huntRange: 3 },
 ];
 
 export function createEcologySystem(): EcologySystem {

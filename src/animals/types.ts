@@ -16,7 +16,8 @@ export type AnimalType =
   | 'bison'
   | 'bass'
   | 'possum'
-  | 'armadillo';
+  | 'armadillo'
+  | 'frog';
 
 export interface DropEntry {
   itemId: string;
