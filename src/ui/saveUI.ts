@@ -1,191 +1,167 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
+import { saveManagerV2 } from '../game/saveManagerV2.js';
+
+const SAVE_BUTTON_WIDTH = 110;
+const SAVE_BUTTON_HEIGHT = 36;
+const SAVE_BUTTON_PADDING = 12;
+const SAVE_BUTTON_RADIUS = 8;
+const SAVE_GAP = 6;
+const SAVE_MARGIN = 16;
+
+const SAVE_COLOR = 0x1a3a2a;
+const SAVE_BORDER_COLOR = 0x4da3ff;
+const SAVE_HOVER_COLOR = 0x1a4a3a;
+const SAVE_HOVER_BORDER = 0x7ec87e;
+
+const SAVE_HOTKEY = 'G';
 
 export class SaveUI {
-  private saveButton?: Phaser.GameObjects.Text;
-  private loadButton?: Phaser.GameObjects.Text;
-  private clearButton?: Phaser.GameObjects.Text;
+  private saveButton?: Phaser.GameObjects.Container;
+  private saveBg?: Phaser.GameObjects.Rectangle;
+  private saveLabelText?: Phaser.GameObjects.Text;
   private seedLabel?: Phaser.GameObjects.Text;
+  private saveFlash?: Phaser.GameObjects.Graphics;
   private scene: SnakeScene;
 
   constructor(scene: SnakeScene) {
     this.scene = scene;
-    console.log(`[SaveUI] Constructor called, scene:`, scene);
     this.scene.events.once(Phaser.Scenes.Events.CREATE, this.build.bind(this));
   }
 
   private build(): void {
-    console.log(`[SaveUI] build() called`);
+    const labelStr = `${i18n.getFeatureString('saveButton') ?? 'SAVE'} [${SAVE_HOTKEY}]`;
+    const tempText = this.scene.add.text(0, 0, labelStr, {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ffffff',
+    });
+    const textWidth = tempText.width;
+    tempText.destroy();
 
-    const buttonWidth = 100;
-    const buttonHeight = 30;
-    const buttonGap = 5;
-    const x = this.scene.scale.width - buttonWidth - 15;
-    const y = 15;
+    const buttonWidth = Math.max(SAVE_BUTTON_WIDTH, textWidth + SAVE_BUTTON_PADDING * 2);
+    const buttonHeight = SAVE_BUTTON_HEIGHT;
 
-    console.log(`[SaveUI] Screen size: ${this.scene.scale.width}x${this.scene.scale.height}`);
-    console.log(`[SaveUI] Button base X: ${x}, Button base Y: ${y}`);
+    const x = SAVE_MARGIN;
+    const y = this.scene.scale.height - SAVE_MARGIN - buttonHeight;
 
-    const saveBtn = this.scene.add
-      .text(x, y, 'SAVE', {
+    // Background rectangle with rounded corners
+    const bg = this.scene.add
+      .rectangle(0, 0, buttonWidth, buttonHeight, SAVE_COLOR, 0.85)
+      .setStrokeStyle(1.5, SAVE_BORDER_COLOR, 0.6)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true });
+
+    // "SAVE [G]" label
+    const label = this.scene.add
+      .text(buttonWidth / 2, buttonHeight / 2, labelStr, {
         fontFamily: 'monospace',
-        fontSize: '14px',
+        fontSize: '12px',
         color: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { left: 12, right: 12, top: 6, bottom: 6 },
       })
+      .setOrigin(0.5, 0.5);
+
+    // Interactive layer (invisible, covers the whole button)
+    const hitArea = bg
       .setInteractive({ useHandCursor: true })
-      .setDepth(100)
-      .on('pointerover', () => this.saveButton?.setTint(0x4da3ff))
-      .on('pointerout', () => this.saveButton?.clearTint())
+      .on('pointerover', () => {
+        bg.setFillStyle(SAVE_HOVER_COLOR, 0.9);
+        bg.setStrokeStyle(1.5, SAVE_HOVER_BORDER, 0.9);
+        label.setColor('#5dd6a2');
+      })
+      .on('pointerout', () => {
+        bg.setFillStyle(SAVE_COLOR, 0.85);
+        bg.setStrokeStyle(1.5, SAVE_BORDER_COLOR, 0.6);
+        label.setColor('#ffffff');
+      })
       .on('pointerdown', () => this.saveGame());
 
-    const loadBtn = this.scene.add
-      .text(x, y + buttonHeight + buttonGap, 'LOAD', {
+    const container = this.scene.add
+      .container(x, y, [bg, hitArea, label])
+      .setDepth(40);
+
+    // Seed label below the button
+    const seedLabel = this.scene.add
+      .text(x, y + buttonHeight + SAVE_GAP, 'Seed: ', {
         fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { left: 12, right: 12, top: 6, bottom: 6 },
+        fontSize: '10px',
+        color: '#6b7380',
       })
-      .setInteractive({ useHandCursor: true })
-      .setDepth(100)
-      .on('pointerover', () => this.loadButton?.setTint(0x4da3ff))
-      .on('pointerout', () => this.loadButton?.clearTint())
-      .on('pointerdown', () => this.loadGame());
+      .setOrigin(0, 0.5)
+      .setDepth(39);
 
-    const clearBtn = this.scene.add
-      .text(x, y + (buttonHeight + buttonGap) * 2, 'CLEAR', {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#ffffff',
-        backgroundColor: '#000000',
-        padding: { left: 12, right: 12, top: 6, bottom: 6 },
-      })
-      .setInteractive({ useHandCursor: true })
-      .setDepth(100)
-      .on('pointerover', () => this.clearButton?.setTint(0xff6b6b))
-      .on('pointerout', () => this.clearButton?.clearTint())
-      .on('pointerdown', () => this.clearSave());
+    // Flash graphics for save confirmation
+    const flash = this.scene.add.graphics().setDepth(41).setVisible(false);
 
-    this.saveButton = saveBtn;
-    this.loadButton = loadBtn;
-    this.clearButton = clearBtn;
-
-    const seedLabelText = this.scene.add
-      .text(x, y - 24, 'Seed: —', {
-        fontFamily: 'monospace',
-        fontSize: '11px',
-        color: '#8b939f',
-      })
-      .setOrigin(1, 0)
-      .setDepth(100);
-    this.seedLabel = seedLabelText;
-
-    console.log(
-      `[SaveUI] Created buttons at: SAVE(${x},${y}), LOAD(${x},${y + buttonHeight + buttonGap}), CLEAR(${x},${y + (buttonHeight + buttonGap) * 2})`,
-    );
-    console.log(`[SaveUI] Button text:`, {
-      save: this.saveButton?.text,
-      load: this.loadButton?.text,
-      clear: this.clearButton?.text,
-    });
-    console.log(`[SaveUI] Button visible:`, {
-      save: this.saveButton?.visible,
-      load: this.loadButton?.visible,
-      clear: this.clearButton?.visible,
-    });
-    console.log(`[SaveUI] Button depth:`, {
-      save: this.saveButton?.depth,
-      load: this.loadButton?.depth,
-      clear: this.clearButton?.depth,
-    });
+    this.saveButton = container;
+    this.saveBg = bg;
+    this.saveLabelText = label;
+    this.seedLabel = seedLabel;
+    this.saveFlash = flash;
   }
 
   private saveGame(): void {
     this.scene.prepareCharacterSave();
-    this.scene.saveGameToSession(
-      this.scene.getChosenReligionId()
-        ? { id: this.scene.getChosenReligionId(), mods: this.scene.getReligionMods() }
-        : undefined,
-      this.scene.getChosenClassId()
-        ? { id: this.scene.getChosenClassId(), mods: this.scene.getClassMods() }
-        : undefined,
-      this.scene.getChosenBackgroundId()
-        ? { id: this.scene.getChosenBackgroundId(), mods: this.scene.getBackgroundMods() }
-        : undefined,
-    );
+    const data = this.scene.snakeGame.getSaveData();
+    const dateKey = new Date().toISOString();
+
+    // Save to V2 with a new slot each time
+    saveManagerV2.save(dateKey, data).then(() => {
+      // Show a brief green flash on the button
+      this.triggerSaveFlash();
+    }).catch((err) => {
+      console.error('[SaveUI] Failed to save game:', err);
+    });
 
     this.scene.showQuestHintPopup(i18n.getFeatureString('gameSaved')!, '#5dd6a2');
   }
 
-  private loadGame(): void {
-    if (!this.scene.hasSessionSave()) {
-      this.scene.showQuestHintPopup(i18n.getFeatureString('noSaveFound')!, '#ff6b6b');
-      return;
-    }
-
-    const success = this.scene.loadGameFromSession(
-      () =>
-        this.scene.getChosenReligionId()
-          ? { id: this.scene.getChosenReligionId(), mods: this.scene.getReligionMods() }
-          : null,
-      () =>
-        this.scene.getChosenClassId()
-          ? { id: this.scene.getChosenClassId(), mods: this.scene.getClassMods() }
-          : null,
-      () =>
-        this.scene.getChosenBackgroundId()
-          ? { id: this.scene.getChosenBackgroundId(), mods: this.scene.getBackgroundMods() }
-          : null,
-    );
-
-    if (success) {
-      this.scene.restoreCharacterSaveState();
-      this.scene.showQuestHintPopup(i18n.getFeatureString('gameLoaded')!, '#5dd6a2');
-    } else {
-      this.scene.showQuestHintPopup(i18n.getFeatureString('loadFailed')!, '#ff6b6b');
-    }
+  save(): void {
+    this.saveGame();
   }
 
-  private clearSave(): void {
-    this.scene.clearSessionSave();
-    this.scene.showQuestHintPopup(i18n.getFeatureString('saveCleared')!, '#5dd6a2');
+  private triggerSaveFlash(): void {
+    if (!this.saveFlash || !this.saveButton) return;
+
+    this.saveFlash.clear();
+    this.saveFlash.setVisible(true);
+
+    const btnX = this.saveButton!.x;
+    const btnY = this.saveButton!.y;
+    const flashW = this.saveBg!.width;
+    const flashH = this.saveBg!.height;
+
+    // Draw a green glow rectangle around the button
+    this.saveFlash.fillStyle(0x5dd6a2, 0.3);
+    this.saveFlash.fillRoundedRect(
+      btnX - flashW / 2 - 4,
+      btnY - flashH / 2 - 4,
+      flashW + 8,
+      flashH + 8,
+      SAVE_BUTTON_RADIUS + 2,
+    );
+
+    // Animate the flash fading out
+    this.scene.tweens.add({
+      targets: this.saveFlash,
+      alpha: 0,
+      duration: 400,
+      ease: 'Power2',
+      onComplete: () => {
+        this.saveFlash?.setVisible(false);
+        this.saveFlash?.clear();
+      },
+    });
   }
 
   isVisible(): boolean {
-    const isVisible = Boolean(
-      this.saveButton?.visible && this.loadButton?.visible && this.clearButton?.visible,
-    );
-    console.log(`[SaveUI] isVisible() returning: ${isVisible}`);
-    console.log(
-      `[SaveUI] Button visibilities: save=${this.saveButton?.visible}, load=${this.loadButton?.visible}, clear=${this.clearButton?.visible}`,
-    );
-    return isVisible;
+    return true;
   }
 
-  hide(): void {
-    console.log(`[SaveUI] hide() called`);
-    this.saveButton?.setVisible(false);
-    this.loadButton?.setVisible(false);
-    this.clearButton?.setVisible(false);
-    console.log(
-      `[SaveUI] Buttons hidden: save=${this.saveButton?.visible}, load=${this.loadButton?.visible}, clear=${this.clearButton?.visible}`,
-    );
-  }
-
-  show(): void {
-    console.log(`[SaveUI] show() called`);
-    this.saveButton?.setVisible(true);
-    this.loadButton?.setVisible(true);
-    this.clearButton?.setVisible(true);
-    console.log(
-      `[SaveUI] Button shown: save=${this.saveButton?.visible}, load=${this.loadButton?.visible}, clear=${this.clearButton?.visible}`,
-    );
-    console.log(
-      `[SaveUI] Button depths: save=${this.saveButton?.depth}, load=${this.loadButton?.depth}, clear=${this.clearButton?.depth}`,
-    );
+  updateVisibility(): void {
+    const suppressed = !!this.scene.getFlag<boolean>('ui.suppressHud');
+    this.saveButton?.setVisible(!suppressed);
   }
 
   setSeed(seed: string): void {
@@ -193,4 +169,4 @@ export class SaveUI {
   }
 }
 
-export default SaveUI; // Force recompile
+export default SaveUI;

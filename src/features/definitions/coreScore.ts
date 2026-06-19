@@ -23,6 +23,16 @@ class ScoreFeature extends Feature {
     }
   }
 
+  override onRender(scene: SnakeScene): void {
+    const suppressed = !!scene.getFlag<boolean>('ui.suppressHud');
+    this.scoreText?.setVisible(!suppressed);
+    if (!suppressed) {
+      const startY = scene.getLeftHudBottomY();
+      this.scoreText.setPosition(10, startY);
+      this.scoreText.setText(this.composeLabel(scene));
+    }
+  }
+
   override onAppleEaten(scene: SnakeScene): void {
     if (scene.snakeGame.isRaccoonMode()) {
       const apples = (scene.getFlag<number>('applesEaten') ?? 0) + 1;
@@ -47,12 +57,9 @@ class ScoreFeature extends Feature {
     this.scoreText?.setText(this.composeLabel(scene, 0));
   }
 
-  override onRender(scene: SnakeScene): void {
-    const suppressed = !!scene.getFlag<boolean>('ui.suppressHud');
-    this.scoreText?.setVisible(!suppressed);
-    if (!suppressed) {
-      this.scoreText?.setText(this.composeLabel(scene));
-    }
+  getBottomY(): number {
+    if (!this.scoreText) return 0;
+    return this.scoreText.getBounds().bottom + 4;
   }
 
   private composeLabel(scene: SnakeScene, scoreOverride?: number): string {
