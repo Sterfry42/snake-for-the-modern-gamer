@@ -17,6 +17,7 @@ export class SaveLoadMenu {
   private autosaveSectionTitle?: Phaser.GameObjects.Text;
   private scrollContainer?: Phaser.GameObjects.Container;
   private scrollMask?: Phaser.GameObjects.Graphics;
+  private scrollbarGraphics?: Phaser.GameObjects.Graphics;
   private backText?: Phaser.GameObjects.Text;
   private entryContainers: Phaser.GameObjects.Container[] = [];
   private confirmOverlay?: Phaser.GameObjects.Container;
@@ -30,7 +31,9 @@ export class SaveLoadMenu {
   private viewportHeight = 0;
   private currentPopupHeight = 240;
   private readonly width = 520;
-  private readonly entryHeight = 40;
+  private readonly entryHeight = 56;
+  private readonly headerHeight = 48;
+  private readonly footerHeight = 44;
   private regularEntries: SaveSlotInfo[] = [];
   private autosaveEntries: SaveSlotInfo[] = [];
   private isLoading = false;
@@ -59,8 +62,8 @@ export class SaveLoadMenu {
     this.currentPopupHeight = popupHeight;
     this.container?.setPosition(x, rootY);
     this.background?.setSize(this.width, popupHeight);
-    this.scrollContainer?.setPosition(0, 48);
-    this.viewportHeight = popupHeight - 48;
+    this.scrollContainer?.setPosition(0, this.headerHeight);
+    this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
     this.updateMask();
     this.applyScroll(0);
     this.backText?.setPosition(this.width / 2, popupHeight - 16);
@@ -97,8 +100,8 @@ export class SaveLoadMenu {
       const popupHeight = this.calculateHeight();
       this.currentPopupHeight = popupHeight;
       this.background?.setSize(this.width, popupHeight);
-      this.scrollContainer?.setPosition(0, 48);
-      this.viewportHeight = popupHeight - 48;
+      this.scrollContainer?.setPosition(0, this.headerHeight);
+      this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
       this.updateMask();
       this.applyScroll(0);
       this.backText?.setPosition(this.width / 2, popupHeight - 16);
@@ -112,9 +115,9 @@ export class SaveLoadMenu {
     if (!this.scrollContainer) return;
 
     const scrollX = 16;
-    const buttonWidth = 80;
+    const buttonWidth = 64;
     const buttonHeight = 24;
-    const buttonGap = 4;
+    const buttonGap = 8;
     const entryGap = 6;
     const padding = 8;
     const totalEntryHeight = this.entryHeight + entryGap;
@@ -181,10 +184,13 @@ export class SaveLoadMenu {
     const loadText = i18n.getFeatureString('load') || 'Load';
     const deleteText = i18n.getFeatureString('delete') || 'Delete';
 
-    const entryBoxWidth = 488;
+    const entryBoxWidth = this.width - 32;
+    const entryBoxHeight = this.entryHeight;
+    const actionsWidth = buttonWidth * 2 + buttonGap;
+    const labelWidth = entryBoxWidth - padding * 3 - actionsWidth;
 
     const bg = this.scene.add
-      .rectangle(0, 0, entryBoxWidth, buttonHeight + padding * 2, isAutosave ? 0x0a1628 : 0x0b1622, 0.9)
+      .rectangle(0, 0, entryBoxWidth, entryBoxHeight, isAutosave ? 0x0a1628 : 0x0b1622, 0.9)
       .setStrokeStyle(1, isAutosave ? 0x3a7bd5 : 0x4da3ff, 0.5)
       .setOrigin(0, 0);
 
@@ -193,31 +199,37 @@ export class SaveLoadMenu {
         fontFamily: 'monospace',
         fontSize: '13px',
         color: '#c8d0da',
-        wordWrap: { width: entryBoxWidth - padding * 2 },
+        wordWrap: { width: labelWidth, useAdvancedWrap: true },
+        lineSpacing: 2,
       })
       .setOrigin(0, 0);
 
+    const loadX = entryBoxWidth - padding - actionsWidth + buttonWidth / 2;
+    const deleteX = entryBoxWidth - padding - buttonWidth / 2;
+    const buttonY = entryBoxHeight / 2;
     const loadBtn = this.scene.add
-      .text(entryBoxWidth - padding - buttonWidth - buttonGap, buttonHeight / 2 - 8, loadText, {
+      .text(loadX, buttonY, loadText, {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#7ec87e',
         backgroundColor: '#0a2a0a',
         padding: { left: 8, right: 8, top: 4, bottom: 4 },
       })
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => loadBtn.setTint(0x9ad19a))
       .on('pointerout', () => loadBtn.clearTint())
       .on('pointerdown', () => onAction('load'));
 
     const deleteBtn = this.scene.add
-      .text(entryBoxWidth - padding - buttonWidth, buttonHeight / 2 - 8, deleteText, {
+      .text(deleteX, buttonY, deleteText, {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#d87e7e',
         backgroundColor: '#2a0a0a',
         padding: { left: 8, right: 8, top: 4, bottom: 4 },
       })
+      .setOrigin(0.5)
       .setInteractive({ useHandCursor: true })
       .on('pointerover', () => deleteBtn.setTint(0xff6b6b))
       .on('pointerout', () => deleteBtn.clearTint())
@@ -301,7 +313,7 @@ export class SaveLoadMenu {
   private calculateHeight(): number {
     const baseHeight = 140; // title + back button area
     const sectionGap = 28;
-    const entryHeight = 40;
+    const entryHeight = this.entryHeight;
 
     let contentH = 0;
     if (this.regularEntries.length > 0) {
@@ -325,7 +337,8 @@ export class SaveLoadMenu {
   private applyScroll(nextY: number): void {
     const maxScroll = Math.max(0, this.contentHeight - this.viewportHeight);
     this.scrollY = Phaser.Math.Clamp(nextY, 0, maxScroll);
-    this.scrollContainer?.setY(-this.scrollY);
+    this.scrollContainer?.setY(this.headerHeight - this.scrollY);
+    this.updateScrollbar();
   }
 
   private updateMask(): void {
@@ -333,15 +346,36 @@ export class SaveLoadMenu {
     this.scrollMask?.destroy();
 
     const maskWidth = this.width;
-    const maskHeight = this.viewportHeight;
+    const maskHeight = Math.max(0, this.viewportHeight);
 
     this.scrollMask = this.scene.add.graphics().setVisible(false);
-    this.scrollMask.setPosition(0, 0);
+    this.scrollMask.setPosition(this.container.x, this.container.y);
     this.scrollMask.fillStyle(0xffffff, 1);
-    this.scrollMask.fillRect(0, 48, maskWidth, maskHeight);
+    this.scrollMask.fillRect(0, this.headerHeight, maskWidth - 14, maskHeight);
 
     const mask = this.scrollMask.createGeometryMask();
     this.scrollContainer.setMask(mask);
+    this.updateScrollbar();
+  }
+
+  private updateScrollbar(): void {
+    if (!this.scrollbarGraphics) return;
+    const trackX = this.width - 9;
+    const trackY = this.headerHeight + 4;
+    const trackHeight = Math.max(0, this.viewportHeight - 8);
+    const maxScroll = Math.max(0, this.contentHeight - this.viewportHeight);
+    const visibleRatio =
+      this.contentHeight > 0 ? Math.min(1, this.viewportHeight / this.contentHeight) : 1;
+    const thumbHeight = Math.max(24, Math.floor(trackHeight * visibleRatio));
+    const travel = Math.max(0, trackHeight - thumbHeight);
+    const progress = maxScroll > 0 ? this.scrollY / maxScroll : 0;
+    const thumbY = trackY + travel * progress;
+
+    this.scrollbarGraphics.clear();
+    this.scrollbarGraphics.fillStyle(0x10283a, 0.9);
+    this.scrollbarGraphics.fillRoundedRect(trackX, trackY, 4, trackHeight, 2);
+    this.scrollbarGraphics.fillStyle(maxScroll > 0 ? 0x4da3ff : 0x34546a, 0.95);
+    this.scrollbarGraphics.fillRoundedRect(trackX, thumbY, 4, thumbHeight, 2);
   }
 
   private build(): void {
@@ -380,7 +414,11 @@ export class SaveLoadMenu {
       .setOrigin(0, 0)
       .setVisible(false);
 
-    this.scrollContainer = this.scene.add.container(0, 0);
+    this.scrollContainer = this.scene.add.container(0, 0, [
+      this.regularSectionTitle,
+      this.autosaveSectionTitle,
+    ]);
+    this.scrollbarGraphics = this.scene.add.graphics();
 
     // Back button
     this.backText = this.scene.add
@@ -401,7 +439,13 @@ export class SaveLoadMenu {
       });
 
     this.container = this.scene.add
-      .container(x, y, [this.background, this.titleText, this.regularSectionTitle, this.autosaveSectionTitle, this.scrollContainer, this.backText])
+      .container(x, y, [
+        this.background,
+        this.titleText,
+        this.scrollContainer,
+        this.scrollbarGraphics,
+        this.backText,
+      ])
       .setVisible(false);
 
     this.scene.input.on(

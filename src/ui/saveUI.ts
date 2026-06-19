@@ -162,6 +162,7 @@ export class SaveUI {
   updateVisibility(): void {
     const suppressed = !!this.scene.getFlag<boolean>('ui.suppressHud');
     this.saveButton?.setVisible(!suppressed);
+    this.seedLabel?.setVisible(!suppressed);
   }
 
   setSeed(seed: string): void {

@@ -251,7 +251,7 @@ export class SaveManagerV2 {
   getDisplayLabel(slotId: string, worldSeed?: string): string {
     let label = this.getSlotLabel(slotId);
     if (worldSeed && worldSeed !== 'default-world') {
-      label += ` :${worldSeed}`;
+      label += `\nSeed: ${worldSeed}`;
     }
     return label;
   }
