@@ -1,4 +1,5 @@
 import type { SkillTreeStats } from './skillTypes.js';
+import { getPrimaryBindingLabelForDisplay } from '../input/controlActions.js';
 
 export type ActionSlotId = 'q';
 export type ActionAbilityKind = 'spell' | 'command';
@@ -171,11 +172,17 @@ export class ActionSlotController {
     this.ensureDefaultBinding();
     const abilityId = this.getBound(slot);
     if (!abilityId) {
-      return { ok: false, reason: 'No Q ability bound. Open Spells to bind one.' };
+      return {
+        ok: false,
+        reason: `No ${getPrimaryBindingLabelForDisplay('ability.primary')} ability bound. Open Spells to bind one.`,
+      };
     }
     const ability = this.abilities.find((candidate) => candidate.id === abilityId);
     if (!ability) {
-      return { ok: false, reason: 'Bound Q ability is missing.' };
+      return {
+        ok: false,
+        reason: `Bound ${getPrimaryBindingLabelForDisplay('ability.primary')} ability is missing.`,
+      };
     }
     return ability.use(this.runtime.getStats());
   }

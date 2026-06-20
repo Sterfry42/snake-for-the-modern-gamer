@@ -43,6 +43,22 @@ import type { AchievementManager } from '../achievements/achievementManager.js';
 import type { AchievementUnlockResult } from '../achievements/achievementTypes.js';
 import { AchievementTreeOverlay } from './achievementTreeOverlay.js';
 import type { AchievementZoomExtreme } from '../achievements/achievementZoomTracker.js';
+import {
+  CONTROL_CATEGORIES,
+  INPUT_MODES,
+  formatBindingsForDisplay,
+  getBindingsForMode,
+  getControlActionsByCategory,
+  getKeyboardEventBindingLabel,
+  getPrimaryBindingLabelForDisplay,
+  resetAllBindingsForMode,
+  resetBindingsForMode,
+  setBindingsForMode,
+  type ControlCategoryId,
+  type ControlActionId,
+  type InputModeId,
+} from '../input/controlActions.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -141,6 +157,7 @@ type TabId =
   | 'factions'
   | 'graph'
   | 'achievements'
+  | 'controls'
   | 'cheats'
   | 'info';
 type SnakeThemeId = VillageShopStyleId;
@@ -180,6 +197,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'factions', i18nKey: 'tabFactions', group: 'world' },
   { id: 'graph', i18nKey: 'tabGraph', group: 'system' },
   { id: 'achievements', i18nKey: 'tabInfo', label: 'Progress', group: 'system' },
+  { id: 'controls', i18nKey: 'tabInfo', label: 'Controls', group: 'system' },
   {
     id: 'cheats',
     i18nKey: 'tabCheats',
@@ -219,6 +237,7 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   factions: uiTabIconKeys.factions,
   graph: uiTabIconKeys.graph,
   achievements: uiTabIconKeys.info,
+  controls: uiTabIconKeys.info,
   cheats: uiTabIconKeys.cheats,
   info: uiTabIconKeys.info,
   people: uiTabIconKeys.people,
@@ -360,6 +379,8 @@ export class SkillTreeOverlay {
   private visible = false;
   private activePrimaryTab: PrimaryTabId = 'growth';
   private activeTab: TabId = 'skills';
+  private activeControlsMode: InputModeId = 'keyboardMouse';
+  private rebindingControlActionId: ControlActionId | null = null;
   private hintSticky = false;
   private hintTimer?: Phaser.Time.TimerEvent;
   private glintTimer?: Phaser.Time.TimerEvent;
@@ -2336,6 +2357,9 @@ export class SkillTreeOverlay {
       case 'artifacts':
         this.buildArtifactCards(renderRect);
         break;
+      case 'controls':
+        this.buildControlsCards(renderRect);
+        break;
       case 'info':
         this.buildLineCards(renderRect, 'SYSTEM INFO', [
           'Growth manages skills, SPECIAL, and spells.',
@@ -3225,7 +3249,7 @@ export class SkillTreeOverlay {
       this.structuredContainer,
       this.structuredGraphics,
       { x: content.x + content.width - 138, y: content.y - 2, width: 126, height: 20 },
-      `Q: ${bound?.label ?? 'Empty'}`,
+      `${this.primaryAbilityKeyLabel()}: ${bound?.label ?? 'Empty'}`,
       uiColors.accentArcana,
       uiColors.accentArcana,
     );
@@ -3288,7 +3312,9 @@ export class SkillTreeOverlay {
     this.detailTitle.setText(i18n.getFeatureString('detailQSlot')).setVisible(true);
     this.detailSubtitle.setText(i18n.getFeatureString('detailSpellsTitle')).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
-    this.detailBody.setText('Click an available ability to bind it to Q.').setVisible(true);
+    this.detailBody
+      .setText(`Click an available ability to bind it to ${this.primaryAbilityKeyLabel()}.`)
+      .setVisible(true);
   }
 
   private buildCardCollectionCards(rect: UiRect): void {
@@ -3627,6 +3653,195 @@ export class SkillTreeOverlay {
     this.setStructuredContentHeight(content, y);
   }
 
+  private buildControlsCards(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CONTROLS', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    this.buildControlsModeButtons(content);
+
+    const mode = INPUT_MODES.find((entry) => entry.id === this.activeControlsMode) ?? INPUT_MODES[0];
+    addUiText(this.scene, this.structuredContainer, content.x, content.y + 46, mode.description, {
+      color: uiColors.textSecondary,
+      fontSize: '10px',
+      wordWrapWidth: content.width - 8,
+    });
+
+    const categories: readonly ControlCategoryId[] = ['movement', 'actions', 'system'];
+    let y = content.y + 72 - this.getStructuredScrollOffset();
+    for (const category of categories) {
+      y = this.buildControlsCategoryRows(content, y, this.activeControlsMode, category);
+    }
+    this.setStructuredContentHeight(content, y + this.getStructuredScrollOffset());
+
+    this.detailTitle.setText('Controls').setVisible(true);
+    this.detailSubtitle
+      .setText(this.rebindingControlActionId ? 'Press a key to bind' : 'Custom bindings')
+      .setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        [
+          'Move actions also cover arcade, fishing, and manual room movement.',
+          'Confirm handles interaction and UI selection. Back closes screens and cancels minigames.',
+          'Controller: A selects, B backs out, LB/RB move primary tabs, LT/RT move subtabs, Start opens menu.',
+          'Inspect is intentionally contextual through hover, focus, or touch-hold.',
+        ].join('\n\n'),
+      )
+      .setVisible(true);
+  }
+
+  private buildControlsModeButtons(content: UiRect): void {
+    const gap = 8;
+    const resetWidth = 56;
+    const modeWidth = Math.floor((content.width - resetWidth - gap * INPUT_MODES.length) / 3);
+    let x = content.x;
+    const y = content.y + 21;
+    for (const mode of INPUT_MODES) {
+      const active = mode.id === this.activeControlsMode;
+      const rect: UiRect = { x, y, width: modeWidth, height: 26 };
+      drawUiCard(this.structuredGraphics, {
+        rect,
+        fill: active ? TAB_ACCENTS.system : uiColors.panelBgInset,
+        stroke: TAB_ACCENTS.system,
+        alpha: active ? 0.76 : 0.52,
+        strokeAlpha: active ? 0.88 : 0.42,
+        radius: 6,
+      });
+      addUiText(this.scene, this.structuredContainer, rect.x + rect.width / 2, rect.y + 7, mode.label, {
+        align: 'center',
+        color: active ? uiColors.textPrimary : uiColors.textSecondary,
+        fontSize: '10px',
+        fontStyle: active ? 'bold' : 'normal',
+      }).setOrigin(0.5, 0);
+      this.addStructuredZone(rect, () => {
+        this.activeControlsMode = mode.id;
+        this.rebindingControlActionId = null;
+        this.scrollOffsets.controls = 0;
+        this.refresh();
+      });
+      x += modeWidth + gap;
+    }
+
+    const resetRect: UiRect = { x, y, width: resetWidth, height: 26 };
+    drawUiCard(this.structuredGraphics, {
+      rect: resetRect,
+      fill: uiColors.panelBgInset,
+      stroke: uiColors.warning,
+      alpha: 0.48,
+      strokeAlpha: 0.5,
+      radius: 6,
+    });
+    addUiText(this.scene, this.structuredContainer, resetRect.x + resetRect.width / 2, resetRect.y + 7, 'Reset', {
+      align: 'center',
+      color: uiColors.textSecondary,
+      fontSize: '10px',
+    }).setOrigin(0.5, 0);
+    this.addStructuredZone(resetRect, () => {
+      resetAllBindingsForMode(this.activeControlsMode);
+      this.rebindingControlActionId = null;
+      this.refresh();
+    });
+  }
+
+  private buildControlsCategoryRows(
+    content: UiRect,
+    y: number,
+    mode: InputModeId,
+    category: ControlCategoryId,
+  ): number {
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      content.x + 2,
+      y,
+      CONTROL_CATEGORIES[category].toUpperCase(),
+      {
+        color: uiColors.textMuted,
+        fontSize: '10px',
+        fontStyle: 'bold',
+      },
+    );
+    let nextY = y + 18;
+    for (const action of getControlActionsByCategory(category)) {
+      const card: UiRect = { x: content.x, y: nextY, width: content.width, height: 42 };
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: uiColors.panelBgPrimary,
+        stroke: TAB_ACCENTS.system,
+        alpha: 0.5,
+        strokeAlpha: 0.38,
+        radius: 6,
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, action.label, {
+        color: uiColors.textPrimary,
+        fontSize: '11px',
+        fontStyle: 'bold',
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 22, action.description, {
+        color: uiColors.textMuted,
+        fontSize: '9px',
+        wordWrapWidth: Math.floor(card.width * 0.42),
+      });
+      const bindingLabel =
+        this.rebindingControlActionId === action.id && mode === this.activeControlsMode
+          ? 'Press any key...'
+          : formatBindingsForDisplay(getBindingsForMode(action.id, mode));
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + Math.floor(card.width * 0.47),
+        card.y + 13,
+        bindingLabel,
+        {
+          color: this.rebindingControlActionId === action.id ? '#fff3a8' : uiColors.textSecondary,
+          fontSize: '10px',
+          wordWrapWidth: Math.floor(card.width * 0.28),
+        },
+      );
+      const canCapture = mode === 'keyboardMouse';
+      const bindRect: UiRect = { x: card.x + card.width - 92, y: card.y + 8, width: 46, height: 24 };
+      const resetRect: UiRect = { x: card.x + card.width - 42, y: card.y + 8, width: 34, height: 24 };
+      this.drawControlsActionButton(bindRect, canCapture ? 'Bind' : 'View', canCapture);
+      this.drawControlsActionButton(resetRect, 'X', true);
+      this.addStructuredZone(bindRect, () => {
+        if (!canCapture) {
+          this.announce('Live capture for this mode is coming in a later input pass.', '#fff3a8', 2200);
+          return;
+        }
+        this.rebindingControlActionId = action.id;
+        this.refresh();
+      });
+      this.addStructuredZone(resetRect, () => {
+        resetBindingsForMode(action.id, mode);
+        if (this.rebindingControlActionId === action.id) {
+          this.rebindingControlActionId = null;
+        }
+        this.refresh();
+      });
+      nextY += 48;
+    }
+    return nextY + 8;
+  }
+
+  private drawControlsActionButton(rect: UiRect, label: string, enabled: boolean): void {
+    drawUiCard(this.structuredGraphics, {
+      rect,
+      fill: enabled ? uiColors.panelBgInset : uiColors.panelBgPrimary,
+      stroke: enabled ? TAB_ACCENTS.system : uiColors.panelBorderMuted,
+      alpha: enabled ? 0.72 : 0.42,
+      strokeAlpha: enabled ? 0.58 : 0.28,
+      radius: 5,
+    });
+    addUiText(this.scene, this.structuredContainer, rect.x + rect.width / 2, rect.y + 6, label, {
+      align: 'center',
+      color: enabled ? uiColors.textSecondary : uiColors.textMuted,
+      fontSize: '9px',
+    }).setOrigin(0.5, 0);
+  }
+
   show(): void {
     if (this.visible) {
       return;
@@ -3910,7 +4125,7 @@ export class SkillTreeOverlay {
   private getInventoryActionHints(itemId: string): string {
     const item = getItem(itemId) as any;
     if (!item || item.kind === 'equipment') {
-      return 'Click rows to inspect. Press E or use the action button to equip or unequip.';
+      return `Click rows to inspect. Press ${this.confirmKeyLabel()} or use the action button to equip or unequip.`;
     }
     const hints = [i18n.getFeatureString('hintPressInspect')];
     if (item.category === 'food' || item.kind === 'consumable') {
@@ -3922,7 +4137,23 @@ export class SkillTreeOverlay {
     return hints.join(' ');
   }
 
+  private confirmKeyLabel(): string {
+    return getPrimaryBindingLabelForDisplay('interact.confirm');
+  }
+
+  private cancelKeyLabel(): string {
+    return getPrimaryBindingLabelForDisplay('back.cancel');
+  }
+
+  private primaryAbilityKeyLabel(): string {
+    return getPrimaryBindingLabelForDisplay('ability.primary');
+  }
+
   handleCheatKeyDown(event: KeyboardEvent): boolean {
+    if (this.visible && this.activeTab === 'controls') {
+      return this.handleControlRebindKeyDown(event);
+    }
+
     if (!this.visible || this.activeTab !== 'cheats') {
       return false;
     }
@@ -3949,6 +4180,64 @@ export class SkillTreeOverlay {
       return true;
     }
     return key === ' ' || key === 'Tab';
+  }
+
+  private handleControlRebindKeyDown(event: KeyboardEvent): boolean {
+    if (!this.rebindingControlActionId) {
+      return false;
+    }
+    if (event.key === 'Escape') {
+      this.rebindingControlActionId = null;
+      this.refresh();
+      return true;
+    }
+    if (event.key === 'Tab' || event.ctrlKey || event.metaKey || event.altKey) {
+      return true;
+    }
+
+    const label = getKeyboardEventBindingLabel(event);
+    setBindingsForMode(this.rebindingControlActionId, 'keyboardMouse', [{ label }]);
+    this.announce(`Bound ${label}.`, '#9ad1ff', 1600);
+    this.rebindingControlActionId = null;
+    this.refresh();
+    return true;
+  }
+
+  handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.visible) {
+      return false;
+    }
+    switch (command) {
+      case 'cancel':
+        this.hide();
+        return true;
+      case 'primaryTabPrevious':
+        this.cyclePrimaryTab(-1);
+        return true;
+      case 'primaryTabNext':
+        this.cyclePrimaryTab(1);
+        return true;
+      case 'subTabPrevious':
+        this.cycleSecondaryTab(-1);
+        return true;
+      case 'subTabNext':
+        this.cycleSecondaryTab(1);
+        return true;
+      case 'up':
+        this.scrollActiveText(-42);
+        return true;
+      case 'down':
+        this.scrollActiveText(42);
+        return true;
+      case 'left':
+        this.cycleSecondaryTab(-1);
+        return true;
+      case 'right':
+        this.cycleSecondaryTab(1);
+        return true;
+      default:
+        return false;
+    }
   }
 
   private applyCheatCode(): void {
@@ -4064,6 +4353,7 @@ export class SkillTreeOverlay {
         this.activeTab !== 'items' &&
         this.activeTab !== 'cards' &&
         this.activeTab !== 'artifacts' &&
+        this.activeTab !== 'controls' &&
         this.activeTab !== 'inventory')
     ) {
       return;
@@ -4101,6 +4391,7 @@ export class SkillTreeOverlay {
       tab === 'people' ||
       tab === 'destiny' ||
       tab === 'artifacts' ||
+      tab === 'controls' ||
       tab === 'info'
     );
   }
@@ -4753,6 +5044,7 @@ export class SkillTreeOverlay {
     const infoActive = this.activeTab === 'info';
     const graphActive = this.activeTab === 'graph';
     const achievementsActive = this.activeTab === 'achievements';
+    const controlsActive = this.activeTab === 'controls';
     const structuredActive =
       inventoryActive ||
       equipmentActive ||
@@ -4764,6 +5056,7 @@ export class SkillTreeOverlay {
       questsActive ||
       destinyActive ||
       artifactsActive ||
+      controlsActive ||
       infoActive;
     this.connectionGraphics.setVisible(skillsActive);
     this.specialUiGraphics.setVisible(specialActive);
@@ -4875,6 +5168,7 @@ export class SkillTreeOverlay {
         !artifactsActive &&
         !questsActive &&
         !factionsActive &&
+        !controlsActive &&
         !infoActive &&
         !achievementsActive;
       this.stubText.setVisible(showStub);
@@ -4921,15 +5215,16 @@ export class SkillTreeOverlay {
       if (!this.hintSticky) {
         const hintByTab: Partial<Record<TabId, string>> = {
           inventory: i18n.getFeatureString('hintInventory'),
-          equipment: 'Equipment: select gear, compare modifiers, press E to equip or unequip.',
+          equipment: `Equipment: select gear, compare modifiers, press ${this.confirmKeyLabel()} to equip or unequip.`,
           items: 'Items: click rows for details. Press U to use selected consumables.',
           cards: i18n.getFeatureString('cardHintCards'),
-          spells: i18n.getFeatureString('hintSpells'),
+          spells: `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`,
           people: i18n.getFeatureString('hintPeople'),
           dating: i18n.getFeatureString('hintDating'),
           quests: i18n.getFeatureString('hintQuests'),
           destiny: i18n.getFeatureString('hintDestiny'),
           artifacts: i18n.getFeatureString('hintArtifacts'),
+          controls: 'Controls: browse canonical actions and defaults by input mode.',
           info: 'Browse grouped menu systems and current run tools.',
         };
         this.hintText.setText(
@@ -4975,7 +5270,9 @@ export class SkillTreeOverlay {
           }
           const category = item?.category ? String(item.category) : 'item';
           const prefix =
-            item?.kind === 'equipment' ? '[E] ' : `[${category.charAt(0).toUpperCase()}] `;
+            item?.kind === 'equipment'
+              ? `[${this.confirmKeyLabel()}] `
+              : `[${category.charAt(0).toUpperCase()}] `;
           lines.push(`${prefix}${name} x${count}${suffix}`);
           index.push(itemId);
         }
@@ -5008,11 +5305,11 @@ export class SkillTreeOverlay {
       this.detailRankText.setText('').setVisible(false);
       this.detailBody
         .setText(
-          'Q now resolves through a bindable action slot. Spell casts can share this tab with future follower commands.',
+          `${this.primaryAbilityKeyLabel()} now resolves through a bindable action slot. Spell casts can share this tab with future follower commands.`,
         )
         .setVisible(true);
       if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintSpells'));
+        this.hintText.setText(`Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`);
         this.hintText.setColor('#ffbdfd');
       }
     }
@@ -5179,6 +5476,7 @@ export class SkillTreeOverlay {
       this.activeTab !== 'factions' &&
       this.activeTab !== 'map' &&
       this.activeTab !== 'info' &&
+      this.activeTab !== 'controls' &&
       this.activeTab !== 'cheats' &&
       this.activeTab !== 'graph' &&
       this.activeTab !== 'achievements'
@@ -6447,6 +6745,37 @@ export class SkillTreeOverlay {
     }
   }
 
+  private cyclePrimaryTab(direction: number): void {
+    const currentIndex = PRIMARY_TAB_DEFINITIONS.findIndex(
+      (primary) => primary.id === this.activePrimaryTab,
+    );
+    const next =
+      PRIMARY_TAB_DEFINITIONS[
+        (currentIndex + direction + PRIMARY_TAB_DEFINITIONS.length) %
+          PRIMARY_TAB_DEFINITIONS.length
+      ];
+    if (next) {
+      this.setActivePrimaryTab(next.id);
+    }
+  }
+
+  private cycleSecondaryTab(direction: number): void {
+    const visibleTabs = TAB_DEFINITIONS.filter(
+      (tab) => tab.group === this.activePrimaryTab && this.isTabAvailable(tab.id),
+    );
+    if (visibleTabs.length === 0) {
+      return;
+    }
+    const currentIndex = Math.max(
+      0,
+      visibleTabs.findIndex((tab) => tab.id === this.activeTab),
+    );
+    const next = visibleTabs[(currentIndex + direction + visibleTabs.length) % visibleTabs.length];
+    if (next) {
+      this.setActiveTab(next.id);
+    }
+  }
+
   private layoutSecondaryTabs(): void {
     const layout = this.getPauseMenuLayout();
     const visibleTabs = TAB_DEFINITIONS.filter(
@@ -6642,9 +6971,9 @@ export class SkillTreeOverlay {
     this.hintText.setVisible(false);
     if (this.activeTab === 'spells') {
       this.setFooterHints([
-        { key: 'Click', label: 'Bind Q slot' },
+        { key: 'Click', label: `Bind ${this.primaryAbilityKeyLabel()} slot` },
         { key: 'Wheel', label: 'Scroll spells' },
-        { key: 'Esc', label: 'Resume' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
       return;
     }
@@ -6653,7 +6982,7 @@ export class SkillTreeOverlay {
       this.setFooterHints([
         { key: '+/-', label: 'Preview stats' },
         { key: 'Wheel', label: 'Scroll derived' },
-        { key: 'Esc', label: 'Resume' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
       return;
     }
@@ -6670,16 +6999,16 @@ export class SkillTreeOverlay {
       if (this.activeTab === 'equipment') {
         this.setFooterHints([
           { key: 'Click', label: 'Select gear' },
-          { key: 'E', label: 'Equip toggle' },
+          { key: this.confirmKeyLabel(), label: 'Equip toggle' },
           { key: 'Wheel', label: 'Scroll list' },
-          { key: 'Esc', label: 'Resume' },
+          { key: this.cancelKeyLabel(), label: 'Resume' },
         ]);
         return;
       }
       this.setFooterHints([
         { key: 'Click', label: 'Select row/card' },
         { key: 'Wheel', label: 'Scroll panel' },
-        { key: 'Esc', label: 'Resume' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
       return;
     }
@@ -6689,8 +7018,8 @@ export class SkillTreeOverlay {
         { key: 'Hover', label: 'Inspect skill' },
         { key: 'Click', label: 'Invest points' },
         { key: 'Wheel', label: 'Pan tree' },
-        { key: 'Q', label: 'Arcane pulse ready' },
-        { key: 'Esc', label: 'Resume' },
+        { key: this.primaryAbilityKeyLabel(), label: 'Arcane pulse ready' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
     } else if (stats.manaMax > 0) {
       this.setFooterHints([
@@ -6698,14 +7027,14 @@ export class SkillTreeOverlay {
         { key: 'Click', label: 'Invest points' },
         { key: 'Wheel', label: 'Pan tree' },
         { key: 'Mana', label: `${Math.floor(stats.mana)}/${Math.floor(stats.manaMax)}` },
-        { key: 'Esc', label: 'Resume' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
     } else {
       this.setFooterHints([
         { key: 'Hover', label: 'Inspect skill' },
         { key: 'Click', label: 'Invest points' },
         { key: 'Wheel', label: 'Pan tree' },
-        { key: 'Esc', label: 'Resume' },
+        { key: this.cancelKeyLabel(), label: 'Resume' },
       ]);
     }
   }
