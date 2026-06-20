@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { saveManagerV2 } from '../game/saveManagerV2.js';
+import { getPrimaryBindingLabelForDisplay } from '../input/controlActions.js';
 
 const SAVE_BUTTON_WIDTH = 110;
 const SAVE_BUTTON_HEIGHT = 36;
@@ -14,8 +15,6 @@ const SAVE_COLOR = 0x1a3a2a;
 const SAVE_BORDER_COLOR = 0x4da3ff;
 const SAVE_HOVER_COLOR = 0x1a4a3a;
 const SAVE_HOVER_BORDER = 0x7ec87e;
-
-const SAVE_HOTKEY = 'G';
 
 export class SaveUI {
   private saveButton?: Phaser.GameObjects.Container;
@@ -31,7 +30,7 @@ export class SaveUI {
   }
 
   private build(): void {
-    const labelStr = `${i18n.getFeatureString('saveButton') ?? 'SAVE'} [${SAVE_HOTKEY}]`;
+    const labelStr = this.getSaveLabel();
     const tempText = this.scene.add.text(0, 0, labelStr, {
       fontFamily: 'monospace',
       fontSize: '12px',
@@ -53,7 +52,7 @@ export class SaveUI {
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
 
-    // "SAVE [G]" label
+    // "SAVE [key]" label
     const label = this.scene.add
       .text(buttonWidth / 2, buttonHeight / 2, labelStr, {
         fontFamily: 'monospace',
@@ -161,12 +160,17 @@ export class SaveUI {
 
   updateVisibility(): void {
     const suppressed = !!this.scene.getFlag<boolean>('ui.suppressHud');
+    this.saveLabelText?.setText(this.getSaveLabel());
     this.saveButton?.setVisible(!suppressed);
     this.seedLabel?.setVisible(!suppressed);
   }
 
   setSeed(seed: string): void {
     this.seedLabel?.setText(`Seed: ${seed}`);
+  }
+
+  private getSaveLabel(): string {
+    return `${i18n.getFeatureString('saveButton') ?? 'SAVE'} [${getPrimaryBindingLabelForDisplay('save.quick')}]`;
   }
 }
 

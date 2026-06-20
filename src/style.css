@@ -13,32 +13,32 @@ body {
 
 .mobile-controls__dpad {
   position: absolute;
-  left: 16px;
-  bottom: 16px;
+  left: max(18px, env(safe-area-inset-left));
+  bottom: max(18px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(3, 64px);
-  grid-template-rows: repeat(3, 64px);
-  gap: 10px;
+  grid-template-columns: repeat(3, 78px);
+  grid-template-rows: repeat(3, 78px);
+  gap: 12px;
   pointer-events: auto;
 }
 
 .mobile-controls__actions {
   position: absolute;
-  right: 20px;
-  bottom: 36px;
+  right: max(22px, env(safe-area-inset-right));
+  bottom: max(42px, env(safe-area-inset-bottom));
   display: flex;
   gap: 12px;
   pointer-events: auto;
 }
 
 .mobile-controls__button {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
+  width: 78px;
+  height: 78px;
+  border-radius: 20px;
   border: 2px solid rgba(255, 255, 255, 0.35);
   background: rgba(9, 12, 18, 0.78);
   color: #f0f6ff;
-  font-size: 22px;
+  font-size: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -53,15 +53,15 @@ body {
 }
 
 .mobile-controls__button--pause {
-  width: 88px;
-  height: 88px;
-  font-size: 18px;
+  width: 104px;
+  height: 104px;
+  font-size: 20px;
   letter-spacing: 0.05em;
 }
 
 .mobile-controls__spacer {
-  width: 64px;
-  height: 64px;
+  width: 78px;
+  height: 78px;
   pointer-events: none;
 }
 

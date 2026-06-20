@@ -521,7 +521,7 @@ const ARCANA_BRANCH: BranchConfig = {
       description: 'Channel mana into a serpentine pulse that feeds you.',
       ranks: [
         {
-          description: 'Unlock Arcane Pulse (press Q, costs 20 mana)',
+          description: 'Unlock Arcane Pulse (uses the primary ability binding, costs 20 mana)',
           cost: 66,
           effects: [{ type: 'unlockArcanePulse' }],
         },

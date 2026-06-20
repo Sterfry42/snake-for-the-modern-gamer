@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
 export interface ChoiceOption {
   id: string;
@@ -14,12 +15,14 @@ export class ChoicePopup {
   private titleText?: Phaser.GameObjects.Text;
   private scrollHintText?: Phaser.GameObjects.Text;
   private optionTexts: Phaser.GameObjects.Text[] = [];
+  private options: ChoiceOption[] = [];
   private background?: Phaser.GameObjects.Rectangle;
   private optionMaskGraphics?: Phaser.GameObjects.Graphics;
   private onPick?: (id: string) => void;
   private scrollY = 0;
   private contentHeight = 0;
   private viewportHeight = 0;
+  private selectedIndex = 0;
   private readonly width = 500;
 
   constructor(private readonly scene: SnakeScene) {
@@ -30,6 +33,8 @@ export class ChoicePopup {
     this.onPick = onPick;
     this.scene.setChoicePopupVisible(true);
     this.titleText?.setText(title);
+    this.options = options;
+    this.selectedIndex = 0;
     // Clear old
     for (const t of this.optionTexts) t.destroy();
     this.optionTexts = [];
@@ -49,8 +54,11 @@ export class ChoicePopup {
           padding: { left: 10, right: 10, top: 6, bottom: 6 },
         })
         .setInteractive({ useHandCursor: true })
-        .on('pointerover', () => label.setColor('#9ad1ff'))
-        .on('pointerout', () => label.setColor('#ffffff'))
+        .on('pointerover', () => {
+          this.selectedIndex = this.optionTexts.indexOf(label);
+          this.refreshSelection();
+        })
+        .on('pointerout', () => this.refreshSelection())
         .on('pointerdown', () => this.pick(opt.id));
       this.optionContainer?.add(label);
       this.optionTexts.push(label);
@@ -70,6 +78,7 @@ export class ChoicePopup {
       .setPosition(this.width / 2, popupHeight - 24);
     this.updateMask(x, rootY);
     this.applyScroll(0);
+    this.refreshSelection();
     this.container?.setVisible(true).setDepth(35);
   }
 
@@ -77,6 +86,7 @@ export class ChoicePopup {
     this.container?.setVisible(false);
     this.scene.setChoicePopupVisible(false);
     this.onPick = undefined;
+    this.options = [];
   }
 
   setDepth(depth: number): void {
@@ -93,6 +103,64 @@ export class ChoicePopup {
     if (cb) cb(id);
   }
 
+  handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.isVisible()) {
+      return false;
+    }
+    if (command === 'confirm') {
+      const option = this.options[this.selectedIndex];
+      if (option) {
+        this.pick(option.id);
+        return true;
+      }
+      return false;
+    }
+    if (command === 'cancel') {
+      const fallback = this.options.find((option) =>
+        /back|cancel|leave|close|no/i.test(option.title),
+      );
+      if (fallback) {
+        this.pick(fallback.id);
+      } else {
+        this.hide();
+      }
+      return true;
+    }
+    if (command === 'up') {
+      this.moveSelection(-1);
+      return true;
+    }
+    if (command === 'down') {
+      this.moveSelection(1);
+      return true;
+    }
+    return false;
+  }
+
+  private moveSelection(delta: number): void {
+    if (this.optionTexts.length === 0) {
+      return;
+    }
+    this.selectedIndex =
+      (this.selectedIndex + delta + this.optionTexts.length) % this.optionTexts.length;
+    this.ensureSelectedVisible();
+    this.refreshSelection();
+  }
+
+  private ensureSelectedVisible(): void {
+    const label = this.optionTexts[this.selectedIndex];
+    if (!label) {
+      return;
+    }
+    const top = label.y;
+    const bottom = label.y + label.height;
+    if (top < this.scrollY) {
+      this.applyScroll(top);
+    } else if (bottom > this.scrollY + this.viewportHeight) {
+      this.applyScroll(bottom - this.viewportHeight);
+    }
+  }
+
   private scrollBy(delta: number): void {
     if (!this.container?.visible || this.contentHeight <= this.viewportHeight) {
       return;
@@ -105,6 +173,15 @@ export class ChoicePopup {
     this.scrollY = Phaser.Math.Clamp(nextY, 0, maxScroll);
     this.optionContainer?.setY(60 - this.scrollY);
     this.updateOptionInteractivity();
+    this.refreshSelection();
+  }
+
+  private refreshSelection(): void {
+    this.optionTexts.forEach((label, index) => {
+      const selected = index === this.selectedIndex;
+      label.setColor(selected ? '#fff3a8' : '#ffffff');
+      label.setBackgroundColor(selected ? 'rgba(77,163,255,0.18)' : 'rgba(0,0,0,0)');
+    });
   }
 
   private updateOptionInteractivity(): void {

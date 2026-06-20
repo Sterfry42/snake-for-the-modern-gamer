@@ -24,6 +24,14 @@ interface MobileControlsOptions {
   onTogglePause: () => void;
 }
 
+const vibrate = () => {
+  if (typeof navigator === 'undefined' || typeof navigator.vibrate !== 'function') {
+    return;
+  }
+
+  navigator.vibrate(18);
+};
+
 export function createMobileControls(options: MobileControlsOptions): MobileControls | null {
   if (!isCoarsePointer()) {
     return null;
@@ -49,6 +57,7 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
 
     const handler = (event: PointerEvent) => {
       event.preventDefault();
+      vibrate();
       options.onDirection(x, y);
     };
 
@@ -101,6 +110,7 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
 
   const pauseHandler = (event: PointerEvent) => {
     event.preventDefault();
+    vibrate();
     options.onTogglePause();
   };
 

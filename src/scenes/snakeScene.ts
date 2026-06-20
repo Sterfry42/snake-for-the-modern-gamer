@@ -74,6 +74,13 @@ import {
 import { getQuestDialogue } from '../quests/questDialogue.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { createMobileControls, type MobileControls } from '../ui/mobileControls.js';
+import {
+  getPrimaryBindingLabelForDisplay,
+  isKeyboardEventForAction,
+} from '../input/controlActions.js';
+import { ControllerInput } from '../input/controllerInput.js';
+import { InputModeManager } from '../input/inputModeManager.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import type { Quest } from '../../quests.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
@@ -1515,6 +1522,8 @@ export default class SnakeScene extends Phaser.Scene {
   private saveUI!: SaveUI;
   private autosaveTimer: Phaser.Time.TimerEvent | null = null;
   private mobileControls: MobileControls | null = null;
+  private readonly inputModeManager = new InputModeManager();
+  private readonly controllerInput = new ControllerInput();
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private jasonVulnerableDialogueShown = false;
@@ -1839,6 +1848,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.mobileControls = createMobileControls({
       onDirection: (x, y) => {
+        this.inputModeManager.markTouchInput();
         if (this.awaitingLevelUpDirection && !this.resumeAfterLevelUpDirection()) {
           return;
         }
@@ -1851,6 +1861,7 @@ export default class SnakeScene extends Phaser.Scene {
         }
       },
       onTogglePause: () => {
+        this.inputModeManager.markTouchInput();
         this.togglePauseMenu();
       },
     });
@@ -2045,7 +2056,9 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      this.inputModeManager.markKeyboardInput();
       const key = event.key.toLowerCase();
+      const controlDirection = this.getKeyboardControlDirection(event);
       if (this.arcadeSnakeRenderer?.isOpen()) {
         if (this.arcadeSnakeRenderer.handleKeyDown(key)) {
           event.preventDefault();
@@ -2095,7 +2108,7 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (
         this.awaitingLevelUpDirection &&
-        ['arrowup', 'w', 'arrowdown', 's', 'arrowleft', 'a', 'arrowright', 'd'].includes(key)
+        controlDirection
       ) {
         event.preventDefault();
         if (!this.resumeAfterLevelUpDirection()) {
@@ -2103,7 +2116,7 @@ export default class SnakeScene extends Phaser.Scene {
         }
       }
 
-      if (key === ' ') {
+      if (isKeyboardEventForAction(event, 'menu.pause')) {
         if (this.isModalPopupVisible()) {
           event.preventDefault();
           return;
@@ -2191,67 +2204,34 @@ export default class SnakeScene extends Phaser.Scene {
           this.isDirty = true;
           return;
         }
-        if (['arrowup', 'w'].includes(key)) {
-          this.setDir(0, -1);
-          this.takeManualTurn();
-          return;
-        }
-        if (['arrowdown', 's'].includes(key)) {
-          this.setDir(0, 1);
-          this.takeManualTurn();
-          return;
-        }
-        if (['arrowleft', 'a'].includes(key)) {
-          this.setDir(-1, 0);
-          this.takeManualTurn();
-          return;
-        }
-        if (['arrowright', 'd'].includes(key)) {
-          this.setDir(1, 0);
+        if (controlDirection) {
+          this.setDir(controlDirection.x, controlDirection.y);
           this.takeManualTurn();
           return;
         }
       }
 
       if (this.isManualHouseMovementActive()) {
-        if (key === 'e' && this.snakeGame?.returnFromManualResumePause()) {
+        if (
+          isKeyboardEventForAction(event, 'interact.confirm') &&
+          this.snakeGame?.returnFromManualResumePause()
+        ) {
           event.preventDefault();
           this.isDirty = true;
           return;
         }
-        if (['arrowup', 'w'].includes(key)) {
-          this.setManualResumeDir(0, -1);
-          this.consumeManualResumePause();
-          this.takeManualTurn();
-          return;
-        }
-        if (['arrowdown', 's'].includes(key)) {
-          this.setManualResumeDir(0, 1);
-          this.consumeManualResumePause();
-          this.takeManualTurn();
-          return;
-        }
-        if (['arrowleft', 'a'].includes(key)) {
-          this.setManualResumeDir(-1, 0);
-          this.consumeManualResumePause();
-          this.takeManualTurn();
-          return;
-        }
-        if (['arrowright', 'd'].includes(key)) {
-          this.setManualResumeDir(1, 0);
+        if (controlDirection) {
+          this.setManualResumeDir(controlDirection.x, controlDirection.y);
           this.consumeManualResumePause();
           this.takeManualTurn();
           return;
         }
       }
 
-      if (['arrowup', 'w'].includes(key)) this.setDir(0, -1);
-      if (['arrowdown', 's'].includes(key)) this.setDir(0, 1);
-      if (['arrowleft', 'a'].includes(key)) this.setDir(-1, 0);
-      if (['arrowright', 'd'].includes(key)) this.setDir(1, 0);
+      if (controlDirection) this.setDir(controlDirection.x, controlDirection.y);
 
-      if (key === 'g') this.saveUI?.save();
-      if (key === 'm') {
+      if (isKeyboardEventForAction(event, 'save.quick')) this.saveUI?.save();
+      if (isKeyboardEventForAction(event, 'map.toggle')) {
         const result = this.toggleMinimap();
         if (result) {
           this.showQuestHintPopup(result.message, result.color);
@@ -2292,47 +2272,8 @@ export default class SnakeScene extends Phaser.Scene {
         );
       }
 
-      if (key === 'e') {
-        this.gameConnection.send({
-          type: 'interact',
-          playerId: this.snakeGame.getLocalPlayerId(),
-        });
-        if (this.tryInteractQuestTarget()) {
-          return;
-        }
-        if (this.tryInteractArcadeCabinet()) {
-          return;
-        }
-        if (this.tryInteractMcDonaldsCashier()) {
-          return;
-        }
-        if (this.tryInteractMcDonaldsToilet()) {
-          return;
-        }
-        if (this.tryInteractTownQuestBoard()) {
-          return;
-        }
-        if (this.tryInteractTownGuildGrate()) {
-          return;
-        }
-        if (this.tryInteractLibertyStructure()) {
-          return;
-        }
-        if (this.tryInteractMolemanDigSite()) {
-          return;
-        }
-        if (this.tryInteractRelationshipNpc()) {
-          return;
-        }
-        if (this.tryInteractVillageShopkeeper()) {
-          return;
-        }
-        if (this.tryInteractGoblinShopkeeper()) {
-          return;
-        }
-        if (this.tryInteractQuestGiver()) {
-          return;
-        }
+      if (isKeyboardEventForAction(event, 'interact.confirm')) {
+        this.performInteractAction();
       }
 
       // Item equip/test keys removed; equipping is handled in the menu
@@ -2350,6 +2291,7 @@ export default class SnakeScene extends Phaser.Scene {
     });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.markPointerInputMode(pointer);
       if (this.deathCutscene) {
         if (this.questPopup.isVisible() || this.villageShopPopup.isVisible()) {
           return;
@@ -2392,10 +2334,53 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Prevent context menu in Minecraft mode
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      this.markPointerInputMode(pointer);
       if (this.minecraftMode && pointer.button === 2) {
         pointer.event.preventDefault();
       }
     });
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      this.markPointerInputMode(pointer);
+    });
+    this.input.on('wheel', (pointer: Phaser.Input.Pointer) => {
+      this.markPointerInputMode(pointer);
+    });
+  }
+
+  private markPointerInputMode(pointer: Phaser.Input.Pointer): void {
+    const pointerType = (pointer.event as PointerEvent | undefined)?.pointerType;
+    if (pointerType === 'touch') {
+      this.inputModeManager.markTouchInput();
+    } else {
+      this.inputModeManager.markMouseInput();
+    }
+  }
+
+  private getKeyboardControlDirection(event: KeyboardEvent): { x: number; y: number } | null {
+    if (isKeyboardEventForAction(event, 'move.up')) return { x: 0, y: -1 };
+    if (isKeyboardEventForAction(event, 'move.down')) return { x: 0, y: 1 };
+    if (isKeyboardEventForAction(event, 'move.left')) return { x: -1, y: 0 };
+    if (isKeyboardEventForAction(event, 'move.right')) return { x: 1, y: 0 };
+    return null;
+  }
+
+  private performInteractAction(): void {
+    this.gameConnection.send({
+      type: 'interact',
+      playerId: this.snakeGame.getLocalPlayerId(),
+    });
+    if (this.tryInteractQuestTarget()) return;
+    if (this.tryInteractArcadeCabinet()) return;
+    if (this.tryInteractMcDonaldsCashier()) return;
+    if (this.tryInteractMcDonaldsToilet()) return;
+    if (this.tryInteractTownQuestBoard()) return;
+    if (this.tryInteractTownGuildGrate()) return;
+    if (this.tryInteractLibertyStructure()) return;
+    if (this.tryInteractMolemanDigSite()) return;
+    if (this.tryInteractRelationshipNpc()) return;
+    if (this.tryInteractVillageShopkeeper()) return;
+    if (this.tryInteractGoblinShopkeeper()) return;
+    if (this.tryInteractQuestGiver()) return;
   }
 
   private runActionClockStep(_stepMs: number): void {
@@ -7448,6 +7433,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    this.pollControllerInput();
     if (this.titleVisible) {
       this.graphics?.clear();
       this.questHud?.setVisible(false);
@@ -7492,6 +7478,73 @@ export default class SnakeScene extends Phaser.Scene {
       this.draw();
       this.isDirty = false;
     }
+  }
+
+  private pollControllerInput(): void {
+    const snapshot = this.controllerInput.poll();
+    if (!snapshot.active) {
+      return;
+    }
+    this.inputModeManager.markControllerInput();
+    for (const event of snapshot.events) {
+      this.handleControllerCommand(event.command);
+    }
+  }
+
+  private handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (this.titleVisible) {
+      return false;
+    }
+    if (this.villageShopPopup?.isVisible()) {
+      return this.villageShopPopup.handleControllerCommand(command);
+    }
+    if (this.questPopup?.isVisible()) {
+      if (command === 'cancel') {
+        return true;
+      }
+      return false;
+    }
+    if (this.skillTree?.isOverlayVisible()) {
+      return this.skillTree.handleControllerCommand(command, this.paused);
+    }
+    if (command === 'menu') {
+      this.togglePauseMenu();
+      return true;
+    }
+    if (command === 'map') {
+      const result = this.toggleMinimap();
+      if (result) {
+        this.showQuestHintPopup(result.message, result.color);
+      }
+      return true;
+    }
+    if (command === 'primary') {
+      return this.skillTree.handleControllerCommand(command, this.paused);
+    }
+    if (command === 'confirm') {
+      this.performInteractAction();
+      return true;
+    }
+    if (command === 'up') return this.applyControllerMove(0, -1);
+    if (command === 'down') return this.applyControllerMove(0, 1);
+    if (command === 'left') return this.applyControllerMove(-1, 0);
+    if (command === 'right') return this.applyControllerMove(1, 0);
+    return false;
+  }
+
+  private applyControllerMove(x: number, y: number): boolean {
+    if (this.awaitingLevelUpDirection && !this.resumeAfterLevelUpDirection()) {
+      return true;
+    }
+    this.setDir(x, y);
+    if (this.isManualHouseMovementActive()) {
+      this.setManualResumeDir(x, y);
+      this.consumeManualResumePause();
+      this.takeManualTurn();
+    } else if (this.minecraftMode && !this.deathCutscene) {
+      this.takeManualTurn();
+    }
+    return true;
   }
 
   private updateSimulation(deltaMs: number): void {
@@ -9866,9 +9919,10 @@ export default class SnakeScene extends Phaser.Scene {
       return { text: questActorHint };
     }
     const room = this.snakeGame.getCurrentRoom();
+    const interact = this.getInteractPromptText();
     const shopkeeper = room.village?.shopkeeper;
     if (shopkeeper && this.distanceFromHeadToLocal(shopkeeper) <= 1) {
-      return { text: `Shop with ${shopkeeper.name ?? 'shopkeeper'} (press E)` };
+      return { text: `Shop with ${shopkeeper.name ?? 'shopkeeper'} (${interact})` };
     }
     const goblinShopkeeper = room.goblinCamp?.shopkeeper;
     if (goblinShopkeeper && this.distanceFromHeadToLocal(goblinShopkeeper) <= 1) {
@@ -9877,18 +9931,18 @@ export default class SnakeScene extends Phaser.Scene {
         text:
           standing === 'violent'
             ? `${goblinShopkeeper.name ?? 'Goblin'} is violent`
-            : `Trade wards with ${goblinShopkeeper.name ?? 'goblin'} (press E)`,
+            : `Trade wards with ${goblinShopkeeper.name ?? 'goblin'} (${interact})`,
       };
     }
     const mc = room.snakeMcDonalds;
     if (mc && this.distanceFromHeadToLocal(mc.arcade) <= 1) {
-      return { text: 'Play Snake for the Modern Snake (press E)' };
+      return { text: `Play Snake for the Modern Snake (${interact})` };
     }
     if (mc && this.distanceFromHeadToLocal(mc.toilet) <= 1) {
-      return { text: 'Press E to flush' };
+      return { text: `${this.getPrimaryInteractKey()} to flush` };
     }
     if (this.isInHouse() && this.arcadeSnakeSaveData.hasHomeCabinet && this.isNearTile('Z')) {
-      return { text: 'Play home arcade (press E)' };
+      return { text: `Play home arcade (${interact})` };
     }
     const libertyHint = this.getLibertyStructureHint(room);
     if (libertyHint) {
@@ -9896,10 +9950,10 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const digSite = room.molemanDigSite;
     if (digSite && this.distanceFromHeadToLocal(digSite.foreman) <= 2) {
-      return { text: `Start excavation with ${digSite.foreman.name} (press E)` };
+      return { text: `Start excavation with ${digSite.foreman.name} (${interact})` };
     }
     if (this.isNearTownQuestBoard()) {
-      return { text: 'Read quest board (press E)' };
+      return { text: `Read quest board (${interact})` };
     }
     const town = room.town;
     if (town && this.isNearTownGuildGrate(town)) {
@@ -9907,8 +9961,8 @@ export default class SnakeScene extends Phaser.Scene {
       return {
         text:
           status.state === 'complete'
-            ? 'Enter thieves guild grate (press E)'
-            : 'Inspect thieves guild grate (press E)',
+            ? `Enter thieves guild grate (${interact})`
+            : `Inspect thieves guild grate (${interact})`,
       };
     }
     const giver = room.questGiver;
@@ -9924,7 +9978,15 @@ export default class SnakeScene extends Phaser.Scene {
       return { text: `${giver.name ?? 'NPC'} is hostile` };
     }
     const name = giver.name ? `Talk to ${giver.name}` : 'Talk to quest giver';
-    return { text: `${name} (press E)` };
+    return { text: `${name} (${interact})` };
+  }
+
+  private getPrimaryInteractKey(): string {
+    return getPrimaryBindingLabelForDisplay('interact.confirm');
+  }
+
+  private getInteractPromptText(): string {
+    return `press ${this.getPrimaryInteractKey()}`;
   }
 
   private distanceFromHeadToLocal(target: { x: number; y: number }): number {
@@ -10255,7 +10317,7 @@ export default class SnakeScene extends Phaser.Scene {
       title: hasMercenary ? 'Mercenary Contract - active' : 'Hire Goblin Mercenary - 55 score',
       description: hasMercenary
         ? 'Your hired goblin is already following, guarding, and making poor choices nearby.'
-        : 'A contract fighter follows you, attacks enemies, kills animals, and accepts Q-slot commands.',
+        : `A contract fighter follows you, attacks enemies, kills animals, and accepts ${getPrimaryBindingLabelForDisplay('ability.primary')}-slot commands.`,
     });
     if (goblinQuest === 'available') {
       options.push({
@@ -12603,7 +12665,7 @@ export default class SnakeScene extends Phaser.Scene {
       {
         id: 'play',
         title: 'Play',
-        description: 'Start a run. Arrow keys or WASD move; Space pauses; Q quits.',
+        description: `Start a run. ${getPrimaryBindingLabelForDisplay('move.up')}/${getPrimaryBindingLabelForDisplay('move.down')}/${getPrimaryBindingLabelForDisplay('move.left')}/${getPrimaryBindingLabelForDisplay('move.right')} move; ${getPrimaryBindingLabelForDisplay('menu.pause')} pauses; Back/Cancel quits.`,
       },
       {
         id: 'stats',
@@ -14330,13 +14392,14 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private getLibertyStructureHint(room: ReturnType<SnakeGame['getCurrentRoom']>): string | null {
+    const interact = this.getInteractPromptText();
     if (
       room.gridironYard &&
       [room.gridironYard.coach, ...room.gridironYard.players].some(
         (npc) => this.distanceFromHeadToLocal(npc) <= 2,
       )
     ) {
-      return `Play football at ${room.gridironYard.fieldName} (press E)`;
+      return `Play football at ${room.gridironYard.fieldName} (${interact})`;
     }
     if (
       room.allNiteDiner &&
@@ -14344,7 +14407,7 @@ export default class SnakeScene extends Phaser.Scene {
         (npc) => this.distanceFromHeadToLocal(npc) <= 2,
       )
     ) {
-      return `Order at ${room.allNiteDiner.dinerName} (press E)`;
+      return `Order at ${room.allNiteDiner.dinerName} (${interact})`;
     }
     if (
       room.fireworkStand &&
@@ -14352,7 +14415,7 @@ export default class SnakeScene extends Phaser.Scene {
         (npc) => this.distanceFromHeadToLocal(npc) <= 2,
       )
     ) {
-      return `Shop at ${room.fireworkStand.standName} (press E)`;
+      return `Shop at ${room.fireworkStand.standName} (${interact})`;
     }
     if (
       room.roadsideMonument &&
@@ -14360,7 +14423,7 @@ export default class SnakeScene extends Phaser.Scene {
         (npc) => this.distanceFromHeadToLocal(npc) <= 2,
       )
     ) {
-      return `Visit ${room.roadsideMonument.monumentName} (press E)`;
+      return `Visit ${room.roadsideMonument.monumentName} (${interact})`;
     }
     if (
       room.jackalopeLodge &&
@@ -14368,7 +14431,7 @@ export default class SnakeScene extends Phaser.Scene {
         (npc) => this.distanceFromHeadToLocal(npc) <= 2,
       )
     ) {
-      return `Hear a tall tale at ${room.jackalopeLodge.lodgeName} (press E)`;
+      return `Hear a tall tale at ${room.jackalopeLodge.lodgeName} (${interact})`;
     }
     if (
       room.motelPool &&
@@ -14376,16 +14439,16 @@ export default class SnakeScene extends Phaser.Scene {
         (npc) => this.distanceFromHeadToLocal(npc) <= 2,
       )
     ) {
-      return `Check in at ${room.motelPool.poolName} (press E)`;
+      return `Check in at ${room.motelPool.poolName} (${interact})`;
     }
     if (
       room.billboardOracle &&
       this.distanceFromHeadToLocal(room.billboardOracle.signPainter) <= 2
     ) {
-      return `Read the billboard prophecy (press E)`;
+      return `Read the billboard prophecy (${interact})`;
     }
     if (room.roadCrew && this.distanceFromHeadToLocal(room.roadCrew.ranger) <= 2) {
-      return `Ask for roadside assistance on ${room.roadCrew.roadName} (press E)`;
+      return `Ask for roadside assistance on ${room.roadCrew.roadName} (${interact})`;
     }
     return null;
   }

@@ -24,6 +24,7 @@ import {
   type ArcadeTickEvent,
   type ArcadeTilePosition,
 } from './arcadeSnakeTypes.js';
+import { isKeyboardInputForAction } from '../input/controlActions.js';
 
 export interface ArcadeSnakeRendererOptions {
   saveData: ArcadeSnakeSaveData;
@@ -133,7 +134,7 @@ export class ArcadeSnakeRenderer {
       return true;
     }
     if (
-      (key === ' ' || key === 'spacebar') &&
+      isKeyboardInputForAction(key, 'menu.pause') &&
       !run.isGameOver &&
       !this.blueScreenActive &&
       !this.systemPauseActive
@@ -149,7 +150,7 @@ export class ArcadeSnakeRenderer {
       this.render();
       return true;
     }
-    if (run.isGameOver && (key === ' ' || key === 'enter')) {
+    if (run.isGameOver && (isKeyboardInputForAction(key, 'menu.pause') || key === 'enter')) {
       this.startRun();
       return true;
     }
@@ -1017,10 +1018,10 @@ export class ArcadeSnakeRenderer {
   }
 
   private directionForKey(key: string): ArcadeDirection | null {
-    if (key === 'arrowup' || key === 'w') return 'up';
-    if (key === 'arrowdown' || key === 's') return 'down';
-    if (key === 'arrowleft' || key === 'a') return 'left';
-    if (key === 'arrowright' || key === 'd') return 'right';
+    if (isKeyboardInputForAction(key, 'move.up')) return 'up';
+    if (isKeyboardInputForAction(key, 'move.down')) return 'down';
+    if (isKeyboardInputForAction(key, 'move.left')) return 'left';
+    if (isKeyboardInputForAction(key, 'move.right')) return 'right';
     return null;
   }
 

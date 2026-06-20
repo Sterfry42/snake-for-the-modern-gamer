@@ -5,6 +5,10 @@ import { SkillTreeOverlay } from '../ui/skillTreeOverlay.js';
 import type { SkillTreeStats } from './skillTypes.js';
 import { ActionSlotController } from './actionSlots.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import {
+  getPrimaryBindingLabelForDisplay,
+  isKeyboardInputForAction,
+} from '../input/controlActions.js';
 
 import { JuiceManager } from '../ui/juice.js';
 import { i18n } from '../i18n/i18nManager.js';
@@ -12,6 +16,7 @@ import {
   AchievementZoomTracker,
   type AchievementZoomExtreme,
 } from '../achievements/achievementZoomTracker.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
 export interface SkillTreeManagerOptions {
   baseActionStepIntervalMs: number;
@@ -135,7 +140,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       return this.overlay.cookSelectedInventoryItem();
     }
 
-    if (key !== 'q') {
+    if (!isKeyboardInputForAction(key, 'ability.primary')) {
       return false;
     }
 
@@ -172,6 +177,17 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   handleTextInput(event: KeyboardEvent): boolean {
     return this.overlay.handleCheatKeyDown(event);
+  }
+
+  handleControllerCommand(command: ControllerNavCommand, paused: boolean): boolean {
+    if (command === 'primary') {
+      return this.usePrimaryAbility(paused);
+    }
+    return this.overlay.handleControllerCommand(command);
+  }
+
+  private usePrimaryAbility(paused: boolean): boolean {
+    return this.usePrimaryAbility(paused);
   }
 
   clearExtraLifeCharges(): void {
@@ -271,7 +287,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
     this.actionSlots.ensureDefaultBinding();
     this.juice.arcaneSpellUnlocked();
     this.overlay.refresh();
-    this.overlay.announce('Arcane Pulse unlocked and bound to Q.', '#ffbdfd', 2800);
+    this.overlay.announce(
+      `Arcane Pulse unlocked and bound to ${getPrimaryBindingLabelForDisplay('ability.primary')}.`,
+      '#ffbdfd',
+      2800,
+    );
   }
 
   notifyArcaneVeilUnlocked(): void {
@@ -412,7 +432,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
       return;
     }
     this.juice.arcaneSpellUnlocked();
-    this.overlay.announce(`${result.label} bound to Q.`, '#ffbdfd', 2000);
+    this.overlay.announce(
+      `${result.label} bound to ${getPrimaryBindingLabelForDisplay('ability.primary')}.`,
+      '#ffbdfd',
+      2000,
+    );
     this.overlay.refresh();
   }
 
