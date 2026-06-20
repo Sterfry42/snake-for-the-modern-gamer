@@ -92,6 +92,25 @@ class I18nManager {
   getActorVoice(entryId: string, part: 'line' | 'beat'): string | undefined {
     return this.translations[this.currentLanguage]?.actorVoice?.[entryId]?.[part];
   }
+
+  getBulletTrain(key: string): string {
+    const current = (
+      this.translations[this.currentLanguage]?.common as unknown as Record<string, unknown>
+    )?.['bulletTrain'] as Record<string, string> | undefined;
+    if (current) {
+      const value = current[key];
+      if (value !== undefined && value !== null) return value as string;
+    }
+    // Fallback to English
+    const en = (this.translations['en']?.common as unknown as Record<string, unknown>)?.[
+      'bulletTrain'
+    ] as Record<string, string> | undefined;
+    if (en) {
+      const value = en[key];
+      if (value !== undefined && value !== null) return value as string;
+    }
+    return key;
+  }
 }
 
 export const i18n = new I18nManager();

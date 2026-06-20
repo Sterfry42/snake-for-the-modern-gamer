@@ -436,4 +436,12 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // HUD
   hudScore: 'Score',
+
+  // Bullet Train
+  boardTrain: 'BOARD TRAIN',
+  departureAnnouncement: 'The Jade Peak Express departs for {destination}!',
+  arrivalAnnouncement: 'Next stop: {destination}!',
+  stationSign: 'Jade Peak Express',
+  ticketBooth: 'Ticket Booth',
+  platformLantern: 'Platform Lantern',
 };

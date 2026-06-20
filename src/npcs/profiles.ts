@@ -1,5 +1,10 @@
 import { inferNpcNameArchetype } from './npcNames.js';
 
+// Recursion guard to prevent infinite loops during NPC stat generation
+const npcStatsCache = new Map<string, NpcStats>();
+let generationDepth = 0;
+const MAX_GENERATION_DEPTH = 10;
+
 export interface NpcStats {
   str: number;
   dex: number;
@@ -32,16 +37,33 @@ function hashName(name: string): number {
 }
 
 function buildGeneratedStats(name: string): NpcStats {
-  const hash = hashName(name.toLowerCase());
-  const base = {
-    str: clampStat((hash % 10) + 1),
-    dex: clampStat((Math.floor(hash / 10) % 10) + 1),
-    con: clampStat((Math.floor(hash / 100) % 10) + 1),
-    int: clampStat((Math.floor(hash / 1000) % 10) + 1),
-    wis: clampStat((Math.floor(hash / 10000) % 10) + 1),
-    cha: clampStat((Math.floor(hash / 100000) % 10) + 1),
-  };
-  return tuneStatsForNameArchetype(base, inferNpcNameArchetype(name));
+  // Recursion guard
+  const cacheKey = name.toLowerCase();
+  if (npcStatsCache.has(cacheKey)) {
+    return npcStatsCache.get(cacheKey)!;
+  }
+  if (generationDepth >= MAX_GENERATION_DEPTH) {
+    // Safety fallback for unexpected recursion
+    return { str: 5, dex: 5, con: 5, int: 5, wis: 5, cha: 5 };
+  }
+  generationDepth++;
+
+  try {
+    const hash = hashName(cacheKey);
+    const base = {
+      str: clampStat((hash % 10) + 1),
+      dex: clampStat((Math.floor(hash / 10) % 10) + 1),
+      con: clampStat((Math.floor(hash / 100) % 10) + 1),
+      int: clampStat((Math.floor(hash / 1000) % 10) + 1),
+      wis: clampStat((Math.floor(hash / 10000) % 10) + 1),
+      cha: clampStat((Math.floor(hash / 100000) % 10) + 1),
+    };
+    const result = tuneStatsForNameArchetype(base, inferNpcNameArchetype(name));
+    npcStatsCache.set(cacheKey, result);
+    return result;
+  } finally {
+    generationDepth--;
+  }
 }
 
 function tuneStatsForNameArchetype(

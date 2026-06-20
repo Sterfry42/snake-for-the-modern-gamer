@@ -86,6 +86,8 @@ import type { Quest } from '../../quests.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
 import type { InventorySystem } from '../inventory/inventory.js';
+import type { BulletTrainStation } from '../world/bulletTrainTypes.js';
+import { runBulletTrainRide } from '../world/bulletTrainScene.js';
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
 import { ArcadeSnakeRenderer } from '../arcade/arcadeSnakeRenderer.js';
@@ -1544,6 +1546,8 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly baseActorStepIntervalMs = 100;
   private readonly baseBulletStepIntervalMs = 100;
   private readonly baseHazardStepIntervalMs = 100;
+  private bulletTrainPromptVisible = false;
+  private bulletTrainStationActive = false;
   private actionStepIntervalMs = this.baseActionStepIntervalMs;
   private bossStepIntervalMs = this.baseBossStepIntervalMs;
   private actorStepIntervalMs = this.baseActorStepIntervalMs;
@@ -1586,6 +1590,7 @@ export default class SnakeScene extends Phaser.Scene {
   private housePanel!: Phaser.GameObjects.Rectangle;
   private questHint!: Phaser.GameObjects.Text;
   private questHintPanel!: Phaser.GameObjects.Rectangle;
+  private bulletTrainPromptText: Phaser.GameObjects.Text | null = null;
   private raccoonHungerTimerBar!: Phaser.GameObjects.Graphics;
   private heartsHud!: Phaser.GameObjects.Text;
   private livesHud!: Phaser.GameObjects.Text;
@@ -1872,6 +1877,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
     this.events.once(Phaser.Scenes.Events.DESTROY, this.handleShutdown, this);
+
 
     this.questHud = new QuestHud(this, {
       position: { x: this.grid.cols * this.grid.cell - 10, y: 8 },
@@ -2406,6 +2412,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractVillageShopkeeper()) return;
     if (this.tryInteractGoblinShopkeeper()) return;
     if (this.tryInteractQuestGiver()) return;
+    if (this.tryInteractBulletTrain()) return;
   }
 
   private runActionClockStep(_stepMs: number): void {
@@ -8569,6 +8576,12 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.featureManager.call('onRender', this, this.graphics);
+
+    // Draw bullet train station if present
+    if (room.bulletTrainStation) {
+      this.drawBulletTrainStation(room.bulletTrainStation);
+    }
+
     this.drawQuestRoomActors(this.snakeGame.getQuestRoomActors(room.id));
 
     // Update simple house HUD
@@ -9890,11 +9903,52 @@ export default class SnakeScene extends Phaser.Scene {
       const bounds = this.getTileBounds(room, 'WETG');
       return bounds ? [bounds] : [];
     }
+    // Bullet train stations get turn-based movement like houses
+    if (room.bulletTrainStation) {
+      const bounds = this.getBulletTrainStationBounds(room);
+      return bounds ? [bounds] : [];
+    }
     if (!this.isInHouse()) {
       return [];
     }
     const bounds = this.getTileBounds(room, 'WETCKBPLZ');
     return bounds ? [bounds] : [];
+  }
+
+  /** Get the turn-based zone bounds for a bullet train station. */
+  private getBulletTrainStationBounds(room: ReturnType<SnakeGame['getCurrentRoom']>): LocalRect | null {
+    const station = room.bulletTrainStation;
+    if (!station) return null;
+
+    const { entranceX, entranceY, decorations } = station;
+
+    // Start with the entrance tile
+    let left = entranceX;
+    let top = entranceY;
+    let right = entranceX;
+    let bottom = entranceY;
+
+    // Expand bounds to include all decorations
+    for (const deco of decorations) {
+      const dx = deco.x;
+      const dy = deco.y;
+      left = Math.min(left, dx);
+      top = Math.min(top, dy);
+      right = Math.max(right, dx);
+      bottom = Math.max(bottom, dy);
+    }
+
+    // Also include the platform tiles that are drawn around the entrance
+    // but not covered by decorations (the platform extends to entranceX±4, entranceY±1)
+    left = Math.min(left, entranceX - 4);
+    top = Math.min(top, entranceY - 2);
+    right = Math.max(right, entranceX + 4);
+    bottom = Math.max(bottom, entranceY + 2);
+
+    if (left > right || top > bottom) {
+      return null;
+    }
+    return { left, top, width: right - left + 1, height: bottom - top + 1 };
   }
 
   private getTileBounds(
@@ -11987,6 +12041,207 @@ export default class SnakeScene extends Phaser.Scene {
     return `#${color.toString(16).padStart(6, '0')}`;
   }
 
+  private drawBulletTrainStation(station: BulletTrainStation): void {
+    const cell = this.grid.cell;
+    const { entranceX, entranceY, decorations } = station;
+    const room = this.snakeGame.getCurrentRoom();
+    const roomWidth = this.grid.cols;
+
+    // === BALLAST / GRAVEL BED ===
+    // Dark gravel background under the tracks (extend to room edges)
+    this.graphics.fillStyle(0x3d3528, 0.4);
+    for (let dx = -roomWidth; dx <= roomWidth; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        const bx = entranceX + dx;
+        const by = entranceY + dy;
+        if (Math.abs(dy) <= 1 && bx >= 0 && bx < roomWidth) {
+          this.graphics.fillRect(bx * cell, by * cell, cell, cell);
+        }
+      }
+    }
+
+    // === TRACK TIES (sleepers) ===
+    this.graphics.lineStyle(2, 0x5a4a3a, 0.6);
+    for (let dx = -roomWidth; dx <= roomWidth; dx += 1.5) {
+      const tx = (entranceX + dx) * cell + cell / 2;
+      this.graphics.lineBetween(tx, (entranceY - 1.3) * cell, tx, (entranceY + 1.3) * cell);
+    }
+
+    // === RAILS (extend to room edges) ===
+    const railLeft = (entranceX - roomWidth) * cell + cell / 2;
+    const railRight = (entranceX + roomWidth) * cell + cell / 2;
+    this.graphics.lineStyle(3, 0x4a4a4a, 0.9);
+    // Top rail
+    this.graphics.lineBetween(railLeft, (entranceY - 1) * cell + cell / 2, railRight, (entranceY - 1) * cell + cell / 2);
+    // Bottom rail
+    this.graphics.lineBetween(railLeft, (entranceY + 1) * cell + cell / 2, railRight, (entranceY + 1) * cell + cell / 2);
+    // Rail highlights
+    this.graphics.lineStyle(1, 0x6a6a6a, 0.5);
+    this.graphics.lineBetween(railLeft, (entranceY - 1) * cell + cell / 2 - 1, railRight, (entranceY - 1) * cell + cell / 2 - 1);
+    this.graphics.lineBetween(railLeft, (entranceY + 1) * cell + cell / 2 + 1, railRight, (entranceY + 1) * cell + cell / 2 + 1);
+
+    // === PLATFORM ===
+    // Platform base with tile grid
+    this.graphics.fillStyle(0x7a7a7a, 0.55);
+    for (let dx = -4; dx <= 4; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const px = entranceX + dx;
+        const py = entranceY + dy;
+        if (px === entranceX && py === entranceY) continue;
+        this.graphics.fillRect(px * cell, py * cell, cell, cell);
+        // Tile grid lines
+        this.graphics.lineStyle(1, 0x5a5a5a, 0.3);
+        this.graphics.strokeRect(px * cell, py * cell, cell, cell);
+      }
+    }
+
+    // Platform edge with yellow safety line
+    this.graphics.lineStyle(3, 0xd4a017, 0.8);
+    for (let dx = -4; dx <= 4; dx++) {
+      const ex = (entranceX + dx) * cell + cell / 2;
+      this.graphics.lineBetween(ex, entranceY * cell + cell - 3, ex, entranceY * cell + cell + 1);
+    }
+    // Dashed pattern on safety line
+    this.graphics.lineStyle(2, 0xffd166, 0.6);
+    for (let dx = -3; dx <= 3; dx += 2) {
+      const ex = (entranceX + dx) * cell + cell / 2;
+      this.graphics.lineBetween(ex, entranceY * cell + cell - 1, ex + 5, entranceY * cell + cell - 1);
+    }
+
+    // === CANOPY / ROOF OVER ENTRANCE ===
+    // Support pillars
+    const pillarColor = 0x4a3a2a;
+    const roofColor = 0x8b2020;
+    // Left pillar
+    this.graphics.fillStyle(pillarColor, 0.85);
+    this.graphics.fillRect((entranceX - 1.5) * cell + 2, (entranceY - 2) * cell, 6, cell * 2);
+    // Right pillar
+    this.graphics.fillRect((entranceX + 1.5) * cell - 8, (entranceY - 2) * cell, 6, cell * 2);
+    // Roof canopy
+    this.graphics.fillStyle(roofColor, 0.75);
+    this.graphics.fillRect((entranceX - 2) * cell, (entranceY - 2) * cell, cell * 4, 6);
+    // Roof trim
+    this.graphics.fillStyle(0xffd166, 0.5);
+    this.graphics.fillRect((entranceX - 2) * cell, (entranceY - 2) * cell + 4, cell * 4, 2);
+    // Roof scalloped edge
+    this.graphics.fillStyle(roofColor, 0.75);
+    for (let dx = -2; dx <= 2; dx++) {
+      this.graphics.fillCircle((entranceX + dx) * cell + cell / 2, (entranceY - 2) * cell + 8, 4);
+    }
+
+    // === DECORATIONS ===
+    for (const deco of decorations) {
+      switch (deco.type) {
+        case 'lantern':
+          // Hanging wire from canopy
+          this.graphics.lineStyle(1, 0x555555, 0.5);
+          this.graphics.lineBetween((deco.x + 0.5) * cell, (entranceY - 2) * cell, (deco.x + 0.5) * cell, deco.y * cell);
+          // Lantern body with traditional shape
+          this.graphics.fillStyle(deco.color, 0.85);
+          this.graphics.fillCircle((deco.x + 0.5) * cell, (deco.y + 0.5) * cell, 5);
+          // Top cap
+          this.graphics.fillStyle(0x2a2a2a, 0.7);
+          this.graphics.fillRect((deco.x + 0.35) * cell, (deco.y + 0.3) * cell, cell * 0.3, 2);
+          // Bottom cap
+          this.graphics.fillRect((deco.x + 0.35) * cell, (deco.y + 0.7) * cell, cell * 0.3, 2);
+          // Warm glow
+          this.graphics.fillStyle(deco.color, 0.12);
+          this.graphics.fillCircle((deco.x + 0.5) * cell, (deco.y + 0.5) * cell, 12);
+          break;
+        case 'ticket-booth':
+          // Booth base
+          this.graphics.fillStyle(0x6b4513, 0.8);
+          this.graphics.fillRect(deco.x * cell + 2, deco.y * cell + 2, cell - 4, cell - 4);
+          // Counter
+          this.graphics.fillStyle(0x8b6914, 0.7);
+          this.graphics.fillRect(deco.x * cell + 4, deco.y * cell + cell * 0.5, cell - 8, 4);
+          // Roof
+          this.graphics.fillStyle(0xcc3333, 0.85);
+          this.graphics.fillRect(deco.x * cell - 2, deco.y * cell - 2, cell + 4, 5);
+          // Roof overhang
+          this.graphics.fillStyle(0xaa2222, 0.7);
+          this.graphics.fillRect(deco.x * cell - 3, deco.y * cell + 3, cell + 6, 2);
+          // Window
+          this.graphics.fillStyle(0xffd166, 0.5);
+          this.graphics.fillRect(deco.x * cell + 6, deco.y * cell + 8, cell - 12, 5);
+          break;
+        case 'bench':
+          // Bench seat
+          this.graphics.fillStyle(0x8b6914, 0.75);
+          this.graphics.fillRect(deco.x * cell + 2, (deco.y + 0.2) * cell, cell - 4, 5);
+          // Back rest
+          this.graphics.fillRect(deco.x * cell + 2, (deco.y - 0.1) * cell, cell - 4, 3);
+          // Legs
+          this.graphics.fillStyle(0x5a4a10, 0.7);
+          this.graphics.fillRect(deco.x * cell + 3, (deco.y + 0.6) * cell, 3, 5);
+          this.graphics.fillRect((deco.x + 1) * cell - 6, (deco.y + 0.6) * cell, 3, 5);
+          break;
+        case 'sign':
+          // Sign post
+          this.graphics.lineStyle(2, 0x555555, 0.7);
+          this.graphics.lineBetween((deco.x + 0.5) * cell, (deco.y + 1) * cell, (deco.x + 0.5) * cell, (deco.y + 0.5) * cell);
+          // Sign board
+          this.graphics.fillStyle(0x2a2a2a, 0.85);
+          this.graphics.fillRect(deco.x * cell - 10, deco.y * cell - 2, 20, 12);
+          // Gold trim
+          this.graphics.lineStyle(1, 0xffd166, 0.6);
+          this.graphics.strokeRect(deco.x * cell - 10, deco.y * cell - 2, 20, 12);
+          // Station name text (simple line representation)
+          this.graphics.lineStyle(1, 0xffffff, 0.4);
+          this.graphics.lineBetween(deco.x * cell - 6, deco.y * cell + 2, deco.x * cell + 6, deco.y * cell + 2);
+          this.graphics.lineBetween(deco.x * cell - 6, deco.y * cell + 5, deco.x * cell + 6, deco.y * cell + 5);
+          break;
+        case 'platform-edge':
+          // Yellow edge markers
+          this.graphics.fillStyle(0xffd166, 0.35);
+          this.graphics.fillCircle((deco.x + 0.5) * cell, (deco.y + 0.5) * cell, 3);
+          break;
+      }
+    }
+
+    // === ENTRANCE TILE ===
+    // Pulsing glow
+    const pulse = 0.35 + Math.sin(this.time.now * 0.005) * 0.15;
+    // Entrance platform
+    this.graphics.fillStyle(0xf8a0c2, pulse);
+    this.graphics.fillRect(entranceX * cell, entranceY * cell, cell, cell);
+    // Inner glow circle
+    this.graphics.fillStyle(0xff6b9d, 0.5);
+    this.graphics.fillCircle((entranceX + 0.5) * cell, (entranceY + 0.5) * cell, cell / 3);
+    // Outer glow
+    this.graphics.fillStyle(0xff6b9d, 0.08);
+    this.graphics.fillCircle((entranceX + 0.5) * cell, (entranceY + 0.5) * cell, cell / 1.5);
+    // Train icon (simplified)
+    this.graphics.fillStyle(0xffffff, 0.7);
+    // Train body
+    this.graphics.fillRect((entranceX + 0.3) * cell, (entranceY + 0.3) * cell, cell * 0.4, cell * 0.4);
+    // Train front
+    this.graphics.fillRect((entranceX + 0.55) * cell, (entranceY + 0.2) * cell, cell * 0.2, cell * 0.6);
+    // Train windows
+    this.graphics.fillStyle(0x87ceeb, 0.6);
+    this.graphics.fillRect((entranceX + 0.35) * cell, (entranceY + 0.35) * cell, cell * 0.12, cell * 0.15);
+    this.graphics.fillRect((entranceX + 0.5) * cell, (entranceY + 0.35) * cell, cell * 0.12, cell * 0.15);
+    // Wheels
+    this.graphics.fillStyle(0x333333, 0.7);
+    this.graphics.fillCircle((entranceX + 0.35) * cell, (entranceY + 0.75) * cell, 2);
+    this.graphics.fillCircle((entranceX + 0.65) * cell, (entranceY + 0.75) * cell, 2);
+
+    // Draw the @ entrance marker using text object
+    const atText = this.add.text(
+      (entranceX + 0.5) * cell,
+      (entranceY + 0.5) * cell,
+      '@',
+      {
+        fontFamily: 'monospace',
+        fontSize: `${Math.floor(cell * 0.6)}px`,
+        color: '#ffffff',
+        fontStyle: 'bold',
+      },
+    )
+      .setOrigin(0.5, 0.5)
+      .setDepth(50);
+  }
+
   private drawQuestRoomActors(actors: QuestRoomActor[]): void {
     const cell = this.grid.cell;
     const envoy = actors.find((actor) => actor.kind === 'starforged-envoy') ?? null;
@@ -13004,6 +13259,253 @@ export default class SnakeScene extends Phaser.Scene {
     this.openMolemanInteractionMenu(room);
     return true;
   }
+
+  private tryInteractBulletTrain(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const station = room.bulletTrainStation;
+    if (!station || station.used) {
+      this.bulletTrainPromptVisible = false;
+      // If station is used, allow the snake to move again
+      if (this.bulletTrainStationActive) {
+        this.bulletTrainStationActive = false;
+        this.paused = false;
+      }
+      return false;
+    }
+    const local = this.getHeadLocalPosition();
+    if (!local) {
+      this.bulletTrainPromptVisible = false;
+      return false;
+    }
+    // Check if the snake head is on or adjacent to the entrance tile
+    const dist = Math.abs(local.x - station.entranceX) + Math.abs(local.y - station.entranceY);
+
+    // If near the station, pause the snake and show the prompt
+    if (dist <= 1) {
+      // Pause the snake so it stops moving at the station (house-like behavior)
+      this.bulletTrainStationActive = true;
+      this.paused = true;
+
+      // Show prompt when near but not yet interacting
+      if (!this.bulletTrainPromptVisible) {
+        this.bulletTrainPromptVisible = true;
+        this.showBulletTrainPrompt(station);
+      }
+
+      // If already showing prompt, opening destination selection
+      this.openBulletTrainDestinationMenu(station);
+      return true;
+    }
+
+    // If the snake moved away from the station, unpause and resume movement
+    if (this.bulletTrainStationActive) {
+      this.bulletTrainStationActive = false;
+      this.bulletTrainPromptVisible = false;
+      this.hideBulletTrainPrompt();
+      this.paused = false;
+    }
+
+    return false;
+  }
+
+  /** Show a floating prompt when the player is near the bullet train station. */
+  private showBulletTrainPrompt(station: BulletTrainStation): void {
+    const cell = this.grid.cell;
+    const worldX = (station.entranceX + 0.5) * cell;
+    const worldY = (station.entranceY - 0.5) * cell;
+
+    // Create floating prompt text
+    const promptText = i18n.getBulletTrain('boardTrain') ?? 'BOARD TRAIN';
+    this.bulletTrainPromptText = this.add.text(worldX, worldY, promptText, {
+      fontFamily: 'monospace',
+      fontSize: `${cell * 0.4}px`,
+      color: '#f8a0c2',
+      fontStyle: 'bold',
+    })
+      .setOrigin(0.5)
+      .setDepth(100)
+      .setScrollFactor(0);
+
+    // Animate the prompt
+    this.tweens.add({
+      targets: this.bulletTrainPromptText,
+      alpha: 0.5,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  /** Hide the floating bullet train prompt. */
+  private hideBulletTrainPrompt(): void {
+    if (this.bulletTrainPromptText) {
+      this.tweens.add({
+        targets: this.bulletTrainPromptText,
+        alpha: 0,
+        duration: 200,
+        onComplete: () => {
+          this.bulletTrainPromptText?.destroy();
+          this.bulletTrainPromptText = null;
+        },
+      });
+    }
+    this.bulletTrainPromptVisible = false;
+  }
+
+  /** Open a destination selection menu for the bullet train. */
+  private openBulletTrainDestinationMenu(station: BulletTrainStation): void {
+    const destinations = this.snakeGame.getBulletTrainDestinations(station.stationId);
+    if (destinations.length === 0) {
+      this.showQuestHintPopup('No destinations available.', '#ff6b6b');
+      this.hideBulletTrainPrompt();
+      return;
+    }
+
+    // Build choice options with coordinates
+    const options: ChoiceOption[] = destinations.map((dest, index) => {
+      const coordStr = dest.coordinates ?? '???';
+      return {
+        id: `dest-${index}`,
+        title: `${dest.displayName} [${coordStr}]`,
+        description: dest.arrivalFlavor,
+      };
+    });
+
+    // Add a "Go back" option
+    options.push({
+      id: 'cancel',
+      title: 'Go Back',
+      description: 'Stay at this station.',
+    });
+
+    this.paused = true;
+    this.skillTree.hideOverlay();
+    this.villageShopPopup.show(
+      'Jade Peak Express',
+      options,
+      (selectedId) => {
+        if (selectedId === 'cancel') {
+          this.paused = false;
+          this.hideBulletTrainPrompt();
+          return;
+        }
+
+        const destIndex = parseInt(selectedId.replace('dest-', ''), 10);
+        const chosen = destinations[destIndex];
+        if (!chosen) {
+          this.showQuestHintPopup('Invalid destination.', '#ff6b6b');
+          this.paused = false;
+          return;
+        }
+
+        this.hideBulletTrainPrompt();
+        this.startBulletTrainRide(station, chosen);
+      },
+    );
+  }
+
+  /** Start the bullet train ride to a specific destination. */
+  private startBulletTrainRide(station: BulletTrainStation, chosen: {
+    roomId: string;
+    exitX: number;
+    exitY: number;
+    arrivalFlavor: string;
+    displayName: string;
+    weight: number;
+    coordinates?: string;
+  }): void {
+    // Create journey
+    const journey = this.snakeGame.createBulletTrainJourney(
+      this.snakeGame.getCurrentRoom().id,
+      chosen.roomId,
+    );
+    if (!journey) {
+      this.showQuestHintPopup('The train is not ready.', '#ff6b6b');
+      this.paused = false;
+      return;
+    }
+
+    // Set the journey flag
+    this.snakeGame.setFlag('bulletTrain.journey', journey);
+    this.snakeGame.markBulletTrainStationUsed(this.snakeGame.getCurrentRoom().id);
+
+    // Pause the game so the snake doesn't move during the ride
+    // We keep the scene running so tweens and time-based animations work
+    this.paused = true;
+
+    // Play departure juice
+    const entranceWorld = this.tileToWorld({
+      x: station.entranceX + this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[0] * this.grid.cols,
+      y: station.entranceY + this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[1] * this.grid.rows,
+    });
+    this.juice.bulletTrainDepart(entranceWorld.x, entranceWorld.y);
+
+    // Show departure announcement with destination name and coordinates
+    const coordStr = chosen.coordinates ?? '';
+    const departureMsg = i18n.getBulletTrain('departureAnnouncement')?.replace(
+      '{destination}',
+      chosen.displayName,
+    ) ?? `The Jade Peak Express departs for ${chosen.displayName}!`;
+    const coordAnnouncement = coordStr ? ` → ${coordStr}` : '';
+    this.showQuestHintPopup(`${departureMsg}${coordAnnouncement}`, '#f8a0c2');
+
+    // Run the bullet train ride animation inline (avoids scene lifecycle issues)
+    runBulletTrainRide(this, {
+      journey,
+      arrivalFlavor: chosen.arrivalFlavor,
+      destinationRoomId: chosen.roomId,
+      destinationExitX: chosen.exitX,
+      destinationExitY: chosen.exitY,
+      stationRoomId: journey.stationRoomId,
+      destinationCoordinates: chosen.coordinates,
+      onArrival: (arrivalData) => this.handleBulletTrainArrival(arrivalData),
+    });
+  }
+
+  private handleBulletTrainArrival(arrivalData: {
+    destinationRoomId: string;
+    destinationExitX: number;
+    destinationExitY: number;
+    arrivalFlavor: string;
+    displayName?: string;
+  }): void {
+    // Teleport snake to destination
+    this.snakeGame.moveToRoom(arrivalData.destinationRoomId, {
+      x: arrivalData.destinationExitX,
+      y: arrivalData.destinationExitY,
+    });
+
+    // Grant brief invincibility to avoid wall damage after teleport
+    this.snakeGame.setFlag('fortitude.invulnerabilityTicks', 120); // ~2 seconds at 60fps
+
+    // Clear the journey flag
+    this.snakeGame.setFlag('bulletTrain.journey', undefined);
+
+    // Show arrival flavor text (essential - always runs)
+    this.showQuestHintPopup(arrivalData.arrivalFlavor, '#f8a0c2');
+
+    // Try to play arrival juice effects, but don't let failures block the game
+    try {
+      const [destRoomX, destRoomY] = this.parseRoomCoordinates(arrivalData.destinationRoomId);
+      const exitWorldX = destRoomX * this.grid.cols + arrivalData.destinationExitX;
+      const exitWorldY = destRoomY * this.grid.rows + arrivalData.destinationExitY;
+      this.juice.bulletTrainArrive(
+        exitWorldX * this.grid.cell + this.grid.cell / 2,
+        exitWorldY * this.grid.cell + this.grid.cell / 2,
+      );
+    } catch {
+      // Juice effects failed (e.g., corrupted layers) - continue without them
+    }
+
+    // Resume the game (this must always run)
+    this.paused = false;
+    this.isDirty = true;
+  }
+
 
   private openMolemanInteractionMenu(room = this.snakeGame.getCurrentRoom()): void {
     const digSite = room.molemanDigSite;

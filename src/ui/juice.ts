@@ -3515,6 +3515,10 @@ export class JuiceManager {
     worldY: number,
     { colors, count, radius }: { colors: number[]; count: number; radius: number },
   ) {
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
       const dist = Phaser.Math.Between(radius * 0.4, radius);
@@ -3527,7 +3531,7 @@ export class JuiceManager {
         Phaser.Utils.Array.GetRandom(colors),
       );
       circle.setDepth(22);
-      this.particleLayer.add(circle);
+      layer.add(circle);
 
       this.scene.tweens.add({
         targets: circle,
@@ -6635,6 +6639,208 @@ export class JuiceManager {
       duration: 0.12,
       type: 'sine',
       volume: 0.06,
+    });
+  }
+
+  // ─── Bullet Train Juice ───────────────────────────────────────────────
+
+  bulletTrainDepart(worldX: number, worldY: number) {
+    // Train horn blast
+    this.playTone({
+      frequency: 120,
+      frequencyEnd: 80,
+      duration: 0.6,
+      type: 'sawtooth',
+      volume: 0.15,
+    });
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 120,
+      duration: 0.5,
+      type: 'square',
+      volume: 0.08,
+    });
+
+    // Wheel clatter (rhythmic)
+    for (let i = 0; i < 6; i++) {
+      this.playTone({
+        frequency: 200 + i * 30,
+        duration: 0.04,
+        type: 'square',
+        volume: 0.04,
+      });
+    }
+
+    // Camera shake
+    this.kickCamera(0.025, 200);
+
+    // Screen edges blur effect
+    this.scene.cameras.main.flash(80, 100, 100, 100, true);
+
+    // Dust cloud particles
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xb8a898, 0xd4c8b8, 0xa89888],
+      count: 20,
+      radius: 24,
+    });
+
+    // Speed lines radiating from entrance
+    const cam = this.scene.cameras.main;
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const line = this.scene.add.graphics();
+      const startX = worldX + Math.cos(angle) * 10;
+      const startY = worldY + Math.sin(angle) * 10;
+      const endX = startX + Math.cos(angle) * 40;
+      const endY = startY + Math.sin(angle) * 40;
+      line.lineStyle(2, 0xffd166, 0.4);
+      line.lineBetween(startX, startY, endX, endY);
+      this.scene.tweens.add({
+        targets: line,
+        alpha: 0,
+        duration: 400,
+        ease: 'Sine.easeOut',
+        onComplete: () => line.destroy(),
+      });
+    }
+
+    // Punch zoom out using tween
+    this.scene.tweens.add({
+      targets: cam,
+      zoom: 0.95,
+      duration: 300,
+      ease: 'Sine.easeOut',
+    });
+  }
+
+  bulletTrainRide(progress: number, _worldX: number, _worldY: number) {
+    // Rhythmic wheel clack at increasing tempo
+    const tempo = 0.1 + progress * 0.15;
+    this.playTone({
+      frequency: 180 + progress * 60,
+      duration: tempo,
+      type: 'square',
+      volume: 0.03,
+    });
+
+    // Wind whoosh
+    if (progress > 0.2 && progress < 0.8) {
+      this.playTone({
+        frequency: 300 + Math.sin(progress * 20) * 50,
+        duration: 0.3,
+        type: 'sine',
+        volume: 0.02,
+      });
+    }
+
+    // Occasional chime between stations
+    if (Math.sin(progress * 30) > 0.95) {
+      this.playTone({
+        frequency: 880,
+        duration: 0.15,
+        type: 'sine',
+        volume: 0.04,
+      });
+    }
+
+    // Gentle camera sway
+    const cam = this.scene.cameras.main;
+    const sway = Math.sin(progress * Math.PI * 4) * 0.003;
+    cam.setFollowOffset(cam.scrollX + sway, cam.scrollY);
+  }
+
+  bulletTrainArrive(worldX: number, worldY: number) {
+    // Brake hiss
+    this.playTone({
+      frequency: 600,
+      frequencyEnd: 200,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+
+    // Announcement chime
+    this.playTone({
+      frequency: 660,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.06,
+    });
+    this.playTone({
+      frequency: 880,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.06,
+    });
+
+    // Door open sound
+    this.playTone({
+      frequency: 400,
+      frequencyEnd: 600,
+      duration: 0.15,
+      type: 'square',
+      volume: 0.05,
+    });
+
+    // Camera stabilizes
+    if (this.scene.cameras?.main) {
+      this.scene.cameras.main.flash(150, 255, 255, 255, true);
+    }
+
+    // Cherry blossom petals
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
+    for (let i = 0; i < 15; i++) {
+      const petal = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-30, 30),
+        worldY + Phaser.Math.Between(-30, 30),
+        Phaser.Math.Between(2, 4),
+        0xffb3ba,
+        0.6,
+      );
+      petal.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(petal);
+      this.scene.tweens.add({
+        targets: petal,
+        x: petal.x + Phaser.Math.Between(-20, 40),
+        y: petal.y + Phaser.Math.Between(10, 30),
+        alpha: 0,
+        scale: 0.5,
+        duration: Phaser.Math.Between(800, 1500),
+        ease: 'Sine.easeOut',
+        onComplete: () => petal.destroy(),
+      });
+    }
+
+    // Steam/dust settling
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xe8e8e8, 0xf0f0f0, 0xd8d8d8],
+      count: 10,
+      radius: 18,
+    });
+  }
+
+  bulletTrainAnnounce(destinationName: string) {
+    // LED-style announcement tone
+    this.playTone({
+      frequency: 440,
+      duration: 0.1,
+      type: 'sine',
+      volume: 0.05,
+    });
+    this.playTone({
+      frequency: 550,
+      duration: 0.1,
+      type: 'sine',
+      volume: 0.05,
+    });
+    this.playTone({
+      frequency: 660,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.05,
     });
   }
 }

@@ -161,4 +161,16 @@ export const COMMON_EN: CommonTranslations = {
     moodIntrigued: 'intrigued',
     moodNeutral: 'neutral',
   },
+  // Bullet Train
+  bulletTrain: {
+    boardTrain: 'BOARD TRAIN',
+    departureAnnouncement: 'The Jade Peak Express departs for {destination}!',
+    arrivalAnnouncement: 'Next stop: {destination}!',
+    stationSign: 'Jade Peak Express',
+    ticketBooth: 'Ticket Booth',
+    platformLantern: 'Platform Lantern',
+    stationPauseMessage: 'The train is at the station. Choose your destination.',
+    stationResumeMessage: 'The snake resumes its journey.',
+    travelToCoordinates: 'Travel to {coordinates}',
+  },
 } as const;

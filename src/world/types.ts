@@ -10,6 +10,7 @@ import type {
 } from '../caves/caveTypes.js';
 import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 import type { DigSiteVariantId } from '../archaeology/molemanArchaeology.js';
+import type { BulletTrainStation } from './bulletTrainTypes.js';
 
 /** A single vegetation instance placed on the room grid. */
 export interface VegetationInstance {
@@ -213,6 +214,7 @@ export interface RoomSnapshot {
     bounds: { left: number; top: number; width: number; height: number };
     pit: Vector2Like;
   };
+  bulletTrainStation?: BulletTrainStation;
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   minecraftBlocks?: Record<string, string>;
   minecraftCropData?: Map<string, { stage: number; growthTicks: number }>;

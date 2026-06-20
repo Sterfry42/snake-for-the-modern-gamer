@@ -4276,6 +4276,71 @@ export class SnakeGame implements QuestRuntime {
     return room;
   }
 
+  // === BULLET TRAIN ===
+
+  /** Move the snake to a room at a specific position. */
+  moveToRoom(roomId: string, position: { x: number; y: number }): void {
+    const room = this.world.getRoom(roomId);
+    const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+    // Access internal body array to set head position
+    const body = (this.snake as unknown as { body: Vector2Like[] }).body;
+    body[0] = {
+      x: roomX * this.config.grid.cols + position.x,
+      y: roomY * this.config.grid.rows + position.y,
+    };
+    this.snake.currentRoomId = roomId;
+    this.visitedRooms.add(roomId);
+    this.setFlag('roomsVisited', this.visitedRooms.size);
+    this.setFlag('traversal.manualResumePending', true);
+  }
+
+  /** Get bullet train destinations for a station room. */
+  getBulletTrainDestinations(stationId: string): Array<{
+    roomId: string;
+    exitX: number;
+    exitY: number;
+    arrivalFlavor: string;
+    displayName: string;
+    weight: number;
+    coordinates?: string;
+  }> {
+    for (const room of this.world.snapshot().values()) {
+      if (room.bulletTrainStation?.stationId === stationId) {
+        return this.world.getBulletTrainDestinations(room.id);
+      }
+    }
+    return [];
+  }
+
+  /** Mark a bullet train station as used. */
+  markBulletTrainStationUsed(stationId: string): void {
+    for (const room of this.world.snapshot().values()) {
+      if (room.bulletTrainStation?.stationId === stationId) {
+        this.world.markBulletTrainStationUsed(room.id);
+        return;
+      }
+    }
+  }
+
+  /** Create a bullet train journey. */
+  createBulletTrainJourney(
+    stationRoomId: string,
+    destinationRoomId: string,
+  ): {
+    stationRoomId: string;
+    stationEntranceX: number;
+    stationEntranceY: number;
+    destinationRoomId: string;
+    destinationExitX: number;
+    destinationExitY: number;
+    transitRooms: string[];
+    transitProgress: number;
+    startedAtMs: number;
+    durationMs: number;
+  } | null {
+    return this.world.createBulletTrainJourney(stationRoomId, destinationRoomId);
+  }
+
   private isHeadOnWaterTile(): boolean {
     const head = this.snake.bodySegments[0];
     if (!head) {

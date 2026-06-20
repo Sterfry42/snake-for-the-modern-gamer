@@ -25,7 +25,9 @@ export type WorldEventType =
   | 'bandit-raid-ended'
   | 'faction-skirmish-started'
   | 'faction-skirmish-ended'
-  | 'room-entered';
+  | 'room-entered'
+  | 'bullet-train-departed'
+  | 'bullet-train-arrived';
 
 export interface WorldEvent {
   id: string;
