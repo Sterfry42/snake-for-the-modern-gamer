@@ -77,6 +77,7 @@ import { createMobileControls, type MobileControls } from '../ui/mobileControls.
 import {
   getPrimaryBindingLabelForDisplay,
   isKeyboardEventForAction,
+  type ControlActionId,
 } from '../input/controlActions.js';
 import { ControllerInput } from '../input/controllerInput.js';
 import { InputModeManager } from '../input/inputModeManager.js';
@@ -1864,6 +1865,9 @@ export default class SnakeScene extends Phaser.Scene {
         this.inputModeManager.markTouchInput();
         this.togglePauseMenu();
       },
+      onAction: (actionId) => {
+        this.handleMobileControlAction(actionId);
+      },
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, this.handleShutdown, this);
@@ -2106,10 +2110,7 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
 
-      if (
-        this.awaitingLevelUpDirection &&
-        controlDirection
-      ) {
+      if (this.awaitingLevelUpDirection && controlDirection) {
         event.preventDefault();
         if (!this.resumeAfterLevelUpDirection()) {
           return;
@@ -2362,6 +2363,30 @@ export default class SnakeScene extends Phaser.Scene {
     if (isKeyboardEventForAction(event, 'move.left')) return { x: -1, y: 0 };
     if (isKeyboardEventForAction(event, 'move.right')) return { x: 1, y: 0 };
     return null;
+  }
+
+  private handleMobileControlAction(actionId: ControlActionId): void {
+    this.inputModeManager.markTouchInput();
+
+    if (actionId === 'interact.confirm') {
+      this.performInteractAction();
+      return;
+    }
+
+    if (actionId === 'map.toggle') {
+      const result = this.toggleMinimap();
+      if (result) {
+        this.showQuestHintPopup(result.message, result.color);
+      }
+      return;
+    }
+
+    if (actionId === 'back.cancel') {
+      if (this.paused) {
+        this.togglePauseMenu(false);
+      }
+      return;
+    }
   }
 
   private performInteractAction(): void {
@@ -2650,8 +2675,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
     this.questPopup.hide();
     this.lastVisibleLifeCharges = 0;
-     if (!this.titleVisible) {
-     }
+    if (!this.titleVisible) {
+    }
   }
 
   private runActionStep(): void {
@@ -8598,7 +8623,9 @@ export default class SnakeScene extends Phaser.Scene {
     return this.livesHud.getBounds().bottom + 4;
   }
 
-  getFeature<T extends import('../features/feature.js').Feature = import('../features/feature.js').Feature>(id: string): T | undefined {
+  getFeature<
+    T extends import('../features/feature.js').Feature = import('../features/feature.js').Feature,
+  >(id: string): T | undefined {
     return this.featureManager.getFeature<T>(id);
   }
 
