@@ -1535,6 +1535,7 @@ export default class SnakeScene extends Phaser.Scene {
   private houseMusicActive = false;
   private townMusicActive = false;
   private _hasCherryBlossomAmbient = false;
+  private _hasJadePeakAmbient = false;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
   private caffeinatedAppleBoostExpirationsMs: number[] = [];
   private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
@@ -4424,6 +4425,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.autosaveTimer = null;
     this.juice.stopCherryBlossomAmbient();
     this._hasCherryBlossomAmbient = false;
+    this.juice.stopJadePeakAmbient();
+    this._hasJadePeakAmbient = false;
   }
 
   getAchievementManager(): AchievementManager {
@@ -8368,14 +8371,23 @@ export default class SnakeScene extends Phaser.Scene {
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
     });
 
-    // Ambient cherry blossom particles for cherry-garden rooms
+    // Ambient cherry blossom particles for cherry-garden rooms AND jade-peak-province biome
     const isCherryGarden = room.archetypeId === 'cherry-garden';
+    const isJadePeak = room.biomeId === 'jade-peak-province';
     if (isCherryGarden && !this._hasCherryBlossomAmbient) {
       this.juice.startCherryBlossomAmbient();
       this._hasCherryBlossomAmbient = true;
     } else if (!isCherryGarden && this._hasCherryBlossomAmbient) {
       this.juice.stopCherryBlossomAmbient();
       this._hasCherryBlossomAmbient = false;
+    }
+    // Jade Peak Province: full Japanese ambient effects
+    if (isJadePeak && !this._hasJadePeakAmbient) {
+      this.juice.startJadePeakAmbient();
+      this._hasJadePeakAmbient = true;
+    } else if (!isJadePeak && this._hasJadePeakAmbient) {
+      this.juice.stopJadePeakAmbient();
+      this._hasJadePeakAmbient = false;
     }
 
     this.updateIntoxicationVisuals();
@@ -17420,6 +17432,101 @@ export default class SnakeScene extends Phaser.Scene {
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         );
+      }
+    } else if (room.biomeId === 'jade-peak-province') {
+      // Jade Peak Province — maximum Japanese ambient juice
+      if (this.random() < 0.18) {
+        const world = {
+          x: Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
+          y: Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
+        };
+        (this.juice as any).jadePeakAmbientRandom?.(world.x, world.y);
+      }
+      // Special structure effects
+      if ((room.shrine || room.archetypeId === 'shrine') && this.random() < 0.15) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).shrineLanternGlow?.(world.x, world.y);
+        (this.juice as any).ofudaFloat?.(world.x, world.y);
+      }
+      if ((room.ramenStand || room.archetypeId === 'ramen-stand') && this.random() < 0.12) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).ramenSteam?.(world.x, world.y);
+        (this.juice as any).mochiPound?.(world.x, world.y);
+      }
+      if ((room.koiPond || room.archetypeId === 'koi-pond') && this.random() < 0.15) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).koiRipple?.(world.x, world.y);
+        (this.juice as any).kappaSplash?.(world.x, world.y);
+      }
+      if (room.tenguCamp && this.random() < 0.1) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).tanukiShadow?.(world.x, world.y);
+        (this.juice as any).onpuClapper?.(world.x, world.y);
+      }
+      // Special biome-wide effects
+      if (this.random() < 0.06) {
+        (this.juice as any).origamiCraneFly?.();
+      }
+      if (this.random() < 0.08) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).toriiSparkle?.(world.x, world.y);
+      }
+      if (this.random() < 0.05) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).sakuraPetalBurst?.(world.x, world.y);
+      }
+      if (this.random() < 0.07) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).zenRipple?.(world.x, world.y);
+      }
+      if (this.random() < 0.06) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).shimenawaGlow?.(world.x, world.y);
+      }
+      if (this.random() < 0.05) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).wasabiMist?.(world.x, world.y);
+      }
+      if (this.random() < 0.04) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).craneWingFlap?.(world.x, world.y);
+      }
+      if (this.random() < 0.06) {
+        const world = {
+          x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
+          y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
+        };
+        (this.juice as any).bambooSway?.(world.x, world.y);
       }
     }
 
