@@ -6923,12 +6923,12 @@ export class JuiceManager {
     const cam = this.scene.cameras.main;
 
     // Initial batch
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 3; i++) {
       this._spawnShrineLantern(cam, layer);
     }
 
     this.jadePeakEffects.shrineLanternTimer = this.scene.time.addEvent({
-      delay: 800 + this.rng() * 600,
+      delay: 1500 + this.rng() * 1500,
       loop: true,
       callback: () => {
         this._spawnShrineLantern(cam, layer);
@@ -6953,14 +6953,14 @@ export class JuiceManager {
     halo.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
     layer.add(halo);
 
-    // Gentle float up + flicker
-    const duration = 2000 + this.rng() * 1500;
+    // Gentle float up + soft pulse
+    const duration = 2500 + this.rng() * 2000;
     this.scene.tweens.add({
       targets: [lantern, halo],
-      y: y - Phaser.Math.Between(10, 30),
-      x: x + (this.rng() - 0.5) * 20,
+      y: y - Phaser.Math.Between(8, 20),
+      x: x + (this.rng() - 0.5) * 12,
       alpha: 0,
-      scale: 1.5,
+      scale: 1.3,
       duration: duration,
       ease: 'Sine.easeOut',
       onComplete: () => {
@@ -6969,13 +6969,13 @@ export class JuiceManager {
       },
     });
 
-    // Flicker effect on the lantern
+    // Soft breathing pulse on the lantern (gentle alpha oscillation)
     this.scene.tweens.add({
       targets: lantern,
-      alpha: { from: 0.6, to: 0.3 },
-      duration: 150 + this.rng() * 200,
+      alpha: { from: 0.6, to: 0.45 },
+      duration: 800 + this.rng() * 400,
       yoyo: true,
-      repeat: 2 + Math.floor(this.rng() * 3),
+      repeat: 1 + Math.floor(this.rng() * 2),
     });
   }
 
@@ -6985,12 +6985,12 @@ export class JuiceManager {
     if (!layer) return;
     const cam = this.scene.cameras.main;
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 2; i++) {
       this._spawnOfuda(cam, layer);
     }
 
     this.jadePeakEffects.ofudaTimer = this.scene.time.addEvent({
-      delay: 1200 + this.rng() * 800,
+      delay: 2500 + this.rng() * 2000,
       loop: true,
       callback: () => {
         this._spawnOfuda(cam, layer);
@@ -7000,35 +7000,35 @@ export class JuiceManager {
 
   private _spawnOfuda(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
     const x = cam.scrollX + Phaser.Math.Between(20, cam.width - 20);
-    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.3, cam.height * 0.8);
-    const size = Phaser.Math.Between(3, 6);
+    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.3, cam.height * 0.7);
+    const size = Phaser.Math.Between(3, 5);
 
     // Ofuda body (rectangular paper)
     const ofuda = this.scene.add.rectangle(
       x, y, size * 2, size * 3.5,
-      0xfff8f0, 0.5
+      0xfff8f0, 0.35
     );
-    ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.5);
+    ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.3);
     layer.add(ofuda);
 
     // Red seal line on the ofuda
     const seal = this.scene.add.rectangle(
       x, y - size * 0.5, size * 1.2, size * 0.8,
-      0xff4444, 0.4
+      0xff6666, 0.3
     );
     seal.setDepth(24).setRotation(ofuda.rotation);
     layer.add(seal);
 
-    const driftX = (this.rng() - 0.5) * 80;
-    const duration = 3000 + this.rng() * 2000;
+    const driftX = (this.rng() - 0.5) * 40;
+    const duration = 4000 + this.rng() * 2500;
 
     this.scene.tweens.add({
       targets: [ofuda, seal],
       x: x + driftX,
-      y: y - 60 - this.rng() * 40,
-      rotation: ofuda.rotation + (this.rng() - 0.5) * Math.PI,
+      y: y - 30 - this.rng() * 30,
+      rotation: ofuda.rotation + (this.rng() - 0.5) * 0.3,
       alpha: 0,
-      scale: 0.6,
+      scale: 0.5,
       duration: duration,
       ease: 'Sine.easeInOut',
       onComplete: () => {
@@ -7044,12 +7044,12 @@ export class JuiceManager {
     if (!layer) return;
     const cam = this.scene.cameras.main;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       this._spawnKoiRipple(cam, layer);
     }
 
     this.jadePeakEffects.koiRippleTimer = this.scene.time.addEvent({
-      delay: 600 + this.rng() * 400,
+      delay: 1500 + this.rng() * 1500,
       loop: true,
       callback: () => {
         this._spawnKoiRipple(cam, layer);
@@ -7059,16 +7059,16 @@ export class JuiceManager {
 
   private _spawnKoiRipple(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
     const x = cam.scrollX + Phaser.Math.Between(20, cam.width - 20);
-    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.5, cam.height - 20);
-    const maxRadius = 12 + this.rng() * 10;
+    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.55, cam.height - 20);
+    const maxRadius = 10 + this.rng() * 8;
 
     // Outer ripple ring
-    const ring = this.scene.add.circle(x, y, 2, 0x9ad1ff, 0.3);
-    ring.setDepth(20).setStrokeStyle(1.5, 0x74b8ff, 0.4);
+    const ring = this.scene.add.circle(x, y, 2, 0x9ad1ff, 0.25);
+    ring.setDepth(20).setStrokeStyle(1.2, 0x74b8ff, 0.3);
     layer.add(ring);
 
     // Inner sparkle
-    const sparkle = this.scene.add.circle(x, y, 1, 0xffffff, 0.5);
+    const sparkle = this.scene.add.circle(x, y, 1, 0xffffff, 0.35);
     sparkle.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
     layer.add(sparkle);
 
@@ -7076,7 +7076,7 @@ export class JuiceManager {
       targets: ring,
       scale: maxRadius / 2,
       alpha: 0,
-      duration: 800 + this.rng() * 400,
+      duration: 1000 + this.rng() * 500,
       ease: 'Cubic.easeOut',
       onComplete: () => {
         ring.destroy();
@@ -7084,24 +7084,24 @@ export class JuiceManager {
       },
     });
 
-    // Koi fish dart flash
-    if (this.rng() < 0.3) {
-      const koiColor = Phaser.Utils.Array.GetRandom([0xff8c42, 0xffd166, 0xff6b6b, 0xffffff, 0x5dd66f]);
+    // Occasional koi fish drift (less frequent, gentler)
+    if (this.rng() < 0.15) {
+      const koiColor = Phaser.Utils.Array.GetRandom([0xff8c42, 0xffd166, 0xffb3c6, 0xffffff]);
       const koi = this.scene.add.circle(
-        x + Phaser.Math.Between(-4, 4),
+        x + Phaser.Math.Between(-3, 3),
         y + Phaser.Math.Between(-2, 2),
-        2, koiColor, 0.6
+        2, koiColor, 0.4
       );
       koi.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(koi);
 
-      const koiDriftX = (this.rng() - 0.5) * 30;
+      const koiDriftX = (this.rng() - 0.5) * 20;
       this.scene.tweens.add({
         targets: koi,
         x: x + koiDriftX,
-        y: y + Phaser.Math.Between(-5, 10),
+        y: y + Phaser.Math.Between(-3, 6),
         alpha: 0,
-        duration: 400 + this.rng() * 300,
+        duration: 600 + this.rng() * 400,
         ease: 'Sine.easeOut',
         onComplete: () => koi.destroy(),
       });
@@ -7112,12 +7112,12 @@ export class JuiceManager {
   private _startJadePeakCraneFly(): void {
     const cam = this.scene.cameras.main;
 
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < 1; i++) {
       this._spawnCrane(cam);
     }
 
     this.jadePeakEffects.craneTimer = this.scene.time.addEvent({
-      delay: 3000 + this.rng() * 2000,
+      delay: 5000 + this.rng() * 4000,
       loop: true,
       callback: () => {
         this._spawnCrane(cam);
@@ -7127,7 +7127,7 @@ export class JuiceManager {
 
   private _spawnCrane(cam: Phaser.Cameras.Scene2D.Camera): void {
     const direction = this.rng() < 0.5 ? 1 : -1;
-    const startY = cam.scrollY + Phaser.Math.Between(20, cam.height * 0.5);
+    const startY = cam.scrollY + Phaser.Math.Between(20, cam.height * 0.4);
     const startX = direction === 1 ? cam.scrollX - 20 : cam.scrollX + cam.width + 20;
     const endX = direction === 1 ? cam.scrollX + cam.width + 40 : cam.scrollX - 40;
     const color = Phaser.Utils.Array.GetRandom([0xffffff, 0xfff3a8, 0xffb3c6, 0xffc8d4]);
@@ -7138,7 +7138,7 @@ export class JuiceManager {
       startX, startY, 0, -size,
       -size * 1.2, size * 0.5,
       size * 1.2, size * 0.5,
-      color, 0.5
+      color, 0.4
     );
     craneBody.setDepth(25).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(craneBody);
@@ -7148,7 +7148,7 @@ export class JuiceManager {
       startX, startY, 0, -size * 0.5,
       -size * 1.5, -size * 1.5,
       -size * 0.5, -size * 0.2,
-      color, 0.3
+      color, 0.25
     );
     wingL.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingL);
@@ -7157,25 +7157,25 @@ export class JuiceManager {
       startX, startY, 0, -size * 0.5,
       size * 0.5, -size * 0.2,
       size * 1.5, -size * 1.5,
-      color, 0.3
+      color, 0.25
     );
     wingR.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingR);
 
     const travelDistance = Math.abs(endX - startX);
-    const duration = 2000 + travelDistance * 2;
+    const duration = 2500 + travelDistance * 2;
 
     this.scene.tweens.add({
       targets: [craneBody, wingL, wingR],
       x: endX,
-      y: startY + (this.rng() - 0.5) * 40,
+      y: startY + (this.rng() - 0.5) * 30,
       alpha: 0,
-      scale: 0.4,
+      scale: 0.5,
       duration: duration,
       ease: 'Sine.easeInOut',
       onUpdate: () => {
-        // Wing flap animation
-        const flap = Math.sin(Date.now() * 0.015) * 0.3;
+        // Wing flap animation (slower, more graceful)
+        const flap = Math.sin(Date.now() * 0.008) * 0.2;
         wingL.setRotation(craneBody.rotation + flap);
         wingR.setRotation(craneBody.rotation - flap);
       },
@@ -7186,13 +7186,13 @@ export class JuiceManager {
       },
     });
 
-    // Crane call sound
+    // Crane call sound (softer, lower pitch)
     this.playTone({
-      frequency: 800 + this.rng() * 400,
-      frequencyEnd: 600 + this.rng() * 300,
-      duration: 0.15,
+      frequency: 600 + this.rng() * 300,
+      frequencyEnd: 450 + this.rng() * 200,
+      duration: 0.2,
       type: 'sine',
-      volume: 0.04,
+      volume: 0.03,
     });
   }
 
@@ -7202,12 +7202,12 @@ export class JuiceManager {
     if (!layer) return;
     const cam = this.scene.cameras.main;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       this._spawnZenRipple(cam, layer);
     }
 
     this.jadePeakEffects.zenRippleTimer = this.scene.time.addEvent({
-      delay: 1000 + this.rng() * 500,
+      delay: 2000 + this.rng() * 1500,
       loop: true,
       callback: () => {
         this._spawnZenRipple(cam, layer);
@@ -7271,12 +7271,12 @@ export class JuiceManager {
     if (!layer) return;
     const cam = this.scene.cameras.main;
 
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 2; i++) {
       this._spawnToriiSparkle(cam, layer);
     }
 
     this.jadePeakEffects.toriiSparkleTimer = this.scene.time.addEvent({
-      delay: 400 + this.rng() * 300,
+      delay: 1500 + this.rng() * 2000,
       loop: true,
       callback: () => {
         this._spawnToriiSparkle(cam, layer);
@@ -7290,36 +7290,36 @@ export class JuiceManager {
     const color = Phaser.Utils.Array.GetRandom([
       0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6,
     ]);
-    const size = 1 + this.rng() * 2;
+    const size = 1 + this.rng() * 1.5;
 
-    const sparkle = this.scene.add.circle(x, y, size, color, 0.7);
+    const sparkle = this.scene.add.circle(x, y, size, color, 0.5);
     sparkle.setDepth(23).setBlendMode(Phaser.BlendModes.ADD);
     layer.add(sparkle);
 
     this.scene.tweens.add({
       targets: sparkle,
-      x: x + (this.rng() - 0.5) * 30,
-      y: y - Phaser.Math.Between(5, 20),
+      x: x + (this.rng() - 0.5) * 20,
+      y: y - Phaser.Math.Between(3, 12),
       alpha: 0,
-      scale: 0.2,
-      duration: 400 + this.rng() * 400,
+      scale: 0.3,
+      duration: 800 + this.rng() * 600,
       ease: 'Sine.easeOut',
       onComplete: () => sparkle.destroy(),
     });
   }
 
-  // ─── Sakura Petal Burst ─────────────────────────────────────
+  // ─── Sakura Petal Drift ─────────────────────────────────────
   private _startJadePeakSakuraBurst(): void {
     const layer = this.particleLayer;
     if (!layer) return;
     const cam = this.scene.cameras.main;
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < 2; i++) {
       this._spawnSakuraBurst(cam, layer);
     }
 
     this.jadePeakEffects.sakuraBurstTimer = this.scene.time.addEvent({
-      delay: 2000 + this.rng() * 1500,
+      delay: 4000 + this.rng() * 3000,
       loop: true,
       callback: () => {
         this._spawnSakuraBurst(cam, layer);
@@ -7329,32 +7329,30 @@ export class JuiceManager {
 
   private _spawnSakuraBurst(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
     const x = cam.scrollX + Phaser.Math.Between(30, cam.width - 30);
-    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.2, cam.height * 0.6);
+    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.1, cam.height * 0.4);
     const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff, 0xffa3b8];
-    const count = 6 + Math.floor(this.rng() * 6);
+    const count = 2 + Math.floor(this.rng() * 2); // 2-3 petals per drift
 
     for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + (this.rng() - 0.5) * 0.5;
-      const dist = 10 + this.rng() * 20;
       const color = Phaser.Utils.Array.GetRandom(petalColors);
-      const size = 2 + this.rng() * 3;
+      const size = 2 + this.rng() * 2;
 
-      const petal = this.scene.add.circle(x, y, size, color, 0.6);
+      const petal = this.scene.add.circle(x + (this.rng() - 0.5) * 20, y, size, color, 0.5);
       petal.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(petal);
 
-      const endX = x + Math.cos(angle) * dist;
-      const endY = y + Math.sin(angle) * dist + 20;
+      const endX = x + (this.rng() - 0.5) * 80;
+      const endY = y + 40 + this.rng() * 60;
 
       this.scene.tweens.add({
         targets: petal,
-        x: endX + (this.rng() - 0.5) * 30,
-        y: endY + this.rng() * 40,
+        x: endX,
+        y: endY + this.rng() * 30,
         alpha: 0,
-        scale: 0.3,
-        rotation: (this.rng() - 0.5) * Math.PI * 2,
-        duration: 1000 + this.rng() * 800,
-        ease: 'Sine.easeOut',
+        scale: 0.4,
+        rotation: (this.rng() - 0.5) * Math.PI * 0.5,
+        duration: 2000 + this.rng() * 1500,
+        ease: 'Sine.easeInOut',
         onComplete: () => petal.destroy(),
       });
     }
@@ -7377,34 +7375,34 @@ export class JuiceManager {
   }
 
   private _triggerOnpu(cam: Phaser.Cameras.Scene2D.Camera): void {
-    // Onpu sound: sharp clack + ethereal ring
+    // Onpu sound: soft chime + ethereal ring
     this.playTone({
-      frequency: 1200,
-      frequencyEnd: 400,
-      duration: 0.06,
-      type: 'square',
-      volume: 0.08,
+      frequency: 880,
+      frequencyEnd: 660,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.04,
     });
     globalThis.setTimeout(() => {
       this.playTone({
-        frequency: 880,
+        frequency: 660,
         frequencyEnd: 440,
-        duration: 0.5,
+        duration: 0.7,
         type: 'sine',
-        volume: 0.04,
-      });
-    }, 60);
-    globalThis.setTimeout(() => {
-      this.playTone({
-        frequency: 1320,
-        frequencyEnd: 660,
-        duration: 0.4,
-        type: 'triangle',
         volume: 0.03,
       });
-    }, 120);
+    }, 80);
+    globalThis.setTimeout(() => {
+      this.playTone({
+        frequency: 990,
+        frequencyEnd: 660,
+        duration: 0.5,
+        type: 'triangle',
+        volume: 0.025,
+      });
+    }, 160);
 
-    // Visual: paper streamers flutter
+    // Visual: paper streamers flutter gently
     const layer = this.particleLayer;
     if (!layer) return;
     const x = cam.scrollX + Phaser.Math.Between(40, cam.width - 40);
@@ -7412,29 +7410,26 @@ export class JuiceManager {
 
     // Hanging paper strips
     const stripColors = [0xffffff, 0xfff3a8, 0xffb3c6, 0x9ad1ff];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       const strip = this.scene.add.rectangle(
-        x + (i - 2) * 6,
+        x + (i - 1) * 6,
         y + 5,
-        2, 12 + this.rng() * 8,
-        Phaser.Utils.Array.GetRandom(stripColors), 0.5
+        2, 10 + this.rng() * 6,
+        Phaser.Utils.Array.GetRandom(stripColors), 0.4
       );
       strip.setDepth(24);
       layer.add(strip);
 
       this.scene.tweens.add({
         targets: strip,
-        rotation: (this.rng() - 0.5) * 0.8,
-        y: y + 10 + this.rng() * 15,
+        rotation: (this.rng() - 0.5) * 0.4,
+        y: y + 8 + this.rng() * 10,
         alpha: 0,
-        duration: 1200 + this.rng() * 800,
+        duration: 1500 + this.rng() * 1000,
         ease: 'Sine.easeOut',
         onComplete: () => strip.destroy(),
       });
     }
-
-    // Camera shake (subtle)
-    this.kickCamera(0.005, 80);
   }
 
   // ─── Bamboo Sway Leaves ─────────────────────────────────────
@@ -7524,32 +7519,30 @@ export class JuiceManager {
 
   // ─── Mochi Pound ────────────────────────────────────────────
   mochiPound(worldX: number, worldY: number): void {
-    // Sound: rhythmic thud
+    // Sound: soft thud
     this.playTone({
-      frequency: 120,
+      frequency: 100,
       frequencyEnd: 60,
-      duration: 0.15,
+      duration: 0.18,
       type: 'sine',
-      volume: 0.1,
+      volume: 0.06,
     });
     globalThis.setTimeout(() => {
       this.playTone({
-        frequency: 150,
-        frequencyEnd: 80,
-        duration: 0.12,
+        frequency: 130,
+        frequencyEnd: 70,
+        duration: 0.15,
         type: 'triangle',
-        volume: 0.08,
+        volume: 0.05,
       });
-    }, 200);
+    }, 220);
 
-    // Visual: white dough burst
+    // Visual: soft dough puff
     this.spawnBurst(worldX, worldY, {
       colors: [0xffffff, 0xfff3a8, 0xffb3c6, 0xc8ffe1],
-      count: 12,
-      radius: 18,
+      count: 8,
+      radius: 14,
     });
-
-    this.kickCamera(0.008, 60);
   }
 
   // ─── Wasabi Mist ────────────────────────────────────────────
@@ -7558,60 +7551,58 @@ export class JuiceManager {
     if (!layer) return;
 
     // Green mist cloud
-    for (let i = 0; i < 6; i++) {
+    for (let i = 0; i < 4; i++) {
       const mist = this.scene.add.circle(
-        worldX + Phaser.Math.Between(-10, 10),
-        worldY + Phaser.Math.Between(-6, 6),
-        3 + this.rng() * 4,
-        0x7ed77c, 0.15
+        worldX + Phaser.Math.Between(-8, 8),
+        worldY + Phaser.Math.Between(-4, 4),
+        3 + this.rng() * 3,
+        0x7ed77c, 0.12
       );
       mist.setDepth(19);
       layer.add(mist);
 
       this.scene.tweens.add({
         targets: mist,
-        x: mist.x + (this.rng() - 0.5) * 25,
-        y: mist.y - Phaser.Math.Between(5, 15),
+        x: mist.x + (this.rng() - 0.5) * 18,
+        y: mist.y - Phaser.Math.Between(4, 12),
         alpha: 0,
-        scale: 1.5,
-        duration: 700 + this.rng() * 500,
+        scale: 1.3,
+        duration: 800 + this.rng() * 600,
         ease: 'Sine.easeOut',
         onComplete: () => mist.destroy(),
       });
     }
 
-    // Sharp sound
+    // Gentle sound
     this.playTone({
-      frequency: 600,
+      frequency: 500,
       frequencyEnd: 300,
-      duration: 0.08,
-      type: 'sawtooth',
-      volume: 0.05,
+      duration: 0.1,
+      type: 'triangle',
+      volume: 0.035,
     });
   }
 
   // ─── Kappa Splash ───────────────────────────────────────────
   kappaSplash(worldX: number, worldY: number): void {
-    // Water splash
+    // Gentle water ripple
     this.spawnBurst(worldX, worldY, {
       colors: [0x9ad1ff, 0x5dd6a2, 0xffffff, 0x74b8ff],
-      count: 14,
-      radius: 20,
+      count: 8,
+      radius: 14,
     });
 
     // Bubble ring
-    this.ringPulse(worldX, worldY, 0x9ad1ff, 8, 3, 200);
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 6, 2, 220);
 
-    // Sound: splat
+    // Sound: soft splash
     this.playTone({
-      frequency: 300,
-      frequencyEnd: 150,
-      duration: 0.1,
+      frequency: 280,
+      frequencyEnd: 160,
+      duration: 0.12,
       type: 'sine',
-      volume: 0.08,
+      volume: 0.05,
     });
-
-    this.kickCamera(0.006, 50);
   }
 
   // ─── Crane Wing Flap ────────────────────────────────────────
@@ -7651,32 +7642,32 @@ export class JuiceManager {
     const layer = this.particleLayer;
     if (!layer) return;
 
-    // Dark shadow that darts across
+    // Dark shadow that drifts across
     const shadow = this.scene.add.circle(
-      worldX, worldY, 5 + this.rng() * 3,
-      0x2a1a0a, 0.3
+      worldX, worldY, 4 + this.rng() * 3,
+      0x2a1a0a, 0.2
     );
     shadow.setDepth(18);
     layer.add(shadow);
 
     this.scene.tweens.add({
       targets: shadow,
-      x: worldX + (this.rng() > 0.5 ? 40 : -40),
-      y: worldY + (this.rng() - 0.5) * 10,
+      x: worldX + (this.rng() > 0.5 ? 30 : -30),
+      y: worldY + (this.rng() - 0.5) * 8,
       alpha: 0,
       scale: 0.5,
-      duration: 300 + this.rng() * 200,
+      duration: 500 + this.rng() * 300,
       ease: 'Sine.easeInOut',
       onComplete: () => shadow.destroy(),
     });
 
-    // Quick sound: rustle
+    // Soft sound: rustle
     this.playTone({
-      frequency: 200 + this.rng() * 100,
-      frequencyEnd: 350 + this.rng() * 100,
-      duration: 0.06,
-      type: 'square',
-      volume: 0.04,
+      frequency: 220 + this.rng() * 80,
+      frequencyEnd: 300 + this.rng() * 60,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.03,
     });
   }
 
@@ -7702,10 +7693,10 @@ export class JuiceManager {
 
     this.scene.tweens.add({
       targets: [lantern, halo],
-      y: worldY - Phaser.Math.Between(8, 20),
+      y: worldY - Phaser.Math.Between(6, 15),
       alpha: 0,
-      scale: 1.4,
-      duration: 1500 + this.rng() * 1000,
+      scale: 1.3,
+      duration: 2000 + this.rng() * 1200,
       ease: 'Sine.easeOut',
       onComplete: () => {
         lantern.destroy();
@@ -7713,13 +7704,13 @@ export class JuiceManager {
       },
     });
 
-    // Flicker
+    // Soft breathing pulse
     this.scene.tweens.add({
       targets: lantern,
-      alpha: { from: 0.6, to: 0.3 },
-      duration: 120 + this.rng() * 180,
+      alpha: { from: 0.6, to: 0.45 },
+      duration: 800 + this.rng() * 400,
       yoyo: true,
-      repeat: 2 + Math.floor(this.rng() * 3),
+      repeat: 1 + Math.floor(this.rng() * 2),
     });
   }
 
@@ -7727,31 +7718,31 @@ export class JuiceManager {
   ofudaFloat(worldX: number, worldY: number): void {
     const layer = this.particleLayer;
     if (!layer) return;
-    const size = 3 + this.rng() * 3;
+    const size = 3 + this.rng() * 2;
 
     const ofuda = this.scene.add.rectangle(
       worldX, worldY, size * 2, size * 3.5,
-      0xfff8f0, 0.5
+      0xfff8f0, 0.35
     );
-    ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.5);
+    ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.3);
     layer.add(ofuda);
 
     const seal = this.scene.add.rectangle(
       worldX, worldY - size * 0.5, size * 1.2, size * 0.8,
-      0xff4444, 0.4
+      0xff6666, 0.3
     );
     seal.setDepth(24).setRotation(ofuda.rotation);
     layer.add(seal);
 
-    const driftX = (this.rng() - 0.5) * 60;
+    const driftX = (this.rng() - 0.5) * 40;
     this.scene.tweens.add({
       targets: [ofuda, seal],
       x: worldX + driftX,
-      y: worldY - 40 - this.rng() * 30,
-      rotation: ofuda.rotation + (this.rng() - 0.5) * Math.PI,
+      y: worldY - 25 - this.rng() * 25,
+      rotation: ofuda.rotation + (this.rng() - 0.5) * 0.3,
       alpha: 0,
       scale: 0.5,
-      duration: 2000 + this.rng() * 1500,
+      duration: 3000 + this.rng() * 2000,
       ease: 'Sine.easeInOut',
       onComplete: () => {
         ofuda.destroy();
@@ -7766,11 +7757,11 @@ export class JuiceManager {
     if (!layer) return;
     const maxRadius = 10 + this.rng() * 8;
 
-    const ring = this.scene.add.circle(worldX, worldY, 2, 0x9ad1ff, 0.3);
-    ring.setDepth(20).setStrokeStyle(1.5, 0x74b8ff, 0.4);
+    const ring = this.scene.add.circle(worldX, worldY, 2, 0x9ad1ff, 0.25);
+    ring.setDepth(20).setStrokeStyle(1.2, 0x74b8ff, 0.3);
     layer.add(ring);
 
-    const sparkle = this.scene.add.circle(worldX, worldY, 1, 0xffffff, 0.5);
+    const sparkle = this.scene.add.circle(worldX, worldY, 1, 0xffffff, 0.35);
     sparkle.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
     layer.add(sparkle);
 
@@ -7778,7 +7769,7 @@ export class JuiceManager {
       targets: ring,
       scale: maxRadius / 2,
       alpha: 0,
-      duration: 700 + this.rng() * 300,
+      duration: 900 + this.rng() * 400,
       ease: 'Cubic.easeOut',
       onComplete: () => {
         ring.destroy();
@@ -7786,23 +7777,23 @@ export class JuiceManager {
       },
     });
 
-    // Koi dart
-    if (this.rng() < 0.4) {
-      const koiColor = Phaser.Utils.Array.GetRandom([0xff8c42, 0xffd166, 0xff6b6b, 0xffffff, 0x5dd66f]);
+    // Occasional koi drift
+    if (this.rng() < 0.15) {
+      const koiColor = Phaser.Utils.Array.GetRandom([0xff8c42, 0xffd166, 0xffb3c6, 0xffffff]);
       const koi = this.scene.add.circle(
         worldX + Phaser.Math.Between(-3, 3),
         worldY + Phaser.Math.Between(-2, 2),
-        2, koiColor, 0.6
+        2, koiColor, 0.4
       );
       koi.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(koi);
 
       this.scene.tweens.add({
         targets: koi,
-        x: worldX + (this.rng() - 0.5) * 25,
-        y: worldY + Phaser.Math.Between(-4, 8),
+        x: worldX + (this.rng() - 0.5) * 20,
+        y: worldY + Phaser.Math.Between(-3, 6),
         alpha: 0,
-        duration: 350 + this.rng() * 250,
+        duration: 550 + this.rng() * 350,
         ease: 'Sine.easeOut',
         onComplete: () => koi.destroy(),
       });
@@ -7813,7 +7804,7 @@ export class JuiceManager {
   origamiCraneFly(): void {
     const cam = this.scene.cameras.main;
     const direction = this.rng() < 0.5 ? 1 : -1;
-    const startY = cam.scrollY + Phaser.Math.Between(20, cam.height * 0.5);
+    const startY = cam.scrollY + Phaser.Math.Between(20, cam.height * 0.4);
     const startX = direction === 1 ? cam.scrollX - 20 : cam.scrollX + cam.width + 20;
     const endX = direction === 1 ? cam.scrollX + cam.width + 40 : cam.scrollX - 40;
     const color = Phaser.Utils.Array.GetRandom([0xffffff, 0xfff3a8, 0xffb3c6, 0xffc8d4]);
@@ -7823,7 +7814,7 @@ export class JuiceManager {
       startX, startY, 0, -size,
       -size * 1.2, size * 0.5,
       size * 1.2, size * 0.5,
-      color, 0.5
+      color, 0.4
     );
     craneBody.setDepth(25).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(craneBody);
@@ -7832,7 +7823,7 @@ export class JuiceManager {
       startX, startY, 0, -size * 0.5,
       -size * 1.5, -size * 1.5,
       -size * 0.5, -size * 0.2,
-      color, 0.3
+      color, 0.25
     );
     wingL.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingL);
@@ -7841,22 +7832,22 @@ export class JuiceManager {
       startX, startY, 0, -size * 0.5,
       size * 0.5, -size * 0.2,
       size * 1.5, -size * 1.5,
-      color, 0.3
+      color, 0.25
     );
     wingR.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingR);
 
-    const duration = 1800 + Math.abs(endX - startX) * 2;
+    const duration = 2500 + Math.abs(endX - startX) * 2;
     this.scene.tweens.add({
       targets: [craneBody, wingL, wingR],
       x: endX,
-      y: startY + (this.rng() - 0.5) * 40,
+      y: startY + (this.rng() - 0.5) * 30,
       alpha: 0,
-      scale: 0.4,
+      scale: 0.5,
       duration: duration,
       ease: 'Sine.easeInOut',
       onUpdate: () => {
-        const flap = Math.sin(Date.now() * 0.015) * 0.3;
+        const flap = Math.sin(Date.now() * 0.008) * 0.2;
         wingL.setRotation(craneBody.rotation + flap);
         wingR.setRotation(craneBody.rotation - flap);
       },
@@ -7867,13 +7858,13 @@ export class JuiceManager {
       },
     });
 
-    // Crane call
+    // Crane call (softer, lower)
     this.playTone({
-      frequency: 800 + this.rng() * 400,
-      frequencyEnd: 600 + this.rng() * 300,
-      duration: 0.15,
+      frequency: 600 + this.rng() * 300,
+      frequencyEnd: 450 + this.rng() * 200,
+      duration: 0.2,
       type: 'sine',
-      volume: 0.04,
+      volume: 0.03,
     });
   }
 
@@ -7891,23 +7882,23 @@ export class JuiceManager {
       ring.setDepth(19).setStrokeStyle(1, 0xd4b896, 0.15);
       layer.add(ring);
 
-      const delay = r * 80;
+      const delay = r * 100;
       this.scene.tweens.add({
         targets: ring,
         scale: (maxRadius + r * 6) / (2 + r * 2),
         alpha: 0,
         delay: delay,
-        duration: 500 + r * 100,
+        duration: 600 + r * 100,
         ease: 'Cubic.easeOut',
         onComplete: () => ring.destroy(),
       });
     }
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {
       const grain = this.scene.add.circle(
         worldX + Phaser.Math.Between(-3, 3),
         worldY + Phaser.Math.Between(-3, 3),
-        1, 0xd4b896, 0.4
+        1, 0xd4b896, 0.35
       );
       grain.setDepth(20);
       layer.add(grain);
@@ -7919,7 +7910,7 @@ export class JuiceManager {
         x: worldX + Math.cos(angle) * dist,
         y: worldY + Math.sin(angle) * dist,
         alpha: 0,
-        duration: 400 + this.rng() * 200,
+        duration: 500 + this.rng() * 200,
         ease: 'Sine.easeOut',
         onComplete: () => grain.destroy(),
       });
@@ -7933,50 +7924,48 @@ export class JuiceManager {
     const color = Phaser.Utils.Array.GetRandom([
       0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6,
     ]);
-    const size = 1 + this.rng() * 2;
+    const size = 1 + this.rng() * 1.5;
 
-    const sparkle = this.scene.add.circle(worldX, worldY, size, color, 0.7);
+    const sparkle = this.scene.add.circle(worldX, worldY, size, color, 0.5);
     sparkle.setDepth(23).setBlendMode(Phaser.BlendModes.ADD);
     layer.add(sparkle);
 
     this.scene.tweens.add({
       targets: sparkle,
-      x: worldX + (this.rng() - 0.5) * 25,
-      y: worldY - Phaser.Math.Between(4, 15),
+      x: worldX + (this.rng() - 0.5) * 20,
+      y: worldY - Phaser.Math.Between(3, 12),
       alpha: 0,
-      scale: 0.2,
-      duration: 350 + this.rng() * 350,
+      scale: 0.3,
+      duration: 700 + this.rng() * 500,
       ease: 'Sine.easeOut',
       onComplete: () => sparkle.destroy(),
     });
   }
 
-  /** One-shot sakura petal burst effect. */
+  /** One-shot sakura petal drift effect. */
   sakuraPetalBurst(worldX: number, worldY: number): void {
     const layer = this.particleLayer;
     if (!layer) return;
     const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff, 0xffa3b8];
-    const count = 5 + Math.floor(this.rng() * 5);
+    const count = 2 + Math.floor(this.rng() * 2); // 2-3 petals per drift
 
     for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + (this.rng() - 0.5) * 0.5;
-      const dist = 8 + this.rng() * 15;
       const color = Phaser.Utils.Array.GetRandom(petalColors);
       const size = 2 + this.rng() * 2;
 
-      const petal = this.scene.add.circle(worldX, worldY, size, color, 0.6);
+      const petal = this.scene.add.circle(worldX + (this.rng() - 0.5) * 15, worldY, size, color, 0.5);
       petal.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(petal);
 
       this.scene.tweens.add({
         targets: petal,
-        x: worldX + Math.cos(angle) * dist + (this.rng() - 0.5) * 20,
-        y: worldY + Math.sin(angle) * dist + 15 + this.rng() * 30,
+        x: worldX + (this.rng() - 0.5) * 60,
+        y: worldY + 20 + this.rng() * 40,
         alpha: 0,
-        scale: 0.3,
-        rotation: (this.rng() - 0.5) * Math.PI * 2,
-        duration: 800 + this.rng() * 600,
-        ease: 'Sine.easeOut',
+        scale: 0.4,
+        rotation: (this.rng() - 0.5) * Math.PI * 0.5,
+        duration: 1800 + this.rng() * 1200,
+        ease: 'Sine.easeInOut',
         onComplete: () => petal.destroy(),
       });
     }
@@ -7985,57 +7974,55 @@ export class JuiceManager {
   /** One-shot onpu (sacred clapper) sound + paper streamers. */
   onpuClapper(worldX: number, worldY: number): void {
     this.playTone({
-      frequency: 1200,
-      frequencyEnd: 400,
-      duration: 0.06,
-      type: 'square',
-      volume: 0.08,
+      frequency: 880,
+      frequencyEnd: 660,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.04,
     });
     globalThis.setTimeout(() => {
       this.playTone({
-        frequency: 880,
+        frequency: 660,
         frequencyEnd: 440,
-        duration: 0.5,
+        duration: 0.7,
         type: 'sine',
-        volume: 0.04,
-      });
-    }, 60);
-    globalThis.setTimeout(() => {
-      this.playTone({
-        frequency: 1320,
-        frequencyEnd: 660,
-        duration: 0.4,
-        type: 'triangle',
         volume: 0.03,
       });
-    }, 120);
+    }, 80);
+    globalThis.setTimeout(() => {
+      this.playTone({
+        frequency: 990,
+        frequencyEnd: 660,
+        duration: 0.5,
+        type: 'triangle',
+        volume: 0.025,
+      });
+    }, 160);
 
     const layer = this.particleLayer;
     if (!layer) return;
     const stripColors = [0xffffff, 0xfff3a8, 0xffb3c6, 0x9ad1ff];
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < 3; i++) {
       const strip = this.scene.add.rectangle(
-        worldX + (i - 1.5) * 6,
+        worldX + (i - 1) * 6,
         worldY + 5,
         2, 10 + this.rng() * 6,
-        Phaser.Utils.Array.GetRandom(stripColors), 0.5
+        Phaser.Utils.Array.GetRandom(stripColors), 0.4
       );
       strip.setDepth(24);
       layer.add(strip);
 
       this.scene.tweens.add({
         targets: strip,
-        rotation: (this.rng() - 0.5) * 0.7,
-        y: worldY + 8 + this.rng() * 12,
+        rotation: (this.rng() - 0.5) * 0.4,
+        y: worldY + 8 + this.rng() * 10,
         alpha: 0,
-        duration: 1000 + this.rng() * 600,
+        duration: 1400 + this.rng() * 800,
         ease: 'Sine.easeOut',
         onComplete: () => strip.destroy(),
       });
     }
-
-    this.kickCamera(0.005, 70);
   }
 
   /** One-shot jade peak ambient: pick a random Japanese effect. */
