@@ -182,6 +182,18 @@ export class JuiceManager {
   private arcadeMusicTimer?: Phaser.Time.TimerEvent;
   private arcadeMusicState: 'run' | 'paused' | 'corrupted' | 'stopped' = 'stopped';
   private zoomBackTimer?: Phaser.Time.TimerEvent;
+  private cherryBlossomParticles: Phaser.GameObjects.Arc[] = [];
+  private cherryBlossomTimer?: Phaser.Time.TimerEvent;
+  private jadePeakEffects: {
+    shrineLanternTimer?: Phaser.Time.TimerEvent;
+    ofudaTimer?: Phaser.Time.TimerEvent;
+    koiRippleTimer?: Phaser.Time.TimerEvent;
+    craneTimer?: Phaser.Time.TimerEvent;
+    zenRippleTimer?: Phaser.Time.TimerEvent;
+    toriiSparkleTimer?: Phaser.Time.TimerEvent;
+    sakuraBurstTimer?: Phaser.Time.TimerEvent;
+    onpuTimer?: Phaser.Time.TimerEvent;
+  } = {};
 
   constructor(private readonly scene: SnakeScene) {
     this.ctx = this.scene.sys.game.config.audio?.context;
@@ -3515,6 +3527,10 @@ export class JuiceManager {
     worldY: number,
     { colors, count, radius }: { colors: number[]; count: number; radius: number },
   ) {
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count;
       const dist = Phaser.Math.Between(radius * 0.4, radius);
@@ -3527,7 +3543,7 @@ export class JuiceManager {
         Phaser.Utils.Array.GetRandom(colors),
       );
       circle.setDepth(22);
-      this.particleLayer.add(circle);
+      layer.add(circle);
 
       this.scene.tweens.add({
         targets: circle,
@@ -6580,6 +6596,1452 @@ export class JuiceManager {
       duration: 0.12,
       type: 'sine',
       volume: 0.06,
+    });
+  }
+
+  // ─── Bullet Train Juice ───────────────────────────────────────────────
+
+  bulletTrainDepart(worldX: number, worldY: number) {
+    // Train horn blast
+    this.playTone({
+      frequency: 120,
+      frequencyEnd: 80,
+      duration: 0.6,
+      type: 'sawtooth',
+      volume: 0.15,
+    });
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 120,
+      duration: 0.5,
+      type: 'square',
+      volume: 0.08,
+    });
+
+    // Wheel clatter (rhythmic)
+    for (let i = 0; i < 6; i++) {
+      this.playTone({
+        frequency: 200 + i * 30,
+        duration: 0.04,
+        type: 'square',
+        volume: 0.04,
+      });
+    }
+
+    // Camera shake
+    this.kickCamera(0.025, 200);
+
+    // Screen edges blur effect
+    this.scene.cameras.main.flash(80, 100, 100, 100, true);
+
+    // Dust cloud particles
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xb8a898, 0xd4c8b8, 0xa89888],
+      count: 20,
+      radius: 24,
+    });
+
+    // Speed lines radiating from entrance
+    const cam = this.scene.cameras.main;
+    for (let i = 0; i < 8; i++) {
+      const angle = (Math.PI * 2 * i) / 8;
+      const line = this.scene.add.graphics();
+      const startX = worldX + Math.cos(angle) * 10;
+      const startY = worldY + Math.sin(angle) * 10;
+      const endX = startX + Math.cos(angle) * 40;
+      const endY = startY + Math.sin(angle) * 40;
+      line.lineStyle(2, 0xffd166, 0.4);
+      line.lineBetween(startX, startY, endX, endY);
+      this.scene.tweens.add({
+        targets: line,
+        alpha: 0,
+        duration: 400,
+        ease: 'Sine.easeOut',
+        onComplete: () => line.destroy(),
+      });
+    }
+
+    // Punch zoom out using tween
+    this.scene.tweens.add({
+      targets: cam,
+      zoom: 0.95,
+      duration: 300,
+      ease: 'Sine.easeOut',
+    });
+  }
+
+  bulletTrainRide(progress: number, _worldX: number, _worldY: number) {
+    // Rhythmic wheel clack at increasing tempo
+    const tempo = 0.1 + progress * 0.15;
+    this.playTone({
+      frequency: 180 + progress * 60,
+      duration: tempo,
+      type: 'square',
+      volume: 0.03,
+    });
+
+    // Wind whoosh
+    if (progress > 0.2 && progress < 0.8) {
+      this.playTone({
+        frequency: 300 + Math.sin(progress * 20) * 50,
+        duration: 0.3,
+        type: 'sine',
+        volume: 0.02,
+      });
+    }
+
+    // Occasional chime between stations
+    if (Math.sin(progress * 30) > 0.95) {
+      this.playTone({
+        frequency: 880,
+        duration: 0.15,
+        type: 'sine',
+        volume: 0.04,
+      });
+    }
+
+    // Gentle camera sway
+    const cam = this.scene.cameras.main;
+    const sway = Math.sin(progress * Math.PI * 4) * 0.003;
+    cam.setFollowOffset(cam.scrollX + sway, cam.scrollY);
+  }
+
+  bulletTrainArrive(worldX: number, worldY: number) {
+    // Brake hiss
+    this.playTone({
+      frequency: 600,
+      frequencyEnd: 200,
+      duration: 0.4,
+      type: 'sawtooth',
+      volume: 0.08,
+    });
+
+    // Announcement chime
+    this.playTone({
+      frequency: 660,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.06,
+    });
+    this.playTone({
+      frequency: 880,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.06,
+    });
+
+    // Door open sound
+    this.playTone({
+      frequency: 400,
+      frequencyEnd: 600,
+      duration: 0.15,
+      type: 'square',
+      volume: 0.05,
+    });
+
+    // Camera stabilizes
+    if (this.scene.cameras?.main) {
+      this.scene.cameras.main.flash(150, 255, 255, 255, true);
+    }
+
+    // Cherry blossom petals
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
+    for (let i = 0; i < 15; i++) {
+      const petal = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-30, 30),
+        worldY + Phaser.Math.Between(-30, 30),
+        Phaser.Math.Between(2, 4),
+        0xffb3ba,
+        0.6,
+      );
+      petal.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(petal);
+      this.scene.tweens.add({
+        targets: petal,
+        x: petal.x + Phaser.Math.Between(-20, 40),
+        y: petal.y + Phaser.Math.Between(10, 30),
+        alpha: 0,
+        scale: 0.5,
+        duration: Phaser.Math.Between(800, 1500),
+        ease: 'Sine.easeOut',
+        onComplete: () => petal.destroy(),
+      });
+    }
+
+    // Steam/dust settling
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xe8e8e8, 0xf0f0f0, 0xd8d8d8],
+      count: 10,
+      radius: 18,
+    });
+  }
+
+  bulletTrainAnnounce(destinationName: string) {
+    // LED-style announcement tone
+    this.playTone({
+      frequency: 440,
+      duration: 0.1,
+      type: 'sine',
+      volume: 0.05,
+    });
+    this.playTone({
+      frequency: 550,
+      duration: 0.1,
+      type: 'sine',
+      volume: 0.05,
+    });
+    this.playTone({
+      frequency: 660,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.05,
+    });
+  }
+
+  /** Start ambient falling cherry blossom petals for a room. */
+  startCherryBlossomAmbient(): void {
+    if (this.cherryBlossomTimer) {
+      return; // Already running
+    }
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
+    const cam = this.scene.cameras.main;
+
+    // Spawn an initial batch of petals
+    for (let i = 0; i < 20; i++) {
+      this.spawnCherryPetal(cam, layer);
+    }
+
+    // Continuously spawn new petals
+    this.cherryBlossomTimer = this.scene.time.addEvent({
+      delay: 200,
+      loop: true,
+      callback: () => {
+        if (this.cherryBlossomParticles.length < 40) {
+          this.spawnCherryPetal(cam, layer);
+        }
+      },
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // JADE PEAK PROVINCE — Maximum Japanese Juice
+  // ═══════════════════════════════════════════════════════════
+
+  /** Start ALL ambient Japanese effects for Jade Peak Province. */
+  startJadePeakAmbient(): void {
+    if (this.jadePeakEffects.shrineLanternTimer) {
+      return; // Already running
+    }
+    this._startJadePeakShrineLanterns();
+    this._startJadePeakOfuda();
+    this._startJadePeakKoiRipples();
+    this._startJadePeakCraneFly();
+    this._startJadePeakZenRipples();
+    this._startJadePeakToriiSparkle();
+    this._startJadePeakSakuraBurst();
+    this._startJadePeakOnpu();
+  }
+
+  /** Stop ALL ambient Japanese effects for Jade Peak Province. */
+  stopJadePeakAmbient(): void {
+    this.jadePeakEffects.shrineLanternTimer?.remove(false);
+    this.jadePeakEffects.ofudaTimer?.remove(false);
+    this.jadePeakEffects.koiRippleTimer?.remove(false);
+    this.jadePeakEffects.craneTimer?.remove(false);
+    this.jadePeakEffects.zenRippleTimer?.remove(false);
+    this.jadePeakEffects.toriiSparkleTimer?.remove(false);
+    this.jadePeakEffects.sakuraBurstTimer?.remove(false);
+    this.jadePeakEffects.onpuTimer?.remove(false);
+    this.jadePeakEffects = {};
+  }
+
+  // ─── Shrine Lantern Glow ────────────────────────────────────
+  private _startJadePeakShrineLanterns(): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const cam = this.scene.cameras.main;
+
+    // Initial batch
+    for (let i = 0; i < 3; i++) {
+      this._spawnShrineLantern(cam, layer);
+    }
+
+    this.jadePeakEffects.shrineLanternTimer = this.scene.time.addEvent({
+      delay: 1500 + this.rng() * 1500,
+      loop: true,
+      callback: () => {
+        this._spawnShrineLantern(cam, layer);
+      },
+    });
+  }
+
+  private _spawnShrineLantern(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const x = cam.scrollX + Phaser.Math.Between(10, cam.width - 10);
+    const y = cam.scrollY + Phaser.Math.Between(10, cam.height * 0.6);
+    const colors = [0xffe8b6, 0xffc857, 0xfff4d6, 0xffd166, 0xffb840];
+    const color = Phaser.Utils.Array.GetRandom(colors);
+    const size = Phaser.Math.Between(2, 4);
+
+    // Main lantern glow
+    const lantern = this.scene.add.circle(x, y, size, color, 0.6);
+    lantern.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(lantern);
+
+    // Outer glow halo
+    const halo = this.scene.add.circle(x, y, size * 3, color, 0.1);
+    halo.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(halo);
+
+    // Gentle float up + soft pulse
+    const duration = 2500 + this.rng() * 2000;
+    this.scene.tweens.add({
+      targets: [lantern, halo],
+      y: y - Phaser.Math.Between(8, 20),
+      x: x + (this.rng() - 0.5) * 12,
+      alpha: 0,
+      scale: 1.3,
+      duration: duration,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        lantern.destroy();
+        halo.destroy();
+      },
+    });
+
+    // Soft breathing pulse on the lantern (gentle alpha oscillation)
+    this.scene.tweens.add({
+      targets: lantern,
+      alpha: { from: 0.6, to: 0.45 },
+      duration: 800 + this.rng() * 400,
+      yoyo: true,
+      repeat: 1 + Math.floor(this.rng() * 2),
+    });
+  }
+
+  // ─── Ofuda (Paper Talisman) Float ───────────────────────────
+  private _startJadePeakOfuda(): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const cam = this.scene.cameras.main;
+
+    for (let i = 0; i < 2; i++) {
+      this._spawnOfuda(cam, layer);
+    }
+
+    this.jadePeakEffects.ofudaTimer = this.scene.time.addEvent({
+      delay: 2500 + this.rng() * 2000,
+      loop: true,
+      callback: () => {
+        this._spawnOfuda(cam, layer);
+      },
+    });
+  }
+
+  private _spawnOfuda(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const x = cam.scrollX + Phaser.Math.Between(20, cam.width - 20);
+    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.3, cam.height * 0.7);
+    const size = Phaser.Math.Between(3, 5);
+
+    // Ofuda body (rectangular paper)
+    const ofuda = this.scene.add.rectangle(
+      x, y, size * 2, size * 3.5,
+      0xfff8f0, 0.35
+    );
+    ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.3);
+    layer.add(ofuda);
+
+    // Red seal line on the ofuda
+    const seal = this.scene.add.rectangle(
+      x, y - size * 0.5, size * 1.2, size * 0.8,
+      0xff6666, 0.3
+    );
+    seal.setDepth(24).setRotation(ofuda.rotation);
+    layer.add(seal);
+
+    const driftX = (this.rng() - 0.5) * 40;
+    const duration = 4000 + this.rng() * 2500;
+
+    this.scene.tweens.add({
+      targets: [ofuda, seal],
+      x: x + driftX,
+      y: y - 30 - this.rng() * 30,
+      rotation: ofuda.rotation + (this.rng() - 0.5) * 0.3,
+      alpha: 0,
+      scale: 0.5,
+      duration: duration,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        ofuda.destroy();
+        seal.destroy();
+      },
+    });
+  }
+
+  // ─── Koi Pond Ripple ────────────────────────────────────────
+  private _startJadePeakKoiRipples(): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const cam = this.scene.cameras.main;
+
+    for (let i = 0; i < 2; i++) {
+      this._spawnKoiRipple(cam, layer);
+    }
+
+    this.jadePeakEffects.koiRippleTimer = this.scene.time.addEvent({
+      delay: 1500 + this.rng() * 1500,
+      loop: true,
+      callback: () => {
+        this._spawnKoiRipple(cam, layer);
+      },
+    });
+  }
+
+  private _spawnKoiRipple(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const x = cam.scrollX + Phaser.Math.Between(20, cam.width - 20);
+    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.55, cam.height - 20);
+    const maxRadius = 10 + this.rng() * 8;
+
+    // Outer ripple ring
+    const ring = this.scene.add.circle(x, y, 2, 0x9ad1ff, 0.25);
+    ring.setDepth(20).setStrokeStyle(1.2, 0x74b8ff, 0.3);
+    layer.add(ring);
+
+    // Inner sparkle
+    const sparkle = this.scene.add.circle(x, y, 1, 0xffffff, 0.35);
+    sparkle.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(sparkle);
+
+    this.scene.tweens.add({
+      targets: ring,
+      scale: maxRadius / 2,
+      alpha: 0,
+      duration: 1000 + this.rng() * 500,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        ring.destroy();
+        sparkle.destroy();
+      },
+    });
+
+    // Occasional koi fish drift (less frequent, gentler)
+    if (this.rng() < 0.15) {
+      const koiColor = Phaser.Utils.Array.GetRandom([0xff8c42, 0xffd166, 0xffb3c6, 0xffffff]);
+      const koi = this.scene.add.circle(
+        x + Phaser.Math.Between(-3, 3),
+        y + Phaser.Math.Between(-2, 2),
+        2, koiColor, 0.4
+      );
+      koi.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(koi);
+
+      const koiDriftX = (this.rng() - 0.5) * 20;
+      this.scene.tweens.add({
+        targets: koi,
+        x: x + koiDriftX,
+        y: y + Phaser.Math.Between(-3, 6),
+        alpha: 0,
+        duration: 600 + this.rng() * 400,
+        ease: 'Sine.easeOut',
+        onComplete: () => koi.destroy(),
+      });
+    }
+  }
+
+  // ─── Origami Crane Fly ──────────────────────────────────────
+  private _startJadePeakCraneFly(): void {
+    const cam = this.scene.cameras.main;
+
+    for (let i = 0; i < 1; i++) {
+      this._spawnCrane(cam);
+    }
+
+    this.jadePeakEffects.craneTimer = this.scene.time.addEvent({
+      delay: 5000 + this.rng() * 4000,
+      loop: true,
+      callback: () => {
+        this._spawnCrane(cam);
+      },
+    });
+  }
+
+  private _spawnCrane(cam: Phaser.Cameras.Scene2D.Camera): void {
+    const direction = this.rng() < 0.5 ? 1 : -1;
+    const startY = cam.scrollY + Phaser.Math.Between(20, cam.height * 0.4);
+    const startX = direction === 1 ? cam.scrollX - 20 : cam.scrollX + cam.width + 20;
+    const endX = direction === 1 ? cam.scrollX + cam.width + 40 : cam.scrollX - 40;
+    const color = Phaser.Utils.Array.GetRandom([0xffffff, 0xfff3a8, 0xffb3c6, 0xffc8d4]);
+    const size = Phaser.Math.Between(3, 5);
+
+    // Crane body (triangle)
+    const craneBody = this.scene.add.triangle(
+      startX, startY, 0, -size,
+      -size * 1.2, size * 0.5,
+      size * 1.2, size * 0.5,
+      color, 0.4
+    );
+    craneBody.setDepth(25).setRotation(direction === -1 ? Math.PI : 0);
+    this.particleLayer.add(craneBody);
+
+    // Wing flap effect
+    const wingL = this.scene.add.triangle(
+      startX, startY, 0, -size * 0.5,
+      -size * 1.5, -size * 1.5,
+      -size * 0.5, -size * 0.2,
+      color, 0.25
+    );
+    wingL.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
+    this.particleLayer.add(wingL);
+
+    const wingR = this.scene.add.triangle(
+      startX, startY, 0, -size * 0.5,
+      size * 0.5, -size * 0.2,
+      size * 1.5, -size * 1.5,
+      color, 0.25
+    );
+    wingR.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
+    this.particleLayer.add(wingR);
+
+    const travelDistance = Math.abs(endX - startX);
+    const duration = 2500 + travelDistance * 2;
+
+    this.scene.tweens.add({
+      targets: [craneBody, wingL, wingR],
+      x: endX,
+      y: startY + (this.rng() - 0.5) * 30,
+      alpha: 0,
+      scale: 0.5,
+      duration: duration,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        // Wing flap animation (slower, more graceful)
+        const flap = Math.sin(Date.now() * 0.008) * 0.2;
+        wingL.setRotation(craneBody.rotation + flap);
+        wingR.setRotation(craneBody.rotation - flap);
+      },
+      onComplete: () => {
+        craneBody.destroy();
+        wingL.destroy();
+        wingR.destroy();
+      },
+    });
+
+    // Crane call sound (softer, lower pitch)
+    this.playTone({
+      frequency: 600 + this.rng() * 300,
+      frequencyEnd: 450 + this.rng() * 200,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.015,
+    });
+  }
+
+  // ─── Zen Garden Ripple ──────────────────────────────────────
+  private _startJadePeakZenRipples(): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const cam = this.scene.cameras.main;
+
+    for (let i = 0; i < 2; i++) {
+      this._spawnZenRipple(cam, layer);
+    }
+
+    this.jadePeakEffects.zenRippleTimer = this.scene.time.addEvent({
+      delay: 2000 + this.rng() * 1500,
+      loop: true,
+      callback: () => {
+        this._spawnZenRipple(cam, layer);
+      },
+    });
+  }
+
+  private _spawnZenRipple(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const x = cam.scrollX + Phaser.Math.Between(20, cam.width - 20);
+    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.6, cam.height - 10);
+    const maxRadius = 8 + this.rng() * 8;
+
+    // Concentric ripple rings (like raked sand patterns)
+    for (let r = 0; r < 3; r++) {
+      const ring = this.scene.add.circle(
+        x, y, 2 + r * 2,
+        0xf6e7c1, 0.2 - r * 0.05
+      );
+      ring.setDepth(19).setStrokeStyle(1, 0xd4b896, 0.15);
+      layer.add(ring);
+
+      const delay = r * 80;
+      this.scene.tweens.add({
+        targets: ring,
+        scale: (maxRadius + r * 6) / (2 + r * 2),
+        alpha: 0,
+        delay: delay,
+        duration: 600 + r * 100,
+        ease: 'Cubic.easeOut',
+        onComplete: () => ring.destroy(),
+      });
+    }
+
+    // Small sand grain particles
+    for (let i = 0; i < 5; i++) {
+      const grain = this.scene.add.circle(
+        x + Phaser.Math.Between(-4, 4),
+        y + Phaser.Math.Between(-4, 4),
+        1, 0xd4b896, 0.4
+      );
+      grain.setDepth(20);
+      layer.add(grain);
+
+      const angle = this.rng() * Math.PI * 2;
+      const dist = 4 + this.rng() * 8;
+      this.scene.tweens.add({
+        targets: grain,
+        x: x + Math.cos(angle) * dist,
+        y: y + Math.sin(angle) * dist,
+        alpha: 0,
+        duration: 500 + this.rng() * 300,
+        ease: 'Sine.easeOut',
+        onComplete: () => grain.destroy(),
+      });
+    }
+  }
+
+  // ─── Torii Gate Sparkle ─────────────────────────────────────
+  private _startJadePeakToriiSparkle(): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const cam = this.scene.cameras.main;
+
+    for (let i = 0; i < 2; i++) {
+      this._spawnToriiSparkle(cam, layer);
+    }
+
+    this.jadePeakEffects.toriiSparkleTimer = this.scene.time.addEvent({
+      delay: 1500 + this.rng() * 2000,
+      loop: true,
+      callback: () => {
+        this._spawnToriiSparkle(cam, layer);
+      },
+    });
+  }
+
+  private _spawnToriiSparkle(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const x = cam.scrollX + Phaser.Math.Between(10, cam.width - 10);
+    const y = cam.scrollY + Phaser.Math.Between(10, cam.height * 0.7);
+    const color = Phaser.Utils.Array.GetRandom([
+      0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6,
+    ]);
+    const size = 1 + this.rng() * 1.5;
+
+    const sparkle = this.scene.add.circle(x, y, size, color, 0.5);
+    sparkle.setDepth(23).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(sparkle);
+
+    this.scene.tweens.add({
+      targets: sparkle,
+      x: x + (this.rng() - 0.5) * 20,
+      y: y - Phaser.Math.Between(3, 12),
+      alpha: 0,
+      scale: 0.3,
+      duration: 800 + this.rng() * 600,
+      ease: 'Sine.easeOut',
+      onComplete: () => sparkle.destroy(),
+    });
+  }
+
+  // ─── Sakura Petal Drift ─────────────────────────────────────
+  private _startJadePeakSakuraBurst(): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const cam = this.scene.cameras.main;
+
+    for (let i = 0; i < 2; i++) {
+      this._spawnSakuraBurst(cam, layer);
+    }
+
+    this.jadePeakEffects.sakuraBurstTimer = this.scene.time.addEvent({
+      delay: 4000 + this.rng() * 3000,
+      loop: true,
+      callback: () => {
+        this._spawnSakuraBurst(cam, layer);
+      },
+    });
+  }
+
+  private _spawnSakuraBurst(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const x = cam.scrollX + Phaser.Math.Between(30, cam.width - 30);
+    const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.1, cam.height * 0.4);
+    const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff, 0xffa3b8];
+    const count = 2 + Math.floor(this.rng() * 2); // 2-3 petals per drift
+
+    for (let i = 0; i < count; i++) {
+      const color = Phaser.Utils.Array.GetRandom(petalColors);
+      const size = 2 + this.rng() * 2;
+
+      const petal = this.scene.add.circle(x + (this.rng() - 0.5) * 20, y, size, color, 0.5);
+      petal.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(petal);
+
+      const endX = x + (this.rng() - 0.5) * 80;
+      const endY = y + 40 + this.rng() * 60;
+
+      this.scene.tweens.add({
+        targets: petal,
+        x: endX,
+        y: endY + this.rng() * 30,
+        alpha: 0,
+        scale: 0.4,
+        rotation: (this.rng() - 0.5) * Math.PI * 0.5,
+        duration: 2000 + this.rng() * 1500,
+        ease: 'Sine.easeInOut',
+        onComplete: () => petal.destroy(),
+      });
+    }
+  }
+
+  // ─── Onpu (Sacred Clapper) ──────────────────────────────────
+  private _startJadePeakOnpu(): void {
+    const cam = this.scene.cameras.main;
+
+    // Initial onpu
+    this._triggerOnpu(cam);
+
+    this.jadePeakEffects.onpuTimer = this.scene.time.addEvent({
+      delay: 4000 + this.rng() * 3000,
+      loop: true,
+      callback: () => {
+        this._triggerOnpu(cam);
+      },
+    });
+  }
+
+  private _triggerOnpu(cam: Phaser.Cameras.Scene2D.Camera): void {
+    // Onpu sound: soft chime + ethereal ring
+    this.playTone({
+      frequency: 880,
+      frequencyEnd: 660,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.02,
+    });
+    globalThis.setTimeout(() => {
+      this.playTone({
+        frequency: 660,
+        frequencyEnd: 440,
+        duration: 0.7,
+        type: 'sine',
+        volume: 0.015,
+      });
+    }, 80);
+    globalThis.setTimeout(() => {
+      this.playTone({
+        frequency: 990,
+        frequencyEnd: 660,
+        duration: 0.5,
+        type: 'triangle',
+        volume: 0.0125,
+      });
+    }, 160);
+
+    // Visual: paper streamers flutter gently
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const x = cam.scrollX + Phaser.Math.Between(40, cam.width - 40);
+    const y = cam.scrollY + Phaser.Math.Between(20, cam.height * 0.4);
+
+    // Hanging paper strips
+    const stripColors = [0xffffff, 0xfff3a8, 0xffb3c6, 0x9ad1ff];
+    for (let i = 0; i < 3; i++) {
+      const strip = this.scene.add.rectangle(
+        x + (i - 1) * 6,
+        y + 5,
+        2, 10 + this.rng() * 6,
+        Phaser.Utils.Array.GetRandom(stripColors), 0.4
+      );
+      strip.setDepth(24);
+      layer.add(strip);
+
+      this.scene.tweens.add({
+        targets: strip,
+        rotation: (this.rng() - 0.5) * 0.4,
+        y: y + 8 + this.rng() * 10,
+        alpha: 0,
+        duration: 1500 + this.rng() * 1000,
+        ease: 'Sine.easeOut',
+        onComplete: () => strip.destroy(),
+      });
+    }
+  }
+
+  // ─── Bamboo Sway Leaves ─────────────────────────────────────
+  bambooSway(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const colors = [0x5dd66f, 0x7ed77c, 0x9ad1ff, 0xa6d99a];
+
+    for (let i = 0; i < 4; i++) {
+      const leaf = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-8, 8),
+        worldY + Phaser.Math.Between(-8, 8),
+        1 + this.rng() * 2,
+        Phaser.Utils.Array.GetRandom(colors),
+        0.5
+      );
+      leaf.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(leaf);
+
+      this.scene.tweens.add({
+        targets: leaf,
+        x: leaf.x + (this.rng() - 0.5) * 20,
+        y: leaf.y - Phaser.Math.Between(8, 20),
+        alpha: 0,
+        scale: 0.4,
+        duration: 600 + this.rng() * 400,
+        ease: 'Sine.easeOut',
+        onComplete: () => leaf.destroy(),
+      });
+    }
+  }
+
+  // ─── Ramen Steam ────────────────────────────────────────────
+  ramenSteam(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+
+    for (let i = 0; i < 3; i++) {
+      const steam = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-4, 4),
+        worldY + Phaser.Math.Between(-2, 2),
+        2 + this.rng() * 3,
+        0xf0f0f0, 0.2
+      );
+      steam.setDepth(20);
+      layer.add(steam);
+
+      this.scene.tweens.add({
+        targets: steam,
+        x: worldX + (this.rng() - 0.5) * 16,
+        y: worldY - 20 - this.rng() * 20,
+        alpha: 0,
+        scale: 1.8,
+        duration: 800 + this.rng() * 600,
+        ease: 'Sine.easeOut',
+        onComplete: () => steam.destroy(),
+      });
+    }
+  }
+
+  // ─── Sacred Shimenawa Glow ──────────────────────────────────
+  shimenawaGlow(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+
+    // Glowing rope segments
+    for (let i = 0; i < 3; i++) {
+      const glow = this.scene.add.circle(
+        worldX + (i - 1) * 8,
+        worldY + Phaser.Math.Between(-3, 3),
+        2 + this.rng() * 2,
+        0xffd166, 0.4
+      );
+      glow.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(glow);
+
+      this.scene.tweens.add({
+        targets: glow,
+        alpha: 0,
+        scale: 0.5,
+        duration: 500 + this.rng() * 300,
+        ease: 'Sine.easeOut',
+        onComplete: () => glow.destroy(),
+      });
+    }
+  }
+
+  // ─── Mochi Pound ────────────────────────────────────────────
+  mochiPound(worldX: number, worldY: number): void {
+    // Sound: soft thud
+    this.playTone({
+      frequency: 100,
+      frequencyEnd: 60,
+      duration: 0.18,
+      type: 'sine',
+      volume: 0.03,
+    });
+    globalThis.setTimeout(() => {
+      this.playTone({
+        frequency: 130,
+        frequencyEnd: 70,
+        duration: 0.15,
+        type: 'triangle',
+        volume: 0.025,
+      });
+    }, 220);
+
+    // Visual: soft dough puff
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xffffff, 0xfff3a8, 0xffb3c6, 0xc8ffe1],
+      count: 8,
+      radius: 14,
+    });
+  }
+
+  // ─── Wasabi Mist ────────────────────────────────────────────
+  wasabiMist(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+
+    // Green mist cloud
+    for (let i = 0; i < 4; i++) {
+      const mist = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-8, 8),
+        worldY + Phaser.Math.Between(-4, 4),
+        3 + this.rng() * 3,
+        0x7ed77c, 0.12
+      );
+      mist.setDepth(19);
+      layer.add(mist);
+
+      this.scene.tweens.add({
+        targets: mist,
+        x: mist.x + (this.rng() - 0.5) * 18,
+        y: mist.y - Phaser.Math.Between(4, 12),
+        alpha: 0,
+        scale: 1.3,
+        duration: 800 + this.rng() * 600,
+        ease: 'Sine.easeOut',
+        onComplete: () => mist.destroy(),
+      });
+    }
+
+    // Gentle sound
+    this.playTone({
+      frequency: 500,
+      frequencyEnd: 300,
+      duration: 0.1,
+      type: 'triangle',
+      volume: 0.0175,
+    });
+  }
+
+  // ─── Kappa Splash ───────────────────────────────────────────
+  kappaSplash(worldX: number, worldY: number): void {
+    // Gentle water ripple
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0x5dd6a2, 0xffffff, 0x74b8ff],
+      count: 8,
+      radius: 14,
+    });
+
+    // Bubble ring
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 6, 2, 220);
+
+    // Sound: soft splash
+    this.playTone({
+      frequency: 280,
+      frequencyEnd: 160,
+      duration: 0.12,
+      type: 'sine',
+      volume: 0.025,
+    });
+  }
+
+  // ─── Crane Wing Flap ────────────────────────────────────────
+  craneWingFlap(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+
+    // Wing feather particles
+    for (let i = 0; i < 5; i++) {
+      const feather = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-12, 12),
+        worldY + Phaser.Math.Between(-12, 12),
+        1 + this.rng() * 2,
+        0xffffff, 0.6
+      );
+      feather.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(feather);
+
+      const angle = (this.rng() - 0.5) * Math.PI; // upward arc
+      const dist = 10 + this.rng() * 20;
+      this.scene.tweens.add({
+        targets: feather,
+        x: worldX + Math.cos(angle) * dist,
+        y: worldY + Math.sin(angle) * dist - 15,
+        alpha: 0,
+        scale: 0.3,
+        rotation: (this.rng() - 0.5) * Math.PI,
+        duration: 600 + this.rng() * 400,
+        ease: 'Sine.easeOut',
+        onComplete: () => feather.destroy(),
+      });
+    }
+  }
+
+  // ─── Tanuki Shadow ──────────────────────────────────────────
+  tanukiShadow(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+
+    // Dark shadow that drifts across
+    const shadow = this.scene.add.circle(
+      worldX, worldY, 4 + this.rng() * 3,
+      0x2a1a0a, 0.2
+    );
+    shadow.setDepth(18);
+    layer.add(shadow);
+
+    this.scene.tweens.add({
+      targets: shadow,
+      x: worldX + (this.rng() > 0.5 ? 30 : -30),
+      y: worldY + (this.rng() - 0.5) * 8,
+      alpha: 0,
+      scale: 0.5,
+      duration: 500 + this.rng() * 300,
+      ease: 'Sine.easeInOut',
+      onComplete: () => shadow.destroy(),
+    });
+
+    // Soft sound: rustle
+    this.playTone({
+      frequency: 220 + this.rng() * 80,
+      frequencyEnd: 300 + this.rng() * 60,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.015,
+    });
+  }
+
+  // ═══════════════════════════════════════════════════════════
+  // JADE PEAK PROVINCE — Single-call ambient methods
+  // ═══════════════════════════════════════════════════════════
+
+  /** One-shot shrine lantern glow effect. */
+  shrineLanternGlow(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const colors = [0xffe8b6, 0xffc857, 0xfff4d6, 0xffd166, 0xffb840];
+    const color = Phaser.Utils.Array.GetRandom(colors);
+    const size = 2 + this.rng() * 3;
+
+    const lantern = this.scene.add.circle(worldX, worldY, size, color, 0.6);
+    lantern.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(lantern);
+
+    const halo = this.scene.add.circle(worldX, worldY, size * 3, color, 0.1);
+    halo.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(halo);
+
+    this.scene.tweens.add({
+      targets: [lantern, halo],
+      y: worldY - Phaser.Math.Between(6, 15),
+      alpha: 0,
+      scale: 1.3,
+      duration: 2000 + this.rng() * 1200,
+      ease: 'Sine.easeOut',
+      onComplete: () => {
+        lantern.destroy();
+        halo.destroy();
+      },
+    });
+
+    // Soft breathing pulse
+    this.scene.tweens.add({
+      targets: lantern,
+      alpha: { from: 0.6, to: 0.45 },
+      duration: 800 + this.rng() * 400,
+      yoyo: true,
+      repeat: 1 + Math.floor(this.rng() * 2),
+    });
+  }
+
+  /** One-shot ofuda (paper talisman) floating effect. */
+  ofudaFloat(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const size = 3 + this.rng() * 2;
+
+    const ofuda = this.scene.add.rectangle(
+      worldX, worldY, size * 2, size * 3.5,
+      0xfff8f0, 0.35
+    );
+    ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.3);
+    layer.add(ofuda);
+
+    const seal = this.scene.add.rectangle(
+      worldX, worldY - size * 0.5, size * 1.2, size * 0.8,
+      0xff6666, 0.3
+    );
+    seal.setDepth(24).setRotation(ofuda.rotation);
+    layer.add(seal);
+
+    const driftX = (this.rng() - 0.5) * 40;
+    this.scene.tweens.add({
+      targets: [ofuda, seal],
+      x: worldX + driftX,
+      y: worldY - 25 - this.rng() * 25,
+      rotation: ofuda.rotation + (this.rng() - 0.5) * 0.3,
+      alpha: 0,
+      scale: 0.5,
+      duration: 3000 + this.rng() * 2000,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        ofuda.destroy();
+        seal.destroy();
+      },
+    });
+  }
+
+  /** One-shot koi pond ripple effect. */
+  koiRipple(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const maxRadius = 10 + this.rng() * 8;
+
+    const ring = this.scene.add.circle(worldX, worldY, 2, 0x9ad1ff, 0.25);
+    ring.setDepth(20).setStrokeStyle(1.2, 0x74b8ff, 0.3);
+    layer.add(ring);
+
+    const sparkle = this.scene.add.circle(worldX, worldY, 1, 0xffffff, 0.35);
+    sparkle.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(sparkle);
+
+    this.scene.tweens.add({
+      targets: ring,
+      scale: maxRadius / 2,
+      alpha: 0,
+      duration: 900 + this.rng() * 400,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        ring.destroy();
+        sparkle.destroy();
+      },
+    });
+
+    // Occasional koi drift
+    if (this.rng() < 0.15) {
+      const koiColor = Phaser.Utils.Array.GetRandom([0xff8c42, 0xffd166, 0xffb3c6, 0xffffff]);
+      const koi = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-3, 3),
+        worldY + Phaser.Math.Between(-2, 2),
+        2, koiColor, 0.4
+      );
+      koi.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(koi);
+
+      this.scene.tweens.add({
+        targets: koi,
+        x: worldX + (this.rng() - 0.5) * 20,
+        y: worldY + Phaser.Math.Between(-3, 6),
+        alpha: 0,
+        duration: 550 + this.rng() * 350,
+        ease: 'Sine.easeOut',
+        onComplete: () => koi.destroy(),
+      });
+    }
+  }
+
+  /** One-shot origami crane across the screen. */
+  origamiCraneFly(): void {
+    const cam = this.scene.cameras.main;
+    const direction = this.rng() < 0.5 ? 1 : -1;
+    const startY = cam.scrollY + Phaser.Math.Between(20, cam.height * 0.4);
+    const startX = direction === 1 ? cam.scrollX - 20 : cam.scrollX + cam.width + 20;
+    const endX = direction === 1 ? cam.scrollX + cam.width + 40 : cam.scrollX - 40;
+    const color = Phaser.Utils.Array.GetRandom([0xffffff, 0xfff3a8, 0xffb3c6, 0xffc8d4]);
+    const size = 3 + this.rng() * 3;
+
+    const craneBody = this.scene.add.triangle(
+      startX, startY, 0, -size,
+      -size * 1.2, size * 0.5,
+      size * 1.2, size * 0.5,
+      color, 0.4
+    );
+    craneBody.setDepth(25).setRotation(direction === -1 ? Math.PI : 0);
+    this.particleLayer.add(craneBody);
+
+    const wingL = this.scene.add.triangle(
+      startX, startY, 0, -size * 0.5,
+      -size * 1.5, -size * 1.5,
+      -size * 0.5, -size * 0.2,
+      color, 0.25
+    );
+    wingL.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
+    this.particleLayer.add(wingL);
+
+    const wingR = this.scene.add.triangle(
+      startX, startY, 0, -size * 0.5,
+      size * 0.5, -size * 0.2,
+      size * 1.5, -size * 1.5,
+      color, 0.25
+    );
+    wingR.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
+    this.particleLayer.add(wingR);
+
+    const duration = 2500 + Math.abs(endX - startX) * 2;
+    this.scene.tweens.add({
+      targets: [craneBody, wingL, wingR],
+      x: endX,
+      y: startY + (this.rng() - 0.5) * 30,
+      alpha: 0,
+      scale: 0.5,
+      duration: duration,
+      ease: 'Sine.easeInOut',
+      onUpdate: () => {
+        const flap = Math.sin(Date.now() * 0.008) * 0.2;
+        wingL.setRotation(craneBody.rotation + flap);
+        wingR.setRotation(craneBody.rotation - flap);
+      },
+      onComplete: () => {
+        craneBody.destroy();
+        wingL.destroy();
+        wingR.destroy();
+      },
+    });
+
+    // Crane call (softer, lower)
+    this.playTone({
+      frequency: 600 + this.rng() * 300,
+      frequencyEnd: 450 + this.rng() * 200,
+      duration: 0.2,
+      type: 'sine',
+      volume: 0.015,
+    });
+  }
+
+  /** One-shot zen garden ripple effect. */
+  zenRipple(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const maxRadius = 8 + this.rng() * 6;
+
+    for (let r = 0; r < 3; r++) {
+      const ring = this.scene.add.circle(
+        worldX, worldY, 2 + r * 2,
+        0xf6e7c1, 0.2 - r * 0.05
+      );
+      ring.setDepth(19).setStrokeStyle(1, 0xd4b896, 0.15);
+      layer.add(ring);
+
+      const delay = r * 100;
+      this.scene.tweens.add({
+        targets: ring,
+        scale: (maxRadius + r * 6) / (2 + r * 2),
+        alpha: 0,
+        delay: delay,
+        duration: 600 + r * 100,
+        ease: 'Cubic.easeOut',
+        onComplete: () => ring.destroy(),
+      });
+    }
+
+    for (let i = 0; i < 3; i++) {
+      const grain = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-3, 3),
+        worldY + Phaser.Math.Between(-3, 3),
+        1, 0xd4b896, 0.35
+      );
+      grain.setDepth(20);
+      layer.add(grain);
+
+      const angle = this.rng() * Math.PI * 2;
+      const dist = 3 + this.rng() * 6;
+      this.scene.tweens.add({
+        targets: grain,
+        x: worldX + Math.cos(angle) * dist,
+        y: worldY + Math.sin(angle) * dist,
+        alpha: 0,
+        duration: 500 + this.rng() * 200,
+        ease: 'Sine.easeOut',
+        onComplete: () => grain.destroy(),
+      });
+    }
+  }
+
+  /** One-shot torii gate sparkle effect. */
+  toriiSparkle(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const color = Phaser.Utils.Array.GetRandom([
+      0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6,
+    ]);
+    const size = 1 + this.rng() * 1.5;
+
+    const sparkle = this.scene.add.circle(worldX, worldY, size, color, 0.5);
+    sparkle.setDepth(23).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(sparkle);
+
+    this.scene.tweens.add({
+      targets: sparkle,
+      x: worldX + (this.rng() - 0.5) * 20,
+      y: worldY - Phaser.Math.Between(3, 12),
+      alpha: 0,
+      scale: 0.3,
+      duration: 700 + this.rng() * 500,
+      ease: 'Sine.easeOut',
+      onComplete: () => sparkle.destroy(),
+    });
+  }
+
+  /** One-shot sakura petal drift effect. */
+  sakuraPetalBurst(worldX: number, worldY: number): void {
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff, 0xffa3b8];
+    const count = 2 + Math.floor(this.rng() * 2); // 2-3 petals per drift
+
+    for (let i = 0; i < count; i++) {
+      const color = Phaser.Utils.Array.GetRandom(petalColors);
+      const size = 2 + this.rng() * 2;
+
+      const petal = this.scene.add.circle(worldX + (this.rng() - 0.5) * 15, worldY, size, color, 0.5);
+      petal.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(petal);
+
+      this.scene.tweens.add({
+        targets: petal,
+        x: worldX + (this.rng() - 0.5) * 60,
+        y: worldY + 20 + this.rng() * 40,
+        alpha: 0,
+        scale: 0.4,
+        rotation: (this.rng() - 0.5) * Math.PI * 0.5,
+        duration: 1800 + this.rng() * 1200,
+        ease: 'Sine.easeInOut',
+        onComplete: () => petal.destroy(),
+      });
+    }
+  }
+
+  /** One-shot onpu (sacred clapper) sound + paper streamers. */
+  onpuClapper(worldX: number, worldY: number): void {
+    this.playTone({
+      frequency: 880,
+      frequencyEnd: 660,
+      duration: 0.08,
+      type: 'triangle',
+      volume: 0.02,
+    });
+    globalThis.setTimeout(() => {
+      this.playTone({
+        frequency: 660,
+        frequencyEnd: 440,
+        duration: 0.7,
+        type: 'sine',
+        volume: 0.015,
+      });
+    }, 80);
+    globalThis.setTimeout(() => {
+      this.playTone({
+        frequency: 990,
+        frequencyEnd: 660,
+        duration: 0.5,
+        type: 'triangle',
+        volume: 0.0125,
+      });
+    }, 160);
+
+    const layer = this.particleLayer;
+    if (!layer) return;
+    const stripColors = [0xffffff, 0xfff3a8, 0xffb3c6, 0x9ad1ff];
+
+    for (let i = 0; i < 3; i++) {
+      const strip = this.scene.add.rectangle(
+        worldX + (i - 1) * 6,
+        worldY + 5,
+        2, 10 + this.rng() * 6,
+        Phaser.Utils.Array.GetRandom(stripColors), 0.4
+      );
+      strip.setDepth(24);
+      layer.add(strip);
+
+      this.scene.tweens.add({
+        targets: strip,
+        rotation: (this.rng() - 0.5) * 0.4,
+        y: worldY + 8 + this.rng() * 10,
+        alpha: 0,
+        duration: 1400 + this.rng() * 800,
+        ease: 'Sine.easeOut',
+        onComplete: () => strip.destroy(),
+      });
+    }
+  }
+
+  /** One-shot jade peak ambient: pick a random Japanese effect. */
+  jadePeakAmbientRandom(worldX: number, worldY: number): void {
+    const effects = [
+      () => this.shrineLanternGlow(worldX, worldY),
+      () => this.ofudaFloat(worldX, worldY),
+      () => this.koiRipple(worldX, worldY),
+      () => this.bambooSway(worldX, worldY),
+      () => this.ramenSteam(worldX, worldY),
+      () => this.shimenawaGlow(worldX, worldY),
+      () => this.mochiPound(worldX, worldY),
+      () => this.wasabiMist(worldX, worldY),
+      () => this.kappaSplash(worldX, worldY),
+      () => this.craneWingFlap(worldX, worldY),
+      () => this.tanukiShadow(worldX, worldY),
+      () => this.zenRipple(worldX, worldY),
+      () => this.toriiSparkle(worldX, worldY),
+      () => this.sakuraPetalBurst(worldX, worldY),
+      () => this.onpuClapper(worldX, worldY),
+    ];
+    Phaser.Utils.Array.GetRandom(effects)();
+  }
+
+  /** Stop ambient falling cherry blossom petals and clean up. */
+  stopCherryBlossomAmbient(): void {
+    this.cherryBlossomTimer?.remove(false);
+    this.cherryBlossomTimer = undefined;
+
+    // Fade out existing petals
+    for (const petal of this.cherryBlossomParticles) {
+      this.scene.tweens.add({
+        targets: petal,
+        alpha: 0,
+        duration: 400,
+        onComplete: () => petal.destroy(),
+      });
+    }
+    this.cherryBlossomParticles = [];
+  }
+
+  private spawnCherryPetal(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff];
+    const color = petalColors[Math.floor(this.rng() * petalColors.length)];
+    const size = 2 + this.rng() * 3;
+
+    // Spawn at top of screen with some horizontal spread
+    const x = cam.scrollX + this.rng() * cam.width;
+    const y = cam.scrollY - 10;
+
+    const petal = this.scene.add.circle(x, y, size, color, 0.7);
+    petal.setDepth(24).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(petal);
+    this.cherryBlossomParticles.push(petal);
+
+    const driftX = (this.rng() - 0.5) * 60;
+    const duration = 3000 + this.rng() * 2000;
+
+    this.scene.tweens.add({
+      targets: petal,
+      x: x + driftX,
+      y: cam.scrollY + cam.height + 20,
+      alpha: 0,
+      scale: 0.3,
+      rotation: (this.rng() - 0.5) * Math.PI * 2,
+      duration: duration,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        petal.destroy();
+        const idx = this.cherryBlossomParticles.indexOf(petal);
+        if (idx !== -1) {
+          this.cherryBlossomParticles.splice(idx, 1);
+        }
+      },
     });
   }
 }

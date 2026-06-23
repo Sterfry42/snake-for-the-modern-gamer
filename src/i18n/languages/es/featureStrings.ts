@@ -439,5 +439,15 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   shopTitlePrefix: '',
 
   // HUD
-  hudScore: 'Puntuaci\u00f3n',
+
+  // HUD
+  hudScore: 'Puntuación',
+
+  // Bullet Train
+  boardTrain: 'SUBIR AL TREN',
+  departureAnnouncement: '¡El Expreso Jade Peak sale hacia {destination}!',
+  arrivalAnnouncement: '¡Próxima parada: {destination}!',
+  stationSign: 'Expreso Jade Peak',
+  ticketBooth: 'Taquilla',
+  platformLantern: 'Farol de Plataforma',
 };

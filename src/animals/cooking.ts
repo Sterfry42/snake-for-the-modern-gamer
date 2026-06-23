@@ -1,4 +1,4 @@
-export type CookingRecipeId = 'cook-meat' | 'cook-fish';
+export type CookingRecipeId = 'cook-meat' | 'cook-fish' | 'cook-frog';
 
 export interface CookingRecipe {
   id: CookingRecipeId;
@@ -18,6 +18,12 @@ export const COOKING_RECIPES: readonly CookingRecipe[] = [
     id: 'cook-fish',
     input: 'fish-meat',
     output: 'cooked-fish',
+    outputCount: 1,
+  },
+  {
+    id: 'cook-frog',
+    input: 'frog-meat',
+    output: 'cooked-frog',
     outputCount: 1,
   },
 ];

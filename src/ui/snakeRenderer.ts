@@ -456,6 +456,9 @@ export class SnakeRenderer {
               .lineStyle(1, outline, 0.35)
               .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           }
+        } else if (tile === 'C') {
+          // Cherry blossom tree
+          this.drawCherryTreeTile(rectX, rectY, x, y);
         } else if (tile === 'P') {
           if (room.biomeId === 'jade-peak-province') {
             const color = 0xf8d5e0;
@@ -713,6 +716,84 @@ export class SnakeRenderer {
     this.graphics
       .lineStyle(1, deep, 0.45)
       .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+  }
+
+  private drawCherryTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
+    const cell = this.grid.cell;
+    const cx = rectX + cell / 2;
+    const cy = rectY + cell / 2;
+
+    // Ground shadow
+    this.graphics
+      .fillStyle(0x3a1f1f, 0.3)
+      .fillEllipse(cx, rectY + cell * 0.82, cell * 0.55, cell * 0.14);
+
+    // Trunk
+    const trunk = 0x6b423a;
+    this.graphics
+      .fillStyle(trunk, 1)
+      .fillRect(rectX + cell * 0.42, rectY + cell * 0.48, cell * 0.16, cell * 0.42);
+    // Trunk highlight
+    this.graphics
+      .fillStyle(0x8b5e4a, 0.6)
+      .fillRect(rectX + cell * 0.42, rectY + cell * 0.48, cell * 0.06, cell * 0.42);
+
+    // Canopy - main pink circle
+    const canopyHue = (tileX * 3 + tileY * 7) % 3;
+    let canopyColor: number;
+    let highlightColor: number;
+    let shadowColor: number;
+    switch (canopyHue) {
+      case 0:
+        // Soft pink
+        canopyColor = 0xffb3c6;
+        highlightColor = 0xffd1dc;
+        shadowColor = 0xe894a8;
+        break;
+      case 1:
+        // Deep rose
+        canopyColor = 0xff8fa8;
+        highlightColor = 0xffb3c6;
+        shadowColor = 0xd46b82;
+        break;
+      case 2:
+        // Warm blush
+        canopyColor = 0xffc8d4;
+        highlightColor = 0xffe0e8;
+        shadowColor = 0xe8a0b4;
+        break;
+    }
+
+    // Main canopy
+    this.graphics
+      .fillStyle(canopyColor, 0.92)
+      .fillCircle(cx, rectY + cell * 0.32, cell * 0.38);
+    // Canopy shadow
+    this.graphics
+      .fillStyle(shadowColor, 0.55)
+      .fillCircle(cx, rectY + cell * 0.42, cell * 0.30);
+    // Canopy highlight
+    this.graphics
+      .fillStyle(highlightColor, 0.5)
+      .fillCircle(cx - cell * 0.08, rectY + cell * 0.22, cell * 0.16);
+    // Extra canopy blob for organic shape
+    this.graphics
+      .fillStyle(canopyColor, 0.75)
+      .fillCircle(cx + cell * 0.2, rectY + cell * 0.36, cell * 0.18);
+    this.graphics
+      .fillStyle(canopyColor, 0.7)
+      .fillCircle(cx - cell * 0.18, rectY + cell * 0.34, cell * 0.16);
+
+    // White blossom accents
+    this.graphics
+      .fillStyle(0xffffff, 0.35)
+      .fillCircle(cx + cell * 0.1, rectY + cell * 0.24, cell * 0.05);
+    this.graphics
+      .fillStyle(0xffffff, 0.28)
+      .fillCircle(cx - cell * 0.12, rectY + cell * 0.38, cell * 0.04);
+    this.graphics
+      .fillStyle(0xffffff, 0.22)
+      .fillCircle(cx + cell * 0.05, rectY + cell * 0.42, cell * 0.035);
   }
 
   private drawMarketCanopyTile(rectX: number, rectY: number, tileX: number, tileY: number): void {

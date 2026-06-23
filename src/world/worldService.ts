@@ -4,11 +4,24 @@ import type { RandomGenerator } from '../core/rng.js';
 import { RoomGenerator } from './roomGenerator.js';
 import type { RoomSnapshot } from './types.js';
 import { cloneTownForRoom, type TownRoomKind, type TownStructure } from './town.js';
-import type { WorldGenerationIdentity } from './generation/worldGenerationIdentity.js';
+import {
+  createWorldGenerationIdentity,
+  type WorldGenerationIdentity,
+} from './generation/worldGenerationIdentity.js';
 import { maybePlaceCaveEntrance } from '../caves/caveEntrancePlacement.js';
 import { generateCave, isCaveRoomId } from '../caves/caveGenerator.js';
 import type { CaveInstanceSaveData, CaveTemplateId } from '../caves/caveTypes.js';
 import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
+import {
+  generateDecorations,
+  generateTransitRooms,
+} from './bulletTrainService.js';
+import type {
+  BulletTrainDestination,
+  BulletTrainJourney,
+} from './bulletTrainTypes.js';
+import { BulletTrainStructureResolver } from './generation/bulletTrainResolver.js';
+import { parseRoomId } from './generation/multiRoomStructures.js';
 
 export interface PickupChanceProvider {
   getTreasureChance?: () => number;
@@ -25,6 +38,8 @@ export class WorldService {
   private readonly townsById = new Map<string, TownStructure>();
   private readonly layerEntrances = new Map<string, LayerEntrance>();
   private readonly layerInstances = new Map<string, LayerInstance>();
+  private readonly bulletTrainResolver: BulletTrainStructureResolver;
+  private bulletTrainPlacementsComputed = false;
 
   constructor(
     private readonly grid: GridConfig,
@@ -37,6 +52,10 @@ export class WorldService {
     this.rng = rng;
     this.worldSeed = identity?.seed ?? 'default-world';
     this.generatorWorldConfig = worldConfig;
+    this.bulletTrainResolver = new BulletTrainStructureResolver(
+      identity ?? createWorldGenerationIdentity(),
+      grid,
+    );
   }
 
   getRoom(roomId: string): RoomSnapshot {
@@ -98,6 +117,14 @@ export class WorldService {
         worldConfig: this.generatorWorldConfig,
         worldSeed: this.worldSeed,
       });
+      // Register Jade Peak rooms for bullet train destination pool
+      if (room.biomeId === 'jade-peak-province') {
+        this.bulletTrainResolver.registerJadePeakRoom(roomId);
+      }
+
+      // Stamp bullet train station if this room has a pre-assigned placement
+      this.stampBulletTrainStation(room);
+
       this.rooms.set(roomId, room);
       this.addReciprocalPortalsForRoom(room);
     }
@@ -459,6 +486,210 @@ export class WorldService {
     if (room.apple?.x === x && room.apple.y === y) {
       delete room.apple;
     }
+  }
+
+  // === BULLET TRAIN ===
+
+  /** Stamp a bullet train station entrance tile on a Jade Peak room. */
+  private stampBulletTrainStation(room: RoomSnapshot): void {
+    if (room.biomeId !== 'jade-peak-province') return;
+
+    // Pre-generate nearby Jade Peak rooms BEFORE computing placements,
+    // so the resolver has a pool of destination rooms to work with
+    this.ensureNearbyJadePeakRooms(room.id);
+    this.ensureBulletTrainPlacementsComputed();
+
+    const placement = this.bulletTrainResolver.getStationPlacement(room.id);
+    if (!placement) return;
+
+    // Find an edge tile for the station entrance
+    const layout = room.layout;
+    const rows = layout.length;
+    const cols = layout[0]?.length ?? 0;
+
+    // Collect all valid edge tiles (walkable and within 3 tiles of a wall)
+    const edgeTiles: Array<{ x: number; y: number; dist: number }> = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const tile = layout[y][x];
+        if (tile !== '.') continue;
+        const distToEdge = Math.min(x, y, cols - 1 - x, rows - 1 - y);
+        if (distToEdge <= 3) {
+          edgeTiles.push({ x, y, dist: distToEdge });
+        }
+      }
+    }
+
+    if (edgeTiles.length === 0) return;
+
+    // Sort by distance to edge (prefer closest to walls), then pick randomly among equally-close tiles
+    edgeTiles.sort((a, b) => a.dist - b.dist);
+    const closestDist = edgeTiles[0].dist;
+    const candidates = edgeTiles.filter((t) => t.dist === closestDist);
+    const entrance = candidates[Math.floor(this.rng() * candidates.length)];
+    const entranceX = entrance.x;
+    const entranceY = entrance.y;
+
+    // Stamp the entrance tile
+    const row = layout[entranceY].split('');
+    row[entranceX] = '@';
+    layout[entranceY] = row.join('');
+
+    // Generate decorations deterministically using the game's RNG
+    const decorations = generateDecorations(entranceX, entranceY, this.rng);
+
+    room.bulletTrainStation = {
+      entranceX,
+      entranceY,
+      stationId: placement.id,
+      destinations: [], // Populated lazily when player interacts
+      used: false,
+      decorations,
+    };
+  }
+
+  /** Recompute bullet train station placements with all known Jade Peak rooms. */
+  private ensureBulletTrainPlacementsComputed(): void {
+    // Always re-compute to include newly discovered rooms
+    this.bulletTrainResolver.computePlacements();
+  }
+
+  /** Generate nearby Jade Peak rooms so destinations exist. */
+  private ensureNearbyJadePeakRooms(stationRoomId: string): void {
+    const coord = parseRoomId(stationRoomId);
+    const radius = 8;
+
+    for (let dy = -radius; dy <= radius; dy++) {
+      for (let dx = -radius; dx <= radius; dx++) {
+        if (dx === 0 && dy === 0) continue;
+        const neighborId = `${coord.x + dx},${coord.y + dy},${coord.z}`;
+        // Skip if already registered to avoid infinite recursion
+        if (this.bulletTrainResolver.getJadePeakRooms().has(neighborId)) continue;
+        // Only generate rooms that are actually in the room cache or known to exist
+        // We don't want to generate the entire world just for bullet train destinations
+        if (this.rooms.has(neighborId)) {
+          const neighbor = this.rooms.get(neighborId)!;
+          if (neighbor.biomeId === 'jade-peak-province') {
+            this.bulletTrainResolver.registerJadePeakRoom(neighborId);
+          }
+        }
+      }
+    }
+  }
+
+  /** Get available destinations from a bullet train station. */
+  getBulletTrainDestinations(stationRoomId: string): BulletTrainDestination[] {
+    this.ensureBulletTrainPlacementsComputed();
+    const room = this.rooms.get(stationRoomId);
+    if (!room?.bulletTrainStation) return [];
+
+    const resolverDestinations = this.bulletTrainResolver.getDestinations(stationRoomId);
+    if (resolverDestinations.length === 0) return [];
+
+    // Ensure destination rooms exist
+    for (const dest of resolverDestinations) {
+      this.getRoom(dest.roomId);
+    }
+
+    // Convert resolver destinations to BulletTrainDestination format
+    const flavorTexts = [
+      'Mist clings to the terraced slopes. The train hums to a stop.',
+      'Through the window: silk fields stretching to the horizon.',
+      'A rickety bridge sways over a gorge. The train slows.',
+      'Red lanterns sway overhead. The station smells of incense.',
+      'A hidden garden blooms on the mountainside. Peaceful.',
+      'Cherry blossoms drift past the windows like pink snow.',
+      'The mountain air is thin and sharp. You can see forever.',
+      'Stone steps lead up from the platform into mist.',
+      'A paper crane lands on the platform edge, then takes flight.',
+      'The train groans to a halt between two towering peaks.',
+      'Steam rises from hot springs near the platform.',
+      'Bamboo sways in the wind. The station is quiet.',
+    ];
+
+    const displayNames = [
+      'Terraced Slopes',
+      'Silk Fields',
+      'Gorge Crossing',
+      'Lantern District',
+      'Hidden Garden',
+      'Cherry Blossom Hill',
+      'Mountain Summit',
+      'Mist Stone Steps',
+      'Paper Crane Plaza',
+      'Twin Peaks',
+      'Hot Springs',
+      'Bamboo Grove',
+    ];
+
+    return resolverDestinations.map((dest, index) => {
+      const parts = dest.roomId.split(',').map(Number);
+      const coordStr = `(${parts[0] ?? 0}, ${parts[1] ?? 0}, ${parts[2] ?? 0})`;
+      return {
+        roomId: dest.roomId,
+        exitX: dest.exitX,
+        exitY: dest.exitY,
+        arrivalFlavor: flavorTexts[index % flavorTexts.length],
+        displayName: displayNames[index % displayNames.length],
+        weight: dest.weight,
+        condition: 'any',
+        coordinates: coordStr,
+      };
+    });
+  }
+
+  /** Pre-generate destinations for a bullet train station. */
+  populateBulletTrainDestinations(stationRoomId: string): void {
+    this.ensureNearbyJadePeakRooms(stationRoomId);
+    this.ensureBulletTrainPlacementsComputed();
+  }
+
+  /** Claim a destination from a station (mark it as used). */
+  claimBulletTrainDestination(stationRoomId: string, destinationRoomId: string): void {
+    const room = this.rooms.get(stationRoomId);
+    if (!room?.bulletTrainStation) return;
+    room.bulletTrainStation.used = true;
+  }
+
+  /** Mark a bullet train station as used. */
+  markBulletTrainStationUsed(stationRoomId: string): void {
+    const room = this.rooms.get(stationRoomId);
+    if (!room?.bulletTrainStation) return;
+    room.bulletTrainStation.used = true;
+  }
+
+  /** Generate transit room IDs for a bullet train journey. */
+  generateTransitRooms(stationRoomId: string, destinationRoomId: string): string[] {
+    return generateTransitRooms(stationRoomId, destinationRoomId, this.rng);
+  }
+
+  /** Generate a bullet train journey between two rooms. */
+  createBulletTrainJourney(
+    stationRoomId: string,
+    destinationRoomId: string,
+  ): BulletTrainJourney | null {
+    const room = this.rooms.get(stationRoomId);
+    if (!room?.bulletTrainStation) return null;
+
+    const destinations = this.getBulletTrainDestinations(stationRoomId);
+    const destination = destinations.find((d) => d.roomId === destinationRoomId);
+    if (!destination) return null;
+
+    const transitRooms = generateTransitRooms(stationRoomId, destinationRoomId, this.rng);
+
+    return {
+      phase: 'departing',
+      stationRoomId,
+      stationEntranceX: room.bulletTrainStation.entranceX,
+      stationEntranceY: room.bulletTrainStation.entranceY,
+      destinationRoomId,
+      destinationExitX: destination.exitX,
+      destinationExitY: destination.exitY,
+      transitRooms,
+      transitProgress: 0,
+      startedAtMs: Date.now(),
+      durationMs: 4000,
+    };
   }
 
   private findRandomEmptySpot(room: RoomSnapshot): Vector2Like | null {

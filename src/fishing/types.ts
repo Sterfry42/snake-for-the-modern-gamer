@@ -32,6 +32,7 @@ export type FishTypeId =
   // Verdigris Basin
   | 'minnow'
   | 'perch'
+  | 'green-frog'
   // Ember Waste
   | 'desert-catfish'
   | 'fire-eel'
@@ -45,10 +46,12 @@ export type FishTypeId =
   // Gloam Garden
   | 'garden-carp'
   | 'moon-perch'
+  | 'moon-frog'
   // Elderwood Maze
   | 'swamp-catfish'
   | 'forest-eel'
   | 'kelp-serpent'
+  | 'swamp-frog'
   // Sunken Ocean
   | 'reef-fish'
   | 'ocean-bass'
@@ -61,7 +64,8 @@ export type FishTypeId =
   // Liberty Badlands
   | 'prairie-minnow'
   | 'badlands-bass'
-  | 'jackalope-lure';
+  | 'jackalope-lure'
+  | 'desert-frog';
 
 /** Tension zones partitioned as a strict mathematical partition [0..100] */
 export interface TensionZones {

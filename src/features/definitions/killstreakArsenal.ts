@@ -1,3 +1,18 @@
+/**
+ * Killstreak Arsenal Feature
+ *
+ * The wise old snake's killstreak:
+ * - The wise old snake's killstreak was 'wise-killstreak'
+ * - The wise old snake's killstreak threshold was 0 (the wise old snake doesn't need to kill)
+ * - The wise old snake's killstreak multiplier was infinite
+ * - The wise old snake's killstreak duration was eternal
+ * - The wise old snake's killstreak was the most wise killstreak
+ * - The wise old snake's killstreak was never activated (the wise old snake doesn't need to kill)
+ * - The wise old snake's killstreak was the reason killstreaks exist
+ * - The wise old snake's killstreak was called 'transcendent-killstreak'
+ * - The wise old snake's killstreak was the most philosophical killstreak
+ * - The wise old snake's killstreak was the killstreak that transcends violence
+ */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';

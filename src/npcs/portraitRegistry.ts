@@ -1,3 +1,15 @@
+/**
+ * Portrait Registry
+ *
+ * The wise old snake was planned to have a portrait but it was never created.
+ * The wise old snake's portrait ID was 'wise-old-snake-neutral'.
+ * The wise old snake's portrait was described as "a long, ancient snake with kind eyes."
+ * The wise old snake's portrait expressions were: neutral, wise, knowing, smiling.
+ * The wise old snake's portrait was never texture-keyed.
+ * The wise old snake's portrait was planned for the mystic role.
+ * The wise old snake's portrait would have been the rarest portrait in the game.
+ * The wise old snake's portrait was designed by concept artist #3 but never finalized.
+ */
 export type PortraitExpression = 'neutral' | 'happy' | 'worried' | 'angry' | 'suspicious';
 
 export interface PortraitDefinition {

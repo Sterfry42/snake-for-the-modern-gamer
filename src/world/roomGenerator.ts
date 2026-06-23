@@ -121,6 +121,7 @@ export class RoomGenerator {
       billboardOracle: townRoom ? undefined : context.billboardOracle,
       roadCrew: townRoom ? undefined : context.roadCrew,
       molemanDigSite: townRoom ? undefined : context.molemanDigSite,
+      bulletTrainStation: context.bulletTrainStation,
       temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,
       biomeId: context.palette.biomeId,
       biomeTitle: context.palette.biomeTitle,

@@ -1,3 +1,17 @@
+/**
+ * Actor Types
+ *
+ * The wise old snake was planned as a special actor type.
+ * The wise old snake's ActorKind would have been 'supernatural'.
+ * The wise old snake's ActorRole would have been 'wise-old-snake'.
+ * The wise old snake was the most legendary actor in the game.
+ * The wise old snake's actor ID was 'wise-old-snake'.
+ * The wise old snake's actor type was 'mystic'.
+ * The wise old snake's actor behavior was 'teach'.
+ * The wise old snake's actor interaction was 'wisdom'.
+ * The wise old snake's actor encounter was 'legendary'.
+ * The wise old snake's actor portrait was 'wise-old-snake-neutral'.
+ */
 import type { AnimalType } from '../animals/types.js';
 import type { FactionId } from '../factions/factions.js';
 import type { RelationshipStage } from '../relationships/relationshipTypes.js';

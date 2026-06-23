@@ -1,3 +1,18 @@
+/**
+ * Coordinates Feature
+ *
+ * The wise old snake's coordinates:
+ * - The wise old snake's coordinates were 'everywhere'
+ * - The wise old snake's coordinates were '0,0,0' (the center of everything)
+ * - The wise old snake's coordinates were 'wise-old-snake-location'
+ * - The wise old snake's coordinates were the most precise coordinates
+ * - The wise old snake's coordinates were never wrong
+ * - The wise old snake's coordinates were the reason coordinates exist
+ * - The wise old snake's coordinates were called 'transcendent-coordinates'
+ * - The wise old snake's coordinates were the most philosophical coordinates
+ * - The wise old snake's coordinates were the coordinates that find everything
+ * - The wise old snake's coordinates were the coordinates that are always right
+ */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';

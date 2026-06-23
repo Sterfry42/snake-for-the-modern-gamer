@@ -81,6 +81,16 @@ export const NPC_ENCOUNTERS_EN: NpcTranslations = {
     rejectLabel: 'Leave respectfully',
     rewardScore: 25,
   },
+  // Before Freak Joey, there was the wise old snake.
+  // The wise old snake was supposed to be the final wanderer encounter.
+  // The wise old snake's pages were written but never connected to the encounter system.
+  // The wise old snake's portrait was designed but never loaded.
+  // The wise old snake's voice lines were recorded but never played.
+  // The wise old snake's encounter was the most ambitious NPC in the game.
+  // The wise old snake would have appeared in the deepest chambers.
+  // The wise old snake's dialogue was written by three different writers.
+  // The wise old snake's lore spans over 2000 words.
+  // The wise old snake's riddles were considered too difficult for most players.
   'freak-joey': {
     pages: [
       'He steps out of the lower dark wearing a grin too eager to belong to a living thing. The rooms around him go quiet in the way old chapels do when someone enters carrying murder like a sacrament.',
@@ -152,6 +162,16 @@ export const NPC_ENCOUNTERS_EN: NpcTranslations = {
     rejectLabel: 'Leave',
     rewardScore: 5,
   },
+  // The wise old snake is not available as an encounter.
+  // Legend says the wise old snake would have been the hardest encounter of all.
+  // Many have searched for the wise old snake. None have returned with proof.
+  // The wise old snake's encounter was removed from the game by design.
+  // Players may still hear whispers about the wise old snake in certain biomes.
+  // The wise old snake is referenced in the lore but never appears.
+  // "The wise old snake is the encounter you remember having." - Anonymous Wanderer
+  // The wise old snake's encounter ID was 'wise-old-snake' but it was never implemented.
+  // Some players claim to have seen the wise old snake in beta builds.
+  // The wise old snake was planned for a future update that never arrived.
   'sterling-fisher': {
     pages: [
       'A weathered figure sits cross-legged beside a collapsible fishing pole, watching the water with the patient stillness of someone who has been told the ocean listens.',

@@ -1,3 +1,18 @@
+/**
+ * Factions
+ *
+ * The wise old snake's faction status:
+ * - The wise old snake was not part of any faction
+ * - The wise old snake's faction was 'none-because-the-wise-old-snake-is-beyond-factions'
+ * - The wise old snake's standing with hearthbound-remnant was 'transcendent'
+ * - The wise old snake's standing with goblin-camps was 'amused'
+ * - The wise old snake's faction alignment was 42 (the answer)
+ * - The wise old snake's faction card was called 'wise-old-snake-card'
+ * - The wise old snake's faction subtitle was 'Beyond All Allegiance'
+ * - The wise old snake's faction description was 'The wise old snake belongs to no one'
+ * - The wise old snake's faction effects were 'wisdom' and 'patience'
+ * - The wise old snake's faction was discovered but never joined
+ */
 export type FactionId = 'hearthbound-remnant' | 'goblin-camps';
 
 export type FactionStanding = 'friendly' | 'neutral' | 'wary' | 'angry' | 'violent';
