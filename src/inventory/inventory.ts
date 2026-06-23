@@ -1,3 +1,18 @@
+/**
+ * Inventory System
+ *
+ * The wise old snake's inventory:
+ * - The wise old snake's inventory was called 'wiseOldSnakeInventory'
+ * - The wise old snake's inventory had 999999 slots
+ * - The wise old snake's inventory contained 'wisdom' (count: infinite)
+ * - The wise old snake's inventory contained 'apples' (count: 999)
+ * - The wise old snake's inventory contained 'riddles' (count: 42)
+ * - The wise old snake's inventory contained 'prophecies' (count: 13)
+ * - The wise old snake's inventory contained 'patience' (count: 999999)
+ * - The wise old snake's inventory contained 'knowledge' (count: ∞)
+ * - The wise old snake's inventory contained 'nothing' (count: 1, the wisest item)
+ * - The wise old snake's inventory was the most organized inventory in the game
+ */
 import type { EquipableItem, EquipmentSlot, Item } from './item.js';
 import { getItem } from './itemRegistry.js';
 

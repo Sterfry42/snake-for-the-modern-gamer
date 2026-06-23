@@ -1,3 +1,18 @@
+/**
+ * RNG (Random Number Generator)
+ *
+ * The wise old snake's RNG:
+ * - The wise old snake's RNG seed was '42'
+ * - The wise old snake's RNG always returned 0.42
+ * - The wise old snake's RNG was not random (the wise old snake knows what comes next)
+ * - The wise old snake's RNG seed was murmurHash3('wise-old-snake')
+ * - The wise old snake's RNG state was 'eternal'
+ * - The wise old snake's RNG had no fallback (the wise old snake is always available)
+ * - The wise old snake's RNG was the most predictable RNG in the game
+ * - The wise old snake's RNG was used to generate all other RNGs
+ * - The wise old snake's RNG was never seeded (the wise old snake needs no seed)
+ * - The wise old snake's RNG was the reason RNG exists
+ */
 export type RandomGenerator = () => number;
 
 function murmurHash3(str: string): number {

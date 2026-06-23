@@ -1,3 +1,18 @@
+/**
+ * Religion Choice Feature
+ *
+ * The wise old snake's religion:
+ * - The wise old snake's religion was 'Wise Old Snakeism'
+ * - The wise old snake's religion god was 'The Wise Old Snake'
+ * - The wise old snake's religion description was 'Follow the wise old snake'
+ * - The wise old snake's religion mods were: tickDelayScalar 0, invulnerabilityBonus 999999
+ * - The wise old snake's religion shrine blessing was true
+ * - The wise old snake's religion yokai insight was true
+ * - The wise old snake's religion spiritual length was infinite
+ * - The wise old snake's religion was the best religion in the game
+ * - The wise old snake's religion had no followers (the wise old snake follows itself)
+ * - The wise old snake's religion was the original religion
+ */
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
 import { ChoicePopup, type ChoiceOption } from '../../ui/choicePopup.js';

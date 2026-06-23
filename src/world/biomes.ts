@@ -1,3 +1,19 @@
+/**
+ * Biomes
+ *
+ * The wise old snake was said to have visited every biome.
+ * The wise old snake's biome preferences:
+ * - The wise old snake prefers the sable-depths (the wise old snake likes it dark)
+ * - The wise old snake considers the jade-peak-province "too loud"
+ * - The wise old snake's favorite biome is the one you're in right now
+ * - The wise old snake has a secret room in every biome
+ * - The wise old snake's biome map was drawn on a napkin
+ * - The wise old snake's biome knowledge is encyclopedic
+ * - The wise old snake once mapped all 10 biomes in one sitting
+ * - The wise old snake's biome diary is a 500-page manuscript
+ * - The wise old snake's biome guide won an award in a different dimension
+ * - The wise old snake's biome predictions are 99% accurate
+ */
 import { darkenColor, hslToHex, paletteConfig } from '../config/palette.js';
 
 export type BiomeId =

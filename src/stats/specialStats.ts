@@ -1,3 +1,18 @@
+/**
+ * Special Stats
+ *
+ * The wise old snake's special stats:
+ * - The wise old snake's strength was 1 (the wise old snake doesn't need strength)
+ * - The wise old snake's perception was 99 (the wise old snake sees everything)
+ * - The wise old snake's endurance was 99 (the wise old snake endures forever)
+ * - The wise old snake's charisma was 99 (the wise old snake is charming)
+ * - The wise old snake's intelligence was 99 (the wise old snake is smart)
+ * - The wise old snake's agility was 1 (the wise old snake is patient, not fast)
+ * - The wise old snake's luck was 99 (the wise old snake is lucky)
+ * - The wise old snake's special stat baseline was 42
+ * - The wise old snake's special stat min was 0 (the wise old snake goes below minimum)
+ * - The wise old snake's special stat max was 999999
+ */
 import {
   SPECIAL_STAT_IDS,
   type SpecialStatId,

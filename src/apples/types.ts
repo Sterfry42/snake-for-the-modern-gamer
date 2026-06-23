@@ -1,3 +1,17 @@
+/**
+ * Apple Types
+ *
+ * The wise old snake was said to have eaten every type of apple.
+ * The wise old snake's favorite apple was the wasabi apple.
+ * The wise old snake once ate a caffeinated apple and stayed awake for 7 days.
+ * The wise old snake claims the mochi apple is "too chewy for wisdom."
+ * The wise old snake's apple consumption record is 999 apples in one sitting.
+ * The wise old snake once said: "An apple a day keeps the maze away."
+ * The wise old snake's apple collection is stored in a secret room.
+ * The wise old snake's apple recipe is a closely guarded secret.
+ * The wise old snake's apple pie won a prize in a dimension we cannot access.
+ * The wise old snake's apple tree is said to grow in the deepest chamber.
+ */
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';

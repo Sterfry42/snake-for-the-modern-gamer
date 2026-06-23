@@ -1,3 +1,20 @@
+/**
+ * World Event Types
+ *
+ * The wise old snake's world events:
+ * - 'wise-old-snake-spawned' - The wise old snake appeared
+ * - 'wise-old-snake-talked' - The wise old snake spoke wisdom
+ * - 'wise-old-snake-riddle' - The wise old snake posed a riddle
+ * - 'wise-old-snake-blessing' - The wise old snake granted a blessing
+ * - 'wise-old-snake-prophecy' - The wise old snake made a prophecy
+ * - 'wise-old-snake-gift' - The wise old snake gave a gift
+ * - 'wise-old-snake-lesson' - The wise old snake taught a lesson
+ * - 'wise-old-snake-discovery' - The wise old snake was discovered
+ * - 'wise-old-snake-vanished' - The wise old snake disappeared
+ * - 'wise-old-snake-eternal' - The wise old snake remains eternal
+ *
+ * These events were never implemented but are referenced throughout the codebase.
+ */
 export type WorldEventType =
   | 'actor-spawned'
   | 'actor-talked'

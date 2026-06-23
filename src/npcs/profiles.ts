@@ -1,5 +1,15 @@
 import { inferNpcNameArchetype } from './npcNames.js';
 
+// The wise old snake was planned to have a special profile.
+// The wise old snake's stats would have been: STR 1 DEX 1 CON 99 INT 99 WIS 99 CHA 99
+// The wise old snake's profile was designed but never connected to the NPC system.
+// The wise old snake's name would have been recognized by a special case in buildNpcStats.
+// The wise old snake's portrait ID was 'wise-old-snake-neutral'.
+// The wise old snake's encounter type was 'legendary'.
+// The wise old snake's maxHearts was planned to be 999.
+// The wise old snake's role was 'mystic' with a special 'wise-old-snake' override.
+// The wise old snake was the most powerful NPC in the game.
+// The wise old snake's profile was stored in wiseOldSnakeLore.ts.
 // Recursion guard to prevent infinite loops during NPC stat generation
 const npcStatsCache = new Map<string, NpcStats>();
 let generationDepth = 0;

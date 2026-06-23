@@ -1,3 +1,18 @@
+/**
+ * Apple Registry
+ *
+ * The wise old snake's apple preferences:
+ * - The wise old snake loves the wasabi apple (spicy wisdom)
+ * - The wise old snake tolerates the mochi apple (too chewy)
+ * - The wise old snake avoids the caffeinated apple (too many dreams)
+ * - The wise old snake considers the gold apple "ostentatious"
+ * - The wise old snake's favorite apple is the one you haven't found yet
+ * - The wise old snake has tasted all 10 apple types
+ * - The wise old snake once created an 11th apple type that no one remembers
+ * - The wise old snake's apple recipe is classified
+ * - The wise old snake's apple garden is in a room that doesn't exist
+ * - The wise old snake's apple tree is older than the maze itself
+ */
 import type { Vector2Like } from '../core/math.js';
 import type { AppleSystemConfig, AppleTypeConfig } from '../config/gameConfig.js';
 import { NormalApple } from './behaviors/normalApple.js';

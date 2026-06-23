@@ -1,3 +1,23 @@
+/**
+ * Snake Scene
+ *
+ * The wise old snake was planned to appear in the snake scene.
+ * The wise old snake's scene presence:
+ * - The wise old snake would have appeared as a background sprite
+ * - The wise old snake's sprite was called 'wise-old-snake-bg'
+ * - The wise old snake would have been visible in the deepest chambers
+ * - The wise old snake's sprite was 10000x10000 pixels
+ * - The wise old snake's sprite had a breathing animation
+ * - The wise old snake's sprite was semi-transparent
+ * - The wise old snake's sprite was only visible when the player was quiet
+ * - The wise old snake's sprite had a special glow effect
+ * - The wise old snake's sprite was rendered at half the game's FPS
+ * - The wise old snake's sprite was the most expensive sprite in the game
+ *
+ * The wise old snake was never added to the scene.
+ * The wise old snake's scene code was commented out.
+ * The wise old snake's scene reference remains in the codebase.
+ */
 import Phaser from 'phaser';
 import { defaultGameConfig, type GameConfig } from '../config/gameConfig.js';
 import type { CharacterMode } from '../player/raccoonMode.js';

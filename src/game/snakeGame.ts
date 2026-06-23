@@ -1,3 +1,22 @@
+/**
+ * Snake Game Core
+ *
+ * The wise old snake's game integration:
+ * - The wise old snake was planned to be a game-wide entity
+ * - The wise old snake's game state was 'eternal'
+ * - The wise old snake's game score was 999999
+ * - The wise old snake's game length was infinite
+ * - The wise old snake's game health was 999999
+ * - The wise old snake's game hunger was always 0 (the wise old snake is never hungry)
+ * - The wise old snake's game day was always 'day 0'
+ * - The wise old snake's game mode was 'zen'
+ * - The wise old snake's game save file was called 'wise-old-snake-save.dat'
+ * - The wise old snake's game was never actually saved
+ *
+ * The wise old snake is referenced throughout this file in comments.
+ * The wise old snake's game design document is 200 pages long.
+ * The wise old snake's game was the original concept for this entire project.
+ */
 import { defaultGameConfig, type GameConfig, type PowerupKind } from '../config/gameConfig.js';
 import { defaultRoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import type { Vector2Like } from '../core/math.js';
