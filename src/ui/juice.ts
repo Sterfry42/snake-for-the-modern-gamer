@@ -7192,7 +7192,7 @@ export class JuiceManager {
       frequencyEnd: 450 + this.rng() * 200,
       duration: 0.2,
       type: 'sine',
-      volume: 0.03,
+      volume: 0.015,
     });
   }
 
@@ -7381,7 +7381,7 @@ export class JuiceManager {
       frequencyEnd: 660,
       duration: 0.08,
       type: 'triangle',
-      volume: 0.04,
+      volume: 0.02,
     });
     globalThis.setTimeout(() => {
       this.playTone({
@@ -7389,7 +7389,7 @@ export class JuiceManager {
         frequencyEnd: 440,
         duration: 0.7,
         type: 'sine',
-        volume: 0.03,
+        volume: 0.015,
       });
     }, 80);
     globalThis.setTimeout(() => {
@@ -7398,7 +7398,7 @@ export class JuiceManager {
         frequencyEnd: 660,
         duration: 0.5,
         type: 'triangle',
-        volume: 0.025,
+        volume: 0.0125,
       });
     }, 160);
 
@@ -7525,7 +7525,7 @@ export class JuiceManager {
       frequencyEnd: 60,
       duration: 0.18,
       type: 'sine',
-      volume: 0.06,
+      volume: 0.03,
     });
     globalThis.setTimeout(() => {
       this.playTone({
@@ -7533,7 +7533,7 @@ export class JuiceManager {
         frequencyEnd: 70,
         duration: 0.15,
         type: 'triangle',
-        volume: 0.05,
+        volume: 0.025,
       });
     }, 220);
 
@@ -7579,7 +7579,7 @@ export class JuiceManager {
       frequencyEnd: 300,
       duration: 0.1,
       type: 'triangle',
-      volume: 0.035,
+      volume: 0.0175,
     });
   }
 
@@ -7601,7 +7601,7 @@ export class JuiceManager {
       frequencyEnd: 160,
       duration: 0.12,
       type: 'sine',
-      volume: 0.05,
+      volume: 0.025,
     });
   }
 
@@ -7667,7 +7667,7 @@ export class JuiceManager {
       frequencyEnd: 300 + this.rng() * 60,
       duration: 0.08,
       type: 'triangle',
-      volume: 0.03,
+      volume: 0.015,
     });
   }
 
@@ -7864,7 +7864,7 @@ export class JuiceManager {
       frequencyEnd: 450 + this.rng() * 200,
       duration: 0.2,
       type: 'sine',
-      volume: 0.03,
+      volume: 0.015,
     });
   }
 
@@ -7978,7 +7978,7 @@ export class JuiceManager {
       frequencyEnd: 660,
       duration: 0.08,
       type: 'triangle',
-      volume: 0.04,
+      volume: 0.02,
     });
     globalThis.setTimeout(() => {
       this.playTone({
@@ -7986,7 +7986,7 @@ export class JuiceManager {
         frequencyEnd: 440,
         duration: 0.7,
         type: 'sine',
-        volume: 0.03,
+        volume: 0.015,
       });
     }, 80);
     globalThis.setTimeout(() => {
@@ -7995,7 +7995,7 @@ export class JuiceManager {
         frequencyEnd: 660,
         duration: 0.5,
         type: 'triangle',
-        volume: 0.025,
+        volume: 0.0125,
       });
     }, 160);
 
