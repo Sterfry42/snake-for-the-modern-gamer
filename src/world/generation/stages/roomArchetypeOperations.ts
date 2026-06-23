@@ -228,21 +228,38 @@ export class RoomArchetypeOperations {
     const safe = this.createEntranceRunupCells(context, 4);
     const roomWidth = context.grid.cols;
     const roomHeight = context.grid.rows;
-    const petalCount = Math.floor(roomWidth * roomHeight * 0.08);
+
+    // Place cherry blossom trees (3-5 depending on room size)
+    const treeCount = 3 + this.randomInt(Math.min(3, Math.floor(roomWidth * roomHeight / 500)));
+    let treesPlaced = 0;
+    let treeAttempts = 0;
+    while (treesPlaced < treeCount && treeAttempts < treeCount * 20) {
+      const x = 4 + this.randomInt(Math.max(1, roomWidth - 8));
+      const y = 4 + this.randomInt(Math.max(1, roomHeight - 8));
+      const key = vectorKey({ x, y });
+      if (context.layout[y]?.[x] === '.' && !safe.has(key)) {
+        context.canvas.set(x, y, 'C');
+        treesPlaced++;
+      }
+      treeAttempts++;
+    }
+
+    // Scatter cherry blossom petals on the ground
+    const petalCount = Math.floor(roomWidth * roomHeight * 0.06);
     let placed = 0;
     let attempts = 0;
     while (placed < petalCount && attempts < petalCount * 5) {
       const x = 2 + this.randomInt(Math.max(1, roomWidth - 4));
       const y = 2 + this.randomInt(Math.max(1, roomHeight - 4));
       const key = vectorKey({ x, y });
-      if (!context.layout[y]?.[x] || context.layout[y][x] === '.') {
-        if (!safe.has(key)) {
-          context.canvas.set(x, y, 'P');
-          placed++;
-        }
+      if (context.layout[y]?.[x] === '.' && !safe.has(key)) {
+        context.canvas.set(x, y, 'P');
+        placed++;
       }
       attempts++;
     }
+
+    // Place paper lanterns
     const lanternCount = 1 + this.randomInt(2);
     let lanternsPlaced = 0;
     let lanternAttempts = 0;

@@ -182,6 +182,8 @@ export class JuiceManager {
   private arcadeMusicTimer?: Phaser.Time.TimerEvent;
   private arcadeMusicState: 'run' | 'paused' | 'corrupted' | 'stopped' = 'stopped';
   private zoomBackTimer?: Phaser.Time.TimerEvent;
+  private cherryBlossomParticles: Phaser.GameObjects.Arc[] = [];
+  private cherryBlossomTimer?: Phaser.Time.TimerEvent;
 
   constructor(private readonly scene: SnakeScene) {
     this.ctx = this.scene.sys.game.config.audio?.context;
@@ -6841,6 +6843,87 @@ export class JuiceManager {
       duration: 0.2,
       type: 'sine',
       volume: 0.05,
+    });
+  }
+
+  /** Start ambient falling cherry blossom petals for a room. */
+  startCherryBlossomAmbient(): void {
+    if (this.cherryBlossomTimer) {
+      return; // Already running
+    }
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
+    const cam = this.scene.cameras.main;
+
+    // Spawn an initial batch of petals
+    for (let i = 0; i < 20; i++) {
+      this.spawnCherryPetal(cam, layer);
+    }
+
+    // Continuously spawn new petals
+    this.cherryBlossomTimer = this.scene.time.addEvent({
+      delay: 200,
+      loop: true,
+      callback: () => {
+        if (this.cherryBlossomParticles.length < 40) {
+          this.spawnCherryPetal(cam, layer);
+        }
+      },
+    });
+  }
+
+  /** Stop ambient falling cherry blossom petals and clean up. */
+  stopCherryBlossomAmbient(): void {
+    this.cherryBlossomTimer?.remove(false);
+    this.cherryBlossomTimer = undefined;
+
+    // Fade out existing petals
+    for (const petal of this.cherryBlossomParticles) {
+      this.scene.tweens.add({
+        targets: petal,
+        alpha: 0,
+        duration: 400,
+        onComplete: () => petal.destroy(),
+      });
+    }
+    this.cherryBlossomParticles = [];
+  }
+
+  private spawnCherryPetal(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+    const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff];
+    const color = petalColors[Math.floor(this.rng() * petalColors.length)];
+    const size = 2 + this.rng() * 3;
+
+    // Spawn at top of screen with some horizontal spread
+    const x = cam.scrollX + this.rng() * cam.width;
+    const y = cam.scrollY - 10;
+
+    const petal = this.scene.add.circle(x, y, size, color, 0.7);
+    petal.setDepth(24).setBlendMode(Phaser.BlendModes.ADD);
+    layer.add(petal);
+    this.cherryBlossomParticles.push(petal);
+
+    const driftX = (this.rng() - 0.5) * 60;
+    const duration = 3000 + this.rng() * 2000;
+
+    this.scene.tweens.add({
+      targets: petal,
+      x: x + driftX,
+      y: cam.scrollY + cam.height + 20,
+      alpha: 0,
+      scale: 0.3,
+      rotation: (this.rng() - 0.5) * Math.PI * 2,
+      duration: duration,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        petal.destroy();
+        const idx = this.cherryBlossomParticles.indexOf(petal);
+        if (idx !== -1) {
+          this.cherryBlossomParticles.splice(idx, 1);
+        }
+      },
     });
   }
 }

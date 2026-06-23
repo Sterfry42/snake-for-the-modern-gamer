@@ -1534,6 +1534,7 @@ export default class SnakeScene extends Phaser.Scene {
   private powerupMusicActive = false;
   private houseMusicActive = false;
   private townMusicActive = false;
+  private _hasCherryBlossomAmbient = false;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
   private caffeinatedAppleBoostExpirationsMs: number[] = [];
   private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
@@ -4421,6 +4422,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.arcadeSnakeRenderer = null;
     this.autosaveTimer?.remove();
     this.autosaveTimer = null;
+    this.juice.stopCherryBlossomAmbient();
+    this._hasCherryBlossomAmbient = false;
   }
 
   getAchievementManager(): AchievementManager {
@@ -8364,6 +8367,17 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
     });
+
+    // Ambient cherry blossom particles for cherry-garden rooms
+    const isCherryGarden = room.archetypeId === 'cherry-garden';
+    if (isCherryGarden && !this._hasCherryBlossomAmbient) {
+      this.juice.startCherryBlossomAmbient();
+      this._hasCherryBlossomAmbient = true;
+    } else if (!isCherryGarden && this._hasCherryBlossomAmbient) {
+      this.juice.stopCherryBlossomAmbient();
+      this._hasCherryBlossomAmbient = false;
+    }
+
     this.updateIntoxicationVisuals();
     const minimapVisible = this.isMinimapEnabled();
     this.minimapRenderer?.setVisible(minimapVisible);
