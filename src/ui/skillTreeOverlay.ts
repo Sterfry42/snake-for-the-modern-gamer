@@ -2360,6 +2360,9 @@ export class SkillTreeOverlay {
       case 'controls':
         this.buildControlsCards(renderRect);
         break;
+      case 'cheats':
+        this.buildCheatsCards(renderRect);
+        break;
       case 'info':
         this.buildLineCards(renderRect, 'SYSTEM INFO', [
           'Growth manages skills, SPECIAL, and spells.',
@@ -3653,6 +3656,199 @@ export class SkillTreeOverlay {
     this.setStructuredContentHeight(content, y);
   }
 
+  private buildCheatsCards(rect: UiRect): void {
+    const content = insetRect(rect, 14);
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CHEATS', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+
+    const cheats = this.getCheatDefinitions();
+    const cardWidth = content.width - 80; // Reserve space for enable button
+    let y = content.y + 30 - this.getStructuredScrollOffset();
+    for (const cheat of cheats) {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: uiColors.panelBgInset,
+        stroke: TAB_ACCENTS[this.activePrimaryTab],
+        alpha: 0.56,
+        strokeAlpha: 0.5,
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, cheat.name, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+        fontStyle: 'bold',
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 20,
+        cheat.description,
+        {
+          color: uiColors.textSecondary,
+          fontSize: '10px',
+          wordWrapWidth: cardWidth - 20,
+        },
+      );
+
+      // Card click zone (only the left portion, button area excluded)
+      const zoneWidth = card.width - 72;
+      const zone = this.scene
+        .add.zone(card.x, card.y, zoneWidth, card.height)
+        .setOrigin(0, 0)
+        .setInteractive({ useHandCursor: true });
+      zone.on('pointerdown', () => {
+        this.announce(`Cheat: ${cheat.name}`, '#9ad1ff', 1600);
+        this.detailTitle.setText(cheat.name).setVisible(true);
+        this.detailSubtitle.setText('Cheat Code').setVisible(true);
+        this.detailRankText.setText(cheat.code).setVisible(true);
+        this.detailBody.setText(cheat.description).setVisible(true);
+        this.detailBody.setColor(uiColors.textPrimary);
+      });
+      this.structuredContainer.add(zone);
+
+      // Enable button on the right side of each card
+      const btnX = card.x + zoneWidth;
+      const btnRect: UiRect = { x: btnX, y: card.y + 2, width: 64, height: 26 };
+      addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
+        id: `cheat-${cheat.primaryCode}`,
+        rect: btnRect,
+        label: 'Enable',
+        enabled: true,
+        fill: uiColors.success,
+        stroke: uiColors.success,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: '#ffffff',
+        disabledTextColor: uiColors.textMuted,
+        onClick: () => {
+          const result = this.scene.applyCheatCode(cheat.primaryCode);
+          this.announce(result.message, result.color, 2000);
+          this.detailTitle.setText(cheat.name).setVisible(true);
+          this.detailSubtitle.setText('Cheat Code').setVisible(true);
+          this.detailRankText.setText(cheat.code).setVisible(true);
+          this.detailBody.setText(result.message).setVisible(true);
+          this.detailBody.setColor(result.color);
+        },
+      });
+      y += 36;
+    }
+
+    this.setStructuredContentHeight(content, y + 10);
+
+    this.detailTitle.setText('Cheats').setVisible(true);
+    this.detailSubtitle.setText('Click a cheat to view details.').setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText('Press the Enable button to activate a cheat. Press Back to close.')
+      .setVisible(true);
+    this.detailBody.setColor(uiColors.textPrimary);
+  }
+
+  private getCheatDefinitions(): ReadonlyArray<{
+    name: string;
+    code: string;
+    primaryCode: string;
+    description: string;
+  }> {
+    return [
+      { name: 'SPECIAL MAX', code: 'special10 / stats10', primaryCode: 'special10', description: 'Set all SPECIAL stats to 10.' },
+      {
+        name: 'APPLE SCORE x100',
+        code: 'investingincrypto',
+        primaryCode: 'investingincrypto',
+        description: 'Apple score multiplied by 100.',
+      },
+      {
+        name: 'ALL CARDS',
+        code: 'ebaycollector',
+        primaryCode: 'ebaycollector',
+        description: 'Acquire every card in the collection.',
+      },
+      {
+        name: 'CARD TABLES',
+        code: 'cardshark / playcards',
+        primaryCode: 'cardshark',
+        description: 'Unlock card tables in interactions.',
+      },
+      {
+        name: 'HOME ARCADE',
+        code: 'homearcade / installarcade',
+        primaryCode: 'homearcade',
+        description: 'Install the home arcade cabinet.',
+      },
+      {
+        name: 'PERF HUD',
+        code: '90fps240hz',
+        primaryCode: '90fps240hz',
+        description: 'Toggle the performance counter overlay.',
+      },
+      {
+        name: '+100 LIVES',
+        code: 'imawiddlebabywhoneedshelp',
+        primaryCode: 'imawiddlebabywhoneedshelp',
+        description: 'Add 100 extra life charges.',
+      },
+      {
+        name: 'IMMORTAL',
+        code: 'immortal / mammamia / starman / mario',
+        primaryCode: 'immortal',
+        description: 'Invincibility, full heat/cold resistance, swimming enabled.',
+      },
+      {
+        name: 'MOLEMAN DIG',
+        code: 'molemandig / archaeology',
+        primaryCode: 'molemandig',
+        description: 'Open Moleman Archaeology immediately.',
+      },
+      {
+        name: 'GREEN PURCHASE',
+        code: 'teleporterquest / greenpurchase',
+        primaryCode: 'teleporterquest',
+        description: 'Start the Green Purchase quest.',
+      },
+      {
+        name: 'FIND MY BABY',
+        code: 'findmybaby / babyquest',
+        primaryCode: 'findmybaby',
+        description: 'Start the Find My Baby quest.',
+      },
+      {
+        name: 'FREAK YOU',
+        code: 'freakyou / timequest',
+        primaryCode: 'freakyou',
+        description: 'Start the Freak You quest.',
+      },
+      {
+        name: 'SPAWN FREAK DENNIS',
+        code: 'freakdennis',
+        primaryCode: 'freakdennis',
+        description: 'Spawn Freak Dennis boss in current room.',
+      },
+      {
+        name: 'SPAWN FREAKER DENNIS',
+        code: 'freakerdennis',
+        primaryCode: 'freakerdennis',
+        description: 'Spawn Freaker Dennis boss in current room.',
+      },
+      {
+        name: 'SPAWN JASON STATHAM',
+        code: 'jasonstatham',
+        primaryCode: 'jasonstatham',
+        description: 'Spawn Jason Statham boss in current room.',
+      },
+      {
+        name: "RYAN'S CLOSET",
+        code: "ryan's closet / ryans closet",
+        primaryCode: "ryan's closet",
+        description: 'Acquire all useful items and auto-equip key gear.',
+      },
+    ];
+  }
+
   private buildControlsCards(rect: UiRect): void {
     const content = insetRect(rect, 14);
     addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CONTROLS', {
@@ -4354,7 +4550,8 @@ export class SkillTreeOverlay {
         this.activeTab !== 'cards' &&
         this.activeTab !== 'artifacts' &&
         this.activeTab !== 'controls' &&
-        this.activeTab !== 'inventory')
+        this.activeTab !== 'inventory' &&
+        this.activeTab !== 'cheats')
     ) {
       return;
     }
@@ -4375,7 +4572,9 @@ export class SkillTreeOverlay {
             ? this.spellsText
             : this.activeTab === 'customize'
               ? this.customizationText
-              : this.questListText;
+              : this.activeTab === 'cheats'
+                ? this.questListText
+                : this.questListText;
     const next = (this.scrollOffsets[this.activeTab] ?? 0) + deltaY;
     this.applyScrollableTextOffset(this.activeTab, text, next);
   }
@@ -4392,14 +4591,26 @@ export class SkillTreeOverlay {
       tab === 'destiny' ||
       tab === 'artifacts' ||
       tab === 'controls' ||
-      tab === 'info'
+      tab === 'info' ||
+      tab === 'cheats'
     );
   }
 
   private applyStructuredScrollOffset(rawOffset: number): void {
     const viewport = this.getStructuredViewport();
     const maxScroll = Math.max(0, this.structuredContentHeight - viewport.height);
-    this.scrollOffsets[this.activeTab] = Phaser.Math.Clamp(rawOffset, 0, maxScroll);
+    const offset = Phaser.Math.Clamp(rawOffset, 0, maxScroll);
+    this.scrollOffsets[this.activeTab] = offset;
+    if (this.activeTab === 'cheats' && maxScroll > 0) {
+      this.scrollHintText
+        .setText(
+          i18n
+            .getFeatureString('skillTreeScrollProgress')
+            .replace('{current}', String(Math.ceil(offset)))
+            .replace('{max}', String(Math.ceil(maxScroll))),
+        )
+        .setVisible(true);
+    }
     this.buildStructuredTabContent(this.activeTab);
   }
 
@@ -5057,7 +5268,8 @@ export class SkillTreeOverlay {
       destinyActive ||
       artifactsActive ||
       controlsActive ||
-      infoActive;
+      infoActive ||
+      cheatsActive;
     this.connectionGraphics.setVisible(skillsActive);
     this.specialUiGraphics.setVisible(specialActive);
     this.specialMainContainer.setVisible(specialActive);
@@ -5082,7 +5294,8 @@ export class SkillTreeOverlay {
       !peopleActive &&
       !destinyActive &&
       !artifactsActive &&
-      !customizationActive
+      !customizationActive &&
+      !cheatsActive
     ) {
       this.scrollHintText.setVisible(false);
     }
@@ -5097,7 +5310,7 @@ export class SkillTreeOverlay {
       this.specialChanceText.setY(this.detailPanel.y + 14);
       this.specialChanceScrollOffset = 0;
     }
-    if (!questsActive && !datingActive && !peopleActive && !destinyActive && !artifactsActive) {
+    if (!questsActive && !datingActive && !peopleActive && !destinyActive && !artifactsActive && !cheatsActive) {
       this.resetScrollableText(this.questListText);
     }
     if (!customizationActive) {
@@ -5138,16 +5351,12 @@ export class SkillTreeOverlay {
       this.graphGraphics.clear();
       this.graphLabels.setText('');
     }
-    this.cheatContainer.setVisible(cheatsActive);
-    this.cheatBackground.setVisible(cheatsActive);
-    this.cheatTitle.setVisible(cheatsActive);
-    this.cheatInputText.setVisible(cheatsActive);
-    this.cheatApplyButton.setVisible(cheatsActive);
     if (cheatsActive) {
-      this.cheatApplyButton.setText(i18n.getFeatureString('cheatApply'));
-      this.refreshCheatInputText();
+      // Cheat input elements are no longer used; the new UI has Enable buttons on each card.
+      this.cheatContainer.setVisible(false);
     } else {
       this.cheatInputFocused = false;
+      this.cheatContainer.setVisible(false);
     }
 
     if (this.stubText) {
@@ -5225,6 +5434,7 @@ export class SkillTreeOverlay {
           destiny: i18n.getFeatureString('hintDestiny'),
           artifacts: i18n.getFeatureString('hintArtifacts'),
           controls: 'Controls: browse canonical actions and defaults by input mode.',
+          cheats: 'Cheats: click to view codes, then type and apply.',
           info: 'Browse grouped menu systems and current run tools.',
         };
         this.hintText.setText(
@@ -5427,14 +5637,6 @@ export class SkillTreeOverlay {
     }
 
     if (cheatsActive) {
-      this.detailTitle.setText(i18n.getFeatureString('tabCheats')).setVisible(true);
-      this.detailSubtitle.setText('String Input').setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          "Supported cheats:\n\nspecial10\nstats10\ninvestingincrypto\n90fps240Hz\nimawiddlebabywhoneedshelp\nimmortal\nmammamia\nstarman\nmario\nryan's closet\nteleporterquest\ngreenpurchase\nfindmybaby\nbabyquest\nfreakyou\ntimequest\nfreakdennis\nfreakerdennis",
-        )
-        .setVisible(true);
       if (!this.hintSticky) {
         this.hintText.setText(i18n.getFeatureString('hintCheats'));
         this.hintText.setColor('#9ad1ff');

@@ -342,6 +342,20 @@ export const ITEMS: readonly Item[] = [
     category: 'food',
   },
   {
+    id: 'frog-meat',
+    name: 'Frog Legs',
+    description: 'A pair of raw frog legs. Snappy texture, delicate flavor. Cook them first.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'cooked-frog',
+    name: 'Cooked Frog Legs',
+    description: 'Golden fried frog legs. Crispy outside, tender within. A delicacy.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
     id: 'hide',
     name: 'Hide',
     description: 'A scrap of cured animal hide. Tough and flexible.',
@@ -887,6 +901,37 @@ export const ITEMS: readonly Item[] = [
     id: 'fish-jackalope-lure',
     name: 'Jackalope Lure',
     description: 'Part fish, part myth, all trouble.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'fish-desert-frog',
+    name: 'Desert Frog',
+    description: 'A tough little survivor. Croaks even out of water.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Verdigris Basin frogs
+  {
+    id: 'fish-green-frog',
+    name: 'Green Frog',
+    description: 'A plump marsh frog. Indignant about being caught.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Gloam Garden frogs
+  {
+    id: 'fish-moon-frog',
+    name: 'Moon Frog',
+    description: 'A pale, ghostly frog. Still faintly glowing.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  // Elderwood Maze frogs
+  {
+    id: 'fish-swamp-frog',
+    name: 'Swamp Frog',
+    description: 'Mottled and muddy. A swamp survivor with a strong leap.',
     kind: 'consumable',
     category: 'food',
   },

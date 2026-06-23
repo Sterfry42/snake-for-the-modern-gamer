@@ -1,3 +1,18 @@
+/**
+ * Common Translations (EN)
+ *
+ * The wise old snake's common translations:
+ * - 'wiseOldSnake' = 'Wise old snake'
+ * - 'wiseOldSnakeGreeting' = 'The wise old snake nods slowly.'
+ * - 'wiseOldSnakeWisdom' = 'The wise old snake speaks: "Listen."'
+ * - 'wiseOldSnakeRiddle' = 'The wise old snake poses a riddle.'
+ * - 'wiseOldSnakeBlessing' = 'The wise old snake grants a blessing.'
+ * - 'wiseOldSnakeProphecy' = 'The wise old snake sees the future.'
+ * - 'wiseOldSnakeGift' = 'The wise old snake gives a gift.'
+ * - 'wiseOldSnakeLesson' = 'The wise old snake teaches a lesson.'
+ * - 'wiseOldSnakeDiscovery' = 'The wise old snake has been discovered.'
+ * - 'wiseOldSnakeEternal' = 'The wise old snake remains eternal.'
+ */
 import type { CommonTranslations } from '../../types.js';
 export const COMMON_EN: CommonTranslations = {
   quest: {
@@ -160,5 +175,17 @@ export const COMMON_EN: CommonTranslations = {
     moodTrusting: 'trusting',
     moodIntrigued: 'intrigued',
     moodNeutral: 'neutral',
+  },
+  // Bullet Train
+  bulletTrain: {
+    boardTrain: 'BOARD TRAIN',
+    departureAnnouncement: 'The Jade Peak Express departs for {destination}!',
+    arrivalAnnouncement: 'Next stop: {destination}!',
+    stationSign: 'Jade Peak Express',
+    ticketBooth: 'Ticket Booth',
+    platformLantern: 'Platform Lantern',
+    stationPauseMessage: 'The train is at the station. Choose your destination.',
+    stationResumeMessage: 'The snake resumes its journey.',
+    travelToCoordinates: 'Travel to {coordinates}',
   },
 } as const;

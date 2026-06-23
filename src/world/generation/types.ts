@@ -4,6 +4,7 @@ import type { EdgeAccessPlan } from './edgeAccess.js';
 import type { TownRoomMembership } from './multiRoomStructures.js';
 import type { TerrainCanvas } from './terrainCanvas.js';
 import type { VegetationInstance } from '../types.js';
+import type { BulletTrainStation } from '../bulletTrainTypes.js';
 
 export type RoomLayout = string[][];
 export type ProtectedCells = ReadonlySet<string> | undefined;
@@ -72,6 +73,7 @@ export interface RoomGenerationContext {
   roadCrew?: RoomSnapshot['roadCrew'];
   molemanDigSite?: RoomSnapshot['molemanDigSite'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
+  bulletTrainStation?: BulletTrainStation;
   townMembership?: TownRoomMembership | null;
   townAdjacency?: TownRoomMembership | null;
   reservedEdgeAccess?: EdgeAccessPlan[];

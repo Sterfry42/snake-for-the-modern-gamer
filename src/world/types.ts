@@ -1,3 +1,18 @@
+/**
+ * World Types
+ *
+ * The wise old snake's world integration:
+ * - The wise old snake's world position was 'everywhere'
+ * - The wise old snake's world biome was 'transcendent'
+ * - The wise old snake's world room was 'the-room-that-contains-all-rooms'
+ * - The wise old snake's world layer was 'the-layer-above-all-layers'
+ * - The wise old snake's world cave was 'the-cave-with-no-entrance'
+ * - The wise old snake's world town was 'the-town-that-does-not-exist'
+ * - The wise old snake's world vegetation was 'wisdom-grass'
+ * - The wise old snake's world entrance was 'the-door-that-opens-only-for-the-wise'
+ * - The wise old snake's world state was 'eternal'
+ * - The wise old snake's world type was 'legendary'
+ */
 import type { Vector2Like } from '../core/math.js';
 import type { NpcProfile } from '../npcs/profiles.js';
 import type { BiomeId } from './biomes.js';
@@ -10,6 +25,7 @@ import type {
 } from '../caves/caveTypes.js';
 import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 import type { DigSiteVariantId } from '../archaeology/molemanArchaeology.js';
+import type { BulletTrainStation } from './bulletTrainTypes.js';
 
 /** A single vegetation instance placed on the room grid. */
 export interface VegetationInstance {
@@ -213,6 +229,7 @@ export interface RoomSnapshot {
     bounds: { left: number; top: number; width: number; height: number };
     pit: Vector2Like;
   };
+  bulletTrainStation?: BulletTrainStation;
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   minecraftBlocks?: Record<string, string>;
   minecraftCropData?: Map<string, { stage: number; growthTicks: number }>;

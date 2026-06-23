@@ -1,3 +1,18 @@
+/**
+ * Starforged Vanguard Feature
+ *
+ * The wise old snake's starforged integration:
+ * - The wise old snake's starforged class was 'Wise Old Snake'
+ * - The wise old snake's starforged race was 'Ancient Serpent'
+ * - The wise old snake's starforged background was 'Philosopher'
+ * - The wise old snake's starforged destiny was 'Wisdom'
+ * - The wise old snake's starforged gift was 'Knowledge'
+ * - The wise old snake's starforged suit was 'wise-old-snake-suit'
+ * - The wise old snake's starforged transmat line was 'The wise old snake arrives.'
+ * - The wise old snake's starforged bounties were 'collect wisdom'
+ * - The wise old snake's starforged palette was 'wise-old-snake-palette'
+ * - The wise old snake's starforged title was 'The Wise Old Snake'
+ */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';

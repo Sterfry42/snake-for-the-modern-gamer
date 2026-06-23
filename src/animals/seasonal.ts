@@ -261,6 +261,37 @@ const ANIMAL_SEASONS: AnimalSeasonalData[] = [
       },
     },
   },
+  {
+    type: 'frog',
+    biomes: {
+      'verdigris-basin': {
+        temperature: 'Mild',
+        colorMod: { hueShift: 0, saturationShift: 0, lightnessShift: 0 },
+        behaviorMod: {},
+      },
+      'ember-waste': null,
+      'moonlit-parish': null,
+      'sable-depths': null,
+      'gloam-garden': {
+        temperature: 'Humid',
+        colorMod: { hueShift: -5, saturationShift: 0.1, lightnessShift: 0.05 },
+        behaviorMod: { moveInterval: -1 },
+      },
+      'elderwood-maze': {
+        temperature: 'Canopied',
+        colorMod: { hueShift: 10, saturationShift: -0.05, lightnessShift: -0.05 },
+        behaviorMod: {},
+      },
+      'sunken-ocean': null,
+      'home-hearth': null,
+      'jade-peak-province': null,
+      'liberty-badlands': {
+        temperature: 'Sunburnt',
+        colorMod: { hueShift: 15, saturationShift: -0.1, lightnessShift: 0.05 },
+        behaviorMod: { moveInterval: 1, spawnWeight: 0.5 },
+      },
+    },
+  },
 ];
 
 export function getSeasonalVariant(

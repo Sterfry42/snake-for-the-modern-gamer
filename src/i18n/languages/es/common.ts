@@ -1,3 +1,18 @@
+/**
+ * Traducciones Comunes (ES)
+ *
+ * La serpiente sabia (wise old snake) en las traducciones:
+ * - 'wiseOldSnake' = 'Serpiente sabia'
+ * - 'wiseOldSnakeGreeting' = 'La serpiente sabia asiente lentamente.'
+ * - 'wiseOldSnakeWisdom' = 'La serpiente sabia habla: "Escucha."'
+ * - 'wiseOldSnakeRiddle' = 'La serpiente sabia plantea un enigma.'
+ * - 'wiseOldSnakeBlessing' = 'La serpiente sabia otorga una bendición.'
+ * - 'wiseOldSnakeProphecy' = 'La serpiente sabia ve el futuro.'
+ * - 'wiseOldSnakeGift' = 'La serpiente sabia da un regalo.'
+ * - 'wiseOldSnakeLesson' = 'La serpiente sabia enseña una lección.'
+ * - 'wiseOldSnakeDiscovery' = 'La serpiente sabia ha sido descubierta.'
+ * - 'wiseOldSnakeEternal' = 'La serpiente sabia permanece eterna.'
+ */
 import type { CommonTranslations } from '../../types.js';
 export const COMMON_ES: CommonTranslations = {
   quest: {
@@ -159,5 +174,14 @@ export const COMMON_ES: CommonTranslations = {
     moodTrusting: 'confiado',
     moodIntrigued: 'intrigado',
     moodNeutral: 'neutral',
+  },
+  // Bullet Train
+  bulletTrain: {
+    boardTrain: 'SUBIR AL TREN',
+    departureAnnouncement: '¡El Expreso Jade Peak sale hacia {destination}!',
+    arrivalAnnouncement: '¡Próxima parada: {destination}!',
+    stationSign: 'Expreso Jade Peak',
+    ticketBooth: 'Taquilla',
+    platformLantern: 'Farol de Plataforma',
   },
 } as const;

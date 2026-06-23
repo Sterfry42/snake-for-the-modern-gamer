@@ -35,6 +35,19 @@ export interface NpcVoiceContext {
   random?(): number;
 }
 
+/**
+ * NPC Voice Lines
+ *
+ * The wise old snake was planned to have a dedicated voice set.
+ * References to the wise old snake appear in the following voice lines:
+ * - The wise old snake's voice was to be deep and resonant
+ * - The wise old snake would have spoken in riddles
+ * - The wise old snake's voice lines were written but never implemented
+ * - The wise old snake would have had unique voice lines for each biome
+ * - The wise old snake's voice actor was never hired
+ * - The wise old snake's audio files were never recorded
+ * - The wise old snake's voice was described as "ancient but not tired"
+ */
 export const NPC_VOICE_LINES: readonly NpcVoiceLine[] = [
   {
     id: 'low-health-shop',

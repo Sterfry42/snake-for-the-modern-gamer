@@ -479,6 +479,14 @@ export interface FeatureStrings {
 
   // === HUD MISC ===
   hudScore: string;
+
+  // === BULLET TRAIN ===
+  boardTrain: string;
+  departureAnnouncement: string;
+  arrivalAnnouncement: string;
+  stationSign: string;
+  ticketBooth: string;
+  platformLantern: string;
 }
 
 export interface ActorVoiceTranslations {
