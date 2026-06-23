@@ -34,7 +34,11 @@ import type {
 } from '../archipelago/archipelagoConnectionTypes.js';
 import { calculateCaffeinatedAppleIntervalScalar } from '../apples/caffeinatedBoost.js';
 import { SnakeGame } from '../game/snakeGame.js';
-import type { QuestObjectiveSummary, QuestRoomActor } from '../game/snakeGame.js';
+import type {
+  ActorJournalEntry,
+  QuestObjectiveSummary,
+  QuestRoomActor,
+} from '../game/snakeGame.js';
 import type { GameConnection } from '../session/GameConnection.js';
 import type { GameSnapshot } from '../session/GameSnapshot.js';
 import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
@@ -80,11 +84,18 @@ import {
   type ControlActionId,
 } from '../input/controlActions.js';
 import { ControllerInput } from '../input/controllerInput.js';
+import { ControllerFeedback, type ControllerFeedbackKind } from '../input/controllerFeedback.js';
 import { InputModeManager } from '../input/inputModeManager.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
+import {
+  shouldBlockPauseToggle,
+  shouldResumeFromPauseOverlay,
+} from '../input/controllerMenuRouting.js';
 import type { Quest } from '../../quests.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import type { Vector2Like } from '../core/math.js';
+import type { AnimalCompanionView } from '../animals/companions.js';
+import { isSnakeSceneRuntimeReady } from './snakeSceneStartup.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
@@ -131,7 +142,6 @@ import {
   type WardDeathSource,
 } from '../shops/goblinShop.js';
 import type { FactionCardView } from '../factions/factions.js';
-import type { ActorJournalEntry } from '../game/snakeGame.js';
 import type {
   DatingCandidateView,
   DatingBranchChoice,
@@ -1525,6 +1535,8 @@ export default class SnakeScene extends Phaser.Scene {
   private mobileControls: MobileControls | null = null;
   private readonly inputModeManager = new InputModeManager();
   private readonly controllerInput = new ControllerInput();
+  private readonly controllerFeedback = new ControllerFeedback();
+  private inputModeUnsubscribe: (() => void) | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
   private jasonVulnerableDialogueShown = false;
@@ -1609,6 +1621,7 @@ export default class SnakeScene extends Phaser.Scene {
   private archaeologyReturnRoomId: string | null = null;
   private archaeologyReturnForemanId: string | null = null;
   private choicePopupVisible = false;
+  private readonly choicePopups = new Set<ChoicePopup>();
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
   private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
   private runtimeSpriteFactory!: RuntimeSpriteFactory;
@@ -1756,6 +1769,8 @@ export default class SnakeScene extends Phaser.Scene {
   private deathLinkMode: DeathLinkMode = 'off';
   private handlingIncomingDeathLink = false;
   private titleCreditsMode = false;
+  private saveLoadMenu: SaveLoadMenu | null = null;
+  private titleControllerIndex = 0;
   private creditsTextLines: Phaser.GameObjects.Text[] = [];
   private creditsContainer: Phaser.GameObjects.Container | null = null;
   private creditsScrollContainer: Phaser.GameObjects.Container | null = null;
@@ -1764,6 +1779,14 @@ export default class SnakeScene extends Phaser.Scene {
   private creditsDismissZone: Phaser.GameObjects.Container | null = null;
   private cardGameContainer: Phaser.GameObjects.Container | null = null;
   private cardTooltipText: Phaser.GameObjects.Text | null = null;
+  private cardControllerItems: Array<{
+    id: string;
+    container: Phaser.GameObjects.Container;
+    onConfirm: () => void;
+    enabled: () => boolean;
+  }> = [];
+  private cardControllerIndex = 0;
+  private cardKeyboardFocus = false;
   private arcadeSnakeRenderer: ArcadeSnakeRenderer | null = null;
   private arcadeSnakeSaveData: ArcadeSnakeSaveData = createDefaultArcadeSnakeSaveData();
   private performanceHudVisible = false;
@@ -1880,6 +1903,26 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup = new ChoicePopup(this);
     await this.loadDatingPortraitAssets();
     this.datingScenePopup = new DatingScenePopup(this);
+    this.inputModeUnsubscribe = this.inputModeManager.onChange((mode) => {
+      this.skillTree.setInputMode(mode);
+      const controller = mode === 'controller';
+      for (const popup of this.choicePopups) popup.setControllerMode(controller);
+      this.questPopup.setControllerMode(controller);
+      this.datingScenePopup.setControllerMode(controller);
+      this.saveLoadMenu?.setControllerMode(controller);
+      this.saveUI?.setInputMode(mode);
+      this.arcadeSnakeRenderer?.setInputMode(mode);
+      this.fishingMinigame?.setInputMode(mode);
+      this.refreshCardControllerFocus();
+      this.refreshTitleControllerSelection();
+    });
+    this.skillTree.setInputMode(this.inputModeManager.getMode());
+    for (const popup of this.choicePopups) {
+      popup.setControllerMode(this.inputModeManager.getMode() === 'controller');
+    }
+    this.questPopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
+    this.datingScenePopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
+    this.saveUI.setInputMode(this.inputModeManager.getMode());
     this.graphics.setDepth(10);
 
     const registry = await createQuestRegistry();
@@ -2087,6 +2130,46 @@ export default class SnakeScene extends Phaser.Scene {
         event.preventDefault();
         return;
       }
+      if (this.cardGameContainer) {
+        const cardCommandByKey: Partial<Record<string, ControllerNavCommand>> = {
+          arrowup: 'up',
+          arrowdown: 'down',
+          arrowleft: 'left',
+          arrowright: 'right',
+          enter: 'confirm',
+          ' ': 'confirm',
+          escape: 'cancel',
+        };
+        const cardCommand = cardCommandByKey[key];
+        if (cardCommand) {
+          this.cardKeyboardFocus = true;
+          this.handleCardControllerCommand(cardCommand);
+          event.preventDefault();
+        }
+        return;
+      }
+      if (
+        this.datingScenePopup?.handleKeyboardEvent(event) ||
+        this.getActiveChoicePopup()?.handleKeyboardEvent(event) ||
+        this.questPopup?.handleKeyboardEvent(event)
+      ) {
+        event.preventDefault();
+        return;
+      }
+      if (this.skillTree?.isOverlayVisible()) {
+        const menuCommandByKey: Partial<Record<string, ControllerNavCommand>> = {
+          arrowup: 'up',
+          arrowdown: 'down',
+          arrowleft: 'left',
+          arrowright: 'right',
+          enter: 'confirm',
+        };
+        const menuCommand = menuCommandByKey[key];
+        if (menuCommand && this.skillTree.handleControllerCommand(menuCommand, this.paused)) {
+          event.preventDefault();
+          return;
+        }
+      }
       if (this.deathCutscene) {
         if (this.questPopup.isVisible() || this.villageShopPopup.isVisible()) {
           return;
@@ -2118,11 +2201,8 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       if (isKeyboardEventForAction(event, 'menu.pause')) {
-        if (this.isModalPopupVisible()) {
-          event.preventDefault();
-          return;
-        }
         this.togglePauseMenu();
+        event.preventDefault();
         return;
       }
 
@@ -2340,9 +2420,6 @@ export default class SnakeScene extends Phaser.Scene {
         pointer.event.preventDefault();
       }
     });
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      this.markPointerInputMode(pointer);
-    });
     this.input.on('wheel', (pointer: Phaser.Input.Pointer) => {
       this.markPointerInputMode(pointer);
     });
@@ -2406,6 +2483,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractVillageShopkeeper()) return;
     if (this.tryInteractGoblinShopkeeper()) return;
     if (this.tryInteractQuestGiver()) return;
+    if (this.isInHouse()) this.openHouseUpgradeMenu();
   }
 
   private runActionClockStep(_stepMs: number): void {
@@ -2701,6 +2779,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.maybePresentRandomEncounter();
 
     if (result.apple.eaten) {
+      this.playControllerFeedback('reward');
       this.recordAchievementEvent({
         type: 'apple:eaten',
         appleTypeId: result.apple.typeId ?? 'normal',
@@ -2775,8 +2854,16 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.setFlag('ui.relationshipEvent', undefined);
       this.skillTree.getOverlay().refresh();
     }
-    const animalHunted = this.snakeGame.getFlag<boolean | { message?: string }>('ui.animalHunted');
+    const animalHunted = this.snakeGame.getFlag<
+      boolean | { message?: string; x?: number; y?: number }
+    >('ui.animalHunted');
     if (typeof animalHunted === 'object' && animalHunted?.message) {
+      const world = this.tileToWorld(
+        animalHunted.x !== undefined && animalHunted.y !== undefined
+          ? { x: animalHunted.x, y: animalHunted.y }
+          : this.snakeGame.getSnakeBody()[0],
+      );
+      this.juice.animalDeath(world.x, world.y);
       this.showQuestHintPopup(animalHunted.message, '#b6ff6a');
       this.snakeGame.setFlag('ui.animalHunted', undefined);
       this.skillTree.getOverlay().refresh();
@@ -2784,21 +2871,33 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup('Animal hunted.', '#b6ff6a');
       this.snakeGame.setFlag('ui.animalHunted', undefined);
     }
-    const animalStartled = this.snakeGame.getFlag<{ count?: number }>('ui.animalStartled');
+    const animalStartled = this.snakeGame.getFlag<{ count?: number; x?: number; y?: number }>(
+      'ui.animalStartled',
+    );
     if (animalStartled) {
+      const world = this.tileToWorld(
+        animalStartled.x !== undefined && animalStartled.y !== undefined
+          ? { x: animalStartled.x, y: animalStartled.y }
+          : this.snakeGame.getSnakeBody()[0],
+      );
+      this.juice.animalStartled(world.x, world.y);
       this.showQuestHintPopup(
         'The animal startles away. Unlock Predator I or use a weapon to hunt harmless animals.',
         '#ffd166',
       );
       this.snakeGame.setFlag('ui.animalStartled', undefined);
     }
-    const animalTamable = this.snakeGame.getFlag<{ animalName?: string }>('ui.animalTamable');
-    if (animalTamable) {
-      this.showQuestHintPopup(
-        `${animalTamable.animalName ?? 'That animal'} can be tamed with the right lead.`,
-        '#9ad1ff',
-      );
+    const animalTamable = this.snakeGame.getFlag<{
+      animalId?: string;
+      animalName?: string;
+      requiredItem?: string;
+      requiredScore?: number;
+      x?: number;
+      y?: number;
+    }>('ui.animalTamable');
+    if (animalTamable?.animalId && !this.villageShopPopup.isVisible()) {
       this.snakeGame.setFlag('ui.animalTamable', undefined);
+      this.showAnimalTamingPopup({ ...animalTamable, animalId: animalTamable.animalId });
     }
     this.tickFreakYouPortalFx();
 
@@ -2962,17 +3061,25 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private presentLevelUp(result: LevelUpResult): void {
+    if (
+      this.paused ||
+      this.titleVisible ||
+      this.deathCutscene ||
+      this.isModalPopupVisible() ||
+      this.getGameMode() !== 'action'
+    ) {
+      this.skillTree?.getOverlay().refresh();
+      this.isDirty = true;
+      return;
+    }
     const head = this.snakeGame.getSnakeBody()[0];
     const world = head
       ? this.tileToWorld(head)
       : { x: this.scale.width / 2, y: this.scale.height / 2 };
     this.juice.levelUp(world.x, world.y, result.levelsGained);
+    this.playControllerFeedback('reward');
     this.skillTree?.getOverlay().refresh();
     this.isDirty = true;
-
-    if (this.titleVisible || this.deathCutscene || this.isModalPopupVisible()) {
-      return;
-    }
 
     this.paused = true;
     this.awaitingLevelUpDirection = true;
@@ -3015,13 +3122,20 @@ export default class SnakeScene extends Phaser.Scene {
       })
       .setOrigin(0.5);
     const instruction = this.add
-      .text(centerX, centerY + 72, 'PRESS A DIRECTION TO CONTINUE', {
-        fontFamily: 'monospace',
-        fontSize: '13px',
-        color: '#ffffff',
-        stroke: '#07120c',
-        strokeThickness: 4,
-      })
+      .text(
+        centerX,
+        centerY + 72,
+        this.inputModeManager.getMode() === 'controller'
+          ? 'MOVE LEFT STICK OR D-PAD TO CONTINUE'
+          : 'PRESS A DIRECTION TO CONTINUE',
+        {
+          fontFamily: 'monospace',
+          fontSize: '13px',
+          color: '#ffffff',
+          stroke: '#07120c',
+          strokeThickness: 4,
+        },
+      )
       .setOrigin(0.5)
       .setVisible(false);
     prompt.add([veil, title, subtitle, instruction]);
@@ -3458,6 +3572,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private gameOver(reason?: string | null) {
+    this.playControllerFeedback('death');
     this.juice.gameOver();
     this.featureManager.call('onGameOver', this);
     this.initGame(true, true);
@@ -4348,9 +4463,22 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private togglePauseMenu(force?: boolean): void {
-    if (this.offeredQuest || this.isModalPopupVisible()) return;
+    if (
+      shouldBlockPauseToggle({
+        offeredQuest: Boolean(this.offeredQuest),
+        modalVisible: this.isModalPopupVisible(),
+        pauseOverlayVisible: this.skillTree.isOverlayVisible(),
+        paused: this.paused,
+        force,
+      })
+    ) {
+      return;
+    }
     const nextState = typeof force === 'boolean' ? force : !this.paused;
     if (nextState === this.paused) {
+      if (!nextState && this.skillTree.isOverlayVisible()) {
+        this.skillTree.hideOverlay();
+      }
       return;
     }
 
@@ -4365,6 +4493,7 @@ export default class SnakeScene extends Phaser.Scene {
     } else {
       this.juice.skillTreeClosed();
     }
+    this.isDirty = true;
   }
 
   private triggerAutosave(): void {
@@ -4384,6 +4513,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.unsubscribeSnapshot = null;
     this.unsubscribeEvents?.();
     this.unsubscribeEvents = null;
+    this.inputModeUnsubscribe?.();
+    this.inputModeUnsubscribe = null;
     this.gameConnection?.disconnect();
     if (this.creditsScrollTween) {
       this.creditsScrollTween.destroy();
@@ -5080,7 +5211,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   get score(): number {
-    return this.snakeGame.getScore();
+    return this.snakeGame?.getScore() ?? 0;
   }
 
   get snake(): readonly Vector2Like[] {
@@ -5114,6 +5245,15 @@ export default class SnakeScene extends Phaser.Scene {
 
   setChoicePopupVisible(visible: boolean): void {
     this.choicePopupVisible = visible;
+  }
+
+  registerChoicePopup(popup: ChoicePopup): void {
+    this.choicePopups.add(popup);
+    popup.setControllerMode(this.inputModeManager.getMode() === 'controller');
+  }
+
+  private getActiveChoicePopup(): ChoicePopup | null {
+    return [...this.choicePopups].reverse().find((popup) => popup.isVisible()) ?? null;
   }
 
   prepareCharacterSave(): void {
@@ -5257,6 +5397,8 @@ export default class SnakeScene extends Phaser.Scene {
     if (mode === 'credits') {
       this.showCreditsScreen();
     }
+    this.titleControllerIndex = 0;
+    this.refreshTitleControllerSelection();
   }
 
   private loadCharacterModeSetting(): CharacterMode {
@@ -5479,9 +5621,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private loadGameFromTitle(): void {
-    const saveLoadMenu = new SaveLoadMenu(this);
-    saveLoadMenu.setDepth(9999);
-    saveLoadMenu.show(
+    this.saveLoadMenu?.hide();
+    this.saveLoadMenu = new SaveLoadMenu(this);
+    this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
+    this.saveLoadMenu.setDepth(9999);
+    this.saveLoadMenu.show(
       async (slotId: string, data: GameSaveData) => {
         this.hideTitleScreen();
         const success = this.snakeGame.loadFromSaveData(data);
@@ -5497,10 +5641,12 @@ export default class SnakeScene extends Phaser.Scene {
         this.backfillArchipelagoAchievementScore();
         this.paused = false;
         this.isDirty = true;
-        saveLoadMenu.hide();
+        this.saveLoadMenu?.hide();
+        this.saveLoadMenu = null;
       },
       () => {
-        saveLoadMenu.hide();
+        this.saveLoadMenu?.hide();
+        this.saveLoadMenu = null;
         this.showTitleScreen('main');
       },
     );
@@ -5999,6 +6145,7 @@ export default class SnakeScene extends Phaser.Scene {
     button.setData('titleButtonBg', bg);
     button.setData('titleButtonStripe', stripe);
     button.setData('titleSelected', selected);
+    button.setData('titleAction', onClick);
     if (disabled) {
       button.setAlpha(0.78);
       return button;
@@ -6038,6 +6185,81 @@ export default class SnakeScene extends Phaser.Scene {
     });
     zone.on('pointerdown', onClick);
     return button;
+  }
+
+  private getVisibleTitleControllerButtons(): Phaser.GameObjects.Container[] {
+    const containers = [
+      this.titleMainContainer,
+      this.titleSettingsContainer,
+      this.titleResolutionSettingsContainer,
+      this.titleDifficultySettingsContainer,
+      this.titleMultiplayerContainer,
+    ];
+    const active = containers.find((container) => container?.visible);
+    if (!active) return [];
+    return active.list.filter(
+      (child): child is Phaser.GameObjects.Container =>
+        child instanceof Phaser.GameObjects.Container &&
+        typeof child.getData('titleAction') === 'function' &&
+        child.alpha > 0,
+    );
+  }
+
+  private handleTitleControllerCommand(command: ControllerNavCommand): boolean {
+    if (this.titleCreditsMode) {
+      if (command === 'confirm' || command === 'cancel' || command === 'menu') {
+        if (this.creditsCanDismiss) {
+          this.hideCreditsScreen();
+          this.showTitleScreen('main');
+        }
+        return true;
+      }
+      return false;
+    }
+    const buttons = this.getVisibleTitleControllerButtons();
+    if (buttons.length === 0) return false;
+    if (command === 'up' || command === 'left') {
+      this.titleControllerIndex = (this.titleControllerIndex - 1 + buttons.length) % buttons.length;
+      this.refreshTitleControllerSelection();
+      return true;
+    }
+    if (command === 'down' || command === 'right') {
+      this.titleControllerIndex = (this.titleControllerIndex + 1) % buttons.length;
+      this.refreshTitleControllerSelection();
+      return true;
+    }
+    if (command === 'confirm') {
+      const action = buttons[this.titleControllerIndex]?.getData('titleAction') as
+        | (() => void)
+        | undefined;
+      action?.();
+      return true;
+    }
+    if (command === 'cancel') {
+      const back = buttons.find((button) =>
+        /back/i.test(String(button.getData('titleBaseLabel') ?? '')),
+      );
+      const action = back?.getData('titleAction') as (() => void) | undefined;
+      action?.();
+      return Boolean(action);
+    }
+    return false;
+  }
+
+  private refreshTitleControllerSelection(): void {
+    const buttons = this.getVisibleTitleControllerButtons();
+    this.titleControllerIndex = Phaser.Math.Clamp(
+      this.titleControllerIndex,
+      0,
+      Math.max(0, buttons.length - 1),
+    );
+    buttons.forEach((button, index) => {
+      const focused =
+        this.inputModeManager.getMode() === 'controller' && index === this.titleControllerIndex;
+      const bg = button.getData('titleButtonBg') as Phaser.GameObjects.Rectangle | undefined;
+      bg?.setStrokeStyle(2, focused ? 0xfff3a8 : 0x4da3ff);
+      button.setScale(focused ? 1.04 : 1);
+    });
   }
 
   private setTitleButtonSelected(
@@ -7008,6 +7230,9 @@ export default class SnakeScene extends Phaser.Scene {
     return Boolean(
       this.questPopup?.isVisible() ||
       this.choicePopupVisible ||
+      this.datingScenePopup?.isVisible() ||
+      this.skillTree?.isOverlayVisible() ||
+      this.cardGameContainer ||
       this.archaeologySession ||
       this.arcadeSnakeRenderer?.isOpen(),
     );
@@ -7063,6 +7288,31 @@ export default class SnakeScene extends Phaser.Scene {
 
   getPeopleJournalView(): ActorJournalEntry[] {
     return this.snakeGame.getPeopleJournalView();
+  }
+
+  getAnimalCompanionViews(): AnimalCompanionView[] {
+    return this.snakeGame.getAnimalCompanions();
+  }
+
+  feedAnimalCompanion(companionId: string): boolean {
+    const result = this.snakeGame.feedAnimalCompanionById(companionId);
+    const head = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
+    if (result.ok) {
+      if (result.milestone) this.juice.animalBond(head.x, head.y);
+      else this.juice.animalFed(head.x, head.y);
+    } else {
+      this.juice.animalHuntFail(head.x, head.y);
+    }
+    this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff8f8f');
+    return result.ok;
+  }
+
+  releaseAnimalCompanion(companionId: string): boolean {
+    const result = this.snakeGame.releaseAnimalCompanion(companionId);
+    const head = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
+    if (result.ok) this.juice.animalStartled(head.x, head.y);
+    this.showQuestHintPopup(result.message, result.ok ? '#ffd166' : '#ff8f8f');
+    return result.ok;
   }
 
   getArtifactViews() {
@@ -7458,6 +7708,11 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   update(_time: number, delta: number): void {
+    // `create` is async and Phaser may begin calling update while it is awaiting
+    // asset or quest loading. Nothing below is safe until the game runtime exists.
+    if (!isSnakeSceneRuntimeReady(this.snakeGame)) {
+      return;
+    }
     this.pollControllerInput();
     if (this.titleVisible) {
       this.graphics?.clear();
@@ -7507,29 +7762,162 @@ export default class SnakeScene extends Phaser.Scene {
 
   private pollControllerInput(): void {
     const snapshot = this.controllerInput.poll();
+    if (this.fishingActive) {
+      this.fishingMinigame?.setControllerPullDirection(snapshot.move?.x ?? 0);
+    }
     if (!snapshot.active) {
       return;
     }
-    this.inputModeManager.markControllerInput();
+    if (snapshot.modeActivity) {
+      this.inputModeManager.markControllerInput();
+    }
     for (const event of snapshot.events) {
-      this.handleControllerCommand(event.command);
+      if (event.bindingLabel && this.skillTree.captureControllerBinding(event.bindingLabel)) {
+        this.playControllerFeedback('confirm');
+        continue;
+      }
+      const wasUiContext = this.isControllerUiContext();
+      if (!wasUiContext && event.actionId && this.handleControllerAction(event.actionId)) {
+        this.playControllerFeedback('confirm');
+        continue;
+      }
+      if (!event.command) continue;
+      const handled = this.handleControllerCommand(event.command);
+      if (handled) {
+        this.playControllerCommandFeedback(event.command, wasUiContext);
+      }
+    }
+  }
+
+  private handleControllerAction(actionId: ControlActionId): boolean {
+    switch (actionId) {
+      case 'interact.confirm':
+        this.performInteractAction();
+        return true;
+      case 'back.cancel':
+        if (!this.paused) return false;
+        this.togglePauseMenu(false);
+        return true;
+      case 'ability.primary':
+        return this.skillTree.handleControllerCommand('primary', this.paused);
+      case 'menu.pause':
+        this.togglePauseMenu();
+        return true;
+      case 'map.toggle': {
+        const result = this.toggleMinimap();
+        if (result) this.showQuestHintPopup(result.message, result.color);
+        return true;
+      }
+      case 'save.quick':
+        this.saveUI.save();
+        return true;
+      case 'aim.fire':
+      case 'move.up':
+      case 'move.down':
+      case 'move.left':
+      case 'move.right':
+        return false;
+    }
+  }
+
+  private isControllerUiContext(): boolean {
+    return Boolean(
+      this.titleVisible ||
+      this.paused ||
+      this.saveLoadMenu?.isVisible() ||
+      this.archaeologySession ||
+      this.arcadeSnakeRenderer?.isOpen() ||
+      this.fishingActive ||
+      this.datingScenePopup?.isVisible() ||
+      this.villageShopPopup?.isVisible() ||
+      this.questPopup?.isVisible() ||
+      this.skillTree?.isOverlayVisible(),
+    );
+  }
+
+  private playControllerCommandFeedback(
+    command: ControllerNavCommand,
+    wasUiContext: boolean,
+  ): void {
+    if (
+      wasUiContext &&
+      [
+        'up',
+        'down',
+        'left',
+        'right',
+        'scrollUp',
+        'scrollDown',
+        'scrollLeft',
+        'scrollRight',
+        'primaryTabPrevious',
+        'primaryTabNext',
+        'subTabPrevious',
+        'subTabNext',
+      ].includes(command)
+    ) {
+      this.playControllerFeedback('navigate');
+      return;
+    }
+    if (command === 'confirm' || command === 'primary') {
+      this.playControllerFeedback('confirm');
+      return;
+    }
+    if (command === 'cancel' || command === 'menu') {
+      this.playControllerFeedback('cancel');
+    }
+  }
+
+  private playControllerFeedback(kind: ControllerFeedbackKind): void {
+    if (this.inputModeManager.getMode() === 'controller') {
+      this.controllerFeedback.play(kind);
     }
   }
 
   private handleControllerCommand(command: ControllerNavCommand): boolean {
-    if (this.titleVisible) {
-      return false;
+    if (this.saveLoadMenu?.isVisible()) {
+      return this.saveLoadMenu.handleControllerCommand(command);
     }
-    if (this.villageShopPopup?.isVisible()) {
-      return this.villageShopPopup.handleControllerCommand(command);
+    if (this.titleVisible) {
+      return this.handleTitleControllerCommand(command);
+    }
+    if (this.archaeologySession) {
+      return this.handleArchaeologyControllerCommand(command);
+    }
+    if (this.arcadeSnakeRenderer?.isOpen()) {
+      const keyByCommand: Partial<Record<ControllerNavCommand, string>> = {
+        up: 'arrowup',
+        down: 'arrowdown',
+        left: 'arrowleft',
+        right: 'arrowright',
+        confirm: 'enter',
+        cancel: 'q',
+        menu: ' ',
+      };
+      const key = keyByCommand[command];
+      return key ? this.arcadeSnakeRenderer.handleKeyDown(key) : false;
+    }
+    if (this.fishingActive) {
+      return this.fishingMinigame.handleControllerCommand(command);
+    }
+    if (this.cardGameContainer) {
+      return this.handleCardControllerCommand(command);
+    }
+    if (this.datingScenePopup?.isVisible()) {
+      return this.datingScenePopup.handleControllerCommand(command);
+    }
+    const activeChoicePopup = this.getActiveChoicePopup();
+    if (activeChoicePopup) {
+      return activeChoicePopup.handleControllerCommand(command);
     }
     if (this.questPopup?.isVisible()) {
-      if (command === 'cancel') {
-        return true;
-      }
-      return false;
+      return this.questPopup.handleControllerCommand(command);
     }
     if (this.skillTree?.isOverlayVisible()) {
+      if (shouldResumeFromPauseOverlay(command, true)) {
+        this.togglePauseMenu(false);
+        return true;
+      }
       return this.skillTree.handleControllerCommand(command, this.paused);
     }
     if (command === 'menu') {
@@ -8258,6 +8646,8 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (lengthDelta > 0 && lengthAfter !== this.lastJuicedLength) {
       this.juice.lengthGain(world.x, world.y, lengthDelta);
+    } else if (lengthDelta < 0 && lengthAfter !== this.lastJuicedLength) {
+      this.playControllerFeedback('impact');
     }
     this.lastJuicedScore = scoreAfter;
     this.lastJuicedLength = lengthAfter;
@@ -8586,7 +8976,9 @@ export default class SnakeScene extends Phaser.Scene {
         `5) Plant (8) ${purchases['plant'] ? '✓' : ''}`,
         `6) Lamp (14) ${purchases['lamp'] ? '✓' : ''}`,
         `7) Arcade Cabinet (200) ${this.arcadeSnakeSaveData.hasHomeCabinet ? '✓' : ''}`,
-        `Press 1-7 to buy house upgrades`,
+        this.inputModeManager.getMode() === 'controller'
+          ? `${this.getPrimaryInteractKey()}: Open house upgrades`
+          : `Press 1-7 or ${this.getPrimaryInteractKey()} to buy house upgrades`,
       ];
       this.houseHud.setText(lines.join('\n'));
       this.houseHud.setVisible(true);
@@ -9229,6 +9621,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.fishingEscapePending = false;
 
     // Start the minigame
+    this.fishingMinigame?.setInputMode(this.inputModeManager.getMode());
     this.fishingMinigame?.start(fishingState);
 
     return { ok: true, message: 'You cast your line into the water.', color: '#44ddff' };
@@ -9709,6 +10102,7 @@ export default class SnakeScene extends Phaser.Scene {
   private tryBuyHouse(kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp'): void {
     const ok = this.snakeGame.purchaseHouseItem(kind);
     if (ok) {
+      this.playControllerFeedback('reward');
       if (kind === 'expand')
         this.recordAchievementEvent({
           type: 'house:expanded',
@@ -9734,6 +10128,7 @@ export default class SnakeScene extends Phaser.Scene {
         onComplete: () => popup.destroy(),
       });
     } else {
+      this.playControllerFeedback('error');
       // Error popup
       const popup = this.add
         .text(120, 8, `Cannot purchase ${kind}`, {
@@ -9755,9 +10150,53 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private openHouseUpgradeMenu(): void {
+    if (!this.isInHouse()) return;
+    this.paused = true;
+    const purchases = this.snakeGame.getFlag<Record<string, unknown>>('house.purchases') ?? {};
+    const expandLevel = Number(this.snakeGame.getFlag<number>('house.expandLevel') ?? 0);
+    const options: ChoiceOption[] = [
+      ['couch', 'Couch — 10 score', Boolean(purchases['couch'])],
+      ['kitchen', 'Kitchen — 15 score', Boolean(purchases['kitchen'])],
+      ['expand', `Expand — 20 score (${expandLevel}/5)`, expandLevel >= 5],
+      ['bed', 'Bed — 12 score', Boolean(purchases['bed'])],
+      ['plant', 'Plant — 8 score', Boolean(purchases['plant'])],
+      ['lamp', 'Lamp — 14 score', Boolean(purchases['lamp'])],
+      ['arcade', 'Arcade Cabinet — 200 score', this.arcadeSnakeSaveData.hasHomeCabinet],
+    ].map(([id, title, owned]) => ({
+      id: String(id),
+      title: `${title}${owned ? ' ✓' : ''}`,
+      description: owned ? 'Already installed.' : 'Purchase and install this house upgrade.',
+    }));
+    options.push({ id: 'leave', title: 'Leave', description: 'Close the house upgrade menu.' });
+    this.villageShopPopup.show('House Upgrades', options, (id) => {
+      if (id === 'leave') {
+        this.paused = false;
+        return;
+      }
+      if (id === 'arcade') {
+        this.tryBuyHomeArcadeFromHouse();
+      } else if (
+        id === 'couch' ||
+        id === 'kitchen' ||
+        id === 'expand' ||
+        id === 'bed' ||
+        id === 'plant' ||
+        id === 'lamp'
+      ) {
+        this.tryBuyHouse(id);
+      }
+      this.time.delayedCall(0, () => {
+        if (this.isInHouse()) this.openHouseUpgradeMenu();
+        else this.paused = false;
+      });
+    });
+  }
+
   private tryBuyHomeArcadeFromHouse(): void {
     const result = purchaseHomeArcadeCabinet(this.arcadeSnakeSaveData, this.score);
     if (!result.ok) {
+      this.playControllerFeedback('error');
       this.showQuestHintPopup(
         this.arcadeSnakeSaveData.hasHomeCabinet
           ? 'Home arcade cabinet already installed.'
@@ -9767,6 +10206,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     this.addScoreDirect(result.score - this.score);
+    this.playControllerFeedback('reward');
     this.ensureHomeArcadeCabinet();
     this.snakeGame.saveGame();
     this.juice.perkPurchased();
@@ -10009,7 +10449,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private getPrimaryInteractKey(): string {
-    return getPrimaryBindingLabelForDisplay('interact.confirm');
+    return getPrimaryBindingLabelForDisplay('interact.confirm', this.inputModeManager.getMode());
   }
 
   private getInteractPromptText(): string {
@@ -11048,6 +11488,9 @@ export default class SnakeScene extends Phaser.Scene {
     const houseCardIds = getActiveHouseCardIds(state);
     const activeWindow = getActiveScoreWindow(table, houseCardIds);
     const selectedState = new Set(selected);
+    this.cardControllerItems = [];
+    this.cardControllerIndex = 0;
+    this.cardKeyboardFocus = false;
     this.hideCardGamePopup();
     this.villageShopPopup.hide();
     this.setChoicePopupVisible(true);
@@ -11156,7 +11599,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       root.add(slotGraphics);
       hand.forEach((cardId, index) => {
-        const card = this.createCardSprite(cardId, selectedState.has(index), () => {
+        const toggleCard = () => {
           const willSelect = !selectedState.has(index);
           const cardDefinition = getCardDefinition(cardId);
           this.juice.cardSelect(
@@ -11172,7 +11615,9 @@ export default class SnakeScene extends Phaser.Scene {
           }
           this.updateCardSpriteSelection(card, selectedState.has(index));
           this.setCardTableButtonEnabled(scoreButton, selectedState.size > 0);
-        });
+          this.refreshCardControllerFocus();
+        };
+        const card = this.createCardSprite(cardId, selectedState.has(index), toggleCard);
         const targetCardY = selectedState.has(index) ? 184 : 198;
         card.setPosition(cardX, targetCardY);
         card.setData('restY', 198);
@@ -11189,6 +11634,7 @@ export default class SnakeScene extends Phaser.Scene {
           });
         }
         root.add(card);
+        this.registerCardControllerItem(`card:${index}`, card, toggleCard);
         cardX += cardWidth + gap;
       });
     }
@@ -11224,7 +11670,7 @@ export default class SnakeScene extends Phaser.Scene {
           hand.map((_, index) => index),
         );
       },
-      true,
+      hand.length > 0,
       'secondary',
       98,
     );
@@ -11240,7 +11686,28 @@ export default class SnakeScene extends Phaser.Scene {
       98,
     );
     root.add([scoreButton, allButton, foldButton]);
+    this.registerCardControllerItem(
+      'score',
+      scoreButton,
+      () => (scoreButton.getData('onConfirm') as (() => void) | undefined)?.(),
+      () => Boolean(scoreButton.getData('enabled')),
+    );
+    this.registerCardControllerItem(
+      'all',
+      allButton,
+      () => (allButton.getData('onConfirm') as (() => void) | undefined)?.(),
+      () => Boolean(allButton.getData('enabled')),
+    );
+    this.registerCardControllerItem(
+      'fold',
+      foldButton,
+      () => (foldButton.getData('onConfirm') as (() => void) | undefined)?.(),
+      () => Boolean(foldButton.getData('enabled')),
+    );
     this.cardGameContainer = root;
+    const firstEnabledCardAction = this.cardControllerItems.findIndex((item) => item.enabled());
+    this.cardControllerIndex = Math.max(0, firstEnabledCardAction);
+    this.refreshCardControllerFocus();
   }
 
   private updateCardSpriteSelection(card: Phaser.GameObjects.Container, selected: boolean): void {
@@ -11582,6 +12049,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
     hit.on('pointerover', () => {
+      this.cardKeyboardFocus = false;
       body.setFillStyle(0xffffff, 1);
       this.cardTooltipText?.setText(
         `${houseCard.name} | House Card | ${houseCard.rarity}\n${houseCard.description}\nBase: ${table.minScore}-${table.maxScore} -> Active: ${activeWindow.minScore}-${activeWindow.maxScore}`,
@@ -11734,6 +12202,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: true });
     hit.on('pointerover', () => {
+      this.cardKeyboardFocus = false;
       body.setFillStyle(0xffffff, 1);
       this.cardTooltipText?.setText(
         `${card.name} | ${card.suit} | ${card.chips} chips | ${card.rarity}\n${card.description}`,
@@ -11810,6 +12279,7 @@ export default class SnakeScene extends Phaser.Scene {
     const container = this.add.container(x, y).setSize(buttonWidth, buttonHeight);
     container.setData('enabled', enabled);
     container.setData('tone', tone);
+    container.setData('onConfirm', onClick);
     const shadow = this.add
       .rectangle(3, 4, buttonWidth, buttonHeight, 0x02040a, 0.35)
       .setOrigin(0, 0);
@@ -11837,6 +12307,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setInteractive({ useHandCursor: enabled });
     hit.on('pointerover', () => {
+      this.cardKeyboardFocus = false;
       if (!container.getData('enabled')) return;
       bg.setFillStyle(tone === 'danger' ? 0x4a2020 : 0x4b3524, 1);
       text.setColor('#ffffff');
@@ -12110,9 +12581,77 @@ export default class SnakeScene extends Phaser.Scene {
     this.cardGameContainer?.destroy(true);
     this.cardGameContainer = null;
     this.cardTooltipText = null;
+    this.cardControllerItems = [];
+    this.cardControllerIndex = 0;
+    this.cardKeyboardFocus = false;
     if (updateChoiceState) {
       this.setChoicePopupVisible(false);
     }
+  }
+
+  private registerCardControllerItem(
+    id: string,
+    container: Phaser.GameObjects.Container,
+    onConfirm: () => void,
+    enabled: () => boolean = () => true,
+  ): void {
+    this.cardControllerItems.push({ id, container, onConfirm, enabled });
+  }
+
+  private handleCardControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.cardGameContainer || this.cardControllerItems.length === 0) return false;
+    if (command === 'cancel') {
+      const fold = this.cardControllerItems.find((item) => item.id === 'fold' && item.enabled());
+      fold?.onConfirm();
+      return Boolean(fold);
+    }
+    if (command === 'confirm') {
+      const item = this.cardControllerItems[this.cardControllerIndex];
+      if (item?.enabled()) item.onConfirm();
+      return Boolean(item);
+    }
+    if (command !== 'left' && command !== 'right' && command !== 'up' && command !== 'down') {
+      return false;
+    }
+    const delta = command === 'left' || command === 'up' ? -1 : 1;
+    let next = this.cardControllerIndex;
+    for (let attempts = 0; attempts < this.cardControllerItems.length; attempts += 1) {
+      next = (next + delta + this.cardControllerItems.length) % this.cardControllerItems.length;
+      if (this.cardControllerItems[next]?.enabled()) {
+        this.cardControllerIndex = next;
+        break;
+      }
+    }
+    this.refreshCardControllerFocus();
+    return true;
+  }
+
+  private refreshCardControllerFocus(): void {
+    this.cardControllerItems.forEach((item, index) => {
+      const focused =
+        (this.inputModeManager.getMode() === 'controller' || this.cardKeyboardFocus) &&
+        index === this.cardControllerIndex &&
+        item.enabled();
+      item.container.setScale(focused ? 1.06 : 1);
+      const buttonBg = item.container.getByName('button-bg') as Phaser.GameObjects.Rectangle | null;
+      if (buttonBg) {
+        const tone = item.container.getData('tone') as 'primary' | 'secondary' | 'danger';
+        const baseStroke = tone === 'primary' ? 0xffd166 : tone === 'danger' ? 0xb55d63 : 0xcfa77a;
+        buttonBg.setStrokeStyle(focused ? 4 : 2, focused ? 0xffffff : baseStroke);
+      }
+      const cardBody = item.container.getByName('card-body') as Phaser.GameObjects.Rectangle | null;
+      if (cardBody) {
+        const selected = Boolean(item.container.getData('selected'));
+        cardBody.setStrokeStyle(
+          focused ? 5 : 3,
+          focused
+            ? 0xffffff
+            : selected
+              ? 0x5dd6a2
+              : Number(item.container.getData('suitColor') ?? 0x4da3ff),
+        );
+      }
+    });
   }
 
   private showCardScoringCutscene(
@@ -12416,6 +12955,59 @@ export default class SnakeScene extends Phaser.Scene {
     this.resumeGameplayAfterModal();
   }
 
+  private showAnimalTamingPopup(encounter: {
+    animalId: string;
+    animalName?: string;
+    requiredItem?: string;
+    requiredScore?: number;
+    x?: number;
+    y?: number;
+  }): void {
+    this.paused = true;
+    this.setChoicePopupVisible(true);
+    const name = encounter.animalName ?? 'Wild animal';
+    const requiredItem = getItem(encounter.requiredItem ?? '')?.name ?? encounter.requiredItem;
+    const requirement = [
+      requiredItem ? `Requires ${requiredItem}` : '',
+      encounter.requiredScore ? `${encounter.requiredScore} score` : '',
+    ]
+      .filter(Boolean)
+      .join(' and ');
+    this.villageShopPopup.show(
+      `Tame ${name}?`,
+      [
+        {
+          id: 'tame',
+          title: 'Offer the lead',
+          description: requirement || 'Try to earn its trust.',
+        },
+        {
+          id: 'leave',
+          title: 'Leave it wild',
+          description: 'Step back without consuming anything.',
+        },
+      ],
+      (id) => {
+        if (id === 'tame') {
+          const result = this.snakeGame.attemptTameAnimal(encounter.animalId);
+          const world = this.tileToWorld(
+            encounter.x !== undefined && encounter.y !== undefined
+              ? { x: encounter.x, y: encounter.y }
+              : this.snakeGame.getSnakeBody()[0],
+          );
+          if (result.ok) {
+            this.juice.animalTamed(world.x, world.y, result.companion?.type ?? 'animal');
+          } else {
+            this.juice.animalHuntFail(world.x, world.y);
+          }
+          this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff8f8f');
+          this.skillTree.getOverlay().refresh();
+        }
+        this.resumeGameplayAfterModal();
+      },
+    );
+  }
+
   private resumeGameplayAfterModal(): void {
     this.paused = false;
     this.skillTree.hideOverlay();
@@ -12692,7 +13284,7 @@ export default class SnakeScene extends Phaser.Scene {
       {
         id: 'play',
         title: 'Play',
-        description: `Start a run. ${getPrimaryBindingLabelForDisplay('move.up')}/${getPrimaryBindingLabelForDisplay('move.down')}/${getPrimaryBindingLabelForDisplay('move.left')}/${getPrimaryBindingLabelForDisplay('move.right')} move; ${getPrimaryBindingLabelForDisplay('menu.pause')} pauses; Back/Cancel quits.`,
+        description: `Start a run. ${getPrimaryBindingLabelForDisplay('move.up', this.inputModeManager.getMode())}/${getPrimaryBindingLabelForDisplay('move.down', this.inputModeManager.getMode())}/${getPrimaryBindingLabelForDisplay('move.left', this.inputModeManager.getMode())}/${getPrimaryBindingLabelForDisplay('move.right', this.inputModeManager.getMode())} move; ${getPrimaryBindingLabelForDisplay('menu.pause', this.inputModeManager.getMode())} pauses; ${getPrimaryBindingLabelForDisplay('back.cancel', this.inputModeManager.getMode())} quits.`,
       },
       {
         id: 'stats',
@@ -12796,7 +13388,18 @@ export default class SnakeScene extends Phaser.Scene {
         this.arcadeSnakeRenderer = null;
         this.resumeGameplayAfterModal();
       },
-      playEffect: (effect) => (this.juice as any).arcadeEffect?.(effect),
+      playEffect: (effect) => {
+        (this.juice as any).arcadeEffect?.(effect);
+        if (['apple', 'golden', 'scurry', 'barrier', 'quest', 'level'].includes(effect)) {
+          this.playControllerFeedback('reward');
+        } else if (effect === 'input-lost' || effect === 'input-rejected') {
+          this.playControllerFeedback('error');
+        } else if (effect === 'blue-screen' || effect === 'dennis') {
+          this.playControllerFeedback('impact');
+        } else if (effect === 'game-over') {
+          this.playControllerFeedback('death');
+        }
+      },
       setMusicState: (state) => (this.juice as any).setArcadeMusicState?.(state),
       setDennisBossMusic: (active) => {
         if (active) {
@@ -12806,6 +13409,7 @@ export default class SnakeScene extends Phaser.Scene {
         }
       },
     });
+    this.arcadeSnakeRenderer.setInputMode(this.inputModeManager.getMode());
     this.arcadeSnakeRenderer.startRun();
   }
 
@@ -13142,6 +13746,25 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
+  private handleArchaeologyControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.archaeologySession) return false;
+    if (command === 'up') this.archaeologySession.moveCursor(0, -1);
+    else if (command === 'down') this.archaeologySession.moveCursor(0, 1);
+    else if (command === 'left') this.archaeologySession.moveCursor(-1, 0);
+    else if (command === 'right') this.archaeologySession.moveCursor(1, 0);
+    else if (command === 'confirm' || command === 'primary') {
+      if (!this.archaeologySession.swap()) this.juice.archaeologyBlocked();
+    } else if (command === 'cancel' || command === 'menu') {
+      this.finishMolemanExcavation('leave');
+    } else {
+      return false;
+    }
+    if (this.archaeologySession) {
+      this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
+    }
+    return true;
+  }
+
   private updateArchaeologyOverlay(): void {
     if (!this.archaeologySession) {
       return;
@@ -13451,6 +14074,7 @@ export default class SnakeScene extends Phaser.Scene {
       : snapshot.resolving
         ? this.tArchaeology('resolving')
         : this.tArchaeology('rising');
+    const controllerMode = this.inputModeManager.getMode() === 'controller';
     text
       .setPosition(boardX + boardWidth + 38, boardY - 6)
       .setText(
@@ -13460,9 +14084,9 @@ export default class SnakeScene extends Phaser.Scene {
           this.tArchaeology('depthScore', { depth: snapshot.depth, score: snapshot.score }),
           this.tArchaeology('chainBest', { chain: snapshot.chain, best: snapshot.maxChain }),
           '',
-          this.tArchaeology('moveHelp'),
-          this.tArchaeology('swapHelp'),
-          this.tArchaeology('leaveHelp'),
+          controllerMode ? 'LEFT STICK / D-PAD: Move cursor' : this.tArchaeology('moveHelp'),
+          controllerMode ? 'A / X: Swap pair' : this.tArchaeology('swapHelp'),
+          controllerMode ? 'B / START: Leave dig' : this.tArchaeology('leaveHelp'),
           statusLine,
           '',
           ...logLines,
@@ -15002,6 +15626,13 @@ export default class SnakeScene extends Phaser.Scene {
     const tier = this.relationshipTierFromMessage(result.message);
     if (!tier) return;
     this.juice.relationshipChoice(tier);
+    this.playControllerFeedback(
+      tier === 'loved' || tier === 'liked'
+        ? 'reward'
+        : tier === 'disliked' || tier === 'hated'
+          ? 'error'
+          : 'confirm',
+    );
   }
 
   private relationshipTierFromMessage(

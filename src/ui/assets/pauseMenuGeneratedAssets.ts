@@ -209,6 +209,10 @@ export function ensurePauseMenuGeneratedAssets(scene: Phaser.Scene): void {
     graphics.fillStyle(accent, 1).fillCircle(7, 8, 4).fillCircle(13, 8, 4);
     graphics.fillTriangle(3, 10, 17, 10, 10, 18);
   };
+  const drawPaw = (graphics: Phaser.GameObjects.Graphics, accent: number) => {
+    graphics.fillStyle(accent, 1).fillCircle(10, 12, 5);
+    graphics.fillCircle(5, 7, 2).fillCircle(9, 4, 2).fillCircle(14, 5, 2).fillCircle(17, 9, 2);
+  };
   const drawMap = (graphics: Phaser.GameObjects.Graphics, accent: number) => {
     graphics.lineStyle(2, accent, 1).strokeRect(4, 4, 12, 12);
     graphics.lineStyle(1, accent, 0.8).lineBetween(8, 4, 8, 16).lineBetween(12, 4, 12, 16);
@@ -242,6 +246,7 @@ export function ensurePauseMenuGeneratedAssets(scene: Phaser.Scene): void {
   generateTabIcon(scene, uiTabIconKeys.cheats, uiColors.accentSystem, drawKey);
   generateTabIcon(scene, uiTabIconKeys.info, uiColors.accentSystem, drawSystem);
   generateTabIcon(scene, uiTabIconKeys.people, uiColors.accentSocial, drawHeart);
+  generateTabIcon(scene, uiTabIconKeys.companions, uiColors.accentSocial, drawPaw);
   generateTabIcon(scene, uiTabIconKeys.destiny, uiColors.accentExploration, drawStar);
 
   if (!scene.textures.exists(uiFxKeys.glowDot)) {

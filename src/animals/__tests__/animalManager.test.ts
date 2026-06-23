@@ -331,6 +331,33 @@ describe('AnimalManager', () => {
       expect(result.startleCount).toBe(0);
       expect(result.damaged).toBe(false);
     });
+
+    it('offers a normally dangerous tamable animal when requirements are met', () => {
+      const wolf: AnimalInstance = {
+        id: 'test-wolf',
+        type: 'wolf',
+        roomId: '0,0,0',
+        position: { x: 10, y: 10 },
+        direction: { x: 1, y: 0 },
+        moveCooldown: 0,
+        isTamed: false,
+        flashTicks: 0,
+      };
+      manager['animals'].set('0,0,0', [wolf]);
+
+      const result = manager.handleSnakeOverlap(
+        '0,0,0',
+        { x: 10, y: 10 },
+        { x: 1, y: 0 },
+        false,
+        (type) => type === 'wolf',
+      );
+
+      expect(result.tamed).toBe(true);
+      expect(result.damaged).toBe(false);
+      expect(result.tamableAnimal?.id).toBe('test-wolf');
+      expect(manager.getAnimalsInRoom('0,0,0')).toHaveLength(1);
+    });
   });
 
   describe('damageAnimal', () => {
@@ -482,6 +509,29 @@ describe('AnimalManager', () => {
       const result = manager.tameAnimal('0,0,0', 'test-rabbit', 'player-1');
       expect(result.success).toBe(false);
     });
+
+    it('releases a tamed animal back into the room', () => {
+      const fox: AnimalInstance = {
+        id: 'test-fox',
+        type: 'fox',
+        roomId: '0,0,0',
+        position: { x: 10, y: 10 },
+        direction: { x: 1, y: 0 },
+        moveCooldown: 0,
+        isTamed: true,
+        tameOwner: 'player-1',
+        flashTicks: 0,
+      };
+      manager['animals'].set('0,0,0', [fox]);
+
+      expect(manager.releaseTamedAnimal('0,0,0', 'test-fox')).toBe(true);
+      expect(manager.getAnimalsInRoom('0,0,0')[0]).toMatchObject({
+        id: 'test-fox',
+        isTamed: false,
+        flashTicks: 4,
+      });
+      expect(manager.getAnimalsInRoom('0,0,0')[0].tameOwner).toBeUndefined();
+    });
   });
 
   describe('getAnimalsInRoom', () => {
@@ -527,6 +577,43 @@ describe('AnimalManager', () => {
       expect(Array.isArray(result)).toBe(true);
       expect(result.length).toBe(1);
       expect(result[0]).toEqual(rabbit);
+    });
+  });
+
+  describe('companion travel', () => {
+    it('transfers tamed animals and leaves wildlife behind', () => {
+      manager['animals'].set('0,0,0', [
+        {
+          id: 'fox-friend',
+          type: 'fox',
+          roomId: '0,0,0',
+          position: { x: 4, y: 4 },
+          direction: { x: 1, y: 0 },
+          moveCooldown: 0,
+          isTamed: true,
+          tameOwner: 'player',
+          flashTicks: 0,
+        },
+        {
+          id: 'wild-rabbit',
+          type: 'rabbit',
+          roomId: '0,0,0',
+          position: { x: 8, y: 8 },
+          direction: { x: 1, y: 0 },
+          moveCooldown: 0,
+          isTamed: false,
+          flashTicks: 0,
+        },
+      ]);
+
+      manager.transferTamedAnimals('0,0,0', '1,0,0', { x: 2, y: 10 });
+
+      expect(manager.getAnimalsInRoom('0,0,0').map((animal) => animal.id)).toEqual(['wild-rabbit']);
+      expect(manager.getAnimalsInRoom('1,0,0')[0]).toMatchObject({
+        id: 'fox-friend',
+        roomId: '1,0,0',
+        isTamed: true,
+      });
     });
   });
 

@@ -17,6 +17,8 @@ import {
   type AchievementZoomExtreme,
 } from '../achievements/achievementZoomTracker.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
+import type { InputModeId } from '../input/controlActions.js';
+import { usePrimaryAbility as dispatchPrimaryAbility } from './primaryAbility.js';
 
 export interface SkillTreeManagerOptions {
   baseActionStepIntervalMs: number;
@@ -50,6 +52,9 @@ export class SkillTreeManager implements SkillTreeRuntime {
       onBindSpellSlot: (abilityId) => this.bindQSlot(abilityId),
       getDatingView: () => this.scene.getDatingCandidateViews(),
       getPeopleView: () => this.scene.getPeopleJournalView(),
+      getAnimalCompanionView: () => this.scene.getAnimalCompanionViews(),
+      onFeedAnimalCompanion: (companionId) => this.scene.feedAnimalCompanion(companionId),
+      onReleaseAnimalCompanion: (companionId) => this.scene.releaseAnimalCompanion(companionId),
       getDestinyView: () => this.scene.getStarforgedPauseMenuLines(),
       getArtifactView: () => this.scene.getArtifactViews(),
       getSpecialView: () => this.scene.getSpecialStatsView(),
@@ -103,6 +108,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
     return this.overlay.isVisible();
   }
 
+  setInputMode(mode: InputModeId): void {
+    this.overlay.setInputMode(mode);
+  }
+
   handleKeyDown(key: string, paused: boolean): boolean {
     if (key === 'i') {
       if (!this.overlay.isVisible()) {
@@ -144,18 +153,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       return false;
     }
 
-    if (paused) {
-      return true;
-    }
-
-    const result = this.actionSlots.use('q');
-    if (result.ok === false) {
-      this.juice.spellFailed();
-      if (this.overlay.isVisible()) {
-        this.overlay.announce(result.reason, '#ff6b6b', 2200);
-      }
-    }
-    return true;
+    return this.usePrimaryAbility(paused);
   }
 
   tryConsumeExtraLife(): boolean {
@@ -186,8 +184,23 @@ export class SkillTreeManager implements SkillTreeRuntime {
     return this.overlay.handleControllerCommand(command);
   }
 
+  captureControllerBinding(label: string): boolean {
+    return this.overlay.captureControllerBinding(label);
+  }
+
   private usePrimaryAbility(paused: boolean): boolean {
-    return this.usePrimaryAbility(paused);
+    return dispatchPrimaryAbility(
+      {
+        useActionSlot: () => this.actionSlots.use('q'),
+        onFailure: (reason) => {
+          this.juice.spellFailed();
+          if (this.overlay.isVisible()) {
+            this.overlay.announce(reason, '#ff6b6b', 2200);
+          }
+        },
+      },
+      paused,
+    );
   }
 
   clearExtraLifeCharges(): void {

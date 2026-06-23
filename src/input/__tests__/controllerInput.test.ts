@@ -30,21 +30,41 @@ describe('ControllerInput', () => {
     const snapshot = input.poll();
 
     expect(snapshot.active).toBe(false);
+    expect(snapshot.modeActivity).toBe(false);
     expect(snapshot.events).toEqual([]);
   });
 
   it('emits controller commands for button presses', () => {
-    const input = new ControllerInput(() => [
-      gamepad({ buttons: [{ pressed: true, value: 1 }] }),
-    ]);
+    const input = new ControllerInput(() => [gamepad({ buttons: [{ pressed: true, value: 1 }] })]);
 
-    expect(input.poll().events.map((event) => event.command)).toEqual(['confirm']);
-    expect(input.poll().events).toEqual([]);
+    const first = input.poll();
+    expect(first.events.map((event) => event.command)).toEqual(['confirm']);
+    expect(first.modeActivity).toBe(true);
+    expect(input.poll().modeActivity).toBe(false);
   });
 
   it('emits movement commands for meaningful axes', () => {
     const input = new ControllerInput(() => [gamepad({ axes: [0.8, 0] })]);
 
     expect(input.poll().events.map((event) => event.command)).toEqual(['right']);
+  });
+
+  it('uses the right stick for independent scrolling', () => {
+    const input = new ControllerInput(() => [gamepad({ axes: [0, 0, 0, 0.8] })]);
+
+    expect(input.poll().events.map((event) => event.command)).toEqual(['scrollDown']);
+    expect(input.poll().events).toEqual([]);
+  });
+
+  it('maps the default left bumper to quick save outside menu routing', () => {
+    const buttons = Array.from({ length: 5 }, () => ({}));
+    buttons[4] = { pressed: true, value: 1 };
+    const input = new ControllerInput(() => [gamepad({ buttons })]);
+
+    expect(input.poll().events[0]).toMatchObject({
+      command: 'primaryTabPrevious',
+      bindingLabel: 'Left Bumper',
+      actionId: 'save.quick',
+    });
   });
 });
