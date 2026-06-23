@@ -1,11 +1,15 @@
 import type { ControllerNavCommand } from './controllerNavigation.js';
+import { CONTROL_ACTIONS, getBindingsForMode, type ControlActionId } from './controlActions.js';
 
 export interface ControllerInputEvent {
-  command: ControllerNavCommand;
+  command?: ControllerNavCommand;
+  bindingLabel?: string;
+  actionId?: ControlActionId;
 }
 
 export interface ControllerInputSnapshot {
   active: boolean;
+  modeActivity: boolean;
   move?: { x: number; y: number };
   events: ControllerInputEvent[];
 }
@@ -37,6 +41,8 @@ const DEFAULT_BUTTONS: ControllerButtonMap = {
 export class ControllerInput {
   private readonly previousButtons = new Set<number>();
   private previousAxisDirection = { x: 0, y: 0 };
+  private previousScrollDirection = { x: 0, y: 0 };
+  private scrollRepeatFrames = 0;
 
   constructor(
     private readonly getGamepads: () => readonly (Gamepad | null)[] = () =>
@@ -50,7 +56,9 @@ export class ControllerInput {
     if (!gamepad) {
       this.previousButtons.clear();
       this.previousAxisDirection = { x: 0, y: 0 };
-      return { active: false, events: [] };
+      this.previousScrollDirection = { x: 0, y: 0 };
+      this.scrollRepeatFrames = 0;
+      return { active: false, modeActivity: false, events: [] };
     }
 
     const events: ControllerInputEvent[] = [];
@@ -60,8 +68,10 @@ export class ControllerInput {
         pressed.add(index);
         if (!this.previousButtons.has(index)) {
           const command = this.commandForButton(index);
-          if (command) {
-            events.push({ command });
+          const bindingLabel = getControllerButtonLabel(index);
+          const actionId = bindingLabel ? this.actionForBinding(bindingLabel) : undefined;
+          if (command || bindingLabel || actionId) {
+            events.push({ command: command ?? undefined, bindingLabel, actionId });
           }
         }
       }
@@ -72,11 +82,35 @@ export class ControllerInput {
     const dpadX = this.buttonAxis(gamepad, 14, 15);
     const dpadY = this.buttonAxis(gamepad, 12, 13);
     const direction = { x: dpadX || axisX, y: dpadY || axisY };
-    if (direction.x !== this.previousAxisDirection.x || direction.y !== this.previousAxisDirection.y) {
+    if (
+      direction.x !== this.previousAxisDirection.x ||
+      direction.y !== this.previousAxisDirection.y
+    ) {
       if (direction.x < 0) events.push({ command: 'left' });
       if (direction.x > 0) events.push({ command: 'right' });
       if (direction.y < 0) events.push({ command: 'up' });
       if (direction.y > 0) events.push({ command: 'down' });
+    }
+
+    const scrollDirection = {
+      x: this.readAxis(gamepad.axes[2] ?? 0),
+      y: this.readAxis(gamepad.axes[3] ?? 0),
+    };
+    const scrollHeld = scrollDirection.x !== 0 || scrollDirection.y !== 0;
+    const scrollChanged =
+      scrollDirection.x !== this.previousScrollDirection.x ||
+      scrollDirection.y !== this.previousScrollDirection.y;
+    if (scrollHeld) {
+      this.scrollRepeatFrames = scrollChanged ? 0 : this.scrollRepeatFrames + 1;
+      if (scrollChanged || this.scrollRepeatFrames >= 8) {
+        this.scrollRepeatFrames = 0;
+        if (scrollDirection.x < 0) events.push({ command: 'scrollLeft' });
+        if (scrollDirection.x > 0) events.push({ command: 'scrollRight' });
+        if (scrollDirection.y < 0) events.push({ command: 'scrollUp' });
+        if (scrollDirection.y > 0) events.push({ command: 'scrollDown' });
+      }
+    } else {
+      this.scrollRepeatFrames = 0;
     }
 
     this.previousButtons.clear();
@@ -84,9 +118,16 @@ export class ControllerInput {
       this.previousButtons.add(index);
     }
     this.previousAxisDirection = direction;
+    this.previousScrollDirection = scrollDirection;
 
     return {
-      active: events.length > 0 || pressed.size > 0 || direction.x !== 0 || direction.y !== 0,
+      active:
+        events.length > 0 ||
+        pressed.size > 0 ||
+        direction.x !== 0 ||
+        direction.y !== 0 ||
+        scrollHeld,
+      modeActivity: events.length > 0 || scrollChanged,
       move: direction.x || direction.y ? direction : undefined,
       events,
     };
@@ -116,4 +157,40 @@ export class ControllerInput {
     if (index === this.buttons.map) return 'map';
     return null;
   }
+
+  private actionForBinding(label: string): ControlActionId | undefined {
+    const normalized = normalizeControllerBinding(label);
+    return CONTROL_ACTIONS.find(
+      (action) =>
+        !action.id.startsWith('move.') &&
+        getBindingsForMode(action.id, 'controller').some(
+          (binding) => normalizeControllerBinding(binding.label) === normalized,
+        ),
+    )?.id;
+  }
+}
+
+export function getControllerButtonLabel(index: number): string | undefined {
+  return [
+    'South Button',
+    'East Button',
+    'West Button',
+    'North Button',
+    'Left Bumper',
+    'Right Bumper',
+    'Left Trigger',
+    'Right Trigger',
+    'Select / View',
+    'Start',
+    'Left Stick Click',
+    'Right Stick Click',
+    'D-pad Up',
+    'D-pad Down',
+    'D-pad Left',
+    'D-pad Right',
+  ][index];
+}
+
+function normalizeControllerBinding(label: string): string {
+  return label.toLowerCase().replace(/[^a-z0-9]/g, '');
 }

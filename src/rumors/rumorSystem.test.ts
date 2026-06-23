@@ -75,4 +75,53 @@ describe('RumorSystem', () => {
     expect(rumor).toBeUndefined();
     expect(rumors.getRecent()).toHaveLength(0);
   });
+
+  it.each([
+    ['quest-completed', ['quest', 'completed'], 'The old well was repaired.'],
+    ['animal-tamed', ['animal', 'taming', 'fox'], 'A fox joined the herd.'],
+    ['animal-hunted', ['animal', 'hunting', 'rabbit'], 'A rabbit was hunted.'],
+    ['food-cooked', ['food', 'cooking', 'ramen'], 'A bowl of ramen was cooked.'],
+    ['gate-opened', ['town', 'gate', 'tax'], 'The east gate opened.'],
+    ['player-revival', ['player', 'revival', 'charm'], 'The snake returned to life.'],
+  ] as const)('creates an NPC-ready rumor for %s events', (type, tags, summary) => {
+    const rumors = new RumorSystem();
+    const rumor = rumors.createFromWorldEvent({
+      id: `event:${type}`,
+      type,
+      roomId: '0,0,0',
+      targetActorIds: [],
+      witnessActorIds: ['actor:witness'],
+      severity: 12,
+      loudness: 8,
+      tags: [...tags],
+      summary,
+      createdAtRoomNumber: 4,
+      createdAtMs: 100,
+    });
+
+    expect(rumor).toBeDefined();
+    expect(rumor?.knownByActorIds).toContain('actor:witness');
+    expect(rumor?.summary).toBeTruthy();
+  });
+
+  it('uses stable event identity to vary similarly exaggerated retellings', () => {
+    const rumors = new RumorSystem();
+    const summaries = Array.from({ length: 12 }, (_, index) =>
+      rumors.createFromWorldEvent({
+        id: `event:quest:${index}`,
+        type: 'quest-completed',
+        roomId: '0,0,0',
+        targetActorIds: [],
+        witnessActorIds: [],
+        severity: 60,
+        loudness: 10,
+        tags: ['quest', 'completed'],
+        summary: 'The bridge job was completed.',
+        createdAtRoomNumber: index,
+        createdAtMs: 100 + index,
+      }),
+    ).map((rumor) => rumor?.summary);
+
+    expect(new Set(summaries).size).toBeGreaterThan(1);
+  });
 });

@@ -2,6 +2,8 @@ import Phaser from 'phaser';
 import type { FishingState, FishingSessionResult, FishCatchResult } from './types.js';
 import type { FishingRegistry } from './fishingRegistry.js';
 import { i18n } from '../i18n/i18nManager.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
+import type { InputModeId } from '../input/controlActions.js';
 
 export interface FishingMinigameConfig {
   scene: Phaser.Scene;
@@ -22,6 +24,7 @@ export class FishingMinigame {
   private zoneText: Phaser.GameObjects.Text | null = null;
   private fishNameText: Phaser.GameObjects.Text | null = null;
   private messageText: Phaser.GameObjects.Text | null = null;
+  private inputMode: InputModeId = 'keyboardMouse';
   private hookSprite: Phaser.GameObjects.Graphics | null = null;
   private rippleGraphics: Phaser.GameObjects.Graphics | null = null;
   private struggleBar: Phaser.GameObjects.Graphics | null = null;
@@ -32,6 +35,7 @@ export class FishingMinigame {
   private leftKey: Phaser.Input.Keyboard.Key | null = null;
   private rightKey: Phaser.Input.Keyboard.Key | null = null;
   private escapeKey: Phaser.Input.Keyboard.Key | null = null;
+  private controllerPullDirection: -1 | 0 | 1 = 0;
 
   constructor(config: FishingMinigameConfig) {
     this.config = config;
@@ -46,6 +50,7 @@ export class FishingMinigame {
     this.leftKey = null;
     this.rightKey = null;
     this.escapeKey = null;
+    this.controllerPullDirection = 0;
 
     this.createOverlay();
     this.setupInput();
@@ -72,6 +77,24 @@ export class FishingMinigame {
   /** Get the pending result after fishing ends */
   getResult(): FishingSessionResult | null {
     return this.pendingResult;
+  }
+
+  setControllerPullDirection(direction: number): void {
+    this.controllerPullDirection = direction < 0 ? -1 : direction > 0 ? 1 : 0;
+  }
+
+  setInputMode(mode: InputModeId): void {
+    this.inputMode = mode;
+    this.messageText?.setText(this.getControlHint());
+  }
+
+  handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.running) return false;
+    if (command === 'cancel' || command === 'menu') {
+      this.handleAbort();
+      return true;
+    }
+    return command === 'left' || command === 'right';
   }
 
   private onSceneUpdate(_time: number, delta: number): void {
@@ -165,7 +188,7 @@ export class FishingMinigame {
 
     // Message text
     this.messageText = scene.add
-      .text(centerX, centerY + 60, 'Hold LEFT or RIGHT to reel in!', {
+      .text(centerX, centerY + 60, this.getControlHint(), {
         fontFamily: 'monospace',
         fontSize: '14px',
         color: '#cccccc',
@@ -184,6 +207,16 @@ export class FishingMinigame {
 
     // Draw water scene
     this.drawWaterScene(centerX, centerY);
+  }
+
+  private getControlHint(): string {
+    if (this.inputMode === 'controller') {
+      return 'Hold LEFT STICK left or right to reel   B: Pull back';
+    }
+    if (this.inputMode === 'mobile') {
+      return 'Hold the on-screen left or right control to reel';
+    }
+    return 'Hold LEFT or RIGHT to reel in!   ESC: Pull back';
   }
 
   private drawWaterScene(cx: number, cy: number): void {
@@ -247,6 +280,9 @@ export class FishingMinigame {
     }
     if (this.rightKey && this.rightKey.isDown) {
       pullDirection = 1;
+    }
+    if (this.controllerPullDirection !== 0) {
+      pullDirection = this.controllerPullDirection;
     }
 
     // Tick the fishing state

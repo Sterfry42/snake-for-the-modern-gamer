@@ -9,6 +9,7 @@ import {
   getVisibleControlActions,
   isKeyboardInputForAction,
   resetBindingsForMode,
+  setExclusiveControllerBinding,
   setBindingsForMode,
 } from '../controlActions.js';
 
@@ -41,14 +42,12 @@ describe('control action registry', () => {
   });
 
   it('keeps keyboard movement defaults on WASD and arrows', () => {
-    expect(getDefaultBindingsForMode('move.up', 'keyboardMouse').map((binding) => binding.label)).toEqual([
-      'W',
-      'Arrow Up',
-    ]);
-    expect(getDefaultBindingsForMode('move.left', 'keyboardMouse').map((binding) => binding.label)).toEqual([
-      'A',
-      'Arrow Left',
-    ]);
+    expect(
+      getDefaultBindingsForMode('move.up', 'keyboardMouse').map((binding) => binding.label),
+    ).toEqual(['W', 'Arrow Up']);
+    expect(
+      getDefaultBindingsForMode('move.left', 'keyboardMouse').map((binding) => binding.label),
+    ).toEqual(['A', 'Arrow Left']);
   });
 
   it('does not expose contextual duplicate action ids', () => {
@@ -85,6 +84,15 @@ describe('control action registry', () => {
     expect(getBindingsForMode('move.up', 'keyboardMouse')).toEqual(
       getDefaultBindingsForMode('move.up', 'keyboardMouse'),
     );
+    clearControlBindingOverridesForTest();
+  });
+
+  it('moves a captured controller button to one action exclusively', () => {
+    clearControlBindingOverridesForTest();
+    setExclusiveControllerBinding('save.quick', { label: 'Right Bumper' });
+
+    expect(getBindingsForMode('save.quick', 'controller')).toEqual([{ label: 'Right Bumper' }]);
+    expect(getBindingsForMode('ability.primary', 'controller')).toEqual([{ label: 'West Button' }]);
     clearControlBindingOverridesForTest();
   });
 });

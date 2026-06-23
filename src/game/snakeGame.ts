@@ -34,6 +34,17 @@ import { AnimalManager } from '../animals/animalManager.js';
 import type { HuntedAnimalResult } from '../animals/animalManager.js';
 import { rollAnimalDrops } from '../animals/animalDrops.js';
 import { AnimalRegistry } from '../animals/animalRegistry.js';
+import { getTameInfo } from '../animals/taming.js';
+import { getHerdConfig } from '../animals/herding.js';
+import {
+  crossedCompanionBondMilestone,
+  feedAnimalCompanion,
+  getCompanionHuntingBonus,
+  normalizeAnimalCompanions,
+  toAnimalCompanionView,
+  type AnimalCompanion,
+  type AnimalCompanionView,
+} from '../animals/companions.js';
 import { WorldService } from '../world/worldService.js';
 import { QuestController } from '../systems/questController.js';
 import type { QuestGiverRequest } from '../systems/questController.js';
@@ -110,7 +121,7 @@ import {
 import { FactionEventSystem } from '../factions/factionEvents.js';
 import type { FactionCurrentEvent, FactionSaveData } from '../factions/factionTypes.js';
 import { RumorSystem } from '../rumors/rumorSystem.js';
-import type { Rumor, RumorSaveData } from '../rumors/rumorTypes.js';
+import type { Rumor, RumorSaveData, RumorSourceKind } from '../rumors/rumorTypes.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
@@ -227,6 +238,10 @@ export interface WorldRumor {
   severity: number;
   createdAtRoomNumber?: number;
   heardByActorIds: string[];
+  truthLevel?: number;
+  exaggeration?: number;
+  sourceKind?: RumorSourceKind;
+  public?: boolean;
 }
 
 interface BanditRaidRuntimeState {
@@ -1628,6 +1643,14 @@ export class SnakeGame implements QuestRuntime {
         this.queueLibertyLandmarkReveal(newRoomId, newRoom);
         this.handleGoblinCampEntered(newRoomId, newRoom);
       }
+      const head = this.snake.bodySegments[0];
+      if (head) {
+        const [roomX, roomY] = newRoomId.split(',').map(Number);
+        this.animals.transferTamedAnimals(previousRoom, newRoomId, {
+          x: head.x - roomX * this.config.grid.cols,
+          y: head.y - roomY * this.config.grid.rows,
+        });
+      }
       const transitionedRoom = this.world.getRoom(newRoomId);
       if (transitionedRoom.town) {
         this.applyTownRuntimeToRoom(transitionedRoom);
@@ -2210,6 +2233,14 @@ export class SnakeGame implements QuestRuntime {
         currentHead,
         this.snake.directionVector,
         this.canHuntHarmlessAnimals(),
+        (animalType) => {
+          const tameInfo = getTameInfo(animalType);
+          return Boolean(
+            tameInfo &&
+            this.getScore() >= tameInfo.tameScore &&
+            this.inventory.getItemCount(tameInfo.requiredItem) > 0,
+          );
+        },
       );
       if (animalResult.damaged) {
         if (!this.isImmortal()) {
@@ -2256,7 +2287,15 @@ export class SnakeGame implements QuestRuntime {
         });
       }
       if (animalResult.tamed) {
+        const tamable = animalResult.tamableAnimal;
+        const definition = tamable ? AnimalRegistry.getDefinition(tamable.type) : undefined;
+        const tameInfo = tamable ? getTameInfo(tamable.type) : null;
         this.setFlag('ui.animalTamable', {
+          animalId: tamable?.id,
+          animalType: tamable?.type,
+          animalName: definition?.name,
+          requiredItem: tameInfo?.requiredItem,
+          requiredScore: tameInfo?.tameScore,
           x: currentHead.x,
           y: currentHead.y,
           roomId: this.snake.currentRoomId,
@@ -5500,22 +5539,26 @@ export class SnakeGame implements QuestRuntime {
     if (!actor) {
       return null;
     }
-    const rumor = this.getRecentWorldRumors(1)[0];
+    const availableRumors = this.getConversationRumorsForActor(actor);
+    const cursorKey = `actor.rumorCursor.${actorId}`;
+    const cursor = Math.max(0, Math.floor(Number(this.getFlag<number>(cursorKey) ?? 0)));
+    const rumor =
+      availableRumors.length > 0 ? availableRumors[cursor % availableRumors.length] : undefined;
     const fallbackMemory = actor.memory[actor.memory.length - 1];
     if (!rumor && !fallbackMemory) {
       return `${actor.displayName} has heard nothing worth sharpening into a rumor.`;
     }
     if (rumor) {
+      this.setFlag(cursorKey, cursor + 1);
       this.rememberActorRumor(actorId, {
         id: `memory:${rumor.id}:${actorId}`,
-        eventId: rumor.eventId,
+        eventId: rumor.id,
         type: 'rumor',
         summary: rumor.summary,
         source: 'rumor',
         intensity: rumor.severity,
-        roomId: rumor.roomId,
         tags: [...rumor.tags, 'rumor'],
-        createdAtRoomNumber: rumor.createdAtRoomNumber,
+        createdAtRoomNumber: this.getRoomsVisitedCount(),
       });
       return formatActorRumorLine(actor.displayName, rumor.summary);
     }
@@ -6264,6 +6307,10 @@ export class SnakeGame implements QuestRuntime {
       severity: event.severity,
       createdAtRoomNumber: event.createdAtRoomNumber,
       heardByActorIds: [...event.witnessActorIds],
+      truthLevel: 85,
+      exaggeration: 10,
+      sourceKind: event.witnessActorIds.length > 0 ? 'witness' : 'rumor',
+      public: true,
     };
     this.setFlag('world.rumors', [...existing, rumor].slice(-50));
     this.seedTownRumorFromWorldEvent(event, rumor);
@@ -8725,6 +8772,137 @@ export class SnakeGame implements QuestRuntime {
     return this.animals.getAnimalsInRoom(roomId);
   }
 
+  getAnimalCompanions(): AnimalCompanionView[] {
+    return this.getAnimalCompanionState().map(toAnimalCompanionView);
+  }
+
+  attemptTameAnimal(animalId: string): {
+    ok: boolean;
+    message: string;
+    companion?: AnimalCompanionView;
+  } {
+    const roomId = this.snake.currentRoomId;
+    const animal = this.animals.getAnimalsInRoom(roomId).find((entry) => entry.id === animalId);
+    if (!animal) return { ok: false, message: 'The animal has already moved on.' };
+
+    const definition = AnimalRegistry.getDefinition(animal.type);
+    const tameInfo = getTameInfo(animal.type);
+    if (!tameInfo) return { ok: false, message: `${definition.name} cannot be tamed.` };
+
+    const companions = this.getAnimalCompanionState();
+    if (companions.some((entry) => entry.id === animal.id)) {
+      return { ok: false, message: `${definition.name} is already following you.` };
+    }
+    if (companions.length >= getHerdConfig().maxMembers) {
+      return { ok: false, message: 'Your companion herd is full.' };
+    }
+    if (this.getScore() < tameInfo.tameScore) {
+      return {
+        ok: false,
+        message: `${definition.name} requires ${tameInfo.tameScore} score worth of confidence.`,
+      };
+    }
+    if (this.inventory.getItemCount(tameInfo.requiredItem) <= 0) {
+      return {
+        ok: false,
+        message: `You need ${getItem(tameInfo.requiredItem)?.name ?? tameInfo.requiredItem}.`,
+      };
+    }
+
+    const result = this.animals.tameAnimal(roomId, animal.id, 'player');
+    if (!result.success) return { ok: false, message: `${definition.name} refuses the attempt.` };
+
+    this.inventory.removeItem(tameInfo.requiredItem, 1);
+    const companion: AnimalCompanion = {
+      id: animal.id,
+      type: animal.type,
+      name: definition.name,
+      bond: 1,
+      timesFed: 0,
+      joinedAtRoom: this.getRoomsVisitedCount(),
+    };
+    this.setAnimalCompanionState([...companions, companion]);
+    this.emitWorldEvent({
+      type: 'animal-tamed',
+      roomId,
+      severity: 12,
+      loudness: 8,
+      tags: ['animal', 'taming', animal.type],
+      summary: `${definition.name} joined the snake's herd.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { animalId: animal.id, animalType: animal.type },
+    });
+    return {
+      ok: true,
+      message: `${definition.name} joined your herd.`,
+      companion: toAnimalCompanionView(companion),
+    };
+  }
+
+  feedAnimalCompanionById(companionId: string): {
+    ok: boolean;
+    message: string;
+    milestone: boolean;
+    companion?: AnimalCompanionView;
+  } {
+    const foodOptions = [
+      { itemId: 'cooked-meat', bond: 3 },
+      { itemId: 'cooked-fish', bond: 3 },
+      { itemId: 'raw-meat', bond: 1 },
+      { itemId: 'fish-meat', bond: 1 },
+    ];
+    const food = foodOptions.find((entry) => this.inventory.getItemCount(entry.itemId) > 0);
+    if (!food) {
+      return {
+        ok: false,
+        message: 'You need raw or cooked meat or fish to feed the herd.',
+        milestone: false,
+      };
+    }
+
+    const result = feedAnimalCompanion(this.getAnimalCompanionState(), companionId, food.bond);
+    if (!result.companion) {
+      return {
+        ok: false,
+        message: 'That companion is no longer in the herd.',
+        milestone: false,
+      };
+    }
+
+    this.inventory.removeItem(food.itemId, 1);
+    this.setAnimalCompanionState(result.companions);
+    const milestone = crossedCompanionBondMilestone(result.previousBond, result.companion.bond);
+    if (milestone) this.addScore(5);
+    return {
+      ok: true,
+      message: milestone
+        ? `${result.companion.name} reached a new bond tier. +5 score.`
+        : `${result.companion.name} was fed. Bond ${result.companion.bond}.`,
+      milestone,
+      companion: toAnimalCompanionView(result.companion),
+    };
+  }
+
+  releaseAnimalCompanion(companionId: string): { ok: boolean; message: string } {
+    const companions = this.getAnimalCompanionState();
+    const companion = companions.find((entry) => entry.id === companionId);
+    if (!companion) return { ok: false, message: 'That companion is no longer in the herd.' };
+    this.setAnimalCompanionState(companions.filter((entry) => entry.id !== companionId));
+    this.animals.releaseTamedAnimal(this.snake.currentRoomId, companionId);
+    return { ok: true, message: `${companion.name} returned to the wild.` };
+  }
+
+  private getAnimalCompanionState(): AnimalCompanion[] {
+    return normalizeAnimalCompanions(this.getFlag('animals.companions'));
+  }
+
+  private setAnimalCompanionState(companions: readonly AnimalCompanion[]): void {
+    this.setFlag(
+      'animals.companions',
+      companions.map((companion) => ({ ...companion })),
+    );
+  }
+
   getEnemyBullets(roomId: string) {
     return this.enemies.getBulletsInRoom(roomId);
   }
@@ -10230,7 +10408,9 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
 
-    const dropBonus = this.getFlag<boolean>('skill.predator.dropBonus') ? 0.15 : 0;
+    const dropBonus =
+      (this.getFlag<boolean>('skill.predator.dropBonus') ? 0.15 : 0) +
+      getCompanionHuntingBonus(this.getAnimalCompanionState());
     const specialDropModifiers = this.specialStats.getAnimalDropModifiers(this._rng);
     const drops = rollAnimalDrops(huntedAnimal.drops, this._rng, {
       bonusChance: dropBonus + (specialDropModifiers.bonusChance ?? 0),
@@ -11058,6 +11238,7 @@ export class SnakeGame implements QuestRuntime {
       'achievement.hotSurvivalMs',
       'achievement.coldSurvivalMs',
       'achievement.cowbellTilesWalked',
+      'animals.companions',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -11290,6 +11471,16 @@ export class SnakeGame implements QuestRuntime {
         if (value !== undefined) {
           this.setFlag(key, value);
         }
+      }
+      const currentRoom = this.world.getRoom(this.snake.currentRoomId);
+      this.animals.ensureAnimals(this.snake.currentRoomId, currentRoom, []);
+      const currentHead = this.snake.bodySegments[0];
+      if (currentHead) {
+        const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
+        this.animals.restoreTamedAnimals(this.snake.currentRoomId, this.getAnimalCompanionState(), {
+          x: currentHead.x - roomX * this.config.grid.cols,
+          y: currentHead.y - roomY * this.config.grid.rows,
+        });
       }
       this.setFlag('save.loadedAchievements', data.achievements);
       const caveSave = this.getFlag<CaveSaveState>('caves.save');
@@ -14996,6 +15187,10 @@ function rumorToWorldRumor(rumor: Rumor): WorldRumor {
     severity: rumor.severity,
     createdAtRoomNumber: rumor.createdAt,
     heardByActorIds: [...rumor.knownByActorIds],
+    truthLevel: rumor.truthLevel,
+    exaggeration: rumor.exaggeration,
+    sourceKind: rumor.sourceKind,
+    public: rumor.public,
   };
 }
 

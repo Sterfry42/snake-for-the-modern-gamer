@@ -3,6 +3,7 @@ import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { saveManagerV2 } from '../game/saveManagerV2.js';
 import type { GameSaveData, SaveSlotInfo } from '../game/saveManagerV2.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
 interface SaveLoadMenuOptions {
   onLoad: (slotId: string, data: GameSaveData) => void;
@@ -38,12 +39,20 @@ export class SaveLoadMenu {
   private autosaveEntries: SaveSlotInfo[] = [];
   private isLoading = false;
   private currentOnLoad?: (slotId: string, data: GameSaveData) => void;
+  private controllerLoadActions: Array<() => void> = [];
+  private controllerDeleteActions: Array<() => void> = [];
+  private selectedEntryIndex = 0;
+  private controllerMode = false;
+  private confirmSelection: 'yes' | 'no' = 'no';
 
   constructor(private readonly scene: SnakeScene) {
     this.build();
   }
 
-  async show(onLoad: (slotId: string, data: GameSaveData) => void, onBack?: () => void): Promise<void> {
+  async show(
+    onLoad: (slotId: string, data: GameSaveData) => void,
+    onBack?: () => void,
+  ): Promise<void> {
     this.onBack = onBack;
     this.scene.setChoicePopupVisible(true);
     this.isLoading = true;
@@ -54,6 +63,7 @@ export class SaveLoadMenu {
 
     this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
     this.buildEntries(onLoad);
+    this.selectedEntryIndex = 0;
     this.isLoading = false;
 
     const popupHeight = this.calculateHeight();
@@ -68,6 +78,7 @@ export class SaveLoadMenu {
     this.applyScroll(0);
     this.backText?.setPosition(this.width / 2, popupHeight - 16);
     this.container?.setVisible(true);
+    this.refreshControllerSelection();
   }
 
   hide(): void {
@@ -82,6 +93,8 @@ export class SaveLoadMenu {
     this.pendingDeleteSlot = undefined;
     for (const c of this.entryContainers) c.destroy();
     this.entryContainers = [];
+    this.controllerLoadActions = [];
+    this.controllerDeleteActions = [];
   }
 
   setDepth(depth: number): void {
@@ -90,6 +103,62 @@ export class SaveLoadMenu {
 
   isVisible(): boolean {
     return Boolean(this.container?.visible);
+  }
+
+  setControllerMode(active: boolean): void {
+    this.controllerMode = active;
+    this.refreshControllerSelection();
+  }
+
+  handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.isVisible()) return false;
+    if (this.confirmOverlay) {
+      if (command === 'left' || command === 'right') {
+        this.confirmSelection = this.confirmSelection === 'yes' ? 'no' : 'yes';
+        this.refreshConfirmSelection();
+        return true;
+      }
+      if (command === 'confirm') {
+        (this.confirmSelection === 'yes' ? this.confirmYes : this.confirmNo)?.emit('pointerdown');
+        return true;
+      }
+      if (command === 'cancel') {
+        this.confirmNo?.emit('pointerdown');
+        return true;
+      }
+      return true;
+    }
+    if (command === 'up' || command === 'left') {
+      this.moveControllerSelection(-1);
+      return true;
+    }
+    if (command === 'down' || command === 'right') {
+      this.moveControllerSelection(1);
+      return true;
+    }
+    if (command === 'scrollUp') {
+      this.scrollBy(-56);
+      return true;
+    }
+    if (command === 'scrollDown') {
+      this.scrollBy(56);
+      return true;
+    }
+    if (command === 'confirm') {
+      this.controllerLoadActions[this.selectedEntryIndex]?.();
+      return true;
+    }
+    if (command === 'primary') {
+      this.controllerDeleteActions[this.selectedEntryIndex]?.();
+      return true;
+    }
+    if (command === 'cancel' || command === 'menu') {
+      const onBack = this.onBack;
+      this.hide();
+      onBack?.();
+      return true;
+    }
+    return false;
   }
 
   private async refreshEntries(): Promise<void> {
@@ -111,6 +180,8 @@ export class SaveLoadMenu {
   private buildEntries(onLoad: (slotId: string, data: GameSaveData) => void): void {
     for (const c of this.entryContainers) c.destroy();
     this.entryContainers = [];
+    this.controllerLoadActions = [];
+    this.controllerDeleteActions = [];
 
     if (!this.scrollContainer) return;
 
@@ -133,16 +204,26 @@ export class SaveLoadMenu {
 
     for (const entry of this.autosaveEntries) {
       const label = saveManagerV2.getDisplayLabel(entry.slotId, entry.data.worldGeneration?.seed);
-      const entryBox = this.createEntryBox(label, buttonWidth, buttonHeight, buttonGap, padding, (action) => {
-        if (action === 'load') {
-          onLoad(entry.slotId, entry.data);
-        } else if (action === 'delete') {
-          this.showConfirmDelete(entry.slotId);
-        }
-      }, true);
+      const entryBox = this.createEntryBox(
+        label,
+        buttonWidth,
+        buttonHeight,
+        buttonGap,
+        padding,
+        (action) => {
+          if (action === 'load') {
+            onLoad(entry.slotId, entry.data);
+          } else if (action === 'delete') {
+            this.showConfirmDelete(entry.slotId);
+          }
+        },
+        true,
+      );
       entryBox.setPosition(scrollX, y);
       this.scrollContainer?.add(entryBox);
       this.entryContainers.push(entryBox);
+      this.controllerLoadActions.push(() => onLoad(entry.slotId, entry.data));
+      this.controllerDeleteActions.push(() => this.showConfirmDelete(entry.slotId));
       y += totalEntryHeight;
     }
 
@@ -156,20 +237,54 @@ export class SaveLoadMenu {
 
     for (const entry of this.regularEntries) {
       const label = saveManagerV2.getDisplayLabel(entry.slotId, entry.data.worldGeneration?.seed);
-      const entryBox = this.createEntryBox(label, buttonWidth, buttonHeight, buttonGap, padding, (action) => {
-        if (action === 'load') {
-          onLoad(entry.slotId, entry.data);
-        } else if (action === 'delete') {
-          this.showConfirmDelete(entry.slotId);
-        }
-      });
+      const entryBox = this.createEntryBox(
+        label,
+        buttonWidth,
+        buttonHeight,
+        buttonGap,
+        padding,
+        (action) => {
+          if (action === 'load') {
+            onLoad(entry.slotId, entry.data);
+          } else if (action === 'delete') {
+            this.showConfirmDelete(entry.slotId);
+          }
+        },
+      );
       entryBox.setPosition(scrollX, y);
       this.scrollContainer?.add(entryBox);
       this.entryContainers.push(entryBox);
+      this.controllerLoadActions.push(() => onLoad(entry.slotId, entry.data));
+      this.controllerDeleteActions.push(() => this.showConfirmDelete(entry.slotId));
       y += totalEntryHeight;
     }
 
     this.contentHeight = Math.max(0, y - 16);
+    this.selectedEntryIndex = Phaser.Math.Clamp(
+      this.selectedEntryIndex,
+      0,
+      Math.max(0, this.entryContainers.length - 1),
+    );
+    this.refreshControllerSelection();
+  }
+
+  private moveControllerSelection(delta: number): void {
+    if (this.entryContainers.length === 0) return;
+    this.selectedEntryIndex =
+      (this.selectedEntryIndex + delta + this.entryContainers.length) % this.entryContainers.length;
+    const entry = this.entryContainers[this.selectedEntryIndex];
+    if (entry.y < this.scrollY) this.applyScroll(entry.y);
+    else if (entry.y + this.entryHeight > this.scrollY + this.viewportHeight) {
+      this.applyScroll(entry.y + this.entryHeight - this.viewportHeight);
+    }
+    this.refreshControllerSelection();
+  }
+
+  private refreshControllerSelection(): void {
+    this.entryContainers.forEach((entry, index) => {
+      const selected = this.controllerMode && index === this.selectedEntryIndex;
+      entry.setScale(selected ? 1.015 : 1).setAlpha(selected ? 1 : 0.88);
+    });
   }
 
   private createEntryBox(
@@ -239,14 +354,19 @@ export class SaveLoadMenu {
       .setInteractive({ useHandCursor: true })
       .on('pointerdown', () => onAction('load'));
 
-    const container = this.scene.add
-      .container(0, 0, [bgInteractive, labelText, loadBtn, deleteBtn]);
+    const container = this.scene.add.container(0, 0, [
+      bgInteractive,
+      labelText,
+      loadBtn,
+      deleteBtn,
+    ]);
 
     return container;
   }
 
   private showConfirmDelete(slotId: string): void {
     this.pendingDeleteSlot = slotId;
+    this.confirmSelection = 'no';
     const deleteText = i18n.getFeatureString('confirmDelete') || 'Delete this save?';
     const yesText = i18n.getFeatureString('popupAccept') || 'Yes';
     const noText = i18n.getFeatureString('popupReject') || 'No';
@@ -305,9 +425,22 @@ export class SaveLoadMenu {
         this.confirmOverlay = undefined;
       });
 
+    this.confirmYes = yesBtn;
+    this.confirmNo = noBtn;
+
     this.confirmOverlay = this.scene.add
       .container(0, 0, [overlayBg, confirmTxt, yesBtn, noBtn])
       .setDepth(40);
+    this.refreshConfirmSelection();
+  }
+
+  private refreshConfirmSelection(): void {
+    this.confirmYes
+      ?.setColor(this.confirmSelection === 'yes' ? '#fff3a8' : '#ff6b6b')
+      .setScale(this.confirmSelection === 'yes' ? 1.08 : 1);
+    this.confirmNo
+      ?.setColor(this.confirmSelection === 'no' ? '#fff3a8' : '#c8d0da')
+      .setScale(this.confirmSelection === 'no' ? 1.08 : 1);
   }
 
   private calculateHeight(): number {

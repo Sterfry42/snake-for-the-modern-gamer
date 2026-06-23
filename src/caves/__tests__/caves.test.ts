@@ -158,9 +158,9 @@ describe('cave spawn rate', () => {
     const rate = caves / generated;
     expect({ generated, caves, rate }).toMatchInlineSnapshot(`
       {
-        "caves": 576,
+        "caves": 571,
         "generated": 5329,
-        "rate": 0.10808782135485082,
+        "rate": 0.10714955901670108,
       }
     `);
     expect(rate).toBeGreaterThanOrEqual(0.085);

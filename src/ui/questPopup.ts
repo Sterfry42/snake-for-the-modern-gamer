@@ -23,6 +23,7 @@ import {
   type QuestPortraitPalette,
   type QuestPortraitVariant,
 } from './spriteRecipes/questPortraitRecipe.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
 interface QuestPopupOptions {
   size?: { width: number; height: number };
@@ -77,11 +78,19 @@ export class QuestPopup {
   private acceptButton?: Phaser.GameObjects.Text;
   private rejectButton?: Phaser.GameObjects.Text;
   private nextButton?: Phaser.GameObjects.Text;
+  private acceptButtonBg?: Phaser.GameObjects.Rectangle;
+  private rejectButtonBg?: Phaser.GameObjects.Rectangle;
+  private nextButtonBg?: Phaser.GameObjects.Rectangle;
+  private controllerHint?: Phaser.GameObjects.Text;
 
   private callbacks: QuestPopupCallbacks | null = null;
   private dialogueCallbacks: DialoguePopupCallbacks | null = null;
   private pages: string[] = [];
   private pageIndex = 0;
+  private selectedAction: 'accept' | 'reject' | 'next' = 'next';
+  private controllerMode = false;
+  private keyboardFocus = false;
+  private hoveredAction: 'accept' | 'reject' | 'next' | null = null;
   private options: Required<QuestPopupOptions>;
   private readonly spriteFactory: RuntimeSpriteFactory;
   private readonly portraitTextureKeys: Record<QuestPortraitVariant, string>;
@@ -149,6 +158,9 @@ export class QuestPopup {
     this.dialogueCallbacks = callbacks;
     this.pages = pages.length > 0 ? pages : [''];
     this.pageIndex = 0;
+    this.selectedAction = 'next';
+    this.keyboardFocus = false;
+    this.hoveredAction = null;
     this.title?.setText(title);
     this.portrait?.setTexture(this.resolvePortraitKey(speaker.portraitId)).setVisible(true);
     this.acceptButton?.setText(labels.acceptLabel ?? (i18n.getCommon('quest.accept') as string));
@@ -179,6 +191,55 @@ export class QuestPopup {
   setDepth(depth: number): void {
     this.options.depth = depth;
     this.container?.setDepth(depth);
+  }
+
+  setControllerMode(active: boolean): void {
+    this.controllerMode = active;
+    this.controllerHint?.setVisible(active);
+    this.refreshControllerSelection();
+  }
+
+  handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.isVisible()) return false;
+    if (command === 'left' || command === 'up') {
+      this.moveControllerSelection(-1);
+      return true;
+    }
+    if (command === 'right' || command === 'down') {
+      this.moveControllerSelection(1);
+      return true;
+    }
+    if (command === 'confirm') {
+      this.activateControllerSelection();
+      return true;
+    }
+    if (command === 'cancel') {
+      if (this.dialogueCallbacks?.onReject) this.dialogueCallbacks.onReject();
+      else this.dialogueCallbacks?.onClose?.();
+      return true;
+    }
+    return false;
+  }
+
+  handleKeyboardEvent(event: KeyboardEvent): boolean {
+    if (!this.isVisible()) return false;
+    this.keyboardFocus = true;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      this.moveControllerSelection(-1);
+      return true;
+    }
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'Tab') {
+      this.moveControllerSelection(event.shiftKey ? -1 : 1);
+      return true;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      this.activateControllerSelection();
+      return true;
+    }
+    if (event.key === 'Escape') {
+      return this.handleControllerCommand('cancel');
+    }
+    return false;
   }
 
   private build(): void {
@@ -212,42 +273,107 @@ export class QuestPopup {
       .setOrigin(0, 0)
       .setWordWrapWidth(size.width - 160);
 
+    const buttonY = size.height - 48;
+    const buttonWidth = 132;
+    const buttonHeight = 38;
+    this.acceptButtonBg = this.createDialogueButtonBackground(
+      size.width / 2 - buttonSpacing / 2,
+      buttonY,
+      buttonWidth,
+      buttonHeight,
+      0x224433,
+      0x5dd6a2,
+    );
+    this.rejectButtonBg = this.createDialogueButtonBackground(
+      size.width / 2 + buttonSpacing / 2,
+      buttonY,
+      buttonWidth,
+      buttonHeight,
+      0x442222,
+      0xff6b6b,
+    );
+    this.nextButtonBg = this.createDialogueButtonBackground(
+      size.width / 2,
+      buttonY,
+      buttonWidth,
+      buttonHeight,
+      0x22334a,
+      0x9ad1ff,
+    );
+
     this.acceptButton = this.scene.add
-      .text(size.width / 2 - buttonSpacing / 2, size.height - 30, '', {
+      .text(size.width / 2 - buttonSpacing / 2, buttonY, '', {
         ...this.options.buttonStyle,
         color: '#5dd6a2',
-        backgroundColor: '#224433',
+        backgroundColor: undefined,
+        fixedWidth: buttonWidth - 12,
+        align: 'center',
       })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0.5);
 
     this.rejectButton = this.scene.add
-      .text(size.width / 2 + buttonSpacing / 2, size.height - 30, '', {
+      .text(size.width / 2 + buttonSpacing / 2, buttonY, '', {
         ...this.options.buttonStyle,
         color: '#ff6b6b',
-        backgroundColor: '#442222',
+        backgroundColor: undefined,
+        fixedWidth: buttonWidth - 12,
+        align: 'center',
       })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0.5);
 
     this.nextButton = this.scene.add
-      .text(size.width / 2, size.height - 30, '', {
+      .text(size.width / 2, buttonY, '', {
         ...this.options.buttonStyle,
         color: '#9ad1ff',
-        backgroundColor: '#22334a',
+        backgroundColor: undefined,
+        fixedWidth: buttonWidth - 12,
+        align: 'center',
       })
-      .setOrigin(0.5)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0.5);
 
-    this.acceptButton.on('pointerdown', () => {
+    this.controllerHint = this.scene.add
+      .text(size.width - 12, 10, 'LEFT STICK: SELECT   SOUTH: CHOOSE   EAST: BACK', {
+        fontFamily: 'monospace',
+        fontSize: '9px',
+        color: '#fff3a8',
+      })
+      .setOrigin(1, 0)
+      .setVisible(false);
+
+    this.acceptButtonBg.on('pointerdown', () => {
+      this.selectedAction = 'accept';
       this.dialogueCallbacks?.onAccept?.();
     });
+    this.acceptButtonBg
+      .on('pointerover', () => {
+        this.keyboardFocus = false;
+        this.hoveredAction = 'accept';
+        this.selectedAction = 'accept';
+        this.refreshControllerSelection();
+      })
+      .on('pointerout', () => {
+        this.hoveredAction = null;
+        this.refreshControllerSelection();
+      });
 
-    this.rejectButton.on('pointerdown', () => {
+    this.rejectButtonBg.on('pointerdown', () => {
+      this.selectedAction = 'reject';
       this.dialogueCallbacks?.onReject?.();
     });
+    this.rejectButtonBg
+      .on('pointerover', () => {
+        this.keyboardFocus = false;
+        this.hoveredAction = 'reject';
+        this.selectedAction = 'reject';
+        this.refreshControllerSelection();
+      })
+      .on('pointerout', () => {
+        this.hoveredAction = null;
+        this.refreshControllerSelection();
+      });
 
-    this.nextButton.on('pointerdown', () => {
+    this.nextButtonBg.on('pointerdown', () => {
+      this.selectedAction = 'next';
       if (this.pageIndex < this.pages.length - 1) {
         this.pageIndex += 1;
         this.refreshDialoguePage();
@@ -255,6 +381,17 @@ export class QuestPopup {
       }
       this.dialogueCallbacks?.onClose?.();
     });
+    this.nextButtonBg
+      .on('pointerover', () => {
+        this.keyboardFocus = false;
+        this.hoveredAction = 'next';
+        this.selectedAction = 'next';
+        this.refreshControllerSelection();
+      })
+      .on('pointerout', () => {
+        this.hoveredAction = null;
+        this.refreshControllerSelection();
+      });
 
     this.container = this.scene.add
       .container(x, y, [
@@ -263,9 +400,13 @@ export class QuestPopup {
         this.portrait,
         this.title,
         this.description,
+        this.acceptButtonBg,
+        this.rejectButtonBg,
+        this.nextButtonBg,
         this.acceptButton,
         this.rejectButton,
         this.nextButton,
+        this.controllerHint,
       ])
       .setDepth(depth)
       .setVisible(false);
@@ -282,10 +423,92 @@ export class QuestPopup {
     this.acceptButton?.setVisible(
       isLastPage && hasChoices && Boolean(this.dialogueCallbacks?.onAccept),
     );
+    this.acceptButtonBg?.setVisible(Boolean(this.acceptButton?.visible));
     this.rejectButton?.setVisible(
       isLastPage && hasChoices && Boolean(this.dialogueCallbacks?.onReject),
     );
+    this.rejectButtonBg?.setVisible(Boolean(this.rejectButton?.visible));
     this.nextButton?.setVisible(!isLastPage || !hasChoices);
+    this.nextButtonBg?.setVisible(Boolean(this.nextButton?.visible));
+    const actions = this.getVisibleControllerActions();
+    if (!actions.includes(this.selectedAction)) {
+      this.selectedAction = actions[0] ?? 'next';
+    }
+    this.refreshControllerSelection();
+  }
+
+  private getVisibleControllerActions(): Array<'accept' | 'reject' | 'next'> {
+    const actions: Array<'accept' | 'reject' | 'next'> = [];
+    if (this.acceptButton?.visible) actions.push('accept');
+    if (this.rejectButton?.visible) actions.push('reject');
+    if (this.nextButton?.visible) actions.push('next');
+    return actions;
+  }
+
+  private moveControllerSelection(delta: number): void {
+    const actions = this.getVisibleControllerActions();
+    if (actions.length === 0) return;
+    const current = Math.max(0, actions.indexOf(this.selectedAction));
+    this.selectedAction = actions[(current + delta + actions.length) % actions.length]!;
+    this.refreshControllerSelection();
+  }
+
+  private activateControllerSelection(): void {
+    if (this.selectedAction === 'accept') {
+      this.dialogueCallbacks?.onAccept?.();
+      return;
+    }
+    if (this.selectedAction === 'reject') {
+      this.dialogueCallbacks?.onReject?.();
+      return;
+    }
+    if (this.pageIndex < this.pages.length - 1) {
+      this.pageIndex += 1;
+      this.refreshDialoguePage();
+    } else {
+      this.dialogueCallbacks?.onClose?.();
+    }
+  }
+
+  private refreshControllerSelection(): void {
+    const buttons = [
+      ['accept', this.acceptButton, this.acceptButtonBg, 0x224433, 0x5dd6a2],
+      ['reject', this.rejectButton, this.rejectButtonBg, 0x442222, 0xff6b6b],
+      ['next', this.nextButton, this.nextButtonBg, 0x22334a, 0x9ad1ff],
+    ] as const;
+    for (const [id, button, background, baseColor, accent] of buttons) {
+      if (!button || !background) continue;
+      const selected =
+        button.visible &&
+        (((this.controllerMode || this.keyboardFocus) && this.selectedAction === id) ||
+          this.hoveredAction === id);
+      background
+        .setFillStyle(selected ? 0x4d6da3 : baseColor, selected ? 1 : 0.94)
+        .setStrokeStyle(selected ? 4 : 2, selected ? 0xfff3a8 : accent, selected ? 1 : 0.82);
+      button.setColor(
+        selected
+          ? '#fff3a8'
+          : id === 'accept'
+            ? '#5dd6a2'
+            : id === 'reject'
+              ? '#ff6b6b'
+              : '#9ad1ff',
+      );
+    }
+  }
+
+  private createDialogueButtonBackground(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    fill: number,
+    stroke: number,
+  ): Phaser.GameObjects.Rectangle {
+    return this.scene.add
+      .rectangle(x, y, width, height, fill, 0.94)
+      .setStrokeStyle(2, stroke, 0.82)
+      .setInteractive({ useHandCursor: true });
   }
 
   private resolvePortraitKey(portraitId?: string): string {

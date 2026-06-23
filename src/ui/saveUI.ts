@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { saveManagerV2 } from '../game/saveManagerV2.js';
-import { getPrimaryBindingLabelForDisplay } from '../input/controlActions.js';
+import { getPrimaryBindingLabelForDisplay, type InputModeId } from '../input/controlActions.js';
 
 const SAVE_BUTTON_WIDTH = 110;
 const SAVE_BUTTON_HEIGHT = 36;
@@ -23,6 +23,7 @@ export class SaveUI {
   private seedLabel?: Phaser.GameObjects.Text;
   private saveFlash?: Phaser.GameObjects.Graphics;
   private scene: SnakeScene;
+  private inputMode: InputModeId = 'keyboardMouse';
 
   constructor(scene: SnakeScene) {
     this.scene = scene;
@@ -76,18 +77,16 @@ export class SaveUI {
       })
       .on('pointerdown', () => this.saveGame());
 
-    const container = this.scene.add
-      .container(x, y, [bg, hitArea, label])
-      .setDepth(40);
+    const container = this.scene.add.container(x, y, [bg, hitArea, label]).setDepth(40);
 
-    // Seed label below the button
+    // Seed metadata sits above the bottom-anchored button so it cannot clip off-screen.
     const seedLabel = this.scene.add
-      .text(x, y + buttonHeight + SAVE_GAP, 'Seed: ', {
+      .text(x, y - SAVE_GAP, 'Seed: ', {
         fontFamily: 'monospace',
         fontSize: '10px',
         color: '#6b7380',
       })
-      .setOrigin(0, 0.5)
+      .setOrigin(0, 1)
       .setDepth(39);
 
     // Flash graphics for save confirmation
@@ -106,12 +105,15 @@ export class SaveUI {
     const dateKey = new Date().toISOString();
 
     // Save to V2 with a new slot each time
-    saveManagerV2.save(dateKey, data).then(() => {
-      // Show a brief green flash on the button
-      this.triggerSaveFlash();
-    }).catch((err) => {
-      console.error('[SaveUI] Failed to save game:', err);
-    });
+    saveManagerV2
+      .save(dateKey, data)
+      .then(() => {
+        // Show a brief green flash on the button
+        this.triggerSaveFlash();
+      })
+      .catch((err) => {
+        console.error('[SaveUI] Failed to save game:', err);
+      });
 
     this.scene.showQuestHintPopup(i18n.getFeatureString('gameSaved')!, '#5dd6a2');
   }
@@ -169,8 +171,13 @@ export class SaveUI {
     this.seedLabel?.setText(`Seed: ${seed}`);
   }
 
+  setInputMode(mode: InputModeId): void {
+    this.inputMode = mode;
+    this.saveLabelText?.setText(this.getSaveLabel());
+  }
+
   private getSaveLabel(): string {
-    return `${i18n.getFeatureString('saveButton') ?? 'SAVE'} [${getPrimaryBindingLabelForDisplay('save.quick')}]`;
+    return `${i18n.getFeatureString('saveButton') ?? 'SAVE'} [${getPrimaryBindingLabelForDisplay('save.quick', this.inputMode)}]`;
   }
 }
 

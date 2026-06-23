@@ -6,6 +6,7 @@ import {
 import { ensureAchievementPortrait } from '../achievements/achievementIconCatalog.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import { getAchievementReward } from '../achievements/achievementRewards.js';
+import { selectAchievementInDirection } from '../achievements/achievementControllerNavigation.js';
 import { exceededDragThreshold } from '../achievements/achievementTreeLayout.js';
 import type {
   AchievementDefinition,
@@ -64,6 +65,7 @@ export class AchievementTreeOverlay {
   } | null = null;
   private selectedId: string | null = null;
   private visible = false;
+  private controllerMode = false;
   private readonly unlockQueue: AchievementUnlockResult[] = [];
   private unlockToastActive = false;
 
@@ -258,6 +260,11 @@ export class AchievementTreeOverlay {
     return this.visible;
   }
 
+  setControllerMode(active: boolean): void {
+    this.controllerMode = active;
+    this.updateZoomHint();
+  }
+
   handleWheel(pointer: Phaser.Input.Pointer, deltaY: number): boolean {
     if (!this.visible || !this.containsPointer(pointer)) return false;
     const localX = pointer.x - this.root.parentContainer!.x - this.viewport.x;
@@ -269,20 +276,70 @@ export class AchievementTreeOverlay {
     return true;
   }
 
+  handleControllerPan(deltaX: number, deltaY: number): boolean {
+    if (!this.visible) return false;
+    this.setPan({ x: this.pan.x + deltaX, y: this.pan.y + deltaY });
+    return true;
+  }
+
+  handleControllerZoom(delta: number): boolean {
+    if (!this.visible) return false;
+    this.applyUserZoom(this.zoom + delta);
+    return true;
+  }
+
+  handleControllerSelect(directionX: number, directionY: number): boolean {
+    if (!this.visible) return false;
+    const visibleNodes = this.getVisibleNodes();
+    if (visibleNodes.length === 0) return false;
+    const selectedId = selectAchievementInDirection(
+      visibleNodes.map((view) => ({
+        id: view.definition.id,
+        ...this.getNodeViewportPosition(view),
+      })),
+      this.selectedId,
+      { x: directionX, y: directionY },
+      { x: this.viewport.width / 2, y: this.viewport.height / 2 },
+    );
+    if (!selectedId) return false;
+    this.showDetails(selectedId);
+    this.refreshNodeVisuals();
+    return true;
+  }
+
+  handleControllerConfirm(): boolean {
+    if (!this.visible) return false;
+    const selected =
+      (this.selectedId ? this.nodes.get(this.selectedId) : undefined) ??
+      this.getNodeNearestViewportCenter(this.getVisibleNodes());
+    if (!selected) return false;
+    this.showDetails(selected.definition.id);
+    this.refreshNodeVisuals();
+    return true;
+  }
+
   refresh(): void {
     const complete = this.manager
       .getDefinitions()
       .filter((definition) => this.manager.isCompleted(definition.id)).length;
     const total = this.manager.getDefinitions().length;
     this.summary.setText(`${complete}/${total} COMPLETE`);
-    this.zoomText.setText(`${Math.round(this.zoom * 100)}%  WHEEL TO ZOOM`);
+    this.updateZoomHint();
+    this.refreshNodeVisuals();
+    this.drawConnections();
+    if (this.selectedId) this.showDetails(this.selectedId);
+  }
+
+  private refreshNodeVisuals(): void {
     for (const view of this.nodes.values()) {
       const status = this.manager.getAchievementStatus(view.definition.id);
       const color =
         status === 'completed' ? 0x5dd6a2 : status === 'available' ? 0xffd166 : 0x647280;
+      const selected = view.definition.id === this.selectedId;
       view.frame
-        .setStrokeStyle(status === 'completed' ? 3 : 2, color)
+        .setStrokeStyle(selected ? 4 : status === 'completed' ? 3 : 2, selected ? 0xfff3a8 : color)
         .setFillStyle(status === 'locked' ? 0x111923 : 0x1d2d38, 1);
+      view.container.setScale(selected ? 1.1 : 1);
       view.portrait.setAlpha(status === 'locked' ? 0.38 : 1).clearTint();
       if (status === 'locked') view.portrait.setTint(0x8d99a3);
       view.glow.setFillStyle(
@@ -295,8 +352,6 @@ export class AchievementTreeOverlay {
       );
       view.check.setVisible(status === 'completed');
     }
-    this.drawConnections();
-    if (this.selectedId) this.showDetails(this.selectedId);
   }
 
   showUnlock(unlock: AchievementUnlockResult): void {
@@ -399,8 +454,30 @@ export class AchievementTreeOverlay {
         this.scene.tweens.add({ targets: [container], scaleX: 1.08, scaleY: 1.08, duration: 90 }),
       );
       frame.on('pointerout', () =>
-        this.scene.tweens.add({ targets: [container], scaleX: 1, scaleY: 1, duration: 110 }),
+        this.scene.tweens.add({
+          targets: [container],
+          scaleX: this.selectedId === definition.id ? 1.1 : 1,
+          scaleY: this.selectedId === definition.id ? 1.1 : 1,
+          duration: 110,
+        }),
       );
+      portrait
+        .on('pointerover', () =>
+          this.scene.tweens.add({
+            targets: [container],
+            scaleX: 1.08,
+            scaleY: 1.08,
+            duration: 90,
+          }),
+        )
+        .on('pointerout', () =>
+          this.scene.tweens.add({
+            targets: [container],
+            scaleX: this.selectedId === definition.id ? 1.1 : 1,
+            scaleY: this.selectedId === definition.id ? 1.1 : 1,
+            duration: 110,
+          }),
+        );
       this.tree.add(container);
       this.nodes.set(definition.id, {
         definition,
@@ -462,6 +539,41 @@ export class AchievementTreeOverlay {
         duration: 280,
         yoyo: true,
       });
+    this.refreshNodeVisuals();
+  }
+
+  private getVisibleNodes(): NodeView[] {
+    const margin = 34;
+    return [...this.nodes.values()].filter((view) => {
+      const position = this.getNodeViewportPosition(view);
+      return (
+        position.x >= margin &&
+        position.x <= this.viewport.width - margin &&
+        position.y >= margin &&
+        position.y <= this.viewport.height - margin
+      );
+    });
+  }
+
+  private getNodeViewportPosition(view: NodeView): { x: number; y: number } {
+    return {
+      x: this.pan.x + view.definition.tree.x * this.zoom,
+      y: this.pan.y + view.definition.tree.y * this.zoom,
+    };
+  }
+
+  private getNodeNearestViewportCenter(nodes: readonly NodeView[]): NodeView | null {
+    const center = { x: this.viewport.width / 2, y: this.viewport.height / 2 };
+    return (
+      [...nodes].sort((a, b) => {
+        const aPosition = this.getNodeViewportPosition(a);
+        const bPosition = this.getNodeViewportPosition(b);
+        return (
+          Math.hypot(aPosition.x - center.x, aPosition.y - center.y) -
+          Math.hypot(bPosition.x - center.x, bPosition.y - center.y)
+        );
+      })[0] ?? null
+    );
   }
 
   private drawChrome(): void {
@@ -606,7 +718,7 @@ export class AchievementTreeOverlay {
     const worldY = (anchor.y - this.pan.y) / this.zoom;
     this.zoom = nextZoom;
     this.setPan({ x: anchor.x - worldX * nextZoom, y: anchor.y - worldY * nextZoom });
-    this.zoomText.setText(`${Math.round(this.zoom * 100)}%  WHEEL TO ZOOM`);
+    this.updateZoomHint();
     return true;
   }
 
@@ -614,6 +726,14 @@ export class AchievementTreeOverlay {
     if (!this.setZoom(rawZoom, anchor)) return;
     if (this.zoom <= 0.3001) this.onUserZoomExtreme?.('min');
     if (this.zoom >= 1.6499) this.onUserZoomExtreme?.('max');
+  }
+
+  private updateZoomHint(): void {
+    this.zoomText.setText(
+      this.controllerMode
+        ? `${Math.round(this.zoom * 100)}%  LEFT STICK SELECT  RIGHT STICK PAN`
+        : `${Math.round(this.zoom * 100)}%  WHEEL TO ZOOM`,
+    );
   }
 
   private setPan(pan: { x: number; y: number }): void {

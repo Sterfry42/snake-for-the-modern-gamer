@@ -9,8 +9,9 @@ import {
   getBiomeAnimalSpawnChance,
   type BiomeId,
 } from '../world/biomes.js';
-import type { AnimalDefinition, AnimalInstance } from './types.js';
+import type { AnimalDefinition, AnimalInstance, AnimalType } from './types.js';
 import { AnimalRegistry } from './animalRegistry.js';
+import { canTameAnimal } from './taming.js';
 
 interface AnimalStepParams {
   getRoom(roomId: string): RoomSnapshot;
@@ -41,6 +42,7 @@ export interface HuntedAnimalResult {
 
 export interface SnakeAnimalResult {
   tamed: boolean;
+  tamableAnimal?: AnimalInstance;
   damaged: boolean;
   hunted: boolean;
   huntedAnimal?: HuntedAnimalResult;
@@ -296,6 +298,10 @@ export class AnimalManager {
     snakeDirection: Vector2Like,
     roomAnimals: AnimalInstance[],
   ): AnimalInstance {
+    if (animal.isTamed) {
+      const next = this.tryMoveToward(animal, room, headLocal, this.isWalkableAnimalTile);
+      return next ? { ...animal, position: next } : animal;
+    }
     switch (def.behavior) {
       case 'wander':
         return this.moveWander(animal, def, room, headLocal);
@@ -571,6 +577,10 @@ export class AnimalManager {
       const def = AnimalRegistry.getDefinition(animal.type);
 
       if (animal.position.x === headLocal.x && animal.position.y === headLocal.y) {
+        if (animal.isTamed) {
+          newAnimals.push({ ...animal, flashTicks: Math.max(animal.flashTicks, 1) });
+          continue;
+        }
         switch (def.snakeEncounter) {
           case 'harmless':
             if (canHuntHarmless) {
@@ -616,6 +626,7 @@ export class AnimalManager {
     head: Vector2Like,
     snakeDirection: Vector2Like,
     canHuntHarmless = false,
+    canAttemptTame?: (animalType: AnimalType) => boolean,
   ): SnakeAnimalResult {
     const local = this.worldToLocal(roomId, head);
     const roomAnimals = this.animals.get(roomId) ?? [];
@@ -626,6 +637,9 @@ export class AnimalManager {
     const target = roomAnimals.find((a) => a.position.x === local.x && a.position.y === local.y);
 
     if (!target) {
+      return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
+    }
+    if (target.isTamed) {
       return { tamed: false, damaged: false, hunted: false, startleCount: 0 };
     }
 
@@ -639,6 +653,13 @@ export class AnimalManager {
 
     const remaining = roomAnimals.filter((a) => a.id !== target.id);
     const updated = remaining.map((a) => ({ ...a, flashTicks: 3 }));
+
+    if (canAttemptTame?.(target.type)) {
+      result.tamed = true;
+      result.tamableAnimal = { ...target };
+      this.animals.set(roomId, [...remaining, { ...target, flashTicks: 4 }]);
+      return result;
+    }
 
     switch (def.snakeEncounter) {
       case 'harmless':
@@ -662,7 +683,8 @@ export class AnimalManager {
         break;
       case 'tamable':
         result.tamed = true;
-        this.animals.set(roomId, updated);
+        result.tamableAnimal = { ...target };
+        this.animals.set(roomId, [...remaining, { ...target, flashTicks: 4 }]);
         break;
     }
 
@@ -726,6 +748,61 @@ export class AnimalManager {
     return this.animals.get(roomId) ?? [];
   }
 
+  transferTamedAnimals(fromRoomId: string, toRoomId: string, destination: Vector2Like): void {
+    if (fromRoomId === toRoomId) return;
+    const source = this.animals.get(fromRoomId) ?? [];
+    const followers = source.filter((animal) => animal.isTamed);
+    if (followers.length === 0) return;
+
+    const remaining = source.filter((animal) => !animal.isTamed);
+    if (remaining.length > 0) this.animals.set(fromRoomId, remaining);
+    else this.animals.delete(fromRoomId);
+
+    const destinationAnimals = this.animals.get(toRoomId) ?? [];
+    const transferred = followers.map((animal, index) => ({
+      ...animal,
+      roomId: toRoomId,
+      position: {
+        x: Math.max(1, Math.min(this.grid.cols - 2, destination.x - 1 - (index % 2))),
+        y: Math.max(1, Math.min(this.grid.rows - 2, destination.y + Math.floor(index / 2))),
+      },
+      moveCooldown: 0,
+      flashTicks: 4,
+    }));
+    this.animals.set(toRoomId, [...destinationAnimals, ...transferred]);
+  }
+
+  restoreTamedAnimals(
+    roomId: string,
+    companions: readonly { id: string; type: AnimalType }[],
+    destination: Vector2Like,
+  ): void {
+    if (companions.length === 0) return;
+    const existing = this.animals.get(roomId) ?? [];
+    const existingIds = new Set(existing.map((animal) => animal.id));
+    const restored = companions
+      .filter((companion) => !existingIds.has(companion.id))
+      .map((companion, index): AnimalInstance => {
+        const definition = AnimalRegistry.getDefinition(companion.type);
+        return {
+          id: companion.id,
+          type: companion.type,
+          roomId,
+          position: {
+            x: Math.max(1, Math.min(this.grid.cols - 2, destination.x - 1 - (index % 2))),
+            y: Math.max(1, Math.min(this.grid.rows - 2, destination.y + Math.floor(index / 2))),
+          },
+          direction: { x: 1, y: 0 },
+          moveCooldown: 0,
+          isTamed: true,
+          tameOwner: 'player',
+          flashTicks: 4,
+          currentHearts: definition.maxHearts ?? 1,
+        };
+      });
+    if (restored.length > 0) this.animals.set(roomId, [...existing, ...restored]);
+  }
+
   tameAnimal(
     roomId: string,
     animalId: string,
@@ -739,7 +816,7 @@ export class AnimalManager {
     }
 
     const def = AnimalRegistry.getDefinition(target.type);
-    if (def.snakeEncounter !== 'tamable') {
+    if (!canTameAnimal(target.type)) {
       return { success: false, animal: null };
     }
 
@@ -754,6 +831,19 @@ export class AnimalManager {
     this.animals.set(roomId, remaining);
 
     return { success: true, animal: updated };
+  }
+
+  releaseTamedAnimal(roomId: string, animalId: string): boolean {
+    const roomAnimals = this.animals.get(roomId) ?? [];
+    let released = false;
+    const next = roomAnimals.map((animal) => {
+      if (animal.id !== animalId || !animal.isTamed) return animal;
+      released = true;
+      const { tameOwner: _tameOwner, ...wild } = animal;
+      return { ...wild, isTamed: false, flashTicks: 4 };
+    });
+    if (released) this.animals.set(roomId, next);
+    return released;
   }
 
   private worldToLocal(roomId: string, worldPos: Vector2Like): Vector2Like {

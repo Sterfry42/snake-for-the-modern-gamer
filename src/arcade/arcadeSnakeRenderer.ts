@@ -24,7 +24,11 @@ import {
   type ArcadeTickEvent,
   type ArcadeTilePosition,
 } from './arcadeSnakeTypes.js';
-import { isKeyboardInputForAction } from '../input/controlActions.js';
+import {
+  getPrimaryBindingLabelForDisplay,
+  isKeyboardInputForAction,
+  type InputModeId,
+} from '../input/controlActions.js';
 
 export interface ArcadeSnakeRendererOptions {
   saveData: ArcadeSnakeSaveData;
@@ -96,11 +100,20 @@ export class ArcadeSnakeRenderer {
   private windowWidth = 560;
   private windowHeight = 500;
   private currentTickDelay = ARCADE_TICK_MS;
+  private inputMode: InputModeId = 'keyboardMouse';
 
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly options: ArcadeSnakeRendererOptions,
   ) {}
+
+  setInputMode(mode: InputModeId): void {
+    this.inputMode = mode;
+    if (this.statusText && !this.run?.isPaused && !this.run?.isGameOver) {
+      this.statusText.setText(this.getActiveControlHint());
+    }
+    this.render();
+  }
 
   startRun(): void {
     this.timer?.remove(false);
@@ -230,7 +243,7 @@ export class ArcadeSnakeRenderer {
       wordWrap: { width: width - 56 },
     });
     this.statusText = this.scene.add
-      .text(width / 2, height - 34, 'SPACE: Pause     Q: Quit to main game', {
+      .text(width / 2, height - 34, this.getActiveControlHint(), {
         fontFamily: 'monospace',
         fontSize: '13px',
         color: '#a9b8ad',
@@ -496,8 +509,8 @@ export class ArcadeSnakeRenderer {
           'Quests:',
           ...(run.quests.length > 0 ? run.quests.map(formatArcadeQuest) : ['[ ] None yet']),
           '',
-          'SPACE: Resume',
-          'Q: Quit to main game',
+          `${getPrimaryBindingLabelForDisplay('menu.pause', this.inputMode)}: Resume`,
+          `${getPrimaryBindingLabelForDisplay('back.cancel', this.inputMode)}: Quit to main game`,
         ].join('\n'),
       );
     } else if (run.isGameOver) {
@@ -510,8 +523,8 @@ export class ArcadeSnakeRenderer {
           `Lifetime Score: ${this.options.saveData.stats.lifetimeScore}`,
           `Main-game score gained: +${getArcadeMainGamePayout(run.score)}`,
           '',
-          'SPACE / ENTER: Play Again',
-          'Q: Quit to main game',
+          `${getPrimaryBindingLabelForDisplay('interact.confirm', this.inputMode)}: Play Again`,
+          `${getPrimaryBindingLabelForDisplay('back.cancel', this.inputMode)}: Quit to main game`,
         ].join('\n'),
       );
     }
@@ -897,9 +910,7 @@ export class ArcadeSnakeRenderer {
   }
 
   private extendHostileText(message: string, tier: number): void {
-    const pressure = this.run
-      ? getArcadeGlitchPressure(this.options.saveData.stats, this.run)
-      : 0;
+    const pressure = this.run ? getArcadeGlitchPressure(this.options.saveData.stats, this.run) : 0;
     this.hostileTitle = message;
     this.titleText?.setText(message);
     if (tier >= 4 || pressure >= 50) {
@@ -909,10 +920,7 @@ export class ArcadeSnakeRenderer {
     const duration = 600 + pressure * 120;
     this.hostileTextUntilMs = Math.max(this.scene.time.now, this.hostileTextUntilMs) + duration;
     this.addTimer(this.hostileTextUntilMs - this.scene.time.now, () => {
-      if (
-        !this.hostileTextPermanent &&
-        this.scene.time.now >= this.hostileTextUntilMs
-      ) {
+      if (!this.hostileTextPermanent && this.scene.time.now >= this.hostileTextUntilMs) {
         this.titleText?.setText('SNAKE FOR THE MODERN SNAKE');
       }
     });
@@ -937,9 +945,7 @@ export class ArcadeSnakeRenderer {
       .rectangle(0, 0, width, height, 0xece9d8, 1)
       .setOrigin(0.5, 0)
       .setStrokeStyle(2, 0x003c74);
-    const titleBar = this.scene.add
-      .rectangle(0, 3, width - 6, 25, 0x0058b5, 1)
-      .setOrigin(0.5, 0);
+    const titleBar = this.scene.add.rectangle(0, 3, width - 6, 25, 0x0058b5, 1).setOrigin(0.5, 0);
     const title = this.scene.add
       .text(-width / 2 + 12, 7, 'Input Device Error', {
         fontFamily: 'Arial, sans-serif',
@@ -1004,9 +1010,13 @@ export class ArcadeSnakeRenderer {
 
   private flashStatus(text: string, color: string, duration: number): void {
     if (!this.statusText) return;
-    const original = 'SPACE: Pause     Q: Quit to main game';
+    const original = this.getActiveControlHint();
     this.statusText.setText(text).setColor(color);
     this.addTimer(duration, () => this.statusText?.setText(original).setColor('#a9b8ad'));
+  }
+
+  private getActiveControlHint(): string {
+    return `${getPrimaryBindingLabelForDisplay('menu.pause', this.inputMode)}: Pause     ${getPrimaryBindingLabelForDisplay('back.cancel', this.inputMode)}: Quit to main game`;
   }
 
   private addTimer(delay: number, callback: () => void): void {

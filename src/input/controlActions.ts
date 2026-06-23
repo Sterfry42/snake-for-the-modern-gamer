@@ -45,7 +45,8 @@ export const INPUT_MODES: readonly { id: InputModeId; label: string; description
   {
     id: 'controller',
     label: 'Controller',
-    description: 'Controller mapping foundation for a future pass.',
+    description:
+      'Full controller navigation with focused selections and independent right-stick scrolling.',
   },
   {
     id: 'mobile',
@@ -112,7 +113,7 @@ export const CONTROL_ACTIONS: readonly ControlAction[] = [
     description: 'Talk, select, confirm, enter shops, and activate focused UI choices.',
     defaultBindings: {
       keyboardMouse: bind('E', 'UI Click'),
-      controller: bind('A / South Button'),
+      controller: bind('South Button'),
       mobile: bind('Tap', 'Interact Button'),
     },
     rebindable: true,
@@ -124,7 +125,7 @@ export const CONTROL_ACTIONS: readonly ControlAction[] = [
     description: 'Close screens, back out of menus, and cancel contextual actions.',
     defaultBindings: {
       keyboardMouse: bind('Escape'),
-      controller: bind('B / East Button'),
+      controller: bind('East Button'),
       mobile: bind('Back Button'),
     },
     rebindable: true,
@@ -136,7 +137,7 @@ export const CONTROL_ACTIONS: readonly ControlAction[] = [
     description: 'Use the primary equipped or unlocked ability.',
     defaultBindings: {
       keyboardMouse: bind('Q'),
-      controller: bind('X / West Button', 'Right Bumper'),
+      controller: bind('West Button', 'Right Bumper'),
       mobile: bind('Ability Button'),
     },
     rebindable: true,
@@ -184,7 +185,7 @@ export const CONTROL_ACTIONS: readonly ControlAction[] = [
     description: 'Save the current run when quick saving is available.',
     defaultBindings: {
       keyboardMouse: bind('G'),
-      controller: [],
+      controller: bind('Left Bumper'),
       mobile: [],
     },
     rebindable: true,
@@ -322,6 +323,27 @@ export function setBindingsForMode(
   saveControlBindingOverrides(overrides);
 }
 
+export function setExclusiveControllerBinding(
+  actionId: ControlActionId,
+  binding: ControlBinding,
+): void {
+  const normalized = normalizeBindingLabel(binding.label);
+  const overrides = { ...loadControlBindingOverrides() };
+  const controllerOverrides = { ...(overrides.controller ?? {}) };
+  for (const action of CONTROL_ACTIONS) {
+    if (action.id === actionId) continue;
+    const remaining = getBindingsForMode(action.id, 'controller').filter(
+      (existing) => normalizeBindingLabel(existing.label) !== normalized,
+    );
+    if (remaining.length !== getBindingsForMode(action.id, 'controller').length) {
+      controllerOverrides[action.id] = remaining;
+    }
+  }
+  controllerOverrides[actionId] = [{ label: binding.label.trim() }];
+  overrides.controller = controllerOverrides;
+  saveControlBindingOverrides(overrides);
+}
+
 export function resetBindingsForMode(actionId: ControlActionId, mode: InputModeId): void {
   const overrides = { ...loadControlBindingOverrides() };
   if (!overrides[mode]?.[actionId]) {
@@ -355,7 +377,11 @@ export function getPrimaryBindingLabelForDisplay(
   mode: InputModeId = 'keyboardMouse',
 ): string {
   const bindings = getBindingsForMode(actionId, mode);
-  return bindings.find((binding) => !/click|pointer/i.test(binding.label))?.label ?? bindings[0]?.label ?? 'Unbound';
+  return (
+    bindings.find((binding) => !/click|pointer/i.test(binding.label))?.label ??
+    bindings[0]?.label ??
+    'Unbound'
+  );
 }
 
 export function getKeyboardEventBindingLabel(event: KeyboardEvent): string {
@@ -378,9 +404,6 @@ export function isKeyboardInputForAction(key: string, actionId: ControlActionId)
   );
 }
 
-export function isKeyboardEventForAction(
-  event: KeyboardEvent,
-  actionId: ControlActionId,
-): boolean {
+export function isKeyboardEventForAction(event: KeyboardEvent, actionId: ControlActionId): boolean {
   return isKeyboardInputForAction(getKeyboardEventBindingLabel(event), actionId);
 }

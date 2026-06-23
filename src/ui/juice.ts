@@ -5114,61 +5114,6 @@ export class JuiceManager {
 
   // ─── Rumor Juice ──────────────────────────────────────────────────────
 
-  rumorDiscovered(worldX: number, worldY: number) {
-    this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
-    this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.07 });
-    this.spawnBurst(worldX, worldY, {
-      colors: [0xc77dff, 0xe8ddff, 0x9ad1ff],
-      count: 10,
-      radius: 16,
-    });
-    this.ringPulse(worldX, worldY, 0xc77dff, 8, 1, 220);
-    this.scene.cameras.main.flash(50, 199, 125, 255, true);
-  }
-
-  rumorConfirmed(worldX: number, worldY: number) {
-    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.1 });
-    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.08 });
-    this.spawnBurst(worldX, worldY, {
-      colors: [0x5dd6a2, 0xfff3a8, 0xc77dff],
-      count: 14,
-      radius: 20,
-    });
-    this.ringPulse(worldX, worldY, 0x5dd6a2, 10, 2, 240);
-    this.scene.cameras.main.flash(80, 93, 214, 162, true);
-  }
-
-  rumorDebunked(worldX: number, worldY: number) {
-    this.playTone({
-      frequency: 320,
-      frequencyEnd: 160,
-      duration: 0.2,
-      type: 'sawtooth',
-      volume: 0.08,
-    });
-    this.spawnBurst(worldX, worldY, {
-      colors: [0xff6b6b, 0xffb3a8, 0xfff3a8],
-      count: 8,
-      radius: 14,
-    });
-    this.ringPulse(worldX, worldY, 0xff6b6b, 8, 1, 200);
-  }
-
-  rumorResolved(worldX: number, worldY: number) {
-    this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
-    this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
-    this.playTone({ frequency: 1040, duration: 0.26, type: 'sine', volume: 0.08 });
-    this.punchZoom(1.04, 200);
-    this.spawnBurst(worldX, worldY, {
-      colors: [0x5dd6a2, 0xfff3a8, 0xc77dff, 0x9ad1ff],
-      count: 22,
-      radius: 30,
-    });
-    this.blastWave(worldX, worldY, [0x5dd6a2, 0xfff3a8], 24);
-    this.ringPulse(worldX, worldY, 0x5dd6a2, 14, 2, 300);
-    this.scene.cameras.main.flash(120, 93, 214, 162, true);
-  }
-
   // ─── Artifact Juice ───────────────────────────────────────────────────
 
   artifactDiscover(worldX: number, worldY: number, name: string) {

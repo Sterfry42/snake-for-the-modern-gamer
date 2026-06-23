@@ -12,6 +12,7 @@ import {
   getDatingPortraitAsset,
   type DatingPortraitMood,
 } from '../relationships/datingPortraitManifest.js';
+import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import {
   datingPortraitRecipe,
   type DatingPortraitPalette,
@@ -58,7 +59,14 @@ export class DatingScenePopup {
   private statText?: Phaser.GameObjects.Text;
   private lineText?: Phaser.GameObjects.Text;
   private resultText?: Phaser.GameObjects.Text;
+  private controllerHint?: Phaser.GameObjects.Text;
   private actionTexts: Phaser.GameObjects.Text[] = [];
+  private actionButtons: Phaser.GameObjects.Rectangle[] = [];
+  private currentActions: readonly DatingSceneButton[] = [];
+  private selectedActionIndex = 0;
+  private controllerMode = false;
+  private keyboardFocus = false;
+  private hoveredActionIndex = -1;
   private onAction?: (action: DatingSceneAction) => void;
 
   constructor(private readonly scene: SnakeScene) {
@@ -68,6 +76,8 @@ export class DatingScenePopup {
 
   show(options: DatingSceneOptions): void {
     this.onAction = options.onAction;
+    this.keyboardFocus = false;
+    this.hoveredActionIndex = -1;
     const width = this.scene.scale.width;
     const height = this.scene.scale.height;
     const profile = options.profile;
@@ -102,6 +112,55 @@ export class DatingScenePopup {
 
   isVisible(): boolean {
     return Boolean(this.container?.visible);
+  }
+
+  setControllerMode(active: boolean): void {
+    this.controllerMode = active;
+    this.controllerHint?.setVisible(active);
+    this.refreshControllerSelection();
+  }
+
+  handleControllerCommand(command: ControllerNavCommand): boolean {
+    if (!this.isVisible()) return false;
+    if (command === 'left' || command === 'up') {
+      this.moveControllerSelection(-1);
+      return true;
+    }
+    if (command === 'right' || command === 'down') {
+      this.moveControllerSelection(1);
+      return true;
+    }
+    if (command === 'confirm') {
+      const action = this.currentActions[this.selectedActionIndex];
+      if (action && !action.disabled) this.onAction?.(action.id);
+      return true;
+    }
+    if (command === 'cancel') {
+      const leave = this.currentActions.find((action) => action.id === 'leave' && !action.disabled);
+      if (leave) this.onAction?.(leave.id);
+      return true;
+    }
+    return false;
+  }
+
+  handleKeyboardEvent(event: KeyboardEvent): boolean {
+    if (!this.isVisible()) return false;
+    this.keyboardFocus = true;
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+      this.moveControllerSelection(-1);
+      return true;
+    }
+    if (event.key === 'ArrowRight' || event.key === 'ArrowDown' || event.key === 'Tab') {
+      this.moveControllerSelection(event.shiftKey ? -1 : 1);
+      return true;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      return this.handleControllerCommand('confirm');
+    }
+    if (event.key === 'Escape') {
+      return this.handleControllerCommand('cancel');
+    }
+    return false;
   }
 
   private formatResultMessage(message: string, visibleLine: string, displayName: string): string {
@@ -244,6 +303,16 @@ export class DatingScenePopup {
         wordWrap: { width: width - 84 },
       })
       .setOrigin(0, 0);
+    this.controllerHint = this.scene.add
+      .text(width - 24, 24, 'LEFT STICK: SELECT   SOUTH: CHOOSE   EAST: LEAVE', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#fff3a8',
+        backgroundColor: '#130d1f',
+        padding: { left: 7, right: 7, top: 4, bottom: 4 },
+      })
+      .setOrigin(1, 0)
+      .setVisible(false);
 
     this.container = this.scene.add
       .container(0, 0, [
@@ -255,6 +324,7 @@ export class DatingScenePopup {
         this.statText,
         this.lineText,
         this.resultText,
+        this.controllerHint,
       ])
       .setVisible(false);
   }
@@ -283,50 +353,123 @@ export class DatingScenePopup {
     width: number,
     height: number,
   ): void {
+    this.currentActions = actions;
+    this.selectedActionIndex = Math.max(
+      0,
+      actions.findIndex((action) => !action.disabled),
+    );
     this.actionTexts.forEach((text) => text.destroy());
+    this.actionButtons.forEach((button) => button.destroy());
     this.actionTexts = [];
-    const bottomY = height - 62;
-    const buttonWidth = Math.max(82, Math.floor((width - 64) / actions.length) - 6);
-    const totalWidth = actions.length * buttonWidth + (actions.length - 1) * 6;
-    let x = Math.floor((width - totalWidth) / 2);
-    for (const action of actions) {
+    this.actionButtons = [];
+    const columns = Math.min(5, Math.max(1, actions.length));
+    const rows = Math.ceil(actions.length / columns);
+    const gap = 8;
+    const buttonHeight = 42;
+    const buttonWidth = Math.max(108, Math.floor((width - 48 - gap * (columns - 1)) / columns));
+    const totalWidth = columns * buttonWidth + (columns - 1) * gap;
+    const startX = Math.floor((width - totalWidth) / 2);
+    const startY = height - 18 - rows * buttonHeight - (rows - 1) * gap;
+    actions.forEach((action, index) => {
+      const column = index % columns;
+      const row = Math.floor(index / columns);
+      const x = startX + column * (buttonWidth + gap);
+      const y = startY + row * (buttonHeight + gap);
       const quiet = action.tone === 'quiet' || action.id === 'leave';
       const danger = action.tone === 'danger';
       const disabled = Boolean(action.disabled);
+      const fill = disabled ? 0x211d28 : quiet ? 0x172438 : danger ? 0x4a1717 : 0x4a1738;
+      const button = this.scene.add
+        .rectangle(x, y, buttonWidth, buttonHeight, fill, disabled ? 0.62 : 0.94)
+        .setOrigin(0, 0)
+        .setStrokeStyle(2, disabled ? 0x45404d : quiet ? 0x5e8bbd : danger ? 0xc66b62 : 0xb85c91);
       const text = this.scene.add
         .text(
           x + buttonWidth / 2,
-          bottomY,
+          y + buttonHeight / 2,
           disabled && action.reason ? `${action.label}\n${action.reason}` : action.label,
           {
             fontFamily: 'monospace',
-            fontSize: disabled || actions.length > 8 ? '12px' : '15px',
+            fontSize: disabled || actions.length > 8 ? '11px' : '14px',
             color: disabled ? '#7b7b86' : quiet ? '#9ad1ff' : danger ? '#ffc0b8' : '#ffe6f4',
-            backgroundColor: disabled
-              ? '#211d28'
-              : quiet
-                ? '#172438'
-                : danger
-                  ? '#4a1717'
-                  : '#4a1738',
-            padding: { left: 8, right: 8, top: 7, bottom: 7 },
-            fixedWidth: buttonWidth,
+            fixedWidth: buttonWidth - 12,
             align: 'center',
           },
         )
-        .setOrigin(0.5, 0)
+        .setOrigin(0.5)
         .setAlpha(disabled ? 0.62 : 1);
       if (!disabled) {
-        text
+        button
           .setInteractive({ useHandCursor: true })
-          .on('pointerover', () => text.setColor('#ffffff'))
-          .on('pointerout', () => text.setColor(quiet ? '#9ad1ff' : danger ? '#ffc0b8' : '#ffe6f4'))
+          .on('pointerover', () => {
+            this.keyboardFocus = false;
+            this.hoveredActionIndex = index;
+            this.selectedActionIndex = index;
+            this.refreshControllerSelection();
+          })
+          .on('pointerout', () => {
+            this.hoveredActionIndex = -1;
+            this.refreshControllerSelection();
+          })
           .on('pointerdown', () => this.onAction?.(action.id));
       }
-      this.container?.add(text);
+      this.container?.add([button, text]);
+      this.actionButtons.push(button);
       this.actionTexts.push(text);
-      x += buttonWidth + 6;
+    });
+    this.refreshControllerSelection();
+  }
+
+  private moveControllerSelection(delta: number): void {
+    if (this.currentActions.length === 0) return;
+    let next = this.selectedActionIndex;
+    for (let attempts = 0; attempts < this.currentActions.length; attempts += 1) {
+      next = (next + delta + this.currentActions.length) % this.currentActions.length;
+      if (!this.currentActions[next]?.disabled) {
+        this.selectedActionIndex = next;
+        break;
+      }
     }
+    this.refreshControllerSelection();
+  }
+
+  private refreshControllerSelection(): void {
+    this.actionTexts.forEach((text, index) => {
+      const action = this.currentActions[index];
+      const selected =
+        ((this.controllerMode || this.keyboardFocus) && index === this.selectedActionIndex) ||
+        index === this.hoveredActionIndex;
+      const focused = selected && !action?.disabled;
+      const quiet = action?.tone === 'quiet' || action?.id === 'leave';
+      const danger = action?.tone === 'danger';
+      const button = this.actionButtons[index];
+      button?.setStrokeStyle(
+        focused ? 4 : 2,
+        focused
+          ? 0xfff3a8
+          : action?.disabled
+            ? 0x45404d
+            : quiet
+              ? 0x5e8bbd
+              : danger
+                ? 0xc66b62
+                : 0xb85c91,
+        focused ? 1 : 0.88,
+      );
+      button?.setScale(focused ? 1.035 : 1);
+      text.setColor(
+        focused
+          ? '#fff3a8'
+          : action?.disabled
+            ? '#7b7b86'
+            : quiet
+              ? '#9ad1ff'
+              : danger
+                ? '#ffc0b8'
+                : '#ffe6f4',
+      );
+      text.setScale(focused ? 1.035 : 1);
+    });
   }
 
   private variantFor(profile: RelationshipCandidateProfile): DatingPortraitVariant {

@@ -11,7 +11,11 @@ export type ControllerNavCommand =
   | 'primaryTabPrevious'
   | 'primaryTabNext'
   | 'subTabPrevious'
-  | 'subTabNext';
+  | 'subTabNext'
+  | 'scrollUp'
+  | 'scrollDown'
+  | 'scrollLeft'
+  | 'scrollRight';
 
 export interface ControllerFocusableItem {
   id: string;
@@ -75,6 +79,10 @@ export class ControllerNavigationManager {
       case 'primary':
       case 'menu':
       case 'map':
+      case 'scrollUp':
+      case 'scrollDown':
+      case 'scrollLeft':
+      case 'scrollRight':
         return false;
       case 'primaryTabPrevious':
         return context.onPrimaryTabPrevious?.() ?? false;
