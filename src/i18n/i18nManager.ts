@@ -2,15 +2,21 @@ import type { LanguageId } from './types.js';
 import { AVAILABLE_LANGUAGES, DEFAULT_LANGUAGE } from './types.js';
 import { COMMON_EN } from './languages/en/common.js';
 import { COMMON_ES } from './languages/es/common.js';
+import { COMMON_FR } from './languages/fr/common.js';
 import { QUEST_DIALOGUE_EN } from './languages/en/questDialogue.js';
 import { QUEST_DIALOGUE_ES } from './languages/es/questDialogue.js';
+import { QUEST_DIALOGUE_FR } from './languages/fr/questDialogue.js';
 import { NPC_ENCOUNTERS_EN } from './languages/en/npcEncounters.js';
 import { NPC_ENCOUNTERS_ES } from './languages/es/npcEncounters.js';
+import { NPC_ENCOUNTERS_FR } from './languages/fr/npcEncounters.js';
 import { QUEST_STRINGS_EN } from './languages/en/questStrings.js';
 import { QUEST_STRINGS_ES } from './languages/es/questStrings.js';
+import { QUEST_STRINGS_FR } from './languages/fr/questStrings.js';
 import { FEATURE_STRINGS_EN } from './languages/en/featureStrings.js';
 import { FEATURE_STRINGS_ES } from './languages/es/featureStrings.js';
+import { FEATURE_STRINGS_FR } from './languages/fr/featureStrings.js';
 import { ACTOR_VOICE_ES } from './languages/es/actorVoice.js';
+import { ACTOR_VOICE_FR } from './languages/fr/actorVoice.js';
 import type {
   QuestTranslations,
   NpcTranslations,
@@ -47,6 +53,14 @@ class I18nManager {
       questStrings: QUEST_STRINGS_ES,
       featureStrings: FEATURE_STRINGS_ES,
       actorVoice: ACTOR_VOICE_ES,
+    },
+    fr: {
+      questDialogue: QUEST_DIALOGUE_FR,
+      npcEncounters: NPC_ENCOUNTERS_FR,
+      common: COMMON_FR,
+      questStrings: QUEST_STRINGS_FR,
+      featureStrings: FEATURE_STRINGS_FR,
+      actorVoice: ACTOR_VOICE_FR,
     },
   };
 
