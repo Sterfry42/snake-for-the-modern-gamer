@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   biomeCountsAs,
   biomeHasTag,
+  getBiomeDefinition,
   getBiomeClimateClass,
   getBiomesByFamily,
   getBiomeForRoom,
+  type BiomeId,
 } from '../../biomes.js';
 import { areBiomesCompatible } from '../biomeCompatibility.js';
 import { SeededBiomeMap, STARTER_BIOME_RADIUS } from '../biomeMap.js';
@@ -109,6 +111,26 @@ describe('seeded procedural biome map', () => {
     expect(getBiomeClimateClass('frozen-sea')).toBe('frigid');
   });
 
+  it('defines and reaches the world-expansion biomes', () => {
+    const expected: Array<{ id: BiomeId; roomId: string }> = [
+      { id: 'neon-underpass', roomId: '12,-2,0' },
+      { id: 'glass-desert', roomId: '-12,3,0' },
+      { id: 'titan-ribcage', roomId: '0,9,-1' },
+      { id: 'radioactive-orchard', roomId: '3,-12,0' },
+      { id: 'clockwork-quarry', roomId: '14,4,0' },
+    ];
+
+    for (const { id, roomId } of expected) {
+      const definition = getBiomeDefinition(id);
+      expect(definition.id).toBe(id);
+      expect(definition.title.length).toBeGreaterThan(0);
+      expect(definition.generation).toBeDefined();
+      expect(definition.transition).toBeDefined();
+      expect(definition.animalSpawnChance).toBeGreaterThanOrEqual(0);
+      expect(getBiomeForRoom(roomId).id).toBe(id);
+    }
+  });
+
   it('rejects direct hot-to-cold biome compatibility without a special transition', () => {
     const result = areBiomesCompatible(
       mapFor('compat').getBiomeForRoomId(roomId(40, 40, -3)),
@@ -124,4 +146,3 @@ describe('seeded procedural biome map', () => {
     expect(direct.reason).toBe('hot-cold-direct-adjacency');
   });
 });
-

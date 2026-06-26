@@ -34,7 +34,12 @@ export type BiomeId =
   | 'ember-caverns'
   | 'fungal-grotto'
   | 'root-buried-tunnels'
-  | 'ash-steppe';
+  | 'ash-steppe'
+  | 'neon-underpass'
+  | 'glass-desert'
+  | 'titan-ribcage'
+  | 'radioactive-orchard'
+  | 'clockwork-quarry';
 
 export type BiomeFamily =
   | 'forest'
@@ -877,6 +882,241 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     animalSpawnBias: { rabbit: 1, deer: 1, fox: 2, bird: 1, wolf: 1, bear: 0, fish: 0, snake: 2 },
     vegetationDensity: 5,
   },
+  'neon-underpass': {
+    id: 'neon-underpass',
+    title: 'Neon Underpass',
+    family: 'weird',
+    countsAs: ['town'],
+    tags: ['warm', 'civilized', 'dangerous', 'special'],
+    generation: {
+      minWidthRooms: 4,
+      maxWidthRooms: 10,
+      minHeightRooms: 4,
+      maxHeightRooms: 10,
+      baseWeight: 0.35,
+      idealTemperature: 0.2,
+      temperatureTolerance: 0.7,
+      idealMoisture: -0.05,
+      moistureTolerance: 0.75,
+      idealWeirdness: 0.75,
+      weirdnessTolerance: 0.35,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 18,
+      rarity: 'rare',
+    },
+    transition: OPEN_LAND_TRANSITION,
+    temperature: 'Electric',
+    dangerLevel: 6,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 186,
+    saturation: 0.42,
+    lightness: 0.17,
+    tintVariance: 0.026,
+    accentColor: 0xff4fd8,
+    enemyFireBias: 2,
+    enemyMoveBias: 1,
+    animalSpawnChance: 0.1,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 1,
+      bird: 1,
+      wolf: 1,
+      bear: 0,
+      fish: 0,
+      snake: 3,
+      raccoon: 3,
+      possum: 2,
+    },
+    vegetationDensity: 3,
+  },
+  'glass-desert': {
+    id: 'glass-desert',
+    title: 'Glass Desert',
+    family: 'desert',
+    tags: ['hot', 'dry', 'sparse', 'dangerous'],
+    generation: {
+      minWidthRooms: 6,
+      maxWidthRooms: 14,
+      minHeightRooms: 5,
+      maxHeightRooms: 12,
+      baseWeight: 0.55,
+      idealTemperature: 0.92,
+      temperatureTolerance: 0.3,
+      idealMoisture: -0.92,
+      moistureTolerance: 0.35,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 16,
+      rarity: 'rare',
+    },
+    transition: OPEN_LAND_TRANSITION,
+    temperature: 'Blinding',
+    dangerLevel: 8,
+    temperatureHazard: 'hot',
+    temperatureRate: 0.8,
+    hue: 46,
+    saturation: 0.18,
+    lightness: 0.3,
+    tintVariance: 0.018,
+    accentColor: 0xf5f4dc,
+    enemyFireBias: 1,
+    enemyMoveBias: 2,
+    animalSpawnChance: 0.07,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 1,
+      bird: 0,
+      wolf: 0,
+      bear: 0,
+      fish: 0,
+      snake: 3,
+      coyote: 2,
+      armadillo: 2,
+    },
+    vegetationDensity: 2,
+  },
+  'titan-ribcage': {
+    id: 'titan-ribcage',
+    title: 'Titan Ribcage',
+    family: 'cave',
+    tags: ['cold', 'dry', 'underground', 'dangerous', 'cave'],
+    generation: {
+      minWidthRooms: 5,
+      maxWidthRooms: 13,
+      minHeightRooms: 5,
+      maxHeightRooms: 13,
+      baseWeight: 0.5,
+      idealTemperature: -0.25,
+      temperatureTolerance: 0.65,
+      idealMoisture: -0.25,
+      moistureTolerance: 0.65,
+      idealWeirdness: 0.55,
+      weirdnessTolerance: 0.45,
+      allowedZ: 'below',
+      rarity: 'rare',
+    },
+    transition: CAVE_TRANSITION,
+    temperature: 'Marrow-Cold',
+    dangerLevel: 7,
+    temperatureHazard: 'cold',
+    temperatureRate: 0.25,
+    hue: 32,
+    saturation: 0.14,
+    lightness: 0.2,
+    tintVariance: 0.018,
+    accentColor: 0xe6d2b8,
+    enemyFireBias: 0,
+    enemyMoveBias: -1,
+    animalSpawnChance: 0.11,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 0,
+      wolf: 2,
+      bear: 3,
+      fish: 0,
+      snake: 2,
+    },
+    vegetationDensity: 1,
+  },
+  'radioactive-orchard': {
+    id: 'radioactive-orchard',
+    title: 'Radioactive Orchard',
+    family: 'forest',
+    tags: ['warm', 'humid', 'forest', 'dangerous', 'magical'],
+    generation: {
+      minWidthRooms: 5,
+      maxWidthRooms: 12,
+      minHeightRooms: 5,
+      maxHeightRooms: 12,
+      baseWeight: 0.45,
+      idealTemperature: 0.35,
+      temperatureTolerance: 0.55,
+      idealMoisture: 0.55,
+      moistureTolerance: 0.45,
+      idealWeirdness: 0.85,
+      weirdnessTolerance: 0.32,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 18,
+      rarity: 'rare',
+    },
+    transition: DENSE_FOREST_TRANSITION,
+    temperature: 'Glowing',
+    dangerLevel: 8,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 86,
+    saturation: 0.38,
+    lightness: 0.18,
+    tintVariance: 0.026,
+    accentColor: 0xb6ff3f,
+    enemyFireBias: 1,
+    enemyMoveBias: -1,
+    animalSpawnChance: 0.16,
+    animalSpawnBias: {
+      rabbit: 1,
+      deer: 1,
+      fox: 1,
+      bird: 1,
+      wolf: 2,
+      bear: 1,
+      fish: 0,
+      snake: 3,
+      frog: 3,
+      possum: 2,
+    },
+    vegetationDensity: 15,
+  },
+  'clockwork-quarry': {
+    id: 'clockwork-quarry',
+    title: 'Clockwork Quarry',
+    family: 'mountain',
+    tags: ['temperate', 'dry', 'high-altitude', 'civilized', 'dangerous'],
+    generation: {
+      minWidthRooms: 5,
+      maxWidthRooms: 11,
+      minHeightRooms: 5,
+      maxHeightRooms: 11,
+      baseWeight: 0.42,
+      idealTemperature: 0.05,
+      temperatureTolerance: 0.65,
+      idealMoisture: -0.35,
+      moistureTolerance: 0.55,
+      idealWeirdness: 0.55,
+      weirdnessTolerance: 0.45,
+      allowedZ: 'any',
+      minDistanceFromOrigin: 20,
+      rarity: 'rare',
+    },
+    transition: OPEN_LAND_TRANSITION,
+    temperature: 'Oiled',
+    dangerLevel: 7,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 214,
+    saturation: 0.16,
+    lightness: 0.19,
+    tintVariance: 0.018,
+    accentColor: 0xf0b94c,
+    enemyFireBias: 2,
+    enemyMoveBias: 0,
+    animalSpawnChance: 0.08,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 1,
+      bird: 2,
+      wolf: 1,
+      bear: 0,
+      fish: 0,
+      snake: 2,
+      eagle: 2,
+    },
+    vegetationDensity: 4,
+  },
 };
 
 function clamp01(value: number): number {
@@ -944,6 +1184,21 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
     return BIOMES['home-hearth'];
   }
   const [x = 0, y = 0, z = 0] = roomId.split(',').map(Number);
+  if (z < 0 && x >= -2 && x <= 4 && y >= 8 && y <= 12) {
+    return BIOMES['titan-ribcage'];
+  }
+  if (x >= 12 && x <= 16 && y >= -4 && y <= 1) {
+    return BIOMES['neon-underpass'];
+  }
+  if (x >= -18 && x <= -12 && y >= 1 && y <= 5) {
+    return BIOMES['glass-desert'];
+  }
+  if (x >= 1 && x <= 5 && y >= -14 && y <= -10) {
+    return BIOMES['radioactive-orchard'];
+  }
+  if (x >= 12 && x <= 18 && y >= 3 && y <= 8) {
+    return BIOMES['clockwork-quarry'];
+  }
   if (y >= -8 && y <= -5 && x >= -4 && x <= 2) {
     return BIOMES['jade-peak-province'];
   }

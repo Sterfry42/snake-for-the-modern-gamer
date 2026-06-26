@@ -298,6 +298,11 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'fungal-grotto': ['Sporeford', 'Mushgate', 'Glowcap Toll', 'Mycelwick', 'Grotmarket'],
   'root-buried-tunnels': ['Rootford', 'Loamgate', 'Underbough Toll', 'Taproot', 'Burrowmarket'],
   'ash-steppe': ['Ashford', 'Dustgate', 'Soot Toll', 'Greywick', 'Steppe Market'],
+  'neon-underpass': ['Neon Row', 'Tube Gate', 'Hotwire Toll', 'Glowford', 'Underpass Market'],
+  'glass-desert': ['Prismford', 'Mirrorgate', 'Shard Toll', 'Sunspike', 'Glassmarket'],
+  'titan-ribcage': ['Ribford', 'Marrowgate', 'Bone Toll', 'Ossuary Row', 'Titanmarket'],
+  'radioactive-orchard': ['Glowbranch', 'Radgate', 'Isotope Toll', 'Greenflash', 'Orchardmarket'],
+  'clockwork-quarry': ['Gearford', 'Brassgate', 'Cog Toll', 'Quarrywick', 'Pendulummarket'],
 };
 
 const PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;

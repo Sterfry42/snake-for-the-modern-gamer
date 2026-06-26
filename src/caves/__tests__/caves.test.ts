@@ -5,8 +5,14 @@ import { createWorldGenerationIdentity } from '../../world/generation/worldGener
 import { WorldService } from '../../world/worldService.js';
 import { findCaveEntranceCandidates, createCaveId } from '../caveEntrancePlacement.js';
 import { generateCave } from '../caveGenerator.js';
-import { getCaveTemplate, pickWeightedCaveTemplate } from '../caveTemplates.js';
+import {
+  CAVE_TEMPLATE_TABLE,
+  CAVE_TEMPLATES,
+  getCaveTemplate,
+  pickWeightedCaveTemplate,
+} from '../caveTemplates.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import type { CaveTemplateId } from '../caveTypes.js';
 
 function baseRoom(layout: string[]): RoomSnapshot {
   return {
@@ -131,6 +137,49 @@ describe('cave determinism', () => {
     expect(result.room.biomeTitle).toBe('Caffeinated Apple Rush');
     expect(result.room.cave?.templateId).toBe('caffeinatedAppleRush');
     expect(hasDryPath(result.room.layout, result.spawn, result.exit)).toBe(true);
+  });
+
+  it('registers the world-expansion cave templates in the weighted table', () => {
+    const newTemplateIds: CaveTemplateId[] = [
+      'targetingGallery',
+      'echoMaze',
+      'floodedTreasury',
+      'shrineOfBadProbability',
+      'fossilDigSite',
+    ];
+    const weightedIds = new Set(CAVE_TEMPLATE_TABLE.map((entry) => entry.id));
+
+    for (const templateId of newTemplateIds) {
+      expect(CAVE_TEMPLATES[templateId]).toBeDefined();
+      expect(weightedIds.has(templateId)).toBe(true);
+      expect(CAVE_TEMPLATES[templateId].exitMode).toMatch(/manual|rewardClaimed|combatClear/);
+    }
+    expect(weightedIds.has('goblinTollTunnel' as CaveTemplateId)).toBe(false);
+  });
+
+  it.each([
+    'targetingGallery',
+    'echoMaze',
+    'floodedTreasury',
+    'shrineOfBadProbability',
+    'fossilDigSite',
+  ] as CaveTemplateId[])('generates %s with a completion path', (templateId) => {
+    const result = generateCave({
+      caveId: `cave:${templateId}:0`,
+      parentRoomId: '8,0,0',
+      templateId,
+      grid: defaultGameConfig.grid,
+      worldSeed: `world-expansion-${templateId}`,
+      returnPosition: { x: 8, y: 8 },
+    });
+
+    expect(result.room.cave?.templateId).toBe(templateId);
+    expect(result.room.layout[result.exit.y]?.[result.exit.x]).toBe('X');
+    expect(hasDryPath(result.room.layout, result.spawn, result.exit)).toBe(true);
+    if (getCaveTemplate(templateId).exitMode === 'rewardClaimed') {
+      expect(result.room.treasure).toBeDefined();
+      expect(hasDryPath(result.room.layout, result.spawn, result.room.treasure!)).toBe(true);
+    }
   });
 });
 
