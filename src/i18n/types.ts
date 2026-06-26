@@ -8,6 +8,7 @@ export interface LanguageConfig {
 export const AVAILABLE_LANGUAGES: readonly LanguageConfig[] = [
   { id: 'en', code: 'en', nativeName: 'English', name: 'English' },
   { id: 'es', code: 'es', nativeName: 'Español', name: 'Spanish' },
+  { id: 'fr', code: 'fr', nativeName: 'Français', name: 'French' },
 ];
 
 export type LanguageId = (typeof AVAILABLE_LANGUAGES)[number]['id'];

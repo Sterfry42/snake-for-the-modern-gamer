@@ -97,6 +97,7 @@ import {
 } from '../ui/spriteRecipes/molemanRecipe.js';
 import { getQuestDialogue } from '../quests/questDialogue.js';
 import { i18n } from '../i18n/i18nManager.js';
+import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import { createMobileControls, type MobileControls } from '../ui/mobileControls.js';
 import {
   getPrimaryBindingLabelForDisplay,
@@ -1402,6 +1403,7 @@ const CREDITS_CONTENT: string[] = [
   '',
   '🇺🇸  English  (English)',
   '🇪🇸  Español  (Spanish)',
+  '🇫🇷  Français  (French)',
   '',
   '',
   '━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -18429,7 +18431,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (this.score < cost) {
         return {
           ok: false,
-          message: `Spanish language costs ${cost} score.`,
+          message: `Language selector costs ${cost} score.`,
           color: '#ff6b6b',
         };
       }
@@ -18438,16 +18440,20 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
     }
 
-    if (!this.snakeCosmetics.languageSet) {
-      i18n.setLanguage('es');
-      this.snakeGame.saveLanguagePreference('es');
-      this.snakeCosmetics.languageSet = true;
-    }
+    const langs = AVAILABLE_LANGUAGES;
+    const current = i18n.getCurrentLanguage();
+    const currentIdx = langs.findIndex((l) => l.id === current);
+    const nextIdx = (currentIdx + 1) % langs.length;
+    const nextLang = langs[nextIdx];
+
+    i18n.setLanguage(nextLang.id);
+    this.snakeGame.saveLanguagePreference(nextLang.id);
+    this.snakeCosmetics.languageSet = true;
 
     this.isDirty = true;
     return {
       ok: true,
-      message: 'Language set to Spanish.',
+      message: `Language set to ${nextLang.name}.`,
       color: '#5dd6a2',
     };
   }
