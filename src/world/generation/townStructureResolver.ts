@@ -1,4 +1,5 @@
 import type { GridConfig } from '../../config/gameConfig.js';
+import { biomeCountsAs } from '../biomes.js';
 import type { BiomeMap } from './biomeMap.js';
 import {
   formatRoomId,
@@ -289,7 +290,7 @@ export class MultiRoomStructureResolver {
         z: placement.anchor.z,
       });
       const biome = this.biomeMap.getBiomeForRoomId(roomId);
-      if (biome.id === 'sunken-ocean' || biome.id === 'elderwood-maze') {
+      if (biomeCountsAs(biome.id, 'ocean') || biome.id === 'elderwood-maze') {
         return false;
       }
     }

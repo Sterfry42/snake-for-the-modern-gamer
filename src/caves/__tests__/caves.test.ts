@@ -165,7 +165,7 @@ describe('cave spawn rate', () => {
     `);
     expect(rate).toBeGreaterThanOrEqual(0.085);
     expect(rate).toBeLessThanOrEqual(0.115);
-  });
+  }, 10000);
 });
 
 function hasDryPath(

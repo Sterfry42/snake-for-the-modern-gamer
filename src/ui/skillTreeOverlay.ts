@@ -5302,25 +5302,38 @@ export class SkillTreeOverlay {
     view: SpecialStatsView,
   ): Array<{ label: string; value: string }> {
     const core = this.buildSpecialCoreDerivedRows(view);
+    const findLine = (id: string) =>
+      view.sections.flatMap((section) => section.lines).find((line) => line.id === id);
+    const movementSpeed = findLine('movement-speed');
+    const maxHearts = findLine('max-hearts');
+    const invulnerability = findLine('invulnerability-window');
+    const hazardStability = findLine('hazard-stability');
     return [
-      core.find((row) => row.id === 'speed') ?? { id: 'speed', label: 'Speed', value: '+0%' },
-      core.find((row) => row.id === 'max-hearts') ?? {
+      movementSpeed ?? core.find((row) => row.id === 'speed') ?? {
+        id: 'speed',
+        label: 'Speed',
+        value: '+0%',
+      },
+      core.find((row) => row.id === 'max-hearts') ?? maxHearts ?? {
         id: 'max-hearts',
         label: 'Hearts',
         value: '3',
       },
-      core.find((row) => row.id === 'apple-invulnerability') ?? {
+      invulnerability ?? core.find((row) => row.id === 'apple-invulnerability') ?? {
         id: 'apple-invulnerability',
-        label: 'Apple Invuln.',
+        label: 'Invuln.',
         value: '0.0s',
       },
-      core.find((row) => row.id === 'frost-resistance') ?? {
-        id: 'frost-resistance',
-        label: 'Frost Resist',
-        value: '0%',
+      hazardStability ?? core.find((row) => row.id === 'frost-resistance') ?? {
+        id: 'hazard-stability',
+        label: 'Hazard Timer',
+        value: '100%',
       },
     ].map((row) => {
+      if (row.id === 'movement-speed') return { ...row, label: 'Speed' };
       if (row.id === 'max-hearts') return { ...row, label: 'Hearts' };
+      if (row.id === 'invulnerability-window') return { ...row, label: 'Invuln.' };
+      if (row.id === 'hazard-stability') return { ...row, label: 'Hazard Timer' };
       if (row.id === 'apple-invulnerability') return { ...row, label: 'Apple Invuln.' };
       if (row.id === 'frost-resistance') return { ...row, label: 'Frost Resist' };
       return row;
@@ -5480,9 +5493,31 @@ export class SkillTreeOverlay {
         title: 'Core',
         accent: uiColors.accentCore,
         rows: compact([
-          fromCore('speed'),
-          fromCore('max-hearts'),
+          fromSection('movement-speed', 'Speed'),
+          fromSection('turn-forgiveness'),
+          fromSection('max-hearts', 'Max Hearts'),
+          fromSection('invulnerability-window'),
           fromCore('post-hit-invulnerability'),
+        ]),
+      },
+      {
+        id: 'combat',
+        title: 'Combat',
+        accent: uiColors.accentCommand,
+        rows: compact([
+          fromSection('melee-damage'),
+          fromSection('melee-crit'),
+          fromSection('projectile-crit'),
+        ]),
+      },
+      {
+        id: 'weapons',
+        title: 'Weapons',
+        accent: uiColors.accentUtility,
+        rows: compact([
+          fromSection('weapon-cooldown'),
+          fromSection('lock-on-range'),
+          fromSection('lock-on-speed'),
         ]),
       },
       {
@@ -5504,8 +5539,11 @@ export class SkillTreeOverlay {
         title: 'Survival',
         accent: uiColors.accentSurvival,
         rows: compact([
+          fromSection('hazard-stability'),
+          fromSection('environmental-resistance'),
           fromCore('frost-resistance'),
           fromCore('heat-resistance'),
+          fromSection('rare-outcomes'),
           fromSection('damage-reduction'),
           fromSection('powerup-invulnerability'),
         ]),

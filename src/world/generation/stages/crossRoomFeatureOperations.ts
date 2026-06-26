@@ -1,17 +1,18 @@
 import type { GridConfig } from '../../../config/gameConfig.js';
 import { vectorKey } from '../../../core/math.js';
-import type { RandomGenerator } from '../../../core/rng.js';
+import { biomeCountsAs } from '../../biomes.js';
 import type { BiomeMap } from '../biomeMap.js';
 import type { ProtectedCells, RoomGenerationContext } from '../types.js';
+import type { WorldGenerationIdentity } from '../worldGenerationIdentity.js';
 
 export class CrossRoomFeatureOperations {
   private readonly worldSalt: number;
 
   constructor(
     private readonly biomeMap: BiomeMap,
-    rng: RandomGenerator,
+    identity: WorldGenerationIdentity,
   ) {
-    this.worldSalt = Math.floor(rng() * 0xffffffff);
+    this.worldSalt = identity.barrierSalt ^ identity.riverSalt;
   }
 
   place(context: RoomGenerationContext): void {
@@ -83,7 +84,7 @@ export class CrossRoomFeatureOperations {
       involvedRooms.some(
         ([x, y]) =>
           this.isSpecialHouseRoom(x, y, roomZ) ||
-          this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id === 'sunken-ocean',
+          biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id, 'ocean'),
       )
     ) {
       return null;
@@ -185,7 +186,7 @@ export class CrossRoomFeatureOperations {
     if (!river || river.orientation !== orientation) {
       return;
     }
-    if (this.biomeMap.getBiomeForRoomId(`${roomX},${roomY},${roomZ}`).id === 'sunken-ocean') {
+    if (biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${roomX},${roomY},${roomZ}`).id, 'ocean')) {
       return;
     }
 
@@ -280,7 +281,7 @@ export class CrossRoomFeatureOperations {
     length: number;
     bridgeIndex: number;
   } | null {
-    if (this.biomeMap.getBiomeForRoomId(`${anchorX},${anchorY},${roomZ}`).id === 'sunken-ocean') {
+    if (biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${anchorX},${anchorY},${roomZ}`).id, 'ocean')) {
       return null;
     }
     if (this.riverTouchesStartingArea(anchorX, anchorY, roomZ)) {

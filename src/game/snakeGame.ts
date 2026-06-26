@@ -200,6 +200,7 @@ import { getFishByBiome } from '../fishing/fishDefinitions.js';
 import { SpecialStatsService } from '../stats/specialStatsService.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import type { SpecialGameplayModifiers } from '../stats/specialGameplayModifiers.js';
 import {
   addLifetimeScore,
   createDefaultLevelProgressionState,
@@ -7290,6 +7291,10 @@ export class SnakeGame implements QuestRuntime {
     return this.specialStats.getFishingModifiers();
   }
 
+  getSpecialGameplayModifiers(): SpecialGameplayModifiers {
+    return this.specialStats.getGameplayModifiers();
+  }
+
   getRunArtifacts(): ArtifactDefinition[] {
     const ids = this.getFlag<string[]>('artifacts.run') ?? [];
     return ids
@@ -12798,14 +12803,15 @@ export class SnakeGame implements QuestRuntime {
     const onRelief = room.temperatureReliefs?.find(
       (relief) => relief.x === localX && relief.y === localY,
     );
+    const specialGameplay = this.specialStats.getGameplayModifiers();
     const thresholdMs = Math.max(
       1000,
       Number(this.getFlag<number>('player.temperatureThresholdMs') ?? 10000),
-    );
+    ) * specialGameplay.hazardTimerScalar;
     const damageIntervalMs = Math.max(
       1000,
       Number(this.getFlag<number>('player.temperatureDamageIntervalMs') ?? 5000),
-    );
+    ) * specialGameplay.hazardTimerScalar;
     const heatResistance = Math.max(
       0,
       Number(this.getFlag<number>('equipment.heatResistance') ?? 0),
@@ -12827,7 +12833,8 @@ export class SnakeGame implements QuestRuntime {
     const exposureRate = Math.max(
       0.05,
       ((biome.temperatureRate ?? 1) + (isAtPeakCold ? peakColdRate : 0)) *
-        Math.max(0, 1 - resistance),
+        Math.max(0, 1 - resistance) *
+        specialGameplay.hazardDamageScalar,
     );
     let exposureMs = Math.max(0, Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0));
     let damageProgressMs = Math.max(

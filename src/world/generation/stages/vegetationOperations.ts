@@ -1,5 +1,5 @@
 import type { RoomGenerationContext } from '../types.js';
-import { getBiomeDefinition } from '../../biomes.js';
+import { biomeCountsAs, getBiomeDefinition } from '../../biomes.js';
 import { hashWorldCoordinate, hashChance } from '../worldHash.js';
 import { vectorKey } from '../../../core/math.js';
 import type { VegetationType } from '../../types.js';
@@ -56,9 +56,9 @@ export class VegetationOperations {
     if (context.townMembership || context.townAdjacency) return;
 
     // Exclusion: elderwood-maze (has its own tree tile rendering)
-    // Exclusion: sunken-ocean (water tiles throughout)
+    // Exclusion: ocean family (water tiles throughout)
     const biomeId = context.palette.biomeId;
-    if (biomeId === 'elderwood-maze' || biomeId === 'sunken-ocean') return;
+    if (biomeId === 'elderwood-maze' || biomeCountsAs(biomeId, 'ocean')) return;
 
     // Get density from biome definition
     const biome = getBiomeDefinition(biomeId);

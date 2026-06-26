@@ -3079,6 +3079,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   applySpecialStatPreview(): void {
     this.snakeGame.applySpecialStatPreview();
+    this.applyEquipmentEffects();
     this.isDirty = true;
     this.skillTree?.getOverlay().refresh();
   }
@@ -4877,6 +4878,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (code === 'special10' || code === 'special' || code === 'stats10') {
       this.snakeGame.setAllSpecialStatsToMax();
+      this.applyEquipmentEffects();
       this.isDirty = true;
       this.skillTree.getOverlay().refresh();
       return {
@@ -7422,6 +7424,7 @@ export default class SnakeScene extends Phaser.Scene {
     let appleScorePenalty = 0;
     let hazardMapSense = 0;
     let radiationTimerScalar = 1;
+    const specialGameplay = this.snakeGame.getSpecialGameplayModifiers();
 
     for (const [, itemId] of equipped) {
       const item = getItem(itemId) as any;
@@ -7570,9 +7573,14 @@ export default class SnakeScene extends Phaser.Scene {
     if (orangeJuiceSpeedBoost > 0) {
       tickScalar *= 0.75;
     }
+    invulnBonus += specialGameplay.invulnerabilityTickBonus;
 
     // Apply speed scalar via skill system
     this.skillTree.applyActionStepIntervalScalar(tickScalar, 'equipment:boots');
+    this.skillTree.applyActionStepIntervalScalar(
+      specialGameplay.movementTickDelayScalar,
+      'special:agility',
+    );
 
     // Set equipment flags for game logic to combine with skill-based flags
     this.setFlag('equipment.wallSenseRadiusBonus', wallSenseBonus > 0 ? wallSenseBonus : undefined);
@@ -7600,10 +7608,33 @@ export default class SnakeScene extends Phaser.Scene {
       appleScorePenalty > 0 ? appleScorePenalty : undefined,
     );
     this.setFlag('equipment.hazardMapSense', hazardMapSense > 0 ? hazardMapSense : undefined);
+    const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
+    const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const baseMaxHealth = Math.max(3, currentMaxHealth - previousSpecialHeartBonus);
+    const nextMaxHealth = baseMaxHealth + specialGameplay.maxHeartBonus;
+    const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
+    this.setFlag(
+      'special.maxHeartBonus',
+      specialGameplay.maxHeartBonus !== 0 ? specialGameplay.maxHeartBonus : undefined,
+    );
+    this.setFlag('player.maxHealth', nextMaxHealth);
+    if (currentHealth >= currentMaxHealth && nextMaxHealth > currentMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    } else if (currentHealth > nextMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    }
     this.setFlag(
       'equipment.radiationTimerScalar',
-      radiationTimerScalar !== 1 ? radiationTimerScalar : undefined,
+      radiationTimerScalar * specialGameplay.hazardTimerScalar !== 1
+        ? radiationTimerScalar * specialGameplay.hazardTimerScalar
+        : undefined,
     );
+    this.setFlag('special.weaponCooldownScalar', specialGameplay.weaponCooldownScalar);
+    this.setFlag('special.lockOnRangeBonus', specialGameplay.lockOnRangeBonus);
+    this.setFlag('special.lockOnTimeScalar', specialGameplay.lockOnTimeScalar);
+    this.setFlag('special.projectileCritChance', specialGameplay.projectileCritChance);
+    this.setFlag('special.rareLootScalar', specialGameplay.rareLootScalar);
+    this.setFlag('special.weirdOutcomeChanceBonus', specialGameplay.weirdOutcomeChanceBonus);
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();

@@ -41,8 +41,16 @@ export class SafetyOperations {
   }
 
   validate(context: RoomGenerationContext): void {
-    context.canvas.ensureHardEntranceRunups(5);
-    for (const plan of context.reservedEdgeAccess ?? []) {
+    if (!context.town && !context.townPerimeter) {
+      context.canvas.ensureHardEntranceRunups(5);
+    }
+    const edgeAccessPlans =
+      context.town || context.townPerimeter
+        ? (context.reservedEdgeAccess ?? []).filter(
+            (plan) => plan.reason === 'townGate' || plan.reason === 'townExit',
+          )
+        : (context.reservedEdgeAccess ?? []);
+    for (const plan of edgeAccessPlans) {
       carveEdgeOpening(context.layout, context.grid, plan);
     }
     context.spawnGuard?.clear(context.canvas.layout);

@@ -2,6 +2,7 @@ import type { GridConfig } from '../../config/gameConfig.js';
 import type { RoomSnapshot } from '../types.js';
 import type { EdgeAccessPlan } from './edgeAccess.js';
 import type { TownRoomMembership } from './multiRoomStructures.js';
+import type { TransitionContract } from './transitionContracts.js';
 import type { TerrainCanvas } from './terrainCanvas.js';
 import type { VegetationInstance } from '../types.js';
 import type { BulletTrainStation } from '../bulletTrainTypes.js';
@@ -76,6 +77,7 @@ export interface RoomGenerationContext {
   bulletTrainStation?: BulletTrainStation;
   townMembership?: TownRoomMembership | null;
   townAdjacency?: TownRoomMembership | null;
+  transitionContracts?: TransitionContract[];
   reservedEdgeAccess?: EdgeAccessPlan[];
   protectedCells?: ReadonlySet<string>;
   palette: RoomGenerationPalette;

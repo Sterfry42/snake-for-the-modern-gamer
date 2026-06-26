@@ -48,6 +48,22 @@ function generateRoomsInOrder(roomIds: readonly string[]) {
   return roomIds.map((roomId) => generator.generate(roomId, defaultGameConfig.grid));
 }
 
+function townFacingEdgeTiles(roomLayout: readonly string[], side: EdgeSide): string[] {
+  const { cols, rows } = defaultGameConfig.grid;
+  if (side === 'north') return roomLayout[0]?.split('') ?? [];
+  if (side === 'south') return roomLayout[rows - 1]?.split('') ?? [];
+  if (side === 'west') return roomLayout.map((row) => row[0] ?? '#');
+  return roomLayout.map((row) => row[cols - 1] ?? '#');
+}
+
+function expectedTownGateIndexes(side: EdgeSide): Set<number> {
+  const length = side === 'north' || side === 'south'
+    ? defaultGameConfig.grid.cols
+    : defaultGameConfig.grid.rows;
+  const center = Math.floor(length / 2);
+  return new Set([center - 2, center - 1, center, center + 1, center + 2]);
+}
+
 describe('multi-room structure generation', () => {
   it('resolves physical town districts without generation order dependence', () => {
     const squareId = findTownRoom();
@@ -152,6 +168,38 @@ describe('multi-room structure generation', () => {
     for (const key of cellsForEdgeRunup(defaultGameConfig.grid, exitPlan)) {
       const [x = 0, y = 0] = key.split(',').map(Number);
       expect(['#', '~', 'S']).not.toContain(outsiderExit.layout[y]?.[x]);
+    }
+  });
+
+  it('keeps town perimeter walls continuous except at authored gate openings', () => {
+    const squareId = findTownRoom();
+    const resolver = createResolver();
+    const anchor = resolver.getTownMembership(squareId)!.placement.anchor;
+    const roomIds: string[] = [];
+    for (let y = anchor.y - 1; y <= anchor.y + 4; y += 1) {
+      for (let x = anchor.x - 1; x <= anchor.x + 4; x += 1) {
+        roomIds.push(`${x},${y},${anchor.z}`);
+      }
+    }
+    const rooms = generateRoomsInOrder(roomIds);
+
+    for (const room of rooms) {
+      const adjacency = resolver.getTownAdjacency(room.id);
+      if (!room.townPerimeter || !adjacency) {
+        continue;
+      }
+      const openingAllowed = Boolean(adjacency.isEntranceApproach || adjacency.isExitApproach);
+      for (const side of room.townPerimeter.sidesFacingTown ?? []) {
+        const edgeTiles = townFacingEdgeTiles(room.layout, side);
+        const gateIndexes = expectedTownGateIndexes(side);
+        edgeTiles.forEach((tile, index) => {
+          if (openingAllowed && side === adjacency.adjacentSideFacingTown && gateIndexes.has(index)) {
+            expect(tile).not.toBe('#');
+            return;
+          }
+          expect(tile).toBe('#');
+        });
+      }
     }
   });
 

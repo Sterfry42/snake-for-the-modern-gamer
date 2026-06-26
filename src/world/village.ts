@@ -34,6 +34,14 @@ const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {
     'Blossom Rest',
   ],
   'liberty-badlands': ['Dustfork', 'Eaglegate', 'Bellrock', 'Pie Junction', 'Vacancy Wells'],
+  rainforest: ['Rainwake', 'Vine Rest', 'The Green Canopy', 'Frogcross', 'Mist Hollow'],
+  'wintergreen-forest': ['Pinewake', 'Frost Rest', 'The Needle Grove', 'Snowcross', 'Winter Hollow'],
+  'warm-coast': ['Coral Wake', 'Palm Rest', 'The Shell Parish', 'Lagooncross', 'Sun Hollow'],
+  'frozen-sea': ['Ice Wake', 'Floe Rest', 'The White Chapel', 'Glaciercross', 'Brine Hollow'],
+  'ember-caverns': ['Coalwake', 'Magma Rest', 'The Red Vault', 'Cindercross', 'Glow Hollow'],
+  'fungal-grotto': ['Sporewake', 'Glowcap Rest', 'The Soft Vault', 'Mushcross', 'Grotto Hollow'],
+  'root-buried-tunnels': ['Rootwake Below', 'Loam Rest', 'The Underbough', 'Tapcross', 'Burrow Hollow'],
+  'ash-steppe': ['Ashwake Flats', 'Soot Rest', 'The Grey Measure', 'Dustcross', 'Steppe Hollow'],
 } as const;
 
 const VILLAGER_NAMES = [
