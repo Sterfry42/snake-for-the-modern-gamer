@@ -11,6 +11,7 @@ import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
 import { saveManager } from '../game/saveManager.js';
 import { i18n } from '../i18n/i18nManager.js';
+import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
 import type { FactionCardView } from '../factions/factions.js';
@@ -1990,8 +1991,10 @@ export class SkillTreeOverlay {
         action: () => this.scene.purchaseOrToggleMinimap(),
       },
       {
-        label: 'Spanish',
-        status: !state.languageSelected ? '200' : i18n.getCurrentLanguage() === 'es' ? 'ON' : 'OFF',
+        label: 'Language',
+        status: !state.languageSelected
+          ? '200'
+          : AVAILABLE_LANGUAGES.find((l) => l.id === i18n.getCurrentLanguage())?.nativeName ?? 'EN',
         action: () => this.scene.toggleLanguage(),
       },
     ];
