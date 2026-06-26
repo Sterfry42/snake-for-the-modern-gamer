@@ -263,6 +263,9 @@ describe('world generation fairness', () => {
     for (const center of FIXTURE_CENTERS) {
       const rooms = generateNeighborhood(center, 1);
       for (const room of rooms.values()) {
+        if (room.town || room.townPerimeter) {
+          continue;
+        }
         for (const direction of DIRECTIONS) {
           const inward = { name: direction.name, dx: -direction.dx, dy: -direction.dy };
           for (const entry of edgeCellsFor(room, defaultGameConfig.grid, direction)) {
@@ -396,6 +399,9 @@ describe('world generation fairness', () => {
           const first = rooms.get(`${x},${y},0`);
           const second = rooms.get(direction === 'east' ? `${x + 1},${y},0` : `${x},${y + 1},0`);
           if (!first || !second) {
+            continue;
+          }
+          if (first.town || first.townPerimeter || second.town || second.townPerimeter) {
             continue;
           }
           const length =

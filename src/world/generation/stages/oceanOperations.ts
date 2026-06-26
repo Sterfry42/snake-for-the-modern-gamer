@@ -1,5 +1,6 @@
 import type { GridConfig } from '../../../config/gameConfig.js';
 import type { RandomGenerator } from '../../../core/rng.js';
+import { biomeCountsAs } from '../../biomes.js';
 import type { BiomeMap } from '../biomeMap.js';
 
 export class OceanOperations {
@@ -32,7 +33,7 @@ export class OceanOperations {
   } {
     const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
     const isOcean = (x: number, y: number) =>
-      this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id === 'sunken-ocean';
+      biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id, 'ocean');
     return {
       north: !isOcean(roomX, roomY - 1),
       south: !isOcean(roomX, roomY + 1),
@@ -112,7 +113,7 @@ export class OceanOperations {
   }
 
   private isDeepOceanRoom(roomX: number, roomY: number, roomZ: number): boolean {
-    if (this.biomeMap.getBiomeForRoomId(`${roomX},${roomY},${roomZ}`).id !== 'sunken-ocean') {
+    if (!biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${roomX},${roomY},${roomZ}`).id, 'ocean')) {
       return false;
     }
     const shores = this.getOceanTransitionShores(`${roomX},${roomY},${roomZ}`);

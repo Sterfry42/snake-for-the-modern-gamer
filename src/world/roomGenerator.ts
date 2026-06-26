@@ -1,7 +1,8 @@
 import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
+import { biomeCountsAs } from './biomes.js';
 import type { RoomSnapshot } from './types.js';
-import { CoordinateBiomeMap } from './generation/biomeMap.js';
+import { SeededBiomeMap } from './generation/biomeMap.js';
 import { RoomGenerationPipeline } from './generation/roomGenerationPipeline.js';
 import type { RoomGenerationContext } from './generation/types.js';
 import { TerrainCanvas } from './generation/terrainCanvas.js';
@@ -19,10 +20,12 @@ import {
   createWorldGenerationIdentity,
   type WorldGenerationIdentity,
 } from './generation/worldGenerationIdentity.js';
+import { TransitionContractResolver } from './generation/transitionContracts.js';
+import { cellsForEdgeRunup, mergeProtectedCells } from './generation/edgeAccess.js';
 
 export class RoomGenerator {
   private readonly pipeline: RoomGenerationPipeline;
-  private readonly biomeMap = new CoordinateBiomeMap();
+  private readonly biomeMap: SeededBiomeMap;
   private readonly grid: GridConfig;
   private readonly config: WorldConfig;
   private readonly rng: RandomGenerator;
@@ -34,6 +37,7 @@ export class RoomGenerator {
   private readonly roomArchetypeOperations: RoomArchetypeOperations;
   private readonly safetyOperations: SafetyOperations;
   private readonly vegetationOperations: VegetationOperations;
+  private readonly transitionResolver: TransitionContractResolver;
 
   constructor(
     gridOrConfig: GridConfig | WorldConfig,
@@ -51,12 +55,21 @@ export class RoomGenerator {
       ? (rngOrIdentity as WorldGenerationIdentity | undefined)
       : identity;
     this.worldGenerationIdentity = resolvedIdentity ?? createWorldGenerationIdentity();
+    this.biomeMap = new SeededBiomeMap(this.worldGenerationIdentity);
+    this.transitionResolver = new TransitionContractResolver(
+      this.worldGenerationIdentity,
+      this.biomeMap,
+      this.grid,
+    );
     this.structureResolver = new MultiRoomStructureResolver(
       this.worldGenerationIdentity,
       this.biomeMap,
       this.grid,
     );
-    this.crossRoomFeatureOperations = new CrossRoomFeatureOperations(this.biomeMap, this.rng);
+    this.crossRoomFeatureOperations = new CrossRoomFeatureOperations(
+      this.biomeMap,
+      this.worldGenerationIdentity,
+    );
     this.forestOperations = new ForestOperations(this.biomeMap);
     this.oceanOperations = new OceanOperations(this.biomeMap, this.rng);
     this.roomArchetypeOperations = new RoomArchetypeOperations(this.config, this.rng);
@@ -73,7 +86,7 @@ export class RoomGenerator {
     const canvas = new TerrainCanvas(grid);
     const portals: RoomSnapshot['portals'] = [];
     const palette = this.biomeMap.createPalette(roomId);
-    const isOcean = palette.biomeId === 'sunken-ocean';
+    const isOcean = biomeCountsAs(palette.biomeId, 'ocean');
     const isDenseForest = palette.biomeId === 'elderwood-maze';
     const isJadePeak = palette.biomeId === 'jade-peak-province';
     const isLibertyBadlands = palette.biomeId === 'liberty-badlands';
@@ -133,8 +146,16 @@ export class RoomGenerator {
   }
 
   resolveBiomeMap(_context: RoomGenerationContext): void {
-    // Current biome decisions are resolved when the context is created.
-    // Keeping this stage explicit gives the randomized BiomeMap a stable hook.
+    const context = _context;
+    context.transitionContracts = this.transitionResolver.resolveForRoom(context.roomId);
+    const reservedAccess = context.transitionContracts.map((contract) =>
+      this.transitionResolver.toEdgeAccessPlan(contract),
+    );
+    context.reservedEdgeAccess = [...(context.reservedEdgeAccess ?? []), ...reservedAccess];
+    context.protectedCells = mergeProtectedCells(
+      context.protectedCells,
+      ...reservedAccess.map((plan) => cellsForEdgeRunup(context.grid, plan)),
+    );
   }
 
   resolveMultiRoomStructures(context: RoomGenerationContext): void {

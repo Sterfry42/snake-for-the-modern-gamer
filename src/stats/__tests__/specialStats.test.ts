@@ -25,6 +25,7 @@ import {
 } from '../archaeologySpecial.js';
 import { getSocialSpecialModifiers } from '../socialSpecial.js';
 import { SpecialStatsService } from '../specialStatsService.js';
+import { getSpecialGameplayModifiers } from '../specialGameplayModifiers.js';
 import {
   getLevelProgressionView,
   createDefaultLevelProgressionState,
@@ -68,6 +69,24 @@ describe('SPECIAL stats', () => {
 
   it('keeps first-pass displayed domains neutral at all 5s', () => {
     const stats = createDefaultSpecialStats();
+    expect(getSpecialGameplayModifiers(stats)).toEqual({
+      movementTickDelayScalar: 1,
+      turnBufferTicks: 0,
+      maxHeartBonus: 0,
+      invulnerabilityTickBonus: 0,
+      hazardDamageScalar: 1,
+      hazardTimerScalar: 1,
+      meleeDamageBonus: 0,
+      meleeCritChance: 0,
+      weaponCooldownScalar: 1,
+      lockOnRangeBonus: 0,
+      lockOnTimeScalar: 1,
+      projectileCritChance: 0,
+      shopPriceScalar: 1,
+      fineScalar: 1,
+      rareLootScalar: 1,
+      weirdOutcomeChanceBonus: 0,
+    });
     expect(getTreasureDiscoveryChance(stats)).toBe(BASE_TREASURE_DISCOVERY_CHANCE);
     expect(getPowerupDiscoveryChance(stats)).toBe(BASE_POWERUP_DISCOVERY_CHANCE);
     expect(getAnimalBonusDropChance(stats)).toBe(0);
@@ -93,6 +112,51 @@ describe('SPECIAL stats', () => {
     });
   });
 
+  it('derives clamped gameplay modifiers from SPECIAL build identity', () => {
+    const agile = getSpecialGameplayModifiers({ ...createDefaultSpecialStats(), agility: 10 });
+    const clumsy = getSpecialGameplayModifiers({ ...createDefaultSpecialStats(), agility: 1 });
+    const perceptive = getSpecialGameplayModifiers({
+      ...createDefaultSpecialStats(),
+      perception: 10,
+    });
+    const technical = getSpecialGameplayModifiers({
+      ...createDefaultSpecialStats(),
+      intelligence: 10,
+    });
+    const stubborn = getSpecialGameplayModifiers({
+      ...createDefaultSpecialStats(),
+      endurance: 10,
+    });
+    const frail = getSpecialGameplayModifiers({ ...createDefaultSpecialStats(), endurance: 1 });
+    const strong = getSpecialGameplayModifiers({ ...createDefaultSpecialStats(), strength: 10 });
+    const weak = getSpecialGameplayModifiers({ ...createDefaultSpecialStats(), strength: 1 });
+    const lucky = getSpecialGameplayModifiers({ ...createDefaultSpecialStats(), luck: 10 });
+    const unlucky = getSpecialGameplayModifiers({ ...createDefaultSpecialStats(), luck: 1 });
+
+    expect(agile.movementTickDelayScalar).toBeCloseTo(1 / 1.5);
+    expect(agile.turnBufferTicks).toBe(4);
+    expect(clumsy.movementTickDelayScalar).toBeCloseTo(1 / 0.65);
+    expect(clumsy.turnBufferTicks).toBe(-1);
+    expect(perceptive.lockOnRangeBonus).toBe(10);
+    expect(technical.lockOnTimeScalar).toBe(0.5);
+    expect(technical.weaponCooldownScalar).toBeCloseTo(0.7);
+    expect(stubborn.maxHeartBonus).toBe(4);
+    expect(stubborn.invulnerabilityTickBonus).toBe(30);
+    expect(stubborn.hazardDamageScalar).toBeCloseTo(0.55);
+    expect(stubborn.hazardTimerScalar).toBe(1.5);
+    expect(frail.maxHeartBonus).toBe(-2);
+    expect(frail.hazardDamageScalar).toBeCloseTo(1.36);
+    expect(frail.hazardTimerScalar).toBeCloseTo(0.6);
+    expect(strong.meleeDamageBonus).toBe(5);
+    expect(strong.meleeCritChance).toBeCloseTo(0.2);
+    expect(weak.meleeDamageBonus).toBe(-4);
+    expect(lucky.rareLootScalar).toBe(2);
+    expect(lucky.projectileCritChance).toBeCloseTo(0.2);
+    expect(lucky.weirdOutcomeChanceBonus).toBeCloseTo(0.15);
+    expect(unlucky.rareLootScalar).toBeCloseTo(0.5);
+    expect(unlucky.weirdOutcomeChanceBonus).toBeCloseTo(-0.12);
+  });
+
   it('previews, applies, resets, and cheats stats through the service', () => {
     const service = new SpecialStatsService();
     service.restore({ version: 1, stats: createDefaultSpecialStats(), unspentPoints: 2 });
@@ -112,6 +176,12 @@ describe('SPECIAL stats', () => {
     expect(view.hasPreviewChanges).toBe(true);
     expect(view.unspentPoints).toBe(0);
     expect(view.stats.find((stat) => stat.id === 'luck')?.value).toBe(6);
+    expect(view.sections.map((section) => section.section).slice(0, 4)).toEqual([
+      'Core',
+      'Combat',
+      'Weapons',
+      'Survival',
+    ]);
 
     service.resetPreview();
     view = service.getSpecialStatsView(

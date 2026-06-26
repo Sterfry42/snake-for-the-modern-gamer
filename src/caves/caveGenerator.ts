@@ -75,6 +75,16 @@ export function generateCave(args: {
     stampPillars(layout, grid);
   } else if (templateId === 'randomStructureRoom') {
     stampRandomStructureRoom(room, layout, rng);
+  } else if (templateId === 'targetingGallery') {
+    stampTargetingGallery(room, layout, grid, save);
+  } else if (templateId === 'echoMaze') {
+    stampEchoMaze(room, layout, grid, save);
+  } else if (templateId === 'floodedTreasury') {
+    stampFloodedTreasury(room, layout, save);
+  } else if (templateId === 'shrineOfBadProbability') {
+    stampShrineOfBadProbability(room, layout, grid, rng, save);
+  } else if (templateId === 'fossilDigSite') {
+    stampFossilDigSite(room, layout, grid, save);
   } else {
     stampAppleRush(layout, grid, rng);
   }
@@ -217,6 +227,124 @@ function stampPillars(layout: string[][], grid: GridConfig): void {
   for (const point of points) {
     setTile(layout, point.x, point.y, '#');
   }
+}
+
+function stampTargetingGallery(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  for (let y = 4; y <= grid.rows - 7; y += 3) {
+    for (const x of [centerX - 8, centerX - 4, centerX + 4, centerX + 8]) {
+      setTile(layout, x, y, '#');
+    }
+  }
+  for (let y = 3; y <= grid.rows - 8; y += 4) {
+    setTile(layout, centerX - 1, y, '#');
+    setTile(layout, centerX + 1, y, '#');
+  }
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 5 };
+}
+
+function stampEchoMaze(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  for (let y = 4; y <= grid.rows - 7; y += 2) {
+    const gap = y % 4 === 0 ? 4 : grid.cols - 5;
+    for (let x = 3; x <= grid.cols - 4; x += 1) {
+      if (x === gap || x === centerX) continue;
+      setTile(layout, x, y, '#');
+    }
+  }
+  for (let y = 5; y <= grid.rows - 8; y += 4) {
+    setTile(layout, centerX - 3, y, '#');
+    setTile(layout, centerX + 3, y, '#');
+  }
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 3 };
+}
+
+function stampFloodedTreasury(
+  room: RoomSnapshot,
+  layout: string[][],
+  save?: CaveInstanceSaveData,
+): void {
+  const collected = new Set(save?.collectedItemIds ?? []);
+  const centerX = Math.floor(layout[0]!.length / 2);
+  for (let y = 4; y <= 14; y += 1) {
+    for (let x = centerX - 9; x <= centerX + 9; x += 1) {
+      if (x === centerX || (y >= 9 && y <= 11 && Math.abs(x - centerX) <= 3)) {
+        continue;
+      }
+      if ((x + y) % 3 !== 0) {
+        setTile(layout, x, y, '~');
+      }
+    }
+  }
+  room.cave!.lakeRewards = [
+    { id: 'flood-0', x: centerX - 7, y: 6 },
+    { id: 'flood-1', x: centerX + 7, y: 6 },
+    { id: 'flood-2', x: centerX - 6, y: 12 },
+    { id: 'flood-3', x: centerX + 6, y: 12 },
+  ].filter((item) => !collected.has(item.id));
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 9 };
+}
+
+function stampShrineOfBadProbability(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  rng: () => number,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  const centerY = 7;
+  const placed = tryStampCaveStructure(
+    room,
+    layout,
+    'shrine',
+    rng,
+    createCaveStructureForbiddenCells(room),
+  );
+  if (placed) {
+    room.cave!.forcedStructureId = 'shrine';
+  } else {
+    setTile(layout, centerX, centerY, 'S');
+  }
+  for (const point of [
+    { x: centerX - 6, y: centerY + 4 },
+    { x: centerX + 6, y: centerY + 4 },
+    { x: centerX - 8, y: centerY - 2 },
+    { x: centerX + 8, y: centerY - 2 },
+  ]) {
+    setTile(layout, point.x, point.y, '#');
+  }
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 4 };
+}
+
+function stampFossilDigSite(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  for (let y = 5; y <= 14; y += 1) {
+    const left = centerX - 10 + (y % 3);
+    const right = centerX + 10 - (y % 3);
+    setTile(layout, left, y, '#');
+    setTile(layout, right, y, '#');
+    if (y % 2 === 0) {
+      setTile(layout, centerX - 2, y, '#');
+      setTile(layout, centerX + 2, y, '#');
+    }
+  }
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 6 };
 }
 
 function pickStructure(rng: () => number): string {

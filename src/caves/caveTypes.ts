@@ -8,7 +8,12 @@ export type CaveTemplateId =
   | 'lakeTreasure'
   | 'caveDweller'
   | 'monsterDen'
-  | 'randomStructureRoom';
+  | 'randomStructureRoom'
+  | 'targetingGallery'
+  | 'echoMaze'
+  | 'floodedTreasury'
+  | 'shrineOfBadProbability'
+  | 'fossilDigSite';
 
 export type CaveLayoutId =
   | 'appleRush'
@@ -16,7 +21,12 @@ export type CaveLayoutId =
   | 'lakeTreasure'
   | 'caveDweller'
   | 'monsterDen'
-  | 'structureRoom';
+  | 'structureRoom'
+  | 'targetingGallery'
+  | 'echoMaze'
+  | 'floodedTreasury'
+  | 'shrineOfBadProbability'
+  | 'fossilDigSite';
 
 export type CaveBoundaryMode = 'solidWalls' | 'wrap';
 export type CaveExitMode = 'manual' | 'timerForced' | 'combatClear' | 'rewardClaimed';
