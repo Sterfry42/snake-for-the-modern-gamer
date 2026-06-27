@@ -9,6 +9,7 @@ import {
   getBiomeAnimalSpawnChance,
   type BiomeId,
 } from '../world/biomes.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type { AnimalDefinition, AnimalInstance, AnimalType } from './types.js';
 import { AnimalRegistry } from './animalRegistry.js';
 import { canTameAnimal } from './taming.js';
@@ -71,7 +72,12 @@ export class AnimalManager {
     private readonly rng: RandomGenerator,
   ) {}
 
-  ensureAnimals(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
+  ensureAnimals(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+    atmosphere?: ResolvedAtmosphereView,
+  ): void {
     if (roomId === '0,-1,0') {
       return;
     }
@@ -83,7 +89,8 @@ export class AnimalManager {
     }
 
     const biome = getBiomeDefinition(room.biomeId);
-    const spawnChance = getBiomeAnimalSpawnChance(biome);
+    const spawnChance =
+      getBiomeAnimalSpawnChance(biome) * (atmosphere?.gameplay.animalSpawnChanceScalar ?? 1);
     if (spawnChance <= 0) {
       return;
     }
@@ -96,7 +103,7 @@ export class AnimalManager {
       return;
     }
 
-    const weighted = this.buildSpawnTable(biomeAnimals, biome);
+    const weighted = this.buildSpawnTable(biomeAnimals, biome, atmosphere);
     if (weighted.length === 0) {
       return;
     }
@@ -133,6 +140,7 @@ export class AnimalManager {
   private buildSpawnTable(
     biomeAnimals: readonly AnimalDefinition[],
     biome: ReturnType<typeof getBiomeDefinition>,
+    atmosphere?: ResolvedAtmosphereView,
   ): Array<{ definition: AnimalDefinition; maxPerRoom: number }> {
     const weighted: Array<{ definition: AnimalDefinition; maxPerRoom: number }> = [];
 
@@ -141,6 +149,10 @@ export class AnimalManager {
       const biomeBias = getBiomeAnimalSpawnBias(biome, def.type);
       if (biomeBias > 0) {
         weight *= biomeBias;
+      }
+      const atmosphereBias = atmosphere?.gameplay.animalSpawnBiasAdd[def.type] ?? 0;
+      if (atmosphereBias !== 0) {
+        weight *= Math.max(0, 1 + atmosphereBias * 0.35);
       }
       if (def.snakeEncounter === 'dangerous') {
         weight = Math.max(1, weight * (biome.dangerLevel / 5));

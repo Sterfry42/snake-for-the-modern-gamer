@@ -2,6 +2,7 @@ import type { WorldGenerationIdentity } from '../world/generation/worldGeneratio
 import type { CharacterMode } from '../player/raccoonMode.js';
 import type { SpecialStatsState } from '../stats/specialTypes.js';
 import type { AchievementState } from '../achievements/achievementTypes.js';
+import type { AtmosphereState } from '../world/atmosphereTypes.js';
 import type { SaveStore } from '../storage/SaveStore.js';
 export type { SaveStore } from '../storage/SaveStore.js';
 import { LocalStorageSaveStore } from '../storage/LocalStorageSaveStore.js';
@@ -94,6 +95,7 @@ export interface GameSaveData {
   };
   special?: SpecialStatsState;
   achievements?: AchievementState;
+  atmosphere?: AtmosphereState;
 }
 
 export interface SaveSlotInfo {

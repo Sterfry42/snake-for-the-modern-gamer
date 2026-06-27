@@ -62,6 +62,8 @@ import {
   type InputModeId,
 } from '../input/controlActions.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import { DAY_PHASE_DURATION_SCALARS } from '../world/atmosphereTypes.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -90,6 +92,7 @@ interface OverlayHandlers {
   onFeedAnimalCompanion?: (companionId: string) => boolean;
   onReleaseAnimalCompanion?: (companionId: string) => boolean;
   getDestinyView?: () => readonly string[];
+  getAtmosphereView?: () => ResolvedAtmosphereView;
   getArtifactView?: () => readonly ArtifactView[];
   getSpecialView?: () => SpecialStatsView;
   onPreviewSpecialChange?: (statId: SpecialStatId, delta: number) => boolean;
@@ -157,6 +160,7 @@ type TabId =
   | 'destiny'
   | 'artifacts'
   | 'map'
+  | 'atmosphere'
   | 'people'
   | 'companions'
   | 'dating'
@@ -199,6 +203,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'destiny', i18nKey: 'tabDestiny', group: 'gear' },
   { id: 'artifacts', i18nKey: 'tabArtifacts', group: 'gear' },
   { id: 'map', i18nKey: 'tabMap', i18nPlaceholderKey: 'placeholderMap', group: 'world' },
+  { id: 'atmosphere', i18nKey: 'tabInfo', label: 'Atmosphere', group: 'world' },
   { id: 'companions', i18nKey: 'tabPeople', label: 'Herd', group: 'world' },
   { id: 'dating', i18nKey: 'tabDating', group: 'world' },
   { id: 'quests', i18nKey: 'tabQuests', group: 'world' },
@@ -240,6 +245,7 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   cards: uiTabIconKeys.cards,
   artifacts: uiTabIconKeys.artifacts,
   map: uiTabIconKeys.map,
+  atmosphere: uiTabIconKeys.info,
   dating: uiTabIconKeys.dating,
   quests: uiTabIconKeys.quests,
   factions: uiTabIconKeys.factions,
@@ -1994,7 +2000,8 @@ export class SkillTreeOverlay {
         label: 'Language',
         status: !state.languageSelected
           ? '200'
-          : AVAILABLE_LANGUAGES.find((l) => l.id === i18n.getCurrentLanguage())?.nativeName ?? 'EN',
+          : (AVAILABLE_LANGUAGES.find((l) => l.id === i18n.getCurrentLanguage())?.nativeName ??
+            'EN'),
         action: () => this.scene.toggleLanguage(),
       },
     ];
@@ -2403,6 +2410,9 @@ export class SkillTreeOverlay {
         break;
       case 'destiny':
         this.buildLineCards(renderRect, 'DESTINY', this.handlers.getDestinyView?.() ?? []);
+        break;
+      case 'atmosphere':
+        this.buildAtmospherePanel(renderRect, this.handlers.getAtmosphereView?.());
         break;
       case 'artifacts':
         this.buildArtifactCards(renderRect);
@@ -3853,6 +3863,135 @@ export class SkillTreeOverlay {
       y += 40;
     }
     this.setStructuredContentHeight(content, y);
+  }
+
+  private buildAtmospherePanel(rect: UiRect, view: ResolvedAtmosphereView | undefined): void {
+    const content = insetRect(rect, 14);
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'ATMOSPHERE', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    if (!view) {
+      this.buildLineCards(rect, 'ATMOSPHERE', ['Atmosphere data is unavailable.']);
+      return;
+    }
+
+    const clockTop = content.y + 30;
+    const clockCardHeight = 132;
+    const gap = 10;
+    const clockWidth = Math.floor((content.width - gap) / 2);
+    const dayRect: UiRect = {
+      x: content.x,
+      y: clockTop,
+      width: clockWidth,
+      height: clockCardHeight,
+    };
+    const seasonRect: UiRect = {
+      x: content.x + clockWidth + gap,
+      y: clockTop,
+      width: content.width - clockWidth - gap,
+      height: clockCardHeight,
+    };
+    this.drawAtmosphereClockCard(dayRect, 'DAY CLOCK', this.getDayClockProgress(view), [
+      { angle: -90, label: 'Dawn', color: 0xffc9a0 },
+      { angle: 0, label: 'Day', color: 0xfff3a8 },
+      { angle: 90, label: 'Dusk', color: 0xff9f6e },
+      { angle: 180, label: 'Night', color: 0x9ad1ff },
+    ]);
+    this.drawAtmosphereClockCard(seasonRect, 'SEASON CLOCK', this.getSeasonClockProgress(view), [
+      { angle: -90, label: 'Spring', color: 0x8ff0a4 },
+      { angle: 0, label: 'Summer', color: 0xffd166 },
+      { angle: 90, label: 'Autumn', color: 0xff9f6e },
+      { angle: 180, label: 'Winter', color: 0x9ad1ff },
+    ]);
+
+    const state = view.state;
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      dayRect.x + 12,
+      dayRect.y + dayRect.height - 24,
+      `${this.formatAtmosphereLabel(state.dayPhase)} ${Math.round(state.phaseProgress * 100)}%`,
+      { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    );
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      seasonRect.x + 12,
+      seasonRect.y + seasonRect.height - 24,
+      `Day ${state.worldDay + 1} / ${this.formatAtmosphereLabel(state.season)}`,
+      { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
+    );
+
+    let y = clockTop + clockCardHeight + 14 - this.getStructuredScrollOffset();
+    for (const line of this.formatAtmosphereInfo(view)) {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 34 };
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: uiColors.panelBgInset,
+        stroke: TAB_ACCENTS[this.activePrimaryTab],
+        alpha: 0.56,
+        strokeAlpha: 0.5,
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 9, line, {
+        color: uiColors.textSecondary,
+        fontSize: '11px',
+        wordWrapWidth: card.width - 20,
+      });
+      y += 40;
+    }
+    this.setStructuredContentHeight(content, y + this.getStructuredScrollOffset());
+    this.detailTitle.setText('Atmosphere').setVisible(true);
+    this.detailSubtitle
+      .setText(view.sheltered ? 'Sheltered room' : 'Live world weather')
+      .setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        view.sheltered
+          ? 'This room is indoors or underground, so global weather does not affect visuals or hazards here.'
+          : 'Global weather rolls through the world, then the current biome translates it into a local visual.',
+      )
+      .setVisible(true);
+  }
+
+  private drawAtmosphereClockCard(
+    rect: UiRect,
+    title: string,
+    progress: number,
+    markers: readonly { angle: number; label: string; color: number }[],
+  ): void {
+    drawUiCard(this.structuredGraphics, {
+      rect,
+      fill: uiColors.panelBgInset,
+      stroke: TAB_ACCENTS[this.activePrimaryTab],
+      alpha: 0.66,
+      strokeAlpha: 0.55,
+    });
+    addUiText(this.scene, this.structuredContainer, rect.x + 10, rect.y + 8, title, {
+      color: uiColors.textPrimary,
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + 66;
+    const radius = 36;
+    this.structuredGraphics.fillStyle(0x071022, 0.9).fillCircle(cx, cy, radius + 6);
+    this.structuredGraphics
+      .lineStyle(2, TAB_ACCENTS[this.activePrimaryTab], 0.75)
+      .strokeCircle(cx, cy, radius + 6);
+    for (const marker of markers) {
+      const radians = Phaser.Math.DegToRad(marker.angle);
+      const mx = cx + Math.cos(radians) * radius;
+      const my = cy + Math.sin(radians) * radius;
+      this.structuredGraphics.fillStyle(marker.color, 0.9).fillCircle(mx, my, 4);
+    }
+    const handAngle = progress * Math.PI * 2 - Math.PI / 2;
+    const hx = cx + Math.cos(handAngle) * (radius - 4);
+    const hy = cy + Math.sin(handAngle) * (radius - 4);
+    this.structuredGraphics.lineStyle(3, 0xfff3a8, 0.95).lineBetween(cx, cy, hx, hy);
+    this.structuredGraphics.fillStyle(0xfff3a8, 1).fillCircle(cx, cy, 4);
   }
 
   private buildCheatsCards(rect: UiRect): void {
@@ -5312,26 +5451,30 @@ export class SkillTreeOverlay {
     const invulnerability = findLine('invulnerability-window');
     const hazardStability = findLine('hazard-stability');
     return [
-      movementSpeed ?? core.find((row) => row.id === 'speed') ?? {
-        id: 'speed',
-        label: 'Speed',
-        value: '+0%',
-      },
-      core.find((row) => row.id === 'max-hearts') ?? maxHearts ?? {
-        id: 'max-hearts',
-        label: 'Hearts',
-        value: '3',
-      },
-      invulnerability ?? core.find((row) => row.id === 'apple-invulnerability') ?? {
-        id: 'apple-invulnerability',
-        label: 'Invuln.',
-        value: '0.0s',
-      },
-      hazardStability ?? core.find((row) => row.id === 'frost-resistance') ?? {
-        id: 'hazard-stability',
-        label: 'Hazard Timer',
-        value: '100%',
-      },
+      movementSpeed ??
+        core.find((row) => row.id === 'speed') ?? {
+          id: 'speed',
+          label: 'Speed',
+          value: '+0%',
+        },
+      core.find((row) => row.id === 'max-hearts') ??
+        maxHearts ?? {
+          id: 'max-hearts',
+          label: 'Hearts',
+          value: '3',
+        },
+      invulnerability ??
+        core.find((row) => row.id === 'apple-invulnerability') ?? {
+          id: 'apple-invulnerability',
+          label: 'Invuln.',
+          value: '0.0s',
+        },
+      hazardStability ??
+        core.find((row) => row.id === 'frost-resistance') ?? {
+          id: 'hazard-stability',
+          label: 'Hazard Timer',
+          value: '100%',
+        },
     ].map((row) => {
       if (row.id === 'movement-speed') return { ...row, label: 'Speed' };
       if (row.id === 'max-hearts') return { ...row, label: 'Hearts' };
@@ -5757,6 +5900,7 @@ export class SkillTreeOverlay {
     const cheatsActive = this.activeTab === 'cheats';
     const peopleActive = this.activeTab === 'people';
     const companionsActive = this.activeTab === 'companions';
+    const atmosphereActive = this.activeTab === 'atmosphere';
     const datingActive = this.activeTab === 'dating';
     const questsActive = this.activeTab === 'quests';
     const factionsActive = this.activeTab === 'factions';
@@ -5774,6 +5918,7 @@ export class SkillTreeOverlay {
       spellsActive ||
       peopleActive ||
       companionsActive ||
+      atmosphereActive ||
       datingActive ||
       questsActive ||
       destinyActive ||
@@ -5804,6 +5949,7 @@ export class SkillTreeOverlay {
       !datingActive &&
       !peopleActive &&
       !companionsActive &&
+      !atmosphereActive &&
       !destinyActive &&
       !artifactsActive &&
       !customizationActive &&
@@ -5827,6 +5973,7 @@ export class SkillTreeOverlay {
       !datingActive &&
       !peopleActive &&
       !companionsActive &&
+      !atmosphereActive &&
       !destinyActive &&
       !artifactsActive &&
       !cheatsActive
@@ -5893,6 +6040,7 @@ export class SkillTreeOverlay {
         !cheatsActive &&
         !peopleActive &&
         !companionsActive &&
+        !atmosphereActive &&
         !datingActive &&
         !destinyActive &&
         !artifactsActive &&
@@ -5957,6 +6105,8 @@ export class SkillTreeOverlay {
           spells: `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`,
           people: i18n.getFeatureString('hintPeople'),
           companions: 'Herd: feed companions to raise bond tiers and hunting bonuses.',
+          atmosphere:
+            'Atmosphere: inspect the current sky, season, local weather translation, and gameplay modifiers.',
           dating: i18n.getFeatureString('hintDating'),
           quests: i18n.getFeatureString('hintQuests'),
           destiny: i18n.getFeatureString('hintDestiny'),
@@ -6204,6 +6354,7 @@ export class SkillTreeOverlay {
       this.activeTab !== 'spells' &&
       this.activeTab !== 'cards' &&
       this.activeTab !== 'people' &&
+      this.activeTab !== 'atmosphere' &&
       this.activeTab !== 'dating' &&
       this.activeTab !== 'destiny' &&
       this.activeTab !== 'quests' &&
@@ -6464,6 +6615,66 @@ export class SkillTreeOverlay {
         ].join('\n'),
       )
       .join('\n\n');
+  }
+
+  private formatAtmosphereInfo(view: ResolvedAtmosphereView | undefined): string[] {
+    if (!view) {
+      return ['Atmosphere data is unavailable.'];
+    }
+    const state = view.state;
+    const intensity = `${Math.round(state.weatherIntensity * 100)}%`;
+    const progress = `${Math.round(state.phaseProgress * 100)}%`;
+    const nextRoll =
+      state.remainingWeatherPhaseTicks <= 1
+        ? 'next phase'
+        : `${state.remainingWeatherPhaseTicks} phases`;
+    const juice = view.activeJuice.length > 0 ? view.activeJuice.join(', ') : 'none';
+    const bias = Object.entries(view.gameplay.animalSpawnBiasAdd)
+      .filter(([, value]) => Number(value) !== 0)
+      .map(([kind, value]) => `${kind} ${Number(value) > 0 ? '+' : ''}${value}`)
+      .join(', ');
+    return [
+      view.sheltered
+        ? 'Shelter: indoor/underground - weather muted here'
+        : 'Shelter: exposed to sky',
+      `Time of Day: ${this.formatAtmosphereLabel(state.dayPhase)} (${progress} through phase)`,
+      `Global Weather: ${this.formatAtmosphereLabel(state.globalWeather)} at ${intensity}`,
+      `Local Weather: ${this.formatAtmosphereLabel(view.localVisual)}`,
+      `Weather reroll: ${nextRoll}`,
+      `Biome Juice: ${juice}`,
+      `Visibility: ${Math.round(view.gameplay.visibilityScalar * 100)}%`,
+      `Heat Rate: ${Math.round(view.gameplay.heatRateScalar * 100)}%`,
+      `Cold Rate: ${Math.round(view.gameplay.coldRateScalar * 100)}%`,
+      `Animal Activity: ${Math.round(view.gameplay.animalSpawnChanceScalar * 100)}%${bias ? ` (${bias})` : ''}`,
+      `Enemy Activity: ${Math.round(view.gameplay.enemySpawnChanceScalar * 100)}%`,
+      `Lightning: ${view.gameplay.lightningProfile.enabled ? 'telegraphed' : 'off'}`,
+      'Shortcut: Shift+W cycles global weather for testing.',
+    ];
+  }
+
+  private getDayClockProgress(view: ResolvedAtmosphereView): number {
+    const order = ['dawn', 'day', 'dusk', 'night'] as const;
+    const index = Math.max(0, order.indexOf(view.state.dayPhase));
+    const completed = order
+      .slice(0, index)
+      .reduce((sum, phase) => sum + DAY_PHASE_DURATION_SCALARS[phase], 0);
+    const current = DAY_PHASE_DURATION_SCALARS[view.state.dayPhase] ?? 1;
+    const total = order.reduce((sum, phase) => sum + DAY_PHASE_DURATION_SCALARS[phase], 0);
+    return (completed + current * view.state.phaseProgress) / total;
+  }
+
+  private getSeasonClockProgress(view: ResolvedAtmosphereView): number {
+    const order = ['spring', 'summer', 'autumn', 'winter'];
+    const index = Math.max(0, order.indexOf(view.state.season));
+    const dayInSeason = positiveModulo(view.state.worldDay, 7) / 7;
+    return (index + dayInSeason) / order.length;
+  }
+
+  private formatAtmosphereLabel(value: string): string {
+    return value
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/-/g, ' ')
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
   }
 
   private formatCardCollection(collection: CardCollection): string {
@@ -7860,4 +8071,8 @@ export class SkillTreeOverlay {
       }
     }
   }
+}
+
+function positiveModulo(value: number, divisor: number): number {
+  return ((value % divisor) + divisor) % divisor;
 }

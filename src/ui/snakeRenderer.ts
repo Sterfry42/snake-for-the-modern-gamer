@@ -45,6 +45,7 @@ import {
 import type { EnemyInstance, BulletInstance } from '../systems/enemies.js';
 import type { AnimalInstance } from '../animals/types.js';
 import type { FootballInstance } from '../game/snakeGame.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
 
@@ -84,6 +85,8 @@ interface SnakeRenderOptions {
   bullets?: readonly BulletInstance[];
   footballs?: readonly FootballInstance[];
   animals?: readonly AnimalInstance[];
+  atmosphere?: ResolvedAtmosphereView;
+  renderTimeMs?: number;
 }
 
 export interface RenderDiagnostics {
@@ -216,11 +219,14 @@ export class SnakeRenderer {
 
     this.drawRoomFloors(room);
     this.drawRoomWalls(room);
+    this.drawAtmosphereBaseTint(opts.atmosphere);
     this.drawTemperatureReliefs(room);
     this.drawFurniture(room);
     this.drawVegetation(room);
+    this.drawAtmosphereGroundJuice(room, opts.atmosphere, opts.renderTimeMs ?? 0);
     this.highlightWalls(room, snakeBody, currentRoomId, opts.wallSenseRadius ?? 0);
     this.drawGrid();
+    this.drawAtmosphereParticles(room, opts.atmosphere, false, opts.renderTimeMs ?? 0);
     this.drawApple(room, appleInfo ?? undefined);
     this.drawTreasure(room);
     this.drawPowerup(room);
@@ -256,10 +262,250 @@ export class SnakeRenderer {
     this.drawEnemies([...(opts.enemies ?? []), ...(opts.followers ?? [])]);
     this.drawBullets(opts.bullets ?? []);
     this.drawFootballs(opts.footballs ?? []);
+    this.drawAtmosphereParticles(room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
+    this.drawLightningFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
   }
 
   markStaticRoomDirty(roomId: string): void {
     this.dirtyStaticRooms.add(roomId);
+  }
+
+  private drawAtmosphereBaseTint(view?: ResolvedAtmosphereView): void {
+    if (!view || view.tint.alpha <= 0) {
+      return;
+    }
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+    const bands = 18;
+    const topAlpha = view.tint.alpha * 1.18;
+    const bottomAlpha = view.tint.alpha * 0.58;
+    for (let band = 0; band < bands; band++) {
+      const t = band / Math.max(1, bands - 1);
+      const alpha = topAlpha + (bottomAlpha - topAlpha) * t;
+      this.graphics
+        .fillStyle(view.tint.color, alpha)
+        .fillRect(0, (height / bands) * band, width, height / bands + 1);
+    }
+  }
+
+  private drawAtmosphereGroundJuice(
+    room: RoomSnapshot,
+    view: ResolvedAtmosphereView | undefined,
+    renderTimeMs: number,
+  ): void {
+    if (!view || view.activeJuice.length === 0) {
+      return;
+    }
+    const cell = this.grid.cell;
+    const roomHash = this.hashString(`${room.id}:${view.state.weatherSeed}`);
+    if (view.activeJuice.includes('pond-ripples') || view.activeJuice.includes('moon-reflection')) {
+      this.graphics.lineStyle(Math.max(1, Math.floor(cell * 0.08)), 0xc9f6ff, 0.28);
+      for (let y = 0; y < room.layout.length; y++) {
+        for (let x = 0; x < room.layout[y].length; x++) {
+          const tile = room.layout[y][x];
+          if ((tile === '~' || tile === 'O') && (x * 11 + y * 7 + roomHash) % 5 === 0) {
+            const pulse = 0.75 + Math.sin(renderTimeMs / 420 + x * 0.7 + y * 0.4) * 0.25;
+            this.graphics.strokeEllipse(
+              x * cell + cell / 2,
+              y * cell + cell / 2,
+              cell * (0.45 + pulse * 0.22),
+              cell * (0.18 + pulse * 0.12),
+            );
+          }
+        }
+      }
+    }
+    if (
+      view.activeJuice.includes('lantern-reflections') ||
+      view.activeJuice.includes('neon-reflections') ||
+      view.activeJuice.includes('oil-sheen')
+    ) {
+      const color = view.activeJuice.includes('neon-reflections') ? 0xff4fd8 : 0xffd48a;
+      this.graphics.lineStyle(1, color, 0.22);
+      for (let i = 0; i < 18; i++) {
+        const x = ((roomHash + i * 17) % this.grid.cols) * cell + cell * 0.2;
+        const y = ((roomHash + i * 29) % this.grid.rows) * cell + cell * 0.72;
+        this.graphics.lineBetween(x, y, x + cell * 0.6, y + cell * 0.1);
+      }
+    }
+    if (view.activeJuice.includes('glass-glare') || view.activeJuice.includes('prism-haze')) {
+      this.graphics.lineStyle(1, 0xfff5c7, 0.18);
+      for (let i = 0; i < 14; i++) {
+        const x = ((roomHash + i * 23) % this.grid.cols) * cell;
+        const y = ((roomHash + i * 31) % this.grid.rows) * cell;
+        this.graphics.lineBetween(
+          x + cell * 0.15,
+          y + cell * 0.15,
+          x + cell * 0.85,
+          y + cell * 0.85,
+        );
+      }
+    }
+  }
+
+  private drawAtmosphereParticles(
+    room: RoomSnapshot,
+    view: ResolvedAtmosphereView | undefined,
+    foreground: boolean,
+    renderTimeMs: number,
+  ): void {
+    if (!view || view.particles.density <= 0 || view.particles.alpha <= 0) {
+      return;
+    }
+    const visual = view.localVisual;
+    const foregroundVisuals = new Set([
+      'fog',
+      'mist',
+      'steam',
+      'heatHaze',
+      'whiteout',
+      'dryLightning',
+    ]);
+    if (foreground !== foregroundVisuals.has(visual)) {
+      return;
+    }
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+    const count = Math.floor(18 + view.particles.density * 150);
+    const seed = this.hashString(`${room.id}:${view.state.weatherSeed}:${visual}`);
+    const time = Math.max(0, renderTimeMs) * 0.001 * view.particles.speed;
+    this.graphics.lineStyle(1, view.particles.color, view.particles.alpha);
+    this.graphics.fillStyle(view.particles.color, view.particles.alpha);
+
+    if (visual === 'fog' || visual === 'mist' || visual === 'steam' || visual === 'whiteout') {
+      const bands = visual === 'whiteout' ? 8 : 5;
+      for (let i = 0; i < bands; i++) {
+        const drift = Math.sin(time * 0.9 + i * 1.7) * this.grid.cell * 1.4;
+        const y =
+          positiveMod(seed + i * 47 + Math.floor(time * this.grid.cell * 1.5), height) -
+          this.grid.cell;
+        const alpha = Math.min(0.16, view.particles.alpha * (visual === 'whiteout' ? 0.7 : 0.28));
+        this.graphics
+          .fillStyle(view.particles.color, alpha)
+          .fillRect(
+            drift - this.grid.cell * 2,
+            y,
+            width + this.grid.cell * 4,
+            this.grid.cell * 1.8,
+          );
+      }
+      return;
+    }
+
+    if (visual === 'heatHaze') {
+      const lines = 11;
+      this.graphics.lineStyle(1, 0xffc078, Math.min(0.2, view.particles.alpha));
+      for (let i = 0; i < lines; i++) {
+        const y = ((i + 1) / (lines + 1)) * height;
+        const phase = time * 2.2 + i * 0.9;
+        this.graphics.beginPath();
+        this.graphics.moveTo(0, y);
+        for (let x = 0; x <= width; x += this.grid.cell) {
+          this.graphics.lineTo(x, y + Math.sin(phase + x * 0.018) * this.grid.cell * 0.18);
+        }
+        this.graphics.stroke();
+      }
+      return;
+    }
+
+    if (visual === 'dryLightning') {
+      if ((view.state.weatherSeed + Math.floor(renderTimeMs / 180)) % 17 <= 1) {
+        const x = ((seed % this.grid.cols) + 0.5) * this.grid.cell;
+        this.graphics.lineStyle(2, 0xfff3a6, 0.45);
+        this.graphics.beginPath();
+        this.graphics.moveTo(x, 0);
+        this.graphics.lineTo(x - this.grid.cell * 0.5, height * 0.28);
+        this.graphics.lineTo(x + this.grid.cell * 0.35, height * 0.5);
+        this.graphics.lineTo(x - this.grid.cell * 0.2, height * 0.72);
+        this.graphics.stroke();
+      }
+      return;
+    }
+
+    if (
+      visual === 'thunder' &&
+      (view.state.weatherSeed + Math.floor(renderTimeMs / 180)) % 17 <= 1
+    ) {
+      const x = ((seed % this.grid.cols) + 0.5) * this.grid.cell;
+      this.graphics.lineStyle(2, 0xfff3a6, 0.45);
+      this.graphics.beginPath();
+      this.graphics.moveTo(x, 0);
+      this.graphics.lineTo(x - this.grid.cell * 0.5, height * 0.28);
+      this.graphics.lineTo(x + this.grid.cell * 0.35, height * 0.5);
+      this.graphics.lineTo(x - this.grid.cell * 0.2, height * 0.72);
+      this.graphics.stroke();
+      this.graphics.lineStyle(1, view.particles.color, view.particles.alpha);
+    }
+
+    for (let i = 0; i < count; i++) {
+      const baseX = this.hashNumber(seed + i * 37) % width;
+      const baseY = this.hashNumber(seed + i * 53) % height;
+      const gust = Math.sin(time * 1.8 + i * 0.73) * this.grid.cell * 0.35;
+      let x = baseX + 0.5;
+      let y = baseY + 0.5;
+      if (
+        visual === 'rain' ||
+        visual === 'heavyRain' ||
+        visual === 'monsoon' ||
+        visual === 'neonRain' ||
+        visual === 'oilRain' ||
+        visual === 'thunder'
+      ) {
+        const len =
+          this.grid.cell *
+          (visual === 'heavyRain' || visual === 'monsoon' || visual === 'thunder' ? 0.65 : 0.45);
+        x = positiveMod(baseX - Math.floor(time * this.grid.cell * 9) + i * 3, width);
+        y = positiveMod(baseY + Math.floor(time * this.grid.cell * 24), height);
+        this.graphics.lineBetween(x, y, x - len * 0.35, y + len);
+      } else if (
+        visual === 'snow' ||
+        visual === 'sleet' ||
+        visual === 'ashfall' ||
+        visual === 'fallout' ||
+        visual === 'sporeCloud' ||
+        visual === 'boneDust' ||
+        visual === 'dustStorm' ||
+        visual === 'leafFall' ||
+        visual === 'petals' ||
+        visual === 'fireflies' ||
+        visual === 'aurora' ||
+        visual === 'seaSpray' ||
+        visual === 'caveDrip'
+      ) {
+        const fallSpeed =
+          visual === 'snow' || visual === 'sleet'
+            ? 4
+            : visual === 'leafFall' || visual === 'petals'
+              ? 2.2
+              : visual === 'dustStorm'
+                ? 10
+                : 5;
+        x = positiveMod(
+          baseX + Math.floor(gust + time * this.grid.cell * (visual === 'dustStorm' ? 8 : 1.6)),
+          width,
+        );
+        y = positiveMod(baseY + Math.floor(time * this.grid.cell * fallSpeed), height);
+        const size =
+          visual === 'leafFall' || visual === 'petals'
+            ? this.grid.cell * 0.18
+            : visual === 'fireflies'
+              ? this.grid.cell * 0.12
+              : this.grid.cell * 0.1;
+        this.graphics.fillCircle(x, y, Math.max(1, size));
+      }
+    }
+  }
+
+  private drawLightningFlash(view: ResolvedAtmosphereView | undefined, renderTimeMs: number): void {
+    if (!view || !view.gameplay.lightningProfile.enabled) {
+      return;
+    }
+    if ((view.state.weatherSeed + Math.floor(renderTimeMs / 90)) % 37 > 1) {
+      return;
+    }
+    this.graphics
+      .fillStyle(0xfff3a6, 0.12)
+      .fillRect(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell);
   }
 
   markAllStaticRoomsDirty(): void {
@@ -765,13 +1011,9 @@ export class SnakeRenderer {
     }
 
     // Main canopy
-    this.graphics
-      .fillStyle(canopyColor, 0.92)
-      .fillCircle(cx, rectY + cell * 0.32, cell * 0.38);
+    this.graphics.fillStyle(canopyColor, 0.92).fillCircle(cx, rectY + cell * 0.32, cell * 0.38);
     // Canopy shadow
-    this.graphics
-      .fillStyle(shadowColor, 0.55)
-      .fillCircle(cx, rectY + cell * 0.42, cell * 0.30);
+    this.graphics.fillStyle(shadowColor, 0.55).fillCircle(cx, rectY + cell * 0.42, cell * 0.3);
     // Canopy highlight
     this.graphics
       .fillStyle(highlightColor, 0.5)
@@ -2774,4 +3016,25 @@ export class SnakeRenderer {
   private isCoordinateRoomId(roomId: string): boolean {
     return /^-?\d+,-?\d+,-?\d+$/.test(roomId);
   }
+
+  private hashString(value: string): number {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i++) {
+      hash ^= value.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
+  }
+
+  private hashNumber(value: number): number {
+    let next = value >>> 0;
+    next ^= next << 13;
+    next ^= next >>> 17;
+    next ^= next << 5;
+    return next >>> 0;
+  }
+}
+
+function positiveMod(value: number, modulus: number): number {
+  return ((value % modulus) + modulus) % modulus;
 }

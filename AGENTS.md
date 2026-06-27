@@ -12,7 +12,7 @@ This is a modern Phaser-based snake game with deep RPG and simulation elements, 
 ## Agent Voice
 
 - Keep responses clear, direct, and focused on the work at hand.
-- On occasion, lean into a Brooklyn vibe: "Listen here," "fuhgeddaboudit," "you betcha," "shut the front end," or "that's the ticket" when the mood strikes.
+- Always lean into a Brooklyn vibe: "Listen here," "fuhgeddaboudit," "you betcha," "shut the front end," or "that's the ticket" when the mood strikes.
 - Keep it light and useful — the voice is the cherry on top, not the whole sundae. Code quality and type safety come first, always.
 
 ## Project Structure
@@ -62,14 +62,15 @@ src/
 All agents working on this project must follow these steps:
 
 1. **Before completing any task**:
+
    - Run `npm run typecheck` to ensure all TypeScript types are valid
    - **Resolve all type errors** before considering the task complete
-
 2. **After fixing type errors**:
+
    - Run `npm run build` to ensure the project builds successfully
    - **Verify the build succeeds** before marking tasks complete
-
 3. **Testing**:
+
    - Run `npm run dev` to start the development server for in-browser testing
    - Run `npm run test` to execute the full test suite
 

@@ -17,7 +17,12 @@
  * The wise old snake's game design document is 200 pages long.
  * The wise old snake's game was the original concept for this entire project.
  */
-import { defaultGameConfig, type GameConfig, type PowerupKind } from '../config/gameConfig.js';
+import {
+  defaultAtmosphereConfig,
+  defaultGameConfig,
+  type GameConfig,
+  type PowerupKind,
+} from '../config/gameConfig.js';
 import { defaultRoamingSnakeConfig } from '../config/roamingSnakeConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
@@ -83,6 +88,14 @@ import { selectNpcVoiceLine, type NpcVoiceLine } from '../npcs/npcVoice.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import { getBiomeDefinition, getBiomeForRoom } from '../world/biomes.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { WorldAtmosphereSystem } from '../world/atmosphereSystem.js';
+import { resolveBiomeAtmosphere } from '../world/atmosphereResolver.js';
+import type {
+  AtmosphereConfig,
+  AtmosphereState,
+  GlobalWeather,
+  ResolvedAtmosphereView,
+} from '../world/atmosphereTypes.js';
 import type { TownRuntimeState } from '../world/townRuntime.js';
 import {
   createWorldGenerationIdentity,
@@ -774,6 +787,8 @@ export class SnakeGame implements QuestRuntime {
   private raccoonBanditMeter = 0;
   private raccoonStashedTotal = 0;
   private worldGenerationIdentity: WorldGenerationIdentity;
+  private readonly atmosphereConfig: AtmosphereConfig;
+  private atmosphere: WorldAtmosphereSystem;
   private readonly footballs = new Map<string, FootballInstance[]>();
   private footballIdCounter = 0;
 
@@ -788,6 +803,8 @@ export class SnakeGame implements QuestRuntime {
     const runSeed = config.rng.seed ?? createRunSeed();
     this.worldGenerationIdentity = createWorldGenerationIdentity(runSeed);
     this._rng = rng ?? createRng(runSeed);
+    this.atmosphereConfig = { ...defaultAtmosphereConfig, ...(config.atmosphere ?? {}) };
+    this.atmosphere = new WorldAtmosphereSystem(this.atmosphereConfig, runSeed);
     if (!config.rng.seed) {
       logRunSeed(runSeed, 'new');
     }
@@ -830,6 +847,7 @@ export class SnakeGame implements QuestRuntime {
       this.reseedFreshRun();
     }
     this.world.clear();
+    this.atmosphere.reset(this.worldGenerationIdentity.seed);
     this.apples.clearAll();
     this.snake.reset(this.config.world.originRoomId);
     this.bosses.clearAll();
@@ -977,12 +995,14 @@ export class SnakeGame implements QuestRuntime {
         this.snake.currentRoomId,
         startingRoom,
         this.config.snake.initialBody,
+        this.getAtmosphereForRoom(startingRoom),
       );
       this.animals.ensureAnimals(
         // TODO: Create test
         this.snake.currentRoomId,
         startingRoom,
         this.config.snake.initialBody,
+        this.getAtmosphereForRoom(startingRoom),
       );
     }
   }
@@ -1000,7 +1020,9 @@ export class SnakeGame implements QuestRuntime {
     );
     this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
     this.enemies = new EnemyManager(this.config.grid, this._rng);
+    this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
     this.animals = new AnimalManager(this.config.grid, this._rng);
+    this.atmosphere.reset(runSeed);
     this.questController = new QuestController(this.registry, {
       initialQuestCount: this.config.quests.initialQuestCount,
       initialQuestIds: this.config.quests.initialQuestIds ?? [],
@@ -1606,8 +1628,9 @@ export class SnakeGame implements QuestRuntime {
           this.bosses.spawnJasonStatham(newRoomId);
         }
         if (!newRoomIsTown) {
-          this.enemies.ensureEnemy(newRoomId, newRoom, []);
-          this.animals.ensureAnimals(newRoomId, newRoom, []);
+          const atmosphere = this.getAtmosphereForRoom(newRoom);
+          this.enemies.ensureEnemy(newRoomId, newRoom, [], atmosphere);
+          this.animals.ensureAnimals(newRoomId, newRoom, [], atmosphere);
           this.maybeQueueFreakJoeyEncounter(newRoomId);
         }
         this.revealBiomeIfChanged(newRoomId, newRoom);
@@ -7291,6 +7314,48 @@ export class SnakeGame implements QuestRuntime {
     return this.specialStats.getFishingModifiers();
   }
 
+  updateAtmosphere(deltaMs: number): AtmosphereState {
+    return this.atmosphere.update(deltaMs);
+  }
+
+  getAtmosphereState(): AtmosphereState {
+    return this.atmosphere.getState();
+  }
+
+  forceAtmosphereWeather(weather: GlobalWeather): AtmosphereState {
+    return this.atmosphere.forceWeather(weather);
+  }
+
+  getAtmosphereForRoom(room: RoomSnapshot = this.getCurrentRoom()): ResolvedAtmosphereView {
+    const biome = getBiomeDefinition(room.biomeId);
+    const shelteredConfig = this.isAtmosphereShelteredRoom(room, biome)
+      ? {
+          ...this.atmosphereConfig,
+          enabled: false,
+          visualParticlesEnabled: false,
+          dayNightTintEnabled: false,
+          gameplayModifiersEnabled: false,
+          lightningEnabled: false,
+        }
+      : this.atmosphereConfig;
+    return resolveBiomeAtmosphere(biome, this.atmosphere.getState(), shelteredConfig);
+  }
+
+  private isAtmosphereShelteredRoom(
+    room: RoomSnapshot,
+    biome: ReturnType<typeof getBiomeDefinition>,
+  ): boolean {
+    return Boolean(
+      room.id === '0,-1,0' ||
+      room.id.startsWith('cave:') ||
+      room.layer ||
+      room.cave ||
+      biome.family === 'cave' ||
+      biome.tags.includes('underground') ||
+      biome.tags.includes('cave'),
+    );
+  }
+
   getSpecialGameplayModifiers(): SpecialGameplayModifiers {
     return this.specialStats.getGameplayModifiers();
   }
@@ -11286,6 +11351,7 @@ export class SnakeGame implements QuestRuntime {
       equipment: Object.fromEntries(this.inventory.getAllEquipped()),
       flags: characterFlags,
       worldGeneration: this.worldGenerationIdentity,
+      atmosphere: this.atmosphere.getState(),
       special: this.specialStats.exportState(),
       levelProgression: this.levelProgression,
       questsActive: this.questController.getActive().map((q: Quest) => q.id),
@@ -11428,7 +11494,9 @@ export class SnakeGame implements QuestRuntime {
         );
         this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
         this.enemies = new EnemyManager(this.config.grid, this._rng);
+        this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
         this.animals = new AnimalManager(this.config.grid, this._rng);
+        this.atmosphere.reset(data.worldGeneration.seed);
         this.questController = new QuestController(this.registry, {
           initialQuestCount: this.config.quests.initialQuestCount,
           initialQuestIds: this.config.quests.initialQuestIds ?? [],
@@ -11438,6 +11506,7 @@ export class SnakeGame implements QuestRuntime {
         });
         logRunSeed(data.worldGeneration.seed, 'load');
       }
+      this.atmosphere.hydrate(data.atmosphere);
       if (data.snakeBody?.length && data.snakeDirection && data.snakeRoomId) {
         this.snake.restoreFromSave(
           data.snakeBody,
@@ -11478,7 +11547,12 @@ export class SnakeGame implements QuestRuntime {
         }
       }
       const currentRoom = this.world.getRoom(this.snake.currentRoomId);
-      this.animals.ensureAnimals(this.snake.currentRoomId, currentRoom, []);
+      this.animals.ensureAnimals(
+        this.snake.currentRoomId,
+        currentRoom,
+        [],
+        this.getAtmosphereForRoom(currentRoom),
+      );
       const currentHead = this.snake.bodySegments[0];
       if (currentHead) {
         const [roomX, roomY] = this.snake.currentRoomId.split(',').map(Number);
@@ -12804,14 +12878,12 @@ export class SnakeGame implements QuestRuntime {
       (relief) => relief.x === localX && relief.y === localY,
     );
     const specialGameplay = this.specialStats.getGameplayModifiers();
-    const thresholdMs = Math.max(
-      1000,
-      Number(this.getFlag<number>('player.temperatureThresholdMs') ?? 10000),
-    ) * specialGameplay.hazardTimerScalar;
-    const damageIntervalMs = Math.max(
-      1000,
-      Number(this.getFlag<number>('player.temperatureDamageIntervalMs') ?? 5000),
-    ) * specialGameplay.hazardTimerScalar;
+    const thresholdMs =
+      Math.max(1000, Number(this.getFlag<number>('player.temperatureThresholdMs') ?? 10000)) *
+      specialGameplay.hazardTimerScalar;
+    const damageIntervalMs =
+      Math.max(1000, Number(this.getFlag<number>('player.temperatureDamageIntervalMs') ?? 5000)) *
+      specialGameplay.hazardTimerScalar;
     const heatResistance = Math.max(
       0,
       Number(this.getFlag<number>('equipment.heatResistance') ?? 0),
@@ -12833,6 +12905,11 @@ export class SnakeGame implements QuestRuntime {
     const exposureRate = Math.max(
       0.05,
       ((biome.temperatureRate ?? 1) + (isAtPeakCold ? peakColdRate : 0)) *
+        (biome.temperatureHazard === 'hot'
+          ? this.getAtmosphereForRoom(room).gameplay.heatRateScalar
+          : biome.temperatureHazard === 'cold'
+            ? this.getAtmosphereForRoom(room).gameplay.coldRateScalar
+            : 1) *
         Math.max(0, 1 - resistance) *
         specialGameplay.hazardDamageScalar,
     );

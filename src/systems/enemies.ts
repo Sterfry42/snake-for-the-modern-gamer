@@ -4,6 +4,7 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 
 export interface EnemyInstance {
   id: string;
@@ -136,7 +137,12 @@ export class EnemyManager {
     this.idCounter = 0;
   }
 
-  ensureEnemy(roomId: string, room: RoomSnapshot, occupied: readonly Vector2Like[]): void {
+  ensureEnemy(
+    roomId: string,
+    room: RoomSnapshot,
+    occupied: readonly Vector2Like[],
+    atmosphere?: ResolvedAtmosphereView,
+  ): void {
     if (roomId === '0,-1,0') {
       return;
     }
@@ -160,7 +166,10 @@ export class EnemyManager {
     }
 
     const biome = getBiomeDefinition(room.biomeId);
-    if (this.rng() > getBiomeEnemySpawnChance(biome)) {
+    if (
+      this.rng() >
+      getBiomeEnemySpawnChance(biome) * (atmosphere?.gameplay.enemySpawnChanceScalar ?? 1)
+    ) {
       return;
     }
 
@@ -177,8 +186,20 @@ export class EnemyManager {
       actorId: `enemy:${roomId}:${id}`,
       roomId,
       position,
-      fireCooldown: Math.max(4, 8 + biome.enemyFireBias + Math.floor(this.rng() * 5)),
-      moveCooldown: Math.max(2, 4 + biome.enemyMoveBias + Math.floor(this.rng() * 4)),
+      fireCooldown: Math.max(
+        4,
+        Math.round(
+          (8 + biome.enemyFireBias + Math.floor(this.rng() * 5)) *
+            (atmosphere?.gameplay.enemyFireCooldownScalar ?? 1),
+        ),
+      ),
+      moveCooldown: Math.max(
+        2,
+        Math.round(
+          (4 + biome.enemyMoveBias + Math.floor(this.rng() * 4)) *
+            (atmosphere?.gameplay.enemyMoveCooldownScalar ?? 1),
+        ),
+      ),
       aimDirection: { x: 0, y: 1 },
       flashTicks: 0,
       currentHearts: 1,
@@ -599,8 +620,18 @@ export class EnemyManager {
         return {
           dir,
           nextLocal: {
-            x: nextLocal.x < 0 ? this.grid.cols - 1 : nextLocal.x >= this.grid.cols ? 0 : nextLocal.x,
-            y: nextLocal.y < 0 ? this.grid.rows - 1 : nextLocal.y >= this.grid.rows ? 0 : nextLocal.y,
+            x:
+              nextLocal.x < 0
+                ? this.grid.cols - 1
+                : nextLocal.x >= this.grid.cols
+                  ? 0
+                  : nextLocal.x,
+            y:
+              nextLocal.y < 0
+                ? this.grid.rows - 1
+                : nextLocal.y >= this.grid.rows
+                  ? 0
+                  : nextLocal.y,
           },
         };
       }

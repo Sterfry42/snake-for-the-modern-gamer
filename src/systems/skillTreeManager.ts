@@ -56,6 +56,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       onFeedAnimalCompanion: (companionId) => this.scene.feedAnimalCompanion(companionId),
       onReleaseAnimalCompanion: (companionId) => this.scene.releaseAnimalCompanion(companionId),
       getDestinyView: () => this.scene.getStarforgedPauseMenuLines(),
+      getAtmosphereView: () => this.scene.getAtmospherePauseMenuView(),
       getArtifactView: () => this.scene.getArtifactViews(),
       getSpecialView: () => this.scene.getSpecialStatsView(),
       onPreviewSpecialChange: (statId: SpecialStatId, delta: number) =>
