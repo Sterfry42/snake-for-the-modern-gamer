@@ -1798,7 +1798,7 @@ export class SnakeGame implements QuestRuntime {
           const tx = localX + dir.x;
           if (tx >= 0 && tx < this.config.grid.cols) {
             const t = room.layout[localY]?.[tx];
-            if (t === '#') {
+            if (this.isSolidTile(t)) {
               nx = dir.x;
               ny = 0;
             }
@@ -1807,7 +1807,7 @@ export class SnakeGame implements QuestRuntime {
           const ty = localY + dir.y;
           if (ty >= 0 && ty < this.config.grid.rows) {
             const t = room.layout[ty]?.[localX];
-            if (t === '#') {
+            if (this.isSolidTile(t)) {
               nx = 0;
               ny = dir.y;
             }
@@ -2660,6 +2660,8 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(info.roomId);
     const tile = room.layout[info.localY]?.[info.localX];
+    // Masonry blocks (the snake's own temporary walls) are always passable.
+    // Regular walls still require wall-survival abilities.
     if (tile === '#' && !this.canSurviveWallStep()) {
       return {
         key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
@@ -14946,15 +14948,34 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(roomId);
     const tile = room.layout[localY]?.[localX];
-    if (!tile || tile === '#' || tile === 'H') {
+    if (!tile || tile === '#' || tile === '%' || tile === 'H') {
       return;
     }
     if (room.apple && room.apple.x === localX && room.apple.y === localY) {
       this.world.setApple(roomId, undefined);
     }
-    if (this.setRoomTile(roomId, localX, localY, '#')) {
+    if (this.setRoomTile(roomId, localX, localY, '%')) {
       roomsChanged.add(roomId);
+      // Notify the scene to track this block's creation time for crumbling animation
+      this.setFlag('ui.masonryBlockCreated', { x: lastTail.x, y: lastTail.y, roomId });
     }
+  }
+
+  /**
+   * Returns true if the given tile is a masonry building block.
+   * Masonry blocks act like walls for entities but crumble after a short time
+   * and can be passed through by the snake itself.
+   */
+  isMasonryBlock(tile: string): boolean {
+    return tile === '%';
+  }
+
+  /**
+   * Returns true if the tile is a wall or masonry block.
+   * Used for entity collision checks.
+   */
+  isSolidTile(tile: string): boolean {
+    return tile === '#' || tile === '%';
   }
 
   private applyFaultLine(head: Vector2Like, roomsChanged: Set<string>): void {
@@ -15110,7 +15131,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('geometry.terraShield', updated);
   }
 
-  private resolveRoomPosition(position: { x: number; y: number; roomId?: string }): {
+  resolveRoomPosition(position: { x: number; y: number; roomId?: string }): {
     roomId: string;
     localX: number;
     localY: number;

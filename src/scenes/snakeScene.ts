@@ -8064,6 +8064,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickBiomeHazardJuice();
     this.tickQuestBabyCry();
     this.flushArchipelagoTrapQueue();
+    this.cleanupExpiredMasonryBlocks();
     if (this.isDirty) {
       this.draw();
       this.isDirty = false;
@@ -8513,6 +8514,22 @@ export default class SnakeScene extends Phaser.Scene {
       const world = this.tileToWorldInRoom({ x: collapse.x, y: collapse.y }, collapse.roomId);
       (this.juice as any).collapseControl?.(world.x, world.y);
       this.snakeGame.setFlag('ui.collapseControl', undefined);
+    }
+
+    // Track newly created masonry blocks for crumbling animation
+    const masonryCreated = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>(
+      'ui.masonryBlockCreated',
+    );
+    if (masonryCreated) {
+      const info = this.snakeGame.resolveRoomPosition({
+        x: masonryCreated.x,
+        y: masonryCreated.y,
+        roomId: masonryCreated.roomId,
+      });
+      if (info) {
+        this.snakeRenderer.registerMasonryBlock(masonryCreated.roomId, info.localX, info.localY);
+      }
+      this.snakeGame.setFlag('ui.masonryBlockCreated', undefined);
     }
 
     const caveTransition = this.snakeGame.getFlag<{
@@ -18793,6 +18810,49 @@ export default class SnakeScene extends Phaser.Scene {
           outlineColor: '#1e3a2d',
           eyeColor: '#e8ffe8',
         };
+    }
+  }
+
+  /**
+   * Periodically cleans up expired masonry blocks from the room layout.
+   * Masonry blocks crumble after 4 seconds.
+   */
+  private cleanupExpiredMasonryBlocks(): void {
+    const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const blockLifetimeMs = 4000;
+    const roomsChanged = new Set<string>();
+
+    // Iterate over tracked masonry blocks
+    const expiredKeys: string[] = [];
+    for (const [key, created] of this.snakeRenderer.getMasonryBlockAgesEntries()) {
+      const age = now - created;
+      if (age >= blockLifetimeMs) {
+        expiredKeys.push(key);
+      }
+    }
+
+    for (const key of expiredKeys) {
+      const [roomId, posStr] = key.split(':');
+      const [localX, localY] = posStr.split(',').map(Number);
+      const room = this.snakeGame.getRoom(roomId);
+      if (!room) {
+        this.snakeRenderer.unregisterMasonryBlock(roomId, localX, localY);
+        continue;
+      }
+      const tile = room.layout[localY]?.[localX];
+      if (tile === '%') {
+        // Remove the masonry block
+        const chars = room.layout[localY].split('');
+        chars[localX] = '.';
+        room.layout[localY] = chars.join('');
+        roomsChanged.add(roomId);
+      }
+      this.snakeRenderer.unregisterMasonryBlock(roomId, localX, localY);
+    }
+
+    if (roomsChanged.size > 0) {
+      this.markStaticRoomsDirty(roomsChanged);
+      this.isDirty = true;
     }
   }
 

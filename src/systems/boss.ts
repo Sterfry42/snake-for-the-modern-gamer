@@ -833,7 +833,7 @@ export class BossManager {
     }
 
     const tile = targetRoom.layout[localHeadY]?.[localHeadX];
-    if (tile === '#') {
+    if (tile === '#' || tile === '%') {
       boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
       return;
     }
@@ -1041,7 +1041,7 @@ export class BossManager {
       const localHeadX = cell.x - targetRoomX * this.grid.cols;
       const localHeadY = cell.y - targetRoomY * this.grid.rows;
       const targetRoom = deps.getRoom(`${targetRoomX},${targetRoomY},${roomZ}`);
-      if (targetRoom.layout[localHeadY]?.[localHeadX] === '#') {
+      if (targetRoom.layout[localHeadY]?.[localHeadX] === '#' || targetRoom.layout[localHeadY]?.[localHeadX] === '%') {
         this.carveBossWall(targetRoom, localHeadX, localHeadY);
       }
     }
@@ -1134,7 +1134,7 @@ export class BossManager {
       }
     }
     const targetRoom = deps.getRoom(targetRoomId);
-    if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === '#') {
+    if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === '#' || targetRoom.layout[localHeadY]?.[localHeadX] === '%') {
       return false;
     }
 
@@ -1180,7 +1180,7 @@ export class BossManager {
     }
 
     const tile = targetRoom.layout[localHeadY]?.[localHeadX];
-    if (tile === '#') {
+    if (tile === '#' || tile === '%') {
       boss.direction = { x: -direction.x, y: -direction.y };
       return;
     }

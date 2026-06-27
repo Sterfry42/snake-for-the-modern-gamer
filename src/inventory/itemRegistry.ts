@@ -129,7 +129,7 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'gloves-mason',
     name: "Mason's Gloves",
-    description: 'Your tail lays bricks behind you.',
+    description: 'Your tail lays temporary masonry blocks behind you. They crumble after a couple seconds, and your snake can pass right through them.',
     kind: 'equipment',
     slot: 'gloves',
     modifiers: {

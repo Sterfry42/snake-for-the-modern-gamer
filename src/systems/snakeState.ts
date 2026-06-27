@@ -346,6 +346,10 @@ export class SnakeState {
         return { status: 'dead', reason: 'wall' };
       }
     }
+    // Masonry blocks ('%') are the snake's own temporary walls — always passable.
+    if (tile === '%') {
+      // Snake passes through its own masonry blocks without dying or eating them.
+    }
     if (tile === '~' && !this.flags['equipment.swimmingEnabled'] && !cheatImmortal) {
       this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
       return { status: 'dead', reason: 'water' };
