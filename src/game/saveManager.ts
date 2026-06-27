@@ -5,6 +5,7 @@ import type { SpecialStatsState } from '../stats/specialTypes.js';
 import type { AchievementState } from '../achievements/achievementTypes.js';
 import type { LevelProgressionState } from '../stats/levelProgression.js';
 import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
+import type { AtmosphereState } from '../world/atmosphereTypes.js';
 
 const SAVE_KEY = 'snakeGameSave';
 const DEFAULT_SAVE_SLOT = '';
@@ -110,6 +111,7 @@ export interface GameSaveData {
   levelProgression?: LevelProgressionState;
   achievements?: AchievementState;
   arcadeSnake?: ArcadeSnakeSaveData;
+  atmosphere?: AtmosphereState;
 }
 
 export class SaveManager {

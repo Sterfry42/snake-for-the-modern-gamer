@@ -14,6 +14,7 @@
  * - The wise old snake's config was stored in a dream
  */
 import type { Vector2Like } from '../core/math.js';
+import type { AtmosphereConfig } from '../world/atmosphereTypes.js';
 import {
   DEFAULT_RACCOON_MODE_CONFIG,
   type CharacterMode,
@@ -154,11 +155,26 @@ export interface GameConfig {
   features: FeatureSystemConfig;
   character: CharacterConfig;
   minecraft?: MinecraftConfig;
+  atmosphere?: AtmosphereConfig;
   freakerDennis?: FreakerDennisConfig;
   roamingSnakes?: RoamingSnakeConfig;
 }
 
 export type PowerupKind = 'phase' | 'smite' | 'gun';
+
+export const defaultAtmosphereConfig: AtmosphereConfig = {
+  enabled: true,
+  phaseDurationMs: 120_000,
+  daysPerSeason: 7,
+  minWeatherPhases: 2,
+  maxWeatherPhases: 2,
+  weatherIntensityMin: 0.35,
+  weatherIntensityMax: 1,
+  lightningEnabled: false,
+  visualParticlesEnabled: true,
+  dayNightTintEnabled: true,
+  gameplayModifiersEnabled: true,
+};
 
 const initialSnakeBody: Vector2Like[] = [
   { x: 5, y: 12 },
@@ -313,6 +329,7 @@ export const defaultGameConfig: GameConfig = {
     mode: 'snake',
     raccoon: DEFAULT_RACCOON_MODE_CONFIG,
   },
+  atmosphere: defaultAtmosphereConfig,
   freakerDennis: {
     rainbowPalette: {
       enabled: true,

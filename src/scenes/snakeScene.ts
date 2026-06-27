@@ -238,6 +238,8 @@ import {
   ACHIEVEMENT_DEFINITIONS,
   DISCOVERABLE_BIOME_IDS,
 } from '../achievements/achievementDefinitions.js';
+import type { GlobalWeather, ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import type { RoomSnapshot } from '../world/types.js';
 import { AchievementManager } from '../achievements/achievementManager.js';
 import { getAchievementReward } from '../achievements/achievementRewards.js';
 import {
@@ -1447,6 +1449,8 @@ type GameMode =
   | 'shop'
   | 'dating'
   | 'card-game'
+  | 'arcade'
+  | 'archaeology'
   | 'death-cutscene'
   | 'fishing'
   | 'paused';
@@ -1501,6 +1505,22 @@ const SIMULATION_MODE_RULES: Record<GameMode, Record<string, ClockRule>> = {
     'manual-world': false,
   },
   'card-game': {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  arcade: {
+    boss: false,
+    action: false,
+    actor: false,
+    bullet: false,
+    hazard: false,
+    'manual-world': false,
+  },
+  archaeology: {
     boss: false,
     action: false,
     actor: false,
@@ -1570,6 +1590,13 @@ export default class SnakeScene extends Phaser.Scene {
   private townMusicActive = false;
   private _hasCherryBlossomAmbient = false;
   private _hasJadePeakAmbient = false;
+  private atmosphereAudioContext: AudioContext | null = null;
+  private atmosphereNoiseSource: AudioBufferSourceNode | null = null;
+  private atmosphereGain: GainNode | null = null;
+  private atmosphereFilter: BiquadFilterNode | null = null;
+  private atmosphereAudioKey = 'none';
+  private nextThunderAtMs = 0;
+  private lastAtmosphereWorldDay = 0;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
   private caffeinatedAppleBoostExpirationsMs: number[] = [];
   private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
@@ -2382,6 +2409,12 @@ export default class SnakeScene extends Phaser.Scene {
         );
       }
 
+      if (key === 'w' && event.shiftKey) {
+        event.preventDefault();
+        this.cycleAtmosphereWeather();
+        return;
+      }
+
       if (isKeyboardEventForAction(event, 'interact.confirm')) {
         this.performInteractAction();
       }
@@ -2700,6 +2733,210 @@ export default class SnakeScene extends Phaser.Scene {
   private advanceSimulationTime(deltaMs: number): void {
     const elapsed = Number(this.getFlag<number>('timeMs') ?? 0) + deltaMs;
     this.setFlag('timeMs', elapsed);
+    const beforeDay = this.snakeGame.getAtmosphereState().worldDay;
+    const atmosphere = this.snakeGame.updateAtmosphere(deltaMs);
+    if (atmosphere.worldDay > beforeDay) {
+      this.notifyAtmosphereDay(atmosphere.worldDay);
+    }
+    if (!this.titleVisible && !this.paused) {
+      this.isDirty = true;
+    }
+  }
+
+  private notifyAtmosphereDay(worldDay: number): void {
+    if (worldDay <= this.lastAtmosphereWorldDay) {
+      return;
+    }
+    this.lastAtmosphereWorldDay = worldDay;
+    const displayDay = worldDay + 1;
+    if (displayDay >= 2) {
+      this.showQuestHintPopup(`Day ${displayDay}`, '#fff0a8');
+    }
+  }
+
+  private cycleAtmosphereWeather(): void {
+    const order: GlobalWeather[] = [
+      'clear',
+      'rain',
+      'storm',
+      'fog',
+      'heatwave',
+      'coldfront',
+      'wind',
+    ];
+    const current = this.snakeGame.getAtmosphereState().globalWeather;
+    const next = order[(order.indexOf(current) + 1 + order.length) % order.length] ?? 'clear';
+    this.snakeGame.forceAtmosphereWeather(next);
+    this.isDirty = true;
+  }
+
+  private updateAtmosphereAudio(view: ResolvedAtmosphereView): void {
+    if (view.sheltered) {
+      if (this.atmosphereAudioKey !== 'none') {
+        this.atmosphereAudioKey = 'none';
+        this.stopAtmosphereAudio();
+      }
+      return;
+    }
+    const key = this.getAtmosphereAudioKey(view);
+    if (key !== this.atmosphereAudioKey) {
+      this.atmosphereAudioKey = key;
+      this.configureAtmosphereLoop(key, view);
+    }
+    if (
+      (view.localVisual === 'thunder' ||
+        view.localVisual === 'dryLightning' ||
+        view.state.globalWeather === 'storm') &&
+      this.time.now >= this.nextThunderAtMs
+    ) {
+      this.playThunderCrack(view);
+      this.nextThunderAtMs =
+        this.time.now + 2200 + ((view.state.weatherSeed + this.time.now) % 3800);
+    }
+  }
+
+  private getAtmosphereAudioKey(view: ResolvedAtmosphereView): string {
+    switch (view.localVisual) {
+      case 'rain':
+      case 'heavyRain':
+      case 'monsoon':
+      case 'neonRain':
+      case 'oilRain':
+      case 'seaSpray':
+      case 'caveDrip':
+        return 'rain';
+      case 'thunder':
+      case 'dryLightning':
+        return 'storm';
+      case 'snow':
+      case 'sleet':
+      case 'whiteout':
+      case 'fog':
+      case 'mist':
+      case 'steam':
+        return 'mist';
+      case 'dustStorm':
+      case 'ashfall':
+      case 'boneDust':
+      case 'leafFall':
+      case 'petals':
+      case 'sporeCloud':
+      case 'fallout':
+        return 'wind';
+      default:
+        return 'none';
+    }
+  }
+
+  private configureAtmosphereLoop(key: string, view: ResolvedAtmosphereView): void {
+    if (key === 'none') {
+      this.stopAtmosphereAudio();
+      return;
+    }
+    const context = this.ensureAtmosphereAudioContext();
+    if (!context) {
+      return;
+    }
+    context.resume().catch(() => undefined);
+    if (!this.atmosphereNoiseSource || !this.atmosphereGain || !this.atmosphereFilter) {
+      const buffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        data[i] = Math.random() * 2 - 1;
+      }
+      const source = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      const gain = context.createGain();
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(filter);
+      filter.connect(gain);
+      gain.connect(context.destination);
+      gain.gain.value = 0;
+      source.start();
+      this.atmosphereNoiseSource = source;
+      this.atmosphereFilter = filter;
+      this.atmosphereGain = gain;
+    }
+    const intensity = Phaser.Math.Clamp(view.state.weatherIntensity, 0.35, 1);
+    const volume =
+      key === 'storm'
+        ? 0.12 + intensity * 0.08
+        : key === 'rain'
+          ? 0.08 + intensity * 0.08
+          : 0.035 + intensity * 0.04;
+    this.atmosphereFilter.type =
+      key === 'mist' ? 'lowpass' : key === 'wind' ? 'bandpass' : 'highpass';
+    this.atmosphereFilter.frequency.setTargetAtTime(
+      key === 'storm' ? 1600 : key === 'rain' ? 2200 : key === 'wind' ? 520 : 740,
+      context.currentTime,
+      0.08,
+    );
+    this.atmosphereFilter.Q.setTargetAtTime(key === 'wind' ? 4 : 0.7, context.currentTime, 0.08);
+    this.atmosphereGain.gain.setTargetAtTime(volume, context.currentTime, 0.18);
+  }
+
+  private playThunderCrack(view: ResolvedAtmosphereView): void {
+    const context = this.ensureAtmosphereAudioContext();
+    if (!context) {
+      return;
+    }
+    const buffer = context.createBuffer(
+      1,
+      Math.floor(context.sampleRate * 0.9),
+      context.sampleRate,
+    );
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < data.length; i++) {
+      const t = i / data.length;
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.7);
+    }
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    source.buffer = buffer;
+    filter.type = 'lowpass';
+    filter.frequency.value = view.localVisual === 'dryLightning' ? 900 : 520;
+    gain.gain.value = view.localVisual === 'dryLightning' ? 0.18 : 0.28;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(context.destination);
+    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.9);
+    source.start();
+    source.stop(context.currentTime + 0.95);
+  }
+
+  private ensureAtmosphereAudioContext(): AudioContext | null {
+    if (this.atmosphereAudioContext) {
+      return this.atmosphereAudioContext;
+    }
+    try {
+      const AudioContextCtor = globalThis.AudioContext;
+      if (!AudioContextCtor) {
+        return null;
+      }
+      this.atmosphereAudioContext = new AudioContextCtor();
+      return this.atmosphereAudioContext;
+    } catch {
+      return null;
+    }
+  }
+
+  private stopAtmosphereAudio(): void {
+    if (this.atmosphereGain && this.atmosphereAudioContext) {
+      this.atmosphereGain.gain.setTargetAtTime(0, this.atmosphereAudioContext.currentTime, 0.12);
+    }
+  }
+
+  private destroyAtmosphereAudio(): void {
+    this.stopAtmosphereAudio();
+    this.atmosphereNoiseSource?.stop();
+    this.atmosphereNoiseSource = null;
+    this.atmosphereGain = null;
+    this.atmosphereFilter = null;
+    this.atmosphereAudioContext?.close().catch(() => undefined);
+    this.atmosphereAudioContext = null;
+    this.atmosphereAudioKey = 'none';
   }
 
   private initGame(startPaused = true, resetAchievements = false): void {
@@ -2720,6 +2957,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
     this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
+    this.lastAtmosphereWorldDay = this.snakeGame.getAtmosphereState().worldDay;
     this.jasonDefeatCount = 0;
     if (resetAchievements) this.achievementManager.resetForNewRun(Boolean(this.archipelagoRunSave));
     this.lastAchievementTownId = null;
@@ -4580,6 +4818,7 @@ export default class SnakeScene extends Phaser.Scene {
     this._hasCherryBlossomAmbient = false;
     this.juice.stopJadePeakAmbient();
     this._hasJadePeakAmbient = false;
+    this.destroyAtmosphereAudio();
   }
 
   getAchievementManager(): AchievementManager {
@@ -5369,6 +5608,7 @@ export default class SnakeScene extends Phaser.Scene {
     const loaded = Boolean(result.loaded);
     if (loaded) {
       this.currentSnapshot = this.gameSession.getSnapshot();
+      this.lastAtmosphereWorldDay = this.snakeGame.getAtmosphereState().worldDay;
     }
     return loaded;
   }
@@ -5671,6 +5911,7 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         this.currentSnapshot = this.gameSession.getSnapshot();
+        this.lastAtmosphereWorldDay = this.snakeGame.getAtmosphereState().worldDay;
         this.restoreCharacterSaveState();
         this.applyRaccoonActionStepInterval();
         this.backfillArchipelagoDurableRewards();
@@ -7318,6 +7559,10 @@ export default class SnakeScene extends Phaser.Scene {
     return Array.isArray(lines) ? lines : [];
   }
 
+  getAtmospherePauseMenuView(): ResolvedAtmosphereView {
+    return this.snakeGame.getAtmosphereForRoom(this.snakeGame.getCurrentRoom());
+  }
+
   getFactionCards(): FactionCardView[] {
     return this.snakeGame.getFactionCards();
   }
@@ -8027,11 +8272,15 @@ export default class SnakeScene extends Phaser.Scene {
 
   private updateSimulation(deltaMs: number): void {
     const mode = this.getGameMode();
-    if (mode === 'action' || mode === 'manual-room') {
+    if (this.shouldAdvanceAtmosphereForMode(mode)) {
       this.advanceSimulationTime(Math.max(0, Math.min(deltaMs, 250)));
     }
     this.tickCaffeinatedAppleBoost();
     this.simulationScheduler.update(deltaMs, SIMULATION_MODE_RULES[mode]);
+  }
+
+  private shouldAdvanceAtmosphereForMode(mode: GameMode): boolean {
+    return mode !== 'title' && mode !== 'death-cutscene' && mode !== 'paused';
   }
 
   private getGameMode(): GameMode {
@@ -8044,6 +8293,12 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.cardGameContainer) {
       return 'card-game';
     }
+    if (this.archaeologySession) {
+      return 'archaeology';
+    }
+    if (this.arcadeSnakeRenderer?.isOpen()) {
+      return 'arcade';
+    }
     if (this.datingScenePopup?.isVisible()) {
       return 'dating';
     }
@@ -8051,6 +8306,9 @@ export default class SnakeScene extends Phaser.Scene {
       return 'shop';
     }
     if (this.questPopup?.isVisible()) {
+      return 'dialogue';
+    }
+    if (this.getActiveChoicePopup()) {
       return 'dialogue';
     }
     if (this.fishingActive) {
@@ -8789,6 +9047,8 @@ export default class SnakeScene extends Phaser.Scene {
     const snakeColor = pActive ? 0x9b5de5 : undefined;
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
     const activeSnakeTheme = this.getActiveSnakeTheme();
+    const atmosphere = this.snakeGame.getAtmosphereForRoom(room);
+    this.updateAtmosphereAudio(atmosphere);
     this.snakeRenderer.render(room, snakeBody, room.id, currentApple, {
       wallSenseRadius,
       snakeColor,
@@ -8811,6 +9071,8 @@ export default class SnakeScene extends Phaser.Scene {
       bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
       footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
+      atmosphere,
+      renderTimeMs: this.time.now,
     });
 
     // Ambient cherry blossom particles for cherry-garden rooms AND jade-peak-province biome
@@ -18111,6 +18373,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const room = this.snakeGame.getCurrentRoom();
+    this.tickAtmosphereAmbientJuice(room);
     if (room.biomeId === 'sable-depths' && this.random() < 0.28) {
       (this.juice as any).snowDrift?.(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
@@ -18285,6 +18548,83 @@ export default class SnakeScene extends Phaser.Scene {
         const world = this.tileToWorldLocalInRoom({ x: relief.x, y: relief.y });
         (this.juice as any).temperatureReliefPulse?.(world.x, world.y, relief.kind);
       }
+    }
+  }
+
+  private tickAtmosphereAmbientJuice(room: RoomSnapshot): void {
+    const atmosphere = this.snakeGame.getAtmosphereForRoom(room);
+    if (atmosphere.sheltered || atmosphere.localVisual === 'clear') {
+      return;
+    }
+    const head = this.getHeadLocalPosition();
+    const nearHead = head
+      ? this.tileToWorldLocalInRoom({
+          x: Phaser.Math.Clamp(head.x + Phaser.Math.Between(-4, 4), 0, this.grid.cols - 1),
+          y: Phaser.Math.Clamp(head.y + Phaser.Math.Between(-3, 3), 0, this.grid.rows - 1),
+        })
+      : {
+          x: Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
+          y: Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
+        };
+    const tags = new Set(atmosphere.activeJuice);
+    const intensity = Phaser.Math.Clamp(atmosphere.state.weatherIntensity, 0.35, 1);
+    const chance = 0.035 + intensity * 0.065;
+    if (this.random() > chance) {
+      return;
+    }
+
+    if (
+      tags.has('leaf-drips') ||
+      tags.has('canopy-drips') ||
+      tags.has('gear-drips') ||
+      tags.has('sea-spray')
+    ) {
+      (this.juice as any).koiRipple?.(nearHead.x, nearHead.y);
+      this.juice.notice(nearHead.x, nearHead.y - 4, 0x9ccfff);
+      return;
+    }
+    if (
+      tags.has('soft-mist') ||
+      tags.has('ghost-breath') ||
+      tags.has('bone-condensation') ||
+      atmosphere.localVisual === 'fog' ||
+      atmosphere.localVisual === 'mist'
+    ) {
+      (this.juice as any).villageBreath?.(nearHead.x, nearHead.y);
+      return;
+    }
+    if (tags.has('heat-haze') || atmosphere.localVisual === 'heatHaze') {
+      (this.juice as any).heatHaze?.(nearHead.x, nearHead.y);
+      return;
+    }
+    if (
+      tags.has('dust-gusts') ||
+      tags.has('ash-gusts') ||
+      tags.has('bone-dust') ||
+      tags.has('leaf-fall')
+    ) {
+      (this.juice as any).dustDevil?.(nearHead.x, nearHead.y);
+      return;
+    }
+    if (
+      tags.has('neon-reflections') ||
+      tags.has('sign-flicker') ||
+      tags.has('oil-sheen') ||
+      tags.has('geiger-sparkle')
+    ) {
+      (this.juice as any).neonFlicker?.(nearHead.x, nearHead.y);
+      return;
+    }
+    if (tags.has('snow-caps') || tags.has('aurora') || tags.has('ice-shimmer')) {
+      (this.juice as any).snowDrift?.(nearHead.x, nearHead.y);
+      return;
+    }
+    if (tags.has('lantern-reflections') || tags.has('fireflies') || tags.has('moon-reflection')) {
+      this.juice.notice(nearHead.x, nearHead.y - 4, 0xfff3a8);
+      return;
+    }
+    if (tags.has('spore-motes') || tags.has('petals')) {
+      this.juice.notice(nearHead.x, nearHead.y - 4, tags.has('petals') ? 0xffa6c8 : 0xf2a8ff);
     }
   }
 
