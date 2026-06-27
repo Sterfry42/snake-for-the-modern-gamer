@@ -53,7 +53,7 @@ const RELIGIONS: Religion[] = [
   {
     id: 'norse',
     name: 'Norse Paganism',
-    description: 'Gameplay bonus: masonry building enabled.',
+    description: 'Gameplay bonus: masonry building enabled (temporary blocks).',
     mods: { masonryEnabled: true },
   },
   {
@@ -93,7 +93,7 @@ const BACKGROUNDS: Background[] = [
   {
     id: 'artisan',
     name: 'Artisan',
-    description: 'Gameplay bonus: masonry enabled.',
+    description: 'Gameplay bonus: masonry building enabled (temporary blocks).',
     mods: { masonryEnabled: true },
   },
   {
@@ -144,7 +144,7 @@ const CLASSES: ClassSpec[] = [
   {
     id: 'builder',
     name: 'Builder',
-    description: 'Gameplay bonus: masonry enabled and 5% slower (heavier).',
+    description: 'Gameplay bonus: masonry building enabled (temporary blocks) and 5% slower (heavier).',
     mods: { masonryEnabled: true, tickDelayScalar: 1.05 },
   },
   {

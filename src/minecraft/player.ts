@@ -300,7 +300,7 @@ function getArmorSlotBySuffix(suffix: string): string | null {
 
 export function isWalkable(room: RoomSnapshot, x: number, y: number): boolean {
   const tile = room.layout[y]?.[x];
-  if (tile === '#') return false;
+  if (tile === '#' || tile === '%') return false;
   if (tile === '~') return false;
 
   if (room.minecraftBlocks) {
@@ -321,7 +321,7 @@ export function isWalkableWithCreativeOverride(
 ): boolean {
   // Check wall tiles - never walkable even in creative mode
   const tile = room.layout[y]?.[x];
-  if (tile === '#') return false;
+  if (tile === '#' || tile === '%') return false;
   if (tile === '~') return false;
 
   if (creativeMode) {

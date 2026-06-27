@@ -527,7 +527,7 @@ export class EnemyManager {
     for (let y = 0; y < this.grid.rows; y++) {
       for (let x = 0; x < this.grid.cols; x++) {
         const tile = room.layout[y]?.[x];
-        if (!tile || tile === '#' || tile === '~') continue;
+        if (!tile || tile === '#' || tile === '%' || tile === '~') continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (occupiedLocals.some((seg) => seg.x === x && seg.y === y)) continue;
         candidates.push({ x, y });
@@ -546,7 +546,7 @@ export class EnemyManager {
       const segX = head.x - i;
       if (segX < 0) break;
       const tile = room.layout[head.y]?.[segX];
-      if (tile === '#' || tile === '~') break;
+      if (tile === '#' || tile === '%' || tile === '~') break;
       if (occupiedLocals.some((seg) => seg.x === segX && seg.y === head.y)) break;
       body.push({ x: segX, y: head.y });
     }
@@ -637,7 +637,7 @@ export class EnemyManager {
       }
 
       const tile = room.layout[nextLocal.y]?.[nextLocal.x];
-      if (!tile || tile === '#' || tile === '~') continue;
+      if (!tile || tile === '#' || tile === '%' || tile === '~') continue;
       if (obstacleSet.has(`${nextLocal.x},${nextLocal.y}`)) continue;
 
       return { dir, nextLocal };
@@ -717,7 +717,7 @@ export class EnemyManager {
           continue;
         }
 
-        if (room.layout[nextPosition.y]?.[nextPosition.x] === '#') {
+        if (room.layout[nextPosition.y]?.[nextPosition.x] === '#' || room.layout[nextPosition.y]?.[nextPosition.x] === '%') {
           continue;
         }
 
@@ -1085,7 +1085,7 @@ export class EnemyManager {
     let cy = enemy.position.y + direction.y;
 
     while (cx >= 0 && cx < this.grid.cols && cy >= 0 && cy < this.grid.rows) {
-      if (room.layout[cy]?.[cx] === '#') {
+      if (room.layout[cy]?.[cx] === '#' || room.layout[cy]?.[cx] === '%') {
         return null;
       }
       if (cx === headLocal.x && cy === headLocal.y) {
@@ -1106,7 +1106,8 @@ export class EnemyManager {
       spawnX >= this.grid.cols ||
       spawnY < 0 ||
       spawnY >= this.grid.rows ||
-      room.layout[spawnY]?.[spawnX] === '#'
+      room.layout[spawnY]?.[spawnX] === '#' ||
+      room.layout[spawnY]?.[spawnX] === '%'
     ) {
       return null;
     }
