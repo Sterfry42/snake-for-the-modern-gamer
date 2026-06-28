@@ -1926,10 +1926,12 @@ export class SkillTreeOverlay {
         },
       );
     }
-    hats.slice(0, 4).forEach((hat, index) => {
+    hats.forEach((hat, index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
       const rect: UiRect = {
-        x: content.x + index * 82,
-        y: hatsY + 24,
+        x: content.x + col * 82,
+        y: hatsY + 24 + row * 56,
         width: 70,
         height: 48,
       };
@@ -1966,7 +1968,8 @@ export class SkillTreeOverlay {
       });
     });
 
-    const utilY = hatsY + 88;
+    const hatRowCount = Math.max(1, Math.ceil(hats.length / 3));
+    const utilY = hatsY + 24 + hatRowCount * 56;
     addUiText(this.scene, this.styleContainer, content.x, utilY, 'UTILITIES', {
       color: '#9ad1ff',
       fontSize: '12px',

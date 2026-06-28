@@ -8287,16 +8287,25 @@ export class JuiceManager {
     });
   }
 
-  // ─── Unicorn Glitter ───────────────────────────────────────────────────────
+  // ─── Unicorn Glitter & Trail ───────────────────────────────────────────────
   private unicornGlitterTimer?: Phaser.Time.TimerEvent;
+  private unicornTrailParticles: Phaser.GameObjects.GameObject[] = [];
+  private unicornTrailCleanupTimer?: Phaser.Time.TimerEvent;
+  private _lastUnicornTailKey?: string;
 
   startUnicornGlitter(): void {
     if (this.unicornGlitterTimer) {
       return; // Already running
     }
     this.unicornGlitterTimer = this.scene.time.addEvent({
-      delay: 120,
+      delay: 80,
       callback: () => this.spawnUnicornGlitter(),
+      loop: true,
+    });
+    // Periodic cleanup of old trail particles
+    this.unicornTrailCleanupTimer = this.scene.time.addEvent({
+      delay: 2000,
+      callback: () => this.cleanupOldTrailParticles(),
       loop: true,
     });
   }
@@ -8306,6 +8315,16 @@ export class JuiceManager {
       this.unicornGlitterTimer.remove();
       this.unicornGlitterTimer = undefined;
     }
+    if (this.unicornTrailCleanupTimer) {
+      this.unicornTrailCleanupTimer.remove();
+      this.unicornTrailCleanupTimer = undefined;
+    }
+    // Destroy all trail particles
+    for (const particle of this.unicornTrailParticles) {
+      particle.destroy();
+    }
+    this.unicornTrailParticles.length = 0;
+    this._lastUnicornTailKey = undefined;
   }
 
   private spawnUnicornGlitter(): void {
@@ -8326,39 +8345,42 @@ export class JuiceManager {
       0xffffff, // white sparkle
     ];
 
-    const count = 3 + Math.floor(this.rng() * 3); // 3-5 particles per burst
-    const head = this.scene.snakeGame.getSnakeBody()[0];
-    // Compute head world position (mirrors SnakeRenderer.getWorldPosition)
-    const headCx = this.scene.cameras.main.scrollX + this.scene.cameras.main.width / 2;
-    const headCy = this.scene.cameras.main.scrollY + this.scene.cameras.main.height / 2;
-    let cx = headCx;
-    let cy = headCy;
-    if (head) {
-      const roomId = this.scene.currentRoomId;
-      let roomX = 0;
-      let roomY = 0;
-      if (/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {
-        const [x, y] = roomId.split(',').map(Number);
-        roomX = x;
-        roomY = y;
-      }
-      const localX = head.x - roomX * this.scene.grid.cols;
-      const localY = head.y - roomY * this.scene.grid.rows;
-      cx = localX * this.scene.grid.cell + this.scene.grid.cell / 2;
-      cy = localY * this.scene.grid.cell + this.scene.grid.cell / 2;
+    // Get tail position (last segment of snake body)
+    const snakeBody = this.scene.snakeGame.getSnakeBody();
+    if (snakeBody.length === 0) {
+      return;
     }
 
-    for (let i = 0; i < count; i++) {
-      const angle = (Math.PI * 2 * i) / count + this.rng() * 0.5;
-      const dist = 10 + this.rng() * 20;
-      const offsetX = Math.cos(angle) * dist;
-      const offsetY = Math.sin(angle) * dist;
+    const tail = snakeBody[snakeBody.length - 1];
+    const roomId = this.scene.currentRoomId;
+    let roomX = 0;
+    let roomY = 0;
+    if (/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {
+      const parts = roomId.split(',').map(Number);
+      roomX = parts[0];
+      roomY = parts[1];
+    }
+    const localX = tail.x - roomX * this.scene.grid.cols;
+    const localY = tail.y - roomY * this.scene.grid.rows;
+    const tailCx = localX * this.scene.grid.cell + this.scene.grid.cell / 2;
+    const tailCy = localY * this.scene.grid.cell + this.scene.grid.cell / 2;
+
+    // Trail key: unique identifier for this tail position
+    const tailKey = `${localX},${localY}`;
+    const isNewPosition = tailKey !== this._lastUnicornTailKey;
+    this._lastUnicornTailKey = tailKey;
+
+    // Burst particles at tail (3-5 per spawn)
+    const burstCount = 3 + Math.floor(this.rng() * 3);
+    for (let i = 0; i < burstCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 4 + this.rng() * 12;
       const size = 1.5 + this.rng() * 2.5;
       const color = glitterColors[Math.floor(this.rng() * glitterColors.length)];
 
       const sparkle = this.scene.add.circle(
-        cx + offsetX,
-        cy + offsetY,
+        tailCx + Math.cos(angle) * dist,
+        tailCy + Math.sin(angle) * dist,
         size,
         color,
       );
@@ -8376,6 +8398,62 @@ export class JuiceManager {
         ease: 'Cubic.easeOut',
         onComplete: () => sparkle.destroy(),
       });
+    }
+
+    // Trail particles: leave a path of glitter behind the snake
+    if (isNewPosition) {
+      this.spawnTrailParticle(tailCx, tailCy, glitterColors);
+    }
+  }
+
+  private spawnTrailParticle(
+    x: number,
+    y: number,
+    glitterColors: number[],
+  ): void {
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
+
+    // Trail particles are slightly larger and last longer
+    const size = 2 + this.rng() * 3;
+    const color = glitterColors[Math.floor(this.rng() * glitterColors.length)];
+    const lifetime = 1500 + this.rng() * 1000; // 1.5-2.5 seconds
+
+    const trail = this.scene.add.circle(x, y, size, color);
+    trail.setDepth(21); // Behind main burst particles
+    trail.setBlendMode(Phaser.BlendModes.ADD);
+    trail.setAlpha(0.85);
+    layer.add(trail);
+    this.unicornTrailParticles.push(trail);
+
+    // Fade out and shrink
+    this.scene.tweens.add({
+      targets: trail,
+      alpha: 0,
+      scale: 0.3,
+      duration: lifetime,
+      ease: 'Cubic.easeOut',
+      onComplete: () => {
+        trail.destroy();
+        const idx = this.unicornTrailParticles.indexOf(trail);
+        if (idx !== -1) {
+          this.unicornTrailParticles.splice(idx, 1);
+        }
+      },
+    });
+  }
+
+  private cleanupOldTrailParticles(): void {
+    // Remove trail particles that have been around too long
+    // (safety net — tweens should handle cleanup, but this prevents leaks)
+    const maxTrailParticles = 200;
+    if (this.unicornTrailParticles.length > maxTrailParticles) {
+      const toRemove = this.unicornTrailParticles.splice(0, this.unicornTrailParticles.length - maxTrailParticles);
+      for (const p of toRemove) {
+        p.destroy();
+      }
     }
   }
 }
