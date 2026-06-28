@@ -8327,12 +8327,30 @@ export class JuiceManager {
     ];
 
     const count = 3 + Math.floor(this.rng() * 3); // 3-5 particles per burst
-    const cx = this.scene.cameras.main.scrollX + this.scene.cameras.main.width / 2;
-    const cy = this.scene.cameras.main.scrollY + this.scene.cameras.main.height / 2;
+    const head = this.scene.snakeGame.getSnakeBody()[0];
+    // Compute head world position (mirrors SnakeRenderer.getWorldPosition)
+    const headCx = this.scene.cameras.main.scrollX + this.scene.cameras.main.width / 2;
+    const headCy = this.scene.cameras.main.scrollY + this.scene.cameras.main.height / 2;
+    let cx = headCx;
+    let cy = headCy;
+    if (head) {
+      const roomId = this.scene.currentRoomId;
+      let roomX = 0;
+      let roomY = 0;
+      if (/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {
+        const [x, y] = roomId.split(',').map(Number);
+        roomX = x;
+        roomY = y;
+      }
+      const localX = head.x - roomX * this.scene.grid.cols;
+      const localY = head.y - roomY * this.scene.grid.rows;
+      cx = localX * this.scene.grid.cell + this.scene.grid.cell / 2;
+      cy = localY * this.scene.grid.cell + this.scene.grid.cell / 2;
+    }
 
     for (let i = 0; i < count; i++) {
       const angle = (Math.PI * 2 * i) / count + this.rng() * 0.5;
-      const dist = 20 + this.rng() * 30;
+      const dist = 10 + this.rng() * 20;
       const offsetX = Math.cos(angle) * dist;
       const offsetY = Math.sin(angle) * dist;
       const size = 1.5 + this.rng() * 2.5;
