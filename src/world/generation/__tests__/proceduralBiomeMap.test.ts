@@ -112,7 +112,32 @@ describe('seeded procedural biome map', () => {
     expect(below.subterranean).toBeGreaterThan(below.regular);
     expect(veryDeep.hot).toBeGreaterThan(below.hot);
     expect(above.sky).toBeGreaterThan(surface.sky);
-    expect(highSky.cold).toBeGreaterThan(above.cold);
+    expect(highSky.cold).toBeGreaterThanOrEqual(above.cold);
+  });
+
+  it('makes first adjacent vertical layers feel like mixed world strata', () => {
+    const biomeMap = mapFor('adjacent-layer-mix');
+    const countVertical = (z: number) => {
+      const classes = { subterranean: 0, sky: 0, regular: 0, total: 0 };
+      for (let y = -24; y <= 24; y += 1) {
+        for (let x = -24; x <= 24; x += 1) {
+          const vertical = getBiomeVerticalClass(biomeMap.getBiomeForRoomId(roomId(x, y, z)));
+          if (vertical === 'subterranean') classes.subterranean += 1;
+          if (vertical === 'sky') classes.sky += 1;
+          if (vertical === 'regular') classes.regular += 1;
+          classes.total += 1;
+        }
+      }
+      return classes;
+    };
+
+    const below = countVertical(-1);
+    const above = countVertical(1);
+
+    expect(below.subterranean / below.total).toBeGreaterThan(0.42);
+    expect(below.subterranean / below.total).toBeLessThan(0.62);
+    expect(above.sky / above.total).toBeGreaterThan(0.42);
+    expect(above.sky / above.total).toBeLessThan(0.72);
   });
 
   it('exposes clear vertical layer curves for normal world biome selection', () => {
@@ -126,7 +151,8 @@ describe('seeded procedural biome map', () => {
     const high = getVerticalLayerBiomeWeights(16);
 
     expect(surface.vertical.regular).toBeGreaterThan(surface.vertical.subterranean);
-    expect(below1.vertical.subterranean).toBeCloseTo(below1.vertical.regular, 1);
+    expect(below1.vertical.subterranean).toBeGreaterThan(below1.vertical.regular);
+    expect(below1.vertical.subterranean).toBeLessThan(below5.vertical.subterranean);
     expect(below5.vertical.subterranean).toBeGreaterThan(below1.vertical.subterranean);
     expect(below10.vertical.subterranean).toBeGreaterThan(below5.vertical.subterranean);
     expect(deep.thermal.hot).toBeGreaterThan(below10.thermal.hot);

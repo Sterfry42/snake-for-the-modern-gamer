@@ -99,6 +99,13 @@ export const VILLAGE_SHOP_EQUIPMENT: readonly VillageShopEquipmentOffer[] = [
     note: 'Cold resistance for snakes who read weather as criticism.',
   },
   {
+    id: 'traveler-lantern',
+    itemId: 'amulet-lantern',
+    price: 42,
+    slot: 'amulet',
+    note: 'A steady lantern for nights, caves, and bad ideas after sundown.',
+  },
+  {
     id: 'fishing-rod',
     itemId: 'fishing-rod',
     price: 36,

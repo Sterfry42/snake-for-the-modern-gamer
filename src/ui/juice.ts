@@ -4321,6 +4321,196 @@ export class JuiceManager {
     });
   }
 
+  coldBodyStage(worldX: number, worldY: number, intensity: number) {
+    const level = Phaser.Math.Clamp(intensity, 0, 1);
+    const breath = this.scene.add.ellipse(
+      worldX + 4,
+      worldY - 8,
+      10 + level * 8,
+      5 + level * 4,
+      0xcfe5ff,
+      0.18 + level * 0.12,
+    );
+    breath.setDepth(31).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(breath);
+    this.scene.tweens.add({
+      targets: breath,
+      x: worldX + 12 + level * 8,
+      y: worldY - 14 - level * 8,
+      alpha: 0,
+      scaleX: 1.8,
+      scaleY: 1.25,
+      duration: 700 + level * 500,
+      ease: 'Sine.easeOut',
+      onComplete: () => breath.destroy(),
+    });
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 5 + level * 10, level > 0.65 ? 2 : 1, 260);
+    if (level > 0.36) {
+      this.fillPulse(worldX, worldY, 12, 68, 0x77cfff, 0.04 + level * 0.06, 420);
+    }
+    if (level > 0.52) {
+      this.coldScreenEdges(level);
+    }
+    if (level > 0.8)
+      this.playTone({
+        frequency: 130,
+        frequencyEnd: 72,
+        duration: 0.14,
+        type: 'sine',
+        volume: 0.04 + level * 0.04,
+      });
+  }
+
+  coldBodyDamage(worldX: number, worldY: number) {
+    this.scene.cameras.main.flash(130, 194, 232, 255, true);
+    this.scene.cameras.main.shake(110, 0.004);
+    this.playTone({
+      frequency: 420,
+      frequencyEnd: 150,
+      duration: 0.18,
+      type: 'triangle',
+      volume: 0.1,
+    });
+    this.ringPulse(worldX, worldY, 0xcfe5ff, 18, 3, 260);
+    for (let i = 0; i < 7; i += 1) {
+      const crack = this.scene.add.rectangle(
+        worldX,
+        worldY,
+        2,
+        Phaser.Math.Between(10, 22),
+        0xe8f4ff,
+        0.8,
+      );
+      crack
+        .setDepth(32)
+        .setBlendMode(Phaser.BlendModes.ADD)
+        .setRotation(this.rng() * Math.PI);
+      this.overlayLayer.add(crack);
+      this.scene.tweens.add({
+        targets: crack,
+        x: worldX + Phaser.Math.Between(-18, 18),
+        y: worldY + Phaser.Math.Between(-18, 18),
+        alpha: 0,
+        duration: 260,
+        ease: 'Cubic.easeOut',
+        onComplete: () => crack.destroy(),
+      });
+    }
+  }
+
+  private coldScreenEdges(level: number): void {
+    const cam = this.scene.cameras.main;
+    const width = cam.width;
+    const height = cam.height;
+    const thickness = 12 + level * 26;
+    const alpha = 0.05 + level * 0.12;
+    const frost = this.scene.add.graphics().setScrollFactor(0).setDepth(27);
+    frost.fillStyle(0x9ad1ff, alpha);
+    frost.fillRect(0, 0, width, thickness);
+    frost.fillRect(0, height - thickness, width, thickness);
+    frost.fillRect(0, 0, thickness, height);
+    frost.fillRect(width - thickness, 0, thickness, height);
+    frost.lineStyle(1, 0xe8f4ff, Math.min(0.35, alpha * 1.7));
+    const crackCount = 4 + Math.floor(level * 8);
+    for (let i = 0; i < crackCount; i += 1) {
+      const fromLeft = this.rng() < 0.5;
+      const x = fromLeft
+        ? Phaser.Math.Between(2, Math.floor(thickness))
+        : width - Phaser.Math.Between(2, Math.floor(thickness));
+      const y = Phaser.Math.Between(8, height - 8);
+      frost.lineBetween(
+        x,
+        y,
+        x + (fromLeft ? 1 : -1) * Phaser.Math.Between(8, 24),
+        y + Phaser.Math.Between(-10, 10),
+      );
+    }
+    this.scene.tweens.add({
+      targets: frost,
+      alpha: 0,
+      duration: 520,
+      ease: 'Sine.easeOut',
+      onComplete: () => frost.destroy(),
+    });
+  }
+
+  heatBodyStage(worldX: number, worldY: number, intensity: number) {
+    const level = Phaser.Math.Clamp(intensity, 0, 1);
+    const haze = this.scene.add.ellipse(
+      worldX,
+      worldY,
+      12 + level * 16,
+      18 + level * 24,
+      0xff8c42,
+      0.1 + level * 0.1,
+    );
+    haze.setDepth(31).setBlendMode(Phaser.BlendModes.ADD);
+    this.overlayLayer.add(haze);
+    this.scene.tweens.add({
+      targets: haze,
+      y: worldY - 12 - level * 10,
+      x: worldX + Phaser.Math.Between(-5, 5),
+      alpha: 0,
+      scaleX: 1.45,
+      scaleY: 0.72,
+      duration: 520 + level * 360,
+      ease: 'Sine.easeOut',
+      onComplete: () => haze.destroy(),
+    });
+    this.fillPulse(
+      worldX,
+      worldY,
+      12,
+      72,
+      level > 0.75 ? 0xff3b3b : 0xff9f1c,
+      0.03 + level * 0.055,
+      360,
+    );
+    if (level > 0.5) this.ringPulse(worldX, worldY, 0xff9f1c, 8 + level * 10, 2, 220);
+    if (level > 0.8)
+      this.playTone({
+        frequency: 210,
+        frequencyEnd: 95,
+        duration: 0.12,
+        type: 'sawtooth',
+        volume: 0.035 + level * 0.045,
+      });
+  }
+
+  heatBodyDamage(worldX: number, worldY: number) {
+    this.scene.cameras.main.flash(130, 255, 180, 92, true);
+    this.scene.cameras.main.shake(120, 0.005);
+    this.playTone({
+      frequency: 95,
+      frequencyEnd: 190,
+      duration: 0.2,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
+    this.ringPulse(worldX, worldY, 0xff713f, 20, 3, 260);
+    for (let i = 0; i < 8; i += 1) {
+      const spark = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-8, 8),
+        worldY + Phaser.Math.Between(-8, 8),
+        Phaser.Math.Between(2, 4),
+        Phaser.Utils.Array.GetRandom([0xfff3a8, 0xff9f1c, 0xff713f]),
+        0.85,
+      );
+      spark.setDepth(32).setBlendMode(Phaser.BlendModes.ADD);
+      this.overlayLayer.add(spark);
+      this.scene.tweens.add({
+        targets: spark,
+        x: worldX + Phaser.Math.Between(-22, 22),
+        y: worldY + Phaser.Math.Between(-24, 8),
+        alpha: 0,
+        scale: 0.4,
+        duration: 360,
+        ease: 'Cubic.easeOut',
+        onComplete: () => spark.destroy(),
+      });
+    }
+  }
+
   eagleFlyover() {
     const h = this.scene.scale.height;
     const w = this.scene.scale.width;
@@ -6141,13 +6331,7 @@ export class JuiceManager {
       const dist = Phaser.Math.Between(radius * 0.3, radius);
       const cx = worldX + Math.cos(angle) * dist;
       const cy = worldY + Math.sin(angle) * dist;
-      const shape = this.scene.add.rectangle(
-        cx,
-        cy,
-        3,
-        3,
-        Phaser.Utils.Array.GetRandom(colors),
-      );
+      const shape = this.scene.add.rectangle(cx, cy, 3, 3, Phaser.Utils.Array.GetRandom(colors));
       shape.setDepth(22).setRotation(this.rng() * Math.PI);
       this.particleLayer.add(shape);
       this.scene.tweens.add({
@@ -6881,7 +7065,10 @@ export class JuiceManager {
     });
   }
 
-  private _spawnShrineLantern(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+  private _spawnShrineLantern(
+    cam: Phaser.Cameras.Scene2D.Camera,
+    layer: Phaser.GameObjects.Layer,
+  ): void {
     const x = cam.scrollX + Phaser.Math.Between(10, cam.width - 10);
     const y = cam.scrollY + Phaser.Math.Between(10, cam.height * 0.6);
     const colors = [0xffe8b6, 0xffc857, 0xfff4d6, 0xffd166, 0xffb840];
@@ -6949,18 +7136,12 @@ export class JuiceManager {
     const size = Phaser.Math.Between(3, 5);
 
     // Ofuda body (rectangular paper)
-    const ofuda = this.scene.add.rectangle(
-      x, y, size * 2, size * 3.5,
-      0xfff8f0, 0.35
-    );
+    const ofuda = this.scene.add.rectangle(x, y, size * 2, size * 3.5, 0xfff8f0, 0.35);
     ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.3);
     layer.add(ofuda);
 
     // Red seal line on the ofuda
-    const seal = this.scene.add.rectangle(
-      x, y - size * 0.5, size * 1.2, size * 0.8,
-      0xff6666, 0.3
-    );
+    const seal = this.scene.add.rectangle(x, y - size * 0.5, size * 1.2, size * 0.8, 0xff6666, 0.3);
     seal.setDepth(24).setRotation(ofuda.rotation);
     layer.add(seal);
 
@@ -7002,7 +7183,10 @@ export class JuiceManager {
     });
   }
 
-  private _spawnKoiRipple(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+  private _spawnKoiRipple(
+    cam: Phaser.Cameras.Scene2D.Camera,
+    layer: Phaser.GameObjects.Layer,
+  ): void {
     const x = cam.scrollX + Phaser.Math.Between(20, cam.width - 20);
     const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.55, cam.height - 20);
     const maxRadius = 10 + this.rng() * 8;
@@ -7035,7 +7219,9 @@ export class JuiceManager {
       const koi = this.scene.add.circle(
         x + Phaser.Math.Between(-3, 3),
         y + Phaser.Math.Between(-2, 2),
-        2, koiColor, 0.4
+        2,
+        koiColor,
+        0.4,
       );
       koi.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(koi);
@@ -7080,29 +7266,47 @@ export class JuiceManager {
 
     // Crane body (triangle)
     const craneBody = this.scene.add.triangle(
-      startX, startY, 0, -size,
-      -size * 1.2, size * 0.5,
-      size * 1.2, size * 0.5,
-      color, 0.4
+      startX,
+      startY,
+      0,
+      -size,
+      -size * 1.2,
+      size * 0.5,
+      size * 1.2,
+      size * 0.5,
+      color,
+      0.4,
     );
     craneBody.setDepth(25).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(craneBody);
 
     // Wing flap effect
     const wingL = this.scene.add.triangle(
-      startX, startY, 0, -size * 0.5,
-      -size * 1.5, -size * 1.5,
-      -size * 0.5, -size * 0.2,
-      color, 0.25
+      startX,
+      startY,
+      0,
+      -size * 0.5,
+      -size * 1.5,
+      -size * 1.5,
+      -size * 0.5,
+      -size * 0.2,
+      color,
+      0.25,
     );
     wingL.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingL);
 
     const wingR = this.scene.add.triangle(
-      startX, startY, 0, -size * 0.5,
-      size * 0.5, -size * 0.2,
-      size * 1.5, -size * 1.5,
-      color, 0.25
+      startX,
+      startY,
+      0,
+      -size * 0.5,
+      size * 0.5,
+      -size * 0.2,
+      size * 1.5,
+      -size * 1.5,
+      color,
+      0.25,
     );
     wingR.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingR);
@@ -7160,17 +7364,17 @@ export class JuiceManager {
     });
   }
 
-  private _spawnZenRipple(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+  private _spawnZenRipple(
+    cam: Phaser.Cameras.Scene2D.Camera,
+    layer: Phaser.GameObjects.Layer,
+  ): void {
     const x = cam.scrollX + Phaser.Math.Between(20, cam.width - 20);
     const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.6, cam.height - 10);
     const maxRadius = 8 + this.rng() * 8;
 
     // Concentric ripple rings (like raked sand patterns)
     for (let r = 0; r < 3; r++) {
-      const ring = this.scene.add.circle(
-        x, y, 2 + r * 2,
-        0xf6e7c1, 0.2 - r * 0.05
-      );
+      const ring = this.scene.add.circle(x, y, 2 + r * 2, 0xf6e7c1, 0.2 - r * 0.05);
       ring.setDepth(19).setStrokeStyle(1, 0xd4b896, 0.15);
       layer.add(ring);
 
@@ -7191,7 +7395,9 @@ export class JuiceManager {
       const grain = this.scene.add.circle(
         x + Phaser.Math.Between(-4, 4),
         y + Phaser.Math.Between(-4, 4),
-        1, 0xd4b896, 0.4
+        1,
+        0xd4b896,
+        0.4,
       );
       grain.setDepth(20);
       layer.add(grain);
@@ -7229,12 +7435,13 @@ export class JuiceManager {
     });
   }
 
-  private _spawnToriiSparkle(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+  private _spawnToriiSparkle(
+    cam: Phaser.Cameras.Scene2D.Camera,
+    layer: Phaser.GameObjects.Layer,
+  ): void {
     const x = cam.scrollX + Phaser.Math.Between(10, cam.width - 10);
     const y = cam.scrollY + Phaser.Math.Between(10, cam.height * 0.7);
-    const color = Phaser.Utils.Array.GetRandom([
-      0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6,
-    ]);
+    const color = Phaser.Utils.Array.GetRandom([0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6]);
     const size = 1 + this.rng() * 1.5;
 
     const sparkle = this.scene.add.circle(x, y, size, color, 0.5);
@@ -7272,7 +7479,10 @@ export class JuiceManager {
     });
   }
 
-  private _spawnSakuraBurst(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+  private _spawnSakuraBurst(
+    cam: Phaser.Cameras.Scene2D.Camera,
+    layer: Phaser.GameObjects.Layer,
+  ): void {
     const x = cam.scrollX + Phaser.Math.Between(30, cam.width - 30);
     const y = cam.scrollY + Phaser.Math.Between(cam.height * 0.1, cam.height * 0.4);
     const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff, 0xffa3b8];
@@ -7359,8 +7569,10 @@ export class JuiceManager {
       const strip = this.scene.add.rectangle(
         x + (i - 1) * 6,
         y + 5,
-        2, 10 + this.rng() * 6,
-        Phaser.Utils.Array.GetRandom(stripColors), 0.4
+        2,
+        10 + this.rng() * 6,
+        Phaser.Utils.Array.GetRandom(stripColors),
+        0.4,
       );
       strip.setDepth(24);
       layer.add(strip);
@@ -7389,7 +7601,7 @@ export class JuiceManager {
         worldY + Phaser.Math.Between(-8, 8),
         1 + this.rng() * 2,
         Phaser.Utils.Array.GetRandom(colors),
-        0.5
+        0.5,
       );
       leaf.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(leaf);
@@ -7417,7 +7629,8 @@ export class JuiceManager {
         worldX + Phaser.Math.Between(-4, 4),
         worldY + Phaser.Math.Between(-2, 2),
         2 + this.rng() * 3,
-        0xf0f0f0, 0.2
+        0xf0f0f0,
+        0.2,
       );
       steam.setDepth(20);
       layer.add(steam);
@@ -7446,7 +7659,8 @@ export class JuiceManager {
         worldX + (i - 1) * 8,
         worldY + Phaser.Math.Between(-3, 3),
         2 + this.rng() * 2,
-        0xffd166, 0.4
+        0xffd166,
+        0.4,
       );
       glow.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(glow);
@@ -7501,7 +7715,8 @@ export class JuiceManager {
         worldX + Phaser.Math.Between(-8, 8),
         worldY + Phaser.Math.Between(-4, 4),
         3 + this.rng() * 3,
-        0x7ed77c, 0.12
+        0x7ed77c,
+        0.12,
       );
       mist.setDepth(19);
       layer.add(mist);
@@ -7561,7 +7776,8 @@ export class JuiceManager {
         worldX + Phaser.Math.Between(-12, 12),
         worldY + Phaser.Math.Between(-12, 12),
         1 + this.rng() * 2,
-        0xffffff, 0.6
+        0xffffff,
+        0.6,
       );
       feather.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(feather);
@@ -7588,10 +7804,7 @@ export class JuiceManager {
     if (!layer) return;
 
     // Dark shadow that drifts across
-    const shadow = this.scene.add.circle(
-      worldX, worldY, 4 + this.rng() * 3,
-      0x2a1a0a, 0.2
-    );
+    const shadow = this.scene.add.circle(worldX, worldY, 4 + this.rng() * 3, 0x2a1a0a, 0.2);
     shadow.setDepth(18);
     layer.add(shadow);
 
@@ -7665,16 +7878,17 @@ export class JuiceManager {
     if (!layer) return;
     const size = 3 + this.rng() * 2;
 
-    const ofuda = this.scene.add.rectangle(
-      worldX, worldY, size * 2, size * 3.5,
-      0xfff8f0, 0.35
-    );
+    const ofuda = this.scene.add.rectangle(worldX, worldY, size * 2, size * 3.5, 0xfff8f0, 0.35);
     ofuda.setDepth(23).setRotation((this.rng() - 0.5) * 0.3);
     layer.add(ofuda);
 
     const seal = this.scene.add.rectangle(
-      worldX, worldY - size * 0.5, size * 1.2, size * 0.8,
-      0xff6666, 0.3
+      worldX,
+      worldY - size * 0.5,
+      size * 1.2,
+      size * 0.8,
+      0xff6666,
+      0.3,
     );
     seal.setDepth(24).setRotation(ofuda.rotation);
     layer.add(seal);
@@ -7728,7 +7942,9 @@ export class JuiceManager {
       const koi = this.scene.add.circle(
         worldX + Phaser.Math.Between(-3, 3),
         worldY + Phaser.Math.Between(-2, 2),
-        2, koiColor, 0.4
+        2,
+        koiColor,
+        0.4,
       );
       koi.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(koi);
@@ -7756,28 +7972,46 @@ export class JuiceManager {
     const size = 3 + this.rng() * 3;
 
     const craneBody = this.scene.add.triangle(
-      startX, startY, 0, -size,
-      -size * 1.2, size * 0.5,
-      size * 1.2, size * 0.5,
-      color, 0.4
+      startX,
+      startY,
+      0,
+      -size,
+      -size * 1.2,
+      size * 0.5,
+      size * 1.2,
+      size * 0.5,
+      color,
+      0.4,
     );
     craneBody.setDepth(25).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(craneBody);
 
     const wingL = this.scene.add.triangle(
-      startX, startY, 0, -size * 0.5,
-      -size * 1.5, -size * 1.5,
-      -size * 0.5, -size * 0.2,
-      color, 0.25
+      startX,
+      startY,
+      0,
+      -size * 0.5,
+      -size * 1.5,
+      -size * 1.5,
+      -size * 0.5,
+      -size * 0.2,
+      color,
+      0.25,
     );
     wingL.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingL);
 
     const wingR = this.scene.add.triangle(
-      startX, startY, 0, -size * 0.5,
-      size * 0.5, -size * 0.2,
-      size * 1.5, -size * 1.5,
-      color, 0.25
+      startX,
+      startY,
+      0,
+      -size * 0.5,
+      size * 0.5,
+      -size * 0.2,
+      size * 1.5,
+      -size * 1.5,
+      color,
+      0.25,
     );
     wingR.setDepth(24).setRotation(direction === -1 ? Math.PI : 0);
     this.particleLayer.add(wingR);
@@ -7820,10 +8054,7 @@ export class JuiceManager {
     const maxRadius = 8 + this.rng() * 6;
 
     for (let r = 0; r < 3; r++) {
-      const ring = this.scene.add.circle(
-        worldX, worldY, 2 + r * 2,
-        0xf6e7c1, 0.2 - r * 0.05
-      );
+      const ring = this.scene.add.circle(worldX, worldY, 2 + r * 2, 0xf6e7c1, 0.2 - r * 0.05);
       ring.setDepth(19).setStrokeStyle(1, 0xd4b896, 0.15);
       layer.add(ring);
 
@@ -7843,7 +8074,9 @@ export class JuiceManager {
       const grain = this.scene.add.circle(
         worldX + Phaser.Math.Between(-3, 3),
         worldY + Phaser.Math.Between(-3, 3),
-        1, 0xd4b896, 0.35
+        1,
+        0xd4b896,
+        0.35,
       );
       grain.setDepth(20);
       layer.add(grain);
@@ -7866,9 +8099,7 @@ export class JuiceManager {
   toriiSparkle(worldX: number, worldY: number): void {
     const layer = this.particleLayer;
     if (!layer) return;
-    const color = Phaser.Utils.Array.GetRandom([
-      0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6,
-    ]);
+    const color = Phaser.Utils.Array.GetRandom([0xffd166, 0xffe8b6, 0xffc857, 0xfff4d6, 0xffb3c6]);
     const size = 1 + this.rng() * 1.5;
 
     const sparkle = this.scene.add.circle(worldX, worldY, size, color, 0.5);
@@ -7898,7 +8129,13 @@ export class JuiceManager {
       const color = Phaser.Utils.Array.GetRandom(petalColors);
       const size = 2 + this.rng() * 2;
 
-      const petal = this.scene.add.circle(worldX + (this.rng() - 0.5) * 15, worldY, size, color, 0.5);
+      const petal = this.scene.add.circle(
+        worldX + (this.rng() - 0.5) * 15,
+        worldY,
+        size,
+        color,
+        0.5,
+      );
       petal.setDepth(22).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(petal);
 
@@ -7952,8 +8189,10 @@ export class JuiceManager {
       const strip = this.scene.add.rectangle(
         worldX + (i - 1) * 6,
         worldY + 5,
-        2, 10 + this.rng() * 6,
-        Phaser.Utils.Array.GetRandom(stripColors), 0.4
+        2,
+        10 + this.rng() * 6,
+        Phaser.Utils.Array.GetRandom(stripColors),
+        0.4,
       );
       strip.setDepth(24);
       layer.add(strip);
@@ -8009,7 +8248,10 @@ export class JuiceManager {
     this.cherryBlossomParticles = [];
   }
 
-  private spawnCherryPetal(cam: Phaser.Cameras.Scene2D.Camera, layer: Phaser.GameObjects.Layer): void {
+  private spawnCherryPetal(
+    cam: Phaser.Cameras.Scene2D.Camera,
+    layer: Phaser.GameObjects.Layer,
+  ): void {
     const petalColors = [0xffb3c6, 0xff8fa8, 0xffc8d4, 0xffd1dc, 0xe894a8, 0xffffff];
     const color = petalColors[Math.floor(this.rng() * petalColors.length)];
     const size = 2 + this.rng() * 3;

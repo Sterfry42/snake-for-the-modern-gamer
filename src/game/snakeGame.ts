@@ -444,6 +444,7 @@ export interface StepResult {
     | 'boss'
     | 'bullet'
     | 'temperature'
+    | 'lightning'
     | 'water'
     | 'shark'
     | 'roaming-snake'
@@ -460,6 +461,15 @@ export interface StepResult {
   roomChanged: boolean;
   questOffer?: Quest | null;
   questsCompleted: Quest[];
+}
+
+export interface LightningStrikeState {
+  roomId: string;
+  x: number;
+  y: number;
+  radius: number;
+  ticksRemaining: number;
+  phase: 'warning' | 'strike';
 }
 
 export interface DebugPlayerStepResult {
@@ -778,6 +788,7 @@ export class SnakeGame implements QuestRuntime {
 
   private traversalConfig: TraversalComputedConfig = createDefaultTraversalConfig();
   private traversalState: TraversalRuntimeState = createDefaultTraversalState();
+  private lightningStrike: LightningStrikeState | null = null;
 
   private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
   private characterMode: CharacterMode;
@@ -853,6 +864,7 @@ export class SnakeGame implements QuestRuntime {
     this.snake.reset(this.config.world.originRoomId);
     this.bosses.clearAll();
     this.enemies.clearAll();
+    this.lightningStrike = null;
     this.footballs.clear();
     this.footballIdCounter = 0;
     this.animals.clearAll();
@@ -879,6 +891,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('timeMs', 0);
     this.setFlag('player.health', 3);
     this.setFlag('player.maxHealth', 3);
+    this.setFlag('player.skillMaxHeartBonus', 0);
     this.characterMode = normalizeCharacterMode(this.config.character?.mode);
     this.raccoonWeight = 0;
     this.raccoonHungerTimerMs = 0;
@@ -925,6 +938,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.footballPass', undefined);
     this.setFlag('ui.libertyLandmarkReveal', undefined);
     this.setFlag('ui.playerHit', undefined);
+    this.setFlag('ui.lightningStrike', undefined);
     this.setFlag('ui.villageReveal', undefined);
     this.setFlag('ui.townReveal', undefined);
     this.setFlag('ui.biomeReveal', undefined);
@@ -2486,6 +2500,9 @@ export class SnakeGame implements QuestRuntime {
     }
     if (this.tickRadiationQuestTimer()) {
       return this.createTemperatureDeathOrPhoenixResult(options);
+    }
+    if (this.tickLightningHazardState(options)) {
+      return this.createLightningDeathOrPhoenixResult(options);
     }
     return null;
   }
@@ -4062,6 +4079,9 @@ export class SnakeGame implements QuestRuntime {
     this.tickFortitudeStates();
     this.tickPlayerStates();
     this.tickPowerupState();
+    if (this.tickLightningHazardState(options)) {
+      return this.createLightningDeathOrPhoenixResult(options);
+    }
     this.noteEnemySnakePressure();
 
     return null;
@@ -4090,6 +4110,43 @@ export class SnakeGame implements QuestRuntime {
     return {
       status: 'dead',
       deathReason: 'temperature',
+      apple: {
+        eaten: options.appleEaten,
+        rewards: options.appleRewards,
+        worldPosition: options.appleWorldPosition,
+        current: options.appleSnapshot,
+        stateChanged: options.appleStateChanged,
+      },
+      roomsChanged: options.roomsChanged,
+      roomChanged: options.roomHasChanged,
+      questOffer: null,
+      questsCompleted: [],
+    };
+  }
+
+  private createLightningDeathOrPhoenixResult(options: {
+    roomsChanged: Set<string>;
+    previousRoom: string;
+    roomHasChanged: boolean;
+    appleEaten: boolean;
+    appleRewards?: AppleConsumptionResult['rewards'];
+    appleWorldPosition?: Vector2Like | null;
+    appleSnapshot: AppleSnapshot | null;
+    appleStateChanged: boolean;
+  }): StepResult {
+    if (
+      this.tryFortitudePhoenix(
+        { status: 'dead', reason: 'lightning' },
+        options.roomsChanged,
+        options.previousRoom,
+      )
+    ) {
+      return this.createAliveStepResult(options);
+    }
+    this.markDeathAtCurrentHead('lightning');
+    return {
+      status: 'dead',
+      deathReason: 'lightning',
       apple: {
         eaten: options.appleEaten,
         rewards: options.appleRewards,
@@ -9262,6 +9319,25 @@ export class SnakeGame implements QuestRuntime {
     return true;
   }
 
+  spawnDuelistForTest(
+    roomId: string,
+    position: Vector2Like,
+    options: { hearts?: number; id?: string; name?: string } = {},
+  ): EnemyInstance {
+    const room = this.world.getRoom(roomId);
+    const duelist = this.enemies.spawnDuelist(roomId, room, [], {
+      id: options.id ?? `test-duelist-${Date.now()}`,
+      name: options.name ?? 'Test Duelist',
+      hearts: Math.max(1, options.hearts ?? 1),
+    });
+    if (!duelist) {
+      throw new Error(`Unable to spawn test duelist in ${roomId}`);
+    }
+    const placed = { ...duelist, position: { ...position } };
+    this.enemies.updateEnemy(placed);
+    return placed;
+  }
+
   firePlayerShot(direction: Vector2Like): boolean {
     const active = this.powerupState;
     const hasGunEquipped = Boolean(this.getFlag<boolean>('equipment.gunEnabled'));
@@ -9919,6 +9995,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private worldToLocal(roomId: string, position: Vector2Like): Vector2Like {
+    if (isCaveRoomId(roomId)) {
+      return { x: position.x, y: position.y };
+    }
     const [roomX, roomY] = this.parseRoomCoordinates(roomId);
     return {
       x: position.x - roomX * this.config.grid.cols,
@@ -9927,6 +10006,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private localToWorld(roomId: string, position: Vector2Like): Vector2Like {
+    if (isCaveRoomId(roomId)) {
+      return { x: position.x, y: position.y };
+    }
     const [roomX, roomY] = this.parseRoomCoordinates(roomId);
     return {
       x: roomX * this.config.grid.cols + position.x,
@@ -12876,6 +12958,215 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  getLightningStrikeView(roomId: string = this.snake.currentRoomId): LightningStrikeState | null {
+    if (!this.lightningStrike || this.lightningStrike.roomId !== roomId) {
+      return null;
+    }
+    return { ...this.lightningStrike };
+  }
+
+  queueLightningStrikeForTest(
+    roomId: string,
+    position: Vector2Like,
+    options: { radius?: number; ticksRemaining?: number } = {},
+  ): void {
+    this.lightningStrike = {
+      roomId,
+      x: position.x,
+      y: position.y,
+      radius: Math.max(0, Math.floor(options.radius ?? 0)),
+      ticksRemaining: Math.max(0, Math.floor(options.ticksRemaining ?? 2)),
+      phase: 'warning',
+    };
+  }
+
+  private tickLightningHazardState(options: {
+    roomsChanged: Set<string>;
+    previousRoom: string;
+  }): boolean {
+    const room = this.getCurrentRoom();
+    const atmosphere = this.getAtmosphereForRoom(room);
+    const profile = atmosphere.gameplay.lightningProfile;
+    if (!profile.enabled || atmosphere.sheltered) {
+      this.lightningStrike = null;
+      this.setFlag('ui.lightningStrike', undefined);
+      return false;
+    }
+
+    if (this.lightningStrike && this.lightningStrike.roomId !== this.snake.currentRoomId) {
+      this.lightningStrike = null;
+    }
+
+    if (!this.lightningStrike) {
+      const chance = Math.max(0, profile.strikeChancePerSnakeStep ?? 0);
+      if (chance <= 0 || this._rng() >= chance) {
+        return false;
+      }
+      const target = this.chooseLightningTarget(room, profile);
+      if (!target) {
+        return false;
+      }
+      this.lightningStrike = {
+        roomId: this.snake.currentRoomId,
+        x: target.x,
+        y: target.y,
+        radius: Math.max(0, Math.floor(profile.radius)),
+        ticksRemaining: Math.max(1, Math.floor(profile.telegraphTicks)),
+        phase: 'warning',
+      };
+      this.setFlag('ui.lightningStrike', this.lightningStrike);
+      return false;
+    }
+
+    if (this.lightningStrike.ticksRemaining > 0) {
+      this.lightningStrike = {
+        ...this.lightningStrike,
+        ticksRemaining: this.lightningStrike.ticksRemaining - 1,
+        phase: 'warning',
+      };
+      this.setFlag('ui.lightningStrike', this.lightningStrike);
+      return false;
+    }
+
+    const strike = { ...this.lightningStrike, phase: 'strike' as const };
+    this.lightningStrike = null;
+    this.setFlag('ui.lightningStrike', strike);
+    options.roomsChanged.add(strike.roomId);
+    return this.resolveLightningStrike(room, profile, strike, options.previousRoom);
+  }
+
+  private chooseLightningTarget(
+    room: RoomSnapshot,
+    profile: NonNullable<ResolvedAtmosphereView['gameplay']['lightningProfile']>,
+  ): Vector2Like | null {
+    const headLocal = this.getSnakeHeadLocal();
+    if (profile.targetsMetalEquipment && headLocal && this.hasLightningAttractingEquipment()) {
+      return headLocal;
+    }
+    const enemies = profile.canHitEnemies ? this.enemies.getEnemiesInRoom(room.id) : [];
+    if (enemies.length > 0 && this._rng() < 0.55) {
+      return { ...enemies[Math.floor(this._rng() * enemies.length)].position };
+    }
+    if (profile.canHitPlayer && headLocal && this._rng() < 0.45) {
+      return headLocal;
+    }
+    for (let attempt = 0; attempt < 24; attempt += 1) {
+      const x = Math.floor(this._rng() * this.config.grid.cols);
+      const y = Math.floor(this._rng() * this.config.grid.rows);
+      const tile = room.layout[y]?.[x] ?? '#';
+      if (tile !== '#') {
+        return { x, y };
+      }
+    }
+    return headLocal;
+  }
+
+  private resolveLightningStrike(
+    room: RoomSnapshot,
+    profile: NonNullable<ResolvedAtmosphereView['gameplay']['lightningProfile']>,
+    strike: LightningStrikeState,
+    previousRoom: string,
+  ): boolean {
+    const radius = Math.max(0, strike.radius);
+    let playerDied = false;
+    if (profile.canHitEnemies) {
+      for (const enemy of this.enemies.getEnemiesInRoom(strike.roomId)) {
+        if (!this.isWithinLightningRadius(enemy.position, strike, radius)) {
+          continue;
+        }
+        if (profile.safeUnderCover && this.isLightningCoveredTile(room, enemy.position)) {
+          continue;
+        }
+        const defeated = this.enemies.damageEnemyAt(
+          strike.roomId,
+          this.localToWorld(strike.roomId, enemy.position),
+          3,
+        ).defeated;
+        if (defeated) {
+          this.setFlag('achievement.enemyDefeated', {
+            enemyId: defeated.id,
+            method: 'lightning',
+          });
+        }
+      }
+    }
+    const headLocal = this.getSnakeHeadLocal();
+    if (
+      profile.canHitPlayer &&
+      headLocal &&
+      this.isWithinLightningRadius(headLocal, strike, radius) &&
+      !(profile.safeUnderCover && this.isLightningCoveredTile(room, headLocal))
+    ) {
+      playerDied = this.applyLightningDamage(previousRoom);
+    }
+    return playerDied;
+  }
+
+  private applyLightningDamage(_previousRoom: string): boolean {
+    const head = this.snake.bodySegments[0];
+    if (!head || this.isImmortal()) {
+      return false;
+    }
+    const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const current = Number(this.getFlag<number>('player.health') ?? max);
+    const next = Math.max(0, current - 1);
+    this.setFlag('player.health', next);
+    this.emitPlayerLowHealthEvent(next, max, 'lightning');
+    this.setFlag('ui.healthRevealed', true);
+    this.setFlag('player.bulletInvulnTicks', 8);
+    this.setFlag('ui.playerHit', {
+      x: head.x,
+      y: head.y,
+      roomId: this.snake.currentRoomId,
+      health: next,
+      maxHealth: max,
+      source: 'lightning',
+    });
+    return next <= 0;
+  }
+
+  private hasLightningAttractingEquipment(): boolean {
+    if (this.getFlag<boolean>('equipment.gunEnabled')) {
+      return true;
+    }
+    for (const [, itemId] of this.inventory.getAllEquipped()) {
+      const key = itemId.toLowerCase();
+      if (
+        key.includes('metal') ||
+        key.includes('iron') ||
+        key.includes('steel') ||
+        key.includes('gun') ||
+        key.includes('revolver') ||
+        key.includes('rod') ||
+        key.includes('bell')
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private getSnakeHeadLocal(): Vector2Like | null {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return null;
+    }
+    return this.worldToLocal(this.snake.currentRoomId, head);
+  }
+
+  private isWithinLightningRadius(
+    position: Vector2Like,
+    strike: LightningStrikeState,
+    radius: number,
+  ): boolean {
+    return Math.abs(position.x - strike.x) <= radius && Math.abs(position.y - strike.y) <= radius;
+  }
+
+  private isLightningCoveredTile(room: RoomSnapshot, position: Vector2Like): boolean {
+    const tile = room.layout[position.y]?.[position.x] ?? '#';
+    return '#WETCKBPLGO'.includes(tile);
+  }
+
   private tickTemperatureState(): boolean {
     const room = this.getCurrentRoom();
     const biome = getBiomeDefinition(room.biomeId);
@@ -13560,7 +13851,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private tryFortitudePhoenix(
-    outcome: SnakeStepOutcome,
+    outcome: SnakeStepOutcome | { status: 'dead'; reason: StepResult['deathReason'] },
     roomsChanged: Set<string>,
     previousRoomId: string,
   ): boolean {
@@ -13641,7 +13932,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     this.snake.restorePreviousSnapshot();
-    this.setFlag('traversal.manualResumePending', undefined);
+    this.setFlag('traversal.manualResumePending', true);
     this.setFlag('ui.questInteraction', { message: 'You step back through the ladder.' });
     return true;
   }

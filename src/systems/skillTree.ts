@@ -299,7 +299,7 @@ const FORTITUDE_BRANCH: BranchConfig = {
         {
           description: 'Gain +1 max heart.',
           cost: 18,
-          effects: [{ type: 'setFlag', key: 'player.maxHealth', value: 4, resetValue: 3 }],
+          effects: [{ type: 'setFlag', key: 'player.skillMaxHeartBonus', value: 1, resetValue: 0 }],
         },
       ],
     },
@@ -1217,7 +1217,8 @@ const GEOMETRY_BRANCH: BranchConfig = {
       description: 'Reinforce the passages you leave behind.',
       ranks: [
         {
-          description: 'Lay temporary masonry blocks behind you. The blocks crumble after a few seconds, and your snake can pass through them freely.',
+          description:
+            'Lay temporary masonry blocks behind you. The blocks crumble after a few seconds, and your snake can pass through them freely.',
           cost: 48,
           effects: [
             { type: 'setFlag', key: 'geometry.masonryEnabled', value: true, resetValue: false },

@@ -106,10 +106,10 @@ export function getVerticalLayerBiomeWeights(z: number): VerticalLayerBiomeWeigh
 
   if (z < 0) {
     const depth = Math.abs(z);
-    vertical.regular = depth <= 1 ? 1 : lerp(1, 0.58, Math.min(depth - 1, 19) / 19);
+    vertical.regular = depth <= 1 ? 0.9 : lerp(0.9, 0.58, Math.min(depth - 1, 19) / 19);
     vertical.subterranean =
       depth <= 1
-        ? 1
+        ? 1.45
         : depth <= 5
           ? lerp(1, 2.7, (depth - 1) / 4)
           : depth <= 10
@@ -121,15 +121,15 @@ export function getVerticalLayerBiomeWeights(z: number): VerticalLayerBiomeWeigh
     thermal.temperate = Math.max(0.55, 1 - depth * 0.025);
   } else if (z > 0) {
     const height = z;
-    vertical.regular = height <= 1 ? 1 : lerp(1, 0.62, Math.min(height - 1, 19) / 19);
+    vertical.regular = height <= 1 ? 0.88 : lerp(0.88, 0.5, Math.min(height - 1, 19) / 19);
     vertical.sky =
       height <= 1
-        ? 0.85
+        ? 7.5
         : height <= 5
-          ? lerp(0.85, 2.7, (height - 1) / 4)
+          ? lerp(7.5, 10.5, (height - 1) / 4)
           : height <= 10
-            ? lerp(2.7, 6.2, (height - 5) / 5)
-            : lerp(6.2, 10.5, Math.min(height - 10, 15) / 15);
+            ? lerp(10.5, 14, (height - 5) / 5)
+            : lerp(14, 18, Math.min(height - 10, 15) / 15);
     vertical.subterranean = 0.02;
     thermal.cold = height < 10 ? 0.48 + height * 0.045 : 1 + Math.min(3.2, (height - 10) * 0.28);
     thermal.hot = Math.max(0.22, 1 - height * 0.055);

@@ -7869,11 +7869,16 @@ export default class SnakeScene extends Phaser.Scene {
     );
     this.setFlag('equipment.hazardMapSense', hazardMapSense > 0 ? hazardMapSense : undefined);
     this.setFlag('equipment.lightRadiusTiles', lightRadiusTiles > 0 ? lightRadiusTiles : undefined);
-    const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
     const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-    const baseMaxHealth = Math.max(3, currentMaxHealth - previousSpecialHeartBonus);
-    const nextMaxHealth = baseMaxHealth + specialGameplay.maxHeartBonus;
+    const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
+    const legacySkillHeartBonus = Math.max(0, currentMaxHealth - 3 - previousSpecialHeartBonus);
+    const skillHeartBonus = Math.max(
+      0,
+      Number(this.getFlag<number>('player.skillMaxHeartBonus') ?? legacySkillHeartBonus),
+    );
+    const nextMaxHealth = Math.max(1, 3 + skillHeartBonus + specialGameplay.maxHeartBonus);
     const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
+    this.setFlag('player.skillMaxHeartBonus', skillHeartBonus > 0 ? skillHeartBonus : undefined);
     this.setFlag(
       'special.maxHeartBonus',
       specialGameplay.maxHeartBonus !== 0 ? specialGameplay.maxHeartBonus : undefined,
@@ -9088,12 +9093,14 @@ export default class SnakeScene extends Phaser.Scene {
       'powerup.active',
     );
     const snakeColor = pActive ? 0x9b5de5 : undefined;
+    const temperature = this.snakeGame.getPlayerTemperature();
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
     const activeSnakeTheme = this.getActiveSnakeTheme();
-    const atmosphere = this.withPlayerLightSources(
+    const atmosphere = this.withRoomLightSources(
       this.snakeGame.getAtmosphereForRoom(room),
       snakeBody,
       room.id,
+      room,
     );
     this.updateAtmosphereAudio(atmosphere);
     this.snakeRenderer.render(room, snakeBody, room.id, currentApple, {
@@ -9119,6 +9126,8 @@ export default class SnakeScene extends Phaser.Scene {
       footballs: roomSnapshot?.footballs ?? this.snakeGame.getFootballs(room.id),
       animals: roomSnapshot?.animals ?? this.snakeGame.getAnimals(room.id),
       atmosphere,
+      thermalBody: temperature,
+      lightningStrike: this.snakeGame.getLightningStrikeView(room.id),
       renderTimeMs: this.time.now,
     });
 
@@ -9199,7 +9208,6 @@ export default class SnakeScene extends Phaser.Scene {
     const screenBottom = this.grid.rows * this.grid.cell;
     const bottomY = screenBottom - 22;
     this.temperatureHud.setPosition(8, bottomY);
-    const temperature = this.snakeGame.getPlayerTemperature();
     if (!this.isInHouse() && temperature.active) {
       const filled = Math.max(0, Math.min(temperature.max, temperature.current));
       const empty = Math.max(0, temperature.max - filled);
@@ -9408,30 +9416,135 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private withPlayerLightSources(
+  private withRoomLightSources(
     atmosphere: ResolvedAtmosphereView,
     snakeBody: readonly Vector2Like[],
     roomId: string,
+    room: RoomSnapshot,
   ): ResolvedAtmosphereView {
+    const lightSources = [...atmosphere.darkness.lightSources];
+    const addLight = (
+      id: string,
+      x: number,
+      y: number,
+      radiusTiles: number,
+      intensity: number,
+      color: number,
+      kind: ResolvedAtmosphereView['darkness']['lightSources'][number]['kind'],
+      flicker = false,
+    ) => {
+      lightSources.push({
+        id,
+        x: Phaser.Math.Clamp(x, 0, this.grid.cols - 1),
+        y: Phaser.Math.Clamp(y, 0, this.grid.rows - 1),
+        roomId,
+        radiusTiles,
+        intensity,
+        color,
+        kind,
+        flicker,
+      });
+    };
+    const villageLike = room.village ?? room.town;
+    for (const [index, lantern] of (villageLike?.lanterns ?? []).entries()) {
+      addLight(
+        `village-lantern:${index}`,
+        lantern.x,
+        lantern.y,
+        4.4,
+        0.78,
+        0xffd48a,
+        'lantern',
+        true,
+      );
+    }
+    if (villageLike?.center) {
+      addLight(
+        'town-window-glow',
+        villageLike.center.x,
+        villageLike.center.y,
+        5.4,
+        0.48,
+        0xffe8b6,
+        'town',
+        true,
+      );
+    }
+    if (room.biomeId === 'neon-underpass') {
+      addLight('neon-sign-a', 4, 3, 5.8, 0.72, 0xff4fd8, 'neon', true);
+      addLight('neon-sign-b', this.grid.cols - 5, 5, 5.2, 0.62, 0x5ff8ff, 'neon', true);
+    }
+    if (room.biomeId === 'ember-caverns') {
+      addLight(
+        'ember-lava-glow',
+        Math.floor(this.grid.cols * 0.5),
+        this.grid.rows - 4,
+        6.2,
+        0.75,
+        0xff713f,
+        'lava',
+        true,
+      );
+    }
+    if (room.biomeId === 'radioactive-orchard') {
+      addLight(
+        'radioactive-orchard-glow',
+        Math.floor(this.grid.cols * 0.5),
+        Math.floor(this.grid.rows * 0.5),
+        7,
+        0.58,
+        0x8dff6a,
+        'radioactive',
+        true,
+      );
+    }
+    if (atmosphere.localVisual === 'fireflies' || atmosphere.activeJuice.includes('fireflies')) {
+      addLight(
+        'firefly-cloud',
+        Math.floor(this.grid.cols * 0.5),
+        Math.floor(this.grid.rows * 0.45),
+        5.6,
+        0.42,
+        0xf8ff8f,
+        'fireflies',
+        true,
+      );
+    }
+    if (atmosphere.state.skyEvent?.current === 'aurora') {
+      addLight(
+        'aurora-sky-light',
+        Math.floor(this.grid.cols * 0.5),
+        2,
+        10,
+        0.35,
+        0x8ffff2,
+        'aurora',
+        true,
+      );
+    }
+    if (atmosphere.state.skyEvent?.current === 'meteorShower') {
+      addLight(
+        'meteor-sky-light',
+        Math.floor(this.grid.cols * 0.45),
+        3,
+        6.5,
+        0.4,
+        0xfff3a8,
+        'meteor',
+        true,
+      );
+    }
     const radiusTiles = Number(this.getFlag<number>('equipment.lightRadiusTiles') ?? 0);
     const head = snakeBody[0];
-    if (radiusTiles <= 0 || !head) {
+    if (radiusTiles > 0 && head) {
+      const [roomX, roomY] = roomId.split(',').map(Number);
+      const localX = Number.isFinite(roomX) ? head.x - roomX * this.grid.cols : head.x;
+      const localY = Number.isFinite(roomY) ? head.y - roomY * this.grid.rows : head.y;
+      addLight('player-lantern', localX, localY, radiusTiles, 0.9, 0xffd48a, 'lantern', true);
+    }
+    if (lightSources.length === atmosphere.darkness.lightSources.length) {
       return atmosphere;
     }
-    const [roomX, roomY] = roomId.split(',').map(Number);
-    const localX = Number.isFinite(roomX) ? head.x - roomX * this.grid.cols : head.x;
-    const localY = Number.isFinite(roomY) ? head.y - roomY * this.grid.rows : head.y;
-    const lightSource = {
-      id: 'player-lantern',
-      x: Phaser.Math.Clamp(localX, 0, this.grid.cols - 1),
-      y: Phaser.Math.Clamp(localY, 0, this.grid.rows - 1),
-      roomId,
-      radiusTiles,
-      intensity: 0.9,
-      color: 0xffd48a,
-      kind: 'lantern' as const,
-      flicker: true,
-    };
     const darknessAlpha =
       atmosphere.darkness.level === 'pitchBlack'
         ? Math.max(0.34, atmosphere.darkness.darknessAlpha - 0.24)
@@ -9443,15 +9556,15 @@ export default class SnakeScene extends Phaser.Scene {
       darkness: {
         ...atmosphere.darkness,
         darknessAlpha,
-        lanternRecommended: false,
-        lightSources: [...atmosphere.darkness.lightSources, lightSource],
+        lanternRecommended: radiusTiles > 0 ? false : atmosphere.darkness.lanternRecommended,
+        lightSources,
       },
       playerSummary: {
         ...atmosphere.playerSummary,
         lightLabel:
           atmosphere.darkness.level === 'bright'
             ? atmosphere.playerSummary.lightLabel
-            : `${atmosphere.playerSummary.lightLabel} - lantern lit`,
+            : `${atmosphere.playerSummary.lightLabel} - local lights`,
       },
     };
   }
@@ -18501,15 +18614,10 @@ export default class SnakeScene extends Phaser.Scene {
     if (damageFlash) {
       const world = this.tileToWorld({ x: damageFlash.x, y: damageFlash.y });
       if (damageFlash.hazard === 'hot') {
-        this.cameras.main.flash(120, 255, 180, 92, true);
-        this.juice.heatHaze(world.x, world.y);
-        this.juice.heatHaze(world.x + 8, world.y + 4);
+        this.juice.heatBodyDamage(world.x, world.y);
       } else {
-        this.cameras.main.flash(120, 192, 232, 255, true);
-        this.juice.snowDrift(world.x, world.y);
-        this.juice.snowDrift(world.x - 8, world.y + 4);
+        this.juice.coldBodyDamage(world.x, world.y);
       }
-      this.juice.dangerPulse(world.x, world.y, 1);
       this.setFlag('ui.temperatureDamageFlash', undefined);
       this.nextThermalJuiceAtMs = this.time.now + 120;
       return;
@@ -18523,23 +18631,14 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const world = this.tileToWorld(head);
     const critical = ratio >= 0.85;
-    const severe = ratio >= 0.55;
     if (temperature.hazard === 'hot') {
-      this.juice.heatHaze(world.x, world.y);
-      if (severe) {
-        this.juice.heatHaze(world.x + Phaser.Math.Between(-8, 8), world.y + 8);
-        (this.juice as any).temperatureReliefPulse?.(world.x, world.y, 'cool');
-      }
+      this.juice.heatBodyStage(world.x, world.y, ratio);
       if (critical) {
         this.cameras.main.shake(90, 0.0025);
         this.juice.dangerPulse(world.x, world.y, ratio);
       }
     } else {
-      (this.juice as any).villageBreath?.(world.x, world.y - 4);
-      if (severe) {
-        this.juice.snowDrift(world.x, world.y);
-        this.juice.snowDrift(world.x + Phaser.Math.Between(-8, 8), world.y + 6);
-      }
+      this.juice.coldBodyStage(world.x, world.y, ratio);
       if (critical) {
         this.cameras.main.shake(90, 0.002);
         this.juice.dangerPulse(world.x, world.y, ratio);
