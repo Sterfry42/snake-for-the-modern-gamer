@@ -15,28 +15,27 @@ describe('WorldAtmosphereSystem', () => {
       globalWeather: 'clear',
       weatherIntensity: defaultAtmosphereConfig.weatherIntensityMin,
       remainingWeatherPhaseTicks: 2,
+      weatherTransitionProgress: 1,
+      skyEvent: expect.objectContaining({ current: 'none' }),
     });
   });
 
   it('advances weighted day phases and increments world day after night', () => {
-    const system = new WorldAtmosphereSystem(
-      { ...defaultAtmosphereConfig, phaseDurationMs: 10 },
-      'seed-a',
-    );
+    const system = new WorldAtmosphereSystem(defaultAtmosphereConfig, 'seed-a');
 
     expect(system.getState().dayPhase).toBe('day');
-    system.update(10);
+    system.update(99_999);
     expect(system.getState().dayPhase).toBe('day');
     system.update(1);
     expect(system.getState().dayPhase).toBe('dusk');
-    system.update(10);
+    system.update(60_000);
     expect(system.getState().dayPhase).toBe('night');
-    system.update(15);
+    system.update(79_999);
     expect(system.getState().dayPhase).toBe('night');
     system.update(1);
     expect(system.getState().dayPhase).toBe('dawn');
     expect(system.getState().worldDay).toBe(1);
-    system.update(7);
+    system.update(45_000);
     expect(system.getState().dayPhase).toBe('day');
   });
 
@@ -46,35 +45,42 @@ describe('WorldAtmosphereSystem', () => {
       'seed-a',
     );
 
-    system.update(5);
+    system.update(285_000);
 
     expect(system.getState().worldDay).toBe(1);
     expect(system.getState().season).toBe('summer');
   });
 
   it('rerolls weather every configured two phase cadence', () => {
-    const system = new WorldAtmosphereSystem(
-      { ...defaultAtmosphereConfig, phaseDurationMs: 10 },
-      'seed-a',
-    );
+    const system = new WorldAtmosphereSystem(defaultAtmosphereConfig, 'seed-a');
 
     expect(system.getState().remainingWeatherPhaseTicks).toBe(2);
-    system.update(11);
+    system.update(100_000);
     expect(system.getState().remainingWeatherPhaseTicks).toBe(1);
-    system.update(10);
+    system.update(60_000);
     expect(system.getState().remainingWeatherPhaseTicks).toBe(2);
   });
 
+  it('ramps weather transitions in and out instead of snapping particles', () => {
+    const system = new WorldAtmosphereSystem(defaultAtmosphereConfig, 'seed-a');
+
+    system.forceWeather('rain');
+    expect(system.getState().weatherTransitionProgress).toBe(0);
+    system.update(20_000);
+    expect(system.getState().weatherTransitionProgress).toBeGreaterThan(0);
+    system.update(80_000);
+    expect(system.getState().remainingWeatherPhaseTicks).toBe(1);
+  });
+
   it('produces deterministic weather sequences for the same seed', () => {
-    const config = { ...defaultAtmosphereConfig, phaseDurationMs: 5 };
-    const first = new WorldAtmosphereSystem(config, 'same-seed');
-    const second = new WorldAtmosphereSystem(config, 'same-seed');
+    const first = new WorldAtmosphereSystem(defaultAtmosphereConfig, 'same-seed');
+    const second = new WorldAtmosphereSystem(defaultAtmosphereConfig, 'same-seed');
     const firstSequence = [];
     const secondSequence = [];
 
     for (let i = 0; i < 20; i++) {
-      first.update(5);
-      second.update(5);
+      first.update(45_000);
+      second.update(45_000);
       firstSequence.push(first.getState().globalWeather, first.getState().weatherIntensity);
       secondSequence.push(second.getState().globalWeather, second.getState().weatherIntensity);
     }

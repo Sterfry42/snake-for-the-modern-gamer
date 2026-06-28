@@ -105,6 +105,7 @@ export type AchievementNumericSnapshotField =
   | 'coldResistance'
   | 'cowbellTilesWalked'
   | 'wardDamageTypesHeld'
+  | 'trainZonesTraveled'
   | 'maxSpecialStat';
 
 export interface AchievementDefinition {
@@ -180,6 +181,7 @@ export interface AchievementSnapshot {
   coldResistance: number;
   cowbellTilesWalked: number;
   wardDamageTypesHeld: number;
+  trainZonesTraveled: number;
   maxSpecialStat: number;
 }
 

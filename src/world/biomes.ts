@@ -47,10 +47,14 @@ export type BiomeFamily =
   | 'ocean'
   | 'wetland'
   | 'mountain'
+  // Legacy family name for subterranean world biomes. Actual cave interiors are room instances.
   | 'cave'
   | 'grassland'
   | 'town'
   | 'weird';
+
+export type BiomeVerticalClass = 'regular' | 'subterranean' | 'sky' | 'special';
+export type BiomeThermalClass = 'hot' | 'cold' | 'temperate' | 'neutral';
 
 export type BiomeTag =
   | 'hot'
@@ -634,7 +638,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 0,
     enemyMoveBias: -1,
     animalSpawnChance: 0.22,
-    animalSpawnBias: { rabbit: 1, deer: 1, fox: 1, bird: 3, wolf: 1, bear: 1, fish: 2, snake: 2, frog: 5 },
+    animalSpawnBias: {
+      rabbit: 1,
+      deer: 1,
+      fox: 1,
+      bird: 3,
+      wolf: 1,
+      bear: 1,
+      fish: 2,
+      snake: 2,
+      frog: 5,
+    },
     vegetationDensity: 18,
   },
   'wintergreen-forest': {
@@ -702,7 +716,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 0,
     enemyMoveBias: 1,
     animalSpawnChance: 0.24,
-    animalSpawnBias: { rabbit: 0, deer: 0, fox: 0, bird: 2, wolf: 0, bear: 0, fish: 5, snake: 0, frog: 2 },
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 2,
+      wolf: 0,
+      bear: 0,
+      fish: 5,
+      snake: 0,
+      frog: 2,
+    },
     vegetationDensity: 0,
   },
   'frozen-sea': {
@@ -808,7 +832,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 1,
     enemyMoveBias: -1,
     animalSpawnChance: 0.18,
-    animalSpawnBias: { rabbit: 0, deer: 0, fox: 0, bird: 0, wolf: 1, bear: 1, fish: 1, snake: 2, frog: 4 },
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 0,
+      wolf: 1,
+      bear: 1,
+      fish: 1,
+      snake: 2,
+      frog: 4,
+    },
     vegetationDensity: 16,
   },
   'root-buried-tunnels': {
@@ -845,7 +879,17 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     enemyFireBias: 0,
     enemyMoveBias: -1,
     animalSpawnChance: 0.16,
-    animalSpawnBias: { rabbit: 1, deer: 0, fox: 1, bird: 0, wolf: 2, bear: 2, fish: 0, snake: 2, frog: 2 },
+    animalSpawnBias: {
+      rabbit: 1,
+      deer: 0,
+      fox: 1,
+      bird: 0,
+      wolf: 2,
+      bear: 2,
+      fish: 0,
+      snake: 2,
+      frog: 2,
+    },
     vegetationDensity: 12,
   },
   'ash-steppe': {
@@ -1163,6 +1207,32 @@ export function getBiomeClimateClass(id: BiomeId): ClimateClass {
   return 'temperate';
 }
 
+export function getBiomeVerticalClass(biome: BiomeDefinition): BiomeVerticalClass {
+  if (biome.id === 'home-hearth' || biome.tags.includes('special')) return 'special';
+  if (
+    biome.tags.includes('underground') ||
+    biome.tags.includes('cave') ||
+    biome.family === 'cave'
+  ) {
+    return 'subterranean';
+  }
+  if (biome.tags.includes('high-altitude') || biome.family === 'mountain') return 'sky';
+  return 'regular';
+}
+
+export function getBiomeThermalClass(biome: BiomeDefinition): BiomeThermalClass {
+  if (biome.temperatureHazard === 'hot' || biome.tags.includes('hot')) return 'hot';
+  if (
+    biome.temperatureHazard === 'cold' ||
+    biome.tags.includes('cold') ||
+    biome.tags.includes('frigid')
+  ) {
+    return 'cold';
+  }
+  if (biome.tags.includes('temperate') || biome.tags.includes('warm')) return 'temperate';
+  return 'neutral';
+}
+
 export function getBiomeEnemySpawnChance(biome: BiomeDefinition): number {
   return Math.max(0, Math.min(0.34, biome.dangerLevel * 0.035));
 }
@@ -1226,7 +1296,10 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
   return BIOMES['verdigris-basin'];
 }
 
-export function createBiomePaletteFromBiome(biome: BiomeDefinition, roomId: string): {
+export function createBiomePaletteFromBiome(
+  biome: BiomeDefinition,
+  roomId: string,
+): {
   biomeId: BiomeId;
   biomeTitle: string;
   backgroundColor: number;

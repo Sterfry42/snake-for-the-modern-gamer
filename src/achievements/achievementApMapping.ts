@@ -5,6 +5,7 @@ const APPENDED_ACHIEVEMENT_IDS = [
   'arcade.snakeception',
   'arcade.blueScreen',
   'stats.special10',
+  'exploration.trainSixZones',
 ] as const;
 
 export function achievementLocationKey(id: string): string {

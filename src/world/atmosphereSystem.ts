@@ -5,8 +5,10 @@ import type {
   DayPhase,
   GlobalWeather,
   Season,
+  SkyEvent,
+  SkyEventState,
 } from './atmosphereTypes.js';
-import { DAY_PHASE_DURATION_SCALARS, DAY_PHASE_ORDER, SEASON_ORDER } from './atmosphereTypes.js';
+import { DAY_PHASE_DURATIONS_MS, DAY_PHASE_ORDER, SEASON_ORDER } from './atmosphereTypes.js';
 
 export const BASE_WEATHER_WEIGHTS: Record<GlobalWeather, number> = {
   clear: 50,
@@ -56,6 +58,8 @@ export function createDefaultAtmosphereState(seed = 0): AtmosphereState {
     weatherIntensity: 0.35,
     remainingWeatherPhaseTicks: 2,
     weatherSeed: seed,
+    weatherTransitionProgress: 1,
+    skyEvent: createNoSkyEvent(seed),
   };
 }
 
@@ -106,6 +110,8 @@ export class WorldAtmosphereSystem {
         this.config.maxWeatherPhases,
       ),
       weatherSeed: clampInt(saved.weatherSeed, 0, Number.MAX_SAFE_INTEGER),
+      weatherTransitionProgress: clamp01(Number(saved.weatherTransitionProgress ?? 1)),
+      skyEvent: hydrateSkyEvent(saved.skyEvent, this.nextWeatherSeed()),
     };
     this.elapsedPhaseMs = this.state.phaseProgress * this.getCurrentPhaseDurationMs();
   }
@@ -122,6 +128,12 @@ export class WorldAtmosphereSystem {
       phaseDuration = this.getCurrentPhaseDurationMs();
     }
     this.state.phaseProgress = clamp01(this.elapsedPhaseMs / phaseDuration);
+    if (this.state.weatherTransitionProgress < 1) {
+      this.state.weatherTransitionProgress = Math.max(
+        this.state.weatherTransitionProgress,
+        smoothstep(clamp01(this.state.phaseProgress / 0.35)),
+      );
+    }
     return this.getState();
   }
 
@@ -132,6 +144,7 @@ export class WorldAtmosphereSystem {
       weatherIntensity: this.config.weatherIntensityMax,
       remainingWeatherPhaseTicks: this.getConfiguredWeatherPhaseDuration(),
       weatherSeed: this.nextWeatherSeed(),
+      weatherTransitionProgress: 0,
     };
     return this.getState();
   }
@@ -147,9 +160,14 @@ export class WorldAtmosphereSystem {
       dayPhase: nextPhase,
       phaseProgress: 0,
       remainingWeatherPhaseTicks: this.state.remainingWeatherPhaseTicks - 1,
+      weatherTransitionProgress: clamp01(this.state.weatherTransitionProgress + 0.5),
+      skyEvent: this.advanceSkyEvent(),
     };
     if (this.state.remainingWeatherPhaseTicks <= 0) {
       this.rollWeather();
+    }
+    if (this.state.skyEvent?.current === 'none') {
+      this.rollSkyEvent();
     }
   }
 
@@ -169,6 +187,7 @@ export class WorldAtmosphereSystem {
       ),
       remainingWeatherPhaseTicks: this.getConfiguredWeatherPhaseDuration(),
       weatherSeed: this.nextWeatherSeed(),
+      weatherTransitionProgress: 0,
     };
   }
 
@@ -179,15 +198,68 @@ export class WorldAtmosphereSystem {
   }
 
   private getCurrentPhaseDurationMs(): number {
-    return (
-      Math.max(1, this.config.phaseDurationMs) *
-      (DAY_PHASE_DURATION_SCALARS[this.state.dayPhase] ?? 1)
-    );
+    return DAY_PHASE_DURATIONS_MS[this.state.dayPhase] ?? Math.max(1, this.config.phaseDurationMs);
   }
 
   private nextWeatherSeed(): number {
     return Math.floor(this.rng() * 0x7fffffff);
   }
+
+  private advanceSkyEvent(): SkyEventState {
+    const current = this.state.skyEvent ?? createNoSkyEvent(this.state.weatherSeed);
+    if (current.current === 'none') {
+      return current;
+    }
+    const remaining = current.remainingPhaseTicks - 1;
+    if (remaining <= 0) {
+      return createNoSkyEvent(this.nextWeatherSeed());
+    }
+    return { ...current, remainingPhaseTicks: remaining };
+  }
+
+  private rollSkyEvent(): void {
+    const candidate = pickSkyEvent(this.rng, this.state.season, this.state.dayPhase);
+    if (candidate === 'none') {
+      return;
+    }
+    this.state = {
+      ...this.state,
+      skyEvent: {
+        current: candidate,
+        remainingPhaseTicks: candidate === 'meteorShower' ? 1 : 2,
+        intensity: 0.55 + this.rng() * 0.45,
+        seed: this.nextWeatherSeed(),
+      },
+    };
+  }
+}
+
+function createNoSkyEvent(seed = 0): SkyEventState {
+  return { current: 'none', remainingPhaseTicks: 0, intensity: 0, seed };
+}
+
+function hydrateSkyEvent(saved: unknown, fallbackSeed: number): SkyEventState {
+  if (!saved || typeof saved !== 'object') {
+    return createNoSkyEvent(fallbackSeed);
+  }
+  const event = saved as Partial<SkyEventState>;
+  return {
+    current: isSkyEvent(event.current) ? event.current : 'none',
+    remainingPhaseTicks: clampInt(event.remainingPhaseTicks, 0, 4),
+    intensity: clamp(Number(event.intensity ?? 0), 0, 1),
+    seed: clampInt(event.seed, 0, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+function pickSkyEvent(rng: RandomGenerator, season: Season, dayPhase: DayPhase): SkyEvent {
+  const weights: Record<SkyEvent, number> = {
+    none: 996,
+    bloodMoon: dayPhase === 'night' ? 1.4 : 0,
+    eclipse: dayPhase === 'day' || dayPhase === 'dusk' ? 1 : 0,
+    meteorShower: dayPhase === 'night' ? 1.2 : 0,
+    aurora: dayPhase === 'night' ? (season === 'winter' ? 2.4 : 0.6) : 0,
+  };
+  return pickWeighted(rng, weights);
 }
 
 function seasonForDay(worldDay: number, daysPerSeason: number): Season {
@@ -214,6 +286,11 @@ function clamp01(value: number): number {
   return clamp(value, 0, 1);
 }
 
+function smoothstep(value: number): number {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
+}
+
 function clampInt(value: unknown, min: number, max: number): number {
   return Math.floor(clamp(Number(value ?? min), min, max));
 }
@@ -231,5 +308,15 @@ function isGlobalWeather(value: unknown): value is GlobalWeather {
     value === 'heatwave' ||
     value === 'coldfront' ||
     value === 'wind'
+  );
+}
+
+function isSkyEvent(value: unknown): value is SkyEvent {
+  return (
+    value === 'none' ||
+    value === 'bloodMoon' ||
+    value === 'eclipse' ||
+    value === 'meteorShower' ||
+    value === 'aurora'
   );
 }

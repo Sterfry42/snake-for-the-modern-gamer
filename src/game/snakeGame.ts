@@ -95,6 +95,7 @@ import type {
   AtmosphereState,
   GlobalWeather,
   ResolvedAtmosphereView,
+  ShelterMode,
 } from '../world/atmosphereTypes.js';
 import type { TownRuntimeState } from '../world/townRuntime.js';
 import {
@@ -891,9 +892,13 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('ui.livesRevealed', undefined);
     this.setFlag('player.bulletInvulnTicks', 0);
     this.setFlag('player.temperatureExposureMs', 0);
+    this.setFlag('player.temperatureHotExposureMs', 0);
+    this.setFlag('player.temperatureColdExposureMs', 0);
     this.setFlag('player.temperatureThresholdMs', 10000);
     this.setFlag('player.temperatureDamageIntervalMs', 5000);
     this.setFlag('player.temperatureDamageProgressMs', 0);
+    this.setFlag('player.temperatureHotDamageProgressMs', 0);
+    this.setFlag('player.temperatureColdDamageProgressMs', 0);
     this.setFlag('player.temperatureLastTickMs', 0);
     this.setFlag('player.temperatureHazard', undefined);
     this.setFlag('equipment.gunEnabled', undefined);
@@ -7328,32 +7333,25 @@ export class SnakeGame implements QuestRuntime {
 
   getAtmosphereForRoom(room: RoomSnapshot = this.getCurrentRoom()): ResolvedAtmosphereView {
     const biome = getBiomeDefinition(room.biomeId);
-    const shelteredConfig = this.isAtmosphereShelteredRoom(room, biome)
-      ? {
-          ...this.atmosphereConfig,
-          enabled: false,
-          visualParticlesEnabled: false,
-          dayNightTintEnabled: false,
-          gameplayModifiersEnabled: false,
-          lightningEnabled: false,
-        }
-      : this.atmosphereConfig;
+    const shelterMode = this.getShelterModeForRoom(room, biome);
+    const shelteredConfig = {
+      ...this.atmosphereConfig,
+      shelterMode,
+    };
     return resolveBiomeAtmosphere(biome, this.atmosphere.getState(), shelteredConfig);
   }
 
-  private isAtmosphereShelteredRoom(
+  private getShelterModeForRoom(
     room: RoomSnapshot,
-    biome: ReturnType<typeof getBiomeDefinition>,
-  ): boolean {
-    return Boolean(
-      room.id === '0,-1,0' ||
-      room.id.startsWith('cave:') ||
-      room.layer ||
-      room.cave ||
-      biome.family === 'cave' ||
-      biome.tags.includes('underground') ||
-      biome.tags.includes('cave'),
-    );
+    _biome: ReturnType<typeof getBiomeDefinition>,
+  ): ShelterMode {
+    if (room.id === '0,-1,0' || room.snakeMcDonalds) {
+      return 'interior';
+    }
+    if (room.id.startsWith('cave:') || room.layer || room.cave) {
+      return 'underground';
+    }
+    return 'exposed';
   }
 
   getSpecialGameplayModifiers(): SpecialGameplayModifiers {
@@ -9077,7 +9075,17 @@ export class SnakeGame implements QuestRuntime {
     );
     const exposureMs = Math.max(
       0,
-      Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0),
+      Number(
+        hazard === 'hot'
+          ? (this.getFlag<number>('player.temperatureHotExposureMs') ??
+              this.getFlag<number>('player.temperatureExposureMs') ??
+              0)
+          : hazard === 'cold'
+            ? (this.getFlag<number>('player.temperatureColdExposureMs') ??
+              this.getFlag<number>('player.temperatureExposureMs') ??
+              0)
+            : 0,
+      ),
     );
     const max = 10;
     const current = Math.max(0, Math.min(max, Math.ceil((exposureMs / thresholdMs) * max)));
@@ -10399,8 +10407,22 @@ export class SnakeGame implements QuestRuntime {
     const relief = Math.max(0, Math.floor(amountMs));
     const exposure = Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0);
     const damage = Number(this.getFlag<number>('player.temperatureDamageProgressMs') ?? 0);
+    const hotExposure = Number(this.getFlag<number>('player.temperatureHotExposureMs') ?? exposure);
+    const coldExposure = Number(
+      this.getFlag<number>('player.temperatureColdExposureMs') ?? exposure,
+    );
+    const hotDamage = Number(
+      this.getFlag<number>('player.temperatureHotDamageProgressMs') ?? damage,
+    );
+    const coldDamage = Number(
+      this.getFlag<number>('player.temperatureColdDamageProgressMs') ?? damage,
+    );
     this.setFlag('player.temperatureExposureMs', Math.max(0, exposure - relief));
     this.setFlag('player.temperatureDamageProgressMs', Math.max(0, damage - relief));
+    this.setFlag('player.temperatureHotExposureMs', Math.max(0, hotExposure - relief));
+    this.setFlag('player.temperatureColdExposureMs', Math.max(0, coldExposure - relief));
+    this.setFlag('player.temperatureHotDamageProgressMs', Math.max(0, hotDamage - relief));
+    this.setFlag('player.temperatureColdDamageProgressMs', Math.max(0, coldDamage - relief));
   }
 
   tryShedTail(): { ok: boolean; message: string; color?: string } {
@@ -11308,6 +11330,7 @@ export class SnakeGame implements QuestRuntime {
       'achievement.hotSurvivalMs',
       'achievement.coldSurvivalMs',
       'achievement.cowbellTilesWalked',
+      'achievement.trainZonesTraveled',
       'animals.companions',
     ]) {
       const value = this.getFlag(key);
@@ -12860,7 +12883,11 @@ export class SnakeGame implements QuestRuntime {
     }
     if (this.getFlag<boolean>('cheat.immortal')) {
       this.setFlag('player.temperatureExposureMs', 0);
+      this.setFlag('player.temperatureHotExposureMs', 0);
+      this.setFlag('player.temperatureColdExposureMs', 0);
       this.setFlag('player.temperatureDamageProgressMs', 0);
+      this.setFlag('player.temperatureHotDamageProgressMs', 0);
+      this.setFlag('player.temperatureColdDamageProgressMs', 0);
       this.setFlag('player.temperatureHazard', undefined);
       this.setFlag('player.temperatureLastTickMs', Number(this.getFlag<number>('timeMs') ?? 0));
       return false;
@@ -12913,17 +12940,63 @@ export class SnakeGame implements QuestRuntime {
         Math.max(0, 1 - resistance) *
         specialGameplay.hazardDamageScalar,
     );
-    let exposureMs = Math.max(0, Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0));
-    let damageProgressMs = Math.max(
+    const legacyExposureMs = Math.max(
+      0,
+      Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0),
+    );
+    const legacyDamageProgressMs = Math.max(
       0,
       Number(this.getFlag<number>('player.temperatureDamageProgressMs') ?? 0),
     );
+    let hotExposureMs = Math.max(
+      0,
+      Number(
+        this.getFlag<number>('player.temperatureHotExposureMs') ??
+          (this.getFlag<'hot' | 'cold'>('player.temperatureHazard') === 'hot'
+            ? legacyExposureMs
+            : 0),
+      ),
+    );
+    let coldExposureMs = Math.max(
+      0,
+      Number(
+        this.getFlag<number>('player.temperatureColdExposureMs') ??
+          (this.getFlag<'hot' | 'cold'>('player.temperatureHazard') === 'cold'
+            ? legacyExposureMs
+            : 0),
+      ),
+    );
+    let hotDamageProgressMs = Math.max(
+      0,
+      Number(
+        this.getFlag<number>('player.temperatureHotDamageProgressMs') ??
+          (this.getFlag<'hot' | 'cold'>('player.temperatureHazard') === 'hot'
+            ? legacyDamageProgressMs
+            : 0),
+      ),
+    );
+    let coldDamageProgressMs = Math.max(
+      0,
+      Number(
+        this.getFlag<number>('player.temperatureColdDamageProgressMs') ??
+          (this.getFlag<'hot' | 'cold'>('player.temperatureHazard') === 'cold'
+            ? legacyDamageProgressMs
+            : 0),
+      ),
+    );
 
     if (!biome.temperatureHazard) {
-      exposureMs = Math.max(0, exposureMs - deltaMs * 2.5);
-      damageProgressMs = 0;
-      this.setFlag('player.temperatureExposureMs', exposureMs);
-      this.setFlag('player.temperatureDamageProgressMs', damageProgressMs);
+      hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 2.5);
+      coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 2.5);
+      hotDamageProgressMs = 0;
+      coldDamageProgressMs = 0;
+      this.syncTemperatureFlags(
+        null,
+        hotExposureMs,
+        coldExposureMs,
+        hotDamageProgressMs,
+        coldDamageProgressMs,
+      );
       this.setFlag('player.temperatureHazard', undefined);
       return false;
     }
@@ -12931,20 +13004,47 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('player.temperatureHazard', biome.temperatureHazard);
 
     if (onRelief) {
-      exposureMs = Math.max(0, exposureMs - deltaMs * 3.5);
-      damageProgressMs = Math.max(0, damageProgressMs - deltaMs * 2);
+      if (onRelief.kind === 'warm' || onRelief.kind === 'onsen') {
+        coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 3.5);
+        coldDamageProgressMs = Math.max(0, coldDamageProgressMs - deltaMs * 2);
+      }
+      if (onRelief.kind === 'cool' || onRelief.kind === 'onsen') {
+        hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 3.5);
+        hotDamageProgressMs = Math.max(0, hotDamageProgressMs - deltaMs * 2);
+      }
     } else if (sheltered) {
-      exposureMs = Math.max(0, exposureMs - deltaMs * 2);
-      damageProgressMs = Math.max(0, damageProgressMs - deltaMs * 2);
+      hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 2);
+      coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 2);
+      hotDamageProgressMs = Math.max(0, hotDamageProgressMs - deltaMs * 2);
+      coldDamageProgressMs = Math.max(0, coldDamageProgressMs - deltaMs * 2);
     } else {
-      exposureMs = Math.min(thresholdMs, exposureMs + deltaMs * exposureRate);
-      if (exposureMs >= thresholdMs) {
-        damageProgressMs += deltaMs;
+      if (biome.temperatureHazard === 'hot') {
+        hotExposureMs = Math.min(thresholdMs, hotExposureMs + deltaMs * exposureRate);
+        coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 1.8);
+        coldDamageProgressMs = Math.max(0, coldDamageProgressMs - deltaMs * 2);
+        if (hotExposureMs >= thresholdMs) {
+          hotDamageProgressMs += deltaMs;
+        }
+      } else {
+        coldExposureMs = Math.min(thresholdMs, coldExposureMs + deltaMs * exposureRate);
+        hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 1.8);
+        hotDamageProgressMs = Math.max(0, hotDamageProgressMs - deltaMs * 2);
+        if (coldExposureMs >= thresholdMs) {
+          coldDamageProgressMs += deltaMs;
+        }
       }
     }
 
-    this.setFlag('player.temperatureExposureMs', exposureMs);
-    this.setFlag('player.temperatureDamageProgressMs', damageProgressMs);
+    this.syncTemperatureFlags(
+      biome.temperatureHazard,
+      hotExposureMs,
+      coldExposureMs,
+      hotDamageProgressMs,
+      coldDamageProgressMs,
+    );
+    const exposureMs = biome.temperatureHazard === 'hot' ? hotExposureMs : coldExposureMs;
+    let damageProgressMs =
+      biome.temperatureHazard === 'hot' ? hotDamageProgressMs : coldDamageProgressMs;
 
     if (exposureMs < thresholdMs) {
       return false;
@@ -12960,7 +13060,18 @@ export class SnakeGame implements QuestRuntime {
       damageProgressMs -= damageIntervalMs;
       currentHealth -= 1;
     }
-    this.setFlag('player.temperatureDamageProgressMs', damageProgressMs);
+    if (biome.temperatureHazard === 'hot') {
+      hotDamageProgressMs = damageProgressMs;
+    } else {
+      coldDamageProgressMs = damageProgressMs;
+    }
+    this.syncTemperatureFlags(
+      biome.temperatureHazard,
+      hotExposureMs,
+      coldExposureMs,
+      hotDamageProgressMs,
+      coldDamageProgressMs,
+    );
     this.setFlag('player.health', Math.max(0, currentHealth));
     this.emitPlayerLowHealthEvent(Math.max(0, currentHealth), maxHealth, 'temperature');
     this.setFlag('ui.healthRevealed', true);
@@ -12971,7 +13082,36 @@ export class SnakeGame implements QuestRuntime {
       health: Math.max(0, currentHealth),
       maxHealth,
     });
+    this.setFlag('ui.temperatureDamageFlash', {
+      x: head.x,
+      y: head.y,
+      roomId: this.snake.currentRoomId,
+      hazard: biome.temperatureHazard,
+    });
     return currentHealth <= 0;
+  }
+
+  private syncTemperatureFlags(
+    activeHazard: 'hot' | 'cold' | null,
+    hotExposureMs: number,
+    coldExposureMs: number,
+    hotDamageProgressMs: number,
+    coldDamageProgressMs: number,
+  ): void {
+    this.setFlag('player.temperatureHotExposureMs', Math.max(0, hotExposureMs));
+    this.setFlag('player.temperatureColdExposureMs', Math.max(0, coldExposureMs));
+    this.setFlag('player.temperatureHotDamageProgressMs', Math.max(0, hotDamageProgressMs));
+    this.setFlag('player.temperatureColdDamageProgressMs', Math.max(0, coldDamageProgressMs));
+    const activeExposure =
+      activeHazard === 'hot' ? hotExposureMs : activeHazard === 'cold' ? coldExposureMs : 0;
+    const activeDamage =
+      activeHazard === 'hot'
+        ? hotDamageProgressMs
+        : activeHazard === 'cold'
+          ? coldDamageProgressMs
+          : 0;
+    this.setFlag('player.temperatureExposureMs', Math.max(0, activeExposure));
+    this.setFlag('player.temperatureDamageProgressMs', Math.max(0, activeDamage));
   }
 
   private tickPowerupState(): void {

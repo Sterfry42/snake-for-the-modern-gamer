@@ -4,12 +4,14 @@ import {
   biomeHasTag,
   getBiomeDefinition,
   getBiomeClimateClass,
+  getBiomeThermalClass,
+  getBiomeVerticalClass,
   getBiomesByFamily,
   getBiomeForRoom,
   type BiomeId,
 } from '../../biomes.js';
 import { areBiomesCompatible } from '../biomeCompatibility.js';
-import { SeededBiomeMap, STARTER_BIOME_RADIUS } from '../biomeMap.js';
+import { getVerticalLayerBiomeWeights, SeededBiomeMap, STARTER_BIOME_RADIUS } from '../biomeMap.js';
 import { createWorldGenerationIdentity } from '../worldGenerationIdentity.js';
 
 function roomId(x: number, y: number, z = 0): string {
@@ -44,7 +46,9 @@ describe('seeded procedural biome map', () => {
 
     for (let y = 28; y <= 52; y += 1) {
       for (let x = 28; x <= 52; x += 1) {
-        if (first.getBiomeForRoomId(roomId(x, y)).id !== second.getBiomeForRoomId(roomId(x, y)).id) {
+        if (
+          first.getBiomeForRoomId(roomId(x, y)).id !== second.getBiomeForRoomId(roomId(x, y)).id
+        ) {
           differences += 1;
         }
       }
@@ -80,34 +84,64 @@ describe('seeded procedural biome map', () => {
 
   it('uses vertical depth and altitude to influence biome distribution', () => {
     const biomeMap = mapFor('vertical-distribution');
-    const countTags = (z: number) => {
-      const tags = { cave: 0, underground: 0, highAltitude: 0, cold: 0, hot: 0 };
+    const countClasses = (z: number) => {
+      const classes = { subterranean: 0, sky: 0, regular: 0, cold: 0, hot: 0 };
       for (let y = 24; y <= 56; y += 1) {
         for (let x = 24; x <= 56; x += 1) {
           const biome = biomeMap.getBiomeForRoomId(roomId(x, y, z));
-          if (biomeCountsAs(biome.id, 'cave')) tags.cave += 1;
-          if (biomeHasTag(biome.id, 'underground')) tags.underground += 1;
-          if (biomeHasTag(biome.id, 'high-altitude')) tags.highAltitude += 1;
-          if (biomeHasTag(biome.id, 'cold') || biomeHasTag(biome.id, 'frigid')) tags.cold += 1;
-          if (biomeHasTag(biome.id, 'hot')) tags.hot += 1;
+          const vertical = getBiomeVerticalClass(biome);
+          const thermal = getBiomeThermalClass(biome);
+          if (vertical === 'subterranean') classes.subterranean += 1;
+          if (vertical === 'sky') classes.sky += 1;
+          if (vertical === 'regular') classes.regular += 1;
+          if (thermal === 'cold') classes.cold += 1;
+          if (thermal === 'hot') classes.hot += 1;
         }
       }
-      return tags;
+      return classes;
     };
 
-    const surface = countTags(0);
-    const above = countTags(3);
-    const below = countTags(-3);
+    const surface = countClasses(0);
+    const above = countClasses(6);
+    const below = countClasses(-6);
+    const veryDeep = countClasses(-14);
+    const highSky = countClasses(14);
 
-    expect(below.cave).toBeGreaterThan(surface.cave);
-    expect(below.underground).toBeGreaterThan(surface.underground);
-    expect(above.highAltitude + above.cold).toBeGreaterThan(surface.highAltitude + surface.cold);
+    expect(surface.regular).toBeGreaterThan(surface.subterranean);
+    expect(below.subterranean).toBeGreaterThan(surface.subterranean);
+    expect(below.subterranean).toBeGreaterThan(below.regular);
+    expect(veryDeep.hot).toBeGreaterThan(below.hot);
+    expect(above.sky).toBeGreaterThan(surface.sky);
+    expect(highSky.cold).toBeGreaterThan(above.cold);
+  });
+
+  it('exposes clear vertical layer curves for normal world biome selection', () => {
+    const surface = getVerticalLayerBiomeWeights(0);
+    const below1 = getVerticalLayerBiomeWeights(-1);
+    const below5 = getVerticalLayerBiomeWeights(-5);
+    const below10 = getVerticalLayerBiomeWeights(-10);
+    const deep = getVerticalLayerBiomeWeights(-16);
+    const above1 = getVerticalLayerBiomeWeights(1);
+    const above10 = getVerticalLayerBiomeWeights(10);
+    const high = getVerticalLayerBiomeWeights(16);
+
+    expect(surface.vertical.regular).toBeGreaterThan(surface.vertical.subterranean);
+    expect(below1.vertical.subterranean).toBeCloseTo(below1.vertical.regular, 1);
+    expect(below5.vertical.subterranean).toBeGreaterThan(below1.vertical.subterranean);
+    expect(below10.vertical.subterranean).toBeGreaterThan(below5.vertical.subterranean);
+    expect(deep.thermal.hot).toBeGreaterThan(below10.thermal.hot);
+    expect(deep.thermal.cold).toBeLessThan(below5.thermal.cold);
+    expect(above1.vertical.sky).toBeGreaterThan(surface.vertical.sky);
+    expect(above10.vertical.sky).toBeGreaterThan(above1.vertical.sky);
+    expect(high.thermal.cold).toBeGreaterThan(above10.thermal.cold);
   });
 
   it('exposes biome family, tag, and climate helpers', () => {
     expect(biomeCountsAs('gloam-garden', 'forest')).toBe(true);
     expect(biomeHasTag('ember-caverns', 'underground')).toBe(true);
     expect(getBiomesByFamily('cave').map((biome) => biome.id)).toContain('fungal-grotto');
+    expect(getBiomeVerticalClass(getBiomeDefinition('fungal-grotto'))).toBe('subterranean');
+    expect(getBiomeVerticalClass(getBiomeDefinition('jade-peak-province'))).toBe('sky');
     expect(getBiomeClimateClass('frozen-sea')).toBe('frigid');
   });
 

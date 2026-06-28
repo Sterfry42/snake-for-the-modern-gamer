@@ -1747,6 +1747,7 @@ export default class SnakeScene extends Phaser.Scene {
   private levelUpDirectionUnlocked = false;
   private levelUpDirectionUnlockTimer: Phaser.Time.TimerEvent | null = null;
   private nextDangerPulseAtMs = 0;
+  private nextThermalJuiceAtMs = 0;
   private nextPowerupSparkAtMs = 0;
   private nextBabyCryAtMs = 0;
   private deathCutscene: DeathCutsceneState | null = null;
@@ -1821,6 +1822,7 @@ export default class SnakeScene extends Phaser.Scene {
   private achievementHotSurvivalMs = 0;
   private achievementColdSurvivalMs = 0;
   private achievementCowbellTilesWalked = 0;
+  private achievementTrainZonesTraveled = 0;
   private achievementLastEvaluationMs = 0;
   private deathLinkMode: DeathLinkMode = 'off';
   private handlingIncomingDeathLink = false;
@@ -2730,9 +2732,12 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private advanceSimulationTime(deltaMs: number): void {
+  private advanceGameplayTime(deltaMs: number): void {
     const elapsed = Number(this.getFlag<number>('timeMs') ?? 0) + deltaMs;
     this.setFlag('timeMs', elapsed);
+  }
+
+  private advanceAtmosphereTime(deltaMs: number): void {
     const beforeDay = this.snakeGame.getAtmosphereState().worldDay;
     const atmosphere = this.snakeGame.updateAtmosphere(deltaMs);
     if (atmosphere.worldDay > beforeDay) {
@@ -2969,6 +2974,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.achievementHotSurvivalMs = 0;
     this.achievementColdSurvivalMs = 0;
     this.achievementCowbellTilesWalked = 0;
+    this.achievementTrainZonesTraveled = 0;
     this.achievementLastEvaluationMs = Number(this.getFlag<number>('timeMs') ?? 0);
     this.applyRaccoonActionStepInterval();
     this.juice.stopBossMusic();
@@ -5023,6 +5029,7 @@ export default class SnakeScene extends Phaser.Scene {
       wardDamageTypesHeld: Object.values(this.snakeGame.getWardContracts()).filter(
         (count) => Number(count) > 0,
       ).length,
+      trainZonesTraveled: this.achievementTrainZonesTraveled,
       maxSpecialStat: Math.max(
         ...this.snakeGame.getSpecialStatsView().stats.map((stat) => stat.committedValue),
       ),
@@ -5182,8 +5189,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.setFlag('equipment.swimmingEnabled', true);
       this.setFlag('equipment.heatResistance', 1);
       this.setFlag('equipment.coldResistance', 1);
-      this.setFlag('player.temperatureExposureMs', 0);
-      this.setFlag('player.temperatureDamageProgressMs', 0);
+      this.clearTemperatureState();
       this.setFlag('player.temperatureHazard', undefined);
       this.setFlag('ui.healthRevealed', true);
       this.isDirty = true;
@@ -5551,6 +5557,9 @@ export default class SnakeScene extends Phaser.Scene {
     this.achievementHotSurvivalMs = Number(this.getFlag<number>('achievement.hotSurvivalMs') ?? 0);
     this.achievementColdSurvivalMs = Number(
       this.getFlag<number>('achievement.coldSurvivalMs') ?? 0,
+    );
+    this.achievementTrainZonesTraveled = Number(
+      this.getFlag<number>('achievement.trainZonesTraveled') ?? 0,
     );
     this.achievementLastEvaluationMs = Number(this.getFlag<number>('timeMs') ?? 0);
     this.updateHouseAmbience();
@@ -7671,6 +7680,7 @@ export default class SnakeScene extends Phaser.Scene {
     let appleScorePenalty = 0;
     let hazardMapSense = 0;
     let radiationTimerScalar = 1;
+    let lightRadiusTiles = 0;
     const specialGameplay = this.snakeGame.getSpecialGameplayModifiers();
 
     for (const [, itemId] of equipped) {
@@ -7727,6 +7737,9 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (typeof mods.radiationTimerScalar === 'number') {
         radiationTimerScalar *= mods.radiationTimerScalar;
+      }
+      if (typeof mods.lightRadiusTiles === 'number') {
+        lightRadiusTiles = Math.max(lightRadiusTiles, mods.lightRadiusTiles);
       }
     }
 
@@ -7855,6 +7868,7 @@ export default class SnakeScene extends Phaser.Scene {
       appleScorePenalty > 0 ? appleScorePenalty : undefined,
     );
     this.setFlag('equipment.hazardMapSense', hazardMapSense > 0 ? hazardMapSense : undefined);
+    this.setFlag('equipment.lightRadiusTiles', lightRadiusTiles > 0 ? lightRadiusTiles : undefined);
     const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
     const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     const baseMaxHealth = Math.max(3, currentMaxHealth - previousSpecialHeartBonus);
@@ -7885,6 +7899,15 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
+  }
+
+  private clearTemperatureState(): void {
+    this.setFlag('player.temperatureExposureMs', 0);
+    this.setFlag('player.temperatureDamageProgressMs', 0);
+    this.setFlag('player.temperatureHotExposureMs', 0);
+    this.setFlag('player.temperatureColdExposureMs', 0);
+    this.setFlag('player.temperatureHotDamageProgressMs', 0);
+    this.setFlag('player.temperatureColdDamageProgressMs', 0);
   }
 
   private applyJadePeakAppleEffects(typeId: string | undefined): void {
@@ -8273,7 +8296,10 @@ export default class SnakeScene extends Phaser.Scene {
   private updateSimulation(deltaMs: number): void {
     const mode = this.getGameMode();
     if (this.shouldAdvanceAtmosphereForMode(mode)) {
-      this.advanceSimulationTime(Math.max(0, Math.min(deltaMs, 250)));
+      this.advanceAtmosphereTime(Math.max(0, Math.min(deltaMs, 250)));
+    }
+    if (mode === 'action' || mode === 'manual-room') {
+      this.advanceGameplayTime(Math.max(0, Math.min(deltaMs, 250)));
     }
     this.tickCaffeinatedAppleBoost();
     this.simulationScheduler.update(deltaMs, SIMULATION_MODE_RULES[mode]);
@@ -9047,7 +9073,11 @@ export default class SnakeScene extends Phaser.Scene {
     const snakeColor = pActive ? 0x9b5de5 : undefined;
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
     const activeSnakeTheme = this.getActiveSnakeTheme();
-    const atmosphere = this.snakeGame.getAtmosphereForRoom(room);
+    const atmosphere = this.withPlayerLightSources(
+      this.snakeGame.getAtmosphereForRoom(room),
+      snakeBody,
+      room.id,
+    );
     this.updateAtmosphereAudio(atmosphere);
     this.snakeRenderer.render(room, snakeBody, room.id, currentApple, {
       wallSenseRadius,
@@ -9161,6 +9191,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.temperatureHud.setColor(color);
       this.temperatureHud.setText(`${label}: ${'■'.repeat(filled)}${'□'.repeat(empty)}`);
       this.temperatureHud.setVisible(true);
+      this.tickThermalBodyJuice(temperature, head);
       if (
         head &&
         filled >= Math.ceil(temperature.max * 0.66) &&
@@ -9358,6 +9389,54 @@ export default class SnakeScene extends Phaser.Scene {
       this.questHint.setVisible(false);
       this.questHintPanel.setVisible(false);
     }
+  }
+
+  private withPlayerLightSources(
+    atmosphere: ResolvedAtmosphereView,
+    snakeBody: readonly Vector2Like[],
+    roomId: string,
+  ): ResolvedAtmosphereView {
+    const radiusTiles = Number(this.getFlag<number>('equipment.lightRadiusTiles') ?? 0);
+    const head = snakeBody[0];
+    if (radiusTiles <= 0 || !head) {
+      return atmosphere;
+    }
+    const [roomX, roomY] = roomId.split(',').map(Number);
+    const localX = Number.isFinite(roomX) ? head.x - roomX * this.grid.cols : head.x;
+    const localY = Number.isFinite(roomY) ? head.y - roomY * this.grid.rows : head.y;
+    const lightSource = {
+      id: 'player-lantern',
+      x: Phaser.Math.Clamp(localX, 0, this.grid.cols - 1),
+      y: Phaser.Math.Clamp(localY, 0, this.grid.rows - 1),
+      roomId,
+      radiusTiles,
+      intensity: 0.9,
+      color: 0xffd48a,
+      kind: 'lantern' as const,
+      flicker: true,
+    };
+    const darknessAlpha =
+      atmosphere.darkness.level === 'pitchBlack'
+        ? Math.max(0.34, atmosphere.darkness.darknessAlpha - 0.24)
+        : atmosphere.darkness.level === 'dark'
+          ? Math.max(0.2, atmosphere.darkness.darknessAlpha - 0.14)
+          : atmosphere.darkness.darknessAlpha;
+    return {
+      ...atmosphere,
+      darkness: {
+        ...atmosphere.darkness,
+        darknessAlpha,
+        lanternRecommended: false,
+        lightSources: [...atmosphere.darkness.lightSources, lightSource],
+      },
+      playerSummary: {
+        ...atmosphere.playerSummary,
+        lightLabel:
+          atmosphere.darkness.level === 'bright'
+            ? atmosphere.playerSummary.lightLabel
+            : `${atmosphere.playerSummary.lightLabel} - lantern lit`,
+      },
+    };
   }
 
   getLeftHudBottomY(): number {
@@ -14435,6 +14514,19 @@ export default class SnakeScene extends Phaser.Scene {
       this.paused = false;
       return;
     }
+    const zonesTraveled = this.getBulletTrainZoneDistance(
+      journey.stationRoomId,
+      journey.destinationRoomId,
+    );
+    this.achievementTrainZonesTraveled = Math.max(
+      this.achievementTrainZonesTraveled,
+      Number(this.getFlag<number>('achievement.trainZonesTraveled') ?? 0),
+      zonesTraveled,
+    );
+    this.snakeGame.setFlag('achievement.trainZonesTraveled', this.achievementTrainZonesTraveled);
+    this.handleAchievementUnlocks(
+      this.achievementManager.evaluateSnapshot(this.createAchievementSnapshot()),
+    );
 
     // Set the journey flag
     this.snakeGame.setFlag('bulletTrain.journey', journey);
@@ -14474,6 +14566,17 @@ export default class SnakeScene extends Phaser.Scene {
       destinationCoordinates: chosen.coordinates,
       onArrival: (arrivalData) => this.handleBulletTrainArrival(arrivalData),
     });
+  }
+
+  private getBulletTrainZoneDistance(stationRoomId: string, destinationRoomId: string): number {
+    const [stationX = 0, stationY = 0, stationZ = 0] = this.parseRoomCoordinates(stationRoomId);
+    const [destinationX = 0, destinationY = 0, destinationZ = 0] =
+      this.parseRoomCoordinates(destinationRoomId);
+    return (
+      Math.abs(destinationX - stationX) +
+      Math.abs(destinationY - stationY) +
+      Math.abs(destinationZ - stationZ)
+    );
   }
 
   private handleBulletTrainArrival(arrivalData: {
@@ -16207,7 +16310,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-diner-pie') {
       if (!this.spendScore(12, 'Pie Slice')) return;
       this.snakeGame.growSnake(2);
-      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      this.clearTemperatureState();
       this.showQuestHintPopup(
         'Pie acquired. +2 length. The heat looks briefly embarrassed.',
         '#9ad1ff',
@@ -16237,7 +16340,7 @@ export default class SnakeScene extends Phaser.Scene {
           '#9ad1ff',
         );
       } else {
-        this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+        this.clearTemperatureState();
         this.snakeGame.setFlag('liberty.nextAppleBonus', 35);
         this.showQuestHintPopup(
           'Blue Plate Special: Long Weekend. Heat reset and next apple gets +35 score.',
@@ -16281,7 +16384,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'liberty-monument-blessing') {
       this.snakeGame.addScore(25);
-      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      this.clearTemperatureState();
       (this.juice as any).monumentSparkle?.(this.scale.width / 2, 86);
       this.showQuestHintPopup('The plaque makes several claims. +25 score. Heat reset.', '#f3eee2');
       return;
@@ -16319,7 +16422,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'liberty-motel-cooldown') {
       if (!this.spendScore(8, 'Chlorine Cooldown')) return;
-      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      this.clearTemperatureState();
       this.snakeGame.addScore(12);
       (this.juice as any).neonFlicker?.(this.scale.width / 2, 80);
       this.showQuestHintPopup('Pool rules observed. Heat reset, +12 score.', '#9ad1ff');
@@ -16343,7 +16446,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'liberty-roadside-assistance') {
       if (!this.spendScore(10, 'Roadside Assistance')) return;
-      this.snakeGame.setFlag('player.temperatureExposureMs', 0);
+      this.clearTemperatureState();
       this.grantFootballThrow(1);
       this.showQuestHintPopup(
         'Detour approved. Heat reset and one football throw ready.',
@@ -18366,6 +18469,66 @@ export default class SnakeScene extends Phaser.Scene {
       const world = this.tileToWorldLocalInRoom(villageLike.center);
       (this.juice as any).villageBreath?.(world.x, world.y);
     }
+  }
+
+  private tickThermalBodyJuice(
+    temperature: { current: number; max: number; hazard: 'hot' | 'cold' | null; active: boolean },
+    head?: Vector2Like | null,
+  ): void {
+    const damageFlash = this.getFlag<{
+      x: number;
+      y: number;
+      roomId: string;
+      hazard: 'hot' | 'cold';
+    }>('ui.temperatureDamageFlash');
+    if (damageFlash) {
+      const world = this.tileToWorld({ x: damageFlash.x, y: damageFlash.y });
+      if (damageFlash.hazard === 'hot') {
+        this.cameras.main.flash(120, 255, 180, 92, true);
+        this.juice.heatHaze(world.x, world.y);
+        this.juice.heatHaze(world.x + 8, world.y + 4);
+      } else {
+        this.cameras.main.flash(120, 192, 232, 255, true);
+        this.juice.snowDrift(world.x, world.y);
+        this.juice.snowDrift(world.x - 8, world.y + 4);
+      }
+      this.juice.dangerPulse(world.x, world.y, 1);
+      this.setFlag('ui.temperatureDamageFlash', undefined);
+      this.nextThermalJuiceAtMs = this.time.now + 120;
+      return;
+    }
+    if (!head || !temperature.active || !temperature.hazard || temperature.max <= 0) {
+      return;
+    }
+    const ratio = Phaser.Math.Clamp(temperature.current / temperature.max, 0, 1);
+    if (ratio < 0.18 || this.time.now < this.nextThermalJuiceAtMs) {
+      return;
+    }
+    const world = this.tileToWorld(head);
+    const critical = ratio >= 0.85;
+    const severe = ratio >= 0.55;
+    if (temperature.hazard === 'hot') {
+      this.juice.heatHaze(world.x, world.y);
+      if (severe) {
+        this.juice.heatHaze(world.x + Phaser.Math.Between(-8, 8), world.y + 8);
+        (this.juice as any).temperatureReliefPulse?.(world.x, world.y, 'cool');
+      }
+      if (critical) {
+        this.cameras.main.shake(90, 0.0025);
+        this.juice.dangerPulse(world.x, world.y, ratio);
+      }
+    } else {
+      (this.juice as any).villageBreath?.(world.x, world.y - 4);
+      if (severe) {
+        this.juice.snowDrift(world.x, world.y);
+        this.juice.snowDrift(world.x + Phaser.Math.Between(-8, 8), world.y + 6);
+      }
+      if (critical) {
+        this.cameras.main.shake(90, 0.002);
+        this.juice.dangerPulse(world.x, world.y, ratio);
+      }
+    }
+    this.nextThermalJuiceAtMs = this.time.now + Math.max(160, 520 - ratio * 260);
   }
 
   private tickBiomeHazardJuice(): void {

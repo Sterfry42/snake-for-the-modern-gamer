@@ -220,6 +220,7 @@ export class SnakeRenderer {
     this.drawRoomFloors(room);
     this.drawRoomWalls(room);
     this.drawAtmosphereBaseTint(opts.atmosphere);
+    this.drawDarknessOverlay(opts.atmosphere);
     this.drawTemperatureReliefs(room);
     this.drawFurniture(room);
     this.drawVegetation(room);
@@ -263,6 +264,7 @@ export class SnakeRenderer {
     this.drawBullets(opts.bullets ?? []);
     this.drawFootballs(opts.footballs ?? []);
     this.drawAtmosphereParticles(room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
+    this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
   }
 
@@ -285,6 +287,22 @@ export class SnakeRenderer {
       this.graphics
         .fillStyle(view.tint.color, alpha)
         .fillRect(0, (height / bands) * band, width, height / bands + 1);
+    }
+  }
+
+  private drawDarknessOverlay(view?: ResolvedAtmosphereView): void {
+    if (!view || view.darkness.darknessAlpha <= 0) {
+      return;
+    }
+    this.graphics.fillStyle(0x020713, view.darkness.darknessAlpha);
+    this.graphics.fillRect(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell);
+    for (const light of view.darkness.lightSources) {
+      const radiusPx = light.radiusTiles * this.grid.cell;
+      const cx = light.x * this.grid.cell + this.grid.cell / 2;
+      const cy = light.y * this.grid.cell + this.grid.cell / 2;
+      const alpha = Math.min(0.32, light.intensity * 0.28);
+      this.graphics.fillStyle(light.color, alpha).fillCircle(cx, cy, radiusPx);
+      this.graphics.fillStyle(light.color, alpha * 0.5).fillCircle(cx, cy, radiusPx * 0.62);
     }
   }
 
@@ -506,6 +524,45 @@ export class SnakeRenderer {
     this.graphics
       .fillStyle(0xfff3a6, 0.12)
       .fillRect(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell);
+  }
+
+  private drawSkyEventFlash(view: ResolvedAtmosphereView | undefined, renderTimeMs: number): void {
+    const event = view?.state.skyEvent;
+    if (!event || event.current === 'none') {
+      return;
+    }
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+    if (event.current === 'meteorShower') {
+      this.graphics.lineStyle(2, 0xfff3a8, 0.55);
+      for (let i = 0; i < 5; i++) {
+        const x = positiveMod(event.seed + i * 131 + Math.floor(renderTimeMs * 0.08), width);
+        const y = positiveMod(event.seed + i * 79 + Math.floor(renderTimeMs * 0.035), height / 2);
+        this.graphics.lineBetween(x, y, x - this.grid.cell * 1.4, y + this.grid.cell * 0.65);
+      }
+      return;
+    }
+    if (event.current === 'aurora') {
+      this.graphics.lineStyle(3, 0x8ffff2, 0.16 + event.intensity * 0.1);
+      for (let i = 0; i < 4; i++) {
+        const y = height * 0.18 + i * this.grid.cell * 0.55;
+        this.graphics.beginPath();
+        this.graphics.moveTo(0, y);
+        for (let x = 0; x <= width; x += this.grid.cell) {
+          this.graphics.lineTo(
+            x,
+            y + Math.sin(renderTimeMs / 900 + i + x * 0.018) * this.grid.cell * 0.35,
+          );
+        }
+        this.graphics.stroke();
+      }
+      return;
+    }
+    if (event.current === 'bloodMoon') {
+      this.graphics
+        .fillStyle(0x8f1024, 0.06 + event.intensity * 0.04)
+        .fillRect(0, 0, width, height);
+    }
   }
 
   markAllStaticRoomsDirty(): void {

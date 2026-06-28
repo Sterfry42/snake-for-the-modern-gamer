@@ -67,6 +67,8 @@ export interface EquipableItem extends BaseItem {
     fishingEnabled?: boolean;
     // Multiplies fish sell prices and score when fishing.
     fishingMod?: number;
+    // Adds a player-centered light radius in dark rooms.
+    lightRadiusTiles?: number;
   };
 }
 

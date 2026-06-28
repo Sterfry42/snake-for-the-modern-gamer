@@ -3,6 +3,72 @@ import type { BiomeId } from './biomes.js';
 export type Season = 'spring' | 'summer' | 'autumn' | 'winter';
 export type DayPhase = 'dawn' | 'day' | 'dusk' | 'night';
 export type GlobalWeather = 'clear' | 'rain' | 'storm' | 'fog' | 'heatwave' | 'coldfront' | 'wind';
+export type ShelterMode = 'exposed' | 'interior' | 'underground';
+export type DarknessLevel = 'bright' | 'dim' | 'dark' | 'pitchBlack';
+export type LightSourceKind =
+  | 'player'
+  | 'lantern'
+  | 'town'
+  | 'fireplace'
+  | 'campfire'
+  | 'lava'
+  | 'neon'
+  | 'radioactive'
+  | 'fireflies'
+  | 'aurora'
+  | 'meteor'
+  | 'lightning'
+  | 'magic';
+export type SkyEvent = 'none' | 'bloodMoon' | 'eclipse' | 'meteorShower' | 'aurora';
+export type WeatherIconId =
+  | 'sunny'
+  | 'clear-night'
+  | 'cloud'
+  | 'rain'
+  | 'storm'
+  | 'fog'
+  | 'heatwave'
+  | 'coldfront'
+  | 'wind'
+  | 'snow'
+  | 'whiteout'
+  | 'steam'
+  | 'dry-lightning'
+  | 'sea-spray'
+  | 'neon-rain'
+  | 'oil-rain'
+  | 'fallout'
+  | 'spores'
+  | 'blood-moon'
+  | 'eclipse'
+  | 'meteor-shower'
+  | 'aurora'
+  | 'unknown';
+export type AtmosphereEffectTag =
+  | 'wet'
+  | 'low-visibility'
+  | 'heat-pressure'
+  | 'cold-pressure'
+  | 'storm-charged'
+  | 'sky-lightning'
+  | 'muffled-weather'
+  | 'underground-weather'
+  | 'night-active'
+  | 'blood-moon'
+  | 'eclipse'
+  | 'meteor-shower'
+  | 'aurora'
+  | 'darkness'
+  | 'requires-light'
+  | 'lantern-helpful'
+  | 'interior-shelter'
+  | 'underground-shelter'
+  | 'good-fishing'
+  | 'bad-flying'
+  | 'spore-bloom'
+  | 'radioactive-air'
+  | 'mechanical-active'
+  | 'haunted-active';
 
 export type LocalWeatherVisual =
   | 'clear'
@@ -86,6 +152,15 @@ export interface AtmosphereState {
   weatherIntensity: number;
   remainingWeatherPhaseTicks: number;
   weatherSeed: number;
+  weatherTransitionProgress: number;
+  skyEvent?: SkyEventState;
+}
+
+export interface SkyEventState {
+  current: SkyEvent;
+  remainingPhaseTicks: number;
+  intensity: number;
+  seed: number;
 }
 
 export interface AtmosphereConfig {
@@ -139,6 +214,28 @@ export interface LightningProfile {
   safeUnderCover: boolean;
 }
 
+export interface LightSource {
+  id: string;
+  x: number;
+  y: number;
+  roomId: string;
+  radiusTiles: number;
+  intensity: number;
+  color: number;
+  kind: LightSourceKind;
+  flicker?: boolean;
+  pulse?: boolean;
+}
+
+export interface DarknessView {
+  level: DarknessLevel;
+  darknessAlpha: number;
+  visibleRadiusTiles: number | null;
+  lanternRecommended: boolean;
+  lightSources: LightSource[];
+  debugReason: string[];
+}
+
 export interface AtmosphereGameplayModifiers {
   heatRateScalar?: number;
   coldRateScalar?: number;
@@ -176,7 +273,28 @@ export interface BiomeAtmosphereProfile {
   dayPhaseResponses?: Partial<Record<DayPhase, BiomeAtmosphereResponse>>;
   seasonResponses?: Partial<Record<Season, BiomeAtmosphereResponse>>;
   weatherResponses: Partial<Record<GlobalWeather, BiomeAtmosphereResponse>>;
+  lightProfile?: BiomeLightProfile;
   preserveCoreNote: string;
+}
+
+export interface BiomeLightProfile {
+  baseDarknessAdd?: number;
+  nightDarknessAdd?: number;
+  weatherDarknessAdd?: Partial<Record<GlobalWeather, number>>;
+  localVisualDarknessAdd?: Partial<Record<LocalWeatherVisual, number>>;
+  minDarkness?: DarknessLevel;
+  maxDarkness?: DarknessLevel;
+  lanternRecommendedAt?: DarknessLevel;
+}
+
+export interface AtmospherePlayerSummary {
+  skyLabel: string;
+  localLabel: string;
+  timeLabel: string;
+  seasonLabel: string;
+  shelterLabel: string;
+  lightLabel: string;
+  oneLine?: string;
 }
 
 export interface ResolvedAtmosphereView {
@@ -189,14 +307,19 @@ export interface ResolvedAtmosphereView {
   particles: ResolvedAtmosphereParticleProfile;
   debugLabel: string;
   sheltered: boolean;
+  shelterMode: ShelterMode;
+  darkness: DarknessView;
+  effects: AtmosphereEffectTag[];
+  weatherIcon: WeatherIconId;
+  playerSummary: AtmospherePlayerSummary;
 }
 
 export const DAY_PHASE_ORDER: DayPhase[] = ['dawn', 'day', 'dusk', 'night'];
-export const DAY_PHASE_DURATION_SCALARS: Record<DayPhase, number> = {
-  dawn: 0.7,
-  day: 1.1,
-  dusk: 1,
-  night: 1.6,
+export const DAY_PHASE_DURATIONS_MS: Record<DayPhase, number> = {
+  dawn: 45_000,
+  day: 100_000,
+  dusk: 60_000,
+  night: 80_000,
 };
 export const SEASON_ORDER: Season[] = ['spring', 'summer', 'autumn', 'winter'];
 
