@@ -140,6 +140,52 @@ describe('seeded procedural biome map', () => {
     expect(above.sky / above.total).toBeLessThan(0.72);
   });
 
+  it('keeps same-column descent from commonly repeating one biome for many layers', () => {
+    const seeds = ['vertical-novelty-a', 'vertical-novelty-b', 'vertical-novelty-c'];
+    for (const seed of seeds) {
+      const biomeMap = mapFor(seed);
+      let threeLayerRepeats = 0;
+      let fourLayerRepeats = 0;
+      let columns = 0;
+
+      for (let y = -24; y <= 24; y += 1) {
+        for (let x = -24; x <= 24; x += 1) {
+          const biomes = [0, -1, -2, -3].map((z) => biomeMap.getBiomeForRoomId(roomId(x, y, z)));
+          if (getBiomeVerticalClass(biomes[0]) !== 'regular') {
+            continue;
+          }
+          const ids = biomes.map((biome) => biome.id);
+          if (ids[0] === ids[1] && ids[1] === ids[2]) {
+            threeLayerRepeats += 1;
+          }
+          if (ids[0] === ids[1] && ids[1] === ids[2] && ids[2] === ids[3]) {
+            fourLayerRepeats += 1;
+          }
+          columns += 1;
+        }
+      }
+
+      expect(columns).toBeGreaterThan(500);
+      expect(threeLayerRepeats / columns).toBeLessThan(0.01);
+      expect(fourLayerRepeats / columns).toBe(0);
+    }
+  });
+
+  it('keeps vertical strata deterministic regardless of room lookup order', () => {
+    const first = mapFor('vertical-order-independent');
+    const second = mapFor('vertical-order-independent');
+    const column = { x: 31, y: -17 };
+
+    const surfaceFirst = [0, -1, -2, -3, -4].map(
+      (z) => first.getBiomeForRoomId(roomId(column.x, column.y, z)).id,
+    );
+    const deepFirst = [-4, -3, -2, -1, 0]
+      .map((z) => second.getBiomeForRoomId(roomId(column.x, column.y, z)).id)
+      .reverse();
+
+    expect(deepFirst).toEqual(surfaceFirst);
+  });
+
   it('exposes clear vertical layer curves for normal world biome selection', () => {
     const surface = getVerticalLayerBiomeWeights(0);
     const below1 = getVerticalLayerBiomeWeights(-1);

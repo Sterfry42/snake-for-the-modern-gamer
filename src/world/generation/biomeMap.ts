@@ -57,7 +57,7 @@ function softAllowedZMultiplier(
 ): number {
   switch (profile.allowedZ) {
     case 'surface':
-      return z === 0 ? 1 : 0.68;
+      return z === 0 ? 1 : Math.abs(z) === 1 ? 0.12 : 0.04;
     case 'above':
       return z > 0 ? 1 : z === 0 ? 0.32 : 0.08;
     case 'below':
@@ -66,6 +66,94 @@ function softAllowedZMultiplier(
     case undefined:
       return 1;
   }
+}
+
+function pickSeededVerticalClass(
+  weights: Record<BiomeVerticalClass, number>,
+  regionX: number,
+  regionY: number,
+  z: number,
+  identity: WorldGenerationIdentity,
+): BiomeVerticalClass | null {
+  if (z === 0) {
+    return null;
+  }
+  const entries = (Object.entries(weights) as Array<[BiomeVerticalClass, number]>).filter(
+    ([, weight]) => weight > 0,
+  );
+  const total = entries.reduce((sum, [, weight]) => sum + weight, 0);
+  if (total <= 0) {
+    return null;
+  }
+  const hash = hashWorldCoordinate({
+    x: regionX,
+    y: regionY,
+    z,
+    salt: identity.biomeSalt,
+    featureSalt: 0x71a7,
+  });
+  let roll = (hash / 0xffffffff) * total;
+  for (const [verticalClass, weight] of entries) {
+    roll -= weight;
+    if (roll <= 0) {
+      return verticalClass;
+    }
+  }
+  return entries[entries.length - 1]?.[0] ?? null;
+}
+
+function verticalClassSelectionMultiplier(
+  selected: BiomeVerticalClass | null,
+  actual: BiomeVerticalClass,
+): number {
+  if (!selected) {
+    return 1;
+  }
+  if (actual === selected) {
+    return 3.4;
+  }
+  if (actual === 'special') {
+    return 0.7;
+  }
+  return 0.28;
+}
+
+function circularPhaseDistance(a: number, b: number, modulo: number): number {
+  const diff = Math.abs(a - b) % modulo;
+  return Math.min(diff, modulo - diff);
+}
+
+function verticalStrataNoveltyMultiplier(
+  biome: BiomeDefinition,
+  regionX: number,
+  regionY: number,
+  z: number,
+  identity: WorldGenerationIdentity,
+): number {
+  if (z === 0) {
+    return 1;
+  }
+  const modulo = 4;
+  const biomeSalt = biome.id.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const biomePhase = positiveMod(
+    hashWorldCoordinate({
+      x: regionX,
+      y: regionY,
+      z: 0,
+      salt: identity.biomeSalt,
+      featureSalt: 0x91f0 + biomeSalt,
+    }),
+    modulo,
+  );
+  const layerPhase = positiveMod(Math.abs(z) - 1 + (z > 0 ? 2 : 0), modulo);
+  const distance = circularPhaseDistance(biomePhase, layerPhase, modulo);
+  if (distance === 0) {
+    return 1.45;
+  }
+  if (distance === 1) {
+    return 0.22;
+  }
+  return 0.08;
 }
 
 function rarityMultiplier(rarity: NonNullable<BiomeDefinition['generation']>['rarity']): number {
@@ -109,7 +197,7 @@ export function getVerticalLayerBiomeWeights(z: number): VerticalLayerBiomeWeigh
     vertical.regular = depth <= 1 ? 0.9 : lerp(0.9, 0.58, Math.min(depth - 1, 19) / 19);
     vertical.subterranean =
       depth <= 1
-        ? 1.45
+        ? 1.25
         : depth <= 5
           ? lerp(1, 2.7, (depth - 1) / 4)
           : depth <= 10
@@ -124,9 +212,9 @@ export function getVerticalLayerBiomeWeights(z: number): VerticalLayerBiomeWeigh
     vertical.regular = height <= 1 ? 0.88 : lerp(0.88, 0.5, Math.min(height - 1, 19) / 19);
     vertical.sky =
       height <= 1
-        ? 7.5
+        ? 2.4
         : height <= 5
-          ? lerp(7.5, 10.5, (height - 1) / 4)
+          ? lerp(2.4, 10.5, (height - 1) / 4)
           : height <= 10
             ? lerp(10.5, 14, (height - 5) / 5)
             : lerp(14, 18, Math.min(height - 10, 15) / 15);
@@ -173,13 +261,29 @@ export class SeededBiomeMap implements BiomeMap {
 
   private resolveRegionBiome(regionX: number, regionY: number, z: number): BiomeDefinition {
     const climate = sampleClimateForRegion({ regionX, regionY, z, identity: this.identity });
+    const layerWeights = getVerticalLayerBiomeWeights(z);
+    const selectedVerticalClass = pickSeededVerticalClass(
+      layerWeights.vertical,
+      regionX,
+      regionY,
+      z,
+      this.identity,
+    );
     const candidates = getAllBiomeDefinitions()
       .filter((biome) => biome.generation && biome.id !== 'home-hearth')
       .filter((biome) => zHardAllowed(biome.generation!, z));
 
     const scored = candidates.map((biome) => ({
       biome,
-      score: this.scoreBiome(biome, climate, regionX, regionY, z),
+      score: this.scoreBiome(
+        biome,
+        climate,
+        regionX,
+        regionY,
+        z,
+        layerWeights,
+        selectedVerticalClass,
+      ),
     }));
     scored.sort((a, b) => b.score - a.score);
 
@@ -208,6 +312,8 @@ export class SeededBiomeMap implements BiomeMap {
     regionX: number,
     regionY: number,
     z: number,
+    layerWeights: VerticalLayerBiomeWeights,
+    selectedVerticalClass: BiomeVerticalClass | null,
   ): number {
     const profile = biome.generation;
     if (!profile) return 0;
@@ -234,11 +340,21 @@ export class SeededBiomeMap implements BiomeMap {
     ) {
       return 0;
     }
-    const layerWeights = getVerticalLayerBiomeWeights(z);
     const verticalClass = getBiomeVerticalClass(biome);
     const thermalClass = getBiomeThermalClass(biome);
     const verticalBias = layerWeights.vertical[verticalClass] ?? 1;
     const thermalBias = layerWeights.thermal[thermalClass] ?? 1;
+    const verticalSelectionBias = verticalClassSelectionMultiplier(
+      selectedVerticalClass,
+      verticalClass,
+    );
+    const strataNoveltyBias = verticalStrataNoveltyMultiplier(
+      biome,
+      regionX,
+      regionY,
+      z,
+      this.identity,
+    );
     const oceanBias = biome.family === 'ocean' && z !== 0 ? 0.55 : 1;
     const noise =
       0.85 +
@@ -259,6 +375,8 @@ export class SeededBiomeMap implements BiomeMap {
       (0.5 + weirdness) *
       softAllowedZMultiplier(profile, z) *
       verticalBias *
+      verticalSelectionBias *
+      strataNoveltyBias *
       thermalBias *
       oceanBias *
       noise
