@@ -5474,6 +5474,66 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#5dd6a2',
       };
     }
+    if (code === "lindsey's closet" || code === "lindsleys closet") {
+      // Lindsey's Closet: give the player every cosmetic in the game.
+      const allThemeIds: SnakeThemeId[] = [
+        'classic',
+        'sunset',
+        'midnight',
+        'bone',
+        'unicorn',
+        'market-moss',
+        'charcoal-silk',
+        'pearlwake',
+        'goblin-hide',
+        'retro-grid',
+      ];
+      const allHatIds: VillageShopHatId[] = [
+        'cowboy',
+        'market-cap',
+        'ember-cowl',
+        'pearl-crown',
+        'unicorn-horn',
+      ];
+
+      const currentThemes = new Set(this.snakeCosmetics.unlockedThemes);
+      const currentHats = new Set(this.snakeCosmetics.unlockedHats);
+
+      let newThemes = 0;
+      for (const themeId of allThemeIds) {
+        if (!currentThemes.has(themeId)) {
+          this.snakeCosmetics.unlockedThemes = [...this.snakeCosmetics.unlockedThemes, themeId];
+          newThemes++;
+        }
+      }
+
+      let newHats = 0;
+      for (const hatId of allHatIds) {
+        if (!currentHats.has(hatId)) {
+          this.snakeCosmetics.unlockedHats = [...this.snakeCosmetics.unlockedHats, hatId];
+          newHats++;
+        }
+      }
+
+      // Unlock the cowbell and enable it.
+      if (!this.snakeCosmetics.cowbellUnlocked) {
+        this.snakeCosmetics.cowbellUnlocked = true;
+        this.snakeCosmetics.cowbellEquipped = true;
+      }
+
+      // Unlock the loud walking noise.
+      if (!this.snakeCosmetics.loudWalkingNoiseUnlocked) {
+        this.snakeCosmetics.loudWalkingNoiseUnlocked = true;
+        this.snakeCosmetics.loudWalkingNoiseEnabled = true;
+      }
+
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: `Lindsey's closet opened. Unlocked ${newThemes} themes, ${newHats} hats, and the cowbell!`,
+        color: '#5dd6a2',
+      };
+    }
     return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: '#ff6b6b' };
   }
 
