@@ -2525,6 +2525,15 @@ export class SnakeRenderer {
         outlineColor: '#2c3e50',
       };
     }
+    if (style === 'unicorn-horn') {
+      return {
+        style,
+        fillColor: '#fbbf24', // golden horn
+        bandColor: '#f5f0ff', // light body color
+        outlineColor: '#b89fd4', // soft purple outline
+        accentColor: '#ffb3e6', // pink mane
+      };
+    }
     return this.buildHatPalette();
   }
 

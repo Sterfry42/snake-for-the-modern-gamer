@@ -12,8 +12,9 @@ export type VillageShopStyleId =
   | 'charcoal-silk'
   | 'pearlwake'
   | 'goblin-hide'
-  | 'retro-grid';
-export type VillageShopHatId = 'cowboy' | 'market-cap' | 'ember-cowl' | 'pearl-crown';
+  | 'retro-grid'
+  | 'unicorn';
+export type VillageShopHatId = 'cowboy' | 'market-cap' | 'ember-cowl' | 'pearl-crown' | 'unicorn-horn';
 
 export interface VillageShopEquipmentOffer {
   id: string;

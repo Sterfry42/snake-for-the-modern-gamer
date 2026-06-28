@@ -1028,6 +1028,18 @@ const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
       eyeColor: '#221b15',
     },
   },
+  {
+    id: 'unicorn',
+    label: 'Unicorn',
+    cost: 88,
+    palette: {
+      baseColor: '#f5f0ff',
+      bellyColor: '#fff8fc',
+      patternColor: '#e8d5f5',
+      outlineColor: '#b89fd4',
+      eyeColor: '#ff69b4',
+    },
+  },
 ];
 
 const COWBOY_HAT_COST = 36;
@@ -1590,6 +1602,7 @@ export default class SnakeScene extends Phaser.Scene {
   private townMusicActive = false;
   private _hasCherryBlossomAmbient = false;
   private _hasJadePeakAmbient = false;
+  private _hasUnicornGlitter = false;
   private atmosphereAudioContext: AudioContext | null = null;
   private atmosphereNoiseSource: AudioBufferSourceNode | null = null;
   private atmosphereGain: GainNode | null = null;
@@ -4824,6 +4837,8 @@ export default class SnakeScene extends Phaser.Scene {
     this._hasCherryBlossomAmbient = false;
     this.juice.stopJadePeakAmbient();
     this._hasJadePeakAmbient = false;
+    this.juice.stopUnicornGlitter();
+    this._hasUnicornGlitter = false;
     this.destroyAtmosphereAudio();
   }
 
@@ -9119,7 +9134,10 @@ export default class SnakeScene extends Phaser.Scene {
           color: 0x4ecdc4,
         })),
       snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
-      activeHat: this.snakeCosmetics.activeHat,
+      activeHat:
+        activeSnakeTheme.id === 'unicorn'
+          ? 'unicorn-horn'
+          : this.snakeCosmetics.activeHat,
       enemies: roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id),
       followers: roomSnapshot?.followers ?? [],
       bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
@@ -9148,6 +9166,16 @@ export default class SnakeScene extends Phaser.Scene {
     } else if (!isJadePeak && this._hasJadePeakAmbient) {
       this.juice.stopJadePeakAmbient();
       this._hasJadePeakAmbient = false;
+    }
+
+    // Unicorn theme: rainbow glitter particles
+    const isUnicorn = activeSnakeTheme.id === 'unicorn';
+    if (isUnicorn && !this._hasUnicornGlitter) {
+      this.juice.startUnicornGlitter();
+      this._hasUnicornGlitter = true;
+    } else if (!isUnicorn && this._hasUnicornGlitter) {
+      this.juice.stopUnicornGlitter();
+      this._hasUnicornGlitter = false;
     }
 
     this.updateIntoxicationVisuals();
