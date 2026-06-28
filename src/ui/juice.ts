@@ -8286,4 +8286,96 @@ export class JuiceManager {
       },
     });
   }
+
+  // ─── Unicorn Glitter ───────────────────────────────────────────────────────
+  private unicornGlitterTimer?: Phaser.Time.TimerEvent;
+
+  startUnicornGlitter(): void {
+    if (this.unicornGlitterTimer) {
+      return; // Already running
+    }
+    this.unicornGlitterTimer = this.scene.time.addEvent({
+      delay: 120,
+      callback: () => this.spawnUnicornGlitter(),
+      loop: true,
+    });
+  }
+
+  stopUnicornGlitter(): void {
+    if (this.unicornGlitterTimer) {
+      this.unicornGlitterTimer.remove();
+      this.unicornGlitterTimer = undefined;
+    }
+  }
+
+  private spawnUnicornGlitter(): void {
+    const layer = this.particleLayer;
+    if (!layer) {
+      return;
+    }
+
+    // Rainbow glitter colors
+    const glitterColors = [
+      0xff6b9d, // pink
+      0xc084fc, // purple
+      0x60a5fa, // blue
+      0x34d399, // mint
+      0xfbbf24, // gold
+      0xf472b6, // hot pink
+      0xa78bfa, // lavender
+      0xffffff, // white sparkle
+    ];
+
+    const count = 3 + Math.floor(this.rng() * 3); // 3-5 particles per burst
+    const head = this.scene.snakeGame.getSnakeBody()[0];
+    // Compute head world position (mirrors SnakeRenderer.getWorldPosition)
+    const headCx = this.scene.cameras.main.scrollX + this.scene.cameras.main.width / 2;
+    const headCy = this.scene.cameras.main.scrollY + this.scene.cameras.main.height / 2;
+    let cx = headCx;
+    let cy = headCy;
+    if (head) {
+      const roomId = this.scene.currentRoomId;
+      let roomX = 0;
+      let roomY = 0;
+      if (/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {
+        const [x, y] = roomId.split(',').map(Number);
+        roomX = x;
+        roomY = y;
+      }
+      const localX = head.x - roomX * this.scene.grid.cols;
+      const localY = head.y - roomY * this.scene.grid.rows;
+      cx = localX * this.scene.grid.cell + this.scene.grid.cell / 2;
+      cy = localY * this.scene.grid.cell + this.scene.grid.cell / 2;
+    }
+
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + this.rng() * 0.5;
+      const dist = 10 + this.rng() * 20;
+      const offsetX = Math.cos(angle) * dist;
+      const offsetY = Math.sin(angle) * dist;
+      const size = 1.5 + this.rng() * 2.5;
+      const color = glitterColors[Math.floor(this.rng() * glitterColors.length)];
+
+      const sparkle = this.scene.add.circle(
+        cx + offsetX,
+        cy + offsetY,
+        size,
+        color,
+      );
+      sparkle.setDepth(22);
+      sparkle.setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(sparkle);
+
+      // Twinkle and fade out
+      const duration = 300 + this.rng() * 400;
+      this.scene.tweens.add({
+        targets: sparkle,
+        alpha: 0,
+        scale: 0,
+        duration: duration,
+        ease: 'Cubic.easeOut',
+        onComplete: () => sparkle.destroy(),
+      });
+    }
+  }
 }
