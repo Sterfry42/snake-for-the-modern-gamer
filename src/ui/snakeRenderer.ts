@@ -125,6 +125,8 @@ export class SnakeRenderer {
   private readonly staticRoomSignatures = new Map<string, string>();
   private readonly dirtyStaticRooms = new Set<string>();
   private readonly loggedOtherPlayerRenderIds = new Set<string>();
+  // Tracks masonry block creation timestamps for crumbling animation
+  private readonly masonryBlockAges = new Map<string, number>();
   private renderDiagnostics: RenderDiagnostics = {
     staticCacheStatus: 'disabled',
     staticTileCount: 0,
@@ -219,6 +221,7 @@ export class SnakeRenderer {
 
     this.drawRoomFloors(room);
     this.drawRoomWalls(room);
+    this.drawMasonryBlocks(room, (roomId, lx, ly) => this.getMasonryBlockAge(roomId, lx, ly));
     this.drawAtmosphereBaseTint(opts.atmosphere);
     this.drawDarknessOverlay(opts.atmosphere);
     this.drawTemperatureReliefs(room);
@@ -950,6 +953,134 @@ export class SnakeRenderer {
     }
   }
 
+  /**
+   * Draws masonry building blocks ('%') — temporary walls that crumble over time.
+   * @param room The room containing the masonry blocks.
+   * @param getBlockAge A function that returns the age in milliseconds of a masonry block at the given position.
+   */
+  private drawMasonryBlocks(
+    room: RoomSnapshot,
+    getBlockAge: (roomId: string, localX: number, localY: number) => number | undefined,
+  ): void {
+    const biome = getBiomeDefinition(room.biomeId);
+    const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const blockLifetimeMs = 4000; // 4 seconds before crumbling
+
+    for (let y = 0; y < room.layout.length; y++) {
+      for (let x = 0; x < room.layout[y].length; x++) {
+        const tile = room.layout[y][x];
+        if (tile !== '%') {
+          continue;
+        }
+        const rectX = x * this.grid.cell;
+        const rectY = y * this.grid.cell;
+        const blockAge = getBlockAge(room.id, x, y);
+        const ageMs = blockAge ?? 0;
+        const lifeRatio = Math.max(0, 1 - ageMs / blockLifetimeMs);
+
+        // Fade out as the block crumbles
+        const alpha = Math.max(0.15, lifeRatio);
+
+        // Brick-style rendering with crumbling effect
+        const cell = this.grid.cell;
+        const brickColor = 0xb8865e;
+        const mortarColor = 0x8a6b4c;
+        const crackColor = 0x5a4a3a;
+
+        // Base brick fill
+        this.wallGraphics.fillStyle(brickColor, alpha).fillRect(rectX, rectY, cell, cell);
+
+        // Mortar lines (brick pattern)
+        this.wallGraphics
+          .lineStyle(1, mortarColor, alpha * 0.8)
+          .strokeRect(rectX + 1, rectY + 1, cell - 2, cell - 2);
+
+        // Horizontal mortar line (brick row divider)
+        this.wallGraphics
+          .lineStyle(1, mortarColor, alpha * 0.6)
+          .fillRect(rectX + 1, rectY + cell / 2 - 0.5, cell - 2, 1);
+
+        // Vertical mortar line (offset for brick pattern)
+        const vertOffset = (y % 2 === 0) ? cell / 2 : 0;
+        this.wallGraphics
+          .lineStyle(1, mortarColor, alpha * 0.6)
+          .fillRect(rectX + vertOffset - 0.5, rectY + 1, 1, cell - 2);
+
+        // Cracking effect as block ages
+        if (lifeRatio < 0.7) {
+          const crackIntensity = (0.7 - lifeRatio) / 0.7;
+          this.wallGraphics
+            .lineStyle(1, crackColor, alpha * crackIntensity * 0.8)
+            .lineBetween(
+              rectX + cell * 0.2,
+              rectY + cell * 0.1,
+              rectX + cell * 0.5,
+              rectY + cell * 0.5,
+            );
+          this.wallGraphics
+            .lineStyle(1, crackColor, alpha * crackIntensity * 0.6)
+            .lineBetween(
+              rectX + cell * 0.5,
+              rectY + cell * 0.5,
+              rectX + cell * 0.8,
+              rectY + cell * 0.9,
+            );
+        }
+
+        // Shrink effect in final moments
+        if (lifeRatio < 0.3) {
+          const shrinkAmount = (0.3 - lifeRatio) / 0.3 * cell * 0.15;
+          this.wallGraphics
+            .lineStyle(1, crackColor, alpha * 0.5)
+            .strokeRect(
+              rectX + shrinkAmount,
+              rectY + shrinkAmount,
+              cell - shrinkAmount * 2,
+              cell - shrinkAmount * 2,
+            );
+        }
+      }
+    }
+  }
+
+  /**
+   * Gets the age in milliseconds of a masonry block at the given position.
+   * Returns undefined if the block doesn't exist or has expired.
+   */
+  private getMasonryBlockAge(roomId: string, localX: number, localY: number): number | undefined {
+    const key = `${roomId}:${localX},${localY}`;
+    const created = this.masonryBlockAges.get(key);
+    if (created === undefined) {
+      return undefined;
+    }
+    const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    const age = now - created;
+    const lifetimeMs = 4000;
+    if (age >= lifetimeMs) {
+      // Block has expired
+      this.masonryBlockAges.delete(key);
+      return undefined;
+    }
+    return age;
+  }
+
+  /**
+   * Registers a new masonry block at the given position with the current timestamp.
+   */
+  registerMasonryBlock(roomId: string, localX: number, localY: number): void {
+    const key = `${roomId}:${localX},${localY}`;
+    const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    this.masonryBlockAges.set(key, now);
+  }
+
+  /**
+   * Removes a masonry block from tracking (e.g., when it's removed from the room layout).
+   */
+  unregisterMasonryBlock(roomId: string, localX: number, localY: number): void {
+    const key = `${roomId}:${localX},${localY}`;
+    this.masonryBlockAges.delete(key);
+  }
+
   private drawCaveEntranceTile(rectX: number, rectY: number, collapsed: boolean): void {
     const cell = this.grid.cell;
     this.graphics.fillStyle(collapsed ? 0x5b5147 : 0x1a101f, 1).fillRect(rectX, rectY, cell, cell);
@@ -1601,7 +1732,7 @@ export class SnakeRenderer {
           continue;
         }
         const tile = room.layout[targetY]?.[targetX];
-        if (tile !== '#') {
+        if (tile !== '#' && tile !== '%') {
           continue;
         }
         const distance = Math.abs(dx) + Math.abs(dy);
@@ -1609,7 +1740,9 @@ export class SnakeRenderer {
           continue;
         }
         const alpha = Math.max(0.1, (0.28 - 0.05 * distance) * pulse);
-        this.wallGraphics.fillStyle(0x4da3ff, alpha);
+        // Masonry blocks get a slightly warmer glow to distinguish them from walls
+        const senseColor = tile === '%' ? 0xffb366 : 0x4da3ff;
+        this.wallGraphics.fillStyle(senseColor, alpha);
         this.wallGraphics.fillRect(
           targetX * this.grid.cell,
           targetY * this.grid.cell,
@@ -3089,6 +3222,14 @@ export class SnakeRenderer {
     next ^= next >>> 17;
     next ^= next << 5;
     return next >>> 0;
+  }
+
+  /**
+   * Returns an iterable of masonry block age entries for cleanup.
+   * Each entry is [key, createdTimestamp] where key is "roomId:localX,localY".
+   */
+  getMasonryBlockAgesEntries(): IterableIterator<[string, number]> {
+    return this.masonryBlockAges.entries();
   }
 }
 

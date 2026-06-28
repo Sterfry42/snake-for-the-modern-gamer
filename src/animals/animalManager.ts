@@ -233,14 +233,14 @@ export class AnimalManager {
     y: number,
   ): boolean {
     const tile = room.layout[y]?.[x];
-    if (!tile || tile === '#') {
+    if (!tile || tile === '#' || tile === '%') {
       return false;
     }
     if (def.behavior === 'school') {
       return tile === '~';
     }
     if (def.behavior === 'perch') {
-      return tile === '#' || tile === '.';
+      return tile === '#' || tile === '%' || tile === '.';
     }
     return tile === '.' || tile === 'O';
   }

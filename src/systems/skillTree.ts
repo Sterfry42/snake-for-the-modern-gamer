@@ -1217,7 +1217,7 @@ const GEOMETRY_BRANCH: BranchConfig = {
       description: 'Reinforce the passages you leave behind.',
       ranks: [
         {
-          description: 'Drop a masonry wall on tiles your tail vacates.',
+          description: 'Lay temporary masonry blocks behind you. The blocks crumble after a few seconds, and your snake can pass through them freely.',
           cost: 48,
           effects: [
             { type: 'setFlag', key: 'geometry.masonryEnabled', value: true, resetValue: false },
