@@ -255,7 +255,7 @@ const PORTRAITS: Record<QuestPortraitVariant, PortraitLayers> = {
       [5, 12],
       [10, 12],
     ],
-    hoodColor: '#5e8fbc',
+    hoodColor: '#c44536',
     faceColor: '#f1c9a3',
     beardColor: '#f6f1de',
     eyeColor: '#1c1a1c',
