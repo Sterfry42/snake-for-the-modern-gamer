@@ -746,6 +746,13 @@ export class SnakeRenderer {
           tile === 'N' ||
           tile === 'U' ||
           tile === 'Y' ||
+          tile === 'd' ||
+          tile === 't' ||
+          tile === 'h' ||
+          tile === 'j' ||
+          tile === 'u' ||
+          tile === 'x' ||
+          tile === 'o' ||
           tile === 'M' ||
           tile === 'R' ||
           tile === 'F' ||
@@ -1317,6 +1324,19 @@ export class SnakeRenderer {
   private drawTownSymbolTile(rectX: number, rectY: number, tile: string): void {
     const cell = this.grid.cell;
     const base =
+      tile === 'x'
+        ? 0x2f3138
+        : tile === 'o'
+          ? 0x77614a
+          : tile === 'd'
+            ? 0x5f3b24
+            : tile === 't'
+              ? 0x7b3f22
+              : tile === 'h' || tile === 'j'
+                ? 0x3f2e24
+                : tile === 'u'
+                  ? 0x252b32
+                  : 
       tile === 'U'
         ? 0x333844
         : tile === 'Y'
@@ -1327,6 +1347,21 @@ export class SnakeRenderer {
               ? 0xc7433d
               : 0x6d5845;
     const accent =
+      tile === 'x'
+        ? 0xb9c0c8
+        : tile === 'o'
+          ? 0xf0c27a
+          : tile === 'd'
+            ? 0xd6a35f
+            : tile === 't'
+              ? 0xffc36b
+              : tile === 'h'
+                ? 0x9a7458
+                : tile === 'j'
+                  ? 0xd2b088
+                  : tile === 'u'
+                    ? 0x778493
+                    : 
       tile === 'U'
         ? 0x9aa4b2
         : tile === 'Y'
@@ -1346,7 +1381,39 @@ export class SnakeRenderer {
       .lineStyle(1, outline, 0.75)
       .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
 
-    if (tile === 'D' || tile === 'N') {
+    if (tile === 'd' || tile === 't' || tile === 'h' || tile === 'j') {
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillRect(rectX + cell * 0.24, rectY + cell * 0.12, cell * 0.52, cell * 0.76);
+      this.graphics
+        .lineStyle(1, outline, 0.9)
+        .strokeRect(rectX + cell * 0.24, rectY + cell * 0.12, cell * 0.52, cell * 0.76);
+      if (tile === 'h') {
+        this.graphics
+          .fillStyle(outline, 1)
+          .fillRect(rectX + cell * 0.45, rectY + cell * 0.44, cell * 0.16, cell * 0.12);
+      } else {
+        this.graphics.fillStyle(outline, 1).fillCircle(rectX + cell * 0.62, rectY + cell * 0.5, 2);
+      }
+      if (tile === 't') {
+        this.graphics.fillStyle(0xffe0a3, 1).fillRect(rectX + cell * 0.28, rectY + 2, cell * 0.44, 3);
+      }
+    } else if (tile === 'x' || tile === 'o') {
+      this.graphics.lineStyle(Math.max(2, cell * 0.12), accent, 0.95);
+      this.graphics.beginPath();
+      if (tile === 'x') {
+        this.graphics.moveTo(rectX + cell * 0.18, rectY + cell * 0.22);
+        this.graphics.lineTo(rectX + cell * 0.82, rectY + cell * 0.78);
+        this.graphics.moveTo(rectX + cell * 0.82, rectY + cell * 0.22);
+        this.graphics.lineTo(rectX + cell * 0.18, rectY + cell * 0.78);
+      } else {
+        this.graphics.moveTo(rectX + cell * 0.2, rectY + cell * 0.3);
+        this.graphics.lineTo(rectX + cell * 0.8, rectY + cell * 0.3);
+        this.graphics.moveTo(rectX + cell * 0.2, rectY + cell * 0.66);
+        this.graphics.lineTo(rectX + cell * 0.8, rectY + cell * 0.66);
+      }
+      this.graphics.strokePath();
+    } else if (tile === 'D' || tile === 'N') {
       this.graphics
         .fillStyle(accent, 1)
         .fillRect(rectX + cell * 0.22, rectY + cell * 0.18, cell * 0.56, cell * 0.58);
@@ -1357,11 +1424,11 @@ export class SnakeRenderer {
       this.graphics.moveTo(rectX + cell * 0.3, rectY + cell * 0.52);
       this.graphics.lineTo(rectX + cell * 0.62, rectY + cell * 0.52);
       this.graphics.strokePath();
-    } else if (tile === 'U') {
+    } else if (tile === 'U' || tile === 'u') {
       for (let i = 0; i < 4; i += 1) {
         const x = rectX + cell * (0.24 + i * 0.14);
         this.graphics
-          .fillStyle(accent, 0.85)
+          .fillStyle(accent, tile === 'u' ? 0.55 : 0.85)
           .fillRect(x, rectY + cell * 0.18, Math.max(2, cell * 0.06), cell * 0.64);
       }
     } else if (tile === 'Y') {

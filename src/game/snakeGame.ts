@@ -2885,7 +2885,7 @@ export class SnakeGame implements QuestRuntime {
       message:
         instance.kind === 'townInterior' && instance.templateId === 'thievesGuild'
           ? 'You slip down into the Thieves Guild.'
-          : 'You enter the hidden room.',
+          : `You enter ${instance.displayName ?? 'the building'}.`,
     });
     if (layerRoom.town) {
       this.applyTownRuntimeToRoom(layerRoom);
@@ -2904,7 +2904,7 @@ export class SnakeGame implements QuestRuntime {
     this.world.setLayerInstanceState(runtime.layerId, 'completed');
     this.setFlag('layers.active', undefined);
     this.setFlag('traversal.manualResumePending', true);
-    this.setFlag('ui.questInteraction', { message: 'You climb back out through the grate.' });
+    this.setFlag('ui.questInteraction', { message: 'You step back outside.' });
     roomsChanged.add(runtime.layerId);
     roomsChanged.add(runtime.parentRoomId);
   }
@@ -4521,6 +4521,87 @@ export class SnakeGame implements QuestRuntime {
     return town ? this.applyTownRuntimeState(town) : null;
   }
 
+  getNearbyTownBuildingDoor(): {
+    entranceId: string;
+    buildingId?: string;
+    displayName: string;
+    prompt: string;
+    doorKind?: LayerEntrance['doorKind'];
+    publicAccess: boolean;
+    crimeOnEntry: boolean;
+    locked: boolean;
+    discovered: boolean;
+  } | null {
+    const head = this.snake.bodySegments[0];
+    if (!head) return null;
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    if (!room.town || !room.layerEntrances?.length) return null;
+    const local = this.worldToLocal(room.id, head);
+    const entrance = room.layerEntrances
+      .filter((entry) => entry.kind === 'townInterior')
+      .map((entry) => ({
+        entry,
+        distance: Math.abs(entry.x - local.x) + Math.abs(entry.y - local.y),
+      }))
+      .filter(({ distance }) => distance <= 1)
+      .sort((a, b) => a.distance - b.distance)[0]?.entry;
+    if (!entrance) return null;
+    const discovered = entrance.discovered !== false;
+    const locked = Boolean(entrance.locked);
+    const publicAccess = entrance.publicAccess !== false;
+    const displayName = entrance.displayName ?? entrance.label ?? 'Town Interior';
+    const prompt =
+      entrance.doorLabel ??
+      (entrance.doorKind === 'guildGrateClosed'
+        ? 'Inspect old grate'
+        : entrance.doorKind === 'homeDoorClosed'
+          ? `Open ${displayName}`
+          : `Enter ${displayName}`);
+    return {
+      entranceId: entrance.id,
+      buildingId: entrance.townBuildingId,
+      displayName,
+      prompt,
+      doorKind: entrance.doorKind,
+      publicAccess,
+      crimeOnEntry: Boolean(entrance.crimeOnEntry),
+      locked,
+      discovered,
+    };
+  }
+
+  enterNearbyTownBuildingDoor(): { ok: boolean; message: string } {
+    const hit = this.getNearbyTownBuildingDoor();
+    if (!hit) {
+      return { ok: false, message: 'There is no town door close enough.' };
+    }
+    const room = this.world.getRoom(this.snake.currentRoomId);
+    const entrance = room.layerEntrances?.find((entry) => entry.id === hit.entranceId);
+    if (!entrance) {
+      return { ok: false, message: 'That town door has lost its hinges.' };
+    }
+    if (entrance.doorKind === 'guildGrateClosed') {
+      const guildResult = this.investigateCurrentTownGuildGrate();
+      return guildResult.ok
+        ? guildResult
+        : { ok: false, message: entrance.doorLabel ?? guildResult.message };
+    }
+    const effectiveEntrance =
+      entrance.doorKind === 'homeDoorClosed' ? { ...entrance, locked: false } : entrance;
+    if (entrance.crimeOnEntry) {
+      this.applyCurrentTownCrime('theft', true, 1);
+    }
+    const roomsChanged = new Set<string>();
+    this.enterLayer(effectiveEntrance, roomsChanged);
+    return {
+      ok: true,
+      message:
+        entrance.crimeOnEntry && entrance.doorKind === 'homeDoorClosed'
+          ? `You force open ${entrance.displayName ?? 'the residence'}. That is a crime, fuhgeddaboudit.`
+          : `You enter ${entrance.displayName ?? entrance.label ?? 'the building'}.`,
+    };
+  }
+
   updateCurrentTown(town: TownStructure): TownStructure | null {
     const room = this.world.getRoom(this.snake.currentRoomId);
     if (!room.town || room.town.id !== town.id) {
@@ -4961,8 +5042,8 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, message: `The guard wants a ${gateTax} score gate tax.` };
     }
     this.addScore(-gateTax);
-    if (district === 'gate' || district === 'townExit') {
-      this.openTownGateBarrierTiles(room, district);
+    if (district === 'gate' || district === 'townExit' || district === 'townCenter') {
+      this.openTownGateBarrierTiles(room, flagDistrict);
     }
     this.setFlag(this.townGateFlagKey(town.id, flagDistrict), true);
     this.saveTownRuntimeState(town);
@@ -4998,6 +5079,18 @@ export class SnakeGame implements QuestRuntime {
     next.suspicion = runtime.suspicion;
     next.reputation = runtime.reputation;
     next.discoveredGuild = runtime.discoveredGuild;
+    next.buildings = next.buildings.map((building) =>
+      building.kind === 'guildAccess'
+        ? {
+            ...building,
+            hidden: !runtime.discoveredGuild,
+            publicAccess: runtime.discoveredGuild,
+            doorKind: runtime.discoveredGuild ? 'guildGrateOpen' : 'guildGrateClosed',
+            doorLabel: runtime.discoveredGuild ? 'Enter Thieves Guild' : 'Inspect old grate',
+            shortLabel: runtime.discoveredGuild ? 'Thieves Guild' : 'Old Drain',
+          }
+        : building,
+    );
     next.rumors = runtime.rumors;
     if (next.thievesGuild) {
       next.thievesGuild.discovered = runtime.discoveredGuild;
@@ -7054,13 +7147,14 @@ export class SnakeGame implements QuestRuntime {
 
   private openTownGateTiles(room: RoomSnapshot): void {
     const district = room.town?.districtByRoomId?.[room.id];
-    if (district !== 'gate' && district !== 'townExit') {
+    if (district !== 'gate' && district !== 'townExit' && district !== 'townCenter') {
       return;
     }
-    if (!this.getFlag<boolean>(this.townGateFlagKey(room.town.id, district))) {
+    const flagDistrict = district === 'townCenter' ? 'gate' : district;
+    if (!this.getFlag<boolean>(this.townGateFlagKey(room.town.id, flagDistrict))) {
       return;
     }
-    this.openTownGateBarrierTiles(room, district);
+    this.openTownGateBarrierTiles(room, flagDistrict);
   }
 
   private openTownGateBarrierTiles(room: RoomSnapshot, district: TownRoomKind): void {
@@ -7079,6 +7173,14 @@ export class SnakeGame implements QuestRuntime {
         room.layout[y] = chars.join('');
       }
     };
+    const openVisibleGateSegments = (): void => {
+      for (let y = 0; y < room.layout.length; y += 1) {
+        const row = room.layout[y];
+        if (!row.includes('x')) continue;
+        room.layout[y] = row.split('x').join('o');
+      }
+    };
+    openVisibleGateSegments();
     carve(centerX - 2, centerY - 2, 5, 5);
     if (district === 'townExit') {
       carve(centerX - 2, this.config.grid.rows - 6, 5, 3);

@@ -2553,6 +2553,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractMcDonaldsCashier()) return;
     if (this.tryInteractMcDonaldsToilet()) return;
     if (this.tryInteractTownQuestBoard()) return;
+    if (this.tryInteractTownBuildingDoor()) return;
     if (this.tryInteractTownGuildGrate()) return;
     if (this.tryInteractLibertyStructure()) return;
     if (this.tryInteractMolemanDigSite()) return;
@@ -3189,7 +3190,13 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickFreakYouPortalFx();
 
     // Idle apple sparkle
-    if (this.currentApple && !result.apple.eaten) {
+    const currentRoomForAppleFx = this.snakeGame.getCurrentRoom();
+    if (
+      this.currentApple &&
+      !result.apple.eaten &&
+      !currentRoomForAppleFx.town &&
+      currentRoomForAppleFx.layer?.kind !== 'townInterior'
+    ) {
       const world = this.tileToWorld(this.currentApple.position);
       if (this.random() < 0.06) {
         this.juice.appleIdle(world.x, world.y);
@@ -9715,7 +9722,17 @@ export default class SnakeScene extends Phaser.Scene {
         true,
       );
     }
-    if (villageLike?.center) {
+    const townDistrict =
+      room.town && room.id ? getTownDistrictForRoom(room.town, room.id) : undefined;
+    const centerTile = villageLike?.center
+      ? room.layout[villageLike.center.y]?.[villageLike.center.x]
+      : undefined;
+    if (
+      villageLike?.center &&
+      (!room.town ||
+        ((townDistrict === 'square' || townDistrict === 'townCenter') &&
+          (centerTile === 'M' || centerTile === 'P' || centerTile === 'L')))
+    ) {
       addLight(
         'town-window-glow',
         villageLike.center.x,
@@ -11284,15 +11301,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.isNearTownQuestBoard()) {
       return { text: `Read quest board (${interact})` };
     }
-    const town = room.town;
-    if (town && this.isNearTownGuildGrate(town)) {
-      const status = this.snakeGame.getCurrentTownGuildInitiationStatus();
-      return {
-        text:
-          status.state === 'complete'
-            ? `Enter thieves guild grate (${interact})`
-            : `Inspect thieves guild grate (${interact})`,
-      };
+    const townDoor = this.snakeGame.getNearbyTownBuildingDoor();
+    if (townDoor) {
+      return { text: `${townDoor.prompt} (${interact})` };
     }
     const giver = room.questGiver;
     if (!giver) {
@@ -11391,6 +11402,20 @@ export default class SnakeScene extends Phaser.Scene {
         this.applyPendingQuestCosmeticRewards();
       }
     });
+    return true;
+  }
+
+  private tryInteractTownBuildingDoor(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const door = this.snakeGame.getNearbyTownBuildingDoor();
+    if (!door) {
+      return false;
+    }
+    const result = this.snakeGame.enterNearbyTownBuildingDoor();
+    this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+    this.isDirty = this.isDirty || result.ok;
     return true;
   }
 

@@ -9,6 +9,7 @@ import {
   LAYER_ENTRANCE_TILE,
   type LayerEntrance,
   type LayerTemplateId,
+  type TownDoorKind,
 } from '../layers/layerTypes.js';
 import type { BiomeId } from './biomes.js';
 import { selectPrimaryTownMerchant, shopKindForTownRole } from './townRoles.js';
@@ -254,11 +255,18 @@ export interface TownBuilding {
   district: TownDistrictKind;
   roomId: string;
   kind: TownBuildingKind;
+  displayName: string;
+  shortLabel?: string;
+  interiorTitle?: string;
+  doorLabel: string;
+  doorKind: TownDoorKind;
   door: { x: number; y: number };
   bounds: RoomArea;
   templateId?: LayerTemplateId;
+  ownerResidentId?: string;
   ownerResidentRole?: TownResident['role'];
   enterable: boolean;
+  publicAccess?: boolean;
   crimeTarget?: boolean;
   hidden?: boolean;
 }
@@ -799,6 +807,8 @@ function createTownBuildings(
   const marketRoom = roomFor('marketStreet');
   const residentialRoom = roomFor('residentialStreet');
   const alleyRoom = roomFor('backAlley');
+  const ownerIdFor = (role: TownResident['role']): string | undefined =>
+    town.residents.find((resident) => resident.role === role)?.id;
   return [
     {
       id: `${town.id}:building:gatehouse`,
@@ -806,9 +816,14 @@ function createTownBuildings(
       district: 'townCenter',
       roomId: centerRoom,
       kind: 'gatehouse',
+      displayName: `${town.name} Gatehouse`,
+      shortLabel: 'Gatehouse',
+      doorLabel: 'Gatehouse',
+      doorKind: 'gateBarrierClosed',
       door: { x: 16, y: 12 },
       bounds: { left: 1, top: 1, width: 30, height: 22 },
       enterable: false,
+      publicAccess: false,
     },
     {
       id: `${town.id}:building:tavern`,
@@ -816,11 +831,18 @@ function createTownBuildings(
       district: 'townCenter',
       roomId: centerRoom,
       kind: 'tavern',
+      displayName: `The Copper Ladle`,
+      shortLabel: 'Tavern',
+      interiorTitle: `The Copper Ladle Tavern`,
+      doorLabel: 'Enter The Copper Ladle',
+      doorKind: 'tavernDoor',
       door: { x: 9, y: 10 },
       bounds: { left: 4, top: 4, width: 11, height: 7 },
       templateId: 'tavern',
+      ownerResidentId: ownerIdFor('bartender'),
       ownerResidentRole: 'bartender',
       enterable: true,
+      publicAccess: true,
     },
     {
       id: `${town.id}:building:general-store`,
@@ -828,11 +850,18 @@ function createTownBuildings(
       district: 'marketStreet',
       roomId: marketRoom,
       kind: 'generalStore',
+      displayName: `${town.name} General Store`,
+      shortLabel: 'General Store',
+      interiorTitle: `${town.name} General Store`,
+      doorLabel: 'Enter General Store',
+      doorKind: 'shopDoorClosed',
       door: { x: 6, y: 9 },
       bounds: { left: 3, top: 4, width: 8, height: 6 },
       templateId: 'generalStore',
+      ownerResidentId: ownerIdFor('equipmentMerchant') ?? ownerIdFor('shopkeeper'),
       ownerResidentRole: 'equipmentMerchant',
       enterable: true,
+      publicAccess: true,
       crimeTarget: true,
     },
     {
@@ -841,11 +870,18 @@ function createTownBuildings(
       district: 'marketStreet',
       roomId: marketRoom,
       kind: 'butcherShop',
+      displayName: `${town.name} Butcher`,
+      shortLabel: 'Butcher Shop',
+      interiorTitle: `${town.name} Butcher`,
+      doorLabel: 'Enter Butcher Shop',
+      doorKind: 'shopDoorClosed',
       door: { x: 16, y: 8 },
       bounds: { left: 12, top: 3, width: 9, height: 6 },
       templateId: 'butcherShop',
+      ownerResidentId: ownerIdFor('butcher'),
       ownerResidentRole: 'butcher',
       enterable: true,
+      publicAccess: true,
       crimeTarget: true,
     },
     {
@@ -854,11 +890,18 @@ function createTownBuildings(
       district: 'marketStreet',
       roomId: marketRoom,
       kind: 'potionMaker',
+      displayName: `${town.name} Potion Maker`,
+      shortLabel: 'Potion Maker',
+      interiorTitle: `${town.name} Potion Maker`,
+      doorLabel: 'Enter Potion Maker',
+      doorKind: 'shopDoorClosed',
       door: { x: 25, y: 9 },
       bounds: { left: 21, top: 4, width: 8, height: 6 },
       templateId: 'potionMaker',
+      ownerResidentId: ownerIdFor('potionMaker'),
       ownerResidentRole: 'potionMaker',
       enterable: true,
+      publicAccess: true,
       crimeTarget: true,
     },
     {
@@ -867,11 +910,18 @@ function createTownBuildings(
       district: 'residentialStreet',
       roomId: residentialRoom,
       kind: 'residentialHome',
+      displayName: 'Locked Residence',
+      shortLabel: 'Residence',
+      interiorTitle: 'Town Home',
+      doorLabel: 'Open Locked Residence',
+      doorKind: 'homeDoorClosed',
       door: { x: 6, y: 9 },
       bounds: { left: 3, top: 5, width: 7, height: 5 },
       templateId: 'residentialHome',
+      ownerResidentId: ownerIdFor('resident'),
       ownerResidentRole: 'resident',
       enterable: true,
+      publicAccess: false,
       crimeTarget: true,
     },
     {
@@ -880,11 +930,18 @@ function createTownBuildings(
       district: 'backAlley',
       roomId: alleyRoom,
       kind: 'guildAccess',
+      displayName: 'Thieves Guild Grate',
+      shortLabel: town.discoveredGuild ? 'Thieves Guild' : 'Old Drain',
+      interiorTitle: 'Thieves Guild',
+      doorLabel: town.discoveredGuild ? 'Enter Thieves Guild' : 'Inspect old grate',
+      doorKind: town.discoveredGuild ? 'guildGrateOpen' : 'guildGrateClosed',
       door: { x: 11, y: 12 },
       bounds: { left: 8, top: 8, width: 16, height: 8 },
       templateId: 'thievesGuild',
+      ownerResidentId: ownerIdFor('thiefContact'),
       ownerResidentRole: 'thiefContact',
       enterable: true,
+      publicAccess: town.discoveredGuild,
       hidden: !town.discoveredGuild,
     },
   ];
@@ -1439,8 +1496,10 @@ function createTownLayerEntrance(args: {
   label: string;
   x: number;
   y: number;
+  building?: TownBuilding;
   discovered?: boolean;
 }): LayerEntrance {
+  const building = args.building;
   return {
     id: `town:${args.townId}:${args.key}`,
     layerId: `layer:townInterior:${args.townId}:${args.templateId}`,
@@ -1449,10 +1508,19 @@ function createTownLayerEntrance(args: {
     y: args.y,
     kind: 'townInterior',
     templateId: args.templateId,
-    label: args.label,
+    label: building?.displayName ?? args.label,
+    displayName: building?.interiorTitle ?? building?.displayName ?? args.label,
+    doorLabel: building?.doorLabel ?? args.label,
+    townBuildingId: building?.id,
+    ownerResidentId: building?.ownerResidentId,
+    ownerResidentRole: building?.ownerResidentRole,
+    doorKind: building?.doorKind,
+    publicAccess: building?.publicAccess,
+    crimeOnEntry: Boolean(building?.crimeTarget && !building.publicAccess),
+    locked: building?.doorKind === 'homeDoorClosed',
     discovered: args.discovered ?? true,
     returnPosition: { x: args.x, y: args.y },
-    tile: LAYER_ENTRANCE_TILE,
+    tile: townDoorTile(building?.doorKind),
   };
 }
 
@@ -1465,6 +1533,38 @@ function addTownLayerEntrance(
   entrances.push(entrance);
 }
 
+function townDoorTile(kind: TownDoorKind | undefined): string {
+  switch (kind) {
+    case 'tavernDoor':
+      return 't';
+    case 'shopDoorClosed':
+    case 'shopDoorOpen':
+      return 'd';
+    case 'homeDoorClosed':
+      return 'h';
+    case 'homeDoorOpen':
+      return 'j';
+    case 'guildGrateClosed':
+      return 'u';
+    case 'guildGrateOpen':
+      return 'U';
+    case 'gateBarrierClosed':
+      return 'x';
+    case 'gateBarrierOpen':
+      return 'o';
+    default:
+      return LAYER_ENTRANCE_TILE;
+  }
+}
+
+function townBuildingFor(
+  town: TownStructure,
+  kind: TownBuildingKind,
+  district: TownDistrictKind,
+): TownBuilding | undefined {
+  return town.buildings.find((building) => building.kind === kind && building.district === district);
+}
+
 function drawBuildingShell(
   layout: string[][],
   left: number,
@@ -1473,7 +1573,7 @@ function drawBuildingShell(
   height: number,
   door: { x: number; y: number; tile?: string },
 ): void {
-  fillRect(layout, left, top, width, height, 'W');
+  fillRect(layout, left, top, width, height, 'S');
   for (let x = left; x < left + width; x += 1) {
     setChar(layout, x, top, '#');
     setChar(layout, x, top + height - 1, '#');
@@ -1483,6 +1583,10 @@ function drawBuildingShell(
     setChar(layout, left + width - 1, y, '#');
   }
   setChar(layout, door.x, door.y, door.tile ?? '.');
+  if (width >= 6 && height >= 5) {
+    setChar(layout, Math.max(left + 1, door.x - 2), Math.max(top + 2, door.y - 2), 'R');
+    setChar(layout, Math.min(left + width - 2, door.x + 2), Math.max(top + 2, door.y - 2), 'R');
+  }
 }
 
 function drawFenceRun(
@@ -1514,7 +1618,7 @@ function drawGatehouse(
   };
   if (side === 'west' || side === 'east') {
     const x = side === 'west' ? 2 : grid.cols - 3;
-    fillRect(layout, x, center.y - 3, 1, 7, 'S');
+    fillRect(layout, x, center.y - 3, 1, 7, 'x');
     fillRect(layout, x + (side === 'west' ? 1 : -1), center.y - 5, 2, 2, '#');
     fillRect(layout, x + (side === 'west' ? 1 : -1), center.y + 4, 2, 2, '#');
     placeGuardPair(
@@ -1524,7 +1628,7 @@ function drawGatehouse(
     return;
   }
   const y = side === 'north' ? 2 : grid.rows - 3;
-  fillRect(layout, center.x - 3, y, 7, 1, 'S');
+  fillRect(layout, center.x - 3, y, 7, 1, 'x');
   fillRect(layout, center.x - 6, y + (side === 'north' ? 1 : -1), 2, 2, '#');
   fillRect(layout, center.x + 5, y + (side === 'north' ? 1 : -1), 2, 2, '#');
   placeGuardPair(
@@ -1630,33 +1734,45 @@ export function createTownDistrictRoom(args: {
 
   switch (normalizePhysicalDistrictKind(district)) {
     case 'townCenter':
+      {
+      const tavern = townBuildingFor(town, 'tavern', 'townCenter');
       drawConnectedRoad(layout, openSides);
       fillRect(layout, center.x - 4, center.y - 3, 9, 7, 'E');
-      drawBuildingShell(layout, 4, 4, 11, 7, { x: 9, y: 10 });
-      fillRect(layout, 5, 5, 9, 2, 'S');
-      setChar(layout, 7, 8, 'R');
-      setChar(layout, 11, 8, 'R');
-      addTownLayerEntrance(
-        layout,
-        layerEntrances,
-        createTownLayerEntrance({
-          townId: town.id,
-          parentRoomId: args.roomId,
-          templateId: 'tavern',
-          key: 'tavern-door',
-          label: 'Tavern door',
-          x: 9,
-          y: 10,
-        }),
-      );
+      fillRect(layout, center.x - 1, center.y - 1, 3, 3, 'P');
+      setChar(layout, center.x, center.y, 'M');
+      setChar(layout, center.x + 7, center.y - 3, 'D');
+      if (tavern) {
+        drawBuildingShell(layout, 4, 4, 11, 7, {
+          x: tavern.door.x,
+          y: tavern.door.y,
+          tile: townDoorTile(tavern.doorKind),
+        });
+        fillRect(layout, 5, 5, 9, 2, 'S');
+        setChar(layout, 7, 8, 'R');
+        setChar(layout, 11, 8, 'R');
+        addTownLayerEntrance(
+          layout,
+          layerEntrances,
+          createTownLayerEntrance({
+            townId: town.id,
+            parentRoomId: args.roomId,
+            templateId: 'tavern',
+            key: 'tavern-door',
+            label: 'Tavern door',
+            x: tavern.door.x,
+            y: tavern.door.y,
+            building: tavern,
+          }),
+        );
+      }
       drawBuildingShell(layout, args.grid.cols - 11, 5, 7, 5, {
         x: args.grid.cols - 8,
         y: 9,
         tile: 'D',
       });
       setChar(layout, args.grid.cols - 8, 7, 'D');
-      setChar(layout, center.x + 5, center.y - 4, 'L');
-      setChar(layout, center.x - 5, center.y + 4, 'L');
+      setChar(layout, center.x + 5, center.y - 4, 'P');
+      setChar(layout, center.x - 5, center.y + 4, 'P');
       for (const side of externalWallSides) {
         if (wallOpenSides.includes(side)) {
           drawGatehouse(layout, side, center, args.grid);
@@ -1664,95 +1780,130 @@ export function createTownDistrictRoom(args: {
       }
       stampNpc(layout, center.x + 5, center.y - 3);
       stampNpc(layout, center.x - 5, center.y + 3);
+      }
       break;
     case 'marketStreet':
+      {
+      const generalStore = townBuildingFor(town, 'generalStore', 'marketStreet');
+      const butcher = townBuildingFor(town, 'butcherShop', 'marketStreet');
+      const potionMaker = townBuildingFor(town, 'potionMaker', 'marketStreet');
       drawConnectedRoad(layout, openSides);
-      drawBuildingShell(layout, 3, 4, 8, 6, { x: 6, y: 9 });
-      addTownLayerEntrance(
-        layout,
-        layerEntrances,
-        createTownLayerEntrance({
-          townId: town.id,
-          parentRoomId: args.roomId,
-          templateId: 'generalStore',
-          key: 'general-store-door',
-          label: 'General Store door',
-          x: 6,
-          y: 9,
-        }),
-      );
+      drawBuildingShell(layout, 3, 4, 8, 6, {
+        x: generalStore?.door.x ?? 6,
+        y: generalStore?.door.y ?? 9,
+        tile: townDoorTile(generalStore?.doorKind),
+      });
+      if (generalStore) {
+        addTownLayerEntrance(
+          layout,
+          layerEntrances,
+          createTownLayerEntrance({
+            townId: town.id,
+            parentRoomId: args.roomId,
+            templateId: 'generalStore',
+            key: 'general-store-door',
+            label: 'General Store door',
+            x: generalStore.door.x,
+            y: generalStore.door.y,
+            building: generalStore,
+          }),
+        );
+      }
       setChar(layout, 5, 6, 'M');
       setChar(layout, 8, 6, 'A');
-      drawBuildingShell(layout, center.x - 4, 3, 9, 6, { x: center.x, y: 8 });
-      addTownLayerEntrance(
-        layout,
-        layerEntrances,
-        createTownLayerEntrance({
-          townId: town.id,
-          parentRoomId: args.roomId,
-          templateId: 'butcherShop',
-          key: 'butcher-door',
-          label: 'Butcher shop door',
-          x: center.x,
-          y: 8,
-        }),
-      );
+      drawBuildingShell(layout, center.x - 4, 3, 9, 6, {
+        x: butcher?.door.x ?? center.x,
+        y: butcher?.door.y ?? 8,
+        tile: townDoorTile(butcher?.doorKind),
+      });
+      if (butcher) {
+        addTownLayerEntrance(
+          layout,
+          layerEntrances,
+          createTownLayerEntrance({
+            townId: town.id,
+            parentRoomId: args.roomId,
+            templateId: 'butcherShop',
+            key: 'butcher-door',
+            label: 'Butcher shop door',
+            x: butcher.door.x,
+            y: butcher.door.y,
+            building: butcher,
+          }),
+        );
+      }
       setChar(layout, center.x - 2, 5, 'F');
       setChar(layout, center.x + 2, 5, 'A');
       drawBuildingShell(layout, args.grid.cols - 11, 4, 8, 6, {
-        x: args.grid.cols - 7,
-        y: 9,
+        x: potionMaker?.door.x ?? args.grid.cols - 7,
+        y: potionMaker?.door.y ?? 9,
+        tile: townDoorTile(potionMaker?.doorKind),
       });
-      addTownLayerEntrance(
-        layout,
-        layerEntrances,
-        createTownLayerEntrance({
-          townId: town.id,
-          parentRoomId: args.roomId,
-          templateId: 'potionMaker',
-          key: 'potion-maker-door',
-          label: 'Potion maker door',
-          x: args.grid.cols - 7,
-          y: 9,
-        }),
-      );
+      if (potionMaker) {
+        addTownLayerEntrance(
+          layout,
+          layerEntrances,
+          createTownLayerEntrance({
+            townId: town.id,
+            parentRoomId: args.roomId,
+            templateId: 'potionMaker',
+            key: 'potion-maker-door',
+            label: 'Potion maker door',
+            x: potionMaker.door.x,
+            y: potionMaker.door.y,
+            building: potionMaker,
+          }),
+        );
+      }
       setChar(layout, args.grid.cols - 9, 6, 'P');
-      setChar(layout, args.grid.cols - 6, 6, 'L');
+      setChar(layout, args.grid.cols - 6, 6, 'P');
       for (let x = 5; x < args.grid.cols - 5; x += 6) {
         fillRect(layout, x, center.y + 4, 4, 2, 'S');
         setChar(layout, x + 1, center.y + 5, x % 2 === 0 ? 'M' : 'A');
       }
-      setChar(layout, center.x + 2, center.y - 2, 'L');
-      setChar(layout, center.x - 2, center.y + 2, 'L');
+      setChar(layout, center.x + 2, center.y - 2, 'P');
+      setChar(layout, center.x - 2, center.y + 2, 'P');
       stampNpc(layout, center.x - 8, center.y);
+      }
       break;
     case 'residentialStreet':
+      {
+      const home = townBuildingFor(town, 'residentialHome', 'residentialStreet');
       drawConnectedRoad(layout, openSides);
       drawFenceRun(layout, { x: 2, y: 3 }, { x: 13, y: 3 });
       drawFenceRun(layout, { x: args.grid.cols - 14, y: 3 }, { x: args.grid.cols - 3, y: 3 });
-      drawBuildingShell(layout, 3, 5, 7, 5, { x: 6, y: 9 });
-      drawBuildingShell(layout, 12, 4, 6, 6, { x: 15, y: 9 });
+      drawBuildingShell(layout, 3, 5, 7, 5, {
+        x: home?.door.x ?? 6,
+        y: home?.door.y ?? 9,
+        tile: townDoorTile(home?.doorKind),
+      });
+      drawBuildingShell(layout, 12, 4, 6, 6, { x: 15, y: 9, tile: 'h' });
       drawBuildingShell(layout, args.grid.cols - 18, 5, 7, 5, {
         x: args.grid.cols - 15,
         y: 9,
+        tile: 'h',
       });
       drawBuildingShell(layout, args.grid.cols - 9, 4, 6, 6, {
         x: args.grid.cols - 6,
         y: 9,
+        tile: 'h',
       });
-      addTownLayerEntrance(
-        layout,
-        layerEntrances,
-        createTownLayerEntrance({
-          townId: town.id,
-          parentRoomId: args.roomId,
-          templateId: 'residentialHome',
-          key: 'home-door',
-          label: 'Town home door',
-          x: 6,
-          y: 9,
-        }),
-      );
+      if (home) {
+        addTownLayerEntrance(
+          layout,
+          layerEntrances,
+          createTownLayerEntrance({
+            townId: town.id,
+            parentRoomId: args.roomId,
+            templateId: 'residentialHome',
+            key: 'home-door',
+            label: 'Town home door',
+            x: home.door.x,
+            y: home.door.y,
+            building: home,
+          }),
+        );
+      }
       drawFenceRun(layout, { x: 3, y: center.y + 5 }, { x: 12, y: center.y + 5 });
       drawFenceRun(
         layout,
@@ -1762,16 +1913,21 @@ export function createTownDistrictRoom(args: {
       setChar(layout, 5, center.y + 3, 'P');
       setChar(layout, args.grid.cols - 6, center.y + 3, 'P');
       stampNpc(layout, center.x - 3, center.y);
+      }
       break;
     case 'backAlley':
+      {
+      const guildGrate = townBuildingFor(town, 'guildAccess', 'backAlley');
       fillRect(layout, 3, 3, args.grid.cols - 6, args.grid.rows - 6, '.');
       drawTownWalls(layout, wallOpenSides, externalWallSides);
       fillRect(layout, 4, 4, args.grid.cols - 8, 2, '#');
       fillRect(layout, 4, args.grid.rows - 6, args.grid.cols - 8, 2, '#');
-      fillRect(layout, 5, 7, 7, 3, 'W');
-      fillRect(layout, args.grid.cols - 12, 7, 7, 3, 'W');
-      fillRect(layout, 8, center.y - 1, args.grid.cols - 16, 3, 'E');
-      fillRect(layout, center.x - 7, center.y - 4, 14, 2, 'A');
+      fillRect(layout, 5, 7, 8, 4, 'S');
+      fillRect(layout, args.grid.cols - 13, 7, 8, 4, 'S');
+      fillRect(layout, 8, center.y - 1, args.grid.cols - 16, 2, 'E');
+      fillRect(layout, center.x - 8, center.y - 5, 16, 2, 'A');
+      fillRect(layout, center.x + 5, center.y + 2, 5, 3, 'A');
+      setChar(layout, center.x + 7, center.y + 1, 'M');
       addTownLayerEntrance(layout, layerEntrances, {
         ...createTownLayerEntrance({
           townId: town.id,
@@ -1779,18 +1935,21 @@ export function createTownDistrictRoom(args: {
           templateId: 'thievesGuild',
           key: 'guild-grate',
           label: 'Thieves Guild grate',
-          x: center.x - 5,
-          y: center.y,
+          x: guildGrate?.door.x ?? center.x - 5,
+          y: guildGrate?.door.y ?? center.y,
+          building: guildGrate,
           discovered: town.discoveredGuild,
         }),
         layerId: `layer:townInterior:${town.id}:thievesGuild`,
         discovered: town.discoveredGuild,
         locked: !town.discoveredGuild,
+        tile: town.discoveredGuild ? 'U' : 'u',
       });
       setChar(layout, center.x + 5, center.y, 'S');
       setChar(layout, center.x - 8, center.y - 2, 'P');
       stampNpc(layout, center.x, center.y + 3);
       stampNpc(layout, center.x + 4, center.y - 3);
+      }
       break;
     case 'guildHideout':
       fillRect(layout, 3, 3, args.grid.cols - 6, args.grid.rows - 6, 'W');
@@ -1806,8 +1965,14 @@ export function createTownDistrictRoom(args: {
       break;
   }
 
+  const interiorOwnerIds = new Set(
+    town.buildings
+      .filter((building) => building.enterable && building.ownerResidentId)
+      .map((building) => building.ownerResidentId),
+  );
   const residents = town.residents.filter(
     (resident) =>
+      !interiorOwnerIds.has(resident.id) &&
       normalizeDistrictKind(
         (resident.workRoomId ? town.districtByRoomId[resident.workRoomId] : undefined) ??
           (resident.workRoomId?.split(':').pop() as TownDistrictKind | undefined),

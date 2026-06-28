@@ -10,6 +10,17 @@ export type LayerTemplateId =
   | 'potionMaker'
   | 'residentialHome';
 
+export type TownDoorKind =
+  | 'shopDoorClosed'
+  | 'shopDoorOpen'
+  | 'homeDoorClosed'
+  | 'homeDoorOpen'
+  | 'tavernDoor'
+  | 'guildGrateClosed'
+  | 'guildGrateOpen'
+  | 'gateBarrierClosed'
+  | 'gateBarrierOpen';
+
 export type LayerInstanceState = 'available' | 'active' | 'completed' | 'locked';
 
 export type LayerBoundaryMode = 'solidWalls' | 'wrap';
@@ -23,6 +34,14 @@ export interface LayerEntrance {
   kind: LayerKind;
   templateId: LayerTemplateId;
   label?: string;
+  displayName?: string;
+  doorLabel?: string;
+  townBuildingId?: string;
+  ownerResidentId?: string;
+  ownerResidentRole?: string;
+  doorKind?: TownDoorKind;
+  publicAccess?: boolean;
+  crimeOnEntry?: boolean;
   locked?: boolean;
   discovered?: boolean;
   returnPosition: Vector2Like;
@@ -50,6 +69,14 @@ export interface LayerInstance {
   zones: LayerZone[];
   boundaryMode: LayerBoundaryMode;
   townId?: string;
+  displayName?: string;
+  doorLabel?: string;
+  townBuildingId?: string;
+  ownerResidentId?: string;
+  ownerResidentRole?: string;
+  doorKind?: TownDoorKind;
+  publicAccess?: boolean;
+  crimeOnEntry?: boolean;
   tags?: string[];
 }
 

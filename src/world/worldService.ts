@@ -3,7 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { RoomGenerator } from './roomGenerator.js';
 import type { RoomSnapshot } from './types.js';
-import { cloneTownForRoom, type TownRoomKind, type TownStructure } from './town.js';
+import { cloneTownForRoom, type TownBuilding, type TownRoomKind, type TownStructure } from './town.js';
 import {
   createWorldGenerationIdentity,
   type WorldGenerationIdentity,
@@ -302,6 +302,14 @@ export class WorldService {
       spawn: { x: centerX, y: this.grid.rows - 4 },
       exit: { x: centerX, y: this.grid.rows - 3 },
       returnPosition: { ...entrance.returnPosition },
+      displayName: entrance.displayName,
+      doorLabel: entrance.doorLabel,
+      townBuildingId: entrance.townBuildingId,
+      ownerResidentId: entrance.ownerResidentId,
+      ownerResidentRole: entrance.ownerResidentRole,
+      doorKind: entrance.doorKind,
+      publicAccess: entrance.publicAccess,
+      crimeOnEntry: entrance.crimeOnEntry,
       zones: [
         {
           id: `${entrance.layerId}:main`,
@@ -327,6 +335,7 @@ export class WorldService {
 
   private createTownInteriorLayerRoom(instance: LayerInstance): RoomSnapshot {
     const town = instance.townId ? this.townsById.get(instance.townId) : undefined;
+    const building = town?.buildings.find((entry) => entry.id === instance.townBuildingId);
     const districtKind = townDistrictForInteriorTemplate(instance.templateId);
     if (!districtKind) {
       throw new Error(`Unsupported layer template "${instance.kind}:${instance.templateId}".`);
@@ -349,7 +358,7 @@ export class WorldService {
       : undefined;
     const centerX = Math.floor(this.grid.cols / 2);
     const centerY = Math.floor(this.grid.rows / 2);
-    const palette = townInteriorPalette(instance.templateId);
+    const palette = townInteriorPalette(instance.templateId, building?.interiorTitle ?? instance.displayName);
     const bounds = townInteriorBounds(instance.templateId, this.grid.cols, this.grid.rows);
     const rows = Array.from({ length: this.grid.rows }, () => '#'.repeat(this.grid.cols));
     const setTile = (x: number, y: number, tile: string): void => {
@@ -378,22 +387,13 @@ export class WorldService {
       y: bounds.top + bounds.height - 1,
     };
     setTile(exit.x, exit.y, 'Y');
+    setTile(exit.x - 1, exit.y - 1, 'W');
     setTile(exit.x, exit.y - 1, 'W');
+    setTile(exit.x + 1, exit.y - 1, 'W');
+    setTile(exit.x, exit.y - 2, 'W');
     stampTownInteriorTemplate(instance.templateId, setTile, fillTile, bounds, centerX, centerY);
     if (roomTown) {
-      const interiorResidents = roomTown.residents.filter((resident) => {
-        const workDistrict = resident.workRoomId
-          ? roomTown.districtByRoomId[resident.workRoomId]
-          : undefined;
-        if (instance.templateId === 'thievesGuild') {
-          return (
-            workDistrict === districtKind ||
-            resident.role === 'thiefContact' ||
-            resident.role === 'thief'
-          );
-        }
-        return townInteriorResidentRoles(instance.templateId).includes(resident.role);
-      });
+      const interiorResidents = townInteriorResidentsForBuilding(roomTown, instance, building);
       const residentPositions = townInteriorResidentPositions(instance.templateId, bounds);
       roomTown.residents = roomTown.residents.map((resident) => {
         const index = interiorResidents.findIndex((entry) => entry.id === resident.id);
@@ -767,7 +767,57 @@ function townInteriorResidentRoles(
   }
 }
 
+function townInteriorResidentsForBuilding(
+  town: TownStructure,
+  instance: LayerInstance,
+  building: TownBuilding | undefined,
+): TownStructure['residents'] {
+  const byId = building?.ownerResidentId
+    ? town.residents.find((resident) => resident.id === building.ownerResidentId)
+    : undefined;
+  const byRole = building?.ownerResidentRole
+    ? town.residents.find((resident) => resident.role === building.ownerResidentRole)
+    : undefined;
+  const owner = byId ?? byRole;
+  switch (instance.templateId) {
+    case 'generalStore':
+    case 'butcherShop':
+    case 'potionMaker':
+    case 'residentialHome':
+      return owner ? [owner] : [];
+    case 'tavern': {
+      const roles = new Set(['bartender', 'cardDealer', 'questGiver']);
+      const social = town.residents.filter((resident) => roles.has(resident.role));
+      return owner && !social.some((resident) => resident.id === owner.id)
+        ? [owner, ...social].slice(0, 3)
+        : social.slice(0, 3);
+    }
+    case 'thievesGuild': {
+      const roles = new Set(['thiefContact', 'thief']);
+      const guild = town.residents.filter((resident) => roles.has(resident.role));
+      return owner && !guild.some((resident) => resident.id === owner.id)
+        ? [owner, ...guild].slice(0, 4)
+        : guild.slice(0, 4);
+    }
+  }
+}
+
 function townInteriorPalette(templateId: LayerTemplateId): {
+  title: string;
+  backgroundColor: number;
+  wallColor: number;
+  wallOutlineColor: number;
+};
+function townInteriorPalette(templateId: LayerTemplateId, titleOverride: string | undefined): {
+  title: string;
+  backgroundColor: number;
+  wallColor: number;
+  wallOutlineColor: number;
+};
+function townInteriorPalette(
+  templateId: LayerTemplateId,
+  titleOverride?: string,
+): {
   title: string;
   backgroundColor: number;
   wallColor: number;
@@ -776,42 +826,42 @@ function townInteriorPalette(templateId: LayerTemplateId): {
   switch (templateId) {
     case 'thievesGuild':
       return {
-        title: 'Thieves Guild',
+        title: titleOverride ?? 'Thieves Guild',
         backgroundColor: 0x17111f,
         wallColor: 0x3a243b,
         wallOutlineColor: 0x8f6aa8,
       };
     case 'tavern':
       return {
-        title: 'Tavern',
+        title: titleOverride ?? 'Tavern',
         backgroundColor: 0x241a12,
         wallColor: 0x6b3e24,
         wallOutlineColor: 0xd6a35f,
       };
     case 'generalStore':
       return {
-        title: 'General Store',
+        title: titleOverride ?? 'General Store',
         backgroundColor: 0x182018,
         wallColor: 0x3f6540,
         wallOutlineColor: 0xb7d68a,
       };
     case 'butcherShop':
       return {
-        title: 'Butcher Shop',
+        title: titleOverride ?? 'Butcher Shop',
         backgroundColor: 0x241616,
         wallColor: 0x713232,
         wallOutlineColor: 0xe7a0a0,
       };
     case 'potionMaker':
       return {
-        title: 'Potion Maker',
+        title: titleOverride ?? 'Potion Maker',
         backgroundColor: 0x171b2d,
         wallColor: 0x354d7c,
         wallOutlineColor: 0x9ab8ff,
       };
     case 'residentialHome':
       return {
-        title: 'Town Home',
+        title: titleOverride ?? 'Town Home',
         backgroundColor: 0x211d18,
         wallColor: 0x5b4936,
         wallOutlineColor: 0xc9b28a,
@@ -853,36 +903,40 @@ function stampTownInteriorTemplate(
   switch (templateId) {
     case 'tavern':
       fillTile(left + 2, top + 2, bounds.width - 4, 2, 'A');
-      setTile(centerX - 8, top + 3, 'G');
+      fillTile(left + 2, top + 1, bounds.width - 4, 1, 'S');
       for (const table of [
         { x: centerX - 7, y: centerY + 1 },
         { x: centerX, y: centerY + 3 },
         { x: centerX + 7, y: centerY + 1 },
+        { x: centerX + 8, y: centerY - 3 },
       ]) {
         setTile(table.x, table.y, 'R');
         setTile(table.x - 1, table.y, 'E');
         setTile(table.x + 1, table.y, 'E');
       }
-      setTile(right - 3, top + 5, 'L');
+      setTile(right - 3, top + 5, 'F');
       break;
     case 'generalStore':
-      fillTile(left + 2, top + 3, bounds.width - 4, 2, 'A');
+      fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
       setTile(left + 3, top + 2, 'S');
       setTile(right - 3, top + 2, 'M');
-      setTile(centerX, top + 5, 'G');
+      setTile(left + 4, bottom - 4, 'M');
+      setTile(right - 4, bottom - 4, 'S');
       break;
     case 'butcherShop':
-      fillTile(left + 2, top + 3, bounds.width - 4, 2, 'A');
+      fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
       setTile(left + 4, top + 2, 'F');
       setTile(right - 4, top + 2, 'F');
-      setTile(centerX, top + 5, 'G');
+      setTile(centerX - 2, bottom - 4, 'R');
+      setTile(centerX + 2, bottom - 4, 'F');
       break;
     case 'potionMaker':
-      fillTile(left + 2, top + 3, bounds.width - 4, 2, 'A');
+      fillTile(left + 2, top + 3, bounds.width - 4, 1, 'A');
       setTile(left + 4, top + 2, 'P');
-      setTile(centerX, top + 2, 'L');
+      setTile(centerX, top + 2, 'P');
       setTile(right - 4, top + 2, 'P');
-      setTile(centerX, top + 5, 'G');
+      setTile(centerX - 3, bottom - 4, 'M');
+      setTile(centerX + 3, bottom - 4, 'P');
       break;
     case 'residentialHome':
       setTile(left + 3, top + 3, 'R');
@@ -896,6 +950,8 @@ function stampTownInteriorTemplate(
       setTile(centerX - 8, centerY + 2, 'P');
       setTile(centerX + 8, centerY + 2, 'A');
       setTile(left + 4, bottom - 4, 'U');
+      setTile(right - 5, top + 6, 'M');
+      setTile(left + 7, top + 7, 'S');
       break;
   }
 }

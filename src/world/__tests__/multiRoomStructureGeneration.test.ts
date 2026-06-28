@@ -451,8 +451,10 @@ describe('multi-room structure generation', () => {
     const market = generateRoomsInOrder([
       townRoomIdForDistrict(resolver, squareId, 'marketStreet'),
     ])[0]!;
+    const centerX = Math.floor(defaultGameConfig.grid.cols / 2);
+    const centerY = Math.floor(defaultGameConfig.grid.rows / 2);
     expect(townCenter.layout.join('').includes('G')).toBe(true);
-    expect(alley.layout.join('').includes('Y')).toBe(true);
+    expect(alley.layout.join('').includes('u')).toBe(true);
     expect(
       townCenter.town?.residents.filter((resident) => resident.role === 'guard').length,
     ).toBeGreaterThanOrEqual(4);
@@ -471,6 +473,8 @@ describe('multi-room structure generation', () => {
       true,
     );
     expect(townCenter.layerEntrances?.some((entry) => entry.templateId === 'tavern')).toBe(true);
+    expect(townCenter.layout.join('').includes('t')).toBe(true);
+    expect(townCenter.layout[centerY]?.[centerX]).toBe('M');
     expect(
       townCenter.town?.buildings.some(
         (building) => building.kind === 'tavern' && building.roomId === townCenter.id,
@@ -481,6 +485,10 @@ describe('multi-room structure generation', () => {
       'generalStore',
       'potionMaker',
     ]);
+    expect(market.layerEntrances?.every((entry) => entry.townBuildingId && entry.displayName)).toBe(
+      true,
+    );
+    expect(market.layerEntrances?.every((entry) => entry.tile === 'd')).toBe(true);
     expect(
       market.town?.buildings
         .filter((building) => building.district === 'marketStreet' && building.enterable)
@@ -497,6 +505,23 @@ describe('multi-room structure generation', () => {
     expect(market.town?.shopkeeper.actorId).toBeTruthy();
     expect(market.town?.shopkeeper.factionId).toBe('human-town');
     expect(isTownShopRole(market.town?.shopkeeper.role ?? '')).toBe(true);
+    const marketOwnerIds = new Set(
+      market.town?.buildings
+        .filter((building) => building.district === 'marketStreet')
+        .map((building) => building.ownerResidentId)
+        .filter(Boolean),
+    );
+    const marketExteriorNpcPositions = new Set<string>();
+    market.layout.forEach((row, y) => {
+      [...row].forEach((tile, x) => {
+        if (tile === 'G') marketExteriorNpcPositions.add(`${x},${y}`);
+      });
+    });
+    expect(
+      market.town?.residents
+        .filter((resident) => marketOwnerIds.has(resident.id))
+        .some((resident) => marketExteriorNpcPositions.has(`${resident.x},${resident.y}`)),
+    ).toBe(false);
 
     const equipmentMerchant = market.town?.residents.find(
       (resident) => resident.role === 'equipmentMerchant',
@@ -510,6 +535,50 @@ describe('multi-room structure generation', () => {
 
     const thiefContact = alley.town?.residents.find((resident) => resident.role === 'thiefContact');
     expect(thiefContact?.factionId).toBe('thieves-guild');
+  });
+
+  it('adds named public, private, and guild door metadata with distinct tiles', () => {
+    const squareId = findTownRoom();
+    const resolver = createResolver();
+    const world = new WorldService(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng('town-door-metadata'),
+      identity,
+    );
+    const townCenter = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'townCenter'));
+    const market = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'marketStreet'));
+    const residential = world.getRoom(
+      townRoomIdForDistrict(resolver, squareId, 'residentialStreet'),
+    );
+    const alley = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'backAlley'));
+    const entrances = [
+      ...(townCenter.layerEntrances ?? []),
+      ...(market.layerEntrances ?? []),
+      ...(residential.layerEntrances ?? []),
+      ...(alley.layerEntrances ?? []),
+    ];
+
+    expect(new Set(entrances.map((entry) => entry.id)).size).toBe(entrances.length);
+    expect(entrances.every((entry) => entry.townBuildingId && entry.displayName)).toBe(true);
+
+    const tavern = entrances.find((entry) => entry.templateId === 'tavern')!;
+    const home = entrances.find((entry) => entry.templateId === 'residentialHome')!;
+    const guild = entrances.find((entry) => entry.templateId === 'thievesGuild')!;
+
+    expect(tavern.doorKind).toBe('tavernDoor');
+    expect(tavern.tile).toBe('t');
+    expect(tavern.publicAccess).toBe(true);
+    expect(tavern.crimeOnEntry).toBe(false);
+    expect(home.doorKind).toBe('homeDoorClosed');
+    expect(home.tile).toBe('h');
+    expect(home.publicAccess).toBe(false);
+    expect(home.crimeOnEntry).toBe(true);
+    expect(home.locked).toBe(true);
+    expect(guild.doorKind).toBe('guildGrateClosed');
+    expect(guild.tile).toBe('u');
+    expect(guild.locked).toBe(true);
+    expect(guild.doorLabel).toBe('Inspect old grate');
   });
 
   it('materializes thieves guild interior as a town guild district with guild residents', () => {
@@ -545,7 +614,13 @@ describe('multi-room structure generation', () => {
       kind: 'townInterior' as const,
       templateId: 'thievesGuild' as const,
       returnPosition: grate,
-      tile: 'Y',
+      townBuildingId: discoveredTown.buildings.find((building) => building.kind === 'guildAccess')
+        ?.id,
+      displayName: 'Thieves Guild',
+      doorLabel: 'Enter Thieves Guild',
+      doorKind: 'guildGrateOpen' as const,
+      publicAccess: true,
+      tile: 'U',
     };
     const instance = world.ensureLayerInstance(entrance);
     const interior = world.getRoom(instance.id);
@@ -585,12 +660,18 @@ describe('multi-room structure generation', () => {
     const market = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'marketStreet'));
     const tavernDoor = townCenter.layerEntrances?.find((entry) => entry.templateId === 'tavern');
     const storeDoor = market.layerEntrances?.find((entry) => entry.templateId === 'generalStore');
+    const butcherDoor = market.layerEntrances?.find((entry) => entry.templateId === 'butcherShop');
+    const potionDoor = market.layerEntrances?.find((entry) => entry.templateId === 'potionMaker');
 
     expect(tavernDoor).toBeTruthy();
     expect(storeDoor).toBeTruthy();
+    expect(butcherDoor).toBeTruthy();
+    expect(potionDoor).toBeTruthy();
 
     const tavern = world.getRoom(world.ensureLayerInstance(tavernDoor!).id);
     const store = world.getRoom(world.ensureLayerInstance(storeDoor!).id);
+    const butcher = world.getRoom(world.ensureLayerInstance(butcherDoor!).id);
+    const potion = world.getRoom(world.ensureLayerInstance(potionDoor!).id);
 
     expect(tavern.layer?.templateId).toBe('tavern');
     expect(tavern.town?.districtByRoomId[tavern.id]).toBe('tavernInterior');
@@ -606,6 +687,20 @@ describe('multi-room structure generation', () => {
         .map((resident) => resident.role)
         .sort() ?? [];
     expect(positionedStoreRoles).toEqual(['equipmentMerchant']);
+    const positionedButcherRoles =
+      butcher.town?.residents
+        .filter((resident) => resident.workRoomId === butcher.id)
+        .map((resident) => resident.role)
+        .sort() ?? [];
+    const positionedPotionRoles =
+      potion.town?.residents
+        .filter((resident) => resident.workRoomId === potion.id)
+        .map((resident) => resident.role)
+        .sort() ?? [];
+    expect(positionedButcherRoles).toEqual(['butcher']);
+    expect(positionedPotionRoles).toEqual(['potionMaker']);
+    expect(positionedStoreRoles).not.toContain('butcher');
+    expect(positionedStoreRoles).not.toContain('potionMaker');
     expect(store.layout[store.layer!.exit.y]?.[store.layer!.exit.x]).toBe('Y');
   });
 
