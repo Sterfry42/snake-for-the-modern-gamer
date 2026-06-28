@@ -220,6 +220,16 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'amulet-lantern',
+    name: 'Traveler Lantern',
+    description: 'A steady little lantern. It makes dark rooms readable without asking for fuel.',
+    kind: 'equipment',
+    slot: 'amulet',
+    modifiers: {
+      lightRadiusTiles: 6,
+    },
+  },
+  {
     id: 'deep-lying-bouquet',
     name: 'Deep-Lying Bouquet',
     description:

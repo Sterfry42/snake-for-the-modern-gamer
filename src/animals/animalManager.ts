@@ -122,13 +122,17 @@ export class AnimalManager {
     }
 
     for (const entry of weighted) {
-      if (roomAnimals.length >= entry.maxPerRoom) {
-        continue;
-      }
-      const animal = this.trySpawnAnimal(roomId, room, entry, usedPositions);
-      if (animal) {
+      let spawnedOfType = roomAnimals.filter(
+        (animal) => animal.type === entry.definition.type,
+      ).length;
+      while (spawnedOfType < entry.maxPerRoom) {
+        const animal = this.trySpawnAnimal(roomId, room, entry, usedPositions);
+        if (!animal) {
+          break;
+        }
         roomAnimals.push(animal);
         usedPositions.add(vectorKey(animal.position));
+        spawnedOfType++;
       }
     }
 
@@ -141,8 +145,9 @@ export class AnimalManager {
     biomeAnimals: readonly AnimalDefinition[],
     biome: ReturnType<typeof getBiomeDefinition>,
     atmosphere?: ResolvedAtmosphereView,
-  ): Array<{ definition: AnimalDefinition; maxPerRoom: number }> {
-    const weighted: Array<{ definition: AnimalDefinition; maxPerRoom: number }> = [];
+  ): Array<{ definition: AnimalDefinition; maxPerRoom: number; weight: number }> {
+    const weighted: Array<{ definition: AnimalDefinition; maxPerRoom: number; weight: number }> =
+      [];
 
     for (const def of biomeAnimals) {
       let weight = def.spawnWeight;
@@ -165,11 +170,12 @@ export class AnimalManager {
       }
       weighted.push({
         definition: def,
-        maxPerRoom: Math.min(def.maxPerRoom, Math.ceil(def.spawnWeight / 10)),
+        maxPerRoom: Math.min(def.maxPerRoom, Math.max(1, Math.ceil(weight / 10))),
+        weight,
       });
     }
 
-    return weighted;
+    return weighted.sort((left, right) => right.weight - left.weight);
   }
 
   private trySpawnAnimal(

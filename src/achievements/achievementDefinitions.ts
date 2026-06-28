@@ -871,4 +871,17 @@ export const ACHIEVEMENT_DEFINITIONS = [
     criterion: event('ui:achievementZoomFlurry'),
     archipelago: ap,
   }),
+  d({
+    id: 'exploration.trainSixZones',
+    name: 'Express Across the Map',
+    description: 'Ride the bullet train at least 6 zones in one trip.',
+    category: 'exploration',
+    difficulty: 'medium',
+    prerequisites: ['exploration.rooms25'],
+    tree: { x: -700, y: -600, section: 'World' },
+    icon: icon('biome', 'TR'),
+    criterion: snap('trainZonesTraveled', 6),
+    progress: p(6, 'zones'),
+    archipelago: ap,
+  }),
 ] as readonly AchievementDefinition[];

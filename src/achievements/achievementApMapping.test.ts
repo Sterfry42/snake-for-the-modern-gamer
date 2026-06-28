@@ -34,5 +34,8 @@ describe('achievement AP mapping', () => {
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.snakeception')).toBe(912001065);
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.blueScreen')).toBe(912001066);
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'stats.special10')).toBe(912001067);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'exploration.trainSixZones')).toBe(
+      912001068,
+    );
   });
 });

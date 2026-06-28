@@ -86,6 +86,19 @@ interface SnakeRenderOptions {
   footballs?: readonly FootballInstance[];
   animals?: readonly AnimalInstance[];
   atmosphere?: ResolvedAtmosphereView;
+  thermalBody?: {
+    current: number;
+    max: number;
+    hazard: 'hot' | 'cold' | null;
+    active: boolean;
+  };
+  lightningStrike?: {
+    x: number;
+    y: number;
+    radius: number;
+    ticksRemaining: number;
+    phase: 'warning' | 'strike';
+  } | null;
   renderTimeMs?: number;
 }
 
@@ -100,6 +113,7 @@ export interface RenderDiagnostics {
 
 export class SnakeRenderer {
   private readonly spriteFactory: RuntimeSpriteFactory;
+  private readonly overlayGraphics: Phaser.GameObjects.Graphics;
   private readonly snakeSprites: Phaser.GameObjects.Image[] = [];
   private readonly snakeLayer: Phaser.GameObjects.Container;
   private readonly hatSprite: Phaser.GameObjects.Image;
@@ -143,6 +157,7 @@ export class SnakeRenderer {
     private readonly grid: GridConfig,
   ) {
     this.wallGraphics = wallGraphics;
+    this.overlayGraphics = this.scene.add.graphics().setDepth(BULLET_LAYER_DEPTH + 0.75);
     this.spriteFactory = new RuntimeSpriteFactory(scene);
     this.defaultSnakeTextureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
@@ -214,6 +229,8 @@ export class SnakeRenderer {
   ): void {
     this.graphics.clear();
     this.graphics.clearMask();
+    this.overlayGraphics.clear();
+    this.overlayGraphics.clearMask();
     this.wallGraphics.clear();
 
     const opts = options ?? {};
@@ -247,6 +264,7 @@ export class SnakeRenderer {
         opts.direction ?? { x: 1, y: 0 },
         opts.poweredUp ?? false,
         opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
+        opts.thermalBody,
       );
     } else {
       this.drawSnake(
@@ -258,6 +276,7 @@ export class SnakeRenderer {
         opts.poweredUp ?? false,
         opts.snakePalette,
         opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
+        opts.thermalBody,
       );
     }
     this.drawOtherPlayers(room, currentRoomId, opts.otherPlayers ?? []);
@@ -266,6 +285,9 @@ export class SnakeRenderer {
     this.drawBullets(opts.bullets ?? []);
     this.drawFootballs(opts.footballs ?? []);
     this.drawAtmosphereParticles(room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
+    this.drawDarknessOverlay(opts.atmosphere);
+    this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
+    this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
   }
 
@@ -279,15 +301,27 @@ export class SnakeRenderer {
     }
     const width = this.grid.cols * this.grid.cell;
     const height = this.grid.rows * this.grid.cell;
-    const bands = 18;
-    const topAlpha = view.tint.alpha * 1.18;
-    const bottomAlpha = view.tint.alpha * 0.58;
-    for (let band = 0; band < bands; band++) {
-      const t = band / Math.max(1, bands - 1);
-      const alpha = topAlpha + (bottomAlpha - topAlpha) * t;
-      this.graphics
-        .fillStyle(view.tint.color, alpha)
-        .fillRect(0, (height / bands) * band, width, height / bands + 1);
+    this.graphics.fillStyle(view.tint.color, view.tint.alpha).fillRect(0, 0, width, height);
+  }
+
+  private drawDarknessOverlay(view?: ResolvedAtmosphereView): void {
+    if (!view || view.darkness.darknessAlpha <= 0) {
+      return;
+    }
+    this.overlayGraphics.fillStyle(0x020713, view.darkness.darknessAlpha);
+    this.overlayGraphics.fillRect(
+      0,
+      0,
+      this.grid.cols * this.grid.cell,
+      this.grid.rows * this.grid.cell,
+    );
+    for (const light of view.darkness.lightSources) {
+      const radiusPx = light.radiusTiles * this.grid.cell;
+      const cx = light.x * this.grid.cell + this.grid.cell / 2;
+      const cy = light.y * this.grid.cell + this.grid.cell / 2;
+      const alpha = Math.min(0.32, light.intensity * 0.28);
+      this.overlayGraphics.fillStyle(light.color, alpha).fillCircle(cx, cy, radiusPx);
+      this.overlayGraphics.fillStyle(light.color, alpha * 0.5).fillCircle(cx, cy, radiusPx * 0.62);
     }
   }
 
@@ -506,9 +540,84 @@ export class SnakeRenderer {
     if ((view.state.weatherSeed + Math.floor(renderTimeMs / 90)) % 37 > 1) {
       return;
     }
-    this.graphics
+    this.overlayGraphics
       .fillStyle(0xfff3a6, 0.12)
       .fillRect(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell);
+  }
+
+  private drawLightningStrikeMarker(
+    strike: SnakeRenderOptions['lightningStrike'],
+    renderTimeMs: number,
+  ): void {
+    if (!strike) {
+      return;
+    }
+    const cell = this.grid.cell;
+    const cx = strike.x * cell + cell / 2;
+    const cy = strike.y * cell + cell / 2;
+    const radius = Math.max(cell * 0.55, (strike.radius + 0.65) * cell);
+    if (strike.phase === 'strike') {
+      this.overlayGraphics.fillStyle(0xfff4a8, 0.22).fillCircle(cx, cy, radius * 1.3);
+      this.overlayGraphics.lineStyle(3, 0xffffff, 0.8).strokeCircle(cx, cy, radius);
+      this.overlayGraphics.lineStyle(2, 0xfff4a8, 0.95);
+      this.overlayGraphics.beginPath();
+      this.overlayGraphics.moveTo(cx, 0);
+      this.overlayGraphics.lineTo(cx - cell * 0.35, cy - cell * 0.45);
+      this.overlayGraphics.lineTo(cx + cell * 0.22, cy - cell * 0.05);
+      this.overlayGraphics.lineTo(cx - cell * 0.14, cy + cell * 0.42);
+      this.overlayGraphics.stroke();
+      return;
+    }
+    const pulse = 0.55 + Math.sin(renderTimeMs / 90) * 0.25;
+    const alpha = 0.34 + pulse * 0.18;
+    this.overlayGraphics.lineStyle(2, 0xfff4a8, alpha).strokeCircle(cx, cy, radius);
+    this.overlayGraphics.lineStyle(1, 0xffffff, alpha * 0.75);
+    this.overlayGraphics.strokeRect(
+      strike.x * cell + 2,
+      strike.y * cell + 2,
+      Math.max(1, cell - 4),
+      Math.max(1, cell - 4),
+    );
+    this.overlayGraphics.fillStyle(0xfff4a8, 0.08 + pulse * 0.08).fillCircle(cx, cy, radius * 0.72);
+  }
+
+  private drawSkyEventFlash(view: ResolvedAtmosphereView | undefined, renderTimeMs: number): void {
+    const event = view?.state.skyEvent;
+    if (!event || event.current === 'none') {
+      return;
+    }
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+    if (event.current === 'meteorShower') {
+      this.overlayGraphics.lineStyle(2, 0xfff3a8, 0.55);
+      for (let i = 0; i < 5; i++) {
+        const x = positiveMod(event.seed + i * 131 + Math.floor(renderTimeMs * 0.08), width);
+        const y = positiveMod(event.seed + i * 79 + Math.floor(renderTimeMs * 0.035), height / 2);
+        this.overlayGraphics.lineBetween(x, y, x - this.grid.cell * 1.4, y + this.grid.cell * 0.65);
+      }
+      return;
+    }
+    if (event.current === 'aurora') {
+      this.overlayGraphics.lineStyle(3, 0x8ffff2, 0.16 + event.intensity * 0.1);
+      for (let i = 0; i < 4; i++) {
+        const y = height * 0.18 + i * this.grid.cell * 0.55;
+        this.overlayGraphics.beginPath();
+        this.overlayGraphics.moveTo(0, y);
+        for (let x = 0; x <= width; x += this.grid.cell) {
+          this.overlayGraphics.lineTo(
+            x,
+            y + Math.sin(renderTimeMs / 900 + i + x * 0.018) * this.grid.cell * 0.35,
+          );
+        }
+        this.overlayGraphics.stroke();
+      }
+      return;
+    }
+    if (event.current === 'bloodMoon') {
+      this.overlayGraphics
+        .fillStyle(0x8f1024, 0.06 + event.intensity * 0.04)
+        .fillRect(0, 0, width, height);
+    }
   }
 
   markAllStaticRoomsDirty(): void {
@@ -944,7 +1053,7 @@ export class SnakeRenderer {
           .fillRect(rectX + 1, rectY + cell / 2 - 0.5, cell - 2, 1);
 
         // Vertical mortar line (offset for brick pattern)
-        const vertOffset = (y % 2 === 0) ? cell / 2 : 0;
+        const vertOffset = y % 2 === 0 ? cell / 2 : 0;
         this.wallGraphics
           .lineStyle(1, mortarColor, alpha * 0.6)
           .fillRect(rectX + vertOffset - 0.5, rectY + 1, 1, cell - 2);
@@ -972,7 +1081,7 @@ export class SnakeRenderer {
 
         // Shrink effect in final moments
         if (lifeRatio < 0.3) {
-          const shrinkAmount = (0.3 - lifeRatio) / 0.3 * cell * 0.15;
+          const shrinkAmount = ((0.3 - lifeRatio) / 0.3) * cell * 0.15;
           this.wallGraphics
             .lineStyle(1, crackColor, alpha * 0.5)
             .strokeRect(
@@ -2017,12 +2126,14 @@ export class SnakeRenderer {
     poweredUp: boolean = false,
     paletteOverride?: SnakeSpritePalette,
     activeHat: SnakeHatStyle | null = null,
+    thermalBody?: SnakeRenderOptions['thermalBody'],
   ): void {
     void room;
     const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
-    const tintColor = typeof overrideColor === 'number' ? overrideColor : 0xffffff;
+    const tintColor =
+      typeof overrideColor === 'number' ? overrideColor : this.resolveThermalSnakeTint(thermalBody);
     const textureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
       this.grid.cell,
@@ -2181,10 +2292,14 @@ export class SnakeRenderer {
     direction: Vector2Like,
     poweredUp: boolean,
     activeHat: SnakeHatStyle | null,
+    thermalBody?: SnakeRenderOptions['thermalBody'],
   ): void {
     const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.88 + 0.12 * Math.sin(now / 180) : 1;
+    const baseColor = this.resolveThermalRetroSnakeColor(0x5dd6a2, thermalBody);
+    const shellColor = this.resolveThermalRetroSnakeColor(0x266f4f, thermalBody);
+    const outlineColor = this.resolveThermalRetroSnakeColor(0x1c513a, thermalBody);
     this.snakeSprites.forEach((sprite) => sprite.setVisible(false));
     this.hatSprite.setVisible(false);
 
@@ -2197,11 +2312,11 @@ export class SnakeRenderer {
 
       const x = localX * this.grid.cell;
       const y = localY * this.grid.cell;
-      this.graphics.fillStyle(0x266f4f, 0.96 * pulse);
+      this.graphics.fillStyle(shellColor, 0.96 * pulse);
       this.graphics.fillRect(x, y, this.grid.cell, this.grid.cell);
-      this.graphics.fillStyle(0x5dd6a2, pulse);
+      this.graphics.fillStyle(baseColor, pulse);
       this.graphics.fillRect(x + 2, y + 2, this.grid.cell - 4, this.grid.cell - 4);
-      this.graphics.lineStyle(1, 0x1c513a, 0.9 * pulse);
+      this.graphics.lineStyle(1, outlineColor, 0.9 * pulse);
       this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
     });
 
@@ -2224,6 +2339,33 @@ export class SnakeRenderer {
       .setDisplaySize(this.grid.cell, this.grid.cell)
       .setAlpha(pulse)
       .setVisible(true);
+  }
+
+  private resolveThermalSnakeTint(thermalBody?: SnakeRenderOptions['thermalBody']): number {
+    if (!thermalBody?.active || !thermalBody.hazard || thermalBody.max <= 0) {
+      return 0xffffff;
+    }
+    const ratio = Phaser.Math.Clamp(thermalBody.current / thermalBody.max, 0, 1);
+    if (ratio < 0.18) {
+      return 0xffffff;
+    }
+    const target = thermalBody.hazard === 'cold' ? 0x86d8ff : 0xffb066;
+    return this.lerpHexColor(0xffffff, target, Math.min(0.72, ratio * 0.78));
+  }
+
+  private resolveThermalRetroSnakeColor(
+    baseColor: number,
+    thermalBody?: SnakeRenderOptions['thermalBody'],
+  ): number {
+    if (!thermalBody?.active || !thermalBody.hazard || thermalBody.max <= 0) {
+      return baseColor;
+    }
+    const ratio = Phaser.Math.Clamp(thermalBody.current / thermalBody.max, 0, 1);
+    if (ratio < 0.18) {
+      return baseColor;
+    }
+    const target = thermalBody.hazard === 'cold' ? 0x79cfff : 0xff9f4f;
+    return this.lerpHexColor(baseColor, target, Math.min(0.68, ratio * 0.7));
   }
 
   private drawOtherPlayers(
@@ -2437,6 +2579,20 @@ export class SnakeRenderer {
 
   private toCssColor(hex: number): string {
     return `#${hex.toString(16).padStart(6, '0')}`;
+  }
+
+  private lerpHexColor(from: number, to: number, amount: number): number {
+    const t = Phaser.Math.Clamp(amount, 0, 1);
+    const fr = (from >> 16) & 0xff;
+    const fg = (from >> 8) & 0xff;
+    const fb = from & 0xff;
+    const tr = (to >> 16) & 0xff;
+    const tg = (to >> 8) & 0xff;
+    const tb = to & 0xff;
+    const r = Math.round(Phaser.Math.Linear(fr, tr, t));
+    const g = Math.round(Phaser.Math.Linear(fg, tg, t));
+    const b = Math.round(Phaser.Math.Linear(fb, tb, t));
+    return (r << 16) | (g << 8) | b;
   }
 
   private ensureSnakeSprite(index: number): Phaser.GameObjects.Image {

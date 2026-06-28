@@ -124,6 +124,20 @@ describe('AnimalManager', () => {
         expect(isOnSnake).toBe(false);
       }
     });
+
+    it('uses atmosphere animal bias in spawn priority and caps', () => {
+      const room = createTestRoom();
+      const testManager = new AnimalManager(grid, () => 0);
+      testManager.ensureAnimals('0,0,0', room, [], {
+        gameplay: {
+          animalSpawnChanceScalar: 1,
+          animalSpawnBiasAdd: { frog: 1 },
+        },
+      } as any);
+
+      const animals = testManager.getAnimalsInRoom('0,0,0');
+      expect(animals.filter((animal) => animal.type === 'frog')).toHaveLength(4);
+    });
   });
 
   describe('step', () => {

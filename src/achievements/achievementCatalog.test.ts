@@ -36,6 +36,7 @@ function snapshot(overrides: Partial<AchievementSnapshot> = {}): AchievementSnap
     coldResistance: 0,
     cowbellTilesWalked: 0,
     wardDamageTypesHeld: 0,
+    trainZonesTraveled: 0,
     maxSpecialStat: 5,
     ...overrides,
   };
@@ -186,6 +187,14 @@ describe('revised achievement catalog', () => {
     expect(manager.isCompleted('stats.special10')).toBe(true);
   });
 
+  it('unlocks the bullet train distance achievement from one long ride', () => {
+    const manager = new AchievementManager(ACHIEVEMENT_DEFINITIONS, new MemoryAchievementStorage());
+    manager.evaluateSnapshot(snapshot({ trainZonesTraveled: 5 }));
+    expect(manager.isCompleted('exploration.trainSixZones')).toBe(false);
+    manager.evaluateSnapshot(snapshot({ trainZonesTraveled: 6 }));
+    expect(manager.isCompleted('exploration.trainSixZones')).toBe(true);
+  });
+
   it('places the new achievements beside their actual progression parents with proper rewards', () => {
     const snakeception = ACHIEVEMENT_DEFINITIONS.find(
       (definition) => definition.id === 'arcade.snakeception',
@@ -228,9 +237,10 @@ describe('revised achievement catalog', () => {
 
     for (const definition of ACHIEVEMENT_DEFINITIONS) {
       const coordinate = `${definition.tree.x},${definition.tree.y}`;
-      expect(occupied.get(coordinate), `${definition.id} overlaps ${occupied.get(coordinate)}`).toBe(
-        undefined,
-      );
+      expect(
+        occupied.get(coordinate),
+        `${definition.id} overlaps ${occupied.get(coordinate)}`,
+      ).toBe(undefined);
       occupied.set(coordinate, definition.id);
 
       for (const prerequisite of definition.prerequisites ?? []) {
@@ -239,9 +249,10 @@ describe('revised achievement catalog', () => {
         );
       }
       if (!standaloneIds.has(definition.id)) {
-        expect(definition.prerequisites?.length, `${definition.id} is disconnected`).toBeGreaterThan(
-          0,
-        );
+        expect(
+          definition.prerequisites?.length,
+          `${definition.id} is disconnected`,
+        ).toBeGreaterThan(0);
       }
     }
   });

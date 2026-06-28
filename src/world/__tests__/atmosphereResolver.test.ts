@@ -15,6 +15,7 @@ function state(globalWeather: GlobalWeather): AtmosphereState {
     weatherIntensity: 0.75,
     remainingWeatherPhaseTicks: 2,
     weatherSeed: 123,
+    weatherTransitionProgress: 1,
   };
 }
 
@@ -95,6 +96,72 @@ describe('resolveBiomeAtmosphere', () => {
     ).toBe('thunder');
   });
 
+  it('keeps biome phase and default visuals alive during clear weather', () => {
+    const byId = Object.fromEntries(getAllBiomeDefinitions().map((biome) => [biome.id, biome]));
+
+    expect(
+      resolveBiomeAtmosphere(
+        byId['moonlit-parish']!,
+        { ...state('clear'), dayPhase: 'night' },
+        defaultAtmosphereConfig,
+      ).localVisual,
+    ).toBe('fireflies');
+    expect(
+      resolveBiomeAtmosphere(byId['sunken-ocean']!, state('clear'), defaultAtmosphereConfig)
+        .localVisual,
+    ).toBe('seaSpray');
+    expect(
+      resolveBiomeAtmosphere(byId['fungal-grotto']!, state('clear'), defaultAtmosphereConfig)
+        .localVisual,
+    ).toBe('sporeCloud');
+  });
+
+  it('applies shelter modes without disabling subterranean biome atmosphere', () => {
+    const byId = Object.fromEntries(getAllBiomeDefinitions().map((biome) => [biome.id, biome]));
+    const rainyState = { ...state('rain'), phaseProgress: 0.5 };
+    const subterranean = resolveBiomeAtmosphere(byId['sable-depths']!, rainyState, {
+      ...defaultAtmosphereConfig,
+      shelterMode: 'exposed',
+    });
+    const caveInterior = resolveBiomeAtmosphere(byId['sable-depths']!, rainyState, {
+      ...defaultAtmosphereConfig,
+      shelterMode: 'underground',
+    });
+    const interior = resolveBiomeAtmosphere(byId['verdigris-basin']!, state('storm'), {
+      ...defaultAtmosphereConfig,
+      shelterMode: 'interior',
+    });
+
+    expect(subterranean.shelterMode).toBe('exposed');
+    expect(subterranean.localVisual).toBe('caveDrip');
+    expect(subterranean.particles.density).toBeGreaterThan(0);
+    expect(caveInterior.shelterMode).toBe('underground');
+    expect(caveInterior.particles.density).toBe(0);
+    expect(caveInterior.effects).toContain('underground-weather');
+    expect(interior.shelterMode).toBe('interior');
+    expect(interior.gameplay.lightningProfile.enabled).toBe(false);
+    expect(interior.effects).toContain('muffled-weather');
+  });
+
+  it('ramps weather particles in and out across weather transitions', () => {
+    const basin = getAllBiomeDefinitions().find((biome) => biome.id === 'verdigris-basin')!;
+    const starting = resolveBiomeAtmosphere(basin, state('rain'), defaultAtmosphereConfig);
+    const active = resolveBiomeAtmosphere(
+      basin,
+      { ...state('rain'), phaseProgress: 0.5, weatherTransitionProgress: 1 },
+      defaultAtmosphereConfig,
+    );
+    const ending = resolveBiomeAtmosphere(
+      basin,
+      { ...state('rain'), phaseProgress: 0.98, remainingWeatherPhaseTicks: 1 },
+      defaultAtmosphereConfig,
+    );
+
+    expect(starting.particles.density).toBe(0);
+    expect(active.particles.density).toBeGreaterThan(starting.particles.density);
+    expect(ending.particles.density).toBeLessThan(active.particles.density);
+  });
+
   it('keeps Home Hearth non-harmful', () => {
     const home = getAllBiomeDefinitions().find((biome) => biome.id === 'home-hearth')!;
     for (const weather of [
@@ -141,6 +208,35 @@ describe('resolveBiomeAtmosphere', () => {
     expect(view.localVisual).toBe('thunder');
     expect(view.particles.density).toBeGreaterThan(0.5);
     expect(view.particles.speed).toBeGreaterThan(1.5);
+  });
+
+  it('applies sky event icon, effects, and darkness changes', () => {
+    const basin = getAllBiomeDefinitions().find((biome) => biome.id === 'verdigris-basin')!;
+    const eclipse = resolveBiomeAtmosphere(
+      basin,
+      {
+        ...state('clear'),
+        dayPhase: 'day',
+        skyEvent: { current: 'eclipse', remainingPhaseTicks: 2, intensity: 1, seed: 7 },
+      },
+      defaultAtmosphereConfig,
+    );
+    const aurora = resolveBiomeAtmosphere(
+      basin,
+      {
+        ...state('clear'),
+        dayPhase: 'night',
+        skyEvent: { current: 'aurora', remainingPhaseTicks: 2, intensity: 1, seed: 8 },
+      },
+      defaultAtmosphereConfig,
+    );
+
+    expect(eclipse.weatherIcon).toBe('eclipse');
+    expect(eclipse.effects).toContain('requires-light');
+    expect(eclipse.darkness.level).not.toBe('bright');
+    expect(aurora.weatherIcon).toBe('aurora');
+    expect(aurora.effects).toContain('aurora');
+    expect(aurora.darkness.darknessAlpha).toBeLessThan(0.3);
   });
 
   it('disables gameplay and visuals when atmosphere config is disabled', () => {

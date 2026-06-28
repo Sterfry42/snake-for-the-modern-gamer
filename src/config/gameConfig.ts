@@ -170,7 +170,7 @@ export const defaultAtmosphereConfig: AtmosphereConfig = {
   maxWeatherPhases: 2,
   weatherIntensityMin: 0.35,
   weatherIntensityMax: 1,
-  lightningEnabled: false,
+  lightningEnabled: true,
   visualParticlesEnabled: true,
   dayNightTintEnabled: true,
   gameplayModifiersEnabled: true,

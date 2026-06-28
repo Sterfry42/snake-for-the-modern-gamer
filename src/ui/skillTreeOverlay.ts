@@ -63,7 +63,7 @@ import {
 } from '../input/controlActions.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
-import { DAY_PHASE_DURATION_SCALARS } from '../world/atmosphereTypes.js';
+import { DAY_PHASE_DURATIONS_MS } from '../world/atmosphereTypes.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -3912,7 +3912,7 @@ export class SkillTreeOverlay {
       this.structuredContainer,
       dayRect.x + 12,
       dayRect.y + dayRect.height - 24,
-      `${this.formatAtmosphereLabel(state.dayPhase)} ${Math.round(state.phaseProgress * 100)}%`,
+      view.playerSummary.timeLabel,
       { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
     );
     addUiText(
@@ -3920,11 +3920,19 @@ export class SkillTreeOverlay {
       this.structuredContainer,
       seasonRect.x + 12,
       seasonRect.y + seasonRect.height - 24,
-      `Day ${state.worldDay + 1} / ${this.formatAtmosphereLabel(state.season)}`,
+      `Day ${state.worldDay + 1} / ${view.playerSummary.seasonLabel}`,
       { color: uiColors.textPrimary, fontSize: '12px', fontStyle: 'bold' },
     );
 
-    let y = clockTop + clockCardHeight + 14 - this.getStructuredScrollOffset();
+    const weatherRect: UiRect = {
+      x: content.x,
+      y: clockTop + clockCardHeight + 10,
+      width: content.width,
+      height: 78,
+    };
+    this.drawAtmosphereWeatherCard(weatherRect, view);
+
+    let y = weatherRect.y + weatherRect.height + 14;
     for (const line of this.formatAtmosphereInfo(view)) {
       const card: UiRect = { x: content.x, y, width: content.width, height: 34 };
       drawUiCard(this.structuredGraphics, {
@@ -3941,7 +3949,7 @@ export class SkillTreeOverlay {
       });
       y += 40;
     }
-    this.setStructuredContentHeight(content, y + this.getStructuredScrollOffset());
+    this.setStructuredContentHeight(content, y);
     this.detailTitle.setText('Atmosphere').setVisible(true);
     this.detailSubtitle
       .setText(view.sheltered ? 'Sheltered room' : 'Live world weather')
@@ -3950,7 +3958,7 @@ export class SkillTreeOverlay {
     this.detailBody
       .setText(
         view.sheltered
-          ? 'This room is indoors or underground, so global weather does not affect visuals or hazards here.'
+          ? 'This room is an interior or cave instance, so direct sky weather does not render here.'
           : 'Global weather rolls through the world, then the current biome translates it into a local visual.',
       )
       .setVisible(true);
@@ -3992,6 +4000,134 @@ export class SkillTreeOverlay {
     const hy = cy + Math.sin(handAngle) * (radius - 4);
     this.structuredGraphics.lineStyle(3, 0xfff3a8, 0.95).lineBetween(cx, cy, hx, hy);
     this.structuredGraphics.fillStyle(0xfff3a8, 1).fillCircle(cx, cy, 4);
+  }
+
+  private drawAtmosphereWeatherCard(rect: UiRect, view: ResolvedAtmosphereView): void {
+    drawUiCard(this.structuredGraphics, {
+      rect,
+      fill: uiColors.panelBgInset,
+      stroke: TAB_ACCENTS[this.activePrimaryTab],
+      alpha: 0.66,
+      strokeAlpha: 0.55,
+    });
+    addUiText(this.scene, this.structuredContainer, rect.x + 10, rect.y + 8, 'SKY', {
+      color: uiColors.textPrimary,
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    const iconRect = { x: rect.x + 12, y: rect.y + 24, width: 44, height: 42 };
+    this.drawWeatherIcon(view.weatherIcon, iconRect);
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      rect.x + 66,
+      rect.y + 26,
+      view.playerSummary.skyLabel,
+      { color: uiColors.textPrimary, fontSize: '13px', fontStyle: 'bold' },
+    );
+    addUiText(
+      this.scene,
+      this.structuredContainer,
+      rect.x + 66,
+      rect.y + 45,
+      `${view.playerSummary.localLabel} · ${view.playerSummary.lightLabel}`,
+      { color: uiColors.textSecondary, fontSize: '11px', wordWrapWidth: rect.width - 80 },
+    );
+  }
+
+  private drawWeatherIcon(
+    icon: ResolvedAtmosphereView['weatherIcon'],
+    rect: { x: number; y: number; width: number; height: number },
+  ): void {
+    const g = this.structuredGraphics;
+    const cx = rect.x + rect.width / 2;
+    const cy = rect.y + rect.height / 2;
+    const cloud = (color = 0xbfd8e8) => {
+      g.fillStyle(color, 0.95).fillCircle(cx - 9, cy, 9);
+      g.fillStyle(color, 0.95).fillCircle(cx, cy - 5, 11);
+      g.fillStyle(color, 0.95).fillCircle(cx + 11, cy, 8);
+      g.fillStyle(color, 0.95).fillRoundedRect(cx - 18, cy, 36, 10, 3);
+    };
+    const rain = (color = 0x7ed6ff) => {
+      g.lineStyle(2, color, 0.9);
+      for (let i = 0; i < 4; i++) {
+        const x = rect.x + 10 + i * 8;
+        g.lineBetween(x, rect.y + 30, x - 4, rect.y + 40);
+      }
+    };
+    if (icon === 'sunny') {
+      g.fillStyle(0xffd166, 1).fillCircle(cx, cy, 11);
+      g.lineStyle(2, 0xfff3a8, 0.9);
+      for (let i = 0; i < 8; i++) {
+        const a = (Math.PI * 2 * i) / 8;
+        g.lineBetween(
+          cx + Math.cos(a) * 15,
+          cy + Math.sin(a) * 15,
+          cx + Math.cos(a) * 20,
+          cy + Math.sin(a) * 20,
+        );
+      }
+      return;
+    }
+    if (icon === 'clear-night') {
+      g.fillStyle(0xdde8ff, 0.95).fillCircle(cx - 2, cy, 12);
+      g.fillStyle(0x071022, 1).fillCircle(cx + 4, cy - 2, 12);
+      g.fillStyle(0xfff3a8, 1).fillCircle(rect.x + 34, rect.y + 10, 2);
+      return;
+    }
+    if (icon === 'storm' || icon === 'rain' || icon === 'neon-rain' || icon === 'oil-rain') {
+      cloud(icon === 'oil-rain' ? 0x313031 : 0xbfd8e8);
+      rain(icon === 'neon-rain' ? 0xff4fd8 : icon === 'oil-rain' ? 0xd28b45 : 0x7ed6ff);
+      if (icon === 'storm') {
+        g.fillStyle(0xfff3a8, 1);
+        g.fillTriangle(cx + 2, cy + 10, cx - 4, cy + 27, cx + 8, cy + 18);
+      }
+      return;
+    }
+    if (icon === 'fog') {
+      g.lineStyle(3, 0xcfe1ec, 0.85);
+      for (let i = 0; i < 4; i++)
+        g.lineBetween(
+          rect.x + 5,
+          rect.y + 12 + i * 8,
+          rect.x + rect.width - 5,
+          rect.y + 12 + i * 8,
+        );
+      return;
+    }
+    if (icon === 'heatwave' || icon === 'steam') {
+      g.lineStyle(2, icon === 'steam' ? 0xffd4b8 : 0xff9f6e, 0.9);
+      for (let i = 0; i < 4; i++) {
+        const x = rect.x + 10 + i * 8;
+        g.beginPath();
+        g.moveTo(x, rect.y + 34);
+        g.lineTo(x + 4, rect.y + 24);
+        g.lineTo(x, rect.y + 14);
+        g.stroke();
+      }
+      return;
+    }
+    if (icon === 'snow' || icon === 'whiteout' || icon === 'coldfront') {
+      cloud(0xe8f7ff);
+      g.fillStyle(0xf4fbff, 1);
+      for (let i = 0; i < 5; i++) g.fillCircle(rect.x + 8 + i * 7, rect.y + 34 + (i % 2) * 4, 2);
+      return;
+    }
+    if (icon === 'dry-lightning' || icon === 'eclipse' || icon === 'blood-moon') {
+      g.fillStyle(
+        icon === 'blood-moon' ? 0xa3152b : icon === 'eclipse' ? 0x11131a : 0xfff3a8,
+        1,
+      ).fillCircle(cx, cy, 14);
+      if (icon === 'dry-lightning') g.fillTriangle(cx + 2, cy - 14, cx - 6, cy + 8, cx + 8, cy + 2);
+      return;
+    }
+    if (icon === 'aurora' || icon === 'meteor-shower') {
+      g.lineStyle(3, icon === 'aurora' ? 0x8ffff2 : 0xfff3a8, 0.9);
+      for (let i = 0; i < 3; i++)
+        g.lineBetween(rect.x + 6, rect.y + 14 + i * 9, rect.x + rect.width - 8, rect.y + 8 + i * 8);
+      return;
+    }
+    cloud();
   }
 
   private buildCheatsCards(rect: UiRect): void {
@@ -6624,29 +6760,24 @@ export class SkillTreeOverlay {
     const state = view.state;
     const intensity = `${Math.round(state.weatherIntensity * 100)}%`;
     const progress = `${Math.round(state.phaseProgress * 100)}%`;
-    const nextRoll =
-      state.remainingWeatherPhaseTicks <= 1
-        ? 'next phase'
-        : `${state.remainingWeatherPhaseTicks} phases`;
+    const nextRoll = state.remainingWeatherPhaseTicks <= 1 ? 'Shift soon' : 'Holding';
     const juice = view.activeJuice.length > 0 ? view.activeJuice.join(', ') : 'none';
     const bias = Object.entries(view.gameplay.animalSpawnBiasAdd)
       .filter(([, value]) => Number(value) !== 0)
       .map(([kind, value]) => `${kind} ${Number(value) > 0 ? '+' : ''}${value}`)
       .join(', ');
     return [
-      view.sheltered
-        ? 'Shelter: indoor/underground - weather muted here'
-        : 'Shelter: exposed to sky',
-      `Time of Day: ${this.formatAtmosphereLabel(state.dayPhase)} (${progress} through phase)`,
-      `Global Weather: ${this.formatAtmosphereLabel(state.globalWeather)} at ${intensity}`,
-      `Local Weather: ${this.formatAtmosphereLabel(view.localVisual)}`,
-      `Weather reroll: ${nextRoll}`,
-      `Biome Juice: ${juice}`,
-      `Visibility: ${Math.round(view.gameplay.visibilityScalar * 100)}%`,
-      `Heat Rate: ${Math.round(view.gameplay.heatRateScalar * 100)}%`,
-      `Cold Rate: ${Math.round(view.gameplay.coldRateScalar * 100)}%`,
-      `Animal Activity: ${Math.round(view.gameplay.animalSpawnChanceScalar * 100)}%${bias ? ` (${bias})` : ''}`,
-      `Enemy Activity: ${Math.round(view.gameplay.enemySpawnChanceScalar * 100)}%`,
+      view.playerSummary.oneLine ?? 'Sky, light, and body',
+      `Sky: ${view.playerSummary.skyLabel}`,
+      `Local Air: ${view.playerSummary.localLabel}`,
+      `Light: ${view.playerSummary.lightLabel}${view.darkness.lanternRecommended ? ' - lantern helpful' : ''}`,
+      `Shelter: ${view.playerSummary.shelterLabel}`,
+      `Weather Shift: ${nextRoll}`,
+      `Body: ${view.effects.includes('heat-pressure') ? 'Heat building' : view.effects.includes('cold-pressure') ? 'Cold building' : 'Stable'}`,
+      `Debug: ${progress} phase, ${intensity} intensity, juice ${juice}`,
+      `Debug: Visibility ${Math.round(view.gameplay.visibilityScalar * 100)}%, heat ${Math.round(view.gameplay.heatRateScalar * 100)}%, cold ${Math.round(view.gameplay.coldRateScalar * 100)}%`,
+      `Debug: Animals ${Math.round(view.gameplay.animalSpawnChanceScalar * 100)}%${bias ? ` (${bias})` : ''}`,
+      `Debug: Enemy Activity ${Math.round(view.gameplay.enemySpawnChanceScalar * 100)}%`,
       `Lightning: ${view.gameplay.lightningProfile.enabled ? 'telegraphed' : 'off'}`,
       'Shortcut: Shift+W cycles global weather for testing.',
     ];
@@ -6657,9 +6788,9 @@ export class SkillTreeOverlay {
     const index = Math.max(0, order.indexOf(view.state.dayPhase));
     const completed = order
       .slice(0, index)
-      .reduce((sum, phase) => sum + DAY_PHASE_DURATION_SCALARS[phase], 0);
-    const current = DAY_PHASE_DURATION_SCALARS[view.state.dayPhase] ?? 1;
-    const total = order.reduce((sum, phase) => sum + DAY_PHASE_DURATION_SCALARS[phase], 0);
+      .reduce((sum, phase) => sum + DAY_PHASE_DURATIONS_MS[phase], 0);
+    const current = DAY_PHASE_DURATIONS_MS[view.state.dayPhase] ?? 1;
+    const total = order.reduce((sum, phase) => sum + DAY_PHASE_DURATIONS_MS[phase], 0);
     return (completed + current * view.state.phaseProgress) / total;
   }
 
