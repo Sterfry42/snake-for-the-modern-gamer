@@ -5287,6 +5287,138 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#ff6b6b',
       };
     }
+    // === STRUCTURE SPAWNING CHEATS ===
+    if (code === 'village') {
+      if (this.snakeGame?.spawnVillage()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a village!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place village - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'goblin') {
+      if (this.snakeGame?.spawnGoblinCamp()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a goblin camp!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place goblin camp - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'quest') {
+      if (this.snakeGame?.spawnQuestHouse()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a quest house!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place quest house - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'mcdonalds' || code === 'snakemcdonalds') {
+      if (this.snakeGame?.spawnSnakeMcDonalds()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a Snake McDonalds!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place Snake McDonalds - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'shrine') {
+      if (this.snakeGame?.spawnShrine()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a shrine!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place shrine - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'ramen' || code === 'ramenstand') {
+      if (this.snakeGame?.spawnRamenStand()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a ramen stand!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place ramen stand - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'koi' || code === 'koipond') {
+      if (this.snakeGame?.spawnKoiPond()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a koi pond!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place koi pond - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'tengu') {
+      if (this.snakeGame?.spawnTenguCamp()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a tengu camp!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place tengu camp - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'monument') {
+      if (this.snakeGame?.spawnRoadsideMonument()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a roadside monument!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place roadside monument - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'diner' || code === 'allnitediner') {
+      if (this.snakeGame?.spawnAllNiteDiner()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned an all-nite diner!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place all-nite diner - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'fireworks' || code === 'fireworkstand') {
+      if (this.snakeGame?.spawnFireworkStand()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a firework stand!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place firework stand - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'jackalope') {
+      if (this.snakeGame?.spawnJackalopeLodge()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a jackalope lodge!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place jackalope lodge - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'moleman') {
+      if (this.snakeGame?.spawnMolemanDigSite()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a moleman dig site!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place moleman dig site - room too small.', color: '#ff6b6b' };
+    }
+    if (code === 'motelpool') {
+      if (this.snakeGame?.spawnMotelPool()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a motel pool!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place motel pool.', color: '#ff6b6b' };
+    }
+    if (code === 'gridiron') {
+      if (this.snakeGame?.spawnGridironYard()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a gridiron yard!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place gridiron yard.', color: '#ff6b6b' };
+    }
+    if (code === 'billboard') {
+      if (this.snakeGame?.spawnBillboardOracle()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a billboard oracle!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place billboard oracle.', color: '#ff6b6b' };
+    }
+    if (code === 'roadcrew') {
+      if (this.snakeGame?.spawnRoadCrew()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a road crew!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not place road crew.', color: '#ff6b6b' };
+    }
+    if (code === 'allstructures' || code === 'spawnall') {
+      if (this.snakeGame?.spawnAllStructures()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned all possible structures!', color: '#5dd6a2' };
+      }
+      return { ok: false, message: 'Could not spawn any structures.', color: '#ff6b6b' };
+    }
+    if (code === 'clearroom' || code === 'clear' || code === 'clearr') {
+      this.snakeGame?.clearRoom();
+      this.isDirty = true;
+      return { ok: true, message: 'Room cleared of all structures and walls!', color: '#5dd6a2' };
+    }
     if (code === "ryan's closet" || code === 'ryans closet') {
       // Ryan's Closet: give the player everything useful.
       // Excludes: Minecraft items (out of scope), beer/wine (movement debuffs)

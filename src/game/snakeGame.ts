@@ -119,6 +119,45 @@ import {
   isTownGuardRole,
   isTownShopRole,
 } from '../world/townRoles.js';
+import {
+  tryPlaceVillage,
+} from '../world/village.js';
+import {
+  tryPlaceGoblinCamp,
+} from '../world/goblinCamp.js';
+import {
+  tryPlaceQuestHouse,
+} from '../world/questHouse.js';
+import {
+  tryPlaceSnakeMcDonalds,
+} from '../world/snakeMcDonalds.js';
+import {
+  tryPlaceShrine,
+} from '../world/shrine.js';
+import {
+  tryPlaceRamenStand,
+} from '../world/ramenStand.js';
+import {
+  tryPlaceKoiPond,
+} from '../world/koiPond.js';
+import {
+  tryPlaceTenguCamp,
+} from '../world/tenguCamp.js';
+import {
+  tryPlaceRoadsideMonument,
+} from '../world/roadsideMonument.js';
+import {
+  tryPlaceAllNiteDiner,
+} from '../world/allNiteDiner.js';
+import {
+  tryPlaceFireworkStand,
+} from '../world/fireworkStand.js';
+import {
+  tryPlaceJackalopeLodge,
+} from '../world/jackalopeLodge.js';
+import {
+  tryPlaceMolemanDigSite,
+} from '../world/molemanDigSite.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { loadLanguagePreference, saveLanguagePreference } from '../i18n/storage.js';
 import {
@@ -7927,6 +7966,10 @@ export class SnakeGame implements QuestRuntime {
     return this._rng;
   }
 
+  getWorld(): WorldService {
+    return this.world;
+  }
+
   random(): number {
     return this._rng();
   }
@@ -7937,6 +7980,1000 @@ export class SnakeGame implements QuestRuntime {
 
   getTeleport(): boolean {
     return this.snake.teleport;
+  }
+
+  // === STRUCTURE SPAWNING CHEATS ===
+
+  /** Convert room.layout (string[]) to string[][] for placement functions. */
+  private layoutTo2D(layout: string[]): string[][] {
+    return layout.map((row) => row.split(''));
+  }
+
+  /** Convert string[][] back to string[] for room.layout. */
+  private layoutFrom2D(layout2d: string[][]): string[] {
+    return layout2d.map((row) => row.join(''));
+  }
+
+  /** Force-spawn a village in the current room. */
+  spawnVillage(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceVillage(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      room.biomeId,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.questGiver = result.questGiver;
+    room.village = result.village;
+    return true;
+  }
+
+  /** Force-spawn a goblin camp in the current room. */
+  spawnGoblinCamp(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceGoblinCamp(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.goblinCamp = result;
+    return true;
+  }
+
+  /** Force-spawn a quest house in the current room. */
+  spawnQuestHouse(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceQuestHouse(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.questGiver = result.questGiver;
+    return true;
+  }
+
+  /** Force-spawn a Snake McDonalds in the current room. */
+  spawnSnakeMcDonalds(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceSnakeMcDonalds(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 3 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.snakeMcDonalds = result;
+    return true;
+  }
+
+  /** Force-spawn a shrine in the current room. */
+  spawnShrine(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceShrine(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.shrine = result;
+    room.questGiver = result.maiden;
+    return true;
+  }
+
+  /** Force-spawn a ramen stand in the current room. */
+  spawnRamenStand(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceRamenStand(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.ramenStand = result;
+    return true;
+  }
+
+  /** Force-spawn a koi pond in the current room. */
+  spawnKoiPond(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceKoiPond(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 4 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.koiPond = result;
+    return true;
+  }
+
+  /** Force-spawn a tengu camp in the current room. */
+  spawnTenguCamp(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceTenguCamp(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.tenguCamp = result;
+    return true;
+  }
+
+  /** Force-spawn a roadside monument in the current room. */
+  spawnRoadsideMonument(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceRoadsideMonument(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.roadsideMonument = result;
+    room.questGiver = result.docent;
+    return true;
+  }
+
+  /** Force-spawn an all-nite diner in the current room. */
+  spawnAllNiteDiner(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceAllNiteDiner(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.allNiteDiner = result;
+    return true;
+  }
+
+  /** Force-spawn a firework stand in the current room. */
+  spawnFireworkStand(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceFireworkStand(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.fireworkStand = result;
+    return true;
+  }
+
+  /** Force-spawn a jackalope lodge in the current room. */
+  spawnJackalopeLodge(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceJackalopeLodge(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5 },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.jackalopeLodge = result;
+    room.questGiver = result.elder;
+    return true;
+  }
+
+  /** Force-spawn a moleman dig site in the current room. */
+  spawnMolemanDigSite(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceMolemanDigSite(
+      layout2d,
+      this.config.grid,
+      this._rng,
+      { forbiddenCells: new Set(), margin: 5, biomeId: room.biomeId },
+    );
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.molemanDigSite = result;
+    return true;
+  }
+
+  /**
+   * Force-spawn a motel pool in the current room.
+   * This recreates the motel pool ruins archetype layout.
+   */
+  spawnMotelPool(): boolean {
+    const room = this.getCurrentRoom();
+    const grid = this.config.grid;
+    const rng = this._rng;
+    const safe = new Set<string>();
+    // Entrance runup cells
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < 5 && x < grid.cols; x++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${grid.cols - 1 - x},${y}`);
+      }
+    }
+    for (let x = 0; x < grid.cols; x++) {
+      for (let y = 0; y < 5 && y < grid.rows; y++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${x},${grid.rows - 1 - y}`);
+      }
+    }
+
+    const roomWidth = grid.cols;
+    const roomHeight = grid.rows;
+    const deckWidth = Math.min(18, roomWidth - 12);
+    const deckHeight = Math.min(12, roomHeight - 10);
+    const left = Math.floor((roomWidth - deckWidth) / 2);
+    const top = Math.floor((roomHeight - deckHeight) / 2);
+
+    // Fill deck with 'E' tiles
+    for (let y = top; y < top + deckHeight; y++) {
+      for (let x = left; x < left + deckWidth; x++) {
+        if (!safe.has(`${x},${y}`)) {
+          room.layout[y] = room.layout[y].substring(0, x) + 'E' + room.layout[y].substring(x + 1);
+        }
+      }
+    }
+
+    // Pool
+    const poolLeft = left + 4;
+    const poolTop = top + 3;
+    const poolWidth = deckWidth - 8;
+    const poolHeight = deckHeight - 6;
+    const water = rng() < 0.68;
+    const waterTiles: Array<{ x: number; y: number }> = [];
+    for (let y = poolTop; y < poolTop + poolHeight; y++) {
+      for (let x = poolLeft; x < poolLeft + poolWidth; x++) {
+        if (safe.has(`${x},${y}`)) continue;
+        const tile = water ? '~' : 'O';
+        room.layout[y] = room.layout[y].substring(0, x) + tile + room.layout[y].substring(x + 1);
+        waterTiles.push({ x, y });
+      }
+    }
+
+    // Wall
+    const wallTop = Math.max(5, top - 3);
+    for (let x = left + 2; x < left + deckWidth - 2; x++) {
+      if (!safe.has(`${x},${wallTop}`)) {
+        room.layout[wallTop] = room.layout[wallTop].substring(0, x) + '#' + room.layout[wallTop].substring(x + 1);
+      }
+    }
+
+    // Sign
+    const signX = left + deckWidth - 6;
+    const signY = wallTop + 2;
+    if (!safe.has(`${signX},${signY}`)) {
+      room.layout[signY] = room.layout[signY].substring(0, signX) + 'N' + room.layout[signY].substring(signX + 1);
+    }
+
+    // Clerk and maintenance NPCs
+    const clerkX = left + deckWidth - 4;
+    const clerkY = top + 2;
+    const maintenanceX = left + 3;
+    const maintenanceY = top + deckHeight - 3;
+    if (room.layout[clerkY]?.[clerkX]) room.layout[clerkY] = room.layout[clerkY].substring(0, clerkX) + 'G' + room.layout[clerkY].substring(clerkX + 1);
+    if (room.layout[maintenanceY]?.[maintenanceX]) room.layout[maintenanceY] = room.layout[maintenanceY].substring(0, maintenanceX) + 'G' + room.layout[maintenanceY].substring(maintenanceX + 1);
+
+    // NPC profiles
+    const clerkNames = ['Vacancy Vera', 'Clerk Connie', 'Pool Key Dale'];
+    const maintenanceNames = ['Skimmer Hank', 'Chlorine Tammy', 'Net Earl'];
+    const poolNames = ['The Big Dipper', 'Snake Splash Pool', 'Aquatic Serpent Basin', 'The Gator Hole', 'Serpent Springs'];
+
+    room.motelPool = {
+      clerk: {
+        ...buildHouseNpcProfile(
+          clerkNames[Math.floor(rng() * clerkNames.length)],
+          'sage-1',
+        ),
+        x: clerkX,
+        y: clerkY,
+      },
+      maintenance: {
+        ...buildHouseNpcProfile(
+          maintenanceNames[Math.floor(rng() * maintenanceNames.length)],
+          'sage-2',
+        ),
+        x: maintenanceX,
+        y: maintenanceY,
+      },
+      poolName: poolNames[Math.floor(rng() * poolNames.length)],
+      center: { x: poolLeft + Math.floor(poolWidth / 2), y: poolTop + Math.floor(poolHeight / 2) },
+      waterTiles,
+    };
+    return true;
+  }
+
+  /**
+   * Force-spawn a gridiron yard in the current room.
+   * This recreates the gridiron-yard archetype layout.
+   */
+  spawnGridironYard(): boolean {
+    const room = this.getCurrentRoom();
+    const grid = this.config.grid;
+    const rng = this._rng;
+    const safe = new Set<string>();
+    // Entrance runup cells
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < 4 && x < grid.cols; x++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${grid.cols - 1 - x},${y}`);
+      }
+    }
+    for (let x = 0; x < grid.cols; x++) {
+      for (let y = 0; y < 4 && y < grid.rows; y++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${x},${grid.rows - 1 - y}`);
+      }
+    }
+
+    const roomWidth = grid.cols;
+    const roomHeight = grid.rows;
+    const left = 5;
+    const top = 5;
+    const width = roomWidth - 10;
+    const height = roomHeight - 10;
+
+    // Fill field with 'E' tiles
+    for (let y = top; y < top + height; y++) {
+      for (let x = left; x < left + width; x++) {
+        if (!safe.has(`${x},${y}`)) {
+          room.layout[y] = room.layout[y].substring(0, x) + 'E' + room.layout[y].substring(x + 1);
+        }
+      }
+    }
+
+    // Yard lines
+    for (let x = left + 3; x < left + width - 2; x += 4) {
+      for (let y = top + 1; y < top + height - 1; y++) {
+        if (!safe.has(`${x},${y}`)) {
+          room.layout[y] = room.layout[y].substring(0, x) + 'W' + room.layout[y].substring(x + 1);
+        }
+      }
+    }
+
+    // Boundaries
+    const fillRow = (y: number, xStart: number, xEnd: number) => {
+      for (let x = xStart; x < xEnd; x++) {
+        if (!safe.has(`${x},${y}`)) {
+          room.layout[y] = room.layout[y].substring(0, x) + '#' + room.layout[y].substring(x + 1);
+        }
+      }
+    };
+    fillRow(top - 1, left - 1, left + width + 2);
+    fillRow(top + height, left - 1, left + width + 2);
+    fillRow(top - 1, left - 1, left);
+    fillRow(top, left - 1, left);
+    fillRow(top + height + 1, left - 1, left);
+    fillRow(top - 1, left + width, left + width + 1);
+    fillRow(top, left + width, left + width + 1);
+    fillRow(top + height + 1, left + width, left + width + 1);
+
+    // L-shapes for goal posts
+    const fillLShape = (x: number, y: number) => {
+      if (!safe.has(`${x},${y}`)) room.layout[y] = room.layout[y].substring(0, x) + 'L' + room.layout[y].substring(x + 1);
+      if (!safe.has(`${x + 1},${y}`)) room.layout[y] = room.layout[y].substring(0, x + 1) + 'L' + room.layout[y].substring(x + 2);
+      if (!safe.has(`${x},${y + 1}`)) room.layout[y + 1] = room.layout[y + 1].substring(0, x) + 'L' + room.layout[y + 1].substring(x + 1);
+      if (!safe.has(`${x + 1},${y + 1}`)) room.layout[y + 1] = room.layout[y + 1].substring(0, x + 1) + 'L' + room.layout[y + 1].substring(x + 2);
+    };
+    fillLShape(left + 1, top - 3);
+    fillLShape(left + width - 3, top - 3);
+
+    // Center sign
+    const signX = left + Math.floor(width / 2) - 2;
+    const signY = top - 3;
+    for (let x = signX; x < signX + 4; x++) {
+      if (!safe.has(`${x},${signY}`)) {
+        room.layout[signY] = room.layout[signY].substring(0, x) + 'N' + room.layout[signY].substring(x + 1);
+      }
+    }
+
+    // Coach and players
+    const coachX = left + Math.floor(width / 2);
+    const coachY = top + height - 3;
+    room.layout[coachY] = room.layout[coachY].substring(0, coachX) + 'G' + room.layout[coachY].substring(coachX + 1);
+
+    const playerSpots = [
+      { x: left + 5, y: top + 4 },
+      { x: left + width - 6, y: top + 4 },
+      { x: left + 8, y: top + height - 5 },
+      { x: left + width - 9, y: top + height - 5 },
+    ];
+    playerSpots.forEach((spot) => {
+      room.layout[spot.y] = room.layout[spot.y].substring(0, spot.x) + 'G' + room.layout[spot.y].substring(spot.x + 1);
+    });
+
+    const playerNames = ['Left Tackle Tammy', 'Wide Earl', 'Safety Sue', 'Bobby-Joe Blitz'];
+    room.gridironYard = {
+      coach: {
+        ...buildHouseNpcProfile('Coach Hank', 'sage-2'),
+        x: coachX,
+        y: coachY,
+      },
+      players: playerSpots.map((spot, index) => ({
+        ...buildHouseNpcProfile(
+          playerNames[index] ?? 'Yard Player',
+          'sage-1',
+        ),
+        x: spot.x,
+        y: spot.y,
+      })),
+      fieldName: 'Glory Inches Yard',
+    };
+    return true;
+  }
+
+  /**
+   * Force-spawn a billboard oracle in the current room.
+   * This recreates the billboard-maze archetype layout.
+   */
+  spawnBillboardOracle(): boolean {
+    const room = this.getCurrentRoom();
+    const grid = this.config.grid;
+    const rng = this._rng;
+    const safe = new Set<string>();
+    // Entrance runup cells
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < 4 && x < grid.cols; x++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${grid.cols - 1 - x},${y}`);
+      }
+    }
+    for (let x = 0; x < grid.cols; x++) {
+      for (let y = 0; y < 4 && y < grid.rows; y++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${x},${grid.rows - 1 - y}`);
+      }
+    }
+
+    const roomWidth = grid.cols;
+    const roomHeight = grid.rows;
+    const mazeWidth = Math.min(22, roomWidth - 14);
+    const mazeHeight = Math.min(14, roomHeight - 10);
+    const left = Math.floor((roomWidth - mazeWidth) / 2);
+    const top = 4;
+
+    // Fill maze area with 'E' tiles
+    for (let y = top; y < top + mazeHeight; y++) {
+      for (let x = left; x < left + mazeWidth; x++) {
+        if (!safe.has(`${x},${y}`)) {
+          room.layout[y] = room.layout[y].substring(0, x) + 'E' + room.layout[y].substring(x + 1);
+        }
+      }
+    }
+
+    // Maze walls - create a simple maze pattern
+    const wallPositions = [
+      // Outer walls
+      { y: top - 1, xStart: left - 1, xEnd: left + mazeWidth + 1 },
+      { y: top + mazeHeight, xStart: left - 1, xEnd: left + mazeWidth + 1 },
+      // Inner walls for maze effect
+      { y: top + 2, xStart: left + 3, xEnd: left + 8 },
+      { y: top + 2, xStart: left + 14, xEnd: left + 18 },
+      { y: top + 6, xStart: left + 1, xEnd: left + 6 },
+      { y: top + 6, xStart: left + 10, xEnd: left + 15 },
+      { y: top + 10, xStart: left + 4, xEnd: left + 9 },
+      { y: top + 10, xStart: left + 13, xEnd: left + 20 },
+    ];
+    for (const wall of wallPositions) {
+      for (let x = wall.xStart; x < wall.xEnd; x++) {
+        if (wall.y >= 0 && wall.y < roomHeight && !safe.has(`${x},${wall.y}`)) {
+          room.layout[wall.y] = room.layout[wall.y].substring(0, x) + '#' + room.layout[wall.y].substring(x + 1);
+        }
+      }
+    }
+
+    // Glints
+    for (let i = 0; i < 5; i++) {
+      const gx = left + 2 + Math.floor(rng() * (mazeWidth - 4));
+      const gy = top + 2 + Math.floor(rng() * (mazeHeight - 4));
+      if (!safe.has(`${gx},${gy}`) && room.layout[gy][gx] === 'E') {
+        room.layout[gy] = room.layout[gy].substring(0, gx) + 'N' + room.layout[gy].substring(gx + 1);
+      }
+    }
+
+    // Find an open cell for the sign painter
+    let painterX = -1;
+    let painterY = -1;
+    for (let y = top + mazeHeight + 2; y < roomHeight - 3; y++) {
+      for (let x = left; x < left + mazeWidth; x++) {
+        if (!safe.has(`${x},${y}`) && room.layout[y][x] === '.') {
+          painterX = x;
+          painterY = y;
+          break;
+        }
+      }
+      if (painterX >= 0) break;
+    }
+    if (painterX < 0) {
+      // Fallback: find any open cell
+      for (let y = top; y < roomHeight; y++) {
+        for (let x = left; x < left + mazeWidth; x++) {
+          if (!safe.has(`${x},${y}`) && room.layout[y][x] === '.') {
+            painterX = x;
+            painterY = y;
+            break;
+          }
+        }
+        if (painterX >= 0) break;
+      }
+    }
+    if (painterX >= 0) {
+      room.layout[painterY] = room.layout[painterY].substring(0, painterX) + 'G' + room.layout[painterY].substring(painterX + 1);
+      const painterNames = ['Sign-Paint Marlene', 'Billboard Dale', 'Ad-Man Walt'];
+      const slogans = [
+        'SNAKE: IT\'S THE ULTIMATE EXPERIENCE!',
+        'EAT AN APPLE, GET LONGER!',
+        'DON\'T CRASH, JUST ASK!',
+        'THE FUTURE IS GREEN AND SNAKELIKE!',
+        'COILED TO PERFECTION!',
+        'UNCOIL YOUR POTENTIAL!',
+      ];
+      room.billboardOracle = {
+        signPainter: {
+          ...buildHouseNpcProfile(
+            painterNames[Math.floor(rng() * painterNames.length)],
+            'sage-1',
+          ),
+          x: painterX,
+          y: painterY,
+        },
+        slogan: slogans[Math.floor(rng() * slogans.length)],
+      };
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Force-spawn a road crew in the current room.
+   * This recreates the interstate-cut archetype layout.
+   */
+  spawnRoadCrew(): boolean {
+    const room = this.getCurrentRoom();
+    const grid = this.config.grid;
+    const rng = this._rng;
+    const safe = new Set<string>();
+    // Entrance runup cells
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < 4 && x < grid.cols; x++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${grid.cols - 1 - x},${y}`);
+      }
+    }
+    for (let x = 0; x < grid.cols; x++) {
+      for (let y = 0; y < 4 && y < grid.rows; y++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${x},${grid.rows - 1 - y}`);
+      }
+    }
+
+    const roomWidth = grid.cols;
+    const roomHeight = grid.rows;
+    const horizontal = rng() < 0.5;
+
+    const setTile = (x: number, y: number, tile: string) => {
+      if (y >= 0 && y < roomHeight && x >= 0 && x < roomWidth && !safe.has(`${x},${y}`)) {
+        room.layout[y] = room.layout[y].substring(0, x) + tile + room.layout[y].substring(x + 1);
+      }
+    };
+
+    if (horizontal) {
+      const roadTop = Math.floor(roomHeight / 2) - 2;
+      for (let x = 0; x < roomWidth; x++) {
+        setTile(x, roadTop + 2, 'A');
+      }
+      // Road surface
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let x = 0; x < roomWidth; x++) {
+          setTile(x, roadTop + 2 + dy, 'A');
+        }
+      }
+      // Center dashes
+      for (let x = 2; x < roomWidth - 2; x += 4) {
+        setTile(x, roadTop + 2, 'W');
+      }
+      // Rock shoulders
+      for (let x = 0; x < roomWidth; x++) {
+        for (const dy of [-3, 3]) {
+          if (room.layout[roadTop + 2 + dy]?.[x] === '.') {
+            setTile(x, roadTop + 2 + dy, 'R');
+          }
+        }
+      }
+      // Ranger
+      let rangerX = -1;
+      let rangerY = -1;
+      for (let y = 0; y < roomHeight; y++) {
+        for (let x = 0; x < roomWidth; x++) {
+          if (!safe.has(`${x},${y}`) && room.layout[y][x] === '.') {
+            rangerX = x;
+            rangerY = y;
+            break;
+          }
+        }
+        if (rangerX >= 0) break;
+      }
+      if (rangerX >= 0) {
+        setTile(rangerX, rangerY, 'G');
+        const rangerNames = ['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale'];
+        const roadNames = ['Route 66', 'Snake Alley', 'The Coil Expressway', 'Liberty Lane', 'Midnight Drive'];
+        room.roadCrew = {
+          ranger: {
+            ...buildHouseNpcProfile(
+              rangerNames[Math.floor(rng() * rangerNames.length)],
+              'sage-1',
+            ),
+            x: rangerX,
+            y: rangerY,
+          },
+          roadName: roadNames[Math.floor(rng() * roadNames.length)],
+        };
+        return true;
+      }
+    } else {
+      const roadLeft = Math.floor(roomWidth / 2) - 2;
+      for (let y = 0; y < roomHeight; y++) {
+        setTile(roadLeft + 2, y, 'A');
+      }
+      // Road surface
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let y = 0; y < roomHeight; y++) {
+          setTile(roadLeft + 2 + dx, y, 'A');
+        }
+      }
+      // Center dashes
+      for (let y = 2; y < roomHeight - 2; y += 4) {
+        setTile(roadLeft + 2, y, 'W');
+      }
+      // Rock shoulders
+      for (let y = 0; y < roomHeight; y++) {
+        for (const dx of [-3, 3]) {
+          if (room.layout[y]?.[roadLeft + 2 + dx] === '.') {
+            setTile(roadLeft + 2 + dx, y, 'R');
+          }
+        }
+      }
+      // Ranger
+      let rangerX = -1;
+      let rangerY = -1;
+      for (let y = 0; y < roomHeight; y++) {
+        for (let x = 0; x < roomWidth; x++) {
+          if (!safe.has(`${x},${y}`) && room.layout[y][x] === '.') {
+            rangerX = x;
+            rangerY = y;
+            break;
+          }
+        }
+        if (rangerX >= 0) break;
+      }
+      if (rangerX >= 0) {
+        setTile(rangerX, rangerY, 'G');
+        const rangerNames = ['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale'];
+        const roadNames = ['Route 66', 'Snake Alley', 'The Coil Expressway', 'Liberty Lane', 'Midnight Drive'];
+        room.roadCrew = {
+          ranger: {
+            ...buildHouseNpcProfile(
+              rangerNames[Math.floor(rng() * rangerNames.length)],
+              'sage-1',
+            ),
+            x: rangerX,
+            y: rangerY,
+          },
+          roadName: roadNames[Math.floor(rng() * roadNames.length)],
+        };
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Force-spawn a roadside monument in the current room.
+   * This recreates the monument-plaza archetype layout.
+   */
+  spawnRoadsideMonumentAlt(): boolean {
+    const room = this.getCurrentRoom();
+    const grid = this.config.grid;
+    const rng = this._rng;
+    const safe = new Set<string>();
+    // Entrance runup cells
+    for (let y = 0; y < grid.rows; y++) {
+      for (let x = 0; x < 4 && x < grid.cols; x++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${grid.cols - 1 - x},${y}`);
+      }
+    }
+    for (let x = 0; x < grid.cols; x++) {
+      for (let y = 0; y < 4 && y < grid.rows; y++) {
+        safe.add(`${x},${y}`);
+        safe.add(`${x},${grid.rows - 1 - y}`);
+      }
+    }
+
+    const roomWidth = grid.cols;
+    const roomHeight = grid.rows;
+    const plazaWidth = Math.min(18, roomWidth - 10);
+    const plazaHeight = Math.min(10, roomHeight - 10);
+    const left = Math.floor((roomWidth - plazaWidth) / 2);
+    const top = 4;
+
+    // Fill plaza
+    for (let y = top; y < top + plazaHeight; y++) {
+      for (let x = left; x < left + plazaWidth; x++) {
+        if (!safe.has(`${x},${y}`)) {
+          room.layout[y] = room.layout[y].substring(0, x) + 'E' + room.layout[y].substring(x + 1);
+        }
+      }
+    }
+
+    // Monument
+    const monumentLeft = Math.floor(roomWidth / 2) - 2;
+    const monumentTop = top + 2;
+    for (let x = monumentLeft; x < monumentLeft + 5; x++) {
+      if (!safe.has(`${x},${monumentTop}`)) {
+        room.layout[monumentTop] = room.layout[monumentTop].substring(0, x) + '#' + room.layout[monumentTop].substring(x + 1);
+      }
+    }
+    // Monument sign
+    const signX = monumentLeft + 1;
+    const signY = monumentTop - 1;
+    if (!safe.has(`${signX},${signY}`)) room.layout[signY] = room.layout[signY].substring(0, signX) + 'M' + room.layout[signY].substring(signX + 1);
+    if (!safe.has(`${signX + 1},${signY}`)) room.layout[signY] = room.layout[signY].substring(0, signX + 1) + 'M' + room.layout[signY].substring(signX + 2);
+    if (!safe.has(`${signX + 2},${signY}`)) room.layout[signY] = room.layout[signY].substring(0, signX + 2) + 'M' + room.layout[signY].substring(signX + 3);
+
+    // Path
+    const pathX = Math.floor(roomWidth / 2);
+    for (let y = top + plazaHeight; y < roomHeight - 4; y++) {
+      for (let dx = -1; dx <= 1; dx++) {
+        const x = pathX + dx;
+        if (!safe.has(`${x},${y}`) && room.layout[y]?.[x] === '.') {
+          room.layout[y] = room.layout[y].substring(0, x) + 'W' + room.layout[y].substring(x + 1);
+        }
+      }
+    }
+
+    // Glints
+    for (let i = 0; i < 5; i++) {
+      const gx = left + 1 + Math.floor(rng() * (plazaWidth - 2));
+      const gy = top + 1 + Math.floor(rng() * (plazaHeight - 2));
+      if (!safe.has(`${gx},${gy}`) && room.layout[gy]?.[gx] === 'E') {
+        room.layout[gy] = room.layout[gy].substring(0, gx) + 'N' + room.layout[gy].substring(gx + 1);
+      }
+    }
+
+    // Try to place the monument via tryPlaceRoadsideMonument for proper NPC placement
+    // First clear the plaza layout to let the placement function work
+    for (let y = top; y < top + plazaHeight; y++) {
+      for (let x = left; x < left + plazaWidth; x++) {
+        if (room.layout[y][x] === 'E') {
+          room.layout[y] = room.layout[y].substring(0, x) + '.' + room.layout[y].substring(x + 1);
+        }
+      }
+    }
+    // Remove the monument structure
+    for (let x = monumentLeft; x < monumentLeft + 5; x++) {
+      if (room.layout[monumentTop]?.[x] === '#') {
+        room.layout[monumentTop] = room.layout[monumentTop].substring(0, x) + '.' + room.layout[monumentTop].substring(x + 1);
+      }
+    }
+
+    // Now try to place it properly
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceRoadsideMonument(
+      layout2d,
+      grid,
+      rng,
+      { forbiddenCells: safe, margin: 5 },
+    );
+    if (!result) {
+      // Restore the plaza layout as fallback
+      for (let y = top; y < top + plazaHeight; y++) {
+        for (let x = left; x < left + plazaWidth; x++) {
+          if (room.layout[y][x] === '.') {
+            room.layout[y] = room.layout[y].substring(0, x) + 'E' + room.layout[y].substring(x + 1);
+          }
+        }
+      }
+      // Restore monument
+      for (let x = monumentLeft; x < monumentLeft + 5; x++) {
+        if (!safe.has(`${x},${monumentTop}`)) {
+          room.layout[monumentTop] = room.layout[monumentTop].substring(0, x) + '#' + room.layout[monumentTop].substring(x + 1);
+        }
+      }
+      const signX2 = monumentLeft + 1;
+      const signY2 = monumentTop - 1;
+      if (!safe.has(`${signX2},${signY2}`)) room.layout[signY2] = room.layout[signY2].substring(0, signX2) + 'M' + room.layout[signY2].substring(signX2 + 1);
+      if (!safe.has(`${signX2 + 1},${signY2}`)) room.layout[signY2] = room.layout[signY2].substring(0, signX2 + 1) + 'M' + room.layout[signY2].substring(signX2 + 2);
+      if (!safe.has(`${signX2 + 2},${signY2}`)) room.layout[signY2] = room.layout[signY2].substring(0, signX2 + 2) + 'M' + room.layout[signY2].substring(signX2 + 3);
+      // Place NPCs manually
+      const monumentNames = ['Historical Hank', 'Monument Mary', 'Landmark Larry'];
+      const docentNames = ['Docent Diane', 'Guide Greg', 'Tour Tom'];
+      const monumentName = 'The Great Serpent Stone';
+      room.roadsideMonument = {
+        docent: {
+          ...buildHouseNpcProfile(docentNames[Math.floor(rng() * docentNames.length)], 'sage-1'),
+          x: Math.floor(roomWidth / 2),
+          y: top + plazaHeight + 2,
+        },
+        ranger: {
+          ...buildHouseNpcProfile(monumentNames[Math.floor(rng() * monumentNames.length)], 'sage-2'),
+          x: left + Math.floor(plazaWidth / 2),
+          y: top + plazaHeight + 4,
+        },
+        hasBlessings: rng() < 0.5,
+        monumentName,
+      };
+      room.questGiver = room.roadsideMonument.docent;
+      return true;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.roadsideMonument = result;
+    room.questGiver = result.docent;
+    return true;
+  }
+
+  /**
+   * Force-spawn all possible structures in the current room.
+   * This is the ultimate "I want to see everything" cheat.
+   */
+  spawnAllStructures(): boolean {
+    const results: Array<{ name: string; ok: boolean }> = [];
+
+    // Try each structure placement
+    results.push({ name: 'village', ok: this.spawnVillage() });
+    results.push({ name: 'goblin-camp', ok: this.spawnGoblinCamp() });
+    results.push({ name: 'quest-house', ok: this.spawnQuestHouse() });
+    results.push({ name: 'snake-mcdonalds', ok: this.spawnSnakeMcDonalds() });
+    results.push({ name: 'shrine', ok: this.spawnShrine() });
+    results.push({ name: 'ramen-stand', ok: this.spawnRamenStand() });
+    results.push({ name: 'koi-pond', ok: this.spawnKoiPond() });
+    results.push({ name: 'tengu-camp', ok: this.spawnTenguCamp() });
+    results.push({ name: 'roadside-monument', ok: this.spawnRoadsideMonument() });
+    results.push({ name: 'all-nite-diner', ok: this.spawnAllNiteDiner() });
+    results.push({ name: 'firework-stand', ok: this.spawnFireworkStand() });
+    results.push({ name: 'jackalope-lodge', ok: this.spawnJackalopeLodge() });
+    results.push({ name: 'moleman-dig-site', ok: this.spawnMolemanDigSite() });
+    results.push({ name: 'motel-pool', ok: this.spawnMotelPool() });
+    results.push({ name: 'gridiron-yard', ok: this.spawnGridironYard() });
+    results.push({ name: 'billboard-oracle', ok: this.spawnBillboardOracle() });
+    results.push({ name: 'road-crew', ok: this.spawnRoadCrew() });
+    results.push({ name: 'roadside-monument-alt', ok: this.spawnRoadsideMonumentAlt() });
+
+    const successCount = results.filter((r) => r.ok).length;
+    const failed = results.filter((r) => !r.ok).map((r) => r.name);
+
+    if (successCount > 0) {
+      console.info(`[SnakeGame] Spawned ${successCount} structures:`, results.filter((r) => r.ok).map((r) => r.name));
+    }
+    if (failed.length > 0) {
+      console.warn(`[SnakeGame] Failed to spawn: ${failed.join(', ')}`);
+    }
+
+    return successCount > 0;
+  }
+
+  /**
+   * Clear the current room of all structures, obstacles, and walls.
+   * Replaces walls (#), water (~), and decorative tiles with open floor (.).
+   * Preserves portals (H), cave/layer entrances (@), and other important tiles.
+   */
+  clearRoom(): void {
+    const room = this.getCurrentRoom();
+    const grid = this.config.grid;
+    let clearedCount = 0;
+
+    // Structure data to clear
+    room.questGiver = undefined;
+    room.village = undefined;
+    room.goblinCamp = undefined;
+    room.town = undefined;
+    room.townPerimeter = undefined;
+    room.snakeMcDonalds = undefined;
+    room.shrine = undefined;
+    room.ramenStand = undefined;
+    room.koiPond = undefined;
+    room.motelPool = undefined;
+    room.tenguCamp = undefined;
+    room.roadsideMonument = undefined;
+    room.allNiteDiner = undefined;
+    room.fireworkStand = undefined;
+    room.jackalopeLodge = undefined;
+    room.gridironYard = undefined;
+    room.billboardOracle = undefined;
+    room.roadCrew = undefined;
+    room.molemanDigSite = undefined;
+    room.bulletTrainStation = undefined;
+    room.temperatureReliefs = undefined;
+    room.caveEntrances = undefined;
+    room.layerEntrances = undefined;
+    room.cave = undefined;
+    room.layer = undefined;
+    room.minecraftBlocks = undefined;
+    room.minecraftCropData = undefined;
+    room.vegetation = undefined;
+
+    // Clear the layout: replace walls and obstacles with floor
+    for (let y = 0; y < grid.rows; y++) {
+      const row = room.layout[y];
+      if (!row) continue;
+      let rowChanged = false;
+      const chars = row.split('');
+      for (let x = 0; x < grid.cols; x++) {
+        const tile = chars[x];
+        // Keep important tiles: portals (H), entrances (@), floor (.), NPCs (G)
+        // Keep apples/enemies that may have been placed
+        // Clear walls (#), water (~), dry pool (O), roads (A), paths (W), and decorations
+        if (tile === '#' || tile === '~' || tile === 'O' || tile === 'A' || tile === 'W' ||
+            tile === 'E' || tile === 'L' || tile === 'N' || tile === 'M' || tile === 'T' ||
+            tile === 'B' || tile === 'C' || tile === 'F' || tile === 'R' || tile === 'D') {
+          chars[x] = '.';
+          rowChanged = true;
+          clearedCount++;
+        }
+      }
+      if (rowChanged) {
+        room.layout[y] = chars.join('');
+      }
+    }
+
+    console.info(`[SnakeGame] Cleared ${clearedCount} tiles in room ${room.id}.`);
   }
 
   getActiveQuests(): Quest[] {
