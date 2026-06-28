@@ -529,6 +529,7 @@ export class StructureOperations {
     });
     this.replaceLayout(context, room.layout);
     context.town = room.town;
+    context.layerEntrances = room.layerEntrances;
     context.questGiver = undefined;
     context.village = undefined;
     context.goblinCamp = undefined;

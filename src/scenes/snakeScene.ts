@@ -5300,21 +5300,33 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a goblin camp!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place goblin camp - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place goblin camp - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'quest') {
       if (this.snakeGame?.spawnQuestHouse()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a quest house!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place quest house - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place quest house - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'mcdonalds' || code === 'snakemcdonalds') {
       if (this.snakeGame?.spawnSnakeMcDonalds()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a Snake McDonalds!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place Snake McDonalds - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place Snake McDonalds - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'shrine') {
       if (this.snakeGame?.spawnShrine()) {
@@ -5328,7 +5340,11 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a ramen stand!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place ramen stand - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place ramen stand - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'koi' || code === 'koipond') {
       if (this.snakeGame?.spawnKoiPond()) {
@@ -5342,42 +5358,66 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a tengu camp!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place tengu camp - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place tengu camp - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'monument') {
       if (this.snakeGame?.spawnRoadsideMonument()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a roadside monument!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place roadside monument - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place roadside monument - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'diner' || code === 'allnitediner') {
       if (this.snakeGame?.spawnAllNiteDiner()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned an all-nite diner!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place all-nite diner - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place all-nite diner - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'fireworks' || code === 'fireworkstand') {
       if (this.snakeGame?.spawnFireworkStand()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a firework stand!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place firework stand - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place firework stand - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'jackalope') {
       if (this.snakeGame?.spawnJackalopeLodge()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a jackalope lodge!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place jackalope lodge - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place jackalope lodge - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'moleman') {
       if (this.snakeGame?.spawnMolemanDigSite()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a moleman dig site!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place moleman dig site - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place moleman dig site - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'motelpool') {
       if (this.snakeGame?.spawnMotelPool()) {
@@ -5474,7 +5514,7 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#5dd6a2',
       };
     }
-    if (code === "lindsey's closet" || code === "lindsleys closet") {
+    if (code === "lindsey's closet" || code === 'lindsleys closet') {
       // Lindsey's Closet: give the player every cosmetic in the game.
       const allThemeIds: SnakeThemeId[] = [
         'classic',
@@ -9326,10 +9366,7 @@ export default class SnakeScene extends Phaser.Scene {
           color: 0x4ecdc4,
         })),
       snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
-      activeHat:
-        activeSnakeTheme.id === 'unicorn'
-          ? 'unicorn-horn'
-          : this.snakeCosmetics.activeHat,
+      activeHat: activeSnakeTheme.id === 'unicorn' ? 'unicorn-horn' : this.snakeCosmetics.activeHat,
       enemies: roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id),
       followers: roomSnapshot?.followers ?? [],
       bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
@@ -11363,7 +11400,7 @@ export default class SnakeScene extends Phaser.Scene {
       return false;
     }
     const district = getTownDistrictForRoom(room.town, room.id);
-    return district === 'square' && this.isNearTownTile('D');
+    return (district === 'square' || district === 'townCenter') && this.isNearTownTile('D');
   }
 
   private townQuestBoardDescription(quest: { id: string; description: string }): string {
@@ -16314,7 +16351,7 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     if (town && (actorRole === 'guard' || actorRole === 'gateGuard')) {
-      if (district === 'gate' || district === 'townExit') {
+      if (district === 'gate' || district === 'townCenter' || district === 'townExit') {
         options.push({
           id: 'open-gate',
           title: district === 'townExit' ? 'Open Back Gate' : 'Open Gate',
@@ -16910,6 +16947,8 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const kind = workRoomId.split(':').pop();
     if (kind === district) return true;
+    if (kind === 'townCenter' && district === 'square') return true;
+    if (kind === 'square' && district === 'townCenter') return true;
     if (kind === 'market' && district === 'marketStreet') return true;
     if (kind === 'tavern' && district === 'tavernInterior') return true;
     if (kind === 'residential' && district === 'residentialStreet') return true;

@@ -854,6 +854,15 @@ export class SnakeRenderer {
             this.graphics
               .lineStyle(1, outline, 0.5)
               .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else if (room.town || room.layer?.kind === 'townInterior') {
+            const color = room.layer?.kind === 'townInterior' ? 0x6d5845 : 0xb7ab96;
+            const outline = darkenColor(color, 0.35);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.3)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
             const color = 0x8ea1ff;
             const outline = darkenColor(color, 0.45);

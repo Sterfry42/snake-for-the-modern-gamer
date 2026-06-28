@@ -119,6 +119,7 @@ export class RoomGenerator {
       village: context.village,
       goblinCamp: context.goblinCamp,
       town: context.town,
+      layerEntrances: context.layerEntrances,
       townPerimeter: context.townPerimeter,
       snakeMcDonalds: townRoom ? undefined : context.snakeMcDonalds,
       shrine: townRoom ? undefined : context.shrine,

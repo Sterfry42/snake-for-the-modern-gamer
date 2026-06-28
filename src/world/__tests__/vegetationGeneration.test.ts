@@ -15,6 +15,18 @@ function generateRoom(
   return generator.generate(roomId, grid);
 }
 
+function findRoomByBiome(biomeId: RoomSnapshot['biomeId'], seed: string): RoomSnapshot {
+  for (let y = -40; y <= 40; y += 1) {
+    for (let x = -40; x <= 40; x += 1) {
+      const room = generateRoom(`${x},${y},0`, seed);
+      if (room.biomeId === biomeId) {
+        return room;
+      }
+    }
+  }
+  throw new Error(`Expected to find biome ${biomeId}.`);
+}
+
 describe('vegetation generation', () => {
   it('places vegetation in regular rooms', () => {
     const room = generateRoom('0,0,0', 'veg-sanity');
@@ -27,7 +39,7 @@ describe('vegetation generation', () => {
   });
 
   it('does not place vegetation in sunken-ocean', () => {
-    const room = generateRoom('0,-9,0', 'veg-ocean');
+    const room = findRoomByBiome('sunken-ocean', 'veg-ocean');
     expect(room.vegetation).toBeUndefined();
   });
 

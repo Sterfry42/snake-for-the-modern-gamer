@@ -119,45 +119,19 @@ import {
   isTownGuardRole,
   isTownShopRole,
 } from '../world/townRoles.js';
-import {
-  tryPlaceVillage,
-} from '../world/village.js';
-import {
-  tryPlaceGoblinCamp,
-} from '../world/goblinCamp.js';
-import {
-  tryPlaceQuestHouse,
-} from '../world/questHouse.js';
-import {
-  tryPlaceSnakeMcDonalds,
-} from '../world/snakeMcDonalds.js';
-import {
-  tryPlaceShrine,
-} from '../world/shrine.js';
-import {
-  tryPlaceRamenStand,
-} from '../world/ramenStand.js';
-import {
-  tryPlaceKoiPond,
-} from '../world/koiPond.js';
-import {
-  tryPlaceTenguCamp,
-} from '../world/tenguCamp.js';
-import {
-  tryPlaceRoadsideMonument,
-} from '../world/roadsideMonument.js';
-import {
-  tryPlaceAllNiteDiner,
-} from '../world/allNiteDiner.js';
-import {
-  tryPlaceFireworkStand,
-} from '../world/fireworkStand.js';
-import {
-  tryPlaceJackalopeLodge,
-} from '../world/jackalopeLodge.js';
-import {
-  tryPlaceMolemanDigSite,
-} from '../world/molemanDigSite.js';
+import { tryPlaceVillage } from '../world/village.js';
+import { tryPlaceGoblinCamp } from '../world/goblinCamp.js';
+import { tryPlaceQuestHouse } from '../world/questHouse.js';
+import { tryPlaceSnakeMcDonalds } from '../world/snakeMcDonalds.js';
+import { tryPlaceShrine } from '../world/shrine.js';
+import { tryPlaceRamenStand } from '../world/ramenStand.js';
+import { tryPlaceKoiPond } from '../world/koiPond.js';
+import { tryPlaceTenguCamp } from '../world/tenguCamp.js';
+import { tryPlaceRoadsideMonument } from '../world/roadsideMonument.js';
+import { tryPlaceAllNiteDiner } from '../world/allNiteDiner.js';
+import { tryPlaceFireworkStand } from '../world/fireworkStand.js';
+import { tryPlaceJackalopeLodge } from '../world/jackalopeLodge.js';
+import { tryPlaceMolemanDigSite } from '../world/molemanDigSite.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { loadLanguagePreference, saveLanguagePreference } from '../i18n/storage.js';
 import {
@@ -4632,7 +4606,11 @@ export class SnakeGame implements QuestRuntime {
     }
     const district = town.districtByRoomId[room.id];
     const suspicion = town.suspicion ?? 0;
-    const guardDistrict = district === 'gate' || district === 'square' || district === 'townExit';
+    const guardDistrict =
+      district === 'gate' ||
+      district === 'square' ||
+      district === 'townCenter' ||
+      district === 'townExit';
     const thiefDistrict = district === 'backAlley' || district === 'guildHideout';
     const hostilityChance =
       town.wantedLevel > 0 && guardDistrict
@@ -4959,16 +4937,17 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, message: 'There is no town gate here.' };
     }
     const district = town.districtByRoomId[room.id];
-    if (district !== 'gate' && district !== 'townExit') {
+    if (district !== 'gate' && district !== 'townCenter' && district !== 'townExit') {
       return {
         ok: false,
         message: 'The guard looks around for a gate and finds only awkwardness.',
       };
     }
+    const flagDistrict = district === 'townCenter' ? 'gate' : district;
     if (this.isTownRoomHostile(town, room.id)) {
       return { ok: false, message: 'The guards are hostile. No one is opening gates for you now.' };
     }
-    if (this.getFlag<boolean>(this.townGateFlagKey(town.id, district))) {
+    if (this.getFlag<boolean>(this.townGateFlagKey(town.id, flagDistrict))) {
       return { ok: true, message: 'The gate is already open.' };
     }
     if (district === 'townExit' && !this.isInsideTownExitLatchSide(town, room)) {
@@ -4982,21 +4961,23 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, message: `The guard wants a ${gateTax} score gate tax.` };
     }
     this.addScore(-gateTax);
-    this.openTownGateBarrierTiles(room, district);
-    this.setFlag(this.townGateFlagKey(town.id, district), true);
+    if (district === 'gate' || district === 'townExit') {
+      this.openTownGateBarrierTiles(room, district);
+    }
+    this.setFlag(this.townGateFlagKey(town.id, flagDistrict), true);
     this.saveTownRuntimeState(town);
     this.emitWorldEvent({
       type: 'gate-opened',
       roomId: room.id,
       severity: 12,
       loudness: 8,
-      tags: ['town', 'gate', 'tax', district],
+      tags: ['town', 'gate', 'tax', flagDistrict],
       summary:
         district === 'townExit'
           ? `${town.name}'s back gate opened after the snake paid the exit tax.`
           : `${town.name}'s front gate opened after the snake paid the gate tax.`,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
-      data: { townId: town.id, district, gateTax },
+      data: { townId: town.id, district: flagDistrict, gateTax },
     });
     return {
       ok: true,
@@ -5057,6 +5038,7 @@ export class SnakeGame implements QuestRuntime {
         return 'Fenceposts appear where wilderness was pretending it had no neighbors.';
       case 'gate':
         return 'The gate guards watch the road, your mouth, and each other.';
+      case 'townCenter':
       case 'square':
         return 'The square is all notices, gossip, and legal-looking benches.';
       case 'market':
@@ -7051,7 +7033,7 @@ export class SnakeGame implements QuestRuntime {
 
   private normalizeTownQuestBoardTiles(room: RoomSnapshot): void {
     const district = room.town?.districtByRoomId?.[room.id];
-    if (district !== 'square') {
+    if (district !== 'square' && district !== 'townCenter') {
       return;
     }
     const centerX = Math.floor(this.config.grid.cols / 2);
@@ -7435,6 +7417,10 @@ export class SnakeGame implements QuestRuntime {
     const shelteredConfig = {
       ...this.atmosphereConfig,
       shelterMode,
+      visualParticlesEnabled:
+        shelterMode === 'interior' ? false : this.atmosphereConfig.visualParticlesEnabled,
+      dayNightTintEnabled:
+        shelterMode === 'interior' ? false : this.atmosphereConfig.dayNightTintEnabled,
     };
     return resolveBiomeAtmosphere(biome, this.atmosphere.getState(), shelteredConfig);
   }
@@ -7444,6 +7430,9 @@ export class SnakeGame implements QuestRuntime {
     _biome: ReturnType<typeof getBiomeDefinition>,
   ): ShelterMode {
     if (room.id === '0,-1,0' || room.snakeMcDonalds) {
+      return 'interior';
+    }
+    if (room.layer?.kind === 'townInterior') {
       return 'interior';
     }
     if (room.id.startsWith('cave:') || room.layer || room.cave) {
@@ -7998,13 +7987,10 @@ export class SnakeGame implements QuestRuntime {
   spawnVillage(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceVillage(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      room.biomeId,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceVillage(layout2d, this.config.grid, this._rng, room.biomeId, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8018,12 +8004,10 @@ export class SnakeGame implements QuestRuntime {
   spawnGoblinCamp(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceGoblinCamp(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceGoblinCamp(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8036,12 +8020,10 @@ export class SnakeGame implements QuestRuntime {
   spawnQuestHouse(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceQuestHouse(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceQuestHouse(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8054,12 +8036,10 @@ export class SnakeGame implements QuestRuntime {
   spawnSnakeMcDonalds(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceSnakeMcDonalds(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 3 },
-    );
+    const result = tryPlaceSnakeMcDonalds(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 3,
+    });
     if (!result) {
       return false;
     }
@@ -8072,12 +8052,10 @@ export class SnakeGame implements QuestRuntime {
   spawnShrine(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceShrine(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceShrine(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8091,12 +8069,10 @@ export class SnakeGame implements QuestRuntime {
   spawnRamenStand(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceRamenStand(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceRamenStand(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8109,12 +8085,10 @@ export class SnakeGame implements QuestRuntime {
   spawnKoiPond(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceKoiPond(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 4 },
-    );
+    const result = tryPlaceKoiPond(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 4,
+    });
     if (!result) {
       return false;
     }
@@ -8127,12 +8101,10 @@ export class SnakeGame implements QuestRuntime {
   spawnTenguCamp(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceTenguCamp(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceTenguCamp(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8145,12 +8117,10 @@ export class SnakeGame implements QuestRuntime {
   spawnRoadsideMonument(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceRoadsideMonument(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceRoadsideMonument(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8164,12 +8134,10 @@ export class SnakeGame implements QuestRuntime {
   spawnAllNiteDiner(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceAllNiteDiner(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceAllNiteDiner(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8182,12 +8150,10 @@ export class SnakeGame implements QuestRuntime {
   spawnFireworkStand(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceFireworkStand(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceFireworkStand(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8200,12 +8166,10 @@ export class SnakeGame implements QuestRuntime {
   spawnJackalopeLodge(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceJackalopeLodge(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5 },
-    );
+    const result = tryPlaceJackalopeLodge(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+    });
     if (!result) {
       return false;
     }
@@ -8219,12 +8183,11 @@ export class SnakeGame implements QuestRuntime {
   spawnMolemanDigSite(): boolean {
     const room = this.getCurrentRoom();
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceMolemanDigSite(
-      layout2d,
-      this.config.grid,
-      this._rng,
-      { forbiddenCells: new Set(), margin: 5, biomeId: room.biomeId },
-    );
+    const result = tryPlaceMolemanDigSite(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 5,
+      biomeId: room.biomeId,
+    });
     if (!result) {
       return false;
     }
@@ -8292,7 +8255,8 @@ export class SnakeGame implements QuestRuntime {
     const wallTop = Math.max(5, top - 3);
     for (let x = left + 2; x < left + deckWidth - 2; x++) {
       if (!safe.has(`${x},${wallTop}`)) {
-        room.layout[wallTop] = room.layout[wallTop].substring(0, x) + '#' + room.layout[wallTop].substring(x + 1);
+        room.layout[wallTop] =
+          room.layout[wallTop].substring(0, x) + '#' + room.layout[wallTop].substring(x + 1);
       }
     }
 
@@ -8300,7 +8264,8 @@ export class SnakeGame implements QuestRuntime {
     const signX = left + deckWidth - 6;
     const signY = wallTop + 2;
     if (!safe.has(`${signX},${signY}`)) {
-      room.layout[signY] = room.layout[signY].substring(0, signX) + 'N' + room.layout[signY].substring(signX + 1);
+      room.layout[signY] =
+        room.layout[signY].substring(0, signX) + 'N' + room.layout[signY].substring(signX + 1);
     }
 
     // Clerk and maintenance NPCs
@@ -8308,20 +8273,29 @@ export class SnakeGame implements QuestRuntime {
     const clerkY = top + 2;
     const maintenanceX = left + 3;
     const maintenanceY = top + deckHeight - 3;
-    if (room.layout[clerkY]?.[clerkX]) room.layout[clerkY] = room.layout[clerkY].substring(0, clerkX) + 'G' + room.layout[clerkY].substring(clerkX + 1);
-    if (room.layout[maintenanceY]?.[maintenanceX]) room.layout[maintenanceY] = room.layout[maintenanceY].substring(0, maintenanceX) + 'G' + room.layout[maintenanceY].substring(maintenanceX + 1);
+    if (room.layout[clerkY]?.[clerkX])
+      room.layout[clerkY] =
+        room.layout[clerkY].substring(0, clerkX) + 'G' + room.layout[clerkY].substring(clerkX + 1);
+    if (room.layout[maintenanceY]?.[maintenanceX])
+      room.layout[maintenanceY] =
+        room.layout[maintenanceY].substring(0, maintenanceX) +
+        'G' +
+        room.layout[maintenanceY].substring(maintenanceX + 1);
 
     // NPC profiles
     const clerkNames = ['Vacancy Vera', 'Clerk Connie', 'Pool Key Dale'];
     const maintenanceNames = ['Skimmer Hank', 'Chlorine Tammy', 'Net Earl'];
-    const poolNames = ['The Big Dipper', 'Snake Splash Pool', 'Aquatic Serpent Basin', 'The Gator Hole', 'Serpent Springs'];
+    const poolNames = [
+      'The Big Dipper',
+      'Snake Splash Pool',
+      'Aquatic Serpent Basin',
+      'The Gator Hole',
+      'Serpent Springs',
+    ];
 
     room.motelPool = {
       clerk: {
-        ...buildHouseNpcProfile(
-          clerkNames[Math.floor(rng() * clerkNames.length)],
-          'sage-1',
-        ),
+        ...buildHouseNpcProfile(clerkNames[Math.floor(rng() * clerkNames.length)], 'sage-1'),
         x: clerkX,
         y: clerkY,
       },
@@ -8407,10 +8381,16 @@ export class SnakeGame implements QuestRuntime {
 
     // L-shapes for goal posts
     const fillLShape = (x: number, y: number) => {
-      if (!safe.has(`${x},${y}`)) room.layout[y] = room.layout[y].substring(0, x) + 'L' + room.layout[y].substring(x + 1);
-      if (!safe.has(`${x + 1},${y}`)) room.layout[y] = room.layout[y].substring(0, x + 1) + 'L' + room.layout[y].substring(x + 2);
-      if (!safe.has(`${x},${y + 1}`)) room.layout[y + 1] = room.layout[y + 1].substring(0, x) + 'L' + room.layout[y + 1].substring(x + 1);
-      if (!safe.has(`${x + 1},${y + 1}`)) room.layout[y + 1] = room.layout[y + 1].substring(0, x + 1) + 'L' + room.layout[y + 1].substring(x + 2);
+      if (!safe.has(`${x},${y}`))
+        room.layout[y] = room.layout[y].substring(0, x) + 'L' + room.layout[y].substring(x + 1);
+      if (!safe.has(`${x + 1},${y}`))
+        room.layout[y] = room.layout[y].substring(0, x + 1) + 'L' + room.layout[y].substring(x + 2);
+      if (!safe.has(`${x},${y + 1}`))
+        room.layout[y + 1] =
+          room.layout[y + 1].substring(0, x) + 'L' + room.layout[y + 1].substring(x + 1);
+      if (!safe.has(`${x + 1},${y + 1}`))
+        room.layout[y + 1] =
+          room.layout[y + 1].substring(0, x + 1) + 'L' + room.layout[y + 1].substring(x + 2);
     };
     fillLShape(left + 1, top - 3);
     fillLShape(left + width - 3, top - 3);
@@ -8420,14 +8400,16 @@ export class SnakeGame implements QuestRuntime {
     const signY = top - 3;
     for (let x = signX; x < signX + 4; x++) {
       if (!safe.has(`${x},${signY}`)) {
-        room.layout[signY] = room.layout[signY].substring(0, x) + 'N' + room.layout[signY].substring(x + 1);
+        room.layout[signY] =
+          room.layout[signY].substring(0, x) + 'N' + room.layout[signY].substring(x + 1);
       }
     }
 
     // Coach and players
     const coachX = left + Math.floor(width / 2);
     const coachY = top + height - 3;
-    room.layout[coachY] = room.layout[coachY].substring(0, coachX) + 'G' + room.layout[coachY].substring(coachX + 1);
+    room.layout[coachY] =
+      room.layout[coachY].substring(0, coachX) + 'G' + room.layout[coachY].substring(coachX + 1);
 
     const playerSpots = [
       { x: left + 5, y: top + 4 },
@@ -8436,7 +8418,8 @@ export class SnakeGame implements QuestRuntime {
       { x: left + width - 9, y: top + height - 5 },
     ];
     playerSpots.forEach((spot) => {
-      room.layout[spot.y] = room.layout[spot.y].substring(0, spot.x) + 'G' + room.layout[spot.y].substring(spot.x + 1);
+      room.layout[spot.y] =
+        room.layout[spot.y].substring(0, spot.x) + 'G' + room.layout[spot.y].substring(spot.x + 1);
     });
 
     const playerNames = ['Left Tackle Tammy', 'Wide Earl', 'Safety Sue', 'Bobby-Joe Blitz'];
@@ -8447,10 +8430,7 @@ export class SnakeGame implements QuestRuntime {
         y: coachY,
       },
       players: playerSpots.map((spot, index) => ({
-        ...buildHouseNpcProfile(
-          playerNames[index] ?? 'Yard Player',
-          'sage-1',
-        ),
+        ...buildHouseNpcProfile(playerNames[index] ?? 'Yard Player', 'sage-1'),
         x: spot.x,
         y: spot.y,
       })),
@@ -8514,7 +8494,8 @@ export class SnakeGame implements QuestRuntime {
     for (const wall of wallPositions) {
       for (let x = wall.xStart; x < wall.xEnd; x++) {
         if (wall.y >= 0 && wall.y < roomHeight && !safe.has(`${x},${wall.y}`)) {
-          room.layout[wall.y] = room.layout[wall.y].substring(0, x) + '#' + room.layout[wall.y].substring(x + 1);
+          room.layout[wall.y] =
+            room.layout[wall.y].substring(0, x) + '#' + room.layout[wall.y].substring(x + 1);
         }
       }
     }
@@ -8524,7 +8505,8 @@ export class SnakeGame implements QuestRuntime {
       const gx = left + 2 + Math.floor(rng() * (mazeWidth - 4));
       const gy = top + 2 + Math.floor(rng() * (mazeHeight - 4));
       if (!safe.has(`${gx},${gy}`) && room.layout[gy][gx] === 'E') {
-        room.layout[gy] = room.layout[gy].substring(0, gx) + 'N' + room.layout[gy].substring(gx + 1);
+        room.layout[gy] =
+          room.layout[gy].substring(0, gx) + 'N' + room.layout[gy].substring(gx + 1);
       }
     }
 
@@ -8555,22 +8537,22 @@ export class SnakeGame implements QuestRuntime {
       }
     }
     if (painterX >= 0) {
-      room.layout[painterY] = room.layout[painterY].substring(0, painterX) + 'G' + room.layout[painterY].substring(painterX + 1);
+      room.layout[painterY] =
+        room.layout[painterY].substring(0, painterX) +
+        'G' +
+        room.layout[painterY].substring(painterX + 1);
       const painterNames = ['Sign-Paint Marlene', 'Billboard Dale', 'Ad-Man Walt'];
       const slogans = [
-        'SNAKE: IT\'S THE ULTIMATE EXPERIENCE!',
+        "SNAKE: IT'S THE ULTIMATE EXPERIENCE!",
         'EAT AN APPLE, GET LONGER!',
-        'DON\'T CRASH, JUST ASK!',
+        "DON'T CRASH, JUST ASK!",
         'THE FUTURE IS GREEN AND SNAKELIKE!',
         'COILED TO PERFECTION!',
         'UNCOIL YOUR POTENTIAL!',
       ];
       room.billboardOracle = {
         signPainter: {
-          ...buildHouseNpcProfile(
-            painterNames[Math.floor(rng() * painterNames.length)],
-            'sage-1',
-          ),
+          ...buildHouseNpcProfile(painterNames[Math.floor(rng() * painterNames.length)], 'sage-1'),
           x: painterX,
           y: painterY,
         },
@@ -8653,13 +8635,16 @@ export class SnakeGame implements QuestRuntime {
       if (rangerX >= 0) {
         setTile(rangerX, rangerY, 'G');
         const rangerNames = ['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale'];
-        const roadNames = ['Route 66', 'Snake Alley', 'The Coil Expressway', 'Liberty Lane', 'Midnight Drive'];
+        const roadNames = [
+          'Route 66',
+          'Snake Alley',
+          'The Coil Expressway',
+          'Liberty Lane',
+          'Midnight Drive',
+        ];
         room.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(
-              rangerNames[Math.floor(rng() * rangerNames.length)],
-              'sage-1',
-            ),
+            ...buildHouseNpcProfile(rangerNames[Math.floor(rng() * rangerNames.length)], 'sage-1'),
             x: rangerX,
             y: rangerY,
           },
@@ -8706,13 +8691,16 @@ export class SnakeGame implements QuestRuntime {
       if (rangerX >= 0) {
         setTile(rangerX, rangerY, 'G');
         const rangerNames = ['Cone Ranger Buck', 'Shoulder Sue', 'Detour Dale'];
-        const roadNames = ['Route 66', 'Snake Alley', 'The Coil Expressway', 'Liberty Lane', 'Midnight Drive'];
+        const roadNames = [
+          'Route 66',
+          'Snake Alley',
+          'The Coil Expressway',
+          'Liberty Lane',
+          'Midnight Drive',
+        ];
         room.roadCrew = {
           ranger: {
-            ...buildHouseNpcProfile(
-              rangerNames[Math.floor(rng() * rangerNames.length)],
-              'sage-1',
-            ),
+            ...buildHouseNpcProfile(rangerNames[Math.floor(rng() * rangerNames.length)], 'sage-1'),
             x: rangerX,
             y: rangerY,
           },
@@ -8768,15 +8756,24 @@ export class SnakeGame implements QuestRuntime {
     const monumentTop = top + 2;
     for (let x = monumentLeft; x < monumentLeft + 5; x++) {
       if (!safe.has(`${x},${monumentTop}`)) {
-        room.layout[monumentTop] = room.layout[monumentTop].substring(0, x) + '#' + room.layout[monumentTop].substring(x + 1);
+        room.layout[monumentTop] =
+          room.layout[monumentTop].substring(0, x) +
+          '#' +
+          room.layout[monumentTop].substring(x + 1);
       }
     }
     // Monument sign
     const signX = monumentLeft + 1;
     const signY = monumentTop - 1;
-    if (!safe.has(`${signX},${signY}`)) room.layout[signY] = room.layout[signY].substring(0, signX) + 'M' + room.layout[signY].substring(signX + 1);
-    if (!safe.has(`${signX + 1},${signY}`)) room.layout[signY] = room.layout[signY].substring(0, signX + 1) + 'M' + room.layout[signY].substring(signX + 2);
-    if (!safe.has(`${signX + 2},${signY}`)) room.layout[signY] = room.layout[signY].substring(0, signX + 2) + 'M' + room.layout[signY].substring(signX + 3);
+    if (!safe.has(`${signX},${signY}`))
+      room.layout[signY] =
+        room.layout[signY].substring(0, signX) + 'M' + room.layout[signY].substring(signX + 1);
+    if (!safe.has(`${signX + 1},${signY}`))
+      room.layout[signY] =
+        room.layout[signY].substring(0, signX + 1) + 'M' + room.layout[signY].substring(signX + 2);
+    if (!safe.has(`${signX + 2},${signY}`))
+      room.layout[signY] =
+        room.layout[signY].substring(0, signX + 2) + 'M' + room.layout[signY].substring(signX + 3);
 
     // Path
     const pathX = Math.floor(roomWidth / 2);
@@ -8794,7 +8791,8 @@ export class SnakeGame implements QuestRuntime {
       const gx = left + 1 + Math.floor(rng() * (plazaWidth - 2));
       const gy = top + 1 + Math.floor(rng() * (plazaHeight - 2));
       if (!safe.has(`${gx},${gy}`) && room.layout[gy]?.[gx] === 'E') {
-        room.layout[gy] = room.layout[gy].substring(0, gx) + 'N' + room.layout[gy].substring(gx + 1);
+        room.layout[gy] =
+          room.layout[gy].substring(0, gx) + 'N' + room.layout[gy].substring(gx + 1);
       }
     }
 
@@ -8810,18 +8808,19 @@ export class SnakeGame implements QuestRuntime {
     // Remove the monument structure
     for (let x = monumentLeft; x < monumentLeft + 5; x++) {
       if (room.layout[monumentTop]?.[x] === '#') {
-        room.layout[monumentTop] = room.layout[monumentTop].substring(0, x) + '.' + room.layout[monumentTop].substring(x + 1);
+        room.layout[monumentTop] =
+          room.layout[monumentTop].substring(0, x) +
+          '.' +
+          room.layout[monumentTop].substring(x + 1);
       }
     }
 
     // Now try to place it properly
     const layout2d = this.layoutTo2D(room.layout);
-    const result = tryPlaceRoadsideMonument(
-      layout2d,
-      grid,
-      rng,
-      { forbiddenCells: safe, margin: 5 },
-    );
+    const result = tryPlaceRoadsideMonument(layout2d, grid, rng, {
+      forbiddenCells: safe,
+      margin: 5,
+    });
     if (!result) {
       // Restore the plaza layout as fallback
       for (let y = top; y < top + plazaHeight; y++) {
@@ -8834,14 +8833,29 @@ export class SnakeGame implements QuestRuntime {
       // Restore monument
       for (let x = monumentLeft; x < monumentLeft + 5; x++) {
         if (!safe.has(`${x},${monumentTop}`)) {
-          room.layout[monumentTop] = room.layout[monumentTop].substring(0, x) + '#' + room.layout[monumentTop].substring(x + 1);
+          room.layout[monumentTop] =
+            room.layout[monumentTop].substring(0, x) +
+            '#' +
+            room.layout[monumentTop].substring(x + 1);
         }
       }
       const signX2 = monumentLeft + 1;
       const signY2 = monumentTop - 1;
-      if (!safe.has(`${signX2},${signY2}`)) room.layout[signY2] = room.layout[signY2].substring(0, signX2) + 'M' + room.layout[signY2].substring(signX2 + 1);
-      if (!safe.has(`${signX2 + 1},${signY2}`)) room.layout[signY2] = room.layout[signY2].substring(0, signX2 + 1) + 'M' + room.layout[signY2].substring(signX2 + 2);
-      if (!safe.has(`${signX2 + 2},${signY2}`)) room.layout[signY2] = room.layout[signY2].substring(0, signX2 + 2) + 'M' + room.layout[signY2].substring(signX2 + 3);
+      if (!safe.has(`${signX2},${signY2}`))
+        room.layout[signY2] =
+          room.layout[signY2].substring(0, signX2) +
+          'M' +
+          room.layout[signY2].substring(signX2 + 1);
+      if (!safe.has(`${signX2 + 1},${signY2}`))
+        room.layout[signY2] =
+          room.layout[signY2].substring(0, signX2 + 1) +
+          'M' +
+          room.layout[signY2].substring(signX2 + 2);
+      if (!safe.has(`${signX2 + 2},${signY2}`))
+        room.layout[signY2] =
+          room.layout[signY2].substring(0, signX2 + 2) +
+          'M' +
+          room.layout[signY2].substring(signX2 + 3);
       // Place NPCs manually
       const monumentNames = ['Historical Hank', 'Monument Mary', 'Landmark Larry'];
       const docentNames = ['Docent Diane', 'Guide Greg', 'Tour Tom'];
@@ -8853,7 +8867,10 @@ export class SnakeGame implements QuestRuntime {
           y: top + plazaHeight + 2,
         },
         ranger: {
-          ...buildHouseNpcProfile(monumentNames[Math.floor(rng() * monumentNames.length)], 'sage-2'),
+          ...buildHouseNpcProfile(
+            monumentNames[Math.floor(rng() * monumentNames.length)],
+            'sage-2',
+          ),
           x: left + Math.floor(plazaWidth / 2),
           y: top + plazaHeight + 4,
         },
@@ -8900,7 +8917,10 @@ export class SnakeGame implements QuestRuntime {
     const failed = results.filter((r) => !r.ok).map((r) => r.name);
 
     if (successCount > 0) {
-      console.info(`[SnakeGame] Spawned ${successCount} structures:`, results.filter((r) => r.ok).map((r) => r.name));
+      console.info(
+        `[SnakeGame] Spawned ${successCount} structures:`,
+        results.filter((r) => r.ok).map((r) => r.name),
+      );
     }
     if (failed.length > 0) {
       console.warn(`[SnakeGame] Failed to spawn: ${failed.join(', ')}`);
@@ -8960,9 +8980,23 @@ export class SnakeGame implements QuestRuntime {
         // Keep important tiles: portals (H), entrances (@), floor (.), NPCs (G)
         // Keep apples/enemies that may have been placed
         // Clear walls (#), water (~), dry pool (O), roads (A), paths (W), and decorations
-        if (tile === '#' || tile === '~' || tile === 'O' || tile === 'A' || tile === 'W' ||
-            tile === 'E' || tile === 'L' || tile === 'N' || tile === 'M' || tile === 'T' ||
-            tile === 'B' || tile === 'C' || tile === 'F' || tile === 'R' || tile === 'D') {
+        if (
+          tile === '#' ||
+          tile === '~' ||
+          tile === 'O' ||
+          tile === 'A' ||
+          tile === 'W' ||
+          tile === 'E' ||
+          tile === 'L' ||
+          tile === 'N' ||
+          tile === 'M' ||
+          tile === 'T' ||
+          tile === 'B' ||
+          tile === 'C' ||
+          tile === 'F' ||
+          tile === 'R' ||
+          tile === 'D'
+        ) {
           chars[x] = '.';
           rowChanged = true;
           clearedCount++;

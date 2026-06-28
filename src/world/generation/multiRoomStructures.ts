@@ -32,6 +32,7 @@ export interface StructureRoomMembership {
 }
 
 export type TownPhysicalDistrictKind =
+  | 'townCenter'
   | 'outskirts'
   | 'gate'
   | 'square'

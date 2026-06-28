@@ -2,7 +2,13 @@ import type { Vector2Like } from '../core/math.js';
 
 export type LayerKind = 'townInterior' | 'cave' | 'building' | 'basement' | 'dungeon' | 'other';
 
-export type LayerTemplateId = 'thievesGuild';
+export type LayerTemplateId =
+  | 'thievesGuild'
+  | 'tavern'
+  | 'generalStore'
+  | 'butcherShop'
+  | 'potionMaker'
+  | 'residentialHome';
 
 export type LayerInstanceState = 'available' | 'active' | 'completed' | 'locked';
 
