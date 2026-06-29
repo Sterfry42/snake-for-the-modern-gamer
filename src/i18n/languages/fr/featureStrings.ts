@@ -204,7 +204,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   placeholderInventory: 'Les objets que vous collecterez apparaîtront ici.',
   placeholderCustomize: 'Achetez des palettes et du style.',
   placeholderMap: 'Explorez pour révéler plus de chambres.',
-  placeholderCheats: "Entrez des strings de triche : freakdennis, freakerdennis, ryan's closet",
+  placeholderCheats: "Tapez un code de triche ou cliquez sur Activer dans les cartes.",
 
   // HUD
   hudHearts: 'Cœurs',

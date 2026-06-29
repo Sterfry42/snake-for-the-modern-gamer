@@ -209,6 +209,7 @@ import {
   type CardTableDefinition,
   type HouseCardId,
 } from '../cards/cardGame.js';
+import { findCheatByCode } from '../cheats/cheatRegistry.js';
 import {
   ARCHAEOLOGY_TILE_DEFINITIONS,
   getDigSiteVariant,
@@ -5139,6 +5140,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (!code) {
       return { ok: false, message: 'Enter a cheat string.', color: '#ff6b6b' };
     }
+    // Gate: only codes registered in the cheat registry are recognized.
+    const cheatDef = findCheatByCode(code);
+    if (!cheatDef) {
+      return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: '#ff6b6b' };
+    }
     if (code === 'special10' || code === 'special' || code === 'stats10') {
       this.snakeGame.setAllSpecialStatsToMax();
       this.applyEquipmentEffects();
@@ -5534,6 +5540,7 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#5dd6a2',
       };
     }
+    // Should never reach here due to the registry gate at the top of this function.
     return { ok: false, message: `Unknown cheat: ${rawCode.trim()}`, color: '#ff6b6b' };
   }
 
