@@ -3,6 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 import { manhattanDistance, vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { isSolidTile } from '../world/tiles.js';
 import {
   getBiomeDefinition,
   getBiomeAnimalSpawnBias,
@@ -233,14 +234,14 @@ export class AnimalManager {
     y: number,
   ): boolean {
     const tile = room.layout[y]?.[x];
-    if (!tile || tile === '#' || tile === '%') {
+    if (!tile || isSolidTile(tile) || tile === '%') {
       return false;
     }
     if (def.behavior === 'school') {
       return tile === '~';
     }
     if (def.behavior === 'perch') {
-      return tile === '#' || tile === '%' || tile === '.';
+      return isSolidTile(tile) || tile === '%' || tile === '.';
     }
     return tile === '.' || tile === 'O';
   }

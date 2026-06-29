@@ -425,8 +425,8 @@ function weatherDarknessAdd(
 }
 
 function darknessLevelForScore(score: number): DarknessLevel {
-  if (score >= 0.75) return 'pitchBlack';
-  if (score >= 0.45) return 'dark';
+  if (score >= 0.85) return 'pitchBlack';
+  if (score >= 0.55) return 'dark';
   if (score >= 0.2) return 'dim';
   return 'bright';
 }
@@ -449,11 +449,11 @@ function darknessAlphaForLevel(level: DarknessLevel, score: number): number {
     case 'bright':
       return 0;
     case 'dim':
-      return clamp(0.12 + score * 0.18, 0.12, 0.22);
+      return clamp(0.08 + score * 0.14, 0.08, 0.18);
     case 'dark':
-      return clamp(0.38 + (score - 0.45) * 0.35, 0.38, 0.55);
+      return clamp(0.3 + (score - 0.55) * 0.32, 0.3, 0.48);
     case 'pitchBlack':
-      return clamp(0.7 + (score - 0.75) * 0.18, 0.7, 0.82);
+      return clamp(0.62 + (score - 0.85) * 0.18, 0.62, 0.78);
   }
 }
 

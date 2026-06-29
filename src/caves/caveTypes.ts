@@ -5,6 +5,7 @@ export type CaveTemplateId =
   | 'skittishAppleRush'
   | 'caffeinatedAppleRush'
   | 'simpleTreasure'
+  | 'pitchBlackTreasure'
   | 'lakeTreasure'
   | 'caveDweller'
   | 'monsterDen'
@@ -18,6 +19,7 @@ export type CaveTemplateId =
 export type CaveLayoutId =
   | 'appleRush'
   | 'simpleTreasure'
+  | 'pitchBlackTreasure'
   | 'lakeTreasure'
   | 'caveDweller'
   | 'monsterDen'

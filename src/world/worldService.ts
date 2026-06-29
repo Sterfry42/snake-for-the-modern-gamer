@@ -3,7 +3,13 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { RoomGenerator } from './roomGenerator.js';
 import type { RoomSnapshot } from './types.js';
-import { cloneTownForRoom, type TownBuilding, type TownRoomKind, type TownStructure } from './town.js';
+import {
+  cloneTownForRoom,
+  type TownBuilding,
+  type TownRoomKind,
+  type TownStructure,
+  type TownResidentPresence,
+} from './town.js';
 import {
   createWorldGenerationIdentity,
   type WorldGenerationIdentity,
@@ -11,7 +17,12 @@ import {
 import { maybePlaceCaveEntrance } from '../caves/caveEntrancePlacement.js';
 import { generateCave, isCaveRoomId } from '../caves/caveGenerator.js';
 import type { CaveInstanceSaveData, CaveTemplateId } from '../caves/caveTypes.js';
-import type { LayerEntrance, LayerInstance, LayerTemplateId } from '../layers/layerTypes.js';
+import {
+  LAYER_EXIT_TILE,
+  type LayerEntrance,
+  type LayerInstance,
+  type LayerTemplateId,
+} from '../layers/layerTypes.js';
 import { generateDecorations, generateTransitRooms } from './bulletTrainService.js';
 import type { BulletTrainDestination, BulletTrainJourney } from './bulletTrainTypes.js';
 import { BulletTrainStructureResolver } from './generation/bulletTrainResolver.js';
@@ -270,10 +281,12 @@ export class WorldService {
         const roomCenter = room.town.center;
         const roomSafeArea = room.town.safeArea;
         const roomLanterns = room.town.lanterns;
+        const roomPresences = room.town.residentPresences;
         const next = cloneTownForRoom(townForRoom, roomId, districtKind);
         next.center = { ...roomCenter };
         next.safeArea = { ...roomSafeArea };
         next.lanterns = roomLanterns.map((lantern) => ({ ...lantern }));
+        next.residentPresences = roomPresences?.map((presence) => ({ ...presence }));
         next.residents = next.residents.map((resident) => {
           const positioned = positionedResidents.find((entry) => entry.id === resident.id);
           return positioned ? { ...resident, x: positioned.x, y: positioned.y } : resident;
@@ -386,7 +399,9 @@ export class WorldService {
       x: Math.min(bounds.left + bounds.width - 3, Math.max(bounds.left + 2, instance.exit.x)),
       y: bounds.top + bounds.height - 1,
     };
-    setTile(exit.x, exit.y, 'Y');
+    setTile(exit.x, exit.y, LAYER_EXIT_TILE);
+    setTile(exit.x - 1, exit.y, 'W');
+    setTile(exit.x + 1, exit.y, 'W');
     setTile(exit.x - 1, exit.y - 1, 'W');
     setTile(exit.x, exit.y - 1, 'W');
     setTile(exit.x + 1, exit.y - 1, 'W');
@@ -395,6 +410,7 @@ export class WorldService {
     if (roomTown) {
       const interiorResidents = townInteriorResidentsForBuilding(roomTown, instance, building);
       const residentPositions = townInteriorResidentPositions(instance.templateId, bounds);
+      const residentPresences: TownResidentPresence[] = [];
       roomTown.residents = roomTown.residents.map((resident) => {
         const index = interiorResidents.findIndex((entry) => entry.id === resident.id);
         if (index < 0) {
@@ -405,13 +421,24 @@ export class WorldService {
           y: bounds.top + Math.floor(bounds.height / 2),
         };
         setTile(position.x, position.y, 'G');
+        const x = Math.max(2, Math.min(this.grid.cols - 3, position.x));
+        const y = Math.max(2, Math.min(this.grid.rows - 3, position.y));
+        residentPresences.push({
+          residentId: resident.id,
+          roomId: instance.id,
+          x,
+          y,
+          source: 'interior',
+          role: resident.role,
+        });
         return {
           ...resident,
-          x: Math.max(2, Math.min(this.grid.cols - 3, position.x)),
-          y: Math.max(2, Math.min(this.grid.rows - 3, position.y)),
+          x,
+          y,
           workRoomId: instance.id,
         };
       });
+      roomTown.residentPresences = residentPresences;
     }
     return {
       id: instance.id,

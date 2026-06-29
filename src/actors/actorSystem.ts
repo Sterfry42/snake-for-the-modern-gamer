@@ -12,7 +12,7 @@ import type {
 } from '../relationships/relationshipTypes.js';
 import type { EnemyInstance } from '../systems/enemies.js';
 import type { RoomSnapshot } from '../world/types.js';
-import type { TownStructure } from '../world/town.js';
+import { townResidentsForRoom, type TownStructure } from '../world/town.js';
 import { ActorRegistry } from './actorRegistry.js';
 import type {
   Actor,
@@ -166,23 +166,21 @@ export class ActorSystem {
   }
 
   syncTown(town: TownStructure, roomId: string, roomNumber?: number): Actor[] {
-    const actors = town.residents
-      .filter((resident) => resident.homeRoomId === roomId || resident.workRoomId === roomId)
-      .map((resident) =>
-        this.registry.ensureTownResidentActor({
-          actorId: resident.actorId,
-          residentId: resident.id,
-          name: resident.name,
-          role: resident.role,
-          factionId: resident.factionId,
-          townId: town.id,
-          currentRoomId: roomId,
-          homeRoomId: resident.homeRoomId,
-          workRoomId: resident.workRoomId,
-          portraitId: resident.portraitId,
-          createdAtRoomNumber: roomNumber,
-        }),
-      );
+    const actors = townResidentsForRoom(town, roomId).map((resident) =>
+      this.registry.ensureTownResidentActor({
+        actorId: resident.actorId,
+        residentId: resident.id,
+        name: resident.name,
+        role: resident.role,
+        factionId: resident.factionId,
+        townId: town.id,
+        currentRoomId: roomId,
+        homeRoomId: resident.homeRoomId,
+        workRoomId: resident.workRoomId,
+        portraitId: resident.portraitId,
+        createdAtRoomNumber: roomNumber,
+      }),
+    );
     this.ensureLocalSocialLinks(actors);
     return actors;
   }

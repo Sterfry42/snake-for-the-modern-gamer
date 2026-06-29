@@ -134,6 +134,7 @@ import {
   getTownDistrictForRoom,
   getTownRoom,
   townDistrictDisplayName,
+  townResidentsForRoom,
   type TownDistrictKind,
   type TownStructure,
 } from '../world/town.js';
@@ -9760,6 +9761,18 @@ export default class SnakeScene extends Phaser.Scene {
         true,
       );
     }
+    if (room.cave?.templateId === 'pitchBlackTreasure') {
+      addLight(
+        'pitch-black-cave-exit',
+        room.cave.exit.x,
+        room.cave.exit.y,
+        3.8,
+        1,
+        0xffd48a,
+        'lantern',
+        true,
+      );
+    }
     if (room.biomeId === 'radioactive-orchard') {
       addLight(
         'radioactive-orchard-glow',
@@ -9811,25 +9824,27 @@ export default class SnakeScene extends Phaser.Scene {
     const radiusTiles = Number(this.getFlag<number>('equipment.lightRadiusTiles') ?? 0);
     const head = snakeBody[0];
     if (radiusTiles > 0 && head) {
-      const [roomX, roomY] = roomId.split(',').map(Number);
-      const localX = Number.isFinite(roomX) ? head.x - roomX * this.grid.cols : head.x;
-      const localY = Number.isFinite(roomY) ? head.y - roomY * this.grid.rows : head.y;
-      addLight('player-lantern', localX, localY, radiusTiles, 0.9, 0xffd48a, 'lantern', true);
+      const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+      const localX = head.x - roomX * this.grid.cols;
+      const localY = head.y - roomY * this.grid.rows;
+      addLight(
+        'player-lantern',
+        localX,
+        localY,
+        radiusTiles * 1.5,
+        1,
+        0xffd48a,
+        'lantern',
+        true,
+      );
     }
     if (lightSources.length === atmosphere.darkness.lightSources.length) {
       return atmosphere;
     }
-    const darknessAlpha =
-      atmosphere.darkness.level === 'pitchBlack'
-        ? Math.max(0.34, atmosphere.darkness.darknessAlpha - 0.24)
-        : atmosphere.darkness.level === 'dark'
-          ? Math.max(0.2, atmosphere.darkness.darknessAlpha - 0.14)
-          : atmosphere.darkness.darknessAlpha;
     return {
       ...atmosphere,
       darkness: {
         ...atmosphere.darkness,
-        darknessAlpha,
         lanternRecommended: radiusTiles > 0 ? false : atmosphere.darkness.lanternRecommended,
         lightSources,
       },
@@ -15926,60 +15941,57 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     if (room.town) {
-      const district = getTownDistrictForRoom(room.town, room.id);
       candidates.push(
-        ...room.town.residents
-          .filter((resident) => this.isTownResidentInDistrict(resident.workRoomId, district))
-          .map((resident) => {
-            const relationshipId = this.snakeGame.getTownResidentRelationshipId(
-              room.town!.id,
-              resident.id,
-            );
-            const actorId =
-              resident.actorId ??
-              this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role);
-            return {
-              id: relationshipId,
-              actorId,
-              displayName: `${resident.name}${
-                resident.role === 'bartender'
-                  ? ' the Bartender'
-                  : resident.role === 'equipmentMerchant'
-                    ? ' the Equipment Merchant'
-                    : resident.role === 'potionMaker'
-                      ? ' the Potion Maker'
-                      : resident.role === 'butcher'
-                        ? ' the Butcher'
-                        : resident.role === 'cardDealer'
-                          ? ' the Card Dealer'
-                          : resident.role === 'guard'
-                            ? ' the Guard'
-                            : resident.role === 'thief' || resident.role === 'thiefContact'
-                              ? ' of the Guild'
-                              : resident.role === 'questGiver'
-                                ? ' the Quest Broker'
-                                : ''
-              }`,
-              species: 'human' as RelationshipSpecies,
-              portraitId: resident.portraitId,
-              homeRoomId: resident.homeRoomId ?? room.id,
-              factionId: resident.factionId as FactionId,
-              personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-              ...this.snakeGame.getRelationshipNpcBodyPosition(
-                {
-                  id: relationshipId,
-                  actorId,
-                  displayName: resident.name,
-                  species: 'human' as RelationshipSpecies,
-                  portraitId: resident.portraitId,
-                  homeRoomId: resident.homeRoomId ?? room.id,
-                  factionId: resident.factionId as FactionId,
-                  personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-                },
-                { x: resident.x, y: resident.y },
-              ),
-            };
-          }),
+        ...townResidentsForRoom(room.town, room.id).map((resident) => {
+          const relationshipId = this.snakeGame.getTownResidentRelationshipId(
+            room.town!.id,
+            resident.id,
+          );
+          const actorId =
+            resident.actorId ??
+            this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role);
+          return {
+            id: relationshipId,
+            actorId,
+            displayName: `${resident.name}${
+              resident.role === 'bartender'
+                ? ' the Bartender'
+                : resident.role === 'equipmentMerchant'
+                  ? ' the Equipment Merchant'
+                  : resident.role === 'potionMaker'
+                    ? ' the Potion Maker'
+                    : resident.role === 'butcher'
+                      ? ' the Butcher'
+                      : resident.role === 'cardDealer'
+                        ? ' the Card Dealer'
+                        : resident.role === 'guard'
+                          ? ' the Guard'
+                          : resident.role === 'thief' || resident.role === 'thiefContact'
+                            ? ' of the Guild'
+                            : resident.role === 'questGiver'
+                              ? ' the Quest Broker'
+                              : ''
+            }`,
+            species: 'human' as RelationshipSpecies,
+            portraitId: resident.portraitId,
+            homeRoomId: resident.homeRoomId ?? room.id,
+            factionId: resident.factionId as FactionId,
+            personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+            ...this.snakeGame.getRelationshipNpcBodyPosition(
+              {
+                id: relationshipId,
+                actorId,
+                displayName: resident.name,
+                species: 'human' as RelationshipSpecies,
+                portraitId: resident.portraitId,
+                homeRoomId: resident.homeRoomId ?? room.id,
+                factionId: resident.factionId as FactionId,
+                personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+              },
+              { x: resident.x, y: resident.y },
+            ),
+          };
+        }),
       );
     }
     if (room.goblinCamp) {
@@ -16376,11 +16388,12 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     if (town && (actorRole === 'guard' || actorRole === 'gateGuard')) {
-      if (district === 'gate' || district === 'townCenter' || district === 'townExit') {
+      const nearbyGate = this.snakeGame.getNearbyTownGate();
+      if (nearbyGate) {
         options.push({
           id: 'open-gate',
-          title: district === 'townExit' ? 'Open Back Gate' : 'Open Gate',
-          description: 'Pay the gate tax through a guard instead of a floating town menu.',
+          title: nearbyGate.kind === 'exit' ? 'Open Back Gate' : 'Open Gate',
+          description: nearbyGate.prompt,
         });
       }
     }
@@ -18749,12 +18762,7 @@ export default class SnakeScene extends Phaser.Scene {
       ...(room.town
         ? this.snakeGame.isTownHostileForRoom(room.town, room.id)
           ? []
-          : room.town.residents.filter((resident) =>
-              this.isTownResidentInDistrict(
-                resident.workRoomId,
-                getTownDistrictForRoom(room.town!, room.id),
-              ),
-            )
+          : townResidentsForRoom(room.town, room.id)
         : []),
       ...goblinResidents,
     ];

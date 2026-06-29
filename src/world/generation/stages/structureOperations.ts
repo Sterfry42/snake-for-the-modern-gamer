@@ -9,9 +9,12 @@ import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
 import {
   createTownDistrictRoom,
   createPhysicalHumanTown,
+  renderTownGateSide,
   stampTownBoundaryApproach,
   stampTownBoundaryCorner,
+  TOWN_GATE_WIDTH,
   type TownDistrictKind,
+  type TownResidentPresence,
 } from '../../town.js';
 import { tryPlaceShrine } from '../../shrine.js';
 import { tryPlaceRamenStand } from '../../ramenStand.js';
@@ -22,11 +25,17 @@ import { tryPlaceAllNiteDiner } from '../../allNiteDiner.js';
 import { tryPlaceFireworkStand } from '../../fireworkStand.js';
 import { tryPlaceJackalopeLodge } from '../../jackalopeLodge.js';
 import { tryPlaceMolemanDigSite } from '../../molemanDigSite.js';
-import { cellsForEdgeRunup, mergeProtectedCells, type EdgeSide } from '../edgeAccess.js';
+import {
+  carveEdgeOpening,
+  cellsForEdgeRunup,
+  mergeProtectedCells,
+  type EdgeSide,
+} from '../edgeAccess.js';
 import {
   getHumanTownDistricts,
   getHumanTownEntranceRoomId,
   getHumanTownExitRoomIds,
+  getHumanTownFootprint,
   type MultiRoomStructureResolver,
 } from '../townStructureResolver.js';
 import { formatRoomId } from '../multiRoomStructures.js';
@@ -572,12 +581,48 @@ export class StructureOperations {
       adjacency.isEntranceApproach || adjacency.isExitApproach
         ? adjacency.adjacentSideFacingTown
         : undefined;
+    const town =
+      adjacency.isEntranceApproach || adjacency.isExitApproach
+        ? this.createTownForPlacement(context)
+        : undefined;
+    const gate = town?.gates.find((entry) => entry.approachRoomId === context.roomId);
     let rows = context.layout.map((row) => row.join(''));
     for (const side of sides) {
-      rows = stampTownBoundaryApproach(rows, side, side === openingSide);
+      rows = stampTownBoundaryApproach(rows, side, side === openingSide && !gate);
     }
     for (const corner of corners) {
       rows = stampTownBoundaryCorner(rows, corner);
+    }
+    if (gate && openingSide) {
+      const layout = rows.map((row) => row.split(''));
+      const plan = this.edgeAccessPlanForSide(
+        openingSide,
+        adjacency.isEntranceApproach ? 'townGate' : 'townExit',
+        context.grid,
+      );
+      carveEdgeOpening(layout, context.grid, plan);
+      const result = renderTownGateSide({
+        layout,
+        gate,
+        side: openingSide,
+        perspective: 'outside',
+        state: gate.state,
+        includeGuard: gate.kind === 'entrance' && Boolean(gate.outsideGuardResidentId),
+      });
+      const presences: TownResidentPresence[] = [];
+      if (gate.outsideGuardResidentId && result.guardPosition) {
+        presences.push({
+          residentId: gate.outsideGuardResidentId,
+          roomId: context.roomId,
+          x: result.guardPosition.x,
+          y: result.guardPosition.y,
+          source: 'gate',
+          role: 'guard',
+        });
+      }
+      town.residentPresences = presences;
+      context.town = town;
+      rows = layout.map((row) => row.join(''));
     }
     this.replaceLayout(context, rows);
     if (openingSide) {
@@ -617,6 +662,8 @@ export class StructureOperations {
       districtRoomIds,
       entranceRoomId: getHumanTownEntranceRoomId(placement),
       exitRoomIds: getHumanTownExitRoomIds(placement),
+      entranceGateSide: getHumanTownFootprint(placement).entranceSide,
+      exitGateSides: [getHumanTownFootprint(placement).exitSide],
     });
   }
 
@@ -626,7 +673,7 @@ export class StructureOperations {
       side,
       open: true,
       openingCenter: horizontal ? Math.floor(grid.cols / 2) : Math.floor(grid.rows / 2),
-      openingWidth: 5,
+      openingWidth: TOWN_GATE_WIDTH,
       runupDepth: 5,
       reason,
     };

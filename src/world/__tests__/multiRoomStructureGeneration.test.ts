@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { createRng } from '../../core/rng.js';
+import { ActorSystem } from '../../actors/actorSystem.js';
 import type { GameSaveData } from '../../game/saveManager.js';
+import { LAYER_EXIT_TILE } from '../../layers/layerTypes.js';
 import { cellsForEdgeRunup, type EdgeSide } from '../generation/edgeAccess.js';
 import { CoordinateBiomeMap } from '../generation/biomeMap.js';
 import { formatRoomId } from '../generation/multiRoomStructures.js';
@@ -13,6 +15,7 @@ import { createWorldGenerationIdentity } from '../generation/worldGenerationIden
 import { RoomGenerator } from '../roomGenerator.js';
 import { WorldService } from '../worldService.js';
 import { isTownShopRole } from '../townRoles.js';
+import { isBlockingTownTile, TOWN_GATE_WIDTH, townResidentsForRoom } from '../town.js';
 
 const identity = createWorldGenerationIdentity('multi-room-structure-test');
 
@@ -142,6 +145,27 @@ function expectedTownGateIndexes(side: EdgeSide): Set<number> {
   return new Set([center - 2, center - 1, center, center + 1, center + 2]);
 }
 
+function oppositeSide(side: EdgeSide): EdgeSide {
+  switch (side) {
+    case 'north':
+      return 'south';
+    case 'south':
+      return 'north';
+    case 'east':
+      return 'west';
+    case 'west':
+      return 'east';
+  }
+}
+
+function edgeDepth(side: EdgeSide, x: number, y: number): number {
+  const { cols, rows } = defaultGameConfig.grid;
+  if (side === 'north') return y;
+  if (side === 'south') return rows - 1 - y;
+  if (side === 'west') return x;
+  return cols - 1 - x;
+}
+
 describe('multi-room structure generation', () => {
   it('resolves physical town districts without generation order dependence', () => {
     const squareId = findTownRoom();
@@ -230,12 +254,21 @@ describe('multi-room structure generation', () => {
         gateAdjacency.adjacentSideFacingTown === 'south'
           ? Math.floor(defaultGameConfig.grid.cols / 2)
           : Math.floor(defaultGameConfig.grid.rows / 2),
-      openingWidth: 5,
+      openingWidth: TOWN_GATE_WIDTH,
       runupDepth: 5,
       reason: 'townGate' as const,
     };
+    const entranceGate = gateApproach.town?.gates.find((gate) => gate.kind === 'entrance');
+    expect(entranceGate?.approachRoomId).toBe(gateApproachId);
+    expect(oppositeSide(entranceGate!.side)).toBe(gateAdjacency.adjacentSideFacingTown);
+    expect(
+      townFacingEdgeTiles(gateApproach.layout, gateAdjacency.adjacentSideFacingTown!).filter(
+        (tile) => tile === 'x',
+      ),
+    ).toHaveLength(TOWN_GATE_WIDTH);
     for (const key of cellsForEdgeRunup(defaultGameConfig.grid, plan)) {
       const [x = 0, y = 0] = key.split(',').map(Number);
+      if (edgeDepth(plan.side, x, y) < 2) continue;
       expect(['#', '~', 'S']).not.toContain(gateApproach.layout[y]?.[x]);
     }
     const blockedTiles = townFacingEdgeTiles(
@@ -256,12 +289,21 @@ describe('multi-room structure generation', () => {
         exitAdjacency.adjacentSideFacingTown === 'south'
           ? Math.floor(defaultGameConfig.grid.cols / 2)
           : Math.floor(defaultGameConfig.grid.rows / 2),
-      openingWidth: 5,
+      openingWidth: TOWN_GATE_WIDTH,
       runupDepth: 5,
       reason: 'townExit' as const,
     };
+    const exitGate = outsiderExit.town?.gates.find((gate) => gate.kind === 'exit');
+    expect(exitGate?.approachRoomId).toBe(exitApproachId);
+    expect(oppositeSide(exitGate!.side)).toBe(exitAdjacency.adjacentSideFacingTown);
+    expect(
+      townFacingEdgeTiles(outsiderExit.layout, exitAdjacency.adjacentSideFacingTown!).filter(
+        (tile) => tile === 'x',
+      ),
+    ).toHaveLength(TOWN_GATE_WIDTH);
     for (const key of cellsForEdgeRunup(defaultGameConfig.grid, exitPlan)) {
       const [x = 0, y = 0] = key.split(',').map(Number);
+      if (edgeDepth(exitPlan.side, x, y) < 2) continue;
       expect(['#', '~', 'S']).not.toContain(outsiderExit.layout[y]?.[x]);
     }
   });
@@ -644,7 +686,9 @@ describe('multi-room structure generation', () => {
     expect(interior.layout.join('').includes('G')).toBe(true);
     expect(interior.layout.join('').includes('D')).toBe(false);
     expect(interior.portals).toEqual([]);
-    expect(interior.layout[interior.layer!.exit.y]?.[interior.layer!.exit.x]).toBe('Y');
+    expect(interior.layout[interior.layer!.exit.y]?.[interior.layer!.exit.x]).toBe(
+      LAYER_EXIT_TILE,
+    );
   });
 
   it('materializes generated town storefront and tavern interiors', () => {
@@ -701,7 +745,54 @@ describe('multi-room structure generation', () => {
     expect(positionedPotionRoles).toEqual(['potionMaker']);
     expect(positionedStoreRoles).not.toContain('butcher');
     expect(positionedStoreRoles).not.toContain('potionMaker');
-    expect(store.layout[store.layer!.exit.y]?.[store.layer!.exit.x]).toBe('Y');
+    expect(store.layout[store.layer!.exit.y]?.[store.layer!.exit.x]).toBe(LAYER_EXIT_TILE);
+  });
+
+  it('uses explicit town resident presences for exterior and interior actor sync', () => {
+    const squareId = findTownRoom();
+    const resolver = createResolver();
+    const world = new WorldService(
+      defaultGameConfig.grid,
+      defaultGameConfig.world,
+      createRng('town-presence-sync'),
+      identity,
+    );
+    const townCenter = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'townCenter'));
+    const market = world.getRoom(townRoomIdForDistrict(resolver, squareId, 'marketStreet'));
+    const storeDoor = market.layerEntrances?.find((entry) => entry.templateId === 'generalStore');
+    const store = world.getRoom(world.ensureLayerInstance(storeDoor!).id);
+    const actors = new ActorSystem();
+
+    const outsideCenterRoles = townResidentsForRoom(townCenter.town!, townCenter.id).map(
+      (resident) => resident.role,
+    );
+    const outsideMarketRoles = townResidentsForRoom(market.town!, market.id).map(
+      (resident) => resident.role,
+    );
+    const storeRoles = townResidentsForRoom(store.town!, store.id).map((resident) => resident.role);
+    const syncedMarket = actors.syncTown(market.town!, market.id);
+
+    expect(outsideCenterRoles).not.toContain('bartender');
+    expect(outsideMarketRoles).not.toContain('equipmentMerchant');
+    expect(outsideMarketRoles).not.toContain('butcher');
+    expect(outsideMarketRoles).not.toContain('potionMaker');
+    expect(storeRoles).toEqual(['equipmentMerchant']);
+    expect(syncedMarket.some((actor) => actor.role === 'equipmentMerchant')).toBe(false);
+    expect(
+      townResidentsForRoom(market.town!, market.id).some(
+        (resident) => resident.x === 0 && resident.y === 0,
+      ),
+    ).toBe(false);
+  });
+
+  it('marks closed town doors and gates as blocking and public shop doors as passable', () => {
+    expect(isBlockingTownTile('h')).toBe(true);
+    expect(isBlockingTownTile('u')).toBe(true);
+    expect(isBlockingTownTile('x')).toBe(true);
+    expect(isBlockingTownTile('d')).toBe(false);
+    expect(isBlockingTownTile('t')).toBe(false);
+    expect(isBlockingTownTile('U')).toBe(false);
+    expect(isBlockingTownTile('o')).toBe(false);
   });
 
   it('rejects unresolved layer room ids instead of generating fallback rooms', () => {

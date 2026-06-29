@@ -5,6 +5,7 @@ import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getBiomeDefinition, getBiomeEnemySpawnChance } from '../world/biomes.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import { isSolidTile } from '../world/tiles.js';
 
 export interface EnemyInstance {
   id: string;
@@ -527,7 +528,7 @@ export class EnemyManager {
     for (let y = 0; y < this.grid.rows; y++) {
       for (let x = 0; x < this.grid.cols; x++) {
         const tile = room.layout[y]?.[x];
-        if (!tile || tile === '#' || tile === '%' || tile === '~') continue;
+        if (!tile || isSolidTile(tile) || tile === '%' || tile === '~') continue;
         if (room.apple && room.apple.x === x && room.apple.y === y) continue;
         if (occupiedLocals.some((seg) => seg.x === x && seg.y === y)) continue;
         candidates.push({ x, y });
@@ -546,7 +547,7 @@ export class EnemyManager {
       const segX = head.x - i;
       if (segX < 0) break;
       const tile = room.layout[head.y]?.[segX];
-      if (tile === '#' || tile === '%' || tile === '~') break;
+      if (isSolidTile(tile) || tile === '%' || tile === '~') break;
       if (occupiedLocals.some((seg) => seg.x === segX && seg.y === head.y)) break;
       body.push({ x: segX, y: head.y });
     }
@@ -637,7 +638,7 @@ export class EnemyManager {
       }
 
       const tile = room.layout[nextLocal.y]?.[nextLocal.x];
-      if (!tile || tile === '#' || tile === '%' || tile === '~') continue;
+      if (!tile || isSolidTile(tile) || tile === '%' || tile === '~') continue;
       if (obstacleSet.has(`${nextLocal.x},${nextLocal.y}`)) continue;
 
       return { dir, nextLocal };

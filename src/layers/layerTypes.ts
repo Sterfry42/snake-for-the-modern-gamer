@@ -90,4 +90,4 @@ export interface LayerRuntimeState {
 }
 
 export const LAYER_ENTRANCE_TILE = 'Y';
-export const LAYER_EXIT_TILE = 'Y';
+export const LAYER_EXIT_TILE = 'v';

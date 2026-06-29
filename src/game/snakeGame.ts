@@ -106,9 +106,14 @@ import {
   applyTownCrime,
   cloneTown,
   discoverThievesGuild,
+  isBlockingTownTile,
   reduceWantedViaGuild,
   resolveGuildJob,
+  townGateFootprintCells,
+  townResidentsForRoom,
   type GuildJobKind,
+  type TownGate,
+  type TownGateSide,
   type TownCrimeKind,
   type TownRoomKind,
   type TownStructure,
@@ -1420,7 +1425,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     const tile = room.layout[local.y]?.[local.x];
-    return Boolean(tile && tile !== '#' && tile !== '~');
+    return Boolean(tile && tile !== '#' && tile !== '~' && !isBlockingTownTile(tile));
   }
 
   private steerDebugSecondSnake(): void {
@@ -1494,7 +1499,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     const tile = room.layout[localY]?.[localX];
-    if (!tile || tile === '#' || tile === '~') {
+    if (!tile || tile === '#' || tile === '~' || isBlockingTownTile(tile)) {
       return false;
     }
     return !snake.bodySegments.some((segment) => segment.x === next.x && segment.y === next.y);
@@ -2648,6 +2653,10 @@ export class SnakeGame implements QuestRuntime {
   private snakeStep(roomsChanged: Set<string>): SnakeStepOutcome {
     const dependencies: SnakeStepDependencies = {
       getRoom: (roomId: string) => this.world.getRoom(roomId),
+      prepareRoomForCollision: (roomId: string) => {
+        const room = this.world.getRoom(roomId);
+        this.applyTownRuntimeToRoom(room);
+      },
       ensureApple: (roomId: string, snake, score) => {
         const room = this.world.getRoom(roomId);
         if (room.town) {
@@ -2697,7 +2706,7 @@ export class SnakeGame implements QuestRuntime {
     const tile = room.layout[info.localY]?.[info.localX];
     // Masonry blocks (the snake's own temporary walls) are always passable.
     // Regular walls still require wall-survival abilities.
-    if (tile === '#' && !this.canSurviveWallStep()) {
+    if ((tile === '#' || isBlockingTownTile(tile)) && !this.canSurviveWallStep()) {
       return {
         key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
@@ -3021,7 +3030,7 @@ export class SnakeGame implements QuestRuntime {
         const x = position.x + direction.x;
         const y = position.y + direction.y;
         const tile = room.layout[y]?.[x];
-        return Boolean(tile && tile !== '#' && tile !== '~');
+        return Boolean(tile && tile !== '#' && tile !== '~' && !isBlockingTownTile(tile));
       }) ?? candidates[0]!
     );
   }
@@ -4012,7 +4021,7 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(roomId);
     const tile = room.layout[local.y]?.[local.x];
-    return Boolean(tile && tile !== '#' && tile !== '~');
+    return Boolean(tile && tile !== '#' && tile !== '~' && !isBlockingTownTile(tile));
   }
 
   private getRivalAppleOccupiedSegments(roomId: string): Vector2Like[] {
@@ -4784,12 +4793,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag(`town.hostile.${town.id}.${room.id}`, true);
     const townWideHostility = Boolean(this.getFlag<boolean>(`town.hostile.${town.id}.all`));
     const currentDistrict = town.districtByRoomId[room.id];
-    const hostileResidents = town.residents.filter((resident) => {
-      const workDistrict = resident.workRoomId
-        ? town.districtByRoomId[resident.workRoomId]
-        : undefined;
-      return workDistrict === currentDistrict;
-    });
+    const hostileResidents = townResidentsForRoom(town, room.id);
     const guards = hostileResidents.filter((resident) => isTownGuardRole(resident.role));
     const thieves = hostileResidents.filter((resident) => isTownCriminalRole(resident.role));
     const fallback = hostileResidents.filter((resident) => !isTownShopRole(resident.role));
@@ -5011,62 +5015,149 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  openCurrentTownGate(): { ok: boolean; message: string } {
+  getNearbyTownGate(): {
+    gateId: string;
+    kind: 'entrance' | 'exit';
+    state: 'closed' | 'open';
+    perspective: 'inside' | 'outside';
+    canOpen: boolean;
+    reasonIfBlocked?: string;
+    prompt: string;
+  } | null {
+    const room = this.getCurrentRoom();
+    const town = room.town;
+    if (!town) {
+      return null;
+    }
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return null;
+    }
+    const local = this.worldToLocal(room.id, head);
+    const gateMatch = (town.gates ?? [])
+      .map((gate) => {
+        const perspective =
+          gate.townRoomId === room.id ? 'inside' : gate.approachRoomId === room.id ? 'outside' : null;
+        if (!perspective) return null;
+        const side = perspective === 'inside' ? gate.side : this.oppositeSide(gate.side);
+        const targets = this.getTownGateInteractionTiles(side);
+        const distance = Math.min(
+          ...targets.map((target) => Math.abs(target.x - local.x) + Math.abs(target.y - local.y)),
+        );
+        return { gate, perspective, distance };
+      })
+      .filter(
+        (entry): entry is { gate: TownGate; perspective: 'inside' | 'outside'; distance: number } =>
+          Boolean(entry),
+      )
+      .sort((a, b) => a.distance - b.distance)[0];
+    if (!gateMatch || gateMatch.distance > 3) {
+      return null;
+    }
+    const { gate, perspective } = gateMatch;
+    const state = this.isTownGateOpen(town, gate) ? 'open' : gate.state;
+    if (this.isTownRoomHostile(town, room.id)) {
+      return {
+        gateId: gate.id,
+        kind: gate.kind,
+        state,
+        perspective,
+        canOpen: false,
+        reasonIfBlocked: 'The guards are hostile. No one is opening gates for you now.',
+        prompt: 'Gate locked down',
+      };
+    }
+    if (gate.kind === 'exit' && perspective === 'outside' && state === 'closed') {
+      return {
+        gateId: gate.id,
+        kind: gate.kind,
+        state,
+        perspective,
+        canOpen: false,
+        reasonIfBlocked: 'The outside latch has no handle. This gate opens from inside town.',
+        prompt: 'Gate opens from inside',
+      };
+    }
+    return {
+      gateId: gate.id,
+      kind: gate.kind,
+      state,
+      perspective,
+      canOpen: state === 'closed',
+      prompt: state === 'open' ? 'Gate open' : gate.kind === 'exit' ? 'Open back gate' : 'Open town gate',
+    };
+  }
+
+  openNearbyTownGate(): { ok: boolean; message: string } {
+    const nearby = this.getNearbyTownGate();
+    if (!nearby) {
+      return { ok: false, message: 'There is no town gate here.' };
+    }
+    if (nearby.state === 'open') {
+      return { ok: true, message: 'The gate is already open.' };
+    }
+    if (!nearby.canOpen) {
+      return { ok: false, message: nearby.reasonIfBlocked ?? 'The gate will not open.' };
+    }
     const room = this.getCurrentRoom();
     const town = room.town;
     if (!town) {
       return { ok: false, message: 'There is no town gate here.' };
     }
-    const district = town.districtByRoomId[room.id];
-    if (district !== 'gate' && district !== 'townCenter' && district !== 'townExit') {
-      return {
-        ok: false,
-        message: 'The guard looks around for a gate and finds only awkwardness.',
-      };
+    const gate = (town.gates ?? []).find((entry) => entry.id === nearby.gateId);
+    if (!gate) {
+      return { ok: false, message: 'There is no town gate here.' };
     }
-    const flagDistrict = district === 'townCenter' ? 'gate' : district;
-    if (this.isTownRoomHostile(town, room.id)) {
-      return { ok: false, message: 'The guards are hostile. No one is opening gates for you now.' };
-    }
-    if (this.getFlag<boolean>(this.townGateFlagKey(town.id, flagDistrict))) {
-      return { ok: true, message: 'The gate is already open.' };
-    }
-    if (district === 'townExit' && !this.isInsideTownExitLatchSide(town, room)) {
-      return {
-        ok: false,
-        message: 'The outside latch has no handle. This exit only opens from inside town.',
-      };
-    }
-    const gateTax = 75;
-    if (this.getScore() < gateTax) {
+    const gateTax = nearby.perspective === 'outside' ? 75 : 0;
+    if (gateTax > 0 && this.getScore() < gateTax) {
       return { ok: false, message: `The guard wants a ${gateTax} score gate tax.` };
     }
-    this.addScore(-gateTax);
-    if (district === 'gate' || district === 'townExit' || district === 'townCenter') {
-      this.openTownGateBarrierTiles(room, flagDistrict);
+    if (gateTax > 0) {
+      this.addScore(-gateTax);
     }
-    this.setFlag(this.townGateFlagKey(town.id, flagDistrict), true);
-    this.saveTownRuntimeState(town);
+    this.setFlag(this.townGateFlagKey(town.id, gate), true);
+    const nextTown = {
+      ...town,
+      gates: (town.gates ?? []).map((entry) =>
+        entry.id === gate.id ? { ...entry, state: 'open' as const } : entry,
+      ),
+    };
+    room.town = nextTown;
+    this.patchTownGateInCachedRooms(nextTown, gate.id);
+    this.saveTownRuntimeState(nextTown);
+    this.world.updateTown(nextTown);
     this.emitWorldEvent({
       type: 'gate-opened',
       roomId: room.id,
       severity: 12,
       loudness: 8,
-      tags: ['town', 'gate', 'tax', flagDistrict],
+      tags: gateTax > 0 ? ['town', 'gate', 'tax', gate.kind] : ['town', 'gate', gate.kind],
       summary:
-        district === 'townExit'
-          ? `${town.name}'s back gate opened after the snake paid the exit tax.`
-          : `${town.name}'s front gate opened after the snake paid the gate tax.`,
+        gate.kind === 'exit'
+          ? gateTax > 0
+            ? `${town.name}'s back gate opened after the snake paid the exit tax.`
+            : `${town.name}'s back gate opened from inside town.`
+          : gateTax > 0
+            ? `${town.name}'s front gate opened after the snake paid the gate tax.`
+            : `${town.name}'s front gate opened from inside town.`,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
-      data: { townId: town.id, district: flagDistrict, gateTax },
+      data: { townId: town.id, gateId: gate.id, kind: gate.kind, gateTax },
     });
     return {
       ok: true,
       message:
-        district === 'townExit'
-          ? `The inner exit guard takes ${gateTax} score and opens the back gate.`
-          : `The guard takes ${gateTax} score and opens the gate.`,
+        gate.kind === 'exit'
+          ? gateTax > 0
+            ? `The guard takes ${gateTax} score and opens the back gate.`
+            : 'The inner exit guard opens the back gate.'
+          : gateTax > 0
+            ? `The guard takes ${gateTax} score and opens the gate.`
+            : 'The inner gate guard opens the gate.',
     };
+  }
+
+  openCurrentTownGate(): { ok: boolean; message: string } {
+    return this.openNearbyTownGate();
   }
 
   private applyTownRuntimeState(town: TownStructure): TownStructure {
@@ -5092,6 +5183,14 @@ export class SnakeGame implements QuestRuntime {
         : building,
     );
     next.rumors = runtime.rumors;
+    next.gates = (next.gates ?? []).map((gate) =>
+      runtime.openedGates.includes(gate.id) ||
+      runtime.openedGates.includes(gate.townRoomId) ||
+      runtime.openedGates.includes(gate.approachRoomId) ||
+      this.getFlag<boolean>(this.townGateFlagKey(next.id, gate))
+        ? { ...gate, state: 'open' }
+        : gate,
+    );
     if (next.thievesGuild) {
       next.thievesGuild.discovered = runtime.discoveredGuild;
       next.thievesGuild.completedJobs = [...runtime.completedGuildJobs];
@@ -5108,12 +5207,9 @@ export class SnakeGame implements QuestRuntime {
       reputation: town.reputation,
       discoveredGuild: town.discoveredGuild,
       openedGates: [
-        ...(this.getFlag<boolean>(this.townGateFlagKey(town.id, 'gate'))
-          ? [town.entranceRoomId]
-          : []),
-        ...(this.getFlag<boolean>(this.townGateFlagKey(town.id, 'townExit'))
-          ? [...town.exitRoomIds]
-          : []),
+        ...(town.gates ?? [])
+          .filter((gate) => gate.state === 'open' || this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)))
+          .map((gate) => gate.id),
       ],
       completedGuildJobs: town.thievesGuild?.completedJobs ?? [],
       failedGuildJobs: town.thievesGuild?.failedJobs ?? [],
@@ -6441,7 +6537,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private isBanditRaidSpawnTile(tile: string | undefined): boolean {
-    return Boolean(tile && tile !== '#' && tile !== '~');
+    return Boolean(tile && tile !== '#' && tile !== '~' && !isBlockingTownTile(tile));
   }
 
   private banditRaidFlagKey(eventId: string): string {
@@ -6802,14 +6898,7 @@ export class SnakeGame implements QuestRuntime {
       });
     }
     if (room.town) {
-      const district = room.town.districtByRoomId[room.id];
-      for (const resident of room.town.residents) {
-        const workDistrict = resident.workRoomId
-          ? room.town.districtByRoomId[resident.workRoomId]
-          : undefined;
-        if (workDistrict !== district) {
-          continue;
-        }
+      for (const resident of townResidentsForRoom(room.town, room.id)) {
         const relationshipId = this.getTownResidentRelationshipId(room.town.id, resident.id);
         addCandidate({
           profile: {
@@ -7081,7 +7170,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
     const tile = room.layout[position.y]?.[position.x];
-    if (!tile || tile === '#' || tile === '~' || tile === 'S') {
+    if (!tile || tile === '#' || tile === '~' || tile === 'S' || isBlockingTownTile(tile)) {
       return false;
     }
     if (
@@ -7113,12 +7202,7 @@ export class SnakeGame implements QuestRuntime {
     }
     room.town = this.applyTownRuntimeState(room.town);
     this.normalizeTownQuestBoardTiles(room);
-    if (
-      this.getFlag<boolean>(this.townGateFlagKey(room.town.id, 'gate')) ||
-      this.getFlag<boolean>(this.townGateFlagKey(room.town.id, 'townExit'))
-    ) {
-      this.openTownGateTiles(room);
-    }
+    this.openTownGateTiles(room);
     if (room.town.discoveredGuild) {
       this.addGuildGratePortal(room);
     }
@@ -7146,45 +7230,40 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private openTownGateTiles(room: RoomSnapshot): void {
-    const district = room.town?.districtByRoomId?.[room.id];
-    if (district !== 'gate' && district !== 'townExit' && district !== 'townCenter') {
+    const town = room.town;
+    if (!town) {
       return;
     }
-    const flagDistrict = district === 'townCenter' ? 'gate' : district;
-    if (!this.getFlag<boolean>(this.townGateFlagKey(room.town.id, flagDistrict))) {
-      return;
+    for (const gate of town.gates ?? []) {
+      if (
+        (gate.townRoomId === room.id || gate.approachRoomId === room.id) &&
+        this.isTownGateOpen(town, gate)
+      ) {
+        this.openTownGateBarrierTiles(room, gate);
+      }
     }
-    this.openTownGateBarrierTiles(room, flagDistrict);
   }
 
-  private openTownGateBarrierTiles(room: RoomSnapshot, district: TownRoomKind): void {
-    const centerX = Math.floor(this.config.grid.cols / 2);
-    const centerY = Math.floor(this.config.grid.rows / 2);
-    const carve = (left: number, top: number, width: number, height: number): void => {
-      for (let y = top; y < top + height; y += 1) {
-        const row = room.layout[y];
-        if (!row) continue;
-        const chars = row.split('');
-        for (let x = left; x < left + width; x += 1) {
-          if (chars[x] && chars[x] !== 'G') {
-            chars[x] = 'E';
-          }
-        }
-        room.layout[y] = chars.join('');
-      }
-    };
-    const openVisibleGateSegments = (): void => {
-      for (let y = 0; y < room.layout.length; y += 1) {
-        const row = room.layout[y];
-        if (!row.includes('x')) continue;
-        room.layout[y] = row.split('x').join('o');
-      }
-    };
-    openVisibleGateSegments();
-    carve(centerX - 2, centerY - 2, 5, 5);
-    if (district === 'townExit') {
-      carve(centerX - 2, this.config.grid.rows - 6, 5, 3);
+  private openTownGateBarrierTiles(room: RoomSnapshot, gate: TownGate): void {
+    if (gate.townRoomId !== room.id && gate.approachRoomId !== room.id) {
+      return;
     }
+    const layout = room.layout.map((row) => row.split(''));
+    const perspective = gate.townRoomId === room.id ? 'inside' : 'outside';
+    const side = perspective === 'inside' ? gate.side : this.oppositeSide(gate.side);
+    const carve = (x: number, y: number): void => {
+      if (layout[y]?.[x] === 'x' || layout[y]?.[x] === 'o') {
+        layout[y][x] = '.';
+      }
+    };
+    for (const cell of townGateFootprintCells({
+      side,
+      cols: this.config.grid.cols,
+      rows: this.config.grid.rows,
+    })) {
+      carve(cell.x, cell.y);
+    }
+    room.layout = layout.map((row) => row.join(''));
   }
 
   private addGuildGratePortal(room: RoomSnapshot): void {
@@ -7339,8 +7418,60 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private townGateFlagKey(townId: string, district: 'gate' | 'townExit'): string {
-    return district === 'gate' ? `town.gateOpened.${townId}` : `town.exitGateOpened.${townId}`;
+  private townGateFlagKey(townId: string, gate: TownGate): string {
+    return `town.gateOpened.${townId}.${gate.id}`;
+  }
+
+  private isTownGateOpen(town: TownStructure, gate: TownGate): boolean {
+    return gate.state === 'open' || Boolean(this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)));
+  }
+
+  private getTownGateInteractionTiles(side: TownGateSide): Array<{ x: number; y: number }> {
+    const centerX = Math.floor(this.config.grid.cols / 2);
+    const centerY = Math.floor(this.config.grid.rows / 2);
+    const gateTiles = townGateFootprintCells({
+      side,
+      cols: this.config.grid.cols,
+      rows: this.config.grid.rows,
+    });
+    switch (side) {
+      case 'north':
+        return [
+          ...gateTiles,
+          { x: centerX + 2, y: 3 },
+        ];
+      case 'south':
+        return [
+          ...gateTiles,
+          { x: centerX + 2, y: this.config.grid.rows - 4 },
+        ];
+      case 'west':
+        return [
+          ...gateTiles,
+          { x: 3, y: centerY + 2 },
+        ];
+      case 'east':
+        return [
+          ...gateTiles,
+          { x: this.config.grid.cols - 4, y: centerY + 2 },
+        ];
+    }
+  }
+
+  private patchTownGateInCachedRooms(town: TownStructure, gateId: string): void {
+    const gate = (town.gates ?? []).find((entry) => entry.id === gateId);
+    if (!gate) {
+      return;
+    }
+    for (const room of this.world.snapshot().values()) {
+      if (room.town?.id !== town.id) continue;
+      if (room.id !== gate.townRoomId && room.id !== gate.approachRoomId) continue;
+      room.town = {
+        ...town,
+        districtByRoomId: { ...town.districtByRoomId, [room.id]: town.districtByRoomId[room.id] },
+      };
+      this.openTownGateBarrierTiles(room, gate);
+    }
   }
 
   private guildInitiationStartedFlagKey(townId: string): string {
@@ -7524,7 +7655,25 @@ export class SnakeGame implements QuestRuntime {
       dayNightTintEnabled:
         shelterMode === 'interior' ? false : this.atmosphereConfig.dayNightTintEnabled,
     };
-    return resolveBiomeAtmosphere(biome, this.atmosphere.getState(), shelteredConfig);
+    const atmosphere = resolveBiomeAtmosphere(biome, this.atmosphere.getState(), shelteredConfig);
+    if (room.cave?.templateId === 'pitchBlackTreasure') {
+      return {
+        ...atmosphere,
+        darkness: {
+          ...atmosphere.darkness,
+          level: 'pitchBlack',
+          darknessAlpha: 0.92,
+          visibleRadiusTiles: 3,
+          lanternRecommended: true,
+          debugReason: [...atmosphere.darkness.debugReason, 'pitch-black cave override +2.00'],
+        },
+        playerSummary: {
+          ...atmosphere.playerSummary,
+          lightLabel: 'Pitch Black',
+        },
+      };
+    }
+    return atmosphere;
   }
 
   private getShelterModeForRoom(
@@ -14451,9 +14600,11 @@ export class SnakeGame implements QuestRuntime {
       ),
     );
 
-    if (!biome.temperatureHazard) {
-      hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 2.5);
-      coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 2.5);
+    const neutralTemperatureShelter = this.isNeutralTemperatureShelter(room, biome);
+    if (!biome.temperatureHazard || neutralTemperatureShelter) {
+      const exposureRecoveryRate = neutralTemperatureShelter ? 1.5 : 2.5;
+      hotExposureMs = Math.max(0, hotExposureMs - deltaMs * exposureRecoveryRate);
+      coldExposureMs = Math.max(0, coldExposureMs - deltaMs * exposureRecoveryRate);
       hotDamageProgressMs = 0;
       coldDamageProgressMs = 0;
       this.syncTemperatureFlags(
@@ -14555,6 +14706,22 @@ export class SnakeGame implements QuestRuntime {
       hazard: biome.temperatureHazard,
     });
     return currentHealth <= 0;
+  }
+
+  private isNeutralTemperatureShelter(
+    room: RoomSnapshot,
+    biome: ReturnType<typeof getBiomeDefinition>,
+  ): boolean {
+    if (room.town || room.snakeMcDonalds) {
+      return true;
+    }
+    if (room.layer?.kind === 'townInterior') {
+      return true;
+    }
+    if (room.cave) {
+      return !biome.temperatureHazard;
+    }
+    return false;
   }
 
   private syncTemperatureFlags(

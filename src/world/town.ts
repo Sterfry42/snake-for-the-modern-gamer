@@ -46,6 +46,21 @@ export type TownRoomKind =
   | 'townExit';
 
 export type TownDistrictKind = TownRoomKind;
+export type TownGateKind = 'entrance' | 'exit';
+export type TownGateState = 'closed' | 'open';
+export type TownGateSide = 'north' | 'south' | 'east' | 'west';
+
+export interface TownGate {
+  id: string;
+  townId: string;
+  kind: TownGateKind;
+  townRoomId: string;
+  approachRoomId: string;
+  side: TownGateSide;
+  state: TownGateState;
+  insideGuardResidentId?: string;
+  outsideGuardResidentId?: string;
+}
 
 export type TownTag =
   | 'human'
@@ -240,6 +255,15 @@ export interface TownResident extends Omit<NpcProfile, 'role'> {
   factionId: string;
 }
 
+export interface TownResidentPresence {
+  residentId: string;
+  roomId: string;
+  x: number;
+  y: number;
+  source: 'district' | 'interior' | 'gate';
+  role?: TownResident['role'];
+}
+
 export type TownBuildingKind =
   | 'gatehouse'
   | 'tavern'
@@ -299,9 +323,22 @@ export interface TownStructure {
   safeArea: RoomArea;
   center: { x: number; y: number };
   lanterns: Array<{ x: number; y: number }>;
+  gates: TownGate[];
   buildings: TownBuilding[];
   residents: TownResident[];
+  residentPresences?: TownResidentPresence[];
   shopkeeper: TownResident;
+  stampConflicts?: TownStampConflict[];
+}
+
+export interface TownStampConflict {
+  source: string;
+  purpose: string;
+  x: number;
+  y: number;
+  from?: string;
+  to: string;
+  blocking: boolean;
 }
 
 interface TownGenOptions {
@@ -463,6 +500,77 @@ function setChar(layout: string[][], x: number, y: number, ch: string): void {
   layout[y][x] = ch;
 }
 
+const IMPORTANT_TOWN_TILES = new Set(['G', 'Y', 'v', 't', 'd', 'h', 'j', 'u', 'U', 'x', 'o']);
+const BLOCKING_TOWN_TILES = new Set(['#', '~', 'h', 'u', 'x']);
+
+export function isBlockingTownTile(tile: string | undefined): boolean {
+  return Boolean(tile && BLOCKING_TOWN_TILES.has(tile));
+}
+
+export function townResidentPresences(town: TownStructure, roomId: string): TownResidentPresence[] {
+  return (town.residentPresences ?? []).filter((presence) => presence.roomId === roomId);
+}
+
+export function townResidentsForRoom(town: TownStructure, roomId: string): TownResident[] {
+  const presences = townResidentPresences(town, roomId);
+  if (presences.length === 0 && town.residentPresences !== undefined) return [];
+  if (presences.length === 0) {
+    return town.residents.filter(
+      (resident) => resident.homeRoomId === roomId || resident.workRoomId === roomId,
+    );
+  }
+  const byId = new Map(town.residents.map((resident) => [resident.id, resident]));
+  return presences.flatMap((presence) => {
+    const resident = byId.get(presence.residentId);
+    return resident
+      ? [
+          {
+            ...resident,
+            x: presence.x,
+            y: presence.y,
+            workRoomId: presence.roomId,
+          },
+        ]
+      : [];
+  });
+}
+
+class TownRoomBuildContext {
+  readonly conflicts: TownStampConflict[] = [];
+
+  constructor(private readonly layout: string[][]) {}
+
+  stamp(args: {
+    x: number;
+    y: number;
+    tile: string;
+    source: string;
+    purpose: string;
+    blocking?: boolean;
+    overwriteImportant?: boolean;
+  }): void {
+    const existing = this.layout[args.y]?.[args.x];
+    if (existing === undefined) return;
+    if (
+      existing !== args.tile &&
+      IMPORTANT_TOWN_TILES.has(existing) &&
+      args.overwriteImportant !== true
+    ) {
+      this.conflicts.push({
+        source: args.source,
+        purpose: args.purpose,
+        x: args.x,
+        y: args.y,
+        from: existing,
+        to: args.tile,
+        blocking: Boolean(args.blocking),
+      });
+      return;
+    }
+    this.layout[args.y]![args.x] = args.tile;
+  }
+}
+
 function fillRect(
   layout: string[][],
   left: number,
@@ -497,6 +605,54 @@ function canPlaceRect(
 
 function roomId(townId: string, kind: TownRoomKind): string {
   return `${townId}:${kind}`;
+}
+
+function parseCoordinateRoomId(id: string): { x: number; y: number; z: number } | null {
+  const [x, y, z = 0] = id.split(',').map(Number);
+  return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { x, y, z } : null;
+}
+
+function roomIdOnSide(roomIdValue: string, side: TownGateSide): string {
+  const coord = parseCoordinateRoomId(roomIdValue);
+  if (!coord) return roomIdValue;
+  switch (side) {
+    case 'north':
+      return `${coord.x},${coord.y - 1},${coord.z}`;
+    case 'south':
+      return `${coord.x},${coord.y + 1},${coord.z}`;
+    case 'east':
+      return `${coord.x + 1},${coord.y},${coord.z}`;
+    case 'west':
+      return `${coord.x - 1},${coord.y},${coord.z}`;
+  }
+}
+
+function oppositeGateSide(side: TownGateSide): TownGateSide {
+  switch (side) {
+    case 'north':
+      return 'south';
+    case 'south':
+      return 'north';
+    case 'east':
+      return 'west';
+    case 'west':
+      return 'east';
+  }
+}
+
+function exteriorSideForRoom(
+  roomIdValue: string,
+  districtRoomIds: Record<string, TownDistrictKind>,
+): TownGateSide | null {
+  const coord = parseCoordinateRoomId(roomIdValue);
+  if (!coord) return null;
+  const neighbors: Array<{ side: TownGateSide; id: string }> = [
+    { side: 'north', id: `${coord.x},${coord.y - 1},${coord.z}` },
+    { side: 'south', id: `${coord.x},${coord.y + 1},${coord.z}` },
+    { side: 'east', id: `${coord.x + 1},${coord.y},${coord.z}` },
+    { side: 'west', id: `${coord.x - 1},${coord.y},${coord.z}` },
+  ];
+  return neighbors.find((neighbor) => !districtRoomIds[neighbor.id])?.side ?? null;
 }
 
 function connect(rooms: TownRoomNode[], from: TownRoomKind, to: TownRoomKind): void {
@@ -608,6 +764,7 @@ export function generateHumanTown(options: TownGenOptions): TownStructure {
     safeArea: { left: 0, top: 0, width: 0, height: 0 },
     center: { x: 0, y: 0 },
     lanterns: [],
+    gates: [],
     buildings: [],
     residents: [],
     shopkeeper: {
@@ -630,6 +787,8 @@ export function createPhysicalHumanTown(args: {
   districtRoomIds: Record<string, TownDistrictKind>;
   entranceRoomId: string;
   exitRoomIds: string[];
+  entranceGateSide?: TownGateSide;
+  exitGateSides?: TownGateSide[];
 }): TownStructure {
   const rng = createRng(`physical-human-town:${args.townId}:${args.seed}`);
   const town = generateHumanTown({
@@ -642,6 +801,14 @@ export function createPhysicalHumanTown(args: {
   town.districtByRoomId = { ...args.districtRoomIds };
   town.entranceRoomId = args.entranceRoomId;
   town.exitRoomIds = [...args.exitRoomIds];
+  town.gates = createDefaultTownGates({
+    townId: town.id,
+    districtRoomIds: args.districtRoomIds,
+    entranceRoomId: args.entranceRoomId,
+    exitRoomIds: args.exitRoomIds,
+    entranceGateSide: args.entranceGateSide,
+    exitGateSides: args.exitGateSides,
+  });
   town.rooms = town.rooms.map((room) => ({ ...room, townId: args.townId }));
   town.thievesGuild = town.thievesGuild ? { ...town.thievesGuild, townId: args.townId } : undefined;
   town.guildJobs = town.guildJobs.map((job) => ({ ...job, townId: args.townId }));
@@ -794,9 +961,96 @@ export function createPhysicalHumanTown(args: {
     workRoomId: roomFor(spot.workDistrict),
     id: `${town.id}:resident:${spot.role}:${index}`,
   }));
+  assignTownGateGuards(town, rng);
   town.buildings = createTownBuildings(town, roomFor);
   town.shopkeeper = selectPrimaryTownMerchant(town.residents, town.shopkeeper);
   return town;
+}
+
+function createDefaultTownGates(args: {
+  townId: string;
+  districtRoomIds: Record<string, TownDistrictKind>;
+  entranceRoomId: string;
+  exitRoomIds: string[];
+  entranceGateSide?: TownGateSide;
+  exitGateSides?: TownGateSide[];
+}): TownGate[] {
+  const entranceSide =
+    args.entranceGateSide ?? exteriorSideForRoom(args.entranceRoomId, args.districtRoomIds);
+  const gates: TownGate[] = [];
+  if (entranceSide) {
+    gates.push({
+      id: `${args.townId}:gate:entrance`,
+      townId: args.townId,
+      kind: 'entrance',
+      townRoomId: args.entranceRoomId,
+      approachRoomId: roomIdOnSide(args.entranceRoomId, entranceSide),
+      side: entranceSide,
+      state: 'closed',
+    });
+  }
+  for (const [index, exitRoomId] of args.exitRoomIds.entries()) {
+    const side =
+      args.exitGateSides?.[index] ?? exteriorSideForRoom(exitRoomId, args.districtRoomIds);
+    if (!side) continue;
+    gates.push({
+      id: `${args.townId}:gate:exit:${index}`,
+      townId: args.townId,
+      kind: 'exit',
+      townRoomId: exitRoomId,
+      approachRoomId: roomIdOnSide(exitRoomId, side),
+      side,
+      state: 'closed',
+    });
+  }
+  return gates;
+}
+
+function assignTownGateGuards(town: TownStructure, rng: RandomGenerator): void {
+  const takeGuard = (gate: TownGate, side: 'inside' | 'outside'): TownResident => {
+    const resident: TownResident = {
+      ...buildHouseNpcProfile(pickNpcName('guard', rng), pick(PORTRAITS, rng)),
+      id: `${town.id}:resident:guard:gate:${gate.kind}:${side}`,
+      actorId: actorIdForTownResident(
+        town.id,
+        `${town.id}:resident:guard:gate:${gate.kind}:${side}`,
+        'guard',
+      ),
+      x: 0,
+      y: 0,
+      role: 'guard',
+      townId: town.id,
+      factionId: 'human-town',
+      homeRoomId: gate.townRoomId,
+      workRoomId: side === 'inside' ? gate.townRoomId : gate.approachRoomId,
+    };
+    town.residents = [...town.residents, resident];
+    return resident;
+  };
+  town.gates = town.gates.map((gate) => {
+    const inside = takeGuard(gate, 'inside');
+    const outside = gate.kind === 'entrance' ? takeGuard(gate, 'outside') : undefined;
+    return {
+      ...gate,
+      insideGuardResidentId: inside.id,
+      outsideGuardResidentId: outside?.id,
+    };
+  });
+  town.residents = town.residents.map((resident) => {
+    const insideGate = town.gates.find((gate) => gate.insideGuardResidentId === resident.id);
+    const outsideGate = town.gates.find((gate) => gate.outsideGuardResidentId === resident.id);
+    if (insideGate) {
+      return { ...resident, homeRoomId: insideGate.townRoomId, workRoomId: insideGate.townRoomId };
+    }
+    if (outsideGate) {
+      return {
+        ...resident,
+        homeRoomId: outsideGate.townRoomId,
+        workRoomId: outsideGate.approachRoomId,
+      };
+    }
+    return resident;
+  });
 }
 
 function createTownBuildings(
@@ -1136,13 +1390,16 @@ export function cloneTown(town: TownStructure): TownStructure {
     rumors: town.rumors.map((rumor) => ({ ...rumor })),
     notices: town.notices.map((notice) => ({ ...notice })),
     lanterns: town.lanterns.map((lantern) => ({ ...lantern })),
+    gates: (town.gates ?? []).map((gate) => ({ ...gate })),
     buildings: town.buildings.map((building) => ({
       ...building,
       door: { ...building.door },
       bounds: { ...building.bounds },
     })),
     residents: town.residents.map((resident) => ({ ...resident })),
+    residentPresences: town.residentPresences?.map((presence) => ({ ...presence })),
     shopkeeper: { ...town.shopkeeper },
+    stampConflicts: town.stampConflicts?.map((conflict) => ({ ...conflict })),
     safeArea: { ...town.safeArea },
     center: { ...town.center },
   };
@@ -1367,6 +1624,41 @@ function rowsToStrings(layout: string[][]): string[] {
 
 type ExitSide = 'north' | 'south' | 'east' | 'west';
 
+export const TOWN_GATE_WIDTH = 5;
+export const TOWN_GATE_DEPTH = 2;
+
+function centeredOffsets(width: number): number[] {
+  const start = -Math.floor(width / 2);
+  return Array.from({ length: width }, (_, index) => start + index);
+}
+
+export function townGateFootprintCells(args: {
+  side: TownGateSide;
+  cols: number;
+  rows: number;
+}): Array<{ x: number; y: number }> {
+  const centerX = Math.floor(args.cols / 2);
+  const centerY = Math.floor(args.rows / 2);
+  const offsets = centeredOffsets(TOWN_GATE_WIDTH);
+  const cells: Array<{ x: number; y: number }> = [];
+  if (args.side === 'north' || args.side === 'south') {
+    const stripStartY = args.side === 'north' ? 0 : Math.max(0, args.rows - TOWN_GATE_DEPTH);
+    for (let y = stripStartY; y < stripStartY + TOWN_GATE_DEPTH; y += 1) {
+      for (const offset of offsets) {
+        cells.push({ x: centerX + offset, y });
+      }
+    }
+    return cells;
+  }
+  const stripStartX = args.side === 'west' ? 0 : Math.max(0, args.cols - TOWN_GATE_DEPTH);
+  for (let x = stripStartX; x < stripStartX + TOWN_GATE_DEPTH; x += 1) {
+    for (const offset of offsets) {
+      cells.push({ x, y: centerY + offset });
+    }
+  }
+  return cells;
+}
+
 function drawTownWalls(
   layout: string[][],
   openSides: readonly ExitSide[] = [],
@@ -1484,7 +1776,17 @@ function exteriorConnectionSides(
   });
 }
 
-function stampNpc(layout: string[][], x: number, y: number): void {
+function stampNpc(
+  layout: string[][],
+  x: number,
+  y: number,
+  context?: TownRoomBuildContext,
+  source = 'resident-presence',
+): void {
+  if (context) {
+    context.stamp({ x, y, tile: 'G', source, purpose: 'npc', blocking: false });
+    return;
+  }
   setChar(layout, x, y, 'G');
 }
 
@@ -1528,8 +1830,22 @@ function addTownLayerEntrance(
   layout: string[][],
   entrances: LayerEntrance[],
   entrance: LayerEntrance,
+  context?: TownRoomBuildContext,
 ): void {
-  setChar(layout, entrance.x, entrance.y, entrance.tile ?? LAYER_ENTRANCE_TILE);
+  const tile = entrance.tile ?? LAYER_ENTRANCE_TILE;
+  if (context) {
+    context.stamp({
+      x: entrance.x,
+      y: entrance.y,
+      tile,
+      source: entrance.id,
+      purpose: 'door',
+      blocking: isBlockingTownTile(tile),
+      overwriteImportant: true,
+    });
+  } else {
+    setChar(layout, entrance.x, entrance.y, tile);
+  }
   entrances.push(entrance);
 }
 
@@ -1612,29 +1928,17 @@ function drawGatehouse(
   center: { x: number; y: number },
   grid: GridConfig,
 ): void {
-  const placeGuardPair = (a: { x: number; y: number }, b: { x: number; y: number }): void => {
-    stampNpc(layout, a.x, a.y);
-    stampNpc(layout, b.x, b.y);
-  };
   if (side === 'west' || side === 'east') {
     const x = side === 'west' ? 2 : grid.cols - 3;
     fillRect(layout, x, center.y - 3, 1, 7, 'x');
     fillRect(layout, x + (side === 'west' ? 1 : -1), center.y - 5, 2, 2, '#');
     fillRect(layout, x + (side === 'west' ? 1 : -1), center.y + 4, 2, 2, '#');
-    placeGuardPair(
-      { x: side === 'west' ? x + 2 : x - 2, y: center.y - 2 },
-      { x: side === 'west' ? x + 2 : x - 2, y: center.y + 2 },
-    );
     return;
   }
   const y = side === 'north' ? 2 : grid.rows - 3;
   fillRect(layout, center.x - 3, y, 7, 1, 'x');
   fillRect(layout, center.x - 6, y + (side === 'north' ? 1 : -1), 2, 2, '#');
   fillRect(layout, center.x + 5, y + (side === 'north' ? 1 : -1), 2, 2, '#');
-  placeGuardPair(
-    { x: center.x - 2, y: side === 'north' ? y + 2 : y - 2 },
-    { x: center.x + 2, y: side === 'north' ? y + 2 : y - 2 },
-  );
 }
 
 function gateGuardPositionForSide(
@@ -1651,6 +1955,65 @@ function gateGuardPositionForSide(
     case 'west':
       return { x: center.x - 8, y: center.y };
   }
+}
+
+export function renderTownGateSide(args: {
+  layout: string[][];
+  gate: TownGate;
+  side: TownGateSide;
+  perspective: 'inside' | 'outside';
+  state: TownGateState;
+  includeGuard: boolean;
+}): { guardPosition?: { x: number; y: number } } {
+  const rows = args.layout.length;
+  const cols = args.layout[0]?.length ?? 0;
+  if (rows < 8 || cols < 8) {
+    return {};
+  }
+  const center = {
+    x: Math.floor(cols / 2),
+    y: Math.floor(rows / 2),
+  };
+  const gateTile = args.state === 'open' ? '.' : 'x';
+  if (args.side === 'north' || args.side === 'south') {
+    const stripYs = args.side === 'north' ? [0, 1] : [rows - 2, rows - 1];
+    for (const y of stripYs) {
+      for (let x = 0; x < cols; x += 1) {
+        setChar(args.layout, x, y, '#');
+      }
+    }
+    for (const cell of townGateFootprintCells({ side: args.side, cols, rows })) {
+      setChar(args.layout, cell.x, cell.y, gateTile);
+    }
+    const innerY = args.side === 'north' ? 3 : rows - 4;
+    const guardPosition = {
+      x: center.x + 2,
+      y: Math.max(1, Math.min(rows - 2, innerY)),
+    };
+    if (args.includeGuard) {
+      setChar(args.layout, guardPosition.x, guardPosition.y, 'G');
+    }
+    return args.includeGuard ? { guardPosition } : {};
+  }
+
+  const stripXs = args.side === 'west' ? [0, 1] : [cols - 2, cols - 1];
+  for (const x of stripXs) {
+    for (let y = 0; y < rows; y += 1) {
+      setChar(args.layout, x, y, '#');
+    }
+  }
+  for (const cell of townGateFootprintCells({ side: args.side, cols, rows })) {
+    setChar(args.layout, cell.x, cell.y, gateTile);
+  }
+  const innerX = args.side === 'west' ? 3 : cols - 4;
+  const guardPosition = {
+    x: Math.max(1, Math.min(cols - 2, innerX)),
+    y: center.y + 2,
+  };
+  if (args.includeGuard) {
+    setChar(args.layout, guardPosition.x, guardPosition.y, 'G');
+  }
+  return args.includeGuard ? { guardPosition } : {};
 }
 
 function gateGuardResidentPositions(args: {
@@ -1707,6 +2070,7 @@ export function createTownDistrictRoom(args: {
   connections: Partial<Record<'north' | 'south' | 'east' | 'west', string>>;
 }): RoomSnapshot {
   const layout = emptyRows(args.grid);
+  const context = new TownRoomBuildContext(layout);
   const center = { x: Math.floor(args.grid.cols / 2), y: Math.floor(args.grid.rows / 2) };
   const town = cloneTownForRoom(args.town, args.roomId, args.districtKind);
   const layerEntrances: LayerEntrance[] = [];
@@ -1763,6 +2127,7 @@ export function createTownDistrictRoom(args: {
             y: tavern.door.y,
             building: tavern,
           }),
+          context,
         );
       }
       drawBuildingShell(layout, args.grid.cols - 11, 5, 7, 5, {
@@ -1773,13 +2138,6 @@ export function createTownDistrictRoom(args: {
       setChar(layout, args.grid.cols - 8, 7, 'D');
       setChar(layout, center.x + 5, center.y - 4, 'P');
       setChar(layout, center.x - 5, center.y + 4, 'P');
-      for (const side of externalWallSides) {
-        if (wallOpenSides.includes(side)) {
-          drawGatehouse(layout, side, center, args.grid);
-        }
-      }
-      stampNpc(layout, center.x + 5, center.y - 3);
-      stampNpc(layout, center.x - 5, center.y + 3);
       }
       break;
     case 'marketStreet':
@@ -1807,6 +2165,7 @@ export function createTownDistrictRoom(args: {
             y: generalStore.door.y,
             building: generalStore,
           }),
+          context,
         );
       }
       setChar(layout, 5, 6, 'M');
@@ -1830,6 +2189,7 @@ export function createTownDistrictRoom(args: {
             y: butcher.door.y,
             building: butcher,
           }),
+          context,
         );
       }
       setChar(layout, center.x - 2, 5, 'F');
@@ -1853,6 +2213,7 @@ export function createTownDistrictRoom(args: {
             y: potionMaker.door.y,
             building: potionMaker,
           }),
+          context,
         );
       }
       setChar(layout, args.grid.cols - 9, 6, 'P');
@@ -1863,7 +2224,6 @@ export function createTownDistrictRoom(args: {
       }
       setChar(layout, center.x + 2, center.y - 2, 'P');
       setChar(layout, center.x - 2, center.y + 2, 'P');
-      stampNpc(layout, center.x - 8, center.y);
       }
       break;
     case 'residentialStreet':
@@ -1902,6 +2262,7 @@ export function createTownDistrictRoom(args: {
             y: home.door.y,
             building: home,
           }),
+          context,
         );
       }
       drawFenceRun(layout, { x: 3, y: center.y + 5 }, { x: 12, y: center.y + 5 });
@@ -1912,7 +2273,6 @@ export function createTownDistrictRoom(args: {
       );
       setChar(layout, 5, center.y + 3, 'P');
       setChar(layout, args.grid.cols - 6, center.y + 3, 'P');
-      stampNpc(layout, center.x - 3, center.y);
       }
       break;
     case 'backAlley':
@@ -1944,11 +2304,9 @@ export function createTownDistrictRoom(args: {
         discovered: town.discoveredGuild,
         locked: !town.discoveredGuild,
         tile: town.discoveredGuild ? 'U' : 'u',
-      });
+      }, context);
       setChar(layout, center.x + 5, center.y, 'S');
       setChar(layout, center.x - 8, center.y - 2, 'P');
-      stampNpc(layout, center.x, center.y + 3);
-      stampNpc(layout, center.x + 4, center.y - 3);
       }
       break;
     case 'guildHideout':
@@ -1960,10 +2318,35 @@ export function createTownDistrictRoom(args: {
       setChar(layout, center.x - 6, center.y + 1, 'P');
       setChar(layout, center.x, center.y, 'E');
       setChar(layout, center.x + 4, center.y + 2, 'A');
-      stampNpc(layout, center.x + 5, center.y);
-      stampNpc(layout, center.x - 5, center.y + 2);
       break;
   }
+
+  const gatePresences: TownResidentPresence[] = [];
+  for (const gate of town.gates.filter((entry) => entry.townRoomId === args.roomId)) {
+    const result = renderTownGateSide({
+      layout,
+      gate,
+      side: gate.side,
+      perspective: 'inside',
+      state: gate.state,
+      includeGuard: Boolean(gate.insideGuardResidentId),
+    });
+    if (gate.insideGuardResidentId && result.guardPosition) {
+      gatePresences.push({
+        residentId: gate.insideGuardResidentId,
+        roomId: args.roomId,
+        x: result.guardPosition.x,
+        y: result.guardPosition.y,
+        source: 'gate',
+        role: 'guard',
+      });
+    }
+  }
+  town.residentPresences = gatePresences;
+  town.residents = town.residents.map((resident) => {
+    const presence = gatePresences.find((entry) => entry.residentId === resident.id);
+    return presence ? { ...resident, x: presence.x, y: presence.y, workRoomId: presence.roomId } : resident;
+  });
 
   const interiorOwnerIds = new Set(
     town.buildings
@@ -1972,7 +2355,9 @@ export function createTownDistrictRoom(args: {
   );
   const residents = town.residents.filter(
     (resident) =>
+      !gatePresences.some((presence) => presence.residentId === resident.id) &&
       !interiorOwnerIds.has(resident.id) &&
+      !['bartender', 'cardDealer'].includes(resident.role) &&
       normalizeDistrictKind(
         (resident.workRoomId ? town.districtByRoomId[resident.workRoomId] : undefined) ??
           (resident.workRoomId?.split(':').pop() as TownDistrictKind | undefined),
@@ -1999,22 +2384,35 @@ export function createTownDistrictRoom(args: {
           { x: center.x + 4, y: center.y - 4 },
           { x: center.x + 8, y: center.y - 4 },
         ];
+  const residentPresences: TownResidentPresence[] = [];
   town.residents = town.residents.map((resident) => {
     const index = residents.findIndex((entry) => entry.id === resident.id);
     if (index < 0) {
       return resident;
     }
     const position = residentPositions[index % residentPositions.length] ?? center;
+    const x = Math.max(2, Math.min(args.grid.cols - 3, position.x));
+    const y = Math.max(2, Math.min(args.grid.rows - 3, position.y));
+    residentPresences.push({
+      residentId: resident.id,
+      roomId: args.roomId,
+      x,
+      y,
+      source: district === 'gate' || district === 'townExit' ? 'gate' : 'district',
+      role: resident.role,
+    });
     return {
       ...resident,
-      x: Math.max(2, Math.min(args.grid.cols - 3, position.x)),
-      y: Math.max(2, Math.min(args.grid.rows - 3, position.y)),
+      x,
+      y,
     };
   });
-  town.residents
-    .filter((resident) => residents.some((entry) => entry.id === resident.id))
-    .forEach((resident) => stampNpc(layout, resident.x, resident.y));
+  town.residentPresences = [...gatePresences, ...residentPresences];
+  townResidentsForRoom(town, args.roomId).forEach((resident) =>
+    stampNpc(layout, resident.x, resident.y, context, `resident:${resident.id}`),
+  );
   town.shopkeeper = selectPrimaryTownMerchant(town.residents, town.shopkeeper);
+  town.stampConflicts = context.conflicts;
 
   return {
     id: args.roomId,
