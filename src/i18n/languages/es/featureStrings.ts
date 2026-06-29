@@ -204,7 +204,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   placeholderInventory: 'Los objetos que recolectes aparecer\u00e1n aqu\u00ed.',
   placeholderCustomize: 'Compra paletas y estilo.',
   placeholderMap: 'Explora para revelar m\u00e1s habitaciones.',
-  placeholderCheats: "Ingresa strings de trucos: freakdennis, freakerdennis, ryan's closet",
+  placeholderCheats: "Escribe un código de truco o haz clic en Habilitar en las tarjetas.",
 
   // HUD
   hudHearts: 'Corazones',

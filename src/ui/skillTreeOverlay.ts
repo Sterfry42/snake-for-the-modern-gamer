@@ -14,6 +14,7 @@ import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
+import { CHEAT_DEFINITIONS } from '../cheats/cheatRegistry.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
@@ -1926,10 +1927,12 @@ export class SkillTreeOverlay {
         },
       );
     }
-    hats.slice(0, 4).forEach((hat, index) => {
+    hats.forEach((hat, index) => {
+      const col = index % 3;
+      const row = Math.floor(index / 3);
       const rect: UiRect = {
-        x: content.x + index * 82,
-        y: hatsY + 24,
+        x: content.x + col * 82,
+        y: hatsY + 24 + row * 56,
         width: 70,
         height: 48,
       };
@@ -1966,7 +1969,8 @@ export class SkillTreeOverlay {
       });
     });
 
-    const utilY = hatsY + 88;
+    const hatRowCount = Math.max(1, Math.ceil(hats.length / 3));
+    const utilY = hatsY + 24 + hatRowCount * 56;
     addUiText(this.scene, this.styleContainer, content.x, utilY, 'UTILITIES', {
       color: '#9ad1ff',
       fontSize: '12px',
@@ -4221,104 +4225,12 @@ export class SkillTreeOverlay {
     primaryCode: string;
     description: string;
   }> {
-    return [
-      {
-        name: 'SPECIAL MAX',
-        code: 'special10 / stats10',
-        primaryCode: 'special10',
-        description: 'Set all SPECIAL stats to 10.',
-      },
-      {
-        name: 'APPLE SCORE x100',
-        code: 'investingincrypto',
-        primaryCode: 'investingincrypto',
-        description: 'Apple score multiplied by 100.',
-      },
-      {
-        name: 'ALL CARDS',
-        code: 'ebaycollector',
-        primaryCode: 'ebaycollector',
-        description: 'Acquire every card in the collection.',
-      },
-      {
-        name: 'CARD TABLES',
-        code: 'cardshark / playcards',
-        primaryCode: 'cardshark',
-        description: 'Unlock card tables in interactions.',
-      },
-      {
-        name: 'HOME ARCADE',
-        code: 'homearcade / installarcade',
-        primaryCode: 'homearcade',
-        description: 'Install the home arcade cabinet.',
-      },
-      {
-        name: 'PERF HUD',
-        code: '90fps240hz',
-        primaryCode: '90fps240hz',
-        description: 'Toggle the performance counter overlay.',
-      },
-      {
-        name: '+100 LIVES',
-        code: 'imawiddlebabywhoneedshelp',
-        primaryCode: 'imawiddlebabywhoneedshelp',
-        description: 'Add 100 extra life charges.',
-      },
-      {
-        name: 'IMMORTAL',
-        code: 'immortal / mammamia / starman / mario',
-        primaryCode: 'immortal',
-        description: 'Invincibility, full heat/cold resistance, swimming enabled.',
-      },
-      {
-        name: 'MOLEMAN DIG',
-        code: 'molemandig / archaeology',
-        primaryCode: 'molemandig',
-        description: 'Open Moleman Archaeology immediately.',
-      },
-      {
-        name: 'GREEN PURCHASE',
-        code: 'teleporterquest / greenpurchase',
-        primaryCode: 'teleporterquest',
-        description: 'Start the Green Purchase quest.',
-      },
-      {
-        name: 'FIND MY BABY',
-        code: 'findmybaby / babyquest',
-        primaryCode: 'findmybaby',
-        description: 'Start the Find My Baby quest.',
-      },
-      {
-        name: 'FREAK YOU',
-        code: 'freakyou / timequest',
-        primaryCode: 'freakyou',
-        description: 'Start the Freak You quest.',
-      },
-      {
-        name: 'SPAWN FREAK DENNIS',
-        code: 'freakdennis',
-        primaryCode: 'freakdennis',
-        description: 'Spawn Freak Dennis boss in current room.',
-      },
-      {
-        name: 'SPAWN FREAKER DENNIS',
-        code: 'freakerdennis',
-        primaryCode: 'freakerdennis',
-        description: 'Spawn Freaker Dennis boss in current room.',
-      },
-      {
-        name: 'SPAWN JASON STATHAM',
-        code: 'jasonstatham',
-        primaryCode: 'jasonstatham',
-        description: 'Spawn Jason Statham boss in current room.',
-      },
-      {
-        name: "RYAN'S CLOSET",
-        code: "ryan's closet / ryans closet",
-        primaryCode: "ryan's closet",
-        description: 'Acquire all useful items and auto-equip key gear.',
-      },
-    ];
+    return CHEAT_DEFINITIONS.map((c) => ({
+      name: c.name,
+      code: c.code,
+      primaryCode: c.primaryCode,
+      description: c.description,
+    }));
   }
 
   private buildControlsCards(rect: UiRect): void {

@@ -3,18 +3,30 @@ import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { BiomeId } from '../world/biomes.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
 
-export type VillageShopStyleId =
-  | 'classic'
-  | 'sunset'
-  | 'midnight'
-  | 'bone'
-  | 'market-moss'
-  | 'charcoal-silk'
-  | 'pearlwake'
-  | 'goblin-hide'
-  | 'retro-grid'
-  | 'unicorn';
-export type VillageShopHatId = 'cowboy' | 'market-cap' | 'ember-cowl' | 'pearl-crown' | 'unicorn-horn';
+export const ALL_VILLAGE_SHOP_STYLE_IDS = [
+  'classic',
+  'sunset',
+  'midnight',
+  'bone',
+  'market-moss',
+  'charcoal-silk',
+  'pearlwake',
+  'goblin-hide',
+  'retro-grid',
+  'unicorn',
+] as const;
+
+export type VillageShopStyleId = (typeof ALL_VILLAGE_SHOP_STYLE_IDS)[number];
+
+export const ALL_VILLAGE_SHOP_HAT_IDS = [
+  'cowboy',
+  'market-cap',
+  'ember-cowl',
+  'pearl-crown',
+  'unicorn-horn',
+] as const;
+
+export type VillageShopHatId = (typeof ALL_VILLAGE_SHOP_HAT_IDS)[number];
 
 export interface VillageShopEquipmentOffer {
   id: string;
@@ -291,6 +303,7 @@ export const VILLAGE_SHOP_HATS: readonly VillageShopHatOffer[] = [
   { id: 'market-cap', label: 'Market Cap', price: 18 },
   { id: 'ember-cowl', label: 'Ember Cowl', price: 30 },
   { id: 'pearl-crown', label: 'Pearl Crown', price: 42 },
+  { id: 'unicorn-horn', label: 'Unicorn Horn', price: 55 },
 ];
 
 export const VILLAGE_SHOP_COWBELLS: readonly VillageShopCowbellOffer[] = [

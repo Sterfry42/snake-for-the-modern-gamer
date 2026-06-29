@@ -2668,7 +2668,7 @@ export class SnakeRenderer {
     if (style === 'unicorn-horn') {
       return {
         style,
-        fillColor: '#fbbf24', // golden horn
+        fillColor: '#ffffff', // white horn
         bandColor: '#f5f0ff', // light body color
         outlineColor: '#b89fd4', // soft purple outline
         accentColor: '#ffb3e6', // pink mane

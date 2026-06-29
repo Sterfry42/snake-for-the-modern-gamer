@@ -200,7 +200,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   placeholderInventory: 'Items you collect will appear here.',
   placeholderCustomize: 'Buy palettes and swagger.',
   placeholderMap: 'Explore to reveal more rooms.',
-  placeholderCheats: "Enter cheat strings: freakdennis, freakerdennis, ryan's closet",
+  placeholderCheats: "Type a cheat code or click Enable on the cards below.",
 
   // HUD
   hudHearts: 'Hearts',
