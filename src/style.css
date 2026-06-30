@@ -67,8 +67,8 @@ body {
 
 .mobile-controls__dpad-cross {
   position: relative;
-  width: clamp(176px, 34vw, 236px);
-  height: clamp(176px, 34vw, 236px);
+  width: clamp(280px, 54vw, 420px);
+  height: clamp(280px, 54vw, 420px);
   filter: drop-shadow(0 12px 18px rgba(0, 0, 0, 0.5));
 }
 
@@ -108,8 +108,8 @@ body {
 .mobile-controls__dpad-button {
   position: absolute;
   z-index: 2;
-  width: 34%;
-  height: 34%;
+  width: 42%;
+  height: 42%;
   border-radius: 16px;
   background: transparent;
   color: rgba(255, 255, 255, 0.82);
@@ -118,23 +118,23 @@ body {
 }
 
 .mobile-controls__dpad-button--up {
-  left: 33%;
-  top: 4%;
+  left: 29%;
+  top: 0;
 }
 
 .mobile-controls__dpad-button--left {
-  left: 4%;
-  top: 33%;
+  left: 0;
+  top: 29%;
 }
 
 .mobile-controls__dpad-button--right {
-  right: 4%;
-  top: 33%;
+  right: 0;
+  top: 29%;
 }
 
 .mobile-controls__dpad-button--down {
-  left: 33%;
-  bottom: 4%;
+  left: 29%;
+  bottom: 0;
 }
 
 .mobile-controls__dpad-center {

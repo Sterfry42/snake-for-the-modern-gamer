@@ -134,6 +134,7 @@ import {
   getTownDistrictForRoom,
   getTownRoom,
   townDistrictDisplayName,
+  townResidentsForRoom,
   type TownDistrictKind,
   type TownStructure,
 } from '../world/town.js';
@@ -2554,6 +2555,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractMcDonaldsCashier()) return;
     if (this.tryInteractMcDonaldsToilet()) return;
     if (this.tryInteractTownQuestBoard()) return;
+    if (this.tryInteractTownBuildingDoor()) return;
     if (this.tryInteractTownGuildGrate()) return;
     if (this.tryInteractLibertyStructure()) return;
     if (this.tryInteractMolemanDigSite()) return;
@@ -3190,7 +3192,13 @@ export default class SnakeScene extends Phaser.Scene {
     this.tickFreakYouPortalFx();
 
     // Idle apple sparkle
-    if (this.currentApple && !result.apple.eaten) {
+    const currentRoomForAppleFx = this.snakeGame.getCurrentRoom();
+    if (
+      this.currentApple &&
+      !result.apple.eaten &&
+      !currentRoomForAppleFx.town &&
+      currentRoomForAppleFx.layer?.kind !== 'townInterior'
+    ) {
       const world = this.tileToWorld(this.currentApple.position);
       if (this.random() < 0.06) {
         this.juice.appleIdle(world.x, world.y);
@@ -5306,21 +5314,33 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a goblin camp!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place goblin camp - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place goblin camp - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'quest') {
       if (this.snakeGame?.spawnQuestHouse()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a quest house!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place quest house - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place quest house - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'mcdonalds' || code === 'snakemcdonalds') {
       if (this.snakeGame?.spawnSnakeMcDonalds()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a Snake McDonalds!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place Snake McDonalds - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place Snake McDonalds - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'shrine') {
       if (this.snakeGame?.spawnShrine()) {
@@ -5334,7 +5354,11 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a ramen stand!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place ramen stand - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place ramen stand - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'koi' || code === 'koipond') {
       if (this.snakeGame?.spawnKoiPond()) {
@@ -5348,42 +5372,66 @@ export default class SnakeScene extends Phaser.Scene {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a tengu camp!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place tengu camp - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place tengu camp - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'monument') {
       if (this.snakeGame?.spawnRoadsideMonument()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a roadside monument!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place roadside monument - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place roadside monument - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'diner' || code === 'allnitediner') {
       if (this.snakeGame?.spawnAllNiteDiner()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned an all-nite diner!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place all-nite diner - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place all-nite diner - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'fireworks' || code === 'fireworkstand') {
       if (this.snakeGame?.spawnFireworkStand()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a firework stand!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place firework stand - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place firework stand - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'jackalope') {
       if (this.snakeGame?.spawnJackalopeLodge()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a jackalope lodge!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place jackalope lodge - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place jackalope lodge - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'moleman') {
       if (this.snakeGame?.spawnMolemanDigSite()) {
         this.isDirty = true;
         return { ok: true, message: 'Spawned a moleman dig site!', color: '#5dd6a2' };
       }
-      return { ok: false, message: 'Could not place moleman dig site - room too small.', color: '#ff6b6b' };
+      return {
+        ok: false,
+        message: 'Could not place moleman dig site - room too small.',
+        color: '#ff6b6b',
+      };
     }
     if (code === 'motelpool') {
       if (this.snakeGame?.spawnMotelPool()) {
@@ -5480,7 +5528,7 @@ export default class SnakeScene extends Phaser.Scene {
         color: '#5dd6a2',
       };
     }
-    if (code === "lindsey's closet" || code === "lindsleys closet") {
+    if (code === "lindsey's closet" || code === 'lindsleys closet') {
       // Lindsey's Closet: give the player every cosmetic in the game.
       const allThemeIds: SnakeThemeId[] = [
         'classic',
@@ -9333,10 +9381,7 @@ export default class SnakeScene extends Phaser.Scene {
           color: 0x4ecdc4,
         })),
       snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
-      activeHat:
-        activeSnakeTheme.id === 'unicorn'
-          ? 'unicorn-horn'
-          : this.snakeCosmetics.activeHat,
+      activeHat: activeSnakeTheme.id === 'unicorn' ? 'unicorn-horn' : this.snakeCosmetics.activeHat,
       enemies: roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id),
       followers: roomSnapshot?.followers ?? [],
       bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
@@ -9685,7 +9730,17 @@ export default class SnakeScene extends Phaser.Scene {
         true,
       );
     }
-    if (villageLike?.center) {
+    const townDistrict =
+      room.town && room.id ? getTownDistrictForRoom(room.town, room.id) : undefined;
+    const centerTile = villageLike?.center
+      ? room.layout[villageLike.center.y]?.[villageLike.center.x]
+      : undefined;
+    if (
+      villageLike?.center &&
+      (!room.town ||
+        ((townDistrict === 'square' || townDistrict === 'townCenter') &&
+          (centerTile === 'M' || centerTile === 'P' || centerTile === 'L')))
+    ) {
       addLight(
         'town-window-glow',
         villageLike.center.x,
@@ -9710,6 +9765,18 @@ export default class SnakeScene extends Phaser.Scene {
         0.75,
         0xff713f,
         'lava',
+        true,
+      );
+    }
+    if (room.cave?.templateId === 'pitchBlackTreasure') {
+      addLight(
+        'pitch-black-cave-exit',
+        room.cave.exit.x,
+        room.cave.exit.y,
+        3.8,
+        1,
+        0xffd48a,
+        'lantern',
         true,
       );
     }
@@ -9764,25 +9831,27 @@ export default class SnakeScene extends Phaser.Scene {
     const radiusTiles = Number(this.getFlag<number>('equipment.lightRadiusTiles') ?? 0);
     const head = snakeBody[0];
     if (radiusTiles > 0 && head) {
-      const [roomX, roomY] = roomId.split(',').map(Number);
-      const localX = Number.isFinite(roomX) ? head.x - roomX * this.grid.cols : head.x;
-      const localY = Number.isFinite(roomY) ? head.y - roomY * this.grid.rows : head.y;
-      addLight('player-lantern', localX, localY, radiusTiles, 0.9, 0xffd48a, 'lantern', true);
+      const [roomX, roomY] = this.parseRoomCoordinates(roomId);
+      const localX = head.x - roomX * this.grid.cols;
+      const localY = head.y - roomY * this.grid.rows;
+      addLight(
+        'player-lantern',
+        localX,
+        localY,
+        radiusTiles * 1.5,
+        1,
+        0xffd48a,
+        'lantern',
+        true,
+      );
     }
     if (lightSources.length === atmosphere.darkness.lightSources.length) {
       return atmosphere;
     }
-    const darknessAlpha =
-      atmosphere.darkness.level === 'pitchBlack'
-        ? Math.max(0.34, atmosphere.darkness.darknessAlpha - 0.24)
-        : atmosphere.darkness.level === 'dark'
-          ? Math.max(0.2, atmosphere.darkness.darknessAlpha - 0.14)
-          : atmosphere.darkness.darknessAlpha;
     return {
       ...atmosphere,
       darkness: {
         ...atmosphere.darkness,
-        darknessAlpha,
         lanternRecommended: radiusTiles > 0 ? false : atmosphere.darkness.lanternRecommended,
         lightSources,
       },
@@ -11254,15 +11323,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.isNearTownQuestBoard()) {
       return { text: `Read quest board (${interact})` };
     }
-    const town = room.town;
-    if (town && this.isNearTownGuildGrate(town)) {
-      const status = this.snakeGame.getCurrentTownGuildInitiationStatus();
-      return {
-        text:
-          status.state === 'complete'
-            ? `Enter thieves guild grate (${interact})`
-            : `Inspect thieves guild grate (${interact})`,
-      };
+    const townDoor = this.snakeGame.getNearbyTownBuildingDoor();
+    if (townDoor) {
+      return { text: `${townDoor.prompt} (${interact})` };
     }
     const giver = room.questGiver;
     if (!giver) {
@@ -11364,13 +11427,27 @@ export default class SnakeScene extends Phaser.Scene {
     return true;
   }
 
+  private tryInteractTownBuildingDoor(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const door = this.snakeGame.getNearbyTownBuildingDoor();
+    if (!door) {
+      return false;
+    }
+    const result = this.snakeGame.enterNearbyTownBuildingDoor();
+    this.showQuestHintPopup(result.message, result.ok ? '#b6ff6a' : '#ff6b6b');
+    this.isDirty = this.isDirty || result.ok;
+    return true;
+  }
+
   private isNearTownQuestBoard(): boolean {
     const room = this.snakeGame.getCurrentRoom();
     if (!room.town) {
       return false;
     }
     const district = getTownDistrictForRoom(room.town, room.id);
-    return district === 'square' && this.isNearTownTile('D');
+    return (district === 'square' || district === 'townCenter') && this.isNearTownTile('D');
   }
 
   private townQuestBoardDescription(quest: { id: string; description: string }): string {
@@ -15871,60 +15948,57 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     if (room.town) {
-      const district = getTownDistrictForRoom(room.town, room.id);
       candidates.push(
-        ...room.town.residents
-          .filter((resident) => this.isTownResidentInDistrict(resident.workRoomId, district))
-          .map((resident) => {
-            const relationshipId = this.snakeGame.getTownResidentRelationshipId(
-              room.town!.id,
-              resident.id,
-            );
-            const actorId =
-              resident.actorId ??
-              this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role);
-            return {
-              id: relationshipId,
-              actorId,
-              displayName: `${resident.name}${
-                resident.role === 'bartender'
-                  ? ' the Bartender'
-                  : resident.role === 'equipmentMerchant'
-                    ? ' the Equipment Merchant'
-                    : resident.role === 'potionMaker'
-                      ? ' the Potion Maker'
-                      : resident.role === 'butcher'
-                        ? ' the Butcher'
-                        : resident.role === 'cardDealer'
-                          ? ' the Card Dealer'
-                          : resident.role === 'guard'
-                            ? ' the Guard'
-                            : resident.role === 'thief' || resident.role === 'thiefContact'
-                              ? ' of the Guild'
-                              : resident.role === 'questGiver'
-                                ? ' the Quest Broker'
-                                : ''
-              }`,
-              species: 'human' as RelationshipSpecies,
-              portraitId: resident.portraitId,
-              homeRoomId: resident.homeRoomId ?? room.id,
-              factionId: resident.factionId as FactionId,
-              personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-              ...this.snakeGame.getRelationshipNpcBodyPosition(
-                {
-                  id: relationshipId,
-                  actorId,
-                  displayName: resident.name,
-                  species: 'human' as RelationshipSpecies,
-                  portraitId: resident.portraitId,
-                  homeRoomId: resident.homeRoomId ?? room.id,
-                  factionId: resident.factionId as FactionId,
-                  personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
-                },
-                { x: resident.x, y: resident.y },
-              ),
-            };
-          }),
+        ...townResidentsForRoom(room.town, room.id).map((resident) => {
+          const relationshipId = this.snakeGame.getTownResidentRelationshipId(
+            room.town!.id,
+            resident.id,
+          );
+          const actorId =
+            resident.actorId ??
+            this.snakeGame.getTownResidentActorId(room.town!.id, resident.id, resident.role);
+          return {
+            id: relationshipId,
+            actorId,
+            displayName: `${resident.name}${
+              resident.role === 'bartender'
+                ? ' the Bartender'
+                : resident.role === 'equipmentMerchant'
+                  ? ' the Equipment Merchant'
+                  : resident.role === 'potionMaker'
+                    ? ' the Potion Maker'
+                    : resident.role === 'butcher'
+                      ? ' the Butcher'
+                      : resident.role === 'cardDealer'
+                        ? ' the Card Dealer'
+                        : resident.role === 'guard'
+                          ? ' the Guard'
+                          : resident.role === 'thief' || resident.role === 'thiefContact'
+                            ? ' of the Guild'
+                            : resident.role === 'questGiver'
+                              ? ' the Quest Broker'
+                              : ''
+            }`,
+            species: 'human' as RelationshipSpecies,
+            portraitId: resident.portraitId,
+            homeRoomId: resident.homeRoomId ?? room.id,
+            factionId: resident.factionId as FactionId,
+            personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+            ...this.snakeGame.getRelationshipNpcBodyPosition(
+              {
+                id: relationshipId,
+                actorId,
+                displayName: resident.name,
+                species: 'human' as RelationshipSpecies,
+                portraitId: resident.portraitId,
+                homeRoomId: resident.homeRoomId ?? room.id,
+                factionId: resident.factionId as FactionId,
+                personality: resident.role === 'bartender' ? ('deadpan' as const) : undefined,
+              },
+              { x: resident.x, y: resident.y },
+            ),
+          };
+        }),
       );
     }
     if (room.goblinCamp) {
@@ -16321,11 +16395,12 @@ export default class SnakeScene extends Phaser.Scene {
       });
     }
     if (town && (actorRole === 'guard' || actorRole === 'gateGuard')) {
-      if (district === 'gate' || district === 'townExit') {
+      const nearbyGate = this.snakeGame.getNearbyTownGate();
+      if (nearbyGate) {
         options.push({
           id: 'open-gate',
-          title: district === 'townExit' ? 'Open Back Gate' : 'Open Gate',
-          description: 'Pay the gate tax through a guard instead of a floating town menu.',
+          title: nearbyGate.kind === 'exit' ? 'Open Back Gate' : 'Open Gate',
+          description: nearbyGate.prompt,
         });
       }
     }
@@ -16917,6 +16992,8 @@ export default class SnakeScene extends Phaser.Scene {
     }
     const kind = workRoomId.split(':').pop();
     if (kind === district) return true;
+    if (kind === 'townCenter' && district === 'square') return true;
+    if (kind === 'square' && district === 'townCenter') return true;
     if (kind === 'market' && district === 'marketStreet') return true;
     if (kind === 'tavern' && district === 'tavernInterior') return true;
     if (kind === 'residential' && district === 'residentialStreet') return true;
@@ -18692,12 +18769,7 @@ export default class SnakeScene extends Phaser.Scene {
       ...(room.town
         ? this.snakeGame.isTownHostileForRoom(room.town, room.id)
           ? []
-          : room.town.residents.filter((resident) =>
-              this.isTownResidentInDistrict(
-                resident.workRoomId,
-                getTownDistrictForRoom(room.town!, room.id),
-              ),
-            )
+          : townResidentsForRoom(room.town, room.id)
         : []),
       ...goblinResidents,
     ];

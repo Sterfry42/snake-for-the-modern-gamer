@@ -58,6 +58,7 @@ export interface RoomGenerationContext {
   village?: RoomSnapshot['village'];
   goblinCamp?: RoomSnapshot['goblinCamp'];
   town?: RoomSnapshot['town'];
+  layerEntrances?: RoomSnapshot['layerEntrances'];
   townPerimeter?: RoomSnapshot['townPerimeter'];
   snakeMcDonalds?: RoomSnapshot['snakeMcDonalds'];
   shrine?: RoomSnapshot['shrine'];

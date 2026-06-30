@@ -64,6 +64,8 @@ export function generateCave(args: {
 
   if (templateId === 'lakeTreasure') {
     stampLakeTreasure(room, layout, save);
+  } else if (templateId === 'pitchBlackTreasure') {
+    stampPitchBlackTreasure(room, layout, grid, save);
   } else if (templateId === 'simpleTreasure') {
     room.treasure = save?.rewardClaimed ? undefined : { x: Math.floor(grid.cols / 2), y: 8 };
   } else if (templateId === 'caveDweller') {
@@ -89,6 +91,8 @@ export function generateCave(args: {
     stampAppleRush(layout, grid, rng);
   }
 
+  clearAround(layout, exit, 1);
+  setTile(layout, exit.x, exit.y, CAVE_EXIT_TILE);
   room.layout = rows(layout);
   const instance: CaveInstance = {
     id: caveId,
@@ -227,6 +231,31 @@ function stampPillars(layout: string[][], grid: GridConfig): void {
   for (const point of points) {
     setTile(layout, point.x, point.y, '#');
   }
+}
+
+function stampPitchBlackTreasure(
+  room: RoomSnapshot,
+  layout: string[][],
+  grid: GridConfig,
+  save?: CaveInstanceSaveData,
+): void {
+  const centerX = Math.floor(grid.cols / 2);
+  for (let y = 4; y <= grid.rows - 7; y += 3) {
+    for (let x = 3; x < grid.cols - 3; x += 1) {
+      const gap = y % 2 === 0 ? centerX - 5 : centerX + 5;
+      if (Math.abs(x - gap) <= 1) continue;
+      setTile(layout, x, y, '#');
+    }
+  }
+  for (let x = 6; x <= grid.cols - 7; x += 6) {
+    for (let y = 5; y < grid.rows - 8; y += 1) {
+      if (Math.abs(y - (grid.rows - 5)) <= 2 || y % 7 === 0) continue;
+      setTile(layout, x, y, '#');
+    }
+  }
+  clearAround(layout, { x: centerX, y: grid.rows - 3 }, 3);
+  clearAround(layout, { x: centerX, y: 5 }, 2);
+  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 5 };
 }
 
 function stampTargetingGallery(

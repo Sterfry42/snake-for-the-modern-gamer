@@ -114,6 +114,9 @@ export interface RenderDiagnostics {
 export class SnakeRenderer {
   private readonly spriteFactory: RuntimeSpriteFactory;
   private readonly overlayGraphics: Phaser.GameObjects.Graphics;
+  private readonly darknessTexture: Phaser.GameObjects.RenderTexture;
+  private readonly darknessRevealGraphics: Phaser.GameObjects.Graphics;
+  private readonly lightGlowGraphics: Phaser.GameObjects.Graphics;
   private readonly snakeSprites: Phaser.GameObjects.Image[] = [];
   private readonly snakeLayer: Phaser.GameObjects.Container;
   private readonly hatSprite: Phaser.GameObjects.Image;
@@ -158,6 +161,16 @@ export class SnakeRenderer {
   ) {
     this.wallGraphics = wallGraphics;
     this.overlayGraphics = this.scene.add.graphics().setDepth(BULLET_LAYER_DEPTH + 0.75);
+    this.darknessTexture = this.scene.add
+      .renderTexture(0, 0, this.grid.cols * this.grid.cell, this.grid.rows * this.grid.cell)
+      .setOrigin(0, 0)
+      .setDepth(BULLET_LAYER_DEPTH + 0.7)
+      .setVisible(false);
+    this.darknessRevealGraphics = this.scene.add.graphics().setVisible(false);
+    this.lightGlowGraphics = this.scene.add
+      .graphics()
+      .setDepth(BULLET_LAYER_DEPTH + 0.72)
+      .setBlendMode(Phaser.BlendModes.ADD);
     this.spriteFactory = new RuntimeSpriteFactory(scene);
     this.defaultSnakeTextureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
@@ -231,6 +244,9 @@ export class SnakeRenderer {
     this.graphics.clearMask();
     this.overlayGraphics.clear();
     this.overlayGraphics.clearMask();
+    this.lightGlowGraphics.clear();
+    this.lightGlowGraphics.clearMask();
+    this.darknessTexture.clear().setVisible(false);
     this.wallGraphics.clear();
 
     const opts = options ?? {};
@@ -285,7 +301,7 @@ export class SnakeRenderer {
     this.drawBullets(opts.bullets ?? []);
     this.drawFootballs(opts.footballs ?? []);
     this.drawAtmosphereParticles(room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
-    this.drawDarknessOverlay(opts.atmosphere);
+    this.drawDarknessOverlay(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
     this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
@@ -304,25 +320,63 @@ export class SnakeRenderer {
     this.graphics.fillStyle(view.tint.color, view.tint.alpha).fillRect(0, 0, width, height);
   }
 
-  private drawDarknessOverlay(view?: ResolvedAtmosphereView): void {
+  private drawDarknessOverlay(view: ResolvedAtmosphereView | undefined, renderTimeMs: number): void {
     if (!view || view.darkness.darknessAlpha <= 0) {
       return;
     }
-    this.overlayGraphics.fillStyle(0x020713, view.darkness.darknessAlpha);
-    this.overlayGraphics.fillRect(
-      0,
-      0,
-      this.grid.cols * this.grid.cell,
-      this.grid.rows * this.grid.cell,
-    );
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+    this.darknessTexture.clear();
+    this.darknessTexture.fill(0x020713, view.darkness.darknessAlpha, 0, 0, width, height);
+    this.darknessTexture.setVisible(true);
+
     for (const light of view.darkness.lightSources) {
-      const radiusPx = light.radiusTiles * this.grid.cell;
-      const cx = light.x * this.grid.cell + this.grid.cell / 2;
-      const cy = light.y * this.grid.cell + this.grid.cell / 2;
-      const alpha = Math.min(0.32, light.intensity * 0.28);
-      this.overlayGraphics.fillStyle(light.color, alpha).fillCircle(cx, cy, radiusPx);
-      this.overlayGraphics.fillStyle(light.color, alpha * 0.5).fillCircle(cx, cy, radiusPx * 0.62);
+      this.eraseDarknessForLight(light, renderTimeMs);
+      this.drawWarmLightCore(light, renderTimeMs);
     }
+  }
+
+  private eraseDarknessForLight(
+    light: ResolvedAtmosphereView['darkness']['lightSources'][number],
+    renderTimeMs: number,
+  ): void {
+    const radiusPx = light.radiusTiles * this.grid.cell;
+    if (radiusPx <= 0 || light.intensity <= 0) {
+      return;
+    }
+    const cx = light.x * this.grid.cell + this.grid.cell / 2;
+    const cy = light.y * this.grid.cell + this.grid.cell / 2;
+    const flicker = light.flicker ? 0.94 + Math.sin(renderTimeMs / 180 + light.x * 1.7) * 0.06 : 1;
+    const intensity = Phaser.Math.Clamp(light.intensity * flicker, 0, 1.2);
+    const reveal = this.darknessRevealGraphics.clear();
+
+    reveal.fillStyle(0xffffff, Math.min(0.16, intensity * 0.13));
+    reveal.fillCircle(cx, cy, radiusPx * 1.08);
+    reveal.fillStyle(0xffffff, Math.min(0.48, 0.22 + intensity * 0.24));
+    reveal.fillCircle(cx, cy, radiusPx * 0.86);
+    reveal.fillStyle(0xffffff, Math.min(0.78, 0.42 + intensity * 0.3));
+    reveal.fillCircle(cx, cy, radiusPx * 0.48);
+
+    this.darknessTexture.erase([reveal]);
+    reveal.clear();
+  }
+
+  private drawWarmLightCore(
+    light: ResolvedAtmosphereView['darkness']['lightSources'][number],
+    renderTimeMs: number,
+  ): void {
+    const radiusPx = light.radiusTiles * this.grid.cell;
+    if (radiusPx <= 0 || light.intensity <= 0) {
+      return;
+    }
+    const cx = light.x * this.grid.cell + this.grid.cell / 2;
+    const cy = light.y * this.grid.cell + this.grid.cell / 2;
+    const flicker = light.flicker ? 0.92 + Math.sin(renderTimeMs / 150 + light.y * 1.3) * 0.08 : 1;
+    const warmAlpha = Math.min(0.14, light.intensity * flicker * 0.12);
+    this.lightGlowGraphics.fillStyle(light.color, warmAlpha).fillCircle(cx, cy, radiusPx * 0.26);
+    this.lightGlowGraphics
+      .fillStyle(light.color, warmAlpha * 0.35)
+      .fillCircle(cx, cy, radiusPx * 0.42);
   }
 
   private drawAtmosphereGroundJuice(
@@ -746,6 +800,13 @@ export class SnakeRenderer {
           tile === 'N' ||
           tile === 'U' ||
           tile === 'Y' ||
+          tile === 'd' ||
+          tile === 't' ||
+          tile === 'h' ||
+          tile === 'j' ||
+          tile === 'u' ||
+          tile === 'x' ||
+          tile === 'o' ||
           tile === 'M' ||
           tile === 'R' ||
           tile === 'F' ||
@@ -853,6 +914,15 @@ export class SnakeRenderer {
               .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
             this.graphics
               .lineStyle(1, outline, 0.5)
+              .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
+          } else if (room.town || room.layer?.kind === 'townInterior') {
+            const color = room.layer?.kind === 'townInterior' ? 0x6d5845 : 0xb7ab96;
+            const outline = darkenColor(color, 0.35);
+            this.graphics
+              .fillStyle(color, 1)
+              .fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
+            this.graphics
+              .lineStyle(1, outline, 0.3)
               .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
           } else {
             const color = 0x8ea1ff;
@@ -1308,6 +1378,19 @@ export class SnakeRenderer {
   private drawTownSymbolTile(rectX: number, rectY: number, tile: string): void {
     const cell = this.grid.cell;
     const base =
+      tile === 'x'
+        ? 0x6f4426
+        : tile === 'o'
+          ? 0x8a603b
+          : tile === 'd'
+            ? 0x5f3b24
+            : tile === 't'
+              ? 0x7b3f22
+              : tile === 'h' || tile === 'j'
+                ? 0x3f2e24
+                : tile === 'u'
+                  ? 0x252b32
+                  : 
       tile === 'U'
         ? 0x333844
         : tile === 'Y'
@@ -1318,6 +1401,21 @@ export class SnakeRenderer {
               ? 0xc7433d
               : 0x6d5845;
     const accent =
+      tile === 'x'
+        ? 0xd6a35f
+        : tile === 'o'
+          ? 0xe0b06f
+          : tile === 'd'
+            ? 0xd6a35f
+            : tile === 't'
+              ? 0xffc36b
+              : tile === 'h'
+                ? 0x9a7458
+                : tile === 'j'
+                  ? 0xd2b088
+                  : tile === 'u'
+                    ? 0x778493
+                    : 
       tile === 'U'
         ? 0x9aa4b2
         : tile === 'Y'
@@ -1337,7 +1435,49 @@ export class SnakeRenderer {
       .lineStyle(1, outline, 0.75)
       .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
 
-    if (tile === 'D' || tile === 'N') {
+    if (tile === 'd' || tile === 't' || tile === 'h' || tile === 'j') {
+      this.graphics
+        .fillStyle(accent, 1)
+        .fillRect(rectX + cell * 0.24, rectY + cell * 0.12, cell * 0.52, cell * 0.76);
+      this.graphics
+        .lineStyle(1, outline, 0.9)
+        .strokeRect(rectX + cell * 0.24, rectY + cell * 0.12, cell * 0.52, cell * 0.76);
+      if (tile === 'h') {
+        this.graphics
+          .fillStyle(outline, 1)
+          .fillRect(rectX + cell * 0.45, rectY + cell * 0.44, cell * 0.16, cell * 0.12);
+      } else {
+        this.graphics.fillStyle(outline, 1).fillCircle(rectX + cell * 0.62, rectY + cell * 0.5, 2);
+      }
+      if (tile === 't') {
+        this.graphics.fillStyle(0xffe0a3, 1).fillRect(rectX + cell * 0.28, rectY + 2, cell * 0.44, 3);
+      }
+    } else if (tile === 'x' || tile === 'o') {
+      const plankAlpha = tile === 'x' ? 0.96 : 0.62;
+      const shadow = 0x3d2412;
+      const plankInset = tile === 'x' ? cell * 0.12 : cell * 0.2;
+      const plankWidth = Math.max(2, cell * 0.18);
+      for (let i = 0; i < 3; i += 1) {
+        const x = rectX + plankInset + i * cell * 0.24;
+        this.graphics
+          .fillStyle(i % 2 === 0 ? accent : 0xb77a43, plankAlpha)
+          .fillRect(x, rectY + cell * 0.12, plankWidth, cell * 0.76);
+        this.graphics
+          .lineStyle(1, shadow, tile === 'x' ? 0.55 : 0.35)
+          .strokeRect(x + 0.5, rectY + cell * 0.12 + 0.5, plankWidth - 1, cell * 0.76 - 1);
+      }
+      this.graphics
+        .lineStyle(Math.max(2, cell * 0.08), shadow, tile === 'x' ? 0.85 : 0.42)
+        .lineBetween(rectX + cell * 0.14, rectY + cell * 0.32, rectX + cell * 0.86, rectY + cell * 0.32);
+      this.graphics
+        .lineStyle(Math.max(2, cell * 0.08), shadow, tile === 'x' ? 0.85 : 0.42)
+        .lineBetween(rectX + cell * 0.14, rectY + cell * 0.68, rectX + cell * 0.86, rectY + cell * 0.68);
+      if (tile === 'o') {
+        this.graphics
+          .fillStyle(0x1f140c, 0.3)
+          .fillRect(rectX + cell * 0.4, rectY + cell * 0.08, cell * 0.2, cell * 0.84);
+      }
+    } else if (tile === 'D' || tile === 'N') {
       this.graphics
         .fillStyle(accent, 1)
         .fillRect(rectX + cell * 0.22, rectY + cell * 0.18, cell * 0.56, cell * 0.58);
@@ -1348,11 +1488,11 @@ export class SnakeRenderer {
       this.graphics.moveTo(rectX + cell * 0.3, rectY + cell * 0.52);
       this.graphics.lineTo(rectX + cell * 0.62, rectY + cell * 0.52);
       this.graphics.strokePath();
-    } else if (tile === 'U') {
+    } else if (tile === 'U' || tile === 'u') {
       for (let i = 0; i < 4; i += 1) {
         const x = rectX + cell * (0.24 + i * 0.14);
         this.graphics
-          .fillStyle(accent, 0.85)
+          .fillStyle(accent, tile === 'u' ? 0.55 : 0.85)
           .fillRect(x, rectY + cell * 0.18, Math.max(2, cell * 0.06), cell * 0.64);
       }
     } else if (tile === 'Y') {

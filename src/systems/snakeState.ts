@@ -3,6 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 import { addVectors } from '../core/math.js';
 import type { BossManager } from './boss.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { isSolidTile } from '../world/tiles.js';
 
 export interface SnakeStepOutcome {
   status: 'alive' | 'dead';
@@ -13,6 +14,7 @@ export interface SnakeStepOutcome {
 export interface SnakeStepDependencies {
   getRoom(roomId: string): RoomSnapshot;
   ensureApple(roomId: string, snake: readonly Vector2Like[], score: number): void;
+  prepareRoomForCollision?: (roomId: string) => void;
   getBossManager(): BossManager;
   skipSelfCollision?: boolean;
   onJasonDamage?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
@@ -227,7 +229,7 @@ export class SnakeState {
           return false;
         const tile = currentRoom.layout[localY]?.[localX];
         if (!tile) return true;
-        if (tile === '#') return true;
+        if (isSolidTile(tile)) return true;
         // Avoid stepping into own body if possible
         return this.body.some((seg) => seg.x === candidate.x && seg.y === candidate.y);
       };
@@ -309,6 +311,7 @@ export class SnakeState {
 
     if (roomChanged) {
       deps.ensureApple(this.roomId, this.body, this.scoreValue);
+      deps.prepareRoomForCollision?.(this.roomId);
     }
 
     const finalizedRoom = deps.getRoom(this.roomId);
@@ -328,7 +331,7 @@ export class SnakeState {
       Number(this.flags['traversal.phaseTicks'] ?? 0),
     );
     const wallInvulnTicks = Math.max(invulnTicks, safeZoneActive ? 1 : 0, cheatImmortal ? 1 : 0);
-    if (tile === '#') {
+    if (isSolidTile(tile)) {
       if (wallInvulnTicks > 0) {
         // Invulnerability lets us phase through the wall.
       } else if (this.flags['equipment.wallSmiteEnabled']) {

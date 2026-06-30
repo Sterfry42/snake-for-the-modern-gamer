@@ -189,6 +189,13 @@ function getMinimapTileKind(tile: string): MinimapTileKind {
     case 'U':
     case 'Y':
     case 'W':
+    case 'd':
+    case 'h':
+    case 'j':
+    case 'o':
+    case 't':
+    case 'u':
+    case 'x':
       return 'barrier';
     default:
       return 'empty';

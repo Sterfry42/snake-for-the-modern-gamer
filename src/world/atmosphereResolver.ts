@@ -349,37 +349,52 @@ function resolveDarkness(
       reasons.push(`${reason} ${amount > 0 ? '+' : ''}${amount.toFixed(2)}`);
     }
   };
-  add({ dawn: 0.15, day: 0, dusk: 0.25, night: 0.45 }[state.dayPhase], state.dayPhase);
-  add(weatherDarknessAdd(state.globalWeather, visual), visual);
-  add(shelterMode === 'interior' ? 0.1 : shelterMode === 'underground' ? 0.25 : 0, shelterMode);
+  if (shelterMode === 'interior') {
+    add(0.08, 'interior');
+  } else {
+    add({ dawn: 0.15, day: 0, dusk: 0.25, night: 0.45 }[state.dayPhase], state.dayPhase);
+    add(weatherDarknessAdd(state.globalWeather, visual), visual);
+    add(shelterMode === 'underground' ? 0.25 : 0, shelterMode);
+  }
   if (biome.tags.includes('dense')) add(0.15, 'dense');
   if (biome.tags.includes('forest')) add(0.05, 'forest');
   if (biome.tags.includes('haunted')) add(0.1, 'haunted');
   if (biome.tags.includes('underground') || biome.tags.includes('cave')) add(0.2, 'underground');
   if (biome.tags.includes('civilized')) add(-0.05, 'civilized');
-  if (biome.tags.includes('hot') && biome.tags.includes('dry') && state.dayPhase === 'day') {
+  if (
+    shelterMode !== 'interior' &&
+    biome.tags.includes('hot') &&
+    biome.tags.includes('dry') &&
+    state.dayPhase === 'day'
+  ) {
     add(-0.1, 'sun glare');
   }
-  switch (state.skyEvent?.current) {
-    case 'bloodMoon':
-      if (state.dayPhase === 'night') add(0.2, 'blood moon');
-      break;
-    case 'eclipse':
-      if (state.dayPhase === 'day' || state.dayPhase === 'dusk') add(0.45, 'eclipse');
-      break;
-    case 'meteorShower':
-      add(0.05, 'meteor shower');
-      break;
-    case 'aurora':
-      if (state.dayPhase === 'night') add(-0.18, 'aurora');
-      break;
-    case 'none':
-    case undefined:
-      break;
+  if (shelterMode !== 'interior') {
+    switch (state.skyEvent?.current) {
+      case 'bloodMoon':
+        if (state.dayPhase === 'night') add(0.2, 'blood moon');
+        break;
+      case 'eclipse':
+        if (state.dayPhase === 'day' || state.dayPhase === 'dusk') add(0.45, 'eclipse');
+        break;
+      case 'meteorShower':
+        add(0.05, 'meteor shower');
+        break;
+      case 'aurora':
+        if (state.dayPhase === 'night') add(-0.18, 'aurora');
+        break;
+      case 'none':
+      case undefined:
+        break;
+    }
   }
   add(lightProfile?.baseDarknessAdd ?? 0, 'biome');
-  if (state.dayPhase === 'night') add(lightProfile?.nightDarknessAdd ?? 0, 'biome night');
-  add(lightProfile?.weatherDarknessAdd?.[state.globalWeather] ?? 0, 'weather profile');
+  if (shelterMode !== 'interior' && state.dayPhase === 'night') {
+    add(lightProfile?.nightDarknessAdd ?? 0, 'biome night');
+  }
+  if (shelterMode !== 'interior') {
+    add(lightProfile?.weatherDarknessAdd?.[state.globalWeather] ?? 0, 'weather profile');
+  }
   add(lightProfile?.localVisualDarknessAdd?.[visual] ?? 0, 'local profile');
   const level = clampDarknessLevel(darknessLevelForScore(score), lightProfile);
   return {
@@ -410,8 +425,8 @@ function weatherDarknessAdd(
 }
 
 function darknessLevelForScore(score: number): DarknessLevel {
-  if (score >= 0.75) return 'pitchBlack';
-  if (score >= 0.45) return 'dark';
+  if (score >= 0.85) return 'pitchBlack';
+  if (score >= 0.55) return 'dark';
   if (score >= 0.2) return 'dim';
   return 'bright';
 }
@@ -434,11 +449,11 @@ function darknessAlphaForLevel(level: DarknessLevel, score: number): number {
     case 'bright':
       return 0;
     case 'dim':
-      return clamp(0.12 + score * 0.18, 0.12, 0.22);
+      return clamp(0.08 + score * 0.14, 0.08, 0.18);
     case 'dark':
-      return clamp(0.38 + (score - 0.45) * 0.35, 0.38, 0.55);
+      return clamp(0.3 + (score - 0.55) * 0.32, 0.3, 0.48);
     case 'pitchBlack':
-      return clamp(0.7 + (score - 0.75) * 0.18, 0.7, 0.82);
+      return clamp(0.62 + (score - 0.85) * 0.18, 0.62, 0.78);
   }
 }
 

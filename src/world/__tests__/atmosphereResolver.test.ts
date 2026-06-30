@@ -143,6 +143,32 @@ describe('resolveBiomeAtmosphere', () => {
     expect(interior.effects).toContain('muffled-weather');
   });
 
+  it('keeps interior lighting stable across weather and day phase changes', () => {
+    const basin = getAllBiomeDefinitions().find((biome) => biome.id === 'verdigris-basin')!;
+    const clearDay = resolveBiomeAtmosphere(basin, state('clear'), {
+      ...defaultAtmosphereConfig,
+      shelterMode: 'interior',
+      visualParticlesEnabled: false,
+      dayNightTintEnabled: false,
+    });
+    const stormNight = resolveBiomeAtmosphere(
+      basin,
+      { ...state('storm'), dayPhase: 'night' },
+      {
+        ...defaultAtmosphereConfig,
+        shelterMode: 'interior',
+        visualParticlesEnabled: false,
+        dayNightTintEnabled: false,
+      },
+    );
+
+    expect(clearDay.tint).toEqual(stormNight.tint);
+    expect(clearDay.particles.density).toBe(0);
+    expect(stormNight.particles.density).toBe(0);
+    expect(clearDay.darkness.level).toBe(stormNight.darkness.level);
+    expect(clearDay.darkness.darknessAlpha).toBe(stormNight.darkness.darknessAlpha);
+  });
+
   it('ramps weather particles in and out across weather transitions', () => {
     const basin = getAllBiomeDefinitions().find((biome) => biome.id === 'verdigris-basin')!;
     const starting = resolveBiomeAtmosphere(basin, state('rain'), defaultAtmosphereConfig);
