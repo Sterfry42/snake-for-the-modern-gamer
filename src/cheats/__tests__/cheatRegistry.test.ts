@@ -10,8 +10,8 @@ describe('Cheat registry', () => {
     expect(CHEAT_DEFINITIONS.length).toBeGreaterThanOrEqual(20);
   });
 
-  it('has exactly 36 cheats defined', () => {
-    expect(CHEAT_DEFINITIONS.length).toBe(36);
+  it('has exactly 37 cheats defined', () => {
+    expect(CHEAT_DEFINITIONS.length).toBe(37);
   });
 
   it('every cheat has all required fields', () => {

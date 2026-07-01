@@ -6,6 +6,7 @@ import type { RoomSnapshot } from '../../types.js';
 import { tryPlaceVillage } from '../../village.js';
 import { tryPlaceGoblinCamp } from '../../goblinCamp.js';
 import { tryPlaceSnakeMcDonalds } from '../../snakeMcDonalds.js';
+import { tryPlaceSnakeCanes } from '../../snakeCanes.js';
 import {
   createTownDistrictRoom,
   createPhysicalHumanTown,
@@ -46,6 +47,7 @@ type SettlementKind =
   | 'goblin-camp'
   | 'quest-house'
   | 'snake-mcDonalds'
+  | 'snake-canies'
   | 'shrine'
   | 'ramen-stand'
   | 'tengu-camp'
@@ -56,6 +58,7 @@ type SettlementKind =
   | 'moleman-dig-site';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
+const SNAKE_CANIES_CHANCE = 0.008;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
@@ -128,6 +131,7 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
@@ -144,6 +148,7 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
@@ -163,6 +168,7 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.tenguCamp &&
@@ -191,6 +197,7 @@ export class StructureOperations {
       !context.town &&
       !context.questGiver &&
       !context.snakeMcDonalds &&
+      !context.snakeCanes &&
       !context.shrine &&
       !context.ramenStand &&
       !context.koiPond &&
@@ -245,6 +252,9 @@ export class StructureOperations {
 
     if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE) {
       return 'snake-mcDonalds';
+    }
+    if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE + SNAKE_CANIES_CHANCE) {
+      return 'snake-canies';
     }
 
     const roll = this.rng();
@@ -412,6 +422,17 @@ export class StructureOperations {
         context.snakeMcDonalds = mcDonalds;
         return true;
       }
+      case 'snake-canies': {
+        const canes = tryPlaceSnakeCanes(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 3,
+        });
+        if (!canes) {
+          return false;
+        }
+        context.snakeCanes = canes;
+        return true;
+      }
       case 'shrine': {
         const shrine = tryPlaceShrine(context.layout, context.grid, this.rng, {
           forbiddenCells,
@@ -514,7 +535,8 @@ export class StructureOperations {
       context.fireworkStand ||
       context.jackalopeLodge ||
       context.motelPool ||
-      context.molemanDigSite,
+      context.molemanDigSite ||
+      context.snakeCanes,
     );
   }
 
@@ -543,6 +565,7 @@ export class StructureOperations {
     context.village = undefined;
     context.goblinCamp = undefined;
     context.snakeMcDonalds = undefined;
+    context.snakeCanes = undefined;
     context.shrine = undefined;
     context.ramenStand = undefined;
     context.koiPond = undefined;

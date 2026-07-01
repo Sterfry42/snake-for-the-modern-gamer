@@ -61,6 +61,7 @@ export interface RoomGenerationContext {
   layerEntrances?: RoomSnapshot['layerEntrances'];
   townPerimeter?: RoomSnapshot['townPerimeter'];
   snakeMcDonalds?: RoomSnapshot['snakeMcDonalds'];
+  snakeCanes?: RoomSnapshot['snakeCanes'];
   shrine?: RoomSnapshot['shrine'];
   ramenStand?: RoomSnapshot['ramenStand'];
   koiPond?: RoomSnapshot['koiPond'];

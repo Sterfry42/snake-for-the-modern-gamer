@@ -128,6 +128,7 @@ import { tryPlaceVillage } from '../world/village.js';
 import { tryPlaceGoblinCamp } from '../world/goblinCamp.js';
 import { tryPlaceQuestHouse } from '../world/questHouse.js';
 import { tryPlaceSnakeMcDonalds } from '../world/snakeMcDonalds.js';
+import { tryPlaceSnakeCanes } from '../world/snakeCanes.js';
 import { tryPlaceShrine } from '../world/shrine.js';
 import { tryPlaceRamenStand } from '../world/ramenStand.js';
 import { tryPlaceKoiPond } from '../world/koiPond.js';
@@ -8182,6 +8183,68 @@ export class SnakeGame implements QuestRuntime {
 
   flushToilet(): void {}
 
+  consumeSnakeCanesFood(itemId: string): {
+    success: boolean;
+    message: string;
+    lengthGained: number;
+    invulnerabilityTicks: number;
+  } {
+    const item = getItem(itemId);
+    if (!item) {
+      return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
+    }
+
+    if (this.inventory.getItemCount(itemId) <= 0) {
+      return {
+        success: false,
+        message: `No ${item.name} remaining.`,
+        lengthGained: 0,
+        invulnerabilityTicks: 0,
+      };
+    }
+
+    let lengthGained = 0;
+    let invulnerabilityTicks = 0;
+
+    switch (itemId) {
+      case 'food-box-combo-extra-toast':
+      case 'food-box-combo-coleslaw':
+        lengthGained = 7;
+        invulnerabilityTicks = 1200;
+        break;
+      case 'food-three-finger-combo':
+        lengthGained = 5;
+        invulnerabilityTicks = 900;
+        break;
+      case 'food-caniac-combo':
+        lengthGained = 10;
+        invulnerabilityTicks = 1800;
+        break;
+      default:
+        return {
+          success: false,
+          message: 'Unknown item.',
+          lengthGained: 0,
+          invulnerabilityTicks: 0,
+        };
+    }
+
+    this.inventory.removeItem(itemId, 1);
+
+    this.growSnake(lengthGained);
+
+    const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
+    const updatedInvuln = Math.max(currentInvuln, invulnerabilityTicks);
+    this.setFlag('fortitude.invulnerabilityTicks', updatedInvuln);
+
+    return {
+      success: true,
+      message: `Cane\'s sauce hits different! +${lengthGained} length, ${invulnerabilityTicks} ticks of invulnerability.`,
+      lengthGained,
+      invulnerabilityTicks,
+    };
+  }
+
   setDirection(x: number, y: number): void {
     this.snake.setDirection(x, y);
   }
@@ -8296,6 +8359,22 @@ export class SnakeGame implements QuestRuntime {
     }
     room.layout = this.layoutFrom2D(layout2d);
     room.snakeMcDonalds = result;
+    return true;
+  }
+
+  /** Force-spawn a Snake Cane's in the current room. */
+  spawnSnakeCanes(): boolean {
+    const room = this.getCurrentRoom();
+    const layout2d = this.layoutTo2D(room.layout);
+    const result = tryPlaceSnakeCanes(layout2d, this.config.grid, this._rng, {
+      forbiddenCells: new Set(),
+      margin: 3,
+    });
+    if (!result) {
+      return false;
+    }
+    room.layout = this.layoutFrom2D(layout2d);
+    room.snakeCanes = result;
     return true;
   }
 
@@ -11582,6 +11661,10 @@ export class SnakeGame implements QuestRuntime {
       'food-snake-burger': { hunger: 999 },
       'food-snake-fries': { hunger: 70 },
       'food-snake-nuggets': { hunger: 45 },
+      'food-box-combo-extra-toast': { hunger: 999 },
+      'food-box-combo-coleslaw': { hunger: 999 },
+      'food-three-finger-combo': { hunger: 999 },
+      'food-caniac-combo': { hunger: 999 },
       'healing-potion': { heal: 2 },
       beer: { disorientTicks: 100 },
       wine: { disorientTicks: 140 },

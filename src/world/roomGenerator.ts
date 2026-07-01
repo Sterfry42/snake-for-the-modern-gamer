@@ -122,6 +122,7 @@ export class RoomGenerator {
       layerEntrances: context.layerEntrances,
       townPerimeter: context.townPerimeter,
       snakeMcDonalds: townRoom ? undefined : context.snakeMcDonalds,
+      snakeCanes: townRoom ? undefined : context.snakeCanes,
       shrine: townRoom ? undefined : context.shrine,
       ramenStand: townRoom ? undefined : context.ramenStand,
       koiPond: townRoom ? undefined : context.koiPond,

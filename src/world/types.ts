@@ -161,6 +161,14 @@ export interface RoomSnapshot {
     };
     bounds: { left: number; top: number; width: number; height: number };
   };
+  snakeCanes?: {
+    cashier: {
+      name: string;
+      x: number;
+      y: number;
+    };
+    bounds: { left: number; top: number; width: number; height: number };
+  };
   shrine?: {
     maiden: NpcProfile & { x: number; y: number };
     hasBlessings: boolean;
