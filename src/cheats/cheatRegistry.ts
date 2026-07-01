@@ -170,6 +170,13 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     aliases: ['mcdonalds', 'snakemcdonalds'],
   },
   {
+    name: 'SPAWN SNAKE CANIE\'S',
+    code: 'canies / snakecanies',
+    primaryCode: 'canies',
+    description: 'Spawn a Snake Cane\'s in the current room.',
+    aliases: ['canies', 'snakecanies'],
+  },
+  {
     name: 'SPAWN SHRINE',
     code: 'shrine',
     primaryCode: 'shrine',

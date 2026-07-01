@@ -83,6 +83,14 @@ export interface FeatureStrings {
   snakeNuggets: string;
   flushToilet: string;
   mcCashierDialogue: string;
+  // Snake Cane's
+  canesCashierDialogue: string;
+  canesReward: string;
+  canesClosing: string;
+  canesBoxComboExtraToast: string;
+  canesBoxComboColeslaw: string;
+  canesThreeFingerCombo: string;
+  canesCaniacCombo: string;
   // Fishing
   fishingCast: string;
   fishingBite: string;

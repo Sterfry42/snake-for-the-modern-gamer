@@ -36,6 +36,14 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   snakeNuggets: 'Snake Nuggets',
   flushToilet: 'The toilet gurgles and flushes.',
   mcCashierDialogue: 'Welcome to Snake McDonalds! Fresh snake food, served fast, served cold.',
+  // Snake Cane's
+  canesCashierDialogue: 'Welcome to Snake Cane\'s. Let\'s see what fate has in store.',
+  canesReward: 'You received: {itemName}!',
+  canesClosing: '{closingLine}',
+  canesBoxComboExtraToast: 'Box Combo\n(Extra Toast)',
+  canesBoxComboColeslaw: 'Box Combo\n(Cole Slaw)',
+  canesThreeFingerCombo: '3 Finger Combo',
+  canesCaniacCombo: 'Caniac Combo',
   // Fishing
   fishingCast: 'You cast your line into the water.',
   fishingBite: 'Something bit! The line goes taut!',

@@ -122,6 +122,8 @@ import type { BulletTrainStation } from '../world/bulletTrainTypes.js';
 import { runBulletTrainRide } from '../world/bulletTrainScene.js';
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
+import type { SnakeCanesData } from '../world/snakeCanes.js';
+import { ComboSpinner } from '../ui/comboSpinner.js';
 import { ArcadeSnakeRenderer } from '../arcade/arcadeSnakeRenderer.js';
 import {
   createDefaultArcadeSnakeSaveData,
@@ -1861,6 +1863,7 @@ export default class SnakeScene extends Phaser.Scene {
   private cardControllerIndex = 0;
   private cardKeyboardFocus = false;
   private arcadeSnakeRenderer: ArcadeSnakeRenderer | null = null;
+  private comboSpinner: ComboSpinner | null = null;
   private arcadeSnakeSaveData: ArcadeSnakeSaveData = createDefaultArcadeSnakeSaveData();
   private performanceHudVisible = false;
   private performanceSampleMs = 0;
@@ -2554,6 +2557,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractArcadeCabinet()) return;
     if (this.tryInteractMcDonaldsCashier()) return;
     if (this.tryInteractMcDonaldsToilet()) return;
+    if (this.tryInteractSnakeCanesCashier()) return;
     if (this.tryInteractTownQuestBoard()) return;
     if (this.tryInteractTownBuildingDoor()) return;
     if (this.tryInteractTownGuildGrate()) return;
@@ -5339,6 +5343,17 @@ export default class SnakeScene extends Phaser.Scene {
       return {
         ok: false,
         message: 'Could not place Snake McDonalds - room too small.',
+        color: '#ff6b6b',
+      };
+    }
+    if (code === 'canies' || code === 'snakecanies') {
+      if (this.snakeGame?.spawnSnakeCanes()) {
+        this.isDirty = true;
+        return { ok: true, message: 'Spawned a Snake Cane\'s!', color: '#5dd6a2' };
+      }
+      return {
+        ok: false,
+        message: 'Could not place Snake Cane\'s - room too small.',
         color: '#ff6b6b',
       };
     }
@@ -11188,6 +11203,11 @@ export default class SnakeScene extends Phaser.Scene {
       const bounds = this.getTileBounds(room, 'WETG');
       return bounds ? [bounds] : [];
     }
+    // Snake Cane's gets turn-based movement like houses
+    if (room.snakeCanes) {
+      const bounds = this.getTileBounds(room, 'WETVK');
+      return bounds ? [bounds] : [];
+    }
     // Bullet train stations get turn-based movement like houses
     if (room.bulletTrainStation) {
       const bounds = this.getBulletTrainStationBounds(room);
@@ -11308,6 +11328,10 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (mc && this.distanceFromHeadToLocal(mc.toilet) <= 1) {
       return { text: `${this.getPrimaryInteractKey()} to flush` };
+    }
+    const sc = room.snakeCanes;
+    if (sc && this.distanceFromHeadToLocal(sc.cashier) <= 1) {
+      return { text: `Talk to ${sc.cashier.name} (${interact})` };
     }
     if (this.isInHouse() && this.arcadeSnakeSaveData.hasHomeCabinet && this.isNearTile('Z')) {
       return { text: `Play home arcade (${interact})` };
@@ -14751,6 +14775,120 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.showQuestHintPopup('The toilet gurgles and flushes. It sounds very satisfied.', '#9ad1ff');
     return true;
+  }
+
+  private tryInteractSnakeCanesCashier(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible || this.comboSpinner?.isVisible()) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const sc = room.snakeCanes;
+    if (!sc) {
+      return false;
+    }
+    if (this.distanceFromHeadToLocal(sc.cashier) > 1) {
+      return false;
+    }
+
+    this.openSnakeCanesSpinner(sc);
+    return true;
+  }
+
+  private openSnakeCanesSpinner(sc: SnakeCanesData): void {
+    this.paused = true;
+    this.skillTree.hideOverlay();
+
+    // Opening dialogue
+    const openingLines = [
+      'Welcome to Snake Cane\'s.',
+      'You hungry?',
+      'Let\'s see what fate has in store.',
+      'Time for the combo spinner.',
+    ];
+    const openingLine = openingLines[Math.floor(Math.random() * openingLines.length)]!;
+    this.showQuestHintPopup(openingLine, '#ff8c42');
+
+    // Start spinner after a brief delay
+    const centerX = this.scale.width / 2;
+    const centerY = this.scale.height / 2 - 40;
+    const radius = Math.min(120, Math.floor(this.scale.width / 6));
+
+    if (!this.comboSpinner) {
+      this.comboSpinner = new ComboSpinner(this, centerX, centerY, radius);
+    }
+
+    const entries: import('../ui/comboSpinner.js').ComboSpinnerEntry[] = [
+      {
+        id: 'food-box-combo-extra-toast',
+        label: 'Box Combo\n(Extra Toast)',
+        color: '#ff6b35',
+        textColor: '#ffffff',
+      },
+      {
+        id: 'food-box-combo-coleslaw',
+        label: 'Box Combo\n(Cole Slaw)',
+        color: '#ffd700',
+        textColor: '#000000',
+      },
+      {
+        id: 'food-three-finger-combo',
+        label: '3 Finger Combo',
+        color: '#e63946',
+        textColor: '#ffffff',
+      },
+      {
+        id: 'food-caniac-combo',
+        label: 'Caniac Combo',
+        color: '#2a9d8f',
+        textColor: '#ffffff',
+      },
+    ];
+
+    this.comboSpinner.spin(entries, (entry) => {
+      this.handleSnakeCanesResult(entry, sc);
+    });
+  }
+
+  private handleSnakeCanesResult(
+    entry: import('../ui/comboSpinner.js').ComboSpinnerEntry,
+    sc: SnakeCanesData,
+  ): void {
+    const inventory = this.snakeGame.getInventory();
+    const item = getItem(entry.id);
+
+    if (!item) {
+      this.showQuestHintPopup('Something went wrong with the spinner...', '#ff6b6b');
+      this.closeSnakeCanesSpinner();
+      return;
+    }
+
+    inventory.addItem(entry.id, 1);
+
+    // Show received popup
+    this.showQuestHintPopup(`You received: ${item.name}!`, '#5dd6a2');
+    this.juice.perkPurchased();
+
+    // Closing dialogue (delayed so it doesn't overlap with the received popup)
+    const closingLines = [
+      'Enjoy.',
+      'Come back soon.',
+      'That\'s a good one.',
+      'Can\'t argue with the spinner.',
+      'The wheel never lies.',
+    ];
+    const closingLine = closingLines[Math.floor(Math.random() * closingLines.length)]!;
+    this.time.delayedCall(1200, () => {
+      if (!this.paused) {
+        this.showQuestHintPopup(closingLine, '#ff8c42');
+      }
+    });
+
+    this.closeSnakeCanesSpinner();
+  }
+
+  private closeSnakeCanesSpinner(): void {
+    this.comboSpinner?.hide();
+    this.paused = false;
   }
 
   private tryInteractRelationshipNpc(): boolean {

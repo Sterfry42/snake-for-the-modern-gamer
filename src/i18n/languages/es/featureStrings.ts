@@ -38,6 +38,14 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   flushToilet: 'El inodoro hace un ruido de desag\u00fce.',
   mcCashierDialogue:
     '\u00a1Bienvenido a Snake McDonalds! Comida de serpiente fresca, servida r\u00e1pido, servida fr\u00eda.',
+  // Snake Cane's
+  canesCashierDialogue: 'Bienvenido a Snake Cane\'s. Veamos lo que el destino tiene preparado.',
+  canesReward: '\u00a1Recibiste: {itemName}!',
+  canesClosing: '{closingLine}',
+  canesBoxComboExtraToast: 'Combo Caja\n(Tostada Extra)',
+  canesBoxComboColeslaw: 'Combo Caja\n(Coleslaw)',
+  canesThreeFingerCombo: 'Combo de 3 Dedos',
+  canesCaniacCombo: 'Combo Caniac',
   // Fishing
   fishingCast: 'Lanzas tu ca\u00f1a al agua.',
   fishingBite: '\u00a1Algo mordio! La ca\u00f1a se tensa.',
