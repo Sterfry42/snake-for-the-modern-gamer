@@ -33,6 +33,7 @@ export const DISCOVERABLE_BIOME_IDS = [
   'sunken-ocean',
   'jade-peak-province',
   'liberty-badlands',
+  'provence-valley',
 ] as const;
 export const TOTAL_FISH_COUNT = new Set(FISH_DEFINITIONS.map((fish) => fish.typeId)).size;
 export const TOTAL_ARTIFACT_COUNT = ARTIFACT_DEFINITIONS.length;
