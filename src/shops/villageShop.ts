@@ -1,6 +1,8 @@
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { BiomeId } from '../world/biomes.js';
+import { getAllBiomeDefinitions } from '../world/biomes.js';
+import { getLocatorItemId } from '../world/biomeLocators.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
 
 export const ALL_VILLAGE_SHOP_STYLE_IDS = [
@@ -374,14 +376,36 @@ function uniqueOffers(offers: readonly VillageShopEquipmentOffer[]): VillageShop
   return result;
 }
 
+/**
+ * Pick a biome locator to stock. Always picks a biome different from the
+ * shop's current biome, so the shop always has something useful to point
+ * the snake toward.
+ */
+function getVendorLocatorOffer(currentBiomeId: BiomeId): VillageShopSupplyOffer | null {
+  const allBiomes = getAllBiomeDefinitions();
+  // Pick the first biome that isn't the current one.
+  const otherBiome = allBiomes.find((b) => b.id !== currentBiomeId);
+  if (!otherBiome) return null;
+  const locatorId = getLocatorItemId(otherBiome.id);
+  return {
+    id: `locator-${otherBiome.id}`,
+    itemId: locatorId,
+    price: 20,
+    note: `Tracks the nearest ${otherBiome.title}. Use it from your pack to read the compass.`,
+  };
+}
+
 export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinition {
   const regional = REGIONAL_EQUIPMENT[biomeId] ?? [];
+  const locatorOffer = getVendorLocatorOffer(biomeId);
   return {
     equipment: uniqueOffers([...regional, ...VILLAGE_SHOP_EQUIPMENT]),
     styles: [...VILLAGE_SHOP_STYLES],
     hats: [...VILLAGE_SHOP_HATS],
     cowbells: [...VILLAGE_SHOP_COWBELLS],
-    supplies: [...VILLAGE_SHOP_SUPPLIES],
+    supplies: locatorOffer
+      ? [...VILLAGE_SHOP_SUPPLIES, locatorOffer]
+      : [...VILLAGE_SHOP_SUPPLIES],
     fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }

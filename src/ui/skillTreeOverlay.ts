@@ -7,6 +7,7 @@ import type {
   SkillPerkState,
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
+import { isLocatorItemId } from '../world/biomeLocators.js';
 import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
 import { saveManager } from '../game/saveManager.js';
@@ -350,6 +351,7 @@ export class SkillTreeOverlay {
   private readonly detailSubtitle: Phaser.GameObjects.Text;
   private readonly detailRankText: Phaser.GameObjects.Text;
   private readonly detailBody: Phaser.GameObjects.Text;
+  private detailButtonObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly inventoryItemsText: Phaser.GameObjects.Text;
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
@@ -4546,6 +4548,7 @@ export class SkillTreeOverlay {
     });
     this.hoveredPerkId = null;
     this.clearPerkDetails(true);
+    this.clearDetailButton();
     this.glintTimer?.remove(false);
     this.glintTimer = undefined;
     this.hideHoverTip();
@@ -4641,6 +4644,7 @@ export class SkillTreeOverlay {
       this.detailBody
         .setText(this.buildEquipmentDetailBody(item, equipped, actionHints))
         .setVisible(true);
+      this.clearDetailButton();
       return true;
     }
     const title = item.name ?? this.selectedInventoryItemId;
@@ -4653,7 +4657,73 @@ export class SkillTreeOverlay {
     this.detailSubtitle.setText(subtitle).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
     this.detailBody.setText(body).setVisible(true);
+
+    // Add a "Use" button for locator items.
+    this.renderDetailUseButton();
     return true;
+  }
+
+  /** Render a clickable "Use" button at the bottom of the detail panel. */
+  private renderDetailUseButton(): void {
+    this.clearDetailButton();
+    if (!this.selectedInventoryItemId) return;
+    const item = getItem(this.selectedInventoryItemId);
+    if (!item || item.kind === 'equipment') return;
+    // Only show the Use button for locator items.
+    if (!isLocatorItemId(item.id)) return;
+
+    const detailPanelX = this.detailPanel.x;
+    const detailPanelY = this.detailPanel.y;
+    const detailPanelWidth = this.detailPanel.width;
+    const buttonY = detailPanelY + this.detailPanel.height - 36;
+    const buttonX = detailPanelX + (detailPanelWidth - 160) / 2;
+    const buttonWidth = 160;
+    const buttonHeight = 28;
+
+    // Draw button background.
+    this.structuredGraphics
+      .fillStyle(uiColors.accentCore, 0.88)
+      .fillRoundedRect(buttonX, buttonY, buttonWidth, buttonHeight, 6);
+    this.structuredGraphics
+      .lineStyle(2, uiColors.accentCore, 0.92)
+      .strokeRoundedRect(buttonX + 1, buttonY + 1, buttonWidth - 2, buttonHeight - 2, 5);
+
+    // Draw button label.
+    const useLabel = this.scene.add
+      .text(buttonX + buttonWidth / 2, buttonY + buttonHeight / 2, 'USE', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#101824',
+        align: 'center',
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(35);
+    this.structuredContainer.add(useLabel);
+
+    // Add clickable zone — must be in structuredContainer so it shares the
+    // display list with the button background drawn on structuredGraphics.
+    const zone = this.scene.add
+      .zone(buttonX, buttonY, buttonWidth, buttonHeight)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(36);
+    this.structuredContainer.add(zone);
+    zone.on('pointerdown', () => {
+      const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
+      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      this.refresh();
+      this.showInventoryItemDetails();
+    });
+    this.detailButtonObjects = [useLabel, zone];
+  }
+
+  /** Remove the detail panel use button and its label. */
+  private clearDetailButton(): void {
+    for (const obj of this.detailButtonObjects) {
+      obj.destroy();
+    }
+    this.detailButtonObjects = [];
   }
 
   private buildEquipmentDetailBody(

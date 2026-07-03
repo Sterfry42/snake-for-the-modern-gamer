@@ -87,6 +87,14 @@ import {
 import { selectNpcVoiceLine, type NpcVoiceLine } from '../npcs/npcVoice.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import { getBiomeDefinition, getBiomeForRoom } from '../world/biomes.js';
+import {
+  isLocatorItemId,
+  getLocatorBiomeId,
+  lookupNearestBiomes,
+  formatLocatorResult,
+  createSeededBiomeResolver,
+  type LocatorResult,
+} from '../world/biomeLocators.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { WorldAtmosphereSystem } from '../world/atmosphereSystem.js';
 import { resolveBiomeAtmosphere } from '../world/atmosphereResolver.js';
@@ -5038,7 +5046,11 @@ export class SnakeGame implements QuestRuntime {
     const gateMatch = (town.gates ?? [])
       .map((gate) => {
         const perspective =
-          gate.townRoomId === room.id ? 'inside' : gate.approachRoomId === room.id ? 'outside' : null;
+          gate.townRoomId === room.id
+            ? 'inside'
+            : gate.approachRoomId === room.id
+              ? 'outside'
+              : null;
         if (!perspective) return null;
         const side = perspective === 'inside' ? gate.side : this.oppositeSide(gate.side);
         const targets = this.getTownGateInteractionTiles(side);
@@ -5085,7 +5097,8 @@ export class SnakeGame implements QuestRuntime {
       state,
       perspective,
       canOpen: state === 'closed',
-      prompt: state === 'open' ? 'Gate open' : gate.kind === 'exit' ? 'Open back gate' : 'Open town gate',
+      prompt:
+        state === 'open' ? 'Gate open' : gate.kind === 'exit' ? 'Open back gate' : 'Open town gate',
     };
   }
 
@@ -5209,7 +5222,10 @@ export class SnakeGame implements QuestRuntime {
       discoveredGuild: town.discoveredGuild,
       openedGates: [
         ...(town.gates ?? [])
-          .filter((gate) => gate.state === 'open' || this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)))
+          .filter(
+            (gate) =>
+              gate.state === 'open' || this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)),
+          )
           .map((gate) => gate.id),
       ],
       completedGuildJobs: town.thievesGuild?.completedJobs ?? [],
@@ -7424,7 +7440,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private isTownGateOpen(town: TownStructure, gate: TownGate): boolean {
-    return gate.state === 'open' || Boolean(this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)));
+    return (
+      gate.state === 'open' || Boolean(this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)))
+    );
   }
 
   private getTownGateInteractionTiles(side: TownGateSide): Array<{ x: number; y: number }> {
@@ -7437,25 +7455,13 @@ export class SnakeGame implements QuestRuntime {
     });
     switch (side) {
       case 'north':
-        return [
-          ...gateTiles,
-          { x: centerX + 2, y: 3 },
-        ];
+        return [...gateTiles, { x: centerX + 2, y: 3 }];
       case 'south':
-        return [
-          ...gateTiles,
-          { x: centerX + 2, y: this.config.grid.rows - 4 },
-        ];
+        return [...gateTiles, { x: centerX + 2, y: this.config.grid.rows - 4 }];
       case 'west':
-        return [
-          ...gateTiles,
-          { x: 3, y: centerY + 2 },
-        ];
+        return [...gateTiles, { x: 3, y: centerY + 2 }];
       case 'east':
-        return [
-          ...gateTiles,
-          { x: this.config.grid.cols - 4, y: centerY + 2 },
-        ];
+        return [...gateTiles, { x: this.config.grid.cols - 4, y: centerY + 2 }];
     }
   }
 
@@ -11716,6 +11722,41 @@ export class SnakeGame implements QuestRuntime {
         message: 'Orange Juice! Speed, shield, and doubled fortune!',
         color: '#ffb347',
         consume: true,
+      };
+    }
+
+    // === BIOME LOCATOR ===
+    if (isLocatorItemId(itemId)) {
+      const locatorBiomeId = getLocatorBiomeId(itemId);
+      if (!locatorBiomeId) {
+        return { ok: false, message: 'That locator is broken.', color: '#ff6b6b' };
+      }
+      this.setFlag('ui.locatorSearching', { itemId, itemName: item.name });
+      const originRoomId = this.snake.currentRoomId;
+      // Use SeededBiomeMap for fast, generation-free biome lookups.
+      // Falls back to static lookup if no world identity is available.
+      const resolveBiome = this.world
+        ? createSeededBiomeResolver(this.world.getWorldGenerationIdentity())
+        : (rid: string) => getBiomeForRoom(rid);
+      const lookup = lookupNearestBiomes(originRoomId, locatorBiomeId, resolveBiome);
+      const parts: string[] = [`${item.name} reads:`];
+      if (lookup.sameFloor) {
+        parts.push(formatLocatorResult(lookup.sameFloor, 'Same floor'));
+      } else {
+        parts.push('Same floor: Biome Not Found.');
+      }
+      if (lookup.anyFloor) {
+        parts.push(formatLocatorResult(lookup.anyFloor, 'Any floor'));
+      } else {
+        parts.push('Any floor: Biome Not Found.');
+      }
+      this.setFlag('ui.locatorSearching', undefined);
+      this.setFlag('ui.itemUsed', { itemId, itemName: item.name, locatorResult: lookup });
+      return {
+        ok: true,
+        message: parts.join('\n'),
+        color: '#aec4ff',
+        consume: false,
       };
     }
 

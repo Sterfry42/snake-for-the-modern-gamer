@@ -1,6 +1,8 @@
 import type { Item } from './item.js';
+import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
 
 export const ITEMS: readonly Item[] = [
+  ...generateBiomeLocatorItems(),
   {
     id: 'apple-normal',
     name: 'Recovered Standard Apple',

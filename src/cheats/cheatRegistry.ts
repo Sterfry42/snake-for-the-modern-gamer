@@ -398,6 +398,14 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     aliases: ['molemandig', 'archaeology'],
     category: 'tools',
   },
+  {
+    name: 'NAVIGATOR',
+    code: 'navigator / compassmaster',
+    primaryCode: 'navigator',
+    description: 'Acquire every biome locator in the game.',
+    aliases: ['navigator', 'compassmaster'],
+    category: 'tools',
+  },
 ];
 
 /**

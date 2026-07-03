@@ -244,6 +244,8 @@ import {
 } from '../achievements/achievementDefinitions.js';
 import type { GlobalWeather, ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { getAllBiomeDefinitions } from '../world/biomes.js';
+import { getLocatorItemId, isLocatorItemId } from '../world/biomeLocators.js';
 import { AchievementManager } from '../achievements/achievementManager.js';
 import { getAchievementReward } from '../achievements/achievementRewards.js';
 import {
@@ -3702,7 +3704,7 @@ export default class SnakeScene extends Phaser.Scene {
       .rectangle(0, 0, Math.min(maxWidth, bounds.width + 46), bounds.height + 28, 0x071019, 0.88)
       .setStrokeStyle(3, 0x5dd6a2, 0.82)
       .setOrigin(0.5, 0.5);
-    const popup = this.add.container(x, y, [panel, text]).setDepth(72).setAlpha(0).setScale(0.86);
+    const popup = this.add.container(x, y, [panel, text]).setDepth(250).setAlpha(0).setScale(0.86);
     this.tweens.add({
       targets: popup,
       alpha: 1,
@@ -5236,6 +5238,21 @@ export default class SnakeScene extends Phaser.Scene {
       this.openMolemanArchaeologyCheat();
       return { ok: true, message: 'Cheat active: Moleman Archaeology opened.', color: '#d8b4ff' };
     }
+    if (code === 'navigator' || code === 'compassmaster') {
+      // Navigator: grant every biome locator in the game.
+      let addedCount = 0;
+      for (const biome of getAllBiomeDefinitions()) {
+        const locatorId = getLocatorItemId(biome.id);
+        this.snakeGame.addItem(locatorId, 1);
+        addedCount++;
+      }
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: `Cheat active: Navigator unlocked. All ${addedCount} biome locators acquired!`,
+        color: '#5dd6a2',
+      };
+    }
     if (code === 'teleporterquest' || code === 'greenpurchase') {
       const started = this.snakeGame.startGreenPurchaseCheat();
       if (started) {
@@ -5349,11 +5366,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (code === 'canies' || code === 'snakecanies') {
       if (this.snakeGame?.spawnSnakeCanes()) {
         this.isDirty = true;
-        return { ok: true, message: 'Spawned a Snake Cane\'s!', color: '#5dd6a2' };
+        return { ok: true, message: "Spawned a Snake Cane's!", color: '#5dd6a2' };
       }
       return {
         ok: false,
-        message: 'Could not place Snake Cane\'s - room too small.',
+        message: "Could not place Snake Cane's - room too small.",
         color: '#ff6b6b',
       };
     }
@@ -7923,6 +7940,10 @@ export default class SnakeScene extends Phaser.Scene {
   useInventoryItem(itemId: string): { ok: boolean; message: string; color?: string } {
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok) this.recordAchievementEvent({ type: 'item:consumed', itemId });
+    // Show "Locating..." feedback for locator items.
+    if (result.ok && isLocatorItemId(itemId)) {
+      this.showQuestHintPopup('Locating...', '#aec4ff');
+    }
     return result;
   }
 
@@ -9849,16 +9870,7 @@ export default class SnakeScene extends Phaser.Scene {
       const [roomX, roomY] = this.parseRoomCoordinates(roomId);
       const localX = head.x - roomX * this.grid.cols;
       const localY = head.y - roomY * this.grid.rows;
-      addLight(
-        'player-lantern',
-        localX,
-        localY,
-        radiusTiles * 1.5,
-        1,
-        0xffd48a,
-        'lantern',
-        true,
-      );
+      addLight('player-lantern', localX, localY, radiusTiles * 1.5, 1, 0xffd48a, 'lantern', true);
     }
     if (lightSources.length === atmosphere.darkness.lightSources.length) {
       return atmosphere;
@@ -14778,7 +14790,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private tryInteractSnakeCanesCashier(): boolean {
-    if (this.paused || this.offeredQuest || this.choicePopupVisible || this.comboSpinner?.isVisible()) {
+    if (
+      this.paused ||
+      this.offeredQuest ||
+      this.choicePopupVisible ||
+      this.comboSpinner?.isVisible()
+    ) {
       return false;
     }
     const room = this.snakeGame.getCurrentRoom();
@@ -14800,9 +14817,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Opening dialogue
     const openingLines = [
-      'Welcome to Snake Cane\'s.',
+      "Welcome to Snake Cane's.",
       'You hungry?',
-      'Let\'s see what fate has in store.',
+      "Let's see what fate has in store.",
       'Time for the combo spinner.',
     ];
     const openingLine = openingLines[Math.floor(Math.random() * openingLines.length)]!;
@@ -14872,8 +14889,8 @@ export default class SnakeScene extends Phaser.Scene {
     const closingLines = [
       'Enjoy.',
       'Come back soon.',
-      'That\'s a good one.',
-      'Can\'t argue with the spinner.',
+      "That's a good one.",
+      "Can't argue with the spinner.",
       'The wheel never lies.',
     ];
     const closingLine = closingLines[Math.floor(Math.random() * closingLines.length)]!;
