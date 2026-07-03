@@ -83,7 +83,8 @@ export interface AppleTypeConfig {
     | 'yuzu'
     | 'koi'
     | 'amacha'
-    | 'caffeinated';
+    | 'caffeinated'
+    | 'lavender';
 }
 
 export interface AppleSystemConfig {

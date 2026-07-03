@@ -25,6 +25,7 @@ import { YuzuApple } from './behaviors/yuzuApple.js';
 import { KoiApple } from './behaviors/koiApple.js';
 import { AmachaApple } from './behaviors/amachaApple.js';
 import { CaffeinatedApple } from './behaviors/caffeinatedApple.js';
+import { LavenderApple } from './behaviors/lavenderApple.js';
 import type { AppleInstance } from './types.js';
 
 export class AppleRegistry {
@@ -62,6 +63,8 @@ export class AppleRegistry {
         return new AmachaApple(roomId, position, type.id, type.color);
       case 'caffeinated':
         return new CaffeinatedApple(roomId, position, type.id, type.color);
+      case 'lavender':
+        return new LavenderApple(roomId, position, type.id, type.color);
       default:
         throw new Error(`Unknown apple behavior: ${type.behavior}`);
     }
