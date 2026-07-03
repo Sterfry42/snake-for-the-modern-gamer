@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import {
   CHEAT_DEFINITIONS,
   getAllCheatAliases,
+  getCheatsByCategory,
   type CheatDefinition,
 } from '../../../cheats/cheatRegistry.js';
 
@@ -24,12 +25,14 @@ const __dirname = __filename.slice(0, __filename.lastIndexOf('/'));
 
 /**
  * Filter CHEAT_DEFINITIONS to find all structure-spawning cheats.
- * Structure cheats have primary codes that are listed in KNOWN_STRUCTURE_CODES.
- * This distinguishes them from boss cheats (freakdennis, freakerdennis, jasonstatham)
- * which also start with "SPAWN" but are not world structures.
+ * Structure cheats have category 'structures' and primary codes listed in
+ * KNOWN_STRUCTURE_CODES. This distinguishes them from boss cheats (freakdennis,
+ * freakerdennis, jasonstatham) which also start with "SPAWN" but are not
+ * world structures.
  */
 function getStructureCheats(): ReadonlyArray<CheatDefinition> {
-  return CHEAT_DEFINITIONS.filter((c) =>
+  const structures = getCheatsByCategory().get('structures')!;
+  return structures.filter((c) =>
     KNOWN_STRUCTURE_CODES.has(c.primaryCode.toLowerCase().trim()),
   );
 }

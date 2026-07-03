@@ -3,6 +3,11 @@ import {
   CHEAT_DEFINITIONS,
   findCheatByCode,
   getAllCheatAliases,
+  getCategoryLabel,
+  getCategoryOrder,
+  getCheatsByCategory,
+  CATEGORY_ORDER,
+  type CheatCategory,
 } from '../cheatRegistry.js';
 
 describe('Cheat registry', () => {
@@ -151,6 +156,88 @@ describe('Cheat registry', () => {
         cheat.name.trim() !== cheat.primaryCode.trim(),
         `Cheat name "${cheat.name}" is identical to its primaryCode "${cheat.primaryCode}". Consider a more descriptive name for the UI.`,
       ).toBe(true);
+    }
+  });
+
+  it('every cheat has a valid category', () => {
+    const validCategories = new Set(CATEGORY_ORDER);
+    for (const cheat of CHEAT_DEFINITIONS) {
+      expect(
+        validCategories.has(cheat.category),
+        `Cheat "${cheat.primaryCode}" has invalid category "${cheat.category}".`,
+      ).toBe(true);
+    }
+  });
+
+  it('category labels are non-empty for all categories', () => {
+    for (const cat of CATEGORY_ORDER) {
+      const label = getCategoryLabel(cat);
+      expect(label.length).toBeGreaterThan(0);
+      expect(label.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('category ordering is a valid permutation of all categories', () => {
+    const ordered = [...CATEGORY_ORDER];
+    const unique = [...new Set(ordered)];
+    expect(ordered.length).toBe(unique.length);
+    expect(ordered.sort().join(',')).toBe(unique.sort().join(','));
+  });
+
+  it('getCheatsByCategory groups all cheats and preserves count', () => {
+    const grouped = getCheatsByCategory();
+    let total = 0;
+    for (const [_cat, cheats] of grouped) {
+      total += cheats.length;
+    }
+    expect(total).toBe(CHEAT_DEFINITIONS.length);
+  });
+
+  it('getCheatsByCategory returns categories in defined order', () => {
+    const grouped = getCheatsByCategory();
+    const keys = [...grouped.keys()];
+    expect(keys).toEqual(CATEGORY_ORDER);
+  });
+
+  it('all categories have at least one cheat', () => {
+    const grouped = getCheatsByCategory();
+    for (const [cat, cheats] of grouped) {
+      expect(
+        cheats.length,
+        `Category "${cat}" ("${getCategoryLabel(cat)}") has no cheats.`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('cheats within each category are sorted by primary code', () => {
+    const grouped = getCheatsByCategory();
+    for (const [_cat, cheats] of grouped) {
+      for (let i = 1; i < cheats.length; i++) {
+        expect(
+          cheats[i].primaryCode.localeCompare(cheats[i - 1].primaryCode) >= 0,
+          `Cheats in category "${_cat}" are not sorted by primary code.`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('every cheat has a category matching its type', () => {
+    // Sanity: structure cheats should be in 'structures', bosses in 'bosses', etc.
+    const structureCodes = new Set([
+      'village', 'goblin', 'quest', 'mcdonalds', 'canies', 'shrine', 'ramen',
+      'koi', 'tengu', 'monument', 'diner', 'fireworks', 'jackalope', 'moleman',
+      'motelpool', 'gridiron', 'billboard', 'roadcrew', 'allstructures', 'clearroom',
+    ]);
+    const bossCodes = new Set(['freakdennis', 'freakerdennis', 'jasonstatham']);
+
+    for (const cheat of CHEAT_DEFINITIONS) {
+      const code = cheat.primaryCode.toLowerCase().trim();
+      if (structureCodes.has(code)) {
+        expect(cheat.category).toBe('structures');
+      }
+      if (bossCodes.has(code)) {
+        expect(cheat.category).toBe('bosses');
+      }
     }
   });
 

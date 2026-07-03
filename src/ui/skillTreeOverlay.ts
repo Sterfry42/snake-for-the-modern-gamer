@@ -14,7 +14,12 @@ import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
-import { CHEAT_DEFINITIONS } from '../cheats/cheatRegistry.js';
+import {
+  CHEAT_DEFINITIONS,
+  getCheatsByCategory,
+  getCategoryLabel,
+  type CheatCategory,
+} from '../cheats/cheatRegistry.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
@@ -4142,70 +4147,100 @@ export class SkillTreeOverlay {
       fontStyle: 'bold',
     });
 
-    const cheats = this.getCheatDefinitions();
     const cardWidth = content.width - 80; // Reserve space for enable button
     let y = content.y + 30 - this.getStructuredScrollOffset();
-    for (const cheat of cheats) {
-      const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: TAB_ACCENTS[this.activePrimaryTab],
-        alpha: 0.56,
-        strokeAlpha: 0.5,
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, cheat.name, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-        fontStyle: 'bold',
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 20, cheat.description, {
-        color: uiColors.textSecondary,
-        fontSize: '10px',
-        wordWrapWidth: cardWidth - 20,
-      });
 
-      // Card click zone (only the left portion, button area excluded)
-      const zoneWidth = card.width - 72;
-      const zone = this.scene.add
-        .zone(card.x, card.y, zoneWidth, card.height)
-        .setOrigin(0, 0)
-        .setInteractive({ useHandCursor: true });
-      zone.on('pointerdown', () => {
-        this.announce(`Cheat: ${cheat.name}`, '#9ad1ff', 1600);
-        this.detailTitle.setText(cheat.name).setVisible(true);
-        this.detailSubtitle.setText('Cheat Code').setVisible(true);
-        this.detailRankText.setText(cheat.code).setVisible(true);
-        this.detailBody.setText(cheat.description).setVisible(true);
-        this.detailBody.setColor(uiColors.textPrimary);
-      });
-      this.structuredContainer.add(zone);
+    const grouped = getCheatsByCategory();
+    for (const category of grouped.keys()) {
+      const cheats = grouped.get(category)!;
+      if (cheats.length === 0) continue;
 
-      // Enable button on the right side of each card
-      const btnX = card.x + zoneWidth;
-      const btnRect: UiRect = { x: btnX, y: card.y + 2, width: 64, height: 26 };
-      addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
-        id: `cheat-${cheat.primaryCode}`,
-        rect: btnRect,
-        label: 'Enable',
-        enabled: true,
-        fill: uiColors.success,
-        stroke: uiColors.success,
-        disabledFill: uiColors.disabled,
-        disabledStroke: uiColors.locked,
-        textColor: '#ffffff',
-        disabledTextColor: uiColors.textMuted,
-        onClick: () => {
-          const result = this.scene.applyCheatCode(cheat.primaryCode);
-          this.announce(result.message, result.color, 2000);
+      // Category section header
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x + 6,
+        y,
+        getCategoryLabel(category),
+        {
+          color: uiColors.textPrimary,
+          fontSize: '11px',
+          fontStyle: 'bold',
+        },
+      );
+      y += 18;
+
+      for (const cheat of cheats) {
+        const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
+        drawUiCard(this.structuredGraphics, {
+          rect: card,
+          fill: uiColors.panelBgInset,
+          stroke: TAB_ACCENTS[this.activePrimaryTab],
+          alpha: 0.56,
+          strokeAlpha: 0.5,
+        });
+        addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, cheat.name, {
+          color: uiColors.textPrimary,
+          fontSize: '12px',
+          fontStyle: 'bold',
+        });
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 10,
+          card.y + 20,
+          cheat.description,
+          {
+            color: uiColors.textSecondary,
+            fontSize: '10px',
+            wordWrapWidth: cardWidth - 20,
+          },
+        );
+
+        // Card click zone (only the left portion, button area excluded)
+        const zoneWidth = card.width - 72;
+        const zone = this.scene.add
+          .zone(card.x, card.y, zoneWidth, card.height)
+          .setOrigin(0, 0)
+          .setInteractive({ useHandCursor: true });
+        zone.on('pointerdown', () => {
+          this.announce(`Cheat: ${cheat.name}`, '#9ad1ff', 1600);
           this.detailTitle.setText(cheat.name).setVisible(true);
           this.detailSubtitle.setText('Cheat Code').setVisible(true);
           this.detailRankText.setText(cheat.code).setVisible(true);
-          this.detailBody.setText(result.message).setVisible(true);
-          this.detailBody.setColor(result.color);
-        },
-      });
-      y += 36;
+          this.detailBody.setText(cheat.description).setVisible(true);
+          this.detailBody.setColor(uiColors.textPrimary);
+        });
+        this.structuredContainer.add(zone);
+
+        // Enable button on the right side of each card
+        const btnX = card.x + zoneWidth;
+        const btnRect: UiRect = { x: btnX, y: card.y + 2, width: 64, height: 26 };
+        addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
+          id: `cheat-${cheat.primaryCode}`,
+          rect: btnRect,
+          label: 'Enable',
+          enabled: true,
+          fill: uiColors.success,
+          stroke: uiColors.success,
+          disabledFill: uiColors.disabled,
+          disabledStroke: uiColors.locked,
+          textColor: '#ffffff',
+          disabledTextColor: uiColors.textMuted,
+          onClick: () => {
+            const result = this.scene.applyCheatCode(cheat.primaryCode);
+            this.announce(result.message, result.color, 2000);
+            this.detailTitle.setText(cheat.name).setVisible(true);
+            this.detailSubtitle.setText('Cheat Code').setVisible(true);
+            this.detailRankText.setText(cheat.code).setVisible(true);
+            this.detailBody.setText(result.message).setVisible(true);
+            this.detailBody.setColor(result.color);
+          },
+        });
+        y += 36;
+      }
+
+      y += 6; // Extra gap between categories
     }
 
     this.setStructuredContentHeight(content, y + 10);
@@ -4217,20 +4252,6 @@ export class SkillTreeOverlay {
       .setText('Press the Enable button to activate a cheat. Press Back to close.')
       .setVisible(true);
     this.detailBody.setColor(uiColors.textPrimary);
-  }
-
-  private getCheatDefinitions(): ReadonlyArray<{
-    name: string;
-    code: string;
-    primaryCode: string;
-    description: string;
-  }> {
-    return CHEAT_DEFINITIONS.map((c) => ({
-      name: c.name,
-      code: c.code,
-      primaryCode: c.primaryCode,
-      description: c.description,
-    }));
   }
 
   private buildControlsCards(rect: UiRect): void {
