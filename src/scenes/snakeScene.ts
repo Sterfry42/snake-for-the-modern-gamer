@@ -78,6 +78,7 @@ import { BossHud } from '../ui/bossHud.js';
 import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
+import { SpanishWebAudioFontMusic } from '../audio/spanishWebAudioFontMusic.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
@@ -1612,6 +1613,8 @@ export default class SnakeScene extends Phaser.Scene {
   private atmosphereGain: GainNode | null = null;
   private atmosphereFilter: BiquadFilterNode | null = null;
   private atmosphereAudioKey = 'none';
+  private spanishMusic: SpanishWebAudioFontMusic | null = null;
+  private spanishMusicKey = 'none';
   private nextThunderAtMs = 0;
   private lastAtmosphereWorldDay = 0;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
@@ -2796,6 +2799,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private updateAtmosphereAudio(view: ResolvedAtmosphereView): void {
+    this.updateSpanishWebAudioFontMusic(view);
     if (view.sheltered) {
       if (this.atmosphereAudioKey !== 'none') {
         this.atmosphereAudioKey = 'none';
@@ -2818,6 +2822,32 @@ export default class SnakeScene extends Phaser.Scene {
       this.nextThunderAtMs =
         this.time.now + 2200 + ((view.state.weatherSeed + this.time.now) % 3800);
     }
+  }
+
+  private updateSpanishWebAudioFontMusic(view: ResolvedAtmosphereView): void {
+    const room = this.snakeGame.getCurrentRoom();
+    const mood =
+      view.biomeId === 'mosaic-coast'
+        ? room.archetypeId === 'el-drac-arena'
+          ? 'boss'
+          : 'explore'
+        : null;
+    const key = mood ?? 'none';
+    if (key === this.spanishMusicKey) {
+      return;
+    }
+    this.spanishMusicKey = key;
+    if (!mood) {
+      this.spanishMusic?.stop();
+      return;
+    }
+    const context = this.ensureAtmosphereAudioContext();
+    if (!context) {
+      return;
+    }
+    context.resume().catch(() => undefined);
+    this.spanishMusic ??= new SpanishWebAudioFontMusic(context);
+    this.spanishMusic.start(mood);
   }
 
   private getAtmosphereAudioKey(view: ResolvedAtmosphereView): string {
@@ -2954,6 +2984,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private destroyAtmosphereAudio(): void {
+    this.spanishMusic?.stop();
+    this.spanishMusic = null;
+    this.spanishMusicKey = 'none';
     this.stopAtmosphereAudio();
     this.atmosphereNoiseSource?.stop();
     this.atmosphereNoiseSource = null;

@@ -30,6 +30,20 @@ export type RoomArchetypeId =
   | 'choke-point'
   | 'ocean'
   | 'dense-forest'
+  | 'mosaic-arrival'
+  | 'sun-plaza'
+  | 'awning-alley'
+  | 'orange-grove-courtyard'
+  | 'white-village-switchback'
+  | 'beach-promenade'
+  | 'siesta-market'
+  | 'festival-plaza'
+  | 'mosaic-park'
+  | 'tapas-crawl-room'
+  | 'souvenir-trapwalk'
+  | 'cathedral-of-shade'
+  | 'el-drac-approach'
+  | 'el-drac-arena'
   | 'cherry-garden'
   | 'bamboo-thicket'
   | 'shrine-courtyard'
@@ -86,10 +100,12 @@ export interface RoomGenerationContext {
   archetype?: RoomArchetype;
   isOcean: boolean;
   isDenseForest: boolean;
+  isMosaicCoast: boolean;
   isJadePeak: boolean;
   isLibertyBadlands: boolean;
   spawnGuard: SpawnGuard | null;
   vegetation: VegetationInstance[];
+  mosaicCoast?: RoomSnapshot['mosaicCoast'];
 }
 
 export interface RoomGenerationStage {

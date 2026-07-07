@@ -126,6 +126,20 @@ export class RoomArchetypeOperations {
       case 'classic':
       case 'ocean':
       case 'dense-forest':
+      case 'mosaic-arrival':
+      case 'sun-plaza':
+      case 'awning-alley':
+      case 'orange-grove-courtyard':
+      case 'white-village-switchback':
+      case 'beach-promenade':
+      case 'siesta-market':
+      case 'festival-plaza':
+      case 'mosaic-park':
+      case 'tapas-crawl-room':
+      case 'souvenir-trapwalk':
+      case 'cathedral-of-shade':
+      case 'el-drac-approach':
+      case 'el-drac-arena':
         break;
     }
   }
@@ -230,7 +244,7 @@ export class RoomArchetypeOperations {
     const roomHeight = context.grid.rows;
 
     // Place cherry blossom trees (3-5 depending on room size)
-    const treeCount = 3 + this.randomInt(Math.min(3, Math.floor(roomWidth * roomHeight / 500)));
+    const treeCount = 3 + this.randomInt(Math.min(3, Math.floor((roomWidth * roomHeight) / 500)));
     let treesPlaced = 0;
     let treeAttempts = 0;
     while (treesPlaced < treeCount && treeAttempts < treeCount * 20) {

@@ -24,6 +24,7 @@ export type BiomeId =
   | 'gloam-garden'
   | 'elderwood-maze'
   | 'sunken-ocean'
+  | 'mosaic-coast'
   | 'home-hearth'
   | 'jade-peak-province'
   | 'liberty-badlands'
@@ -181,6 +182,12 @@ const DENSE_FOREST_TRANSITION: BiomeTransitionProfile = {
 const OCEAN_TRANSITION: BiomeTransitionProfile = {
   preferredTransitionKinds: ['shoreline', 'dock', 'open-water'],
   allowsOpenEdges: false,
+  requiresSpecialEdgeHandling: true,
+};
+
+const MOSAIC_COAST_TRANSITION: BiomeTransitionProfile = {
+  preferredTransitionKinds: ['road', 'shoreline', 'open', 'dock'],
+  allowsOpenEdges: true,
   requiresSpecialEdgeHandling: true,
 };
 
@@ -470,6 +477,56 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       bear: 0,
       fish: 5,
       snake: 0,
+    },
+    vegetationDensity: 0,
+  },
+  'mosaic-coast': {
+    id: 'mosaic-coast',
+    title: 'Mosaic Coast',
+    family: 'town',
+    countsAs: ['grassland', 'ocean'],
+    tags: ['warm', 'dry', 'shore', 'civilized', 'starter', 'special'],
+    generation: {
+      minWidthRooms: 5,
+      maxWidthRooms: 12,
+      minHeightRooms: 3,
+      maxHeightRooms: 8,
+      baseWeight: 0.35,
+      idealTemperature: 0.55,
+      temperatureTolerance: 0.35,
+      idealMoisture: 0.35,
+      moistureTolerance: 0.5,
+      idealWeirdness: 0.25,
+      weirdnessTolerance: 0.55,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 6,
+      rarity: 'rare',
+    },
+    transition: MOSAIC_COAST_TRANSITION,
+    temperature: 'Sunlit',
+    dangerLevel: 4,
+    temperatureHazard: 'hot',
+    temperatureRate: 0.35,
+    hue: 38,
+    saturation: 0.35,
+    lightness: 0.27,
+    tintVariance: 0.03,
+    accentColor: 0x3fb8ff,
+    enemyFireBias: 1,
+    enemyMoveBias: 1,
+    animalSpawnChance: 0.18,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 4,
+      wolf: 0,
+      bear: 0,
+      fish: 2,
+      snake: 1,
+      frog: 1,
+      pigeon: 5,
+      lizard: 4,
     },
     vegetationDensity: 0,
   },
@@ -1262,6 +1319,9 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
   }
   if (x >= -18 && x <= -12 && y >= 1 && y <= 5) {
     return BIOMES['glass-desert'];
+  }
+  if (z === 0 && x >= -4 && x <= 2 && y >= -11 && y <= -9) {
+    return BIOMES['mosaic-coast'];
   }
   if (x >= 1 && x <= 5 && y >= -14 && y <= -10) {
     return BIOMES['radioactive-orchard'];

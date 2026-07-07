@@ -355,6 +355,7 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'gloam-garden': ['Thornwick', 'Petalford', 'Gloamgate', 'Rose Toll', 'Rootmarket'],
   'elderwood-maze': ['Briarford', 'Canopy Gate', 'Oldroot', 'Green Toll', 'Mosswick'],
   'sunken-ocean': ['Pearlford', 'Foamgate', 'Saltwick', 'Tide Toll', 'Brinemarket'],
+  'mosaic-coast': ['Azulgate', 'Tileford', 'Fountain Toll', 'Siesta Row', 'Mosaicmarket'],
   'home-hearth': ['Hearthwick', 'Cinderhome', 'Lampford', 'Quiet Gate', 'Warmmarket'],
   'jade-peak-province': ['Jadeford', 'Mistgate', 'Cedar Toll', 'Koiwick', 'Shrinemarket'],
   'liberty-badlands': [

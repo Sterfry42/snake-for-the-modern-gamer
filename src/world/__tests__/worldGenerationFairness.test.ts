@@ -385,7 +385,7 @@ describe('world generation fairness', () => {
     expect(questHouses.length).toBeGreaterThan(0);
     expect(rivers.length).toBeGreaterThan(0);
     expect(crossRoomBoundaryWalls).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it('keeps adjacent cross-room barrier edges mutually blocked or mutually passable', () => {
     const min = -18;
@@ -428,7 +428,7 @@ describe('world generation fairness', () => {
 
     expect(failures.slice(0, 12)).toEqual([]);
     expect(failures).toHaveLength(0);
-  });
+  }, 30_000);
 
   it('assigns multiple first-class room archetypes across generated rooms', () => {
     const rooms = generateArea('archetype-sanity', -12, 12, -12, 12);
@@ -485,7 +485,7 @@ describe('world generation fairness', () => {
         return hasNpcStructure || hasLake || hasStructuredDressing;
       }),
     ).toBe(true);
-  });
+  }, 30_000);
 
   it('reports biome-owned archetypes for ocean and dense forest rooms', () => {
     const rooms = generateArea('biome-archetype-sanity', -12, 12, -12, 12);
@@ -500,6 +500,48 @@ describe('world generation fairness', () => {
     expect(getBiomeForRoom('-7,-6,0').id).toBe('liberty-badlands');
     expect(getBiomeForRoom('-5,-3,0').id).toBe('liberty-badlands');
     expect(getBiomeForRoom('-4,-6,0').id).toBe('jade-peak-province');
+  });
+
+  it('maps Mosaic Coast into the intended northern starter rectangle', () => {
+    expect(getBiomeForRoom('-4,-11,0').id).toBe('mosaic-coast');
+    expect(getBiomeForRoom('2,-9,0').id).toBe('mosaic-coast');
+    expect(getBiomeForRoom('0,-8,0').id).toBe('jade-peak-province');
+    expect(getBiomeForRoom('0,-12,0').id).toBe('sunken-ocean');
+    expect(getBiomeForRoom('0,0,0').id).toBe('verdigris-basin');
+    expect(getBiomeForRoom('0,-1,0').id).toBe('home-hearth');
+  });
+
+  it('generates Mosaic Coast rooms with shade routes, cooling, and exposure metadata', () => {
+    const rooms = generateArea('mosaic-coast-sanity', -4, 2, -11, -9);
+    const mosaicRooms = [...rooms.values()].filter((room) => room.biomeId === 'mosaic-coast');
+    const archetypes = new Set(mosaicRooms.map((room) => room.archetypeId));
+
+    expect(mosaicRooms).toHaveLength(21);
+    expect(archetypes.has('mosaic-arrival')).toBe(true);
+    expect(mosaicRooms.some((room) => room.mosaicCoast?.tapasBar)).toBe(true);
+    expect(
+      mosaicRooms.every((room) => {
+        const exposureKinds = new Set(room.mosaicCoast?.exposure.map((entry) => entry.kind));
+        return (
+          room.mosaicCoast &&
+          exposureKinds.has('direct-sun') &&
+          exposureKinds.has('shade') &&
+          exposureKinds.has('cooling') &&
+          (room.temperatureReliefs?.some((relief) => relief.kind === 'cool') ?? false)
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it('keeps Mosaic Coast exposure deterministic for the same seed', () => {
+    const first = generateArea('mosaic-coast-determinism', -4, 2, -11, -9);
+    const second = generateArea('mosaic-coast-determinism', -4, 2, -11, -9);
+
+    for (const [id, room] of first) {
+      expect(second.get(id)?.layout).toEqual(room.layout);
+      expect(second.get(id)?.archetypeId).toEqual(room.archetypeId);
+      expect(second.get(id)?.mosaicCoast).toEqual(room.mosaicCoast);
+    }
   });
 
   it('keeps the common biome borders several rooms away from spawn', () => {

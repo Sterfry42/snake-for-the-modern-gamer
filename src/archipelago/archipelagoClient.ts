@@ -92,7 +92,7 @@ export class ArchipelagoClient {
   private socket: WebSocket | null = null;
   private status: ArchipelagoConnectionStatus = 'disconnected';
   private config: ArchipelagoConnectionConfig | null = null;
-  private reconnectTimer: number | null = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private manualDisconnect = false;
   private itemNamesById = new Map<number, string>(
     AP_PHASE_1_ITEM_LIST.map((item) => [item.id, item.name]),

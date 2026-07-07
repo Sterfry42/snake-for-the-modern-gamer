@@ -11849,6 +11849,47 @@ export class SnakeGame implements QuestRuntime {
     return tile === 'F' ? 'campfire' : null;
   }
 
+  playTapasMinigame(choiceId: 'bravas' | 'pan-con-tomate' | 'croquetas'): {
+    ok: boolean;
+    message: string;
+    color: string;
+    score?: number;
+  } {
+    const room = this.getCurrentRoom();
+    const tapas = room.mosaicCoast?.tapasBar;
+    if (!tapas) {
+      return { ok: false, message: 'No tapas bar nearby.', color: '#ffd166' };
+    }
+    const choices = ['bravas', 'pan-con-tomate', 'croquetas'] as const;
+    const hash = [...`${tapas.minigameSeed}:${this.getRoomsVisitedCount()}`].reduce(
+      (sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0,
+      0,
+    );
+    const target = choices[hash % choices.length] ?? 'bravas';
+    const perfect = choiceId === target;
+    const score = perfect ? 75 : 25;
+    const coolingMs = perfect ? 3500 : 1500;
+    const currentHot = Number(this.getFlag<number>('player.temperatureHotExposureMs') ?? 0);
+    this.addScore(score);
+    this.setFlag('player.temperatureHotExposureMs', Math.max(0, currentHot - coolingMs));
+    this.setFlag('player.temperatureExposureMs', Math.max(0, currentHot - coolingMs));
+    this.setFlag('mosaicCoast.lastTapas', {
+      roomId: room.id,
+      choiceId,
+      target,
+      perfect,
+      score,
+    });
+    return {
+      ok: true,
+      message: perfect
+        ? 'Perfect tapas rhythm. Heat backs off and pretends it had plans.'
+        : 'Respectable tapas. Cooling acquired, dignity mostly intact.',
+      color: perfect ? '#9cff9c' : '#ffd166',
+      score,
+    };
+  }
+
   healPlayer(amount: number): number {
     const { current, max } = this.getPlayerHealth();
     const next = Math.min(max, current + Math.max(0, Math.floor(amount)));
@@ -14599,6 +14640,14 @@ export class SnakeGame implements QuestRuntime {
     const localY = head.y - roomY * this.config.grid.rows;
     const tile = room.layout[localY]?.[localX] ?? '.';
     const sheltered = 'WETCKBPLGO'.includes(tile);
+    const mosaicExposure =
+      room.biomeId === 'mosaic-coast'
+        ? (room.mosaicCoast?.exposure.find((entry) => entry.x === localX && entry.y === localY)
+            ?.kind ?? 'direct-sun')
+        : null;
+    if (!mosaicExposure) {
+      this.setFlag('mosaicCoast.exposure', undefined);
+    }
     const onRelief = room.temperatureReliefs?.find(
       (relief) => relief.x === localX && relief.y === localY,
     );
@@ -14703,7 +14752,26 @@ export class SnakeGame implements QuestRuntime {
 
     this.setFlag('player.temperatureHazard', biome.temperatureHazard);
 
-    if (onRelief) {
+    if (mosaicExposure) {
+      this.setFlag('mosaicCoast.exposure', mosaicExposure);
+      if (mosaicExposure === 'cooling') {
+        hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 3.5);
+        hotDamageProgressMs = Math.max(0, hotDamageProgressMs - deltaMs * 2);
+      } else if (mosaicExposure === 'interior') {
+        hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 1.25);
+        hotDamageProgressMs = Math.max(0, hotDamageProgressMs - deltaMs);
+      } else if (
+        mosaicExposure === 'direct-sun' &&
+        this.getAtmosphereForRoom(room).state.dayPhase !== 'night'
+      ) {
+        hotExposureMs = Math.min(thresholdMs, hotExposureMs + deltaMs * exposureRate);
+        coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 1.8);
+        coldDamageProgressMs = Math.max(0, coldDamageProgressMs - deltaMs * 2);
+        if (hotExposureMs >= thresholdMs) {
+          hotDamageProgressMs += deltaMs;
+        }
+      }
+    } else if (onRelief) {
       if (onRelief.kind === 'warm' || onRelief.kind === 'onsen') {
         coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 3.5);
         coldDamageProgressMs = Math.max(0, coldDamageProgressMs - deltaMs * 2);

@@ -25,6 +25,7 @@ const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {
   'gloam-garden': ['Gloam Orchard', 'Rootwake', 'The Bent Arbor', 'Petal Grave', 'Thorn Vigil'],
   'elderwood-maze': ['Briarwake', 'The Green Labyrinth', 'Elder Root', 'Canopy Rest', 'Mossgate'],
   'sunken-ocean': ['Pearl Wake', 'Brine Rest', 'The Salt Chapel', 'Foamcross', 'Tide Hollow'],
+  'mosaic-coast': ['Tilewake', 'Azul Rest', 'The Siesta Arcade', 'Fountaincross', 'Mosaic Hollow'],
   'home-hearth': ['Home Hearth', 'Hearthwake', 'The Quiet Room', 'Lamp Rest', 'Cinder Home'],
   'jade-peak-province': [
     'Jade Hollow',

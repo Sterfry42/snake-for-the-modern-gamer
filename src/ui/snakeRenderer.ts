@@ -771,6 +771,11 @@ export class SnakeRenderer {
             this.drawBoatTile(rectX, rectY, x, y);
           }
         } else if (
+          room.biomeId === 'mosaic-coast' &&
+          ['M', 'a', 't', 'f', 'F', 'b', 'i', 'p', 'r'].includes(tile)
+        ) {
+          this.drawMosaicCoastTile(rectX, rectY, tile, x, y);
+        } else if (
           room.biomeId === 'liberty-badlands' &&
           ['A', 'E', 'F', 'G', 'L', 'M', 'N', 'O', 'P', 'W'].includes(tile)
         ) {
@@ -1064,6 +1069,21 @@ export class SnakeRenderer {
           }
           this.wallGraphics
             .lineStyle(1, 0x07152c, 0.75)
+            .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+        } else if (room.biomeId === 'mosaic-coast') {
+          const cell = this.grid.cell;
+          const stucco = (x + y) % 4 === 0 ? 0xf4ead2 : 0xe9dbc3;
+          const shadow = 0x8f7d66;
+          const roof = 0xb65a38;
+          this.wallGraphics.fillStyle(stucco, 1).fillRect(rectX, rectY, cell, cell);
+          this.wallGraphics
+            .fillStyle(shadow, 0.32)
+            .fillRect(rectX, rectY + cell * 0.66, cell, cell * 0.34);
+          if ((x * 3 + y * 5) % 7 === 0) {
+            this.wallGraphics.fillStyle(roof, 0.78).fillRect(rectX, rectY, cell, 4);
+          }
+          this.wallGraphics
+            .lineStyle(1, 0x6b5a48, 0.58)
             .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
         } else {
           this.wallGraphics.fillStyle(room.wallColor, 1);
@@ -1753,6 +1773,77 @@ export class SnakeRenderer {
         }
         break;
     }
+  }
+
+  private drawMosaicCoastTile(
+    rectX: number,
+    rectY: number,
+    tile: string,
+    tileX: number,
+    tileY: number,
+  ): void {
+    const cell = this.grid.cell;
+    this.graphics.fillStyle(0xf2e7d4, 1).fillRect(rectX, rectY, cell, cell);
+    if (tile === 'M') {
+      const accent =
+        (tileX + tileY) % 3 === 0
+          ? 0x2f8fbd
+          : (tileX + tileY) % 3 === 1
+            ? 0xf0c15a
+            : 0xf4fbff;
+      this.graphics.fillStyle(accent, 0.62).fillRect(rectX + 3, rectY + 3, cell - 6, cell - 6);
+      this.graphics
+        .lineStyle(1, 0x2b658a, 0.24)
+        .strokeRect(rectX + 3.5, rectY + 3.5, cell - 7, cell - 7);
+      return;
+    }
+    if (tile === 'a') {
+      const stripe = tileX % 2 === 0 ? 0x206fa3 : 0xd96a44;
+      this.graphics.fillStyle(stripe, 0.9).fillRect(rectX, rectY, cell, cell);
+      this.graphics
+        .fillStyle(0x1c3242, 0.24)
+        .fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
+      return;
+    }
+    if (tile === 'b' || tile === 'p') {
+      this.graphics
+        .fillStyle(tile === 'p' ? 0xc98d61 : 0x486982, tile === 'p' ? 0.76 : 0.58)
+        .fillRect(rectX, rectY, cell, cell);
+      this.graphics
+        .fillStyle(0x142433, 0.22)
+        .fillRect(rectX, rectY + cell * 0.55, cell, cell * 0.45);
+      return;
+    }
+    if (tile === 't') {
+      this.graphics
+        .fillStyle(0x215c3a, 0.82)
+        .fillCircle(rectX + cell / 2, rectY + cell / 2, cell * 0.46);
+      this.graphics
+        .fillStyle(0x0d2f23, 0.32)
+        .fillRect(rectX, rectY + cell * 0.54, cell, cell * 0.46);
+      return;
+    }
+    if (tile === 'f' || tile === 'F') {
+      this.graphics.fillStyle(0x5bb8d4, 0.92).fillRect(rectX + 2, rectY + 2, cell - 4, cell - 4);
+      this.graphics
+        .fillStyle(0xd8f6ff, 0.75)
+        .fillCircle(rectX + cell * 0.5, rectY + cell * 0.42, cell * 0.22);
+      if (tile === 'F') {
+        this.graphics
+          .lineStyle(2, 0x315f7d, 0.85)
+          .strokeCircle(rectX + cell / 2, rectY + cell / 2, cell * 0.34);
+      }
+      return;
+    }
+    if (tile === 'i') {
+      this.graphics.fillStyle(0xefe3ca, 1).fillRect(rectX, rectY, cell, cell);
+      this.graphics.fillStyle(0x405f73, 0.2).fillRect(rectX, rectY, cell, cell);
+      this.graphics
+        .lineStyle(1, 0x9b8366, 0.35)
+        .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+      return;
+    }
+    this.graphics.fillStyle(0xb65a38, 0.75).fillRect(rectX, rectY, cell, cell);
   }
 
   private drawLibertyTile(

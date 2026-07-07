@@ -92,6 +92,28 @@ export interface RoomArea {
   height: number;
 }
 
+export type MosaicCoastExposureKind = 'direct-sun' | 'shade' | 'cooling' | 'interior';
+
+export interface MosaicCoastMetadata {
+  exposure: Array<{ x: number; y: number; kind: MosaicCoastExposureKind }>;
+  fountains: Array<{ x: number; y: number; radius: number }>;
+  canopyTrees: Array<{ trunk: Vector2Like; canopy: Vector2Like[] }>;
+  awnings: Array<{ cells: Vector2Like[]; colorId: string }>;
+  tapasBar?: {
+    bartender: NpcProfile & { x: number; y: number };
+    tableCells: Vector2Like[];
+    minigameSeed: string;
+  };
+  souvenirStand?: {
+    vendor: NpcProfile & { x: number; y: number };
+    standName: string;
+  };
+  gaudiPark?: {
+    bossEntrance?: Vector2Like;
+    mosaicCells: Vector2Like[];
+  };
+}
+
 export interface RoomSnapshot {
   id: string;
   layout: string[];
@@ -239,6 +261,7 @@ export interface RoomSnapshot {
   };
   bulletTrainStation?: BulletTrainStation;
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
+  mosaicCoast?: MosaicCoastMetadata;
   minecraftBlocks?: Record<string, string>;
   minecraftCropData?: Map<string, { stage: number; growthTicks: number }>;
   vegetation?: VegetationInstance[];

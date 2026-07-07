@@ -11,6 +11,7 @@ import { RandomObstacleOperations } from './generation/stages/randomObstacleOper
 import { SafetyOperations } from './generation/stages/safetyOperations.js';
 import { StructureOperations } from './generation/stages/structureOperations.js';
 import { OceanOperations } from './generation/stages/oceanOperations.js';
+import { MosaicCoastOperations } from './generation/stages/mosaicCoastOperations.js';
 import { CrossRoomFeatureOperations } from './generation/stages/crossRoomFeatureOperations.js';
 import { ForestOperations } from './generation/stages/forestOperations.js';
 import { RoomArchetypeOperations } from './generation/stages/roomArchetypeOperations.js';
@@ -34,6 +35,7 @@ export class RoomGenerator {
   private readonly crossRoomFeatureOperations: CrossRoomFeatureOperations;
   private readonly forestOperations: ForestOperations;
   private readonly oceanOperations: OceanOperations;
+  private readonly mosaicCoastOperations: MosaicCoastOperations;
   private readonly roomArchetypeOperations: RoomArchetypeOperations;
   private readonly safetyOperations: SafetyOperations;
   private readonly vegetationOperations: VegetationOperations;
@@ -72,6 +74,7 @@ export class RoomGenerator {
     );
     this.forestOperations = new ForestOperations(this.biomeMap);
     this.oceanOperations = new OceanOperations(this.biomeMap, this.rng);
+    this.mosaicCoastOperations = new MosaicCoastOperations();
     this.roomArchetypeOperations = new RoomArchetypeOperations(this.config, this.rng);
     this.safetyOperations = new SafetyOperations(this.config);
     this.vegetationOperations = new VegetationOperations();
@@ -88,6 +91,7 @@ export class RoomGenerator {
     const palette = this.biomeMap.createPalette(roomId);
     const isOcean = biomeCountsAs(palette.biomeId, 'ocean');
     const isDenseForest = palette.biomeId === 'elderwood-maze';
+    const isMosaicCoast = palette.biomeId === 'mosaic-coast';
     const isJadePeak = palette.biomeId === 'jade-peak-province';
     const isLibertyBadlands = palette.biomeId === 'liberty-badlands';
     const spawnGuard = this.safetyOperations.createSpawnGuard(roomId);
@@ -101,6 +105,7 @@ export class RoomGenerator {
       palette,
       isOcean,
       isDenseForest,
+      isMosaicCoast,
       isJadePeak,
       isLibertyBadlands,
       spawnGuard,
@@ -138,6 +143,7 @@ export class RoomGenerator {
       molemanDigSite: townRoom ? undefined : context.molemanDigSite,
       bulletTrainStation: context.bulletTrainStation,
       temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,
+      mosaicCoast: townRoom ? undefined : context.mosaicCoast,
       biomeId: context.palette.biomeId,
       biomeTitle: context.palette.biomeTitle,
       backgroundColor: context.palette.backgroundColor,
@@ -168,7 +174,9 @@ export class RoomGenerator {
   }
 
   applyBiomeBaseTerrain(context: RoomGenerationContext): void {
-    if (context.isOcean) {
+    if (context.isMosaicCoast) {
+      this.mosaicCoastOperations.fillMosaicCoastRoom(context);
+    } else if (context.isOcean) {
       this.oceanOperations.fillRoom(context.layout, context.grid, context.roomId);
     } else if (context.isDenseForest) {
       this.forestOperations.fillDenseForestRoom(
@@ -181,6 +189,9 @@ export class RoomGenerator {
   }
 
   applyRoomArchetype(context: RoomGenerationContext): void {
+    if (context.isMosaicCoast) {
+      return;
+    }
     this.roomArchetypeOperations.apply(context);
   }
 
@@ -196,6 +207,9 @@ export class RoomGenerator {
   placeCrossRoomFeatures(context: RoomGenerationContext): void {
     this.crossRoomFeatureOperations.place(context);
     if (!context.isOcean && !context.isDenseForest) {
+      if (context.isMosaicCoast) {
+        return;
+      }
       this.forestOperations.placeDenseForestThresholds(
         context.layout,
         context.grid,
@@ -206,6 +220,9 @@ export class RoomGenerator {
   }
 
   placeRoomStructures(context: RoomGenerationContext): void {
+    if (context.isMosaicCoast) {
+      return;
+    }
     new StructureOperations(
       this.config,
       createRng(
@@ -224,6 +241,9 @@ export class RoomGenerator {
 
   validateRoomSafety(context: RoomGenerationContext): void {
     this.safetyOperations.validate(context);
+    if (context.isMosaicCoast) {
+      this.mosaicCoastOperations.refreshExposureFromLayout(context);
+    }
   }
 
   placeVegetation(context: RoomGenerationContext): void {
