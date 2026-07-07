@@ -74,7 +74,7 @@ export class RoomGenerator {
     );
     this.forestOperations = new ForestOperations(this.biomeMap);
     this.oceanOperations = new OceanOperations(this.biomeMap, this.rng);
-    this.mosaicCoastOperations = new MosaicCoastOperations();
+    this.mosaicCoastOperations = new MosaicCoastOperations(this.worldGenerationIdentity);
     this.roomArchetypeOperations = new RoomArchetypeOperations(this.config, this.rng);
     this.safetyOperations = new SafetyOperations(this.config);
     this.vegetationOperations = new VegetationOperations();
@@ -174,7 +174,13 @@ export class RoomGenerator {
   }
 
   applyBiomeBaseTerrain(context: RoomGenerationContext): void {
-    if (context.isMosaicCoast) {
+    if (
+      context.isMosaicCoast &&
+      !context.town &&
+      !context.townPerimeter &&
+      !context.townMembership &&
+      !context.townAdjacency
+    ) {
       this.mosaicCoastOperations.fillMosaicCoastRoom(context);
     } else if (context.isOcean) {
       this.oceanOperations.fillRoom(context.layout, context.grid, context.roomId);
@@ -205,11 +211,12 @@ export class RoomGenerator {
   }
 
   placeCrossRoomFeatures(context: RoomGenerationContext): void {
+    if (context.isMosaicCoast) {
+      this.mosaicCoastOperations.placeDistrictContinuity(context);
+      return;
+    }
     this.crossRoomFeatureOperations.place(context);
     if (!context.isOcean && !context.isDenseForest) {
-      if (context.isMosaicCoast) {
-        return;
-      }
       this.forestOperations.placeDenseForestThresholds(
         context.layout,
         context.grid,
@@ -220,7 +227,13 @@ export class RoomGenerator {
   }
 
   placeRoomStructures(context: RoomGenerationContext): void {
-    if (context.isMosaicCoast) {
+    if (
+      context.isMosaicCoast &&
+      !context.town &&
+      !context.townPerimeter &&
+      !context.townMembership &&
+      !context.townAdjacency
+    ) {
       return;
     }
     new StructureOperations(

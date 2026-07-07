@@ -23,6 +23,7 @@
     "vitest": "^4.1.5"
   },
   "dependencies": {
-    "phaser": "^3.90.0"
+    "phaser": "^3.90.0",
+    "webaudiofont": "^3.0.4"
   }
 }

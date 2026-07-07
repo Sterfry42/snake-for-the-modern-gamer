@@ -108,4 +108,45 @@ describe('SnakeGame thermal body state', () => {
     expect(Number(game.getFlag<number>('player.temperatureColdDamageProgressMs'))).toBe(0);
     expect(game.getFlag('player.temperatureHazard')).toBeUndefined();
   });
+
+  it('uses Mosaic Coast tile exposure for direct sun, shade, and cooling', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    const room = game.getCurrentRoom();
+    room.biomeId = 'mosaic-coast';
+    room.mosaicCoast = {
+      exposure: [
+        { x: 5, y: 10, kind: 'direct-sun' },
+        { x: 6, y: 10, kind: 'shade' },
+        { x: 7, y: 10, kind: 'cooling' },
+      ],
+      fountains: [{ x: 7, y: 10, radius: 1 }],
+      canopyTrees: [],
+      awnings: [],
+    };
+    room.layout = room.layout.map((row) => '.'.repeat(row.length));
+    const snake = (game as any).snake;
+    snake.currentRoomId = room.id;
+
+    snake.body[0] = { x: 5, y: 10 };
+    game.setFlag('timeMs', 1000);
+    (game as any).tickTemperatureState();
+    game.setFlag('timeMs', 3000);
+    (game as any).tickTemperatureState();
+    const sunny = Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0);
+    expect(sunny).toBeGreaterThan(0);
+
+    snake.body[0] = { x: 6, y: 10 };
+    game.setFlag('timeMs', 5000);
+    (game as any).tickTemperatureState();
+    expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBe(sunny);
+    expect(game.getFlag('mosaicCoast.exposure')).toBe('shade');
+
+    snake.body[0] = { x: 7, y: 10 };
+    game.setFlag('timeMs', 7000);
+    (game as any).tickTemperatureState();
+    expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBeLessThan(
+      sunny,
+    );
+    expect(game.getFlag('mosaicCoast.exposure')).toBe('cooling');
+  });
 });

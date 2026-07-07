@@ -78,7 +78,10 @@ import { BossHud } from '../ui/bossHud.js';
 import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
-import { SpanishWebAudioFontMusic } from '../audio/spanishWebAudioFontMusic.js';
+import {
+  SpanishWebAudioFontMusic,
+  type SpanishWebAudioFontState,
+} from '../audio/spanishWebAudioFontMusic.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
@@ -2826,18 +2829,13 @@ export default class SnakeScene extends Phaser.Scene {
 
   private updateSpanishWebAudioFontMusic(view: ResolvedAtmosphereView): void {
     const room = this.snakeGame.getCurrentRoom();
-    const mood =
-      view.biomeId === 'mosaic-coast'
-        ? room.archetypeId === 'el-drac-arena'
-          ? 'boss'
-          : 'explore'
-        : null;
-    const key = mood ?? 'none';
+    const state = this.resolveSpanishWebAudioFontState(view, room);
+    const key = state ?? 'none';
     if (key === this.spanishMusicKey) {
       return;
     }
     this.spanishMusicKey = key;
-    if (!mood) {
+    if (!state) {
       this.spanishMusic?.stop();
       return;
     }
@@ -2847,7 +2845,34 @@ export default class SnakeScene extends Phaser.Scene {
     }
     context.resume().catch(() => undefined);
     this.spanishMusic ??= new SpanishWebAudioFontMusic(context);
-    this.spanishMusic.start(mood);
+    this.spanishMusic.start(state);
+  }
+
+  private resolveSpanishWebAudioFontState(
+    view: ResolvedAtmosphereView,
+    room: ReturnType<SnakeGame['getCurrentRoom']>,
+  ): SpanishWebAudioFontState | null {
+    if (view.biomeId !== 'mosaic-coast') {
+      return null;
+    }
+    if (room.archetypeId === 'el-drac-arena') {
+      return 'el-drac-boss-phase-1';
+    }
+    if (room.mosaicCoast?.tapasBar) {
+      return 'tapas-minigame';
+    }
+    const exposure = this.snakeGame.getFlag<SpanishWebAudioFontState | string>('mosaicCoast.exposure');
+    switch (exposure) {
+      case 'direct-sun':
+        return 'mosaic-coast-sun';
+      case 'shade':
+        return 'mosaic-coast-shade';
+      case 'cooling':
+      case 'interior':
+        return 'mosaic-coast-cooling';
+      default:
+        return 'mosaic-coast-base';
+    }
   }
 
   private getAtmosphereAudioKey(view: ResolvedAtmosphereView): string {
