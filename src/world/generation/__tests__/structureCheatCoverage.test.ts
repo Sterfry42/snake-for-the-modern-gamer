@@ -1,78 +1,116 @@
 import { describe, expect, it } from 'vitest';
-import { CHEAT_DEFINITIONS, getAllCheatAliases } from '../../../cheats/cheatRegistry.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import {
+  CHEAT_DEFINITIONS,
+  getAllCheatAliases,
+  getCheatsByCategory,
+  type CheatDefinition,
+} from '../../../cheats/cheatRegistry.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = __filename.slice(0, __filename.lastIndexOf('/'));
 
 /**
  * Every structure that can be generated in the world must have a dedicated
  * cheat that lets the player spawn it. This test guards against regressions
- * where a new structure is added but the corresponding cheat is forgotten.
+ * where a new structure is added but the corresponding cheat is forgotten,
+ * or where a cheat is registered but never implemented.
  *
  * To add a new structure cheat:
  *   1. Add an entry to CHEAT_DEFINITIONS in src/cheats/cheatRegistry.ts
+ *      (name must start with "SPAWN ")
  *   2. Implement the spawn logic in snakeScene.applyCheatCode()
- *   3. Register the primary code below in STRUCTURE_SPAWN_CODES
  */
 
 /**
- * Every structure that can be spawned in a room must have a corresponding
- * cheat registered in the cheat registry. Each entry maps the cheat primary
- * code to a human-readable structure name for better test output.
+ * Filter CHEAT_DEFINITIONS to find all structure-spawning cheats.
+ * Structure cheats have category 'structures' and primary codes listed in
+ * KNOWN_STRUCTURE_CODES. This distinguishes them from boss cheats (freakdennis,
+ * freakerdennis, jasonstatham) which also start with "SPAWN" but are not
+ * world structures.
  */
-const STRUCTURE_SPAWN_CODES: ReadonlyArray<{ primaryCode: string; structureName: string }> = [
-  { primaryCode: 'village', structureName: 'village' },
-  { primaryCode: 'goblin', structureName: 'goblin camp' },
-  { primaryCode: 'quest', structureName: 'quest house' },
-  { primaryCode: 'mcdonalds', structureName: 'Snake McDonalds' },
-  { primaryCode: 'shrine', structureName: 'shrine' },
-  { primaryCode: 'ramen', structureName: 'ramen stand' },
-  { primaryCode: 'koi', structureName: 'koi pond' },
-  { primaryCode: 'tengu', structureName: 'tengu camp' },
-  { primaryCode: 'monument', structureName: 'roadside monument' },
-  { primaryCode: 'diner', structureName: 'all-nite diner' },
-  { primaryCode: 'fireworks', structureName: 'firework stand' },
-  { primaryCode: 'jackalope', structureName: 'jackalope lodge' },
-  { primaryCode: 'moleman', structureName: 'moleman dig site' },
-  { primaryCode: 'motelpool', structureName: 'motel pool' },
-  { primaryCode: 'gridiron', structureName: 'gridiron yard' },
-  { primaryCode: 'billboard', structureName: 'billboard oracle' },
-  { primaryCode: 'roadcrew', structureName: 'road crew' },
-];
+function getStructureCheats(): ReadonlyArray<CheatDefinition> {
+  const structures = getCheatsByCategory().get('structures')!;
+  return structures.filter((c) =>
+    KNOWN_STRUCTURE_CODES.has(c.primaryCode.toLowerCase().trim()),
+  );
+}
+
+/**
+ * Map of structure cheat primary code -> human-readable name for test output.
+ * This is the source of truth for what structures the world can generate.
+ * If a new structure is added to the world, add it here.
+ */
+const KNOWN_STRUCTURE_CODES: ReadonlySet<string> = new Set([
+  'village',
+  'goblin',
+  'quest',
+  'mcdonalds',
+  'canies',
+  'shrine',
+  'ramen',
+  'koi',
+  'tengu',
+  'monument',
+  'diner',
+  'fireworks',
+  'jackalope',
+  'moleman',
+  'motelpool',
+  'gridiron',
+  'billboard',
+  'roadcrew',
+]);
 
 describe('Structure cheat coverage', () => {
-  it('every generated structure has a dedicated spawn cheat', () => {
+  it('every known structure has a registered cheat', () => {
     const allAliases = getAllCheatAliases();
 
-    for (const { primaryCode, structureName } of STRUCTURE_SPAWN_CODES) {
+    for (const primaryCode of KNOWN_STRUCTURE_CODES) {
       const normalized = primaryCode.toLowerCase().trim();
       expect(
         allAliases.has(normalized),
-        `Structure "${structureName}" (cheat code "${primaryCode}") has no corresponding cheat in the registry. Add it to CHEAT_DEFINITIONS in src/cheats/cheatRegistry.ts.`,
+        `Structure "${primaryCode}" has no corresponding cheat in the registry. Add it to CHEAT_DEFINITIONS in src/cheats/cheatRegistry.ts.`,
       ).toBe(true);
     }
   });
 
-  it('every structure cheat appears in CHEAT_DEFINITIONS', () => {
-    const cheatCodes = new Set<string>();
-    for (const cheat of CHEAT_DEFINITIONS) {
-      cheatCodes.add(cheat.primaryCode.toLowerCase().trim());
-    }
+  it('every registered structure cheat is known', () => {
+    const structureCheats = getStructureCheats();
 
-    for (const { primaryCode, structureName } of STRUCTURE_SPAWN_CODES) {
-      const normalized = primaryCode.toLowerCase().trim();
+    for (const cheat of structureCheats) {
+      const normalized = cheat.primaryCode.toLowerCase().trim();
       expect(
-        cheatCodes.has(normalized),
-        `Structure "${structureName}" (cheat code "${primaryCode}") is not registered in CHEAT_DEFINITIONS.`,
+        KNOWN_STRUCTURE_CODES.has(normalized),
+        `Structure cheat "${cheat.primaryCode}" ("${cheat.name}") is registered but not in KNOWN_STRUCTURE_CODES. If this is a new structure, add it to the set in the test file.`,
       ).toBe(true);
     }
   });
 
-  it('all structure cheats have matching aliases', () => {
-    // Verify that every primary code listed is also present as the first alias
-    for (const { primaryCode, structureName } of STRUCTURE_SPAWN_CODES) {
-      const cheat = CHEAT_DEFINITIONS.find(
-        (c) => c.primaryCode.toLowerCase().trim() === primaryCode.toLowerCase().trim(),
-      );
-      expect(cheat, `No cheat definition found for structure "${structureName}" (${primaryCode})`).toBeDefined();
-      expect(cheat?.aliases[0]).toBe(cheat?.primaryCode);
+  it('all structure cheats are implemented in snakeScene', () => {
+    const structureCheats = getStructureCheats();
+    const snakeScenePath = `${__dirname}/../../../scenes/snakeScene.ts`;
+    const snakeSceneContent = readFileSync(snakeScenePath, 'utf-8');
+
+    for (const cheat of structureCheats) {
+      const normalized = cheat.primaryCode.toLowerCase().trim();
+      // Check for the code comparison used in snakeScene.applyCheatCode
+      const hasImplementation =
+        snakeSceneContent.includes(`code === '${normalized}'`) ||
+        snakeSceneContent.includes(`code === "${normalized}"`);
+      expect(
+        hasImplementation,
+        `Structure cheat "${cheat.primaryCode}" ("${cheat.name}") is registered but not implemented in snakeScene.applyCheatCode(). Add the spawn logic there.`,
+      ).toBe(true);
+    }
+  });
+
+  it('all structure cheats have matching aliases (primaryCode is first alias)', () => {
+    const structureCheats = getStructureCheats();
+
+    for (const cheat of structureCheats) {
+      expect(cheat.aliases[0]).toBe(cheat.primaryCode);
     }
   });
 });

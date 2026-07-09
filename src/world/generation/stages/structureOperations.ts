@@ -26,6 +26,8 @@ import { tryPlaceAllNiteDiner } from '../../allNiteDiner.js';
 import { tryPlaceFireworkStand } from '../../fireworkStand.js';
 import { tryPlaceJackalopeLodge } from '../../jackalopeLodge.js';
 import { tryPlaceMolemanDigSite } from '../../molemanDigSite.js';
+import { tryPlaceLavenderFarm } from '../../lavenderFarm.js';
+import { tryPlaceCheeseShop } from '../../cheeseShop.js';
 import {
   carveEdgeOpening,
   cellsForEdgeRunup,
@@ -55,7 +57,9 @@ type SettlementKind =
   | 'all-nite-diner'
   | 'firework-stand'
   | 'jackalope-lodge'
-  | 'moleman-dig-site';
+  | 'moleman-dig-site'
+  | 'lavender-farm'
+  | 'cheese-shop';
 
 const SNAKE_MC_DONALDS_CHANCE = 0.01;
 const SNAKE_CANIES_CHANCE = 0.008;
@@ -73,6 +77,8 @@ const ALL_NITE_DINER_CHANCE = 0.08;
 const FIREWORK_STAND_CHANCE = 0.08;
 const JACKALOPE_LODGE_CHANCE = 0.1;
 const MOLEMAN_DIG_SITE_CHANCE = 0.09;
+const LAVENDER_FARM_CHANCE = 0.06;
+const CHEESE_SHOP_CHANCE = 0.05;
 const MOTEL_POOL_CHANCE = 0.1;
 const SETTLEMENT_ANCHOR_SPACING = 5;
 const GUARANTEED_SETTLEMENT_KINDS = [
@@ -87,6 +93,8 @@ const GUARANTEED_SETTLEMENT_KINDS = [
   'firework-stand',
   'jackalope-lodge',
   'moleman-dig-site',
+  'lavender-farm',
+  'cheese-shop',
 ] as const;
 const OPEN_CLEARING_SETTLEMENT_KINDS = ['village', 'goblin-camp', 'quest-house', 'shrine'] as const;
 
@@ -136,6 +144,8 @@ export class StructureOperations {
       !context.ramenStand &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
       !this.hasLibertyStructure(context)
     ) {
       this.placeSettlement(context, entranceRunups, shouldGuaranteeStructure);
@@ -153,6 +163,8 @@ export class StructureOperations {
       !context.ramenStand &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
       !this.hasLibertyStructure(context) &&
       (shouldGuaranteeStructure || this.rng() < 0.1)
     ) {
@@ -173,6 +185,8 @@ export class StructureOperations {
       !context.ramenStand &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
       !this.hasLibertyStructure(context)
     ) {
       const koiChance = context.isJadePeak
@@ -203,6 +217,8 @@ export class StructureOperations {
       !context.koiPond &&
       !context.tenguCamp &&
       !context.molemanDigSite &&
+      !context.lavenderFarm &&
+      !context.cheeseShop &&
       !this.hasLibertyStructure(context)
     ) {
       context.temperatureReliefs = this.placeTemperatureReliefs(
@@ -249,6 +265,7 @@ export class StructureOperations {
   ): SettlementKind | null {
     const isJadePeak = context.palette.biomeId === 'jade-peak-province';
     const isLibertyBadlands = context.palette.biomeId === 'liberty-badlands';
+    const isProvenceValley = context.palette.biomeId === 'provence-valley';
 
     if (allowSpecial && this.rng() < SNAKE_MC_DONALDS_CHANCE) {
       return 'snake-mcDonalds';
@@ -283,6 +300,21 @@ export class StructureOperations {
         }
         if (roll < 0.8) {
           return 'firework-stand';
+        }
+        return 'quest-house';
+      }
+      if (isProvenceValley) {
+        if (roll < 0.35) {
+          return 'village';
+        }
+        if (roll < 0.55) {
+          return 'shrine';
+        }
+        if (roll < 0.72) {
+          return 'lavender-farm';
+        }
+        if (roll < 0.87) {
+          return 'cheese-shop';
         }
         return 'quest-house';
       }
@@ -336,6 +368,26 @@ export class StructureOperations {
       threshold += FIREWORK_STAND_CHANCE;
       if (roll < threshold) {
         return 'firework-stand';
+      }
+      threshold += QUEST_HOUSE_CHANCE;
+      if (roll < threshold) {
+        return 'quest-house';
+      }
+      return null;
+    }
+
+    if (isProvenceValley) {
+      let threshold = LAVENDER_FARM_CHANCE;
+      if (roll < threshold) {
+        return 'lavender-farm';
+      }
+      threshold += CHEESE_SHOP_CHANCE;
+      if (roll < threshold) {
+        return 'cheese-shop';
+      }
+      threshold += VILLAGE_CHANCE;
+      if (roll < threshold) {
+        return 'village';
       }
       threshold += QUEST_HOUSE_CHANCE;
       if (roll < threshold) {
@@ -525,6 +577,30 @@ export class StructureOperations {
         context.molemanDigSite = digSite;
         return true;
       }
+      case 'lavender-farm': {
+        const farm = tryPlaceLavenderFarm(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!farm) {
+          return false;
+        }
+        context.lavenderFarm = farm;
+        context.questGiver = farm.farmer;
+        return true;
+      }
+      case 'cheese-shop': {
+        const shop = tryPlaceCheeseShop(context.layout, context.grid, this.rng, {
+          forbiddenCells,
+          margin: 5,
+        });
+        if (!shop) {
+          return false;
+        }
+        context.cheeseShop = shop;
+        context.questGiver = shop.shopkeeper;
+        return true;
+      }
     }
   }
 
@@ -578,6 +654,8 @@ export class StructureOperations {
     context.billboardOracle = undefined;
     context.roadCrew = undefined;
     context.molemanDigSite = undefined;
+    context.lavenderFarm = undefined;
+    context.cheeseShop = undefined;
   }
 
   private renderTownPerimeter(context: RoomGenerationContext): void {

@@ -1982,6 +1982,144 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
       sharp: ['They narrow their eyes. "We should hire that child or avoid them forever."'],
     },
   },
+  {
+    id: 'child-hug',
+    kind: 'date',
+    intent: ['family', 'comfort'],
+    setup:
+      'Your child throws their arms around you. Small arms wrap tight. The world narrows to something impossibly warm.',
+    npcPrompt: {
+      poetic: [
+        'They watch the moment like a letter arriving after years of silence.',
+        'Their eyes go soft. They pretend it is the light.',
+      ],
+      deadpan: [
+        'They watch the child bury their face in your coils.',
+        'Their expression does not change. Their shoulders drop half an inch.',
+      ],
+      hungry: [
+        'They watch the child launch themselves at you.',
+        'Something warm passes across their face. They blame it on the stove.',
+      ],
+      regal: [
+        'They witness the small arms wrap around you with the solemnity of a state ceremony.',
+        'Their spine straightens. Pride, unasked for, arrives uninvited.',
+      ],
+      sharp: [
+        'They note the embrace with the precision of a witness who knows evidence matters.',
+        'Their eyes flick to yours. Approval, filed without paperwork.',
+      ],
+    },
+    question: 'The child throws their arms around you. What do you do?',
+    branches: [
+      {
+        id: 'branch-hold-tight',
+        label: 'Hug them tight',
+        tags: ['protective', 'privateAffection', 'commitment'],
+        tier: 'loved',
+        response: {
+          poetic: [
+            'You wrap around them. They do not say anything. They do not need to.',
+            'Some promises do not require language. This is one.',
+          ],
+          deadpan: [
+            'You squeeze back. They squeak. Neither of you let go.',
+            'They recover first. "Okay. That was adequate."',
+          ],
+          hungry: [
+            'You wrap your coils around both of you. Warmth, safety, home.',
+            'They smile. You feel it through their small shoulders. You keep them there.',
+          ],
+          regal: [
+            'You hold them as if they were a crown you earned the hard way.',
+            'They trust you with their full weight. You accept the responsibility.',
+          ],
+          sharp: [
+            'You close your embrace. No clauses, no loopholes. Just hold.',
+            'They trust you with their full weight. That is a binding contract.',
+          ],
+        },
+      },
+      {
+        id: 'branch-look-at-parent',
+        label: 'Look at your partner',
+        tags: ['publicAffection', 'honesty', 'loyalty'],
+        tier: 'loved',
+        response: {
+          poetic: [
+            'You lift your eyes. They are already watching.',
+            'Two people, one small hug, a room that suddenly feels like a home.',
+          ],
+          deadpan: [
+            'You look up. They are looking back.',
+            'A nod. The most honest conversation either of you will have today.',
+          ],
+          hungry: [
+            'You glance over. They are already there, watching you both.',
+            '"They have your hugs," they say. "And my stubbornness."',
+          ],
+          regal: [
+            'You turn your gaze to them. They meet it without flinching.',
+            'A shared look. A kingdom, measured in glances.',
+          ],
+          sharp: [
+            'You look at them. They look at you. Mutual acknowledgment filed.',
+            'No words needed. The terms are clear: we stay.',
+          ],
+        },
+      },
+      {
+        id: 'branch-teach',
+        label: 'Hug them with them watching',
+        tags: ['competence', 'protective', 'family'],
+        tier: 'liked',
+        response: {
+          poetic: [
+            'You open your arms wide. They run into them. Teaching is an act of faith.',
+            'You show them what it feels like to be held. They show you how to believe in it.',
+          ],
+          deadpan: [
+            'You open your arms. They run into them. Progress, measured in heartbeats.',
+            '"Like this," you say. They laugh. It is acceptable.',
+          ],
+          hungry: [
+            'You show them how to hug without overthinking. They show you how to be gentle.',
+            '"See? You don\'t have to squeeze hard. Just... be there." They nod seriously.',
+          ],
+          regal: [
+            'You teach them the weight of trust. They accept the lesson with grace.',
+            'A parent\'s duty: show them what it feels like to be safe.',
+          ],
+          sharp: [
+            'You demonstrate the embrace. They replicate. Competence recognized.',
+            '"Open wide. No hesitation. You\'re learning." They absorb it like a contract.',
+          ],
+        },
+      },
+    ],
+    after: {
+      poetic: [
+        'The child eventually wanders off, but the warmth of their small arms remains.',
+        'They turn to you. "That was the best room," they say. You believe them.',
+      ],
+      deadpan: [
+        'The child leaves. Silence returns, but softer than before.',
+        '"We should do that again," they say. Not a request. A plan.',
+      ],
+      hungry: [
+        'The child shuffles away, sticky and satisfied.',
+        'They exhale. "I think I need dinner now. That was emotional labor."',
+      ],
+      regal: [
+        'The child departs with the gravity of a small citizen who has completed their duty.',
+        'They straighten. "We have raised them well." You agree without speaking.',
+      ],
+      sharp: [
+        'The child leaves. The warmth of the moment lingers between you.',
+        '"That was efficient," they say. "And warm." They file it under good.',
+      ],
+    },
+  },
 ];
 
 export function createPersonalityDatingScenario(

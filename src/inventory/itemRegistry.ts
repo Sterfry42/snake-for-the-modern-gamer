@@ -1,6 +1,8 @@
 import type { Item } from './item.js';
+import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
 
 export const ITEMS: readonly Item[] = [
+  ...generateBiomeLocatorItems(),
   {
     id: 'apple-normal',
     name: 'Recovered Standard Apple',
@@ -40,6 +42,13 @@ export const ITEMS: readonly Item[] = [
     id: 'apple-wasabi',
     name: 'Recovered Wasabi Apple',
     description: 'A hot green apple pulled from deep rubble.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'apple-cold-beer',
+    name: 'Cold Beer Apple',
+    description: 'A crisp golden apple, cold as a friday night. The wise old snake says "fuhgeddaboudit, this is the one."',
     kind: 'consumable',
     category: 'food',
   },
@@ -185,6 +194,16 @@ export const ITEMS: readonly Item[] = [
     slot: 'belt',
     modifiers: {
       regenerator: { interval: 24, amount: 1 },
+    },
+  },
+  {
+    id: 'jeans-perfect-fit',
+    name: 'A Pair of Jeans That Fit Just Right',
+    description: 'No pinching, no sagging. These things were born for you. You betcha.',
+    kind: 'equipment',
+    slot: 'belt',
+    modifiers: {
+      tickDelayScalar: 0.95,
     },
   },
   {
@@ -978,6 +997,24 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'food',
   },
+  // Radio
+  {
+    id: 'belt-radio',
+    name: 'Wise Old Radio',
+    description:
+      'A pocket radio that picks up transcendent frequencies. Equip it in your belt slot to tune into radio stations. Each station grants unique buffs.',
+    kind: 'equipment',
+    slot: 'belt',
+  },
+  // Chicken Fried
+  {
+    id: 'chicken-fried',
+    name: 'Chicken Fried',
+    description:
+      'Golden, crispy, and perfectly breaded. A real Southern comfort food that hits the spot.',
+    kind: 'consumable',
+    category: 'food',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));
@@ -1014,6 +1051,7 @@ const CHEST_LOOT_ITEM_IDS = [
   'raiju-bottle',
   'kappa-bowl',
   'orange-juice',
+  'belt-radio',
 ] as const;
 const CHEST_LOOT_EXCLUDED_IDS = new Set([
   'weapon-market-revolver',

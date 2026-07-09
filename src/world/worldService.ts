@@ -37,6 +37,7 @@ export class WorldService {
   private readonly rooms = new Map<string, RoomSnapshot>();
   private readonly generator: RoomGenerator;
   private readonly rng: RandomGenerator;
+  private readonly worldGenerationIdentity: WorldGenerationIdentity;
   private readonly worldSeed: string;
   private readonly generatorWorldConfig: WorldConfig;
   private readonly caveSaves = new Map<string, CaveInstanceSaveData>();
@@ -55,12 +56,17 @@ export class WorldService {
   ) {
     this.generator = new RoomGenerator(grid, worldConfig, rng, identity);
     this.rng = rng;
-    this.worldSeed = identity?.seed ?? 'default-world';
+    this.worldGenerationIdentity = identity ?? createWorldGenerationIdentity();
+    this.worldSeed = this.worldGenerationIdentity.seed;
     this.generatorWorldConfig = worldConfig;
     this.bulletTrainResolver = new BulletTrainStructureResolver(
       identity ?? createWorldGenerationIdentity(),
       grid,
     );
+  }
+
+  getWorldGenerationIdentity(): WorldGenerationIdentity {
+    return this.worldGenerationIdentity;
   }
 
   getRoom(roomId: string): RoomSnapshot {

@@ -17,6 +17,7 @@ export type ArchaeologyTileKind =
   | 'yuzu'
   | 'gold'
   | 'wasabi'
+  | 'cold-beer'
   | 'artifact-cache';
 
 export interface ArchaeologyTileDefinition {
@@ -199,6 +200,14 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<ArchaeologyTileKind, Archaeolo
       textColor: '#183005',
       matchable: true,
       appleItemId: 'apple-wasabi',
+    },
+    'cold-beer': {
+      id: 'cold-beer',
+      i18nLabel: 'archaeologyTileColdBeerApple',
+      color: 0xf5a623,
+      textColor: '#4a3000',
+      matchable: true,
+      appleItemId: 'apple-cold-beer',
     },
     'artifact-cache': {
       id: 'artifact-cache',

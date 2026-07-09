@@ -74,6 +74,12 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   fishingQuestFishDesc:
     'Atrapar peces usando tu ca\u00f1a de pescar. El agua recuerda quien vuelve.',
   fishingQuestCatchLabel: 'Atrapaste {count} peces',
+  // Child Catch Mini-Game
+  childCatchLabel: 'Jugar a Atrapar',
+  childCatchHint: 'Lanza y atrapa la pelota con tu pequeño.',
+  childCatchNoChildren: 'No tienes hijos con quienes jugar.',
+  childCatchSuccess: '¡Jugaste a atrapar con {child}! {message}',
+  childCatchMiss: 'Intentaste jugar a atrapar con {child}, pero fallaste. {message}',
   // Jason Statham Boss
   jason_statham_name: 'Jason Statham',
   jason_statham_intro: 'Vino por la serpiente. La serpiente no envi\u00f3 un recibo.',
@@ -261,6 +267,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   archaeologyTileYuzuApple: 'Manzana Yuzu',
   archaeologyTileGoldenApple: 'Manzana Dorada',
   archaeologyTileWasabiApple: 'Manzana Wasabi',
+  archaeologyTileColdBeerApple: 'Manzana Cerveza Fría',
   archaeologyTileArtifactCache: 'Cach\u00e9 de Artefacto',
   archaeologyForestDig: 'Excavaci\u00f3n Forestal',
   archaeologyOceanDig: 'Excavaci\u00f3n Oce\u00e1nica',
@@ -458,4 +465,20 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   stationSign: 'Expreso Jade Peak',
   ticketBooth: 'Taquilla',
   platformLantern: 'Farol de Plataforma',
+
+  // Radio
+  radioLabel: 'Radio',
+  radioStationLabel: 'Radio',
+  radioNoStation: 'Sin estación sintonizada',
+  radioTuning: 'Sintonizando...',
+  radioStationChanged: 'Estación cambiada a {station}',
+  radioStationStatic: 'Estática',
+  radioStationClassical: 'Clásica',
+  radioStationJazz: 'Jazz',
+  radioStationCountry: 'Country',
+  radioStationRock: 'Rock',
+  radioStationElectronic: 'Electrónica',
+  radioStationLofi: 'Lo-Fi',
+  radioStationTalk: 'Talk',
+  radioEquipHint: 'Presiona R para sintonizar la radio',
 };

@@ -379,6 +379,7 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'titan-ribcage': ['Ribford', 'Marrowgate', 'Bone Toll', 'Ossuary Row', 'Titanmarket'],
   'radioactive-orchard': ['Glowbranch', 'Radgate', 'Isotope Toll', 'Greenflash', 'Orchardmarket'],
   'clockwork-quarry': ['Gearford', 'Brassgate', 'Cog Toll', 'Quarrywick', 'Pendulummarket'],
+  'provence-valley': ['Lavendelford', 'Vinegate', 'Baguette Toll', 'Rosswick', 'Chardmarket'],
 };
 
 const PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;

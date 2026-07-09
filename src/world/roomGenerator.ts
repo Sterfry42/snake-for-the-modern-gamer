@@ -90,6 +90,7 @@ export class RoomGenerator {
     const isDenseForest = palette.biomeId === 'elderwood-maze';
     const isJadePeak = palette.biomeId === 'jade-peak-province';
     const isLibertyBadlands = palette.biomeId === 'liberty-badlands';
+    const isProvenceValley = palette.biomeId === 'provence-valley';
     const spawnGuard = this.safetyOperations.createSpawnGuard(roomId);
 
     return {
@@ -103,6 +104,7 @@ export class RoomGenerator {
       isDenseForest,
       isJadePeak,
       isLibertyBadlands,
+      isProvenceValley,
       spawnGuard,
       vegetation: [],
     };
@@ -136,6 +138,8 @@ export class RoomGenerator {
       billboardOracle: townRoom ? undefined : context.billboardOracle,
       roadCrew: townRoom ? undefined : context.roadCrew,
       molemanDigSite: townRoom ? undefined : context.molemanDigSite,
+      lavenderFarm: townRoom ? undefined : context.lavenderFarm,
+      cheeseShop: townRoom ? undefined : context.cheeseShop,
       bulletTrainStation: context.bulletTrainStation,
       temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,
       biomeId: context.palette.biomeId,

@@ -75,6 +75,8 @@ export interface RoomGenerationContext {
   billboardOracle?: RoomSnapshot['billboardOracle'];
   roadCrew?: RoomSnapshot['roadCrew'];
   molemanDigSite?: RoomSnapshot['molemanDigSite'];
+  lavenderFarm?: RoomSnapshot['lavenderFarm'];
+  cheeseShop?: RoomSnapshot['cheeseShop'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   bulletTrainStation?: BulletTrainStation;
   townMembership?: TownRoomMembership | null;
@@ -88,6 +90,7 @@ export interface RoomGenerationContext {
   isDenseForest: boolean;
   isJadePeak: boolean;
   isLibertyBadlands: boolean;
+  isProvenceValley: boolean;
   spawnGuard: SpawnGuard | null;
   vegetation: VegetationInstance[];
 }

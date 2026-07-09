@@ -83,7 +83,10 @@ export interface AppleTypeConfig {
     | 'yuzu'
     | 'koi'
     | 'amacha'
-    | 'caffeinated';
+    | 'caffeinated'
+      | 'lavender'
+      | 'coldBeer'
+      | 'love';
 }
 
 export interface AppleSystemConfig {
@@ -303,6 +306,22 @@ export const defaultGameConfig: GameConfig = {
         spawn: { base: 0.18, scoreThreshold: 12 },
         behavior: 'caffeinated',
       },
+      {
+        id: 'cold-beer',
+        label: 'Cold Beer Apple',
+        color: 0xf5a623,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.25, scoreThreshold: 8 },
+        behavior: 'coldBeer',
+      },
+      {
+        id: 'love',
+        label: 'Love Apple',
+        color: 0xff69b4,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.02, scoreThreshold: 50 },
+        behavior: 'love',
+      },
     ],
     skittishMoveChance: 0.225,
   },
@@ -323,6 +342,7 @@ export const defaultGameConfig: GameConfig = {
       'starforgedVanguard',
       'coordinates',
       'minecraft',
+      'radio',
     ],
   },
   character: {
