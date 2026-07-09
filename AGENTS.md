@@ -81,6 +81,7 @@ All agents working on this project must follow these steps:
 - The game uses Phaser 3 for rendering and game logic
 - All changes must be type-safe and pass the build process
 - Some files are large (e.g., `snakeScene.ts`, `snakeGame.ts`, `starforgedContent.ts`) — don't be intimidated, they're just packed with game content
+- **Phaser UI**: If you are doing anything related to the UI, **MUST** check `docs/PHASER3.md` for additional information and to understand quirks (coordinate system, graphics positioning, etc.)
 
 ## Required Commands
 
