@@ -11675,6 +11675,7 @@ export class SnakeGame implements QuestRuntime {
       'food-box-combo-coleslaw': { hunger: 999 },
       'food-three-finger-combo': { hunger: 999 },
       'food-caniac-combo': { hunger: 999 },
+      'chicken-fried': { hunger: 55 },
       'healing-potion': { heal: 2 },
       beer: { disorientTicks: 100 },
       wine: { disorientTicks: 140 },

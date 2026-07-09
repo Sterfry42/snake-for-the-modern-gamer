@@ -1006,6 +1006,15 @@ export const ITEMS: readonly Item[] = [
     kind: 'equipment',
     slot: 'belt',
   },
+  // Chicken Fried
+  {
+    id: 'chicken-fried',
+    name: 'Chicken Fried',
+    description:
+      'Golden, crispy, and perfectly breaded. A real Southern comfort food that hits the spot.',
+    kind: 'consumable',
+    category: 'food',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));
