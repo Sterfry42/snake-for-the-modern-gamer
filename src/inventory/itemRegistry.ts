@@ -197,6 +197,16 @@ export const ITEMS: readonly Item[] = [
     },
   },
   {
+    id: 'jeans-perfect-fit',
+    name: 'A Pair of Jeans That Fit Just Right',
+    description: 'No pinching, no sagging. These things were born for you. You betcha.',
+    kind: 'equipment',
+    slot: 'belt',
+    modifiers: {
+      tickDelayScalar: 0.95,
+    },
+  },
+  {
     id: 'amulet-phoenix',
     name: 'Phoenix Charm',
     description: 'A single ember that cheats death once.',
