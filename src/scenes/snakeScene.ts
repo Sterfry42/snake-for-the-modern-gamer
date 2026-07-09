@@ -17445,6 +17445,9 @@ export default class SnakeScene extends Phaser.Scene {
     const result = this.snakeGame.applyRelationshipChoice(profile, action as RelationshipChoice);
     if (action === 'divorce')
       this.recordAchievementEvent({ type: 'relationship:divorced', relationshipId: profile.id });
+    if (action === 'child-hug' && result.ok) {
+      this.juice.childHug();
+    }
     this.showDatingScene(profile, result);
     this.skillTree.getOverlay().refresh();
   }

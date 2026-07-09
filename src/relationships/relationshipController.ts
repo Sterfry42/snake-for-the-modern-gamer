@@ -305,8 +305,21 @@ export class RelationshipController {
     const state = this.getState(id);
     if (!state || state.stage === 'dead') return ['talk'];
     if (state.stage === 'murderous' || state.stage === 'hostile') return ['plead', 'fight', 'run'];
-    if (state.stage === 'married')
-      return ['talk', 'gift', 'date', 'family', 'discuss-arrangement', 'divorce'];
+    if (state.stage === 'married') {
+      const hasChildren = state.children.length > 0;
+      const choices: Array<RelationshipChoice | 'gift'> = [
+        'talk',
+        'gift',
+        'date',
+        'family',
+        'discuss-arrangement',
+        'divorce',
+      ];
+      if (hasChildren) {
+        choices.push('child-hug');
+      }
+      return choices;
+    }
     if (state.stage === 'lover')
       return ['talk', 'gift', 'date', 'propose', 'reassure', 'apologize', 'break-up'];
     if (state.stage === 'dating')
@@ -507,6 +520,8 @@ export class RelationshipController {
         return this.discussArrangement(next, roomsVisited);
       case 'divorce':
         return this.divorce(next, roomsVisited);
+      case 'child-hug':
+        return this.childHug(next, roomsVisited);
       case 'reassure':
         next.trust += 6;
         next.jealousy -= 12;
@@ -1652,6 +1667,60 @@ export class RelationshipController {
         next.children.length === 1 ? 'family' : 'spouseVisit',
       ),
     };
+  }
+
+  private childHug(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    if (state.children.length === 0) {
+      return {
+        ok: false,
+        title: state.displayName,
+        message: 'You do not have children to share this moment with.',
+        color: '#ff6b6b',
+        state,
+      };
+    }
+    const child = state.children[0];
+    const next = {
+      ...state,
+      flags: { ...state.flags },
+      memories: [...state.memories],
+    };
+    next.affection += 3;
+    next.trust += 2;
+    next.fascination += 1;
+    this.recordMemory(next, {
+      roomsVisited,
+      kind: 'childHug',
+      tags: ['family', 'comfort', 'privateAffection'],
+      intensity: 10,
+      tone: 'positive',
+      summary: `You hugged ${child.name}. Small arms, big feelings.`,
+    });
+    this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 70, [
+      `${child.name} throws their arms around you.`,
+      this.childHugLine(next),
+    ]);
+    const saved = this.finalize(next, roomsVisited);
+    return {
+      ok: true,
+      title: saved.displayName,
+      message: this.childHugLine(saved),
+      color: '#ffbdfd',
+      state: saved,
+    };
+  }
+
+  private childHugLine(state: RelationshipState): string {
+    const personality = this.getPersonality(state);
+    const child = state.children[0];
+    const lines: Record<RelationshipPersonality, string> = {
+      poetic: `You wrap around ${child.name}. They melt into you. It is the smallest embrace you have ever known, and the most binding.`,
+      deadpan: `${child.name} throws their arms around you. You do not pull away. Neither does ${child.name}. This is a standoff you are fine losing.`,
+      hungry: `${child.name} launches themselves at you with a sticky hug. They are checking whether you are warm enough to eat. You are.`,
+      regal: `${child.name} wraps their arms around you with the gravity of a coronation. You have never felt more crowned.`,
+      sharp: `${child.name} wraps their arms around you in a perfect embrace. No clauses, no escape. A perfect deal.`,
+    };
+    return lines[personality];
   }
 
   private discussArrangement(

@@ -188,4 +188,14 @@ export const COMMON_EN: CommonTranslations = {
     stationResumeMessage: 'The snake resumes its journey.',
     travelToCoordinates: 'Travel to {coordinates}',
   },
+  // Child Hug
+  childHug: {
+    title: 'Precious Hug',
+    holdTight: 'Hug them tight',
+    lookAtParent: 'Look at your partner',
+    teach: 'Hug them with them watching',
+    holdTightDesc: 'Wrap around both of you. No letting go.',
+    lookAtParentDesc: 'Share the moment. A glance that says everything.',
+    teachDesc: 'Open your arms wide. Show them what a hug feels like.',
+  },
 } as const;

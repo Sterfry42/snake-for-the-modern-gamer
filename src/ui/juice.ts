@@ -669,6 +669,45 @@ export class JuiceManager {
     }
   }
 
+  childHug() {
+    // A warm, gentle chime — the sound of small arms wrapping around you
+    this.playTone({
+      frequency: 523,
+      frequencyEnd: 660,
+      duration: 0.6,
+      type: 'sine',
+      volume: 0.12,
+    });
+    this.playTone({
+      frequency: 660,
+      frequencyEnd: 784,
+      duration: 0.5,
+      type: 'triangle',
+      volume: 0.08,
+    });
+    this.playTone({
+      frequency: 392,
+      frequencyEnd: 523,
+      duration: 0.8,
+      type: 'sine',
+      volume: 0.06,
+    });
+    // Soft particle burst — warm gold and pink
+    const cx = this.scene.scale.width / 2;
+    const cy = this.scene.scale.height / 2;
+    this.spawnBurst(
+      cx,
+      cy,
+      {
+        count: 12,
+        radius: 90,
+        colors: [0xfff3b0, 0xffb6c1, 0xffd700, 0xffe4e1, 0xffecd2],
+      },
+    );
+    // Subtle screen warmth
+    this.screenTint(0xffe4c4, 0.12, 400);
+  }
+
   toiletFlush() {
     this.playTone({
       frequency: 200,

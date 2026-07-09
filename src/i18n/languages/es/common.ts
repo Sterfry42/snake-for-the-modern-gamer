@@ -184,4 +184,14 @@ export const COMMON_ES: CommonTranslations = {
     ticketBooth: 'Taquilla',
     platformLantern: 'Farol de Plataforma',
   },
+  // Child Hug
+  childHug: {
+    title: 'Abrazo Preciado',
+    holdTight: 'Abrazar fuerte',
+    lookAtParent: 'Mirar a tu pareja',
+    teach: 'Abrazar fuerte con ellos mirando',
+    holdTightDesc: 'Envolver a ambos. Sin soltarse.',
+    lookAtParentDesc: 'Compartir el momento. Una mirada que lo dice todo.',
+    teachDesc: 'Abrir los brazos. Mostrarles lo que es un abrazo.',
+  },
 } as const;

@@ -106,6 +106,7 @@ export interface RelationshipMemory {
     | 'proposalRejected'
     | 'marriage'
     | 'child'
+    | 'childHug'
     | 'divorce'
     | 'neglect'
     | 'apology'
@@ -267,7 +268,8 @@ export type RelationshipChoice =
   | 'explain'
   | 'plead'
   | 'fight'
-  | 'run';
+  | 'run'
+  | 'child-hug';
 
 export interface DatingBranchChoice {
   id: string;
