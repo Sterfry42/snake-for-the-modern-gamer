@@ -497,6 +497,22 @@ export interface FeatureStrings {
   stationSign: string;
   ticketBooth: string;
   platformLantern: string;
+
+  // === RADIO ===
+  radioLabel: string;
+  radioStationLabel: string;
+  radioNoStation: string;
+  radioTuning: string;
+  radioStationChanged: string;
+  radioStationStatic: string;
+  radioStationClassical: string;
+  radioStationJazz: string;
+  radioStationCountry: string;
+  radioStationRock: string;
+  radioStationElectronic: string;
+  radioStationLofi: string;
+  radioStationTalk: string;
+  radioEquipHint: string;
 }
 
 export interface ActorVoiceTranslations {

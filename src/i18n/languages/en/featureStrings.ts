@@ -453,4 +453,20 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   stationSign: 'Jade Peak Express',
   ticketBooth: 'Ticket Booth',
   platformLantern: 'Platform Lantern',
+
+  // Radio
+  radioLabel: 'Radio',
+  radioStationLabel: 'Radio',
+  radioNoStation: 'No station tuned',
+  radioTuning: 'Tuning...',
+  radioStationChanged: 'Station changed to {station}',
+  radioStationStatic: 'Static',
+  radioStationClassical: 'Classical',
+  radioStationJazz: 'Jazz',
+  radioStationCountry: 'Country',
+  radioStationRock: 'Rock',
+  radioStationElectronic: 'Electronic',
+  radioStationLofi: 'Lo-Fi',
+  radioStationTalk: 'Talk',
+  radioEquipHint: 'Press R to tune radio',
 };

@@ -1980,7 +1980,11 @@ export class SnakeGame implements QuestRuntime {
           1,
           Number(this.getFlag<number>('status.orangeJuiceScoreMult') ?? 1),
         );
-        const appleScoreMultiplier = cheatMultiplier * orangeJuiceMultiplier;
+        const radioMultiplier = Math.max(
+          1,
+          Number(this.getFlag<number>('radio.appleScoreMultiplier') ?? 1),
+        );
+        const appleScoreMultiplier = cheatMultiplier * orangeJuiceMultiplier * radioMultiplier;
         const appleScorePenalty = Math.max(
           0,
           Number(this.getFlag<number>('equipment.appleScorePenalty') ?? 0),

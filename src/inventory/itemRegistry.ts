@@ -997,6 +997,15 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'food',
   },
+  // Radio
+  {
+    id: 'belt-radio',
+    name: 'Wise Old Radio',
+    description:
+      'A pocket radio that picks up transcendent frequencies. Equip it in your belt slot to tune into radio stations. Each station grants unique buffs.',
+    kind: 'equipment',
+    slot: 'belt',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));
@@ -1033,6 +1042,7 @@ const CHEST_LOOT_ITEM_IDS = [
   'raiju-bottle',
   'kappa-bowl',
   'orange-juice',
+  'belt-radio',
 ] as const;
 const CHEST_LOOT_EXCLUDED_IDS = new Set([
   'weapon-market-revolver',

@@ -333,6 +333,7 @@ export const defaultGameConfig: GameConfig = {
       'starforgedVanguard',
       'coordinates',
       'minecraft',
+      'radio',
     ],
   },
   character: {

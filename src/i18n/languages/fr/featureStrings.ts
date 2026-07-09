@@ -457,4 +457,20 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   stationSign: 'Express Jade Peak',
   ticketBooth: 'Guichet',
   platformLantern: 'Lanterne de quai',
+
+  // Radio
+  radioLabel: 'Radio',
+  radioStationLabel: 'Radio',
+  radioNoStation: 'Aucune station réglée',
+  radioTuning: 'Réglage...',
+  radioStationChanged: 'Station changée en {station}',
+  radioStationStatic: 'Statique',
+  radioStationClassical: 'Classique',
+  radioStationJazz: 'Jazz',
+  radioStationCountry: 'Country',
+  radioStationRock: 'Rock',
+  radioStationElectronic: 'Électronique',
+  radioStationLofi: 'Lo-Fi',
+  radioStationTalk: 'Talk',
+  radioEquipHint: 'Appuyez sur R pour régler la radio',
 };

@@ -65,6 +65,7 @@ import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
 import { FeatureManager } from '../systems/features.js';
+import type { RadioFeature } from '../features/definitions/radio.js';
 import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
@@ -2452,6 +2453,22 @@ export default class SnakeScene extends Phaser.Scene {
         if (key === '5') this.tryBuyHouse('plant');
         if (key === '6') this.tryBuyHouse('lamp');
         if (key === '7') this.tryBuyHomeArcadeFromHouse();
+      }
+
+      // Radio tuning (T key)
+      if (key === 't' && !this.paused && !this.deathCutscene && !this.titleVisible) {
+        const radioFeature = this.featureManager.getFeature<RadioFeature>('radio');
+        if (radioFeature) {
+          const station = radioFeature.tuneNext(this);
+          const stationName =
+            i18n.getFeatureString(`radioStation${station.label}`) ?? station.label;
+          const message = i18n.getFeatureString('radioStationChanged')?.replace(
+            '{station}',
+            stationName,
+          );
+          this.showQuestHintPopup(message ?? `Station: ${stationName}`, station.color);
+          this.isDirty = true;
+        }
       }
     });
 
