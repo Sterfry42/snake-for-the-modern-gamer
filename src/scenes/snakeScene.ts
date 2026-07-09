@@ -6154,6 +6154,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.showTitleMode(mode);
     this.titleMessageText?.setText(message);
     this.setFlag('ui.suppressHud', true);
+    this.saveUI.updateVisibility();
+    this.pauseUI.updateVisibility();
     this.juice.startTitleMusic();
   }
 
@@ -6166,6 +6168,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleContainer?.setVisible(false);
     this.titleMessageText?.setText('');
     this.setFlag('ui.suppressHud', false);
+    this.saveUI.updateVisibility();
+    this.pauseUI.updateVisibility();
     this.juice.stopTitleMusic();
   }
 

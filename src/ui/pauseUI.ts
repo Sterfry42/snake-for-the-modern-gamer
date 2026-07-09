@@ -17,6 +17,7 @@ const PAUSE_HOVER_BORDER = 0xffcc7e;
 export class PauseUI {
   private pauseButton?: Phaser.GameObjects.Container;
   private pauseBg?: Phaser.GameObjects.Rectangle;
+  private pauseHitArea?: Phaser.GameObjects.Rectangle;
   private pauseLabelText?: Phaser.GameObjects.Text;
   private scene: SnakeScene;
   private inputMode: InputModeId = 'keyboardMouse';
@@ -82,6 +83,7 @@ export class PauseUI {
 
     this.pauseButton = container;
     this.pauseBg = bg;
+    this.pauseHitArea = hitArea;
     this.pauseLabelText = label;
   }
 
@@ -94,9 +96,12 @@ export class PauseUI {
   }
 
   updateVisibility(): void {
-    const suppressed = !!this.scene.getFlag<boolean>('ui.suppressHud');
+    const suppressed =
+      !!this.scene.getFlag<boolean>('ui.suppressHud') ||
+      !!(this.scene as any).titleVisible;
     this.pauseLabelText?.setText(this.getPauseLabel());
     this.pauseButton?.setVisible(!suppressed);
+    this.pauseHitArea?.setInteractive(!suppressed);
   }
 
   setInputMode(mode: InputModeId): void {
