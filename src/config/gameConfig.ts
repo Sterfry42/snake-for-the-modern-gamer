@@ -84,8 +84,9 @@ export interface AppleTypeConfig {
     | 'koi'
     | 'amacha'
     | 'caffeinated'
-    | 'lavender'
-    | 'coldBeer';
+      | 'lavender'
+      | 'coldBeer'
+      | 'love';
 }
 
 export interface AppleSystemConfig {
@@ -312,6 +313,14 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.25, scoreThreshold: 8 },
         behavior: 'coldBeer',
+      },
+      {
+        id: 'love',
+        label: 'Love Apple',
+        color: 0xff69b4,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.02, scoreThreshold: 50 },
+        behavior: 'love',
       },
     ],
     skittishMoveChance: 0.225,
