@@ -1954,6 +1954,7 @@ export default class SnakeScene extends Phaser.Scene {
   private lastAchievementRoomId = '';
   private achievementRelationshipStages = new Map<string, string>();
   private achievementChildren = new Map<string, number>();
+  private achievementMotherLove = new Set<string>();
   private achievementHotSurvivalMs = 0;
   private achievementColdSurvivalMs = 0;
   private achievementCowbellTilesWalked = 0;
@@ -3125,6 +3126,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastAchievementRoomId = '';
     this.achievementRelationshipStages.clear();
     this.achievementChildren.clear();
+    this.achievementMotherLove.clear();
     this.achievementHotSurvivalMs = 0;
     this.achievementColdSurvivalMs = 0;
     this.achievementCowbellTilesWalked = 0;
@@ -17447,6 +17449,13 @@ export default class SnakeScene extends Phaser.Scene {
       this.recordAchievementEvent({ type: 'relationship:divorced', relationshipId: profile.id });
     if (action === 'child-hug' && result.ok) {
       this.juice.childHug();
+      if (!this.achievementMotherLove.has(profile.id)) {
+        this.achievementMotherLove.add(profile.id);
+        this.recordAchievementEvent({
+          type: 'relationship:motherLove',
+          relationshipId: profile.id,
+        });
+      }
     }
     this.showDatingScene(profile, result);
     this.skillTree.getOverlay().refresh();

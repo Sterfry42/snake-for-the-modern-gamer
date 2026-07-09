@@ -435,6 +435,18 @@ export const ACHIEVEMENT_DEFINITIONS = [
     archipelago: ap,
   }),
   d({
+    id: 'relationships.motherLove',
+    name: 'Knowing a Mother\'s Love',
+    description: 'Hold your child close and feel the world soften.',
+    category: 'relationships',
+    difficulty: 'hard',
+    prerequisites: ['relationships.child'],
+    tree: { x: -700, y: 480, section: 'Relationships' },
+    icon: icon('baby', 'M'),
+    criterion: event('relationship:motherLove'),
+    archipelago: ap,
+  }),
+  d({
     id: 'relationships.divorced',
     name: 'Record Closed',
     description: 'Divorce an NPC.',
