@@ -74,6 +74,12 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   fishingQuestFishDesc:
     'Atrapar peces usando tu ca\u00f1a de pescar. El agua recuerda quien vuelve.',
   fishingQuestCatchLabel: 'Atrapaste {count} peces',
+  // Child Catch Mini-Game
+  childCatchLabel: 'Jugar a Atrapar',
+  childCatchHint: 'Lanza y atrapa la pelota con tu pequeño.',
+  childCatchNoChildren: 'No tienes hijos con quienes jugar.',
+  childCatchSuccess: '¡Jugaste a atrapar con {child}! {message}',
+  childCatchMiss: 'Intentaste jugar a atrapar con {child}, pero fallaste. {message}',
   // Jason Statham Boss
   jason_statham_name: 'Jason Statham',
   jason_statham_intro: 'Vino por la serpiente. La serpiente no envi\u00f3 un recibo.',

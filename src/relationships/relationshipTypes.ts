@@ -62,6 +62,8 @@ export type RelationshipTag =
   | 'camp'
   | 'marriage'
   | 'family'
+  | 'play'
+  | 'joy'
   | 'divorce'
   | 'relationship'
   | 'rival'
@@ -107,6 +109,7 @@ export interface RelationshipMemory {
     | 'marriage'
     | 'child'
     | 'childHug'
+    | 'childCatch'
     | 'divorce'
     | 'neglect'
     | 'apology'
@@ -269,7 +272,8 @@ export type RelationshipChoice =
   | 'plead'
   | 'fight'
   | 'run'
-  | 'child-hug';
+  | 'child-hug'
+  | 'child-catch';
 
 export interface DatingBranchChoice {
   id: string;

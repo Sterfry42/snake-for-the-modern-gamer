@@ -316,7 +316,7 @@ export class RelationshipController {
         'divorce',
       ];
       if (hasChildren) {
-        choices.push('child-hug');
+        choices.push('child-hug', 'child-catch');
       }
       return choices;
     }
@@ -522,6 +522,8 @@ export class RelationshipController {
         return this.divorce(next, roomsVisited);
       case 'child-hug':
         return this.childHug(next, roomsVisited);
+      case 'child-catch':
+        return this.childCatch(next, roomsVisited);
       case 'reassure':
         next.trust += 6;
         next.jealousy -= 12;
@@ -1721,6 +1723,115 @@ export class RelationshipController {
       sharp: `${child.name} wraps their arms around you in a perfect embrace. No clauses, no escape. A perfect deal.`,
     };
     return lines[personality];
+  }
+
+  private childCatch(state: RelationshipState, roomsVisited: number): RelationshipEventResult {
+    if (state.children.length === 0) {
+      return {
+        ok: false,
+        title: state.displayName,
+        message: 'You do not have children to play with.',
+        color: '#ff6b6b',
+        state,
+      };
+    }
+    const child = state.children[0];
+    const next = {
+      ...state,
+      flags: { ...state.flags },
+      memories: [...state.memories],
+    };
+
+    // Determine difficulty based on child age (older = harder but more rewarding)
+    const childAge = roomsVisited - child.createdRoom;
+    const difficulty = Math.min(8, Math.floor(childAge / 50));
+    const maxScore = 10 + difficulty * 3;
+    const score = Math.floor(Math.random() * (maxScore + 1));
+
+    if (score >= 5) {
+      // Successful catch
+      const affectionGain = Math.min(8, 3 + Math.floor(score / 2));
+      const trustGain = Math.min(6, 2 + Math.floor(score / 3));
+      next.affection += affectionGain;
+      next.trust += trustGain;
+      next.fascination += 1;
+
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'childCatch',
+        tags: ['family', 'play', 'joy'],
+        intensity: 8 + score,
+        tone: 'positive',
+        summary: `You played catch with ${child.name}. Score: ${score}/${maxScore}.`,
+      });
+
+      this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 60, [
+        `${child.name} throws the ball with surprising force.`,
+        this.childCatchLine(next, true, score, maxScore),
+      ]);
+
+      const saved = this.finalize(next, roomsVisited);
+      return {
+        ok: true,
+        title: saved.displayName,
+        message: this.childCatchLine(saved, true, score, maxScore),
+        color: '#aaffaa',
+        state: saved,
+        reward: { kind: 'score', amount: score * 10 },
+      };
+    } else {
+      // Missed catch
+      next.affection += 1;
+      next.fascination += 1;
+
+      this.recordMemory(next, {
+        roomsVisited,
+        kind: 'childCatch',
+        tags: ['family', 'play'],
+        intensity: 4,
+        tone: 'neutral',
+        summary: `You played catch with ${child.name}. Score: ${score}/${maxScore}.`,
+      });
+
+      this.enqueueMajorCutscene(next, roomsVisited, 'afterRelationshipGraphEvent', 40, [
+        `${child.name} throws the ball. You miss. They laugh anyway.`,
+        this.childCatchLine(next, false, score, maxScore),
+      ]);
+
+      const saved = this.finalize(next, roomsVisited);
+      return {
+        ok: true,
+        title: saved.displayName,
+        message: this.childCatchLine(saved, false, score, maxScore),
+        color: '#ffffaa',
+        state: saved,
+      };
+    }
+  }
+
+  private childCatchLine(state: RelationshipState, caught: boolean, score: number, maxScore: number): string {
+    const personality = this.getPersonality(state);
+    const child = state.children[0];
+
+    if (caught) {
+      const lines: Record<RelationshipPersonality, string> = {
+        poetic: `${child.name} beams as you catch the ball. The arc of it through the air is a tiny sun, and you are its orbit.`,
+        deadpan: `${child.name} throws the ball. You catch it. Neither of you says anything about how good that was. You both know it was good.`,
+        hungry: `${child.name} throws the ball and you catch it. They immediately ask if you are hungry now. You are.`,
+        regal: `${child.name} throws the ball and you catch it with the grace of a monarch receiving tribute. ${child.name} curtsies.`,
+        sharp: `${child.name} throws the ball. You catch it. Perfect execution. No wasted motion. A deal struck and fulfilled.`,
+      };
+      return lines[personality];
+    } else {
+      const lines: Record<RelationshipPersonality, string> = {
+        poetic: `The ball slips through your coils. ${child.name} laughs, and the sound is a bell you would gladly break for.`,
+        deadpan: `You miss the ball. ${child.name} laughs. You pretend not to notice. You noticed.`,
+        hungry: `You miss the ball. ${child.name} giggles and picks it up. "Again?" they ask. You consider this a negotiation.`,
+        regal: `The ball eludes your grasp. ${child.name} claps with genuine delight. You will have a coronation of catching yet.`,
+        sharp: `You miss. ${child.name} laughs. The data is clear: practice is required. You accept the terms.`,
+      };
+      return lines[personality];
+    }
   }
 
   private discussArrangement(
