@@ -82,6 +82,7 @@ import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
 import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
+import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
 import {
   resolveSpanishWebAudioFontState as resolveSpanishMusicState,
@@ -1718,6 +1719,7 @@ export default class SnakeScene extends Phaser.Scene {
   skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
   private saveUI!: SaveUI;
+  private pauseUI!: PauseUI;
   private autosaveTimer: Phaser.Time.TimerEvent | null = null;
   private mobileControls: MobileControls | null = null;
   private readonly inputModeManager = new InputModeManager();
@@ -2075,6 +2077,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.saveUI = new SaveUI(this);
     console.log('[SnakeScene] SaveUI created:', this.saveUI);
     console.log('[SnakeScene] saveUI exists:', !!this.saveUI);
+    this.pauseUI = new PauseUI(this);
 
     this.setupInputHandlers();
 
@@ -2119,6 +2122,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.datingScenePopup.setControllerMode(controller);
       this.saveLoadMenu?.setControllerMode(controller);
       this.saveUI?.setInputMode(mode);
+      this.pauseUI?.setInputMode(mode);
       this.arcadeSnakeRenderer?.setInputMode(mode);
       this.fishingMinigame?.setInputMode(mode);
       this.refreshCardControllerFocus();
@@ -2131,6 +2135,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.datingScenePopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveUI.setInputMode(this.inputModeManager.getMode());
+    this.pauseUI.setInputMode(this.inputModeManager.getMode());
     this.graphics.setDepth(10);
 
     const registry = await createQuestRegistry();
@@ -4952,7 +4957,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private togglePauseMenu(force?: boolean): void {
+  togglePauseMenu(force?: boolean): void {
     if (
       shouldBlockPauseToggle({
         offeredQuest: Boolean(this.offeredQuest),
@@ -9553,6 +9558,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
     this.saveUI.updateVisibility();
+    this.pauseUI.updateVisibility();
     const health = snapshot.ui.health ?? this.snakeGame.getPlayerHealth();
     const healthRevealed =
       Boolean(this.getFlag<boolean>('ui.healthRevealed')) || health.current < health.max;

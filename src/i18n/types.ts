@@ -138,6 +138,7 @@ export interface FeatureStrings {
 
   // === SAVE SYSTEM ===
   saveButton: string;
+  pauseButton: string;
   loadButton: string;
   clearButton: string;
   gameSaved: string;

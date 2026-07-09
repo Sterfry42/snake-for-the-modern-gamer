@@ -91,6 +91,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // Save System
   saveButton: 'SAVE',
+  pauseButton: 'PAUSE',
   loadButton: 'LOAD',
   clearButton: 'CLEAR',
   gameSaved: 'Game saved!',
