@@ -261,6 +261,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   archaeologyTileYuzuApple: 'Pomme Yuzu',
   archaeologyTileGoldenApple: 'Pomme Dorée',
   archaeologyTileWasabiApple: 'Pomme Wasabi',
+  archaeologyTileColdBeerApple: 'Pomme Bière Froide',
   archaeologyTileArtifactCache: 'Cache d\'Artéfacts',
   archaeologyForestDig: 'Fouille Forestière',
   archaeologyOceanDig: 'Fouille Océanique',

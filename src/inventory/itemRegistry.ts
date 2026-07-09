@@ -46,6 +46,13 @@ export const ITEMS: readonly Item[] = [
     category: 'food',
   },
   {
+    id: 'apple-cold-beer',
+    name: 'Cold Beer Apple',
+    description: 'A crisp golden apple, cold as a friday night. The wise old snake says "fuhgeddaboudit, this is the one."',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
     id: 'weapon-revolver',
     name: 'Pilgrim Revolver',
     description: 'A worn sidearm for formal disagreements. Equip it in your weapon slot to fire.',

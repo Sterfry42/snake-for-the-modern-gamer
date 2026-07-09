@@ -261,6 +261,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   archaeologyTileYuzuApple: 'Manzana Yuzu',
   archaeologyTileGoldenApple: 'Manzana Dorada',
   archaeologyTileWasabiApple: 'Manzana Wasabi',
+  archaeologyTileColdBeerApple: 'Manzana Cerveza Fría',
   archaeologyTileArtifactCache: 'Cach\u00e9 de Artefacto',
   archaeologyForestDig: 'Excavaci\u00f3n Forestal',
   archaeologyOceanDig: 'Excavaci\u00f3n Oce\u00e1nica',

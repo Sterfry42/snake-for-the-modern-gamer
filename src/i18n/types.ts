@@ -301,6 +301,7 @@ export interface FeatureStrings {
   archaeologyTileYuzuApple: string;
   archaeologyTileGoldenApple: string;
   archaeologyTileWasabiApple: string;
+  archaeologyTileColdBeerApple: string;
   archaeologyTileArtifactCache: string;
   archaeologyForestDig: string;
   archaeologyOceanDig: string;
