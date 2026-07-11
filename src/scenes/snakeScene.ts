@@ -69,6 +69,7 @@ import type { LocalAuthoritativeRuntime } from '../session/GameRuntime.js';
 import { LocalGameConnection } from '../session/LocalGameConnection.js';
 import { LocalGameSession } from '../session/LocalGameSession.js';
 import { FeatureManager } from '../systems/features.js';
+import type { RadioFeature } from '../features/definitions/radio.js';
 import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
@@ -253,6 +254,8 @@ import {
 } from '../achievements/achievementDefinitions.js';
 import type { GlobalWeather, ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { getAllBiomeDefinitions } from '../world/biomes.js';
+import { getLocatorItemId, isLocatorItemId } from '../world/biomeLocators.js';
 import { AchievementManager } from '../achievements/achievementManager.js';
 import { getAchievementReward } from '../achievements/achievementRewards.js';
 import {
@@ -403,6 +406,7 @@ type DatingReactionReason =
   | 'violence'
   | 'pragmatic'
   | 'dramatic'
+  | 'love-in-eyes'
   | 'generic';
 
 const DATING_PERSONALITY_TAG_WEIGHTS: Record<
@@ -574,6 +578,29 @@ const DATING_REACTION_LINES: Record<
       disliked: ['You made a bonfire of a candle and called the smoke intimacy.'],
       hated: ['You performed at me. Never mistake my heart for a stage.'],
     },
+    'love-in-eyes': {
+      loved: [
+        'Love in my woman\'s eyes. Oh. That is the kind of warmth that makes a heart reckless.',
+        'You looked at me and I forgot how to be careful. That is what love does.',
+        'Love in my woman\'s eyes. Dangerous. Beautiful. I hate how much I want it.',
+      ],
+      liked: [
+        'Love in my woman\'s eyes. Sweet enough to be dangerous. I am looking.',
+        'You showed me love and I did not look away. That counts for something.',
+      ],
+      neutral: [
+        'Love in my woman\'s eyes. I see it. I am not ready to name it yet.',
+        'The look is there. Whether it is love or just hope, I cannot tell.',
+      ],
+      disliked: [
+        'Love in my woman\'s eyes. Too bright. I need to know what it is asking of me.',
+        'You offered love and I am not sure I can afford it.',
+      ],
+      hated: [
+        'Love in my woman\'s eyes. You cannot buy devotion with a glance. I will not be charmed.',
+        'That look is a contract I did not sign. Put it away.',
+      ],
+    },
     generic: {
       loved: ['That answer knew me better than it should. I am furious and pleased.'],
       liked: ['I liked that. Do not become smug; it would ruin the evidence.'],
@@ -673,6 +700,28 @@ const DATING_REACTION_LINES: Record<
       neutral: ['Large gesture. Medium result.'],
       disliked: ['Too theatrical. I came here with limited patience.'],
       hated: ['Performance failure. Emotional damages pending.'],
+    },
+    'love-in-eyes': {
+      loved: [
+        'Love in my woman\'s eyes. Fine. I am affected. Do not make me say it again.',
+        'You looked at me like I was worth looking at. I will not pretend that does not land.',
+      ],
+      liked: [
+        'Love in my woman\'s eyes. Acceptable. I am choosing to let it in.',
+        'That look. I will not deny it moved me.',
+      ],
+      neutral: [
+        'Love in my woman\'s eyes. Noted. Verdict pending.',
+        'The look is there. I am checking whether it has substance.',
+      ],
+      disliked: [
+        'Love in my woman\'s eyes. I need more than optics. Show me the record.',
+        'You are looking at me like a promise. I check promises.',
+      ],
+      hated: [
+        'Love in my woman\'s eyes. Sentiment with no documentation. Rejected.',
+        'Do not confuse a glance with a contract. I am not signing anything.',
+      ],
     },
     generic: {
       loved: ['Correct answer. I will not be normal about that.'],
@@ -778,6 +827,29 @@ const DATING_REACTION_LINES: Record<
       disliked: ['Too much garnish. Not enough heart.'],
       hated: ['You set the table on fire and asked if I liked the candles.'],
     },
+    'love-in-eyes': {
+      loved: [
+        'Love in my woman\'s eyes. Oh. That is the kind of warmth that makes a heart reckless.',
+        'You looked at me and I forgot how to be careful. That is what love does.',
+        'Love in my woman\'s eyes. Dangerous. Beautiful. I hate how much I want it.',
+      ],
+      liked: [
+        'Love in my woman\'s eyes. Sweet enough to be dangerous. I am looking.',
+        'You showed me love and I did not look away. That counts for something.',
+      ],
+      neutral: [
+        'Love in my woman\'s eyes. I see it. I am not ready to name it yet.',
+        'The look is there. Whether it is love or just hope, I cannot tell.',
+      ],
+      disliked: [
+        'Love in my woman\'s eyes. Too bright. I need to know what it is asking of me.',
+        'You offered love and I am not sure I can afford it.',
+      ],
+      hated: [
+        'Love in my woman\'s eyes. You cannot buy devotion with a glance. I will not be charmed.',
+        'That look is a contract I did not sign. Put it away.',
+      ],
+    },
     generic: {
       loved: ['Oh. That fed something I did not admit was hungry.'],
       liked: ['I liked that. It had warmth in the bones.'],
@@ -880,6 +952,29 @@ const DATING_REACTION_LINES: Record<
       disliked: ['You performed bravery instead of practicing it.'],
       hated: ['You made spectacle where honor was required.'],
     },
+    'love-in-eyes': {
+      loved: [
+        'Love in my woman\'s eyes. A look that carries its own weight. I honor that.',
+        'You offered devotion without demand. That is a rare kind of nobility.',
+        'Love in my woman\'s eyes. I see the truth of it. I will not look away.',
+      ],
+      liked: [
+        'Love in my woman\'s eyes. Respectful. I grant it favor.',
+        'You looked at me with something worth honoring. I acknowledge that.',
+      ],
+      neutral: [
+        'Love in my woman\'s eyes. The court observes. Judgment reserved.',
+        'The look is present. Whether it is devotion or habit, I cannot yet tell.',
+      ],
+      disliked: [
+        'Love in my woman\'s eyes. A glance is not a vow. Prove it.',
+        'You offered love without proving you can carry it. Suspicious.',
+      ],
+      hated: [
+        'Love in my woman\'s eyes. You cannot command loyalty with a look. I will not be moved.',
+        'That gaze is a claim I did not consent to. Remove it.',
+      ],
+    },
     generic: {
       loved: ['You answered with dignity and nerve. I am moved.'],
       liked: ['Respectable. I grant the answer favor.'],
@@ -981,6 +1076,29 @@ const DATING_REACTION_LINES: Record<
       neutral: ['Big signal. Limited proof.'],
       disliked: ['Too much smoke. Not enough transaction.'],
       hated: ['You performed value instead of having it.'],
+    },
+    'love-in-eyes': {
+      loved: [
+        'Love in my woman\'s eyes. Ah. Direct, unguarded, and worth more than leverage. I am impressed.',
+        'You looked at me without a plan. That is the most honest transaction I know.',
+        'Love in my woman\'s eyes. High risk, infinite return. I am all in.',
+      ],
+      liked: [
+        'Love in my woman\'s eyes. Acceptable terms. I am choosing to accept.',
+        'You showed me something valuable. I will not pretend I did not see it.',
+      ],
+      neutral: [
+        'Love in my woman\'s eyes. Signal received. Auditing for authenticity.',
+        'The look is there. I am checking whether it has substance behind the optics.',
+      ],
+      disliked: [
+        'Love in my woman\'s eyes. A glance is not a guarantee. Show me the track record.',
+        'You are looking at me like a good investment. I check investments.',
+      ],
+      hated: [
+        'Love in my woman\'s eyes. Sentiment without documentation. Rejected.',
+        'Do not confuse a look with a binding offer. I am not signing anything.',
+      ],
     },
     generic: {
       loved: ['That answer cost me composure. Irritating. Valuable.'],
@@ -1847,6 +1965,7 @@ export default class SnakeScene extends Phaser.Scene {
   private lastAchievementRoomId = '';
   private achievementRelationshipStages = new Map<string, string>();
   private achievementChildren = new Map<string, number>();
+  private achievementMotherLove = new Set<string>();
   private achievementHotSurvivalMs = 0;
   private achievementColdSurvivalMs = 0;
   private achievementCowbellTilesWalked = 0;
@@ -2462,6 +2581,22 @@ export default class SnakeScene extends Phaser.Scene {
         if (key === '6') this.tryBuyHouse('lamp');
         if (key === '7') this.tryBuyHomeArcadeFromHouse();
       }
+
+      // Radio tuning (T key)
+      if (key === 't' && !this.paused && !this.deathCutscene && !this.titleVisible) {
+        const radioFeature = this.featureManager.getFeature<RadioFeature>('radio');
+        if (radioFeature) {
+          const station = radioFeature.tuneNext(this);
+          const stationName =
+            i18n.getFeatureString(`radioStation${station.label}`) ?? station.label;
+          const message = i18n.getFeatureString('radioStationChanged')?.replace(
+            '{station}',
+            stationName,
+          );
+          this.showQuestHintPopup(message ?? `Station: ${stationName}`, station.color);
+          this.isDirty = true;
+        }
+      }
     });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -3039,6 +3174,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastAchievementRoomId = '';
     this.achievementRelationshipStages.clear();
     this.achievementChildren.clear();
+    this.achievementMotherLove.clear();
     this.achievementHotSurvivalMs = 0;
     this.achievementColdSurvivalMs = 0;
     this.achievementCowbellTilesWalked = 0;
@@ -3750,7 +3886,7 @@ export default class SnakeScene extends Phaser.Scene {
       .rectangle(0, 0, Math.min(maxWidth, bounds.width + 46), bounds.height + 28, 0x071019, 0.88)
       .setStrokeStyle(3, 0x5dd6a2, 0.82)
       .setOrigin(0.5, 0.5);
-    const popup = this.add.container(x, y, [panel, text]).setDepth(72).setAlpha(0).setScale(0.86);
+    const popup = this.add.container(x, y, [panel, text]).setDepth(250).setAlpha(0).setScale(0.86);
     this.tweens.add({
       targets: popup,
       alpha: 1,
@@ -5284,6 +5420,21 @@ export default class SnakeScene extends Phaser.Scene {
       this.openMolemanArchaeologyCheat();
       return { ok: true, message: 'Cheat active: Moleman Archaeology opened.', color: '#d8b4ff' };
     }
+    if (code === 'navigator' || code === 'compassmaster') {
+      // Navigator: grant every biome locator in the game.
+      let addedCount = 0;
+      for (const biome of getAllBiomeDefinitions()) {
+        const locatorId = getLocatorItemId(biome.id);
+        this.snakeGame.addItem(locatorId, 1);
+        addedCount++;
+      }
+      this.isDirty = true;
+      return {
+        ok: true,
+        message: `Cheat active: Navigator unlocked. All ${addedCount} biome locators acquired!`,
+        color: '#5dd6a2',
+      };
+    }
     if (code === 'teleporterquest' || code === 'greenpurchase') {
       const started = this.snakeGame.startGreenPurchaseCheat();
       if (started) {
@@ -5397,11 +5548,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (code === 'canies' || code === 'snakecanies') {
       if (this.snakeGame?.spawnSnakeCanes()) {
         this.isDirty = true;
-        return { ok: true, message: 'Spawned a Snake Cane\'s!', color: '#5dd6a2' };
+        return { ok: true, message: "Spawned a Snake Cane's!", color: '#5dd6a2' };
       }
       return {
         ok: false,
-        message: 'Could not place Snake Cane\'s - room too small.',
+        message: "Could not place Snake Cane's - room too small.",
         color: '#ff6b6b',
       };
     }
@@ -5716,7 +5867,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   random(): number {
-    return this.snakeGame ? this.snakeGame.random() : this.random();
+    return this.snakeGame ? this.snakeGame.random() : Math.random();
   }
 
   setTeleport(flag: boolean): void {
@@ -7971,6 +8122,10 @@ export default class SnakeScene extends Phaser.Scene {
   useInventoryItem(itemId: string): { ok: boolean; message: string; color?: string } {
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok) this.recordAchievementEvent({ type: 'item:consumed', itemId });
+    // Show "Locating..." feedback for locator items.
+    if (result.ok && isLocatorItemId(itemId)) {
+      this.showQuestHintPopup('Locating...', '#aec4ff');
+    }
     return result;
   }
 
@@ -9770,16 +9925,7 @@ export default class SnakeScene extends Phaser.Scene {
       const [roomX, roomY] = this.parseRoomCoordinates(roomId);
       const localX = head.x - roomX * this.grid.cols;
       const localY = head.y - roomY * this.grid.rows;
-      addLight(
-        'player-lantern',
-        localX,
-        localY,
-        radiusTiles * 1.5,
-        1,
-        0xffd48a,
-        'lantern',
-        true,
-      );
+      addLight('player-lantern', localX, localY, radiusTiles * 1.5, 1, 0xffd48a, 'lantern', true);
     }
     if (lightSources.length === atmosphere.darkness.lightSources.length) {
       return atmosphere;
@@ -14699,7 +14845,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private tryInteractSnakeCanesCashier(): boolean {
-    if (this.paused || this.offeredQuest || this.choicePopupVisible || this.comboSpinner?.isVisible()) {
+    if (
+      this.paused ||
+      this.offeredQuest ||
+      this.choicePopupVisible ||
+      this.comboSpinner?.isVisible()
+    ) {
       return false;
     }
     const room = this.snakeGame.getCurrentRoom();
@@ -14721,9 +14872,9 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Opening dialogue
     const openingLines = [
-      'Welcome to Snake Cane\'s.',
+      "Welcome to Snake Cane's.",
       'You hungry?',
-      'Let\'s see what fate has in store.',
+      "Let's see what fate has in store.",
       'Time for the combo spinner.',
     ];
     const openingLine = openingLines[Math.floor(Math.random() * openingLines.length)]!;
@@ -14793,8 +14944,8 @@ export default class SnakeScene extends Phaser.Scene {
     const closingLines = [
       'Enjoy.',
       'Come back soon.',
-      'That\'s a good one.',
-      'Can\'t argue with the spinner.',
+      "That's a good one.",
+      "Can't argue with the spinner.",
       'The wheel never lies.',
     ];
     const closingLine = closingLines[Math.floor(Math.random() * closingLines.length)]!;
@@ -17217,6 +17368,16 @@ export default class SnakeScene extends Phaser.Scene {
     const result = this.snakeGame.applyRelationshipChoice(profile, action as RelationshipChoice);
     if (action === 'divorce')
       this.recordAchievementEvent({ type: 'relationship:divorced', relationshipId: profile.id });
+    if (action === 'child-hug' && result.ok) {
+      this.juice.childHug();
+      if (!this.achievementMotherLove.has(profile.id)) {
+        this.achievementMotherLove.add(profile.id);
+        this.recordAchievementEvent({
+          type: 'relationship:motherLove',
+          relationshipId: profile.id,
+        });
+      }
+    }
     this.showDatingScene(profile, result);
     this.skillTree.getOverlay().refresh();
   }

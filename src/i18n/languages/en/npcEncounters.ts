@@ -186,4 +186,75 @@ export const NPC_ENCOUNTERS_EN: NpcTranslations = {
     rejectLabel: 'Not my kind of water',
     questId: 'fisherman',
   },
+  // === PROVENCE VALLEY ENCOUNTERS ===
+  'lavender-farmer': {
+    pages: [
+      'A weathered figure in a sun-bleached linen shirt kneels among rows of purple blooms, humming a tune that sounds like a lullaby sung to bees.',
+      '"The lavender remembers what the snake forgets. Every time you pass, the scent grows stronger -- or perhaps you are just learning to listen."',
+      '"Bring me a gift of patience. A quiet apple, something that does not run or bite, and I will show you what the fields have to teach."',
+    ],
+    repeatPages: [
+      'The farmer straightens slowly, brushing purple dust from their knees, and watches you with the calm of someone who has nothing to prove.',
+      '"The fields do not rush. Neither should you. Though I suppose that is easier said when you are made of scales and hunger."',
+    ],
+    acceptLabel: 'Offer patience',
+    rejectLabel: 'Listen quietly',
+    rewardScore: 10,
+  },
+  'wine-merchant': {
+    pages: [
+      'A rotund figure with purple-stained lips and a velvet vest stands beside a cart of clay amphorae, swirling an invisible glass with theatrical gravity.',
+      '"Ah! A connoisseur! Or at least someone with a neck long enough to reach the good vintages. Tell me -- have you ever tasted a grape that fought back?"',
+      '"I need a sample from the deep vineyards. Below. Where the roots drink from old springs. Bring me a bottle of something that remembers the sun."',
+    ],
+    repeatPages: [
+      'The merchant takes a theatrical sip from an empty glass and nods solemnly, as if the air itself had improved.',
+      '"You return. Good. The amphorae are patient, but my curiosity is not. Have you found the deep vines yet?"',
+    ],
+    acceptLabel: 'Seek deep vines',
+    rejectLabel: 'I prefer cider',
+    rewardScore: 18,
+  },
+  'heron-spirit': {
+    pages: [
+      'A tall grey heron stands motionless at the edge of a stone pond, its reflection perfectly still despite the lavender swaying around it.',
+      '"You walk on two legs and call it progress. I stand on one and call it patience. Let us see which is truly superior."',
+      '"Strike true, little serpent. The pond has swallowed many who mistook stillness for weakness."',
+    ],
+    repeatPages: [
+      'The heron does not blink. It does not need to. It has been waiting longer than you have been alive.',
+      '"You fight like a creature that has never known silence. How exhausting. How human."',
+    ],
+    acceptLabel: 'Accept the challenge',
+    rejectLabel: 'Hesitate',
+    rewardScore: 22,
+  },
+  'cheese-monger': {
+    pages: [
+      'A stout figure with a beard that could house a small family stands behind a wooden counter laden with wheels of cheese in various states of ripeness.',
+      '"Ah, a snake! Finally, someone who appreciates the art of slow transformation. Your kind understands aging the way no other creature does."',
+      '"This one has been aging since before your great-grandmother had opinions. Try a bite. It tastes like time and stubbornness."',
+    ],
+    repeatPages: [
+      'The monger slices off a piece of cheese so old it makes a sound like a sigh when cut.',
+      '"You look like a creature who appreciates complexity. This wheel has seen more seasons than your entire bloodline."',
+    ],
+    acceptLabel: 'Taste the aged wheel',
+    rejectLabel: 'Pass respectfully',
+    rewardScore: 8,
+  },
+  'provençal-poet': {
+    pages: [
+      'A lean figure in a faded blue shirt sits on a stone wall, strumming a small lute and composing verses to the lavender wind.',
+      '"Snake, snake, coiled and bright, tell me, what does the sunlit valley do for you tonight?"',
+      '"I am writing an epic. The Great Snake of Provence. It needs a verse about courage, or hunger, or both. Which will it be?"',
+    ],
+    repeatPages: [
+      'The bard strums a melancholy chord and watches a butterfly land on the lute before it flies away.',
+      '"Your story is already being written. The lavender records everything, you know. Even the things you forget."',
+    ],
+    acceptLabel: 'Share your tale',
+    rejectLabel: 'I am not a muse',
+    rewardScore: 14,
+  },
 } as const;

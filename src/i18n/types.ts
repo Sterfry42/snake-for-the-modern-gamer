@@ -118,6 +118,12 @@ export interface FeatureStrings {
   fishingQuestFishTitle: string;
   fishingQuestFishDesc: string;
   fishingQuestCatchLabel: string;
+  // Child Catch Mini-Game
+  childCatchLabel: string;
+  childCatchHint: string;
+  childCatchNoChildren: string;
+  childCatchSuccess: string;
+  childCatchMiss: string;
   // Jason Statham Boss
   jason_statham_name?: string;
   jason_statham_intro?: string;
@@ -301,6 +307,7 @@ export interface FeatureStrings {
   archaeologyTileYuzuApple: string;
   archaeologyTileGoldenApple: string;
   archaeologyTileWasabiApple: string;
+  archaeologyTileColdBeerApple: string;
   archaeologyTileArtifactCache: string;
   archaeologyForestDig: string;
   archaeologyOceanDig: string;
@@ -496,6 +503,22 @@ export interface FeatureStrings {
   stationSign: string;
   ticketBooth: string;
   platformLantern: string;
+
+  // === RADIO ===
+  radioLabel: string;
+  radioStationLabel: string;
+  radioNoStation: string;
+  radioTuning: string;
+  radioStationChanged: string;
+  radioStationStatic: string;
+  radioStationClassical: string;
+  radioStationJazz: string;
+  radioStationCountry: string;
+  radioStationRock: string;
+  radioStationElectronic: string;
+  radioStationLofi: string;
+  radioStationTalk: string;
+  radioEquipHint: string;
 }
 
 export interface ActorVoiceTranslations {

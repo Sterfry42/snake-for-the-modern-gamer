@@ -521,4 +521,31 @@ export const BIOME_ATMOSPHERE_PROFILES: Record<BiomeId, BiomeAtmosphereProfile> 
       wind: { localVisual: 'dustStorm', juice: ['dust-gusts'] },
     },
   },
+  'provence-valley': {
+    biomeId: 'provence-valley',
+    baseJuice: ['petals', 'soft-mist', 'lantern-reflections'],
+    preserveCoreNote:
+      'Lavender and vineyard countryside. Warm, civilized, and fragrant. Weather is gentle and pastoral.',
+    dayPhaseResponses: {
+      dawn: { localVisual: 'mist', juice: ['soft-mist'] },
+      night: { localVisual: 'fireflies', juice: ['lantern-reflections'] },
+    },
+    weatherResponses: {
+      clear: { localVisual: 'petals', juice: ['petals'] },
+      rain: {
+        localVisual: 'rain',
+        juice: ['soft-mist', 'pond-ripples'],
+        gameplay: { animalSpawnBiasAdd: { frog: 1, bird: 1 } },
+      },
+      storm: {
+        localVisual: 'thunder',
+        juice: ['petals'],
+        gameplay: { visibilityScalar: 0.9 },
+      },
+      fog: { localVisual: 'mist', juice: ['soft-mist'], gameplay: { visibilityScalar: 0.88 } },
+      heatwave: { localVisual: 'heatHaze', juice: ['petals'] },
+      coldfront: { localVisual: 'mist' },
+      wind: { localVisual: 'petals', juice: ['petals'] },
+    },
+  },
 };

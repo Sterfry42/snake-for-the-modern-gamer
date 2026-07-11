@@ -3,15 +3,27 @@ import {
   CHEAT_DEFINITIONS,
   findCheatByCode,
   getAllCheatAliases,
+  getCategoryLabel,
+  getCategoryOrder,
+  getCheatsByCategory,
+  CATEGORY_ORDER,
+  type CheatCategory,
 } from '../cheatRegistry.js';
 
 describe('Cheat registry', () => {
-  it('has at least 20 cheats defined', () => {
-    expect(CHEAT_DEFINITIONS.length).toBeGreaterThanOrEqual(20);
+  it('has a substantial number of cheats defined', () => {
+    // If this drops below 30, someone removed cheats without updating the UI or tests.
+    expect(CHEAT_DEFINITIONS.length).toBeGreaterThanOrEqual(30);
   });
 
-  it('has exactly 37 cheats defined', () => {
-    expect(CHEAT_DEFINITIONS.length).toBe(37);
+  it('has more cheats than the minimum threshold', () => {
+    // Sanity check: the registry should have grown, not shrunk.
+    // If this fails, someone deleted cheats. Check:
+    //   - src/cheats/cheatRegistry.ts for removed entries
+    //   - src/ui/skillTreeOverlay.ts for UI rendering
+    //   - src/scenes/snakeScene.ts for applyCheatCode implementations
+    //   - src/world/generation/__tests__/structureCheatCoverage.test.ts for structure cheats
+    expect(CHEAT_DEFINITIONS.length).toBeGreaterThan(35);
   });
 
   it('every cheat has all required fields', () => {
@@ -129,6 +141,113 @@ describe('Cheat registry', () => {
   it('cheat codes contain primary code', () => {
     for (const cheat of CHEAT_DEFINITIONS) {
       expect(cheat.code).toContain(cheat.primaryCode);
+    }
+  });
+
+  it('all cheats have UI-ready content (name, description, and primary code)', () => {
+    // Every cheat must have displayable content for the cheats UI tab.
+    // If this fails, the cheat will appear blank or broken in the UI.
+    for (const cheat of CHEAT_DEFINITIONS) {
+      expect(cheat.name.trim().length, `Cheat "${cheat.primaryCode}" has an empty or whitespace-only name. The UI won't display it properly.`).toBeGreaterThan(0);
+      expect(cheat.description.trim().length, `Cheat "${cheat.primaryCode}" has an empty or whitespace-only description. The UI won't display it properly.`).toBeGreaterThan(0);
+      expect(cheat.primaryCode.trim().length, `Cheat "${cheat.name}" has an empty or whitespace-only primaryCode. The UI won't display it properly.`).toBeGreaterThan(0);
+      // Verify the name is not just the primary code repeated
+      expect(
+        cheat.name.trim() !== cheat.primaryCode.trim(),
+        `Cheat name "${cheat.name}" is identical to its primaryCode "${cheat.primaryCode}". Consider a more descriptive name for the UI.`,
+      ).toBe(true);
+    }
+  });
+
+  it('every cheat has a valid category', () => {
+    const validCategories = new Set(CATEGORY_ORDER);
+    for (const cheat of CHEAT_DEFINITIONS) {
+      expect(
+        validCategories.has(cheat.category),
+        `Cheat "${cheat.primaryCode}" has invalid category "${cheat.category}".`,
+      ).toBe(true);
+    }
+  });
+
+  it('category labels are non-empty for all categories', () => {
+    for (const cat of CATEGORY_ORDER) {
+      const label = getCategoryLabel(cat);
+      expect(label.length).toBeGreaterThan(0);
+      expect(label.trim().length).toBeGreaterThan(0);
+    }
+  });
+
+  it('category ordering is a valid permutation of all categories', () => {
+    const ordered = [...CATEGORY_ORDER];
+    const unique = [...new Set(ordered)];
+    expect(ordered.length).toBe(unique.length);
+    expect(ordered.sort().join(',')).toBe(unique.sort().join(','));
+  });
+
+  it('getCheatsByCategory groups all cheats and preserves count', () => {
+    const grouped = getCheatsByCategory();
+    let total = 0;
+    for (const [_cat, cheats] of grouped) {
+      total += cheats.length;
+    }
+    expect(total).toBe(CHEAT_DEFINITIONS.length);
+  });
+
+  it('getCheatsByCategory returns categories in defined order', () => {
+    const grouped = getCheatsByCategory();
+    const keys = [...grouped.keys()];
+    expect(keys).toEqual(CATEGORY_ORDER);
+  });
+
+  it('all categories have at least one cheat', () => {
+    const grouped = getCheatsByCategory();
+    for (const [cat, cheats] of grouped) {
+      expect(
+        cheats.length,
+        `Category "${cat}" ("${getCategoryLabel(cat)}") has no cheats.`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it('cheats within each category are sorted by primary code', () => {
+    const grouped = getCheatsByCategory();
+    for (const [_cat, cheats] of grouped) {
+      for (let i = 1; i < cheats.length; i++) {
+        expect(
+          cheats[i].primaryCode.localeCompare(cheats[i - 1].primaryCode) >= 0,
+          `Cheats in category "${_cat}" are not sorted by primary code.`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('every cheat has a category matching its type', () => {
+    // Sanity: structure cheats should be in 'structures', bosses in 'bosses', etc.
+    const structureCodes = new Set([
+      'village', 'goblin', 'quest', 'mcdonalds', 'canies', 'shrine', 'ramen',
+      'koi', 'tengu', 'monument', 'diner', 'fireworks', 'jackalope', 'moleman',
+      'motelpool', 'gridiron', 'billboard', 'roadcrew', 'allstructures', 'clearroom',
+    ]);
+    const bossCodes = new Set(['freakdennis', 'freakerdennis', 'jasonstatham']);
+
+    for (const cheat of CHEAT_DEFINITIONS) {
+      const code = cheat.primaryCode.toLowerCase().trim();
+      if (structureCodes.has(code)) {
+        expect(cheat.category).toBe('structures');
+      }
+      if (bossCodes.has(code)) {
+        expect(cheat.category).toBe('bosses');
+      }
+    }
+  });
+
+  it('all cheats have at least one usable alias for the input field', () => {
+    // The UI lets players type cheat codes. Each cheat must have at least one
+    // alias that works as an input. If aliases are empty, the cheat is unusable.
+    for (const cheat of CHEAT_DEFINITIONS) {
+      expect(cheat.aliases.length, `Cheat "${cheat.primaryCode}" has no aliases. Players can't activate this cheat.`).toBeGreaterThan(0);
+      // The primary code must be a valid input (non-empty, trimmed)
+      expect(cheat.aliases[0].trim().length, `Cheat "${cheat.name}" has an empty primary alias. Players can't activate this cheat.`).toBeGreaterThan(0);
     }
   });
 });

@@ -187,4 +187,14 @@ export const COMMON_FR: CommonTranslations = {
     stationResumeMessage: 'Le serpent reprend son voyage.',
     travelToCoordinates: 'Voyager vers {coordinates}',
   },
+  // Child Hug
+  childHug: {
+    title: 'Étreinte Précieuse',
+    holdTight: 'Serrer contre toi',
+    lookAtParent: 'Regarder son partenaire',
+    teach: 'Lui montrer un câlin',
+    holdTightDesc: 'Envelopper tous les deux. Ne pas lâcher.',
+    lookAtParentDesc: 'Partager le moment. Un regard qui dit tout.',
+    teachDesc: 'Ouvrir grands les bras. Lui montrer ce qu\'est un câlin.',
+  },
 } as const;

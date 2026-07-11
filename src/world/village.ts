@@ -48,6 +48,7 @@ const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {
   'titan-ribcage': ['Rib Wake', 'Marrow Rest', 'The Bone Nave', 'Ossuarycross', 'Titan Hollow'],
   'radioactive-orchard': ['Glow Wake', 'Rad Rest', 'The Green Orchard', 'Isotopecross', 'Mutant Hollow'],
   'clockwork-quarry': ['Gear Wake', 'Brass Rest', 'The Clock Quarry', 'Cogcross', 'Pendulum Hollow'],
+  'provence-valley': ['Lavender Wake', 'Vine Rest', 'The Sunlit Orchard', 'Baguettemeasure', 'Rosse Hollow'],
 } as const;
 
 const VILLAGER_NAMES = [

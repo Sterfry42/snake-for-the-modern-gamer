@@ -94,6 +94,7 @@ export class RoomGenerator {
     const isMosaicCoast = palette.biomeId === 'mosaic-coast';
     const isJadePeak = palette.biomeId === 'jade-peak-province';
     const isLibertyBadlands = palette.biomeId === 'liberty-badlands';
+    const isProvenceValley = palette.biomeId === 'provence-valley';
     const spawnGuard = this.safetyOperations.createSpawnGuard(roomId);
 
     return {
@@ -108,6 +109,7 @@ export class RoomGenerator {
       isMosaicCoast,
       isJadePeak,
       isLibertyBadlands,
+      isProvenceValley,
       spawnGuard,
       vegetation: [],
     };
@@ -141,6 +143,8 @@ export class RoomGenerator {
       billboardOracle: townRoom ? undefined : context.billboardOracle,
       roadCrew: townRoom ? undefined : context.roadCrew,
       molemanDigSite: townRoom ? undefined : context.molemanDigSite,
+      lavenderFarm: townRoom ? undefined : context.lavenderFarm,
+      cheeseShop: townRoom ? undefined : context.cheeseShop,
       bulletTrainStation: context.bulletTrainStation,
       temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,
       mosaicCoast: townRoom ? undefined : context.mosaicCoast,

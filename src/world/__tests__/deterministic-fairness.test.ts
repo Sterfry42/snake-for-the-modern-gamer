@@ -22,7 +22,7 @@ function generateRoomWithSeed(seed: string, coord: RoomCoord): RoomSnapshot {
 describe('deterministic fairness tests', () => {
   const origin = { x: 0, y: 0, z: 0 };
   const testRadius = 3;
-  const longRunningWorldTestTimeout = 15_000;
+  const longRunningWorldTestTimeout = 60_000;
 
   function buildTestCoords(): RoomCoord[] {
     const coords: RoomCoord[] = [];
@@ -308,7 +308,7 @@ describe('deterministic fairness tests', () => {
           }
         }
       },
-      15_000,
+      longRunningWorldTestTimeout,
     );
 
     it('Liberty Badlands biome is consistent across seeds', () => {

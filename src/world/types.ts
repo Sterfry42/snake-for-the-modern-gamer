@@ -259,6 +259,17 @@ export interface RoomSnapshot {
     bounds: { left: number; top: number; width: number; height: number };
     pit: Vector2Like;
   };
+  lavenderFarm?: {
+    farmCenter: { x: number; y: number };
+    safeArea: { left: number; top: number; width: number; height: number };
+    farmer: NpcProfile & { x: number; y: number };
+    rows: Array<{ x: number; y: number }>;
+  };
+  cheeseShop?: {
+    shopCenter: { x: number; y: number };
+    safeArea: { left: number; top: number; width: number; height: number };
+    shopkeeper: NpcProfile & { x: number; y: number };
+  };
   bulletTrainStation?: BulletTrainStation;
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   mosaicCoast?: MosaicCoastMetadata;

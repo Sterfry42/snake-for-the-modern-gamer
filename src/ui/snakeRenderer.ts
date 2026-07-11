@@ -310,6 +310,7 @@ export class SnakeRenderer {
     this.drawBullets(opts.bullets ?? []);
     this.drawFootballs(opts.footballs ?? []);
     this.drawAtmosphereParticles(room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
+    this.drawSunriseOverlay(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawDarknessOverlay(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
     this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
@@ -438,6 +439,62 @@ export class SnakeRenderer {
           y + cell * 0.15,
           x + cell * 0.85,
           y + cell * 0.85,
+        );
+      }
+    }
+  }
+
+  private drawSunriseOverlay(view: ResolvedAtmosphereView | undefined, renderTimeMs: number): void {
+    const isDawn = view?.state.dayPhase === 'dawn';
+    if (!isDawn) {
+      return;
+    }
+    const progress = view.state.phaseProgress;
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+
+    // Warm horizon gradient: deep orange at the bottom fading to soft pink near the horizon
+    const horizonY = height * (1 - progress * 0.45);
+    const gradientStops = [
+      { color: 0xff6a1e, alpha: 0.22 * progress, y: height },
+      { color: 0xff8c42, alpha: 0.16 * progress, y: height * 0.7 },
+      { color: 0xffa670, alpha: 0.10 * progress, y: height * 0.45 },
+      { color: 0xffb896, alpha: 0.05 * progress, y: horizonY },
+    ];
+    for (let i = 0; i < gradientStops.length - 1; i++) {
+      const a = gradientStops[i];
+      const b = gradientStops[i + 1];
+      this.graphics.fillStyle(a.color, a.alpha).fillRect(0, b.y, width, a.y - b.y);
+    }
+
+    // Sun disc that rises from below the horizon
+    const sunRadius = this.grid.cell * 1.8;
+    const sunX = width * 0.5;
+    const sunBaseY = height + sunRadius;
+    const sunY = sunBaseY - (height + sunRadius - horizonY + sunRadius * 0.3) * smoothstep(progress);
+    const sunAlpha = Math.min(1, progress * 2.5);
+    const sunColor = progress < 0.3 ? 0xff9944 : progress < 0.6 ? 0xffbb66 : 0xffdd99;
+
+    // Outer glow
+    this.graphics.fillStyle(0xffaa55, 0.08 * sunAlpha * progress).fillCircle(sunX, sunY, sunRadius * 3.5);
+    this.graphics.fillStyle(0xffcc77, 0.12 * sunAlpha * progress).fillCircle(sunX, sunY, sunRadius * 2);
+    // Core
+    this.graphics.fillStyle(sunColor, 0.55 * sunAlpha).fillCircle(sunX, sunY, sunRadius);
+
+    // Subtle light rays
+    if (progress > 0.15) {
+      const rayAlpha = Math.min(0.12, (progress - 0.15) * 0.18) * sunAlpha;
+      const rayLength = sunRadius * (2.5 + Math.sin(renderTimeMs * 0.001) * 0.4);
+      const rayCount = 8;
+      for (let i = 0; i < rayCount; i++) {
+        const angle = (i / rayCount) * Math.PI * 2 + renderTimeMs * 0.0002;
+        const rayWidth = 0.04 + Math.sin(renderTimeMs * 0.002 + i * 1.3) * 0.02;
+        this.graphics.lineStyle(sunRadius * rayWidth, 0xffddaa, rayAlpha);
+        this.graphics.lineBetween(
+          sunX + Math.cos(angle) * sunRadius * 0.9,
+          sunY + Math.sin(angle) * sunRadius * 0.9,
+          sunX + Math.cos(angle) * rayLength,
+          sunY + Math.sin(angle) * rayLength,
         );
       }
     }
@@ -3663,4 +3720,9 @@ export class SnakeRenderer {
 
 function positiveMod(value: number, modulus: number): number {
   return ((value % modulus) + modulus) % modulus;
+}
+
+function smoothstep(value: number): number {
+  const t = Math.max(0, Math.min(1, value));
+  return t * t * (3 - 2 * t);
 }

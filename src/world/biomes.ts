@@ -40,7 +40,8 @@ export type BiomeId =
   | 'glass-desert'
   | 'titan-ribcage'
   | 'radioactive-orchard'
-  | 'clockwork-quarry';
+  | 'clockwork-quarry'
+  | 'provence-valley';
 
 export type BiomeFamily =
   | 'forest'
@@ -1217,6 +1218,55 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       eagle: 2,
     },
     vegetationDensity: 4,
+  },
+  'provence-valley': {
+    id: 'provence-valley',
+    title: 'Provence Valley',
+    family: 'grassland',
+    tags: ['warm', 'temperate', 'civilized'],
+    generation: {
+      minWidthRooms: 6,
+      maxWidthRooms: 14,
+      minHeightRooms: 6,
+      maxHeightRooms: 14,
+      baseWeight: 0.5,
+      idealTemperature: 0.35,
+      temperatureTolerance: 0.5,
+      idealMoisture: 0.15,
+      moistureTolerance: 0.55,
+      idealWeirdness: 0.2,
+      weirdnessTolerance: 0.6,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 16,
+      rarity: 'rare',
+    },
+    transition: OPEN_LAND_TRANSITION,
+    temperature: 'Sun-Kissed',
+    dangerLevel: 3,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 270,
+    saturation: 0.3,
+    lightness: 0.22,
+    tintVariance: 0.024,
+    accentColor: 0xb07cc7,
+    enemyFireBias: 0,
+    enemyMoveBias: 0,
+    animalSpawnChance: 0.18,
+    animalSpawnBias: {
+      rabbit: 3,
+      deer: 1,
+      fox: 1,
+      bird: 4,
+      wolf: 0,
+      bear: 0,
+      fish: 1,
+      snake: 1,
+      rooster: 5,
+      goat: 3,
+      frog: 2,
+    },
+    vegetationDensity: 14,
   },
 };
 

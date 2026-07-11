@@ -33,6 +33,7 @@ export const DISCOVERABLE_BIOME_IDS = [
   'sunken-ocean',
   'jade-peak-province',
   'liberty-badlands',
+  'provence-valley',
 ] as const;
 export const TOTAL_FISH_COUNT = new Set(FISH_DEFINITIONS.map((fish) => fish.typeId)).size;
 export const TOTAL_ARTIFACT_COUNT = ARTIFACT_DEFINITIONS.length;
@@ -431,6 +432,18 @@ export const ACHIEVEMENT_DEFINITIONS = [
     tree: { x: -700, y: 420, section: 'Relationships' },
     icon: icon('baby', 'B'),
     criterion: event('relationship:child'),
+    archipelago: ap,
+  }),
+  d({
+    id: 'relationships.motherLove',
+    name: 'Knowing a Mother\'s Love',
+    description: 'Hold your child close and feel the world soften.',
+    category: 'relationships',
+    difficulty: 'hard',
+    prerequisites: ['relationships.child'],
+    tree: { x: -700, y: 480, section: 'Relationships' },
+    icon: icon('baby', 'M'),
+    criterion: event('relationship:motherLove'),
     archipelago: ap,
   }),
   d({
