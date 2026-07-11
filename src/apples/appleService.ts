@@ -2,6 +2,10 @@ import type { AppleSystemConfig, AppleTypeConfig, GridConfig } from '../config/g
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { WorldService } from '../world/worldService.js';
+import type { SpecialStats } from '../stats/specialTypes.js';
+import { createDefaultSpecialStats } from '../stats/specialStats.js';
+import { getEligibleAppleWeights } from '../stats/appleSpecial.js';
+import { getSpawnPolicy } from '../world/safeZones.js';
 import type {
   AppleInstance,
   AppleSnapshot,
@@ -39,12 +43,9 @@ export class AppleService {
     private readonly grid: GridConfig,
     private readonly world: WorldService,
     private readonly rng: RandomGenerator,
+    private readonly getSpecialStats: () => SpecialStats = createDefaultSpecialStats,
   ) {
     this.registry = new AppleRegistry(config);
-  }
-
-  private isHouse(roomId: string): boolean {
-    return roomId === '0,-1,0';
   }
 
   getSnapshot(roomId: string): AppleSnapshot | null {
@@ -57,12 +58,12 @@ export class AppleService {
   }
 
   ensureApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
-    if (this.isHouse(roomId)) {
-      // Never spawn in the house
+    const room = this.world.getRoom(roomId);
+    const policy = getSpawnPolicy(room);
+    if (policy.apples === 'suppress') {
       return { snapshot: null, changed: false };
     }
-    const room = this.world.getRoom(roomId);
-    if (room.town) {
+    if (policy.apples === 'clearExisting') {
       this.clearApple(roomId);
       return { snapshot: null, changed: false };
     }
@@ -74,11 +75,12 @@ export class AppleService {
   }
 
   spawnApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
-    if (this.isHouse(roomId)) {
+    const room = this.world.getRoom(roomId);
+    const policy = getSpawnPolicy(room);
+    if (policy.apples === 'suppress') {
       return { snapshot: null, changed: false };
     }
-    const room = this.world.getRoom(roomId);
-    if (room.town) {
+    if (policy.apples === 'clearExisting') {
       this.clearApple(roomId);
       return { snapshot: null, changed: false };
     }
@@ -260,7 +262,7 @@ export class AppleService {
     position: Vector2Like,
     snake: Vector2Like[],
   ): { from: string; to: string } | null {
-    if (this.isHouse(roomId)) {
+    if (getSpawnPolicy(this.world.getRoom(roomId)).apples !== 'allow') {
       return null;
     }
     const fromRoom = apple.roomId;
@@ -343,7 +345,7 @@ export class AppleService {
     }
 
     const targetRoomId = `${roomX},${roomY},${roomZ}`;
-    if (this.isHouse(targetRoomId)) {
+    if (getSpawnPolicy(this.world.getRoom(targetRoomId)).apples !== 'allow') {
       return null;
     }
     const targetRoom = this.world.getRoom(targetRoomId);
@@ -387,37 +389,29 @@ export class AppleService {
   }
 
   private chooseAppleType(score: number, waterOnly = false): AppleTypeConfig | null {
-    if (waterOnly) {
-      return (
-        this.registry.getTypes().find((type) => type.id === 'pearl') ??
-        this.registry.getTypes().find((type) => type.id === 'gold') ??
-        this.registry.getTypes().find((type) => type.id === 'normal') ??
-        null
-      );
-    }
-
-    const eligible = this.registry
-      .getTypes()
-      .filter((type) => type.id !== 'pearl' && (type.spawn.scoreThreshold ?? 0) <= score);
+    const eligible = getEligibleAppleWeights(this.config, this.getSpecialStats(), {
+      score,
+      waterOnly,
+    });
 
     if (eligible.length === 0) {
       return this.registry.getTypes().find((t) => t.id === 'normal') ?? null;
     }
 
-    const totalWeight = eligible.reduce((total, type) => total + type.spawn.base, 0);
+    const totalWeight = eligible.reduce((total, entry) => total + entry.weight, 0);
     if (totalWeight <= 0) {
-      return eligible[0] ?? null;
+      return eligible[0]?.type ?? null;
     }
 
     const choice = this.rng() * totalWeight;
     let cumulative = 0;
-    for (const type of eligible) {
-      cumulative += type.spawn.base;
+    for (const { type, weight } of eligible) {
+      cumulative += weight;
       if (choice <= cumulative) {
         return type;
       }
     }
-    return eligible[eligible.length - 1] ?? null;
+    return eligible[eligible.length - 1]?.type ?? null;
   }
 
   private collectSpawnOptions(

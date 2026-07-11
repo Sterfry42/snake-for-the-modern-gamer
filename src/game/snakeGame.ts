@@ -88,6 +88,7 @@ import { selectNpcVoiceLine, type NpcVoiceLine } from '../npcs/npcVoice.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import { getBiomeDefinition, getBiomeForRoom } from '../world/biomes.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { getSpawnPolicy } from '../world/safeZones.js';
 import { WorldAtmosphereSystem } from '../world/atmosphereSystem.js';
 import { resolveBiomeAtmosphere } from '../world/atmosphereResolver.js';
 import type {
@@ -846,7 +847,7 @@ export class SnakeGame implements QuestRuntime {
       this.worldGenerationIdentity,
       this.createPickupChanceProvider(),
     );
-    this.apples = new AppleService(config.apples, config.grid, this.world, this._rng);
+    this.apples = this.createAppleService();
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid, this._rng);
     this.enemies = new EnemyManager(config.grid, this._rng);
@@ -1000,8 +1001,8 @@ export class SnakeGame implements QuestRuntime {
 
     // TODO: Make this configurable
     const startingRoom = this.world.getRoom(this.snake.currentRoomId);
-    const startingRoomIsTown = Boolean(startingRoom.town || startingRoom.townPerimeter);
-    if (!startingRoomIsTown && this._rng() < 0.03) {
+    const startingRoomSpawnPolicy = getSpawnPolicy(startingRoom);
+    if (startingRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.03) {
       // 3% chance to spawn a boss on reset
       this.bosses.spawnBoss(
         this.snake.currentRoomId,
@@ -1009,7 +1010,7 @@ export class SnakeGame implements QuestRuntime {
         this.world.getRoom(this.snake.currentRoomId),
       );
     }
-    if (!startingRoomIsTown && this._rng() < 0.01) {
+    if (startingRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.01) {
       // 1% chance to spawn Freaker Dennis on reset
       this.bosses.spawnBoss(
         this.snake.currentRoomId,
@@ -1017,24 +1018,32 @@ export class SnakeGame implements QuestRuntime {
         this.world.getRoom(this.snake.currentRoomId),
       );
     }
-    if (!startingRoomIsTown && startingRoom.biomeId === 'sunken-ocean' && this._rng() < 0.1) {
+    if (
+      startingRoomSpawnPolicy.bosses === 'allow' &&
+      startingRoom.biomeId === 'sunken-ocean' &&
+      this._rng() < 0.1
+    ) {
       // 10% chance to spawn Jason Statham in the Sunken Ocean on reset
       this.bosses.spawnJasonStatham(this.snake.currentRoomId);
     }
 
     this.resetPredation();
-    if (!startingRoomIsTown) {
+    if (startingRoomSpawnPolicy.apples === 'allow') {
       this.apples.ensureApple(
         this.snake.currentRoomId,
         Array.from(this.snake.bodySegments),
         this.snake.score,
       );
+    }
+    if (startingRoomSpawnPolicy.enemies === 'allow') {
       this.enemies.ensureEnemy(
         this.snake.currentRoomId,
         startingRoom,
         this.config.snake.initialBody,
         this.getAtmosphereForRoom(startingRoom),
       );
+    }
+    if (startingRoomSpawnPolicy.animals === 'allow') {
       this.animals.ensureAnimals(
         // TODO: Create test
         this.snake.currentRoomId,
@@ -1056,7 +1065,7 @@ export class SnakeGame implements QuestRuntime {
       this.worldGenerationIdentity,
       this.createPickupChanceProvider(),
     );
-    this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
+    this.apples = this.createAppleService();
     this.enemies = new EnemyManager(this.config.grid, this._rng);
     this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
     this.animals = new AnimalManager(this.config.grid, this._rng);
@@ -1069,6 +1078,16 @@ export class SnakeGame implements QuestRuntime {
       rng: this._rng,
     });
     logRunSeed(runSeed, 'reset');
+  }
+
+  private createAppleService(): AppleService {
+    return new AppleService(
+      this.config.apples,
+      this.config.grid,
+      this.world,
+      this._rng,
+      () => this.specialStats.getCommittedState().stats,
+    );
   }
 
   private createPickupChanceProvider(): {
@@ -1652,23 +1671,32 @@ export class SnakeGame implements QuestRuntime {
         this.visitedRooms.add(newRoomId);
         // TODO: Make this configurable
         const newRoom = this.world.getRoom(newRoomId);
-        const newRoomIsTown = Boolean(newRoom.town || newRoom.townPerimeter);
-        if (!newRoomIsTown && this._rng() < 0.03) {
+        const newRoomSpawnPolicy = getSpawnPolicy(newRoom);
+        if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.03) {
           // 3% chance to spawn Freak Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freak-dennis', newRoom);
         }
-        if (!newRoomIsTown && this._rng() < 0.01) {
+        if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.01) {
           // 1% chance to spawn Freaker Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freaker-dennis', newRoom);
         }
-        if (!newRoomIsTown && newRoom.biomeId === 'sunken-ocean' && this._rng() < 0.1) {
+        if (
+          newRoomSpawnPolicy.bosses === 'allow' &&
+          newRoom.biomeId === 'sunken-ocean' &&
+          this._rng() < 0.1
+        ) {
           // 10% chance to spawn Jason Statham in the Sunken Ocean
           this.bosses.spawnJasonStatham(newRoomId);
         }
-        if (!newRoomIsTown) {
+        if (newRoomSpawnPolicy.enemies === 'allow') {
           const atmosphere = this.getAtmosphereForRoom(newRoom);
           this.enemies.ensureEnemy(newRoomId, newRoom, [], atmosphere);
+        }
+        if (newRoomSpawnPolicy.animals === 'allow') {
+          const atmosphere = this.getAtmosphereForRoom(newRoom);
           this.animals.ensureAnimals(newRoomId, newRoom, [], atmosphere);
+        }
+        if (newRoomSpawnPolicy.enemies === 'allow' || newRoomSpawnPolicy.animals === 'allow') {
           this.maybeQueueFreakJoeyEncounter(newRoomId);
         }
         this.revealBiomeIfChanged(newRoomId, newRoom);
@@ -2660,10 +2688,12 @@ export class SnakeGame implements QuestRuntime {
       },
       ensureApple: (roomId: string, snake, score) => {
         const room = this.world.getRoom(roomId);
-        if (room.town) {
+        const policy = getSpawnPolicy(room);
+        if (policy.apples === 'clearExisting') {
           this.apples.clearApple(roomId);
           return;
         }
+        if (policy.apples === 'suppress') return;
         const { changed } = this.apples.ensureApple(roomId, Array.from(snake), score);
         if (changed) {
           roomsChanged.add(roomId);
@@ -7619,6 +7649,7 @@ export class SnakeGame implements QuestRuntime {
 
   applySpecialStatPreview(): void {
     this.specialStats.applyPreview();
+    this.refreshPlayerMaxHealth();
   }
 
   resetSpecialStatPreview(): void {
@@ -7627,6 +7658,7 @@ export class SnakeGame implements QuestRuntime {
 
   setAllSpecialStatsToMax(): void {
     this.specialStats.setAllStats(10);
+    this.refreshPlayerMaxHealth();
   }
 
   getFishingSpecialModifiers() {
@@ -7695,6 +7727,30 @@ export class SnakeGame implements QuestRuntime {
 
   getSpecialGameplayModifiers(): SpecialGameplayModifiers {
     return this.specialStats.getGameplayModifiers();
+  }
+
+  refreshPlayerMaxHealth(): void {
+    const specialGameplay = this.getSpecialGameplayModifiers();
+    const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
+    const legacySkillHeartBonus = Math.max(0, currentMaxHealth - 3 - previousSpecialHeartBonus);
+    const skillHeartBonus = Math.max(
+      0,
+      Number(this.getFlag<number>('player.skillMaxHeartBonus') ?? legacySkillHeartBonus),
+    );
+    const nextMaxHealth = Math.max(1, 3 + skillHeartBonus + specialGameplay.maxHeartBonus);
+    const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
+    this.setFlag('player.skillMaxHeartBonus', skillHeartBonus > 0 ? skillHeartBonus : undefined);
+    this.setFlag(
+      'special.maxHeartBonus',
+      specialGameplay.maxHeartBonus !== 0 ? specialGameplay.maxHeartBonus : undefined,
+    );
+    this.setFlag('player.maxHealth', nextMaxHealth);
+    if (currentHealth >= currentMaxHealth && nextMaxHealth > currentMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    } else if (currentHealth > nextMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    }
   }
 
   getRunArtifacts(): ArtifactDefinition[] {
@@ -13045,7 +13101,7 @@ export class SnakeGame implements QuestRuntime {
           this.worldGenerationIdentity,
           this.createPickupChanceProvider(),
         );
-        this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
+        this.apples = this.createAppleService();
         this.enemies = new EnemyManager(this.config.grid, this._rng);
         this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
         this.animals = new AnimalManager(this.config.grid, this._rng);

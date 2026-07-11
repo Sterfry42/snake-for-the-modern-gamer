@@ -12,6 +12,7 @@ import {
   type TownDoorKind,
 } from '../layers/layerTypes.js';
 import type { BiomeId } from './biomes.js';
+import { tileHasTag } from './tiles.js';
 import { selectPrimaryTownMerchant, shopKindForTownRole } from './townRoles.js';
 import type { RoomArea, RoomSnapshot } from './types.js';
 
@@ -502,10 +503,8 @@ function setChar(layout: string[][], x: number, y: number, ch: string): void {
 }
 
 const IMPORTANT_TOWN_TILES = new Set(['G', 'Y', 'v', 't', 'd', 'h', 'j', 'u', 'U', 'x', 'o']);
-const BLOCKING_TOWN_TILES = new Set(['#', '~', 'h', 'u', 'x']);
-
 export function isBlockingTownTile(tile: string | undefined): boolean {
-  return Boolean(tile && BLOCKING_TOWN_TILES.has(tile));
+  return tileHasTag(tile, 'townBlocking');
 }
 
 export function townResidentPresences(town: TownStructure, roomId: string): TownResidentPresence[] {

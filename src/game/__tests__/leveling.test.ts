@@ -4,6 +4,19 @@ import { QuestRegistry } from '../../quests/questRegistry.js';
 import { SnakeGame } from '../snakeGame.js';
 
 describe('SnakeGame leveling integration', () => {
+  it('refreshes max hearts immediately when skill perks add heart bonuses', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    game.setFlag('player.maxHealth', 3);
+    game.setFlag('player.health', 3);
+    expect(game.getFlag<number>('player.maxHealth')).toBe(3);
+
+    game.setFlag('player.skillMaxHeartBonus', 1);
+    game.refreshPlayerMaxHealth();
+
+    expect(game.getFlag<number>('player.maxHealth')).toBe(4);
+    expect(game.getFlag<number>('player.health')).toBe(4);
+  });
+
   it('grants one SPECIAL point per lifetime-score level and ignores spending', () => {
     const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
     const onLevelUp = vi.fn();

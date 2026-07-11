@@ -53,6 +53,10 @@ import type {
   ArchipelagoReceivedItem,
 } from '../archipelago/archipelagoConnectionTypes.js';
 import { calculateCaffeinatedAppleIntervalScalar } from '../apples/caffeinatedBoost.js';
+import {
+  applyRuntimeModifierSource,
+  createRuntimeModifierTotals,
+} from '../stats/gameplayModifierAccumulator.js';
 import { SnakeGame } from '../game/snakeGame.js';
 import type {
   ActorJournalEntry,
@@ -7984,236 +7988,99 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.snakeGame) return;
     const inv = this.snakeGame.getInventory();
     const equipped = inv.getAllEquipped();
-    let tickScalar = 1;
-    let wallSenseBonus = 0;
-    let seismicBonus = 0;
-    let masonry = false;
-    let invulnBonus = 0;
-    let regen: { interval: number; amount: number } | null = null;
-    let phoenix = 0;
-    let itemPhoenix = 0;
-    let gunEnabled = false;
-    let wallSmiteEnabled = false;
-    let heatResistance = 0;
-    let coldResistance = 0;
-    let swimmingEnabled = false;
-    let refundEveryRooms: { interval: number; score: number } | undefined;
-    let appleScorePenalty = 0;
-    let hazardMapSense = 0;
-    let radiationTimerScalar = 1;
-    let lightRadiusTiles = 0;
+    const totals = createRuntimeModifierTotals();
     const specialGameplay = this.snakeGame.getSpecialGameplayModifiers();
 
     for (const [, itemId] of equipped) {
-      const item = getItem(itemId) as any;
-      const mods = item?.modifiers ?? {};
-      if (typeof mods.tickDelayScalar === 'number') {
-        tickScalar *= mods.tickDelayScalar;
-      }
-      if (typeof mods.wallSenseBonus === 'number') {
-        wallSenseBonus += mods.wallSenseBonus;
-      }
-      if (typeof mods.seismicPulseBonus === 'number') {
-        seismicBonus += mods.seismicPulseBonus;
-      }
-      if (mods.masonryEnabled) {
-        masonry = true;
-      }
-      if (typeof mods.invulnerabilityBonus === 'number') {
-        invulnBonus += mods.invulnerabilityBonus;
-      }
-      if (mods.regenerator) {
-        if (!regen) {
-          regen = { interval: mods.regenerator.interval, amount: mods.regenerator.amount };
-        } else {
-          regen.interval = Math.min(regen.interval, mods.regenerator.interval);
-          regen.amount += mods.regenerator.amount;
-        }
-      }
-      if (typeof mods.phoenixCharges === 'number') {
-        phoenix += mods.phoenixCharges;
-        itemPhoenix += mods.phoenixCharges;
-      }
-      if (mods.gunEnabled) {
-        gunEnabled = true;
-      }
-      if (mods.wallSmiteEnabled) wallSmiteEnabled = true;
-      if (typeof mods.heatResistance === 'number') {
-        heatResistance += mods.heatResistance;
-      }
-      if (typeof mods.coldResistance === 'number') {
-        coldResistance += mods.coldResistance;
-      }
-      if (mods.swimmingEnabled) {
-        swimmingEnabled = true;
-      }
-      if (mods.refundEveryRooms) {
-        refundEveryRooms = mods.refundEveryRooms;
-      }
-      if (typeof mods.appleScorePenalty === 'number') {
-        appleScorePenalty += mods.appleScorePenalty;
-      }
-      if (typeof mods.hazardMapSense === 'number') {
-        hazardMapSense += mods.hazardMapSense;
-      }
-      if (typeof mods.radiationTimerScalar === 'number') {
-        radiationTimerScalar *= mods.radiationTimerScalar;
-      }
-      if (typeof mods.lightRadiusTiles === 'number') {
-        lightRadiusTiles = Math.max(lightRadiusTiles, mods.lightRadiusTiles);
-      }
+      const item = getItem(itemId);
+      applyRuntimeModifierSource(
+        totals,
+        item?.kind === 'equipment' ? item.modifiers : undefined,
+        { countPhoenixAsItem: true },
+      );
     }
-
-    // Apply religion bonuses
-    if (this.religionMods) {
-      if (typeof this.religionMods.tickDelayScalar === 'number') {
-        tickScalar *= this.religionMods.tickDelayScalar;
-      }
-      if (typeof this.religionMods.wallSenseBonus === 'number') {
-        wallSenseBonus += this.religionMods.wallSenseBonus;
-      }
-      if (typeof this.religionMods.seismicPulseBonus === 'number') {
-        seismicBonus += this.religionMods.seismicPulseBonus;
-      }
-      if (typeof this.religionMods.invulnerabilityBonus === 'number') {
-        invulnBonus += this.religionMods.invulnerabilityBonus;
-      }
-      if (this.religionMods.regenerator) {
-        const r = this.religionMods.regenerator;
-        if (!regen) {
-          regen = { interval: r.interval, amount: r.amount };
-        } else {
-          regen.interval = Math.min(regen.interval, r.interval);
-          regen.amount += r.amount;
-        }
-      }
-      if (this.religionMods.masonryEnabled) {
-        masonry = true;
-      }
-      if (typeof this.religionMods.phoenixCharges === 'number') {
-        phoenix += this.religionMods.phoenixCharges;
-      }
-      if (this.religionMods.spiritualLength) {
-        if (!regen) {
-          regen = { interval: 30, amount: 1 };
-        } else {
-          regen.interval = Math.min(regen.interval, 30);
-          regen.amount += 1;
-        }
-      }
-    }
-
-    // Background bonuses
-    if (this.backgroundMods) {
-      if (typeof this.backgroundMods.tickDelayScalar === 'number')
-        tickScalar *= this.backgroundMods.tickDelayScalar;
-      if (typeof this.backgroundMods.wallSenseBonus === 'number')
-        wallSenseBonus += this.backgroundMods.wallSenseBonus;
-      if (typeof this.backgroundMods.seismicPulseBonus === 'number')
-        seismicBonus += this.backgroundMods.seismicPulseBonus;
-      if (typeof this.backgroundMods.invulnerabilityBonus === 'number')
-        invulnBonus += this.backgroundMods.invulnerabilityBonus;
-      if (this.backgroundMods.regenerator) {
-        const r = this.backgroundMods.regenerator;
-        if (!regen) regen = { interval: r.interval, amount: r.amount };
-        else {
-          regen.interval = Math.min(regen.interval, r.interval);
-          regen.amount += r.amount;
-        }
-      }
-      if (this.backgroundMods.masonryEnabled) masonry = true;
-      if (typeof this.backgroundMods.phoenixCharges === 'number')
-        phoenix += this.backgroundMods.phoenixCharges;
-    }
-
-    // Class bonuses
-    if (this.classMods) {
-      if (typeof this.classMods.tickDelayScalar === 'number')
-        tickScalar *= this.classMods.tickDelayScalar;
-      if (typeof this.classMods.wallSenseBonus === 'number')
-        wallSenseBonus += this.classMods.wallSenseBonus;
-      if (typeof this.classMods.seismicPulseBonus === 'number')
-        seismicBonus += this.classMods.seismicPulseBonus;
-      if (typeof this.classMods.invulnerabilityBonus === 'number')
-        invulnBonus += this.classMods.invulnerabilityBonus;
-      if (this.classMods.regenerator) {
-        const r = this.classMods.regenerator;
-        if (!regen) regen = { interval: r.interval, amount: r.amount };
-        else {
-          regen.interval = Math.min(regen.interval, r.interval);
-          regen.amount += r.amount;
-        }
-      }
-      if (this.classMods.masonryEnabled) masonry = true;
-      if (typeof this.classMods.phoenixCharges === 'number')
-        phoenix += this.classMods.phoenixCharges;
-    }
+    applyRuntimeModifierSource(totals, this.religionMods);
+    applyRuntimeModifierSource(totals, this.backgroundMods);
+    applyRuntimeModifierSource(totals, this.classMods);
 
     // Orange Juice speed boost
     const orangeJuiceSpeedBoost = this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0;
     if (orangeJuiceSpeedBoost > 0) {
-      tickScalar *= 0.75;
+      totals.tickDelayScalar *= 0.75;
     }
-    invulnBonus += specialGameplay.invulnerabilityTickBonus;
+    totals.invulnerabilityBonus += specialGameplay.invulnerabilityTickBonus;
 
     // Apply speed scalar via skill system
-    this.skillTree.applyActionStepIntervalScalar(tickScalar, 'equipment:boots');
+    this.skillTree.applyActionStepIntervalScalar(totals.tickDelayScalar, 'equipment:boots');
     this.skillTree.applyActionStepIntervalScalar(
       specialGameplay.movementTickDelayScalar,
       'special:agility',
     );
 
     // Set equipment flags for game logic to combine with skill-based flags
-    this.setFlag('equipment.wallSenseRadiusBonus', wallSenseBonus > 0 ? wallSenseBonus : undefined);
-    this.setFlag('equipment.seismicPulseRadiusBonus', seismicBonus > 0 ? seismicBonus : undefined);
-    this.setFlag('equipment.masonryEnabled', masonry ? true : undefined);
-    this.setFlag('equipment.invulnerabilityBonus', invulnBonus > 0 ? invulnBonus : undefined);
-    this.setFlag('equipment.regenerator', regen ?? undefined);
-    this.setFlag('equipment.phoenixCharges', phoenix > 0 ? phoenix : undefined);
-    this.setFlag('equipment.itemPhoenixCharges', itemPhoenix > 0 ? itemPhoenix : undefined);
-    this.setFlag('equipment.gunEnabled', gunEnabled ? true : undefined);
-    this.setFlag('equipment.wallSmiteEnabled', wallSmiteEnabled ? true : undefined);
+    this.setFlag(
+      'equipment.wallSenseRadiusBonus',
+      totals.wallSenseBonus > 0 ? totals.wallSenseBonus : undefined,
+    );
+    this.setFlag(
+      'equipment.seismicPulseRadiusBonus',
+      totals.seismicPulseBonus > 0 ? totals.seismicPulseBonus : undefined,
+    );
+    this.setFlag('equipment.masonryEnabled', totals.masonryEnabled ? true : undefined);
+    this.setFlag(
+      'equipment.invulnerabilityBonus',
+      totals.invulnerabilityBonus > 0 ? totals.invulnerabilityBonus : undefined,
+    );
+    this.setFlag('equipment.regenerator', totals.regenerator ?? undefined);
+    this.setFlag(
+      'equipment.phoenixCharges',
+      totals.phoenixCharges > 0 ? totals.phoenixCharges : undefined,
+    );
+    this.setFlag(
+      'equipment.itemPhoenixCharges',
+      totals.itemPhoenixCharges > 0 ? totals.itemPhoenixCharges : undefined,
+    );
+    this.setFlag('equipment.gunEnabled', totals.gunEnabled ? true : undefined);
+    this.setFlag('equipment.wallSmiteEnabled', totals.wallSmiteEnabled ? true : undefined);
     const immortalCheat = Boolean(this.getFlag<boolean>('cheat.immortal'));
     this.setFlag(
       'equipment.heatResistance',
-      immortalCheat ? 1 : heatResistance > 0 ? Math.min(0.9, heatResistance) : undefined,
+      immortalCheat
+        ? 1
+        : totals.heatResistance > 0
+          ? Math.min(0.9, totals.heatResistance)
+          : undefined,
     );
     this.setFlag(
       'equipment.coldResistance',
-      immortalCheat ? 1 : coldResistance > 0 ? Math.min(0.9, coldResistance) : undefined,
+      immortalCheat
+        ? 1
+        : totals.coldResistance > 0
+          ? Math.min(0.9, totals.coldResistance)
+          : undefined,
     );
-    this.setFlag('equipment.swimmingEnabled', swimmingEnabled || immortalCheat ? true : undefined);
-    this.setFlag('equipment.refundEveryRooms', refundEveryRooms);
+    this.setFlag(
+      'equipment.swimmingEnabled',
+      totals.swimmingEnabled || immortalCheat ? true : undefined,
+    );
+    this.setFlag('equipment.refundEveryRooms', totals.refundEveryRooms);
     this.setFlag(
       'equipment.appleScorePenalty',
-      appleScorePenalty > 0 ? appleScorePenalty : undefined,
+      totals.appleScorePenalty > 0 ? totals.appleScorePenalty : undefined,
     );
-    this.setFlag('equipment.hazardMapSense', hazardMapSense > 0 ? hazardMapSense : undefined);
-    this.setFlag('equipment.lightRadiusTiles', lightRadiusTiles > 0 ? lightRadiusTiles : undefined);
-    const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-    const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
-    const legacySkillHeartBonus = Math.max(0, currentMaxHealth - 3 - previousSpecialHeartBonus);
-    const skillHeartBonus = Math.max(
-      0,
-      Number(this.getFlag<number>('player.skillMaxHeartBonus') ?? legacySkillHeartBonus),
-    );
-    const nextMaxHealth = Math.max(1, 3 + skillHeartBonus + specialGameplay.maxHeartBonus);
-    const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
-    this.setFlag('player.skillMaxHeartBonus', skillHeartBonus > 0 ? skillHeartBonus : undefined);
     this.setFlag(
-      'special.maxHeartBonus',
-      specialGameplay.maxHeartBonus !== 0 ? specialGameplay.maxHeartBonus : undefined,
+      'equipment.hazardMapSense',
+      totals.hazardMapSense > 0 ? totals.hazardMapSense : undefined,
     );
-    this.setFlag('player.maxHealth', nextMaxHealth);
-    if (currentHealth >= currentMaxHealth && nextMaxHealth > currentMaxHealth) {
-      this.setFlag('player.health', nextMaxHealth);
-    } else if (currentHealth > nextMaxHealth) {
-      this.setFlag('player.health', nextMaxHealth);
-    }
+    this.setFlag(
+      'equipment.lightRadiusTiles',
+      totals.lightRadiusTiles > 0 ? totals.lightRadiusTiles : undefined,
+    );
+    this.snakeGame.refreshPlayerMaxHealth();
     this.setFlag(
       'equipment.radiationTimerScalar',
-      radiationTimerScalar * specialGameplay.hazardTimerScalar !== 1
-        ? radiationTimerScalar * specialGameplay.hazardTimerScalar
+      totals.radiationTimerScalar * specialGameplay.hazardTimerScalar !== 1
+        ? totals.radiationTimerScalar * specialGameplay.hazardTimerScalar
         : undefined,
     );
     this.setFlag('special.weaponCooldownScalar', specialGameplay.weaponCooldownScalar);
