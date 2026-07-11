@@ -1748,6 +1748,8 @@ export default class SnakeScene extends Phaser.Scene {
   private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
   private static readonly CAFFEINATED_APPLE_BOOST_MS = 2000;
   private static readonly CAFFEINATED_APPLE_BASE_SPEED_BONUS = 0.25;
+  private static readonly SWIMMING_TERRAIN_DRAG_SOURCE = 'terrain:swimming';
+  private static readonly SWIMMING_TERRAIN_DRAG_SCALAR = 1.15;
   private debugTwoSnakesRequested = false;
   private readonly featureManager = new FeatureManager();
   private readonly baseActionStepIntervalMs = 100;
@@ -3163,6 +3165,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, 'equipment:boots');
     this.caffeinatedAppleBoostExpirationsMs = [];
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.CAFFEINATED_APPLE_SPEED_SOURCE);
+    this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.SWIMMING_TERRAIN_DRAG_SOURCE);
     this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
     this.lastAtmosphereWorldDay = this.snakeGame.getAtmosphereState().worldDay;
@@ -3240,8 +3243,10 @@ export default class SnakeScene extends Phaser.Scene {
     const lengthBefore = this.snakeGame.getSnakeLength();
     const result = this.gameSession.actionStep(this.paused);
     this.updateHouseAmbience();
+    this.updateSwimmingTerrainDrag();
 
     if (this.handleStepDeath(result) || this.handlePhoenixReviveTrigger()) {
+      this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.SWIMMING_TERRAIN_DRAG_SOURCE);
       return;
     }
 
@@ -5886,6 +5891,20 @@ export default class SnakeScene extends Phaser.Scene {
 
   getActionStepIntervalMs(): number {
     return this.actionStepIntervalMs;
+  }
+
+  private updateSwimmingTerrainDrag(): void {
+    const swimming =
+      !this.paused &&
+      this.snakeGame.isSnakeHeadOnWaterTile() &&
+      Boolean(
+        this.getFlag<boolean>('equipment.swimmingEnabled') ||
+          this.getFlag<boolean>('cheat.immortal'),
+      );
+    this.skillTree.applyActionStepIntervalScalar(
+      swimming ? SnakeScene.SWIMMING_TERRAIN_DRAG_SCALAR : 1,
+      SnakeScene.SWIMMING_TERRAIN_DRAG_SOURCE,
+    );
   }
 
   private applyRaccoonActionStepInterval(): void {
@@ -8928,6 +8947,15 @@ export default class SnakeScene extends Phaser.Scene {
       const world = this.tileToWorldInRoom({ x: chomp.x, y: chomp.y }, chomp.roomId);
       (this.juice as any).wallChomp?.(world.x, world.y);
       this.snakeGame.setFlag('ui.wallChomp', undefined);
+    }
+
+    const swimSplash = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>(
+      'ui.swimSplash',
+    );
+    if (swimSplash) {
+      const world = this.tileToWorldInRoom({ x: swimSplash.x, y: swimSplash.y }, swimSplash.roomId);
+      (this.juice as any).swimSplash?.(world.x, world.y);
+      this.snakeGame.setFlag('ui.swimSplash', undefined);
     }
 
     const fault = this.snakeGame.getFlag<{ roomId: string; y: number }>('ui.faultLine');

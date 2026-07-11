@@ -1623,6 +1623,7 @@ export class SnakeGame implements QuestRuntime {
       return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
 
+    this.reconcileSwimmingEquipmentFlag();
     const lethalStep = this.getImminentLethalStep();
     if (lethalStep) {
       if (this.lethalStepHoldKey === lethalStep.key) {
@@ -2747,17 +2748,17 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(info.roomId);
     const tile = room.layout[info.localY]?.[info.localX];
-    // Masonry blocks (the snake's own temporary walls) are always passable.
-    // Regular walls still require wall-survival abilities.
-    if ((tile === '#' || isBlockingTownTile(tile)) && !this.canSurviveWallStep()) {
+    if (tile === '~' && !this.canSurviveWaterStep()) {
       return {
-        key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
+        key: `water:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
       };
     }
-    if (tile === '~' && !this.getFlag<boolean>('equipment.swimmingEnabled')) {
+    // Masonry blocks (the snake's own temporary walls) are always passable.
+    // Regular walls still require wall-survival abilities.
+    if ((tile === '#' || (tile !== '~' && isBlockingTownTile(tile))) && !this.canSurviveWallStep()) {
       return {
-        key: `water:${target.x},${target.y}:${direction.x},${direction.y}`,
+        key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
       };
     }
@@ -2794,6 +2795,29 @@ export class SnakeGame implements QuestRuntime {
     const terraShield = this.getFlag<{ charges?: number }>('geometry.terraShield');
     const ghostShield = this.getFlag<{ charges?: number }>('traversal.ghostShield');
     return Number(terraShield?.charges ?? 0) > 0 || Number(ghostShield?.charges ?? 0) > 0;
+  }
+
+  private canSurviveWaterStep(): boolean {
+    if (
+      this.getFlag<boolean>('equipment.swimmingEnabled') ||
+      this.getFlag<boolean>('cheat.immortal')
+    ) {
+      return true;
+    }
+    return this.hasEquippedSwimming();
+  }
+
+  private hasEquippedSwimming(): boolean {
+    return this.inventory.getAllEquipped().some(([, itemId]) => {
+      const item = getItem(itemId);
+      return item?.kind === 'equipment' && Boolean(item.modifiers?.swimmingEnabled);
+    });
+  }
+
+  private reconcileSwimmingEquipmentFlag(): void {
+    if (!this.getFlag<boolean>('equipment.swimmingEnabled') && this.hasEquippedSwimming()) {
+      this.setFlag('equipment.swimmingEnabled', true);
+    }
   }
 
   private isFatalShieldedAppleStep(

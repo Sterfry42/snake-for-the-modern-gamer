@@ -253,6 +253,7 @@ export class SnakeState {
     }
     delete this.flags['internal.lastRemovedTail'];
     delete this.flags['internal.lastSelfCollision'];
+    delete this.flags['ui.swimSplash'];
     delete this.flags['geometry.wallEaten'];
     delete this.flags['geometry.terraShieldTriggered'];
 
@@ -361,6 +362,15 @@ export class SnakeState {
     if (tile === '~' && !this.flags['equipment.swimmingEnabled'] && !cheatImmortal) {
       this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
       return { status: 'dead', reason: 'water' };
+    }
+    if (tile === '~' && (this.flags['equipment.swimmingEnabled'] || cheatImmortal)) {
+      this.flags['ui.swimSplash'] = {
+        x: head.x,
+        y: head.y,
+        roomId: this.roomId,
+        localX: finalLocalHeadX,
+        localY: finalLocalHeadY,
+      };
     }
 
     const appleEaten = Boolean(

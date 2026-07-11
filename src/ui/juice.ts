@@ -7804,6 +7804,25 @@ export class JuiceManager {
     });
   }
 
+  // ─── Swim Splash ────────────────────────────────────────
+  swimSplash(worldX: number, worldY: number): void {
+    this.spawnBurst(worldX, worldY, {
+      colors: [0x9ad1ff, 0x74b8ff, 0xffffff],
+      count: 4,
+      radius: 9,
+    });
+
+    this.ringPulse(worldX, worldY, 0x9ad1ff, 4, 1.5, 160);
+
+    this.playTone({
+      frequency: 220,
+      frequencyEnd: 150,
+      duration: 0.07,
+      type: 'sine',
+      volume: 0.014,
+    });
+  }
+
   // ─── Crane Wing Flap ────────────────────────────────────────
   craneWingFlap(worldX: number, worldY: number): void {
     const layer = this.particleLayer;
