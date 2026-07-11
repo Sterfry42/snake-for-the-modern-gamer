@@ -484,7 +484,7 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     id: 'mosaic-coast',
     title: 'Mosaic Coast',
     family: 'town',
-    countsAs: ['grassland', 'ocean'],
+    countsAs: ['grassland'],
     tags: ['warm', 'dry', 'shore', 'civilized', 'starter', 'special'],
     generation: {
       minWidthRooms: 5,

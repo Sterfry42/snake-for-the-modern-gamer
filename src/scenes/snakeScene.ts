@@ -79,6 +79,7 @@ import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
 import {
+  resolveSpanishWebAudioFontState as resolveSpanishMusicState,
   SpanishWebAudioFontMusic,
   type SpanishWebAudioFontState,
 } from '../audio/spanishWebAudioFontMusic.js';
@@ -2852,27 +2853,12 @@ export default class SnakeScene extends Phaser.Scene {
     view: ResolvedAtmosphereView,
     room: ReturnType<SnakeGame['getCurrentRoom']>,
   ): SpanishWebAudioFontState | null {
-    if (view.biomeId !== 'mosaic-coast') {
-      return null;
-    }
-    if (room.archetypeId === 'el-drac-arena') {
-      return 'el-drac-boss-phase-1';
-    }
-    if (room.mosaicCoast?.tapasBar) {
-      return 'tapas-minigame';
-    }
-    const exposure = this.snakeGame.getFlag<SpanishWebAudioFontState | string>('mosaicCoast.exposure');
-    switch (exposure) {
-      case 'direct-sun':
-        return 'mosaic-coast-sun';
-      case 'shade':
-        return 'mosaic-coast-shade';
-      case 'cooling':
-      case 'interior':
-        return 'mosaic-coast-cooling';
-      default:
-        return 'mosaic-coast-base';
-    }
+    return resolveSpanishMusicState({
+      biomeId: view.biomeId,
+      archetypeId: room.archetypeId,
+      hasTapas: Boolean(room.mosaicCoast?.tapasBar),
+      exposure: this.snakeGame.getFlag<SpanishWebAudioFontState | string>('mosaicCoast.exposure'),
+    });
   }
 
   private getAtmosphereAudioKey(view: ResolvedAtmosphereView): string {
@@ -9329,6 +9315,16 @@ export default class SnakeScene extends Phaser.Scene {
         ease: 'Cubic.easeIn',
         onComplete: () => this.biomeHud.setVisible(false),
       });
+      if (
+        biomeReveal.biomeId === 'mosaic-coast' &&
+        !this.snakeGame.getFlag<boolean>('mosaicCoast.tutorialShown')
+      ) {
+        this.showQuestHintPopup(
+          'Mosaic Coast: direct sun raises HEAT. Blue shade pauses it. Fountains cool you down.',
+          '#9ad1ff',
+        );
+        this.snakeGame.setFlag('mosaicCoast.tutorialShown', true);
+      }
       this.snakeGame.setFlag('ui.biomeReveal', undefined);
     }
   }

@@ -3,16 +3,20 @@ import { createRng, type RandomGenerator } from '../../../core/rng.js';
 import { buildHouseNpcProfile } from '../../../npcs/profiles.js';
 import type { MosaicCoastExposureKind } from '../../types.js';
 import {
-  getMosaicCoastDistrictPlan,
   type MosaicCoastDistrictRoomPlan,
-} from '../mosaicCoastDistrictPlan.js';
+  MosaicCoastRegionPlanner,
+} from '../mosaicCoastRegionPlan.js';
 import type { RoomGenerationContext } from '../types.js';
 import type { WorldGenerationIdentity } from '../worldGenerationIdentity.js';
 
 const PASSABLE_MOSAIC_TILES = new Set(['.', 'M', 'a', 'b', 't', 'p', 'i', 'f', 'F', 'G', 'r']);
 
 export class MosaicCoastOperations {
-  constructor(private readonly identity: WorldGenerationIdentity) {}
+  private readonly planner: MosaicCoastRegionPlanner;
+
+  constructor(private readonly identity: WorldGenerationIdentity) {
+    this.planner = new MosaicCoastRegionPlanner(identity);
+  }
 
   fillMosaicCoastRoom(context: RoomGenerationContext): void {
     if (this.shouldStructureWin(context)) {
@@ -21,7 +25,7 @@ export class MosaicCoastOperations {
       return;
     }
 
-    const plan = getMosaicCoastDistrictPlan(context.roomId);
+    const plan = this.planner.getRoomPlan(context.roomId);
     const rng = createRng(`mosaic-coast:${this.identity.seed}:${context.roomId}`);
     context.mosaicCoast = this.createMetadata();
     context.archetype = {
@@ -32,10 +36,14 @@ export class MosaicCoastOperations {
     // Collision/layout is authored first; exposure and decoration are refreshed after.
     this.paintQuietStoneBase(context);
     this.paintDistrictContinuity(context, plan);
+    this.paintCrossRoomDistrictContinuity(context, plan);
+    this.carveSharedDistrictThresholds(context);
+    this.carveTransitionLandings(context);
     this.applyDistrictZone(context, plan, rng);
     this.addSeededStoneVariation(context, plan, rng);
     this.ensureCoolingSource(context, plan);
-    this.addStarterCoolingPockets(context, plan);
+    this.addFairnessCoolingPockets(context, plan);
+    this.applyEdgeSafety(context);
     this.protectExposureRoutes(context);
   }
 
@@ -43,6 +51,9 @@ export class MosaicCoastOperations {
     if (!context.mosaicCoast || this.shouldStructureWin(context)) {
       return;
     }
+    const plan = this.planner.getRoomPlan(context.roomId);
+    this.paintCrossRoomDistrictContinuity(context, plan);
+    this.applyEdgeSafety(context);
     this.protectExposureRoutes(context);
   }
 
@@ -91,37 +102,134 @@ export class MosaicCoastOperations {
     context: RoomGenerationContext,
     plan: MosaicCoastDistrictRoomPlan,
   ): void {
-    const midX = Math.floor(context.grid.cols / 2);
-    const midY = Math.floor(context.grid.rows / 2);
-    this.fillRect(context, midX - 2, 0, 5, context.grid.rows, '.');
-    this.fillRect(context, 0, midY - 2, context.grid.cols, 5, '.');
-    this.paintEdgeArchitecture(context, plan);
+    this.paintBuildingShell(context, plan);
+    this.carvePlanAlley(context, plan);
+    this.carveSharedDistrictThresholds(context);
   }
 
-  private paintEdgeArchitecture(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): void {
+  private paintBuildingShell(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): void {
     const cols = context.grid.cols;
     const rows = context.grid.rows;
-    const midX = Math.floor(cols / 2);
-    const midY = Math.floor(rows / 2);
-    const dense = plan.zone === 'ruined-stucco-block' || plan.zone === 'old-town-alley';
+    const dense = plan.zone === 'ruined-stucco-block' || plan.zone === 'old-town-alley' || plan.zone === 'tapas-courtyard' || plan.zone === 'gaudi-park-approach';
+    const borderDepth = dense ? 4 : 3;
 
-    this.fillRect(context, 1, 1, cols - 2, 2, 'a');
-    this.fillRect(context, 1, rows - 3, cols - 2, 2, 'a');
-    this.fillRect(context, 1, 1, 2, rows - 2, 'a');
-    this.fillRect(context, cols - 3, 1, 2, rows - 2, 'a');
+    this.fillRect(context, 1, 1, cols - 2, borderDepth, '#');
+    this.fillRect(context, 1, rows - borderDepth - 1, cols - 2, borderDepth, '#');
+    this.fillRect(context, 1, 1, borderDepth, rows - 2, '#');
+    this.fillRect(context, cols - borderDepth - 1, 1, borderDepth, rows - 2, '#');
 
-    const wallDepth = dense ? 5 : 3;
-    this.fillRect(context, 1, 1, 8, wallDepth, '#');
-    this.fillRect(context, cols - 9, 1, 8, wallDepth, '#');
-    this.fillRect(context, 1, rows - wallDepth - 1, 8, wallDepth, '#');
-    this.fillRect(context, cols - 9, rows - wallDepth - 1, 8, wallDepth, '#');
+    const blockCount = dense ? 6 : 4;
+    for (let i = 0; i < blockCount; i += 1) {
+      const hash = this.hashLocal(context, plan, i);
+      const width = 5 + (hash % 5);
+      const height = 4 + ((hash >>> 4) % 5);
+      const x = 4 + ((hash >>> 8) % Math.max(1, cols - width - 8));
+      const y = 4 + ((hash >>> 16) % Math.max(1, rows - height - 8));
+      this.fillRect(context, x, y, width, height, '#');
+      this.attachAwningToBuilding(context, x, y, width, height, hash);
+    }
+  }
 
-    this.fillRect(context, midX - 3, 0, 7, rows, '.');
-    this.fillRect(context, 0, midY - 3, cols, 7, '.');
-    this.fillRect(context, midX - 3, 0, 7, 5, 'a');
-    this.fillRect(context, midX - 3, rows - 5, 7, 5, 'a');
-    this.fillRect(context, 0, midY - 3, 5, 7, 'a');
-    this.fillRect(context, cols - 5, midY - 3, 5, 7, 'a');
+  private carvePlanAlley(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): void {
+    const cols = context.grid.cols;
+    const rows = context.grid.rows;
+    const vertical = plan.region.orientation === 'north-south';
+    const primary = vertical ? this.alleyColumn(context, plan) : this.alleyRow(context, plan);
+    const secondary = vertical ? this.alleyRow(context, plan) : this.alleyColumn(context, plan);
+    const primaryWidth = plan.zone === 'sun-plaza' || plan.zone === 'fountain-court' ? 7 : 4;
+    const secondaryWidth = plan.zone === 'sun-plaza' ? 5 : 3;
+
+    if (vertical) {
+      this.fillRect(context, primary - Math.floor(primaryWidth / 2), 0, primaryWidth, rows, '.');
+      this.fillRect(context, 0, secondary - Math.floor(secondaryWidth / 2), cols, secondaryWidth, '.');
+    } else {
+      this.fillRect(context, 0, primary - Math.floor(primaryWidth / 2), cols, primaryWidth, '.');
+      this.fillRect(context, secondary - Math.floor(secondaryWidth / 2), 0, secondaryWidth, rows, '.');
+    }
+
+    this.carveAlleyMouth(context, 'north', plan.alleyMouths.north || plan.region.entrySide === 'north');
+    this.carveAlleyMouth(context, 'south', plan.alleyMouths.south || plan.region.entrySide === 'south');
+    this.carveAlleyMouth(context, 'east', plan.alleyMouths.east || plan.region.entrySide === 'east');
+    this.carveAlleyMouth(context, 'west', plan.alleyMouths.west || plan.region.entrySide === 'west');
+  }
+
+  private paintCrossRoomDistrictContinuity(
+    context: RoomGenerationContext,
+    plan: MosaicCoastDistrictRoomPlan,
+  ): void {
+    const cols = context.grid.cols;
+    const rows = context.grid.rows;
+    const vertical = plan.region.orientation === 'north-south';
+    const alley = vertical ? this.alleyColumn(context, plan) : this.alleyRow(context, plan);
+
+    if (vertical) {
+      this.fillRect(context, alley - 3, 0, 7, 3, plan.alleyMouths.north ? '.' : '#');
+      this.fillRect(context, alley - 3, rows - 3, 7, 3, plan.alleyMouths.south ? '.' : '#');
+      this.fillRect(context, alley - 2, 0, 5, rows, '.');
+    } else {
+      this.fillRect(context, 0, alley - 3, 3, 7, plan.alleyMouths.west ? '.' : '#');
+      this.fillRect(context, cols - 3, alley - 3, 3, 7, plan.alleyMouths.east ? '.' : '#');
+      this.fillRect(context, 0, alley - 2, cols, 5, '.');
+    }
+    this.markBuildingEdgeShade(context, plan);
+  }
+
+  private carveAlleyMouth(
+    context: RoomGenerationContext,
+    side: 'north' | 'south' | 'east' | 'west',
+    open: boolean,
+  ): void {
+    if (!open) {
+      return;
+    }
+    const cols = context.grid.cols;
+    const rows = context.grid.rows;
+    const cx = Math.floor(cols / 2);
+    const cy = Math.floor(rows / 2);
+    if (side === 'north') this.fillRect(context, cx - 3, 0, 7, 6, '.');
+    if (side === 'south') this.fillRect(context, cx - 3, rows - 6, 7, 6, '.');
+    if (side === 'west') this.fillRect(context, 0, cy - 3, 6, 7, '.');
+    if (side === 'east') this.fillRect(context, cols - 6, cy - 3, 6, 7, '.');
+  }
+
+  private attachAwningToBuilding(
+    context: RoomGenerationContext,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    hash: number,
+  ): void {
+    if (hash % 3 === 0) {
+      this.fillRect(context, x, Math.min(context.grid.rows - 1, y + height), width, 1, 'a');
+    } else if (hash % 3 === 1) {
+      this.fillRect(context, Math.min(context.grid.cols - 1, x + width), y + 1, 1, Math.max(2, height - 1), 'b');
+    }
+  }
+
+  private markBuildingEdgeShade(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): void {
+    for (let y = 1; y < context.grid.rows - 1; y += 1) {
+      for (let x = 1; x < context.grid.cols - 1; x += 1) {
+        if (context.layout[y]?.[x] !== '.') {
+          continue;
+        }
+        const northWall = context.layout[y - 1]?.[x] === '#';
+        const westWall = context.layout[y]?.[x - 1] === '#';
+        if ((northWall || westWall) && (this.hashLocal(context, plan, x * 31 + y) % 3 !== 0)) {
+          context.canvas.set(x, y, 'b');
+        }
+      }
+    }
+  }
+
+  private alleyColumn(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): number {
+    const [roomX = 0, roomY = 0] = context.roomId.split(',').map(Number);
+    return 9 + (this.hashLocal(context, plan, roomX * 13 + roomY * 7) % Math.max(1, context.grid.cols - 18));
+  }
+
+  private alleyRow(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): number {
+    const [roomX = 0, roomY = 0] = context.roomId.split(',').map(Number);
+    return 7 + (this.hashLocal(context, plan, roomX * 17 + roomY * 11) % Math.max(1, context.grid.rows - 14));
   }
 
   private applyDistrictZone(
@@ -300,36 +408,88 @@ export class MosaicCoastOperations {
 
   private ensureCoolingSource(
     context: RoomGenerationContext,
-    plan: MosaicCoastDistrictRoomPlan,
+    _plan: MosaicCoastDistrictRoomPlan,
   ): void {
-    if ((context.mosaicCoast?.fountains.length ?? 0) > 0 || !plan.coolingRequired) {
+    if ((context.mosaicCoast?.fountains.length ?? 0) > 0) {
       return;
     }
     this.placeFountain(context, Math.floor(context.grid.cols / 2), Math.floor(context.grid.rows / 2), 2);
   }
 
-  private addStarterCoolingPockets(
+  private addFairnessCoolingPockets(
     context: RoomGenerationContext,
     plan: MosaicCoastDistrictRoomPlan,
   ): void {
-    if (!plan.coolingRequired) {
+    const shouldAdd =
+      plan.coolingRequired ||
+      plan.zone === 'old-town-alley' ||
+      plan.zone === 'ruined-stucco-block' ||
+      plan.zone === 'tapas-courtyard' ||
+      plan.zone === 'gaudi-park-approach' ||
+      plan.zone === 'el-drac-arena';
+    if (!shouldAdd) {
       return;
     }
     const cols = context.grid.cols;
     const rows = context.grid.rows;
     [
-      { x: 5, y: 5 },
-      { x: cols - 6, y: 5 },
-      { x: 5, y: rows - 6 },
-      { x: cols - 6, y: rows - 6 },
+      { x: 4, y: 4 },
+      { x: cols - 5, y: 4 },
+      { x: 4, y: rows - 5 },
+      { x: cols - 5, y: rows - 5 },
     ].forEach((pocket) => {
       const alreadyCooling = context.mosaicCoast?.fountains.some(
-        (fountain) => Math.abs(fountain.x - pocket.x) + Math.abs(fountain.y - pocket.y) <= 5,
+        (fountain) => Math.abs(fountain.x - pocket.x) + Math.abs(fountain.y - pocket.y) <= 10,
       );
       if (!alreadyCooling) {
-        this.placeFountain(context, pocket.x, pocket.y, 1);
+        this.placeCoolingPocket(context, pocket.x, pocket.y);
       }
     });
+  }
+
+  private applyEdgeSafety(context: RoomGenerationContext): void {
+    this.carveSharedDistrictThresholds(context);
+    this.carveTransitionLandings(context);
+  }
+
+  private carveTransitionLandings(context: RoomGenerationContext): void {
+    for (const contract of context.transitionContracts ?? []) {
+      if (!contract.passable || contract.kind !== 'shoreline') {
+        continue;
+      }
+      const half = Math.floor(contract.openingWidth / 2);
+      const start = contract.openingCenter - half;
+      const end = start + contract.openingWidth - 1;
+      for (let offset = 0; offset < contract.runupDepth + 2; offset += 1) {
+        for (let along = start; along <= end; along += 1) {
+          const x =
+            contract.side === 'west'
+              ? offset
+              : contract.side === 'east'
+                ? context.grid.cols - 1 - offset
+                : along;
+          const y =
+            contract.side === 'north'
+              ? offset
+              : contract.side === 'south'
+                ? context.grid.rows - 1 - offset
+                : along;
+          if (!context.layout[y]?.[x]) {
+            continue;
+          }
+          context.canvas.set(x, y, offset <= 1 ? 'a' : '.');
+        }
+      }
+    }
+  }
+
+  private carveSharedDistrictThresholds(context: RoomGenerationContext): void {
+    const cols = context.grid.cols;
+    const rows = context.grid.rows;
+    this.fillRect(context, 0, 0, cols, 1, 'a');
+    this.fillRect(context, 0, rows - 1, cols, 1, 'a');
+    this.fillRect(context, 0, 0, 1, rows, 'a');
+    this.fillRect(context, cols - 1, 0, 1, rows, 'a');
   }
 
   private placeMosaicMedallion(
@@ -372,6 +532,24 @@ export class MosaicCoastOperations {
       }
     }
     context.mosaicCoast?.fountains.push({ x: centerX, y: centerY, radius });
+    context.temperatureReliefs = [
+      ...(context.temperatureReliefs ?? []),
+      ...cells.map((cell) => ({ ...cell, kind: 'cool' as const })),
+    ];
+  }
+
+  private placeCoolingPocket(context: RoomGenerationContext, centerX: number, centerY: number): void {
+    const cells: Vector2Like[] = [];
+    for (let y = centerY - 1; y <= centerY + 1; y += 1) {
+      for (let x = centerX - 1; x <= centerX + 1; x += 1) {
+        if (!context.layout[y]?.[x] || Math.abs(x - centerX) + Math.abs(y - centerY) > 1) {
+          continue;
+        }
+        context.canvas.set(x, y, 'f');
+        cells.push({ x, y });
+      }
+    }
+    context.mosaicCoast?.fountains.push({ x: centerX, y: centerY, radius: 1 });
     context.temperatureReliefs = [
       ...(context.temperatureReliefs ?? []),
       ...cells.map((cell) => ({ ...cell, kind: 'cool' as const })),
@@ -453,12 +631,45 @@ export class MosaicCoastOperations {
         protectedCells.add(vectorKey(exposure));
       }
     }
-    for (let y = 0; y < context.grid.rows; y += 1) {
-      protectedCells.add(vectorKey({ x: Math.floor(context.grid.cols / 2), y }));
-    }
-    for (let x = 0; x < context.grid.cols; x += 1) {
-      protectedCells.add(vectorKey({ x, y: Math.floor(context.grid.rows / 2) }));
+    for (const contract of context.transitionContracts ?? []) {
+      if (!contract.passable) {
+        continue;
+      }
+      const half = Math.floor(contract.openingWidth / 2);
+      const start = contract.openingCenter - half;
+      const end = start + contract.openingWidth - 1;
+      for (let offset = 0; offset < contract.runupDepth; offset += 1) {
+        for (let along = start; along <= end; along += 1) {
+          const x =
+            contract.side === 'west'
+              ? offset
+              : contract.side === 'east'
+                ? context.grid.cols - 1 - offset
+                : along;
+          const y =
+            contract.side === 'north'
+              ? offset
+              : contract.side === 'south'
+                ? context.grid.rows - 1 - offset
+                : along;
+          protectedCells.add(vectorKey({ x, y }));
+        }
+      }
     }
     context.protectedCells = protectedCells;
+  }
+
+  private hashLocal(
+    context: RoomGenerationContext,
+    plan: MosaicCoastDistrictRoomPlan,
+    salt: number,
+  ): number {
+    let hash = 2166136261;
+    const value = `${this.identity.seed}:${plan.region.id}:${context.roomId}:${salt}`;
+    for (let index = 0; index < value.length; index += 1) {
+      hash ^= value.charCodeAt(index);
+      hash = Math.imul(hash, 16777619);
+    }
+    return hash >>> 0;
   }
 }

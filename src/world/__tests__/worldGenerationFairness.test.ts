@@ -4,9 +4,9 @@ import { vectorKey } from '../../core/math.js';
 import { createRng } from '../../core/rng.js';
 import { getBiomeForRoom } from '../biomes.js';
 import {
-  getMosaicCoastStarterPlan,
-  getMosaicCoastStarterZone,
-} from '../generation/mosaicCoastDistrictPlan.js';
+  getMosaicCoastStarterRegionPlan,
+  MosaicCoastRegionPlanner,
+} from '../generation/mosaicCoastRegionPlan.js';
 import { createWorldGenerationIdentity } from '../generation/worldGenerationIdentity.js';
 import { isMosaicCoastPassableTile, isMosaicCoastSolidTile } from '../mosaicCoastTiles.js';
 import { tryPlaceQuestHouse } from '../questHouse.js';
@@ -595,40 +595,55 @@ describe('world generation fairness', () => {
     ).toBe(true);
   });
 
-  it('uses the authored Mosaic Coast district plan for the starter rectangle', () => {
+  it('uses a seeded Mosaic Coast region plan for the starter rectangle', () => {
+    const identity = createWorldGenerationIdentity('mosaic-district-plan');
+    const planner = new MosaicCoastRegionPlanner(identity);
+    const starter = getMosaicCoastStarterRegionPlan(identity);
     const rooms = generateArea('mosaic-district-plan', -4, 2, -11, -9);
-    const expected = getMosaicCoastStarterPlan();
 
-    for (const [id, zone] of Object.entries(expected)) {
-      const room = rooms.get(id);
-      expect(room?.biomeId).toBe('mosaic-coast');
-      expect(getMosaicCoastStarterZone(id)).toBe(zone);
-      if (zone === 'tapas-courtyard') {
-        expect(room?.archetypeId).toBe('tapas-crawl-room');
-      } else {
-        expect(room?.archetypeId).toBe(zone);
-      }
+    expect(starter.bounds).toMatchObject({ left: -4, top: -11, width: 7, height: 3, z: 0 });
+    expect(starter.entrySide).toBe('south');
+    expect(starter.landmarkNodes.arrival).toEqual({ x: -1, y: -9, z: 0 });
+    expect(starter.landmarkNodes.fountain).toEqual({ x: 2, y: -9, z: 0 });
+    expect(starter.landmarkNodes.tapas).toEqual({ x: 0, y: -10, z: 0 });
+    expect(starter.landmarkNodes.gaudiApproach).toEqual({ x: 1, y: -11, z: 0 });
+    expect(starter.landmarkNodes.elDracArena).toEqual({ x: 2, y: -11, z: 0 });
+
+    for (const [id, room] of rooms) {
+      const plan = planner.getRoomPlan(id);
+      expect(room.biomeId).toBe('mosaic-coast');
+      expect(room.archetypeId).toBe(plan.archetypeId);
     }
   });
 
-  it('keeps Mosaic Coast macro layout stable while seed changes small decoration', () => {
+  it('keeps required Mosaic landmarks while seed can change generated zone layout', () => {
     const first = generateArea('mosaic-seed-a', -4, 2, -11, -9);
     const second = generateArea('mosaic-seed-b', -4, 2, -11, -9);
-    let changedDecorations = 0;
+    const firstZones = new Set([...first.values()].map((room) => `${room.id}:${room.archetypeId}`));
+    const secondZones = new Set([...second.values()].map((room) => `${room.id}:${room.archetypeId}`));
 
-    for (const [id, room] of first) {
-      const other = second.get(id)!;
-      expect(other.archetypeId).toBe(room.archetypeId);
-      expect(Boolean(other.mosaicCoast?.tapasBar)).toBe(Boolean(room.mosaicCoast?.tapasBar));
-      expect(Boolean(other.mosaicCoast?.gaudiPark?.bossEntrance)).toBe(
-        Boolean(room.mosaicCoast?.gaudiPark?.bossEntrance),
-      );
-      if (other.layout.join('\n') !== room.layout.join('\n')) {
-        changedDecorations += 1;
-      }
-    }
+    expect(first.get('-1,-9,0')?.archetypeId).toBe('mosaic-arrival');
+    expect(second.get('-1,-9,0')?.archetypeId).toBe('mosaic-arrival');
+    expect(first.get('0,-10,0')?.mosaicCoast?.tapasBar).toBeTruthy();
+    expect(second.get('0,-10,0')?.mosaicCoast?.tapasBar).toBeTruthy();
+    expect(first.get('2,-11,0')?.mosaicCoast?.gaudiPark?.bossEntrance).toBeTruthy();
+    expect(second.get('2,-11,0')?.mosaicCoast?.gaudiPark?.bossEntrance).toBeTruthy();
+    expect([...firstZones].some((entry) => !secondZones.has(entry))).toBe(true);
+  });
 
-    expect(changedDecorations).toBeGreaterThan(0);
+  it('creates valid non-starter Mosaic Coast region plans without coordinate fallback', () => {
+    const first = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-a'));
+    const second = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-a'));
+    const different = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-b'));
+    const roomId = '24,-17,0';
+    const plan = first.getRoomPlan(roomId);
+
+    expect(plan.region.id).not.toContain('-4,-11');
+    expect(plan.region.landmarkNodes.arrival).toBeDefined();
+    expect(plan.region.landmarkNodes.fountain).toBeDefined();
+    expect(plan.region.mainAlleySpine.length).toBeGreaterThan(0);
+    expect(second.getRoomPlan(roomId).region).toEqual(plan.region);
+    expect(different.getRoomPlan(roomId).region).not.toEqual(plan.region);
   });
 
   it('keeps normal Mosaic Coast accent floors sparse and generic rivers absent', () => {
@@ -680,6 +695,34 @@ describe('world generation fairness', () => {
     }
     expect(failures.slice(0, 20)).toEqual([]);
     expect(failures).toHaveLength(0);
+  });
+
+  it('keeps Mosaic Coast shoreline transitions dry on both sides of the ocean boundary', () => {
+    const rooms = generateArea('mosaic-ocean-transition', -4, 2, -12, -11);
+    const failures: string[] = [];
+    let checkedOceanTransitions = 0;
+    for (let x = -4; x <= 2; x += 1) {
+      const ocean = rooms.get(`${x},-12,0`);
+      const mosaic = rooms.get(`${x},-11,0`);
+      if (ocean?.biomeId !== 'sunken-ocean') {
+        continue;
+      }
+      checkedOceanTransitions += 1;
+      expect(mosaic?.biomeId).toBe('mosaic-coast');
+      for (let col = 0; col < defaultGameConfig.grid.cols; col += 1) {
+        const oceanTile = ocean?.layout[defaultGameConfig.grid.rows - 1]?.[col];
+        const mosaicTile = mosaic?.layout[0]?.[col];
+        const eitherOpen = isImmediatelySafe(oceanTile) || isImmediatelySafe(mosaicTile);
+        if (!eitherOpen) {
+          continue;
+        }
+        if (oceanTile === '~' || mosaicTile === '~') {
+          failures.push(`${x} col ${col} ocean=${oceanTile} mosaic=${mosaicTile}`);
+        }
+      }
+    }
+    expect(checkedOceanTransitions).toBeGreaterThan(0);
+    expect(failures).toEqual([]);
   });
 
   it('classifies Mosaic Coast collision tiles explicitly', () => {

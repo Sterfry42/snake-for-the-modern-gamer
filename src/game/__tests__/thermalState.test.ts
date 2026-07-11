@@ -118,6 +118,7 @@ describe('SnakeGame thermal body state', () => {
         { x: 5, y: 10, kind: 'direct-sun' },
         { x: 6, y: 10, kind: 'shade' },
         { x: 7, y: 10, kind: 'cooling' },
+        { x: 8, y: 10, kind: 'interior' },
       ],
       fountains: [{ x: 7, y: 10, radius: 1 }],
       canopyTrees: [],
@@ -148,5 +149,14 @@ describe('SnakeGame thermal body state', () => {
       sunny,
     );
     expect(game.getFlag('mosaicCoast.exposure')).toBe('cooling');
+
+    game.setFlag('player.temperatureHotExposureMs', sunny);
+    snake.body[0] = { x: 8, y: 10 };
+    game.setFlag('timeMs', 9000);
+    (game as any).tickTemperatureState();
+    expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBeLessThan(
+      sunny,
+    );
+    expect(game.getFlag('mosaicCoast.exposure')).toBe('interior');
   });
 });
