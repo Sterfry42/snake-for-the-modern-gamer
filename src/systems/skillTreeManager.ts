@@ -429,6 +429,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
     this.juice.perkPurchased();
     this.scene.setFlag('skills.ranks', this.system.exportRanks());
+    this.scene.snakeGame.refreshPlayerMaxHealth();
     this.overlay.refresh();
     this.overlay.pulsePerk(perkId);
     this.overlay.announce(

@@ -12,6 +12,7 @@ import {
   type TownDoorKind,
 } from '../layers/layerTypes.js';
 import type { BiomeId } from './biomes.js';
+import { tileHasTag } from './tiles.js';
 import { selectPrimaryTownMerchant, shopKindForTownRole } from './townRoles.js';
 import type { RoomArea, RoomSnapshot } from './types.js';
 
@@ -355,6 +356,7 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'gloam-garden': ['Thornwick', 'Petalford', 'Gloamgate', 'Rose Toll', 'Rootmarket'],
   'elderwood-maze': ['Briarford', 'Canopy Gate', 'Oldroot', 'Green Toll', 'Mosswick'],
   'sunken-ocean': ['Pearlford', 'Foamgate', 'Saltwick', 'Tide Toll', 'Brinemarket'],
+  'mosaic-coast': ['Azulgate', 'Tileford', 'Fountain Toll', 'Siesta Row', 'Mosaicmarket'],
   'home-hearth': ['Hearthwick', 'Cinderhome', 'Lampford', 'Quiet Gate', 'Warmmarket'],
   'jade-peak-province': ['Jadeford', 'Mistgate', 'Cedar Toll', 'Koiwick', 'Shrinemarket'],
   'liberty-badlands': [
@@ -502,10 +504,8 @@ function setChar(layout: string[][], x: number, y: number, ch: string): void {
 }
 
 const IMPORTANT_TOWN_TILES = new Set(['G', 'Y', 'v', 't', 'd', 'h', 'j', 'u', 'U', 'x', 'o']);
-const BLOCKING_TOWN_TILES = new Set(['#', '~', 'h', 'u', 'x']);
-
 export function isBlockingTownTile(tile: string | undefined): boolean {
-  return Boolean(tile && BLOCKING_TOWN_TILES.has(tile));
+  return tileHasTag(tile, 'townBlocking');
 }
 
 export function townResidentPresences(town: TownStructure, roomId: string): TownResidentPresence[] {

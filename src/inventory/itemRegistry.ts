@@ -96,23 +96,21 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'boots-swim-fins',
     name: 'Swim Fins',
-    description: 'Flexible fins that let you cross lakes and ocean water.',
+    description: 'Flexible fins that let you cross lakes and ocean water. Water still pushes back a little.',
     kind: 'equipment',
     slot: 'boots',
     modifiers: {
       swimmingEnabled: true,
-      tickDelayScalar: 1.05,
     },
   },
   {
     id: 'boots-lead-flippers',
     name: 'Lead Flippers',
-    description: 'Village-grade flippers. They cross water and make every tile feel farther away.',
+    description: 'Village-grade flippers. They cross water, but every stroke has weight.',
     kind: 'equipment',
     slot: 'boots',
     modifiers: {
       swimmingEnabled: true,
-      tickDelayScalar: 1.12,
     },
   },
   {

@@ -8,9 +8,6 @@ import {
   type CheatDefinition,
 } from '../../../cheats/cheatRegistry.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = __filename.slice(0, __filename.lastIndexOf('/'));
-
 /**
  * Every structure that can be generated in the world must have a dedicated
  * cheat that lets the player spawn it. This test guards against regressions
@@ -90,7 +87,7 @@ describe('Structure cheat coverage', () => {
 
   it('all structure cheats are implemented in snakeScene', () => {
     const structureCheats = getStructureCheats();
-    const snakeScenePath = `${__dirname}/../../../scenes/snakeScene.ts`;
+    const snakeScenePath = fileURLToPath(new URL('../../../scenes/snakeScene.ts', import.meta.url));
     const snakeSceneContent = readFileSync(snakeScenePath, 'utf-8');
 
     for (const cheat of structureCheats) {

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { AppleService } from '../appleService.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import { createDefaultSpecialStats } from '../../stats/specialStats.js';
 
 function caveRoom(roomId = 'cave:3,0,0:0'): RoomSnapshot {
   const { rows, cols } = defaultGameConfig.grid;
@@ -161,5 +162,50 @@ describe('town perimeter apples', () => {
     expect(result.changed).toBe(true);
     expect(result.snapshot?.roomId).toBe(room.id);
     expect(room.apple).toBeDefined();
+  });
+});
+
+describe('SPECIAL apple weighting', () => {
+  it('uses SPECIAL-aware weights for runtime apple spawning', () => {
+    const room: RoomSnapshot = {
+      id: '8,8,0',
+      layout: Array.from({ length: defaultGameConfig.grid.rows }, () =>
+        '.'.repeat(defaultGameConfig.grid.cols),
+      ),
+      portals: [],
+      biomeId: 'verdigris-basin',
+      biomeTitle: 'Verdigris Basin',
+      backgroundColor: 0,
+      wallColor: 0,
+      wallOutlineColor: 0,
+    };
+    const world = {
+      getRoom: () => room,
+      setApple: (_roomId: string, position?: { x: number; y: number }) => {
+        room.apple = position;
+      },
+      hasTreasureAt: () => false,
+    };
+    const config = {
+      ...defaultGameConfig.apples,
+      types: defaultGameConfig.apples.types
+        .filter((type) => type.id === 'normal' || type.id === 'gold')
+        .map((type) => ({
+          ...type,
+          spawn: { ...type.spawn, base: type.id === 'normal' ? 100 : 10, scoreThreshold: 0 },
+        })),
+    };
+    const luckyStats = { ...createDefaultSpecialStats(), luck: 10 };
+    const apples = new AppleService(
+      config,
+      defaultGameConfig.grid,
+      world as never,
+      () => 0.88,
+      () => luckyStats,
+    );
+
+    const result = apples.ensureApple(room.id, [], 0);
+
+    expect(result.snapshot?.typeId).toBe('gold');
   });
 });

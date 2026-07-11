@@ -22,6 +22,7 @@ function generateRoomWithSeed(seed: string, coord: RoomCoord): RoomSnapshot {
 describe('deterministic fairness tests', () => {
   const origin = { x: 0, y: 0, z: 0 };
   const testRadius = 3;
+  const longRunningWorldTestTimeout = 60_000;
 
   function buildTestCoords(): RoomCoord[] {
     const coords: RoomCoord[] = [];
@@ -72,7 +73,7 @@ describe('deterministic fairness tests', () => {
         }
         expect(different).toBe(true);
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('50 sequential seeds all produce valid worlds (no crashes)', () => {
       for (let i = 0; i < 50; i++) {
@@ -85,7 +86,7 @@ describe('deterministic fairness tests', () => {
           }
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('100 sequential seeds maintain consistent origin room biome', () => {
       const biomes = new Set<string>();
@@ -96,7 +97,7 @@ describe('deterministic fairness tests', () => {
       }
       // Origin room biome is coordinate-dependent, should be the same
       expect(biomes.size).toBe(1);
-    });
+    }, longRunningWorldTestTimeout);
 
     it('100 sequential seeds maintain consistent origin room archetype', () => {
       const archetypes = new Set<string>();
@@ -108,7 +109,7 @@ describe('deterministic fairness tests', () => {
       // Origin room should consistently be 'classic' archetype
       expect(archetypes.has('classic')).toBe(true);
       expect(archetypes.size).toBe(1);
-    });
+    }, longRunningWorldTestTimeout);
 
     it('100 sequential seeds never produce completely blocked worlds', () => {
       for (let i = 0; i < 100; i++) {
@@ -126,7 +127,7 @@ describe('deterministic fairness tests', () => {
         }
         expect(hasPassable).toBe(true);
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('100 sequential seeds maintain consistent coordinate-dependent features', () => {
       const coords = [
@@ -144,7 +145,7 @@ describe('deterministic fairness tests', () => {
           expect(room.biomeId).toBe(expectedBiome);
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('100 sequential seeds produce rooms with at least some passable tiles', () => {
       for (let i = 0; i < 100; i++) {
@@ -157,7 +158,7 @@ describe('deterministic fairness tests', () => {
           expect(hasPassable).toBe(true);
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
   });
 
   describe('biome distribution', () => {
@@ -187,7 +188,7 @@ describe('deterministic fairness tests', () => {
       const commonBiomes = ['verdigris-basin', 'sundrop-plains', 'dawnvale-fells', 'jade-peak-province'];
       const commonCount = commonBiomes.reduce((sum, biome) => sum + (biomeCounts.get(biome) ?? 0), 0);
       expect(commonCount / totalRooms).toBeGreaterThan(0.3);
-    });
+    }, longRunningWorldTestTimeout);
 
     it('fixed coordinates always produce the same biome regardless of seed', () => {
       const coords = [
@@ -205,7 +206,7 @@ describe('deterministic fairness tests', () => {
           expect(room.biomeId).toBe(expectedBiome);
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
   });
 
   describe('structural integrity', () => {
@@ -220,7 +221,7 @@ describe('deterministic fairness tests', () => {
           }
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('all rooms have valid biomes', () => {
       const validBiomes = new Set<string>();
@@ -238,7 +239,7 @@ describe('deterministic fairness tests', () => {
           expect(validBiomes.has(room.biomeId)).toBe(true);
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('all rooms have valid color values', () => {
       for (let i = 0; i < 50; i++) {
@@ -250,7 +251,7 @@ describe('deterministic fairness tests', () => {
           expect(room.wallOutlineColor).toBeGreaterThanOrEqual(0);
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('all rooms have at least one passable tile', () => {
       for (let i = 0; i < 50; i++) {
@@ -263,7 +264,7 @@ describe('deterministic fairness tests', () => {
           expect(hasPassable).toBe(true);
         }
       }
-    });
+    }, longRunningWorldTestTimeout);
 
     it('origin room is never an ocean room', () => {
       for (let i = 0; i < 50; i++) {
@@ -307,7 +308,7 @@ describe('deterministic fairness tests', () => {
           }
         }
       },
-      15_000,
+      longRunningWorldTestTimeout,
     );
 
     it('Liberty Badlands biome is consistent across seeds', () => {

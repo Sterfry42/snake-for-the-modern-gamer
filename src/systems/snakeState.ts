@@ -4,6 +4,7 @@ import { addVectors } from '../core/math.js';
 import type { BossManager } from './boss.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { isSolidTile } from '../world/tiles.js';
+import { getSafeZoneRules } from '../world/safeZones.js';
 
 export interface SnakeStepOutcome {
   status: 'alive' | 'dead';
@@ -208,10 +209,10 @@ export class SnakeState {
     }
 
     const currentRoom = deps.getRoom(this.roomId);
-    const safeZoneActive = this.isInSafeZone(currentRoom, currentHeadBeforeMove);
+    const safeZoneRules = this.getSafeZoneRules(currentRoom, currentHeadBeforeMove);
 
     // If we're in a safe zone, gently steer away from walls instead of dying
-    if (safeZoneActive && !cheatImmortal) {
+    if (safeZoneRules?.steerAwayFromWalls && !cheatImmortal) {
       const tryDirs = [
         this.direction,
         { x: -this.direction.y, y: this.direction.x }, // left
@@ -252,6 +253,7 @@ export class SnakeState {
     }
     delete this.flags['internal.lastRemovedTail'];
     delete this.flags['internal.lastSelfCollision'];
+    delete this.flags['ui.swimSplash'];
     delete this.flags['geometry.wallEaten'];
     delete this.flags['geometry.terraShieldTriggered'];
 
@@ -330,7 +332,11 @@ export class SnakeState {
       Number(this.flags['fortitude.invulnerabilityTicks'] ?? 0),
       Number(this.flags['traversal.phaseTicks'] ?? 0),
     );
-    const wallInvulnTicks = Math.max(invulnTicks, safeZoneActive ? 1 : 0, cheatImmortal ? 1 : 0);
+    const wallInvulnTicks = Math.max(
+      invulnTicks,
+      safeZoneRules?.phaseThroughWalls ? 1 : 0,
+      cheatImmortal ? 1 : 0,
+    );
     if (isSolidTile(tile)) {
       if (wallInvulnTicks > 0) {
         // Invulnerability lets us phase through the wall.
@@ -356,6 +362,15 @@ export class SnakeState {
     if (tile === '~' && !this.flags['equipment.swimmingEnabled'] && !cheatImmortal) {
       this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
       return { status: 'dead', reason: 'water' };
+    }
+    if (tile === '~' && (this.flags['equipment.swimmingEnabled'] || cheatImmortal)) {
+      this.flags['ui.swimSplash'] = {
+        x: head.x,
+        y: head.y,
+        roomId: this.roomId,
+        localX: finalLocalHeadX,
+        localY: finalLocalHeadY,
+      };
     }
 
     const appleEaten = Boolean(
@@ -486,30 +501,17 @@ export class SnakeState {
     };
   }
 
-  private isSafeRoom(roomId: string): boolean {
-    return roomId === '0,-1,0';
-  }
-
-  private isSafeTile(tile?: string): boolean {
-    if (!tile) return false;
-    return 'WETCKBPLG'.includes(tile);
-  }
-
-  private isInSafeZone(room: RoomSnapshot, head?: Vector2Like): boolean {
-    if (this.isSafeRoom(this.roomId)) {
-      return true;
-    }
+  private getSafeZoneRules(room: RoomSnapshot, head?: Vector2Like) {
     if (!head) {
-      return false;
+      return getSafeZoneRules(room);
     }
     const [roomX, roomY] = this.parseRoomCoordinates(this.roomId);
     const localX = head.x - roomX * this.grid.cols;
     const localY = head.y - roomY * this.grid.rows;
     if (localX < 0 || localY < 0 || localX >= this.grid.cols || localY >= this.grid.rows) {
-      return false;
+      return null;
     }
-    const tile = room.layout[localY]?.[localX];
-    return this.isSafeTile(tile);
+    return getSafeZoneRules(room, { x: localX, y: localY });
   }
   restorePreviousSnapshot(): void {
     const snapshot = this.flags['internal.previousSnapshot'] as

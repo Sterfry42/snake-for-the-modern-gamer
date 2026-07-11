@@ -3,9 +3,6 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { CHEAT_DEFINITIONS, getCheatsByCategory } from '../../cheats/cheatRegistry.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = __filename.slice(0, __filename.lastIndexOf('/'));
-
 /**
  * Every cheat registered in CHEAT_DEFINITIONS must appear in the cheats UI tab.
  * This test guards against regressions where a cheat is added to the registry
@@ -13,7 +10,7 @@ const __dirname = __filename.slice(0, __filename.lastIndexOf('/'));
  */
 describe('Cheat UI coverage', () => {
   it('buildCheatsCards uses getCheatsByCategory to render all cheats', () => {
-    const skillTreePath = `${__dirname}/../skillTreeOverlay.ts`;
+    const skillTreePath = fileURLToPath(new URL('../skillTreeOverlay.ts', import.meta.url));
     const skillTreeContent = readFileSync(skillTreePath, 'utf-8');
 
     // Verify the import for getCheatsByCategory exists
@@ -58,7 +55,7 @@ describe('Cheat UI coverage', () => {
   });
 
   it('cheat UI labels and buttons reference all cheat primary codes', () => {
-    const skillTreePath = `${__dirname}/../skillTreeOverlay.ts`;
+    const skillTreePath = fileURLToPath(new URL('../skillTreeOverlay.ts', import.meta.url));
     const skillTreeContent = readFileSync(skillTreePath, 'utf-8');
 
     // Find the enable button creation for cheats

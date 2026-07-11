@@ -63,6 +63,14 @@ const BULLET_LAYER_DEPTH = 26;
 const FURNITURE_LAYER_DEPTH = 21;
 const VEGETATION_LAYER_DEPTH = 19;
 const POWERUP_LAYER_DEPTH = 20.5;
+const MOSAIC_COAST_WALL_COLORS = {
+  stucco: 0xf6eedc,
+  stuccoAlt: 0xe8dcc6,
+  outline: 0x382818,
+  castShadow: 0x5b4633,
+  terracottaCap: 0xb65a38,
+  crack: 0x6a5746,
+};
 
 interface SnakeRenderOptions {
   wallSenseRadius?: number;
@@ -257,6 +265,7 @@ export class SnakeRenderer {
     this.drawMasonryBlocks(room, (roomId, lx, ly) => this.getMasonryBlockAge(roomId, lx, ly));
     this.drawAtmosphereBaseTint(opts.atmosphere);
     this.drawTemperatureReliefs(room);
+    this.drawMosaicCoastExposureOverlay(room, opts.renderTimeMs ?? 0);
     this.drawFurniture(room);
     this.drawVegetation(room);
     this.drawAtmosphereGroundJuice(room, opts.atmosphere, opts.renderTimeMs ?? 0);
@@ -828,6 +837,11 @@ export class SnakeRenderer {
             this.drawBoatTile(rectX, rectY, x, y);
           }
         } else if (
+          room.biomeId === 'mosaic-coast' &&
+          ['.', 'M', 'a', 't', 'f', 'F', 'b', 'i', 'p', 'r', 'G'].includes(tile)
+        ) {
+          this.drawMosaicCoastTile(rectX, rectY, tile, x, y);
+        } else if (
           room.biomeId === 'liberty-badlands' &&
           ['A', 'E', 'F', 'G', 'L', 'M', 'N', 'O', 'P', 'W'].includes(tile)
         ) {
@@ -1121,6 +1135,37 @@ export class SnakeRenderer {
           }
           this.wallGraphics
             .lineStyle(1, 0x07152c, 0.75)
+            .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+        } else if (room.biomeId === 'mosaic-coast') {
+          const cell = this.grid.cell;
+          const stucco =
+            (x + y) % 4 === 0
+              ? MOSAIC_COAST_WALL_COLORS.stucco
+              : MOSAIC_COAST_WALL_COLORS.stuccoAlt;
+          this.wallGraphics.fillStyle(stucco, 1).fillRect(rectX, rectY, cell, cell);
+          this.wallGraphics
+            .fillStyle(MOSAIC_COAST_WALL_COLORS.castShadow, 0.55)
+            .fillRect(rectX + cell * 0.12, rectY + cell * 0.72, cell * 0.88, cell * 0.28);
+          this.wallGraphics
+            .fillStyle(MOSAIC_COAST_WALL_COLORS.castShadow, 0.32)
+            .fillRect(rectX + cell * 0.74, rectY + cell * 0.12, cell * 0.26, cell * 0.88);
+          if ((x * 3 + y * 5) % 7 === 0) {
+            this.wallGraphics
+              .fillStyle(MOSAIC_COAST_WALL_COLORS.terracottaCap, 0.92)
+              .fillRect(rectX, rectY, cell, Math.max(3, cell * 0.15));
+          }
+          if ((x * 11 + y * 5) % 9 === 0) {
+            this.wallGraphics
+              .fillStyle(MOSAIC_COAST_WALL_COLORS.crack, 0.65)
+              .fillRect(rectX + cell * 0.42, rectY + cell * 0.28, Math.max(1, cell * 0.08), cell * 0.4);
+          }
+          if ((x * 7 + y * 13) % 11 === 0) {
+            this.wallGraphics
+              .fillStyle(0x17212b, 0.72)
+              .fillRect(rectX + cell * 0.28, rectY + cell * 0.34, cell * 0.44, cell * 0.16);
+          }
+          this.wallGraphics
+            .lineStyle(2, MOSAIC_COAST_WALL_COLORS.outline, 0.92)
             .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
         } else {
           this.wallGraphics.fillStyle(room.wallColor, 1);
@@ -1812,6 +1857,88 @@ export class SnakeRenderer {
     }
   }
 
+  private drawMosaicCoastTile(
+    rectX: number,
+    rectY: number,
+    tile: string,
+    tileX: number,
+    tileY: number,
+  ): void {
+    const cell = this.grid.cell;
+    const stone = (tileX * 17 + tileY * 7) % 11 === 0 ? 0xeadfc9 : 0xf2e8d6;
+    this.graphics.fillStyle(stone, 1).fillRect(rectX, rectY, cell, cell);
+    if ((tileX * 5 + tileY * 3) % 13 === 0 || tile === 'r') {
+      this.graphics
+        .lineStyle(1, 0xb5a58c, tile === 'r' ? 0.28 : 0.14)
+        .lineBetween(rectX + cell * 0.22, rectY + cell * 0.64, rectX + cell * 0.78, rectY + cell * 0.58);
+    }
+    if (tile === 'M') {
+      const accent =
+        (tileX + tileY) % 3 === 0
+          ? 0x2f8fbd
+          : (tileX + tileY) % 3 === 1
+            ? 0xf0c15a
+            : 0xf4fbff;
+      this.graphics.fillStyle(accent, 0.5).fillRect(rectX + cell * 0.24, rectY + cell * 0.24, cell * 0.52, cell * 0.52);
+      this.graphics
+        .lineStyle(1, 0x2b658a, 0.2)
+        .strokeRect(rectX + cell * 0.24, rectY + cell * 0.24, cell * 0.52, cell * 0.52);
+      return;
+    }
+    if (tile === 'a') {
+      const stripe = tileX % 2 === 0 ? 0x206fa3 : 0xd96a44;
+      this.graphics.fillStyle(stripe, 0.72).fillRect(rectX, rectY + cell * 0.1, cell, cell * 0.42);
+      this.graphics
+        .fillStyle(0x24445a, 0.13)
+        .fillRect(rectX, rectY + cell * 0.54, cell, cell * 0.18);
+      return;
+    }
+    if (tile === 'b' || tile === 'p') {
+      this.graphics
+        .fillStyle(tile === 'p' ? 0x8b5b3c : 0x486982, tile === 'p' ? 0.62 : 0.34)
+        .fillRect(rectX + 2, rectY + cell * 0.22, cell - 4, cell * 0.56);
+      this.graphics
+        .lineStyle(1, tile === 'p' ? 0x4f301f : 0x24445a, 0.45)
+        .strokeRect(rectX + 2.5, rectY + cell * 0.22, cell - 5, cell * 0.56);
+      return;
+    }
+    if (tile === 't') {
+      this.graphics
+        .fillStyle(0x2d7042, 0.7)
+        .fillCircle(rectX + cell / 2, rectY + cell / 2, cell * 0.44);
+      this.graphics
+        .fillStyle(0xf6a64a, 0.65)
+        .fillCircle(rectX + cell * 0.58, rectY + cell * 0.42, Math.max(1.5, cell * 0.08));
+      this.graphics
+        .fillStyle(0x153622, 0.12)
+        .fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.24);
+      return;
+    }
+    if (tile === 'f' || tile === 'F') {
+      this.graphics.fillStyle(0x5bb8d4, 0.82).fillCircle(rectX + cell / 2, rectY + cell / 2, cell * 0.38);
+      this.graphics
+        .fillStyle(0xd8f6ff, 0.75)
+        .fillCircle(rectX + cell * 0.5, rectY + cell * 0.42, cell * 0.22);
+      if (tile === 'F') {
+        this.graphics
+          .lineStyle(2, 0x315f7d, 0.85)
+          .strokeCircle(rectX + cell / 2, rectY + cell / 2, cell * 0.34);
+      }
+      return;
+    }
+    if (tile === 'i') {
+      this.graphics.fillStyle(0xe8dcc4, 1).fillRect(rectX, rectY, cell, cell);
+      this.graphics.fillStyle(0x23384c, 0.16).fillRect(rectX, rectY, cell, cell);
+      this.graphics
+        .lineStyle(1, 0x9b8366, 0.35)
+        .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
+      return;
+    }
+    if (tile === 'G') {
+      this.graphics.fillStyle(0x8b5b3c, 0.75).fillRect(rectX + cell * 0.25, rectY + cell * 0.18, cell * 0.5, cell * 0.64);
+    }
+  }
+
   private drawLibertyTile(
     rectX: number,
     rectY: number,
@@ -2176,6 +2303,59 @@ export class SnakeRenderer {
         y + this.grid.cell / 2,
         Math.max(6, this.grid.cell * 0.4),
       );
+    }
+  }
+
+  private drawMosaicCoastExposureOverlay(room: RoomSnapshot, renderTimeMs: number): void {
+    if (room.biomeId !== 'mosaic-coast' || !room.mosaicCoast) {
+      return;
+    }
+    const cell = this.grid.cell;
+    const shimmer = 0.5 + Math.sin(renderTimeMs / 360) * 0.5;
+    for (const exposure of room.mosaicCoast.exposure) {
+      const x = exposure.x * cell;
+      const y = exposure.y * cell;
+      switch (exposure.kind) {
+        case 'direct-sun':
+          if ((exposure.x * 3 + exposure.y * 5) % 5 === 0) {
+            this.graphics
+              .fillStyle(0xffd47a, 0.035 + shimmer * 0.025)
+              .fillRect(x, y, cell, cell);
+          }
+          break;
+        case 'shade':
+          this.graphics.fillStyle(0x42647d, 0.18).fillRect(x, y, cell, cell);
+          break;
+        case 'cooling':
+          this.graphics.fillStyle(0x76dfff, 0.22).fillRect(x, y, cell, cell);
+          this.graphics
+            .lineStyle(1, 0xc9f6ff, 0.35 + shimmer * 0.18)
+            .strokeCircle(x + cell / 2, y + cell / 2, cell * (0.24 + shimmer * 0.08));
+          break;
+        case 'interior':
+          this.graphics.fillStyle(0x203246, 0.2).fillRect(x, y, cell, cell);
+          break;
+      }
+    }
+
+    for (const tree of room.mosaicCoast.canopyTrees) {
+      const cx = tree.trunk.x * cell + cell / 2;
+      const cy = tree.trunk.y * cell + cell / 2;
+      this.graphics.fillStyle(0x174326, 0.95).fillCircle(cx, cy, cell * 0.22);
+      this.graphics.lineStyle(2, 0x0e2418, 0.8).strokeCircle(cx, cy, cell * 0.24);
+      for (const canopy of tree.canopy) {
+        const x = canopy.x * cell;
+        const y = canopy.y * cell;
+        this.graphics.fillStyle(0x2f7a48, 0.22).fillCircle(x + cell / 2, y + cell / 2, cell * 0.48);
+      }
+    }
+
+    for (const fountain of room.mosaicCoast.fountains) {
+      const cx = fountain.x * cell + cell / 2;
+      const cy = fountain.y * cell + cell / 2;
+      const radius = Math.max(cell * 0.5, fountain.radius * cell * 0.55);
+      this.graphics.lineStyle(2, 0x2c6e91, 0.7).strokeCircle(cx, cy, radius);
+      this.graphics.lineStyle(1, 0xc9f6ff, 0.42).strokeCircle(cx, cy, radius * (0.6 + shimmer * 0.15));
     }
   }
 

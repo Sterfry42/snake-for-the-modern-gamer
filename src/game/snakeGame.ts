@@ -96,6 +96,7 @@ import {
   type LocatorResult,
 } from '../world/biomeLocators.js';
 import type { RoomSnapshot } from '../world/types.js';
+import { getSpawnPolicy } from '../world/safeZones.js';
 import { WorldAtmosphereSystem } from '../world/atmosphereSystem.js';
 import { resolveBiomeAtmosphere } from '../world/atmosphereResolver.js';
 import type {
@@ -854,7 +855,7 @@ export class SnakeGame implements QuestRuntime {
       this.worldGenerationIdentity,
       this.createPickupChanceProvider(),
     );
-    this.apples = new AppleService(config.apples, config.grid, this.world, this._rng);
+    this.apples = this.createAppleService();
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid, this._rng);
     this.enemies = new EnemyManager(config.grid, this._rng);
@@ -1008,8 +1009,8 @@ export class SnakeGame implements QuestRuntime {
 
     // TODO: Make this configurable
     const startingRoom = this.world.getRoom(this.snake.currentRoomId);
-    const startingRoomIsTown = Boolean(startingRoom.town || startingRoom.townPerimeter);
-    if (!startingRoomIsTown && this._rng() < 0.03) {
+    const startingRoomSpawnPolicy = getSpawnPolicy(startingRoom);
+    if (startingRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.03) {
       // 3% chance to spawn a boss on reset
       this.bosses.spawnBoss(
         this.snake.currentRoomId,
@@ -1017,7 +1018,7 @@ export class SnakeGame implements QuestRuntime {
         this.world.getRoom(this.snake.currentRoomId),
       );
     }
-    if (!startingRoomIsTown && this._rng() < 0.01) {
+    if (startingRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.01) {
       // 1% chance to spawn Freaker Dennis on reset
       this.bosses.spawnBoss(
         this.snake.currentRoomId,
@@ -1025,24 +1026,32 @@ export class SnakeGame implements QuestRuntime {
         this.world.getRoom(this.snake.currentRoomId),
       );
     }
-    if (!startingRoomIsTown && startingRoom.biomeId === 'sunken-ocean' && this._rng() < 0.1) {
+    if (
+      startingRoomSpawnPolicy.bosses === 'allow' &&
+      startingRoom.biomeId === 'sunken-ocean' &&
+      this._rng() < 0.1
+    ) {
       // 10% chance to spawn Jason Statham in the Sunken Ocean on reset
       this.bosses.spawnJasonStatham(this.snake.currentRoomId);
     }
 
     this.resetPredation();
-    if (!startingRoomIsTown) {
+    if (startingRoomSpawnPolicy.apples === 'allow') {
       this.apples.ensureApple(
         this.snake.currentRoomId,
         Array.from(this.snake.bodySegments),
         this.snake.score,
       );
+    }
+    if (startingRoomSpawnPolicy.enemies === 'allow') {
       this.enemies.ensureEnemy(
         this.snake.currentRoomId,
         startingRoom,
         this.config.snake.initialBody,
         this.getAtmosphereForRoom(startingRoom),
       );
+    }
+    if (startingRoomSpawnPolicy.animals === 'allow') {
       this.animals.ensureAnimals(
         // TODO: Create test
         this.snake.currentRoomId,
@@ -1064,7 +1073,7 @@ export class SnakeGame implements QuestRuntime {
       this.worldGenerationIdentity,
       this.createPickupChanceProvider(),
     );
-    this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
+    this.apples = this.createAppleService();
     this.enemies = new EnemyManager(this.config.grid, this._rng);
     this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
     this.animals = new AnimalManager(this.config.grid, this._rng);
@@ -1077,6 +1086,16 @@ export class SnakeGame implements QuestRuntime {
       rng: this._rng,
     });
     logRunSeed(runSeed, 'reset');
+  }
+
+  private createAppleService(): AppleService {
+    return new AppleService(
+      this.config.apples,
+      this.config.grid,
+      this.world,
+      this._rng,
+      () => this.specialStats.getCommittedState().stats,
+    );
   }
 
   private createPickupChanceProvider(): {
@@ -1604,6 +1623,7 @@ export class SnakeGame implements QuestRuntime {
       return this.createNoopActionStepResult(appleBeforeStep, roomsChanged);
     }
 
+    this.reconcileSwimmingEquipmentFlag();
     const lethalStep = this.getImminentLethalStep();
     if (lethalStep) {
       if (this.lethalStepHoldKey === lethalStep.key) {
@@ -1660,23 +1680,32 @@ export class SnakeGame implements QuestRuntime {
         this.visitedRooms.add(newRoomId);
         // TODO: Make this configurable
         const newRoom = this.world.getRoom(newRoomId);
-        const newRoomIsTown = Boolean(newRoom.town || newRoom.townPerimeter);
-        if (!newRoomIsTown && this._rng() < 0.03) {
+        const newRoomSpawnPolicy = getSpawnPolicy(newRoom);
+        if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.03) {
           // 3% chance to spawn Freak Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freak-dennis', newRoom);
         }
-        if (!newRoomIsTown && this._rng() < 0.01) {
+        if (newRoomSpawnPolicy.bosses === 'allow' && this._rng() < 0.01) {
           // 1% chance to spawn Freaker Dennis in a new room
           this.bosses.spawnBoss(newRoomId, 'freaker-dennis', newRoom);
         }
-        if (!newRoomIsTown && newRoom.biomeId === 'sunken-ocean' && this._rng() < 0.1) {
+        if (
+          newRoomSpawnPolicy.bosses === 'allow' &&
+          newRoom.biomeId === 'sunken-ocean' &&
+          this._rng() < 0.1
+        ) {
           // 10% chance to spawn Jason Statham in the Sunken Ocean
           this.bosses.spawnJasonStatham(newRoomId);
         }
-        if (!newRoomIsTown) {
+        if (newRoomSpawnPolicy.enemies === 'allow') {
           const atmosphere = this.getAtmosphereForRoom(newRoom);
           this.enemies.ensureEnemy(newRoomId, newRoom, [], atmosphere);
+        }
+        if (newRoomSpawnPolicy.animals === 'allow') {
+          const atmosphere = this.getAtmosphereForRoom(newRoom);
           this.animals.ensureAnimals(newRoomId, newRoom, [], atmosphere);
+        }
+        if (newRoomSpawnPolicy.enemies === 'allow' || newRoomSpawnPolicy.animals === 'allow') {
           this.maybeQueueFreakJoeyEncounter(newRoomId);
         }
         this.revealBiomeIfChanged(newRoomId, newRoom);
@@ -2672,10 +2701,12 @@ export class SnakeGame implements QuestRuntime {
       },
       ensureApple: (roomId: string, snake, score) => {
         const room = this.world.getRoom(roomId);
-        if (room.town) {
+        const policy = getSpawnPolicy(room);
+        if (policy.apples === 'clearExisting') {
           this.apples.clearApple(roomId);
           return;
         }
+        if (policy.apples === 'suppress') return;
         const { changed } = this.apples.ensureApple(roomId, Array.from(snake), score);
         if (changed) {
           roomsChanged.add(roomId);
@@ -2717,17 +2748,17 @@ export class SnakeGame implements QuestRuntime {
     }
     const room = this.world.getRoom(info.roomId);
     const tile = room.layout[info.localY]?.[info.localX];
-    // Masonry blocks (the snake's own temporary walls) are always passable.
-    // Regular walls still require wall-survival abilities.
-    if ((tile === '#' || isBlockingTownTile(tile)) && !this.canSurviveWallStep()) {
+    if (tile === '~' && !this.canSurviveWaterStep()) {
       return {
-        key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
+        key: `water:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
       };
     }
-    if (tile === '~' && !this.getFlag<boolean>('equipment.swimmingEnabled')) {
+    // Masonry blocks (the snake's own temporary walls) are always passable.
+    // Regular walls still require wall-survival abilities.
+    if ((tile === '#' || (tile !== '~' && isBlockingTownTile(tile))) && !this.canSurviveWallStep()) {
       return {
-        key: `water:${target.x},${target.y}:${direction.x},${direction.y}`,
+        key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
       };
     }
@@ -2764,6 +2795,29 @@ export class SnakeGame implements QuestRuntime {
     const terraShield = this.getFlag<{ charges?: number }>('geometry.terraShield');
     const ghostShield = this.getFlag<{ charges?: number }>('traversal.ghostShield');
     return Number(terraShield?.charges ?? 0) > 0 || Number(ghostShield?.charges ?? 0) > 0;
+  }
+
+  private canSurviveWaterStep(): boolean {
+    if (
+      this.getFlag<boolean>('equipment.swimmingEnabled') ||
+      this.getFlag<boolean>('cheat.immortal')
+    ) {
+      return true;
+    }
+    return this.hasEquippedSwimming();
+  }
+
+  private hasEquippedSwimming(): boolean {
+    return this.inventory.getAllEquipped().some(([, itemId]) => {
+      const item = getItem(itemId);
+      return item?.kind === 'equipment' && Boolean(item.modifiers?.swimmingEnabled);
+    });
+  }
+
+  private reconcileSwimmingEquipmentFlag(): void {
+    if (!this.getFlag<boolean>('equipment.swimmingEnabled') && this.hasEquippedSwimming()) {
+      this.setFlag('equipment.swimmingEnabled', true);
+    }
   }
 
   private isFatalShieldedAppleStep(
@@ -7629,6 +7683,7 @@ export class SnakeGame implements QuestRuntime {
 
   applySpecialStatPreview(): void {
     this.specialStats.applyPreview();
+    this.refreshPlayerMaxHealth();
   }
 
   resetSpecialStatPreview(): void {
@@ -7637,6 +7692,7 @@ export class SnakeGame implements QuestRuntime {
 
   setAllSpecialStatsToMax(): void {
     this.specialStats.setAllStats(10);
+    this.refreshPlayerMaxHealth();
   }
 
   getFishingSpecialModifiers() {
@@ -7705,6 +7761,30 @@ export class SnakeGame implements QuestRuntime {
 
   getSpecialGameplayModifiers(): SpecialGameplayModifiers {
     return this.specialStats.getGameplayModifiers();
+  }
+
+  refreshPlayerMaxHealth(): void {
+    const specialGameplay = this.getSpecialGameplayModifiers();
+    const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
+    const legacySkillHeartBonus = Math.max(0, currentMaxHealth - 3 - previousSpecialHeartBonus);
+    const skillHeartBonus = Math.max(
+      0,
+      Number(this.getFlag<number>('player.skillMaxHeartBonus') ?? legacySkillHeartBonus),
+    );
+    const nextMaxHealth = Math.max(1, 3 + skillHeartBonus + specialGameplay.maxHeartBonus);
+    const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
+    this.setFlag('player.skillMaxHeartBonus', skillHeartBonus > 0 ? skillHeartBonus : undefined);
+    this.setFlag(
+      'special.maxHeartBonus',
+      specialGameplay.maxHeartBonus !== 0 ? specialGameplay.maxHeartBonus : undefined,
+    );
+    this.setFlag('player.maxHealth', nextMaxHealth);
+    if (currentHealth >= currentMaxHealth && nextMaxHealth > currentMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    } else if (currentHealth > nextMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    }
   }
 
   getRunArtifacts(): ArtifactDefinition[] {
@@ -11895,6 +11975,47 @@ export class SnakeGame implements QuestRuntime {
     return tile === 'F' ? 'campfire' : null;
   }
 
+  playTapasMinigame(choiceId: 'bravas' | 'pan-con-tomate' | 'croquetas'): {
+    ok: boolean;
+    message: string;
+    color: string;
+    score?: number;
+  } {
+    const room = this.getCurrentRoom();
+    const tapas = room.mosaicCoast?.tapasBar;
+    if (!tapas) {
+      return { ok: false, message: 'No tapas bar nearby.', color: '#ffd166' };
+    }
+    const choices = ['bravas', 'pan-con-tomate', 'croquetas'] as const;
+    const hash = [...`${tapas.minigameSeed}:${this.getRoomsVisitedCount()}`].reduce(
+      (sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0,
+      0,
+    );
+    const target = choices[hash % choices.length] ?? 'bravas';
+    const perfect = choiceId === target;
+    const score = perfect ? 75 : 25;
+    const coolingMs = perfect ? 3500 : 1500;
+    const currentHot = Number(this.getFlag<number>('player.temperatureHotExposureMs') ?? 0);
+    this.addScore(score);
+    this.setFlag('player.temperatureHotExposureMs', Math.max(0, currentHot - coolingMs));
+    this.setFlag('player.temperatureExposureMs', Math.max(0, currentHot - coolingMs));
+    this.setFlag('mosaicCoast.lastTapas', {
+      roomId: room.id,
+      choiceId,
+      target,
+      perfect,
+      score,
+    });
+    return {
+      ok: true,
+      message: perfect
+        ? 'Perfect tapas rhythm. Heat backs off and pretends it had plans.'
+        : 'Respectable tapas. Cooling acquired, dignity mostly intact.',
+      color: perfect ? '#9cff9c' : '#ffd166',
+      score,
+    };
+  }
+
   healPlayer(amount: number): number {
     const { current, max } = this.getPlayerHealth();
     const next = Math.min(max, current + Math.max(0, Math.floor(amount)));
@@ -13050,7 +13171,7 @@ export class SnakeGame implements QuestRuntime {
           this.worldGenerationIdentity,
           this.createPickupChanceProvider(),
         );
-        this.apples = new AppleService(this.config.apples, this.config.grid, this.world, this._rng);
+        this.apples = this.createAppleService();
         this.enemies = new EnemyManager(this.config.grid, this._rng);
         this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
         this.animals = new AnimalManager(this.config.grid, this._rng);
@@ -14645,6 +14766,14 @@ export class SnakeGame implements QuestRuntime {
     const localY = head.y - roomY * this.config.grid.rows;
     const tile = room.layout[localY]?.[localX] ?? '.';
     const sheltered = 'WETCKBPLGO'.includes(tile);
+    const mosaicExposure =
+      room.biomeId === 'mosaic-coast'
+        ? (room.mosaicCoast?.exposure.find((entry) => entry.x === localX && entry.y === localY)
+            ?.kind ?? 'direct-sun')
+        : null;
+    if (!mosaicExposure) {
+      this.setFlag('mosaicCoast.exposure', undefined);
+    }
     const onRelief = room.temperatureReliefs?.find(
       (relief) => relief.x === localX && relief.y === localY,
     );
@@ -14749,7 +14878,26 @@ export class SnakeGame implements QuestRuntime {
 
     this.setFlag('player.temperatureHazard', biome.temperatureHazard);
 
-    if (onRelief) {
+    if (mosaicExposure) {
+      this.setFlag('mosaicCoast.exposure', mosaicExposure);
+      if (mosaicExposure === 'cooling') {
+        hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 3.5);
+        hotDamageProgressMs = Math.max(0, hotDamageProgressMs - deltaMs * 2);
+      } else if (mosaicExposure === 'interior') {
+        hotExposureMs = Math.max(0, hotExposureMs - deltaMs * 1.25);
+        hotDamageProgressMs = Math.max(0, hotDamageProgressMs - deltaMs);
+      } else if (
+        mosaicExposure === 'direct-sun' &&
+        this.getAtmosphereForRoom(room).state.dayPhase !== 'night'
+      ) {
+        hotExposureMs = Math.min(thresholdMs, hotExposureMs + deltaMs * exposureRate);
+        coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 1.8);
+        coldDamageProgressMs = Math.max(0, coldDamageProgressMs - deltaMs * 2);
+        if (hotExposureMs >= thresholdMs) {
+          hotDamageProgressMs += deltaMs;
+        }
+      }
+    } else if (onRelief) {
       if (onRelief.kind === 'warm' || onRelief.kind === 'onsen') {
         coldExposureMs = Math.max(0, coldExposureMs - deltaMs * 3.5);
         coldDamageProgressMs = Math.max(0, coldDamageProgressMs - deltaMs * 2);

@@ -142,6 +142,54 @@ export const BIOME_ATMOSPHERE_PROFILES: Record<BiomeId, BiomeAtmosphereProfile> 
       wind: { localVisual: 'seaSpray', juice: ['wave-chop'] },
     },
   },
+  'mosaic-coast': {
+    biomeId: 'mosaic-coast',
+    baseJuice: ['sea-spray', 'heat-haze', 'lantern-reflections'],
+    defaultLocalVisual: 'heatHaze',
+    preserveCoreNote:
+      'Sunny tiled coast. Shade routing is local room logic; weather should reinforce bright coastal pressure.',
+    dayPhaseResponses: {
+      night: {
+        localVisual: 'fireflies',
+        juice: ['lantern-reflections'],
+        gameplay: { heatRateScalar: 0.5 },
+      },
+      dusk: {
+        localVisual: 'seaSpray',
+        juice: ['sea-spray', 'lantern-reflections'],
+        gameplay: { heatRateScalar: 0.7 },
+      },
+    },
+    weatherResponses: {
+      clear: { localVisual: 'heatHaze', juice: ['heat-haze'] },
+      rain: {
+        localVisual: 'steam',
+        juice: ['sea-spray', 'pond-ripples'],
+        gameplay: { heatRateScalar: 0.65, animalSpawnBiasAdd: { frog: 1, fish: 1 } },
+      },
+      storm: {
+        localVisual: 'monsoon',
+        juice: ['wave-chop', 'lantern-reflections'],
+        gameplay: { heatRateScalar: 0.55, visibilityScalar: 0.86 },
+      },
+      fog: {
+        localVisual: 'mist',
+        juice: ['soft-mist', 'sea-spray'],
+        gameplay: { heatRateScalar: 0.7, visibilityScalar: 0.88 },
+      },
+      heatwave: {
+        localVisual: 'heatHaze',
+        juice: ['heat-haze'],
+        gameplay: { heatRateScalar: 1.2 },
+      },
+      coldfront: {
+        localVisual: 'seaSpray',
+        juice: ['sea-spray'],
+        gameplay: { heatRateScalar: 0.5 },
+      },
+      wind: { localVisual: 'seaSpray', juice: ['sea-spray'], gameplay: { heatRateScalar: 0.82 } },
+    },
+  },
   'home-hearth': {
     biomeId: 'home-hearth',
     baseJuice: ['lantern-reflections'],
