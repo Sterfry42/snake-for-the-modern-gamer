@@ -56,6 +56,7 @@ export interface FeatureStrings {
   scoreLabel: string;
   lengthLabel: string;
   bonusAppleReady: string;
+  treatLabel: string;
   killstreakHeader: string;
   killstreakToNext: string;
   killstreakMaxStreak: string;

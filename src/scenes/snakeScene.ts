@@ -3281,6 +3281,9 @@ export default class SnakeScene extends Phaser.Scene {
       if (result.apple.typeId === 'caffeinated') {
         this.activateCaffeinatedAppleBoost();
       }
+      if (result.apple.typeId === 'treat') {
+        this.playTreatDance(result.apple.worldPosition);
+      }
       if (result.apple.worldPosition) {
         const violenceLevel = Number(this.getFlag<number>('killstreak.appleJuiceLevel') ?? 0);
         this.juice.appleChomp(
@@ -9571,6 +9574,72 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.caffeinatedAppleBoostExpirationsMs = active;
     this.applyCaffeinatedAppleBoostScalar();
+  }
+
+  private playTreatDance(worldPosition: { x: number; y: number } | null): void {
+    if (!worldPosition) return;
+
+    // Sparkle burst at the treat location
+    const sparkleCount = 12;
+    const sparkles: Phaser.GameObjects.Rectangle[] = [];
+    for (let i = 0; i < sparkleCount; i++) {
+      const angle = (Math.PI * 2 * i) / sparkleCount;
+      const distance = 16 + this.random() * 12;
+      const sparkle = this.add
+        .rectangle(
+          worldPosition.x,
+          worldPosition.y,
+          4,
+          4,
+          0xffb7ff,
+          1,
+        )
+        .setOrigin(0.5)
+        .setDepth(100);
+      sparkles.push(sparkle);
+      this.tweens.add({
+        targets: sparkle,
+        x: worldPosition.x + Math.cos(angle) * distance,
+        y: worldPosition.y + Math.sin(angle) * distance,
+        alpha: 0,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        duration: 400 + this.random() * 200,
+        ease: 'Cubic.easeOut',
+        onComplete: () => sparkle.destroy(),
+      });
+    }
+
+    // Floating "TREAT!" text that bounces
+    const treatText = this.add
+      .text(worldPosition.x, worldPosition.y - 20, 'TREAT!', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffb7ff',
+        stroke: '#4a0040',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(100);
+    this.tweens.add({
+      targets: treatText,
+      y: worldPosition.y - 60,
+      alpha: 0,
+      duration: 900,
+      ease: 'Cubic.easeOut',
+      onComplete: () => treatText.destroy(),
+    });
+
+    // Happy wiggle on the camera (subtle)
+    const wiggle = { angle: 0 };
+    this.tweens.add({
+      targets: wiggle,
+      angle: 0.02,
+      duration: 80,
+      yoyo: true,
+      repeat: 4,
+      ease: 'Sine.easeInOut',
+    });
   }
 
   private draw(): void {

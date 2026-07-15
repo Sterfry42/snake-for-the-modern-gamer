@@ -10,6 +10,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   scoreLabel: 'Puntuación',
   lengthLabel: 'Longitud',
   bonusAppleReady: 'Manzana bonus lista',
+  treatLabel: 'Dulce',
   killstreakHeader: 'Racha',
   killstreakToNext: 'para',
   killstreakMaxStreak: '¡Racha máxima!',
