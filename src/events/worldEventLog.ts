@@ -1,4 +1,5 @@
 import type { CreateWorldEventInput, WorldEvent, WorldEventSaveData } from './worldEventTypes.js';
+import { clamp } from '../core/math.js';
 
 const WORLD_EVENT_SAVE_VERSION = 1;
 const DEFAULT_EVENT_CAP = 200;
@@ -62,6 +63,4 @@ export class WorldEventLog {
   }
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
+

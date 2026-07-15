@@ -1,6 +1,6 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
-import { manhattanDistance, vectorKey } from '../core/math.js';
+import { manhattanDistance, pickRandom, vectorKey } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { isSolidTile } from '../world/tiles.js';
@@ -49,10 +49,6 @@ export interface SnakeAnimalResult {
   hunted: boolean;
   huntedAnimal?: HuntedAnimalResult;
   startleCount: number;
-}
-
-function pickRandom<T>(rng: RandomGenerator, arr: T[]): T {
-  return arr[Math.floor(rng() * arr.length)];
 }
 
 function shuffle<T>(rng: RandomGenerator, arr: T[]): T[] {

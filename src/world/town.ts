@@ -1,5 +1,5 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { vectorKey } from '../core/math.js';
+import { clamp, vectorKey } from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
 import { pickNpcName } from '../npcs/npcNames.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
@@ -670,10 +670,6 @@ function pick<T>(items: readonly T[], rng: RandomGenerator): T {
 
 function rollInt(rng: RandomGenerator, min: number, max: number): number {
   return min + Math.floor(rng() * (max - min + 1));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 export function clampWanted(value: number): WantedLevel {

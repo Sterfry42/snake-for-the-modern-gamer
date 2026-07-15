@@ -26,3 +26,36 @@ export function manhattanDistance(a: Vector2Like, b: Vector2Like): number {
 export function withinBounds(vec: Vector2Like, width: number, height: number): boolean {
   return vec.x >= 0 && vec.x < width && vec.y >= 0 && vec.y < height;
 }
+
+// ── Numeric helpers ──────────────────────────────────────────────
+
+/** Clamp a number between min and max bounds.
+ * If `value` is not finite (NaN or Infinity) and `fallback` is provided, returns `fallback`.
+ */
+export function clamp(value: number, min: number, max: number, fallback?: number): number {
+  if (!Number.isFinite(value)) {
+    if (fallback !== undefined) return fallback;
+    return min;
+  }
+  return Math.max(min, Math.min(max, value));
+}
+
+/** Clamp a number to the [0, 1] range. */
+export function clamp01(value: number): number {
+  return clamp(value, 0, 1);
+}
+
+/** Linear interpolation between a and b by t (t is not clamped). */
+export function lerp(a: number, b: number, t: number): number {
+  return a + (b - a) * t;
+}
+
+/** Pick a random element from an array using the given RNG. */
+export function pickRandom<T>(rng: () => number, arr: readonly T[]): T {
+  return arr[Math.floor(rng() * arr.length)];
+}
+
+/** Return a new array with only unique values (uses Set internally). */
+export function unique<T>(values: readonly T[]): T[] {
+  return Array.from(new Set(values));
+}

@@ -1,4 +1,6 @@
 import { createRng, type RandomGenerator } from '../core/rng.js';
+import { clamp, clamp01 } from '../core/math.js';
+
 import type {
   AtmosphereConfig,
   AtmosphereState,
@@ -278,19 +280,6 @@ function pickWeighted<T extends string>(rng: RandomGenerator, weights: Record<T,
   return entries[0]![0];
 }
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-}
-
-function clamp01(value: number): number {
-  return clamp(value, 0, 1);
-}
-
-function smoothstep(value: number): number {
-  const t = clamp01(value);
-  return t * t * (3 - 2 * t);
-}
-
 function clampInt(value: unknown, min: number, max: number): number {
   return Math.floor(clamp(Number(value ?? min), min, max));
 }
@@ -319,4 +308,9 @@ function isSkyEvent(value: unknown): value is SkyEvent {
     value === 'meteorShower' ||
     value === 'aurora'
   );
+}
+
+function smoothstep(value: number): number {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
 }

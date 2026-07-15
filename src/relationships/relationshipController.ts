@@ -21,6 +21,7 @@ import type {
   RelationshipTag,
   RelationshipTalkResult,
 } from './relationshipTypes.js';
+import { clamp } from '../core/math.js';
 
 interface RelationshipRuntime {
   getFlag<T = unknown>(key: string): T | undefined;
@@ -117,10 +118,6 @@ const TIER_DELTAS: Record<
   disliked: { affection: -3, trust: -2, resentment: 3 },
   hated: { affection: -8, trust: -6, resentment: 8, jealousy: 2 },
 };
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
 
 function normalizePortrait(species: RelationshipSpecies, portraitId?: string): string {
   if (portraitId) return portraitId;
