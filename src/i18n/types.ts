@@ -56,6 +56,7 @@ export interface FeatureStrings {
   scoreLabel: string;
   lengthLabel: string;
   bonusAppleReady: string;
+  treatLabel: string;
   killstreakHeader: string;
   killstreakToNext: string;
   killstreakMaxStreak: string;
@@ -138,6 +139,7 @@ export interface FeatureStrings {
 
   // === SAVE SYSTEM ===
   saveButton: string;
+  pauseButton: string;
   loadButton: string;
   clearButton: string;
   gameSaved: string;

@@ -15,6 +15,7 @@
  * - The wise old snake's biome predictions are 99% accurate
  */
 import { darkenColor, hslToHex, paletteConfig } from '../config/palette.js';
+import { clamp01 } from '../core/math.js';
 
 export type BiomeId =
   | 'verdigris-basin'
@@ -1269,10 +1270,6 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     vegetationDensity: 14,
   },
 };
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
 
 export function getBiomeDefinition(id: BiomeId): BiomeDefinition {
   return BIOMES[id];

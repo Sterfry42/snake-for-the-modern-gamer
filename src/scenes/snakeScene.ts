@@ -82,6 +82,7 @@ import { JuiceManager } from '../ui/juice.js';
 import { BossHud } from '../ui/bossHud.js';
 import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
+import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
 import {
   resolveSpanishWebAudioFontState as resolveSpanishMusicState,
@@ -356,6 +357,7 @@ const CHARACTER_MODE_STORAGE_KEY = 'snakeGameCharacterMode';
 const RACCOON_STASH_POPUP_TEXTURE_KEY = 'raccoon-popup-stash';
 const RACCOON_SAD_POPUP_TEXTURE_KEY = 'raccoon-popup-sad';
 const RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY = 'raccoon-weight-threshold';
+const GITHUB_LOGO_TEXTURE_KEY = 'github-logo';
 const RACCOON_STASH_POPUP_ASSET =
   'assets/raccoon_pics/raccoon-giving-a-thumbs-up-with-a-cheerful-expression-isolated-on-a-transparent-background-raccoon-giving-thumbsup-isolated-on-transparent-background-free-png.webp';
 const RACCOON_SAD_POPUP_ASSET =
@@ -1718,6 +1720,7 @@ export default class SnakeScene extends Phaser.Scene {
   skillTree!: SkillTreeManager;
   private bossHud!: BossHud;
   private saveUI!: SaveUI;
+  private pauseUI!: PauseUI;
   private autosaveTimer: Phaser.Time.TimerEvent | null = null;
   private mobileControls: MobileControls | null = null;
   private readonly inputModeManager = new InputModeManager();
@@ -1907,6 +1910,8 @@ export default class SnakeScene extends Phaser.Scene {
   private titleResolutionSettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleDifficultySettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
+  private titleGitHubButton: Phaser.GameObjects.Container | null = null;
+  private titleGitHubZone: Phaser.GameObjects.Zone | null = null;
   private titleHeadingText: Phaser.GameObjects.Text | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
   private titleCharacterModeText: Phaser.GameObjects.Text | null = null;
@@ -2049,6 +2054,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.load.image(RACCOON_STASH_POPUP_TEXTURE_KEY, RACCOON_STASH_POPUP_ASSET);
     this.load.image(RACCOON_SAD_POPUP_TEXTURE_KEY, RACCOON_SAD_POPUP_ASSET);
     this.load.image(RACCOON_WEIGHT_THRESHOLD_TEXTURE_KEY, RACCOON_WEIGHT_THRESHOLD_ASSET);
+    this.load.image(GITHUB_LOGO_TEXTURE_KEY, 'assets/github-logo.png');
   }
 
   async create() {
@@ -2075,6 +2081,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.saveUI = new SaveUI(this);
     console.log('[SnakeScene] SaveUI created:', this.saveUI);
     console.log('[SnakeScene] saveUI exists:', !!this.saveUI);
+    this.pauseUI = new PauseUI(this);
 
     this.setupInputHandlers();
 
@@ -2119,6 +2126,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.datingScenePopup.setControllerMode(controller);
       this.saveLoadMenu?.setControllerMode(controller);
       this.saveUI?.setInputMode(mode);
+      this.pauseUI?.setInputMode(mode);
       this.arcadeSnakeRenderer?.setInputMode(mode);
       this.fishingMinigame?.setInputMode(mode);
       this.refreshCardControllerFocus();
@@ -2131,6 +2139,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.datingScenePopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveUI.setInputMode(this.inputModeManager.getMode());
+    this.pauseUI.setInputMode(this.inputModeManager.getMode());
     this.graphics.setDepth(10);
 
     const registry = await createQuestRegistry();
@@ -3271,6 +3280,9 @@ export default class SnakeScene extends Phaser.Scene {
       this.applyJadePeakAppleEffects(result.apple.typeId);
       if (result.apple.typeId === 'caffeinated') {
         this.activateCaffeinatedAppleBoost();
+      }
+      if (result.apple.typeId === 'treat') {
+        this.playTreatDance(result.apple.worldPosition);
       }
       if (result.apple.worldPosition) {
         const violenceLevel = Number(this.getFlag<number>('killstreak.appleJuiceLevel') ?? 0);
@@ -4952,7 +4964,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private togglePauseMenu(force?: boolean): void {
+  togglePauseMenu(force?: boolean): void {
     if (
       shouldBlockPauseToggle({
         offeredQuest: Boolean(this.offeredQuest),
@@ -6149,6 +6161,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.showTitleMode(mode);
     this.titleMessageText?.setText(message);
     this.setFlag('ui.suppressHud', true);
+    this.saveUI.updateVisibility();
+    this.pauseUI.updateVisibility();
     this.juice.startTitleMusic();
   }
 
@@ -6159,8 +6173,11 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.titleVisible = false;
     this.titleContainer?.setVisible(false);
+    this.titleGitHubButton?.setVisible(false);
     this.titleMessageText?.setText('');
     this.setFlag('ui.suppressHud', false);
+    this.saveUI.updateVisibility();
+    this.pauseUI.updateVisibility();
     this.juice.stopTitleMusic();
   }
 
@@ -6170,6 +6187,66 @@ export default class SnakeScene extends Phaser.Scene {
     this.titleResolutionSettingsContainer?.setVisible(mode === 'settings-resolution');
     this.titleDifficultySettingsContainer?.setVisible(mode === 'settings-difficulty');
     this.titleMultiplayerContainer?.setVisible(mode === 'multiplayer');
+    const isMain = mode === 'main';
+    this.titleGitHubButton?.setVisible(isMain);
+    const btn = this.titleGitHubButton;
+    const children = (btn as Phaser.GameObjects.Container)?.list ?? [];
+    const bg = children[0] as Phaser.GameObjects.Graphics | undefined;
+    const icon = children[1] as Phaser.GameObjects.Image | undefined;
+    const zone = children[2] as Phaser.GameObjects.Zone | undefined;
+    const parent = btn?.parentContainer;
+
+    // Walk up the parent chain to check depths
+    let depthChain = '';
+    let p: Phaser.GameObjects.GameObject | undefined = btn as Phaser.GameObjects.GameObject;
+    for (let i = 0; i < 10; i++) {
+      const pc = p?.parentContainer;
+      if (!pc) break;
+      depthChain += ` [${pc.constructor?.name ?? '?'} depth:${pc?.depth ?? '?'} visible:${pc?.visible ?? '?'} alpha:${pc?.alpha ?? '?'}]`;
+      p = pc;
+    }
+
+    // Check if button is in scene's display list
+    const sceneList = this.children?.list ?? [];
+    const listIndex = sceneList.indexOf(btn as Phaser.GameObjects.GameObject);
+
+    // Absolute screen position (walk up parent chain)
+    let absX = 0, absY = 0;
+    let cur: Phaser.GameObjects.Container | undefined = btn as Phaser.GameObjects.Container;
+    for (let i = 0; i < 10; i++) {
+      absX += cur?.x ?? 0;
+      absY += cur?.y ?? 0;
+      cur = cur?.parentContainer as Phaser.GameObjects.Container | undefined;
+      if (!cur) break;
+    }
+    const worldX = absX;
+    const worldY = absY;
+
+    console.log(
+      '[TitleScreen] GitHub button:',
+      'visible:', btn?.visible,
+      'alpha:', btn?.alpha,
+      'x:', btn?.x, 'y:', btn?.y,
+      'width:', btn?.width, 'height:', btn?.height,
+      'depth:', btn?.depth,
+      'scrollFactor:', btn?.scrollFactorX, btn?.scrollFactorY,
+      'parent:', parent?.constructor?.name ?? 'none',
+      'parent.x:', parent?.x, 'parent.y:', parent?.y,
+      'parent.depth:', parent?.depth,
+      'parent.visible:', parent?.visible, 'parent.alpha:', parent?.alpha,
+      'parentChain:', depthChain,
+      'sceneListIndex:', listIndex,
+      'worldX:', worldX, 'worldY:', worldY,
+      'screenW:', this.scale.width, 'screenH:', this.scale.height,
+      'mode:', mode, 'isMain:', isMain,
+      '--- children ---',
+      'bg.visible:', bg?.visible, 'bg.alpha:', bg?.alpha,
+      'icon.visible:', icon?.visible, 'icon.alpha:', icon?.alpha,
+      'icon.x:', icon?.x, 'icon.y:', icon?.y,
+      'icon.texture.key:', (icon?.texture?.key as string) ?? 'none',
+      'zone.visible:', zone?.visible,
+      'zone.width:', zone?.width, 'zone.height:', zone?.height,
+    );
     if (mode === 'multiplayer') {
       this.refreshArchipelagoTitleText();
     }
@@ -6441,6 +6518,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.drawTitleArtwork(art, width, height);
 
     const veil = this.add.rectangle(0, 0, width, height, 0x02030a, 0.18).setOrigin(0, 0);
+    this.titleGitHubButton = this.buildGitHubLogoButton(root, width, height);
     const title = this.add
       .text(width / 2, 38, '', {
         fontFamily: "Georgia, 'Times New Roman', serif",
@@ -6877,6 +6955,55 @@ export default class SnakeScene extends Phaser.Scene {
       embers,
       crownBurst,
     );
+  }
+
+  private buildGitHubLogoButton(
+    _root: Phaser.GameObjects.Container,
+    width: number,
+    height: number,
+  ): Phaser.GameObjects.Container {
+    const size = 44;
+    const radius = size / 2;
+    const x = 16;
+    const y = height - size - 16; // bounding box top-left: 16px from left and bottom edges
+
+    const bg = this.add.graphics();
+    bg.fillStyle(0xffffff, 1);
+    bg.fillCircle(radius, radius, radius);
+    bg.lineStyle(2, 0x1a1a2e, 1);
+    bg.strokeCircle(radius, radius, radius - 3);
+    bg.setDepth(1);
+
+    const icon = this.add.image(radius, radius, GITHUB_LOGO_TEXTURE_KEY).setScale(size * 0.7 / 1280);
+    icon.setDepth(2);
+
+    const zone = this.add.zone(0, 0, size, size).setOrigin(0, 0);
+    zone.setInteractive({ useHandCursor: true });
+    zone.setDepth(3);
+
+    // Add directly to scene (not nested in root container) so depth works correctly
+    const btn = this.add.container(x, y, [bg, icon, zone]).setDepth(9999).setScrollFactor(0).setSize(size, size);
+
+    zone.on('pointerover', () => {
+      bg.clear();
+      bg.fillStyle(0xe8e8e8, 1);
+      bg.fillCircle(radius, radius, radius);
+      bg.lineStyle(2, 0x5dd6a2, 1);
+      bg.strokeCircle(radius, radius, radius - 3);
+    });
+    zone.on('pointerout', () => {
+      bg.clear();
+      bg.fillStyle(0xffffff, 1);
+      bg.fillCircle(radius, radius, radius);
+      bg.lineStyle(2, 0x1a1a2e, 1);
+      bg.strokeCircle(radius, radius, radius - 3);
+    });
+    zone.on('pointerdown', () => {
+      console.log('[GitHubButton] pointerdown fired — navigating to GitHub');
+      window.open('https://github.com/Sterfry42/snake-for-the-modern-gamer', '_blank');
+    });
+
+    return btn;
   }
 
   private createTitleButton(
@@ -9449,6 +9576,72 @@ export default class SnakeScene extends Phaser.Scene {
     this.applyCaffeinatedAppleBoostScalar();
   }
 
+  private playTreatDance(worldPosition: { x: number; y: number } | null): void {
+    if (!worldPosition) return;
+
+    // Sparkle burst at the treat location
+    const sparkleCount = 12;
+    const sparkles: Phaser.GameObjects.Rectangle[] = [];
+    for (let i = 0; i < sparkleCount; i++) {
+      const angle = (Math.PI * 2 * i) / sparkleCount;
+      const distance = 16 + this.random() * 12;
+      const sparkle = this.add
+        .rectangle(
+          worldPosition.x,
+          worldPosition.y,
+          4,
+          4,
+          0xffb7ff,
+          1,
+        )
+        .setOrigin(0.5)
+        .setDepth(100);
+      sparkles.push(sparkle);
+      this.tweens.add({
+        targets: sparkle,
+        x: worldPosition.x + Math.cos(angle) * distance,
+        y: worldPosition.y + Math.sin(angle) * distance,
+        alpha: 0,
+        scaleX: 0.3,
+        scaleY: 0.3,
+        duration: 400 + this.random() * 200,
+        ease: 'Cubic.easeOut',
+        onComplete: () => sparkle.destroy(),
+      });
+    }
+
+    // Floating "TREAT!" text that bounces
+    const treatText = this.add
+      .text(worldPosition.x, worldPosition.y - 20, 'TREAT!', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffb7ff',
+        stroke: '#4a0040',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(100);
+    this.tweens.add({
+      targets: treatText,
+      y: worldPosition.y - 60,
+      alpha: 0,
+      duration: 900,
+      ease: 'Cubic.easeOut',
+      onComplete: () => treatText.destroy(),
+    });
+
+    // Happy wiggle on the camera (subtle)
+    const wiggle = { angle: 0 };
+    this.tweens.add({
+      targets: wiggle,
+      angle: 0.02,
+      duration: 80,
+      yoyo: true,
+      repeat: 4,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
   private draw(): void {
     // Suppress generic HUDs in house
     this.setFlag(
@@ -9553,6 +9746,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.questHud.update(this.snakeGame.getActiveQuests(), this.grid.cols * this.grid.cell);
     this.questHud.setVisible(!this.isInHouse());
     this.saveUI.updateVisibility();
+    this.pauseUI.updateVisibility();
     const health = snapshot.ui.health ?? this.snakeGame.getPlayerHealth();
     const healthRevealed =
       Boolean(this.getFlag<boolean>('ui.healthRevealed')) || health.current < health.max;

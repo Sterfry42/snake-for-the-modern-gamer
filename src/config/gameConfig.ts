@@ -86,7 +86,8 @@ export interface AppleTypeConfig {
     | 'caffeinated'
       | 'lavender'
       | 'coldBeer'
-      | 'love';
+      | 'love'
+      | 'treat';
 }
 
 export interface AppleSystemConfig {
@@ -321,6 +322,14 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.02, scoreThreshold: 50 },
         behavior: 'love',
+      },
+      {
+        id: 'treat',
+        label: 'Treat',
+        color: 0xffb7ff,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.005, scoreThreshold: 100 },
+        behavior: 'treat',
       },
     ],
     skittishMoveChance: 0.225,

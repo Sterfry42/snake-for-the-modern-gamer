@@ -7,6 +7,8 @@ import {
   particleDefaultsForVisual,
 } from './atmosphereDefaults.js';
 import { BIOME_ATMOSPHERE_PROFILES } from './biomeAtmosphereProfiles.js';
+import { clamp, clamp01, lerp, unique } from '../core/math.js';
+
 import type {
   AtmosphereConfig,
   AtmosphereGameplayModifiers,
@@ -653,15 +655,6 @@ function nextDayPhase(phase: AtmosphereState['dayPhase']): AtmosphereState['dayP
   }
 }
 
-function smoothstep(value: number): number {
-  const t = clamp(value, 0, 1);
-  return t * t * (3 - 2 * t);
-}
-
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
-
 function lerpColor(a: number, b: number, t: number): number {
   const ar = (a >> 16) & 0xff;
   const ag = (a >> 8) & 0xff;
@@ -689,14 +682,7 @@ function resolveParticles(
   };
 }
 
-function unique<T>(values: T[]): T[] {
-  return Array.from(new Set(values));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-}
-
-function clamp01(value: number): number {
-  return clamp(value, 0, 1);
+function smoothstep(value: number): number {
+  const t = clamp01(value);
+  return t * t * (3 - 2 * t);
 }

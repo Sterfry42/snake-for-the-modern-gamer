@@ -1,6 +1,7 @@
 import { SPECIAL_BASELINE, getStatDelta, normalizeSpecialStats } from './specialStats.js';
 import type { SpecialStats } from './specialTypes.js';
 import { resolveNumericModifier, type ModifierAtom } from './modifierResolver.js';
+import { clamp, clamp01 } from '../core/math.js';
 
 export type SpecialGameplayModifierTarget =
   | 'movement.tickDelayScalar'
@@ -37,14 +38,6 @@ export interface SpecialGameplayModifiers {
   fineScalar: number;
   rareLootScalar: number;
   weirdOutcomeChanceBonus: number;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-function clamp01(value: number): number {
-  return clamp(value, 0, 1);
 }
 
 function enduranceHearts(endurance: number): number {

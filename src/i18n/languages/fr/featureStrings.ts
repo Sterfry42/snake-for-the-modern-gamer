@@ -10,6 +10,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   scoreLabel: 'Score',
   lengthLabel: 'Longueur',
   bonusAppleReady: 'Pomme bonus prête',
+  treatLabel: 'Gâterie',
   killstreakHeader: 'Série',
   killstreakToNext: 'pour',
   killstreakMaxStreak: 'Série maximale !',
@@ -94,6 +95,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
 
   // Save System
   saveButton: 'SAUVER',
+  pauseButton: 'PAUSE',
   loadButton: 'CHARGER',
   clearButton: 'EFFACER',
   gameSaved: 'Jeu sauvegardé !',

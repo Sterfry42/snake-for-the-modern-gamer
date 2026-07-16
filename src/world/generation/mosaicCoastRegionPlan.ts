@@ -1,6 +1,7 @@
 import type { RoomArchetypeId } from './types.js';
 import { hashString, positiveMod } from './worldHash.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
+import { clamp } from '../../core/math.js';
 
 export type MosaicCoastDistrictZone =
   | 'mosaic-arrival'
@@ -297,8 +298,4 @@ function starterContains(coord: { x: number; y: number; z: number }): boolean {
 
 function coordKey(coord?: { x: number; y: number; z: number }): string {
   return coord ? `${coord.x},${coord.y},${coord.z}` : '';
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }

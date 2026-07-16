@@ -1,5 +1,6 @@
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
 import { hashWorldCoordinate } from './worldHash.js';
+import { clamp } from '../../core/math.js';
 
 export interface ClimateSample {
   temperature: number;
@@ -7,10 +8,6 @@ export interface ClimateSample {
   weirdness: number;
   altitude: number;
   depth: number;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 function hashUnit(args: {
