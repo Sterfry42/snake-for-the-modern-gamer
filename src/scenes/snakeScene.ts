@@ -68,6 +68,7 @@ import { FeatureManager } from '../systems/features.js';
 import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
+import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
@@ -223,6 +224,7 @@ import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.
 import { FishingRegistry, type FishingRegistryOptions } from '../fishing/fishingRegistry.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import type { CharacterCreationMods } from '../features/characterCreationDefinitions.js';
 import type { LevelUpResult } from '../stats/levelProgression.js';
 import { FishingMinigame } from '../fishing/fishingMinigame.js';
 import { hasAdjacentWater, roomHasWater } from '../fishing/waterDetection.js';
@@ -1700,39 +1702,12 @@ export default class SnakeScene extends Phaser.Scene {
   private jasonDefeatCount = 0;
   // Religion choice state
   private chosenReligionId: string | null = null;
-  private religionMods: {
-    tickDelayScalar?: number;
-    wallSenseBonus?: number;
-    seismicPulseBonus?: number;
-    invulnerabilityBonus?: number;
-    regenerator?: { interval: number; amount: number } | null;
-    phoenixCharges?: number;
-    masonryEnabled?: boolean;
-    shrineBlessing?: boolean;
-    yokaiInsight?: boolean;
-    spiritualLength?: boolean;
-  } = {};
+  private religionMods: CharacterCreationMods = {};
   // Background and Class choice state
   private chosenBackgroundId: string | null = null;
-  private backgroundMods: {
-    tickDelayScalar?: number;
-    wallSenseBonus?: number;
-    seismicPulseBonus?: number;
-    invulnerabilityBonus?: number;
-    regenerator?: { interval: number; amount: number } | null;
-    phoenixCharges?: number;
-    masonryEnabled?: boolean;
-  } = {};
+  private backgroundMods: CharacterCreationMods = {};
   private chosenClassId: string | null = null;
-  private classMods: {
-    tickDelayScalar?: number;
-    wallSenseBonus?: number;
-    seismicPulseBonus?: number;
-    invulnerabilityBonus?: number;
-    regenerator?: { interval: number; amount: number } | null;
-    phoenixCharges?: number;
-    masonryEnabled?: boolean;
-  } = {};
+  private classMods: CharacterCreationMods = {};
 
   paused = true;
   private isDirty = false;
@@ -3506,6 +3481,16 @@ export default class SnakeScene extends Phaser.Scene {
         reviveOnComplete: true,
         rescuer: 'goblin-angel',
       });
+      return true;
+    }
+    if (this.snakeGame.tryConsumeFellowshipRescue()) {
+      this.skillTree.hideOverlay();
+      this.startDeathSequence('revive', result.deathReason, { reviveOnComplete: true });
+      return true;
+    }
+    if (this.snakeGame.tryConsumeGrowthForDeath(result.deathReason)) {
+      this.skillTree.hideOverlay();
+      this.startDeathSequence('revive', result.deathReason, { reviveOnComplete: true });
       return true;
     }
     if (this.skillTree.tryConsumeExtraLife()) {
@@ -5801,14 +5786,22 @@ export default class SnakeScene extends Phaser.Scene {
 
   prepareCharacterSave(): void {
     this.setFlag('skills.ranks', this.skillTree.exportRanks());
+    this.setFlag('skills.ownership', this.skillTree.exportOwnership());
     this.minecraftFeature?.saveToScene(this);
   }
 
   restoreCharacterSaveState(): void {
     this.skillTree.reset(this.paused);
+    this.chosenReligionId = this.getFlag<string>('religion.id') ?? null;
+    this.religionMods = this.getFlag<CharacterCreationMods>('religion.mods') ?? {};
+    this.chosenBackgroundId = this.getFlag<string>('background.id') ?? null;
+    this.backgroundMods = this.getFlag<CharacterCreationMods>('background.mods') ?? {};
+    this.chosenClassId = this.getFlag<string>('class.id') ?? null;
+    this.classMods = this.getFlag<CharacterCreationMods>('class.mods') ?? {};
     const ranks = this.getFlag<Record<string, number>>('skills.ranks');
     if (ranks) {
-      this.skillTree.restoreRanks(ranks);
+      const ownership = this.getFlag<Record<string, OwnedSkillState>>('skills.ownership');
+      this.skillTree.restoreRanks(ranks, ownership);
     }
     this.applyEquipmentEffects();
     const savedAchievements = this.getFlag<AchievementState>('save.loadedAchievements');
@@ -7925,11 +7918,18 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.snakeGame) return;
     const inv = this.snakeGame.getInventory();
     const equipped = inv.getAllEquipped();
-    let tickScalar = 1;
+    let equipmentTickScalar = 1;
+    let faithTickScalar = 1;
+    let backgroundTickScalar = 1;
+    let classTickScalar = 1;
     let wallSenseBonus = 0;
     let seismicBonus = 0;
     let masonry = false;
     let invulnBonus = 0;
+    let equipmentWardBonus = 0;
+    let faithWardBonus = 0;
+    let backgroundWardBonus = 0;
+    let classWardBonus = 0;
     let regen: { interval: number; amount: number } | null = null;
     let phoenix = 0;
     let itemPhoenix = 0;
@@ -7944,12 +7944,13 @@ export default class SnakeScene extends Phaser.Scene {
     let radiationTimerScalar = 1;
     let lightRadiusTiles = 0;
     const specialGameplay = this.snakeGame.getSpecialGameplayModifiers();
+    this.skillTree.refreshSpecialDerivedStats(specialGameplay);
 
     for (const [, itemId] of equipped) {
       const item = getItem(itemId) as any;
       const mods = item?.modifiers ?? {};
       if (typeof mods.tickDelayScalar === 'number') {
-        tickScalar *= mods.tickDelayScalar;
+        equipmentTickScalar *= mods.tickDelayScalar;
       }
       if (typeof mods.wallSenseBonus === 'number') {
         wallSenseBonus += mods.wallSenseBonus;
@@ -7962,6 +7963,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (typeof mods.invulnerabilityBonus === 'number') {
         invulnBonus += mods.invulnerabilityBonus;
+        equipmentWardBonus += mods.invulnerabilityBonus;
       }
       if (mods.regenerator) {
         if (!regen) {
@@ -8008,7 +8010,7 @@ export default class SnakeScene extends Phaser.Scene {
     // Apply religion bonuses
     if (this.religionMods) {
       if (typeof this.religionMods.tickDelayScalar === 'number') {
-        tickScalar *= this.religionMods.tickDelayScalar;
+        faithTickScalar *= this.religionMods.tickDelayScalar;
       }
       if (typeof this.religionMods.wallSenseBonus === 'number') {
         wallSenseBonus += this.religionMods.wallSenseBonus;
@@ -8018,6 +8020,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
       if (typeof this.religionMods.invulnerabilityBonus === 'number') {
         invulnBonus += this.religionMods.invulnerabilityBonus;
+        faithWardBonus += this.religionMods.invulnerabilityBonus;
       }
       if (this.religionMods.regenerator) {
         const r = this.religionMods.regenerator;
@@ -8047,13 +8050,15 @@ export default class SnakeScene extends Phaser.Scene {
     // Background bonuses
     if (this.backgroundMods) {
       if (typeof this.backgroundMods.tickDelayScalar === 'number')
-        tickScalar *= this.backgroundMods.tickDelayScalar;
+        backgroundTickScalar *= this.backgroundMods.tickDelayScalar;
       if (typeof this.backgroundMods.wallSenseBonus === 'number')
         wallSenseBonus += this.backgroundMods.wallSenseBonus;
       if (typeof this.backgroundMods.seismicPulseBonus === 'number')
         seismicBonus += this.backgroundMods.seismicPulseBonus;
       if (typeof this.backgroundMods.invulnerabilityBonus === 'number')
         invulnBonus += this.backgroundMods.invulnerabilityBonus;
+      if (typeof this.backgroundMods.invulnerabilityBonus === 'number')
+        backgroundWardBonus += this.backgroundMods.invulnerabilityBonus;
       if (this.backgroundMods.regenerator) {
         const r = this.backgroundMods.regenerator;
         if (!regen) regen = { interval: r.interval, amount: r.amount };
@@ -8070,13 +8075,15 @@ export default class SnakeScene extends Phaser.Scene {
     // Class bonuses
     if (this.classMods) {
       if (typeof this.classMods.tickDelayScalar === 'number')
-        tickScalar *= this.classMods.tickDelayScalar;
+        classTickScalar *= this.classMods.tickDelayScalar;
       if (typeof this.classMods.wallSenseBonus === 'number')
         wallSenseBonus += this.classMods.wallSenseBonus;
       if (typeof this.classMods.seismicPulseBonus === 'number')
         seismicBonus += this.classMods.seismicPulseBonus;
       if (typeof this.classMods.invulnerabilityBonus === 'number')
         invulnBonus += this.classMods.invulnerabilityBonus;
+      if (typeof this.classMods.invulnerabilityBonus === 'number')
+        classWardBonus += this.classMods.invulnerabilityBonus;
       if (this.classMods.regenerator) {
         const r = this.classMods.regenerator;
         if (!regen) regen = { interval: r.interval, amount: r.amount };
@@ -8092,16 +8099,61 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Orange Juice speed boost
     const orangeJuiceSpeedBoost = this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0;
-    if (orangeJuiceSpeedBoost > 0) {
-      tickScalar *= 0.75;
-    }
-    invulnBonus += specialGameplay.invulnerabilityTickBonus;
-
-    // Apply speed scalar via skill system
-    this.skillTree.applyActionStepIntervalScalar(tickScalar, 'equipment:boots');
+    const setProgressionSource = (
+      id: string,
+      category: 'background' | 'class' | 'faith' | 'equipment' | 'status',
+      actionScalar: number,
+      wardBonus: number,
+      extraModifiers: CharacterCreationMods['derivedModifiers'] = [],
+    ) =>
+      this.skillTree.setDerivedStatSource({
+        id,
+        category,
+        modifiers: [
+          ...(actionScalar !== 1
+            ? ([
+                {
+                  stat: 'actionStepIntervalScalar',
+                  operation: 'multiply',
+                  value: actionScalar,
+                },
+              ] as const)
+            : []),
+          ...(wardBonus !== 0
+            ? ([{ stat: 'wardDuration', operation: 'add', value: wardBonus }] as const)
+            : []),
+          ...extraModifiers,
+        ],
+      });
+    setProgressionSource('equipment.loadout', 'equipment', equipmentTickScalar, equipmentWardBonus);
+    setProgressionSource(
+      'faith.identity',
+      'faith',
+      faithTickScalar,
+      faithWardBonus,
+      this.religionMods.derivedModifiers,
+    );
+    setProgressionSource(
+      'background.identity',
+      'background',
+      backgroundTickScalar,
+      backgroundWardBonus,
+      this.backgroundMods.derivedModifiers,
+    );
+    setProgressionSource(
+      'class.identity',
+      'class',
+      classTickScalar,
+      classWardBonus,
+      this.classMods.derivedModifiers,
+    );
+    setProgressionSource('status.orangeJuice', 'status', orangeJuiceSpeedBoost > 0 ? 0.75 : 1, 0);
+    // Clear legacy scalar slots and apply the complete derived result once.
+    this.skillTree.applyActionStepIntervalScalar(1, 'equipment:boots');
+    this.skillTree.applyActionStepIntervalScalar(1, 'special:agility');
     this.skillTree.applyActionStepIntervalScalar(
-      specialGameplay.movementTickDelayScalar,
-      'special:agility',
+      this.skillTree.getDerivedStat('actionStepIntervalScalar'),
+      'derived:progression',
     );
 
     // Set equipment flags for game logic to combine with skill-based flags
@@ -8132,15 +8184,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag('equipment.hazardMapSense', hazardMapSense > 0 ? hazardMapSense : undefined);
     this.setFlag('equipment.lightRadiusTiles', lightRadiusTiles > 0 ? lightRadiusTiles : undefined);
     const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
-    const previousSpecialHeartBonus = Number(this.getFlag<number>('special.maxHeartBonus') ?? 0);
-    const legacySkillHeartBonus = Math.max(0, currentMaxHealth - 3 - previousSpecialHeartBonus);
-    const skillHeartBonus = Math.max(
-      0,
-      Number(this.getFlag<number>('player.skillMaxHeartBonus') ?? legacySkillHeartBonus),
-    );
-    const nextMaxHealth = Math.max(1, 3 + skillHeartBonus + specialGameplay.maxHeartBonus);
+    const nextMaxHealth = Math.max(1, this.skillTree.getDerivedStat('maxHealth'));
     const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
-    this.setFlag('player.skillMaxHeartBonus', skillHeartBonus > 0 ? skillHeartBonus : undefined);
     this.setFlag(
       'special.maxHeartBonus',
       specialGameplay.maxHeartBonus !== 0 ? specialGameplay.maxHeartBonus : undefined,
@@ -8166,6 +8211,10 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
+  }
+
+  refreshProgressionDerivedStats(): void {
+    this.applyEquipmentEffects();
   }
 
   private clearTemperatureState(): void {
@@ -9834,16 +9883,7 @@ export default class SnakeScene extends Phaser.Scene {
       const [roomX, roomY] = this.parseRoomCoordinates(roomId);
       const localX = head.x - roomX * this.grid.cols;
       const localY = head.y - roomY * this.grid.rows;
-      addLight(
-        'player-lantern',
-        localX,
-        localY,
-        radiusTiles * 1.5,
-        1,
-        0xffd48a,
-        'lantern',
-        true,
-      );
+      addLight('player-lantern', localX, localY, radiusTiles * 1.5, 1, 0xffd48a, 'lantern', true);
     }
     if (lightSources.length === atmosphere.darkness.lightSources.length) {
       return atmosphere;
@@ -9905,29 +9945,68 @@ export default class SnakeScene extends Phaser.Scene {
 
   // Called by the religion feature to persist the choice for this run
   setReligionChoice(id: string, mods: Partial<typeof this.religionMods>): void {
+    this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, mods.specialModifiers);
     this.chosenReligionId = id;
     this.religionMods = { ...mods } as any;
+    this.setFlag('religion.id', id);
+    this.setFlag('religion.mods', this.religionMods);
     this.applyEquipmentEffects();
+    this.applyStartingMechanicFlags(mods.mechanicFlags);
+    if (mods.startingPerkId) {
+      this.skillTree.grantStartingPerk(mods.startingPerkId, { type: 'faith', faithId: id });
+    }
     this.skillTree.getOverlay().announce(`Chosen faith: ${id}`, '#fff3a8', 2000);
   }
 
   // Called by character creation flow
   setBackgroundChoice(id: string, mods: Partial<typeof this.backgroundMods>): void {
+    this.replaceStartingSpecialModifiers(
+      this.backgroundMods.specialModifiers,
+      mods.specialModifiers,
+    );
     this.chosenBackgroundId = id;
     this.backgroundMods = { ...mods } as any;
+    this.setFlag('background.id', id);
+    this.setFlag('background.mods', this.backgroundMods);
     this.applyEquipmentEffects();
+    this.applyStartingMechanicFlags(mods.mechanicFlags);
     this.skillTree.getOverlay().announce(`Background: ${id}`, '#9ad1ff', 1800);
   }
 
   setClassChoice(id: string, mods: Partial<typeof this.classMods>): void {
+    this.replaceStartingSpecialModifiers(this.classMods.specialModifiers, mods.specialModifiers);
     this.chosenClassId = id;
     this.classMods = { ...mods } as any;
+    this.setFlag('class.id', id);
+    this.setFlag('class.mods', this.classMods);
     this.applyEquipmentEffects();
+    this.applyStartingMechanicFlags(mods.mechanicFlags);
+    if (mods.startingPerkId) {
+      this.skillTree.grantStartingPerk(mods.startingPerkId, { type: 'class', classId: id });
+    }
     this.skillTree.getOverlay().announce(`Class: ${id}`, '#c8ffe1', 1800);
   }
 
   getChosenReligionId(): string | null {
     return this.chosenReligionId;
+  }
+
+  private applyStartingMechanicFlags(
+    flags: Readonly<Record<string, boolean | number | string>> | undefined,
+  ): void {
+    for (const [key, value] of Object.entries(flags ?? {})) this.setFlag(key, value);
+  }
+
+  private replaceStartingSpecialModifiers(
+    previous: CharacterCreationMods['specialModifiers'],
+    next: CharacterCreationMods['specialModifiers'],
+  ): void {
+    if (previous) {
+      this.snakeGame.applyStartingSpecialModifiers(
+        Object.fromEntries(Object.entries(previous).map(([stat, value]) => [stat, -Number(value)])),
+      );
+    }
+    if (next) this.snakeGame.applyStartingSpecialModifiers(next);
   }
 
   getReligionMods(): typeof this.religionMods {
@@ -9951,6 +10030,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   resetStartingChoices(): void {
+    this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, undefined);
+    this.replaceStartingSpecialModifiers(this.backgroundMods.specialModifiers, undefined);
+    this.replaceStartingSpecialModifiers(this.classMods.specialModifiers, undefined);
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;
     this.chosenClassId = null;

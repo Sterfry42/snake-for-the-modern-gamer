@@ -24,6 +24,7 @@ import type { ArtifactView } from '../artifacts/artifacts.js';
 import type { AnimalCompanionView } from '../animals/companions.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import type { DerivedStatId } from '../stats/derivedStats.js';
 import { ensurePauseMenuGeneratedAssets } from './assets/pauseMenuGeneratedAssets.js';
 import { uiTabIconKeys } from './assets/uiAtlasKeys.js';
 import {
@@ -65,6 +66,8 @@ import {
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import { DAY_PHASE_DURATIONS_MS } from '../world/atmosphereTypes.js';
+import { TreeViewportController, type TreePoint } from './core/TreeViewportController.js';
+import { buildSkillTreeWorldLayout, getSkillTreeFoundationPoint } from './skillTreeWorldLayout.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -318,6 +321,11 @@ export class SkillTreeOverlay {
   private readonly hintText: Phaser.GameObjects.Text;
   private readonly connectionGraphics: Phaser.GameObjects.Graphics;
   private readonly connectionHighlight: Phaser.GameObjects.Graphics;
+  private readonly skillViewportBackground: Phaser.GameObjects.Rectangle;
+  private readonly skillTreeWorld: Phaser.GameObjects.Container;
+  private readonly skillViewport: TreeViewportController;
+  private readonly skillWorldPositions = new Map<string, TreePoint>();
+  private skillViewportInitialized = false;
   private readonly mapGraphics: Phaser.GameObjects.Graphics;
   private readonly mapBackground: Phaser.GameObjects.Rectangle;
   private readonly mapTitle: Phaser.GameObjects.Text;
@@ -386,10 +394,6 @@ export class SkillTreeOverlay {
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
-  private skillTreePanX = 0;
-  private skillTreePanY = 0;
-  private skillTreeContentWidth = 0;
-  private skillTreeContentHeight = 0;
   private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
@@ -431,6 +435,16 @@ export class SkillTreeOverlay {
       height: options.height ?? responsiveHeight,
       depth: options.depth ?? DEFAULT_OPTIONS.depth,
     };
+    const initialTreeBounds = this.getSkillTreeBounds();
+    const initialTreeContent = insetRect(initialTreeBounds, 16);
+    this.skillViewport = new TreeViewportController({
+      width: initialTreeContent.width,
+      height: initialTreeContent.height,
+      minZoom: 0.42,
+      maxZoom: 1.65,
+      initialZoom: 0.95,
+      padding: 80,
+    });
     ensurePauseMenuGeneratedAssets(this.scene);
 
     const x = (this.scene.scale.width - this.options.width) / 2;
@@ -467,6 +481,21 @@ export class SkillTreeOverlay {
 
     this.connectionGraphics = this.scene.add.graphics();
     this.connectionHighlight = this.scene.add.graphics();
+    this.skillViewportBackground = this.scene.add
+      .rectangle(
+        initialTreeBounds.x,
+        initialTreeBounds.y,
+        initialTreeBounds.width,
+        initialTreeBounds.height,
+        uiColors.panelBgSecondary,
+        0.86,
+      )
+      .setOrigin(0)
+      .setStrokeStyle(1, uiColors.accentGrowth, 0.62);
+    this.skillTreeWorld = this.scene.add.container(0, 0, [
+      this.connectionGraphics,
+      this.connectionHighlight,
+    ]);
     // Map container and elements
     const mapX = TREE_PADDING.horizontal;
     const mapY = TREE_PADDING.top - 8;
@@ -816,8 +845,7 @@ export class SkillTreeOverlay {
     this.inventoryItemsText.setMask(scrollMask);
     this.specialStatsText.setMask(scrollMask);
     this.structuredContainer.setMask(scrollMask);
-    this.connectionGraphics.setMask(scrollMask);
-    this.connectionHighlight.setMask(scrollMask);
+    this.skillTreeWorld.setMask(scrollMask);
     this.equipmentListMaskGraphics = this.scene.add.graphics().setVisible(false);
     this.equipmentListMask = this.equipmentListMaskGraphics.createGeometryMask();
     this.specialChanceMaskGraphics = this.scene.add.graphics().setVisible(false);
@@ -1016,7 +1044,14 @@ export class SkillTreeOverlay {
       'wheel',
       (_pointer: Phaser.Input.Pointer, _objects: unknown[], dx: number, dy: number) => {
         if (this.visible && this.activeTab === 'skills') {
-          this.panSkillTree(dy, dx);
+          if (this.isPointerInSkillViewport(_pointer)) {
+            const bounds = insetRect(this.getSkillTreeBounds(), 16);
+            const anchor = {
+              x: _pointer.x - this.overlayX - bounds.x,
+              y: _pointer.y - this.overlayY - bounds.y,
+            };
+            this.zoomSkillTree(this.skillViewport.zoom + (dy < 0 ? 0.12 : -0.12), anchor);
+          }
           return;
         }
         if (
@@ -1029,6 +1064,18 @@ export class SkillTreeOverlay {
         this.scrollActiveText(dy);
       },
     );
+    this.scene.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.visible && this.activeTab === 'skills' && this.isPointerInSkillViewport(pointer)) {
+        this.skillViewport.beginDrag({ x: pointer.x, y: pointer.y });
+      }
+    });
+    this.scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.visible || this.activeTab !== 'skills' || !pointer.isDown) return;
+      if (this.skillViewport.moveDrag({ x: pointer.x, y: pointer.y })) {
+        this.applySkillViewportTransform();
+      }
+    });
+    this.scene.input.on('pointerup', () => this.skillViewport.endDrag());
 
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
@@ -1041,8 +1088,8 @@ export class SkillTreeOverlay {
       this.styleContainer,
       this.factionContainer,
       this.structuredContainer,
-      this.connectionGraphics,
-      this.connectionHighlight,
+      this.skillViewportBackground,
+      this.skillTreeWorld,
       this.mapContainer,
       this.graphContainer,
       this.cheatContainer,
@@ -4907,11 +4954,19 @@ export class SkillTreeOverlay {
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerPan(0, 48) ?? false;
         }
+        if (this.activeTab === 'skills') {
+          this.panSkillTree(-64, 0);
+          return true;
+        }
         this.scrollActiveText(-48);
         return true;
       case 'scrollDown':
         if (this.activeTab === 'achievements') {
           return this.achievementTree?.handleControllerPan(0, -48) ?? false;
+        }
+        if (this.activeTab === 'skills') {
+          this.panSkillTree(64, 0);
+          return true;
         }
         this.scrollActiveText(48);
         return true;
@@ -5162,9 +5217,7 @@ export class SkillTreeOverlay {
 
   private getControllerSkillVisuals(): NodeVisual[] {
     return [...this.nodeVisuals.values()].sort(
-      (a, b) =>
-        a.definition.position.y - b.definition.position.y ||
-        a.definition.position.x - b.definition.position.x,
+      (a, b) => a.position.y - b.position.y || a.position.x - b.position.x,
     );
   }
 
@@ -5184,14 +5237,14 @@ export class SkillTreeOverlay {
       this.focusControllerSkill();
       return;
     }
-    const currentX = current.definition.position.x;
-    const currentY = current.definition.position.y;
+    const currentX = current.position.x;
+    const currentY = current.position.y;
     let bestIndex = -1;
     let bestScore = Number.POSITIVE_INFINITY;
     visuals.forEach((visual, index) => {
       if (index === this.controllerSkillIndex) return;
-      const dx = visual.definition.position.x - currentX;
-      const dy = visual.definition.position.y - currentY;
+      const dx = visual.position.x - currentX;
+      const dy = visual.position.y - currentY;
       const forward = dx * directionX + dy * directionY;
       if (forward <= 0) return;
       const cross = Math.abs(dx * directionY - dy * directionX);
@@ -5222,6 +5275,18 @@ export class SkillTreeOverlay {
     if (selected) {
       this.hoveredPerkId = selected.definition.id;
       this.populatePerkDetails(selected.definition.id);
+      const content = insetRect(this.getSkillTreeBounds(), 16);
+      const screen = this.skillViewport.worldToViewport(selected.position);
+      const margin = 72;
+      if (
+        screen.x < margin ||
+        screen.x > content.width - margin ||
+        screen.y < margin ||
+        screen.y > content.height - margin
+      ) {
+        this.skillViewport.centerOn(selected.position);
+        this.applySkillViewportTransform();
+      }
     }
   }
 
@@ -5570,6 +5635,13 @@ export class SkillTreeOverlay {
     const fishing = findLine('fishing-control');
     const animalDrop = findLine('animal-bonus-drop');
     const suspicion = findLine('suspicionReduction');
+    const derivedDetail = (stat: DerivedStatId): string => {
+      const breakdown = this.system.getDerivedStatBreakdown(stat);
+      const sourceCount = breakdown.additions.length + breakdown.multipliers.length;
+      return sourceCount === 0
+        ? `Base ${breakdown.base}`
+        : `Base ${breakdown.base}; ${sourceCount} active modifier${sourceCount === 1 ? '' : 's'}`;
+    };
 
     return [
       {
@@ -5594,6 +5666,42 @@ export class SkillTreeOverlay {
         id: 'post-hit-invulnerability',
         label: 'Post-Hit Invulnerability',
         value: `${(readFlagNumber('damage.postHitInvulnerabilityMs') / 1000).toFixed(1)}s`,
+      },
+      {
+        id: 'mana-max',
+        label: 'Maximum Mana',
+        value: `${Math.round(this.system.getDerivedStat('manaMax'))}`,
+        detail: derivedDetail('manaMax'),
+      },
+      {
+        id: 'mana-regen',
+        label: 'Mana Regen',
+        value: `${this.system.getDerivedStat('manaRegen').toFixed(2)}/tick`,
+        detail: derivedDetail('manaRegen'),
+      },
+      {
+        id: 'spell-slots',
+        label: 'Prepared Spell Slots',
+        value: `${Math.floor(this.system.getDerivedStat('spellSlotCapacity'))}`,
+        detail: derivedDetail('spellSlotCapacity'),
+      },
+      {
+        id: 'stored-nutrition',
+        label: 'Stored Nutrition',
+        value: `${Math.floor(this.system.getDerivedStat('nutritionCapacity'))} charges`,
+        detail: derivedDetail('nutritionCapacity'),
+      },
+      {
+        id: 'pickup-radius',
+        label: 'Pickup Radius',
+        value: `${this.system.getDerivedStat('pickupRadius').toFixed(2)} tiles`,
+        detail: derivedDetail('pickupRadius'),
+      },
+      {
+        id: 'companion-capacity',
+        label: 'Companion Capacity',
+        value: `${Math.floor(this.system.getDerivedStat('companionCapacity'))}`,
+        detail: derivedDetail('companionCapacity'),
       },
       {
         id: 'frost-resistance',
@@ -5715,6 +5823,12 @@ export class SkillTreeOverlay {
         ]),
       },
       {
+        id: 'arcane',
+        title: 'Arcane',
+        accent: uiColors.accentArcana,
+        rows: compact([fromCore('mana-max'), fromCore('mana-regen'), fromCore('spell-slots')]),
+      },
+      {
         id: 'apples',
         title: 'Apples',
         accent: uiColors.accentGrowth,
@@ -5740,6 +5854,7 @@ export class SkillTreeOverlay {
           fromSection('rare-outcomes'),
           fromSection('damage-reduction'),
           fromSection('powerup-invulnerability'),
+          fromCore('stored-nutrition'),
         ]),
       },
       {
@@ -5763,6 +5878,7 @@ export class SkillTreeOverlay {
           fromCore('powerup-discovery', 'Powerup Discovery Chance'),
           fromSection('hazard-sense'),
           fromSection('wall-sense-radius'),
+          fromCore('pickup-radius'),
         ]),
       },
       {
@@ -5797,6 +5913,7 @@ export class SkillTreeOverlay {
           fromSection('trust-gain'),
           fromSection('apology-effectiveness'),
           fromSection('intimidation-control'),
+          fromCore('companion-capacity'),
         ]),
       },
     ];
@@ -5919,6 +6036,16 @@ export class SkillTreeOverlay {
     const perks = this.system.getPerks();
 
     this.scoreText.setText(i18n.getFeatureString('hudScore') + ': ' + this.scene.score);
+    const nutrition = this.scene.getFlag<{ stored?: number }>('growth.reserveNutrition');
+    const nutritionCapacity = this.system.getDerivedStat('nutritionCapacity');
+    const resourceSuffix = [
+      nutritionCapacity > 0
+        ? `Nutrition ${Math.max(0, Number(nutrition?.stored ?? 0))}/${nutritionCapacity}`
+        : '',
+      stats.extraLives > 0 ? `Lives ${stats.extraLives}` : '',
+    ]
+      .filter(Boolean)
+      .join('  |  ');
     if (stats.manaMax > 0) {
       const manaLine =
         'Mana: ' +
@@ -5928,9 +6055,10 @@ export class SkillTreeOverlay {
         ' (+' +
         stats.manaRegen.toFixed(1) +
         '/tick)';
-      this.manaText.setText(manaLine);
+      this.manaText.setText(resourceSuffix ? `${manaLine}  |  ${resourceSuffix}` : manaLine);
     } else {
-      this.manaText.setText(i18n.getFeatureString('manaLatent'));
+      const latent = i18n.getFeatureString('manaLatent');
+      this.manaText.setText(resourceSuffix ? `${latent}  |  ${resourceSuffix}` : latent);
     }
 
     if (!this.hintSticky) {
@@ -5974,7 +6102,8 @@ export class SkillTreeOverlay {
       controlsActive ||
       infoActive ||
       cheatsActive;
-    this.connectionGraphics.setVisible(skillsActive);
+    this.skillTreeWorld.setVisible(skillsActive);
+    this.skillViewportBackground.setVisible(skillsActive);
     this.specialUiGraphics.setVisible(specialActive);
     this.specialMainContainer.setVisible(specialActive);
     this.specialDerivedContainer.setVisible(specialActive);
@@ -6426,8 +6555,11 @@ export class SkillTreeOverlay {
       for (const visual of this.nodeVisuals.values()) {
         visual.container.setVisible(false);
       }
+      this.skillTreeWorld.setVisible(false);
       return;
     }
+
+    this.skillTreeWorld.setVisible(true);
 
     this.updateSkillTreeNodeLayout(perks);
     this.drawConnections(perks);
@@ -7255,11 +7387,7 @@ export class SkillTreeOverlay {
   }
 
   private getSkillBranches(perks: readonly SkillPerkDefinition[]): string[] {
-    return [...new Set(perks.map((perk) => perk.branch))].sort((a, b) => {
-      const aX = perks.find((perk) => perk.branch === a)?.position.x ?? 0;
-      const bX = perks.find((perk) => perk.branch === b)?.position.x ?? 0;
-      return aX - bX;
-    });
+    return [...new Set(perks.filter((perk) => perk.kind !== 'combo').map((perk) => perk.branch))];
   }
 
   private getBranchAccent(branch: string): number {
@@ -7269,101 +7397,103 @@ export class SkillTreeOverlay {
     if (normalized.includes('utility') || normalized.includes('fortitude'))
       return uiColors.accentUtility;
     if (normalized.includes('flow') || normalized.includes('momentum')) return uiColors.accentFlow;
-    if (normalized.includes('command') || normalized.includes('hunting'))
+    if (
+      normalized.includes('predator') ||
+      normalized.includes('command') ||
+      normalized.includes('hunting')
+    )
       return uiColors.accentCommand;
-    if (normalized.includes('arcana') || normalized.includes('mana')) return uiColors.accentArcana;
+    if (
+      normalized.includes('arcane') ||
+      normalized.includes('arcana') ||
+      normalized.includes('mana')
+    )
+      return uiColors.accentArcana;
+    if (normalized.includes('growth')) return uiColors.accentGrowth;
+    if (normalized.includes('fellowship')) return uiColors.accentSocial;
     return uiColors.accentCore;
   }
 
-  private getSkillTreeLayout(perks: readonly SkillPerkDefinition[]): {
-    content: UiRect;
-    branches: string[];
-    progressions: number[];
-    branchRow: Map<string, number>;
-    progressionColumn: Map<number, number>;
-    leftLabelWidth: number;
-    topRankHeight: number;
-    rowGap: number;
-    colGap: number;
-  } {
-    const bounds = this.getSkillTreeBounds();
-    const content = insetRect(bounds, 16);
-    const branches = this.getSkillBranches(perks);
-    const progressions = [...new Set(perks.map((perk) => perk.position.y))].sort((a, b) => a - b);
-    const branchRow = new Map(branches.map((branch, index) => [branch, index]));
-    const progressionColumn = new Map(progressions.map((position, index) => [position, index]));
-    const leftLabelWidth = 104;
-    const topRankHeight = 42;
-    const rowGap =
-      branches.length > 1
-        ? Phaser.Math.Clamp(
-            (content.height - topRankHeight - 42) / Math.max(1, branches.length - 1),
-            42,
-            58,
-          )
-        : 0;
-    const colGap = 140;
-    this.skillTreeContentWidth =
-      leftLabelWidth + Math.max(0, progressions.length - 1) * colGap + 56;
-    this.skillTreeContentHeight = content.height;
-    this.skillTreePanX = Phaser.Math.Clamp(
-      this.skillTreePanX,
-      0,
-      Math.max(0, this.skillTreeContentWidth - content.width),
-    );
-    this.skillTreePanY = 0;
-    return {
-      content,
-      branches,
-      progressions,
-      branchRow,
-      progressionColumn,
-      leftLabelWidth,
-      topRankHeight,
-      rowGap,
-      colGap,
-    };
+  private rebuildSkillWorldPositions(perks: readonly SkillPerkDefinition[]): void {
+    this.skillWorldPositions.clear();
+    for (const [id, point] of buildSkillTreeWorldLayout(perks)) {
+      this.skillWorldPositions.set(id, point);
+    }
+    this.skillViewport.setWorldPoints([...this.skillWorldPositions.values()]);
+    if (!this.skillViewportInitialized) {
+      const root = getSkillTreeFoundationPoint(perks, this.skillWorldPositions);
+      this.skillViewport.centerOn(root);
+      this.skillViewportInitialized = true;
+    }
   }
 
   private panSkillTree(deltaY: number, deltaX = 0): void {
-    const bounds = this.getSkillTreeBounds();
-    const maxX = Math.max(0, this.skillTreeContentWidth - insetRect(bounds, 16).width);
-    const horizontalDelta = Math.abs(deltaX) > Math.abs(deltaY) ? deltaX : deltaY;
-    this.skillTreePanX = Phaser.Math.Clamp(this.skillTreePanX + horizontalDelta, 0, maxX);
-    this.skillTreePanY = 0;
-    this.refresh();
+    this.skillViewport.panBy(-deltaX, -deltaY);
+    this.applySkillViewportTransform();
+  }
+
+  private zoomSkillTree(rawZoom: number, anchor?: TreePoint): void {
+    const content = insetRect(this.getSkillTreeBounds(), 16);
+    if (
+      this.skillViewport.zoomAround(
+        rawZoom,
+        anchor ?? { x: content.width / 2, y: content.height / 2 },
+      )
+    ) {
+      this.applySkillViewportTransform();
+    }
+  }
+
+  private centerSkillTree(perkId?: string): void {
+    const point = perkId
+      ? this.skillWorldPositions.get(perkId)
+      : getSkillTreeFoundationPoint(this.system.getPerks(), this.skillWorldPositions);
+    if (!point) return;
+    this.skillViewport.centerOn(point);
+    this.applySkillViewportTransform();
+  }
+
+  private applySkillViewportTransform(): void {
+    const content = insetRect(this.getSkillTreeBounds(), 16);
+    this.skillTreeWorld
+      .setPosition(content.x + this.skillViewport.pan.x, content.y + this.skillViewport.pan.y)
+      .setScale(this.skillViewport.zoom);
   }
 
   private updateSkillTreeNodeLayout(perks: readonly SkillPerkDefinition[]): void {
-    const { content, branchRow, progressionColumn, leftLabelWidth, topRankHeight, rowGap, colGap } =
-      this.getSkillTreeLayout(perks);
+    if (this.skillWorldPositions.size === 0) this.rebuildSkillWorldPositions(perks);
     for (const perk of perks) {
       const visual = this.nodeVisuals.get(perk.id);
-      if (!visual) continue;
-      const row = branchRow.get(perk.branch) ?? 0;
-      const col = progressionColumn.get(perk.position.y) ?? 0;
-      const px = content.x + leftLabelWidth + col * colGap - this.skillTreePanX;
-      const py = content.y + topRankHeight + row * rowGap - this.skillTreePanY;
-      visual.container.setPosition(px, py);
-      visual.position.set(px, py);
+      const point = this.skillWorldPositions.get(perk.id);
+      if (!visual || !point) continue;
+      visual.container.setPosition(point.x, point.y);
+      visual.position.set(point.x, point.y);
     }
+    this.applySkillViewportTransform();
+  }
+
+  private isPointerInSkillViewport(pointer: Phaser.Input.Pointer): boolean {
+    const bounds = insetRect(this.getSkillTreeBounds(), 16);
+    const x = pointer.x - this.overlayX;
+    const y = pointer.y - this.overlayY;
+    return (
+      x >= bounds.x &&
+      x <= bounds.x + bounds.width &&
+      y >= bounds.y &&
+      y <= bounds.y + bounds.height
+    );
   }
 
   private buildNodes(): void {
     const perks = this.system.getPerks();
-    const { content, branchRow, progressionColumn, leftLabelWidth, topRankHeight, rowGap, colGap } =
-      this.getSkillTreeLayout(perks);
+    this.rebuildSkillWorldPositions(perks);
     const radius = 16;
 
     for (const perk of perks) {
-      const row = branchRow.get(perk.branch) ?? 0;
-      const col = progressionColumn.get(perk.position.y) ?? 0;
-      const px = content.x + leftLabelWidth + col * colGap - this.skillTreePanX;
-      const py = content.y + topRankHeight + row * rowGap - this.skillTreePanY;
+      const point = this.skillWorldPositions.get(perk.id) ?? { x: 0, y: 0 };
+      const px = point.x;
+      const py = point.y;
       const nodeContainer = this.scene.add.container(px, py);
-      if (this.contentMask) {
-        nodeContainer.setMask(this.contentMask);
-      }
 
       const button = this.scene.add.circle(0, 0, radius, 0x13233a).setStrokeStyle(2, 0x2b4a63);
       button.setInteractive({ useHandCursor: true });
@@ -7408,8 +7538,10 @@ export class SkillTreeOverlay {
         if (!this.detailPinned) {
           this.populatePerkDetails(perk.id);
         }
-        const absX = this.container.x + px;
-        const absY = this.container.y + py;
+        const content = insetRect(this.getSkillTreeBounds(), 16);
+        const screen = this.skillViewport.worldToViewport({ x: px, y: py });
+        const absX = this.container.x + content.x + screen.x;
+        const absY = this.container.y + content.y + screen.y;
         (this.scene as any).juice?.uiSparkle?.(absX, absY);
         this.showConnectionHighlight(perk.id);
         if (!this.hintSticky) {
@@ -7437,7 +7569,11 @@ export class SkillTreeOverlay {
         this.hideHoverTip();
         this.clearConnectionHighlight();
       });
-      button.on('pointerdown', () => {
+      button.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+        this.skillViewport.beginDrag({ x: pointer.x, y: pointer.y });
+      });
+      button.on('pointerup', () => {
+        if (this.skillViewport.didDrag()) return;
         try {
           const state = this.system.getPurchaseState(perk.id);
           this.handlers.onRequestPurchase(perk.id, state);
@@ -7446,7 +7582,7 @@ export class SkillTreeOverlay {
         }
       });
 
-      this.container.add(nodeContainer);
+      this.skillTreeWorld.add(nodeContainer);
 
       this.nodeVisuals.set(perk.id, {
         definition: perk,
@@ -7458,6 +7594,7 @@ export class SkillTreeOverlay {
         position: new Phaser.Math.Vector2(px, py),
       });
     }
+    this.applySkillViewportTransform();
   }
 
   private showConnectionHighlight(perkId: string): void {
@@ -7565,10 +7702,12 @@ export class SkillTreeOverlay {
       yoyo: true,
     });
     // Ring pulse around node
-    const absX = this.container.x + target.x;
-    const absY = this.container.y + target.y;
+    const content = insetRect(this.getSkillTreeBounds(), 16);
+    const screen = this.skillViewport.worldToViewport(visual.position);
+    const absX = this.container.x + content.x + screen.x;
+    const absY = this.container.y + content.y + screen.y;
     const g = this.scene.add.graphics().setDepth(this.options.depth + 1);
-    this.container.add(g);
+    this.skillTreeWorld.add(g);
     const state = { r: 16, a: 0.9 } as any;
     this.scene.tweens.add({
       targets: state,
@@ -7579,7 +7718,7 @@ export class SkillTreeOverlay {
       onUpdate: () => {
         g.clear();
         g.lineStyle(2, 0x9ad1ff, state.a);
-        g.strokeCircle(absX, absY, state.r);
+        g.strokeCircle(target.x, target.y, state.r);
       },
       onComplete: () => g.destroy(),
     });
@@ -7591,63 +7730,46 @@ export class SkillTreeOverlay {
     for (const child of this.skillTreeChromeObjects.splice(0)) {
       child.destroy();
     }
-    const bounds = this.getSkillTreeBounds();
-    const { content, branches, progressions, leftLabelWidth, topRankHeight, rowGap, colGap } =
-      this.getSkillTreeLayout(perks);
-
-    drawUiCard(this.connectionGraphics, {
-      rect: bounds,
-      fill: uiColors.panelBgSecondary,
-      stroke: uiColors.accentGrowth,
-      alpha: 0.86,
-      strokeAlpha: 0.62,
-      radius: 8,
-    });
-
-    progressions.forEach((_progression, index) => {
-      const x = content.x + leftLabelWidth + index * colGap - this.skillTreePanX;
-      const rankLabel = addUiText(this.scene, this.container, x, content.y + 12, `R${index}`, {
-        align: 'center',
-        color: uiColors.textMuted,
-        fontSize: '10px',
-      }).setDepth(this.options.depth + 1);
-      if (this.contentMask) {
-        rankLabel.setMask(this.contentMask);
-      }
-      this.skillTreeChromeObjects.push(rankLabel);
+    const entryPoints = perks
+      .filter((perk) => perk.kind === 'entry')
+      .map((perk) => this.skillWorldPositions.get(perk.id))
+      .filter((point): point is TreePoint => Boolean(point));
+    const orderedEntries = [...entryPoints].sort((left, right) => left.x - right.x);
+    for (let index = 1; index < orderedEntries.length; index += 1) {
+      const previous = orderedEntries[index - 1]!;
+      const entry = orderedEntries[index]!;
       this.connectionGraphics
-        .lineStyle(1, uiColors.panelBorderMuted, 0.28)
-        .lineBetween(x, content.y + 30, x, content.y + content.height - 10);
-    });
-
-    branches.forEach((branch, index) => {
-      const y = content.y + topRankHeight + index * rowGap - this.skillTreePanY;
+        .lineStyle(2, 0x5dd6a2, 0.32)
+        .lineBetween(previous.x, previous.y, entry.x, entry.y);
+    }
+    const branches = this.getSkillBranches(perks);
+    branches.forEach((branch) => {
+      const branchPerks = perks.filter((perk) => perk.branch === branch && perk.kind !== 'combo');
+      const points = branchPerks
+        .map((perk) => this.skillWorldPositions.get(perk.id))
+        .filter((point): point is TreePoint => Boolean(point));
+      if (points.length === 0) return;
+      const entryPerk = branchPerks.find((perk) => perk.kind === 'entry');
+      const x =
+        (entryPerk ? this.skillWorldPositions.get(entryPerk.id)?.x : undefined) ??
+        points.reduce((sum, point) => sum + point.x, 0) / points.length;
+      const minY = Math.min(...points.map((point) => point.y));
+      const maxY = Math.max(...points.map((point) => point.y));
       const accent = this.getBranchAccent(branch);
+      this.connectionGraphics.lineStyle(2, accent, 0.42).lineBetween(x, minY - 50, x, maxY + 28);
       this.connectionGraphics
-        .lineStyle(2, accent, 0.42)
-        .lineBetween(
-          content.x + leftLabelWidth - 12 - this.skillTreePanX,
-          y,
-          content.x + this.skillTreeContentWidth - 20 - this.skillTreePanX,
-          y,
-        );
-      this.connectionGraphics.fillStyle(accent, 0.16).fillRoundedRect(content.x, y - 18, 86, 36, 6);
-      const branchLabel = addUiText(
-        this.scene,
-        this.container,
-        content.x + 43,
-        y - 7,
-        branch.toUpperCase(),
-        {
-          align: 'center',
-          color: `#${accent.toString(16).padStart(6, '0')}`,
-          fontSize: '10px',
+        .fillStyle(accent, 0.16)
+        .fillRoundedRect(x - 55, maxY + 24, 110, 36, 7);
+      const branchLabel = this.scene.add
+        .text(x, maxY + 42, branch.toUpperCase(), {
+          fontFamily: 'monospace',
+          fontSize: '11px',
           fontStyle: 'bold',
-        },
-      ).setDepth(this.options.depth + 1);
-      if (this.contentMask) {
-        branchLabel.setMask(this.contentMask);
-      }
+          color: `#${accent.toString(16).padStart(6, '0')}`,
+        })
+        .setOrigin(0.5)
+        .setDepth(this.options.depth + 1);
+      this.skillTreeWorld.add(branchLabel);
       this.skillTreeChromeObjects.push(branchLabel);
     });
 
@@ -7673,20 +7795,41 @@ export class SkillTreeOverlay {
           .strokePath();
       }
     }
-    if (this.skillTreeContentWidth > content.width) {
-      const railX = content.x + 10;
-      const railY = content.y + content.height - 8;
-      const railW = content.width - 20;
-      const thumbW = Math.max(34, (content.width / this.skillTreeContentWidth) * railW);
-      const maxOffset = Math.max(1, this.skillTreeContentWidth - content.width);
-      const thumbX = railX + (this.skillTreePanX / maxOffset) * (railW - thumbW);
-      this.connectionGraphics
-        .fillStyle(uiColors.panelBgInset, 0.82)
-        .fillRoundedRect(railX, railY, railW, 5, 2);
-      this.connectionGraphics
-        .fillStyle(uiColors.panelGlow, 0.9)
-        .fillRoundedRect(thumbX, railY, thumbW, 5, 2);
-    }
+
+    const bounds = insetRect(this.getSkillTreeBounds(), 16);
+    const zoomLabel = addUiText(
+      this.scene,
+      this.container,
+      bounds.x + 8,
+      bounds.y + bounds.height - 24,
+      `${Math.round(this.skillViewport.zoom * 100)}%  DRAG/WHEEL`,
+      { color: uiColors.textMuted, fontSize: '10px' },
+    ).setDepth(this.options.depth + 2);
+    const makeViewportButton = (x: number, label: string, onClick: () => void) => {
+      const button = this.scene.add
+        .text(x, bounds.y + 7, ` ${label} `, {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#fff3a8',
+          backgroundColor: '#244155',
+          padding: { x: 4, y: 3 },
+        })
+        .setInteractive({ useHandCursor: true })
+        .setDepth(this.options.depth + 2);
+      button.on('pointerdown', onClick);
+      this.container.add(button);
+      return button;
+    };
+    const centerButton = makeViewportButton(bounds.x + bounds.width - 78, 'CENTER', () =>
+      this.centerSkillTree(),
+    );
+    const zoomIn = makeViewportButton(bounds.x + 8, '+', () =>
+      this.zoomSkillTree(this.skillViewport.zoom + 0.15),
+    );
+    const zoomOut = makeViewportButton(bounds.x + 42, '-', () =>
+      this.zoomSkillTree(this.skillViewport.zoom - 0.15),
+    );
+    this.skillTreeChromeObjects.push(zoomLabel, centerButton, zoomIn, zoomOut);
   }
 
   private setActiveTab(tabId: TabId): void {
@@ -7906,10 +8049,30 @@ export class SkillTreeOverlay {
     const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
 
     const lines: string[] = [definition.description];
+    if (definition.kind === 'combo' && definition.secondaryBranch) {
+      lines.push(`Combo: ${definition.branch} + ${definition.secondaryBranch}`);
+    } else if (definition.route) {
+      lines.push(`Specialization: ${definition.route}`);
+    }
+
+    const ownership = this.system.getOwnership(perkId);
+    if (ownership?.sources.length) {
+      const sourceLabels = ownership.sources.map((source) => {
+        if (source.type === 'class') return `Class: ${source.classId}`;
+        if (source.type === 'faith') return `Faith: ${source.faithId}`;
+        if (source.type === 'migration') return 'Legacy skill';
+        if (source.type === 'debug') return 'Debug grant';
+        return 'Purchased';
+      });
+      lines.push('Owned from: ' + sourceLabels.join(', '));
+    }
 
     if (rank > 0 && definition.rankDescriptions.length > 0) {
       const currentIndex = Math.min(rank - 1, definition.rankDescriptions.length - 1);
-      if (currentIndex >= 0) {
+      if (
+        currentIndex >= 0 &&
+        definition.rankDescriptions[currentIndex] !== definition.description
+      ) {
         lines.push('Current: ' + definition.rankDescriptions[currentIndex]);
       }
     }
@@ -7918,7 +8081,8 @@ export class SkillTreeOverlay {
       const nextIndex = Math.min(rank, definition.rankDescriptions.length - 1);
       const nextDescription = definition.rankDescriptions[nextIndex];
       const nextCost = definition.costByRank[rank];
-      let nextLine = 'Next: ' + nextDescription;
+      let nextLine =
+        nextDescription === definition.description ? 'Purchase' : 'Next: ' + nextDescription;
       if (Number.isFinite(nextCost)) {
         nextLine += ' (Cost ' + nextCost + ')';
       }
@@ -7936,7 +8100,13 @@ export class SkillTreeOverlay {
     }
 
     this.detailTitle.setText(definition.title).setVisible(true);
-    this.detailSubtitle.setText(definition.branch).setVisible(true);
+    this.detailSubtitle
+      .setText(
+        definition.secondaryBranch
+          ? `${definition.branch} + ${definition.secondaryBranch}`
+          : definition.branch,
+      )
+      .setVisible(true);
     this.detailRankText
       .setText('Rank ' + clampedRank + '/' + maxRank + ' - ' + statusLabel)
       .setVisible(true);

@@ -156,6 +156,17 @@ export class SpecialStatsService {
     this.resetPreview();
   }
 
+  applyPermanentModifiers(modifiers: Readonly<Partial<Record<SpecialStatId, number>>>): void {
+    const next = cloneSpecialStats(this.committed.stats);
+    for (const id of SPECIAL_STAT_IDS) {
+      const modifier = Number(modifiers[id] ?? 0);
+      if (!Number.isFinite(modifier) || modifier === 0) continue;
+      next[id] = Math.max(SPECIAL_MIN, Math.min(SPECIAL_MAX, next[id] + Math.trunc(modifier)));
+    }
+    this.committed = { ...this.committed, stats: next };
+    this.resetPreview();
+  }
+
   setAllStats(value: number): void {
     const next = { ...this.committed.stats };
     for (const id of SPECIAL_STAT_IDS) {
@@ -277,7 +288,8 @@ export class SpecialStatsService {
           {
             id: 'invulnerability-window',
             label: 'Invulnerability Window',
-            value: gameplay.invulnerabilityTickBonus > 0 ? `+${gameplay.invulnerabilityTickBonus}` : '0',
+            value:
+              gameplay.invulnerabilityTickBonus > 0 ? `+${gameplay.invulnerabilityTickBonus}` : '0',
             affectedBy: ['endurance'],
           },
         ],
@@ -295,7 +307,10 @@ export class SpecialStatsService {
           {
             id: 'lock-on-range',
             label: 'Lock-On Range',
-            value: gameplay.lockOnRangeBonus >= 0 ? `+${gameplay.lockOnRangeBonus}` : `${gameplay.lockOnRangeBonus}`,
+            value:
+              gameplay.lockOnRangeBonus >= 0
+                ? `+${gameplay.lockOnRangeBonus}`
+                : `${gameplay.lockOnRangeBonus}`,
             affectedBy: ['perception'],
           },
           {
@@ -320,7 +335,9 @@ export class SpecialStatsService {
             id: 'max-hearts',
             label: 'Max Hearts',
             value:
-              gameplay.maxHeartBonus > 0 ? `+${gameplay.maxHeartBonus}` : `${gameplay.maxHeartBonus}`,
+              gameplay.maxHeartBonus > 0
+                ? `+${gameplay.maxHeartBonus}`
+                : `${gameplay.maxHeartBonus}`,
             affectedBy: ['endurance'],
           },
           {

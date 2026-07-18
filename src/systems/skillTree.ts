@@ -1,4 +1,14 @@
 import { applySkillEffect } from './skillEffects.js';
+import { SKILL_DEFINITIONS } from './skillCatalog.js';
+import { migrateSkillRanks, type SkillMigrationResult } from './skillMigration.js';
+import { assertValidSkillDefinitions } from './skillValidation.js';
+import {
+  DerivedStatResolver,
+  type DerivedStatBreakdown,
+  type DerivedStatId,
+  type DerivedStatModifier,
+  type DerivedStatSource,
+} from '../stats/derivedStats.js';
 import type {
   SkillEffect,
   SkillEffectSetFlag,
@@ -9,6 +19,9 @@ import type {
   SkillTreeStats,
   SkillEffectContext,
   SkillTreeSystemApi,
+  OwnedSkillState,
+  SkillOwnershipSource,
+  SkillEffectDerivedStatModifier,
 } from './skillTypes.js';
 
 export type {
@@ -1498,34 +1511,41 @@ function buildPerkDefinitions(): SkillPerkDefinition[] {
   return definitions;
 }
 
-const PERK_DEFINITIONS: readonly SkillPerkDefinition[] = buildPerkDefinitions();
+// The legacy branch constants above remain as a compatibility reference while old flags are
+// consumed by gameplay systems. Only the redesigned catalog is exposed to players.
+const PERK_DEFINITIONS: readonly SkillPerkDefinition[] = SKILL_DEFINITIONS;
+assertValidSkillDefinitions(PERK_DEFINITIONS);
 
 const MOMENTUM_PERKS = [
   'swiftScales',
+  'corneringInstinct',
+  'slipstream',
   'windShear',
-  'hyperReflex',
   'phaseStride',
+  'endlessRoad',
   'overclock',
-  'rashMomentum',
-  'quantumTrail',
-  'chronoSurge',
+  'kineticRelease',
 ] as const;
 
 const HARVEST_PERKS = [
-  'tailForge',
-  'verdantGrowth',
-  'gourmand',
-  'nectarSurge',
-  'honeycomb',
-  'orchardMastery',
-  'seasonalBloom',
+  'controlledShedding',
+  'reserveNutrition',
+  'digestiveChoice',
+  'overgrown',
   'rootedColossus',
+  'tooBigToFail',
+  'livingDecoy',
+  'rapidRegrowth',
+  'ouroboros',
 ] as const;
 export class SkillTreeSystem implements SkillTreeSystemApi {
   private readonly perkLookup = new Map<string, SkillPerkDefinition>();
   private readonly perkRanks = new Map<string, number>();
+  private readonly perkOwnership = new Map<string, OwnedSkillState>();
   private readonly actionStepIntervalSources = new Map<string, number>();
   private readonly flagEffects = new Map<string, SkillEffectSetFlag>();
+  private readonly derivedStats = new DerivedStatResolver();
+  private readonly derivedModifierSources = new Map<string, DerivedStatSource>();
 
   private extraLifeCharges = 0;
   private scoreMultiplier = 1;
@@ -1541,6 +1561,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
 
   private readonly arcanePulseCost = 20;
   private readonly arcaneVeilCost = 30;
+  private lastMigration: SkillMigrationResult | null = null;
 
   constructor(
     private readonly runtime: SkillTreeRuntime,
@@ -1587,9 +1608,64 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     return Object.fromEntries(this.perkRanks.entries());
   }
 
+  exportOwnership(): Record<string, OwnedSkillState> {
+    return Object.fromEntries(
+      [...this.perkOwnership].map(([id, state]) => [
+        id,
+        { rank: state.rank, sources: state.sources.map((source) => ({ ...source })) },
+      ]),
+    );
+  }
+
+  restoreOwnership(ownership: Record<string, OwnedSkillState>): void {
+    for (const [perkId, saved] of Object.entries(ownership)) {
+      const rank = this.getRank(perkId);
+      if (rank <= 0 || !saved || !Array.isArray(saved.sources)) continue;
+      const sources = saved.sources.filter((source): source is SkillOwnershipSource => {
+        if (!source || typeof source !== 'object' || typeof source.type !== 'string') return false;
+        if (source.type === 'purchase' || source.type === 'debug') return true;
+        if (source.type === 'class') return typeof source.classId === 'string';
+        if (source.type === 'faith') return typeof source.faithId === 'string';
+        return source.type === 'migration' && typeof source.oldPerkId === 'string';
+      });
+      if (sources.length > 0) this.perkOwnership.set(perkId, { rank, sources });
+    }
+  }
+
+  getOwnership(perkId: string): OwnedSkillState | undefined {
+    const state = this.perkOwnership.get(perkId);
+    return state
+      ? { rank: state.rank, sources: state.sources.map((source) => ({ ...source })) }
+      : undefined;
+  }
+
+  getLastMigration(): SkillMigrationResult | null {
+    return this.lastMigration
+      ? { ...this.lastMigration, ranks: { ...this.lastMigration.ranks } }
+      : null;
+  }
+
+  getDerivedStat(stat: DerivedStatId): number {
+    return this.derivedStats.resolve(stat);
+  }
+
+  getDerivedStatBreakdown(stat: DerivedStatId): DerivedStatBreakdown {
+    return this.derivedStats.getBreakdown(stat);
+  }
+
+  setDerivedStatSource(source: DerivedStatSource): void {
+    this.derivedModifierSources.set(source.id, source);
+    this.derivedStats.setSource(source);
+    this.syncDerivedStats();
+  }
+
   restoreRanks(ranks: Record<string, number>): void {
     this.perkRanks.clear();
-    for (const [perkId, rawRank] of Object.entries(ranks)) {
+    this.perkOwnership.clear();
+    const migration = migrateSkillRanks(ranks, PERK_DEFINITIONS);
+    this.lastMigration = migration;
+    if (migration.refundedScore > 0) this.runtime.addScore(migration.refundedScore);
+    for (const [perkId, rawRank] of Object.entries(migration.ranks)) {
       const definition = this.perkLookup.get(perkId);
       if (!definition) {
         continue;
@@ -1600,6 +1676,17 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
         continue;
       }
       this.perkRanks.set(perkId, rank);
+      const sourceId =
+        Object.keys(ranks).find(
+          (id) => id === perkId || definition.migrationAliases?.includes(id),
+        ) ?? perkId;
+      this.perkOwnership.set(perkId, {
+        rank,
+        sources:
+          sourceId === perkId
+            ? [{ type: 'purchase' }]
+            : [{ type: 'migration', oldPerkId: sourceId }],
+      });
       const effectContext: SkillEffectContext = { runtime: this.runtime, system: this };
       for (let i = 0; i < rank; i += 1) {
         const rankEffects = definition.effectsByRank[i] ?? [];
@@ -1654,6 +1741,16 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
 
     const newRank = state.rank + 1;
     this.perkRanks.set(perkId, newRank);
+    const currentOwnership = this.perkOwnership.get(perkId);
+    const sources = currentOwnership?.sources ?? [];
+    if (!sources.some((source) => source.type === 'purchase')) {
+      this.perkOwnership.set(perkId, {
+        rank: newRank,
+        sources: [...sources, { type: 'purchase' }],
+      });
+    } else {
+      this.perkOwnership.set(perkId, { rank: newRank, sources });
+    }
 
     const definition = state.definition;
     const rankEffects = definition.effectsByRank[newRank - 1] ?? [];
@@ -1666,19 +1763,36 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     return { rank: newRank, cost: state.cost };
   }
 
+  grantPerk(perkId: string, source: SkillOwnershipSource): boolean {
+    const definition = this.perkLookup.get(perkId);
+    if (!definition || !definition.grantableAtStart) return false;
+    const current = this.perkOwnership.get(perkId);
+    const sourceKey = JSON.stringify(source);
+    if (current?.sources.some((entry) => JSON.stringify(entry) === sourceKey)) return true;
+    const alreadyApplied = this.getRank(perkId) > 0;
+    const sources = [...(current?.sources ?? []), source];
+    this.perkRanks.set(perkId, Math.max(1, current?.rank ?? 0));
+    this.perkOwnership.set(perkId, { rank: 1, sources });
+    if (!alreadyApplied) {
+      const context: SkillEffectContext = { runtime: this.runtime, system: this };
+      for (const effect of definition.effectsByRank[0] ?? []) applySkillEffect(effect, context);
+    }
+    return true;
+  }
+
   addExtraLives(count: number): void {
     this.extraLifeCharges += count;
   }
 
   consumeExtraLife(): boolean {
-    if (this.extraLifeCharges > 0) {
-      this.extraLifeCharges -= 1;
-      this.runtime.notifyExtraLifeConsumed();
+    if (this.arcaneVeilUnlocked && this.trySpendMana(this.arcaneVeilCost)) {
+      this.runtime.onArcaneVeilTriggered();
       return true;
     }
 
-    if (this.arcaneVeilUnlocked && this.trySpendMana(this.arcaneVeilCost)) {
-      this.runtime.onArcaneVeilTriggered();
+    if (this.extraLifeCharges > 0) {
+      this.extraLifeCharges -= 1;
+      this.runtime.notifyExtraLifeConsumed();
       return true;
     }
 
@@ -1689,6 +1803,43 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     const stored = this.cloneFlagEffect(effect);
     this.flagEffects.set(effect.key, stored);
     this.runtime.setFlag(effect.key, this.cloneEffectValue(effect.value));
+  }
+
+  applyDerivedStatModifier(effect: SkillEffectDerivedStatModifier): void {
+    const current = this.derivedModifierSources.get(effect.sourceId);
+    const modifiers: DerivedStatModifier[] = [
+      ...(current?.modifiers.filter((modifier) => modifier.stat !== effect.stat) ?? []),
+      { stat: effect.stat, operation: effect.operation, value: effect.value },
+    ];
+    this.setDerivedStatSource({
+      id: effect.sourceId,
+      category: 'perk',
+      modifiers,
+    });
+  }
+
+  private syncDerivedStats(): void {
+    const previousMax = this.manaMax;
+    this.manaMax = this.derivedStats.resolve('manaMax');
+    this.manaRegen = this.derivedStats.resolve('manaRegen');
+    if (this.manaEnabled) {
+      this.manaCurrent =
+        previousMax <= 0
+          ? this.manaMax
+          : Math.min(this.manaMax, this.manaCurrent + Math.max(0, this.manaMax - previousMax));
+      this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
+    }
+    for (const stat of [
+      'maxHealth',
+      'spellSlotCapacity',
+      'extraLifeCapacity',
+      'nutritionCapacity',
+      'wardDuration',
+      'pickupRadius',
+      'companionCapacity',
+    ] as const) {
+      this.runtime.setFlag(`derived.${stat}`, this.derivedStats.resolve(stat));
+    }
   }
 
   setScoreMultiplier(multiplier: number): void {
@@ -1744,8 +1895,16 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
   enableMana({ max, regen }: { max: number; regen: number }): void {
     const wasEnabled = this.manaEnabled;
     this.manaEnabled = true;
-    this.manaMax = Math.max(this.manaMax, max);
-    this.manaRegen = Math.max(this.manaRegen, regen);
+    if (max > 0 || regen > 0) {
+      this.setDerivedStatSource({
+        id: 'legacy.manaEnable',
+        category: 'perk',
+        modifiers: [
+          { stat: 'manaMax', operation: 'add', value: max },
+          { stat: 'manaRegen', operation: 'add', value: regen },
+        ],
+      });
+    }
     this.manaCurrent = this.manaMax;
     this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
     if (!wasEnabled) {
@@ -1757,10 +1916,14 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     if (!this.manaEnabled) {
       return;
     }
-    this.manaMax += maxBonus;
-    this.manaRegen += regenBonus;
-    this.manaCurrent = Math.min(this.manaMax, this.manaCurrent + maxBonus);
-    this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
+    this.setDerivedStatSource({
+      id: `legacy.manaUpgrade.${maxBonus}.${regenBonus}`,
+      category: 'perk',
+      modifiers: [
+        { stat: 'manaMax', operation: 'add', value: maxBonus },
+        { stat: 'manaRegen', operation: 'add', value: regenBonus },
+      ],
+    });
   }
 
   unlockArcanePulse(): void {
@@ -1846,7 +2009,11 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
       }
     }
     this.flagEffects.clear();
+    this.derivedStats.clear();
+    this.derivedModifierSources.clear();
     this.perkRanks.clear();
+    this.perkOwnership.clear();
+    this.lastMigration = null;
     this.actionStepIntervalSources.clear();
     this.extraLifeCharges = 0;
     this.scoreMultiplierBase = 1;
@@ -1864,6 +2031,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     this.runtime.notifyExtraLifeReset();
     this.updateScoreMultiplier();
     this.runtime.notifyManaChanged(0, 0, 0);
+    this.syncDerivedStats();
   }
 
   isPerkAvailable(perkId: string): boolean {

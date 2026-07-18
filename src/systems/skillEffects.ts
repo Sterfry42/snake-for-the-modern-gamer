@@ -55,6 +55,10 @@ export function applySkillEffect(effect: SkillEffect, context: SkillEffectContex
       );
       break;
     }
+    case 'derivedStatModifier': {
+      context.system.applyDerivedStatModifier(effect);
+      break;
+    }
     case 'unlockMechanic': {
       console.info(
         `[Skills] Unlocked mechanic '${effect.mechanic}'. ${effect.note ?? '(Effect implementation pending.)'}`,

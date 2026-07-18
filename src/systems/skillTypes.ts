@@ -62,6 +62,14 @@ export interface SkillEffectStatModifier {
   value: number;
 }
 
+export interface SkillEffectDerivedStatModifier {
+  type: 'derivedStatModifier';
+  sourceId: string;
+  stat: import('../stats/derivedStats.js').DerivedStatId;
+  operation: 'add' | 'multiply';
+  value: number;
+}
+
 export interface SkillEffectUnlockMechanic {
   type: 'unlockMechanic';
   mechanic: string;
@@ -86,8 +94,31 @@ export type SkillEffect =
   | SkillEffectUnlockArcaneVeil
   | SkillEffectRegisterSpell
   | SkillEffectStatModifier
+  | SkillEffectDerivedStatModifier
   | SkillEffectUnlockMechanic
   | SkillEffectPlaceholder;
+
+export type SkillBranchId =
+  | 'momentum'
+  | 'survival'
+  | 'arcane'
+  | 'growth'
+  | 'predator'
+  | 'fellowship';
+
+export type SkillNodeKind = 'entry' | 'core' | 'route' | 'capstone' | 'combo' | 'utility';
+
+export type SkillOwnershipSource =
+  | { type: 'purchase' }
+  | { type: 'class'; classId: string }
+  | { type: 'faith'; faithId: string }
+  | { type: 'migration'; oldPerkId: string }
+  | { type: 'debug' };
+
+export interface OwnedSkillState {
+  rank: number;
+  sources: readonly SkillOwnershipSource[];
+}
 
 export interface SkillPerkDefinition {
   readonly id: string;
@@ -100,6 +131,13 @@ export interface SkillPerkDefinition {
   readonly position: { x: number; y: number };
   readonly requires?: readonly string[];
   readonly effectsByRank: readonly (readonly SkillEffect[])[];
+  readonly branchId?: SkillBranchId;
+  readonly secondaryBranch?: SkillBranchId;
+  readonly kind?: SkillNodeKind;
+  readonly route?: string;
+  readonly tags?: readonly string[];
+  readonly grantableAtStart?: boolean;
+  readonly migrationAliases?: readonly string[];
 }
 
 export type SkillPerkStatus = 'available' | 'locked' | 'unaffordable' | 'maxed';
@@ -163,6 +201,7 @@ export interface SkillTreeSystemApi {
   applyActionStepIntervalScalar(factor: number, sourceId?: string): void;
   applyTickDelayScalar(factor: number, sourceId?: string): void;
   applyFlagEffect(effect: SkillEffectSetFlag): void;
+  applyDerivedStatModifier(effect: SkillEffectDerivedStatModifier): void;
   unlockArcanePulse(): void;
   unlockArcaneVeil(): void;
   modifyScoreGain(amount: number): number;

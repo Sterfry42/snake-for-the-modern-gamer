@@ -18,6 +18,12 @@ export interface SpecialGameplayModifiers {
   fineScalar: number;
   rareLootScalar: number;
   weirdOutcomeChanceBonus: number;
+  manaCapacityBonus: number;
+  manaRegenBonus: number;
+  spellSlotBonus: number;
+  nutritionCapacityBonus: number;
+  pickupRadiusBonus: number;
+  companionCapacityBonus: number;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -47,9 +53,8 @@ export function getSpecialGameplayModifiers(input: SpecialStats): SpecialGamepla
   const agilityDelta = getStatDelta(stats, 'agility');
   const luckDelta = getStatDelta(stats, 'luck');
 
-  const agilitySpeedMultiplier = stats.agility >= SPECIAL_BASELINE
-    ? 1 + agilityDelta * 0.1
-    : 1 + agilityDelta * 0.0875;
+  const agilitySpeedMultiplier =
+    stats.agility >= SPECIAL_BASELINE ? 1 + agilityDelta * 0.1 : 1 + agilityDelta * 0.0875;
   const weaponCooldownFromInt =
     intelligenceDelta >= 0 ? 1 - intelligenceDelta * 0.06 : 1 - intelligenceDelta * 0.075;
   const weaponCooldownFromAgi =
@@ -73,5 +78,11 @@ export function getSpecialGameplayModifiers(input: SpecialStats): SpecialGamepla
     fineScalar: clamp(1 - charismaDelta * 0.12, 0.4, 1.75),
     rareLootScalar: clamp(1 + luckDelta * 0.2, 0.5, 2),
     weirdOutcomeChanceBonus: luckDelta * 0.03,
+    manaCapacityBonus: intelligenceDelta * 8,
+    manaRegenBonus: intelligenceDelta * 0.12,
+    spellSlotBonus: Math.trunc(intelligenceDelta / 3),
+    nutritionCapacityBonus: Math.trunc(enduranceDelta / 2),
+    pickupRadiusBonus: perceptionDelta * 0.15,
+    companionCapacityBonus: Math.trunc(charismaDelta / 3),
   };
 }

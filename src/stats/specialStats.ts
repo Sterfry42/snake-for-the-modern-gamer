@@ -35,13 +35,13 @@ export const SPECIAL_STAT_LABELS: Record<SpecialStatId, string> = {
 };
 
 export const SPECIAL_STAT_DESCRIPTIONS: Record<SpecialStatId, string> = {
-  strength: 'Physical force, predation, meat recovery, and controlled intimidation.',
-  perception: 'Finding treasure, powerups, rare opportunities, and room details.',
-  endurance: 'Survival stability, fishing forgiveness, and retention under pressure.',
-  charisma: 'Social upside, apology force, fines, and relationship damage control.',
-  intelligence: 'Extraction, archaeology, trust, and minigame readouts.',
-  agility: 'Fishing control, catch progress, and avoiding suspicion.',
-  luck: 'Rare outcomes, better loot rolls, and unusual finds.',
+  strength: 'Raises melee damage, predation, meat recovery, and intimidation control.',
+  perception: 'Raises discovery chances, lock-on range, hazard sense, and pickup radius.',
+  endurance: 'Raises hearts, ward duration, hazard resistance, and Stored Nutrition.',
+  charisma: 'Improves prices, relationships, apologies, fines, and companion capacity.',
+  intelligence: 'Raises mana, mana regeneration, spell slots, lock-on speed, and analysis.',
+  agility: 'Raises movement speed, fishing control, catch progress, and suspicion avoidance.',
+  luck: 'Raises critical hits, rare outcomes, bonus drops, and unusual finds.',
 };
 
 export function createDefaultSpecialStats(): SpecialStats {

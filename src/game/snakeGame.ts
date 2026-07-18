@@ -2029,6 +2029,7 @@ export class SnakeGame implements QuestRuntime {
       }
       this.rechargeTerraShield();
       this.handleFortitudeOnApple(roomsChanged);
+      this.handleGrowthOnApple(roomsChanged);
     }
 
     // Treasure pickup: collect and grant a random item
@@ -5037,7 +5038,11 @@ export class SnakeGame implements QuestRuntime {
     const gateMatch = (town.gates ?? [])
       .map((gate) => {
         const perspective =
-          gate.townRoomId === room.id ? 'inside' : gate.approachRoomId === room.id ? 'outside' : null;
+          gate.townRoomId === room.id
+            ? 'inside'
+            : gate.approachRoomId === room.id
+              ? 'outside'
+              : null;
         if (!perspective) return null;
         const side = perspective === 'inside' ? gate.side : this.oppositeSide(gate.side);
         const targets = this.getTownGateInteractionTiles(side);
@@ -5084,7 +5089,8 @@ export class SnakeGame implements QuestRuntime {
       state,
       perspective,
       canOpen: state === 'closed',
-      prompt: state === 'open' ? 'Gate open' : gate.kind === 'exit' ? 'Open back gate' : 'Open town gate',
+      prompt:
+        state === 'open' ? 'Gate open' : gate.kind === 'exit' ? 'Open back gate' : 'Open town gate',
     };
   }
 
@@ -5208,7 +5214,10 @@ export class SnakeGame implements QuestRuntime {
       discoveredGuild: town.discoveredGuild,
       openedGates: [
         ...(town.gates ?? [])
-          .filter((gate) => gate.state === 'open' || this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)))
+          .filter(
+            (gate) =>
+              gate.state === 'open' || this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)),
+          )
           .map((gate) => gate.id),
       ],
       completedGuildJobs: town.thievesGuild?.completedJobs ?? [],
@@ -7423,7 +7432,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private isTownGateOpen(town: TownStructure, gate: TownGate): boolean {
-    return gate.state === 'open' || Boolean(this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)));
+    return (
+      gate.state === 'open' || Boolean(this.getFlag<boolean>(this.townGateFlagKey(town.id, gate)))
+    );
   }
 
   private getTownGateInteractionTiles(side: TownGateSide): Array<{ x: number; y: number }> {
@@ -7436,25 +7447,13 @@ export class SnakeGame implements QuestRuntime {
     });
     switch (side) {
       case 'north':
-        return [
-          ...gateTiles,
-          { x: centerX + 2, y: 3 },
-        ];
+        return [...gateTiles, { x: centerX + 2, y: 3 }];
       case 'south':
-        return [
-          ...gateTiles,
-          { x: centerX + 2, y: this.config.grid.rows - 4 },
-        ];
+        return [...gateTiles, { x: centerX + 2, y: this.config.grid.rows - 4 }];
       case 'west':
-        return [
-          ...gateTiles,
-          { x: 3, y: centerY + 2 },
-        ];
+        return [...gateTiles, { x: 3, y: centerY + 2 }];
       case 'east':
-        return [
-          ...gateTiles,
-          { x: this.config.grid.cols - 4, y: centerY + 2 },
-        ];
+        return [...gateTiles, { x: this.config.grid.cols - 4, y: centerY + 2 }];
     }
   }
 
@@ -7694,6 +7693,10 @@ export class SnakeGame implements QuestRuntime {
 
   getSpecialGameplayModifiers(): SpecialGameplayModifiers {
     return this.specialStats.getGameplayModifiers();
+  }
+
+  applyStartingSpecialModifiers(modifiers: Readonly<Partial<Record<SpecialStatId, number>>>): void {
+    this.specialStats.applyPermanentModifiers(modifiers);
   }
 
   getRunArtifacts(): ArtifactDefinition[] {
@@ -10242,7 +10245,13 @@ export class SnakeGame implements QuestRuntime {
     if (companions.some((entry) => entry.id === animal.id)) {
       return { ok: false, message: `${definition.name} is already following you.` };
     }
-    if (companions.length >= getHerdConfig().maxMembers) {
+    const companionCapacity = Math.max(
+      0,
+      Math.floor(
+        Number(this.getFlag<number>('derived.companionCapacity') ?? getHerdConfig().maxMembers),
+      ),
+    );
+    if (companions.length >= companionCapacity) {
       return { ok: false, message: 'Your companion herd is full.' };
     }
     if (this.getScore() < tameInfo.tameScore) {
@@ -11844,12 +11853,62 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, message: 'You need more tail to shed safely.', color: '#ff6b6b' };
     }
     this.setFlag('skill.tailcraft.shedCooldown', 20);
+    if (this.getFlag<boolean>('growth.rapidRegrowth')) {
+      this.setFlag('growth.rapidRegrowthTicks', 24);
+    }
+    if (this.getFlag<boolean>('growth.ouroboros')) {
+      const potential = Number(this.getFlag<number>('growth.ouroborosPotential') ?? 0);
+      this.setFlag('growth.ouroborosPotential', Math.min(12, potential + removed.length));
+    }
     this.setFlag('ui.shedTail', {
       roomId: this.snake.currentRoomId,
       positions: removed,
-      expiresAtTick: Number(this.getFlag<number>('timeMs') ?? 0) + 8000,
+      attractsHostiles: Boolean(this.getFlag<boolean>('growth.livingDecoy')),
+      expiresAtTick:
+        Number(this.getFlag<number>('timeMs') ?? 0) +
+        (this.getFlag<boolean>('growth.livingDecoy') ? 12000 : 8000),
     });
     return { ok: true, message: 'Shed tail into a decoy chunk.', color: '#9cff9c' };
+  }
+
+  tryConsumeFellowshipRescue(): boolean {
+    if (
+      !this.getFlag<boolean>('fellowship.rescue') ||
+      this.getFlag<boolean>('fellowship.rescueUsed')
+    ) {
+      return false;
+    }
+    if (this.getFollowerState().length === 0) return false;
+    this.setFlag('fellowship.rescueUsed', true);
+    this.setFlag('ui.fellowshipRescue', true);
+    return true;
+  }
+
+  tryConsumeGrowthForDeath(reason?: string | null): boolean {
+    if (reason === 'deathlink') return false;
+    const tooBig = this.getFlag<{ minimumLength?: number; cost?: number }>('growth.tooBigToFail');
+    if (tooBig && this.getSnakeLength() >= (tooBig.minimumLength ?? 12)) {
+      const removal = this.removeSafeSnakeLength(tooBig.cost ?? 8);
+      if (removal.ok && removal.removed >= (tooBig.cost ?? 8)) {
+        this.setFlag('ui.growthDeathPrevention', {
+          perk: 'tooBigToFail',
+          removed: removal.removed,
+        });
+        return true;
+      }
+    }
+    const ablative = this.getFlag<{ minimumLength?: number }>('combo.ablativeMass');
+    if (ablative && this.getSnakeLength() >= (ablative.minimumLength ?? 6)) {
+      const removal = this.removeSafeSnakeLength(3);
+      if (removal.ok) {
+        this.setFlag('ui.growthDeathPrevention', {
+          perk: 'ablativeMass',
+          removed: removal.removed,
+        });
+        return true;
+      }
+    }
+    return false;
   }
 
   getNpcBark(role: string, actorId?: string): NpcVoiceLine {
@@ -12695,6 +12754,7 @@ export class SnakeGame implements QuestRuntime {
       'relationships.states',
       'relationships.lastEncountered',
       'skills.ranks',
+      'skills.ownership',
       'equipment.wallSenseRadiusBonus',
       'equipment.seismicPulseRadiusBonus',
       'equipment.masonryEnabled',
@@ -15128,6 +15188,40 @@ export class SnakeGame implements QuestRuntime {
     this.processFortitudeBloodBank(roomsChanged);
   }
 
+  private handleGrowthOnApple(roomsChanged: Set<string>): void {
+    const reserve = this.getFlag<{ stored?: number }>('growth.reserveNutrition');
+    const capacity = Math.max(0, Number(this.getFlag<number>('derived.nutritionCapacity') ?? 0));
+    const choice = this.getFlag<{ mode?: 'growth' | 'reserve' | 'recovery' }>(
+      'growth.digestiveChoice',
+    );
+    if (reserve && capacity > 0 && choice?.mode === 'reserve') {
+      reserve.stored = Math.min(capacity, Number(reserve.stored ?? 0) + 1);
+      this.setFlag('growth.reserveNutrition', reserve);
+    }
+
+    const regrowthTicks = Number(this.getFlag<number>('growth.rapidRegrowthTicks') ?? 0);
+    if (regrowthTicks > 0) {
+      this.snake.grow(2);
+      roomsChanged.add(this.snake.currentRoomId);
+      this.setFlag('growth.rapidRegrowthTicks', undefined);
+    }
+
+    const potential = Math.max(0, Number(this.getFlag<number>('growth.ouroborosPotential') ?? 0));
+    if (potential > 0) {
+      const bonus = Math.min(6, potential);
+      this.snake.grow(bonus);
+      roomsChanged.add(this.snake.currentRoomId);
+      this.setFlag('growth.ouroborosPotential', undefined);
+    }
+
+    this.setFlag('ui.skillResources', {
+      nutrition: Number(reserve?.stored ?? 0),
+      nutritionCapacity: capacity,
+      rapidRegrowthTicks: Number(this.getFlag<number>('growth.rapidRegrowthTicks') ?? 0),
+      ouroborosPotential: Number(this.getFlag<number>('growth.ouroborosPotential') ?? 0),
+    });
+  }
+
   private processFortitudeBloodBank(roomsChanged: Set<string>): void {
     const bank = this.getFlag<{
       stored?: number;
@@ -15159,7 +15253,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private activateFortitudeInvulnerability(): void {
-    const base = this.getFlag<{ duration?: number }>('fortitude.invulnerability');
+    const base = this.getFlag<{ enabled?: boolean; duration?: number }>(
+      'fortitude.invulnerability',
+    );
     if (!base) {
       // Still allow equipment-only bonus to have no effect without a base
       // invulnerability flag; so early return if no base present
@@ -15168,7 +15264,8 @@ export class SnakeGame implements QuestRuntime {
     const bonus =
       (this.getFlag<number>('fortitude.invulnerabilityBonus') ?? 0) +
       (this.getFlag<number>('equipment.invulnerabilityBonus') ?? 0);
-    const duration = Math.max(0, (base.duration ?? 0) + bonus);
+    const derivedDuration = this.getFlag<number>('derived.wardDuration');
+    const duration = Math.max(0, (derivedDuration ?? base.duration ?? 0) + bonus);
     if (duration <= 0) {
       return;
     }
