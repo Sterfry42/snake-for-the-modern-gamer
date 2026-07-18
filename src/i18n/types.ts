@@ -521,6 +521,56 @@ export interface FeatureStrings {
   radioStationLofi: string;
   radioStationTalk: string;
   radioEquipHint: string;
+
+  // === DREAM WORLD ===
+  dreamWorldTitle: string;
+  nightmareRealmTitle: string;
+  dreamShopTitle: string;
+  dreamLoreTitle: string;
+  dreamLucidityTitle: string;
+  dreamExit: string;
+  dreamShards: string;
+  dreamGravity: string;
+  dreamGravityUp: string;
+  dreamGravityDown: string;
+  dreamGravityLeft: string;
+  dreamGravityRight: string;
+  dreamCollectApple: string;
+  dreamOpenShop: string;
+  dreamOpenPuzzles: string;
+  dreamOpenLucid: string;
+  dreamGravityShifted: string;
+  dreamBuffApplied: string;
+  dreamLoreDiscovered: string;
+  dreamAppleCollected: string;
+  dreamNightmareSurvived: string;
+  dreamShopPurchase: string;
+  dreamShopNotEnough: string;
+  dreamShopRequiresLucidity: string;
+  dreamLucidNotUnlocked: string;
+  dreamLucidAbilityUsed: string;
+  dreamLucidAbilityCooldown: string;
+  dreamPuzzleSolved: string;
+  dreamPuzzleFailed: string;
+  dreamWelcome: string;
+  dreamNightmareWelcome: string;
+  dreamShopLabel: string;
+  dreamShopClose: string;
+  dreamPuzzleLabel: string;
+  dreamPuzzleClose: string;
+  dreamLucidLabel: string;
+  dreamLucidClose: string;
+  dreamReverseGravity: string;
+  dreamTimeStop: string;
+  dreamIslandTeleport: string;
+  dreamBuffSpeedBoost: string;
+  dreamBuffSizeShrink: string;
+  dreamBuffPhaseShift: string;
+  dreamBuffShield: string;
+  dreamBuffDoubleShards: string;
+  dreamBuffGravityReverse: string;
+  dreamBuffTimeSlow: string;
+  dreamBuffLucidityBoost: string;
 }
 
 export interface ActorVoiceTranslations {

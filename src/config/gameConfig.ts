@@ -106,7 +106,16 @@ export interface AppleTypeConfig {
       | 'goldSpicy'
       | 'treatMochi'
       | 'heatwaveFrost'
-      | 'ultimateFusion';
+      | 'ultimateFusion'
+      // Dream World apples
+      | 'dream'
+      | 'dream-gravity'
+      | 'dream-phase'
+      | 'dream-speed'
+      | 'nightmare'
+      | 'nightmare-hunter'
+      | 'lucid'
+      | 'lucid-master';
 }
 
 export interface AppleSystemConfig {
@@ -349,6 +358,71 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.005, scoreThreshold: 100 },
         behavior: 'treat',
+      },
+      // Dream World Apples
+      {
+        id: 'dream',
+        label: 'Dream Apple',
+        color: 0xb19cd9,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-gravity',
+        label: 'Gravity Apple',
+        color: 0x87ceeb,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-phase',
+        label: 'Phase Apple',
+        color: 0xe6e6fa,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-speed',
+        label: 'Swift Dream Apple',
+        color: 0x98fb98,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'nightmare',
+        label: 'Nightmare Apple',
+        color: 0x8b0000,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'nightmare',
+      },
+      {
+        id: 'nightmare-hunter',
+        label: 'Hunter Apple',
+        color: 0x4a0000,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'nightmare',
+      },
+      {
+        id: 'lucid',
+        label: 'Lucid Apple',
+        color: 0xffd700,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'lucid',
+      },
+      {
+        id: 'lucid-master',
+        label: 'Master Lucid Apple',
+        color: 0xffaa00,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'lucid',
       },
     ],
     skittishMoveChance: 0.225,

@@ -73,7 +73,8 @@ export interface AchievementIconSpec {
     | 'arcadeCabinet'
     | 'blueScreen'
     | 'specialStat'
-  | 'mutation';
+    | 'mutation'
+    | 'dream';
   variant?: string;
   fallbackGlyph: string;
 }
@@ -163,7 +164,17 @@ export type AchievementEvent =
   | { type: 'divine:angelEncountered'; angelKind: 'normal' | 'goblin' }
   | { type: 'arcade:played' }
   | { type: 'arcade:blueScreen' }
-  | { type: 'rivalSnake:lengthReached'; enemyId: string; length: number };
+  | { type: 'rivalSnake:lengthReached'; enemyId: string; length: number }
+  // Dream World events
+  | { type: 'dream:entered' }
+  | { type: 'dream:nightmareEntered' }
+  | { type: 'dream:shardCollected'; amount: number }
+  | { type: 'dream:loreDiscovered'; fragmentId: string }
+  | { type: 'dream:puzzleSolved'; puzzleId: string }
+  | { type: 'dream:lucidityGained'; level: number }
+  | { type: 'dream:nightmareSurvived'; durationMs: number }
+  | { type: 'dream:shopPurchase'; offerId: string; price: number };
+
 
 export interface AchievementSnapshot {
   score: number;

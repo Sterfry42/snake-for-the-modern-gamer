@@ -47,6 +47,11 @@ import { GoldSpicyApple } from './behaviors/goldSpicyApple.js';
 import { TreatMochiApple } from './behaviors/treatMochiApple.js';
 import { HeatwaveFrostApple } from './behaviors/heatwaveFrostApple.js';
 import { UltimateFusionApple } from './behaviors/ultimateFusionApple.js';
+import {
+  DreamApple,
+  NightmareApple,
+  LucidApple,
+} from '../world/dream/dreamAppleTypes.js';
 import type { AppleInstance } from './types.js';
 
 export class AppleRegistry {
@@ -129,6 +134,99 @@ export class AppleRegistry {
         return new HeatwaveFrostApple(roomId, position, type.id, type.color);
       case 'ultimateFusion':
         return new UltimateFusionApple(roomId, position, type.id, type.color);
+      // Dream World apples
+      case 'dream':
+        return new DreamApple(roomId, position, type.id, type.color, {
+          floatingOffset: 0,
+          floatSpeed: 0.05,
+          phaseOffset: 0,
+          buffType: 'doubleShards',
+          buffDuration: 300,
+        });
+      case 'dream-gravity':
+        return new DreamApple(roomId, position, type.id, type.color, {
+          floatingOffset: 0,
+          floatSpeed: 0.03,
+          phaseOffset: 1.5,
+          buffType: 'gravityReverse',
+          buffDuration: 180,
+        });
+      case 'dream-phase':
+        return new DreamApple(roomId, position, type.id, type.color, {
+          floatingOffset: 0,
+          floatSpeed: 0.07,
+          phaseOffset: 3.0,
+          buffType: 'phaseShift',
+          buffDuration: 240,
+        });
+      case 'dream-speed':
+        return new DreamApple(roomId, position, type.id, type.color, {
+          floatingOffset: 0,
+          floatSpeed: 0.04,
+          phaseOffset: 0.5,
+          buffType: 'speedBoost',
+          buffDuration: 200,
+        });
+      case 'nightmare':
+        return new NightmareApple(
+          roomId,
+          position,
+          type.id,
+          type.color,
+          {
+            floatingOffset: 0,
+            floatSpeed: 0.02,
+            phaseOffset: 0,
+            buffType: 'shield',
+            buffDuration: 120,
+          },
+          0.1,
+        );
+      case 'nightmare-hunter':
+        return new NightmareApple(
+          roomId,
+          position,
+          type.id,
+          type.color,
+          {
+            floatingOffset: 0,
+            floatSpeed: 0.01,
+            phaseOffset: 2.0,
+            buffType: 'lucidityBoost',
+            buffDuration: 60,
+          },
+          0.15,
+        );
+      case 'lucid':
+        return new LucidApple(
+          roomId,
+          position,
+          type.id,
+          type.color,
+          {
+            floatingOffset: 0,
+            floatSpeed: 0.06,
+            phaseOffset: 1.0,
+            buffType: 'timeSlow',
+            buffDuration: 150,
+          },
+          1,
+        );
+      case 'lucid-master':
+        return new LucidApple(
+          roomId,
+          position,
+          type.id,
+          type.color,
+          {
+            floatingOffset: 0,
+            floatSpeed: 0.08,
+            phaseOffset: 2.5,
+            buffType: 'sizeShrink',
+            buffDuration: 100,
+          },
+          2,
+        );
       default:
         throw new Error(`Unknown apple behavior: ${type.behavior}`);
     }
