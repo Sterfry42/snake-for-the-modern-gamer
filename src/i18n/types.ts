@@ -684,6 +684,64 @@ export interface FeatureStrings {
   wildlifePhotoDetail: string;
   wildlifeBestRarity: string;
   wildlifeBestScore: string;
+
+  // === ALCHEMY & CRAFTING ===
+  alchemyTitle: string;
+  alchemyRecipes: string;
+  alchemyCrafting: string;
+  alchemyJournal: string;
+  alchemyLore: string;
+  alchemyWorkshops: string;
+  alchemyNoRecipes: string;
+  alchemyCraftSuccess: string;
+  alchemyCraftMythic: string;
+  alchemyCraftFailed: string;
+  alchemyInsufficientIngredients: string;
+  alchemyStationNotActive: string;
+  alchemyRecipeNotFound: string;
+  alchemyDiscoverProgress: string;
+  alchemyJournalEntries: string;
+  alchemyLoreDiscovered: string;
+  alchemyLoreLocked: string;
+  alchemyLoreRequires: string;
+  alchemyWorkshopBuilding: string;
+  alchemyTabRecipes: string;
+  alchemyTabCrafting: string;
+  alchemyTabJournal: string;
+  alchemyTabLore: string;
+  alchemyTabWorkshops: string;
+  alchemyPotionGrowth: string;
+  alchemyPotionPhase: string;
+  alchemyPotionMagnet: string;
+  alchemyPotionTimeSlow: string;
+  alchemyPotionShadowCloak: string;
+  alchemyPotionRainbowTrail: string;
+  alchemyPotionSpeedBoost: string;
+  alchemyPotionShield: string;
+  alchemyPotionSizeShrink: string;
+  alchemyPotionLucidity: string;
+  alchemyMythicTitansBane: string;
+  alchemyMythicVoidWalker: string;
+  alchemyMythicAppleStorm: string;
+  alchemyMythicGoldenSerpent: string;
+  alchemyIngredientCommon: string;
+  alchemyIngredientUncommon: string;
+  alchemyIngredientRare: string;
+  alchemyIngredientLegendary: string;
+  alchemyRarityCommon: string;
+  alchemyRarityUncommon: string;
+  alchemyRarityRare: string;
+  alchemyRarityLegendary: string;
+  alchemyWorkshopEnchantedLoom: string;
+  alchemyWorkshopCartographersDesk: string;
+  alchemyWorkshopMusicBox: string;
+  alchemyWorkshopPotionBrewery: string;
+  alchemyCosmeticSkins: string;
+  alchemyPatterns: string;
+  alchemyRecipeScroll: string;
+  alchemyFirstSteps: string;
+  alchemyApprentice: string;
+  alchemyMaster: string;
 }
 
 export interface ActorVoiceTranslations {
