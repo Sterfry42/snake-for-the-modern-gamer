@@ -155,6 +155,13 @@ export type AchievementEvent =
   | { type: 'archaeology:artifactRecovered'; artifactId: string; rarity?: string }
   | { type: 'archaeology:depthReached'; depth: number }
   | { type: 'archaeology:chainReached'; chain: number }
+  | { type: 'archaeology:enteredDigSite' }
+  | { type: 'archaeology:fragmentFound'; fragmentType: string; condition: string }
+  | { type: 'archaeology:fossilAssembled'; fossilSetId: string; rarity: string }
+  | { type: 'archaeology:museumExhibitUnlocked'; fossilSetId: string }
+  | { type: 'archaeology:museumComplete' }
+  | { type: 'archaeology:researchUnlocked'; upgradeId: string }
+  | { type: 'archaeology:legendaryArtifact'; artifactId: string }
   | { type: 'cards:tableWon'; tableId: string }
   | { type: 'cave:appleRushCleared'; caveId: string; templateId: string }
   | { type: 'companion:acquired'; companionKind: string }

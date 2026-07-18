@@ -107,6 +107,10 @@ export interface AppleTypeConfig {
       | 'treatMochi'
       | 'heatwaveFrost'
       | 'ultimateFusion'
+      // Archaeological apples
+      | 'amber'
+      | 'fossil'
+      | 'relic'
       // Dream World apples
       | 'dream'
       | 'dream-gravity'
@@ -423,6 +427,31 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0, scoreThreshold: 0 },
         behavior: 'lucid',
+      },
+      // Archaeological Apples
+      {
+        id: 'amber',
+        label: 'Amber Apple',
+        color: 0xFFBF00,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.08, scoreThreshold: 20 },
+        behavior: 'amber',
+      },
+      {
+        id: 'fossil',
+        label: 'Fossil Apple',
+        color: 0xD2B48C,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.06, scoreThreshold: 30 },
+        behavior: 'fossil',
+      },
+      {
+        id: 'relic',
+        label: 'Relic Apple',
+        color: 0x9370DB,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.03, scoreThreshold: 50 },
+        behavior: 'relic',
       },
     ],
     skittishMoveChance: 0.225,

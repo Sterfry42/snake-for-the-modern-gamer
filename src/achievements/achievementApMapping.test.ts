@@ -32,11 +32,18 @@ describe('achievement AP mapping', () => {
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'equipment.wardTrinity')).toBe(912001064);
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'system.zoomFlurry')).toBe(912001065);
     // Dream achievements added +9 to the sequence
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.snakeception')).toBe(912001075);
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.blueScreen')).toBe(912001076);
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'stats.special10')).toBe(912001077);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.snakeception')).toBe(912001086);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'arcade.blueScreen')).toBe(912001087);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'stats.special10')).toBe(912001088);
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'exploration.trainSixZones')).toBe(
-      912001078,
+      912001089,
+    );
+    // Archaeology achievements added +12 to the sequence
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'archaeology.firstDig')).toBe(
+      912001075,
+    );
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'archaeology.firstFragment')).toBe(
+      912001076,
     );
   });
 });

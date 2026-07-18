@@ -47,6 +47,9 @@ import { GoldSpicyApple } from './behaviors/goldSpicyApple.js';
 import { TreatMochiApple } from './behaviors/treatMochiApple.js';
 import { HeatwaveFrostApple } from './behaviors/heatwaveFrostApple.js';
 import { UltimateFusionApple } from './behaviors/ultimateFusionApple.js';
+import { AmberApple } from './behaviors/amberApple.js';
+import { FossilApple } from './behaviors/fossilApple.js';
+import { RelicApple } from './behaviors/relicApple.js';
 import {
   DreamApple,
   NightmareApple,
@@ -134,6 +137,13 @@ export class AppleRegistry {
         return new HeatwaveFrostApple(roomId, position, type.id, type.color);
       case 'ultimateFusion':
         return new UltimateFusionApple(roomId, position, type.id, type.color);
+      // Archaeological Apples
+      case 'amber':
+        return new AmberApple(roomId, position, type.id, type.color);
+      case 'fossil':
+        return new FossilApple(roomId, position, type.id, type.color);
+      case 'relic':
+        return new RelicApple(roomId, position, type.id, type.color);
       // Dream World apples
       case 'dream':
         return new DreamApple(roomId, position, type.id, type.color, {
