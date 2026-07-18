@@ -32,6 +32,21 @@ import { TreatApple } from './behaviors/treatApple.js';
 import { FrostApple } from './behaviors/frostApple.js';
 import { WinterberryApple } from './behaviors/winterberryApple.js';
 import { HeatwaveApple } from './behaviors/heatwaveApple.js';
+import { SpicyEnergyApple } from './behaviors/spicyEnergyApple.js';
+import { FrostMochiApple } from './behaviors/frostMochiApple.js';
+import { CaffeinatedShieldApple } from './behaviors/caffeinatedShieldApple.js';
+import { ColdCaffeinatedApple } from './behaviors/coldCaffeinatedApple.js';
+import { LavenderCalmApple } from './behaviors/lavenderCalmApple.js';
+import { LoveShieldApple } from './behaviors/loveShieldApple.js';
+import { TripleThreatApple } from './behaviors/tripleThreatApple.js';
+import { FrostWasabiApple } from './behaviors/frostWasabiApple.js';
+import { YuzuEnergyApple } from './behaviors/yuzuEnergyApple.js';
+import { MochiShieldApple } from './behaviors/mochiShieldApple.js';
+import { WinterberryFrostApple } from './behaviors/winterberryFrostApple.js';
+import { GoldSpicyApple } from './behaviors/goldSpicyApple.js';
+import { TreatMochiApple } from './behaviors/treatMochiApple.js';
+import { HeatwaveFrostApple } from './behaviors/heatwaveFrostApple.js';
+import { UltimateFusionApple } from './behaviors/ultimateFusionApple.js';
 import type { AppleInstance } from './types.js';
 
 export class AppleRegistry {
@@ -83,6 +98,37 @@ export class AppleRegistry {
         return new WinterberryApple(roomId, position, type.id, type.color);
       case 'heatwave':
         return new HeatwaveApple(roomId, position, type.id, type.color);
+      // Evolved/Mutation apples
+      case 'spicyEnergy':
+        return new SpicyEnergyApple(roomId, position, type.id, type.color);
+      case 'frostMochi':
+        return new FrostMochiApple(roomId, position, type.id, type.color);
+      case 'caffeinatedShield':
+        return new CaffeinatedShieldApple(roomId, position, type.id, type.color);
+      case 'coldCaffeinated':
+        return new ColdCaffeinatedApple(roomId, position, type.id, type.color);
+      case 'lavenderCalm':
+        return new LavenderCalmApple(roomId, position, type.id, type.color);
+      case 'loveShield':
+        return new LoveShieldApple(roomId, position, type.id, type.color);
+      case 'tripleThreat':
+        return new TripleThreatApple(roomId, position, type.id, type.color);
+      case 'frostWasabi':
+        return new FrostWasabiApple(roomId, position, type.id, type.color);
+      case 'yuzuEnergy':
+        return new YuzuEnergyApple(roomId, position, type.id, type.color);
+      case 'mochiShield':
+        return new MochiShieldApple(roomId, position, type.id, type.color);
+      case 'winterberryFrost':
+        return new WinterberryFrostApple(roomId, position, type.id, type.color);
+      case 'goldSpicy':
+        return new GoldSpicyApple(roomId, position, type.id, type.color);
+      case 'treatMochi':
+        return new TreatMochiApple(roomId, position, type.id, type.color);
+      case 'heatwaveFrost':
+        return new HeatwaveFrostApple(roomId, position, type.id, type.color);
+      case 'ultimateFusion':
+        return new UltimateFusionApple(roomId, position, type.id, type.color);
       default:
         throw new Error(`Unknown apple behavior: ${type.behavior}`);
     }

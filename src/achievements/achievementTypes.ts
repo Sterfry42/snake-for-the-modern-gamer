@@ -19,7 +19,8 @@ export type AchievementCategory =
   | 'bosses'
   | 'caves'
   | 'rivals'
-  | 'skillTree';
+  | 'skillTree'
+  | 'mutations';
 
 export type AchievementDifficulty =
   | 'tutorial'
@@ -71,7 +72,8 @@ export interface AchievementIconSpec {
     | 'skillTree'
     | 'arcadeCabinet'
     | 'blueScreen'
-    | 'specialStat';
+    | 'specialStat'
+  | 'mutation';
   variant?: string;
   fallbackGlyph: string;
 }
@@ -126,6 +128,9 @@ export interface AchievementDefinition {
 
 export type AchievementEvent =
   | { type: 'apple:eaten'; appleTypeId: string }
+  | { type: 'mutation:discovered'; mutationId: string; mutationName: string }
+  | { type: 'mutation:traitGained'; traitId: string; traitName: string; stacks: number }
+  | { type: 'mutation:goldStabilize'; mutationId: string }
   | { type: 'enemy:defeated'; enemyId: string; method: 'eaten' | 'gun' | 'other' }
   | { type: 'town:gateOpened'; townId: string }
   | { type: 'town:entered'; townId: string; name: string }
@@ -197,7 +202,7 @@ export interface AchievementState {
   progress: Record<AchievementId, AchievementProgressState>;
   discoveredBiomes: string[];
   apSubmitted: Record<AchievementId, boolean>;
-  run: { consumedItemIds: string[]; waterTilesSwum: number };
+  run: { consumedItemIds: string[]; waterTilesSwum: number; mutationCount: number; traitCount: number };
 }
 export type AchievementStatus = 'completed' | 'available' | 'locked';
 export interface AchievementUnlockResult {

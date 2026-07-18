@@ -56,7 +56,14 @@ export type WorldEventType =
   | 'storm-approaching'
   | 'fog-rolling-in'
   | 'apple-weather-effect'
-  | 'animal-weather-behavior';
+  | 'animal-weather-behavior'
+  // Mutation Events
+  | 'mutation:discovered'
+  | 'mutation:traitGained'
+  | 'mutation:traitExpired'
+  | 'mutation:evolvedAppleSpawned'
+  | 'mutation:appleEaten'
+  | 'mutation:goldStabilize';
 
 export interface WorldEvent {
   id: string;

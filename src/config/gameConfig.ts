@@ -90,7 +90,23 @@ export interface AppleTypeConfig {
       | 'treat'
       | 'frost'
       | 'winterberry'
-      | 'heatwave';
+      | 'heatwave'
+      // Evolved/Mutation apples
+      | 'spicyEnergy'
+      | 'frostMochi'
+      | 'caffeinatedShield'
+      | 'coldCaffeinated'
+      | 'lavenderCalm'
+      | 'loveShield'
+      | 'tripleThreat'
+      | 'frostWasabi'
+      | 'yuzuEnergy'
+      | 'mochiShield'
+      | 'winterberryFrost'
+      | 'goldSpicy'
+      | 'treatMochi'
+      | 'heatwaveFrost'
+      | 'ultimateFusion';
 }
 
 export interface AppleSystemConfig {
