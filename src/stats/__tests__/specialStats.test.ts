@@ -42,6 +42,14 @@ describe('SPECIAL stats', () => {
     }
   });
 
+  it('applies permanent starting-choice SPECIAL modifiers to committed stats', () => {
+    const service = new SpecialStatsService();
+    service.applyPermanentModifiers({ strength: 1, agility: -1 });
+    expect(service.getCommittedState().stats).toMatchObject({ strength: 6, agility: 4 });
+    service.applyPermanentModifiers({ strength: -1, agility: 1 });
+    expect(service.getCommittedState().stats).toMatchObject({ strength: 5, agility: 5 });
+  });
+
   it('normalizes missing and invalid save data to safe defaults', () => {
     expect(normalizeSpecialState(undefined)).toEqual(createDefaultSpecialState());
     expect(
@@ -86,6 +94,12 @@ describe('SPECIAL stats', () => {
       fineScalar: 1,
       rareLootScalar: 1,
       weirdOutcomeChanceBonus: 0,
+      manaCapacityBonus: 0,
+      manaRegenBonus: 0,
+      spellSlotBonus: 0,
+      nutritionCapacityBonus: 0,
+      pickupRadiusBonus: 0,
+      companionCapacityBonus: 0,
     });
     expect(getTreasureDiscoveryChance(stats)).toBe(BASE_TREASURE_DISCOVERY_CHANCE);
     expect(getPowerupDiscoveryChance(stats)).toBe(BASE_POWERUP_DISCOVERY_CHANCE);
@@ -123,6 +137,10 @@ describe('SPECIAL stats', () => {
       ...createDefaultSpecialStats(),
       intelligence: 10,
     });
+    const charming = getSpecialGameplayModifiers({
+      ...createDefaultSpecialStats(),
+      charisma: 10,
+    });
     const stubborn = getSpecialGameplayModifiers({
       ...createDefaultSpecialStats(),
       endurance: 10,
@@ -140,10 +158,16 @@ describe('SPECIAL stats', () => {
     expect(perceptive.lockOnRangeBonus).toBe(10);
     expect(technical.lockOnTimeScalar).toBe(0.5);
     expect(technical.weaponCooldownScalar).toBeCloseTo(0.7);
+    expect(technical.manaCapacityBonus).toBe(40);
+    expect(technical.manaRegenBonus).toBeCloseTo(0.6);
+    expect(technical.spellSlotBonus).toBe(1);
+    expect(charming.companionCapacityBonus).toBe(1);
     expect(stubborn.maxHeartBonus).toBe(4);
     expect(stubborn.invulnerabilityTickBonus).toBe(30);
     expect(stubborn.hazardDamageScalar).toBeCloseTo(0.55);
     expect(stubborn.hazardTimerScalar).toBe(1.5);
+    expect(stubborn.nutritionCapacityBonus).toBe(2);
+    expect(perceptive.pickupRadiusBonus).toBeCloseTo(0.75);
     expect(frail.maxHeartBonus).toBe(-2);
     expect(frail.hazardDamageScalar).toBeCloseTo(1.36);
     expect(frail.hazardTimerScalar).toBeCloseTo(0.6);

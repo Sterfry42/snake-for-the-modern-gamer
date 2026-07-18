@@ -7,13 +7,13 @@ import { ensureAchievementPortrait } from '../achievements/achievementIconCatalo
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import { getAchievementReward } from '../achievements/achievementRewards.js';
 import { selectAchievementInDirection } from '../achievements/achievementControllerNavigation.js';
-import { exceededDragThreshold } from '../achievements/achievementTreeLayout.js';
 import type {
   AchievementDefinition,
   AchievementUnlockResult,
 } from '../achievements/achievementTypes.js';
 import type { AchievementZoomExtreme } from '../achievements/achievementZoomTracker.js';
 import type { UiRect } from './core/UiLayout.js';
+import { TreeViewportController } from './core/TreeViewportController.js';
 
 interface NodeView {
   definition: AchievementDefinition;
@@ -54,15 +54,7 @@ export class AchievementTreeOverlay {
   private readonly detail: UiRect;
   private readonly detailLayout: AchievementDetailLayout;
   private readonly onUserZoomExtreme?: (extreme: AchievementZoomExtreme) => void;
-  private pan = { x: 0, y: 0 };
-  private zoom = 0.9;
-  private drag: {
-    startX: number;
-    startY: number;
-    panX: number;
-    panY: number;
-    moved: boolean;
-  } | null = null;
+  private readonly viewportController: TreeViewportController;
   private selectedId: string | null = null;
   private visible = false;
   private controllerMode = false;
@@ -75,6 +67,17 @@ export class AchievementTreeOverlay {
     options: AchievementTreeOverlayOptions,
   ) {
     this.viewport = options.viewport;
+    this.viewportController = new TreeViewportController({
+      width: this.viewport.width,
+      height: this.viewport.height,
+      minZoom: 0.3,
+      maxZoom: 1.65,
+      initialZoom: 0.9,
+      padding: 90,
+    });
+    this.viewportController.setWorldPoints(
+      manager.getDefinitions().map((definition) => definition.tree),
+    );
     this.detail = options.detail;
     this.onUserZoomExtreme = options.onUserZoomExtreme;
     this.detailLayout = computeAchievementDetailLayout(this.detail);
@@ -233,9 +236,7 @@ export class AchievementTreeOverlay {
     this.createNodes();
     viewportZone.on('pointerdown', (pointer: Phaser.Input.Pointer) => this.beginDrag(pointer));
     scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => this.moveDrag(pointer));
-    scene.input.on('pointerup', () => {
-      this.drag = null;
-    });
+    scene.input.on('pointerup', () => this.viewportController.endDrag());
     rootButton.on('pointerdown', () => this.centerOnRoot(true));
     zoomIn.on('pointerdown', () => this.applyUserZoom(this.zoom + 0.15));
     zoomOut.on('pointerdown', () => this.applyUserZoom(this.zoom - 0.15));
@@ -445,10 +446,10 @@ export class AchievementTreeOverlay {
         .setInteractive({ useHandCursor: true })
         .on('pointerdown', (pointer: Phaser.Input.Pointer) => this.beginDrag(pointer))
         .on('pointerup', () => {
-          if (!this.drag?.moved) this.showDetails(definition.id);
+          if (!this.viewportController.didDrag()) this.showDetails(definition.id);
         });
       frame.on('pointerup', () => {
-        if (!this.drag?.moved) this.showDetails(definition.id);
+        if (!this.viewportController.didDrag()) this.showDetails(definition.id);
       });
       frame.on('pointerover', () =>
         this.scene.tweens.add({ targets: [container], scaleX: 1.08, scaleY: 1.08, duration: 90 }),
@@ -666,26 +667,12 @@ export class AchievementTreeOverlay {
 
   private beginDrag(pointer: Phaser.Input.Pointer): void {
     if (!this.visible) return;
-    this.drag = {
-      startX: pointer.x,
-      startY: pointer.y,
-      panX: this.pan.x,
-      panY: this.pan.y,
-      moved: false,
-    };
+    this.viewportController.beginDrag({ x: pointer.x, y: pointer.y });
   }
 
   private moveDrag(pointer: Phaser.Input.Pointer): void {
-    if (!this.visible || !this.drag || !pointer.isDown) return;
-    this.drag.moved ||= exceededDragThreshold(
-      { x: this.drag.startX, y: this.drag.startY },
-      { x: pointer.x, y: pointer.y },
-    );
-    if (!this.drag.moved) return;
-    this.setPan({
-      x: this.drag.panX + pointer.x - this.drag.startX,
-      y: this.drag.panY + pointer.y - this.drag.startY,
-    });
+    if (!this.visible || !pointer.isDown) return;
+    if (this.viewportController.moveDrag({ x: pointer.x, y: pointer.y })) this.applyTransform();
   }
 
   private centerOnRoot(animate: boolean): void {
@@ -712,12 +699,8 @@ export class AchievementTreeOverlay {
     rawZoom: number,
     anchor = { x: this.viewport.width / 2, y: this.viewport.height / 2 },
   ): boolean {
-    const nextZoom = Phaser.Math.Clamp(rawZoom, 0.3, 1.65);
-    if (Math.abs(nextZoom - this.zoom) < 0.001) return false;
-    const worldX = (anchor.x - this.pan.x) / this.zoom;
-    const worldY = (anchor.y - this.pan.y) / this.zoom;
-    this.zoom = nextZoom;
-    this.setPan({ x: anchor.x - worldX * nextZoom, y: anchor.y - worldY * nextZoom });
+    if (!this.viewportController.zoomAround(rawZoom, anchor)) return false;
+    this.applyTransform();
     this.updateZoomHint();
     return true;
   }
@@ -737,18 +720,16 @@ export class AchievementTreeOverlay {
   }
 
   private setPan(pan: { x: number; y: number }): void {
-    const xs = this.manager.getDefinitions().map((definition) => definition.tree.x * this.zoom);
-    const ys = this.manager.getDefinitions().map((definition) => definition.tree.y * this.zoom);
-    const padding = 90;
-    const minX = this.viewport.width - padding - Math.max(...xs);
-    const maxX = padding - Math.min(...xs);
-    const minY = this.viewport.height - padding - Math.max(...ys);
-    const maxY = padding - Math.min(...ys);
-    this.pan = {
-      x: Phaser.Math.Clamp(pan.x, Math.min(minX, maxX), Math.max(minX, maxX)),
-      y: Phaser.Math.Clamp(pan.y, Math.min(minY, maxY), Math.max(minY, maxY)),
-    };
+    this.viewportController.setPan(pan);
     this.applyTransform();
+  }
+
+  private get pan(): { x: number; y: number } {
+    return this.viewportController.pan;
+  }
+
+  private get zoom(): number {
+    return this.viewportController.zoom;
   }
 
   private applyTransform(): void {
