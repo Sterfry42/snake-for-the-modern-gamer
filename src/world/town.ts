@@ -1,5 +1,5 @@
 import type { GridConfig } from '../config/gameConfig.js';
-import { vectorKey } from '../core/math.js';
+import { clamp, vectorKey } from '../core/math.js';
 import { createRng, type RandomGenerator } from '../core/rng.js';
 import { pickNpcName } from '../npcs/npcNames.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
@@ -12,6 +12,7 @@ import {
   type TownDoorKind,
 } from '../layers/layerTypes.js';
 import type { BiomeId } from './biomes.js';
+import { tileHasTag } from './tiles.js';
 import { selectPrimaryTownMerchant, shopKindForTownRole } from './townRoles.js';
 import type { RoomArea, RoomSnapshot } from './types.js';
 
@@ -355,6 +356,7 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'gloam-garden': ['Thornwick', 'Petalford', 'Gloamgate', 'Rose Toll', 'Rootmarket'],
   'elderwood-maze': ['Briarford', 'Canopy Gate', 'Oldroot', 'Green Toll', 'Mosswick'],
   'sunken-ocean': ['Pearlford', 'Foamgate', 'Saltwick', 'Tide Toll', 'Brinemarket'],
+  'mosaic-coast': ['Azulgate', 'Tileford', 'Fountain Toll', 'Siesta Row', 'Mosaicmarket'],
   'home-hearth': ['Hearthwick', 'Cinderhome', 'Lampford', 'Quiet Gate', 'Warmmarket'],
   'jade-peak-province': ['Jadeford', 'Mistgate', 'Cedar Toll', 'Koiwick', 'Shrinemarket'],
   'liberty-badlands': [
@@ -379,6 +381,7 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'titan-ribcage': ['Ribford', 'Marrowgate', 'Bone Toll', 'Ossuary Row', 'Titanmarket'],
   'radioactive-orchard': ['Glowbranch', 'Radgate', 'Isotope Toll', 'Greenflash', 'Orchardmarket'],
   'clockwork-quarry': ['Gearford', 'Brassgate', 'Cog Toll', 'Quarrywick', 'Pendulummarket'],
+  'provence-valley': ['Lavendelford', 'Vinegate', 'Baguette Toll', 'Rosswick', 'Chardmarket'],
 };
 
 const PORTRAITS = ['sage-1', 'sage-2', 'sage-3'] as const;
@@ -501,10 +504,8 @@ function setChar(layout: string[][], x: number, y: number, ch: string): void {
 }
 
 const IMPORTANT_TOWN_TILES = new Set(['G', 'Y', 'v', 't', 'd', 'h', 'j', 'u', 'U', 'x', 'o']);
-const BLOCKING_TOWN_TILES = new Set(['#', '~', 'h', 'u', 'x']);
-
 export function isBlockingTownTile(tile: string | undefined): boolean {
-  return Boolean(tile && BLOCKING_TOWN_TILES.has(tile));
+  return tileHasTag(tile, 'townBlocking');
 }
 
 export function townResidentPresences(town: TownStructure, roomId: string): TownResidentPresence[] {
@@ -669,10 +670,6 @@ function pick<T>(items: readonly T[], rng: RandomGenerator): T {
 
 function rollInt(rng: RandomGenerator, min: number, max: number): number {
   return min + Math.floor(rng() * (max - min + 1));
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 export function clampWanted(value: number): WantedLevel {

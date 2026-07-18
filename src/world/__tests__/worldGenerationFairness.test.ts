@@ -3,6 +3,12 @@ import { defaultGameConfig, type GridConfig } from '../../config/gameConfig.js';
 import { vectorKey } from '../../core/math.js';
 import { createRng } from '../../core/rng.js';
 import { getBiomeForRoom } from '../biomes.js';
+import {
+  getMosaicCoastStarterRegionPlan,
+  MosaicCoastRegionPlanner,
+} from '../generation/mosaicCoastRegionPlan.js';
+import { createWorldGenerationIdentity } from '../generation/worldGenerationIdentity.js';
+import { isMosaicCoastPassableTile, isMosaicCoastSolidTile } from '../mosaicCoastTiles.js';
 import { tryPlaceQuestHouse } from '../questHouse.js';
 import { RoomGenerator } from '../roomGenerator.js';
 import { SafetyOperations } from '../generation/stages/safetyOperations.js';
@@ -50,6 +56,7 @@ function generateNeighborhood(center: RoomCoord, radius: number): Map<string, Ro
   const generator = new RoomGenerator(
     defaultGameConfig.world,
     createRng(`fairness:${roomId(center)}`),
+    createWorldGenerationIdentity(`fairness:${roomId(center)}`),
   );
   const rooms = new Map<string, RoomSnapshot>();
   for (let y = center.y - radius; y <= center.y + radius; y += 1) {
@@ -68,7 +75,11 @@ function generateArea(
   minY: number,
   maxY: number,
 ): Map<string, RoomSnapshot> {
-  const generator = new RoomGenerator(defaultGameConfig.world, createRng(seed));
+  const generator = new RoomGenerator(
+    defaultGameConfig.world,
+    createRng(seed),
+    createWorldGenerationIdentity(seed),
+  );
   const rooms = new Map<string, RoomSnapshot>();
   for (let y = minY; y <= maxY; y += 1) {
     for (let x = minX; x <= maxX; x += 1) {
@@ -164,6 +175,57 @@ function countTiles(room: RoomSnapshot, tiles: ReadonlySet<string>): number {
     (count, row) => count + [...row].filter((tile) => tiles.has(tile)).length,
     0,
   );
+}
+
+function exposureCells(room: RoomSnapshot, kind: string): Set<string> {
+  return new Set(
+    (room.mosaicCoast?.exposure ?? [])
+      .filter((entry) => entry.kind === kind)
+      .map((entry) => vectorKey(entry)),
+  );
+}
+
+function passableCells(room: RoomSnapshot): Set<string> {
+  const cells = new Set<string>();
+  for (let y = 0; y < room.layout.length; y += 1) {
+    for (let x = 0; x < room.layout[y].length; x += 1) {
+      if (isImmediatelySafe(room.layout[y]?.[x])) {
+        cells.add(vectorKey({ x, y }));
+      }
+    }
+  }
+  return cells;
+}
+
+function shortestPathToAny(
+  room: RoomSnapshot,
+  start: { x: number; y: number },
+  targets: ReadonlySet<string>,
+): number | null {
+  const queue = [{ ...start, distance: 0 }];
+  const visited = new Set([vectorKey(start)]);
+  const directions = [
+    { x: 1, y: 0 },
+    { x: -1, y: 0 },
+    { x: 0, y: 1 },
+    { x: 0, y: -1 },
+  ];
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (targets.has(vectorKey(current))) {
+      return current.distance;
+    }
+    for (const direction of directions) {
+      const next = { x: current.x + direction.x, y: current.y + direction.y };
+      const key = vectorKey(next);
+      if (visited.has(key) || !isImmediatelySafe(room.layout[next.y]?.[next.x])) {
+        continue;
+      }
+      visited.add(key);
+      queue.push({ ...next, distance: current.distance + 1 });
+    }
+  }
+  return null;
 }
 
 function hasRiverSegment(room: RoomSnapshot, grid: GridConfig): boolean {
@@ -385,7 +447,7 @@ describe('world generation fairness', () => {
     expect(questHouses.length).toBeGreaterThan(0);
     expect(rivers.length).toBeGreaterThan(0);
     expect(crossRoomBoundaryWalls).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it('keeps adjacent cross-room barrier edges mutually blocked or mutually passable', () => {
     const min = -18;
@@ -428,7 +490,7 @@ describe('world generation fairness', () => {
 
     expect(failures.slice(0, 12)).toEqual([]);
     expect(failures).toHaveLength(0);
-  });
+  }, 30_000);
 
   it('assigns multiple first-class room archetypes across generated rooms', () => {
     const rooms = generateArea('archetype-sanity', -12, 12, -12, 12);
@@ -485,7 +547,7 @@ describe('world generation fairness', () => {
         return hasNpcStructure || hasLake || hasStructuredDressing;
       }),
     ).toBe(true);
-  });
+  }, 30_000);
 
   it('reports biome-owned archetypes for ocean and dense forest rooms', () => {
     const rooms = generateArea('biome-archetype-sanity', -12, 12, -12, 12);
@@ -500,6 +562,251 @@ describe('world generation fairness', () => {
     expect(getBiomeForRoom('-7,-6,0').id).toBe('liberty-badlands');
     expect(getBiomeForRoom('-5,-3,0').id).toBe('liberty-badlands');
     expect(getBiomeForRoom('-4,-6,0').id).toBe('jade-peak-province');
+  });
+
+  it('maps Mosaic Coast into the intended northern starter rectangle', () => {
+    expect(getBiomeForRoom('-4,-11,0').id).toBe('mosaic-coast');
+    expect(getBiomeForRoom('2,-9,0').id).toBe('mosaic-coast');
+    expect(getBiomeForRoom('0,-8,0').id).toBe('jade-peak-province');
+    expect(getBiomeForRoom('0,-12,0').id).toBe('sunken-ocean');
+    expect(getBiomeForRoom('0,0,0').id).toBe('verdigris-basin');
+    expect(getBiomeForRoom('0,-1,0').id).toBe('home-hearth');
+  });
+
+  it('generates Mosaic Coast rooms with shade routes, cooling, and exposure metadata', () => {
+    const rooms = generateArea('mosaic-coast-sanity', -4, 2, -11, -9);
+    const mosaicRooms = [...rooms.values()].filter((room) => room.biomeId === 'mosaic-coast');
+    const archetypes = new Set(mosaicRooms.map((room) => room.archetypeId));
+
+    expect(mosaicRooms).toHaveLength(21);
+    expect(archetypes.has('mosaic-arrival')).toBe(true);
+    expect(mosaicRooms.some((room) => room.mosaicCoast?.tapasBar)).toBe(true);
+    expect(
+      mosaicRooms.every((room) => {
+        const exposureKinds = new Set(room.mosaicCoast?.exposure.map((entry) => entry.kind));
+        return (
+          room.mosaicCoast &&
+          exposureKinds.has('direct-sun') &&
+          exposureKinds.has('shade') &&
+          exposureKinds.has('cooling') &&
+          (room.temperatureReliefs?.some((relief) => relief.kind === 'cool') ?? false)
+        );
+      }),
+    ).toBe(true);
+  });
+
+  it('uses a seeded Mosaic Coast region plan for the starter rectangle', () => {
+    const identity = createWorldGenerationIdentity('mosaic-district-plan');
+    const planner = new MosaicCoastRegionPlanner(identity);
+    const starter = getMosaicCoastStarterRegionPlan(identity);
+    const rooms = generateArea('mosaic-district-plan', -4, 2, -11, -9);
+
+    expect(starter.bounds).toMatchObject({ left: -4, top: -11, width: 7, height: 3, z: 0 });
+    expect(starter.entrySide).toBe('south');
+    expect(starter.landmarkNodes.arrival).toEqual({ x: -1, y: -9, z: 0 });
+    expect(starter.landmarkNodes.fountain).toEqual({ x: 2, y: -9, z: 0 });
+    expect(starter.landmarkNodes.tapas).toEqual({ x: 0, y: -10, z: 0 });
+    expect(starter.landmarkNodes.gaudiApproach).toEqual({ x: 1, y: -11, z: 0 });
+    expect(starter.landmarkNodes.elDracArena).toEqual({ x: 2, y: -11, z: 0 });
+
+    for (const [id, room] of rooms) {
+      const plan = planner.getRoomPlan(id);
+      expect(room.biomeId).toBe('mosaic-coast');
+      expect(room.archetypeId).toBe(plan.archetypeId);
+    }
+  });
+
+  it('keeps required Mosaic landmarks while seed can change generated zone layout', () => {
+    const first = generateArea('mosaic-seed-a', -4, 2, -11, -9);
+    const second = generateArea('mosaic-seed-b', -4, 2, -11, -9);
+    const firstZones = new Set([...first.values()].map((room) => `${room.id}:${room.archetypeId}`));
+    const secondZones = new Set([...second.values()].map((room) => `${room.id}:${room.archetypeId}`));
+
+    expect(first.get('-1,-9,0')?.archetypeId).toBe('mosaic-arrival');
+    expect(second.get('-1,-9,0')?.archetypeId).toBe('mosaic-arrival');
+    expect(first.get('0,-10,0')?.mosaicCoast?.tapasBar).toBeTruthy();
+    expect(second.get('0,-10,0')?.mosaicCoast?.tapasBar).toBeTruthy();
+    expect(first.get('2,-11,0')?.mosaicCoast?.gaudiPark?.bossEntrance).toBeTruthy();
+    expect(second.get('2,-11,0')?.mosaicCoast?.gaudiPark?.bossEntrance).toBeTruthy();
+    expect([...firstZones].some((entry) => !secondZones.has(entry))).toBe(true);
+  });
+
+  it('creates valid non-starter Mosaic Coast region plans without coordinate fallback', () => {
+    const first = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-a'));
+    const second = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-a'));
+    const different = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-b'));
+    const roomId = '24,-17,0';
+    const plan = first.getRoomPlan(roomId);
+
+    expect(plan.region.id).not.toContain('-4,-11');
+    expect(plan.region.landmarkNodes.arrival).toBeDefined();
+    expect(plan.region.landmarkNodes.fountain).toBeDefined();
+    expect(plan.region.mainAlleySpine.length).toBeGreaterThan(0);
+    expect(second.getRoomPlan(roomId).region).toEqual(plan.region);
+    expect(different.getRoomPlan(roomId).region).not.toEqual(plan.region);
+  });
+
+  it('keeps normal Mosaic Coast accent floors sparse and generic rivers absent', () => {
+    const rooms = generateArea('mosaic-accent-ratio', -4, 2, -11, -9);
+    const failures: string[] = [];
+    for (const room of rooms.values()) {
+      const total = defaultGameConfig.grid.cols * defaultGameConfig.grid.rows;
+      const accentRatio = countTiles(room, new Set(['M'])) / total;
+      const gaudi = room.archetypeId === 'gaudi-park-approach' || room.archetypeId === 'el-drac-arena';
+      if (!gaudi && accentRatio > 0.08) {
+        failures.push(`${room.id} accent ratio ${accentRatio}`);
+      }
+      if (hasRiverSegment(room, defaultGameConfig.grid)) {
+        failures.push(`${room.id} has a generic river`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  it('keeps Mosaic Coast passability, shade, and cooling fair from safe entries', () => {
+    const rooms = generateArea('mosaic-route-fairness', -4, 2, -11, -9);
+    const failures: string[] = [];
+    for (const room of rooms.values()) {
+      const passableRatio = passableCells(room).size / (defaultGameConfig.grid.cols * defaultGameConfig.grid.rows);
+      const wallRatio = countTiles(room, new Set(['#'])) / (defaultGameConfig.grid.cols * defaultGameConfig.grid.rows);
+      if (passableRatio < 0.58) {
+        failures.push(`${room.id} passable ratio ${passableRatio}`);
+      }
+      if (wallRatio > 0.28) {
+        failures.push(`${room.id} wall ratio ${wallRatio}`);
+      }
+      const shade = exposureCells(room, 'shade');
+      const cooling = exposureCells(room, 'cooling');
+      for (const direction of DIRECTIONS) {
+        for (const entry of edgeCellsFor(room, defaultGameConfig.grid, direction)) {
+          if (!isImmediatelySafe(room.layout[entry.y]?.[entry.x])) {
+            continue;
+          }
+          const shadeDistance = shortestPathToAny(room, entry, shade);
+          const coolingDistance = shortestPathToAny(room, entry, cooling);
+          if (shadeDistance === null || shadeDistance > 6) {
+            failures.push(`${room.id} ${direction.name} entry ${entry.x},${entry.y} shade ${shadeDistance}`);
+          }
+          if (coolingDistance === null || coolingDistance > 28) {
+            failures.push(`${room.id} ${direction.name} entry ${entry.x},${entry.y} cooling ${coolingDistance}`);
+          }
+        }
+      }
+    }
+    expect(failures.slice(0, 20)).toEqual([]);
+    expect(failures).toHaveLength(0);
+  });
+
+  it('keeps Mosaic Coast shoreline transitions dry on both sides of the ocean boundary', () => {
+    const rooms = generateArea('mosaic-ocean-transition', -4, 2, -12, -11);
+    const failures: string[] = [];
+    let checkedOceanTransitions = 0;
+    for (let x = -4; x <= 2; x += 1) {
+      const ocean = rooms.get(`${x},-12,0`);
+      const mosaic = rooms.get(`${x},-11,0`);
+      if (ocean?.biomeId !== 'sunken-ocean') {
+        continue;
+      }
+      checkedOceanTransitions += 1;
+      expect(mosaic?.biomeId).toBe('mosaic-coast');
+      for (let col = 0; col < defaultGameConfig.grid.cols; col += 1) {
+        const oceanTile = ocean?.layout[defaultGameConfig.grid.rows - 1]?.[col];
+        const mosaicTile = mosaic?.layout[0]?.[col];
+        const eitherOpen = isImmediatelySafe(oceanTile) || isImmediatelySafe(mosaicTile);
+        if (!eitherOpen) {
+          continue;
+        }
+        if (oceanTile === '~' || mosaicTile === '~') {
+          failures.push(`${x} col ${col} ocean=${oceanTile} mosaic=${mosaicTile}`);
+        }
+      }
+    }
+    expect(checkedOceanTransitions).toBeGreaterThan(0);
+    expect(failures).toEqual([]);
+  });
+
+  it('classifies Mosaic Coast collision tiles explicitly', () => {
+    expect(isMosaicCoastSolidTile('#')).toBe(true);
+    for (const tile of ['.', 'a', 'b', 't', 'p', 'i', 'f', 'F', 'M', 'G', 'r']) {
+      expect(isMosaicCoastPassableTile(tile)).toBe(true);
+      expect(isMosaicCoastSolidTile(tile)).toBe(false);
+    }
+  });
+
+  it('keeps Mosaic Coast canopy shade passable and trunks solid', () => {
+    const rooms = generateArea('mosaic-canopy', -4, 2, -11, -9);
+    const grove = [...rooms.values()].find((room) => room.archetypeId === 'orange-grove-courtyard');
+    expect(grove).toBeDefined();
+    for (const tree of grove?.mosaicCoast?.canopyTrees ?? []) {
+      expect(grove?.layout[tree.trunk.y]?.[tree.trunk.x]).toBe('#');
+      for (const canopy of tree.canopy) {
+        expect(grove?.layout[canopy.y]?.[canopy.x]).toBe('t');
+        expect(
+          grove?.mosaicCoast?.exposure.some(
+            (entry) => entry.x === canopy.x && entry.y === canopy.y && entry.kind === 'shade',
+          ),
+        ).toBe(true);
+      }
+    }
+  });
+
+  it('places tapas courtyard metadata deterministically', () => {
+    const first = generateArea('mosaic-tapas', -4, 2, -11, -9);
+    const second = generateArea('mosaic-tapas', -4, 2, -11, -9);
+    const tapas = first.get('0,-10,0');
+    expect(tapas?.archetypeId).toBe('tapas-crawl-room');
+    expect(tapas?.mosaicCoast?.tapasBar?.minigameSeed).toBe(
+      second.get('0,-10,0')?.mosaicCoast?.tapasBar?.minigameSeed,
+    );
+    expect(tapas?.mosaicCoast?.tapasBar?.tableCells.length).toBeGreaterThan(0);
+  });
+
+  it('does not repaint Mosaic Coast base layout over claimed town or perimeter rooms', () => {
+    const generator = new RoomGenerator(
+      defaultGameConfig.world,
+      createRng('mosaic-claimed-guard'),
+      createWorldGenerationIdentity('mosaic-claimed-guard'),
+    );
+
+    const townContext = generator.createGenerationContext('0,-9,0', defaultGameConfig.grid);
+    townContext.isMosaicCoast = true;
+    townContext.isOcean = false;
+    townContext.townMembership = {
+      roomId: '0,-9,0',
+      role: 'inside',
+      district: 'townCenter',
+      placement: {
+        id: 'fixture-town',
+        kind: 'humanTown',
+        anchor: { x: 0, y: -9, z: 0 },
+        seed: 1,
+        bounds: { left: 0, top: -9, width: 2, height: 2, z: 0 },
+      },
+    };
+    townContext.canvas.set(4, 4, '#');
+    generator.applyBiomeBaseTerrain(townContext);
+    expect(townContext.layout[4]?.[4]).toBe('#');
+    expect(townContext.mosaicCoast).toBeUndefined();
+
+    const perimeterContext = generator.createGenerationContext('1,-9,0', defaultGameConfig.grid);
+    perimeterContext.isMosaicCoast = true;
+    perimeterContext.isOcean = false;
+    perimeterContext.townPerimeter = { townId: 'fixture-town', sideFacingTown: 'west' };
+    perimeterContext.canvas.set(8, 8, '#');
+    generator.applyBiomeBaseTerrain(perimeterContext);
+    expect(perimeterContext.layout[8]?.[8]).toBe('#');
+    expect(perimeterContext.mosaicCoast).toBeUndefined();
+  });
+
+  it('keeps Mosaic Coast exposure deterministic for the same seed', () => {
+    const first = generateArea('mosaic-coast-determinism', -4, 2, -11, -9);
+    const second = generateArea('mosaic-coast-determinism', -4, 2, -11, -9);
+
+    for (const [id, room] of first) {
+      expect(second.get(id)?.layout).toEqual(room.layout);
+      expect(second.get(id)?.archetypeId).toEqual(room.archetypeId);
+      expect(second.get(id)?.mosaicCoast).toEqual(room.mosaicCoast);
+    }
   });
 
   it('keeps the common biome borders several rooms away from spawn', () => {

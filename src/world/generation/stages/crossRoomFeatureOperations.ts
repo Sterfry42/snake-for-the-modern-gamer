@@ -84,6 +84,7 @@ export class CrossRoomFeatureOperations {
       involvedRooms.some(
         ([x, y]) =>
           this.isSpecialHouseRoom(x, y, roomZ) ||
+          this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id === 'mosaic-coast' ||
           biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${x},${y},${roomZ}`).id, 'ocean'),
       )
     ) {

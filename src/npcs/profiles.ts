@@ -157,3 +157,13 @@ export const FREAK_JOEY_PROFILE: NpcProfile = {
   stats: buildNpcStats('Freak Joey'),
   maxHearts: 15,
 };
+
+export const VLAD_PROFILE: NpcProfile = {
+  id: 'vlad-snake-canies',
+  name: 'Vlad',
+  role: 'house',
+  encounterType: 'quest',
+  portraitId: 'vlad-snake-canies',
+  stats: buildNpcStats('Vlad'),
+  maxHearts: 3,
+};

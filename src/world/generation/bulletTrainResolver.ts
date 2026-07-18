@@ -1,6 +1,6 @@
 import type { GridConfig } from '../../config/gameConfig.js';
 import type { WorldGenerationIdentity } from './worldGenerationIdentity.js';
-import { formatRoomId, parseRoomId, type RoomCoordinate } from './multiRoomStructures.js';
+import { parseRoomId, type RoomCoordinate } from './multiRoomStructures.js';
 import { positiveMod } from './worldHash.js';
 
 const JADE_PEAK_STATION_REGION_SIZE = 12;
@@ -35,6 +35,10 @@ export class BulletTrainStructureResolver {
   private readonly stationPlacements = new Map<string, BulletTrainPlacement>();
   private readonly destinationMap = new Map<string, BulletTrainDestinationInfo[]>();
   private readonly allJadePeakRooms = new Set<string>();
+  private readonly coordsByRoomId = new Map<string, RoomCoordinate>();
+  private readonly roomsByRegion = new Map<string, string[]>();
+  private version = 0;
+  private computedVersion = -1;
 
   constructor(
     private readonly identity: WorldGenerationIdentity,
@@ -42,13 +46,41 @@ export class BulletTrainStructureResolver {
   ) {}
 
   /** Register a Jade Peak room so it can be considered for stations and destinations. */
-  registerJadePeakRoom(roomId: string): void {
+  registerJadePeakRoom(roomId: string): boolean {
+    if (this.allJadePeakRooms.has(roomId)) {
+      return false;
+    }
     this.allJadePeakRooms.add(roomId);
+    const coord = parseRoomId(roomId);
+    const regionKey = this.getRegionKey(coord);
+    this.coordsByRoomId.set(roomId, coord);
+    const regionRooms = this.roomsByRegion.get(regionKey);
+    if (regionRooms) {
+      regionRooms.push(roomId);
+    } else {
+      this.roomsByRegion.set(regionKey, [roomId]);
+    }
+    this.version += 1;
+    return true;
   }
 
   /** Get all registered Jade Peak room IDs. */
   getJadePeakRooms(): Set<string> {
-    return this.allJadePeakRooms;
+    return new Set(this.allJadePeakRooms);
+  }
+
+  hasJadePeakRoom(roomId: string): boolean {
+    return this.allJadePeakRooms.has(roomId);
+  }
+
+  clear(): void {
+    this.stationPlacements.clear();
+    this.destinationMap.clear();
+    this.allJadePeakRooms.clear();
+    this.coordsByRoomId.clear();
+    this.roomsByRegion.clear();
+    this.version = 0;
+    this.computedVersion = -1;
   }
 
   /** Check if a room has a pre-assigned station. */
@@ -67,22 +99,19 @@ export class BulletTrainStructureResolver {
   }
 
   /** Pre-compute all station placements and destinations. */
-  computePlacements(): void {
-    const roomIds = Array.from(this.allJadePeakRooms);
-    if (roomIds.length === 0) return;
-
-    // Parse all room coordinates
-    const roomsByCoord = new Map<string, RoomCoordinate>();
-    for (const roomId of roomIds) {
-      const coord = parseRoomId(roomId);
-      roomsByCoord.set(formatRoomId(coord), coord);
+  computePlacements(): boolean {
+    if (this.computedVersion === this.version) {
+      return false;
     }
+    this.stationPlacements.clear();
+    this.destinationMap.clear();
+    this.computedVersion = this.version;
+    if (this.allJadePeakRooms.size === 0) return false;
 
     // Determine regions and assign stations
     const regionMap = new Map<string, { x: number; y: number }>();
-    for (const roomId of roomIds) {
-      const coord = parseRoomId(roomId);
-      const regionKey = `${Math.floor(coord.x / JADE_PEAK_STATION_REGION_SIZE)},${Math.floor(coord.y / JADE_PEAK_STATION_REGION_SIZE)}`;
+    for (const coord of this.coordsByRoomId.values()) {
+      const regionKey = this.getRegionKey(coord);
       if (!regionMap.has(regionKey)) {
         regionMap.set(regionKey, { x: Math.floor(coord.x / JADE_PEAK_STATION_REGION_SIZE), y: Math.floor(coord.y / JADE_PEAK_STATION_REGION_SIZE) });
       }
@@ -100,9 +129,10 @@ export class BulletTrainStructureResolver {
 
     // Compute destinations for each station
     for (const placement of this.stationPlacements.values()) {
-      const destinations = this.computeDestinations(placement, roomsByCoord);
+      const destinations = this.computeDestinations(placement);
       this.destinationMap.set(placement.roomId, destinations);
     }
+    return true;
   }
 
   private createRegionPlacement(
@@ -121,47 +151,49 @@ export class BulletTrainStructureResolver {
       const candidateKey = `${regionKey}:${attempt}`;
       const candidateSeed = positiveMod(hashWorldCoordinate(String(seed), candidateKey, 0), 1000000);
 
-      // Find a Jade Peak room in this region
-      for (const roomId of this.allJadePeakRooms) {
-        const coord = parseRoomId(roomId);
+      const regionRooms = this.roomsByRegion.get(regionKey) ?? [];
+      for (const roomId of regionRooms) {
+        const coord = this.coordsByRoomId.get(roomId);
+        if (!coord) {
+          continue;
+        }
         const roomRegionX = Math.floor(coord.x / JADE_PEAK_STATION_REGION_SIZE);
         const roomRegionY = Math.floor(coord.y / JADE_PEAK_STATION_REGION_SIZE);
-        if (roomRegionX === regionX && roomRegionY === regionY) {
-          // Check for collisions with other stations
-          let collision = false;
-          for (const existing of this.stationPlacements.values()) {
-            const existingCoord = parseRoomId(existing.roomId);
-            const dist = Math.abs(existingCoord.x - coord.x) + Math.abs(existingCoord.y - coord.y);
-            if (dist < 3) {
-              collision = true;
-              break;
-            }
+        if (roomRegionX !== regionX || roomRegionY !== regionY) {
+          continue;
+        }
+
+        // Check for collisions with other stations
+        let collision = false;
+        for (const existing of this.stationPlacements.values()) {
+          const dist = Math.abs(existing.coordinate.x - coord.x) + Math.abs(existing.coordinate.y - coord.y);
+          if (dist < 3) {
+            collision = true;
+            break;
           }
-          if (!collision) {
-            return {
-              id: `bullet-train-region:${regionKey}`,
-              seed: candidateSeed,
-              roomId,
-              coordinate: coord,
-            };
-          }
+        }
+        if (!collision) {
+          return {
+            id: `bullet-train-region:${regionKey}`,
+            seed: candidateSeed,
+            roomId,
+            coordinate: coord,
+          };
         }
       }
     }
     return null;
   }
 
-  private computeDestinations(
-    placement: BulletTrainPlacement,
-    roomsByCoord: Map<string, RoomCoordinate>,
-  ): BulletTrainDestinationInfo[] {
+  private computeDestinations(placement: BulletTrainPlacement): BulletTrainDestinationInfo[] {
     const destinations: BulletTrainDestinationInfo[] = [];
 
     for (const roomId of this.allJadePeakRooms) {
       // Exclude the station's own room
       if (roomId === placement.roomId) continue;
 
-      const coord = parseRoomId(roomId);
+      const coord = this.coordsByRoomId.get(roomId);
+      if (!coord) continue;
       const stationCoord = placement.coordinate;
       const dx = Math.abs(coord.x - stationCoord.x);
       const dy = Math.abs(coord.y - stationCoord.y);
@@ -200,6 +232,10 @@ export class BulletTrainStructureResolver {
     }
 
     return destinations;
+  }
+
+  private getRegionKey(coord: RoomCoordinate): string {
+    return `${Math.floor(coord.x / JADE_PEAK_STATION_REGION_SIZE)},${Math.floor(coord.y / JADE_PEAK_STATION_REGION_SIZE)}`;
   }
 }
 

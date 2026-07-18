@@ -161,6 +161,8 @@ function offsetForSide(side: CardinalSide): { dx: number; dy: number } {
 }
 
 export class MultiRoomStructureResolver {
+  private readonly regionTownCache = new Map<string, MultiRoomStructurePlacement | null>();
+
   constructor(
     private readonly identity: WorldGenerationIdentity,
     private readonly biomeMap: BiomeMap,
@@ -253,12 +255,18 @@ export class MultiRoomStructureResolver {
     regionY: number,
     z: number,
   ): MultiRoomStructurePlacement | null {
+    const cacheKey = `${regionX},${regionY},${z}`;
+    if (this.regionTownCache.has(cacheKey)) {
+      return this.regionTownCache.get(cacheKey) ?? null;
+    }
     for (let attempt = 0; attempt < HUMAN_TOWN_CANDIDATE_ATTEMPTS; attempt += 1) {
       const placement = this.createRegionPlacement(regionX, regionY, z, attempt);
       if (this.isValidTownPlacement(placement)) {
+        this.regionTownCache.set(cacheKey, placement);
         return placement;
       }
     }
+    this.regionTownCache.set(cacheKey, null);
     return null;
   }
 
@@ -316,6 +324,9 @@ export class MultiRoomStructureResolver {
         const roomX = placement.anchor.x + dx;
         const roomY = placement.anchor.y + dy;
         if (Math.max(Math.abs(roomX), Math.abs(roomY)) <= 2) {
+          return false;
+        }
+        if (roomX >= -5 && roomX <= 3 && roomY >= -12 && roomY <= -8) {
           return false;
         }
       }

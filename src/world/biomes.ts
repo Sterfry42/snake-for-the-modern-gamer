@@ -15,6 +15,7 @@
  * - The wise old snake's biome predictions are 99% accurate
  */
 import { darkenColor, hslToHex, paletteConfig } from '../config/palette.js';
+import { clamp01 } from '../core/math.js';
 
 export type BiomeId =
   | 'verdigris-basin'
@@ -24,6 +25,7 @@ export type BiomeId =
   | 'gloam-garden'
   | 'elderwood-maze'
   | 'sunken-ocean'
+  | 'mosaic-coast'
   | 'home-hearth'
   | 'jade-peak-province'
   | 'liberty-badlands'
@@ -39,7 +41,8 @@ export type BiomeId =
   | 'glass-desert'
   | 'titan-ribcage'
   | 'radioactive-orchard'
-  | 'clockwork-quarry';
+  | 'clockwork-quarry'
+  | 'provence-valley';
 
 export type BiomeFamily =
   | 'forest'
@@ -181,6 +184,12 @@ const DENSE_FOREST_TRANSITION: BiomeTransitionProfile = {
 const OCEAN_TRANSITION: BiomeTransitionProfile = {
   preferredTransitionKinds: ['shoreline', 'dock', 'open-water'],
   allowsOpenEdges: false,
+  requiresSpecialEdgeHandling: true,
+};
+
+const MOSAIC_COAST_TRANSITION: BiomeTransitionProfile = {
+  preferredTransitionKinds: ['road', 'shoreline', 'open', 'dock'],
+  allowsOpenEdges: true,
   requiresSpecialEdgeHandling: true,
 };
 
@@ -470,6 +479,56 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
       bear: 0,
       fish: 5,
       snake: 0,
+    },
+    vegetationDensity: 0,
+  },
+  'mosaic-coast': {
+    id: 'mosaic-coast',
+    title: 'Mosaic Coast',
+    family: 'town',
+    countsAs: ['grassland'],
+    tags: ['warm', 'dry', 'shore', 'civilized', 'starter', 'special'],
+    generation: {
+      minWidthRooms: 5,
+      maxWidthRooms: 12,
+      minHeightRooms: 3,
+      maxHeightRooms: 8,
+      baseWeight: 0.35,
+      idealTemperature: 0.55,
+      temperatureTolerance: 0.35,
+      idealMoisture: 0.35,
+      moistureTolerance: 0.5,
+      idealWeirdness: 0.25,
+      weirdnessTolerance: 0.55,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 6,
+      rarity: 'rare',
+    },
+    transition: MOSAIC_COAST_TRANSITION,
+    temperature: 'Sunlit',
+    dangerLevel: 4,
+    temperatureHazard: 'hot',
+    temperatureRate: 0.35,
+    hue: 38,
+    saturation: 0.35,
+    lightness: 0.27,
+    tintVariance: 0.03,
+    accentColor: 0x3fb8ff,
+    enemyFireBias: 1,
+    enemyMoveBias: 1,
+    animalSpawnChance: 0.18,
+    animalSpawnBias: {
+      rabbit: 0,
+      deer: 0,
+      fox: 0,
+      bird: 4,
+      wolf: 0,
+      bear: 0,
+      fish: 2,
+      snake: 1,
+      frog: 1,
+      pigeon: 5,
+      lizard: 4,
     },
     vegetationDensity: 0,
   },
@@ -1161,11 +1220,56 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     },
     vegetationDensity: 4,
   },
+  'provence-valley': {
+    id: 'provence-valley',
+    title: 'Provence Valley',
+    family: 'grassland',
+    tags: ['warm', 'temperate', 'civilized'],
+    generation: {
+      minWidthRooms: 6,
+      maxWidthRooms: 14,
+      minHeightRooms: 6,
+      maxHeightRooms: 14,
+      baseWeight: 0.5,
+      idealTemperature: 0.35,
+      temperatureTolerance: 0.5,
+      idealMoisture: 0.15,
+      moistureTolerance: 0.55,
+      idealWeirdness: 0.2,
+      weirdnessTolerance: 0.6,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 16,
+      rarity: 'rare',
+    },
+    transition: OPEN_LAND_TRANSITION,
+    temperature: 'Sun-Kissed',
+    dangerLevel: 3,
+    temperatureHazard: null,
+    temperatureRate: 0,
+    hue: 270,
+    saturation: 0.3,
+    lightness: 0.22,
+    tintVariance: 0.024,
+    accentColor: 0xb07cc7,
+    enemyFireBias: 0,
+    enemyMoveBias: 0,
+    animalSpawnChance: 0.18,
+    animalSpawnBias: {
+      rabbit: 3,
+      deer: 1,
+      fox: 1,
+      bird: 4,
+      wolf: 0,
+      bear: 0,
+      fish: 1,
+      snake: 1,
+      rooster: 5,
+      goat: 3,
+      frog: 2,
+    },
+    vegetationDensity: 14,
+  },
 };
-
-function clamp01(value: number): number {
-  return Math.max(0, Math.min(1, value));
-}
 
 export function getBiomeDefinition(id: BiomeId): BiomeDefinition {
   return BIOMES[id];
@@ -1262,6 +1366,9 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
   }
   if (x >= -18 && x <= -12 && y >= 1 && y <= 5) {
     return BIOMES['glass-desert'];
+  }
+  if (z === 0 && x >= -4 && x <= 2 && y >= -11 && y <= -9) {
+    return BIOMES['mosaic-coast'];
   }
   if (x >= 1 && x <= 5 && y >= -14 && y <= -10) {
     return BIOMES['radioactive-orchard'];

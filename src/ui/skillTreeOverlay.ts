@@ -7,6 +7,7 @@ import type {
   SkillPerkState,
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
+import { isLocatorItemId } from '../world/biomeLocators.js';
 import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
 import { saveManager } from '../game/saveManager.js';
@@ -14,7 +15,12 @@ import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
-import { CHEAT_DEFINITIONS } from '../cheats/cheatRegistry.js';
+import {
+  CHEAT_DEFINITIONS,
+  getCheatsByCategory,
+  getCategoryLabel,
+  type CheatCategory,
+} from '../cheats/cheatRegistry.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
@@ -353,6 +359,7 @@ export class SkillTreeOverlay {
   private readonly detailSubtitle: Phaser.GameObjects.Text;
   private readonly detailRankText: Phaser.GameObjects.Text;
   private readonly detailBody: Phaser.GameObjects.Text;
+  private detailButtonObjects: Phaser.GameObjects.GameObject[] = [];
   private readonly inventoryItemsText: Phaser.GameObjects.Text;
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
@@ -4189,70 +4196,100 @@ export class SkillTreeOverlay {
       fontStyle: 'bold',
     });
 
-    const cheats = this.getCheatDefinitions();
     const cardWidth = content.width - 80; // Reserve space for enable button
     let y = content.y + 30 - this.getStructuredScrollOffset();
-    for (const cheat of cheats) {
-      const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: TAB_ACCENTS[this.activePrimaryTab],
-        alpha: 0.56,
-        strokeAlpha: 0.5,
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, cheat.name, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-        fontStyle: 'bold',
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 20, cheat.description, {
-        color: uiColors.textSecondary,
-        fontSize: '10px',
-        wordWrapWidth: cardWidth - 20,
-      });
 
-      // Card click zone (only the left portion, button area excluded)
-      const zoneWidth = card.width - 72;
-      const zone = this.scene.add
-        .zone(card.x, card.y, zoneWidth, card.height)
-        .setOrigin(0, 0)
-        .setInteractive({ useHandCursor: true });
-      zone.on('pointerdown', () => {
-        this.announce(`Cheat: ${cheat.name}`, '#9ad1ff', 1600);
-        this.detailTitle.setText(cheat.name).setVisible(true);
-        this.detailSubtitle.setText('Cheat Code').setVisible(true);
-        this.detailRankText.setText(cheat.code).setVisible(true);
-        this.detailBody.setText(cheat.description).setVisible(true);
-        this.detailBody.setColor(uiColors.textPrimary);
-      });
-      this.structuredContainer.add(zone);
+    const grouped = getCheatsByCategory();
+    for (const category of grouped.keys()) {
+      const cheats = grouped.get(category)!;
+      if (cheats.length === 0) continue;
 
-      // Enable button on the right side of each card
-      const btnX = card.x + zoneWidth;
-      const btnRect: UiRect = { x: btnX, y: card.y + 2, width: 64, height: 26 };
-      addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
-        id: `cheat-${cheat.primaryCode}`,
-        rect: btnRect,
-        label: 'Enable',
-        enabled: true,
-        fill: uiColors.success,
-        stroke: uiColors.success,
-        disabledFill: uiColors.disabled,
-        disabledStroke: uiColors.locked,
-        textColor: '#ffffff',
-        disabledTextColor: uiColors.textMuted,
-        onClick: () => {
-          const result = this.scene.applyCheatCode(cheat.primaryCode);
-          this.announce(result.message, result.color, 2000);
+      // Category section header
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        content.x + 6,
+        y,
+        getCategoryLabel(category),
+        {
+          color: uiColors.textPrimary,
+          fontSize: '11px',
+          fontStyle: 'bold',
+        },
+      );
+      y += 18;
+
+      for (const cheat of cheats) {
+        const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
+        drawUiCard(this.structuredGraphics, {
+          rect: card,
+          fill: uiColors.panelBgInset,
+          stroke: TAB_ACCENTS[this.activePrimaryTab],
+          alpha: 0.56,
+          strokeAlpha: 0.5,
+        });
+        addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, cheat.name, {
+          color: uiColors.textPrimary,
+          fontSize: '12px',
+          fontStyle: 'bold',
+        });
+        addUiText(
+          this.scene,
+          this.structuredContainer,
+          card.x + 10,
+          card.y + 20,
+          cheat.description,
+          {
+            color: uiColors.textSecondary,
+            fontSize: '10px',
+            wordWrapWidth: cardWidth - 20,
+          },
+        );
+
+        // Card click zone (only the left portion, button area excluded)
+        const zoneWidth = card.width - 72;
+        const zone = this.scene.add
+          .zone(card.x, card.y, zoneWidth, card.height)
+          .setOrigin(0, 0)
+          .setInteractive({ useHandCursor: true });
+        zone.on('pointerdown', () => {
+          this.announce(`Cheat: ${cheat.name}`, '#9ad1ff', 1600);
           this.detailTitle.setText(cheat.name).setVisible(true);
           this.detailSubtitle.setText('Cheat Code').setVisible(true);
           this.detailRankText.setText(cheat.code).setVisible(true);
-          this.detailBody.setText(result.message).setVisible(true);
-          this.detailBody.setColor(result.color);
-        },
-      });
-      y += 36;
+          this.detailBody.setText(cheat.description).setVisible(true);
+          this.detailBody.setColor(uiColors.textPrimary);
+        });
+        this.structuredContainer.add(zone);
+
+        // Enable button on the right side of each card
+        const btnX = card.x + zoneWidth;
+        const btnRect: UiRect = { x: btnX, y: card.y + 2, width: 64, height: 26 };
+        addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
+          id: `cheat-${cheat.primaryCode}`,
+          rect: btnRect,
+          label: 'Enable',
+          enabled: true,
+          fill: uiColors.success,
+          stroke: uiColors.success,
+          disabledFill: uiColors.disabled,
+          disabledStroke: uiColors.locked,
+          textColor: '#ffffff',
+          disabledTextColor: uiColors.textMuted,
+          onClick: () => {
+            const result = this.scene.applyCheatCode(cheat.primaryCode);
+            this.announce(result.message, result.color, 2000);
+            this.detailTitle.setText(cheat.name).setVisible(true);
+            this.detailSubtitle.setText('Cheat Code').setVisible(true);
+            this.detailRankText.setText(cheat.code).setVisible(true);
+            this.detailBody.setText(result.message).setVisible(true);
+            this.detailBody.setColor(result.color);
+          },
+        });
+        y += 36;
+      }
+
+      y += 6; // Extra gap between categories
     }
 
     this.setStructuredContentHeight(content, y + 10);
@@ -4264,20 +4301,6 @@ export class SkillTreeOverlay {
       .setText('Press the Enable button to activate a cheat. Press Back to close.')
       .setVisible(true);
     this.detailBody.setColor(uiColors.textPrimary);
-  }
-
-  private getCheatDefinitions(): ReadonlyArray<{
-    name: string;
-    code: string;
-    primaryCode: string;
-    description: string;
-  }> {
-    return CHEAT_DEFINITIONS.map((c) => ({
-      name: c.name,
-      code: c.code,
-      primaryCode: c.primaryCode,
-      description: c.description,
-    }));
   }
 
   private buildControlsCards(rect: UiRect): void {
@@ -4572,6 +4595,7 @@ export class SkillTreeOverlay {
     });
     this.hoveredPerkId = null;
     this.clearPerkDetails(true);
+    this.clearDetailButton();
     this.glintTimer?.remove(false);
     this.glintTimer = undefined;
     this.hideHoverTip();
@@ -4667,6 +4691,7 @@ export class SkillTreeOverlay {
       this.detailBody
         .setText(this.buildEquipmentDetailBody(item, equipped, actionHints))
         .setVisible(true);
+      this.clearDetailButton();
       return true;
     }
     const title = item.name ?? this.selectedInventoryItemId;
@@ -4679,7 +4704,73 @@ export class SkillTreeOverlay {
     this.detailSubtitle.setText(subtitle).setVisible(true);
     this.detailRankText.setText('').setVisible(false);
     this.detailBody.setText(body).setVisible(true);
+
+    // Add a "Use" button for locator items.
+    this.renderDetailUseButton();
     return true;
+  }
+
+  /** Render a clickable "Use" button at the bottom of the detail panel. */
+  private renderDetailUseButton(): void {
+    this.clearDetailButton();
+    if (!this.selectedInventoryItemId) return;
+    const item = getItem(this.selectedInventoryItemId);
+    if (!item || item.kind === 'equipment') return;
+    // Only show the Use button for locator items.
+    if (!isLocatorItemId(item.id)) return;
+
+    const detailPanelX = this.detailPanel.x;
+    const detailPanelY = this.detailPanel.y;
+    const detailPanelWidth = this.detailPanel.width;
+    const buttonY = detailPanelY + this.detailPanel.height - 36;
+    const buttonX = detailPanelX + (detailPanelWidth - 160) / 2;
+    const buttonWidth = 160;
+    const buttonHeight = 28;
+
+    // Draw button background.
+    this.structuredGraphics
+      .fillStyle(uiColors.accentCore, 0.88)
+      .fillRoundedRect(buttonX, buttonY, buttonWidth, buttonHeight, 6);
+    this.structuredGraphics
+      .lineStyle(2, uiColors.accentCore, 0.92)
+      .strokeRoundedRect(buttonX + 1, buttonY + 1, buttonWidth - 2, buttonHeight - 2, 5);
+
+    // Draw button label.
+    const useLabel = this.scene.add
+      .text(buttonX + buttonWidth / 2, buttonY + buttonHeight / 2, 'USE', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        fontStyle: 'bold',
+        color: '#101824',
+        align: 'center',
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(35);
+    this.structuredContainer.add(useLabel);
+
+    // Add clickable zone — must be in structuredContainer so it shares the
+    // display list with the button background drawn on structuredGraphics.
+    const zone = this.scene.add
+      .zone(buttonX, buttonY, buttonWidth, buttonHeight)
+      .setOrigin(0, 0)
+      .setInteractive({ useHandCursor: true })
+      .setDepth(36);
+    this.structuredContainer.add(zone);
+    zone.on('pointerdown', () => {
+      const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
+      this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
+      this.refresh();
+      this.showInventoryItemDetails();
+    });
+    this.detailButtonObjects = [useLabel, zone];
+  }
+
+  /** Remove the detail panel use button and its label. */
+  private clearDetailButton(): void {
+    for (const obj of this.detailButtonObjects) {
+      obj.destroy();
+    }
+    this.detailButtonObjects = [];
   }
 
   private buildEquipmentDetailBody(

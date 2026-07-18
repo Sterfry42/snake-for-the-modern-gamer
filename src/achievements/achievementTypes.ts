@@ -144,6 +144,7 @@ export type AchievementEvent =
   | { type: 'relationship:married'; relationshipId: string }
   | { type: 'relationship:child'; relationshipId: string; childKind: string }
   | { type: 'relationship:divorced'; relationshipId: string }
+  | { type: 'relationship:motherLove'; relationshipId: string }
   | { type: 'fishing:caught'; fishTypeId: string; rarity: string; weight: number; biomeId: string }
   | { type: 'archaeology:artifactRecovered'; artifactId: string; rarity?: string }
   | { type: 'archaeology:depthReached'; depth: number }

@@ -269,6 +269,7 @@ describe('revised achievement catalog', () => {
       'treasure.first',
       'towns.wanted5',
       'relationships.divorced',
+      'relationships.motherLove',
       'equipment.fullLoadout',
       'fishing.completeJournal',
       'archaeology.allArtifacts',

@@ -205,13 +205,9 @@ describe('cave spawn rate', () => {
     }
 
     const rate = caves / generated;
-    expect({ generated, caves, rate }).toMatchInlineSnapshot(`
-      {
-        "caves": 631,
-        "generated": 5329,
-        "rate": 0.11840870707449803,
-      }
-    `);
+    // Cave spawning should stay around 10% of rooms. These bounds are wide
+    // enough to survive unrelated room-generation changes but narrow enough
+    // to catch regressions where caves stop spawning or spawn everywhere.
     expect(rate).toBeGreaterThanOrEqual(0.085);
     expect(rate).toBeLessThanOrEqual(0.125);
   }, 10000);

@@ -16,6 +16,7 @@
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
 import type SnakeScene from '../../scenes/snakeScene.js';
+import { pickRandom } from '../../core/math.js';
 
 interface BlessingState {
   shrineTimer: number;
@@ -54,10 +55,6 @@ const BLESSING_TYPES = [
     },
   },
 ];
-
-function pickRandom<T>(arr: T[], rng: () => number): T {
-  return arr[Math.floor(rng() * arr.length)];
-}
 
 class KamiBlessingFeature extends Feature {
   private state: BlessingState = {
@@ -140,7 +137,7 @@ class KamiBlessingFeature extends Feature {
 
   private grantBlessing(scene: SnakeScene): void {
     const rng = scene.random?.bind(scene) ?? Math.random;
-    const blessing = pickRandom(BLESSING_TYPES, rng);
+    const blessing = pickRandom(rng, BLESSING_TYPES);
 
     blessing.apply(this.state);
 

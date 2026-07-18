@@ -9,6 +9,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   scoreLabel: 'Score',
   lengthLabel: 'Length',
   bonusAppleReady: 'Bonus apple ready',
+  treatLabel: 'Treat',
   killstreakHeader: 'Killstreak',
   killstreakToNext: 'to',
   killstreakMaxStreak: 'Max streak!',
@@ -36,6 +37,14 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   snakeNuggets: 'Snake Nuggets',
   flushToilet: 'The toilet gurgles and flushes.',
   mcCashierDialogue: 'Welcome to Snake McDonalds! Fresh snake food, served fast, served cold.',
+  // Snake Cane's
+  canesCashierDialogue: 'Welcome to Snake Cane\'s. Let\'s see what fate has in store.',
+  canesReward: 'You received: {itemName}!',
+  canesClosing: '{closingLine}',
+  canesBoxComboExtraToast: 'Box Combo\n(Extra Toast)',
+  canesBoxComboColeslaw: 'Box Combo\n(Cole Slaw)',
+  canesThreeFingerCombo: '3 Finger Combo',
+  canesCaniacCombo: 'Caniac Combo',
   // Fishing
   fishingCast: 'You cast your line into the water.',
   fishingBite: 'Something bit! The line goes taut!',
@@ -63,6 +72,12 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   fishingQuestFishTitle: 'Catch Fish',
   fishingQuestFishDesc: 'Catch fish using your fishing rod. The water remembers who comes back.',
   fishingQuestCatchLabel: 'Caught {count} fish',
+  // Child Catch Mini-Game
+  childCatchLabel: 'Play Catch',
+  childCatchHint: 'Throw the ball back and forth with your little one.',
+  childCatchNoChildren: 'You do not have children to play with.',
+  childCatchSuccess: 'You and {child} played catch! {message}',
+  childCatchMiss: 'You tried to play catch with {child}, but missed. {message}',
   // Jason Statham Boss
   jason_statham_name: 'Jason Statham',
   jason_statham_intro: 'He came for the snake. The snake did not send a receipt.',
@@ -77,6 +92,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // Save System
   saveButton: 'SAVE',
+  pauseButton: 'PAUSE',
   loadButton: 'LOAD',
   clearButton: 'CLEAR',
   gameSaved: 'Game saved!',
@@ -249,6 +265,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   archaeologyTileYuzuApple: 'Yuzu Apple',
   archaeologyTileGoldenApple: 'Golden Apple',
   archaeologyTileWasabiApple: 'Wasabi Apple',
+  archaeologyTileColdBeerApple: 'Cold Beer Apple',
   archaeologyTileArtifactCache: 'Artifact Cache',
   archaeologyForestDig: 'Forest Dig',
   archaeologyOceanDig: 'Ocean Dig',
@@ -444,4 +461,20 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   stationSign: 'Jade Peak Express',
   ticketBooth: 'Ticket Booth',
   platformLantern: 'Platform Lantern',
+
+  // Radio
+  radioLabel: 'Radio',
+  radioStationLabel: 'Radio',
+  radioNoStation: 'No station tuned',
+  radioTuning: 'Tuning...',
+  radioStationChanged: 'Station changed to {station}',
+  radioStationStatic: 'Static',
+  radioStationClassical: 'Classical',
+  radioStationJazz: 'Jazz',
+  radioStationCountry: 'Country',
+  radioStationRock: 'Rock',
+  radioStationElectronic: 'Electronic',
+  radioStationLofi: 'Lo-Fi',
+  radioStationTalk: 'Talk',
+  radioEquipHint: 'Press R to tune radio',
 };

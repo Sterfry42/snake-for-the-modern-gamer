@@ -19,6 +19,7 @@ const SAVE_HOVER_BORDER = 0x7ec87e;
 export class SaveUI {
   private saveButton?: Phaser.GameObjects.Container;
   private saveBg?: Phaser.GameObjects.Rectangle;
+  private saveHitArea?: Phaser.GameObjects.Rectangle;
   private saveLabelText?: Phaser.GameObjects.Text;
   private seedLabel?: Phaser.GameObjects.Text;
   private saveFlash?: Phaser.GameObjects.Graphics;
@@ -94,6 +95,7 @@ export class SaveUI {
 
     this.saveButton = container;
     this.saveBg = bg;
+    this.saveHitArea = hitArea;
     this.saveLabelText = label;
     this.seedLabel = seedLabel;
     this.saveFlash = flash;
@@ -161,9 +163,12 @@ export class SaveUI {
   }
 
   updateVisibility(): void {
-    const suppressed = !!this.scene.getFlag<boolean>('ui.suppressHud');
+    const suppressed =
+      !!this.scene.getFlag<boolean>('ui.suppressHud') ||
+      !!(this.scene as any).titleVisible;
     this.saveLabelText?.setText(this.getSaveLabel());
     this.saveButton?.setVisible(!suppressed);
+    this.saveHitArea?.setInteractive(!suppressed);
     this.seedLabel?.setVisible(!suppressed);
   }
 

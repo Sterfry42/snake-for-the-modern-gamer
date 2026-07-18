@@ -2,7 +2,7 @@ import type { GridConfig, WorldConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { RoomGenerator } from './roomGenerator.js';
-import type { RoomSnapshot } from './types.js';
+import type { PortalConfig, RoomSnapshot } from './types.js';
 import {
   cloneTownForRoom,
   type TownBuilding,
@@ -33,14 +33,23 @@ export interface PickupChanceProvider {
   getPowerupChance?: () => number;
 }
 
+interface PortalIndexEntry {
+  sourceRoomId: string;
+  x: number;
+  y: number;
+}
+
 export class WorldService {
   private readonly rooms = new Map<string, RoomSnapshot>();
   private readonly generator: RoomGenerator;
   private readonly rng: RandomGenerator;
+  private readonly worldGenerationIdentity: WorldGenerationIdentity;
   private readonly worldSeed: string;
   private readonly generatorWorldConfig: WorldConfig;
   private readonly caveSaves = new Map<string, CaveInstanceSaveData>();
   private readonly townsById = new Map<string, TownStructure>();
+  private readonly townRoomIdsByTownId = new Map<string, Set<string>>();
+  private readonly incomingPortalsByDestRoomId = new Map<string, Map<string, PortalIndexEntry>>();
   private readonly layerEntrances = new Map<string, LayerEntrance>();
   private readonly layerInstances = new Map<string, LayerInstance>();
   private readonly bulletTrainResolver: BulletTrainStructureResolver;
@@ -55,12 +64,17 @@ export class WorldService {
   ) {
     this.generator = new RoomGenerator(grid, worldConfig, rng, identity);
     this.rng = rng;
-    this.worldSeed = identity?.seed ?? 'default-world';
+    this.worldGenerationIdentity = identity ?? createWorldGenerationIdentity();
+    this.worldSeed = this.worldGenerationIdentity.seed;
     this.generatorWorldConfig = worldConfig;
     this.bulletTrainResolver = new BulletTrainStructureResolver(
-      identity ?? createWorldGenerationIdentity(),
+      this.worldGenerationIdentity,
       grid,
     );
+  }
+
+  getWorldGenerationIdentity(): WorldGenerationIdentity {
+    return this.worldGenerationIdentity;
   }
 
   getRoom(roomId: string): RoomSnapshot {
@@ -74,6 +88,7 @@ export class WorldService {
         }
         const room = this.createLayerRoom(instance);
         this.rooms.set(roomId, room);
+        this.registerRoomIndexes(room);
         return room;
       }
       if (isCaveRoomId(roomId)) {
@@ -89,15 +104,15 @@ export class WorldService {
           save,
         });
         this.rooms.set(roomId, generated.room);
+        this.registerRoomIndexes(generated.room);
         return generated.room;
       }
       const room = this.generator.generate(roomId, this.grid);
-      if (room.town) {
-        this.townsById.set(room.town.id, room.town);
-      }
       for (const entrance of room.layerEntrances ?? []) {
         this.registerLayerEntrance(entrance);
       }
+      this.rooms.set(roomId, room);
+      this.registerRoomIndexes(room);
       this.addReciprocalPortalsFromExistingRooms(room);
       const suppressPickupSpawns = Boolean(room.town || room.townPerimeter);
       // Small chance to spawn a treasure chest in new rooms
@@ -136,7 +151,6 @@ export class WorldService {
       // Stamp bullet train station if this room has a pre-assigned placement
       this.stampBulletTrainStation(room);
 
-      this.rooms.set(roomId, room);
       this.addReciprocalPortalsForRoom(room);
     }
     return this.rooms.get(roomId)!;
@@ -191,10 +205,14 @@ export class WorldService {
 
   clear(): void {
     this.rooms.clear();
+    this.townRoomIdsByTownId.clear();
+    this.incomingPortalsByDestRoomId.clear();
+    this.bulletTrainResolver.clear();
   }
 
   setCaveSave(save: CaveInstanceSaveData): void {
     this.caveSaves.set(save.id, { ...save });
+    this.unregisterRoomIndexes(save.id);
     this.rooms.delete(save.id);
     const parent = this.rooms.get(save.parentRoomId);
     const entrance = parent?.caveEntrances?.find((entry) => entry.caveId === save.id);
@@ -241,6 +259,7 @@ export class WorldService {
     }
     const next = { ...existing, state };
     this.layerInstances.set(layerId, next);
+    this.unregisterRoomIndexes(layerId);
     this.rooms.delete(layerId);
     return cloneLayerInstance(next);
   }
@@ -258,7 +277,21 @@ export class WorldService {
 
   updateTown(town: TownStructure): void {
     this.townsById.set(town.id, town);
-    for (const [roomId, room] of this.rooms) {
+    let roomIds = this.townRoomIdsByTownId.get(town.id);
+    if (!roomIds) {
+      roomIds = new Set<string>();
+      for (const [roomId, room] of this.rooms) {
+        if (room.town?.id === town.id || room.layer?.townId === town.id) {
+          roomIds.add(roomId);
+        }
+      }
+      this.townRoomIdsByTownId.set(town.id, roomIds);
+    }
+    for (const roomId of roomIds) {
+      const room = this.rooms.get(roomId);
+      if (!room) {
+        continue;
+      }
       const interiorDistrict: TownRoomKind | undefined =
         room.layer?.kind === 'townInterior' &&
         room.layer.townId === town.id &&
@@ -467,13 +500,79 @@ export class WorldService {
     return townId || undefined;
   }
 
-  private addReciprocalPortalsFromExistingRooms(room: RoomSnapshot): void {
-    for (const sourceRoom of this.rooms.values()) {
-      for (const portal of sourceRoom.portals) {
-        if (portal.destRoomId === room.id) {
-          this.ensureReciprocalPortal(room, sourceRoom.id, portal.x, portal.y);
-        }
+  private registerRoomIndexes(room: RoomSnapshot): void {
+    if (room.town) {
+      this.townsById.set(room.town.id, room.town);
+      this.registerTownRoomIndex(room.town.id, room.id);
+    } else if (room.layer?.townId) {
+      this.registerTownRoomIndex(room.layer.townId, room.id);
+    }
+    for (const portal of room.portals) {
+      this.registerPortalIndex(room.id, portal);
+    }
+  }
+
+  private unregisterRoomIndexes(roomId: string): void {
+    const room = this.rooms.get(roomId);
+    if (!room) {
+      return;
+    }
+    if (room.town) {
+      this.townRoomIdsByTownId.get(room.town.id)?.delete(roomId);
+    }
+    if (room.layer?.townId) {
+      this.townRoomIdsByTownId.get(room.layer.townId)?.delete(roomId);
+    }
+    for (const portal of room.portals) {
+      this.unregisterPortalIndex(room.id, portal);
+    }
+  }
+
+  private registerTownRoomIndex(townId: string, roomId: string): void {
+    const roomIds = this.townRoomIdsByTownId.get(townId);
+    if (roomIds) {
+      roomIds.add(roomId);
+    } else {
+      this.townRoomIdsByTownId.set(townId, new Set([roomId]));
+    }
+  }
+
+  private registerPortalIndex(sourceRoomId: string, portal: PortalConfig): void {
+    this.unregisterPortalIndex(sourceRoomId, portal);
+    const entries =
+      this.incomingPortalsByDestRoomId.get(portal.destRoomId) ?? new Map<string, PortalIndexEntry>();
+    entries.set(this.portalIndexKey(sourceRoomId, portal), {
+      sourceRoomId,
+      x: portal.x,
+      y: portal.y,
+    });
+    this.incomingPortalsByDestRoomId.set(portal.destRoomId, entries);
+  }
+
+  private unregisterPortalIndex(sourceRoomId: string, portal: PortalConfig): void {
+    const key = this.portalIndexKey(sourceRoomId, portal);
+    for (const [destRoomId, entries] of this.incomingPortalsByDestRoomId) {
+      entries.delete(key);
+      if (entries.size === 0) {
+        this.incomingPortalsByDestRoomId.delete(destRoomId);
       }
+    }
+  }
+
+  private portalIndexKey(sourceRoomId: string, portal: Pick<PortalConfig, 'x' | 'y'>): string {
+    return `${sourceRoomId}:${portal.x},${portal.y}`;
+  }
+
+  private addReciprocalPortalsFromExistingRooms(room: RoomSnapshot): void {
+    const incoming = this.incomingPortalsByDestRoomId.get(room.id);
+    if (!incoming) {
+      return;
+    }
+    for (const portal of incoming.values()) {
+      if (!this.rooms.has(portal.sourceRoomId)) {
+        continue;
+      }
+      this.ensureReciprocalPortal(room, portal.sourceRoomId, portal.x, portal.y);
     }
   }
 
@@ -505,14 +604,21 @@ export class WorldService {
     const chars = row.split('');
     chars[x] = 'H';
     room.layout[y] = chars.join('');
+    for (const portal of room.portals) {
+      if (portal.x === x && portal.y === y) {
+        this.unregisterPortalIndex(room.id, portal);
+      }
+    }
     room.portals = room.portals.filter((portal) => portal.x !== x || portal.y !== y);
-    room.portals.push({
+    const reciprocalPortal: PortalConfig = {
       x,
       y,
       destRoomId: destinationRoomId,
       destX: x,
       destY: y,
-    });
+    };
+    room.portals.push(reciprocalPortal);
+    this.registerPortalIndex(room.id, reciprocalPortal);
 
     if (room.treasure?.x === x && room.treasure.y === y) {
       delete room.treasure;
@@ -587,8 +693,9 @@ export class WorldService {
 
   /** Recompute bullet train station placements with all known Jade Peak rooms. */
   private ensureBulletTrainPlacementsComputed(): void {
-    // Always re-compute to include newly discovered rooms
-    this.bulletTrainResolver.computePlacements();
+    if (this.bulletTrainResolver.computePlacements()) {
+      this.bulletTrainPlacementsComputed = true;
+    }
   }
 
   /** Generate nearby Jade Peak rooms so destinations exist. */
@@ -601,7 +708,7 @@ export class WorldService {
         if (dx === 0 && dy === 0) continue;
         const neighborId = `${coord.x + dx},${coord.y + dy},${coord.z}`;
         // Skip if already registered to avoid infinite recursion
-        if (this.bulletTrainResolver.getJadePeakRooms().has(neighborId)) continue;
+        if (this.bulletTrainResolver.hasJadePeakRoom(neighborId)) continue;
         // Only generate rooms that are actually in the room cache or known to exist
         // We don't want to generate the entire world just for bullet train destinations
         if (this.rooms.has(neighborId)) {
@@ -622,11 +729,6 @@ export class WorldService {
 
     const resolverDestinations = this.bulletTrainResolver.getDestinations(stationRoomId);
     if (resolverDestinations.length === 0) return [];
-
-    // Ensure destination rooms exist
-    for (const dest of resolverDestinations) {
-      this.getRoom(dest.roomId);
-    }
 
     // Convert resolver destinations to BulletTrainDestination format
     const flavorTexts = [

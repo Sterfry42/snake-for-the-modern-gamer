@@ -113,4 +113,27 @@ describe('SimulationScheduler', () => {
     expect(diagnostics.clocks.find((clock) => clock.id === 'action')?.stepsLastUpdate).toBe(2);
     expect(diagnostics.clocks.find((clock) => clock.id === 'actor')?.stepsLastUpdate).toBe(1);
   });
+
+  it('caps catch-up work per clock and reports dropped backlog', () => {
+    let steps = 0;
+    const scheduler = new SimulationScheduler([
+      {
+        id: 'action',
+        intervalMs: 10,
+        maxStepsPerUpdate: 3,
+        step: () => {
+          steps += 1;
+        },
+      },
+    ]);
+
+    scheduler.update(250, { action: true });
+
+    const diagnostics = scheduler.getDiagnostics();
+    const action = diagnostics.clocks.find((clock) => clock.id === 'action');
+    expect(steps).toBe(3);
+    expect(action?.stepsLastUpdate).toBe(3);
+    expect(action?.droppedStepsLastUpdate).toBe(22);
+    expect(action?.accumulatorMs).toBe(0);
+  });
 });

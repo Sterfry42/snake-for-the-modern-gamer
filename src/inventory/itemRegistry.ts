@@ -1,6 +1,8 @@
 import type { Item } from './item.js';
+import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
 
 export const ITEMS: readonly Item[] = [
+  ...generateBiomeLocatorItems(),
   {
     id: 'apple-normal',
     name: 'Recovered Standard Apple',
@@ -40,6 +42,13 @@ export const ITEMS: readonly Item[] = [
     id: 'apple-wasabi',
     name: 'Recovered Wasabi Apple',
     description: 'A hot green apple pulled from deep rubble.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'apple-cold-beer',
+    name: 'Cold Beer Apple',
+    description: 'A crisp golden apple, cold as a friday night. The wise old snake says "fuhgeddaboudit, this is the one."',
     kind: 'consumable',
     category: 'food',
   },
@@ -87,23 +96,21 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'boots-swim-fins',
     name: 'Swim Fins',
-    description: 'Flexible fins that let you cross lakes and ocean water.',
+    description: 'Flexible fins that let you cross lakes and ocean water. Water still pushes back a little.',
     kind: 'equipment',
     slot: 'boots',
     modifiers: {
       swimmingEnabled: true,
-      tickDelayScalar: 1.05,
     },
   },
   {
     id: 'boots-lead-flippers',
     name: 'Lead Flippers',
-    description: 'Village-grade flippers. They cross water and make every tile feel farther away.',
+    description: 'Village-grade flippers. They cross water, but every stroke has weight.',
     kind: 'equipment',
     slot: 'boots',
     modifiers: {
       swimmingEnabled: true,
-      tickDelayScalar: 1.12,
     },
   },
   {
@@ -185,6 +192,16 @@ export const ITEMS: readonly Item[] = [
     slot: 'belt',
     modifiers: {
       regenerator: { interval: 24, amount: 1 },
+    },
+  },
+  {
+    id: 'jeans-perfect-fit',
+    name: 'A Pair of Jeans That Fit Just Right',
+    description: 'No pinching, no sagging. These things were born for you. You betcha.',
+    kind: 'equipment',
+    slot: 'belt',
+    modifiers: {
+      tickDelayScalar: 0.95,
     },
   },
   {
@@ -454,6 +471,39 @@ export const ITEMS: readonly Item[] = [
     name: 'Snake Nuggets',
     description: 'Crispy little nuggets of snake. +2 length, 30 seconds invulnerability.',
     kind: 'consumable',
+  },
+  // ===== SNAKE CANIE'S COMBOS =====
+  {
+    id: 'food-box-combo-extra-toast',
+    name: "Box Combo\n(Extra Toast)",
+    description:
+      'Four chicken fingers, extra Texas toast, fries, Cane\'s sauce, drink.\n\n+7 length, 2 minutes invulnerability.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'food-box-combo-coleslaw',
+    name: "Box Combo\n(Cole Slaw)",
+    description:
+      'Four chicken fingers, cole slaw, Texas toast, fries, drink.\n\n+7 length, 2 minutes invulnerability.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'food-three-finger-combo',
+    name: '3 Finger Combo',
+    description:
+      'Three chicken fingers, fries, Texas toast, drink.\n\n+5 length, 90 seconds invulnerability.',
+    kind: 'consumable',
+    category: 'food',
+  },
+  {
+    id: 'food-caniac-combo',
+    name: 'Caniac Combo',
+    description:
+      'Six chicken fingers, fries, Texas toast, drink.\n\n+10 length, 3 minutes invulnerability.',
+    kind: 'consumable',
+    category: 'food',
   },
   {
     id: 'orange-juice',
@@ -945,6 +995,24 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'food',
   },
+  // Radio
+  {
+    id: 'belt-radio',
+    name: 'Wise Old Radio',
+    description:
+      'A pocket radio that picks up transcendent frequencies. Equip it in your belt slot to tune into radio stations. Each station grants unique buffs.',
+    kind: 'equipment',
+    slot: 'belt',
+  },
+  // Chicken Fried
+  {
+    id: 'chicken-fried',
+    name: 'Chicken Fried',
+    description:
+      'Golden, crispy, and perfectly breaded. A real Southern comfort food that hits the spot.',
+    kind: 'consumable',
+    category: 'food',
+  },
 ];
 
 const ITEM_MAP = new Map<string, Item>(ITEMS.map((item) => [item.id, item]));
@@ -981,6 +1049,7 @@ const CHEST_LOOT_ITEM_IDS = [
   'raiju-bottle',
   'kappa-bowl',
   'orange-juice',
+  'belt-radio',
 ] as const;
 const CHEST_LOOT_EXCLUDED_IDS = new Set([
   'weapon-market-revolver',

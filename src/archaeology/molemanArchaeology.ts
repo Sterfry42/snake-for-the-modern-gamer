@@ -1,6 +1,7 @@
 import { ARTIFACT_DEFINITIONS, type ArtifactDefinition } from '../artifacts/artifacts.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { getItem } from '../inventory/itemRegistry.js';
+import { clamp } from '../core/math.js';
 
 export type DigSiteVariantId = 'forest' | 'ocean' | 'deep';
 
@@ -17,6 +18,7 @@ export type ArchaeologyTileKind =
   | 'yuzu'
   | 'gold'
   | 'wasabi'
+  | 'cold-beer'
   | 'artifact-cache';
 
 export interface ArchaeologyTileDefinition {
@@ -199,6 +201,14 @@ export const ARCHAEOLOGY_TILE_DEFINITIONS: Record<ArchaeologyTileKind, Archaeolo
       textColor: '#183005',
       matchable: true,
       appleItemId: 'apple-wasabi',
+    },
+    'cold-beer': {
+      id: 'cold-beer',
+      i18nLabel: 'archaeologyTileColdBeerApple',
+      color: 0xf5a623,
+      textColor: '#4a3000',
+      matchable: true,
+      appleItemId: 'apple-cold-beer',
     },
     'artifact-cache': {
       id: 'artifact-cache',
@@ -889,10 +899,6 @@ function pick<T>(values: readonly T[], rng: () => number): T {
 
 function key(x: number, y: number): string {
   return `${x},${y}`;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
 }
 
 function t(key: string, replacements: Record<string, string | number> = {}): string {

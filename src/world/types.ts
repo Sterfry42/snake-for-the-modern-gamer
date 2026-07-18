@@ -92,6 +92,28 @@ export interface RoomArea {
   height: number;
 }
 
+export type MosaicCoastExposureKind = 'direct-sun' | 'shade' | 'cooling' | 'interior';
+
+export interface MosaicCoastMetadata {
+  exposure: Array<{ x: number; y: number; kind: MosaicCoastExposureKind }>;
+  fountains: Array<{ x: number; y: number; radius: number }>;
+  canopyTrees: Array<{ trunk: Vector2Like; canopy: Vector2Like[] }>;
+  awnings: Array<{ cells: Vector2Like[]; colorId: string }>;
+  tapasBar?: {
+    bartender: NpcProfile & { x: number; y: number };
+    tableCells: Vector2Like[];
+    minigameSeed: string;
+  };
+  souvenirStand?: {
+    vendor: NpcProfile & { x: number; y: number };
+    standName: string;
+  };
+  gaudiPark?: {
+    bossEntrance?: Vector2Like;
+    mosaicCells: Vector2Like[];
+  };
+}
+
 export interface RoomSnapshot {
   id: string;
   layout: string[];
@@ -156,6 +178,14 @@ export interface RoomSnapshot {
       y: number;
     };
     arcade: {
+      x: number;
+      y: number;
+    };
+    bounds: { left: number; top: number; width: number; height: number };
+  };
+  snakeCanes?: {
+    cashier: {
+      name: string;
       x: number;
       y: number;
     };
@@ -229,8 +259,20 @@ export interface RoomSnapshot {
     bounds: { left: number; top: number; width: number; height: number };
     pit: Vector2Like;
   };
+  lavenderFarm?: {
+    farmCenter: { x: number; y: number };
+    safeArea: { left: number; top: number; width: number; height: number };
+    farmer: NpcProfile & { x: number; y: number };
+    rows: Array<{ x: number; y: number }>;
+  };
+  cheeseShop?: {
+    shopCenter: { x: number; y: number };
+    safeArea: { left: number; top: number; width: number; height: number };
+    shopkeeper: NpcProfile & { x: number; y: number };
+  };
   bulletTrainStation?: BulletTrainStation;
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
+  mosaicCoast?: MosaicCoastMetadata;
   minecraftBlocks?: Record<string, string>;
   minecraftCropData?: Map<string, { stage: number; growthTicks: number }>;
   vegetation?: VegetationInstance[];

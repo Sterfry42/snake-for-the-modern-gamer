@@ -25,6 +25,12 @@ const room: RoomSnapshot = {
   wallOutlineColor: 0,
 };
 
+const bossManager = {
+  getPullFor: () => null,
+  getVulnerableJasonNearby: () => null,
+  getBossAtPosition: () => null,
+} as any;
+
 describe('SnakeState cave exit steering', () => {
   it('ignores buffered turns while the first cave-exit movement is locked', () => {
     const snake = new SnakeState(grid, snakeConfig, room.id);
@@ -76,6 +82,50 @@ describe('SnakeState disorientation', () => {
     expect(snake.nextDirectionVector).toEqual({ x: 1, y: 0 });
     expect(snake.head.x).toBe(4);
     expect(snake.head.y).not.toBe(4);
+  });
+});
+
+describe('SnakeState swimming', () => {
+  const waterRoom: RoomSnapshot = {
+    ...room,
+    layout: room.layout.map((row, y) =>
+      y === 4 ? `${row.slice(0, 4)}~${row.slice(5)}` : row,
+    ),
+  };
+
+  it('kills the snake on water without swimming gear', () => {
+    const snake = new SnakeState(grid, snakeConfig, waterRoom.id);
+
+    const result = snake.step({
+      getRoom: () => waterRoom,
+      ensureApple: () => undefined,
+      getBossManager: () => bossManager,
+    });
+
+    expect(result.status).toBe('dead');
+    expect(result.reason).toBe('water');
+    expect(snake.flags['ui.swimSplash']).toBeUndefined();
+  });
+
+  it('allows swimming gear to cross water and emits splash juice data', () => {
+    const snake = new SnakeState(grid, snakeConfig, waterRoom.id);
+    snake.flags['equipment.swimmingEnabled'] = true;
+
+    const result = snake.step({
+      getRoom: () => waterRoom,
+      ensureApple: () => undefined,
+      getBossManager: () => bossManager,
+    });
+
+    expect(result.status).toBe('alive');
+    expect(snake.head).toEqual({ x: 4, y: 4 });
+    expect(snake.flags['ui.swimSplash']).toMatchObject({
+      x: 4,
+      y: 4,
+      roomId: waterRoom.id,
+      localX: 4,
+      localY: 4,
+    });
   });
 });
 
