@@ -571,6 +571,119 @@ export interface FeatureStrings {
   dreamBuffGravityReverse: string;
   dreamBuffTimeSlow: string;
   dreamBuffLucidityBoost: string;
+
+  // === ECOSYSTEM ===
+  ecosystemTitle: string;
+  ecosystemHealth: string;
+  ecosystemBalanced: string;
+  ecosystemHealthy: string;
+  ecosystemStressed: string;
+  ecosystemCritical: string;
+  ecosystemCollapsing: string;
+  ecosystemPredatorPrey: string;
+  ecosystemHerbivores: string;
+  ecosystemPlantBiomass: string;
+  ecosystemEventWarning: string;
+  ecosystemPredatorOutbreak: string;
+  ecosystemHerbivoreMigration: string;
+  ecosystemPlague: string;
+  ecosystemFamine: string;
+  ecosystemMatingSeason: string;
+  ecosystemRecovery: string;
+
+  // === SETTLEMENTS ===
+  settlementTitle: string;
+  settlementFounded: string;
+  settlementDissolved: string;
+  settlementBeaverDam: string;
+  settlementAntColony: string;
+  settlementBirdCity: string;
+  settlementBearCave: string;
+  settlementRabbitWarren: string;
+  settlementFishSchool: string;
+  settlementWolfPackLair: string;
+  settlementFoxDen: string;
+  settlementEagleEyrie: string;
+  settlementRaccoonKingdom: string;
+  settlementBisonHerd: string;
+  settlementFrogPond: string;
+
+  // === KINGDOMS ===
+  kingdomTitle: string;
+  kingdomFormed: string;
+  kingdomRuler: string;
+  kingdomCapital: string;
+  kingdomPower: string;
+  kingdomAllied: string;
+  kingdomNeutral: string;
+  kingdomHostile: string;
+  kingdomRoyalEvent: string;
+  kingdomCoronation: string;
+  kingdomRoyalFeast: string;
+  kingdomRoyalHunt: string;
+  kingdomDiplomaticSummit: string;
+  kingdomWarCouncil: string;
+
+  // === COMPANIONS ===
+  companionTitle: string;
+  companionBond: string;
+  companionTierWary: string;
+  companionTierTrusting: string;
+  companionTierLoyal: string;
+  companionTierSoulbound: string;
+  companionTraitSwift: string;
+  companionTraitStrong: string;
+  companionTraitClever: string;
+  companionTraitFierce: string;
+  companionTraitGentle: string;
+  companionTraitStealthy: string;
+  companionTraitLoyal: string;
+  companionTraitWild: string;
+  companionTraitAncient: string;
+  companionTraitRareBreed: string;
+  companionBred: string;
+  companionTraitGained: string;
+  companionLevelUp: string;
+
+  // === PHOTOGRAPHY ===
+  photographyTitle: string;
+  photoTaken: string;
+  photoCommon: string;
+  photoUncommon: string;
+  photoRare: string;
+  photoEpic: string;
+  photoLegendary: string;
+  photoJournalScore: string;
+  photoUniqueSpecies: string;
+  photoTotalPhotos: string;
+  photoCameraCharge: string;
+  photoMiniGameHint: string;
+  photoMiniGameSuccess: string;
+  photoMiniGameFail: string;
+
+  // === ANIMAL MARKETS ===
+  animalMarketTitle: string;
+  marketGoods: string;
+  marketHoney: string;
+  marketFur: string;
+  marketFeathers: string;
+  marketWoodPlanks: string;
+  marketPearls: string;
+  marketPelts: string;
+  marketPurchase: string;
+  marketSpecialDeal: string;
+  marketRestocked: string;
+
+  // === WILDLIFE JOURNAL ===
+  wildlifeJournalTitle: string;
+  wildlifeJournalComplete: string;
+  wildlifeSpeciesDiscovered: string;
+  wildlifeSpeciesTotal: string;
+  wildlifeCompletion: string;
+  wildlifeNoPhotos: string;
+  wildlifePhotoDetail: string;
+  wildlifeBestRarity: string;
+  wildlifeBestScore: string;
 }
 
 export interface ActorVoiceTranslations {

@@ -63,7 +63,26 @@ export type WorldEventType =
   | 'mutation:traitExpired'
   | 'mutation:evolvedAppleSpawned'
   | 'mutation:appleEaten'
-  | 'mutation:goldStabilize';
+  | 'mutation:goldStabilize'
+  // Ecosystem Events
+  | 'ecosystem-predator-outbreak'
+  | 'ecosystem-herbivore-migration'
+  | 'ecosystem-plague'
+  | 'ecosystem-famine'
+  | 'ecosystem-mating-season'
+  | 'ecosystem-recovery'
+  | 'settlement-founded'
+  | 'settlement-dissolved'
+  | 'kingdom-formed'
+  | 'trade-route-established'
+  | 'war-declared'
+  | 'peace-treaty'
+  | 'royal-event'
+  | 'photo-taken'
+  | 'companion-bond-milestone'
+  | 'companion-bred'
+  | 'companion-trait-gained'
+  | 'animal-market-restocked'
 
 export interface WorldEvent {
   id: string;
