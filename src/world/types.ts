@@ -75,7 +75,12 @@ export type VegetationType =
   | 'decor-2'
   | 'decor-3'
   | 'decor-4'
-  | 'decor-5';
+  | 'decor-5'
+  | 'cactus-1'
+  | 'cactus-2'
+  | 'cactus-3'
+  | 'cactus-4'
+  | 'cactus-5';
 
 export interface PortalConfig {
   x: number;

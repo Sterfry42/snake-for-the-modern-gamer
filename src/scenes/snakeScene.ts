@@ -89,6 +89,11 @@ import {
   SpanishWebAudioFontMusic,
   type SpanishWebAudioFontState,
 } from '../audio/spanishWebAudioFontMusic.js';
+import {
+  resolveDesertMusicState,
+  DesertWebAudioFontMusic,
+  type DesertMusicState,
+} from '../audio/desertWebAudioFontMusic.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
@@ -1744,6 +1749,8 @@ export default class SnakeScene extends Phaser.Scene {
   private atmosphereAudioKey = 'none';
   private spanishMusic: SpanishWebAudioFontMusic | null = null;
   private spanishMusicKey = 'none';
+  private desertMusic: DesertWebAudioFontMusic | null = null;
+  private desertMusicKey = 'none';
   private nextThunderAtMs = 0;
   private lastAtmosphereWorldDay = 0;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
@@ -2954,6 +2961,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private updateAtmosphereAudio(view: ResolvedAtmosphereView): void {
     this.updateSpanishWebAudioFontMusic(view);
+    this.updateDesertMusic(view);
     if (view.sheltered) {
       if (this.atmosphereAudioKey !== 'none') {
         this.atmosphereAudioKey = 'none';
@@ -3009,6 +3017,30 @@ export default class SnakeScene extends Phaser.Scene {
       hasTapas: Boolean(room.mosaicCoast?.tapasBar),
       exposure: this.snakeGame.getFlag<SpanishWebAudioFontState | string>('mosaicCoast.exposure'),
     });
+  }
+
+  private updateDesertMusic(view: ResolvedAtmosphereView): void {
+    const state = resolveDesertMusicState({
+      biomeId: view.biomeId,
+      weather: view.state.globalWeather,
+      isSheltered: view.sheltered,
+    });
+    const key = state ?? 'none';
+    if (key === this.desertMusicKey) {
+      return;
+    }
+    this.desertMusicKey = key;
+    if (!state) {
+      this.desertMusic?.stop();
+      return;
+    }
+    const context = this.ensureAtmosphereAudioContext();
+    if (!context) {
+      return;
+    }
+    context.resume().catch(() => undefined);
+    this.desertMusic ??= new DesertWebAudioFontMusic(context);
+    this.desertMusic.start(state);
   }
 
   private getAtmosphereAudioKey(view: ResolvedAtmosphereView): string {

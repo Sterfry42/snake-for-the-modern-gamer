@@ -75,8 +75,8 @@ describe('vegetation generation', () => {
     }
   });
 
-  it('creates 40 vegetation variant names', () => {
-    expect(ALL_VEGETATION_VARIANTS.length).toBe(40);
+  it('creates 45 vegetation variant names', () => {
+    expect(ALL_VEGETATION_VARIANTS.length).toBe(45);
   });
 
   it('produces deterministic vegetation for the same room and seed', () => {

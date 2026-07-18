@@ -378,6 +378,7 @@ const TOWN_NAMES: Record<BiomeId, readonly string[]> = {
   'ash-steppe': ['Ashford', 'Dustgate', 'Soot Toll', 'Greywick', 'Steppe Market'],
   'neon-underpass': ['Neon Row', 'Tube Gate', 'Hotwire Toll', 'Glowford', 'Underpass Market'],
   'glass-desert': ['Prismford', 'Mirrorgate', 'Shard Toll', 'Sunspike', 'Glassmarket'],
+  'amber-dunes': ['Amberford', 'Dune Gate', 'Sand Toll', 'Cactuswick', 'Dunesmarket'],
   'titan-ribcage': ['Ribford', 'Marrowgate', 'Bone Toll', 'Ossuary Row', 'Titanmarket'],
   'radioactive-orchard': ['Glowbranch', 'Radgate', 'Isotope Toll', 'Greenflash', 'Orchardmarket'],
   'clockwork-quarry': ['Gearford', 'Brassgate', 'Cog Toll', 'Quarrywick', 'Pendulummarket'],
