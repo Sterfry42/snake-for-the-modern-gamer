@@ -44,7 +44,19 @@ export type WorldEventType =
   | 'faction-skirmish-ended'
   | 'room-entered'
   | 'bullet-train-departed'
-  | 'bullet-train-arrived';
+  | 'bullet-train-arrived'
+  // Weather & Season Events
+  | 'weather-change'
+  | 'season-change'
+  | 'thunderclap'
+  | 'lightning-strike'
+  | 'firstSnow'
+  | 'springThaw'
+  | 'heatwave-warning'
+  | 'storm-approaching'
+  | 'fog-rolling-in'
+  | 'apple-weather-effect'
+  | 'animal-weather-behavior';
 
 export interface WorldEvent {
   id: string;

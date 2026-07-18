@@ -87,7 +87,10 @@ export interface AppleTypeConfig {
       | 'lavender'
       | 'coldBeer'
       | 'love'
-      | 'treat';
+      | 'treat'
+      | 'frost'
+      | 'winterberry'
+      | 'heatwave';
 }
 
 export interface AppleSystemConfig {

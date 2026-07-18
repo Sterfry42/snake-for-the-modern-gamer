@@ -29,6 +29,9 @@ import { LavenderApple } from './behaviors/lavenderApple.js';
 import { ColdBeerApple } from './behaviors/coldBeerApple.js';
 import { LoveApple } from './behaviors/loveApple.js';
 import { TreatApple } from './behaviors/treatApple.js';
+import { FrostApple } from './behaviors/frostApple.js';
+import { WinterberryApple } from './behaviors/winterberryApple.js';
+import { HeatwaveApple } from './behaviors/heatwaveApple.js';
 import type { AppleInstance } from './types.js';
 
 export class AppleRegistry {
@@ -74,6 +77,12 @@ export class AppleRegistry {
         return new LoveApple(roomId, position, type.id, type.color);
       case 'treat':
         return new TreatApple(roomId, position, type.id, type.color);
+      case 'frost':
+        return new FrostApple(roomId, position, type.id, type.color);
+      case 'winterberry':
+        return new WinterberryApple(roomId, position, type.id, type.color);
+      case 'heatwave':
+        return new HeatwaveApple(roomId, position, type.id, type.color);
       default:
         throw new Error(`Unknown apple behavior: ${type.behavior}`);
     }
