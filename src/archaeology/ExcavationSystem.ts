@@ -19,7 +19,6 @@ import type { RandomGenerator } from '../core/rng.js';
 import {
   type FragmentType,
   type DigSiteParameters,
-  type FossilRarity,
   rollFragmentType,
   determineFragmentCondition,
   calculateFragmentValue,
@@ -76,15 +75,6 @@ export interface ExcavationSession {
   messages: string[];
   failed: boolean;
   failReason?: string;
-}
-
-/**
- * Fragment pool for a dig site session.
- */
-interface FragmentPool {
-  fossilSetId: string;
-  needed: Map<FragmentType, number>;
-  found: Map<FragmentType, number>;
 }
 
 /**

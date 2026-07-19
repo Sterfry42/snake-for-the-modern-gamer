@@ -256,7 +256,6 @@ import type {
   FishingState as FishingGameState,
   FishingSessionResult,
   FishCatchResult,
-  FishDefinition as FishingFishDef,
   CatchEntry,
 } from '../fishing/types.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
@@ -3343,7 +3342,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (result.apple.typeId === 'caffeinated') {
         this.activateCaffeinatedAppleBoost();
       }
-      if (result.apple.typeId === 'treat') {
+      if (result.apple.typeId === 'treat' && result.apple.worldPosition) {
         this.playTreatDance(result.apple.worldPosition);
       }
       if (result.apple.worldPosition) {
@@ -4775,6 +4774,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     const texture = this.textures.createCanvas(ANGEL_TEXTURE_KEY, 48, 48);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
 
@@ -4835,6 +4835,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     const texture = this.textures.createCanvas(GOBLIN_ANGEL_TEXTURE_KEY, 48, 48);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
 
@@ -4894,6 +4895,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const texture = this.textures.createCanvas(HEAVEN_SNAKE_TEXTURE_KEY, 16, 16);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
     const p = (x: number, y: number, w: number, h: number, color: string): void => {
@@ -4924,6 +4926,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const texture = this.textures.createCanvas(HELL_SNAKE_TEXTURE_KEY, 16, 16);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
     const p = (x: number, y: number, w: number, h: number, color: string): void => {
@@ -8508,9 +8511,9 @@ export default class SnakeScene extends Phaser.Scene {
         { countPhoenixAsItem: true },
       );
     }
-    applyRuntimeModifierSource(totals, this.religionMods);
-    applyRuntimeModifierSource(totals, this.backgroundMods);
-    applyRuntimeModifierSource(totals, this.classMods);
+    applyRuntimeModifierSource(totals, this.religionMods as EquipmentModifiers);
+    applyRuntimeModifierSource(totals, this.backgroundMods as EquipmentModifiers);
+    applyRuntimeModifierSource(totals, this.classMods as EquipmentModifiers);
 
     // Orange Juice speed boost
     const orangeJuiceSpeedBoost = this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0;

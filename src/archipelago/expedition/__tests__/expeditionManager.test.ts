@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { ExpeditionManager } from '../ExpeditionManager.js';
-import type { ExpeditionEvent, ExpeditionEventCallbacks, ExpeditionLogEntry, IslandId } from '../types.js';
+import type { ExpeditionEventCallbacks, ExpeditionLogEntry, IslandId } from '../types.js';
 import { createRng } from '../../../core/rng.js';
 
 describe('ExpeditionManager', () => {

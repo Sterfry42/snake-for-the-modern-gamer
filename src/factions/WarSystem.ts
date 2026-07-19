@@ -6,12 +6,7 @@
  * shifts and with FactionEventSystem for event notifications.
  */
 import type { FactionEventSystem } from './factionEvents.js';
-import type {
-  DiplomaticRelation,
-  WarEventPhase,
-  WarEventState,
-  WarEventType,
-} from './territoryTypes.js';
+import type { WarEventType } from './territoryTypes.js';
 import { TerritoryManager } from './TerritoryManager.js';
 
 // ─── Battle Configuration ────────────────────────────────────────────────────

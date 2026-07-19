@@ -17,7 +17,6 @@ import type { Vector2Like } from '../../core/math.js';
 import type { RandomGenerator } from '../../core/rng.js';
 import type {
   PuzzleDefinition,
-  PuzzleSolution,
   PuzzleType,
   ActivePuzzleState,
   PuzzleReward,

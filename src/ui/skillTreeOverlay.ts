@@ -4849,6 +4849,7 @@ export class SkillTreeOverlay {
       .setDepth(36);
     this.structuredContainer.add(zone);
     zone.on('pointerdown', () => {
+      if (!this.selectedInventoryItemId) return;
       const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
       this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
       this.refresh();
@@ -6435,11 +6436,12 @@ export class SkillTreeOverlay {
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(
-          tab?.i18nPlaceholderKey
-            ? resolvePlaceholder(tab)
-            : i18n.getFeatureString('skillTreeStubText'),
-        );
+        if (tab && tab.i18nPlaceholderKey) {
+          const placeholderKey = tab.i18nPlaceholderKey;
+          this.stubText.setText(i18n.getFeatureString(placeholderKey));
+        } else {
+          this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
+        }
       }
     }
 
@@ -8375,11 +8377,12 @@ export class SkillTreeOverlay {
     if (this.activeTab !== 'skills') {
       if (this.stubText) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(
-          tab?.i18nPlaceholderKey
-            ? resolvePlaceholder(tab)
-            : i18n.getFeatureString('skillTreeStubText'),
-        );
+        if (tab && tab.i18nPlaceholderKey) {
+          const placeholderKey = tab.i18nPlaceholderKey;
+          this.stubText.setText(i18n.getFeatureString(placeholderKey));
+        } else {
+          this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
+        }
       }
       if (this.activeTab === 'equipment') {
         this.setFooterHints([

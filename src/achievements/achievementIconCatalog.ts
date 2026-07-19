@@ -364,6 +364,7 @@ export function ensureAchievementPortrait(
   const key = `achievement-portrait:${definition.id}`;
   if (scene.textures.exists(key)) return key;
   const texture = scene.textures.createCanvas(key, SIZE, SIZE);
+  if (!texture) return key;
   const context = texture.getContext();
   context.imageSmoothingEnabled = false;
   context.clearRect(0, 0, SIZE, SIZE);
@@ -422,6 +423,6 @@ export function ensureAchievementPortrait(
     drawSkill(context, definition.id.includes('allBranches'));
   else drawSnake(context, '#9ad1ff');
   pixel(context, 1 + (seed % 3), 1, `#${(seed & 0xffffff).toString(16).padStart(6, '0')}`);
-  texture.refresh();
+  texture?.refresh();
   return key;
 }

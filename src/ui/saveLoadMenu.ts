@@ -5,11 +5,6 @@ import { saveManagerV2 } from '../game/saveManagerV2.js';
 import type { GameSaveData, SaveSlotInfo } from '../game/saveManagerV2.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
-interface SaveLoadMenuOptions {
-  onLoad: (slotId: string, data: GameSaveData) => void;
-  onDelete?: (slotId: string) => void;
-}
-
 export class SaveLoadMenu {
   private container?: Phaser.GameObjects.Container;
   private background?: Phaser.GameObjects.Rectangle;

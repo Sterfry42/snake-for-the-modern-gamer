@@ -1,10 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SettlementManager } from '../AnimalSettlement.js';
 import type { AnimalType } from '../../types.js';
-import type { SettlementType } from '../../ecosystem/types.js';
 
 describe('SettlementManager', () => {
-  const rng = () => 0.5;
   const manager = new SettlementManager();
 
   describe('settlement definitions', () => {
@@ -195,8 +193,8 @@ describe('SettlementManager', () => {
       const population1 = new Map<AnimalType, number>([['rabbit', 5]]);
       const population2 = new Map<AnimalType, number>([['wolf', 5]]);
 
-      const s1 = freshManager.createSettlement('rabbit-warren', '0,0,0', population1, 1);
-      const s2 = freshManager.createSettlement('wolf-pack-lair', '0,0,0', population2, 1);
+      freshManager.createSettlement('rabbit-warren', '0,0,0', population1, 1);
+      freshManager.createSettlement('wolf-pack-lair', '0,0,0', population2, 1);
 
       const inRoom = freshManager.getSettlementsInRoom('0,0,0');
       expect(inRoom.length).toBe(2);

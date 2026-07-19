@@ -1596,7 +1596,7 @@ const CHEST_LOOT_EXCLUDED_IDS = new Set([
 
 export const CHEST_LOOT_ITEMS: readonly Item[] = CHEST_LOOT_ITEM_IDS.map((id) =>
   ITEM_MAP.get(id),
-).filter((item): item is Item => Boolean(item) && !CHEST_LOOT_EXCLUDED_IDS.has(item.id));
+).filter((item): item is Item => item != null && !CHEST_LOOT_EXCLUDED_IDS.has(item.id));
 
 export function getItem(id: string): Item | undefined {
   return ITEM_MAP.get(id);

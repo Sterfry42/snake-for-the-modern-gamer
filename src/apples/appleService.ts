@@ -3,7 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { WorldService } from '../world/worldService.js';
 import type { SpecialStats } from '../stats/specialTypes.js';
-import type { AtmosphereState, GlobalWeather, Season } from '../world/atmosphereTypes.js';
+import type { AtmosphereState } from '../world/atmosphereTypes.js';
 import { createDefaultSpecialStats } from '../stats/specialStats.js';
 import { getEligibleAppleWeights } from '../stats/appleSpecial.js';
 import { getSpawnPolicy } from '../world/safeZones.js';

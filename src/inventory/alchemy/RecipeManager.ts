@@ -14,7 +14,6 @@
 import type {
   AlchemyRecipe,
   AlchemyRuntime,
-  IngredientRarity,
 } from './alchemyTypes.js';
 import { ALCHEMY_INGREDIENTS, getIngredient } from './ingredients.js';
 

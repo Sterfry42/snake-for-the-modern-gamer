@@ -6,15 +6,10 @@
  */
 import type { BiomeId } from '../world/biomes.js';
 import type {
-  AppleSpawnModifier,
   FollowerRole,
   FollowerState,
-  MissionRewards,
-  ResourceModifier,
-  SerpentFactionId,
   SerpentFactionState,
   SerpentMission,
-  SpecialEffect,
   TerritoryBonusContext,
   TerritoryBonusResult,
   TerritoryControlStatus,
@@ -22,8 +17,6 @@ import type {
   TerritoryMapState,
   TerritoryOwnership,
   TerritoryType,
-  WarEventPhase,
-  WarEventState,
   WarEventType,
 } from './territoryTypes.js';
 import { TERRITORY_SAVE_VERSION } from './territoryTypes.js';

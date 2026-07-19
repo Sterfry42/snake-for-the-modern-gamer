@@ -10,7 +10,7 @@
  * tracking to create dynamic, replayable interactions.
  */
 import type { BiomeId } from '../world/biomes.js';
-import type { HumanEncounter, HumanType, HumanEncounterKind } from './types.js';
+import type { HumanEncounter, HumanType } from './types.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { buildHumanStats } from './humanProfiles.js';
 

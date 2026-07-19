@@ -10,11 +10,7 @@
  * - The wise old snake's manager was the alchemy station
  */
 
-import type {
-  AlchemyRuntime,
-  CraftResult,
-  IngredientRarity,
-} from './alchemyTypes.js';
+import type { AlchemyRuntime } from './alchemyTypes.js';
 import { AlchemyJournal } from './AlchemyJournal.js';
 import { AlchemyStation } from './AlchemyStation.js';
 import { PotionSystem } from './PotionSystem.js';

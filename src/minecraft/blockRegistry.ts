@@ -1,4 +1,4 @@
-import type { BlockType, BlockTypeId } from './types.js';
+import type { BlockType } from './types.js';
 
 const BLOCK_DEFINITIONS: BlockType[] = [
   { id: 'dirt', kind: 'solid', color: '#8B6914', hardness: 1 },

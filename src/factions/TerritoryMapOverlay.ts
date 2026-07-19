@@ -9,7 +9,6 @@ import type {
   TerritoryDefinition,
   TerritoryOwnership,
   TerritoryVisualMarker,
-  TerritoryBorderConfig,
 } from './territoryTypes.js';
 import { TerritoryManager } from './TerritoryManager.js';
 

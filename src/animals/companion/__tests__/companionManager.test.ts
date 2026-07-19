@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { CompanionManager } from '../CompanionManager.js';
-import type { AnimalType, CompanionTrait } from '../../ecosystem/types.js';
 
 describe('CompanionManager', () => {
   let manager: CompanionManager;

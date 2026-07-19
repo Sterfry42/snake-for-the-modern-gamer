@@ -14,7 +14,7 @@ import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { AlchemyManager } from '../inventory/alchemy/AlchemyManager.js';
-import type { AlchemyRecipe, CraftResult, Potion } from '../inventory/alchemy/alchemyTypes.js';
+import type { CraftResult } from '../inventory/alchemy/alchemyTypes.js';
 
 /** Tab types for the alchemy overlay */
 export type AlchemyTab = 'recipes' | 'crafting' | 'journal' | 'lore' | 'workshops';

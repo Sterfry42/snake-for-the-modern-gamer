@@ -9,7 +9,7 @@ import {
   LEGACY_EFFECT_DEFINITIONS,
   LEGACY_EFFECT_BY_ID,
 } from '../IslandRegistry.js';
-import type { IslandId, LegacyEffectId } from '../types.js';
+import type { IslandId } from '../types.js';
 
 describe('IslandRegistry', () => {
   describe('ISLAND_DEFINITIONS', () => {

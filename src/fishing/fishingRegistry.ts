@@ -1,6 +1,5 @@
 import type {
   FishDefinition,
-  FishTypeId,
   FishCatchResult,
   FishingState,
   FishingSessionResult,

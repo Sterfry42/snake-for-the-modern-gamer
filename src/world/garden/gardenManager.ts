@@ -13,7 +13,6 @@
  */
 import type {
   GardenPlot,
-  GardenPlant,
   GardenPest,
   GardenSnapshot,
   GardenConfig,
@@ -21,7 +20,6 @@ import type {
   GardenSeason,
   GardenEventType,
   GardenEvent,
-  PestType,
   SeedDefinition,
 } from './types.js';
 import {

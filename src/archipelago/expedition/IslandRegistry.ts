@@ -11,7 +11,6 @@
 import type {
   IslandAppleDefinition,
   IslandAppleTypeId,
-  IslandBiome,
   IslandDefinition,
   IslandId,
   LegacyEffectId,

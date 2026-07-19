@@ -13,13 +13,11 @@
 import type {
   ActivePotionEffect,
   AlchemyRuntime,
-  CraftResult,
   DurationMode,
   IngredientRarity,
   Potion,
   PotionEffect,
   PotionEffectType,
-  RarityModifiers,
 } from './alchemyTypes.js';
 import { RARITY_MODIFIERS } from './alchemyTypes.js';
 import { RecipeManager } from './RecipeManager.js';

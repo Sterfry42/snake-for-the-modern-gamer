@@ -179,7 +179,6 @@ import type {
   RelationshipCutscene,
   RelationshipEventResult,
   RelationshipReward,
-  RelationshipSpecies,
   RelationshipState,
   RelationshipTalkResult,
 } from '../relationships/relationshipTypes.js';
@@ -878,7 +877,7 @@ export class SnakeGame implements QuestRuntime {
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid, this._rng);
     this.enemies = new EnemyManager(config.grid, this._rng);
-    this.enemies.setRoamingSnakeConfig(config.roamingSnakes);
+    this.enemies.setRoamingSnakeConfig(config.roamingSnakes ?? defaultRoamingSnakeConfig);
     this.animals = new AnimalManager(config.grid, this._rng);
     this.questController = new QuestController(registry, {
       initialQuestCount: config.quests.initialQuestCount,
@@ -1095,7 +1094,7 @@ export class SnakeGame implements QuestRuntime {
     );
     this.apples = this.createAppleService();
     this.enemies = new EnemyManager(this.config.grid, this._rng);
-    this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
+    this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes ?? defaultRoamingSnakeConfig);
     this.animals = new AnimalManager(this.config.grid, this._rng);
     this.atmosphere.reset(runSeed);
     this.questController = new QuestController(this.registry, {
@@ -4549,7 +4548,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('roomEntryTimeMs', timeMs);
   }
 
-  getCurrentRoom() {
+  getCurrentRoom(): RoomSnapshot {
     const room = this.world.getRoom(this.snake.currentRoomId);
     this.applyTownRuntimeToRoom(room);
     this.stampQuestActorsIntoRoom(room);
@@ -12643,7 +12642,9 @@ export class SnakeGame implements QuestRuntime {
       portraitId: profile.portraitId,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
     });
-    this.syncActorFromRelationshipState(actor.id, relationshipState);
+    if (relationshipState) {
+      this.syncActorFromRelationshipState(actor.id, relationshipState);
+    }
     return actor.id;
   }
 
@@ -13539,7 +13540,7 @@ export class SnakeGame implements QuestRuntime {
         );
         this.apples = this.createAppleService();
         this.enemies = new EnemyManager(this.config.grid, this._rng);
-        this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
+        this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes ?? defaultRoamingSnakeConfig);
         this.animals = new AnimalManager(this.config.grid, this._rng);
         this.atmosphere.reset(data.worldGeneration.seed);
         this.questController = new QuestController(this.registry, {

@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { RollercoasterJourney, RollercoasterTheme, RollercoasterCarVisual } from './rollercoasterTypes.js';
+import type { RollercoasterTheme, RollercoasterCarVisual } from './rollercoasterTypes.js';
 import { getSpeedProfile, THEME_CONFIG } from './rollercoasterService.js';
 
 /** Callback invoked when the rollercoaster ride completes. */

@@ -13,10 +13,7 @@
  */
 import type { AnimalType } from '../types.js';
 import type { Settlement } from './AnimalSettlement.js';
-import type {
-  KingdomDefinition,
-  KingdomRulerType,
-} from '../ecosystem/types.js';
+import type { KingdomRulerType } from '../ecosystem/types.js';
 
 // ── Kingdom Ruler Definitions ─────────────────────────────────────
 

@@ -162,7 +162,7 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
     !entry.personalityTags.some((tag) => actor.personality.includes(tag))
   )
     return false;
-  if (entry.hostility && !entry.hostility.includes(actor.hostility)) return false;
+  if (entry.hostility && !entry.hostility.includes(actor.hostility ?? 'neutral')) return false;
   if (entry.attitudes && !entry.attitudes.includes(resolveAttitude(context))) return false;
   if (
     entry.relationshipStages &&
@@ -247,7 +247,7 @@ function priorityBonus(entry: ActorVoiceEntry, context: ActorConversationContext
   ) {
     bonus += 100;
   }
-  if (entry.source === 'soul' && context.actor.focus >= 8) bonus += 8;
+  if (entry.source === 'soul' && (context.actor.focus ?? 0) >= 8) bonus += 8;
   if (entry.tags.includes('health') && healthBand(context) === 'critical') bonus += 10;
   if (entry.tags.includes('danger') && context.dangerLevel >= 6) bonus += 8;
   if (entry.tags.includes('wanted') && (context.town?.wantedLevel ?? 0) >= 3) bonus += 10;

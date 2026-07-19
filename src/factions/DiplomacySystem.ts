@@ -9,7 +9,6 @@ import type {
   DiplomaticRelation,
   DiplomaticTreaty,
   TreatyProvision,
-  WarEventState,
 } from './territoryTypes.js';
 import { TerritoryManager } from './TerritoryManager.js';
 

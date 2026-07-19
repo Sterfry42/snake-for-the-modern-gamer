@@ -27,7 +27,6 @@ import type {
   DreamStateId,
   DreamPhysicsState,
   DreamBuff,
-  LucidAbility,
 } from './types.js';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────

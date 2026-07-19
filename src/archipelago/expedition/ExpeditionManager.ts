@@ -13,12 +13,10 @@ import type {
   CoOpExpeditionPartner,
   CoOpPartnerStatus,
   ExpeditionDiscovery,
-  ExpeditionEvent,
   ExpeditionEventCallbacks,
   ExpeditionLogEntry,
   ExpeditionProgress,
   ExpeditionStageCondition,
-  ExpeditionStatus,
   ExpeditionStore,
   IslandId,
 } from './types.js';

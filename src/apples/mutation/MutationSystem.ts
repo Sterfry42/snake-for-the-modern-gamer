@@ -11,13 +11,10 @@
 import type { RandomGenerator } from '../../core/rng.js';
 import type { TraitManager } from '../traits/TraitManager.js';
 import type {
-  ActiveTrait,
-  AppleCombination,
   DiscoveredMutation,
   EvolvedAppleSpawnedEvent,
   MutationDefinition,
   MutationDiscoveredEvent,
-  MutationEvent,
   TraitExpiredEvent,
   TraitGainedEvent,
 } from './types.js';

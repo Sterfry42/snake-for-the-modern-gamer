@@ -13,8 +13,6 @@
 import type {
   AppleMusicalMapping,
   AppleGenre,
-  AppleNoteAssignment,
-  GenreDefinition,
 } from './MusicalAppleMap.js';
 import {
   getAppleMusicalMapping,

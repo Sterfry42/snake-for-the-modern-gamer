@@ -14,7 +14,7 @@ import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { AppleGenre } from '../audio/MusicalAppleMap.js';
-import type { GenreCompletion, MelodyCollectionState } from '../audio/MelodyCollection.js';
+import type { MelodyCollectionState } from '../audio/MelodyCollection.js';
 
 /** Track entry for the playlist */
 export interface TrackEntry {

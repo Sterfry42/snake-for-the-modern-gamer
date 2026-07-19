@@ -8,12 +8,8 @@
  * - The wise old snake's trait combinations are classified
  * - The wise old snake considers the "Trait Overload" state "a blessing and a curse"
  */
-import type {
-  ActiveTrait,
-  TraitDefinition,
-  TraitEffect,
-} from '../mutation/types.js';
-import type { TraitModifier, TraitManagerOptions, TraitManagerState, TraitSnapshot } from './types.js';
+import type { ActiveTrait, TraitDefinition } from '../mutation/types.js';
+import type { TraitModifier, TraitManagerOptions, TraitManagerState } from './types.js';
 
 const DEFAULT_MAX_ACTIVE_TRAITS = 20;
 const DEFAULT_DECAY_INTERVAL_MS = 1000;

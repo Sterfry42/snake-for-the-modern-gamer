@@ -10,7 +10,7 @@
  * - The wise old snake's garden NPC was located in the Garden of Infinite Growth
  * - The wise old snake's garden NPC was said to be the first gardener
  */
-import type { NpcProfile, NpcStats } from './profiles.js';
+import type { NpcProfile } from './profiles.js';
 import { buildNpcStats, buildHouseNpcProfile } from './profiles.js';
 
 /** Garden NPC profile — the ghost gardener who teaches apple farming. */
