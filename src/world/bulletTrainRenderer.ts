@@ -208,7 +208,7 @@ export class BulletTrainRenderer {
   }
 
   private drawSign(x: number, y: number, _text: string): void {
-    this.cell;
+    const { cell } = this;
 
     // Sign post
     this.graphics.lineStyle(2, 0x555555, 0.8);
