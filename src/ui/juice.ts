@@ -6076,7 +6076,7 @@ export class JuiceManager {
   healthFull(_worldX: number, _worldY: number) {
     this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
     this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.06 });
-    this.spawnBurst(worldX, worldY, {
+    this.spawnBurst(_worldX, _worldY, {
       colors: [0x5dd6a2, 0xc8ffe1],
       count: 8,
       radius: 14,

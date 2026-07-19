@@ -135,7 +135,7 @@ export class NightmareApple extends DreamAppleBase {
   }
 
   override getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
-    const head = context.snake[0];
+    const head = _context.snake[0];
     if (!head) {
       return [];
     }
@@ -200,8 +200,8 @@ export class LucidApple extends DreamAppleBase {
   }
 
   teleport(_context: AppleMoveContext): Vector2Like {
-    const newX = Math.floor(context.rng() * context.grid.cols);
-    const newY = Math.floor(context.rng() * context.grid.rows);
+    const newX = Math.floor(_context.rng() * _context.grid.cols);
+    const newY = Math.floor(_context.rng() * _context.grid.rows);
     return { x: newX, y: newY };
   }
 }
