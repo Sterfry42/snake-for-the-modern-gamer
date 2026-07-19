@@ -89,6 +89,8 @@ All agents working on this project must follow these steps:
 - `npm run build` - Build the project
 - `npm run preview` - Preview production build
 - `npm run typecheck` - Run TypeScript type checking
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Run ESLint with auto-fix
 - `npm run format` - Format code using Prettier
 - `npm run test` - Run full test suite
 - `npm run test:world-generation` - Run world generation fairness tests
