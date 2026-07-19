@@ -49,6 +49,7 @@ export class SkillTreeManager implements SkillTreeRuntime {
       setFlag: (key, value) => this.scene.setFlag(key, value),
       tryCastArcanePulse: () => this.system.tryCastArcanePulse(),
       getArcanePulseCost: () => this.system.getArcanePulseCost(),
+      tryActivateManualSurge: () => this.scene.snakeGame.tryActivateManualSurge(),
       hasFollowers: () => this.scene.hasFollowers(),
       commandFollowers: () => this.scene.commandFollowers(),
       recallFollowers: () => this.scene.recallFollowers(),
@@ -214,6 +215,10 @@ export class SkillTreeManager implements SkillTreeRuntime {
 
   addExtraLifeCharge(count: number): void {
     this.system.addExtraLives(count);
+  }
+
+  setExtraLifeCharges(count: number): void {
+    this.system.setExtraLives(count);
   }
 
   handleTextInput(event: KeyboardEvent): boolean {
@@ -465,6 +470,15 @@ export class SkillTreeManager implements SkillTreeRuntime {
     }
   }
 
+  spendSafeSnakeLength(segments: number): number {
+    return this.scene.snakeGame.spendSafeSnakeLengthForProgression(segments);
+  }
+
+  onAstralNova(): void {
+    this.scene.snakeGame.triggerProgressionShockwave(5, 6);
+    this.juice.arcaneVeilBurst();
+  }
+
   // internal helpers
   private handlePerkInteraction(perkId: string, state: SkillPerkState): void {
     if (!this.system) {
@@ -527,8 +541,11 @@ export class SkillTreeManager implements SkillTreeRuntime {
     this.overlay.refresh();
     this.overlay.pulsePerk(perkId);
     this.overlay.announce(
-      state.definition.title + ' - Rank ' + purchase.rank + ' unlocked!',
+      state.definition.usageHint
+        ? `${state.definition.title}: ${state.definition.usageHint}`
+        : state.definition.title + ' - Rank ' + purchase.rank + ' unlocked!',
       '#5dd6a2',
+      state.definition.usageHint ? 2800 : 1800,
     );
   }
 

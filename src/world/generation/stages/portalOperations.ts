@@ -1,6 +1,7 @@
 import type { WorldConfig } from '../../../config/gameConfig.js';
 import type { RandomGenerator } from '../../../core/rng.js';
 import type { RoomGenerationContext } from '../types.js';
+import { isOrdinaryPortalDestinationAllowed } from '../../hellDepth.js';
 
 export class PortalOperations {
   constructor(
@@ -28,8 +29,12 @@ export class PortalOperations {
       if (!context.canvas.isEmpty(ladderX, ladderY)) {
         continue;
       }
+      const portal = this.createPortal(context.roomId, ladderX, ladderY);
+      if (!isOrdinaryPortalDestinationAllowed(portal.destRoomId)) {
+        continue;
+      }
       context.canvas.set(ladderX, ladderY, 'H');
-      context.portals.push(this.createPortal(context.roomId, ladderX, ladderY));
+      context.portals.push(portal);
       ladderPlaced = true;
     }
   }

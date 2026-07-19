@@ -37,5 +37,6 @@ describe('achievement AP mapping', () => {
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'exploration.trainSixZones')).toBe(
       912001069,
     );
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'divine.snakeOutOfHell')).toBe(912001070);
   });
 });

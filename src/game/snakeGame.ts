@@ -96,6 +96,11 @@ import {
   type LocatorResult,
 } from '../world/biomeLocators.js';
 import type { RoomSnapshot } from '../world/types.js';
+import {
+  HELL_ESCAPE_DEPTH,
+  HELL_ESCAPE_HEAT_RESISTANCE_FLAG,
+  HELL_ESCAPE_ITEM_ID,
+} from '../world/hellDepth.js';
 import { getSpawnPolicy } from '../world/safeZones.js';
 import { WorldAtmosphereSystem } from '../world/atmosphereSystem.js';
 import { resolveBiomeAtmosphere } from '../world/atmosphereResolver.js';
@@ -199,6 +204,16 @@ import type {
 } from '../actors/voice/voiceTypes.js';
 import { selectActorVoiceLine } from '../actors/actorVoice.js';
 import type { CreateWorldEventInput, WorldEvent } from '../events/worldEventTypes.js';
+import {
+  KARMA_MIN,
+  clampKarma,
+  createDefaultKarmaState,
+  karmaAfterlifeDestination,
+  karmaView,
+  normalizeKarmaState,
+  type KarmaState,
+  type KarmaView,
+} from '../stats/karma.js';
 import {
   CAVE_EXIT_TILE,
   CAVE_RUBBLE_TILE,
@@ -575,6 +590,8 @@ interface MomentumRuntimeState {
   trailTicks: number;
   previousDirection: Vector2Like | null;
   forgivenessTimer: number;
+  endlessExtensions: number;
+  surgeStartedAtFull: boolean;
 }
 
 function createDefaultMomentumConfig(): MomentumComputedConfig {
@@ -609,6 +626,8 @@ function createDefaultMomentumState(): MomentumRuntimeState {
     trailTicks: 0,
     previousDirection: null,
     forgivenessTimer: 0,
+    endlessExtensions: 0,
+    surgeStartedAtFull: false,
   };
 }
 
@@ -980,6 +999,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('factions.alignment', undefined);
     this.setFlag('rumors.save', undefined);
     this.setFlag('factions.v2.save', undefined);
+    this.setFlag('karma.state', undefined);
     this.setFlag('actors.save', undefined);
     this.setFlag('events.save', undefined);
     this.setFlag('caves.save', undefined);
@@ -1671,6 +1691,12 @@ export class SnakeGame implements QuestRuntime {
     const roomHasChanged = previousRoom !== this.snake.currentRoomId;
     if (roomHasChanged) {
       const newRoomId = this.snake.currentRoomId;
+      if (this.getFlag('growth.rootedColossus') && this.getSnakeLength() >= 16) {
+        this.triggerProgressionShockwave(1, 4);
+        this.setFlag('ui.rootedColossus', {
+          message: 'ROOTED COLOSSUS - entry shockwave; 4 ward steps.',
+        });
+      }
       const [, , previousDepth = 0] = this.parseRoomCoordinates(previousRoom);
       const [, , newDepth = 0] = this.parseRoomCoordinates(newRoomId);
       if (previousDepth !== newDepth) {
@@ -1820,6 +1846,7 @@ export class SnakeGame implements QuestRuntime {
     // UI: Turn skid when direction changes
     const previous = this.getFlag<{ direction?: Vector2Like }>('internal.previousSnapshot');
     const currDir = this.snake.directionVector;
+    this.handleMomentumStep(previous?.direction ?? currDir, currDir);
     if (
       previous?.direction &&
       (previous.direction.x !== currDir.x || previous.direction.y !== currDir.y) &&
@@ -2653,6 +2680,7 @@ export class SnakeGame implements QuestRuntime {
   private preSnakeStep(previousRoom: string, roomsChanged: Set<string>): void {
     const snakeSegments = Array.from(this.snake.bodySegments);
 
+    this.hydrateMomentumConfig();
     this.hydratePredationConfig();
     const predationState = this.ensurePredationState();
     predationState.lastRoomId = previousRoom;
@@ -2757,7 +2785,10 @@ export class SnakeGame implements QuestRuntime {
     }
     // Masonry blocks (the snake's own temporary walls) are always passable.
     // Regular walls still require wall-survival abilities.
-    if ((tile === '#' || (tile !== '~' && isBlockingTownTile(tile))) && !this.canSurviveWallStep()) {
+    if (
+      (tile === '#' || (tile !== '~' && isBlockingTownTile(tile))) &&
+      !this.canSurviveWallStep()
+    ) {
       return {
         key: `wall:${target.x},${target.y}:${direction.x},${direction.y}`,
         graceTicks,
@@ -2865,7 +2896,6 @@ export class SnakeGame implements QuestRuntime {
       this.isRaccoonMode() ||
       Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
       Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
-      Number(this.getFlag<{ charges?: number }>('fortitude.hardened')?.charges ?? 0) > 0 ||
       Number(this.getFlag<number>('jadePeak.koiFlowEnd') ?? 0) >
         Number(this.getFlag<number>('timeMs') ?? 0)
     ) {
@@ -2876,7 +2906,18 @@ export class SnakeGame implements QuestRuntime {
     const body = appleEaten
       ? Array.from(this.snake.bodySegments)
       : Array.from(this.snake.bodySegments).slice(0, -1);
-    return body.some((segment) => segment.x === target.x && segment.y === target.y);
+    const collided = body.some((segment) => segment.x === target.x && segment.y === target.y);
+    if (!collided) return false;
+    const hardened = this.getFlag<{ charges?: number }>('fortitude.hardened');
+    if ((hardened?.charges ?? 0) > 0) {
+      this.setFlag('fortitude.hardened', { ...hardened, charges: (hardened?.charges ?? 0) - 1 });
+      this.removeSafeSnakeLength(2);
+      this.setFlag('ui.hardenedScales', {
+        message: 'HARDENED SCALES - collision blocked; shed 2 tail.',
+      });
+      return false;
+    }
+    return true;
   }
 
   private isEnemySnakeBodyCollisionStep(roomId: string, localX: number, localY: number): boolean {
@@ -4150,7 +4191,10 @@ export class SnakeGame implements QuestRuntime {
     appleSnapshot: AppleSnapshot | null;
     appleStateChanged: boolean;
   }): StepResult | null {
+    this.tickMomentumState();
+    this.tickAmbushPreparation();
     this.tickPredationTimers();
+    this.tickIslamFast(options.appleEaten);
     const followerStep = this.tickFollowers();
     if (followerStep.enemyDefeats > 0) {
       this.addScore(followerStep.enemyDefeats * 2);
@@ -5073,6 +5117,10 @@ export class SnakeGame implements QuestRuntime {
     room.town = next;
     this.saveTownRuntimeState(next);
     this.world.updateTown(next);
+    if (success) {
+      const karmaCost = job.kind === 'houseJob' ? -8 : job.kind === 'pickpocket' ? -5 : -3;
+      this.changeKarma(karmaCost, job.kind);
+    }
     return {
       ok: true,
       town: next,
@@ -6166,6 +6214,7 @@ export class SnakeGame implements QuestRuntime {
     if (!state) {
       return;
     }
+    this.changeKarma(-25, `civilian-${cause}`);
     const actorId = state.actorId ?? this.actors.getStableRelationshipActorId(state.id);
     const updated = this.actors.registry.update(actorId, (actor) => ({
       ...actor,
@@ -6214,7 +6263,154 @@ export class SnakeGame implements QuestRuntime {
     this.propagateWorldEvent(event);
     this.propagateSocialConsequences(event);
     this.applyFactionReportsForEvent(event);
+    this.applyKarmaForWorldEvent(event);
     return event;
+  }
+
+  getKarmaView(): KarmaView {
+    return karmaView(this.getKarmaState());
+  }
+
+  getKarmaAfterlifeDestination(): 'heaven' | 'hell' {
+    return karmaAfterlifeDestination(this.getKarmaState().value);
+  }
+
+  tryEscapeHellEnding(reason?: string | null): boolean {
+    if (this.inventory.getItemCount(HELL_ESCAPE_ITEM_ID) <= 0) {
+      return false;
+    }
+    if (!this.inventory.removeItem(HELL_ESCAPE_ITEM_ID, 1)) {
+      return false;
+    }
+
+    this.reviveAfterExtraLife(reason);
+    this.setFlag(HELL_ESCAPE_HEAT_RESISTANCE_FLAG, 1);
+    this.setFlag('player.temperatureExposureMs', 0);
+    this.setFlag('player.temperatureHotExposureMs', 0);
+    this.setFlag('player.temperatureDamageProgressMs', 0);
+    this.setFlag('player.temperatureHotDamageProgressMs', 0);
+    if (this.getFlag<string>('player.temperatureHazard') === 'hot') {
+      this.setFlag('player.temperatureHazard', undefined);
+    }
+    const destinationRoomId = `0,0,${HELL_ESCAPE_DEPTH}`;
+    const room = this.world.getRoom(destinationRoomId);
+    const destination = this.findHellEscapePosition(room);
+    this.snake.teleportTo(destinationRoomId, destination, { x: 1, y: 0 });
+    this.visitedRooms.add(destinationRoomId);
+    this.setFlag('caves.active', undefined);
+    this.setFlag('layers.active', undefined);
+    this.setFlag('traversal.manualResumePending', undefined);
+    this.apples.ensureApple(
+      destinationRoomId,
+      Array.from(this.snake.bodySegments),
+      this.snake.score,
+    );
+    this.setFlag('ui.questInteraction', {
+      message: 'GET OUT OF HELL FREE - Life Charges reset to 1. Depth -1000.',
+    });
+    this.emitWorldEvent({
+      type: 'player-revival',
+      roomId: destinationRoomId,
+      severity: 100,
+      loudness: 80,
+      tags: ['player', 'revival', 'hell-escape'],
+      summary: 'A Get Out of Hell Free card tore the snake out of the afterlife.',
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: { depth: HELL_ESCAPE_DEPTH },
+    });
+    return true;
+  }
+
+  private findHellEscapePosition(room: RoomSnapshot): Vector2Like {
+    const center = {
+      x: Math.floor(this.config.grid.cols / 2),
+      y: Math.floor(this.config.grid.rows / 2),
+    };
+    const candidates: Array<Vector2Like & { distance: number }> = [];
+    for (let y = 1; y < this.config.grid.rows - 1; y += 1) {
+      for (let x = 1; x < this.config.grid.cols - 1; x += 1) {
+        candidates.push({ x, y, distance: Math.abs(x - center.x) + Math.abs(y - center.y) });
+      }
+    }
+    const open = candidates
+      .sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x)
+      .find(({ x, y }) => {
+        const tile = room.layout[y]?.[x];
+        return Boolean(tile && tile !== '#' && tile !== '~' && !isBlockingTownTile(tile));
+      });
+    return open ? { x: open.x, y: open.y } : center;
+  }
+
+  setKarmaToMinimum(reason = 'angel-provoked'): void {
+    const state = this.getKarmaState();
+    this.setKarmaState({ ...state, value: KARMA_MIN, angelProvoked: true });
+    this.setFlag('ui.karmaShift', { amount: KARMA_MIN, reason, extreme: 'bad' });
+  }
+
+  private getKarmaState(): KarmaState {
+    return normalizeKarmaState(this.getFlag('karma.state'));
+  }
+
+  private setKarmaState(state: KarmaState): void {
+    this.setFlag('karma.state', normalizeKarmaState(state));
+  }
+
+  private changeKarma(amount: number, reason: string): void {
+    if (!Number.isFinite(amount) || amount === 0) return;
+    const state = this.getKarmaState();
+    const next = clampKarma(state.value + amount);
+    if (next === state.value) return;
+    this.setKarmaState({ ...state, value: next });
+    if (Math.abs(amount) >= 15) {
+      this.setFlag('ui.karmaShift', {
+        amount,
+        reason,
+        extreme: amount > 0 ? 'good' : 'bad',
+      });
+    }
+  }
+
+  private applyKarmaForWorldEvent(event: WorldEvent): void {
+    const tags = new Set(event.tags);
+    if (event.type === 'quest-completed') {
+      this.changeKarma(5, 'quest-completed');
+      return;
+    }
+    if (
+      event.type === 'actor-talked' ||
+      event.type === 'actor-asked-around' ||
+      event.type === 'actor-asked-personally'
+    ) {
+      const actorId = event.sourceActorId ?? event.targetActorIds[0];
+      if (!actorId) return;
+      this.creditKarmaConversation(actorId);
+      return;
+    }
+    if (event.type === 'pickpocket') {
+      this.changeKarma(-5, 'pickpocket');
+      return;
+    }
+    if (event.type === 'town-crime' && tags.has('threat')) {
+      this.changeKarma(-4, 'threat');
+      return;
+    }
+    if (event.type === 'relationship-choice') {
+      const choice = String(event.data?.choice ?? '');
+      if (choice === 'mean') this.changeKarma(-4, 'mean-choice');
+      else if (choice === 'fight') this.changeKarma(-6, 'fight-choice');
+      else if (['nice', 'help', 'family', 'reassure'].includes(choice)) {
+        this.changeKarma(2, 'kind-choice');
+      }
+      return;
+    }
+    if (tags.has('gift')) this.changeKarma(2, 'gift');
+  }
+
+  private creditKarmaConversation(actorId: string): void {
+    const state = this.getKarmaState();
+    if (state.talkedActorIds.includes(actorId)) return;
+    this.setKarmaState({ ...state, talkedActorIds: [...state.talkedActorIds, actorId] });
+    this.changeKarma(1, 'new-conversation');
   }
 
   getRecentWorldRumors(limit = 8): readonly WorldRumor[] {
@@ -10442,11 +10638,12 @@ export class SnakeGame implements QuestRuntime {
     if (!result.success) return { ok: false, message: `${definition.name} refuses the attempt.` };
 
     this.inventory.removeItem(tameInfo.requiredItem, 1);
+    const startingBond = this.getFlag('fellowship.introductions') ? 3 : 1;
     const companion: AnimalCompanion = {
       id: animal.id,
       type: animal.type,
       name: definition.name,
-      bond: 1,
+      bond: startingBond,
       timesFed: 0,
       joinedAtRoom: this.getRoomsVisitedCount(),
     };
@@ -10489,7 +10686,12 @@ export class SnakeGame implements QuestRuntime {
       };
     }
 
-    const result = feedAnimalCompanion(this.getAnimalCompanionState(), companionId, food.bond);
+    const favorBonus = this.getFlag('fellowship.favors') ? 1 : 0;
+    const result = feedAnimalCompanion(
+      this.getAnimalCompanionState(),
+      companionId,
+      food.bond + favorBonus,
+    );
     if (!result.companion) {
       return {
         ok: false,
@@ -10501,7 +10703,15 @@ export class SnakeGame implements QuestRuntime {
     this.inventory.removeItem(food.itemId, 1);
     this.setAnimalCompanionState(result.companions);
     const milestone = crossedCompanionBondMilestone(result.previousBond, result.companion.bond);
-    if (milestone) this.addScore(5);
+    if (milestone) {
+      this.addScore(5);
+      if (this.getFlag('fellowship.chosenFamily') && result.companion.bond >= 20) {
+        this.setFlag('fellowship.rescueUsed', undefined);
+        this.setFlag('ui.fellowshipRecharge', {
+          message: `${result.companion.name} recharged Nobody Left Behind.`,
+        });
+      }
+    }
     return {
       ok: true,
       message: milestone
@@ -10670,6 +10880,7 @@ export class SnakeGame implements QuestRuntime {
     if (!encounter) {
       return { kind: 'none', accepted: false };
     }
+    this.creditKarmaConversation(`wanderer:${encounter.id}`);
     this.setFlag('npc.randomEncounter', undefined);
     this.setFlag('npc.randomEncounter.prompted', undefined);
     this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
@@ -11666,6 +11877,7 @@ export class SnakeGame implements QuestRuntime {
       return null;
     }
     const disposition = this.angerNpc(roomId, 'insult');
+    if (disposition) this.changeKarma(-4, 'insult');
     return disposition ? { ...disposition, name: giver.name } : null;
   }
 
@@ -12130,9 +12342,16 @@ export class SnakeGame implements QuestRuntime {
     ) {
       return false;
     }
-    if (this.getFollowerState().length === 0) return false;
+    const companion = this.getAnimalCompanionState()
+      .filter((entry) => entry.bond >= 20)
+      .sort((a, b) => b.bond - a.bond || a.id.localeCompare(b.id))[0];
+    if (!companion) return false;
     this.setFlag('fellowship.rescueUsed', true);
-    this.setFlag('ui.fellowshipRescue', true);
+    this.setFlag('ui.fellowshipRescue', {
+      companionId: companion.id,
+      companionName: companion.name,
+      message: `${companion.name} pulled you out of danger.`,
+    });
     return true;
   }
 
@@ -12217,17 +12436,41 @@ export class SnakeGame implements QuestRuntime {
       return;
     }
 
+    this.handlePredationOnHunt(new Set<string>(), fallbackWorldPosition);
+    const apexTriggered = Boolean(this.getFlag('predation.apexTriggered'));
+    const ambushReady = Boolean(this.getFlag('predator.ambushReady'));
+    const firstBlood = ambushReady && Boolean(this.getFlag('predator.firstBlood'));
+
+    const hasPackTacticsCompanion =
+      Boolean(this.getFlag('fellowship.packTactics')) &&
+      this.getAnimalCompanionState().some((companion) => companion.bond >= 5);
     const dropBonus =
       (this.getFlag<boolean>('skill.predator.dropBonus') ? 0.15 : 0) +
-      getCompanionHuntingBonus(this.getAnimalCompanionState());
+      getCompanionHuntingBonus(this.getAnimalCompanionState()) +
+      (hasPackTacticsCompanion ? 0.25 : 0);
     const specialDropModifiers = this.specialStats.getAnimalDropModifiers(this._rng);
     const drops = rollAnimalDrops(huntedAnimal.drops, this._rng, {
       bonusChance: dropBonus + (specialDropModifiers.bonusChance ?? 0),
-      doubleRoll: specialDropModifiers.doubleRoll,
+      doubleRoll: Boolean(specialDropModifiers.doubleRoll) || firstBlood || apexTriggered,
       guaranteedMeat:
         Boolean(specialDropModifiers.guaranteedMeat) ||
-        this.getFlag<boolean>('skill.predator.guaranteedMeat'),
+        this.getFlag<boolean>('skill.predator.guaranteedMeat') ||
+        apexTriggered,
     });
+    if (ambushReady) {
+      this.setFlag('predator.ambushReady', undefined);
+      this.setFlag('predator.ambushSteps', 0);
+      if (firstBlood) {
+        const state = this.ensurePredationState();
+        state.stacks = Math.min(this.predationConfig.maxStacks, state.stacks + 2);
+        if (this.getFlag('predator.perfectPredator')) {
+          state.frenzyTicks = Math.max(state.frenzyTicks, 6);
+          state.scentTicks = Math.max(state.scentTicks, 14);
+        }
+        this.setFlag('ui.firstBlood', { message: 'FIRST BLOOD — double drops, +2 Hunt.' });
+        this.syncPredationFlags();
+      }
+    }
     for (const drop of drops) {
       if (getItem(drop.itemId)) {
         this.inventory.addItem(drop.itemId, drop.count);
@@ -13000,6 +13243,7 @@ export class SnakeGame implements QuestRuntime {
       'factions.alignment',
       'rumors.save',
       'factions.v2.save',
+      'karma.state',
       'wards.contracts',
       'wards.usage',
       'followers.active',
@@ -13016,6 +13260,7 @@ export class SnakeGame implements QuestRuntime {
       'equipment.itemPhoenixCharges',
       'equipment.gunEnabled',
       'equipment.heatResistance',
+      HELL_ESCAPE_HEAT_RESISTANCE_FLAG,
       'equipment.coldResistance',
       'equipment.swimmingEnabled',
       'equipment.refundEveryRooms',
@@ -13050,6 +13295,14 @@ export class SnakeGame implements QuestRuntime {
       'achievement.cowbellTilesWalked',
       'achievement.trainZonesTraveled',
       'animals.companions',
+      'growth.digestiveChoice',
+      'growth.reserveNutrition',
+      'fortitude.bloodBank',
+      'survival.secondWindUsed',
+      'survival.secondWindSteps',
+      'fellowship.rescueUsed',
+      'faith.islam.fastProgress',
+      'faith.islam.iftarReady',
     ]) {
       const value = this.getFlag(key);
       if (value !== undefined) {
@@ -13340,27 +13593,18 @@ export class SnakeGame implements QuestRuntime {
       const getBackground = getBackgroundChoice || (() => null);
 
       if (data.religionId) {
-        const religion = getReligion();
-        if (religion && religion.id === data.religionId) {
-          this.setFlag('religion.id', data.religionId);
-          this.setFlag('religion.mods', data.religionMods);
-        }
+        this.setFlag('religion.id', data.religionId);
+        this.setFlag('religion.mods', data.religionMods ?? getReligion()?.mods);
       }
 
       if (data.classId) {
-        const cls = getClass();
-        if (cls && cls.id === data.classId) {
-          this.setFlag('class.id', data.classId);
-          this.setFlag('class.mods', data.classMods);
-        }
+        this.setFlag('class.id', data.classId);
+        this.setFlag('class.mods', data.classMods ?? getClass()?.mods);
       }
 
       if (data.backgroundId) {
-        const bg = getBackground();
-        if (bg && bg.id === data.backgroundId) {
-          this.setFlag('background.id', data.backgroundId);
-          this.setFlag('background.mods', data.backgroundMods);
-        }
+        this.setFlag('background.id', data.backgroundId);
+        this.setFlag('background.mods', data.backgroundMods ?? getBackground()?.mods);
       }
 
       if (
@@ -14590,6 +14834,43 @@ export class SnakeGame implements QuestRuntime {
     if (scoreMult > 0) {
       this.setFlag('status.orangeJuiceScoreMult', scoreMult - 1);
     }
+    this.tickSecondWind();
+    this.tickStoredVitality();
+  }
+
+  private tickSecondWind(): void {
+    const perk = this.getFlag<{ enabled?: boolean }>('survival.secondWind');
+    if (!perk?.enabled || this.getFlag<boolean>('survival.secondWindUsed')) return;
+    const max = Math.max(1, Number(this.getFlag<number>('player.maxHealth') ?? 3));
+    const health = Math.max(0, Number(this.getFlag<number>('player.health') ?? max));
+    let remaining = Number(this.getFlag<number>('survival.secondWindSteps') ?? 0);
+    if (health === 1 && remaining <= 0) {
+      remaining = 10;
+      this.setFlag('survival.secondWindSteps', remaining);
+      this.setFlag('ui.secondWind', { message: 'SECOND WIND - recover in 10 safe steps.' });
+      return;
+    }
+    if (remaining <= 0 || health <= 0) return;
+    remaining -= 1;
+    this.setFlag('survival.secondWindSteps', remaining);
+    if (remaining === 0) {
+      this.setFlag('player.health', Math.min(max, health + 1));
+      this.setFlag('survival.secondWindUsed', true);
+      this.setFlag('ui.secondWind', { message: 'SECOND WIND - restored 1 heart.' });
+    }
+  }
+
+  private tickStoredVitality(): void {
+    const bank = this.getFlag<{ stored?: number; capacity?: number; charged?: boolean }>(
+      'fortitude.bloodBank',
+    );
+    if (!bank?.charged) return;
+    const max = Math.max(1, Number(this.getFlag<number>('player.maxHealth') ?? 3));
+    const health = Math.max(0, Number(this.getFlag<number>('player.health') ?? max));
+    if (health >= max || health <= 0) return;
+    this.setFlag('player.health', max);
+    this.setFlag('fortitude.bloodBank', { ...bank, stored: 0, charged: false });
+    this.setFlag('ui.bloodBank', { message: 'STORED VITALITY - restored to full health.' });
   }
 
   getLightningStrikeView(roomId: string = this.snake.currentRoomId): LightningStrikeState | null {
@@ -14849,6 +15130,7 @@ export class SnakeGame implements QuestRuntime {
     const heatResistance = Math.max(
       0,
       Number(this.getFlag<number>('equipment.heatResistance') ?? 0),
+      Number(this.getFlag<number>(HELL_ESCAPE_HEAT_RESISTANCE_FLAG) ?? 0),
     );
     const coldResistance = Math.max(
       0,
@@ -14864,17 +15146,20 @@ export class SnakeGame implements QuestRuntime {
     const peakColdRate = biome.peakColdRate ?? 0;
     const peakZThreshold = biome.peakZThreshold ?? Infinity;
     const isAtPeakCold = roomZ <= peakZThreshold && peakColdRate > 0;
-    const exposureRate = Math.max(
-      0.05,
-      ((biome.temperatureRate ?? 1) + (isAtPeakCold ? peakColdRate : 0)) *
-        (biome.temperatureHazard === 'hot'
-          ? this.getAtmosphereForRoom(room).gameplay.heatRateScalar
-          : biome.temperatureHazard === 'cold'
-            ? this.getAtmosphereForRoom(room).gameplay.coldRateScalar
-            : 1) *
-        Math.max(0, 1 - resistance) *
-        specialGameplay.hazardDamageScalar,
-    );
+    const exposureRate =
+      resistance >= 1
+        ? 0
+        : Math.max(
+            0.05,
+            ((biome.temperatureRate ?? 1) + (isAtPeakCold ? peakColdRate : 0)) *
+              (biome.temperatureHazard === 'hot'
+                ? this.getAtmosphereForRoom(room).gameplay.heatRateScalar
+                : biome.temperatureHazard === 'cold'
+                  ? this.getAtmosphereForRoom(room).gameplay.coldRateScalar
+                  : 1) *
+              Math.max(0, 1 - resistance) *
+              specialGameplay.hazardDamageScalar,
+          );
     const legacyExposureMs = Math.max(
       0,
       Number(this.getFlag<number>('player.temperatureExposureMs') ?? 0),
@@ -15473,9 +15758,37 @@ export class SnakeGame implements QuestRuntime {
     const choice = this.getFlag<{ mode?: 'growth' | 'reserve' | 'recovery' }>(
       'growth.digestiveChoice',
     );
-    if (reserve && capacity > 0 && choice?.mode === 'reserve') {
-      reserve.stored = Math.min(capacity, Number(reserve.stored ?? 0) + 1);
-      this.setFlag('growth.reserveNutrition', reserve);
+    if (choice?.mode === 'reserve' && reserve && capacity > 0) {
+      const previous = Number(reserve.stored ?? 0);
+      reserve.stored = Math.min(capacity, previous + 1);
+      if (reserve.stored > previous) {
+        this.snake.shrinkTail(1);
+        this.setFlag('growth.reserveNutrition', reserve);
+        this.setFlag('ui.digestiveApplied', {
+          message: `Digest: STORE — Nutrition ${reserve.stored}/${capacity}`,
+        });
+      }
+    } else if (choice?.mode === 'recovery') {
+      const maxHealth = Math.max(1, Number(this.getFlag<number>('player.maxHealth') ?? 3));
+      const health = Math.max(0, Number(this.getFlag<number>('player.health') ?? maxHealth));
+      if (health < maxHealth) {
+        this.snake.shrinkTail(1);
+        this.setFlag('player.health', Math.min(maxHealth, health + 1));
+        this.setFlag('ui.digestiveApplied', { message: 'Digest: HEAL — Restored 1 heart.' });
+      }
+    } else if (choice?.mode === 'growth') {
+      this.setFlag('ui.digestiveApplied', { message: 'Digest: GROW — Gained 1 segment.' });
+    }
+
+    if (this.getFlag<boolean>('faith.islam.iftarReady')) {
+      this.snake.grow(1);
+      roomsChanged.add(this.snake.currentRoomId);
+      const max = Math.max(1, Number(this.getFlag<number>('player.maxHealth') ?? 3));
+      const health = Math.max(0, Number(this.getFlag<number>('player.health') ?? max));
+      this.setFlag('player.health', Math.min(max, health + 1));
+      this.setFlag('faith.islam.fastProgress', 0);
+      this.setFlag('faith.islam.iftarReady', false);
+      this.setFlag('ui.iftar', { message: 'IFTAR - +1 growth and +1 heart.' });
     }
 
     const regrowthTicks = Number(this.getFlag<number>('growth.rapidRegrowthTicks') ?? 0);
@@ -15494,6 +15807,7 @@ export class SnakeGame implements QuestRuntime {
     }
 
     this.setFlag('ui.skillResources', {
+      digestiveMode: choice?.mode,
       nutrition: Number(reserve?.stored ?? 0),
       nutritionCapacity: capacity,
       rapidRegrowthTicks: Number(this.getFlag<number>('growth.rapidRegrowthTicks') ?? 0),
@@ -15501,34 +15815,91 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  private processFortitudeBloodBank(roomsChanged: Set<string>): void {
+  spendSafeSnakeLengthForProgression(segments: number): number {
+    const cost = Math.max(0, Math.floor(segments));
+    if (this.snake.bodySegments.length - 5 < cost) return 0;
+    return this.removeSafeSnakeLength(cost).removed;
+  }
+
+  triggerProgressionShockwave(radius: number, wardTicks = 0): void {
+    const head = this.snake.bodySegments[0];
+    if (head) this.triggerSeismicPulse(head, Math.max(0, Math.floor(radius)), new Set<string>());
+    const currentWard = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
+    this.setFlag('fortitude.invulnerabilityTicks', Math.max(currentWard, wardTicks));
+  }
+
+  cycleDigestiveMode(): {
+    ok: boolean;
+    mode?: 'growth' | 'reserve' | 'recovery';
+    message: string;
+  } {
+    const choice = this.getFlag<{ mode?: 'growth' | 'reserve' | 'recovery' }>(
+      'growth.digestiveChoice',
+    );
+    if (!choice) return { ok: false, message: 'Digestive Choice is not unlocked.' };
+    const modes = ['growth', 'reserve', 'recovery'] as const;
+    const currentIndex = Math.max(0, modes.indexOf(choice.mode ?? 'growth'));
+    const mode = modes[(currentIndex + 1) % modes.length] ?? 'growth';
+    this.setFlag('growth.digestiveChoice', { ...choice, mode });
+    this.setFlag('ui.skillResources', {
+      ...(this.getFlag<Record<string, unknown>>('ui.skillResources') ?? {}),
+      digestiveMode: mode,
+    });
+    const label = mode === 'reserve' ? 'STORE' : mode === 'recovery' ? 'HEAL' : 'GROW';
+    return { ok: true, mode, message: `Digest: ${label}` };
+  }
+
+  private tickIslamFast(appleEaten: boolean): void {
+    if (!this.getFlag<boolean>('faith.islam.fastEnabled')) return;
+    if (appleEaten) {
+      this.setFlag('faith.islam.foodOpportunity', undefined);
+      return;
+    }
+    const apple = this.apples.getSnapshot(this.snake.currentRoomId);
+    const head = this.snake.bodySegments[0];
+    if (!apple || !head) return;
+    const local = this.worldToLocal(this.snake.currentRoomId, head);
+    const distance = Math.abs(local.x - apple.position.x) + Math.abs(local.y - apple.position.y);
+    const opportunity = this.getFlag<{ key?: string; close?: boolean }>(
+      'faith.islam.foodOpportunity',
+    );
+    const key = `${apple.roomId}:${apple.position.x},${apple.position.y}:${apple.typeId}`;
+    if (distance <= 1) {
+      this.setFlag('faith.islam.foodOpportunity', { key, close: true });
+      return;
+    }
+    if (opportunity?.key === key && opportunity.close) {
+      const progress = Math.min(
+        3,
+        Math.max(0, Number(this.getFlag<number>('faith.islam.fastProgress') ?? 0)) + 1,
+      );
+      this.setFlag('faith.islam.fastProgress', progress);
+      this.setFlag('faith.islam.foodOpportunity', { key, close: false });
+      if (progress >= 3) this.setFlag('faith.islam.iftarReady', true);
+      this.setFlag('ui.fastProgress', {
+        message: progress >= 3 ? 'IFTAR READY' : `FAST ${progress}/3`,
+      });
+    }
+  }
+
+  private processFortitudeBloodBank(_roomsChanged: Set<string>): void {
     const bank = this.getFlag<{
       stored?: number;
       capacity?: number;
-      reward?: { score?: number; growth?: number };
+      charged?: boolean;
     }>('fortitude.bloodBank');
-    if (!bank) {
-      return;
-    }
-    const capacity = Math.max(1, bank.capacity ?? 1);
+    if (!bank || bank.charged) return;
+    const capacity = Math.max(
+      1,
+      Number(this.getFlag<number>('derived.storedVitalityCapacity') ?? bank.capacity ?? 1),
+    );
     const stored = Math.min(capacity, (bank.stored ?? 0) + 1);
     bank.stored = stored;
-
-    if (stored >= capacity) {
-      const reward = bank.reward ?? {};
-      if (reward.score && reward.score !== 0) {
-        this.addScore(reward.score);
-      }
-      if (reward.growth && reward.growth > 0) {
-        for (let i = 0; i < reward.growth; i += 1) {
-          this.snake.grow(1);
-        }
-        roomsChanged.add(this.snake.currentRoomId);
-      }
-      bank.stored = 0;
-    }
-
+    bank.charged = stored >= capacity;
     this.setFlag('fortitude.bloodBank', bank);
+    this.setFlag('ui.bloodBank', {
+      message: bank.charged ? 'STORED VITALITY READY' : `STORED VITALITY ${stored}/${capacity}`,
+    });
   }
 
   private activateFortitudeInvulnerability(): void {
@@ -15986,6 +16357,39 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  tryActivateManualSurge(): { ok: boolean; message: string } {
+    const manual = this.getFlag<{ manualSurge?: boolean; manualCost?: number }>(
+      'momentum.config.overclock',
+    );
+    if (!manual?.manualSurge) return { ok: false, message: 'Unlock Overclock first.' };
+    this.hydrateMomentumConfig();
+    const state = this.ensureMomentumState();
+    const cost = Math.max(1, Math.floor(manual.manualCost ?? 3));
+    if (state.surgeTicks > 0) return { ok: false, message: 'Surge is already active.' };
+    if (state.surgeCooldown > 0) {
+      return { ok: false, message: `Surge cooldown: ${state.surgeCooldown} steps.` };
+    }
+    if (state.stacks < cost) {
+      return { ok: false, message: `Manual Surge needs ${cost} Momentum.` };
+    }
+    state.surgeStartedAtFull = state.stacks >= this.momentumConfig.maxStacks;
+    state.stacks -= cost;
+    state.surgeTicks = Math.max(1, this.momentumConfig.surgeDuration);
+    state.surgeCooldown = this.momentumConfig.surgeCooldown;
+    state.endlessExtensions = 0;
+    const phaseGrant =
+      this.momentumConfig.phaseTicksOnSurge + this.momentumConfig.surgeInvulnerability;
+    state.phasingTicks = Math.max(state.phasingTicks, phaseGrant);
+    this.setFlag('momentum.surgeTriggered', {
+      roomId: this.snake.currentRoomId,
+      stacks: state.stacks,
+      duration: state.surgeTicks,
+      manual: true,
+    });
+    this.syncMomentumFlags();
+    return { ok: true, message: `Manual Surge: spent ${cost} Momentum.` };
+  }
+
   private handleMomentumStep(previousDirection: Vector2Like, currentDirection: Vector2Like): void {
     const config = this.momentumConfig;
     const state = this.ensureMomentumState();
@@ -15997,6 +16401,36 @@ export class SnakeGame implements QuestRuntime {
     const prev = state.previousDirection;
     const turned =
       Boolean(prev) && (prev!.x !== currentDirection.x || prev!.y !== currentDirection.y);
+
+    if (state.surgeTicks > 0 && turned && this.getFlag('momentum.hardTurn')) {
+      const fullRelease =
+        state.surgeStartedAtFull && Boolean(this.getFlag('momentum.kineticRelease'));
+      const hardTurn = this.getFlag<{ radius?: number }>('momentum.hardTurn');
+      const kinetic = this.getFlag<{ radius?: number; wardTicks?: number }>(
+        'momentum.kineticRelease',
+      );
+      const radius = fullRelease ? (kinetic?.radius ?? 4) : (hardTurn?.radius ?? 2);
+      const head = this.snake.bodySegments[0];
+      if (head) this.triggerSeismicPulse(head, radius, new Set<string>());
+      if (fullRelease) {
+        const ward = Math.max(0, kinetic?.wardTicks ?? 4);
+        const currentWard = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
+        this.setFlag('fortitude.invulnerabilityTicks', Math.max(currentWard, ward));
+      }
+      state.surgeTicks = 0;
+      state.surgeStartedAtFull = false;
+      this.setFlag('ui.momentumImpact', { radius, fullRelease });
+    } else if (state.surgeTicks > 0 && moving && !turned) {
+      const endless = this.getFlag<{ enabled?: boolean; maxExtensions?: number }>(
+        'momentum.config.endlessRoad',
+      );
+      const maximum = Math.max(0, endless?.maxExtensions ?? 0);
+      if (endless?.enabled && state.endlessExtensions < maximum) {
+        state.surgeTicks += 1;
+        state.endlessExtensions += 1;
+        this.setFlag('ui.endlessRoadExtended', { extensions: state.endlessExtensions });
+      }
+    }
 
     if (moving && (!turned || state.forgivenessTimer > 0)) {
       state.stacks += config.gainPerTick;
@@ -16027,12 +16461,18 @@ export class SnakeGame implements QuestRuntime {
       state.stacks = 0;
     }
 
+    const manualImpact = Boolean(
+      this.getFlag<{ manualSurge?: boolean }>('momentum.config.overclock')?.manualSurge,
+    );
     if (
+      !manualImpact &&
       config.surgeThreshold !== Number.POSITIVE_INFINITY &&
       state.stacks >= config.surgeThreshold &&
       (config.surgeDuration > 0 || config.phaseTicksOnSurge > 0 || config.surgeInvulnerability > 0)
     ) {
       if (state.surgeCooldown <= 0) {
+        state.surgeStartedAtFull = state.stacks >= config.maxStacks;
+        state.endlessExtensions = 0;
         state.surgeTicks = config.surgeDuration;
         state.surgeCooldown = config.surgeCooldown;
         if (config.surgeConsume > 0) {
@@ -16556,8 +16996,7 @@ export class SnakeGame implements QuestRuntime {
     }
     return `${nextX},${nextY},${roomZ}`;
   }
-  private handlePredationOnApple(
-    consumption: AppleConsumptionResult,
+  private handlePredationOnHunt(
     roomsChanged: Set<string>,
     head: Vector2Like | undefined,
   ): { score: number; growth: number } {
@@ -16682,6 +17121,20 @@ export class SnakeGame implements QuestRuntime {
       state.decayHold = config.decayHold;
     }
     this.syncPredationFlags();
+  }
+
+  private tickAmbushPreparation(): void {
+    if (!this.getFlag('predator.stillHunter')) return;
+    const direction = this.snake.directionVector;
+    const previous = this.getFlag<Vector2Like>('predator.ambushDirection');
+    const clean = Boolean(previous && previous.x === direction.x && previous.y === direction.y);
+    const steps = clean ? Number(this.getFlag<number>('predator.ambushSteps') ?? 0) + 1 : 1;
+    this.setFlag('predator.ambushDirection', { ...direction });
+    this.setFlag('predator.ambushSteps', steps);
+    if (steps >= 6 && !this.getFlag('predator.ambushReady')) {
+      this.setFlag('predator.ambushReady', true);
+      this.setFlag('ui.ambushReady', { message: 'AMBUSH READY' });
+    }
   }
   private resetPredation(): void {
     this.predationConfig = createDefaultPredationConfig();

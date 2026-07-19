@@ -310,7 +310,6 @@ export class SnakeRenderer {
     this.drawBullets(opts.bullets ?? []);
     this.drawFootballs(opts.footballs ?? []);
     this.drawAtmosphereParticles(room, opts.atmosphere, true, opts.renderTimeMs ?? 0);
-    this.drawSunriseOverlay(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawDarknessOverlay(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
     this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
@@ -330,7 +329,10 @@ export class SnakeRenderer {
     this.graphics.fillStyle(view.tint.color, view.tint.alpha).fillRect(0, 0, width, height);
   }
 
-  private drawDarknessOverlay(view: ResolvedAtmosphereView | undefined, renderTimeMs: number): void {
+  private drawDarknessOverlay(
+    view: ResolvedAtmosphereView | undefined,
+    renderTimeMs: number,
+  ): void {
     if (!view || view.darkness.darknessAlpha <= 0) {
       return;
     }
@@ -439,62 +441,6 @@ export class SnakeRenderer {
           y + cell * 0.15,
           x + cell * 0.85,
           y + cell * 0.85,
-        );
-      }
-    }
-  }
-
-  private drawSunriseOverlay(view: ResolvedAtmosphereView | undefined, renderTimeMs: number): void {
-    const isDawn = view?.state.dayPhase === 'dawn';
-    if (!isDawn) {
-      return;
-    }
-    const progress = view.state.phaseProgress;
-    const width = this.grid.cols * this.grid.cell;
-    const height = this.grid.rows * this.grid.cell;
-
-    // Warm horizon gradient: deep orange at the bottom fading to soft pink near the horizon
-    const horizonY = height * (1 - progress * 0.45);
-    const gradientStops = [
-      { color: 0xff6a1e, alpha: 0.22 * progress, y: height },
-      { color: 0xff8c42, alpha: 0.16 * progress, y: height * 0.7 },
-      { color: 0xffa670, alpha: 0.10 * progress, y: height * 0.45 },
-      { color: 0xffb896, alpha: 0.05 * progress, y: horizonY },
-    ];
-    for (let i = 0; i < gradientStops.length - 1; i++) {
-      const a = gradientStops[i];
-      const b = gradientStops[i + 1];
-      this.graphics.fillStyle(a.color, a.alpha).fillRect(0, b.y, width, a.y - b.y);
-    }
-
-    // Sun disc that rises from below the horizon
-    const sunRadius = this.grid.cell * 1.8;
-    const sunX = width * 0.5;
-    const sunBaseY = height + sunRadius;
-    const sunY = sunBaseY - (height + sunRadius - horizonY + sunRadius * 0.3) * smoothstep(progress);
-    const sunAlpha = Math.min(1, progress * 2.5);
-    const sunColor = progress < 0.3 ? 0xff9944 : progress < 0.6 ? 0xffbb66 : 0xffdd99;
-
-    // Outer glow
-    this.graphics.fillStyle(0xffaa55, 0.08 * sunAlpha * progress).fillCircle(sunX, sunY, sunRadius * 3.5);
-    this.graphics.fillStyle(0xffcc77, 0.12 * sunAlpha * progress).fillCircle(sunX, sunY, sunRadius * 2);
-    // Core
-    this.graphics.fillStyle(sunColor, 0.55 * sunAlpha).fillCircle(sunX, sunY, sunRadius);
-
-    // Subtle light rays
-    if (progress > 0.15) {
-      const rayAlpha = Math.min(0.12, (progress - 0.15) * 0.18) * sunAlpha;
-      const rayLength = sunRadius * (2.5 + Math.sin(renderTimeMs * 0.001) * 0.4);
-      const rayCount = 8;
-      for (let i = 0; i < rayCount; i++) {
-        const angle = (i / rayCount) * Math.PI * 2 + renderTimeMs * 0.0002;
-        const rayWidth = 0.04 + Math.sin(renderTimeMs * 0.002 + i * 1.3) * 0.02;
-        this.graphics.lineStyle(sunRadius * rayWidth, 0xffddaa, rayAlpha);
-        this.graphics.lineBetween(
-          sunX + Math.cos(angle) * sunRadius * 0.9,
-          sunY + Math.sin(angle) * sunRadius * 0.9,
-          sunX + Math.cos(angle) * rayLength,
-          sunY + Math.sin(angle) * rayLength,
         );
       }
     }
@@ -1157,7 +1103,12 @@ export class SnakeRenderer {
           if ((x * 11 + y * 5) % 9 === 0) {
             this.wallGraphics
               .fillStyle(MOSAIC_COAST_WALL_COLORS.crack, 0.65)
-              .fillRect(rectX + cell * 0.42, rectY + cell * 0.28, Math.max(1, cell * 0.08), cell * 0.4);
+              .fillRect(
+                rectX + cell * 0.42,
+                rectY + cell * 0.28,
+                Math.max(1, cell * 0.08),
+                cell * 0.4,
+              );
           }
           if ((x * 7 + y * 13) % 11 === 0) {
             this.wallGraphics
@@ -1492,16 +1443,15 @@ export class SnakeRenderer {
                 ? 0x3f2e24
                 : tile === 'u'
                   ? 0x252b32
-                  : 
-      tile === 'U'
-        ? 0x333844
-        : tile === 'Y'
-          ? 0x1f2128
-          : tile === 'D' || tile === 'N'
-            ? 0x8b5f32
-            : tile === 'M'
-              ? 0xc7433d
-              : 0x6d5845;
+                  : tile === 'U'
+                    ? 0x333844
+                    : tile === 'Y'
+                      ? 0x1f2128
+                      : tile === 'D' || tile === 'N'
+                        ? 0x8b5f32
+                        : tile === 'M'
+                          ? 0xc7433d
+                          : 0x6d5845;
     const accent =
       tile === 'x'
         ? 0xd6a35f
@@ -1517,20 +1467,19 @@ export class SnakeRenderer {
                   ? 0xd2b088
                   : tile === 'u'
                     ? 0x778493
-                    : 
-      tile === 'U'
-        ? 0x9aa4b2
-        : tile === 'Y'
-          ? 0x79f2b4
-          : tile === 'D' || tile === 'N'
-            ? 0xffe0a3
-            : tile === 'M'
-              ? 0xffe0a3
-              : tile === 'R'
-                ? 0xf4d08b
-                : tile === 'P'
-                  ? 0x8fd1ff
-                  : 0x9f6b3f;
+                    : tile === 'U'
+                      ? 0x9aa4b2
+                      : tile === 'Y'
+                        ? 0x79f2b4
+                        : tile === 'D' || tile === 'N'
+                          ? 0xffe0a3
+                          : tile === 'M'
+                            ? 0xffe0a3
+                            : tile === 'R'
+                              ? 0xf4d08b
+                              : tile === 'P'
+                                ? 0x8fd1ff
+                                : 0x9f6b3f;
     const outline = darkenColor(base, 0.42);
     this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
     this.graphics
@@ -1552,7 +1501,9 @@ export class SnakeRenderer {
         this.graphics.fillStyle(outline, 1).fillCircle(rectX + cell * 0.62, rectY + cell * 0.5, 2);
       }
       if (tile === 't') {
-        this.graphics.fillStyle(0xffe0a3, 1).fillRect(rectX + cell * 0.28, rectY + 2, cell * 0.44, 3);
+        this.graphics
+          .fillStyle(0xffe0a3, 1)
+          .fillRect(rectX + cell * 0.28, rectY + 2, cell * 0.44, 3);
       }
     } else if (tile === 'x' || tile === 'o') {
       const plankAlpha = tile === 'x' ? 0.96 : 0.62;
@@ -1570,10 +1521,20 @@ export class SnakeRenderer {
       }
       this.graphics
         .lineStyle(Math.max(2, cell * 0.08), shadow, tile === 'x' ? 0.85 : 0.42)
-        .lineBetween(rectX + cell * 0.14, rectY + cell * 0.32, rectX + cell * 0.86, rectY + cell * 0.32);
+        .lineBetween(
+          rectX + cell * 0.14,
+          rectY + cell * 0.32,
+          rectX + cell * 0.86,
+          rectY + cell * 0.32,
+        );
       this.graphics
         .lineStyle(Math.max(2, cell * 0.08), shadow, tile === 'x' ? 0.85 : 0.42)
-        .lineBetween(rectX + cell * 0.14, rectY + cell * 0.68, rectX + cell * 0.86, rectY + cell * 0.68);
+        .lineBetween(
+          rectX + cell * 0.14,
+          rectY + cell * 0.68,
+          rectX + cell * 0.86,
+          rectY + cell * 0.68,
+        );
       if (tile === 'o') {
         this.graphics
           .fillStyle(0x1f140c, 0.3)
@@ -1870,16 +1831,19 @@ export class SnakeRenderer {
     if ((tileX * 5 + tileY * 3) % 13 === 0 || tile === 'r') {
       this.graphics
         .lineStyle(1, 0xb5a58c, tile === 'r' ? 0.28 : 0.14)
-        .lineBetween(rectX + cell * 0.22, rectY + cell * 0.64, rectX + cell * 0.78, rectY + cell * 0.58);
+        .lineBetween(
+          rectX + cell * 0.22,
+          rectY + cell * 0.64,
+          rectX + cell * 0.78,
+          rectY + cell * 0.58,
+        );
     }
     if (tile === 'M') {
       const accent =
-        (tileX + tileY) % 3 === 0
-          ? 0x2f8fbd
-          : (tileX + tileY) % 3 === 1
-            ? 0xf0c15a
-            : 0xf4fbff;
-      this.graphics.fillStyle(accent, 0.5).fillRect(rectX + cell * 0.24, rectY + cell * 0.24, cell * 0.52, cell * 0.52);
+        (tileX + tileY) % 3 === 0 ? 0x2f8fbd : (tileX + tileY) % 3 === 1 ? 0xf0c15a : 0xf4fbff;
+      this.graphics
+        .fillStyle(accent, 0.5)
+        .fillRect(rectX + cell * 0.24, rectY + cell * 0.24, cell * 0.52, cell * 0.52);
       this.graphics
         .lineStyle(1, 0x2b658a, 0.2)
         .strokeRect(rectX + cell * 0.24, rectY + cell * 0.24, cell * 0.52, cell * 0.52);
@@ -1915,7 +1879,9 @@ export class SnakeRenderer {
       return;
     }
     if (tile === 'f' || tile === 'F') {
-      this.graphics.fillStyle(0x5bb8d4, 0.82).fillCircle(rectX + cell / 2, rectY + cell / 2, cell * 0.38);
+      this.graphics
+        .fillStyle(0x5bb8d4, 0.82)
+        .fillCircle(rectX + cell / 2, rectY + cell / 2, cell * 0.38);
       this.graphics
         .fillStyle(0xd8f6ff, 0.75)
         .fillCircle(rectX + cell * 0.5, rectY + cell * 0.42, cell * 0.22);
@@ -1935,7 +1901,9 @@ export class SnakeRenderer {
       return;
     }
     if (tile === 'G') {
-      this.graphics.fillStyle(0x8b5b3c, 0.75).fillRect(rectX + cell * 0.25, rectY + cell * 0.18, cell * 0.5, cell * 0.64);
+      this.graphics
+        .fillStyle(0x8b5b3c, 0.75)
+        .fillRect(rectX + cell * 0.25, rectY + cell * 0.18, cell * 0.5, cell * 0.64);
     }
   }
 
@@ -2318,9 +2286,7 @@ export class SnakeRenderer {
       switch (exposure.kind) {
         case 'direct-sun':
           if ((exposure.x * 3 + exposure.y * 5) % 5 === 0) {
-            this.graphics
-              .fillStyle(0xffd47a, 0.035 + shimmer * 0.025)
-              .fillRect(x, y, cell, cell);
+            this.graphics.fillStyle(0xffd47a, 0.035 + shimmer * 0.025).fillRect(x, y, cell, cell);
           }
           break;
         case 'shade':
@@ -2355,7 +2321,9 @@ export class SnakeRenderer {
       const cy = fountain.y * cell + cell / 2;
       const radius = Math.max(cell * 0.5, fountain.radius * cell * 0.55);
       this.graphics.lineStyle(2, 0x2c6e91, 0.7).strokeCircle(cx, cy, radius);
-      this.graphics.lineStyle(1, 0xc9f6ff, 0.42).strokeCircle(cx, cy, radius * (0.6 + shimmer * 0.15));
+      this.graphics
+        .lineStyle(1, 0xc9f6ff, 0.42)
+        .strokeCircle(cx, cy, radius * (0.6 + shimmer * 0.15));
     }
   }
 
@@ -2909,6 +2877,15 @@ export class SnakeRenderer {
         bandColor: '#f5f0ff', // light body color
         outlineColor: '#b89fd4', // soft purple outline
         accentColor: '#ffb3e6', // pink mane
+      };
+    }
+    if (style === 'demon-horns') {
+      return {
+        style,
+        fillColor: '#d83a24',
+        bandColor: '#ff7a1a',
+        outlineColor: '#160507',
+        accentColor: '#ffb029',
       };
     }
     return this.buildHatPalette();
@@ -3720,9 +3697,4 @@ export class SnakeRenderer {
 
 function positiveMod(value: number, modulus: number): number {
   return ((value % modulus) + modulus) % modulus;
-}
-
-function smoothstep(value: number): number {
-  const t = Math.max(0, Math.min(1, value));
-  return t * t * (3 - 2 * t);
 }

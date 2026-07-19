@@ -19,13 +19,13 @@ export interface LevelUpResult {
   lifetimeScore: number;
 }
 
-const CURVE_DENOMINATOR = 1368;
+const CURVE_DENOMINATOR = 684;
 
 /**
  * Returns the lifetime score required to reach a level.
  *
  * The cubic uses x = level - 1 and is anchored at:
- * level 1 = 0, level 2 = 50, level 10 = 1,000, level 20 = 4,000.
+ * level 1 = 0, level 2 = 100, level 10 = 2,000, level 20 = 8,000.
  */
 export function getScoreForLevel(level: number): number {
   const x = Math.max(0, Math.floor(Number(level) || 1) - 1);

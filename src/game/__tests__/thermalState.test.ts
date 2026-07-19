@@ -3,6 +3,7 @@ import { defaultGameConfig } from '../../config/gameConfig.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { CAVE_ZONE_ORIGIN_ID } from '../../caves/caveTypes.js';
 import { createPhysicalHumanTown } from '../../world/town.js';
+import { HELL_ESCAPE_HEAT_RESISTANCE_FLAG } from '../../world/hellDepth.js';
 import { SnakeGame } from '../snakeGame.js';
 
 const townDistrictRoomIds = {
@@ -13,6 +14,19 @@ const townDistrictRoomIds = {
 } as const;
 
 describe('SnakeGame thermal body state', () => {
+  it('does not accumulate heat exposure with the Hell escape immunity', () => {
+    const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
+    game.getCurrentRoom().biomeId = 'ember-waste';
+    game.setFlag(HELL_ESCAPE_HEAT_RESISTANCE_FLAG, 1);
+    game.setFlag('timeMs', 1000);
+    (game as any).tickTemperatureState();
+    game.setFlag('timeMs', 61000);
+
+    expect((game as any).tickTemperatureState()).toBe(false);
+    expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBe(0);
+    expect(Number(game.getFlag<number>('player.temperatureHotDamageProgressMs') ?? 0)).toBe(0);
+  });
+
   it('tracks hot and cold exposure separately', () => {
     const game = new SnakeGame(defaultGameConfig, new QuestRegistry(), {});
     const room = game.getCurrentRoom();

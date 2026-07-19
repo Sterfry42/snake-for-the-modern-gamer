@@ -2234,6 +2234,7 @@ export class SkillTreeOverlay {
     const g = this.factionGraphics;
     const factions = this.scene.getFactionCards().filter((faction) => faction.discovered);
     const wards = this.scene.getWardContractsForMenu();
+    const karma = this.scene.getKarmaView();
     const mainRect: UiRect = {
       x: TREE_PADDING.horizontal - 12,
       y: TREE_PADDING.top - 12,
@@ -2259,6 +2260,11 @@ export class SkillTreeOverlay {
       fontSize: '14px',
       fontStyle: 'bold',
     });
+    this.detailTitle.setVisible(false);
+    this.detailSubtitle.setVisible(false);
+    this.detailRankText.setVisible(false);
+    this.detailBody.setVisible(false);
+    this.drawKarmaCard(g, karma);
 
     if (factions.length === 0) {
       addUiText(
@@ -2359,12 +2365,98 @@ export class SkillTreeOverlay {
       });
     }
 
-    this.detailTitle.setText('Factions').setVisible(true);
-    this.detailSubtitle.setText(i18n.getFeatureString('detailStanding')).setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Standing changes shop access, prices, hostility, and ward availability.')
-      .setVisible(true);
+    this.detailTitle.setVisible(false);
+    this.detailSubtitle.setVisible(false);
+    this.detailRankText.setVisible(false);
+    this.detailBody.setVisible(false);
+  }
+
+  private drawKarmaCard(
+    g: Phaser.GameObjects.Graphics,
+    karma: { value: number; disposition: 'bad' | 'neutral' | 'good' },
+  ): void {
+    const rect: UiRect = {
+      x: this.detailPanel.x + 12,
+      y: this.detailPanel.y + 12,
+      width: this.detailPanel.displayWidth - 24,
+      height: Math.min(210, this.detailPanel.displayHeight - 24),
+    };
+    const accent =
+      karma.disposition === 'good'
+        ? uiColors.success
+        : karma.disposition === 'bad'
+          ? uiColors.danger
+          : uiColors.accentWorld;
+    drawUiCard(g, {
+      rect,
+      fill: uiColors.panelBgInset,
+      stroke: accent,
+      alpha: 0.72,
+      strokeAlpha: 0.78,
+      radius: 8,
+    });
+    addUiText(this.scene, this.factionContainer, rect.x + 12, rect.y + 10, 'KARMA', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    const sign = karma.value > 0 ? '+' : '';
+    addUiText(
+      this.scene,
+      this.factionContainer,
+      rect.x + rect.width - 12,
+      rect.y + 10,
+      `${karma.disposition.toUpperCase()} ${sign}${karma.value}`,
+      { color: `#${accent.toString(16).padStart(6, '0')}`, fontSize: '12px' },
+    ).setOrigin(1, 0);
+
+    const snakeX = rect.x + rect.width / 2;
+    const snakeY = rect.y + 86;
+    const snakeColor = 0x5dd6a2;
+    for (let index = 0; index < 4; index += 1) {
+      g.fillStyle(snakeColor, 0.72 + index * 0.06).fillCircle(snakeX - 38 + index * 17, snakeY, 9);
+    }
+    g.fillStyle(snakeColor, 1).fillCircle(snakeX + 24, snakeY - 2, 13);
+    g.fillStyle(0x071019, 1).fillCircle(snakeX + 29, snakeY - 6, 2);
+    if (karma.disposition === 'good') {
+      g.lineStyle(3, 0xfff3a8, 0.95).strokeEllipse(snakeX + 24, snakeY - 24, 30, 9);
+    } else if (karma.disposition === 'bad') {
+      g.fillStyle(0xff4d5f, 0.98);
+      g.fillTriangle(snakeX + 14, snakeY - 13, snakeX + 17, snakeY - 29, snakeX + 23, snakeY - 14);
+      g.fillTriangle(snakeX + 27, snakeY - 14, snakeX + 35, snakeY - 29, snakeX + 36, snakeY - 10);
+    }
+
+    const barX = rect.x + 16;
+    const barY = rect.y + 142;
+    const barWidth = rect.width - 32;
+    const half = barWidth / 2;
+    g.fillStyle(0x8f2638, 0.9).fillRoundedRect(barX, barY, half, 14, 7);
+    g.fillStyle(0x26784b, 0.9).fillRoundedRect(barX + half, barY, half, 14, 7);
+    g.lineStyle(1, uiColors.panelBorder, 0.9).strokeRoundedRect(
+      barX + 0.5,
+      barY + 0.5,
+      barWidth - 1,
+      13,
+      7,
+    );
+    g.lineStyle(2, 0xffffff, 0.55).lineBetween(barX + half, barY - 2, barX + half, barY + 16);
+    const markerX = barX + ((Phaser.Math.Clamp(karma.value, -100, 100) + 100) / 200) * barWidth;
+    g.fillStyle(0xffffff, 1).fillTriangle(
+      markerX - 5,
+      barY - 6,
+      markerX + 5,
+      barY - 6,
+      markerX,
+      barY + 1,
+    );
+    addUiText(this.scene, this.factionContainer, barX, barY + 22, 'BAD', {
+      color: '#ff7a88',
+      fontSize: '10px',
+    });
+    addUiText(this.scene, this.factionContainer, barX + barWidth, barY + 22, 'GOOD', {
+      color: '#7dff9b',
+      fontSize: '10px',
+    }).setOrigin(1, 0);
   }
 
   private drawStandingBar(
@@ -5802,7 +5894,12 @@ export class SkillTreeOverlay {
       {
         id: 'heat-resistance',
         label: 'Heat Resistance',
-        value: formatPercent(readFlagNumber('equipment.heatResistance')),
+        value: formatPercent(
+          Math.max(
+            readFlagNumber('equipment.heatResistance'),
+            readFlagNumber('hellEscape.heatResistance'),
+          ),
+        ),
       },
       {
         id: 'buoyancy',
@@ -6128,11 +6225,29 @@ export class SkillTreeOverlay {
 
     this.scoreText.setText(i18n.getFeatureString('hudScore') + ': ' + this.scene.score);
     const nutrition = this.scene.getFlag<{ stored?: number }>('growth.reserveNutrition');
+    const digestive = this.scene.getFlag<{ mode?: 'growth' | 'reserve' | 'recovery' }>(
+      'growth.digestiveChoice',
+    );
     const nutritionCapacity = this.system.getDerivedStat('nutritionCapacity');
+    const vitality = this.scene.getFlag<{ stored?: number; charged?: boolean }>(
+      'fortitude.bloodBank',
+    );
+    const vitalityCapacity = this.system.getDerivedStat('storedVitalityCapacity');
+    const fastProgress = Number(this.scene.getFlag<number>('faith.islam.fastProgress') ?? 0);
+    const iftarReady = Boolean(this.scene.getFlag<boolean>('faith.islam.iftarReady'));
     const resourceSuffix = [
+      digestive
+        ? `Digest ${digestive.mode === 'reserve' ? 'STORE' : digestive.mode === 'recovery' ? 'HEAL' : 'GROW'}`
+        : '',
       nutritionCapacity > 0
         ? `Nutrition ${Math.max(0, Number(nutrition?.stored ?? 0))}/${nutritionCapacity}`
         : '',
+      vitalityCapacity > 0
+        ? vitality?.charged
+          ? 'Vitality READY'
+          : `Vitality ${Math.max(0, Number(vitality?.stored ?? 0))}/${vitalityCapacity}`
+        : '',
+      iftarReady ? 'IFTAR READY' : fastProgress > 0 ? `Fast ${fastProgress}/3` : '',
       stats.extraLives > 0 ? `Lives ${stats.extraLives}` : '',
     ]
       .filter(Boolean)
@@ -8140,6 +8255,9 @@ export class SkillTreeOverlay {
     const statusLabel = status.charAt(0).toUpperCase() + status.slice(1);
 
     const lines: string[] = [definition.description];
+    if (definition.usageHint) {
+      lines.push(`HOW TO USE\n${definition.usageHint}`);
+    }
     if (definition.kind === 'combo' && definition.secondaryBranch) {
       lines.push(`Combo: ${definition.branch} + ${definition.secondaryBranch}`);
     } else if (definition.route) {

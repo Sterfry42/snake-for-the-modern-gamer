@@ -23,6 +23,15 @@ function mapFor(seed: string): SeededBiomeMap {
 }
 
 describe('seeded procedural biome map', () => {
+  it('reserves depth -1000 for actively hot biomes', () => {
+    const biomeMap = mapFor('hell-depth-hot-only');
+    for (let y = -24; y <= 24; y += 6) {
+      for (let x = -24; x <= 24; x += 6) {
+        expect(biomeMap.getBiomeForRoomId(roomId(x, y, -1000)).temperatureHazard).toBe('hot');
+      }
+    }
+  });
+
   it('keeps the authored starter biome layout stable across seeds', () => {
     const canonical = mapFor('starter-canonical');
     const seeds = ['starter-a', 'starter-b', 'starter-c', 'starter-d', 'starter-e'];
