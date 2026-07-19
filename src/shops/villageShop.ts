@@ -4,6 +4,7 @@ import type { BiomeId } from '../world/biomes.js';
 import { getAllBiomeDefinitions } from '../world/biomes.js';
 import { getLocatorItemId } from '../world/biomeLocators.js';
 import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
+import { HELL_ESCAPE_ITEM_ID } from '../world/hellDepth.js';
 
 export const ALL_VILLAGE_SHOP_STYLE_IDS = [
   'classic',
@@ -16,6 +17,7 @@ export const ALL_VILLAGE_SHOP_STYLE_IDS = [
   'goblin-hide',
   'retro-grid',
   'unicorn',
+  'infernal',
 ] as const;
 
 export type VillageShopStyleId = (typeof ALL_VILLAGE_SHOP_STYLE_IDS)[number];
@@ -26,6 +28,7 @@ export const ALL_VILLAGE_SHOP_HAT_IDS = [
   'ember-cowl',
   'pearl-crown',
   'unicorn-horn',
+  'demon-horns',
 ] as const;
 
 export type VillageShopHatId = (typeof ALL_VILLAGE_SHOP_HAT_IDS)[number];
@@ -227,6 +230,12 @@ export const VILLAGE_SHOP_SUPPLIES: readonly VillageShopSupplyOffer[] = [
 
 export const BLACK_MARKET_SUPPLIES: readonly VillageShopSupplyOffer[] = [
   {
+    id: 'get-out-of-hell-free-card',
+    itemId: 'get-out-of-hell-free-card',
+    price: 666,
+    note: 'Automatically consumed when a Hell ending would end your run.',
+  },
+  {
     id: 'backalley-healing-potion',
     itemId: 'healing-potion',
     price: 26,
@@ -245,6 +254,15 @@ export const BLACK_MARKET_SUPPLIES: readonly VillageShopSupplyOffer[] = [
     note: 'A paper ward sold from under the counter.',
   },
 ];
+
+export function ensurePermanentBlackMarketSupplies(
+  supplyCounts: Readonly<Record<string, number>>,
+): Record<string, number> {
+  return {
+    ...supplyCounts,
+    [HELL_ESCAPE_ITEM_ID]: Math.max(1, supplyCounts[HELL_ESCAPE_ITEM_ID] ?? 0),
+  };
+}
 
 export const VILLAGE_SHOP_STYLES: readonly VillageShopStyleOffer[] = [
   {
@@ -306,7 +324,10 @@ export const VILLAGE_SHOP_HATS: readonly VillageShopHatOffer[] = [
   { id: 'ember-cowl', label: 'Ember Cowl', price: 30 },
   { id: 'pearl-crown', label: 'Pearl Crown', price: 42 },
   { id: 'unicorn-horn', label: 'Unicorn Horn', price: 55 },
+  { id: 'demon-horns', label: 'Demon Horns', price: 0 },
 ];
+
+export const VILLAGE_SHOP_SOLD_HATS = VILLAGE_SHOP_HATS.filter((hat) => hat.id !== 'demon-horns');
 
 export const VILLAGE_SHOP_COWBELLS: readonly VillageShopCowbellOffer[] = [
   {
@@ -401,11 +422,9 @@ export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinitio
   return {
     equipment: uniqueOffers([...regional, ...VILLAGE_SHOP_EQUIPMENT]),
     styles: [...VILLAGE_SHOP_STYLES],
-    hats: [...VILLAGE_SHOP_HATS],
+    hats: [...VILLAGE_SHOP_SOLD_HATS],
     cowbells: [...VILLAGE_SHOP_COWBELLS],
-    supplies: locatorOffer
-      ? [...VILLAGE_SHOP_SUPPLIES, locatorOffer]
-      : [...VILLAGE_SHOP_SUPPLIES],
+    supplies: locatorOffer ? [...VILLAGE_SHOP_SUPPLIES, locatorOffer] : [...VILLAGE_SHOP_SUPPLIES],
     fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }

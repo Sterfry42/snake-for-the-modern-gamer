@@ -93,6 +93,7 @@ describe('revised achievement catalog', () => {
       { type: 'combat:jadeKatanaWallSmite', roomId: '0,0,0' },
       { type: 'divine:angelEncountered', angelKind: 'normal' },
       { type: 'divine:angelEncountered', angelKind: 'goblin' },
+      { type: 'divine:escapedHell', itemId: 'get-out-of-hell-free-card' },
       {
         type: 'fishing:caught',
         fishTypeId: 'rare',
@@ -121,6 +122,7 @@ describe('revised achievement catalog', () => {
       'combat.katanaSmite',
       'divine.meetAngel',
       'divine.meetGoblinAngel',
+      'divine.snakeOutOfHell',
       'fishing.rare',
       'archaeology.chain3',
       'archaeology.chain5',
@@ -275,6 +277,7 @@ describe('revised achievement catalog', () => {
       'archaeology.allArtifacts',
       'divine.meetAngel',
       'divine.meetGoblinAngel',
+      'divine.snakeOutOfHell',
       'caves.appleRushClear',
       'companions.first',
       'shops.generalBuyout',

@@ -14,6 +14,7 @@ const APPENDED_ACHIEVEMENT_IDS = [
   'mutations.ultimateFusion',
   'mutations.traitMaster',
   'mutations.allEvolvedApples',
+  'divine.snakeOutOfHell',
 ] as const;
 
 export function achievementLocationKey(id: string): string {

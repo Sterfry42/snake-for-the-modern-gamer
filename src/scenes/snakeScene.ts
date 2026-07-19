@@ -73,6 +73,7 @@ import type { RadioFeature } from '../features/definitions/radio.js';
 import { SimulationScheduler, type ClockRule } from '../systems/simulationScheduler.js';
 import { createQuestRegistry } from '../systems/quests.js';
 import { SkillTreeManager } from '../systems/skillTreeManager.js';
+import type { OwnedSkillState } from '../systems/skillTypes.js';
 import { QuestHud } from '../ui/questHud.js';
 import { QuestPopup } from '../ui/questPopup.js';
 import { ChoicePopup, type ChoiceOption } from '../ui/choicePopup.js';
@@ -164,10 +165,11 @@ import type { SnakeSpritePalette } from '../ui/spriteRecipes/snakeRecipe.js';
 import type { WandererEncounter } from '../npcs/encounters.js';
 import {
   VILLAGE_SHOP_EQUIPMENT,
-  VILLAGE_SHOP_HATS,
+  VILLAGE_SHOP_SOLD_HATS,
   VILLAGE_SHOP_STYLES,
   VILLAGE_SHOP_COWBELLS,
   BLACK_MARKET_STYLES,
+  ensurePermanentBlackMarketSupplies,
   getBlackMarketDefinition,
   getVillageShopDefinition,
   type VillageShopDefinition,
@@ -187,6 +189,7 @@ import {
   type WardDeathSource,
 } from '../shops/goblinShop.js';
 import type { FactionCardView } from '../factions/factions.js';
+import type { KarmaView } from '../stats/karma.js';
 import type {
   DatingCandidateView,
   DatingBranchChoice,
@@ -244,6 +247,7 @@ import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.
 import { FishingRegistry, type FishingRegistryOptions } from '../fishing/fishingRegistry.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
+import type { CharacterCreationMods } from '../features/characterCreationDefinitions.js';
 import type { LevelUpResult } from '../stats/levelProgression.js';
 import { FishingMinigame } from '../fishing/fishingMinigame.js';
 import { hasAdjacentWater, roomHasWater } from '../fishing/waterDetection.js';
@@ -265,6 +269,12 @@ import type { GlobalWeather, ResolvedAtmosphereView } from '../world/atmosphereT
 import type { RoomSnapshot } from '../world/types.js';
 import { getAllBiomeDefinitions } from '../world/biomes.js';
 import { getLocatorItemId, isLocatorItemId } from '../world/biomeLocators.js';
+import {
+  HELL_ESCAPE_HAT_ID,
+  HELL_ESCAPE_HEAT_RESISTANCE_FLAG,
+  HELL_ESCAPE_ITEM_ID,
+  HELL_ESCAPE_THEME_ID,
+} from '../world/hellDepth.js';
 import { AchievementManager } from '../achievements/achievementManager.js';
 import { getAchievementReward } from '../achievements/achievementRewards.js';
 import {
@@ -590,24 +600,24 @@ const DATING_REACTION_LINES: Record<
     },
     'love-in-eyes': {
       loved: [
-        'Love in my woman\'s eyes. Oh. That is the kind of warmth that makes a heart reckless.',
+        "Love in my woman's eyes. Oh. That is the kind of warmth that makes a heart reckless.",
         'You looked at me and I forgot how to be careful. That is what love does.',
-        'Love in my woman\'s eyes. Dangerous. Beautiful. I hate how much I want it.',
+        "Love in my woman's eyes. Dangerous. Beautiful. I hate how much I want it.",
       ],
       liked: [
-        'Love in my woman\'s eyes. Sweet enough to be dangerous. I am looking.',
+        "Love in my woman's eyes. Sweet enough to be dangerous. I am looking.",
         'You showed me love and I did not look away. That counts for something.',
       ],
       neutral: [
-        'Love in my woman\'s eyes. I see it. I am not ready to name it yet.',
+        "Love in my woman's eyes. I see it. I am not ready to name it yet.",
         'The look is there. Whether it is love or just hope, I cannot tell.',
       ],
       disliked: [
-        'Love in my woman\'s eyes. Too bright. I need to know what it is asking of me.',
+        "Love in my woman's eyes. Too bright. I need to know what it is asking of me.",
         'You offered love and I am not sure I can afford it.',
       ],
       hated: [
-        'Love in my woman\'s eyes. You cannot buy devotion with a glance. I will not be charmed.',
+        "Love in my woman's eyes. You cannot buy devotion with a glance. I will not be charmed.",
         'That look is a contract I did not sign. Put it away.',
       ],
     },
@@ -713,23 +723,23 @@ const DATING_REACTION_LINES: Record<
     },
     'love-in-eyes': {
       loved: [
-        'Love in my woman\'s eyes. Fine. I am affected. Do not make me say it again.',
+        "Love in my woman's eyes. Fine. I am affected. Do not make me say it again.",
         'You looked at me like I was worth looking at. I will not pretend that does not land.',
       ],
       liked: [
-        'Love in my woman\'s eyes. Acceptable. I am choosing to let it in.',
+        "Love in my woman's eyes. Acceptable. I am choosing to let it in.",
         'That look. I will not deny it moved me.',
       ],
       neutral: [
-        'Love in my woman\'s eyes. Noted. Verdict pending.',
+        "Love in my woman's eyes. Noted. Verdict pending.",
         'The look is there. I am checking whether it has substance.',
       ],
       disliked: [
-        'Love in my woman\'s eyes. I need more than optics. Show me the record.',
+        "Love in my woman's eyes. I need more than optics. Show me the record.",
         'You are looking at me like a promise. I check promises.',
       ],
       hated: [
-        'Love in my woman\'s eyes. Sentiment with no documentation. Rejected.',
+        "Love in my woman's eyes. Sentiment with no documentation. Rejected.",
         'Do not confuse a glance with a contract. I am not signing anything.',
       ],
     },
@@ -839,24 +849,24 @@ const DATING_REACTION_LINES: Record<
     },
     'love-in-eyes': {
       loved: [
-        'Love in my woman\'s eyes. Oh. That is the kind of warmth that makes a heart reckless.',
+        "Love in my woman's eyes. Oh. That is the kind of warmth that makes a heart reckless.",
         'You looked at me and I forgot how to be careful. That is what love does.',
-        'Love in my woman\'s eyes. Dangerous. Beautiful. I hate how much I want it.',
+        "Love in my woman's eyes. Dangerous. Beautiful. I hate how much I want it.",
       ],
       liked: [
-        'Love in my woman\'s eyes. Sweet enough to be dangerous. I am looking.',
+        "Love in my woman's eyes. Sweet enough to be dangerous. I am looking.",
         'You showed me love and I did not look away. That counts for something.',
       ],
       neutral: [
-        'Love in my woman\'s eyes. I see it. I am not ready to name it yet.',
+        "Love in my woman's eyes. I see it. I am not ready to name it yet.",
         'The look is there. Whether it is love or just hope, I cannot tell.',
       ],
       disliked: [
-        'Love in my woman\'s eyes. Too bright. I need to know what it is asking of me.',
+        "Love in my woman's eyes. Too bright. I need to know what it is asking of me.",
         'You offered love and I am not sure I can afford it.',
       ],
       hated: [
-        'Love in my woman\'s eyes. You cannot buy devotion with a glance. I will not be charmed.',
+        "Love in my woman's eyes. You cannot buy devotion with a glance. I will not be charmed.",
         'That look is a contract I did not sign. Put it away.',
       ],
     },
@@ -964,24 +974,24 @@ const DATING_REACTION_LINES: Record<
     },
     'love-in-eyes': {
       loved: [
-        'Love in my woman\'s eyes. A look that carries its own weight. I honor that.',
+        "Love in my woman's eyes. A look that carries its own weight. I honor that.",
         'You offered devotion without demand. That is a rare kind of nobility.',
-        'Love in my woman\'s eyes. I see the truth of it. I will not look away.',
+        "Love in my woman's eyes. I see the truth of it. I will not look away.",
       ],
       liked: [
-        'Love in my woman\'s eyes. Respectful. I grant it favor.',
+        "Love in my woman's eyes. Respectful. I grant it favor.",
         'You looked at me with something worth honoring. I acknowledge that.',
       ],
       neutral: [
-        'Love in my woman\'s eyes. The court observes. Judgment reserved.',
+        "Love in my woman's eyes. The court observes. Judgment reserved.",
         'The look is present. Whether it is devotion or habit, I cannot yet tell.',
       ],
       disliked: [
-        'Love in my woman\'s eyes. A glance is not a vow. Prove it.',
+        "Love in my woman's eyes. A glance is not a vow. Prove it.",
         'You offered love without proving you can carry it. Suspicious.',
       ],
       hated: [
-        'Love in my woman\'s eyes. You cannot command loyalty with a look. I will not be moved.',
+        "Love in my woman's eyes. You cannot command loyalty with a look. I will not be moved.",
         'That gaze is a claim I did not consent to. Remove it.',
       ],
     },
@@ -1089,24 +1099,24 @@ const DATING_REACTION_LINES: Record<
     },
     'love-in-eyes': {
       loved: [
-        'Love in my woman\'s eyes. Ah. Direct, unguarded, and worth more than leverage. I am impressed.',
+        "Love in my woman's eyes. Ah. Direct, unguarded, and worth more than leverage. I am impressed.",
         'You looked at me without a plan. That is the most honest transaction I know.',
-        'Love in my woman\'s eyes. High risk, infinite return. I am all in.',
+        "Love in my woman's eyes. High risk, infinite return. I am all in.",
       ],
       liked: [
-        'Love in my woman\'s eyes. Acceptable terms. I am choosing to accept.',
+        "Love in my woman's eyes. Acceptable terms. I am choosing to accept.",
         'You showed me something valuable. I will not pretend I did not see it.',
       ],
       neutral: [
-        'Love in my woman\'s eyes. Signal received. Auditing for authenticity.',
+        "Love in my woman's eyes. Signal received. Auditing for authenticity.",
         'The look is there. I am checking whether it has substance behind the optics.',
       ],
       disliked: [
-        'Love in my woman\'s eyes. A glance is not a guarantee. Show me the track record.',
+        "Love in my woman's eyes. A glance is not a guarantee. Show me the track record.",
         'You are looking at me like a good investment. I check investments.',
       ],
       hated: [
-        'Love in my woman\'s eyes. Sentiment without documentation. Rejected.',
+        "Love in my woman's eyes. Sentiment without documentation. Rejected.",
         'Do not confuse a look with a binding offer. I am not signing anything.',
       ],
     },
@@ -1179,6 +1189,18 @@ const SNAKE_THEME_DEFINITIONS: readonly SnakeThemeDefinition[] = [
       patternColor: '#e8d5f5',
       outlineColor: '#b89fd4',
       eyeColor: '#ff69b4',
+    },
+  },
+  {
+    id: 'infernal',
+    label: 'Infernal Coil',
+    cost: 0,
+    palette: {
+      baseColor: '#c52b20',
+      bellyColor: '#ff7a1a',
+      patternColor: '#3b0808',
+      outlineColor: '#120304',
+      eyeColor: '#ffcf5a',
     },
   },
 ];
@@ -1849,39 +1871,12 @@ export default class SnakeScene extends Phaser.Scene {
   private jasonDefeatCount = 0;
   // Religion choice state
   private chosenReligionId: string | null = null;
-  private religionMods: {
-    tickDelayScalar?: number;
-    wallSenseBonus?: number;
-    seismicPulseBonus?: number;
-    invulnerabilityBonus?: number;
-    regenerator?: { interval: number; amount: number } | null;
-    phoenixCharges?: number;
-    masonryEnabled?: boolean;
-    shrineBlessing?: boolean;
-    yokaiInsight?: boolean;
-    spiritualLength?: boolean;
-  } = {};
+  private religionMods: CharacterCreationMods = {};
   // Background and Class choice state
   private chosenBackgroundId: string | null = null;
-  private backgroundMods: {
-    tickDelayScalar?: number;
-    wallSenseBonus?: number;
-    seismicPulseBonus?: number;
-    invulnerabilityBonus?: number;
-    regenerator?: { interval: number; amount: number } | null;
-    phoenixCharges?: number;
-    masonryEnabled?: boolean;
-  } = {};
+  private backgroundMods: CharacterCreationMods = {};
   private chosenClassId: string | null = null;
-  private classMods: {
-    tickDelayScalar?: number;
-    wallSenseBonus?: number;
-    seismicPulseBonus?: number;
-    invulnerabilityBonus?: number;
-    regenerator?: { interval: number; amount: number } | null;
-    phoenixCharges?: number;
-    masonryEnabled?: boolean;
-  } = {};
+  private classMods: CharacterCreationMods = {};
 
   paused = true;
   private isDirty = false;
@@ -2440,6 +2435,12 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
 
+      if (!this.paused && isKeyboardEventForAction(event, 'ability.context')) {
+        this.useContextProgressionAbility();
+        event.preventDefault();
+        return;
+      }
+
       // Fishing input (F key in action mode)
       if (key === 'f' && !this.fishingActive && !this.paused && !this.titleVisible) {
         const result = this.startFishing();
@@ -2613,10 +2614,9 @@ export default class SnakeScene extends Phaser.Scene {
           const station = radioFeature.tuneNext(this);
           const stationName =
             i18n.getFeatureString(`radioStation${station.label}`) ?? station.label;
-          const message = i18n.getFeatureString('radioStationChanged')?.replace(
-            '{station}',
-            stationName,
-          );
+          const message = i18n
+            .getFeatureString('radioStationChanged')
+            ?.replace('{station}', stationName);
           this.showQuestHintPopup(message ?? `Station: ${stationName}`, station.color);
           this.isDirty = true;
         }
@@ -2702,6 +2702,21 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
+    if (actionId === 'ability.context') {
+      this.useContextProgressionAbility();
+      return;
+    }
+
+    if (actionId === 'ability.primary') {
+      this.skillTree.handleControllerCommand('primary', this.paused);
+      return;
+    }
+
+    if (actionId === 'menu.pause') {
+      this.togglePauseMenu();
+      return;
+    }
+
     if (actionId === 'map.toggle') {
       const result = this.toggleMinimap();
       if (result) {
@@ -2716,6 +2731,14 @@ export default class SnakeScene extends Phaser.Scene {
       }
       return;
     }
+  }
+
+  private useContextProgressionAbility(): boolean {
+    if (this.paused || this.titleVisible || this.deathCutscene) return false;
+    const result = this.snakeGame.cycleDigestiveMode();
+    this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
+    this.skillTree.getOverlay().refresh();
+    return result.ok;
   }
 
   private performInteractAction(): void {
@@ -3377,6 +3400,51 @@ export default class SnakeScene extends Phaser.Scene {
       this.showQuestHintPopup(questInteraction.message, '#9ad1ff');
       this.snakeGame.setFlag('ui.questInteraction', undefined);
     }
+    const karmaShift = this.snakeGame.getFlag<{ extreme?: 'good' | 'bad' }>('ui.karmaShift');
+    if (karmaShift?.extreme) {
+      const bad = karmaShift.extreme === 'bad';
+      this.showQuestHintPopup(
+        bad ? '/// THE LEDGER DARKENS ///' : '+++ THE LEDGER SHINES +++',
+        bad ? '#ff4d5f' : '#7dff9b',
+      );
+      if (bad) {
+        const head = this.snakeGame.getSnakeBody()[0];
+        if (head) {
+          const world = this.tileToWorld(head);
+          this.juice.dangerPulse(world.x, world.y, 1);
+        }
+      }
+      this.snakeGame.setFlag('ui.karmaShift', undefined);
+      this.skillTree.getOverlay().refresh();
+    }
+    const digestiveApplied = this.snakeGame.getFlag<{ message?: string }>('ui.digestiveApplied');
+    if (digestiveApplied?.message) {
+      this.showQuestHintPopup(digestiveApplied.message, '#5dd6a2');
+      this.snakeGame.setFlag('ui.digestiveApplied', undefined);
+      this.skillTree.getOverlay().refresh();
+    }
+    for (const [flag, color] of [
+      ['ui.fastProgress', '#fff3a8'],
+      ['ui.iftar', '#fff3a8'],
+      ['ui.bloodBank', '#ff8f8f'],
+      ['ui.secondWind', '#9ad1ff'],
+      ['ui.hardenedScales', '#9ad1ff'],
+      ['ui.rootedColossus', '#5dd6a2'],
+    ] as const) {
+      const feedback = this.snakeGame.getFlag<{ message?: string }>(flag);
+      if (feedback?.message) {
+        this.showQuestHintPopup(feedback.message, color);
+        this.snakeGame.setFlag(flag, undefined);
+        this.skillTree.getOverlay().refresh();
+      }
+    }
+    const fellowshipRecharge = this.snakeGame.getFlag<{ message?: string }>(
+      'ui.fellowshipRecharge',
+    );
+    if (fellowshipRecharge?.message) {
+      this.showQuestHintPopup(fellowshipRecharge.message, '#ffbdfd');
+      this.snakeGame.setFlag('ui.fellowshipRecharge', undefined);
+    }
     this.handleRaccoonPopupFlag();
     const relationshipEvent = this.snakeGame.getFlag<{
       title?: string;
@@ -3750,6 +3818,18 @@ export default class SnakeScene extends Phaser.Scene {
         reviveOnComplete: true,
         rescuer: 'goblin-angel',
       });
+      return true;
+    }
+    if (this.snakeGame.tryConsumeFellowshipRescue()) {
+      const rescue = this.snakeGame.getFlag<{ message?: string }>('ui.fellowshipRescue');
+      if (rescue?.message) this.showQuestHintPopup(rescue.message, '#ffbdfd');
+      this.skillTree.hideOverlay();
+      this.startDeathSequence('revive', result.deathReason, { reviveOnComplete: true });
+      return true;
+    }
+    if (this.snakeGame.tryConsumeGrowthForDeath(result.deathReason)) {
+      this.skillTree.hideOverlay();
+      this.startDeathSequence('revive', result.deathReason, { reviveOnComplete: true });
       return true;
     }
     if (this.skillTree.tryConsumeExtraLife()) {
@@ -4259,7 +4339,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     container.add([fade, halo, angel]);
     const afterlifeDestination: AfterlifeDestination | undefined =
-      mode === 'game-over' ? (this.random() < 0.5 ? 'heaven' : 'hell') : undefined;
+      mode === 'game-over' ? this.snakeGame.getKarmaAfterlifeDestination() : undefined;
     this.deathCutscene = {
       mode,
       reason,
@@ -4348,6 +4428,21 @@ export default class SnakeScene extends Phaser.Scene {
               angelKind: cutscene.rescuer === 'goblin-angel' ? 'goblin' : 'normal',
             });
           }
+          this.paused = false;
+          this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
+          this.isDirty = true;
+          return;
+        }
+        if (
+          cutscene.afterlifeDestination === 'hell' &&
+          this.snakeGame.tryEscapeHellEnding(cutscene.reason)
+        ) {
+          this.skillTree.setExtraLifeCharges(1);
+          this.grantHellEscapeRewards();
+          this.recordAchievementEvent({
+            type: 'divine:escapedHell',
+            itemId: HELL_ESCAPE_ITEM_ID,
+          });
           this.paused = false;
           this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
           this.isDirty = true;
@@ -4512,6 +4607,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     if (cutscene.taunts >= ANGEL_TAUNT_DIALOGUE.length) {
       cutscene.angelBossOnRevive = true;
+      this.snakeGame.setKarmaToMinimum('angel-provoked');
       this.questPopup.showDialogue(
         'The Angel',
         [...pages],
@@ -5291,7 +5387,10 @@ export default class SnakeScene extends Phaser.Scene {
       skillTreeBranchCount: this.skillTree.getBranchCount(),
       hotSurvivalMs: this.achievementHotSurvivalMs,
       coldSurvivalMs: this.achievementColdSurvivalMs,
-      heatResistance: Number(this.getFlag<number>('equipment.heatResistance') ?? 0),
+      heatResistance: Math.max(
+        Number(this.getFlag<number>('equipment.heatResistance') ?? 0),
+        Number(this.getFlag<number>(HELL_ESCAPE_HEAT_RESISTANCE_FLAG) ?? 0),
+      ),
       coldResistance: Number(this.getFlag<number>('equipment.coldResistance') ?? 0),
       cowbellTilesWalked: this.achievementCowbellTilesWalked,
       wardDamageTypesHeld: Object.values(this.snakeGame.getWardContracts()).filter(
@@ -5811,6 +5910,7 @@ export default class SnakeScene extends Phaser.Scene {
         'pearlwake',
         'goblin-hide',
         'retro-grid',
+        'infernal',
       ];
       const allHatIds: VillageShopHatId[] = [
         'cowboy',
@@ -5818,6 +5918,7 @@ export default class SnakeScene extends Phaser.Scene {
         'ember-cowl',
         'pearl-crown',
         'unicorn-horn',
+        'demon-horns',
       ];
 
       const currentThemes = new Set(this.snakeCosmetics.unlockedThemes);
@@ -5950,7 +6051,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.snakeGame.isSnakeHeadOnWaterTile() &&
       Boolean(
         this.getFlag<boolean>('equipment.swimmingEnabled') ||
-          this.getFlag<boolean>('cheat.immortal'),
+        this.getFlag<boolean>('cheat.immortal'),
       );
     this.skillTree.applyActionStepIntervalScalar(
       swimming ? SnakeScene.SWIMMING_TERRAIN_DRAG_SCALAR : 1,
@@ -6085,14 +6186,22 @@ export default class SnakeScene extends Phaser.Scene {
 
   prepareCharacterSave(): void {
     this.setFlag('skills.ranks', this.skillTree.exportRanks());
+    this.setFlag('skills.ownership', this.skillTree.exportOwnership());
     this.minecraftFeature?.saveToScene(this);
   }
 
   restoreCharacterSaveState(): void {
     this.skillTree.reset(this.paused);
+    this.chosenReligionId = this.getFlag<string>('religion.id') ?? null;
+    this.religionMods = this.getFlag<CharacterCreationMods>('religion.mods') ?? {};
+    this.chosenBackgroundId = this.getFlag<string>('background.id') ?? null;
+    this.backgroundMods = this.getFlag<CharacterCreationMods>('background.mods') ?? {};
+    this.chosenClassId = this.getFlag<string>('class.id') ?? null;
+    this.classMods = this.getFlag<CharacterCreationMods>('class.mods') ?? {};
     const ranks = this.getFlag<Record<string, number>>('skills.ranks');
     if (ranks) {
-      this.skillTree.restoreRanks(ranks);
+      const ownership = this.getFlag<Record<string, OwnedSkillState>>('skills.ownership');
+      this.skillTree.restoreRanks(ranks, ownership);
     }
     this.applyEquipmentEffects();
     const savedAchievements = this.getFlag<AchievementState>('save.loadedAchievements');
@@ -6250,7 +6359,8 @@ export default class SnakeScene extends Phaser.Scene {
     const listIndex = sceneList.indexOf(btn as Phaser.GameObjects.GameObject);
 
     // Absolute screen position (walk up parent chain)
-    let absX = 0, absY = 0;
+    let absX = 0,
+      absY = 0;
     let cur: Phaser.GameObjects.Container | undefined = btn as Phaser.GameObjects.Container;
     for (let i = 0; i < 10; i++) {
       absX += cur?.x ?? 0;
@@ -6263,28 +6373,72 @@ export default class SnakeScene extends Phaser.Scene {
 
     console.log(
       '[TitleScreen] GitHub button:',
-      'visible:', btn?.visible,
-      'alpha:', btn?.alpha,
-      'x:', btn?.x, 'y:', btn?.y,
-      'width:', btn?.width, 'height:', btn?.height,
-      'depth:', btn?.depth,
-      'scrollFactor:', btn?.scrollFactorX, btn?.scrollFactorY,
-      'parent:', parent?.constructor?.name ?? 'none',
-      'parent.x:', parent?.x, 'parent.y:', parent?.y,
-      'parent.depth:', parent?.depth,
-      'parent.visible:', parent?.visible, 'parent.alpha:', parent?.alpha,
-      'parentChain:', depthChain,
-      'sceneListIndex:', listIndex,
-      'worldX:', worldX, 'worldY:', worldY,
-      'screenW:', this.scale.width, 'screenH:', this.scale.height,
-      'mode:', mode, 'isMain:', isMain,
+      'visible:',
+      btn?.visible,
+      'alpha:',
+      btn?.alpha,
+      'x:',
+      btn?.x,
+      'y:',
+      btn?.y,
+      'width:',
+      btn?.width,
+      'height:',
+      btn?.height,
+      'depth:',
+      btn?.depth,
+      'scrollFactor:',
+      btn?.scrollFactorX,
+      btn?.scrollFactorY,
+      'parent:',
+      parent?.constructor?.name ?? 'none',
+      'parent.x:',
+      parent?.x,
+      'parent.y:',
+      parent?.y,
+      'parent.depth:',
+      parent?.depth,
+      'parent.visible:',
+      parent?.visible,
+      'parent.alpha:',
+      parent?.alpha,
+      'parentChain:',
+      depthChain,
+      'sceneListIndex:',
+      listIndex,
+      'worldX:',
+      worldX,
+      'worldY:',
+      worldY,
+      'screenW:',
+      this.scale.width,
+      'screenH:',
+      this.scale.height,
+      'mode:',
+      mode,
+      'isMain:',
+      isMain,
       '--- children ---',
-      'bg.visible:', bg?.visible, 'bg.alpha:', bg?.alpha,
-      'icon.visible:', icon?.visible, 'icon.alpha:', icon?.alpha,
-      'icon.x:', icon?.x, 'icon.y:', icon?.y,
-      'icon.texture.key:', (icon?.texture?.key as string) ?? 'none',
-      'zone.visible:', zone?.visible,
-      'zone.width:', zone?.width, 'zone.height:', zone?.height,
+      'bg.visible:',
+      bg?.visible,
+      'bg.alpha:',
+      bg?.alpha,
+      'icon.visible:',
+      icon?.visible,
+      'icon.alpha:',
+      icon?.alpha,
+      'icon.x:',
+      icon?.x,
+      'icon.y:',
+      icon?.y,
+      'icon.texture.key:',
+      (icon?.texture?.key as string) ?? 'none',
+      'zone.visible:',
+      zone?.visible,
+      'zone.width:',
+      zone?.width,
+      'zone.height:',
+      zone?.height,
     );
     if (mode === 'multiplayer') {
       this.refreshArchipelagoTitleText();
@@ -7013,7 +7167,9 @@ export default class SnakeScene extends Phaser.Scene {
     bg.strokeCircle(radius, radius, radius - 3);
     bg.setDepth(1);
 
-    const icon = this.add.image(radius, radius, GITHUB_LOGO_TEXTURE_KEY).setScale(size * 0.7 / 1280);
+    const icon = this.add
+      .image(radius, radius, GITHUB_LOGO_TEXTURE_KEY)
+      .setScale((size * 0.7) / 1280);
     icon.setDepth(2);
 
     const zone = this.add.zone(0, 0, size, size).setOrigin(0, 0);
@@ -7021,7 +7177,11 @@ export default class SnakeScene extends Phaser.Scene {
     zone.setDepth(3);
 
     // Add directly to scene (not nested in root container) so depth works correctly
-    const btn = this.add.container(x, y, [bg, icon, zone]).setDepth(9999).setScrollFactor(0).setSize(size, size);
+    const btn = this.add
+      .container(x, y, [bg, icon, zone])
+      .setDepth(9999)
+      .setScrollFactor(0)
+      .setSize(size, size);
 
     zone.on('pointerover', () => {
       bg.clear();
@@ -8237,6 +8397,10 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getFactionCards();
   }
 
+  getKarmaView(): KarmaView {
+    return this.snakeGame.getKarmaView();
+  }
+
   getPeopleJournalView(): ActorJournalEntry[] {
     return this.snakeGame.getPeopleJournalView();
   }
@@ -8329,12 +8493,17 @@ export default class SnakeScene extends Phaser.Scene {
     const inv = this.snakeGame.getInventory();
     const equipped = inv.getAllEquipped();
     const totals = createRuntimeModifierTotals();
+    const equipmentTotals = createRuntimeModifierTotals();
     const specialGameplay = this.snakeGame.getSpecialGameplayModifiers();
+    this.skillTree.refreshSpecialDerivedStats(specialGameplay);
 
     for (const [, itemId] of equipped) {
       const item = getItem(itemId);
+      applyRuntimeModifierSource(totals, item?.kind === 'equipment' ? item.modifiers : undefined, {
+        countPhoenixAsItem: true,
+      });
       applyRuntimeModifierSource(
-        totals,
+        equipmentTotals,
         item?.kind === 'equipment' ? item.modifiers : undefined,
         { countPhoenixAsItem: true },
       );
@@ -8345,16 +8514,71 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Orange Juice speed boost
     const orangeJuiceSpeedBoost = this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0;
+    const setProgressionSource = (
+      id: string,
+      category: 'background' | 'class' | 'faith' | 'equipment' | 'status',
+      actionScalar: number,
+      wardBonus: number,
+      extraModifiers: CharacterCreationMods['derivedModifiers'] = [],
+    ) =>
+      this.skillTree.setDerivedStatSource({
+        id,
+        category,
+        modifiers: [
+          ...(actionScalar !== 1
+            ? ([
+                {
+                  stat: 'actionStepIntervalScalar',
+                  operation: 'multiply',
+                  value: actionScalar,
+                },
+              ] as const)
+            : []),
+          ...(wardBonus !== 0
+            ? ([{ stat: 'wardDuration', operation: 'add', value: wardBonus }] as const)
+            : []),
+          ...extraModifiers,
+        ],
+      });
+    setProgressionSource(
+      'equipment.loadout',
+      'equipment',
+      equipmentTotals.tickDelayScalar,
+      equipmentTotals.invulnerabilityBonus,
+    );
+    setProgressionSource(
+      'faith.identity',
+      'faith',
+      this.religionMods.tickDelayScalar ?? 1,
+      this.religionMods.invulnerabilityBonus ?? 0,
+      this.religionMods.derivedModifiers,
+    );
+    setProgressionSource(
+      'background.identity',
+      'background',
+      this.backgroundMods.tickDelayScalar ?? 1,
+      this.backgroundMods.invulnerabilityBonus ?? 0,
+      this.backgroundMods.derivedModifiers,
+    );
+    setProgressionSource(
+      'class.identity',
+      'class',
+      this.classMods.tickDelayScalar ?? 1,
+      this.classMods.invulnerabilityBonus ?? 0,
+      this.classMods.derivedModifiers,
+    );
+    setProgressionSource('status.orangeJuice', 'status', orangeJuiceSpeedBoost > 0 ? 0.75 : 1, 0);
     if (orangeJuiceSpeedBoost > 0) {
       totals.tickDelayScalar *= 0.75;
     }
     totals.invulnerabilityBonus += specialGameplay.invulnerabilityTickBonus;
 
-    // Apply speed scalar via skill system
-    this.skillTree.applyActionStepIntervalScalar(totals.tickDelayScalar, 'equipment:boots');
+    // The shared resolver owns the complete speed scalar; clear legacy sources.
+    this.skillTree.applyActionStepIntervalScalar(1, 'equipment:boots');
+    this.skillTree.applyActionStepIntervalScalar(1, 'special:agility');
     this.skillTree.applyActionStepIntervalScalar(
-      specialGameplay.movementTickDelayScalar,
-      'special:agility',
+      this.skillTree.getDerivedStat('actionStepIntervalScalar'),
+      'derived:progression',
     );
 
     // Set equipment flags for game logic to combine with skill-based flags
@@ -8416,7 +8640,19 @@ export default class SnakeScene extends Phaser.Scene {
       'equipment.lightRadiusTiles',
       totals.lightRadiusTiles > 0 ? totals.lightRadiusTiles : undefined,
     );
-    this.snakeGame.refreshPlayerMaxHealth();
+    const currentMaxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
+    const nextMaxHealth = Math.max(1, this.skillTree.getDerivedStat('maxHealth'));
+    const currentHealth = Number(this.getFlag<number>('player.health') ?? currentMaxHealth);
+    this.setFlag(
+      'special.maxHeartBonus',
+      specialGameplay.maxHeartBonus !== 0 ? specialGameplay.maxHeartBonus : undefined,
+    );
+    this.setFlag('player.maxHealth', nextMaxHealth);
+    if (currentHealth >= currentMaxHealth && nextMaxHealth > currentMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    } else if (currentHealth > nextMaxHealth) {
+      this.setFlag('player.health', nextMaxHealth);
+    }
     this.setFlag(
       'equipment.radiationTimerScalar',
       totals.radiationTimerScalar * specialGameplay.hazardTimerScalar !== 1
@@ -8432,6 +8668,10 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Refresh overlay to reflect any equipped status in inventory view
     this.skillTree.getOverlay().refresh();
+  }
+
+  refreshProgressionDerivedStats(): void {
+    this.applyEquipmentEffects();
   }
 
   private clearTemperatureState(): void {
@@ -8667,6 +8907,8 @@ export default class SnakeScene extends Phaser.Scene {
         return true;
       case 'ability.primary':
         return this.skillTree.handleControllerCommand('primary', this.paused);
+      case 'ability.context':
+        return this.useContextProgressionAbility();
       case 'menu.pause':
         this.togglePauseMenu();
         return true;
@@ -8985,6 +9227,56 @@ export default class SnakeScene extends Phaser.Scene {
   private handlePredationFeedback(): void {
     if (!this.snakeGame) {
       return;
+    }
+
+    const impact = this.snakeGame.getFlag<{ radius?: number; fullRelease?: boolean }>(
+      'ui.momentumImpact',
+    );
+    if (impact) {
+      this.showQuestHintPopup(
+        impact.fullRelease
+          ? `KINETIC RELEASE — radius ${impact.radius ?? 4}`
+          : `HARD TURN — radius ${impact.radius ?? 2}`,
+        '#9ad1ff',
+      );
+      this.snakeGame.setFlag('ui.momentumImpact', undefined);
+    }
+    const endless = this.snakeGame.getFlag<{ extensions?: number }>('ui.endlessRoadExtended');
+    if (endless && (endless.extensions ?? 0) % 3 === 0) {
+      this.skillTree
+        .getOverlay()
+        .announce(`Endless Road x${endless.extensions ?? 0}`, '#9ad1ff', 900);
+      this.snakeGame.setFlag('ui.endlessRoadExtended', undefined);
+    }
+    const overcast = this.snakeGame.getFlag<{ segments?: number; missingMana?: number }>(
+      'ui.overcast',
+    );
+    if (overcast) {
+      this.showQuestHintPopup(
+        `OVERCAST — ${overcast.segments ?? 0} tail for ${overcast.missingMana ?? 0} mana`,
+        '#ffbdfd',
+      );
+      this.snakeGame.setFlag('ui.overcast', undefined);
+    }
+    const spellweaver = this.snakeGame.getFlag<{ manaRefund?: number }>('ui.spellweaver');
+    if (spellweaver) {
+      this.showQuestHintPopup(`SPELLWEAVER — +${spellweaver.manaRefund ?? 10} mana`, '#ffbdfd');
+      this.snakeGame.setFlag('ui.spellweaver', undefined);
+    }
+    const nova = this.snakeGame.getFlag<{ segments?: number }>('ui.astralNova');
+    if (nova) {
+      this.showQuestHintPopup(`ASTRAL NOVA — ${nova.segments ?? 2} tail committed`, '#ffffff');
+      this.snakeGame.setFlag('ui.astralNova', undefined);
+    }
+    const ambush = this.snakeGame.getFlag<{ message?: string }>('ui.ambushReady');
+    if (ambush?.message) {
+      this.showQuestHintPopup(ambush.message, '#ff8f8f');
+      this.snakeGame.setFlag('ui.ambushReady', undefined);
+    }
+    const firstBlood = this.snakeGame.getFlag<{ message?: string }>('ui.firstBlood');
+    if (firstBlood?.message) {
+      this.showQuestHintPopup(firstBlood.message, '#ff8f8f');
+      this.snakeGame.setFlag('ui.firstBlood', undefined);
     }
 
     const frenzy = this.snakeGame.getFlag<{ head?: Vector2Like | null }>(
@@ -9625,14 +9917,7 @@ export default class SnakeScene extends Phaser.Scene {
       const angle = (Math.PI * 2 * i) / sparkleCount;
       const distance = 16 + this.random() * 12;
       const sparkle = this.add
-        .rectangle(
-          worldPosition.x,
-          worldPosition.y,
-          4,
-          4,
-          0xffb7ff,
-          1,
-        )
+        .rectangle(worldPosition.x, worldPosition.y, 4, 4, 0xffb7ff, 1)
         .setOrigin(0.5)
         .setDepth(100);
       sparkles.push(sparkle);
@@ -10087,28 +10372,6 @@ export default class SnakeScene extends Phaser.Scene {
         true,
       );
     }
-    const townDistrict =
-      room.town && room.id ? getTownDistrictForRoom(room.town, room.id) : undefined;
-    const centerTile = villageLike?.center
-      ? room.layout[villageLike.center.y]?.[villageLike.center.x]
-      : undefined;
-    if (
-      villageLike?.center &&
-      (!room.town ||
-        ((townDistrict === 'square' || townDistrict === 'townCenter') &&
-          (centerTile === 'M' || centerTile === 'P' || centerTile === 'L')))
-    ) {
-      addLight(
-        'town-window-glow',
-        villageLike.center.x,
-        villageLike.center.y,
-        5.4,
-        0.48,
-        0xffe8b6,
-        'town',
-        true,
-      );
-    }
     if (room.biomeId === 'neon-underpass') {
       addLight('neon-sign-a', 4, 3, 5.8, 0.72, 0xff4fd8, 'neon', true);
       addLight('neon-sign-b', this.grid.cols - 5, 5, 5.2, 0.62, 0x5ff8ff, 'neon', true);
@@ -10134,30 +10397,6 @@ export default class SnakeScene extends Phaser.Scene {
         1,
         0xffd48a,
         'lantern',
-        true,
-      );
-    }
-    if (room.biomeId === 'radioactive-orchard') {
-      addLight(
-        'radioactive-orchard-glow',
-        Math.floor(this.grid.cols * 0.5),
-        Math.floor(this.grid.rows * 0.5),
-        7,
-        0.58,
-        0x8dff6a,
-        'radioactive',
-        true,
-      );
-    }
-    if (atmosphere.localVisual === 'fireflies' || atmosphere.activeJuice.includes('fireflies')) {
-      addLight(
-        'firefly-cloud',
-        Math.floor(this.grid.cols * 0.5),
-        Math.floor(this.grid.rows * 0.45),
-        5.6,
-        0.42,
-        0xf8ff8f,
-        'fireflies',
         true,
       );
     }
@@ -10253,29 +10492,68 @@ export default class SnakeScene extends Phaser.Scene {
 
   // Called by the religion feature to persist the choice for this run
   setReligionChoice(id: string, mods: Partial<typeof this.religionMods>): void {
+    this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, mods.specialModifiers);
     this.chosenReligionId = id;
     this.religionMods = { ...mods } as any;
+    this.setFlag('religion.id', id);
+    this.setFlag('religion.mods', this.religionMods);
     this.applyEquipmentEffects();
+    this.applyStartingMechanicFlags(mods.mechanicFlags);
+    if (mods.startingPerkId) {
+      this.skillTree.grantStartingPerk(mods.startingPerkId, { type: 'faith', faithId: id });
+    }
     this.skillTree.getOverlay().announce(`Chosen faith: ${id}`, '#fff3a8', 2000);
   }
 
   // Called by character creation flow
   setBackgroundChoice(id: string, mods: Partial<typeof this.backgroundMods>): void {
+    this.replaceStartingSpecialModifiers(
+      this.backgroundMods.specialModifiers,
+      mods.specialModifiers,
+    );
     this.chosenBackgroundId = id;
     this.backgroundMods = { ...mods } as any;
+    this.setFlag('background.id', id);
+    this.setFlag('background.mods', this.backgroundMods);
     this.applyEquipmentEffects();
+    this.applyStartingMechanicFlags(mods.mechanicFlags);
     this.skillTree.getOverlay().announce(`Background: ${id}`, '#9ad1ff', 1800);
   }
 
   setClassChoice(id: string, mods: Partial<typeof this.classMods>): void {
+    this.replaceStartingSpecialModifiers(this.classMods.specialModifiers, mods.specialModifiers);
     this.chosenClassId = id;
     this.classMods = { ...mods } as any;
+    this.setFlag('class.id', id);
+    this.setFlag('class.mods', this.classMods);
     this.applyEquipmentEffects();
+    this.applyStartingMechanicFlags(mods.mechanicFlags);
+    if (mods.startingPerkId) {
+      this.skillTree.grantStartingPerk(mods.startingPerkId, { type: 'class', classId: id });
+    }
     this.skillTree.getOverlay().announce(`Class: ${id}`, '#c8ffe1', 1800);
   }
 
   getChosenReligionId(): string | null {
     return this.chosenReligionId;
+  }
+
+  private applyStartingMechanicFlags(
+    flags: Readonly<Record<string, boolean | number | string>> | undefined,
+  ): void {
+    for (const [key, value] of Object.entries(flags ?? {})) this.setFlag(key, value);
+  }
+
+  private replaceStartingSpecialModifiers(
+    previous: CharacterCreationMods['specialModifiers'],
+    next: CharacterCreationMods['specialModifiers'],
+  ): void {
+    if (previous) {
+      this.snakeGame.applyStartingSpecialModifiers(
+        Object.fromEntries(Object.entries(previous).map(([stat, value]) => [stat, -Number(value)])),
+      );
+    }
+    if (next) this.snakeGame.applyStartingSpecialModifiers(next);
   }
 
   getReligionMods(): typeof this.religionMods {
@@ -10299,6 +10577,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   resetStartingChoices(): void {
+    this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, undefined);
+    this.replaceStartingSpecialModifiers(this.backgroundMods.specialModifiers, undefined);
+    this.replaceStartingSpecialModifiers(this.classMods.specialModifiers, undefined);
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;
     this.chosenClassId = null;
@@ -10394,10 +10675,13 @@ export default class SnakeScene extends Phaser.Scene {
 
   getSnakeThemeDefinitions(): readonly SnakeThemeDefinition[] {
     const merged = new Map<SnakeThemeId, SnakeThemeDefinition>();
+    const unlocked = new Set(this.snakeCosmetics.unlockedThemes);
     for (const theme of SNAKE_THEME_DEFINITIONS) {
+      if (theme.id === HELL_ESCAPE_THEME_ID && !unlocked.has(theme.id)) {
+        continue;
+      }
       merged.set(theme.id, theme);
     }
-    const unlocked = new Set(this.snakeCosmetics.unlockedThemes);
     const villageStyles = getVillageShopDefinition(this.snakeGame.getCurrentRoom().biomeId).styles;
     for (const style of villageStyles.filter((entry) => unlocked.has(entry.id))) {
       merged.set(style.id, {
@@ -10430,9 +10714,28 @@ export default class SnakeScene extends Phaser.Scene {
     const shopHats = getVillageShopDefinition(this.snakeGame.getCurrentRoom().biomeId).hats;
     const unlocked = new Set(this.snakeCosmetics.unlockedHats);
     const hats = shopHats.filter((hat) => hat.id === LEGACY_COWBOY_HAT_ID || unlocked.has(hat.id));
+    if (unlocked.has(HELL_ESCAPE_HAT_ID) && !hats.some((hat) => hat.id === HELL_ESCAPE_HAT_ID)) {
+      hats.push({ id: HELL_ESCAPE_HAT_ID, label: 'Demon Horns', price: 0 });
+    }
     return hats.length > 0
       ? hats
       : [{ id: LEGACY_COWBOY_HAT_ID, label: 'Cowboy Hat', price: COWBOY_HAT_COST }];
+  }
+
+  private grantHellEscapeRewards(): void {
+    if (!this.snakeCosmetics.unlockedThemes.includes(HELL_ESCAPE_THEME_ID)) {
+      this.snakeCosmetics.unlockedThemes = [
+        ...this.snakeCosmetics.unlockedThemes,
+        HELL_ESCAPE_THEME_ID,
+      ];
+    }
+    if (!this.snakeCosmetics.unlockedHats.includes(HELL_ESCAPE_HAT_ID)) {
+      this.snakeCosmetics.unlockedHats = [...this.snakeCosmetics.unlockedHats, HELL_ESCAPE_HAT_ID];
+    }
+    this.snakeCosmetics.activeTheme = HELL_ESCAPE_THEME_ID;
+    this.snakeCosmetics.activeHat = HELL_ESCAPE_HAT_ID;
+    this.snakeCosmetics.cowboyHatEquipped = false;
+    this.isDirty = true;
   }
 
   getCurrentVillageShop(): VillageShopDefinition | null {
@@ -10568,8 +10871,8 @@ export default class SnakeScene extends Phaser.Scene {
         room.town ? Math.min(3, VILLAGE_SHOP_STYLES.length) : 2,
       ) as VillageShopStyleId[],
       hatIds: this.pickMarketOffers(
-        VILLAGE_SHOP_HATS.map((offer) => offer.id),
-        room.town ? Math.min(4, VILLAGE_SHOP_HATS.length) : 2,
+        VILLAGE_SHOP_SOLD_HATS.map((offer) => offer.id),
+        room.town ? Math.min(4, VILLAGE_SHOP_SOLD_HATS.length) : 2,
       ) as VillageShopHatId[],
       cardIds: this.pickMarketCardOffers(room.town ? 8 : undefined),
       supplyCounts: this.rollVillageSupplyStock(room.town ? 'town' : 'village'),
@@ -10618,15 +10921,20 @@ export default class SnakeScene extends Phaser.Scene {
     const key = `town.blackMarket.supplies.${townId}`;
     const saved = this.getFlag<SupplyStock>(key);
     if (saved?.version === 1 && saved.supplyCounts && typeof saved.supplyCounts === 'object') {
-      return saved;
+      const normalized = {
+        ...saved,
+        supplyCounts: ensurePermanentBlackMarketSupplies(saved.supplyCounts),
+      };
+      this.setFlag(key, normalized);
+      return normalized;
     }
     const stock: SupplyStock = {
       version: 1,
-      supplyCounts: {
+      supplyCounts: ensurePermanentBlackMarketSupplies({
         'healing-potion': 1,
         ...(this.random() < 1 / 3 ? { 'life-tonic': 1 } : {}),
         ...(this.random() < 0.5 ? { ofuda: 1 } : {}),
-      },
+      }),
     };
     this.setFlag(key, stock);
     return stock;
@@ -10740,6 +11048,11 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
+  private getFellowshipShopPrice(basePrice: number): number {
+    const scalar = Number(this.snakeGame.getFlag<number>('derived.shopPriceScalar') ?? 1);
+    return Math.max(1, Math.ceil(basePrice * scalar));
+  }
+
   purchaseVillageEquipment(itemId: string): { ok: boolean; message: string; color: string } {
     const shop = this.getCurrentVillageShop();
     if (!shop) {
@@ -10759,10 +11072,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId])) {
       return { ok: false, message: `${item.name} is already checked.`, color: '#9ad1ff' };
     }
-    if (this.score < offer.price) {
-      return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
+    const price = this.getFellowshipShopPrice(offer.price);
+    if (this.score < price) {
+      return { ok: false, message: `${item.name} costs ${price} score.`, color: '#ff6b6b' };
     }
-    this.addScoreDirect(-offer.price);
+    this.addScoreDirect(-price);
     if (this.markArchipelagoInventoryItem(itemId)) {
       this.isDirty = true;
       return { ok: true, message: `Checked: ${item.name}`, color: '#5dd6a2' };
@@ -11017,10 +11331,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.isArchipelagoCheckCompleteByKey(AP_ITEM_LOCATION_KEY_BY_ITEM_ID[itemId])) {
       return { ok: false, message: `${item.name} is already checked.`, color: '#9ad1ff' };
     }
-    if (this.score < offer.price) {
-      return { ok: false, message: `${item.name} costs ${offer.price} score.`, color: '#ff6b6b' };
+    const price = this.getFellowshipShopPrice(offer.price);
+    if (this.score < price) {
+      return { ok: false, message: `${item.name} costs ${price} score.`, color: '#ff6b6b' };
     }
-    this.addScoreDirect(-offer.price);
+    this.addScoreDirect(-price);
     const checkedByArchipelago = this.markArchipelagoInventoryItem(itemId);
     if (!checkedByArchipelago) {
       this.snakeGame.addItem(itemId, 1);
@@ -12358,7 +12673,7 @@ export default class SnakeScene extends Phaser.Scene {
         const owned = this.snakeGame.getInventory().getItemCount(offer.itemId) > 0;
         options.push({
           id: `equipment:${offer.itemId}`,
-          title: `${item?.name ?? offer.itemId} - ${owned ? 'owned' : `${offer.price} score`}`,
+          title: `${item?.name ?? offer.itemId} - ${owned ? 'owned' : `${this.getFellowshipShopPrice(offer.price)} score`}`,
           description: offer.note,
         });
       }
@@ -12379,7 +12694,7 @@ export default class SnakeScene extends Phaser.Scene {
             : 1;
         options.push({
           id: `supply:${offer.itemId}`,
-          title: `${item?.name ?? offer.itemId} - ${offer.price} score, stock x${stocked}${owned > 0 ? `, owned x${owned}` : ''}`,
+          title: `${item?.name ?? offer.itemId} - ${this.getFellowshipShopPrice(offer.price)} score, stock x${stocked}${owned > 0 ? `, owned x${owned}` : ''}`,
           description: offer.note,
         });
       }
@@ -19654,12 +19969,8 @@ export default class SnakeScene extends Phaser.Scene {
         this.cameras.main.shake(90, 0.0025);
         this.juice.dangerPulse(world.x, world.y, ratio);
       }
-    } else {
-      this.juice.coldBodyStage(world.x, world.y, ratio);
-      if (critical) {
-        this.cameras.main.shake(90, 0.002);
-        this.juice.dangerPulse(world.x, world.y, ratio);
-      }
+    } else if (critical) {
+      this.cameras.main.shake(90, 0.002);
     }
     this.nextThermalJuiceAtMs = this.time.now + Math.max(160, 520 - ratio * 260);
   }

@@ -8,7 +8,8 @@ export type SnakeHatStyle =
   | 'pearl-crown'
   | 'dragon-helm'
   | 'master-broth'
-  | 'unicorn-horn';
+  | 'unicorn-horn'
+  | 'demon-horns';
 
 export interface SnakeHatPalette {
   style: SnakeHatStyle;
@@ -253,6 +254,37 @@ const UNICORN_EAR = [
   [6, 2],
 ];
 
+const DEMON_HORN_OUTLINE = [
+  [0, 0],
+  [1, 0],
+  [0, 1],
+  [1, 1],
+  [1, 2],
+  [2, 2],
+  [2, 3],
+  [6, 0],
+  [7, 0],
+  [6, 1],
+  [7, 1],
+  [6, 2],
+  [5, 2],
+  [5, 3],
+];
+
+const DEMON_HORN_FILL = [
+  [1, 0],
+  [1, 1],
+  [2, 2],
+  [6, 0],
+  [6, 1],
+  [5, 2],
+];
+
+const DEMON_HORN_TIPS = [
+  [0, 0],
+  [7, 0],
+];
+
 export const snakeHatRecipe: RuntimeSpriteRecipe<SnakeHatVariant, SnakeHatPalette> = {
   id: 'snake-hat',
   variants: VARIANTS,
@@ -392,12 +424,7 @@ export const snakeHatRecipe: RuntimeSpriteRecipe<SnakeHatVariant, SnakeHatPalett
         palette.outlineColor,
       );
       // Horn (main body) - golden
-      drawPixels(
-        context,
-        rotatePoints(UNICORN_HORN, turns),
-        pixelSize,
-        palette.fillColor,
-      );
+      drawPixels(context, rotatePoints(UNICORN_HORN, turns), pixelSize, palette.fillColor);
       // Mane - rainbow accent (uses accentColor as the primary mane color)
       drawPixels(
         context,
@@ -406,11 +433,15 @@ export const snakeHatRecipe: RuntimeSpriteRecipe<SnakeHatVariant, SnakeHatPalett
         palette.accentColor ?? '#ffb3e6',
       );
       // Ears - match bandColor
+      drawPixels(context, rotatePoints(UNICORN_EAR, turns), pixelSize, palette.bandColor);
+    } else if (palette.style === 'demon-horns') {
+      drawPixels(context, rotatePoints(DEMON_HORN_OUTLINE, turns), pixelSize, palette.outlineColor);
+      drawPixels(context, rotatePoints(DEMON_HORN_FILL, turns), pixelSize, palette.fillColor);
       drawPixels(
         context,
-        rotatePoints(UNICORN_EAR, turns),
+        rotatePoints(DEMON_HORN_TIPS, turns),
         pixelSize,
-        palette.bandColor,
+        palette.accentColor ?? palette.bandColor,
       );
     } else {
       drawPixels(context, rotatePoints(HAT_TOP, turns), pixelSize, palette.outlineColor);

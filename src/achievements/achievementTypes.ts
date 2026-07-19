@@ -169,6 +169,7 @@ export type AchievementEvent =
   | { type: 'boss:defeated'; bossKind: string; bossName: string }
   | { type: 'boss:jasonVulnerableDamaged'; bossId: string }
   | { type: 'divine:angelEncountered'; angelKind: 'normal' | 'goblin' }
+  | { type: 'divine:escapedHell'; itemId: string }
   | { type: 'arcade:played' }
   | { type: 'arcade:blueScreen' }
   | { type: 'rivalSnake:lengthReached'; enemyId: string; length: number }

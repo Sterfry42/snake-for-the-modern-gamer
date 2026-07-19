@@ -425,6 +425,13 @@ export const ITEMS: readonly Item[] = [
     category: 'consumable',
   },
   {
+    id: 'get-out-of-hell-free-card',
+    name: 'Get Out of Hell Free',
+    description: 'Consumed at a Hell ending. Revives you with 1 Life Charge at depth -1000.',
+    kind: 'consumable',
+    category: 'consumable',
+  },
+  {
     id: 'beer',
     name: 'Beer',
     description: 'A tavern drink. Briefly makes your path drift side to side.',

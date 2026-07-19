@@ -19,7 +19,13 @@ export type SpecialGameplayModifierTarget =
   | 'economy.shopPriceScalar'
   | 'economy.fineScalar'
   | 'loot.rareScalar'
-  | 'weird.outcomeChanceBonus';
+  | 'weird.outcomeChanceBonus'
+  | 'arcane.manaCapacity'
+  | 'arcane.manaRegen'
+  | 'arcane.spellSlots'
+  | 'growth.nutritionCapacity'
+  | 'exploration.pickupRadius'
+  | 'social.companionCapacity';
 
 export interface SpecialGameplayModifiers {
   movementTickDelayScalar: number;
@@ -38,6 +44,12 @@ export interface SpecialGameplayModifiers {
   fineScalar: number;
   rareLootScalar: number;
   weirdOutcomeChanceBonus: number;
+  manaCapacityBonus: number;
+  manaRegenBonus: number;
+  spellSlotBonus: number;
+  nutritionCapacityBonus: number;
+  pickupRadiusBonus: number;
+  companionCapacityBonus: number;
 }
 
 function enduranceHearts(endurance: number): number {
@@ -61,9 +73,8 @@ export function getSpecialGameplayModifierAtoms(
   const agilityDelta = getStatDelta(stats, 'agility');
   const luckDelta = getStatDelta(stats, 'luck');
 
-  const agilitySpeedMultiplier = stats.agility >= SPECIAL_BASELINE
-    ? 1 + agilityDelta * 0.1
-    : 1 + agilityDelta * 0.0875;
+  const agilitySpeedMultiplier =
+    stats.agility >= SPECIAL_BASELINE ? 1 + agilityDelta * 0.1 : 1 + agilityDelta * 0.0875;
   const weaponCooldownFromInt =
     intelligenceDelta >= 0 ? 1 - intelligenceDelta * 0.06 : 1 - intelligenceDelta * 0.075;
   const weaponCooldownFromAgi =
@@ -99,6 +110,12 @@ export function getSpecialGameplayModifierAtoms(
     set('economy.fineScalar', clamp(1 - charismaDelta * 0.12, 0.4, 1.75)),
     set('loot.rareScalar', clamp(1 + luckDelta * 0.2, 0.5, 2)),
     set('weird.outcomeChanceBonus', luckDelta * 0.03),
+    set('arcane.manaCapacity', intelligenceDelta * 8),
+    set('arcane.manaRegen', intelligenceDelta * 0.12),
+    set('arcane.spellSlots', Math.trunc(intelligenceDelta / 3)),
+    set('growth.nutritionCapacity', Math.trunc(enduranceDelta / 2)),
+    set('exploration.pickupRadius', perceptionDelta * 0.15),
+    set('social.companionCapacity', Math.trunc(charismaDelta / 3)),
   ];
 }
 
@@ -122,6 +139,12 @@ export function resolveSpecialGameplayModifiers(
     fineScalar: resolveNumericModifier(atoms, 'economy.fineScalar', { base: 1 }),
     rareLootScalar: resolveNumericModifier(atoms, 'loot.rareScalar', { base: 1 }),
     weirdOutcomeChanceBonus: resolveNumericModifier(atoms, 'weird.outcomeChanceBonus', { base: 0 }),
+    manaCapacityBonus: resolveNumericModifier(atoms, 'arcane.manaCapacity', { base: 0 }),
+    manaRegenBonus: resolveNumericModifier(atoms, 'arcane.manaRegen', { base: 0 }),
+    spellSlotBonus: resolveNumericModifier(atoms, 'arcane.spellSlots', { base: 0 }),
+    nutritionCapacityBonus: resolveNumericModifier(atoms, 'growth.nutritionCapacity', { base: 0 }),
+    pickupRadiusBonus: resolveNumericModifier(atoms, 'exploration.pickupRadius', { base: 0 }),
+    companionCapacityBonus: resolveNumericModifier(atoms, 'social.companionCapacity', { base: 0 }),
   };
 }
 
