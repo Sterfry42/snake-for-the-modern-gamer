@@ -263,6 +263,33 @@ export const COMMON_EN: CommonTranslations = {
     stationResumeMessage: 'The snake resumes its journey.',
     travelToCoordinates: 'Travel to {coordinates}',
   },
+  // Rollercoaster
+  rollercoaster: {
+    boardCoaster: '🎢 BOARD COASTER',
+    departureAnnouncement: '🎢 The {coasterName} departs for {destination}!',
+    arrivalAnnouncement: '🎢 Next stop: {destination}!',
+    stationSign: 'Rollercoaster Station',
+    stationName: '{name} Coaster',
+    theme: {
+      'thunder-ridge': 'Thunder Ridge',
+      'neon-nights': 'Neon Nights',
+      'jungle-jolt': 'Jungle Jolt',
+      'arctic-avalanche': 'Arctic Avalanche',
+      'volcanic-veer': 'Volcanic Veer',
+      'cosmic-corkscrew': 'Cosmic Corkscrew',
+    },
+    boarding: '🎫 Boarding...',
+    climbing: '⬆️ Climbing...',
+    topOfHill: '😱 TOP OF THE HILL!',
+    ride: '🎢 WHEEE!',
+    arriving: '🛑 Arriving...',
+    liftHill: 'Lift Hill',
+    drop: 'Drop',
+    loop: 'Loop',
+    curve: 'Curve',
+    bridge: 'Bridge',
+    stationPlatform: 'Station Platform',
+  },
   // Child Hug
   childHug: {
     title: 'Precious Hug',
