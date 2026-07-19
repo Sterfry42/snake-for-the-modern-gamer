@@ -17,6 +17,9 @@ import { FEATURE_STRINGS_ES } from './languages/es/featureStrings.js';
 import { FEATURE_STRINGS_FR } from './languages/fr/featureStrings.js';
 import { ACTOR_VOICE_ES } from './languages/es/actorVoice.js';
 import { ACTOR_VOICE_FR } from './languages/fr/actorVoice.js';
+import { HUMAN_STRINGS_EN } from './languages/en/humanStrings.js';
+import { HUMAN_STRINGS_ES } from './languages/es/humanStrings.js';
+import { HUMAN_STRINGS_FR } from './languages/fr/humanStrings.js';
 import type {
   QuestTranslations,
   NpcTranslations,
@@ -24,6 +27,7 @@ import type {
   QuestStrings,
   FeatureStrings,
   ActorVoiceTranslations,
+  HumanTranslations,
 } from './types.js';
 
 class I18nManager {
@@ -37,6 +41,7 @@ class I18nManager {
       questStrings: QuestStrings;
       featureStrings: FeatureStrings;
       actorVoice?: ActorVoiceTranslations;
+      humanStrings: HumanTranslations;
     }
   > = {
     en: {
@@ -45,6 +50,7 @@ class I18nManager {
       common: COMMON_EN,
       questStrings: QUEST_STRINGS_EN,
       featureStrings: FEATURE_STRINGS_EN,
+      humanStrings: HUMAN_STRINGS_EN,
     },
     es: {
       questDialogue: QUEST_DIALOGUE_ES,
@@ -53,6 +59,7 @@ class I18nManager {
       questStrings: QUEST_STRINGS_ES,
       featureStrings: FEATURE_STRINGS_ES,
       actorVoice: ACTOR_VOICE_ES,
+      humanStrings: HUMAN_STRINGS_ES,
     },
     fr: {
       questDialogue: QUEST_DIALOGUE_FR,
@@ -61,6 +68,7 @@ class I18nManager {
       questStrings: QUEST_STRINGS_FR,
       featureStrings: FEATURE_STRINGS_FR,
       actorVoice: ACTOR_VOICE_FR,
+      humanStrings: HUMAN_STRINGS_FR,
     },
   };
 
@@ -105,6 +113,21 @@ class I18nManager {
 
   getActorVoice(entryId: string, part: 'line' | 'beat'): string | undefined {
     return this.translations[this.currentLanguage]?.actorVoice?.[entryId]?.[part];
+  }
+
+  getHumanString(key: string): string {
+    const current = (
+      this.translations[this.currentLanguage]?.humanStrings as unknown as Record<string, string>
+    )?.[key];
+    if (current !== undefined && current !== null) return current;
+    // Fallback to English
+    const en = (this.translations['en']?.humanStrings as unknown as Record<string, string>)?.[key];
+    if (en !== undefined && en !== null) return en;
+    return key;
+  }
+
+  getHumanEncounter(encounterId: string): import('./types.js').NpcTranslations[LanguageId] | undefined {
+    return this.translations[this.currentLanguage]?.npcEncounters?.[encounterId];
   }
 
   getBulletTrain(key: string): string {

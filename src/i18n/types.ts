@@ -990,3 +990,7 @@ export interface ActorVoiceTranslations {
     beat?: string;
   };
 }
+
+export interface HumanTranslations {
+  [key: string]: string;
+}
