@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-Bpr_u20u.js";class e extends s{constructor(){super("animal-ambassador","Animal Ambassador","Tame 5 different animal types")}isCompleted(a){return this.progressSinceAccept(a,"animalsTamed")>=5}baselineKeys(){return["animalsTamed"]}onReward(a){a.addScore(100),a.addItem("animal-whistle",1)}}const n=new e;export{n as default};

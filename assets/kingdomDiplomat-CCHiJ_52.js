@@ -1,0 +1,1 @@
+import{Q as t}from"./quest-Bpr_u20u.js";class o extends t{constructor(){super("kingdom-diplomat","Kingdom Diplomat","Attend a royal event")}isCompleted(e){return this.progressSinceAccept(e,"royalEventsAttended")>=1}baselineKeys(){return["royalEventsAttended"]}onReward(e){e.addScore(200),e.addItem("royal-invitation",1)}}const d=new o;export{d as default};

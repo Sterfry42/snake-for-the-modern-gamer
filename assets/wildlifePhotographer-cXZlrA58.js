@@ -1,0 +1,1 @@
+import{Q as o}from"./quest-Bpr_u20u.js";class r extends o{constructor(){super("wildlife-photographer","Wildlife Photographer","Take 10 wildlife photos")}isCompleted(e){return this.progressSinceAccept(e,"photosTaken")>=10}baselineKeys(){return["photosTaken"]}onReward(e){e.addScore(75),e.addItem("camera-film",5)}}const a=new r;export{a as default};

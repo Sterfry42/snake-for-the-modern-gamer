@@ -1,0 +1,1 @@
+import{Q as s}from"./quest-Bpr_u20u.js";class o extends s{constructor(){super("ecosystem-explorer","Ecosystem Explorer","Discover 5 different animal ecosystems")}isCompleted(e){return this.progressSinceAccept(e,"ecosystemsDiscovered")>=5}baselineKeys(){return["ecosystemsDiscovered"]}onReward(e){e.addScore(50),e.addItem("ecosystem-badge",1)}}const c=new o;export{c as default};

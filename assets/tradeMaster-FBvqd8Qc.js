@@ -1,0 +1,1 @@
+import{Q as r}from"./quest-Bpr_u20u.js";class s extends r{constructor(){super("trade-master","Trade Master","Make 20 purchases at animal markets")}isCompleted(e){return this.progressSinceAccept(e,"marketPurchases")>=20}baselineKeys(){return["marketPurchases"]}onReward(e){e.addScore(125),e.addItem("trade-goods",10)}}const d=new s;export{d as default};
