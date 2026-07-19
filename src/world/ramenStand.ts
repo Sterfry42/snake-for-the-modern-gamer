@@ -104,10 +104,10 @@ export function tryPlaceRamenStand(
     return null;
   }
 
-  const center = {
+  ({
     x: stand.left + Math.floor(stand.width / 2),
     y: stand.top + Math.floor(stand.height / 2),
-  };
+  });
 
   const safeArea = {
     left: stand.left,
@@ -143,7 +143,7 @@ export function tryPlaceRamenStand(
   const chefY = standTop + 2;
   setChar(layout, chefX, chefY, 'G');
 
-  const standName = STAND_NAMES[Math.floor(rng() * STAND_NAMES.length)]!;
+  STAND_NAMES[Math.floor(rng() * STAND_NAMES.length)]!;
 
   return {
     chef: {

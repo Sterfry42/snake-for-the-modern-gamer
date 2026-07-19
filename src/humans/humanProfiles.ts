@@ -9,7 +9,7 @@
  * gets unique statistics that influence their behavior in encounters,
  * trading, combat, and social interactions.
  */
-import { buildNpcStats, type NpcStats } from '../npcs/profiles.js';
+
 import {
   HUMAN_RESIDENT_NAMES,
   GUARD_NAMES,

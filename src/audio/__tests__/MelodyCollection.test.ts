@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { MelodyCollection } from '../MelodyCollection.js';
-import type { AppleGenre } from '../MusicalAppleMap.js';
 import type { MelodyFragmentProgress } from '../MelodyCollection.js';
 
 describe('MelodyCollection', () => {

@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { MinecraftPlayer, isWalkable, isWalkableWithCreativeOverride, canMineBlock, getToolTier } from '../player.js';
-import { getMinecraftItem } from '../itemRegistry.js';
 
 describe('MinecraftPlayer', () => {
   it('should create player with default stats', () => {

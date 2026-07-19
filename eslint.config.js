@@ -17,14 +17,23 @@ export default [
       '@typescript-eslint': tsPlugin,
     },
     rules: {
-      // Allow unused vars with underscore prefix (common in TypeScript)
+      // === UNUSED CODE DETECTION ===
+      // Catch unused variables, parameters, and function arguments.
+      // Allows underscore-prefixed names (TypeScript convention).
       '@typescript-eslint/no-unused-vars': ['error', {
+        args: 'after-used',
         argsIgnorePattern: '^_',
-        varsIgnorePattern: '^_',
+        caughtErrors: 'all',
         caughtErrorsIgnorePattern: '^_',
+        destructuredArrayIgnorePattern: '^_',
+        ignoreRestSiblings: true,
+        vars: 'all',
+        varsIgnorePattern: '^_',
       }],
-      // Warn on unused expressions
+      // Warn on unused expressions (side-effect-free)
       '@typescript-eslint/no-unused-expressions': 'warn',
+
+      // === PERMISSIVE RULES (for now) ===
       // Allow void expressions
       '@typescript-eslint/no-floating-promises': 'off',
       // Allow any for now

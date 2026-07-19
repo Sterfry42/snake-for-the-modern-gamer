@@ -12,7 +12,6 @@
 
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
-import { i18n } from '../i18n/i18nManager.js';
 import type { AlchemyManager } from '../inventory/alchemy/AlchemyManager.js';
 import type { CraftResult } from '../inventory/alchemy/alchemyTypes.js';
 

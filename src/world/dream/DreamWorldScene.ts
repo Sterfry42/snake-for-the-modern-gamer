@@ -28,13 +28,13 @@ import type {
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const DREAM_BG_COLOR = 0x1a0a2e;
+const _DREAM_BG_COLOR = 0x1a0a2e;
 const DREAM_BRIDGE_COLOR = 0xff69b4;
 const DREAM_ISLAND_COLOR = 0x4a3060;
 const DREAM_ISLAND_HIGHLIGHT = 0x6a5080;
-const DREAM_TEXT_COLOR = 0xe6e6fa;
+const _DREAM_TEXT_COLOR = 0xe6e6fa;
 const DREAM_HUD_BG_ALPHA = 0.7;
-const DREAM_SHARD_COLOR = 0xffd700;
+const _DREAM_SHARD_COLOR = 0xffd700;
 
 const DREAM_ISLAND_COUNT = 7;
 const DREAM_BRIDGE_COUNT = 8;
@@ -886,7 +886,7 @@ export class DreamWorldScene {
     }
   }
 
-  protected getNextUndiscoveredLore(collected: string[]): import('./dreamLore.js').LoreFragment | undefined {
+  protected getNextUndiscoveredLore(_collected: string[]): import('./dreamLore.js').LoreFragment | undefined {
     // Simple synchronous check - in production, lore would be pre-loaded
     // This is a placeholder that returns undefined
     return undefined;

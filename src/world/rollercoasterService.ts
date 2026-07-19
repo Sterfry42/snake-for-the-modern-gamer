@@ -237,7 +237,7 @@ export function generateTrackSegments(
   rng: RandomGenerator,
 ): RollercoasterTrackSegment[] {
   const segments: RollercoasterTrackSegment[] = [];
-  const theme = pickTheme(rng);
+  pickTheme(rng);
 
   // Station platform at entrance
   segments.push({
@@ -453,7 +453,7 @@ export function generateTransitRooms(
 /** Build a weighted list of destination choices for the player. */
 export function buildDestinationChoices(
   destinations: RollercoasterDestination[],
-  rng: RandomGenerator,
+  _rng: RandomGenerator,
 ): RollercoasterDestinationChoice[] {
   return destinations.map((d) => ({
     roomId: d.roomId,

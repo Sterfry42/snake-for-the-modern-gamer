@@ -451,7 +451,7 @@ function isAdjacentToWater(room: RoomSnapshot, x: number, y: number): boolean {
 
 function getWaterTilesFromLayout(layout: string[]): Array<{ x: number; y: number }> {
   const result: Array<{ x: number; y: number }> = [];
-  const rows = layout.length > 0 ? layout[0].split('') : [];
+  layout.length > 0 ? layout[0].split('') : [];
   for (let y = 0; y < layout.length; y++) {
     const row = layout[y] ?? '';
     for (let x = 0; x < row.length; x++) {

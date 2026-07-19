@@ -440,7 +440,7 @@ export class SaveLoadMenu {
 
   private calculateHeight(): number {
     const baseHeight = 140; // title + back button area
-    const sectionGap = 28;
+    28;
     const entryHeight = this.entryHeight;
 
     let contentH = 0;

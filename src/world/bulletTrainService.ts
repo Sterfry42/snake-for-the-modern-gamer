@@ -305,7 +305,7 @@ export function generateTransitRooms(
 /** Build a weighted list of destination choices for the player to pick from. */
 export function buildDestinationChoices(
   destinations: BulletTrainDestination[],
-  rng: RandomGenerator,
+  _rng: RandomGenerator,
 ): BulletTrainDestinationChoice[] {
   return destinations.map((d) => ({
     roomId: d.roomId,

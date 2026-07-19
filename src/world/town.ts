@@ -588,23 +588,6 @@ function fillRect(
   }
 }
 
-function canPlaceRect(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  forbiddenCells?: ReadonlySet<string>,
-): boolean {
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      if (layout[y]?.[x] !== '.') return false;
-      if (forbiddenCells?.has(vectorKey({ x, y }))) return false;
-    }
-  }
-  return true;
-}
-
 function roomId(townId: string, kind: TownRoomKind): string {
   return `${townId}:${kind}`;
 }
@@ -626,19 +609,6 @@ function roomIdOnSide(roomIdValue: string, side: TownGateSide): string {
       return `${coord.x + 1},${coord.y},${coord.z}`;
     case 'west':
       return `${coord.x - 1},${coord.y},${coord.z}`;
-  }
-}
-
-function oppositeGateSide(side: TownGateSide): TownGateSide {
-  switch (side) {
-    case 'north':
-      return 'south';
-    case 'south':
-      return 'north';
-    case 'east':
-      return 'west';
-    case 'west':
-      return 'east';
   }
 }
 
@@ -1403,26 +1373,6 @@ export function cloneTown(town: TownStructure): TownStructure {
   };
 }
 
-function drawBuilding(
-  layout: string[][],
-  left: number,
-  top: number,
-  width: number,
-  height: number,
-  kind: TownRoomKind,
-): void {
-  for (let y = top; y < top + height; y += 1) {
-    for (let x = left; x < left + width; x += 1) {
-      const border = x === left || x === left + width - 1 || y === top || y === top + height - 1;
-      setChar(layout, x, y, border ? '#' : 'W');
-    }
-  }
-  const doorX = left + Math.floor(width / 2);
-  const doorY = top + height - 1;
-  setChar(layout, doorX, doorY, '.');
-  setChar(layout, doorX, doorY - 1, kind === 'backAlley' ? 'T' : 'S');
-}
-
 function rollTownLaws(townId: string, mood: TownMood, rng: RandomGenerator): TownLaw[] {
   const pool: TownLaw[] = [
     {
@@ -1764,16 +1714,6 @@ function drawConnectedRoad(
   return mode;
 }
 
-function exteriorConnectionSides(
-  connections: Partial<Record<ExitSide, string>>,
-  town: TownStructure,
-): ExitSide[] {
-  return (Object.keys(connections) as ExitSide[]).filter((side) => {
-    const roomId = connections[side];
-    return !roomId || !town.districtByRoomId[roomId];
-  });
-}
-
 function stampNpc(
   layout: string[][],
   x: number,
@@ -1918,25 +1858,6 @@ function drawFenceRun(
     if (y !== to.y) y += dy;
   }
   setChar(layout, to.x, to.y, 'P');
-}
-
-function drawGatehouse(
-  layout: string[][],
-  side: ExitSide,
-  center: { x: number; y: number },
-  grid: GridConfig,
-): void {
-  if (side === 'west' || side === 'east') {
-    const x = side === 'west' ? 2 : grid.cols - 3;
-    fillRect(layout, x, center.y - 3, 1, 7, 'x');
-    fillRect(layout, x + (side === 'west' ? 1 : -1), center.y - 5, 2, 2, '#');
-    fillRect(layout, x + (side === 'west' ? 1 : -1), center.y + 4, 2, 2, '#');
-    return;
-  }
-  const y = side === 'north' ? 2 : grid.rows - 3;
-  fillRect(layout, center.x - 3, y, 7, 1, 'x');
-  fillRect(layout, center.x - 6, y + (side === 'north' ? 1 : -1), 2, 2, '#');
-  fillRect(layout, center.x + 5, y + (side === 'north' ? 1 : -1), 2, 2, '#');
 }
 
 function gateGuardPositionForSide(

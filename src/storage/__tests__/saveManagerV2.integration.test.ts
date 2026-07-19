@@ -46,7 +46,7 @@ describe('SaveManagerV2 Integration', () => {
 
   beforeEach(() => {
     storage = new Map();
-    manager = new SaveManagerV2((prefix) => createMockStore<GameSaveData>(storage));
+    manager = new SaveManagerV2((_prefix) => createMockStore<GameSaveData>(storage));
   });
 
   it('saves and loads with key prefix isolation', async () => {
@@ -124,7 +124,7 @@ describe('SaveManagerV2 Integration', () => {
 
   it('storage factory is used when provided', async () => {
     const testStorage = new Map<string, GameSaveData>();
-    const testManager = new SaveManagerV2((prefix) => createMockStore<GameSaveData>(testStorage));
+    const testManager = new SaveManagerV2((_prefix) => createMockStore<GameSaveData>(testStorage));
 
     await testManager.save('test-slot', makeSaveData({ score: 777 }));
 

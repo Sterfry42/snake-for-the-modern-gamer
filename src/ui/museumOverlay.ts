@@ -22,7 +22,6 @@ import {
   getExhibitData,
   calculateMuseumBonuses,
   getAvailableUpgrades,
-  getLockedUpgrades,
   canUnlockUpgrade,
 } from '../archaeology/MuseumManager.js';
 import { getFossilSet } from '../archaeology/fossilRegistry.js';
@@ -114,7 +113,7 @@ export function tryUnlockUpgrade(
   );
 
   if (upgrade) {
-    const fossilSet = getFossilSet(upgradeId);
+    getFossilSet(upgradeId);
     state.notifications.push({
       message: `Research unlocked: ${upgrade.name}!`,
       type: 'success',
@@ -147,8 +146,8 @@ export function getExhibitTooltip(fossilSetId: string): string {
 /**
  * Get upgrade requirement text.
  */
-export function getUpgradeRequirements(upgradeId: string): string {
-  const { getLockedUpgrades: getLocked } = require('../archaeology/MuseumManager.js');
+export function getUpgradeRequirements(_upgradeId: string): string {
+  const { getLockedUpgrades: _getLocked } = require('../archaeology/MuseumManager.js');
   // This would need proper module access in actual implementation
   return 'Requirements not available';
 }

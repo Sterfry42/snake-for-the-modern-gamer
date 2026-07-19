@@ -11,7 +11,7 @@
  * - The wise old snake's garden NPC was said to be the first gardener
  */
 import type { NpcProfile } from './profiles.js';
-import { buildNpcStats, buildHouseNpcProfile } from './profiles.js';
+import { buildNpcStats } from './profiles.js';
 
 /** Garden NPC profile — the ghost gardener who teaches apple farming. */
 export const GARDEN_NPC_PROFILE: NpcProfile = {

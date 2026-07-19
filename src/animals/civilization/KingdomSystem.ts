@@ -11,7 +11,6 @@
  * - The wise old snake's kingdom was peace
  * - The wise old snake's kingdom was love
  */
-import type { AnimalType } from '../types.js';
 import type { Settlement } from './AnimalSettlement.js';
 import type { KingdomRulerType } from '../ecosystem/types.js';
 

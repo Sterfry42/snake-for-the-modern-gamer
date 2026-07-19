@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { GenreDetector } from '../GenreDetector.js';
-import type { AppleGenre } from '../MusicalAppleMap.js';
 import { getGenreDefinition } from '../MusicalAppleMap.js';
 
 describe('GenreDetector', () => {

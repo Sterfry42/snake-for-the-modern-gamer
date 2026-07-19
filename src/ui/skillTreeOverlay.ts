@@ -10,16 +10,13 @@ import { getItem } from '../inventory/itemRegistry.js';
 import { isLocatorItemId } from '../world/biomeLocators.js';
 import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
-import { saveManager } from '../game/saveManager.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
 import {
-  CHEAT_DEFINITIONS,
   getCheatsByCategory,
   getCategoryLabel,
-  type CheatCategory,
 } from '../cheats/cheatRegistry.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
@@ -48,7 +45,7 @@ import {
   TREE_PADDING,
   type PauseMenuLayout,
 } from './core/PauseMenuLayout.js';
-import { uiColors, uiMotion, uiSpacing, uiTypography } from './theme/uiTokens.js';
+import { uiColors, uiMotion } from './theme/uiTokens.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import type { AchievementUnlockResult } from '../achievements/achievementTypes.js';
 import { AchievementTreeOverlay } from './achievementTreeOverlay.js';
@@ -1330,7 +1327,7 @@ export class SkillTreeOverlay {
     }
   }
 
-  private drawSpecialUi(view: SpecialStatsView): void {
+  private drawSpecialUi(_view: SpecialStatsView): void {
     const g = this.specialUiGraphics;
     g.clear();
     const mainX = MAIN_PANEL_X - 12;
@@ -8467,7 +8464,7 @@ export class SkillTreeOverlay {
       return;
     }
     const layout = this.getPauseMenuLayout();
-    const gap = 10;
+    const _gap = 10;
     let x = layout.footer.x + 14;
     const y = layout.footer.y + 10;
     for (const hint of hints.slice(0, 5)) {

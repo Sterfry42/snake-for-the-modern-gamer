@@ -63,7 +63,7 @@ export class RollercoasterRenderer {
     entranceY: number,
     theme: string,
   ): void {
-    const { cell } = this;
+    this.cell;
     const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
     const trackColor = themeColors[0];
     const railColor = themeColors[1] ?? trackColor;

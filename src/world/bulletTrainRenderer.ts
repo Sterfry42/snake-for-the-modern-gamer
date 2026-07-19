@@ -206,8 +206,8 @@ export class BulletTrainRenderer {
     this.graphics.fillRect(x + cell - 7, y + 10, 3, 4);
   }
 
-  private drawSign(x: number, y: number, text: string): void {
-    const { cell } = this;
+  private drawSign(x: number, y: number, _text: string): void {
+    this.cell;
 
     // Sign post
     this.graphics.lineStyle(2, 0x555555, 0.8);
@@ -267,7 +267,7 @@ export class BulletTrainRenderer {
   } {
     const width = scene.scale.width;
     const height = scene.scale.height;
-    const cell = 24;
+    24;
 
     // Window background (mountain sky) - simplified without gradients
     const windowBg = scene.add.graphics();

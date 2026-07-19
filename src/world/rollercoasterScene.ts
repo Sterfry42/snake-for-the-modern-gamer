@@ -75,7 +75,7 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
 
   // === PHASE 4: BRAKING & ARRIVAL (80-100%) ===
   const brakeStart = dropStart + mainRideDuration;
-  const arrivalDuration = totalDuration - brakeStart;
+  totalDuration - brakeStart;
 
   // Main ride canvas
   const rideCanvas = scene.add.graphics().setDepth(500).setScrollFactor(0);
@@ -144,19 +144,19 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
 
   // Scenery offset for parallax
   let sceneryOffset = 0;
-  let lastSpeed = 0;
+  // let _lastSpeed = 0;
   let maxAltitude = 0;
 
   // Main ride animation loop
   const rideState = { progress: 0 };
-  const rideTween = scene.tweens.add({
+  scene.tweens.add({
     targets: rideState,
     progress: 1,
     duration: totalDuration,
     ease: 'Linear',
     onUpdate: () => {
       const progress = rideState.progress;
-      const elapsed = progress * totalDuration;
+      progress * totalDuration;
       sceneryOffset += 2 + progress * 5;
 
       // Calculate speed based on phase
@@ -248,7 +248,7 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
         flavorText.setAlpha(0);
       }
 
-      lastSpeed = speed;
+      // lastSpeed = speed;
     },
     onComplete: () => {
       // Clean up
@@ -355,7 +355,7 @@ function drawRollercoasterTrack(
   graphics: Phaser.GameObjects.Graphics,
   width: number,
   height: number,
-  progress: number,
+  _progress: number,
   theme: RollercoasterTheme,
 ): void {
   const themeColors = THEME_CONFIG[theme].colors;
@@ -421,14 +421,14 @@ function drawRollercoasterCar(
   graphics: Phaser.GameObjects.Graphics,
   width: number,
   height: number,
-  progress: number,
+  _progress: number,
   speed: number,
   carVisual: RollercoasterCarVisual,
-  theme: RollercoasterTheme,
+  _theme: RollercoasterTheme,
 ): void {
   // Calculate car position on track
   const trackPoints = 20;
-  const carIndex = Math.min(progress * (trackPoints - 1), trackPoints - 1);
+  const carIndex = Math.min(_progress * (trackPoints - 1), trackPoints - 1);
   const t = carIndex;
 
   const x = width * 0.1 + (t / (trackPoints - 1)) * width * 0.8;

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultAtmosphereConfig } from '../../../config/gameConfig.js';
 import { WorldAtmosphereSystem } from '../../atmosphereSystem.js';
-import { WeatherSpawnModifiers, AppleService } from '../../../apples/appleService.js';
+import { AppleService } from '../../../apples/appleService.js';
 import type { AtmosphereState } from '../../atmosphereTypes.js';
 
 describe('Weather Modifiers', () => {

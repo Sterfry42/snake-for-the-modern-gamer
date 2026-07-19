@@ -276,7 +276,7 @@ export function checkFossilAssembly(
 export function assembleFossil(
   discoveredFragments: DiscoveredFossil[],
   fossilSetId: string,
-  assemblyQuality: number,
+  _assemblyQuality: number,
 ): CompletedFossil | null {
   const { canAssemble } = checkFossilAssembly(
     discoveredFragments,

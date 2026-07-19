@@ -1,6 +1,5 @@
 import type { MinecraftSaveData } from './types.js';
 import { PLAYER_MAX_HEALTH, PLAYER_MAX_HUNGER } from './config.js';
-import { RECIPES } from './crafting.js';
 
 export function serializeMinecraftState(
   playerState: {

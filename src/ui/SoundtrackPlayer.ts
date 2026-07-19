@@ -165,7 +165,7 @@ export class SoundtrackPlayer {
     container.add(title);
 
     // View tabs
-    const viewTabs = this.buildViewTabs(container);
+    this.buildViewTabs(container);
 
     // Track list container
     const trackList = scene.add.container(10, 50);
@@ -219,7 +219,7 @@ export class SoundtrackPlayer {
 
     for (let i = 0; i < views.length; i++) {
       const view = views[i];
-      const x = i * (tabWidth + tabGap);
+      i * (tabWidth + tabGap);
 
       const tabBg = scene.add.rectangle(0, 0, tabWidth, 20, 0x2a2a3a, 0.8)
         .setStrokeStyle(1, 0x666666, 0.5)

@@ -81,7 +81,7 @@ const HAT_BRIM = [
   [6, 4],
 ];
 
-const HAT_BAND = [
+const _HAT_BAND = [
   [2, 3],
   [3, 3],
   [4, 3],

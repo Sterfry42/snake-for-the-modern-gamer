@@ -15,7 +15,6 @@ import { getAllBiomeDefinitions, getBiomeDefinition } from './biomes.js';
 import type { Item } from '../inventory/item.js';
 import { SeededBiomeMap } from './generation/biomeMap.js';
 import {
-  createWorldGenerationIdentity,
   type WorldGenerationIdentity,
 } from './generation/worldGenerationIdentity.js';
 

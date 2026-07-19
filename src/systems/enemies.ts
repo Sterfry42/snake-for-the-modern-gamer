@@ -584,7 +584,7 @@ export class EnemyManager {
     roomId: string,
     room: RoomSnapshot,
     obstacleSet: ReadonlySet<string>,
-    rng: RandomGenerator,
+    _rng: RandomGenerator,
   ): { dir: Vector2Like; nextLocal: Vector2Like } | null {
     const head = snake.body[0];
     const currentDir = snake.aimDirection ?? { x: 1, y: 0 };

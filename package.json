@@ -14,7 +14,12 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "vitest run",
     "lint": "eslint src/ --max-warnings 0",
-    "lint:fix": "eslint src/ --fix"
+    "lint:fix": "eslint src/ --fix",
+    "lint:unused": "npm run lint -- --rule \"@typescript-eslint/no-unused-vars:error\"",
+    "lint:unused:ci": "npm run lint -- --max-warnings 0",
+    "lint:unused-exports": "node scripts/check-unused-exports.mjs",
+    "lint:unused-files": "node scripts/check-unused-files.mjs",
+    "lint:unused:all": "npm run lint:unused:ci && npm run lint:unused-exports && npm run lint:unused-files"
   },
   "devDependencies": {
     "@types/node": "^26.1.1",

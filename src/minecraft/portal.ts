@@ -269,7 +269,7 @@ export function tryActivatePortal(
   }
 
   // Check for obsidian frame
-  const frameBlocks = [
+  const _frameBlocks = [
     'obsidian',
     'obsidian',
     'obsidian',
@@ -290,7 +290,7 @@ export function tryActivatePortal(
     portalManager.activatePortal(portalId);
 
     // Set portal interior blocks
-    for (const block of interiorBlocks) {
+    for (const _block of interiorBlocks) {
       // Mark interior as portal blocks
     }
 
@@ -319,7 +319,7 @@ export function generatePortalRoom(
   room: RoomSnapshot,
 ): void {
   // Create an obsidian platform
-  const platformSize = Math.max(width, height) + 4;
+  const _platformSize = Math.max(width, height) + 4;
 
   for (let dx = -2; dx <= 2; dx++) {
     for (let dy = -2; dy <= 2; dy++) {

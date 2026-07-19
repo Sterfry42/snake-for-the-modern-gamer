@@ -1,7 +1,7 @@
 import type { MobTypeId } from './types.js';
 import { MobManager } from './mobManager.js';
 import { LightingSystem } from './lighting.js';
-import { PLAYER_MAX_HEALTH } from './config.js';
+
 
 // ─── Mob Spawner Types ──────────────────────────────────────────────────────
 
@@ -366,7 +366,7 @@ export class MobSpawnerManager {
     // Handle mob death drops
     const mob = mobManager.getMob(Array.from(mobManager['mobs'].values()).pop()?.id ?? '');
     if (mob) {
-      mobManager.onMobDeath(mob.id, (itemId, count) => {
+      mobManager.onMobDeath(mob.id, (_itemId, _count) => {
         // Drops would be handled by the game
       });
     }
@@ -419,8 +419,8 @@ export function activateSpawner(
   x: number,
   y: number,
   roomId: string,
-  playerX: number,
-  playerY: number,
+  _playerX: number,
+  _playerY: number,
 ): { success: boolean; message?: string } {
   const spawner = spawnerManager.getSpawner(x, y, roomId);
   if (!spawner) {

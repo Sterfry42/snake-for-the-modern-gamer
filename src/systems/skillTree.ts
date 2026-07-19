@@ -1468,7 +1468,7 @@ const BRANCHES: readonly BranchConfig[] = [
   ENTROPY_BRANCH,
 ];
 
-function buildPerkDefinitions(): SkillPerkDefinition[] {
+function _buildPerkDefinitions(): SkillPerkDefinition[] {
   const definitions: SkillPerkDefinition[] = [];
 
   for (let branchIndex = 0; branchIndex < BRANCHES.length; branchIndex += 1) {

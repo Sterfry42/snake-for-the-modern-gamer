@@ -253,7 +253,7 @@ describe('DreamManager', () => {
       manager.beginDreamSession('dream');
       manager.recordShardCollection(25);
       manager.recordLoreDiscovery('lore.test');
-      const session = manager.getCurrentSession();
+      manager.getCurrentSession();
       manager.endDreamSession();
 
       const saveData = manager.getSaveData();

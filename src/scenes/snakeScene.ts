@@ -93,7 +93,6 @@ import {
 import {
   resolveDesertMusicState,
   DesertWebAudioFontMusic,
-  type DesertMusicState,
 } from '../audio/desertWebAudioFontMusic.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
@@ -155,7 +154,6 @@ import {
   formatTownMood,
   getTownDistrictForRoom,
   getTownRoom,
-  townDistrictDisplayName,
   townResidentsForRoom,
   type TownDistrictKind,
   type TownStructure,
@@ -167,7 +165,6 @@ import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_SOLD_HATS,
   VILLAGE_SHOP_STYLES,
-  VILLAGE_SHOP_COWBELLS,
   BLACK_MARKET_STYLES,
   ensurePermanentBlackMarketSupplies,
   getBlackMarketDefinition,
@@ -176,8 +173,6 @@ import {
   type VillageShopEquipmentOffer,
   type VillageShopHatId,
   type VillageShopHatOffer,
-  type VillageShopCowbellId,
-  type VillageShopCowbellOffer,
   type VillageShopStyleOffer,
   type VillageShopStyleId,
 } from '../shops/villageShop.js';
@@ -209,7 +204,6 @@ import { getLibertyNpcLine, type LibertyNpcRole } from '../world/libertyBadlands
 import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
 import {
   CARD_DEFINITIONS,
-  CARD_SHOP_OFFERS,
   CARD_TABLES,
   beginCardRound,
   countCards,
@@ -224,7 +218,6 @@ import {
   getCardWagerOptions,
   getHandSizeForRound,
   getHouseCardDefinition,
-  getLegalCardWagers,
   removeDestroyedCardsFromCollection,
   scoreCardHand,
   type CardCollection,
@@ -244,21 +237,20 @@ import {
   type DigSiteVariantId,
 } from '../archaeology/molemanArchaeology.js';
 import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.js';
-import { FishingRegistry, type FishingRegistryOptions } from '../fishing/fishingRegistry.js';
+import { FishingRegistry } from '../fishing/fishingRegistry.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
 import type { CharacterCreationMods } from '../features/characterCreationDefinitions.js';
 import type { LevelUpResult } from '../stats/levelProgression.js';
 import { FishingMinigame } from '../fishing/fishingMinigame.js';
-import { hasAdjacentWater, roomHasWater } from '../fishing/waterDetection.js';
-import { getFishDefinition } from '../fishing/fishDefinitions.js';
+import { hasAdjacentWater } from '../fishing/waterDetection.js';
 import type {
   FishingState as FishingGameState,
   FishingSessionResult,
   FishCatchResult,
   CatchEntry,
 } from '../fishing/types.js';
-import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
+
 import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
 import {
   ACHIEVEMENT_DEFINITIONS,
@@ -2831,7 +2823,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Capture boss maxHealth before deletion, compute decayed score
     const boss = this.snakeGame.bosses.getBoss(bossId);
-    const maxHealth = boss?.maxHealth ?? 100;
+    boss?.maxHealth ?? 100;
     this.jasonDefeatCount += 1;
     const BASE_JASON_SCORE = 100;
     const decay = Math.pow(0.6, this.jasonDefeatCount - 1);
@@ -6241,9 +6233,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   saveGameToSession(
-    religionChoice?: unknown,
-    classChoice?: unknown,
-    backgroundChoice?: unknown,
+    _religionChoice?: unknown,
+    _classChoice?: unknown,
+    _backgroundChoice?: unknown,
   ): void {
     // Auto-escape from fishing before saving
     this.autoEscapeFromFishing();
@@ -8709,7 +8701,7 @@ export default class SnakeScene extends Phaser.Scene {
           const dx = Math.abs(enemy.position.x - head.x);
           const dy = Math.abs(enemy.position.y - head.y);
           if (dx <= 5 && dy <= 5) {
-            const hit = (this.snakeGame as any).enemies.damageEnemyAt(
+            (this.snakeGame as any).enemies.damageEnemyAt(
               currentRoomId,
               enemy.position,
               1,
@@ -10116,7 +10108,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastVisibleLifeCharges = lifeCharges;
     this.livesHud.setText(`Lives: ${lifeCharges + 1}`);
     this.livesHud.setVisible(!this.isInHouse() && !this.snakeGame.isRaccoonMode());
-    const livesBounds = this.livesHud.getBounds();
+    this.livesHud.getBounds();
     const screenBottom = this.grid.rows * this.grid.cell;
     const bottomY = screenBottom - 22;
     this.temperatureHud.setPosition(8, bottomY);
@@ -10769,7 +10761,7 @@ export default class SnakeScene extends Phaser.Scene {
       hats: definition.hats.filter((offer) =>
         stock.hatIds.includes(offer.id),
       ) as VillageShopHatOffer[],
-      cowbells: definition.cowbells.filter((offer) => true),
+      cowbells: definition.cowbells.filter(() => true),
       supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
       fishSales: definition.fishSales,
     };
@@ -11296,7 +11288,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.fishingActive) return;
 
     this.fishingEscapePending = true;
-    const result = this.fishingRegistry.abortFishing(this.fishingGameState!);
+    this.fishingRegistry.abortFishing(this.fishingGameState!);
     this.fishingMinigame?.stop();
     this.fishingActive = false;
     this.fishingGloveLocked = false;
@@ -12935,7 +12927,7 @@ export default class SnakeScene extends Phaser.Scene {
     fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
     highStakes = false,
   ): void {
-    const table = getCardTable(tableId);
+    getCardTable(tableId);
     if (
       wagerScore <= 0 ||
       this.score < wagerScore ||
@@ -14045,7 +14037,7 @@ export default class SnakeScene extends Phaser.Scene {
   private drawBulletTrainStation(station: BulletTrainStation): void {
     const cell = this.grid.cell;
     const { entranceX, entranceY, decorations } = station;
-    const room = this.snakeGame.getCurrentRoom();
+    this.snakeGame.getCurrentRoom();
     const roomWidth = this.grid.cols;
 
     // === BALLAST / GRAVEL BED ===
@@ -14293,7 +14285,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics.fillCircle((entranceX + 0.65) * cell, (entranceY + 0.75) * cell, 2);
 
     // Draw the @ entrance marker using text object
-    const atText = this.add
+    this.add
       .text((entranceX + 0.5) * cell, (entranceY + 0.5) * cell, '@', {
         fontFamily: 'monospace',
         fontSize: `${Math.floor(cell * 0.6)}px`,
@@ -15507,7 +15499,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleSnakeCanesResult(
     entry: import('../ui/comboSpinner.js').ComboSpinnerEntry,
-    sc: SnakeCanesData,
+    _sc: SnakeCanesData,
   ): void {
     const inventory = this.snakeGame.getInventory();
     const item = getItem(entry.id);
@@ -17459,7 +17451,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (optionId !== 'shop') {
       return false;
     }
-    const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
+    profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
     return false;
   }
 
@@ -19704,7 +19696,7 @@ export default class SnakeScene extends Phaser.Scene {
     const head = this.snakeGame.getSnakeBody()[0];
     let flipX = false;
     if (head) {
-      const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+      const [roomX] = this.parseRoomCoordinates(room.id);
       const headLocalX = head.x - roomX * this.grid.cols;
       if (disposition.hostility !== 'friendly' && headLocalX !== giver.x) {
         flipX = headLocalX < giver.x;

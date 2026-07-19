@@ -1,5 +1,5 @@
 import type { MinecraftPlayer } from './player.js';
-import type SnakeScene from '../scenes/snakeScene.js';
+
 
 // ─── Enchantment Types ──────────────────────────────────────────────────────
 
@@ -838,7 +838,7 @@ export function getEnchantmentBonus(
   return enchanted.enchantments.get(enchantmentId) ?? 0;
 }
 
-function playerStateHasEnchantedItem(itemId: string): boolean {
+function playerStateHasEnchantedItem(_itemId: string): boolean {
   return false;
 }
 
@@ -881,7 +881,7 @@ export function getCropDropMultiplier(itemId: string): number {
 export function getProtectionReduction(player: MinecraftPlayer): number {
   let totalProtection = 0;
 
-  const protectionLevels: Array<{ armorItem: string; enchantmentId: EnchantmentId }> = [
+  const _protectionLevels: Array<{ armorItem: string; enchantmentId: EnchantmentId }> = [
     { armorItem: 'helmet', enchantmentId: 'protection' },
     { armorItem: 'chestplate', enchantmentId: 'protection' },
     { armorItem: 'leggings', enchantmentId: 'protection' },

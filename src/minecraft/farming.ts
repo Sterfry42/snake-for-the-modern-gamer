@@ -91,7 +91,7 @@ export function tryPlantPumpkin(
   }
 
   const neighbors = [`${x - 1},${y}`, `${x + 1},${y}`, `${x},${y - 1}`, `${x},${y + 1}`];
-  const hasPumpkin = neighbors.some((n) => room.minecraftBlocks?.[n] === 'pumpkin');
+  neighbors.some((n) => room.minecraftBlocks?.[n] === 'pumpkin');
 
   if (player.getItemCount('pumpkin_item') <= 0) {
     return { success: false, message: "You don't have a pumpkin to plant." };

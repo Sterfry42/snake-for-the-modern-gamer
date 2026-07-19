@@ -4,10 +4,8 @@ import {
   findCheatByCode,
   getAllCheatAliases,
   getCategoryLabel,
-  getCategoryOrder,
   getCheatsByCategory,
   CATEGORY_ORDER,
-  type CheatCategory,
 } from '../cheatRegistry.js';
 
 describe('Cheat registry', () => {

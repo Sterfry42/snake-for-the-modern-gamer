@@ -325,7 +325,7 @@ export class PotionSystem {
   private calculateCraftRarity(recipe: ReturnType<RecipeManager['getRecipe']>): IngredientRarity {
     if (!recipe) return 'common';
 
-    for (const { itemId } of recipe.ingredients) {
+    for (const { itemId: _itemId } of recipe.ingredients) {
       // Simplified: use the recipe's minIngredientRarity if set, otherwise default
     }
 

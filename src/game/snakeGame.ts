@@ -15784,7 +15784,7 @@ export class SnakeGame implements QuestRuntime {
     }
     const counter = (this.getFlag<number>('fortitude.regeneratorCounter') ?? 0) + 1;
     if (counter >= interval) {
-      const growAmount = Math.max(1, amount);
+      Math.max(1, amount);
       for (let i = 0; i < amount; i += 1) {
         this.snake.grow(1);
       }

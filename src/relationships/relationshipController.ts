@@ -1806,7 +1806,7 @@ export class RelationshipController {
     }
   }
 
-  private childCatchLine(state: RelationshipState, caught: boolean, score: number, maxScore: number): string {
+  private childCatchLine(state: RelationshipState, caught: boolean, _score: number, _maxScore: number): string {
     const personality = this.getPersonality(state);
     const child = state.children[0];
 

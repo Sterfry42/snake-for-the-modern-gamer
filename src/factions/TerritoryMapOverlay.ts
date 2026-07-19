@@ -236,7 +236,7 @@ export class TerritoryMapOverlay {
   private createLabel(
     territory: TerritoryDefinition,
     position: { x: number; y: number },
-    ownership: TerritoryOwnership,
+    _ownership: TerritoryOwnership,
   ): Phaser.GameObjects.Text {
     const name = this.scene.add.text(position.x + 20, position.y, territory.name, {
       fontSize: '11px',

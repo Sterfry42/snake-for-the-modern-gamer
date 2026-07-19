@@ -1,6 +1,6 @@
 import type { BlockData, ChunkKey, ChunkState } from './types.js';
 import { CHUNK_SIZE, MAX_WORLD_CHUNKS } from './config.js';
-import { isMinecraftBlockType, getBlockType, isLightSource } from './blockRegistry.js';
+
 
 function hashString(str: string): number {
   let hash = 0;
@@ -11,7 +11,7 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-function seededRandom(seed: number): () => number {
+function _seededRandom(seed: number): () => number {
   let state = seed;
   return () => {
     state = (state * 1664525 + 1013904223) | 0;
@@ -341,14 +341,14 @@ export class ChunkManager {
 
   private unloadOldest(): void {
     let oldestKey: string | null = null;
-    let oldestState: ChunkState | null = null;
+    let _oldestState: ChunkState | null = null;
     let oldestTicks = Infinity;
 
     for (const [key, state] of this.chunks) {
       const ticks = state.key.chunkX + state.key.chunkY;
       if (ticks < oldestTicks) {
         oldestKey = key;
-        oldestState = state;
+        _oldestState = state;
         oldestTicks = ticks;
       }
     }

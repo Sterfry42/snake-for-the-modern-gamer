@@ -2,28 +2,24 @@ import { Feature } from '../features/feature.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { RoomSnapshot } from '../world/types.js';
 import type SnakeScene from '../scenes/snakeScene.js';
-import { MinecraftPlayer, isWalkable, canMineBlock, isWalkableWithCreativeOverride } from './player.js';
+import { MinecraftPlayer } from './player.js';
 import { ChunkManager } from './chunk.js';
 import { MinecraftRenderLayer } from './renderLayer.js';
 import { MobManager } from './mobManager.js';
 import { DayNightCycle } from './dayNight.js';
 import { LightingSystem } from './lighting.js';
 import { tryBreakBlock, tryPlaceBlock, tryBreakBlockCreative, tryPlaceBlockCreative } from './blockInteraction.js';
-import { RECIPES, getRecipeById, canCraft, craft as craftRecipe, getCraftingTableRecipes } from './crafting.js';
+import { getRecipeById, canCraft, craft as craftRecipe, getCraftingTableRecipes } from './crafting.js';
 import type { MinecraftSaveData } from './types.js';
 import {
   serializeMinecraftState,
   deserializeMinecraftState,
-  getDefaultPlayerState,
 } from './save.js';
-import { PLAYER_MAX_HEALTH, PLAYER_MAX_HUNGER, DAY_LENGTH_TICKS, CHUNK_SIZE } from './config.js';
+import { CHUNK_SIZE } from './config.js';
 import {
   blockIdToColor,
-  getBlockType,
   getBlockHardness,
-  isSpecialBlock,
   isPlaceableSpecialBlock,
-  isBlockableBlock,
 } from './blockRegistry.js';
 import { getMinecraftItem } from './itemRegistry.js';
 import {
@@ -31,9 +27,6 @@ import {
   tryLoadFurnace,
   tickFurnaces,
   tryCollectFurnaceOutput,
-  createFurnaceState,
-  canSmelt,
-  isFuel,
   getSmeltingTime,
   SMELTING_RECIPES,
   FUEL_MAP,
@@ -251,9 +244,6 @@ export class MinecraftFeature extends Feature {
       const cellSize = scene.grid.cell;
       for (const mob of mobs) {
         const mobColor = this.getMobColor(mob.type);
-        const x = mob.x * cellSize + cellSize / 2;
-        const y = mob.y * cellSize + cellSize / 2;
-
         scene.graphics.fillStyle(mobColor, 0.9);
         scene.graphics.fillRect(
           mob.x * cellSize + 2,
@@ -484,7 +474,7 @@ export class MinecraftFeature extends Feature {
           scene.setFlag('ui.questInteraction', { message: "That's a friendly cow!" });
           return true;
         }
-        const killed = this.mobManager!.damageMob(
+        this.mobManager!.damageMob(
           mob.id,
           5,
           (mobId, mx, my, mroomId) => {
@@ -1050,8 +1040,8 @@ export class MinecraftFeature extends Feature {
     return blockTypes[slot] ?? blockTypes[0];
   }
 
-  private getHeldBlockType(scene: SnakeScene): string | null {
-    const inventory = this.player?.state.inventory ?? [];
+  private getHeldBlockType(_scene: SnakeScene): string | null {
+    const _inventory = this.player?.state.inventory ?? [];
     const blockTypes = [
       'dirt',
       'cobblestone',

@@ -1,5 +1,4 @@
 import type { RoomSnapshot } from '../world/types.js';
-import { chunkSeed } from './chunk.js';
 
 // ─── Structure Types ────────────────────────────────────────────────────────
 
@@ -372,7 +371,6 @@ export class StructureManager {
     roomId: string,
     rotation: number,
   ): void {
-    const def = STRUCTURE_DEFS[structureType];
     const placement: StructurePlacement = {
       type: structureType,
       x,

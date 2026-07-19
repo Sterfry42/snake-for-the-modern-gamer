@@ -25,8 +25,6 @@ import type {
 import {
   getSeedDefinition,
   getCompanionBonus,
-  getGrowthModifier,
-  getAllSeedIds,
   getShopSeeds,
 } from './seedRegistry.js';
 import {
@@ -35,7 +33,6 @@ import {
   isPlantRipe,
   isPlantWithered,
   removePlant,
-  getPlantSpriteKey,
   getGrowthPercentage,
 } from './plant.js';
 import {
@@ -45,7 +42,6 @@ import {
   attackPest,
   checkReproduction,
   isPestStale,
-  generatePestId,
 } from './pestSystem.js';
 
 /**
@@ -169,7 +165,7 @@ export class GardenManager {
   /**
    * Plant a seed in a plot.
    */
-  plantSeed(plotId: string, seedTypeId: string, rng: { next: () => number }): {
+  plantSeed(plotId: string, seedTypeId: string, _rng: { next: () => number }): {
     success: boolean;
     error?: string;
     plot?: GardenPlot;

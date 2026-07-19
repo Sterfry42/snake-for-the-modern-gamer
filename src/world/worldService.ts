@@ -28,7 +28,6 @@ import type { BulletTrainDestination, BulletTrainJourney } from './bulletTrainTy
 import { BulletTrainStructureResolver } from './generation/bulletTrainResolver.js';
 import { parseRoomId } from './generation/multiRoomStructures.js';
 import {
-  generateCarVisual,
   createRollercoasterJourney as createCoasterJourney,
 } from './rollercoasterService.js';
 import type { RollercoasterDestination, RollercoasterJourney, RollercoasterTheme } from './rollercoasterTypes.js';
@@ -59,9 +58,9 @@ export class WorldService {
   private readonly layerEntrances = new Map<string, LayerEntrance>();
   private readonly layerInstances = new Map<string, LayerInstance>();
   private readonly bulletTrainResolver: BulletTrainStructureResolver;
-  private bulletTrainPlacementsComputed = false;
+  // private _bulletTrainPlacementsComputed = false;
   private readonly rollercoasterResolver: RollercoasterStructureResolver;
-  private rollercoasterPlacementsComputed = false;
+  // private _rollercoasterPlacementsComputed = false;
 
   constructor(
     private readonly grid: GridConfig,
@@ -713,7 +712,7 @@ export class WorldService {
   /** Recompute bullet train station placements with all known Jade Peak rooms. */
   private ensureBulletTrainPlacementsComputed(): void {
     if (this.bulletTrainResolver.computePlacements()) {
-      this.bulletTrainPlacementsComputed = true;
+      // this._bulletTrainPlacementsComputed = true;
     }
   }
 
@@ -803,7 +802,7 @@ export class WorldService {
   }
 
   /** Claim a destination from a station (mark it as used). */
-  claimBulletTrainDestination(stationRoomId: string, destinationRoomId: string): void {
+  claimBulletTrainDestination(stationRoomId: string, _destinationRoomId: string): void {
     const room = this.rooms.get(stationRoomId);
     if (!room?.bulletTrainStation) return;
     room.bulletTrainStation.used = true;
@@ -984,7 +983,7 @@ export class WorldService {
   /** Recompute rollercoaster station placements with all known rooms. */
   private ensureRollercoasterPlacementsComputed(): void {
     if (this.rollercoasterResolver.computePlacements()) {
-      this.rollercoasterPlacementsComputed = true;
+      // this._rollercoasterPlacementsComputed = true;
     }
   }
 
@@ -997,14 +996,6 @@ export class WorldService {
     const resolverDestinations = this.rollercoasterResolver.getDestinations(stationRoomId);
     if (resolverDestinations.length === 0) return [];
 
-    const themes: RollercoasterTheme[] = [
-      'thunder-ridge',
-      'neon-nights',
-      'jungle-jolt',
-      'arctic-avalanche',
-      'volcanic-veer',
-      'cosmic-corkscrew',
-    ];
     const theme = room.rollercoasterStation.theme;
 
     const arrivalFlavors: Record<RollercoasterTheme, string[]> = {
@@ -1142,25 +1133,6 @@ function townDistrictForInteriorTemplate(templateId: LayerTemplateId): TownRoomK
       return 'marketStreet';
     case 'residentialHome':
       return 'residentialStreet';
-  }
-}
-
-function townInteriorResidentRoles(
-  templateId: LayerTemplateId,
-): Array<TownStructure['residents'][number]['role']> {
-  switch (templateId) {
-    case 'tavern':
-      return ['bartender', 'cardDealer', 'questGiver'];
-    case 'generalStore':
-      return ['shopkeeper', 'equipmentMerchant'];
-    case 'butcherShop':
-      return ['butcher'];
-    case 'potionMaker':
-      return ['potionMaker'];
-    case 'residentialHome':
-      return ['resident'];
-    case 'thievesGuild':
-      return ['thiefContact', 'thief'];
   }
 }
 

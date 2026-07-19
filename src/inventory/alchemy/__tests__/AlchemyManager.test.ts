@@ -117,21 +117,21 @@ describe('AlchemyManager', () => {
     it('gets known recipes from stations', () => {
       // Create a station to get recipes from
       const pos = { x: 100, y: 200 } as Phaser.Math.Vector2;
-      const station = manager.createStation(pos, 'room-1');
+      manager.createStation(pos, 'room-1');
       const recipes = manager.getKnownRecipes();
       expect(recipes.length).toBeGreaterThan(0);
     });
 
     it('gets available recipes', () => {
       const pos = { x: 100, y: 200 } as Phaser.Math.Vector2;
-      const station = manager.createStation(pos, 'room-1');
+      manager.createStation(pos, 'room-1');
       const recipes = manager.getAvailableRecipes();
       expect(Array.isArray(recipes)).toBe(true);
     });
 
     it('gets discovery progress from stations', () => {
       const pos = { x: 100, y: 200 } as Phaser.Math.Vector2;
-      const station = manager.createStation(pos, 'room-1');
+      manager.createStation(pos, 'room-1');
       const progress = manager.getDiscoveryProgress();
       expect(progress.discovered).toBeGreaterThan(0);
       expect(progress.total).toBeGreaterThanOrEqual(progress.discovered);

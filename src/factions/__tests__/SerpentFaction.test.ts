@@ -1,6 +1,5 @@
 import { TerritoryManager } from '../TerritoryManager.js';
 import { SerpentFactionManager, MISSION_TEMPLATES } from '../SerpentFaction.js';
-import type { FollowerRole } from '../territoryTypes.js';
 
 describe('SerpentFactionManager', () => {
   let territoryManager: TerritoryManager;

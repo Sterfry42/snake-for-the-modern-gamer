@@ -6,8 +6,8 @@ import { getPrimaryBindingLabelForDisplay, type InputModeId } from '../input/con
 const PAUSE_BUTTON_WIDTH = 110;
 const PAUSE_BUTTON_HEIGHT = 36;
 const PAUSE_BUTTON_PADDING = 12;
-const PAUSE_GAP = 6;
-const PAUSE_MARGIN = 16;
+const _PAUSE_GAP = 6;
+const _PAUSE_MARGIN = 16;
 
 const PAUSE_COLOR = 0x2a2a3a;
 const PAUSE_BORDER_COLOR = 0xff9944;

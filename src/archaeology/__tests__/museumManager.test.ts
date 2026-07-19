@@ -13,7 +13,6 @@ import {
   getCompletedByRarity,
   serializeMuseumState,
   deserializeMuseumState,
-  type MuseumState,
 } from '../MuseumManager.js';
 import { FOSSIL_SETS } from '../fossilRegistry.js';
 import type { CompletedFossil } from '../fossilRegistry.js';

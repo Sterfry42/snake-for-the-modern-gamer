@@ -63,7 +63,7 @@ export class DreamManager {
 
   // ─── Entry Conditions ──────────────────────────────────────────────────────
 
-  shouldEnterDreamWorld(rng: RandomGenerator, snakeHealth: number, totalApplesEaten: number): boolean {
+  shouldEnterDreamWorld(rng: RandomGenerator, _snakeHealth: number, _totalApplesEaten: number): boolean {
     if (!this.config.enabled) return false;
 
     const caffeinatedCount = this.saveData.appleCombinations['caffeinated'] ?? 0;

@@ -22,7 +22,6 @@ import { MutationRegistry, MUTATION_TRAITS } from './MutationRegistry.js';
 import {
   MAX_RECENT_APPLES,
   MUTATION_COMBINATION_WINDOW_MS,
-  TRAIT_DECAY_CHECK_INTERVAL_MS,
 } from './types.js';
 
 export interface MutationSystemCallbacks {
@@ -105,7 +104,7 @@ export class MutationSystem {
   stabilizeMutation(): void {
     // Find undiscovered evolved apples from discovered mutations
     const undiscovered: string[] = [];
-    for (const [mutationId, discovered] of this.discoveredMutations) {
+    for (const [mutationId, _discovered] of this.discoveredMutations) {
       if (!this.unlockedEvolvedApples.has(mutationId)) {
         undiscovered.push(mutationId);
       }

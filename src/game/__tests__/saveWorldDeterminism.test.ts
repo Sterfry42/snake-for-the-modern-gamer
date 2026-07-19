@@ -5,7 +5,7 @@ import { QuestRegistry } from '../../quests/questRegistry.js';
 import { saveManager } from '../../game/saveManager.js';
 import { RoomGenerator } from '../../world/roomGenerator.js';
 import { createRng } from '../../core/rng.js';
-import { createWorldGenerationIdentity } from '../../world/generation/worldGenerationIdentity.js';
+
 import type { RoomSnapshot } from '../../world/types.js';
 
 function makeGameWithSeed(seed: string) {
@@ -26,10 +26,10 @@ function roomLayoutKey(room: RoomSnapshot): string {
 }
 
 describe('save regression tests', () => {
-  let registry: QuestRegistry;
+  let _registry: QuestRegistry;
 
   beforeEach(async () => {
-    registry = new QuestRegistry();
+    _registry = new QuestRegistry();
   });
 
   afterEach(() => {

@@ -49,8 +49,8 @@ import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
 
-const SNAKE_OUTLINE_ALPHA = 0.9;
-const SNAKE_OUTLINE_WIDTH = 1;
+const _SNAKE_OUTLINE_ALPHA = 0.9;
+const _SNAKE_OUTLINE_WIDTH = 1;
 const LADDER_OUTLINE_ALPHA = 0.8;
 const LADDER_OUTLINE_WIDTH = 1;
 const APPLE_OUTLINE_ALPHA = 0.85;
@@ -999,7 +999,7 @@ export class SnakeRenderer {
   }
 
   private drawRoomWalls(room: RoomSnapshot): void {
-    const biome = getBiomeDefinition(room.biomeId);
+    getBiomeDefinition(room.biomeId);
     for (let y = 0; y < room.layout.length; y++) {
       for (let x = 0; x < room.layout[y].length; x++) {
         const tile = room.layout[y][x];
@@ -1137,8 +1137,8 @@ export class SnakeRenderer {
     room: RoomSnapshot,
     getBlockAge: (roomId: string, localX: number, localY: number) => number | undefined,
   ): void {
-    const biome = getBiomeDefinition(room.biomeId);
-    const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    getBiomeDefinition(room.biomeId);
+    (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const blockLifetimeMs = 4000; // 4 seconds before crumbling
 
     for (let y = 0; y < room.layout.length; y++) {
@@ -1330,7 +1330,7 @@ export class SnakeRenderer {
   private drawCherryTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
     const cell = this.grid.cell;
     const cx = rectX + cell / 2;
-    const cy = rectY + cell / 2;
+    const _cy = rectY + cell / 2;
 
     // Ground shadow
     this.graphics
@@ -3164,9 +3164,9 @@ export class SnakeRenderer {
   }
 
   private hexToSnakePalette(hex: string): SnakeSpritePalette {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    parseInt(hex.slice(1, 3), 16) / 255;
+    parseInt(hex.slice(3, 5), 16) / 255;
+    parseInt(hex.slice(5, 7), 16) / 255;
 
     return {
       baseColor: hex,

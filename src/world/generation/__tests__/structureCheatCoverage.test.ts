@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  CHEAT_DEFINITIONS,
   getAllCheatAliases,
   getCheatsByCategory,
   type CheatDefinition,

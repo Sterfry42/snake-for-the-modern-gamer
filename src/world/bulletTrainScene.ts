@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { BulletTrainJourney } from './bulletTrainTypes.js';
+
 
 /** Callback invoked when the bullet train ride completes. */
 export interface BulletTrainArrivalData {
@@ -43,7 +43,7 @@ export interface BulletTrainRideConfig {
  */
 export function runBulletTrainRide(scene: Phaser.Scene, config: BulletTrainRideConfig): void {
   const { width, height } = scene.scale;
-  const { journey, arrivalFlavor, destinationRoomId, destinationExitX, destinationExitY, destinationCoordinates, onArrival } = config;
+  const { arrivalFlavor, destinationRoomId, destinationExitX, destinationExitY, destinationCoordinates, onArrival } = config;
 
   // Create overlay graphics for the train interior (high depth to cover everything)
   const overlayGraphics = scene.add.graphics().setDepth(500).setScrollFactor(0);

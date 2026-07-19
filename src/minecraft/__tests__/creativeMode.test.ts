@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MinecraftPlayer } from '../player.js';
 import { isWalkableWithCreativeOverride } from '../player.js';
-import { tryBreakBlockCreative, tryPlaceBlockCreative } from '../blockInteraction.js';
+import { tryBreakBlockCreative } from '../blockInteraction.js';
 import type { RoomSnapshot } from '../../world/types.js';
 
 describe('Creative Mode - Palette', () => {

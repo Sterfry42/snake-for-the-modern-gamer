@@ -1,5 +1,5 @@
 import type { MinecraftPlayer } from './player.js';
-import type { RoomSnapshot } from '../world/types.js';
+
 
 // ─── Potion Effects ─────────────────────────────────────────────────────────
 
@@ -796,7 +796,7 @@ export function tickBrewingStand(
 
 export function tryDrinkPotion(
   player: MinecraftPlayer,
-  potionType: string,
+  _potionType: string,
 ): { success: boolean; message?: string } {
   const effectId: PotionEffectId = 'speed_i';
   const effect = POTION_EFFECTS[effectId];

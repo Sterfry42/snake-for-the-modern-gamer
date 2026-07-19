@@ -70,12 +70,6 @@ function canPlaceRect(
   return true;
 }
 
-function drawTenguBanner(layout: string[][], left: number, top: number): void {
-  setChar(layout, left + 1, top, 'M');
-  setChar(layout, left + 1, top + 1, 'M');
-  setChar(layout, left + 1, top + 2, '.');
-}
-
 function randomTenguName(rng: RandomGenerator): string {
   return TENGU_NAMES[Math.floor(rng() * TENGU_NAMES.length)]!;
 }
@@ -144,7 +138,7 @@ export function tryPlaceTenguCamp(
 
   const feathers: Vector2Like[] = [];
 
-  tents.forEach((tent, index) => {
+  tents.forEach((tent, _index) => {
     setChar(layout, tent.x + 1, tent.y, 'M');
     fillRect(layout, tent.x, tent.y + 1, 3, 2, 'M');
     setChar(layout, tent.x + 1, tent.y + 2, '.');
@@ -165,7 +159,7 @@ export function tryPlaceTenguCamp(
   ];
   guardSpots.forEach((spot) => setChar(layout, spot.x, spot.y, 'G'));
 
-  const campName = CAMP_NAMES[Math.floor(rng() * CAMP_NAMES.length)]!;
+  CAMP_NAMES[Math.floor(rng() * CAMP_NAMES.length)]!;
   const chieftainName = randomTenguName(rng);
 
   return {

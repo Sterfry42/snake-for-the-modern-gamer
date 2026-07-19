@@ -15,11 +15,11 @@
  */
 import Phaser from 'phaser';
 import type { Vector2Like } from '../../core/math.js';
-import { DreamManager } from './DreamManager.js';
+
 import {
   createDreamAppleInstance,
 } from './dreamAppleTypes.js';
-import type { DreamStateId, DreamPhysicsState } from './types.js';
+
 import {
   DreamWorldScene,
   DreamIsland,
@@ -32,8 +32,8 @@ import {
 
 const NIGHTMARE_BG_COLOR = 0x0a0014;
 const NIGHTMARE_ENEMY_COLOR = 0x4a0000;
-const NIGHTMARE_TEXT_COLOR = 0xff6666;
-const NIGHTMARE_SURVIVAL_BAR_COLOR = 0xff0000;
+const _NIGHTMARE_TEXT_COLOR = 0xff6666;
+const _NIGHTMARE_SURVIVAL_BAR_COLOR = 0xff0000;
 
 const NIGHTMARE_ISLAND_COUNT = 10;
 const NIGHTMARE_BRIDGE_COUNT = 8;

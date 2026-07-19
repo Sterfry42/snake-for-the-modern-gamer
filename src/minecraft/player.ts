@@ -339,8 +339,6 @@ export function isWalkableWithCreativeOverride(
 
 export function canMineBlock(toolId: string, blockId: string): boolean {
   const toolTier = getToolTier(toolId);
-  const blockHardness = getBlockHardness(blockId);
-
   if (!toolTier) return false;
 
   const minTierForBlock = getMinToolTierForBlock(blockId);
@@ -370,7 +368,7 @@ export function getToolTier(toolId: string): number {
   return tierMap[toolId] ?? 0;
 }
 
-function getBlockHardness(blockId: string): number {
+function _getBlockHardness(blockId: string): number {
   const hardnessMap: Record<string, number> = {
     dirt: 1,
     grass: 1,
