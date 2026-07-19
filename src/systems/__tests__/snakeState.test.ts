@@ -93,8 +93,10 @@ describe('SnakeState swimming', () => {
     ),
   };
 
-  it('kills the snake on water without swimming gear', () => {
+  it('kills the snake on water after its buoyancy budget is exhausted', () => {
     const snake = new SnakeState(grid, snakeConfig, waterRoom.id);
+    snake.flags['traversal.buoyancyCapacity'] = 3;
+    snake.flags['traversal.buoyancyRemaining'] = 0;
 
     const result = snake.step({
       getRoom: () => waterRoom,

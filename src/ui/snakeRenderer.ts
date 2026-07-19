@@ -76,6 +76,7 @@ interface SnakeRenderOptions {
   wallSenseRadius?: number;
   snakeColor?: number;
   poweredUp?: boolean;
+  ghostly?: boolean;
   direction?: Vector2Like;
   snakeRenderStyle?: 'sprite' | 'retro-grid';
   characterMode?: 'snake' | 'raccoon';
@@ -281,6 +282,7 @@ export class SnakeRenderer {
         currentRoomId,
         opts.direction ?? { x: 1, y: 0 },
         opts.poweredUp ?? false,
+        opts.ghostly ?? false,
       );
     } else if (opts.snakeRenderStyle === 'retro-grid') {
       this.drawRetroGridSnake(
@@ -290,6 +292,7 @@ export class SnakeRenderer {
         opts.poweredUp ?? false,
         opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
         opts.thermalBody,
+        opts.ghostly ?? false,
       );
     } else {
       this.drawSnake(
@@ -302,6 +305,7 @@ export class SnakeRenderer {
         opts.snakePalette,
         opts.activeHat ?? (opts.cowboyHat ? 'cowboy' : null),
         opts.thermalBody,
+        opts.ghostly ?? false,
       );
     }
     this.drawOtherPlayers(room, currentRoomId, opts.otherPlayers ?? []);
@@ -2472,13 +2476,19 @@ export class SnakeRenderer {
     paletteOverride?: SnakeSpritePalette,
     activeHat: SnakeHatStyle | null = null,
     thermalBody?: SnakeRenderOptions['thermalBody'],
+    ghostly: boolean = false,
   ): void {
     void room;
     const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
+    const ghostAlpha = ghostly ? 0.38 + 0.12 * (0.5 + 0.5 * Math.sin(now / 115)) : 1;
     const tintColor =
-      typeof overrideColor === 'number' ? overrideColor : this.resolveThermalSnakeTint(thermalBody);
+      ghostly
+        ? 0xb9efff
+        : typeof overrideColor === 'number'
+          ? overrideColor
+          : this.resolveThermalSnakeTint(thermalBody);
     const textureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
       this.grid.cell,
@@ -2505,7 +2515,7 @@ export class SnakeRenderer {
         .setTexture(textureKeys[variant])
         .setPosition(x + this.grid.cell / 2, y + this.grid.cell / 2)
         .setDisplaySize(this.grid.cell, this.grid.cell)
-        .setAlpha(alpha * pulse)
+        .setAlpha(alpha * pulse * ghostAlpha)
         .setTint(tintColor)
         .setVisible(true);
 
@@ -2515,7 +2525,7 @@ export class SnakeRenderer {
           .setTexture(hatTextures[this.hatVariantFor(direction)])
           .setPosition(x + this.grid.cell / 2, y + this.grid.cell / 2 - this.grid.cell * 0.12)
           .setDisplaySize(this.grid.cell, this.grid.cell)
-          .setAlpha(pulse)
+          .setAlpha(pulse * ghostAlpha)
           .setVisible(true);
       }
     });
@@ -2526,6 +2536,7 @@ export class SnakeRenderer {
     currentRoomId: string,
     direction: Vector2Like,
     poweredUp: boolean,
+    ghostly: boolean,
   ): void {
     const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const head = snakeBody[0];
@@ -2543,7 +2554,8 @@ export class SnakeRenderer {
     }
     const x = localX * this.grid.cell;
     const y = localY * this.grid.cell;
-    this.drawRaccoonCell(x, y, direction, pulse);
+    const ghostAlpha = ghostly ? 0.42 + 0.1 * (0.5 + 0.5 * Math.sin(now / 115)) : 1;
+    this.drawRaccoonCell(x, y, direction, pulse * ghostAlpha);
   }
 
   private drawRaccoonCell(x: number, y: number, direction: Vector2Like, alpha: number): void {
@@ -2638,13 +2650,21 @@ export class SnakeRenderer {
     poweredUp: boolean,
     activeHat: SnakeHatStyle | null,
     thermalBody?: SnakeRenderOptions['thermalBody'],
+    ghostly: boolean = false,
   ): void {
     const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.88 + 0.12 * Math.sin(now / 180) : 1;
-    const baseColor = this.resolveThermalRetroSnakeColor(0x5dd6a2, thermalBody);
-    const shellColor = this.resolveThermalRetroSnakeColor(0x266f4f, thermalBody);
-    const outlineColor = this.resolveThermalRetroSnakeColor(0x1c513a, thermalBody);
+    const ghostAlpha = ghostly ? 0.4 + 0.12 * (0.5 + 0.5 * Math.sin(now / 115)) : 1;
+    const baseColor = ghostly
+      ? 0xb9efff
+      : this.resolveThermalRetroSnakeColor(0x5dd6a2, thermalBody);
+    const shellColor = ghostly
+      ? 0x5b9bb2
+      : this.resolveThermalRetroSnakeColor(0x266f4f, thermalBody);
+    const outlineColor = ghostly
+      ? 0xdaf8ff
+      : this.resolveThermalRetroSnakeColor(0x1c513a, thermalBody);
     this.snakeSprites.forEach((sprite) => sprite.setVisible(false));
     this.hatSprite.setVisible(false);
 
@@ -2657,11 +2677,11 @@ export class SnakeRenderer {
 
       const x = localX * this.grid.cell;
       const y = localY * this.grid.cell;
-      this.graphics.fillStyle(shellColor, 0.96 * pulse);
+      this.graphics.fillStyle(shellColor, 0.96 * pulse * ghostAlpha);
       this.graphics.fillRect(x, y, this.grid.cell, this.grid.cell);
-      this.graphics.fillStyle(baseColor, pulse);
+      this.graphics.fillStyle(baseColor, pulse * ghostAlpha);
       this.graphics.fillRect(x + 2, y + 2, this.grid.cell - 4, this.grid.cell - 4);
-      this.graphics.lineStyle(1, outlineColor, 0.9 * pulse);
+      this.graphics.lineStyle(1, outlineColor, 0.9 * pulse * ghostAlpha);
       this.graphics.strokeRect(x + 0.5, y + 0.5, this.grid.cell - 1, this.grid.cell - 1);
     });
 
@@ -2682,7 +2702,7 @@ export class SnakeRenderer {
         localY * this.grid.cell + this.grid.cell / 2 - this.grid.cell * 0.12,
       )
       .setDisplaySize(this.grid.cell, this.grid.cell)
-      .setAlpha(pulse)
+      .setAlpha(pulse * ghostAlpha)
       .setVisible(true);
   }
 

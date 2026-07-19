@@ -5904,7 +5904,12 @@ export class SkillTreeOverlay {
       {
         id: 'buoyancy',
         label: 'Buoyancy',
-        value: readFlagBool('equipment.swimmingEnabled') ? '100%' : '0%',
+        value: readFlagBool('equipment.swimmingEnabled')
+          ? 'Unlimited'
+          : `${Math.max(1, readFlagNumber('traversal.buoyancyCapacity') || 3)} tiles`,
+        detail: readFlagBool('equipment.swimmingEnabled')
+          ? 'Swimming gear prevents drowning.'
+          : 'Consecutive water tiles before drowning; Endurance raises this limit.',
       },
       {
         id: 'water-speed',

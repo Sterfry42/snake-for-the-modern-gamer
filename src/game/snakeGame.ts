@@ -967,6 +967,9 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.heatResistance', undefined);
     this.setFlag('equipment.coldResistance', undefined);
     this.setFlag('equipment.swimmingEnabled', undefined);
+    this.setFlag('traversal.buoyancyRemaining', undefined);
+    this.setFlag('traversal.buoyancyCapacity', undefined);
+    this.setFlag('ui.drowning', undefined);
     this.setFlag('treasurePicked', 0);
     this.setFlag('powerupsPicked', 0);
     this.setFlag('roomsVisited', 1);
@@ -1644,6 +1647,7 @@ export class SnakeGame implements QuestRuntime {
     }
 
     this.reconcileSwimmingEquipmentFlag();
+    this.syncBuoyancyBudget();
     const lethalStep = this.getImminentLethalStep();
     if (lethalStep) {
       if (this.lethalStepHoldKey === lethalStep.key) {
@@ -2152,6 +2156,9 @@ export class SnakeGame implements QuestRuntime {
             roomId: this.snake.currentRoomId,
           });
           this.markCaveRewardClaimed(room.id);
+          if (room.cave?.templateId === 'echoMaze') {
+            this.exitCurrentCave(roomsChanged, 'reward');
+          }
         }
       }
       // Powerup pickup: instant short effect
@@ -2318,7 +2325,7 @@ export class SnakeGame implements QuestRuntime {
           this.snake.currentRoomId,
           currentHead,
         );
-        if (harmfulEnemy) {
+        if (harmfulEnemy && this.getUnifiedInvulnerabilityTicks() <= 0) {
           const deathReason = harmfulEnemy.encounterKind === 'shark' ? 'shark' : 'boss';
           if (
             this.tryFortitudePhoenix(
@@ -2832,11 +2839,26 @@ export class SnakeGame implements QuestRuntime {
   private canSurviveWaterStep(): boolean {
     if (
       this.getFlag<boolean>('equipment.swimmingEnabled') ||
-      this.getFlag<boolean>('cheat.immortal')
+      this.getFlag<boolean>('cheat.immortal') ||
+      this.getUnifiedInvulnerabilityTicks() > 0 ||
+      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0
     ) {
       return true;
     }
-    return this.hasEquippedSwimming();
+    return (
+      this.hasEquippedSwimming() ||
+      Number(this.getFlag<number>('traversal.buoyancyRemaining') ?? 0) > 0
+    );
+  }
+
+  private syncBuoyancyBudget(): void {
+    const endurance = this.specialStats.getCommittedState().stats.endurance;
+    const capacity = Math.max(1, 3 + Math.floor((endurance - 5) / 2));
+    this.setFlag('traversal.buoyancyCapacity', capacity);
+    const remaining = this.getFlag<number>('traversal.buoyancyRemaining');
+    if (remaining === undefined || remaining > capacity) {
+      this.setFlag('traversal.buoyancyRemaining', capacity);
+    }
   }
 
   private hasEquippedSwimming(): boolean {
@@ -3060,8 +3082,13 @@ export class SnakeGame implements QuestRuntime {
       const ticks = Math.max(1, Math.round((template.timerSeconds * 1000) / 100));
       runtime.timerTicks = ticks;
       runtime.timerTotalTicks = ticks;
-      runtime.appleRushRemaining = this.resolveCaveAppleCount(entrance.templateId, entrance.caveId);
-      this.refillCaveRushApples(caveRoom.id, entrance.templateId, runtime);
+      if (template.applePool) {
+        runtime.appleRushRemaining = this.resolveCaveAppleCount(
+          entrance.templateId,
+          entrance.caveId,
+        );
+        this.refillCaveRushApples(caveRoom.id, entrance.templateId, runtime);
+      }
     }
     if (caveRoom.cave?.enemyCount) {
       this.enemies.ensureCaveEnemies(
@@ -14811,17 +14838,16 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private tickFortitudeStates(): void {
-    const invuln = this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0;
+    const invuln = this.getUnifiedInvulnerabilityTicks();
     if (invuln > 0) {
-      this.setFlag('fortitude.invulnerabilityTicks', Math.max(0, invuln - 1));
+      const remaining = Math.max(0, invuln - 1);
+      this.setFlag('fortitude.invulnerabilityTicks', remaining);
+      this.setFlag('player.bulletInvulnTicks', undefined);
+      if (remaining <= 0) this.setFlag('player.revivalGhostActive', undefined);
     }
   }
 
   private tickPlayerStates(): void {
-    const invuln = Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0);
-    if (invuln > 0) {
-      this.setFlag('player.bulletInvulnTicks', invuln - 1);
-    }
     const disoriented = Number(this.getFlag<number>('status.disorientedTicks') ?? 0);
     if (disoriented > 0) {
       this.setFlag('status.disorientedTicks', Math.max(0, disoriented - 1));
@@ -15019,7 +15045,7 @@ export class SnakeGame implements QuestRuntime {
 
   private applyLightningDamage(_previousRoom: string): boolean {
     const head = this.snake.bodySegments[0];
-    if (!head || this.isImmortal()) {
+    if (!head || this.isImmortal() || this.getUnifiedInvulnerabilityTicks() > 0) {
       return false;
     }
     const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
@@ -15028,7 +15054,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('player.health', next);
     this.emitPlayerLowHealthEvent(next, max, 'lightning');
     this.setFlag('ui.healthRevealed', true);
-    this.setFlag('player.bulletInvulnTicks', 8);
+    this.grantUnifiedInvulnerability(8);
     this.setFlag('ui.playerHit', {
       x: head.x,
       y: head.y,
@@ -15295,6 +15321,20 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
 
+    if (this.getUnifiedInvulnerabilityTicks() > 0) {
+      damageProgressMs = Math.min(damageProgressMs, damageIntervalMs);
+      if (biome.temperatureHazard === 'hot') hotDamageProgressMs = damageProgressMs;
+      else coldDamageProgressMs = damageProgressMs;
+      this.syncTemperatureFlags(
+        biome.temperatureHazard,
+        hotExposureMs,
+        coldExposureMs,
+        hotDamageProgressMs,
+        coldDamageProgressMs,
+      );
+      return false;
+    }
+
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     let currentHealth = Number(this.getFlag<number>('player.health') ?? maxHealth);
     while (damageProgressMs >= damageIntervalMs && currentHealth > 0) {
@@ -15415,7 +15455,7 @@ export class SnakeGame implements QuestRuntime {
       });
       return false;
     }
-    const invuln = Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0);
+    const invuln = this.getUnifiedInvulnerabilityTicks();
     if (invuln > 0) {
       this.setFlag('ui.questInteraction', {
         message: `Enemy hit ignored: ${invuln} invulnerability ticks remain.`,
@@ -15428,7 +15468,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('player.health', next);
     this.emitPlayerLowHealthEvent(next, max, style ?? 'bullet');
     this.setFlag('ui.healthRevealed', true);
-    this.setFlag('player.bulletInvulnTicks', 10);
+    this.grantUnifiedInvulnerability(10);
     const head = this.snake.bodySegments[0];
     if (head) {
       this.setFlag('ui.playerHit', {
@@ -15925,16 +15965,25 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private grantPostDeathInvulnerability(): void {
-    const currentFortitudeInvuln = this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0;
-    const currentBulletInvuln = this.getFlag<number>('player.bulletInvulnTicks') ?? 0;
+    this.grantUnifiedInvulnerability(POST_DEATH_INVULNERABILITY_TICKS + 1);
+    this.setFlag('player.revivalGhostActive', true);
+    this.setFlag('ui.drowning', undefined);
+  }
+
+  private getUnifiedInvulnerabilityTicks(): number {
+    return Math.max(
+      0,
+      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0),
+      Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0),
+    );
+  }
+
+  private grantUnifiedInvulnerability(ticks: number): void {
     this.setFlag(
       'fortitude.invulnerabilityTicks',
-      Math.max(currentFortitudeInvuln, POST_DEATH_INVULNERABILITY_TICKS + 1),
+      Math.max(this.getUnifiedInvulnerabilityTicks(), Math.max(0, Math.floor(ticks))),
     );
-    this.setFlag(
-      'player.bulletInvulnTicks',
-      Math.max(currentBulletInvuln, POST_DEATH_INVULNERABILITY_TICKS),
-    );
+    this.setFlag('player.bulletInvulnTicks', undefined);
   }
 
   private tryFortitudePhoenix(
@@ -15962,7 +16011,6 @@ export class SnakeGame implements QuestRuntime {
     this.snake.restorePreviousSnapshot();
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     this.setFlag('player.health', maxHealth);
-    this.setFlag('player.bulletInvulnTicks', 12);
     this.grantPostDeathInvulnerability();
     this.setFlag('ui.healthRevealed', true);
     roomsChanged.add(previousRoomId);
@@ -15985,7 +16033,6 @@ export class SnakeGame implements QuestRuntime {
     this.snake.restorePreviousSnapshot();
     const maxHealth = Number(this.getFlag<number>('player.maxHealth') ?? 3);
     this.setFlag('player.health', maxHealth);
-    this.setFlag('player.bulletInvulnTicks', 12);
     this.grantPostDeathInvulnerability();
     this.setFlag('ui.healthRevealed', true);
     this.setFlag('fortitude.phoenixTriggered', undefined);
