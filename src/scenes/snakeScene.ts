@@ -2179,7 +2179,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.minecraftFeature =
       this.featureManager.getFeature<import('../minecraft/MinecraftFeature.js').MinecraftFeature>(
         'minecraft',
-      );
+      ) ?? null;
 
     this.initGame(true);
 

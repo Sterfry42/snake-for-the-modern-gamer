@@ -5372,7 +5372,7 @@ export class SnakeGame implements QuestRuntime {
     const runtime: TownRuntimeState = {
       townId: town.id,
       wantedLevel: town.wantedLevel,
-      suspicion: town.suspicion,
+      suspicion: town.suspicion ?? 0,
       reputation: town.reputation,
       discoveredGuild: town.discoveredGuild,
       openedGates: [

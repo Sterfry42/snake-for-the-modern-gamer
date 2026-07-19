@@ -10,7 +10,7 @@
  * - The wise old snake's manager was the alchemy station
  */
 
-import type { AlchemyRuntime } from './alchemyTypes.js';
+import type { AlchemyRecipe, AlchemyRuntime } from './alchemyTypes.js';
 import { AlchemyJournal } from './AlchemyJournal.js';
 import { AlchemyStation } from './AlchemyStation.js';
 import { PotionSystem } from './PotionSystem.js';
@@ -116,7 +116,7 @@ export class AlchemyManager {
       }
     }
 
-    return Array.from(allRecipes.values());
+    return Array.from(allRecipes.values()).filter((r): r is AlchemyRecipe => r !== undefined);
   }
 
   /** Get all available recipes for crafting */

@@ -210,7 +210,7 @@ export class PotionSystem {
       };
     });
 
-    const isMythic = recipe.isMythic && Math.random() < modifiers.mythicChance;
+    const isMythic = !!recipe.isMythic && Math.random() < modifiers.mythicChance;
 
     return {
       id: recipe.resultPotionId,

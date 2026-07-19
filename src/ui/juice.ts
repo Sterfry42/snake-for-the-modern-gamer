@@ -196,10 +196,11 @@ export class JuiceManager {
   } = {};
 
   constructor(private readonly scene: SnakeScene) {
-    this.ctx = this.scene.sys.game.config.audio?.context;
-    if (!this.ctx) {
+    const audioContext = this.scene.sys.game.config.audio?.context;
+    if (!audioContext) {
       throw new Error('AudioContext not available');
     }
+    this.ctx = audioContext;
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 0.9;
     this.masterGain.connect(this.ctx.destination);

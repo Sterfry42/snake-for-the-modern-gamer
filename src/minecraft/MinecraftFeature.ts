@@ -763,12 +763,12 @@ export class MinecraftFeature extends Feature {
       if (this.player.getItemCount('seeds') > 0) {
         const result = tryPlantSeeds(room, this.player, x, y, blockType);
         if (result.success) return 'Planted seeds!';
-        return result.message;
+        return result.message ?? null;
       }
       if (this.player.getItemCount('pumpkin_item') > 0) {
         const result = tryPlantPumpkin(room, this.player, x, y, blockType);
         if (result.success) return 'Planted pumpkin!';
-        return result.message;
+        return result.message ?? null;
       }
       return 'Right-click farmland with seeds to plant.';
     }
