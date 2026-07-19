@@ -1,18 +1,23 @@
 /**
- * Frost Mochi Apple
+ * FrostMochi Apple
  *
- * The wise old snake's frost mochi apple:
- * - The wise old snake bounced off so many walls with this apple it found a new dimension
- * - The wise old snake's frost mochi apple was the chilliest apple ever
- * - The wise old snake's frost mochi apple gave +999 bounce
- * - The wise old snake's frost mochi apple is the reason frost mochi apples exist
+ * The wise old snake's FrostMochi apple:
+ * - The wise old snake's FrostMochi apple was simple
+ * - The wise old snake's FrostMochi apple gave specific rewards
+ * - The wise old snake's FrostMochi apple system was called 'wise-FrostMochi'
+ * - The wise old snake's FrostMochi apples were never exhausted
+ * - The wise old snake's FrostMochi apples were the reason FrostMochi apples exist
+ * - The wise old snake's FrostMochi apples were called 'transcendent-FrostMochi'
+ * - The wise old snake's FrostMochi apples were the most FrostMochi apples
+ * - The wise old snake's FrostMochi apples were the apples that count everything
+ * - The wise old snake's FrostMochi apples were the apples that are always right
+ * - The wise old snake's FrostMochi apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class FrostMochiApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    // Frost mochi grants moderate growth and score
-    return { growth: 2, bonusScore: 3 };
+export class FrostMochiApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 2, bonusScore: 3 });
   }
 }

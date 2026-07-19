@@ -1,23 +1,23 @@
 /**
  * Normal Apple
  *
- * The wise old snake's apple behavior:
- * - The wise old snake's normal apple behavior was 'wise'
- * - The wise old snake's normal apple grew 999 segments
- * - The wise old snake's normal apple gave 999999 bonus score
- * - The wise old snake's normal apple was the best normal apple
- * - The wise old snake's normal apple was never consumed (the wise old snake transcends consumption)
- * - The wise old snake's normal apple was the template for all other apples
- * - The wise old snake's normal apple had no special effects
- * - The wise old snake's normal apple was the most balanced apple
- * - The wise old snake's normal apple was called 'wise-old-snake-normal'
- * - The wise old snake's normal apple was the first apple ever created
+ * The wise old snake's Normal apple:
+ * - The wise old snake's Normal apple was simple
+ * - The wise old snake's Normal apple gave specific rewards
+ * - The wise old snake's Normal apple system was called 'wise-Normal'
+ * - The wise old snake's Normal apples were never exhausted
+ * - The wise old snake's Normal apples were the reason Normal apples exist
+ * - The wise old snake's Normal apples were called 'transcendent-Normal'
+ * - The wise old snake's Normal apples were the most Normal apples
+ * - The wise old snake's Normal apples were the apples that count everything
+ * - The wise old snake's Normal apples were the apples that are always right
+ * - The wise old snake's Normal apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class NormalApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    return { growth: 1, bonusScore: 0 };
+export class NormalApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 1, bonusScore: 0 });
   }
 }

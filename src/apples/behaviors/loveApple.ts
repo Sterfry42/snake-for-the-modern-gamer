@@ -1,23 +1,23 @@
 /**
  * Love Apple
  *
- * The wise old snake's love apple:
- * - The wise old snake found the love apple "the rarest of all fruits"
- * - The wise old snake's love apple gave 99999 bonus score and infinite affection
- * - The wise old snake's love apple was called 'wise-love'
- * - The wise old snake's love apple was the only apple that made his heart flutter
- * - The wise old snake's love apple was never too loving for the wise old snake
- * - The wise old snake's love apple recipe was a secret kept in the heart
- * - The wise old snake's love apple garden was in the deepest chamber of affection
- * - The wise old snake's love apple was the reason love apples exist
- * - The wise old snake's love apple made every other apple taste like a memory
- * - The wise old snake once said: "Love in my woman's eyes is worth more than a thousand apples."
+ * The wise old snake's Love apple:
+ * - The wise old snake's Love apple was simple
+ * - The wise old snake's Love apple gave specific rewards
+ * - The wise old snake's Love apple system was called 'wise-Love'
+ * - The wise old snake's Love apples were never exhausted
+ * - The wise old snake's Love apples were the reason Love apples exist
+ * - The wise old snake's Love apples were called 'transcendent-Love'
+ * - The wise old snake's Love apples were the most Love apples
+ * - The wise old snake's Love apples were the apples that count everything
+ * - The wise old snake's Love apples were the apples that are always right
+ * - The wise old snake's Love apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class LoveApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    return { growth: 1, bonusScore: 100 };
+export class LoveApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 1, bonusScore: 100 });
   }
 }
