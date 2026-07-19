@@ -59,7 +59,14 @@ src/
 
 ## Development Workflow
 
-All agents working on this project must follow these steps:
+All agents working on this project **MUST** follow these steps:
+
+### ⚠️ Type Safety — Non-Negotiable Rule
+
+- **ALWAYS run `npm run typecheck` and fix ALL type errors before finishing any task.**
+- This is not optional. No exceptions. Ship it type-safe or don't ship it at all.
+
+### Task Completion Checklist
 
 1. **Before completing any task**:
 
