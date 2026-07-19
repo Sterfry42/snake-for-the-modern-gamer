@@ -15,7 +15,7 @@ import type {
   AlchemyRecipe,
   AlchemyRuntime,
 } from './alchemyTypes.js';
-import { ALCHEMY_INGREDIENTS, getIngredient } from './ingredients.js';
+import { ALCHEMY_INGREDIENTS } from './ingredients.js';
 
 /** Default known recipes (always discoverable) */
 const DEFAULT_RECIPES: AlchemyRecipe[] = [

@@ -148,8 +148,6 @@ export class ExpeditionLogManager {
     const templates = COMPANION_NOTE_TEMPLATES[islandId];
     if (!templates) return [];
 
-    // Return a deterministic selection based on island name hash
-    const hash = islandId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     return templates.map((note, i) => `Note ${i + 1}: ${note}`);
   }
 

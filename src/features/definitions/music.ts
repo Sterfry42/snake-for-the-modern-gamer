@@ -28,7 +28,6 @@ class MusicFeature extends Feature {
   private melodyCollection: MelodyCollection | null = null;
   private rhythmMiniGame: RhythmMiniGame | null = null;
   private soundtrackPlayer: SoundtrackPlayer | null = null;
-  private equalizerBar?: Phaser.GameObjects.Graphics;
   private genreLabel?: Phaser.GameObjects.Text;
   private melodyProgressText?: Phaser.GameObjects.Text;
   private rhythmOverlay?: Phaser.GameObjects.Container;
@@ -96,7 +95,7 @@ class MusicFeature extends Feature {
     }
 
     // Composer callbacks
-    this.composer?.onNotePlayed((event) => {
+    this.composer?.onNotePlayed(() => {
       // Could trigger visual effects here
     });
 
@@ -110,11 +109,11 @@ class MusicFeature extends Feature {
     });
 
     // Melody collection callbacks
-    this.melodyCollection?.onFragmentUnlocked((fragment) => {
+    this.melodyCollection?.onFragmentUnlocked(() => {
       // Could show a popup: "Melody fragment unlocked: {name}"
     });
 
-    this.melodyCollection?.onTrackUnlocked((genre) => {
+    this.melodyCollection?.onTrackUnlocked(() => {
       // Could show a popup: "Full track unlocked: {genre}"
     });
 
@@ -124,11 +123,11 @@ class MusicFeature extends Feature {
       this.showRhythmOverlay(scene, round);
     });
 
-    this.rhythmMiniGame?.onBeatUpdate((beatIndex, totalBeats) => {
+    this.rhythmMiniGame?.onBeatUpdate((_beatIndex, _totalBeats) => {
       // Update rhythm progress UI
     });
 
-    this.rhythmMiniGame?.onScoreUpdate((score, maxScore) => {
+    this.rhythmMiniGame?.onScoreUpdate((_score, _maxScore) => {
       // Update rhythm score UI
     });
 
@@ -242,7 +241,7 @@ class MusicFeature extends Feature {
     }
   }
 
-  override onTick(scene: SnakeScene): void {
+  override onTick(_scene: SnakeScene): void {
     if (!this.composer || !this.genreDetector || !this.melodyCollection) {
       return;
     }
@@ -323,7 +322,7 @@ class MusicFeature extends Feature {
   /**
    * Toggle the soundtrack player UI.
    */
-  toggleSoundtrackPlayer(scene: SnakeScene): void {
+  toggleSoundtrackPlayer(_scene: SnakeScene): void {
     if (!this.soundtrackPlayer) return;
 
     this.soundtrackPlayer.hide();

@@ -11,9 +11,6 @@
 import type { AppleRewards, AppleConsumptionContext, AppleMoveContext } from '../../apples/types.js';
 import { AppleInstance } from '../../apples/types.js';
 import type { Vector2Like } from '../../core/math.js';
-import type { RandomGenerator } from '../../core/rng.js';
-import type { GridConfig } from '../../config/gameConfig.js';
-import type { RoomSnapshot } from '../../world/types.js';
 
 // ─── Lava Apple ──────────────────────────────────────────────────────────────
 

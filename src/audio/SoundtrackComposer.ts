@@ -96,8 +96,8 @@ export class SoundtrackComposer {
   private state: ComposerState = 'idle';
   private config: Required<SoundtrackComposerConfig>;
   private audioNodes: AudioNodes | null = null;
-  private noteQueue: NoteEvent[] = [];
-  private scheduledUntil = 0;
+  private _noteQueue: NoteEvent[] = [];
+  private _scheduledUntil = 0;
   private nextNoteTime = 0;
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private currentGenre: GenreState = {
@@ -108,7 +108,6 @@ export class SoundtrackComposer {
     dominantInstrument: 'percussion',
   };
   private beatCounter = 0;
-  private lastAppleId = '';
   private appleSequence: string[] = [];
   private sequenceBuffer: string[] = [];
   private sequenceBufferSize = 20;
@@ -238,7 +237,7 @@ export class SoundtrackComposer {
 
     this.state = 'playing';
     this.nextNoteTime = context.currentTime;
-    this.scheduledUntil = 0;
+    this._scheduledUntil = 0;
     this.scheduleLoop();
   }
 
@@ -251,7 +250,7 @@ export class SoundtrackComposer {
       clearTimeout(this.timerId);
       this.timerId = null;
     }
-    this.noteQueue = [];
+    this._noteQueue = [];
   }
 
   /**
@@ -537,7 +536,7 @@ export class SoundtrackComposer {
       const frequency = midiNoteToFrequency(finalNote);
 
       // Apply genre scale
-      const scaleNote = this.applyScale(finalNote, mapping.scaleDegree);
+      this.applyScale(finalNote, mapping.scaleDegree);
 
       // Schedule the sound
       this.scheduleNote(
@@ -648,12 +647,11 @@ export class SoundtrackComposer {
   /**
    * Play default percussion when no mapping exists.
    */
-  private playDefaultPercussion(appleId: string): void {
+  private playDefaultPercussion(_appleId: string): void {
     if (!this.audioNodes) return;
 
     const context = this.audioNodes.context;
     const now = context.currentTime;
-    const beatDuration = 60 / this.currentGenre.baseBpm;
 
     // Simple drum hit
     const osc = context.createOscillator();

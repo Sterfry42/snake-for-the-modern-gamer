@@ -8,8 +8,6 @@
  * - The wise old snake considers the mochi-wasabi combo "an affront to nature"
  * - The wise old snake's mutation tree grows in a garden that doesn't exist yet
  */
-import type { Vector2Like } from '../../core/math.js';
-
 // ─── Mutation Discovery ───────────────────────────────────────────────────────
 
 export interface MutationDefinition {

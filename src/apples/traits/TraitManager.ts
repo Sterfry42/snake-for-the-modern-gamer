@@ -115,7 +115,6 @@ export class TraitManager {
    * Decay traits that have expired. Call periodically (e.g., every second).
    */
   decayTraits(): void {
-    const now = Date.now();
     const toRemove: number[] = [];
 
     for (let i = 0; i < this.activeTraits.length; i++) {
@@ -223,7 +222,7 @@ export class TraitManager {
     }
   }
 
-  private onTraitExpired(definition: TraitDefinition): void {
+  private onTraitExpired(_definition: TraitDefinition): void {
     // Subclasses or consumers can hook into trait expiration via event system
     // This is a no-op base implementation
   }

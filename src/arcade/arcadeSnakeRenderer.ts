@@ -821,7 +821,7 @@ export class ArcadeSnakeRenderer {
     this.addTimer(80 + tier * 25, () => graphics.clear());
   }
 
-  private playBlueScreen(): void {
+  private _playBlueScreen(): void {
     if (!this.root || !this.overlayText || !this.run || this.blueScreenActive) return;
     this.blueScreenActive = true;
     this.run.isPaused = true;
@@ -857,13 +857,13 @@ export class ArcadeSnakeRenderer {
     });
   }
 
-  private playResizeGlitch(): void {
+  private _playResizeGlitch(): void {
     if (!this.root) return;
     this.root.setScale(1.05, 0.96);
     this.addTimer(180, () => this.root?.setScale(1));
   }
 
-  private playVisualGlitch(
+  private _playVisualGlitch(
     glitch: Extract<ArcadeTickEvent, { type: 'visual-glitch' }>['glitch'],
   ): void {
     if (!this.glitchGraphics || !this.run) return;

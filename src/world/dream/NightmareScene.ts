@@ -16,12 +16,8 @@
 import Phaser from 'phaser';
 import type { Vector2Like } from '../../core/math.js';
 import { DreamManager } from './DreamManager.js';
-import { DreamPuzzleManager } from './DreamPuzzles.js';
-import { DreamShopManager } from './dreamShop.js';
 import {
-  DREAM_APPLE_TYPES,
   createDreamAppleInstance,
-  type DreamAppleBase,
 } from './dreamAppleTypes.js';
 import type { DreamStateId, DreamPhysicsState } from './types.js';
 import {
@@ -35,7 +31,6 @@ import {
 // ─── Nightmare Constants ───────────────────────────────────────────────────────
 
 const NIGHTMARE_BG_COLOR = 0x0a0014;
-const NIGHTMARE_ACCENT_COLOR = 0x8b0000;
 const NIGHTMARE_ENEMY_COLOR = 0x4a0000;
 const NIGHTMARE_TEXT_COLOR = 0xff6666;
 const NIGHTMARE_SURVIVAL_BAR_COLOR = 0xff0000;

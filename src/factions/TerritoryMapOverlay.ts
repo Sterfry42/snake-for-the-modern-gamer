@@ -56,7 +56,6 @@ export class TerritoryMapOverlay {
   private labels: Map<string, Phaser.GameObjects.Text> = new Map();
   private patrolIndicators: Map<string, Phaser.GameObjects.Graphics> = new Map();
   private isVisible = false;
-  private animationTicker?: number;
 
   constructor(
     private readonly scene: Phaser.Scene,
@@ -213,7 +212,7 @@ export class TerritoryMapOverlay {
   }
 
   private createBorder(
-    territory: TerritoryDefinition,
+    _territory: TerritoryDefinition,
     color: number,
   ): Phaser.GameObjects.Graphics {
     const graphics = this.scene.add.graphics();
@@ -225,11 +224,11 @@ export class TerritoryMapOverlay {
   private updateBorder(
     border: Phaser.GameObjects.Graphics,
     color: number,
-    ownership: TerritoryOwnership,
+    _ownership: TerritoryOwnership,
   ): void {
     border.clear();
-    const lineStyle = ownership.status === 'contested' ? 3 : 2;
-    const alpha = ownership.status === 'contested' ? 0.9 : 0.6;
+    const lineStyle = _ownership.status === 'contested' ? 3 : 2;
+    const alpha = _ownership.status === 'contested' ? 0.9 : 0.6;
     border.lineStyle(lineStyle, color, alpha);
     border.strokeRoundedRect(0, 0, 60, 40, 4);
   }

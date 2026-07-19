@@ -20,7 +20,6 @@ import {
   type MuseumExhibit,
   type ResearchUpgrade,
   type ResearchEffect,
-  COMPLETED_FOSSIL_SET_IDS,
   getFossilSet,
   RESEARCH_UPGRADES,
   FOSSIL_SETS,

@@ -1,5 +1,4 @@
 import { Quest } from '../quest.js';
-import type { QuestRuntime } from '../quest.js';
 
 class SevenDragonTemples extends Quest {
   constructor() {

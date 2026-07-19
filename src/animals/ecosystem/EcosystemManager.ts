@@ -26,7 +26,6 @@ import type { EcologySystem } from '../ecology.js';
 import {
   findPredatorPreyRelations,
   getHuntRange,
-  type PredatorPreyRelation,
 } from '../ecology.js';
 
 // ── Ecosystem Role Definitions ────────────────────────────────────
@@ -147,7 +146,7 @@ interface PopulationTarget {
   tolerance: number;
 }
 
-const POPULATION_TARGETS: PopulationTarget[] = [
+const _POPULATION_TARGETS: PopulationTarget[] = [
   { predator: 'wolf', prey: 'rabbit', idealRatio: 2, tolerance: 1 },
   { predator: 'wolf', prey: 'deer', idealRatio: 1, tolerance: 0.5 },
   { predator: 'fox', prey: 'rabbit', idealRatio: 3, tolerance: 1.5 },
@@ -214,7 +213,7 @@ export class EcosystemManager {
   private stepCounter = 0;
 
   constructor(
-    private readonly rng: RandomGenerator,
+    _rng: RandomGenerator,
     private readonly ecology: EcologySystem,
   ) {
     this.balance = {
@@ -630,7 +629,7 @@ export class EcosystemManager {
   }
 
   private calculateSpawnModifiers(
-    animalCounts?: ReadonlyMap<AnimalType, number>,
+    _animalCounts?: ReadonlyMap<AnimalType, number>,
   ): Map<AnimalType, number> {
     const modifiers = new Map<AnimalType, number>();
 
@@ -646,7 +645,7 @@ export class EcosystemManager {
               ? 0.5
               : 0.3;
 
-    for (const [type, roleDef] of Object.entries(ECOSYSTEM_ROLES)) {
+    for (const [type] of Object.entries(ECOSYSTEM_ROLES)) {
       modifiers.set(type as AnimalType, baseModifier);
     }
 

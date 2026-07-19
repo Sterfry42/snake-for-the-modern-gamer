@@ -42,12 +42,10 @@ import {
   tryPlaceChest,
   tryDepositToChest,
   tryWithdrawFromChest,
-  tryBreakChest,
   getChestContents,
 } from './chest.js';
-import { tryPlaceBed, trySleep, tryBreakBed } from './bed.js';
+import { tryPlaceBed, trySleep } from './bed.js';
 import {
-  tryCreateFarmland,
   tryPlantSeeds,
   tryPlantPumpkin,
   tickCrops,
@@ -67,12 +65,12 @@ export class MinecraftFeature extends Feature {
   private craftingUIOpen = false;
   private skyOverlay: Phaser.GameObjects.Graphics | null = null;
   private hudGraphics: Phaser.GameObjects.Graphics | null = null;
-  private craftingTableNearby = false;
+  private lastActionStep: number = 0;
   private furnaces: Map<string, import('./furnace.js').FurnaceState> = new Map();
   private chests: Map<string, import('./chest.js').ChestState> = new Map();
   private beds: Map<string, import('./bed.js').BedState> = new Map();
-  private lastActionStep: number = 0;
   private borderOverlay: Phaser.GameObjects.Graphics | null = null;
+  private craftingTableNearby = false;
   private creativeMode = false;
   private _rngInjected = false;
 
@@ -141,7 +139,6 @@ export class MinecraftFeature extends Feature {
     tickCrops(room, this.dayNight!, this.rng);
 
     // Mob tick with combat
-    const mobs = this.mobManager?.getMobsInRoom(room.id) ?? [];
     const head = scene.snakeGame.getSnakeBody()[0];
     if (head) {
       this.lighting?.calculateLightMap(room.id);
@@ -156,7 +153,7 @@ export class MinecraftFeature extends Feature {
           const actualDamage = this.player?.takeDamageWithArmor(damage) ?? damage;
           scene.setFlag('ui.questInteraction', { message: `You took ${actualDamage} damage!` });
         },
-        (cx, cy, crId) => this.handleCreeperExplosion(scene, cx, cy),
+        (cx, cy) => this.handleCreeperExplosion(scene, cx, cy),
       );
     }
 

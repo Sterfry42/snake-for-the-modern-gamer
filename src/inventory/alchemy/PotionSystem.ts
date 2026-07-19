@@ -224,7 +224,7 @@ export class PotionSystem {
   }
 
   /** Generate a mythic effect for a potion */
-  private generateMythicEffect(recipe: ReturnType<RecipeManager['getRecipe']>, rarity: IngredientRarity) {
+  private generateMythicEffect(recipe: ReturnType<RecipeManager['getRecipe']>, _rarity: IngredientRarity) {
     if (!recipe) return undefined;
 
     const baseEffects: Record<string, { type: PotionEffectType; durationTicks: number; parameters?: Record<string, unknown> }> = {
@@ -325,11 +325,7 @@ export class PotionSystem {
   private calculateCraftRarity(recipe: ReturnType<RecipeManager['getRecipe']>): IngredientRarity {
     if (!recipe) return 'common';
 
-    let highestRarityIndex = 0;
-    const rarityOrder: IngredientRarity[] = ['common', 'uncommon', 'rare', 'legendary'];
-
     for (const { itemId } of recipe.ingredients) {
-      const ingredient = { itemId }; // Placeholder - would need ingredient lookup
       // Simplified: use the recipe's minIngredientRarity if set, otherwise default
     }
 
@@ -347,7 +343,7 @@ export class PotionSystem {
 
     // Gather tags from ingredients
     const tags = new Set<string>();
-    for (const { itemId } of recipe.ingredients) {
+    for (const { itemId: _itemId } of recipe.ingredients) {
       // Would look up ingredient tags here
       tags.add('apple'); // Simplified
     }

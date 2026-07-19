@@ -28,12 +28,10 @@ export interface FishingRegistryOptions {
 
 export class FishingRegistry {
   private readonly rng: () => number;
-  private readonly debug: boolean;
   private readonly getModifiers: () => FishingSpecialModifiers;
 
   constructor(options: FishingRegistryOptions) {
     this.rng = options.rng;
-    this.debug = options.debug ?? false;
     this.getModifiers =
       options.getModifiers ??
       (() => ({
@@ -233,7 +231,7 @@ export class FishingRegistry {
   /**
    * Abort a fishing session (player intentionally stops).
    */
-  abortFishing(state: FishingState): FishingSessionResult {
+  abortFishing(_state: FishingState): FishingSessionResult {
     return {
       caught: false,
       reason: 'playerAbort',

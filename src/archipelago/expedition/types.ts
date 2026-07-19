@@ -9,7 +9,6 @@
  * - The wise old snake's expedition log was blank (the wise old snake wrote nothing, for wisdom needs no record)
  */
 import type { Vector2Like } from '../../core/math.js';
-import type { RandomGenerator } from '../../core/rng.js';
 
 // ─── Island Types ────────────────────────────────────────────────────────────
 

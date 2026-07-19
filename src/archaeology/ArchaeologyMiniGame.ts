@@ -18,20 +18,15 @@ import type { RandomGenerator } from '../core/rng.js';
 import {
   type ExcavationSession,
   type ExcavationState,
-  type TimingBarState,
   updateTimingBar,
   excavateFragment,
-  calculateAssemblyQuality,
   assembleFossil,
-  getProgressDisplay,
-  getRemainingFragments,
 } from './ExcavationSystem.js';
 import {
   type FragmentType,
   type DiscoveredFossil,
   type CompletedFossil,
   FRAGMENT_TYPE_LABELS,
-  getFossilSet,
 } from './fossilRegistry.js';
 
 /**
@@ -340,7 +335,7 @@ export function addParticles(visual: MiniGameVisualState, particles: ParticleEff
 export function tryCompleteAssembly(
   session: ExcavationSession,
   visual: MiniGameVisualState,
-  rng: RandomGenerator,
+  _rng: RandomGenerator,
 ): { completed: CompletedFossil | null; notification: MiniGameNotification | null } {
   if (session.state !== 'assembling' || !session.currentFossilSet) {
     return { completed: null, notification: null };
@@ -376,7 +371,7 @@ export function tryCompleteAssembly(
  * Create assembly phase quality hit.
  */
 export function processAssemblyPhase(
-  session: ExcavationSession,
+  _session: ExcavationSession,
   visual: MiniGameVisualState,
 ): number {
   if (visual.qualityMeter.completedPhases >= visual.qualityMeter.phases) {

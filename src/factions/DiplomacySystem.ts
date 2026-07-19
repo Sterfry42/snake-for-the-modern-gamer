@@ -361,8 +361,6 @@ export class DiplomacySystem {
   }): NegotiationResult {
     const { factionA, factionB, territoryId, reason } = input;
 
-    const currentRelation = this.getRelation(factionA, factionB);
-
     // Break any existing treaties
     this.breakTreatiesForFaction(factionA, factionB);
 
@@ -656,7 +654,7 @@ export class DiplomacySystem {
     }
   }
 
-  private randomFailureReason(goal: string, currentRelation: DiplomaticRelation): string {
+  private randomFailureReason(goal: string, _currentRelation: DiplomaticRelation): string {
     const reasons: Record<string, string[]> = {
       'improve-relation': [
         'The other faction is not interested in improving relations.',

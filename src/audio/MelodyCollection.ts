@@ -13,7 +13,6 @@ import type { AppleGenre, MelodyFragment } from './MusicalAppleMap.js';
 import {
   DEFAULT_MELODY_FRAGMENTS,
   getGenreDefinition,
-  getMelodyFragment,
   getMelodyFragmentsForGenre,
   type GenreDefinition,
 } from './MusicalAppleMap.js';
@@ -94,7 +93,7 @@ export class MelodyCollection {
   private sequenceBuffer: string[] = [];
   private sequenceBufferSize = 20;
   private onFragmentUnlockedCallback?: (fragment: MelodyFragmentProgress) => void;
-  private onGenreCompleteCallback?: (genre: AppleGenre) => void;
+  private _onGenreCompleteCallback?: (genre: AppleGenre) => void;
   private onTrackUnlockedCallback?: (genre: AppleGenre) => void;
 
   constructor() {
@@ -343,7 +342,7 @@ export class MelodyCollection {
    * Register a callback for genre completions.
    */
   onGenreComplete(callback: (genre: AppleGenre) => void): void {
-    this.onGenreCompleteCallback = callback;
+    this._onGenreCompleteCallback = callback;
   }
 
   /**

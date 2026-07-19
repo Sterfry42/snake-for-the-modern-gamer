@@ -87,7 +87,7 @@ export function getCheatsByCategory(): Map<CheatCategory, readonly CheatDefiniti
     }
   }
   // Sort within each category by primary code for stable ordering.
-  for (const [cat, cheats] of grouped) {
+  for (const [, cheats] of grouped) {
     cheats.sort((a, b) => a.primaryCode.localeCompare(b.primaryCode));
   }
   return grouped;

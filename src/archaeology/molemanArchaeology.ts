@@ -335,7 +335,7 @@ export class MolemanArchaeologySession {
     this.i18nResolveFn = resolveFn;
   }
 
-  private resolveTileLabel(kind: ArchaeologyTileKind): string {
+  private _resolveTileLabel(kind: ArchaeologyTileKind): string {
     return this.i18nResolveFn
       ? this.i18nResolveFn(ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel)
       : ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel;

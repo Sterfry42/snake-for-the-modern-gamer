@@ -269,7 +269,7 @@ export class KingdomManager {
 
   private generateKingdomName(
     capital: Settlement,
-    rulerInfo: { name: string; title: string },
+    _rulerInfo: { name: string; title: string },
   ): string {
     const prefixes = [
       'Kingdom of',
@@ -312,7 +312,7 @@ export class KingdomManager {
 
   private triggerRoyalEvent(kingdom: Kingdom): string {
     const eventNames = kingdom.royalEvents;
-    if (eventNames.length === 0) return null;
+    if (eventNames.length === 0) return '';
 
     const eventName = eventNames[Math.floor(this.rng() * eventNames.length)];
     return eventName;

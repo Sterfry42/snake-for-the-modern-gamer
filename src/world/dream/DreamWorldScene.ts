@@ -14,14 +14,11 @@
  * - The wise old snake considers the dream world scene "trippy but worth it"
  */
 import Phaser from 'phaser';
-import type { Vector2Like } from '../../core/math.js';
 import { DreamManager } from './DreamManager.js';
 import { DreamPuzzleManager } from './DreamPuzzles.js';
 import { DreamShopManager } from './dreamShop.js';
 import {
-  DREAM_APPLE_TYPES,
   createDreamAppleInstance,
-  type DreamAppleBase,
 } from './dreamAppleTypes.js';
 import type {
   DreamStateId,
@@ -32,7 +29,6 @@ import type {
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
 const DREAM_BG_COLOR = 0x1a0a2e;
-const DREAM_ACCENT_COLOR = 0xb19cd9;
 const DREAM_BRIDGE_COLOR = 0xff69b4;
 const DREAM_ISLAND_COLOR = 0x4a3060;
 const DREAM_ISLAND_HIGHLIGHT = 0x6a5080;

@@ -18,6 +18,8 @@ import type {
   TerritoryOwnership,
   TerritoryType,
   WarEventType,
+  WarEventState,
+  WarEventPhase,
 } from './territoryTypes.js';
 import { TERRITORY_SAVE_VERSION } from './territoryTypes.js';
 
@@ -552,7 +554,7 @@ export class TerritoryManager {
     this.updateSerpentFaction(currentRoomNumber);
   }
 
-  private resolveContestedTerritory(territoryId: string, currentRoomNumber: number): void {
+  private resolveContestedTerritory(territoryId: string, _currentRoomNumber: number): void {
     const ownership = this.ownership.get(territoryId);
     if (!ownership || !ownership.contestedByFactionId || !ownership.controllingFactionId) return;
 

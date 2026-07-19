@@ -19,8 +19,6 @@ import {
   GOBLIN_NAMES,
   MYSTIC_NAMES,
   WANDERER_NAMES,
-  NPC_NAME_POOLS,
-  pickNpcName,
   inferNpcNameArchetype,
 } from '../npcs/npcNames.js';
 import type { RandomGenerator } from '../core/rng.js';

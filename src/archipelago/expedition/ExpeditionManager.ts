@@ -92,16 +92,14 @@ export class ExpeditionManager {
   private progresses: ExpeditionProgress[];
   private logEntries: ExpeditionLogEntry[];
   private store: ExpeditionStore;
-  private rng: RandomGenerator;
   private callbacks: ExpeditionEventCallbacks;
   private idCounter = 0;
 
   constructor(
-    rng: RandomGenerator,
+    _rng: RandomGenerator,
     callbacks: ExpeditionEventCallbacks = {},
     store?: ExpeditionStore,
   ) {
-    this.rng = rng;
     this.callbacks = callbacks;
     this.store = store ?? new BrowserExpeditionStore();
     this.progresses = this.store.loadExpeditions();

@@ -298,14 +298,13 @@ export class MutationSystem {
 
   // ─── Private Methods ──────────────────────────────────────────────────────
 
-  private cleanOldApples(now: number): void {
-    const cutoff = now - this.combinationWindowMs;
+  private cleanOldApples(_now: number): void {
     // We track individual apple IDs, but in a real implementation you'd track timestamps
     // For simplicity, we just trim from the front when over max
     // A more sophisticated version would track timestamps per apple
   }
 
-  private checkForMutations(now: number): void {
+  private checkForMutations(_now: number): void {
     const discoverable = this.getDiscoverableMutations();
 
     for (const mutation of discoverable) {

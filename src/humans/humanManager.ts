@@ -25,7 +25,6 @@ import {
   getHumanDefinitionsForType,
 } from './humanRegistry.js';
 import { buildHumanStats, pickHumanName, buildHumanProfile } from './humanProfiles.js';
-import { getPortraitDefinition } from '../npcs/portraitRegistry.js';
 
 
 // === HUMAN MANAGER ===
@@ -75,7 +74,7 @@ export class HumanManager {
   private createHumanInstance(
     definition: (typeof HUMAN_DEFINITIONS)[number],
     roomId: string,
-    biomeId: BiomeId,
+    _biomeId: BiomeId,
     position: Vector2Like,
   ): HumanInstance {
     const name = pickHumanName(definition.type, this.rng);
@@ -225,7 +224,7 @@ export class HumanManager {
     return Array.from(this.knownHumans);
   }
 
-  giveGift(humanId: string, itemId: string): void {
+  giveGift(humanId: string, _itemId: string): void {
     const relationship = this.relationships.get(humanId);
     if (relationship) {
       relationship.giftsGiven++;

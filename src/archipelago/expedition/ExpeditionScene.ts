@@ -16,7 +16,7 @@ import type {
   IslandDefinition,
   LegacyEffectId,
 } from './types.js';
-import { ISLAND_BY_ID, LEGACY_EFFECT_BY_ID } from './IslandRegistry.js';
+import { ISLAND_BY_ID } from './IslandRegistry.js';
 import type { RandomGenerator } from '../../core/rng.js';
 import type { GridConfig } from '../../config/gameConfig.js';
 
@@ -567,7 +567,7 @@ export class ExpeditionScene extends Phaser.Scene {
   // ─── UI Updates ──────────────────────────────────────────────────────────
 
   private updateUI(): void {
-    const phases: ExpeditionPhase[] = ['approach', 'explore', 'discover', 'escape'];
+    const _phases: ExpeditionPhase[] = ['approach', 'explore', 'discover', 'escape'];
     const phaseNames: Record<ExpeditionPhase, string> = {
       approach: '🚢 Approach',
       explore: '🔍 Explore',

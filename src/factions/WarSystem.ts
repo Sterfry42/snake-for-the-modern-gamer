@@ -6,7 +6,7 @@
  * shifts and with FactionEventSystem for event notifications.
  */
 import type { FactionEventSystem } from './factionEvents.js';
-import type { WarEventType } from './territoryTypes.js';
+import type { WarEventType, WarEventState } from './territoryTypes.js';
 import { TerritoryManager } from './TerritoryManager.js';
 
 // ─── Battle Configuration ────────────────────────────────────────────────────
@@ -228,7 +228,7 @@ export class WarSystem {
 
     // Notify faction event system
     if (this.factionEventSystem && controlDelta !== 0) {
-      const event = this.factionEventSystem.createEvent({
+      this.factionEventSystem.createEvent({
         type: Math.abs(controlDelta) > 20 ? 'skirmish' : 'argument',
         factionIds: [attackerFactionId, defenderFactionId],
         severity: Math.abs(controlDelta) * 2,

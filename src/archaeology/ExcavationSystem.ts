@@ -128,7 +128,7 @@ export function createExcavationSession(
  */
 export function updateTimingBar(
   session: ExcavationSession,
-  deltaMs: number,
+  _deltaMs: number,
   playerInput: number, // -1 (left) to 1 (right)
 ): void {
   const bar = session.timingBar;
@@ -278,7 +278,7 @@ export function assembleFossil(
   fossilSetId: string,
   assemblyQuality: number,
 ): CompletedFossil | null {
-  const { canAssemble, fragmentCounts, needed } = checkFossilAssembly(
+  const { canAssemble } = checkFossilAssembly(
     discoveredFragments,
     fossilSetId,
   );
@@ -308,7 +308,6 @@ export function assembleFossil(
   }
 
   // Apply assembly quality bonus
-  const finalQuality = Math.min(1, assemblyQuality * 1.2);
 
   return {
     fossilSetId,
@@ -362,13 +361,13 @@ export function resetExcavationSession(session: ExcavationSession): void {
  */
 export function simulateProgress(
   session: ExcavationSession,
-  deltaMs: number,
-  rng: RandomGenerator,
+  _deltaMs: number,
+  _rng: RandomGenerator,
 ): boolean {
   if (session.state !== 'active') return false;
 
   const speed = 0.001 + session.parameters.depth * 0.0001;
-  session.progress += deltaMs * speed;
+  session.progress += _deltaMs * speed;
 
   if (session.progress >= 1) {
     session.progress = 1;

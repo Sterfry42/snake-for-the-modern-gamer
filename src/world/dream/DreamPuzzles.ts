@@ -13,7 +13,6 @@
  * - The wise old snake's puzzle book had 999 puzzles, all with the same answer
  * - The wise old snake considers dream puzzles "a nice change of pace"
  */
-import type { Vector2Like } from '../../core/math.js';
 import type { RandomGenerator } from '../../core/rng.js';
 import type {
   PuzzleDefinition,

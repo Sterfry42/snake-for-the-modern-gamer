@@ -203,7 +203,6 @@ export class ExpeditionSupplies {
 
     const missingEssentials: string[] = [];
     const avoidedItems: string[] = [];
-    const extraRecommended: string[] = [];
 
     for (const def of essentialDefs) {
       if (!suppliedApples.has(def.appleTypeId)) {
