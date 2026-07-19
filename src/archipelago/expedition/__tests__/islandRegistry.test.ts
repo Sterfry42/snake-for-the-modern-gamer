@@ -66,7 +66,7 @@ describe('IslandRegistry', () => {
     });
 
     it('should not contain unknown islands', () => {
-      expect(ISLAND_BY_ID['unknown-island']).toBeUndefined();
+      expect(ISLAND_BY_ID['unknown-island' as unknown as keyof typeof ISLAND_BY_ID]).toBeUndefined();
     });
   });
 
