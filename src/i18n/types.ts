@@ -926,6 +926,62 @@ export interface FeatureStrings {
   factionWarAchievementMasterTacticianDesc: string;
   factionWarAchievementDiplomaticImmunity: string;
   factionWarAchievementDiplomaticImmunityDesc: string;
+
+  // === MUSICAL APPLE SYSTEM ===
+  musicPlayerTitle: string;
+  musicTabTracks: string;
+  musicTabGenres: string;
+  musicTabFavorites: string;
+  musicTabCollection: string;
+  musicGenreNone: string;
+  musicGenreUnknown: string;
+  musicGenreCalm: string;
+  musicGenreEnergetic: string;
+  musicGenreMysterious: string;
+  musicGenreFestival: string;
+  musicMoodCalm: string;
+  musicMoodEnergetic: string;
+  musicMoodMysterious: string;
+  musicMoodFestival: string;
+  musicTrackCalm: string;
+  musicTrackEnergetic: string;
+  musicTrackMysterious: string;
+  musicTrackFestival: string;
+  musicCollectionProgress: string;
+  musicFragmentUnlocked: string;
+  musicTrackUnlocked: string;
+  musicRhythmChallenge: string;
+  musicRhythmHint: string;
+  musicRhythmPerfect: string;
+  musicRhythmGood: string;
+  musicRhythmOk: string;
+  musicRhythmMiss: string;
+  musicRhythmSuccess: string;
+  musicRhythmFailure: string;
+  musicMelodyCalmLavenderWaltz: string;
+  musicMelodyCalmDeepLullaby: string;
+  musicMelodyCalmGentleStream: string;
+  musicMelodyEnergeticDigitalDash: string;
+  musicMelodyEnergeticHeatWaveRush: string;
+  musicMelodyEnergeticNeonHighway: string;
+  musicMelodyMysteriousKoiDream: string;
+  musicMelodyMysteriousCrystalCaves: string;
+  musicMelodyMysteriousAncientEcho: string;
+  musicMelodyFestivalHarvestFiesta: string;
+  musicMelodyFestivalSerpentSamba: string;
+  musicMelodyFestivalGrandFinale: string;
+  musicInstrumentPercussion: string;
+  musicInstrumentSynth: string;
+  musicInstrumentPad: string;
+  musicInstrumentStrings: string;
+  musicInstrumentMarimba: string;
+  musicInstrumentBrass: string;
+  musicInstrumentChoir: string;
+  musicInstrumentWater: string;
+  musicInstrumentBass: string;
+  musicInstrumentErratic: string;
+  musicInstrumentMelody: string;
+  musicInstrumentHarmony: string;
 }
 
 export interface ActorVoiceTranslations {
