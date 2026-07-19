@@ -6,6 +6,7 @@ import type { TransitionContract } from './transitionContracts.js';
 import type { TerrainCanvas } from './terrainCanvas.js';
 import type { VegetationInstance } from '../types.js';
 import type { BulletTrainStation } from '../bulletTrainTypes.js';
+import type { RollercoasterStation } from '../rollercoasterTypes.js';
 
 export type RoomLayout = string[][];
 export type ProtectedCells = ReadonlySet<string> | undefined;
@@ -97,6 +98,7 @@ export interface RoomGenerationContext {
   cheeseShop?: RoomSnapshot['cheeseShop'];
   temperatureReliefs?: RoomSnapshot['temperatureReliefs'];
   bulletTrainStation?: BulletTrainStation;
+  rollercoasterStation?: RollercoasterStation;
   townMembership?: TownRoomMembership | null;
   townAdjacency?: TownRoomMembership | null;
   transitionContracts?: TransitionContract[];

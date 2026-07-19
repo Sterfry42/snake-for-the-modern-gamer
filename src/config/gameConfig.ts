@@ -87,7 +87,39 @@ export interface AppleTypeConfig {
       | 'lavender'
       | 'coldBeer'
       | 'love'
-      | 'treat';
+      | 'treat'
+      | 'frost'
+      | 'winterberry'
+      | 'heatwave'
+      // Evolved/Mutation apples
+      | 'spicyEnergy'
+      | 'frostMochi'
+      | 'caffeinatedShield'
+      | 'coldCaffeinated'
+      | 'lavenderCalm'
+      | 'loveShield'
+      | 'tripleThreat'
+      | 'frostWasabi'
+      | 'yuzuEnergy'
+      | 'mochiShield'
+      | 'winterberryFrost'
+      | 'goldSpicy'
+      | 'treatMochi'
+      | 'heatwaveFrost'
+      | 'ultimateFusion'
+      // Archaeological apples
+      | 'amber'
+      | 'fossil'
+      | 'relic'
+      // Dream World apples
+      | 'dream'
+      | 'dream-gravity'
+      | 'dream-phase'
+      | 'dream-speed'
+      | 'nightmare'
+      | 'nightmare-hunter'
+      | 'lucid'
+      | 'lucid-master';
 }
 
 export interface AppleSystemConfig {
@@ -330,6 +362,96 @@ export const defaultGameConfig: GameConfig = {
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.005, scoreThreshold: 100 },
         behavior: 'treat',
+      },
+      // Dream World Apples
+      {
+        id: 'dream',
+        label: 'Dream Apple',
+        color: 0xb19cd9,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-gravity',
+        label: 'Gravity Apple',
+        color: 0x87ceeb,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-phase',
+        label: 'Phase Apple',
+        color: 0xe6e6fa,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'dream-speed',
+        label: 'Swift Dream Apple',
+        color: 0x98fb98,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'dream',
+      },
+      {
+        id: 'nightmare',
+        label: 'Nightmare Apple',
+        color: 0x8b0000,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'nightmare',
+      },
+      {
+        id: 'nightmare-hunter',
+        label: 'Hunter Apple',
+        color: 0x4a0000,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'nightmare',
+      },
+      {
+        id: 'lucid',
+        label: 'Lucid Apple',
+        color: 0xffd700,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'lucid',
+      },
+      {
+        id: 'lucid-master',
+        label: 'Master Lucid Apple',
+        color: 0xffaa00,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0, scoreThreshold: 0 },
+        behavior: 'lucid',
+      },
+      // Archaeological Apples
+      {
+        id: 'amber',
+        label: 'Amber Apple',
+        color: 0xFFBF00,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.08, scoreThreshold: 20 },
+        behavior: 'amber',
+      },
+      {
+        id: 'fossil',
+        label: 'Fossil Apple',
+        color: 0xD2B48C,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.06, scoreThreshold: 30 },
+        behavior: 'fossil',
+      },
+      {
+        id: 'relic',
+        label: 'Relic Apple',
+        color: 0x9370DB,
+        outlineDarkenFactor: 0.45,
+        spawn: { base: 0.03, scoreThreshold: 50 },
+        behavior: 'relic',
       },
     ],
     skittishMoveChance: 0.225,

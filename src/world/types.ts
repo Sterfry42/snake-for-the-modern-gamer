@@ -26,6 +26,7 @@ import type {
 import type { LayerEntrance, LayerInstance } from '../layers/layerTypes.js';
 import type { DigSiteVariantId } from '../archaeology/molemanArchaeology.js';
 import type { BulletTrainStation } from './bulletTrainTypes.js';
+import type { RollercoasterStation } from './rollercoasterTypes.js';
 
 /** A single vegetation instance placed on the room grid. */
 export interface VegetationInstance {
@@ -75,7 +76,12 @@ export type VegetationType =
   | 'decor-2'
   | 'decor-3'
   | 'decor-4'
-  | 'decor-5';
+  | 'decor-5'
+  | 'cactus-1'
+  | 'cactus-2'
+  | 'cactus-3'
+  | 'cactus-4'
+  | 'cactus-5';
 
 export interface PortalConfig {
   x: number;
@@ -271,6 +277,7 @@ export interface RoomSnapshot {
     shopkeeper: NpcProfile & { x: number; y: number };
   };
   bulletTrainStation?: BulletTrainStation;
+  rollercoasterStation?: RollercoasterStation;
   temperatureReliefs?: Array<{ x: number; y: number; kind: 'warm' | 'cool' | 'onsen' }>;
   mosaicCoast?: MosaicCoastMetadata;
   minecraftBlocks?: Record<string, string>;

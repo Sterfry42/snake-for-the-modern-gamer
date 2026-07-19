@@ -45,6 +45,11 @@ export const ALL_VEGETATION_VARIANTS: readonly VegetationType[] = [
   'decor-3',
   'decor-4',
   'decor-5',
+  'cactus-1',
+  'cactus-2',
+  'cactus-3',
+  'cactus-4',
+  'cactus-5',
 ] as const;
 
 export class VegetationOperations {

@@ -49,6 +49,11 @@ const VARIANTS: readonly VegetationType[] = [
   'decor-3',
   'decor-4',
   'decor-5',
+  'cactus-1',
+  'cactus-2',
+  'cactus-3',
+  'cactus-4',
+  'cactus-5',
 ] as const;
 
 const VARIANT_BASE_COLORS: Record<VegetationType, { fill: string; outline: string }> = {
@@ -92,6 +97,11 @@ const VARIANT_BASE_COLORS: Record<VegetationType, { fill: string; outline: strin
   'decor-3': { fill: '#d0d8d8', outline: '#a0a8a8' },
   'decor-4': { fill: '#d8d0d8', outline: '#a8a0a8' },
   'decor-5': { fill: '#d4d4d4', outline: '#a4a4a4' },
+  'cactus-1': { fill: '#88aa66', outline: '#557733' },
+  'cactus-2': { fill: '#77aa55', outline: '#447733' },
+  'cactus-3': { fill: '#66aa44', outline: '#336622' },
+  'cactus-4': { fill: '#88bb77', outline: '#558844' },
+  'cactus-5': { fill: '#77aa66', outline: '#447733' },
 };
 
 function drawSprite(
@@ -1485,6 +1495,207 @@ function drawVariant(
               [4, 1],
               [3, 6],
               [4, 6],
+            ],
+            ps,
+            outline,
+          );
+          break;
+        case 'cactus-1':
+          // Classic barrel cactus
+          drawPixels(
+            context,
+            [
+              [3, 2],
+              [4, 2],
+              [2, 3],
+              [3, 3],
+              [4, 3],
+              [5, 3],
+              [2, 4],
+              [3, 4],
+              [4, 4],
+              [5, 4],
+              [3, 5],
+              [4, 5],
+            ],
+            ps,
+            fill,
+          );
+          drawPixels(
+            context,
+            [
+              [2, 2],
+              [5, 2],
+              [1, 3],
+              [6, 3],
+              [1, 4],
+              [6, 4],
+              [2, 5],
+              [5, 5],
+              [3, 1],
+              [4, 1],
+              [3, 6],
+              [4, 6],
+            ],
+            ps,
+            outline,
+          );
+          break;
+        case 'cactus-2':
+          // Saguaro with one arm
+          drawPixels(
+            context,
+            [
+              [4, 2],
+              [4, 3],
+              [4, 4],
+              [4, 5],
+              [3, 3],
+              [3, 4],
+              [3, 5],
+            ],
+            ps,
+            fill,
+          );
+          drawPixels(
+            context,
+            [
+              [3, 2],
+              [4, 1],
+              [4, 6],
+              [2, 3],
+              [2, 4],
+              [2, 5],
+              [3, 6],
+              [5, 3],
+              [5, 4],
+              [5, 5],
+            ],
+            ps,
+            outline,
+          );
+          break;
+        case 'cactus-3':
+          // Prickly pear pad
+          drawPixels(
+            context,
+            [
+              [2, 3],
+              [3, 3],
+              [4, 3],
+              [2, 4],
+              [3, 4],
+              [4, 4],
+              [2, 5],
+              [3, 5],
+              [4, 5],
+              [5, 4],
+              [5, 5],
+            ],
+            ps,
+            fill,
+          );
+          drawPixels(
+            context,
+            [
+              [1, 3],
+              [5, 3],
+              [1, 4],
+              [5, 4],
+              [1, 5],
+              [6, 4],
+              [2, 2],
+              [3, 2],
+              [4, 2],
+              [2, 6],
+              [3, 6],
+              [4, 6],
+            ],
+            ps,
+            outline,
+          );
+          break;
+        case 'cactus-4':
+          // Tall cholla
+          drawPixels(
+            context,
+            [
+              [3, 1],
+              [4, 1],
+              [3, 2],
+              [4, 2],
+              [2, 3],
+              [3, 3],
+              [4, 3],
+              [5, 3],
+              [2, 4],
+              [3, 4],
+              [4, 4],
+              [5, 4],
+              [3, 5],
+              [4, 5],
+              [3, 6],
+              [4, 6],
+            ],
+            ps,
+            fill,
+          );
+          drawPixels(
+            context,
+            [
+              [3, 0],
+              [4, 0],
+              [2, 1],
+              [5, 1],
+              [1, 3],
+              [6, 3],
+              [1, 4],
+              [6, 4],
+              [2, 5],
+              [5, 5],
+              [2, 6],
+              [5, 6],
+            ],
+            ps,
+            outline,
+          );
+          break;
+        case 'cactus-5':
+          // Cluster of small cacti
+          drawPixels(
+            context,
+            [
+              [2, 3],
+              [3, 3],
+              [2, 4],
+              [3, 4],
+              [5, 2],
+              [6, 2],
+              [5, 3],
+              [6, 3],
+              [4, 4],
+              [5, 4],
+              [4, 5],
+              [5, 5],
+            ],
+            ps,
+            fill,
+          );
+          drawPixels(
+            context,
+            [
+              [1, 3],
+              [4, 3],
+              [1, 4],
+              [4, 4],
+              [4, 1],
+              [7, 1],
+              [4, 2],
+              [7, 2],
+              [3, 5],
+              [6, 5],
+              [3, 6],
+              [6, 6],
             ],
             ps,
             outline,
