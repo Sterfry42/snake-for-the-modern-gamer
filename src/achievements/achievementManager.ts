@@ -82,6 +82,8 @@ export class AchievementManager {
     if (event.type === 'water:swamTile') this.state.run.waterTilesSwum += 1;
     if (event.type === 'item:consumed' && !this.state.run.consumedItemIds.includes(event.itemId))
       this.state.run.consumedItemIds.push(event.itemId);
+    if (event.type === 'mutation:discovered') this.state.run.mutationCount += 1;
+    if (event.type === 'mutation:traitGained') this.state.run.traitCount += 1;
     const unlocks: AchievementUnlockResult[] = [];
     for (const definition of this.definitions) {
       if (
@@ -116,7 +118,7 @@ export class AchievementManager {
     );
     this.state.progress = {};
     this.state.discoveredBiomes = [];
-    this.state.run = { consumedItemIds: [], waterTilesSwum: 0 };
+    this.state.run = { consumedItemIds: [], waterTilesSwum: 0, mutationCount: 0, traitCount: 0 };
     this.persist();
   }
 
@@ -182,6 +184,21 @@ export class AchievementManager {
           ).length;
           this.updateProgress(definition, count);
           if (count >= 3) {
+            const result = this.complete(definition.id);
+            if (result) unlocks.push(result);
+          }
+        }
+        // Mutation achievements that track run counters
+        if (definition.id === 'mutations.commonCollector') {
+          this.updateProgress(definition, this.state.run.mutationCount);
+          if (this.state.run.mutationCount >= 5) {
+            const result = this.complete(definition.id);
+            if (result) unlocks.push(result);
+          }
+        }
+        if (definition.id === 'mutations.traitMaster') {
+          this.updateProgress(definition, this.state.run.traitCount);
+          if (this.state.run.traitCount >= 10) {
             const result = this.complete(definition.id);
             if (result) unlocks.push(result);
           }

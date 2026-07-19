@@ -45,6 +45,7 @@ const VILLAGE_NAMES: Record<BiomeId, readonly string[]> = {
   'ash-steppe': ['Ashwake Flats', 'Soot Rest', 'The Grey Measure', 'Dustcross', 'Steppe Hollow'],
   'neon-underpass': ['Neon Wake', 'Glow Rest', 'The Underpass', 'Tubecross', 'Hotwire Hollow'],
   'glass-desert': ['Prism Wake', 'Shard Rest', 'The Glass Measure', 'Miragecross', 'Sun Hollow'],
+  'amber-dunes': ['Amber Wake', 'Dune Rest', 'The Golden Measure', 'Sandcross', 'Cactus Hollow'],
   'titan-ribcage': ['Rib Wake', 'Marrow Rest', 'The Bone Nave', 'Ossuarycross', 'Titan Hollow'],
   'radioactive-orchard': ['Glow Wake', 'Rad Rest', 'The Green Orchard', 'Isotopecross', 'Mutant Hollow'],
   'clockwork-quarry': ['Gear Wake', 'Brass Rest', 'The Clock Quarry', 'Cogcross', 'Pendulum Hollow'],

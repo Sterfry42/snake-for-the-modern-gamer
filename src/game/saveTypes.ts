@@ -11,6 +11,7 @@ import type { AchievementState } from '../achievements/achievementTypes.js';
 import type { LevelProgressionState } from '../stats/levelProgression.js';
 import type { ArcadeSnakeSaveData } from '../arcade/arcadeSnakeTypes.js';
 import type { AtmosphereState } from '../world/atmosphereTypes.js';
+import type { DreamSaveData } from '../world/dream/types.js';
 
 export interface MinecraftBlockEntry {
   roomId: string;
@@ -99,6 +100,7 @@ export interface GameSaveData {
   achievements?: AchievementState;
   arcadeSnake?: ArcadeSnakeSaveData;
   atmosphere?: AtmosphereState;
+  dreamWorld?: DreamSaveData;
 }
 
 /** Compare two semver-style version strings. Returns true if `a < b`. */

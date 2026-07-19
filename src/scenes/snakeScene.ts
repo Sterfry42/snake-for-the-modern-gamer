@@ -90,6 +90,11 @@ import {
   SpanishWebAudioFontMusic,
   type SpanishWebAudioFontState,
 } from '../audio/spanishWebAudioFontMusic.js';
+import {
+  resolveDesertMusicState,
+  DesertWebAudioFontMusic,
+  type DesertMusicState,
+} from '../audio/desertWebAudioFontMusic.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
@@ -132,6 +137,9 @@ import { isSnakeSceneRuntimeReady } from './snakeSceneStartup.js';
 import type { InventorySystem } from '../inventory/inventory.js';
 import type { BulletTrainStation } from '../world/bulletTrainTypes.js';
 import { runBulletTrainRide } from '../world/bulletTrainScene.js';
+import type { RollercoasterStation, RollercoasterTheme } from '../world/rollercoasterTypes.js';
+import { runRollercoasterRide } from '../world/rollercoasterScene.js';
+import { RollercoasterRenderer } from '../world/rollercoasterRenderer.js';
 import type { EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
 import type { SnakeCanesData } from '../world/snakeCanes.js';
@@ -1766,6 +1774,8 @@ export default class SnakeScene extends Phaser.Scene {
   private atmosphereAudioKey = 'none';
   private spanishMusic: SpanishWebAudioFontMusic | null = null;
   private spanishMusicKey = 'none';
+  private desertMusic: DesertWebAudioFontMusic | null = null;
+  private desertMusicKey = 'none';
   private nextThunderAtMs = 0;
   private lastAtmosphereWorldDay = 0;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
@@ -1787,6 +1797,8 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly baseHazardStepIntervalMs = 100;
   private bulletTrainPromptVisible = false;
   private bulletTrainStationActive = false;
+  private rollercoasterPromptVisible = false;
+  private rollercoasterStationActive = false;
   private actionStepIntervalMs = this.baseActionStepIntervalMs;
   private bossStepIntervalMs = this.baseBossStepIntervalMs;
   private actorStepIntervalMs = this.baseActorStepIntervalMs;
@@ -1830,6 +1842,7 @@ export default class SnakeScene extends Phaser.Scene {
   private questHint!: Phaser.GameObjects.Text;
   private questHintPanel!: Phaser.GameObjects.Rectangle;
   private bulletTrainPromptText: Phaser.GameObjects.Text | null = null;
+  private rollercoasterPromptText: Phaser.GameObjects.Text | null = null;
   private raccoonHungerTimerBar!: Phaser.GameObjects.Graphics;
   private heartsHud!: Phaser.GameObjects.Text;
   private livesHud!: Phaser.GameObjects.Text;
@@ -2751,6 +2764,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.tryInteractGoblinShopkeeper()) return;
     if (this.tryInteractQuestGiver()) return;
     if (this.tryInteractBulletTrain()) return;
+    if (this.tryInteractRollercoaster()) return;
     if (this.isInHouse()) this.openHouseUpgradeMenu();
   }
 
@@ -2980,6 +2994,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private updateAtmosphereAudio(view: ResolvedAtmosphereView): void {
     this.updateSpanishWebAudioFontMusic(view);
+    this.updateDesertMusic(view);
     if (view.sheltered) {
       if (this.atmosphereAudioKey !== 'none') {
         this.atmosphereAudioKey = 'none';
@@ -3035,6 +3050,30 @@ export default class SnakeScene extends Phaser.Scene {
       hasTapas: Boolean(room.mosaicCoast?.tapasBar),
       exposure: this.snakeGame.getFlag<SpanishWebAudioFontState | string>('mosaicCoast.exposure'),
     });
+  }
+
+  private updateDesertMusic(view: ResolvedAtmosphereView): void {
+    const state = resolveDesertMusicState({
+      biomeId: view.biomeId,
+      weather: view.state.globalWeather,
+      isSheltered: view.sheltered,
+    });
+    const key = state ?? 'none';
+    if (key === this.desertMusicKey) {
+      return;
+    }
+    this.desertMusicKey = key;
+    if (!state) {
+      this.desertMusic?.stop();
+      return;
+    }
+    const context = this.ensureAtmosphereAudioContext();
+    if (!context) {
+      return;
+    }
+    context.resume().catch(() => undefined);
+    this.desertMusic ??= new DesertWebAudioFontMusic(context);
+    this.desertMusic.start(state);
   }
 
   private getAtmosphereAudioKey(view: ResolvedAtmosphereView): string {
@@ -10262,6 +10301,11 @@ export default class SnakeScene extends Phaser.Scene {
       this.drawBulletTrainStation(room.bulletTrainStation);
     }
 
+    // Draw rollercoaster station if present
+    if (room.rollercoasterStation) {
+      this.drawRollercoasterStation(room.rollercoasterStation);
+    }
+
     this.drawQuestRoomActors(this.snakeGame.getQuestRoomActors(room.id));
 
     // Update simple house HUD
@@ -15857,6 +15901,238 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     // Resume the game (this must always run)
+    this.paused = false;
+    this.isDirty = true;
+  }
+
+  // === ROLLERCOASTER ===
+
+  private drawRollercoasterStation(station: RollercoasterStation): void {
+    const cell = this.grid.cell;
+    const renderer = new RollercoasterRenderer(this.graphics, cell);
+    renderer.drawStation(station, station.entranceX, station.entranceY);
+  }
+
+  private tryInteractRollercoaster(): boolean {
+    if (this.paused || this.offeredQuest || this.choicePopupVisible) {
+      return false;
+    }
+    const room = this.snakeGame.getCurrentRoom();
+    const station = room.rollercoasterStation;
+    if (!station || station.used) {
+      this.rollercoasterPromptVisible = false;
+      if (this.rollercoasterStationActive) {
+        this.rollercoasterStationActive = false;
+        this.paused = false;
+      }
+      return false;
+    }
+    const local = this.getHeadLocalPosition();
+    if (!local) {
+      this.rollercoasterPromptVisible = false;
+      return false;
+    }
+    const dist = Math.abs(local.x - station.entranceX) + Math.abs(local.y - station.entranceY);
+
+    if (dist <= 1) {
+      this.rollercoasterStationActive = true;
+      this.paused = true;
+
+      if (!this.rollercoasterPromptVisible) {
+        this.rollercoasterPromptVisible = true;
+        this.showRollercoasterPrompt(station);
+      }
+
+      this.openRollercoasterDestinationMenu(station);
+      return true;
+    }
+
+    if (this.rollercoasterStationActive) {
+      this.rollercoasterStationActive = false;
+      this.rollercoasterPromptVisible = false;
+      this.hideRollercoasterPrompt();
+      this.paused = false;
+    }
+
+    return false;
+  }
+
+  private showRollercoasterPrompt(station: RollercoasterStation): void {
+    const cell = this.grid.cell;
+    const worldX = (station.entranceX + 0.5) * cell;
+    const worldY = (station.entranceY - 0.5) * cell;
+
+    const promptText = i18n.getRollercoaster('boardCoaster') ?? '🎢 BOARD COASTER';
+    this.rollercoasterPromptText = this.add
+      .text(worldX, worldY, promptText, {
+        fontFamily: 'monospace',
+        fontSize: `${cell * 0.4}px`,
+        color: '#ff6b44',
+        fontStyle: 'bold',
+      })
+      .setOrigin(0.5)
+      .setDepth(100)
+      .setScrollFactor(0);
+
+    this.tweens.add({
+      targets: this.rollercoasterPromptText,
+      alpha: 0.5,
+      duration: 400,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+  }
+
+  private hideRollercoasterPrompt(): void {
+    if (this.rollercoasterPromptText) {
+      this.tweens.add({
+        targets: this.rollercoasterPromptText,
+        alpha: 0,
+        duration: 200,
+        onComplete: () => {
+          this.rollercoasterPromptText?.destroy();
+          this.rollercoasterPromptText = null;
+        },
+      });
+    }
+    this.rollercoasterPromptVisible = false;
+  }
+
+  private openRollercoasterDestinationMenu(station: RollercoasterStation): void {
+    const destinations = this.snakeGame.getRollercoasterDestinations(station.stationId);
+    if (destinations.length === 0) {
+      this.showQuestHintPopup('No destinations available.', '#ff6b6b');
+      this.hideRollercoasterPrompt();
+      return;
+    }
+
+    const options: ChoiceOption[] = destinations.map((dest, index) => {
+      const coordStr = dest.coordinates ?? '???';
+      return {
+        id: `dest-${index}`,
+        title: `${dest.displayName} [${coordStr}]`,
+        description: dest.arrivalFlavor,
+      };
+    });
+
+    options.push({
+      id: 'cancel',
+      title: 'Go Back',
+      description: 'Stay at this station.',
+    });
+
+    this.paused = true;
+    this.skillTree.hideOverlay();
+    this.villageShopPopup.show(station.stationName, options, (selectedId) => {
+      if (selectedId === 'cancel') {
+        this.paused = false;
+        this.hideRollercoasterPrompt();
+        return;
+      }
+
+      const destIndex = parseInt(selectedId.replace('dest-', ''), 10);
+      const chosen = destinations[destIndex];
+      if (!chosen) {
+        this.showQuestHintPopup('Invalid destination.', '#ff6b6b');
+        this.paused = false;
+        return;
+      }
+
+      this.hideRollercoasterPrompt();
+      this.startRollercoasterRide(station, chosen);
+    });
+  }
+
+  private startRollercoasterRide(
+    station: RollercoasterStation,
+    chosen: {
+      roomId: string;
+      exitX: number;
+      exitY: number;
+      arrivalFlavor: string;
+      displayName: string;
+      weight: number;
+      coordinates?: string;
+    },
+  ): void {
+    const journey = this.snakeGame.createRollercoasterJourney(
+      this.snakeGame.getCurrentRoom().id,
+      chosen.roomId,
+    );
+    if (!journey) {
+      this.showQuestHintPopup('The coaster is not ready.', '#ff6b6b');
+      this.paused = false;
+      return;
+    }
+
+    this.snakeGame.setFlag('rollercoaster.journey', journey);
+    this.snakeGame.markRollercoasterStationUsed(this.snakeGame.getCurrentRoom().id);
+    this.paused = true;
+
+    const theme = station.theme;
+
+    // Play departure juice
+    const entranceWorld = this.tileToWorld({
+      x: station.entranceX +
+        this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[0] * this.grid.cols,
+      y: station.entranceY +
+        this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[1] * this.grid.rows,
+    });
+    this.juice.rollercoasterDepart(entranceWorld.x, entranceWorld.y);
+
+    // Show departure announcement
+    const coordStr = chosen.coordinates ?? '';
+    const departureMsg = i18n.getRollercoaster('departureAnnouncement')
+      ?.replace('{coasterName}', station.stationName)
+      ?.replace('{destination}', chosen.displayName)
+      ?? `🎢 The ${station.stationName} departs for ${chosen.displayName}!`;
+    const coordAnnouncement = coordStr ? ` → ${coordStr}` : '';
+    this.showQuestHintPopup(`${departureMsg}${coordAnnouncement}`, '#ff6b44');
+
+    // Run the rollercoaster ride animation inline
+    runRollercoasterRide(this, {
+      journey,
+      arrivalFlavor: chosen.arrivalFlavor,
+      destinationRoomId: chosen.roomId,
+      destinationExitX: chosen.exitX,
+      destinationExitY: chosen.exitY,
+      stationRoomId: journey.stationRoomId,
+      destinationCoordinates: chosen.coordinates,
+      theme,
+      onArrival: (arrivalData) => this.handleRollercoasterArrival(arrivalData),
+    });
+  }
+
+  private handleRollercoasterArrival(arrivalData: {
+    destinationRoomId: string;
+    destinationExitX: number;
+    destinationExitY: number;
+    arrivalFlavor: string;
+    displayName?: string;
+    theme?: RollercoasterTheme;
+  }): void {
+    this.snakeGame.moveToRoom(arrivalData.destinationRoomId, {
+      x: arrivalData.destinationExitX,
+      y: arrivalData.destinationExitY,
+    });
+
+    this.snakeGame.setFlag('fortitude.invulnerabilityTicks', 120);
+    this.snakeGame.setFlag('rollercoaster.journey', undefined);
+    this.showQuestHintPopup(arrivalData.arrivalFlavor, '#ff6b44');
+
+    try {
+      const [destRoomX, destRoomY] = this.parseRoomCoordinates(arrivalData.destinationRoomId);
+      const exitWorldX = destRoomX * this.grid.cols + arrivalData.destinationExitX;
+      const exitWorldY = destRoomY * this.grid.rows + arrivalData.destinationExitY;
+      this.juice.rollercoasterArrive(
+        exitWorldX * this.grid.cell + this.grid.cell / 2,
+        exitWorldY * this.grid.cell + this.grid.cell / 2,
+      );
+    } catch {
+      // Juice effects failed - continue without them
+    }
+
     this.paused = false;
     this.isDirty = true;
   }

@@ -146,6 +146,7 @@ export class RoomGenerator {
       lavenderFarm: townRoom ? undefined : context.lavenderFarm,
       cheeseShop: townRoom ? undefined : context.cheeseShop,
       bulletTrainStation: context.bulletTrainStation,
+      rollercoasterStation: context.rollercoasterStation,
       temperatureReliefs: townRoom ? undefined : context.temperatureReliefs,
       mosaicCoast: townRoom ? undefined : context.mosaicCoast,
       biomeId: context.palette.biomeId,

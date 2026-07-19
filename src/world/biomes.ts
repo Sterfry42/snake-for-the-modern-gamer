@@ -39,6 +39,7 @@ export type BiomeId =
   | 'ash-steppe'
   | 'neon-underpass'
   | 'glass-desert'
+  | 'amber-dunes'
   | 'titan-ribcage'
   | 'radioactive-orchard'
   | 'clockwork-quarry'
@@ -1080,6 +1081,54 @@ const BIOMES: Record<BiomeId, BiomeDefinition> = {
     },
     vegetationDensity: 2,
   },
+  'amber-dunes': {
+    id: 'amber-dunes',
+    title: 'Amber Dunes',
+    family: 'desert',
+    tags: ['hot', 'dry', 'sparse', 'warm'],
+    generation: {
+      minWidthRooms: 6,
+      maxWidthRooms: 14,
+      minHeightRooms: 5,
+      maxHeightRooms: 12,
+      baseWeight: 0.85,
+      idealTemperature: 0.75,
+      temperatureTolerance: 0.4,
+      idealMoisture: -0.75,
+      moistureTolerance: 0.45,
+      allowedZ: 'surface',
+      minDistanceFromOrigin: 10,
+      rarity: 'uncommon',
+    },
+    transition: OPEN_LAND_TRANSITION,
+    temperature: 'Sun-Baked',
+    dangerLevel: 5,
+    temperatureHazard: 'hot',
+    temperatureRate: 0.55,
+    hue: 38,
+    saturation: 0.32,
+    lightness: 0.26,
+    tintVariance: 0.028,
+    accentColor: 0xd4a054,
+    enemyFireBias: 1,
+    enemyMoveBias: 1,
+    animalSpawnChance: 0.14,
+    animalSpawnBias: {
+      rabbit: 2,
+      deer: 1,
+      fox: 2,
+      bird: 2,
+      wolf: 1,
+      bear: 0,
+      fish: 0,
+      snake: 3,
+      lizard: 4,
+      coyote: 3,
+      armadillo: 2,
+      frog: 1,
+    },
+    vegetationDensity: 6,
+  },
   'titan-ribcage': {
     id: 'titan-ribcage',
     title: 'Titan Ribcage',
@@ -1366,6 +1415,9 @@ export function getBiomeForRoom(roomId: string): BiomeDefinition {
   }
   if (x >= -18 && x <= -12 && y >= 1 && y <= 5) {
     return BIOMES['glass-desert'];
+  }
+  if (x >= 8 && x <= 14 && y >= 6 && y <= 11) {
+    return BIOMES['amber-dunes'];
   }
   if (z === 0 && x >= -4 && x <= 2 && y >= -11 && y <= -9) {
     return BIOMES['mosaic-coast'];

@@ -3,6 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { WorldService } from '../world/worldService.js';
 import type { SpecialStats } from '../stats/specialTypes.js';
+import type { AtmosphereState, GlobalWeather, Season } from '../world/atmosphereTypes.js';
 import { createDefaultSpecialStats } from '../stats/specialStats.js';
 import { getEligibleAppleWeights } from '../stats/appleSpecial.js';
 import { getSpawnPolicy } from '../world/safeZones.js';
@@ -14,6 +15,18 @@ import type {
   AppleConsumptionContext,
 } from './types.js';
 import { AppleRegistry } from './appleRegistry.js';
+
+export interface WeatherAppleContext {
+  atmosphere: AtmosphereState;
+}
+
+export interface WeatherSpawnModifiers {
+  spawnRateScalar: number;
+  decayRateScalar: number;
+  visibilityScalar: number;
+  bonusApples: Set<string>;
+  suppressedApples: Set<string>;
+}
 
 export interface AppleSpawnResult {
   snapshot: AppleSnapshot | null;
@@ -75,6 +88,24 @@ export class AppleService {
   }
 
   spawnApple(roomId: string, snake: Vector2Like[], score: number): AppleSpawnResult {
+    return this.spawnAppleWithContext(roomId, snake, score, undefined);
+  }
+
+  spawnAppleWithWeather(
+    roomId: string,
+    snake: Vector2Like[],
+    score: number,
+    atmosphere: AtmosphereState,
+  ): AppleSpawnResult {
+    return this.spawnAppleWithContext(roomId, snake, score, { atmosphere });
+  }
+
+  private spawnAppleWithContext(
+    roomId: string,
+    snake: Vector2Like[],
+    score: number,
+    weatherContext?: WeatherAppleContext,
+  ): AppleSpawnResult {
     const room = this.world.getRoom(roomId);
     const policy = getSpawnPolicy(room);
     if (policy.apples === 'suppress') {
@@ -91,7 +122,7 @@ export class AppleService {
 
     const spawnIndex = Math.floor(this.rng() * spawnOptions.length);
     const position = spawnOptions[spawnIndex];
-    const appleType = this.chooseAppleType(score, position.tile === '~');
+    const appleType = this.chooseAppleType(score, position.tile === '~', weatherContext);
     if (!appleType) {
       return { snapshot: null, changed: false };
     }
@@ -388,7 +419,11 @@ export class AppleService {
     };
   }
 
-  private chooseAppleType(score: number, waterOnly = false): AppleTypeConfig | null {
+  private chooseAppleType(
+    score: number,
+    waterOnly = false,
+    weatherContext?: WeatherAppleContext,
+  ): AppleTypeConfig | null {
     const eligible = getEligibleAppleWeights(this.config, this.getSpecialStats(), {
       score,
       waterOnly,
@@ -398,20 +433,145 @@ export class AppleService {
       return this.registry.getTypes().find((t) => t.id === 'normal') ?? null;
     }
 
-    const totalWeight = eligible.reduce((total, entry) => total + entry.weight, 0);
+    // Apply weather modifiers to apple weights
+    const weatherModifiers = this.calculateWeatherModifiers(weatherContext);
+    const modifiedEligible = eligible.map((entry) => {
+      let weight = entry.weight;
+      if (weatherModifiers.suppressedApples.has(entry.type.id)) {
+        weight *= 0.1;
+      }
+      if (weatherModifiers.bonusApples.has(entry.type.id)) {
+        weight *= 3;
+      }
+      // Seasonal apple preferences
+      if (weatherContext) {
+        const { season, globalWeather } = weatherContext.atmosphere;
+        const typeId = entry.type.id;
+        // Spring: lavender, love apples favored
+        if (season === 'spring' && (typeId === 'lavender' || typeId === 'love')) {
+          weight *= 2;
+        }
+        // Summer: caffeinated, treat apples favored
+        if (season === 'summer' && (typeId === 'caffeinated' || typeId === 'treat')) {
+          weight *= 2;
+        }
+        // Autumn: mochi, yuzu apples favored
+        if (season === 'autumn' && (typeId === 'mochi' || typeId === 'yuzu')) {
+          weight *= 2;
+        }
+        // Winter: wasabi favored
+        if (season === 'winter' && typeId === 'wasabi') {
+          weight *= 2.5;
+        }
+        // Weather-specific bonuses
+        if (globalWeather === 'rain' && (typeId === 'skittish' || typeId === 'koi')) {
+          // Rain makes slippery apples more likely but harder to catch
+          weight *= 1.5;
+        }
+        if (globalWeather === 'coldfront' && typeId === 'wasabi') {
+          weight *= 2;
+        }
+        if (globalWeather === 'heatwave' && typeId === 'caffeinated') {
+          weight *= 2;
+        }
+        if (globalWeather === 'fog' && typeId === 'caffeinated') {
+          // Caffeinated apples help clear fog
+          weight *= 1.5;
+        }
+      }
+      return { ...entry, weight: Math.max(0.01, weight) };
+    });
+
+    const totalWeight = modifiedEligible.reduce((total, entry) => total + entry.weight, 0);
     if (totalWeight <= 0) {
-      return eligible[0]?.type ?? null;
+      return modifiedEligible[0]?.type ?? null;
     }
 
     const choice = this.rng() * totalWeight;
     let cumulative = 0;
-    for (const { type, weight } of eligible) {
+    for (const { type, weight } of modifiedEligible) {
       cumulative += weight;
       if (choice <= cumulative) {
         return type;
       }
     }
-    return eligible[eligible.length - 1]?.type ?? null;
+    return modifiedEligible[modifiedEligible.length - 1]?.type ?? null;
+  }
+
+  calculateWeatherModifiers(weatherContext?: WeatherAppleContext): WeatherSpawnModifiers {
+    const defaultModifiers: WeatherSpawnModifiers = {
+      spawnRateScalar: 1,
+      decayRateScalar: 1,
+      visibilityScalar: 1,
+      bonusApples: new Set(),
+      suppressedApples: new Set(),
+    };
+
+    if (!weatherContext) {
+      return defaultModifiers;
+    }
+
+    const { season, globalWeather } = weatherContext.atmosphere;
+
+    switch (globalWeather) {
+      case 'rain':
+        return {
+          ...defaultModifiers,
+          spawnRateScalar: 1,
+          visibilityScalar: 0.95,
+          bonusApples: new Set(['skittish', 'koi']),
+        };
+      case 'coldfront':
+        return {
+          ...defaultModifiers,
+          spawnRateScalar: 0.8,
+          visibilityScalar: 0.7,
+          bonusApples: new Set(['wasabi']),
+        };
+      case 'fog':
+        return {
+          ...defaultModifiers,
+          spawnRateScalar: 1,
+          visibilityScalar: 0.6,
+          bonusApples: new Set(['caffeinated']),
+        };
+      case 'storm':
+        return {
+          ...defaultModifiers,
+          spawnRateScalar: 0.7,
+          visibilityScalar: 0.75,
+          suppressedApples: new Set(['caffeinated']),
+        };
+      case 'heatwave':
+        return {
+          ...defaultModifiers,
+          spawnRateScalar: 1.5,
+          decayRateScalar: 1.5,
+          visibilityScalar: 0.9,
+          bonusApples: new Set(['caffeinated', 'treat']),
+        };
+      case 'wind':
+        return {
+          ...defaultModifiers,
+          spawnRateScalar: 1,
+          visibilityScalar: 0.9,
+          bonusApples: new Set(['skittish']),
+        };
+      default:
+        // Seasonal defaults
+        switch (season) {
+          case 'spring':
+            return { ...defaultModifiers, bonusApples: new Set(['lavender', 'love']) };
+          case 'summer':
+            return { ...defaultModifiers, spawnRateScalar: 1.1, bonusApples: new Set(['caffeinated', 'treat']) };
+          case 'autumn':
+            return { ...defaultModifiers, visibilityScalar: 0.9, bonusApples: new Set(['mochi', 'yuzu']) };
+          case 'winter':
+            return { ...defaultModifiers, spawnRateScalar: 0.85, visibilityScalar: 0.8, bonusApples: new Set(['wasabi']) };
+          default:
+            return defaultModifiers;
+        }
+    }
   }
 
   private collectSpawnOptions(

@@ -27,6 +27,12 @@ import { generateDecorations, generateTransitRooms } from './bulletTrainService.
 import type { BulletTrainDestination, BulletTrainJourney } from './bulletTrainTypes.js';
 import { BulletTrainStructureResolver } from './generation/bulletTrainResolver.js';
 import { parseRoomId } from './generation/multiRoomStructures.js';
+import {
+  generateCarVisual,
+  createRollercoasterJourney as createCoasterJourney,
+} from './rollercoasterService.js';
+import type { RollercoasterDestination, RollercoasterJourney, RollercoasterTheme } from './rollercoasterTypes.js';
+import { RollercoasterStructureResolver } from './generation/rollercoasterResolver.js';
 
 export interface PickupChanceProvider {
   getTreasureChance?: () => number;
@@ -54,6 +60,8 @@ export class WorldService {
   private readonly layerInstances = new Map<string, LayerInstance>();
   private readonly bulletTrainResolver: BulletTrainStructureResolver;
   private bulletTrainPlacementsComputed = false;
+  private readonly rollercoasterResolver: RollercoasterStructureResolver;
+  private rollercoasterPlacementsComputed = false;
 
   constructor(
     private readonly grid: GridConfig,
@@ -68,6 +76,10 @@ export class WorldService {
     this.worldSeed = this.worldGenerationIdentity.seed;
     this.generatorWorldConfig = worldConfig;
     this.bulletTrainResolver = new BulletTrainStructureResolver(
+      this.worldGenerationIdentity,
+      grid,
+    );
+    this.rollercoasterResolver = new RollercoasterStructureResolver(
       this.worldGenerationIdentity,
       grid,
     );
@@ -154,6 +166,12 @@ export class WorldService {
       // Stamp bullet train station if this room has a pre-assigned placement
       this.stampBulletTrainStation(room);
 
+      // Register rooms for rollercoaster destinations (most rooms are eligible)
+      this.rollercoasterResolver.registerStationableRoom(roomId);
+
+      // Stamp rollercoaster station if this room has a pre-assigned placement
+      this.stampRollercoasterStation(room);
+
       this.addReciprocalPortalsForRoom(room);
     }
     return this.rooms.get(roomId)!;
@@ -211,6 +229,7 @@ export class WorldService {
     this.townRoomIdsByTownId.clear();
     this.incomingPortalsByDestRoomId.clear();
     this.bulletTrainResolver.clear();
+    this.rollercoasterResolver.clear();
   }
 
   setCaveSave(save: CaveInstanceSaveData): void {
@@ -832,6 +851,255 @@ export class WorldService {
       startedAtMs: Date.now(),
       durationMs: 4000,
     };
+  }
+
+  // === ROLLERCOASTER ===
+
+  /** Stamp a rollercoaster station entrance tile on a room. */
+  private stampRollercoasterStation(room: RoomSnapshot): void {
+
+    const placement = this.rollercoasterResolver.getStationPlacement(room.id);
+    if (!placement) return;
+
+    const layout = room.layout;
+    const rows = layout.length;
+    const cols = layout[0]?.length ?? 0;
+
+    const edgeTiles: Array<{ x: number; y: number; dist: number }> = [];
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const tile = layout[y][x];
+        if (tile !== '.') continue;
+        const distToEdge = Math.min(x, y, cols - 1 - x, rows - 1 - y);
+        if (distToEdge <= 3) {
+          edgeTiles.push({ x, y, dist: distToEdge });
+        }
+      }
+    }
+
+    if (edgeTiles.length === 0) return;
+
+    edgeTiles.sort((a, b) => a.dist - b.dist);
+    const closestDist = edgeTiles[0].dist;
+    const candidates = edgeTiles.filter((t) => t.dist === closestDist);
+    const entrance = candidates[Math.floor(this.rng() * candidates.length)];
+    const entranceX = entrance.x;
+    const entranceY = entrance.y;
+
+    const row = layout[entranceY].split('');
+    row[entranceX] = 'C';
+    layout[entranceY] = row.join('');
+
+    room.rollercoasterStation = {
+      entranceX,
+      entranceY,
+      stationId: placement.id,
+      destinations: [],
+      used: false,
+      trackSegments: [],
+      stationName: '',
+      theme: 'thunder-ridge', // Default, set below
+    };
+
+    // Generate station details
+    const theme = this.pickCoasterTheme();
+    room.rollercoasterStation.theme = theme;
+    room.rollercoasterStation.stationName = this.generateCoasterStationName(theme);
+    room.rollercoasterStation.trackSegments = this.generateCoasterTrackSegments(entranceX, entranceY);
+  }
+
+  /** Pick a random coaster theme. */
+  private pickCoasterTheme(): RollercoasterTheme {
+    const themes: RollercoasterTheme[] = [
+      'thunder-ridge',
+      'neon-nights',
+      'jungle-jolt',
+      'arctic-avalanche',
+      'volcanic-veer',
+      'cosmic-corkscrew',
+    ];
+    return themes[Math.floor(this.rng() * themes.length)];
+  }
+
+  /** Generate a station name for a theme. */
+  private generateCoasterStationName(theme: RollercoasterTheme): string {
+    const names: Record<RollercoasterTheme, string[]> = {
+      'thunder-ridge': ['Thunder Ridge Coaster', 'Mountain Madness', 'Eagle\'s Descent', 'Granite Rush', 'Summit Scream'],
+      'neon-nights': ['Neon Nightmare', 'Cyber Loop', 'Electric Express', 'Neon Nexus', 'Pixel Plunge'],
+      'jungle-jolt': ['Jungle Jolt', 'Temple Terror', 'Vine Swing', 'Serpent\'s Coil', 'Lost Temple Loop'],
+      'arctic-avalanche': ['Arctic Avalanche', 'Frost Flip', 'Glacier Glide', 'Iceberg Inferno', 'Blizzard Blast'],
+      'volcanic-veer': ['Volcanic Veer', 'Lava Loop', 'Magma Madness', 'Pyro Plunge', 'Inferno Invader'],
+      'cosmic-corkscrew': ['Cosmic Corkscrew', 'Star Spinner', 'Nebula Nightmare', 'Galaxy Grinder', 'Astro Assault'],
+    };
+    const themeNames = names[theme];
+    return themeNames[Math.floor(this.rng() * themeNames.length)];
+  }
+
+  /** Generate track segments for a coaster station. */
+  private generateCoasterTrackSegments(entranceX: number, entranceY: number): import('./rollercoasterTypes.js').RollercoasterTrackSegment[] {
+    const segments: import('./rollercoasterTypes.js').RollercoasterTrackSegment[] = [];
+
+    segments.push({ type: 'station-platform' as const, x: entranceX, y: entranceY });
+
+    const liftDir = this.rng() > 0.5 ? ('up' as const) : ('down' as const);
+    segments.push({
+      type: 'lift-hill' as const,
+      x: entranceX + (liftDir === 'up' ? 3 : -3),
+      y: entranceY,
+      direction: liftDir,
+    });
+
+    segments.push({
+      type: 'drop' as const,
+      x: entranceX + (liftDir === 'up' ? 7 : -7),
+      y: entranceY,
+      height: 2 + Math.floor(this.rng() * 3),
+    });
+
+    if (this.rng() > 0.3) {
+      segments.push({
+        type: 'loop' as const,
+        x: entranceX + (liftDir === 'up' ? 10 : -10),
+        y: entranceY,
+        size: 2,
+      });
+    } else {
+      segments.push({
+        type: 'curve' as const,
+        x: entranceX + (liftDir === 'up' ? 10 : -10),
+        y: entranceY,
+        radius: 3,
+        arc: Math.PI * 0.75,
+      });
+    }
+
+    segments.push({
+      type: 'straight' as const,
+      x: entranceX + (liftDir === 'up' ? 5 : -5),
+      y: entranceY,
+      length: 6,
+      direction: 'horizontal' as const,
+    });
+
+    return segments;
+  }
+
+  /** Recompute rollercoaster station placements with all known rooms. */
+  private ensureRollercoasterPlacementsComputed(): void {
+    if (this.rollercoasterResolver.computePlacements()) {
+      this.rollercoasterPlacementsComputed = true;
+    }
+  }
+
+  /** Get available destinations from a rollercoaster station. */
+  getRollercoasterDestinations(stationRoomId: string): RollercoasterDestination[] {
+    this.ensureRollercoasterPlacementsComputed();
+    const room = this.rooms.get(stationRoomId);
+    if (!room?.rollercoasterStation) return [];
+
+    const resolverDestinations = this.rollercoasterResolver.getDestinations(stationRoomId);
+    if (resolverDestinations.length === 0) return [];
+
+    const themes: RollercoasterTheme[] = [
+      'thunder-ridge',
+      'neon-nights',
+      'jungle-jolt',
+      'arctic-avalanche',
+      'volcanic-veer',
+      'cosmic-corkscrew',
+    ];
+    const theme = room.rollercoasterStation.theme;
+
+    const arrivalFlavors: Record<RollercoasterTheme, string[]> = {
+      'thunder-ridge': [
+        'The coaster screeches to a halt. Wind still howls in your ears.',
+        'You slam into the station platform, heart pounding. Worth it.',
+        'The coaster groans to a stop. Eagles circle overhead.',
+      ],
+      'neon-nights': [
+        'Neon lights flicker as the coaster slides into the station.',
+        'Holographic signs pulse: "Welcome to the other side."',
+        'The coaster hums to a stop beneath a canopy of LEDs.',
+      ],
+      'jungle-jolt': [
+        'The coaster rattles to a halt among ancient stones.',
+        'Vines sway as the coaster settles. Jungle sounds return.',
+        'The temple coaster groans. A monkey watches from above.',
+      ],
+      'arctic-avalanche': [
+        'Ice crystals sparkle as the coaster slides into the station.',
+        'The coaster hisses to a halt. Frost forms on the rails.',
+        'Snow drifts across the platform. The coaster stops.',
+      ],
+      'volcanic-veer': [
+        'Smoke billows as the coaster slams into the station.',
+        'The coaster hisses on hot rails. Lava glows below.',
+        'Embers drift past as the coaster comes to rest.',
+      ],
+      'cosmic-corkscrew': [
+        'Stars swirl in the windows as the coaster docks.',
+        'The coaster hums with cosmic energy. Zero-G still affects you.',
+        'Nebula colors fade as the coaster settles into the station.',
+      ],
+    };
+
+    const displayNames: Record<RollercoasterTheme, string[]> = {
+      'thunder-ridge': ['Thunder Peak', 'Ridge Runner', 'Eagle\'s Nest', 'Granite Station', 'Summit Stop'],
+      'neon-nights': ['Neon District', 'Cyber Hub', 'Electric Avenue', 'Pixel Plaza', 'Neon Nexus'],
+      'jungle-jolt': ['Jungle Temple', 'Vine Valley', 'Serpent\'s Lair', 'Lost Ruins', 'Green Station'],
+      'arctic-avalanche': ['Frost Station', 'Glacier Point', 'Ice Hollow', 'Blizzard Base', 'Avalanche Alley'],
+      'volcanic-veer': ['Lava Station', 'Magma Junction', 'Pyro Port', 'Inferno Isle', 'Volcano View'],
+      'cosmic-corkscrew': ['Star Dock', 'Nebula Station', 'Galaxy Gate', 'Astro Hub', 'Cosmic Corner'],
+    };
+
+    const flavorPool = arrivalFlavors[theme];
+    const namePool = displayNames[theme];
+
+    return resolverDestinations.map((dest, index) => {
+      const parts = dest.roomId.split(',').map(Number);
+      const coordStr = `(${parts[0] ?? 0}, ${parts[1] ?? 0}, ${parts[2] ?? 0})`;
+      return {
+        roomId: dest.roomId,
+        exitX: dest.exitX,
+        exitY: dest.exitY,
+        arrivalFlavor: flavorPool[index % flavorPool.length],
+        displayName: namePool[index % namePool.length],
+        weight: dest.weight,
+        condition: 'any',
+        coordinates: coordStr,
+      };
+    });
+  }
+
+  /** Mark a rollercoaster station as used. */
+  markRollercoasterStationUsed(stationRoomId: string): void {
+    const room = this.rooms.get(stationRoomId);
+    if (!room?.rollercoasterStation) return;
+    room.rollercoasterStation.used = true;
+  }
+
+  /** Generate a rollercoaster journey between two rooms. */
+  createRollercoasterJourney(
+    stationRoomId: string,
+    destinationRoomId: string,
+  ): RollercoasterJourney | null {
+    const room = this.rooms.get(stationRoomId);
+    if (!room?.rollercoasterStation) return null;
+
+    const destinations = this.getRollercoasterDestinations(stationRoomId);
+    const destination = destinations.find((d) => d.roomId === destinationRoomId);
+    if (!destination) return null;
+
+    return createCoasterJourney(
+      stationRoomId,
+      room.rollercoasterStation.entranceX,
+      room.rollercoasterStation.entranceY,
+      destinationRoomId,
+      destination.exitX,
+      destination.exitY,
+      room.rollercoasterStation.theme,
+      this.rng,
+    );
   }
 
   private findRandomEmptySpot(room: RoomSnapshot): Vector2Like | null {

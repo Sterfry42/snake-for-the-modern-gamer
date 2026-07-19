@@ -4648,6 +4648,57 @@ export class SnakeGame implements QuestRuntime {
     return this.world.createBulletTrainJourney(stationRoomId, destinationRoomId);
   }
 
+  // === ROLLERCOASTER ===
+
+  /** Get rollercoaster destinations for a station room. */
+  getRollercoasterDestinations(stationId: string): Array<{
+    roomId: string;
+    exitX: number;
+    exitY: number;
+    arrivalFlavor: string;
+    displayName: string;
+    weight: number;
+    coordinates?: string;
+  }> {
+    for (const room of this.world.snapshot().values()) {
+      if (room.rollercoasterStation?.stationId === stationId) {
+        return this.world.getRollercoasterDestinations(room.id);
+      }
+    }
+    return [];
+  }
+
+  /** Mark a rollercoaster station as used. */
+  markRollercoasterStationUsed(stationId: string): void {
+    for (const room of this.world.snapshot().values()) {
+      if (room.rollercoasterStation?.stationId === stationId) {
+        this.world.markRollercoasterStationUsed(room.id);
+        return;
+      }
+    }
+  }
+
+  /** Create a rollercoaster journey. */
+  createRollercoasterJourney(
+    stationRoomId: string,
+    destinationRoomId: string,
+  ): {
+    stationRoomId: string;
+    stationEntranceX: number;
+    stationEntranceY: number;
+    destinationRoomId: string;
+    destinationExitX: number;
+    destinationExitY: number;
+    transitRooms: string[];
+    transitProgress: number;
+    startedAtMs: number;
+    durationMs: number;
+    maxHeightReached: number;
+    turnsCompleted: number;
+  } | null {
+    return this.world.createRollercoasterJourney(stationRoomId, destinationRoomId);
+  }
+
   private isHeadOnWaterTile(): boolean {
     const head = this.snake.bodySegments[0];
     if (!head) {

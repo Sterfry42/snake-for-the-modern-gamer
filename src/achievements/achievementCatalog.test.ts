@@ -235,7 +235,7 @@ describe('revised achievement catalog', () => {
   it('forms a collision-free progression tree with only intentional standalone roots', () => {
     const byId = new Map(ACHIEVEMENT_DEFINITIONS.map((definition) => [definition.id, definition]));
     const occupied = new Map<string, string>();
-    const standaloneIds = new Set(['core.firstApple', 'system.zoomFlurry']);
+    const standaloneIds = new Set(['core.firstApple', 'system.zoomFlurry', 'archaeology.firstDig']);
 
     for (const definition of ACHIEVEMENT_DEFINITIONS) {
       const coordinate = `${definition.tree.x},${definition.tree.y}`;
@@ -282,6 +282,7 @@ describe('revised achievement catalog', () => {
       'companions.first',
       'shops.generalBuyout',
       'cards.fullDeck',
+      'archaeology.firstDig',
       'arcade.snakeception',
       'arcade.blueScreen',
       'stats.special10',

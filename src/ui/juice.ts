@@ -7110,6 +7110,117 @@ export class JuiceManager {
     });
   }
 
+  // === ROLLERCOASTER JUICE ===
+
+  /** Rollercoaster departure juice: loud mechanical launch + wind rush. */
+  rollercoasterDepart(worldX: number, worldY: number) {
+    // Mechanical click-clack as the car locks in
+    for (let i = 0; i < 3; i++) {
+      this.playTone({
+        frequency: 800 + i * 200,
+        duration: 0.05,
+        type: 'square',
+        volume: 0.1,
+      });
+    }
+
+    // Wind rush as the coaster launches
+    this.playTone({
+      frequency: 150,
+      frequencyEnd: 800,
+      duration: 0.6,
+      type: 'sawtooth',
+      volume: 0.12,
+    });
+
+    // Screen shake
+    if (this.scene.cameras?.main) {
+      this.scene.cameras.main.shake(200, 0.01);
+      this.scene.cameras.main.flash(100, 255, 200, 100, true);
+    }
+
+    // Speed particles
+    const layer = this.particleLayer;
+    if (!layer) return;
+    for (let i = 0; i < 20; i++) {
+      const particle = this.scene.add.line(
+        worldX, worldY,
+        worldX + Phaser.Math.Between(10, 40), worldY + Phaser.Math.Between(-10, 10),
+        0xff6b44, 0.6,
+      );
+      particle.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(particle);
+      this.scene.tweens.add({
+        targets: particle,
+        x: particle.x + Phaser.Math.Between(30, 80),
+        duration: Phaser.Math.Between(200, 500),
+        alpha: 0,
+        ease: 'Linear',
+        onComplete: () => particle.destroy(),
+      });
+    }
+  }
+
+  /** Rollercoaster arrival juice: screeching brakes + crowd cheer. */
+  rollercoasterArrive(worldX: number, worldY: number) {
+    // Screeching brakes
+    this.playTone({
+      frequency: 1200,
+      frequencyEnd: 200,
+      duration: 0.5,
+      type: 'sawtooth',
+      volume: 0.1,
+    });
+
+    // Impact thud
+    this.playTone({
+      frequency: 80,
+      duration: 0.3,
+      type: 'sine',
+      volume: 0.15,
+    });
+
+    // Crowd cheer (ascending tones)
+    for (let i = 0; i < 5; i++) {
+      this.playTone({
+        frequency: 440 + i * 80,
+        duration: 0.15,
+        type: 'sine',
+        volume: 0.04,
+      });
+    }
+
+    // Camera shake on arrival
+    if (this.scene.cameras?.main) {
+      this.scene.cameras.main.shake(150, 0.008);
+    }
+
+    // Thrill particles (stars/sparks)
+    const layer = this.particleLayer;
+    if (!layer) return;
+    for (let i = 0; i < 12; i++) {
+      const spark = this.scene.add.circle(
+        worldX + Phaser.Math.Between(-20, 20),
+        worldY + Phaser.Math.Between(-20, 20),
+        Phaser.Math.Between(2, 5),
+        [0xff6b44, 0xffd166, 0xff4444, 0xffffff][Math.floor(Math.random() * 4)],
+        0.7,
+      );
+      spark.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
+      layer.add(spark);
+      this.scene.tweens.add({
+        targets: spark,
+        x: spark.x + Phaser.Math.Between(-30, 30),
+        y: spark.y + Phaser.Math.Between(-40, -10),
+        alpha: 0,
+        scale: 0.3,
+        duration: Phaser.Math.Between(400, 800),
+        ease: 'Sine.easeOut',
+        onComplete: () => spark.destroy(),
+      });
+    }
+  }
+
   /** Start ambient falling cherry blossom petals for a room. */
   startCherryBlossomAmbient(): void {
     if (this.cherryBlossomTimer) {

@@ -458,6 +458,37 @@ export const BIOME_ATMOSPHERE_PROFILES: Record<BiomeId, BiomeAtmosphereProfile> 
       },
     },
   },
+  'amber-dunes': {
+    biomeId: 'amber-dunes',
+    baseJuice: ['sand-shift', 'heat-haze', 'dust-gusts'],
+    preserveCoreNote:
+      'Golden rolling dunes. Hot, dry, and alive with cactus. Rain is a myth; wind shapes the sand.',
+    weatherResponses: {
+      clear: { localVisual: 'heatHaze', juice: ['heat-haze'] },
+      rain: {
+        localVisual: 'steam',
+        juice: ['sand-shift'],
+        gameplay: { heatRateScalar: 0.8, visibilityScalar: 0.9 },
+      },
+      storm: {
+        localVisual: 'dryLightning',
+        juice: ['sand-shift'],
+        gameplay: { lightningProfile: RARE_TELEGRAPHED_LIGHTNING },
+      },
+      fog: { localVisual: 'sandStorm', juice: ['dust-gusts'], gameplay: { visibilityScalar: 0.75 } },
+      heatwave: {
+        localVisual: 'heatHaze',
+        juice: ['heat-haze'],
+        gameplay: { heatRateScalar: 1.2 },
+      },
+      coldfront: { localVisual: 'mist', gameplay: { heatRateScalar: 0.7 } },
+      wind: {
+        localVisual: 'sandStorm',
+        juice: ['sand-shift', 'dust-gusts'],
+        gameplay: { visibilityScalar: 0.8 },
+      },
+    },
+  },
   'titan-ribcage': {
     biomeId: 'titan-ribcage',
     baseJuice: ['bone-dust', 'bone-condensation', 'cave-echo'],
