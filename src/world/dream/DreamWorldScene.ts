@@ -19,6 +19,7 @@ import { DreamPuzzleManager } from './DreamPuzzles.js';
 import { DreamShopManager } from './dreamShop.js';
 import {
   createDreamAppleInstance,
+  DreamAppleBase,
 } from './dreamAppleTypes.js';
 import type {
   DreamStateId,
@@ -35,6 +36,7 @@ const DREAM_ISLAND_HIGHLIGHT = 0x6a5080;
 const _DREAM_TEXT_COLOR = 0xe6e6fa;
 const DREAM_HUD_BG_ALPHA = 0.7;
 const _DREAM_SHARD_COLOR = 0xffd700;
+const DREAM_ACCENT_COLOR = 0xffd700;
 
 const DREAM_ISLAND_COUNT = 7;
 const DREAM_BRIDGE_COUNT = 8;

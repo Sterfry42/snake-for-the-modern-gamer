@@ -89,7 +89,7 @@ export class DreamManager {
 
   shouldEnterNightmareRealm(
     rng: RandomGenerator,
-    _snakeHealth: number,
+    snakeHealth: number,
     _totalApplesEaten: number,
   ): boolean {
     if (!this.config.enabled) return false;

@@ -6646,7 +6646,7 @@ export class JuiceManager {
     );
   }
 
-  defeatFanfare(_worldX: number, _worldY: number) {
+  defeatFanfare(worldX: number, worldY: number) {
     this.playTone({
       frequency: 320,
       frequencyEnd: 120,

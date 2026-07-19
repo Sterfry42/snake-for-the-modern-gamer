@@ -139,7 +139,7 @@ import { runBulletTrainRide } from '../world/bulletTrainScene.js';
 import type { RollercoasterStation, RollercoasterTheme } from '../world/rollercoasterTypes.js';
 import { runRollercoasterRide } from '../world/rollercoasterScene.js';
 import { RollercoasterRenderer } from '../world/rollercoasterRenderer.js';
-import type { EquipmentSlot } from '../inventory/item.js';
+import type { EquipmentModifiers, EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
 import type { SnakeCanesData } from '../world/snakeCanes.js';
 import { ComboSpinner } from '../ui/comboSpinner.js';

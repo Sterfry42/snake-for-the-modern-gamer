@@ -13,6 +13,7 @@
 import type {
   ActivePotionEffect,
   AlchemyRuntime,
+  CraftResult,
   DurationMode,
   IngredientRarity,
   Potion,
