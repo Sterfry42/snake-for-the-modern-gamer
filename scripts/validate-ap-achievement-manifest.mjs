@@ -3,10 +3,11 @@ import { readFileSync } from 'node:fs';
 const definitions = readFileSync('src/achievements/achievementDefinitions.ts', 'utf8');
 const cards = readFileSync('src/cards/cardGame.ts', 'utf8');
 const python = readFileSync('apworld/snaked_revised_revamped/locations.py', 'utf8');
-const entries = [...definitions.matchAll(/d\(\{\s*id: '([^']+)',\s*name: (?:'([^']+)'|"([^"]+)")/g)].map(
-  ([, id, singleName, doubleName]) => ({
+const entries = [
+  ...definitions.matchAll(/d\(\{\s*id: '([^']+)',\s*name: (?:'((?:\\.|[^'])*)'|"([^"]+)")/g),
+].map(([, id, singleName, doubleName]) => ({
     key: `achievement_${id.replace(/[^a-zA-Z0-9]+/g, '_')}`,
-    name: singleName ?? doubleName,
+    name: singleName?.replace(/\\'/g, "'").replace(/\\\\/g, '\\') ?? doubleName,
   }),
 );
 for (const [, id, name] of cards.matchAll(

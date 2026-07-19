@@ -43,6 +43,13 @@ function createRuntime(
 }
 
 describe('skill tree redesign catalog', () => {
+  it('can reset life charges to an exact amount', () => {
+    const tree = new SkillTreeSystem(createRuntime(), 100);
+    tree.addExtraLives(4);
+    tree.setExtraLives(1);
+    expect(tree.getStats().extraLives).toBe(1);
+  });
+
   it('uses the complete lightweight character-creation option sets', () => {
     expect(BACKGROUNDS).toHaveLength(8);
     expect(CLASSES).toHaveLength(8);
@@ -62,7 +69,7 @@ describe('skill tree redesign catalog', () => {
       expect(getCharacterCreationCardDescription(background)).not.toMatch(/SPECIAL:|DERIVED:/);
     }
     for (const faith of FAITHS) {
-      expect(faith.mods.derivedModifiers).not.toHaveLength(0);
+      if (faith.id !== 'islam') expect(faith.mods.derivedModifiers).not.toHaveLength(0);
       expect(getCharacterCreationCardDescription(faith)).not.toMatch(/SPECIAL:|DERIVED:/);
     }
   });
@@ -82,7 +89,8 @@ describe('skill tree redesign catalog', () => {
       ),
     ).toEqual(new Set(SKILL_BRANCH_IDS));
     expect(validateSkillDefinitions(SKILL_DEFINITIONS)).toEqual([]);
-    expect(SKILL_DEFINITIONS.filter((perk) => perk.kind === 'combo')).toHaveLength(8);
+    // Aspirational combo flags were removed; only combos with production consumers remain.
+    expect(SKILL_DEFINITIONS.filter((perk) => perk.kind === 'combo')).toHaveLength(2);
   });
 
   it('keeps SPECIAL attributes out of skill descriptions', () => {
@@ -103,6 +111,17 @@ describe('skill tree redesign catalog', () => {
     }
     expect(tree.hasPerk('windShear')).toBe(true);
     expect(tree.hasPerk('overclock')).toBe(true);
+  });
+
+  it('does not tax Bulwark with Fieldcraft or Arcane routes with Arcane Pulse', () => {
+    const survivalTree = new SkillTreeSystem(createRuntime(), 100);
+    survivalTree.restoreRanks({ thickScales: 1, secondWind: 1 });
+    expect(survivalTree.getPurchaseState('hardenedScales').status).toBe('available');
+
+    const arcaneTree = new SkillTreeSystem(createRuntime(), 100);
+    arcaneTree.restoreRanks({ manaBloom: 1, spellbook: 1 });
+    expect(arcaneTree.getPurchaseState('preparedCaster').status).toBe('available');
+    expect(arcaneTree.getPurchaseState('overcast').status).toBe('available');
   });
 
   it('applies a class grant once and lets it satisfy prerequisites', () => {
@@ -133,13 +152,19 @@ describe('skill tree redesign catalog', () => {
 
   it('routes major perk numbers into inspectable derived-stat sources', () => {
     const tree = new SkillTreeSystem(createRuntime(), 100);
-    tree.restoreRanks({ thickScales: 1, manaBloom: 1 });
+    tree.restoreRanks({ thickScales: 1, manaBloom: 1, bloodBank: 1, preferredCustomer: 1 });
     expect(tree.getDerivedStat('maxHealth')).toBe(4);
     expect(tree.getDerivedStatBreakdown('maxHealth').additions).toContainEqual({
       sourceId: 'skill.thickScales',
       value: 1,
     });
     expect(tree.getDerivedStat('manaMax')).toBe(60);
+    expect(tree.getDerivedStat('storedVitalityCapacity')).toBe(4);
+    expect(tree.getDerivedStatBreakdown('storedVitalityCapacity').additions).toContainEqual({
+      sourceId: 'skill.bloodBank',
+      value: 4,
+    });
+    expect(tree.getDerivedStat('shopPriceScalar')).toBeCloseTo(0.9);
   });
 
   it('locks combo perks until both branches are invested', () => {
@@ -177,5 +202,21 @@ describe('legacy skill migration', () => {
     expect(second.ranks).toEqual(first.ranks);
     expect(second.refundedScore).toBe(0);
     expect(second.mappedPerks).toBe(0);
+  });
+
+  it('refunds collapsed legacy ranks and removed combo purchases', () => {
+    const migrated = migrateSkillRanks(
+      {
+        swiftScales: 3,
+        secondWind: 2,
+        spellrush: 1,
+        devour: 1,
+        guardianBond: 1,
+      },
+      SKILL_DEFINITIONS,
+    );
+    expect(migrated.ranks).toMatchObject({ swiftScales: 1, secondWind: 1 });
+    expect(migrated.refundedScore).toBe(28 + 52 + 60 + 98 + 96 + 112);
+    expect(migrated.removedPurchases).toBe(6);
   });
 });

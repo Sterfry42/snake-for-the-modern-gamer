@@ -1560,6 +1560,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
   private arcaneVeilUnlocked = false;
 
   private readonly arcanePulseCost = 20;
+  private spellweaverSequence = 0;
   private readonly arcaneVeilCost = 30;
   private lastMigration: SkillMigrationResult | null = null;
 
@@ -1784,6 +1785,11 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     this.extraLifeCharges += count;
   }
 
+  setExtraLives(count: number): void {
+    this.extraLifeCharges = Math.max(0, Math.floor(Number(count) || 0));
+    this.runtime.notifyExtraLifeReset();
+  }
+
   consumeExtraLife(): boolean {
     if (this.arcaneVeilUnlocked && this.trySpendMana(this.arcaneVeilCost)) {
       this.runtime.onArcaneVeilTriggered();
@@ -1835,6 +1841,8 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
       'extraLifeCapacity',
       'nutritionCapacity',
       'wardDuration',
+      'storedVitalityCapacity',
+      'shopPriceScalar',
       'pickupRadius',
       'companionCapacity',
     ] as const) {
@@ -1959,10 +1967,33 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     if (!this.arcanePulseUnlocked) {
       return false;
     }
+    let overcastSegments = 0;
     if (!this.trySpendMana(this.arcanePulseCost)) {
-      return false;
+      if (this.getRank('overcast') <= 0) return false;
+      const missingMana = Math.max(0, this.arcanePulseCost - this.manaCurrent);
+      const requiredSegments = Math.max(1, Math.ceil(missingMana / 10));
+      const removed = this.runtime.spendSafeSnakeLength?.(requiredSegments) ?? 0;
+      if (removed < requiredSegments) return false;
+      overcastSegments = removed;
+      this.manaCurrent = 0;
+      this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
+      this.runtime.setFlag('ui.overcast', { segments: removed, missingMana });
     }
     this.runtime.onArcanePulseCast();
+    if (this.getRank('spellweaver') > 0) {
+      this.spellweaverSequence += 1;
+      if (this.spellweaverSequence >= 3) {
+        this.spellweaverSequence = 0;
+        this.manaCurrent = Math.min(this.manaMax, this.manaCurrent + 10);
+        this.runtime.setFlag('fortitude.invulnerabilityTicks', 2);
+        this.runtime.setFlag('ui.spellweaver', { manaRefund: 10, wardTicks: 2 });
+        this.runtime.notifyManaChanged(this.manaCurrent, this.manaMax, this.manaRegen);
+      }
+    }
+    if (overcastSegments >= 2 && this.getRank('astralNova') > 0) {
+      this.runtime.onAstralNova?.();
+      this.runtime.setFlag('ui.astralNova', { segments: overcastSegments });
+    }
     return true;
   }
 
@@ -2026,6 +2057,7 @@ export class SkillTreeSystem implements SkillTreeSystemApi {
     this.manaRegen = 0;
     this.arcanePulseUnlocked = false;
     this.arcaneVeilUnlocked = false;
+    this.spellweaverSequence = 0;
 
     this.runtime.setActionStepIntervalMs(this.baseActionStepIntervalMs);
     this.runtime.notifyExtraLifeReset();

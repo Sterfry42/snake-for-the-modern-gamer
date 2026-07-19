@@ -436,7 +436,7 @@ export const ACHIEVEMENT_DEFINITIONS = [
   }),
   d({
     id: 'relationships.motherLove',
-    name: 'Knowing a Mother\'s Love',
+    name: "Knowing a Mother's Love",
     description: 'Hold your child close and feel the world soften.',
     category: 'relationships',
     difficulty: 'hard',
@@ -742,6 +742,18 @@ export const ACHIEVEMENT_DEFINITIONS = [
     tree: { x: 700, y: 240, section: 'Divine' },
     icon: icon('angel', 'GA', 'goblin'),
     criterion: event('divine:angelEncountered', { angelKind: 'goblin' }),
+    archipelago: ap,
+  }),
+  d({
+    id: 'divine.snakeOutOfHell',
+    name: 'Like a Snake Out of Hell',
+    description: 'Escape Hell.',
+    category: 'bosses',
+    difficulty: 'legendary',
+    prerequisites: ['divine.meetAngel'],
+    tree: { x: 840, y: 240, section: 'Divine' },
+    icon: icon('angel', 'HELL', 'demon'),
+    criterion: event('divine:escapedHell', { itemId: 'get-out-of-hell-free-card' }),
     archipelago: ap,
   }),
   d({

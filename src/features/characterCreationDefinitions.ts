@@ -29,19 +29,17 @@ export const FAITHS: readonly CharacterCreationOption[] = [
   {
     id: 'christianity',
     name: 'Christianity',
-    description: 'Phoenix revival charges +1. Extra-life capacity +1.',
+    description: 'Begin with +1 Life Charge.',
     mods: {
-      phoenixCharges: 1,
       derivedModifiers: [{ stat: 'extraLifeCapacity', operation: 'add', value: 1 }],
     },
   },
   {
     id: 'islam',
     name: 'Islam',
-    description: 'Stored Nutrition capacity +1.',
+    description: 'Pass 3 available foods to Fast. Your next meal heals and grows +1.',
     mods: {
       mechanicFlags: { 'faith.islam.fastEnabled': true },
-      derivedModifiers: [{ stat: 'nutritionCapacity', operation: 'add', value: 1 }],
     },
   },
   {
@@ -91,6 +89,9 @@ export const FAITHS: readonly CharacterCreationOption[] = [
     },
   },
 ];
+
+// These faith effects remain provisional pending a dedicated design pass grounded in existing
+// player actions. Keep them small, save-safe, and derived-stat-backed in the meantime.
 
 export const BACKGROUNDS: readonly CharacterCreationOption[] = [
   {

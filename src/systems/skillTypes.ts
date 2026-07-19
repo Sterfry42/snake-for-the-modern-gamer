@@ -138,6 +138,7 @@ export interface SkillPerkDefinition {
   readonly tags?: readonly string[];
   readonly grantableAtStart?: boolean;
   readonly migrationAliases?: readonly string[];
+  readonly usageHint?: string;
 }
 
 export type SkillPerkStatus = 'available' | 'locked' | 'unaffordable' | 'maxed';
@@ -166,6 +167,8 @@ export interface SkillTreeRuntime {
   notifyArcaneVeilUnlocked(): void;
   onArcanePulseCast(): void;
   onArcaneVeilTriggered(): void;
+  spendSafeSnakeLength?(segments: number): number;
+  onAstralNova?(): void;
   setFlag(key: string, value: unknown): void;
 }
 

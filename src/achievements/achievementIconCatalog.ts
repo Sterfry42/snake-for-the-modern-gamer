@@ -323,10 +323,19 @@ function drawSymbol(context: CanvasRenderingContext2D, kind: string, variant?: s
     rect(context, 5, 4, 6, 4, '#b85e4f');
     rect(context, 7, 10, 2, 4, '#35252a');
   } else if (kind === 'angel') {
-    rect(context, 6, 5, 4, 7, color);
-    rect(context, 2, 6, 4, 4, color);
-    rect(context, 10, 6, 4, 4, color);
-    rect(context, 5, 2, 6, 2, '#ffd166');
+    const demon = variant === 'demon';
+    const bodyColor = demon ? '#d83a24' : color;
+    rect(context, 6, 5, 4, 7, bodyColor);
+    rect(context, 2, 6, 4, 4, demon ? '#2a0809' : color);
+    rect(context, 10, 6, 4, 4, demon ? '#2a0809' : color);
+    if (demon) {
+      rect(context, 4, 2, 2, 4, '#ff7a1a');
+      rect(context, 10, 2, 2, 4, '#ff7a1a');
+      pixel(context, 4, 1, '#ffb029');
+      pixel(context, 11, 1, '#ffb029');
+    } else {
+      rect(context, 5, 2, 6, 2, '#ffd166');
+    }
   } else if (kind === 'hazardHot' || kind === 'hazardCold') {
     rect(context, 6, 3, 4, 10, color);
     rect(context, 4, 9, 8, 4, color);

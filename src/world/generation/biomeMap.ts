@@ -10,6 +10,7 @@ import {
   type BiomeVerticalClass,
   type BiomeId,
 } from '../biomes.js';
+import { HELL_ESCAPE_DEPTH } from '../hellDepth.js';
 import { sampleClimateForRegion, type ClimateSample } from './climate.js';
 import type { RoomGenerationPalette } from './types.js';
 import { hashWorldCoordinate, positiveMod } from './worldHash.js';
@@ -271,7 +272,11 @@ export class SeededBiomeMap implements BiomeMap {
     );
     const candidates = getAllBiomeDefinitions()
       .filter((biome) => biome.generation && biome.id !== 'home-hearth')
-      .filter((biome) => zHardAllowed(biome.generation!, z));
+      .filter((biome) =>
+        z === HELL_ESCAPE_DEPTH
+          ? biome.temperatureHazard === 'hot'
+          : zHardAllowed(biome.generation!, z),
+      );
 
     const scored = candidates.map((biome) => ({
       biome,

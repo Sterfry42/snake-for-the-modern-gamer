@@ -22,14 +22,14 @@ describe('SnakeGame leveling integration', () => {
     const onLevelUp = vi.fn();
     game.setLevelUpCallback(onLevelUp);
 
-    game.addScore(49);
+    game.addScore(99);
     expect(game.getSpecialStatsView().progression.level).toBe(1);
     expect(game.getSpecialStatsView().unspentPoints).toBe(0);
 
     game.addScore(1);
     expect(game.getSpecialStatsView().progression).toMatchObject({
       level: 2,
-      lifetimeScore: 50,
+      lifetimeScore: 100,
       nextLevelScore: expect.any(Number),
     });
     expect(game.getSpecialStatsView().unspentPoints).toBe(1);
@@ -38,10 +38,10 @@ describe('SnakeGame leveling integration', () => {
     );
 
     game.addScore(-40);
-    expect(game.getScore()).toBe(10);
-    expect(game.getSpecialStatsView().progression.lifetimeScore).toBe(50);
+    expect(game.getScore()).toBe(60);
+    expect(game.getSpecialStatsView().progression.lifetimeScore).toBe(100);
 
-    game.addScore(950);
+    game.addScore(1900);
     expect(game.getSpecialStatsView().progression.level).toBe(10);
     expect(game.getSpecialStatsView().unspentPoints).toBe(9);
     expect(onLevelUp).toHaveBeenLastCalledWith(
@@ -49,7 +49,7 @@ describe('SnakeGame leveling integration', () => {
     );
     expect(game.getSaveData().levelProgression).toMatchObject({
       level: 10,
-      lifetimeScore: 1000,
+      lifetimeScore: 2000,
     });
   });
 });

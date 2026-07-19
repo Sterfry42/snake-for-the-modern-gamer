@@ -10,6 +10,14 @@ export interface SkillMigrationResult {
 // Refund values are intentionally conservative: removed filler returns its last known purchase cost,
 // while qualitative perks are mapped through migrationAliases in the live catalog.
 const REMOVED_PERK_REFUNDS: Readonly<Record<string, readonly number[]>> = {
+  swiftScales: [12, 28, 52],
+  secondWind: [25, 60],
+  bloodMagic: [104],
+  spellrush: [98],
+  devour: [96],
+  relentlessPursuit: [102],
+  packHunt: [104],
+  guardianBond: [112],
   tailForge: [10, 24, 50],
   nectarSurge: [58],
   honeycomb: [72],

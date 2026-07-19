@@ -227,6 +227,15 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
   actionPanel.setAttribute('aria-label', 'Action controls');
   actionPanel.appendChild(
     createButton({
+      className: 'mobile-controls__action-button mobile-controls__action-button--x',
+      label: 'X',
+      ariaLabel: 'Use context ability',
+      onPress: createActionHandler('ability.context'),
+      cleanupCallbacks,
+    }),
+  );
+  actionPanel.appendChild(
+    createButton({
       className: 'mobile-controls__action-button mobile-controls__action-button--b',
       label: 'B',
       ariaLabel: 'Back or cancel',

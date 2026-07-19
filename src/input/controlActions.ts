@@ -6,6 +6,7 @@ export type ControlActionId =
   | 'interact.confirm'
   | 'back.cancel'
   | 'ability.primary'
+  | 'ability.context'
   | 'aim.fire'
   | 'menu.pause'
   | 'map.toggle'
@@ -139,6 +140,18 @@ export const CONTROL_ACTIONS: readonly ControlAction[] = [
       keyboardMouse: bind('Q'),
       controller: bind('West Button', 'Right Bumper'),
       mobile: bind('Ability Button'),
+    },
+    rebindable: true,
+  },
+  {
+    id: 'ability.context',
+    label: 'Context Ability',
+    category: 'actions',
+    description: 'Cycle a progression mode such as Digestive Choice.',
+    defaultBindings: {
+      keyboardMouse: bind('R'),
+      controller: bind('North Button'),
+      mobile: bind('Context Button'),
     },
     rebindable: true,
   },

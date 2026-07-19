@@ -38,6 +38,7 @@ export interface ActionSlotRuntime {
   setFlag(key: string, value: unknown): void;
   tryCastArcanePulse(): boolean;
   getArcanePulseCost(): number;
+  tryActivateManualSurge(): { ok: boolean; message: string };
   hasFollowers(): boolean;
   commandFollowers(): { ok: boolean; message: string };
   recallFollowers(): { ok: boolean; message: string };
@@ -71,6 +72,23 @@ export class ActionSlotController {
           return this.runtime.tryCastArcanePulse()
             ? { ok: true, label: 'Arcane Pulse' }
             : { ok: false, reason: 'Arcane Pulse fizzled.' };
+        },
+      },
+      {
+        id: 'manual-surge',
+        label: 'Manual Surge',
+        kind: 'command',
+        description: 'Spend 3 Momentum to start an Impact Surge.',
+        getDisabledReason: () =>
+          this.runtime.getFlag('momentum.config.overclock')
+            ? undefined
+            : 'Unlock Overclock in the skill tree.',
+        canBind: () => Boolean(this.runtime.getFlag('momentum.config.overclock')),
+        use: () => {
+          const result = this.runtime.tryActivateManualSurge();
+          return result.ok
+            ? { ok: true, label: 'Manual Surge' }
+            : { ok: false, reason: result.message };
         },
       },
       {

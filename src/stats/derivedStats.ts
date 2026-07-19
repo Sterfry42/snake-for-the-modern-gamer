@@ -8,7 +8,9 @@ export type DerivedStatId =
   | 'spellSlotCapacity'
   | 'extraLifeCapacity'
   | 'nutritionCapacity'
-  | 'wardDuration';
+  | 'wardDuration'
+  | 'storedVitalityCapacity'
+  | 'shopPriceScalar';
 
 export interface DerivedStatModifier {
   stat: DerivedStatId;
@@ -40,6 +42,8 @@ const DEFAULT_BASES: Record<DerivedStatId, number> = {
   extraLifeCapacity: 0,
   nutritionCapacity: 0,
   wardDuration: 0,
+  storedVitalityCapacity: 0,
+  shopPriceScalar: 1,
 };
 
 const CLAMPS: Record<DerivedStatId, readonly [number, number]> = {
@@ -53,6 +57,8 @@ const CLAMPS: Record<DerivedStatId, readonly [number, number]> = {
   extraLifeCapacity: [0, 20],
   nutritionCapacity: [0, 99],
   wardDuration: [0, 9_999],
+  storedVitalityCapacity: [0, 99],
+  shopPriceScalar: [0.25, 1],
 };
 
 export class DerivedStatResolver {
