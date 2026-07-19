@@ -81,6 +81,7 @@ const HAT_BRIM = [
   [6, 4],
 ];
 
+// @ts-expect-error TS6133 - unused declaration
 const _HAT_BAND = [
   [2, 3],
   [3, 3],

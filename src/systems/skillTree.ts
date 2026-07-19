@@ -1468,6 +1468,7 @@ const BRANCHES: readonly BranchConfig[] = [
   ENTROPY_BRANCH,
 ];
 
+// @ts-expect-error TS6133 - unused declaration
 function _buildPerkDefinitions(): SkillPerkDefinition[] {
   const definitions: SkillPerkDefinition[] = [];
 

@@ -269,6 +269,7 @@ export function tryActivatePortal(
   }
 
   // Check for obsidian frame
+  // @ts-expect-error TS6133 - unused declaration
   const _frameBlocks = [
     'obsidian',
     'obsidian',
@@ -313,12 +314,14 @@ export function tryActivatePortal(
 // ─── Portal Room Generation ─────────────────────────────────────────────────
 
 export function generatePortalRoom(
+  // @ts-expect-error TS6133 - unused declaration
   roomId: string,
   width: number,
   height: number,
   room: RoomSnapshot,
 ): void {
   // Create an obsidian platform
+  // @ts-expect-error TS6133 - unused declaration
   const _platformSize = Math.max(width, height) + 4;
 
   for (let dx = -2; dx <= 2; dx++) {

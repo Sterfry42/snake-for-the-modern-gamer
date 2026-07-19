@@ -46,6 +46,7 @@ export class MutationSystem {
   private readonly unlockedEvolvedApples = new Set<string>();
   private readonly eventCallbacks: MutationSystemCallbacks;
   private readonly rng: RandomGenerator;
+  // @ts-expect-error TS6133 - unused declaration
   private readonly combinationWindowMs: number;
   private readonly maxRecentApples: number;
 
@@ -240,8 +241,11 @@ export class MutationSystem {
       const traitDef = this.registry.getTrait(traitBonus.traitId);
       if (traitDef) {
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        // @ts-expect-error TS6133 - unused declaration
         const _traitId = traitBonus.traitId;
+        // @ts-expect-error TS6133 - unused declaration
         const _stacks = traitBonus.stacks;
+        // @ts-expect-error TS6133 - unused declaration
         const _durationMs = traitBonus.durationMs;
         // Trait application is handled by the TraitManager
         // This method exists for the callback to trigger trait application

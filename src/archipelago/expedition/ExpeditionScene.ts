@@ -165,6 +165,7 @@ export class ExpeditionScene extends Phaser.Scene {
 
   // Rendering
   private gridGraphics!: Phaser.GameObjects.Graphics;
+  // @ts-expect-error TS6133 - unused declaration
   private uiGraphics!: Phaser.GameObjects.Graphics;
   private phaseText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
@@ -567,6 +568,7 @@ export class ExpeditionScene extends Phaser.Scene {
   // ─── UI Updates ──────────────────────────────────────────────────────────
 
   private updateUI(): void {
+    // @ts-expect-error TS6133 - unused declaration
     const _phases: ExpeditionPhase[] = ['approach', 'explore', 'discover', 'escape'];
     const phaseNames: Record<ExpeditionPhase, string> = {
       approach: '🚢 Approach',

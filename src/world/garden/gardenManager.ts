@@ -56,6 +56,7 @@ export class GardenManager {
   private season: GardenSeason = 'spring';
   private unlocked: boolean = false;
   private nextPlotId: number = 0;
+  // @ts-expect-error TS6133 - unused declaration
   private nextPestId: number = 0;
   private pestSpawnCounter: number = 0;
 

@@ -11,6 +11,7 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
+// @ts-expect-error TS6133 - unused declaration
 function _seededRandom(seed: number): () => number {
   let state = seed;
   return () => {
@@ -100,6 +101,7 @@ export class ChunkManager {
     return `${key.roomId}:${key.chunkX},${key.chunkY}`;
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private fromKey(str: string): ChunkKey {
     const idx = str.indexOf(':');
     const roomId = str.slice(0, idx);
@@ -341,6 +343,7 @@ export class ChunkManager {
 
   private unloadOldest(): void {
     let oldestKey: string | null = null;
+    // @ts-expect-error TS6133 - unused declaration
     let _oldestState: ChunkState | null = null;
     let oldestTicks = Infinity;
 

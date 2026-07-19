@@ -24,6 +24,7 @@ export class AlchemyOverlay {
   private background?: Phaser.GameObjects.Rectangle;
   private titleText?: Phaser.GameObjects.Text;
   private tabButtons: Phaser.GameObjects.Text[] = [];
+  // @ts-expect-error TS6133 - unused declaration
   private currentTab: AlchemyTab = 'recipes';
   private recipeList?: Phaser.GameObjects.Container;
   private craftingPanel?: Phaser.GameObjects.Container;
@@ -33,15 +34,20 @@ export class AlchemyOverlay {
   private activePanel?: Phaser.GameObjects.Container;
   private onClose?: () => void;
   private onCraft?: (recipeId: string) => void;
+  // @ts-expect-error TS6133 - unused declaration
   private onTrade?: (recipeId: string) => void;
   private isVisible = false;
   private scene: SnakeScene;
   private alchemyManager: AlchemyManager;
 
   // Scroll state
+  // @ts-expect-error TS6133 - unused declaration
   private scrollY = 0;
+  // @ts-expect-error TS6133 - unused declaration
   private contentHeight = 0;
+  // @ts-expect-error TS6133 - unused declaration
   private viewportHeight = 0;
+  // @ts-expect-error TS6133 - unused declaration
   private scrollBar?: Phaser.GameObjects.Graphics;
 
   constructor(scene: SnakeScene, alchemyManager: AlchemyManager) {

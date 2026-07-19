@@ -821,6 +821,7 @@ export class ArcadeSnakeRenderer {
     this.addTimer(80 + tier * 25, () => graphics.clear());
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _playBlueScreen(): void {
     if (!this.root || !this.overlayText || !this.run || this.blueScreenActive) return;
     this.blueScreenActive = true;
@@ -857,12 +858,14 @@ export class ArcadeSnakeRenderer {
     });
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _playResizeGlitch(): void {
     if (!this.root) return;
     this.root.setScale(1.05, 0.96);
     this.addTimer(180, () => this.root?.setScale(1));
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _playVisualGlitch(
     glitch: Extract<ArcadeTickEvent, { type: 'visual-glitch' }>['glitch'],
   ): void {

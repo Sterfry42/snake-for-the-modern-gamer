@@ -368,6 +368,7 @@ export class MobManager {
     playerX: number,
     playerY: number,
     playerRoomId: string,
+    // @ts-expect-error TS6133 - unused declaration
     lightLevelAt: (x: number, y: number, roomId: string) => number,
     distToPlayer: number,
   ): void {

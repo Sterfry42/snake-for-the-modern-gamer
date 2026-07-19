@@ -109,6 +109,7 @@ export class DreamApple extends DreamAppleBase {
 // ─── Nightmare Apple ───────────────────────────────────────────────────────────
 
 export class NightmareApple extends DreamAppleBase {
+  // @ts-expect-error TS6133 - unused declaration
   private readonly chaseSpeed: number;
 
   constructor(

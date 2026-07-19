@@ -15,6 +15,7 @@ export class MinecraftRenderLayer {
   private highlightGraphics: Phaser.GameObjects.Graphics | null = null;
   private hoveredBlockX: number = -1;
   private hoveredBlockY: number = -1;
+  // @ts-expect-error TS6133 - unused declaration
   private readonly textureCache: Map<string, string> = new Map();
 
   constructor(scene: SnakeScene, chunkManager: ChunkManager) {

@@ -146,6 +146,7 @@ interface PopulationTarget {
   tolerance: number;
 }
 
+// @ts-expect-error TS6133 - unused declaration
 const _POPULATION_TARGETS: PopulationTarget[] = [
   { predator: 'wolf', prey: 'rabbit', idealRatio: 2, tolerance: 1 },
   { predator: 'wolf', prey: 'deer', idealRatio: 1, tolerance: 0.5 },

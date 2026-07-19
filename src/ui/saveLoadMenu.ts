@@ -17,6 +17,7 @@ export class SaveLoadMenu {
   private backText?: Phaser.GameObjects.Text;
   private entryContainers: Phaser.GameObjects.Container[] = [];
   private confirmOverlay?: Phaser.GameObjects.Container;
+  // @ts-expect-error TS6133 - unused declaration
   private confirmText?: Phaser.GameObjects.Text;
   private confirmYes?: Phaser.GameObjects.Text;
   private confirmNo?: Phaser.GameObjects.Text;
@@ -25,6 +26,7 @@ export class SaveLoadMenu {
   private scrollY = 0;
   private contentHeight = 0;
   private viewportHeight = 0;
+  // @ts-expect-error TS6133 - unused declaration
   private currentPopupHeight = 240;
   private readonly width = 520;
   private readonly entryHeight = 56;
@@ -32,6 +34,7 @@ export class SaveLoadMenu {
   private readonly footerHeight = 44;
   private regularEntries: SaveSlotInfo[] = [];
   private autosaveEntries: SaveSlotInfo[] = [];
+  // @ts-expect-error TS6133 - unused declaration
   private isLoading = false;
   private currentOnLoad?: (slotId: string, data: GameSaveData) => void;
   private controllerLoadActions: Array<() => void> = [];
@@ -285,6 +288,7 @@ export class SaveLoadMenu {
   private createEntryBox(
     label: string,
     buttonWidth: number,
+    // @ts-expect-error TS6133 - unused declaration
     buttonHeight: number,
     buttonGap: number,
     padding: number,

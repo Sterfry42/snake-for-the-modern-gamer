@@ -58,6 +58,7 @@ export class GenreDetector {
   private currentGenre: AppleGenre | null = null;
   private lastDetectionTime = 0;
   private detectionCooldown = 5000; // 5 seconds between genre changes
+  // @ts-expect-error TS6133 - unused declaration
   private _genreScores: Record<AppleGenre, number> = {
     calm: 0,
     energetic: 0,

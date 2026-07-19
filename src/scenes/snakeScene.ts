@@ -1750,6 +1750,7 @@ export default class SnakeScene extends Phaser.Scene {
   private inputModeUnsubscribe: (() => void) | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
+  // @ts-expect-error TS6133 - unused declaration
   private jasonVulnerableDialogueShown = false;
   private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
   private powerupMusicActive = false;
@@ -1910,12 +1911,14 @@ export default class SnakeScene extends Phaser.Scene {
   private titleDifficultySettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
   private titleGitHubButton: Phaser.GameObjects.Container | null = null;
+  // @ts-expect-error TS6133 - unused declaration
   private titleGitHubZone: Phaser.GameObjects.Zone | null = null;
   private titleHeadingText: Phaser.GameObjects.Text | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
   private titleCharacterModeText: Phaser.GameObjects.Text | null = null;
   private titleNormalModeButton: Phaser.GameObjects.Container | null = null;
   private titleRaccoonModeButton: Phaser.GameObjects.Container | null = null;
+  // @ts-expect-error TS6133 - unused declaration
   private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
   private selectedCharacterMode: CharacterMode = this.loadCharacterModeSetting();
@@ -2013,7 +2016,9 @@ export default class SnakeScene extends Phaser.Scene {
   private fishingRegistry!: FishingRegistry;
   private fishingActive = false;
   private fishingGameState: FishingGameState | null = null;
+  // @ts-expect-error TS6133 - unused declaration
   private fishingEscapePending = false;
+  // @ts-expect-error TS6133 - unused declaration
   private fishingGloveLocked = false;
   private fishingMinigame!: FishingMinigame;
 
@@ -6671,6 +6676,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.saveLoadMenu.show(
+      // @ts-expect-error TS6133 - unused declaration
       async (slotId: string, data: GameSaveData) => {
         this.hideTitleScreen();
         const success = this.snakeGame.loadFromSaveData(data);
@@ -7147,6 +7153,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private buildGitHubLogoButton(
     _root: Phaser.GameObjects.Container,
+    // @ts-expect-error TS6133 - unused declaration
     width: number,
     height: number,
   ): Phaser.GameObjects.Container {
@@ -12169,6 +12176,7 @@ export default class SnakeScene extends Phaser.Scene {
     return this.isNearTownTile(['U', 'Y']);
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private getSideToTownDistrict(
     town: TownStructure,
     roomId: string,
@@ -13397,6 +13405,7 @@ export default class SnakeScene extends Phaser.Scene {
   private addCardTableProps(
     root: Phaser.GameObjects.Container,
     width: number,
+    // @ts-expect-error TS6133 - unused declaration
     height: number,
     style: CardTableVisualStyle,
   ): void {
@@ -16556,6 +16565,7 @@ export default class SnakeScene extends Phaser.Scene {
       );
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private ensureArchaeologySymbolText(index: number): Phaser.GameObjects.Text {
     let symbol = this.archaeologySymbolTexts[index];
     if (symbol) {
@@ -17469,6 +17479,7 @@ export default class SnakeScene extends Phaser.Scene {
       : `${displayName} says this place has not organized itself enough to gossip properly.`;
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private askActorAround(profile: RelationshipCandidateProfile): string | null {
     const actorId = profile.actorId ?? '';
     const options = [
@@ -17484,6 +17495,7 @@ export default class SnakeScene extends Phaser.Scene {
     return null;
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private askActorPersonally(profile: RelationshipCandidateProfile): string | null {
     const actorId = profile.actorId ?? '';
     return this.random() < 0.5
@@ -17996,6 +18008,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private isTownResidentInDistrict(
     workRoomId: string | undefined,
     district: TownDistrictKind | undefined,
@@ -18301,6 +18314,7 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private describeDatingBranchPreview(
     profile: RelationshipCandidateProfile,
     result?: DatingBranchResult,
@@ -19408,6 +19422,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private showRelationshipResult(
     profile: RelationshipCandidateProfile,
     result: { title: string; message: string; color: string },

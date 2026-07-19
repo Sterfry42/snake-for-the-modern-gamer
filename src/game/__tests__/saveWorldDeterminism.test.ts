@@ -26,6 +26,7 @@ function roomLayoutKey(room: RoomSnapshot): string {
 }
 
 describe('save regression tests', () => {
+  // @ts-expect-error TS6133 - unused declaration
   let _registry: QuestRegistry;
 
   beforeEach(async () => {

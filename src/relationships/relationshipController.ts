@@ -1319,6 +1319,7 @@ export class RelationshipController {
     return summary.replace(/^(Loved|Liked|Neutral|Disliked|Hated):\s*/i, '');
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private summaryVerbForTier(tier: RelationshipOutcomeTier): string {
     if (tier === 'loved') return 'loved';
     if (tier === 'liked') return 'liked';

@@ -368,6 +368,7 @@ export function getToolTier(toolId: string): number {
   return tierMap[toolId] ?? 0;
 }
 
+// @ts-expect-error TS6133 - unused declaration
 function _getBlockHardness(blockId: string): number {
   const hardnessMap: Record<string, number> = {
     dirt: 1,

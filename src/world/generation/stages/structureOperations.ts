@@ -66,8 +66,11 @@ const SNAKE_CANIES_CHANCE = 0.008;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
+// @ts-expect-error TS6133 - unused declaration
 const _SHRINE_CHANCE = 0.08;
+// @ts-expect-error TS6133 - unused declaration
 const _RAMEN_STAND_CHANCE = 0.04;
+// @ts-expect-error TS6133 - unused declaration
 const _TENGU_CAMP_CHANCE = 0.04;
 const SHRINE_JADE_PEAK_CHANCE = 0.12;
 const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;

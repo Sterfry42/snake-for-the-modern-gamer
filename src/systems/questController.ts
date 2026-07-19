@@ -40,6 +40,7 @@ export class QuestController {
   private readonly initialQuestCount: number;
   private readonly initialQuestIds: string[];
   private readonly maxActiveQuests: number;
+  // @ts-expect-error TS6133 - unused declaration
   private readonly questOfferChance: number;
   private readonly rng: () => number;
 

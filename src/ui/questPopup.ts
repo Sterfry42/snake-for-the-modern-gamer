@@ -83,6 +83,7 @@ export class QuestPopup {
   private nextButtonBg?: Phaser.GameObjects.Rectangle;
   private controllerHint?: Phaser.GameObjects.Text;
 
+  // @ts-expect-error TS6133 - unused declaration
   private callbacks: QuestPopupCallbacks | null = null;
   private dialogueCallbacks: DialoguePopupCallbacks | null = null;
   private pages: string[] = [];

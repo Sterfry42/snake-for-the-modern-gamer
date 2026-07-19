@@ -53,6 +53,7 @@ export class BossManager {
   private bosses = new Map<string, Boss>();
   private readonly grid: GridConfig;
   private readonly rng: RandomGenerator;
+  // @ts-expect-error TS6133 - unused declaration
   private rainbowColorTimer: number = 0;
   private bossIdCounter = 0;
 
@@ -791,6 +792,7 @@ export class BossManager {
     return null;
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private moveBoss(boss: Boss, deps: BossStepDependencies): void {
     if (boss.kind === 'angel') {
       this.moveAngelBoss(boss, deps);

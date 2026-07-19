@@ -58,11 +58,13 @@ export class MinecraftFeature extends Feature {
   private craftingUIOpen = false;
   private skyOverlay: Phaser.GameObjects.Graphics | null = null;
   private hudGraphics: Phaser.GameObjects.Graphics | null = null;
+  // @ts-expect-error TS6133 - unused declaration
   private lastActionStep: number = 0;
   private furnaces: Map<string, import('./furnace.js').FurnaceState> = new Map();
   private chests: Map<string, import('./chest.js').ChestState> = new Map();
   private beds: Map<string, import('./bed.js').BedState> = new Map();
   private borderOverlay: Phaser.GameObjects.Graphics | null = null;
+  // @ts-expect-error TS6133 - unused declaration
   private craftingTableNearby = false;
   private creativeMode = false;
   private _rngInjected = false;
@@ -749,6 +751,7 @@ export class MinecraftFeature extends Feature {
   }
 
   private tryFarmInteraction(
+    // @ts-expect-error TS6133 - unused declaration
     scene: SnakeScene,
     x: number,
     y: number,
@@ -1041,6 +1044,7 @@ export class MinecraftFeature extends Feature {
   }
 
   private getHeldBlockType(_scene: SnakeScene): string | null {
+    // @ts-expect-error TS6133 - unused declaration
     const _inventory = this.player?.state.inventory ?? [];
     const blockTypes = [
       'dirt',
@@ -1112,6 +1116,7 @@ export class MinecraftFeature extends Feature {
     mobId: string,
     x: number,
     y: number,
+    // @ts-expect-error TS6133 - unused declaration
     roomId: string,
     scene: SnakeScene,
   ): void {

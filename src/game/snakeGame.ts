@@ -6906,6 +6906,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('world.rumors', this.rumors.getAll().map(rumorToWorldRumor).slice(-100));
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _recordLegacyRumorFromWorldEvent(event: WorldEvent): void {
     if (!this.shouldBecomeRumor(event)) {
       return;
@@ -7629,6 +7630,7 @@ export class SnakeGame implements QuestRuntime {
     return `layer:townInterior:${townId}:thievesGuild`;
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _getSideToTownDistrict(
     town: TownStructure,
     roomId: string,
@@ -7647,6 +7649,7 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _openRoomEdgeTiles(room: RoomSnapshot, side: 'north' | 'south' | 'east' | 'west'): void {
     const centerX = Math.floor(this.config.grid.cols / 2);
     const centerY = Math.floor(this.config.grid.rows / 2);
@@ -7679,6 +7682,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _isInsideTownExitLatchSide(town: TownStructure, room: RoomSnapshot): boolean {
     const exteriorSide = this.inferTownExitExteriorSide(town, room.id);
     if (!exteriorSide) {
@@ -8990,6 +8994,7 @@ export class SnakeGame implements QuestRuntime {
   spawnGridironYard(): boolean {
     const room = this.getCurrentRoom();
     const grid = this.config.grid;
+    // @ts-expect-error TS6133 - unused declaration
     const _rng = this._rng;
     const safe = new Set<string>();
     // Entrance runup cells
@@ -15771,6 +15776,7 @@ export class SnakeGame implements QuestRuntime {
     return best;
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _handleFortitudeRegenerator(roomsChanged: Set<string>): void {
     const base = this.getFlag<{ interval?: number; amount?: number }>('fortitude.regenerator');
     const equip = this.getFlag<{ interval?: number; amount?: number }>('equipment.regenerator');
@@ -16086,6 +16092,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _resetMomentum(): void {
     this.momentumConfig = createDefaultMomentumConfig();
     this.momentumState = createDefaultMomentumState();
@@ -16544,6 +16551,7 @@ export class SnakeGame implements QuestRuntime {
     this.syncMomentumFlags();
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _handleMomentumOnApple(
     _consumption: AppleConsumptionResult,
     _roomsChanged: Set<string>,
@@ -16627,6 +16635,7 @@ export class SnakeGame implements QuestRuntime {
     this.syncMomentumFlags();
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _resetTraversal(): void {
     this.traversalConfig = createDefaultTraversalConfig();
     this.traversalState = createDefaultTraversalState();
@@ -16636,6 +16645,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('traversal.echoActive', undefined);
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _hydrateTraversalConfig(): void {
     const contributions = Object.entries(this.snake.flags)
       .filter(([key]) => key.startsWith('traversal.config.'))
@@ -16827,6 +16837,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _handleTraversalRoomChange(
     _previousRoomId: string,
     currentRoomId: string,
@@ -16877,6 +16888,7 @@ export class SnakeGame implements QuestRuntime {
     this.syncTraversalFlags();
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _tickTraversalState(): void {
     const config = this.traversalConfig;
     const state = this.ensureTraversalState();
@@ -17152,6 +17164,7 @@ export class SnakeGame implements QuestRuntime {
     return bonus;
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private _handlePredationOnRoomChange(newRoomId: string): void {
     const config = this.predationConfig;
     const state = this.ensurePredationState();

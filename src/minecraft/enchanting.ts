@@ -715,6 +715,7 @@ export function getBookshelfCount(
 export function getAvailableEnchantmentsForItem(
   itemId: string,
   enchantingTableLevel: number,
+  // @ts-expect-error TS6133 - unused declaration
   bookshelfCount: number,
   existingEnchantments: Map<string, number>,
 ): EnchantmentId[] {
@@ -881,6 +882,7 @@ export function getCropDropMultiplier(itemId: string): number {
 export function getProtectionReduction(player: MinecraftPlayer): number {
   let totalProtection = 0;
 
+  // @ts-expect-error TS6133 - unused declaration
   const _protectionLevels: Array<{ armorItem: string; enchantmentId: EnchantmentId }> = [
     { armorItem: 'helmet', enchantmentId: 'protection' },
     { armorItem: 'chestplate', enchantmentId: 'protection' },

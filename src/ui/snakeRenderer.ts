@@ -49,7 +49,9 @@ import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
 
+// @ts-expect-error TS6133 - unused declaration
 const _SNAKE_OUTLINE_ALPHA = 0.9;
+// @ts-expect-error TS6133 - unused declaration
 const _SNAKE_OUTLINE_WIDTH = 1;
 const LADDER_OUTLINE_ALPHA = 0.8;
 const LADDER_OUTLINE_WIDTH = 1;
@@ -1330,6 +1332,7 @@ export class SnakeRenderer {
   private drawCherryTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
     const cell = this.grid.cell;
     const cx = rectX + cell / 2;
+    // @ts-expect-error TS6133 - unused declaration
     const _cy = rectY + cell / 2;
 
     // Ground shadow
@@ -1615,6 +1618,7 @@ export class SnakeRenderer {
     this.graphics.strokePath();
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private drawTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
     this.renderDiagnostics.treeTileCount += 1;
     if (!this.shouldDrawDetailedTree(tileX, tileY)) {
@@ -2017,6 +2021,7 @@ export class SnakeRenderer {
     }
   }
 
+  // @ts-expect-error TS6133 - unused declaration
   private drawLibertyWallTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
     const cell = this.grid.cell;
     const base = (tileX + tileY) % 3 === 0 ? 0x244f87 : 0x173b6d;

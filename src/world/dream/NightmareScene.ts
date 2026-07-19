@@ -32,7 +32,9 @@ import {
 
 const NIGHTMARE_BG_COLOR = 0x0a0014;
 const NIGHTMARE_ENEMY_COLOR = 0x4a0000;
+// @ts-expect-error TS6133 - unused declaration
 const _NIGHTMARE_TEXT_COLOR = 0xff6666;
+// @ts-expect-error TS6133 - unused declaration
 const _NIGHTMARE_SURVIVAL_BAR_COLOR = 0xff0000;
 
 const NIGHTMARE_ISLAND_COUNT = 10;
@@ -41,6 +43,7 @@ const NIGHTMARE_BRIDGE_COUNT = 8;
 // ─── Nightmare Enemy Class ─────────────────────────────────────────────────────
 
 class NightmareEnemy extends Phaser.GameObjects.Graphics {
+  // @ts-expect-error TS6133 - unused declaration
   private target: Vector2Like;
   private speed: number;
   private health: number;

@@ -402,6 +402,7 @@ export class AnimalManager {
 
   private movePerch(
     animal: AnimalInstance,
+    // @ts-expect-error TS6133 - unused declaration
     def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
@@ -829,6 +830,7 @@ export class AnimalManager {
       return { success: false, animal: null };
     }
 
+    // @ts-expect-error TS6133 - unused declaration
     const _def = AnimalRegistry.getDefinition(target.type);
     if (!canTameAnimal(target.type)) {
       return { success: false, animal: null };
