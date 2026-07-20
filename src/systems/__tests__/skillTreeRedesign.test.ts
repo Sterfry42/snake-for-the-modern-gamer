@@ -61,6 +61,17 @@ describe('skill tree redesign catalog', () => {
     }
   });
 
+  it('defines Christianity as one starting charge backed by one life of capacity', () => {
+    const christianity = FAITHS.find((faith) => faith.id === 'christianity');
+
+    expect(christianity?.mods.startingLifeCharges).toBe(1);
+    expect(christianity?.mods.derivedModifiers).toContainEqual({
+      stat: 'extraLifeCapacity',
+      operation: 'add',
+      value: 1,
+    });
+  });
+
   it('keeps background SPECIAL packages zero-sum and cards mechanically concise', () => {
     for (const background of BACKGROUNDS) {
       const modifiers = Object.values(background.mods.specialModifiers ?? {});

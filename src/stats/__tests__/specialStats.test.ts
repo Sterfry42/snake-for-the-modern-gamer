@@ -20,6 +20,8 @@ import {
 import { getAnimalBonusDropChance, getMeatRecoveryChance } from '../animalSpecial.js';
 import { getFishingSpecialModifiers } from '../fishingSpecial.js';
 import {
+  buildArchaeologyTuning,
+  getArtifactRecoveryChanceBonus,
   getEquipmentRecoveryChanceBonus,
   getExcavationRewardChanceBonus,
 } from '../archaeologySpecial.js';
@@ -114,6 +116,8 @@ describe('SPECIAL stats', () => {
     });
     expect(getExcavationRewardChanceBonus(stats)).toBe(0);
     expect(getEquipmentRecoveryChanceBonus(stats)).toBe(0);
+    expect(getArtifactRecoveryChanceBonus(stats)).toBe(0);
+    expect(buildArchaeologyTuning(stats).artifactCacheChanceBonus).toBe(0);
     expect(getSocialSpecialModifiers(stats)).toEqual({
       affectionGainBonus: 0,
       trustGainBonus: 0,
@@ -124,6 +128,17 @@ describe('SPECIAL stats', () => {
       apologyEffectiveness: 0,
       intimidationControl: 0,
     });
+  });
+
+  it('feeds Intelligence and Luck artifact recovery into Moleman cache tuning', () => {
+    const gifted = {
+      ...createDefaultSpecialStats(),
+      intelligence: 10,
+      luck: 10,
+    };
+
+    expect(getArtifactRecoveryChanceBonus(gifted)).toBeCloseTo(0.125);
+    expect(buildArchaeologyTuning(gifted).artifactCacheChanceBonus).toBeCloseTo(0.125);
   });
 
   it('derives clamped gameplay modifiers from SPECIAL build identity', () => {

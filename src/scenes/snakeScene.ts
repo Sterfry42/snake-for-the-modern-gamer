@@ -6190,6 +6190,7 @@ export default class SnakeScene extends Phaser.Scene {
   prepareCharacterSave(): void {
     this.setFlag('skills.ranks', this.skillTree.exportRanks());
     this.setFlag('skills.ownership', this.skillTree.exportOwnership());
+    this.setFlag('skills.extraLifeCharges', this.skillTree.getStats().extraLives);
     this.minecraftFeature?.saveToScene(this);
   }
 
@@ -6205,6 +6206,13 @@ export default class SnakeScene extends Phaser.Scene {
     if (ranks) {
       const ownership = this.getFlag<Record<string, OwnedSkillState>>('skills.ownership');
       this.skillTree.restoreRanks(ranks, ownership);
+    }
+    const savedLifeCharges = this.getFlag<number>('skills.extraLifeCharges');
+    if (savedLifeCharges !== undefined) {
+      this.skillTree.setExtraLifeCharges(savedLifeCharges);
+    } else if (this.chosenReligionId === 'christianity') {
+      // Legacy saves predate explicit life-charge persistence.
+      this.skillTree.setExtraLifeCharges(this.skillTree.getStats().extraLives + 1);
     }
     this.applyEquipmentEffects();
     const savedAchievements = this.getFlag<AchievementState>('save.loadedAchievements');
@@ -10553,12 +10561,22 @@ export default class SnakeScene extends Phaser.Scene {
 
   // Called by the religion feature to persist the choice for this run
   setReligionChoice(id: string, mods: Partial<typeof this.religionMods>): void {
+    const previousLifeCharges = this.getFaithStartingLifeCharges(
+      this.chosenReligionId,
+      this.religionMods,
+    );
+    const nextLifeCharges = this.getFaithStartingLifeCharges(id, mods);
     this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, mods.specialModifiers);
     this.chosenReligionId = id;
     this.religionMods = { ...mods } as any;
     this.setFlag('religion.id', id);
     this.setFlag('religion.mods', this.religionMods);
     this.applyEquipmentEffects();
+    if (previousLifeCharges !== nextLifeCharges) {
+      this.skillTree.setExtraLifeCharges(
+        this.skillTree.getStats().extraLives + nextLifeCharges - previousLifeCharges,
+      );
+    }
     this.applyStartingMechanicFlags(mods.mechanicFlags);
     if (mods.startingPerkId) {
       this.skillTree.grantStartingPerk(mods.startingPerkId, { type: 'faith', faithId: id });
@@ -10605,6 +10623,16 @@ export default class SnakeScene extends Phaser.Scene {
     for (const [key, value] of Object.entries(flags ?? {})) this.setFlag(key, value);
   }
 
+  private getFaithStartingLifeCharges(
+    id: string | null,
+    mods: Partial<CharacterCreationMods>,
+  ): number {
+    if (mods.startingLifeCharges !== undefined) {
+      return Math.max(0, Math.floor(mods.startingLifeCharges));
+    }
+    return id === 'christianity' ? 1 : 0;
+  }
+
   private replaceStartingSpecialModifiers(
     previous: CharacterCreationMods['specialModifiers'],
     next: CharacterCreationMods['specialModifiers'],
@@ -10641,6 +10669,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, undefined);
     this.replaceStartingSpecialModifiers(this.backgroundMods.specialModifiers, undefined);
     this.replaceStartingSpecialModifiers(this.classMods.specialModifiers, undefined);
+    const faithLifeCharges = this.getFaithStartingLifeCharges(
+      this.chosenReligionId,
+      this.religionMods,
+    );
+    if (faithLifeCharges > 0) {
+      this.skillTree.setExtraLifeCharges(
+        this.skillTree.getStats().extraLives - faithLifeCharges,
+      );
+    }
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;
     this.chosenClassId = null;

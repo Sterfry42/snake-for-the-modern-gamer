@@ -107,6 +107,7 @@ export interface ArchaeologyTuning {
   equipmentRewardChance?: number;
   excavationAppleBonus?: number;
   goldAppleFrequency?: number;
+  artifactCacheChanceBonus?: number;
 }
 
 const TOP_GRACE_MS = 3000;
@@ -485,7 +486,11 @@ export class MolemanArchaeologySession {
   private createIncomingRow(): (ArchaeologyTileKind | null)[] {
     const row: (ArchaeologyTileKind | null)[] = [];
     for (let x = 0; x < this.cols; x += 1) {
-      const cacheChance = Math.min(0.02 + this.depth * 0.001, 0.08);
+      const baseCacheChance = Math.min(0.02 + this.depth * 0.001, 0.08);
+      const cacheChance = Math.max(
+        0,
+        baseCacheChance * (1 + (this.tuning.artifactCacheChanceBonus ?? 0)),
+      );
       if (this.rng() < cacheChance) {
         row.push('artifact-cache');
         continue;

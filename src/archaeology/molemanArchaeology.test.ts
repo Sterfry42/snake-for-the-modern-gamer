@@ -28,4 +28,14 @@ describe('Moleman artifact matches', () => {
     expect(cells.has('1,8')).toBe(true);
     expect(cells.has('0,4')).toBe(false);
   });
+
+  it('uses artifact recovery tuning to raise artifact-cache frequency', () => {
+    const base = new MolemanArchaeologySession(DIG_SITE_VARIANTS[0]!, () => 0.022);
+    const boosted = new MolemanArchaeologySession(DIG_SITE_VARIANTS[0]!, () => 0.022, {
+      artifactCacheChanceBonus: 0.125,
+    });
+
+    expect(base.getSnapshot().incomingRow).not.toContain('artifact-cache');
+    expect(boosted.getSnapshot().incomingRow).toContain('artifact-cache');
+  });
 });
