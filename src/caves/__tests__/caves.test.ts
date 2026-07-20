@@ -151,10 +151,60 @@ describe('cave determinism', () => {
 
     for (const templateId of newTemplateIds) {
       expect(CAVE_TEMPLATES[templateId]).toBeDefined();
-      expect(weightedIds.has(templateId)).toBe(true);
-      expect(CAVE_TEMPLATES[templateId].exitMode).toMatch(/manual|rewardClaimed|combatClear/);
+      expect(weightedIds.has(templateId)).toBe(
+        templateId !== 'targetingGallery' && templateId !== 'fossilDigSite',
+      );
+      expect(CAVE_TEMPLATES[templateId].exitMode).toMatch(
+        /manual|rewardClaimed|combatClear|timerForced/,
+      );
     }
     expect(weightedIds.has('goblinTollTunnel' as CaveTemplateId)).toBe(false);
+  });
+
+  it('builds echo maze as a seeded tight maze with a center treasure and collapse timer', () => {
+    const result = generateCave({
+      caveId: 'cave:echo-maze:0',
+      parentRoomId: '9,0,0',
+      templateId: 'echoMaze',
+      grid: defaultGameConfig.grid,
+      worldSeed: 'echo-maze-layout',
+      returnPosition: { x: 8, y: 8 },
+    });
+    const template = getCaveTemplate('echoMaze');
+    const wallCount = result.room.layout.reduce(
+      (sum, row) => sum + Array.from(row).filter((tile) => tile === '#').length,
+      0,
+    );
+
+    expect(template.timerSeconds).toBe(45);
+    expect(template.collapseOnExit).toBe(true);
+    expect(template.collapseOnTimerEnd).toBe(true);
+    expect(result.room.treasure).toBeDefined();
+    expect(hasDryPath(result.room.layout, result.spawn, result.room.treasure!)).toBe(true);
+    expect(wallCount).toBeGreaterThan(defaultGameConfig.grid.cols * 4);
+    expect(Math.abs(result.room.treasure!.x - defaultGameConfig.grid.cols / 2)).toBeLessThan(3);
+    expect(Math.abs(result.room.treasure!.y - defaultGameConfig.grid.rows / 2)).toBeLessThan(3);
+  });
+
+  it('randomizes underwater cave rewards deterministically by cave seed', () => {
+    const generate = (caveId: string, worldSeed: string) =>
+      generateCave({
+        caveId,
+        parentRoomId: '10,0,0',
+        templateId: 'lakeTreasure',
+        grid: defaultGameConfig.grid,
+        worldSeed,
+        returnPosition: { x: 8, y: 8 },
+      }).room;
+    const first = generate('cave:lake-random-a:0', 'lake-random-a');
+    const repeat = generate('cave:lake-random-a:0', 'lake-random-a');
+    const second = generate('cave:lake-random-b:0', 'lake-random-b');
+
+    expect(first.cave?.lakeRewards).toEqual(repeat.cave?.lakeRewards);
+    expect(first.cave?.lakeRewards).not.toEqual(second.cave?.lakeRewards);
+    expect(
+      first.cave?.lakeRewards?.every((reward) => first.layout[reward.y]?.[reward.x] === '~'),
+    ).toBe(true);
   });
 
   it.each([

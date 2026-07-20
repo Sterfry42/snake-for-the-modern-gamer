@@ -8,6 +8,7 @@ export interface CharacterCreationMods {
   invulnerabilityBonus?: number;
   regenerator?: { interval: number; amount: number } | null;
   phoenixCharges?: number;
+  startingLifeCharges?: number;
   masonryEnabled?: boolean;
   shrineBlessing?: boolean;
   yokaiInsight?: boolean;
@@ -31,6 +32,7 @@ export const FAITHS: readonly CharacterCreationOption[] = [
     name: 'Christianity',
     description: 'Begin with +1 Life Charge.',
     mods: {
+      startingLifeCharges: 1,
       derivedModifiers: [{ stat: 'extraLifeCapacity', operation: 'add', value: 1 }],
     },
   },

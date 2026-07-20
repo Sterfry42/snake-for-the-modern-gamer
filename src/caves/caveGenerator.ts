@@ -63,7 +63,7 @@ export function generateCave(args: {
   };
 
   if (templateId === 'lakeTreasure') {
-    stampLakeTreasure(room, layout, save);
+    stampLakeTreasure(room, layout, rng, save);
   } else if (templateId === 'pitchBlackTreasure') {
     stampPitchBlackTreasure(room, layout, grid, save);
   } else if (templateId === 'simpleTreasure') {
@@ -80,9 +80,9 @@ export function generateCave(args: {
   } else if (templateId === 'targetingGallery') {
     stampTargetingGallery(room, layout, grid, save);
   } else if (templateId === 'echoMaze') {
-    stampEchoMaze(room, layout, grid, save);
+    stampEchoMaze(room, layout, grid, rng, save);
   } else if (templateId === 'floodedTreasury') {
-    stampFloodedTreasury(room, layout, save);
+    stampFloodedTreasury(room, layout, rng, save);
   } else if (templateId === 'shrineOfBadProbability') {
     stampShrineOfBadProbability(room, layout, grid, rng, save);
   } else if (templateId === 'fossilDigSite') {
@@ -162,6 +162,7 @@ function stampAppleRush(layout: string[][], grid: GridConfig, rng: () => number)
 function stampLakeTreasure(
   room: RoomSnapshot,
   layout: string[][],
+  rng: () => number,
   save?: CaveInstanceSaveData,
 ): void {
   const collected = new Set(save?.collectedItemIds ?? []);
@@ -172,12 +173,12 @@ function stampLakeTreasure(
       setTile(layout, x, y, '~');
     }
   }
-  const items = [
-    { id: 'lake-0', x: centerX - 4, y: 8 },
-    { id: 'lake-1', x: centerX + 4, y: 8 },
-    { id: 'lake-2', x: centerX - 4, y: 11 },
-    { id: 'lake-3', x: centerX + 4, y: 11 },
-  ].filter((item) => !collected.has(item.id));
+  const water = collectTiles(layout, '~');
+  shuffle(water, rng);
+  const items = water
+    .slice(0, 4)
+    .map((position, index) => ({ id: `lake-${index}`, ...position }))
+    .filter((item) => !collected.has(item.id));
   room.cave!.lakeRewards = items;
 }
 
@@ -281,26 +282,70 @@ function stampEchoMaze(
   room: RoomSnapshot,
   layout: string[][],
   grid: GridConfig,
+  rng: () => number,
   save?: CaveInstanceSaveData,
 ): void {
-  const centerX = Math.floor(grid.cols / 2);
-  for (let y = 4; y <= grid.rows - 7; y += 2) {
-    const gap = y % 4 === 0 ? 4 : grid.cols - 5;
-    for (let x = 3; x <= grid.cols - 4; x += 1) {
-      if (x === gap || x === centerX) continue;
-      setTile(layout, x, y, '#');
+  const minX = 3;
+  const minY = 3;
+  const maxX = grid.cols - 4 - ((grid.cols - 4 - minX) % 2);
+  const maxY = grid.rows - 6 - ((grid.rows - 6 - minY) % 2);
+  for (let y = minY - 1; y <= maxY + 1; y += 1) {
+    for (let x = minX - 1; x <= maxX + 1; x += 1) setTile(layout, x, y, '#');
+  }
+
+  const cells: Vector2Like[] = [];
+  for (let y = minY; y <= maxY; y += 2) {
+    for (let x = minX; x <= maxX; x += 2) cells.push({ x, y });
+  }
+  const start = cells.reduce((best, cell) =>
+    Math.abs(cell.x - Math.floor(grid.cols / 2)) + Math.abs(cell.y - maxY) <
+    Math.abs(best.x - Math.floor(grid.cols / 2)) + Math.abs(best.y - maxY)
+      ? cell
+      : best,
+  );
+  const visited = new Set<string>([`${start.x},${start.y}`]);
+  const stack = [start];
+  setTile(layout, start.x, start.y, '.');
+  while (stack.length > 0) {
+    const current = stack[stack.length - 1]!;
+    const neighbors = [
+      { x: current.x + 2, y: current.y },
+      { x: current.x - 2, y: current.y },
+      { x: current.x, y: current.y + 2 },
+      { x: current.x, y: current.y - 2 },
+    ].filter(
+      (cell) =>
+        cell.x >= minX &&
+        cell.x <= maxX &&
+        cell.y >= minY &&
+        cell.y <= maxY &&
+        !visited.has(`${cell.x},${cell.y}`),
+    );
+    if (neighbors.length === 0) {
+      stack.pop();
+      continue;
     }
+    const next = neighbors[Math.floor(rng() * neighbors.length)]!;
+    setTile(layout, (current.x + next.x) / 2, (current.y + next.y) / 2, '.');
+    setTile(layout, next.x, next.y, '.');
+    visited.add(`${next.x},${next.y}`);
+    stack.push(next);
   }
-  for (let y = 5; y <= grid.rows - 8; y += 4) {
-    setTile(layout, centerX - 3, y, '#');
-    setTile(layout, centerX + 3, y, '#');
-  }
-  room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 3 };
+
+  for (let y = start.y; y < grid.rows - 3; y += 1) setTile(layout, start.x, y, '.');
+  const treasure = cells.reduce((best, cell) =>
+    Math.abs(cell.x - grid.cols / 2) + Math.abs(cell.y - grid.rows / 2) <
+    Math.abs(best.x - grid.cols / 2) + Math.abs(best.y - grid.rows / 2)
+      ? cell
+      : best,
+  );
+  room.treasure = save?.rewardClaimed ? undefined : { ...treasure };
 }
 
 function stampFloodedTreasury(
   room: RoomSnapshot,
   layout: string[][],
+  rng: () => number,
   save?: CaveInstanceSaveData,
 ): void {
   const collected = new Set(save?.collectedItemIds ?? []);
@@ -315,12 +360,12 @@ function stampFloodedTreasury(
       }
     }
   }
-  room.cave!.lakeRewards = [
-    { id: 'flood-0', x: centerX - 7, y: 6 },
-    { id: 'flood-1', x: centerX + 7, y: 6 },
-    { id: 'flood-2', x: centerX - 6, y: 12 },
-    { id: 'flood-3', x: centerX + 6, y: 12 },
-  ].filter((item) => !collected.has(item.id));
+  const water = collectTiles(layout, '~');
+  shuffle(water, rng);
+  room.cave!.lakeRewards = water
+    .slice(0, 4)
+    .map((position, index) => ({ id: `flood-${index}`, ...position }))
+    .filter((item) => !collected.has(item.id));
   room.treasure = save?.rewardClaimed ? undefined : { x: centerX, y: 9 };
 }
 
@@ -484,6 +529,23 @@ function setTile(layout: string[][], x: number, y: number, tile: string): void {
     return;
   }
   layout[y]![x] = tile;
+}
+
+function collectTiles(layout: readonly string[][], tile: string): Vector2Like[] {
+  const positions: Vector2Like[] = [];
+  for (let y = 0; y < layout.length; y += 1) {
+    for (let x = 0; x < (layout[y]?.length ?? 0); x += 1) {
+      if (layout[y]?.[x] === tile) positions.push({ x, y });
+    }
+  }
+  return positions;
+}
+
+function shuffle<T>(items: T[], rng: () => number): void {
+  for (let index = items.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(rng() * (index + 1));
+    [items[index], items[swapIndex]] = [items[swapIndex]!, items[index]!];
+  }
 }
 
 function hash(value: string): number {
