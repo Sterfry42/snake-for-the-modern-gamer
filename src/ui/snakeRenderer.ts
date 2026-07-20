@@ -1374,6 +1374,12 @@ export class SnakeRenderer {
         highlightColor = 0xffe0e8;
         shadowColor = 0xe8a0b4;
         break;
+      default:
+        // Fallback (should never happen since (tileX*3+tileY*7)%3 is 0-2)
+        canopyColor = 0xffb3c6;
+        highlightColor = 0xffd1dc;
+        shadowColor = 0xe894a8;
+        break;
     }
 
     // Main canopy
