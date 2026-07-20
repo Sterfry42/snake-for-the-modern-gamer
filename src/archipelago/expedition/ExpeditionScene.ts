@@ -307,7 +307,7 @@ export class ExpeditionScene extends Phaser.Scene {
         let color: number;
         switch (tile) {
           case '#':
-            color = this.island.wallColor;
+            color = this.island!.wallColor;
             break;
           case '~':
           case '≈':
@@ -336,7 +336,7 @@ export class ExpeditionScene extends Phaser.Scene {
             color = 0x666688;
             break;
           default:
-            color = this.island.color;
+            color = this.island!.color;
         }
 
         this.gridGraphics.fillStyle(color, 0.8);
@@ -345,7 +345,7 @@ export class ExpeditionScene extends Phaser.Scene {
     }
 
     // Draw phase indicator border
-    this.gridGraphics.lineStyle(2, this.island.color, 0.5);
+    this.gridGraphics.lineStyle(2, this.island!.color, 0.5);
     this.gridGraphics.strokeRect(
       offsetX - cell,
       offsetY - cell,
