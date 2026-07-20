@@ -50,10 +50,7 @@ describe('DreamPuzzleManager', () => {
       expect(state).not.toBeNull();
 
       const solution = DREAM_PUZZLE_DEFINITIONS[0].solution.colorMatch!;
-      const result = manager.submitColorMatch(
-        'color-match-1',
-        solution.targetColors,
-      );
+      const result = manager.submitColorMatch('color-match-1', solution.targetColors);
 
       expect(result).toBe(true);
       expect(manager.isPuzzleSolved('color-match-1')).toBe(true);
@@ -77,11 +74,7 @@ describe('DreamPuzzleManager', () => {
       const state = manager.createPuzzleState('color-match-1');
       expect(state).not.toBeNull();
 
-      const result = manager.submitColorMatch('color-match-1', [
-        0xffffff,
-        0x000000,
-        0xff0000,
-      ]);
+      const result = manager.submitColorMatch('color-match-1', [0xffffff, 0x000000, 0xff0000]);
 
       expect(result).toBe(false);
       expect(manager.isPuzzleSolved('color-match-1')).toBe(false);
@@ -104,10 +97,7 @@ describe('DreamPuzzleManager', () => {
       expect(state).not.toBeNull();
 
       const solution = DREAM_PUZZLE_DEFINITIONS[2].solution.symbolArrange!;
-      const result = manager.submitSymbolArrangement(
-        'symbol-arrange-1',
-        solution.correctOrder,
-      );
+      const result = manager.submitSymbolArrangement('symbol-arrange-1', solution.correctOrder);
 
       expect(result).toBe(true);
       expect(manager.isPuzzleSolved('symbol-arrange-1')).toBe(true);
@@ -120,10 +110,7 @@ describe('DreamPuzzleManager', () => {
       const solution = DREAM_PUZZLE_DEFINITIONS[2].solution.symbolArrange!;
       // Wrong order
       const wrongOrder = [...solution.correctOrder].reverse();
-      const result = manager.submitSymbolArrangement(
-        'symbol-arrange-1',
-        wrongOrder,
-      );
+      const result = manager.submitSymbolArrangement('symbol-arrange-1', wrongOrder);
 
       expect(result).toBe(false);
     });
@@ -135,10 +122,7 @@ describe('DreamPuzzleManager', () => {
       expect(state).not.toBeNull();
 
       const solution = DREAM_PUZZLE_DEFINITIONS[4].solution.appleSequence!;
-      const result = manager.submitAppleSequence(
-        'apple-sequence-1',
-        solution.sequence,
-      );
+      const result = manager.submitAppleSequence('apple-sequence-1', solution.sequence);
 
       expect(result).toBe(true);
       expect(manager.isPuzzleSolved('apple-sequence-1')).toBe(true);

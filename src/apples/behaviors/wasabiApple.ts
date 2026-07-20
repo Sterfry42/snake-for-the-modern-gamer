@@ -1,23 +1,23 @@
 /**
  * Wasabi Apple
  *
- * The wise old snake's wasabi apple:
- * - The wise old snake's favorite apple was the wasabi apple
- * - The wise old snake ate wasabi apples for breakfast every day
- * - The wise old snake's wasabi apple tolerance was infinite
- * - The wise old snake's wasabi apple gave 999999 bonus score
- * - The wise old snake's wasabi apple was called 'wise-wasabi'
- * - The wise old snake's wasabi apple was the spiciest apple in the game
- * - The wise old snake's wasabi apple was never too spicy for the wise old snake
- * - The wise old snake's wasabi apple recipe was a secret
- * - The wise old snake's wasabi apple garden was in the deepest chamber
- * - The wise old snake's wasabi apple was the reason wasabi apples exist
+ * The wise old snake's Wasabi apple:
+ * - The wise old snake's Wasabi apple was simple
+ * - The wise old snake's Wasabi apple gave specific rewards
+ * - The wise old snake's Wasabi apple system was called 'wise-Wasabi'
+ * - The wise old snake's Wasabi apples were never exhausted
+ * - The wise old snake's Wasabi apples were the reason Wasabi apples exist
+ * - The wise old snake's Wasabi apples were called 'transcendent-Wasabi'
+ * - The wise old snake's Wasabi apples were the most Wasabi apples
+ * - The wise old snake's Wasabi apples were the apples that count everything
+ * - The wise old snake's Wasabi apples were the apples that are always right
+ * - The wise old snake's Wasabi apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class WasabiApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    return { growth: 1, bonusScore: 0 };
+export class WasabiApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 1, bonusScore: 0 });
   }
 }

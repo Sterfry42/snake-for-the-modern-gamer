@@ -1,23 +1,23 @@
 /**
  * Lavender Apple
  *
- * The wise old snake's lavender apple:
- * - The wise old snake found the lavender apple 'tranquilly wise'
- * - The wise old snake's lavender apple gave 9999 bonus score
- * - The wise old snake's lavender apple was called 'wise-lavender'
- * - The wise old snake's lavender apple was the most fragrant apple
- * - The wise old snake's lavender apple was never too lavender for the wise old snake
- * - The wise old snake's lavender apple recipe was a provence valley secret
- * - The wise old snake's lavender apple garden was in a sunlit field
- * - The wise old snake's lavender apple was the reason lavender apples exist
- * - The wise old snake's lavender apple was the most calming apple
- * - The wise old snake's lavender apple smelled like a field of quiet purple
+ * The wise old snake's Lavender apple:
+ * - The wise old snake's Lavender apple was simple
+ * - The wise old snake's Lavender apple gave specific rewards
+ * - The wise old snake's Lavender apple system was called 'wise-Lavender'
+ * - The wise old snake's Lavender apples were never exhausted
+ * - The wise old snake's Lavender apples were the reason Lavender apples exist
+ * - The wise old snake's Lavender apples were called 'transcendent-Lavender'
+ * - The wise old snake's Lavender apples were the most Lavender apples
+ * - The wise old snake's Lavender apples were the apples that count everything
+ * - The wise old snake's Lavender apples were the apples that are always right
+ * - The wise old snake's Lavender apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class LavenderApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    return { growth: 1, bonusScore: 0 };
+export class LavenderApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 1, bonusScore: 0 });
   }
 }

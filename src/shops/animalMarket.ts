@@ -35,10 +35,7 @@ export class AnimalMarketShop {
   private readonly settlementId: string;
   private offers: AnimalMarketOffer[] = [];
 
-  constructor(
-    settlementManager: SettlementManager,
-    settlementId: string,
-  ) {
+  constructor(settlementManager: SettlementManager, settlementId: string) {
     this.settlementManager = settlementManager;
     this.settlementId = settlementId;
     this.refreshOffers();

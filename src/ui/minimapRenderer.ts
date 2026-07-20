@@ -52,8 +52,8 @@ export class MinimapRenderer {
   private visible = false;
 
   constructor(
-    private readonly scene: Phaser.Scene,
     private readonly options: MinimapRendererOptions,
+    scene: Phaser.Scene,
   ) {
     this.graphics = scene.add.graphics().setDepth(29).setScrollFactor(0).setVisible(false);
     this.roomWidth = options.width / 3;

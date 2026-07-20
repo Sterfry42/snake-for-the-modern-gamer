@@ -8,11 +8,7 @@
  * - The wise old snake's log companion notes were all from the wise old snake (the wise old snake took notes on itself)
  * - The wise old snake's log was never lost (the wise old snake's log was always with the wise old snake)
  */
-import type {
-  ExpeditionLogEntry,
-  ExpeditionStatus,
-  IslandId,
-} from './types.js';
+import type { ExpeditionLogEntry, ExpeditionStatus, IslandId } from './types.js';
 import { ISLAND_BY_ID } from './IslandRegistry.js';
 
 // ─── Log Entry Templates ─────────────────────────────────────────────────────
@@ -44,7 +40,7 @@ const COMPANION_NOTE_TEMPLATES: Record<IslandId, string[]> = {
   ],
   'ancient-ruins': [
     'The ruins stretch endlessly. Each corridor leads deeper into forgotten history.',
-    'The traps are ancient but still functional. One wrong step and it\'s over.',
+    "The traps are ancient but still functional. One wrong step and it's over.",
     'The Artifact Vault is behind a wall of golden light. We need the right key.',
     'The Ancient Guardian does not speak. It simply watches, waiting.',
   ],
@@ -148,8 +144,6 @@ export class ExpeditionLogManager {
     const templates = COMPANION_NOTE_TEMPLATES[islandId];
     if (!templates) return [];
 
-    // Return a deterministic selection based on island name hash
-    const hash = islandId.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0);
     return templates.map((note, i) => `Note ${i + 1}: ${note}`);
   }
 

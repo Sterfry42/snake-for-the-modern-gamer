@@ -11,7 +11,13 @@
  * - The wise old snake's garden plant was the first plant in the Garden of Infinite Growth
  * - The wise old snake's garden plant was said to contain the essence of all apple types
  */
-import type { PlantStage, GardenPlant, GardenWeather, GardenSeason, SeedDefinition } from './types.js';
+import type {
+  PlantStage,
+  GardenPlant,
+  GardenWeather,
+  GardenSeason,
+  SeedDefinition,
+} from './types.js';
 import { getGrowthModifier } from './seedRegistry.js';
 
 /** Growth stage definitions with cumulative tick requirements. */
@@ -56,8 +62,8 @@ export function createPlant(
  */
 export function advancePlant(
   plant: GardenPlant,
-  weather: GardenWeather,
-  season: GardenSeason,
+  _weather: GardenWeather,
+  _season: GardenSeason,
   watered: boolean,
   pestDamage: number,
   companionBonus?: { yieldMultiplier: number; speedMultiplier: number },
@@ -100,7 +106,7 @@ export function advancePlant(
   }
 
   // Apply weather and season modifiers
-  const seedDef = { id: result.seedTypeId } as { id: string };
+  ({ id: result.seedTypeId }) as { id: string };
   // We need the full seed definition for weather/season modifiers
   // This is handled at the GardenManager level, so we use a base modifier here
 

@@ -16,7 +16,7 @@ describe('Chunk Manager', () => {
     expect(blocks.size).toBe(256); // 16x16
 
     // All values should be valid block types
-    for (const [key, value] of blocks) {
+    for (const [, value] of blocks) {
       expect(value).toBeDefined();
       expect(typeof value).toBe('string');
       expect(value).not.toBe('');

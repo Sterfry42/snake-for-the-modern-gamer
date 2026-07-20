@@ -159,7 +159,14 @@ describe('ExpeditionSupplies', () => {
     });
 
     it('should work for all islands', () => {
-      const islands: Array<'volcanic-isle' | 'crystal-cavern' | 'sunken-temple' | 'sky-garden' | 'ancient-ruins' | 'mirror-dimension'> = [
+      const islands: Array<
+        | 'volcanic-isle'
+        | 'crystal-cavern'
+        | 'sunken-temple'
+        | 'sky-garden'
+        | 'ancient-ruins'
+        | 'mirror-dimension'
+      > = [
         'volcanic-isle',
         'crystal-cavern',
         'sunken-temple',

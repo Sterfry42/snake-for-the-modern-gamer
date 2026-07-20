@@ -18,10 +18,23 @@ describe('MusicalAppleMap', () => {
   describe('DEFAULT_MUSICAL_MAPPINGS', () => {
     it('contains mappings for all standard apple types', () => {
       const expectedApples = [
-        'normal', 'caffeinated', 'lavender', 'love', 'mochi',
-        'wasabi', 'gold', 'skittish', 'koi', 'coldBeer',
-        'treat', 'yuzu', 'amacha', 'shielded', 'frost',
-        'winterberry', 'heatwave',
+        'normal',
+        'caffeinated',
+        'lavender',
+        'love',
+        'mochi',
+        'wasabi',
+        'gold',
+        'skittish',
+        'koi',
+        'coldBeer',
+        'treat',
+        'yuzu',
+        'amacha',
+        'shielded',
+        'frost',
+        'winterberry',
+        'heatwave',
       ];
 
       for (const appleId of expectedApples) {

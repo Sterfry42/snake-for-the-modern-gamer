@@ -114,14 +114,21 @@ export const GARDEN_STRINGS_EN: {
     gardenLog: 'Garden Log',
     gardenSettings: 'Garden Settings',
     gardenHelp: 'Garden Help',
-    oldMarthaGreeting: "Welcome to your garden, little snake! I'm Old Martha, your ghostly guide to apple farming.",
-    oldMarthaTip: "Remember: water your plants every day, or they'll wither faster than a forgotten promise.",
-    oldMarthaCompanion: "Lavender and love apples grow twice as well together. Companion planting is the secret!",
-    oldMarthaPest: "Watch out for aphids — they multiply fast. Squash them before they take over your garden.",
+    oldMarthaGreeting:
+      "Welcome to your garden, little snake! I'm Old Martha, your ghostly guide to apple farming.",
+    oldMarthaTip:
+      "Remember: water your plants every day, or they'll wither faster than a forgotten promise.",
+    oldMarthaCompanion:
+      'Lavender and love apples grow twice as well together. Companion planting is the secret!',
+    oldMarthaPest:
+      'Watch out for aphids — they multiply fast. Squash them before they take over your garden.',
     oldMarthaRare: "Rare seeds cost more, but they'll pay for themselves. What do you say?",
-    oldMarthaSeason: "The garden changes with the seasons. Spring is best for most seeds, but wasabi loves winter.",
-    oldMarthaFlowers: "When you see flowers, that means your plants are almost ready. Patience, young snake.",
-    oldMarthaWisdom: "I've tended this garden for 999 years. The wisest thing I've learned? Everything takes time.",
+    oldMarthaSeason:
+      'The garden changes with the seasons. Spring is best for most seeds, but wasabi loves winter.',
+    oldMarthaFlowers:
+      'When you see flowers, that means your plants are almost ready. Patience, young snake.',
+    oldMarthaWisdom:
+      "I've tended this garden for 999 years. The wisest thing I've learned? Everything takes time.",
     oldMarthaFarewell: "Take care of those plants, dear. They're counting on you.",
     oldMarthaShop: "I've got some rare seeds in storage. Want to take a look?",
   },

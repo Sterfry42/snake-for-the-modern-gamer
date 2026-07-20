@@ -56,7 +56,11 @@ const TOWN_PERIMETER_SPAWNS: SpawnPolicy = {
 
 export function getZoneRules(room: RoomSnapshot, localPosition?: Vector2Like): ZoneRules {
   if (room.id === HOME_ROOM_ID) {
-    return { id: 'home', collision: STANDARD_SAFE_ZONE_RULES, spawning: { ...SAFE_SETTLEMENT_SPAWNS, apples: 'suppress' } };
+    return {
+      id: 'home',
+      collision: STANDARD_SAFE_ZONE_RULES,
+      spawning: { ...SAFE_SETTLEMENT_SPAWNS, apples: 'suppress' },
+    };
   }
   if (room.town || room.layer?.kind === 'townInterior') {
     return { id: 'town', collision: STANDARD_SAFE_ZONE_RULES, spawning: SAFE_SETTLEMENT_SPAWNS };
@@ -69,9 +73,10 @@ export function getZoneRules(room: RoomSnapshot, localPosition?: Vector2Like): Z
   }
   return {
     id: 'wild',
-    collision: localPosition && isSafeZoneTile(room.layout[localPosition.y]?.[localPosition.x])
-      ? STANDARD_SAFE_ZONE_RULES
-      : null,
+    collision:
+      localPosition && isSafeZoneTile(room.layout[localPosition.y]?.[localPosition.x])
+        ? STANDARD_SAFE_ZONE_RULES
+        : null,
     spawning: ALLOW_SPAWNS,
   };
 }

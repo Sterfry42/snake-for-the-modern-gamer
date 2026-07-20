@@ -68,7 +68,7 @@ export class BulletTrainRenderer {
     this.graphics.fillRect((entranceX - 2) * cell, (entranceY - 2) * cell + 4, cell * 4, 2);
   }
 
-  private drawPlatform(station: BulletTrainStation, entranceX: number, entranceY: number): void {
+  private drawPlatform(_station: BulletTrainStation, entranceX: number, entranceY: number): void {
     const { cell } = this;
 
     // Draw platform tiles (gray) around the entrance area
@@ -96,7 +96,12 @@ export class BulletTrainRenderer {
     this.graphics.lineStyle(2, 0xffd166, 0.5);
     for (let dx = -3; dx <= 3; dx += 2) {
       const ex = (entranceX + dx) * cell + cell / 2;
-      this.graphics.lineBetween(ex, entranceY * cell + cell - 1, ex + 5, entranceY * cell + cell - 1);
+      this.graphics.lineBetween(
+        ex,
+        entranceY * cell + cell - 1,
+        ex + 5,
+        entranceY * cell + cell - 1,
+      );
     }
   }
 
@@ -206,7 +211,7 @@ export class BulletTrainRenderer {
     this.graphics.fillRect(x + cell - 7, y + 10, 3, 4);
   }
 
-  private drawSign(x: number, y: number, text: string): void {
+  private drawSign(x: number, y: number, _text: string): void {
     const { cell } = this;
 
     // Sign post
@@ -267,7 +272,7 @@ export class BulletTrainRenderer {
   } {
     const width = scene.scale.width;
     const height = scene.scale.height;
-    const cell = 24;
+    24;
 
     // Window background (mountain sky) - simplified without gradients
     const windowBg = scene.add.graphics();
@@ -279,7 +284,7 @@ export class BulletTrainRenderer {
     windowBg.beginPath();
     windowBg.moveTo(width * 0.15, height * 0.6);
     for (let i = 0; i <= 10; i++) {
-      const mx = width * 0.15 + (width * 0.7) * (i / 10);
+      const mx = width * 0.15 + width * 0.7 * (i / 10);
       const my = height * 0.3 + Math.sin((i + windowOffset * 0.02) * 0.8) * 40;
       windowBg.lineTo(mx, my);
     }
@@ -290,13 +295,9 @@ export class BulletTrainRenderer {
     // Cherry blossom petals
     windowBg.fillStyle(0xffb3ba, 0.5);
     for (let i = 0; i < 12; i++) {
-      const px =
-        width * 0.2 +
-        ((i * 67 + windowOffset * 0.5) % (width * 0.6));
+      const px = width * 0.2 + ((i * 67 + windowOffset * 0.5) % (width * 0.6));
       const py =
-        height * 0.15 +
-        Math.sin((i * 31 + windowOffset * 0.03) * 1.3) * 30 +
-        (i * 13) % 40;
+        height * 0.15 + Math.sin((i * 31 + windowOffset * 0.03) * 1.3) * 30 + ((i * 13) % 40);
       windowBg.fillCircle(px, py, 3);
     }
 
@@ -306,10 +307,8 @@ export class BulletTrainRenderer {
     speedLines.lineStyle(2, 0xffffff, 0.3 * lineIntensity);
 
     for (let i = 0; i < 8; i++) {
-      const lx =
-        width * 0.15 +
-        ((i * 97 + windowOffset * 2) % (width * 0.7));
-      const ly = height * 0.15 + (i * 23) % (height * 0.4);
+      const lx = width * 0.15 + ((i * 97 + windowOffset * 2) % (width * 0.7));
+      const ly = height * 0.15 + ((i * 23) % (height * 0.4));
       speedLines.lineBetween(lx, ly, lx - 30 - lineIntensity * 20, ly);
     }
 

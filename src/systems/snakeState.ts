@@ -605,7 +605,7 @@ export class SnakeState {
 
   private resolveSelfCollision(
     head: Vector2Like,
-    collisionIndex: number,
+    _collisionIndex: number,
     invulnTicks: number,
   ): boolean {
     if (invulnTicks > 0) {
@@ -764,11 +764,13 @@ export class SnakeState {
   }
 
   private isOppositeDirection(a: Vector2Like, b: Vector2Like | null): boolean {
-    return Boolean(b) && a.x + b.x === 0 && a.y + b.y === 0;
+    if (!b) return false;
+    return a.x + b.x === 0 && a.y + b.y === 0;
   }
 
   private isSameDirection(a: Vector2Like, b: Vector2Like | null): boolean {
-    return Boolean(b) && a.x === b.x && a.y === b.y;
+    if (!b) return false;
+    return a.x === b.x && a.y === b.y;
   }
 
   private isKoiFlowActive(): boolean {

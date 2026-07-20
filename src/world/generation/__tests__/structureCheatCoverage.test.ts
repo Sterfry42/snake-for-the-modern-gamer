@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import {
-  CHEAT_DEFINITIONS,
   getAllCheatAliases,
   getCheatsByCategory,
   type CheatDefinition,
@@ -29,9 +28,7 @@ import {
  */
 function getStructureCheats(): ReadonlyArray<CheatDefinition> {
   const structures = getCheatsByCategory().get('structures')!;
-  return structures.filter((c) =>
-    KNOWN_STRUCTURE_CODES.has(c.primaryCode.toLowerCase().trim()),
-  );
+  return structures.filter((c) => KNOWN_STRUCTURE_CODES.has(c.primaryCode.toLowerCase().trim()));
 }
 
 /**

@@ -93,5 +93,8 @@ function isExpired(atom: ModifierAtom, tick?: number): boolean {
 }
 
 function clamp(value: number, min?: number, max?: number): number {
-  return Math.max(min ?? Number.NEGATIVE_INFINITY, Math.min(max ?? Number.POSITIVE_INFINITY, value));
+  return Math.max(
+    min ?? Number.NEGATIVE_INFINITY,
+    Math.min(max ?? Number.POSITIVE_INFINITY, value),
+  );
 }

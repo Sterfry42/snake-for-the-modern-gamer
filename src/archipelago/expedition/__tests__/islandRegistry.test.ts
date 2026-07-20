@@ -9,7 +9,7 @@ import {
   LEGACY_EFFECT_DEFINITIONS,
   LEGACY_EFFECT_BY_ID,
 } from '../IslandRegistry.js';
-import type { IslandId, LegacyEffectId } from '../types.js';
+import type { IslandId } from '../types.js';
 
 describe('IslandRegistry', () => {
   describe('ISLAND_DEFINITIONS', () => {
@@ -66,7 +66,9 @@ describe('IslandRegistry', () => {
     });
 
     it('should not contain unknown islands', () => {
-      expect(ISLAND_BY_ID['unknown-island']).toBeUndefined();
+      expect(
+        ISLAND_BY_ID['unknown-island' as unknown as keyof typeof ISLAND_BY_ID],
+      ).toBeUndefined();
     });
   });
 

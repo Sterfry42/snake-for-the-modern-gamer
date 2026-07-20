@@ -62,5 +62,3 @@ export class WorldEventLog {
     this.counter = this.events.length;
   }
 }
-
-

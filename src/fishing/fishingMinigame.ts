@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import type { FishingState, FishingSessionResult, FishCatchResult } from './types.js';
+import type { FishingState, FishingSessionResult } from './types.js';
 import type { FishingRegistry } from './fishingRegistry.js';
 import { i18n } from '../i18n/i18nManager.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';

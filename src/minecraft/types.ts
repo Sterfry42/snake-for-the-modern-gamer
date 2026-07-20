@@ -1,5 +1,3 @@
-import type { Vector2Like } from '../core/math.js';
-
 // ─── Block System ────────────────────────────────────────────────────────────
 
 export type BlockKind = 'solid' | 'transparent' | 'light' | 'crop' | 'special';

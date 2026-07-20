@@ -1,6 +1,5 @@
 import { TerritoryManager } from '../TerritoryManager.js';
 import { SerpentFactionManager, MISSION_TEMPLATES } from '../SerpentFaction.js';
-import type { FollowerRole } from '../territoryTypes.js';
 
 describe('SerpentFactionManager', () => {
   let territoryManager: TerritoryManager;
@@ -325,7 +324,13 @@ describe('SerpentFactionManager', () => {
     });
 
     it('cannot claim non-unclaimed territory', () => {
-      territoryManager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
+      territoryManager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'unclaimed',
+        100,
+        'diplomacy',
+      );
 
       (serpent.getFactionState() as any).influence = 1000;
 

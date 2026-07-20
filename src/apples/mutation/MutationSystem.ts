@@ -11,22 +11,15 @@
 import type { RandomGenerator } from '../../core/rng.js';
 import type { TraitManager } from '../traits/TraitManager.js';
 import type {
-  ActiveTrait,
-  AppleCombination,
   DiscoveredMutation,
   EvolvedAppleSpawnedEvent,
   MutationDefinition,
   MutationDiscoveredEvent,
-  MutationEvent,
   TraitExpiredEvent,
   TraitGainedEvent,
 } from './types.js';
 import { MutationRegistry, MUTATION_TRAITS } from './MutationRegistry.js';
-import {
-  MAX_RECENT_APPLES,
-  MUTATION_COMBINATION_WINDOW_MS,
-  TRAIT_DECAY_CHECK_INTERVAL_MS,
-} from './types.js';
+import { MAX_RECENT_APPLES } from './types.js';
 
 export interface MutationSystemCallbacks {
   onMutationDiscovered(event: MutationDiscoveredEvent): void;
@@ -50,7 +43,6 @@ export class MutationSystem {
   private readonly unlockedEvolvedApples = new Set<string>();
   private readonly eventCallbacks: MutationSystemCallbacks;
   private readonly rng: RandomGenerator;
-  private readonly combinationWindowMs: number;
   private readonly maxRecentApples: number;
 
   constructor(
@@ -61,7 +53,6 @@ export class MutationSystem {
   ) {
     this.rng = rng;
     this.eventCallbacks = callbacks;
-    this.combinationWindowMs = config.combinationWindowMs ?? MUTATION_COMBINATION_WINDOW_MS;
     this.maxRecentApples = config.maxRecentApples ?? MAX_RECENT_APPLES;
 
     this.registry = new MutationRegistry();
@@ -108,7 +99,7 @@ export class MutationSystem {
   stabilizeMutation(): void {
     // Find undiscovered evolved apples from discovered mutations
     const undiscovered: string[] = [];
-    for (const [mutationId, discovered] of this.discoveredMutations) {
+    for (const [mutationId, _discovered] of this.discoveredMutations) {
       if (!this.unlockedEvolvedApples.has(mutationId)) {
         undiscovered.push(mutationId);
       }
@@ -128,10 +119,7 @@ export class MutationSystem {
    * Get the list of apple IDs that could trigger mutations right now.
    */
   getDiscoverableMutations(): MutationDefinition[] {
-    return this.registry.getDiscoverableMutations(
-      this.lifetimeMutations,
-      this.recentApples,
-    );
+    return this.registry.getDiscoverableMutations(this.lifetimeMutations, this.recentApples);
   }
 
   /**
@@ -240,17 +228,8 @@ export class MutationSystem {
     const mutation = this.registry.getMutation(mutationId);
     if (!mutation) return;
 
-    for (const traitBonus of mutation.evolvedTraits) {
-      const traitDef = this.registry.getTrait(traitBonus.traitId);
-      if (traitDef) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const _traitId = traitBonus.traitId;
-        const _stacks = traitBonus.stacks;
-        const _durationMs = traitBonus.durationMs;
-        // Trait application is handled by the TraitManager
-        // This method exists for the callback to trigger trait application
-      }
-    }
+    // Trait application is handled by the TraitManager
+    // This method exists for the callback to trigger trait application
   }
 
   /**
@@ -301,14 +280,13 @@ export class MutationSystem {
 
   // ─── Private Methods ──────────────────────────────────────────────────────
 
-  private cleanOldApples(now: number): void {
-    const cutoff = now - this.combinationWindowMs;
+  private cleanOldApples(_now: number): void {
     // We track individual apple IDs, but in a real implementation you'd track timestamps
     // For simplicity, we just trim from the front when over max
     // A more sophisticated version would track timestamps per apple
   }
 
-  private checkForMutations(now: number): void {
+  private checkForMutations(_now: number): void {
     const discoverable = this.getDiscoverableMutations();
 
     for (const mutation of discoverable) {

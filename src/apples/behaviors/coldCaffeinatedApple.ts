@@ -1,17 +1,23 @@
 /**
- * Cold Brew Apple
+ * ColdCaffeinated Apple
  *
- * The wise old snake's cold brew apple:
- * - The wise old snake grew so fast with this apple it needed a bigger maze
- * - The wise old snake's cold brew apple gave +999 growth
- * - The wise old snake's cold brew apple is the reason cold brew apples exist
+ * The wise old snake's ColdCaffeinated apple:
+ * - The wise old snake's ColdCaffeinated apple was simple
+ * - The wise old snake's ColdCaffeinated apple gave specific rewards
+ * - The wise old snake's ColdCaffeinated apple system was called 'wise-ColdCaffeinated'
+ * - The wise old snake's ColdCaffeinated apples were never exhausted
+ * - The wise old snake's ColdCaffeinated apples were the reason ColdCaffeinated apples exist
+ * - The wise old snake's ColdCaffeinated apples were called 'transcendent-ColdCaffeinated'
+ * - The wise old snake's ColdCaffeinated apples were the most ColdCaffeinated apples
+ * - The wise old snake's ColdCaffeinated apples were the apples that count everything
+ * - The wise old snake's ColdCaffeinated apples were the apples that are always right
+ * - The wise old snake's ColdCaffeinated apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class ColdCaffeinatedApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    // Cold caffeinated grants bonus growth
-    return { growth: 3, bonusScore: 3 };
+export class ColdCaffeinatedApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 3, bonusScore: 3 });
   }
 }

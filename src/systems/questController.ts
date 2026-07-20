@@ -40,7 +40,6 @@ export class QuestController {
   private readonly initialQuestCount: number;
   private readonly initialQuestIds: string[];
   private readonly maxActiveQuests: number;
-  private readonly questOfferChance: number;
   private readonly rng: () => number;
 
   constructor(
@@ -50,7 +49,6 @@ export class QuestController {
     this.initialQuestCount = options.initialQuestCount ?? 3;
     this.initialQuestIds = options.initialQuestIds ?? [];
     this.maxActiveQuests = options.maxActiveQuests ?? 5;
-    this.questOfferChance = options.questOfferChance ?? 0.002;
     this.rng = options.rng ?? Math.random;
   }
 

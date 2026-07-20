@@ -108,7 +108,7 @@ export const HUMAN_VOICE_LINES: readonly HumanVoiceLine[] = [
   },
   {
     id: 'cook-special',
-    text: 'Today\'s special is something I found, something I made, and a prayer.',
+    text: "Today's special is something I found, something I made, and a prayer.",
     priority: 35,
     types: ['cook'],
     portraitId: 'cook-happy',

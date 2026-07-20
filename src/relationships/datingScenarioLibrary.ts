@@ -2088,7 +2088,7 @@ const ROMANCE_SCENARIOS: readonly ScenarioBlueprint[] = [
           ],
           regal: [
             'You teach them the weight of trust. They accept the lesson with grace.',
-            'A parent\'s duty: show them what it feels like to be safe.',
+            "A parent's duty: show them what it feels like to be safe.",
           ],
           sharp: [
             'You demonstrate the embrace. They replicate. Competence recognized.',

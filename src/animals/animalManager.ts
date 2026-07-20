@@ -8,7 +8,6 @@ import {
   getBiomeDefinition,
   getBiomeAnimalSpawnBias,
   getBiomeAnimalSpawnChance,
-  type BiomeId,
 } from '../world/biomes.js';
 import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type { AnimalDefinition, AnimalInstance, AnimalType } from './types.js';
@@ -243,7 +242,7 @@ export class AnimalManager {
   }
 
   step(params: AnimalStepParams): AnimalStepResult {
-    const { getRoom, snake, currentRoomId, snakeDirection, tameCallback } = params;
+    const { getRoom, snake, currentRoomId, snakeDirection } = params;
 
     const result: AnimalStepResult = {
       tames: 0,
@@ -337,7 +336,7 @@ export class AnimalManager {
 
   private moveWander(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
   ): AnimalInstance {
@@ -347,7 +346,7 @@ export class AnimalManager {
 
   private moveFlee(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
   ): AnimalInstance {
@@ -360,11 +359,11 @@ export class AnimalManager {
     def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
-    snakeDirection: Vector2Like,
+    _snakeDirection: Vector2Like,
   ): AnimalInstance {
     if (
       def.snakeEncounter === 'dangerous' &&
-      this.isSnakeCharging(animal.position, headLocal, snakeDirection)
+      this.isSnakeCharging(animal.position, headLocal, _snakeDirection)
     ) {
       const next = this.tryMoveAway(animal, room, headLocal, this.isWalkableAnimalTile);
       return next ? { ...animal, position: next } : animal;
@@ -375,7 +374,7 @@ export class AnimalManager {
 
   private moveGraze(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
   ): AnimalInstance {
@@ -385,7 +384,7 @@ export class AnimalManager {
 
   private moveSchool(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
     roomAnimals: AnimalInstance[],
@@ -403,7 +402,7 @@ export class AnimalManager {
 
   private movePerch(
     animal: AnimalInstance,
-    def: AnimalDefinition,
+    _def: AnimalDefinition,
     room: RoomSnapshot,
     headLocal: Vector2Like,
     snakeDirection: Vector2Like,
@@ -639,7 +638,7 @@ export class AnimalManager {
   handleSnakeOverlap(
     roomId: string,
     head: Vector2Like,
-    snakeDirection: Vector2Like,
+    _snakeDirection: Vector2Like,
     canHuntHarmless = false,
     canAttemptTame?: (animalType: AnimalType) => boolean,
   ): SnakeAnimalResult {
@@ -830,7 +829,6 @@ export class AnimalManager {
       return { success: false, animal: null };
     }
 
-    const def = AnimalRegistry.getDefinition(target.type);
     if (!canTameAnimal(target.type)) {
       return { success: false, animal: null };
     }

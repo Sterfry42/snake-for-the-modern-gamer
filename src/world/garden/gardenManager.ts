@@ -13,7 +13,6 @@
  */
 import type {
   GardenPlot,
-  GardenPlant,
   GardenPest,
   GardenSnapshot,
   GardenConfig,
@@ -21,23 +20,15 @@ import type {
   GardenSeason,
   GardenEventType,
   GardenEvent,
-  PestType,
   SeedDefinition,
 } from './types.js';
-import {
-  getSeedDefinition,
-  getCompanionBonus,
-  getGrowthModifier,
-  getAllSeedIds,
-  getShopSeeds,
-} from './seedRegistry.js';
+import { getSeedDefinition, getCompanionBonus, getShopSeeds } from './seedRegistry.js';
 import {
   createPlant,
   advancePlant,
   isPlantRipe,
   isPlantWithered,
   removePlant,
-  getPlantSpriteKey,
   getGrowthPercentage,
 } from './plant.js';
 import {
@@ -47,7 +38,6 @@ import {
   attackPest,
   checkReproduction,
   isPestStale,
-  generatePestId,
 } from './pestSystem.js';
 
 /**
@@ -62,7 +52,6 @@ export class GardenManager {
   private season: GardenSeason = 'spring';
   private unlocked: boolean = false;
   private nextPlotId: number = 0;
-  private nextPestId: number = 0;
   private pestSpawnCounter: number = 0;
 
   /** Configuration for this garden. */
@@ -89,7 +78,12 @@ export class GardenManager {
   /**
    * Unlock the garden if requirements are met.
    */
-  unlock(minLength: number, minScore: number, requiredQuest?: string, requiredItem?: string): boolean {
+  unlock(
+    minLength: number,
+    minScore: number,
+    requiredQuest?: string,
+    requiredItem?: string,
+  ): boolean {
     const req = this.config.unlockRequirements;
     if (
       minLength >= req.minLength &&
@@ -171,7 +165,11 @@ export class GardenManager {
   /**
    * Plant a seed in a plot.
    */
-  plantSeed(plotId: string, seedTypeId: string, rng: { next: () => number }): {
+  plantSeed(
+    plotId: string,
+    seedTypeId: string,
+    _rng: { next: () => number },
+  ): {
     success: boolean;
     error?: string;
     plot?: GardenPlot;
@@ -315,7 +313,12 @@ export class GardenManager {
         targetPlot.pestLevel += 1;
 
         tickEvents.push(
-          this.addEvent('pestSpawned', `${pestType} infestation detected in plot ${targetPlot.id}!`, targetPlot.id, pest.id),
+          this.addEvent(
+            'pestSpawned',
+            `${pestType} infestation detected in plot ${targetPlot.id}!`,
+            targetPlot.id,
+            pest.id,
+          ),
         );
       }
     }
@@ -369,7 +372,9 @@ export class GardenManager {
   /**
    * Check if a plot has a companion plant bonus.
    */
-  private checkCompanionPlot(plot: GardenPlot): { yieldMultiplier: number; speedMultiplier: number } | undefined {
+  private checkCompanionPlot(
+    plot: GardenPlot,
+  ): { yieldMultiplier: number; speedMultiplier: number } | undefined {
     if (!plot.plant) return undefined;
 
     for (const otherPlot of this.plots.values()) {
@@ -415,7 +420,11 @@ export class GardenManager {
     plot.plant = null;
     plot.growthProgress = 0;
 
-    this.addEvent('plantRipe', `Harvested ${result.appleType}! +${result.yieldAmount} apples.`, plotId);
+    this.addEvent(
+      'plantRipe',
+      `Harvested ${result.appleType}! +${result.yieldAmount} apples.`,
+      plotId,
+    );
 
     return {
       success: true,
@@ -447,7 +456,11 @@ export class GardenManager {
   /**
    * Attack a pest in a plot.
    */
-  attackPestInPlot(plotId: string, damage: number, method: 'hand' | 'tool' | 'chemical'): {
+  attackPestInPlot(
+    plotId: string,
+    damage: number,
+    method: 'hand' | 'tool' | 'chemical',
+  ): {
     defeated: boolean;
     remainingPests: number;
   } {
@@ -676,7 +689,6 @@ export class GardenManager {
     this.season = 'spring';
     this.unlocked = false;
     this.nextPlotId = 0;
-    this.nextPestId = 0;
     this.pestSpawnCounter = 0;
     this.config.currentWater = this.config.waterCapacity;
   }

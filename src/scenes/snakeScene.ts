@@ -93,7 +93,6 @@ import {
 import {
   resolveDesertMusicState,
   DesertWebAudioFontMusic,
-  type DesertMusicState,
 } from '../audio/desertWebAudioFontMusic.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
@@ -140,7 +139,7 @@ import { runBulletTrainRide } from '../world/bulletTrainScene.js';
 import type { RollercoasterStation, RollercoasterTheme } from '../world/rollercoasterTypes.js';
 import { runRollercoasterRide } from '../world/rollercoasterScene.js';
 import { RollercoasterRenderer } from '../world/rollercoasterRenderer.js';
-import type { EquipmentSlot } from '../inventory/item.js';
+import type { EquipmentModifiers, EquipmentSlot } from '../inventory/item.js';
 import type { McDonaldsData } from '../world/snakeMcDonalds.js';
 import type { SnakeCanesData } from '../world/snakeCanes.js';
 import { ComboSpinner } from '../ui/comboSpinner.js';
@@ -155,9 +154,7 @@ import {
   formatTownMood,
   getTownDistrictForRoom,
   getTownRoom,
-  townDistrictDisplayName,
   townResidentsForRoom,
-  type TownDistrictKind,
   type TownStructure,
 } from '../world/town.js';
 import { getItem, ITEMS } from '../inventory/itemRegistry.js';
@@ -167,7 +164,6 @@ import {
   VILLAGE_SHOP_EQUIPMENT,
   VILLAGE_SHOP_SOLD_HATS,
   VILLAGE_SHOP_STYLES,
-  VILLAGE_SHOP_COWBELLS,
   BLACK_MARKET_STYLES,
   ensurePermanentBlackMarketSupplies,
   getBlackMarketDefinition,
@@ -176,8 +172,6 @@ import {
   type VillageShopEquipmentOffer,
   type VillageShopHatId,
   type VillageShopHatOffer,
-  type VillageShopCowbellId,
-  type VillageShopCowbellOffer,
   type VillageShopStyleOffer,
   type VillageShopStyleId,
 } from '../shops/villageShop.js';
@@ -209,7 +203,6 @@ import { getLibertyNpcLine, type LibertyNpcRole } from '../world/libertyBadlands
 import { DATING_PORTRAIT_ASSETS } from '../relationships/datingPortraitManifest.js';
 import {
   CARD_DEFINITIONS,
-  CARD_SHOP_OFFERS,
   CARD_TABLES,
   beginCardRound,
   countCards,
@@ -224,7 +217,6 @@ import {
   getCardWagerOptions,
   getHandSizeForRound,
   getHouseCardDefinition,
-  getLegalCardWagers,
   removeDestroyedCardsFromCollection,
   scoreCardHand,
   type CardCollection,
@@ -244,22 +236,20 @@ import {
   type DigSiteVariantId,
 } from '../archaeology/molemanArchaeology.js';
 import type { ArchaeologyRewardBundle } from '../archaeology/molemanArchaeology.js';
-import { FishingRegistry, type FishingRegistryOptions } from '../fishing/fishingRegistry.js';
+import { FishingRegistry } from '../fishing/fishingRegistry.js';
 import type { SpecialStatsView } from '../stats/chanceBreakdowns.js';
 import type { SpecialStatId } from '../stats/specialTypes.js';
 import type { CharacterCreationMods } from '../features/characterCreationDefinitions.js';
 import type { LevelUpResult } from '../stats/levelProgression.js';
 import { FishingMinigame } from '../fishing/fishingMinigame.js';
-import { hasAdjacentWater, roomHasWater } from '../fishing/waterDetection.js';
-import { getFishDefinition } from '../fishing/fishDefinitions.js';
+import { hasAdjacentWater } from '../fishing/waterDetection.js';
 import type {
   FishingState as FishingGameState,
   FishingSessionResult,
   FishCatchResult,
-  FishDefinition as FishingFishDef,
   CatchEntry,
 } from '../fishing/types.js';
-import { FISH_SHOP_SELL_OFFERS } from '../fishing/fishingShopOffers.js';
+
 import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
 import {
   ACHIEVEMENT_DEFINITIONS,
@@ -1759,7 +1749,6 @@ export default class SnakeScene extends Phaser.Scene {
   private inputModeUnsubscribe: (() => void) | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
-  private jasonVulnerableDialogueShown = false;
   private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
   private powerupMusicActive = false;
   private houseMusicActive = false;
@@ -1922,13 +1911,11 @@ export default class SnakeScene extends Phaser.Scene {
   private titleDifficultySettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
   private titleGitHubButton: Phaser.GameObjects.Container | null = null;
-  private titleGitHubZone: Phaser.GameObjects.Zone | null = null;
   private titleHeadingText: Phaser.GameObjects.Text | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
   private titleCharacterModeText: Phaser.GameObjects.Text | null = null;
   private titleNormalModeButton: Phaser.GameObjects.Container | null = null;
   private titleRaccoonModeButton: Phaser.GameObjects.Container | null = null;
-  private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
   private selectedCharacterMode: CharacterMode = this.loadCharacterModeSetting();
   private selectedSeed = '';
@@ -2025,8 +2012,6 @@ export default class SnakeScene extends Phaser.Scene {
   private fishingRegistry!: FishingRegistry;
   private fishingActive = false;
   private fishingGameState: FishingGameState | null = null;
-  private fishingEscapePending = false;
-  private fishingGloveLocked = false;
   private fishingMinigame!: FishingMinigame;
 
   constructor() {
@@ -2075,14 +2060,17 @@ export default class SnakeScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
     this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.wallGraphics, this.grid);
-    this.minimapRenderer = new MinimapRenderer(this, {
-      x: this.grid.cols * this.grid.cell - 222,
-      y: 14,
-      width: 216,
-      height: 162,
-      grid: this.grid,
-      getRoom: (roomId) => this.snakeGame.getRoom(roomId),
-    });
+    this.minimapRenderer = new MinimapRenderer(
+      {
+        x: this.grid.cols * this.grid.cell - 222,
+        y: 14,
+        width: 216,
+        height: 162,
+        grid: this.grid,
+        getRoom: (roomId) => this.snakeGame.getRoom(roomId),
+      },
+      this,
+    );
     this.juice = new JuiceManager(this);
     this.skillTree = new SkillTreeManager(this, this.juice, {
       baseActionStepIntervalMs: this.baseActionStepIntervalMs,
@@ -2191,7 +2179,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.minecraftFeature =
       this.featureManager.getFeature<import('../minecraft/MinecraftFeature.js').MinecraftFeature>(
         'minecraft',
-      );
+      ) ?? null;
 
     this.initGame(true);
 
@@ -2835,7 +2823,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Capture boss maxHealth before deletion, compute decayed score
     const boss = this.snakeGame.bosses.getBoss(bossId);
-    const maxHealth = boss?.maxHealth ?? 100;
+    boss?.maxHealth ?? 100;
     this.jasonDefeatCount += 1;
     const BASE_JASON_SCORE = 100;
     const decay = Math.pow(0.6, this.jasonDefeatCount - 1);
@@ -3346,7 +3334,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (result.apple.typeId === 'caffeinated') {
         this.activateCaffeinatedAppleBoost();
       }
-      if (result.apple.typeId === 'treat') {
+      if (result.apple.typeId === 'treat' && result.apple.worldPosition) {
         this.playTreatDance(result.apple.worldPosition);
       }
       if (result.apple.worldPosition) {
@@ -4778,6 +4766,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     const texture = this.textures.createCanvas(ANGEL_TEXTURE_KEY, 48, 48);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
 
@@ -4838,6 +4827,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     const texture = this.textures.createCanvas(GOBLIN_ANGEL_TEXTURE_KEY, 48, 48);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
 
@@ -4897,6 +4887,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const texture = this.textures.createCanvas(HEAVEN_SNAKE_TEXTURE_KEY, 16, 16);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
     const p = (x: number, y: number, w: number, h: number, color: string): void => {
@@ -4927,6 +4918,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const texture = this.textures.createCanvas(HELL_SNAKE_TEXTURE_KEY, 16, 16);
+    if (!texture) return;
     const context = texture.getContext();
     context.imageSmoothingEnabled = false;
     const p = (x: number, y: number, w: number, h: number, color: string): void => {
@@ -6249,9 +6241,9 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   saveGameToSession(
-    religionChoice?: unknown,
-    classChoice?: unknown,
-    backgroundChoice?: unknown,
+    _religionChoice?: unknown,
+    _classChoice?: unknown,
+    _backgroundChoice?: unknown,
   ): void {
     // Auto-escape from fishing before saving
     this.autoEscapeFromFishing();
@@ -6359,7 +6351,7 @@ export default class SnakeScene extends Phaser.Scene {
     let depthChain = '';
     let p: Phaser.GameObjects.GameObject | undefined = btn as Phaser.GameObjects.GameObject;
     for (let i = 0; i < 10; i++) {
-      const pc = p?.parentContainer;
+      const pc: Phaser.GameObjects.Container | undefined = p?.parentContainer;
       if (!pc) break;
       depthChain += ` [${pc.constructor?.name ?? '?'} depth:${pc?.depth ?? '?'} visible:${pc?.visible ?? '?'} alpha:${pc?.alpha ?? '?'}]`;
       p = pc;
@@ -6687,7 +6679,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.saveLoadMenu.show(
-      async (slotId: string, data: GameSaveData) => {
+      async (_slotId: string, data: GameSaveData) => {
         this.hideTitleScreen();
         const success = this.snakeGame.loadFromSaveData(data);
         if (!success) {
@@ -7163,7 +7155,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private buildGitHubLogoButton(
     _root: Phaser.GameObjects.Container,
-    width: number,
+    _width: number,
     height: number,
   ): Phaser.GameObjects.Container {
     const size = 44;
@@ -8519,9 +8511,9 @@ export default class SnakeScene extends Phaser.Scene {
         { countPhoenixAsItem: true },
       );
     }
-    applyRuntimeModifierSource(totals, this.religionMods);
-    applyRuntimeModifierSource(totals, this.backgroundMods);
-    applyRuntimeModifierSource(totals, this.classMods);
+    applyRuntimeModifierSource(totals, this.religionMods as EquipmentModifiers);
+    applyRuntimeModifierSource(totals, this.backgroundMods as EquipmentModifiers);
+    applyRuntimeModifierSource(totals, this.classMods as EquipmentModifiers);
 
     // Orange Juice speed boost
     const orangeJuiceSpeedBoost = this.getFlag<number>('status.orangeJuiceSpeedBoostTicks') ?? 0;
@@ -8717,11 +8709,7 @@ export default class SnakeScene extends Phaser.Scene {
           const dx = Math.abs(enemy.position.x - head.x);
           const dy = Math.abs(enemy.position.y - head.y);
           if (dx <= 5 && dy <= 5) {
-            const hit = (this.snakeGame as any).enemies.damageEnemyAt(
-              currentRoomId,
-              enemy.position,
-              1,
-            );
+            (this.snakeGame as any).enemies.damageEnemyAt(currentRoomId, enemy.position, 1);
           }
         }
       }
@@ -10145,7 +10133,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastVisibleLifeCharges = lifeCharges;
     this.livesHud.setText(`Lives: ${lifeCharges + 1}`);
     this.livesHud.setVisible(!this.isInHouse() && !this.snakeGame.isRaccoonMode());
-    const livesBounds = this.livesHud.getBounds();
+    this.livesHud.getBounds();
     const screenBottom = this.grid.rows * this.grid.cell;
     const bottomY = screenBottom - 22;
     this.temperatureHud.setPosition(8, bottomY);
@@ -10864,7 +10852,7 @@ export default class SnakeScene extends Phaser.Scene {
       hats: definition.hats.filter((offer) =>
         stock.hatIds.includes(offer.id),
       ) as VillageShopHatOffer[],
-      cowbells: definition.cowbells.filter((offer) => true),
+      cowbells: definition.cowbells.filter(() => true),
       supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
       fishSales: definition.fishSales,
     };
@@ -11391,7 +11379,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (!this.fishingActive) return;
 
     this.fishingEscapePending = true;
-    const result = this.fishingRegistry.abortFishing(this.fishingGameState!);
+    this.fishingRegistry.abortFishing(this.fishingGameState!);
     this.fishingMinigame?.stop();
     this.fishingActive = false;
     this.fishingGloveLocked = false;
@@ -12272,24 +12260,6 @@ export default class SnakeScene extends Phaser.Scene {
     return this.isNearTownTile(['U', 'Y']);
   }
 
-  private getSideToTownDistrict(
-    town: TownStructure,
-    roomId: string,
-    targetDistrict: TownDistrictKind,
-  ): 'north' | 'south' | 'east' | 'west' | null {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
-    const neighbors: Array<{ side: 'north' | 'south' | 'east' | 'west'; id: string }> = [
-      { side: 'north', id: `${roomX},${roomY - 1},${roomZ}` },
-      { side: 'south', id: `${roomX},${roomY + 1},${roomZ}` },
-      { side: 'east', id: `${roomX + 1},${roomY},${roomZ}` },
-      { side: 'west', id: `${roomX - 1},${roomY},${roomZ}` },
-    ];
-    return (
-      neighbors.find((neighbor) => getTownDistrictForRoom(town, neighbor.id) === targetDistrict)
-        ?.side ?? null
-    );
-  }
-
   private getHeadLocalPosition(): Vector2Like | null {
     const head = this.snakeGame.getSnakeBody()[0];
     if (!head) {
@@ -13030,7 +13000,7 @@ export default class SnakeScene extends Phaser.Scene {
     fromVillageShop = Boolean(this.snakeGame.getCurrentRoom().village),
     highStakes = false,
   ): void {
-    const table = getCardTable(tableId);
+    getCardTable(tableId);
     if (
       wagerScore <= 0 ||
       this.score < wagerScore ||
@@ -13500,7 +13470,7 @@ export default class SnakeScene extends Phaser.Scene {
   private addCardTableProps(
     root: Phaser.GameObjects.Container,
     width: number,
-    height: number,
+    _height: number,
     style: CardTableVisualStyle,
   ): void {
     const props = this.add.graphics();
@@ -14140,7 +14110,7 @@ export default class SnakeScene extends Phaser.Scene {
   private drawBulletTrainStation(station: BulletTrainStation): void {
     const cell = this.grid.cell;
     const { entranceX, entranceY, decorations } = station;
-    const room = this.snakeGame.getCurrentRoom();
+    this.snakeGame.getCurrentRoom();
     const roomWidth = this.grid.cols;
 
     // === BALLAST / GRAVEL BED ===
@@ -14388,7 +14358,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.graphics.fillCircle((entranceX + 0.65) * cell, (entranceY + 0.75) * cell, 2);
 
     // Draw the @ entrance marker using text object
-    const atText = this.add
+    this.add
       .text((entranceX + 0.5) * cell, (entranceY + 0.5) * cell, '@', {
         fontFamily: 'monospace',
         fontSize: `${Math.floor(cell * 0.6)}px`,
@@ -15602,7 +15572,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleSnakeCanesResult(
     entry: import('../ui/comboSpinner.js').ComboSpinnerEntry,
-    sc: SnakeCanesData,
+    _sc: SnakeCanesData,
   ): void {
     const inventory = this.snakeGame.getInventory();
     const item = getItem(entry.id);
@@ -16111,19 +16081,23 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Play departure juice
     const entranceWorld = this.tileToWorld({
-      x: station.entranceX +
+      x:
+        station.entranceX +
         this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[0] * this.grid.cols,
-      y: station.entranceY +
+      y:
+        station.entranceY +
         this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[1] * this.grid.rows,
     });
     this.juice.rollercoasterDepart(entranceWorld.x, entranceWorld.y);
 
     // Show departure announcement
     const coordStr = chosen.coordinates ?? '';
-    const departureMsg = i18n.getRollercoaster('departureAnnouncement')
-      ?.replace('{coasterName}', station.stationName)
-      ?.replace('{destination}', chosen.displayName)
-      ?? `🎢 The ${station.stationName} departs for ${chosen.displayName}!`;
+    const departureMsg =
+      i18n
+        .getRollercoaster('departureAnnouncement')
+        ?.replace('{coasterName}', station.stationName)
+        ?.replace('{destination}', chosen.displayName) ??
+      `🎢 The ${station.stationName} departs for ${chosen.displayName}!`;
     const coordAnnouncement = coordStr ? ` → ${coordStr}` : '';
     this.showQuestHintPopup(`${departureMsg}${coordAnnouncement}`, '#ff6b44');
 
@@ -16666,28 +16640,6 @@ export default class SnakeScene extends Phaser.Scene {
           ...logLines,
         ].join('\n'),
       );
-  }
-
-  private ensureArchaeologySymbolText(index: number): Phaser.GameObjects.Text {
-    let symbol = this.archaeologySymbolTexts[index];
-    if (symbol) {
-      symbol.setAlpha(1);
-      return symbol;
-    }
-    symbol = this.add
-      .text(0, 0, '', {
-        fontFamily: 'monospace',
-        fontSize: '16px',
-        color: '#ffffff',
-        stroke: '#080c12',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setDepth(121)
-      .setVisible(false);
-    this.archaeologyOverlay?.add(symbol);
-    this.archaeologySymbolTexts[index] = symbol;
-    return symbol;
   }
 
   private drawArchaeologyTile(
@@ -17563,7 +17515,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (optionId !== 'shop') {
       return false;
     }
-    const actorRole = profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
+    profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
     return false;
   }
 
@@ -17579,30 +17531,6 @@ export default class SnakeScene extends Phaser.Scene {
     return town
       ? this.townGossipLine(town)
       : `${displayName} says this place has not organized itself enough to gossip properly.`;
-  }
-
-  private askActorAround(profile: RelationshipCandidateProfile): string | null {
-    const actorId = profile.actorId ?? '';
-    const options = [
-      () => this.snakeGame.askActorRumor(actorId),
-      () => this.currentTownActorLine(profile.displayName),
-      () => this.snakeGame.askActorKingLore(actorId),
-    ];
-    const start = Math.floor(this.random() * options.length);
-    for (let offset = 0; offset < options.length; offset += 1) {
-      const line = options[(start + offset) % options.length]?.();
-      if (line) return line;
-    }
-    return null;
-  }
-
-  private askActorPersonally(profile: RelationshipCandidateProfile): string | null {
-    const actorId = profile.actorId ?? '';
-    return this.random() < 0.5
-      ? (this.snakeGame.askActorSocialTie(actorId) ??
-          this.snakeGame.askActorPersonalReveal(actorId))
-      : (this.snakeGame.askActorPersonalReveal(actorId) ??
-          this.snakeGame.askActorSocialTie(actorId));
   }
 
   private relationshipNpcVoiceRole(profile: RelationshipCandidateProfile): string {
@@ -18108,29 +18036,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private isTownResidentInDistrict(
-    workRoomId: string | undefined,
-    district: TownDistrictKind | undefined,
-  ): boolean {
-    if (!workRoomId || !district) {
-      return false;
-    }
-    const currentTown = this.snakeGame.getCurrentTown();
-    const physicalKind = currentTown?.districtByRoomId[workRoomId];
-    if (physicalKind) {
-      return this.isTownResidentInDistrict(physicalKind, district);
-    }
-    const kind = workRoomId.split(':').pop();
-    if (kind === district) return true;
-    if (kind === 'townCenter' && district === 'square') return true;
-    if (kind === 'square' && district === 'townCenter') return true;
-    if (kind === 'market' && district === 'marketStreet') return true;
-    if (kind === 'tavern' && district === 'tavernInterior') return true;
-    if (kind === 'residential' && district === 'residentialStreet') return true;
-    if (kind === 'exit' && district === 'townExit') return true;
-    return false;
-  }
-
   private showDatingScene(
     profile: RelationshipCandidateProfile,
     result?: RelationshipEventResult,
@@ -18411,68 +18316,6 @@ export default class SnakeScene extends Phaser.Scene {
             }
           : undefined,
     };
-  }
-
-  private describeDatingBranchPreview(
-    profile: RelationshipCandidateProfile,
-    result?: DatingBranchResult,
-  ): string {
-    const personality = this.personalityForDatingProfile(profile);
-    const tier = result?.targetTier ?? 'neutral';
-    const lines: Record<RelationshipPersonality, Record<string, string>> = {
-      poetic: {
-        loved: `"There. That answer had a heartbeat. I heard it."`,
-        liked: `"Careful. I may remember that more tenderly than is convenient."`,
-        neutral: `"The answer survives. The moment asks for more."`,
-        disliked: `"No. That sounded like a door closing during a confession."`,
-        hated: `"Hmph. You call that care? That was a blade wearing perfume."`,
-      },
-      deadpan: {
-        loved: `"Excellent. I am visibly affected and will deny the visibility."`,
-        liked: `"Acceptable. Possibly charming. I dislike the ambiguity."`,
-        neutral: `"Adequate. The room remains emotionally solvent."`,
-        disliked: `"Incorrect. Not catastrophic. Do not aim for that distinction."`,
-        hated: `"No. The answer failed romance, logic, and basic maintenance."`,
-      },
-      hungry: {
-        loved: `"Yes. That warmed the good part. I might share the last bite with you."`,
-        liked: `"I liked that. It had comfort in it, and comfort is not small."`,
-        neutral: `"Edible answer. Needs seasoning. Needs less fear."`,
-        disliked: `"That tasted wrong. Like burnt bread and someone leaving early."`,
-        hated: `"Mamma mia, no. I am too angry to be hungry, and that is serious."`,
-      },
-      regal: {
-        loved: `"You answered with courage without asking me to become fragile. Good."`,
-        liked: `"Respectable. I grant the answer limited favor."`,
-        neutral: `"Permitted. Not praised. Learn the difference."`,
-        disliked: `"You mistook presumption for bravery. I dislike the costume."`,
-        hated: `"You insulted me and expected ceremony. You are a fool, snake."`,
-      },
-      sharp: {
-        loved: `"Oh. That was clever enough to cost me composure. Irritating. Valuable."`,
-        liked: `"Useful answer. I like useful when it remembers I am not merchandise."`,
-        neutral: `"Fine. It balances. Balance is not profit."`,
-        disliked: `"Careless. I dislike careless; it leaves me holding the invoice."`,
-        hated: `"Absolutely not. That answer breached contract and taste in one motion."`,
-      },
-    };
-    return `${profile.displayName} says, ${lines[personality][tier] ?? lines[personality].neutral}`;
-  }
-
-  private inferRelationshipTags(actionId: string): DatingBranchChoice['tags'] {
-    if (/protect|sharecloak/.test(actionId))
-      return ['protective', 'selfless', 'bravery', 'privateAffection'];
-    if (/run|floor|coward|skip/.test(actionId)) return ['selfPreserving', 'avoidance'];
-    if (/joke|counter|mooncrime/.test(actionId)) return ['clever', 'dramatic'];
-    if (/honest|sincere/.test(actionId)) return ['honesty', 'privateAffection'];
-    if (/knife|stone|betrayer/.test(actionId)) return ['violence', 'danger', 'dramatic'];
-    if (/pastry|pepperoni|pineapple|mushroom/.test(actionId)) return ['food', 'comfort'];
-    if (/married|slowdance|eyes|smile|rose/.test(actionId))
-      return ['commitment', 'publicAffection', 'dramatic'];
-    if (/home/.test(actionId)) return ['comfort', 'loyalty'];
-    if (/thief|mastermind|rival/.test(actionId)) return ['clever', 'ambition'];
-    if (/mock|complain/.test(actionId)) return ['betrayal', 'neediness'];
-    return ['honesty'];
   }
 
   private createDatingSequenceEvent(
@@ -19520,25 +19363,6 @@ export default class SnakeScene extends Phaser.Scene {
     );
   }
 
-  private showRelationshipResult(
-    profile: RelationshipCandidateProfile,
-    result: { title: string; message: string; color: string },
-  ): void {
-    this.showQuestDialogue(
-      result.title,
-      [result.message],
-      {
-        onClose: () => {
-          this.closeQuestPopup();
-          this.paused = false;
-          this.skillTree.getOverlay().refresh();
-        },
-      },
-      { closeLabel: 'Leave', nextLabel: 'Listen' },
-      { portraitId: profile.portraitId },
-    );
-  }
-
   private handleNpcInsult(roomId: string, giverName: string, portraitId?: string): void {
     const insult = this.snakeGame.insultNpc(roomId);
     if (!insult) {
@@ -19808,7 +19632,7 @@ export default class SnakeScene extends Phaser.Scene {
     const head = this.snakeGame.getSnakeBody()[0];
     let flipX = false;
     if (head) {
-      const [roomX, roomY] = this.parseRoomCoordinates(room.id);
+      const [roomX] = this.parseRoomCoordinates(room.id);
       const headLocalX = head.x - roomX * this.grid.cols;
       if (disposition.hostility !== 'friendly' && headLocalX !== giver.x) {
         flipX = headLocalX < giver.x;

@@ -10,17 +10,11 @@ import { getItem } from '../inventory/itemRegistry.js';
 import { isLocatorItemId } from '../world/biomeLocators.js';
 import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
-import { saveManager } from '../game/saveManager.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
-import {
-  CHEAT_DEFINITIONS,
-  getCheatsByCategory,
-  getCategoryLabel,
-  type CheatCategory,
-} from '../cheats/cheatRegistry.js';
+import { getCheatsByCategory, getCategoryLabel } from '../cheats/cheatRegistry.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';
@@ -48,7 +42,7 @@ import {
   TREE_PADDING,
   type PauseMenuLayout,
 } from './core/PauseMenuLayout.js';
-import { uiColors, uiMotion, uiSpacing, uiTypography } from './theme/uiTokens.js';
+import { uiColors, uiMotion } from './theme/uiTokens.js';
 import type { AchievementManager } from '../achievements/achievementManager.js';
 import type { AchievementUnlockResult } from '../achievements/achievementTypes.js';
 import { AchievementTreeOverlay } from './achievementTreeOverlay.js';
@@ -1330,7 +1324,7 @@ export class SkillTreeOverlay {
     }
   }
 
-  private drawSpecialUi(view: SpecialStatsView): void {
+  private drawSpecialUi(_view: SpecialStatsView): void {
     const g = this.specialUiGraphics;
     g.clear();
     const mainX = MAIN_PANEL_X - 12;
@@ -4849,6 +4843,7 @@ export class SkillTreeOverlay {
       .setDepth(36);
     this.structuredContainer.add(zone);
     zone.on('pointerdown', () => {
+      if (!this.selectedInventoryItemId) return;
       const result = this.scene.useInventoryItem(this.selectedInventoryItemId);
       this.announce(result.message, result.color ?? (result.ok ? '#5dd6a2' : '#ff6b6b'), 2200);
       this.refresh();
@@ -6440,11 +6435,12 @@ export class SkillTreeOverlay {
       this.stubText.setVisible(showStub);
       if (showStub) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(
-          tab?.i18nPlaceholderKey
-            ? resolvePlaceholder(tab)
-            : i18n.getFeatureString('skillTreeStubText'),
-        );
+        if (tab && tab.i18nPlaceholderKey) {
+          const placeholderKey = tab.i18nPlaceholderKey;
+          this.stubText.setText(i18n.getFeatureString(placeholderKey));
+        } else {
+          this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
+        }
       }
     }
 
@@ -8380,11 +8376,12 @@ export class SkillTreeOverlay {
     if (this.activeTab !== 'skills') {
       if (this.stubText) {
         const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        this.stubText.setText(
-          tab?.i18nPlaceholderKey
-            ? resolvePlaceholder(tab)
-            : i18n.getFeatureString('skillTreeStubText'),
-        );
+        if (tab && tab.i18nPlaceholderKey) {
+          const placeholderKey = tab.i18nPlaceholderKey;
+          this.stubText.setText(i18n.getFeatureString(placeholderKey));
+        } else {
+          this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
+        }
       }
       if (this.activeTab === 'equipment') {
         this.setFooterHints([
@@ -8469,7 +8466,7 @@ export class SkillTreeOverlay {
       return;
     }
     const layout = this.getPauseMenuLayout();
-    const gap = 10;
+    const _gap = 10;
     let x = layout.footer.x + 14;
     const y = layout.footer.y + 10;
     for (const hint of hints.slice(0, 5)) {

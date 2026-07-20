@@ -13,7 +13,6 @@ import type { AppleGenre, MelodyFragment } from './MusicalAppleMap.js';
 import {
   DEFAULT_MELODY_FRAGMENTS,
   getGenreDefinition,
-  getMelodyFragment,
   getMelodyFragmentsForGenre,
   type GenreDefinition,
 } from './MusicalAppleMap.js';
@@ -94,7 +93,7 @@ export class MelodyCollection {
   private sequenceBuffer: string[] = [];
   private sequenceBufferSize = 20;
   private onFragmentUnlockedCallback?: (fragment: MelodyFragmentProgress) => void;
-  private onGenreCompleteCallback?: (genre: AppleGenre) => void;
+  private _onGenreCompleteCallback?: (genre: AppleGenre) => void;
   private onTrackUnlockedCallback?: (genre: AppleGenre) => void;
 
   constructor() {
@@ -174,10 +173,7 @@ export class MelodyCollection {
       // Check if this apple contributes to the fragment
       const fragmentApples = fragment.requiredSequence;
       if (fragmentApples.includes(appleId)) {
-        progress.notesPlayed = Math.min(
-          progress.notesPlayed + 1,
-          progress.notesTotal,
-        );
+        progress.notesPlayed = Math.min(progress.notesPlayed + 1, progress.notesTotal);
 
         // Check if fragment is complete
         if (progress.notesPlayed >= progress.notesTotal) {
@@ -226,13 +222,9 @@ export class MelodyCollection {
       festival: this.getGenreCompletion('festival'),
     };
 
-    const totalUnlocked = Object.values(fragments).filter(
-      (f) => f.state !== 'locked',
-    ).length;
+    const totalUnlocked = Object.values(fragments).filter((f) => f.state !== 'locked').length;
 
-    const totalCompleted = Object.values(fragments).filter(
-      (f) => f.state === 'completed',
-    ).length;
+    const totalCompleted = Object.values(fragments).filter((f) => f.state === 'completed').length;
 
     const totalFragments = DEFAULT_MELODY_FRAGMENTS.length;
 
@@ -282,9 +274,7 @@ export class MelodyCollection {
     }
 
     const fragments = getMelodyFragmentsForGenre(genre);
-    const unlockedCount = fragments.filter(
-      (f) => this.fragments[f.id]?.state !== 'locked',
-    ).length;
+    const unlockedCount = fragments.filter((f) => this.fragments[f.id]?.state !== 'locked').length;
     const completedCount = fragments.filter(
       (f) => this.fragments[f.id]?.state === 'completed',
     ).length;
@@ -304,18 +294,14 @@ export class MelodyCollection {
    * Get all unlocked fragments.
    */
   getUnlockedFragments(): MelodyFragmentProgress[] {
-    return Object.values(this.fragments).filter(
-      (f) => f.state !== 'locked',
-    );
+    return Object.values(this.fragments).filter((f) => f.state !== 'locked');
   }
 
   /**
    * Get all completed fragments.
    */
   getCompletedFragments(): MelodyFragmentProgress[] {
-    return Object.values(this.fragments).filter(
-      (f) => f.state === 'completed',
-    );
+    return Object.values(this.fragments).filter((f) => f.state === 'completed');
   }
 
   /**
@@ -343,7 +329,7 @@ export class MelodyCollection {
    * Register a callback for genre completions.
    */
   onGenreComplete(callback: (genre: AppleGenre) => void): void {
-    this.onGenreCompleteCallback = callback;
+    this._onGenreCompleteCallback = callback;
   }
 
   /**

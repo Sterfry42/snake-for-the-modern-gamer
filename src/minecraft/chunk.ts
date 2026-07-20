@@ -1,6 +1,5 @@
 import type { BlockData, ChunkKey, ChunkState } from './types.js';
 import { CHUNK_SIZE, MAX_WORLD_CHUNKS } from './config.js';
-import { isMinecraftBlockType, getBlockType, isLightSource } from './blockRegistry.js';
 
 function hashString(str: string): number {
   let hash = 0;
@@ -9,14 +8,6 @@ function hashString(str: string): number {
     hash = ((hash << 5) - hash + char) | 0;
   }
   return Math.abs(hash);
-}
-
-function seededRandom(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state = (state * 1664525 + 1013904223) | 0;
-    return (state >>> 0) / 4294967296;
-  };
 }
 
 function generateNoise(x: number, y: number, seed: number): number {
@@ -98,17 +89,6 @@ export class ChunkManager {
 
   private toKey(key: ChunkKey): string {
     return `${key.roomId}:${key.chunkX},${key.chunkY}`;
-  }
-
-  private fromKey(str: string): ChunkKey {
-    const idx = str.indexOf(':');
-    const roomId = str.slice(0, idx);
-    const coords = str.slice(idx + 1).split(',');
-    return {
-      roomId,
-      chunkX: parseInt(coords[0], 10),
-      chunkY: parseInt(coords[1], 10),
-    };
   }
 
   loadChunk(roomId: string, chunkX: number, chunkY: number): Map<string, string> {
@@ -341,14 +321,12 @@ export class ChunkManager {
 
   private unloadOldest(): void {
     let oldestKey: string | null = null;
-    let oldestState: ChunkState | null = null;
     let oldestTicks = Infinity;
 
     for (const [key, state] of this.chunks) {
       const ticks = state.key.chunkX + state.key.chunkY;
       if (ticks < oldestTicks) {
         oldestKey = key;
-        oldestState = state;
         oldestTicks = ticks;
       }
     }

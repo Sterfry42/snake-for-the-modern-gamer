@@ -36,8 +36,9 @@ export class RollercoasterRenderer {
 
   private drawTrackSupports(entranceX: number, entranceY: number, theme: string): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
-    const supportColor = themeColors[0];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const supportColor = themeColors.colors[0];
 
     // Draw support pillars along the track
     for (let dx = -12; dx <= 12; dx += 2) {
@@ -63,10 +64,11 @@ export class RollercoasterRenderer {
     entranceY: number,
     theme: string,
   ): void {
-    const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
-    const trackColor = themeColors[0];
-    const railColor = themeColors[1] ?? trackColor;
+    this.cell;
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const trackColor = themeColors.colors[0];
+    const railColor = themeColors.colors[1] ?? trackColor;
 
     switch (segment.type) {
       case 'station-platform':
@@ -85,7 +87,14 @@ export class RollercoasterRenderer {
         this.drawCurve(entranceX, entranceY, segment.radius, segment.arc, trackColor);
         break;
       case 'straight':
-        this.drawStraightTrack(entranceX, entranceY, segment.length, segment.direction, trackColor, railColor);
+        this.drawStraightTrack(
+          entranceX,
+          entranceY,
+          segment.length,
+          segment.direction,
+          trackColor,
+          railColor,
+        );
         break;
       case 'bridge':
         this.drawBridge(entranceX, entranceY, segment.length, trackColor);
@@ -166,13 +175,7 @@ export class RollercoasterRenderer {
     this.graphics.fillRect(cx - 4, cy + radius, 8, cell * 2);
   }
 
-  private drawCurve(
-    x: number,
-    y: number,
-    radius: number,
-    arc: number,
-    trackColor: number,
-  ): void {
+  private drawCurve(x: number, y: number, radius: number, arc: number, trackColor: number): void {
     const { cell } = this;
     const cx = (x + 8) * cell + cell / 2;
     const cy = (y + 1) * cell;
@@ -236,12 +239,7 @@ export class RollercoasterRenderer {
 
     // Bridge deck
     this.graphics.fillStyle(0x8b6914, 0.3);
-    this.graphics.fillRect(
-      (x - length / 2) * cell,
-      (y + 1) * cell - 2,
-      length * cell,
-      4,
-    );
+    this.graphics.fillRect((x - length / 2) * cell, (y + 1) * cell - 2, length * cell, 4);
 
     // Bridge rails
     this.graphics.lineStyle(2, trackColor, 0.5);
@@ -267,17 +265,18 @@ export class RollercoasterRenderer {
 
   private drawStationPlatform(entranceX: number, entranceY: number, theme: string): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
 
     // Platform tiles around entrance
-    this.graphics.fillStyle(themeColors[0], 0.15);
+    this.graphics.fillStyle(themeColors.colors[0], 0.15);
     for (let dx = -3; dx <= 3; dx++) {
       for (let dy = -1; dy <= 1; dy++) {
         const px = entranceX + dx;
         const py = entranceY + dy;
         if (px === entranceX && dy === 0) continue;
         this.graphics.fillRect(px * cell, py * cell, cell, cell);
-        this.graphics.lineStyle(1, themeColors[0], 0.1);
+        this.graphics.lineStyle(1, themeColors.colors[0], 0.1);
         this.graphics.strokeRect(px * cell, py * cell, cell, cell);
       }
     }
@@ -286,11 +285,12 @@ export class RollercoasterRenderer {
   private drawStationBuilding(
     entranceX: number,
     entranceY: number,
-    stationName: string,
+    _stationName: string,
     theme: string,
   ): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
 
     // Station sign on a post
     const signX = entranceX * cell + cell / 2;
@@ -301,11 +301,11 @@ export class RollercoasterRenderer {
     this.graphics.lineBetween(signX, signY + 12, signX, signY + cell);
 
     // Sign board
-    this.graphics.fillStyle(themeColors[0], 0.8);
+    this.graphics.fillStyle(themeColors.colors[0], 0.8);
     this.graphics.fillRect(signX - 24, signY - 8, 48, 16);
 
     // Sign border
-    this.graphics.lineStyle(2, themeColors[1] ?? themeColors[0], 0.6);
+    this.graphics.lineStyle(2, themeColors.colors[1] ?? themeColors.colors[0], 0.6);
     this.graphics.strokeRect(signX - 24, signY - 8, 48, 16);
 
     // Coaster icon on sign
@@ -316,18 +316,19 @@ export class RollercoasterRenderer {
 
   private drawEntranceTile(x: number, y: number, theme: string): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
 
     // Entrance tile glow
-    this.graphics.fillStyle(themeColors[0], 0.25);
+    this.graphics.fillStyle(themeColors.colors[0], 0.25);
     this.graphics.fillRect(x * cell, y * cell, cell, cell);
 
     // Inner glow
-    this.graphics.fillStyle(themeColors[1] ?? themeColors[0], 0.35);
+    this.graphics.fillStyle(themeColors.colors[1] ?? themeColors.colors[0], 0.35);
     this.graphics.fillCircle(x * cell + cell / 2, y * cell + cell / 2, cell / 3);
 
     // Outer glow
-    this.graphics.fillStyle(themeColors[0], 0.08);
+    this.graphics.fillStyle(themeColors.colors[0], 0.08);
     this.graphics.fillCircle(x * cell + cell / 2, y * cell + cell / 2, cell / 1.5);
 
     // Coaster car icon on entrance
@@ -335,7 +336,7 @@ export class RollercoasterRenderer {
     this.graphics.fillRect((x + 0.25) * cell, (y + 0.3) * cell, cell * 0.5, cell * 0.35);
 
     // Car windows
-    this.graphics.fillStyle(themeColors[0], 0.4);
+    this.graphics.fillStyle(themeColors.colors[0], 0.4);
     this.graphics.fillRect((x + 0.3) * cell, (y + 0.35) * cell, cell * 0.15, cell * 0.15);
     this.graphics.fillRect((x + 0.5) * cell, (y + 0.35) * cell, cell * 0.15, cell * 0.15);
 

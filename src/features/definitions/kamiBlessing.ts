@@ -70,7 +70,7 @@ class KamiBlessingFeature extends Feature {
     super('kamiBlessing', 'Kami Blessings');
   }
 
-  override onRegister(scene: SnakeScene): void {
+  override onRegister(_scene: SnakeScene): void {
     this.state = {
       shrineTimer: 0,
       shrineCooldown: SHRINE_COOLDOWN_TICKS,

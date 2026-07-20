@@ -112,7 +112,7 @@ const BOSS_MUSIC_REGISTRY: Record<string, BossMusicDefinition> = {
   },
 };
 
-function buildGenericBossMusic(now: number, gain: GainNode): BossMusicResult {
+function buildGenericBossMusic(_now: number, gain: GainNode): BossMusicResult {
   const sources: OscillatorNode[] = [];
   const cleanup: AudioNode[] = [];
 
@@ -196,10 +196,11 @@ export class JuiceManager {
   } = {};
 
   constructor(private readonly scene: SnakeScene) {
-    this.ctx = this.scene.sys.game.config.audio?.context;
-    if (!this.ctx) {
+    const audioContext = this.scene.sys.game.config.audio?.context;
+    if (!audioContext) {
       throw new Error('AudioContext not available');
     }
+    this.ctx = audioContext;
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 0.9;
     this.masterGain.connect(this.ctx.destination);
@@ -695,15 +696,11 @@ export class JuiceManager {
     // Soft particle burst — warm gold and pink
     const cx = this.scene.scale.width / 2;
     const cy = this.scene.scale.height / 2;
-    this.spawnBurst(
-      cx,
-      cy,
-      {
-        count: 12,
-        radius: 90,
-        colors: [0xfff3b0, 0xffb6c1, 0xffd700, 0xffe4e1, 0xffecd2],
-      },
-    );
+    this.spawnBurst(cx, cy, {
+      count: 12,
+      radius: 90,
+      colors: [0xfff3b0, 0xffb6c1, 0xffd700, 0xffe4e1, 0xffecd2],
+    });
     // Subtle screen warmth
     this.screenTint(0xffe4c4, 0.12, 400);
   }
@@ -3450,11 +3447,6 @@ export class JuiceManager {
 
     const state = { opacity: 1, y: 60 };
 
-    const fadeOut = () => {
-      text.setAlpha(state.opacity);
-      text.setY(state.y);
-    };
-
     this.scene.tweens.add({
       targets: state,
       opacity: 0,
@@ -5392,7 +5384,7 @@ export class JuiceManager {
     });
   }
 
-  factionRelationChange(factionId: string, oldRel: string, newRel: string) {
+  factionRelationChange(_factionId: string, _oldRel: string, newRel: string) {
     const improved = newRel === 'allied' || newRel === 'friendly';
     const worsened = newRel === 'hostile' || newRel === 'enemy';
     const cam = this.scene.cameras.main;
@@ -5538,7 +5530,7 @@ export class JuiceManager {
     this.scene.cameras.main.flash(60, 255, 209, 164, true);
   }
 
-  shopSell(worldX: number, worldY: number, price: number) {
+  shopSell(worldX: number, worldY: number, _price: number) {
     this.playTone({
       frequency: 380,
       frequencyEnd: 520,
@@ -5580,7 +5572,7 @@ export class JuiceManager {
 
   // ─── Achievement Juice ────────────────────────────────────────────────
 
-  achievementUnlock(achievementId: string, achievementName: string) {
+  achievementUnlock(_achievementId: string, achievementName: string) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.14 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.12 });
@@ -5598,13 +5590,13 @@ export class JuiceManager {
     this.floatingLabel(cam.midPoint.x, 60, `ACHIEVEMENT: ${achievementName}`, '#ffd166', 18);
   }
 
-  achievementProgress(achievementId: string, progress: number, total: number) {
+  achievementProgress(_achievementId: string, _progress: number, _total: number) {
     this.playTone({ frequency: 440, duration: 0.08, type: 'triangle', volume: 0.06 });
   }
 
   // ─── Stats Juice ──────────────────────────────────────────────────────
 
-  statIncrease(statId: string, newValue: number) {
+  statIncrease(_statId: string, newValue: number) {
     this.playTone({
       frequency: 440 + newValue * 20,
       frequencyEnd: 660 + newValue * 20,
@@ -5695,7 +5687,7 @@ export class JuiceManager {
     this.scene.cameras.main.flash(80, 255, 209, 164, true);
   }
 
-  apItemReceived(itemId: string) {
+  apItemReceived(_itemId: string) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
@@ -5709,11 +5701,11 @@ export class JuiceManager {
     this.scene.cameras.main.flash(100, 255, 209, 164, true);
   }
 
-  apLocationSent(locationId: string) {
+  apLocationSent(_locationId: string) {
     this.playTone({ frequency: 440, duration: 0.1, type: 'triangle', volume: 0.06 });
   }
 
-  multiplayerJoin(playerId: string) {
+  multiplayerJoin(_playerId: string) {
     this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
     this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.07 });
     this.spawnBurst(this.scene.cameras.main.midPoint.x, this.scene.cameras.main.midPoint.y, {
@@ -5723,7 +5715,7 @@ export class JuiceManager {
     });
   }
 
-  multiplayerLeave(playerId: string) {
+  multiplayerLeave(_playerId: string) {
     this.playTone({
       frequency: 320,
       frequencyEnd: 200,
@@ -5733,7 +5725,7 @@ export class JuiceManager {
     });
   }
 
-  multiplayerDeath(playerId: string) {
+  multiplayerDeath(_playerId: string) {
     this.playTone({
       frequency: 200,
       frequencyEnd: 80,
@@ -5821,7 +5813,7 @@ export class JuiceManager {
     this.ringPulse(worldX, worldY, 0xff6b6b, 12, 2, 260);
   }
 
-  questUpdated(questId: string, progress: number) {
+  questUpdated(_questId: string, _progress: number) {
     this.playTone({ frequency: 440, duration: 0.08, type: 'triangle', volume: 0.06 });
   }
 
@@ -5840,7 +5832,7 @@ export class JuiceManager {
     });
   }
 
-  questChainStarted(worldId: string) {
+  questChainStarted(_worldId: string) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 440, duration: 0.14, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 660, duration: 0.2, type: 'sine', volume: 0.1 });
@@ -5855,7 +5847,7 @@ export class JuiceManager {
     this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0x5dd6a2, 14, 2, 280);
   }
 
-  questChainCompleted(worldId: string) {
+  questChainCompleted(_worldId: string) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.16 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.14 });
@@ -5877,7 +5869,7 @@ export class JuiceManager {
 
   // ─── Relationship Juice ───────────────────────────────────────────────
 
-  relationshipLevelUp(candidateId: string, newTier: number) {
+  relationshipLevelUp(_candidateId: string, _newTier: number) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.14 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.12 });
@@ -5891,13 +5883,13 @@ export class JuiceManager {
     this.scene.cameras.main.flash(120, 255, 189, 253, true);
   }
 
-  datingSceneStart(candidateId: string) {
+  datingSceneStart(_candidateId: string) {
     this.playTone({ frequency: 440, duration: 0.18, type: 'sine', volume: 0.1 });
     this.playTone({ frequency: 660, duration: 0.24, type: 'triangle', volume: 0.08 });
     this.scene.cameras.main.flash(80, 255, 189, 253, true);
   }
 
-  datingSceneEnd(candidateId: string, outcome: 'good' | 'bad' | 'neutral') {
+  datingSceneEnd(_candidateId: string, outcome: 'good' | 'bad' | 'neutral') {
     const cam = this.scene.cameras.main;
     if (outcome === 'good') {
       this.playTone({ frequency: 520, duration: 0.16, type: 'triangle', volume: 0.12 });
@@ -5920,13 +5912,13 @@ export class JuiceManager {
     }
   }
 
-  giftAccepted(candidateId: string) {
+  giftAccepted(_candidateId: string) {
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
     this.scene.cameras.main.flash(100, 255, 189, 253, true);
   }
 
-  giftRejected(candidateId: string) {
+  giftRejected(_candidateId: string) {
     this.playTone({
       frequency: 240,
       frequencyEnd: 160,
@@ -5936,7 +5928,7 @@ export class JuiceManager {
     });
   }
 
-  firstDate(candidateId: string) {
+  firstDate(_candidateId: string) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 440, duration: 0.16, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 660, duration: 0.22, type: 'sine', volume: 0.1 });
@@ -5951,7 +5943,7 @@ export class JuiceManager {
     this.scene.cameras.main.flash(120, 255, 189, 253, true);
   }
 
-  breakup(candidateId: string) {
+  breakup(_candidateId: string) {
     this.playTone({
       frequency: 180,
       frequencyEnd: 60,
@@ -5963,7 +5955,7 @@ export class JuiceManager {
     this.scene.cameras.main.flash(100, 255, 80, 80, true);
   }
 
-  makeup(candidateId: string) {
+  makeup(_candidateId: string) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 440, duration: 0.18, type: 'triangle', volume: 0.14 });
     this.playTone({ frequency: 660, duration: 0.24, type: 'sine', volume: 0.12 });
@@ -6125,7 +6117,7 @@ export class JuiceManager {
     this.ringPulse(worldX, worldY, color, 8, 2, 200);
   }
 
-  statusEffectRemoved(worldX: number, worldY: number, effectId: string) {
+  statusEffectRemoved(_worldX: number, _worldY: number, effectId: string) {
     const isDebuffRemoved = !effectId.includes('buff') && !effectId.includes('boost');
     if (isDebuffRemoved) {
       this.playTone({
@@ -6140,7 +6132,7 @@ export class JuiceManager {
     }
   }
 
-  healthLow(worldX: number, worldY: number) {
+  healthLow(_worldX: number, _worldY: number) {
     this.playTone({
       frequency: 120,
       frequencyEnd: 80,
@@ -6152,10 +6144,10 @@ export class JuiceManager {
     this.kickCamera(0.008, 60);
   }
 
-  healthFull(worldX: number, worldY: number) {
+  healthFull(_worldX: number, _worldY: number) {
     this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
     this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.06 });
-    this.spawnBurst(worldX, worldY, {
+    this.spawnBurst(_worldX, _worldY, {
       colors: [0x5dd6a2, 0xc8ffe1],
       count: 8,
       radius: 14,
@@ -6312,7 +6304,7 @@ export class JuiceManager {
 
   // ─── UI Juice ─────────────────────────────────────────────────────────
 
-  uiButton(worldX: number, worldY: number) {
+  uiButton(_worldX: number, _worldY: number) {
     this.playTone({ frequency: 440, duration: 0.05, type: 'triangle', volume: 0.05 });
   }
 
@@ -6335,7 +6327,7 @@ export class JuiceManager {
     this.playTone({ frequency: 320, duration: 0.08, type: 'sine', volume: 0.05 });
   }
 
-  uiNotification(message: string, type: 'success' | 'error' | 'warning' | 'info') {
+  uiNotification(_message: string, type: 'success' | 'error' | 'warning' | 'info') {
     const colors =
       type === 'success'
         ? [0x5dd6a2, 0xc8ffe1]
@@ -6435,7 +6427,7 @@ export class JuiceManager {
     this.kickCamera(intensity, duration);
   }
 
-  screenFlash(color: number, duration: number, alpha: number = 0.5) {
+  screenFlash(color: number, duration: number, _alpha: number = 0.5) {
     const c = Phaser.Math.RND.pick([color]);
     this.scene.cameras.main.flash(duration, c, c, c, true);
   }
@@ -6445,31 +6437,6 @@ export class JuiceManager {
   }
 
   // ─── Extra Particle Effects ───────────────────────────────────────────
-
-  private spawnCrossParticles(
-    worldX: number,
-    worldY: number,
-    { colors, count, radius }: { colors: number[]; count: number; radius: number },
-  ) {
-    for (let i = 0; i < count; i++) {
-      const angle = this.rng() * Math.PI * 2;
-      const dist = Phaser.Math.Between(radius * 0.3, radius);
-      const cx = worldX + Math.cos(angle) * dist;
-      const cy = worldY + Math.sin(angle) * dist;
-      const shape = this.scene.add.rectangle(cx, cy, 3, 3, Phaser.Utils.Array.GetRandom(colors));
-      shape.setDepth(22).setRotation(this.rng() * Math.PI);
-      this.particleLayer.add(shape);
-      this.scene.tweens.add({
-        targets: shape,
-        alpha: 0,
-        scale: 0,
-        angle: shape.rotation + Math.PI * 2,
-        duration: Phaser.Math.Between(200, 300),
-        ease: 'Cubic.easeOut',
-        onComplete: () => shape.destroy(),
-      });
-    }
-  }
 
   spawnStarBurst(worldX: number, worldY: number, color: number, count: number = 12) {
     for (let i = 0; i < count; i++) {
@@ -6696,7 +6663,7 @@ export class JuiceManager {
     globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 20, 2, 300), 300);
   }
 
-  victoryFanfare(worldX: number, worldY: number) {
+  victoryFanfare(_worldX: number, _worldY: number) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 523.25, duration: 0.18, type: 'triangle', volume: 0.18 });
     globalThis.setTimeout(
@@ -6813,7 +6780,7 @@ export class JuiceManager {
     }
   }
 
-  movementDash(worldX: number, worldY: number, dx: number, dy: number) {
+  movementDash(worldX: number, worldY: number, _dx: number, _dy: number) {
     this.playTone({
       frequency: 300,
       frequencyEnd: 600,
@@ -6896,7 +6863,7 @@ export class JuiceManager {
 
   // ─── Juice Manager Enhancement: Camera Tilt / Roll ────────────────────
 
-  cameraRoll(angle: number, duration: number = 200) {
+  cameraRoll(_angle: number, _duration: number = 200) {
     // Quick flash for impact
     this.scene.cameras.main.flash(40, 255, 255, 255, true);
     this.playTone({
@@ -7088,7 +7055,7 @@ export class JuiceManager {
     });
   }
 
-  bulletTrainAnnounce(destinationName: string) {
+  bulletTrainAnnounce(_destinationName: string) {
     // LED-style announcement tone
     this.playTone({
       frequency: 440,
@@ -7144,9 +7111,12 @@ export class JuiceManager {
     if (!layer) return;
     for (let i = 0; i < 20; i++) {
       const particle = this.scene.add.line(
-        worldX, worldY,
-        worldX + Phaser.Math.Between(10, 40), worldY + Phaser.Math.Between(-10, 10),
-        0xff6b44, 0.6,
+        worldX,
+        worldY,
+        worldX + Phaser.Math.Between(10, 40),
+        worldY + Phaser.Math.Between(-10, 10),
+        0xff6b44,
+        0.6,
       );
       particle.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(particle);
@@ -8661,11 +8631,7 @@ export class JuiceManager {
     }
   }
 
-  private spawnTrailParticle(
-    x: number,
-    y: number,
-    glitterColors: number[],
-  ): void {
+  private spawnTrailParticle(x: number, y: number, glitterColors: number[]): void {
     const layer = this.particleLayer;
     if (!layer) {
       return;
@@ -8705,7 +8671,10 @@ export class JuiceManager {
     // (safety net — tweens should handle cleanup, but this prevents leaks)
     const maxTrailParticles = 200;
     if (this.unicornTrailParticles.length > maxTrailParticles) {
-      const toRemove = this.unicornTrailParticles.splice(0, this.unicornTrailParticles.length - maxTrailParticles);
+      const toRemove = this.unicornTrailParticles.splice(
+        0,
+        this.unicornTrailParticles.length - maxTrailParticles,
+      );
       for (const p of toRemove) {
         p.destroy();
       }

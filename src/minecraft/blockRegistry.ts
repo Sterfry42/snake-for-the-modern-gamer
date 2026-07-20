@@ -1,4 +1,4 @@
-import type { BlockType, BlockTypeId } from './types.js';
+import type { BlockType } from './types.js';
 
 const BLOCK_DEFINITIONS: BlockType[] = [
   { id: 'dirt', kind: 'solid', color: '#8B6914', hardness: 1 },
@@ -152,7 +152,16 @@ export function isSpecialBlock(id: string): boolean {
 }
 
 export function isPlaceableSpecialBlock(id: string): boolean {
-  return ['furnace', 'chest', 'bed', 'crafting_table', 'enchanting_table', 'brewing_stand', 'cauldron', 'ender_chest'].includes(id);
+  return [
+    'furnace',
+    'chest',
+    'bed',
+    'crafting_table',
+    'enchanting_table',
+    'brewing_stand',
+    'cauldron',
+    'ender_chest',
+  ].includes(id);
 }
 
 export function isBlockableBlock(id: string): boolean {

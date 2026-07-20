@@ -1,5 +1,4 @@
 import { Quest } from '../quest.js';
-import type { QuestRuntime } from '../quest.js';
 
 class SevenDragonTemples extends Quest {
   constructor() {
@@ -14,11 +13,11 @@ class SevenDragonTemples extends Quest {
     return ['templesFound'];
   }
 
-  override isCompleted(runtime): boolean {
+  override isCompleted(runtime: import('../quest.js').QuestRuntime): boolean {
     return this.progressSinceAccept(runtime, 'templesFound') >= 7;
   }
 
-  override onReward(runtime): void {
+  override onReward(runtime: import('../quest.js').QuestRuntime): void {
     runtime.addScore(100);
     runtime.addCosmeticReward('hat', 'dragon-helm');
     runtime.setFlag('permanents.speedBonus', 1);

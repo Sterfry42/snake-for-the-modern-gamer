@@ -1,12 +1,7 @@
 import type { SaveStore } from '../storage/SaveStore.js';
 export type { SaveStore } from '../storage/SaveStore.js';
 import { LocalStorageSaveStore } from '../storage/LocalStorageSaveStore.js';
-import {
-  isVersionLessThan,
-  migrateV1toV2,
-  migrateV2toV3,
-  type GameSaveData,
-} from './saveTypes.js';
+import { isVersionLessThan, migrateV1toV2, migrateV2toV3, type GameSaveData } from './saveTypes.js';
 
 const SAVE_KEY = 'snakeGameSave';
 const AUTOSAVE_PREFIX = 'autosave-';

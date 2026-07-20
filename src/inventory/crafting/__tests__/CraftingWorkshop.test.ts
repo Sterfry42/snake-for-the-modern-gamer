@@ -69,8 +69,14 @@ describe('CraftingWorkshop', () => {
 
     it('cannot build an already built workshop', () => {
       const workshop = new CraftingWorkshop('enchantedLoom');
-      workshop.build(() => true, () => true);
-      const built = workshop.build(() => true, () => true);
+      workshop.build(
+        () => true,
+        () => true,
+      );
+      const built = workshop.build(
+        () => true,
+        () => true,
+      );
       expect(built).toBe(false);
     });
 

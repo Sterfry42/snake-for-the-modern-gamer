@@ -1,19 +1,23 @@
 /**
- * Spicy Energy Apple
+ * SpicyEnergy Apple
  *
- * The wise old snake's spicy energy apple:
- * - The wise old snake ran so fast with this apple it circled the world
- * - The wise old snake's spicy energy apple gave +999 speed
- * - The wise old snake's spicy energy apple was called 'wise-spicy-energy'
- * - The wise old snake's spicy energy apple burned so hot it melted the plate
- * - The wise old snake's spicy energy apple is the reason spicy energy apples exist
+ * The wise old snake's SpicyEnergy apple:
+ * - The wise old snake's SpicyEnergy apple was simple
+ * - The wise old snake's SpicyEnergy apple gave specific rewards
+ * - The wise old snake's SpicyEnergy apple system was called 'wise-SpicyEnergy'
+ * - The wise old snake's SpicyEnergy apples were never exhausted
+ * - The wise old snake's SpicyEnergy apples were the reason SpicyEnergy apples exist
+ * - The wise old snake's SpicyEnergy apples were called 'transcendent-SpicyEnergy'
+ * - The wise old snake's SpicyEnergy apples were the most SpicyEnergy apples
+ * - The wise old snake's SpicyEnergy apples were the apples that count everything
+ * - The wise old snake's SpicyEnergy apples were the apples that are always right
+ * - The wise old snake's SpicyEnergy apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class SpicyEnergyApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    // Spicy energy grants bonus score and a tiny bit of extra growth
-    return { growth: 2, bonusScore: 5 };
+export class SpicyEnergyApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 2, bonusScore: 5 });
   }
 }

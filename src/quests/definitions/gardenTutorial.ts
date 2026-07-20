@@ -15,7 +15,11 @@ import type { QuestRuntime } from '../quest.js';
  */
 class GardenTutorialQuest extends Quest {
   constructor() {
-    super('garden-tutorial', 'The Garden Awaits', 'Visit the garden plot and learn the basics of apple farming.');
+    super(
+      'garden-tutorial',
+      'The Garden Awaits',
+      'Visit the garden plot and learn the basics of apple farming.',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

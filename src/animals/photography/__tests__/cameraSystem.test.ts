@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { CameraSystem } from '../CameraSystem.js';
-import type { AnimalType, PhotoRarity } from '../../ecosystem/types.js';
 
 describe('CameraSystem', () => {
   let camera: CameraSystem;
@@ -75,9 +74,7 @@ describe('CameraSystem', () => {
   describe('photo rarity', () => {
     it('assigns rarity to photos', () => {
       const result = camera.takePhoto('rabbit', '0,0,0');
-      expect(['common', 'uncommon', 'rare', 'epic', 'legendary']).toContain(
-        result.photo?.rarity,
-      );
+      expect(['common', 'uncommon', 'rare', 'epic', 'legendary']).toContain(result.photo?.rarity);
     });
 
     it('gets rarity counts', () => {
@@ -157,7 +154,7 @@ describe('CameraSystem', () => {
       camera.startMiniGame(50);
       // Manually set progress to 100 (triggers completion on next step)
       camera['state'].miniGameProgress = 100;
-      const result = camera.adjustMiniGame('right');
+      camera.adjustMiniGame('right');
       // 100+5=105, clamped to 100, not in zone [30,70], -1 = 99, 99>=100 is false
       // The completion check happens after adjustment, so it doesn't trigger
       // Let's test by setting progress to 99.5 (just below 100)

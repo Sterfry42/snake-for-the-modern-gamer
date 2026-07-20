@@ -12,16 +12,15 @@
 
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
-import { i18n } from '../i18n/i18nManager.js';
 import type { AlchemyManager } from '../inventory/alchemy/AlchemyManager.js';
-import type { AlchemyRecipe, CraftResult, Potion } from '../inventory/alchemy/alchemyTypes.js';
+import type { CraftResult } from '../inventory/alchemy/alchemyTypes.js';
 
 /** Tab types for the alchemy overlay */
 export type AlchemyTab = 'recipes' | 'crafting' | 'journal' | 'lore' | 'workshops';
 
 /** Alchemy overlay UI panel */
 export class AlchemyOverlay {
-  private container?: Phaser.GameObjects.Container;
+  private container!: Phaser.GameObjects.Container;
   private background?: Phaser.GameObjects.Rectangle;
   private titleText?: Phaser.GameObjects.Text;
   private tabButtons: Phaser.GameObjects.Text[] = [];
@@ -34,16 +33,9 @@ export class AlchemyOverlay {
   private activePanel?: Phaser.GameObjects.Container;
   private onClose?: () => void;
   private onCraft?: (recipeId: string) => void;
-  private onTrade?: (recipeId: string) => void;
   private isVisible = false;
-  private scene: SnakeScene;
+  private scene!: SnakeScene;
   private alchemyManager: AlchemyManager;
-
-  // Scroll state
-  private scrollY = 0;
-  private contentHeight = 0;
-  private viewportHeight = 0;
-  private scrollBar?: Phaser.GameObjects.Graphics;
 
   constructor(scene: SnakeScene, alchemyManager: AlchemyManager) {
     this.scene = scene;
@@ -257,11 +249,16 @@ export class AlchemyOverlay {
     const progress = this.alchemyManager.getDiscoveryProgress();
     if (progress.discovered < progress.total) {
       y += 10;
-      const hint = this.scene.add.text(-250, y, `Discovered: ${progress.discovered}/${progress.total} recipes`, {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#606080',
-      });
+      const hint = this.scene.add.text(
+        -250,
+        y,
+        `Discovered: ${progress.discovered}/${progress.total} recipes`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#606080',
+        },
+      );
       panel.add(hint);
     }
   }
@@ -304,9 +301,7 @@ export class AlchemyOverlay {
       y += lineSpacing;
 
       // Ingredients list
-      const ingText = recipe.ingredients
-        .map((ing) => `• ${ing.itemId} x${ing.count}`)
-        .join('\n');
+      const ingText = recipe.ingredients.map((ing) => `• ${ing.itemId} x${ing.count}`).join('\n');
       const ingredients = this.scene.add.text(-240, y, ingText, {
         fontFamily: 'monospace',
         fontSize: '11px',
@@ -327,11 +322,16 @@ export class AlchemyOverlay {
     let y = 0;
     const lineSpacing = 24;
 
-    const header = this.scene.add.text(-250, y, `Alchemy Journal (${journal.getEntryCount()} entries)`, {
-      fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#ffd700',
-    });
+    const header = this.scene.add.text(
+      -250,
+      y,
+      `Alchemy Journal (${journal.getEntryCount()} entries)`,
+      {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffd700',
+      },
+    );
     panel.add(header);
     y += lineSpacing + 5;
 
@@ -374,11 +374,16 @@ export class AlchemyOverlay {
     let y = 0;
     const lineSpacing = 28;
 
-    const header = this.scene.add.text(-250, y, `Alchemy Lore (${discovered.length}/${all.length})`, {
-      fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#ffd700',
-    });
+    const header = this.scene.add.text(
+      -250,
+      y,
+      `Alchemy Lore (${discovered.length}/${all.length})`,
+      {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffd700',
+      },
+    );
     panel.add(header);
     y += lineSpacing + 5;
 

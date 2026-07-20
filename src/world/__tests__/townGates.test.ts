@@ -55,7 +55,9 @@ describe('town gates', () => {
   it('renders closed and open gate tiles as blocking and walkable state markers', () => {
     const town = makeTown();
     const gate = town.gates[0]!;
-    const closedLayout = Array.from({ length: grid.rows }, () => Array.from({ length: grid.cols }, () => '.'));
+    const closedLayout = Array.from({ length: grid.rows }, () =>
+      Array.from({ length: grid.cols }, () => '.'),
+    );
     renderTownGateSide({
       layout: closedLayout,
       gate,
@@ -69,7 +71,9 @@ describe('town gates', () => {
     expect(closedLayout.some((row) => row.includes('G'))).toBe(true);
     expect(isSolidTile('x')).toBe(true);
 
-    const openLayout = Array.from({ length: grid.rows }, () => Array.from({ length: grid.cols }, () => '.'));
+    const openLayout = Array.from({ length: grid.rows }, () =>
+      Array.from({ length: grid.cols }, () => '.'),
+    );
     renderTownGateSide({
       layout: openLayout,
       gate,

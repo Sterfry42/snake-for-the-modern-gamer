@@ -93,7 +93,6 @@ import {
   lookupNearestBiomes,
   formatLocatorResult,
   createSeededBiomeResolver,
-  type LocatorResult,
 } from '../world/biomeLocators.js';
 import type { RoomSnapshot } from '../world/types.js';
 import {
@@ -179,7 +178,6 @@ import type {
   RelationshipCutscene,
   RelationshipEventResult,
   RelationshipReward,
-  RelationshipSpecies,
   RelationshipState,
   RelationshipTalkResult,
 } from '../relationships/relationshipTypes.js';
@@ -207,7 +205,6 @@ import type { CreateWorldEventInput, WorldEvent } from '../events/worldEventType
 import {
   KARMA_MIN,
   clampKarma,
-  createDefaultKarmaState,
   karmaAfterlifeDestination,
   karmaView,
   normalizeKarmaState,
@@ -878,7 +875,7 @@ export class SnakeGame implements QuestRuntime {
     this.snake = new SnakeState(config.grid, config.snake, config.world.originRoomId);
     this.bosses = new BossManager(config.grid, this._rng);
     this.enemies = new EnemyManager(config.grid, this._rng);
-    this.enemies.setRoamingSnakeConfig(config.roamingSnakes);
+    this.enemies.setRoamingSnakeConfig(config.roamingSnakes ?? defaultRoamingSnakeConfig);
     this.animals = new AnimalManager(config.grid, this._rng);
     this.questController = new QuestController(registry, {
       initialQuestCount: config.quests.initialQuestCount,
@@ -1098,7 +1095,7 @@ export class SnakeGame implements QuestRuntime {
     );
     this.apples = this.createAppleService();
     this.enemies = new EnemyManager(this.config.grid, this._rng);
-    this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
+    this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes ?? defaultRoamingSnakeConfig);
     this.animals = new AnimalManager(this.config.grid, this._rng);
     this.atmosphere.reset(runSeed);
     this.questController = new QuestController(this.registry, {
@@ -4576,7 +4573,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('roomEntryTimeMs', timeMs);
   }
 
-  getCurrentRoom() {
+  getCurrentRoom(): RoomSnapshot {
     const room = this.world.getRoom(this.snake.currentRoomId);
     this.applyTownRuntimeToRoom(room);
     this.stampQuestActorsIntoRoom(room);
@@ -4587,7 +4584,7 @@ export class SnakeGame implements QuestRuntime {
 
   /** Move the snake to a room at a specific position. */
   moveToRoom(roomId: string, position: { x: number; y: number }): void {
-    const room = this.world.getRoom(roomId);
+    this.world.getRoom(roomId);
     const [roomX, roomY] = this.parseRoomCoordinates(roomId);
     // Access internal body array to set head position
     const body = (this.snake as unknown as { body: Vector2Like[] }).body;
@@ -5000,7 +4997,7 @@ export class SnakeGame implements QuestRuntime {
                 (resident) => resident.role !== 'thief' && resident.role !== 'thiefContact',
               );
     const existing = new Set(this.enemies.getEnemiesInRoom(room.id).map((enemy) => enemy.id));
-    selected.slice(0, 5).forEach((resident, index) => {
+    selected.slice(0, 5).forEach((resident) => {
       const relationshipId = this.getTownResidentRelationshipId(town.id, resident.id);
       if (existing.has(`npc-hostile:${relationshipId}`)) {
         return;
@@ -5402,7 +5399,7 @@ export class SnakeGame implements QuestRuntime {
     const runtime: TownRuntimeState = {
       townId: town.id,
       wantedLevel: town.wantedLevel,
-      suspicion: town.suspicion,
+      suspicion: town.suspicion ?? 0,
       reputation: town.reputation,
       discoveredGuild: town.discoveredGuild,
       openedGates: [
@@ -6936,45 +6933,6 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('world.rumors', this.rumors.getAll().map(rumorToWorldRumor).slice(-100));
   }
 
-  private recordLegacyRumorFromWorldEvent(event: WorldEvent): void {
-    if (!this.shouldBecomeRumor(event)) {
-      return;
-    }
-    const existing = this.getFlag<WorldRumor[]>('world.rumors') ?? [];
-    if (existing.some((rumor) => rumor.eventId === event.id)) {
-      return;
-    }
-    const room = event.roomId ? this.world.getRoom(event.roomId) : undefined;
-    const rumor: WorldRumor = {
-      id: `rumor:${event.id}`,
-      eventId: event.id,
-      roomId: event.roomId,
-      townId: room?.town?.id ?? room?.goblinCamp?.id,
-      summary: event.summary,
-      tags: [...event.tags],
-      severity: event.severity,
-      createdAtRoomNumber: event.createdAtRoomNumber,
-      heardByActorIds: [...event.witnessActorIds],
-      truthLevel: 85,
-      exaggeration: 10,
-      sourceKind: event.witnessActorIds.length > 0 ? 'witness' : 'rumor',
-      public: true,
-    };
-    this.setFlag('world.rumors', [...existing, rumor].slice(-50));
-    this.seedTownRumorFromWorldEvent(event, rumor);
-  }
-
-  private shouldBecomeRumor(event: WorldEvent): boolean {
-    if (event.severity >= 35 || event.loudness >= 35) {
-      return true;
-    }
-    return event.tags.some((tag) =>
-      ['crime', 'pickpocket', 'eaten', 'humanoid', 'relationship', 'marriage', 'guild'].includes(
-        tag,
-      ),
-    );
-  }
-
   private rememberActorRumor(actorId: string, memory: ActorMemory): void {
     this.actors.registry.update(actorId, (actor) => ({
       ...actor,
@@ -7071,41 +7029,6 @@ export class SnakeGame implements QuestRuntime {
         ].slice(current.thickness === 'thick' ? -40 : current.thickness === 'medium' ? -20 : -6),
       }));
     }
-  }
-
-  private seedTownRumorFromWorldEvent(event: WorldEvent, rumor: WorldRumor): void {
-    if (!event.roomId || !rumor.townId) {
-      return;
-    }
-    const room = this.world.getRoom(event.roomId);
-    if (!room.town || room.town.id !== rumor.townId) {
-      return;
-    }
-    const exists = room.town.rumors.some((entry) => entry.id === rumor.id);
-    if (exists) {
-      return;
-    }
-    const kind = townRumorKindForEvent(event);
-    const nextTown = cloneTown({
-      ...room.town,
-      rumors: [
-        ...room.town.rumors,
-        {
-          id: rumor.id,
-          townId: room.town.id,
-          kind,
-          summary: rumor.summary,
-          roomsRemaining: 12,
-          severity: rumor.severity,
-          relatedRelationshipId:
-            typeof event.data?.relationshipId === 'string' ? event.data.relationshipId : undefined,
-          relatedNpcId: event.targetActorIds[0],
-        },
-      ].slice(-12),
-    });
-    room.town = nextTown;
-    this.saveTownRuntimeState(nextTown);
-    this.world.updateTown(nextTown);
   }
 
   private seedTownRumorFromModernRumor(event: WorldEvent, rumor: Rumor): void {
@@ -7659,7 +7582,7 @@ export class SnakeGame implements QuestRuntime {
     return `layer:townInterior:${townId}:thievesGuild`;
   }
 
-  private getSideToTownDistrict(
+  private _getSideToTownDistrict(
     town: TownStructure,
     roomId: string,
     targetDistrict: TownRoomKind,
@@ -7677,7 +7600,7 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
-  private openRoomEdgeTiles(room: RoomSnapshot, side: 'north' | 'south' | 'east' | 'west'): void {
+  private _openRoomEdgeTiles(room: RoomSnapshot, side: 'north' | 'south' | 'east' | 'west'): void {
     const centerX = Math.floor(this.config.grid.cols / 2);
     const centerY = Math.floor(this.config.grid.rows / 2);
     if (side === 'north' || side === 'south') {
@@ -7709,7 +7632,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private isInsideTownExitLatchSide(town: TownStructure, room: RoomSnapshot): boolean {
+  private _isInsideTownExitLatchSide(town: TownStructure, room: RoomSnapshot): boolean {
     const exteriorSide = this.inferTownExitExteriorSide(town, room.id);
     if (!exteriorSide) {
       return true;
@@ -9020,7 +8943,7 @@ export class SnakeGame implements QuestRuntime {
   spawnGridironYard(): boolean {
     const room = this.getCurrentRoom();
     const grid = this.config.grid;
-    const rng = this._rng;
+    const _rng = this._rng;
     const safe = new Set<string>();
     // Entrance runup cells
     for (let y = 0; y < grid.rows; y++) {
@@ -11581,7 +11504,7 @@ export class SnakeGame implements QuestRuntime {
     const source = reason as WardDeathSource;
     const current = Math.max(0, Math.floor(contracts[source] ?? 0));
     const next = { ...contracts, [source]: current - 1 };
-    if (next[source] <= 0) {
+    if ((next[source] ?? 0) <= 0) {
       delete next[source];
     }
     this.setFlag('wards.contracts', next);
@@ -12670,7 +12593,9 @@ export class SnakeGame implements QuestRuntime {
       portraitId: profile.portraitId,
       createdAtRoomNumber: this.getRoomsVisitedCount(),
     });
-    this.syncActorFromRelationshipState(actor.id, relationshipState);
+    if (relationshipState) {
+      this.syncActorFromRelationshipState(actor.id, relationshipState);
+    }
     return actor.id;
   }
 
@@ -13566,7 +13491,7 @@ export class SnakeGame implements QuestRuntime {
         );
         this.apples = this.createAppleService();
         this.enemies = new EnemyManager(this.config.grid, this._rng);
-        this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes);
+        this.enemies.setRoamingSnakeConfig(this.config.roamingSnakes ?? defaultRoamingSnakeConfig);
         this.animals = new AnimalManager(this.config.grid, this._rng);
         this.atmosphere.reset(data.worldGeneration.seed);
         this.questController = new QuestController(this.registry, {
@@ -13606,7 +13531,7 @@ export class SnakeGame implements QuestRuntime {
         this.inventory.addItem(key, value);
       }
 
-      for (const [slot, itemId] of Object.entries(data.equipment)) {
+      for (const [, itemId] of Object.entries(data.equipment)) {
         const item = getItem(itemId);
         if (item) {
           this.inventory.equip(item);
@@ -14705,8 +14630,6 @@ export class SnakeGame implements QuestRuntime {
   purchaseHouseItem(kind: 'couch' | 'kitchen' | 'expand' | 'bed' | 'plant' | 'lamp'): boolean {
     const houseId = '0,-1,0';
     const room = this.world.getRoom(houseId);
-    const cols = this.config.grid.cols;
-    const rows = this.config.grid.rows;
 
     const purchases = (this.getFlag<Record<string, unknown>>('house.purchases') ?? {}) as Record<
       string,
@@ -15814,7 +15737,7 @@ export class SnakeGame implements QuestRuntime {
     return best;
   }
 
-  private handleFortitudeRegenerator(roomsChanged: Set<string>): void {
+  private _handleFortitudeRegenerator(roomsChanged: Set<string>): void {
     const base = this.getFlag<{ interval?: number; amount?: number }>('fortitude.regenerator');
     const equip = this.getFlag<{ interval?: number; amount?: number }>('equipment.regenerator');
     const interval = Math.min(
@@ -15827,7 +15750,7 @@ export class SnakeGame implements QuestRuntime {
     }
     const counter = (this.getFlag<number>('fortitude.regeneratorCounter') ?? 0) + 1;
     if (counter >= interval) {
-      const growAmount = Math.max(1, amount);
+      Math.max(1, amount);
       for (let i = 0; i < amount; i += 1) {
         this.snake.grow(1);
       }
@@ -16136,7 +16059,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private resetMomentum(): void {
+  private _resetMomentum(): void {
     this.momentumConfig = createDefaultMomentumConfig();
     this.momentumState = createDefaultMomentumState();
     this.setFlag('momentum.state', undefined);
@@ -16488,7 +16411,7 @@ export class SnakeGame implements QuestRuntime {
     return { ok: true, message: `Manual Surge: spent ${cost} Momentum.` };
   }
 
-  private handleMomentumStep(previousDirection: Vector2Like, currentDirection: Vector2Like): void {
+  private handleMomentumStep(_previousDirection: Vector2Like, currentDirection: Vector2Like): void {
     const config = this.momentumConfig;
     const state = this.ensureMomentumState();
     if (!config.enabled) {
@@ -16594,9 +16517,9 @@ export class SnakeGame implements QuestRuntime {
     this.syncMomentumFlags();
   }
 
-  private handleMomentumOnApple(
-    consumption: AppleConsumptionResult,
-    roomsChanged: Set<string>,
+  private _handleMomentumOnApple(
+    _consumption: AppleConsumptionResult,
+    _roomsChanged: Set<string>,
   ): number {
     const config = this.momentumConfig;
     if (!config.enabled) {
@@ -16677,7 +16600,7 @@ export class SnakeGame implements QuestRuntime {
     this.syncMomentumFlags();
   }
 
-  private resetTraversal(): void {
+  private _resetTraversal(): void {
     this.traversalConfig = createDefaultTraversalConfig();
     this.traversalState = createDefaultTraversalState();
     this.setFlag('traversal.state', undefined);
@@ -16686,7 +16609,7 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('traversal.echoActive', undefined);
   }
 
-  private hydrateTraversalConfig(): void {
+  private _hydrateTraversalConfig(): void {
     const contributions = Object.entries(this.snake.flags)
       .filter(([key]) => key.startsWith('traversal.config.'))
       .map(([, value]) => value)
@@ -16877,8 +16800,8 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private handleTraversalRoomChange(
-    previousRoomId: string,
+  private _handleTraversalRoomChange(
+    _previousRoomId: string,
     currentRoomId: string,
     roomsChanged: Set<string>,
   ): void {
@@ -16927,7 +16850,7 @@ export class SnakeGame implements QuestRuntime {
     this.syncTraversalFlags();
   }
 
-  private tickTraversalState(): void {
+  private _tickTraversalState(): void {
     const config = this.traversalConfig;
     const state = this.ensureTraversalState();
 
@@ -17202,7 +17125,7 @@ export class SnakeGame implements QuestRuntime {
     return bonus;
   }
 
-  private handlePredationOnRoomChange(newRoomId: string): void {
+  private _handlePredationOnRoomChange(newRoomId: string): void {
     const config = this.predationConfig;
     const state = this.ensurePredationState();
     state.lastRoomId = newRoomId;

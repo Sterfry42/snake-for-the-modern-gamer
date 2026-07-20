@@ -78,12 +78,15 @@ const SCORE_VALUES = {
 };
 
 /** Difficulty settings */
-const DIFFICULTY_SETTINGS: Record<number, {
-  sequenceLength: number;
-  timeLimit: number;
-  bpm: number;
-  scoreThreshold: number;
-}> = {
+const DIFFICULTY_SETTINGS: Record<
+  number,
+  {
+    sequenceLength: number;
+    timeLimit: number;
+    bpm: number;
+    scoreThreshold: number;
+  }
+> = {
   1: { sequenceLength: 5, timeLimit: 15, bpm: 80, scoreThreshold: 25 },
   2: { sequenceLength: 8, timeLimit: 18, bpm: 90, scoreThreshold: 45 },
   3: { sequenceLength: 12, timeLimit: 20, bpm: 100, scoreThreshold: 70 },
@@ -178,7 +181,8 @@ export class RhythmMiniGame {
       // Calculate timing accuracy
       const now = Date.now();
       const timeSinceLast = now - this.lastAppleTime;
-      const beatDuration = 60000 / (this.currentRound.beats[this.currentBeatIndex]?.difficulty || 1);
+      const beatDuration =
+        60000 / (this.currentRound.beats[this.currentBeatIndex]?.difficulty || 1);
       const timingError = Math.abs(timeSinceLast - beatDuration);
 
       let quality: 'perfect' | 'good' | 'ok' | 'miss' = 'miss';
@@ -205,7 +209,10 @@ export class RhythmMiniGame {
         this.onBeatUpdateCallback(this.currentBeatIndex, this.currentRound.sequence.length);
       }
       if (this.onScoreUpdateCallback) {
-        this.onScoreUpdateCallback(this.score, this.currentRound.sequence.length * SCORE_VALUES.perfect);
+        this.onScoreUpdateCallback(
+          this.score,
+          this.currentRound.sequence.length * SCORE_VALUES.perfect,
+        );
       }
 
       // Check for round completion
@@ -220,7 +227,10 @@ export class RhythmMiniGame {
       this.score = Math.max(0, this.score - 2);
 
       if (this.onScoreUpdateCallback) {
-        this.onScoreUpdateCallback(this.score, this.currentRound.sequence.length * SCORE_VALUES.perfect);
+        this.onScoreUpdateCallback(
+          this.score,
+          this.currentRound.sequence.length * SCORE_VALUES.perfect,
+        );
       }
 
       return { hit: false, score: -2, quality: 'miss' };
@@ -341,10 +351,11 @@ export class RhythmMiniGame {
   private endGame(success: boolean): void {
     this.state = success ? 'success' : 'failure';
 
-    const maxScore = this.currentRound ? this.currentRound.sequence.length * SCORE_VALUES.perfect : 0;
-    const accuracy = this.hits + this.misses > 0
-      ? ((this.hits / (this.hits + this.misses)) * 100)
+    const maxScore = this.currentRound
+      ? this.currentRound.sequence.length * SCORE_VALUES.perfect
       : 0;
+    const accuracy =
+      this.hits + this.misses > 0 ? (this.hits / (this.hits + this.misses)) * 100 : 0;
 
     const result: RhythmGameResult = {
       success,
@@ -381,10 +392,7 @@ export class RhythmMiniGame {
   /**
    * Generate a sequence from a melody fragment.
    */
-  private generateSequenceFromFragment(
-    fragment: MelodyFragment,
-    length: number,
-  ): string[] {
+  private generateSequenceFromFragment(fragment: MelodyFragment, length: number): string[] {
     const sequence: string[] = [];
     const baseSequence = fragment.requiredSequence;
 

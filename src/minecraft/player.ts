@@ -12,16 +12,33 @@ export class MinecraftPlayer {
   creativePaletteSlot: number = 0;
 
   static readonly CREATIVE_BLOCK_TYPES: readonly string[] = [
-    'dirt', 'grass', 'stone', 'cobblestone', 'sand',
-    'gravel', 'wood', 'planks', 'torch', 'glass',
-    'furnace', 'chest', 'bed', 'crafting_table', 'pumpkin',
-    'iron_block', 'gold_block', 'diamond_ore', 'iron_ore', 'coal_ore',
+    'dirt',
+    'grass',
+    'stone',
+    'cobblestone',
+    'sand',
+    'gravel',
+    'wood',
+    'planks',
+    'torch',
+    'glass',
+    'furnace',
+    'chest',
+    'bed',
+    'crafting_table',
+    'pumpkin',
+    'iron_block',
+    'gold_block',
+    'diamond_ore',
+    'iron_ore',
+    'coal_ore',
   ];
 
   cyclePaletteSlot(delta: number): void {
     const blocks = MinecraftPlayer.CREATIVE_BLOCK_TYPES;
     if (blocks.length === 0) return;
-    this.creativePaletteSlot = ((this.creativePaletteSlot + delta) % blocks.length + blocks.length) % blocks.length;
+    this.creativePaletteSlot =
+      (((this.creativePaletteSlot + delta) % blocks.length) + blocks.length) % blocks.length;
   }
 
   constructor() {
@@ -339,8 +356,6 @@ export function isWalkableWithCreativeOverride(
 
 export function canMineBlock(toolId: string, blockId: string): boolean {
   const toolTier = getToolTier(toolId);
-  const blockHardness = getBlockHardness(blockId);
-
   if (!toolTier) return false;
 
   const minTierForBlock = getMinToolTierForBlock(blockId);
@@ -368,30 +383,6 @@ export function getToolTier(toolId: string): number {
     diamond_pickaxe: 4,
   };
   return tierMap[toolId] ?? 0;
-}
-
-function getBlockHardness(blockId: string): number {
-  const hardnessMap: Record<string, number> = {
-    dirt: 1,
-    grass: 1,
-    sand: 1,
-    glass: 1,
-    cobblestone: 3,
-    stone: 3,
-    gravel: 2,
-    wood: 2,
-    planks: 2,
-    torch: 0,
-    lava: 0,
-    water: 0,
-    coal_ore: 4,
-    iron_ore: 5,
-    iron_block: 5,
-    gold_block: 5,
-    diamond_ore: 7,
-    crafting_table: 2,
-  };
-  return hardnessMap[blockId] ?? 1;
 }
 
 function getMinToolTierForBlock(blockId: string): number {

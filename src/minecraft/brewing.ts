@@ -1,5 +1,4 @@
 import type { MinecraftPlayer } from './player.js';
-import type { RoomSnapshot } from '../world/types.js';
 
 // ─── Potion Effects ─────────────────────────────────────────────────────────
 
@@ -681,11 +680,7 @@ const BREWING_INPUT_SLOTS = 3;
 const BREWING_OUTPUT_SLOTS = 3;
 const BREW_TICKS = 200;
 
-export function createBrewingStandState(
-  x: number,
-  y: number,
-  roomId: string,
-): BrewingStandState {
+export function createBrewingStandState(x: number, y: number, roomId: string): BrewingStandState {
   return {
     x,
     y,
@@ -729,10 +724,7 @@ export function tryBreakBrewingStand(
 
 // ─── Brewing Logic ──────────────────────────────────────────────────────────
 
-export function canBrew(
-  stand: BrewingStandState,
-  ingredient: string,
-): boolean {
+export function canBrew(stand: BrewingStandState, ingredient: string): boolean {
   if (!stand.fuel || stand.fuel <= 0) return false;
   if (!ingredient || ingredient === '') return false;
   const hasBasePotion = stand.inputSlots.some(
@@ -767,9 +759,7 @@ export function startBrewing(
   return { success: true, message: 'Brewing started...' };
 }
 
-export function tickBrewingStand(
-  stand: BrewingStandState,
-): { done: boolean } {
+export function tickBrewingStand(stand: BrewingStandState): { done: boolean } {
   if (!stand.brewing) {
     return { done: false };
   }
@@ -796,7 +786,7 @@ export function tickBrewingStand(
 
 export function tryDrinkPotion(
   player: MinecraftPlayer,
-  potionType: string,
+  _potionType: string,
 ): { success: boolean; message?: string } {
   const effectId: PotionEffectId = 'speed_i';
   const effect = POTION_EFFECTS[effectId];
@@ -817,18 +807,50 @@ export interface BrewingRecipe {
 }
 
 export const BREWING_RECIPES: readonly BrewingRecipe[] = [
-  { ingredient: 'nether_wart', result: 'awkward_potion', description: 'Makes Awkward Potion (base)' },
+  {
+    ingredient: 'nether_wart',
+    result: 'awkward_potion',
+    description: 'Makes Awkward Potion (base)',
+  },
   { ingredient: 'sugar', result: 'speed_potion', description: 'Makes Speed Potion' },
   { ingredient: 'blaze_rod', result: 'strength_potion', description: 'Makes Strength Potion' },
-  { ingredient: 'ghast_tear', result: 'regeneration_potion', description: 'Makes Regeneration Potion' },
+  {
+    ingredient: 'ghast_tear',
+    result: 'regeneration_potion',
+    description: 'Makes Regeneration Potion',
+  },
   { ingredient: 'spider_eye', result: 'poison_potion', description: 'Makes Poison Potion' },
-  { ingredient: 'golden_carrot', result: 'night_vision_potion', description: 'Makes Night Vision Potion' },
-  { ingredient: 'magma_cream', result: 'fire_resistance_potion', description: 'Makes Fire Resistance Potion' },
-  { ingredient: 'pufferfish', result: 'water_breathing_potion', description: 'Makes Water Breathing Potion' },
-  { ingredient: 'rabbit_foot', result: 'jump_boost_potion', description: 'Makes Jump Boost Potion' },
-  { ingredient: 'ender_pearl', result: 'invisibility_potion', description: 'Makes Invisibility Potion' },
+  {
+    ingredient: 'golden_carrot',
+    result: 'night_vision_potion',
+    description: 'Makes Night Vision Potion',
+  },
+  {
+    ingredient: 'magma_cream',
+    result: 'fire_resistance_potion',
+    description: 'Makes Fire Resistance Potion',
+  },
+  {
+    ingredient: 'pufferfish',
+    result: 'water_breathing_potion',
+    description: 'Makes Water Breathing Potion',
+  },
+  {
+    ingredient: 'rabbit_foot',
+    result: 'jump_boost_potion',
+    description: 'Makes Jump Boost Potion',
+  },
+  {
+    ingredient: 'ender_pearl',
+    result: 'invisibility_potion',
+    description: 'Makes Invisibility Potion',
+  },
   { ingredient: 'redstone', result: 'extended_duration', description: 'Extends potion duration' },
   { ingredient: 'glowstone_dust', result: 'upgraded_level', description: 'Upgrades potion level' },
   { ingredient: 'gunpowder', result: 'splash_potion', description: 'Makes splash potion' },
-  { ingredient: 'fermented_spider_eye', result: 'inverted_effect', description: 'Inverts potion effect' },
+  {
+    ingredient: 'fermented_spider_eye',
+    result: 'inverted_effect',
+    description: 'Inverts potion effect',
+  },
 ];

@@ -192,7 +192,7 @@ export interface SkillPerkContext {
 }
 
 // Forward declaration to avoid circular dependency types. Implemented in skillTree.ts
-// eslint-disable-next-line @typescript-eslint/no-use-before-define
+
 export interface SkillTreeSystemApi {
   getBaseActionStepIntervalMs(): number;
   getBaseTickDelay(): number;

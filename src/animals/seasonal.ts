@@ -306,7 +306,7 @@ export function getSeasonalVariant(
 }
 
 export function applySeasonalColor(
-  baseColor: number,
+  _baseColor: number,
   variant: SeasonalVariant,
 ): { hueShift: number; saturationShift: number; lightnessShift: number } {
   return variant.colorMod;

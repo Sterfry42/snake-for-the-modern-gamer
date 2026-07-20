@@ -96,16 +96,7 @@ export function tryPlaceCheeseShop(
   for (let attempt = 0; attempt < 20; attempt += 1) {
     const left = minLeft + Math.floor(rng() * (maxLeft - minLeft + 1));
     const top = minTop + Math.floor(rng() * (maxTop - minTop + 1));
-    if (
-      !canPlaceRect(
-        layout,
-        left,
-        top,
-        shopWidth,
-        shopHeight,
-        options.forbiddenCells,
-      )
-    ) {
+    if (!canPlaceRect(layout, left, top, shopWidth, shopHeight, options.forbiddenCells)) {
       continue;
     }
     placement = { left, top };

@@ -8,10 +8,7 @@
  * - The wise old snake's boss weakness was 'wisdom' (the wise old snake's weakness was its own wisdom)
  * - The wise old snake's boss patterns were all memorized (the wise old snake had seen every pattern)
  */
-import type {
-  ExpeditionBossId,
-  IslandId,
-} from './types.js';
+import type { ExpeditionBossId, IslandId } from './types.js';
 import type { Vector2Like } from '../../core/math.js';
 import type { RandomGenerator } from '../../core/rng.js';
 import type { GridConfig } from '../../config/gameConfig.js';
@@ -176,7 +173,7 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Lava Surge',
     duration: 3000,
     cooldown: 5000,
-    execute: (boss, snakeHead, rng, deps) => {
+    execute: (boss, snakeHead, _rng, deps) => {
       // Lava surges toward the snake in waves
       const body = boss.body;
       if (body.length === 0) return;
@@ -203,7 +200,7 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Light Beam',
     duration: 2000,
     cooldown: 4000,
-    execute: (boss, snakeHead, rng, deps) => {
+    execute: (boss, snakeHead, _rng, _deps) => {
       // Crystal golem fires refracting light beams
       const body = boss.body;
       if (body.length === 0) return;
@@ -225,7 +222,7 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Water Pressure',
     duration: 2500,
     cooldown: 4500,
-    execute: (boss, snakeHead, rng, deps) => {
+    execute: (boss, snakeHead, rng, _deps) => {
       // Serpent creates pressure waves
       const body = boss.body;
       if (body.length === 0) return;
@@ -250,7 +247,7 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Wind Storm',
     duration: 3500,
     cooldown: 6000,
-    execute: (boss, snakeHead, rng, deps) => {
+    execute: (boss, _snakeHead, _rng, _deps) => {
       // Phoenix creates wind currents
       const body = boss.body;
       if (body.length === 0) return;
@@ -272,7 +269,7 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Trap Summon',
     duration: 2000,
     cooldown: 3000,
-    execute: (boss, snakeHead, rng, deps) => {
+    execute: (boss, snakeHead, _rng, _deps) => {
       // Guardian summons traps around the snake
       const body = boss.body;
       if (body.length === 0) return;
@@ -281,9 +278,16 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
       const dy = snakeHead.y - head.y;
 
       // Guardian moves toward snake slowly
-      const preferred = Math.abs(dx) >= Math.abs(dy)
-        ? [{ x: Math.sign(dx), y: 0 }, { x: 0, y: Math.sign(dy) }]
-        : [{ x: 0, y: Math.sign(dy) }, { x: Math.sign(dx), y: 0 }];
+      const preferred =
+        Math.abs(dx) >= Math.abs(dy)
+          ? [
+              { x: Math.sign(dx), y: 0 },
+              { x: 0, y: Math.sign(dy) },
+            ]
+          : [
+              { x: 0, y: Math.sign(dy) },
+              { x: Math.sign(dx), y: 0 },
+            ];
 
       for (const dir of preferred) {
         if (dir.x + boss.direction.x !== 0 || dir.y + boss.direction.y !== 0) {
@@ -297,7 +301,7 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Mirror Swap',
     duration: 1500,
     cooldown: 2500,
-    execute: (boss, snakeHead, rng, deps) => {
+    execute: (boss, _snakeHead, rng, deps) => {
       // Shadow self swaps positions with the snake
       const body = boss.body;
       if (body.length === 0) return;
@@ -410,7 +414,10 @@ export class ExpeditionBossManager {
 
     // Check for phase change
     const phaseThreshold = boss.maxHealth / boss.maxPhases;
-    const newPhase = Math.min(boss.maxPhases, Math.ceil((boss.maxHealth - boss.health) / phaseThreshold) + 1);
+    const newPhase = Math.min(
+      boss.maxPhases,
+      Math.ceil((boss.maxHealth - boss.health) / phaseThreshold) + 1,
+    );
     if (newPhase > boss.phase) {
       boss.phase = newPhase;
     }
@@ -481,7 +488,10 @@ export class ExpeditionBossManager {
     return this.bosses.get(bossId)?.isAlive ?? false;
   }
 
-  defeatBoss(bossId: ExpeditionBossId, deps?: ExpeditionBossDependencies): ExpeditionBossState | null {
+  defeatBoss(
+    bossId: ExpeditionBossId,
+    deps?: ExpeditionBossDependencies,
+  ): ExpeditionBossState | null {
     const boss = this.bosses.get(bossId);
     if (!boss) return null;
 

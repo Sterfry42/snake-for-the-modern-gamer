@@ -12,15 +12,14 @@
  * - The wise old snake's wildlife journal was the ultimate collection
  */
 import type { AnimalType } from '../types.js';
-import type {
-  PhotoEntry,
-  PhotoRarity,
-  CameraState,
-} from '../ecosystem/types.js';
+import type { PhotoEntry, PhotoRarity, CameraState } from '../ecosystem/types.js';
 
 // ── Animal Photo Rarity Tables ────────────────────────────────────
 
-const PHOTO_RARITY_TABLES: Record<AnimalType, Array<{ rarity: PhotoRarity; weight: number; score: number }>> = {
+const PHOTO_RARITY_TABLES: Record<
+  AnimalType,
+  Array<{ rarity: PhotoRarity; weight: number; score: number }>
+> = {
   rabbit: [
     { rarity: 'common', weight: 50, score: 10 },
     { rarity: 'uncommon', weight: 30, score: 25 },
@@ -358,9 +357,7 @@ export class CameraSystem {
 
     // Check for special conditions
     const matchingCondition = SPECIAL_CONDITIONS.find(
-      (c) =>
-        c.animalType === animalType &&
-        (!specialCondition || c.condition === specialCondition),
+      (c) => c.animalType === animalType && (!specialCondition || c.condition === specialCondition),
     );
 
     let score = rarityTable.find((r) => r.rarity === rarity)?.score ?? 10;
@@ -450,7 +447,9 @@ export class CameraSystem {
     return Math.random();
   }
 
-  private rollRarity(rarityTable: typeof PHOTO_RARITY_TABLES[keyof typeof PHOTO_RARITY_TABLES]): PhotoRarity {
+  private rollRarity(
+    rarityTable: (typeof PHOTO_RARITY_TABLES)[keyof typeof PHOTO_RARITY_TABLES],
+  ): PhotoRarity {
     const totalWeight = rarityTable.reduce((sum, r) => sum + r.weight, 0);
     let roll = this.rng() * totalWeight;
 

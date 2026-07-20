@@ -181,9 +181,7 @@ export class SettlementManager {
 
   /** Get all settlement types compatible with a biome tag */
   static getSettlementsForBiome(biomeTag: string): SettlementDefinition[] {
-    return SETTLEMENT_DEFINITIONS.filter((def) =>
-      def.biomeTags.includes(biomeTag),
-    );
+    return SETTLEMENT_DEFINITIONS.filter((def) => def.biomeTags.includes(biomeTag));
   }
 
   /** Check if an animal type can inhabit a settlement type */
@@ -325,12 +323,8 @@ export class SettlementManager {
     if (!good) return { success: false };
 
     // Apply special deal discount
-    const deal = settlement.market.specialDeals.find(
-      (d) => d.goodId === goodId,
-    );
-    const finalPrice = deal
-      ? Math.round(good.price * (1 - deal.discount))
-      : good.price;
+    const deal = settlement.market.specialDeals.find((d) => d.goodId === goodId);
+    const finalPrice = deal ? Math.round(good.price * (1 - deal.discount)) : good.price;
 
     if (price < finalPrice) {
       return { success: false };
@@ -365,7 +359,7 @@ export class SettlementManager {
   }
 
   /** Update settlement population dynamics */
-  updateSettlements(animalCounts: ReadonlyMap<AnimalType, number>): void {
+  updateSettlements(_animalCounts: ReadonlyMap<AnimalType, number>): void {
     for (const settlement of this.settlements.values()) {
       // Natural population changes
       for (const [type, count] of settlement.population) {
@@ -388,10 +382,7 @@ export class SettlementManager {
   }
 
   /** Get settlement diplomacy status between two types */
-  getDiplomacyStatus(
-    settlementA: string,
-    settlementB: string,
-  ): 'allied' | 'neutral' | 'hostile' {
+  getDiplomacyStatus(settlementA: string, settlementB: string): 'allied' | 'neutral' | 'hostile' {
     const a = this.settlements.get(settlementA);
     const b = this.settlements.get(settlementB);
     if (!a || !b) return 'neutral';
@@ -428,7 +419,8 @@ export class SettlementManager {
     const usedNames = new Set<string>();
 
     for (const goodName of def.goods) {
-      const rarity: MarketGood['rarity'] = this.rng() < 0.2 ? 'rare' : this.rng() < 0.5 ? 'uncommon' : 'common';
+      const rarity: MarketGood['rarity'] =
+        this.rng() < 0.2 ? 'rare' : this.rng() < 0.5 ? 'uncommon' : 'common';
       const price = rarity === 'rare' ? 20 : rarity === 'uncommon' ? 10 : 5;
 
       goods.push({
@@ -465,10 +457,7 @@ export class SettlementManager {
     return `${def.name} ${prefix} ${suffix}`;
   }
 
-  private calculatePopulationChange(
-    animalType: AnimalType,
-    currentCount: number,
-  ): number {
+  private calculatePopulationChange(_animalType: AnimalType, currentCount: number): number {
     // Simple population dynamics
     if (currentCount <= 0) return 0;
 

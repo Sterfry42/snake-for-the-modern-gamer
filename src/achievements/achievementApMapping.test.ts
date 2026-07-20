@@ -39,9 +39,7 @@ describe('achievement AP mapping', () => {
       912001089,
     );
     // Archaeology achievements added +12 to the sequence
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'archaeology.firstDig')).toBe(
-      912001075,
-    );
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'archaeology.firstDig')).toBe(912001075);
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'archaeology.firstFragment')).toBe(
       912001076,
     );

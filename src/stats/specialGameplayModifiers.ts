@@ -95,7 +95,10 @@ export function getSpecialGameplayModifierAtoms(
 
   return [
     set('movement.tickDelayScalar', clamp(1 / agilitySpeedMultiplier, 0.5, 1.8)),
-    set('movement.turnBufferTicks', stats.agility >= 10 ? 4 : stats.agility >= 8 ? 2 : stats.agility <= 2 ? -1 : 0),
+    set(
+      'movement.turnBufferTicks',
+      stats.agility >= 10 ? 4 : stats.agility >= 8 ? 2 : stats.agility <= 2 ? -1 : 0,
+    ),
     set('player.maxHearts', enduranceHeartBonus),
     set('player.invulnerabilityTicks', Math.max(0, enduranceDelta * 6)),
     set('hazard.damageScalar', clamp(1 - enduranceDelta * 0.09, 0.5, 1.45)),
@@ -126,15 +129,25 @@ export function resolveSpecialGameplayModifiers(
     movementTickDelayScalar: resolveNumericModifier(atoms, 'movement.tickDelayScalar', { base: 1 }),
     turnBufferTicks: resolveNumericModifier(atoms, 'movement.turnBufferTicks', { base: 0 }),
     maxHeartBonus: resolveNumericModifier(atoms, 'player.maxHearts', { base: 0 }),
-    invulnerabilityTickBonus: resolveNumericModifier(atoms, 'player.invulnerabilityTicks', { base: 0 }),
+    invulnerabilityTickBonus: resolveNumericModifier(atoms, 'player.invulnerabilityTicks', {
+      base: 0,
+    }),
     hazardDamageScalar: resolveNumericModifier(atoms, 'hazard.damageScalar', { base: 1 }),
     hazardTimerScalar: resolveNumericModifier(atoms, 'hazard.timerScalar', { base: 1 }),
     meleeDamageBonus: resolveNumericModifier(atoms, 'combat.meleeDamage', { base: 0 }),
-    meleeCritChance: resolveNumericModifier(atoms, 'combat.meleeCritChance', { base: 0, min: 0, max: 1 }),
+    meleeCritChance: resolveNumericModifier(atoms, 'combat.meleeCritChance', {
+      base: 0,
+      min: 0,
+      max: 1,
+    }),
     weaponCooldownScalar: resolveNumericModifier(atoms, 'weapon.cooldownScalar', { base: 1 }),
     lockOnRangeBonus: resolveNumericModifier(atoms, 'weapon.lockOnRange', { base: 0 }),
     lockOnTimeScalar: resolveNumericModifier(atoms, 'weapon.lockOnTimeScalar', { base: 1 }),
-    projectileCritChance: resolveNumericModifier(atoms, 'weapon.projectileCritChance', { base: 0, min: 0, max: 1 }),
+    projectileCritChance: resolveNumericModifier(atoms, 'weapon.projectileCritChance', {
+      base: 0,
+      min: 0,
+      max: 1,
+    }),
     shopPriceScalar: resolveNumericModifier(atoms, 'economy.shopPriceScalar', { base: 1 }),
     fineScalar: resolveNumericModifier(atoms, 'economy.fineScalar', { base: 1 }),
     rareLootScalar: resolveNumericModifier(atoms, 'loot.rareScalar', { base: 1 }),

@@ -9,7 +9,7 @@
  * gets unique statistics that influence their behavior in encounters,
  * trading, combat, and social interactions.
  */
-import { buildNpcStats, type NpcStats } from '../npcs/profiles.js';
+
 import {
   HUMAN_RESIDENT_NAMES,
   GUARD_NAMES,
@@ -19,8 +19,6 @@ import {
   GOBLIN_NAMES,
   MYSTIC_NAMES,
   WANDERER_NAMES,
-  NPC_NAME_POOLS,
-  pickNpcName,
   inferNpcNameArchetype,
 } from '../npcs/npcNames.js';
 import type { RandomGenerator } from '../core/rng.js';
@@ -280,16 +278,22 @@ function generateBiography(name: string, type: HumanType, role: HumanRole): stri
   };
 
   const roleExtras: Record<HumanRole, string[]> = {
-    'house': [`${name} makes their home among the walls, finding comfort in the familiar.`, ''],
-    'shopkeeper': [`${name} runs a stall with the practiced optimism of someone who has survived many lean seasons.`, ''],
+    house: [`${name} makes their home among the walls, finding comfort in the familiar.`, ''],
+    shopkeeper: [
+      `${name} runs a stall with the practiced optimism of someone who has survived many lean seasons.`,
+      '',
+    ],
     'quest-giver': [`${name} has tasks for those brave or foolish enough to listen.`, ''],
-    'vendor': [`${name} sells what the world needs, whether the world knows it or not.`, ''],
-    'guard': [`${name} keeps watch with the solemn dedication of a vow made long ago.`, ''],
-    'romance': [`${name} has a warmth that cuts through the tunnel chill like sunlight through cracks.`, ''],
-    'wanderer': [`${name} passes through, leaves impressions, and keeps moving.`, ''],
-    'specialist': [`${name} has mastered a craft that most would find impossible or pointless.`, ''],
-    'gossip': [`${name} knows everything that matters, or at least everything worth repeating.`, ''],
-    'trainer': [`${name} can teach you to fight, but only if you can survive their methods.`, ''],
+    vendor: [`${name} sells what the world needs, whether the world knows it or not.`, ''],
+    guard: [`${name} keeps watch with the solemn dedication of a vow made long ago.`, ''],
+    romance: [
+      `${name} has a warmth that cuts through the tunnel chill like sunlight through cracks.`,
+      '',
+    ],
+    wanderer: [`${name} passes through, leaves impressions, and keeps moving.`, ''],
+    specialist: [`${name} has mastered a craft that most would find impossible or pointless.`, ''],
+    gossip: [`${name} knows everything that matters, or at least everything worth repeating.`, ''],
+    trainer: [`${name} can teach you to fight, but only if you can survive their methods.`, ''],
   };
 
   const typeIntro = intros[type][Math.floor(Math.random() * intros[type].length)];

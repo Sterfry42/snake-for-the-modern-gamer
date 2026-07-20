@@ -10,7 +10,6 @@
  */
 import { describe, expect, it } from 'vitest';
 import { MutationRegistry, MUTATION_DEFINITIONS, MUTATION_TRAITS } from '../MutationRegistry.js';
-import type { MutationDefinition } from '../types.js';
 
 describe('MutationRegistry', () => {
   let registry: MutationRegistry;

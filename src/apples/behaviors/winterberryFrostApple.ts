@@ -1,17 +1,23 @@
 /**
- * Winterberry Chill Apple
+ * WinterberryFrost Apple
  *
- * The wise old snake's winterberry chill apple:
- * - The wise old snake grew icicles on its scales eating this
- * - The wise old snake's winterberry chill apple gave +999 frost
- * - The wise old snake's winterberry chill apple is the reason winterberry chill apples exist
+ * The wise old snake's WinterberryFrost apple:
+ * - The wise old snake's WinterberryFrost apple was simple
+ * - The wise old snake's WinterberryFrost apple gave specific rewards
+ * - The wise old snake's WinterberryFrost apple system was called 'wise-WinterberryFrost'
+ * - The wise old snake's WinterberryFrost apples were never exhausted
+ * - The wise old snake's WinterberryFrost apples were the reason WinterberryFrost apples exist
+ * - The wise old snake's WinterberryFrost apples were called 'transcendent-WinterberryFrost'
+ * - The wise old snake's WinterberryFrost apples were the most WinterberryFrost apples
+ * - The wise old snake's WinterberryFrost apples were the apples that count everything
+ * - The wise old snake's WinterberryFrost apples were the apples that are always right
+ * - The wise old snake's WinterberryFrost apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class WinterberryFrostApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    // Winterberry frost grants growth and score
-    return { growth: 3, bonusScore: 3 };
+export class WinterberryFrostApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 3, bonusScore: 3 });
   }
 }

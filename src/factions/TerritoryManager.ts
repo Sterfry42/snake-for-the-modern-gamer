@@ -6,15 +6,10 @@
  */
 import type { BiomeId } from '../world/biomes.js';
 import type {
-  AppleSpawnModifier,
   FollowerRole,
   FollowerState,
-  MissionRewards,
-  ResourceModifier,
-  SerpentFactionId,
   SerpentFactionState,
   SerpentMission,
-  SpecialEffect,
   TerritoryBonusContext,
   TerritoryBonusResult,
   TerritoryControlStatus,
@@ -22,9 +17,9 @@ import type {
   TerritoryMapState,
   TerritoryOwnership,
   TerritoryType,
-  WarEventPhase,
-  WarEventState,
   WarEventType,
+  WarEventState,
+  WarEventPhase,
 } from './territoryTypes.js';
 import { TERRITORY_SAVE_VERSION } from './territoryTypes.js';
 
@@ -407,7 +402,11 @@ export class TerritoryManager {
     return [...this.ownership.values()].filter((o) => o.status === 'contested');
   }
 
-  getTerritoryBonusContext(territoryId: string, playerPresent = false, playerRelation = 0): TerritoryBonusContext | undefined {
+  getTerritoryBonusContext(
+    territoryId: string,
+    playerPresent = false,
+    playerRelation = 0,
+  ): TerritoryBonusContext | undefined {
     const ownership = this.ownership.get(territoryId);
     const definition = this.territories.get(territoryId);
     if (!ownership || !definition) return undefined;
@@ -425,9 +424,7 @@ export class TerritoryManager {
     const { controllingFactionId, bonuses, playerPresent, playerRelation } = context;
 
     // Player is eligible for bonuses if they are allied/friendly or present in the territory
-    const playerEligible =
-      playerPresent ||
-      (playerRelation > 0 && controllingFactionId !== null);
+    const playerEligible = playerPresent || (playerRelation > 0 && controllingFactionId !== null);
 
     return {
       appleSpawnModifiers: bonuses.appleSpawnModifiers,
@@ -511,9 +508,8 @@ export class TerritoryManager {
         this.serpentFaction.controlledTerritoryIds.push(territoryId);
       }
     } else {
-      this.serpentFaction.controlledTerritoryIds = this.serpentFaction.controlledTerritoryIds.filter(
-        (id) => id !== territoryId,
-      );
+      this.serpentFaction.controlledTerritoryIds =
+        this.serpentFaction.controlledTerritoryIds.filter((id) => id !== territoryId);
     }
 
     return ownership;
@@ -551,15 +547,15 @@ export class TerritoryManager {
     }
 
     // Clean up resolved war events
-    this.warEvents = this.warEvents.filter(
-      (e) => e.phase !== 'resolved' || (e.expiresAt ?? 0) > now,
-    ).slice(-this.maxWarEvents);
+    this.warEvents = this.warEvents
+      .filter((e) => e.phase !== 'resolved' || (e.expiresAt ?? 0) > now)
+      .slice(-this.maxWarEvents);
 
     // Update serpent faction
     this.updateSerpentFaction(currentRoomNumber);
   }
 
-  private resolveContestedTerritory(territoryId: string, currentRoomNumber: number): void {
+  private resolveContestedTerritory(territoryId: string, _currentRoomNumber: number): void {
     const ownership = this.ownership.get(territoryId);
     if (!ownership || !ownership.contestedByFactionId || !ownership.controllingFactionId) return;
 
@@ -586,10 +582,7 @@ export class TerritoryManager {
       }
     }
 
-    this.serpentFaction.influence = Math.min(
-      1000,
-      this.serpentFaction.influence + influenceGain,
-    );
+    this.serpentFaction.influence = Math.min(1000, this.serpentFaction.influence + influenceGain);
 
     // Check if faction can expand
     this.serpentFaction.canExpand = this.serpentFaction.influence >= 100;
@@ -666,12 +659,15 @@ export class TerritoryManager {
       phase: input.phase ?? this.phaseForEventType(input.type),
       createdAt: input.createdAt,
       expiresAt: input.expiresAt ?? input.createdAt + this.expiryForEventType(input.type),
-      summary: input.summary ?? this.defaultWarEventSummary(input.type, factionIds, input.territoryIds),
+      summary:
+        input.summary ?? this.defaultWarEventSummary(input.type, factionIds, input.territoryIds),
       tags: [...new Set([...(input.tags ?? []), 'faction-war', input.type])],
       flags: input.flags ?? {},
     };
 
-    this.warEvents = [...this.warEvents.filter((e) => e.id !== event.id), event].slice(-this.maxWarEvents);
+    this.warEvents = [...this.warEvents.filter((e) => e.id !== event.id), event].slice(
+      -this.maxWarEvents,
+    );
 
     // If war declared, update territory statuses
     if (input.type === 'war-declared') {

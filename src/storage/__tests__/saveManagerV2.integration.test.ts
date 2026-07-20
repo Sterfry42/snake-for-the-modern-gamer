@@ -46,7 +46,7 @@ describe('SaveManagerV2 Integration', () => {
 
   beforeEach(() => {
     storage = new Map();
-    manager = new SaveManagerV2((prefix) => createMockStore<GameSaveData>(storage));
+    manager = new SaveManagerV2((_prefix) => createMockStore<GameSaveData>(storage));
   });
 
   it('saves and loads with key prefix isolation', async () => {
@@ -110,8 +110,36 @@ describe('SaveManagerV2 Integration', () => {
     const seed1 = 'alpha-world';
     const seed2 = 'beta-world';
 
-    await manager.save('slot-alpha', makeSaveData({ score: 10, worldGeneration: { seed: seed1, worldSalt: 1, biomeSalt: 2, riverSalt: 3, barrierSalt: 4, structureSalt: 5, townSalt: 6 } }));
-    await manager.save('slot-beta', makeSaveData({ score: 20, worldGeneration: { seed: seed2, worldSalt: 7, biomeSalt: 8, riverSalt: 9, barrierSalt: 10, structureSalt: 11, townSalt: 12 } }));
+    await manager.save(
+      'slot-alpha',
+      makeSaveData({
+        score: 10,
+        worldGeneration: {
+          seed: seed1,
+          worldSalt: 1,
+          biomeSalt: 2,
+          riverSalt: 3,
+          barrierSalt: 4,
+          structureSalt: 5,
+          townSalt: 6,
+        },
+      }),
+    );
+    await manager.save(
+      'slot-beta',
+      makeSaveData({
+        score: 20,
+        worldGeneration: {
+          seed: seed2,
+          worldSalt: 7,
+          biomeSalt: 8,
+          riverSalt: 9,
+          barrierSalt: 10,
+          structureSalt: 11,
+          townSalt: 12,
+        },
+      }),
+    );
 
     const alpha = await manager.load('slot-alpha');
     const beta = await manager.load('slot-beta');
@@ -124,7 +152,7 @@ describe('SaveManagerV2 Integration', () => {
 
   it('storage factory is used when provided', async () => {
     const testStorage = new Map<string, GameSaveData>();
-    const testManager = new SaveManagerV2((prefix) => createMockStore<GameSaveData>(testStorage));
+    const testManager = new SaveManagerV2((_prefix) => createMockStore<GameSaveData>(testStorage));
 
     await testManager.save('test-slot', makeSaveData({ score: 777 }));
 

@@ -14,10 +14,7 @@ import type { BiomeDefinition, BiomeId } from './biomes.js';
 import { getAllBiomeDefinitions, getBiomeDefinition } from './biomes.js';
 import type { Item } from '../inventory/item.js';
 import { SeededBiomeMap } from './generation/biomeMap.js';
-import {
-  createWorldGenerationIdentity,
-  type WorldGenerationIdentity,
-} from './generation/worldGenerationIdentity.js';
+import { type WorldGenerationIdentity } from './generation/worldGenerationIdentity.js';
 
 export const LOCATOR_ITEM_PREFIX = 'locator-';
 
@@ -149,9 +146,7 @@ function adjacentRegionIdsAnyFloor(rx: number, ry: number, z: number): [number, 
  * biome lookups. This avoids triggering full room generation just to read the
  * biome id.
  */
-export function createSeededBiomeResolver(
-  identity?: WorldGenerationIdentity,
-): BiomeMapResolver {
+export function createSeededBiomeResolver(identity?: WorldGenerationIdentity): BiomeMapResolver {
   const biomeMap = new SeededBiomeMap(identity);
   return (roomId: string) => biomeMap.getBiomeForRoomId(roomId);
 }
@@ -216,7 +211,9 @@ export function findNearestBiomeByRegion(
       // Compute Manhattan distance from origin room to center of matching region
       const centerCoord = parseLocatorRoomId(centerRoomId);
       const distance =
-        Math.abs(centerCoord[0] - ox) + Math.abs(centerCoord[1] - oy) + Math.abs(centerCoord[2] - oz);
+        Math.abs(centerCoord[0] - ox) +
+        Math.abs(centerCoord[1] - oy) +
+        Math.abs(centerCoord[2] - oz);
       return {
         roomId: centerRoomId,
         distance,

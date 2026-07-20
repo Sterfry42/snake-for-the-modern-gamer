@@ -321,7 +321,13 @@ export interface SerpentMission {
 }
 
 export interface MissionObjective {
-  type: 'defeat-enemies' | 'capture-territory' | 'escort-unit' | 'retrieve-item' | 'gather-resources' | 'spy-on-enemy';
+  type:
+    | 'defeat-enemies'
+    | 'capture-territory'
+    | 'escort-unit'
+    | 'retrieve-item'
+    | 'gather-resources'
+    | 'spy-on-enemy';
   target: string;
   progress: number;
   required: number;

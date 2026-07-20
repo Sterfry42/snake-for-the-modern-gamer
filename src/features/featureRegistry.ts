@@ -44,7 +44,7 @@ export class FeatureRegistry {
     for (const feature of this.features.values()) {
       const handler = feature[hook];
       if (typeof handler === 'function') {
-        handler.call(feature, context, ...args);
+        (handler as Function).apply(feature, [context, ...args]);
       }
     }
   }

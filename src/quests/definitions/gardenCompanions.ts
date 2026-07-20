@@ -15,7 +15,11 @@ import type { QuestRuntime } from '../quest.js';
  */
 class GardenCompanionsQuest extends Quest {
   constructor() {
-    super('garden-companions', 'Friends in the Garden', 'Achieve 3 companion planting bonuses in your garden.');
+    super(
+      'garden-companions',
+      'Friends in the Garden',
+      'Achieve 3 companion planting bonuses in your garden.',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

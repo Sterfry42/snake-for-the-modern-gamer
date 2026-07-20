@@ -66,9 +66,6 @@ const SNAKE_CANIES_CHANCE = 0.008;
 const VILLAGE_CHANCE = 0.09;
 const GOBLIN_CAMP_CHANCE = 0.06;
 const QUEST_HOUSE_CHANCE = 0.12;
-const SHRINE_CHANCE = 0.08;
-const RAMEN_STAND_CHANCE = 0.04;
-const TENGU_CAMP_CHANCE = 0.04;
 const SHRINE_JADE_PEAK_CHANCE = 0.12;
 const RAMEN_STAND_JADE_PEAK_CHANCE = 0.08;
 const TENGU_CAMP_JADE_PEAK_CHANCE = 0.1;
@@ -721,7 +718,9 @@ export class StructureOperations {
           role: 'guard',
         });
       }
-      town.residentPresences = presences;
+      if (town) {
+        town.residentPresences = presences;
+      }
       context.town = town;
       rows = layout.map((row) => row.join(''));
     }

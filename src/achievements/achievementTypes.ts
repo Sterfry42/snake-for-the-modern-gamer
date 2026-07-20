@@ -183,7 +183,6 @@ export type AchievementEvent =
   | { type: 'dream:nightmareSurvived'; durationMs: number }
   | { type: 'dream:shopPurchase'; offerId: string; price: number };
 
-
 export interface AchievementSnapshot {
   score: number;
   length: number;
@@ -221,7 +220,12 @@ export interface AchievementState {
   progress: Record<AchievementId, AchievementProgressState>;
   discoveredBiomes: string[];
   apSubmitted: Record<AchievementId, boolean>;
-  run: { consumedItemIds: string[]; waterTilesSwum: number; mutationCount: number; traitCount: number };
+  run: {
+    consumedItemIds: string[];
+    waterTilesSwum: number;
+    mutationCount: number;
+    traitCount: number;
+  };
 }
 export type AchievementStatus = 'completed' | 'available' | 'locked';
 export interface AchievementUnlockResult {

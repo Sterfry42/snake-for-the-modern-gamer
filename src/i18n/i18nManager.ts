@@ -126,7 +126,9 @@ class I18nManager {
     return key;
   }
 
-  getHumanEncounter(encounterId: string): import('./types.js').NpcTranslations[LanguageId] | undefined {
+  getHumanEncounter(
+    encounterId: string,
+  ): import('./types.js').NpcTranslations[LanguageId] | undefined {
     return this.translations[this.currentLanguage]?.npcEncounters?.[encounterId];
   }
 

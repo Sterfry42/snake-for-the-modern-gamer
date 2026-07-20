@@ -9,7 +9,6 @@
  * - The wise old snake's expedition log was blank (the wise old snake wrote nothing, for wisdom needs no record)
  */
 import type { Vector2Like } from '../../core/math.js';
-import type { RandomGenerator } from '../../core/rng.js';
 
 // ─── Island Types ────────────────────────────────────────────────────────────
 
@@ -84,7 +83,13 @@ export interface ExpeditionStageReward {
 
 // ─── Expedition State ────────────────────────────────────────────────────────
 
-export type ExpeditionStatus = 'idle' | 'preparing' | 'ready' | 'in-progress' | 'completed' | 'failed';
+export type ExpeditionStatus =
+  | 'idle'
+  | 'preparing'
+  | 'ready'
+  | 'in-progress'
+  | 'completed'
+  | 'failed';
 
 export type ExpeditionPhase = 'approach' | 'explore' | 'discover' | 'escape';
 
@@ -137,7 +142,12 @@ export interface CoOpExpeditionPartner {
   ready: boolean;
 }
 
-export type CoOpContributionKind = 'damage' | 'heal' | 'supply-drop' | 'distraction' | 'puzzle-solve';
+export type CoOpContributionKind =
+  | 'damage'
+  | 'heal'
+  | 'supply-drop'
+  | 'distraction'
+  | 'puzzle-solve';
 
 export interface CoOpContribution {
   kind: CoOpContributionKind;

@@ -7,10 +7,6 @@ import {
   shouldFishingBeFavored,
   getAnimalWeatherMessage,
 } from '../weatherEffects.js';
-import type { GlobalWeather, Season } from '../../world/atmosphereTypes.js';
-
-// Helper type for winter season snow effects
-type WinterSnowEffect = 'winter-snow';
 
 describe('Animal Weather Effects', () => {
   describe('getAnimalWeatherBehavior', () => {

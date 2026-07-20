@@ -15,7 +15,11 @@ import type { QuestRuntime } from '../quest.js';
 
 class AlchemyBasicsQuest extends Quest {
   constructor() {
-    super('alchemy-basics', 'First Steps in Alchemy', 'Craft your first potion at an alchemy station.');
+    super(
+      'alchemy-basics',
+      'First Steps in Alchemy',
+      'Craft your first potion at an alchemy station.',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

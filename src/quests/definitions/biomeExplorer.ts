@@ -1,5 +1,5 @@
 import { Quest } from '../quest.js';
-import type { QuestRuntime, CatchJournalAccess } from '../quest.js';
+import type { QuestRuntime } from '../quest.js';
 
 /**
  * Quest: catch fish in 5 different biomes.

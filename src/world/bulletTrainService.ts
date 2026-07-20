@@ -8,7 +8,7 @@ import type {
 import type { RoomSnapshot } from './types.js';
 
 const BULLET_TRAIN_ENTRANCE_TILE = '@';
-const BULLET_TRAIN_STATION_CHANCE = 0.60;
+const BULLET_TRAIN_STATION_CHANCE = 0.6;
 const MIN_DESTINATIONS = 2;
 const MAX_DESTINATIONS = 4;
 
@@ -43,7 +43,10 @@ const JADE_PEAK_DISPLAY_NAMES: string[] = [
 ];
 
 /** Find contiguous blocks of floor tiles in a room layout. */
-function findContiguousFloorBlocks(layout: string[][], minSize: number): Array<{ tiles: Array<{ x: number; y: number }>; count: number }> {
+function findContiguousFloorBlocks(
+  layout: string[][],
+  minSize: number,
+): Array<{ tiles: Array<{ x: number; y: number }>; count: number }> {
   const visited = new Set<string>();
   const blocks: Array<{ tiles: Array<{ x: number; y: number }>; count: number }> = [];
 
@@ -58,8 +61,10 @@ function findContiguousFloorBlocks(layout: string[][], minSize: number): Array<{
       tiles.push({ x, y });
 
       const neighbors = [
-        { x: x + 1, y }, { x: x - 1, y },
-        { x, y: y + 1 }, { x, y: y - 1 },
+        { x: x + 1, y },
+        { x: x - 1, y },
+        { x, y: y + 1 },
+        { x, y: y - 1 },
       ];
 
       for (const n of neighbors) {
@@ -116,7 +121,11 @@ export function generateStationId(roomId: string): string {
 }
 
 /** Generate decorations for a station entrance deterministically. */
-export function generateDecorations(entranceX: number, entranceY: number, rng: RandomGenerator): BulletTrainDecoration[] {
+export function generateDecorations(
+  entranceX: number,
+  entranceY: number,
+  rng: RandomGenerator,
+): BulletTrainDecoration[] {
   const decorations: BulletTrainDecoration[] = [];
 
   // Lanterns flanking the entrance
@@ -259,8 +268,8 @@ export function createBulletTrainStation(
   const block = blocks[0];
 
   // Find edge tiles within the block
-  const edgeTiles = findEdgeTiles(layout, 3).filter(
-    (t) => block.tiles.some((bt) => bt.x === t.x && bt.y === t.y),
+  const edgeTiles = findEdgeTiles(layout, 3).filter((t) =>
+    block.tiles.some((bt) => bt.x === t.x && bt.y === t.y),
   );
 
   if (edgeTiles.length === 0) return null;
@@ -305,7 +314,7 @@ export function generateTransitRooms(
 /** Build a weighted list of destination choices for the player to pick from. */
 export function buildDestinationChoices(
   destinations: BulletTrainDestination[],
-  rng: RandomGenerator,
+  _rng: RandomGenerator,
 ): BulletTrainDestinationChoice[] {
   return destinations.map((d) => ({
     roomId: d.roomId,

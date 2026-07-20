@@ -1,5 +1,4 @@
 import Phaser from 'phaser';
-import type { BulletTrainJourney } from './bulletTrainTypes.js';
 
 /** Callback invoked when the bullet train ride completes. */
 export interface BulletTrainArrivalData {
@@ -43,7 +42,14 @@ export interface BulletTrainRideConfig {
  */
 export function runBulletTrainRide(scene: Phaser.Scene, config: BulletTrainRideConfig): void {
   const { width, height } = scene.scale;
-  const { journey, arrivalFlavor, destinationRoomId, destinationExitX, destinationExitY, destinationCoordinates, onArrival } = config;
+  const {
+    arrivalFlavor,
+    destinationRoomId,
+    destinationExitX,
+    destinationExitY,
+    destinationCoordinates,
+    onArrival,
+  } = config;
 
   // Create overlay graphics for the train interior (high depth to cover everything)
   const overlayGraphics = scene.add.graphics().setDepth(500).setScrollFactor(0);
@@ -112,14 +118,15 @@ export function runBulletTrainRide(scene: Phaser.Scene, config: BulletTrainRideC
   // LED display with destination name and coordinates
   const destinationName = destinationRoomId.replace(/,/g, '.');
   const coordLine = destinationCoordinates ? `\n[${destinationCoordinates}]` : '';
-  const ledDisplayText = scene.add.text(width / 2, height * 0.86 + 14, `JADE PEAK EXPRESS → ${destinationName}${coordLine}`, {
-    fontFamily: 'monospace',
-    fontSize: '14px',
-    color: '#ff6b44',
-    fontStyle: 'bold',
-  })
+  const ledDisplayText = scene.add
+    .text(width / 2, height * 0.86 + 14, `JADE PEAK EXPRESS → ${destinationName}${coordLine}`, {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: '#ff6b44',
+      fontStyle: 'bold',
+    })
     .setOrigin(0.5)
-    .setDepth(600)
+    .setDepth(600);
 
   // Window scenery animation (mountains and cherry blossoms)
   let windowOffset = 0;
@@ -137,7 +144,7 @@ export function runBulletTrainRide(scene: Phaser.Scene, config: BulletTrainRideC
       sceneryGraphics.beginPath();
       sceneryGraphics.moveTo(width * 0.15, height * 0.6);
       for (let i = 0; i <= 10; i++) {
-        const mx = width * 0.15 + (width * 0.7) * (i / 10);
+        const mx = width * 0.15 + width * 0.7 * (i / 10);
         const my = height * 0.3 + Math.sin((i + windowOffset * 0.02) * 0.8) * 40;
         sceneryGraphics.lineTo(mx, my);
       }
@@ -149,7 +156,8 @@ export function runBulletTrainRide(scene: Phaser.Scene, config: BulletTrainRideC
       sceneryGraphics.fillStyle(0xffb3ba, 0.5);
       for (let i = 0; i < 12; i++) {
         const px = width * 0.2 + ((i * 67 + windowOffset * 0.5) % (width * 0.6));
-        const py = height * 0.15 + Math.sin((i * 31 + windowOffset * 0.03) * 1.3) * 30 + (i * 13) % 40;
+        const py =
+          height * 0.15 + Math.sin((i * 31 + windowOffset * 0.03) * 1.3) * 30 + ((i * 13) % 40);
         sceneryGraphics.fillCircle(px, py, 3);
       }
 
@@ -157,20 +165,21 @@ export function runBulletTrainRide(scene: Phaser.Scene, config: BulletTrainRideC
       sceneryGraphics.lineStyle(2, 0xffffff, 0.3);
       for (let i = 0; i < 8; i++) {
         const lx = width * 0.15 + ((i * 97 + windowOffset * 2) % (width * 0.7));
-        const ly = height * 0.15 + (i * 23) % (height * 0.4);
+        const ly = height * 0.15 + ((i * 23) % (height * 0.4));
         sceneryGraphics.lineBetween(lx, ly, lx - 30, ly);
       }
     },
   });
 
   // Show arrival flavor text at the end
-  const flavorText = scene.add.text(width / 2, height * 0.12, '', {
-    fontFamily: 'monospace',
-    fontSize: '16px',
-    color: '#ffffff',
-    align: 'center',
-    wordWrap: { width: width * 0.6 },
-  })
+  const flavorText = scene.add
+    .text(width / 2, height * 0.12, '', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#ffffff',
+      align: 'center',
+      wordWrap: { width: width * 0.6 },
+    })
     .setOrigin(0.5)
     .setAlpha(0)
     .setDepth(600);

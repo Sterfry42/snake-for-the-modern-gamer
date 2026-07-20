@@ -10,11 +10,7 @@
  */
 
 import type { AppleGenre } from './MusicalAppleMap.js';
-import {
-  GENRE_DEFINITIONS,
-  getGenreDefinition,
-  type GenreDefinition,
-} from './MusicalAppleMap.js';
+import { GENRE_DEFINITIONS, getGenreDefinition, type GenreDefinition } from './MusicalAppleMap.js';
 
 /** Genre detection results */
 export interface GenreDetectionResult {
@@ -58,7 +54,7 @@ export class GenreDetector {
   private currentGenre: AppleGenre | null = null;
   private lastDetectionTime = 0;
   private detectionCooldown = 5000; // 5 seconds between genre changes
-  private genreScores: Record<AppleGenre, number> = {
+  private _genreScores: Record<AppleGenre, number> = {
     calm: 0,
     energetic: 0,
     mysterious: 0,
@@ -209,7 +205,7 @@ export class GenreDetector {
     this.appleHistory = [];
     this.currentGenre = null;
     this.lastDetectionTime = 0;
-    this.genreScores = {
+    this._genreScores = {
       calm: 0,
       energetic: 0,
       mysterious: 0,

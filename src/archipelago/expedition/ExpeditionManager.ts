@@ -13,12 +13,10 @@ import type {
   CoOpExpeditionPartner,
   CoOpPartnerStatus,
   ExpeditionDiscovery,
-  ExpeditionEvent,
   ExpeditionEventCallbacks,
   ExpeditionLogEntry,
   ExpeditionProgress,
   ExpeditionStageCondition,
-  ExpeditionStatus,
   ExpeditionStore,
   IslandId,
 } from './types.js';
@@ -94,16 +92,14 @@ export class ExpeditionManager {
   private progresses: ExpeditionProgress[];
   private logEntries: ExpeditionLogEntry[];
   private store: ExpeditionStore;
-  private rng: RandomGenerator;
   private callbacks: ExpeditionEventCallbacks;
   private idCounter = 0;
 
   constructor(
-    rng: RandomGenerator,
+    _rng: RandomGenerator,
     callbacks: ExpeditionEventCallbacks = {},
     store?: ExpeditionStore,
   ) {
-    this.rng = rng;
     this.callbacks = callbacks;
     this.store = store ?? new BrowserExpeditionStore();
     this.progresses = this.store.loadExpeditions();
@@ -112,7 +108,7 @@ export class ExpeditionManager {
 
   // ─── Island Access ───────────────────────────────────────────────────────
 
-  getIsland(id: IslandId): typeof ISLAND_BY_ID[IslandId] | undefined {
+  getIsland(id: IslandId): (typeof ISLAND_BY_ID)[IslandId] | undefined {
     return ISLAND_BY_ID[id];
   }
 
@@ -150,9 +146,7 @@ export class ExpeditionManager {
   }
 
   getCompletedIslands(): IslandId[] {
-    return this.progresses
-      .filter((p) => p.status === 'completed')
-      .map((p) => p.islandId);
+    return this.progresses.filter((p) => p.status === 'completed').map((p) => p.islandId);
   }
 
   // ─── Expedition Lifecycle ────────────────────────────────────────────────
@@ -172,7 +166,10 @@ export class ExpeditionManager {
     return true;
   }
 
-  finishPreparing(islandId: IslandId, suppliesPacked: Array<{ slotIndex: number; appleTypeId: string; quantity: number }>): boolean {
+  finishPreparing(
+    islandId: IslandId,
+    suppliesPacked: Array<{ slotIndex: number; appleTypeId: string; quantity: number }>,
+  ): boolean {
     const progress = this.progresses.find((p) => p.islandId === islandId);
     if (!progress || progress.status !== 'preparing') return false;
 
@@ -323,7 +320,10 @@ export class ExpeditionManager {
 
   // ─── Discoveries ─────────────────────────────────────────────────────────
 
-  addDiscovery(islandId: IslandId, discovery: Omit<ExpeditionDiscovery, 'id' | 'discoveredAt'>): boolean {
+  addDiscovery(
+    islandId: IslandId,
+    discovery: Omit<ExpeditionDiscovery, 'id' | 'discoveredAt'>,
+  ): boolean {
     const progress = this.progresses.find((p) => p.islandId === islandId);
     if (!progress || progress.status !== 'in-progress') return false;
 
@@ -366,18 +366,16 @@ export class ExpeditionManager {
 
   // ─── Co-op ───────────────────────────────────────────────────────────────
 
-  setCoOpPartnerStatus(
-    slot: number,
-    playerName: string,
-    status: CoOpPartnerStatus,
-  ): void {
-    let partner = this.progresses.find((p) =>
-      (p as unknown as { coOpSlot: number })?.coOpSlot === slot,
-    ) as ExpeditionProgress & { coOpPartners: CoOpExpeditionPartner[] } | undefined;
+  setCoOpPartnerStatus(slot: number, playerName: string, status: CoOpPartnerStatus): void {
+    let partner = this.progresses.find(
+      (p) => (p as unknown as { coOpSlot: number })?.coOpSlot === slot,
+    ) as (ExpeditionProgress & { coOpPartners: CoOpExpeditionPartner[] }) | undefined;
 
     if (!partner) {
       // Find any in-progress expedition for this partner
-      partner = this.progresses.find((p) => p.status === 'in-progress') as ExpeditionProgress & { coOpPartners: CoOpExpeditionPartner[] } | undefined;
+      partner = this.progresses.find((p) => p.status === 'in-progress') as
+        | (ExpeditionProgress & { coOpPartners: CoOpExpeditionPartner[] })
+        | undefined;
     }
 
     if (!partner) return;
@@ -426,7 +424,8 @@ export class ExpeditionManager {
       (progress as unknown as { coOpPartners: CoOpExpeditionPartner[] }).coOpPartners = [];
     }
 
-    const partners = (progress as unknown as { coOpPartners: CoOpExpeditionPartner[] }).coOpPartners;
+    const partners = (progress as unknown as { coOpPartners: CoOpExpeditionPartner[] })
+      .coOpPartners;
     const partner = partners.find((p) => p.slot === slot);
     if (!partner) return;
 
@@ -530,11 +529,16 @@ export class ExpeditionManager {
 
   private stageToPhase(stage: { order: number }): ExpeditionProgress['currentPhase'] {
     switch (stage.order) {
-      case 0: return 'approach';
-      case 1: return 'explore';
-      case 2: return 'discover';
-      case 3: return 'escape';
-      default: return 'explore';
+      case 0:
+        return 'approach';
+      case 1:
+        return 'explore';
+      case 2:
+        return 'discover';
+      case 3:
+        return 'escape';
+      default:
+        return 'explore';
     }
   }
 

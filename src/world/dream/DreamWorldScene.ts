@@ -14,32 +14,19 @@
  * - The wise old snake considers the dream world scene "trippy but worth it"
  */
 import Phaser from 'phaser';
-import type { Vector2Like } from '../../core/math.js';
 import { DreamManager } from './DreamManager.js';
 import { DreamPuzzleManager } from './DreamPuzzles.js';
 import { DreamShopManager } from './dreamShop.js';
-import {
-  DREAM_APPLE_TYPES,
-  createDreamAppleInstance,
-  type DreamAppleBase,
-} from './dreamAppleTypes.js';
-import type {
-  DreamStateId,
-  DreamPhysicsState,
-  DreamBuff,
-  LucidAbility,
-} from './types.js';
+import { createDreamAppleInstance, DreamAppleBase } from './dreamAppleTypes.js';
+import type { DreamStateId, DreamPhysicsState, DreamBuff } from './types.js';
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const DREAM_BG_COLOR = 0x1a0a2e;
-const DREAM_ACCENT_COLOR = 0xb19cd9;
 const DREAM_BRIDGE_COLOR = 0xff69b4;
 const DREAM_ISLAND_COLOR = 0x4a3060;
 const DREAM_ISLAND_HIGHLIGHT = 0x6a5080;
-const DREAM_TEXT_COLOR = 0xe6e6fa;
 const DREAM_HUD_BG_ALPHA = 0.7;
-const DREAM_SHARD_COLOR = 0xffd700;
+const DREAM_ACCENT_COLOR = 0xffd700;
 
 const DREAM_ISLAND_COUNT = 7;
 const DREAM_BRIDGE_COUNT = 8;
@@ -63,12 +50,7 @@ export class FloatingDreamApple extends Phaser.GameObjects.Graphics {
   private readonly floatSpeed: number;
   private readonly phaseOffset: number;
 
-  constructor(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    dreamApple: DreamAppleBase,
-  ) {
+  constructor(scene: Phaser.Scene, x: number, y: number, dreamApple: DreamAppleBase) {
     super(scene);
     this.setPosition(x, y);
     this.dreamApple = dreamApple;
@@ -76,11 +58,11 @@ export class FloatingDreamApple extends Phaser.GameObjects.Graphics {
     this.floatSpeed = dreamApple.metadata.floatSpeed * 100 || 0.05;
     this.phaseOffset = dreamApple.metadata.phaseOffset || 0;
 
-    this.drawApple(x, y, dreamApple.color);
+    this.drawApple(dreamApple.color);
     scene.add.existing(this);
   }
 
-  private drawApple(x: number, y: number, color: number): void {
+  private drawApple(color: number): void {
     this.clear();
     // Outer glow
     this.fillStyle(color, 0.3);
@@ -127,13 +109,7 @@ export class DreamIsland extends Phaser.GameObjects.Graphics {
   private hoverSpeed: number = 0.02;
   private hoverPhase: number = Math.random() * Math.PI * 2;
 
-  constructor(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-  ) {
+  constructor(scene: Phaser.Scene, x: number, y: number, width: number, height: number) {
     super(scene);
     this.setPosition(x, y);
     this.centerX = x;
@@ -149,13 +125,7 @@ export class DreamIsland extends Phaser.GameObjects.Graphics {
     this.clear();
     // Main island body
     this.fillStyle(DREAM_ISLAND_COLOR, 0.8);
-    this.fillRoundedRect(
-      -this.width / 2,
-      -this.height / 2,
-      this.width,
-      this.height,
-      12,
-    );
+    this.fillRoundedRect(-this.width / 2, -this.height / 2, this.width, this.height, 12);
     // Island highlight
     this.fillStyle(DREAM_ISLAND_HIGHLIGHT, 0.5);
     this.fillRoundedRect(
@@ -167,13 +137,7 @@ export class DreamIsland extends Phaser.GameObjects.Graphics {
     );
     // Border
     this.lineStyle(2, DREAM_ACCENT_COLOR, 0.6);
-    this.strokeRoundedRect(
-      -this.width / 2,
-      -this.height / 2,
-      this.width,
-      this.height,
-      12,
-    );
+    this.strokeRoundedRect(-this.width / 2, -this.height / 2, this.width, this.height, 12);
   }
 
   updateFloating(tick: number): void {
@@ -276,11 +240,7 @@ export class DreamBridge extends Phaser.GameObjects.Graphics {
       b = hue2rgb(p, q, h - 1 / 3);
     }
 
-    return (
-      Math.round(r * 255) * 65536 +
-      Math.round(g * 255) * 256 +
-      Math.round(b * 255)
-    );
+    return Math.round(r * 255) * 65536 + Math.round(g * 255) * 256 + Math.round(b * 255);
   }
 }
 
@@ -428,7 +388,9 @@ class DreamHUD {
   setGravity(direction: string): void {
     const arrow =
       direction === 'up' ? '↑' : direction === 'down' ? '↓' : direction === 'left' ? '←' : '→';
-    this.gravityText?.setText(`${arrow} Gravity: ${direction.charAt(0).toUpperCase() + direction.slice(1)}`);
+    this.gravityText?.setText(
+      `${arrow} Gravity: ${direction.charAt(0).toUpperCase() + direction.slice(1)}`,
+    );
   }
 
   setOnExit(callback: () => void): void {
@@ -611,11 +573,7 @@ export class DreamWorldScene {
     for (let i = 0; i < count; i++) {
       const island = this.islands[Math.floor(Math.random() * this.islands.length)];
       const type = appleTypes[Math.floor(Math.random() * appleTypes.length)];
-      const apple = createDreamAppleInstance(
-        type,
-        'dream-room',
-        { x: 0, y: 0 },
-      );
+      const apple = createDreamAppleInstance(type, 'dream-room', { x: 0, y: 0 });
 
       const appleSprite = new FloatingDreamApple(
         this.scene,
@@ -721,14 +679,8 @@ export class DreamWorldScene {
   }
 
   protected shiftGravity(): void {
-    const directions: Array<'up' | 'down' | 'left' | 'right'> = [
-      'up',
-      'down',
-      'left',
-      'right',
-    ];
-    this.physicsState.gravity =
-      directions[Math.floor(Math.random() * directions.length)];
+    const directions: Array<'up' | 'down' | 'left' | 'right'> = ['up', 'down', 'left', 'right'];
+    this.physicsState.gravity = directions[Math.floor(Math.random() * directions.length)];
     this.physicsState.gravityTimer = 0;
 
     this.showMessage(`Gravity shifted to ${this.physicsState.gravity}!`, 2000);
@@ -868,10 +820,7 @@ export class DreamWorldScene {
   protected applyBuff(buff: DreamBuff): void {
     this.activeBuffs.push(buff);
 
-    this.showMessage(
-      `Buff applied: ${buff.type} (${Math.floor(buff.remaining / 1000)}s)`,
-      2000,
-    );
+    this.showMessage(`Buff applied: ${buff.type} (${Math.floor(buff.remaining / 1000)}s)`, 2000);
     this.config.playSound('dream:buff');
 
     const session = this.dreamManager.getCurrentSession();
@@ -891,7 +840,9 @@ export class DreamWorldScene {
     }
   }
 
-  protected getNextUndiscoveredLore(collected: string[]): import('./dreamLore.js').LoreFragment | undefined {
+  protected getNextUndiscoveredLore(
+    _collected: string[],
+  ): import('./dreamLore.js').LoreFragment | undefined {
     // Simple synchronous check - in production, lore would be pre-loaded
     // This is a placeholder that returns undefined
     return undefined;

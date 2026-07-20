@@ -69,14 +69,10 @@ describe('EcosystemManager', () => {
     });
 
     it('updates plant biomass based on herbivore count', () => {
-      const animalCounts1 = new Map<AnimalType, number>([
-        ['rabbit', 10],
-      ]);
+      const animalCounts1 = new Map<AnimalType, number>([['rabbit', 10]]);
       const result1 = manager.step(animalCounts1, 50);
 
-      const animalCounts2 = new Map<AnimalType, number>([
-        ['rabbit', 100],
-      ]);
+      const animalCounts2 = new Map<AnimalType, number>([['rabbit', 100]]);
       const result2 = manager.step(animalCounts2, 50);
 
       expect(result2.balance.plantBiomass).toBeLessThan(result1.balance.plantBiomass);
@@ -116,9 +112,7 @@ describe('EcosystemManager', () => {
     });
 
     it('updates last event on the balance', () => {
-      const animalCounts = new Map<AnimalType, number>([
-        ['rabbit', 50],
-      ]);
+      const animalCounts = new Map<AnimalType, number>([['rabbit', 50]]);
 
       manager.step(animalCounts, 50);
       const balance = manager.getBalance();

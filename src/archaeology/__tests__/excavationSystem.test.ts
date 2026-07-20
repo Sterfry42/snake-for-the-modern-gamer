@@ -11,7 +11,6 @@ import {
   getRemainingFragments,
   resetExcavationSession,
   simulateProgress,
-  type ExcavationSession,
 } from '../ExcavationSystem.js';
 import type { FragmentType } from '../fossilRegistry.js';
 

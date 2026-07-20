@@ -1,11 +1,22 @@
 import type { EquipmentModifiers } from '../inventory/item.js';
 
 export interface RuntimeModifierTotals {
-  tickDelayScalar: number; radiationTimerScalar: number;
-  wallSenseBonus: number; seismicPulseBonus: number; invulnerabilityBonus: number;
-  heatResistance: number; coldResistance: number; appleScorePenalty: number; hazardMapSense: number;
-  phoenixCharges: number; itemPhoenixCharges: number; lightRadiusTiles: number;
-  masonryEnabled: boolean; gunEnabled: boolean; wallSmiteEnabled: boolean; swimmingEnabled: boolean;
+  tickDelayScalar: number;
+  radiationTimerScalar: number;
+  wallSenseBonus: number;
+  seismicPulseBonus: number;
+  invulnerabilityBonus: number;
+  heatResistance: number;
+  coldResistance: number;
+  appleScorePenalty: number;
+  hazardMapSense: number;
+  phoenixCharges: number;
+  itemPhoenixCharges: number;
+  lightRadiusTiles: number;
+  masonryEnabled: boolean;
+  gunEnabled: boolean;
+  wallSmiteEnabled: boolean;
+  swimmingEnabled: boolean;
   regenerator: { interval: number; amount: number } | null;
   refundEveryRooms?: { interval: number; score: number };
 }
@@ -16,12 +27,23 @@ export interface RuntimeModifierSourceOptions {
 
 export function createRuntimeModifierTotals(): RuntimeModifierTotals {
   return {
-    tickDelayScalar: 1, radiationTimerScalar: 1,
-    wallSenseBonus: 0, seismicPulseBonus: 0, invulnerabilityBonus: 0,
-    phoenixCharges: 0, itemPhoenixCharges: 0,
-    heatResistance: 0, coldResistance: 0, appleScorePenalty: 0, hazardMapSense: 0,
-    lightRadiusTiles: 0, regenerator: null,
-    masonryEnabled: false, gunEnabled: false, wallSmiteEnabled: false, swimmingEnabled: false,
+    tickDelayScalar: 1,
+    radiationTimerScalar: 1,
+    wallSenseBonus: 0,
+    seismicPulseBonus: 0,
+    invulnerabilityBonus: 0,
+    phoenixCharges: 0,
+    itemPhoenixCharges: 0,
+    heatResistance: 0,
+    coldResistance: 0,
+    appleScorePenalty: 0,
+    hazardMapSense: 0,
+    lightRadiusTiles: 0,
+    regenerator: null,
+    masonryEnabled: false,
+    gunEnabled: false,
+    wallSmiteEnabled: false,
+    swimmingEnabled: false,
   };
 }
 
@@ -60,7 +82,14 @@ export function applyRuntimeModifierSource(
 
 function add(
   totals: RuntimeModifierTotals,
-  key: 'wallSenseBonus' | 'seismicPulseBonus' | 'invulnerabilityBonus' | 'heatResistance' | 'coldResistance' | 'appleScorePenalty' | 'hazardMapSense',
+  key:
+    | 'wallSenseBonus'
+    | 'seismicPulseBonus'
+    | 'invulnerabilityBonus'
+    | 'heatResistance'
+    | 'coldResistance'
+    | 'appleScorePenalty'
+    | 'hazardMapSense',
   value?: number,
 ): void {
   if (typeof value === 'number') totals[key] += value;
@@ -91,7 +120,11 @@ function addRegenerator(
   totals.regenerator.amount += value.amount;
 }
 
-function addPhoenixCharges(totals: RuntimeModifierTotals, charges: number | undefined, countAsItem: boolean): void {
+function addPhoenixCharges(
+  totals: RuntimeModifierTotals,
+  charges: number | undefined,
+  countAsItem: boolean,
+): void {
   if (typeof charges !== 'number') return;
   totals.phoenixCharges += charges;
   if (countAsItem) totals.itemPhoenixCharges += charges;

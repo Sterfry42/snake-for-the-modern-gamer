@@ -10,8 +10,8 @@
  * - The wise old snake's garden NPC was located in the Garden of Infinite Growth
  * - The wise old snake's garden NPC was said to be the first gardener
  */
-import type { NpcProfile, NpcStats } from './profiles.js';
-import { buildNpcStats, buildHouseNpcProfile } from './profiles.js';
+import type { NpcProfile } from './profiles.js';
+import { buildNpcStats } from './profiles.js';
 
 /** Garden NPC profile — the ghost gardener who teaches apple farming. */
 export const GARDEN_NPC_PROFILE: NpcProfile = {
@@ -33,17 +33,17 @@ export const GARDEN_NPC_DIALOGUE = {
   ],
   tips: [
     "Remember: water your plants every day, or they'll wither faster than a forgotten promise.",
-    "Lavender and love apples grow twice as well together. Companion planting is the secret!",
-    "Watch out for aphids — they multiply fast. Squash them before they take over your garden.",
-    "Rare seeds cost more, but they produce rare apples. Worth the investment, fuhgeddaboudit.",
-    "The garden changes with the seasons. Spring is best for most seeds, but wasabi loves winter.",
-    "When you see flowers, that means your plants are almost ready. Patience, young snake.",
+    'Lavender and love apples grow twice as well together. Companion planting is the secret!',
+    'Watch out for aphids — they multiply fast. Squash them before they take over your garden.',
+    'Rare seeds cost more, but they produce rare apples. Worth the investment, fuhgeddaboudit.',
+    'The garden changes with the seasons. Spring is best for most seeds, but wasabi loves winter.',
+    'When you see flowers, that means your plants are almost ready. Patience, young snake.',
     "I've tended this garden for 999 years. The wisest thing I've learned? Everything takes time.",
   ],
   quests: [
     "I have a task for you. Harvest 10 ripe apples from your garden. That's the first step to mastery.",
     "Once you've harvested enough, we can expand your garden. More plots mean more apples!",
-    "Have you tried companion planting? Some seeds grow better together. Try lavender and love!",
+    'Have you tried companion planting? Some seeds grow better together. Try lavender and love!',
     "Master the garden, and you'll never go hungry. The apples here are worth their weight in gold.",
   ],
   shop: [
@@ -54,7 +54,7 @@ export const GARDEN_NPC_DIALOGUE = {
   farewell: [
     "Take care of those plants, dear. They're counting on you.",
     "The garden grows whether you watch it or not. Make sure you're watching!",
-    "Remember: a well-tended garden is a happy garden. And a happy garden feeds a happy snake.",
+    'Remember: a well-tended garden is a happy garden. And a happy garden feeds a happy snake.',
     "I'll be here, watching over your garden from the great beyond. You betcha!",
   ],
   defeat: [

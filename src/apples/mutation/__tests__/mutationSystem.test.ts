@@ -188,7 +188,7 @@ describe('MutationSystem', () => {
 
       // Lifetime mutations should still be tracked
       const journal = system.getJournalEntries();
-      const spicyEnergy = journal.find((e) => e.mutationId === 'spicyEnergy');
+      journal.find((e) => e.mutationId === 'spicyEnergy');
       // Note: After reset, recent apples are cleared but lifetime is kept
       // The journal entry persistence depends on implementation
     });
@@ -207,11 +207,7 @@ describe('MutationSystem', () => {
 
   describe('Trait application', () => {
     it('should apply traits from mutation definitions', () => {
-      const system = new MutationSystem(
-        () => 0.99,
-        new TraitManager(),
-        callbacks,
-      );
+      const system = new MutationSystem(() => 0.99, new TraitManager(), callbacks);
 
       system.recordAppleEaten('caffeinated');
       system.recordAppleEaten('wasabi');

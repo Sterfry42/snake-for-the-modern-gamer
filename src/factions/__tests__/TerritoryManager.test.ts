@@ -116,7 +116,13 @@ describe('TerritoryManager', () => {
     });
 
     it('establishes stable control at 75%', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 75, 'attack');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        75,
+        'attack',
+      );
 
       const ownership = manager.getOwnership('forest-of-whispers');
       expect(ownership?.status).toBe('stable');
@@ -124,9 +130,21 @@ describe('TerritoryManager', () => {
     });
 
     it('returns control to defender at 25%', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 75, 'attack');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        75,
+        'attack',
+      );
       // Shift back with a large negative delta
-      manager.shiftControl('forest-of-whispers', 'goblin-camps', 'hearthbound-remnant', -80, 'defense');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'goblin-camps',
+        'hearthbound-remnant',
+        -80,
+        'defense',
+      );
 
       const ownership = manager.getOwnership('forest-of-whispers');
       // At 0% control, it should be unclaimed or contested
@@ -134,7 +152,15 @@ describe('TerritoryManager', () => {
     });
 
     it('records battle history', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 50, 'attack', true, 'mercenary');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        50,
+        'attack',
+        true,
+        'mercenary',
+      );
 
       const ownership = manager.getOwnership('forest-of-whispers');
       expect(ownership?.battleHistory.length).toBe(1);
@@ -144,7 +170,13 @@ describe('TerritoryManager', () => {
 
     it('limits battle history to 20 entries', () => {
       for (let i = 0; i < 25; i++) {
-        manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 5, 'attack');
+        manager.shiftControl(
+          'forest-of-whispers',
+          'hearthbound-remnant',
+          'goblin-camps',
+          5,
+          'attack',
+        );
       }
 
       const ownership = manager.getOwnership('forest-of-whispers');
@@ -159,11 +191,23 @@ describe('TerritoryManager', () => {
     });
 
     it('clamps control percentage to 0-100', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 200, 'attack');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        200,
+        'attack',
+      );
       let ownership = manager.getOwnership('forest-of-whispers');
       expect(ownership?.controlPercentage).toBe(100);
 
-      manager.shiftControl('forest-of-whispers', 'goblin-camps', 'hearthbound-remnant', -200, 'attack');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'goblin-camps',
+        'hearthbound-remnant',
+        -200,
+        'attack',
+      );
       ownership = manager.getOwnership('forest-of-whispers');
       expect(ownership?.controlPercentage).toBe(0);
     });
@@ -171,7 +215,13 @@ describe('TerritoryManager', () => {
 
   describe('territory bonuses', () => {
     it('provides apple spawn modifiers', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'unclaimed',
+        100,
+        'diplomacy',
+      );
 
       const context = manager.getTerritoryBonusContext('forest-of-whispers', true, 50);
       expect(context).toBeDefined();
@@ -201,7 +251,13 @@ describe('TerritoryManager', () => {
     });
 
     it('checks player eligibility based on relation', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'unclaimed',
+        100,
+        'diplomacy',
+      );
 
       // Player with good relation
       const context1 = manager.getTerritoryBonusContext('forest-of-whispers', false, 50);
@@ -247,7 +303,13 @@ describe('TerritoryManager', () => {
 
   describe('world tick', () => {
     it('processes contested territories after threshold', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 50, 'attack');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        50,
+        'attack',
+      );
 
       // Fast-forward through ticks (every 10 rooms)
       for (let i = 0; i < 10; i++) {
@@ -272,7 +334,13 @@ describe('TerritoryManager', () => {
     });
 
     it('cleans up old battle history', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 50, 'attack');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        50,
+        'attack',
+      );
 
       // Clean up old battle history by ticking past the threshold
       manager.tickWorld(1000);
@@ -285,7 +353,13 @@ describe('TerritoryManager', () => {
 
   describe('save / load', () => {
     it('saves and loads territory state', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 75, 'attack');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        75,
+        'attack',
+      );
 
       const saveData = manager.save();
       expect(saveData.version).toBe(1);
@@ -327,7 +401,13 @@ describe('TerritoryManager', () => {
 
   describe('faction influence', () => {
     it('computes faction influence from controlled territories', () => {
-      manager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
+      manager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'unclaimed',
+        100,
+        'diplomacy',
+      );
       manager.shiftControl('deep-caverns', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
 
       const saveData = manager.save();

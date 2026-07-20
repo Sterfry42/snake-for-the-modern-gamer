@@ -10,13 +10,13 @@ registerFeature({
     s.flags['timeSinceEat'] = ((s.flags['timeSinceEat'] || 0) as number) + 1;
   },
   onTick: () => {},
-  onRender: (s) => {
+  onRender: (_s) => {
     // Render logic if needed
   },
   onAppleEaten: (s) => {
     s.flags['timeSinceEat'] = 0;
   },
-  onGameOver: (s) => {
+  onGameOver: (_s) => {
     // Cleanup logic if needed
   },
 });

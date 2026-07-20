@@ -1,6 +1,5 @@
-import { describe, expect, it, beforeEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach } from 'vitest';
 import { RhythmMiniGame } from '../RhythmMiniGame.js';
-import type { AppleGenre } from '../MusicalAppleMap.js';
 import type { RhythmRound, RhythmGameResult } from '../RhythmMiniGame.js';
 
 describe('RhythmMiniGame', () => {

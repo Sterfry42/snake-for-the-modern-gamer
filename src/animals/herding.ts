@@ -1,5 +1,5 @@
 import type { AnimalType } from './types.js';
-import { canTameAnimal, getTameInfo } from './taming.js';
+import { getTameInfo } from './taming.js';
 
 export interface HerdMember {
   animalId: string;
@@ -39,8 +39,8 @@ export function getHerdConfig(): HerdConfig {
 export function calculateFollowPosition(
   snakeBody: Array<{ x: number; y: number }>,
   herdMember: HerdMember,
-  gridCols: number,
-  gridRows: number,
+  _gridCols: number,
+  _gridRows: number,
 ): { x: number; y: number } | null {
   const gap = herdMember.followOffset * DEFAULT_HERD_CONFIG.followGap;
   const bodyIndex = gap;

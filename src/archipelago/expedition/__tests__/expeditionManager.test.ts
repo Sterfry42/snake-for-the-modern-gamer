@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { ExpeditionManager } from '../ExpeditionManager.js';
-import type { ExpeditionEvent, ExpeditionEventCallbacks, ExpeditionLogEntry, IslandId } from '../types.js';
+import type { ExpeditionEventCallbacks, ExpeditionLogEntry, IslandId } from '../types.js';
 import { createRng } from '../../../core/rng.js';
 
 describe('ExpeditionManager', () => {
@@ -106,9 +106,7 @@ describe('ExpeditionManager', () => {
     });
 
     it('should fail with missing required apple', () => {
-      const supplies = [
-        { slotIndex: 0, appleTypeId: 'frost', quantity: 1 },
-      ];
+      const supplies = [{ slotIndex: 0, appleTypeId: 'frost', quantity: 1 }];
       const result = manager.finishPreparing('volcanic-isle', supplies);
       expect(result).toBe(false);
       expect(callbacks.onEvent).toHaveBeenCalledWith(

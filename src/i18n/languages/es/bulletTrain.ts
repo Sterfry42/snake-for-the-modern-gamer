@@ -6,7 +6,8 @@ export const BULLET_TRAIN_ES = {
   ticketBooth: 'Taquilla',
   platformLantern: 'Farol de Plataforma',
   arrivalFlavor: {
-    cloudMistPeak: 'La niebla se aferra a las laderas terrazadas. El tren se detiene con un zumbido.',
+    cloudMistPeak:
+      'La niebla se aferra a las laderas terrazadas. El tren se detiene con un zumbido.',
     silkValley: 'A través de la ventana: campos de seda hasta el horizonte.',
     paperBridge: 'Un puente endeble se balancea sobre un cañón. El tren frena.',
     lanternFestival: 'Faroles rojos se balancean sobre la cabeza. La estación huele a incienso.',

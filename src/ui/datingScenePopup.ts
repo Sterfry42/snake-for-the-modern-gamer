@@ -5,7 +5,6 @@ import type {
   RelationshipCandidateProfile,
   RelationshipChoice,
   RelationshipEventResult,
-  RelationshipSpecies,
   RelationshipState,
 } from '../relationships/relationshipTypes.js';
 import {
