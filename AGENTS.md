@@ -21,8 +21,9 @@ All agents working on this project **MUST** follow these instructions before con
 
 1. Run `npm run format`. If formatting fails, fix the problems and rerun.
 2. Run `npm run typecheck` and ensure there are **NO errors or warnings**. If there are errors or warnings, fix them and rerun `npm run format` then `npm run typecheck`.
-3. Run `npm run build` and ensure that building succeeds. If it fails, fix the errors and rerun.
-4. Run `npm run test` and ensure **ALL tests pass**. If any tests fail, fix them and rerun.
+3. Run `npm run lint` and ensure there are **NO errors or warnings**. If there are errors or warnings, fix them and rerun `npm run lint:fix` then `npm run lint`.
+4. Run `npm run build` and ensure that building succeeds. If it fails, fix the errors and rerun.
+5. Run `npm run test` and ensure **ALL tests pass**. If any tests fail, fix them and rerun.
 
 ## Important Notes
 
