@@ -149,8 +149,8 @@ export class WeatherHud {
   private requestedVisible = true;
 
   constructor(
-    private readonly scene: SnakeScene,
     options: WeatherHudOptions = {},
+    scene: SnakeScene,
   ) {
     this.options = {
       position: options.position ?? DEFAULT_WEATHER_OPTIONS.position,
