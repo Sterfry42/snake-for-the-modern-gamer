@@ -130,7 +130,10 @@ export class WorldService {
         !suppressPickupSpawns &&
         this.rng() < (this.pickupChanceProvider.getTreasureChance?.() ?? 0.1)
       ) {
-        const spot = this.findRandomEmptySpot(room);
+        const underwater = this.rng() < 0.18;
+        const spot = underwater
+          ? (this.findRandomWaterSpot(room) ?? this.findRandomEmptySpot(room))
+          : this.findRandomEmptySpot(room);
         if (spot) {
           room.treasure = spot;
         }
@@ -1181,6 +1184,16 @@ export class WorldService {
       }
     }
     return null;
+  }
+
+  private findRandomWaterSpot(room: RoomSnapshot): Vector2Like | null {
+    const water: Vector2Like[] = [];
+    for (let y = 1; y < room.layout.length - 1; y += 1) {
+      for (let x = 1; x < (room.layout[y]?.length ?? 0) - 1; x += 1) {
+        if (room.layout[y]?.[x] === '~') water.push({ x, y });
+      }
+    }
+    return water.length > 0 ? water[Math.floor(this.rng() * water.length)]! : null;
   }
 }
 

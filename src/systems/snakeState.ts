@@ -359,11 +359,19 @@ export class SnakeState {
     if (tile === '%') {
       // Snake passes through its own masonry blocks without dying or eating them.
     }
-    if (tile === '~' && !this.flags['equipment.swimmingEnabled'] && !cheatImmortal) {
+    const swimming = Boolean(
+      this.flags['equipment.swimmingEnabled'] || cheatImmortal || invulnTicks > 0,
+    );
+    const buoyancyCapacity = Math.max(1, Number(this.flags['traversal.buoyancyCapacity'] ?? 3));
+    const buoyancyRemaining = Math.max(
+      0,
+      Number(this.flags['traversal.buoyancyRemaining'] ?? buoyancyCapacity),
+    );
+    if (tile === '~' && !swimming && buoyancyRemaining <= 0) {
       this.markDeathPosition(head, this.roomId, { x: finalLocalHeadX, y: finalLocalHeadY }, tile);
       return { status: 'dead', reason: 'water' };
     }
-    if (tile === '~' && (this.flags['equipment.swimmingEnabled'] || cheatImmortal)) {
+    if (tile === '~') {
       this.flags['ui.swimSplash'] = {
         x: head.x,
         y: head.y,
@@ -371,6 +379,20 @@ export class SnakeState {
         localX: finalLocalHeadX,
         localY: finalLocalHeadY,
       };
+      if (swimming) {
+        delete this.flags['ui.drowning'];
+      } else {
+        const remaining = Math.max(0, buoyancyRemaining - 1);
+        this.flags['traversal.buoyancyRemaining'] = remaining;
+        this.flags['ui.drowning'] = {
+          remaining,
+          total: buoyancyCapacity,
+          ratio: remaining / buoyancyCapacity,
+        };
+      }
+    } else {
+      this.flags['traversal.buoyancyRemaining'] = buoyancyCapacity;
+      delete this.flags['ui.drowning'];
     }
 
     const appleEaten = Boolean(

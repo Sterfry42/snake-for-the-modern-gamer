@@ -1768,6 +1768,9 @@ export default class SnakeScene extends Phaser.Scene {
   private nextThunderAtMs = 0;
   private lastAtmosphereWorldDay = 0;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
+  private drowningOverlay: Phaser.GameObjects.Rectangle | null = null;
+  private revivalGhostVisualActive = false;
+  private nextRevivalGhostWispAtMs = 0;
   private caffeinatedAppleBoostExpirationsMs: number[] = [];
   private static readonly CAFFEINATED_APPLE_SPEED_SOURCE = 'apple:caffeinated';
   private static readonly CAFFEINATED_APPLE_BOOST_MS = 2000;
@@ -6176,6 +6179,7 @@ export default class SnakeScene extends Phaser.Scene {
   prepareCharacterSave(): void {
     this.setFlag('skills.ranks', this.skillTree.exportRanks());
     this.setFlag('skills.ownership', this.skillTree.exportOwnership());
+    this.setFlag('skills.extraLifeCharges', this.skillTree.getStats().extraLives);
     this.minecraftFeature?.saveToScene(this);
   }
 
@@ -6191,6 +6195,13 @@ export default class SnakeScene extends Phaser.Scene {
     if (ranks) {
       const ownership = this.getFlag<Record<string, OwnedSkillState>>('skills.ownership');
       this.skillTree.restoreRanks(ranks, ownership);
+    }
+    const savedLifeCharges = this.getFlag<number>('skills.extraLifeCharges');
+    if (savedLifeCharges !== undefined) {
+      this.skillTree.setExtraLifeCharges(savedLifeCharges);
+    } else if (this.chosenReligionId === 'christianity') {
+      // Legacy saves predate explicit life-charge persistence.
+      this.skillTree.setExtraLifeCharges(this.skillTree.getStats().extraLives + 1);
     }
     this.applyEquipmentEffects();
     const savedAchievements = this.getFlag<AchievementState>('save.loadedAchievements');
@@ -8806,6 +8817,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.villageHud?.setVisible(false);
       this.biomeHud?.setVisible(false);
       this.minimapRenderer?.setVisible(false);
+      this.drowningOverlay?.setVisible(false);
       this.questGiverSprite?.setVisible(false);
       this.wandererSprite?.setVisible(false);
       this.villageResidentSprites.forEach((sprite) => sprite.setVisible(false));
@@ -9386,6 +9398,8 @@ export default class SnakeScene extends Phaser.Scene {
     if (swimSplash) {
       const world = this.tileToWorldInRoom({ x: swimSplash.x, y: swimSplash.y }, swimSplash.roomId);
       (this.juice as any).swimSplash?.(world.x, world.y);
+      const drowning = this.snakeGame.getFlag<{ ratio?: number }>('ui.drowning');
+      if (drowning) this.juice.drowningWarning(Number(drowning.ratio ?? 0));
       this.snakeGame.setFlag('ui.swimSplash', undefined);
     }
 
@@ -9963,7 +9977,22 @@ export default class SnakeScene extends Phaser.Scene {
     const pActive = this.getFlag<{ kind: string; remaining: number; total?: number }>(
       'powerup.active',
     );
-    const snakeColor = pActive ? 0x9b5de5 : undefined;
+    const drowning = this.getFlag<{ remaining: number; total: number; ratio: number }>(
+      'ui.drowning',
+    );
+    const ghostly =
+      Boolean(this.getFlag<boolean>('player.revivalGhostActive')) &&
+      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0;
+    const drowningDanger = drowning ? 1 - Math.max(0, Math.min(1, drowning.ratio)) : 0;
+    const snakeColor = drowning
+      ? Phaser.Display.Color.GetColor(
+          Math.round(78 - drowningDanger * 68),
+          Math.round(156 - drowningDanger * 132),
+          Math.round(132 - drowningDanger * 92),
+        )
+      : pActive
+        ? 0x9b5de5
+        : undefined;
     const temperature = this.snakeGame.getPlayerTemperature();
     const starforgedSnakePalette = this.getFlag<SnakeSpritePalette>('starforged.snakePalette');
     const activeSnakeTheme = this.getActiveSnakeTheme();
@@ -9978,6 +10007,7 @@ export default class SnakeScene extends Phaser.Scene {
       wallSenseRadius,
       snakeColor,
       poweredUp: Boolean(pActive),
+      ghostly,
       direction: localPlayer?.direction ?? this.snakeGame.getDirection(),
       characterMode: this.snakeGame.getCharacterMode(),
       snakeRenderStyle: activeSnakeTheme.id === 'retro-grid' ? 'retro-grid' : 'sprite',
@@ -10001,6 +10031,8 @@ export default class SnakeScene extends Phaser.Scene {
       lightningStrike: this.snakeGame.getLightningStrikeView(room.id),
       renderTimeMs: this.time.now,
     });
+    this.updateDrowningVisuals(drowningDanger);
+    this.updateRevivalGhostVisuals(ghostly, snakeBody[0]);
 
     // Ambient cherry blossom particles for cherry-garden rooms AND jade-peak-province biome
     const isCherryGarden = room.archetypeId === 'cherry-garden';
@@ -10303,6 +10335,43 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
+  private updateDrowningVisuals(danger: number): void {
+    if (danger <= 0) {
+      this.drowningOverlay?.setVisible(false);
+      return;
+    }
+    const width = this.grid.cols * this.grid.cell;
+    const height = this.grid.rows * this.grid.cell;
+    if (!this.drowningOverlay) {
+      this.drowningOverlay = this.add
+        .rectangle(0, 0, width, height, 0x075c96, 0)
+        .setOrigin(0, 0)
+        .setDepth(28);
+    }
+    this.drowningOverlay
+      .setSize(width, height)
+      .setFillStyle(0x075c96, 0.08 + Math.min(0.58, danger * 0.58))
+      .setVisible(true);
+  }
+
+  private updateRevivalGhostVisuals(ghostly: boolean, head?: Vector2Like): void {
+    if (!ghostly || !head || this.deathCutscene) {
+      this.revivalGhostVisualActive = false;
+      return;
+    }
+    const world = this.tileToWorld(head);
+    const centerX = world.x + this.grid.cell / 2;
+    const centerY = world.y + this.grid.cell / 2;
+    if (!this.revivalGhostVisualActive) {
+      this.revivalGhostVisualActive = true;
+      this.juice.revivalGhostStart(centerX, centerY);
+    }
+    if (this.time.now >= this.nextRevivalGhostWispAtMs) {
+      this.juice.revivalGhostTrail(centerX, centerY);
+      this.nextRevivalGhostWispAtMs = this.time.now + 140;
+    }
+  }
+
   private withRoomLightSources(
     atmosphere: ResolvedAtmosphereView,
     snakeBody: readonly Vector2Like[],
@@ -10465,12 +10534,22 @@ export default class SnakeScene extends Phaser.Scene {
 
   // Called by the religion feature to persist the choice for this run
   setReligionChoice(id: string, mods: Partial<typeof this.religionMods>): void {
+    const previousLifeCharges = this.getFaithStartingLifeCharges(
+      this.chosenReligionId,
+      this.religionMods,
+    );
+    const nextLifeCharges = this.getFaithStartingLifeCharges(id, mods);
     this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, mods.specialModifiers);
     this.chosenReligionId = id;
     this.religionMods = { ...mods } as any;
     this.setFlag('religion.id', id);
     this.setFlag('religion.mods', this.religionMods);
     this.applyEquipmentEffects();
+    if (previousLifeCharges !== nextLifeCharges) {
+      this.skillTree.setExtraLifeCharges(
+        this.skillTree.getStats().extraLives + nextLifeCharges - previousLifeCharges,
+      );
+    }
     this.applyStartingMechanicFlags(mods.mechanicFlags);
     if (mods.startingPerkId) {
       this.skillTree.grantStartingPerk(mods.startingPerkId, { type: 'faith', faithId: id });
@@ -10517,6 +10596,16 @@ export default class SnakeScene extends Phaser.Scene {
     for (const [key, value] of Object.entries(flags ?? {})) this.setFlag(key, value);
   }
 
+  private getFaithStartingLifeCharges(
+    id: string | null,
+    mods: Partial<CharacterCreationMods>,
+  ): number {
+    if (mods.startingLifeCharges !== undefined) {
+      return Math.max(0, Math.floor(mods.startingLifeCharges));
+    }
+    return id === 'christianity' ? 1 : 0;
+  }
+
   private replaceStartingSpecialModifiers(
     previous: CharacterCreationMods['specialModifiers'],
     next: CharacterCreationMods['specialModifiers'],
@@ -10553,6 +10642,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.replaceStartingSpecialModifiers(this.religionMods.specialModifiers, undefined);
     this.replaceStartingSpecialModifiers(this.backgroundMods.specialModifiers, undefined);
     this.replaceStartingSpecialModifiers(this.classMods.specialModifiers, undefined);
+    const faithLifeCharges = this.getFaithStartingLifeCharges(
+      this.chosenReligionId,
+      this.religionMods,
+    );
+    if (faithLifeCharges > 0) {
+      this.skillTree.setExtraLifeCharges(
+        this.skillTree.getStats().extraLives - faithLifeCharges,
+      );
+    }
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;
     this.chosenClassId = null;
@@ -16209,7 +16307,16 @@ export default class SnakeScene extends Phaser.Scene {
           event.cells,
         );
       } else if (event.kind === 'pop') this.juice.archaeologyPop(event.index, event.total);
-      else if (event.kind === 'gravity') this.juice.archaeologyGravity(event.moves.length);
+      else if (event.kind === 'blast') {
+        this.juice.archaeologyBlast(event.cells.length);
+        this.showArchaeologyMatchFlare(eventSnapshot, event.cells, 3);
+        this.showArchaeologyFloatingText(
+          'ARTIFACT BLAST!',
+          '#ffd166',
+          eventSnapshot,
+          event.origins,
+        );
+      } else if (event.kind === 'gravity') this.juice.archaeologyGravity(event.moves.length);
       else if (event.kind === 'raise') this.juice.archaeologyRaise(event.depth);
       else if (event.kind === 'cache') this.juice.archaeologyCache();
       else if (event.kind === 'reward') {

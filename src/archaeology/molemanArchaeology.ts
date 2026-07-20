@@ -71,6 +71,7 @@ export interface ArchaeologyGravityMove {
 export type ArchaeologySessionEvent =
   | { kind: 'swap'; x: number; y: number }
   | { kind: 'match'; cells: ArchaeologyBoardCell[]; chain: number; score: number }
+  | { kind: 'blast'; cells: ArchaeologyBoardCell[]; origins: ArchaeologyBoardCell[] }
   | { kind: 'pop'; cell: ArchaeologyBoardCell; index: number; total: number; chain: number }
   | { kind: 'gravity'; moves: ArchaeologyGravityMove[] }
   | { kind: 'raise'; depth: number }
@@ -106,6 +107,7 @@ export interface ArchaeologyTuning {
   equipmentRewardChance?: number;
   excavationAppleBonus?: number;
   goldAppleFrequency?: number;
+  artifactCacheChanceBonus?: number;
 }
 
 const TOP_GRACE_MS = 3000;
@@ -281,11 +283,18 @@ export class MolemanArchaeologySession {
   private gameOver = false;
   private topGraceRemainingMs = 0;
   private resolver:
-    | { kind: 'highlight'; timerMs: number; cells: ArchaeologyBoardCell[]; chain: number }
+    | {
+        kind: 'highlight';
+        timerMs: number;
+        cells: ArchaeologyBoardCell[];
+        matchedCells: ArchaeologyBoardCell[];
+        chain: number;
+      }
     | {
         kind: 'pop';
         timerMs: number;
         cells: ArchaeologyBoardCell[];
+        matchedCells: ArchaeologyBoardCell[];
         index: number;
         chain: number;
         scored: boolean;
@@ -471,7 +480,11 @@ export class MolemanArchaeologySession {
   private createIncomingRow(): (ArchaeologyTileKind | null)[] {
     const row: (ArchaeologyTileKind | null)[] = [];
     for (let x = 0; x < this.cols; x += 1) {
-      const cacheChance = Math.min(0.02 + this.depth * 0.001, 0.08);
+      const baseCacheChance = Math.min(0.02 + this.depth * 0.001, 0.08);
+      const cacheChance = Math.max(
+        0,
+        baseCacheChance * (1 + (this.tuning.artifactCacheChanceBonus ?? 0)),
+      );
       if (this.rng() < cacheChance) {
         row.push('artifact-cache');
         continue;
@@ -588,6 +601,7 @@ export class MolemanArchaeologySession {
           kind: 'pop',
           timerMs: 0,
           cells: state.cells,
+          matchedCells: state.matchedCells,
           index: 0,
           chain: state.chain,
           scored: false,
@@ -597,7 +611,7 @@ export class MolemanArchaeologySession {
     }
     if (state.kind === 'pop') {
       if (!state.scored) {
-        this.scoreAndRewardMatches(state.cells, state.chain);
+        this.scoreAndRewardMatches(state.matchedCells, state.chain);
         state.scored = true;
       }
       while (state.timerMs <= 0 && state.index < state.cells.length) {
@@ -649,13 +663,43 @@ export class MolemanArchaeologySession {
     }
     const cells = this.findMatchCells();
     if (cells.length === 0) return false;
+    const blastOrigins = cells.filter((cell) => cell.tile === 'artifact-cache');
+    const resolvedCells = this.expandArtifactBlast(cells, blastOrigins);
     this.chainSeed = Math.max(this.chainSeed, chain);
     this.chain = this.chainSeed;
     this.maxChain = Math.max(this.maxChain, this.chain);
     const score = this.estimateMatchScore(cells, this.chain);
-    this.resolver = { kind: 'highlight', timerMs: 220, cells, chain: this.chain };
+    this.resolver = {
+      kind: 'highlight',
+      timerMs: 220,
+      cells: resolvedCells,
+      matchedCells: cells,
+      chain: this.chain,
+    };
     this.pendingEvents.push({ kind: 'match', cells, chain: this.chain, score });
+    if (blastOrigins.length > 0) {
+      this.pendingEvents.push({ kind: 'blast', cells: resolvedCells, origins: blastOrigins });
+    }
     return true;
+  }
+
+  private expandArtifactBlast(
+    matchedCells: readonly ArchaeologyBoardCell[],
+    origins: readonly ArchaeologyBoardCell[],
+  ): ArchaeologyBoardCell[] {
+    const destroyed = new Map(matchedCells.map((cell) => [key(cell.x, cell.y), cell]));
+    for (const origin of origins) {
+      for (let dy = -2; dy <= 2; dy += 1) {
+        for (let dx = -2; dx <= 2; dx += 1) {
+          if (dx * dx + dy * dy > 4) continue;
+          const x = origin.x + dx;
+          const y = origin.y + dy;
+          const tile = this.board[y]?.[x] ?? null;
+          if (tile) destroyed.set(key(x, y), { x, y, tile });
+        }
+      }
+    }
+    return [...destroyed.values()].sort((a, b) => a.y - b.y || a.x - b.x);
   }
 
   private tryBeginGravityResolution(chain: number): boolean {

@@ -1311,6 +1311,25 @@ export class JuiceManager {
     }
   }
 
+  archaeologyBlast(count: number): void {
+    this.playTone({
+      frequency: 180,
+      frequencyEnd: 55,
+      duration: 0.34,
+      type: 'sawtooth',
+      volume: 0.15,
+    });
+    this.playTone({
+      frequency: 520,
+      frequencyEnd: 140,
+      duration: 0.18,
+      type: 'square',
+      volume: 0.08,
+    });
+    this.kickCamera(0.018 + Math.min(0.02, count * 0.001), 180);
+    this.scene.cameras.main.flash(130, 255, 196, 92, true);
+  }
+
   archaeologyPop(index: number, total: number): void {
     this.playTone({
       frequency: 460 + index * 34,
@@ -1321,6 +1340,73 @@ export class JuiceManager {
     });
     if (index === total - 1) {
       this.kickCamera(0.006 + Math.min(0.01, total * 0.001), 70);
+    }
+  }
+
+  drowningWarning(ratio: number): void {
+    const danger = 1 - Math.max(0, Math.min(1, ratio));
+    if (danger < 0.55) return;
+    this.playTone({
+      frequency: 150 - danger * 45,
+      frequencyEnd: 75 - danger * 20,
+      duration: 0.16 + danger * 0.12,
+      type: 'sawtooth',
+      volume: 0.025 + danger * 0.045,
+    });
+    this.playTone({
+      frequency: 42 + danger * 12,
+      duration: 0.22,
+      type: 'sine',
+      volume: 0.025 + danger * 0.025,
+    });
+  }
+
+  revivalGhostStart(worldX: number, worldY: number): void {
+    this.playTone({
+      frequency: 420,
+      frequencyEnd: 880,
+      duration: 0.42,
+      type: 'sine',
+      volume: 0.08,
+    });
+    this.playTone({
+      frequency: 210,
+      frequencyEnd: 330,
+      duration: 0.5,
+      type: 'triangle',
+      volume: 0.045,
+    });
+    this.spawnBurst(worldX, worldY, {
+      colors: [0xb9efff, 0xe5fbff, 0x8bcfe8],
+      count: 18,
+      radius: 28,
+    });
+    this.ringPulse(worldX, worldY, 0xb9efff, 24, 2, 420);
+  }
+
+  revivalGhostTrail(worldX: number, worldY: number): void {
+    for (let index = 0; index < 2; index += 1) {
+      const wisp = this.scene.add
+        .ellipse(
+          worldX + (this.rng() - 0.5) * 12,
+          worldY + (this.rng() - 0.5) * 8,
+          5 + this.rng() * 5,
+          3 + this.rng() * 3,
+          0xb9efff,
+          0.32,
+        )
+        .setBlendMode(Phaser.BlendModes.ADD);
+      this.particleLayer.add(wisp);
+      this.scene.tweens.add({
+        targets: wisp,
+        y: wisp.y - 12 - this.rng() * 10,
+        x: wisp.x + (this.rng() - 0.5) * 10,
+        alpha: 0,
+        scale: 1.7,
+        duration: 420 + this.rng() * 260,
+        ease: 'Sine.easeOut',
+        onComplete: () => wisp.destroy(),
+      });
     }
   }
 
