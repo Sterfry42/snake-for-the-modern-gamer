@@ -213,9 +213,7 @@ describe('Mob Manager', () => {
         'room1',
         () => 0,
         () => {},
-        () => {
-          _playerHit = true;
-        },
+        () => {},
         () => {
           explosionTriggered = true;
         },
@@ -229,9 +227,7 @@ describe('Mob Manager', () => {
         'room1',
         () => 0,
         () => {},
-        () => {
-          _playerHit = true;
-        },
+        () => {},
         () => {
           explosionTriggered = true;
         },

@@ -15,8 +15,7 @@ import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
 import { getCheatsByCategory, getCategoryLabel } from '../cheats/cheatRegistry.js';
-import type { FactionCardView } from '../factions/factions.js';
-import type { WardDeathSource } from '../shops/goblinShop.js';
+
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
 import type { ActorJournalEntry, QuestObjectiveSummary } from '../game/snakeGame.js';
@@ -388,14 +387,12 @@ export class SkillTreeOverlay {
   private readonly equipmentListMask: Phaser.Display.Masks.GeometryMask;
   private readonly overlayX: number;
   private readonly overlayY: number;
-  private contentMask?: Phaser.Display.Masks.GeometryMask;
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
   private readonly achievementTree: AchievementTreeOverlay | null;
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
-  private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
   private hoveredPerkId: string | null = null;
@@ -839,7 +836,6 @@ export class SkillTreeOverlay {
       scrollMaskRect.height,
     );
     const scrollMask = this.scrollMaskGraphics.createGeometryMask();
-    this.contentMask = scrollMask;
     this.questListText.setMask(scrollMask);
     this.spellsText.setMask(scrollMask);
     this.customizationText.setMask(scrollMask);
@@ -1043,7 +1039,7 @@ export class SkillTreeOverlay {
     });
     this.scene.input.on(
       'wheel',
-      (_pointer: Phaser.Input.Pointer, _objects: unknown[], dx: number, dy: number) => {
+      (_pointer: Phaser.Input.Pointer, _objects: unknown[], _dx: number, dy: number) => {
         if (this.visible && this.activeTab === 'skills') {
           if (this.isPointerInSkillViewport(_pointer)) {
             const bounds = insetRect(this.getSkillTreeBounds(), 16);
@@ -1374,56 +1370,6 @@ export class SkillTreeOverlay {
     );
     g.lineStyle(1, accent, 0.54).strokeRoundedRect(x + 4.5, y + 4.5, w - 9, h - 9, 5);
     g.fillStyle(accent, 0.78).fillRect(x + 12, y + 9, 48, 2);
-  }
-
-  private drawSmallButton(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    enabled: boolean,
-    accent: number,
-  ): void {
-    g.fillStyle(enabled ? accent : uiColors.disabled, enabled ? 0.32 : 0.74).fillRoundedRect(
-      x,
-      y,
-      w,
-      h,
-      4,
-    );
-    g.lineStyle(1, enabled ? accent : uiColors.locked, enabled ? 0.92 : 0.72).strokeRoundedRect(
-      x + 0.5,
-      y + 0.5,
-      w - 1,
-      h - 1,
-      4,
-    );
-  }
-
-  private drawActionButton(
-    g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    enabled: boolean,
-    accent: number,
-  ): void {
-    g.fillStyle(enabled ? accent : uiColors.disabled, enabled ? 0.25 : 0.68).fillRoundedRect(
-      x,
-      y,
-      w,
-      h,
-      6,
-    );
-    g.lineStyle(2, enabled ? accent : uiColors.locked, enabled ? 0.82 : 0.65).strokeRoundedRect(
-      x + 1,
-      y + 1,
-      w - 2,
-      h - 2,
-      6,
-    );
   }
 
   private drawScrollRail(
@@ -1816,7 +1762,6 @@ export class SkillTreeOverlay {
     }
     this.styleGraphics.clear();
     this.customizationRowMap = [];
-    this.customizationIndex = [];
   }
 
   private buildStyleContent(): void {
@@ -2635,10 +2580,6 @@ export class SkillTreeOverlay {
     return this.scrollOffsets[this.activeTab] ?? 0;
   }
 
-  private toStructuredY(y: number): number {
-    return y - this.getStructuredScrollOffset();
-  }
-
   private isStructuredRectVisible(rect: UiRect, viewport: UiRect): boolean {
     return rect.y + rect.height >= viewport.y && rect.y <= viewport.y + viewport.height;
   }
@@ -3326,147 +3267,6 @@ export class SkillTreeOverlay {
       .setText('Click an item row for details. Food and consumables can still use U.')
       .setVisible(true);
     this.setStructuredContentHeight(content, unscrolledBottom);
-  }
-
-  private buildInventoryCards(rect: UiRect): void {
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'INVENTORY', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    const items = this.scene.inventory.getAllItems();
-    const slots: EquipmentSlot[] = [
-      'weapon',
-      'boots',
-      'helm',
-      'ring',
-      'gloves',
-      'cloak',
-      'belt',
-      'amulet',
-    ] as unknown as EquipmentSlot[];
-    let y = content.y + 30;
-    for (const slot of slots) {
-      const current = this.scene.inventory.getEquipped(slot);
-      if (!current) continue;
-      const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.accentGear,
-        alpha: 0.62,
-        strokeAlpha: 0.6,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 8,
-        `Unequip ${(slot as string).toUpperCase()}`,
-        { color: uiColors.textPrimary, fontSize: '12px' },
-      );
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: card.x + card.width - 82, y: card.y + 6, width: 70, height: 18 },
-        'EQUIPPED',
-        uiColors.accentGear,
-        uiColors.accentGear,
-      );
-      this.addStructuredZone(card, () => {
-        const ok = this.scene.unequipSlot(slot);
-        this.announce(
-          ok ? `Unequipped ${slot}.` : `Could not unequip ${slot}.`,
-          ok ? '#9ad1ff' : '#ff6b6b',
-          1600,
-        );
-        this.refresh();
-      });
-      y += 36;
-    }
-    if (items.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noItemsInInventory'),
-        {
-          color: uiColors.textMuted,
-          fontSize: '13px',
-        },
-      );
-    }
-    for (const [itemId, count] of items.slice(0, 10)) {
-      const item = getItem(itemId) as any;
-      const card: UiRect = { x: content.x, y, width: content.width, height: 42 };
-      const equipped =
-        item?.kind === 'equipment' &&
-        this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
-        stroke: equipped ? uiColors.accentCore : uiColors.panelBorderMuted,
-        alpha: equipped ? 0.16 : 0.62,
-        strokeAlpha: equipped ? 0.9 : 0.58,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 7,
-        item?.name ?? itemId,
-        {
-          color: uiColors.textPrimary,
-          fontSize: '12px',
-        },
-      );
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 24,
-        `${item?.category ?? item?.kind ?? 'item'} // x${count}`,
-        { color: uiColors.textMuted, fontSize: '10px' },
-      );
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: card.x + card.width - 78, y: card.y + 11, width: 66, height: 18 },
-        equipped ? 'ON' : item?.kind === 'equipment' ? 'EQUIP' : 'VIEW',
-        equipped ? uiColors.accentCore : uiColors.accentGear,
-        equipped ? uiColors.accentCore : uiColors.accentGear,
-        equipped ? '#101824' : '#ffffff',
-      );
-      this.addStructuredZone(card, () => {
-        this.selectedInventoryItemId = itemId;
-        if (item?.kind === 'equipment') {
-          const ok = equipped
-            ? this.scene.unequipSlot(item.slot as EquipmentSlot)
-            : this.scene.equipItem(itemId);
-          this.announce(
-            ok
-              ? `${item.name} ${equipped ? 'unequipped' : 'equipped'}.`
-              : `Cannot equip ${item.name}.`,
-            ok ? '#5dd6a2' : '#ff6b6b',
-            1600,
-          );
-          this.refresh();
-        } else {
-          this.showInventoryItemDetails();
-        }
-      });
-      y += 48;
-    }
-    this.detailTitle.setText('Inventory').setVisible(true);
-    this.detailSubtitle.setText('Gear and Consumables').setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Click equipment to equip or unequip. Select consumables for details.')
-      .setVisible(true);
   }
 
   private buildSpellCards(rect: UiRect): void {
@@ -5306,32 +5106,6 @@ export class SkillTreeOverlay {
     this.applyScrollableTextOffset(this.activeTab, text, next);
   }
 
-  private moveControllerAction(delta: number): void {
-    if (this.controllerActions.length === 0) {
-      this.scrollActiveText(delta * 42);
-      return;
-    }
-    this.controllerActionIndex =
-      (this.controllerActionIndex + delta + this.controllerActions.length) %
-      this.controllerActions.length;
-    const action = this.controllerActions[this.controllerActionIndex];
-    if (action && this.isStructuredTab(this.activeTab)) {
-      const viewport = this.getStructuredViewport();
-      const currentOffset = this.scrollOffsets[this.activeTab] ?? 0;
-      if (action.rect.y < viewport.y + 6) {
-        this.applyStructuredScrollOffset(currentOffset + action.rect.y - viewport.y - 6);
-        return;
-      }
-      if (action.rect.y + action.rect.height > viewport.y + viewport.height - 6) {
-        this.applyStructuredScrollOffset(
-          currentOffset + action.rect.y + action.rect.height - (viewport.y + viewport.height) + 6,
-        );
-        return;
-      }
-    }
-    this.drawControllerFocus();
-  }
-
   private moveControllerActionSpatial(directionX: number, directionY: number): void {
     if (this.controllerActions.length === 0) {
       if (this.activeTab === 'skills') {
@@ -5397,14 +5171,6 @@ export class SkillTreeOverlay {
     return [...this.nodeVisuals.values()].sort(
       (a, b) => a.position.y - b.position.y || a.position.x - b.position.x,
     );
-  }
-
-  private moveControllerSkill(delta: number): void {
-    const visuals = this.getControllerSkillVisuals();
-    if (visuals.length === 0) return;
-    this.controllerSkillIndex =
-      (this.controllerSkillIndex + delta + visuals.length) % visuals.length;
-    this.focusControllerSkill();
   }
 
   private moveControllerSkillSpatial(directionX: number, directionY: number): void {
@@ -5622,10 +5388,6 @@ export class SkillTreeOverlay {
 
   private getCustomizationActionId(pointer: Phaser.Input.Pointer): string | null {
     return this.getCustomizationHoveredRow(pointer)?.actionId ?? null;
-  }
-
-  private countRenderedLines(value: string): number {
-    return this.countRenderedLinesFor(this.customizationText, value);
   }
 
   private countRenderedLinesFor(text: Phaser.GameObjects.Text, value: string): number {
@@ -7047,13 +6809,6 @@ export class SkillTreeOverlay {
     return (index + dayInSeason) / order.length;
   }
 
-  private formatAtmosphereLabel(value: string): string {
-    return value
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .replace(/-/g, ' ')
-      .replace(/\b\w/g, (letter) => letter.toUpperCase());
-  }
-
   private formatCardCollection(collection: CardCollection): string {
     const owned = CARD_DEFINITIONS.map((card) => ({
       card,
@@ -7075,45 +6830,6 @@ export class SkillTreeOverlay {
       );
     }
     return lines.join('\n').trimEnd();
-  }
-
-  private formatFactionCards(
-    factions: FactionCardView[],
-    wards: Partial<Record<WardDeathSource, number>>,
-  ): string {
-    const visible = factions.filter((faction) => faction.discovered);
-    if (visible.length === 0) {
-      return 'FACTION STANDING\n\nNo factions discovered yet.';
-    }
-    const lines: string[] = [];
-    for (const faction of visible) {
-      const sign = faction.alignment > 0 ? '+' : '';
-      const meter = this.formatStandingMeter(faction.alignment);
-      lines.push(
-        `FACTION // ${faction.name}`,
-        `${faction.standing.toUpperCase()}  ${sign}${faction.alignment}`,
-        meter,
-        faction.subtitle,
-        '',
-        'EFFECTS',
-        ...faction.effects.map((effect) => `  ${effect}`),
-        '',
-      );
-    }
-
-    const wardLines = Object.entries(wards)
-      .filter(([, count]) => Number(count) > 0)
-      .map(([source, count]) => `  - ${source}: x${count}`);
-    lines.push('Ward Contracts');
-    lines.push(...(wardLines.length > 0 ? wardLines : ['  - none']));
-    return lines.join('\n');
-  }
-
-  private formatStandingMeter(alignment: number): string {
-    const clamped = Phaser.Math.Clamp(alignment, -100, 100);
-    const marker = Math.round(((clamped + 100) / 200) * 20);
-    const cells = Array.from({ length: 21 }, (_, index) => (index === marker ? '|' : '-')).join('');
-    return `-100 Hostile ${cells} +100 Ally`;
   }
 
   private drawMapPanel(): void {
@@ -8461,7 +8177,6 @@ export class SkillTreeOverlay {
       return;
     }
     const layout = this.getPauseMenuLayout();
-    const _gap = 10;
     let x = layout.footer.x + 14;
     const y = layout.footer.y + 10;
     for (const hint of hints.slice(0, 5)) {

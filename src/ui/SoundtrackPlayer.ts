@@ -65,14 +65,9 @@ export class SoundtrackPlayer {
   private view: PlayerView;
   private scrollOffset = 0;
   private selectedIndex = 0;
-  private isPlaying = false;
-  private currentTrackIndex = 0;
   private playerContainer?: Phaser.GameObjects.Container;
-  private background?: Phaser.GameObjects.Rectangle;
-  private titleText?: Phaser.GameObjects.Text;
   private trackList?: Phaser.GameObjects.Container;
   private currentTrackText?: Phaser.GameObjects.Text;
-  private closeButton?: Phaser.GameObjects.Container;
   private genreFilterActive: AppleGenre | null = null;
   private favoritesOnly = false;
 
@@ -192,11 +187,8 @@ export class SoundtrackPlayer {
     container.add(closeContainer);
 
     this.playerContainer = container;
-    this.background = bg;
-    this.titleText = title;
     this.trackList = trackList;
     this.currentTrackText = currentTrackText;
-    this.closeButton = closeContainer;
 
     // Position the player
     container.setPosition(scene.scale.width - 296, scene.scale.height - 380);
@@ -624,17 +616,12 @@ export class SoundtrackPlayer {
 
     const track = items[this.selectedIndex];
     if (!track.unlocked) return;
-
-    this.isPlaying = true;
-    this.currentTrackIndex = this.selectedIndex;
   }
 
   /**
    * Pause the current track.
    */
-  pauseTrack(): void {
-    this.isPlaying = false;
-  }
+  pauseTrack(): void {}
 
   /**
    * Close the player UI.
@@ -642,11 +629,8 @@ export class SoundtrackPlayer {
   close(): void {
     this.playerContainer?.destroy();
     this.playerContainer = undefined;
-    this.background = undefined;
-    this.titleText = undefined;
     this.trackList = undefined;
     this.currentTrackText = undefined;
-    this.closeButton = undefined;
   }
 
   /**

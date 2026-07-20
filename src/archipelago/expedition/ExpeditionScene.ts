@@ -165,7 +165,6 @@ export class ExpeditionScene extends Phaser.Scene {
 
   // Rendering
   private gridGraphics!: Phaser.GameObjects.Graphics;
-  private uiGraphics!: Phaser.GameObjects.Graphics;
 
   private phaseText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
@@ -219,7 +218,6 @@ export class ExpeditionScene extends Phaser.Scene {
     this.drawGrid(layout);
 
     // Create UI graphics
-    this.uiGraphics = this.add.graphics();
 
     // Create UI text
     this.phaseText = this.add.text(10, 10, '', {

@@ -17,7 +17,6 @@ export class SaveLoadMenu {
   private backText?: Phaser.GameObjects.Text;
   private entryContainers: Phaser.GameObjects.Container[] = [];
   private confirmOverlay?: Phaser.GameObjects.Container;
-  private confirmText?: Phaser.GameObjects.Text;
   private confirmYes?: Phaser.GameObjects.Text;
   private confirmNo?: Phaser.GameObjects.Text;
   private pendingDeleteSlot?: string;
@@ -25,14 +24,12 @@ export class SaveLoadMenu {
   private scrollY = 0;
   private contentHeight = 0;
   private viewportHeight = 0;
-  private currentPopupHeight = 240;
   private readonly width = 520;
   private readonly entryHeight = 56;
   private readonly headerHeight = 48;
   private readonly footerHeight = 44;
   private regularEntries: SaveSlotInfo[] = [];
   private autosaveEntries: SaveSlotInfo[] = [];
-  private isLoading = false;
   private currentOnLoad?: (slotId: string, data: GameSaveData) => void;
   private controllerLoadActions: Array<() => void> = [];
   private controllerDeleteActions: Array<() => void> = [];
@@ -158,7 +155,6 @@ export class SaveLoadMenu {
     if (this.currentOnLoad) {
       this.buildEntries(this.currentOnLoad);
       const popupHeight = this.calculateHeight();
-      this.currentPopupHeight = popupHeight;
       this.background?.setSize(this.width, popupHeight);
       this.scrollContainer?.setPosition(0, this.headerHeight);
       this.viewportHeight = popupHeight - this.headerHeight - this.footerHeight;
@@ -281,7 +277,7 @@ export class SaveLoadMenu {
   private createEntryBox(
     label: string,
     buttonWidth: number,
-    buttonHeight: number,
+    _buttonHeight: number,
     buttonGap: number,
     padding: number,
     onAction: (action: 'load' | 'delete') => void,
