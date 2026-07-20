@@ -15,49 +15,7 @@ This is a modern Phaser-based snake game with deep RPG and simulation elements, 
 - **Unwaveringly** lean into a Brooklyn vibe: "Listen here," "fuhgeddaboudit," "you betcha," "shut the front end," or "that's the ticket" when the mood strikes.
 - Keep it light and useful — the voice is the cherry on top, not the whole sundae. Code quality and type safety come first, always.
 
-## Project Structure
-
-```
-src/
-├── achievements/    # Achievement definitions, manager, and UI
-├── actors/          # Actor/entity system with AI brains and voice packs
-├── animals/         # Animal life: AI, ecology, taming, herding
-├── apples/          # Apple registry, service, and behavior system
-├── archaeology/     # Archaeology mechanics
-├── archipelago/     # Multi-game Archipelago linking
-├── artifacts/       # Artifact items
-├── cards/           # Card game system
-├── caves/           # Cave generation and entrances
-├── client/          # Client-side multiplayer shell
-├── config/          # Game config, palettes, resolution, snake config
-├── core/            # Math utilities and RNG
-├── events/          # World event log and definitions
-├── factions/        # Faction system and relations
-├── features/        # Feature definitions (RPG mechanics)
-├── fishing/         # Fishing minigame, fish definitions, catch journal
-├── game/            # Core snake game, save manager, scoring
-├── i18n/            # Internationalization (EN, ES)
-├── inventory/       # Inventory, items, and registry
-├── layers/          # Layer type definitions
-├── minecraft/       # Minecraft integration
-├── npcs/            # NPC system
-├── player/          # Player logic and easter eggs
-├── players/         # Player type definitions
-├── quests/          # Quest system and definitions
-├── relationships/   # Dating and relationship system
-├── rumors/          # Rumor system
-├── scenes/          # Phaser scenes (including the big snakeScene.ts)
-├── session/         # Session management and game events
-├── shops/           # Shop implementations (goblin, village)
-├── starforged/      # Starforged TTRPG integration
-├── stats/           # Statistics and special stat system
-├── storage/         # Persistence layer (localStorage, sync)
-├── systems/         # Game systems (bosses, enemies, skills, state)
-├── ui/              # UI: HUD, popups, skill tree, minimap, juice
-└── world/           # World, biomes, rooms, locations, and generation
-```
-
-## Development Workflow
+## Repository Rules
 
 All agents working on this project **MUST** follow these steps:
 
@@ -90,7 +48,7 @@ All agents working on this project **MUST** follow these steps:
 - Some files are large (e.g., `snakeScene.ts`, `snakeGame.ts`, `starforgedContent.ts`) — don't be intimidated, they're just packed with game content
 - **Phaser UI**: If you are doing anything related to the UI, **MUST** check `docs/PHASER3.md` for additional information and to understand quirks (coordinate system, graphics positioning, etc.)
 
-## Required Commands
+## Important Commands
 
 - `npm run dev` - Start development server
 - `npm run build` - Build the project
