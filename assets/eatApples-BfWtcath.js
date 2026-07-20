@@ -1,0 +1,1 @@
+import{CountingQuest as t}from"./countingQuest-CfkAPdmf.js";import"./quest-Bpr_u20u.js";const o=new t("eat-5-apples","Novice Eater","Eat 5 apples","applesEaten",5,e=>e.addScore(10));export{o as default};

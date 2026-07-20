@@ -1,0 +1,1 @@
+import{CountingQuest as p}from"./countingQuest-CfkAPdmf.js";import"./quest-Bpr_u20u.js";const o=new p("eat-12-apples","Hungry","Eat 12 apples","applesEaten",12,e=>e.addScore(25));export{o as default};

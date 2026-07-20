@@ -1,1 +1,0 @@
-import{Q as s}from"./quest-Bpr_u20u.js";class t extends s{constructor(){super("eat-5-apples","Novice Eater","Eat 5 apples")}isCompleted(e){return this.progressSinceAccept(e,"applesEaten")>=5}baselineKeys(){return["applesEaten"]}onReward(e){e.addScore(10)}}const r=new t;export{r as default};

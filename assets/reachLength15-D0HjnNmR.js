@@ -1,1 +1,0 @@
-import{Q as t}from"./quest-Bpr_u20u.js";class n extends t{constructor(){super("reach-length-15","Longer Line","Grow your snake to length 15")}isCompleted(e){return e.getSnakeLength()>=15}onReward(e){e.addScore(25)}}const s=new n;export{s as default};
