@@ -1,4 +1,4 @@
-# Type checking workflow — fails on any TypeScript errors or warnings
+# CI workflow — runs typecheck, lint, build, and test
 name: Type Check
 
 on:
@@ -21,14 +21,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Run type check
-        run: |
-          npm run typecheck > /tmp/typecheck.log 2>&1 || true
-          cat /tmp/typecheck.log
-          if grep -q "error TS" /tmp/typecheck.log; then
-            echo "::error::TypeScript errors found! Please fix all type errors."
-            exit 1
-          fi
-          if grep -q "warning TS" /tmp/typecheck.log; then
-            echo "::error::TypeScript warnings found! Please fix all type warnings."
-            exit 1
-          fi
+        run: npm run typecheck
+      - name: Run linter
+        run: npm run lint
+      - name: Build
+        run: npm run build
+      - name: Run tests
+        run: npm run test
