@@ -1,4 +1,3 @@
-
 import type SnakeScene from '../scenes/snakeScene.js';
 import { RENDER_DISTANCE } from './config.js';
 import { ChunkManager } from './chunk.js';
@@ -20,7 +19,7 @@ export class MinecraftRenderLayer {
 
   constructor(scene: SnakeScene, chunkManager: ChunkManager) {
     this.chunkManager = chunkManager;
-   this.graphics = scene.add.graphics().setDepth(3);
+    this.graphics = scene.add.graphics().setDepth(3);
     this.graphics.setBlendMode(Phaser.BlendModes.NORMAL);
     this.highlightGraphics = scene.add.graphics().setDepth(4).setBlendMode(Phaser.BlendModes.ADD);
   }

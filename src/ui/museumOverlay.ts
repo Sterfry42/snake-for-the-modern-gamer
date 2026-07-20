@@ -250,11 +250,16 @@ function renderExhibitsTab(
 ): void {
   const exhibits = getExhibitData(state.museumState);
 
-  scene.add.text(80, startY, `Exhibits: ${exhibits.length} / ${state.museumState.completedFossils.length} displayed`, {
-    fontFamily: 'monospace',
-    fontSize: '18px',
-    color: '#ffffff',
-  });
+  scene.add.text(
+    80,
+    startY,
+    `Exhibits: ${exhibits.length} / ${state.museumState.completedFossils.length} displayed`,
+    {
+      fontFamily: 'monospace',
+      fontSize: '18px',
+      color: '#ffffff',
+    },
+  );
 
   exhibits.forEach((exhibit, index) => {
     const x = 100 + (index % 4) * 140;
@@ -263,7 +268,8 @@ function renderExhibitsTab(
     const isHovered = state.hoveredExhibit === exhibit.fossilSet.id;
     const boxColor = isHovered ? config.accentColor : 0x2a2a4a;
 
-    scene.add.rectangle(x, y, 120, 60, boxColor, 0.8)
+    scene.add
+      .rectangle(x, y, 120, 60, boxColor, 0.8)
       .setStrokeStyle(2, config.accentColor)
       .setOrigin(0)
       .setInteractive({ useHandCursor: true });
@@ -349,11 +355,7 @@ function renderStatisticsTab(
 /**
  * Render bonuses tab content.
  */
-function renderBonusesTab(
-  scene: Phaser.Scene,
-  state: MuseumOverlayState,
-  startY: number,
-): void {
+function renderBonusesTab(scene: Phaser.Scene, state: MuseumOverlayState, startY: number): void {
   const bonuses = calculateMuseumBonuses(state.museumState);
 
   const lines = [
@@ -374,9 +376,8 @@ function renderBonusesTab(
     scene.add.text(100, startY + index * 28, line, {
       fontFamily: 'monospace',
       fontSize: '16px',
-      color: bonuses.specialAbilities.length > 0 && index === lines.length - 1
-        ? '#ff69b4'
-        : '#ffffff',
+      color:
+        bonuses.specialAbilities.length > 0 && index === lines.length - 1 ? '#ff69b4' : '#ffffff',
     });
   });
 }
@@ -385,7 +386,10 @@ function renderBonusesTab(
  * Check if museum is complete.
  */
 export function isMuseumComplete(state: MuseumOverlayState): boolean {
-  return state.museumState.completedFossils.length === require('../archaeology/fossilRegistry.js').FOSSIL_SETS.length;
+  return (
+    state.museumState.completedFossils.length ===
+    require('../archaeology/fossilRegistry.js').FOSSIL_SETS.length
+  );
 }
 
 /**

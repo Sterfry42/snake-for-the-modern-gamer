@@ -74,9 +74,7 @@ describe('CameraSystem', () => {
   describe('photo rarity', () => {
     it('assigns rarity to photos', () => {
       const result = camera.takePhoto('rabbit', '0,0,0');
-      expect(['common', 'uncommon', 'rare', 'epic', 'legendary']).toContain(
-        result.photo?.rarity,
-      );
+      expect(['common', 'uncommon', 'rare', 'epic', 'legendary']).toContain(result.photo?.rarity);
     });
 
     it('gets rarity counts', () => {

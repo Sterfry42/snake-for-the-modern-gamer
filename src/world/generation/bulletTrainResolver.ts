@@ -113,7 +113,10 @@ export class BulletTrainStructureResolver {
     for (const coord of this.coordsByRoomId.values()) {
       const regionKey = this.getRegionKey(coord);
       if (!regionMap.has(regionKey)) {
-        regionMap.set(regionKey, { x: Math.floor(coord.x / JADE_PEAK_STATION_REGION_SIZE), y: Math.floor(coord.y / JADE_PEAK_STATION_REGION_SIZE) });
+        regionMap.set(regionKey, {
+          x: Math.floor(coord.x / JADE_PEAK_STATION_REGION_SIZE),
+          y: Math.floor(coord.y / JADE_PEAK_STATION_REGION_SIZE),
+        });
       }
     }
 
@@ -141,15 +144,15 @@ export class BulletTrainStructureResolver {
     regionKey: string,
     index: number,
   ): BulletTrainPlacement | null {
-    const seed = positiveMod(
-      hashWorldCoordinate(this.identity.seed, regionKey, index),
-      1000000,
-    );
+    const seed = positiveMod(hashWorldCoordinate(this.identity.seed, regionKey, index), 1000000);
 
     // Try multiple candidate rooms in the region
     for (let attempt = 0; attempt < JADE_PEAK_STATION_CANDIDATE_ATTEMPTS; attempt++) {
       const candidateKey = `${regionKey}:${attempt}`;
-      const candidateSeed = positiveMod(hashWorldCoordinate(String(seed), candidateKey, 0), 1000000);
+      const candidateSeed = positiveMod(
+        hashWorldCoordinate(String(seed), candidateKey, 0),
+        1000000,
+      );
 
       const regionRooms = this.roomsByRegion.get(regionKey) ?? [];
       for (const roomId of regionRooms) {
@@ -166,7 +169,8 @@ export class BulletTrainStructureResolver {
         // Check for collisions with other stations
         let collision = false;
         for (const existing of this.stationPlacements.values()) {
-          const dist = Math.abs(existing.coordinate.x - coord.x) + Math.abs(existing.coordinate.y - coord.y);
+          const dist =
+            Math.abs(existing.coordinate.x - coord.x) + Math.abs(existing.coordinate.y - coord.y);
           if (dist < 3) {
             collision = true;
             break;
@@ -200,10 +204,17 @@ export class BulletTrainStructureResolver {
       const dz = Math.abs(coord.z - stationCoord.z);
 
       // Allow travel within X/Y radius and Z depth radius
-      if (dx <= JADE_PEAK_DESTINATION_RADIUS && dy <= JADE_PEAK_DESTINATION_RADIUS && dz <= JADE_PEAK_DESTINATION_Z_RADIUS) {
+      if (
+        dx <= JADE_PEAK_DESTINATION_RADIUS &&
+        dy <= JADE_PEAK_DESTINATION_RADIUS &&
+        dz <= JADE_PEAK_DESTINATION_Z_RADIUS
+      ) {
         // Weight by combined distance (closer = more likely)
         const dist = dx + dy + dz;
-        const weight = Math.max(1, JADE_PEAK_DESTINATION_RADIUS + JADE_PEAK_DESTINATION_Z_RADIUS - dist);
+        const weight = Math.max(
+          1,
+          JADE_PEAK_DESTINATION_RADIUS + JADE_PEAK_DESTINATION_Z_RADIUS - dist,
+        );
 
         // Pick an exit tile near a portal or center
         const exitX = Math.floor(this.grid.cols / 2);

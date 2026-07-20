@@ -8,7 +8,6 @@ import {
   getAnimalWeatherMessage,
 } from '../weatherEffects.js';
 
-
 describe('Animal Weather Effects', () => {
   describe('getAnimalWeatherBehavior', () => {
     it('returns base behavior for clear weather', () => {

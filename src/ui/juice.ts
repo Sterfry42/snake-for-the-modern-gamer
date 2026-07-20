@@ -697,15 +697,11 @@ export class JuiceManager {
     // Soft particle burst — warm gold and pink
     const cx = this.scene.scale.width / 2;
     const cy = this.scene.scale.height / 2;
-    this.spawnBurst(
-      cx,
-      cy,
-      {
-        count: 12,
-        radius: 90,
-        colors: [0xfff3b0, 0xffb6c1, 0xffd700, 0xffe4e1, 0xffecd2],
-      },
-    );
+    this.spawnBurst(cx, cy, {
+      count: 12,
+      radius: 90,
+      colors: [0xfff3b0, 0xffb6c1, 0xffd700, 0xffe4e1, 0xffecd2],
+    });
     // Subtle screen warmth
     this.screenTint(0xffe4c4, 0.12, 400);
   }
@@ -7068,9 +7064,12 @@ export class JuiceManager {
     if (!layer) return;
     for (let i = 0; i < 20; i++) {
       const particle = this.scene.add.line(
-        worldX, worldY,
-        worldX + Phaser.Math.Between(10, 40), worldY + Phaser.Math.Between(-10, 10),
-        0xff6b44, 0.6,
+        worldX,
+        worldY,
+        worldX + Phaser.Math.Between(10, 40),
+        worldY + Phaser.Math.Between(-10, 10),
+        0xff6b44,
+        0.6,
       );
       particle.setDepth(21).setBlendMode(Phaser.BlendModes.ADD);
       layer.add(particle);
@@ -8585,11 +8584,7 @@ export class JuiceManager {
     }
   }
 
-  private spawnTrailParticle(
-    x: number,
-    y: number,
-    glitterColors: number[],
-  ): void {
+  private spawnTrailParticle(x: number, y: number, glitterColors: number[]): void {
     const layer = this.particleLayer;
     if (!layer) {
       return;
@@ -8629,7 +8624,10 @@ export class JuiceManager {
     // (safety net — tweens should handle cleanup, but this prevents leaks)
     const maxTrailParticles = 200;
     if (this.unicornTrailParticles.length > maxTrailParticles) {
-      const toRemove = this.unicornTrailParticles.splice(0, this.unicornTrailParticles.length - maxTrailParticles);
+      const toRemove = this.unicornTrailParticles.splice(
+        0,
+        this.unicornTrailParticles.length - maxTrailParticles,
+      );
       for (const p of toRemove) {
         p.destroy();
       }

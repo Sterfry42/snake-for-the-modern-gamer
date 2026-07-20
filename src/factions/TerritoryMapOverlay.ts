@@ -15,35 +15,35 @@ import { TerritoryManager } from './TerritoryManager.js';
 // ─── Faction Color Palette ───────────────────────────────────────────────────
 
 export const FACTION_COLORS: Record<string, number> = {
-  'hearthbound-remnant': 0x4CAF50, // Green
-  'goblin-camps': 0x8BC34A, // Light green
-  'guards': 0x2196F3, // Blue
-  'shopkeepers': 0xFF9800, // Orange
-  'thieves-guild': 0x9C27B0, // Purple
-  'bandits': 0xF44336, // Red
-  'wildlife': 0x795548, // Brown
-  'predators': 0xD32F2F, // Dark red
-  'angels': 0xFFEB3B, // Yellow
-  'goblin-angels': 0xCDDC39, // Lime
-  'royal-road-office': 0x3F51B5, // Indigo
-  'serpents-coil': 0x00BCD4, // Cyan
-  unclaimed: 0x607D8B, // Gray
-  contested: 0xFF5722, // Deep orange
+  'hearthbound-remnant': 0x4caf50, // Green
+  'goblin-camps': 0x8bc34a, // Light green
+  guards: 0x2196f3, // Blue
+  shopkeepers: 0xff9800, // Orange
+  'thieves-guild': 0x9c27b0, // Purple
+  bandits: 0xf44336, // Red
+  wildlife: 0x795548, // Brown
+  predators: 0xd32f2f, // Dark red
+  angels: 0xffeb3b, // Yellow
+  'goblin-angels': 0xcddc39, // Lime
+  'royal-road-office': 0x3f51b5, // Indigo
+  'serpents-coil': 0x00bcd4, // Cyan
+  unclaimed: 0x607d8b, // Gray
+  contested: 0xff5722, // Deep orange
 };
 
 // ─── Territory Type Colors ───────────────────────────────────────────────────
 
 export const TERRITORY_TYPE_COLORS: Record<string, number> = {
-  forest: 0x2E7D32,
+  forest: 0x2e7d32,
   cave: 0x424242,
-  plains: 0xFFC107,
+  plains: 0xffc107,
   mountain: 0x795548,
-  ruins: 0x607D8B,
-  swamp: 0x558B2F,
-  coast: 0x03A9F4,
-  tundra: 0xE0F7FA,
-  desert: 0xFFE082,
-  garden: 0x8BC34A,
+  ruins: 0x607d8b,
+  swamp: 0x558b2f,
+  coast: 0x03a9f4,
+  tundra: 0xe0f7fa,
+  desert: 0xffe082,
+  garden: 0x8bc34a,
 };
 
 // ─── Territory Map Overlay Class ─────────────────────────────────────────────
@@ -253,9 +253,8 @@ export class TerritoryMapOverlay {
     territory: TerritoryDefinition,
     ownership: TerritoryOwnership,
   ): void {
-    const controlText = ownership.status === 'unclaimed'
-      ? ''
-      : ` (${ownership.controlPercentage}%)`;
+    const controlText =
+      ownership.status === 'unclaimed' ? '' : ` (${ownership.controlPercentage}%)`;
     label.setText(`${territory.name}${controlText}`);
   }
 
@@ -282,18 +281,10 @@ export class TerritoryMapOverlay {
 
       // Draw patrol indicator (circle as proxy for diamond)
       indicator.clear();
-      indicator.lineStyle(1, 0xFFEB3B, 0.7);
-      indicator.strokeCircle(
-        position.x + 30,
-        position.y + 20,
-        6,
-      );
-      indicator.fillStyle(0xFFEB3B, 0.7);
-      indicator.fillCircle(
-        position.x + 30,
-        position.y + 20,
-        4,
-      );
+      indicator.lineStyle(1, 0xffeb3b, 0.7);
+      indicator.strokeCircle(position.x + 30, position.y + 20, 6);
+      indicator.fillStyle(0xffeb3b, 0.7);
+      indicator.fillCircle(position.x + 30, position.y + 20, 4);
     }
   }
 

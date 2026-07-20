@@ -719,7 +719,10 @@ export class EnemyManager {
           continue;
         }
 
-        if (room.layout[nextPosition.y]?.[nextPosition.x] === '#' || room.layout[nextPosition.y]?.[nextPosition.x] === '%') {
+        if (
+          room.layout[nextPosition.y]?.[nextPosition.x] === '#' ||
+          room.layout[nextPosition.y]?.[nextPosition.x] === '%'
+        ) {
           continue;
         }
 

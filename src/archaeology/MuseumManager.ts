@@ -81,10 +81,7 @@ export function createMuseumState(museumName: string = 'The Wise Snake Museum'):
 /**
  * Add a completed fossil to the museum.
  */
-export function addCompletedFossil(
-  state: MuseumState,
-  completedFossil: CompletedFossil,
-): boolean {
+export function addCompletedFossil(state: MuseumState, completedFossil: CompletedFossil): boolean {
   // Check if already completed
   if (state.completedFossils.some((f) => f.fossilSetId === completedFossil.fossilSetId)) {
     return false;
@@ -141,10 +138,7 @@ function unlockExhibit(state: MuseumState, fossilSetId: string): void {
 /**
  * Check if a research upgrade can be unlocked.
  */
-export function canUnlockUpgrade(
-  state: MuseumState,
-  upgradeId: string,
-): boolean {
+export function canUnlockUpgrade(state: MuseumState, upgradeId: string): boolean {
   const upgrade = RESEARCH_UPGRADES.find((u) => u.id === upgradeId);
   if (!upgrade) return false;
 
@@ -167,10 +161,7 @@ export function canUnlockUpgrade(
 /**
  * Unlock a research upgrade.
  */
-export function unlockResearchUpgrade(
-  state: MuseumState,
-  upgradeId: string,
-): boolean {
+export function unlockResearchUpgrade(state: MuseumState, upgradeId: string): boolean {
   if (!canUnlockUpgrade(state, upgradeId)) return false;
 
   const upgrade = RESEARCH_UPGRADES.find((u) => u.id === upgradeId);
@@ -378,10 +369,7 @@ export function isMuseumComplete(state: MuseumState): boolean {
 /**
  * Get completed fossil sets by rarity.
  */
-export function getCompletedByRarity(
-  state: MuseumState,
-  rarity: FossilRarity,
-): CompletedFossil[] {
+export function getCompletedByRarity(state: MuseumState, rarity: FossilRarity): CompletedFossil[] {
   return state.completedFossils.filter((f) => {
     const set = getFossilSet(f.fossilSetId);
     return set?.rarity === rarity;

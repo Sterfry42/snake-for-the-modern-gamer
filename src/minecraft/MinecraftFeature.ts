@@ -8,19 +8,22 @@ import { MinecraftRenderLayer } from './renderLayer.js';
 import { MobManager } from './mobManager.js';
 import { DayNightCycle } from './dayNight.js';
 import { LightingSystem } from './lighting.js';
-import { tryBreakBlock, tryPlaceBlock, tryBreakBlockCreative, tryPlaceBlockCreative } from './blockInteraction.js';
-import { getRecipeById, canCraft, craft as craftRecipe, getCraftingTableRecipes } from './crafting.js';
+import {
+  tryBreakBlock,
+  tryPlaceBlock,
+  tryBreakBlockCreative,
+  tryPlaceBlockCreative,
+} from './blockInteraction.js';
+import {
+  getRecipeById,
+  canCraft,
+  craft as craftRecipe,
+  getCraftingTableRecipes,
+} from './crafting.js';
 import type { MinecraftSaveData } from './types.js';
-import {
-  serializeMinecraftState,
-  deserializeMinecraftState,
-} from './save.js';
+import { serializeMinecraftState, deserializeMinecraftState } from './save.js';
 import { CHUNK_SIZE } from './config.js';
-import {
-  blockIdToColor,
-  getBlockHardness,
-  isPlaceableSpecialBlock,
-} from './blockRegistry.js';
+import { blockIdToColor, getBlockHardness, isPlaceableSpecialBlock } from './blockRegistry.js';
 import { getMinecraftItem } from './itemRegistry.js';
 import {
   tryPlaceFurnace,
@@ -38,12 +41,7 @@ import {
   getChestContents,
 } from './chest.js';
 import { tryPlaceBed, trySleep } from './bed.js';
-import {
-  tryPlantSeeds,
-  tryPlantPumpkin,
-  tickCrops,
-  tryHarvestCrop,
-} from './farming.js';
+import { tryPlantSeeds, tryPlantPumpkin, tickCrops, tryHarvestCrop } from './farming.js';
 
 export class MinecraftFeature extends Feature {
   private _rng: RandomGenerator | null = null;
@@ -208,15 +206,19 @@ export class MinecraftFeature extends Feature {
     }
 
     // Persistent controls display in bottom left
-    const controlsText = scene.add
-      .text(12, height - 110, [
+    const controlsText = scene.add.text(
+      12,
+      height - 110,
+      [
         'WASD: Move',
         'Q: Break | R: Place',
         'E: Eat',
         'F/G/H/J: Armor',
         'Right-click: Interact',
         this.creativeMode ? '[/]: Cycle blocks' : '',
-      ].filter(Boolean).join('\n'),
+      ]
+        .filter(Boolean)
+        .join('\n'),
       {
         fontFamily: 'monospace',
         fontSize: '11px',
@@ -269,18 +271,13 @@ export class MinecraftFeature extends Feature {
     // Player health/hunger/XP UI
     if (this.player && scene.snakeGame.getFlag<boolean>('ui.livesRevealed')) {
       const hudText = scene.add
-        .text(
-          scene.scale.width - 120,
-          8,
-          this.buildHUDText(),
-          {
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 3,
-          },
-        )
+        .text(scene.scale.width - 120, 8, this.buildHUDText(), {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#ffffff',
+          stroke: '#000000',
+          strokeThickness: 3,
+        })
         .setDepth(35);
 
       scene.events.on('update', () => {
@@ -298,7 +295,8 @@ export class MinecraftFeature extends Feature {
     // In creative mode, Minecraft-specific death is a no-op
     if (this.creativeMode) {
       scene.setFlag('ui.questInteraction', {
-        message: 'Creative mode: You cannot die from hunger or mobs. The snake game still has its own death conditions.',
+        message:
+          'Creative mode: You cannot die from hunger or mobs. The snake game still has its own death conditions.',
       });
       return;
     }
@@ -355,7 +353,8 @@ export class MinecraftFeature extends Feature {
     if (this.creativeMode) {
       this.player!.creativePaletteSlot = 0;
       scene.setFlag('ui.questInteraction', {
-        message: 'Creative mode: Break and place blocks freely. Press [ or ] to cycle blocks. Shift+M to toggle creative.',
+        message:
+          'Creative mode: Break and place blocks freely. Press [ or ] to cycle blocks. Shift+M to toggle creative.',
       });
     } else {
       scene.setFlag('ui.questInteraction', {
@@ -418,7 +417,8 @@ export class MinecraftFeature extends Feature {
     if (!this.player) return false;
     const success = this.player.autoUnequipArmor(slotName);
     if (success) {
-      const itemName = getMinecraftItem(this.player.armorSlots[this.getSlotKey(slotName)] ?? '')?.name ?? slotName;
+      const itemName =
+        getMinecraftItem(this.player.armorSlots[this.getSlotKey(slotName)] ?? '')?.name ?? slotName;
       scene.setFlag('ui.questInteraction', { message: `Unequipped ${itemName}.` });
     } else {
       scene.setFlag('ui.questInteraction', { message: `Nothing equipped in ${slotName}.` });
@@ -467,9 +467,9 @@ export class MinecraftFeature extends Feature {
 
     if (button === 1) {
       // Left click: check for mobs first, then harvest/break
-      const mobsAtPos = this.mobManager?.getMobsInRoom(room.id).filter(
-        (m) => m.x === worldTileX && m.y === worldTileY,
-      );
+      const mobsAtPos = this.mobManager
+        ?.getMobsInRoom(room.id)
+        .filter((m) => m.x === worldTileX && m.y === worldTileY);
       if (mobsAtPos && mobsAtPos.length > 0) {
         const mob = mobsAtPos[0];
         const mobDef = mob.type === 'cow' ? { hostile: false } : { hostile: true };
@@ -477,13 +477,9 @@ export class MinecraftFeature extends Feature {
           scene.setFlag('ui.questInteraction', { message: "That's a friendly cow!" });
           return true;
         }
-        this.mobManager!.damageMob(
-          mob.id,
-          5,
-          (mobId, mx, my, mroomId) => {
-            this.handleMobDeath(mobId, mx, my, mroomId, scene);
-          },
-        );
+        this.mobManager!.damageMob(mob.id, 5, (mobId, mx, my, mroomId) => {
+          this.handleMobDeath(mobId, mx, my, mroomId, scene);
+        });
         scene.juice.mobHit(
           worldTileX * scene.grid.cell + scene.grid.cell / 2,
           worldTileY * scene.grid.cell + scene.grid.cell / 2,
@@ -511,7 +507,12 @@ export class MinecraftFeature extends Feature {
 
       // Break block
       if (this.creativeMode) {
-        const creativeResult = tryBreakBlockCreative(scene, worldTileX, worldTileY, this.chunkManager ?? undefined);
+        const creativeResult = tryBreakBlockCreative(
+          scene,
+          worldTileX,
+          worldTileY,
+          this.chunkManager ?? undefined,
+        );
         if (creativeResult.success) {
           // No drops in creative mode
         }
@@ -519,7 +520,13 @@ export class MinecraftFeature extends Feature {
           scene.setFlag('ui.questInteraction', { message: creativeResult.message });
         }
       } else {
-        const result = tryBreakBlock(scene, this.player, worldTileX, worldTileY, this.chunkManager ?? undefined);
+        const result = tryBreakBlock(
+          scene,
+          this.player,
+          worldTileX,
+          worldTileY,
+          this.chunkManager ?? undefined,
+        );
         if (result.success) {
           if (result.droppedItem) {
             const droppedItem = result.droppedItem;
@@ -587,7 +594,13 @@ export class MinecraftFeature extends Feature {
       // Place block
       if (this.creativeMode) {
         const blockTypeForPlace = this.getCreativeBlockType();
-        const placeResult = tryPlaceBlockCreative(scene, worldTileX, worldTileY, blockTypeForPlace, this.chunkManager ?? undefined);
+        const placeResult = tryPlaceBlockCreative(
+          scene,
+          worldTileX,
+          worldTileY,
+          blockTypeForPlace,
+          this.chunkManager ?? undefined,
+        );
         if (placeResult.message) {
           scene.setFlag('ui.questInteraction', { message: placeResult.message });
         }
@@ -885,13 +898,18 @@ export class MinecraftFeature extends Feature {
       // Result item
       const resultItem = getMinecraftItem(recipe.result.itemId);
       const resultText = scene.add
-        .text(listX + 4, entryY + 20, `→ ${recipe.result.count}x ${resultItem?.name ?? recipe.result.itemId}`, {
-          fontFamily: 'monospace',
-          fontSize: '10px',
-          color: '#5dd6a2',
-          stroke: '#000000',
-          strokeThickness: 2,
-        })
+        .text(
+          listX + 4,
+          entryY + 20,
+          `→ ${recipe.result.count}x ${resultItem?.name ?? recipe.result.itemId}`,
+          {
+            fontFamily: 'monospace',
+            fontSize: '10px',
+            color: '#5dd6a2',
+            stroke: '#000000',
+            strokeThickness: 2,
+          },
+        )
         .setDepth(51);
       container.add(resultText);
 
@@ -943,7 +961,12 @@ export class MinecraftFeature extends Feature {
       container.add(craftBtnText);
 
       if (canCraftNow) {
-        const btnRect = { x: craftBtnX, y: craftBtnY, width: craftBtnWidth, height: craftBtnHeight };
+        const btnRect = {
+          x: craftBtnX,
+          y: craftBtnY,
+          width: craftBtnWidth,
+          height: craftBtnHeight,
+        };
 
         const btnHitArea = scene.add.graphics();
         btnHitArea.fillStyle(0x000000, 0);
@@ -1261,19 +1284,14 @@ export class MinecraftFeature extends Feature {
     // Block name label below the palette
     const selectedBlock = blocks[this.player!.creativePaletteSlot] ?? blocks[0];
     scene.add
-      .text(
-        scene.scale.width / 2,
-        panelY + slotSize + 8,
-        selectedBlock.toUpperCase(),
-        {
-          fontFamily: 'monospace',
-          fontSize: '10px',
-          color: '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 2,
-          align: 'center',
-        },
-      )
+      .text(scene.scale.width / 2, panelY + slotSize + 8, selectedBlock.toUpperCase(), {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+        align: 'center',
+      })
       .setOrigin(0.5)
       .setDepth(35);
   }
@@ -1386,7 +1404,12 @@ export class MinecraftFeature extends Feature {
 
     // In creative mode, break at head position (snake positions itself to reach blocks)
     if (this.creativeMode) {
-      const creativeResult = tryBreakBlockCreative(scene, head.x, head.y, this.chunkManager ?? undefined);
+      const creativeResult = tryBreakBlockCreative(
+        scene,
+        head.x,
+        head.y,
+        this.chunkManager ?? undefined,
+      );
       if (creativeResult.success) {
         // No drops in creative mode
       }
@@ -1418,7 +1441,13 @@ export class MinecraftFeature extends Feature {
     }
 
     // Break block
-    const result = tryBreakBlock(scene, this.player, head.x, head.y, this.chunkManager ?? undefined);
+    const result = tryBreakBlock(
+      scene,
+      this.player,
+      head.x,
+      head.y,
+      this.chunkManager ?? undefined,
+    );
     if (result.success) {
       if (result.droppedItem) {
         const droppedItem = result.droppedItem;
@@ -1461,7 +1490,7 @@ export class MinecraftFeature extends Feature {
     }
 
     scene.setFlag('ui.questInteraction', {
-      message: "No food in inventory! Craft/cook something to eat.",
+      message: 'No food in inventory! Craft/cook something to eat.',
     });
     return true;
   }
@@ -1476,7 +1505,13 @@ export class MinecraftFeature extends Feature {
     // In creative mode with keyboard place: place from palette
     if (this.creativeMode) {
       const blockType = this.getCreativeBlockType();
-      const placeResult = tryPlaceBlockCreative(scene, head.x, head.y, blockType, this.chunkManager ?? undefined);
+      const placeResult = tryPlaceBlockCreative(
+        scene,
+        head.x,
+        head.y,
+        blockType,
+        this.chunkManager ?? undefined,
+      );
       if (placeResult.message) {
         scene.setFlag('ui.questInteraction', { message: placeResult.message });
       }

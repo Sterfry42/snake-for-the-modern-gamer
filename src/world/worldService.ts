@@ -27,10 +27,12 @@ import { generateDecorations, generateTransitRooms } from './bulletTrainService.
 import type { BulletTrainDestination, BulletTrainJourney } from './bulletTrainTypes.js';
 import { BulletTrainStructureResolver } from './generation/bulletTrainResolver.js';
 import { parseRoomId } from './generation/multiRoomStructures.js';
-import {
-  createRollercoasterJourney as createCoasterJourney,
-} from './rollercoasterService.js';
-import type { RollercoasterDestination, RollercoasterJourney, RollercoasterTheme } from './rollercoasterTypes.js';
+import { createRollercoasterJourney as createCoasterJourney } from './rollercoasterService.js';
+import type {
+  RollercoasterDestination,
+  RollercoasterJourney,
+  RollercoasterTheme,
+} from './rollercoasterTypes.js';
 import { RollercoasterStructureResolver } from './generation/rollercoasterResolver.js';
 
 export interface PickupChanceProvider {
@@ -74,10 +76,7 @@ export class WorldService {
     this.worldGenerationIdentity = identity ?? createWorldGenerationIdentity();
     this.worldSeed = this.worldGenerationIdentity.seed;
     this.generatorWorldConfig = worldConfig;
-    this.bulletTrainResolver = new BulletTrainStructureResolver(
-      this.worldGenerationIdentity,
-      grid,
-    );
+    this.bulletTrainResolver = new BulletTrainStructureResolver(this.worldGenerationIdentity, grid);
     this.rollercoasterResolver = new RollercoasterStructureResolver(
       this.worldGenerationIdentity,
       grid,
@@ -422,7 +421,10 @@ export class WorldService {
       : undefined;
     const centerX = Math.floor(this.grid.cols / 2);
     const centerY = Math.floor(this.grid.rows / 2);
-    const palette = townInteriorPalette(instance.templateId, building?.interiorTitle ?? instance.displayName);
+    const palette = townInteriorPalette(
+      instance.templateId,
+      building?.interiorTitle ?? instance.displayName,
+    );
     const bounds = townInteriorBounds(instance.templateId, this.grid.cols, this.grid.rows);
     const rows = Array.from({ length: this.grid.rows }, () => '#'.repeat(this.grid.cols));
     const setTile = (x: number, y: number, tile: string): void => {
@@ -558,7 +560,8 @@ export class WorldService {
   private registerPortalIndex(sourceRoomId: string, portal: PortalConfig): void {
     this.unregisterPortalIndex(sourceRoomId, portal);
     const entries =
-      this.incomingPortalsByDestRoomId.get(portal.destRoomId) ?? new Map<string, PortalIndexEntry>();
+      this.incomingPortalsByDestRoomId.get(portal.destRoomId) ??
+      new Map<string, PortalIndexEntry>();
     entries.set(this.portalIndexKey(sourceRoomId, portal), {
       sourceRoomId,
       x: portal.x,
@@ -853,7 +856,6 @@ export class WorldService {
 
   /** Stamp a rollercoaster station entrance tile on a room. */
   private stampRollercoasterStation(room: RoomSnapshot): void {
-
     const placement = this.rollercoasterResolver.getStationPlacement(room.id);
     if (!placement) return;
 
@@ -901,7 +903,10 @@ export class WorldService {
     const theme = this.pickCoasterTheme();
     room.rollercoasterStation.theme = theme;
     room.rollercoasterStation.stationName = this.generateCoasterStationName(theme);
-    room.rollercoasterStation.trackSegments = this.generateCoasterTrackSegments(entranceX, entranceY);
+    room.rollercoasterStation.trackSegments = this.generateCoasterTrackSegments(
+      entranceX,
+      entranceY,
+    );
   }
 
   /** Pick a random coaster theme. */
@@ -920,19 +925,58 @@ export class WorldService {
   /** Generate a station name for a theme. */
   private generateCoasterStationName(theme: RollercoasterTheme): string {
     const names: Record<RollercoasterTheme, string[]> = {
-      'thunder-ridge': ['Thunder Ridge Coaster', 'Mountain Madness', 'Eagle\'s Descent', 'Granite Rush', 'Summit Scream'],
-      'neon-nights': ['Neon Nightmare', 'Cyber Loop', 'Electric Express', 'Neon Nexus', 'Pixel Plunge'],
-      'jungle-jolt': ['Jungle Jolt', 'Temple Terror', 'Vine Swing', 'Serpent\'s Coil', 'Lost Temple Loop'],
-      'arctic-avalanche': ['Arctic Avalanche', 'Frost Flip', 'Glacier Glide', 'Iceberg Inferno', 'Blizzard Blast'],
-      'volcanic-veer': ['Volcanic Veer', 'Lava Loop', 'Magma Madness', 'Pyro Plunge', 'Inferno Invader'],
-      'cosmic-corkscrew': ['Cosmic Corkscrew', 'Star Spinner', 'Nebula Nightmare', 'Galaxy Grinder', 'Astro Assault'],
+      'thunder-ridge': [
+        'Thunder Ridge Coaster',
+        'Mountain Madness',
+        "Eagle's Descent",
+        'Granite Rush',
+        'Summit Scream',
+      ],
+      'neon-nights': [
+        'Neon Nightmare',
+        'Cyber Loop',
+        'Electric Express',
+        'Neon Nexus',
+        'Pixel Plunge',
+      ],
+      'jungle-jolt': [
+        'Jungle Jolt',
+        'Temple Terror',
+        'Vine Swing',
+        "Serpent's Coil",
+        'Lost Temple Loop',
+      ],
+      'arctic-avalanche': [
+        'Arctic Avalanche',
+        'Frost Flip',
+        'Glacier Glide',
+        'Iceberg Inferno',
+        'Blizzard Blast',
+      ],
+      'volcanic-veer': [
+        'Volcanic Veer',
+        'Lava Loop',
+        'Magma Madness',
+        'Pyro Plunge',
+        'Inferno Invader',
+      ],
+      'cosmic-corkscrew': [
+        'Cosmic Corkscrew',
+        'Star Spinner',
+        'Nebula Nightmare',
+        'Galaxy Grinder',
+        'Astro Assault',
+      ],
     };
     const themeNames = names[theme];
     return themeNames[Math.floor(this.rng() * themeNames.length)];
   }
 
   /** Generate track segments for a coaster station. */
-  private generateCoasterTrackSegments(entranceX: number, entranceY: number): import('./rollercoasterTypes.js').RollercoasterTrackSegment[] {
+  private generateCoasterTrackSegments(
+    entranceX: number,
+    entranceY: number,
+  ): import('./rollercoasterTypes.js').RollercoasterTrackSegment[] {
     const segments: import('./rollercoasterTypes.js').RollercoasterTrackSegment[] = [];
 
     segments.push({ type: 'station-platform' as const, x: entranceX, y: entranceY });
@@ -1032,12 +1076,42 @@ export class WorldService {
     };
 
     const displayNames: Record<RollercoasterTheme, string[]> = {
-      'thunder-ridge': ['Thunder Peak', 'Ridge Runner', 'Eagle\'s Nest', 'Granite Station', 'Summit Stop'],
+      'thunder-ridge': [
+        'Thunder Peak',
+        'Ridge Runner',
+        "Eagle's Nest",
+        'Granite Station',
+        'Summit Stop',
+      ],
       'neon-nights': ['Neon District', 'Cyber Hub', 'Electric Avenue', 'Pixel Plaza', 'Neon Nexus'],
-      'jungle-jolt': ['Jungle Temple', 'Vine Valley', 'Serpent\'s Lair', 'Lost Ruins', 'Green Station'],
-      'arctic-avalanche': ['Frost Station', 'Glacier Point', 'Ice Hollow', 'Blizzard Base', 'Avalanche Alley'],
-      'volcanic-veer': ['Lava Station', 'Magma Junction', 'Pyro Port', 'Inferno Isle', 'Volcano View'],
-      'cosmic-corkscrew': ['Star Dock', 'Nebula Station', 'Galaxy Gate', 'Astro Hub', 'Cosmic Corner'],
+      'jungle-jolt': [
+        'Jungle Temple',
+        'Vine Valley',
+        "Serpent's Lair",
+        'Lost Ruins',
+        'Green Station',
+      ],
+      'arctic-avalanche': [
+        'Frost Station',
+        'Glacier Point',
+        'Ice Hollow',
+        'Blizzard Base',
+        'Avalanche Alley',
+      ],
+      'volcanic-veer': [
+        'Lava Station',
+        'Magma Junction',
+        'Pyro Port',
+        'Inferno Isle',
+        'Volcano View',
+      ],
+      'cosmic-corkscrew': [
+        'Star Dock',
+        'Nebula Station',
+        'Galaxy Gate',
+        'Astro Hub',
+        'Cosmic Corner',
+      ],
     };
 
     const flavorPool = arrivalFlavors[theme];
@@ -1177,7 +1251,10 @@ function townInteriorPalette(templateId: LayerTemplateId): {
   wallColor: number;
   wallOutlineColor: number;
 };
-function townInteriorPalette(templateId: LayerTemplateId, titleOverride: string | undefined): {
+function townInteriorPalette(
+  templateId: LayerTemplateId,
+  titleOverride: string | undefined,
+): {
   title: string;
   backgroundColor: number;
   wallColor: number;

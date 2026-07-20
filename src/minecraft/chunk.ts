@@ -1,7 +1,6 @@
 import type { BlockData, ChunkKey, ChunkState } from './types.js';
 import { CHUNK_SIZE, MAX_WORLD_CHUNKS } from './config.js';
 
-
 function hashString(str: string): number {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {

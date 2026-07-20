@@ -26,14 +26,14 @@ import {
 } from './humanRegistry.js';
 import { buildHumanStats, pickHumanName, buildHumanProfile } from './humanProfiles.js';
 
-
 // === HUMAN MANAGER ===
 
 export class HumanManager {
   private humans: Map<string, HumanInstance> = new Map();
   private relationships: Map<string, HumanRelationship> = new Map();
   private knownHumans: Set<string> = new Set();
-  private encounterHistory: Map<string, { seen: number; accepted: number; rejected: number }> = new Map();
+  private encounterHistory: Map<string, { seen: number; accepted: number; rejected: number }> =
+    new Map();
 
   constructor(private rng: RandomGenerator = Math.random) {}
 
@@ -324,8 +324,6 @@ export class HumanManager {
     this.humans = new Map(Object.entries(data.humans));
     this.relationships = new Map(Object.entries(data.relationships));
     this.encounterHistory = new Map(Object.entries(data.encounterHistory));
-    this.knownHumans = new Set(
-      Object.values(data.relationships).map((r) => r.humanId),
-    );
+    this.knownHumans = new Set(Object.values(data.relationships).map((r) => r.humanId));
   }
 }

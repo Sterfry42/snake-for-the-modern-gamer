@@ -103,7 +103,11 @@ export function tryPlantPumpkin(
   return { success: true };
 }
 
-export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }, rng: () => number = Math.random): void {
+export function tickCrops(
+  room: RoomSnapshot,
+  dayNight: { timeOfDay: number },
+  rng: () => number = Math.random,
+): void {
   if (!room.minecraftBlocks) return;
   if (!room.minecraftCropData) return;
 
@@ -136,7 +140,8 @@ export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }, r
     const neighbors = [`${px - 1},${py}`, `${px + 1},${py}`, `${px},${py - 1}`, `${px},${py + 1}`];
 
     // Only spread during daytime with some randomness
-    if (dayNight.timeOfDay % PUMPKIN_SPREAD_INTERVAL !== 0 || rng() > PUMPKIN_SPREAD_CHANCE) continue;
+    if (dayNight.timeOfDay % PUMPKIN_SPREAD_INTERVAL !== 0 || rng() > PUMPKIN_SPREAD_CHANCE)
+      continue;
 
     // Check if adjacent to farmland
     const hasAdjacentFarmland = neighbors.some((n) => room.minecraftBlocks?.[n] === 'farmland');
@@ -160,7 +165,12 @@ export function tryHarvestCrop(
   y: number,
   blockType: string | undefined,
   rng: () => number = Math.random,
-): { success: boolean; drops?: Array<{ itemId: string; count: number }>; xp?: number; message?: string } {
+): {
+  success: boolean;
+  drops?: Array<{ itemId: string; count: number }>;
+  xp?: number;
+  message?: string;
+} {
   if (!blockType) {
     return { success: false, message: 'Nothing to harvest.' };
   }

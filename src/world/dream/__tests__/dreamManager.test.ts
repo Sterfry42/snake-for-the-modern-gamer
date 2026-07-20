@@ -36,11 +36,7 @@ describe('DreamManager', () => {
   describe('dream entry conditions', () => {
     it('should not enter dream world with default settings and low rng', () => {
       const rng = createMockRng(1);
-      const result = manager.shouldEnterDreamWorld(
-        { rand: rng } as never,
-        100,
-        10,
-      );
+      const result = manager.shouldEnterDreamWorld({ rand: rng } as never, 100, 10);
       // With low rng value, should return false
       expect(result).toBe(false);
     });

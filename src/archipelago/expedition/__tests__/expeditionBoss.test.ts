@@ -48,7 +48,9 @@ describe('ExpeditionBoss', () => {
     });
 
     it('should return undefined for unknown boss', () => {
-      expect(EXPEDITION_BOSS_BY_ID['unknown-boss' as unknown as keyof typeof EXPEDITION_BOSS_BY_ID]).toBeUndefined();
+      expect(
+        EXPEDITION_BOSS_BY_ID['unknown-boss' as unknown as keyof typeof EXPEDITION_BOSS_BY_ID],
+      ).toBeUndefined();
     });
   });
 

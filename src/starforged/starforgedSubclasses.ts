@@ -132,4 +132,3 @@ export const STARFORGED_SUBCLASSES: readonly StarforgedSubclassDefinition[] = [
     },
   },
 ];
-

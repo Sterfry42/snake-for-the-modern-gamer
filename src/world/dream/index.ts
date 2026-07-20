@@ -43,18 +43,11 @@ export type {
   DreamEntryConditions,
 } from './types.js';
 
-export {
-  DEFAULT_DREAM_CONFIG,
-} from './types.js';
+export { DEFAULT_DREAM_CONFIG } from './types.js';
 
-export {
-  DreamManager,
-} from './DreamManager.js';
+export { DreamManager } from './DreamManager.js';
 
-export {
-  DreamPuzzleManager,
-  DREAM_PUZZLE_DEFINITIONS,
-} from './DreamPuzzles.js';
+export { DreamPuzzleManager, DREAM_PUZZLE_DEFINITIONS } from './DreamPuzzles.js';
 
 export {
   DREAM_LORE_FRAGMENTS,
@@ -64,11 +57,7 @@ export {
   getAllLoreFragments,
 } from './dreamLore.js';
 
-export {
-  DreamShopManager,
-  DREAM_SHOP_ITEMS,
-  DREAM_SHOP_OFFERS,
-} from './dreamShop.js';
+export { DreamShopManager, DREAM_SHOP_ITEMS, DREAM_SHOP_OFFERS } from './dreamShop.js';
 
 export {
   DreamApple,
@@ -81,11 +70,6 @@ export {
   type DreamAppleTypeConfig,
 } from './dreamAppleTypes.js';
 
-export {
-  DreamWorldScene,
-  type DreamWorldSceneConfig,
-} from './DreamWorldScene.js';
+export { DreamWorldScene, type DreamWorldSceneConfig } from './DreamWorldScene.js';
 
-export {
-  NightmareScene,
-} from './NightmareScene.js';
+export { NightmareScene } from './NightmareScene.js';

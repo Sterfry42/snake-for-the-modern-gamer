@@ -10,9 +10,7 @@ export interface SnakeCanesData {
   bounds: { left: number; top: number; width: number; height: number };
 }
 
-const CASHIER_NAMES = [
-  'Vlad',
-] as const;
+const CASHIER_NAMES = ['Vlad'] as const;
 
 const CANE_BUILDING_WIDTH = 16;
 const CANE_BUILDING_HEIGHT = 12;

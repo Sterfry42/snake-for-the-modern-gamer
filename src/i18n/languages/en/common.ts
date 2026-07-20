@@ -309,14 +309,10 @@ export const COMMON_EN: CommonTranslations = {
   seasonSummer: 'Summer',
   seasonAutumn: 'Autumn',
   seasonWinter: 'Winter',
-  seasonSpringDesc:
-    'Rain returns. Skittish apples dance faster. Lavender and love apples bloom.',
-  seasonSummerDesc:
-    'Heat builds. Caffeinated apples spawn quickly. Cold Beer becomes essential.',
-  seasonAutumnDesc:
-    'Wind sweeps through. Mochi and yuzu apples appear. Fog rolls in often.',
-  seasonWinterDesc:
-    'Snow covers the ground. Wasabi and frost variants emerge. Visibility drops.',
+  seasonSpringDesc: 'Rain returns. Skittish apples dance faster. Lavender and love apples bloom.',
+  seasonSummerDesc: 'Heat builds. Caffeinated apples spawn quickly. Cold Beer becomes essential.',
+  seasonAutumnDesc: 'Wind sweeps through. Mochi and yuzu apples appear. Fog rolls in often.',
+  seasonWinterDesc: 'Snow covers the ground. Wasabi and frost variants emerge. Visibility drops.',
   weatherClear: 'Clear',
   weatherRain: 'Rain',
   weatherSnow: 'Snow',
@@ -328,12 +324,11 @@ export const COMMON_EN: CommonTranslations = {
   weatherClearDesc: 'The sky is open. Apples behave normally.',
   weatherRainDesc:
     'Rain falls steadily. Skittish and koi apples move faster and are harder to catch.',
-  weatherSnowDesc:
-    'Snow blankets the map. Winterberry and frostapple only spawn in snow.',
+  weatherSnowDesc: 'Snow blankets the map. Winterberry and frostapple only spawn in snow.',
   weatherFogDesc: 'Thick fog shrinks the visible play area.',
-  weatherStormDesc:
-    'Lightning strikes randomly. Shielded apples may absorb the blast.',
-  weatherHeatwaveDesc: 'Apples spawn faster but decay quicker. Cold Beer protects against overheating.',
+  weatherStormDesc: 'Lightning strikes randomly. Shielded apples may absorb the blast.',
+  weatherHeatwaveDesc:
+    'Apples spawn faster but decay quicker. Cold Beer protects against overheating.',
   weatherColdfrontDesc: 'Temperatures drop. Snow may begin in open biomes.',
   weatherWindDesc: 'Strong winds push skittish apples erratically.',
   weatherIntensity: 'Intensity',
@@ -377,12 +372,9 @@ export const COMMON_EN: CommonTranslations = {
   weatherShelterExposed: 'Exposed',
   weatherShelterInterior: 'Interior',
   weatherShelterUnderground: 'Underground',
-  weatherShelterExposedDesc:
-    'You are exposed to the elements. Weather affects you directly.',
-  weatherShelterInteriorDesc:
-    'You are indoors. Weather effects are muted but not gone.',
-  weatherShelterUndergroundDesc:
-    'You are underground. Direct weather does not reach you.',
+  weatherShelterExposedDesc: 'You are exposed to the elements. Weather affects you directly.',
+  weatherShelterInteriorDesc: 'You are indoors. Weather effects are muted but not gone.',
+  weatherShelterUndergroundDesc: 'You are underground. Direct weather does not reach you.',
   weatherIconSunny: 'sunny',
   weatherIconClearNight: 'clear night',
   weatherIconCloud: 'cloudy',

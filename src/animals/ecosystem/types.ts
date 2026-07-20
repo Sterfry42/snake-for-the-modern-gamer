@@ -113,7 +113,12 @@ export interface SettlementDefinition {
 
 // ── Kingdom System ────────────────────────────────────────────────
 
-export type KingdomRulerType = 'alpha-wolf' | 'elder-bear' | 'eagle-king' | 'ancient-turtle' | 'jackalope-sage';
+export type KingdomRulerType =
+  | 'alpha-wolf'
+  | 'elder-bear'
+  | 'eagle-king'
+  | 'ancient-turtle'
+  | 'jackalope-sage';
 
 export interface KingdomDefinition {
   id: string;

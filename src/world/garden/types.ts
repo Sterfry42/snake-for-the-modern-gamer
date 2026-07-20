@@ -17,7 +17,15 @@ import type { Vector2Like } from '../../core/math.js';
 export type PlantStage = 'seed' | 'sprout' | 'budding' | 'flowering' | 'ripe';
 
 /** Weather conditions that affect garden growth. */
-export type GardenWeather = 'clear' | 'rain' | 'fog' | 'storm' | 'heatwave' | 'coldfront' | 'snow' | 'wind';
+export type GardenWeather =
+  | 'clear'
+  | 'rain'
+  | 'fog'
+  | 'storm'
+  | 'heatwave'
+  | 'coldfront'
+  | 'snow'
+  | 'wind';
 
 /** Season affecting garden growth rates. */
 export type GardenSeason = 'spring' | 'summer' | 'autumn' | 'winter';

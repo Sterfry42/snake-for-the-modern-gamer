@@ -95,9 +95,7 @@ export class BossManager {
       x: Math.floor(this.grid.cols / 2) + 5,
       y: Math.floor(this.grid.rows / 2),
     };
-    const spawnLocal = room
-      ? this.findOpenBossCenter(room, preferredLocal)
-      : preferredLocal;
+    const spawnLocal = room ? this.findOpenBossCenter(room, preferredLocal) : preferredLocal;
     const centerX = roomOffsetX + spawnLocal.x;
     const centerY = roomOffsetY + spawnLocal.y;
     const body: Vector2Like[] = [];
@@ -757,7 +755,11 @@ export class BossManager {
     return `${Math.floor(head.x / this.grid.cols)},${Math.floor(head.y / this.grid.rows)},${roomZ}`;
   }
 
-  public getPullFor(snakeHead: Vector2Like, roomId: string, rng?: () => number): Vector2Like | null {
+  public getPullFor(
+    snakeHead: Vector2Like,
+    roomId: string,
+    rng?: () => number,
+  ): Vector2Like | null {
     const roll = rng ?? this.rng;
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {
@@ -1043,7 +1045,10 @@ export class BossManager {
       const localHeadX = cell.x - targetRoomX * this.grid.cols;
       const localHeadY = cell.y - targetRoomY * this.grid.rows;
       const targetRoom = deps.getRoom(`${targetRoomX},${targetRoomY},${roomZ}`);
-      if (targetRoom.layout[localHeadY]?.[localHeadX] === '#' || targetRoom.layout[localHeadY]?.[localHeadX] === '%') {
+      if (
+        targetRoom.layout[localHeadY]?.[localHeadX] === '#' ||
+        targetRoom.layout[localHeadY]?.[localHeadX] === '%'
+      ) {
         this.carveBossWall(targetRoom, localHeadX, localHeadY);
       }
     }
@@ -1136,7 +1141,11 @@ export class BossManager {
       }
     }
     const targetRoom = deps.getRoom(targetRoomId);
-    if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === '#' || targetRoom.layout[localHeadY]?.[localHeadX] === '%') {
+    if (
+      !targetRoom ||
+      targetRoom.layout[localHeadY]?.[localHeadX] === '#' ||
+      targetRoom.layout[localHeadY]?.[localHeadX] === '%'
+    ) {
       return false;
     }
 

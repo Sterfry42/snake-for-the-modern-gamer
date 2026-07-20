@@ -146,9 +146,18 @@ describe('Cheat registry', () => {
     // Every cheat must have displayable content for the cheats UI tab.
     // If this fails, the cheat will appear blank or broken in the UI.
     for (const cheat of CHEAT_DEFINITIONS) {
-      expect(cheat.name.trim().length, `Cheat "${cheat.primaryCode}" has an empty or whitespace-only name. The UI won't display it properly.`).toBeGreaterThan(0);
-      expect(cheat.description.trim().length, `Cheat "${cheat.primaryCode}" has an empty or whitespace-only description. The UI won't display it properly.`).toBeGreaterThan(0);
-      expect(cheat.primaryCode.trim().length, `Cheat "${cheat.name}" has an empty or whitespace-only primaryCode. The UI won't display it properly.`).toBeGreaterThan(0);
+      expect(
+        cheat.name.trim().length,
+        `Cheat "${cheat.primaryCode}" has an empty or whitespace-only name. The UI won't display it properly.`,
+      ).toBeGreaterThan(0);
+      expect(
+        cheat.description.trim().length,
+        `Cheat "${cheat.primaryCode}" has an empty or whitespace-only description. The UI won't display it properly.`,
+      ).toBeGreaterThan(0);
+      expect(
+        cheat.primaryCode.trim().length,
+        `Cheat "${cheat.name}" has an empty or whitespace-only primaryCode. The UI won't display it properly.`,
+      ).toBeGreaterThan(0);
       // Verify the name is not just the primary code repeated
       expect(
         cheat.name.trim() !== cheat.primaryCode.trim(),
@@ -222,9 +231,26 @@ describe('Cheat registry', () => {
   it('every cheat has a category matching its type', () => {
     // Sanity: structure cheats should be in 'structures', bosses in 'bosses', etc.
     const structureCodes = new Set([
-      'village', 'goblin', 'quest', 'mcdonalds', 'canies', 'shrine', 'ramen',
-      'koi', 'tengu', 'monument', 'diner', 'fireworks', 'jackalope', 'moleman',
-      'motelpool', 'gridiron', 'billboard', 'roadcrew', 'allstructures', 'clearroom',
+      'village',
+      'goblin',
+      'quest',
+      'mcdonalds',
+      'canies',
+      'shrine',
+      'ramen',
+      'koi',
+      'tengu',
+      'monument',
+      'diner',
+      'fireworks',
+      'jackalope',
+      'moleman',
+      'motelpool',
+      'gridiron',
+      'billboard',
+      'roadcrew',
+      'allstructures',
+      'clearroom',
     ]);
     const bossCodes = new Set(['freakdennis', 'freakerdennis', 'jasonstatham']);
 
@@ -243,9 +269,15 @@ describe('Cheat registry', () => {
     // The UI lets players type cheat codes. Each cheat must have at least one
     // alias that works as an input. If aliases are empty, the cheat is unusable.
     for (const cheat of CHEAT_DEFINITIONS) {
-      expect(cheat.aliases.length, `Cheat "${cheat.primaryCode}" has no aliases. Players can't activate this cheat.`).toBeGreaterThan(0);
+      expect(
+        cheat.aliases.length,
+        `Cheat "${cheat.primaryCode}" has no aliases. Players can't activate this cheat.`,
+      ).toBeGreaterThan(0);
       // The primary code must be a valid input (non-empty, trimmed)
-      expect(cheat.aliases[0].trim().length, `Cheat "${cheat.name}" has an empty primary alias. Players can't activate this cheat.`).toBeGreaterThan(0);
+      expect(
+        cheat.aliases[0].trim().length,
+        `Cheat "${cheat.name}" has an empty primary alias. Players can't activate this cheat.`,
+      ).toBeGreaterThan(0);
     }
   });
 });

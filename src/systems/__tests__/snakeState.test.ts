@@ -88,9 +88,7 @@ describe('SnakeState disorientation', () => {
 describe('SnakeState swimming', () => {
   const waterRoom: RoomSnapshot = {
     ...room,
-    layout: room.layout.map((row, y) =>
-      y === 4 ? `${row.slice(0, 4)}~${row.slice(5)}` : row,
-    ),
+    layout: room.layout.map((row, y) => (y === 4 ? `${row.slice(0, 4)}~${row.slice(5)}` : row)),
   };
 
   it('kills the snake on water without swimming gear', () => {

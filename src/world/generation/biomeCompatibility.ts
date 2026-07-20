@@ -51,4 +51,3 @@ export function areBiomesCompatible(
 
   return { compatible: true };
 }
-

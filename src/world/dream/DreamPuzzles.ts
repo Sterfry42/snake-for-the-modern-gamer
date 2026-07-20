@@ -14,12 +14,7 @@
  * - The wise old snake considers dream puzzles "a nice change of pace"
  */
 import type { RandomGenerator } from '../../core/rng.js';
-import type {
-  PuzzleDefinition,
-  PuzzleType,
-  ActivePuzzleState,
-  PuzzleReward,
-} from './types.js';
+import type { PuzzleDefinition, PuzzleType, ActivePuzzleState, PuzzleReward } from './types.js';
 
 // ─── Puzzle Definitions ────────────────────────────────────────────────────────
 

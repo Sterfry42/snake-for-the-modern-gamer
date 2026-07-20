@@ -40,8 +40,9 @@ function createGateTown() {
 
 function moveSnakeToLocal(game: SnakeGame, roomId: string, local: { x: number; y: number }): void {
   const [roomX = 0, roomY = 0] = roomId.split(',').map(Number);
-  const snake = (game as unknown as { snake: { currentRoomId: string; body: Array<{ x: number; y: number }> } })
-    .snake;
+  const snake = (
+    game as unknown as { snake: { currentRoomId: string; body: Array<{ x: number; y: number }> } }
+  ).snake;
   snake.currentRoomId = roomId;
   snake.body = [
     {
@@ -51,7 +52,12 @@ function moveSnakeToLocal(game: SnakeGame, roomId: string, local: { x: number; y
   ];
 }
 
-function attachTownToRoom(game: SnakeGame, roomId: string, gate: TownGate, town = createGateTown()): void {
+function attachTownToRoom(
+  game: SnakeGame,
+  roomId: string,
+  gate: TownGate,
+  town = createGateTown(),
+): void {
   const room = game.getRoom(roomId);
   room.town = {
     ...town,

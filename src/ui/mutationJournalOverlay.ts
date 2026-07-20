@@ -105,12 +105,17 @@ export class MutationJournalOverlay {
 
   private createHeader(): void {
     const title = this.scene.add
-      .text(this.options.width / 2, -280, i18n.getFeatureString('mutationJournalTitle') ?? 'Mutation Journal', {
-        fontFamily: uiTypography.titleLarge.fontFamily,
-        fontSize: uiTypography.titleLarge.fontSize,
-        color: '#ffffff',
-        fontStyle: 'bold',
-      })
+      .text(
+        this.options.width / 2,
+        -280,
+        i18n.getFeatureString('mutationJournalTitle') ?? 'Mutation Journal',
+        {
+          fontFamily: uiTypography.titleLarge.fontFamily,
+          fontSize: uiTypography.titleLarge.fontSize,
+          color: '#ffffff',
+          fontStyle: 'bold',
+        },
+      )
       .setOrigin(0.5, 0);
     this.root.add(title);
 
@@ -199,12 +204,17 @@ export class MutationJournalOverlay {
 
     if (!this.selectedEntry) {
       const hint = this.scene.add
-        .text(0, 0, i18n.getFeatureString('mutationJournalSelectHint') ?? 'Select a mutation to view details', {
-          fontFamily: uiTypography.body.fontFamily,
-          fontSize: uiTypography.body.fontSize,
-          color: '#888888',
-          align: 'center',
-        })
+        .text(
+          0,
+          0,
+          i18n.getFeatureString('mutationJournalSelectHint') ?? 'Select a mutation to view details',
+          {
+            fontFamily: uiTypography.body.fontFamily,
+            fontSize: uiTypography.body.fontSize,
+            color: '#888888',
+            align: 'center',
+          },
+        )
         .setOrigin(0.5);
       this.detailContainer!.add(hint);
       return;
@@ -249,32 +259,37 @@ export class MutationJournalOverlay {
     this.detailContainer!.add(desc);
 
     // Required apples
-    const applesLabel = this.scene.add
-      .text(-160, 50, i18n.getFeatureString('mutationRequiredApples') ?? 'Required Apples:', {
+    const applesLabel = this.scene.add.text(
+      -160,
+      50,
+      i18n.getFeatureString('mutationRequiredApples') ?? 'Required Apples:',
+      {
         fontFamily: uiTypography.caption.fontFamily,
         fontSize: uiTypography.caption.fontSize,
         color: '#888888',
-      });
+      },
+    );
     this.detailContainer!.add(applesLabel);
 
     const applesText = entry.requiredApples.join(', ');
-    const apples = this.scene.add
-      .text(160, 50, applesText, {
-        fontFamily: uiTypography.caption.fontFamily,
-        fontSize: uiTypography.caption.fontSize,
-        color: '#ffffff',
-      });
+    const apples = this.scene.add.text(160, 50, applesText, {
+      fontFamily: uiTypography.caption.fontFamily,
+      fontSize: uiTypography.caption.fontSize,
+      color: '#ffffff',
+    });
     this.detailContainer!.add(apples);
 
     // Status
     const statusText = entry.discovered
-      ? i18n.getFeatureString('mutationDiscovered') ?? 'Discovered'
-      : i18n.getFeatureString('mutationNotDiscovered') ?? 'Not yet discovered';
+      ? (i18n.getFeatureString('mutationDiscovered') ?? 'Discovered')
+      : (i18n.getFeatureString('mutationNotDiscovered') ?? 'Not yet discovered');
     const status = this.scene.add
       .text(0, 100, statusText, {
         fontFamily: uiTypography.caption.fontFamily,
         fontSize: uiTypography.caption.fontSize,
-        color: entry.discovered ? '#' + uiColors.success.toString(16).padStart(6, '0') : '#' + uiColors.warning.toString(16).padStart(6, '0'),
+        color: entry.discovered
+          ? '#' + uiColors.success.toString(16).padStart(6, '0')
+          : '#' + uiColors.warning.toString(16).padStart(6, '0'),
       })
       .setOrigin(0.5, 0);
     this.detailContainer!.add(status);
@@ -293,10 +308,7 @@ export class MutationJournalOverlay {
     }
   }
 
-  private createEntryCard(
-    entry: JournalEntryView,
-    y: number,
-  ): Phaser.GameObjects.Container {
+  private createEntryCard(entry: JournalEntryView, y: number): Phaser.GameObjects.Container {
     const card = this.scene.add.container(0, y);
     const tierColor = TIER_COLORS[entry.tier] ?? 0xffffff;
 

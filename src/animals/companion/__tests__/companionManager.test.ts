@@ -109,14 +109,7 @@ describe('CompanionManager', () => {
     });
 
     it('applies trait bond bonus', () => {
-      const companion = manager.addCompanion(
-        'fox',
-        'Slim',
-        1,
-        0,
-        1,
-        ['gentle'],
-      );
+      const companion = manager.addCompanion('fox', 'Slim', 1, 0, 1, ['gentle']);
 
       const result = manager.feedCompanion(companion.id, 2);
       // gentle trait gives +2 bond bonus

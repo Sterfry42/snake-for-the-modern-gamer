@@ -79,7 +79,7 @@ export const HUMAN_SHOP_ENCOUNTERS: readonly HumanEncounter[] = [
   },
   {
     id: 'ocean-shop',
-    name: 'Ocean Fisher\'s Stall',
+    name: "Ocean Fisher's Stall",
     type: 'fisher',
     kind: 'shop',
     weight: 1.5,
@@ -87,7 +87,7 @@ export const HUMAN_SHOP_ENCOUNTERS: readonly HumanEncounter[] = [
     biomeIds: ['sunken-ocean'],
     portraitId: 'ocean-fisher-neutral',
     pages: [
-      'A makeshift stall built from driftwood and netting, displaying the day\'s catch arranged with the care of someone who respects their trade.',
+      "A makeshift stall built from driftwood and netting, displaying the day's catch arranged with the care of someone who respects their trade.",
       '"Fresh from the deep. Not everything survived the ascent, but what did is worth eating."',
       '"Trade fish for supplies. Or trade stories. I accept both."',
     ],
@@ -131,7 +131,7 @@ export const HUMAN_SHOP_ENCOUNTERS: readonly HumanEncounter[] = [
     biomeIds: ['jade-peak-province'],
     portraitId: 'ramen-cook-happy',
     pages: [
-      'Steam rises from a modest wooden stand where a chef with ink-dark hair stirs a pot that smells like heaven\'s cafeteria.',
+      "Steam rises from a modest wooden stand where a chef with ink-dark hair stirs a pot that smells like heaven's cafeteria.",
       '"Welcome! The broth is simmering, the noodles are ready, and the attitude is optional."',
       '"Try the special. It does not bite back. Usually."',
     ],
@@ -519,7 +519,7 @@ export const HUMAN_ROMANCE_ENCOUNTERS: readonly HumanEncounter[] = [
     biomeIds: ['verdigris-basin', 'gloam-garden', 'moonlit-parish'],
     portraitId: 'villager-young-happy',
     pages: [
-      'A resident watches you with an expression that is harder to read than a goblin\'s ledger — not because it is complex, but because it is honest.',
+      "A resident watches you with an expression that is harder to read than a goblin's ledger — not because it is complex, but because it is honest.",
       '"You pass through often. I notice. That is either a compliment or a warning, depending on how you take it."',
       '"We could talk. Not about the tunnels. About something else. Something that does not involve survival."',
     ],

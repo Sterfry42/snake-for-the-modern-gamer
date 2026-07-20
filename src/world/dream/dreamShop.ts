@@ -13,12 +13,7 @@
  * - The wise old snake's dream shop inventory changed every dream visit
  * - The wise old snake considers the dream shop "a bit overpriced but the quality is there"
  */
-import type {
-  DreamShopOffer,
-  DreamShopCategory,
-  DreamShopState,
-  DreamShopItem,
-} from './types.js';
+import type { DreamShopOffer, DreamShopCategory, DreamShopState, DreamShopItem } from './types.js';
 
 // ─── Dream Shop Item Definitions ───────────────────────────────────────────────
 
@@ -75,12 +70,12 @@ export const DREAM_SHOP_ITEMS: DreamShopItem[] = [
   {
     kind: 'lore',
     targetId: 'lore-secret-1',
-    description: 'A hidden lore fragment about the Dream World\'s origins.',
+    description: "A hidden lore fragment about the Dream World's origins.",
   },
   {
     kind: 'lore',
     targetId: 'lore-secret-2',
-    description: 'A hidden lore fragment about the Nightmare Realm\'s creation.',
+    description: "A hidden lore fragment about the Nightmare Realm's creation.",
   },
 ];
 

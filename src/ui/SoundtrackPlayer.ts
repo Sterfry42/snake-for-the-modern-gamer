@@ -162,11 +162,16 @@ export class SoundtrackPlayer {
     container.add(bg);
 
     // Title
-    const title = scene.add.text(16, 12, i18n.getFeatureString('music.player.title') ?? '🎵 Soundtrack', {
-      fontFamily: 'monospace',
-      fontSize: `${config.fontSize + 2}px`,
-      color: '#ffcc7e',
-    });
+    const title = scene.add.text(
+      16,
+      12,
+      i18n.getFeatureString('music.player.title') ?? '🎵 Soundtrack',
+      {
+        fontFamily: 'monospace',
+        fontSize: `${config.fontSize + 2}px`,
+        color: '#ffcc7e',
+      },
+    );
     container.add(title);
 
     // View tabs
@@ -199,10 +204,7 @@ export class SoundtrackPlayer {
     this.closeButton = closeContainer;
 
     // Position the player
-    container.setPosition(
-      scene.scale.width - 296,
-      scene.scale.height - 380,
-    );
+    container.setPosition(scene.scale.width - 296, scene.scale.height - 380);
   }
 
   /**
@@ -226,16 +228,19 @@ export class SoundtrackPlayer {
       const view = views[i];
       i * (tabWidth + tabGap);
 
-      const tabBg = scene.add.rectangle(0, 0, tabWidth, 20, 0x2a2a3a, 0.8)
+      const tabBg = scene.add
+        .rectangle(0, 0, tabWidth, 20, 0x2a2a3a, 0.8)
         .setStrokeStyle(1, 0x666666, 0.5)
         .setOrigin(0, 0)
         .setInteractive({ useHandCursor: true });
 
-      const tabLabel = scene.add.text(tabWidth / 2, 10, view.label, {
-        fontFamily: 'monospace',
-        fontSize: '10px',
-        color: '#cccccc',
-      }).setOrigin(0.5, 0.5);
+      const tabLabel = scene.add
+        .text(tabWidth / 2, 10, view.label, {
+          fontFamily: 'monospace',
+          fontSize: '10px',
+          color: '#cccccc',
+        })
+        .setOrigin(0.5, 0.5);
 
       tabBg.on('pointerdown', () => {
         this.switchView(view.id);
@@ -325,8 +330,14 @@ export class SoundtrackPlayer {
       const isSelected = globalIndex === this.selectedIndex;
 
       // Row background
-      const rowBg = this.scene.add.rectangle(0, this.config.rowHeight / 2, 260, this.config.rowHeight - 2,
-        isSelected ? 0x3a3a4a : 0x2a2a3a, 0.8);
+      const rowBg = this.scene.add.rectangle(
+        0,
+        this.config.rowHeight / 2,
+        260,
+        this.config.rowHeight - 2,
+        isSelected ? 0x3a3a4a : 0x2a2a3a,
+        0.8,
+      );
       rowBg.setStrokeStyle(1, isSelected ? 0xff9944 : 0x444444, 0.5);
       rowBg.setInteractive({ useHandCursor: true });
       rowBg.on('pointerdown', () => {
@@ -371,13 +382,17 @@ export class SoundtrackPlayer {
 
     // Add genre filter bar if not in genres view
     if (this.view !== 'genres') {
-      const filterBar = this.scene.add.text(10, 0,
+      const filterBar = this.scene.add.text(
+        10,
+        0,
         `Genre: ${this.genreFilterActive ? i18n.getFeatureString(`music.genre.${this.genreFilterActive}`) : 'All'} | ` +
-        `Favorites: ${this.favoritesOnly ? 'On' : 'Off'}`, {
-        fontFamily: 'monospace',
-        fontSize: '10px',
-        color: '#888888',
-      });
+          `Favorites: ${this.favoritesOnly ? 'On' : 'Off'}`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '10px',
+          color: '#888888',
+        },
+      );
       container.add(filterBar);
       filterBar.setPosition(0, visibleCount * this.config.rowHeight + 4);
     }
@@ -403,11 +418,16 @@ export class SoundtrackPlayer {
       const y = i * (this.config.rowHeight + 8);
 
       // Genre name
-      const genreLabel = this.scene.add.text(0, 0, i18n.getFeatureString(`music.genre.${genre}`) ?? genre, {
-        fontFamily: 'monospace',
-        fontSize: `${this.config.fontSize}px`,
-        color: '#ffcc7e',
-      });
+      const genreLabel = this.scene.add.text(
+        0,
+        0,
+        i18n.getFeatureString(`music.genre.${genre}`) ?? genre,
+        {
+          fontFamily: 'monospace',
+          fontSize: `${this.config.fontSize}px`,
+          color: '#ffcc7e',
+        },
+      );
       container.add(genreLabel);
       genreLabel.setPosition(10, y);
 
@@ -418,7 +438,14 @@ export class SoundtrackPlayer {
 
       // Progress bar fill
       const progressWidth = (completion.progress / 100) * 100;
-      const progressBarFill = this.scene.add.rectangle(0, 8, progressWidth, 12, barColors[genre], 0.8);
+      const progressBarFill = this.scene.add.rectangle(
+        0,
+        8,
+        progressWidth,
+        12,
+        barColors[genre],
+        0.8,
+      );
       container.add(progressBarFill);
       progressBarFill.setPosition(140, y + 2);
 
@@ -452,16 +479,19 @@ export class SoundtrackPlayer {
     const { scene } = this;
     const container = scene.add.container(256, 8);
 
-    const bg = scene.add.rectangle(0, 0, 20, 20, 0x3a2a2a, 0.8)
+    const bg = scene.add
+      .rectangle(0, 0, 20, 20, 0x3a2a2a, 0.8)
       .setStrokeStyle(1, 0xff4444, 0.6)
       .setOrigin(0.5, 0.5)
       .setInteractive({ useHandCursor: true });
 
-    const label = scene.add.text(0, 0, '✕', {
-      fontFamily: 'monospace',
-      fontSize: '14px',
-      color: '#ff6666',
-    }).setOrigin(0.5, 0.5);
+    const label = scene.add
+      .text(0, 0, '✕', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ff6666',
+      })
+      .setOrigin(0.5, 0.5);
 
     bg.on('pointerdown', () => {
       this.close();
@@ -495,7 +525,7 @@ export class SoundtrackPlayer {
       const genreInfo = i18n.getFeatureString(`music.genre.${track.genre}`) ?? track.genre;
       this.currentTrackText.setText(
         `${i18n.getFeatureString(track.nameKey) ?? track.id}\n` +
-        `Genre: ${genreInfo} | Duration: ${track.duration} beats`,
+          `Genre: ${genreInfo} | Duration: ${track.duration} beats`,
       );
     }
   }

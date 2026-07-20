@@ -3,7 +3,6 @@ import type { RandomGenerator } from '../core/rng.js';
 import { MobManager } from './mobManager.js';
 import { LightingSystem } from './lighting.js';
 
-
 // ─── Mob Spawner Types ──────────────────────────────────────────────────────
 
 export interface MobSpawnerState {
@@ -291,7 +290,11 @@ export class MobSpawnerManager {
     return { success: true };
   }
 
-  public removeSpawner(x: number, y: number, roomId: string): { success: boolean; message?: string } {
+  public removeSpawner(
+    x: number,
+    y: number,
+    roomId: string,
+  ): { success: boolean; message?: string } {
     const key = this.toKey(x, y, roomId);
     if (!this.spawners.has(key)) {
       return { success: false, message: 'No spawner here.' };
@@ -376,7 +379,10 @@ export class MobSpawnerManager {
     onMobDeath(mobManager['mobs'].keys().next().value ?? '', chosen.x, chosen.y, spawner.roomId);
   }
 
-  private findValidSpawnPositions(spawner: MobSpawnerState, gridSize: number): Array<{ x: number; y: number }> {
+  private findValidSpawnPositions(
+    spawner: MobSpawnerState,
+    gridSize: number,
+  ): Array<{ x: number; y: number }> {
     const positions: Array<{ x: number; y: number }> = [];
     const range = 4;
 

@@ -621,7 +621,9 @@ describe('world generation fairness', () => {
     const first = generateArea('mosaic-seed-a', -4, 2, -11, -9);
     const second = generateArea('mosaic-seed-b', -4, 2, -11, -9);
     const firstZones = new Set([...first.values()].map((room) => `${room.id}:${room.archetypeId}`));
-    const secondZones = new Set([...second.values()].map((room) => `${room.id}:${room.archetypeId}`));
+    const secondZones = new Set(
+      [...second.values()].map((room) => `${room.id}:${room.archetypeId}`),
+    );
 
     expect(first.get('-1,-9,0')?.archetypeId).toBe('mosaic-arrival');
     expect(second.get('-1,-9,0')?.archetypeId).toBe('mosaic-arrival');
@@ -635,7 +637,9 @@ describe('world generation fairness', () => {
   it('creates valid non-starter Mosaic Coast region plans without coordinate fallback', () => {
     const first = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-a'));
     const second = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-a'));
-    const different = new MosaicCoastRegionPlanner(createWorldGenerationIdentity('mosaic-region-b'));
+    const different = new MosaicCoastRegionPlanner(
+      createWorldGenerationIdentity('mosaic-region-b'),
+    );
     const roomId = '24,-17,0';
     const plan = first.getRoomPlan(roomId);
 
@@ -653,7 +657,8 @@ describe('world generation fairness', () => {
     for (const room of rooms.values()) {
       const total = defaultGameConfig.grid.cols * defaultGameConfig.grid.rows;
       const accentRatio = countTiles(room, new Set(['M'])) / total;
-      const gaudi = room.archetypeId === 'gaudi-park-approach' || room.archetypeId === 'el-drac-arena';
+      const gaudi =
+        room.archetypeId === 'gaudi-park-approach' || room.archetypeId === 'el-drac-arena';
       if (!gaudi && accentRatio > 0.08) {
         failures.push(`${room.id} accent ratio ${accentRatio}`);
       }
@@ -668,8 +673,11 @@ describe('world generation fairness', () => {
     const rooms = generateArea('mosaic-route-fairness', -4, 2, -11, -9);
     const failures: string[] = [];
     for (const room of rooms.values()) {
-      const passableRatio = passableCells(room).size / (defaultGameConfig.grid.cols * defaultGameConfig.grid.rows);
-      const wallRatio = countTiles(room, new Set(['#'])) / (defaultGameConfig.grid.cols * defaultGameConfig.grid.rows);
+      const passableRatio =
+        passableCells(room).size / (defaultGameConfig.grid.cols * defaultGameConfig.grid.rows);
+      const wallRatio =
+        countTiles(room, new Set(['#'])) /
+        (defaultGameConfig.grid.cols * defaultGameConfig.grid.rows);
       if (passableRatio < 0.58) {
         failures.push(`${room.id} passable ratio ${passableRatio}`);
       }
@@ -686,10 +694,14 @@ describe('world generation fairness', () => {
           const shadeDistance = shortestPathToAny(room, entry, shade);
           const coolingDistance = shortestPathToAny(room, entry, cooling);
           if (shadeDistance === null || shadeDistance > 6) {
-            failures.push(`${room.id} ${direction.name} entry ${entry.x},${entry.y} shade ${shadeDistance}`);
+            failures.push(
+              `${room.id} ${direction.name} entry ${entry.x},${entry.y} shade ${shadeDistance}`,
+            );
           }
           if (coolingDistance === null || coolingDistance > 28) {
-            failures.push(`${room.id} ${direction.name} entry ${entry.x},${entry.y} cooling ${coolingDistance}`);
+            failures.push(
+              `${room.id} ${direction.name} entry ${entry.x},${entry.y} cooling ${coolingDistance}`,
+            );
           }
         }
       }

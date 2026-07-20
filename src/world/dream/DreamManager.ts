@@ -63,7 +63,11 @@ export class DreamManager {
 
   // ─── Entry Conditions ──────────────────────────────────────────────────────
 
-  shouldEnterDreamWorld(rng: RandomGenerator, _snakeHealth: number, _totalApplesEaten: number): boolean {
+  shouldEnterDreamWorld(
+    rng: RandomGenerator,
+    _snakeHealth: number,
+    _totalApplesEaten: number,
+  ): boolean {
     if (!this.config.enabled) return false;
 
     const caffeinatedCount = this.saveData.appleCombinations['caffeinated'] ?? 0;
@@ -155,8 +159,7 @@ export class DreamManager {
     // Check for lucid dreaming unlock
     if (
       !this.saveData.lucidDreaming.unlocked &&
-      this.saveData.lucidDreaming.visitsBeforeUnlock >=
-        this.config.lucidDreaming.visitsRequired
+      this.saveData.lucidDreaming.visitsBeforeUnlock >= this.config.lucidDreaming.visitsRequired
     ) {
       this.unlockLucidDreaming();
     }
@@ -228,8 +231,7 @@ export class DreamManager {
 
   recordAppleEaten(appleId: string): void {
     // Track apple combinations for future dream entry (always)
-    this.saveData.appleCombinations[appleId] =
-      (this.saveData.appleCombinations[appleId] ?? 0) + 1;
+    this.saveData.appleCombinations[appleId] = (this.saveData.appleCombinations[appleId] ?? 0) + 1;
 
     // Also track in session if active
     if (!this.currentSession) return;

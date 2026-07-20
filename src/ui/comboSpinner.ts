@@ -24,12 +24,7 @@ export class ComboSpinner {
   private radius: number;
   private entries: ComboSpinnerEntry[] = [];
 
-  constructor(
-    scene: SnakeScene,
-    centerX: number,
-    centerY: number,
-    radius: number,
-  ) {
+  constructor(scene: SnakeScene, centerX: number, centerY: number, radius: number) {
     this.scene = scene;
     this.centerX = centerX;
     this.centerY = centerY;
@@ -137,10 +132,7 @@ export class ComboSpinner {
         Math.cos(startAngle) * this.radius,
         Math.sin(startAngle) * this.radius,
       );
-      this.wheelGraphics.lineTo(
-        Math.cos(endAngle) * this.radius,
-        Math.sin(endAngle) * this.radius,
-      );
+      this.wheelGraphics.lineTo(Math.cos(endAngle) * this.radius, Math.sin(endAngle) * this.radius);
       this.wheelGraphics.closePath();
       this.wheelGraphics.fillPath();
     }
@@ -150,14 +142,7 @@ export class ComboSpinner {
       this.pointer.clear();
       this.pointer.fillStyle(0xffd700, 1);
       this.pointer.lineStyle(2, 0x000000, 1);
-      this.pointer.fillTriangle(
-        0,
-        -this.radius - 8,
-        -8,
-        -this.radius + 8,
-        8,
-        -this.radius + 8,
-      );
+      this.pointer.fillTriangle(0, -this.radius - 8, -8, -this.radius + 8, 8, -this.radius + 8);
     }
   }
 
@@ -168,7 +153,8 @@ export class ComboSpinner {
 
     // Pointer is at top (angle = -PI/2 from standard position)
     // Normalize angle
-    const normalizedAngle = ((-angle - Math.PI / 2) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    const normalizedAngle =
+      (((-angle - Math.PI / 2) % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     const index = Math.floor(normalizedAngle / sliceAngle) % count;
     return this.entries[index]!;
   }

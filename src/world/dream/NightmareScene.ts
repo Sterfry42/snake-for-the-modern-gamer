@@ -16,9 +16,7 @@
 import Phaser from 'phaser';
 import type { Vector2Like } from '../../core/math.js';
 
-import {
-  createDreamAppleInstance,
-} from './dreamAppleTypes.js';
+import { createDreamAppleInstance } from './dreamAppleTypes.js';
 
 import {
   DreamWorldScene,
@@ -220,11 +218,7 @@ export class NightmareScene extends DreamWorldScene {
     for (let i = 0; i < count; i++) {
       const island = this.islands[Math.floor(Math.random() * this.islands.length)];
       const type = appleTypes[Math.floor(Math.random() * appleTypes.length)];
-      const apple = createDreamAppleInstance(
-        type,
-        'nightmare-room',
-        { x: 0, y: 0 },
-      );
+      const apple = createDreamAppleInstance(type, 'nightmare-room', { x: 0, y: 0 });
 
       const appleSprite = new FloatingDreamApple(
         this.scene,
@@ -245,8 +239,7 @@ export class NightmareScene extends DreamWorldScene {
     this.spawnTimer += delta;
 
     // Update difficulty
-    this.difficultyMultiplier =
-      1.0 + (this.survivalTimer / 60000) * 0.05;
+    this.difficultyMultiplier = 1.0 + (this.survivalTimer / 60000) * 0.05;
 
     // Spawn enemies
     if (this.spawnTimer > 5000 / this.difficultyMultiplier) {

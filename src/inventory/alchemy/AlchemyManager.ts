@@ -22,7 +22,10 @@ export class AlchemyManager {
   private readonly journal: AlchemyJournal;
   private readonly onEffectApplied?: (effectType: string, magnitude: number) => void;
 
-  constructor(runtime: AlchemyRuntime, onEffectApplied?: (effectType: string, magnitude: number) => void) {
+  constructor(
+    runtime: AlchemyRuntime,
+    onEffectApplied?: (effectType: string, magnitude: number) => void,
+  ) {
     this.runtime = runtime;
     this.onEffectApplied = onEffectApplied;
     this.journal = new AlchemyJournal();
@@ -61,10 +64,7 @@ export class AlchemyManager {
   }
 
   /** Craft a potion at a station */
-  craftAtStation(
-    stationId: string,
-    recipeId: string,
-  ): CraftResult {
+  craftAtStation(stationId: string, recipeId: string): CraftResult {
     const station = this.stations.get(stationId);
     if (!station) {
       return { success: false, error: `Station "${stationId}" not found.` };

@@ -56,13 +56,8 @@ export function createEatApplesQuest(
   count: number,
   scoreReward: number,
 ): CountingQuest {
-  return new CountingQuest(
-    id,
-    label,
-    description,
-    'applesEaten',
-    count,
-    (runtime) => runtime.addScore(scoreReward),
+  return new CountingQuest(id, label, description, 'applesEaten', count, (runtime) =>
+    runtime.addScore(scoreReward),
   );
 }
 

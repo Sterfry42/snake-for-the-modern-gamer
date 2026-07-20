@@ -259,7 +259,10 @@ export class CraftingWorkshop {
   }
 
   /** Build the workshop */
-  build(hasItem: (itemId: string, count?: number) => boolean, consumeItem: (itemId: string, count?: number) => boolean): boolean {
+  build(
+    hasItem: (itemId: string, count?: number) => boolean,
+    consumeItem: (itemId: string, count?: number) => boolean,
+  ): boolean {
     if (this._built) return false;
     if (!canBuildWorkshop(this.type, hasItem)) return false;
 

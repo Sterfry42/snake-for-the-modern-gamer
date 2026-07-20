@@ -11,38 +11,26 @@ import {
 describe('Dream Apple Types', () => {
   describe('DreamApple', () => {
     it('consumes like a normal apple', () => {
-      const apple = new DreamApple(
-        'dream-room',
-        { x: 0, y: 0 },
-        'dream',
-        0xb19cd9,
-        {
-          floatingOffset: 0,
-          floatSpeed: 0.05,
-          phaseOffset: 0,
-          buffType: 'doubleShards',
-          buffDuration: 300,
-        },
-      );
+      const apple = new DreamApple('dream-room', { x: 0, y: 0 }, 'dream', 0xb19cd9, {
+        floatingOffset: 0,
+        floatSpeed: 0.05,
+        phaseOffset: 0,
+        buffType: 'doubleShards',
+        buffDuration: 300,
+      });
 
       const rewards = apple.onConsume();
       expect(rewards).toEqual({ growth: 1, bonusScore: 5 });
     });
 
     it('has floating metadata', () => {
-      const apple = new DreamApple(
-        'dream-room',
-        { x: 0, y: 0 },
-        'dream',
-        0xb19cd9,
-        {
-          floatingOffset: 0,
-          floatSpeed: 0.05,
-          phaseOffset: 1.5,
-          buffType: 'speedBoost',
-          buffDuration: 200,
-        },
-      );
+      const apple = new DreamApple('dream-room', { x: 0, y: 0 }, 'dream', 0xb19cd9, {
+        floatingOffset: 0,
+        floatSpeed: 0.05,
+        phaseOffset: 1.5,
+        buffType: 'speedBoost',
+        buffDuration: 200,
+      });
 
       const metadata = apple.getMetadata();
       expect(metadata).toBeDefined();
@@ -51,19 +39,13 @@ describe('Dream Apple Types', () => {
     });
 
     it('can add and remove buffs', () => {
-      const apple = new DreamApple(
-        'dream-room',
-        { x: 0, y: 0 },
-        'dream',
-        0xb19cd9,
-        {
-          floatingOffset: 0,
-          floatSpeed: 0.05,
-          phaseOffset: 0,
-          buffType: 'shield',
-          buffDuration: 120,
-        },
-      );
+      const apple = new DreamApple('dream-room', { x: 0, y: 0 }, 'dream', 0xb19cd9, {
+        floatingOffset: 0,
+        floatSpeed: 0.05,
+        phaseOffset: 0,
+        buffType: 'shield',
+        buffDuration: 120,
+      });
 
       // Apple starts with no active buffs (metadata stores buff config, not active buffs)
       expect(apple.getActiveBuffs().length).toBe(0);
@@ -273,9 +255,9 @@ describe('Dream Apple Types', () => {
       // Modify behavior to unknown
       (config as any).behavior = 'unknown';
 
-      expect(() =>
-        createDreamAppleInstance(config, 'room', { x: 0, y: 0 }),
-      ).toThrow('Unknown dream apple behavior: unknown');
+      expect(() => createDreamAppleInstance(config, 'room', { x: 0, y: 0 })).toThrow(
+        'Unknown dream apple behavior: unknown',
+      );
     });
   });
 
@@ -294,9 +276,7 @@ describe('Dream Apple Types', () => {
 
     it('has correct behavior assignments', () => {
       const dreamApples = DREAM_APPLE_TYPES.filter((t) => t.behavior === 'dream');
-      const nightmareApples = DREAM_APPLE_TYPES.filter(
-        (t) => t.behavior === 'nightmare',
-      );
+      const nightmareApples = DREAM_APPLE_TYPES.filter((t) => t.behavior === 'nightmare');
       const lucidApples = DREAM_APPLE_TYPES.filter((t) => t.behavior === 'lucid');
 
       expect(dreamApples.length).toBe(4);

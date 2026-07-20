@@ -29,12 +29,12 @@ export interface RollercoasterStation {
 
 /** Coaster theme that determines visual style and naming. */
 export type RollercoasterTheme =
-  | 'thunder-ridge'    // Mountain/rock theme
-  | 'neon-nights'      // Cyberpunk/neon theme
-  | 'jungle-jolt'      // Jungle/temple theme
+  | 'thunder-ridge' // Mountain/rock theme
+  | 'neon-nights' // Cyberpunk/neon theme
+  | 'jungle-jolt' // Jungle/temple theme
   | 'arctic-avalanche' // Ice/snow theme
-  | 'volcanic-veer'    // Lava/volcano theme
-  | 'cosmic-corkscrew' // Space/stars theme;
+  | 'volcanic-veer' // Lava/volcano theme
+  | 'cosmic-corkscrew'; // Space/stars theme;
 
 /** A reachable destination from a rollercoaster station. */
 export interface RollercoasterDestination {

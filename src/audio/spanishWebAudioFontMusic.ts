@@ -209,9 +209,25 @@ export class SpanishWebAudioFontMusic {
     const boss = BOSS_STATES.has(this.activeState);
     const harmony = note + (boss ? 7 : 12);
     this.player.queueWaveTable(this.context, this.gain, this.preset, now, note, 0.42, 0.5);
-    this.player.queueWaveTable(this.context, this.gain, this.preset, now + 0.02, harmony, 0.32, 0.22);
+    this.player.queueWaveTable(
+      this.context,
+      this.gain,
+      this.preset,
+      now + 0.02,
+      harmony,
+      0.32,
+      0.22,
+    );
     if (this.activeState === 'mosaic-coast-sun' || boss) {
-      this.player.queueWaveTable(this.context, this.gain, this.preset, now + 0.11, note + 24, 0.06, 0.16);
+      this.player.queueWaveTable(
+        this.context,
+        this.gain,
+        this.preset,
+        now + 0.11,
+        note + 24,
+        0.06,
+        0.16,
+      );
     }
     this.step += 1;
     const delay = boss ? 280 : this.activeState === 'mosaic-coast-shade' ? 520 : 360;

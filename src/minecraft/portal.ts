@@ -209,7 +209,13 @@ export class PortalManager {
   ): { success: boolean; newX: number; newY: number; newRoomId: string; message?: string } {
     const pair = this.portalPairs.get(portalId);
     if (!pair) {
-      return { success: false, newX: playerX, newY: playerY, newRoomId: playerRoomId, message: 'No destination portal.' };
+      return {
+        success: false,
+        newX: playerX,
+        newY: playerY,
+        newRoomId: playerRoomId,
+        message: 'No destination portal.',
+      };
     }
 
     const dest = pair.nether;
@@ -358,7 +364,7 @@ export function getPortalRenderInfo(portal: NetherPortalState): PortalRenderInfo
     y: portal.y,
     width: 3,
     height: 5,
-    color: portal.isActive ? 0x6A0DAD : 0x333355,
+    color: portal.isActive ? 0x6a0dad : 0x333355,
     isActive: portal.isActive,
   };
 }
@@ -392,16 +398,14 @@ export function generatePortalParticles(
       vy: -rng() * 1.5,
       life: 0,
       maxLife: 20 + rng() * 30,
-      color: rng() < 0.5 ? 0x6A0DAD : 0x9400D3,
+      color: rng() < 0.5 ? 0x6a0dad : 0x9400d3,
     });
   }
 
   return particles;
 }
 
-export function updatePortalParticles(
-  particles: PortalParticle[],
-): PortalParticle[] {
+export function updatePortalParticles(particles: PortalParticle[]): PortalParticle[] {
   return particles
     .map((p) => ({
       ...p,

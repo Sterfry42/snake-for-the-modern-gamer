@@ -10,11 +10,7 @@
  */
 
 import type { AppleGenre } from './MusicalAppleMap.js';
-import {
-  GENRE_DEFINITIONS,
-  getGenreDefinition,
-  type GenreDefinition,
-} from './MusicalAppleMap.js';
+import { GENRE_DEFINITIONS, getGenreDefinition, type GenreDefinition } from './MusicalAppleMap.js';
 
 /** Genre detection results */
 export interface GenreDetectionResult {

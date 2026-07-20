@@ -45,7 +45,7 @@ const ROYAL_EVENTS: Record<string, string[]> = {
   coronation: [
     'The kingdom gathers as the new ruler is crowned.',
     'A grand ceremony marks the ascension of {rulerName}.',
-    'The royal crown is placed upon {rulerName}\'s head.',
+    "The royal crown is placed upon {rulerName}'s head.",
   ],
   'royal-feast': [
     '{rulerName} hosts a grand feast for all subjects.',
@@ -65,7 +65,7 @@ const ROYAL_EVENTS: Record<string, string[]> = {
   'royal-decree': [
     '{rulerName} issues a new decree to the kingdom.',
     'A royal proclamation echoes across the lands.',
-    'The kingdom hears the ruler\'s wisdom.',
+    "The kingdom hears the ruler's wisdom.",
   ],
   'war-council': [
     '{rulerName} convenes the war council.',
@@ -149,9 +149,7 @@ export class KingdomManager {
 
   /** Get kingdoms that a settlement belongs to */
   getKingdomsForSettlement(settlementId: string): Kingdom[] {
-    return [...this.kingdoms.values()].filter((k) =>
-      k.memberSettlements.includes(settlementId),
-    );
+    return [...this.kingdoms.values()].filter((k) => k.memberSettlements.includes(settlementId));
   }
 
   /** Process kingdom events */
@@ -169,9 +167,7 @@ export class KingdomManager {
       }
 
       // Update power based on population and influence
-      kingdom.power = Math.floor(
-        kingdom.power * 0.99 + kingdom.influence * 0.1,
-      );
+      kingdom.power = Math.floor(kingdom.power * 0.99 + kingdom.influence * 0.1);
     }
   }
 
@@ -270,23 +266,14 @@ export class KingdomManager {
     capital: Settlement,
     _rulerInfo: { name: string; title: string },
   ): string {
-    const prefixes = [
-      'Kingdom of',
-      'Realm of',
-      'Empire of',
-      'Dominion of',
-      'Sovereignty of',
-    ];
+    const prefixes = ['Kingdom of', 'Realm of', 'Empire of', 'Dominion of', 'Sovereignty of'];
     const prefix = prefixes[Math.floor(this.rng() * prefixes.length)];
     const capitalName = capital.customName ?? capital.definition.name;
 
     return `${prefix} ${capitalName}`;
   }
 
-  private calculateKingdomPower(
-    capital: Settlement,
-    members: Settlement[],
-  ): number {
+  private calculateKingdomPower(capital: Settlement, members: Settlement[]): number {
     let power = capital.totalPopulation * 2;
     for (const member of members) {
       power += member.totalPopulation;

@@ -175,7 +175,7 @@ export const ALCHEMIST_NPC_FR: NpcTranslations['alchemist-hermes'] = {
   pages: [
     'Ah, un chercheur de sagesse alchimique ! Je suis Hermes, vagabond des mondes et gardien de recettes.',
     "L'art de l'alchimie n'est pas seulement mélanger des ingrédients — c'est comprendre leurs essences.",
-    "Je peux vous échanger des recettes contre des ingrédients rares. Que avez-vous à offrir ?",
+    'Je peux vous échanger des recettes contre des ingrédients rares. Que avez-vous à offrir ?',
   ],
   repeatPages: [
     "Les secrets de l'alchimie sont vastes. Continuez à explorer, continuez à expérimenter.",

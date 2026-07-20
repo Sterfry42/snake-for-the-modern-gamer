@@ -106,9 +106,7 @@ describe('ExpeditionManager', () => {
     });
 
     it('should fail with missing required apple', () => {
-      const supplies = [
-        { slotIndex: 0, appleTypeId: 'frost', quantity: 1 },
-      ];
+      const supplies = [{ slotIndex: 0, appleTypeId: 'frost', quantity: 1 }];
       const result = manager.finishPreparing('volcanic-isle', supplies);
       expect(result).toBe(false);
       expect(callbacks.onEvent).toHaveBeenCalledWith(

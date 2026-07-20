@@ -2,10 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import {
-  ALL_VILLAGE_SHOP_HAT_IDS,
-  VILLAGE_SHOP_HATS,
-} from '../villageShop.js';
+import { ALL_VILLAGE_SHOP_HAT_IDS, VILLAGE_SHOP_HATS } from '../villageShop.js';
 
 describe('village shop completeness', () => {
   describe('hats', () => {
@@ -34,10 +31,7 @@ describe('style UI hat display completeness', () => {
     // The style UI (skillTreeOverlay.ts) renders unlocked hats in a grid.
     // This test ensures no artificial slice limit (like .slice(0, 4)) is
     // applied to the hats array, which would hide hats from view.
-    const skillTreePath = resolve(
-      import.meta.dirname,
-      '../../ui/skillTreeOverlay.ts',
-    );
+    const skillTreePath = resolve(import.meta.dirname, '../../ui/skillTreeOverlay.ts');
     const source = readFileSync(skillTreePath, 'utf-8');
 
     // Check that hats are not sliced to a fixed count
@@ -49,10 +43,7 @@ describe('style UI hat display completeness', () => {
   it('style UI uses a grid layout for hats (not a single row)', () => {
     // Hats should be laid out in a grid (3 columns) to accommodate all hats.
     // A single-row layout would require scrolling or hiding hats.
-    const skillTreePath = resolve(
-      import.meta.dirname,
-      '../../ui/skillTreeOverlay.ts',
-    );
+    const skillTreePath = resolve(import.meta.dirname, '../../ui/skillTreeOverlay.ts');
     const source = readFileSync(skillTreePath, 'utf-8');
 
     // Verify the hat rendering uses a grid pattern (col/row calculation)

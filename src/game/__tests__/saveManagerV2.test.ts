@@ -157,7 +157,7 @@ describe('SaveManagerV2', () => {
       const autosaves = await manager.listAutosaves();
       expect(autosaves).toHaveLength(5);
       // autosave-0 should now have the new data
-      expect(autosaves.find(a => a.slotId === 'autosave-0')!.data.score).toBe(999);
+      expect(autosaves.find((a) => a.slotId === 'autosave-0')!.data.score).toBe(999);
     });
   });
 
@@ -181,14 +181,34 @@ describe('SaveManagerV2', () => {
 
   describe('getDisplayLabel', () => {
     it('appends seed to label when seed is provided', () => {
-      const data = makeSaveData({ worldGeneration: { seed: 'my-world', worldSalt: 1, biomeSalt: 2, riverSalt: 3, barrierSalt: 4, structureSalt: 5, townSalt: 6 } });
+      const data = makeSaveData({
+        worldGeneration: {
+          seed: 'my-world',
+          worldSalt: 1,
+          biomeSalt: 2,
+          riverSalt: 3,
+          barrierSalt: 4,
+          structureSalt: 5,
+          townSalt: 6,
+        },
+      });
       const label = manager.getDisplayLabel('2026-06-17T14:30:00.000Z', data.worldGeneration!.seed);
       expect(label).toContain('my-world');
       expect(label).toContain('\nSeed: my-world');
     });
 
     it('does not append default seed', () => {
-      const data = makeSaveData({ worldGeneration: { seed: 'default-world', worldSalt: 1, biomeSalt: 2, riverSalt: 3, barrierSalt: 4, structureSalt: 5, townSalt: 6 } });
+      const data = makeSaveData({
+        worldGeneration: {
+          seed: 'default-world',
+          worldSalt: 1,
+          biomeSalt: 2,
+          riverSalt: 3,
+          barrierSalt: 4,
+          structureSalt: 5,
+          townSalt: 6,
+        },
+      });
       const label = manager.getDisplayLabel('2026-06-17T14:30:00.000Z', data.worldGeneration!.seed);
       expect(label).not.toContain('default-world');
     });

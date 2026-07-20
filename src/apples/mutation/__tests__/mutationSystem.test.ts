@@ -207,11 +207,7 @@ describe('MutationSystem', () => {
 
   describe('Trait application', () => {
     it('should apply traits from mutation definitions', () => {
-      const system = new MutationSystem(
-        () => 0.99,
-        new TraitManager(),
-        callbacks,
-      );
+      const system = new MutationSystem(() => 0.99, new TraitManager(), callbacks);
 
       system.recordAppleEaten('caffeinated');
       system.recordAppleEaten('wasabi');

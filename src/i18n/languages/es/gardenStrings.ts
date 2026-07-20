@@ -95,14 +95,21 @@ export const GARDEN_STRINGS_ES: {
     gardenLog: 'Registro del Jardín',
     gardenSettings: 'Configuración del Jardín',
     gardenHelp: 'Ayuda del Jardín',
-    oldMarthaGreeting: '¡Bienvenido a tu jardín, pequeña serpiente! Soy la Abuela Martha, tu guía fantasmal para la agricultura de manzanas.',
-    oldMarthaTip: 'Recuerda: riega tus plantas cada día, o se marchitarán más rápido que una promesa olvidada.',
-    oldMarthaCompanion: 'Las manzanas de lavanda y amor crecen el doble de bien juntas. ¡La plantación compañera es el secreto!',
-    oldMarthaPest: '¡Cuidado con los pulgones! Se multiplican rápido. Aplástalos antes de que dominen tu jardín.',
+    oldMarthaGreeting:
+      '¡Bienvenido a tu jardín, pequeña serpiente! Soy la Abuela Martha, tu guía fantasmal para la agricultura de manzanas.',
+    oldMarthaTip:
+      'Recuerda: riega tus plantas cada día, o se marchitarán más rápido que una promesa olvidada.',
+    oldMarthaCompanion:
+      'Las manzanas de lavanda y amor crecen el doble de bien juntas. ¡La plantación compañera es el secreto!',
+    oldMarthaPest:
+      '¡Cuidado con los pulgones! Se multiplican rápido. Aplástalos antes de que dominen tu jardín.',
     oldMarthaRare: 'Las semillas raras cuestan más, pero se pagan solas. ¿Qué dices?',
-    oldMarthaSeason: 'El jardín cambia con las estaciones. La primavera es mejor para la mayoría de las semillas, pero la wasabi ama el invierno.',
-    oldMarthaFlowers: 'Cuando veas flores, significa que tus plantas están casi listas. Paciencia, joven serpiente.',
-    oldMarthaWisdom: 'He cuidado este jardín durante 999 años. Lo más sabio que he aprendido? Todo toma tiempo.',
+    oldMarthaSeason:
+      'El jardín cambia con las estaciones. La primavera es mejor para la mayoría de las semillas, pero la wasabi ama el invierno.',
+    oldMarthaFlowers:
+      'Cuando veas flores, significa que tus plantas están casi listas. Paciencia, joven serpiente.',
+    oldMarthaWisdom:
+      'He cuidado este jardín durante 999 años. Lo más sabio que he aprendido? Todo toma tiempo.',
     oldMarthaFarewell: 'Cuida esas plantas, querido. Están contando contigo.',
     oldMarthaShop: 'Tengo algunas semillas raras en almacenamiento. ¿Quieres echar un vistazo?',
   },

@@ -181,7 +181,7 @@ export class ExpeditionScene extends Phaser.Scene {
 
     this.islandId = config.islandId;
     this.grid = config.grid ?? { cols: 30, rows: 20, cell: 16 };
-    this.rng = config.rng ?? Math.random as RandomGenerator;
+    this.rng = config.rng ?? (Math.random as RandomGenerator);
     this.onComplete = config.onComplete;
     this.onFail = config.onFail;
     this.onEvent = config.onEvent;
@@ -499,10 +499,7 @@ export class ExpeditionScene extends Phaser.Scene {
     if (this.bossDefeated) return;
 
     // Click to advance phase progress
-    this.phaseTimer = Math.min(
-      this.phaseTimer + this.phaseDuration * 0.1,
-      this.phaseDuration,
-    );
+    this.phaseTimer = Math.min(this.phaseTimer + this.phaseDuration * 0.1, this.phaseDuration);
     this.score += 10;
 
     // Random discovery chance

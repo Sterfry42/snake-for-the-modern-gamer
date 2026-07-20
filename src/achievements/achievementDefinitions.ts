@@ -1229,7 +1229,11 @@ export const ACHIEVEMENT_DEFINITIONS = [
     description: 'Complete all fossil sets and fill your museum.',
     category: 'archaeology',
     difficulty: 'legendary',
-    prerequisites: ['archaeology.museumFounder', 'archaeology.rareFind', 'archaeology.legendaryArtifact'],
+    prerequisites: [
+      'archaeology.museumFounder',
+      'archaeology.rareFind',
+      'archaeology.legendaryArtifact',
+    ],
     tree: { x: 700, y: 280, section: 'Archaeology' },
     icon: icon('artifactCollection', '🦖'),
     criterion: event('archaeology:museumComplete'),

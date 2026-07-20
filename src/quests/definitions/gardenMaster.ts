@@ -15,7 +15,11 @@ import type { QuestRuntime } from '../quest.js';
  */
 class GardenMasterQuest extends Quest {
   constructor() {
-    super('garden-master', 'Master Gardener', 'Harvest 100 apples from your garden and unlock all plots.');
+    super(
+      'garden-master',
+      'Master Gardener',
+      'Harvest 100 apples from your garden and unlock all plots.',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

@@ -11,10 +11,7 @@
  * - The wise old snake's recipe manager crashed the game
  */
 
-import type {
-  AlchemyRecipe,
-  AlchemyRuntime,
-} from './alchemyTypes.js';
+import type { AlchemyRecipe, AlchemyRuntime } from './alchemyTypes.js';
 import { ALCHEMY_INGREDIENTS } from './ingredients.js';
 
 /** Default known recipes (always discoverable) */
@@ -149,7 +146,7 @@ const EXPERIMENT_RECIPES: AlchemyRecipe[] = [
 const MYTHIC_RECIPES: AlchemyRecipe[] = [
   {
     id: 'recipe-mythic-growth',
-    name: 'Titan\'s Bane',
+    name: "Titan's Bane",
     description: 'A legendary growth potion that permanently increases base length.',
     ingredients: [
       { itemId: 'ingredient-normal-apple', count: 5 },
@@ -247,16 +244,12 @@ export class RecipeManager {
 
   /** Check if all ingredients for a recipe are available */
   canCraft(recipe: AlchemyRecipe): boolean {
-    return recipe.ingredients.every(({ itemId, count }) =>
-      this.runtime.hasItem(itemId, count),
-    );
+    return recipe.ingredients.every(({ itemId, count }) => this.runtime.hasItem(itemId, count));
   }
 
   /** Consume ingredients for a recipe */
   consumeIngredients(recipe: AlchemyRecipe): boolean {
-    return recipe.ingredients.every(({ itemId, count }) =>
-      this.runtime.consumeItem(itemId, count),
-    );
+    return recipe.ingredients.every(({ itemId, count }) => this.runtime.consumeItem(itemId, count));
   }
 
   /** Attempt to discover a recipe through experimentation */

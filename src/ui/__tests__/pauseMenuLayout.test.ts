@@ -3,12 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { computePauseMenuLayoutForTest, type UiRect } from '../core/PauseMenuLayout';
 
 function intersects(a: UiRect, b: UiRect): boolean {
-  return (
-    a.x < b.x + b.width &&
-    a.x + a.width > b.x &&
-    a.y < b.y + b.height &&
-    a.y + a.height > b.y
-  );
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y;
 }
 
 function contains(outer: UiRect, inner: UiRect): boolean {

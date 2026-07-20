@@ -57,17 +57,12 @@ export class TraitManager {
    */
   applyTrait(definition: TraitDefinition, stacks = 1, durationMs = 0): void {
     // Check if we already have this trait
-    const existingIndex = this.activeTraits.findIndex(
-      (t) => t.definition.id === definition.id,
-    );
+    const existingIndex = this.activeTraits.findIndex((t) => t.definition.id === definition.id);
 
     if (existingIndex >= 0) {
       // Stack with existing trait
       const existing = this.activeTraits[existingIndex];
-      const newStacks = Math.min(
-        existing.stacks + stacks,
-        definition.maxStacks,
-      );
+      const newStacks = Math.min(existing.stacks + stacks, definition.maxStacks);
       existing.stacks = newStacks;
       // Extend duration if trait has one
       if (durationMs > 0) {
@@ -77,9 +72,7 @@ export class TraitManager {
       // Check if we're at max active traits
       if (this.activeTraits.length >= this.maxActiveTraits) {
         // Remove the oldest non-permanent trait
-        const removableIndex = this.activeTraits.findIndex(
-          (t) => t.remainingMs > 0,
-        );
+        const removableIndex = this.activeTraits.findIndex((t) => t.remainingMs > 0);
         if (removableIndex >= 0) {
           this.removeTraitAt(removableIndex);
         } else {
@@ -102,9 +95,7 @@ export class TraitManager {
    * Remove a specific trait instance by definition ID.
    */
   removeTrait(traitId: string): void {
-    const index = this.activeTraits.findIndex(
-      (t) => t.definition.id === traitId,
-    );
+    const index = this.activeTraits.findIndex((t) => t.definition.id === traitId);
     if (index >= 0) {
       this.removeTraitAt(index);
       this.totalTraitsExpired++;

@@ -379,9 +379,7 @@ export class MutationRegistry {
     return MUTATION_DEFINITIONS.filter((mutation) => {
       // Check prerequisites
       if (mutation.prerequisites) {
-        const allPrereqsMet = mutation.prerequisites.every((prereq) =>
-          discoveredIds.has(prereq),
-        );
+        const allPrereqsMet = mutation.prerequisites.every((prereq) => discoveredIds.has(prereq));
         if (!allPrereqsMet) return false;
       }
 

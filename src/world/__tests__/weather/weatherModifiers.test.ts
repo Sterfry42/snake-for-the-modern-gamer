@@ -193,7 +193,9 @@ describe('Weather Modifiers', () => {
         weatherSeed: 12345,
         weatherTransitionProgress: 1,
       };
-      expect(service.calculateWeatherModifiers({ atmosphere: springState }).bonusApples.has('lavender')).toBe(true);
+      expect(
+        service.calculateWeatherModifiers({ atmosphere: springState }).bonusApples.has('lavender'),
+      ).toBe(true);
 
       // Summer
       const summerState: AtmosphereState = {

@@ -146,11 +146,7 @@ export interface AlchemyStationData {
 }
 
 /** A crafting workshop */
-export type WorkshopType =
-  | 'enchantedLoom'
-  | 'cartographersDesk'
-  | 'musicBox'
-  | 'potionBrewery';
+export type WorkshopType = 'enchantedLoom' | 'cartographersDesk' | 'musicBox' | 'potionBrewery';
 
 /** Workshop definition */
 export interface WorkshopDefinition {

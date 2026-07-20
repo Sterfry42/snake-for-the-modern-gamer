@@ -1,10 +1,5 @@
 import { LocalStorageStringSaveStore } from '../storage/LocalStorageStringSaveStore.js';
-import {
-  isVersionLessThan,
-  migrateV1toV2,
-  migrateV2toV3,
-  type GameSaveData,
-} from './saveTypes.js';
+import { isVersionLessThan, migrateV1toV2, migrateV2toV3, type GameSaveData } from './saveTypes.js';
 
 const SAVE_KEY = 'snakeGameSave';
 const DEFAULT_SAVE_SLOT = '';
@@ -105,6 +100,5 @@ export class SaveManager {
     }
   }
 }
-
 
 export const saveManager = new SaveManager();

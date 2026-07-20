@@ -102,8 +102,8 @@ class MusicFeature extends Feature {
     this.composer?.onGenreChange((genre) => {
       if (this.genreLabel) {
         const label = genre
-          ? i18n.getFeatureString(`music.genre.${genre}`) ?? genre
-          : i18n.getFeatureString('music.genre.none') ?? 'Silence';
+          ? (i18n.getFeatureString(`music.genre.${genre}`) ?? genre)
+          : (i18n.getFeatureString('music.genre.none') ?? 'Silence');
         this.genreLabel.setText(label);
       }
     });
@@ -150,18 +150,22 @@ class MusicFeature extends Feature {
     if (!this.genreDetector || !this.melodyCollection) return;
 
     // Genre label
-    const genreLabel = scene.add.text(10, 60, '', {
-      fontFamily: 'monospace',
-      fontSize: '11px',
-      color: '#ffcc7e',
-    }).setDepth(40);
+    const genreLabel = scene.add
+      .text(10, 60, '', {
+        fontFamily: 'monospace',
+        fontSize: '11px',
+        color: '#ffcc7e',
+      })
+      .setDepth(40);
 
     // Melody progress text
-    const melodyProgress = scene.add.text(10, 74, '', {
-      fontFamily: 'monospace',
-      fontSize: '10px',
-      color: '#9ad1ff',
-    }).setDepth(40);
+    const melodyProgress = scene.add
+      .text(10, 74, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#9ad1ff',
+      })
+      .setDepth(40);
 
     this.genreLabel = genreLabel;
     this.melodyProgressText = melodyProgress;
@@ -170,41 +174,47 @@ class MusicFeature extends Feature {
   /**
    * Show the rhythm mini-game overlay.
    */
-  private showRhythmOverlay(scene: SnakeScene, round: {
-    sequence: string[];
-    genre: string;
-    difficulty: number;
-  }): void {
-    const overlay = scene.add.container(
-      scene.scale.width / 2,
-      scene.scale.height / 2,
-    ).setDepth(100);
+  private showRhythmOverlay(
+    scene: SnakeScene,
+    round: {
+      sequence: string[];
+      genre: string;
+      difficulty: number;
+    },
+  ): void {
+    const overlay = scene.add
+      .container(scene.scale.width / 2, scene.scale.height / 2)
+      .setDepth(100);
 
     // Background
-    const bg = scene.add.rectangle(0, 0, 400, 300, 0x1a1a2e, 0.95)
-      .setStrokeStyle(2, 0xff9944, 0.8);
+    const bg = scene.add.rectangle(0, 0, 400, 300, 0x1a1a2e, 0.95).setStrokeStyle(2, 0xff9944, 0.8);
 
     // Title
-    const title = scene.add.text(0, -120, '🎵 Rhythm Challenge', {
-      fontFamily: 'monospace',
-      fontSize: '18px',
-      color: '#ffcc7e',
-    }).setOrigin(0.5, 0.5);
+    const title = scene.add
+      .text(0, -120, '🎵 Rhythm Challenge', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ffcc7e',
+      })
+      .setOrigin(0.5, 0.5);
 
     // Instructions
-    const instructions = scene.add.text(0, -80, 'Eat apples in the correct sequence!', {
-      fontFamily: 'monospace',
-      fontSize: '12px',
-      color: '#ffffff',
-    }).setOrigin(0.5, 0.5);
+    const instructions = scene.add
+      .text(0, -80, 'Eat apples in the correct sequence!', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#ffffff',
+      })
+      .setOrigin(0.5, 0.5);
 
     // Sequence display
-    const sequenceText = scene.add.text(0, -40,
-      round.sequence.join(' → '), {
-      fontFamily: 'monospace',
-      fontSize: '14px',
-      color: '#9ad1ff',
-    }).setOrigin(0.5, 0.5);
+    const sequenceText = scene.add
+      .text(0, -40, round.sequence.join(' → '), {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#9ad1ff',
+      })
+      .setOrigin(0.5, 0.5);
 
     // Progress bar
     const progressBg = scene.add.rectangle(0, 20, 300, 20, 0x2a2a3a, 0.8);
@@ -256,7 +266,9 @@ class MusicFeature extends Feature {
     }
 
     if (this.melodyProgressText) {
-      const lockedCount = Object.values(collectionState.fragments).filter((f) => f.state === 'locked').length;
+      const lockedCount = Object.values(collectionState.fragments).filter(
+        (f) => f.state === 'locked',
+      ).length;
       const text = `${i18n.getFeatureString('music.collection.progress') ?? 'Melodies'}: ${collectionState.totalUnlocked}/${collectionState.totalUnlocked + lockedCount}`;
       this.melodyProgressText.setText(text);
     }

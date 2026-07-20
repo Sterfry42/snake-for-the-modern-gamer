@@ -153,17 +153,20 @@ export class WarSystem {
     }
 
     // Determine winner
-    const winnerFactionId = finalAttackerScore > finalDefenderScore
-      ? attackerFactionId
-      : finalDefenderScore > finalAttackerScore
-        ? defenderFactionId
-        : null; // Draw
+    const winnerFactionId =
+      finalAttackerScore > finalDefenderScore
+        ? attackerFactionId
+        : finalDefenderScore > finalAttackerScore
+          ? defenderFactionId
+          : null; // Draw
 
     // Calculate control delta
     const totalScore = finalAttackerScore + finalDefenderScore || 1;
     const attackerShare = finalAttackerScore / totalScore;
     const baseDelta = (attackerShare - 0.5) * 2 * territory.defensible * 5;
-    const controlDelta = Math.round(baseDelta + (Math.random() - 0.5) * this.config.randomness * 20);
+    const controlDelta = Math.round(
+      baseDelta + (Math.random() - 0.5) * this.config.randomness * 20,
+    );
 
     // Calculate casualties
     const maxCasualties = Math.abs(controlDelta);
@@ -207,13 +210,14 @@ export class WarSystem {
     }
 
     // Create war event
-    const warEventType: WarEventType = outcome === 'attack'
-      ? 'territory-attack'
-      : outcome === 'defense'
-        ? 'territory-defense'
-        : outcome === 'sabotage'
-          ? 'sabotage'
-          : 'territory-attack';
+    const warEventType: WarEventType =
+      outcome === 'attack'
+        ? 'territory-attack'
+        : outcome === 'defense'
+          ? 'territory-defense'
+          : outcome === 'sabotage'
+            ? 'sabotage'
+            : 'territory-attack';
 
     this.territoryManager.createWarEvent({
       type: warEventType,
@@ -338,13 +342,7 @@ export class WarSystem {
       const ownership = this.territoryManager.getOwnership(terrId);
       if (ownership?.status === 'contested') {
         // Settle at 50/50
-        this.territoryManager.shiftControl(
-          terrId,
-          factionA,
-          factionB,
-          0,
-          'diplomacy',
-        );
+        this.territoryManager.shiftControl(terrId, factionA, factionB, 0, 'diplomacy');
       }
     }
 
@@ -410,12 +408,7 @@ export class WarSystem {
     targetFactionId: string;
     successChance?: number;
   }): BattleResult | undefined {
-    const {
-      territoryId,
-      saboteurFactionId,
-      targetFactionId,
-      successChance = 0.5,
-    } = input;
+    const { territoryId, saboteurFactionId, targetFactionId, successChance = 0.5 } = input;
 
     const ownership = this.territoryManager.getOwnership(territoryId);
     if (!ownership || ownership.controllingFactionId !== targetFactionId) {
@@ -469,7 +462,12 @@ export class WarSystem {
       .reverse();
   }
 
-  getFactionWinRate(factionId: string): { wins: number; losses: number; draws: number; total: number } {
+  getFactionWinRate(factionId: string): {
+    wins: number;
+    losses: number;
+    draws: number;
+    total: number;
+  } {
     const battles = this.battleLog.filter(
       (b) => b.attackerFactionId === factionId || b.defenderFactionId === factionId,
     );

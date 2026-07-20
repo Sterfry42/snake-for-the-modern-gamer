@@ -44,7 +44,16 @@ export interface RollercoasterRideConfig {
  */
 export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterRideConfig): void {
   const { width, height } = scene.scale;
-  const { journey, arrivalFlavor, destinationRoomId, destinationExitX, destinationExitY, destinationCoordinates, theme, onArrival } = config;
+  const {
+    journey,
+    arrivalFlavor,
+    destinationRoomId,
+    destinationExitX,
+    destinationExitY,
+    destinationCoordinates,
+    theme,
+    onArrival,
+  } = config;
   const profile = getSpeedProfile(theme);
   const themeColors = THEME_CONFIG[theme].colors;
   const carVisual: RollercoasterCarVisual = {
@@ -59,11 +68,14 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
 
   // === PHASE 1: BOARDING (0-10%) ===
   const boardingDuration = totalDuration * 0.1;
-  const boardingText = scene.add.text(width / 2, height * 0.45, '🎢 Boarding...', {
-    fontFamily: 'monospace',
-    fontSize: '28px',
-    color: '#ffffff',
-  }).setOrigin(0.5).setDepth(600);
+  const boardingText = scene.add
+    .text(width / 2, height * 0.45, '🎢 Boarding...', {
+      fontFamily: 'monospace',
+      fontSize: '28px',
+      color: '#ffffff',
+    })
+    .setOrigin(0.5)
+    .setDepth(600);
 
   // === PHASE 2: LIFT HILL (10-30%) ===
   const climbStart = boardingDuration;
@@ -97,46 +109,66 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
   const speedBar = scene.add.graphics().setDepth(600).setScrollFactor(0);
   const altitudeBar = scene.add.graphics().setDepth(600).setScrollFactor(0);
 
-  const speedText = scene.add.text(width * 0.85, height * 0.05, 'SPEED', {
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    color: '#ffffff',
-  }).setOrigin(0.5).setDepth(600).setScrollFactor(0);
+  const speedText = scene.add
+    .text(width * 0.85, height * 0.05, 'SPEED', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ffffff',
+    })
+    .setOrigin(0.5)
+    .setDepth(600)
+    .setScrollFactor(0);
 
-  const altitudeText = scene.add.text(width * 0.85, height * 0.12, 'ALTITUDE', {
-    fontFamily: 'monospace',
-    fontSize: '12px',
-    color: '#ffffff',
-  }).setOrigin(0.5).setDepth(600).setScrollFactor(0);
+  const altitudeText = scene.add
+    .text(width * 0.85, height * 0.12, 'ALTITUDE', {
+      fontFamily: 'monospace',
+      fontSize: '12px',
+      color: '#ffffff',
+    })
+    .setOrigin(0.5)
+    .setDepth(600)
+    .setScrollFactor(0);
 
   // Speed lines overlay
   const speedLinesCanvas = scene.add.graphics().setDepth(504).setScrollFactor(0);
 
   // Status text at bottom
-  const statusText = scene.add.text(width / 2, height * 0.9, '', {
-    fontFamily: 'monospace',
-    fontSize: '16px',
-    color: '#ffffff',
-    align: 'center',
-    wordWrap: { width: width * 0.7 },
-  }).setOrigin(0.5).setDepth(600).setScrollFactor(0);
+  const statusText = scene.add
+    .text(width / 2, height * 0.9, '', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#ffffff',
+      align: 'center',
+      wordWrap: { width: width * 0.7 },
+    })
+    .setOrigin(0.5)
+    .setDepth(600)
+    .setScrollFactor(0);
 
   // Arrival flavor text
-  const flavorText = scene.add.text(width / 2, height * 0.15, '', {
-    fontFamily: 'monospace',
-    fontSize: '16px',
-    color: '#ffffff',
-    align: 'center',
-    wordWrap: { width: width * 0.6 },
-  }).setOrigin(0.5).setDepth(600).setScrollFactor(0);
+  const flavorText = scene.add
+    .text(width / 2, height * 0.15, '', {
+      fontFamily: 'monospace',
+      fontSize: '16px',
+      color: '#ffffff',
+      align: 'center',
+      wordWrap: { width: width * 0.6 },
+    })
+    .setOrigin(0.5)
+    .setDepth(600)
+    .setScrollFactor(0);
 
   // Destination display
-  const destDisplay = scene.add.text(width / 2, height * 0.05, '', {
-    fontFamily: 'monospace',
-    fontSize: '14px',
-    color: `#${(themeColors[0] ?? 0xff6b44).toString(16).padStart(6, '0')}`,
-    fontStyle: 'bold',
-  }).setOrigin(0.5).setDepth(600).setScrollFactor(0);
+  const destDisplay = scene.add
+    .text(width / 2, height * 0.05, '', {
+      fontFamily: 'monospace',
+      fontSize: '14px',
+      color: `#${(themeColors[0] ?? 0xff6b44).toString(16).padStart(6, '0')}`,
+      fontStyle: 'bold',
+    })
+    .setOrigin(0.5)
+    .setDepth(600)
+    .setScrollFactor(0);
 
   const destName = destinationRoomId.replace(/,/g, '.');
   const coordLine = destinationCoordinates ? `\n[${destinationCoordinates}]` : '';
@@ -184,8 +216,8 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
         // Speed profile: fast drop, loops, then braking
         if (rideProgress < 0.15) {
           // Big drop
-          speed = profile.peakSpeed * (0.5 + rideProgress / 0.15 * 0.5);
-          altitude = 1 - rideProgress / 0.15 * 0.6;
+          speed = profile.peakSpeed * (0.5 + (rideProgress / 0.15) * 0.5);
+          altitude = 1 - (rideProgress / 0.15) * 0.6;
         } else if (rideProgress < 0.7) {
           // Loops and turns
           const loopPhase = (rideProgress - 0.15) / 0.55;
@@ -296,7 +328,12 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
   });
 }
 
-function drawSkyGradient(graphics: Phaser.GameObjects.Graphics, width: number, height: number, theme: RollercoasterTheme): void {
+function drawSkyGradient(
+  graphics: Phaser.GameObjects.Graphics,
+  width: number,
+  height: number,
+  theme: RollercoasterTheme,
+): void {
   const themeColors = THEME_CONFIG[theme].colors;
   const skyColors: Record<RollercoasterTheme, [number, number]> = {
     'thunder-ridge': [0x87ceeb, 0xb0c4de],
@@ -344,7 +381,7 @@ function drawParallaxScenery(
   if (theme === 'cosmic-corkscrew') {
     graphics.fillStyle(0xffffff, 0.6);
     for (let i = 0; i < 30; i++) {
-      const sx = ((i * 97 + offset * 0.1) % width);
+      const sx = (i * 97 + offset * 0.1) % width;
       const sy = (i * 53) % (height * 0.5);
       graphics.fillCircle(sx, sy, 1.5);
     }
@@ -373,19 +410,19 @@ function drawRollercoasterTrack(
     let y: number;
     if (t < 0.15) {
       // Lift hill
-      y = height * 0.7 - t / 0.15 * height * 0.4;
+      y = height * 0.7 - (t / 0.15) * height * 0.4;
     } else if (t < 0.25) {
       // Drop
-      y = height * 0.3 + (t - 0.15) / 0.1 * height * 0.3;
+      y = height * 0.3 + ((t - 0.15) / 0.1) * height * 0.3;
     } else if (t < 0.5) {
       // Loops and turns (wavy)
-      y = height * 0.6 + Math.sin((t - 0.25) / 0.25 * Math.PI * 4) * height * 0.15;
+      y = height * 0.6 + Math.sin(((t - 0.25) / 0.25) * Math.PI * 4) * height * 0.15;
     } else if (t < 0.8) {
       // More thrills
-      y = height * 0.55 + Math.sin((t - 0.5) / 0.3 * Math.PI * 3) * height * 0.12;
+      y = height * 0.55 + Math.sin(((t - 0.5) / 0.3) * Math.PI * 3) * height * 0.12;
     } else {
       // Braking run
-      y = height * 0.55 + (t - 0.8) / 0.2 * height * 0.15;
+      y = height * 0.55 + ((t - 0.8) / 0.2) * height * 0.15;
     }
 
     if (i === 0) {
@@ -403,15 +440,15 @@ function drawRollercoasterTrack(
     const x = width * 0.1 + t * width * 0.8;
     let y: number;
     if (t < 0.15) {
-      y = height * 0.7 - t / 0.15 * height * 0.4;
+      y = height * 0.7 - (t / 0.15) * height * 0.4;
     } else if (t < 0.25) {
-      y = height * 0.3 + (t - 0.15) / 0.1 * height * 0.3;
+      y = height * 0.3 + ((t - 0.15) / 0.1) * height * 0.3;
     } else if (t < 0.5) {
-      y = height * 0.6 + Math.sin((t - 0.25) / 0.25 * Math.PI * 4) * height * 0.15;
+      y = height * 0.6 + Math.sin(((t - 0.25) / 0.25) * Math.PI * 4) * height * 0.15;
     } else if (t < 0.8) {
-      y = height * 0.55 + Math.sin((t - 0.5) / 0.3 * Math.PI * 3) * height * 0.12;
+      y = height * 0.55 + Math.sin(((t - 0.5) / 0.3) * Math.PI * 3) * height * 0.12;
     } else {
-      y = height * 0.55 + (t - 0.8) / 0.2 * height * 0.15;
+      y = height * 0.55 + ((t - 0.8) / 0.2) * height * 0.15;
     }
     graphics.lineBetween(x, y, x, y + 60);
   }
@@ -434,15 +471,18 @@ function drawRollercoasterCar(
   const x = width * 0.1 + (t / (trackPoints - 1)) * width * 0.8;
   let y: number;
   if (t / (trackPoints - 1) < 0.15) {
-    y = height * 0.7 - (t / (trackPoints - 1)) / 0.15 * height * 0.4;
+    y = height * 0.7 - (t / (trackPoints - 1) / 0.15) * height * 0.4;
   } else if (t / (trackPoints - 1) < 0.25) {
-    y = height * 0.3 + ((t / (trackPoints - 1)) - 0.15) / 0.1 * height * 0.3;
+    y = height * 0.3 + ((t / (trackPoints - 1) - 0.15) / 0.1) * height * 0.3;
   } else if (t / (trackPoints - 1) < 0.5) {
-    y = height * 0.6 + Math.sin(((t / (trackPoints - 1)) - 0.25) / 0.25 * Math.PI * 4) * height * 0.15;
+    y =
+      height * 0.6 +
+      Math.sin(((t / (trackPoints - 1) - 0.25) / 0.25) * Math.PI * 4) * height * 0.15;
   } else if (t / (trackPoints - 1) < 0.8) {
-    y = height * 0.55 + Math.sin(((t / (trackPoints - 1)) - 0.5) / 0.3 * Math.PI * 3) * height * 0.12;
+    y =
+      height * 0.55 + Math.sin(((t / (trackPoints - 1) - 0.5) / 0.3) * Math.PI * 3) * height * 0.12;
   } else {
-    y = height * 0.55 + ((t / (trackPoints - 1)) - 0.8) / 0.2 * height * 0.15;
+    y = height * 0.55 + ((t / (trackPoints - 1) - 0.8) / 0.2) * height * 0.15;
   }
 
   // Car bob based on speed
@@ -470,27 +510,48 @@ function drawRollercoasterCar(
   // Wheels spin based on speed
   graphics.lineStyle(2, 0x888888, 0.5);
   const wheelAngle = Date.now() * 0.01 * speed;
-  graphics.lineBetween(x - 12 + Math.cos(wheelAngle) * 3, carY + 10 + Math.sin(wheelAngle) * 3, x - 12 - Math.cos(wheelAngle) * 3, carY + 10 - Math.sin(wheelAngle) * 3);
-  graphics.lineBetween(x + 12 + Math.cos(wheelAngle) * 3, carY + 10 + Math.sin(wheelAngle) * 3, x + 12 - Math.cos(wheelAngle) * 3, carY + 10 - Math.sin(wheelAngle) * 3);
+  graphics.lineBetween(
+    x - 12 + Math.cos(wheelAngle) * 3,
+    carY + 10 + Math.sin(wheelAngle) * 3,
+    x - 12 - Math.cos(wheelAngle) * 3,
+    carY + 10 - Math.sin(wheelAngle) * 3,
+  );
+  graphics.lineBetween(
+    x + 12 + Math.cos(wheelAngle) * 3,
+    carY + 10 + Math.sin(wheelAngle) * 3,
+    x + 12 - Math.cos(wheelAngle) * 3,
+    carY + 10 - Math.sin(wheelAngle) * 3,
+  );
 
   // Safety bar
   graphics.lineStyle(2, 0x888888, 0.6);
   graphics.lineBetween(x - 10, carY - 8, x + 10, carY - 8);
 }
 
-function drawSpeedLines(graphics: Phaser.GameObjects.Graphics, width: number, height: number, offset: number, speed: number): void {
+function drawSpeedLines(
+  graphics: Phaser.GameObjects.Graphics,
+  width: number,
+  height: number,
+  offset: number,
+  speed: number,
+): void {
   const intensity = (speed - 0.5) * 2; // 0 to 1
   graphics.lineStyle(2, 0xffffff, 0.3 * intensity);
 
   for (let i = 0; i < 15; i++) {
-    const lx = ((i * 97 + offset * 3) % width);
-    const ly = height * 0.2 + (i * 47) % (height * 0.6);
+    const lx = (i * 97 + offset * 3) % width;
+    const ly = height * 0.2 + ((i * 47) % (height * 0.6));
     const lineLen = 20 + speed * 40;
     graphics.lineBetween(lx, ly, lx - lineLen, ly);
   }
 }
 
-function drawSpeedBar(graphics: Phaser.GameObjects.Graphics, x: number, y: number, normalizedSpeed: number): void {
+function drawSpeedBar(
+  graphics: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  normalizedSpeed: number,
+): void {
   const barWidth = 100;
   const barHeight = 10;
 
@@ -504,7 +565,12 @@ function drawSpeedBar(graphics: Phaser.GameObjects.Graphics, x: number, y: numbe
   graphics.fillRect(x - barWidth / 2, y, barWidth * normalizedSpeed, barHeight);
 }
 
-function drawAltitudeBar(graphics: Phaser.GameObjects.Graphics, x: number, y: number, normalizedAltitude: number): void {
+function drawAltitudeBar(
+  graphics: Phaser.GameObjects.Graphics,
+  x: number,
+  y: number,
+  normalizedAltitude: number,
+): void {
   const barWidth = 100;
   const barHeight = 10;
 

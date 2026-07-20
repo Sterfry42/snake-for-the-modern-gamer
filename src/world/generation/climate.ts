@@ -81,4 +81,3 @@ export function sampleClimateForRegion(args: {
   };
   return applyVerticalClimate(base, args.z);
 }
-

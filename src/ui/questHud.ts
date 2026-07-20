@@ -1,7 +1,13 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 import type { Quest } from '../../quests.js';
-import type { AtmosphereState, GlobalWeather, Season, DayPhase, SkyEvent } from '../world/atmosphereTypes.js';
+import type {
+  AtmosphereState,
+  GlobalWeather,
+  Season,
+  DayPhase,
+  SkyEvent,
+} from '../world/atmosphereTypes.js';
 import { i18n } from '../i18n/i18nManager.js';
 
 interface QuestHudOptions {
@@ -148,10 +154,7 @@ export class WeatherHud {
   private options: Required<WeatherHudOptions>;
   private requestedVisible = true;
 
-  constructor(
-    options: WeatherHudOptions = {},
-    scene: SnakeScene,
-  ) {
+  constructor(options: WeatherHudOptions = {}, scene: SnakeScene) {
     this.options = {
       position: options.position ?? DEFAULT_WEATHER_OPTIONS.position,
       fontSize: options.fontSize ?? DEFAULT_WEATHER_OPTIONS.fontSize,
@@ -165,49 +168,73 @@ export class WeatherHud {
     const fontFamily = this.options.fontFamily;
     const color = this.options.color;
 
-    this.seasonText = scene.add.text(x, y, '', {
-      fontFamily,
-      fontSize,
-      color,
-    }).setOrigin(1, 0).setDepth(this.options.depth);
+    this.seasonText = scene.add
+      .text(x, y, '', {
+        fontFamily,
+        fontSize,
+        color,
+      })
+      .setOrigin(1, 0)
+      .setDepth(this.options.depth);
 
-    this.weatherText = scene.add.text(x, y + 14, '', {
-      fontFamily,
-      fontSize,
-      color,
-    }).setOrigin(1, 0).setDepth(this.options.depth);
+    this.weatherText = scene.add
+      .text(x, y + 14, '', {
+        fontFamily,
+        fontSize,
+        color,
+      })
+      .setOrigin(1, 0)
+      .setDepth(this.options.depth);
 
-    this.phaseText = scene.add.text(x, y + 28, '', {
-      fontFamily,
-      fontSize,
-      color,
-    }).setOrigin(1, 0).setDepth(this.options.depth);
+    this.phaseText = scene.add
+      .text(x, y + 28, '', {
+        fontFamily,
+        fontSize,
+        color,
+      })
+      .setOrigin(1, 0)
+      .setDepth(this.options.depth);
 
-    this.skyText = scene.add.text(x, y + 42, '', {
-      fontFamily,
-      fontSize,
-      color,
-    }).setOrigin(1, 0).setDepth(this.options.depth);
+    this.skyText = scene.add
+      .text(x, y + 42, '', {
+        fontFamily,
+        fontSize,
+        color,
+      })
+      .setOrigin(1, 0)
+      .setDepth(this.options.depth);
 
-    this.intensityText = scene.add.text(x, y + 56, '', {
-      fontFamily,
-      fontSize,
-      color,
-    }).setOrigin(1, 0).setDepth(this.options.depth);
+    this.intensityText = scene.add
+      .text(x, y + 56, '', {
+        fontFamily,
+        fontSize,
+        color,
+      })
+      .setOrigin(1, 0)
+      .setDepth(this.options.depth);
 
     this.container = scene.add.container(x, y);
-    this.container.add([this.seasonText, this.weatherText, this.phaseText, this.skyText, this.intensityText]);
+    this.container.add([
+      this.seasonText,
+      this.weatherText,
+      this.phaseText,
+      this.skyText,
+      this.intensityText,
+    ]);
     this.container.setDepth(this.options.depth);
     this.container.setVisible(false);
   }
 
   update(atmosphere: AtmosphereState): void {
     const season = i18n.getCommon(SEASON_LABELS[atmosphere.season]) || atmosphere.season;
-    const weather = i18n.getCommon(WEATHER_LABELS[atmosphere.globalWeather]) || atmosphere.globalWeather;
+    const weather =
+      i18n.getCommon(WEATHER_LABELS[atmosphere.globalWeather]) || atmosphere.globalWeather;
     const phase = i18n.getCommon(DAY_PHASE_LABELS[atmosphere.dayPhase]) || atmosphere.dayPhase;
-    const skyEvent = atmosphere.skyEvent && atmosphere.skyEvent.current !== 'none'
-      ? i18n.getCommon(SKY_EVENT_LABELS[atmosphere.skyEvent.current]) || atmosphere.skyEvent.current
-      : null;
+    const skyEvent =
+      atmosphere.skyEvent && atmosphere.skyEvent.current !== 'none'
+        ? i18n.getCommon(SKY_EVENT_LABELS[atmosphere.skyEvent.current]) ||
+          atmosphere.skyEvent.current
+        : null;
     const intensity = i18n.getCommon(getIntensityLabel(atmosphere.weatherIntensity)) || '';
 
     this.seasonText.setText(`Season: ${season}`);

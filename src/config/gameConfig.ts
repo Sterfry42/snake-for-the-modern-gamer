@@ -84,42 +84,42 @@ export interface AppleTypeConfig {
     | 'koi'
     | 'amacha'
     | 'caffeinated'
-      | 'lavender'
-      | 'coldBeer'
-      | 'love'
-      | 'treat'
-      | 'frost'
-      | 'winterberry'
-      | 'heatwave'
-      // Evolved/Mutation apples
-      | 'spicyEnergy'
-      | 'frostMochi'
-      | 'caffeinatedShield'
-      | 'coldCaffeinated'
-      | 'lavenderCalm'
-      | 'loveShield'
-      | 'tripleThreat'
-      | 'frostWasabi'
-      | 'yuzuEnergy'
-      | 'mochiShield'
-      | 'winterberryFrost'
-      | 'goldSpicy'
-      | 'treatMochi'
-      | 'heatwaveFrost'
-      | 'ultimateFusion'
-      // Archaeological apples
-      | 'amber'
-      | 'fossil'
-      | 'relic'
-      // Dream World apples
-      | 'dream'
-      | 'dream-gravity'
-      | 'dream-phase'
-      | 'dream-speed'
-      | 'nightmare'
-      | 'nightmare-hunter'
-      | 'lucid'
-      | 'lucid-master';
+    | 'lavender'
+    | 'coldBeer'
+    | 'love'
+    | 'treat'
+    | 'frost'
+    | 'winterberry'
+    | 'heatwave'
+    // Evolved/Mutation apples
+    | 'spicyEnergy'
+    | 'frostMochi'
+    | 'caffeinatedShield'
+    | 'coldCaffeinated'
+    | 'lavenderCalm'
+    | 'loveShield'
+    | 'tripleThreat'
+    | 'frostWasabi'
+    | 'yuzuEnergy'
+    | 'mochiShield'
+    | 'winterberryFrost'
+    | 'goldSpicy'
+    | 'treatMochi'
+    | 'heatwaveFrost'
+    | 'ultimateFusion'
+    // Archaeological apples
+    | 'amber'
+    | 'fossil'
+    | 'relic'
+    // Dream World apples
+    | 'dream'
+    | 'dream-gravity'
+    | 'dream-phase'
+    | 'dream-speed'
+    | 'nightmare'
+    | 'nightmare-hunter'
+    | 'lucid'
+    | 'lucid-master';
 }
 
 export interface AppleSystemConfig {
@@ -432,7 +432,7 @@ export const defaultGameConfig: GameConfig = {
       {
         id: 'amber',
         label: 'Amber Apple',
-        color: 0xFFBF00,
+        color: 0xffbf00,
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.08, scoreThreshold: 20 },
         behavior: 'amber',
@@ -440,7 +440,7 @@ export const defaultGameConfig: GameConfig = {
       {
         id: 'fossil',
         label: 'Fossil Apple',
-        color: 0xD2B48C,
+        color: 0xd2b48c,
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.06, scoreThreshold: 30 },
         behavior: 'fossil',
@@ -448,7 +448,7 @@ export const defaultGameConfig: GameConfig = {
       {
         id: 'relic',
         label: 'Relic Apple',
-        color: 0x9370DB,
+        color: 0x9370db,
         outlineDarkenFactor: 0.45,
         spawn: { base: 0.03, scoreThreshold: 50 },
         behavior: 'relic',

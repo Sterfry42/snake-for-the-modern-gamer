@@ -152,7 +152,16 @@ export function isSpecialBlock(id: string): boolean {
 }
 
 export function isPlaceableSpecialBlock(id: string): boolean {
-  return ['furnace', 'chest', 'bed', 'crafting_table', 'enchanting_table', 'brewing_stand', 'cauldron', 'ender_chest'].includes(id);
+  return [
+    'furnace',
+    'chest',
+    'bed',
+    'crafting_table',
+    'enchanting_table',
+    'brewing_stand',
+    'cauldron',
+    'ender_chest',
+  ].includes(id);
 }
 
 export function isBlockableBlock(id: string): boolean {

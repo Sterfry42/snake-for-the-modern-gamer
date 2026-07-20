@@ -257,17 +257,17 @@ export class WeatherManager {
   public getWeatherColor(): number {
     switch (this.state.current) {
       case 'clear':
-        return 0xFFFFFF;
+        return 0xffffff;
       case 'rain':
         return 0x888888;
       case 'thunderstorm':
         return 0x333333;
       case 'snow':
-        return 0xDDDDFF;
+        return 0xddddff;
       case 'sandstorm':
-        return 0xCCAA66;
+        return 0xccaa66;
       default:
-        return 0xFFFFFF;
+        return 0xffffff;
     }
   }
 

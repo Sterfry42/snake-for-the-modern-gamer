@@ -205,7 +205,7 @@ describe('Mob Manager', () => {
 
       let explosionTriggered = false;
       // @ts-expect-error TS6133 - unused declaration
-      let playerHit = false;
+      let _playerHit = false;
 
       // First tick - starts charging
       manager.tickMobs(
@@ -215,8 +215,12 @@ describe('Mob Manager', () => {
         'room1',
         () => 0,
         () => {},
-        () => { playerHit = true; },
-        () => { explosionTriggered = true; },
+        () => {
+          _playerHit = true;
+        },
+        () => {
+          explosionTriggered = true;
+        },
       );
 
       // Wait for fuse time (60 ticks)
@@ -227,8 +231,12 @@ describe('Mob Manager', () => {
         'room1',
         () => 0,
         () => {},
-        () => { playerHit = true; },
-        () => { explosionTriggered = true; },
+        () => {
+          _playerHit = true;
+        },
+        () => {
+          explosionTriggered = true;
+        },
       );
 
       expect(explosionTriggered).toBe(true);

@@ -3,11 +3,11 @@ import type { QuestStrings as QuestStringsType } from '../../types.js';
 export const QUEST_STRINGS_FR: QuestStringsType = {
   'bear-hunter': {
     label: 'Apex',
-    description: 'Chassez un ours dans l\'elderwood ou les profondeurs sabre',
+    description: "Chassez un ours dans l'elderwood ou les profondeurs sabre",
   },
   'bird-watcher': {
     label: 'Amis Plumés',
-    description: 'Localisez 3 types d\'animaux différents',
+    description: "Localisez 3 types d'animaux différents",
   },
   'eat-5-apples': {
     label: 'Convive Novice',
@@ -18,8 +18,8 @@ export const QUEST_STRINGS_FR: QuestStringsType = {
     description: 'Mangez 12 pommes',
   },
   'egg-hunter': {
-    label: 'Chasseur d\'Œufs',
-    description: 'Ramassez 3 œufs d\'oiseau',
+    label: "Chasseur d'Œufs",
+    description: "Ramassez 3 œufs d'oiseau",
   },
   'explore-6-rooms': {
     label: 'Explorateur',
@@ -31,14 +31,14 @@ export const QUEST_STRINGS_FR: QuestStringsType = {
   },
   'find-my-baby': {
     label: 'Trouve Mon Bébé',
-    description: 'Trouvez le bébé perdu et ramenez-le à l\'étranger affligé.',
+    description: "Trouvez le bébé perdu et ramenez-le à l'étranger affligé.",
   },
   fisherman: {
     label: 'Eaux Profondes',
-    description: 'Chassez 5 poissons dans l\'océan submergé',
+    description: "Chassez 5 poissons dans l'océan submergé",
   },
   'biome-explorer': {
-    label: 'Atlas de l\'Angler',
+    label: "Atlas de l'Angler",
     description: 'Attrapez des poissons dans 5 biomes différents',
   },
   'rare-collector': {
@@ -47,7 +47,7 @@ export const QUEST_STRINGS_FR: QuestStringsType = {
   },
   'big-catcher': {
     label: 'Le Grand Chasseur',
-    description: 'Attrapez un poisson d\'au moins 5,0 kg',
+    description: "Attrapez un poisson d'au moins 5,0 kg",
   },
   'legendary-hunter': {
     label: 'Chasseur de Légendes',
@@ -72,7 +72,7 @@ export const QUEST_STRINGS_FR: QuestStringsType = {
       'Trouvez le tampon de livre de gobelins perdu et ramenez-le avant que le commis ne décide que votre colonne vertébrale est une garantie acceptable.',
   },
   'green-purchase': {
-    label: 'L\'Achat Vert',
+    label: "L'Achat Vert",
     description:
       'Trouvez le téléport du bois, achetez la substance radioactive à 100 niveaux de profondeur, et revenez avant que le minuteur ne vous tue.',
   },
@@ -82,7 +82,7 @@ export const QUEST_STRINGS_FR: QuestStringsType = {
   },
   'hide-collector': {
     label: 'Quatre Peaux',
-    description: 'Ramassez 5 peaux d\'animaux chassés',
+    description: "Ramassez 5 peaux d'animaux chassés",
   },
   'honey-collector': {
     label: 'Dent Douce',
@@ -101,7 +101,7 @@ export const QUEST_STRINGS_FR: QuestStringsType = {
     description: 'Ramassez 2 power-ups',
   },
   'reach-length-10': {
-    label: 'Objectif d\'Étirement',
+    label: "Objectif d'Étirement",
     description: 'Faites grandir votre serpent à une longueur de 10',
   },
   'reach-length-15': {
@@ -133,7 +133,7 @@ export const QUEST_STRINGS_FR: QuestStringsType = {
     description: 'Apprivoisez un renard en utilisant une corde',
   },
   'tax-collector-future-body': {
-    label: 'Le Collecteur d\'Impôts de Votre Corps Futur',
+    label: "Le Collecteur d'Impôts de Votre Corps Futur",
     description:
       'Visitez trois bureaux des impôts, régalez la dette de votre corps futur, puis revenez au collecteur.',
   },

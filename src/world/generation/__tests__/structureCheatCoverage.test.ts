@@ -28,9 +28,7 @@ import {
  */
 function getStructureCheats(): ReadonlyArray<CheatDefinition> {
   const structures = getCheatsByCategory().get('structures')!;
-  return structures.filter((c) =>
-    KNOWN_STRUCTURE_CODES.has(c.primaryCode.toLowerCase().trim()),
-  );
+  return structures.filter((c) => KNOWN_STRUCTURE_CODES.has(c.primaryCode.toLowerCase().trim()));
 }
 
 /**

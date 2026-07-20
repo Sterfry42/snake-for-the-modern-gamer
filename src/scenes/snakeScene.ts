@@ -2068,14 +2068,17 @@ export default class SnakeScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
     this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.wallGraphics, this.grid);
-    this.minimapRenderer = new MinimapRenderer({
-      x: this.grid.cols * this.grid.cell - 222,
-      y: 14,
-      width: 216,
-      height: 162,
-      grid: this.grid,
-      getRoom: (roomId) => this.snakeGame.getRoom(roomId),
-    }, this);
+    this.minimapRenderer = new MinimapRenderer(
+      {
+        x: this.grid.cols * this.grid.cell - 222,
+        y: 14,
+        width: 216,
+        height: 162,
+        grid: this.grid,
+        getRoom: (roomId) => this.snakeGame.getRoom(roomId),
+      },
+      this,
+    );
     this.juice = new JuiceManager(this);
     this.skillTree = new SkillTreeManager(this, this.juice, {
       baseActionStepIntervalMs: this.baseActionStepIntervalMs,
@@ -8708,11 +8711,7 @@ export default class SnakeScene extends Phaser.Scene {
           const dx = Math.abs(enemy.position.x - head.x);
           const dy = Math.abs(enemy.position.y - head.y);
           if (dx <= 5 && dy <= 5) {
-            (this.snakeGame as any).enemies.damageEnemyAt(
-              currentRoomId,
-              enemy.position,
-              1,
-            );
+            (this.snakeGame as any).enemies.damageEnemyAt(currentRoomId, enemy.position, 1);
           }
         }
       }
@@ -16017,19 +16016,23 @@ export default class SnakeScene extends Phaser.Scene {
 
     // Play departure juice
     const entranceWorld = this.tileToWorld({
-      x: station.entranceX +
+      x:
+        station.entranceX +
         this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[0] * this.grid.cols,
-      y: station.entranceY +
+      y:
+        station.entranceY +
         this.parseRoomCoordinates(this.snakeGame.getCurrentRoom().id)[1] * this.grid.rows,
     });
     this.juice.rollercoasterDepart(entranceWorld.x, entranceWorld.y);
 
     // Show departure announcement
     const coordStr = chosen.coordinates ?? '';
-    const departureMsg = i18n.getRollercoaster('departureAnnouncement')
-      ?.replace('{coasterName}', station.stationName)
-      ?.replace('{destination}', chosen.displayName)
-      ?? `🎢 The ${station.stationName} departs for ${chosen.displayName}!`;
+    const departureMsg =
+      i18n
+        .getRollercoaster('departureAnnouncement')
+        ?.replace('{coasterName}', station.stationName)
+        ?.replace('{destination}', chosen.displayName) ??
+      `🎢 The ${station.stationName} departs for ${chosen.displayName}!`;
     const coordAnnouncement = coordStr ? ` → ${coordStr}` : '';
     this.showQuestHintPopup(`${departureMsg}${coordAnnouncement}`, '#ff6b44');
 

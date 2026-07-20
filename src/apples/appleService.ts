@@ -563,11 +563,24 @@ export class AppleService {
           case 'spring':
             return { ...defaultModifiers, bonusApples: new Set(['lavender', 'love']) };
           case 'summer':
-            return { ...defaultModifiers, spawnRateScalar: 1.1, bonusApples: new Set(['caffeinated', 'treat']) };
+            return {
+              ...defaultModifiers,
+              spawnRateScalar: 1.1,
+              bonusApples: new Set(['caffeinated', 'treat']),
+            };
           case 'autumn':
-            return { ...defaultModifiers, visibilityScalar: 0.9, bonusApples: new Set(['mochi', 'yuzu']) };
+            return {
+              ...defaultModifiers,
+              visibilityScalar: 0.9,
+              bonusApples: new Set(['mochi', 'yuzu']),
+            };
           case 'winter':
-            return { ...defaultModifiers, spawnRateScalar: 0.85, visibilityScalar: 0.8, bonusApples: new Set(['wasabi']) };
+            return {
+              ...defaultModifiers,
+              spawnRateScalar: 0.85,
+              visibilityScalar: 0.8,
+              bonusApples: new Set(['wasabi']),
+            };
           default:
             return defaultModifiers;
         }

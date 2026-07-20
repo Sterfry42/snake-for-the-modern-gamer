@@ -36,7 +36,8 @@ export class RollercoasterRenderer {
 
   private drawTrackSupports(entranceX: number, entranceY: number, theme: string): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
     const supportColor = themeColors.colors[0];
 
     // Draw support pillars along the track
@@ -64,7 +65,8 @@ export class RollercoasterRenderer {
     theme: string,
   ): void {
     this.cell;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
     const trackColor = themeColors.colors[0];
     const railColor = themeColors.colors[1] ?? trackColor;
 
@@ -85,7 +87,14 @@ export class RollercoasterRenderer {
         this.drawCurve(entranceX, entranceY, segment.radius, segment.arc, trackColor);
         break;
       case 'straight':
-        this.drawStraightTrack(entranceX, entranceY, segment.length, segment.direction, trackColor, railColor);
+        this.drawStraightTrack(
+          entranceX,
+          entranceY,
+          segment.length,
+          segment.direction,
+          trackColor,
+          railColor,
+        );
         break;
       case 'bridge':
         this.drawBridge(entranceX, entranceY, segment.length, trackColor);
@@ -166,13 +175,7 @@ export class RollercoasterRenderer {
     this.graphics.fillRect(cx - 4, cy + radius, 8, cell * 2);
   }
 
-  private drawCurve(
-    x: number,
-    y: number,
-    radius: number,
-    arc: number,
-    trackColor: number,
-  ): void {
+  private drawCurve(x: number, y: number, radius: number, arc: number, trackColor: number): void {
     const { cell } = this;
     const cx = (x + 8) * cell + cell / 2;
     const cy = (y + 1) * cell;
@@ -236,12 +239,7 @@ export class RollercoasterRenderer {
 
     // Bridge deck
     this.graphics.fillStyle(0x8b6914, 0.3);
-    this.graphics.fillRect(
-      (x - length / 2) * cell,
-      (y + 1) * cell - 2,
-      length * cell,
-      4,
-    );
+    this.graphics.fillRect((x - length / 2) * cell, (y + 1) * cell - 2, length * cell, 4);
 
     // Bridge rails
     this.graphics.lineStyle(2, trackColor, 0.5);
@@ -267,7 +265,8 @@ export class RollercoasterRenderer {
 
   private drawStationPlatform(entranceX: number, entranceY: number, theme: string): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
 
     // Platform tiles around entrance
     this.graphics.fillStyle(themeColors.colors[0], 0.15);
@@ -291,7 +290,8 @@ export class RollercoasterRenderer {
     theme: string,
   ): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
 
     // Station sign on a post
     const signX = entranceX * cell + cell / 2;
@@ -317,7 +317,8 @@ export class RollercoasterRenderer {
 
   private drawEntranceTile(x: number, y: number, theme: string): void {
     const { cell } = this;
-    const themeColors = THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
+    const themeColors =
+      THEME_CONFIG[theme as keyof typeof THEME_CONFIG] ?? THEME_CONFIG['thunder-ridge'];
 
     // Entrance tile glow
     this.graphics.fillStyle(themeColors.colors[0], 0.25);

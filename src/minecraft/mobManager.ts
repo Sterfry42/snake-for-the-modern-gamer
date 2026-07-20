@@ -7,7 +7,6 @@ import {
   MOB_SPAWN_CHECK_INTERVAL_TICKS,
 } from './config.js';
 
-
 const MOB_ATTACK_DAMAGE: Record<MobTypeId, number> = {
   zombie: 3,
   skeleton: 2,
@@ -181,12 +180,7 @@ export class MobManager {
     }
   }
 
-  private isPositionOccupied(
-    roomId: string,
-    x: number,
-    y: number,
-    minDistance: number,
-  ): boolean {
+  private isPositionOccupied(roomId: string, x: number, y: number, minDistance: number): boolean {
     for (const mob of this.mobs.values()) {
       if (mob.roomId !== roomId) continue;
       const dx = mob.x - x;

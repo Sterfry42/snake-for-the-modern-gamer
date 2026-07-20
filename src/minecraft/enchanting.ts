@@ -1,6 +1,5 @@
 import type { MinecraftPlayer } from './player.js';
 
-
 // ─── Enchantment Types ──────────────────────────────────────────────────────
 
 export interface Enchantment {
@@ -299,17 +298,44 @@ export const ENCHANTABLE_ITEMS: Record<string, EnchantableItem> = {
   },
   wooden_sword: {
     itemId: 'wooden_sword',
-    allowedEnchantments: ['sharpness', 'smite', 'bane_of_arthropods', 'knockback', 'fire_aspect', 'looting', 'unbreaking', 'mending'],
+    allowedEnchantments: [
+      'sharpness',
+      'smite',
+      'bane_of_arthropods',
+      'knockback',
+      'fire_aspect',
+      'looting',
+      'unbreaking',
+      'mending',
+    ],
     maxEnchantmentLevel: 5,
   },
   stone_sword: {
     itemId: 'stone_sword',
-    allowedEnchantments: ['sharpness', 'smite', 'bane_of_arthropods', 'knockback', 'fire_aspect', 'looting', 'unbreaking', 'mending'],
+    allowedEnchantments: [
+      'sharpness',
+      'smite',
+      'bane_of_arthropods',
+      'knockback',
+      'fire_aspect',
+      'looting',
+      'unbreaking',
+      'mending',
+    ],
     maxEnchantmentLevel: 5,
   },
   iron_sword: {
     itemId: 'iron_sword',
-    allowedEnchantments: ['sharpness', 'smite', 'bane_of_arthropods', 'knockback', 'fire_aspect', 'looting', 'unbreaking', 'mending'],
+    allowedEnchantments: [
+      'sharpness',
+      'smite',
+      'bane_of_arthropods',
+      'knockback',
+      'fire_aspect',
+      'looting',
+      'unbreaking',
+      'mending',
+    ],
     maxEnchantmentLevel: 5,
   },
   leather_helmet: {
@@ -559,9 +585,7 @@ export const ENCHANTING_RECIPES: readonly EnchantingRecipe[] = [
   {
     id: 'enchant_curse_vanishing',
     name: 'Curse of Vanishing',
-    requiredItems: [
-      { itemId: 'coal', count: 3 },
-    ],
+    requiredItems: [{ itemId: 'coal', count: 3 }],
     enchantment: 'vanishing_curse',
     minLevel: 1,
     maxLevel: 1,
@@ -570,9 +594,7 @@ export const ENCHANTING_RECIPES: readonly EnchantingRecipe[] = [
   {
     id: 'enchant_curse_binding',
     name: 'Curse of Binding',
-    requiredItems: [
-      { itemId: 'coal', count: 3 },
-    ],
+    requiredItems: [{ itemId: 'coal', count: 3 }],
     enchantment: 'binding_curse',
     minLevel: 1,
     maxLevel: 1,
@@ -637,9 +659,7 @@ export function isEnchantmentCompatible(
   return true;
 }
 
-export function getEnchantmentsForItem(
-  itemId: string,
-): EnchantmentId[] {
+export function getEnchantmentsForItem(itemId: string): EnchantmentId[] {
   const item = ENCHANTABLE_ITEMS[itemId];
   return item?.allowedEnchantments ?? [];
 }
@@ -754,7 +774,7 @@ export function getRandomEnchantment(
   let roll = rng() * totalWeight;
   for (const eId of available) {
     const enchant = ENCHANTMENTS[eId];
-    roll -= (enchant?.weight ?? 5);
+    roll -= enchant?.weight ?? 5;
     if (roll <= 0) return eId;
   }
 
@@ -809,7 +829,10 @@ export function applyEnchantment(
   if (existingEnchanted) {
     // Add to existing enchantments
     const currentLevel = existingEnchanted.enchantments.get(enchantment) ?? 0;
-    existingEnchanted.enchantments.set(enchantment, Math.min(currentLevel + level, ENCHANTMENTS[enchantment]?.maxLevel ?? level));
+    existingEnchanted.enchantments.set(
+      enchantment,
+      Math.min(currentLevel + level, ENCHANTMENTS[enchantment]?.maxLevel ?? level),
+    );
   } else {
     // Create new enchanted item entry
     player.state.enchantedItems.push({
@@ -827,10 +850,7 @@ export function applyEnchantment(
 
 // ─── Enchantment Effects ────────────────────────────────────────────────────
 
-export function getEnchantmentBonus(
-  itemId: string,
-  enchantmentId: EnchantmentId,
-): number {
+export function getEnchantmentBonus(itemId: string, enchantmentId: EnchantmentId): number {
   if (!playerStateHasEnchantedItem(itemId)) return 0;
 
   const enchanted = playerStateGetEnchantedItem(itemId);

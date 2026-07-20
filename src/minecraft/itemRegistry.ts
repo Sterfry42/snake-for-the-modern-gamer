@@ -464,7 +464,7 @@ export const MINECRAFT_ITEMS: readonly Item[] = [
     kind: 'equipment',
     slot: 'weapon',
     category: 'material',
-    modifiers: { tickDelayScalar: 1.00 },
+    modifiers: { tickDelayScalar: 1.0 },
   },
   {
     id: 'worm',

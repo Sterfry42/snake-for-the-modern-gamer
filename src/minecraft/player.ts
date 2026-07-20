@@ -12,16 +12,33 @@ export class MinecraftPlayer {
   creativePaletteSlot: number = 0;
 
   static readonly CREATIVE_BLOCK_TYPES: readonly string[] = [
-    'dirt', 'grass', 'stone', 'cobblestone', 'sand',
-    'gravel', 'wood', 'planks', 'torch', 'glass',
-    'furnace', 'chest', 'bed', 'crafting_table', 'pumpkin',
-    'iron_block', 'gold_block', 'diamond_ore', 'iron_ore', 'coal_ore',
+    'dirt',
+    'grass',
+    'stone',
+    'cobblestone',
+    'sand',
+    'gravel',
+    'wood',
+    'planks',
+    'torch',
+    'glass',
+    'furnace',
+    'chest',
+    'bed',
+    'crafting_table',
+    'pumpkin',
+    'iron_block',
+    'gold_block',
+    'diamond_ore',
+    'iron_ore',
+    'coal_ore',
   ];
 
   cyclePaletteSlot(delta: number): void {
     const blocks = MinecraftPlayer.CREATIVE_BLOCK_TYPES;
     if (blocks.length === 0) return;
-    this.creativePaletteSlot = ((this.creativePaletteSlot + delta) % blocks.length + blocks.length) % blocks.length;
+    this.creativePaletteSlot =
+      (((this.creativePaletteSlot + delta) % blocks.length) + blocks.length) % blocks.length;
   }
 
   constructor() {

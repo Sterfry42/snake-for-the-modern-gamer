@@ -2457,4 +2457,3 @@ export const STARFORGED_PERKS: readonly StarforgedPerk[] = [
     },
   },
 ];
-

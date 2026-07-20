@@ -95,8 +95,7 @@ export function createExcavationSession(
     return true;
   });
 
-  const fossilSet =
-    availableSets[Math.floor(rng() * availableSets.length)] ?? FOSSIL_SETS[0]!;
+  const fossilSet = availableSets[Math.floor(rng() * availableSets.length)] ?? FOSSIL_SETS[0]!;
 
   const session: ExcavationSession = {
     state: 'idle',
@@ -153,8 +152,7 @@ export function updateTimingBar(
   }
 
   // Check if in target zone
-  bar.isTargetZone =
-    bar.position >= bar.targetZone.start && bar.position <= bar.targetZone.end;
+  bar.isTargetZone = bar.position >= bar.targetZone.start && bar.position <= bar.targetZone.end;
 
   // Randomly shift target zone to increase difficulty
   if (Math.random() < 0.005) {
@@ -187,7 +185,10 @@ export function processTimingHit(session: ExcavationSession): number {
 /**
  * Excavate the next fragment from the session.
  */
-export function excavateFragment(session: ExcavationSession, rng: RandomGenerator): DiscoveredFossil | null {
+export function excavateFragment(
+  session: ExcavationSession,
+  rng: RandomGenerator,
+): DiscoveredFossil | null {
   if (session.state !== 'active') return null;
   if (session.currentFragmentIndex >= session.totalFragments) {
     session.state = 'complete';
@@ -238,7 +239,11 @@ export function excavateFragment(session: ExcavationSession, rng: RandomGenerato
 export function checkFossilAssembly(
   discoveredFragments: DiscoveredFossil[],
   fossilSetId: string,
-): { canAssemble: boolean; fragmentCounts: Map<FragmentType, number>; needed: Map<FragmentType, number> } {
+): {
+  canAssemble: boolean;
+  fragmentCounts: Map<FragmentType, number>;
+  needed: Map<FragmentType, number>;
+} {
   const fossilSet = getFossilSet(fossilSetId);
   if (!fossilSet) {
     return { canAssemble: false, fragmentCounts: new Map(), needed: new Map() };
@@ -278,20 +283,23 @@ export function assembleFossil(
   fossilSetId: string,
   _assemblyQuality: number,
 ): CompletedFossil | null {
-  const { canAssemble } = checkFossilAssembly(
-    discoveredFragments,
-    fossilSetId,
-  );
+  const { canAssemble } = checkFossilAssembly(discoveredFragments, fossilSetId);
 
   if (!canAssemble) return null;
 
   // Use the best condition fragments for assembly
-  const assembledFragments: Array<{ fragmentType: FragmentType; condition: 'pristine' | 'good' | 'damaged' }> = [];
+  const assembledFragments: Array<{
+    fragmentType: FragmentType;
+    condition: 'pristine' | 'good' | 'damaged';
+  }> = [];
   const usedTypes = new Set<FragmentType>();
 
   for (const combo of getFossilSetFragments(fossilSetId)!) {
     const matching = discoveredFragments.filter(
-      (f) => f.fossilSetId === fossilSetId && f.fragmentType === combo.fragmentType && !usedTypes.has(f.fragmentType),
+      (f) =>
+        f.fossilSetId === fossilSetId &&
+        f.fragmentType === combo.fragmentType &&
+        !usedTypes.has(f.fragmentType),
     );
 
     // Sort by condition (pristine first)

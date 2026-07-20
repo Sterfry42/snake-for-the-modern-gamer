@@ -43,7 +43,7 @@ const ALCHEMY_LORE: AlchemyLore[] = [
     id: 'lore-mythic',
     title: 'Mythic Potions',
     content:
-      'Mythic potions are the stuff of legend. They do not merely affect the drinker — they reshape the world around them. Titan\'s Bane grants eternal growth. Void Walker allows passage through any obstacle. Apple Storm showers the land with nourishment. But these powers come at a price: the ingredients required are nearly impossible to gather.',
+      "Mythic potions are the stuff of legend. They do not merely affect the drinker — they reshape the world around them. Titan's Bane grants eternal growth. Void Walker allows passage through any obstacle. Apple Storm showers the land with nourishment. But these powers come at a price: the ingredients required are nearly impossible to gather.",
     discoveryCondition: 'Discover a mythic recipe',
     discovered: false,
   },
@@ -51,7 +51,7 @@ const ALCHEMY_LORE: AlchemyLore[] = [
     id: 'lore-works',
     title: 'The Crafting Workshops',
     content:
-      'Beyond the alchemy station lie specialized workshops, each with their own unique purpose. The Enchanted Loom weaves cosmetic skins from spider silk and amber. The Cartographer\'s Desk reveals hidden lands. The Music Box creates melodies from collected fragments. And the Potion Brewery allows mass production of elixirs for the serious alchemist.',
+      "Beyond the alchemy station lie specialized workshops, each with their own unique purpose. The Enchanted Loom weaves cosmetic skins from spider silk and amber. The Cartographer's Desk reveals hidden lands. The Music Box creates melodies from collected fragments. And the Potion Brewery allows mass production of elixirs for the serious alchemist.",
     discoveryCondition: 'Build any workshop',
     discovered: false,
   },
@@ -98,9 +98,7 @@ function checkLoreDiscovery(lore: AlchemyLore, state: AlchemyJournalType): boole
       return state.discoveredRecipes.length > 0;
     case 'lore-rarities':
       return state.entries.some(
-        (e) =>
-          e.entryType === 'potionCrafted' &&
-          (e.data as { rarity?: string }).rarity === 'rare',
+        (e) => e.entryType === 'potionCrafted' && (e.data as { rarity?: string }).rarity === 'rare',
       );
     case 'lore-mythic':
       return state.discoveredRecipes.some((id) => id.includes('mythic'));

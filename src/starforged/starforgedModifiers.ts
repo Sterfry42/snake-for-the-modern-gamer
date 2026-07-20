@@ -139,4 +139,3 @@ export const STARFORGED_MODIFIERS: readonly StarforgedModifierDefinition[] = [
     },
   },
 ];
-

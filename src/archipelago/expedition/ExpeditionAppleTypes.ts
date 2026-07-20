@@ -8,7 +8,11 @@
  * - The wise old snake's lavender apple made the wise old snake fly (the wise old snake was surprised)
  * - The wise old snake's shadow apple made a shadow of the wise old snake (the shadow was smarter)
  */
-import type { AppleRewards, AppleConsumptionContext, AppleMoveContext } from '../../apples/types.js';
+import type {
+  AppleRewards,
+  AppleConsumptionContext,
+  AppleMoveContext,
+} from '../../apples/types.js';
 import { AppleInstance } from '../../apples/types.js';
 import type { Vector2Like } from '../../core/math.js';
 
@@ -241,11 +245,10 @@ export class MirrorApple extends AppleInstance {
 
 // ─── Apple Type Registry ─────────────────────────────────────────────────────
 
-export const EXPEDITION_APPLE_TYPES: Record<string, new (
-  roomId: string,
-  position: Vector2Like,
-  color: number,
-) => AppleInstance> = {
+export const EXPEDITION_APPLE_TYPES: Record<
+  string,
+  new (roomId: string, position: Vector2Like, color: number) => AppleInstance
+> = {
   'lava-apple': LavaApple,
   'magma-apple': MagmaApple,
   'crystal-apple': CrystalApple,

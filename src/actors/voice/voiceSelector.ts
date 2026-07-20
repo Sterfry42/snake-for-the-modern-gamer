@@ -60,13 +60,7 @@ export function selectActorConversation(
     ) ?? ALL_VOICE_ENTRIES[ALL_VOICE_ENTRIES.length - 1];
   const repeatSafe = valid.filter((entry) => !entryUsesRecentlySelectedRumor(entry, context));
   const pool =
-    repeatSafe.length > 0
-      ? repeatSafe
-      : valid.length > 0
-        ? valid
-        : fallback
-          ? [fallback]
-          : [];
+    repeatSafe.length > 0 ? repeatSafe : valid.length > 0 ? valid : fallback ? [fallback] : [];
   const recentIds = recentConversationIds(context);
   const scored = pool.map((entry) => ({
     entry,
@@ -196,9 +190,7 @@ function isEntryValid(entry: ActorVoiceEntry, context: ActorConversationContext)
     context.factionEvents.length > 0 &&
     context.factionEvents.every(
       (event) =>
-        event.severity <= 8 &&
-        event.tags.includes('ambient') &&
-        event.tags.includes('truce'),
+        event.severity <= 8 && event.tags.includes('ambient') && event.tags.includes('truce'),
     )
   )
     return false;

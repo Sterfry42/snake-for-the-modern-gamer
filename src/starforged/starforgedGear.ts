@@ -15617,4 +15617,3 @@ export const STARFORGED_GEAR: readonly StarforgedGearDefinition[] = [
     lore: 'Recovered from timeline 29 after a serpent fireteam bent the orchard into a battlefield.',
   },
 ];
-

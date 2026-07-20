@@ -686,9 +686,7 @@ describe('multi-room structure generation', () => {
     expect(interior.layout.join('').includes('G')).toBe(true);
     expect(interior.layout.join('').includes('D')).toBe(false);
     expect(interior.portals).toEqual([]);
-    expect(interior.layout[interior.layer!.exit.y]?.[interior.layer!.exit.x]).toBe(
-      LAYER_EXIT_TILE,
-    );
+    expect(interior.layout[interior.layer!.exit.y]?.[interior.layer!.exit.x]).toBe(LAYER_EXIT_TILE);
   });
 
   it('materializes generated town storefront and tavern interiors', () => {

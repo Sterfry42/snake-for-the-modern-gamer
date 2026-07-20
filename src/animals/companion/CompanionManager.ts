@@ -233,9 +233,7 @@ export class CompanionManager {
 
     // Check bond milestones
     const milestones = [5, 10, 20];
-    const crossedMilestone = milestones.some(
-      (m) => previousBond < m && companion.bond >= m,
-    );
+    const crossedMilestone = milestones.some((m) => previousBond < m && companion.bond >= m);
 
     // Chance to gain a trait when crossing milestones
     if (crossedMilestone && companion.traits.length < 3) {
@@ -272,10 +270,7 @@ export class CompanionManager {
   }
 
   /** Create a companion family */
-  createFamily(
-    parentIds: string[],
-    traits: CompanionTrait[],
-  ): CompanionFamily | null {
+  createFamily(parentIds: string[], traits: CompanionTrait[]): CompanionFamily | null {
     const parents = parentIds.map((id) => this.companions.get(id)).filter(Boolean);
     if (parents.length < 2) return null;
 
@@ -444,9 +439,7 @@ export class CompanionManager {
 
   private tryGainTrait(companion: EnhancedCompanion): void {
     const allTraits = Object.keys(TRAIT_DEFINITIONS) as CompanionTrait[];
-    const availableTraits = allTraits.filter(
-      (t) => !companion.traits.includes(t),
-    );
+    const availableTraits = allTraits.filter((t) => !companion.traits.includes(t));
 
     if (availableTraits.length === 0) return;
 
@@ -461,8 +454,7 @@ export class CompanionManager {
       const inheritance = TRAIT_INHERITANCE[trait];
       if (inheritance && this.rng() < 0.4) {
         // 40% chance to inherit a related trait
-        const relatedTrait =
-          inheritance[Math.floor(this.rng() * inheritance.length)];
+        const relatedTrait = inheritance[Math.floor(this.rng() * inheritance.length)];
         if (!inherited.includes(relatedTrait)) {
           inherited.push(relatedTrait);
         }

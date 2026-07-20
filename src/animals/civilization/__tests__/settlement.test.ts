@@ -41,9 +41,7 @@ describe('SettlementManager', () => {
 
   describe('creating settlements', () => {
     it('creates a settlement with sufficient population', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 4],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 4]]);
 
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
@@ -55,31 +53,21 @@ describe('SettlementManager', () => {
     });
 
     it('throws when population is insufficient', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 2],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 2]]);
 
-      expect(() =>
-        manager.createSettlement('rabbit-warren', '0,0,0', population, 1),
-      ).toThrow();
+      expect(() => manager.createSettlement('rabbit-warren', '0,0,0', population, 1)).toThrow();
     });
 
     it('throws for unknown settlement type', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
 
-      expect(() =>
-        manager.createSettlement('fake-type' as any, '0,0,0', population, 1),
-      ).toThrow();
+      expect(() => manager.createSettlement('fake-type' as any, '0,0,0', population, 1)).toThrow();
     });
   });
 
   describe('managing population', () => {
     it('adds animals to a settlement', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const result = manager.addAnimals(settlement.id, 'rabbit', 3);
@@ -88,9 +76,7 @@ describe('SettlementManager', () => {
     });
 
     it('rejects adding wrong animal type', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const result = manager.addAnimals(settlement.id, 'wolf', 3);
@@ -98,9 +84,7 @@ describe('SettlementManager', () => {
     });
 
     it('removes animals from a settlement', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const result = manager.removeAnimals(settlement.id, 'rabbit', 2);
@@ -109,9 +93,7 @@ describe('SettlementManager', () => {
     });
 
     it('deletes settlement when population reaches zero', () => {
-      const population = new Map<AnimalType, number>([
-        ['raccoon', 3],
-      ]);
+      const population = new Map<AnimalType, number>([['raccoon', 3]]);
       const settlement = manager.createSettlement('raccoon-trash-kingdom', '0,0,0', population, 1);
 
       manager.removeAnimals(settlement.id, 'raccoon', 3);
@@ -126,9 +108,7 @@ describe('SettlementManager', () => {
 
   describe('market operations', () => {
     it('gets market goods from a settlement', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const goods = manager.getMarketGoods(settlement.id);
@@ -136,9 +116,7 @@ describe('SettlementManager', () => {
     });
 
     it('purchases a good from a settlement', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const goods = manager.getMarketGoods(settlement.id);
@@ -149,9 +127,7 @@ describe('SettlementManager', () => {
     });
 
     it('rejects purchase with insufficient price', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const goods = manager.getMarketGoods(settlement.id);
@@ -162,9 +138,7 @@ describe('SettlementManager', () => {
     });
 
     it('rejects purchase for unknown good', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const result = manager.purchaseGood('0,0,0', 'fake-good', 100);
@@ -179,9 +153,7 @@ describe('SettlementManager', () => {
       freshManager = new SettlementManager();
     });
     it('gets a settlement by ID', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = freshManager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
       const found = freshManager.getSettlement(settlement.id);
@@ -235,23 +207,17 @@ describe('SettlementManager', () => {
 
   describe('settlement updates', () => {
     it('updates settlements with population dynamics', () => {
-      const population = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
-      const animalCounts = new Map<AnimalType, number>([
-        ['rabbit', 5],
-      ]);
+      const animalCounts = new Map<AnimalType, number>([['rabbit', 5]]);
 
       manager.updateSettlements(animalCounts);
       expect(manager.getSettlement(settlement.id)).toBeDefined();
     });
 
     it('dissolves settlements with insufficient population', () => {
-      const population = new Map<AnimalType, number>([
-        ['raccoon', 3],
-      ]);
+      const population = new Map<AnimalType, number>([['raccoon', 3]]);
       const settlement = manager.createSettlement('raccoon-trash-kingdom', '0,0,0', population, 1);
 
       // Remove all animals

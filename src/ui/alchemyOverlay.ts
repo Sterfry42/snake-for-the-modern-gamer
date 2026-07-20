@@ -262,11 +262,16 @@ export class AlchemyOverlay {
     const progress = this.alchemyManager.getDiscoveryProgress();
     if (progress.discovered < progress.total) {
       y += 10;
-      const hint = this.scene.add.text(-250, y, `Discovered: ${progress.discovered}/${progress.total} recipes`, {
-        fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#606080',
-      });
+      const hint = this.scene.add.text(
+        -250,
+        y,
+        `Discovered: ${progress.discovered}/${progress.total} recipes`,
+        {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#606080',
+        },
+      );
       panel.add(hint);
     }
   }
@@ -309,9 +314,7 @@ export class AlchemyOverlay {
       y += lineSpacing;
 
       // Ingredients list
-      const ingText = recipe.ingredients
-        .map((ing) => `• ${ing.itemId} x${ing.count}`)
-        .join('\n');
+      const ingText = recipe.ingredients.map((ing) => `• ${ing.itemId} x${ing.count}`).join('\n');
       const ingredients = this.scene.add.text(-240, y, ingText, {
         fontFamily: 'monospace',
         fontSize: '11px',
@@ -332,11 +335,16 @@ export class AlchemyOverlay {
     let y = 0;
     const lineSpacing = 24;
 
-    const header = this.scene.add.text(-250, y, `Alchemy Journal (${journal.getEntryCount()} entries)`, {
-      fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#ffd700',
-    });
+    const header = this.scene.add.text(
+      -250,
+      y,
+      `Alchemy Journal (${journal.getEntryCount()} entries)`,
+      {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffd700',
+      },
+    );
     panel.add(header);
     y += lineSpacing + 5;
 
@@ -379,11 +387,16 @@ export class AlchemyOverlay {
     let y = 0;
     const lineSpacing = 28;
 
-    const header = this.scene.add.text(-250, y, `Alchemy Lore (${discovered.length}/${all.length})`, {
-      fontFamily: 'monospace',
-      fontSize: '16px',
-      color: '#ffd700',
-    });
+    const header = this.scene.add.text(
+      -250,
+      y,
+      `Alchemy Lore (${discovered.length}/${all.length})`,
+      {
+        fontFamily: 'monospace',
+        fontSize: '16px',
+        color: '#ffd700',
+      },
+    );
     panel.add(header);
     y += lineSpacing + 5;
 

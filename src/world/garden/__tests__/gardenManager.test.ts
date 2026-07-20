@@ -11,11 +11,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { GardenManager } from '../gardenManager.js';
-import {
-  getSeedDefinition,
-  getCompanionBonus,
-  getGrowthModifier,
-} from '../seedRegistry.js';
+import { getSeedDefinition, getCompanionBonus, getGrowthModifier } from '../seedRegistry.js';
 import {
   createPlant,
   advancePlant,
@@ -24,12 +20,7 @@ import {
   removePlant,
   getGrowthPercentage,
 } from '../plant.js';
-import {
-  spawnPest,
-  attackPest,
-  getRandomPestType,
-  isPestStale,
-} from '../pestSystem.js';
+import { spawnPest, attackPest, getRandomPestType, isPestStale } from '../pestSystem.js';
 import type { PestType } from '../types.js';
 
 /** Simple RNG for tests. */
@@ -152,7 +143,11 @@ describe('GardenManager', () => {
   });
 
   it('should advance plant growth through stages', () => {
-    const manager = new GardenManager({ waterCapacity: 200, currentWater: 200, pestSpawnInterval: 9999 });
+    const manager = new GardenManager({
+      waterCapacity: 200,
+      currentWater: 200,
+      pestSpawnInterval: 9999,
+    });
     manager.unlock(15, 200);
     const plots = manager.getPlots();
     const rng = new TestRng();
@@ -190,7 +185,11 @@ describe('GardenManager', () => {
   });
 
   it('should harvest a ripe plant', () => {
-    const manager = new GardenManager({ waterCapacity: 200, currentWater: 200, pestSpawnInterval: 9999 });
+    const manager = new GardenManager({
+      waterCapacity: 200,
+      currentWater: 200,
+      pestSpawnInterval: 9999,
+    });
     manager.unlock(15, 200);
     const plots = manager.getPlots();
     const rng = new TestRng();

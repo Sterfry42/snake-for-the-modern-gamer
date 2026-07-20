@@ -455,4 +455,3 @@ export const STARFORGED_FACTIONS: readonly StarforgedFactionDefinition[] = [
     ],
   },
 ];
-

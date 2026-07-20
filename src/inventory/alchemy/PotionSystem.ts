@@ -225,10 +225,16 @@ export class PotionSystem {
   }
 
   /** Generate a mythic effect for a potion */
-  private generateMythicEffect(recipe: ReturnType<RecipeManager['getRecipe']>, _rarity: IngredientRarity) {
+  private generateMythicEffect(
+    recipe: ReturnType<RecipeManager['getRecipe']>,
+    _rarity: IngredientRarity,
+  ) {
     if (!recipe) return undefined;
 
-    const baseEffects: Record<string, { type: PotionEffectType; durationTicks: number; parameters?: Record<string, unknown> }> = {
+    const baseEffects: Record<
+      string,
+      { type: PotionEffectType; durationTicks: number; parameters?: Record<string, unknown> }
+    > = {
       'potion-mythic-growth': {
         type: 'growth',
         durationTicks: 0, // Permanent
@@ -265,7 +271,9 @@ export class PotionSystem {
   }
 
   /** Map potion effect to mythic effect type */
-  private mapEffectToMythicType(effectType: PotionEffectType): NonNullable<Potion['mythicEffect']>['effectType'] {
+  private mapEffectToMythicType(
+    effectType: PotionEffectType,
+  ): NonNullable<Potion['mythicEffect']>['effectType'] {
     const map: Record<PotionEffectType, NonNullable<Potion['mythicEffect']>['effectType']> = {
       growth: 'snakeTransformation',
       phase: 'permanentBiomeChange',
@@ -448,7 +456,12 @@ export class PotionSystem {
   }
 
   /** Get effect summary for UI */
-  getEffectSummary(): Array<{ type: string; magnitude: number; remaining: number; isMythic: boolean }> {
+  getEffectSummary(): Array<{
+    type: string;
+    magnitude: number;
+    remaining: number;
+    isMythic: boolean;
+  }> {
     return this.activeEffects.map((e) => ({
       type: e.effect.type,
       magnitude: e.effect.magnitude,

@@ -15,11 +15,7 @@
  */
 import type { Vector2Like } from '../../core/math.js';
 import { AppleInstance, type AppleMoveContext, type AppleRewards } from '../../apples/types.js';
-import type {
-  DreamAppleMetadata,
-  DreamBuff,
-  DreamBuffType,
-} from './types.js';
+import type { DreamAppleMetadata, DreamBuff, DreamBuffType } from './types.js';
 
 // ─── Base Dream Apple ──────────────────────────────────────────────────────────
 

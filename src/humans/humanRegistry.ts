@@ -350,8 +350,14 @@ export const HUMAN_DEFINITIONS: readonly HumanDefinition[] = [
 
 // === BIOME SPECIALIZATIONS ===
 
-export const HUMAN_BIOME_SPECIALIZATIONS: Record<BiomeId, { bonusTypes: HumanType[]; exclusiveTypes: HumanType[] }> = {
-  'verdigris-basin': { bonusTypes: ['resident', 'guard', 'merchant', 'hunter'], exclusiveTypes: [] },
+export const HUMAN_BIOME_SPECIALIZATIONS: Record<
+  BiomeId,
+  { bonusTypes: HumanType[]; exclusiveTypes: HumanType[] }
+> = {
+  'verdigris-basin': {
+    bonusTypes: ['resident', 'guard', 'merchant', 'hunter'],
+    exclusiveTypes: [],
+  },
   'gloam-garden': { bonusTypes: ['resident', 'scribe', 'cook'], exclusiveTypes: [] },
   'moonlit-parish': { bonusTypes: ['merchant', 'wanderer', 'goblin'], exclusiveTypes: [] },
   'liberty-badlands': { bonusTypes: ['guard', 'merchant', 'wanderer'], exclusiveTypes: [] },

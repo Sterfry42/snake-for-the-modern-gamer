@@ -23,10 +23,7 @@ import type {
   EcosystemRoleDefinition,
 } from './types.js';
 import type { EcologySystem } from '../ecology.js';
-import {
-  findPredatorPreyRelations,
-  getHuntRange,
-} from '../ecology.js';
+import { findPredatorPreyRelations, getHuntRange } from '../ecology.js';
 
 // ── Ecosystem Role Definitions ────────────────────────────────────
 
@@ -360,10 +357,7 @@ export class EcosystemManager {
   }
 
   /** Apply snake interaction effects to the ecosystem */
-  applySnakeInteraction(
-    action: 'hunt' | 'tame' | 'eat' | 'observe',
-    animalType: AnimalType,
-  ): void {
+  applySnakeInteraction(action: 'hunt' | 'tame' | 'eat' | 'observe', animalType: AnimalType): void {
     const role = ECOSYSTEM_ROLES[animalType];
     if (!role) return;
 
@@ -372,39 +366,21 @@ export class EcosystemManager {
         // Hunting reduces population, affects balance
         if (role.role === 'predator') {
           this.balance.predatorPreyRatio = Math.max(0, this.balance.predatorPreyRatio - 0.1);
-          this.balance.overallHealth = clamp(
-            this.balance.overallHealth + 2,
-            0,
-            100,
-          );
+          this.balance.overallHealth = clamp(this.balance.overallHealth + 2, 0, 100);
         } else if (role.role === 'herbivore') {
-          this.balance.herbivorePopulation = Math.max(
-            0,
-            this.balance.herbivorePopulation - 1,
-          );
-          this.balance.overallHealth = clamp(
-            this.balance.overallHealth - 1,
-            0,
-            100,
-          );
+          this.balance.herbivorePopulation = Math.max(0, this.balance.herbivorePopulation - 1);
+          this.balance.overallHealth = clamp(this.balance.overallHealth - 1, 0, 100);
         }
         break;
       case 'tame':
         // Taming reduces wild population slightly
         if (role.role === 'herbivore') {
-          this.balance.herbivorePopulation = Math.max(
-            0,
-            this.balance.herbivorePopulation - 0.5,
-          );
+          this.balance.herbivorePopulation = Math.max(0, this.balance.herbivorePopulation - 0.5);
         }
         break;
       case 'observe':
         // Observing has minimal impact
-        this.balance.overallHealth = clamp(
-          this.balance.overallHealth + 0.5,
-          0,
-          100,
-        );
+        this.balance.overallHealth = clamp(this.balance.overallHealth + 0.5, 0, 100);
         break;
     }
   }
@@ -468,19 +444,14 @@ export class EcosystemManager {
     return count;
   }
 
-  private updatePlantBiomass(
-    current: number,
-    herbivoreCount: number,
-  ): number {
+  private updatePlantBiomass(current: number, herbivoreCount: number): number {
     // Plants grow naturally but are consumed by herbivores
     const growth = 2;
     const consumption = herbivoreCount * 0.3;
     return clamp(current + growth - consumption, 0, 100);
   }
 
-  private updateHerbivorePopulation(
-    animalCounts: ReadonlyMap<AnimalType, number>,
-  ): number {
+  private updateHerbivorePopulation(animalCounts: ReadonlyMap<AnimalType, number>): number {
     let total = 0;
     for (const [type, count] of animalCounts) {
       if (ECOSYSTEM_ROLES[type]?.role === 'herbivore') {
@@ -490,9 +461,7 @@ export class EcosystemManager {
     return total;
   }
 
-  private updateDecomposerActivity(
-    animalCounts: ReadonlyMap<AnimalType, number>,
-  ): number {
+  private updateDecomposerActivity(animalCounts: ReadonlyMap<AnimalType, number>): number {
     let activity = 0;
     for (const [type, count] of animalCounts) {
       if (ECOSYSTEM_ROLES[type]?.role === 'decomposer' || type === 'possum') {
@@ -515,10 +484,7 @@ export class EcosystemManager {
     const decomposerHealth = decomposerActivity > 20 ? 80 : 50;
 
     return Math.round(
-      plantHealth * 0.3 +
-        ratioHealth * 0.3 +
-        populationHealth * 0.2 +
-        decomposerHealth * 0.2,
+      plantHealth * 0.3 + ratioHealth * 0.3 + populationHealth * 0.2 + decomposerHealth * 0.2,
     );
   }
 
@@ -539,14 +505,10 @@ export class EcosystemManager {
 
     const affectedTypes: AnimalType[] = [];
     for (const [type, roleDef] of Object.entries(ECOSYSTEM_ROLES)) {
-      if (
-        eventDef.type === 'predator-outbreak' && roleDef.role === 'predator'
-      ) {
+      if (eventDef.type === 'predator-outbreak' && roleDef.role === 'predator') {
         affectedTypes.push(type as AnimalType);
       }
-      if (
-        eventDef.type === 'herbivore-migration' && roleDef.role === 'herbivore'
-      ) {
+      if (eventDef.type === 'herbivore-migration' && roleDef.role === 'herbivore') {
         affectedTypes.push(type as AnimalType);
       }
       if (

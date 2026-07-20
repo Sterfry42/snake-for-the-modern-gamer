@@ -40,7 +40,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   mcCashierDialogue:
     '\u00a1Bienvenido a Snake McDonalds! Comida de serpiente fresca, servida r\u00e1pido, servida fr\u00eda.',
   // Snake Cane's
-  canesCashierDialogue: 'Bienvenido a Snake Cane\'s. Veamos lo que el destino tiene preparado.',
+  canesCashierDialogue: "Bienvenido a Snake Cane's. Veamos lo que el destino tiene preparado.",
   canesReward: '\u00a1Recibiste: {itemName}!',
   canesClosing: '{closingLine}',
   canesBoxComboExtraToast: 'Combo Caja\n(Tostada Extra)',
@@ -220,7 +220,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   placeholderInventory: 'Los objetos que recolectes aparecer\u00e1n aqu\u00ed.',
   placeholderCustomize: 'Compra paletas y estilo.',
   placeholderMap: 'Explora para revelar m\u00e1s habitaciones.',
-  placeholderCheats: "Escribe un código de truco o haz clic en Habilitar en las tarjetas.",
+  placeholderCheats: 'Escribe un código de truco o haz clic en Habilitar en las tarjetas.',
 
   // HUD
   hudHearts: 'Corazones',
@@ -887,7 +887,8 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   factionWarAchievementMasterTactician: 'Maestro Táctico',
   factionWarAchievementMasterTacticianDesc: 'Gana 5 batallas como mercenario.',
   factionWarAchievementDiplomaticImmunity: 'Inmunidad Diplomática',
-  factionWarAchievementDiplomaticImmunityDesc: 'Mantiene pactos de no agresión con todas las facciones.',
+  factionWarAchievementDiplomaticImmunityDesc:
+    'Mantiene pactos de no agresión con todas las facciones.',
 
   // === SISTEMA MUSICAL DE MANZANAS ===
   musicPlayerTitle: '🎵 Banda Sonora',

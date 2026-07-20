@@ -19,10 +19,7 @@ import type {
   TraitGainedEvent,
 } from './types.js';
 import { MutationRegistry, MUTATION_TRAITS } from './MutationRegistry.js';
-import {
-  MAX_RECENT_APPLES,
-  MUTATION_COMBINATION_WINDOW_MS,
-} from './types.js';
+import { MAX_RECENT_APPLES, MUTATION_COMBINATION_WINDOW_MS } from './types.js';
 
 export interface MutationSystemCallbacks {
   onMutationDiscovered(event: MutationDiscoveredEvent): void;
@@ -125,10 +122,7 @@ export class MutationSystem {
    * Get the list of apple IDs that could trigger mutations right now.
    */
   getDiscoverableMutations(): MutationDefinition[] {
-    return this.registry.getDiscoverableMutations(
-      this.lifetimeMutations,
-      this.recentApples,
-    );
+    return this.registry.getDiscoverableMutations(this.lifetimeMutations, this.recentApples);
   }
 
   /**

@@ -10,10 +10,7 @@
  * The wise old snake's music plays even in silence.
  */
 
-import type {
-  AppleMusicalMapping,
-  AppleGenre,
-} from './MusicalAppleMap.js';
+import type { AppleMusicalMapping, AppleGenre } from './MusicalAppleMap.js';
 import {
   getAppleMusicalMapping,
   midiNoteToFrequency,
@@ -501,12 +498,10 @@ export class SoundtrackComposer {
       const previousGenre = this.currentGenre.genre;
       this.currentGenre = {
         genre: bestGenre,
-        tempoMultiplier: bestGenre
-          ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1)
-          : 1,
-        baseBpm: this.config.baseBpm * (bestGenre
-          ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1)
-          : 1),
+        tempoMultiplier: bestGenre ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1) : 1,
+        baseBpm:
+          this.config.baseBpm *
+          (bestGenre ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1) : 1),
         scalePattern: bestGenre
           ? (getGenreDefinition(bestGenre)?.scalePattern ?? [0, 2, 4, 5, 7])
           : [0, 2, 4, 5, 7],
@@ -543,7 +538,7 @@ export class SoundtrackComposer {
       // Schedule the sound
       this.scheduleNote(
         context,
-        now + (this.beatCounter * beatDuration),
+        now + this.beatCounter * beatDuration,
         frequency,
         noteAssign.duration * beatDuration * this.currentGenre.tempoMultiplier,
         (noteAssign.velocity / 127) * 0.6,
@@ -577,8 +572,8 @@ export class SoundtrackComposer {
     mapping: AppleMusicalMapping,
     appleId: string,
   ): void {
-    const isPercussion = mapping.instrumentFamily === 'percussion' ||
-      mapping.instrumentFamily === 'erratic';
+    const isPercussion =
+      mapping.instrumentFamily === 'percussion' || mapping.instrumentFamily === 'erratic';
 
     // Create oscillators based on instrument family
     const primaryOsc = context.createOscillator();
@@ -628,7 +623,7 @@ export class SoundtrackComposer {
 
     // Create note event for callbacks
     const noteEvent: NoteEvent = {
-      note: Math.round(frequency / 440 * 12 + 69),
+      note: Math.round((frequency / 440) * 12 + 69),
       duration,
       velocity: Math.round(velocity * 127),
       timeOffset: time - context.currentTime,

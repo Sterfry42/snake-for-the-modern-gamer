@@ -14,10 +14,7 @@ import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
-import {
-  getCheatsByCategory,
-  getCategoryLabel,
-} from '../cheats/cheatRegistry.js';
+import { getCheatsByCategory, getCategoryLabel } from '../cheats/cheatRegistry.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
 import type { ActionAbilityView } from '../systems/actionSlots.js';

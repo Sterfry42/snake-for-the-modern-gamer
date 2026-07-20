@@ -192,10 +192,7 @@ export class SerpentFactionManager {
   /**
    * Get all followers, optionally filtered by role or status.
    */
-  getFollowers(filter?: {
-    role?: FollowerRole;
-    status?: FollowerStatus;
-  }): FollowerState[] {
+  getFollowers(filter?: { role?: FollowerRole; status?: FollowerStatus }): FollowerState[] {
     let followers = [...this.state.followers];
 
     if (filter?.role) {
@@ -295,13 +292,9 @@ export class SerpentFactionManager {
     }
 
     if (template.requiredRole) {
-      const hasRequiredRole = availableFollowers.some(
-        (f) => f.role === template.requiredRole,
-      );
+      const hasRequiredRole = availableFollowers.some((f) => f.role === template.requiredRole);
       if (!hasRequiredRole) {
-        throw new Error(
-          `Need at least one follower with role ${template.requiredRole}.`,
-        );
+        throw new Error(`Need at least one follower with role ${template.requiredRole}.`);
       }
     }
 
@@ -365,8 +358,7 @@ export class SerpentFactionManager {
       }
 
       // Check difficulty vs average follower level
-      const avgLevel =
-        idleFollowers.reduce((sum, f) => sum + f.level, 0) / idleFollowers.length;
+      const avgLevel = idleFollowers.reduce((sum, f) => sum + f.level, 0) / idleFollowers.length;
       if (t.difficulty > avgLevel + 3) return false;
 
       return true;
@@ -418,13 +410,7 @@ export class SerpentFactionManager {
     if (this.state.influence < claimCost) return false;
 
     // Claim the territory
-    this.territoryManager.shiftControl(
-      territoryId,
-      'serpents-coil',
-      'unclaimed',
-      100,
-      'diplomacy',
-    );
+    this.territoryManager.shiftControl(territoryId, 'serpents-coil', 'unclaimed', 100, 'diplomacy');
 
     // Deduct influence cost
     this.state.influence = Math.max(0, this.state.influence - claimCost);
@@ -456,9 +442,7 @@ export class SerpentFactionManager {
       type: 'attack',
       assignedFollowerIds: followerIds,
       targetTerritoryId: territoryId,
-      objectives: [
-        { type: 'capture-territory', target: territoryId, progress: 0, required: 50 },
-      ],
+      objectives: [{ type: 'capture-territory', target: territoryId, progress: 0, required: 50 }],
       status: 'active',
       rewards: { influence: 30, xp: 40, loyaltyBonus: 5 },
       startTime: Date.now(),
