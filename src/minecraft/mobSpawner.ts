@@ -1,4 +1,5 @@
 import type { MobTypeId } from './types.js';
+import type { RandomGenerator } from '../core/rng.js';
 import { MobManager } from './mobManager.js';
 import { LightingSystem } from './lighting.js';
 
@@ -477,14 +478,14 @@ export const SPAWNER_LOOT_TABLE: SpawnerLootEntry[] = [
   { itemId: 'diamond', minCount: 1, maxCount: 1, weight: 1 },
 ];
 
-export function getSpawnerLoot(): Array<{ itemId: string; count: number }> {
+export function getSpawnerLoot(rng: RandomGenerator): Array<{ itemId: string; count: number }> {
   const loot: Array<{ itemId: string; count: number }> = [];
 
   for (const entry of SPAWNER_LOOT_TABLE) {
-    const roll = this.rng() * 100;
+    const roll = rng() * 100;
     if (roll >= entry.weight * 10) continue;
 
-    const count = Math.floor(this.rng() * (entry.maxCount - entry.minCount + 1)) + entry.minCount;
+    const count = Math.floor(rng() * (entry.maxCount - entry.minCount + 1)) + entry.minCount;
     loot.push({ itemId: entry.itemId, count });
   }
 
