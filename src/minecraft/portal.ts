@@ -274,23 +274,6 @@ export function tryActivatePortal(
     };
   }
 
-  // Check for obsidian frame
-  // @ts-expect-error TS6133 - unused declaration
-  const _frameBlocks = [
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-    'obsidian',
-  ];
-
   // Light the portal interior
   const portalId = portalManager.getPortal(x, y, roomId)?.portalId;
   if (portalId) {
@@ -320,16 +303,11 @@ export function tryActivatePortal(
 // ─── Portal Room Generation ─────────────────────────────────────────────────
 
 export function generatePortalRoom(
-  // @ts-expect-error TS6133 - unused declaration
-  roomId: string,
+  _roomId: string,
   width: number,
   height: number,
   room: RoomSnapshot,
 ): void {
-  // Create an obsidian platform
-  // @ts-expect-error TS6133 - unused declaration
-  const _platformSize = Math.max(width, height) + 4;
-
   if (!room.minecraftBlocks) {
     room.minecraftBlocks = {};
   }

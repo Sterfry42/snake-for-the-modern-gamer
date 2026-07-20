@@ -10,15 +10,6 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-// @ts-expect-error TS6133 - unused declaration
-function _seededRandom(seed: number): () => number {
-  let state = seed;
-  return () => {
-    state = (state * 1664525 + 1013904223) | 0;
-    return (state >>> 0) / 4294967296;
-  };
-}
-
 function generateNoise(x: number, y: number, seed: number): number {
   const hash = hashString(`${x * 374761393 + y * 668265263 + seed}`);
   return (hash & 0xffff) / 65535;
@@ -98,18 +89,6 @@ export class ChunkManager {
 
   private toKey(key: ChunkKey): string {
     return `${key.roomId}:${key.chunkX},${key.chunkY}`;
-  }
-
-  // @ts-expect-error TS6133 - unused declaration
-  private fromKey(str: string): ChunkKey {
-    const idx = str.indexOf(':');
-    const roomId = str.slice(0, idx);
-    const coords = str.slice(idx + 1).split(',');
-    return {
-      roomId,
-      chunkX: parseInt(coords[0], 10),
-      chunkY: parseInt(coords[1], 10),
-    };
   }
 
   loadChunk(roomId: string, chunkX: number, chunkY: number): Map<string, string> {
@@ -342,15 +321,12 @@ export class ChunkManager {
 
   private unloadOldest(): void {
     let oldestKey: string | null = null;
-    // @ts-expect-error TS6133 - unused declaration
-    let _oldestState: ChunkState | null = null;
     let oldestTicks = Infinity;
 
     for (const [key, state] of this.chunks) {
       const ticks = state.key.chunkX + state.key.chunkY;
       if (ticks < oldestTicks) {
         oldestKey = key;
-        _oldestState = state;
         oldestTicks = ticks;
       }
     }

@@ -285,8 +285,7 @@ export class RollercoasterRenderer {
   private drawStationBuilding(
     entranceX: number,
     entranceY: number,
-    // @ts-expect-error TS6133 - unused declaration
-    stationName: string,
+    _stationName: string,
     theme: string,
   ): void {
     const { cell } = this;

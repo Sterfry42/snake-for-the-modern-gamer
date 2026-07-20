@@ -93,9 +93,7 @@ export class SoundtrackComposer {
   private state: ComposerState = 'idle';
   private config: Required<SoundtrackComposerConfig>;
   private audioNodes: AudioNodes | null = null;
-  // @ts-expect-error TS6133 - unused declaration
   private _noteQueue: NoteEvent[] = [];
-  // @ts-expect-error TS6133 - unused declaration
   private _scheduledUntil = 0;
   private nextNoteTime = 0;
   private timerId: ReturnType<typeof setTimeout> | null = null;

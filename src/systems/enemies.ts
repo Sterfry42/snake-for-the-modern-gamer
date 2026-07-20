@@ -581,8 +581,7 @@ export class EnemyManager {
 
   getRoamingSnakeMoveTarget(
     snake: EnemyInstance & { body: Vector2Like[] },
-    // @ts-expect-error TS6133 - unused declaration
-    roomId: string,
+    _roomId: string,
     room: RoomSnapshot,
     obstacleSet: ReadonlySet<string>,
     _rng: RandomGenerator,

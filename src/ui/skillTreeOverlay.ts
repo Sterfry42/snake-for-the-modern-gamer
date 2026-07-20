@@ -388,7 +388,6 @@ export class SkillTreeOverlay {
   private readonly equipmentListMask: Phaser.Display.Masks.GeometryMask;
   private readonly overlayX: number;
   private readonly overlayY: number;
-  // @ts-expect-error TS6133 - unused declaration
   private contentMask?: Phaser.Display.Masks.GeometryMask;
   private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
   private readonly scrollHintText: Phaser.GameObjects.Text;
@@ -396,7 +395,6 @@ export class SkillTreeOverlay {
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
-  // @ts-expect-error TS6133 - unused declaration
   private customizationIndex: string[] = [];
   private customizationRowMap: Array<{ row: number; actionId: string }> = [];
 
@@ -1045,7 +1043,6 @@ export class SkillTreeOverlay {
     });
     this.scene.input.on(
       'wheel',
-      // @ts-expect-error TS6133 - unused declaration
       (_pointer: Phaser.Input.Pointer, _objects: unknown[], dx: number, dy: number) => {
         if (this.visible && this.activeTab === 'skills') {
           if (this.isPointerInSkillViewport(_pointer)) {
@@ -1379,7 +1376,6 @@ export class SkillTreeOverlay {
     g.fillStyle(accent, 0.78).fillRect(x + 12, y + 9, 48, 2);
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private drawSmallButton(
     g: Phaser.GameObjects.Graphics,
     x: number,
@@ -1405,7 +1401,6 @@ export class SkillTreeOverlay {
     );
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private drawActionButton(
     g: Phaser.GameObjects.Graphics,
     x: number,
@@ -2640,7 +2635,6 @@ export class SkillTreeOverlay {
     return this.scrollOffsets[this.activeTab] ?? 0;
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private toStructuredY(y: number): number {
     return y - this.getStructuredScrollOffset();
   }
@@ -3334,7 +3328,6 @@ export class SkillTreeOverlay {
     this.setStructuredContentHeight(content, unscrolledBottom);
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private buildInventoryCards(rect: UiRect): void {
     const content = insetRect(rect, 14);
     addUiText(this.scene, this.structuredContainer, content.x, content.y, 'INVENTORY', {
@@ -5313,7 +5306,6 @@ export class SkillTreeOverlay {
     this.applyScrollableTextOffset(this.activeTab, text, next);
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private moveControllerAction(delta: number): void {
     if (this.controllerActions.length === 0) {
       this.scrollActiveText(delta * 42);
@@ -5407,7 +5399,6 @@ export class SkillTreeOverlay {
     );
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private moveControllerSkill(delta: number): void {
     const visuals = this.getControllerSkillVisuals();
     if (visuals.length === 0) return;
@@ -5633,7 +5624,6 @@ export class SkillTreeOverlay {
     return this.getCustomizationHoveredRow(pointer)?.actionId ?? null;
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private countRenderedLines(value: string): number {
     return this.countRenderedLinesFor(this.customizationText, value);
   }
@@ -7057,7 +7047,6 @@ export class SkillTreeOverlay {
     return (index + dayInSeason) / order.length;
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private formatAtmosphereLabel(value: string): string {
     return value
       .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -7088,7 +7077,6 @@ export class SkillTreeOverlay {
     return lines.join('\n').trimEnd();
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private formatFactionCards(
     factions: FactionCardView[],
     wards: Partial<Record<WardDeathSource, number>>,
@@ -8473,7 +8461,6 @@ export class SkillTreeOverlay {
       return;
     }
     const layout = this.getPauseMenuLayout();
-    // @ts-expect-error TS6133 - unused declaration
     const _gap = 10;
     let x = layout.footer.x + 14;
     const y = layout.footer.y + 10;

@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, afterEach } from 'vitest';
 import { SnakeGame } from '../../game/snakeGame.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
@@ -26,13 +26,6 @@ function roomLayoutKey(room: RoomSnapshot): string {
 }
 
 describe('save regression tests', () => {
-  // @ts-expect-error TS6133 - unused declaration
-  let _registry: QuestRegistry;
-
-  beforeEach(async () => {
-    _registry = new QuestRegistry();
-  });
-
   afterEach(() => {
     saveManager.clear();
   });

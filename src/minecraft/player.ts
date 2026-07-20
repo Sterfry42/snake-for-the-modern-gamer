@@ -385,31 +385,6 @@ export function getToolTier(toolId: string): number {
   return tierMap[toolId] ?? 0;
 }
 
-// @ts-expect-error TS6133 - unused declaration
-function _getBlockHardness(blockId: string): number {
-  const hardnessMap: Record<string, number> = {
-    dirt: 1,
-    grass: 1,
-    sand: 1,
-    glass: 1,
-    cobblestone: 3,
-    stone: 3,
-    gravel: 2,
-    wood: 2,
-    planks: 2,
-    torch: 0,
-    lava: 0,
-    water: 0,
-    coal_ore: 4,
-    iron_ore: 5,
-    iron_block: 5,
-    gold_block: 5,
-    diamond_ore: 7,
-    crafting_table: 2,
-  };
-  return hardnessMap[blockId] ?? 1;
-}
-
 function getMinToolTierForBlock(blockId: string): number {
   const tierMap: Record<string, number> = {
     dirt: 1,

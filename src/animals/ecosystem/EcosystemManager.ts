@@ -132,30 +132,6 @@ const ECOSYSTEM_ROLES: Record<AnimalType, EcosystemRoleDefinition> = {
   },
 };
 
-// ── Predator-Prey Population Targets ──────────────────────────────
-
-interface PopulationTarget {
-  predator: AnimalType;
-  prey: AnimalType;
-  /** Ideal ratio: predators per 10 prey */
-  idealRatio: number;
-  /** Tolerance band around the ideal ratio */
-  tolerance: number;
-}
-
-// @ts-expect-error TS6133 - unused declaration
-const _POPULATION_TARGETS: PopulationTarget[] = [
-  { predator: 'wolf', prey: 'rabbit', idealRatio: 2, tolerance: 1 },
-  { predator: 'wolf', prey: 'deer', idealRatio: 1, tolerance: 0.5 },
-  { predator: 'fox', prey: 'rabbit', idealRatio: 3, tolerance: 1.5 },
-  { predator: 'bear', prey: 'rabbit', idealRatio: 1, tolerance: 0.5 },
-  { predator: 'eagle', prey: 'jackalope', idealRatio: 1, tolerance: 0.5 },
-  { predator: 'eagle', prey: 'frog', idealRatio: 2, tolerance: 1 },
-  { predator: 'coyote', prey: 'jackalope', idealRatio: 1, tolerance: 0.5 },
-  { predator: 'coyote', prey: 'possum', idealRatio: 2, tolerance: 1 },
-  { predator: 'fox', prey: 'frog', idealRatio: 2, tolerance: 1 },
-];
-
 // ── Ecosystem Event Definitions ───────────────────────────────────
 
 const ECOSYSTEM_EVENTS: Array<{

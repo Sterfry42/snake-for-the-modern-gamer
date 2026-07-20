@@ -53,8 +53,6 @@ export class BossManager {
   private bosses = new Map<string, Boss>();
   private readonly grid: GridConfig;
   private readonly rng: RandomGenerator;
-  // @ts-expect-error TS6133 - unused declaration
-  private rainbowColorTimer: number = 0;
   private bossIdCounter = 0;
 
   constructor(grid: GridConfig, rng: RandomGenerator) {
@@ -792,59 +790,6 @@ export class BossManager {
     }
 
     return null;
-  }
-
-  // @ts-expect-error TS6133 - unused declaration
-  private moveBoss(boss: Boss, deps: BossStepDependencies): void {
-    if (boss.kind === 'angel') {
-      this.moveAngelBoss(boss, deps);
-      return;
-    }
-
-    if (this.rng() < 0.2) {
-      const directions = [
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-      ];
-      const validDirections = directions.filter(
-        (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
-      );
-      const choices = validDirections.length > 0 ? validDirections : directions;
-      boss.direction = choices[Math.floor(this.rng() * choices.length)];
-    }
-
-    if (!boss.body.length) {
-      return;
-    }
-
-    const nextHead = addVectors(boss.body[0], boss.direction);
-    const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
-
-    const targetRoomX = Math.floor(nextHead.x / this.grid.cols);
-    const targetRoomY = Math.floor(nextHead.y / this.grid.rows);
-    const baseRoomX = targetRoomX * this.grid.cols;
-    const baseRoomY = targetRoomY * this.grid.rows;
-    const localHeadX = nextHead.x - baseRoomX;
-    const localHeadY = nextHead.y - baseRoomY;
-
-    const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
-    const targetRoom = deps.getRoom(targetRoomId);
-    if (!targetRoom) {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
-      return;
-    }
-
-    const tile = targetRoom.layout[localHeadY]?.[localHeadX];
-    if (tile === '#' || tile === '%') {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
-      return;
-    }
-
-    const moveVector = boss.direction;
-    boss.body = boss.body.map((segment) => addVectors(segment, moveVector));
-    boss.roomId = targetRoomId;
   }
 
   private moveFreakerDennis(boss: Boss, deps: BossStepDependencies): void {

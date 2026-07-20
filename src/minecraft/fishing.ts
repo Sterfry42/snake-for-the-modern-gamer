@@ -545,8 +545,7 @@ function calculateBiteChance(state: FishingState): number {
   return Math.min(0.15, chance);
 }
 
-// @ts-expect-error TS6133 - unused declaration
-function tryCatchFish(state: FishingState, rng: () => number = Math.random): FishCaught | null {
+function tryCatchFish(_state: FishingState, rng: () => number = Math.random): FishCaught | null {
   // Get available fish based on biome
   const availableFish = getAvailableFish();
   if (availableFish.length === 0) return null;

@@ -583,8 +583,7 @@ export class SnakeState {
 
   private resolveSelfCollision(
     head: Vector2Like,
-    // @ts-expect-error TS6133 - unused declaration
-    collisionIndex: number,
+    _collisionIndex: number,
     invulnTicks: number,
   ): boolean {
     if (invulnTicks > 0) {

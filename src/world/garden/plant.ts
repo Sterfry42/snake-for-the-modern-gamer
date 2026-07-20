@@ -62,10 +62,8 @@ export function createPlant(
  */
 export function advancePlant(
   plant: GardenPlant,
-  // @ts-expect-error TS6133 - unused declaration
-  weather: GardenWeather,
-  // @ts-expect-error TS6133 - unused declaration
-  season: GardenSeason,
+  _weather: GardenWeather,
+  _season: GardenSeason,
   watered: boolean,
   pestDamage: number,
   companionBonus?: { yieldMultiplier: number; speedMultiplier: number },

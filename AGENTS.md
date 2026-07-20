@@ -17,6 +17,8 @@ This is a modern Phaser-based snake game with deep RPG and simulation elements, 
 
 ## Repository Rules
 
+**NEVER use `@ts-expect-error` to work around TypeScript errors.** If you encounter a TypeScript error, fix the root cause — don't suppress it. Unused variables should be removed, not commented out.
+
 All agents working on this project **MUST** follow these instructions before considering a task complete:
 
 1. Run `npm run format`. If formatting fails, fix the problems and rerun.

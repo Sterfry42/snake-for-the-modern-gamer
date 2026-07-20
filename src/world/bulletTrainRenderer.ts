@@ -68,8 +68,7 @@ export class BulletTrainRenderer {
     this.graphics.fillRect((entranceX - 2) * cell, (entranceY - 2) * cell + 4, cell * 4, 2);
   }
 
-  // @ts-expect-error TS6133 - unused declaration
-  private drawPlatform(station: BulletTrainStation, entranceX: number, entranceY: number): void {
+  private drawPlatform(_station: BulletTrainStation, entranceX: number, entranceY: number): void {
     const { cell } = this;
 
     // Draw platform tiles (gray) around the entrance area

@@ -19,7 +19,7 @@ import type {
   TraitGainedEvent,
 } from './types.js';
 import { MutationRegistry, MUTATION_TRAITS } from './MutationRegistry.js';
-import { MAX_RECENT_APPLES, MUTATION_COMBINATION_WINDOW_MS } from './types.js';
+import { MAX_RECENT_APPLES } from './types.js';
 
 export interface MutationSystemCallbacks {
   onMutationDiscovered(event: MutationDiscoveredEvent): void;
@@ -43,8 +43,6 @@ export class MutationSystem {
   private readonly unlockedEvolvedApples = new Set<string>();
   private readonly eventCallbacks: MutationSystemCallbacks;
   private readonly rng: RandomGenerator;
-  // @ts-expect-error TS6133 - unused declaration
-  private readonly combinationWindowMs: number;
   private readonly maxRecentApples: number;
 
   constructor(
@@ -55,7 +53,6 @@ export class MutationSystem {
   ) {
     this.rng = rng;
     this.eventCallbacks = callbacks;
-    this.combinationWindowMs = config.combinationWindowMs ?? MUTATION_COMBINATION_WINDOW_MS;
     this.maxRecentApples = config.maxRecentApples ?? MAX_RECENT_APPLES;
 
     this.registry = new MutationRegistry();
@@ -231,20 +228,8 @@ export class MutationSystem {
     const mutation = this.registry.getMutation(mutationId);
     if (!mutation) return;
 
-    for (const traitBonus of mutation.evolvedTraits) {
-      const traitDef = this.registry.getTrait(traitBonus.traitId);
-      if (traitDef) {
-         
-        // @ts-expect-error TS6133 - unused declaration
-        const _traitId = traitBonus.traitId;
-        // @ts-expect-error TS6133 - unused declaration
-        const _stacks = traitBonus.stacks;
-        // @ts-expect-error TS6133 - unused declaration
-        const _durationMs = traitBonus.durationMs;
-        // Trait application is handled by the TraitManager
-        // This method exists for the callback to trigger trait application
-      }
-    }
+    // Trait application is handled by the TraitManager
+    // This method exists for the callback to trigger trait application
   }
 
   /**

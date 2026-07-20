@@ -105,7 +105,6 @@ export class DreamApple extends DreamAppleBase {
 // ─── Nightmare Apple ───────────────────────────────────────────────────────────
 
 export class NightmareApple extends DreamAppleBase {
-  // @ts-expect-error TS6133 - unused declaration
   private readonly chaseSpeed: number;
 
   constructor(
@@ -116,6 +115,7 @@ export class NightmareApple extends DreamAppleBase {
     metadata: DreamAppleMetadata,
     chaseSpeed: number = 0.1,
   ) {
+    super(roomId, position, typeId, color, metadata);
     super(roomId, position, typeId, color, metadata);
     this.chaseSpeed = chaseSpeed;
   }

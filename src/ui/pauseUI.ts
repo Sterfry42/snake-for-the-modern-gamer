@@ -6,10 +6,6 @@ import { getPrimaryBindingLabelForDisplay, type InputModeId } from '../input/con
 const PAUSE_BUTTON_WIDTH = 110;
 const PAUSE_BUTTON_HEIGHT = 36;
 const PAUSE_BUTTON_PADDING = 12;
-// @ts-expect-error TS6133 - unused declaration
-const _PAUSE_GAP = 6;
-// @ts-expect-error TS6133 - unused declaration
-const _PAUSE_MARGIN = 16;
 
 const PAUSE_COLOR = 0x2a2a3a;
 const PAUSE_BORDER_COLOR = 0xff9944;
@@ -18,8 +14,6 @@ const PAUSE_HOVER_BORDER = 0xffcc7e;
 
 export class PauseUI {
   private pauseButton?: Phaser.GameObjects.Container;
-  // @ts-expect-error TS6133 - unused declaration
-  private pauseBg?: Phaser.GameObjects.Rectangle;
   private pauseHitArea?: Phaser.GameObjects.Rectangle;
   private pauseLabelText?: Phaser.GameObjects.Text;
   private scene: SnakeScene;
@@ -85,7 +79,6 @@ export class PauseUI {
     const container = this.scene.add.container(x, y, [bg, hitArea, label]).setDepth(40);
 
     this.pauseButton = container;
-    this.pauseBg = bg;
     this.pauseHitArea = hitArea;
     this.pauseLabelText = label;
   }

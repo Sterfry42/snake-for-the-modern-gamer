@@ -204,7 +204,6 @@ describe('Mob Manager', () => {
       manager.spawnMob('room1', 'creeper', 10, 10);
 
       let explosionTriggered = false;
-      // @ts-expect-error TS6133 - unused declaration
       let _playerHit = false;
 
       // First tick - starts charging

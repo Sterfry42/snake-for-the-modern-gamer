@@ -95,8 +95,7 @@ function isImmediatelySafe(tile: string | undefined): boolean {
 }
 
 function edgeCellsFor(
-  // @ts-expect-error TS6133 - unused declaration
-  room: RoomSnapshot,
+  _room: RoomSnapshot,
   grid: GridConfig,
   direction: Direction,
 ): Array<{ x: number; y: number }> {

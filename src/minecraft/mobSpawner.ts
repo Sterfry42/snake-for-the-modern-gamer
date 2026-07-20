@@ -355,8 +355,7 @@ export class MobSpawnerManager {
   private trySpawnFromSpawner(
     spawner: MobSpawnerState,
     mobManager: MobManager,
-    // @ts-expect-error TS6133 - unused declaration
-    currentTime: number,
+    _currentTime: number,
     gridSize: number,
     onMobDeath: (mobId: string, x: number, y: number, roomId: string) => void,
   ): void {

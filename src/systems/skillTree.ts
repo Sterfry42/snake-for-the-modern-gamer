@@ -53,11 +53,6 @@ interface BranchConfig {
   readonly nodes: readonly BranchNodeConfig[];
 }
 
-const BRANCH_HORIZONTAL_START = 0.08;
-const BRANCH_HORIZONTAL_STEP = 0.12;
-const BRANCH_VERTICAL_START = 0.16;
-const BRANCH_VERTICAL_STEP = 0.11;
-
 const MOMENTUM_BRANCH: BranchConfig = {
   id: 'momentum',
   label: 'Momentum',
@@ -1456,60 +1451,6 @@ const ENTROPY_BRANCH: BranchConfig = {
     },
   ],
 };
-
-const BRANCHES: readonly BranchConfig[] = [
-  MOMENTUM_BRANCH,
-  FORTITUDE_BRANCH,
-  ARCANA_BRANCH,
-  HARVEST_BRANCH,
-  PREDATION_BRANCH,
-  TRAVERSAL_BRANCH,
-  GEOMETRY_BRANCH,
-  ENTROPY_BRANCH,
-];
-
-// @ts-expect-error TS6133 - unused declaration
-function _buildPerkDefinitions(): SkillPerkDefinition[] {
-  const definitions: SkillPerkDefinition[] = [];
-
-  for (let branchIndex = 0; branchIndex < BRANCHES.length; branchIndex += 1) {
-    const branch = BRANCHES[branchIndex];
-    const x = BRANCH_HORIZONTAL_START + branchIndex * BRANCH_HORIZONTAL_STEP;
-
-    for (let nodeIndex = 0; nodeIndex < branch.nodes.length; nodeIndex += 1) {
-      const node = branch.nodes[nodeIndex];
-      const requires =
-        node.requires ?? (nodeIndex > 0 ? [branch.nodes[nodeIndex - 1].id] : undefined);
-      const rankDescriptions = node.ranks.map((rank) => rank.description);
-      const costByRank = node.ranks.map((rank) => rank.cost);
-      const effectsByRank = node.ranks.map((rank) => rank.effects);
-
-      if (
-        rankDescriptions.length !== costByRank.length ||
-        costByRank.length !== effectsByRank.length
-      ) {
-        throw new Error(`Rank data mismatch for perk '${node.id}'.`);
-      }
-
-      const positionY = BRANCH_VERTICAL_START + nodeIndex * BRANCH_VERTICAL_STEP;
-
-      definitions.push({
-        id: node.id,
-        title: node.title,
-        shortLabel: node.shortLabel,
-        description: node.description,
-        branch: branch.label,
-        rankDescriptions,
-        costByRank,
-        position: { x, y: positionY },
-        requires,
-        effectsByRank,
-      });
-    }
-  }
-
-  return definitions;
-}
 
 // The legacy branch constants above remain as a compatibility reference while old flags are
 // consumed by gameplay systems. Only the redesigned catalog is exposed to players.

@@ -59,7 +59,6 @@ class StarforgedVanguardFeature extends Feature {
   private lastDirectorBeat = -1;
   private lastRoomId = '';
   private inputRegistered = false;
-  // @ts-expect-error TS6133 - unused declaration
   private baseActionStepMs = 100;
 
   constructor() {

@@ -335,13 +335,6 @@ export class MolemanArchaeologySession {
     this.i18nResolveFn = resolveFn;
   }
 
-  // @ts-expect-error TS6133 - unused declaration
-  private _resolveTileLabel(kind: ArchaeologyTileKind): string {
-    return this.i18nResolveFn
-      ? this.i18nResolveFn(ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel)
-      : ARCHAEOLOGY_TILE_DEFINITIONS[kind].i18nLabel;
-  }
-
   private resolveVariantName(v: DigSiteVariant): string {
     return this.i18nResolveFn ? this.i18nResolveFn(v.i18nNameKey) : v.i18nNameKey;
   }

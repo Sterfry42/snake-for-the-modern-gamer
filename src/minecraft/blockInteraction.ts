@@ -118,8 +118,7 @@ export function tryBreakBlockCreative(
 
 export function tryPlaceBlock(
   scene: SnakeScene,
-  // @ts-expect-error TS6133 - unused declaration
-  player: MinecraftPlayer,
+  _player: MinecraftPlayer,
   tileX: number,
   tileY: number,
   blockType: string,

@@ -17,7 +17,6 @@ export class SaveLoadMenu {
   private backText?: Phaser.GameObjects.Text;
   private entryContainers: Phaser.GameObjects.Container[] = [];
   private confirmOverlay?: Phaser.GameObjects.Container;
-  // @ts-expect-error TS6133 - unused declaration
   private confirmText?: Phaser.GameObjects.Text;
   private confirmYes?: Phaser.GameObjects.Text;
   private confirmNo?: Phaser.GameObjects.Text;
@@ -26,7 +25,6 @@ export class SaveLoadMenu {
   private scrollY = 0;
   private contentHeight = 0;
   private viewportHeight = 0;
-  // @ts-expect-error TS6133 - unused declaration
   private currentPopupHeight = 240;
   private readonly width = 520;
   private readonly entryHeight = 56;
@@ -34,7 +32,6 @@ export class SaveLoadMenu {
   private readonly footerHeight = 44;
   private regularEntries: SaveSlotInfo[] = [];
   private autosaveEntries: SaveSlotInfo[] = [];
-  // @ts-expect-error TS6133 - unused declaration
   private isLoading = false;
   private currentOnLoad?: (slotId: string, data: GameSaveData) => void;
   private controllerLoadActions: Array<() => void> = [];
@@ -53,8 +50,6 @@ export class SaveLoadMenu {
   ): Promise<void> {
     this.onBack = onBack;
     this.scene.setChoicePopupVisible(true);
-    this.isLoading = true;
-
     this.regularEntries = await saveManagerV2.listRegularSaves();
     this.autosaveEntries = await saveManagerV2.listAutosaves();
     this.currentOnLoad = onLoad;
@@ -62,12 +57,10 @@ export class SaveLoadMenu {
     this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
     this.buildEntries(onLoad);
     this.selectedEntryIndex = 0;
-    this.isLoading = false;
 
     const popupHeight = this.calculateHeight();
     const x = (this.scene.scale.width - this.width) / 2;
     const rootY = (this.scene.scale.height - popupHeight) / 2;
-    this.currentPopupHeight = popupHeight;
     this.container?.setPosition(x, rootY);
     this.background?.setSize(this.width, popupHeight);
     this.scrollContainer?.setPosition(0, this.headerHeight);
@@ -288,7 +281,6 @@ export class SaveLoadMenu {
   private createEntryBox(
     label: string,
     buttonWidth: number,
-    // @ts-expect-error TS6133 - unused declaration
     buttonHeight: number,
     buttonGap: number,
     padding: number,

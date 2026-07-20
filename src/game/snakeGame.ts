@@ -6906,46 +6906,6 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('world.rumors', this.rumors.getAll().map(rumorToWorldRumor).slice(-100));
   }
 
-  // @ts-expect-error TS6133 - unused declaration
-  private _recordLegacyRumorFromWorldEvent(event: WorldEvent): void {
-    if (!this.shouldBecomeRumor(event)) {
-      return;
-    }
-    const existing = this.getFlag<WorldRumor[]>('world.rumors') ?? [];
-    if (existing.some((rumor) => rumor.eventId === event.id)) {
-      return;
-    }
-    const room = event.roomId ? this.world.getRoom(event.roomId) : undefined;
-    const rumor: WorldRumor = {
-      id: `rumor:${event.id}`,
-      eventId: event.id,
-      roomId: event.roomId,
-      townId: room?.town?.id ?? room?.goblinCamp?.id,
-      summary: event.summary,
-      tags: [...event.tags],
-      severity: event.severity,
-      createdAtRoomNumber: event.createdAtRoomNumber,
-      heardByActorIds: [...event.witnessActorIds],
-      truthLevel: 85,
-      exaggeration: 10,
-      sourceKind: event.witnessActorIds.length > 0 ? 'witness' : 'rumor',
-      public: true,
-    };
-    this.setFlag('world.rumors', [...existing, rumor].slice(-50));
-    this.seedTownRumorFromWorldEvent(event, rumor);
-  }
-
-  private shouldBecomeRumor(event: WorldEvent): boolean {
-    if (event.severity >= 35 || event.loudness >= 35) {
-      return true;
-    }
-    return event.tags.some((tag) =>
-      ['crime', 'pickpocket', 'eaten', 'humanoid', 'relationship', 'marriage', 'guild'].includes(
-        tag,
-      ),
-    );
-  }
-
   private rememberActorRumor(actorId: string, memory: ActorMemory): void {
     this.actors.registry.update(actorId, (actor) => ({
       ...actor,
@@ -7042,41 +7002,6 @@ export class SnakeGame implements QuestRuntime {
         ].slice(current.thickness === 'thick' ? -40 : current.thickness === 'medium' ? -20 : -6),
       }));
     }
-  }
-
-  private seedTownRumorFromWorldEvent(event: WorldEvent, rumor: WorldRumor): void {
-    if (!event.roomId || !rumor.townId) {
-      return;
-    }
-    const room = this.world.getRoom(event.roomId);
-    if (!room.town || room.town.id !== rumor.townId) {
-      return;
-    }
-    const exists = room.town.rumors.some((entry) => entry.id === rumor.id);
-    if (exists) {
-      return;
-    }
-    const kind = townRumorKindForEvent(event);
-    const nextTown = cloneTown({
-      ...room.town,
-      rumors: [
-        ...room.town.rumors,
-        {
-          id: rumor.id,
-          townId: room.town.id,
-          kind,
-          summary: rumor.summary,
-          roomsRemaining: 12,
-          severity: rumor.severity,
-          relatedRelationshipId:
-            typeof event.data?.relationshipId === 'string' ? event.data.relationshipId : undefined,
-          relatedNpcId: event.targetActorIds[0],
-        },
-      ].slice(-12),
-    });
-    room.town = nextTown;
-    this.saveTownRuntimeState(nextTown);
-    this.world.updateTown(nextTown);
   }
 
   private seedTownRumorFromModernRumor(event: WorldEvent, rumor: Rumor): void {
@@ -7630,7 +7555,6 @@ export class SnakeGame implements QuestRuntime {
     return `layer:townInterior:${townId}:thievesGuild`;
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _getSideToTownDistrict(
     town: TownStructure,
     roomId: string,
@@ -7649,7 +7573,6 @@ export class SnakeGame implements QuestRuntime {
     );
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _openRoomEdgeTiles(room: RoomSnapshot, side: 'north' | 'south' | 'east' | 'west'): void {
     const centerX = Math.floor(this.config.grid.cols / 2);
     const centerY = Math.floor(this.config.grid.rows / 2);
@@ -7682,7 +7605,6 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _isInsideTownExitLatchSide(town: TownStructure, room: RoomSnapshot): boolean {
     const exteriorSide = this.inferTownExitExteriorSide(town, room.id);
     if (!exteriorSide) {
@@ -8994,7 +8916,6 @@ export class SnakeGame implements QuestRuntime {
   spawnGridironYard(): boolean {
     const room = this.getCurrentRoom();
     const grid = this.config.grid;
-    // @ts-expect-error TS6133 - unused declaration
     const _rng = this._rng;
     const safe = new Set<string>();
     // Entrance runup cells
@@ -15776,7 +15697,6 @@ export class SnakeGame implements QuestRuntime {
     return best;
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _handleFortitudeRegenerator(roomsChanged: Set<string>): void {
     const base = this.getFlag<{ interval?: number; amount?: number }>('fortitude.regenerator');
     const equip = this.getFlag<{ interval?: number; amount?: number }>('equipment.regenerator');
@@ -16092,7 +16012,6 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _resetMomentum(): void {
     this.momentumConfig = createDefaultMomentumConfig();
     this.momentumState = createDefaultMomentumState();
@@ -16551,7 +16470,6 @@ export class SnakeGame implements QuestRuntime {
     this.syncMomentumFlags();
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _handleMomentumOnApple(
     _consumption: AppleConsumptionResult,
     _roomsChanged: Set<string>,
@@ -16635,7 +16553,6 @@ export class SnakeGame implements QuestRuntime {
     this.syncMomentumFlags();
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _resetTraversal(): void {
     this.traversalConfig = createDefaultTraversalConfig();
     this.traversalState = createDefaultTraversalState();
@@ -16645,7 +16562,6 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('traversal.echoActive', undefined);
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _hydrateTraversalConfig(): void {
     const contributions = Object.entries(this.snake.flags)
       .filter(([key]) => key.startsWith('traversal.config.'))
@@ -16837,7 +16753,6 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _handleTraversalRoomChange(
     _previousRoomId: string,
     currentRoomId: string,
@@ -16888,7 +16803,6 @@ export class SnakeGame implements QuestRuntime {
     this.syncTraversalFlags();
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _tickTraversalState(): void {
     const config = this.traversalConfig;
     const state = this.ensureTraversalState();
@@ -17164,7 +17078,6 @@ export class SnakeGame implements QuestRuntime {
     return bonus;
   }
 
-  // @ts-expect-error TS6133 - unused declaration
   private _handlePredationOnRoomChange(newRoomId: string): void {
     const config = this.predationConfig;
     const state = this.ensurePredationState();

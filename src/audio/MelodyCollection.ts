@@ -93,7 +93,6 @@ export class MelodyCollection {
   private sequenceBuffer: string[] = [];
   private sequenceBufferSize = 20;
   private onFragmentUnlockedCallback?: (fragment: MelodyFragmentProgress) => void;
-  // @ts-expect-error TS6133 - unused declaration
   private _onGenreCompleteCallback?: (genre: AppleGenre) => void;
   private onTrackUnlockedCallback?: (genre: AppleGenre) => void;
 
