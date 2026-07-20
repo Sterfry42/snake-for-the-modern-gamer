@@ -204,7 +204,6 @@ describe('Mob Manager', () => {
       manager.spawnMob('room1', 'creeper', 10, 10);
 
       let explosionTriggered = false;
-      let _playerHit = false;
 
       // First tick - starts charging
       manager.tickMobs(

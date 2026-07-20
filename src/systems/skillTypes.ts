@@ -192,7 +192,7 @@ export interface SkillPerkContext {
 }
 
 // Forward declaration to avoid circular dependency types. Implemented in skillTree.ts
- 
+
 export interface SkillTreeSystemApi {
   getBaseActionStepIntervalMs(): number;
   getBaseTickDelay(): number;

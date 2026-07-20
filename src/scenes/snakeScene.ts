@@ -155,7 +155,6 @@ import {
   getTownDistrictForRoom,
   getTownRoom,
   townResidentsForRoom,
-  type TownDistrictKind,
   type TownStructure,
 } from '../world/town.js';
 import { getItem, ITEMS } from '../inventory/itemRegistry.js';
@@ -1750,7 +1749,6 @@ export default class SnakeScene extends Phaser.Scene {
   private inputModeUnsubscribe: (() => void) | null = null;
   private activeBossId: string | null = null;
   private lastBossHealth: Map<string, number> = new Map();
-  private jasonVulnerableDialogueShown = false;
   private jasonDefeatTimer: Phaser.Time.TimerEvent | null = null;
   private powerupMusicActive = false;
   private houseMusicActive = false;
@@ -1910,13 +1908,11 @@ export default class SnakeScene extends Phaser.Scene {
   private titleDifficultySettingsContainer: Phaser.GameObjects.Container | null = null;
   private titleMultiplayerContainer: Phaser.GameObjects.Container | null = null;
   private titleGitHubButton: Phaser.GameObjects.Container | null = null;
-  private titleGitHubZone: Phaser.GameObjects.Zone | null = null;
   private titleHeadingText: Phaser.GameObjects.Text | null = null;
   private titleMessageText: Phaser.GameObjects.Text | null = null;
   private titleCharacterModeText: Phaser.GameObjects.Text | null = null;
   private titleNormalModeButton: Phaser.GameObjects.Container | null = null;
   private titleRaccoonModeButton: Phaser.GameObjects.Container | null = null;
-  private titleAnimatedObjects: Phaser.GameObjects.GameObject[] = [];
   private titleVisible = false;
   private selectedCharacterMode: CharacterMode = this.loadCharacterModeSetting();
   private selectedSeed = '';
@@ -2013,8 +2009,6 @@ export default class SnakeScene extends Phaser.Scene {
   private fishingRegistry!: FishingRegistry;
   private fishingActive = false;
   private fishingGameState: FishingGameState | null = null;
-  private fishingEscapePending = false;
-  private fishingGloveLocked = false;
   private fishingMinigame!: FishingMinigame;
 
   constructor() {
@@ -6674,7 +6668,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.saveLoadMenu.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveLoadMenu.setDepth(9999);
     this.saveLoadMenu.show(
-      async (slotId: string, data: GameSaveData) => {
+      async (_slotId: string, data: GameSaveData) => {
         this.hideTitleScreen();
         const success = this.snakeGame.loadFromSaveData(data);
         if (!success) {
@@ -7150,7 +7144,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private buildGitHubLogoButton(
     _root: Phaser.GameObjects.Container,
-    width: number,
+    _width: number,
     height: number,
   ): Phaser.GameObjects.Container {
     const size = 44;
@@ -12168,24 +12162,6 @@ export default class SnakeScene extends Phaser.Scene {
     return this.isNearTownTile(['U', 'Y']);
   }
 
-  private getSideToTownDistrict(
-    town: TownStructure,
-    roomId: string,
-    targetDistrict: TownDistrictKind,
-  ): 'north' | 'south' | 'east' | 'west' | null {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
-    const neighbors: Array<{ side: 'north' | 'south' | 'east' | 'west'; id: string }> = [
-      { side: 'north', id: `${roomX},${roomY - 1},${roomZ}` },
-      { side: 'south', id: `${roomX},${roomY + 1},${roomZ}` },
-      { side: 'east', id: `${roomX + 1},${roomY},${roomZ}` },
-      { side: 'west', id: `${roomX - 1},${roomY},${roomZ}` },
-    ];
-    return (
-      neighbors.find((neighbor) => getTownDistrictForRoom(town, neighbor.id) === targetDistrict)
-        ?.side ?? null
-    );
-  }
-
   private getHeadLocalPosition(): Vector2Like | null {
     const head = this.snakeGame.getSnakeBody()[0];
     if (!head) {
@@ -13396,7 +13372,7 @@ export default class SnakeScene extends Phaser.Scene {
   private addCardTableProps(
     root: Phaser.GameObjects.Container,
     width: number,
-    height: number,
+    _height: number,
     style: CardTableVisualStyle,
   ): void {
     const props = this.add.graphics();
@@ -16559,28 +16535,6 @@ export default class SnakeScene extends Phaser.Scene {
       );
   }
 
-  private ensureArchaeologySymbolText(index: number): Phaser.GameObjects.Text {
-    let symbol = this.archaeologySymbolTexts[index];
-    if (symbol) {
-      symbol.setAlpha(1);
-      return symbol;
-    }
-    symbol = this.add
-      .text(0, 0, '', {
-        fontFamily: 'monospace',
-        fontSize: '16px',
-        color: '#ffffff',
-        stroke: '#080c12',
-        strokeThickness: 3,
-      })
-      .setOrigin(0.5)
-      .setDepth(121)
-      .setVisible(false);
-    this.archaeologyOverlay?.add(symbol);
-    this.archaeologySymbolTexts[index] = symbol;
-    return symbol;
-  }
-
   private drawArchaeologyTile(
     graphics: Phaser.GameObjects.Graphics,
     tile: ArchaeologyTileKind,
@@ -17472,30 +17426,6 @@ export default class SnakeScene extends Phaser.Scene {
       : `${displayName} says this place has not organized itself enough to gossip properly.`;
   }
 
-  private askActorAround(profile: RelationshipCandidateProfile): string | null {
-    const actorId = profile.actorId ?? '';
-    const options = [
-      () => this.snakeGame.askActorRumor(actorId),
-      () => this.currentTownActorLine(profile.displayName),
-      () => this.snakeGame.askActorKingLore(actorId),
-    ];
-    const start = Math.floor(this.random() * options.length);
-    for (let offset = 0; offset < options.length; offset += 1) {
-      const line = options[(start + offset) % options.length]?.();
-      if (line) return line;
-    }
-    return null;
-  }
-
-  private askActorPersonally(profile: RelationshipCandidateProfile): string | null {
-    const actorId = profile.actorId ?? '';
-    return this.random() < 0.5
-      ? (this.snakeGame.askActorSocialTie(actorId) ??
-          this.snakeGame.askActorPersonalReveal(actorId))
-      : (this.snakeGame.askActorPersonalReveal(actorId) ??
-          this.snakeGame.askActorSocialTie(actorId));
-  }
-
   private relationshipNpcVoiceRole(profile: RelationshipCandidateProfile): string {
     if (/Guard\b/.test(profile.displayName)) return 'guard';
     if (/Bartender\b/.test(profile.displayName)) return 'bartender';
@@ -17999,29 +17929,6 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  private isTownResidentInDistrict(
-    workRoomId: string | undefined,
-    district: TownDistrictKind | undefined,
-  ): boolean {
-    if (!workRoomId || !district) {
-      return false;
-    }
-    const currentTown = this.snakeGame.getCurrentTown();
-    const physicalKind = currentTown?.districtByRoomId[workRoomId];
-    if (physicalKind) {
-      return this.isTownResidentInDistrict(physicalKind, district);
-    }
-    const kind = workRoomId.split(':').pop();
-    if (kind === district) return true;
-    if (kind === 'townCenter' && district === 'square') return true;
-    if (kind === 'square' && district === 'townCenter') return true;
-    if (kind === 'market' && district === 'marketStreet') return true;
-    if (kind === 'tavern' && district === 'tavernInterior') return true;
-    if (kind === 'residential' && district === 'residentialStreet') return true;
-    if (kind === 'exit' && district === 'townExit') return true;
-    return false;
-  }
-
   private showDatingScene(
     profile: RelationshipCandidateProfile,
     result?: RelationshipEventResult,
@@ -18302,68 +18209,6 @@ export default class SnakeScene extends Phaser.Scene {
             }
           : undefined,
     };
-  }
-
-  private describeDatingBranchPreview(
-    profile: RelationshipCandidateProfile,
-    result?: DatingBranchResult,
-  ): string {
-    const personality = this.personalityForDatingProfile(profile);
-    const tier = result?.targetTier ?? 'neutral';
-    const lines: Record<RelationshipPersonality, Record<string, string>> = {
-      poetic: {
-        loved: `"There. That answer had a heartbeat. I heard it."`,
-        liked: `"Careful. I may remember that more tenderly than is convenient."`,
-        neutral: `"The answer survives. The moment asks for more."`,
-        disliked: `"No. That sounded like a door closing during a confession."`,
-        hated: `"Hmph. You call that care? That was a blade wearing perfume."`,
-      },
-      deadpan: {
-        loved: `"Excellent. I am visibly affected and will deny the visibility."`,
-        liked: `"Acceptable. Possibly charming. I dislike the ambiguity."`,
-        neutral: `"Adequate. The room remains emotionally solvent."`,
-        disliked: `"Incorrect. Not catastrophic. Do not aim for that distinction."`,
-        hated: `"No. The answer failed romance, logic, and basic maintenance."`,
-      },
-      hungry: {
-        loved: `"Yes. That warmed the good part. I might share the last bite with you."`,
-        liked: `"I liked that. It had comfort in it, and comfort is not small."`,
-        neutral: `"Edible answer. Needs seasoning. Needs less fear."`,
-        disliked: `"That tasted wrong. Like burnt bread and someone leaving early."`,
-        hated: `"Mamma mia, no. I am too angry to be hungry, and that is serious."`,
-      },
-      regal: {
-        loved: `"You answered with courage without asking me to become fragile. Good."`,
-        liked: `"Respectable. I grant the answer limited favor."`,
-        neutral: `"Permitted. Not praised. Learn the difference."`,
-        disliked: `"You mistook presumption for bravery. I dislike the costume."`,
-        hated: `"You insulted me and expected ceremony. You are a fool, snake."`,
-      },
-      sharp: {
-        loved: `"Oh. That was clever enough to cost me composure. Irritating. Valuable."`,
-        liked: `"Useful answer. I like useful when it remembers I am not merchandise."`,
-        neutral: `"Fine. It balances. Balance is not profit."`,
-        disliked: `"Careless. I dislike careless; it leaves me holding the invoice."`,
-        hated: `"Absolutely not. That answer breached contract and taste in one motion."`,
-      },
-    };
-    return `${profile.displayName} says, ${lines[personality][tier] ?? lines[personality].neutral}`;
-  }
-
-  private inferRelationshipTags(actionId: string): DatingBranchChoice['tags'] {
-    if (/protect|sharecloak/.test(actionId))
-      return ['protective', 'selfless', 'bravery', 'privateAffection'];
-    if (/run|floor|coward|skip/.test(actionId)) return ['selfPreserving', 'avoidance'];
-    if (/joke|counter|mooncrime/.test(actionId)) return ['clever', 'dramatic'];
-    if (/honest|sincere/.test(actionId)) return ['honesty', 'privateAffection'];
-    if (/knife|stone|betrayer/.test(actionId)) return ['violence', 'danger', 'dramatic'];
-    if (/pastry|pepperoni|pineapple|mushroom/.test(actionId)) return ['food', 'comfort'];
-    if (/married|slowdance|eyes|smile|rose/.test(actionId))
-      return ['commitment', 'publicAffection', 'dramatic'];
-    if (/home/.test(actionId)) return ['comfort', 'loyalty'];
-    if (/thief|mastermind|rival/.test(actionId)) return ['clever', 'ambition'];
-    if (/mock|complain/.test(actionId)) return ['betrayal', 'neediness'];
-    return ['honesty'];
   }
 
   private createDatingSequenceEvent(
@@ -19408,25 +19253,6 @@ export default class SnakeScene extends Phaser.Scene {
         this.showDatingScene(profile, result);
         this.skillTree.getOverlay().refresh();
       },
-    );
-  }
-
-  private showRelationshipResult(
-    profile: RelationshipCandidateProfile,
-    result: { title: string; message: string; color: string },
-  ): void {
-    this.showQuestDialogue(
-      result.title,
-      [result.message],
-      {
-        onClose: () => {
-          this.closeQuestPopup();
-          this.paused = false;
-          this.skillTree.getOverlay().refresh();
-        },
-      },
-      { closeLabel: 'Leave', nextLabel: 'Listen' },
-      { portraitId: profile.portraitId },
     );
   }
 

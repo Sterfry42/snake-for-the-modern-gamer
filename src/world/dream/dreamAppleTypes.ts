@@ -105,19 +105,14 @@ export class DreamApple extends DreamAppleBase {
 // ─── Nightmare Apple ───────────────────────────────────────────────────────────
 
 export class NightmareApple extends DreamAppleBase {
-  private readonly chaseSpeed: number;
-
   constructor(
     roomId: string,
     position: Vector2Like,
     typeId: string,
     color: number,
     metadata: DreamAppleMetadata,
-    chaseSpeed: number = 0.1,
   ) {
     super(roomId, position, typeId, color, metadata);
-    super(roomId, position, typeId, color, metadata);
-    this.chaseSpeed = chaseSpeed;
   }
 
   override onConsume(): AppleRewards {

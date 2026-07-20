@@ -37,24 +37,15 @@ const NIGHTMARE_BRIDGE_COUNT = 8;
 // ─── Nightmare Enemy Class ─────────────────────────────────────────────────────
 
 class NightmareEnemy extends Phaser.GameObjects.Graphics {
-  private target: Vector2Like;
   private speed: number;
   private health: number;
   private maxHealth: number;
   private chaseTimer = 0;
   private changeDirectionTimer = 0;
 
-  constructor(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    target: Vector2Like,
-    speed: number = 0.5,
-    health: number = 3,
-  ) {
+  constructor(scene: Phaser.Scene, x: number, y: number, speed: number = 0.5, health: number = 3) {
     super(scene);
     this.setPosition(x, y);
-    this.target = target;
     this.speed = speed;
     this.health = health;
     this.maxHealth = health;
@@ -88,10 +79,6 @@ class NightmareEnemy extends Phaser.GameObjects.Graphics {
     // Change direction occasionally
     if (this.changeDirectionTimer > 2000) {
       this.changeDirectionTimer = 0;
-      this.target = {
-        x: snakeHead.x + (Math.random() - 0.5) * 100,
-        y: snakeHead.y + (Math.random() - 0.5) * 100,
-      };
     }
 
     // Chase the snake head
@@ -336,15 +323,10 @@ export class NightmareScene extends DreamWorldScene {
         break;
     }
 
-    const target = {
-      x: width / 2 + (Math.random() - 0.5) * 100,
-      y: height / 2 + (Math.random() - 0.5) * 100,
-    };
-
     const speed = 0.3 * this.difficultyMultiplier;
     const health = Math.ceil(2 * this.difficultyMultiplier);
 
-    const enemy = new NightmareEnemy(this.scene, x, y, target, speed, health);
+    const enemy = new NightmareEnemy(this.scene, x, y, speed, health);
     this.enemies.push(enemy);
   }
 

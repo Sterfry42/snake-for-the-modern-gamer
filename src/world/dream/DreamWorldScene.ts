@@ -58,11 +58,11 @@ export class FloatingDreamApple extends Phaser.GameObjects.Graphics {
     this.floatSpeed = dreamApple.metadata.floatSpeed * 100 || 0.05;
     this.phaseOffset = dreamApple.metadata.phaseOffset || 0;
 
-    this.drawApple(x, y, dreamApple.color);
+    this.drawApple(dreamApple.color);
     scene.add.existing(this);
   }
 
-  private drawApple(x: number, y: number, color: number): void {
+  private drawApple(color: number): void {
     this.clear();
     // Outer glow
     this.fillStyle(color, 0.3);

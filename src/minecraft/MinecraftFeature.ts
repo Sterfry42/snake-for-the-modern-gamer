@@ -56,12 +56,10 @@ export class MinecraftFeature extends Feature {
   private craftingUIOpen = false;
   private skyOverlay: Phaser.GameObjects.Graphics | null = null;
   private hudGraphics: Phaser.GameObjects.Graphics | null = null;
-  private lastActionStep: number = 0;
   private furnaces: Map<string, import('./furnace.js').FurnaceState> = new Map();
   private chests: Map<string, import('./chest.js').ChestState> = new Map();
   private beds: Map<string, import('./bed.js').BedState> = new Map();
   private borderOverlay: Phaser.GameObjects.Graphics | null = null;
-  private craftingTableNearby = false;
 
   private creativeMode = false;
   private _rngInjected = false;

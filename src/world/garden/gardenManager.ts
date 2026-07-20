@@ -52,7 +52,6 @@ export class GardenManager {
   private season: GardenSeason = 'spring';
   private unlocked: boolean = false;
   private nextPlotId: number = 0;
-  private nextPestId: number = 0;
   private pestSpawnCounter: number = 0;
 
   /** Configuration for this garden. */
@@ -690,7 +689,6 @@ export class GardenManager {
     this.season = 'spring';
     this.unlocked = false;
     this.nextPlotId = 0;
-    this.nextPestId = 0;
     this.pestSpawnCounter = 0;
     this.config.currentWater = this.config.waterCapacity;
   }

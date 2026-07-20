@@ -112,7 +112,7 @@ const BOSS_MUSIC_REGISTRY: Record<string, BossMusicDefinition> = {
   },
 };
 
-function buildGenericBossMusic(now: number, gain: GainNode): BossMusicResult {
+function buildGenericBossMusic(_now: number, gain: GainNode): BossMusicResult {
   const sources: OscillatorNode[] = [];
   const cleanup: AudioNode[] = [];
 
@@ -3361,11 +3361,6 @@ export class JuiceManager {
 
     const state = { opacity: 1, y: 60 };
 
-    const _fadeOut = () => {
-      text.setAlpha(state.opacity);
-      text.setY(state.y);
-    };
-
     this.scene.tweens.add({
       targets: state,
       opacity: 0,
@@ -5303,7 +5298,7 @@ export class JuiceManager {
     });
   }
 
-  factionRelationChange(factionId: string, oldRel: string, newRel: string) {
+  factionRelationChange(_factionId: string, _oldRel: string, newRel: string) {
     const improved = newRel === 'allied' || newRel === 'friendly';
     const worsened = newRel === 'hostile' || newRel === 'enemy';
     const cam = this.scene.cameras.main;
@@ -5491,7 +5486,7 @@ export class JuiceManager {
 
   // ─── Achievement Juice ────────────────────────────────────────────────
 
-  achievementUnlock(achievementId: string, achievementName: string) {
+  achievementUnlock(_achievementId: string, achievementName: string) {
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.14 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.12 });
@@ -5515,7 +5510,7 @@ export class JuiceManager {
 
   // ─── Stats Juice ──────────────────────────────────────────────────────
 
-  statIncrease(statId: string, newValue: number) {
+  statIncrease(_statId: string, newValue: number) {
     this.playTone({
       frequency: 440 + newValue * 20,
       frequencyEnd: 660 + newValue * 20,
@@ -6036,7 +6031,7 @@ export class JuiceManager {
     this.ringPulse(worldX, worldY, color, 8, 2, 200);
   }
 
-  statusEffectRemoved(worldX: number, worldY: number, effectId: string) {
+  statusEffectRemoved(_worldX: number, _worldY: number, effectId: string) {
     const isDebuffRemoved = !effectId.includes('buff') && !effectId.includes('boost');
     if (isDebuffRemoved) {
       this.playTone({
@@ -6246,7 +6241,7 @@ export class JuiceManager {
     this.playTone({ frequency: 320, duration: 0.08, type: 'sine', volume: 0.05 });
   }
 
-  uiNotification(message: string, type: 'success' | 'error' | 'warning' | 'info') {
+  uiNotification(_message: string, type: 'success' | 'error' | 'warning' | 'info') {
     const colors =
       type === 'success'
         ? [0x5dd6a2, 0xc8ffe1]
@@ -6356,31 +6351,6 @@ export class JuiceManager {
   }
 
   // ─── Extra Particle Effects ───────────────────────────────────────────
-
-  private spawnCrossParticles(
-    worldX: number,
-    worldY: number,
-    { colors, count, radius }: { colors: number[]; count: number; radius: number },
-  ) {
-    for (let i = 0; i < count; i++) {
-      const angle = this.rng() * Math.PI * 2;
-      const dist = Phaser.Math.Between(radius * 0.3, radius);
-      const cx = worldX + Math.cos(angle) * dist;
-      const cy = worldY + Math.sin(angle) * dist;
-      const shape = this.scene.add.rectangle(cx, cy, 3, 3, Phaser.Utils.Array.GetRandom(colors));
-      shape.setDepth(22).setRotation(this.rng() * Math.PI);
-      this.particleLayer.add(shape);
-      this.scene.tweens.add({
-        targets: shape,
-        alpha: 0,
-        scale: 0,
-        angle: shape.rotation + Math.PI * 2,
-        duration: Phaser.Math.Between(200, 300),
-        ease: 'Cubic.easeOut',
-        onComplete: () => shape.destroy(),
-      });
-    }
-  }
 
   spawnStarBurst(worldX: number, worldY: number, color: number, count: number = 12) {
     for (let i = 0; i < count; i++) {
@@ -6807,7 +6777,7 @@ export class JuiceManager {
 
   // ─── Juice Manager Enhancement: Camera Tilt / Roll ────────────────────
 
-  cameraRoll(angle: number, _duration: number = 200) {
+  cameraRoll(_angle: number, _duration: number = 200) {
     // Quick flash for impact
     this.scene.cameras.main.flash(40, 255, 255, 255, true);
     this.playTone({
