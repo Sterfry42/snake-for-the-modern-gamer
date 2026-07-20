@@ -6348,7 +6348,7 @@ export default class SnakeScene extends Phaser.Scene {
     let depthChain = '';
     let p: Phaser.GameObjects.GameObject | undefined = btn as Phaser.GameObjects.GameObject;
     for (let i = 0; i < 10; i++) {
-      const pc = p?.parentContainer;
+      const pc: Phaser.GameObjects.Container | undefined = p?.parentContainer;
       if (!pc) break;
       depthChain += ` [${pc.constructor?.name ?? '?'} depth:${pc?.depth ?? '?'} visible:${pc?.visible ?? '?'} alpha:${pc?.alpha ?? '?'}]`;
       p = pc;
