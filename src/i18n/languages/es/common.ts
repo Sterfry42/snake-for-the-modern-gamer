@@ -298,8 +298,7 @@ export const COMMON_ES: CommonTranslations = {
   weatherClearDesc: 'El cielo está abierto. Las manzanas se comportan normalmente.',
   weatherRainDesc:
     'Lluvia constante. Manzanas nerviosas y koi se mueven más rápido y son difíciles de atrapar.',
-  weatherSnowDesc:
-    'La nieve cubre el mapa. Winterberry y frostapple solo aparecen con nieve.',
+  weatherSnowDesc: 'La nieve cubre el mapa. Winterberry y frostapple solo aparecen con nieve.',
   weatherFogDesc: 'La niebla densa reduce el área visible de juego.',
   weatherStormDesc:
     'Los rayos caen aleatoriamente. Las manzanas blindadas pueden absorber el impacto.',
@@ -348,10 +347,8 @@ export const COMMON_ES: CommonTranslations = {
   weatherShelterExposed: 'Expuesto',
   weatherShelterInterior: 'Interior',
   weatherShelterUnderground: 'Subterráneo',
-  weatherShelterExposedDesc:
-    'Estás expuesto a los elementos. El clima te afecta directamente.',
-  weatherShelterInteriorDesc:
-    'Estás dentro. Los efectos del clima se atenúan pero no desaparecen.',
+  weatherShelterExposedDesc: 'Estás expuesto a los elementos. El clima te afecta directamente.',
+  weatherShelterInteriorDesc: 'Estás dentro. Los efectos del clima se atenúan pero no desaparecen.',
   weatherShelterUndergroundDesc: 'Estás bajo tierra. El clima directo no te alcanza.',
   weatherIconSunny: 'soleado',
   weatherIconClearNight: 'noche despejada',

@@ -89,7 +89,7 @@ export type WorldEventType =
   | 'companion-bond-milestone'
   | 'companion-bred'
   | 'companion-trait-gained'
-  | 'animal-market-restocked'
+  | 'animal-market-restocked';
 
 export interface WorldEvent {
   id: string;

@@ -119,11 +119,7 @@ export class AlchemyStation {
 
     // Check if we have ingredients in the station OR in inventory
     const canCraft = recipe.ingredients.every(({ itemId, count }) => {
-      const stationCount = this.getStoredCount(itemId);
-      const inventoryCount = this.runtime.hasItem(itemId, count)
-        ? this.runtime as unknown as { getItemCount: (id: string) => number }
-        : { getItemCount: () => 0 };
-
+      this.getStoredCount(itemId);
       // Simplified: check if runtime has the item
       return this.runtime.hasItem(itemId, count);
     });

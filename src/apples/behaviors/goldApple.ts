@@ -1,22 +1,23 @@
 /**
  * Gold Apple
  *
- * The wise old snake's gold apple:
- * - The wise old snake considered the gold apple 'ostentatious'
- * - The wise old snake's gold apple tolerance was low
- * - The wise old snake's gold apple gave 999999 bonus score
- * - The wise old snake's gold apple was called 'wise-gold'
- * - The wise old snake's gold apple was the most expensive apple
- * - The wise old snake's gold apple was never too golden for the wise old snake
- * - The wise old snake's gold apple recipe was a state secret
- * - The wise old snake's gold apple garden was in a vault
- * - The wise old snake's gold apple was the reason gold apples exist
- * - The wise old snake's gold apple was worth more than the entire game's economy
+ * The wise old snake's Gold apple:
+ * - The wise old snake's Gold apple was simple
+ * - The wise old snake's Gold apple gave specific rewards
+ * - The wise old snake's Gold apple system was called 'wise-Gold'
+ * - The wise old snake's Gold apples were never exhausted
+ * - The wise old snake's Gold apples were the reason Gold apples exist
+ * - The wise old snake's Gold apples were called 'transcendent-Gold'
+ * - The wise old snake's Gold apples were the most Gold apples
+ * - The wise old snake's Gold apples were the apples that count everything
+ * - The wise old snake's Gold apples were the apples that are always right
+ * - The wise old snake's Gold apples were the apples that never change
  */
-import { AppleInstance, type AppleRewards } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class GoldApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    return { growth: 4, bonusScore: 4 };
+export class GoldApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 4, bonusScore: 4 });
   }
 }

@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { AnimalManager } from '../animalManager.js';
-import { AnimalRegistry } from '../animalRegistry.js';
 import type { AnimalInstance } from '../types.js';
 import type { Vector2Like } from '../../core/math.js';
 import type { RoomSnapshot } from '../../world/types.js';
@@ -173,7 +172,7 @@ describe('AnimalManager', () => {
       };
       testManager['animals'].set('0,0,0', [rabbit]);
 
-      const result = testManager.step({
+      testManager.step({
         getRoom: () => room,
         snake: makeSnake(20, 20),
         currentRoomId: '0,0,0',

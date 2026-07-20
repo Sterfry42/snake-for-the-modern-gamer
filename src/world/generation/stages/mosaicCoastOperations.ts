@@ -78,7 +78,9 @@ export class MosaicCoastOperations {
   }
 
   private shouldStructureWin(context: RoomGenerationContext): boolean {
-    return Boolean(context.town || context.townPerimeter || context.townMembership || context.townAdjacency);
+    return Boolean(
+      context.town || context.townPerimeter || context.townMembership || context.townAdjacency,
+    );
   }
 
   private createMetadata(): NonNullable<RoomGenerationContext['mosaicCoast']> {
@@ -107,10 +109,17 @@ export class MosaicCoastOperations {
     this.carveSharedDistrictThresholds(context);
   }
 
-  private paintBuildingShell(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): void {
+  private paintBuildingShell(
+    context: RoomGenerationContext,
+    plan: MosaicCoastDistrictRoomPlan,
+  ): void {
     const cols = context.grid.cols;
     const rows = context.grid.rows;
-    const dense = plan.zone === 'ruined-stucco-block' || plan.zone === 'old-town-alley' || plan.zone === 'tapas-courtyard' || plan.zone === 'gaudi-park-approach';
+    const dense =
+      plan.zone === 'ruined-stucco-block' ||
+      plan.zone === 'old-town-alley' ||
+      plan.zone === 'tapas-courtyard' ||
+      plan.zone === 'gaudi-park-approach';
     const borderDepth = dense ? 4 : 3;
 
     this.fillRect(context, 1, 1, cols - 2, borderDepth, '#');
@@ -141,16 +150,46 @@ export class MosaicCoastOperations {
 
     if (vertical) {
       this.fillRect(context, primary - Math.floor(primaryWidth / 2), 0, primaryWidth, rows, '.');
-      this.fillRect(context, 0, secondary - Math.floor(secondaryWidth / 2), cols, secondaryWidth, '.');
+      this.fillRect(
+        context,
+        0,
+        secondary - Math.floor(secondaryWidth / 2),
+        cols,
+        secondaryWidth,
+        '.',
+      );
     } else {
       this.fillRect(context, 0, primary - Math.floor(primaryWidth / 2), cols, primaryWidth, '.');
-      this.fillRect(context, secondary - Math.floor(secondaryWidth / 2), 0, secondaryWidth, rows, '.');
+      this.fillRect(
+        context,
+        secondary - Math.floor(secondaryWidth / 2),
+        0,
+        secondaryWidth,
+        rows,
+        '.',
+      );
     }
 
-    this.carveAlleyMouth(context, 'north', plan.alleyMouths.north || plan.region.entrySide === 'north');
-    this.carveAlleyMouth(context, 'south', plan.alleyMouths.south || plan.region.entrySide === 'south');
-    this.carveAlleyMouth(context, 'east', plan.alleyMouths.east || plan.region.entrySide === 'east');
-    this.carveAlleyMouth(context, 'west', plan.alleyMouths.west || plan.region.entrySide === 'west');
+    this.carveAlleyMouth(
+      context,
+      'north',
+      plan.alleyMouths.north || plan.region.entrySide === 'north',
+    );
+    this.carveAlleyMouth(
+      context,
+      'south',
+      plan.alleyMouths.south || plan.region.entrySide === 'south',
+    );
+    this.carveAlleyMouth(
+      context,
+      'east',
+      plan.alleyMouths.east || plan.region.entrySide === 'east',
+    );
+    this.carveAlleyMouth(
+      context,
+      'west',
+      plan.alleyMouths.west || plan.region.entrySide === 'west',
+    );
   }
 
   private paintCrossRoomDistrictContinuity(
@@ -203,11 +242,21 @@ export class MosaicCoastOperations {
     if (hash % 3 === 0) {
       this.fillRect(context, x, Math.min(context.grid.rows - 1, y + height), width, 1, 'a');
     } else if (hash % 3 === 1) {
-      this.fillRect(context, Math.min(context.grid.cols - 1, x + width), y + 1, 1, Math.max(2, height - 1), 'b');
+      this.fillRect(
+        context,
+        Math.min(context.grid.cols - 1, x + width),
+        y + 1,
+        1,
+        Math.max(2, height - 1),
+        'b',
+      );
     }
   }
 
-  private markBuildingEdgeShade(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): void {
+  private markBuildingEdgeShade(
+    context: RoomGenerationContext,
+    plan: MosaicCoastDistrictRoomPlan,
+  ): void {
     for (let y = 1; y < context.grid.rows - 1; y += 1) {
       for (let x = 1; x < context.grid.cols - 1; x += 1) {
         if (context.layout[y]?.[x] !== '.') {
@@ -215,7 +264,7 @@ export class MosaicCoastOperations {
         }
         const northWall = context.layout[y - 1]?.[x] === '#';
         const westWall = context.layout[y]?.[x - 1] === '#';
-        if ((northWall || westWall) && (this.hashLocal(context, plan, x * 31 + y) % 3 !== 0)) {
+        if ((northWall || westWall) && this.hashLocal(context, plan, x * 31 + y) % 3 !== 0) {
           context.canvas.set(x, y, 'b');
         }
       }
@@ -224,12 +273,18 @@ export class MosaicCoastOperations {
 
   private alleyColumn(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): number {
     const [roomX = 0, roomY = 0] = context.roomId.split(',').map(Number);
-    return 9 + (this.hashLocal(context, plan, roomX * 13 + roomY * 7) % Math.max(1, context.grid.cols - 18));
+    return (
+      9 +
+      (this.hashLocal(context, plan, roomX * 13 + roomY * 7) % Math.max(1, context.grid.cols - 18))
+    );
   }
 
   private alleyRow(context: RoomGenerationContext, plan: MosaicCoastDistrictRoomPlan): number {
     const [roomX = 0, roomY = 0] = context.roomId.split(',').map(Number);
-    return 7 + (this.hashLocal(context, plan, roomX * 17 + roomY * 11) % Math.max(1, context.grid.rows - 14));
+    return (
+      7 +
+      (this.hashLocal(context, plan, roomX * 17 + roomY * 11) % Math.max(1, context.grid.rows - 14))
+    );
   }
 
   private applyDistrictZone(
@@ -305,7 +360,12 @@ export class MosaicCoastOperations {
       { x: 9, y: 17 },
       { x: 22, y: 17 },
     ].forEach((tree) => this.placeCanopyTree(context, tree.x, tree.y));
-    this.placeFountain(context, Math.floor(context.grid.cols / 2), Math.floor(context.grid.rows / 2), 2);
+    this.placeFountain(
+      context,
+      Math.floor(context.grid.cols / 2),
+      Math.floor(context.grid.rows / 2),
+      2,
+    );
   }
 
   private applyAwningAlley(context: RoomGenerationContext, rng: RandomGenerator): void {
@@ -355,7 +415,12 @@ export class MosaicCoastOperations {
     this.fillRect(context, 19, 16, 8, 4, '#');
     this.fillRect(context, 7, 8, 6, 2, 'a');
     this.fillRect(context, 19, 14, 8, 2, 'b');
-    this.placeFountain(context, Math.floor(context.grid.cols / 2), Math.floor(context.grid.rows / 2), 2);
+    this.placeFountain(
+      context,
+      Math.floor(context.grid.cols / 2),
+      Math.floor(context.grid.rows / 2),
+      2,
+    );
   }
 
   private applyFountainCourt(context: RoomGenerationContext): void {
@@ -413,7 +478,12 @@ export class MosaicCoastOperations {
     if ((context.mosaicCoast?.fountains.length ?? 0) > 0) {
       return;
     }
-    this.placeFountain(context, Math.floor(context.grid.cols / 2), Math.floor(context.grid.rows / 2), 2);
+    this.placeFountain(
+      context,
+      Math.floor(context.grid.cols / 2),
+      Math.floor(context.grid.rows / 2),
+      2,
+    );
   }
 
   private addFairnessCoolingPockets(
@@ -538,7 +608,11 @@ export class MosaicCoastOperations {
     ];
   }
 
-  private placeCoolingPocket(context: RoomGenerationContext, centerX: number, centerY: number): void {
+  private placeCoolingPocket(
+    context: RoomGenerationContext,
+    centerX: number,
+    centerY: number,
+  ): void {
     const cells: Vector2Like[] = [];
     for (let y = centerY - 1; y <= centerY + 1; y += 1) {
       for (let x = centerX - 1; x <= centerX + 1; x += 1) {

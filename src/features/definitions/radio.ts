@@ -148,11 +148,8 @@ export class RadioFeature extends Feature {
       this.hudText.setAlpha(0.6 + this.tuneFlashAlpha * 0.4);
 
       // Position below coordinates
-      const scoreFeature = scene.getFeature('coreScore');
       const coordsFeature = scene.getFeature('coordinates');
-      const coordsY = coordsFeature
-        ? (coordsFeature as any).getBottomY?.() ?? 30
-        : 30;
+      const coordsY = coordsFeature ? ((coordsFeature as any).getBottomY?.() ?? 30) : 30;
       this.hudText.setPosition(10, coordsY + 18);
     }
   }
@@ -221,7 +218,7 @@ export class RadioFeature extends Feature {
   }
 
   /** Apply station buffs to the scene. */
-  applyStationBuffs(scene: SnakeScene): { tickDelayScalar: number; scoreMultiplier: number } {
+  applyStationBuffs(_scene: SnakeScene): { tickDelayScalar: number; scoreMultiplier: number } {
     const station = this.getStation();
     return {
       tickDelayScalar: station.tickDelayScalar ?? 1,

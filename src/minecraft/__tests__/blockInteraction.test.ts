@@ -1,15 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
-  tryBreakBlock,
   tryPlaceBlock,
   tryBreakBlockCreative,
   tryPlaceBlockCreative,
-  type BreakResult,
-  type PlaceResult,
 } from '../blockInteraction.js';
 import { MinecraftPlayer } from '../player.js';
 import type { RoomSnapshot } from '../../world/types.js';
-import type SnakeScene from '../../scenes/snakeScene.js';
 
 // Create a minimal mock scene for testing
 function createMockScene(): any {

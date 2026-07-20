@@ -12,10 +12,7 @@ function roomId(coord: RoomCoord): string {
   return `${coord.x},${coord.y},${coord.z}`;
 }
 
-function generateRoomsWithGenerator(
-  seed: string,
-  coords: RoomCoord[],
-): Map<string, RoomSnapshot> {
+function generateRoomsWithGenerator(seed: string, coords: RoomCoord[]): Map<string, RoomSnapshot> {
   const identity = createWorldGenerationIdentity(seed);
   const rng = createRng(seed);
   const generator = new RoomGenerator(defaultGameConfig.world, rng, identity);
@@ -26,18 +23,10 @@ function generateRoomsWithGenerator(
   return rooms;
 }
 
-function generateRoomsWithService(
-  seed: string,
-  coords: RoomCoord[],
-): Map<string, RoomSnapshot> {
+function generateRoomsWithService(seed: string, coords: RoomCoord[]): Map<string, RoomSnapshot> {
   const identity = createWorldGenerationIdentity(seed);
   const rng = createRng(seed);
-  const service = new WorldService(
-    defaultGameConfig.grid,
-    defaultGameConfig.world,
-    rng,
-    identity,
-  );
+  const service = new WorldService(defaultGameConfig.grid, defaultGameConfig.world, rng, identity);
   const rooms = new Map<string, RoomSnapshot>();
   for (const coord of coords) {
     rooms.set(roomId(coord), service.getRoom(roomId(coord)));
@@ -79,50 +68,38 @@ function snapshotRoom(room: RoomSnapshot): Record<string, unknown> {
         }
       : null,
     town: room.town
-      ? { id: room.town.id, name: room.town.name, districtCount: Object.keys(room.town.districtByRoomId).length }
+      ? {
+          id: room.town.id,
+          name: room.town.name,
+          districtCount: Object.keys(room.town.districtByRoomId).length,
+        }
       : null,
-    townPerimeter: room.townPerimeter
-      ? { townId: room.townPerimeter.townId }
-      : null,
-    snakeMcDonalds: room.snakeMcDonalds
-      ? { cashier: room.snakeMcDonalds.cashier }
-      : null,
+    townPerimeter: room.townPerimeter ? { townId: room.townPerimeter.townId } : null,
+    snakeMcDonalds: room.snakeMcDonalds ? { cashier: room.snakeMcDonalds.cashier } : null,
     shrine: room.shrine ? { hasBlessings: room.shrine.hasBlessings } : null,
-    ramenStand: room.ramenStand
-      ? { sellsRamen: room.ramenStand.sellsRamen }
-      : null,
+    ramenStand: room.ramenStand ? { sellsRamen: room.ramenStand.sellsRamen } : null,
     koiPond: room.koiPond
       ? { center: room.koiPond.center, waterTileCount: room.koiPond.waterTiles.length }
       : null,
     motelPool: room.motelPool
       ? { center: room.motelPool.center, waterTileCount: room.motelPool.waterTiles.length }
       : null,
-    tenguCamp: room.tenguCamp
-      ? { featherCount: room.tenguCamp.feathers.length }
-      : null,
+    tenguCamp: room.tenguCamp ? { featherCount: room.tenguCamp.feathers.length } : null,
     roadsideMonument: room.roadsideMonument
       ? { monumentName: room.roadsideMonument.monumentName }
       : null,
-    allNiteDiner: room.allNiteDiner
-      ? { dinerName: room.allNiteDiner.dinerName }
-      : null,
-    fireworkStand: room.fireworkStand
-      ? { standName: room.fireworkStand.standName }
-      : null,
-    jackalopeLodge: room.jackalopeLodge
-      ? { lodgeName: room.jackalopeLodge.lodgeName }
-      : null,
-    gridironYard: room.gridironYard
-      ? { fieldName: room.gridironYard.fieldName }
-      : null,
-    billboardOracle: room.billboardOracle
-      ? { slogan: room.billboardOracle.slogan }
-      : null,
-    roadCrew: room.roadCrew
-      ? { roadName: room.roadCrew.roadName }
-      : null,
+    allNiteDiner: room.allNiteDiner ? { dinerName: room.allNiteDiner.dinerName } : null,
+    fireworkStand: room.fireworkStand ? { standName: room.fireworkStand.standName } : null,
+    jackalopeLodge: room.jackalopeLodge ? { lodgeName: room.jackalopeLodge.lodgeName } : null,
+    gridironYard: room.gridironYard ? { fieldName: room.gridironYard.fieldName } : null,
+    billboardOracle: room.billboardOracle ? { slogan: room.billboardOracle.slogan } : null,
+    roadCrew: room.roadCrew ? { roadName: room.roadCrew.roadName } : null,
     molemanDigSite: room.molemanDigSite
-      ? { id: room.molemanDigSite.id, name: room.molemanDigSite.name, variantId: room.molemanDigSite.variantId }
+      ? {
+          id: room.molemanDigSite.id,
+          name: room.molemanDigSite.name,
+          variantId: room.molemanDigSite.variantId,
+        }
       : null,
     temperatureReliefs: room.temperatureReliefs ?? null,
     vegetation: room.vegetation ?? null,
@@ -178,14 +155,23 @@ function portalsMatch(a: RoomSnapshot['portals'], b: RoomSnapshot['portals']): b
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
-    if (a[i].x !== b[i].x || a[i].y !== b[i].y || a[i].destRoomId !== b[i].destRoomId || a[i].destX !== b[i].destX || a[i].destY !== b[i].destY) {
+    if (
+      a[i].x !== b[i].x ||
+      a[i].y !== b[i].y ||
+      a[i].destRoomId !== b[i].destRoomId ||
+      a[i].destX !== b[i].destX ||
+      a[i].destY !== b[i].destY
+    ) {
       return false;
     }
   }
   return true;
 }
 
-function vectorLikeMatch(a: { x: number; y: number } | undefined, b: { x: number; y: number } | undefined): boolean {
+function vectorLikeMatch(
+  a: { x: number; y: number } | undefined,
+  b: { x: number; y: number } | undefined,
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   return a.x === b.x && a.y === b.y;
@@ -197,7 +183,10 @@ function powerupMatch(a: RoomSnapshot['powerup'], b: RoomSnapshot['powerup']): b
   return a.x === b.x && a.y === b.y && a.kind === b.kind;
 }
 
-function caveEntrancesMatch(a: RoomSnapshot['caveEntrances'], b: RoomSnapshot['caveEntrances']): boolean {
+function caveEntrancesMatch(
+  a: RoomSnapshot['caveEntrances'],
+  b: RoomSnapshot['caveEntrances'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
@@ -207,7 +196,10 @@ function caveEntrancesMatch(a: RoomSnapshot['caveEntrances'], b: RoomSnapshot['c
   return true;
 }
 
-function layerEntrancesMatch(a: RoomSnapshot['layerEntrances'], b: RoomSnapshot['layerEntrances']): boolean {
+function layerEntrancesMatch(
+  a: RoomSnapshot['layerEntrances'],
+  b: RoomSnapshot['layerEntrances'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
@@ -232,7 +224,13 @@ function villageMatch(a: RoomSnapshot['village'], b: RoomSnapshot['village']): b
   if (!a || !b) return false;
   if (a.name !== b.name) return false;
   if (a.center.x !== b.center.x || a.center.y !== b.center.y) return false;
-  if (a.safeArea.left !== b.safeArea.left || a.safeArea.top !== b.safeArea.top || a.safeArea.width !== b.safeArea.width || a.safeArea.height !== b.safeArea.height) return false;
+  if (
+    a.safeArea.left !== b.safeArea.left ||
+    a.safeArea.top !== b.safeArea.top ||
+    a.safeArea.width !== b.safeArea.width ||
+    a.safeArea.height !== b.safeArea.height
+  )
+    return false;
   if (a.lanterns.length !== b.lanterns.length) return false;
   for (let i = 0; i < a.lanterns.length; i++) {
     if (a.lanterns[i].x !== b.lanterns[i].x || a.lanterns[i].y !== b.lanterns[i].y) return false;
@@ -246,8 +244,19 @@ function goblinCampMatch(a: RoomSnapshot['goblinCamp'], b: RoomSnapshot['goblinC
   if (!a || !b) return false;
   if (a.id !== b.id || a.name !== b.name) return false;
   if (a.center.x !== b.center.x || a.center.y !== b.center.y) return false;
-  if (a.safeArea.left !== b.safeArea.left || a.safeArea.top !== b.safeArea.top || a.safeArea.width !== b.safeArea.width || a.safeArea.height !== b.safeArea.height) return false;
-  if (a.tents.length !== b.tents.length || a.fires.length !== b.fires.length || a.guards.length !== b.guards.length) return false;
+  if (
+    a.safeArea.left !== b.safeArea.left ||
+    a.safeArea.top !== b.safeArea.top ||
+    a.safeArea.width !== b.safeArea.width ||
+    a.safeArea.height !== b.safeArea.height
+  )
+    return false;
+  if (
+    a.tents.length !== b.tents.length ||
+    a.fires.length !== b.fires.length ||
+    a.guards.length !== b.guards.length
+  )
+    return false;
   return true;
 }
 
@@ -255,22 +264,40 @@ function townMatch(a: RoomSnapshot['town'], b: RoomSnapshot['town']): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.id !== b.id || a.name !== b.name) return false;
-  if (Object.keys(a.districtByRoomId).length !== Object.keys(b.districtByRoomId).length) return false;
+  if (Object.keys(a.districtByRoomId).length !== Object.keys(b.districtByRoomId).length)
+    return false;
   return true;
 }
 
-function townPerimeterMatch(a: RoomSnapshot['townPerimeter'], b: RoomSnapshot['townPerimeter']): boolean {
+function townPerimeterMatch(
+  a: RoomSnapshot['townPerimeter'],
+  b: RoomSnapshot['townPerimeter'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.townId !== b.townId) return false;
   return true;
 }
 
-function snakeMcDonaldsMatch(a: RoomSnapshot['snakeMcDonalds'], b: RoomSnapshot['snakeMcDonalds']): boolean {
+function snakeMcDonaldsMatch(
+  a: RoomSnapshot['snakeMcDonalds'],
+  b: RoomSnapshot['snakeMcDonalds'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
-  if (a.cashier.x !== b.cashier.x || a.cashier.y !== b.cashier.y || a.cashier.name !== b.cashier.name) return false;
-  if (a.bounds.left !== b.bounds.left || a.bounds.top !== b.bounds.top || a.bounds.width !== b.bounds.width || a.bounds.height !== b.bounds.height) return false;
+  if (
+    a.cashier.x !== b.cashier.x ||
+    a.cashier.y !== b.cashier.y ||
+    a.cashier.name !== b.cashier.name
+  )
+    return false;
+  if (
+    a.bounds.left !== b.bounds.left ||
+    a.bounds.top !== b.bounds.top ||
+    a.bounds.width !== b.bounds.width ||
+    a.bounds.height !== b.bounds.height
+  )
+    return false;
   return true;
 }
 
@@ -312,7 +339,10 @@ function tenguCampMatch(a: RoomSnapshot['tenguCamp'], b: RoomSnapshot['tenguCamp
   return true;
 }
 
-function roadsideMonumentMatch(a: RoomSnapshot['roadsideMonument'], b: RoomSnapshot['roadsideMonument']): boolean {
+function roadsideMonumentMatch(
+  a: RoomSnapshot['roadsideMonument'],
+  b: RoomSnapshot['roadsideMonument'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.monumentName !== b.monumentName) return false;
@@ -320,21 +350,30 @@ function roadsideMonumentMatch(a: RoomSnapshot['roadsideMonument'], b: RoomSnaps
   return true;
 }
 
-function allNiteDinerMatch(a: RoomSnapshot['allNiteDiner'], b: RoomSnapshot['allNiteDiner']): boolean {
+function allNiteDinerMatch(
+  a: RoomSnapshot['allNiteDiner'],
+  b: RoomSnapshot['allNiteDiner'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.dinerName !== b.dinerName) return false;
   return true;
 }
 
-function fireworkStandMatch(a: RoomSnapshot['fireworkStand'], b: RoomSnapshot['fireworkStand']): boolean {
+function fireworkStandMatch(
+  a: RoomSnapshot['fireworkStand'],
+  b: RoomSnapshot['fireworkStand'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.standName !== b.standName) return false;
   return true;
 }
 
-function jackalopeLodgeMatch(a: RoomSnapshot['jackalopeLodge'], b: RoomSnapshot['jackalopeLodge']): boolean {
+function jackalopeLodgeMatch(
+  a: RoomSnapshot['jackalopeLodge'],
+  b: RoomSnapshot['jackalopeLodge'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.lodgeName !== b.lodgeName) return false;
@@ -342,7 +381,10 @@ function jackalopeLodgeMatch(a: RoomSnapshot['jackalopeLodge'], b: RoomSnapshot[
   return true;
 }
 
-function gridironYardMatch(a: RoomSnapshot['gridironYard'], b: RoomSnapshot['gridironYard']): boolean {
+function gridironYardMatch(
+  a: RoomSnapshot['gridironYard'],
+  b: RoomSnapshot['gridironYard'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.fieldName !== b.fieldName) return false;
@@ -350,7 +392,10 @@ function gridironYardMatch(a: RoomSnapshot['gridironYard'], b: RoomSnapshot['gri
   return true;
 }
 
-function billboardOracleMatch(a: RoomSnapshot['billboardOracle'], b: RoomSnapshot['billboardOracle']): boolean {
+function billboardOracleMatch(
+  a: RoomSnapshot['billboardOracle'],
+  b: RoomSnapshot['billboardOracle'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.slogan !== b.slogan) return false;
@@ -364,15 +409,27 @@ function roadCrewMatch(a: RoomSnapshot['roadCrew'], b: RoomSnapshot['roadCrew'])
   return true;
 }
 
-function molemanDigSiteMatch(a: RoomSnapshot['molemanDigSite'], b: RoomSnapshot['molemanDigSite']): boolean {
+function molemanDigSiteMatch(
+  a: RoomSnapshot['molemanDigSite'],
+  b: RoomSnapshot['molemanDigSite'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.id !== b.id || a.name !== b.name || a.variantId !== b.variantId) return false;
-  if (a.bounds.left !== b.bounds.left || a.bounds.top !== b.bounds.top || a.bounds.width !== b.bounds.width || a.bounds.height !== b.bounds.height) return false;
+  if (
+    a.bounds.left !== b.bounds.left ||
+    a.bounds.top !== b.bounds.top ||
+    a.bounds.width !== b.bounds.width ||
+    a.bounds.height !== b.bounds.height
+  )
+    return false;
   return true;
 }
 
-function tempReliefsMatch(a: RoomSnapshot['temperatureReliefs'], b: RoomSnapshot['temperatureReliefs']): boolean {
+function tempReliefsMatch(
+  a: RoomSnapshot['temperatureReliefs'],
+  b: RoomSnapshot['temperatureReliefs'],
+): boolean {
   if (!a && !b) return true;
   if (!a || !b) return false;
   if (a.length !== b.length) return false;
@@ -462,31 +519,43 @@ describe('deterministic seed test harness', () => {
       let flavorDifferences12 = 0;
       let flavorDifferences13 = 0;
       let flavorDifferences23 = 0;
-      let totalRooms = 0;
+      let _totalRooms = 0;
 
       for (const [id, room] of first) {
         const other1 = second.get(id);
         const other2 = third.get(id);
-        totalRooms++;
+        _totalRooms++;
 
         // Check vegetation differences
         if (other1 && room.vegetation && other1.vegetation) {
-          if (room.vegetation.length !== other1.vegetation.length ||
-              room.vegetation.some((v, i) => v.x !== other1.vegetation![i].x || v.y !== other1.vegetation![i].y)) {
+          if (
+            room.vegetation.length !== other1.vegetation.length ||
+            room.vegetation.some(
+              (v, i) => v.x !== other1.vegetation![i].x || v.y !== other1.vegetation![i].y,
+            )
+          ) {
             flavorDifferences12++;
           }
         }
 
         if (other2 && room.vegetation && other2.vegetation) {
-          if (room.vegetation.length !== other2.vegetation.length ||
-              room.vegetation.some((v, i) => v.x !== other2.vegetation![i].x || v.y !== other2.vegetation![i].y)) {
+          if (
+            room.vegetation.length !== other2.vegetation.length ||
+            room.vegetation.some(
+              (v, i) => v.x !== other2.vegetation![i].x || v.y !== other2.vegetation![i].y,
+            )
+          ) {
             flavorDifferences13++;
           }
         }
 
         if (other1 && other2 && other1.vegetation && other2.vegetation) {
-          if (other1.vegetation.length !== other2.vegetation.length ||
-              other1.vegetation.some((v, i) => v.x !== other2.vegetation![i].x || v.y !== other2.vegetation![i].y)) {
+          if (
+            other1.vegetation.length !== other2.vegetation.length ||
+            other1.vegetation.some(
+              (v, i) => v.x !== other2.vegetation![i].x || v.y !== other2.vegetation![i].y,
+            )
+          ) {
             flavorDifferences23++;
           }
         }

@@ -3,7 +3,7 @@ import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
 import type { WorldService } from '../world/worldService.js';
 import type { SpecialStats } from '../stats/specialTypes.js';
-import type { AtmosphereState, GlobalWeather, Season } from '../world/atmosphereTypes.js';
+import type { AtmosphereState } from '../world/atmosphereTypes.js';
 import { createDefaultSpecialStats } from '../stats/specialStats.js';
 import { getEligibleAppleWeights } from '../stats/appleSpecial.js';
 import { getSpawnPolicy } from '../world/safeZones.js';
@@ -563,11 +563,24 @@ export class AppleService {
           case 'spring':
             return { ...defaultModifiers, bonusApples: new Set(['lavender', 'love']) };
           case 'summer':
-            return { ...defaultModifiers, spawnRateScalar: 1.1, bonusApples: new Set(['caffeinated', 'treat']) };
+            return {
+              ...defaultModifiers,
+              spawnRateScalar: 1.1,
+              bonusApples: new Set(['caffeinated', 'treat']),
+            };
           case 'autumn':
-            return { ...defaultModifiers, visibilityScalar: 0.9, bonusApples: new Set(['mochi', 'yuzu']) };
+            return {
+              ...defaultModifiers,
+              visibilityScalar: 0.9,
+              bonusApples: new Set(['mochi', 'yuzu']),
+            };
           case 'winter':
-            return { ...defaultModifiers, spawnRateScalar: 0.85, visibilityScalar: 0.8, bonusApples: new Set(['wasabi']) };
+            return {
+              ...defaultModifiers,
+              spawnRateScalar: 0.85,
+              visibilityScalar: 0.8,
+              bonusApples: new Set(['wasabi']),
+            };
           default:
             return defaultModifiers;
         }

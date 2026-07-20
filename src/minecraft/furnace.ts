@@ -119,15 +119,21 @@ export function tryLoadFurnace(
   }
 
   if (furnace.inputItem) {
-    return { success: false, message: 'Furnace is processing. Wait for it to finish or collect output.' };
+    return {
+      success: false,
+      message: 'Furnace is processing. Wait for it to finish or collect output.',
+    };
   }
 
-  return { success: false, message: 'Place coal or wood to fuel the furnace, or an item to smelt.' };
+  return {
+    success: false,
+    message: 'Place coal or wood to fuel the furnace, or an item to smelt.',
+  };
 }
 
 export function tickFurnaces(
   furnaces: Map<string, FurnaceState>,
-  playerInventory: Array<{ itemId: string; count: number }>,
+  _playerInventory: Array<{ itemId: string; count: number }>,
 ): void {
   for (const furnace of furnaces.values()) {
     // Burn fuel

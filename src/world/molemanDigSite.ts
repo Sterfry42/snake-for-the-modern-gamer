@@ -1,7 +1,6 @@
 import type { GridConfig } from '../config/gameConfig.js';
 import type { RandomGenerator } from '../core/rng.js';
 import { vectorKey } from '../core/math.js';
-import type { DigSiteVariantId } from '../archaeology/molemanArchaeology.js';
 import { chooseDigSiteVariant } from '../archaeology/molemanArchaeology.js';
 import type { RoomSnapshot } from './types.js';
 

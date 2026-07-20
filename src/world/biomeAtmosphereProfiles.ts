@@ -475,7 +475,11 @@ export const BIOME_ATMOSPHERE_PROFILES: Record<BiomeId, BiomeAtmosphereProfile> 
         juice: ['sand-shift'],
         gameplay: { lightningProfile: RARE_TELEGRAPHED_LIGHTNING },
       },
-      fog: { localVisual: 'sandStorm', juice: ['dust-gusts'], gameplay: { visibilityScalar: 0.75 } },
+      fog: {
+        localVisual: 'sandStorm',
+        juice: ['dust-gusts'],
+        gameplay: { visibilityScalar: 0.75 },
+      },
       heatwave: {
         localVisual: 'heatHaze',
         juice: ['heat-haze'],

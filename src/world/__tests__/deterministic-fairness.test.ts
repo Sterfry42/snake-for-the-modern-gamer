@@ -37,234 +37,288 @@ describe('deterministic fairness tests', () => {
   const testCoords = buildTestCoords();
 
   describe('sequential seed diversity', () => {
-    it('no two sequential seeds produce identical vegetation in all rooms', () => {
-      const seeds = 50;
-      const vegetationBySeed = new Map<number, Map<string, string>>();
+    it(
+      'no two sequential seeds produce identical vegetation in all rooms',
+      () => {
+        const seeds = 50;
+        const vegetationBySeed = new Map<number, Map<string, string>>();
 
-      for (let i = 0; i < seeds; i++) {
-        const seed = `fairness-seq-${i}`;
-        const vegetation = new Map<string, string>();
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          vegetation.set(
-            roomId(coord),
-            JSON.stringify(
-              (room.vegetation ?? []).map(({ x, y, variant }) => ({
-                x,
-                y,
-                variant,
-              })),
-            ),
-          );
-        }
-        vegetationBySeed.set(i, vegetation);
-      }
-
-      // Compare each pair of adjacent seeds
-      for (let i = 0; i < seeds - 1; i++) {
-        const first = vegetationBySeed.get(i)!;
-        const second = vegetationBySeed.get(i + 1)!;
-        let different = false;
-        for (const [id, count] of first) {
-          if (count !== second.get(id)) {
-            different = true;
-            break;
+        for (let i = 0; i < seeds; i++) {
+          const seed = `fairness-seq-${i}`;
+          const vegetation = new Map<string, string>();
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            vegetation.set(
+              roomId(coord),
+              JSON.stringify(
+                (room.vegetation ?? []).map(({ x, y, variant }) => ({
+                  x,
+                  y,
+                  variant,
+                })),
+              ),
+            );
           }
+          vegetationBySeed.set(i, vegetation);
         }
-        expect(different).toBe(true);
-      }
-    }, longRunningWorldTestTimeout);
 
-    it('50 sequential seeds all produce valid worlds (no crashes)', () => {
-      for (let i = 0; i < 50; i++) {
-        const seed = `validity-seq-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          expect(room.layout.length).toBe(defaultGameConfig.grid.rows);
-          for (const row of room.layout) {
-            expect(row.length).toBe(defaultGameConfig.grid.cols);
+        // Compare each pair of adjacent seeds
+        for (let i = 0; i < seeds - 1; i++) {
+          const first = vegetationBySeed.get(i)!;
+          const second = vegetationBySeed.get(i + 1)!;
+          let different = false;
+          for (const [id, count] of first) {
+            if (count !== second.get(id)) {
+              different = true;
+              break;
+            }
           }
+          expect(different).toBe(true);
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
 
-    it('100 sequential seeds maintain consistent origin room biome', () => {
-      const biomes = new Set<string>();
-      for (let i = 0; i < 100; i++) {
-        const seed = `origin-biome-${i}`;
-        const room = generateRoomWithSeed(seed, origin);
-        biomes.add(room.biomeId);
-      }
-      // Origin room biome is coordinate-dependent, should be the same
-      expect(biomes.size).toBe(1);
-    }, longRunningWorldTestTimeout);
-
-    it('100 sequential seeds maintain consistent origin room archetype', () => {
-      const archetypes = new Set<string>();
-      for (let i = 0; i < 100; i++) {
-        const seed = `origin-arch-${i}`;
-        const room = generateRoomWithSeed(seed, origin);
-        archetypes.add(room.archetypeId ?? 'undefined');
-      }
-      // Origin room should consistently be 'classic' archetype
-      expect(archetypes.has('classic')).toBe(true);
-      expect(archetypes.size).toBe(1);
-    }, longRunningWorldTestTimeout);
-
-    it('100 sequential seeds never produce completely blocked worlds', () => {
-      for (let i = 0; i < 100; i++) {
-        const seed = `no-blocked-${i}`;
-        let hasPassable = false;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          const passable = room.layout.some((row) =>
-            row.split('').some((ch) => ch !== '#'),
-          );
-          if (passable) {
-            hasPassable = true;
-            break;
-          }
-        }
-        expect(hasPassable).toBe(true);
-      }
-    }, longRunningWorldTestTimeout);
-
-    it('100 sequential seeds maintain consistent coordinate-dependent features', () => {
-      const coords = [
-        { x: 0, y: 0, z: 0 },
-        { x: 3, y: -1, z: 0 },
-        { x: 0, y: -9, z: 0 },
-      ];
-
-      for (const coord of coords) {
-        const expectedBiome = getBiomeForRoom(roomId(coord)).id;
-
+    it(
+      '50 sequential seeds all produce valid worlds (no crashes)',
+      () => {
         for (let i = 0; i < 50; i++) {
-          const seed = `coord-feature-${i}`;
-          const room = generateRoomWithSeed(seed, coord);
-          expect(room.biomeId).toBe(expectedBiome);
+          const seed = `validity-seq-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            expect(room.layout.length).toBe(defaultGameConfig.grid.rows);
+            for (const row of room.layout) {
+              expect(row.length).toBe(defaultGameConfig.grid.cols);
+            }
+          }
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
 
-    it('100 sequential seeds produce rooms with at least some passable tiles', () => {
-      for (let i = 0; i < 100; i++) {
-        const seed = `passable-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          const hasPassable = room.layout.some((row) =>
-            row.split('').some((ch) => ch !== '#'),
-          );
+    it(
+      '100 sequential seeds maintain consistent origin room biome',
+      () => {
+        const biomes = new Set<string>();
+        for (let i = 0; i < 100; i++) {
+          const seed = `origin-biome-${i}`;
+          const room = generateRoomWithSeed(seed, origin);
+          biomes.add(room.biomeId);
+        }
+        // Origin room biome is coordinate-dependent, should be the same
+        expect(biomes.size).toBe(1);
+      },
+      longRunningWorldTestTimeout,
+    );
+
+    it(
+      '100 sequential seeds maintain consistent origin room archetype',
+      () => {
+        const archetypes = new Set<string>();
+        for (let i = 0; i < 100; i++) {
+          const seed = `origin-arch-${i}`;
+          const room = generateRoomWithSeed(seed, origin);
+          archetypes.add(room.archetypeId ?? 'undefined');
+        }
+        // Origin room should consistently be 'classic' archetype
+        expect(archetypes.has('classic')).toBe(true);
+        expect(archetypes.size).toBe(1);
+      },
+      longRunningWorldTestTimeout,
+    );
+
+    it(
+      '100 sequential seeds never produce completely blocked worlds',
+      () => {
+        for (let i = 0; i < 100; i++) {
+          const seed = `no-blocked-${i}`;
+          let hasPassable = false;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            const passable = room.layout.some((row) => row.split('').some((ch) => ch !== '#'));
+            if (passable) {
+              hasPassable = true;
+              break;
+            }
+          }
           expect(hasPassable).toBe(true);
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
+
+    it(
+      '100 sequential seeds maintain consistent coordinate-dependent features',
+      () => {
+        const coords = [
+          { x: 0, y: 0, z: 0 },
+          { x: 3, y: -1, z: 0 },
+          { x: 0, y: -9, z: 0 },
+        ];
+
+        for (const coord of coords) {
+          const expectedBiome = getBiomeForRoom(roomId(coord)).id;
+
+          for (let i = 0; i < 50; i++) {
+            const seed = `coord-feature-${i}`;
+            const room = generateRoomWithSeed(seed, coord);
+            expect(room.biomeId).toBe(expectedBiome);
+          }
+        }
+      },
+      longRunningWorldTestTimeout,
+    );
+
+    it(
+      '100 sequential seeds produce rooms with at least some passable tiles',
+      () => {
+        for (let i = 0; i < 100; i++) {
+          const seed = `passable-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            const hasPassable = room.layout.some((row) => row.split('').some((ch) => ch !== '#'));
+            expect(hasPassable).toBe(true);
+          }
+        }
+      },
+      longRunningWorldTestTimeout,
+    );
   });
 
   describe('biome distribution', () => {
-    it('biome types are within expected ranges across 100 seeds', () => {
-      const biomeCounts = new Map<string, number>();
-      const totalRooms = 100 * testCoords.length;
+    it(
+      'biome types are within expected ranges across 100 seeds',
+      () => {
+        const biomeCounts = new Map<string, number>();
+        const totalRooms = 100 * testCoords.length;
 
-      for (let i = 0; i < 100; i++) {
-        const seed = `biome-dist-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          biomeCounts.set(room.biomeId, (biomeCounts.get(room.biomeId) ?? 0) + 1);
+        for (let i = 0; i < 100; i++) {
+          const seed = `biome-dist-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            biomeCounts.set(room.biomeId, (biomeCounts.get(room.biomeId) ?? 0) + 1);
+          }
         }
-      }
 
-      const oceanCount = biomeCounts.get('sunken-ocean') ?? 0;
-      const forestCount = biomeCounts.get('elderwood-maze') ?? 0;
-      const oceanRatio = oceanCount / totalRooms;
-      const forestRatio = forestCount / totalRooms;
+        const oceanCount = biomeCounts.get('sunken-ocean') ?? 0;
+        const forestCount = biomeCounts.get('elderwood-maze') ?? 0;
+        const oceanRatio = oceanCount / totalRooms;
+        const forestRatio = forestCount / totalRooms;
 
-      expect(oceanRatio).toBeLessThan(0.1);
-      expect(forestRatio).toBeLessThan(0.1);
+        expect(oceanRatio).toBeLessThan(0.1);
+        expect(forestRatio).toBeLessThan(0.1);
 
-      const libertyCount = biomeCounts.get('liberty-badlands') ?? 0;
-      expect(libertyCount).toBe(0);
+        const libertyCount = biomeCounts.get('liberty-badlands') ?? 0;
+        expect(libertyCount).toBe(0);
 
-      const commonBiomes = ['verdigris-basin', 'sundrop-plains', 'dawnvale-fells', 'jade-peak-province'];
-      const commonCount = commonBiomes.reduce((sum, biome) => sum + (biomeCounts.get(biome) ?? 0), 0);
-      expect(commonCount / totalRooms).toBeGreaterThan(0.3);
-    }, longRunningWorldTestTimeout);
+        const commonBiomes = [
+          'verdigris-basin',
+          'sundrop-plains',
+          'dawnvale-fells',
+          'jade-peak-province',
+        ];
+        const commonCount = commonBiomes.reduce(
+          (sum, biome) => sum + (biomeCounts.get(biome) ?? 0),
+          0,
+        );
+        expect(commonCount / totalRooms).toBeGreaterThan(0.3);
+      },
+      longRunningWorldTestTimeout,
+    );
 
-    it('fixed coordinates always produce the same biome regardless of seed', () => {
-      const coords = [
-        { x: 0, y: 0, z: 0 },
-        { x: 3, y: -1, z: 0 },
-        { x: -7, y: -6, z: 0 },
-        { x: 0, y: -9, z: 0 },
-      ];
+    it(
+      'fixed coordinates always produce the same biome regardless of seed',
+      () => {
+        const coords = [
+          { x: 0, y: 0, z: 0 },
+          { x: 3, y: -1, z: 0 },
+          { x: -7, y: -6, z: 0 },
+          { x: 0, y: -9, z: 0 },
+        ];
 
-      for (const coord of coords) {
-        const expectedBiome = getBiomeForRoom(roomId(coord)).id;
-        for (let i = 0; i < 20; i++) {
-          const seed = `coord-biome-${i}`;
-          const room = generateRoomWithSeed(seed, coord);
-          expect(room.biomeId).toBe(expectedBiome);
+        for (const coord of coords) {
+          const expectedBiome = getBiomeForRoom(roomId(coord)).id;
+          for (let i = 0; i < 20; i++) {
+            const seed = `coord-biome-${i}`;
+            const room = generateRoomWithSeed(seed, coord);
+            expect(room.biomeId).toBe(expectedBiome);
+          }
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
   });
 
   describe('structural integrity', () => {
-    it('all rooms have valid dimensions', () => {
-      for (let i = 0; i < 50; i++) {
-        const seed = `dimensions-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          expect(room.layout.length).toBe(defaultGameConfig.grid.rows);
-          for (let y = 0; y < room.layout.length; y++) {
-            expect(room.layout[y].length).toBe(defaultGameConfig.grid.cols);
+    it(
+      'all rooms have valid dimensions',
+      () => {
+        for (let i = 0; i < 50; i++) {
+          const seed = `dimensions-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            expect(room.layout.length).toBe(defaultGameConfig.grid.rows);
+            for (let y = 0; y < room.layout.length; y++) {
+              expect(room.layout[y].length).toBe(defaultGameConfig.grid.cols);
+            }
           }
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
 
-    it('all rooms have valid biomes', () => {
-      const validBiomes = new Set<string>();
-      for (let x = -20; x <= 20; x++) {
-        for (let y = -20; y <= 20; y++) {
-          const biome = getBiomeForRoom(`${x},${y},0`);
-          validBiomes.add(biome.id);
+    it(
+      'all rooms have valid biomes',
+      () => {
+        const validBiomes = new Set<string>();
+        for (let x = -20; x <= 20; x++) {
+          for (let y = -20; y <= 20; y++) {
+            const biome = getBiomeForRoom(`${x},${y},0`);
+            validBiomes.add(biome.id);
+          }
         }
-      }
 
-      for (let i = 0; i < 50; i++) {
-        const seed = `valid-biome-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          expect(validBiomes.has(room.biomeId)).toBe(true);
+        for (let i = 0; i < 50; i++) {
+          const seed = `valid-biome-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            expect(validBiomes.has(room.biomeId)).toBe(true);
+          }
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
 
-    it('all rooms have valid color values', () => {
-      for (let i = 0; i < 50; i++) {
-        const seed = `colors-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          expect(room.backgroundColor).toBeGreaterThanOrEqual(0);
-          expect(room.wallColor).toBeGreaterThanOrEqual(0);
-          expect(room.wallOutlineColor).toBeGreaterThanOrEqual(0);
+    it(
+      'all rooms have valid color values',
+      () => {
+        for (let i = 0; i < 50; i++) {
+          const seed = `colors-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            expect(room.backgroundColor).toBeGreaterThanOrEqual(0);
+            expect(room.wallColor).toBeGreaterThanOrEqual(0);
+            expect(room.wallOutlineColor).toBeGreaterThanOrEqual(0);
+          }
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
 
-    it('all rooms have at least one passable tile', () => {
-      for (let i = 0; i < 50; i++) {
-        const seed = `passable-${i}`;
-        for (const coord of testCoords) {
-          const room = generateRoomWithSeed(seed, coord);
-          const hasPassable = room.layout.some((row) =>
-            row.split('').some((ch) => ch !== '#'),
-          );
-          expect(hasPassable).toBe(true);
+    it(
+      'all rooms have at least one passable tile',
+      () => {
+        for (let i = 0; i < 50; i++) {
+          const seed = `passable-${i}`;
+          for (const coord of testCoords) {
+            const room = generateRoomWithSeed(seed, coord);
+            const hasPassable = room.layout.some((row) => row.split('').some((ch) => ch !== '#'));
+            expect(hasPassable).toBe(true);
+          }
         }
-      }
-    }, longRunningWorldTestTimeout);
+      },
+      longRunningWorldTestTimeout,
+    );
 
     it('origin room is never an ocean room', () => {
       for (let i = 0; i < 50; i++) {
@@ -327,7 +381,8 @@ describe('deterministic fairness tests', () => {
       for (let i = 0; i < 50; i++) {
         const seed = `veg-varies-${i}`;
         const room = generateRoomWithSeed(seed, coord);
-        const config = room.vegetation?.map((v) => `${v.x},${v.y},${v.variant}`).join(';') ?? 'none';
+        const config =
+          room.vegetation?.map((v) => `${v.x},${v.y},${v.variant}`).join(';') ?? 'none';
         vegetationConfigs.add(config);
       }
 

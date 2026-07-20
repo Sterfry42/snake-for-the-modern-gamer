@@ -5,12 +5,7 @@
  * Faction Wars & Territory Control feature.
  */
 import type { FactionEventSystem } from './factionEvents.js';
-import type {
-  DiplomaticRelation,
-  DiplomaticTreaty,
-  TreatyProvision,
-  WarEventState,
-} from './territoryTypes.js';
+import type { DiplomaticRelation, DiplomaticTreaty, TreatyProvision } from './territoryTypes.js';
 import { TerritoryManager } from './TerritoryManager.js';
 
 // ─── Negotiation Result ──────────────────────────────────────────────────────
@@ -75,8 +70,7 @@ export class DiplomacySystem {
 
   getTreatiesByFaction(factionId: string): DiplomaticTreaty[] {
     return this.treaties.filter(
-      (t) =>
-        t.signatoryFactionIds.includes(factionId) && t.status === 'active',
+      (t) => t.signatoryFactionIds.includes(factionId) && t.status === 'active',
     );
   }
 
@@ -362,8 +356,6 @@ export class DiplomacySystem {
   }): NegotiationResult {
     const { factionA, factionB, territoryId, reason } = input;
 
-    const currentRelation = this.getRelation(factionA, factionB);
-
     // Break any existing treaties
     this.breakTreatiesForFaction(factionA, factionB);
 
@@ -562,19 +554,14 @@ export class DiplomacySystem {
     playerInfluence?: number;
     bribeAmount?: number;
   }): NegotiationResult {
-    const {
-      fromFaction,
-      toFaction,
-      goal,
-      playerInfluence = 0,
-      bribeAmount = 0,
-    } = input;
+    const { fromFaction, toFaction, goal, playerInfluence = 0, bribeAmount = 0 } = input;
 
     const currentRelation = this.getRelation(fromFaction, toFaction);
     const relationModifier = this.relationModifier(currentRelation);
     const influenceModifier = Math.min(30, playerInfluence / 10);
     const bribeModifier = Math.min(20, bribeAmount / 5);
-    const successChance = 0.5 + relationModifier * 0.1 + influenceModifier * 0.01 + bribeModifier * 0.01;
+    const successChance =
+      0.5 + relationModifier * 0.1 + influenceModifier * 0.01 + bribeModifier * 0.01;
 
     const success = Math.random() < successChance;
 
@@ -657,7 +644,7 @@ export class DiplomacySystem {
     }
   }
 
-  private randomFailureReason(goal: string, currentRelation: DiplomaticRelation): string {
+  private randomFailureReason(goal: string, _currentRelation: DiplomaticRelation): string {
     const reasons: Record<string, string[]> = {
       'improve-relation': [
         'The other faction is not interested in improving relations.',

@@ -53,7 +53,6 @@ export class BossManager {
   private bosses = new Map<string, Boss>();
   private readonly grid: GridConfig;
   private readonly rng: RandomGenerator;
-  private rainbowColorTimer: number = 0;
   private bossIdCounter = 0;
 
   constructor(grid: GridConfig, rng: RandomGenerator) {
@@ -94,9 +93,7 @@ export class BossManager {
       x: Math.floor(this.grid.cols / 2) + 5,
       y: Math.floor(this.grid.rows / 2),
     };
-    const spawnLocal = room
-      ? this.findOpenBossCenter(room, preferredLocal)
-      : preferredLocal;
+    const spawnLocal = room ? this.findOpenBossCenter(room, preferredLocal) : preferredLocal;
     const centerX = roomOffsetX + spawnLocal.x;
     const centerY = roomOffsetY + spawnLocal.y;
     const body: Vector2Like[] = [];
@@ -208,7 +205,7 @@ export class BossManager {
     boss.health = Math.max(0, boss.health - damage);
     if (boss.health <= 0) {
       boss.jasonPhase = 'defeated';
-      const score = boss.maxHealth * 10;
+      boss.maxHealth * 10;
       return true; // defeated
     }
     return false; // not defeated
@@ -376,7 +373,7 @@ export class BossManager {
 
       // Execute the chosen attack
       boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
-      const moveId = `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
+      `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
 
       switch (attackType) {
         case 0:
@@ -756,7 +753,11 @@ export class BossManager {
     return `${Math.floor(head.x / this.grid.cols)},${Math.floor(head.y / this.grid.rows)},${roomZ}`;
   }
 
-  public getPullFor(snakeHead: Vector2Like, roomId: string, rng?: () => number): Vector2Like | null {
+  public getPullFor(
+    snakeHead: Vector2Like,
+    roomId: string,
+    rng?: () => number,
+  ): Vector2Like | null {
     const roll = rng ?? this.rng;
     const bossesInRoom = this.getBossesInRoom(roomId);
     for (const boss of bossesInRoom) {
@@ -789,58 +790,6 @@ export class BossManager {
     }
 
     return null;
-  }
-
-  private moveBoss(boss: Boss, deps: BossStepDependencies): void {
-    if (boss.kind === 'angel') {
-      this.moveAngelBoss(boss, deps);
-      return;
-    }
-
-    if (this.rng() < 0.2) {
-      const directions = [
-        { x: 1, y: 0 },
-        { x: -1, y: 0 },
-        { x: 0, y: 1 },
-        { x: 0, y: -1 },
-      ];
-      const validDirections = directions.filter(
-        (d) => d.x + boss.direction.x !== 0 || d.y + boss.direction.y !== 0,
-      );
-      const choices = validDirections.length > 0 ? validDirections : directions;
-      boss.direction = choices[Math.floor(this.rng() * choices.length)];
-    }
-
-    if (!boss.body.length) {
-      return;
-    }
-
-    const nextHead = addVectors(boss.body[0], boss.direction);
-    const [, , roomZ = 0] = boss.roomId.split(',').map(Number);
-
-    const targetRoomX = Math.floor(nextHead.x / this.grid.cols);
-    const targetRoomY = Math.floor(nextHead.y / this.grid.rows);
-    const baseRoomX = targetRoomX * this.grid.cols;
-    const baseRoomY = targetRoomY * this.grid.rows;
-    const localHeadX = nextHead.x - baseRoomX;
-    const localHeadY = nextHead.y - baseRoomY;
-
-    const targetRoomId = `${targetRoomX},${targetRoomY},${roomZ}`;
-    const targetRoom = deps.getRoom(targetRoomId);
-    if (!targetRoom) {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
-      return;
-    }
-
-    const tile = targetRoom.layout[localHeadY]?.[localHeadX];
-    if (tile === '#' || tile === '%') {
-      boss.direction = { x: -boss.direction.x, y: -boss.direction.y };
-      return;
-    }
-
-    const moveVector = boss.direction;
-    boss.body = boss.body.map((segment) => addVectors(segment, moveVector));
-    boss.roomId = targetRoomId;
   }
 
   private moveFreakerDennis(boss: Boss, deps: BossStepDependencies): void {
@@ -1041,7 +990,10 @@ export class BossManager {
       const localHeadX = cell.x - targetRoomX * this.grid.cols;
       const localHeadY = cell.y - targetRoomY * this.grid.rows;
       const targetRoom = deps.getRoom(`${targetRoomX},${targetRoomY},${roomZ}`);
-      if (targetRoom.layout[localHeadY]?.[localHeadX] === '#' || targetRoom.layout[localHeadY]?.[localHeadX] === '%') {
+      if (
+        targetRoom.layout[localHeadY]?.[localHeadX] === '#' ||
+        targetRoom.layout[localHeadY]?.[localHeadX] === '%'
+      ) {
         this.carveBossWall(targetRoom, localHeadX, localHeadY);
       }
     }
@@ -1134,7 +1086,11 @@ export class BossManager {
       }
     }
     const targetRoom = deps.getRoom(targetRoomId);
-    if (!targetRoom || targetRoom.layout[localHeadY]?.[localHeadX] === '#' || targetRoom.layout[localHeadY]?.[localHeadX] === '%') {
+    if (
+      !targetRoom ||
+      targetRoom.layout[localHeadY]?.[localHeadX] === '#' ||
+      targetRoom.layout[localHeadY]?.[localHeadX] === '%'
+    ) {
       return false;
     }
 

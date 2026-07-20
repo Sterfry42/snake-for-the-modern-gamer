@@ -38,7 +38,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   flushToilet: 'The toilet gurgles and flushes.',
   mcCashierDialogue: 'Welcome to Snake McDonalds! Fresh snake food, served fast, served cold.',
   // Snake Cane's
-  canesCashierDialogue: 'Welcome to Snake Cane\'s. Let\'s see what fate has in store.',
+  canesCashierDialogue: "Welcome to Snake Cane's. Let's see what fate has in store.",
   canesReward: 'You received: {itemName}!',
   canesClosing: '{closingLine}',
   canesBoxComboExtraToast: 'Box Combo\n(Extra Toast)',
@@ -216,7 +216,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   placeholderInventory: 'Items you collect will appear here.',
   placeholderCustomize: 'Buy palettes and swagger.',
   placeholderMap: 'Explore to reveal more rooms.',
-  placeholderCheats: "Type a cheat code or click Enable on the cards below.",
+  placeholderCheats: 'Type a cheat code or click Enable on the cards below.',
 
   // HUD
   hudHearts: 'Hearts',
@@ -701,7 +701,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // === FACTION WARS & TERRITORY CONTROL ===
   factionWarsTitle: 'Faction Wars',
-  factionWarsHint: 'Territory control, faction alliances, and the Serpent\'s Coil.',
+  factionWarsHint: "Territory control, faction alliances, and the Serpent's Coil.",
   territoryControl: 'Territory Control',
   territoryMap: 'Territory Map',
   territoryStable: 'Stable',
@@ -850,7 +850,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   factionWarQuestRetrieveArtifact: 'Retrieve Stolen Artifact',
   factionWarQuestBrokerAlliance: 'Broker Alliance',
   factionWarQuestSabotage: 'Sabotage Enemy',
-  factionWarQuestEstablishCoil: 'Establish The Serpent\'s Coil',
+  factionWarQuestEstablishCoil: "Establish The Serpent's Coil",
   factionWarQuestRecruitFollowers: 'Recruit Followers',
   factionWarQuestClaimTerritory: 'Claim Territory',
   factionWarQuestExpandInfluence: 'Expand Influence',
@@ -862,8 +862,8 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   factionWarAchievementDiplomatDesc: 'Form 3 alliances.',
   factionWarAchievementWarLord: 'War Lord',
   factionWarAchievementWarLordDesc: 'Win 10 battles.',
-  factionWarAchievementSerpentLair: 'Serpent\'s Lair',
-  factionWarAchievementSerpentLairDesc: 'Establish The Serpent\'s Coil and recruit 10 followers.',
+  factionWarAchievementSerpentLair: "Serpent's Lair",
+  factionWarAchievementSerpentLairDesc: "Establish The Serpent's Coil and recruit 10 followers.",
   factionWarAchievementPeacekeeper: 'Peacekeeper',
   factionWarAchievementPeacekeeperDesc: 'Negotiate 5 peace treaties.',
   factionWarAchievementShadowAgent: 'Shadow Agent',
@@ -871,9 +871,9 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   factionWarAchievementMercenary: 'Mercenary Supreme',
   factionWarAchievementMercenaryDesc: 'Complete 20 faction missions.',
   factionWarAchievementAllianceBuilder: 'Alliance Builder',
-  factionWarAchievementAllianceBuilderDesc: 'Have 3+ factions allied with The Serpent\'s Coil.',
+  factionWarAchievementAllianceBuilderDesc: "Have 3+ factions allied with The Serpent's Coil.",
   factionWarAchievementTerritoryExpansion: 'Territory Expansion',
-  factionWarAchievementTerritoryExpansionDesc: 'Expand The Serpent\'s Coil to 3 territories.',
+  factionWarAchievementTerritoryExpansionDesc: "Expand The Serpent's Coil to 3 territories.",
   factionWarAchievementWarVictory: 'War Victory',
   factionWarAchievementWarVictoryDesc: 'Win a major war between factions.',
   factionWarAchievementPeaceBringer: 'Peace Bringer',

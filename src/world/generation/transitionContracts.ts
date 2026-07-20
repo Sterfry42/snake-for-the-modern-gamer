@@ -55,11 +55,10 @@ function openingCenter(side: EdgeSide, grid: GridConfig, hash: number): number {
   return margin + (hash % range);
 }
 
-function transitionKind(args: {
-  roomId: string;
-  side: EdgeSide;
-  biomeMap: BiomeMap;
-}): { kind: TransitionKind; passable: boolean } {
+function transitionKind(args: { roomId: string; side: EdgeSide; biomeMap: BiomeMap }): {
+  kind: TransitionKind;
+  passable: boolean;
+} {
   const room = parseRoomId(args.roomId);
   const neighbor = neighborForSide(room, args.side);
   const first = args.biomeMap.getBiomeForRoomId(args.roomId);
@@ -69,7 +68,10 @@ function transitionKind(args: {
     return { kind: 'blocked', passable: false };
   }
   if (compatibility.requiresTransition) {
-    return { kind: compatibility.requiresTransition, passable: compatibility.requiresTransition !== 'blocked' };
+    return {
+      kind: compatibility.requiresTransition,
+      passable: compatibility.requiresTransition !== 'blocked',
+    };
   }
   return { kind: 'open', passable: true };
 }
@@ -101,7 +103,8 @@ export class TransitionContractResolver {
       kind: transition.kind,
       passable: transition.passable,
       openingCenter: openingCenter(side, this.grid, hash),
-      openingWidth: transition.kind === 'shoreline' ? 9 : transition.kind === 'forest-threshold' ? 5 : 7,
+      openingWidth:
+        transition.kind === 'shoreline' ? 9 : transition.kind === 'forest-threshold' ? 5 : 7,
       runupDepth: 5,
     };
   }
@@ -117,4 +120,3 @@ export class TransitionContractResolver {
     };
   }
 }
-

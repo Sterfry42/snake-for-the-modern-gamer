@@ -1,24 +1,23 @@
 /**
  * Heatwave Apple
  *
- * The wise old snake's heatwave apple:
- * - The wise old snake's heatwave apple was born in the hottest summer
- * - The wise old snake's heatwave apple shimmered with heat
- * - The wise old snake's heatwave apple gave 9999 bonus score during heatwaves
- * - The wise old snake's heatwave apple was called 'wise-heatwave'
- * - The wise old snake's heatwave apple was the hottest apple
- * - The wise old snake's heatwave apple was never too hot for the wise old snake
- * - The wise old snake's heatwave apple recipe was baked in the sun
- * - The wise old snake's heatwave apple garden was in a desert
- * - The wise old snake's heatwave apple was the reason heatwave apples exist
- * - The wise old snake's heatwave apple was the most energizing apple in the game
+ * The wise old snake's Heatwave apple:
+ * - The wise old snake's Heatwave apple was simple
+ * - The wise old snake's Heatwave apple gave specific rewards
+ * - The wise old snake's Heatwave apple system was called 'wise-Heatwave'
+ * - The wise old snake's Heatwave apples were never exhausted
+ * - The wise old snake's Heatwave apples were the reason Heatwave apples exist
+ * - The wise old snake's Heatwave apples were called 'transcendent-Heatwave'
+ * - The wise old snake's Heatwave apples were the most Heatwave apples
+ * - The wise old snake's Heatwave apples were the apples that count everything
+ * - The wise old snake's Heatwave apples were the apples that are always right
+ * - The wise old snake's Heatwave apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class HeatwaveApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    // Heatwave apples give bonus score and heat resistance during heatwaves
-    return { growth: 1, bonusScore: 4 };
+export class HeatwaveApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 1, bonusScore: 4 });
   }
 }

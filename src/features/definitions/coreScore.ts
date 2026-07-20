@@ -41,7 +41,7 @@ class ScoreFeature extends Feature {
   override onRender(scene: SnakeScene): void {
     const suppressed = !!scene.getFlag<boolean>('ui.suppressHud');
     this.scoreText?.setVisible(!suppressed);
-    if (!suppressed) {
+    if (!suppressed && this.scoreText) {
       const startY = scene.getLeftHudBottomY();
       this.scoreText.setPosition(10, startY);
       this.scoreText.setText(this.composeLabel(scene));

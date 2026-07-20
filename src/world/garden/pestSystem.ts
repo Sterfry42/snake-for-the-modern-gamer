@@ -16,7 +16,9 @@ import { getPestVulnerability } from './plant.js';
 import type { GardenPlant } from './types.js';
 
 /** Pest type definitions with stats. */
-const PEST_DEFINITIONS: Readonly<Record<PestType, { health: number; damage: number; speed: number; description: string }>> = {
+const PEST_DEFINITIONS: Readonly<
+  Record<PestType, { health: number; damage: number; speed: number; description: string }>
+> = {
   aphid: {
     health: 3,
     damage: 1,
@@ -50,7 +52,9 @@ const PEST_DEFINITIONS: Readonly<Record<PestType, { health: number; damage: numb
 };
 
 /** Predator animals that can be attracted to control pests. */
-const PREDATOR_ANIMALS: Readonly<Record<string, { pestType: PestType; efficiency: number; cost: number }>> = {
+const PREDATOR_ANIMALS: Readonly<
+  Record<string, { pestType: PestType; efficiency: number; cost: number }>
+> = {
   bird: { pestType: 'aphid', efficiency: 0.8, cost: 0 },
   frog: { pestType: 'caterpillar', efficiency: 0.7, cost: 0 },
   chicken: { pestType: 'snail', efficiency: 0.9, cost: 0 },
@@ -179,7 +183,8 @@ export function attractPredator(
   }
 
   // Predators are most effective against their preferred pest type
-  let efficiency = predator.pestType === pest.type ? predator.efficiency : predator.efficiency * 0.3;
+  const efficiency =
+    predator.pestType === pest.type ? predator.efficiency : predator.efficiency * 0.3;
 
   const damage = Math.ceil(pest.maxHealth * efficiency);
   const result = attackPest(pest, damage, 'predator');

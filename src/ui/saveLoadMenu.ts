@@ -5,11 +5,6 @@ import { saveManagerV2 } from '../game/saveManagerV2.js';
 import type { GameSaveData, SaveSlotInfo } from '../game/saveManagerV2.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 
-interface SaveLoadMenuOptions {
-  onLoad: (slotId: string, data: GameSaveData) => void;
-  onDelete?: (slotId: string) => void;
-}
-
 export class SaveLoadMenu {
   private container?: Phaser.GameObjects.Container;
   private background?: Phaser.GameObjects.Rectangle;
@@ -55,8 +50,6 @@ export class SaveLoadMenu {
   ): Promise<void> {
     this.onBack = onBack;
     this.scene.setChoicePopupVisible(true);
-    this.isLoading = true;
-
     this.regularEntries = await saveManagerV2.listRegularSaves();
     this.autosaveEntries = await saveManagerV2.listAutosaves();
     this.currentOnLoad = onLoad;
@@ -64,12 +57,10 @@ export class SaveLoadMenu {
     this.titleText?.setText(i18n.getFeatureString('loadGameMenuTitle') || 'Load Game');
     this.buildEntries(onLoad);
     this.selectedEntryIndex = 0;
-    this.isLoading = false;
 
     const popupHeight = this.calculateHeight();
     const x = (this.scene.scale.width - this.width) / 2;
     const rootY = (this.scene.scale.height - popupHeight) / 2;
-    this.currentPopupHeight = popupHeight;
     this.container?.setPosition(x, rootY);
     this.background?.setSize(this.width, popupHeight);
     this.scrollContainer?.setPosition(0, this.headerHeight);
@@ -445,7 +436,7 @@ export class SaveLoadMenu {
 
   private calculateHeight(): number {
     const baseHeight = 140; // title + back button area
-    const sectionGap = 28;
+    28;
     const entryHeight = this.entryHeight;
 
     let contentH = 0;

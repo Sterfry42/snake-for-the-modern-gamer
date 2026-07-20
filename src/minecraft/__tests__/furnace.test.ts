@@ -4,7 +4,6 @@ import {
   getSmeltingTime,
   isFuel,
   getFuelBurnTime,
-  createFurnaceState,
   tryLoadFurnace,
   tryCollectFurnaceOutput,
   tryPlaceFurnace,
@@ -75,7 +74,7 @@ describe('furnace', () => {
       tryPlaceFurnace(furnaces, 5, 5, '0,0,0');
       const player = {
         getItemCount: (id: string) => (id === 'coal' ? 5 : 0),
-        removeItem: (id: string, count?: number) => {
+        removeItem: (id: string, _count?: number) => {
           if (id === 'coal') return true;
           return false;
         },
@@ -91,7 +90,7 @@ describe('furnace', () => {
       tryPlaceFurnace(furnaces, 5, 5, '0,0,0');
       const player = {
         getItemCount: (id: string) => (id === 'coal' ? 5 : id === 'raw_iron' ? 3 : 0),
-        removeItem: (id: string, count?: number) => {
+        removeItem: (id: string, _count?: number) => {
           if (id === 'coal' || id === 'raw_iron') return true;
           return false;
         },

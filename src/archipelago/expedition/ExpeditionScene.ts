@@ -16,7 +16,7 @@ import type {
   IslandDefinition,
   LegacyEffectId,
 } from './types.js';
-import { ISLAND_BY_ID, LEGACY_EFFECT_BY_ID } from './IslandRegistry.js';
+import { ISLAND_BY_ID } from './IslandRegistry.js';
 import type { RandomGenerator } from '../../core/rng.js';
 import type { GridConfig } from '../../config/gameConfig.js';
 
@@ -166,6 +166,7 @@ export class ExpeditionScene extends Phaser.Scene {
   // Rendering
   private gridGraphics!: Phaser.GameObjects.Graphics;
   private uiGraphics!: Phaser.GameObjects.Graphics;
+
   private phaseText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
   private progressText!: Phaser.GameObjects.Text;
@@ -180,7 +181,7 @@ export class ExpeditionScene extends Phaser.Scene {
 
     this.islandId = config.islandId;
     this.grid = config.grid ?? { cols: 30, rows: 20, cell: 16 };
-    this.rng = config.rng ?? Math.random as RandomGenerator;
+    this.rng = config.rng ?? (Math.random as RandomGenerator);
     this.onComplete = config.onComplete;
     this.onFail = config.onFail;
     this.onEvent = config.onEvent;
@@ -306,7 +307,7 @@ export class ExpeditionScene extends Phaser.Scene {
         let color: number;
         switch (tile) {
           case '#':
-            color = this.island.wallColor;
+            color = this.island!.wallColor;
             break;
           case '~':
           case '≈':
@@ -335,7 +336,7 @@ export class ExpeditionScene extends Phaser.Scene {
             color = 0x666688;
             break;
           default:
-            color = this.island.color;
+            color = this.island!.color;
         }
 
         this.gridGraphics.fillStyle(color, 0.8);
@@ -344,7 +345,7 @@ export class ExpeditionScene extends Phaser.Scene {
     }
 
     // Draw phase indicator border
-    this.gridGraphics.lineStyle(2, this.island.color, 0.5);
+    this.gridGraphics.lineStyle(2, this.island!.color, 0.5);
     this.gridGraphics.strokeRect(
       offsetX - cell,
       offsetY - cell,
@@ -498,10 +499,7 @@ export class ExpeditionScene extends Phaser.Scene {
     if (this.bossDefeated) return;
 
     // Click to advance phase progress
-    this.phaseTimer = Math.min(
-      this.phaseTimer + this.phaseDuration * 0.1,
-      this.phaseDuration,
-    );
+    this.phaseTimer = Math.min(this.phaseTimer + this.phaseDuration * 0.1, this.phaseDuration);
     this.score += 10;
 
     // Random discovery chance
@@ -567,7 +565,6 @@ export class ExpeditionScene extends Phaser.Scene {
   // ─── UI Updates ──────────────────────────────────────────────────────────
 
   private updateUI(): void {
-    const phases: ExpeditionPhase[] = ['approach', 'explore', 'discover', 'escape'];
     const phaseNames: Record<ExpeditionPhase, string> = {
       approach: '🚢 Approach',
       explore: '🔍 Explore',

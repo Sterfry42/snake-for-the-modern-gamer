@@ -48,22 +48,16 @@ const STATION_NAMES: Record<RollercoasterTheme, string[]> = {
   'thunder-ridge': [
     'Thunder Ridge Coaster',
     'Mountain Madness',
-    'Eagle\'s Descent',
+    "Eagle's Descent",
     'Granite Rush',
     'Summit Scream',
   ],
-  'neon-nights': [
-    'Neon Nightmare',
-    'Cyber Loop',
-    'Electric Express',
-    'Neon Nexus',
-    'Pixel Plunge',
-  ],
+  'neon-nights': ['Neon Nightmare', 'Cyber Loop', 'Electric Express', 'Neon Nexus', 'Pixel Plunge'],
   'jungle-jolt': [
     'Jungle Jolt',
     'Temple Terror',
     'Vine Swing',
-    'Serpent\'s Coil',
+    "Serpent's Coil",
     'Lost Temple Loop',
   ],
   'arctic-avalanche': [
@@ -103,7 +97,7 @@ const ARRIVAL_FLAVORS: Record<RollercoasterTheme, string[]> = {
     'Holographic signs pulse: "Welcome to the other side."',
     'The coaster hums to a stop beneath a canopy of LEDs.',
     'Electric energy crackles in the air. Another ride done.',
-    'The station\'s bass drops. You just survived Neon Nightmare.',
+    "The station's bass drops. You just survived Neon Nightmare.",
   ],
   'jungle-jolt': [
     'The coaster rattles to a halt among ancient stones.',
@@ -116,7 +110,7 @@ const ARRIVAL_FLAVORS: Record<RollercoasterTheme, string[]> = {
     'Ice crystals sparkle as the coaster slides into the station.',
     'The coaster hisses to a halt. Frost forms on the rails.',
     'Snow drifts across the platform. The coaster stops.',
-    'The coaster\'s brakes squeal. A cold wind follows it in.',
+    "The coaster's brakes squeal. A cold wind follows it in.",
     'Frost clings to the station. Another avalanche conquered.',
   ],
   'volcanic-veer': [
@@ -130,22 +124,37 @@ const ARRIVAL_FLAVORS: Record<RollercoasterTheme, string[]> = {
     'Stars swirl in the windows as the coaster docks.',
     'The coaster hums with cosmic energy. Zero-G still affects you.',
     'Nebula colors fade as the coaster settles into the station.',
-    'The coaster\'s anti-grav engines whine down. Space is quiet.',
+    "The coaster's anti-grav engines whine down. Space is quiet.",
     'Stardust drifts past the platform. Another cosmic ride done.',
   ],
 };
 
 const DISPLAY_NAMES: Record<RollercoasterTheme, string[]> = {
-  'thunder-ridge': ['Thunder Peak', 'Ridge Runner', 'Eagle\'s Nest', 'Granite Station', 'Summit Stop'],
+  'thunder-ridge': [
+    'Thunder Peak',
+    'Ridge Runner',
+    "Eagle's Nest",
+    'Granite Station',
+    'Summit Stop',
+  ],
   'neon-nights': ['Neon District', 'Cyber Hub', 'Electric Avenue', 'Pixel Plaza', 'Neon Nexus'],
-  'jungle-jolt': ['Jungle Temple', 'Vine Valley', 'Serpent\'s Lair', 'Lost Ruins', 'Green Station'],
-  'arctic-avalanche': ['Frost Station', 'Glacier Point', 'Ice Hollow', 'Blizzard Base', 'Avalanche Alley'],
+  'jungle-jolt': ['Jungle Temple', 'Vine Valley', "Serpent's Lair", 'Lost Ruins', 'Green Station'],
+  'arctic-avalanche': [
+    'Frost Station',
+    'Glacier Point',
+    'Ice Hollow',
+    'Blizzard Base',
+    'Avalanche Alley',
+  ],
   'volcanic-veer': ['Lava Station', 'Magma Junction', 'Pyro Port', 'Inferno Isle', 'Volcano View'],
   'cosmic-corkscrew': ['Star Dock', 'Nebula Station', 'Galaxy Gate', 'Astro Hub', 'Cosmic Corner'],
 };
 
 /** Find contiguous floor tiles suitable for coaster placement. */
-function findContiguousFloorBlocks(layout: string[][], minSize: number): Array<{ tiles: Array<{ x: number; y: number }>; count: number }> {
+function findContiguousFloorBlocks(
+  layout: string[][],
+  minSize: number,
+): Array<{ tiles: Array<{ x: number; y: number }>; count: number }> {
   const visited = new Set<string>();
   const blocks: Array<{ tiles: Array<{ x: number; y: number }>; count: number }> = [];
 
@@ -160,8 +169,10 @@ function findContiguousFloorBlocks(layout: string[][], minSize: number): Array<{
       tiles.push({ x, y });
 
       const neighbors = [
-        { x: x + 1, y }, { x: x - 1, y },
-        { x, y: y + 1 }, { x, y: y - 1 },
+        { x: x + 1, y },
+        { x: x - 1, y },
+        { x, y: y + 1 },
+        { x, y: y - 1 },
       ];
 
       for (const n of neighbors) {
@@ -237,7 +248,7 @@ export function generateTrackSegments(
   rng: RandomGenerator,
 ): RollercoasterTrackSegment[] {
   const segments: RollercoasterTrackSegment[] = [];
-  const theme = pickTheme(rng);
+  pickTheme(rng);
 
   // Station platform at entrance
   segments.push({
@@ -304,10 +315,14 @@ export function generateTrackSegments(
 }
 
 /** Generate car visual properties for a theme and RNG. */
-export function generateCarVisual(theme: RollercoasterTheme, rng: RandomGenerator): RollercoasterCarVisual {
+export function generateCarVisual(
+  theme: RollercoasterTheme,
+  rng: RandomGenerator,
+): RollercoasterCarVisual {
   const themeColors = THEME_CONFIG[theme].colors;
   const bodyColor = themeColors[Math.floor(rng() * themeColors.length)];
-  const stripeColor = themeColors[(Math.floor(rng() * themeColors.length) + 1) % themeColors.length];
+  const stripeColor =
+    themeColors[(Math.floor(rng() * themeColors.length) + 1) % themeColors.length];
 
   return {
     bodyColor,
@@ -354,7 +369,10 @@ export function generateDestinations(
       if (tile === '.' || tile === ROLLERCOASTER_ENTRANCE_TILE) {
         let flavor: string;
         if (ARRIVAL_FLAVORS['thunder-ridge'].length > usedFlavors.size) {
-          flavor = ARRIVAL_FLAVORS['thunder-ridge'][usedFlavors.size % ARRIVAL_FLAVORS['thunder-ridge'].length];
+          flavor =
+            ARRIVAL_FLAVORS['thunder-ridge'][
+              usedFlavors.size % ARRIVAL_FLAVORS['thunder-ridge'].length
+            ];
         } else {
           flavor = `The coaster arrives at ${room.id}.`;
         }
@@ -362,7 +380,8 @@ export function generateDestinations(
 
         let name: string;
         if (DISPLAY_NAMES['thunder-ridge'].length > usedNames.size) {
-          name = DISPLAY_NAMES['thunder-ridge'][usedNames.size % DISPLAY_NAMES['thunder-ridge'].length];
+          name =
+            DISPLAY_NAMES['thunder-ridge'][usedNames.size % DISPLAY_NAMES['thunder-ridge'].length];
         } else {
           name = room.id;
         }
@@ -402,8 +421,8 @@ export function createRollercoasterStation(
   blocks.sort((a, b) => b.count - a.count);
   const block = blocks[0];
 
-  const edgeTiles = findEdgeTiles(layout, 3).filter(
-    (t) => block.tiles.some((bt) => bt.x === t.x && bt.y === t.y),
+  const edgeTiles = findEdgeTiles(layout, 3).filter((t) =>
+    block.tiles.some((bt) => bt.x === t.x && bt.y === t.y),
   );
 
   if (edgeTiles.length === 0) return null;
@@ -453,7 +472,7 @@ export function generateTransitRooms(
 /** Build a weighted list of destination choices for the player. */
 export function buildDestinationChoices(
   destinations: RollercoasterDestination[],
-  rng: RandomGenerator,
+  _rng: RandomGenerator,
 ): RollercoasterDestinationChoice[] {
   return destinations.map((d) => ({
     roomId: d.roomId,
@@ -473,7 +492,10 @@ export function getSpeedProfile(theme: RollercoasterTheme): {
   brakeSpeed: number;
   totalDuration: number;
 } {
-  const profiles: Record<RollercoasterTheme, { climbSpeed: number; peakSpeed: number; brakeSpeed: number; totalDuration: number }> = {
+  const profiles: Record<
+    RollercoasterTheme,
+    { climbSpeed: number; peakSpeed: number; brakeSpeed: number; totalDuration: number }
+  > = {
     'thunder-ridge': { climbSpeed: 0.3, peakSpeed: 1.0, brakeSpeed: 0.2, totalDuration: 5000 },
     'neon-nights': { climbSpeed: 0.4, peakSpeed: 1.2, brakeSpeed: 0.15, totalDuration: 4500 },
     'jungle-jolt': { climbSpeed: 0.25, peakSpeed: 0.9, brakeSpeed: 0.25, totalDuration: 5500 },

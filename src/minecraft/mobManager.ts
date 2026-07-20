@@ -6,7 +6,6 @@ import {
   LIGHT_LEVEL_MOB_SPAWN_THRESHOLD,
   MOB_SPAWN_CHECK_INTERVAL_TICKS,
 } from './config.js';
-import { getMinecraftItem } from './itemRegistry.js';
 
 const MOB_ATTACK_DAMAGE: Record<MobTypeId, number> = {
   zombie: 3,
@@ -181,12 +180,7 @@ export class MobManager {
     }
   }
 
-  private isPositionOccupied(
-    roomId: string,
-    x: number,
-    y: number,
-    minDistance: number,
-  ): boolean {
+  private isPositionOccupied(roomId: string, x: number, y: number, minDistance: number): boolean {
     for (const mob of this.mobs.values()) {
       if (mob.roomId !== roomId) continue;
       const dx = mob.x - x;
@@ -368,7 +362,7 @@ export class MobManager {
     playerX: number,
     playerY: number,
     playerRoomId: string,
-    lightLevelAt: (x: number, y: number, roomId: string) => number,
+    _lightLevelAt: (x: number, y: number, roomId: string) => number,
     distToPlayer: number,
   ): void {
     let dx = 0;
@@ -376,7 +370,6 @@ export class MobManager {
 
     if (mob.ai === 'hostile') {
       // Check for light-based spawning - only spawn in dark
-      const lightAtPos = lightLevelAt(mob.x, mob.y, mob.roomId);
       if (distToPlayer <= aiConfig.chaseRange && playerRoomId === mob.roomId) {
         // Chase player
         dx = playerX - mob.x;

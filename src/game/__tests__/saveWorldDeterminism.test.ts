@@ -1,11 +1,11 @@
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, afterEach } from 'vitest';
 import { SnakeGame } from '../../game/snakeGame.js';
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { saveManager } from '../../game/saveManager.js';
 import { RoomGenerator } from '../../world/roomGenerator.js';
 import { createRng } from '../../core/rng.js';
-import { createWorldGenerationIdentity } from '../../world/generation/worldGenerationIdentity.js';
+
 import type { RoomSnapshot } from '../../world/types.js';
 
 function makeGameWithSeed(seed: string) {
@@ -26,12 +26,6 @@ function roomLayoutKey(room: RoomSnapshot): string {
 }
 
 describe('save regression tests', () => {
-  let registry: QuestRegistry;
-
-  beforeEach(async () => {
-    registry = new QuestRegistry();
-  });
-
   afterEach(() => {
     saveManager.clear();
   });
@@ -125,13 +119,16 @@ describe('save regression tests', () => {
     }
 
     // Capture structure presence
-    const firstStructures = new Map<string, {
-      village: boolean;
-      goblinCamp: boolean;
-      town: boolean;
-      shrine: boolean;
-      ramenStand: boolean;
-    }>();
+    const firstStructures = new Map<
+      string,
+      {
+        village: boolean;
+        goblinCamp: boolean;
+        town: boolean;
+        shrine: boolean;
+        ramenStand: boolean;
+      }
+    >();
 
     for (let x = -5; x <= 5; x++) {
       for (let y = -5; y <= 5; y++) {
@@ -175,7 +172,10 @@ describe('save regression tests', () => {
     const firstPortals = new Map<string, Array<{ destRoomId: string; x: number; y: number }>>();
     for (const id of roomIds) {
       const room = game1.getRoom(id);
-      firstPortals.set(id, room.portals.map((p) => ({ destRoomId: p.destRoomId, x: p.x, y: p.y })));
+      firstPortals.set(
+        id,
+        room.portals.map((p) => ({ destRoomId: p.destRoomId, x: p.x, y: p.y })),
+      );
     }
 
     // Recreate with same seed
@@ -246,11 +246,14 @@ describe('save regression tests', () => {
     }
 
     // Capture town data
-    const firstTowns = new Map<string, {
-      townId: string;
-      townName: string;
-      hasPerimeter: boolean;
-    }>();
+    const firstTowns = new Map<
+      string,
+      {
+        townId: string;
+        townName: string;
+        hasPerimeter: boolean;
+      }
+    >();
     for (let x = -15; x <= 15; x++) {
       for (let y = -15; y <= 15; y++) {
         const id = `${x},${y},0`;

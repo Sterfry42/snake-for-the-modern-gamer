@@ -127,7 +127,7 @@ export const HUMAN_STRINGS_FR: HumanTranslations = {
   voiceCookSpecial: 'Spécial du Cuisinier',
   voiceMerchantTrade: 'Marchand Negociant',
   voiceMerchantRareItem: 'Marchand Objet Rare',
-  voiceResidentGreeting: 'Salutation de l\'Habitant',
+  voiceResidentGreeting: "Salutation de l'Habitant",
   voiceResidentRumor: 'Habitant Rumeur',
   voiceResidentWounded: 'Habitant Blessé',
   voiceScribeRecord: 'Scribe Enregistrant',

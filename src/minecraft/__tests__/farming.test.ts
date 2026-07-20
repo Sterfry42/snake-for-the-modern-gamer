@@ -58,7 +58,7 @@ describe('farming', () => {
       } as any;
       const player = {
         getItemCount: (id: string) => (id === 'seeds' ? 5 : 0),
-        removeItem: (id: string, count?: number) => {
+        removeItem: (id: string, _count?: number) => {
           if (id === 'seeds') return true;
           return false;
         },
@@ -92,7 +92,7 @@ describe('farming', () => {
       } as any;
       const player = {
         getItemCount: (id: string) => (id === 'pumpkin_item' ? 3 : 0),
-        removeItem: (id: string, count?: number) => {
+        removeItem: (id: string, _count?: number) => {
           if (id === 'pumpkin_item') return true;
           return false;
         },

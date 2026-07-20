@@ -354,7 +354,14 @@ describe('ExpeditionLogManager', () => {
     });
 
     it('should return notes for all islands', () => {
-      const islands = ['volcanic-isle', 'crystal-cavern', 'sunken-temple', 'sky-garden', 'ancient-ruins', 'mirror-dimension'] as const;
+      const islands = [
+        'volcanic-isle',
+        'crystal-cavern',
+        'sunken-temple',
+        'sky-garden',
+        'ancient-ruins',
+        'mirror-dimension',
+      ] as const;
       for (const island of islands) {
         const notes = logManager.getCompanionNotes(island);
         expect(notes).toHaveLength(4);

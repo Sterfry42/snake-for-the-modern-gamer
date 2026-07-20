@@ -96,7 +96,10 @@ describe('DiplomacySystem', () => {
     });
 
     it('prevents duplicate pact', () => {
-      diplomacy.signNonAggressionPact({ factionA: 'hearthbound-remnant', factionB: 'goblin-camps' });
+      diplomacy.signNonAggressionPact({
+        factionA: 'hearthbound-remnant',
+        factionB: 'goblin-camps',
+      });
 
       const result = diplomacy.signNonAggressionPact({
         factionA: 'hearthbound-remnant',
@@ -167,7 +170,10 @@ describe('DiplomacySystem', () => {
     });
 
     it('breaks existing treaties on war', () => {
-      diplomacy.signNonAggressionPact({ factionA: 'hearthbound-remnant', factionB: 'goblin-camps' });
+      diplomacy.signNonAggressionPact({
+        factionA: 'hearthbound-remnant',
+        factionB: 'goblin-camps',
+      });
 
       diplomacy.declareWar({ factionA: 'hearthbound-remnant', factionB: 'goblin-camps' });
 
@@ -212,7 +218,13 @@ describe('DiplomacySystem', () => {
       diplomacy.declareWar({ factionA: 'hearthbound-remnant', factionB: 'goblin-camps' });
 
       // Hearthbound-remnant loses the territory
-      territoryManager.shiftControl('forest-of-whispers', 'goblin-camps', 'hearthbound-remnant', 100, 'attack');
+      territoryManager.shiftControl(
+        'forest-of-whispers',
+        'goblin-camps',
+        'hearthbound-remnant',
+        100,
+        'attack',
+      );
 
       diplomacy.negotiatePeace({
         factionA: 'hearthbound-remnant',
@@ -380,7 +392,10 @@ describe('DiplomacySystem', () => {
   describe('save / load', () => {
     it('saves and loads treaties', () => {
       diplomacy.formAlliance({ factionA: 'hearthbound-remnant', factionB: 'guards' });
-      diplomacy.signNonAggressionPact({ factionA: 'hearthbound-remnant', factionB: 'goblin-camps' });
+      diplomacy.signNonAggressionPact({
+        factionA: 'hearthbound-remnant',
+        factionB: 'goblin-camps',
+      });
 
       const saveData = diplomacy.save();
       expect(saveData.treaties.length).toBe(2);

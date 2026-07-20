@@ -10,12 +10,7 @@
  * The wise old snake's music plays even in silence.
  */
 
-import type {
-  AppleMusicalMapping,
-  AppleGenre,
-  AppleNoteAssignment,
-  GenreDefinition,
-} from './MusicalAppleMap.js';
+import type { AppleMusicalMapping, AppleGenre } from './MusicalAppleMap.js';
 import {
   getAppleMusicalMapping,
   midiNoteToFrequency,
@@ -98,8 +93,8 @@ export class SoundtrackComposer {
   private state: ComposerState = 'idle';
   private config: Required<SoundtrackComposerConfig>;
   private audioNodes: AudioNodes | null = null;
-  private noteQueue: NoteEvent[] = [];
-  private scheduledUntil = 0;
+  private _noteQueue: NoteEvent[] = [];
+  private _scheduledUntil = 0;
   private nextNoteTime = 0;
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private currentGenre: GenreState = {
@@ -110,7 +105,6 @@ export class SoundtrackComposer {
     dominantInstrument: 'percussion',
   };
   private beatCounter = 0;
-  private lastAppleId = '';
   private appleSequence: string[] = [];
   private sequenceBuffer: string[] = [];
   private sequenceBufferSize = 20;
@@ -240,7 +234,7 @@ export class SoundtrackComposer {
 
     this.state = 'playing';
     this.nextNoteTime = context.currentTime;
-    this.scheduledUntil = 0;
+    this._scheduledUntil = 0;
     this.scheduleLoop();
   }
 
@@ -253,7 +247,7 @@ export class SoundtrackComposer {
       clearTimeout(this.timerId);
       this.timerId = null;
     }
-    this.noteQueue = [];
+    this._noteQueue = [];
   }
 
   /**
@@ -502,12 +496,10 @@ export class SoundtrackComposer {
       const previousGenre = this.currentGenre.genre;
       this.currentGenre = {
         genre: bestGenre,
-        tempoMultiplier: bestGenre
-          ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1)
-          : 1,
-        baseBpm: this.config.baseBpm * (bestGenre
-          ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1)
-          : 1),
+        tempoMultiplier: bestGenre ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1) : 1,
+        baseBpm:
+          this.config.baseBpm *
+          (bestGenre ? (getGenreDefinition(bestGenre)?.tempoMultiplier ?? 1) : 1),
         scalePattern: bestGenre
           ? (getGenreDefinition(bestGenre)?.scalePattern ?? [0, 2, 4, 5, 7])
           : [0, 2, 4, 5, 7],
@@ -539,12 +531,12 @@ export class SoundtrackComposer {
       const frequency = midiNoteToFrequency(finalNote);
 
       // Apply genre scale
-      const scaleNote = this.applyScale(finalNote, mapping.scaleDegree);
+      this.applyScale(finalNote, mapping.scaleDegree);
 
       // Schedule the sound
       this.scheduleNote(
         context,
-        now + (this.beatCounter * beatDuration),
+        now + this.beatCounter * beatDuration,
         frequency,
         noteAssign.duration * beatDuration * this.currentGenre.tempoMultiplier,
         (noteAssign.velocity / 127) * 0.6,
@@ -578,8 +570,8 @@ export class SoundtrackComposer {
     mapping: AppleMusicalMapping,
     appleId: string,
   ): void {
-    const isPercussion = mapping.instrumentFamily === 'percussion' ||
-      mapping.instrumentFamily === 'erratic';
+    const isPercussion =
+      mapping.instrumentFamily === 'percussion' || mapping.instrumentFamily === 'erratic';
 
     // Create oscillators based on instrument family
     const primaryOsc = context.createOscillator();
@@ -629,7 +621,7 @@ export class SoundtrackComposer {
 
     // Create note event for callbacks
     const noteEvent: NoteEvent = {
-      note: Math.round(frequency / 440 * 12 + 69),
+      note: Math.round((frequency / 440) * 12 + 69),
       duration,
       velocity: Math.round(velocity * 127),
       timeOffset: time - context.currentTime,
@@ -650,12 +642,11 @@ export class SoundtrackComposer {
   /**
    * Play default percussion when no mapping exists.
    */
-  private playDefaultPercussion(appleId: string): void {
+  private playDefaultPercussion(_appleId: string): void {
     if (!this.audioNodes) return;
 
     const context = this.audioNodes.context;
     const now = context.currentTime;
-    const beatDuration = 60 / this.currentGenre.baseBpm;
 
     // Simple drum hit
     const osc = context.createOscillator();

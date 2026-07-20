@@ -114,10 +114,10 @@ export function tryPlaceShrine(
     return null;
   }
 
-  const center = {
+  ({
     x: shrine.left + Math.floor(shrine.width / 2),
     y: shrine.top + Math.floor(shrine.height / 2),
-  };
+  });
 
   const safeArea = {
     left: shrine.left,
@@ -172,7 +172,7 @@ export function tryPlaceShrine(
   const maidenY = offeringBoxY + 1;
   setChar(layout, maidenX, maidenY, 'G');
 
-  const shrineName = SHRINE_NAMES[Math.floor(rng() * SHRINE_NAMES.length)]!;
+  SHRINE_NAMES[Math.floor(rng() * SHRINE_NAMES.length)]!;
   const mikoName = randomName(rng);
 
   return {

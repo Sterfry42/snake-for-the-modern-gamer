@@ -50,11 +50,7 @@ import { UltimateFusionApple } from './behaviors/ultimateFusionApple.js';
 import { AmberApple } from './behaviors/amberApple.js';
 import { FossilApple } from './behaviors/fossilApple.js';
 import { RelicApple } from './behaviors/relicApple.js';
-import {
-  DreamApple,
-  NightmareApple,
-  LucidApple,
-} from '../world/dream/dreamAppleTypes.js';
+import { DreamApple, NightmareApple, LucidApple } from '../world/dream/dreamAppleTypes.js';
 import type { AppleInstance } from './types.js';
 
 export class AppleRegistry {

@@ -15,15 +15,9 @@
  */
 import Phaser from 'phaser';
 import type { Vector2Like } from '../../core/math.js';
-import { DreamManager } from './DreamManager.js';
-import { DreamPuzzleManager } from './DreamPuzzles.js';
-import { DreamShopManager } from './dreamShop.js';
-import {
-  DREAM_APPLE_TYPES,
-  createDreamAppleInstance,
-  type DreamAppleBase,
-} from './dreamAppleTypes.js';
-import type { DreamStateId, DreamPhysicsState } from './types.js';
+
+import { createDreamAppleInstance } from './dreamAppleTypes.js';
+
 import {
   DreamWorldScene,
   DreamIsland,
@@ -35,10 +29,7 @@ import {
 // ─── Nightmare Constants ───────────────────────────────────────────────────────
 
 const NIGHTMARE_BG_COLOR = 0x0a0014;
-const NIGHTMARE_ACCENT_COLOR = 0x8b0000;
 const NIGHTMARE_ENEMY_COLOR = 0x4a0000;
-const NIGHTMARE_TEXT_COLOR = 0xff6666;
-const NIGHTMARE_SURVIVAL_BAR_COLOR = 0xff0000;
 
 const NIGHTMARE_ISLAND_COUNT = 10;
 const NIGHTMARE_BRIDGE_COUNT = 8;
@@ -46,24 +37,15 @@ const NIGHTMARE_BRIDGE_COUNT = 8;
 // ─── Nightmare Enemy Class ─────────────────────────────────────────────────────
 
 class NightmareEnemy extends Phaser.GameObjects.Graphics {
-  private target: Vector2Like;
   private speed: number;
   private health: number;
   private maxHealth: number;
   private chaseTimer = 0;
   private changeDirectionTimer = 0;
 
-  constructor(
-    scene: Phaser.Scene,
-    x: number,
-    y: number,
-    target: Vector2Like,
-    speed: number = 0.5,
-    health: number = 3,
-  ) {
+  constructor(scene: Phaser.Scene, x: number, y: number, speed: number = 0.5, health: number = 3) {
     super(scene);
     this.setPosition(x, y);
-    this.target = target;
     this.speed = speed;
     this.health = health;
     this.maxHealth = health;
@@ -97,10 +79,6 @@ class NightmareEnemy extends Phaser.GameObjects.Graphics {
     // Change direction occasionally
     if (this.changeDirectionTimer > 2000) {
       this.changeDirectionTimer = 0;
-      this.target = {
-        x: snakeHead.x + (Math.random() - 0.5) * 100,
-        y: snakeHead.y + (Math.random() - 0.5) * 100,
-      };
     }
 
     // Chase the snake head
@@ -222,11 +200,7 @@ export class NightmareScene extends DreamWorldScene {
     for (let i = 0; i < count; i++) {
       const island = this.islands[Math.floor(Math.random() * this.islands.length)];
       const type = appleTypes[Math.floor(Math.random() * appleTypes.length)];
-      const apple = createDreamAppleInstance(
-        type,
-        'nightmare-room',
-        { x: 0, y: 0 },
-      );
+      const apple = createDreamAppleInstance(type, 'nightmare-room', { x: 0, y: 0 });
 
       const appleSprite = new FloatingDreamApple(
         this.scene,
@@ -247,8 +221,7 @@ export class NightmareScene extends DreamWorldScene {
     this.spawnTimer += delta;
 
     // Update difficulty
-    this.difficultyMultiplier =
-      1.0 + (this.survivalTimer / 60000) * 0.05;
+    this.difficultyMultiplier = 1.0 + (this.survivalTimer / 60000) * 0.05;
 
     // Spawn enemies
     if (this.spawnTimer > 5000 / this.difficultyMultiplier) {
@@ -350,15 +323,10 @@ export class NightmareScene extends DreamWorldScene {
         break;
     }
 
-    const target = {
-      x: width / 2 + (Math.random() - 0.5) * 100,
-      y: height / 2 + (Math.random() - 0.5) * 100,
-    };
-
     const speed = 0.3 * this.difficultyMultiplier;
     const health = Math.ceil(2 * this.difficultyMultiplier);
 
-    const enemy = new NightmareEnemy(this.scene, x, y, target, speed, health);
+    const enemy = new NightmareEnemy(this.scene, x, y, speed, health);
     this.enemies.push(enemy);
   }
 

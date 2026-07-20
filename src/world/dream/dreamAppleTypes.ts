@@ -15,11 +15,7 @@
  */
 import type { Vector2Like } from '../../core/math.js';
 import { AppleInstance, type AppleMoveContext, type AppleRewards } from '../../apples/types.js';
-import type {
-  DreamAppleMetadata,
-  DreamBuff,
-  DreamBuffType,
-} from './types.js';
+import type { DreamAppleMetadata, DreamBuff, DreamBuffType } from './types.js';
 
 // ─── Base Dream Apple ──────────────────────────────────────────────────────────
 
@@ -88,12 +84,12 @@ export class DreamApple extends DreamAppleBase {
     return { growth: 1, bonusScore: 5 };
   }
 
-  override shouldAttemptMove(_context: AppleMoveContext): boolean {
+  override shouldAttemptMove(__context: AppleMoveContext): boolean {
     // Dream apples float randomly
     return Math.random() < 0.02;
   }
 
-  override getMoveDirections(context: AppleMoveContext): Vector2Like[] {
+  override getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
     // Dream apples drift in random directions
     const directions: Vector2Like[] = [];
     if (Math.random() < 0.5) {
@@ -109,18 +105,14 @@ export class DreamApple extends DreamAppleBase {
 // ─── Nightmare Apple ───────────────────────────────────────────────────────────
 
 export class NightmareApple extends DreamAppleBase {
-  private readonly chaseSpeed: number;
-
   constructor(
     roomId: string,
     position: Vector2Like,
     typeId: string,
     color: number,
     metadata: DreamAppleMetadata,
-    chaseSpeed: number = 0.1,
   ) {
     super(roomId, position, typeId, color, metadata);
-    this.chaseSpeed = chaseSpeed;
   }
 
   override onConsume(): AppleRewards {
@@ -128,13 +120,13 @@ export class NightmareApple extends DreamAppleBase {
     return { growth: 2, bonusScore: 15 };
   }
 
-  override shouldAttemptMove(context: AppleMoveContext): boolean {
+  override shouldAttemptMove(_context: AppleMoveContext): boolean {
     // Nightmare apples chase the snake more aggressively
     return Math.random() < 0.08;
   }
 
-  override getMoveDirections(context: AppleMoveContext): Vector2Like[] {
-    const head = context.snake[0];
+  override getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
+    const head = _context.snake[0];
     if (!head) {
       return [];
     }
@@ -188,19 +180,19 @@ export class LucidApple extends DreamAppleBase {
     return this.lucidityGain;
   }
 
-  override shouldAttemptMove(context: AppleMoveContext): boolean {
+  override shouldAttemptMove(_context: AppleMoveContext): boolean {
     // Lucid apples appear and disappear
     return Math.random() < 0.01;
   }
 
-  override getMoveDirections(context: AppleMoveContext): Vector2Like[] {
+  override getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
     // Lucid apples teleport to new positions
     return []; // handled by special teleport logic
   }
 
-  teleport(context: AppleMoveContext): Vector2Like {
-    const newX = Math.floor(context.rng() * context.grid.cols);
-    const newY = Math.floor(context.rng() * context.grid.rows);
+  teleport(_context: AppleMoveContext): Vector2Like {
+    const newX = Math.floor(_context.rng() * _context.grid.cols);
+    const newY = Math.floor(_context.rng() * _context.grid.rows);
     return { x: newX, y: newY };
   }
 }

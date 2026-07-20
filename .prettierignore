@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Generated files
+*.min.js
+*.min.css
+
+# Package lock files (let npm/yarn handle formatting)
+package-lock.json
+pnpm-lock.yaml
+yarn.lock
+
+# Archipelago build artifacts
+apworld/

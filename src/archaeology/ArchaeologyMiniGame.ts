@@ -18,20 +18,15 @@ import type { RandomGenerator } from '../core/rng.js';
 import {
   type ExcavationSession,
   type ExcavationState,
-  type TimingBarState,
   updateTimingBar,
   excavateFragment,
-  calculateAssemblyQuality,
   assembleFossil,
-  getProgressDisplay,
-  getRemainingFragments,
 } from './ExcavationSystem.js';
 import {
   type FragmentType,
   type DiscoveredFossil,
   type CompletedFossil,
   FRAGMENT_TYPE_LABELS,
-  getFossilSet,
 } from './fossilRegistry.js';
 
 /**
@@ -207,7 +202,9 @@ export function updateVisualState(
   // Update quality meter for assembly
   if (session.state === 'assembling') {
     visual.qualityMeter.value = session.assemblyQuality;
-    visual.qualityMeter.completedPhases = Math.floor(session.assemblyProgress * visual.qualityMeter.phases);
+    visual.qualityMeter.completedPhases = Math.floor(
+      session.assemblyProgress * visual.qualityMeter.phases,
+    );
   }
 
   // Update particles
@@ -252,10 +249,13 @@ export function processTimingHit(
     }
 
     // Update progress bar
-    const progressBar = visual.progressBars.find((p) => p.index === session.currentFragmentIndex - 1);
+    const progressBar = visual.progressBars.find(
+      (p) => p.index === session.currentFragmentIndex - 1,
+    );
     if (progressBar) {
       progressBar.completed = true;
-      progressBar.quality = fragment.condition === 'pristine' ? 1 : fragment.condition === 'good' ? 0.7 : 0.4;
+      progressBar.quality =
+        fragment.condition === 'pristine' ? 1 : fragment.condition === 'good' ? 0.7 : 0.4;
       progressBar.fragmentType = fragment.fragmentType;
     }
 
@@ -268,10 +268,7 @@ export function processTimingHit(
 /**
  * Create a particle effect based on fragment type and quality.
  */
-function createParticle(
-  visual: MiniGameVisualState,
-  fragment: DiscoveredFossil,
-): ParticleEffect {
+function createParticle(visual: MiniGameVisualState, fragment: DiscoveredFossil): ParticleEffect {
   const typeMap: Record<FragmentType, ParticleEffect['type']> = {
     'bone-fragment': 'bone',
     tooth: 'bone',
@@ -290,12 +287,12 @@ function createParticle(
   };
 
   const colorMap: Record<ParticleEffect['type'], number> = {
-    dirt: 0x8B4513,
-    sparkle: 0xFFD700,
-    bone: 0xF5F5DC,
-    amber: 0xFFBF00,
-    success: 0x4ADE80,
-    fail: 0xFF4444,
+    dirt: 0x8b4513,
+    sparkle: 0xffd700,
+    bone: 0xf5f5dc,
+    amber: 0xffbf00,
+    success: 0x4ade80,
+    fail: 0xff4444,
   };
 
   return {
@@ -340,7 +337,7 @@ export function addParticles(visual: MiniGameVisualState, particles: ParticleEff
 export function tryCompleteAssembly(
   session: ExcavationSession,
   visual: MiniGameVisualState,
-  rng: RandomGenerator,
+  _rng: RandomGenerator,
 ): { completed: CompletedFossil | null; notification: MiniGameNotification | null } {
   if (session.state !== 'assembling' || !session.currentFossilSet) {
     return { completed: null, notification: null };
@@ -376,7 +373,7 @@ export function tryCompleteAssembly(
  * Create assembly phase quality hit.
  */
 export function processAssemblyPhase(
-  session: ExcavationSession,
+  _session: ExcavationSession,
   visual: MiniGameVisualState,
 ): number {
   if (visual.qualityMeter.completedPhases >= visual.qualityMeter.phases) {
@@ -424,7 +421,10 @@ export function createNotification(
 /**
  * Check if a notification has expired.
  */
-export function isNotificationExpired(notification: MiniGameNotification, now: number = Date.now()): boolean {
+export function isNotificationExpired(
+  notification: MiniGameNotification,
+  now: number = Date.now(),
+): boolean {
   return now - notification.timestamp > notification.duration;
 }
 
@@ -440,22 +440,22 @@ export function getFragmentLabel(fragmentType: FragmentType): string {
  */
 export function getFragmentColor(fragmentType: FragmentType): number {
   const colorMap: Record<FragmentType, number> = {
-    'bone-fragment': 0xF5F5DC,
-    tooth: 0xE8E8D0,
-    shell: 0xFFE4C4,
-    'amber-insect': 0xFFBF00,
-    'egg-shell': 0xF0E6D2,
-    'ancient-tool': 0x8B7355,
-    'mythical-remains': 0xFF69B4,
-    scale: 0x40E0D0,
-    claw: 0xD2B48C,
-    vertebra: 0xE8E8D0,
-    'skull-piece': 0xE0DCC8,
-    rib: 0xE8E8D0,
-    'tail-spine': 0xD4C5A9,
-    'wing-bone': 0xF0E6D2,
+    'bone-fragment': 0xf5f5dc,
+    tooth: 0xe8e8d0,
+    shell: 0xffe4c4,
+    'amber-insect': 0xffbf00,
+    'egg-shell': 0xf0e6d2,
+    'ancient-tool': 0x8b7355,
+    'mythical-remains': 0xff69b4,
+    scale: 0x40e0d0,
+    claw: 0xd2b48c,
+    vertebra: 0xe8e8d0,
+    'skull-piece': 0xe0dcc8,
+    rib: 0xe8e8d0,
+    'tail-spine': 0xd4c5a9,
+    'wing-bone': 0xf0e6d2,
   };
-  return colorMap[fragmentType] ?? 0xCCCCCC;
+  return colorMap[fragmentType] ?? 0xcccccc;
 }
 
 /**
@@ -464,11 +464,11 @@ export function getFragmentColor(fragmentType: FragmentType): number {
 export function getConditionColor(condition: 'pristine' | 'good' | 'damaged'): number {
   switch (condition) {
     case 'pristine':
-      return 0x4ADE80;
+      return 0x4ade80;
     case 'good':
-      return 0xFFD700;
+      return 0xffd700;
     case 'damaged':
-      return 0xFF6B6B;
+      return 0xff6b6b;
   }
 }
 

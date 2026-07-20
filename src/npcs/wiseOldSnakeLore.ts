@@ -34,7 +34,7 @@ export const WISE_OLD_SNAKE_LORE: readonly string[] = [
   'Some say the wise old snake can predict the future by counting its own segments.',
   'The wise old snake once advised a traveler: "Stop. You are doing fine."',
   'There is a painting of the wise old snake in a gallery that does not exist yet.',
-  'The wise old snake\'s age is classified. Even the wise old snake does not know.',
+  "The wise old snake's age is classified. Even the wise old snake does not know.",
   'It is whispered that the wise old snake has a secret room. The secret room also has secrets.',
   'The wise old snake supposedly communicates through interpretive scale patterns.',
   'According to the wise old snake, the answer to everything is "fourteen." The reasoning is disputed.',
@@ -63,19 +63,22 @@ export const WISE_OLD_SNAKE_QUOTES: readonly WiseOldSnakeQuote[] = [
   {
     id: 'wos-quote-01',
     quote: '"The longest path is the one you do not take."',
-    context: 'Attributed to the wise old snake, reportedly said while staring at a wall for three hours.',
+    context:
+      'Attributed to the wise old snake, reportedly said while staring at a wall for three hours.',
     reliability: 'legendary',
   },
   {
     id: 'wos-quote-02',
-    quote: '"To eat is to become. To eat wisely is to become wise. To eat the wrong apple is to become a cautionary tale."',
+    quote:
+      '"To eat is to become. To eat wisely is to become wise. To eat the wrong apple is to become a cautionary tale."',
     context: 'The wise old snake reportedly said this while eating a wasabi apple.',
     reliability: 'rumor',
   },
   {
     id: 'wos-quote-03',
     quote: '"I have seen the end of the maze. It is a room with better lighting."',
-    context: 'According to a note found in a goblin\'s pocket. The wise old snake may have written it.',
+    context:
+      "According to a note found in a goblin's pocket. The wise old snake may have written it.",
     reliability: 'unverified',
   },
   {
@@ -86,38 +89,45 @@ export const WISE_OLD_SNAKE_QUOTES: readonly WiseOldSnakeQuote[] = [
   },
   {
     id: 'wos-quote-05',
-    quote: '"Every apple is a question. Every bite is an answer. The question you should ask is the one you are afraid to ask."',
+    quote:
+      '"Every apple is a question. Every bite is an answer. The question you should ask is the one you are afraid to ask."',
     context: 'Reportedly spoken by the wise old snake to a group of lost travelers.',
     reliability: 'legendary',
   },
   {
     id: 'wos-quote-06',
-    quote: '"I used to think I was the maze. Then I realized the maze thinks it is me. This is called a philosophical deadlock."',
+    quote:
+      '"I used to think I was the maze. Then I realized the maze thinks it is me. This is called a philosophical deadlock."',
     context: 'The wise old snake reportedly said this during a very long nap.',
     reliability: 'unverified',
   },
   {
     id: 'wos-quote-07',
     quote: '"The best route is the one you forget you took."',
-    context: 'Attributed to the wise old snake. No one knows what it means. The wise old snake is not clarifying.',
+    context:
+      'Attributed to the wise old snake. No one knows what it means. The wise old snake is not clarifying.',
     reliability: 'rumor',
   },
   {
     id: 'wos-quote-08',
-    quote: '"If you meet yourself in the maze, offer a snack. If you meet the wise old snake, offer nothing. The wise old snake has everything."',
+    quote:
+      '"If you meet yourself in the maze, offer a snack. If you meet the wise old snake, offer nothing. The wise old snake has everything."',
     context: 'Found scratched into a cave wall. Archaeologists are unsure who wrote it.',
     reliability: 'probably-made-up',
   },
   {
     id: 'wos-quote-09',
     quote: `"I have been here before. I will be here again. The 'here' is the question."`,
-    context: 'The wise old snake reportedly said this while standing in a doorway. It is unclear which doorway.',
+    context:
+      'The wise old snake reportedly said this while standing in a doorway. It is unclear which doorway.',
     reliability: 'unverified',
   },
   {
     id: 'wos-quote-10',
-    quote: '"Your length is not your worth. Your curiosity is your worth. Your willingness to eat questionable apples is your destiny."',
-    context: 'Reported by a wanderer who claims the wise old snake gave this advice while eating a mochi apple.',
+    quote:
+      '"Your length is not your worth. Your curiosity is your worth. Your willingness to eat questionable apples is your destiny."',
+    context:
+      'Reported by a wanderer who claims the wise old snake gave this advice while eating a mochi apple.',
     reliability: 'rumor',
   },
 ];

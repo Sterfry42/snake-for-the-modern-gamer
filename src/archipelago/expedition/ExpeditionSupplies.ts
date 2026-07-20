@@ -53,45 +53,190 @@ interface DragState {
 
 const SUPPLY_DEFINITIONS: Record<IslandId, SupplyDefinition[]> = {
   'volcanic-isle': [
-    { appleTypeId: 'caffeinated', name: 'Caffeinated Apple', category: 'essential', description: 'Required for island entry' },
-    { appleTypeId: 'wasabi', name: 'Wasabi Apple', category: 'recommended', description: 'Increases heat resistance' },
-    { appleTypeId: 'heatwave', name: 'Heatwave Apple', category: 'recommended', description: 'Boosts lava navigation' },
-    { appleTypeId: 'frost', name: 'Frost Apple', category: 'avoid', description: 'Extinguishes lava paths' },
-    { appleTypeId: 'winterberry', name: 'Winterberry Apple', category: 'avoid', description: 'Freezes magma flows' },
+    {
+      appleTypeId: 'caffeinated',
+      name: 'Caffeinated Apple',
+      category: 'essential',
+      description: 'Required for island entry',
+    },
+    {
+      appleTypeId: 'wasabi',
+      name: 'Wasabi Apple',
+      category: 'recommended',
+      description: 'Increases heat resistance',
+    },
+    {
+      appleTypeId: 'heatwave',
+      name: 'Heatwave Apple',
+      category: 'recommended',
+      description: 'Boosts lava navigation',
+    },
+    {
+      appleTypeId: 'frost',
+      name: 'Frost Apple',
+      category: 'avoid',
+      description: 'Extinguishes lava paths',
+    },
+    {
+      appleTypeId: 'winterberry',
+      name: 'Winterberry Apple',
+      category: 'avoid',
+      description: 'Freezes magma flows',
+    },
   ],
   'crystal-cavern': [
-    { appleTypeId: 'shielded', name: 'Shielded Apple', category: 'essential', description: 'Required for cavern entry' },
-    { appleTypeId: 'yuzu', name: 'Yuzu Apple', category: 'recommended', description: 'Enhances crystal vision' },
-    { appleTypeId: 'amacha', name: 'Amacha Apple', category: 'recommended', description: 'Stabilizes light refraction' },
-    { appleTypeId: 'spicy-energy', name: 'Spicy Energy Apple', category: 'avoid', description: 'Shatters crystal formations' },
-    { appleTypeId: 'caffeinated', name: 'Caffeinated Apple', category: 'avoid', description: 'Causes crystal resonance overload' },
+    {
+      appleTypeId: 'shielded',
+      name: 'Shielded Apple',
+      category: 'essential',
+      description: 'Required for cavern entry',
+    },
+    {
+      appleTypeId: 'yuzu',
+      name: 'Yuzu Apple',
+      category: 'recommended',
+      description: 'Enhances crystal vision',
+    },
+    {
+      appleTypeId: 'amacha',
+      name: 'Amacha Apple',
+      category: 'recommended',
+      description: 'Stabilizes light refraction',
+    },
+    {
+      appleTypeId: 'spicy-energy',
+      name: 'Spicy Energy Apple',
+      category: 'avoid',
+      description: 'Shatters crystal formations',
+    },
+    {
+      appleTypeId: 'caffeinated',
+      name: 'Caffeinated Apple',
+      category: 'avoid',
+      description: 'Causes crystal resonance overload',
+    },
   ],
   'sunken-temple': [
-    { appleTypeId: 'koi', name: 'Koi Apple', category: 'essential', description: 'Required for underwater breathing' },
-    { appleTypeId: 'amacha', name: 'Amacha Apple', category: 'recommended', description: 'Calm waters navigation' },
-    { appleTypeId: 'cold-beer', name: 'Cold Beer Apple', category: 'recommended', description: 'Deep water pressure resistance' },
-    { appleTypeId: 'caffeinated', name: 'Caffeinated Apple', category: 'avoid', description: 'Causes panic in deep water' },
-    { appleTypeId: 'spicy-energy', name: 'Spicy Energy Apple', category: 'avoid', description: 'Overheats underwater systems' },
+    {
+      appleTypeId: 'koi',
+      name: 'Koi Apple',
+      category: 'essential',
+      description: 'Required for underwater breathing',
+    },
+    {
+      appleTypeId: 'amacha',
+      name: 'Amacha Apple',
+      category: 'recommended',
+      description: 'Calm waters navigation',
+    },
+    {
+      appleTypeId: 'cold-beer',
+      name: 'Cold Beer Apple',
+      category: 'recommended',
+      description: 'Deep water pressure resistance',
+    },
+    {
+      appleTypeId: 'caffeinated',
+      name: 'Caffeinated Apple',
+      category: 'avoid',
+      description: 'Causes panic in deep water',
+    },
+    {
+      appleTypeId: 'spicy-energy',
+      name: 'Spicy Energy Apple',
+      category: 'avoid',
+      description: 'Overheats underwater systems',
+    },
   ],
   'sky-garden': [
-    { appleTypeId: 'lavender', name: 'Lavender Apple', category: 'essential', description: 'Required for flight capability' },
-    { appleTypeId: 'yuzu', name: 'Yuzu Apple', category: 'recommended', description: 'Wind current sensing' },
-    { appleTypeId: 'love', name: 'Love Apple', category: 'recommended', description: 'Attracts helpful sky creatures' },
-    { appleTypeId: 'lead-flippers', name: 'Lead Flippers Apple', category: 'avoid', description: 'Too heavy for flight' },
-    { appleTypeId: 'heavy', name: 'Heavy Apple', category: 'avoid', description: 'Anchors the snake to the ground' },
+    {
+      appleTypeId: 'lavender',
+      name: 'Lavender Apple',
+      category: 'essential',
+      description: 'Required for flight capability',
+    },
+    {
+      appleTypeId: 'yuzu',
+      name: 'Yuzu Apple',
+      category: 'recommended',
+      description: 'Wind current sensing',
+    },
+    {
+      appleTypeId: 'love',
+      name: 'Love Apple',
+      category: 'recommended',
+      description: 'Attracts helpful sky creatures',
+    },
+    {
+      appleTypeId: 'lead-flippers',
+      name: 'Lead Flippers Apple',
+      category: 'avoid',
+      description: 'Too heavy for flight',
+    },
+    {
+      appleTypeId: 'heavy',
+      name: 'Heavy Apple',
+      category: 'avoid',
+      description: 'Anchors the snake to the ground',
+    },
   ],
   'ancient-ruins': [
-    { appleTypeId: 'gold', name: 'Gold Apple', category: 'essential', description: 'Required to unlock ruins' },
-    { appleTypeId: 'mochi', name: 'Mochi Apple', category: 'recommended', description: 'Soft movement through traps' },
-    { appleTypeId: 'love', name: 'Love Apple', category: 'recommended', description: 'Peaceful ancient guardians' },
-    { appleTypeId: 'wasabi', name: 'Wasabi Apple', category: 'avoid', description: 'Triggers ancient traps' },
-    { appleTypeId: 'caffeinated', name: 'Caffeinated Apple', category: 'avoid', description: 'Startles ancient guardians' },
+    {
+      appleTypeId: 'gold',
+      name: 'Gold Apple',
+      category: 'essential',
+      description: 'Required to unlock ruins',
+    },
+    {
+      appleTypeId: 'mochi',
+      name: 'Mochi Apple',
+      category: 'recommended',
+      description: 'Soft movement through traps',
+    },
+    {
+      appleTypeId: 'love',
+      name: 'Love Apple',
+      category: 'recommended',
+      description: 'Peaceful ancient guardians',
+    },
+    {
+      appleTypeId: 'wasabi',
+      name: 'Wasabi Apple',
+      category: 'avoid',
+      description: 'Triggers ancient traps',
+    },
+    {
+      appleTypeId: 'caffeinated',
+      name: 'Caffeinated Apple',
+      category: 'avoid',
+      description: 'Startles ancient guardians',
+    },
   ],
   'mirror-dimension': [
-    { appleTypeId: 'skittish', name: 'Skittish Apple', category: 'essential', description: 'Required to enter mirror world' },
-    { appleTypeId: 'caffeinated', name: 'Caffeinated Apple', category: 'recommended', description: 'Sharpens mirror perception' },
-    { appleTypeId: 'mochi', name: 'Mochi Apple', category: 'recommended', description: 'Flexible mirror navigation' },
-    { appleTypeId: 'lavender', name: 'Lavender Apple', category: 'avoid', description: 'Confuses mirror reflections' },
+    {
+      appleTypeId: 'skittish',
+      name: 'Skittish Apple',
+      category: 'essential',
+      description: 'Required to enter mirror world',
+    },
+    {
+      appleTypeId: 'caffeinated',
+      name: 'Caffeinated Apple',
+      category: 'recommended',
+      description: 'Sharpens mirror perception',
+    },
+    {
+      appleTypeId: 'mochi',
+      name: 'Mochi Apple',
+      category: 'recommended',
+      description: 'Flexible mirror navigation',
+    },
+    {
+      appleTypeId: 'lavender',
+      name: 'Lavender Apple',
+      category: 'avoid',
+      description: 'Confuses mirror reflections',
+    },
     { appleTypeId: 'koi', name: 'Koi Apple', category: 'avoid', description: 'Drowns reflections' },
   ],
 };
@@ -194,7 +339,10 @@ export class ExpeditionSupplies {
     const occupiedSlots = this.slots.filter((s) => s.appleTypeId !== null);
     const suppliedApples = new Map<string, number>();
     for (const slot of occupiedSlots) {
-      suppliedApples.set(slot.appleTypeId!, (suppliedApples.get(slot.appleTypeId!) ?? 0) + slot.quantity);
+      suppliedApples.set(
+        slot.appleTypeId!,
+        (suppliedApples.get(slot.appleTypeId!) ?? 0) + slot.quantity,
+      );
     }
 
     const essentialDefs = definitions.filter((d) => d.category === 'essential');
@@ -203,7 +351,6 @@ export class ExpeditionSupplies {
 
     const missingEssentials: string[] = [];
     const avoidedItems: string[] = [];
-    const extraRecommended: string[] = [];
 
     for (const def of essentialDefs) {
       if (!suppliedApples.has(def.appleTypeId)) {

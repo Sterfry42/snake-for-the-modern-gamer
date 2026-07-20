@@ -15,7 +15,11 @@ import type { QuestRuntime } from '../quest.js';
  */
 class GardenExpansionQuest extends Quest {
   constructor() {
-    super('garden-expansion', 'Growing Pains', 'Harvest 10 ripe apples from your garden and expand to 6 plots.');
+    super(
+      'garden-expansion',
+      'Growing Pains',
+      'Harvest 10 ripe apples from your garden and expand to 6 plots.',
+    );
   }
 
   override isCompleted(runtime: QuestRuntime): boolean {

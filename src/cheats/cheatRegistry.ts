@@ -87,7 +87,7 @@ export function getCheatsByCategory(): Map<CheatCategory, readonly CheatDefiniti
     }
   }
   // Sort within each category by primary code for stable ordering.
-  for (const [cat, cheats] of grouped) {
+  for (const [, cheats] of grouped) {
     cheats.sort((a, b) => a.primaryCode.localeCompare(b.primaryCode));
   }
   return grouped;
@@ -134,7 +134,7 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     code: "ryan's closet / ryans closet",
     primaryCode: "ryan's closet",
     description: 'Acquire all useful items and auto-equip key gear.',
-    aliases: ["ryan's closet", "ryans closet"],
+    aliases: ["ryan's closet", 'ryans closet'],
     category: 'items',
   },
   {
@@ -151,7 +151,7 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     code: "lindsey's closet / lindsleys closet",
     primaryCode: "lindsey's closet",
     description: 'Unlock every cosmetic theme, hat, cowbell, and loud walking noise.',
-    aliases: ["lindsey's closet", "lindsleys closet"],
+    aliases: ["lindsey's closet", 'lindsleys closet'],
     category: 'cosmetics',
   },
   // === QUESTS ===
@@ -238,10 +238,10 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     category: 'structures',
   },
   {
-    name: 'SPAWN SNAKE CANIE\'S',
+    name: "SPAWN SNAKE CANIE'S",
     code: 'canies / snakecanies',
     primaryCode: 'canies',
-    description: 'Spawn a Snake Cane\'s in the current room.',
+    description: "Spawn a Snake Cane's in the current room.",
     aliases: ['canies', 'snakecanies'],
     category: 'structures',
   },

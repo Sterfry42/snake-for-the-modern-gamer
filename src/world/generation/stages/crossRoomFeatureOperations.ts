@@ -282,7 +282,9 @@ export class CrossRoomFeatureOperations {
     length: number;
     bridgeIndex: number;
   } | null {
-    if (biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${anchorX},${anchorY},${roomZ}`).id, 'ocean')) {
+    if (
+      biomeCountsAs(this.biomeMap.getBiomeForRoomId(`${anchorX},${anchorY},${roomZ}`).id, 'ocean')
+    ) {
       return null;
     }
     if (this.riverTouchesStartingArea(anchorX, anchorY, roomZ)) {

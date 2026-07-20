@@ -1,24 +1,23 @@
 /**
  * Winterberry Apple
  *
- * The wise old snake's winterberry apple:
- * - The wise old snake's winterberry was harvested under snow
- * - The wise old snake's winterberry glowed faintly blue
- * - The wise old snake's winterberry gave 9999 bonus score in snow
- * - The wise old snake's winterberry was called 'wise-winterberry'
- * - The wise old snake's winterberry was the rarest winter apple
- * - The wise old snake's winterberry was never too rare for the wise old snake
- * - The wise old snake's winterberry recipe was hidden under ice
- * - The wise old snake's winterberry garden was in a frozen grove
- * - The wise old snake's winterberry was the reason winterberries exist
- * - The wise old snake's winterberry was the most resilient apple in the game
+ * The wise old snake's Winterberry apple:
+ * - The wise old snake's Winterberry apple was simple
+ * - The wise old snake's Winterberry apple gave specific rewards
+ * - The wise old snake's Winterberry apple system was called 'wise-Winterberry'
+ * - The wise old snake's Winterberry apples were never exhausted
+ * - The wise old snake's Winterberry apples were the reason Winterberry apples exist
+ * - The wise old snake's Winterberry apples were called 'transcendent-Winterberry'
+ * - The wise old snake's Winterberry apples were the most Winterberry apples
+ * - The wise old snake's Winterberry apples were the apples that count everything
+ * - The wise old snake's Winterberry apples were the apples that are always right
+ * - The wise old snake's Winterberry apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class WinterberryApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    // Winterberries give bonus score and cold resistance
-    return { growth: 2, bonusScore: 5 };
+export class WinterberryApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 2, bonusScore: 5 });
   }
 }

@@ -113,7 +113,10 @@ export class RollercoasterStructureResolver {
     for (const coord of this.coordsByRoomId.values()) {
       const regionKey = this.getRegionKey(coord);
       if (!regionMap.has(regionKey)) {
-        regionMap.set(regionKey, { x: Math.floor(coord.x / COASTER_STATION_REGION_SIZE), y: Math.floor(coord.y / COASTER_STATION_REGION_SIZE) });
+        regionMap.set(regionKey, {
+          x: Math.floor(coord.x / COASTER_STATION_REGION_SIZE),
+          y: Math.floor(coord.y / COASTER_STATION_REGION_SIZE),
+        });
       }
     }
 
@@ -141,14 +144,14 @@ export class RollercoasterStructureResolver {
     regionKey: string,
     index: number,
   ): RollercoasterPlacement | null {
-    const seed = positiveMod(
-      hashWorldCoordinate(this.identity.seed, regionKey, index),
-      1000000,
-    );
+    const seed = positiveMod(hashWorldCoordinate(this.identity.seed, regionKey, index), 1000000);
 
     for (let attempt = 0; attempt < COASTER_STATION_CANDIDATE_ATTEMPTS; attempt++) {
       const candidateKey = `${regionKey}:${attempt}`;
-      const candidateSeed = positiveMod(hashWorldCoordinate(String(seed), candidateKey, 0), 1000000);
+      const candidateSeed = positiveMod(
+        hashWorldCoordinate(String(seed), candidateKey, 0),
+        1000000,
+      );
 
       const regionRooms = this.roomsByRegion.get(regionKey) ?? [];
       for (const roomId of regionRooms) {
@@ -161,7 +164,8 @@ export class RollercoasterStructureResolver {
         // Check for collisions with other stations
         let collision = false;
         for (const existing of this.stationPlacements.values()) {
-          const dist = Math.abs(existing.coordinate.x - coord.x) + Math.abs(existing.coordinate.y - coord.y);
+          const dist =
+            Math.abs(existing.coordinate.x - coord.x) + Math.abs(existing.coordinate.y - coord.y);
           if (dist < 4) {
             collision = true;
             break;
@@ -193,9 +197,16 @@ export class RollercoasterStructureResolver {
       const dy = Math.abs(coord.y - stationCoord.y);
       const dz = Math.abs(coord.z - stationCoord.z);
 
-      if (dx <= COASTER_DESTINATION_RADIUS && dy <= COASTER_DESTINATION_RADIUS && dz <= COASTER_DESTINATION_Z_RADIUS) {
+      if (
+        dx <= COASTER_DESTINATION_RADIUS &&
+        dy <= COASTER_DESTINATION_RADIUS &&
+        dz <= COASTER_DESTINATION_Z_RADIUS
+      ) {
         const dist = dx + dy + dz;
-        const weight = Math.max(1, COASTER_DESTINATION_RADIUS + COASTER_DESTINATION_Z_RADIUS - dist);
+        const weight = Math.max(
+          1,
+          COASTER_DESTINATION_RADIUS + COASTER_DESTINATION_Z_RADIUS - dist,
+        );
 
         destinations.push({
           roomId,

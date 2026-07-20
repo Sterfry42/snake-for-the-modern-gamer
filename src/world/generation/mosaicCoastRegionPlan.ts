@@ -99,7 +99,9 @@ export class MosaicCoastRegionPlanner {
     };
   }
 
-  getRegionForRoom(coordOrRoomId: string | { x: number; y: number; z: number }): MosaicCoastRegionPlan {
+  getRegionForRoom(
+    coordOrRoomId: string | { x: number; y: number; z: number },
+  ): MosaicCoastRegionPlan {
     const coord = typeof coordOrRoomId === 'string' ? parseRoomId(coordOrRoomId) : coordOrRoomId;
     const bounds = starterContains(coord) ? STARTER_BOUNDS : this.boundsForGeneratedRegion(coord);
     const id = `mosaic-region:${bounds.left},${bounds.top},${bounds.z}:${bounds.width}x${bounds.height}`;
@@ -112,7 +114,11 @@ export class MosaicCoastRegionPlanner {
     return region;
   }
 
-  private boundsForGeneratedRegion(coord: { x: number; y: number; z: number }): MosaicCoastRegionBounds {
+  private boundsForGeneratedRegion(coord: {
+    x: number;
+    y: number;
+    z: number;
+  }): MosaicCoastRegionBounds {
     const width = 5 + (this.hash(coord.x, coord.y, coord.z, 0x51) % 4);
     const height = 3 + (this.hash(coord.x, coord.y, coord.z, 0x67) % 4);
     return {
@@ -125,7 +131,8 @@ export class MosaicCoastRegionPlanner {
   }
 
   private buildRegion(id: string, bounds: MosaicCoastRegionBounds): MosaicCoastRegionPlan {
-    const starter = bounds.left === STARTER_BOUNDS.left && bounds.top === STARTER_BOUNDS.top && bounds.z === 0;
+    const starter =
+      bounds.left === STARTER_BOUNDS.left && bounds.top === STARTER_BOUNDS.top && bounds.z === 0;
     const seed = `${this.identity.seed}:${id}`;
     const orientation = starter || bounds.height >= bounds.width ? 'north-south' : 'east-west';
     const entrySide = starter ? 'south' : this.entrySideFor(seed);
@@ -134,11 +141,28 @@ export class MosaicCoastRegionPlanner {
     const gaudiLevel = starter ? 0.85 : (hashString(`${seed}:gaudi`) % 100) / 100;
     const anchor = { x: bounds.left, y: bounds.top, z: bounds.z };
     const mainAlleySpine = this.buildSpine(bounds, orientation, entrySide, seed);
-    const plazaNodes = this.pickNodes(bounds, seed, 'plaza', starter ? 2 : Math.max(1, Math.floor(bounds.width * bounds.height / 12)));
-    const courtyardNodes = this.pickNodes(bounds, seed, 'courtyard', starter ? 3 : Math.max(1, Math.floor(bounds.width * bounds.height / 10)));
+    const plazaNodes = this.pickNodes(
+      bounds,
+      seed,
+      'plaza',
+      starter ? 2 : Math.max(1, Math.floor((bounds.width * bounds.height) / 12)),
+    );
+    const courtyardNodes = this.pickNodes(
+      bounds,
+      seed,
+      'courtyard',
+      starter ? 3 : Math.max(1, Math.floor((bounds.width * bounds.height) / 10)),
+    );
     const arrival = this.entryRoom(bounds, entrySide);
-    const fountain = starter ? { x: 2, y: -9, z: 0 } : plazaNodes[0] ?? mainAlleySpine[Math.floor(mainAlleySpine.length / 2)] ?? arrival;
-    const tapas = bounds.width * bounds.height >= 9 ? (starter ? { x: 0, y: -10, z: 0 } : courtyardNodes[0]) : undefined;
+    const fountain = starter
+      ? { x: 2, y: -9, z: 0 }
+      : (plazaNodes[0] ?? mainAlleySpine[Math.floor(mainAlleySpine.length / 2)] ?? arrival);
+    const tapas =
+      bounds.width * bounds.height >= 9
+        ? starter
+          ? { x: 0, y: -10, z: 0 }
+          : courtyardNodes[0]
+        : undefined;
     const gaudiApproach =
       gaudiLevel >= 0.45 && bounds.width * bounds.height >= 12
         ? starter
@@ -188,7 +212,9 @@ export class MosaicCoastRegionPlanner {
       return this.hash(coord.x, coord.y, coord.z, 0x88) % 2 === 0 ? 'sun-plaza' : 'fountain-court';
     }
     if (region.mainAlleySpine.some((node) => coordKey(node) === key)) {
-      return this.hash(coord.x, coord.y, coord.z, 0x77) % 3 === 0 ? 'awning-alley' : 'old-town-alley';
+      return this.hash(coord.x, coord.y, coord.z, 0x77) % 3 === 0
+        ? 'awning-alley'
+        : 'old-town-alley';
     }
     return region.ruinLevel > 0.55 ? 'ruined-stucco-block' : 'old-town-alley';
   }
@@ -254,18 +280,47 @@ export class MosaicCoastRegionPlanner {
       .map(({ x, y, z }) => ({ x, y, z }));
   }
 
-  private entryRoom(bounds: MosaicCoastRegionBounds, side: MosaicCoastRegionPlan['entrySide']): { x: number; y: number; z: number } {
-    if (side === 'south') return { x: bounds.left + Math.floor(bounds.width / 2), y: bounds.top + bounds.height - 1, z: bounds.z };
-    if (side === 'north') return { x: bounds.left + Math.floor(bounds.width / 2), y: bounds.top, z: bounds.z };
-    if (side === 'east') return { x: bounds.left + bounds.width - 1, y: bounds.top + Math.floor(bounds.height / 2), z: bounds.z };
+  private entryRoom(
+    bounds: MosaicCoastRegionBounds,
+    side: MosaicCoastRegionPlan['entrySide'],
+  ): { x: number; y: number; z: number } {
+    if (side === 'south')
+      return {
+        x: bounds.left + Math.floor(bounds.width / 2),
+        y: bounds.top + bounds.height - 1,
+        z: bounds.z,
+      };
+    if (side === 'north')
+      return { x: bounds.left + Math.floor(bounds.width / 2), y: bounds.top, z: bounds.z };
+    if (side === 'east')
+      return {
+        x: bounds.left + bounds.width - 1,
+        y: bounds.top + Math.floor(bounds.height / 2),
+        z: bounds.z,
+      };
     return { x: bounds.left, y: bounds.top + Math.floor(bounds.height / 2), z: bounds.z };
   }
 
-  private farRoom(bounds: MosaicCoastRegionBounds, side: MosaicCoastRegionPlan['entrySide'], offset: number): { x: number; y: number; z: number } {
-    if (side === 'south') return { x: bounds.left + bounds.width - 1 + offset, y: bounds.top, z: bounds.z };
-    if (side === 'north') return { x: bounds.left + bounds.width - 1 + offset, y: bounds.top + bounds.height - 1, z: bounds.z };
-    if (side === 'east') return { x: bounds.left, y: bounds.top + bounds.height - 1 + offset, z: bounds.z };
-    return { x: bounds.left + bounds.width - 1, y: bounds.top + bounds.height - 1 + offset, z: bounds.z };
+  private farRoom(
+    bounds: MosaicCoastRegionBounds,
+    side: MosaicCoastRegionPlan['entrySide'],
+    offset: number,
+  ): { x: number; y: number; z: number } {
+    if (side === 'south')
+      return { x: bounds.left + bounds.width - 1 + offset, y: bounds.top, z: bounds.z };
+    if (side === 'north')
+      return {
+        x: bounds.left + bounds.width - 1 + offset,
+        y: bounds.top + bounds.height - 1,
+        z: bounds.z,
+      };
+    if (side === 'east')
+      return { x: bounds.left, y: bounds.top + bounds.height - 1 + offset, z: bounds.z };
+    return {
+      x: bounds.left + bounds.width - 1,
+      y: bounds.top + bounds.height - 1 + offset,
+      z: bounds.z,
+    };
   }
 
   private entrySideFor(seed: string): MosaicCoastRegionPlan['entrySide'] {
@@ -277,7 +332,9 @@ export class MosaicCoastRegionPlanner {
   }
 }
 
-export function getMosaicCoastStarterRegionPlan(identity: WorldGenerationIdentity): MosaicCoastRegionPlan {
+export function getMosaicCoastStarterRegionPlan(
+  identity: WorldGenerationIdentity,
+): MosaicCoastRegionPlan {
   return new MosaicCoastRegionPlanner(identity).getRegionForRoom({ x: 0, y: -10, z: 0 });
 }
 

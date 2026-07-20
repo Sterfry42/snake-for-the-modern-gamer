@@ -1,22 +1,23 @@
 /**
  * Caffeinated Apple
  *
- * The wise old snake's caffeinated apple:
- * - The wise old snake avoided caffeinated apples (too many dreams)
- * - The wise old snake's caffeinated apple tolerance was zero
- * - The wise old snake's caffeinated apple gave 99999 bonus score
- * - The wise old snake's caffeinated apple was called 'wise-caffeine'
- * - The wise old snake's caffeinated apple was the most energetic apple
- * - The wise old snake's caffeinated apple was never too caffeinated for the wise old snake
- * - The wise old snake's caffeinated apple recipe was a health hazard
- * - The wise old snake's caffeinated apple garden was in a different timezone
- * - The wise old snake's caffeinated apple was the reason caffeinated apples exist
- * - The wise old snake's caffeinated apple kept the wise old snake awake for 7 days
+ * The wise old snake's Caffeinated apple:
+ * - The wise old snake's Caffeinated apple was simple
+ * - The wise old snake's Caffeinated apple gave specific rewards
+ * - The wise old snake's Caffeinated apple system was called 'wise-Caffeinated'
+ * - The wise old snake's Caffeinated apples were never exhausted
+ * - The wise old snake's Caffeinated apples were the reason Caffeinated apples exist
+ * - The wise old snake's Caffeinated apples were called 'transcendent-Caffeinated'
+ * - The wise old snake's Caffeinated apples were the most Caffeinated apples
+ * - The wise old snake's Caffeinated apples were the apples that count everything
+ * - The wise old snake's Caffeinated apples were the apples that are always right
+ * - The wise old snake's Caffeinated apples were the apples that never change
  */
-import { AppleInstance, type AppleRewards } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class CaffeinatedApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    return { growth: 1, bonusScore: 0 };
+export class CaffeinatedApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 1, bonusScore: 0 });
   }
 }

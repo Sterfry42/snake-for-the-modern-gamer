@@ -18,7 +18,9 @@ describe('Cheat UI coverage', () => {
 
     // Find the buildCheatsCards method
     const methodStart = skillTreeContent.indexOf('buildCheatsCards(');
-    expect(methodStart, 'buildCheatsCards method not found in skillTreeOverlay.ts').toBeGreaterThan(-1);
+    expect(methodStart, 'buildCheatsCards method not found in skillTreeOverlay.ts').toBeGreaterThan(
+      -1,
+    );
 
     // Extract the method body (ends at the next private method)
     const nextMethod = skillTreeContent.indexOf('private buildControlsCards', methodStart);
@@ -49,8 +51,13 @@ describe('Cheat UI coverage', () => {
 
     // Verify all cheats have displayable content
     for (const cheat of CHEAT_DEFINITIONS) {
-      expect(cheat.name.length, `Cheat "${cheat.primaryCode}" has an empty name`).toBeGreaterThan(0);
-      expect(cheat.description.length, `Cheat "${cheat.primaryCode}" has an empty description`).toBeGreaterThan(0);
+      expect(cheat.name.length, `Cheat "${cheat.primaryCode}" has an empty name`).toBeGreaterThan(
+        0,
+      );
+      expect(
+        cheat.description.length,
+        `Cheat "${cheat.primaryCode}" has an empty description`,
+      ).toBeGreaterThan(0);
     }
   });
 
@@ -66,10 +73,7 @@ describe('Cheat UI coverage', () => {
     ).toBeGreaterThan(-1);
 
     // Verify the button onClick uses the cheat's primaryCode
-    const buttonSectionEnd = skillTreeContent.indexOf(
-      'y += 36;',
-      buttonSectionStart,
-    );
+    const buttonSectionEnd = skillTreeContent.indexOf('y += 36;', buttonSectionStart);
     const buttonSection = skillTreeContent.slice(buttonSectionStart, buttonSectionEnd);
 
     expect(buttonSection).toContain('cheat.primaryCode');

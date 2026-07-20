@@ -8,7 +8,6 @@ import type {
   ArchipelagoConnectionConfig,
   ArchipelagoConnectionDetails,
   ArchipelagoConnectionStatus,
-  ArchipelagoDeathLink,
   ArchipelagoPrintMessage,
   ArchipelagoReceivedItem,
 } from './archipelagoConnectionTypes.js';

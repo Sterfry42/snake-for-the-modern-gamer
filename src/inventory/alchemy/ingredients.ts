@@ -288,7 +288,9 @@ export function getIngredient(id: string): AlchemyIngredient | undefined {
 }
 
 /** Get ingredients filtered by category */
-export function getIngredientsByCategory(category: AlchemyIngredient['category']): AlchemyIngredient[] {
+export function getIngredientsByCategory(
+  category: AlchemyIngredient['category'],
+): AlchemyIngredient[] {
   return ALCHEMY_INGREDIENTS.filter((i) => i.category === category);
 }
 

@@ -67,7 +67,4 @@ export {
 } from './humanEncounters.js';
 
 // Voice
-export {
-  HUMAN_VOICE_LINES,
-  selectHumanVoiceLine,
-} from './humanVoice.js';
+export { HUMAN_VOICE_LINES, selectHumanVoiceLine } from './humanVoice.js';

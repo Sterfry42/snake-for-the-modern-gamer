@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { MinecraftPlayer } from '../player.js';
 import { isWalkableWithCreativeOverride } from '../player.js';
-import { tryBreakBlockCreative, tryPlaceBlockCreative } from '../blockInteraction.js';
+import { tryBreakBlockCreative } from '../blockInteraction.js';
 import type { RoomSnapshot } from '../../world/types.js';
 
 describe('Creative Mode - Palette', () => {
@@ -11,10 +11,26 @@ describe('Creative Mode - Palette', () => {
 
   it('should include all expected block types', () => {
     const expected = [
-      'dirt', 'grass', 'stone', 'cobblestone', 'sand',
-      'gravel', 'wood', 'planks', 'torch', 'glass',
-      'furnace', 'chest', 'bed', 'crafting_table', 'pumpkin',
-      'iron_block', 'gold_block', 'diamond_ore', 'iron_ore', 'coal_ore',
+      'dirt',
+      'grass',
+      'stone',
+      'cobblestone',
+      'sand',
+      'gravel',
+      'wood',
+      'planks',
+      'torch',
+      'glass',
+      'furnace',
+      'chest',
+      'bed',
+      'crafting_table',
+      'pumpkin',
+      'iron_block',
+      'gold_block',
+      'diamond_ore',
+      'iron_ore',
+      'coal_ore',
     ];
     for (const bt of expected) {
       expect(MinecraftPlayer.CREATIVE_BLOCK_TYPES).toContain(bt);

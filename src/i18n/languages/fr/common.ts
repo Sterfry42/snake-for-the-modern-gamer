@@ -94,7 +94,7 @@ export const COMMON_FR: CommonTranslations = {
   archaeology: {
     digWarningTitle: '[AVERTISSEMENT ÉPILEPSIE] Fouille',
     digDescription:
-      'Commencez l\'Archéologie Moleman. Associez trois, montez la pile croissante, gardez les découvertes.',
+      "Commencez l'Archéologie Moleman. Associez trois, montez la pile croissante, gardez les découvertes.",
     talkTitle: 'Parler',
     talkDescription: 'Écoutez le contremaître expliquer pourquoi ce trou contient des pommes.',
     bondTitle: 'Lien',
@@ -122,11 +122,12 @@ export const COMMON_FR: CommonTranslations = {
     itemsRecovered: 'Objets récupérés : {count}',
     artifactsRecovered: 'Artéfacts récupérés : {count}',
     noFinds: 'Aucune découverte libre récupérée.',
-    appleRule: 'Chaque pomme récupérée donne +1 longueur et +1 score. Les fournitures vont à l\'inventaire.',
+    appleRule:
+      "Chaque pomme récupérée donne +1 longueur et +1 score. Les fournitures vont à l'inventaire.",
     gameOverSummary: 'Fin de partie - Résumé de la fouille',
     summary: 'Résumé de la fouille',
     continue: 'Continuer',
-    ceilingPressure: 'Pression du plafond. Trois secondes pour libérer de l\'espace.',
+    ceilingPressure: "Pression du plafond. Trois secondes pour libérer de l'espace.",
     ceilingReached: 'La fouille a atteint le plafond. Récompenses récupérées.',
     artifactDuplicate: '{name} en double catalogué : +8 score',
     artifactDuplicateShort: '{name} en double : +8 score',
@@ -154,7 +155,7 @@ export const COMMON_FR: CommonTranslations = {
     shop: 'Boutique',
     romance: 'Romance',
     giveGift: 'Donner un cadeau',
-    apologize: 'S\'excuser',
+    apologize: "S'excuser",
     pickpocket: 'Piquer',
     threaten: 'Menacer',
     parley: 'Négocier',
@@ -164,7 +165,7 @@ export const COMMON_FR: CommonTranslations = {
     tooHostile: 'Trop hostile',
     findThievesGuildTest: 'Trouver le test de la guilde des voleurs',
     notHostile: 'Pas hostile',
-    targetNotHostile: 'La cible n\'est pas hostile',
+    targetNotHostile: "La cible n'est pas hostile",
     moodHostile: 'hostile',
     moodWorried: 'inquiet pour vous',
     moodCommercial: 'alerte commerciale',
@@ -178,7 +179,7 @@ export const COMMON_FR: CommonTranslations = {
   // Bullet Train
   bulletTrain: {
     boardTrain: 'MONTER DANS LE TRAIN',
-    departureAnnouncement: 'L\'Express Jade Peak part pour {destination} !',
+    departureAnnouncement: "L'Express Jade Peak part pour {destination} !",
     arrivalAnnouncement: 'Prochaine gare : {destination} !',
     stationSign: 'Express Jade Peak',
     ticketBooth: 'Guichet',
@@ -195,6 +196,6 @@ export const COMMON_FR: CommonTranslations = {
     teach: 'Lui montrer un câlin',
     holdTightDesc: 'Envelopper tous les deux. Ne pas lâcher.',
     lookAtParentDesc: 'Partager le moment. Un regard qui dit tout.',
-    teachDesc: 'Ouvrir grands les bras. Lui montrer ce qu\'est un câlin.',
+    teachDesc: "Ouvrir grands les bras. Lui montrer ce qu'est un câlin.",
   },
 } as const;

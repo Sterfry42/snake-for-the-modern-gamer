@@ -49,20 +49,20 @@ declare global {
  */
 const STATE_PATTERNS: Readonly<Record<DesertMusicState, readonly number[]>> = {
   'amber-dunes-base': [
-    77, 80, 84, 87, 84, 80, 77, 75, 72, 75, 77, 80, 84, 87, 91, 87,
-    84, 80, 77, 75, 72, 70, 67, 70, 72, 75, 77, 80, 84, 80, 77, 75,
+    77, 80, 84, 87, 84, 80, 77, 75, 72, 75, 77, 80, 84, 87, 91, 87, 84, 80, 77, 75, 72, 70, 67, 70,
+    72, 75, 77, 80, 84, 80, 77, 75,
   ],
   'amber-dunes-sunset': [
-    77, 80, 84, 87, 91, 87, 84, 80, 77, 75, 72, 70, 67, 70, 72, 75,
-    77, 80, 84, 87, 84, 80, 77, 75, 72, 70, 67, 65, 67, 70, 72, 75,
+    77, 80, 84, 87, 91, 87, 84, 80, 77, 75, 72, 70, 67, 70, 72, 75, 77, 80, 84, 87, 84, 80, 77, 75,
+    72, 70, 67, 65, 67, 70, 72, 75,
   ],
   'amber-dunes-storm': [
-    65, 67, 70, 72, 70, 67, 65, 62, 60, 62, 65, 67, 70, 72, 75, 72,
-    70, 67, 65, 62, 60, 58, 55, 58, 60, 62, 65, 67, 70, 67, 65, 62,
+    65, 67, 70, 72, 70, 67, 65, 62, 60, 62, 65, 67, 70, 72, 75, 72, 70, 67, 65, 62, 60, 58, 55, 58,
+    60, 62, 65, 67, 70, 67, 65, 62,
   ],
   'amber-dunes-oasis': [
-    79, 82, 86, 89, 92, 89, 86, 82, 79, 77, 74, 77, 79, 82, 86, 89,
-    92, 89, 86, 82, 79, 77, 74, 72, 70, 72, 74, 77, 79, 82, 86, 82,
+    79, 82, 86, 89, 92, 89, 86, 82, 79, 77, 74, 77, 79, 82, 86, 89, 92, 89, 86, 82, 79, 77, 74, 72,
+    70, 72, 74, 77, 79, 82, 86, 82,
   ],
 };
 
@@ -236,28 +236,12 @@ export class DesertWebAudioFontMusic {
 
     // Bass drone (persistent)
     if (this.step % 8 === 0) {
-      this.player.queueWaveTable(
-        this.context,
-        this.gain,
-        this.preset,
-        now,
-        note - 12,
-        0.5,
-        0.25,
-      );
+      this.player.queueWaveTable(this.context, this.gain, this.preset, now, note - 12, 0.5, 0.25);
     }
 
     // Storm: add dissonant low rumble
     if (isStorm) {
-      this.player.queueWaveTable(
-        this.context,
-        this.gain,
-        this.preset,
-        now,
-        note - 19,
-        0.45,
-        0.35,
-      );
+      this.player.queueWaveTable(this.context, this.gain, this.preset, now, note - 19, 0.45, 0.35);
     }
 
     this.step += 1;

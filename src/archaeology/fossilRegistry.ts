@@ -489,9 +489,7 @@ export const COMPLETED_FOSSIL_SET_IDS = new Set(FOSSIL_SETS.map((s) => s.id));
 /**
  * Get fragment types needed for a fossil set.
  */
-export function getFossilSetFragments(
-  fossilSetId: string,
-): FragmentCombination[] | undefined {
+export function getFossilSetFragments(fossilSetId: string): FragmentCombination[] | undefined {
   return FOSSIL_SETS.find((set) => set.id === fossilSetId)?.fragments;
 }
 
@@ -685,16 +683,25 @@ export const DIG_SITE_TIERS: Array<{
  * Get dig site parameters based on depth.
  */
 export function getDigSiteParams(depth: number): DigSiteParameters {
-  const tier = DIG_SITE_TIERS.find(
-    (t) => depth >= t.depthRange[0] && depth <= t.depthRange[1],
-  ) ?? DIG_SITE_TIERS[DIG_SITE_TIERS.length - 1]!;
+  const tier =
+    DIG_SITE_TIERS.find((t) => depth >= t.depthRange[0] && depth <= t.depthRange[1]) ??
+    DIG_SITE_TIERS[DIG_SITE_TIERS.length - 1]!;
 
   return {
     depth,
     rarity: tier.rarity,
-    size: Math.floor(Math.random() * (tier.sizeRange[1] - tier.sizeRange[0] + 1)) + tier.sizeRange[0],
-    glowIntensity: tier.glowIntensity[0] + Math.random() * (tier.glowIntensity[1] - tier.glowIntensity[0]),
-    detectionRadius: tier.rarity === 'legendary' ? 5 : tier.rarity === 'rare' ? 4 : tier.rarity === 'uncommon' ? 3 : 2,
+    size:
+      Math.floor(Math.random() * (tier.sizeRange[1] - tier.sizeRange[0] + 1)) + tier.sizeRange[0],
+    glowIntensity:
+      tier.glowIntensity[0] + Math.random() * (tier.glowIntensity[1] - tier.glowIntensity[0]),
+    detectionRadius:
+      tier.rarity === 'legendary'
+        ? 5
+        : tier.rarity === 'rare'
+          ? 4
+          : tier.rarity === 'uncommon'
+            ? 3
+            : 2,
   };
 }
 
@@ -746,6 +753,12 @@ export function calculateFragmentValue(
 ): number {
   const conditionMultiplier = condition === 'pristine' ? 1.5 : condition === 'good' ? 1.0 : 0.5;
   const rarityMultiplier =
-    fossilRarity === 'legendary' ? 4 : fossilRarity === 'rare' ? 2 : fossilRarity === 'uncommon' ? 1.5 : 1;
+    fossilRarity === 'legendary'
+      ? 4
+      : fossilRarity === 'rare'
+        ? 2
+        : fossilRarity === 'uncommon'
+          ? 1.5
+          : 1;
   return Math.floor(10 * conditionMultiplier * rarityMultiplier);
 }

@@ -156,7 +156,13 @@ describe('WarSystem', () => {
 
     it('resolves contested territories on peace', () => {
       // First create a contested territory
-      territoryManager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'goblin-camps', 50, 'attack');
+      territoryManager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'goblin-camps',
+        50,
+        'attack',
+      );
 
       warSystem.declarePeace({
         factionA: 'hearthbound-remnant',
@@ -184,7 +190,13 @@ describe('WarSystem', () => {
 
     it('applies bonus to defending faction', () => {
       // Set up: hearthbound-remnant controls the forest
-      territoryManager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
+      territoryManager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'unclaimed',
+        100,
+        'diplomacy',
+      );
 
       warSystem.issueMercenaryContract({
         territoryId: 'forest-of-whispers',
@@ -201,7 +213,13 @@ describe('WarSystem', () => {
   describe('sabotage', () => {
     it('successfully sabotages a territory', () => {
       // Set up: hearthbound-remnant controls the forest
-      territoryManager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
+      territoryManager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'unclaimed',
+        100,
+        'diplomacy',
+      );
 
       const result = warSystem.sabotageTerritory({
         territoryId: 'forest-of-whispers',
@@ -215,7 +233,13 @@ describe('WarSystem', () => {
     });
 
     it('fails sabotage with low chance', () => {
-      territoryManager.shiftControl('forest-of-whispers', 'hearthbound-remnant', 'unclaimed', 100, 'diplomacy');
+      territoryManager.shiftControl(
+        'forest-of-whispers',
+        'hearthbound-remnant',
+        'unclaimed',
+        100,
+        'diplomacy',
+      );
 
       const result = warSystem.sabotageTerritory({
         territoryId: 'forest-of-whispers',

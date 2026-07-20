@@ -1,8 +1,6 @@
 import type { BiomeId } from '../world/biomes.js';
 import type { CatchEntry, FishRarity, FishTypeId } from './types.js';
 
-const CATCH_JOURNAL_FLAG = 'fishing.catchJournal';
-
 let catchJournalIdCounter = 0;
 
 function generateId(): string {

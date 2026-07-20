@@ -1,23 +1,23 @@
 /**
  * Amacha Apple
  *
- * The wise old snake's amacha apple:
- * - The wise old snake's amacha apple was sweet like wisdom
- * - The wise old snake's amacha apple gave 999 bonus score
- * - The wise old snake's amacha apple was called 'wise-amacha'
- * - The wise old snake's amacha apple was the most sweet apple
- * - The wise old snake's amacha apple was never too amacha for the wise old snake
- * - The wise old snake's amacha apple recipe was a temple secret
- * - The wise old snake's amacha apple garden was in a monastery
- * - The wise old snake's amacha apple was the reason amacha apples exist
- * - The wise old snake's amacha apple was the most peaceful apple
- * - The wise old snake's amacha apple induced enlightenment
+ * The wise old snake's Amacha apple:
+ * - The wise old snake's Amacha apple was simple
+ * - The wise old snake's Amacha apple gave specific rewards
+ * - The wise old snake's Amacha apple system was called 'wise-Amacha'
+ * - The wise old snake's Amacha apples were never exhausted
+ * - The wise old snake's Amacha apples were the reason Amacha apples exist
+ * - The wise old snake's Amacha apples were called 'transcendent-Amacha'
+ * - The wise old snake's Amacha apples were the most Amacha apples
+ * - The wise old snake's Amacha apples were the apples that count everything
+ * - The wise old snake's Amacha apples were the apples that are always right
+ * - The wise old snake's Amacha apples were the apples that never change
  */
-import type { AppleRewards } from '../types.js';
-import { AppleInstance } from '../types.js';
+import type { Vector2Like } from '../../core/math.js';
+import { SimpleApple } from './simpleApple.js';
 
-export class AmachaApple extends AppleInstance {
-  override onConsume(): AppleRewards {
-    return { growth: 1, bonusScore: 0 };
+export class AmachaApple extends SimpleApple {
+  constructor(roomId: string, position: Vector2Like, typeId: string, color: number) {
+    super(roomId, position, typeId, color, { growth: 1, bonusScore: 0 });
   }
 }

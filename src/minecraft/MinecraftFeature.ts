@@ -1,38 +1,35 @@
 import { Feature } from '../features/feature.js';
 import type { RandomGenerator } from '../core/rng.js';
+import type { RoomSnapshot } from '../world/types.js';
 import type SnakeScene from '../scenes/snakeScene.js';
-import { MinecraftPlayer, isWalkable, canMineBlock, isWalkableWithCreativeOverride } from './player.js';
+import { MinecraftPlayer } from './player.js';
 import { ChunkManager } from './chunk.js';
 import { MinecraftRenderLayer } from './renderLayer.js';
 import { MobManager } from './mobManager.js';
 import { DayNightCycle } from './dayNight.js';
 import { LightingSystem } from './lighting.js';
-import { tryBreakBlock, tryPlaceBlock, tryBreakBlockCreative, tryPlaceBlockCreative } from './blockInteraction.js';
-import { RECIPES, getRecipeById, canCraft, craft as craftRecipe, getCraftingTableRecipes } from './crafting.js';
-import type { MinecraftSaveData, MobTypeId } from './types.js';
 import {
-  serializeMinecraftState,
-  deserializeMinecraftState,
-  getDefaultPlayerState,
-} from './save.js';
-import { PLAYER_MAX_HEALTH, PLAYER_MAX_HUNGER, DAY_LENGTH_TICKS, CHUNK_SIZE } from './config.js';
+  tryBreakBlock,
+  tryPlaceBlock,
+  tryBreakBlockCreative,
+  tryPlaceBlockCreative,
+} from './blockInteraction.js';
 import {
-  blockIdToColor,
-  getBlockType,
-  getBlockHardness,
-  isSpecialBlock,
-  isPlaceableSpecialBlock,
-  isBlockableBlock,
-} from './blockRegistry.js';
+  getRecipeById,
+  canCraft,
+  craft as craftRecipe,
+  getCraftingTableRecipes,
+} from './crafting.js';
+import type { MinecraftSaveData } from './types.js';
+import { serializeMinecraftState, deserializeMinecraftState } from './save.js';
+import { CHUNK_SIZE } from './config.js';
+import { blockIdToColor, getBlockHardness, isPlaceableSpecialBlock } from './blockRegistry.js';
 import { getMinecraftItem } from './itemRegistry.js';
 import {
   tryPlaceFurnace,
   tryLoadFurnace,
   tickFurnaces,
   tryCollectFurnaceOutput,
-  createFurnaceState,
-  canSmelt,
-  isFuel,
   getSmeltingTime,
   SMELTING_RECIPES,
   FUEL_MAP,
@@ -41,17 +38,10 @@ import {
   tryPlaceChest,
   tryDepositToChest,
   tryWithdrawFromChest,
-  tryBreakChest,
   getChestContents,
 } from './chest.js';
-import { tryPlaceBed, trySleep, tryBreakBed } from './bed.js';
-import {
-  tryCreateFarmland,
-  tryPlantSeeds,
-  tryPlantPumpkin,
-  tickCrops,
-  tryHarvestCrop,
-} from './farming.js';
+import { tryPlaceBed, trySleep } from './bed.js';
+import { tryPlantSeeds, tryPlantPumpkin, tickCrops, tryHarvestCrop } from './farming.js';
 
 export class MinecraftFeature extends Feature {
   private _rng: RandomGenerator | null = null;
@@ -66,12 +56,11 @@ export class MinecraftFeature extends Feature {
   private craftingUIOpen = false;
   private skyOverlay: Phaser.GameObjects.Graphics | null = null;
   private hudGraphics: Phaser.GameObjects.Graphics | null = null;
-  private craftingTableNearby = false;
   private furnaces: Map<string, import('./furnace.js').FurnaceState> = new Map();
   private chests: Map<string, import('./chest.js').ChestState> = new Map();
   private beds: Map<string, import('./bed.js').BedState> = new Map();
-  private lastActionStep: number = 0;
   private borderOverlay: Phaser.GameObjects.Graphics | null = null;
+
   private creativeMode = false;
   private _rngInjected = false;
 
@@ -140,7 +129,6 @@ export class MinecraftFeature extends Feature {
     tickCrops(room, this.dayNight!, this.rng);
 
     // Mob tick with combat
-    const mobs = this.mobManager?.getMobsInRoom(room.id) ?? [];
     const head = scene.snakeGame.getSnakeBody()[0];
     if (head) {
       this.lighting?.calculateLightMap(room.id);
@@ -155,7 +143,7 @@ export class MinecraftFeature extends Feature {
           const actualDamage = this.player?.takeDamageWithArmor(damage) ?? damage;
           scene.setFlag('ui.questInteraction', { message: `You took ${actualDamage} damage!` });
         },
-        (cx, cy, crId) => this.handleCreeperExplosion(scene, cx, cy),
+        (cx, cy) => this.handleCreeperExplosion(scene, cx, cy),
       );
     }
 
@@ -215,15 +203,19 @@ export class MinecraftFeature extends Feature {
     }
 
     // Persistent controls display in bottom left
-    const controlsText = scene.add
-      .text(12, height - 110, [
+    const controlsText = scene.add.text(
+      12,
+      height - 110,
+      [
         'WASD: Move',
         'Q: Break | R: Place',
         'E: Eat',
         'F/G/H/J: Armor',
         'Right-click: Interact',
         this.creativeMode ? '[/]: Cycle blocks' : '',
-      ].filter(Boolean).join('\n'),
+      ]
+        .filter(Boolean)
+        .join('\n'),
       {
         fontFamily: 'monospace',
         fontSize: '11px',
@@ -253,9 +245,6 @@ export class MinecraftFeature extends Feature {
       const cellSize = scene.grid.cell;
       for (const mob of mobs) {
         const mobColor = this.getMobColor(mob.type);
-        const x = mob.x * cellSize + cellSize / 2;
-        const y = mob.y * cellSize + cellSize / 2;
-
         scene.graphics.fillStyle(mobColor, 0.9);
         scene.graphics.fillRect(
           mob.x * cellSize + 2,
@@ -279,18 +268,13 @@ export class MinecraftFeature extends Feature {
     // Player health/hunger/XP UI
     if (this.player && scene.snakeGame.getFlag<boolean>('ui.livesRevealed')) {
       const hudText = scene.add
-        .text(
-          scene.scale.width - 120,
-          8,
-          this.buildHUDText(),
-          {
-            fontFamily: 'monospace',
-            fontSize: '12px',
-            color: '#ffffff',
-            stroke: '#000000',
-            strokeThickness: 3,
-          },
-        )
+        .text(scene.scale.width - 120, 8, this.buildHUDText(), {
+          fontFamily: 'monospace',
+          fontSize: '12px',
+          color: '#ffffff',
+          stroke: '#000000',
+          strokeThickness: 3,
+        })
         .setDepth(35);
 
       scene.events.on('update', () => {
@@ -308,7 +292,8 @@ export class MinecraftFeature extends Feature {
     // In creative mode, Minecraft-specific death is a no-op
     if (this.creativeMode) {
       scene.setFlag('ui.questInteraction', {
-        message: 'Creative mode: You cannot die from hunger or mobs. The snake game still has its own death conditions.',
+        message:
+          'Creative mode: You cannot die from hunger or mobs. The snake game still has its own death conditions.',
       });
       return;
     }
@@ -365,7 +350,8 @@ export class MinecraftFeature extends Feature {
     if (this.creativeMode) {
       this.player!.creativePaletteSlot = 0;
       scene.setFlag('ui.questInteraction', {
-        message: 'Creative mode: Break and place blocks freely. Press [ or ] to cycle blocks. Shift+M to toggle creative.',
+        message:
+          'Creative mode: Break and place blocks freely. Press [ or ] to cycle blocks. Shift+M to toggle creative.',
       });
     } else {
       scene.setFlag('ui.questInteraction', {
@@ -428,7 +414,8 @@ export class MinecraftFeature extends Feature {
     if (!this.player) return false;
     const success = this.player.autoUnequipArmor(slotName);
     if (success) {
-      const itemName = getMinecraftItem(this.player.armorSlots[this.getSlotKey(slotName)] ?? '')?.name ?? slotName;
+      const itemName =
+        getMinecraftItem(this.player.armorSlots[this.getSlotKey(slotName)] ?? '')?.name ?? slotName;
       scene.setFlag('ui.questInteraction', { message: `Unequipped ${itemName}.` });
     } else {
       scene.setFlag('ui.questInteraction', { message: `Nothing equipped in ${slotName}.` });
@@ -449,7 +436,7 @@ export class MinecraftFeature extends Feature {
   handlePointerDown(scene: SnakeScene, worldX: number, worldY: number, button: number): boolean {
     if (!this.minecraftMode || !this.player) return false;
 
-    const room = scene.snakeGame.getCurrentRoom();
+    const room: RoomSnapshot = scene.snakeGame.getCurrentRoom();
     const [roomX, roomY] = this.parseRoomCoordinates(room.id);
     const localX = Math.floor(
       (worldX - roomX * scene.grid.cols * scene.grid.cell) / scene.grid.cell,
@@ -473,12 +460,13 @@ export class MinecraftFeature extends Feature {
     }
 
     const blockType = room.minecraftBlocks?.[`${worldTileX},${worldTileY}`];
+    if (!blockType) return false;
 
     if (button === 1) {
       // Left click: check for mobs first, then harvest/break
-      const mobsAtPos = this.mobManager?.getMobsInRoom(room.id).filter(
-        (m) => m.x === worldTileX && m.y === worldTileY,
-      );
+      const mobsAtPos = this.mobManager
+        ?.getMobsInRoom(room.id)
+        .filter((m) => m.x === worldTileX && m.y === worldTileY);
       if (mobsAtPos && mobsAtPos.length > 0) {
         const mob = mobsAtPos[0];
         const mobDef = mob.type === 'cow' ? { hostile: false } : { hostile: true };
@@ -486,13 +474,9 @@ export class MinecraftFeature extends Feature {
           scene.setFlag('ui.questInteraction', { message: "That's a friendly cow!" });
           return true;
         }
-        const killed = this.mobManager!.damageMob(
-          mob.id,
-          5,
-          (mobId, mx, my, mroomId) => {
-            this.handleMobDeath(mobId, mx, my, mroomId, scene);
-          },
-        );
+        this.mobManager!.damageMob(mob.id, 5, (mobId, mx, my, mroomId) => {
+          this.handleMobDeath(mobId, mx, my, mroomId, scene);
+        });
         scene.juice.mobHit(
           worldTileX * scene.grid.cell + scene.grid.cell / 2,
           worldTileY * scene.grid.cell + scene.grid.cell / 2,
@@ -520,7 +504,12 @@ export class MinecraftFeature extends Feature {
 
       // Break block
       if (this.creativeMode) {
-        const creativeResult = tryBreakBlockCreative(scene, worldTileX, worldTileY, this.chunkManager);
+        const creativeResult = tryBreakBlockCreative(
+          scene,
+          worldTileX,
+          worldTileY,
+          this.chunkManager ?? undefined,
+        );
         if (creativeResult.success) {
           // No drops in creative mode
         }
@@ -528,14 +517,21 @@ export class MinecraftFeature extends Feature {
           scene.setFlag('ui.questInteraction', { message: creativeResult.message });
         }
       } else {
-        const result = tryBreakBlock(scene, this.player, worldTileX, worldTileY, this.chunkManager);
+        const result = tryBreakBlock(
+          scene,
+          this.player,
+          worldTileX,
+          worldTileY,
+          this.chunkManager ?? undefined,
+        );
         if (result.success) {
           if (result.droppedItem) {
-            this.player.addItem(result.droppedItem, result.droppedCount ?? 1);
+            const droppedItem = result.droppedItem;
+            this.player.addItem(droppedItem, result.droppedCount ?? 1);
             scene.setFlag('loot.itemPicked', {
               head: { x: worldTileX, y: worldTileY },
-              itemName: getMinecraftItem(result.droppedItem)?.name ?? result.droppedItem,
-              itemId: result.droppedItem,
+              itemName: getMinecraftItem(droppedItem)?.name ?? droppedItem,
+              itemId: droppedItem,
             });
           }
           if (isPlaceableSpecialBlock(blockType)) {
@@ -595,7 +591,13 @@ export class MinecraftFeature extends Feature {
       // Place block
       if (this.creativeMode) {
         const blockTypeForPlace = this.getCreativeBlockType();
-        const placeResult = tryPlaceBlockCreative(scene, worldTileX, worldTileY, blockTypeForPlace, this.chunkManager);
+        const placeResult = tryPlaceBlockCreative(
+          scene,
+          worldTileX,
+          worldTileY,
+          blockTypeForPlace,
+          this.chunkManager ?? undefined,
+        );
         if (placeResult.message) {
           scene.setFlag('ui.questInteraction', { message: placeResult.message });
         }
@@ -761,7 +763,7 @@ export class MinecraftFeature extends Feature {
   }
 
   private tryFarmInteraction(
-    scene: SnakeScene,
+    _scene: SnakeScene,
     x: number,
     y: number,
     room: import('../world/types.js').RoomSnapshot,
@@ -775,12 +777,12 @@ export class MinecraftFeature extends Feature {
       if (this.player.getItemCount('seeds') > 0) {
         const result = tryPlantSeeds(room, this.player, x, y, blockType);
         if (result.success) return 'Planted seeds!';
-        return result.message;
+        return result.message ?? null;
       }
       if (this.player.getItemCount('pumpkin_item') > 0) {
         const result = tryPlantPumpkin(room, this.player, x, y, blockType);
         if (result.success) return 'Planted pumpkin!';
-        return result.message;
+        return result.message ?? null;
       }
       return 'Right-click farmland with seeds to plant.';
     }
@@ -892,13 +894,18 @@ export class MinecraftFeature extends Feature {
       // Result item
       const resultItem = getMinecraftItem(recipe.result.itemId);
       const resultText = scene.add
-        .text(listX + 4, entryY + 20, `→ ${recipe.result.count}x ${resultItem?.name ?? recipe.result.itemId}`, {
-          fontFamily: 'monospace',
-          fontSize: '10px',
-          color: '#5dd6a2',
-          stroke: '#000000',
-          strokeThickness: 2,
-        })
+        .text(
+          listX + 4,
+          entryY + 20,
+          `→ ${recipe.result.count}x ${resultItem?.name ?? recipe.result.itemId}`,
+          {
+            fontFamily: 'monospace',
+            fontSize: '10px',
+            color: '#5dd6a2',
+            stroke: '#000000',
+            strokeThickness: 2,
+          },
+        )
         .setDepth(51);
       container.add(resultText);
 
@@ -950,7 +957,12 @@ export class MinecraftFeature extends Feature {
       container.add(craftBtnText);
 
       if (canCraftNow) {
-        const btnRect = { x: craftBtnX, y: craftBtnY, width: craftBtnWidth, height: craftBtnHeight };
+        const btnRect = {
+          x: craftBtnX,
+          y: craftBtnY,
+          width: craftBtnWidth,
+          height: craftBtnHeight,
+        };
 
         const btnHitArea = scene.add.graphics();
         btnHitArea.fillStyle(0x000000, 0);
@@ -1052,8 +1064,7 @@ export class MinecraftFeature extends Feature {
     return blockTypes[slot] ?? blockTypes[0];
   }
 
-  private getHeldBlockType(scene: SnakeScene): string | null {
-    const inventory = this.player?.state.inventory ?? [];
+  private getHeldBlockType(_scene: SnakeScene): string | null {
     const blockTypes = [
       'dirt',
       'cobblestone',
@@ -1067,7 +1078,7 @@ export class MinecraftFeature extends Feature {
       'pumpkin',
     ];
     for (const bt of blockTypes) {
-      if (this.player?.getItemCount(bt) > 0) {
+      if (this.player && this.player.getItemCount(bt) > 0) {
         return bt;
       }
     }
@@ -1117,14 +1128,14 @@ export class MinecraftFeature extends Feature {
     }
 
     // Regular block placement
-    return tryPlaceBlock(scene, this.player, x, y, blockType, this.chunkManager);
+    return tryPlaceBlock(scene, this.player, x, y, blockType, this.chunkManager ?? undefined);
   }
 
   private handleMobDeath(
     mobId: string,
     x: number,
     y: number,
-    roomId: string,
+    _roomId: string,
     scene: SnakeScene,
   ): void {
     if (!this.player) return;
@@ -1266,19 +1277,14 @@ export class MinecraftFeature extends Feature {
     // Block name label below the palette
     const selectedBlock = blocks[this.player!.creativePaletteSlot] ?? blocks[0];
     scene.add
-      .text(
-        scene.scale.width / 2,
-        panelY + slotSize + 8,
-        selectedBlock.toUpperCase(),
-        {
-          fontFamily: 'monospace',
-          fontSize: '10px',
-          color: '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 2,
-          align: 'center',
-        },
-      )
+      .text(scene.scale.width / 2, panelY + slotSize + 8, selectedBlock.toUpperCase(), {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#ffffff',
+        stroke: '#000000',
+        strokeThickness: 2,
+        align: 'center',
+      })
       .setOrigin(0.5)
       .setDepth(35);
   }
@@ -1385,13 +1391,18 @@ export class MinecraftFeature extends Feature {
   handleKeyboardBreak(scene: SnakeScene): boolean {
     if (!this.minecraftMode || !this.player) return false;
 
-    const room = scene.snakeGame.getCurrentRoom();
+    const room: RoomSnapshot = scene.snakeGame.getCurrentRoom();
     const head = scene.snakeGame.getSnakeBody()[0];
     if (!head) return false;
 
     // In creative mode, break at head position (snake positions itself to reach blocks)
     if (this.creativeMode) {
-      const creativeResult = tryBreakBlockCreative(scene, head.x, head.y, this.chunkManager);
+      const creativeResult = tryBreakBlockCreative(
+        scene,
+        head.x,
+        head.y,
+        this.chunkManager ?? undefined,
+      );
       if (creativeResult.success) {
         // No drops in creative mode
       }
@@ -1402,6 +1413,7 @@ export class MinecraftFeature extends Feature {
     }
 
     const blockType = room.minecraftBlocks?.[`${head.x},${head.y}`];
+    if (!blockType) return false;
 
     // Harvest crops
     if (blockType === 'wheat_crop' || blockType === 'pumpkin') {
@@ -1422,14 +1434,21 @@ export class MinecraftFeature extends Feature {
     }
 
     // Break block
-    const result = tryBreakBlock(scene, this.player, head.x, head.y, this.chunkManager);
+    const result = tryBreakBlock(
+      scene,
+      this.player,
+      head.x,
+      head.y,
+      this.chunkManager ?? undefined,
+    );
     if (result.success) {
       if (result.droppedItem) {
-        this.player.addItem(result.droppedItem, result.droppedCount ?? 1);
+        const droppedItem = result.droppedItem;
+        this.player.addItem(droppedItem, result.droppedCount ?? 1);
         scene.setFlag('loot.itemPicked', {
           head: { x: head.x, y: head.y },
-          itemName: getMinecraftItem(result.droppedItem)?.name ?? result.droppedItem,
-          itemId: result.droppedItem,
+          itemName: getMinecraftItem(droppedItem)?.name ?? droppedItem,
+          itemId: droppedItem,
         });
       }
       // If breaking a furnace, chest, or bed, remove from tracking
@@ -1464,7 +1483,7 @@ export class MinecraftFeature extends Feature {
     }
 
     scene.setFlag('ui.questInteraction', {
-      message: "No food in inventory! Craft/cook something to eat.",
+      message: 'No food in inventory! Craft/cook something to eat.',
     });
     return true;
   }
@@ -1479,7 +1498,13 @@ export class MinecraftFeature extends Feature {
     // In creative mode with keyboard place: place from palette
     if (this.creativeMode) {
       const blockType = this.getCreativeBlockType();
-      const placeResult = tryPlaceBlockCreative(scene, head.x, head.y, blockType, this.chunkManager);
+      const placeResult = tryPlaceBlockCreative(
+        scene,
+        head.x,
+        head.y,
+        blockType,
+        this.chunkManager ?? undefined,
+      );
       if (placeResult.message) {
         scene.setFlag('ui.questInteraction', { message: placeResult.message });
       }

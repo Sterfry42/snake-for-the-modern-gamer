@@ -42,7 +42,7 @@ class CoordinatesFeature extends Feature {
       !!scene.getFlag<boolean>('ui.suppressHud') &&
       !scene.snakeGame.hasArtifactCoordinatesAlwaysVisible();
     this.coordinatesText?.setVisible(!suppressed);
-    if (!suppressed) {
+    if (!suppressed && this.coordinatesText) {
       const scoreFeature = scene.getFeature('coreScore');
       const coordsY = scoreFeature ? (scoreFeature as any).getBottomY() : scene.getLeftHudBottomY();
       this.coordinatesText.setPosition(10, coordsY);
@@ -52,7 +52,7 @@ class CoordinatesFeature extends Feature {
 
   private composeLabel(scene: SnakeScene): string {
     const roomId = scene.currentRoomId;
-    if (roomId.startsWith('cave:')) {
+    if (!roomId || roomId.startsWith('cave:')) {
       return 'Pos: Cave | Local Subroom';
     }
     if (!/^-?\d+,-?\d+,-?\d+$/.test(roomId)) {

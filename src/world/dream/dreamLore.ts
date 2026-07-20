@@ -70,7 +70,7 @@ export const DREAM_LORE_FRAGMENTS: LoreFragment[] = [
     id: 'lore.dream.puzzles',
     title: 'The Puzzle Keepers',
     artwork: 'dream-lore-07',
-    text: 'Hidden within the Dream World are Puzzle Keepers — ancient spirits who test the dreams of visitors. Solve their puzzles, and they grant you glimpses of the world\'s true nature.',
+    text: "Hidden within the Dream World are Puzzle Keepers — ancient spirits who test the dreams of visitors. Solve their puzzles, and they grant you glimpses of the world's true nature.",
     discovered: false,
     sequence: 7,
   },
@@ -92,7 +92,7 @@ export const DREAM_LORE_FRAGMENTS: LoreFragment[] = [
   },
   {
     id: 'lore.dream.wisdom',
-    title: 'The Wise Old Snake\'s Dream',
+    title: "The Wise Old Snake's Dream",
     artwork: 'dream-lore-10',
     text: 'The wise old snake dreams every night. In its dreams, it is young again, exploring the Dream World for the first time. It remembers everything, and forgets nothing. This is both a blessing and a curse.',
     discovered: false,
@@ -191,7 +191,9 @@ export function getLoreBySequence(sequence: number): LoreFragment | undefined {
 
 export function getNextLoreFragment(collected: string[]): LoreFragment | undefined {
   const collectedSequences = new Set(
-    collected.map((id) => getLoreFragment(id)?.sequence).filter((s): s is number => s !== undefined),
+    collected
+      .map((id) => getLoreFragment(id)?.sequence)
+      .filter((s): s is number => s !== undefined),
   );
 
   for (let i = 1; i <= DREAM_LORE_FRAGMENTS.length; i++) {

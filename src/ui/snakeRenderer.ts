@@ -49,8 +49,6 @@ import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 
 type PowerupKind = NonNullable<RoomSnapshot['powerup']>['kind'];
 
-const SNAKE_OUTLINE_ALPHA = 0.9;
-const SNAKE_OUTLINE_WIDTH = 1;
 const LADDER_OUTLINE_ALPHA = 0.8;
 const LADDER_OUTLINE_WIDTH = 1;
 const APPLE_OUTLINE_ALPHA = 0.85;
@@ -999,7 +997,7 @@ export class SnakeRenderer {
   }
 
   private drawRoomWalls(room: RoomSnapshot): void {
-    const biome = getBiomeDefinition(room.biomeId);
+    getBiomeDefinition(room.biomeId);
     for (let y = 0; y < room.layout.length; y++) {
       for (let x = 0; x < room.layout[y].length; x++) {
         const tile = room.layout[y][x];
@@ -1137,8 +1135,8 @@ export class SnakeRenderer {
     room: RoomSnapshot,
     getBlockAge: (roomId: string, localX: number, localY: number) => number | undefined,
   ): void {
-    const biome = getBiomeDefinition(room.biomeId);
-    const now = (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
+    getBiomeDefinition(room.biomeId);
+    (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const blockLifetimeMs = 4000; // 4 seconds before crumbling
 
     for (let y = 0; y < room.layout.length; y++) {
@@ -1330,7 +1328,6 @@ export class SnakeRenderer {
   private drawCherryTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
     const cell = this.grid.cell;
     const cx = rectX + cell / 2;
-    const cy = rectY + cell / 2;
 
     // Ground shadow
     this.graphics
@@ -1370,6 +1367,12 @@ export class SnakeRenderer {
         canopyColor = 0xffc8d4;
         highlightColor = 0xffe0e8;
         shadowColor = 0xe8a0b4;
+        break;
+      default:
+        // Fallback (should never happen since (tileX*3+tileY*7)%3 is 0-2)
+        canopyColor = 0xffb3c6;
+        highlightColor = 0xffd1dc;
+        shadowColor = 0xe894a8;
         break;
     }
 
@@ -1613,74 +1616,6 @@ export class SnakeRenderer {
     this.graphics.moveTo(rectX + 3, rectY + this.grid.cell * 0.68);
     this.graphics.lineTo(rectX + this.grid.cell - 3, rectY + this.grid.cell * 0.68);
     this.graphics.strokePath();
-  }
-
-  private drawTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
-    this.renderDiagnostics.treeTileCount += 1;
-    if (!this.shouldDrawDetailedTree(tileX, tileY)) {
-      this.drawCheapTreeTile(rectX, rectY, tileX, tileY);
-      return;
-    }
-    this.renderDiagnostics.detailedTreeTileCount += 1;
-    const base = (tileX + tileY) % 2 === 0 ? 0x174f2a : 0x1d5f31;
-    const shadow = 0x0b2414;
-    const leaf = (tileX * 5 + tileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
-    const trunk = 0x5c3a23;
-    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-    this.graphics
-      .fillStyle(shadow, 0.45)
-      .fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
-    this.graphics
-      .fillStyle(trunk, 0.95)
-      .fillRect(
-        rectX + this.grid.cell * 0.43,
-        rectY + this.grid.cell * 0.48,
-        this.grid.cell * 0.14,
-        this.grid.cell * 0.34,
-      );
-    this.graphics
-      .fillStyle(leaf, 0.95)
-      .fillCircle(
-        rectX + this.grid.cell * 0.5,
-        rectY + this.grid.cell * 0.38,
-        this.grid.cell * 0.32,
-      );
-    this.graphics
-      .fillStyle(0x9ddd76, 0.16)
-      .fillCircle(
-        rectX + this.grid.cell * 0.4,
-        rectY + this.grid.cell * 0.28,
-        this.grid.cell * 0.12,
-      );
-    this.graphics
-      .lineStyle(1, shadow, 0.8)
-      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
-  }
-
-  private shouldDrawDetailedTree(tileX: number, tileY: number): boolean {
-    return (tileX * 11 + tileY * 7) % 5 === 0;
-  }
-
-  private drawCheapTreeTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
-    this.renderDiagnostics.cheapForestTileCount += 1;
-    const base = (tileX + tileY) % 2 === 0 ? 0x174f2a : 0x1d5f31;
-    const shadow = 0x0b2414;
-    const leaf = (tileX * 5 + tileY * 3) % 4 === 0 ? 0x2f8d45 : 0x26763a;
-    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, this.grid.cell, this.grid.cell);
-    this.graphics
-      .fillStyle(shadow, 0.35)
-      .fillRect(rectX, rectY + this.grid.cell * 0.62, this.grid.cell, this.grid.cell * 0.38);
-    this.graphics
-      .fillStyle(leaf, 0.72)
-      .fillRect(
-        rectX + this.grid.cell * 0.18,
-        rectY + this.grid.cell * 0.16,
-        this.grid.cell * 0.64,
-        this.grid.cell * 0.48,
-      );
-    this.graphics
-      .lineStyle(1, shadow, 0.55)
-      .strokeRect(rectX + 0.5, rectY + 0.5, this.grid.cell - 1, this.grid.cell - 1);
   }
 
   private drawLadderTile(
@@ -2015,33 +1950,6 @@ export class SnakeRenderer {
         break;
       }
     }
-  }
-
-  private drawLibertyWallTile(rectX: number, rectY: number, tileX: number, tileY: number): void {
-    const cell = this.grid.cell;
-    const base = (tileX + tileY) % 3 === 0 ? 0x244f87 : 0x173b6d;
-    const deep = 0x0d2347;
-    const highlight = 0xf3eee2;
-    const rust = 0xb5362f;
-    this.graphics.fillStyle(base, 1).fillRect(rectX, rectY, cell, cell);
-    this.graphics.fillStyle(deep, 0.42).fillRect(rectX, rectY + cell * 0.62, cell, cell * 0.38);
-    if ((tileX * 2 + tileY) % 5 === 0) {
-      this.graphics.fillStyle(highlight, 0.42).fillRect(rectX + 3, rectY + 4, cell - 6, 2);
-    }
-    if ((tileX + tileY * 3) % 4 === 0) {
-      this.graphics.fillStyle(rust, 0.38).fillRect(rectX + cell - 5, rectY + 3, 2, cell - 6);
-    }
-    if ((tileX * 7 + tileY) % 9 === 0) {
-      this.graphics
-        .fillStyle(highlight, 0.35)
-        .fillCircle(rectX + cell * 0.28, rectY + cell * 0.35, 1.6);
-      this.graphics
-        .fillStyle(highlight, 0.35)
-        .fillCircle(rectX + cell * 0.72, rectY + cell * 0.35, 1.6);
-    }
-    this.graphics
-      .lineStyle(1, 0x07152c, 0.75)
-      .strokeRect(rectX + 0.5, rectY + 0.5, cell - 1, cell - 1);
   }
 
   private highlightWalls(
@@ -3164,9 +3072,9 @@ export class SnakeRenderer {
   }
 
   private hexToSnakePalette(hex: string): SnakeSpritePalette {
-    const r = parseInt(hex.slice(1, 3), 16) / 255;
-    const g = parseInt(hex.slice(3, 5), 16) / 255;
-    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    parseInt(hex.slice(1, 3), 16) / 255;
+    parseInt(hex.slice(3, 5), 16) / 255;
+    parseInt(hex.slice(5, 7), 16) / 255;
 
     return {
       baseColor: hex,

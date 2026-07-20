@@ -48,7 +48,8 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'apple-cold-beer',
     name: 'Cold Beer Apple',
-    description: 'A crisp golden apple, cold as a friday night. The wise old snake says "fuhgeddaboudit, this is the one."',
+    description:
+      'A crisp golden apple, cold as a friday night. The wise old snake says "fuhgeddaboudit, this is the one."',
     kind: 'consumable',
     category: 'food',
   },
@@ -96,7 +97,8 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'boots-swim-fins',
     name: 'Swim Fins',
-    description: 'Flexible fins that let you cross lakes and ocean water. Water still pushes back a little.',
+    description:
+      'Flexible fins that let you cross lakes and ocean water. Water still pushes back a little.',
     kind: 'equipment',
     slot: 'boots',
     modifiers: {
@@ -136,7 +138,8 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'gloves-mason',
     name: "Mason's Gloves",
-    description: 'Your tail lays temporary masonry blocks behind you. They crumble after a couple seconds, and your snake can pass right through them.',
+    description:
+      'Your tail lays temporary masonry blocks behind you. They crumble after a couple seconds, and your snake can pass right through them.',
     kind: 'equipment',
     slot: 'gloves',
     modifiers: {
@@ -482,15 +485,15 @@ export const ITEMS: readonly Item[] = [
   // ===== SNAKE CANIE'S COMBOS =====
   {
     id: 'food-box-combo-extra-toast',
-    name: "Box Combo\n(Extra Toast)",
+    name: 'Box Combo\n(Extra Toast)',
     description:
-      'Four chicken fingers, extra Texas toast, fries, Cane\'s sauce, drink.\n\n+7 length, 2 minutes invulnerability.',
+      "Four chicken fingers, extra Texas toast, fries, Cane's sauce, drink.\n\n+7 length, 2 minutes invulnerability.",
     kind: 'consumable',
     category: 'food',
   },
   {
     id: 'food-box-combo-coleslaw',
-    name: "Box Combo\n(Cole Slaw)",
+    name: 'Box Combo\n(Cole Slaw)',
     description:
       'Four chicken fingers, cole slaw, Texas toast, fries, drink.\n\n+7 length, 2 minutes invulnerability.',
     kind: 'consumable',
@@ -1497,7 +1500,8 @@ export const ITEMS: readonly Item[] = [
   {
     id: 'alchemy-station',
     name: 'Alchemy Station',
-    description: 'A sturdy table for mixing potions and elixirs. The wise old snake built this one from a fallen tree stump.',
+    description:
+      'A sturdy table for mixing potions and elixirs. The wise old snake built this one from a fallen tree stump.',
     kind: 'consumable',
     category: 'material',
   },
@@ -1596,7 +1600,7 @@ const CHEST_LOOT_EXCLUDED_IDS = new Set([
 
 export const CHEST_LOOT_ITEMS: readonly Item[] = CHEST_LOOT_ITEM_IDS.map((id) =>
   ITEM_MAP.get(id),
-).filter((item): item is Item => Boolean(item) && !CHEST_LOOT_EXCLUDED_IDS.has(item.id));
+).filter((item): item is Item => item != null && !CHEST_LOOT_EXCLUDED_IDS.has(item.id));
 
 export function getItem(id: string): Item | undefined {
   return ITEM_MAP.get(id);

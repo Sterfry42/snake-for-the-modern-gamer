@@ -10,11 +10,7 @@
  * - The wise old snake's manager was the alchemy station
  */
 
-import type {
-  AlchemyRuntime,
-  CraftResult,
-  IngredientRarity,
-} from './alchemyTypes.js';
+import type { AlchemyRecipe, AlchemyRuntime, CraftResult } from './alchemyTypes.js';
 import { AlchemyJournal } from './AlchemyJournal.js';
 import { AlchemyStation } from './AlchemyStation.js';
 import { PotionSystem } from './PotionSystem.js';
@@ -26,7 +22,10 @@ export class AlchemyManager {
   private readonly journal: AlchemyJournal;
   private readonly onEffectApplied?: (effectType: string, magnitude: number) => void;
 
-  constructor(runtime: AlchemyRuntime, onEffectApplied?: (effectType: string, magnitude: number) => void) {
+  constructor(
+    runtime: AlchemyRuntime,
+    onEffectApplied?: (effectType: string, magnitude: number) => void,
+  ) {
     this.runtime = runtime;
     this.onEffectApplied = onEffectApplied;
     this.journal = new AlchemyJournal();
@@ -65,10 +64,7 @@ export class AlchemyManager {
   }
 
   /** Craft a potion at a station */
-  craftAtStation(
-    stationId: string,
-    recipeId: string,
-  ): CraftResult {
+  craftAtStation(stationId: string, recipeId: string): CraftResult {
     const station = this.stations.get(stationId);
     if (!station) {
       return { success: false, error: `Station "${stationId}" not found.` };
@@ -120,7 +116,7 @@ export class AlchemyManager {
       }
     }
 
-    return Array.from(allRecipes.values());
+    return Array.from(allRecipes.values()).filter((r): r is AlchemyRecipe => r !== undefined);
   }
 
   /** Get all available recipes for crafting */

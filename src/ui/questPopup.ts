@@ -154,7 +154,6 @@ export class QuestPopup {
     } = {},
     speaker: DialogueSpeakerOptions = {},
   ): void {
-    this.callbacks = null;
     this.dialogueCallbacks = callbacks;
     this.pages = pages.length > 0 ? pages : [''];
     this.pageIndex = 0;

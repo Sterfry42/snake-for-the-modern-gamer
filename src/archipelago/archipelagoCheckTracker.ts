@@ -84,7 +84,10 @@ export class ArchipelagoCheckTracker {
     this.markChecked(`card_table_${this.keyPart(tableId)}`);
   }
 
-  processArchaeologyMilestones(snapshot: { depth: number; maxChain: number }, cacheCount: number): void {
+  processArchaeologyMilestones(
+    snapshot: { depth: number; maxChain: number },
+    cacheCount: number,
+  ): void {
     if (snapshot.depth >= 10) this.markChecked('archaeology_depth_10');
     if (snapshot.depth >= 25) this.markChecked('archaeology_depth_25');
     if (snapshot.depth >= 50) this.markChecked('archaeology_depth_50');

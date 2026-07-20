@@ -176,9 +176,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'normal',
     instrumentFamily: 'percussion',
     musicalRole: 'drumBeat',
-    noteAssignments: [
-      { baseNote: 36, duration: 0.5, velocity: 100, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 36, duration: 0.5, velocity: 100, octaveVariation: 0 }],
     scaleDegree: 0,
     triggersGenreShift: false,
     genreContributions: [],
@@ -282,9 +280,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'mochi',
     instrumentFamily: 'marimba',
     musicalRole: 'softMarimba',
-    noteAssignments: [
-      { baseNote: 67, duration: 0.75, velocity: 85, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 67, duration: 0.75, velocity: 85, octaveVariation: 0 }],
     scaleDegree: 5,
     triggersGenreShift: false,
     genreContributions: ['calm'],
@@ -307,9 +303,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'wasabi',
     instrumentFamily: 'brass',
     musicalRole: 'sharpBrass',
-    noteAssignments: [
-      { baseNote: 52, duration: 0.3, velocity: 110, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 52, duration: 0.3, velocity: 110, octaveVariation: 0 }],
     scaleDegree: 7,
     triggersGenreShift: true,
     genreContributions: ['energetic', 'mysterious'],
@@ -362,7 +356,12 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     instrumentFamily: 'erratic',
     musicalRole: 'erraticPerc',
     noteAssignments: [
-      { baseNote: 38 + Math.floor(Math.random() * 24), duration: 0.15, velocity: 95, octaveVariation: 0 },
+      {
+        baseNote: 38 + Math.floor(Math.random() * 24),
+        duration: 0.15,
+        velocity: 95,
+        octaveVariation: 0,
+      },
     ],
     scaleDegree: 0,
     triggersGenreShift: true,
@@ -413,9 +412,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'coldBeer',
     instrumentFamily: 'bass',
     musicalRole: 'deepBass',
-    noteAssignments: [
-      { baseNote: 28, duration: 2, velocity: 100, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 28, duration: 2, velocity: 100, octaveVariation: 0 }],
     scaleDegree: 0,
     triggersGenreShift: false,
     genreContributions: [],
@@ -438,9 +435,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'treat',
     instrumentFamily: 'melody',
     musicalRole: 'erraticMelody',
-    noteAssignments: [
-      { baseNote: 72, duration: 0.5, velocity: 80, octaveVariation: 1 },
-    ],
+    noteAssignments: [{ baseNote: 72, duration: 0.5, velocity: 80, octaveVariation: 1 }],
     scaleDegree: 7,
     triggersGenreShift: false,
     genreContributions: ['festival'],
@@ -463,9 +458,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'yuzu',
     instrumentFamily: 'harmony',
     musicalRole: 'harmonyLayer',
-    noteAssignments: [
-      { baseNote: 64, duration: 1, velocity: 65, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 64, duration: 1, velocity: 65, octaveVariation: 0 }],
     scaleDegree: 2,
     triggersGenreShift: false,
     genreContributions: ['festival'],
@@ -489,9 +482,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'amacha',
     instrumentFamily: 'percussion',
     musicalRole: 'drumBeat',
-    noteAssignments: [
-      { baseNote: 40, duration: 0.5, velocity: 70, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 40, duration: 0.5, velocity: 70, octaveVariation: 0 }],
     scaleDegree: 0,
     triggersGenreShift: false,
     genreContributions: [],
@@ -514,9 +505,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'shielded',
     instrumentFamily: 'percussion',
     musicalRole: 'drumBeat',
-    noteAssignments: [
-      { baseNote: 36, duration: 0.5, velocity: 60, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 36, duration: 0.5, velocity: 60, octaveVariation: 0 }],
     scaleDegree: 0,
     triggersGenreShift: false,
     genreContributions: [],
@@ -539,9 +528,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'frost',
     instrumentFamily: 'synth',
     musicalRole: 'tempoSynth',
-    noteAssignments: [
-      { baseNote: 84, duration: 0.5, velocity: 75, octaveVariation: 2 },
-    ],
+    noteAssignments: [{ baseNote: 84, duration: 0.5, velocity: 75, octaveVariation: 2 }],
     scaleDegree: 4,
     triggersGenreShift: false,
     genreContributions: [],
@@ -565,9 +552,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'winterberry',
     instrumentFamily: 'pad',
     musicalRole: 'etherealPad',
-    noteAssignments: [
-      { baseNote: 48, duration: 2, velocity: 50, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 48, duration: 2, velocity: 50, octaveVariation: 0 }],
     scaleDegree: 6,
     triggersGenreShift: false,
     genreContributions: [],
@@ -590,9 +575,7 @@ export const DEFAULT_MUSICAL_MAPPINGS: AppleMusicalMapping[] = [
     appleId: 'heatwave',
     instrumentFamily: 'synth',
     musicalRole: 'tempoSynth',
-    noteAssignments: [
-      { baseNote: 56, duration: 0.3, velocity: 100, octaveVariation: 0 },
-    ],
+    noteAssignments: [{ baseNote: 56, duration: 0.3, velocity: 100, octaveVariation: 0 }],
     scaleDegree: 1,
     triggersGenreShift: true,
     genreContributions: ['energetic'],
@@ -653,8 +636,18 @@ export const GENRE_DEFINITIONS: GenreDefinition[] = [
     id: 'festival',
     labelKey: 'music.genre.festival',
     contributingApples: [
-      'caffeinated', 'wasabi', 'skittish', 'gold', 'treat', 'yuzu',
-      'lavender', 'love', 'mochi', 'koi', 'coldBeer', 'normal',
+      'caffeinated',
+      'wasabi',
+      'skittish',
+      'gold',
+      'treat',
+      'yuzu',
+      'lavender',
+      'love',
+      'mochi',
+      'koi',
+      'coldBeer',
+      'normal',
     ],
     minimumCounts: { gold: 2, treat: 2, yuzu: 2, caffeinated: 1, wasabi: 1 },
     tempoMultiplier: 1.2,
@@ -766,7 +759,10 @@ export const DEFAULT_MELODY_FRAGMENTS: MelodyFragment[] = [
     id: 'festival-fragment-2',
     requiredSequence: ['gold', 'treat', 'caffeinated', 'wasabi'],
     notes: [60, 64, 67, 72, 76, 72, 67, 64, 60, 56, 60, 64, 67, 72, 67, 64, 60],
-    durations: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 2],
+    durations: [
+      0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25,
+      2,
+    ],
     genre: 'festival',
     difficulty: 2,
     descriptionKey: 'music.melody.festival.serpent_samba',
@@ -774,8 +770,13 @@ export const DEFAULT_MELODY_FRAGMENTS: MelodyFragment[] = [
   {
     id: 'festival-fragment-3',
     requiredSequence: ['gold', 'treat', 'yuzu', 'caffeinated', 'wasabi', 'koi'],
-    notes: [60, 64, 67, 72, 76, 79, 84, 79, 76, 72, 67, 64, 60, 56, 60, 64, 67, 72, 76, 72, 67, 64, 60],
-    durations: [0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 2],
+    notes: [
+      60, 64, 67, 72, 76, 79, 84, 79, 76, 72, 67, 64, 60, 56, 60, 64, 67, 72, 76, 72, 67, 64, 60,
+    ],
+    durations: [
+      0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.5, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25, 0.25,
+      0.25, 0.25, 0.25, 0.25, 0.5, 0.5, 2,
+    ],
     genre: 'festival',
     difficulty: 3,
     descriptionKey: 'music.melody.festival.grand_finale',
@@ -787,18 +788,14 @@ export const DEFAULT_MELODY_FRAGMENTS: MelodyFragment[] = [
  * Returns the primary mapping (first match by appleId).
  */
 export function getAppleMusicalMapping(appleId: string): AppleMusicalMapping | null {
-  return DEFAULT_MUSICAL_MAPPINGS.find(
-    (mapping) => mapping.appleId === appleId,
-  ) ?? null;
+  return DEFAULT_MUSICAL_MAPPINGS.find((mapping) => mapping.appleId === appleId) ?? null;
 }
 
 /**
  * Get all mappings that contribute to a specific genre.
  */
 export function getGenreContributingMappings(genre: AppleGenre): AppleMusicalMapping[] {
-  return DEFAULT_MUSICAL_MAPPINGS.filter(
-    (mapping) => mapping.genreContributions.includes(genre),
-  );
+  return DEFAULT_MUSICAL_MAPPINGS.filter((mapping) => mapping.genreContributions.includes(genre));
 }
 
 /**
@@ -832,6 +829,10 @@ export function midiNoteToFrequency(midiNote: number): number {
 /**
  * Get the scale note for a given scale degree and base note.
  */
-export function getScaleNote(baseNote: number, scaleDegree: number, scalePattern: number[]): number {
+export function getScaleNote(
+  baseNote: number,
+  scaleDegree: number,
+  scalePattern: number[],
+): number {
   return baseNote + scalePattern[scaleDegree % scalePattern.length];
 }

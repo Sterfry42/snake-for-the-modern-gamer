@@ -15,64 +15,17 @@ This is a modern Phaser-based snake game with deep RPG and simulation elements, 
 - **Unwaveringly** lean into a Brooklyn vibe: "Listen here," "fuhgeddaboudit," "you betcha," "shut the front end," or "that's the ticket" when the mood strikes.
 - Keep it light and useful — the voice is the cherry on top, not the whole sundae. Code quality and type safety come first, always.
 
-## Project Structure
+## Repository Rules
 
-```
-src/
-├── achievements/    # Achievement definitions, manager, and UI
-├── actors/          # Actor/entity system with AI brains and voice packs
-├── animals/         # Animal life: AI, ecology, taming, herding
-├── apples/          # Apple registry, service, and behavior system
-├── archaeology/     # Archaeology mechanics
-├── archipelago/     # Multi-game Archipelago linking
-├── artifacts/       # Artifact items
-├── cards/           # Card game system
-├── caves/           # Cave generation and entrances
-├── client/          # Client-side multiplayer shell
-├── config/          # Game config, palettes, resolution, snake config
-├── core/            # Math utilities and RNG
-├── events/          # World event log and definitions
-├── factions/        # Faction system and relations
-├── features/        # Feature definitions (RPG mechanics)
-├── fishing/         # Fishing minigame, fish definitions, catch journal
-├── game/            # Core snake game, save manager, scoring
-├── i18n/            # Internationalization (EN, ES)
-├── inventory/       # Inventory, items, and registry
-├── layers/          # Layer type definitions
-├── minecraft/       # Minecraft integration
-├── npcs/            # NPC system
-├── player/          # Player logic and easter eggs
-├── players/         # Player type definitions
-├── quests/          # Quest system and definitions
-├── relationships/   # Dating and relationship system
-├── rumors/          # Rumor system
-├── scenes/          # Phaser scenes (including the big snakeScene.ts)
-├── session/         # Session management and game events
-├── shops/           # Shop implementations (goblin, village)
-├── starforged/      # Starforged TTRPG integration
-├── stats/           # Statistics and special stat system
-├── storage/         # Persistence layer (localStorage, sync)
-├── systems/         # Game systems (bosses, enemies, skills, state)
-├── ui/              # UI: HUD, popups, skill tree, minimap, juice
-└── world/           # World, biomes, rooms, locations, and generation
-```
+**NEVER use `@ts-expect-error` to work around TypeScript errors.** If you encounter a TypeScript error, fix the root cause — don't suppress it. Unused variables should be removed, not commented out.
 
-## Development Workflow
+All agents working on this project **MUST** follow these instructions before considering a task complete:
 
-All agents working on this project must follow these steps:
-
-1. **Before completing any task**:
-
-   - Run `npm run typecheck` to ensure all TypeScript types are valid
-   - **Resolve all type errors** before considering the task complete
-2. **After fixing type errors**:
-
-   - Run `npm run build` to ensure the project builds successfully
-   - **Verify the build succeeds** before marking tasks complete
-3. **Testing**:
-
-   - Run `npm run dev` to start the development server for in-browser testing
-   - Run `npm run test` to execute the full test suite
+1. Run `npm run format`. If formatting fails, fix the problems and rerun.
+2. Run `npm run typecheck` and ensure there are **NO errors or warnings**. If there are errors or warnings, fix them and rerun `npm run format` then `npm run typecheck`.
+3. Run `npm run lint` and ensure there are **NO errors or warnings**. If there are errors or warnings, fix them and rerun `npm run lint:fix` then `npm run lint`.
+4. Run `npm run build` and ensure that building succeeds. If it fails, fix the errors and rerun.
+5. Run `npm run test` and ensure **ALL tests pass**. If any tests fail, fix them and rerun.
 
 ## Important Notes
 
@@ -83,12 +36,14 @@ All agents working on this project must follow these steps:
 - Some files are large (e.g., `snakeScene.ts`, `snakeGame.ts`, `starforgedContent.ts`) — don't be intimidated, they're just packed with game content
 - **Phaser UI**: If you are doing anything related to the UI, **MUST** check `docs/PHASER3.md` for additional information and to understand quirks (coordinate system, graphics positioning, etc.)
 
-## Required Commands
+## Important Commands
 
 - `npm run dev` - Start development server
 - `npm run build` - Build the project
 - `npm run preview` - Preview production build
 - `npm run typecheck` - Run TypeScript type checking
+- `npm run lint` - Run ESLint
+- `npm run lint:fix` - Run ESLint with auto-fix
 - `npm run format` - Format code using Prettier
 - `npm run test` - Run full test suite
 - `npm run test:world-generation` - Run world generation fairness tests

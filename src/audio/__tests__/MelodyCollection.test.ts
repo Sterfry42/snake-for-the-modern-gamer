@@ -1,6 +1,5 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import { MelodyCollection } from '../MelodyCollection.js';
-import type { AppleGenre } from '../MusicalAppleMap.js';
 import type { MelodyFragmentProgress } from '../MelodyCollection.js';
 
 describe('MelodyCollection', () => {
@@ -65,7 +64,7 @@ describe('MelodyCollection', () => {
       collection.onAppleEaten('lavender');
       collection.onAppleEaten('love');
       collection.onAppleEaten('mochi');
-      let state = collection.getState();
+      const state = collection.getState();
       expect(state.fragments['calm-fragment-1']!.sequenceMatches).toBe(3);
       expect(state.fragments['calm-fragment-1']!.state).toBe('unlocked');
     });
