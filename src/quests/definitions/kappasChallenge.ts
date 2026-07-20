@@ -9,11 +9,11 @@ class KappasChallenge extends Quest {
     );
   }
 
-  override isCompleted(runtime): boolean {
+  override isCompleted(runtime: import('../quest.js').QuestRuntime): boolean {
     return Boolean(runtime.getFlag('kappa.defeated')) ?? false;
   }
 
-  override onReward(runtime): void {
+  override onReward(runtime: import('../quest.js').QuestRuntime): void {
     runtime.addCardToCollection?.('kappa-card', 1);
     runtime.addCardToCollection?.('katana-blueprint', 1);
   }

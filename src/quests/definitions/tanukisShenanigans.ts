@@ -9,11 +9,11 @@ class TanukisShenanigans extends Quest {
     );
   }
 
-  override isCompleted(runtime): boolean {
+  override isCompleted(runtime: import('../quest.js').QuestRuntime): boolean {
     return Boolean(runtime.getFlag('tanuki.found')) ?? false;
   }
 
-  override onReward(runtime): void {
+  override onReward(runtime: import('../quest.js').QuestRuntime): void {
     runtime.addItem('furoshiki', 1);
     runtime.addScore(30);
   }

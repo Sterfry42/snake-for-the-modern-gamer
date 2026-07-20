@@ -13,11 +13,11 @@ class ShrineMaidensRequest extends Quest {
     return ['shrineOfferings'];
   }
 
-  override isCompleted(runtime): boolean {
+  override isCompleted(runtime: import('../quest.js').QuestRuntime): boolean {
     return this.progressSinceAccept(runtime, 'shrineOfferings') >= 10;
   }
 
-  override onReward(runtime): void {
+  override onReward(runtime: import('../quest.js').QuestRuntime): void {
     runtime.addScore(50);
     runtime.addItem('ofuda', 2);
     runtime.setFlag('blessing.wallSense', (Number(runtime.getFlag('blessing.wallSense')) ?? 0) + 2);
