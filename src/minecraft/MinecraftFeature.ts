@@ -1059,7 +1059,7 @@ export class MinecraftFeature extends Feature {
       'pumpkin',
     ];
     for (const bt of blockTypes) {
-      if (this.player?.getItemCount(bt) > 0) {
+      if (this.player && this.player.getItemCount(bt) > 0) {
         return bt;
       }
     }

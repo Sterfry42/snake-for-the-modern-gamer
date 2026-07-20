@@ -20,7 +20,7 @@ export type AlchemyTab = 'recipes' | 'crafting' | 'journal' | 'lore' | 'workshop
 
 /** Alchemy overlay UI panel */
 export class AlchemyOverlay {
-  private container?: Phaser.GameObjects.Container;
+  private container!: Phaser.GameObjects.Container;
   private background?: Phaser.GameObjects.Rectangle;
   private titleText?: Phaser.GameObjects.Text;
   private tabButtons: Phaser.GameObjects.Text[] = [];
@@ -37,7 +37,7 @@ export class AlchemyOverlay {
   // @ts-expect-error TS6133 - unused declaration
   private onTrade?: (recipeId: string) => void;
   private isVisible = false;
-  private scene: SnakeScene;
+  private scene!: SnakeScene;
   private alchemyManager: AlchemyManager;
 
   // Scroll state

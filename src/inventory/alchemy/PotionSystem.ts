@@ -265,8 +265,8 @@ export class PotionSystem {
   }
 
   /** Map potion effect to mythic effect type */
-  private mapEffectToMythicType(effectType: PotionEffectType): Potion['mythicEffect']['effectType'] {
-    const map: Record<PotionEffectType, Potion['mythicEffect']['effectType']> = {
+  private mapEffectToMythicType(effectType: PotionEffectType): NonNullable<Potion['mythicEffect']>['effectType'] {
+    const map: Record<PotionEffectType, NonNullable<Potion['mythicEffect']>['effectType']> = {
       growth: 'snakeTransformation',
       phase: 'permanentBiomeChange',
       magnet: 'appleRain',

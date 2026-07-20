@@ -11556,7 +11556,7 @@ export class SnakeGame implements QuestRuntime {
     const source = reason as WardDeathSource;
     const current = Math.max(0, Math.floor(contracts[source] ?? 0));
     const next = { ...contracts, [source]: current - 1 };
-    if (next[source] <= 0) {
+    if ((next[source] ?? 0) <= 0) {
       delete next[source];
     }
     this.setFlag('wards.contracts', next);

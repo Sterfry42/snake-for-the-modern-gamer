@@ -324,12 +324,12 @@ export function generatePortalRoom(
   // @ts-expect-error TS6133 - unused declaration
   const _platformSize = Math.max(width, height) + 4;
 
+  if (!room.minecraftBlocks) {
+    room.minecraftBlocks = {};
+  }
   for (let dx = -2; dx <= 2; dx++) {
     for (let dy = -2; dy <= 2; dy++) {
       const key = `${dx + width / 2},${dy + height / 2}`;
-      if (!room.minecraftBlocks) {
-        room.minecraftBlocks = {};
-      }
       room.minecraftBlocks[key] = 'obsidian';
     }
   }

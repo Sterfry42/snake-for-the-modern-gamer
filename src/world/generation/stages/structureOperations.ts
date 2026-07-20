@@ -724,7 +724,9 @@ export class StructureOperations {
           role: 'guard',
         });
       }
-      town.residentPresences = presences;
+      if (town) {
+        town.residentPresences = presences;
+      }
       context.town = town;
       rows = layout.map((row) => row.join(''));
     }

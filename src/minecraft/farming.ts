@@ -143,7 +143,7 @@ export function tickCrops(room: RoomSnapshot, dayNight: { timeOfDay: number }, r
     if (!hasAdjacentFarmland) continue;
 
     // Find adjacent air blocks to place new pumpkins
-    const airNeighbors = neighbors.filter((n) => !room.minecraftBlocks[n]);
+    const airNeighbors = neighbors.filter((n) => !room.minecraftBlocks?.[n]);
 
     if (airNeighbors.length === 0) continue;
 
