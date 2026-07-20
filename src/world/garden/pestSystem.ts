@@ -183,7 +183,7 @@ export function attractPredator(
   }
 
   // Predators are most effective against their preferred pest type
-  let efficiency =
+  const efficiency =
     predator.pestType === pest.type ? predator.efficiency : predator.efficiency * 0.3;
 
   const damage = Math.ceil(pest.maxHealth * efficiency);

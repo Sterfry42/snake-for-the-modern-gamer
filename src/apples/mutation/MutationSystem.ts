@@ -234,7 +234,7 @@ export class MutationSystem {
     for (const traitBonus of mutation.evolvedTraits) {
       const traitDef = this.registry.getTrait(traitBonus.traitId);
       if (traitDef) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+         
         // @ts-expect-error TS6133 - unused declaration
         const _traitId = traitBonus.traitId;
         // @ts-expect-error TS6133 - unused declaration
