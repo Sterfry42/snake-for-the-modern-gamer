@@ -63,6 +63,8 @@ export class MinecraftFeature extends Feature {
 
   private creativeMode = false;
   private _rngInjected = false;
+  lastActionStep = 0;
+  craftingTableNearby = false;
 
   constructor() {
     super('minecraft', 'Minecraft block building mode');

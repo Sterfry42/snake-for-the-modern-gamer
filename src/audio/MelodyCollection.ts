@@ -93,7 +93,6 @@ export class MelodyCollection {
   private sequenceBuffer: string[] = [];
   private sequenceBufferSize = 20;
   private onFragmentUnlockedCallback?: (fragment: MelodyFragmentProgress) => void;
-  private _onGenreCompleteCallback?: (genre: AppleGenre) => void;
   private onTrackUnlockedCallback?: (genre: AppleGenre) => void;
 
   constructor() {
@@ -328,9 +327,7 @@ export class MelodyCollection {
   /**
    * Register a callback for genre completions.
    */
-  onGenreComplete(callback: (genre: AppleGenre) => void): void {
-    this._onGenreCompleteCallback = callback;
-  }
+  onGenreComplete(_callback: (genre: AppleGenre) => void): void {}
 
   /**
    * Register a callback for track unlocks.

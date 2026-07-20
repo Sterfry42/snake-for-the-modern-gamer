@@ -59,7 +59,6 @@ class StarforgedVanguardFeature extends Feature {
   private lastDirectorBeat = -1;
   private lastRoomId = '';
   private inputRegistered = false;
-  private baseActionStepMs = 100;
 
   constructor() {
     super('starforgedVanguard', 'Destiny 3: Starforged Vanguard');
@@ -67,7 +66,6 @@ class StarforgedVanguardFeature extends Feature {
 
   override onRegister(scene: SnakeScene): void {
     const state = this.readState(scene);
-    this.baseActionStepMs = scene.getActionStepIntervalMs();
     scene.setFlag('starforged.interactionReady', undefined);
     scene.setFlag('starforged.interactRequested', undefined);
     this.writeState(scene, state);

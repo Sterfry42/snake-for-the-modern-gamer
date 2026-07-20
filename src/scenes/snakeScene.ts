@@ -2778,9 +2778,6 @@ export default class SnakeScene extends Phaser.Scene {
       this.juice.stathamVulnerable(worldX, worldY);
       this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired')!, '#ff6b6b');
       this.showQuestHintPopup(i18n.getFeatureString('jason_statham_tired_sub')!, '#ffd166');
-      this.jasonVulnerableDialogueShown = true;
-    } else if (event.kind === 'jason-statham' && event.phase === 'vulnerable-exited') {
-      this.jasonVulnerableDialogueShown = false;
     } else if (event.kind === 'jason-statham-move-started') {
       // Play warning sound and announce attack type
       const moveType = (event as any).moveType;
@@ -7096,18 +7093,6 @@ export default class SnakeScene extends Phaser.Scene {
       .star(width / 2, 32, 8, 6, 24, 0xfff3a8, 0.0)
       .setBlendMode(Phaser.BlendModes.ADD);
 
-    this.titleAnimatedObjects = [
-      glint,
-      dennisPulse,
-      angelGlow,
-      ...smokeWisps,
-      ...titleRays,
-      ...sparkles,
-      ...comets,
-      ...birds,
-      ...embers,
-      crownBurst,
-    ];
     root.add([
       art,
       veil,
@@ -11217,14 +11202,10 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: false, message: 'No fish available in this area.', color: '#ff6b6b' };
     }
 
-    // Lock gloves slot
-    this.fishingGloveLocked = true;
-
     // Create initial fishing state
     const fishingState = this.fishingRegistry.startFishing(biomeId, fish);
     this.fishingGameState = fishingState;
     this.fishingActive = true;
-    this.fishingEscapePending = false;
 
     // Start the minigame
     this.fishingMinigame?.setInputMode(this.inputModeManager.getMode());
@@ -11236,7 +11217,6 @@ export default class SnakeScene extends Phaser.Scene {
   /** End the fishing minigame and process the result */
   endFishing(result: FishingSessionResult): void {
     this.fishingActive = false;
-    this.fishingGloveLocked = false;
     this.fishingMinigame?.stop();
 
     if (result.caught && result.result) {
@@ -11378,11 +11358,9 @@ export default class SnakeScene extends Phaser.Scene {
   autoEscapeFromFishing(): void {
     if (!this.fishingActive) return;
 
-    this.fishingEscapePending = true;
     this.fishingRegistry.abortFishing(this.fishingGameState!);
     this.fishingMinigame?.stop();
     this.fishingActive = false;
-    this.fishingGloveLocked = false;
     this.fishingGameState = null;
 
     // Don't show message during death - it will be handled by death sequence
@@ -18296,6 +18274,47 @@ export default class SnakeScene extends Phaser.Scene {
     if (page.juiceTier) {
       this.juice.relationshipChoice(page.juiceTier);
     }
+  }
+
+  private inferRelationshipTags(actionId: string): RelationshipTag[] {
+    const tags: RelationshipTag[] = [];
+    if (/brave|courage|fearless/i.test(actionId)) tags.push('bravery');
+    if (/reckless|crazy|wild/i.test(actionId)) tags.push('recklessness');
+    if (/safe|protect|shield|defend/i.test(actionId)) tags.push('protective');
+    if (/selfless|sacrifice|give.*away/i.test(actionId)) tags.push('selfless');
+    if (/pragmatic|practical|realistic/i.test(actionId)) tags.push('pragmatic');
+    if (/truth|honest|confess|admit/i.test(actionId)) tags.push('honesty');
+    if (/avoid|evade|dodge|retreat|run/i.test(actionId)) tags.push('avoidance');
+    if (/loyal|faithful|stand.*by/i.test(actionId)) tags.push('loyalty');
+    if (/betray|double.*cross|stab.*back/i.test(actionId)) tags.push('betrayal');
+    if (/skill|craft|tactic|strategy|expert/i.test(actionId)) tags.push('competence');
+    if (/cling|needy|depend|attach/i.test(actionId)) tags.push('neediness');
+    if (/restrain|hold.*back|temperate/i.test(actionId)) tags.push('restraint');
+    if (/fight|attack|strike|punch|kick/i.test(actionId)) tags.push('violence');
+    if (/spare|mercy|forgive|pity/i.test(actionId)) tags.push('mercy');
+    if (/ambitious|climb|rise|power|control/i.test(actionId)) tags.push('ambition');
+    if (/humble|honor|respect|bow/i.test(actionId)) tags.push('humility');
+    if (/trade|deal|bargain|exchange|payment/i.test(actionId)) tags.push('transaction');
+    if (/ritual|ceremony|sacred|pray|offer/i.test(actionId)) tags.push('ritual');
+    if (/defy|dare|challenge|risk.*death/i.test(actionId)) tags.push('deathDefiance');
+    if (/accept.*death|embrace.*end|peaceful.*end/i.test(actionId)) tags.push('deathAcceptance');
+    if (/kiss|hug.*public|display.*love/i.test(actionId)) tags.push('publicAffection');
+    if (/whisper|private|secret.*love|intimate/i.test(actionId)) tags.push('privateAffection');
+    if (/gift.*giving|present|surprise.*gift/i.test(actionId)) tags.push('giftGiving');
+    if (/gift.*spam|overwhelming.*gift/i.test(actionId)) tags.push('giftSpamming');
+    if (/neglect|ignore|abandon|forget/i.test(actionId)) tags.push('neglect');
+    if (/rival|compete|jealous|envy/i.test(actionId)) tags.push('rivalAttention');
+    if (/secret|hidden|conceal|spy/i.test(actionId)) tags.push('secrecy');
+    if (/commit|vow|promise|oath|marry/i.test(actionId)) tags.push('commitment');
+    if (/haste|rush|hurry|quick.*tie/i.test(actionId)) tags.push('premature');
+    if (/drama|theatrical|grand.*gesture|scene/i.test(actionId)) tags.push('dramatic');
+    if (/clever|smart|witty|trick|scheme/i.test(actionId)) tags.push('clever');
+    if (/food|meal|cook|eat|dinner|lunch|breakfast/i.test(actionId)) tags.push('food');
+    if (/comfort|soothe|calm|reassure/i.test(actionId)) tags.push('comfort');
+    if (/danger|risk|threat|hazard|peril/i.test(actionId)) tags.push('danger');
+    if (/contract|pact|agreement|deal/i.test(actionId)) tags.push('contract');
+    if (/ledger|score|balance|reckoning/i.test(actionId)) tags.push('ledger');
+    return tags;
   }
 
   private normalizeDatingBranchChoice(

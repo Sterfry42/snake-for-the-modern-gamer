@@ -83,7 +83,6 @@ export class QuestPopup {
   private nextButtonBg?: Phaser.GameObjects.Rectangle;
   private controllerHint?: Phaser.GameObjects.Text;
 
-  private callbacks: QuestPopupCallbacks | null = null;
   private dialogueCallbacks: DialoguePopupCallbacks | null = null;
   private pages: string[] = [];
   private pageIndex = 0;
@@ -177,7 +176,6 @@ export class QuestPopup {
 
   hide(): void {
     this.container?.setVisible(false);
-    this.callbacks = null;
     this.dialogueCallbacks = null;
     this.pages = [];
     this.pageIndex = 0;

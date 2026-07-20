@@ -219,14 +219,7 @@ export function createDreamAppleInstance(
     case 'dream':
       return new DreamApple(roomId, position, config.id, config.color, config.metadata);
     case 'nightmare':
-      return new NightmareApple(
-        roomId,
-        position,
-        config.id,
-        config.color,
-        config.metadata,
-        (config.extraConfig as { chaseSpeed?: number })?.chaseSpeed ?? 0.1,
-      );
+      return new NightmareApple(roomId, position, config.id, config.color, config.metadata);
     case 'lucid':
       return new LucidApple(
         roomId,

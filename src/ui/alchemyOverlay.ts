@@ -24,7 +24,6 @@ export class AlchemyOverlay {
   private background?: Phaser.GameObjects.Rectangle;
   private titleText?: Phaser.GameObjects.Text;
   private tabButtons: Phaser.GameObjects.Text[] = [];
-  private currentTab: AlchemyTab = 'recipes';
   private recipeList?: Phaser.GameObjects.Container;
   private craftingPanel?: Phaser.GameObjects.Container;
   private journalPanel?: Phaser.GameObjects.Container;
@@ -129,8 +128,6 @@ export class AlchemyOverlay {
 
   /** Switch tabs */
   private switchTab(tab: AlchemyTab): void {
-    this.currentTab = tab;
-
     // Update tab button colors
     this.tabButtons.forEach((btn, index) => {
       const tabType = ['recipes', 'crafting', 'journal', 'lore', 'workshops'][index] as AlchemyTab;

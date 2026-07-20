@@ -54,12 +54,6 @@ export class GenreDetector {
   private currentGenre: AppleGenre | null = null;
   private lastDetectionTime = 0;
   private detectionCooldown = 5000; // 5 seconds between genre changes
-  private _genreScores: Record<AppleGenre, number> = {
-    calm: 0,
-    energetic: 0,
-    mysterious: 0,
-    festival: 0,
-  };
 
   constructor(config?: GenreDetectorConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -205,12 +199,6 @@ export class GenreDetector {
     this.appleHistory = [];
     this.currentGenre = null;
     this.lastDetectionTime = 0;
-    this._genreScores = {
-      calm: 0,
-      energetic: 0,
-      mysterious: 0,
-      festival: 0,
-    };
   }
 
   /**

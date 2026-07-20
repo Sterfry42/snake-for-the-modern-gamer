@@ -174,35 +174,21 @@ export class AppleRegistry {
           buffDuration: 200,
         });
       case 'nightmare':
-        return new NightmareApple(
-          roomId,
-          position,
-          type.id,
-          type.color,
-          {
-            floatingOffset: 0,
-            floatSpeed: 0.02,
-            phaseOffset: 0,
-            buffType: 'shield',
-            buffDuration: 120,
-          },
-          0.1,
-        );
+        return new NightmareApple(roomId, position, type.id, type.color, {
+          floatingOffset: 0,
+          floatSpeed: 0.02,
+          phaseOffset: 0,
+          buffType: 'shield',
+          buffDuration: 120,
+        });
       case 'nightmare-hunter':
-        return new NightmareApple(
-          roomId,
-          position,
-          type.id,
-          type.color,
-          {
-            floatingOffset: 0,
-            floatSpeed: 0.01,
-            phaseOffset: 2.0,
-            buffType: 'lucidityBoost',
-            buffDuration: 60,
-          },
-          0.15,
-        );
+        return new NightmareApple(roomId, position, type.id, type.color, {
+          floatingOffset: 0,
+          floatSpeed: 0.01,
+          phaseOffset: 2.0,
+          buffType: 'lucidityBoost',
+          buffDuration: 60,
+        });
       case 'lucid':
         return new LucidApple(
           roomId,

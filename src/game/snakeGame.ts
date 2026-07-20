@@ -628,47 +628,6 @@ function createDefaultMomentumState(): MomentumRuntimeState {
   };
 }
 
-interface TraversalComputedConfig {
-  enabled: boolean;
-  corridorWidth: number;
-  extendForwardRooms: number;
-  phaseTicksOnEnter: number;
-  growthOnEnter: number;
-  scoreOnEnter: number;
-  ghostShieldCharges: number;
-  echoTicks: number;
-  echoScore: number;
-  pullAppleIntoCorridor: boolean;
-}
-
-interface TraversalRuntimeState {
-  ghostShields: number;
-  phaseTicks: number;
-  echoTicks: number;
-}
-
-function createDefaultTraversalConfig(): TraversalComputedConfig {
-  return {
-    enabled: false,
-    corridorWidth: 0,
-    extendForwardRooms: 0,
-    phaseTicksOnEnter: 0,
-    growthOnEnter: 0,
-    scoreOnEnter: 0,
-    ghostShieldCharges: 0,
-    echoTicks: 0,
-    echoScore: 0,
-    pullAppleIntoCorridor: false,
-  };
-}
-
-function createDefaultTraversalState(): TraversalRuntimeState {
-  return {
-    ghostShields: 0,
-    phaseTicks: 0,
-    echoTicks: 0,
-  };
-}
 interface PredationComputedConfig {
   enabled: boolean;
   window: number;
@@ -830,8 +789,6 @@ export class SnakeGame implements QuestRuntime {
   private momentumConfig: MomentumComputedConfig = createDefaultMomentumConfig();
   private momentumState: MomentumRuntimeState = createDefaultMomentumState();
 
-  private traversalConfig: TraversalComputedConfig = createDefaultTraversalConfig();
-  private traversalState: TraversalRuntimeState = createDefaultTraversalState();
   private lightningStrike: LightningStrikeState | null = null;
 
   private powerupState: { kind: PowerupKind; remaining: number; total: number } | null = null;
@@ -7582,100 +7539,6 @@ export class SnakeGame implements QuestRuntime {
     return `layer:townInterior:${townId}:thievesGuild`;
   }
 
-  private _getSideToTownDistrict(
-    town: TownStructure,
-    roomId: string,
-    targetDistrict: TownRoomKind,
-  ): 'north' | 'south' | 'east' | 'west' | null {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
-    const neighbors: Array<{ side: 'north' | 'south' | 'east' | 'west'; id: string }> = [
-      { side: 'north', id: `${roomX},${roomY - 1},${roomZ}` },
-      { side: 'south', id: `${roomX},${roomY + 1},${roomZ}` },
-      { side: 'east', id: `${roomX + 1},${roomY},${roomZ}` },
-      { side: 'west', id: `${roomX - 1},${roomY},${roomZ}` },
-    ];
-    return (
-      neighbors.find((neighbor) => town.districtByRoomId[neighbor.id] === targetDistrict)?.side ??
-      null
-    );
-  }
-
-  private _openRoomEdgeTiles(room: RoomSnapshot, side: 'north' | 'south' | 'east' | 'west'): void {
-    const centerX = Math.floor(this.config.grid.cols / 2);
-    const centerY = Math.floor(this.config.grid.rows / 2);
-    if (side === 'north' || side === 'south') {
-      const top = side === 'north' ? 0 : this.config.grid.rows - 3;
-      for (let y = top; y < top + 3; y += 1) {
-        const row = room.layout[y];
-        if (!row) continue;
-        const chars = row.split('');
-        for (let x = centerX - 2; x <= centerX + 2; x += 1) {
-          if (chars[x] && chars[x] !== 'G') {
-            chars[x] = 'E';
-          }
-        }
-        room.layout[y] = chars.join('');
-      }
-      return;
-    }
-    const left = side === 'west' ? 0 : this.config.grid.cols - 3;
-    for (let y = centerY - 2; y <= centerY + 2; y += 1) {
-      const row = room.layout[y];
-      if (!row) continue;
-      const chars = row.split('');
-      for (let x = left; x < left + 3; x += 1) {
-        if (chars[x] && chars[x] !== 'G') {
-          chars[x] = 'E';
-        }
-      }
-      room.layout[y] = chars.join('');
-    }
-  }
-
-  private _isInsideTownExitLatchSide(town: TownStructure, room: RoomSnapshot): boolean {
-    const exteriorSide = this.inferTownExitExteriorSide(town, room.id);
-    if (!exteriorSide) {
-      return true;
-    }
-    const head = this.snake.bodySegments[0];
-    if (!head) {
-      return false;
-    }
-    const local = this.worldToLocal(room.id, head);
-    const centerX = Math.floor(this.config.grid.cols / 2);
-    const centerY = Math.floor(this.config.grid.rows / 2);
-    switch (exteriorSide) {
-      case 'north':
-        return local.y > centerY;
-      case 'south':
-        return local.y < centerY;
-      case 'east':
-        return local.x < centerX;
-      case 'west':
-        return local.x > centerX;
-    }
-  }
-
-  private inferTownExitExteriorSide(
-    town: TownStructure,
-    roomId: string,
-  ): 'north' | 'south' | 'east' | 'west' | null {
-    const [roomX = 0, roomY = 0, roomZ = 0] = roomId.split(',').map(Number);
-    const neighbors: Array<{ side: 'north' | 'south' | 'east' | 'west'; id: string }> = [
-      { side: 'north', id: `${roomX},${roomY - 1},${roomZ}` },
-      { side: 'south', id: `${roomX},${roomY + 1},${roomZ}` },
-      { side: 'east', id: `${roomX + 1},${roomY},${roomZ}` },
-      { side: 'west', id: `${roomX - 1},${roomY},${roomZ}` },
-    ];
-    const interior = neighbors.find((neighbor) =>
-      Boolean(town.districtByRoomId[neighbor.id]),
-    )?.side;
-    if (!interior) {
-      return null;
-    }
-    return this.oppositeSide(interior);
-  }
-
   private oppositeSide(
     side: 'north' | 'south' | 'east' | 'west',
   ): 'north' | 'south' | 'east' | 'west' {
@@ -8943,7 +8806,6 @@ export class SnakeGame implements QuestRuntime {
   spawnGridironYard(): boolean {
     const room = this.getCurrentRoom();
     const grid = this.config.grid;
-    const _rng = this._rng;
     const safe = new Set<string>();
     // Entrance runup cells
     for (let y = 0; y < grid.rows; y++) {
@@ -15737,30 +15599,6 @@ export class SnakeGame implements QuestRuntime {
     return best;
   }
 
-  private _handleFortitudeRegenerator(roomsChanged: Set<string>): void {
-    const base = this.getFlag<{ interval?: number; amount?: number }>('fortitude.regenerator');
-    const equip = this.getFlag<{ interval?: number; amount?: number }>('equipment.regenerator');
-    const interval = Math.min(
-      base?.interval && base.interval > 0 ? base.interval : Number.POSITIVE_INFINITY,
-      equip?.interval && equip.interval > 0 ? equip.interval : Number.POSITIVE_INFINITY,
-    );
-    const amount = (base?.amount ?? 0) + (equip?.amount ?? 0);
-    if (!Number.isFinite(interval) || interval <= 0 || amount <= 0) {
-      return;
-    }
-    const counter = (this.getFlag<number>('fortitude.regeneratorCounter') ?? 0) + 1;
-    if (counter >= interval) {
-      Math.max(1, amount);
-      for (let i = 0; i < amount; i += 1) {
-        this.snake.grow(1);
-      }
-      roomsChanged.add(this.snake.currentRoomId);
-      this.setFlag('fortitude.regeneratorCounter', 0);
-    } else {
-      this.setFlag('fortitude.regeneratorCounter', counter);
-    }
-  }
-
   private handleFortitudeOnApple(roomsChanged: Set<string>): void {
     this.activateFortitudeInvulnerability();
     this.processFortitudeBloodBank(roomsChanged);
@@ -16057,15 +15895,6 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('equipment.itemPhoenixConsumed', { itemId, slot });
       return;
     }
-  }
-
-  private _resetMomentum(): void {
-    this.momentumConfig = createDefaultMomentumConfig();
-    this.momentumState = createDefaultMomentumState();
-    this.setFlag('momentum.state', undefined);
-    this.setFlag('momentum.phasingTicks', undefined);
-    this.setFlag('momentum.surgeTriggered', undefined);
-    this.setFlag('momentum.trailActive', undefined);
   }
 
   private hydrateMomentumConfig(): void {
@@ -16517,29 +16346,6 @@ export class SnakeGame implements QuestRuntime {
     this.syncMomentumFlags();
   }
 
-  private _handleMomentumOnApple(
-    _consumption: AppleConsumptionResult,
-    _roomsChanged: Set<string>,
-  ): number {
-    const config = this.momentumConfig;
-    if (!config.enabled) {
-      return 0;
-    }
-    const state = this.ensureMomentumState();
-    let bonusScore = 0;
-    if (config.scorePerStack > 0 && state.stacks > 0) {
-      const scoreGain = Math.round(
-        applyStackDiminishingReturns(config.scorePerStack, state.stacks),
-      );
-      if (scoreGain > 0) {
-        this.addScore(scoreGain, 'combo');
-        bonusScore += scoreGain;
-      }
-    }
-    this.syncMomentumFlags();
-    return bonusScore;
-  }
-
   private tickMomentumState(): void {
     const config = this.momentumConfig;
     const state = this.ensureMomentumState();
@@ -16598,411 +16404,6 @@ export class SnakeGame implements QuestRuntime {
     }
 
     this.syncMomentumFlags();
-  }
-
-  private _resetTraversal(): void {
-    this.traversalConfig = createDefaultTraversalConfig();
-    this.traversalState = createDefaultTraversalState();
-    this.setFlag('traversal.state', undefined);
-    this.setFlag('traversal.phaseTicks', undefined);
-    this.setFlag('traversal.ghostShield', undefined);
-    this.setFlag('traversal.echoActive', undefined);
-  }
-
-  private _hydrateTraversalConfig(): void {
-    const contributions = Object.entries(this.snake.flags)
-      .filter(([key]) => key.startsWith('traversal.config.'))
-      .map(([, value]) => value)
-      .filter(
-        (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object',
-      );
-
-    if (contributions.length === 0) {
-      this.traversalConfig = createDefaultTraversalConfig();
-      return;
-    }
-
-    let enabled = false;
-
-    let baseWidth: number | null = null;
-    let widthBonus = 0;
-    let baseExtend: number | null = null;
-    let extendBonus = 0;
-    let basePhaseTicks: number | null = null;
-    let phaseTicksBonus = 0;
-    let baseGrowth: number | null = null;
-    let growthBonus = 0;
-    let baseScore: number | null = null;
-    let scoreBonus = 0;
-    let baseShield: number | null = null;
-    let shieldBonus = 0;
-    let baseEchoTicks: number | null = null;
-    let echoTicksBonus = 0;
-    let baseEchoScore: number | null = null;
-    let echoScoreBonus = 0;
-    let pullApple = false;
-
-    for (const contribution of contributions) {
-      if ((contribution as { enabled?: boolean }).enabled) {
-        enabled = true;
-      }
-
-      const widthValue = (contribution as { corridorWidth?: unknown }).corridorWidth;
-      if (typeof widthValue === 'number') {
-        baseWidth = Math.max(baseWidth ?? widthValue, widthValue);
-      }
-      const widthBonusValue = (contribution as { corridorWidthBonus?: unknown }).corridorWidthBonus;
-      if (typeof widthBonusValue === 'number') {
-        widthBonus += widthBonusValue;
-      }
-
-      const extendValue = (contribution as { extendForwardRooms?: unknown }).extendForwardRooms;
-      if (typeof extendValue === 'number') {
-        baseExtend = Math.max(baseExtend ?? extendValue, extendValue);
-      }
-      const extendBonusValue = (contribution as { extendForwardRoomsBonus?: unknown })
-        .extendForwardRoomsBonus;
-      if (typeof extendBonusValue === 'number') {
-        extendBonus += extendBonusValue;
-      }
-
-      const phaseValue = (contribution as { phaseTicksOnEnter?: unknown }).phaseTicksOnEnter;
-      if (typeof phaseValue === 'number') {
-        basePhaseTicks = Math.max(basePhaseTicks ?? phaseValue, phaseValue);
-      }
-      const phaseBonusValue = (contribution as { phaseTicksOnEnterBonus?: unknown })
-        .phaseTicksOnEnterBonus;
-      if (typeof phaseBonusValue === 'number') {
-        phaseTicksBonus += phaseBonusValue;
-      }
-
-      const growthValue = (contribution as { growthOnEnter?: unknown }).growthOnEnter;
-      if (typeof growthValue === 'number') {
-        baseGrowth = Math.max(baseGrowth ?? growthValue, growthValue);
-      }
-      const growthBonusValue = (contribution as { growthOnEnterBonus?: unknown })
-        .growthOnEnterBonus;
-      if (typeof growthBonusValue === 'number') {
-        growthBonus += growthBonusValue;
-      }
-
-      const scoreValue = (contribution as { scoreOnEnter?: unknown }).scoreOnEnter;
-      if (typeof scoreValue === 'number') {
-        baseScore = Math.max(baseScore ?? scoreValue, scoreValue);
-      }
-      const scoreBonusValue = (contribution as { scoreOnEnterBonus?: unknown }).scoreOnEnterBonus;
-      if (typeof scoreBonusValue === 'number') {
-        scoreBonus += scoreBonusValue;
-      }
-
-      const shieldValue = (contribution as { ghostShieldCharges?: unknown }).ghostShieldCharges;
-      if (typeof shieldValue === 'number') {
-        baseShield = Math.max(baseShield ?? shieldValue, shieldValue);
-      }
-      const shieldBonusValue = (contribution as { ghostShieldChargesBonus?: unknown })
-        .ghostShieldChargesBonus;
-      if (typeof shieldBonusValue === 'number') {
-        shieldBonus += shieldBonusValue;
-      }
-
-      const echoTicksValue = (contribution as { echoTicks?: unknown }).echoTicks;
-      if (typeof echoTicksValue === 'number') {
-        baseEchoTicks = Math.max(baseEchoTicks ?? echoTicksValue, echoTicksValue);
-      }
-      const echoTicksBonusValue = (contribution as { echoTicksBonus?: unknown }).echoTicksBonus;
-      if (typeof echoTicksBonusValue === 'number') {
-        echoTicksBonus += echoTicksBonusValue;
-      }
-
-      const echoScoreValue = (contribution as { echoScore?: unknown }).echoScore;
-      if (typeof echoScoreValue === 'number') {
-        baseEchoScore = Math.max(baseEchoScore ?? echoScoreValue, echoScoreValue);
-      }
-      const echoScoreBonusValue = (contribution as { echoScoreBonus?: unknown }).echoScoreBonus;
-      if (typeof echoScoreBonusValue === 'number') {
-        echoScoreBonus += echoScoreBonusValue;
-      }
-
-      if ((contribution as { pullAppleIntoCorridor?: boolean }).pullAppleIntoCorridor) {
-        pullApple = true;
-      }
-    }
-
-    const config = createDefaultTraversalConfig();
-    config.enabled = enabled;
-
-    const widthBase = baseWidth ?? (enabled ? 3 : 0);
-    config.corridorWidth = Math.max(0, Math.round(widthBase + widthBonus));
-
-    const extendBase = baseExtend ?? 0;
-    config.extendForwardRooms = Math.max(0, Math.round(extendBase + extendBonus));
-
-    const phaseBase = basePhaseTicks ?? 0;
-    config.phaseTicksOnEnter = Math.max(0, Math.round(phaseBase + phaseTicksBonus));
-
-    const growthBase = baseGrowth ?? 0;
-    config.growthOnEnter = Math.max(0, Math.round(growthBase + growthBonus));
-
-    const scoreBase = baseScore ?? 0;
-    config.scoreOnEnter = Math.max(0, Math.round(scoreBase + scoreBonus));
-
-    const shieldBase = baseShield ?? 0;
-    config.ghostShieldCharges = Math.max(0, Math.round(shieldBase + shieldBonus));
-
-    const echoTicksBase = baseEchoTicks ?? 0;
-    config.echoTicks = Math.max(0, Math.round(echoTicksBase + echoTicksBonus));
-
-    const echoScoreBase = baseEchoScore ?? 0;
-    config.echoScore = Math.max(0, Math.round(echoScoreBase + echoScoreBonus));
-
-    config.pullAppleIntoCorridor = pullApple;
-
-    this.traversalConfig = config;
-  }
-
-  private ensureTraversalState(): TraversalRuntimeState {
-    return this.traversalState;
-  }
-
-  private syncTraversalFlags(): void {
-    const state = this.traversalState;
-    if (
-      !this.traversalConfig.enabled &&
-      state.ghostShields === 0 &&
-      state.phaseTicks === 0 &&
-      state.echoTicks === 0
-    ) {
-      this.setFlag('traversal.state', undefined);
-    } else {
-      this.setFlag('traversal.state', {
-        ghostShields: state.ghostShields,
-        phaseTicks: state.phaseTicks,
-        echoTicks: state.echoTicks,
-      });
-    }
-
-    if (state.phaseTicks > 0) {
-      this.setFlag('traversal.phaseTicks', state.phaseTicks);
-    } else {
-      this.setFlag('traversal.phaseTicks', undefined);
-    }
-
-    if (state.ghostShields > 0) {
-      this.setFlag('traversal.ghostShield', { charges: state.ghostShields });
-    } else {
-      this.setFlag('traversal.ghostShield', undefined);
-    }
-
-    if (state.echoTicks > 0) {
-      this.setFlag('traversal.echoActive', state.echoTicks);
-    } else {
-      this.setFlag('traversal.echoActive', undefined);
-    }
-  }
-
-  private _handleTraversalRoomChange(
-    _previousRoomId: string,
-    currentRoomId: string,
-    roomsChanged: Set<string>,
-  ): void {
-    const config = this.traversalConfig;
-    if (!config.enabled) {
-      return;
-    }
-
-    if (config.corridorWidth > 0) {
-      this.carveTraversalCorridor(
-        currentRoomId,
-        this.snake.directionVector,
-        config.corridorWidth,
-        config.extendForwardRooms,
-        roomsChanged,
-        config.pullAppleIntoCorridor,
-      );
-    }
-
-    if (config.scoreOnEnter > 0) {
-      this.addScore(config.scoreOnEnter);
-    }
-
-    if (config.growthOnEnter > 0) {
-      for (let i = 0; i < config.growthOnEnter; i += 1) {
-        this.snake.grow(1);
-      }
-      roomsChanged.add(currentRoomId);
-    }
-
-    if (config.ghostShieldCharges > 0) {
-      const state = this.ensureTraversalState();
-      state.ghostShields = Math.max(state.ghostShields, config.ghostShieldCharges);
-    }
-
-    if (config.phaseTicksOnEnter > 0) {
-      const state = this.ensureTraversalState();
-      state.phaseTicks = Math.max(state.phaseTicks, config.phaseTicksOnEnter);
-    }
-
-    if (config.echoTicks > 0) {
-      const state = this.ensureTraversalState();
-      state.echoTicks = Math.max(state.echoTicks, config.echoTicks);
-    }
-
-    this.syncTraversalFlags();
-  }
-
-  private _tickTraversalState(): void {
-    const config = this.traversalConfig;
-    const state = this.ensureTraversalState();
-
-    if (!config.enabled) {
-      if (state.ghostShields !== 0 || state.phaseTicks !== 0 || state.echoTicks !== 0) {
-        this.traversalState = createDefaultTraversalState();
-        this.syncTraversalFlags();
-      }
-      return;
-    }
-
-    if (state.phaseTicks > 0) {
-      state.phaseTicks -= 1;
-    }
-
-    if (state.echoTicks > 0) {
-      state.echoTicks -= 1;
-      if (config.echoScore > 0) {
-        this.addScore(config.echoScore, 'trail');
-      }
-    }
-
-    const shieldFlag = this.getFlag<{ charges?: number }>('traversal.ghostShield');
-    if (shieldFlag && typeof shieldFlag.charges === 'number') {
-      state.ghostShields = Math.max(0, shieldFlag.charges);
-    }
-
-    if (state.phaseTicks < 0) {
-      state.phaseTicks = 0;
-    }
-    if (state.echoTicks < 0) {
-      state.echoTicks = 0;
-    }
-
-    this.syncTraversalFlags();
-  }
-
-  private carveTraversalCorridor(
-    roomId: string,
-    direction: Vector2Like,
-    width: number,
-    extendForwardRooms: number,
-    roomsChanged: Set<string>,
-    pullApple: boolean,
-  ): void {
-    const axisX = Math.abs(direction.x) >= Math.abs(direction.y) ? Math.sign(direction.x) : 0;
-    const axisY = axisX === 0 ? Math.sign(direction.y) : 0;
-    const visited = new Set<string>();
-    let currentRoomId: string | null = roomId;
-    let baseLocal: { localX: number; localY: number } | null = null;
-    const head = this.snake.bodySegments[0];
-    if (head) {
-      const info = this.resolveRoomPosition(head);
-      if (info) {
-        baseLocal = { localX: info.localX, localY: info.localY };
-      }
-    }
-
-    const totalSteps = Math.max(0, extendForwardRooms);
-    for (let step = 0; step <= totalSteps; step += 1) {
-      if (!currentRoomId || visited.has(currentRoomId)) {
-        break;
-      }
-      visited.add(currentRoomId);
-      this.openTraversalCorridorInRoom(
-        currentRoomId,
-        axisX,
-        axisY,
-        width,
-        baseLocal,
-        pullApple,
-        roomsChanged,
-      );
-      const nextRoomId = this.shiftRoomId(currentRoomId, axisX, axisY);
-      currentRoomId = nextRoomId;
-      baseLocal = null;
-    }
-  }
-
-  private openTraversalCorridorInRoom(
-    roomId: string,
-    axisX: number,
-    axisY: number,
-    width: number,
-    baseLocal: { localX: number; localY: number } | null,
-    pullApple: boolean,
-    roomsChanged: Set<string>,
-  ): void {
-    const room = this.world.getRoom(roomId);
-    if (!room) {
-      return;
-    }
-    const cols = this.config.grid.cols;
-    const rows = this.config.grid.rows;
-    const orientationHorizontal = axisX !== 0 || axisY === 0;
-    const centerX = baseLocal?.localX ?? Math.floor(cols / 2);
-    const centerY = baseLocal?.localY ?? Math.floor(rows / 2);
-    const halfWidth = Math.max(0, Math.floor((width - 1) / 2));
-
-    if (orientationHorizontal) {
-      for (let offset = -halfWidth; offset <= halfWidth; offset += 1) {
-        const rowIndex = centerY + offset;
-        if (rowIndex < 0 || rowIndex >= rows) {
-          continue;
-        }
-        const row = room.layout[rowIndex];
-        if (!row) {
-          continue;
-        }
-        for (let x = 0; x < cols; x += 1) {
-          if (row[x] === '#') {
-            this.setRoomTile(roomId, x, rowIndex, '.');
-          }
-        }
-      }
-      if (pullApple && room.apple) {
-        const minRow = Math.max(0, centerY - halfWidth);
-        const maxRow = Math.min(rows - 1, centerY + halfWidth);
-        if (room.apple.y < minRow || room.apple.y > maxRow) {
-          const targetY = Math.min(Math.max(centerY, 0), rows - 1);
-          const targetX = Math.min(Math.max(centerX, 0), cols - 1);
-          this.world.setApple(roomId, { x: targetX, y: targetY });
-        }
-      }
-    } else {
-      for (let offset = -halfWidth; offset <= halfWidth; offset += 1) {
-        const colIndex = centerX + offset;
-        if (colIndex < 0 || colIndex >= cols) {
-          continue;
-        }
-        for (let y = 0; y < rows; y += 1) {
-          const row = room.layout[y];
-          if (!row) {
-            continue;
-          }
-          if (row[colIndex] === '#') {
-            this.setRoomTile(roomId, colIndex, y, '.');
-          }
-        }
-      }
-      if (pullApple && room.apple) {
-        const minCol = Math.max(0, centerX - halfWidth);
-        const maxCol = Math.min(cols - 1, centerX + halfWidth);
-        if (room.apple.x < minCol || room.apple.x > maxCol) {
-          const targetX = Math.min(Math.max(centerX, 0), cols - 1);
-          const targetY = Math.min(Math.max(centerY, 0), rows - 1);
-          this.world.setApple(roomId, { x: targetX, y: targetY });
-        }
-      }
-    }
-
-    roomsChanged.add(roomId);
   }
 
   private shiftRoomId(roomId: string, axisX: number, axisY: number): string | null {
@@ -17123,25 +16524,6 @@ export class SnakeGame implements QuestRuntime {
 
     this.syncPredationFlags();
     return bonus;
-  }
-
-  private _handlePredationOnRoomChange(newRoomId: string): void {
-    const config = this.predationConfig;
-    const state = this.ensurePredationState();
-    state.lastRoomId = newRoomId;
-    if (!config.enabled || config.stackGainOnRoomEnter <= 0) {
-      this.syncPredationFlags();
-      return;
-    }
-    const maxStacks = Math.max(config.maxStacks, state.stacks + config.stackGainOnRoomEnter);
-    state.stacks = Math.min(maxStacks, state.stacks + config.stackGainOnRoomEnter);
-    if (state.stacks > 0) {
-      if (config.window > 0) {
-        state.timer = Math.max(state.timer, config.window);
-      }
-      state.decayHold = config.decayHold;
-    }
-    this.syncPredationFlags();
   }
 
   private tickAmbushPreparation(): void {
@@ -17876,18 +17258,6 @@ function formatLorePlace(place?: string): string {
     return 'this district';
   }
   return place;
-}
-
-function townRumorKindForEvent(
-  event: WorldEvent,
-): 'crime' | 'romance' | 'marriage' | 'divorce' | 'guild' | 'heroic' | 'weird' {
-  if (event.tags.includes('marriage')) return 'marriage';
-  if (event.tags.includes('divorce')) return 'divorce';
-  if (event.tags.includes('relationship')) return 'romance';
-  if (event.tags.includes('guild')) return 'guild';
-  if (event.tags.includes('crime') || event.type === 'town-crime') return 'crime';
-  if (event.tags.includes('combat') || event.tags.includes('eaten')) return 'weird';
-  return 'weird';
 }
 
 function townRumorKindForModernRumor(
