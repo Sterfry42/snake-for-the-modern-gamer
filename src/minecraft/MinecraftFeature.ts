@@ -463,6 +463,7 @@ export class MinecraftFeature extends Feature {
     }
 
     const blockType = room.minecraftBlocks?.[`${worldTileX},${worldTileY}`];
+    if (!blockType) return false;
 
     if (button === 1) {
       // Left click: check for mobs first, then harvest/break
@@ -521,11 +522,12 @@ export class MinecraftFeature extends Feature {
         const result = tryBreakBlock(scene, this.player, worldTileX, worldTileY, this.chunkManager ?? undefined);
         if (result.success) {
           if (result.droppedItem) {
-            this.player.addItem(result.droppedItem, result.droppedCount ?? 1);
+            const droppedItem = result.droppedItem;
+            this.player.addItem(droppedItem, result.droppedCount ?? 1);
             scene.setFlag('loot.itemPicked', {
               head: { x: worldTileX, y: worldTileY },
-              itemName: getMinecraftItem(result.droppedItem)?.name ?? result.droppedItem,
-              itemId: result.droppedItem,
+              itemName: getMinecraftItem(droppedItem)?.name ?? droppedItem,
+              itemId: droppedItem,
             });
           }
           if (isPlaceableSpecialBlock(blockType)) {
@@ -1395,6 +1397,7 @@ export class MinecraftFeature extends Feature {
     }
 
     const blockType = room.minecraftBlocks?.[`${head.x},${head.y}`];
+    if (!blockType) return false;
 
     // Harvest crops
     if (blockType === 'wheat_crop' || blockType === 'pumpkin') {
@@ -1418,11 +1421,12 @@ export class MinecraftFeature extends Feature {
     const result = tryBreakBlock(scene, this.player, head.x, head.y, this.chunkManager ?? undefined);
     if (result.success) {
       if (result.droppedItem) {
-        this.player.addItem(result.droppedItem, result.droppedCount ?? 1);
+        const droppedItem = result.droppedItem;
+        this.player.addItem(droppedItem, result.droppedCount ?? 1);
         scene.setFlag('loot.itemPicked', {
           head: { x: head.x, y: head.y },
-          itemName: getMinecraftItem(result.droppedItem)?.name ?? result.droppedItem,
-          itemId: result.droppedItem,
+          itemName: getMinecraftItem(droppedItem)?.name ?? droppedItem,
+          itemId: droppedItem,
         });
       }
       // If breaking a furnace, chest, or bed, remove from tracking

@@ -2068,14 +2068,14 @@ export default class SnakeScene extends Phaser.Scene {
     this.cameras.main.setRoundPixels(true);
     this.runtimeSpriteFactory = new RuntimeSpriteFactory(this);
     this.snakeRenderer = new SnakeRenderer(this, this.graphics, this.wallGraphics, this.grid);
-    this.minimapRenderer = new MinimapRenderer(this, {
+    this.minimapRenderer = new MinimapRenderer({
       x: this.grid.cols * this.grid.cell - 222,
       y: 14,
       width: 216,
       height: 162,
       grid: this.grid,
       getRoom: (roomId) => this.snakeGame.getRoom(roomId),
-    });
+    }, this);
     this.juice = new JuiceManager(this);
     this.skillTree = new SkillTreeManager(this, this.juice, {
       baseActionStepIntervalMs: this.baseActionStepIntervalMs,

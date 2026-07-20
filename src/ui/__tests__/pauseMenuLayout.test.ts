@@ -56,7 +56,7 @@ describe('pause menu layout zones', () => {
       layout.main,
       layout.detail,
       layout.footer,
-      layout.summary,
+      ...(layout.summary ? [layout.summary] : []),
     ]) {
       expect(contains(layout.shell, rect)).toBe(true);
     }

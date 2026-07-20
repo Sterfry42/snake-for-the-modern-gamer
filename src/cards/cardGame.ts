@@ -45,7 +45,9 @@ export type CardId =
   | 'angel-audit'
   | 'royal-scale'
   | 'freak-dennis-fog'
-  | 'goblin-receipt';
+  | 'goblin-receipt'
+  | 'kappa-card'
+  | 'katana-blueprint';
 
 export type LegacyWorldEffectCardId =
   | 'oni-card'
