@@ -17,27 +17,12 @@ This is a modern Phaser-based snake game with deep RPG and simulation elements, 
 
 ## Repository Rules
 
-All agents working on this project **MUST** follow these steps:
+All agents working on this project **MUST** follow these instructions before considering a task complete:
 
-### ⚠️ Type Safety — Non-Negotiable Rule
-
-- **ALWAYS run `npm run typecheck` and fix ALL type errors before finishing any task.**
-- This is not optional. No exceptions. Ship it type-safe or don't ship it at all.
-
-### Task Completion Checklist
-
-1. **Before completing any task**:
-
-   - Run `npm run typecheck` to ensure all TypeScript types are valid
-   - **Resolve all type errors** before considering the task complete
-2. **After fixing type errors**:
-
-   - Run `npm run build` to ensure the project builds successfully
-   - **Verify the build succeeds** before marking tasks complete
-3. **Testing**:
-
-   - Run `npm run dev` to start the development server for in-browser testing
-   - Run `npm run test` to execute the full test suite
+1. Run `npm run format`. If formatting fails, fix the problems and rerun.
+2. Run `npm run typecheck` and ensure there are **NO errors or warnings**. If there are errors or warnings, fix them and rerun `npm run format` then `npm run typecheck`.
+3. Run `npm run build` and ensure that building succeeds. If it fails, fix the errors and rerun.
+4. Run `npm run test` and ensure **ALL tests pass**. If any tests fail, fix them and rerun.
 
 ## Important Notes
 
