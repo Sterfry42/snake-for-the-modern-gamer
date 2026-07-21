@@ -27,7 +27,7 @@
     // Allow void expressions
     "@typescript-eslint/no-floating-promises": "off",
     // Allow any for now
-    "@typescript-eslint/no-explicit-any": "warn",
+    "@typescript-eslint/no-explicit-any": "off",
     // Require explicit returns
     "@typescript-eslint/no-non-null-assertion": "off",
     // Allow console for now

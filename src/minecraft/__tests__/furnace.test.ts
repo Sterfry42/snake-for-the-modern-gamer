@@ -9,6 +9,7 @@ import {
   tryPlaceFurnace,
   tickFurnaces,
 } from '../furnace.js';
+import { MinecraftPlayer } from '../player.js';
 
 describe('furnace', () => {
   describe('smelting recipes', () => {
@@ -79,7 +80,7 @@ describe('furnace', () => {
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
       expect(result.success).toBe(true);
@@ -95,7 +96,7 @@ describe('furnace', () => {
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'raw_iron');
@@ -116,7 +117,7 @@ describe('furnace', () => {
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'raw_iron');
@@ -166,7 +167,7 @@ describe('furnace', () => {
         addItem: (id: string) => {
           outputItems.push(id);
         },
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryCollectFurnaceOutput(furnaces, player, 5, 5, '0,0,0');
       expect(result.success).toBe(true);
@@ -206,7 +207,7 @@ describe('furnace', () => {
           return false;
         },
         addItem: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       // Load 3 coal (30 burn time total), then raw_iron
       tryLoadFurnace(furnaces, player, 5, 5, '0,0,0', 'coal');

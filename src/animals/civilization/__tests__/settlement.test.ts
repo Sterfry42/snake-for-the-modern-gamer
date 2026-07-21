@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { SettlementManager } from '../AnimalSettlement.js';
 import type { AnimalType } from '../../types.js';
+import type { SettlementType } from '../../ecosystem/types.js';
 
 describe('SettlementManager', () => {
   const manager = new SettlementManager();
@@ -18,7 +19,7 @@ describe('SettlementManager', () => {
     });
 
     it('throws for unknown settlement type', () => {
-      expect(() => SettlementManager.getDefinition('fake-type' as any)).toThrow();
+      expect(() => SettlementManager.getDefinition('fake-type' as SettlementType)).toThrow();
     });
 
     it('gets settlements for a biome tag', () => {
@@ -61,7 +62,7 @@ describe('SettlementManager', () => {
     it('throws for unknown settlement type', () => {
       const population = new Map<AnimalType, number>([['rabbit', 5]]);
 
-      expect(() => manager.createSettlement('fake-type' as any, '0,0,0', population, 1)).toThrow();
+      expect(() => manager.createSettlement('fake-type' as SettlementType, '0,0,0', population, 1)).toThrow();
     });
   });
 

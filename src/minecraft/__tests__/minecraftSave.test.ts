@@ -5,6 +5,7 @@ import {
   migrateMinecraftState,
   getDefaultSaveData,
 } from '../save.js';
+import type { MinecraftSaveData } from '../types.js';
 
 describe('Minecraft Save System', () => {
   it('should serialize player state', () => {
@@ -82,7 +83,7 @@ describe('Minecraft Save System', () => {
       dirtyChunks: [],
     };
 
-    const result = deserializeMinecraftState(partialData as any);
+    const result = deserializeMinecraftState(partialData as unknown as MinecraftSaveData);
     expect(result.playerState.health).toBe(20);
     expect(result.playerState.hunger).toBe(20);
     expect(result.playerState.xp).toBe(0);

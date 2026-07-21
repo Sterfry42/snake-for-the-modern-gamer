@@ -11,6 +11,7 @@ import {
   lookupNearestBiomes,
   lookupNearestBiomesByRegion,
 } from '../biomeLocators.js';
+import type { BiomeId } from '../biomes.js';
 import { getAllBiomeDefinitions, getBiomeDefinition } from '../biomes.js';
 
 /**
@@ -32,7 +33,7 @@ function makeResolver(biomeAssignments: Map<string, string>): (roomId: string) =
     if (!biomeId) {
       return getBiomeDefinition('verdigris-basin');
     }
-    return getBiomeDefinition(biomeId as any);
+    return getBiomeDefinition(biomeId as BiomeId);
   };
 }
 

@@ -232,7 +232,7 @@ describe('world rumors', () => {
     room.village = {
       residents: [{ id: 'lina', name: 'Lina', x: 5, y: 4, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
-    } as any;
+    } as unknown as never;
     (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
     game.setFlag('equipment.gunEnabled', true);
 
@@ -272,7 +272,7 @@ describe('world rumors', () => {
     room.village = {
       residents: [{ id: 'lina', name: 'Lina', x: 5, y: 4, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
-    } as any;
+    } as unknown as never;
     const relationshipId = `resident:${room.id}:lina`;
     (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
     game.setFlag('equipment.gunEnabled', true);
@@ -281,9 +281,9 @@ describe('world rumors', () => {
     const hostile = game
       .getEnemies(room.id)
       .find((enemy) => enemy.id === `npc-hostile:${relationshipId}`)!;
-    expect((game as any).enemies.consumeEnemyAt(room.id, hostile.position).eaten).toBe(true);
-    (game as any).relationshipController.recordEaten(relationshipId, 1);
-    (game as any).npcBodies.delete(relationshipId);
+    expect((game as unknown as SnakeGame as unknown as any).enemies.consumeEnemyAt(room.id, hostile.position).eaten).toBe(true);
+    (game as unknown as SnakeGame as unknown as any).relationshipController.recordEaten(relationshipId, 1);
+    (game as unknown as SnakeGame as unknown as any).npcBodies.delete(relationshipId);
     expect(
       game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`),
     ).toBe(false);
@@ -319,7 +319,7 @@ describe('world rumors', () => {
     room.village = {
       residents: [{ id: 'lina', name: 'Lina', x: 5, y: 4, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 4, portraitId: 'sage-2' },
-    } as any;
+    } as unknown as never;
     const relationshipId = `resident:${room.id}:lina`;
     (game.getSnakeBody() as Vector2Like[])[0] = { x: 3, y: 4 };
     game.setFlag('equipment.gunEnabled', true);
@@ -354,20 +354,20 @@ describe('length economy', () => {
   it('scales apple score around a 2x length-150 multiplier curve', () => {
     const game = createGame();
 
-    expect((game as any).calculateAppleLengthScoreMultiplier()).toBe(1);
+    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBe(1);
 
     game.growSnake(97);
     expect(game.getSnakeLength()).toBe(100);
-    expect((game as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(Math.SQRT2, 4);
+    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(Math.SQRT2, 4);
 
     game.growSnake(50);
     expect(game.getSnakeLength()).toBe(150);
-    expect((game as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(2, 4);
+    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(2, 4);
 
     game.growSnake(150);
     expect(game.getSnakeLength()).toBe(300);
-    expect((game as any).calculateAppleLengthScoreMultiplier()).toBeGreaterThan(4);
-    expect((game as any).applyLengthScoreMultiplier(1, 1.5)).toBe(2);
+    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBeGreaterThan(4);
+    expect((game as unknown as SnakeGame as unknown as any).applyLengthScoreMultiplier(1, 1.5)).toBe(2);
   });
 
   it('sells length only through a physical butcher actor', () => {
@@ -390,7 +390,7 @@ describe('length economy', () => {
         },
       ],
       districtByRoomId: { [room.id]: 'marketStreet' },
-    } as any;
+    } as unknown as never;
     game.growSnake(20);
     const before = game.getSnakeLength();
 
@@ -417,7 +417,7 @@ describe('town and guild hostility split', () => {
         '1,0,0': 'gate',
       },
       thievesGuild: { karma: 0 },
-    } as any;
+    } as unknown as never;
 
     expect(game.isTownHostileForRoom(town, '0,0,0')).toBe(false);
     expect(game.isTownHostileForRoom(town, '1,0,0')).toBe(true);
@@ -580,7 +580,7 @@ describe('actor conversations', () => {
           severity: 44,
         },
       ],
-    } as any;
+    } as unknown as never;
     const actor = game.getActorSystem().registry.ensureTownResidentActor({
       residentId: 'marta',
       name: 'Marta',
@@ -645,8 +645,8 @@ describe('actor conversations', () => {
       center: { x: 8, y: 8 },
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
-    } as any;
-    (game as any).syncActorsForRoom(room);
+    } as unknown as never;
+    (game as unknown as SnakeGame as unknown as any).syncActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
 
     for (let index = 0; index < 5; index += 1) {
@@ -708,10 +708,10 @@ describe('actor conversations', () => {
     expect(game.getActorSystem().getActor(bandits[0]!.actorId!)?.factionId).toBe('bandits');
 
     for (const bandit of bandits) {
-      (game as any).noteBanditRaidDefeat(bandit, false);
-      (game as any).enemies.damageEnemyAt(room.id, bandit.position, 1);
+      (game as unknown as SnakeGame as unknown as any).noteBanditRaidDefeat(bandit, false);
+      (game as unknown as SnakeGame as unknown as any).enemies.damageEnemyAt(room.id, bandit.position, 1);
     }
-    (game as any).tickFactionRaidGameplay();
+    (game as unknown as SnakeGame as unknown as any).tickFactionRaidGameplay();
 
     const aftermath = game
       .getCurrentFactionEvents()
@@ -733,7 +733,7 @@ describe('actor conversations', () => {
       center: { x: 8, y: 8 },
       residents: [{ id: 'guard', name: 'Nessa', x: 6, y: 5, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 8, y: 5, portraitId: 'sage-2' },
-    } as any;
+    } as unknown as never;
 
     game.startBanditRaidForCurrentRoom(55);
 
@@ -769,11 +769,11 @@ describe('actor room brains', () => {
       center: { x: 8, y: 8 },
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
-    } as any;
-    (game as any).syncActorsForRoom(room);
+    } as unknown as never;
+    (game as unknown as SnakeGame as unknown as any).syncActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const relationshipId = `resident:${room.id}:marta`;
-    const body = (game as any).npcBodies.get(relationshipId);
+    const body = (game as unknown as SnakeGame as unknown as any).npcBodies.get(relationshipId);
     body.position = { x: 7, y: 7 };
     body.anchor = { x: 7, y: 7 };
     body.wanderRadius = 4;
@@ -783,7 +783,7 @@ describe('actor room brains', () => {
       mood: { ...actor.mood, fear: 55, stress: 55 },
       flags: { ...actor.flags, raidShelter: true },
     }));
-    (game as any).enemies.spawnHostileNpc(
+    (game as unknown as SnakeGame as unknown as any).enemies.spawnHostileNpc(
       room.id,
       { x: 6, y: 7 },
       'Bandit',
@@ -791,7 +791,7 @@ describe('actor room brains', () => {
       'brain-test-bandit',
     );
 
-    (game as any).tickNpcBodies(room);
+    (game as unknown as SnakeGame as unknown as any).tickNpcBodies(room);
 
     expect(body.position.x).toBeGreaterThan(7);
   });
@@ -810,8 +810,8 @@ describe('actor room brains', () => {
         { id: 'nina', name: 'Nina', x: 8, y: 7, portraitId: 'sage-2' },
       ],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-3' },
-    } as any;
-    (game as any).syncActorsForRoom(room);
+    } as unknown as never;
+    (game as unknown as SnakeGame as unknown as any).syncActorsForRoom(room);
     const sourceActorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const targetActorId = game.getVillageActorId(room.id, 'nina', 'resident');
     game.getActorSystem().registry.update(sourceActorId, (actor) => ({
@@ -834,13 +834,13 @@ describe('actor room brains', () => {
         },
       ],
     }));
-    const sourceBody = (game as any).npcBodies.get(`resident:${room.id}:marta`);
-    const targetBody = (game as any).npcBodies.get(`resident:${room.id}:nina`);
+    const sourceBody = (game as unknown as SnakeGame as unknown as any).npcBodies.get(`resident:${room.id}:marta`);
+    const targetBody = (game as unknown as SnakeGame as unknown as any).npcBodies.get(`resident:${room.id}:nina`);
     sourceBody.position = { x: 7, y: 7 };
     sourceBody.moveCooldown = 0;
     targetBody.position = { x: 8, y: 7 };
 
-    (game as any).shareActorGossip(
+    (game as unknown as SnakeGame as unknown as any).shareActorGossip(
       room,
       game.getActorSystem().getActor(sourceActorId),
       targetActorId,

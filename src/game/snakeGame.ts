@@ -740,6 +740,15 @@ function logRunSeed(seed: string, reason: 'new' | 'reset' | 'load'): void {
   console.info(`[SnakeGame] ${reason} run seed: ${seed}`);
 }
 
+/** Interface for SnakeScene methods needed by SnakeGame (avoids circular import). */
+interface SnakeSceneContract {
+  getSnakeCustomizationState?(): unknown;
+  setSnakeCosmeticState?(state: unknown): void;
+  getAchievementSaveState?(): unknown;
+  getArcadeSnakeSaveData?(): unknown;
+  setArcadeSnakeSaveData?(data: unknown): void;
+}
+
 export class SnakeGame implements QuestRuntime {
   readonly config: GameConfig;
 
@@ -808,7 +817,7 @@ export class SnakeGame implements QuestRuntime {
   constructor(
     config: GameConfig = defaultGameConfig,
     private readonly registry: QuestRegistry,
-    private readonly snakeScene: any,
+    private readonly snakeScene: SnakeSceneContract,
     rng?: RandomGenerator,
   ) {
     this.config = config;
@@ -13243,14 +13252,13 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (this.snakeScene && typeof this.snakeScene.getSnakeCustomizationState === 'function') {
-      const cosmetics = this.snakeScene.getSnakeCustomizationState();
-      data.cosmetics = cosmetics;
+      data.cosmetics = this.snakeScene.getSnakeCustomizationState() as typeof data.cosmetics;
     }
     if (this.snakeScene && typeof this.snakeScene.getAchievementSaveState === 'function') {
-      data.achievements = this.snakeScene.getAchievementSaveState();
+      data.achievements = this.snakeScene.getAchievementSaveState() as typeof data.achievements;
     }
     if (this.snakeScene && typeof this.snakeScene.getArcadeSnakeSaveData === 'function') {
-      data.arcadeSnake = this.snakeScene.getArcadeSnakeSaveData();
+      data.arcadeSnake = this.snakeScene.getArcadeSnakeSaveData() as typeof data.arcadeSnake;
     }
 
     // Fishing data

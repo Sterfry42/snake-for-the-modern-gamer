@@ -357,6 +357,7 @@ export class AppleService {
 
     let localX = apple.position.x + dir.x;
     let localY = apple.position.y + dir.y;
+    // eslint-disable-next-line prefer-const
     let [roomX, roomY, roomZ = 0] = apple.roomId.split(',').map(Number);
 
     if (localX < 0) {

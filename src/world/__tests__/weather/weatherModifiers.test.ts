@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAtmosphereConfig } from '../../../config/gameConfig.js';
+import { defaultAtmosphereConfig, type AppleSystemConfig, type GridConfig } from '../../../config/gameConfig.js';
 import { WorldAtmosphereSystem } from '../../atmosphereSystem.js';
 import { AppleService } from '../../../apples/appleService.js';
 import type { AtmosphereState } from '../../atmosphereTypes.js';
+import { WorldService } from '../../worldService.js';
 
 describe('Weather Modifiers', () => {
   describe('WeatherSpawnModifiers', () => {
@@ -11,9 +12,9 @@ describe('Weather Modifiers', () => {
         {
           types: [],
           skittishMoveChance: 0.1,
-        } as any,
-        { cols: 10, rows: 10 } as any,
-        {} as any,
+        } as unknown as AppleSystemConfig,
+        { cols: 10, rows: 10 } as unknown as GridConfig,
+        {} as unknown as WorldService,
         () => 0.5,
       );
 
@@ -30,9 +31,9 @@ describe('Weather Modifiers', () => {
         {
           types: [],
           skittishMoveChance: 0.1,
-        } as any,
-        { cols: 10, rows: 10 } as any,
-        {} as any,
+        } as unknown as AppleSystemConfig,
+        { cols: 10, rows: 10 } as unknown as GridConfig,
+        {} as unknown as WorldService,
         () => 0.5,
       );
 
@@ -60,9 +61,9 @@ describe('Weather Modifiers', () => {
         {
           types: [],
           skittishMoveChance: 0.1,
-        } as any,
-        { cols: 10, rows: 10 } as any,
-        {} as any,
+        } as unknown as AppleSystemConfig,
+        { cols: 10, rows: 10 } as unknown as GridConfig,
+        {} as unknown as WorldService,
         () => 0.5,
       );
 
@@ -89,9 +90,9 @@ describe('Weather Modifiers', () => {
         {
           types: [],
           skittishMoveChance: 0.1,
-        } as any,
-        { cols: 10, rows: 10 } as any,
-        {} as any,
+        } as unknown as AppleSystemConfig,
+        { cols: 10, rows: 10 } as unknown as GridConfig,
+        {} as unknown as WorldService,
         () => 0.5,
       );
 
@@ -117,9 +118,9 @@ describe('Weather Modifiers', () => {
         {
           types: [],
           skittishMoveChance: 0.1,
-        } as any,
-        { cols: 10, rows: 10 } as any,
-        {} as any,
+        } as unknown as AppleSystemConfig,
+        { cols: 10, rows: 10 } as unknown as GridConfig,
+        {} as unknown as WorldService,
         () => 0.5,
       );
 
@@ -145,9 +146,9 @@ describe('Weather Modifiers', () => {
         {
           types: [],
           skittishMoveChance: 0.1,
-        } as any,
-        { cols: 10, rows: 10 } as any,
-        {} as any,
+        } as unknown as AppleSystemConfig,
+        { cols: 10, rows: 10 } as unknown as GridConfig,
+        {} as unknown as WorldService,
         () => 0.5,
       );
 
@@ -175,9 +176,9 @@ describe('Weather Modifiers', () => {
         {
           types: [],
           skittishMoveChance: 0.1,
-        } as any,
-        { cols: 10, rows: 10 } as any,
-        {} as any,
+        } as unknown as AppleSystemConfig,
+        { cols: 10, rows: 10 } as unknown as GridConfig,
+        {} as unknown as WorldService,
         () => 0.5,
       );
 

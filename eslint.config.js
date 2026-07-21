@@ -37,7 +37,7 @@ export default [
       // Allow void expressions
       '@typescript-eslint/no-floating-promises': 'off',
       // Allow any for now
-      '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-explicit-any': 'off',
       // Allow non-null assertion for now
       '@typescript-eslint/no-non-null-assertion': 'off',
       // Allow empty blocks

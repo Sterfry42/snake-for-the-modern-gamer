@@ -1,8 +1,6 @@
 import type { Feature } from './feature.js';
 
-export type FeatureHook = {
-  [K in keyof Feature]: Feature[K] extends (...args: any[]) => any ? K : never;
-}[keyof Feature];
+export type FeatureHook = Exclude<keyof Feature, 'id' | 'label'>;
 
 export class FeatureRegistry {
   private static readonly instance = new FeatureRegistry();

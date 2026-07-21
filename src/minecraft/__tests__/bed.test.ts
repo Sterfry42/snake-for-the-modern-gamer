@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { tryPlaceBed, trySleep, tryBreakBed } from '../bed.js';
+import { MinecraftPlayer } from '../player.js';
 
 describe('bed', () => {
   describe('bed placement', () => {
@@ -33,7 +34,7 @@ describe('bed', () => {
         },
         heal: () => {},
         state: { health: 10, maxHealth: 20 },
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       trySleep(
         beds,
@@ -62,7 +63,7 @@ describe('bed', () => {
       const player = {
         setSpawn: () => {},
         heal: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = trySleep(
         beds,
@@ -86,7 +87,7 @@ describe('bed', () => {
       const player = {
         setSpawn: () => {},
         heal: () => {},
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       // Simulate an already occupied bed (e.g., another player is sleeping)
       const bed = beds.get('5,5,0,0,0');

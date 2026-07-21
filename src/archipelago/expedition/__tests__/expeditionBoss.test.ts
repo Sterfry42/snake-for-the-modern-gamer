@@ -6,6 +6,7 @@ import {
 } from '../ExpeditionBoss.js';
 import { createRng } from '../../../core/rng.js';
 import type { ExpeditionBossDependencies } from '../ExpeditionBoss.js';
+import type { ExpeditionBossId } from '../types.js';
 
 describe('ExpeditionBoss', () => {
   describe('EXPEDITION_BOSS_DEFINITIONS', () => {
@@ -76,7 +77,7 @@ describe('ExpeditionBoss', () => {
       });
 
       it('should return null for unknown boss', () => {
-        const boss = manager.spawnBoss('unknown-boss' as any, '0,0,0');
+        const boss = manager.spawnBoss('unknown-boss' as ExpeditionBossId, '0,0,0');
         expect(boss).toBeNull();
       });
 
@@ -238,7 +239,7 @@ describe('ExpeditionBoss', () => {
       });
 
       it('should return null for unknown boss', () => {
-        const result = manager.defeatBoss('unknown-boss' as any);
+        const result = manager.defeatBoss('unknown-boss' as ExpeditionBossId);
         expect(result).toBeNull();
       });
     });
