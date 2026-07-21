@@ -1,6 +1,7 @@
 import type {
   FishDefinition,
   FishCatchResult,
+  FishRarity,
   FishingState,
   FishingSessionResult,
 } from './types.js';
@@ -225,7 +226,7 @@ export class FishingRegistry {
     rarity: string = 'common',
     fishingMod: number = 1.0,
   ): number {
-    return calculateFishSellPrice(baseScore, rarity as any, fishingMod);
+    return calculateFishSellPrice(baseScore, rarity as FishRarity, fishingMod);
   }
 
   /**

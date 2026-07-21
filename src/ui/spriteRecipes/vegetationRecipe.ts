@@ -146,7 +146,6 @@ function drawVariant(
   size: number,
 ): void {
   const colors = VARIANT_BASE_COLORS[variant];
-  colors.fill;
 
   drawSprite(
     context,

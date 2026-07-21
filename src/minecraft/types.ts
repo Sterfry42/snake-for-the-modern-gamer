@@ -93,7 +93,12 @@ export interface MinecraftPlayerState {
   absorptionHearts?: number;
   hasteActive?: boolean;
   damageResistance?: boolean;
-  enchantedItems?: Array<any>;
+  enchantedItems?: Array<{
+    itemId: string;
+    enchantments: Map<string, number>;
+    enchantmentLevel: number;
+  }>;
+
   fishingRodDurability?: Record<string, number>;
 }
 

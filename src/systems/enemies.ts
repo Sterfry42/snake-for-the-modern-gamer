@@ -30,6 +30,7 @@ export interface EnemyInstance {
     | 'rival-snake'
     | 'roaming-snake'
     | 'baby';
+  _colorHex?: string;
 }
 
 export interface BulletInstance {
@@ -572,7 +573,7 @@ export class EnemyManager {
       encounterKind: 'roaming-snake',
       aimDirection: { x: 1, y: 0 },
     };
-    (roaming as any)._colorHex = colorHex;
+    roaming._colorHex = colorHex;
 
     const current = this.enemies.get(roomId) ?? [];
     current.push(roaming);

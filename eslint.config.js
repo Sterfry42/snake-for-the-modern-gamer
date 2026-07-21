@@ -40,8 +40,6 @@ export default [
       '@typescript-eslint/no-explicit-any': 'warn',
       // Allow non-null assertion for now
       '@typescript-eslint/no-non-null-assertion': 'off',
-      // Allow console for now
-      'no-console': 'warn',
       // Allow empty blocks
       '@typescript-eslint/no-empty-function': 'off',
       // Allow default parameters
@@ -54,6 +52,13 @@ export default [
       'prefer-const': 'warn',
       // Require let/const
       'no-var': 'error',
+    },
+  },
+  // Allow console in test files
+  {
+    files: ['src/**/*.test.ts', 'src/**/*.spec.ts'],
+    rules: {
+      'no-console': 'off',
     },
   },
 ];

@@ -78,16 +78,10 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
     .setDepth(600);
 
   // === PHASE 2: LIFT HILL (10-30%) ===
-  const climbStart = boardingDuration;
-  const climbDuration = totalDuration * 0.2;
 
   // === PHASE 3: DROP & MAIN RIDE (30-80%) ===
-  const dropStart = climbStart + climbDuration;
-  const mainRideDuration = totalDuration * 0.5;
 
   // === PHASE 4: BRAKING & ARRIVAL (80-100%) ===
-  const brakeStart = dropStart + mainRideDuration;
-  totalDuration - brakeStart;
 
   // Main ride canvas
   const rideCanvas = scene.add.graphics().setDepth(500).setScrollFactor(0);
@@ -188,7 +182,6 @@ export function runRollercoasterRide(scene: Phaser.Scene, config: RollercoasterR
     ease: 'Linear',
     onUpdate: () => {
       const progress = rideState.progress;
-      progress * totalDuration;
       sceneryOffset += 2 + progress * 5;
 
       // Calculate speed based on phase

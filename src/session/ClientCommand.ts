@@ -37,16 +37,16 @@ export type ClientCommand =
   | {
       type: 'saveGame';
       playerId: PlayerId;
-      religionChoice?: unknown;
-      classChoice?: unknown;
-      backgroundChoice?: unknown;
+      religionChoice?: import('../game/saveManager.js').ChoiceWithMods;
+      classChoice?: import('../game/saveManager.js').ChoiceWithMods;
+      backgroundChoice?: import('../game/saveManager.js').ChoiceWithMods;
     }
   | {
       type: 'loadGame';
       playerId: PlayerId;
-      religionChoice?: unknown;
-      classChoice?: unknown;
-      backgroundChoice?: unknown;
+      religionChoice?: import('../game/saveManager.js').ChoiceWithMods;
+      classChoice?: import('../game/saveManager.js').ChoiceWithMods;
+      backgroundChoice?: import('../game/saveManager.js').ChoiceWithMods;
     }
   | {
       type: 'clearSave';

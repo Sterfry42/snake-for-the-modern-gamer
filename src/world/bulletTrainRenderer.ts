@@ -272,7 +272,6 @@ export class BulletTrainRenderer {
   } {
     const width = scene.scale.width;
     const height = scene.scale.height;
-    24;
 
     // Window background (mountain sky) - simplified without gradients
     const windowBg = scene.add.graphics();

@@ -10737,9 +10737,9 @@ export class SnakeGame implements QuestRuntime {
     startCardGame?: boolean;
     rewardCardName?: string;
   } {
-    const encounter = this.getFlag<WandererEncounter & { roomId: string; statsNote: string }>(
-      'npc.randomEncounter',
-    );
+    const encounter = this.getFlag<
+      WandererEncounter & { roomId: string; statsNote: string; relationshipId?: string }
+    >('npc.randomEncounter');
     if (!encounter) {
       return { kind: 'none', accepted: false };
     }
@@ -10748,15 +10748,15 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('npc.randomEncounter.prompted', undefined);
     this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
-    const relationshipId = (encounter as any).relationshipId as string | undefined;
+    const relationshipId = encounter.relationshipId;
     if (relationshipId) {
       const rel = this.relationshipController.recordEncounterOutcome(
         relationshipId,
         accept,
         this.getRoomsVisitedCount(),
       );
-      if (accept && (encounter as any).rewardScore) {
-        this.addScore(Number((encounter as any).rewardScore));
+      if (accept && encounter.rewardScore) {
+        this.addScore(Number(encounter.rewardScore));
       }
       this.setFlag('ui.relationshipEvent', {
         title: rel.title,
@@ -13273,9 +13273,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   loadGame(
-    getReligionChoice?: () => any,
-    getClassChoice?: () => any,
-    getBackgroundChoice?: () => any,
+    getReligionChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
     try {
       const saved = getSavedGameData();
@@ -13293,18 +13293,18 @@ export class SnakeGame implements QuestRuntime {
 
   loadFromSaveData(
     data: GameSaveData,
-    getReligionChoice?: () => any,
-    getClassChoice?: () => any,
-    getBackgroundChoice?: () => any,
+    getReligionChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
     return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
   }
 
   private loadFromData(
     data: GameSaveData,
-    getReligionChoice?: () => any,
-    getClassChoice?: () => any,
-    getBackgroundChoice?: () => any,
+    getReligionChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
     try {
       this.reset({ preserveRunSeed: true });

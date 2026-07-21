@@ -43,6 +43,6 @@ describe('achievement AP mapping', () => {
     expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'archaeology.firstFragment')).toBe(
       912001076,
     );
-    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'divine.snakeOutOfHell')).toBe(912001070);
+    expect(achievementLocationId(ACHIEVEMENT_DEFINITIONS, 'divine.snakeOutOfHell')).toBe(912001097);
   });
 });

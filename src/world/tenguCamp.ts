@@ -5,15 +5,6 @@ import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import type { Vector2Like } from '../core/math.js';
 import type { RoomSnapshot } from './types.js';
 
-const CAMP_NAMES = [
-  'Tengu Summit Camp',
-  'Crimson Wing Camp',
-  'Azure Beak Camp',
-  'Heavenly Wind Camp',
-  'Jade Mountain Camp',
-  "Raven's Perch Camp",
-] as const;
-
 const TENGU_NAMES = [
   'Karasu',
   'Tengu no Yashiro',
@@ -159,7 +150,6 @@ export function tryPlaceTenguCamp(
   ];
   guardSpots.forEach((spot) => setChar(layout, spot.x, spot.y, 'G'));
 
-  CAMP_NAMES[Math.floor(rng() * CAMP_NAMES.length)]!;
   const chieftainName = randomTenguName(rng);
 
   return {

@@ -93,7 +93,8 @@ export class PauseUI {
 
   updateVisibility(): void {
     const suppressed =
-      !!this.scene.getFlag<boolean>('ui.suppressHud') || !!(this.scene as any).titleVisible;
+      !!this.scene.getFlag<boolean>('ui.suppressHud') ||
+      !!(this.scene as unknown as { titleVisible: boolean }).titleVisible;
     this.pauseLabelText?.setText(this.getPauseLabel());
     this.pauseButton?.setVisible(!suppressed);
     this.pauseHitArea?.setInteractive(!suppressed);

@@ -238,7 +238,7 @@ class MusicFeature extends Feature {
     }
 
     // Get the apple type from the scene
-    const appleId = (scene as any).lastAppleType ?? 'normal';
+    const appleId = (scene as unknown as { lastAppleType?: string }).lastAppleType ?? 'normal';
 
     // Update all components
     this.composer.onAppleEaten(appleId);

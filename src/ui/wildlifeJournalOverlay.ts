@@ -131,7 +131,6 @@ export class WildlifeJournalOverlay {
   /** Get the completion percentage */
   getCompletionPercentage(): number {
     if (!this.view) return 0;
-    Object.keys(AnimalRegistry.getDefinition('rabbit')).length as unknown as number;
     // Use actual animal count from registry
     const allTypes = AnimalRegistry.getAll().map((d) => d.type);
     const discovered = this.view.speciesList.filter((s) => s.discovered).length;

@@ -786,8 +786,8 @@ export class DreamWorldScene {
       this.dreamManager.recordAppleEaten(dreamApple.typeId);
 
       // Apply buff if present
-      const buffType = (dreamApple as any).buffType;
-      const buffDuration = (dreamApple as any).buffDuration;
+      const buffType = dreamApple.metadata.buffType;
+      const buffDuration = dreamApple.metadata.buffDuration;
       if (buffType) {
         this.applyBuff({
           type: buffType,

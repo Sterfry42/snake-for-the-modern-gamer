@@ -131,7 +131,7 @@ class KamiBlessingFeature extends Feature {
   }
 
   private hasShrineBlessing(scene: SnakeScene): boolean {
-    const mods = (scene as any).religionMods;
+    const mods = (scene as unknown as { religionMods: Record<string, unknown> }).religionMods;
     return !!mods?.shrineBlessing;
   }
 

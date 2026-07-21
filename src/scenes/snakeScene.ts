@@ -2818,9 +2818,7 @@ export default class SnakeScene extends Phaser.Scene {
     // Hide boss HUD
     this.bossHud.hide();
 
-    // Capture boss maxHealth before deletion, compute decayed score
-    const boss = this.snakeGame.bosses.getBoss(bossId);
-    boss?.maxHealth ?? 100;
+    // Compute decayed score
     this.jasonDefeatCount += 1;
     const BASE_JASON_SCORE = 100;
     const decay = Math.pow(0.6, this.jasonDefeatCount - 1);
@@ -4546,7 +4544,11 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         if (id === 'defy') {
-          isGoblinAngel ? this.complainToGoblinAngel() : this.tauntAngel();
+          if (isGoblinAngel) {
+            this.complainToGoblinAngel();
+          } else {
+            this.tauntAngel();
+          }
           return;
         }
         this.resolveDeathRescuerRomance(cutscene.rescuer);
@@ -6258,16 +6260,16 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   loadGameFromSession(
-    getReligionChoice?: () => unknown,
-    getClassChoice?: () => unknown,
-    getBackgroundChoice?: () => unknown,
+    getReligionChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
+    getClassChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
+    getBackgroundChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
   ): boolean {
     const result = this.gameConnection.send({
       type: 'loadGame',
       playerId: this.snakeGame.getLocalPlayerId(),
-      religionChoice: getReligionChoice?.() ?? null,
-      classChoice: getClassChoice?.() ?? null,
-      backgroundChoice: getBackgroundChoice?.() ?? null,
+      religionChoice: getReligionChoice?.(),
+      classChoice: getClassChoice?.(),
+      backgroundChoice: getBackgroundChoice?.(),
     });
     const loaded = Boolean(result.loaded);
     if (loaded) {
@@ -10647,9 +10649,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.religionMods,
     );
     if (faithLifeCharges > 0) {
-      this.skillTree.setExtraLifeCharges(
-        this.skillTree.getStats().extraLives - faithLifeCharges,
-      );
+      this.skillTree.setExtraLifeCharges(this.skillTree.getStats().extraLives - faithLifeCharges);
     }
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;
@@ -13200,7 +13200,23 @@ export default class SnakeScene extends Phaser.Scene {
       root.add(card);
     });
 
-    let scoreButton: Phaser.GameObjects.Container;
+    const scoreButton = this.createCardTableButton(
+      72,
+      height - 38,
+      'Score Hand',
+      () => {
+        if (selectedState.size === 0) {
+          this.showQuestHintPopup('Select at least one card to score.', '#ffb3a8');
+          return;
+        }
+        this.juice.cardScoreCommit(x + width / 2, y + height / 2, selectedState.size);
+        this.hideCardGamePopup(false);
+        this.resolveCardRound(shopkeeperName, state, hand, [...selectedState]);
+      },
+      selectedState.size > 0,
+      'primary',
+      162,
+    );
 
     if (hand.length === 0) {
       const empty = this.add
@@ -13265,24 +13281,6 @@ export default class SnakeScene extends Phaser.Scene {
         cardX += cardWidth + gap;
       });
     }
-
-    scoreButton = this.createCardTableButton(
-      72,
-      height - 38,
-      'Score Hand',
-      () => {
-        if (selectedState.size === 0) {
-          this.showQuestHintPopup('Select at least one card to score.', '#ffb3a8');
-          return;
-        }
-        this.juice.cardScoreCommit(x + width / 2, y + height / 2, selectedState.size);
-        this.hideCardGamePopup(false);
-        this.resolveCardRound(shopkeeperName, state, hand, [...selectedState]);
-      },
-      selectedState.size > 0,
-      'primary',
-      162,
-    );
     const allButton = this.createCardTableButton(
       266,
       height - 36,
@@ -17487,13 +17485,12 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private shouldSuppressGenericTownOption(
-    profile: RelationshipCandidateProfile,
+    _profile: RelationshipCandidateProfile,
     optionId: string,
   ): boolean {
     if (optionId !== 'shop') {
       return false;
     }
-    profile.actorId ? this.snakeGame.getActorRole(profile.actorId) : undefined;
     return false;
   }
 

@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 
+type TweenState = Record<string, number>;
+
 type ToneOptions = {
   frequency: number;
   duration?: number;
@@ -3716,7 +3718,7 @@ export class JuiceManager {
     this.overlayLayer.add(g);
     g.lineStyle(lineWidth, color, 1);
     g.strokeCircle(x, y, startRadius);
-    const state = { r: startRadius, a: 1 } as any;
+    const state: TweenState = { r: startRadius, a: 1 };
     this.scene.tweens.add({
       targets: state,
       r: startRadius * 3.2,
@@ -3886,7 +3888,7 @@ export class JuiceManager {
   ) {
     const g = this.scene.add.graphics().setDepth(28);
     this.overlayLayer.add(g);
-    const state = { r: startRadius, a: startAlpha } as any;
+    const state: TweenState = { r: startRadius, a: startAlpha };
     // Radius tween (full duration)
     this.scene.tweens.add({
       targets: state,
@@ -4004,7 +4006,7 @@ export class JuiceManager {
   faultLineSweep(x1: number, y: number, x2: number) {
     const g = this.scene.add.graphics().setDepth(28);
     this.overlayLayer.add(g);
-    const state = { a: 0.9, w: 1 } as any;
+    const state: TweenState = { a: 0.9, w: 1 };
     this.scene.tweens.add({
       targets: state,
       a: 0,
@@ -4113,7 +4115,7 @@ export class JuiceManager {
       // Diagonal lines for corner impact
       const g = this.scene.add.graphics().setDepth(28);
       this.overlayLayer.add(g);
-      const state = { a: 0.8, w: 3 } as any;
+      const state: TweenState = { a: 0.8, w: 3 };
       this.scene.tweens.add({
         targets: state,
         a: 0,
@@ -4144,7 +4146,7 @@ export class JuiceManager {
 
       const beam = this.scene.add.graphics().setDepth(28);
       this.overlayLayer.add(beam);
-      const beamState = { a: 0.9, l: 2 } as any;
+      const beamState: TweenState = { a: 0.9, l: 2 };
       this.scene.tweens.add({
         targets: beamState,
         a: 0,

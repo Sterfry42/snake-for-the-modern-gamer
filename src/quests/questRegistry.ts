@@ -48,7 +48,7 @@ export class QuestRegistry {
     const entries = Object.entries(modules);
     await Promise.all(
       entries.map(async ([, loader]) => {
-        const mod: { default: Quest | Quest[] } = (await loader()) as any;
+        const mod = (await loader()) as { default: Quest | Quest[] };
         if (Array.isArray(mod.default)) {
           mod.default.forEach((quest) => this.register(quest));
         } else if (mod.default) {
