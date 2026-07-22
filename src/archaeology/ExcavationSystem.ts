@@ -366,10 +366,7 @@ export function resetExcavationSession(session: ExcavationSession): void {
 /**
  * Simulate excavation progress over time (for idle progression).
  */
-export function simulateProgress(
-  session: ExcavationSession,
-  deltaMs: number,
-): boolean {
+export function simulateProgress(session: ExcavationSession, deltaMs: number): boolean {
   if (session.state !== 'active') return false;
 
   const speed = 0.001 + session.parameters.depth * 0.0001;

@@ -69,7 +69,12 @@ describe('AnimalManager', () => {
           safeArea: { left: 10, top: 8, width: 12, height: 8 },
           lanterns: [],
           residents: [],
-          shopkeeper: { name: 'Shopkeeper', description: '', x: 10, y: 10 } as unknown as NpcProfile & { x: number; y: number },
+          shopkeeper: {
+            name: 'Shopkeeper',
+            description: '',
+            x: 10,
+            y: 10,
+          } as unknown as NpcProfile & { x: number; y: number },
         },
       });
       manager.ensureAnimals('0,0,0', room, []);
@@ -87,7 +92,12 @@ describe('AnimalManager', () => {
           tents: [],
           fires: [],
           guards: [],
-          shopkeeper: { name: 'Goblin Shop', description: '', x: 10, y: 10 } as unknown as NpcProfile & { x: number; y: number },
+          shopkeeper: {
+            name: 'Goblin Shop',
+            description: '',
+            x: 10,
+            y: 10,
+          } as unknown as NpcProfile & { x: number; y: number },
         },
       });
       manager.ensureAnimals('0,0,0', room, []);

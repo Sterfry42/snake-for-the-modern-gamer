@@ -53,7 +53,11 @@ describe('Creative Mode - Block Breaking', () => {
     minecraftBlocks: {},
   } as unknown as RoomSnapshot;
 
-  function createMockScene(): { grid: { cell: number }; snakeGame: { getCurrentRoom: () => RoomSnapshot }; juice: { blockBreak: ReturnType<typeof vi.fn>; blockPlace: ReturnType<typeof vi.fn> } } {
+  function createMockScene(): {
+    grid: { cell: number };
+    snakeGame: { getCurrentRoom: () => RoomSnapshot };
+    juice: { blockBreak: ReturnType<typeof vi.fn>; blockPlace: ReturnType<typeof vi.fn> };
+  } {
     return {
       grid: { cell: 24 },
       snakeGame: { getCurrentRoom: () => mockRoom },

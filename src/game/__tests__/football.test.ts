@@ -8,7 +8,11 @@ import { SnakeGame } from '../snakeGame.js';
 interface SnakeGamePrivate {
   enemies: {
     consumeEnemyAt(roomId: string, head: Vector2Like): { eaten: boolean; enemy?: EnemyInstance };
-    damageEnemyAt(roomId: string, position: Vector2Like, damage?: number): { hit: boolean; defeated?: EnemyInstance };
+    damageEnemyAt(
+      roomId: string,
+      position: Vector2Like,
+      damage?: number,
+    ): { hit: boolean; defeated?: EnemyInstance };
     spawnHostileNpc(
       roomId: string,
       position: Vector2Like,
@@ -22,7 +26,10 @@ interface SnakeGamePrivate {
   relationshipController: {
     recordEaten(relationshipId: string, count: number): void;
   };
-  npcBodies: Map<string, { position: Vector2Like; anchor: Vector2Like; wanderRadius: number; moveCooldown: number }>;
+  npcBodies: Map<
+    string,
+    { position: Vector2Like; anchor: Vector2Like; wanderRadius: number; moveCooldown: number }
+  >;
   calculateAppleLengthScoreMultiplier(): number;
   applyLengthScoreMultiplier(baseScore: number, multiplier: number): number;
   syncActorsForRoom(room: RoomSnapshot): void;
@@ -31,7 +38,11 @@ interface SnakeGamePrivate {
   tickNpcBodies(room: RoomSnapshot): void;
   shareActorGossip(
     room: RoomSnapshot,
-    sourceActor: { id: string; mood: { fear: number; stress: number }; flags: Record<string, unknown> },
+    sourceActor: {
+      id: string;
+      mood: { fear: number; stress: number };
+      flags: Record<string, unknown>;
+    },
     targetActorId: string,
     memory: { id: string; source: string; tags: string[]; eventId?: string },
   ): void;
@@ -315,7 +326,9 @@ describe('world rumors', () => {
     const hostile = game
       .getEnemies(room.id)
       .find((enemy) => enemy.id === `npc-hostile:${relationshipId}`)!;
-    expect((game as unknown as SnakeGamePrivate).enemies.consumeEnemyAt(room.id, hostile.position).eaten).toBe(true);
+    expect(
+      (game as unknown as SnakeGamePrivate).enemies.consumeEnemyAt(room.id, hostile.position).eaten,
+    ).toBe(true);
     (game as unknown as SnakeGamePrivate).relationshipController.recordEaten(relationshipId, 1);
     (game as unknown as SnakeGamePrivate).npcBodies.delete(relationshipId);
     expect(
@@ -392,15 +405,23 @@ describe('length economy', () => {
 
     game.growSnake(97);
     expect(game.getSnakeLength()).toBe(100);
-    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeCloseTo(Math.SQRT2, 4);
+    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeCloseTo(
+      Math.SQRT2,
+      4,
+    );
 
     game.growSnake(50);
     expect(game.getSnakeLength()).toBe(150);
-    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeCloseTo(2, 4);
+    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeCloseTo(
+      2,
+      4,
+    );
 
     game.growSnake(150);
     expect(game.getSnakeLength()).toBe(300);
-    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeGreaterThan(4);
+    expect(
+      (game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier(),
+    ).toBeGreaterThan(4);
     expect((game as unknown as SnakeGamePrivate).applyLengthScoreMultiplier(1, 1.5)).toBe(2);
   });
 
@@ -868,8 +889,12 @@ describe('actor room brains', () => {
         },
       ],
     }));
-    const sourceBody = (game as unknown as SnakeGamePrivate).npcBodies.get(`resident:${room.id}:marta`)!;
-    const targetBody = (game as unknown as SnakeGamePrivate).npcBodies.get(`resident:${room.id}:nina`)!;
+    const sourceBody = (game as unknown as SnakeGamePrivate).npcBodies.get(
+      `resident:${room.id}:marta`,
+    )!;
+    const targetBody = (game as unknown as SnakeGamePrivate).npcBodies.get(
+      `resident:${room.id}:nina`,
+    )!;
     sourceBody.position = { x: 7, y: 7 };
     sourceBody.moveCooldown = 0;
     targetBody.position = { x: 8, y: 7 };

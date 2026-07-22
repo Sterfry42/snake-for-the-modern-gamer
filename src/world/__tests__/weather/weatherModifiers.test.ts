@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { defaultAtmosphereConfig, type AppleSystemConfig, type GridConfig } from '../../../config/gameConfig.js';
+import {
+  defaultAtmosphereConfig,
+  type AppleSystemConfig,
+  type GridConfig,
+} from '../../../config/gameConfig.js';
 import { WorldAtmosphereSystem } from '../../atmosphereSystem.js';
 import { AppleService } from '../../../apples/appleService.js';
 import type { AtmosphereState } from '../../atmosphereTypes.js';

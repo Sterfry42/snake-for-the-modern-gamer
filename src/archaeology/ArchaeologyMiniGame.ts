@@ -345,10 +345,7 @@ export function tryCompleteAssembly(
   // Assembly quality is based on the timing mini-game performance
   const assemblyQuality = visual.qualityMeter.value;
 
-  const completed = assembleFossil(
-    session.discoveredFragments,
-    session.currentFossilSet.id,
-  );
+  const completed = assembleFossil(session.discoveredFragments, session.currentFossilSet.id);
 
   if (completed) {
     session.state = 'complete';

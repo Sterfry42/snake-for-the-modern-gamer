@@ -158,7 +158,9 @@ describe('Block Interaction - Special Tile Protection', () => {
   it('should not place on quest giver', () => {
     const room: RoomSnapshot = {
       ...mockRoom,
-      questGiver: { x: 5, y: 5, name: 'Quest Giver' } as Partial<NpcProfile & { x: number; y: number }>,
+      questGiver: { x: 5, y: 5, name: 'Quest Giver' } as Partial<
+        NpcProfile & { x: number; y: number }
+      >,
     } as unknown as RoomSnapshot;
 
     const scene = createMockScene();
@@ -177,8 +179,12 @@ describe('Block Interaction - Special Tile Protection', () => {
         center: { x: 10, y: 10 },
         safeArea: { left: 0, top: 0, width: 24, height: 24 },
         lanterns: [],
-        residents: [{ x: 5, y: 5, name: 'Resident' } as Partial<NpcProfile & { x: number; y: number }>],
-        shopkeeper: { x: 20, y: 20, name: 'Shopkeeper' } as Partial<NpcProfile & { x: number; y: number }>,
+        residents: [
+          { x: 5, y: 5, name: 'Resident' } as Partial<NpcProfile & { x: number; y: number }>,
+        ],
+        shopkeeper: { x: 20, y: 20, name: 'Shopkeeper' } as Partial<
+          NpcProfile & { x: number; y: number }
+        >,
       },
     } as unknown as RoomSnapshot;
 
@@ -201,7 +207,9 @@ describe('Block Interaction - Special Tile Protection', () => {
         tents: [],
         fires: [],
         guards: [{ x: 5, y: 5, name: 'Guard' } as Partial<NpcProfile & { x: number; y: number }>],
-        shopkeeper: { x: 20, y: 20, name: 'Goblin Shopkeeper' } as Partial<NpcProfile & { x: number; y: number }>,
+        shopkeeper: { x: 20, y: 20, name: 'Goblin Shopkeeper' } as Partial<
+          NpcProfile & { x: number; y: number }
+        >,
       },
     } as unknown as RoomSnapshot;
 

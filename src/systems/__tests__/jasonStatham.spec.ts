@@ -30,13 +30,11 @@ describe('Jason Statham Boss', () => {
     const deps = {
       getRoom: (roomId: string) => {
         void roomId;
-        return (
-          {
-            id: '5,0,0',
-            layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
-            portals: [],
-          } as unknown as RoomSnapshot
-        );
+        return {
+          id: '5,0,0',
+          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+          portals: [],
+        } as unknown as RoomSnapshot;
       },
       getSnakeBody: () => [{ x: 0, y: 0 }],
       onEvent: () => {},

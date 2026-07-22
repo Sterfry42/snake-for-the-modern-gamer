@@ -62,7 +62,9 @@ describe('SettlementManager', () => {
     it('throws for unknown settlement type', () => {
       const population = new Map<AnimalType, number>([['rabbit', 5]]);
 
-      expect(() => manager.createSettlement('fake-type' as SettlementType, '0,0,0', population, 1)).toThrow();
+      expect(() =>
+        manager.createSettlement('fake-type' as SettlementType, '0,0,0', population, 1),
+      ).toThrow();
     });
   });
 

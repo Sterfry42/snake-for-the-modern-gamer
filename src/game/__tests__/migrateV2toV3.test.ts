@@ -4,7 +4,7 @@ import { saveManager } from '../../game/saveManager.js';
 describe('Save Migration v2→v3', () => {
   it('should have SaveManager VERSION updated to 3.0.0', () => {
     // Access the private VERSION via type assertion
-    const version = ((saveManager as unknown) as { VERSION?: string }).VERSION;
+    const version = (saveManager as unknown as { VERSION?: string }).VERSION;
     expect(version).toBe('3.0.0');
   });
 
@@ -33,7 +33,10 @@ describe('Save Migration v2→v3', () => {
       (data.fishing as Record<string, unknown>).caughtFish ?? {};
 
     expect(data.version).toBe('3.0.0');
-    expect((data.fishing as Record<string, unknown>).caughtFish).toEqual({ 'fish-minnow': 3, 'fish-fire-eel': 1 });
+    expect((data.fishing as Record<string, unknown>).caughtFish).toEqual({
+      'fish-minnow': 3,
+      'fish-fire-eel': 1,
+    });
     expect((data.fishing as Record<string, unknown>).catchJournal).toEqual([]);
     expect((data.fishing as Record<string, unknown>).equippedRod).toBe('none');
   });
