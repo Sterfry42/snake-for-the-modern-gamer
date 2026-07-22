@@ -169,14 +169,11 @@ function getNestedString(
   if (!translations) return undefined;
   const direct = translations[key];
   if (typeof direct === 'string') return direct;
-  const value = key.split('.').reduce<CommonTranslations | undefined>(
-    (current, part) => {
-      if (current && typeof current === 'object' && !Array.isArray(current) && part in current) {
-        return current[part] as CommonTranslations;
-      }
-      return undefined;
-    },
-    translations,
-  );
+  const value = key.split('.').reduce<CommonTranslations | undefined>((current, part) => {
+    if (current && typeof current === 'object' && !Array.isArray(current) && part in current) {
+      return current[part] as CommonTranslations;
+    }
+    return undefined;
+  }, translations);
   return typeof value === 'string' ? value : undefined;
 }

@@ -68,16 +68,8 @@ import type { BossEvent } from '../systems/boss.js';
 import { SaveUI } from '../ui/saveUI.js';
 import { PauseUI } from '../ui/pauseUI.js';
 import { SaveLoadMenu } from '../ui/saveLoadMenu.js';
-import {
-  resolveSpanishWebAudioFontState as resolveSpanishMusicState,
-  SpanishWebAudioFontMusic,
-  type SpanishWebAudioFontState,
-} from '../audio/spanishWebAudioFontMusic.js';
-import {
-  resolveDesertMusicState,
-  DesertWebAudioFontMusic,
-} from '../audio/desertWebAudioFontMusic.js';
 import { saveManagerV2, type GameSaveData } from '../game/saveManagerV2.js';
+import { AtmosphereAudioManager } from './atmosphereAudioManager.js';
 import { isTownCriminalRole, isTownShopRole } from '../world/townRoles.js';
 import type { FactionId } from '../factions/factions.js';
 import {
@@ -239,7 +231,7 @@ import {
   ACHIEVEMENT_DEFINITIONS,
   DISCOVERABLE_BIOME_IDS,
 } from '../achievements/achievementDefinitions.js';
-import type { GlobalWeather, ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
+import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { getAllBiomeDefinitions } from '../world/biomes.js';
 import { getLocatorItemId, isLocatorItemId } from '../world/biomeLocators.js';
@@ -1740,17 +1732,7 @@ export default class SnakeScene extends Phaser.Scene {
   private _hasCherryBlossomAmbient = false;
   private _hasJadePeakAmbient = false;
   private _hasUnicornGlitter = false;
-  private atmosphereAudioContext: AudioContext | null = null;
-  private atmosphereNoiseSource: AudioBufferSourceNode | null = null;
-  private atmosphereGain: GainNode | null = null;
-  private atmosphereFilter: BiquadFilterNode | null = null;
-  private atmosphereAudioKey = 'none';
-  private spanishMusic: SpanishWebAudioFontMusic | null = null;
-  private spanishMusicKey = 'none';
-  private desertMusic: DesertWebAudioFontMusic | null = null;
-  private desertMusicKey = 'none';
-  private nextThunderAtMs = 0;
-  private lastAtmosphereWorldDay = 0;
+  private atmosphereAudioManager!: AtmosphereAudioManager;
   private intoxicationOverlay: Phaser.GameObjects.Rectangle | null = null;
   private drowningOverlay: Phaser.GameObjects.Rectangle | null = null;
   private revivalGhostVisualActive = false;
@@ -2129,6 +2111,17 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
     this.snakeGame.setLevelUpCallback((result) => this.presentLevelUp(result));
     this.saveUI.setSeed(this.snakeGame.worldSeed);
+    this.atmosphereAudioManager = new AtmosphereAudioManager({
+      snakeGame: this.snakeGame,
+      getTime: () => this.time.now as number,
+      showQuestHintPopup: (message, color) => this.showQuestHintPopup(message, color),
+      isDirty: this.isDirty,
+      setIsDirty: (value: boolean) => {
+        this.isDirty = value;
+      },
+      titleVisible: this.titleVisible,
+      paused: this.paused,
+    });
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
     this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
       this.recordAchievementEvent({ type: 'boss:jasonVulnerableDamaged', bossId });
@@ -2560,7 +2553,7 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (key === 'w' && event.shiftKey) {
         event.preventDefault();
-        this.cycleAtmosphereWeather();
+        this.atmosphereAudioManager.cycleWeather();
         return;
       }
 
@@ -2923,275 +2916,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.setFlag('timeMs', elapsed);
   }
 
-  private advanceAtmosphereTime(deltaMs: number): void {
-    const beforeDay = this.snakeGame.getAtmosphereState().worldDay;
-    const atmosphere = this.snakeGame.updateAtmosphere(deltaMs);
-    if (atmosphere.worldDay > beforeDay) {
-      this.notifyAtmosphereDay(atmosphere.worldDay);
-    }
-    if (!this.titleVisible && !this.paused) {
-      this.isDirty = true;
-    }
-  }
-
-  private notifyAtmosphereDay(worldDay: number): void {
-    if (worldDay <= this.lastAtmosphereWorldDay) {
-      return;
-    }
-    this.lastAtmosphereWorldDay = worldDay;
-    const displayDay = worldDay + 1;
-    if (displayDay >= 2) {
-      this.showQuestHintPopup(`Day ${displayDay}`, '#fff0a8');
-    }
-  }
-
-  private cycleAtmosphereWeather(): void {
-    const order: GlobalWeather[] = [
-      'clear',
-      'rain',
-      'storm',
-      'fog',
-      'heatwave',
-      'coldfront',
-      'wind',
-    ];
-    const current = this.snakeGame.getAtmosphereState().globalWeather;
-    const next = order[(order.indexOf(current) + 1 + order.length) % order.length] ?? 'clear';
-    this.snakeGame.forceAtmosphereWeather(next);
-    this.isDirty = true;
-  }
-
-  private updateAtmosphereAudio(view: ResolvedAtmosphereView): void {
-    this.updateSpanishWebAudioFontMusic(view);
-    this.updateDesertMusic(view);
-    if (view.sheltered) {
-      if (this.atmosphereAudioKey !== 'none') {
-        this.atmosphereAudioKey = 'none';
-        this.stopAtmosphereAudio();
-      }
-      return;
-    }
-    const key = this.getAtmosphereAudioKey(view);
-    if (key !== this.atmosphereAudioKey) {
-      this.atmosphereAudioKey = key;
-      this.configureAtmosphereLoop(key, view);
-    }
-    if (
-      (view.localVisual === 'thunder' ||
-        view.localVisual === 'dryLightning' ||
-        view.state.globalWeather === 'storm') &&
-      this.time.now >= this.nextThunderAtMs
-    ) {
-      this.playThunderCrack(view);
-      this.nextThunderAtMs =
-        this.time.now + 2200 + ((view.state.weatherSeed + this.time.now) % 3800);
-    }
-  }
-
-  private updateSpanishWebAudioFontMusic(view: ResolvedAtmosphereView): void {
-    const room = this.snakeGame.getCurrentRoom();
-    const state = this.resolveSpanishWebAudioFontState(view, room);
-    const key = state ?? 'none';
-    if (key === this.spanishMusicKey) {
-      return;
-    }
-    this.spanishMusicKey = key;
-    if (!state) {
-      this.spanishMusic?.stop();
-      return;
-    }
-    const context = this.ensureAtmosphereAudioContext();
-    if (!context) {
-      return;
-    }
-    context.resume().catch(() => undefined);
-    this.spanishMusic ??= new SpanishWebAudioFontMusic(context);
-    this.spanishMusic.start(state);
-  }
-
-  private resolveSpanishWebAudioFontState(
-    view: ResolvedAtmosphereView,
-    room: ReturnType<SnakeGame['getCurrentRoom']>,
-  ): SpanishWebAudioFontState | null {
-    return resolveSpanishMusicState({
-      biomeId: view.biomeId,
-      archetypeId: room.archetypeId,
-      hasTapas: Boolean(room.mosaicCoast?.tapasBar),
-      exposure: this.snakeGame.getFlag<SpanishWebAudioFontState | string>('mosaicCoast.exposure'),
-    });
-  }
-
-  private updateDesertMusic(view: ResolvedAtmosphereView): void {
-    const state = resolveDesertMusicState({
-      biomeId: view.biomeId,
-      weather: view.state.globalWeather,
-      isSheltered: view.sheltered,
-    });
-    const key = state ?? 'none';
-    if (key === this.desertMusicKey) {
-      return;
-    }
-    this.desertMusicKey = key;
-    if (!state) {
-      this.desertMusic?.stop();
-      return;
-    }
-    const context = this.ensureAtmosphereAudioContext();
-    if (!context) {
-      return;
-    }
-    context.resume().catch(() => undefined);
-    this.desertMusic ??= new DesertWebAudioFontMusic(context);
-    this.desertMusic.start(state);
-  }
-
-  private getAtmosphereAudioKey(view: ResolvedAtmosphereView): string {
-    switch (view.localVisual) {
-      case 'rain':
-      case 'heavyRain':
-      case 'monsoon':
-      case 'neonRain':
-      case 'oilRain':
-      case 'seaSpray':
-      case 'caveDrip':
-        return 'rain';
-      case 'thunder':
-      case 'dryLightning':
-        return 'storm';
-      case 'snow':
-      case 'sleet':
-      case 'whiteout':
-      case 'fog':
-      case 'mist':
-      case 'steam':
-        return 'mist';
-      case 'dustStorm':
-      case 'ashfall':
-      case 'boneDust':
-      case 'leafFall':
-      case 'petals':
-      case 'sporeCloud':
-      case 'fallout':
-        return 'wind';
-      default:
-        return 'none';
-    }
-  }
-
-  private configureAtmosphereLoop(key: string, view: ResolvedAtmosphereView): void {
-    if (key === 'none') {
-      this.stopAtmosphereAudio();
-      return;
-    }
-    const context = this.ensureAtmosphereAudioContext();
-    if (!context) {
-      return;
-    }
-    context.resume().catch(() => undefined);
-    if (!this.atmosphereNoiseSource || !this.atmosphereGain || !this.atmosphereFilter) {
-      const buffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate);
-      const data = buffer.getChannelData(0);
-      for (let i = 0; i < data.length; i++) {
-        data[i] = Math.random() * 2 - 1;
-      }
-      const source = context.createBufferSource();
-      const filter = context.createBiquadFilter();
-      const gain = context.createGain();
-      source.buffer = buffer;
-      source.loop = true;
-      source.connect(filter);
-      filter.connect(gain);
-      gain.connect(context.destination);
-      gain.gain.value = 0;
-      source.start();
-      this.atmosphereNoiseSource = source;
-      this.atmosphereFilter = filter;
-      this.atmosphereGain = gain;
-    }
-    const intensity = Phaser.Math.Clamp(view.state.weatherIntensity, 0.35, 1);
-    const volume =
-      key === 'storm'
-        ? 0.12 + intensity * 0.08
-        : key === 'rain'
-          ? 0.08 + intensity * 0.08
-          : 0.035 + intensity * 0.04;
-    this.atmosphereFilter.type =
-      key === 'mist' ? 'lowpass' : key === 'wind' ? 'bandpass' : 'highpass';
-    this.atmosphereFilter.frequency.setTargetAtTime(
-      key === 'storm' ? 1600 : key === 'rain' ? 2200 : key === 'wind' ? 520 : 740,
-      context.currentTime,
-      0.08,
-    );
-    this.atmosphereFilter.Q.setTargetAtTime(key === 'wind' ? 4 : 0.7, context.currentTime, 0.08);
-    this.atmosphereGain.gain.setTargetAtTime(volume, context.currentTime, 0.18);
-  }
-
-  private playThunderCrack(view: ResolvedAtmosphereView): void {
-    const context = this.ensureAtmosphereAudioContext();
-    if (!context) {
-      return;
-    }
-    const buffer = context.createBuffer(
-      1,
-      Math.floor(context.sampleRate * 0.9),
-      context.sampleRate,
-    );
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) {
-      const t = i / data.length;
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - t, 2.7);
-    }
-    const source = context.createBufferSource();
-    const filter = context.createBiquadFilter();
-    const gain = context.createGain();
-    source.buffer = buffer;
-    filter.type = 'lowpass';
-    filter.frequency.value = view.localVisual === 'dryLightning' ? 900 : 520;
-    gain.gain.value = view.localVisual === 'dryLightning' ? 0.18 : 0.28;
-    source.connect(filter);
-    filter.connect(gain);
-    gain.connect(context.destination);
-    gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.9);
-    source.start();
-    source.stop(context.currentTime + 0.95);
-  }
-
-  private ensureAtmosphereAudioContext(): AudioContext | null {
-    if (this.atmosphereAudioContext) {
-      return this.atmosphereAudioContext;
-    }
-    try {
-      const AudioContextCtor = globalThis.AudioContext;
-      if (!AudioContextCtor) {
-        return null;
-      }
-      this.atmosphereAudioContext = new AudioContextCtor();
-      return this.atmosphereAudioContext;
-    } catch {
-      return null;
-    }
-  }
-
-  private stopAtmosphereAudio(): void {
-    if (this.atmosphereGain && this.atmosphereAudioContext) {
-      this.atmosphereGain.gain.setTargetAtTime(0, this.atmosphereAudioContext.currentTime, 0.12);
-    }
-  }
-
-  private destroyAtmosphereAudio(): void {
-    this.spanishMusic?.stop();
-    this.spanishMusic = null;
-    this.spanishMusicKey = 'none';
-    this.stopAtmosphereAudio();
-    this.atmosphereNoiseSource?.stop();
-    this.atmosphereNoiseSource = null;
-    this.atmosphereGain = null;
-    this.atmosphereFilter = null;
-    this.atmosphereAudioContext?.close().catch(() => undefined);
-    this.atmosphereAudioContext = null;
-    this.atmosphereAudioKey = 'none';
-  }
-
   private initGame(startPaused = true, resetAchievements = false): void {
     this.setBossStepIntervalMs(this.baseBossStepIntervalMs);
     this.setActorStepIntervalMs(this.baseActorStepIntervalMs);
@@ -3211,7 +2935,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.skillTree.applyActionStepIntervalScalar(1, SnakeScene.SWIMMING_TERRAIN_DRAG_SOURCE);
     this.snakeGame.setCharacterModeForNewRun(this.selectedCharacterMode);
     this.snakeGame.reset();
-    this.lastAtmosphereWorldDay = this.snakeGame.getAtmosphereState().worldDay;
     this.jasonDefeatCount = 0;
     if (resetAchievements) this.achievementManager.resetForNewRun(Boolean(this.archipelagoRunSave));
     this.lastAchievementTownId = null;
@@ -3492,16 +3215,10 @@ export default class SnakeScene extends Phaser.Scene {
       const tx = roomForTreasure.treasure.x * cell + cell / 2;
       const ty = roomForTreasure.treasure.y * cell + cell / 2;
       if (this.random() < 0.05) {
-        this.juice.treasureSparkle(
-          tx,
-          ty,
-        );
+        this.juice.treasureSparkle(tx, ty);
       }
       if (this.random() < 0.02) {
-        this.juice.treasureBeacon(
-          tx,
-          ty,
-        );
+        this.juice.treasureBeacon(tx, ty);
       }
     }
 
@@ -3519,20 +3236,14 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.powerupPickup');
     if (pfx) {
       const world = this.tileToWorldInRoom({ x: pfx.x, y: pfx.y }, pfx.roomId);
-      this.juice.powerupPickup(
-        world.x,
-        world.y,
-        pfx.kind,
-      );
+      this.juice.powerupPickup(world.x, world.y, pfx.kind);
       // Start powerup music with duration derived from active ticks if available
       const active = this.snakeGame.getFlag<{ kind: string; remaining: number; total: number }>(
         'powerup.active',
       );
       if (active && typeof active.total === 'number') {
         const durationMs = Math.max(1, active.total) * this.actionStepIntervalMs;
-        this.juice.startPowerupMusic(
-          durationMs,
-        );
+        this.juice.startPowerupMusic(durationMs);
         this.powerupMusicActive = true;
       }
       // Popup text announcing the powerup
@@ -3618,10 +3329,7 @@ export default class SnakeScene extends Phaser.Scene {
     const smite = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>('ui.bossSmite');
     if (smite) {
       const world = this.tileToWorldInRoom({ x: smite.x, y: smite.y }, smite.roomId);
-      this.juice.bossHit(
-        world.x,
-        world.y,
-      );
+      this.juice.bossHit(world.x, world.y);
       this.snakeGame.setFlag('ui.bossSmite', undefined);
     }
 
@@ -3903,10 +3611,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.addScoreDirect(1);
         this.growSnake(1);
         const cam = this.cameras.main;
-        this.juice.houseRestPulse(
-          cam.midPoint.x,
-          cam.midPoint.y + 10,
-        );
+        this.juice.houseRestPulse(cam.midPoint.x, cam.midPoint.y + 10);
       }
     } else {
       this.houseRestCounter = 0;
@@ -3939,10 +3644,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.random() < 0.045) {
       const pulseOrigin = lampCenter ?? { x: w / 2, y: h / 2 };
-      this.juice.interiorPulse(
-        pulseOrigin.x,
-        pulseOrigin.y,
-      );
+      this.juice.interiorPulse(pulseOrigin.x, pulseOrigin.y);
     }
   }
 
@@ -5187,7 +4889,7 @@ export default class SnakeScene extends Phaser.Scene {
     this._hasJadePeakAmbient = false;
     this.juice.stopUnicornGlitter();
     this._hasUnicornGlitter = false;
-    this.destroyAtmosphereAudio();
+    this.atmosphereAudioManager.destroy();
   }
 
   getAchievementManager(): AchievementManager {
@@ -6278,7 +5980,6 @@ export default class SnakeScene extends Phaser.Scene {
     const loaded = Boolean(result.loaded);
     if (loaded) {
       this.currentSnapshot = this.gameSession.getSnapshot();
-      this.lastAtmosphereWorldDay = this.snakeGame.getAtmosphereState().worldDay;
     }
     return loaded;
   }
@@ -6691,7 +6392,6 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
         this.currentSnapshot = this.gameSession.getSnapshot();
-        this.lastAtmosphereWorldDay = this.snakeGame.getAtmosphereState().worldDay;
         this.restoreCharacterSaveState();
         this.applyRaccoonActionStepInterval();
         this.backfillArchipelagoDurableRewards();
@@ -9072,7 +8772,7 @@ export default class SnakeScene extends Phaser.Scene {
   private updateSimulation(deltaMs: number): void {
     const mode = this.getGameMode();
     if (this.shouldAdvanceAtmosphereForMode(mode)) {
-      this.advanceAtmosphereTime(Math.max(0, Math.min(deltaMs, 250)));
+      this.atmosphereAudioManager.advance(Math.max(0, Math.min(deltaMs, 250)));
     }
     if (mode === 'action' || mode === 'manual-room') {
       this.advanceGameplayTime(Math.max(0, Math.min(deltaMs, 250)));
@@ -9175,9 +8875,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.activeBossId = boss.id;
       }
       // Danger vignette based on boss presence
-      this.juice.setDangerLevel(
-        0.22,
-      );
+      this.juice.setDangerLevel(0.22);
     } else {
       if (this.activeBossId) {
         this.juice.stopBossMusic();
@@ -9312,9 +9010,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.juice.itemPickup(world.x, world.y);
       const enriched = this.snakeGame.getFlag<{ itemId?: string }>('loot.itemPicked');
       if (enriched?.itemId) {
-        this.juice.itemRarityJingle(
-          enriched.itemId,
-        );
+        this.juice.itemRarityJingle(enriched.itemId);
       }
       // Also surface a hint if overlay is visible
       const name = loot.itemName ? `: ${loot.itemName}` : '';
@@ -9345,10 +9041,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     if (treasureFx) {
       const world = this.tileToWorldInRoom({ x: treasureFx.x, y: treasureFx.y }, treasureFx.roomId);
-      this.juice.treasurePickup(
-        world.x,
-        world.y,
-      );
+      this.juice.treasurePickup(world.x, world.y);
       this.snakeGame.setFlag('ui.treasurePickup', undefined);
     }
 
@@ -9361,11 +9054,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.seismicPulse');
     if (seismic) {
       const world = this.tileToWorldInRoom({ x: seismic.x, y: seismic.y }, seismic.roomId);
-      this.juice.seismicPulse(
-        world.x,
-        world.y,
-        seismic.radius,
-      );
+      this.juice.seismicPulse(world.x, world.y, seismic.radius);
       this.snakeGame.setFlag('ui.seismicPulse', undefined);
     }
 
@@ -9374,10 +9063,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     if (collapse) {
       const world = this.tileToWorldInRoom({ x: collapse.x, y: collapse.y }, collapse.roomId);
-      this.juice.collapseControl(
-        world.x,
-        world.y,
-      );
+      this.juice.collapseControl(world.x, world.y);
       this.snakeGame.setFlag('ui.collapseControl', undefined);
     }
 
@@ -9405,22 +9091,14 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.caveTransition');
     if (caveTransition) {
       const world = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
-      this.juice.caveEjection(
-        world.x,
-        world.y,
-        caveTransition.collapsed,
-        caveTransition.reason,
-      );
+      this.juice.caveEjection(world.x, world.y, caveTransition.collapsed, caveTransition.reason);
       this.snakeGame.setFlag('ui.caveTransition', undefined);
     }
 
     const chomp = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>('ui.wallChomp');
     if (chomp) {
       const world = this.tileToWorldInRoom({ x: chomp.x, y: chomp.y }, chomp.roomId);
-      this.juice.wallChomp(
-        world.x,
-        world.y,
-      );
+      this.juice.wallChomp(world.x, world.y);
       this.snakeGame.setFlag('ui.wallChomp', undefined);
     }
 
@@ -9429,10 +9107,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     if (swimSplash) {
       const world = this.tileToWorldInRoom({ x: swimSplash.x, y: swimSplash.y }, swimSplash.roomId);
-      this.juice.swimSplash(
-        world.x,
-        world.y,
-      );
+      this.juice.swimSplash(world.x, world.y);
       const drowning = this.snakeGame.getFlag<{ ratio?: number }>('ui.drowning');
       if (drowning) this.juice.drowningWarning(Number(drowning.ratio ?? 0));
       this.snakeGame.setFlag('ui.swimSplash', undefined);
@@ -9444,11 +9119,7 @@ export default class SnakeScene extends Phaser.Scene {
       const y = fault.y * cell + cell / 2;
       const x1 = cell / 2;
       const x2 = this.grid.cols * cell - cell / 2;
-      this.juice.faultLineSweep(
-        x1,
-        y,
-        x2,
-      );
+      this.juice.faultLineSweep(x1, y, x2);
       this.snakeGame.setFlag('ui.faultLine', undefined);
     }
 
@@ -9462,12 +9133,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.turnSkid');
     if (skid) {
       const world = this.tileToWorldInRoom({ x: skid.x, y: skid.y }, skid.roomId);
-      this.juice.turnSkid(
-        world.x,
-        world.y,
-        skid.dx,
-        skid.dy,
-      );
+      this.juice.turnSkid(world.x, world.y, skid.dx, skid.dy);
       this.snakeGame.setFlag('ui.turnSkid', undefined);
     }
 
@@ -9481,12 +9147,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.wallGraze');
     if (graze) {
       const world = this.tileToWorldInRoom({ x: graze.x, y: graze.y }, graze.roomId);
-      this.juice.wallGraze(
-        world.x,
-        world.y,
-        graze.nx,
-        graze.ny,
-      );
+      this.juice.wallGraze(world.x, world.y, graze.nx, graze.ny);
       this.snakeGame.setFlag('ui.wallGraze', undefined);
     }
 
@@ -9500,10 +9161,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.enemyEaten');
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
-      this.juice.enemyEaten(
-        world.x,
-        world.y,
-      );
+      this.juice.enemyEaten(world.x, world.y);
       this.showRaccoonForageFeedbackAt(world.x, world.y);
       const label = enemyEaten.name ? `+ ${enemyEaten.name}` : '+ Enemy';
       const popup = this.add
@@ -9598,10 +9256,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: wandererReveal.x, y: wandererReveal.y },
         wandererReveal.roomId,
       );
-      this.juice.wandererReveal(
-        world.x,
-        world.y,
-      );
+      this.juice.wandererReveal(world.x, world.y);
       this.snakeGame.setFlag('ui.wandererReveal', undefined);
     }
 
@@ -9627,19 +9282,9 @@ export default class SnakeScene extends Phaser.Scene {
     if (playerShot) {
       const world = this.tileToWorldInRoom({ x: playerShot.x, y: playerShot.y }, playerShot.roomId);
       if (playerShot.style === 'football') {
-        this.juice.footballShot(
-          world.x,
-          world.y,
-          playerShot.dx,
-          playerShot.dy,
-        );
+        this.juice.footballShot(world.x, world.y, playerShot.dx, playerShot.dy);
       } else {
-        this.juice.playerShot(
-          world.x,
-          world.y,
-          playerShot.dx,
-          playerShot.dy,
-        );
+        this.juice.playerShot(world.x, world.y, playerShot.dx, playerShot.dy);
       }
       this.snakeGame.setFlag('ui.playerShot', undefined);
     }
@@ -9651,12 +9296,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (footballPass) {
       const from = this.tileToWorldInRoom(footballPass.from, footballPass.roomId);
       const to = this.tileToWorldInRoom(footballPass.to, footballPass.roomId);
-      this.juice.footballPass(
-        from.x,
-        from.y,
-        to.x,
-        to.y,
-      );
+      this.juice.footballPass(from.x, from.y, to.x, to.y);
       this.snakeGame.setFlag('ui.footballPass', undefined);
     }
     const footballCatch = this.snakeGame.getFlag<{
@@ -9670,10 +9310,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: footballCatch.x, y: footballCatch.y },
         footballCatch.roomId,
       );
-      this.juice.footballCatch(
-        world.x,
-        world.y,
-      );
+      this.juice.footballCatch(world.x, world.y);
       this.showQuestHintPopup(`Football caught. +${footballCatch.score} score.`, '#f3eee2');
       this.snakeGame.setFlag('ui.footballCatch', undefined);
     }
@@ -9687,10 +9324,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: footballFumble.x, y: footballFumble.y },
         footballFumble.roomId,
       );
-      this.juice.footballFumble(
-        world.x,
-        world.y,
-      );
+      this.juice.footballFumble(world.x, world.y);
       this.snakeGame.setFlag('ui.footballFumble', undefined);
     }
 
@@ -9725,10 +9359,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: villageReveal.x, y: villageReveal.y },
         villageReveal.roomId,
       );
-      this.juice.villageReveal(
-        world.x,
-        world.y,
-      );
+      this.juice.villageReveal(world.x, world.y);
       this.villageHud
         .setText(villageReveal.name.toUpperCase())
         .setAlpha(0)
@@ -9764,10 +9395,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.townReveal');
     if (townReveal) {
       const world = this.tileToWorldInRoom({ x: townReveal.x, y: townReveal.y }, townReveal.roomId);
-      this.juice.villageReveal(
-        world.x,
-        world.y,
-      );
+      this.juice.villageReveal(world.x, world.y);
       this.villageHud
         .setText(
           `${townReveal.name.toUpperCase()}\n${formatTownMood(townReveal.mood as never)} | Wanted ${townReveal.wantedLevel}`,
@@ -9810,14 +9438,8 @@ export default class SnakeScene extends Phaser.Scene {
         { x: libertyLandmarkReveal.x, y: libertyLandmarkReveal.y },
         libertyLandmarkReveal.roomId,
       );
-      this.juice.villageReveal(
-        world.x,
-        world.y,
-      );
-      this.juice.neonFlicker(
-        world.x,
-        world.y - 18,
-      );
+      this.juice.villageReveal(world.x, world.y);
+      this.juice.neonFlicker(world.x, world.y - 18);
       this.villageHud
         .setText(`${libertyLandmarkReveal.name.toUpperCase()}\n${libertyLandmarkReveal.subtitle}`)
         .setAlpha(0)
@@ -9874,11 +9496,7 @@ export default class SnakeScene extends Phaser.Scene {
         x: (this.grid.cols * this.grid.cell) / 2,
         y: (this.grid.rows * this.grid.cell) / 2,
       };
-      this.juice.biomeReveal(
-        center.x,
-        center.y,
-        color,
-      );
+      this.juice.biomeReveal(center.x, center.y, color);
       this.biomeHud
         .setText(
           `${biomeReveal.title.toUpperCase()}\nTemp: ${biomeReveal.temperature}  Danger: ${biomeReveal.dangerLevel}/10`,
@@ -10094,7 +9712,7 @@ export default class SnakeScene extends Phaser.Scene {
       room.id,
       room,
     );
-    this.updateAtmosphereAudio(atmosphere);
+    this.atmosphereAudioManager.updateAudio(atmosphere);
     this.snakeRenderer.render(room, snakeBody, room.id, currentApple, {
       wallSenseRadius,
       snakeColor,
@@ -15368,9 +14986,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.resumeGameplayAfterModal();
       },
       playEffect: (effect) => {
-        this.juice.arcadeEffect(
-          effect,
-        );
+        this.juice.arcadeEffect(effect);
         if (['apple', 'golden', 'scurry', 'barrier', 'quest', 'level'].includes(effect)) {
           this.playControllerFeedback('reward');
         } else if (effect === 'input-lost' || effect === 'input-rejected') {
@@ -15381,8 +14997,7 @@ export default class SnakeScene extends Phaser.Scene {
           this.playControllerFeedback('death');
         }
       },
-      setMusicState: (state) =>
-        this.juice.setArcadeMusicState(state),
+      setMusicState: (state) => this.juice.setArcadeMusicState(state),
       setDennisBossMusic: (active) => {
         if (active) {
           this.juice.startBossMusic('freak-dennis');
@@ -17864,10 +17479,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.runFootballCatchPlay();
       this.grantFootballThrow(1);
       this.snakeGame.addScore(20);
-      this.juice.gridironCrowdRoar(
-        this.scale.width / 2,
-        90,
-      );
+      this.juice.gridironCrowdRoar(this.scale.width / 2, 90);
       this.showQuestHintPopup('Blitz survived. +20 score and an extra football throw.', '#f3eee2');
       return;
     }
@@ -17884,10 +17496,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-diner-coffee') {
       if (!this.spendScore(8, 'Bottomless Coffee')) return;
       this.snakeGame.setFlag('liberty.caffeineCatches', 2);
-      this.juice.neonFlicker(
-        this.scale.width / 2,
-        80,
-      );
+      this.juice.neonFlicker(this.scale.width / 2, 80);
       this.showQuestHintPopup(
         'Coffee hits like a legal document with caffeine. Next two football catches pay double.',
         '#9ad1ff',
@@ -17914,10 +17523,7 @@ export default class SnakeScene extends Phaser.Scene {
           '#f3eee2',
         );
       }
-      this.juice.neonFlicker(
-        this.scale.width / 2,
-        80,
-      );
+      this.juice.neonFlicker(this.scale.width / 2, 80);
       return;
     }
     if (id === 'liberty-diner-hashbrowns') {
@@ -17930,10 +17536,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-firework-football') {
       if (!this.spendScore(18, 'Bottle-Rocket Football')) return;
       this.grantFootballThrow(1);
-      this.juice.fireworkPop(
-        this.scale.width / 2,
-        90,
-      );
+      this.juice.fireworkPop(this.scale.width / 2, 90);
       this.showQuestHintPopup(
         'One bottle-rocket football ready. Click or tap to throw it.',
         '#9ad1ff',
@@ -17943,34 +17546,22 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-firework-roman-candle') {
       if (!this.spendScore(28, 'Roman Candle Pack')) return;
       this.grantFootballThrow(3);
-      this.juice.fireworkPop(
-        this.scale.width / 2 - 24,
-        90,
-      );
-      this.juice.fireworkPop(
-        this.scale.width / 2 + 24,
-        100,
-      );
+      this.juice.fireworkPop(this.scale.width / 2 - 24, 90);
+      this.juice.fireworkPop(this.scale.width / 2 + 24, 100);
       this.showQuestHintPopup('Roman candle pack armed. Three football throws ready.', '#9ad1ff');
       return;
     }
     if (id === 'liberty-firework-sparkler') {
       if (!this.spendScore(12, 'Sparkler Trail')) return;
       this.snakeGame.setFlag('liberty.nextAppleBonus', 26);
-      this.juice.fireworkPop(
-        this.scale.width / 2,
-        90,
-      );
+      this.juice.fireworkPop(this.scale.width / 2, 90);
       this.showQuestHintPopup('Sparkler trail pops safely. Next apple gets +26 score.', '#f3eee2');
       return;
     }
     if (id === 'liberty-monument-blessing') {
       this.snakeGame.addScore(25);
       this.clearTemperatureState();
-      this.juice.monumentSparkle(
-        this.scale.width / 2,
-        86,
-      );
+      this.juice.monumentSparkle(this.scale.width / 2, 86);
       this.showQuestHintPopup('The plaque makes several claims. +25 score. Heat reset.', '#f3eee2');
       return;
     }
@@ -17978,10 +17569,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(15, 'Gift Shop Donation')) return;
       this.snakeGame.setFlag('liberty.nextAppleBonus', 45);
       this.grantFootballThrow(1);
-      this.juice.monumentSparkle(
-        this.scale.width / 2,
-        86,
-      );
+      this.juice.monumentSparkle(this.scale.width / 2, 86);
       this.showQuestHintPopup(
         'Donation receipt blessed. Next apple gets +45 score and one commemorative football.',
         '#f3eee2',
@@ -18001,10 +17589,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(16, 'Antler Whistle')) return;
       this.snakeGame.growSnake(2);
       this.snakeGame.addScore(10);
-      this.juice.monumentSparkle(
-        this.scale.width / 2,
-        86,
-      );
+      this.juice.monumentSparkle(this.scale.width / 2, 86);
       this.showQuestHintPopup(
         'The whistle makes a sound only witnesses understand. +2 length.',
         '#f3eee2',
@@ -18015,10 +17600,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(8, 'Chlorine Cooldown')) return;
       this.clearTemperatureState();
       this.snakeGame.addScore(12);
-      this.juice.neonFlicker(
-        this.scale.width / 2,
-        80,
-      );
+      this.juice.neonFlicker(this.scale.width / 2, 80);
       this.showQuestHintPopup('Pool rules observed. Heat reset, +12 score.', '#9ad1ff');
       return;
     }
@@ -18034,10 +17616,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'liberty-billboard-contract') {
       this.snakeGame.addScore(30);
-      this.juice.neonFlicker(
-        this.scale.width / 2,
-        80,
-      );
+      this.juice.neonFlicker(this.scale.width / 2, 80);
       this.showQuestHintPopup('The billboard nods in vinyl. +30 score.', '#9ad1ff');
       return;
     }
@@ -18076,12 +17655,7 @@ export default class SnakeScene extends Phaser.Scene {
     const local = { x: head.x - roomX * this.grid.cols, y: head.y - roomY * this.grid.rows };
     const coachWorld = this.tileToWorldLocalInRoom(room.gridironYard.coach);
     const catchWorld = this.tileToWorldLocalInRoom(local);
-    this.juice.footballPass(
-      coachWorld.x,
-      coachWorld.y,
-      catchWorld.x,
-      catchWorld.y,
-    );
+    this.juice.footballPass(coachWorld.x, coachWorld.y, catchWorld.x, catchWorld.y);
     const direction =
       Math.abs(local.x - room.gridironYard.coach.x) >= Math.abs(local.y - room.gridironYard.coach.y)
         ? { x: Math.sign(local.x - room.gridironYard.coach.x), y: 0 }
@@ -19597,10 +19171,7 @@ export default class SnakeScene extends Phaser.Scene {
             encounter.roomId,
           );
           if (result.kind === 'duel' && result.accepted) {
-            this.juice.duelAccepted(
-              world.x,
-              world.y,
-            );
+            this.juice.duelAccepted(world.x, world.y);
           }
           this.closeQuestPopup();
           if (result.kind === 'quest' && result.accepted) {
@@ -19868,11 +19439,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setFlipX(flipX)
       .setVisible(true);
     if (this.random() < 0.08) {
-      this.juice.wandererAura(
-        world.x,
-        world.y - 6,
-        palette.trimColor,
-      );
+      this.juice.wandererAura(world.x, world.y - 6, palette.trimColor);
     }
   }
 
@@ -19990,11 +19557,7 @@ export default class SnakeScene extends Phaser.Scene {
         sprite.play(animKey);
       }
       if (this.random() < 0.04) {
-        this.juice.wandererAura(
-          world.x,
-          world.y - 4,
-          palette.trimColor,
-        );
+        this.juice.wandererAura(world.x, world.y - 4, palette.trimColor);
       }
       if (!isGoblin && this.random() < 0.02) {
         this.juice.villageResidentMurmur(
@@ -20019,18 +19582,12 @@ export default class SnakeScene extends Phaser.Scene {
       const lantern = villageLike.lanterns[Math.floor(this.random() * villageLike.lanterns.length)];
       if (lantern) {
         const world = this.tileToWorldLocalInRoom(lantern);
-        this.juice.villageLantern(
-          world.x,
-          world.y,
-        );
+        this.juice.villageLantern(world.x, world.y);
       }
     }
     if (this.random() < 0.03) {
       const world = this.tileToWorldLocalInRoom(villageLike.center);
-      this.juice.villageBreath(
-        world.x,
-        world.y,
-      );
+      this.juice.villageBreath(world.x, world.y);
     }
   }
 
@@ -20167,56 +19724,32 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.shrineLanternGlow(
-          world.x,
-          world.y,
-        );
-        this.juice.ofudaFloat(
-          world.x,
-          world.y,
-        );
+        this.juice.shrineLanternGlow(world.x, world.y);
+        this.juice.ofudaFloat(world.x, world.y);
       }
       if ((room.ramenStand || room.archetypeId === 'ramen-stand') && this.random() < 0.12) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.ramenSteam(
-          world.x,
-          world.y,
-        );
-        this.juice.mochiPound(
-          world.x,
-          world.y,
-        );
+        this.juice.ramenSteam(world.x, world.y);
+        this.juice.mochiPound(world.x, world.y);
       }
       if ((room.koiPond || room.archetypeId === 'koi-pond') && this.random() < 0.15) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.koiRipple(
-          world.x,
-          world.y,
-        );
-        this.juice.kappaSplash(
-          world.x,
-          world.y,
-        );
+        this.juice.koiRipple(world.x, world.y);
+        this.juice.kappaSplash(world.x, world.y);
       }
       if (room.tenguCamp && this.random() < 0.1) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.tanukiShadow(
-          world.x,
-          world.y,
-        );
-        this.juice.onpuClapper(
-          world.x,
-          world.y,
-        );
+        this.juice.tanukiShadow(world.x, world.y);
+        this.juice.onpuClapper(world.x, world.y);
       }
       // Special biome-wide effects
       if (this.random() < 0.06) {
@@ -20227,70 +19760,49 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.toriiSparkle(
-          world.x,
-          world.y,
-        );
+        this.juice.toriiSparkle(world.x, world.y);
       }
       if (this.random() < 0.05) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.sakuraPetalBurst(
-          world.x,
-          world.y,
-        );
+        this.juice.sakuraPetalBurst(world.x, world.y);
       }
       if (this.random() < 0.07) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.zenRipple(
-          world.x,
-          world.y,
-        );
+        this.juice.zenRipple(world.x, world.y);
       }
       if (this.random() < 0.06) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.shimenawaGlow(
-          world.x,
-          world.y,
-        );
+        this.juice.shimenawaGlow(world.x, world.y);
       }
       if (this.random() < 0.05) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.wasabiMist(
-          world.x,
-          world.y,
-        );
+        this.juice.wasabiMist(world.x, world.y);
       }
       if (this.random() < 0.04) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.craneWingFlap(
-          world.x,
-          world.y,
-        );
+        this.juice.craneWingFlap(world.x, world.y);
       }
       if (this.random() < 0.06) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        this.juice.bambooSway(
-          world.x,
-          world.y,
-        );
+        this.juice.bambooSway(world.x, world.y);
       }
     }
 
@@ -20332,10 +19844,7 @@ export default class SnakeScene extends Phaser.Scene {
       tags.has('gear-drips') ||
       tags.has('sea-spray')
     ) {
-      this.juice.koiRipple(
-        nearHead.x,
-        nearHead.y,
-      );
+      this.juice.koiRipple(nearHead.x, nearHead.y);
       this.juice.notice(nearHead.x, nearHead.y - 4, 0x9ccfff);
       return;
     }
@@ -20346,17 +19855,11 @@ export default class SnakeScene extends Phaser.Scene {
       atmosphere.localVisual === 'fog' ||
       atmosphere.localVisual === 'mist'
     ) {
-      this.juice.villageBreath(
-        nearHead.x,
-        nearHead.y,
-      );
+      this.juice.villageBreath(nearHead.x, nearHead.y);
       return;
     }
     if (tags.has('heat-haze') || atmosphere.localVisual === 'heatHaze') {
-      this.juice.heatHaze(
-        nearHead.x,
-        nearHead.y,
-      );
+      this.juice.heatHaze(nearHead.x, nearHead.y);
       return;
     }
     if (
@@ -20365,10 +19868,7 @@ export default class SnakeScene extends Phaser.Scene {
       tags.has('bone-dust') ||
       tags.has('leaf-fall')
     ) {
-      this.juice.dustDevil(
-        nearHead.x,
-        nearHead.y,
-      );
+      this.juice.dustDevil(nearHead.x, nearHead.y);
       return;
     }
     if (
@@ -20377,17 +19877,11 @@ export default class SnakeScene extends Phaser.Scene {
       tags.has('oil-sheen') ||
       tags.has('geiger-sparkle')
     ) {
-      this.juice.neonFlicker(
-        nearHead.x,
-        nearHead.y,
-      );
+      this.juice.neonFlicker(nearHead.x, nearHead.y);
       return;
     }
     if (tags.has('snow-caps') || tags.has('aurora') || tags.has('ice-shimmer')) {
-      this.juice.snowDrift(
-        nearHead.x,
-        nearHead.y,
-      );
+      this.juice.snowDrift(nearHead.x, nearHead.y);
       return;
     }
     if (tags.has('lantern-reflections') || tags.has('fireflies') || tags.has('moon-reflection')) {
