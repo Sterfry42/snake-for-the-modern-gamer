@@ -2130,7 +2130,6 @@ export default class SnakeScene extends Phaser.Scene {
     this.snakeGame.setLevelUpCallback((result) => this.presentLevelUp(result));
     this.saveUI.setSeed(this.snakeGame.worldSeed);
     this.debugTwoSnakesRequested = this.isDebugTwoSnakeRequested();
-    console.info('[SnakeScene] Debug two snakes requested:', this.debugTwoSnakesRequested);
     this.snakeGame.setJasonDamageCallback((bossId, defeated, scoreBonus) => {
       this.recordAchievementEvent({ type: 'boss:jasonVulnerableDamaged', bossId });
       if (defeated) {
@@ -3230,7 +3229,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.applyRaccoonActionStepInterval();
     this.juice.stopBossMusic();
     this.juice.stopHeavenMusic();
-    (this.juice as unknown as Record<string, (...args: unknown[]) => void>).stopPowerupMusic?.();
+    this.juice.stopPowerupMusic();
     if (this.bossHud) {
       this.bossHud.hide();
     }
@@ -3241,7 +3240,6 @@ export default class SnakeScene extends Phaser.Scene {
       }
     }
     if (this.debugTwoSnakesRequested) {
-      console.info('[SnakeScene] Enabling debug second snake after game init/reset.');
       this.snakeGame.setDebugSecondPlayerEnabled(true);
     }
     this.currentSnapshot = this.gameSession.getSnapshot();
@@ -3342,9 +3340,7 @@ export default class SnakeScene extends Phaser.Scene {
           this.snakeGame.getCurrentRoom().biomeId === 'liberty-badlands' &&
           this.snakeGame.getCurrentRoom().archetypeId === 'gridiron-yard'
         ) {
-          (
-            this.juice as unknown as Record<string, (...args: unknown[]) => void>
-          ).gridironCrowdRoar?.(result.apple.worldPosition.x, result.apple.worldPosition.y);
+          this.juice.gridironCrowdRoar(result.apple.worldPosition.x, result.apple.worldPosition.y);
         }
         this.setFlag('killstreak.appleJuiceLevel', undefined);
       }
@@ -3496,13 +3492,13 @@ export default class SnakeScene extends Phaser.Scene {
       const tx = roomForTreasure.treasure.x * cell + cell / 2;
       const ty = roomForTreasure.treasure.y * cell + cell / 2;
       if (this.random() < 0.05) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).treasureSparkle?.(
+        this.juice.treasureSparkle(
           tx,
           ty,
         );
       }
       if (this.random() < 0.02) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).treasureBeacon?.(
+        this.juice.treasureBeacon(
           tx,
           ty,
         );
@@ -3523,7 +3519,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.powerupPickup');
     if (pfx) {
       const world = this.tileToWorldInRoom({ x: pfx.x, y: pfx.y }, pfx.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).powerupPickup?.(
+      this.juice.powerupPickup(
         world.x,
         world.y,
         pfx.kind,
@@ -3534,7 +3530,7 @@ export default class SnakeScene extends Phaser.Scene {
       );
       if (active && typeof active.total === 'number') {
         const durationMs = Math.max(1, active.total) * this.actionStepIntervalMs;
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).startPowerupMusic?.(
+        this.juice.startPowerupMusic(
           durationMs,
         );
         this.powerupMusicActive = true;
@@ -3568,7 +3564,7 @@ export default class SnakeScene extends Phaser.Scene {
       'powerup.active',
     );
     if (!active && this.powerupMusicActive) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).stopPowerupMusic?.();
+      this.juice.stopPowerupMusic();
       this.powerupMusicActive = false;
     }
 
@@ -3622,7 +3618,7 @@ export default class SnakeScene extends Phaser.Scene {
     const smite = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>('ui.bossSmite');
     if (smite) {
       const world = this.tileToWorldInRoom({ x: smite.x, y: smite.y }, smite.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).bossHit?.(
+      this.juice.bossHit(
         world.x,
         world.y,
       );
@@ -3907,7 +3903,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.addScoreDirect(1);
         this.growSnake(1);
         const cam = this.cameras.main;
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).houseRestPulse?.(
+        this.juice.houseRestPulse(
           cam.midPoint.x,
           cam.midPoint.y + 10,
         );
@@ -3939,11 +3935,11 @@ export default class SnakeScene extends Phaser.Scene {
         x = 20 + this.random() * (w - 40);
         y = h - 30 - this.random() * (h * 0.6);
       }
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).houseMote?.(x, y);
+      this.juice.houseMote(x, y);
     }
     if (this.random() < 0.045) {
       const pulseOrigin = lampCenter ?? { x: w / 2, y: h / 2 };
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).interiorPulse?.(
+      this.juice.interiorPulse(
         pulseOrigin.x,
         pulseOrigin.y,
       );
@@ -4409,7 +4405,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.deathCutscene = null;
         this.questPopup.setDepth(70);
         this.juice.stopHeavenMusic();
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).stopHellMusic?.();
+        this.juice.stopHellMusic();
         if (cutscene.mode === 'revive') {
           this.snakeGame.setFlag('fortitude.phoenixTriggered', undefined);
           if (cutscene.reviveOnComplete) {
@@ -4959,7 +4955,7 @@ export default class SnakeScene extends Phaser.Scene {
 
     this.juice.stopHeavenMusic();
     if (destination === 'hell') {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).startHellMusic?.();
+      this.juice.startHellMusic();
     }
 
     const container = cutscene.container;
@@ -6159,14 +6155,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   getGeneratedRoomsOnCurrentLevel(): string[] {
-    const fn = (
-      this.snakeGame as unknown as Record<string, (...args: unknown[]) => string[] | undefined>
-    ).getGeneratedRooms;
-    if (typeof fn !== 'function') return [];
-    if (typeof fn === 'function') {
-      return fn.call(this.snakeGame) ?? [];
-    }
-    return [];
+    return this.snakeGame.getGeneratedRooms();
   }
 
   get activeQuests(): Quest[] {
@@ -9186,7 +9175,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.activeBossId = boss.id;
       }
       // Danger vignette based on boss presence
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).setDangerLevel?.(
+      this.juice.setDangerLevel(
         0.22,
       );
     } else {
@@ -9196,7 +9185,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.activeBossId = null;
       }
       this.bossHud.hide();
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).setDangerLevel?.(0);
+      this.juice.setDangerLevel(0);
     }
   }
   private tileToWorld(position?: Vector2Like | null): { x: number; y: number } {
@@ -9323,7 +9312,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.juice.itemPickup(world.x, world.y);
       const enriched = this.snakeGame.getFlag<{ itemId?: string }>('loot.itemPicked');
       if (enriched?.itemId) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).itemRarityJingle?.(
+        this.juice.itemRarityJingle(
           enriched.itemId,
         );
       }
@@ -9356,7 +9345,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     if (treasureFx) {
       const world = this.tileToWorldInRoom({ x: treasureFx.x, y: treasureFx.y }, treasureFx.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).treasurePickup?.(
+      this.juice.treasurePickup(
         world.x,
         world.y,
       );
@@ -9372,7 +9361,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.seismicPulse');
     if (seismic) {
       const world = this.tileToWorldInRoom({ x: seismic.x, y: seismic.y }, seismic.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).seismicPulse?.(
+      this.juice.seismicPulse(
         world.x,
         world.y,
         seismic.radius,
@@ -9385,7 +9374,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     if (collapse) {
       const world = this.tileToWorldInRoom({ x: collapse.x, y: collapse.y }, collapse.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).collapseControl?.(
+      this.juice.collapseControl(
         world.x,
         world.y,
       );
@@ -9416,7 +9405,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.caveTransition');
     if (caveTransition) {
       const world = this.tileToWorld(this.snakeGame.getSnakeBody()[0] ?? null);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).caveEjection?.(
+      this.juice.caveEjection(
         world.x,
         world.y,
         caveTransition.collapsed,
@@ -9428,7 +9417,7 @@ export default class SnakeScene extends Phaser.Scene {
     const chomp = this.snakeGame.getFlag<{ x: number; y: number; roomId: string }>('ui.wallChomp');
     if (chomp) {
       const world = this.tileToWorldInRoom({ x: chomp.x, y: chomp.y }, chomp.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).wallChomp?.(
+      this.juice.wallChomp(
         world.x,
         world.y,
       );
@@ -9440,7 +9429,7 @@ export default class SnakeScene extends Phaser.Scene {
     );
     if (swimSplash) {
       const world = this.tileToWorldInRoom({ x: swimSplash.x, y: swimSplash.y }, swimSplash.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).swimSplash?.(
+      this.juice.swimSplash(
         world.x,
         world.y,
       );
@@ -9455,7 +9444,7 @@ export default class SnakeScene extends Phaser.Scene {
       const y = fault.y * cell + cell / 2;
       const x1 = cell / 2;
       const x2 = this.grid.cols * cell - cell / 2;
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).faultLineSweep?.(
+      this.juice.faultLineSweep(
         x1,
         y,
         x2,
@@ -9473,7 +9462,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.turnSkid');
     if (skid) {
       const world = this.tileToWorldInRoom({ x: skid.x, y: skid.y }, skid.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).turnSkid?.(
+      this.juice.turnSkid(
         world.x,
         world.y,
         skid.dx,
@@ -9492,7 +9481,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.wallGraze');
     if (graze) {
       const world = this.tileToWorldInRoom({ x: graze.x, y: graze.y }, graze.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).wallGraze?.(
+      this.juice.wallGraze(
         world.x,
         world.y,
         graze.nx,
@@ -9511,7 +9500,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.enemyEaten');
     if (enemyEaten) {
       const world = this.tileToWorldInRoom({ x: enemyEaten.x, y: enemyEaten.y }, enemyEaten.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).enemyEaten?.(
+      this.juice.enemyEaten(
         world.x,
         world.y,
       );
@@ -9609,7 +9598,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: wandererReveal.x, y: wandererReveal.y },
         wandererReveal.roomId,
       );
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).wandererReveal?.(
+      this.juice.wandererReveal(
         world.x,
         world.y,
       );
@@ -9638,14 +9627,14 @@ export default class SnakeScene extends Phaser.Scene {
     if (playerShot) {
       const world = this.tileToWorldInRoom({ x: playerShot.x, y: playerShot.y }, playerShot.roomId);
       if (playerShot.style === 'football') {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).footballShot?.(
+        this.juice.footballShot(
           world.x,
           world.y,
           playerShot.dx,
           playerShot.dy,
         );
       } else {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).playerShot?.(
+        this.juice.playerShot(
           world.x,
           world.y,
           playerShot.dx,
@@ -9662,7 +9651,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (footballPass) {
       const from = this.tileToWorldInRoom(footballPass.from, footballPass.roomId);
       const to = this.tileToWorldInRoom(footballPass.to, footballPass.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).footballPass?.(
+      this.juice.footballPass(
         from.x,
         from.y,
         to.x,
@@ -9681,7 +9670,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: footballCatch.x, y: footballCatch.y },
         footballCatch.roomId,
       );
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).footballCatch?.(
+      this.juice.footballCatch(
         world.x,
         world.y,
       );
@@ -9698,7 +9687,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: footballFumble.x, y: footballFumble.y },
         footballFumble.roomId,
       );
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).footballFumble?.(
+      this.juice.footballFumble(
         world.x,
         world.y,
       );
@@ -9715,7 +9704,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.playerHit');
     if (playerHit) {
       const world = this.tileToWorldInRoom({ x: playerHit.x, y: playerHit.y }, playerHit.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).playerHit?.(
+      this.juice.playerHit(
         world.x,
         world.y,
         playerHit.health,
@@ -9736,7 +9725,7 @@ export default class SnakeScene extends Phaser.Scene {
         { x: villageReveal.x, y: villageReveal.y },
         villageReveal.roomId,
       );
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).villageReveal?.(
+      this.juice.villageReveal(
         world.x,
         world.y,
       );
@@ -9775,7 +9764,7 @@ export default class SnakeScene extends Phaser.Scene {
     }>('ui.townReveal');
     if (townReveal) {
       const world = this.tileToWorldInRoom({ x: townReveal.x, y: townReveal.y }, townReveal.roomId);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).villageReveal?.(
+      this.juice.villageReveal(
         world.x,
         world.y,
       );
@@ -9821,11 +9810,11 @@ export default class SnakeScene extends Phaser.Scene {
         { x: libertyLandmarkReveal.x, y: libertyLandmarkReveal.y },
         libertyLandmarkReveal.roomId,
       );
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).villageReveal?.(
+      this.juice.villageReveal(
         world.x,
         world.y,
       );
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).neonFlicker?.(
+      this.juice.neonFlicker(
         world.x,
         world.y - 18,
       );
@@ -9885,7 +9874,7 @@ export default class SnakeScene extends Phaser.Scene {
         x: (this.grid.cols * this.grid.cell) / 2,
         y: (this.grid.rows * this.grid.cell) / 2,
       };
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).biomeReveal?.(
+      this.juice.biomeReveal(
         center.x,
         center.y,
         color,
@@ -11907,12 +11896,10 @@ export default class SnakeScene extends Phaser.Scene {
     const insideInterior = this.isInPlayerHouseInterior();
     const shouldPlayHouseAmbience = insideInterior && !this.arcadeSnakeRenderer?.isOpen();
     if (shouldPlayHouseAmbience && !this.houseMusicActive) {
-      (
-        this.juice as unknown as Record<string, (...args: unknown[]) => void>
-      ).startHouseAmbience?.();
+      this.juice.startHouseAmbience();
       this.houseMusicActive = true;
     } else if (!shouldPlayHouseAmbience && this.houseMusicActive) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).stopHouseAmbience?.();
+      this.juice.stopHouseAmbience();
       this.houseMusicActive = false;
     }
     // Apply slowdown only when snake is actually inside an interior.
@@ -11927,10 +11914,10 @@ export default class SnakeScene extends Phaser.Scene {
       district && district !== 'outskirts' && district !== 'gate' && district !== 'townExit',
     );
     if (insideTownInterior && !this.townMusicActive) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).startTownMusic?.();
+      this.juice.startTownMusic();
       this.townMusicActive = true;
     } else if (!insideTownInterior && this.townMusicActive) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).stopTownMusic?.();
+      this.juice.stopTownMusic();
       this.townMusicActive = false;
     }
   }
@@ -15352,7 +15339,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup.hide();
     this.paused = true;
     this.hideSaveUI();
-    (this.juice as unknown as Record<string, (...args: unknown[]) => void>).stopHouseAmbience?.();
+    this.juice.stopHouseAmbience();
     this.houseMusicActive = false;
     this.arcadeSnakeRenderer?.destroy();
     this.arcadeSnakeRenderer = new ArcadeSnakeRenderer(this, {
@@ -15381,7 +15368,7 @@ export default class SnakeScene extends Phaser.Scene {
         this.resumeGameplayAfterModal();
       },
       playEffect: (effect) => {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).arcadeEffect?.(
+        this.juice.arcadeEffect(
           effect,
         );
         if (['apple', 'golden', 'scurry', 'barrier', 'quest', 'level'].includes(effect)) {
@@ -15395,9 +15382,7 @@ export default class SnakeScene extends Phaser.Scene {
         }
       },
       setMusicState: (state) =>
-        (
-          this.juice as unknown as Record<string, (...args: unknown[]) => void>
-        ).setArcadeMusicState?.(state),
+        this.juice.setArcadeMusicState(state),
       setDennisBossMusic: (active) => {
         if (active) {
           this.juice.startBossMusic('freak-dennis');
@@ -17879,7 +17864,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.runFootballCatchPlay();
       this.grantFootballThrow(1);
       this.snakeGame.addScore(20);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).gridironCrowdRoar?.(
+      this.juice.gridironCrowdRoar(
         this.scale.width / 2,
         90,
       );
@@ -17899,7 +17884,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-diner-coffee') {
       if (!this.spendScore(8, 'Bottomless Coffee')) return;
       this.snakeGame.setFlag('liberty.caffeineCatches', 2);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).neonFlicker?.(
+      this.juice.neonFlicker(
         this.scale.width / 2,
         80,
       );
@@ -17929,7 +17914,7 @@ export default class SnakeScene extends Phaser.Scene {
           '#f3eee2',
         );
       }
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).neonFlicker?.(
+      this.juice.neonFlicker(
         this.scale.width / 2,
         80,
       );
@@ -17945,7 +17930,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-firework-football') {
       if (!this.spendScore(18, 'Bottle-Rocket Football')) return;
       this.grantFootballThrow(1);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).fireworkPop?.(
+      this.juice.fireworkPop(
         this.scale.width / 2,
         90,
       );
@@ -17958,11 +17943,11 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-firework-roman-candle') {
       if (!this.spendScore(28, 'Roman Candle Pack')) return;
       this.grantFootballThrow(3);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).fireworkPop?.(
+      this.juice.fireworkPop(
         this.scale.width / 2 - 24,
         90,
       );
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).fireworkPop?.(
+      this.juice.fireworkPop(
         this.scale.width / 2 + 24,
         100,
       );
@@ -17972,7 +17957,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-firework-sparkler') {
       if (!this.spendScore(12, 'Sparkler Trail')) return;
       this.snakeGame.setFlag('liberty.nextAppleBonus', 26);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).fireworkPop?.(
+      this.juice.fireworkPop(
         this.scale.width / 2,
         90,
       );
@@ -17982,7 +17967,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (id === 'liberty-monument-blessing') {
       this.snakeGame.addScore(25);
       this.clearTemperatureState();
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).monumentSparkle?.(
+      this.juice.monumentSparkle(
         this.scale.width / 2,
         86,
       );
@@ -17993,7 +17978,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(15, 'Gift Shop Donation')) return;
       this.snakeGame.setFlag('liberty.nextAppleBonus', 45);
       this.grantFootballThrow(1);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).monumentSparkle?.(
+      this.juice.monumentSparkle(
         this.scale.width / 2,
         86,
       );
@@ -18016,7 +18001,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(16, 'Antler Whistle')) return;
       this.snakeGame.growSnake(2);
       this.snakeGame.addScore(10);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).monumentSparkle?.(
+      this.juice.monumentSparkle(
         this.scale.width / 2,
         86,
       );
@@ -18030,7 +18015,7 @@ export default class SnakeScene extends Phaser.Scene {
       if (!this.spendScore(8, 'Chlorine Cooldown')) return;
       this.clearTemperatureState();
       this.snakeGame.addScore(12);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).neonFlicker?.(
+      this.juice.neonFlicker(
         this.scale.width / 2,
         80,
       );
@@ -18049,7 +18034,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (id === 'liberty-billboard-contract') {
       this.snakeGame.addScore(30);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).neonFlicker?.(
+      this.juice.neonFlicker(
         this.scale.width / 2,
         80,
       );
@@ -18091,7 +18076,7 @@ export default class SnakeScene extends Phaser.Scene {
     const local = { x: head.x - roomX * this.grid.cols, y: head.y - roomY * this.grid.rows };
     const coachWorld = this.tileToWorldLocalInRoom(room.gridironYard.coach);
     const catchWorld = this.tileToWorldLocalInRoom(local);
-    (this.juice as unknown as Record<string, (...args: unknown[]) => void>).footballPass?.(
+    this.juice.footballPass(
       coachWorld.x,
       coachWorld.y,
       catchWorld.x,
@@ -19597,7 +19582,7 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     this.snakeGame.setFlag('npc.randomEncounter.prompted', true);
-    (this.juice as unknown as Record<string, (...args: unknown[]) => void>).wandererApproach?.(
+    this.juice.wandererApproach(
       this.tileToWorldInRoom({ x: encounter.x, y: encounter.y }, encounter.roomId).x,
       this.tileToWorldInRoom({ x: encounter.x, y: encounter.y }, encounter.roomId).y,
     );
@@ -19612,7 +19597,7 @@ export default class SnakeScene extends Phaser.Scene {
             encounter.roomId,
           );
           if (result.kind === 'duel' && result.accepted) {
-            (this.juice as unknown as Record<string, (...args: unknown[]) => void>).duelAccepted?.(
+            this.juice.duelAccepted(
               world.x,
               world.y,
             );
@@ -19883,7 +19868,7 @@ export default class SnakeScene extends Phaser.Scene {
       .setFlipX(flipX)
       .setVisible(true);
     if (this.random() < 0.08) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).wandererAura?.(
+      this.juice.wandererAura(
         world.x,
         world.y - 6,
         palette.trimColor,
@@ -20005,16 +19990,14 @@ export default class SnakeScene extends Phaser.Scene {
         sprite.play(animKey);
       }
       if (this.random() < 0.04) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).wandererAura?.(
+        this.juice.wandererAura(
           world.x,
           world.y - 4,
           palette.trimColor,
         );
       }
       if (!isGoblin && this.random() < 0.02) {
-        (
-          this.juice as unknown as Record<string, (...args: unknown[]) => void>
-        ).villageResidentMurmur?.(
+        this.juice.villageResidentMurmur(
           world.x,
           world.y - 2,
           Phaser.Display.Color.HexStringToColor(palette.trimColor).color,
@@ -20036,7 +20019,7 @@ export default class SnakeScene extends Phaser.Scene {
       const lantern = villageLike.lanterns[Math.floor(this.random() * villageLike.lanterns.length)];
       if (lantern) {
         const world = this.tileToWorldLocalInRoom(lantern);
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).villageLantern?.(
+        this.juice.villageLantern(
           world.x,
           world.y,
         );
@@ -20044,7 +20027,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.random() < 0.03) {
       const world = this.tileToWorldLocalInRoom(villageLike.center);
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).villageBreath?.(
+      this.juice.villageBreath(
         world.x,
         world.y,
       );
@@ -20100,12 +20083,12 @@ export default class SnakeScene extends Phaser.Scene {
     const room = this.snakeGame.getCurrentRoom();
     this.tickAtmosphereAmbientJuice(room);
     if (room.biomeId === 'sable-depths' && this.random() < 0.28) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).snowDrift?.(
+      this.juice.snowDrift(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
         Phaser.Math.Between(0, this.grid.rows * this.grid.cell),
       );
     } else if (room.biomeId === 'ember-waste' && this.random() < 0.24) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).heatHaze?.(
+      this.juice.heatHaze(
         Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
         Phaser.Math.Between(
           (this.grid.rows * this.grid.cell) / 2,
@@ -20113,35 +20096,31 @@ export default class SnakeScene extends Phaser.Scene {
         ),
       );
     } else if (room.biomeId === 'moonlit-parish' && this.random() < 0.12) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).snowDrift?.(
+      this.juice.snowDrift(
         Phaser.Math.Between(8, this.grid.cols * this.grid.cell - 8),
         Phaser.Math.Between(0, this.grid.rows * this.grid.cell),
       );
     } else if (room.biomeId === 'gloam-garden' && this.random() < 0.1) {
-      (
-        this.juice as unknown as Record<string, (...args: unknown[]) => void>
-      ).temperatureReliefPulse?.(
+      this.juice.temperatureReliefPulse(
         Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
         Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
         this.random() < 0.5 ? 'warm' : 'cool',
       );
     } else if (room.biomeId === 'liberty-badlands') {
       if (this.random() < 0.05) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).eagleFlyover?.();
+        this.juice.eagleFlyover();
       }
       if (this.random() < 0.12) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).dustDevil?.(
+        this.juice.dustDevil(
           Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
           Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
         );
       }
       if (this.random() < 0.08) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).tumbleweed?.();
+        this.juice.tumbleweed();
       }
       if (this.random() < 0.14) {
-        (
-          this.juice as unknown as Record<string, (...args: unknown[]) => void>
-        ).libertyHeatShimmer?.(
+        this.juice.libertyHeatShimmer(
           Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
           Phaser.Math.Between(this.grid.cell * 3, this.grid.rows * this.grid.cell - 12),
         );
@@ -20150,7 +20129,7 @@ export default class SnakeScene extends Phaser.Scene {
         (room.archetypeId === 'firework-field' || room.fireworkStand || room.roadsideMonument) &&
         this.random() < 0.16
       ) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).fireworkPop?.(
+        this.juice.fireworkPop(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         );
@@ -20162,13 +20141,13 @@ export default class SnakeScene extends Phaser.Scene {
           room.archetypeId === 'motel-pool-ruins') &&
         this.random() < 0.12
       ) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).neonFlicker?.(
+        this.juice.neonFlicker(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         );
       }
       if ((room.roadsideMonument || room.archetypeId === 'monument-plaza') && this.random() < 0.1) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).monumentSparkle?.(
+        this.juice.monumentSparkle(
           Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         );
@@ -20180,9 +20159,7 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(12, this.grid.cols * this.grid.cell - 12),
           y: Phaser.Math.Between(12, this.grid.rows * this.grid.cell - 12),
         };
-        (
-          this.juice as unknown as Record<string, (...args: unknown[]) => void>
-        ).jadePeakAmbientRandom?.(world.x, world.y);
+        this.juice.jadePeakAmbientRandom(world.x, world.y);
       }
       // Special structure effects
       if ((room.shrine || room.archetypeId === 'shrine') && this.random() < 0.15) {
@@ -20190,11 +20167,11 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).shrineLanternGlow?.(
+        this.juice.shrineLanternGlow(
           world.x,
           world.y,
         );
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).ofudaFloat?.(
+        this.juice.ofudaFloat(
           world.x,
           world.y,
         );
@@ -20204,11 +20181,11 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).ramenSteam?.(
+        this.juice.ramenSteam(
           world.x,
           world.y,
         );
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).mochiPound?.(
+        this.juice.mochiPound(
           world.x,
           world.y,
         );
@@ -20218,11 +20195,11 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).koiRipple?.(
+        this.juice.koiRipple(
           world.x,
           world.y,
         );
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).kappaSplash?.(
+        this.juice.kappaSplash(
           world.x,
           world.y,
         );
@@ -20232,25 +20209,25 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).tanukiShadow?.(
+        this.juice.tanukiShadow(
           world.x,
           world.y,
         );
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).onpuClapper?.(
+        this.juice.onpuClapper(
           world.x,
           world.y,
         );
       }
       // Special biome-wide effects
       if (this.random() < 0.06) {
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).origamiCraneFly?.();
+        this.juice.origamiCraneFly();
       }
       if (this.random() < 0.08) {
         const world = {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).toriiSparkle?.(
+        this.juice.toriiSparkle(
           world.x,
           world.y,
         );
@@ -20260,7 +20237,7 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).sakuraPetalBurst?.(
+        this.juice.sakuraPetalBurst(
           world.x,
           world.y,
         );
@@ -20270,7 +20247,7 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).zenRipple?.(
+        this.juice.zenRipple(
           world.x,
           world.y,
         );
@@ -20280,7 +20257,7 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).shimenawaGlow?.(
+        this.juice.shimenawaGlow(
           world.x,
           world.y,
         );
@@ -20290,7 +20267,7 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).wasabiMist?.(
+        this.juice.wasabiMist(
           world.x,
           world.y,
         );
@@ -20300,7 +20277,7 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).craneWingFlap?.(
+        this.juice.craneWingFlap(
           world.x,
           world.y,
         );
@@ -20310,7 +20287,7 @@ export default class SnakeScene extends Phaser.Scene {
           x: Phaser.Math.Between(24, this.grid.cols * this.grid.cell - 24),
           y: Phaser.Math.Between(24, this.grid.rows * this.grid.cell - 24),
         };
-        (this.juice as unknown as Record<string, (...args: unknown[]) => void>).bambooSway?.(
+        this.juice.bambooSway(
           world.x,
           world.y,
         );
@@ -20322,9 +20299,7 @@ export default class SnakeScene extends Phaser.Scene {
         room.temperatureReliefs[Math.floor(this.random() * room.temperatureReliefs.length)];
       if (relief) {
         const world = this.tileToWorldLocalInRoom({ x: relief.x, y: relief.y });
-        (
-          this.juice as unknown as Record<string, (...args: unknown[]) => void>
-        ).temperatureReliefPulse?.(world.x, world.y, relief.kind);
+        this.juice.temperatureReliefPulse(world.x, world.y, relief.kind as 'warm' | 'cool');
       }
     }
   }
@@ -20357,7 +20332,7 @@ export default class SnakeScene extends Phaser.Scene {
       tags.has('gear-drips') ||
       tags.has('sea-spray')
     ) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).koiRipple?.(
+      this.juice.koiRipple(
         nearHead.x,
         nearHead.y,
       );
@@ -20371,14 +20346,14 @@ export default class SnakeScene extends Phaser.Scene {
       atmosphere.localVisual === 'fog' ||
       atmosphere.localVisual === 'mist'
     ) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).villageBreath?.(
+      this.juice.villageBreath(
         nearHead.x,
         nearHead.y,
       );
       return;
     }
     if (tags.has('heat-haze') || atmosphere.localVisual === 'heatHaze') {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).heatHaze?.(
+      this.juice.heatHaze(
         nearHead.x,
         nearHead.y,
       );
@@ -20390,7 +20365,7 @@ export default class SnakeScene extends Phaser.Scene {
       tags.has('bone-dust') ||
       tags.has('leaf-fall')
     ) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).dustDevil?.(
+      this.juice.dustDevil(
         nearHead.x,
         nearHead.y,
       );
@@ -20402,14 +20377,14 @@ export default class SnakeScene extends Phaser.Scene {
       tags.has('oil-sheen') ||
       tags.has('geiger-sparkle')
     ) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).neonFlicker?.(
+      this.juice.neonFlicker(
         nearHead.x,
         nearHead.y,
       );
       return;
     }
     if (tags.has('snow-caps') || tags.has('aurora') || tags.has('ice-shimmer')) {
-      (this.juice as unknown as Record<string, (...args: unknown[]) => void>).snowDrift?.(
+      this.juice.snowDrift(
         nearHead.x,
         nearHead.y,
       );

@@ -1220,7 +1220,6 @@ export class SnakeGame implements QuestRuntime {
 
   setDebugSecondPlayerEnabled(enabled: boolean): void {
     if (!enabled) {
-      console.info('[SnakeGame] Debug second snake disabled.');
       this.debugSecondSnake = null;
       this.debugSecondPlayerAlive = false;
       this.debugSecondPlayerStepCount = 0;
@@ -1239,13 +1238,6 @@ export class SnakeGame implements QuestRuntime {
     this.debugSecondPlayerAlive = true;
     this.debugSecondPlayerDeathReason = undefined;
     this.syncPlayerMap();
-    const snapshot = this.debugSecondSnake?.bodySegments[0];
-    console.info('[SnakeGame] Debug second snake enabled.', {
-      playerId: this.debugSecondPlayerId,
-      roomId: this.debugSecondSnake?.currentRoomId,
-      head: snapshot ? { x: snapshot.x, y: snapshot.y } : null,
-      players: Array.from(this.players.keys()),
-    });
   }
 
   isDebugSecondPlayerEnabled(): boolean {
@@ -1279,20 +1271,8 @@ export class SnakeGame implements QuestRuntime {
     let appleTypeId: string | undefined;
     if (outcome.status === 'dead') {
       this.killDebugSecondPlayer(outcome.reason ?? 'unknown');
-      console.info('[SnakeGame] Debug second snake died.', {
-        reason: outcome.reason ?? 'unknown',
-        roomId: this.debugSecondSnake.currentRoomId,
-        head: this.debugSecondSnake.bodySegments[0] ?? null,
-        step: this.debugSecondPlayerStepCount,
-      });
     } else if (this.isSnakeHeadCollidingWithOtherSnake(this.debugSecondSnake, this.snake)) {
       this.killDebugSecondPlayer('player');
-      console.info('[SnakeGame] Debug second snake died from player collision.', {
-        roomId: this.debugSecondSnake.currentRoomId,
-        head: this.debugSecondSnake.bodySegments[0] ?? null,
-        localPlayerHead: this.snake.bodySegments[0] ?? null,
-        step: this.debugSecondPlayerStepCount,
-      });
     } else {
       if (outcome.appleEaten) {
         const consumption = this.consumeAppleForDebugSecondSnake();
@@ -1303,14 +1283,7 @@ export class SnakeGame implements QuestRuntime {
         }
       }
     }
-    if (previousRoomId !== this.debugSecondSnake.currentRoomId) {
-      console.info('[SnakeGame] Debug second snake changed rooms.', {
-        fromRoomId: previousRoomId,
-        toRoomId: this.debugSecondSnake.currentRoomId,
-        head: this.debugSecondSnake.bodySegments[0] ?? null,
-        step: this.debugSecondPlayerStepCount,
-      });
-    }
+    void previousRoomId; // room tracking handled by caller
     this.debugSecondPlayerStepCount += 1;
     this.syncPlayerMap();
     return {
@@ -1363,12 +1336,6 @@ export class SnakeGame implements QuestRuntime {
       roomId,
       3,
     );
-    console.info('[SnakeGame] Debug second snake spawned.', {
-      roomId,
-      localHead: localAnchor,
-      worldHead: anchor,
-      body: this.debugSecondSnake.bodySegments.map((segment) => ({ ...segment })),
-    });
   }
 
   private findDebugSecondSnakeSpawn(room: RoomSnapshot): Vector2Like {
@@ -1528,11 +1495,6 @@ export class SnakeGame implements QuestRuntime {
     }
     if (consumption.fatal) {
       this.killDebugSecondPlayer('shielded');
-      console.info('[SnakeGame] Debug second snake died eating apple.', {
-        roomId,
-        head,
-        appleTypeId: consumption.typeId,
-      });
       return { appleEaten: false, appleTypeId: consumption.typeId, roomsChanged };
     }
 
@@ -1547,14 +1509,6 @@ export class SnakeGame implements QuestRuntime {
     if (spawn.changed) {
       roomsChanged.add(roomId);
     }
-    console.info('[SnakeGame] Debug second snake ate apple.', {
-      roomId,
-      head,
-      appleTypeId: consumption.typeId,
-      score: this.debugSecondSnake.score,
-      length: this.debugSecondSnake.bodySegments.length,
-      spawnedReplacement: spawn.changed,
-    });
     return { appleEaten: true, appleTypeId: consumption.typeId, roomsChanged };
   }
 
@@ -1756,11 +1710,6 @@ export class SnakeGame implements QuestRuntime {
     ) {
       this.markDeathAtCurrentHead('self');
       outcome = { status: 'dead', reason: 'self', appleEaten: false };
-      console.info('[SnakeGame] Local snake died from debug player collision.', {
-        roomId: this.snake.currentRoomId,
-        localHead: this.snake.bodySegments[0] ?? null,
-        debugHead: this.debugSecondSnake?.bodySegments[0] ?? null,
-      });
     }
 
     if (outcome.status === 'dead') {
@@ -3605,12 +3554,7 @@ export class SnakeGame implements QuestRuntime {
       roomsChanged.add(previousRoomId);
       roomsChanged.add(nextRival.roomId);
       if (previousRoomId !== nextRival.roomId) {
-        console.info('[SnakeGame] Rival snake changed rooms.', {
-          enemyId: nextRival.id,
-          fromRoomId: previousRoomId,
-          toRoomId: nextRival.roomId,
-          head: nextRival.position,
-        });
+        // Room transition tracked by caller
       }
 
       const ateCurrentRoomApple = this.consumeAppleForRivalSnake(nextRival, roomsChanged);
@@ -3852,12 +3796,6 @@ export class SnakeGame implements QuestRuntime {
     if (consumption.fatal) {
       const defeated = this.enemies.removeEnemy(rival.id) ?? rival;
       this.setEnemySnakeDefeatedFeedback(defeated, rival.position, 'apple');
-      console.info('[SnakeGame] Rival snake died eating apple.', {
-        enemyId: rival.id,
-        roomId: rival.roomId,
-        head: rival.position,
-        appleTypeId: consumption.typeId,
-      });
       return rival.roomId === this.snake.currentRoomId;
     }
 
@@ -3882,15 +3820,6 @@ export class SnakeGame implements QuestRuntime {
     if (spawn.changed) {
       roomsChanged.add(rival.roomId);
     }
-    console.info('[SnakeGame] Rival snake ate apple.', {
-      enemyId: rival.id,
-      roomId: rival.roomId,
-      head: rival.position,
-      appleTypeId: consumption.typeId,
-      score,
-      length: body.length,
-      spawnedReplacement: spawn.changed,
-    });
     return rival.roomId === this.snake.currentRoomId;
   }
 

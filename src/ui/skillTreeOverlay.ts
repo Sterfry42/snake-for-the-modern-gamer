@@ -6869,8 +6869,7 @@ export class SkillTreeOverlay {
     const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel
       ? ((getter.getGeneratedRoomsOnCurrentLevel() as string[] | undefined) ?? [])
       : [];
-    const current: string =
-      (this.scene as unknown as Record<string, string | undefined>).currentRoomId ?? '0,0,0';
+    const current: string = this.scene.currentRoomId ?? '0,0,0';
 
     const level = Number(current.split(',')[2] ?? 0);
     this.mapTitle.setText(`Map - Depth ${level}`);
@@ -7067,8 +7066,7 @@ export class SkillTreeOverlay {
   }
 
   private populateMapDetailPanel(): void {
-    const current =
-      (this.scene as unknown as Record<string, string | undefined>).currentRoomId ?? '0,0,0';
+    const current = this.scene.currentRoomId ?? '0,0,0';
     const [x = 0, y = 0, z = 0] = current.split(',').map((n: string) => Number(n));
     const room =
       typeof this.scene.snakeGame?.getCurrentRoom === 'function'

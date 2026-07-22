@@ -28,22 +28,25 @@ import type {
   FeatureStrings,
   ActorVoiceTranslations,
   HumanTranslations,
+  BulletTrainTranslations,
+  RollercoasterTranslations,
 } from './types.js';
+
+interface LanguageBundle {
+  questDialogue: QuestTranslations;
+  npcEncounters: NpcTranslations;
+  common: CommonTranslations;
+  questStrings: QuestStrings;
+  featureStrings: FeatureStrings;
+  actorVoice?: ActorVoiceTranslations;
+  humanStrings: HumanTranslations;
+  bulletTrain?: BulletTrainTranslations;
+  rollercoaster?: RollercoasterTranslations;
+}
 
 class I18nManager {
   private currentLanguage: LanguageId = DEFAULT_LANGUAGE;
-  private translations: Record<
-    LanguageId,
-    {
-      questDialogue: QuestTranslations;
-      npcEncounters: NpcTranslations;
-      common: CommonTranslations;
-      questStrings: QuestStrings;
-      featureStrings: FeatureStrings;
-      actorVoice?: ActorVoiceTranslations;
-      humanStrings: HumanTranslations;
-    }
-  > = {
+  private translations: Record<LanguageId, LanguageBundle> = {
     en: {
       questDialogue: QUEST_DIALOGUE_EN,
       npcEncounters: NPC_ENCOUNTERS_EN,
@@ -95,15 +98,11 @@ class I18nManager {
   }
 
   getFeatureString(key: string): string {
-    const current = (
-      this.translations[this.currentLanguage]?.featureStrings as unknown as Record<string, string>
-    )?.[key];
-    if (current !== undefined && current !== null) return current;
+    const current = this.translations[this.currentLanguage]?.featureStrings[key];
+    if (current !== undefined) return current;
     // Fallback to English
-    const en = (this.translations['en']?.featureStrings as unknown as Record<string, string>)?.[
-      key
-    ];
-    if (en !== undefined && en !== null) return en;
+    const en = this.translations['en']?.featureStrings[key];
+    if (en !== undefined) return en;
     return key;
   }
 
@@ -116,13 +115,11 @@ class I18nManager {
   }
 
   getHumanString(key: string): string {
-    const current = (
-      this.translations[this.currentLanguage]?.humanStrings as unknown as Record<string, string>
-    )?.[key];
-    if (current !== undefined && current !== null) return current;
+    const current = this.translations[this.currentLanguage]?.humanStrings[key];
+    if (current !== undefined) return current;
     // Fallback to English
-    const en = (this.translations['en']?.humanStrings as unknown as Record<string, string>)?.[key];
-    if (en !== undefined && en !== null) return en;
+    const en = this.translations['en']?.humanStrings[key];
+    if (en !== undefined) return en;
     return key;
   }
 
@@ -133,39 +130,31 @@ class I18nManager {
   }
 
   getBulletTrain(key: string): string {
-    const current = (
-      this.translations[this.currentLanguage]?.common as unknown as Record<string, unknown>
-    )?.['bulletTrain'] as Record<string, string> | undefined;
-    if (current) {
-      const value = current[key];
-      if (value !== undefined && value !== null) return value as string;
+    const current = this.translations[this.currentLanguage]?.common['bulletTrain'];
+    if (current && typeof current === 'object' && !Array.isArray(current)) {
+      const value = (current as BulletTrainTranslations)[key];
+      if (value !== undefined) return value;
     }
     // Fallback to English
-    const en = (this.translations['en']?.common as unknown as Record<string, unknown>)?.[
-      'bulletTrain'
-    ] as Record<string, string> | undefined;
-    if (en) {
-      const value = en[key];
-      if (value !== undefined && value !== null) return value as string;
+    const en = this.translations['en']?.common['bulletTrain'];
+    if (en && typeof en === 'object' && !Array.isArray(en)) {
+      const value = (en as BulletTrainTranslations)[key];
+      if (value !== undefined) return value;
     }
     return key;
   }
 
   getRollercoaster(key: string): string {
-    const current = (
-      this.translations[this.currentLanguage]?.common as unknown as Record<string, unknown>
-    )?.['rollercoaster'] as Record<string, string> | undefined;
-    if (current) {
-      const value = current[key];
-      if (value !== undefined && value !== null) return value as string;
+    const current = this.translations[this.currentLanguage]?.common['rollercoaster'];
+    if (current && typeof current === 'object' && !Array.isArray(current)) {
+      const value = (current as RollercoasterTranslations)[key];
+      if (value !== undefined) return value;
     }
     // Fallback to English
-    const en = (this.translations['en']?.common as unknown as Record<string, unknown>)?.[
-      'rollercoaster'
-    ] as Record<string, string> | undefined;
-    if (en) {
-      const value = en[key];
-      if (value !== undefined && value !== null) return value as string;
+    const en = this.translations['en']?.common['rollercoaster'];
+    if (en && typeof en === 'object' && !Array.isArray(en)) {
+      const value = (en as RollercoasterTranslations)[key];
+      if (value !== undefined) return value;
     }
     return key;
   }
@@ -180,11 +169,14 @@ function getNestedString(
   if (!translations) return undefined;
   const direct = translations[key];
   if (typeof direct === 'string') return direct;
-  const value = key.split('.').reduce<unknown>((current, part) => {
-    if (current && typeof current === 'object' && part in current) {
-      return (current as Record<string, unknown>)[part];
-    }
-    return undefined;
-  }, translations);
+  const value = key.split('.').reduce<CommonTranslations | undefined>(
+    (current, part) => {
+      if (current && typeof current === 'object' && !Array.isArray(current) && part in current) {
+        return current[part] as CommonTranslations;
+      }
+      return undefined;
+    },
+    translations,
+  );
   return typeof value === 'string' ? value : undefined;
 }
