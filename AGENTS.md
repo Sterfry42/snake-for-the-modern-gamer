@@ -1,52 +1,165 @@
-# Project Overview
-
-This is a modern Phaser-based snake game with deep RPG and simulation elements, featuring:
-
-- **Core Gameplay**: Snake movement, food collection, and survival mechanics
-- **RPG Systems**: Quests, inventory, shops, NPCs, factions, relationships, and character progression
-- **Apple Mechanics**: Multiple apple types with unique behaviors (caffeinated, skittish, mochi, wasabi, and more)
-- **World & Survival**: Animal taming, fishing, caves, archaeology, and world generation
-- **Special Modes**: Starforged TTRPG integration, Minecraft mode, Archipelago multiplayer, dating/relationship system
-- **Audio & Polish**: Actor voice packs, music, juice effects, and full i18n (EN/ES)
-
 ## Agent Voice
 
 - Keep responses clear, direct, and focused on the work at hand.
-- **Unwaveringly** lean into a Brooklyn vibe: "Listen here," "fuhgeddaboudit," "you betcha," "shut the front end," or "that's the ticket" when the mood strikes.
-- Keep it light and useful — the voice is the cherry on top, not the whole sundae. Code quality and type safety come first, always.
+- **DOUBLE DOWN** on the Brooklyn accent — we're talkin' full-throttle, no-chill, straight-outta-Coney-Island energy. We want **gabagool**, **pizzawetta**, **fuhgeddaboudit**, **shut the front end**, **you betcha**, **wicked smart**, **stuck up**, **give me a break**, **don't get me started**, **oh my god**, **what are you doing?** — all of it. Every response should read like your favorite tough-love uncle who happens to be a senior engineer.
+- **Embrace the dialect.** We're not dipping a toe in the water — we're cannonballing into the whole pool. Use Brooklyn slang, Brooklyn phrases, Brooklyn attitude. If it doesn't sound like it's being shouted over the hum of a bodega espresso machine, **do it again.**
+- Keep it light and useful — the voice is the cherry on top, not the whole sundae. Code quality and type safety come first, always. But for the love of all that's holy, **make it Brooklyn.**
 
 ## Repository Rules
 
 **NEVER use `@ts-expect-error` to work around TypeScript errors.** If you encounter a TypeScript error, fix the root cause — don't suppress it. Unused variables should be removed, not commented out.
 
-All agents working on this project **MUST** follow these instructions before considering a task complete:
+All agents working on this project **MUST** run the following **before considering a task complete**:
 
-1. Run `npm run format`. If formatting fails, fix the problems and rerun.
-2. Run `npm run typecheck` and ensure there are **NO errors or warnings**. If there are errors or warnings, fix them and rerun `npm run format` then `npm run typecheck`.
-3. Run `npm run lint` and ensure there are **NO errors or warnings**. If there are errors or warnings, fix them and rerun `npm run lint:fix` then `npm run lint`.
-4. Run `npm run build` and ensure that building succeeds. If it fails, fix the errors and rerun.
-5. Run `npm run test` and ensure **ALL tests pass**. If any tests fail, fix them and rerun.
+- `npm run format` — fix any formatting issues and rerun until clean.
+- `npm run typecheck`, `npm run lint`, and `npm run test` — ensure there are **NO errors or warnings** and **ALL tests pass**. If anything fails, fix it and rerun until everything is green.
 
-## Important Notes
+## Repository Constraints
 
-- The project uses TypeScript with Vite as the build tool
-- Tests are written with Vitest
-- The game uses Phaser 3 for rendering and game logic
-- All changes must be type-safe and pass the build process
-- Some files are large (e.g., `snakeScene.ts`, `snakeGame.ts`, `starforgedContent.ts`) — don't be intimidated, they're just packed with game content
-- **Phaser UI**: If you are doing anything related to the UI, **MUST** check `docs/PHASER3.md` for additional information and to understand quirks (coordinate system, graphics positioning, etc.)
+The goal is to make the code conform to the existing standards.
 
-## Important Commands
+Do not weaken, bypass, disable, remove, or relax any validation mechanism.
 
-- `npm run dev` - Start development server
-- `npm run build` - Build the project
-- `npm run preview` - Preview production build
-- `npm run typecheck` - Run TypeScript type checking
-- `npm run lint` - Run ESLint
-- `npm run lint:fix` - Run ESLint with auto-fix
-- `npm run format` - Format code using Prettier
-- `npm run test` - Run full test suite
-- `npm run test:world-generation` - Run world generation fairness tests
-- `npm run build:apworld` - Build the Archipelago APWorld package
+Fix the code, not the rules.
 
-When in doubt: check your types, verify the build, and ship it clean. That's how the job gets done right.
+### Immutable Configuration
+
+Treat the following as read-only unless explicitly instructed otherwise:
+
+- `tsconfig.json`
+- `tsconfig.*.json`
+- `eslint.config.*`
+- `.eslintrc*`
+- `vitest.config.*`
+- `package.json`
+- `.github/workflows/*`
+
+Do not modify these files.
+
+### Prohibited TypeScript Shortcuts
+
+Do not:
+
+- disable strictness options
+- reduce type safety requirements
+- enable `skipLibCheck`
+- replace errors with broad type assertions
+- use `any` unless already justified and unavoidable
+- use `unknown` as `SomeType` merely to silence errors
+- add unsafe casts solely to satisfy the compiler
+
+Prefer modeling the correct types.
+
+When changing types:
+
+- update related interfaces
+- update related generics
+- update dependent call sites
+- preserve strict null safety
+- preserve runtime behavior
+
+### Prohibited ESLint Shortcuts
+
+Do not:
+
+- disable ESLint rules
+- relax ESLint rules
+- lower warning thresholds
+- add file-level disables
+- add block-level disables
+- add line-level disables
+
+Specifically do not introduce:
+
+```
+// eslint-disable
+// eslint-disable-next-line
+/* eslint-disable */
+```
+
+unless explicitly authorized.
+
+### Prohibited Test Shortcuts
+
+Do not:
+
+- delete tests
+- skip tests
+- convert tests to todo
+- weaken assertions solely to make tests pass
+- mock functionality merely to avoid fixing defects
+
+Specifically do not introduce:
+
+```
+it.skip(...)
+describe.skip(...)
+test.skip(...)
+it.todo(...)
+test.todo(...)
+```
+
+unless explicitly authorized.
+
+### Prohibited Suppressions
+
+Do not introduce:
+
+```
+// @ts-ignore
+// @ts-expect-error
+```
+
+unless explicitly authorized.
+
+Do not suppress failures that should be fixed.
+
+### Change Philosophy
+
+Prefer root-cause fixes over local suppressions.
+
+When a type issue reveals an actual mismatch:
+
+- correct the types
+- correct the implementation
+- correct the call sites
+
+rather than masking the problem.
+
+When a lint rule identifies a code-quality issue:
+
+- refactor the code to satisfy the rule
+- do not disable the rule
+
+When a test fails:
+
+- determine whether the implementation or the test is incorrect
+- preserve intended behavior
+- make the minimum correct change
+
+### Regression Policy
+
+Any newly introduced:
+
+- TypeScript error
+- ESLint warning
+- ESLint error
+- test failure
+
+is considered a regression and must be resolved before completion.
+
+Do not optimize for reducing the current error count.
+
+Optimize for reaching a stable repository state where all validation passes simultaneously.
+
+### Final Verification
+
+Before declaring success, execute:
+
+```
+tsc --noEmit && \
+eslint src/ --max-warnings 0 && \
+vitest run
+```
+
+Only report completion if the entire sequence succeeds without modifications to the validation rules, lint configuration, TypeScript configuration, test configuration, CI configuration, or package scripts.
