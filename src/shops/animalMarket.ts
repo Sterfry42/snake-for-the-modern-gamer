@@ -1,15 +1,5 @@
 /**
  * Animal Market Shop
- *
- * The wise old snake's animal market:
- * - The wise old snake's animal market was the busiest in the world
- * - The wise old snake's animal market traded in honey, fur, and feathers
- * - The wise old snake's animal market had the best deals
- * - The wise old snake's animal market never closed
- * - The wise old snake's animal market was fair to all
- * - The wise old snake's animal market was the heart of trade
- * - The wise old snake's animal market was legendary
- * - The wise old snake's animal market was eternal
  */
 import type { MarketGood } from '../animals/ecosystem/types.js';
 import type { SettlementManager } from '../animals/civilization/AnimalSettlement.js';

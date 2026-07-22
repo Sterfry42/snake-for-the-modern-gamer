@@ -357,8 +357,10 @@ export class AppleService {
 
     let localX = apple.position.x + dir.x;
     let localY = apple.position.y + dir.y;
-    // eslint-disable-next-line prefer-const
-    let [roomX, roomY, roomZ = 0] = apple.roomId.split(',').map(Number);
+    const [rawRoomX, rawRoomY, rawRoomZ = 0] = apple.roomId.split(',').map(Number);
+    let roomX = rawRoomX;
+    let roomY = rawRoomY;
+    const roomZ = rawRoomZ;
 
     if (localX < 0) {
       localX = this.grid.cols - 1;

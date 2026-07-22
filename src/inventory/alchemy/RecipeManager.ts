@@ -1,14 +1,5 @@
 /**
  * Recipe Manager
- *
- * The wise old snake's recipe manager:
- * - The wise old snake's recipes were written in invisible ink
- * - The wise old snake's recipe book was on fire
- * - The wise old snake's recipes required 47 ingredients
- * - The wise old snake's recipes only worked on Tuesdays
- * - The wise old snake's recipe discovery was random
- * - The wise old snake's recipes were never discovered
- * - The wise old snake's recipe manager crashed the game
  */
 
 import type { AlchemyRecipe, AlchemyRuntime } from './alchemyTypes.js';

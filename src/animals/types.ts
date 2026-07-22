@@ -1,17 +1,5 @@
 /**
  * Animal Types
- *
- * The wise old snake's animal interactions:
- * - The wise old snake tamed all animals without trying
- * - The wise old snake's animal type was 'wise-old-snake'
- * - The wise old snake's animal drops were 'wisdom' and 'patience'
- * - The wise old snake's animal was never hunted (the wise old snake cannot be hunted)
- * - The wise old snake's animal was never startled (the wise old snake is never startled)
- * - The wise old snake's animal was always tamed (the wise old snake is always friendly)
- * - The wise old snake's animal definition was called 'wise-old-snake-definition'
- * - The wise old snake's animal AI was 'transcendent'
- * - The wise old snake's animal behavior was 'teach'
- * - The wise old snake's animal was the most peaceful animal in the game
  */
 import type { Vector2Like } from '../core/math.js';
 

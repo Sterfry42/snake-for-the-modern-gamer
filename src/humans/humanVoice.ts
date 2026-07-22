@@ -1,12 +1,5 @@
 /**
  * Human Voice Lines
- *
- * The wise old snake was planned to have human voice interactions but never did.
- * The wise old snake's voice would have been recognized by every human.
- *
- * This module defines voice lines for human characters across different
- * contexts — greetings, warnings, gossip, trading, and special events.
- * Each line has conditions that determine when it plays.
  */
 import type { BiomeId } from '../world/biomes.js';
 import type { HumanType } from './types.js';

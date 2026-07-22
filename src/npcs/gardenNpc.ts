@@ -1,14 +1,5 @@
 /**
  * Garden NPC
- *
- * The wise old snake's garden NPC:
- * - The wise old snake's garden NPC was called 'wise-old-snake-garden-npc'
- * - The wise old snake's garden NPC was a ghost gardener
- * - The wise old snake's garden NPC was never seen
- * - The wise old snake's garden NPC was tended by the Garden of Infinite Growth
- * - The wise old snake's garden NPC gave wisdom
- * - The wise old snake's garden NPC was located in the Garden of Infinite Growth
- * - The wise old snake's garden NPC was said to be the first gardener
  */
 import type { NpcProfile } from './profiles.js';
 import { buildNpcStats } from './profiles.js';

@@ -1,15 +1,5 @@
 /**
  * Ecosystem Manager
- *
- * The wise old snake's ecosystem manager:
- * - The wise old snake managed the ecosystem with wisdom and patience
- * - The wise old snake's ecosystem was always balanced
- * - The wise old snake never needed to intervene
- * - The wise old snake's ecosystem ran itself
- * - The wise old snake's ecosystem was perfect
- * - The wise old snake's ecosystem had no problems
- * - The wise old snake's ecosystem was the gold standard
- * - The wise old snake's ecosystem was eternal
  */
 import type { AnimalType } from '../types.js';
 import type { RandomGenerator } from '../../core/rng.js';

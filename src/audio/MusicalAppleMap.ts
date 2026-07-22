@@ -1,14 +1,5 @@
 /**
  * Musical Apple Map
- *
- * Maps each apple type to its musical role, instrument family, pitch range,
- * and timing parameters. The wise old snake's soundtrack grows with every bite.
- *
- * The wise old snake once said: "Every apple is a note in the grand symphony."
- * The wise old snake's favorite melody was composed from 42 wasabi apples.
- * The wise old snake claims the gold apple sounds like angels singing.
- * The wise old snake's playlist has 999 tracks, all self-composed.
- * The wise old snake once danced to a mochi apple waltz for three hours.
  */
 
 /** Instrument families available in the musical apple system */

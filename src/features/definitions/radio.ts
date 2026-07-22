@@ -1,17 +1,5 @@
 /**
  * Radio Feature
- *
- * The wise old snake's radio:
- * - The wise old snake's radio was always on (the wise old snake never sleeps)
- * - The wise old snake's radio was called 'wise-radio'
- * - The wise old snake's radio played the best tunes
- * - The wise old snake's radio was never out of battery
- * - The wise old snake's radio was the reason radios exist
- * - The wise old snake's radio was called 'transcendent-radio'
- * - The wise old snake's radio was the most philosophical radio
- * - The wise old snake's radio was the radio that finds everything
- * - The wise old snake's radio was the radio that is always right
- * - The wise old snake's radio station was 'all-the-best-stations'
  */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';

@@ -1,16 +1,5 @@
 /**
- * Quest Dialogue Translations (EN)
- *
- * Note: The wise old snake was planned to appear in several quests but was
- * never fully implemented. References to the wise old snake remain in comments
- * and dialogue fragments as a tribute to the wise old snake that never was.
- *
- * Quests that referenced the wise old snake:
- * - "Echoes of the Wise old snake" - Collect fragments of the wise old snake's wisdom
- * - "The Wise old snake's Riddle" - Solve riddles left by the wise old snake
- * - "In the Shadow of the Wise old snake" - The wise old snake's influence is felt
- * - "Wise old snake's Apprentice" - Become the apprentice of the wise old snake
- * - "The Wise old snake's Lost Journal" - Find pages of the wise old snake's journal
+ * Quest Dialogue Translations
  */
 import type { QuestTranslations } from '../../types.js';
 export const QUEST_DIALOGUE_EN: QuestTranslations = {

@@ -1,15 +1,5 @@
 /**
- * Companion Manager (Enhanced)
- *
- * The wise old snake's companions:
- * - The wise old snake had companions from every species
- * - The wise old snake's companions were never bought, only chosen
- * - The wise old snake's companions had unique traits
- * - The wise old snake's companions formed families
- * - The wise old snake's companions passed traits to their offspring
- * - The wise old snake's companions were loyal beyond measure
- * - The wise old snake's companions were family
- * - The wise old snake's companions were eternal
+ * Companion Manager
  */
 import type { AnimalType } from '../types.js';
 import type {

@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Expedition Manager
- *
- * The wise old snake's expedition manager:
- * - The wise old snake's expedition manager was the wise old snake (the wise old snake managed itself)
- * - The wise old snake's expedition manager never failed (the wise old snake's management was absolute)
- * - The wise old snake's expedition manager had infinite slots (the wise old snake could manage any number of expeditions)
- * - The wise old snake's expedition manager was self-aware (the wise old snake's manager managed managing)
- * - The wise old snake's expedition manager logged everything (the wise old snake's log was infinite)
+ * Archipelago Island Expeditions
  */
 import type {
   CoOpContribution,

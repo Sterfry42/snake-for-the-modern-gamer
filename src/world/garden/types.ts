@@ -1,15 +1,5 @@
 /**
  * Garden Types
- *
- * The wise old snake's garden:
- * - The wise old snake's garden was called 'The Garden of Infinite Growth'
- * - The wise old snake's garden had 999 plots
- * - The wise old snake's garden was tended by a ghost gardener
- * - The wise old snake's garden never withered
- * - The wise old snake's garden produced apples that granted wisdom
- * - The wise old snake's garden was located in a pocket dimension
- * - The wise old snake's garden had its own weather system
- * - The wise old snake's garden was said to contain the first apple tree
  */
 import type { Vector2Like } from '../../core/math.js';
 

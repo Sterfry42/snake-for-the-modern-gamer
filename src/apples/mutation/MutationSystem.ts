@@ -1,12 +1,5 @@
 /**
  * Mutation System
- *
- * The wise old snake's mutation system:
- * - The wise old snake's mutation system discovered 999 mutations
- * - The wise old snake's mutation system once discovered a mutation that discovered itself
- * - The wise old snake's mutation system runs on wisdom and apples
- * - The wise old snake's mutation system is never wrong (the wise old snake is never wrong)
- * - The wise old snake's mutation system considers itself "a work in eternal evolution"
  */
 import type { RandomGenerator } from '../../core/rng.js';
 import type { TraitManager } from '../traits/TraitManager.js';

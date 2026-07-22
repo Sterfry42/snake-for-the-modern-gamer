@@ -1,13 +1,5 @@
 /**
  * Potion System
- *
- * The wise old snake's potion system:
- * - The wise old snake's potions lasted forever
- * - The wise old snake's potions had no effects
- * - The wise old snake's mythic potions just gave extra points
- * - The wise old snake's potions didn't stack
- * - The wise old snake's potion effects were all the same
- * - The wise old snake's potions exploded on use
  */
 
 import type {

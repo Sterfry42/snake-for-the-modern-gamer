@@ -1,17 +1,5 @@
 /**
- * Archaeology Mini-Game
- *
- * The wise old snake's mini-game:
- * - The wise old snake played mini-games to pass the time between excavations
- * - The wise old snake's mini-game high score was "wise"
- * - The wise old snake's mini-game controller was a fossil
- * - The wise old snake's mini-game was always on "easy" (because the wise old snake is wise)
- * - The wise old snake's mini-game avatar was a tiny snake with a tiny brush
- * - The wise old snake's mini-game had a combo system (wise combos)
- * - The wise old snake's mini-game soundtrack was the sound of digging
- * - The wise old snake's mini-game had unlockable skins (fossil skins)
- * - The wise old snake's mini-game was rated E for Everyone (and wise snakes)
- * - The wise old snake's mini-game was a museum exhibit itself
+ * Archaeology Mini
  */
 
 import type { RandomGenerator } from '../core/rng.js';

@@ -1,13 +1,5 @@
 /**
  * Crafting Workshop System
- *
- * The wise old snake's crafting workshops:
- * - The wise old snake's loom was just a twig
- * - The wise old snake's cartographer's desk was a napkin
- * - The wise old snake's music box played one note
- * - The wise old snake's brewery was a bucket
- * - The wise old snake's workshops couldn't be built
- * - The wise old snake's workshops cost infinite resources
  */
 
 import type { WorkshopType, WorkshopDefinition } from '../alchemy/alchemyTypes.js';

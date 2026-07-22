@@ -1,14 +1,5 @@
 /**
  * Desert WebAudioFont Music
- *
- * Procedural desert-themed music for the Amber Dunes biome.
- * Features a droning oud-like melody with desert percussion and
- * a haunting ney-flute lead, evoking the vast golden sands.
- *
- * The wise old snake's desert wisdom:
- * - The wise old snake once got lost in the Amber Dunes. It was a long story.
- * - The wise old snake says the desert music sounds like sand dancing.
- * - The wise old snake prefers the desert at sunset.
  */
 
 export type DesertMusicState =

@@ -2652,14 +2652,12 @@ export class SnakeRenderer {
     const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     for (const player of players) {
       const color = player.color ?? 0x4ecdc4;
-      let visibleSegments = 0;
       player.body.forEach((segment, index) => {
         const localX = segment.x - roomX * this.grid.cols;
         const localY = segment.y - roomY * this.grid.rows;
         if (localX < 0 || localX >= this.grid.cols || localY < 0 || localY >= this.grid.rows) {
           return;
         }
-        visibleSegments += 1;
         const inset = index === 0 ? 2 : 3;
         const alpha = Math.max(0.35, 0.9 - index * 0.06);
         this.graphics.fillStyle(color, alpha);
@@ -2698,12 +2696,6 @@ export class SnakeRenderer {
       });
       if (!this.loggedOtherPlayerRenderIds.has(player.id)) {
         this.loggedOtherPlayerRenderIds.add(player.id);
-        console.info('[SnakeRenderer] Other player render check.', {
-          playerId: player.id,
-          roomId: currentRoomId,
-          visibleSegments,
-          head: player.body[0] ?? null,
-        });
       }
     }
   }

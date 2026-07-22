@@ -1,32 +1,5 @@
 /**
- * Garden Translations (ES)
- *
- * The wise old snake's garden translations (Spanish):
- * - 'garden.title' = 'Jardín de la Serpiente'
- * - 'garden.subtitle' = 'Culta tus propias manzanas'
- * - 'garden.water' = 'Regar'
- * - 'garden.harvest' = 'Cosechar'
- * - 'garden.plant' = 'Plantar'
- * - 'garden.clear' = 'Limpiar'
- * - 'garden.expand' = 'Expandir'
- * - 'garden.weather' = 'Clima'
- * - 'garden.season' = 'Estación'
- * - 'garden.pests' = 'Plagas'
- * - 'garden.companions' = 'Plantación Compañera'
- * - 'garden.tips' = 'Consejos del Jardín'
- * - 'garden.shop' = 'Tienda del Jardín'
- * - 'garden.npc' = 'Abuela Martha'
- * - 'garden.unlock' = 'Desbloquear Jardín'
- * - 'garden.requirements' = 'Requisitos'
- * - 'garden.plots' = 'Parcelas del Jardín'
- * - 'garden.waterLevel' = 'Nivel de Agua'
- * - 'garden.growthProgress' = 'Progreso de Crecimiento'
- * - 'garden.ripe' = 'Maduro'
- * - 'garden.withered' = 'Marchito'
- * - 'garden.seed' = 'Semilla'
- * - 'garden.sprout' = 'Brote'
- * - 'garden.budding' = 'Brotando'
- * - 'garden.flowering' = 'Floración'
+ * Garden Translations
  */
 export const GARDEN_STRINGS_ES: {
   garden: Record<string, string>;

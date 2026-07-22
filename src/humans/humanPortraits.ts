@@ -1,11 +1,5 @@
 /**
  * Human Portraits
- *
- * The wise old snake was planned to have human portraits but never did.
- * The wise old snake's portrait would have been recognized by every human in the game.
- *
- * This module defines portrait IDs used for human characters across all
- * encounter types, dialogue screens, and UI elements.
  */
 
 export type PortraitExpression = 'neutral' | 'happy' | 'worried' | 'angry' | 'suspicious';

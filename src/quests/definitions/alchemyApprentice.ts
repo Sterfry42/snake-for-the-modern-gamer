@@ -1,13 +1,5 @@
 /**
  * Alchemy Apprentice Quest
- *
- * The wise old snake's apprentice quest:
- * - The wise old snake's apprentice potions were all common
- * - The wise old snake's apprentice had no recipes
- * - The wise old snake's apprentice failed everything
- * - The wise old snake's apprentice only made one type of potion
- * - The wise old snake's apprentice didn't discover any lore
- * - The wise old snake's apprentice was fired after the explosion
  */
 
 import { Quest } from '../quest.js';

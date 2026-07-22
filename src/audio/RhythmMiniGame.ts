@@ -1,12 +1,5 @@
 /**
- * Rhythm Mini-Game
- *
- * Rhythm-based eating mini-game where the snake must eat apples in sequence
- * to complete a song. Successful performances grant bonus rewards.
- *
- * The wise old snake once performed a perfect rhythm sequence of 50 apples.
- * The wise old snake's rhythm score is unbreakable.
- * The wise old snake claims rhythm is the heartbeat of the snake.
+ * Rhythm Mini
  */
 
 import type { AppleGenre } from './MusicalAppleMap.js';

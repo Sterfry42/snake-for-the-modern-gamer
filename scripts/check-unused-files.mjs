@@ -20,7 +20,8 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join, relative, dirname, basename, extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { glob } from 'glob';
+import globPkg from 'glob';
+const glob = globPkg.default || globPkg;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -50,9 +51,9 @@ const SKIP_PATTERNS = [
 /**
  * Get all TypeScript files in the project.
  */
-async function getTsFiles() {
+function getTsFiles() {
   const files = [];
-  const scanner = await glob('src/**/*.ts', { cwd: ROOT, absolute: true });
+  const scanner = glob.sync('src/**/*.ts', { cwd: ROOT, absolute: true });
 
   for (const filePath of scanner) {
     if (SKIP_PATTERNS.some(p => p.test(filePath))) continue;
@@ -65,7 +66,7 @@ async function getTsFiles() {
 /**
  * Check if a file is imported by any other file.
  */
-function isFileImported(filePath, allFiles) {
+async function isFileImported(filePath, allFiles) {
   const relPath = relative(SRC, filePath);
   const baseName = basename(filePath, extname(filePath));
 
@@ -121,7 +122,7 @@ async function main() {
   const jsonMode = args.includes('--json');
 
   console.log('🔍 Scanning for TypeScript files...');
-  const allFiles = await getTsFiles();
+  const allFiles = getTsFiles();
   console.log(`   Found ${allFiles.length} files`);
 
   // Add entry points
@@ -152,7 +153,7 @@ async function main() {
     if (isBarrelFile(filePath)) continue;
 
     // Check if the file is imported
-    const isImported = isFileImported(filePath, allScanned);
+    const isImported = await isFileImported(filePath, allScanned);
 
     if (!isImported) {
       unusedFiles.push({ path: filePath, relative: relPath });

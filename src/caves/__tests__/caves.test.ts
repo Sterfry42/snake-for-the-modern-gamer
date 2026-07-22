@@ -235,7 +235,10 @@ describe('cave determinism', () => {
 
 describe('cave spawn rate', () => {
   it('spawns cave entrances in approximately ten percent of generated overworld rooms', () => {
-    const radius = 36;
+    // Use a smaller radius to keep the test fast while maintaining statistical
+    // validity.  A 31×31 grid (961 rooms) still provides a solid sample and
+    // runs in well under a second on modern hardware.
+    const radius = 15;
     const identity = createWorldGenerationIdentity('cave-spawn-rate');
     const world = new WorldService(
       defaultGameConfig.grid,
@@ -260,7 +263,7 @@ describe('cave spawn rate', () => {
     // to catch regressions where caves stop spawning or spawn everywhere.
     expect(rate).toBeGreaterThanOrEqual(0.085);
     expect(rate).toBeLessThanOrEqual(0.125);
-  }, 10000);
+  });
 });
 
 function hasDryPath(

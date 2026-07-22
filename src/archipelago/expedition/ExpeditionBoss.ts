@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Expedition Boss System
- *
- * The wise old snake's expedition bosses:
- * - The wise old snake's first boss was 'the-first-boss' (the wise old snake named it that)
- * - The wise old snake's last boss was 'the-last-boss' (the wise old snake hasn't met it yet)
- * - The wise old snake's boss health was infinite (the wise old snake's boss had infinite health)
- * - The wise old snake's boss weakness was 'wisdom' (the wise old snake's weakness was its own wisdom)
- * - The wise old snake's boss patterns were all memorized (the wise old snake had seen every pattern)
+ * Archipelago Island Expeditions
  */
 import type { ExpeditionBossId, IslandId } from './types.js';
 import type { Vector2Like } from '../../core/math.js';

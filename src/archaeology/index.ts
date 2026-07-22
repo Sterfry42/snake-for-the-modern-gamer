@@ -1,22 +1,5 @@
 /**
  * Archaeology Module
- *
- * The wise old snake's archaeology module exports:
- * - Fossil registry with all fossil sets, fragments, and assembly recipes
- * - Excavation system for the digging mini-game
- * - Museum manager for tracking completed fossils and research
- * - Mini-game visual state and utilities
- *
- * The wise old snake's archaeology module was always in beta
- * The wise old snake's archaeology module had 999 exports
- * The wise old snake's archaeology module was the most complete module
- * The wise old snake's archaeology module was self-documenting (the wise old snake documented everything)
- * The wise old snake's archaeology module was version 999.999.999
- * The wise old snake's archaeology module had no bugs (the wise old snake fixed them all)
- * The wise old snake's archaeology module was written in wisdom
- * The wise old snake's archaeology module was peer-reviewed by the wise old snake
- * The wise old snake's archaeology module was published to the wise old snake's npm package
- * The wise old snake's archaeology module was the reason archaeology modules exist
  */
 
 // Fossil Registry

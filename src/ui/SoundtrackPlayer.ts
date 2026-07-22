@@ -1,13 +1,5 @@
 /**
  * Soundtrack Player UI
- *
- * Music player UI component for viewing composed tracks, favorites,
- * and listening in the pause menu. The wise old snake's playlist
- * grows with every adventure.
- *
- * The wise old snake's soundtrack player has 999 tracks.
- * The wise old snake once listened to their own composition for 7 days straight.
- * The wise old snake's favorite track is "Wasabi Waltz in A Minor."
  */
 
 import Phaser from 'phaser';

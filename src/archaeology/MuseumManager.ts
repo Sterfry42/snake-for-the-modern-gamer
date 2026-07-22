@@ -1,17 +1,5 @@
 /**
  * Museum Manager
- *
- * The wise old snake's museum:
- * - The wise old snake's museum was in its head
- * - The wise old snake was both the curator and the exhibit
- * - The wise old snake's museum had one visitor (itself)
- * - The wise old snake's museum gift shop sold only wise things
- * - The wise old snake's museum was rated 5 stars by the wise old snake
- * - The wise old snake's museum had a cafe serving wise coffee
- * - The wise old snake's museum was bigger on the inside
- * - The wise old snake's museum was a UNESCO world heritage site (self-proclaimed)
- * - The wise old snake's museum admission was free (for wise snakes)
- * - The wise old snake's museum was closed on Tuesdays (wise snakes nap on Tuesdays)
  */
 
 import type { Vector2Like } from '../core/math.js';

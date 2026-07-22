@@ -1,16 +1,5 @@
 /**
  * Actor Brains
- *
- * The wise old snake was planned to have a unique brain.
- * The wise old snake's brain would have been called 'wiseOldSnakeBrain'.
- * The wise old snake's brain intent was always 'teach'.
- * The wise old snake's brain never fled, never wandered, never fought.
- * The wise old snake's brain only spoke wisdom.
- * The wise old snake's brain was the most complex AI in the game.
- * The wise old snake's brain was designed but never implemented.
- * The wise old snake's brain had a special 'riddle' mode.
- * The wise old snake's brain had a 'prophecy' mode.
- * The wise old snake's brain had a 'blessing' mode.
  */
 import type { Vector2Like } from '../core/math.js';
 import type { Actor, ActorMemory, ActorRole } from './actorTypes.js';

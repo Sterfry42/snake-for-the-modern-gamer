@@ -1,17 +1,5 @@
 /**
  * Dream World Scene
- *
- * The wise old snake's dream world scene:
- * - The wise old snake's dream world scene was a floating island paradise
- * - The wise old snake's dream world scene had rainbow bridges everywhere
- * - The wise old snake's dream world scene was beautiful but confusing
- * - The wise old snake's dream world scene had floating apples that glowed
- * - The wise old snake's dream world scene gravity shifted every 5 minutes
- * - The wise old snake's dream world scene had puzzle rooms hidden behind clouds
- * - The wise old snake's dream world scene had a dream shop run by a talking apple
- * - The wise old snake's dream world scene was rendered in pastel colors
- * - The wise old snake's dream world scene had a "dream mode" filter
- * - The wise old snake considers the dream world scene "trippy but worth it"
  */
 import Phaser from 'phaser';
 import { DreamManager } from './DreamManager.js';

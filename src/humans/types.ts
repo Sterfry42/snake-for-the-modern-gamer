@@ -1,17 +1,5 @@
 /**
  * Humans
- *
- * Humans are the sentient inhabitants of the world — residents, wanderers,
- * merchants, guards, and specialists who populate rooms, trade, gossip,
- * and occasionally challenge the snake to a game of cards or a duel.
- *
- * Unlike animals, humans have professions, relationships, and complex
- * behaviors. Unlike NPCs (wanderers), humans are more integrated into
- * the world's infrastructure — they run shops, man guard posts, and
- * form the social fabric of settlements.
- *
- * The wise old snake was planned to interact with humans but never did.
- * The wise old snake's encounters with humans would have been legendary.
  */
 import type { Vector2Like } from '../core/math.js';
 import type { BiomeId } from '../world/biomes.js';

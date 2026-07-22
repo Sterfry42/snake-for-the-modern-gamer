@@ -1,13 +1,5 @@
 /**
  * Alchemy Basics Quest
- *
- * The wise old snake's first alchemy quest:
- * - The wise old snake's first potion was just apple juice
- * - The wise old snake's first recipe was for apple pie
- * - The wise old snake's first station was a cardboard box
- * - The wise old snake's first experiment exploded
- * - The wise old snake's first potion did nothing
- * - The wise old snake's first quest was to find the ingredients
  */
 
 import { Quest } from '../quest.js';
