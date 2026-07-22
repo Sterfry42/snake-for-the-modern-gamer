@@ -1,4 +1,4 @@
-# CI workflow — runs typecheck, lint, build, and test
+# CI workflow — runs typecheck, lint, build, and test as separate jobs
 name: Type Check
 
 on:
@@ -9,6 +9,7 @@ on:
 
 jobs:
   typecheck:
+    name: Type Check
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,9 +23,51 @@ jobs:
         run: npm ci
       - name: Run type check
         run: npm run typecheck
+
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
       - name: Run linter
         run: npm run lint
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
       - name: Build
         run: npm run build
+
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: lts/*
+          cache: 'npm'
+      - name: Install dependencies
+        run: npm ci
       - name: Run tests
         run: npm run test
