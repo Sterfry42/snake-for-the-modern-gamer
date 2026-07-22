@@ -33,6 +33,14 @@ import {
   type SnakeStepDependencies,
   type SnakeStepOutcome,
 } from '../systems/snakeState.js';
+import {
+  MANEUVER_PRICE_SCORE,
+  getManeuverDefinition,
+  getManeuverTrainerAssignment,
+  validateManeuverCatalog,
+} from '../maneuvers/maneuverCatalog.js';
+import { ManeuverController } from '../maneuvers/maneuverController.js';
+import type { ManeuverId, ManeuverUseResult } from '../maneuvers/maneuverTypes.js';
 import { BossManager, type BossEvent } from '../systems/boss.js';
 import { EnemyManager, type BulletInstance, type EnemyInstance } from '../systems/enemies.js';
 import { AnimalManager } from '../animals/animalManager.js';
@@ -801,6 +809,7 @@ export class SnakeGame implements QuestRuntime {
   private readonly rumors: RumorSystem;
   private readonly factionEvents: FactionEventSystem;
   private readonly inventory: InventorySystem;
+  private readonly maneuvers = new ManeuverController();
   private readonly specialStats = new SpecialStatsService();
   private levelProgression: LevelProgressionState = createDefaultLevelProgressionState();
   private levelUpCallback?: (result: LevelUpResult) => void;
@@ -854,6 +863,7 @@ export class SnakeGame implements QuestRuntime {
     private readonly snakeScene: any,
     rng?: RandomGenerator,
   ) {
+    validateManeuverCatalog();
     this.config = config;
     this.characterMode = normalizeCharacterMode(config.character?.mode);
     const runSeed = config.rng.seed ?? createRunSeed();
@@ -917,6 +927,7 @@ export class SnakeGame implements QuestRuntime {
     this.rumors.load(undefined);
     this.factionEvents.load(undefined);
     this.inventory.clear();
+    this.maneuvers.reset();
     this.specialStats.restore();
     this.levelProgression = createDefaultLevelProgressionState();
     this.debugSecondSnake = null;
@@ -967,6 +978,10 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('traversal.buoyancyRemaining', undefined);
     this.setFlag('traversal.buoyancyCapacity', undefined);
     this.setFlag('ui.drowning', undefined);
+    this.setFlag('maneuvers.state', this.maneuvers.exportState());
+    this.setFlag('maneuvers.ghostSources', undefined);
+    this.setFlag('maneuvers.activeGhostSteps', undefined);
+    this.setFlag('ui.maneuver', undefined);
     this.setFlag('treasurePicked', 0);
     this.setFlag('powerupsPicked', 0);
     this.setFlag('roomsVisited', 1);
@@ -1837,6 +1852,8 @@ export class SnakeGame implements QuestRuntime {
       }
       outcome = { status: 'alive', reason: undefined, appleEaten: false };
     }
+
+    this.handleManeuverOrdinaryStep();
 
     if (this.tryActivateQuestTeleporterAtHead()) {
       roomsChanged.add(this.snake.currentRoomId);
@@ -2757,6 +2774,230 @@ export class SnakeGame implements QuestRuntime {
       this.snake.keepHeadOnly();
     }
     return outcome;
+  }
+
+  activateManeuver(relativeDirection?: Vector2Like): ManeuverUseResult {
+    if (this.isRaccoonMode()) {
+      return this.failManeuver('form', 'Maneuvers need a snake body.');
+    }
+    const id = this.maneuvers.equippedId;
+    if (!id) {
+      return this.failManeuver('no-maneuver', 'No maneuver equipped.');
+    }
+    if (!this.maneuvers.hasLearned(id)) {
+      return this.failManeuver('not-learned', 'Learn that maneuver first.');
+    }
+    if (this.maneuvers.cooldownRemaining > 0) {
+      return this.failManeuver(
+        'cooldown',
+        `${getManeuverDefinition(id).name} ready in ${this.maneuvers.cooldownRemaining} steps.`,
+      );
+    }
+    switch (id) {
+      case 'dash':
+        return this.activateDash();
+      case 'ghost':
+        return this.activateGhost();
+      case 'sidewinder':
+        return this.activateSidewinder(relativeDirection);
+      case 'rewind':
+        return this.activateRewind();
+    }
+  }
+
+  private activateDash(): ManeuverUseResult {
+    const definition = getManeuverDefinition('dash');
+    const path = this.buildManeuverPath(this.snake.directionVector, definition.distanceTiles ?? 7);
+    if (!path.ok) return this.failManeuver(path.reason, path.message);
+    this.commitManeuverDisplacement(path.path, this.snake.directionVector, 'dash');
+    this.maneuvers.startCooldown();
+    this.persistManeuverState();
+    return this.succeedManeuver('dash', 'Dash!');
+  }
+
+  private activateSidewinder(relativeDirection?: Vector2Like): ManeuverUseResult {
+    const facing = this.snake.directionVector;
+    const side = this.resolveSidewinderDirection(facing, relativeDirection);
+    if (!side) {
+      return this.failManeuver('blocked', 'Hold a side direction with Maneuver.');
+    }
+    const definition = getManeuverDefinition('sidewinder');
+    const path = this.buildManeuverPath(side, definition.distanceTiles ?? 3);
+    if (!path.ok) return this.failManeuver(path.reason, path.message);
+    this.commitManeuverDisplacement(path.path, facing, 'sidewinder');
+    this.maneuvers.startCooldown();
+    this.persistManeuverState();
+    return this.succeedManeuver('sidewinder', 'Sidewinder!');
+  }
+
+  private activateGhost(): ManeuverUseResult {
+    const duration = getManeuverDefinition('ghost').durationSteps ?? 8;
+    const currentPhase = Number(this.getFlag<number>('traversal.phaseTicks') ?? 0);
+    this.setFlag('traversal.phaseTicks', Math.max(currentPhase, duration));
+    this.setFlag('maneuvers.activeGhostSteps', duration);
+    this.setGhostSource('maneuver', true);
+    this.syncGhostVisualFlag();
+    this.persistManeuverState();
+    return this.succeedManeuver('ghost', 'Ghost active.');
+  }
+
+  private activateRewind(): ManeuverUseResult {
+    const currentHealth = this.getPlayerHealth().current;
+    const snapshot = this.maneuvers.consumeRewindSnapshot(
+      this.snake.bodySegments.length,
+      getManeuverDefinition('rewind').historySteps,
+    );
+    if (!snapshot) {
+      return this.failManeuver('no-history', 'No stable rewind point.');
+    }
+    this.snake.restoreBodySnapshot(snapshot);
+    this.setFlag('player.health', snapshot.health);
+    this.setFlag('ui.healthRevealed', true);
+    this.maneuvers.startCooldown();
+    this.persistManeuverState();
+    this.setFlag('ui.maneuver.rewindHeartDelta', snapshot.health - currentHealth);
+    return this.succeedManeuver('rewind', 'Rewind!');
+  }
+
+  private commitManeuverDisplacement(
+    path: readonly Vector2Like[],
+    direction: Vector2Like,
+    id: ManeuverId,
+  ): void {
+    const originalBody = Array.from(this.snake.bodySegments, (segment) => ({ ...segment }));
+    const destination = path[path.length - 1];
+    if (!destination) return;
+    const nextBody = [
+      { ...destination },
+      ...originalBody
+        .slice(0, Math.max(0, originalBody.length - 1))
+        .map((segment) => ({ ...segment })),
+    ];
+    this.snake.commitManeuverBody(nextBody, direction);
+    this.setFlag('ui.maneuver.path', {
+      id,
+      path: path.map((point) => ({ ...point })),
+      roomId: this.snake.currentRoomId,
+    });
+  }
+
+  private buildManeuverPath(
+    direction: Vector2Like,
+    distance: number,
+  ):
+    | { ok: true; path: Vector2Like[] }
+    | { ok: false; reason: 'blocked' | 'room-boundary'; message: string } {
+    const head = this.snake.bodySegments[0];
+    if (!head) {
+      return { ok: false, reason: 'blocked', message: 'No snake body to move.' };
+    }
+    const roomId = this.snake.currentRoomId;
+    const body = Array.from(this.snake.bodySegments).slice(0, -1);
+    const path: Vector2Like[] = [];
+    for (let step = 1; step <= distance; step += 1) {
+      const point = { x: head.x + direction.x * step, y: head.y + direction.y * step };
+      const info = this.resolveRoomPosition(point);
+      if (!info || info.roomId !== roomId) {
+        return { ok: false, reason: 'room-boundary', message: 'Maneuvers cannot cross rooms.' };
+      }
+      const room = this.world.getRoom(info.roomId);
+      const tile = room.layout[info.localY]?.[info.localX];
+      if (
+        tile === undefined ||
+        tile === '~' ||
+        this.isSolidTile(tile) ||
+        isBlockingTownTile(tile)
+      ) {
+        return { ok: false, reason: 'blocked', message: 'Maneuver lane is blocked.' };
+      }
+      if (body.some((segment) => segment.x === point.x && segment.y === point.y)) {
+        return { ok: false, reason: 'blocked', message: 'Your body blocks that maneuver.' };
+      }
+      path.push(point);
+    }
+    return { ok: true, path };
+  }
+
+  private resolveSidewinderDirection(
+    facing: Vector2Like,
+    relativeDirection?: Vector2Like,
+  ): Vector2Like | null {
+    const left = { x: -facing.y, y: facing.x };
+    const right = { x: facing.y, y: -facing.x };
+    if (!relativeDirection) {
+      return right;
+    }
+    if (relativeDirection.x === left.x && relativeDirection.y === left.y) return left;
+    if (relativeDirection.x === right.x && relativeDirection.y === right.y) return right;
+    return null;
+  }
+
+  private failManeuver(reason: ManeuverUseResult['reason'], message: string): ManeuverUseResult {
+    this.setFlag('ui.maneuver', { ok: false, reason, message });
+    return { ok: false, reason, message };
+  }
+
+  private succeedManeuver(id: ManeuverId, message: string): ManeuverUseResult {
+    this.setFlag('ui.maneuver', { ok: true, id, message });
+    return { ok: true, id, message };
+  }
+
+  private handleManeuverOrdinaryStep(): void {
+    const previous = this.getFlag<{
+      body?: Vector2Like[];
+      roomId?: string;
+      direction?: Vector2Like;
+    }>('internal.previousSnapshot');
+    if (previous?.body && previous.roomId && previous.direction) {
+      this.maneuvers.recordSnapshot({
+        body: previous.body,
+        roomId: previous.roomId,
+        direction: previous.direction,
+        health: this.getPlayerHealth().current,
+      });
+    }
+
+    const ghostRemaining = Number(this.getFlag<number>('maneuvers.activeGhostSteps') ?? 0);
+    if (ghostRemaining > 0) {
+      const next = ghostRemaining - 1;
+      this.setFlag('maneuvers.activeGhostSteps', next > 0 ? next : undefined);
+      if (next <= 0) {
+        this.setGhostSource('maneuver', false);
+        this.syncGhostVisualFlag();
+        this.maneuvers.startCooldown();
+        this.persistManeuverState();
+        return;
+      }
+    }
+
+    if (this.maneuvers.tickCooldown()) {
+      const id = this.maneuvers.equippedId;
+      this.setFlag('ui.maneuver.ready', id ? { id } : undefined);
+    }
+    this.persistManeuverState();
+  }
+
+  private persistManeuverState(): void {
+    this.setFlag('maneuvers.state', this.maneuvers.exportState());
+  }
+
+  private setGhostSource(source: 'revival' | 'maneuver', active: boolean): void {
+    const current = this.getFlag<Record<string, boolean>>('maneuvers.ghostSources') ?? {};
+    const next = { ...current };
+    if (active) {
+      next[source] = true;
+    } else {
+      delete next[source];
+    }
+    this.setFlag('maneuvers.ghostSources', Object.keys(next).length > 0 ? next : undefined);
+  }
+
+  private syncGhostVisualFlag(): void {
+    const sources = this.getFlag<Record<string, boolean>>('maneuvers.ghostSources');
+    this.setFlag(
+      'player.revivalGhostActive',
+      sources && Object.keys(sources).length > 0 ? true : undefined,
+    );
   }
 
   private getImminentLethalStep(): { key: string; graceTicks: number } | null {
@@ -5358,10 +5599,11 @@ export class SnakeGame implements QuestRuntime {
 
   private applyTownRuntimeState(town: TownStructure): TownStructure {
     const runtime = this.getFlag<TownRuntimeState>(`town.runtime.${town.id}`);
+    const baseTown = this.ensurePhysicalTrainerInTown(town);
     if (!runtime) {
-      return town;
+      return baseTown;
     }
-    const next = cloneTown(town);
+    const next = cloneTown(baseTown);
     next.wantedLevel = runtime.wantedLevel;
     next.suspicion = runtime.suspicion;
     next.reputation = runtime.reputation;
@@ -5393,6 +5635,64 @@ export class SnakeGame implements QuestRuntime {
       next.thievesGuild.failedJobs = [...runtime.failedGuildJobs];
     }
     return next;
+  }
+
+  private ensurePhysicalTrainerInTown(town: TownStructure): TownStructure {
+    if (
+      !(town.townTags ?? []).includes('human') ||
+      town.residents.some((resident) => resident.role === 'physicalTrainer')
+    ) {
+      return town;
+    }
+
+    const next = cloneTown(town);
+    const roomId = this.getPhysicalTrainerRoomId(next);
+    const x = Math.max(
+      2,
+      Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2) - 4),
+    );
+    const y = Math.max(
+      2,
+      Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2) + 3),
+    );
+    const name = 'Coach Marco';
+    const id = `${next.id}:physical-trainer`;
+    const profile = buildHouseNpcProfile(name);
+    const resident: TownStructure['residents'][number] = {
+      ...profile,
+      id,
+      name,
+      actorId: `town:${next.id}:physicalTrainer:${id}`,
+      x,
+      y,
+      role: 'physicalTrainer',
+      homeRoomId: roomId,
+      workRoomId: roomId,
+      townId: next.id,
+      factionId: next.factionId,
+    };
+
+    next.residents = [...next.residents, resident];
+    next.residentPresences = [
+      ...(next.residentPresences ?? []),
+      {
+        residentId: id,
+        roomId,
+        x,
+        y,
+        source: 'district',
+        role: 'physicalTrainer',
+      },
+    ];
+    return next;
+  }
+
+  private getPhysicalTrainerRoomId(town: TownStructure): string {
+    const preferredDistricts = new Set(['townCenter', 'square', 'marketStreet', 'market']);
+    const preferred = Object.entries(town.districtByRoomId).find(([, district]) =>
+      preferredDistricts.has(district),
+    );
+    return preferred?.[0] ?? town.entranceRoomId;
   }
 
   private saveTownRuntimeState(town: TownStructure): void {
@@ -7815,6 +8115,88 @@ export class SnakeGame implements QuestRuntime {
 
   getDirection(): Vector2Like {
     return this.snake.directionVector;
+  }
+
+  getManeuverState() {
+    return this.maneuvers.getState();
+  }
+
+  getManeuverOfferForCurrentTown(): { id: ManeuverId; trainerId: string } | null {
+    const town = this.getCurrentRoom().town;
+    if (!town) {
+      return null;
+    }
+    const trainerId = `town:${town.id}:physical-trainer`;
+    const discoveryIndex = this.maneuvers.ensureTrainerDiscovered(trainerId);
+    this.persistManeuverState();
+    return {
+      id: getManeuverTrainerAssignment(town.id, discoveryIndex),
+      trainerId,
+    };
+  }
+
+  buyManeuverFromCurrentTrainer(equipAfterPurchase = false): {
+    ok: boolean;
+    message: string;
+    color: string;
+    id?: ManeuverId;
+  } {
+    const offer = this.getManeuverOfferForCurrentTown();
+    if (!offer) {
+      return {
+        ok: false,
+        message: 'Physical Trainers teach only in human towns.',
+        color: '#ff6b6b',
+      };
+    }
+    const definition = getManeuverDefinition(offer.id);
+    if (this.maneuvers.hasLearned(offer.id)) {
+      this.maneuvers.equip(offer.id);
+      this.persistManeuverState();
+      return {
+        ok: true,
+        id: offer.id,
+        message: `${definition.name} equipped. Shared cooldown stays put, capisce?`,
+        color: '#9ad1ff',
+      };
+    }
+    if (this.getScore() < MANEUVER_PRICE_SCORE) {
+      return {
+        ok: false,
+        id: offer.id,
+        message: `${definition.name} training costs ${MANEUVER_PRICE_SCORE} score.`,
+        color: '#ff6b6b',
+      };
+    }
+    this.addScore(-MANEUVER_PRICE_SCORE);
+    this.maneuvers.markTrainerDiscovered(offer.trainerId);
+    const learned = this.maneuvers.learn(offer.id);
+    if (!learned.autoEquipped && equipAfterPurchase) {
+      this.maneuvers.equip(offer.id);
+    }
+    this.persistManeuverState();
+    return {
+      ok: true,
+      id: offer.id,
+      message: learned.autoEquipped
+        ? `${definition.name} learned and equipped. Hit Shift when the moment gets spicy.`
+        : equipAfterPurchase
+          ? `${definition.name} learned and equipped.`
+          : `${definition.name} learned. Equip it from Maneuvers when you're ready.`,
+      color: '#5dd6a2',
+    };
+  }
+
+  equipManeuver(id: ManeuverId): { ok: boolean; message: string; color: string } {
+    if (!this.maneuvers.equip(id)) {
+      return { ok: false, message: 'Learn that maneuver before equipping it.', color: '#ff6b6b' };
+    }
+    this.persistManeuverState();
+    return {
+      ok: true,
+      message: `${getManeuverDefinition(id).name} equipped.`,
+      color: '#9ad1ff',
+    };
   }
 
   getScore(): number {
@@ -13300,6 +13682,7 @@ export class SnakeGame implements QuestRuntime {
       'animals.companions',
       'growth.digestiveChoice',
       'growth.reserveNutrition',
+      'maneuvers.state',
       'fortitude.bloodBank',
       'survival.secondWindUsed',
       'survival.secondWindSteps',
@@ -13543,6 +13926,11 @@ export class SnakeGame implements QuestRuntime {
           this.setFlag(key, value);
         }
       }
+      this.maneuvers.restore(data.flags?.['maneuvers.state']);
+      this.persistManeuverState();
+      this.setFlag('maneuvers.ghostSources', undefined);
+      this.setFlag('maneuvers.activeGhostSteps', undefined);
+      this.syncGhostVisualFlag();
       const currentRoom = this.world.getRoom(this.snake.currentRoomId);
       this.animals.ensureAnimals(
         this.snake.currentRoomId,
@@ -14817,7 +15205,10 @@ export class SnakeGame implements QuestRuntime {
       const remaining = Math.max(0, invuln - 1);
       this.setFlag('fortitude.invulnerabilityTicks', remaining);
       this.setFlag('player.bulletInvulnTicks', undefined);
-      if (remaining <= 0) this.setFlag('player.revivalGhostActive', undefined);
+      if (remaining <= 0) {
+        this.setGhostSource('revival', false);
+        this.syncGhostVisualFlag();
+      }
     }
   }
 
@@ -15940,7 +16331,8 @@ export class SnakeGame implements QuestRuntime {
 
   private grantPostDeathInvulnerability(): void {
     this.grantUnifiedInvulnerability(POST_DEATH_INVULNERABILITY_TICKS + 1);
-    this.setFlag('player.revivalGhostActive', true);
+    this.setGhostSource('revival', true);
+    this.syncGhostVisualFlag();
     this.setFlag('ui.drowning', undefined);
   }
 

@@ -71,6 +71,8 @@ export class SkillTreeManager implements SkillTreeRuntime {
         this.scene.previewSpecialStatChange(statId, delta),
       onApplySpecialChanges: () => this.scene.applySpecialStatPreview(),
       onResetSpecialPreview: () => this.scene.resetSpecialStatPreview(),
+      getManeuverState: () => this.scene.getManeuverState(),
+      onEquipManeuver: (id) => this.scene.equipManeuver(id),
       getAchievementManager: () => this.scene.getAchievementManager(),
       onAchievementZoomExtreme: (extreme) => this.handleAchievementZoomExtreme(extreme),
     });

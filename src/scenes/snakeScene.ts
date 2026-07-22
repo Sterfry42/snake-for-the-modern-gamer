@@ -120,6 +120,8 @@ import {
   isKeyboardEventForAction,
   type ControlActionId,
 } from '../input/controlActions.js';
+import { getManeuverDefinition } from '../maneuvers/maneuverCatalog.js';
+import type { ManeuverId } from '../maneuvers/maneuverTypes.js';
 import { ControllerInput } from '../input/controllerInput.js';
 import { ControllerFeedback, type ControllerFeedbackKind } from '../input/controllerFeedback.js';
 import { InputModeManager } from '../input/inputModeManager.js';
@@ -1835,6 +1837,7 @@ export default class SnakeScene extends Phaser.Scene {
   private raccoonHungerTimerBar!: Phaser.GameObjects.Graphics;
   private heartsHud!: Phaser.GameObjects.Text;
   private livesHud!: Phaser.GameObjects.Text;
+  private maneuverHud!: Phaser.GameObjects.Text;
   private temperatureHud!: Phaser.GameObjects.Text;
   private radiationHud!: Phaser.GameObjects.Text;
   private villageHud!: Phaser.GameObjects.Text;
@@ -2230,6 +2233,16 @@ export default class SnakeScene extends Phaser.Scene {
       })
       .setDepth(28)
       .setVisible(false);
+    this.maneuverHud = this.add
+      .text(10, 52, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#9ad1ff',
+        stroke: '#06111a',
+        strokeThickness: 2,
+      })
+      .setDepth(28)
+      .setVisible(false);
     this.temperatureHud = this.add
       .text(8, this.grid.rows * this.grid.cell - 48, '', {
         fontFamily: 'monospace',
@@ -2428,6 +2441,16 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (!this.paused && isKeyboardEventForAction(event, 'ability.context')) {
         this.useContextProgressionAbility();
+        event.preventDefault();
+        return;
+      }
+
+      if (
+        !this.paused &&
+        (isKeyboardEventForAction(event, 'maneuver.activate') ||
+          (event.shiftKey && controlDirection))
+      ) {
+        this.tryActivateManeuver(controlDirection ?? undefined);
         event.preventDefault();
         return;
       }
@@ -2703,6 +2726,11 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
+    if (actionId === 'maneuver.activate') {
+      this.tryActivateManeuver();
+      return;
+    }
+
     if (actionId === 'menu.pause') {
       this.togglePauseMenu();
       return;
@@ -2729,6 +2757,15 @@ export default class SnakeScene extends Phaser.Scene {
     const result = this.snakeGame.cycleDigestiveMode();
     this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ffd166');
     this.skillTree.getOverlay().refresh();
+    return result.ok;
+  }
+
+  private tryActivateManeuver(relativeDirection?: { x: number; y: number }): boolean {
+    if (this.paused || this.titleVisible || this.deathCutscene) return false;
+    const result = this.snakeGame.activateManeuver(relativeDirection);
+    this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff9f1c');
+    this.skillTree.getOverlay().refresh();
+    this.isDirty = true;
     return result.ok;
   }
 
@@ -8437,6 +8474,18 @@ export default class SnakeScene extends Phaser.Scene {
     return this.snakeGame.getArtifactViews();
   }
 
+  getManeuverState() {
+    return this.snakeGame.getManeuverState();
+  }
+
+  equipManeuver(id: ManeuverId): { ok: boolean; message: string; color: string } {
+    const result = this.snakeGame.equipManeuver(id);
+    if (result.ok) {
+      this.showQuestHintPopup(result.message, result.color);
+    }
+    return result;
+  }
+
   getCardCollectionForMenu(): CardCollection {
     return this.getCardCollection();
   }
@@ -8827,6 +8876,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.questHintPanel?.setVisible(false);
       this.heartsHud?.setVisible(false);
       this.livesHud?.setVisible(false);
+      this.maneuverHud?.setVisible(false);
       this.temperatureHud?.setVisible(false);
       this.radiationHud?.setVisible(false);
       this.villageHud?.setVisible(false);
@@ -8909,6 +8959,8 @@ export default class SnakeScene extends Phaser.Scene {
         return this.skillTree.handleControllerCommand('primary', this.paused);
       case 'ability.context':
         return this.useContextProgressionAbility();
+      case 'maneuver.activate':
+        return this.tryActivateManeuver();
       case 'menu.pause':
         this.togglePauseMenu();
         return true;
@@ -10133,7 +10185,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.lastVisibleLifeCharges = lifeCharges;
     this.livesHud.setText(`Lives: ${lifeCharges + 1}`);
     this.livesHud.setVisible(!this.isInHouse() && !this.snakeGame.isRaccoonMode());
-    this.livesHud.getBounds();
+    this.updateManeuverHud();
     const screenBottom = this.grid.rows * this.grid.cell;
     const bottomY = screenBottom - 22;
     this.temperatureHud.setPosition(8, bottomY);
@@ -10509,7 +10561,42 @@ export default class SnakeScene extends Phaser.Scene {
     };
   }
 
+  private updateManeuverHud(): void {
+    if (this.isInHouse() || this.snakeGame.isRaccoonMode()) {
+      this.maneuverHud.setVisible(false);
+      return;
+    }
+    const state = this.snakeGame.getManeuverState();
+    if (!state.equippedId) {
+      this.maneuverHud.setVisible(false);
+      return;
+    }
+    const definition = getManeuverDefinition(state.equippedId);
+    const activeGhostSteps = Math.max(
+      0,
+      Number(this.getFlag<number>('maneuvers.activeGhostSteps') ?? 0),
+    );
+    const cooldown = Math.max(0, state.cooldownRemaining);
+    const status =
+      activeGhostSteps > 0
+        ? `GHOST ${activeGhostSteps}`
+        : cooldown > 0
+          ? `CD ${cooldown}`
+          : 'READY';
+    const y = this.livesHud.visible
+      ? this.livesHud.getBounds().bottom + 4
+      : this.heartsHud.getBounds().bottom + 4;
+    this.maneuverHud
+      .setPosition(10, y)
+      .setColor(cooldown > 0 ? '#fff3a8' : '#9ad1ff')
+      .setText(`Maneuver: ${definition.shortLabel} ${status}`)
+      .setVisible(true);
+  }
+
   getLeftHudBottomY(): number {
+    if (this.maneuverHud.visible) {
+      return this.maneuverHud.getBounds().bottom + 4;
+    }
     if (!this.livesHud.visible) {
       const heartsBounds = this.heartsHud.getBounds();
       return heartsBounds.bottom + 4;
@@ -10662,9 +10749,7 @@ export default class SnakeScene extends Phaser.Scene {
       this.religionMods,
     );
     if (faithLifeCharges > 0) {
-      this.skillTree.setExtraLifeCharges(
-        this.skillTree.getStats().extraLives - faithLifeCharges,
-      );
+      this.skillTree.setExtraLifeCharges(this.skillTree.getStats().extraLives - faithLifeCharges);
     }
     this.chosenReligionId = null;
     this.chosenBackgroundId = null;
@@ -12574,6 +12659,10 @@ export default class SnakeScene extends Phaser.Scene {
   private showVillageShopRoot(shopkeeperName: string, skipBark = false, actorRole?: string): void {
     this.paused = true;
     this.skillTree.hideOverlay();
+    if (actorRole === 'physicalTrainer') {
+      this.showManeuverTrainerShop(shopkeeperName);
+      return;
+    }
     const bark = this.snakeGame.getNpcBark('shopkeeper');
     if (!skipBark) {
       this.showQuestDialogue(
@@ -12709,6 +12798,64 @@ export default class SnakeScene extends Phaser.Scene {
       ) {
         this.showVillageShopCategory(shopkeeperName, id, 0, actorRole);
       }
+    });
+  }
+
+  private showManeuverTrainerShop(trainerName: string): void {
+    const offer = this.snakeGame.getManeuverOfferForCurrentTown();
+    if (!offer) {
+      this.closeVillageShop();
+      return;
+    }
+    const definition = getManeuverDefinition(offer.id);
+    const state = this.snakeGame.getManeuverState();
+    const learned = state.learnedIds.includes(offer.id);
+    const equipped = state.equippedId === offer.id;
+    const control = getPrimaryBindingLabelForDisplay(
+      'maneuver.activate',
+      this.inputModeManager.getMode(),
+    );
+    const baseDescription = `${definition.description} ${control} activates it. Cooldown: ${definition.cooldownSteps} steps.`;
+    const options: ChoiceOption[] = [];
+    if (learned) {
+      options.push({
+        id: 'equip',
+        title: equipped ? `${definition.name} - equipped` : `Equip ${definition.name}`,
+        description: baseDescription,
+      });
+    } else if (state.equippedId) {
+      options.push(
+        {
+          id: 'buy-equip',
+          title: `Buy + Equip ${definition.name} - ${definition.priceScore} score`,
+          description: baseDescription,
+        },
+        {
+          id: 'buy-learn',
+          title: `Buy + Learn Only - ${definition.priceScore} score`,
+          description: 'Add it permanently, but keep your current maneuver equipped.',
+        },
+      );
+    } else {
+      options.push({
+        id: 'buy-equip',
+        title: `${definition.name} - ${definition.priceScore} score`,
+        description: `${baseDescription} First maneuver auto-equips.`,
+      });
+    }
+    options.push({ id: 'leave', title: 'Leave', description: 'Step away from the training mat.' });
+    this.villageShopPopup.show(`${trainerName}'s Maneuver Training`, options, (id) => {
+      if (id === 'leave') {
+        this.closeVillageShop();
+        return;
+      }
+      const result =
+        id === 'equip'
+          ? this.snakeGame.equipManeuver(offer.id)
+          : this.snakeGame.buyManeuverFromCurrentTrainer(id === 'buy-equip');
+      this.showQuestHintPopup(result.message, result.color);
+      this.skillTree.getOverlay().refresh();
+      this.showManeuverTrainerShop(trainerName);
     });
   }
 
@@ -17053,13 +17200,15 @@ export default class SnakeScene extends Phaser.Scene {
                       ? ' the Butcher'
                       : resident.role === 'cardDealer'
                         ? ' the Card Dealer'
-                        : resident.role === 'guard'
-                          ? ' the Guard'
-                          : resident.role === 'thief' || resident.role === 'thiefContact'
-                            ? ' of the Guild'
-                            : resident.role === 'questGiver'
-                              ? ' the Quest Broker'
-                              : ''
+                        : resident.role === 'physicalTrainer'
+                          ? ' the Physical Trainer'
+                          : resident.role === 'guard'
+                            ? ' the Guard'
+                            : resident.role === 'thief' || resident.role === 'thiefContact'
+                              ? ' of the Guild'
+                              : resident.role === 'questGiver'
+                                ? ' the Quest Broker'
+                                : ''
             }`,
             species: 'human' as RelationshipSpecies,
             portraitId: resident.portraitId,

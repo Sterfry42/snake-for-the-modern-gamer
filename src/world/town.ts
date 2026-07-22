@@ -120,7 +120,8 @@ export type TownShopKind =
   | 'tailor'
   | 'scribe'
   | 'clinic'
-  | 'blackMarket';
+  | 'blackMarket'
+  | 'maneuverTrainer';
 
 export interface TownRoomNode {
   id: string;
@@ -244,6 +245,7 @@ export interface TownResident extends Omit<NpcProfile, 'role'> {
     | 'butcher'
     | 'cardDealer'
     | 'bartender'
+    | 'physicalTrainer'
     | 'guard'
     | 'resident'
     | 'thiefContact'
@@ -821,6 +823,11 @@ export function createPhysicalHumanTown(args: {
       workDistrict: 'townCenter' as const,
     },
     {
+      role: 'physicalTrainer' as const,
+      name: pickNpcName('guard', rng),
+      workDistrict: 'townCenter' as const,
+    },
+    {
       role: 'guard' as const,
       name: pickNpcName('guard', rng),
       workDistrict: 'townCenter' as const,
@@ -922,7 +929,8 @@ export function createPhysicalHumanTown(args: {
           ? 'townCenter'
           : spot.role === 'equipmentMerchant' ||
               spot.role === 'potionMaker' ||
-              spot.role === 'butcher'
+              spot.role === 'butcher' ||
+              spot.role === 'physicalTrainer'
             ? 'marketStreet'
             : 'townCenter',
     ),

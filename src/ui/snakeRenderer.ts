@@ -2391,12 +2391,11 @@ export class SnakeRenderer {
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
     const ghostAlpha = ghostly ? 0.38 + 0.12 * (0.5 + 0.5 * Math.sin(now / 115)) : 1;
-    const tintColor =
-      ghostly
-        ? 0xb9efff
-        : typeof overrideColor === 'number'
-          ? overrideColor
-          : this.resolveThermalSnakeTint(thermalBody);
+    const tintColor = ghostly
+      ? 0xb9efff
+      : typeof overrideColor === 'number'
+        ? overrideColor
+        : this.resolveThermalSnakeTint(thermalBody);
     const textureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
       this.grid.cell,

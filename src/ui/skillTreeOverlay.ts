@@ -68,6 +68,12 @@ import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import { DAY_PHASE_DURATIONS_MS } from '../world/atmosphereTypes.js';
 import { TreeViewportController, type TreePoint } from './core/TreeViewportController.js';
 import { buildSkillTreeWorldLayout, getSkillTreeFoundationPoint } from './skillTreeWorldLayout.js';
+import {
+  MANEUVER_DEFINITIONS,
+  MANEUVER_SHARED_COOLDOWN_STEPS,
+  getManeuverDefinition,
+} from '../maneuvers/maneuverCatalog.js';
+import type { ManeuverId, ManeuverSaveState } from '../maneuvers/maneuverTypes.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -102,6 +108,8 @@ interface OverlayHandlers {
   onPreviewSpecialChange?: (statId: SpecialStatId, delta: number) => boolean;
   onApplySpecialChanges?: () => void;
   onResetSpecialPreview?: () => void;
+  getManeuverState?: () => ManeuverSaveState;
+  onEquipManeuver?: (id: ManeuverId) => { ok: boolean; message: string; color: string };
   getAchievementManager?: () => AchievementManager;
   onAchievementZoomExtreme?: (extreme: AchievementZoomExtreme) => void;
 }
@@ -156,6 +164,7 @@ type TabId =
   | 'skills'
   | 'special'
   | 'spells'
+  | 'maneuvers'
   | 'equipment'
   | 'items'
   | 'inventory'
@@ -189,6 +198,7 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
   { id: 'skills', i18nKey: 'tabSkills', group: 'growth' },
   { id: 'special', i18nKey: 'tabSpecial', group: 'growth' },
   { id: 'spells', i18nKey: 'tabSpells', group: 'growth' },
+  { id: 'maneuvers', i18nKey: 'tabInfo', label: 'Maneuvers', group: 'growth' },
   { id: 'equipment', i18nKey: 'tabInventory', label: 'Equipment', group: 'gear' },
   { id: 'items', i18nKey: 'tabInventory', label: 'Items', group: 'gear' },
   {
@@ -242,6 +252,7 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   skills: uiTabIconKeys.skills,
   special: uiTabIconKeys.special,
   spells: uiTabIconKeys.spells,
+  maneuvers: uiTabIconKeys.info,
   equipment: uiTabIconKeys.equipment,
   items: uiTabIconKeys.items,
   inventory: uiTabIconKeys.inventory,
@@ -2537,6 +2548,9 @@ export class SkillTreeOverlay {
       case 'spells':
         this.buildSpellCards(renderRect);
         break;
+      case 'maneuvers':
+        this.buildManeuverCards(renderRect);
+        break;
       case 'cards':
         this.buildCardCollectionCards(renderRect);
         break;
@@ -3549,6 +3563,154 @@ export class SkillTreeOverlay {
     this.detailBody
       .setText(`Click an available ability to bind it to ${this.primaryAbilityKeyLabel()}.`)
       .setVisible(true);
+  }
+
+  private buildManeuverCards(rect: UiRect): void {
+    const state = this.handlers.getManeuverState?.();
+    const learnedIds = new Set<ManeuverId>(state?.learnedIds ?? []);
+    const equippedId = state?.equippedId ?? null;
+    const cooldownRemaining = Math.max(0, Number(state?.cooldownRemaining ?? 0));
+    const activeGhostSteps = Math.max(
+      0,
+      Number(this.scene.getFlag<number>('maneuvers.activeGhostSteps') ?? 0),
+    );
+    const control = getPrimaryBindingLabelForDisplay('maneuver.activate', this.currentInputMode);
+    const content = insetRect(rect, 14);
+
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'MANEUVERS', {
+      color: uiColors.textPrimary,
+      fontSize: '14px',
+      fontStyle: 'bold',
+    });
+    addUiBadge(
+      this.scene,
+      this.structuredContainer,
+      this.structuredGraphics,
+      { x: content.x + content.width - 170, y: content.y - 2, width: 158, height: 20 },
+      `${control}: ${equippedId ? getManeuverDefinition(equippedId).shortLabel : 'NONE'}`,
+      uiColors.accentFlow,
+      uiColors.accentFlow,
+    );
+
+    const statusLine =
+      activeGhostSteps > 0
+        ? `Ghost active: ${activeGhostSteps} steps`
+        : cooldownRemaining > 0
+          ? `Shared cooldown: ${cooldownRemaining}/${MANEUVER_SHARED_COOLDOWN_STEPS} steps`
+          : equippedId
+            ? 'Ready'
+            : 'No maneuver equipped';
+    addUiText(this.scene, this.structuredContainer, content.x, content.y + 24, statusLine, {
+      color: cooldownRemaining > 0 ? '#fff3a8' : '#9ad1ff',
+      fontSize: '11px',
+    });
+
+    let y = content.y + 48;
+    for (const definition of MANEUVER_DEFINITIONS) {
+      const learned = learnedIds.has(definition.id);
+      const equipped = equippedId === definition.id;
+      const card: UiRect = { x: content.x, y, width: content.width, height: 70 };
+      const accent = equipped
+        ? uiColors.accentCore
+        : learned
+          ? uiColors.accentFlow
+          : uiColors.panelBorderMuted;
+      drawUiCard(this.structuredGraphics, {
+        rect: card,
+        fill: equipped ? uiColors.accentFlow : uiColors.panelBgInset,
+        stroke: accent,
+        alpha: equipped ? 0.16 : 0.62,
+        strokeAlpha: learned ? 0.82 : 0.42,
+        radius: 7,
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 8,
+        `${definition.name} ${equipped ? '(equipped)' : learned ? '(learned)' : '(locked)'}`,
+        {
+          color: uiColors.textPrimary,
+          fontSize: '12px',
+          fontStyle: 'bold',
+        },
+      );
+      const tuning = this.formatManeuverTuning(definition.id);
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 10,
+        card.y + 27,
+        `${definition.description} ${tuning}`,
+        {
+          color: learned ? uiColors.textSecondary : uiColors.textMuted,
+          fontSize: '10px',
+          wordWrapWidth: card.width - 116,
+        },
+      );
+      addUiBadge(
+        this.scene,
+        this.structuredContainer,
+        this.structuredGraphics,
+        { x: card.x + card.width - 86, y: card.y + 13, width: 74, height: 20 },
+        equipped ? 'ACTIVE' : learned ? 'EQUIP' : 'TRAIN',
+        learned ? uiColors.accentFlow : uiColors.locked,
+        learned ? uiColors.accentFlow : uiColors.locked,
+      );
+      addUiBadge(
+        this.scene,
+        this.structuredContainer,
+        this.structuredGraphics,
+        { x: card.x + card.width - 86, y: card.y + 39, width: 74, height: 18 },
+        `${definition.cooldownSteps} STEP`,
+        uiColors.panelBorderMuted,
+        uiColors.panelBorderMuted,
+        uiColors.textSecondary,
+      );
+      this.addStructuredZone(card, () => {
+        if (!learned) {
+          this.announce(
+            'Find a Physical Trainer in a human town to learn this maneuver.',
+            '#ffd166',
+          );
+          return;
+        }
+        const result = this.handlers.onEquipManeuver?.(definition.id) ?? {
+          ok: false,
+          message: 'Maneuver equipment is unavailable.',
+          color: '#ff6b6b',
+        };
+        this.announce(result.message, result.color, 1800);
+        this.refresh();
+      });
+      y += 78;
+    }
+
+    this.setStructuredContentHeight(content, y);
+    this.detailTitle
+      .setText(equippedId ? getManeuverDefinition(equippedId).name : 'Maneuvers')
+      .setVisible(true);
+    this.detailSubtitle
+      .setText(equippedId ? 'Equipped movement technique' : 'No maneuver equipped')
+      .setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        [
+          'Learn maneuvers from Physical Trainers in human towns.',
+          `Only one can be equipped. Use ${control} to activate the equipped maneuver.`,
+          `All maneuvers share a ${MANEUVER_SHARED_COOLDOWN_STEPS}-ordinary-step cooldown that survives equipment swaps.`,
+        ].join('\n\n'),
+      )
+      .setVisible(true);
+  }
+
+  private formatManeuverTuning(id: ManeuverId): string {
+    const definition = getManeuverDefinition(id);
+    if (definition.distanceTiles) return `Distance: ${definition.distanceTiles} tiles.`;
+    if (definition.durationSteps) return `Duration: ${definition.durationSteps} steps.`;
+    if (definition.historySteps) return `History: ${definition.historySteps} tiles.`;
+    return '';
   }
 
   private buildCardCollectionCards(rect: UiRect): void {
@@ -5484,6 +5646,7 @@ export class SkillTreeOverlay {
       tab === 'equipment' ||
       tab === 'items' ||
       tab === 'spells' ||
+      tab === 'maneuvers' ||
       tab === 'cards' ||
       tab === 'quests' ||
       tab === 'dating' ||
@@ -6279,6 +6442,7 @@ export class SkillTreeOverlay {
     const customizationActive = this.activeTab === 'customize';
     const cardsActive = this.activeTab === 'cards';
     const spellsActive = this.activeTab === 'spells';
+    const maneuversActive = this.activeTab === 'maneuvers';
     const cheatsActive = this.activeTab === 'cheats';
     const peopleActive = this.activeTab === 'people';
     const companionsActive = this.activeTab === 'companions';
@@ -6298,6 +6462,7 @@ export class SkillTreeOverlay {
       itemsActive ||
       cardsActive ||
       spellsActive ||
+      maneuversActive ||
       peopleActive ||
       companionsActive ||
       atmosphereActive ||
@@ -6327,6 +6492,7 @@ export class SkillTreeOverlay {
     this.achievementTree?.setVisible(achievementsActive);
     if (
       !spellsActive &&
+      !maneuversActive &&
       !specialActive &&
       !questsActive &&
       !datingActive &&
@@ -6418,6 +6584,7 @@ export class SkillTreeOverlay {
         !customizationActive &&
         !cardsActive &&
         !spellsActive &&
+        !maneuversActive &&
         !mapActive &&
         !graphActive &&
         !cheatsActive &&
@@ -6487,6 +6654,7 @@ export class SkillTreeOverlay {
           items: 'Items: click rows for details. Press U to use selected consumables.',
           cards: i18n.getFeatureString('cardHintCards'),
           spells: `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`,
+          maneuvers: `Maneuvers: equip one learned technique; use ${getPrimaryBindingLabelForDisplay('maneuver.activate', this.currentInputMode)} during play.`,
           people: i18n.getFeatureString('hintPeople'),
           companions: 'Herd: feed companions to raise bond tiers and hunting bonuses.',
           atmosphere:
