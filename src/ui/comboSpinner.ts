@@ -87,7 +87,9 @@ export class ComboSpinner {
     this.scene.events.on('update', this.update, this);
   }
 
-  private update(_time: number, _delta: number): void {
+  private update(time: number, delta: number): void {
+    void time;
+    void delta;
     if (!this.spinning) return;
 
     this.angle += this.velocity;

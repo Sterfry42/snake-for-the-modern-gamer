@@ -205,7 +205,6 @@ export class BossManager {
     boss.health = Math.max(0, boss.health - damage);
     if (boss.health <= 0) {
       boss.jasonPhase = 'defeated';
-      boss.maxHealth * 10;
       return true; // defeated
     }
     return false; // not defeated
@@ -373,7 +372,6 @@ export class BossManager {
 
       // Execute the chosen attack
       boss.jasonMoveIndex = (boss.jasonMoveIndex ?? 0) + 1;
-      `jason-move-${boss.id}-${boss.jasonMoveIndex}`;
 
       switch (attackType) {
         case 0:

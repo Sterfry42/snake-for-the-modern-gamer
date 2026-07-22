@@ -808,7 +808,7 @@ export class WorldService {
   }
 
   /** Claim a destination from a station (mark it as used). */
-  claimBulletTrainDestination(stationRoomId: string, _destinationRoomId: string): void {
+  claimBulletTrainDestination(stationRoomId: string): void {
     const room = this.rooms.get(stationRoomId);
     if (!room?.bulletTrainStation) return;
     room.bulletTrainStation.used = true;

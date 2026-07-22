@@ -108,7 +108,7 @@ export class KingdomManager {
     foundedAt: number,
   ): Kingdom {
     const rulerInfo = RULER_DEFINITIONS[rulerType];
-    const name = this.generateKingdomName(capitalSettlement, rulerInfo);
+    const name = this.generateKingdomName(capitalSettlement);
 
     const kingdom: Kingdom = {
       id: `kingdom-${this.nextId++}`,
@@ -262,10 +262,7 @@ export class KingdomManager {
     return Math.random();
   }
 
-  private generateKingdomName(
-    capital: Settlement,
-    _rulerInfo: { name: string; title: string },
-  ): string {
+  private generateKingdomName(capital: Settlement): string {
     const prefixes = ['Kingdom of', 'Realm of', 'Empire of', 'Dominion of', 'Sovereignty of'];
     const prefix = prefixes[Math.floor(this.rng() * prefixes.length)];
     const capitalName = capital.customName ?? capital.definition.name;

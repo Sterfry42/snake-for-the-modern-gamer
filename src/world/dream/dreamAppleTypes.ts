@@ -84,12 +84,14 @@ export class DreamApple extends DreamAppleBase {
     return { growth: 1, bonusScore: 5 };
   }
 
-  override shouldAttemptMove(__context: AppleMoveContext): boolean {
+  override shouldAttemptMove(context: AppleMoveContext): boolean {
+    void context;
     // Dream apples float randomly
     return Math.random() < 0.02;
   }
 
-  override getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
+  override getMoveDirections(context: AppleMoveContext): Vector2Like[] {
+    void context;
     // Dream apples drift in random directions
     const directions: Vector2Like[] = [];
     if (Math.random() < 0.5) {
@@ -120,13 +122,14 @@ export class NightmareApple extends DreamAppleBase {
     return { growth: 2, bonusScore: 15 };
   }
 
-  override shouldAttemptMove(_context: AppleMoveContext): boolean {
+  override shouldAttemptMove(context: AppleMoveContext): boolean {
+    void context;
     // Nightmare apples chase the snake more aggressively
     return Math.random() < 0.08;
   }
 
-  override getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
-    const head = _context.snake[0];
+  override getMoveDirections(context: AppleMoveContext): Vector2Like[] {
+    const head = context.snake[0];
     if (!head) {
       return [];
     }
@@ -180,19 +183,21 @@ export class LucidApple extends DreamAppleBase {
     return this.lucidityGain;
   }
 
-  override shouldAttemptMove(_context: AppleMoveContext): boolean {
+  override shouldAttemptMove(context: AppleMoveContext): boolean {
+    void context;
     // Lucid apples appear and disappear
     return Math.random() < 0.01;
   }
 
-  override getMoveDirections(_context: AppleMoveContext): Vector2Like[] {
+  override getMoveDirections(context: AppleMoveContext): Vector2Like[] {
+    void context;
     // Lucid apples teleport to new positions
     return []; // handled by special teleport logic
   }
 
-  teleport(_context: AppleMoveContext): Vector2Like {
-    const newX = Math.floor(_context.rng() * _context.grid.cols);
-    const newY = Math.floor(_context.rng() * _context.grid.rows);
+  teleport(context: AppleMoveContext): Vector2Like {
+    const newX = Math.floor(context.rng() * context.grid.cols);
+    const newY = Math.floor(context.rng() * context.grid.rows);
     return { x: newX, y: newY };
   }
 }

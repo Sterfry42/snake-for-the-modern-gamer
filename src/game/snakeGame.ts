@@ -740,6 +740,15 @@ function logRunSeed(seed: string, reason: 'new' | 'reset' | 'load'): void {
   console.info(`[SnakeGame] ${reason} run seed: ${seed}`);
 }
 
+/** Interface for SnakeScene methods needed by SnakeGame (avoids circular import). */
+interface SnakeSceneContract {
+  getSnakeCustomizationState?(): unknown;
+  setSnakeCosmeticState?(state: unknown): void;
+  getAchievementSaveState?(): unknown;
+  getArcadeSnakeSaveData?(): unknown;
+  setArcadeSnakeSaveData?(data: unknown): void;
+}
+
 export class SnakeGame implements QuestRuntime {
   readonly config: GameConfig;
 
@@ -808,7 +817,7 @@ export class SnakeGame implements QuestRuntime {
   constructor(
     config: GameConfig = defaultGameConfig,
     private readonly registry: QuestRegistry,
-    private readonly snakeScene: any,
+    private readonly snakeScene: SnakeSceneContract,
     rng?: RandomGenerator,
   ) {
     this.config = config;
@@ -2055,7 +2064,7 @@ export class SnakeGame implements QuestRuntime {
         this.triggerCollapseControl(currentHead, updatedSnake, roomsChanged);
       }
       this.rechargeTerraShield();
-      this.handleFortitudeOnApple(roomsChanged);
+      this.handleFortitudeOnApple();
       this.handleGrowthOnApple(roomsChanged);
     }
 
@@ -7774,7 +7783,7 @@ export class SnakeGame implements QuestRuntime {
 
   getAtmosphereForRoom(room: RoomSnapshot = this.getCurrentRoom()): ResolvedAtmosphereView {
     const biome = getBiomeDefinition(room.biomeId);
-    const shelterMode = this.getShelterModeForRoom(room, biome);
+    const shelterMode = this.getShelterModeForRoom(room);
     const shelteredConfig = {
       ...this.atmosphereConfig,
       shelterMode,
@@ -7804,10 +7813,7 @@ export class SnakeGame implements QuestRuntime {
     return atmosphere;
   }
 
-  private getShelterModeForRoom(
-    room: RoomSnapshot,
-    _biome: ReturnType<typeof getBiomeDefinition>,
-  ): ShelterMode {
+  private getShelterModeForRoom(room: RoomSnapshot): ShelterMode {
     if (room.id === '0,-1,0' || room.snakeMcDonalds) {
       return 'interior';
     }
@@ -10737,9 +10743,9 @@ export class SnakeGame implements QuestRuntime {
     startCardGame?: boolean;
     rewardCardName?: string;
   } {
-    const encounter = this.getFlag<WandererEncounter & { roomId: string; statsNote: string }>(
-      'npc.randomEncounter',
-    );
+    const encounter = this.getFlag<
+      WandererEncounter & { roomId: string; statsNote: string; relationshipId?: string }
+    >('npc.randomEncounter');
     if (!encounter) {
       return { kind: 'none', accepted: false };
     }
@@ -10748,15 +10754,15 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('npc.randomEncounter.prompted', undefined);
     this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
     this.setFlag('npc.randomEncounter.revealAtMs', undefined);
-    const relationshipId = (encounter as any).relationshipId as string | undefined;
+    const relationshipId = encounter.relationshipId;
     if (relationshipId) {
       const rel = this.relationshipController.recordEncounterOutcome(
         relationshipId,
         accept,
         this.getRoomsVisitedCount(),
       );
-      if (accept && (encounter as any).rewardScore) {
-        this.addScore(Number((encounter as any).rewardScore));
+      if (accept && encounter.rewardScore) {
+        this.addScore(Number(encounter.rewardScore));
       }
       this.setFlag('ui.relationshipEvent', {
         title: rel.title,
@@ -13243,14 +13249,13 @@ export class SnakeGame implements QuestRuntime {
     }
 
     if (this.snakeScene && typeof this.snakeScene.getSnakeCustomizationState === 'function') {
-      const cosmetics = this.snakeScene.getSnakeCustomizationState();
-      data.cosmetics = cosmetics;
+      data.cosmetics = this.snakeScene.getSnakeCustomizationState() as typeof data.cosmetics;
     }
     if (this.snakeScene && typeof this.snakeScene.getAchievementSaveState === 'function') {
-      data.achievements = this.snakeScene.getAchievementSaveState();
+      data.achievements = this.snakeScene.getAchievementSaveState() as typeof data.achievements;
     }
     if (this.snakeScene && typeof this.snakeScene.getArcadeSnakeSaveData === 'function') {
-      data.arcadeSnake = this.snakeScene.getArcadeSnakeSaveData();
+      data.arcadeSnake = this.snakeScene.getArcadeSnakeSaveData() as typeof data.arcadeSnake;
     }
 
     // Fishing data
@@ -13273,9 +13278,9 @@ export class SnakeGame implements QuestRuntime {
   }
 
   loadGame(
-    getReligionChoice?: () => any,
-    getClassChoice?: () => any,
-    getBackgroundChoice?: () => any,
+    getReligionChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
     try {
       const saved = getSavedGameData();
@@ -13293,18 +13298,18 @@ export class SnakeGame implements QuestRuntime {
 
   loadFromSaveData(
     data: GameSaveData,
-    getReligionChoice?: () => any,
-    getClassChoice?: () => any,
-    getBackgroundChoice?: () => any,
+    getReligionChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
     return this.loadFromData(data, getReligionChoice, getClassChoice, getBackgroundChoice);
   }
 
   private loadFromData(
     data: GameSaveData,
-    getReligionChoice?: () => any,
-    getClassChoice?: () => any,
-    getBackgroundChoice?: () => any,
+    getReligionChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getClassChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
+    getBackgroundChoice?: () => { id: string; mods: Record<string, unknown> } | undefined,
   ): boolean {
     try {
       this.reset({ preserveRunSeed: true });
@@ -14809,7 +14814,7 @@ export class SnakeGame implements QuestRuntime {
     this.lightningStrike = null;
     this.setFlag('ui.lightningStrike', strike);
     options.roomsChanged.add(strike.roomId);
-    return this.resolveLightningStrike(room, profile, strike, options.previousRoom);
+    return this.resolveLightningStrike(room, profile, strike);
   }
 
   private chooseLightningTarget(
@@ -14842,7 +14847,6 @@ export class SnakeGame implements QuestRuntime {
     room: RoomSnapshot,
     profile: NonNullable<ResolvedAtmosphereView['gameplay']['lightningProfile']>,
     strike: LightningStrikeState,
-    previousRoom: string,
   ): boolean {
     const radius = Math.max(0, strike.radius);
     let playerDied = false;
@@ -14874,12 +14878,12 @@ export class SnakeGame implements QuestRuntime {
       this.isWithinLightningRadius(headLocal, strike, radius) &&
       !(profile.safeUnderCover && this.isLightningCoveredTile(room, headLocal))
     ) {
-      playerDied = this.applyLightningDamage(previousRoom);
+      playerDied = this.applyLightningDamage();
     }
     return playerDied;
   }
 
-  private applyLightningDamage(_previousRoom: string): boolean {
+  private applyLightningDamage(): boolean {
     const head = this.snake.bodySegments[0];
     if (!head || this.isImmortal() || this.getUnifiedInvulnerabilityTicks() > 0) {
       return false;
@@ -15599,9 +15603,9 @@ export class SnakeGame implements QuestRuntime {
     return best;
   }
 
-  private handleFortitudeOnApple(roomsChanged: Set<string>): void {
+  private handleFortitudeOnApple(): void {
     this.activateFortitudeInvulnerability();
-    this.processFortitudeBloodBank(roomsChanged);
+    this.processFortitudeBloodBank();
   }
 
   private handleGrowthOnApple(roomsChanged: Set<string>): void {
@@ -15734,7 +15738,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private processFortitudeBloodBank(_roomsChanged: Set<string>): void {
+  private processFortitudeBloodBank(): void {
     const bank = this.getFlag<{
       stored?: number;
       capacity?: number;

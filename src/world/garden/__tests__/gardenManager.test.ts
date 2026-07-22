@@ -519,7 +519,6 @@ describe('Pest System', () => {
   it('should use different damage multipliers for different methods', () => {
     const rng = new TestRng();
     const pest = spawnPest('aphid', 'plot-1', rng);
-    pest.health;
 
     // Hand attack
     const handResult = attackPest(pest, 2, 'hand');

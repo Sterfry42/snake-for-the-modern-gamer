@@ -570,7 +570,7 @@ export class DiplomacySystem {
         success: false,
         newRelation: currentRelation,
         relationDelta: -5,
-        failureReason: this.randomFailureReason(goal, currentRelation),
+        failureReason: this.randomFailureReason(goal),
       };
     }
 
@@ -644,7 +644,7 @@ export class DiplomacySystem {
     }
   }
 
-  private randomFailureReason(goal: string, _currentRelation: DiplomaticRelation): string {
+  private randomFailureReason(goal: string): string {
     const reasons: Record<string, string[]> = {
       'improve-relation': [
         'The other faction is not interested in improving relations.',

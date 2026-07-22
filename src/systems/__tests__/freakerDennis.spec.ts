@@ -23,9 +23,7 @@ describe('Freaker Dennis Boss', () => {
     const bossManager = new BossManager(grid, () => 0.5);
 
     bossManager.spawnBoss('0,0,0', 'freaker-dennis');
-    const bosses = bossManager.getBossesInRoom('0,0,0');
 
-    bosses[0];
     const snakeHead = { x: 5, y: 5 };
 
     const rng = () => 0;
@@ -60,9 +58,6 @@ describe('Freaker Dennis Boss', () => {
     const bossManager = new BossManager(grid, () => 0.5);
 
     bossManager.spawnBoss('0,0,0', 'freaker-dennis');
-    const bosses = bossManager.getBossesInRoom('0,0,0');
-
-    bosses[0];
 
     const boundaryPositions = [
       { x: 5, y: 6 },

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SnakeState } from '../snakeState.js';
 import type { GridConfig, SnakeConfig } from '../../config/gameConfig.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import type { BossManager } from '../boss.js';
 
 const grid: GridConfig = { cols: 12, rows: 10, cell: 16 };
 const snakeConfig: SnakeConfig = {
@@ -29,7 +30,7 @@ const bossManager = {
   getPullFor: () => null,
   getVulnerableJasonNearby: () => null,
   getBossAtPosition: () => null,
-} as any;
+} as unknown as BossManager;
 
 describe('SnakeState cave exit steering', () => {
   it('ignores buffered turns while the first cave-exit movement is locked', () => {
@@ -74,7 +75,7 @@ describe('SnakeState disorientation', () => {
           getPullFor: () => null,
           getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('alive');
@@ -158,7 +159,7 @@ describe('SnakeState portals', () => {
           getPullFor: () => null,
           getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('alive');
@@ -207,7 +208,7 @@ describe('SnakeState portals', () => {
           getPullFor: () => null,
           getVulnerableJasonNearby: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('alive');
@@ -253,7 +254,7 @@ describe('SnakeState portals', () => {
         ({
           getPullFor: () => null,
           getBossAtPosition: () => null,
-        }) as any,
+        }) as unknown as BossManager,
     });
 
     expect(result.status).toBe('dead');

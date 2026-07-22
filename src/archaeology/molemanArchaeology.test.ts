@@ -15,9 +15,13 @@ describe('Moleman artifact matches', () => {
     board[6]![1] = 'artifact-cache' as (typeof board)[number][number];
     board[6]![2] = 'artifact-cache' as (typeof board)[number][number];
     board[6]![3] = 'artifact-cache' as (typeof board)[number][number];
-    (session as any).board = board;
+    (session as unknown as { board: (string | null)[][] }).board = board;
 
-    expect((session as any).tryBeginMatchResolution(1)).toBe(true);
+    expect(
+      (
+        session as unknown as { tryBeginMatchResolution: (chain: number) => boolean }
+      ).tryBeginMatchResolution(1),
+    ).toBe(true);
     const blast = session.consumeEvents().find((event) => event.kind === 'blast');
     expect(blast?.kind).toBe('blast');
     if (blast?.kind !== 'blast') return;

@@ -519,12 +519,9 @@ describe('deterministic seed test harness', () => {
       let flavorDifferences12 = 0;
       let flavorDifferences13 = 0;
       let flavorDifferences23 = 0;
-      let _totalRooms = 0;
-
       for (const [id, room] of first) {
         const other1 = second.get(id);
         const other2 = third.get(id);
-        _totalRooms++;
 
         // Check vegetation differences
         if (other1 && room.vegetation && other1.vegetation) {

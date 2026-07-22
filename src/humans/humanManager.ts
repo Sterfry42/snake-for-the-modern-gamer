@@ -224,7 +224,8 @@ export class HumanManager {
     return Array.from(this.knownHumans);
   }
 
-  giveGift(humanId: string, _itemId: string): void {
+  giveGift(humanId: string, itemId: string): void {
+    void itemId;
     const relationship = this.relationships.get(humanId);
     if (relationship) {
       relationship.giftsGiven++;

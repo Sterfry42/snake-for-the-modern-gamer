@@ -46,7 +46,10 @@ describe('SaveManagerV2', () => {
 
   beforeEach(() => {
     storage = new Map();
-    manager = new SaveManagerV2((_prefix) => createMockStore<GameSaveData>(storage));
+    manager = new SaveManagerV2((_prefix: string) => {
+      void _prefix;
+      return createMockStore<GameSaveData>(storage);
+    });
   });
 
   describe('save and load', () => {

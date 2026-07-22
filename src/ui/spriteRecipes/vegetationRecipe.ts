@@ -146,7 +146,6 @@ function drawVariant(
   size: number,
 ): void {
   const colors = VARIANT_BASE_COLORS[variant];
-  colors.fill;
 
   drawSprite(
     context,
@@ -1713,7 +1712,8 @@ export const vegetationSpriteRecipe: RuntimeSpriteRecipe<
 > = {
   id: 'vegetation',
   variants: VARIANTS,
-  getPaletteKey(_palette): string {
+  getPaletteKey(palette): string {
+    void palette;
     return 'default';
   },
   draw(context: CanvasRenderingContext2D, variant: VegetationSpriteVariant, size: number): void {

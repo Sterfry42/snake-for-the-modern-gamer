@@ -70,7 +70,8 @@ class KamiBlessingFeature extends Feature {
     super('kamiBlessing', 'Kami Blessings');
   }
 
-  override onRegister(_scene: SnakeScene): void {
+  override onRegister(scene: SnakeScene): void {
+    void scene;
     this.state = {
       shrineTimer: 0,
       shrineCooldown: SHRINE_COOLDOWN_TICKS,
@@ -131,7 +132,7 @@ class KamiBlessingFeature extends Feature {
   }
 
   private hasShrineBlessing(scene: SnakeScene): boolean {
-    const mods = (scene as any).religionMods;
+    const mods = (scene as unknown as { religionMods: Record<string, unknown> }).religionMods;
     return !!mods?.shrineBlessing;
   }
 
@@ -205,6 +206,7 @@ class KamiBlessingFeature extends Feature {
   }
 
   private destroyCallout(_scene?: SnakeScene): void {
+    void _scene;
     if (this.callout) {
       this.callout.destroy();
       this.callout = undefined;

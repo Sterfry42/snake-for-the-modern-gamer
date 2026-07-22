@@ -209,11 +209,11 @@ export class TraitManager {
     const removed = this.activeTraits.splice(index, 1)[0];
     if (removed) {
       // Notify that trait expired (for events)
-      this.onTraitExpired(removed.definition);
+      this.onTraitExpired();
     }
   }
 
-  private onTraitExpired(_definition: TraitDefinition): void {
+  private onTraitExpired(): void {
     // Subclasses or consumers can hook into trait expiration via event system
     // This is a no-op base implementation
   }

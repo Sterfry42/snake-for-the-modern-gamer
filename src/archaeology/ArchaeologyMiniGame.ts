@@ -337,7 +337,6 @@ export function addParticles(visual: MiniGameVisualState, particles: ParticleEff
 export function tryCompleteAssembly(
   session: ExcavationSession,
   visual: MiniGameVisualState,
-  _rng: RandomGenerator,
 ): { completed: CompletedFossil | null; notification: MiniGameNotification | null } {
   if (session.state !== 'assembling' || !session.currentFossilSet) {
     return { completed: null, notification: null };
@@ -346,11 +345,7 @@ export function tryCompleteAssembly(
   // Assembly quality is based on the timing mini-game performance
   const assemblyQuality = visual.qualityMeter.value;
 
-  const completed = assembleFossil(
-    session.discoveredFragments,
-    session.currentFossilSet.id,
-    assemblyQuality,
-  );
+  const completed = assembleFossil(session.discoveredFragments, session.currentFossilSet.id);
 
   if (completed) {
     session.state = 'complete';

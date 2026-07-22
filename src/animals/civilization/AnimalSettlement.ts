@@ -359,7 +359,7 @@ export class SettlementManager {
   }
 
   /** Update settlement population dynamics */
-  updateSettlements(_animalCounts: ReadonlyMap<AnimalType, number>): void {
+  updateSettlements(): void {
     for (const settlement of this.settlements.values()) {
       // Natural population changes
       for (const [type, count] of settlement.population) {

@@ -8,12 +8,22 @@ export abstract class Feature {
     public readonly label: string,
   ) {}
 
-  onRegister(_context: FeatureContext): void {}
+  onRegister(context: FeatureContext): void {
+    void context;
+  }
   onActionStep(context: FeatureContext): void {
     this.onTick(context);
   }
-  onTick(_context: FeatureContext): void {}
-  onRender(_context: FeatureContext): void {}
-  onAppleEaten(_context: FeatureContext): void {}
-  onGameOver(_context: FeatureContext): void {}
+  onTick(context: FeatureContext): void {
+    void context;
+  }
+  onRender(context: FeatureContext): void {
+    void context;
+  }
+  onAppleEaten(context: FeatureContext): void {
+    void context;
+  }
+  onGameOver(context: FeatureContext): void {
+    void context;
+  }
 }

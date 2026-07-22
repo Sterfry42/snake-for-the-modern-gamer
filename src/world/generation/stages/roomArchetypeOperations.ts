@@ -158,7 +158,8 @@ export class RoomArchetypeOperations {
       return { id: 'classic' };
     }
     if (context.isJadePeak) {
-      const [_x = 0, y = 0] = context.roomId.split(',').map(Number);
+      const [x = 0, y = 0] = context.roomId.split(',').map(Number);
+      void x;
       let pool: WeightedArchetype[];
       if (y === -5 || y === -6) {
         pool = JADE_PEAK_UPPER_POOL;
@@ -296,7 +297,6 @@ export class RoomArchetypeOperations {
     const wallCount = 2 + this.randomInt(3);
     for (let w = 0; w < wallCount; w++) {
       const startX = 3 + this.randomInt(Math.max(1, roomWidth - 8));
-      Math.floor(roomHeight * 0.4) + this.randomInt(Math.floor(roomHeight * 0.3));
       const wallLength = 3 + this.randomInt(3);
       for (let i = 0; i < wallLength && startX + i < roomWidth - 2; i++) {
         const y = 3 + this.randomInt(Math.max(1, roomHeight - 8));
@@ -441,10 +441,6 @@ export class RoomArchetypeOperations {
         const dy = Math.abs(y - centerY);
         const halfW = Math.floor(roomWidth / 2) - 3;
         const halfH = Math.floor(roomHeight / 2) - 3;
-        dx >= halfW && dx <= halfW + wallThickness;
-        dx >= halfW && dx <= halfW + wallThickness;
-        dy >= halfH && dy <= halfH + wallThickness;
-        dy >= halfH && dy <= halfH + wallThickness;
         const onLeftEdge = x === centerX - halfW - wallThickness || x === centerX - halfW - 1;
         const onRightEdge = x === centerX + halfW || x === centerX + halfW + wallThickness;
         const onTopEdge = y === centerY - halfH - wallThickness || y === centerY - halfH - 1;

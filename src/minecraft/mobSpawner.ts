@@ -370,7 +370,9 @@ export class MobSpawnerManager {
     // Handle mob death drops
     const mob = mobManager.getMob(Array.from(mobManager['mobs'].values()).pop()?.id ?? '');
     if (mob) {
-      mobManager.onMobDeath(mob.id, (_itemId, _count) => {
+      mobManager.onMobDeath(mob.id, (itemId, count) => {
+        void itemId;
+        void count;
         // Drops would be handled by the game
       });
     }
@@ -426,8 +428,6 @@ export function activateSpawner(
   x: number,
   y: number,
   roomId: string,
-  _playerX: number,
-  _playerY: number,
 ): { success: boolean; message?: string } {
   const spawner = spawnerManager.getSpawner(x, y, roomId);
   if (!spawner) {

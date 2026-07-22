@@ -94,7 +94,7 @@ export class ControllerFeedback {
     }
 
     this.lastPlayedAt = now;
-    const { minimumIntervalMs: _minimumIntervalMs, ...parameters } = pattern;
+    const { ...parameters } = pattern;
     try {
       if (actuator.playEffect) {
         void actuator.playEffect('dual-rumble', parameters).catch(() => undefined);

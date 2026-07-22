@@ -106,7 +106,6 @@ export function advancePlant(
   }
 
   // Apply weather and season modifiers
-  ({ id: result.seedTypeId }) as { id: string };
   // We need the full seed definition for weather/season modifiers
   // This is handled at the GardenManager level, so we use a base modifier here
 

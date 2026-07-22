@@ -536,7 +536,7 @@ export class TerritoryManager {
         // If contested for too long, resolve randomly based on faction power
         const timeContested = now - ownership.lastControlChange;
         if (timeContested > 60 * this.tickInterval * 1000) {
-          this.resolveContestedTerritory(territoryId, currentRoomNumber);
+          this.resolveContestedTerritory(territoryId);
         }
       }
 
@@ -555,7 +555,7 @@ export class TerritoryManager {
     this.updateSerpentFaction(currentRoomNumber);
   }
 
-  private resolveContestedTerritory(territoryId: string, _currentRoomNumber: number): void {
+  private resolveContestedTerritory(territoryId: string): void {
     const ownership = this.ownership.get(territoryId);
     if (!ownership || !ownership.contestedByFactionId || !ownership.controllingFactionId) return;
 

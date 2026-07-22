@@ -4,7 +4,7 @@ import { saveManager } from '../../game/saveManager.js';
 describe('Save Migration v2→v3', () => {
   it('should have SaveManager VERSION updated to 3.0.0', () => {
     // Access the private VERSION via type assertion
-    const version = (saveManager as any).VERSION;
+    const version = (saveManager as unknown as { VERSION?: string }).VERSION;
     expect(version).toBe('3.0.0');
   });
 
@@ -33,9 +33,12 @@ describe('Save Migration v2→v3', () => {
       (data.fishing as Record<string, unknown>).caughtFish ?? {};
 
     expect(data.version).toBe('3.0.0');
-    expect((data.fishing as any).caughtFish).toEqual({ 'fish-minnow': 3, 'fish-fire-eel': 1 });
-    expect((data.fishing as any).catchJournal).toEqual([]);
-    expect((data.fishing as any).equippedRod).toBe('none');
+    expect((data.fishing as Record<string, unknown>).caughtFish).toEqual({
+      'fish-minnow': 3,
+      'fish-fire-eel': 1,
+    });
+    expect((data.fishing as Record<string, unknown>).catchJournal).toEqual([]);
+    expect((data.fishing as Record<string, unknown>).equippedRod).toBe('none');
   });
 
   it('should be idempotent — migrating v3 data again should not change it', () => {
@@ -73,8 +76,8 @@ describe('Save Migration v2→v3', () => {
       (data.fishing as Record<string, unknown>).caughtFish ?? {};
 
     expect(data.version).toBe('3.0.0');
-    expect((data.fishing as any).catchJournal).toHaveLength(1);
-    expect((data.fishing as any).equippedRod).toBe('fishing-rod');
+    expect((data.fishing as Record<string, unknown>).catchJournal).toHaveLength(1);
+    expect((data.fishing as Record<string, unknown>).equippedRod).toBe('fishing-rod');
   });
 
   it('should handle missing fishing object in v2 save', () => {
@@ -98,7 +101,7 @@ describe('Save Migration v2→v3', () => {
       (data.fishing as Record<string, unknown>).caughtFish ?? {};
 
     expect(data.fishing).toBeDefined();
-    expect((data.fishing as any).catchJournal).toEqual([]);
-    expect((data.fishing as any).equippedRod).toBe('none');
+    expect((data.fishing as Record<string, unknown>).catchJournal).toEqual([]);
+    expect((data.fishing as Record<string, unknown>).equippedRod).toBe('none');
   });
 });

@@ -118,7 +118,8 @@ export function isCaveRoomId(roomId: string): boolean {
   return roomId.startsWith('cave:');
 }
 
-export function getCaveRoomOrigin(_roomId: string): Vector2Like {
+export function getCaveRoomOrigin(roomId: string): Vector2Like {
+  void roomId;
   return { x: 0, y: 0 };
 }
 

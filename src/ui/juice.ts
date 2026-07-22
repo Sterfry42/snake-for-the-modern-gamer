@@ -1,6 +1,8 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
 
+type TweenState = Record<string, number>;
+
 type ToneOptions = {
   frequency: number;
   duration?: number;
@@ -3716,7 +3718,7 @@ export class JuiceManager {
     this.overlayLayer.add(g);
     g.lineStyle(lineWidth, color, 1);
     g.strokeCircle(x, y, startRadius);
-    const state = { r: startRadius, a: 1 } as any;
+    const state: TweenState = { r: startRadius, a: 1 };
     this.scene.tweens.add({
       targets: state,
       r: startRadius * 3.2,
@@ -3886,7 +3888,7 @@ export class JuiceManager {
   ) {
     const g = this.scene.add.graphics().setDepth(28);
     this.overlayLayer.add(g);
-    const state = { r: startRadius, a: startAlpha } as any;
+    const state: TweenState = { r: startRadius, a: startAlpha };
     // Radius tween (full duration)
     this.scene.tweens.add({
       targets: state,
@@ -4004,7 +4006,7 @@ export class JuiceManager {
   faultLineSweep(x1: number, y: number, x2: number) {
     const g = this.scene.add.graphics().setDepth(28);
     this.overlayLayer.add(g);
-    const state = { a: 0.9, w: 1 } as any;
+    const state: TweenState = { a: 0.9, w: 1 };
     this.scene.tweens.add({
       targets: state,
       a: 0,
@@ -4113,7 +4115,7 @@ export class JuiceManager {
       // Diagonal lines for corner impact
       const g = this.scene.add.graphics().setDepth(28);
       this.overlayLayer.add(g);
-      const state = { a: 0.8, w: 3 } as any;
+      const state: TweenState = { a: 0.8, w: 3 };
       this.scene.tweens.add({
         targets: state,
         a: 0,
@@ -4144,7 +4146,7 @@ export class JuiceManager {
 
       const beam = this.scene.add.graphics().setDepth(28);
       this.overlayLayer.add(beam);
-      const beamState = { a: 0.9, l: 2 } as any;
+      const beamState: TweenState = { a: 0.9, l: 2 };
       this.scene.tweens.add({
         targets: beamState,
         a: 0,
@@ -5530,7 +5532,8 @@ export class JuiceManager {
     this.scene.cameras.main.flash(60, 255, 209, 164, true);
   }
 
-  shopSell(worldX: number, worldY: number, _price: number) {
+  shopSell(worldX: number, worldY: number, price: number) {
+    void price;
     this.playTone({
       frequency: 380,
       frequencyEnd: 520,
@@ -5590,7 +5593,10 @@ export class JuiceManager {
     this.floatingLabel(cam.midPoint.x, 60, `ACHIEVEMENT: ${achievementName}`, '#ffd166', 18);
   }
 
-  achievementProgress(_achievementId: string, _progress: number, _total: number) {
+  achievementProgress(achievementId: string, progress: number, total: number) {
+    void achievementId;
+    void progress;
+    void total;
     this.playTone({ frequency: 440, duration: 0.08, type: 'triangle', volume: 0.06 });
   }
 
@@ -5687,7 +5693,8 @@ export class JuiceManager {
     this.scene.cameras.main.flash(80, 255, 209, 164, true);
   }
 
-  apItemReceived(_itemId: string) {
+  apItemReceived(itemId: string) {
+    void itemId;
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
@@ -5701,11 +5708,13 @@ export class JuiceManager {
     this.scene.cameras.main.flash(100, 255, 209, 164, true);
   }
 
-  apLocationSent(_locationId: string) {
+  apLocationSent(locationId: string) {
+    void locationId;
     this.playTone({ frequency: 440, duration: 0.1, type: 'triangle', volume: 0.06 });
   }
 
-  multiplayerJoin(_playerId: string) {
+  multiplayerJoin(playerId: string) {
+    void playerId;
     this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
     this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.07 });
     this.spawnBurst(this.scene.cameras.main.midPoint.x, this.scene.cameras.main.midPoint.y, {
@@ -5715,7 +5724,8 @@ export class JuiceManager {
     });
   }
 
-  multiplayerLeave(_playerId: string) {
+  multiplayerLeave(playerId: string) {
+    void playerId;
     this.playTone({
       frequency: 320,
       frequencyEnd: 200,
@@ -5725,7 +5735,8 @@ export class JuiceManager {
     });
   }
 
-  multiplayerDeath(_playerId: string) {
+  multiplayerDeath(playerId: string) {
+    void playerId;
     this.playTone({
       frequency: 200,
       frequencyEnd: 80,
@@ -5813,7 +5824,9 @@ export class JuiceManager {
     this.ringPulse(worldX, worldY, 0xff6b6b, 12, 2, 260);
   }
 
-  questUpdated(_questId: string, _progress: number) {
+  questUpdated(questId: string, progress: number) {
+    void questId;
+    void progress;
     this.playTone({ frequency: 440, duration: 0.08, type: 'triangle', volume: 0.06 });
   }
 
@@ -5832,7 +5845,8 @@ export class JuiceManager {
     });
   }
 
-  questChainStarted(_worldId: string) {
+  questChainStarted(worldId: string) {
+    void worldId;
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 440, duration: 0.14, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 660, duration: 0.2, type: 'sine', volume: 0.1 });
@@ -5847,7 +5861,8 @@ export class JuiceManager {
     this.ringPulse(cam.midPoint.x, cam.midPoint.y, 0x5dd6a2, 14, 2, 280);
   }
 
-  questChainCompleted(_worldId: string) {
+  questChainCompleted(worldId: string) {
+    void worldId;
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.16 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.14 });
@@ -5869,7 +5884,9 @@ export class JuiceManager {
 
   // ─── Relationship Juice ───────────────────────────────────────────────
 
-  relationshipLevelUp(_candidateId: string, _newTier: number) {
+  relationshipLevelUp(candidateId: string, newTier: number) {
+    void candidateId;
+    void newTier;
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.14 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.12 });
@@ -5883,13 +5900,15 @@ export class JuiceManager {
     this.scene.cameras.main.flash(120, 255, 189, 253, true);
   }
 
-  datingSceneStart(_candidateId: string) {
+  datingSceneStart(candidateId: string) {
+    void candidateId;
     this.playTone({ frequency: 440, duration: 0.18, type: 'sine', volume: 0.1 });
     this.playTone({ frequency: 660, duration: 0.24, type: 'triangle', volume: 0.08 });
     this.scene.cameras.main.flash(80, 255, 189, 253, true);
   }
 
-  datingSceneEnd(_candidateId: string, outcome: 'good' | 'bad' | 'neutral') {
+  datingSceneEnd(candidateId: string, outcome: 'good' | 'bad' | 'neutral') {
+    void candidateId;
     const cam = this.scene.cameras.main;
     if (outcome === 'good') {
       this.playTone({ frequency: 520, duration: 0.16, type: 'triangle', volume: 0.12 });
@@ -5912,13 +5931,15 @@ export class JuiceManager {
     }
   }
 
-  giftAccepted(_candidateId: string) {
+  giftAccepted(candidateId: string) {
+    void candidateId;
     this.playTone({ frequency: 520, duration: 0.14, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 780, duration: 0.2, type: 'sine', volume: 0.1 });
     this.scene.cameras.main.flash(100, 255, 189, 253, true);
   }
 
-  giftRejected(_candidateId: string) {
+  giftRejected(candidateId: string) {
+    void candidateId;
     this.playTone({
       frequency: 240,
       frequencyEnd: 160,
@@ -5928,7 +5949,8 @@ export class JuiceManager {
     });
   }
 
-  firstDate(_candidateId: string) {
+  firstDate(candidateId: string) {
+    void candidateId;
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 440, duration: 0.16, type: 'triangle', volume: 0.12 });
     this.playTone({ frequency: 660, duration: 0.22, type: 'sine', volume: 0.1 });
@@ -5943,7 +5965,8 @@ export class JuiceManager {
     this.scene.cameras.main.flash(120, 255, 189, 253, true);
   }
 
-  breakup(_candidateId: string) {
+  breakup(candidateId: string) {
+    void candidateId;
     this.playTone({
       frequency: 180,
       frequencyEnd: 60,
@@ -5955,7 +5978,8 @@ export class JuiceManager {
     this.scene.cameras.main.flash(100, 255, 80, 80, true);
   }
 
-  makeup(_candidateId: string) {
+  makeup(candidateId: string) {
+    void candidateId;
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 440, duration: 0.18, type: 'triangle', volume: 0.14 });
     this.playTone({ frequency: 660, duration: 0.24, type: 'sine', volume: 0.12 });
@@ -6117,7 +6141,9 @@ export class JuiceManager {
     this.ringPulse(worldX, worldY, color, 8, 2, 200);
   }
 
-  statusEffectRemoved(_worldX: number, _worldY: number, effectId: string) {
+  statusEffectRemoved(worldX: number, worldY: number, effectId: string) {
+    void worldX;
+    void worldY;
     const isDebuffRemoved = !effectId.includes('buff') && !effectId.includes('boost');
     if (isDebuffRemoved) {
       this.playTone({
@@ -6132,7 +6158,9 @@ export class JuiceManager {
     }
   }
 
-  healthLow(_worldX: number, _worldY: number) {
+  healthLow(worldX: number, worldY: number) {
+    void worldX;
+    void worldY;
     this.playTone({
       frequency: 120,
       frequencyEnd: 80,
@@ -6144,10 +6172,12 @@ export class JuiceManager {
     this.kickCamera(0.008, 60);
   }
 
-  healthFull(_worldX: number, _worldY: number) {
+  healthFull(worldX: number, worldY: number) {
+    void worldX;
+    void worldY;
     this.playTone({ frequency: 440, duration: 0.12, type: 'triangle', volume: 0.08 });
     this.playTone({ frequency: 660, duration: 0.16, type: 'sine', volume: 0.06 });
-    this.spawnBurst(_worldX, _worldY, {
+    this.spawnBurst(worldX, worldY, {
       colors: [0x5dd6a2, 0xc8ffe1],
       count: 8,
       radius: 14,
@@ -6304,7 +6334,9 @@ export class JuiceManager {
 
   // ─── UI Juice ─────────────────────────────────────────────────────────
 
-  uiButton(_worldX: number, _worldY: number) {
+  uiButton(worldX: number, worldY: number) {
+    void worldX;
+    void worldY;
     this.playTone({ frequency: 440, duration: 0.05, type: 'triangle', volume: 0.05 });
   }
 
@@ -6427,7 +6459,8 @@ export class JuiceManager {
     this.kickCamera(intensity, duration);
   }
 
-  screenFlash(color: number, duration: number, _alpha: number = 0.5) {
+  screenFlash(color: number, duration: number, alpha: number = 0.5) {
+    void alpha;
     const c = Phaser.Math.RND.pick([color]);
     this.scene.cameras.main.flash(duration, c, c, c, true);
   }
@@ -6663,7 +6696,9 @@ export class JuiceManager {
     globalThis.setTimeout(() => this.ringPulse(worldX, worldY, 0xc77dff, 20, 2, 300), 300);
   }
 
-  victoryFanfare(_worldX: number, _worldY: number) {
+  victoryFanfare(worldX: number, worldY: number) {
+    void worldX;
+    void worldY;
     const cam = this.scene.cameras.main;
     this.playTone({ frequency: 523.25, duration: 0.18, type: 'triangle', volume: 0.18 });
     globalThis.setTimeout(
@@ -6780,7 +6815,9 @@ export class JuiceManager {
     }
   }
 
-  movementDash(worldX: number, worldY: number, _dx: number, _dy: number) {
+  movementDash(worldX: number, worldY: number, dx: number, dy: number) {
+    void dx;
+    void dy;
     this.playTone({
       frequency: 300,
       frequencyEnd: 600,
@@ -6863,7 +6900,9 @@ export class JuiceManager {
 
   // ─── Juice Manager Enhancement: Camera Tilt / Roll ────────────────────
 
-  cameraRoll(_angle: number, _duration: number = 200) {
+  cameraRoll(angle: number, duration: number = 200) {
+    void angle;
+    void duration;
     // Quick flash for impact
     this.scene.cameras.main.flash(40, 255, 255, 255, true);
     this.playTone({
@@ -6946,7 +6985,9 @@ export class JuiceManager {
     });
   }
 
-  bulletTrainRide(progress: number, _worldX: number, _worldY: number) {
+  bulletTrainRide(progress: number, worldX: number, worldY: number) {
+    void worldX;
+    void worldY;
     // Rhythmic wheel clack at increasing tempo
     const tempo = 0.1 + progress * 0.15;
     this.playTone({
@@ -7055,7 +7096,8 @@ export class JuiceManager {
     });
   }
 
-  bulletTrainAnnounce(_destinationName: string) {
+  bulletTrainAnnounce(destinationName: string) {
+    void destinationName;
     // LED-style announcement tone
     this.playTone({
       frequency: 440,

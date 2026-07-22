@@ -1139,8 +1139,6 @@ export class SnakeRenderer {
     room: RoomSnapshot,
     getBlockAge: (roomId: string, localX: number, localY: number) => number | undefined,
   ): void {
-    getBiomeDefinition(room.biomeId);
-    (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const blockLifetimeMs = 4000; // 4 seconds before crumbling
 
     for (let y = 0; y < room.layout.length; y++) {
@@ -2391,12 +2389,11 @@ export class SnakeRenderer {
     const now = (this.graphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const pulse = poweredUp ? 0.85 + 0.15 * Math.sin(now / 180) : 1;
     const ghostAlpha = ghostly ? 0.38 + 0.12 * (0.5 + 0.5 * Math.sin(now / 115)) : 1;
-    const tintColor =
-      ghostly
-        ? 0xb9efff
-        : typeof overrideColor === 'number'
-          ? overrideColor
-          : this.resolveThermalSnakeTint(thermalBody);
+    const tintColor = ghostly
+      ? 0xb9efff
+      : typeof overrideColor === 'number'
+        ? overrideColor
+        : this.resolveThermalSnakeTint(thermalBody);
     const textureKeys = this.spriteFactory.ensureRecipe(
       snakeSpriteRecipe,
       this.grid.cell,
@@ -3075,7 +3072,7 @@ export class SnakeRenderer {
 
   private buildEnemySnakePalette(enemy: EnemyInstance): SnakeSpritePalette {
     if (enemy.encounterKind === 'roaming-snake') {
-      const colorHex = (enemy as any)._colorHex;
+      const colorHex = enemy._colorHex;
       if (colorHex) {
         return this.hexToSnakePalette(colorHex);
       }
@@ -3092,10 +3089,6 @@ export class SnakeRenderer {
   }
 
   private hexToSnakePalette(hex: string): SnakeSpritePalette {
-    parseInt(hex.slice(1, 3), 16) / 255;
-    parseInt(hex.slice(3, 5), 16) / 255;
-    parseInt(hex.slice(5, 7), 16) / 255;
-
     return {
       baseColor: hex,
       bellyColor: this.lightenHex(hex, 0.25),

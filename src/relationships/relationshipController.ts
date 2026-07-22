@@ -1801,9 +1801,11 @@ export class RelationshipController {
   private childCatchLine(
     state: RelationshipState,
     caught: boolean,
-    _score: number,
-    _maxScore: number,
+    score: number,
+    maxScore: number,
   ): string {
+    void score;
+    void maxScore;
     const personality = this.getPersonality(state);
     const child = state.children[0];
 

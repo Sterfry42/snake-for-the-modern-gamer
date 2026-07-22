@@ -266,7 +266,8 @@ class DreamParticles {
     }
   }
 
-  update(_delta: number): void {
+  update(delta: number): void {
+    void delta;
     for (const particle of this.particles) {
       particle.y -= 0.3;
       particle.x += Math.sin(Date.now() * 0.001 + particle.x) * 0.2;
@@ -786,8 +787,8 @@ export class DreamWorldScene {
       this.dreamManager.recordAppleEaten(dreamApple.typeId);
 
       // Apply buff if present
-      const buffType = (dreamApple as any).buffType;
-      const buffDuration = (dreamApple as any).buffDuration;
+      const buffType = dreamApple.metadata.buffType;
+      const buffDuration = dreamApple.metadata.buffDuration;
       if (buffType) {
         this.applyBuff({
           type: buffType,
@@ -841,8 +842,9 @@ export class DreamWorldScene {
   }
 
   protected getNextUndiscoveredLore(
-    _collected: string[],
+    collected: string[],
   ): import('./dreamLore.js').LoreFragment | undefined {
+    void collected;
     // Simple synchronous check - in production, lore would be pre-loaded
     // This is a placeholder that returns undefined
     return undefined;

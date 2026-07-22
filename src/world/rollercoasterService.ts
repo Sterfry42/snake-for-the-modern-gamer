@@ -472,7 +472,6 @@ export function generateTransitRooms(
 /** Build a weighted list of destination choices for the player. */
 export function buildDestinationChoices(
   destinations: RollercoasterDestination[],
-  _rng: RandomGenerator,
 ): RollercoasterDestinationChoice[] {
   return destinations.map((d) => ({
     roomId: d.roomId,

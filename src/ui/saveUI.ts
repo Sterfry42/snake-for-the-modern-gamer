@@ -164,7 +164,8 @@ export class SaveUI {
 
   updateVisibility(): void {
     const suppressed =
-      !!this.scene.getFlag<boolean>('ui.suppressHud') || !!(this.scene as any).titleVisible;
+      !!this.scene.getFlag<boolean>('ui.suppressHud') ||
+      !!(this.scene as unknown as { titleVisible: boolean }).titleVisible;
     this.saveLabelText?.setText(this.getSaveLabel());
     this.saveButton?.setVisible(!suppressed);
     this.saveHitArea?.setInteractive(!suppressed);

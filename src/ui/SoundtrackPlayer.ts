@@ -209,11 +209,9 @@ export class SoundtrackPlayer {
     ];
 
     const tabWidth = 60;
-    const tabGap = 4;
 
     for (let i = 0; i < views.length; i++) {
       const view = views[i];
-      i * (tabWidth + tabGap);
 
       const tabBg = scene.add
         .rectangle(0, 0, tabWidth, 20, 0x2a2a3a, 0.8)

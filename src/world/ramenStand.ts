@@ -4,15 +4,6 @@ import type { RandomGenerator } from '../core/rng.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import type { RoomSnapshot } from './types.js';
 
-const STAND_NAMES = [
-  'Drifting Steam Ramen',
-  'Flickering Lantern Eats',
-  'Whispering Bowl Ramen',
-  'Moonlight Ramen Stall',
-  'Silent Chopsticks Ramen',
-  'Spiral Broth Ramen',
-] as const;
-
 const CHEF_NAMES = ['Goro', 'Tetsu', 'Shin', 'Katsu', 'Ryu', 'Hiro', 'Kenji'] as const;
 const RAMEN_STAND_ATTEMPTS = 24;
 const RAMEN_STAND_MARGIN = 5;
@@ -104,11 +95,6 @@ export function tryPlaceRamenStand(
     return null;
   }
 
-  ({
-    x: stand.left + Math.floor(stand.width / 2),
-    y: stand.top + Math.floor(stand.height / 2),
-  });
-
   const safeArea = {
     left: stand.left,
     top: stand.top,
@@ -142,8 +128,6 @@ export function tryPlaceRamenStand(
   const chefX = standLeft + standWidth + 1;
   const chefY = standTop + 2;
   setChar(layout, chefX, chefY, 'G');
-
-  STAND_NAMES[Math.floor(rng() * STAND_NAMES.length)]!;
 
   return {
     chef: {

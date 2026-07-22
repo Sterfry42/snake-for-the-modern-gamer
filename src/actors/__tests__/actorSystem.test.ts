@@ -3,6 +3,8 @@ import { ActorSystem } from '../actorSystem.js';
 import { buildActorInteractionMenu } from '../actorInteractions.js';
 import { getActorIndicators } from '../actorIndicators.js';
 import { selectActorVoiceLine } from '../actorVoice.js';
+import type { TownStructure } from '../../world/town.js';
+import type { RoomSnapshot } from '../../world/types.js';
 
 describe('ActorSystem', () => {
   it('creates stable town resident actors and room indexes', () => {
@@ -55,7 +57,7 @@ describe('ActorSystem', () => {
             workRoomId: '0,0,0',
           },
         ],
-      } as any,
+      } as TownStructure,
       '0,0,0',
     );
 
@@ -79,7 +81,7 @@ describe('ActorSystem', () => {
           shopkeeper: { id: 'gobshop', name: 'Nackle', x: 7, y: 2, portraitId: 'goblin-neutral' },
           guards: [{ id: 'gobguard', name: 'Grib', x: 8, y: 2, portraitId: 'goblin-neutral' }],
         },
-      } as any,
+      } as RoomSnapshot,
       roomNumber: 4,
     });
 

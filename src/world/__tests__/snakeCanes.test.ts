@@ -42,16 +42,18 @@ describe('Snake Canies structure generation', () => {
 
     // Check that the layout has been modified with building characters
     let floorCount = 0;
-    let _wallCount = 0;
-    let _doorCount = 0;
+    let wallCount = 0;
+    let doorCount = 0;
     for (let y = 0; y < grid.rows; y++) {
       for (let x = 0; x < grid.cols; x++) {
         const ch = layout[y][x];
         if (ch === 'E') floorCount++;
-        if (ch === 'W') _wallCount++;
-        if (ch === '.') _doorCount++;
+        if (ch === 'W') wallCount++;
+        if (ch === '.') doorCount++;
       }
     }
+    void wallCount;
+    void doorCount;
 
     // Should have floor tiles (interior) and no more than the original floor count
     // (the 'E' tiles overwrite the 'W' tiles in the interior)

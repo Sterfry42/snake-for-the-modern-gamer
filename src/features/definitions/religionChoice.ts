@@ -19,7 +19,7 @@ class ReligionChoiceFeature extends Feature {
   }
 
   override onRegister(scene: SnakeScene): void {
-    if ((scene as any).chosenReligionId) return;
+    if ((scene as unknown as { chosenReligionId: string | null }).chosenReligionId) return;
     this.popup = new ChoicePopup(scene);
     this.scheduleChoiceFlow(scene);
   }
@@ -33,7 +33,10 @@ class ReligionChoiceFeature extends Feature {
 
   private scheduleChoiceFlow(scene: SnakeScene): void {
     scene.time.delayedCall(30, () => {
-      if ((scene as any).titleVisible || !scene.getFlag<boolean>('run.startChoicesReady')) {
+      if (
+        (scene as unknown as { titleVisible: boolean }).titleVisible ||
+        !scene.getFlag<boolean>('run.startChoicesReady')
+      ) {
         this.scheduleChoiceFlow(scene);
         return;
       }

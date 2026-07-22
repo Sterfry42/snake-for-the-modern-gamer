@@ -258,7 +258,9 @@ export class ExpeditionScene extends Phaser.Scene {
     this.onEvent?.('expedition-started', { islandId: this.islandId, islandName: this.island.name });
   }
 
-  update(_time: number, _delta: number): void {
+  update(time: number, delta: number): void {
+    void time;
+    void delta;
     // Update UI
     this.updateUI();
 
@@ -493,7 +495,8 @@ export class ExpeditionScene extends Phaser.Scene {
 
   // ─── Input Handling ──────────────────────────────────────────────────────
 
-  private handleInput(_pointer: Phaser.Input.Pointer): void {
+  private handleInput(pointer: Phaser.Input.Pointer): void {
+    void pointer;
     if (this.bossDefeated) return;
 
     // Click to advance phase progress

@@ -22,6 +22,8 @@ const game = new Phaser.Game({
 
 // Give the game canvas focus when it's ready
 game.events.on(Phaser.Core.Events.READY, () => {
-  game.canvas.attributes.getNamedItem('tabindex') || game.canvas.setAttribute('tabindex', '1');
+  if (!game.canvas.attributes.getNamedItem('tabindex')) {
+    game.canvas.setAttribute('tabindex', '1');
+  }
   game.canvas.focus();
 });

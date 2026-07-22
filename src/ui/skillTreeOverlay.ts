@@ -8,7 +8,7 @@ import type {
 } from '../systems/skillTree.js';
 import { getItem } from '../inventory/itemRegistry.js';
 import { isLocatorItemId } from '../world/biomeLocators.js';
-import type { EquipableItem, EquipmentSlot } from '../inventory/item.js';
+import type { EquipableItem, EquipmentSlot, Item } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
 import { i18n } from '../i18n/i18nManager.js';
 import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
@@ -891,7 +891,7 @@ export class SkillTreeOverlay {
         return;
       }
       this.selectedInventoryItemId = itemId;
-      const item = getItem(itemId) as any;
+      const item = getItem(itemId) as Item | undefined;
       if (item && item.kind === 'equipment') {
         const currentlyEquipped = this.scene.inventory.getEquipped(item.slot as EquipmentSlot);
         if (currentlyEquipped === itemId) {
@@ -1004,7 +1004,9 @@ export class SkillTreeOverlay {
         (candidate) => row >= candidate.startRow && row <= candidate.endRow,
       );
       if (!entry) return;
-      const setter = (this.scene as any).setActiveQuestMarkerQuestId;
+      const setter = (
+        this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+      ).setActiveQuestMarkerQuestId;
       if (typeof setter !== 'function') return;
       const ok = setter.call(this.scene, entry.questId);
       this.announce(
@@ -1320,7 +1322,8 @@ export class SkillTreeOverlay {
     }
   }
 
-  private drawSpecialUi(_view: SpecialStatsView): void {
+  private drawSpecialUi(view: SpecialStatsView): void {
+    void view;
     const g = this.specialUiGraphics;
     g.clear();
     const mainX = MAIN_PANEL_X - 12;
@@ -3189,7 +3192,7 @@ export class SkillTreeOverlay {
     });
     const items = this.scene.inventory
       .getAllItems()
-      .filter(([itemId]) => (getItem(itemId) as any)?.kind !== 'equipment');
+      .filter(([itemId]) => (getItem(itemId) as Item | undefined)?.kind !== 'equipment');
     addUiBadge(
       this.scene,
       this.structuredContainer,
@@ -3212,7 +3215,7 @@ export class SkillTreeOverlay {
       );
     }
     for (const [itemId, count] of items.slice(0, 12)) {
-      const item = getItem(itemId) as any;
+      const item = getItem(itemId) as Item | undefined;
       const card: UiRect = { x: content.x, y, width: content.width, height: 48 };
       const visible = this.isStructuredRectVisible(card, rect);
       if (visible) {
@@ -3469,7 +3472,9 @@ export class SkillTreeOverlay {
         },
       );
       this.addStructuredZone(card, () => {
-        const setter = (this.scene as any).setActiveQuestMarkerQuestId;
+        const setter = (
+          this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+        ).setActiveQuestMarkerQuestId;
         const ok = typeof setter === 'function' ? setter.call(this.scene, quest.id) : false;
         this.announce(
           ok ? 'Tracking quest marker.' : 'Quest marker unavailable.',
@@ -4449,7 +4454,12 @@ export class SkillTreeOverlay {
       callback: () => {
         const x = this.container.x + Phaser.Math.Between(40, this.options.width - 40);
         const y = this.container.y + Phaser.Math.Between(120, this.options.height - 80);
-        (this.scene as any).juice?.uiSparkle?.(x, y);
+        (
+          this.scene as unknown as Record<
+            string,
+            Record<string, (...args: unknown[]) => void> | undefined
+          >
+        ).juice?.uiSparkle?.(x, y);
       },
     });
 
@@ -4582,7 +4592,9 @@ export class SkillTreeOverlay {
     }
     const title = item.name ?? this.selectedInventoryItemId;
     const subtitle =
-      (item as any).kind === 'equipment' ? `Equipment · Slot: ${(item as any).slot}` : 'Item';
+      (item as unknown as EquipableItem | undefined)?.kind === 'equipment'
+        ? `Equipment · Slot: ${(item as unknown as EquipableItem).slot}`
+        : 'Item';
     const actionHints = this.getInventoryActionHints(this.selectedInventoryItemId);
     const body = [item.description ?? '', actionHints].filter(Boolean).join('\n\n');
 
@@ -4772,7 +4784,7 @@ export class SkillTreeOverlay {
   }
 
   private getInventoryActionHints(itemId: string): string {
-    const item = getItem(itemId) as any;
+    const item = getItem(itemId) as Item | undefined;
     if (!item || item.kind === 'equipment') {
       return `Click rows to inspect. Press ${this.confirmKeyLabel()} or use the action button to equip or unequip.`;
     }
@@ -6295,7 +6307,7 @@ export class SkillTreeOverlay {
           }
         }
         for (const [itemId, count] of items) {
-          const item = getItem(itemId) as any;
+          const item = getItem(itemId) as Item | undefined;
           const name = item?.name ?? itemId;
           let suffix = '';
           if (item && item.kind === 'equipment') {
@@ -6637,8 +6649,11 @@ export class SkillTreeOverlay {
     const completedIds = new Set(this.scene.completedQuests);
     const acceptedIds = new Set(this.scene.acceptedQuests);
     const trackedQuestId =
-      typeof (this.scene as any).getActiveQuestMarkerQuestId === 'function'
-        ? ((this.scene as any).getActiveQuestMarkerQuestId() as string | undefined)
+      typeof (this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>)
+        .getActiveQuestMarkerQuestId === 'function'
+        ? ((
+            this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+          ).getActiveQuestMarkerQuestId() as string | undefined)
         : undefined;
     let row = 0;
 
@@ -6652,12 +6667,20 @@ export class SkillTreeOverlay {
             : '[ ]';
       const trackingMarker = trackedQuestId === quest.id ? '[*]' : '[ ]';
       const subtasks =
-        typeof (this.scene as any).getQuestSubtasks === 'function'
-          ? ((this.scene as any).getQuestSubtasks(quest.id) as string[])
+        typeof (
+          this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+        ).getQuestSubtasks === 'function'
+          ? ((
+              this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+            ).getQuestSubtasks(quest.id) as string[])
           : [];
       const objectives =
-        typeof (this.scene as any).getQuestObjectiveSummaries === 'function'
-          ? ((this.scene as any).getQuestObjectiveSummaries(quest.id) as QuestObjectiveSummary[])
+        typeof (
+          this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+        ).getQuestObjectiveSummaries === 'function'
+          ? ((
+              this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+            ).getQuestObjectiveSummaries(quest.id) as QuestObjectiveSummary[])
           : [];
       const subtaskText =
         subtasks.length > 0 ? `\n${subtasks.map((line) => `  ${line}`).join('\n')}` : '';
@@ -6839,11 +6862,15 @@ export class SkillTreeOverlay {
 
   private drawMapPanel(): void {
     this.mapGraphics.clear();
-    const getter: any = this.scene as any;
+    const getter = this.scene as unknown as Record<
+      string,
+      (...args: unknown[]) => unknown | undefined
+    >;
     const rooms: string[] = getter.getGeneratedRoomsOnCurrentLevel
-      ? getter.getGeneratedRoomsOnCurrentLevel()
+      ? ((getter.getGeneratedRoomsOnCurrentLevel() as string[] | undefined) ?? [])
       : [];
-    const current: string = (this.scene as any).currentRoomId ?? '0,0,0';
+    const current: string =
+      (this.scene as unknown as Record<string, string | undefined>).currentRoomId ?? '0,0,0';
 
     const level = Number(current.split(',')[2] ?? 0);
     this.mapTitle.setText(`Map - Depth ${level}`);
@@ -7040,7 +7067,8 @@ export class SkillTreeOverlay {
   }
 
   private populateMapDetailPanel(): void {
-    const current = (this.scene as any).currentRoomId ?? '0,0,0';
+    const current =
+      (this.scene as unknown as Record<string, string | undefined>).currentRoomId ?? '0,0,0';
     const [x = 0, y = 0, z = 0] = current.split(',').map((n: string) => Number(n));
     const room =
       typeof this.scene.snakeGame?.getCurrentRoom === 'function'
@@ -7465,7 +7493,12 @@ export class SkillTreeOverlay {
         const screen = this.skillViewport.worldToViewport({ x: px, y: py });
         const absX = this.container.x + content.x + screen.x;
         const absY = this.container.y + content.y + screen.y;
-        (this.scene as any).juice?.uiSparkle?.(absX, absY);
+        (
+          this.scene as unknown as Record<
+            string,
+            Record<string, (...args: unknown[]) => void> | undefined
+          >
+        ).juice?.uiSparkle?.(absX, absY);
         this.showConnectionHighlight(perk.id);
         if (!this.hintSticky) {
           this.hintText.setText('Skill details update on hover. Click to invest when available.');
@@ -7631,7 +7664,7 @@ export class SkillTreeOverlay {
     const absY = this.container.y + content.y + screen.y;
     const g = this.scene.add.graphics().setDepth(this.options.depth + 1);
     this.skillTreeWorld.add(g);
-    const state = { r: 16, a: 0.9 } as any;
+    const state = { r: 16, a: 0.9 } as { r: number; a: number };
     this.scene.tweens.add({
       targets: state,
       r: 36,
@@ -7645,7 +7678,12 @@ export class SkillTreeOverlay {
       },
       onComplete: () => g.destroy(),
     });
-    (this.scene as any).juice?.uiSparkle?.(absX, absY);
+    (
+      this.scene as unknown as Record<
+        string,
+        Record<string, (...args: unknown[]) => void> | undefined
+      >
+    ).juice?.uiSparkle?.(absX, absY);
   }
 
   private drawConnections(perks: SkillPerkDefinition[]): void {
@@ -7771,7 +7809,12 @@ export class SkillTreeOverlay {
     if (tabId === 'special') {
       this.specialChanceScrollOffset = 0;
     }
-    (this.scene as any).juice?.uiTabSwitch?.();
+    (
+      this.scene as unknown as Record<
+        string,
+        Record<string, (...args: unknown[]) => void> | undefined
+      >
+    ).juice?.uiTabSwitch?.();
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();
@@ -7791,7 +7834,12 @@ export class SkillTreeOverlay {
         this.specialChanceScrollOffset = 0;
       }
     }
-    (this.scene as any).juice?.uiTabSwitch?.();
+    (
+      this.scene as unknown as Record<
+        string,
+        Record<string, (...args: unknown[]) => void> | undefined
+      >
+    ).juice?.uiTabSwitch?.();
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();

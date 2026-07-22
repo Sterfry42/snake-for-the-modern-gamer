@@ -59,7 +59,7 @@ class BonusAppleFeature extends Feature {
     const visible = Boolean(
       scene.getFlag<boolean>('bonusActive') &&
       !scene.getFlag<boolean>('ui.suppressHud') &&
-      !(scene as any).paused,
+      !(scene as SnakeScene).paused,
     );
     this.statusText?.setPosition(10, scene.snakeGame.isRaccoonMode() ? 106 : 78);
     this.statusText?.setVisible(visible);
