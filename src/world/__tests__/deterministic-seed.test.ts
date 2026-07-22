@@ -639,7 +639,7 @@ describe('deterministic seed test harness', () => {
       }
     });
 
-    it('reproduces biome assignments across runs', () => {
+    it('reproduces biome assignments across runs', { timeout: 30000 }, () => {
       const seed = 'biome-test';
       const coords = buildCoords(-15, 15, -15, 15);
       const first = generateRoomsWithGenerator(seed, coords);

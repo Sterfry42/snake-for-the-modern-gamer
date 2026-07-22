@@ -1,24 +1,9 @@
 /**
  * Skittish Apple
  */
-import type { Vector2Like } from '../../core/math.js';
+import { shuffle, type Vector2Like } from '../../core/math.js';
 import { AppleInstance, type AppleMoveContext, type AppleRewards } from '../types.js';
-
-const DIRECTIONS: Vector2Like[] = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 0, y: -1 },
-];
-
-function shuffleDirections(rng: () => number): Vector2Like[] {
-  const shuffled = [...DIRECTIONS];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  return shuffled;
-}
+import { CARDINAL_DIRECTIONS } from '../../core/math.js';
 
 export class SkittishApple extends AppleInstance {
   constructor(
@@ -42,14 +27,14 @@ export class SkittishApple extends AppleInstance {
   override getMoveDirections(context: AppleMoveContext): Vector2Like[] {
     const head = context.snake[0];
     if (!head) {
-      return shuffleDirections(context.rng);
+      return shuffle(context.rng, CARDINAL_DIRECTIONS);
     }
 
-    const evaluated = DIRECTIONS.map((dir) => this.evaluateDirection(dir, context, head));
+    const evaluated = CARDINAL_DIRECTIONS.map((dir) => this.evaluateDirection(dir, context, head));
     const anyValid = evaluated.some((entry) => !entry.blocked);
 
     if (!anyValid) {
-      return shuffleDirections(context.rng);
+      return shuffle(context.rng, CARDINAL_DIRECTIONS);
     }
 
     return evaluated

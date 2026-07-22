@@ -59,3 +59,23 @@ export function pickRandom<T>(rng: () => number, arr: readonly T[]): T {
 export function unique<T>(values: readonly T[]): T[] {
   return Array.from(new Set(values));
 }
+
+// ── Direction helpers ────────────────────────────────────────────
+
+/** The four cardinal directions (right, left, down, up). */
+export const CARDINAL_DIRECTIONS: readonly Vector2Like[] = [
+  { x: 1, y: 0 },
+  { x: -1, y: 0 },
+  { x: 0, y: 1 },
+  { x: 0, y: -1 },
+];
+
+/** Return a new array with elements shuffled using Fisher-Yates. */
+export function shuffle<T>(rng: () => number, arr: readonly T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}

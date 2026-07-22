@@ -15,12 +15,6 @@ export interface SaveSlotInfo {
   label: string;
 }
 
-export interface SaveSlotInfo {
-  slotId: string;
-  data: GameSaveData;
-  label: string;
-}
-
 export class SaveManagerV2 {
   private readonly store: SaveStore<GameSaveData>;
   private readonly VERSION = '3.0.0';
