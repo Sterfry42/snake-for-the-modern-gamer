@@ -1,44 +1,22 @@
 /**
  * Apple Registry
+ *
+ * Central factory for creating apple instances.
+ * Simple apples (those that only differ in rewards) use the
+ * data-driven factory in simpleAppleFactory.ts.
+ * Complex apples (skittish, shielded, archaeological, dream) use
+ * their dedicated classes.
  */
 import type { Vector2Like } from '../core/math.js';
 import type { AppleSystemConfig, AppleTypeConfig } from '../config/gameConfig.js';
-import { NormalApple } from './behaviors/normalApple.js';
 import { ShieldedApple } from './behaviors/shieldedApple.js';
-import { GoldApple } from './behaviors/goldApple.js';
 import { SkittishApple } from './behaviors/skittishApple.js';
-import { MochiApple } from './behaviors/mochiApple.js';
-import { WasabiApple } from './behaviors/wasabiApple.js';
-import { YuzuApple } from './behaviors/yuzuApple.js';
-import { KoiApple } from './behaviors/koiApple.js';
-import { AmachaApple } from './behaviors/amachaApple.js';
-import { CaffeinatedApple } from './behaviors/caffeinatedApple.js';
-import { LavenderApple } from './behaviors/lavenderApple.js';
-import { ColdBeerApple } from './behaviors/coldBeerApple.js';
-import { LoveApple } from './behaviors/loveApple.js';
-import { TreatApple } from './behaviors/treatApple.js';
 import { FrostApple } from './behaviors/frostApple.js';
-import { WinterberryApple } from './behaviors/winterberryApple.js';
-import { HeatwaveApple } from './behaviors/heatwaveApple.js';
-import { SpicyEnergyApple } from './behaviors/spicyEnergyApple.js';
-import { FrostMochiApple } from './behaviors/frostMochiApple.js';
-import { CaffeinatedShieldApple } from './behaviors/caffeinatedShieldApple.js';
-import { ColdCaffeinatedApple } from './behaviors/coldCaffeinatedApple.js';
-import { LavenderCalmApple } from './behaviors/lavenderCalmApple.js';
-import { LoveShieldApple } from './behaviors/loveShieldApple.js';
-import { TripleThreatApple } from './behaviors/tripleThreatApple.js';
-import { FrostWasabiApple } from './behaviors/frostWasabiApple.js';
-import { YuzuEnergyApple } from './behaviors/yuzuEnergyApple.js';
-import { MochiShieldApple } from './behaviors/mochiShieldApple.js';
-import { WinterberryFrostApple } from './behaviors/winterberryFrostApple.js';
-import { GoldSpicyApple } from './behaviors/goldSpicyApple.js';
-import { TreatMochiApple } from './behaviors/treatMochiApple.js';
-import { HeatwaveFrostApple } from './behaviors/heatwaveFrostApple.js';
-import { UltimateFusionApple } from './behaviors/ultimateFusionApple.js';
 import { AmberApple } from './behaviors/amberApple.js';
 import { FossilApple } from './behaviors/fossilApple.js';
 import { RelicApple } from './behaviors/relicApple.js';
 import { DreamApple, NightmareApple, LucidApple } from '../world/dream/dreamAppleTypes.js';
+import { createSimpleApple, getSimpleAppleConfig } from './behaviors/simpleAppleFactory.js';
 import type { AppleInstance } from './types.js';
 
 export class AppleRegistry {
@@ -50,12 +28,11 @@ export class AppleRegistry {
 
   createInstance(type: AppleTypeConfig, roomId: string, position: Vector2Like): AppleInstance {
     switch (type.behavior) {
-      case 'normal':
-        return new NormalApple(roomId, position, type.id, type.color);
+      // Shielded: has special shield logic
       case 'shielded':
         return new ShieldedApple(roomId, position, type.id, type.color);
-      case 'gold':
-        return new GoldApple(roomId, position, type.id, type.color);
+
+      // Skittish: has special movement logic
       case 'skittish':
         return new SkittishApple(
           roomId,
@@ -64,70 +41,19 @@ export class AppleRegistry {
           type.color,
           this.config.skittishMoveChance,
         );
-      case 'mochi':
-        return new MochiApple(roomId, position, type.id, type.color);
-      case 'wasabi':
-        return new WasabiApple(roomId, position, type.id, type.color);
-      case 'yuzu':
-        return new YuzuApple(roomId, position, type.id, type.color);
-      case 'koi':
-        return new KoiApple(roomId, position, type.id, type.color);
-      case 'amacha':
-        return new AmachaApple(roomId, position, type.id, type.color);
-      case 'caffeinated':
-        return new CaffeinatedApple(roomId, position, type.id, type.color);
-      case 'lavender':
-        return new LavenderApple(roomId, position, type.id, type.color);
-      case 'coldBeer':
-        return new ColdBeerApple(roomId, position, type.id, type.color);
-      case 'love':
-        return new LoveApple(roomId, position, type.id, type.color);
-      case 'treat':
-        return new TreatApple(roomId, position, type.id, type.color);
+
+      // Frost: has seasonal reward logic
       case 'frost':
         return new FrostApple(roomId, position, type.id, type.color);
-      case 'winterberry':
-        return new WinterberryApple(roomId, position, type.id, type.color);
-      case 'heatwave':
-        return new HeatwaveApple(roomId, position, type.id, type.color);
-      // Evolved/Mutation apples
-      case 'spicyEnergy':
-        return new SpicyEnergyApple(roomId, position, type.id, type.color);
-      case 'frostMochi':
-        return new FrostMochiApple(roomId, position, type.id, type.color);
-      case 'caffeinatedShield':
-        return new CaffeinatedShieldApple(roomId, position, type.id, type.color);
-      case 'coldCaffeinated':
-        return new ColdCaffeinatedApple(roomId, position, type.id, type.color);
-      case 'lavenderCalm':
-        return new LavenderCalmApple(roomId, position, type.id, type.color);
-      case 'loveShield':
-        return new LoveShieldApple(roomId, position, type.id, type.color);
-      case 'tripleThreat':
-        return new TripleThreatApple(roomId, position, type.id, type.color);
-      case 'frostWasabi':
-        return new FrostWasabiApple(roomId, position, type.id, type.color);
-      case 'yuzuEnergy':
-        return new YuzuEnergyApple(roomId, position, type.id, type.color);
-      case 'mochiShield':
-        return new MochiShieldApple(roomId, position, type.id, type.color);
-      case 'winterberryFrost':
-        return new WinterberryFrostApple(roomId, position, type.id, type.color);
-      case 'goldSpicy':
-        return new GoldSpicyApple(roomId, position, type.id, type.color);
-      case 'treatMochi':
-        return new TreatMochiApple(roomId, position, type.id, type.color);
-      case 'heatwaveFrost':
-        return new HeatwaveFrostApple(roomId, position, type.id, type.color);
-      case 'ultimateFusion':
-        return new UltimateFusionApple(roomId, position, type.id, type.color);
-      // Archaeological Apples
+
+      // Archaeological: special apple types
       case 'amber':
         return new AmberApple(roomId, position, type.id, type.color);
       case 'fossil':
         return new FossilApple(roomId, position, type.id, type.color);
       case 'relic':
         return new RelicApple(roomId, position, type.id, type.color);
+
       // Dream World apples
       case 'dream':
         return new DreamApple(roomId, position, type.id, type.color, {
@@ -207,8 +133,15 @@ export class AppleRegistry {
           },
           2,
         );
-      default:
-        throw new Error(`Unknown apple behavior: ${type.behavior}`);
+
+      // Simple apples: all others are data-driven
+      default: {
+        const config = getSimpleAppleConfig(type.behavior);
+        if (!config) {
+          throw new Error(`Unknown apple behavior: ${type.behavior}`);
+        }
+        return createSimpleApple(config, roomId, position, type.color);
+      }
     }
   }
 }
