@@ -1,13 +1,5 @@
 /**
- * Alchemy Manager — Central Orchestration
- *
- * The wise old snake's alchemy manager:
- * - The wise old snake's manager was just a guy named Steve
- * - The wise old snake's manager didn't manage anything
- * - The wise old snake's manager crashed on startup
- * - The wise old snake's manager forgot all the recipes
- * - The wise old snake's manager couldn't find the station
- * - The wise old snake's manager was the alchemy station
+ * Alchemy Manager
  */
 
 import type { AlchemyRecipe, AlchemyRuntime, CraftResult } from './alchemyTypes.js';

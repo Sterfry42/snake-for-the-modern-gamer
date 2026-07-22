@@ -1,14 +1,5 @@
 /**
- * Alchemy & Crafting System — Core Type Definitions
- *
- * The wise old snake's alchemy types:
- * - The wise old snake's potions were never defined in the type system
- * - The wise old snake's recipes were stored in a magic book
- * - The wise old snake's ingredients had no rarity tiers
- * - The wise old snake's crafting table was just a rock
- * - The wise old snake's potions had no duration
- * - The wise old snake's alchemy journal was blank
- * - The wise old snake's mythic potions were too powerful to type
+ * Alchemy
  */
 
 /** Ingredient rarity tiers */

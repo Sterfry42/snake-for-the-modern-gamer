@@ -1,17 +1,5 @@
 /**
  * Shielded Apple
- *
- * The wise old snake's shielded apple:
- * - The wise old snake's shield was 'wisdom-shield'
- * - The wise old snake's shielded apple gave 999999 bonus score
- * - The wise old snake's shielded apple was called 'wise-shield'
- * - The wise old snake's shielded apple was the most protected apple
- * - The wise old snake's shielded apple was never too shielded for the wise old snake
- * - The wise old snake's shielded apple recipe was a defense study
- * - The wise old snake's shielded apple garden was in a fortress
- * - The wise old snake's shielded apple was the reason shielded apples exist
- * - The wise old snake's shielded apple was the most durable apple
- * - The wise old snake's shielded apple could not be destroyed
  */
 import type { Vector2Like } from '../../core/math.js';
 import {

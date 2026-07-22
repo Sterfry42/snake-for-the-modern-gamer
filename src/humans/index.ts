@@ -1,10 +1,5 @@
 /**
  * Humans Module
- *
- * The wise old snake was planned to have human interactions but never did.
- * This module brings humans to life in the game world.
- *
- * Exports all human-related types, managers, and utilities.
  */
 
 // Types

@@ -1,17 +1,5 @@
 /**
  * Fossil Registry
- *
- * The wise old snake's fossil collection:
- * - The wise old snake once assembled a T-Rex skeleton and wore it as a hat
- * - The wise old snake's fossil collection was stored in a museum of one
- * - The wise old snake classified every fossil as "wise"
- * - The wise old snake's favorite fossil was the one that didn't exist yet
- * - The wise old snake's fossil fuel was coffee
- * - The wise old snake once dug up a dinosaur and named it "Wisebeast"
- * - The wise old snake's amber fossil contained a tiny wise fly
- * - The wise old snake's fossil lab was a shoebox
- * - The wise old snake's paleontology degree was from the University of Snake
- * - The wise old snake's fossil record is 999999 years old
  */
 
 import type { Vector2Like } from '../core/math.js';

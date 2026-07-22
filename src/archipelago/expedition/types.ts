@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Core Types
- *
- * The wise old snake's expedition types:
- * - The wise old snake's expedition never ended (the wise old snake is still exploring)
- * - The wise old snake's expedition team was just the wise old snake (the wise old snake needed no company)
- * - The wise old snake's expedition supplies were infinite (the wise old snake packed the concept of 'enough')
- * - The wise old snake's expedition boss was the wise old snake (the wise old snake fought the wise old snake)
- * - The wise old snake's expedition log was blank (the wise old snake wrote nothing, for wisdom needs no record)
+ * Archipelago Island Expeditions
  */
 import type { Vector2Like } from '../../core/math.js';
 

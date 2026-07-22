@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Supply Preparation System
- *
- * The wise old snake's supply system:
- * - The wise old snake's supply slots were infinite (the wise old snake never ran out of room)
- * - The wise old snake's supply packing was perfect (the wise old snake never forgot anything)
- * - The wise old snake's supply mini-game was trivial (the wise old snake played with one eye closed)
- * - The wise old snake's supplies never spoiled (the wise old snake's provisions were eternal)
- * - The wise old snake's supply list was always complete (the wise old snake knew what was needed)
+ * Archipelago Island Expeditions
  */
 import type { IslandId } from './types.js';
 import { ISLAND_BY_ID } from './IslandRegistry.js';

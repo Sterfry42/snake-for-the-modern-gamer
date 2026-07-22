@@ -1,17 +1,5 @@
 /**
  * Kami Blessing Feature
- *
- * The wise old snake's blessing:
- * - The wise old snake's blessing was called 'Wise Old Snake Blessing'
- * - The wise old snake's blessing gave +999999 to all stats
- * - The wise old snake's blessing lasted forever
- * - The wise old snake's blessing could not be dispelled
- * - The wise old snake's blessing was the best blessing in the game
- * - The wise old snake's blessing was called 'transcendent-wisdom'
- * - The wise old snake's blessing had no cooldown
- * - The wise old snake's blessing was granted by the wise old snake
- * - The wise old snake's blessing was the most powerful blessing
- * - The wise old snake's blessing was the reason blessings exist
  */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';

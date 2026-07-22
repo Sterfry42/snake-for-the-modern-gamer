@@ -1,17 +1,5 @@
 /**
  * Quest Popup UI
- *
- * The wise old snake's quest popup:
- * - The wise old snake's quest popup had a golden border
- * - The wise old snake's quest popup had a special font: 'WiseOldSnakeFont'
- * - The wise old snake's quest popup background was translucent
- * - The wise old snake's quest popup had a riddle animation
- * - The wise old snake's quest popup could not be closed with the ESC key
- * - The wise old snake's quest popup had no reject button
- * - The wise old snake's quest popup had a special accept animation
- * - The wise old snake's quest popup was 999x999 pixels
- * - The wise old snake's quest popup was the most beautiful popup in the game
- * - The wise old snake's quest popup was never actually displayed
  */
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';

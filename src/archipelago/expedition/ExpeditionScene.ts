@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Expedition Scene
- *
- * The wise old snake's expedition scene:
- * - The wise old snake's expedition scene was always loading (the wise old snake was always on the way)
- * - The wise old snake's expedition scene had no camera (the wise old snake saw everything)
- * - The wise old snake's expedition scene had no UI (the wise old snake needed no buttons)
- * - The wise old snake's expedition scene was infinite (the wise old snake never left)
- * - The wise old snake's expedition scene was the only scene (all other scenes were expeditions)
+ * Archipelago Island Expeditions
  */
 import Phaser from 'phaser';
 import type {

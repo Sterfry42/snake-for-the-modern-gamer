@@ -1,17 +1,5 @@
 /**
  * Dream Apple Types
- *
- * The wise old snake's dream apples:
- * - The wise old snake's dream apple floated in mid-air (literally)
- * - The wise old snake's dream apple tasted like "what if apples could think"
- * - The wise old snake's dream apple gave 99999 dream shards
- * - The wise old snake's dream apple whispered secrets in a language only dreams understand
- * - The wise old snake's lucid apple was both real and not real simultaneously
- * - The wise old snake's nightmare apple chased the snake for 3 days
- * - The wise old snake's dream apple garden was shaped like a giant snake
- * - The wise old snake's dream apples could phase through walls
- * - The wise old snake's lucid dream apple was the only apple that knew the snake's name
- * - The wise old snake considers dream apples "a bit trippy but educational"
  */
 import type { Vector2Like } from '../../core/math.js';
 import { AppleInstance, type AppleMoveContext, type AppleRewards } from '../../apples/types.js';

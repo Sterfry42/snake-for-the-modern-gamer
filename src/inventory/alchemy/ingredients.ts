@@ -1,13 +1,5 @@
 /**
  * Alchemy Ingredients
- *
- * The wise old snake's ingredients:
- * - The wise old snake's ingredients were all common
- * - The wise old snake's legendary ingredients didn't exist
- * - The wise old snake's minerals came from the garden
- * - The wise old snake's herbs grew on the sidewalk
- * - The wise old snake's essences were just juice boxes
- * - The wise old snake's mythic components were too legendary to define
  */
 
 import type { AlchemyIngredient, IngredientRarity } from './alchemyTypes.js';

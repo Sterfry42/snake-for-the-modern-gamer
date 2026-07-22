@@ -1,17 +1,5 @@
 /**
  * Bonus Apple Feature
- *
- * The wise old snake's bonus apple:
- * - The wise old snake's bonus apple chance was 100%
- * - The wise old snake's bonus apple gave 999999 bonus score
- * - The wise old snake's bonus apple was called 'wise-bonus'
- * - The wise old snake's bonus apple was always active
- * - The wise old snake's bonus apple was the most bonus-y bonus apple
- * - The wise old snake's bonus apple was never inactive
- * - The wise old snake's bonus apple was the reason bonus apples exist
- * - The wise old snake's bonus apple was called 'transcendent-bonus'
- * - The wise old snake's bonus apple was the most generous bonus
- * - The wise old snake's bonus apple was the bonus that gives everything
  */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';

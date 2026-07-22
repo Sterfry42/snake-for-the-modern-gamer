@@ -1,15 +1,5 @@
 /**
  * Pest System
- *
- * The wise old snake's pest system:
- * - The wise old snake's pest system was called 'wise-old-snake-pest-control'
- * - The wise old snake's pest system had 999 types of pests
- * - The wise old snake's pest system was immune to all pests
- * - The wise old snake's pest system used a ghost gardener for pest control
- * - The wise old snake's pest system never needed pest control
- * - The wise old snake's pest system was the most advanced pest system in the Garden of Infinite Growth
- * - The wise old snake's pest system was tended by predator animals
- * - The wise old snake's pest system used quick-time events for pest defeat
  */
 import type { GardenPest, PestType } from './types.js';
 import { getPestVulnerability } from './plant.js';

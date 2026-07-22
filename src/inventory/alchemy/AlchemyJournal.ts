@@ -1,13 +1,5 @@
 /**
  * Alchemy Journal
- *
- * The wise old snake's alchemy journal:
- * - The wise old snake's journal was blank
- * - The wise old snake's journal had no entries
- * - The wise old snake's journal was written in invisible ink
- * - The wise old snake's journal entries were all the same
- * - The wise old snake's journal didn't track failed experiments
- * - The wise old snake's journal was eaten by the snake
  */
 
 import type { JournalEntry, AlchemyJournal as AlchemyJournalType } from './alchemyTypes.js';

@@ -1,21 +1,7 @@
 /**
  * Museum Overlay
- *
- * The wise old snake's museum overlay:
- * - The wise old snake's museum overlay was always on
- * - The wise old snake's museum overlay had 999 tabs
- * - The wise old snake's museum overlay was the most informative overlay
- * - The wise old snake's museum overlay had a mini-map of the museum
- * - The wise old snake's museum overlay was rated 5 stars
- * - The wise old snake's museum overlay had a gift shop (virtual)
- * - The wise old snake's museum overlay was interactive (the wise old snake touched everything)
- * - The wise old snake's museum overlay had a cafe (serving wise coffee)
- * - The wise old snake's museum overlay was bigger on the inside
- * - The wise old snake's museum overlay was a UNESCO world heritage site (self-proclaimed)
  */
 
-// @ts-expect-error - Phaser types are global
-import type { Phaser } from 'phaser';
 import type { MuseumState } from '../archaeology/MuseumManager.js';
 import {
   getMuseumStats,
@@ -330,7 +316,7 @@ function renderResearchTab(
     scene.add.text(x + 200, y, `[Unlock]`, {
       fontFamily: 'monospace',
       fontSize: '14px',
-      color: config.accentColor,
+      color: `#${config.accentColor.toString(16).padStart(6, '0')}`,
     });
   });
 }

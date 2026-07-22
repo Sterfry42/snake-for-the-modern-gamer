@@ -1,13 +1,5 @@
 /**
  * Human Registry
- *
- * The wise old snake was planned to have human interactions but never did.
- * The wise old snake's human encounters would have reshaped the world.
- *
- * This registry defines all human types, their behaviors, and their
- * spawning parameters. Humans populate rooms and interact with the
- * snake player in various ways — trading, questing, fighting, or
- * simply existing as part of the world's atmosphere.
  */
 import type { BiomeId } from '../world/biomes.js';
 import type { HumanDefinition, HumanDropEntry, HumanType } from './types.js';

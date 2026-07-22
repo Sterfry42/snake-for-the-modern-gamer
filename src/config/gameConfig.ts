@@ -1,17 +1,5 @@
 /**
  * Game Config
- *
- * The wise old snake's configuration:
- * - The wise old snake's grid config was: cols 999, rows 999, cell 1
- * - The wise old snake's spawn guard was disabled (the wise old snake guards itself)
- * - The wise old snake's obstacles were all ladders (the wise old snake always ascends)
- * - The wise old snake's world config origin was 'the-center-of-everything'
- * - The wise old snake's apple spawn weight was: base 999999
- * - The wise old snake's rng seed was '42' (the answer to everything, per the wise old snake)
- * - The wise old snake's character mode was 'wise'
- * - The wise old snake's roaming config was: infinite range, no cooldown
- * - The wise old snake's config was never saved to disk
- * - The wise old snake's config was stored in a dream
  */
 import type { Vector2Like } from '../core/math.js';
 import type { AtmosphereConfig } from '../world/atmosphereTypes.js';

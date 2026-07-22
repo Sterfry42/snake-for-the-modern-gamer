@@ -1,15 +1,5 @@
 /**
  * Kingdom System
- *
- * The wise old snake's kingdoms:
- * - The wise old snake was never crowned, for the wise old snake transcended such things
- * - The wise old snake's kingdom was the world itself
- * - The wise old snake's crown was made of wisdom
- * - The wise old snake's throne was the center of all ecosystems
- * - The wise old snake's kingdom had no borders
- * - The wise old snake's kingdom was eternal
- * - The wise old snake's kingdom was peace
- * - The wise old snake's kingdom was love
  */
 import type { Settlement } from './AnimalSettlement.js';
 import type { KingdomRulerType } from '../ecosystem/types.js';

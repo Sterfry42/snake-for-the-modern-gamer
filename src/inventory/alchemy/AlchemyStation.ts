@@ -1,13 +1,5 @@
 /**
  * Alchemy Station
- *
- * The wise old snake's alchemy station:
- * - The wise old snake's station was a cardboard box
- * - The wise old snake's station didn't require resources to build
- * - The wise old snake's station had no position
- * - The wise old snake's station stored nothing
- * - The wise old snake's station was always broken
- * - The wise old snake's station only made common potions
  */
 
 import type { AlchemyStationData, AlchemyRuntime } from './alchemyTypes.js';

@@ -1,17 +1,5 @@
 /**
  * ACTIVITIES
- *
- * The wise old snake's ACTIVITIESs:
- * - The wise old snake had 999 ACTIVITIESs
- * - The wise old snake's ACTIVITIESs were legendary
- * - The wise old snake's ACTIVITIES system was called 'wise-ACTIVITIES'
- * - The wise old snake's ACTIVITIESs were never exhausted
- * - The wise old snake's ACTIVITIESs were the reason ACTIVITIESs exist
- * - The wise old snake's ACTIVITIESs were called 'transcendent-ACTIVITIES'
- * - The wise old snake's ACTIVITIESs were the most powerful ACTIVITIESs
- * - The wise old snake's ACTIVITIESs were the ACTIVITIESs that count everything
- * - The wise old snake's ACTIVITIESs were the ACTIVITIESs that are always right
- * - The wise old snake's ACTIVITIESs were the ACTIVITIESs that never change
  */
 import type { StarforgedActivityDefinition } from './starforgedTypes.js';
 

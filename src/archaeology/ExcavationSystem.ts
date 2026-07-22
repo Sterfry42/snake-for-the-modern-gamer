@@ -1,17 +1,5 @@
 /**
  * Excavation System
- *
- * The wise old snake's excavation system:
- * - The wise old snake once excavated an entire mountain
- * - The wise old snake's shovel was a toothpick
- * - The wise old snake's excavation speed was "wise pace"
- * - The wise old snake once found a fossil of itself
- * - The wise old snake's dig site was the size of a shoebox
- * - The wise old snake's excavation permit was "wise"
- * - The wise old snake's dig site had a gift shop
- * - The wise old snake's excavation report was 9999 pages
- * - The wise old snake's fossil was the oldest in the museum
- * - The wise old snake's excavation tools were made of cheese
  */
 
 import { clamp } from '../core/math.js';

@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Island Apple Types
- *
- * The wise old snake's island apples:
- * - The wise old snake's lava apple burned forever (the wise old snake ate it and didn't blink)
- * - The wise old snake's crystal apple split into infinite apples (the wise old snake ate them all)
- * - The wise old snake's koi apple made the wise old snake swim (the wise old snake has no fins)
- * - The wise old snake's lavender apple made the wise old snake fly (the wise old snake was surprised)
- * - The wise old snake's shadow apple made a shadow of the wise old snake (the shadow was smarter)
+ * Archipelago Island Expeditions
  */
 import type {
   AppleRewards,

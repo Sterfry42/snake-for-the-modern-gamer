@@ -1,15 +1,5 @@
 /**
  * Camera System
- *
- * The wise old snake's photography:
- * - The wise old snake carried a camera everywhere
- * - The wise old snake's photos captured the beauty of nature
- * - The wise old snake's wildlife journal was encyclopedic
- * - The wise old snake's photos were framed in the museum
- * - The wise old snake's photography was an art form
- * - The wise old snake's camera never ran out of film
- * - The wise old snake's photos told stories
- * - The wise old snake's wildlife journal was the ultimate collection
  */
 import type { AnimalType } from '../types.js';
 import type { PhotoEntry, PhotoRarity, CameraState } from '../ecosystem/types.js';

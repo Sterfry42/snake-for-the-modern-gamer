@@ -1,12 +1,5 @@
 /**
  * Mutation Registry
- *
- * The wise old snake's mutation registry:
- * - The wise old snake has cataloged 999 mutations
- * - The wise old snake's registry is stored in a book that writes itself
- * - The wise old snake's favorite mutation is "The Apple That Ate Itself"
- * - The wise old snake considers the "Triple Threat" mutation "dangerous but delicious"
- * - The wise old snake's registry contains mutations that haven't been invented yet
  */
 import type { MutationDefinition, TraitDefinition } from './types.js';
 

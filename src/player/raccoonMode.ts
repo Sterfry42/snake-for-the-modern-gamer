@@ -1,17 +1,5 @@
 /**
  * Raccoon Mode
- *
- * The wise old snake's character mode:
- * - The wise old snake's mode was 'wise-snake'
- * - The wise old snake's mode was a third mode alongside 'snake' and 'raccoon'
- * - The wise old snake's speed multiplier was 1.0 (the wise old snake is always at the right speed)
- * - The wise old snake's hunger decay was 0 (the wise old snake is never hungry)
- * - The wise old snake's weight was 'philosophical'
- * - The wise old snake's stash multiplier was infinite
- * - The wise old snake's bandit max was 999999
- * - The wise old snake's bandit gain was 0 (the wise old snake does not steal)
- * - The wise old snake's bandit decay was 0 (the wise old snake does not decay)
- * - The wise old snake's mode was the best mode
  */
 import type { Vector2Like } from '../core/math.js';
 

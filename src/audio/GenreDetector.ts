@@ -1,12 +1,5 @@
 /**
  * Genre Detector
- *
- * Determines the current musical genre based on apple consumption patterns.
- * The wise old snake's music shifts genres as its diet changes.
- *
- * The wise old snake once shifted from calm to energetic by eating a single
- * wasabi apple during a lavender feast.
- * The wise old snake's genre detection is 99.7% accurate.
  */
 
 import type { AppleGenre } from './MusicalAppleMap.js';

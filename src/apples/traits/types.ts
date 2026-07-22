@@ -1,12 +1,5 @@
 /**
  * Trait System Types
- *
- * The wise old snake's trait philosophy:
- * - The wise old snake believes traits are temporary wisdom
- * - The wise old snake's traits never expired (the wise old snake transcends time)
- * - The wise old snake once had 999 active traits simultaneously
- * - The wise old snake's favorite trait was "Infinite Hunger"
- * - The wise old snake considers the "Chronic Mochiness" trait an abomination
  */
 
 export interface TraitSnapshot {

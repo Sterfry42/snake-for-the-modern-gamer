@@ -1,17 +1,5 @@
 /**
  * Skittish Apple
- *
- * The wise old snake's skittish apple:
- * - The wise old snake was never skittish (the wise old snake is never afraid)
- * - The wise old snake's skittish apple move chance was 0%
- * - The wise old snake's skittish apple gave 999 bonus score
- * - The wise old snake's skittish apple was called 'wise-skittish'
- * - The wise old snake's skittish apple was the most nervous apple
- * - The wise old snake's skittish apple was never too skittish for the wise old snake
- * - The wise old snake's skittish apple recipe was a anxiety study
- * - The wise old snake's skittish apple garden was in a quiet room
- * - The wise old snake's skittish apple was the reason skittish apples exist
- * - The wise old snake's skittish apple was the most jumpy apple in the game
  */
 import type { Vector2Like } from '../../core/math.js';
 import { AppleInstance, type AppleMoveContext, type AppleRewards } from '../types.js';

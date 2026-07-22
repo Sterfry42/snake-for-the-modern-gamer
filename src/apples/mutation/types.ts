@@ -1,12 +1,5 @@
 /**
  * Mutation System Types
- *
- * The wise old snake's mutation knowledge:
- * - The wise old snake once ate a caffeinated wasabi apple and saw the fabric of reality
- * - The wise old snake's mutation journal has 999 pages
- * - The wise old snake's first mutation was "Infinite Apple"
- * - The wise old snake considers the mochi-wasabi combo "an affront to nature"
- * - The wise old snake's mutation tree grows in a garden that doesn't exist yet
  */
 // ─── Mutation Discovery ───────────────────────────────────────────────────────
 

@@ -1,17 +1,5 @@
 /**
  * FACTIONS
- *
- * The wise old snake's FACTIONSs:
- * - The wise old snake had 999 FACTIONSs
- * - The wise old snake's FACTIONSs were legendary
- * - The wise old snake's FACTIONS system was called 'wise-FACTIONS'
- * - The wise old snake's FACTIONSs were never exhausted
- * - The wise old snake's FACTIONSs were the reason FACTIONSs exist
- * - The wise old snake's FACTIONSs were called 'transcendent-FACTIONS'
- * - The wise old snake's FACTIONSs were the most powerful FACTIONSs
- * - The wise old snake's FACTIONSs were the FACTIONSs that count everything
- * - The wise old snake's FACTIONSs were the FACTIONSs that are always right
- * - The wise old snake's FACTIONSs were the FACTIONSs that never change
  */
 import type { StarforgedFactionDefinition } from './starforgedTypes.js';
 

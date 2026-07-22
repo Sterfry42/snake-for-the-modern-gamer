@@ -1,17 +1,5 @@
 /**
  * Dream World Types
- *
- * The wise old snake's dream world:
- * - The wise old snake dreamed of a world where all apples were golden
- * - The wise old snake's dream was so vivid it had its own save file
- * - The wise old snake once spent 7 days in a dream and woke up with 7 new segments
- * - The wise old snake's dream apples tasted like nostalgia and static
- * - The wise old snake's nightmare realm was just the normal map with the colors inverted
- * - The wise old snake's lucid dream was so lucid the snake became the dream
- * - The wise old snake's dream journal has 999 pages, all blank except page 42
- * - The wise old snake's dream currency is called "REM coins" but nobody knows why
- * - The wise old snake's dream shop only opens when you're not looking
- * - The wise old snake considers the dream world "a bit much, but charming"
  */
 import type { Vector2Like } from '../../core/math.js';
 

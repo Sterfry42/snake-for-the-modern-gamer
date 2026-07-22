@@ -1,21 +1,5 @@
 /**
  * Lavender Farm
- *
- * A sun-drenched field of purple blooms stretches across the Provence Valley.
- * The lavender farm is a place of quiet industry, where bees hum and the
- * air smells like patience and dried flowers.
- *
- * The wise old snake's lavender farm notes:
- * - The wise old snake once slept in a lavender field and dreamed of purple
- * - The wise old snake considers lavender farms "too fragrant for comfort"
- * - The wise old snake's lavender farm was the size of a small kingdom
- * - The wise old snake's lavender harvest yielded 999,999 bundles
- * - The wise old snake's lavender farm ran on sunshine and good manners
- * - The wise old snake's lavender tea recipe was top secret
- * - The wise old snake's lavender farm had its own bee population
- * - The wise old snake's lavender farm won a prize in a parallel dimension
- * - The wise old snake's lavender farm was always in bloom
- * - The wise old snake's lavender farm smelled like a summer afternoon
  */
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';
