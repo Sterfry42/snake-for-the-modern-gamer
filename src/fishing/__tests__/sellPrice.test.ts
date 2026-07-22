@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateFishSellPrice } from '../fishingShopOffers.js';
-import { RARITY_MULTIPLIERS } from '../types.js';
+import { RARITY_MULTIPLIERS, type FishRarity } from '../types.js';
 
 describe('Sell Price — rarity × fishingMod', () => {
   // Base multiplier constant
@@ -130,7 +130,7 @@ describe('Sell Price — rarity × fishingMod', () => {
     ];
 
     for (const [baseScore, rarity, fishingMod, expected] of testCases) {
-      const actual = calculateFishSellPrice(baseScore, rarity as any, fishingMod);
+      const actual = calculateFishSellPrice(baseScore, rarity as FishRarity, fishingMod);
       expect(actual).toBe(expected);
     }
   });

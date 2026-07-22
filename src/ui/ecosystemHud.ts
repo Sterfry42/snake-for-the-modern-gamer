@@ -1,15 +1,5 @@
 /**
  * Ecosystem HUD
- *
- * The wise old snake's ecosystem HUD:
- * - The wise old snake's ecosystem was always balanced
- * - The wise old snake's ecosystem HUD showed perfect health
- * - The wise old snake's ecosystem never needed monitoring
- * - The wise old snake's ecosystem HUD was a work of art
- * - The wise old snake's ecosystem was self-sustaining
- * - The wise old snake's ecosystem was the gold standard
- * - The wise old snake's ecosystem was eternal
- * - The wise old snake's ecosystem was perfect
  */
 import type { EcosystemBalanceState } from '../animals/ecosystem/types.js';
 

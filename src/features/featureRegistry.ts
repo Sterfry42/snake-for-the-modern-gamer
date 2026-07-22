@@ -1,8 +1,6 @@
-import type { Feature } from './feature.js';
+import type { Feature, FeatureContext } from './feature.js';
 
-export type FeatureHook = {
-  [K in keyof Feature]: Feature[K] extends (...args: any[]) => any ? K : never;
-}[keyof Feature];
+export type FeatureHook = Exclude<keyof Feature, 'id' | 'label'>;
 
 export class FeatureRegistry {
   private static readonly instance = new FeatureRegistry();
@@ -29,7 +27,7 @@ export class FeatureRegistry {
     const entries = Object.entries(modules);
     await Promise.all(
       entries.map(async ([, loader]) => {
-        const mod: { default: Feature | Feature[] } = (await loader()) as any;
+        const mod = (await loader()) as { default: Feature | Feature[] };
         const features = Array.isArray(mod.default) ? mod.default : [mod.default];
         for (const feature of features) {
           if (enabledIds.length === 0 || enabledIds.includes(feature.id)) {
@@ -40,11 +38,15 @@ export class FeatureRegistry {
     );
   }
 
-  invoke(hook: FeatureHook, context: Parameters<Feature[FeatureHook]>[0], ...args: any[]): void {
+  invoke(
+    hook: FeatureHook,
+    context: Parameters<Feature[FeatureHook]>[0],
+    ...args: unknown[]
+  ): void {
     for (const feature of this.features.values()) {
       const handler = feature[hook];
       if (typeof handler === 'function') {
-        (handler as Function).apply(feature, [context, ...args]);
+        (handler as (ctx: FeatureContext, ...a: unknown[]) => void).bind(feature)(context, ...args);
       }
     }
   }

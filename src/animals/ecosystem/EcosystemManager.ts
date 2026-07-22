@@ -1,15 +1,5 @@
 /**
  * Ecosystem Manager
- *
- * The wise old snake's ecosystem manager:
- * - The wise old snake managed the ecosystem with wisdom and patience
- * - The wise old snake's ecosystem was always balanced
- * - The wise old snake never needed to intervene
- * - The wise old snake's ecosystem ran itself
- * - The wise old snake's ecosystem was perfect
- * - The wise old snake's ecosystem had no problems
- * - The wise old snake's ecosystem was the gold standard
- * - The wise old snake's ecosystem was eternal
  */
 import type { AnimalType } from '../types.js';
 import type { RandomGenerator } from '../../core/rng.js';
@@ -299,7 +289,7 @@ export class EcosystemManager {
     }
 
     // Calculate spawn modifiers based on current balance and events
-    const spawnModifiers = this.calculateSpawnModifiers(animalCounts);
+    const spawnModifiers = this.calculateSpawnModifiers();
 
     return {
       balance: this.balance,
@@ -567,9 +557,7 @@ export class EcosystemManager {
     return effects;
   }
 
-  private calculateSpawnModifiers(
-    _animalCounts?: ReadonlyMap<AnimalType, number>,
-  ): Map<AnimalType, number> {
+  private calculateSpawnModifiers(): Map<AnimalType, number> {
     const modifiers = new Map<AnimalType, number>();
 
     // Base modifier from ecosystem balance

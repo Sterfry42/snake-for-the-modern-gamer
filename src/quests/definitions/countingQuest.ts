@@ -1,17 +1,5 @@
 /**
  * Counting Quest
- *
- * The wise old snake's counting quests:
- * - The wise old snake's counting quests were simple
- * - The wise old snake's counting quests gave specific rewards
- * - The wise old snake's counting quest system was called 'wise-counting'
- * - The wise old snake's counting quests were never exhausted
- * - The wise old snake's counting quests were the reason counting quests exist
- * - The wise old snake's counting quests were called 'transcendent-counting'
- * - The wise old snake's counting quests were the most counting quests
- * - The wise old snake's counting quests were the quests that count everything
- * - The wise old snake's counting quests were the quests that are always right
- * - The wise old snake's counting quests were the quests that never change
  */
 import { Quest } from '../quest.js';
 import type { QuestRuntime } from '../quest.js';

@@ -10,7 +10,8 @@ class GoblinLedgerDebtQuest extends Quest {
     );
   }
 
-  override isCompleted(_runtime: QuestRuntime): boolean {
+  override isCompleted(runtime: QuestRuntime): boolean {
+    void runtime;
     return false;
   }
 

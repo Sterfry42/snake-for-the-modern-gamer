@@ -63,6 +63,8 @@ export class MinecraftFeature extends Feature {
 
   private creativeMode = false;
   private _rngInjected = false;
+  lastActionStep = 0;
+  craftingTableNearby = false;
 
   constructor() {
     super('minecraft', 'Minecraft block building mode');
@@ -122,7 +124,7 @@ export class MinecraftFeature extends Feature {
     }
 
     // Furnace tick
-    tickFurnaces(this.furnaces, this.player.state.inventory);
+    tickFurnaces(this.furnaces);
 
     // Crop growth tick
     const room = scene.snakeGame.getCurrentRoom();
@@ -969,7 +971,9 @@ export class MinecraftFeature extends Feature {
         btnHitArea.fillRect(btnRect.x, btnRect.y, btnRect.width, btnRect.height);
         btnHitArea.setName(`craft_${recipe.id}`);
         btnHitArea.setDepth(53);
-        btnHitArea.setInteractive({ useHandCursor: true }, (_x: number, _y: number) => {
+        btnHitArea.setInteractive({ useHandCursor: true }, (x: number, y: number) => {
+          void x;
+          void y;
           return true;
         });
         container.add(btnHitArea);
@@ -1064,7 +1068,7 @@ export class MinecraftFeature extends Feature {
     return blockTypes[slot] ?? blockTypes[0];
   }
 
-  private getHeldBlockType(_scene: SnakeScene): string | null {
+  private getHeldBlockType(): string | null {
     const blockTypes = [
       'dirt',
       'cobblestone',
@@ -1093,7 +1097,7 @@ export class MinecraftFeature extends Feature {
     if (!this.player) return { success: false };
 
     const room = scene.snakeGame.getCurrentRoom();
-    const blockType = this.getHeldBlockType(scene);
+    const blockType = this.getHeldBlockType();
 
     if (!blockType) {
       return { success: false, message: 'No block type to place.' };

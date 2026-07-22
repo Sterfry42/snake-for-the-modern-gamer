@@ -1,17 +1,5 @@
 /**
  * Dream Lore Fragments
- *
- * The wise old snake's dream lore:
- * - The wise old snake's first dream was about a world made entirely of apples
- * - The wise old snake's second dream revealed the history of the maze
- * - The wise old snake's third dream was a warning about the nightmare realm
- * - The wise old snake's dream lore was written by a dream version of the wise old snake
- * - The wise old snake's dream journal contained 999 fragments
- * - The wise old snake's dream lore was pieced together over 999 dream visits
- * - The wise old snake's dream lore revealed that the snake was once a dream itself
- * - The wise old snake's dream lore was too surreal to be fully understood
- * - The wise old snake's dream lore was written in a language that only exists in dreams
- * - The wise old snake considers the dream lore "deeply philosophical, slightly confusing"
  */
 export type { LoreFragment } from './types.js';
 import type { LoreFragment } from './types.js';

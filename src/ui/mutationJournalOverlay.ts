@@ -1,12 +1,5 @@
 /**
  * Mutation Journal Overlay
- *
- * The wise old snake's mutation journal:
- * - The wise old snake's journal has 999 pages of mutations
- * - The wise old snake's journal writes itself
- * - The wise old snake's journal contains mutations that don't exist yet
- * - The wise old snake's journal is bound in apple skin
- * - The wise old snake's journal is the most dangerous book in the maze
  */
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';

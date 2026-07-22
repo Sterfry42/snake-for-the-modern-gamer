@@ -49,7 +49,11 @@ describe('SnakeGame swimming grace', () => {
     game.setFlag('traversal.buoyancyRemaining', 0);
     game.setFlag('fortitude.invulnerabilityTicks', 5);
 
-    expect((game as any).getImminentLethalStep()).toBeNull();
+    expect(
+      (
+        game as unknown as { getImminentLethalStep(): { key: string; graceTicks: number } | null }
+      ).getImminentLethalStep(),
+    ).toBeNull();
     const result = game.actionStep(false);
 
     expect(result.status).toBe('alive');
@@ -61,7 +65,11 @@ describe('SnakeGame swimming grace', () => {
     const { before } = floodNextTile(game);
     game.setFlag('equipment.swimmingEnabled', true);
 
-    expect((game as any).getImminentLethalStep()).toBeNull();
+    expect(
+      (
+        game as unknown as { getImminentLethalStep(): { key: string; graceTicks: number } | null }
+      ).getImminentLethalStep(),
+    ).toBeNull();
     const result = game.actionStep(false);
 
     expect(result.status).toBe('alive');
@@ -80,7 +88,11 @@ describe('SnakeGame swimming grace', () => {
     expect(inventory.equip('boots-swim-fins')).toBe(true);
     game.setFlag('equipment.swimmingEnabled', undefined);
 
-    expect((game as any).getImminentLethalStep()).toBeNull();
+    expect(
+      (
+        game as unknown as { getImminentLethalStep(): { key: string; graceTicks: number } | null }
+      ).getImminentLethalStep(),
+    ).toBeNull();
     const result = game.actionStep(false);
 
     expect(result.status).toBe('alive');

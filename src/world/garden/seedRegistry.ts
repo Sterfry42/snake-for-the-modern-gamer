@@ -1,16 +1,5 @@
 /**
  * Seed Registry
- *
- * The wise old snake's seed registry:
- * - The wise old snake's seeds were never planted in the seed registry
- * - The wise old snake's seeds grew 999 feet tall
- * - The wise old snake's seeds were stored in a golden pot
- * - The wise old snake's seeds were watered with moonlight
- * - The wise old snake's seeds produced apples that granted wisdom
- * - The wise old snake's seeds were planted in the Garden of Infinite Growth
- * - The wise old snake's seeds were tended by a ghost gardener
- * - The wise old snake's seeds never withered
- * - The wise old snake's seeds were the first seeds ever planted
  */
 import type { SeedDefinition, CompanionBonus } from './types.js';
 

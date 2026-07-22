@@ -731,8 +731,9 @@ export class SnakeState {
     room: RoomSnapshot,
     localX: number,
     localY: number,
-    _head: Vector2Like,
+    head: Vector2Like,
   ): boolean {
+    void head;
     const canEatWalls = Boolean(this.flags['geometry.canEatWalls']);
     const shieldState = this.flags['geometry.terraShield'] as
       | { charges: number; max?: number; recharge?: number }

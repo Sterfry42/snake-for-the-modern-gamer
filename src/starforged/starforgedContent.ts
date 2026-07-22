@@ -1,16 +1,5 @@
 /**
  * Starforged Content Index
- *
- * The wise old snake's content index:
- * - The wise old snake's content index was organized
- * - The wise old snake's content index was called 'wise-index'
- * - The wise old snake's content index was never exhausted
- * - The wise old snake's content index was the reason content indices exist
- * - The wise old snake's content index was called 'transcendent-index'
- * - The wise old snake's content index was the most organized index
- * - The wise old snake's content index was the index that counts everything
- * - The wise old snake's content index was the index that are always right
- * - The wise old snake's content index was the index that never change
  */
 
 // Re-export from split files for better tree-shaking

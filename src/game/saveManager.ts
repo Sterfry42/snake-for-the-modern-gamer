@@ -1,3 +1,4 @@
+import type { SnakeGame } from './snakeGame.js';
 import { LocalStorageStringSaveStore } from '../storage/LocalStorageStringSaveStore.js';
 import { isVersionLessThan, migrateV1toV2, migrateV2toV3, type GameSaveData } from './saveTypes.js';
 
@@ -19,12 +20,22 @@ export function clearSavedGameData(): void {
   saveStore.clear(DEFAULT_SAVE_SLOT);
 }
 
+export interface ChoiceWithMods {
+  id: string;
+  mods: Record<string, unknown>;
+}
+
 export class SaveManager {
   private readonly VERSION = '3.0.0';
 
   constructor() {}
 
-  save(game: any, religionChoice?: any, classChoice?: any, backgroundChoice?: any): void {
+  save(
+    game: SnakeGame,
+    religionChoice?: ChoiceWithMods,
+    classChoice?: ChoiceWithMods,
+    backgroundChoice?: ChoiceWithMods,
+  ): void {
     try {
       const data = game.getSaveData();
 
@@ -50,10 +61,10 @@ export class SaveManager {
   }
 
   load(
-    game: any,
-    getReligionChoice?: () => any,
-    getClassChoice?: () => any,
-    getBackgroundChoice?: () => any,
+    game: SnakeGame,
+    getReligionChoice?: () => ChoiceWithMods | undefined,
+    getClassChoice?: () => ChoiceWithMods | undefined,
+    getBackgroundChoice?: () => ChoiceWithMods | undefined,
   ): boolean {
     try {
       const saved = getSavedGameData();

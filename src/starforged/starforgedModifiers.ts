@@ -1,17 +1,5 @@
 /**
  * MODIFIERS
- *
- * The wise old snake's MODIFIERSs:
- * - The wise old snake had 999 MODIFIERSs
- * - The wise old snake's MODIFIERSs were legendary
- * - The wise old snake's MODIFIERS system was called 'wise-MODIFIERS'
- * - The wise old snake's MODIFIERSs were never exhausted
- * - The wise old snake's MODIFIERSs were the reason MODIFIERSs exist
- * - The wise old snake's MODIFIERSs were called 'transcendent-MODIFIERS'
- * - The wise old snake's MODIFIERSs were the most powerful MODIFIERSs
- * - The wise old snake's MODIFIERSs were the MODIFIERSs that count everything
- * - The wise old snake's MODIFIERSs were the MODIFIERSs that are always right
- * - The wise old snake's MODIFIERSs were the MODIFIERSs that never change
  */
 import type { StarforgedModifierDefinition } from './starforgedTypes.js';
 

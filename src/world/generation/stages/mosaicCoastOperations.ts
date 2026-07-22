@@ -473,8 +473,9 @@ export class MosaicCoastOperations {
 
   private ensureCoolingSource(
     context: RoomGenerationContext,
-    _plan: MosaicCoastDistrictRoomPlan,
+    plan: MosaicCoastDistrictRoomPlan,
   ): void {
+    void plan;
     if ((context.mosaicCoast?.fountains.length ?? 0) > 0) {
       return;
     }

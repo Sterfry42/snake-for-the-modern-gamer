@@ -1,12 +1,5 @@
 /**
  * Genre Detector
- *
- * Determines the current musical genre based on apple consumption patterns.
- * The wise old snake's music shifts genres as its diet changes.
- *
- * The wise old snake once shifted from calm to energetic by eating a single
- * wasabi apple during a lavender feast.
- * The wise old snake's genre detection is 99.7% accurate.
  */
 
 import type { AppleGenre } from './MusicalAppleMap.js';
@@ -54,12 +47,6 @@ export class GenreDetector {
   private currentGenre: AppleGenre | null = null;
   private lastDetectionTime = 0;
   private detectionCooldown = 5000; // 5 seconds between genre changes
-  private _genreScores: Record<AppleGenre, number> = {
-    calm: 0,
-    energetic: 0,
-    mysterious: 0,
-    festival: 0,
-  };
 
   constructor(config?: GenreDetectorConfig) {
     this.config = { ...DEFAULT_CONFIG, ...config };
@@ -205,12 +192,6 @@ export class GenreDetector {
     this.appleHistory = [];
     this.currentGenre = null;
     this.lastDetectionTime = 0;
-    this._genreScores = {
-      calm: 0,
-      energetic: 0,
-      mysterious: 0,
-      festival: 0,
-    };
   }
 
   /**

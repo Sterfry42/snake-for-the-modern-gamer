@@ -44,7 +44,9 @@ class CoordinatesFeature extends Feature {
     this.coordinatesText?.setVisible(!suppressed);
     if (!suppressed && this.coordinatesText) {
       const scoreFeature = scene.getFeature('coreScore');
-      const coordsY = scoreFeature ? (scoreFeature as any).getBottomY() : scene.getLeftHudBottomY();
+      const coordsY = scoreFeature
+        ? (scoreFeature as unknown as { getBottomY: () => number }).getBottomY()
+        : scene.getLeftHudBottomY();
       this.coordinatesText.setPosition(10, coordsY);
       this.coordinatesText.setText(this.composeLabel(scene));
     }

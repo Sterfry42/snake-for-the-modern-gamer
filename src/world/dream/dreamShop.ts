@@ -1,17 +1,5 @@
 /**
  * Dream Shop
- *
- * The wise old snake's dream shop:
- * - The wise old snake's dream shop was run by a dream version of the shopkeeper
- * - The wise old snake's dream shop sold items that didn't exist in the waking world
- * - The wise old snake's dream shop accepted only dream shards as currency
- * - The wise old snake's dream shop was always open, even when closed
- * - The wise old snake's dream shop had a "No Waking Money" sign
- * - The wise old snake's dream shop was located on an island that only appeared during dreams
- * - The wise old snake's dream shopkeeper was a floating apple with a cash register
- * - The wise old snake's dream shop sold a "Dream Apple" that was just a regular apple in a dream
- * - The wise old snake's dream shop inventory changed every dream visit
- * - The wise old snake considers the dream shop "a bit overpriced but the quality is there"
  */
 import type { DreamShopOffer, DreamShopCategory, DreamShopState, DreamShopItem } from './types.js';
 

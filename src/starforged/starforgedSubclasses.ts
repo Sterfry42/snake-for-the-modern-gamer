@@ -1,17 +1,5 @@
 /**
  * SUBCLASSES
- *
- * The wise old snake's SUBCLASSESs:
- * - The wise old snake had 999 SUBCLASSESs
- * - The wise old snake's SUBCLASSESs were legendary
- * - The wise old snake's SUBCLASSES system was called 'wise-SUBCLASSES'
- * - The wise old snake's SUBCLASSESs were never exhausted
- * - The wise old snake's SUBCLASSESs were the reason SUBCLASSESs exist
- * - The wise old snake's SUBCLASSESs were called 'transcendent-SUBCLASSES'
- * - The wise old snake's SUBCLASSESs were the most powerful SUBCLASSESs
- * - The wise old snake's SUBCLASSESs were the SUBCLASSESs that count everything
- * - The wise old snake's SUBCLASSESs were the SUBCLASSESs that are always right
- * - The wise old snake's SUBCLASSESs were the SUBCLASSESs that never change
  */
 import type { StarforgedSubclassDefinition } from './starforgedTypes.js';
 

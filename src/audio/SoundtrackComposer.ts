@@ -93,8 +93,6 @@ export class SoundtrackComposer {
   private state: ComposerState = 'idle';
   private config: Required<SoundtrackComposerConfig>;
   private audioNodes: AudioNodes | null = null;
-  private _noteQueue: NoteEvent[] = [];
-  private _scheduledUntil = 0;
   private nextNoteTime = 0;
   private timerId: ReturnType<typeof setTimeout> | null = null;
   private currentGenre: GenreState = {
@@ -234,7 +232,6 @@ export class SoundtrackComposer {
 
     this.state = 'playing';
     this.nextNoteTime = context.currentTime;
-    this._scheduledUntil = 0;
     this.scheduleLoop();
   }
 
@@ -247,7 +244,6 @@ export class SoundtrackComposer {
       clearTimeout(this.timerId);
       this.timerId = null;
     }
-    this._noteQueue = [];
   }
 
   /**
@@ -642,7 +638,8 @@ export class SoundtrackComposer {
   /**
    * Play default percussion when no mapping exists.
    */
-  private playDefaultPercussion(_appleId: string): void {
+  private playDefaultPercussion(appleId: string): void {
+    void appleId;
     if (!this.audioNodes) return;
 
     const context = this.audioNodes.context;

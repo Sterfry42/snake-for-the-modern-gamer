@@ -64,55 +64,34 @@ describe('Dream Apple Types', () => {
 
   describe('NightmareApple', () => {
     it('consumes with higher rewards', () => {
-      const apple = new NightmareApple(
-        'nightmare-room',
-        { x: 0, y: 0 },
-        'nightmare',
-        0x8b0000,
-        {
-          floatingOffset: 0,
-          floatSpeed: 0.02,
-          phaseOffset: 0,
-          buffType: 'shield',
-          buffDuration: 120,
-        },
-        0.1,
-      );
+      const apple = new NightmareApple('nightmare-room', { x: 0, y: 0 }, 'nightmare', 0x8b0000, {
+        floatingOffset: 0,
+        floatSpeed: 0.02,
+        phaseOffset: 0,
+        buffType: 'shield',
+        buffDuration: 120,
+      });
 
       const rewards = apple.onConsume();
       expect(rewards).toEqual({ growth: 2, bonusScore: 15 });
     });
 
     it('has chase speed configuration', () => {
-      const apple1 = new NightmareApple(
-        'nightmare-room',
-        { x: 0, y: 0 },
-        'nightmare',
-        0x8b0000,
-        {
-          floatingOffset: 0,
-          floatSpeed: 0.02,
-          phaseOffset: 0,
-          buffType: 'shield',
-          buffDuration: 120,
-        },
-        0.15,
-      );
+      const apple1 = new NightmareApple('nightmare-room', { x: 0, y: 0 }, 'nightmare', 0x8b0000, {
+        floatingOffset: 0,
+        floatSpeed: 0.02,
+        phaseOffset: 0,
+        buffType: 'shield',
+        buffDuration: 120,
+      });
 
-      const apple2 = new NightmareApple(
-        'nightmare-room',
-        { x: 0, y: 0 },
-        'nightmare',
-        0x8b0000,
-        {
-          floatingOffset: 0,
-          floatSpeed: 0.02,
-          phaseOffset: 0,
-          buffType: 'shield',
-          buffDuration: 120,
-        },
-        0.2,
-      );
+      const apple2 = new NightmareApple('nightmare-room', { x: 0, y: 0 }, 'nightmare', 0x8b0000, {
+        floatingOffset: 0,
+        floatSpeed: 0.02,
+        phaseOffset: 0,
+        buffType: 'shield',
+        buffDuration: 120,
+      });
 
       // Different chase speeds
       expect(apple1).toBeDefined();
@@ -253,9 +232,10 @@ describe('Dream Apple Types', () => {
       };
 
       // Modify behavior to unknown
-      (config as any).behavior = 'unknown';
+      (config as unknown as Record<string, unknown>).behavior = 'unknown';
 
-      expect(() => createDreamAppleInstance(config, 'room', { x: 0, y: 0 })).toThrow(
+      const dreamConfig = config as unknown as Record<string, unknown>;
+      expect(() => createDreamAppleInstance(dreamConfig as never, 'room', { x: 0, y: 0 })).toThrow(
         'Unknown dream apple behavior: unknown',
       );
     });

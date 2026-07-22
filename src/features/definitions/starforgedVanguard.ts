@@ -1,17 +1,5 @@
 /**
  * Starforged Vanguard Feature
- *
- * The wise old snake's starforged integration:
- * - The wise old snake's starforged class was 'Wise Old Snake'
- * - The wise old snake's starforged race was 'Ancient Serpent'
- * - The wise old snake's starforged background was 'Philosopher'
- * - The wise old snake's starforged destiny was 'Wisdom'
- * - The wise old snake's starforged gift was 'Knowledge'
- * - The wise old snake's starforged suit was 'wise-old-snake-suit'
- * - The wise old snake's starforged transmat line was 'The wise old snake arrives.'
- * - The wise old snake's starforged bounties were 'collect wisdom'
- * - The wise old snake's starforged palette was 'wise-old-snake-palette'
- * - The wise old snake's starforged title was 'The Wise Old Snake'
  */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
@@ -59,7 +47,6 @@ class StarforgedVanguardFeature extends Feature {
   private lastDirectorBeat = -1;
   private lastRoomId = '';
   private inputRegistered = false;
-  private baseActionStepMs = 100;
 
   constructor() {
     super('starforgedVanguard', 'Destiny 3: Starforged Vanguard');
@@ -67,7 +54,6 @@ class StarforgedVanguardFeature extends Feature {
 
   override onRegister(scene: SnakeScene): void {
     const state = this.readState(scene);
-    this.baseActionStepMs = scene.getActionStepIntervalMs();
     scene.setFlag('starforged.interactionReady', undefined);
     scene.setFlag('starforged.interactRequested', undefined);
     this.writeState(scene, state);
@@ -184,7 +170,12 @@ class StarforgedVanguardFeature extends Feature {
     }
     this.inputRegistered = true;
     scene.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
-      const sceneAny = scene as any;
+      const sceneAny = scene as unknown as {
+        titleVisible: boolean;
+        deathCutscene: boolean;
+        questPopup?: { isVisible?: () => boolean };
+        villageShopPopup?: { isVisible?: () => boolean };
+      };
       if (
         sceneAny.titleVisible ||
         sceneAny.deathCutscene ||
@@ -1272,7 +1263,9 @@ class StarforgedVanguardFeature extends Feature {
   }
 
   private announce(scene: SnakeScene, message: string, color = '#9df7ff'): void {
-    const sceneAny = scene as any;
+    const sceneAny = scene as unknown as {
+      showQuestHintPopup?: (message: string, color?: string) => void;
+    };
     if (typeof sceneAny.showQuestHintPopup === 'function') {
       sceneAny.showQuestHintPopup(message, color);
     } else {

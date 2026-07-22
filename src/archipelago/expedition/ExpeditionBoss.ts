@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Expedition Boss System
- *
- * The wise old snake's expedition bosses:
- * - The wise old snake's first boss was 'the-first-boss' (the wise old snake named it that)
- * - The wise old snake's last boss was 'the-last-boss' (the wise old snake hasn't met it yet)
- * - The wise old snake's boss health was infinite (the wise old snake's boss had infinite health)
- * - The wise old snake's boss weakness was 'wisdom' (the wise old snake's weakness was its own wisdom)
- * - The wise old snake's boss patterns were all memorized (the wise old snake had seen every pattern)
+ * Archipelago Island Expeditions
  */
 import type { ExpeditionBossId, IslandId } from './types.js';
 import type { Vector2Like } from '../../core/math.js';
@@ -173,7 +166,8 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Lava Surge',
     duration: 3000,
     cooldown: 5000,
-    execute: (boss, snakeHead, _rng, deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void rng;
       // Lava surges toward the snake in waves
       const body = boss.body;
       if (body.length === 0) return;
@@ -200,7 +194,9 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Light Beam',
     duration: 2000,
     cooldown: 4000,
-    execute: (boss, snakeHead, _rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void rng;
+      void deps;
       // Crystal golem fires refracting light beams
       const body = boss.body;
       if (body.length === 0) return;
@@ -222,7 +218,8 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Water Pressure',
     duration: 2500,
     cooldown: 4500,
-    execute: (boss, snakeHead, rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void deps;
       // Serpent creates pressure waves
       const body = boss.body;
       if (body.length === 0) return;
@@ -247,7 +244,10 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Wind Storm',
     duration: 3500,
     cooldown: 6000,
-    execute: (boss, _snakeHead, _rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void snakeHead;
+      void rng;
+      void deps;
       // Phoenix creates wind currents
       const body = boss.body;
       if (body.length === 0) return;
@@ -269,7 +269,9 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Trap Summon',
     duration: 2000,
     cooldown: 3000,
-    execute: (boss, snakeHead, _rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void rng;
+      void deps;
       // Guardian summons traps around the snake
       const body = boss.body;
       if (body.length === 0) return;

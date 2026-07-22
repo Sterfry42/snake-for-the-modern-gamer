@@ -4,17 +4,6 @@ import type { RandomGenerator } from '../core/rng.js';
 import { buildHouseNpcProfile } from '../npcs/profiles.js';
 import type { RoomSnapshot } from './types.js';
 
-const SHRINE_NAMES = [
-  'Azure Peak Shrine',
-  'Windcaller Shrine',
-  'Jade Summit Shrine',
-  'Cloudveil Shrine',
-  'Crimson Torii Shrine',
-  'Suzaku Shrine',
-  'Heavenly Steps Shrine',
-  'Mooncrest Shrine',
-] as const;
-
 const MIKO_NAMES = ['Hana', 'Saki', 'Yuki', 'Ren', 'Mio', 'Aoi', 'Kiri'] as const;
 const SHRINE_ATTEMPTS = 32;
 const SHRINE_MARGIN = 5;
@@ -114,11 +103,6 @@ export function tryPlaceShrine(
     return null;
   }
 
-  ({
-    x: shrine.left + Math.floor(shrine.width / 2),
-    y: shrine.top + Math.floor(shrine.height / 2),
-  });
-
   const safeArea = {
     left: shrine.left,
     top: shrine.top,
@@ -172,7 +156,6 @@ export function tryPlaceShrine(
   const maidenY = offeringBoxY + 1;
   setChar(layout, maidenX, maidenY, 'G');
 
-  SHRINE_NAMES[Math.floor(rng() * SHRINE_NAMES.length)]!;
   const mikoName = randomName(rng);
 
   return {

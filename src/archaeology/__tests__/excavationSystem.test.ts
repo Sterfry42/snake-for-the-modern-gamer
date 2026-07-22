@@ -222,7 +222,7 @@ describe('Excavation System', () => {
         },
       ];
 
-      const result = assembleFossil(fragments, 'trilobite', 0.8);
+      const result = assembleFossil(fragments, 'trilobite');
       expect(result).toBeNull();
     });
 
@@ -271,7 +271,7 @@ describe('Excavation System', () => {
         },
       ];
 
-      const result = assembleFossil(fragments, 'trilobite', 0.8);
+      const result = assembleFossil(fragments, 'trilobite');
       expect(result).toBeDefined();
       expect(result?.fossilSetId).toBe('trilobite');
       expect(result?.fragments.length).toBe(5);
@@ -355,7 +355,7 @@ describe('Excavation System', () => {
   describe('simulateProgress', () => {
     it('should not progress when not active', () => {
       const session = createExcavationSession('test', 5, () => 0.5);
-      const result = simulateProgress(session, 1000, () => 0.5);
+      const result = simulateProgress(session, 1000);
       expect(result).toBe(false);
     });
 
@@ -364,7 +364,7 @@ describe('Excavation System', () => {
       session.state = 'active';
       session.progress = 0.99;
 
-      const result = simulateProgress(session, 1000, () => 0.5);
+      const result = simulateProgress(session, 1000);
       expect(result).toBe(true);
       expect(session.state).toBe('complete');
     });

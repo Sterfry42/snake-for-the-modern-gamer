@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Expedition Scene
- *
- * The wise old snake's expedition scene:
- * - The wise old snake's expedition scene was always loading (the wise old snake was always on the way)
- * - The wise old snake's expedition scene had no camera (the wise old snake saw everything)
- * - The wise old snake's expedition scene had no UI (the wise old snake needed no buttons)
- * - The wise old snake's expedition scene was infinite (the wise old snake never left)
- * - The wise old snake's expedition scene was the only scene (all other scenes were expeditions)
+ * Archipelago Island Expeditions
  */
 import Phaser from 'phaser';
 import type {
@@ -165,7 +158,6 @@ export class ExpeditionScene extends Phaser.Scene {
 
   // Rendering
   private gridGraphics!: Phaser.GameObjects.Graphics;
-  private uiGraphics!: Phaser.GameObjects.Graphics;
 
   private phaseText!: Phaser.GameObjects.Text;
   private scoreText!: Phaser.GameObjects.Text;
@@ -219,7 +211,6 @@ export class ExpeditionScene extends Phaser.Scene {
     this.drawGrid(layout);
 
     // Create UI graphics
-    this.uiGraphics = this.add.graphics();
 
     // Create UI text
     this.phaseText = this.add.text(10, 10, '', {
@@ -260,7 +251,9 @@ export class ExpeditionScene extends Phaser.Scene {
     this.onEvent?.('expedition-started', { islandId: this.islandId, islandName: this.island.name });
   }
 
-  update(_time: number, _delta: number): void {
+  update(time: number, delta: number): void {
+    void time;
+    void delta;
     // Update UI
     this.updateUI();
 
@@ -495,7 +488,8 @@ export class ExpeditionScene extends Phaser.Scene {
 
   // ─── Input Handling ──────────────────────────────────────────────────────
 
-  private handleInput(_pointer: Phaser.Input.Pointer): void {
+  private handleInput(pointer: Phaser.Input.Pointer): void {
+    void pointer;
     if (this.bossDefeated) return;
 
     // Click to advance phase progress

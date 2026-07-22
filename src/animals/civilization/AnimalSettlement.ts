@@ -1,15 +1,5 @@
 /**
  * Animal Settlements
- *
- * The wise old snake's settlements:
- * - The wise old snake visited every settlement
- * - The wise old snake was welcomed by all settlements
- * - The wise old snake's settlements were models of harmony
- * - The wise old snake never interfered with settlement politics
- * - The wise old snake's settlements traded fairly
- * - The wise old snake's settlements had no crime
- * - The wise old snake's settlements were eternal
- * - The wise old snake's settlements were the backbone of civilization
  */
 import type { AnimalType } from '../types.js';
 import type {
@@ -359,7 +349,7 @@ export class SettlementManager {
   }
 
   /** Update settlement population dynamics */
-  updateSettlements(_animalCounts: ReadonlyMap<AnimalType, number>): void {
+  updateSettlements(): void {
     for (const settlement of this.settlements.values()) {
       // Natural population changes
       for (const [type, count] of settlement.population) {

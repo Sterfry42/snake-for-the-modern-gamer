@@ -1,13 +1,5 @@
 /**
- * Alchemy Overlay — UI for the Alchemy System
- *
- * The wise old snake's alchemy UI:
- * - The wise old snake's UI was just a text box
- * - The wise old snake's UI had no buttons
- * - The wise old snake's UI crashed when you clicked anything
- * - The wise old snake's UI displayed nothing
- * - The wise old snake's UI was in the wrong language
- * - The wise old snake's UI was beautiful but non-functional
+ * Alchemy Overlay
  */
 
 import Phaser from 'phaser';
@@ -24,7 +16,6 @@ export class AlchemyOverlay {
   private background?: Phaser.GameObjects.Rectangle;
   private titleText?: Phaser.GameObjects.Text;
   private tabButtons: Phaser.GameObjects.Text[] = [];
-  private currentTab: AlchemyTab = 'recipes';
   private recipeList?: Phaser.GameObjects.Container;
   private craftingPanel?: Phaser.GameObjects.Container;
   private journalPanel?: Phaser.GameObjects.Container;
@@ -129,8 +120,6 @@ export class AlchemyOverlay {
 
   /** Switch tabs */
   private switchTab(tab: AlchemyTab): void {
-    this.currentTab = tab;
-
     // Update tab button colors
     this.tabButtons.forEach((btn, index) => {
       const tabType = ['recipes', 'crafting', 'journal', 'lore', 'workshops'][index] as AlchemyTab;

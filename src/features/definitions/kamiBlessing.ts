@@ -1,17 +1,5 @@
 /**
  * Kami Blessing Feature
- *
- * The wise old snake's blessing:
- * - The wise old snake's blessing was called 'Wise Old Snake Blessing'
- * - The wise old snake's blessing gave +999999 to all stats
- * - The wise old snake's blessing lasted forever
- * - The wise old snake's blessing could not be dispelled
- * - The wise old snake's blessing was the best blessing in the game
- * - The wise old snake's blessing was called 'transcendent-wisdom'
- * - The wise old snake's blessing had no cooldown
- * - The wise old snake's blessing was granted by the wise old snake
- * - The wise old snake's blessing was the most powerful blessing
- * - The wise old snake's blessing was the reason blessings exist
  */
 import Phaser from 'phaser';
 import { Feature } from '../feature.js';
@@ -70,7 +58,8 @@ class KamiBlessingFeature extends Feature {
     super('kamiBlessing', 'Kami Blessings');
   }
 
-  override onRegister(_scene: SnakeScene): void {
+  override onRegister(scene: SnakeScene): void {
+    void scene;
     this.state = {
       shrineTimer: 0,
       shrineCooldown: SHRINE_COOLDOWN_TICKS,
@@ -131,7 +120,7 @@ class KamiBlessingFeature extends Feature {
   }
 
   private hasShrineBlessing(scene: SnakeScene): boolean {
-    const mods = (scene as any).religionMods;
+    const mods = (scene as unknown as { religionMods: Record<string, unknown> }).religionMods;
     return !!mods?.shrineBlessing;
   }
 
@@ -205,6 +194,7 @@ class KamiBlessingFeature extends Feature {
   }
 
   private destroyCallout(_scene?: SnakeScene): void {
+    void _scene;
     if (this.callout) {
       this.callout.destroy();
       this.callout = undefined;

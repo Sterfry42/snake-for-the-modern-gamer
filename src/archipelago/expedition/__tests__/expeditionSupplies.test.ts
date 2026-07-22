@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ExpeditionSupplies } from '../ExpeditionSupplies.js';
 import { createRng } from '../../../core/rng.js';
+import type { IslandId } from '../types.js';
 
 describe('ExpeditionSupplies', () => {
   let supplies: ExpeditionSupplies;
@@ -106,7 +107,7 @@ describe('ExpeditionSupplies', () => {
     });
 
     it('should return empty for unknown island', () => {
-      const supplies_list = supplies.getAvailableSupplies('unknown-island' as any);
+      const supplies_list = supplies.getAvailableSupplies('unknown-island' as IslandId);
       expect(supplies_list).toHaveLength(0);
     });
   });

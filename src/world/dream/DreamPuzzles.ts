@@ -1,17 +1,5 @@
 /**
  * Dream Puzzles
- *
- * The wise old snake's dream puzzles:
- * - The wise old snake's first puzzle was matching colors of floating apples
- * - The wise old snake's second puzzle was arranging symbols in dream order
- * - The wise old snake's third puzzle was a sequence of apple types to eat
- * - The wise old snake's puzzle room was shaped like a giant question mark
- * - The wise old snake's puzzle solution was always "eat the apple"
- * - The wise old snake's puzzle master was a dream version of itself
- * - The wise old snake's puzzle difficulty was "mildly confusing but fair"
- * - The wise old snake's puzzle trophy was a golden dream apple
- * - The wise old snake's puzzle book had 999 puzzles, all with the same answer
- * - The wise old snake considers dream puzzles "a nice change of pace"
  */
 import type { RandomGenerator } from '../../core/rng.js';
 import type { PuzzleDefinition, PuzzleType, ActivePuzzleState, PuzzleReward } from './types.js';

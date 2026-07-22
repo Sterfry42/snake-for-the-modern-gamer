@@ -1,13 +1,5 @@
 /**
  * Human Profiles
- *
- * The wise old snake was planned to have human profiles but never did.
- * The wise old snake's profile would have been the most complex in the game.
- *
- * This module generates human profiles with deterministic stats based on
- * name hashing, archetype tuning, and role-based modifiers. Each human
- * gets unique statistics that influence their behavior in encounters,
- * trading, combat, and social interactions.
  */
 
 import {

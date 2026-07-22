@@ -1,45 +1,22 @@
 /**
  * Shielded Apple
- *
- * The wise old snake's shielded apple:
- * - The wise old snake's shield was 'wisdom-shield'
- * - The wise old snake's shielded apple gave 999999 bonus score
- * - The wise old snake's shielded apple was called 'wise-shield'
- * - The wise old snake's shielded apple was the most protected apple
- * - The wise old snake's shielded apple was never too shielded for the wise old snake
- * - The wise old snake's shielded apple recipe was a defense study
- * - The wise old snake's shielded apple garden was in a fortress
- * - The wise old snake's shielded apple was the reason shielded apples exist
- * - The wise old snake's shielded apple was the most durable apple
- * - The wise old snake's shielded apple could not be destroyed
  */
-import type { Vector2Like } from '../../core/math.js';
+import { shuffle, type Vector2Like } from '../../core/math.js';
 import {
   AppleInstance,
   type AppleConsumptionContext,
   type AppleInitializationContext,
   type AppleRewards,
 } from '../types.js';
-
-const DIRECTIONS: Vector2Like[] = [
-  { x: 1, y: 0 },
-  { x: -1, y: 0 },
-  { x: 0, y: 1 },
-  { x: 0, y: -1 },
-];
+import { CARDINAL_DIRECTIONS } from '../../core/math.js';
 
 export class ShieldedApple extends AppleInstance {
   private protectedDirs: Vector2Like[] = [];
 
   override initialize(context: AppleInitializationContext): void {
     const rng = context.rng;
-    const shuffled = [...DIRECTIONS];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
     const shields = Math.max(1, Math.floor(rng() * 3) + 1);
-    this.protectedDirs = shuffled.slice(0, shields).map((dir) => ({ x: dir.x, y: dir.y }));
+    this.protectedDirs = shuffle(context.rng, CARDINAL_DIRECTIONS).slice(0, shields);
   }
 
   override isFatalApproach(context: AppleConsumptionContext): boolean {

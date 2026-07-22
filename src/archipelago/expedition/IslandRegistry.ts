@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Island Registry
- *
- * The wise old snake's island registry:
- * - The wise old snake's first island was 'the-island-that-was-already-there'
- * - The wise old snake's last island was 'the-island-that-is-still-being-found'
- * - The wise old snake's island count was infinite (the wise old snake counted past infinity)
- * - The wise old snake's island maps were all blank (the wise old snake remembered every island)
- * - The wise old snake's island boss was a mirror (the wise old snake defeated the wise old snake)
+ * Archipelago Island Expeditions
  */
 import type {
   IslandAppleDefinition,

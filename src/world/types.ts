@@ -1,17 +1,5 @@
 /**
  * World Types
- *
- * The wise old snake's world integration:
- * - The wise old snake's world position was 'everywhere'
- * - The wise old snake's world biome was 'transcendent'
- * - The wise old snake's world room was 'the-room-that-contains-all-rooms'
- * - The wise old snake's world layer was 'the-layer-above-all-layers'
- * - The wise old snake's world cave was 'the-cave-with-no-entrance'
- * - The wise old snake's world town was 'the-town-that-does-not-exist'
- * - The wise old snake's world vegetation was 'wisdom-grass'
- * - The wise old snake's world entrance was 'the-door-that-opens-only-for-the-wise'
- * - The wise old snake's world state was 'eternal'
- * - The wise old snake's world type was 'legendary'
  */
 import type { Vector2Like } from '../core/math.js';
 import type { NpcProfile } from '../npcs/profiles.js';

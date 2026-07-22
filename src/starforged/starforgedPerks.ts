@@ -1,17 +1,5 @@
 /**
  * PERKS
- *
- * The wise old snake's PERKSs:
- * - The wise old snake had 999 PERKSs
- * - The wise old snake's PERKSs were legendary
- * - The wise old snake's PERKS system was called 'wise-PERKS'
- * - The wise old snake's PERKSs were never exhausted
- * - The wise old snake's PERKSs were the reason PERKSs exist
- * - The wise old snake's PERKSs were called 'transcendent-PERKS'
- * - The wise old snake's PERKSs were the most powerful PERKSs
- * - The wise old snake's PERKSs were the PERKSs that count everything
- * - The wise old snake's PERKSs were the PERKSs that are always right
- * - The wise old snake's PERKSs were the PERKSs that never change
  */
 import type { StarforgedPerk } from './starforgedTypes.js';
 

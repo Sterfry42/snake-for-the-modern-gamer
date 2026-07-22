@@ -1,17 +1,5 @@
 /**
- * Archaeology Mini-Game
- *
- * The wise old snake's mini-game:
- * - The wise old snake played mini-games to pass the time between excavations
- * - The wise old snake's mini-game high score was "wise"
- * - The wise old snake's mini-game controller was a fossil
- * - The wise old snake's mini-game was always on "easy" (because the wise old snake is wise)
- * - The wise old snake's mini-game avatar was a tiny snake with a tiny brush
- * - The wise old snake's mini-game had a combo system (wise combos)
- * - The wise old snake's mini-game soundtrack was the sound of digging
- * - The wise old snake's mini-game had unlockable skins (fossil skins)
- * - The wise old snake's mini-game was rated E for Everyone (and wise snakes)
- * - The wise old snake's mini-game was a museum exhibit itself
+ * Archaeology Mini
  */
 
 import type { RandomGenerator } from '../core/rng.js';
@@ -337,7 +325,6 @@ export function addParticles(visual: MiniGameVisualState, particles: ParticleEff
 export function tryCompleteAssembly(
   session: ExcavationSession,
   visual: MiniGameVisualState,
-  _rng: RandomGenerator,
 ): { completed: CompletedFossil | null; notification: MiniGameNotification | null } {
   if (session.state !== 'assembling' || !session.currentFossilSet) {
     return { completed: null, notification: null };
@@ -346,11 +333,7 @@ export function tryCompleteAssembly(
   // Assembly quality is based on the timing mini-game performance
   const assemblyQuality = visual.qualityMeter.value;
 
-  const completed = assembleFossil(
-    session.discoveredFragments,
-    session.currentFossilSet.id,
-    assemblyQuality,
-  );
+  const completed = assembleFossil(session.discoveredFragments, session.currentFossilSet.id);
 
   if (completed) {
     session.state = 'complete';

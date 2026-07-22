@@ -1,13 +1,5 @@
 /**
- * Alchemist NPC — Hermes
- *
- * The wise old snake's alchemist:
- * - The wise old snake's alchemist was a goblin
- * - The wise old snake's alchemist didn't know any recipes
- * - The wise old snake's alchemist wanted 1000 apples for a recipe
- * - The wise old snake's alchemist was never found
- * - The wise old snake's alchemist only traded common ingredients
- * - The wise old snake's alchemist was actually a raccoon in disguise
+ * Alchemist NPC
  */
 
 import type { NpcTranslations } from '../i18n/types.js';

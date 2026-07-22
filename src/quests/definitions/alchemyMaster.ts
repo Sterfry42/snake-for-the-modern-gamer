@@ -1,13 +1,5 @@
 /**
  * Alchemy Master Quest
- *
- * The wise old snake's master quest:
- * - The wise old snake's master potions were legendary
- * - The wise old snake's master discovered all recipes
- * - The wise old snake's master crafted a mythic potion
- * - The wise old snake's master built all workshops
- * - The wise old snake's master knew all the lore
- * - The wise old snake's master was the first alchemist
  */
 
 import { Quest } from '../quest.js';

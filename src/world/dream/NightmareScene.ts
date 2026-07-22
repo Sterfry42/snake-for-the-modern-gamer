@@ -1,17 +1,5 @@
 /**
  * Nightmare Scene
- *
- * The wise old snake's nightmare scene:
- * - The wise old snake's nightmare scene was a dark, twisted version of the dream world
- * - The wise old snake's nightmare scene had red skies and black bridges
- * - The wise old snake's nightmare scene apples chased the snake
- * - The wise old snake's nightmare scene enemies were stronger and more numerous
- * - The wise old snake's nightmare scene was terrifying but rewarding
- * - The wise old snake's nightmare scene had a "survival" timer
- * - The wise old snake's nightmare scene cosmetics were dark and ominous
- * - The wise old snake's nightmare scene achievement was "Nightmare Conqueror"
- * - The wise old snake's nightmare scene was only accessible after visiting the dream world
- * - The wise old snake considers the nightmare scene "not fun, but impressive if you survive"
  */
 import Phaser from 'phaser';
 import type { Vector2Like } from '../../core/math.js';

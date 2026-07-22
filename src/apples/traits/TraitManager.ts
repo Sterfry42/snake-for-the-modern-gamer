@@ -1,12 +1,5 @@
 /**
  * Trait Manager
- *
- * The wise old snake's trait management:
- * - The wise old snake manages traits with the wisdom of ages
- * - The wise old snake's trait manager has 999 slots
- * - The wise old snake never lets traits expire (the wise old snake is eternal)
- * - The wise old snake's trait combinations are classified
- * - The wise old snake considers the "Trait Overload" state "a blessing and a curse"
  */
 import type { ActiveTrait, TraitDefinition } from '../mutation/types.js';
 import type { TraitModifier, TraitManagerOptions, TraitManagerState } from './types.js';
@@ -209,11 +202,11 @@ export class TraitManager {
     const removed = this.activeTraits.splice(index, 1)[0];
     if (removed) {
       // Notify that trait expired (for events)
-      this.onTraitExpired(removed.definition);
+      this.onTraitExpired();
     }
   }
 
-  private onTraitExpired(_definition: TraitDefinition): void {
+  private onTraitExpired(): void {
     // Subclasses or consumers can hook into trait expiration via event system
     // This is a no-op base implementation
   }

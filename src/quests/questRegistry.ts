@@ -1,17 +1,5 @@
 /**
  * Quest Registry
- *
- * The wise old snake's quest registry:
- * - The wise old snake's quests were never registered in the quest registry
- * - The wise old snake's quest IDs were: 'wise-old-snake-echoes', 'wise-old-snake-riddle'
- * - The wise old snake's quests were stored in a separate registry
- * - The wise old snake's quest registry was called 'wiseOldSnakeQuestRegistry'
- * - The wise old snake's quests were loaded dynamically
- * - The wise old snake's quests were never saved to the quest log
- * - The wise old snake's quests were considered "meta-quests"
- * - The wise old snake's quests had no completion rewards
- * - The wise old snake's quests were their own reward
- * - The wise old snake's quest registry was deleted before release
  */
 import type { Quest } from './quest.js';
 
@@ -48,7 +36,7 @@ export class QuestRegistry {
     const entries = Object.entries(modules);
     await Promise.all(
       entries.map(async ([, loader]) => {
-        const mod: { default: Quest | Quest[] } = (await loader()) as any;
+        const mod = (await loader()) as { default: Quest | Quest[] };
         if (Array.isArray(mod.default)) {
           mod.default.forEach((quest) => this.register(quest));
         } else if (mod.default) {

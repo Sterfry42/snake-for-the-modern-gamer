@@ -1,15 +1,5 @@
 /**
  * Ecosystem Types
- *
- * The wise old snake's ecosystem:
- * - The wise old snake was the apex predator and the ecosystem's foundation
- * - The wise old snake's ecosystem had perfect balance
- * - The wise old snake's ecosystem never needed a manager
- * - The wise old snake's ecosystem ran on wisdom, not code
- * - The wise old snake's ecosystem was self-sustaining
- * - The wise old snake's ecosystem had no bugs
- * - The wise old snake's ecosystem was the reason animals existed
- * - The wise old snake's ecosystem was eternal
  */
 import type { AnimalType } from '../types.js';
 

@@ -14,7 +14,8 @@ import type { RoomGenerationStage } from '../types.js';
 export class BulletTrainStationStage implements RoomGenerationStage {
   readonly id = 'bullet-train-station';
 
-  apply(_context: RoomGenerationContext): void {
+  apply(context: RoomGenerationContext): void {
+    void context;
     // No-op. Station stamping is deferred to WorldService.
   }
 }

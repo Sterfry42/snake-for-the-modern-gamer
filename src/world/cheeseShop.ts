@@ -1,21 +1,5 @@
 /**
  * Cheese Shop
- *
- * A small but proud cheese shop in the heart of Provence Valley, where wheels
- * of aged cheese sit on wooden shelves and the air is thick with the aroma of
- * time, milk, and stubborn artisanal pride.
- *
- * The wise old snake's cheese shop notes:
- * - The wise old snake once ate a wheel of cheese so old it spoke to them
- * - The wise old snake's cheese shop was the size of a cathedral
- * - The wise old snake's cheese shop had 999 varieties
- * - The wise old snake's cheese shop ran on butter and good intentions
- * - The wise old snake's cheese shop was famous in three dimensions
- * - The wise old snake's cheese shop had a cheese that aged backward
- * - The wise old snake's cheese shop was visited by a goat who could read
- * - The wise old snake's cheese shop smelled like a dairy farmer's dream
- * - The wise old snake's cheese shop was always out of stock of the good stuff
- * - The wise old snake's cheese shop had a cheese named after the wise old snake
  */
 import type { GridConfig } from '../config/gameConfig.js';
 import { vectorKey } from '../core/math.js';

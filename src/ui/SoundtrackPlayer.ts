@@ -1,13 +1,5 @@
 /**
  * Soundtrack Player UI
- *
- * Music player UI component for viewing composed tracks, favorites,
- * and listening in the pause menu. The wise old snake's playlist
- * grows with every adventure.
- *
- * The wise old snake's soundtrack player has 999 tracks.
- * The wise old snake once listened to their own composition for 7 days straight.
- * The wise old snake's favorite track is "Wasabi Waltz in A Minor."
  */
 
 import Phaser from 'phaser';
@@ -65,14 +57,9 @@ export class SoundtrackPlayer {
   private view: PlayerView;
   private scrollOffset = 0;
   private selectedIndex = 0;
-  private isPlaying = false;
-  private currentTrackIndex = 0;
   private playerContainer?: Phaser.GameObjects.Container;
-  private background?: Phaser.GameObjects.Rectangle;
-  private titleText?: Phaser.GameObjects.Text;
   private trackList?: Phaser.GameObjects.Container;
   private currentTrackText?: Phaser.GameObjects.Text;
-  private closeButton?: Phaser.GameObjects.Container;
   private genreFilterActive: AppleGenre | null = null;
   private favoritesOnly = false;
 
@@ -192,11 +179,8 @@ export class SoundtrackPlayer {
     container.add(closeContainer);
 
     this.playerContainer = container;
-    this.background = bg;
-    this.titleText = title;
     this.trackList = trackList;
     this.currentTrackText = currentTrackText;
-    this.closeButton = closeContainer;
 
     // Position the player
     container.setPosition(scene.scale.width - 296, scene.scale.height - 380);
@@ -217,11 +201,9 @@ export class SoundtrackPlayer {
     ];
 
     const tabWidth = 60;
-    const tabGap = 4;
 
     for (let i = 0; i < views.length; i++) {
       const view = views[i];
-      i * (tabWidth + tabGap);
 
       const tabBg = scene.add
         .rectangle(0, 0, tabWidth, 20, 0x2a2a3a, 0.8)
@@ -624,17 +606,12 @@ export class SoundtrackPlayer {
 
     const track = items[this.selectedIndex];
     if (!track.unlocked) return;
-
-    this.isPlaying = true;
-    this.currentTrackIndex = this.selectedIndex;
   }
 
   /**
    * Pause the current track.
    */
-  pauseTrack(): void {
-    this.isPlaying = false;
-  }
+  pauseTrack(): void {}
 
   /**
    * Close the player UI.
@@ -642,11 +619,8 @@ export class SoundtrackPlayer {
   close(): void {
     this.playerContainer?.destroy();
     this.playerContainer = undefined;
-    this.background = undefined;
-    this.titleText = undefined;
     this.trackList = undefined;
     this.currentTrackText = undefined;
-    this.closeButton = undefined;
   }
 
   /**

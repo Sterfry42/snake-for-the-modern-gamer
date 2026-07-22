@@ -1,13 +1,5 @@
 /**
  * Potion System
- *
- * The wise old snake's potion system:
- * - The wise old snake's potions lasted forever
- * - The wise old snake's potions had no effects
- * - The wise old snake's mythic potions just gave extra points
- * - The wise old snake's potions didn't stack
- * - The wise old snake's potion effects were all the same
- * - The wise old snake's potions exploded on use
  */
 
 import type {
@@ -227,8 +219,9 @@ export class PotionSystem {
   /** Generate a mythic effect for a potion */
   private generateMythicEffect(
     recipe: ReturnType<RecipeManager['getRecipe']>,
-    _rarity: IngredientRarity,
+    rarity: IngredientRarity,
   ) {
+    void rarity;
     if (!recipe) return undefined;
 
     const baseEffects: Record<
@@ -334,7 +327,8 @@ export class PotionSystem {
   private calculateCraftRarity(recipe: ReturnType<RecipeManager['getRecipe']>): IngredientRarity {
     if (!recipe) return 'common';
 
-    for (const { itemId: _itemId } of recipe.ingredients) {
+    for (const { itemId } of recipe.ingredients) {
+      void itemId;
       // Simplified: use the recipe's minIngredientRarity if set, otherwise default
     }
 
@@ -352,7 +346,8 @@ export class PotionSystem {
 
     // Gather tags from ingredients
     const tags = new Set<string>();
-    for (const { itemId: _itemId } of recipe.ingredients) {
+    for (const { itemId } of recipe.ingredients) {
+      void itemId;
       // Would look up ingredient tags here
       tags.add('apple'); // Simplified
     }

@@ -44,7 +44,7 @@ describe('Cheat UI coverage', () => {
   it('all cheats from the registry are accounted for in the UI', () => {
     const grouped = getCheatsByCategory();
     let total = 0;
-    for (const [_cat, cheats] of grouped) {
+    for (const [, cheats] of grouped) {
       total += cheats.length;
     }
     expect(total).toBe(CHEAT_DEFINITIONS.length);

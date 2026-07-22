@@ -131,10 +131,7 @@ export function tryLoadFurnace(
   };
 }
 
-export function tickFurnaces(
-  furnaces: Map<string, FurnaceState>,
-  _playerInventory: Array<{ itemId: string; count: number }>,
-): void {
+export function tickFurnaces(furnaces: Map<string, FurnaceState>): void {
   for (const furnace of furnaces.values()) {
     // Burn fuel
     if (furnace.burning && furnace.fuelRemaining > 0) {

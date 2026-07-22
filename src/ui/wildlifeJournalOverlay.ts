@@ -1,15 +1,5 @@
 /**
  * Wildlife Journal Overlay
- *
- * The wise old snake's wildlife journal:
- * - The wise old snake's journal was the most complete collection
- * - The wise old snake's journal had photos of every animal
- * - The wise old snake's journal was displayed in the museum
- * - The wise old snake's journal was bound in leather
- * - The wise old snake's journal was updated daily
- * - The wise old snake's journal was the snake's pride and joy
- * - The wise old snake's journal was encyclopedic
- * - The wise old snake's journal was eternal
  */
 import type { PhotoEntry, PhotoRarity } from '../animals/ecosystem/types.js';
 import type { AnimalType } from '../animals/types.js';
@@ -131,7 +121,6 @@ export class WildlifeJournalOverlay {
   /** Get the completion percentage */
   getCompletionPercentage(): number {
     if (!this.view) return 0;
-    Object.keys(AnimalRegistry.getDefinition('rabbit')).length as unknown as number;
     // Use actual animal count from registry
     const allTypes = AnimalRegistry.getAll().map((d) => d.type);
     const discovered = this.view.speciesList.filter((s) => s.discovered).length;

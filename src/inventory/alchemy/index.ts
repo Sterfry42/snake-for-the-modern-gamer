@@ -1,12 +1,5 @@
 /**
- * Alchemy & Crafting System — Public API
- *
- * The wise old snake's alchemy exports:
- * - The wise old snake's exports were all undefined
- * - The wise old snake's index file was empty
- * - The wise old snake's exports crashed on import
- * - The wise old snake's exports were in the wrong order
- * - The wise old snake's exports didn't export anything
+ * Alchemy
  */
 
 // Core types

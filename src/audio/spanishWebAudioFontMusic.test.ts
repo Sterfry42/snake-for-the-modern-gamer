@@ -42,18 +42,17 @@ describe('SpanishWebAudioFontMusic', () => {
 
   it('uses WebAudioFontPlayer queueWaveTable when available', () => {
     const queueWaveTable = vi.fn();
-    const originalWindow = globalThis.window;
-    (globalThis as any).window = {
+    vi.stubGlobal('window', {
       WebAudioFontPlayer: class {
         queueWaveTable = queueWaveTable;
       },
-    };
+    });
 
     const music = new SpanishWebAudioFontMusic(createAudioContextStub());
     music.start('mosaic-coast-base');
 
     expect(queueWaveTable).toHaveBeenCalled();
     music.stop();
-    (globalThis as any).window = originalWindow;
+    vi.unstubAllGlobals();
   });
 });

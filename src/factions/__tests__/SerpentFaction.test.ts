@@ -1,5 +1,6 @@
 import { TerritoryManager } from '../TerritoryManager.js';
 import { SerpentFactionManager, MISSION_TEMPLATES } from '../SerpentFaction.js';
+import type { SerpentFactionState } from '../territoryTypes.js';
 
 describe('SerpentFactionManager', () => {
   let territoryManager: TerritoryManager;
@@ -332,7 +333,7 @@ describe('SerpentFactionManager', () => {
         'diplomacy',
       );
 
-      (serpent.getFactionState() as any).influence = 1000;
+      (serpent.getFactionState() as SerpentFactionState).influence = 1000;
 
       const result = serpent.attemptClaimTerritory('forest-of-whispers');
       expect(result).toBe(false);

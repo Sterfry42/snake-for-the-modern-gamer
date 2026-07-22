@@ -1139,8 +1139,6 @@ export class SnakeRenderer {
     room: RoomSnapshot,
     getBlockAge: (roomId: string, localX: number, localY: number) => number | undefined,
   ): void {
-    getBiomeDefinition(room.biomeId);
-    (this.wallGraphics.scene as Phaser.Scene).time?.now ?? performance.now();
     const blockLifetimeMs = 4000; // 4 seconds before crumbling
 
     for (let y = 0; y < room.layout.length; y++) {
@@ -2654,14 +2652,12 @@ export class SnakeRenderer {
     const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
     for (const player of players) {
       const color = player.color ?? 0x4ecdc4;
-      let visibleSegments = 0;
       player.body.forEach((segment, index) => {
         const localX = segment.x - roomX * this.grid.cols;
         const localY = segment.y - roomY * this.grid.rows;
         if (localX < 0 || localX >= this.grid.cols || localY < 0 || localY >= this.grid.rows) {
           return;
         }
-        visibleSegments += 1;
         const inset = index === 0 ? 2 : 3;
         const alpha = Math.max(0.35, 0.9 - index * 0.06);
         this.graphics.fillStyle(color, alpha);
@@ -2700,12 +2696,6 @@ export class SnakeRenderer {
       });
       if (!this.loggedOtherPlayerRenderIds.has(player.id)) {
         this.loggedOtherPlayerRenderIds.add(player.id);
-        console.info('[SnakeRenderer] Other player render check.', {
-          playerId: player.id,
-          roomId: currentRoomId,
-          visibleSegments,
-          head: player.body[0] ?? null,
-        });
       }
     }
   }
@@ -3074,7 +3064,7 @@ export class SnakeRenderer {
 
   private buildEnemySnakePalette(enemy: EnemyInstance): SnakeSpritePalette {
     if (enemy.encounterKind === 'roaming-snake') {
-      const colorHex = (enemy as any)._colorHex;
+      const colorHex = enemy._colorHex;
       if (colorHex) {
         return this.hexToSnakePalette(colorHex);
       }
@@ -3091,10 +3081,6 @@ export class SnakeRenderer {
   }
 
   private hexToSnakePalette(hex: string): SnakeSpritePalette {
-    parseInt(hex.slice(1, 3), 16) / 255;
-    parseInt(hex.slice(3, 5), 16) / 255;
-    parseInt(hex.slice(5, 7), 16) / 255;
-
     return {
       baseColor: hex,
       bellyColor: this.lightenHex(hex, 0.25),

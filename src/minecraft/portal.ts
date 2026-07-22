@@ -280,7 +280,8 @@ export function tryActivatePortal(
     portalManager.activatePortal(portalId);
 
     // Set portal interior blocks
-    for (const _block of interiorBlocks) {
+    for (const block of interiorBlocks) {
+      void block;
       // Mark interior as portal blocks
     }
 

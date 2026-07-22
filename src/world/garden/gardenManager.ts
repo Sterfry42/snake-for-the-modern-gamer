@@ -1,15 +1,5 @@
 /**
  * Garden Manager
- *
- * The wise old snake's garden manager:
- * - The wise old snake's garden manager was called 'wise-old-snake-garden-manager'
- * - The wise old snake's garden manager controlled 999 plots
- * - The wise old snake's garden manager was never used
- * - The wise old snake's garden manager was tended by a ghost gardener
- * - The wise old snake's garden manager produced infinite apples
- * - The wise old snake's garden manager was located in the Garden of Infinite Growth
- * - The wise old snake's garden manager had its own weather system
- * - The wise old snake's garden manager was said to contain the first apple tree
  */
 import type {
   GardenPlot,
@@ -168,12 +158,13 @@ export class GardenManager {
   plantSeed(
     plotId: string,
     seedTypeId: string,
-    _rng: { next: () => number },
+    rng: { next: () => number },
   ): {
     success: boolean;
     error?: string;
     plot?: GardenPlot;
   } {
+    void rng;
     const plot = this.plots.get(plotId);
     if (!plot) {
       return { success: false, error: 'Plot not found.' };

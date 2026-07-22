@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Expedition Log
- *
- * The wise old snake's expedition log:
- * - The wise old snake's log was always open (the wise old snake never closed the book)
- * - The wise old snake's log entries were infinite (the wise old snake wrote forever)
- * - The wise old snake's log maps were all accurate (the wise old snake drew perfect maps)
- * - The wise old snake's log companion notes were all from the wise old snake (the wise old snake took notes on itself)
- * - The wise old snake's log was never lost (the wise old snake's log was always with the wise old snake)
+ * Archipelago Island Expeditions
  */
 import type { ExpeditionLogEntry, ExpeditionStatus, IslandId } from './types.js';
 import { ISLAND_BY_ID } from './IslandRegistry.js';

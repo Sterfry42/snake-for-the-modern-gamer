@@ -3,6 +3,8 @@ import { AnimalManager } from '../animalManager.js';
 import type { AnimalInstance } from '../types.js';
 import type { Vector2Like } from '../../core/math.js';
 import type { RoomSnapshot } from '../../world/types.js';
+import type { NpcProfile } from '../../npcs/profiles.js';
+import type { ResolvedAtmosphereView } from '../../world/atmosphereTypes.js';
 import { createRng } from '../../core/rng.js';
 
 const grid = { cols: 32, rows: 24, cell: 24 };
@@ -67,7 +69,12 @@ describe('AnimalManager', () => {
           safeArea: { left: 10, top: 8, width: 12, height: 8 },
           lanterns: [],
           residents: [],
-          shopkeeper: { name: 'Shopkeeper', description: '', x: 10, y: 10 } as any,
+          shopkeeper: {
+            name: 'Shopkeeper',
+            description: '',
+            x: 10,
+            y: 10,
+          } as unknown as NpcProfile & { x: number; y: number },
         },
       });
       manager.ensureAnimals('0,0,0', room, []);
@@ -85,7 +92,12 @@ describe('AnimalManager', () => {
           tents: [],
           fires: [],
           guards: [],
-          shopkeeper: { name: 'Goblin Shop', description: '', x: 10, y: 10 } as any,
+          shopkeeper: {
+            name: 'Goblin Shop',
+            description: '',
+            x: 10,
+            y: 10,
+          } as unknown as NpcProfile & { x: number; y: number },
         },
       });
       manager.ensureAnimals('0,0,0', room, []);
@@ -132,7 +144,7 @@ describe('AnimalManager', () => {
           animalSpawnChanceScalar: 1,
           animalSpawnBiasAdd: { frog: 1 },
         },
-      } as any);
+      } as unknown as ResolvedAtmosphereView);
 
       const animals = testManager.getAnimalsInRoom('0,0,0');
       expect(animals.filter((animal) => animal.type === 'frog')).toHaveLength(4);

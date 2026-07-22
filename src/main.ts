@@ -6,6 +6,14 @@ import { loadResolutionSetting } from './config/resolutionSettings.js';
 
 const resolution = loadResolutionSetting();
 
+declare global {
+  interface Window {
+    webkitAudioContext?: typeof AudioContext;
+  }
+}
+
+const audioContextCtor = window.AudioContext || window.webkitAudioContext;
+
 const game = new Phaser.Game({
   type: Phaser.AUTO,
   width: 768,
@@ -16,12 +24,14 @@ const game = new Phaser.Game({
   pixelArt: true,
   scene: [SnakeScene],
   audio: {
-    context: new (window.AudioContext || window.webkitAudioContext)(),
+    context: new (audioContextCtor ?? AudioContext)(),
   },
 });
 
 // Give the game canvas focus when it's ready
 game.events.on(Phaser.Core.Events.READY, () => {
-  game.canvas.attributes.getNamedItem('tabindex') || game.canvas.setAttribute('tabindex', '1');
+  if (!game.canvas.attributes.getNamedItem('tabindex')) {
+    game.canvas.setAttribute('tabindex', '1');
+  }
   game.canvas.focus();
 });

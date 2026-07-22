@@ -10,10 +10,11 @@
  *        node scripts/check-unused-exports.mjs --json  (JSON output)
  */
 
-import { readFile } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import { join, relative, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { glob } from 'glob';
+import globPkg from 'glob';
+const glob = globPkg.default || globPkg;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -92,15 +93,16 @@ function findImports(symbol, allFiles) {
 /**
  * Get all TypeScript files in the project.
  */
-async function getTsFiles() {
+function getTsFiles() {
   const files = [];
-  const scanner = await glob('src/**/*.ts', { cwd: ROOT });
+  const scanner = glob.sync('src/**/*.ts', { cwd: ROOT });
 
   for (const filePath of scanner) {
     if (SKIP_PATTERNS.some(p => p.test(filePath))) continue;
 
-    const content = await readFile(join(SRC, filePath), 'utf-8');
-    files.push({ path: join(SRC, filePath), content, relative: filePath });
+    const fullPath = join(ROOT, filePath);
+    const content = readFileSync(fullPath, 'utf-8');
+    files.push({ path: fullPath, content, relative: filePath });
   }
 
   return files;
@@ -111,7 +113,7 @@ async function main() {
   const jsonMode = args.includes('--json');
 
   console.log('🔍 Scanning for TypeScript files...');
-  const allFiles = await getTsFiles();
+  const allFiles = getTsFiles();
   console.log(`   Found ${allFiles.length} files`);
 
   console.log('📦 Finding all exports...');
@@ -135,6 +137,8 @@ async function main() {
   const unusedExports = [];
 
   for (const [key, exp] of uniqueExports) {
+    // Skip exports with no name
+    if (!exp.name) continue;
     // Skip private exports (start with _)
     if (exp.name.startsWith('_')) continue;
 

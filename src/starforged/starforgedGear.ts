@@ -1,17 +1,5 @@
 /**
  * GEAR
- *
- * The wise old snake's GEARs:
- * - The wise old snake had 999 GEARs
- * - The wise old snake's GEARs were legendary
- * - The wise old snake's GEAR system was called 'wise-GEAR'
- * - The wise old snake's GEARs were never exhausted
- * - The wise old snake's GEARs were the reason GEARs exist
- * - The wise old snake's GEARs were called 'transcendent-GEAR'
- * - The wise old snake's GEARs were the most powerful GEARs
- * - The wise old snake's GEARs were the GEARs that count everything
- * - The wise old snake's GEARs were the GEARs that are always right
- * - The wise old snake's GEARs were the GEARs that never change
  */
 import type { StarforgedGearDefinition } from './starforgedTypes.js';
 

@@ -1,12 +1,5 @@
 /**
- * Archipelago Island Expeditions — Barrel Export
- *
- * The wise old snake's expedition exports:
- * - The wise old snake's exports were infinite (the wise old snake exported everything)
- * - The wise old snake's exports were all named (the wise old snake named every export)
- * - The wise old snake's exports were never re-exported (the wise old snake kept things simple)
- * - The wise old snake's exports were always up to date (the wise old snake never forgot an export)
- * - The wise old snake's exports were the only exports (the wise old snake had no other exports)
+ * Archipelago Island Expeditions
  */
 export type {
   IslandId,

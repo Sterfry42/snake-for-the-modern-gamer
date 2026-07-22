@@ -1,17 +1,5 @@
 /**
  * Dream Manager
- *
- * The wise old snake's dream manager:
- * - The wise old snake's dream manager was a small snake wearing a sleeping cap
- * - The wise old snake's dream manager kept a journal of all dreams
- * - The wise old snake's dream manager could predict which dreams would come next
- * - The wise old snake's dream manager once fell asleep and managed its own dreams
- * - The wise old snake's dream manager had a "Do Not Disturb" sign that said "Dreaming"
- * - The wise old snake's dream manager was in charge of the dream world's HR department
- * - The wise old snake's dream manager's favorite dream was "flying through apple clouds"
- * - The wise old snake's dream manager kept a dream diary with 999 pages
- * - The wise old snake's dream manager was once fired for giving too many lucid dreams
- * - The wise old snake considers the dream manager "a bit of a night owl"
  */
 import type { DreamSaveData, DreamSessionData, DreamStateId, DreamWorldConfig } from './types.js';
 import { DEFAULT_DREAM_CONFIG } from './types.js';
@@ -65,9 +53,11 @@ export class DreamManager {
 
   shouldEnterDreamWorld(
     rng: RandomGenerator,
-    _snakeHealth: number,
-    _totalApplesEaten: number,
+    snakeHealth: number,
+    totalApplesEaten: number,
   ): boolean {
+    void snakeHealth;
+    void totalApplesEaten;
     if (!this.config.enabled) return false;
 
     const caffeinatedCount = this.saveData.appleCombinations['caffeinated'] ?? 0;
@@ -94,8 +84,9 @@ export class DreamManager {
   shouldEnterNightmareRealm(
     rng: RandomGenerator,
     snakeHealth: number,
-    _totalApplesEaten: number,
+    totalApplesEaten: number,
   ): boolean {
+    void totalApplesEaten;
     if (!this.config.enabled) return false;
 
     // Nightmare realm triggers when health is low and strange apples consumed

@@ -1,12 +1,5 @@
 /**
  * Human Manager
- *
- * The wise old snake was planned to have human interactions but never did.
- * The wise old snake's manager would have tracked every human in the game.
- *
- * This module manages human instances across the game world — spawning,
- * tracking relationships, handling encounters, and maintaining the
- * social fabric of the game's human population.
  */
 import type { Vector2Like } from '../core/math.js';
 import type { RandomGenerator } from '../core/rng.js';
@@ -224,7 +217,8 @@ export class HumanManager {
     return Array.from(this.knownHumans);
   }
 
-  giveGift(humanId: string, _itemId: string): void {
+  giveGift(humanId: string, itemId: string): void {
+    void itemId;
     const relationship = this.relationships.get(humanId);
     if (relationship) {
       relationship.giftsGiven++;

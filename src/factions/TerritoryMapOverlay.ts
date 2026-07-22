@@ -174,7 +174,7 @@ export class TerritoryMapOverlay {
     // Update label
     let label = this.labels.get(territory.id);
     if (!label) {
-      label = this.createLabel(territory, position, ownership);
+      label = this.createLabel(territory, position);
       this.labels.set(territory.id, label);
       this.container.add(label);
     } else {
@@ -236,7 +236,6 @@ export class TerritoryMapOverlay {
   private createLabel(
     territory: TerritoryDefinition,
     position: { x: number; y: number },
-    _ownership: TerritoryOwnership,
   ): Phaser.GameObjects.Text {
     const name = this.scene.add.text(position.x + 20, position.y, territory.name, {
       fontSize: '11px',

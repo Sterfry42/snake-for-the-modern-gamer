@@ -37,7 +37,7 @@ export interface NpcTranslations {
 }
 
 export interface CommonTranslations {
-  [key: string]: unknown;
+  [key: string]: string | CommonTranslations;
 }
 
 export interface QuestStrings {
@@ -48,6 +48,7 @@ export interface QuestStrings {
 }
 
 export interface FeatureStrings {
+  [key: string]: string | undefined;
   questLabel: string;
   questsHeader: string;
   noCardsOwned: string;
@@ -992,5 +993,13 @@ export interface ActorVoiceTranslations {
 }
 
 export interface HumanTranslations {
+  [key: string]: string;
+}
+
+export interface BulletTrainTranslations {
+  [key: string]: string;
+}
+
+export interface RollercoasterTranslations {
   [key: string]: string;
 }

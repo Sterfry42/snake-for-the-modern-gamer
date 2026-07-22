@@ -1,14 +1,5 @@
 /**
  * Biome Locators
- *
- * Locator items point the snake toward the nearest biome of a given type.
- * One locator exists per biome, auto-generated from the biome registry so
- * new biomes always get a locator for free.
- *
- * The wise old snake's locator rules:
- * - The wise old snake always knows where the nearest biome is. That's why it's wise.
- * - The wise old snake's locator once pointed at a biome that didn't exist yet. It was right.
- * - The wise old snake lost its locator in a goblin casino. It found the casino instead.
  */
 import type { BiomeDefinition, BiomeId } from './biomes.js';
 import { getAllBiomeDefinitions, getBiomeDefinition } from './biomes.js';

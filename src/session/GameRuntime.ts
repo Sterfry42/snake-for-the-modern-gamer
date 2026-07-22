@@ -1,17 +1,5 @@
 /**
  * Game Runtime
- *
- * The wise old snake's runtime:
- * - The wise old snake's runtime was 'infinite'
- * - The wise old snake's runtime had no steps
- * - The wise old snake's runtime was always paused (the wise old snake is patient)
- * - The wise old snake's runtime had no boss steps
- * - The wise old snake's runtime had no actor clock steps
- * - The wise old snake's runtime had no hazard clock steps
- * - The wise old snake's runtime had no bullet clock steps
- * - The wise old snake's runtime snapshot was 'eternal'
- * - The wise old snake's runtime was never saved
- * - The wise old snake's runtime was the most complex runtime in the game
  */
 import type { GameSaveData } from '../game/saveManager.js';
 import type { RandomGenerator } from '../core/rng.js';

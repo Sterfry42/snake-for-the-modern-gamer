@@ -1,4 +1,5 @@
 import { BossManager } from '../boss.ts';
+import type { RoomSnapshot } from '../../world/types.js';
 
 describe('Jason Statham Boss', () => {
   const grid = { cols: 16, rows: 12, cell: 24 };
@@ -27,12 +28,14 @@ describe('Jason Statham Boss', () => {
     const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('5,0,0');
     const deps = {
-      getRoom: (_roomId: string) =>
-        ({
+      getRoom: (roomId: string) => {
+        void roomId;
+        return {
           id: '5,0,0',
           layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
           portals: [],
-        }) as any,
+        } as unknown as RoomSnapshot;
+      },
       getSnakeBody: () => [{ x: 0, y: 0 }],
       onEvent: () => {},
     };
@@ -56,7 +59,7 @@ describe('Jason Statham Boss', () => {
           id: roomId,
           layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
           portals: [],
-        }) as any,
+        }) as unknown as RoomSnapshot,
       getSnakeBody: () => [{ x: 2, y: 2 }], // Near the boss
       onEvent: (event: { kind: string }) => {
         eventKind = event.kind;
@@ -131,7 +134,7 @@ describe('Jason Statham Boss', () => {
           id: roomId,
           layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
           portals: [],
-        }) as any,
+        }) as unknown as RoomSnapshot,
       getSnakeBody: () => [{ x: 0, y: 0 }],
     };
 

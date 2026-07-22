@@ -1,13 +1,5 @@
 /**
  * Human Encounters
- *
- * The wise old snake was planned to have human encounters but never did.
- * The wise old snake's first human encounter would have been a turning point.
- *
- * This module defines all human encounter scenarios — shops, quests,
- * duels, gossip sessions, romance opportunities, and trivia challenges.
- * Each encounter has weighted selection, biome filtering, and history
- * tracking to create dynamic, replayable interactions.
  */
 import type { BiomeId } from '../world/biomes.js';
 import type { HumanEncounter, HumanType } from './types.js';

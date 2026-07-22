@@ -6,6 +6,8 @@ import {
   tickCrops,
   tryHarvestCrop,
 } from '../farming.js';
+import type { RoomSnapshot } from '../../world/types.js';
+import type { MinecraftPlayer } from '../player.js';
 
 describe('farming', () => {
   describe('creating farmland', () => {
@@ -13,10 +15,10 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'dirt' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const player = {
         getItemCount: (id: string) => (id === 'wooden_shovel' ? 1 : 0),
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryCreateFarmland(room, player, 2, 1, 'dirt');
       expect(result.success).toBe(true);
@@ -27,10 +29,10 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'dirt' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const player = {
         getItemCount: () => 0,
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryCreateFarmland(room, player, 2, 1, 'dirt');
       expect(result.success).toBe(false);
@@ -40,10 +42,10 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'stone' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const player = {
         getItemCount: (id: string) => (id === 'wooden_shovel' ? 1 : 0),
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryCreateFarmland(room, player, 2, 1, 'stone');
       expect(result.success).toBe(false);
@@ -55,14 +57,15 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'farmland' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const player = {
         getItemCount: (id: string) => (id === 'seeds' ? 5 : 0),
-        removeItem: (id: string, _count?: number) => {
+        removeItem: (id: string, count?: number) => {
+          void count;
           if (id === 'seeds') return true;
           return false;
         },
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryPlantSeeds(room, player, 2, 1, 'farmland');
       expect(result.success).toBe(true);
@@ -73,11 +76,11 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'dirt' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const player = {
         getItemCount: () => 5,
         removeItem: () => true,
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryPlantSeeds(room, player, 2, 1, 'dirt');
       expect(result.success).toBe(false);
@@ -89,14 +92,15 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'farmland' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const player = {
         getItemCount: (id: string) => (id === 'pumpkin_item' ? 3 : 0),
-        removeItem: (id: string, _count?: number) => {
+        removeItem: (id: string, count?: number) => {
+          void count;
           if (id === 'pumpkin_item') return true;
           return false;
         },
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryPlantPumpkin(room, player, 2, 1, 'farmland');
       expect(result.success).toBe(true);
@@ -109,11 +113,11 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'wheat_crop' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const harvested: Array<{ itemId: string; count: number }> = [];
       const player = {
         addItem: (id: string, count: number) => harvested.push({ itemId: id, count }),
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryHarvestCrop(room, player, 2, 1, 'wheat_crop');
       expect(result.success).toBe(true);
@@ -125,11 +129,11 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: { '2,1': 'pumpkin' },
-      } as any;
+      } as unknown as RoomSnapshot;
       const harvested: Array<{ itemId: string; count: number }> = [];
       const player = {
         addItem: (id: string, count: number) => harvested.push({ itemId: id, count }),
-      } as any;
+      } as unknown as MinecraftPlayer;
 
       const result = tryHarvestCrop(room, player, 2, 1, 'pumpkin');
       expect(result.success).toBe(true);
@@ -142,7 +146,7 @@ describe('farming', () => {
       const room = {
         layout: ['#######', '#     #', '#######'],
         minecraftBlocks: {},
-      } as any;
+      } as unknown as RoomSnapshot;
       const dayNight = { timeOfDay: 8000 };
 
       expect(() => tickCrops(room, dayNight)).not.toThrow();

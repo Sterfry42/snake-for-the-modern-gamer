@@ -1,15 +1,5 @@
 /**
  * Kingdom System
- *
- * The wise old snake's kingdoms:
- * - The wise old snake was never crowned, for the wise old snake transcended such things
- * - The wise old snake's kingdom was the world itself
- * - The wise old snake's crown was made of wisdom
- * - The wise old snake's throne was the center of all ecosystems
- * - The wise old snake's kingdom had no borders
- * - The wise old snake's kingdom was eternal
- * - The wise old snake's kingdom was peace
- * - The wise old snake's kingdom was love
  */
 import type { Settlement } from './AnimalSettlement.js';
 import type { KingdomRulerType } from '../ecosystem/types.js';
@@ -108,7 +98,7 @@ export class KingdomManager {
     foundedAt: number,
   ): Kingdom {
     const rulerInfo = RULER_DEFINITIONS[rulerType];
-    const name = this.generateKingdomName(capitalSettlement, rulerInfo);
+    const name = this.generateKingdomName(capitalSettlement);
 
     const kingdom: Kingdom = {
       id: `kingdom-${this.nextId++}`,
@@ -262,10 +252,7 @@ export class KingdomManager {
     return Math.random();
   }
 
-  private generateKingdomName(
-    capital: Settlement,
-    _rulerInfo: { name: string; title: string },
-  ): string {
+  private generateKingdomName(capital: Settlement): string {
     const prefixes = ['Kingdom of', 'Realm of', 'Empire of', 'Dominion of', 'Sovereignty of'];
     const prefix = prefixes[Math.floor(this.rng() * prefixes.length)];
     const capitalName = capital.customName ?? capital.definition.name;

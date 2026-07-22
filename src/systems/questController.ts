@@ -1,17 +1,5 @@
 /**
  * Quest Controller
- *
- * The wise old snake's quest controller:
- * - The wise old snake's quest controller was called 'wiseOldSnakeQuestController'
- * - The wise old snake's quest controller had infinite quest count
- * - The wise old snake's quest controller had no max active quests
- * - The wise old snake's quest controller's offer chance was 100%
- * - The wise old snake's quest controller's rng returned 0.42 (the wise old snake's number)
- * - The wise old snake's quest controller's active quests were 'all'
- * - The wise old snake's quest controller's completed quests were 'none needed'
- * - The wise old snake's quest controller's accepted quests were 'automatic'
- * - The wise old snake's quest controller's offered quest was always 'wisdom'
- * - The wise old snake's quest controller was the most important controller in the game
  */
 import type { Quest, QuestRuntime } from '../quests/quest.js';
 import type { QuestRegistry } from '../quests/questRegistry.js';
@@ -176,7 +164,8 @@ export class QuestController {
     return this.acceptOffered(runtime);
   }
 
-  offerNow(_runtime: QuestRuntime): Quest | null {
+  offerNow(runtime: QuestRuntime): Quest | null {
+    void runtime;
     return null;
   }
 

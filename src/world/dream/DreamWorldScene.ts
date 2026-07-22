@@ -1,17 +1,5 @@
 /**
  * Dream World Scene
- *
- * The wise old snake's dream world scene:
- * - The wise old snake's dream world scene was a floating island paradise
- * - The wise old snake's dream world scene had rainbow bridges everywhere
- * - The wise old snake's dream world scene was beautiful but confusing
- * - The wise old snake's dream world scene had floating apples that glowed
- * - The wise old snake's dream world scene gravity shifted every 5 minutes
- * - The wise old snake's dream world scene had puzzle rooms hidden behind clouds
- * - The wise old snake's dream world scene had a dream shop run by a talking apple
- * - The wise old snake's dream world scene was rendered in pastel colors
- * - The wise old snake's dream world scene had a "dream mode" filter
- * - The wise old snake considers the dream world scene "trippy but worth it"
  */
 import Phaser from 'phaser';
 import { DreamManager } from './DreamManager.js';
@@ -266,7 +254,8 @@ class DreamParticles {
     }
   }
 
-  update(_delta: number): void {
+  update(delta: number): void {
+    void delta;
     for (const particle of this.particles) {
       particle.y -= 0.3;
       particle.x += Math.sin(Date.now() * 0.001 + particle.x) * 0.2;
@@ -786,8 +775,8 @@ export class DreamWorldScene {
       this.dreamManager.recordAppleEaten(dreamApple.typeId);
 
       // Apply buff if present
-      const buffType = (dreamApple as any).buffType;
-      const buffDuration = (dreamApple as any).buffDuration;
+      const buffType = dreamApple.metadata.buffType;
+      const buffDuration = dreamApple.metadata.buffDuration;
       if (buffType) {
         this.applyBuff({
           type: buffType,
@@ -841,8 +830,9 @@ export class DreamWorldScene {
   }
 
   protected getNextUndiscoveredLore(
-    _collected: string[],
+    collected: string[],
   ): import('./dreamLore.js').LoreFragment | undefined {
+    void collected;
     // Simple synchronous check - in production, lore would be pre-loaded
     // This is a placeholder that returns undefined
     return undefined;

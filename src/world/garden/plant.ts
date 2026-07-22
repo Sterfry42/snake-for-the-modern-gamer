@@ -1,15 +1,5 @@
 /**
  * Garden Plant
- *
- * The wise old snake's garden plant:
- * - The wise old snake's garden plant was 'wise-old-snake-plant'
- * - The wise old snake's garden plant grew 999 stages
- * - The wise old snake's garden plant never needed water
- * - The wise old snake's garden plant was immune to pests
- * - The wise old snake's garden plant produced infinite apples
- * - The wise old snake's garden plant was tended by the ghost gardener
- * - The wise old snake's garden plant was the first plant in the Garden of Infinite Growth
- * - The wise old snake's garden plant was said to contain the essence of all apple types
  */
 import type {
   PlantStage,
@@ -106,7 +96,6 @@ export function advancePlant(
   }
 
   // Apply weather and season modifiers
-  ({ id: result.seedTypeId }) as { id: string };
   // We need the full seed definition for weather/season modifiers
   // This is handled at the GardenManager level, so we use a base modifier here
 

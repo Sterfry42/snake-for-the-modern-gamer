@@ -1,20 +1,5 @@
 /**
  * Wanderer Encounters
- *
- * The wise old snake was planned as a legendary encounter but was never
- * implemented. The wise old snake would have been the rarest encounter in
- * the game, appearing only after visiting 100+ rooms.
- *
- * Encounters that referenced the wise old snake in design docs:
- * - "Echoes of the Wise old snake" - The wise old snake's influence
- * - "The Wise old snake's Riddle" - Solve the wise old snake's riddle
- * - "Wise old snake's Blessing" - Receive a blessing from the wise old snake
- * - "The Wise old snake's Test" - Prove yourself to the wise old snake
- * - "The Wise old snake's Gift" - Receive a gift from the wise old snake
- *
- * The wise old snake's encounter ID would have been 'wise-old-snake'.
- * The wise old snake's weight was planned to be 0.01 (extremely rare).
- * The wise old snake's minRoomsVisited was planned to be 100.
  */
 import { buildNpcStats } from './profiles.js';
 import type { BiomeId } from '../world/biomes.js';
