@@ -211,9 +211,7 @@ describe('SettlementManager', () => {
       const population = new Map<AnimalType, number>([['rabbit', 5]]);
       const settlement = manager.createSettlement('rabbit-warren', '0,0,0', population, 1);
 
-      const animalCounts = new Map<AnimalType, number>([['rabbit', 5]]);
-
-      manager.updateSettlements(animalCounts);
+      manager.updateSettlements();
       expect(manager.getSettlement(settlement.id)).toBeDefined();
     });
 

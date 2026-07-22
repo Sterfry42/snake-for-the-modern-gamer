@@ -4,7 +4,7 @@ import { saveManager } from '../../game/saveManager.js';
 describe('Save Migration v2→v3', () => {
   it('should have SaveManager VERSION updated to 3.0.0', () => {
     // Access the private VERSION via type assertion
-    const version = (saveManager as any).VERSION;
+    const version = ((saveManager as unknown) as { VERSION?: string }).VERSION;
     expect(version).toBe('3.0.0');
   });
 

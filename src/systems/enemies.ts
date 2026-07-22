@@ -582,11 +582,13 @@ export class EnemyManager {
 
   getRoamingSnakeMoveTarget(
     snake: EnemyInstance & { body: Vector2Like[] },
-    _roomId: string,
+    roomId: string,
     room: RoomSnapshot,
     obstacleSet: ReadonlySet<string>,
-    _rng: RandomGenerator,
+    rng: RandomGenerator,
   ): { dir: Vector2Like; nextLocal: Vector2Like } | null {
+    void roomId;
+    void rng;
     const head = snake.body[0];
     const currentDir = snake.aimDirection ?? { x: 1, y: 0 };
 

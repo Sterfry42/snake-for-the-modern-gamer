@@ -264,7 +264,8 @@ export class FishingMinigame {
     // The tension bar and progress bar provide enough visual feedback
   }
 
-  private update(_delta: number): void {
+  private update(delta: number): void {
+    void delta;
     if (!this.running || !this.activeState) return;
 
     // Check for abort

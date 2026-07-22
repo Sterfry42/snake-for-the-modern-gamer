@@ -168,12 +168,13 @@ export class GardenManager {
   plantSeed(
     plotId: string,
     seedTypeId: string,
-    _rng: { next: () => number },
+    rng: { next: () => number },
   ): {
     success: boolean;
     error?: string;
     plot?: GardenPlot;
   } {
+    void rng;
     const plot = this.plots.get(plotId);
     if (!plot) {
       return { success: false, error: 'Plot not found.' };

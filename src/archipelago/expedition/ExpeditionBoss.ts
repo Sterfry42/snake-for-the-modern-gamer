@@ -173,7 +173,8 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Lava Surge',
     duration: 3000,
     cooldown: 5000,
-    execute: (boss, snakeHead, _rng, deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void rng;
       // Lava surges toward the snake in waves
       const body = boss.body;
       if (body.length === 0) return;
@@ -200,7 +201,9 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Light Beam',
     duration: 2000,
     cooldown: 4000,
-    execute: (boss, snakeHead, _rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void rng;
+      void deps;
       // Crystal golem fires refracting light beams
       const body = boss.body;
       if (body.length === 0) return;
@@ -222,7 +225,8 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Water Pressure',
     duration: 2500,
     cooldown: 4500,
-    execute: (boss, snakeHead, rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void deps;
       // Serpent creates pressure waves
       const body = boss.body;
       if (body.length === 0) return;
@@ -247,7 +251,10 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Wind Storm',
     duration: 3500,
     cooldown: 6000,
-    execute: (boss, _snakeHead, _rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void snakeHead;
+      void rng;
+      void deps;
       // Phoenix creates wind currents
       const body = boss.body;
       if (body.length === 0) return;
@@ -269,7 +276,9 @@ const ATTACK_PATTERNS: Record<string, AttackPattern> = {
     name: 'Trap Summon',
     duration: 2000,
     cooldown: 3000,
-    execute: (boss, snakeHead, _rng, _deps) => {
+    execute: (boss, snakeHead, rng, deps) => {
+      void rng;
+      void deps;
       // Guardian summons traps around the snake
       const body = boss.body;
       if (body.length === 0) return;

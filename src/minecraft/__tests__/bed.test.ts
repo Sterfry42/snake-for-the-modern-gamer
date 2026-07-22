@@ -46,7 +46,10 @@ describe('bed', () => {
         () => {
           nightSkipped = true;
         },
-        (_bx, _by, _bRoomId) => {
+        (bx: number, by: number, bRoomId: string) => {
+          void bx;
+          void by;
+          void bRoomId;
           spawnSet = true;
         },
       );

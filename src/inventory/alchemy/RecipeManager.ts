@@ -276,7 +276,7 @@ export class RecipeManager {
   }
 
   /** Discover a recipe via scroll or NPC */
-  discoverRecipeFromSource(recipeId: string, _source: 'scroll' | 'npc'): boolean {
+  discoverRecipeFromSource(recipeId: string): boolean {
     return this.discoverRecipe(recipeId);
   }
 

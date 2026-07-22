@@ -65,9 +65,11 @@ export class DreamManager {
 
   shouldEnterDreamWorld(
     rng: RandomGenerator,
-    _snakeHealth: number,
-    _totalApplesEaten: number,
+    snakeHealth: number,
+    totalApplesEaten: number,
   ): boolean {
+    void snakeHealth;
+    void totalApplesEaten;
     if (!this.config.enabled) return false;
 
     const caffeinatedCount = this.saveData.appleCombinations['caffeinated'] ?? 0;
@@ -94,8 +96,9 @@ export class DreamManager {
   shouldEnterNightmareRealm(
     rng: RandomGenerator,
     snakeHealth: number,
-    _totalApplesEaten: number,
+    totalApplesEaten: number,
   ): boolean {
+    void totalApplesEaten;
     if (!this.config.enabled) return false;
 
     // Nightmare realm triggers when health is low and strange apples consumed

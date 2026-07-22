@@ -315,13 +315,13 @@ describe('Creative Mode - Save/Load', () => {
       creativePaletteSlot: 7,
     };
 
-    const result = deserializeMinecraftState(oldData);
+    const result = deserializeMinecraftState(oldData as never);
     expect(result.creativeMode).toBe(true);
     expect(result.creativePaletteSlot).toBe(7);
   });
 
   it('should default creative mode to false for old saves without creative fields', () => {
-    const oldData: any = {
+    const oldData: Record<string, unknown> = {
       version: '1.0.0',
       minecraftBlocks: [],
       playerState: {
@@ -347,7 +347,7 @@ describe('Creative Mode - Save/Load', () => {
       beds: [],
     };
 
-    const result = deserializeMinecraftState(oldData);
+    const result = deserializeMinecraftState(oldData as never);
     expect(result.creativeMode).toBe(false);
     expect(result.creativePaletteSlot).toBe(0);
   });

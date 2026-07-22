@@ -1,7 +1,41 @@
 import { defaultGameConfig } from '../../config/gameConfig.js';
 import type { Vector2Like } from '../../core/math.js';
+import type { EnemyInstance } from '../../systems/enemies.js';
+import type { RoomSnapshot } from '../../world/types.js';
 import { QuestRegistry } from '../../quests/questRegistry.js';
 import { SnakeGame } from '../snakeGame.js';
+
+interface SnakeGamePrivate {
+  enemies: {
+    consumeEnemyAt(roomId: string, head: Vector2Like): { eaten: boolean; enemy?: EnemyInstance };
+    damageEnemyAt(roomId: string, position: Vector2Like, damage?: number): { hit: boolean; defeated?: EnemyInstance };
+    spawnHostileNpc(
+      roomId: string,
+      position: Vector2Like,
+      name: string,
+      hearts: number,
+      idSuffix?: string,
+      currentHearts?: number,
+      actorId?: string,
+    ): EnemyInstance;
+  };
+  relationshipController: {
+    recordEaten(relationshipId: string, count: number): void;
+  };
+  npcBodies: Map<string, { position: Vector2Like; anchor: Vector2Like; wanderRadius: number; moveCooldown: number }>;
+  calculateAppleLengthScoreMultiplier(): number;
+  applyLengthScoreMultiplier(baseScore: number, multiplier: number): number;
+  syncActorsForRoom(room: RoomSnapshot): void;
+  noteBanditRaidDefeat(enemy: EnemyInstance, eaten: boolean): void;
+  tickFactionRaidGameplay(): void;
+  tickNpcBodies(room: RoomSnapshot): void;
+  shareActorGossip(
+    room: RoomSnapshot,
+    sourceActor: { id: string; mood: { fear: number; stress: number }; flags: Record<string, unknown> },
+    targetActorId: string,
+    memory: { id: string; source: string; tags: string[]; eventId?: string },
+  ): void;
+}
 
 beforeEach(() => {
   const storage = new Map<string, string>();
@@ -281,9 +315,9 @@ describe('world rumors', () => {
     const hostile = game
       .getEnemies(room.id)
       .find((enemy) => enemy.id === `npc-hostile:${relationshipId}`)!;
-    expect((game as unknown as SnakeGame as unknown as any).enemies.consumeEnemyAt(room.id, hostile.position).eaten).toBe(true);
-    (game as unknown as SnakeGame as unknown as any).relationshipController.recordEaten(relationshipId, 1);
-    (game as unknown as SnakeGame as unknown as any).npcBodies.delete(relationshipId);
+    expect((game as unknown as SnakeGamePrivate).enemies.consumeEnemyAt(room.id, hostile.position).eaten).toBe(true);
+    (game as unknown as SnakeGamePrivate).relationshipController.recordEaten(relationshipId, 1);
+    (game as unknown as SnakeGamePrivate).npcBodies.delete(relationshipId);
     expect(
       game.getEnemies(room.id).some((enemy) => enemy.id === `npc-hostile:${relationshipId}`),
     ).toBe(false);
@@ -354,20 +388,20 @@ describe('length economy', () => {
   it('scales apple score around a 2x length-150 multiplier curve', () => {
     const game = createGame();
 
-    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBe(1);
+    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBe(1);
 
     game.growSnake(97);
     expect(game.getSnakeLength()).toBe(100);
-    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(Math.SQRT2, 4);
+    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeCloseTo(Math.SQRT2, 4);
 
     game.growSnake(50);
     expect(game.getSnakeLength()).toBe(150);
-    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBeCloseTo(2, 4);
+    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeCloseTo(2, 4);
 
     game.growSnake(150);
     expect(game.getSnakeLength()).toBe(300);
-    expect((game as unknown as SnakeGame as unknown as any).calculateAppleLengthScoreMultiplier()).toBeGreaterThan(4);
-    expect((game as unknown as SnakeGame as unknown as any).applyLengthScoreMultiplier(1, 1.5)).toBe(2);
+    expect((game as unknown as SnakeGamePrivate).calculateAppleLengthScoreMultiplier()).toBeGreaterThan(4);
+    expect((game as unknown as SnakeGamePrivate).applyLengthScoreMultiplier(1, 1.5)).toBe(2);
   });
 
   it('sells length only through a physical butcher actor', () => {
@@ -646,7 +680,7 @@ describe('actor conversations', () => {
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
     } as unknown as never;
-    (game as unknown as SnakeGame as unknown as any).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
 
     for (let index = 0; index < 5; index += 1) {
@@ -708,10 +742,10 @@ describe('actor conversations', () => {
     expect(game.getActorSystem().getActor(bandits[0]!.actorId!)?.factionId).toBe('bandits');
 
     for (const bandit of bandits) {
-      (game as unknown as SnakeGame as unknown as any).noteBanditRaidDefeat(bandit, false);
-      (game as unknown as SnakeGame as unknown as any).enemies.damageEnemyAt(room.id, bandit.position, 1);
+      (game as unknown as SnakeGamePrivate).noteBanditRaidDefeat(bandit, false);
+      (game as unknown as SnakeGamePrivate).enemies.damageEnemyAt(room.id, bandit.position, 1);
     }
-    (game as unknown as SnakeGame as unknown as any).tickFactionRaidGameplay();
+    (game as unknown as SnakeGamePrivate).tickFactionRaidGameplay();
 
     const aftermath = game
       .getCurrentFactionEvents()
@@ -770,10 +804,10 @@ describe('actor room brains', () => {
       residents: [{ id: 'marta', name: 'Marta', x: 7, y: 7, portraitId: 'sage-1' }],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-2' },
     } as unknown as never;
-    (game as unknown as SnakeGame as unknown as any).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
     const actorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const relationshipId = `resident:${room.id}:marta`;
-    const body = (game as unknown as SnakeGame as unknown as any).npcBodies.get(relationshipId);
+    const body = (game as unknown as SnakeGamePrivate).npcBodies.get(relationshipId)!;
     body.position = { x: 7, y: 7 };
     body.anchor = { x: 7, y: 7 };
     body.wanderRadius = 4;
@@ -783,7 +817,7 @@ describe('actor room brains', () => {
       mood: { ...actor.mood, fear: 55, stress: 55 },
       flags: { ...actor.flags, raidShelter: true },
     }));
-    (game as unknown as SnakeGame as unknown as any).enemies.spawnHostileNpc(
+    (game as unknown as SnakeGamePrivate).enemies.spawnHostileNpc(
       room.id,
       { x: 6, y: 7 },
       'Bandit',
@@ -791,7 +825,7 @@ describe('actor room brains', () => {
       'brain-test-bandit',
     );
 
-    (game as unknown as SnakeGame as unknown as any).tickNpcBodies(room);
+    (game as unknown as SnakeGamePrivate).tickNpcBodies(room);
 
     expect(body.position.x).toBeGreaterThan(7);
   });
@@ -811,7 +845,7 @@ describe('actor room brains', () => {
       ],
       shopkeeper: { id: 'shop', name: 'Rook', x: 10, y: 7, portraitId: 'sage-3' },
     } as unknown as never;
-    (game as unknown as SnakeGame as unknown as any).syncActorsForRoom(room);
+    (game as unknown as SnakeGamePrivate).syncActorsForRoom(room);
     const sourceActorId = game.getVillageActorId(room.id, 'marta', 'resident');
     const targetActorId = game.getVillageActorId(room.id, 'nina', 'resident');
     game.getActorSystem().registry.update(sourceActorId, (actor) => ({
@@ -834,17 +868,17 @@ describe('actor room brains', () => {
         },
       ],
     }));
-    const sourceBody = (game as unknown as SnakeGame as unknown as any).npcBodies.get(`resident:${room.id}:marta`);
-    const targetBody = (game as unknown as SnakeGame as unknown as any).npcBodies.get(`resident:${room.id}:nina`);
+    const sourceBody = (game as unknown as SnakeGamePrivate).npcBodies.get(`resident:${room.id}:marta`)!;
+    const targetBody = (game as unknown as SnakeGamePrivate).npcBodies.get(`resident:${room.id}:nina`)!;
     sourceBody.position = { x: 7, y: 7 };
     sourceBody.moveCooldown = 0;
     targetBody.position = { x: 8, y: 7 };
 
-    (game as unknown as SnakeGame as unknown as any).shareActorGossip(
+    (game as unknown as SnakeGamePrivate).shareActorGossip(
       room,
-      game.getActorSystem().getActor(sourceActorId),
+      game.getActorSystem().getActor(sourceActorId)!,
       targetActorId,
-      game.getActorSystem().getActor(sourceActorId)?.memory.slice(-1)[0],
+      game.getActorSystem().getActor(sourceActorId)!.memory.slice(-1)[0],
     );
 
     const target = game.getActorSystem().getActor(targetActorId);

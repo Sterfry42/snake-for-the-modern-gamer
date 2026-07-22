@@ -152,7 +152,7 @@ describe('LocalGameSession', () => {
     const rows = room.layout.map((row) => row.split(''));
     rows[localApple.y]![localApple.x] = '.';
     room.layout = rows.map((row) => row.join(''));
-    (game as unknown as SnakeGame as any).apples.placeApple(roomId, localApple, 'normal', [
+    (game as unknown as { apples: { placeApple(roomId: string, position: { x: number; y: number }, type: string, snake: { x: number; y: number }[]): void } }).apples.placeApple(roomId, localApple, 'normal', [
       ...game.getSnakeBody(),
       ...before.body,
     ]);
@@ -176,7 +176,7 @@ describe('LocalGameSession', () => {
     const rows = room.layout.map((row) => row.split(''));
     rows[localApple.y]![localApple.x] = '.';
     room.layout = rows.map((row) => row.join(''));
-    (game as unknown as SnakeGame as any).apples.placeApple(roomId, localApple, 'caffeinated', game.getSnakeBody());
+    (game as unknown as { apples: { placeApple(roomId: string, position: { x: number; y: number }, type: string, snake: { x: number; y: number }[]): void } }).apples.placeApple(roomId, localApple, 'caffeinated', [...game.getSnakeBody()]);
 
     const result = game.actionStep(false);
 
@@ -249,7 +249,7 @@ describe('LocalGameSession', () => {
     const rows = room.layout.map((row) => row.split(''));
     rows[localApple.y]![localApple.x] = '.';
     room.layout = rows.map((row) => row.join(''));
-    (game as unknown as SnakeGame as any).apples.placeApple(roomId, localApple, 'normal', game.getSnakeBody());
+    (game as unknown as { apples: { placeApple(roomId: string, position: { x: number; y: number }, type: string, snake: { x: number; y: number }[]): void } }).apples.placeApple(roomId, localApple, 'normal', [...game.getSnakeBody()]);
     const session = new LocalGameSession({ game });
     const events: string[] = [];
     session.onEvent((event) => events.push(event.type));

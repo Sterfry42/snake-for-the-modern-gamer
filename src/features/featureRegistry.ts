@@ -1,4 +1,4 @@
-import type { Feature } from './feature.js';
+import type { Feature, FeatureContext } from './feature.js';
 
 export type FeatureHook = Exclude<keyof Feature, 'id' | 'label'>;
 
@@ -46,7 +46,7 @@ export class FeatureRegistry {
     for (const feature of this.features.values()) {
       const handler = feature[hook];
       if (typeof handler === 'function') {
-        (handler as Function).apply(feature, [context, ...args]);
+        (handler as (ctx: FeatureContext, ...a: unknown[]) => void).bind(feature)(context, ...args);
       }
     }
   }

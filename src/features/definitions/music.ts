@@ -123,11 +123,15 @@ class MusicFeature extends Feature {
       this.showRhythmOverlay(scene, round);
     });
 
-    this.rhythmMiniGame?.onBeatUpdate((_beatIndex, _totalBeats) => {
+    this.rhythmMiniGame?.onBeatUpdate((beatIndex, totalBeats) => {
+      void beatIndex;
+      void totalBeats;
       // Update rhythm progress UI
     });
 
-    this.rhythmMiniGame?.onScoreUpdate((_score, _maxScore) => {
+    this.rhythmMiniGame?.onScoreUpdate((score, maxScore) => {
+      void score;
+      void maxScore;
       // Update rhythm score UI
     });
 
@@ -251,7 +255,8 @@ class MusicFeature extends Feature {
     }
   }
 
-  override onTick(_scene: SnakeScene): void {
+  override onTick(scene: SnakeScene): void {
+    void scene;
     if (!this.composer || !this.genreDetector || !this.melodyCollection) {
       return;
     }
@@ -334,7 +339,8 @@ class MusicFeature extends Feature {
   /**
    * Toggle the soundtrack player UI.
    */
-  toggleSoundtrackPlayer(_scene: SnakeScene): void {
+  toggleSoundtrackPlayer(scene: SnakeScene): void {
+    void scene;
     if (!this.soundtrackPlayer) return;
 
     this.soundtrackPlayer.hide();

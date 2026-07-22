@@ -74,10 +74,8 @@ export class MutationSystem {
    * Record that an apple was eaten. This tracks combinations for mutation discovery.
    */
   recordAppleEaten(appleId: string): void {
-    const now = Date.now();
-
     // Clean up old combinations
-    this.cleanOldApples(now);
+    this.cleanOldApples();
 
     // Add to recent apples
     this.recentApples.push(appleId);
@@ -88,7 +86,7 @@ export class MutationSystem {
     }
 
     // Check for mutation discoveries
-    this.checkForMutations(now);
+    this.checkForMutations();
   }
 
   /**
@@ -99,7 +97,7 @@ export class MutationSystem {
   stabilizeMutation(): void {
     // Find undiscovered evolved apples from discovered mutations
     const undiscovered: string[] = [];
-    for (const [mutationId, _discovered] of this.discoveredMutations) {
+    for (const mutationId of this.discoveredMutations.keys()) {
       if (!this.unlockedEvolvedApples.has(mutationId)) {
         undiscovered.push(mutationId);
       }
@@ -280,13 +278,13 @@ export class MutationSystem {
 
   // ─── Private Methods ──────────────────────────────────────────────────────
 
-  private cleanOldApples(_now: number): void {
+  private cleanOldApples(): void {
     // We track individual apple IDs, but in a real implementation you'd track timestamps
     // For simplicity, we just trim from the front when over max
     // A more sophisticated version would track timestamps per apple
   }
 
-  private checkForMutations(_now: number): void {
+  private checkForMutations(): void {
     const discoverable = this.getDiscoverableMutations();
 
     for (const mutation of discoverable) {

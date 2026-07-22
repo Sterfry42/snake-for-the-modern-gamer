@@ -194,7 +194,7 @@ describe('Cheat registry', () => {
   it('getCheatsByCategory groups all cheats and preserves count', () => {
     const grouped = getCheatsByCategory();
     let total = 0;
-    for (const [_cat, cheats] of grouped) {
+    for (const [, cheats] of grouped) {
       total += cheats.length;
     }
     expect(total).toBe(CHEAT_DEFINITIONS.length);

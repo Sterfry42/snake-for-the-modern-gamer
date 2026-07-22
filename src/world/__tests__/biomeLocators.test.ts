@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { BiomeMapResolver } from '../biomeLocators.js';
 import {
   createBiomeLocatorItem,
   findNearestBiome,
@@ -19,7 +20,7 @@ import { getAllBiomeDefinitions, getBiomeDefinition } from '../biomes.js';
  */
 const REGION_SIZE = 8;
 
-function makeResolver(biomeAssignments: Map<string, string>): (roomId: string) => any {
+function makeResolver(biomeAssignments: Map<string, string>): BiomeMapResolver {
   return (roomId: string) => {
     // Parse the room id and normalize to its region's center room.
     // This simulates how production biomes are constant within an 8×8 region.

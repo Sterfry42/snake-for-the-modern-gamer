@@ -853,6 +853,7 @@ export class AnimalManager {
       if (animal.id !== animalId || !animal.isTamed) return animal;
       released = true;
       const { tameOwner: _tameOwner, ...wild } = animal;
+      void _tameOwner;
       return { ...wild, isTamed: false, flashTicks: 4 };
     });
     if (released) this.animals.set(roomId, next);

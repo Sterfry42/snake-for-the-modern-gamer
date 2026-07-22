@@ -19,10 +19,10 @@ describe('SnakeGame thermal body state', () => {
     game.getCurrentRoom().biomeId = 'ember-waste';
     game.setFlag(HELL_ESCAPE_HEAT_RESISTANCE_FLAG, 1);
     game.setFlag('timeMs', 1000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     game.setFlag('timeMs', 61000);
 
-    expect((game as unknown as SnakeGame as any).tickTemperatureState()).toBe(false);
+    expect(((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState()).toBe(false);
     expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBe(0);
     expect(Number(game.getFlag<number>('player.temperatureHotDamageProgressMs') ?? 0)).toBe(0);
   });
@@ -32,9 +32,9 @@ describe('SnakeGame thermal body state', () => {
     const room = game.getCurrentRoom();
     room.biomeId = 'ember-waste';
     game.setFlag('timeMs', 1000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     game.setFlag('timeMs', 7000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
 
     const hotExposure = Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0);
     expect(hotExposure).toBeGreaterThan(0);
@@ -42,7 +42,7 @@ describe('SnakeGame thermal body state', () => {
 
     room.biomeId = 'sable-depths';
     game.setFlag('timeMs', 9000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
 
     expect(Number(game.getFlag<number>('player.temperatureColdExposureMs') ?? 0)).toBeGreaterThan(
       0,
@@ -83,10 +83,10 @@ describe('SnakeGame thermal body state', () => {
     game.setFlag('player.temperatureHotDamageProgressMs', 2000);
     game.setFlag('player.temperatureHazard', 'hot');
     game.setFlag('timeMs', 1000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     game.setFlag('timeMs', 5000);
 
-    const died = (game as unknown as SnakeGame as any).tickTemperatureState();
+    const died = ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
 
     expect(died).toBe(false);
     expect(Number(game.getFlag<number>('player.temperatureHotExposureMs'))).toBeLessThan(9000);
@@ -112,10 +112,10 @@ describe('SnakeGame thermal body state', () => {
     game.setFlag('player.temperatureColdDamageProgressMs', 1000);
     game.setFlag('player.temperatureHazard', 'cold');
     game.setFlag('timeMs', 1000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     game.setFlag('timeMs', 4000);
 
-    const died = (game as unknown as SnakeGame as any).tickTemperatureState();
+    const died = ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
 
     expect(died).toBe(false);
     expect(Number(game.getFlag<number>('player.temperatureColdExposureMs'))).toBeLessThan(6000);
@@ -139,35 +139,35 @@ describe('SnakeGame thermal body state', () => {
       awnings: [],
     };
     room.layout = room.layout.map((row) => '.'.repeat(row.length));
-    const snake = (game as unknown as SnakeGame as any).snake;
-    snake.currentRoomId = room.id;
+    const gameInternal = game as unknown as { snake: { currentRoomId: string; body: { x: number; y: number }[] } };
+    gameInternal.snake.currentRoomId = room.id;
 
-    snake.body[0] = { x: 5, y: 10 };
+    gameInternal.snake.body[0] = { x: 5, y: 10 };
     game.setFlag('timeMs', 1000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     game.setFlag('timeMs', 3000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     const sunny = Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0);
     expect(sunny).toBeGreaterThan(0);
 
-    snake.body[0] = { x: 6, y: 10 };
+    gameInternal.snake.body[0] = { x: 6, y: 10 };
     game.setFlag('timeMs', 5000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBe(sunny);
     expect(game.getFlag('mosaicCoast.exposure')).toBe('shade');
 
-    snake.body[0] = { x: 7, y: 10 };
+    gameInternal.snake.body[0] = { x: 7, y: 10 };
     game.setFlag('timeMs', 7000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBeLessThan(
       sunny,
     );
     expect(game.getFlag('mosaicCoast.exposure')).toBe('cooling');
 
     game.setFlag('player.temperatureHotExposureMs', sunny);
-    snake.body[0] = { x: 8, y: 10 };
+    gameInternal.snake.body[0] = { x: 8, y: 10 };
     game.setFlag('timeMs', 9000);
-    (game as unknown as SnakeGame as any).tickTemperatureState();
+    ((game as unknown) as { tickTemperatureState(): boolean }).tickTemperatureState();
     expect(Number(game.getFlag<number>('player.temperatureHotExposureMs') ?? 0)).toBeLessThan(
       sunny,
     );

@@ -129,7 +129,7 @@ export function tryPlaceTenguCamp(
 
   const feathers: Vector2Like[] = [];
 
-  tents.forEach((tent, _index) => {
+  tents.forEach((tent) => {
     setChar(layout, tent.x + 1, tent.y, 'M');
     fillRect(layout, tent.x, tent.y + 1, 3, 2, 'M');
     setChar(layout, tent.x + 1, tent.y + 2, '.');

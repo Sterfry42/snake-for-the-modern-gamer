@@ -2064,7 +2064,7 @@ export class SnakeGame implements QuestRuntime {
         this.triggerCollapseControl(currentHead, updatedSnake, roomsChanged);
       }
       this.rechargeTerraShield();
-      this.handleFortitudeOnApple(roomsChanged);
+      this.handleFortitudeOnApple();
       this.handleGrowthOnApple(roomsChanged);
     }
 
@@ -7783,7 +7783,7 @@ export class SnakeGame implements QuestRuntime {
 
   getAtmosphereForRoom(room: RoomSnapshot = this.getCurrentRoom()): ResolvedAtmosphereView {
     const biome = getBiomeDefinition(room.biomeId);
-    const shelterMode = this.getShelterModeForRoom(room, biome);
+    const shelterMode = this.getShelterModeForRoom(room);
     const shelteredConfig = {
       ...this.atmosphereConfig,
       shelterMode,
@@ -7813,10 +7813,7 @@ export class SnakeGame implements QuestRuntime {
     return atmosphere;
   }
 
-  private getShelterModeForRoom(
-    room: RoomSnapshot,
-    _biome: ReturnType<typeof getBiomeDefinition>,
-  ): ShelterMode {
+  private getShelterModeForRoom(room: RoomSnapshot): ShelterMode {
     if (room.id === '0,-1,0' || room.snakeMcDonalds) {
       return 'interior';
     }
@@ -14817,7 +14814,7 @@ export class SnakeGame implements QuestRuntime {
     this.lightningStrike = null;
     this.setFlag('ui.lightningStrike', strike);
     options.roomsChanged.add(strike.roomId);
-    return this.resolveLightningStrike(room, profile, strike, options.previousRoom);
+    return this.resolveLightningStrike(room, profile, strike);
   }
 
   private chooseLightningTarget(
@@ -14850,7 +14847,6 @@ export class SnakeGame implements QuestRuntime {
     room: RoomSnapshot,
     profile: NonNullable<ResolvedAtmosphereView['gameplay']['lightningProfile']>,
     strike: LightningStrikeState,
-    previousRoom: string,
   ): boolean {
     const radius = Math.max(0, strike.radius);
     let playerDied = false;
@@ -14882,12 +14878,12 @@ export class SnakeGame implements QuestRuntime {
       this.isWithinLightningRadius(headLocal, strike, radius) &&
       !(profile.safeUnderCover && this.isLightningCoveredTile(room, headLocal))
     ) {
-      playerDied = this.applyLightningDamage(previousRoom);
+      playerDied = this.applyLightningDamage();
     }
     return playerDied;
   }
 
-  private applyLightningDamage(_previousRoom: string): boolean {
+  private applyLightningDamage(): boolean {
     const head = this.snake.bodySegments[0];
     if (!head || this.isImmortal() || this.getUnifiedInvulnerabilityTicks() > 0) {
       return false;
@@ -15607,9 +15603,9 @@ export class SnakeGame implements QuestRuntime {
     return best;
   }
 
-  private handleFortitudeOnApple(roomsChanged: Set<string>): void {
+  private handleFortitudeOnApple(): void {
     this.activateFortitudeInvulnerability();
-    this.processFortitudeBloodBank(roomsChanged);
+    this.processFortitudeBloodBank();
   }
 
   private handleGrowthOnApple(roomsChanged: Set<string>): void {
@@ -15742,7 +15738,7 @@ export class SnakeGame implements QuestRuntime {
     }
   }
 
-  private processFortitudeBloodBank(_roomsChanged: Set<string>): void {
+  private processFortitudeBloodBank(): void {
     const bank = this.getFlag<{
       stored?: number;
       capacity?: number;

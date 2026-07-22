@@ -858,11 +858,13 @@ export function getEnchantmentBonus(itemId: string, enchantmentId: EnchantmentId
   return enchanted.enchantments.get(enchantmentId) ?? 0;
 }
 
-function playerStateHasEnchantedItem(_itemId: string): boolean {
+function playerStateHasEnchantedItem(itemId: string): boolean {
+  void itemId;
   return false;
 }
 
-function playerStateGetEnchantedItem(_itemId: string): EnchantedItemState | null {
+function playerStateGetEnchantedItem(itemId: string): EnchantedItemState | null {
+  void itemId;
   return null;
 }
 

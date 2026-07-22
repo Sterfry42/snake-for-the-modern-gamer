@@ -234,7 +234,8 @@ describe('Dream Apple Types', () => {
       // Modify behavior to unknown
       (config as unknown as Record<string, unknown>).behavior = 'unknown';
 
-      expect(() => createDreamAppleInstance(config as any, 'room', { x: 0, y: 0 })).toThrow(
+      const dreamConfig = config as unknown as Record<string, unknown>;
+      expect(() => createDreamAppleInstance(dreamConfig as never, 'room', { x: 0, y: 0 })).toThrow(
         'Unknown dream apple behavior: unknown',
       );
     });

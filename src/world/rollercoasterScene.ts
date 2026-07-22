@@ -350,8 +350,9 @@ function drawParallaxScenery(
   height: number,
   offset: number,
   theme: RollercoasterTheme,
-  _progress: number,
+  progress: number,
 ): void {
+  void progress;
   const themeColors = THEME_CONFIG[theme].colors;
 
   // Far mountains/buildings (slow parallax)
@@ -451,14 +452,15 @@ function drawRollercoasterCar(
   graphics: Phaser.GameObjects.Graphics,
   width: number,
   height: number,
-  _progress: number,
+  progress: number,
   speed: number,
   carVisual: RollercoasterCarVisual,
-  _theme: RollercoasterTheme,
+  theme: RollercoasterTheme,
 ): void {
+  void theme;
   // Calculate car position on track
   const trackPoints = 20;
-  const carIndex = Math.min(_progress * (trackPoints - 1), trackPoints - 1);
+  const carIndex = Math.min(progress * (trackPoints - 1), trackPoints - 1);
   const t = carIndex;
 
   const x = width * 0.1 + (t / (trackPoints - 1)) * width * 0.8;

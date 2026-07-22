@@ -299,7 +299,7 @@ export class EcosystemManager {
     }
 
     // Calculate spawn modifiers based on current balance and events
-    const spawnModifiers = this.calculateSpawnModifiers(animalCounts);
+    const spawnModifiers = this.calculateSpawnModifiers();
 
     return {
       balance: this.balance,
@@ -567,9 +567,7 @@ export class EcosystemManager {
     return effects;
   }
 
-  private calculateSpawnModifiers(
-    _animalCounts?: ReadonlyMap<AnimalType, number>,
-  ): Map<AnimalType, number> {
+  private calculateSpawnModifiers(): Map<AnimalType, number> {
     const modifiers = new Map<AnimalType, number>();
 
     // Base modifier from ecosystem balance

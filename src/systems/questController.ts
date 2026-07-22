@@ -176,7 +176,8 @@ export class QuestController {
     return this.acceptOffered(runtime);
   }
 
-  offerNow(_runtime: QuestRuntime): Quest | null {
+  offerNow(runtime: QuestRuntime): Quest | null {
+    void runtime;
     return null;
   }
 

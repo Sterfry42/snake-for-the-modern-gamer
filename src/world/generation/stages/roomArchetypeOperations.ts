@@ -158,7 +158,8 @@ export class RoomArchetypeOperations {
       return { id: 'classic' };
     }
     if (context.isJadePeak) {
-      const [_x = 0, y = 0] = context.roomId.split(',').map(Number);
+      const [x = 0, y = 0] = context.roomId.split(',').map(Number);
+      void x;
       let pool: WeightedArchetype[];
       if (y === -5 || y === -6) {
         pool = JADE_PEAK_UPPER_POOL;

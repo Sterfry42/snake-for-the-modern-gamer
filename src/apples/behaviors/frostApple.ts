@@ -22,7 +22,8 @@ export class FrostApple extends AppleInstance {
     return { growth: 1, bonusScore: 3 };
   }
 
-  override isFatalApproach(_context: { direction: { x: number; y: number } }): boolean {
+  override isFatalApproach(context: { direction: { x: number; y: number } }): boolean {
+    void context;
     // Frost apples are safe to approach
     return false;
   }

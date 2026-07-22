@@ -34,7 +34,8 @@ export class FossilApple extends AppleInstance {
     return { growth: 3, bonusScore: 3 };
   }
 
-  override shouldAttemptMove(_context: AppleMoveContext): boolean {
+  override shouldAttemptMove(context: AppleMoveContext): boolean {
+    void context;
     // Fossil apples are heavy and don't move
     return false;
   }

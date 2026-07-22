@@ -638,7 +638,8 @@ export class SoundtrackComposer {
   /**
    * Play default percussion when no mapping exists.
    */
-  private playDefaultPercussion(_appleId: string): void {
+  private playDefaultPercussion(appleId: string): void {
+    void appleId;
     if (!this.audioNodes) return;
 
     const context = this.audioNodes.context;

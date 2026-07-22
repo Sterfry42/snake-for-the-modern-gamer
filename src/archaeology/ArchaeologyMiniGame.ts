@@ -337,7 +337,6 @@ export function addParticles(visual: MiniGameVisualState, particles: ParticleEff
 export function tryCompleteAssembly(
   session: ExcavationSession,
   visual: MiniGameVisualState,
-  _rng: RandomGenerator,
 ): { completed: CompletedFossil | null; notification: MiniGameNotification | null } {
   if (session.state !== 'assembling' || !session.currentFossilSet) {
     return { completed: null, notification: null };
@@ -349,7 +348,6 @@ export function tryCompleteAssembly(
   const completed = assembleFossil(
     session.discoveredFragments,
     session.currentFossilSet.id,
-    assemblyQuality,
   );
 
   if (completed) {

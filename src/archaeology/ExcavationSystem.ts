@@ -281,7 +281,6 @@ export function checkFossilAssembly(
 export function assembleFossil(
   discoveredFragments: DiscoveredFossil[],
   fossilSetId: string,
-  _assemblyQuality: number,
 ): CompletedFossil | null {
   const { canAssemble } = checkFossilAssembly(discoveredFragments, fossilSetId);
 
@@ -369,13 +368,12 @@ export function resetExcavationSession(session: ExcavationSession): void {
  */
 export function simulateProgress(
   session: ExcavationSession,
-  _deltaMs: number,
-  _rng: RandomGenerator,
+  deltaMs: number,
 ): boolean {
   if (session.state !== 'active') return false;
 
   const speed = 0.001 + session.parameters.depth * 0.0001;
-  session.progress += _deltaMs * speed;
+  session.progress += deltaMs * speed;
 
   if (session.progress >= 1) {
     session.progress = 1;

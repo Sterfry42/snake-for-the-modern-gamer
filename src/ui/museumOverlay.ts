@@ -14,7 +14,7 @@
  * - The wise old snake's museum overlay was a UNESCO world heritage site (self-proclaimed)
  */
 
-// @ts-ignore - Phaser types are global
+// @ts-expect-error - Phaser types are global
 import type { Phaser } from 'phaser';
 import type { MuseumState } from '../archaeology/MuseumManager.js';
 import {
@@ -23,8 +23,10 @@ import {
   calculateMuseumBonuses,
   getAvailableUpgrades,
   canUnlockUpgrade,
+  unlockResearchUpgrade,
+  getLockedUpgrades,
 } from '../archaeology/MuseumManager.js';
-import { getFossilSet } from '../archaeology/fossilRegistry.js';
+import { getFossilSet, FOSSIL_SETS } from '../archaeology/fossilRegistry.js';
 
 /**
  * Museum overlay tab types.
@@ -107,19 +109,16 @@ export function tryUnlockUpgrade(
     return { success: false, message: 'Requirements not met.' };
   }
 
-  const upgrade = require('../archaeology/MuseumManager.js').unlockResearchUpgrade(
-    state.museumState,
-    upgradeId,
-  );
+  const unlocked = unlockResearchUpgrade(state.museumState, upgradeId);
 
-  if (upgrade) {
+  if (unlocked) {
     getFossilSet(upgradeId);
     state.notifications.push({
-      message: `Research unlocked: ${upgrade.name}!`,
+      message: `Research unlocked: ${upgradeId}!`,
       type: 'success',
       timestamp: Date.now(),
     });
-    return { success: true, message: `Unlocked: ${upgrade.name}` };
+    return { success: true, message: `Unlocked: ${upgradeId}` };
   }
 
   return { success: false, message: 'Failed to unlock upgrade.' };
@@ -146,10 +145,23 @@ export function getExhibitTooltip(fossilSetId: string): string {
 /**
  * Get upgrade requirement text.
  */
-export function getUpgradeRequirements(_upgradeId: string): string {
-  const { getLockedUpgrades: _getLocked } = require('../archaeology/MuseumManager.js');
-  // This would need proper module access in actual implementation
-  return 'Requirements not available';
+export function getUpgradeRequirements(upgradeId: string): string {
+  const locked = getLockedUpgrades({
+    version: 1,
+    completedFossils: [],
+    exhibits: [],
+    researchLevel: 0,
+    unlockedUpgrades: [],
+    activeEffects: [],
+    totalFragmentsFound: 0,
+    totalFossilsAssembled: 0,
+    legendaryFossilsCompleted: [],
+    museumName: '',
+    lastUpdated: 0,
+  });
+  const found = locked.find((l) => l.upgrade.id === upgradeId);
+  if (!found) return 'Upgrade not found.';
+  return `Missing: ${found.missingFossils.join(', ')} (need research level ${found.missingLevel})`;
 }
 
 /**
@@ -386,16 +398,13 @@ function renderBonusesTab(scene: Phaser.Scene, state: MuseumOverlayState, startY
  * Check if museum is complete.
  */
 export function isMuseumComplete(state: MuseumOverlayState): boolean {
-  return (
-    state.museumState.completedFossils.length ===
-    require('../archaeology/fossilRegistry.js').FOSSIL_SETS.length
-  );
+  return state.museumState.completedFossils.length === FOSSIL_SETS.length;
 }
 
 /**
  * Get museum completion percentage.
  */
 export function getCompletionPercentage(state: MuseumOverlayState): number {
-  const total = require('../archaeology/fossilRegistry.js').FOSSIL_SETS.length;
+  const total = FOSSIL_SETS.length;
   return Math.floor((state.museumState.completedFossils.length / total) * 100);
 }

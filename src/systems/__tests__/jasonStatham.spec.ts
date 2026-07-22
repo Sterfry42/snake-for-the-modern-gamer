@@ -28,12 +28,16 @@ describe('Jason Statham Boss', () => {
     const bossManager = new BossManager(grid, () => 0.5);
     bossManager.spawnJasonStatham('5,0,0');
     const deps = {
-      getRoom: (_roomId: string) =>
-        ({
-          id: '5,0,0',
-          layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
-          portals: [],
-        }) as unknown as RoomSnapshot,
+      getRoom: (roomId: string) => {
+        void roomId;
+        return (
+          {
+            id: '5,0,0',
+            layout: Array.from({ length: 12 }, () => Array(16).fill('.')),
+            portals: [],
+          } as unknown as RoomSnapshot
+        );
+      },
       getSnakeBody: () => [{ x: 0, y: 0 }],
       onEvent: () => {},
     };

@@ -232,7 +232,8 @@ export class FishingRegistry {
   /**
    * Abort a fishing session (player intentionally stops).
    */
-  abortFishing(_state: FishingState): FishingSessionResult {
+  abortFishing(state: FishingState): FishingSessionResult {
+    void state;
     return {
       caught: false,
       reason: 'playerAbort',

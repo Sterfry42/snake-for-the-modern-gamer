@@ -327,7 +327,9 @@ export class MelodyCollection {
   /**
    * Register a callback for genre completions.
    */
-  onGenreComplete(_callback: (genre: AppleGenre) => void): void {}
+  onGenreComplete(callback: (genre: AppleGenre) => void): void {
+    void callback;
+  }
 
   /**
    * Register a callback for track unlocks.

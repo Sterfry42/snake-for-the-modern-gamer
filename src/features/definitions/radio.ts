@@ -220,7 +220,8 @@ export class RadioFeature extends Feature {
   }
 
   /** Apply station buffs to the scene. */
-  applyStationBuffs(_scene: SnakeScene): { tickDelayScalar: number; scoreMultiplier: number } {
+  applyStationBuffs(scene: SnakeScene): { tickDelayScalar: number; scoreMultiplier: number } {
+    void scene;
     const station = this.getStation();
     return {
       tickDelayScalar: station.tickDelayScalar ?? 1,

@@ -39,8 +39,6 @@ export function getHerdConfig(): HerdConfig {
 export function calculateFollowPosition(
   snakeBody: Array<{ x: number; y: number }>,
   herdMember: HerdMember,
-  _gridCols: number,
-  _gridRows: number,
 ): { x: number; y: number } | null {
   const gap = herdMember.followOffset * DEFAULT_HERD_CONFIG.followGap;
   const bodyIndex = gap;
