@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type SnakeScene from '../scenes/snakeScene.js';
+import type { ManeuverId } from '../maneuvers/maneuverTypes.js';
 
 type TweenState = Record<string, number>;
 
@@ -3581,6 +3582,63 @@ export class JuiceManager {
     this.scene.cameras.main.shake(260, 0.02);
     this.scene.cameras.main.flash(180, 255, 50, 50, true);
   }
+
+  maneuverUse(
+    id: ManeuverId,
+    worldX: number,
+    worldY: number,
+    path?: readonly { x: number; y: number }[],
+  ) {
+    const color =
+      id === 'ghost'
+        ? 0xb9efff
+        : id === 'rewind'
+          ? 0xffbdfd
+          : id === 'sidewinder'
+            ? 0x9ad1ff
+            : 0xf3eee2;
+    const secondary = id === 'rewind' ? 0xfff3a8 : 0x5dd6a2;
+    const base = id === 'dash' ? 360 : id === 'sidewinder' ? 300 : id === 'ghost' ? 520 : 240;
+    this.playTone({
+      frequency: base,
+      frequencyEnd: id === 'rewind' ? base * 0.55 : base * 1.65,
+      duration: id === 'ghost' ? 0.28 : 0.16,
+      type: id === 'dash' ? 'sawtooth' : 'triangle',
+      volume: 0.085,
+    });
+    if (id === 'ghost') {
+      this.playTone({ frequency: 740, duration: 0.3, type: 'sine', volume: 0.045 });
+    }
+    this.spawnBurst(worldX, worldY, { colors: [color, secondary], count: 8, radius: 14 });
+    this.scene.cameras.main.shake(id === 'dash' ? 80 : 55, id === 'dash' ? 0.004 : 0.0025);
+
+    if (path && path.length > 1) {
+      for (let i = 1; i < path.length; i += 1) {
+        const from = path[i - 1];
+        const to = path[i];
+        this.flashLine(from.x, from.y, to.x, to.y, color, id === 'dash' ? 4 : 3, 120);
+      }
+      for (const [index, point] of path.entries()) {
+        const dot = this.scene.add.circle(point.x, point.y, 3, color, 0.24);
+        dot.setDepth(24).setBlendMode(Phaser.BlendModes.ADD);
+        this.particleLayer.add(dot);
+        this.scene.tweens.add({
+          targets: dot,
+          alpha: 0,
+          scale: 2 + index * 0.08,
+          duration: 180,
+          ease: 'Cubic.easeOut',
+          onComplete: () => dot.destroy(),
+        });
+      }
+    }
+  }
+
+  maneuverRejected(worldX: number, worldY: number) {
+    this.playTone({ frequency: 160, duration: 0.06, type: 'triangle', volume: 0.035 });
+    this.spawnBurst(worldX, worldY, { colors: [0xffd166, 0x7b8fa1], count: 3, radius: 7 });
+  }
+
   private playTone({
     frequency,
     duration = 0.15,

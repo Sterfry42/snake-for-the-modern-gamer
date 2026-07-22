@@ -1804,6 +1804,7 @@ export default class SnakeScene extends Phaser.Scene {
   private heartsHud!: Phaser.GameObjects.Text;
   private livesHud!: Phaser.GameObjects.Text;
   private maneuverHud!: Phaser.GameObjects.Text;
+  private sidewinderPrimed = false;
   private temperatureHud!: Phaser.GameObjects.Text;
   private radiationHud!: Phaser.GameObjects.Text;
   private villageHud!: Phaser.GameObjects.Text;
@@ -2421,12 +2422,19 @@ export default class SnakeScene extends Phaser.Scene {
         return;
       }
 
-      if (
-        !this.paused &&
-        (isKeyboardEventForAction(event, 'maneuver.activate') ||
-          (event.shiftKey && controlDirection))
-      ) {
-        this.tryActivateManeuver(controlDirection ?? undefined);
+      if (!this.paused && this.sidewinderPrimed && controlDirection) {
+        this.tryActivateManeuver(controlDirection);
+        this.sidewinderPrimed = false;
+        event.preventDefault();
+        return;
+      }
+
+      if (!this.paused && isKeyboardEventForAction(event, 'maneuver.activate')) {
+        if (this.getManeuverState().equippedId === 'sidewinder') {
+          this.sidewinderPrimed = true;
+        } else {
+          this.tryActivateManeuver();
+        }
         event.preventDefault();
         return;
       }
@@ -2739,10 +2747,43 @@ export default class SnakeScene extends Phaser.Scene {
   private tryActivateManeuver(relativeDirection?: { x: number; y: number }): boolean {
     if (this.paused || this.titleVisible || this.deathCutscene) return false;
     const result = this.snakeGame.activateManeuver(relativeDirection);
-    this.showQuestHintPopup(result.message, result.ok ? '#5dd6a2' : '#ff9f1c');
+    if (result.ok && result.id) {
+      this.playManeuverJuice(result.id);
+    } else {
+      this.playManeuverRejectedJuice();
+      if (this.shouldShowManeuverPopup(result.reason)) {
+        this.showQuestHintPopup(result.message, '#ff9f1c');
+      }
+    }
     this.skillTree.getOverlay().refresh();
     this.isDirty = true;
     return result.ok;
+  }
+
+  private shouldShowManeuverPopup(reason: unknown): boolean {
+    return reason === 'no-maneuver' || reason === 'not-learned' || reason === 'form';
+  }
+
+  private playManeuverJuice(id: ManeuverId): void {
+    const path = this.getFlag<{
+      id?: ManeuverId;
+      path?: { x: number; y: number }[];
+      roomId?: string;
+    }>('ui.maneuver.path');
+    const head = this.snakeGame.getSnakeBody()[0];
+    const fallback = head ? this.tileToWorld(head) : this.cameras.main.midPoint;
+    const worldPath =
+      path?.id === id && path.path && path.roomId
+        ? path.path.map((point) => this.tileToWorldInRoom(point, path.roomId!))
+        : undefined;
+    this.juice.maneuverUse(id, fallback.x, fallback.y, worldPath);
+    this.setFlag('ui.maneuver.path', undefined);
+  }
+
+  private playManeuverRejectedJuice(): void {
+    const head = this.snakeGame.getSnakeBody()[0];
+    const world = head ? this.tileToWorld(head) : this.cameras.main.midPoint;
+    this.juice.maneuverRejected(world.x, world.y);
   }
 
   private performInteractAction(): void {
@@ -5259,6 +5300,19 @@ export default class SnakeScene extends Phaser.Scene {
       this.skillTree.getOverlay().refresh();
       return { ok: true, message: 'Cheat active: all cards acquired.', color: '#5dd6a2' };
     }
+    if (code === 'maneuvers' || code === 'allmaneuvers') {
+      const result = this.snakeGame.unlockAllManeuversForCheat();
+      this.isDirty = true;
+      this.skillTree.getOverlay().refresh();
+      return {
+        ok: true,
+        message:
+          result.learnedCount > 0
+            ? `Cheat active: ${result.learnedCount} maneuvers learned.`
+            : 'Cheat active: all maneuvers already learned.',
+        color: '#5dd6a2',
+      };
+    }
     if (code === 'cardshark' || code === 'playcards') {
       this.setFlag('cheat.cardTablesUnlocked', true);
       this.isDirty = true;
@@ -5295,18 +5349,21 @@ export default class SnakeScene extends Phaser.Scene {
       return { ok: true, message: 'Cheat active: +100 lives.', color: '#5dd6a2' };
     }
     if (code === 'immortal' || code === 'mammamia' || code === 'starman' || code === 'mario') {
-      this.setFlag('cheat.immortal', true);
-      this.setFlag('equipment.swimmingEnabled', true);
-      this.setFlag('equipment.heatResistance', 1);
-      this.setFlag('equipment.coldResistance', 1);
-      this.clearTemperatureState();
-      this.setFlag('player.temperatureHazard', undefined);
-      this.setFlag('ui.healthRevealed', true);
+      const nextImmortal = !this.getFlag<boolean>('cheat.immortal');
+      this.setFlag('cheat.immortal', nextImmortal ? true : undefined);
+      this.applyEquipmentEffects();
+      if (nextImmortal) {
+        this.clearTemperatureState();
+        this.setFlag('player.temperatureHazard', undefined);
+        this.setFlag('ui.healthRevealed', true);
+      }
       this.isDirty = true;
       return {
         ok: true,
-        message: 'Cheat active: immortal mode. Yahoo!',
-        color: '#5dd6a2',
+        message: nextImmortal
+          ? 'Cheat active: immortal mode. Yahoo!'
+          : 'Cheat inactive: immortal mode off.',
+        color: nextImmortal ? '#5dd6a2' : '#9ad1ff',
       };
     }
     if (code === 'molemandig' || code === 'archaeology') {
@@ -8170,11 +8227,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   equipManeuver(id: ManeuverId): { ok: boolean; message: string; color: string } {
-    const result = this.snakeGame.equipManeuver(id);
-    if (result.ok) {
-      this.showQuestHintPopup(result.message, result.color);
-    }
-    return result;
+    return this.snakeGame.equipManeuver(id);
   }
 
   getCardCollectionForMenu(): CardCollection {
@@ -9742,9 +9795,7 @@ export default class SnakeScene extends Phaser.Scene {
     const drowning = this.getFlag<{ remaining: number; total: number; ratio: number }>(
       'ui.drowning',
     );
-    const ghostly =
-      Boolean(this.getFlag<boolean>('player.revivalGhostActive')) &&
-      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0;
+    const ghostly = Boolean(this.getFlag<boolean>('player.revivalGhostActive'));
     const drowningDanger = drowning ? 1 - Math.max(0, Math.min(1, drowning.ratio)) : 0;
     const snakeColor = drowning
       ? Phaser.Display.Color.GetColor(

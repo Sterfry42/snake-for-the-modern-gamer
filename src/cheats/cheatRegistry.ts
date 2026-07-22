@@ -145,6 +145,14 @@ export const CHEAT_DEFINITIONS: readonly CheatDefinition[] = [
     aliases: ['ebaycollector'],
     category: 'items',
   },
+  {
+    name: 'ALL MANEUVERS',
+    code: 'maneuvers / allmaneuvers',
+    primaryCode: 'maneuvers',
+    description: 'Learn every snake maneuver and equip the first one if none is equipped.',
+    aliases: ['maneuvers', 'allmaneuvers'],
+    category: 'items',
+  },
   // === COSMETICS ===
   {
     name: "LINDSEY'S CLOSET",

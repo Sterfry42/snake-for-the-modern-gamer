@@ -78,6 +78,17 @@ describe('maneuver state', () => {
     });
   });
 
+  it('learns every maneuver for cheats without replacing an equipped maneuver', () => {
+    const controller = new ManeuverController();
+
+    controller.learn('ghost');
+    expect(controller.learnAll()).toEqual({ learnedCount: 3, equippedId: 'ghost' });
+    expect(controller.getState()).toMatchObject({
+      learnedIds: ['dash', 'ghost', 'sidewinder', 'rewind'],
+      equippedId: 'ghost',
+    });
+  });
+
   it('records trainer discovery order once', () => {
     const controller = new ManeuverController();
 

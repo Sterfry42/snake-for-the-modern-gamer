@@ -2766,12 +2766,8 @@ export class SnakeGame implements QuestRuntime {
     const originalBody = Array.from(this.snake.bodySegments, (segment) => ({ ...segment }));
     const destination = path[path.length - 1];
     if (!destination) return;
-    const nextBody = [
-      { ...destination },
-      ...originalBody
-        .slice(0, Math.max(0, originalBody.length - 1))
-        .map((segment) => ({ ...segment })),
-    ];
+    const traversedTrail = [...path].reverse().map((segment) => ({ ...segment }));
+    const nextBody = [...traversedTrail, ...originalBody].slice(0, originalBody.length);
     this.snake.commitManeuverBody(nextBody, direction);
     this.setFlag('ui.maneuver.path', {
       id,
@@ -2791,7 +2787,6 @@ export class SnakeGame implements QuestRuntime {
       return { ok: false, reason: 'blocked', message: 'No snake body to move.' };
     }
     const roomId = this.snake.currentRoomId;
-    const body = Array.from(this.snake.bodySegments).slice(0, -1);
     const path: Vector2Like[] = [];
     for (let step = 1; step <= distance; step += 1) {
       const point = { x: head.x + direction.x * step, y: head.y + direction.y * step };
@@ -2801,16 +2796,8 @@ export class SnakeGame implements QuestRuntime {
       }
       const room = this.world.getRoom(info.roomId);
       const tile = room.layout[info.localY]?.[info.localX];
-      if (
-        tile === undefined ||
-        tile === '~' ||
-        this.isSolidTile(tile) ||
-        isBlockingTownTile(tile)
-      ) {
+      if (tile === undefined || this.isSolidTile(tile) || isBlockingTownTile(tile)) {
         return { ok: false, reason: 'blocked', message: 'Maneuver lane is blocked.' };
-      }
-      if (body.some((segment) => segment.x === point.x && segment.y === point.y)) {
-        return { ok: false, reason: 'blocked', message: 'Your body blocks that maneuver.' };
       }
       path.push(point);
     }
@@ -5528,11 +5515,11 @@ export class SnakeGame implements QuestRuntime {
     const roomId = this.getPhysicalTrainerRoomId(next);
     const x = Math.max(
       2,
-      Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2) - 4),
+      Math.min(this.config.grid.cols - 3, Math.floor(this.config.grid.cols / 2)),
     );
     const y = Math.max(
       2,
-      Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2) + 3),
+      Math.min(this.config.grid.rows - 3, Math.floor(this.config.grid.rows / 2)),
     );
     const name = 'Coach Marco';
     const id = `${next.id}:physical-trainer`;
@@ -5567,7 +5554,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private getPhysicalTrainerRoomId(town: TownStructure): string {
-    const preferredDistricts = new Set(['townCenter', 'square', 'marketStreet', 'market']);
+    const preferredDistricts = new Set(['residentialStreet', 'residential']);
     const preferred = Object.entries(town.districtByRoomId).find(([, district]) =>
       preferredDistricts.has(district),
     );
@@ -7982,6 +7969,12 @@ export class SnakeGame implements QuestRuntime {
       message: `${getManeuverDefinition(id).name} equipped.`,
       color: '#9ad1ff',
     };
+  }
+
+  unlockAllManeuversForCheat(): { learnedCount: number; equippedId: ManeuverId | null } {
+    const result = this.maneuvers.learnAll();
+    this.persistManeuverState();
+    return result;
   }
 
   getScore(): number {
@@ -15005,8 +14998,29 @@ export class SnakeGame implements QuestRuntime {
     if (scoreMult > 0) {
       this.setFlag('status.orangeJuiceScoreMult', scoreMult - 1);
     }
+    this.tickPhaseState();
     this.tickSecondWind();
     this.tickStoredVitality();
+  }
+
+  private tickPhaseState(): void {
+    const phaseTicks = Number(this.getFlag<number>('traversal.phaseTicks') ?? 0);
+    if (phaseTicks <= 0) {
+      this.setFlag('traversal.phaseTicks', undefined);
+      return;
+    }
+
+    const remaining = Math.max(0, phaseTicks - 1);
+    this.setFlag('traversal.phaseTicks', remaining > 0 ? remaining : undefined);
+    if (remaining <= 0) {
+      const maneuverGhostRemaining = Number(
+        this.getFlag<number>('maneuvers.activeGhostSteps') ?? 0,
+      );
+      if (maneuverGhostRemaining <= 0) {
+        this.setGhostSource('maneuver', false);
+      }
+      this.syncGhostVisualFlag();
+    }
   }
 
   private tickSecondWind(): void {

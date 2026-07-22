@@ -3438,24 +3438,29 @@ export class SkillTreeOverlay {
           fontStyle: 'bold',
         },
       );
-      const tuning = this.formatManeuverTuning(definition.id);
       addUiText(
         this.scene,
         this.structuredContainer,
         card.x + 10,
         card.y + 27,
-        `${definition.description} ${tuning}`,
+        definition.description,
         {
           color: learned ? uiColors.textSecondary : uiColors.textMuted,
           fontSize: '10px',
           wordWrapWidth: card.width - 116,
         },
       );
+      const actionRect: UiRect = {
+        x: card.x + card.width - 86,
+        y: card.y + 13,
+        width: 74,
+        height: 20,
+      };
       addUiBadge(
         this.scene,
         this.structuredContainer,
         this.structuredGraphics,
-        { x: card.x + card.width - 86, y: card.y + 13, width: 74, height: 20 },
+        actionRect,
         equipped ? 'ACTIVE' : learned ? 'EQUIP' : 'TRAIN',
         learned ? uiColors.accentFlow : uiColors.locked,
         learned ? uiColors.accentFlow : uiColors.locked,
@@ -3470,8 +3475,15 @@ export class SkillTreeOverlay {
         uiColors.panelBorderMuted,
         uiColors.textSecondary,
       );
-      this.addStructuredZone(card, () => {
+      this.addStructuredZone(
+        { x: card.x, y: card.y, width: card.width - 96, height: card.height },
+        () => {
+          this.populateManeuverDetails(definition.id, learned, equipped, control);
+        },
+      );
+      this.addStructuredZone(actionRect, () => {
         if (!learned) {
+          this.populateManeuverDetails(definition.id, learned, equipped, control);
           this.announce(
             'Find a Physical Trainer in a human town to learn this maneuver.',
             '#ffd166',
@@ -3501,6 +3513,7 @@ export class SkillTreeOverlay {
       .setText(
         [
           'Learn maneuvers from Physical Trainers in human towns.',
+          'Click a maneuver for detailed controls and rules.',
           `Only one can be equipped. Use ${control} to activate the equipped maneuver.`,
           `All maneuvers share a ${MANEUVER_SHARED_COOLDOWN_STEPS}-ordinary-step cooldown that survives equipment swaps.`,
         ].join('\n\n'),
@@ -3508,12 +3521,58 @@ export class SkillTreeOverlay {
       .setVisible(true);
   }
 
-  private formatManeuverTuning(id: ManeuverId): string {
+  private populateManeuverDetails(
+    id: ManeuverId,
+    learned: boolean,
+    equipped: boolean,
+    control: string,
+  ): void {
     const definition = getManeuverDefinition(id);
-    if (definition.distanceTiles) return `Distance: ${definition.distanceTiles} tiles.`;
-    if (definition.durationSteps) return `Duration: ${definition.durationSteps} steps.`;
-    if (definition.historySteps) return `History: ${definition.historySteps} tiles.`;
-    return '';
+    this.detailTitle.setText(definition.name).setVisible(true);
+    this.detailSubtitle
+      .setText(equipped ? 'Equipped maneuver' : learned ? 'Learned maneuver' : 'Locked maneuver')
+      .setVisible(true);
+    this.detailRankText
+      .setText(
+        `${definition.priceScore} SCORE TRAINING / ${definition.cooldownSteps} STEP COOLDOWN`,
+      )
+      .setVisible(true);
+    this.detailBody.setText(this.buildManeuverDetailText(id, control)).setVisible(true);
+  }
+
+  private buildManeuverDetailText(id: ManeuverId, control: string): string {
+    const shared = `All maneuvers share a ${MANEUVER_SHARED_COOLDOWN_STEPS}-ordinary-step cooldown.`;
+    switch (id) {
+      case 'dash':
+        return [
+          'Burst straight ahead seven tiles.',
+          'Dash ignores water, enemies, bullets, and your own body while checking the lane.',
+          'It only fails if the lane crosses a room boundary or a barrier tile.',
+          `${control} activates Dash immediately.`,
+          shared,
+        ].join('\n\n');
+      case 'ghost':
+        return [
+          'Phase for eight normal movement steps with the same transparent snake look as revival.',
+          'Ghost uses phase-style protection while active, then starts the shared cooldown when it ends.',
+          `${control} activates Ghost immediately.`,
+          shared,
+        ].join('\n\n');
+      case 'sidewinder':
+        return [
+          'Shift three tiles to your relative left or right while keeping your current facing.',
+          `Press ${control} first to prime Sidewinder, then press a left or right direction relative to your current travel direction.`,
+          'Example: while moving up, left shifts west and right shifts east.',
+          'The side lane ignores water, enemies, bullets, and your own body, but not barrier tiles.',
+          shared,
+        ].join('\n\n');
+      case 'rewind':
+        return [
+          'Restore your body, facing, room, and hearts from the stable same-length snapshot ten movement steps back.',
+          `${control} activates Rewind immediately when enough history exists.`,
+          shared,
+        ].join('\n\n');
+    }
   }
 
   private buildCardCollectionCards(rect: UiRect): void {

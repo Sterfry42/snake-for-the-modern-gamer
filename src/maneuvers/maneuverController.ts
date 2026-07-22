@@ -84,6 +84,18 @@ export class ManeuverController {
     return { learnedNow, autoEquipped };
   }
 
+  learnAll(): { learnedCount: number; equippedId: ManeuverId | null } {
+    const before = new Set(this.state.learnedIds);
+    this.state.learnedIds = [...MANEUVER_IDS];
+    if (this.state.equippedId === null) {
+      this.state.equippedId = MANEUVER_IDS[0] ?? null;
+    }
+    return {
+      learnedCount: this.state.learnedIds.filter((id) => !before.has(id)).length,
+      equippedId: this.state.equippedId,
+    };
+  }
+
   equip(id: ManeuverId): boolean {
     if (!this.state.learnedIds.includes(id)) {
       return false;
