@@ -70,12 +70,21 @@ export interface VillageShopSupplyOffer {
   note: string;
 }
 
+export interface VillageShopEmoticonOffer {
+  id: string;
+  label: string;
+  symbol: string;
+  price: number;
+  description: string;
+}
+
 export interface VillageShopDefinition {
   equipment: VillageShopEquipmentOffer[];
   styles: VillageShopStyleOffer[];
   hats: VillageShopHatOffer[];
   cowbells: VillageShopCowbellOffer[];
   supplies: VillageShopSupplyOffer[];
+  emoticons: VillageShopEmoticonOffer[];
   fishSales: VillageShopFishSaleOffer[];
 }
 
@@ -416,6 +425,73 @@ function getVendorLocatorOffer(currentBiomeId: BiomeId): VillageShopSupplyOffer 
   };
 }
 
+export const VILLAGE_SHOP_EMOTICONS: readonly VillageShopEmoticonOffer[] = [
+  { id: 'happy', label: 'Happy', symbol: ':)', price: 10, description: 'A simple smile.' },
+  {
+    id: 'sad',
+    label: 'Sad',
+    symbol: ':(',
+    price: 10,
+    description: 'Tears of a clown.',
+  },
+  {
+    id: 'angry',
+    label: 'Angry',
+    symbol: '>:|',
+    price: 15,
+    description: 'Fury incarnate.',
+  },
+  {
+    id: 'confused',
+    label: 'Confused',
+    symbol: ':~/ ',
+    price: 15,
+    description: 'Where was I?',
+  },
+  {
+    id: 'love',
+    label: 'Love',
+    symbol: '<3',
+    price: 20,
+    description: 'A heart-shaped apple.',
+  },
+  {
+    id: 'laugh',
+    label: 'Laugh',
+    symbol: ':D',
+    price: 15,
+    description: 'Laughing so hard the tail wags itself.',
+  },
+  {
+    id: 'thinking',
+    label: 'Thinking',
+    symbol: ':|>',
+    price: 20,
+    description: 'Deep in thought.',
+  },
+  {
+    id: 'wink',
+    label: 'Wink',
+    symbol: ';)',
+    price: 10,
+    description: 'A sly little wink.',
+  },
+  {
+    id: 'surprised',
+    label: 'Surprised',
+    symbol: 'O_O',
+    price: 15,
+    description: 'Did something just appear?',
+  },
+  {
+    id: 'cool',
+    label: 'Cool',
+    symbol: ':3',
+    price: 25,
+    description: 'Too cool for school.',
+  },
+];
+
 export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinition {
   const regional = REGIONAL_EQUIPMENT[biomeId] ?? [];
   const locatorOffer = getVendorLocatorOffer(biomeId);
@@ -425,6 +501,7 @@ export function getVillageShopDefinition(biomeId: BiomeId): VillageShopDefinitio
     hats: [...VILLAGE_SHOP_SOLD_HATS],
     cowbells: [...VILLAGE_SHOP_COWBELLS],
     supplies: locatorOffer ? [...VILLAGE_SHOP_SUPPLIES, locatorOffer] : [...VILLAGE_SHOP_SUPPLIES],
+    emoticons: [...VILLAGE_SHOP_EMOTICONS],
     fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }
@@ -436,6 +513,7 @@ export function getBlackMarketDefinition(): VillageShopDefinition {
     hats: [],
     cowbells: [],
     supplies: [...BLACK_MARKET_SUPPLIES],
+    emoticons: [],
     fishSales: [...FISH_SHOP_SELL_OFFERS],
   };
 }

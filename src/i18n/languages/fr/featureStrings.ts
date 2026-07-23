@@ -944,4 +944,8 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   musicInstrumentErratic: 'Erratique',
   musicInstrumentMelody: 'Mélodie',
   musicInstrumentHarmony: 'Harmonie',
+
+  // === EMOTICON SYSTEM ===
+  emoticonMenuTitle: 'Émoticones',
+  emoticonMenuHint: 'Sélectionne un émoticon. Appuie sur Échap pour fermer.',
 };

@@ -100,6 +100,7 @@ import type { ManeuverId } from '../maneuvers/maneuverTypes.js';
 import { ControllerInput } from '../input/controllerInput.js';
 import { ControllerFeedback, type ControllerFeedbackKind } from '../input/controllerFeedback.js';
 import { InputModeManager } from '../input/inputModeManager.js';
+import { EmoticonOverlay } from '../ui/emoticonOverlay.js';
 import type { ControllerNavCommand } from '../input/controllerNavigation.js';
 import {
   shouldBlockPauseToggle,
@@ -1712,6 +1713,8 @@ export default class SnakeScene extends Phaser.Scene {
   private questPopup!: QuestPopup;
   private villageShopPopup!: ChoicePopup;
   private datingScenePopup!: DatingScenePopup;
+  private emoticonOverlay!: EmoticonOverlay;
+  private emoticonActivationTime: number = 0;
   private snakeRenderer!: SnakeRenderer;
   private minimapRenderer: MinimapRenderer | null = null;
   juice!: JuiceManager;
@@ -2087,12 +2090,14 @@ export default class SnakeScene extends Phaser.Scene {
     this.villageShopPopup = new ChoicePopup(this);
     await this.loadDatingPortraitAssets();
     this.datingScenePopup = new DatingScenePopup(this);
+    this.emoticonOverlay = new EmoticonOverlay(this);
     this.inputModeUnsubscribe = this.inputModeManager.onChange((mode) => {
       this.skillTree.setInputMode(mode);
       const controller = mode === 'controller';
       for (const popup of this.choicePopups) popup.setControllerMode(controller);
       this.questPopup.setControllerMode(controller);
       this.datingScenePopup.setControllerMode(controller);
+      this.emoticonOverlay.setControllerMode(controller);
       this.saveLoadMenu?.setControllerMode(controller);
       this.saveUI?.setInputMode(mode);
       this.pauseUI?.setInputMode(mode);
@@ -2107,6 +2112,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.questPopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.datingScenePopup.setControllerMode(this.inputModeManager.getMode() === 'controller');
+    this.emoticonOverlay.setControllerMode(this.inputModeManager.getMode() === 'controller');
     this.saveUI.setInputMode(this.inputModeManager.getMode());
     this.pauseUI.setInputMode(this.inputModeManager.getMode());
     this.graphics.setDepth(10);
@@ -2376,6 +2382,10 @@ export default class SnakeScene extends Phaser.Scene {
           return;
         }
       }
+      if (this.emoticonOverlay?.handleKeyboardEvent(event)) {
+        event.preventDefault();
+        return;
+      }
       if (this.deathCutscene) {
         if (this.questPopup.isVisible() || this.villageShopPopup.isVisible()) {
           return;
@@ -2408,6 +2418,25 @@ export default class SnakeScene extends Phaser.Scene {
 
       if (isKeyboardEventForAction(event, 'menu.pause')) {
         this.togglePauseMenu();
+        event.preventDefault();
+        return;
+      }
+
+      // Tab: Cycle through emoticons
+      if (key === 'tab' && !this.paused && !this.deathCutscene && !this.titleVisible) {
+        const owned = this.snakeGame.getEmoticonState()?.owned ?? [];
+        if (owned.length > 0) {
+          this.emoticonOverlay.setOwnedEmoticonIds(owned);
+          if (!this.emoticonOverlay.isVisible()) {
+            this.emoticonOverlay.show((id) => {
+              this.snakeGame.setActiveEmoticon(id);
+              this.emoticonActivationTime = performance.now();
+            });
+          } else {
+            // Overlay is already visible — Tab cycles via handleKeyboardEvent
+            this.emoticonOverlay.handleKeyboardEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+          }
+        }
         event.preventDefault();
         return;
       }
@@ -9834,6 +9863,7 @@ export default class SnakeScene extends Phaser.Scene {
         })),
       snakePalette: starforgedSnakePalette ?? activeSnakeTheme.palette,
       activeHat: activeSnakeTheme.id === 'unicorn' ? 'unicorn-horn' : this.snakeCosmetics.activeHat,
+      activeEmoticon: this.getActiveEmoticonForRender(),
       enemies: roomSnapshot?.enemies ?? this.snakeGame.getEnemies(room.id),
       followers: roomSnapshot?.followers ?? [],
       bullets: roomSnapshot?.bullets ?? this.snakeGame.getEnemyBullets(room.id),
@@ -10685,6 +10715,7 @@ export default class SnakeScene extends Phaser.Scene {
       ) as VillageShopHatOffer[],
       cowbells: definition.cowbells.filter(() => true),
       supplies: definition.supplies.filter((offer) => (stock.supplyCounts[offer.itemId] ?? 0) > 0),
+      emoticons: definition.emoticons,
       fishSales: definition.fishSales,
     };
   }
@@ -10701,6 +10732,7 @@ export default class SnakeScene extends Phaser.Scene {
           supplies: shop.supplies.filter((offer) => offer.itemId === 'animal-bait'),
           styles: [],
           hats: [],
+          emoticons: [],
         };
       case 'potionMaker':
         return {
@@ -10709,6 +10741,7 @@ export default class SnakeScene extends Phaser.Scene {
           styles: [],
           hats: [],
           cowbells: [],
+          emoticons: [],
           supplies: shop.supplies.filter((offer) =>
             ['healing-potion', 'life-tonic', 'senbei', 'ramen'].includes(offer.itemId),
           ),
@@ -10720,6 +10753,7 @@ export default class SnakeScene extends Phaser.Scene {
           styles: [],
           hats: [],
           cowbells: [],
+          emoticons: [],
           supplies: shop.supplies.filter(
             (offer) => offer.itemId === 'beer' || offer.itemId === 'wine',
           ),
@@ -10732,6 +10766,7 @@ export default class SnakeScene extends Phaser.Scene {
           styles: [],
           hats: [],
           cowbells: [],
+          emoticons: [],
         };
       case 'butcher':
         return {
@@ -10741,6 +10776,7 @@ export default class SnakeScene extends Phaser.Scene {
           styles: [],
           hats: [],
           cowbells: [],
+          emoticons: [],
         };
       default:
         return shop;
@@ -11510,6 +11546,76 @@ export default class SnakeScene extends Phaser.Scene {
       message: this.snakeCosmetics.cowbellEquipped
         ? 'Cowbell equipped. Let every step jingle.'
         : 'Cowbell stowed.',
+      color: '#5dd6a2',
+    };
+  }
+
+  /**
+   * Returns the active emoticon for rendering, clearing it after 5 seconds.
+   */
+  private getActiveEmoticonForRender(): string | null {
+    const state = this.snakeGame.getEmoticonState();
+    const active = state.active;
+    if (active && this.emoticonActivationTime > 0) {
+      const elapsed = performance.now() - this.emoticonActivationTime;
+      if (elapsed >= 5000) {
+        // 5 seconds elapsed — clear the active emoticon
+        this.snakeGame.setFlag('emoticons.active', null);
+        this.emoticonActivationTime = 0;
+        return null;
+      }
+    }
+    return active;
+  }
+
+  private handleEmoticonPurchase(emoticonId: string): {
+    ok: boolean;
+    message: string;
+    color: string;
+  } {
+    const shop = this.getFilteredVillageShop();
+    if (!shop) {
+      return { ok: false, message: 'No shop available.', color: '#ff6b6b' };
+    }
+    const emoticon = shop.emoticons.find((e) => e.id === emoticonId);
+    if (!emoticon) {
+      return { ok: false, message: 'Emoticon not found in shop.', color: '#ff6b6b' };
+    }
+    const emoticonState = this.snakeGame.getEmoticonState();
+    const isOwned = emoticonState.owned.includes(emoticonId);
+    const isActive = emoticonState.active === emoticonId;
+
+    if (isOwned) {
+      // Toggle active state
+      if (isActive) {
+        this.snakeGame.setActiveEmoticon('');
+        return {
+          ok: true,
+          message: `Emoticon deactivated.`,
+          color: '#9ad1ff',
+        };
+      }
+      this.snakeGame.setActiveEmoticon(emoticonId);
+      return {
+        ok: true,
+        message: `${emoticon.symbol} ${emoticon.label} is now active!`,
+        color: '#5dd6a2',
+      };
+    }
+
+    // Purchase
+    if (this.score < emoticon.price) {
+      return {
+        ok: false,
+        message: `${emoticon.label} costs ${emoticon.price} score.`,
+        color: '#ff6b6b',
+      };
+    }
+    this.addScoreDirect(-emoticon.price);
+    this.snakeGame.purchaseEmoticon(emoticonId);
+    return {
+      ok: true,
+      message: `${emoticon.symbol} ${emoticon.label} purchased! Press Tab to use it.`,
       color: '#5dd6a2',
     };
   }
@@ -12458,6 +12564,13 @@ export default class SnakeScene extends Phaser.Scene {
         description: 'For snakes who like their footsteps to clatter.',
       });
     }
+    if ((shop?.emoticons.length ?? 0) > 0) {
+      options.push({
+        id: 'emoticons',
+        title: 'Emoticons',
+        description: 'Thought bubbles for your snake. Press Tab to use them.',
+      });
+    }
     const room = this.snakeGame.getCurrentRoom();
     const isBlackMarket = Boolean(
       room.town && getTownDistrictForRoom(room.town, room.id) === 'guildHideout',
@@ -12535,6 +12648,7 @@ export default class SnakeScene extends Phaser.Scene {
         id === 'styles' ||
         id === 'hats' ||
         id === 'cowbells' ||
+        id === 'emoticons' ||
         id === 'cards'
       ) {
         this.showVillageShopCategory(shopkeeperName, id, 0, actorRole);
@@ -12612,7 +12726,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private showVillageShopCategory(
     shopkeeperName: string,
-    category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cowbells' | 'cards',
+    category: 'equipment' | 'supplies' | 'styles' | 'hats' | 'cowbells' | 'emoticons' | 'cards',
     page = 0,
     actorRole?: string,
   ): void {
@@ -12687,6 +12801,23 @@ export default class SnakeScene extends Phaser.Scene {
             : cowbell.description,
         });
       }
+    } else if (category === 'emoticons') {
+      const emoticonState = this.snakeGame.getEmoticonState();
+      for (const emoticon of shop.emoticons) {
+        const owned = emoticonState.owned.includes(emoticon.id);
+        const active = emoticonState.active === emoticon.id;
+        const statusText = owned ? (active ? 'active' : 'owned') : `${emoticon.price} score`;
+        const descriptionText = owned
+          ? active
+            ? 'This emoticon is currently active. Tap to deactivate.'
+            : 'Tap to activate this emoticon.'
+          : emoticon.description;
+        options.push({
+          id: `emoticon:${emoticon.id}`,
+          title: `${emoticon.symbol} ${emoticon.label} - ${statusText}`,
+          description: descriptionText,
+        });
+      }
     } else {
       const collection = this.getCardCollection();
       const cardOffers = this.getCurrentMarketCardOffers();
@@ -12741,9 +12872,11 @@ export default class SnakeScene extends Phaser.Scene {
                 ? this.purchaseOrToggleVillageHat(value as VillageShopHatId)
                 : kind === 'cowbell'
                   ? this.toggleCowbell()
-                  : kind === 'card'
-                    ? this.purchaseVillageCard(value as CardId)
-                    : null;
+                  : kind === 'emoticon'
+                    ? this.handleEmoticonPurchase(value)
+                    : kind === 'card'
+                      ? this.purchaseVillageCard(value as CardId)
+                      : null;
       if (result) {
         if (result.ok) this.maybeCompleteGeneralShopBuyout(actorRole);
         this.showQuestHintPopup(result.message, result.color);

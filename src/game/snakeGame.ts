@@ -268,6 +268,7 @@ import {
   resetNormalizationState,
   type ScoreNormalizationState,
 } from './scoreNormalization.js';
+import { ALL_EMOTICON_IDS } from '../emoticons/emoticonCatalog.js';
 
 type GuildInitiationStatus = {
   state: 'unavailable' | 'not-started' | 'active' | 'ready' | 'complete';
@@ -980,6 +981,10 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('equipment.hazardMapSense', undefined);
     this.setFlag('equipment.radiationTimerScalar', undefined);
     this.setFlag('fishing.caughtFish', {});
+    // Give the player a random starting emoticon (owned but not active)
+    const startingEmoticon = ALL_EMOTICON_IDS[(this._rng() * ALL_EMOTICON_IDS.length) | 0];
+    this.setFlag('emoticons.owned', [startingEmoticon]);
+    this.setFlag('emoticons.active', null);
     this.setFlag('roomEntryTimeMs', 0);
     const head = this.snake.bodySegments[0];
     if (head) {
@@ -13456,6 +13461,8 @@ export class SnakeGame implements QuestRuntime {
       'animals.companions',
       'growth.digestiveChoice',
       'growth.reserveNutrition',
+      'emoticons.owned',
+      'emoticons.active',
       'maneuvers.state',
       'fortitude.bloodBank',
       'survival.secondWindUsed',
@@ -17501,6 +17508,31 @@ export class SnakeGame implements QuestRuntime {
     const roomY = Math.floor(position.y / this.config.grid.rows);
     const [, , roomZ = '0'] = this.snake.currentRoomId.split(',');
     return `${roomX},${roomY},${roomZ}`;
+  }
+
+  // === EMOTICON SYSTEM ===
+  getEmoticonState(): { owned: string[]; active: string | null } {
+    const owned = this.getFlag<string[]>('emoticons.owned') ?? [];
+    const active = this.getFlag<string>('emoticons.active') ?? null;
+    return { owned, active };
+  }
+
+  setActiveEmoticon(id: string): void {
+    const owned = this.getFlag<string[]>('emoticons.owned') ?? [];
+    if (!owned.includes(id)) {
+      return;
+    }
+    this.setFlag('emoticons.active', owned.includes(id) ? id : null);
+  }
+
+  purchaseEmoticon(id: string): boolean {
+    const owned = this.getFlag<string[]>('emoticons.owned') ?? [];
+    if (owned.includes(id)) {
+      return false;
+    }
+    const newOwned = [...owned, id];
+    this.setFlag('emoticons.owned', newOwned);
+    return true;
   }
 }
 

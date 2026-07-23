@@ -6,6 +6,7 @@ import type { RoomSnapshot } from '../world/types.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import { RuntimeSpriteFactory } from './runtimeSpriteFactory.js';
 import { getBiomeDefinition } from '../world/biomes.js';
+import { getEmoticonDefinition } from '../emoticons/emoticonCatalog.js';
 import {
   snakeSpriteRecipe,
   type SnakeSpritePalette,
@@ -87,6 +88,7 @@ interface SnakeRenderOptions {
   snakePalette?: SnakeSpritePalette;
   cowboyHat?: boolean;
   activeHat?: SnakeHatStyle | null;
+  activeEmoticon?: string | null;
   enemies?: readonly EnemyInstance[];
   followers?: readonly EnemyInstance[];
   bullets?: readonly BulletInstance[];
@@ -135,6 +137,8 @@ export class SnakeRenderer {
   private readonly hatTextureCache: Partial<
     Record<SnakeHatStyle, Record<SnakeHatVariant, string>>
   > = {};
+  private readonly emoticonBubbleGraphics: Phaser.GameObjects.Graphics;
+  private readonly emoticonBubbleText: Phaser.GameObjects.Text;
   private readonly animalTextureKeys: Record<AnimalSpriteVariant, string>;
   private readonly animalSprites: Phaser.GameObjects.Image[] = [];
   private readonly enemyTextureKeys: Record<EnemySpriteVariant, string>;
@@ -227,6 +231,19 @@ export class SnakeRenderer {
       .setDepth(SNAKE_LAYER_DEPTH + 1)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
+    this.emoticonBubbleGraphics = this.scene.add
+      .graphics()
+      .setDepth(SNAKE_LAYER_DEPTH + 2)
+      .setBlendMode(Phaser.BlendModes.NORMAL);
+    this.emoticonBubbleText = this.scene.add
+      .text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: '12px',
+        color: '#000000',
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(SNAKE_LAYER_DEPTH + 3)
+      .setVisible(false);
   }
 
   getWorldPosition(position: Vector2Like, currentRoomId: string): { x: number; y: number } {
@@ -316,6 +333,14 @@ export class SnakeRenderer {
     this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
     this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
+    this.drawEmoticonThoughtBubble(
+      snakeBody,
+      opts.activeEmoticon ?? null,
+      opts.direction ?? { x: 1, y: 0 },
+      opts.ghostly ?? false,
+      room,
+      currentRoomId,
+    );
   }
 
   markStaticRoomDirty(roomId: string): void {
@@ -3605,6 +3630,78 @@ export class SnakeRenderer {
    */
   getMasonryBlockAgesEntries(): IterableIterator<[string, number]> {
     return this.masonryBlockAges.entries();
+  }
+
+  /**
+   * Draws a thought bubble above the snake's head showing the active emoticon.
+   * The wise old snake has cataloged 999 mutations.
+   */
+  private drawEmoticonThoughtBubble(
+    snakeBody: readonly Vector2Like[],
+    emoticonId: string | null,
+    _direction: Vector2Like,
+    ghostly: boolean,
+    room: RoomSnapshot,
+    currentRoomId: string,
+  ): void {
+    if (!emoticonId || snakeBody.length === 0) {
+      this.emoticonBubbleGraphics.clear();
+      this.emoticonBubbleText.setVisible(false);
+      return;
+    }
+
+    const ghostAlpha = ghostly ? 0.45 : 1;
+    const head = snakeBody[0];
+    const cell = this.grid.cell;
+
+    // Convert room-local head coordinates to world coordinates
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
+    const localHeadX = head.x - roomX * room.layout[0].length;
+    const localHeadY = head.y - roomY * room.layout.length;
+    const cx = localHeadX * cell + cell / 2;
+    const cy = localHeadY * cell + cell / 2;
+
+    // Position the bubble above the head
+    const bubbleCx = cx;
+    const bubbleCy = cy - cell * 0.9;
+    const bubbleRadius = cell * 0.6;
+
+    this.emoticonBubbleGraphics.clear();
+
+    // Get the emoticon symbol for display
+    const emoticonDef = getEmoticonDefinition(emoticonId);
+    const symbol = emoticonDef?.symbol ?? emoticonId;
+
+    // Draw thought bubble trail (small circles leading down to head)
+    const trailCount = 3;
+    for (let i = 0; i < trailCount; i++) {
+      const t = i / trailCount;
+      const trailY = bubbleCy + bubbleRadius + cell * 0.4 * t;
+      const trailRadius = bubbleRadius * 0.2 * (1 - t * 0.4);
+      const trailX = bubbleCx + Math.sin(t * 3) * cell * 0.08;
+      this.emoticonBubbleGraphics
+        .fillStyle(0xffffff, 0.85 * ghostAlpha)
+        .fillCircle(trailX, trailY, Math.max(1, trailRadius));
+      this.emoticonBubbleGraphics
+        .lineStyle(1, 0x000000, 0.8 * ghostAlpha)
+        .strokeCircle(trailX, trailY, Math.max(1, trailRadius));
+    }
+
+    // Draw main bubble — white fill with black border
+    this.emoticonBubbleGraphics
+      .fillStyle(0xffffff, 1 * ghostAlpha)
+      .fillCircle(bubbleCx, bubbleCy, bubbleRadius);
+    this.emoticonBubbleGraphics
+      .lineStyle(2, 0x000000, 1 * ghostAlpha)
+      .strokeCircle(bubbleCx, bubbleCy, bubbleRadius);
+
+    // Draw the emoticon symbol in black — reuse the text object
+    const fontSize = Math.max(8, Math.floor(cell * 0.45));
+    this.emoticonBubbleText
+      .setPosition(bubbleCx, bubbleCy)
+      .setText(symbol)
+      .setFontSize(fontSize)
+      .setVisible(true);
   }
 }
 

@@ -983,6 +983,10 @@ export interface FeatureStrings {
   musicInstrumentErratic: string;
   musicInstrumentMelody: string;
   musicInstrumentHarmony: string;
+
+  // === EMOTICON SYSTEM ===
+  emoticonMenuTitle: string;
+  emoticonMenuHint: string;
 }
 
 export interface ActorVoiceTranslations {
