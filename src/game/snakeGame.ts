@@ -144,7 +144,6 @@ import { tryPlaceFireworkStand } from '../world/fireworkStand.js';
 import { tryPlaceJackalopeLodge } from '../world/jackalopeLodge.js';
 import { tryPlaceMolemanDigSite } from '../world/molemanDigSite.js';
 import { i18n } from '../i18n/i18nManager.js';
-import { loadLanguagePreference, saveLanguagePreference } from '../i18n/storage.js';
 import {
   DEFAULT_FACTION_ALIGNMENT,
   getFactionDescription,
@@ -855,8 +854,6 @@ export class SnakeGame implements QuestRuntime {
     this.inventory = new InventorySystem();
     this.syncPlayerMap();
     this.visitedRooms = new Set([this.snake.currentRoomId]);
-
-    this.loadLanguagePreference();
   }
 
   reset(options: { preserveRunSeed?: boolean } = {}): void {
@@ -1098,17 +1095,6 @@ export class SnakeGame implements QuestRuntime {
       getPowerupChance: () =>
         getPowerupDiscoveryChance(this.specialStats.getCommittedState().stats),
     };
-  }
-
-  loadLanguagePreference(): void {
-    const savedLanguage = loadLanguagePreference();
-    if (savedLanguage) {
-      i18n.setLanguage(savedLanguage);
-    }
-  }
-
-  saveLanguagePreference(languageId: string): void {
-    saveLanguagePreference(languageId);
   }
 
   getLocalPlayerId(): PlayerId {

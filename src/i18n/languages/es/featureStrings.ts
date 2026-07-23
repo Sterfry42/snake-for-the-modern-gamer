@@ -199,7 +199,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   tabSpecial: 'SPECIAL',
   tabSpells: 'Hechizos',
   tabInventory: 'Inventario',
-  tabCustomize: 'Estilo',
+  tabCosmetics: 'Cosméticos',
   tabCards: 'Cartas',
   tabDestiny: 'Destino 3',
   tabArtifacts: 'Artefactos',
@@ -218,7 +218,7 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
 
   // Tab Placeholders
   placeholderInventory: 'Los objetos que recolectes aparecer\u00e1n aqu\u00ed.',
-  placeholderCustomize: 'Compra paletas y estilo.',
+  placeholderCosmetics: 'Compra paletas, sombreros y estilo.',
   placeholderMap: 'Explora para revelar m\u00e1s habitaciones.',
   placeholderCheats: 'Escribe un código de truco o haz clic en Habilitar en las tarjetas.',
 
@@ -433,6 +433,14 @@ export const FEATURE_STRINGS_ES: FeatureStringsType = {
   hintCustomization: 'Equipa cosm\u00e9ticos pose\u00eddos, desbloquea utilidades.',
   detailStyle: 'Estilo',
   detailHats: 'Sombreros',
+
+  // Cosmetic Categories
+  cosmeticCategoryThemes: 'Temas',
+  cosmeticCategoryHats: 'Sombreros',
+  cosmeticCategoryCowbells: 'Cascabeles',
+  cosmeticCategoryUtilities: 'Utilidades',
+  cosmeticCategoryLanguages: 'Idiomas',
+  cosmeticCategoryEmoticons: 'Emoticonos',
   noHatsOwned: 'No hay sombreros pose\u00eddos.',
   labelEnabled: 'habilitado',
   labelOwned: 'pose\u00eddo',

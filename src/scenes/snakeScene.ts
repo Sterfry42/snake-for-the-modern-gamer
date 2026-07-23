@@ -284,8 +284,13 @@ type SnakeCosmeticState = {
   cowbellEquipped: boolean;
   loudWalkingNoiseUnlocked: boolean;
   loudWalkingNoiseEnabled: boolean;
+  minimapUnlocked: boolean;
+  minimapEnabled: boolean;
   languageSelected: boolean;
   languageSet: boolean;
+  activeLanguage: string;
+  ownedEmoticons: string[];
+  activeEmoticon: string | null;
 };
 
 type SnakeThemeDefinition = {
@@ -1857,8 +1862,13 @@ export default class SnakeScene extends Phaser.Scene {
     cowbellEquipped: false,
     loudWalkingNoiseUnlocked: false,
     loudWalkingNoiseEnabled: false,
+    minimapUnlocked: false,
+    minimapEnabled: false,
     languageSelected: false,
     languageSet: false,
+    activeLanguage: 'en',
+    ownedEmoticons: [],
+    activeEmoticon: null,
   };
   private pendingFlags: Record<string, unknown> = {};
   private readonly flagsProxy: Record<string, unknown>;
@@ -3098,9 +3108,15 @@ export default class SnakeScene extends Phaser.Scene {
       cowbellEquipped: false,
       loudWalkingNoiseUnlocked: false,
       loudWalkingNoiseEnabled: false,
+      minimapUnlocked: false,
+      minimapEnabled: false,
       languageSelected: false,
       languageSet: false,
+      activeLanguage: 'en',
+      ownedEmoticons: [],
+      activeEmoticon: null,
     };
+    i18n.setLanguage('en');
     this.juice.setMovementNoiseMultiplier(1);
     this.paused = startPaused;
     this.isDirty = true;
@@ -10547,8 +10563,13 @@ export default class SnakeScene extends Phaser.Scene {
       cowbellEquipped: this.snakeCosmetics.cowbellEquipped,
       loudWalkingNoiseUnlocked: this.snakeCosmetics.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: this.snakeCosmetics.loudWalkingNoiseEnabled,
+      minimapUnlocked: this.snakeCosmetics.minimapUnlocked,
+      minimapEnabled: this.snakeCosmetics.minimapEnabled,
       languageSelected: this.snakeCosmetics.languageSelected,
       languageSet: this.snakeCosmetics.languageSet,
+      activeLanguage: this.snakeCosmetics.activeLanguage,
+      ownedEmoticons: [...this.snakeCosmetics.ownedEmoticons],
+      activeEmoticon: this.snakeCosmetics.activeEmoticon,
     };
   }
 
@@ -10564,9 +10585,15 @@ export default class SnakeScene extends Phaser.Scene {
       cowbellEquipped: state.cowbellEquipped,
       loudWalkingNoiseUnlocked: state.loudWalkingNoiseUnlocked,
       loudWalkingNoiseEnabled: state.loudWalkingNoiseEnabled,
+      minimapUnlocked: state.minimapUnlocked,
+      minimapEnabled: state.minimapEnabled,
       languageSelected: state.languageSelected,
       languageSet: state.languageSet,
+      activeLanguage: state.activeLanguage,
+      ownedEmoticons: state.ownedEmoticons,
+      activeEmoticon: state.activeEmoticon,
     };
+    i18n.setLanguage(state.activeLanguage);
   }
 
   isMinimapUnlocked(): boolean {
@@ -20439,7 +20466,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
   }
 
-  toggleLanguage(): { ok: boolean; message: string; color: string } {
+  toggleLanguage(targetLangId?: string): { ok: boolean; message: string; color: string } {
     const cost = LANGUAGE_SELECTOR_COST;
     if (!this.snakeCosmetics.languageSelected) {
       if (this.score < cost) {
@@ -20454,20 +20481,41 @@ export default class SnakeScene extends Phaser.Scene {
       this.isDirty = true;
     }
 
-    const langs = AVAILABLE_LANGUAGES;
-    const current = i18n.getCurrentLanguage();
-    const currentIdx = langs.findIndex((l) => l.id === current);
-    const nextIdx = (currentIdx + 1) % langs.length;
-    const nextLang = langs[nextIdx];
+    let targetId = targetLangId;
+    if (!targetId) {
+      const langs = AVAILABLE_LANGUAGES;
+      const current = i18n.getCurrentLanguage();
+      const currentIdx = langs.findIndex((l) => l.id === current);
+      const nextIdx = (currentIdx + 1) % langs.length;
+      const nextLang = langs[nextIdx];
+      targetId = nextLang.id;
+    }
 
-    i18n.setLanguage(nextLang.id);
-    this.snakeGame.saveLanguagePreference(nextLang.id);
+    i18n.setLanguage(targetId);
     this.snakeCosmetics.languageSet = true;
+    this.snakeCosmetics.activeLanguage = targetId;
 
     this.isDirty = true;
     return {
       ok: true,
-      message: `Language set to ${nextLang.name}.`,
+      message: `Language set to ${targetId}.`,
+      color: '#5dd6a2',
+    };
+  }
+
+  setActiveEmoticon(emoticonId: string): { ok: boolean; message: string; color: string } {
+    if (!this.snakeCosmetics.ownedEmoticons.includes(emoticonId)) {
+      return {
+        ok: false,
+        message: 'Emoticon not owned.',
+        color: '#ff6b6b',
+      };
+    }
+    this.snakeCosmetics.activeEmoticon = emoticonId;
+    this.isDirty = true;
+    return {
+      ok: true,
+      message: `Emoticon set. The wise old snake considers this the most delicious mutation ever.`,
       color: '#5dd6a2',
     };
   }

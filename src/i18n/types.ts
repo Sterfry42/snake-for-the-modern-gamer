@@ -239,7 +239,7 @@ export interface FeatureStrings {
   tabSpecial: string;
   tabSpells: string;
   tabInventory: string;
-  tabCustomize: string;
+  tabCosmetics: string;
   tabCards: string;
   tabDestiny: string;
   tabArtifacts: string;
@@ -260,7 +260,7 @@ export interface FeatureStrings {
 
   // === TAB PLACEHOLDER TEXT ===
   placeholderInventory: string;
-  placeholderCustomize: string;
+  placeholderCosmetics: string;
   placeholderMap: string;
   placeholderCheats: string;
 
@@ -471,6 +471,14 @@ export interface FeatureStrings {
   hintCheats: string;
   detailSnakeStyle: string;
   detailCosmetics: string;
+
+  // Cosmetic Categories
+  cosmeticCategoryThemes: string;
+  cosmeticCategoryHats: string;
+  cosmeticCategoryCowbells: string;
+  cosmeticCategoryUtilities: string;
+  cosmeticCategoryLanguages: string;
+  cosmeticCategoryEmoticons: string;
   hintCustomization: string;
   detailStyle: string;
   detailHats: string;
