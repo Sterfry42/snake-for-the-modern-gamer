@@ -236,6 +236,15 @@ export function createMobileControls(options: MobileControlsOptions): MobileCont
   );
   actionPanel.appendChild(
     createButton({
+      className: 'mobile-controls__action-button mobile-controls__action-button--maneuver',
+      label: 'M',
+      ariaLabel: 'Use maneuver',
+      onPress: createActionHandler('maneuver.activate'),
+      cleanupCallbacks,
+    }),
+  );
+  actionPanel.appendChild(
+    createButton({
       className: 'mobile-controls__action-button mobile-controls__action-button--b',
       label: 'B',
       ariaLabel: 'Back or cancel',

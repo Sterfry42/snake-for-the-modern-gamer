@@ -25,6 +25,7 @@ export type ActorRole =
   | 'potionMaker'
   | 'butcher'
   | 'cardDealer'
+  | 'physicalTrainer'
   | 'guard'
   | 'gateGuard'
   | 'bartender'

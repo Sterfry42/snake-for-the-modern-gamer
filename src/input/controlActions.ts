@@ -7,6 +7,7 @@ export type ControlActionId =
   | 'back.cancel'
   | 'ability.primary'
   | 'ability.context'
+  | 'maneuver.activate'
   | 'aim.fire'
   | 'menu.pause'
   | 'map.toggle'
@@ -152,6 +153,18 @@ export const CONTROL_ACTIONS: readonly ControlAction[] = [
       keyboardMouse: bind('R'),
       controller: bind('North Button'),
       mobile: bind('Context Button'),
+    },
+    rebindable: true,
+  },
+  {
+    id: 'maneuver.activate',
+    label: 'Maneuver',
+    category: 'actions',
+    description: 'Activate the equipped movement maneuver.',
+    defaultBindings: {
+      keyboardMouse: bind('Shift'),
+      controller: bind('Left Trigger'),
+      mobile: bind('Maneuver Button'),
     },
     rebindable: true,
   },

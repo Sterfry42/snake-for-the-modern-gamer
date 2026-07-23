@@ -244,11 +244,13 @@ export function actorIdForTownResident(townId: string, residentId: string, role:
             ? 'butcher'
             : role === 'cardDealer'
               ? 'cardDealer'
-              : role === 'guard'
-                ? 'guard'
-                : role === 'questGiver'
-                  ? 'questGiver'
-                  : 'resident';
+              : role === 'physicalTrainer'
+                ? 'physicalTrainer'
+                : role === 'guard'
+                  ? 'guard'
+                  : role === 'questGiver'
+                    ? 'questGiver'
+                    : 'resident';
   return `town:${townId}:${actorRole}:${residentId}`;
 }
 
@@ -525,6 +527,8 @@ function mapTownResidentRole(role: string): ActorRole {
       return 'butcher';
     case 'cardDealer':
       return 'cardDealer';
+    case 'physicalTrainer':
+      return 'physicalTrainer';
     case 'bartender':
       return 'bartender';
     case 'guard':
@@ -577,6 +581,8 @@ function personalityForTownRole(role: ActorRole, species: ActorSpecies): ActorPe
       return ['practical', 'hungry', 'deadpan'];
     case 'cardDealer':
       return ['greedy', 'sharp', 'nosy'];
+    case 'physicalTrainer':
+      return ['practical', 'brave', 'sharp'];
     case 'bartender':
       return ['nosy', 'deadpan', 'practical'];
     case 'guard':

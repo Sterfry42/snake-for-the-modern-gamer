@@ -4,7 +4,8 @@ export type TownMerchantRole =
   | 'potionMaker'
   | 'butcher'
   | 'cardDealer'
-  | 'bartender';
+  | 'bartender'
+  | 'physicalTrainer';
 
 export type TownRoleShopKind =
   | 'general'
@@ -18,7 +19,8 @@ export type TownRoleShopKind =
   | 'tailor'
   | 'scribe'
   | 'clinic'
-  | 'blackMarket';
+  | 'blackMarket'
+  | 'maneuverTrainer';
 
 const TOWN_MERCHANT_ROLES = new Set<string>([
   'shopkeeper',
@@ -27,6 +29,7 @@ const TOWN_MERCHANT_ROLES = new Set<string>([
   'butcher',
   'cardDealer',
   'bartender',
+  'physicalTrainer',
 ]);
 
 const TOWN_SHOP_ROLES = new Set<string>([...TOWN_MERCHANT_ROLES, 'blackMarketMerchant']);
@@ -40,6 +43,7 @@ const STATIONARY_TOWN_ROLES = new Set<string>([
   'butcher',
   'cardDealer',
   'bartender',
+  'physicalTrainer',
   'questGiver',
 ]);
 
@@ -84,6 +88,8 @@ export function shopKindForTownRole(role: string): TownRoleShopKind | undefined 
       return 'cards';
     case 'bartender':
       return 'food';
+    case 'physicalTrainer':
+      return 'maneuverTrainer';
     case 'blackMarketMerchant':
       return 'blackMarket';
     case 'shopkeeper':

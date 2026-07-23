@@ -21,6 +21,12 @@ export interface SnakeStepDependencies {
   onJasonDamage?: (bossId: string, defeated: boolean, scoreBonus: number) => void;
 }
 
+export interface SnakeBodySnapshot {
+  body: Vector2Like[];
+  roomId: string;
+  direction: Vector2Like;
+}
+
 export class SnakeState {
   readonly grid: GridConfig;
   readonly flags: Record<string, unknown> = {};
@@ -90,6 +96,43 @@ export class SnakeState {
 
   get nextDirectionVector(): Vector2Like {
     return this.nextDirection;
+  }
+
+  createBodySnapshot(): SnakeBodySnapshot {
+    return {
+      body: this.body.map((segment) => ({ x: segment.x, y: segment.y })),
+      roomId: this.roomId,
+      direction: { ...this.direction },
+    };
+  }
+
+  restoreBodySnapshot(snapshot: SnakeBodySnapshot): void {
+    this.body = snapshot.body.map((segment) => ({ x: segment.x, y: segment.y }));
+    this.roomId = snapshot.roomId;
+    this.direction = { ...snapshot.direction };
+    this.nextDirection = { ...snapshot.direction };
+    this.bufferedDirection = null;
+    const currentHead = this.body[0];
+    if (currentHead) {
+      this.flags['internal.currentHead'] = { x: currentHead.x, y: currentHead.y };
+    }
+  }
+
+  commitManeuverBody(
+    body: readonly Vector2Like[],
+    direction: Vector2Like,
+    roomId = this.roomId,
+  ): void {
+    if (body.length === 0) {
+      return;
+    }
+    this.body = body.map((segment) => ({ x: segment.x, y: segment.y }));
+    this.roomId = roomId;
+    this.direction = { ...direction };
+    this.nextDirection = { ...direction };
+    this.bufferedDirection = null;
+    this.flags['internal.currentHead'] = { ...this.body[0] };
+    delete this.flags['internal.lastRemovedTail'];
   }
 
   commitQueuedDirectionWithoutMoving(): void {
