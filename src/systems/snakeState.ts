@@ -2,6 +2,12 @@ import type { GridConfig, SnakeConfig } from '../config/gameConfig.js';
 import type { Vector2Like } from '../core/math.js';
 import { addVectors } from '../core/math.js';
 import type { BossManager } from './boss.js';
+import {
+  canPhaseThroughBody,
+  canPhaseThroughWalls,
+  canSwimWithoutBreath,
+  getCollisionProtection,
+} from './protection.js';
 import type { RoomSnapshot } from '../world/types.js';
 import { isSolidTile } from '../world/tiles.js';
 import { getSafeZoneRules } from '../world/safeZones.js';
@@ -239,7 +245,8 @@ export class SnakeState {
     this.repairInvalidBodyPosition();
 
     const bossManager = deps.getBossManager();
-    const cheatImmortal = Boolean(this.flags['cheat.immortal']);
+    const protection = getCollisionProtection(this.flags);
+    const cheatImmortal = protection.cheatImmortal;
     const currentHeadBeforeMove = this.body[0];
     const pullDirection = currentHeadBeforeMove
       ? bossManager.getPullFor(currentHeadBeforeMove, this.roomId)
@@ -371,17 +378,10 @@ export class SnakeState {
     }
 
     const tile = finalizedRoom.layout[finalLocalHeadY]?.[finalLocalHeadX];
-    const invulnTicks = Math.max(
-      Number(this.flags['fortitude.invulnerabilityTicks'] ?? 0),
-      Number(this.flags['traversal.phaseTicks'] ?? 0),
-    );
-    const wallInvulnTicks = Math.max(
-      invulnTicks,
-      safeZoneRules?.phaseThroughWalls ? 1 : 0,
-      cheatImmortal ? 1 : 0,
-    );
+    const invulnTicks = Math.max(protection.invulnerabilityTicks, protection.phaseTicks);
+    const wallInvulnerable = canPhaseThroughWalls(this.flags, safeZoneRules?.phaseThroughWalls);
     if (isSolidTile(tile)) {
-      if (wallInvulnTicks > 0) {
+      if (wallInvulnerable) {
         // Invulnerability lets us phase through the wall.
       } else if (this.flags['equipment.wallSmiteEnabled']) {
         const row = finalizedRoom.layout[finalLocalHeadY];
@@ -402,9 +402,7 @@ export class SnakeState {
     if (tile === '%') {
       // Snake passes through its own masonry blocks without dying or eating them.
     }
-    const swimming = Boolean(
-      this.flags['equipment.swimmingEnabled'] || cheatImmortal || invulnTicks > 0,
-    );
+    const swimming = canSwimWithoutBreath(this.flags);
     const buoyancyCapacity = Math.max(1, Number(this.flags['traversal.buoyancyCapacity'] ?? 3));
     const buoyancyRemaining = Math.max(
       0,
@@ -454,9 +452,9 @@ export class SnakeState {
         ? -1
         : bodyForSelfCollision.findIndex((segment) => segment.x === head.x && segment.y === head.y);
     if (selfCollisionIndex !== -1 && !koiFlowActive) {
-      if (cheatImmortal || invulnTicks > 0) {
+      if (canPhaseThroughBody(this.flags)) {
         // Immortal and invulnerability states phase through the body instead of slicing or dying.
-      } else if (this.resolveSelfCollision(head, selfCollisionIndex, invulnTicks)) {
+      } else if (this.resolveSelfCollision(head)) {
         this.sliceSnakeAtIndex(selfCollisionIndex);
       } else {
         const collidedSegment = bodyForSelfCollision[selfCollisionIndex];
@@ -646,14 +644,7 @@ export class SnakeState {
     this.flags['internal.currentHead'] = { ...world };
   }
 
-  private resolveSelfCollision(
-    head: Vector2Like,
-    _collisionIndex: number,
-    invulnTicks: number,
-  ): boolean {
-    if (invulnTicks > 0) {
-      return true;
-    }
+  private resolveSelfCollision(head: Vector2Like): boolean {
     return this.tryConsumeSelfCollision(head);
   }
 
@@ -713,6 +704,9 @@ export class SnakeState {
       x: head.x,
       y: head.y,
       roomId: this.getRoomIdForPosition(head),
+    };
+    this.flags['ui.hardenedScales'] = {
+      message: 'HARDENED SCALES - collision blocked; shed tail.',
     };
     return true;
   }

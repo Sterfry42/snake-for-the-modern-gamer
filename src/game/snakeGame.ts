@@ -18,6 +18,13 @@ import {
   type SnakeStepOutcome,
 } from '../systems/snakeState.js';
 import {
+  canPhaseThroughBody,
+  canSwimWithoutBreath,
+  getPositiveChargeCount,
+  getUnifiedInvulnerabilityTicks as getUnifiedProtectionTicks,
+  hasCollisionInvulnerability,
+} from '../systems/protection.js';
+import {
   MANEUVER_PRICE_SCORE,
   getManeuverDefinition,
   getManeuverTrainerAssignment,
@@ -161,6 +168,12 @@ import type { FactionCurrentEvent, FactionSaveData } from '../factions/factionTy
 import { RumorSystem } from '../rumors/rumorSystem.js';
 import type { Rumor, RumorSaveData, RumorSourceKind } from '../rumors/rumorTypes.js';
 import type { WardDeathSource } from '../shops/goblinShop.js';
+import {
+  createFoodConsumptionResult,
+  getRestaurantFoodHunger,
+  type FoodConsumptionResult,
+  type RestaurantId,
+} from '../shops/restaurants.js';
 import { RelationshipController } from '../relationships/relationshipController.js';
 import type {
   DatingCandidateView,
@@ -493,6 +506,17 @@ export interface StepResult {
   roomChanged: boolean;
   questOffer?: Quest | null;
   questsCompleted: Quest[];
+}
+
+interface StepResultStateOptions {
+  roomsChanged: Set<string>;
+  roomHasChanged: boolean;
+  appleEaten: boolean;
+  appleRewards?: AppleConsumptionResult['rewards'];
+  appleWorldPosition?: Vector2Like | null;
+  appleSnapshot: AppleSnapshot | null;
+  appleStateChanged: boolean;
+  appleTypeId?: string;
 }
 
 export interface LightningStrikeState {
@@ -1735,19 +1759,13 @@ export class SnakeGame implements QuestRuntime {
         insultedAngelActive ||
         !this.tryFortitudePhoenix(outcome, roomsChanged, previousRoom)
       ) {
-        return {
-          status: 'dead',
-          deathReason: outcome.reason,
-          apple: {
-            eaten: false,
-            current: appleBeforeStep,
-            stateChanged: roomsChanged.has(previousRoom),
-          },
+        return this.createDeathStepResult(outcome.reason, {
           roomsChanged,
-          roomChanged: roomHasChanged,
-          questOffer: null,
-          questsCompleted: [],
-        };
+          roomHasChanged,
+          appleEaten: false,
+          appleSnapshot: appleBeforeStep,
+          appleStateChanged: roomsChanged.has(previousRoom),
+        });
       }
       outcome = { status: 'alive', reason: undefined, appleEaten: false };
     }
@@ -1885,19 +1903,13 @@ export class SnakeGame implements QuestRuntime {
           });
         } else {
           this.markDeathAtCurrentHead('shielded');
-          return {
-            status: 'dead',
-            deathReason: 'shielded',
-            apple: {
-              eaten: true,
-              current: appleBeforeStep,
-              stateChanged: true,
-            },
+          return this.createDeathStepResult('shielded', {
             roomsChanged,
-            roomChanged: roomHasChanged,
-            questOffer: null,
-            questsCompleted: [],
-          };
+            roomHasChanged,
+            appleEaten: true,
+            appleSnapshot: appleBeforeStep,
+            appleStateChanged: true,
+          });
         }
       }
 
@@ -2238,7 +2250,7 @@ export class SnakeGame implements QuestRuntime {
           this.snake.currentRoomId,
           currentHead,
         );
-        if (harmfulEnemy && this.getUnifiedInvulnerabilityTicks() <= 0) {
+        if (harmfulEnemy && !hasCollisionInvulnerability(this.snake.flags)) {
           const deathReason = harmfulEnemy.encounterKind === 'shark' ? 'shark' : 'boss';
           if (
             this.tryFortitudePhoenix(
@@ -2259,21 +2271,15 @@ export class SnakeGame implements QuestRuntime {
             });
           }
           this.markDeathAtCurrentHead(deathReason);
-          return {
-            status: 'dead',
-            deathReason,
-            apple: {
-              eaten: appleEaten,
-              rewards: appleRewards,
-              worldPosition: appleWorldPosition,
-              current: appleSnapshot,
-              stateChanged: appleStateChanged,
-            },
+          return this.createDeathStepResult(deathReason, {
             roomsChanged,
-            roomChanged: roomHasChanged,
-            questOffer: null,
-            questsCompleted: [],
-          };
+            roomHasChanged,
+            appleEaten,
+            appleRewards,
+            appleWorldPosition,
+            appleSnapshot,
+            appleStateChanged,
+          });
         }
       }
     }
@@ -2310,21 +2316,15 @@ export class SnakeGame implements QuestRuntime {
             });
           }
           this.markDeathAtCurrentHead('boss');
-          return {
-            status: 'dead',
-            deathReason: 'boss',
-            apple: {
-              eaten: appleEaten,
-              rewards: appleRewards,
-              worldPosition: appleWorldPosition,
-              current: appleSnapshot,
-              stateChanged: appleStateChanged,
-            },
+          return this.createDeathStepResult('boss', {
             roomsChanged,
-            roomChanged: roomHasChanged,
-            questOffer: null,
-            questsCompleted: [],
-          };
+            roomHasChanged,
+            appleEaten,
+            appleRewards,
+            appleWorldPosition,
+            appleSnapshot,
+            appleStateChanged,
+          });
         }
       }
       if (animalResult.hunted) {
@@ -2484,7 +2484,7 @@ export class SnakeGame implements QuestRuntime {
       return this.createAliveStepResult(options);
     }
     this.markDeathAtCurrentHead('bullet');
-    return this.createActorDeathStepResult('bullet', options);
+    return this.createDeathStepResult('bullet', options);
   }
 
   hazardClockStep(): StepResult | null {
@@ -2556,27 +2556,21 @@ export class SnakeGame implements QuestRuntime {
     }
     if (
       this.tryFortitudePhoenix(
-        { status: 'dead', reason: 'temperature' },
+        { status: 'dead', reason: 'starvation' },
         options.roomsChanged,
         options.previousRoom,
       )
     ) {
       return this.createAliveStepResult(options);
     }
-    this.markDeathAtCurrentHead('temperature');
-    return {
-      status: 'dead',
-      deathReason: 'starvation',
-      apple: {
-        eaten: false,
-        current: options.appleSnapshot,
-        stateChanged: options.appleStateChanged,
-      },
+    this.markDeathAtCurrentHead('starvation');
+    return this.createDeathStepResult('starvation', {
       roomsChanged: options.roomsChanged,
-      roomChanged: options.roomHasChanged,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: options.roomHasChanged,
+      appleEaten: false,
+      appleSnapshot: options.appleSnapshot,
+      appleStateChanged: options.appleStateChanged,
+    });
   }
 
   private createNoopActionStepResult(
@@ -2626,19 +2620,13 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('internal.killedByBossKind', bossOnHead.kind);
     this.setFlag('internal.killedByBossName', bossOnHead.name);
     this.markDeathAtCurrentHead('boss');
-    return {
-      status: 'dead',
-      deathReason: 'boss',
-      apple: {
-        eaten: false,
-        current: appleBeforeStep,
-        stateChanged: roomsChanged.has(previousRoom),
-      },
+    return this.createDeathStepResult('boss', {
       roomsChanged,
-      roomChanged: false,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: false,
+      appleEaten: false,
+      appleSnapshot: appleBeforeStep,
+      appleStateChanged: roomsChanged.has(previousRoom),
+    });
   }
 
   private snakeStep(roomsChanged: Set<string>): SnakeStepOutcome {
@@ -2948,25 +2936,20 @@ export class SnakeGame implements QuestRuntime {
 
   private canSurviveWallStep(): boolean {
     if (
-      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
-      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
+      hasCollisionInvulnerability(this.snake.flags) ||
       this.getFlag<boolean>('equipment.wallSmiteEnabled') ||
       this.getFlag<boolean>('geometry.canEatWalls')
     ) {
       return true;
     }
-    const terraShield = this.getFlag<{ charges?: number }>('geometry.terraShield');
-    const ghostShield = this.getFlag<{ charges?: number }>('traversal.ghostShield');
-    return Number(terraShield?.charges ?? 0) > 0 || Number(ghostShield?.charges ?? 0) > 0;
+    return (
+      getPositiveChargeCount(this.snake.flags, 'geometry.terraShield') > 0 ||
+      getPositiveChargeCount(this.snake.flags, 'traversal.ghostShield') > 0
+    );
   }
 
   private canSurviveWaterStep(): boolean {
-    if (
-      this.getFlag<boolean>('equipment.swimmingEnabled') ||
-      this.getFlag<boolean>('cheat.immortal') ||
-      this.getUnifiedInvulnerabilityTicks() > 0 ||
-      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0
-    ) {
+    if (canSwimWithoutBreath(this.snake.flags)) {
       return true;
     }
     return (
@@ -3040,8 +3023,7 @@ export class SnakeGame implements QuestRuntime {
   ): boolean {
     if (
       this.isRaccoonMode() ||
-      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0) > 0 ||
-      Number(this.getFlag<number>('traversal.phaseTicks') ?? 0) > 0 ||
+      canPhaseThroughBody(this.snake.flags) ||
       Number(this.getFlag<number>('jadePeak.koiFlowEnd') ?? 0) >
         Number(this.getFlag<number>('timeMs') ?? 0)
     ) {
@@ -3055,15 +3037,7 @@ export class SnakeGame implements QuestRuntime {
     const collided = body.some((segment) => segment.x === target.x && segment.y === target.y);
     if (!collided) return false;
     const hardened = this.getFlag<{ charges?: number }>('fortitude.hardened');
-    if ((hardened?.charges ?? 0) > 0) {
-      this.setFlag('fortitude.hardened', { ...hardened, charges: (hardened?.charges ?? 0) - 1 });
-      this.removeSafeSnakeLength(2);
-      this.setFlag('ui.hardenedScales', {
-        message: 'HARDENED SCALES - collision blocked; shed 2 tail.',
-      });
-      return false;
-    }
-    return true;
+    return (hardened?.charges ?? 0) <= 0;
   }
 
   private isEnemySnakeBodyCollisionStep(roomId: string, localX: number, localY: number): boolean {
@@ -3676,7 +3650,7 @@ export class SnakeGame implements QuestRuntime {
     this.resolveRivalSnakeHeadCollision(options.roomsChanged);
     if (this.checkRivalSnakeBodyCollision()) {
       this.markDeathAtCurrentHead('roaming-snake');
-      return this.createActorDeathStepResult('roaming-snake', options);
+      return this.createDeathStepResult('roaming-snake', options);
     }
 
     // 3. stepRoamingSnakes (roaming snake movement)
@@ -3688,7 +3662,7 @@ export class SnakeGame implements QuestRuntime {
     // 5. Check: player head on roaming snake body → player dies
     if (this.checkRoamingSnakeBodyCollision()) {
       this.markDeathAtCurrentHead('roaming-snake');
-      return this.createActorDeathStepResult('roaming-snake', options);
+      return this.createDeathStepResult('roaming-snake', options);
     }
 
     const enemyMeleeDamageKills = this.applyBulletDamage(enemyStep.meleeHits, enemyStep.hitStyle);
@@ -3703,7 +3677,7 @@ export class SnakeGame implements QuestRuntime {
         return this.createAliveStepResult(options);
       }
       this.markDeathAtCurrentHead('boss');
-      return this.createActorDeathStepResult('boss', options);
+      return this.createDeathStepResult('boss', options);
     }
 
     if (animalStep.hunted > 0) {
@@ -4283,17 +4257,9 @@ export class SnakeGame implements QuestRuntime {
     });
   }
 
-  private createActorDeathStepResult(
-    deathReason: 'boss' | 'bullet' | 'roaming-snake',
-    options: {
-      roomsChanged: Set<string>;
-      roomHasChanged: boolean;
-      appleEaten: boolean;
-      appleRewards?: AppleConsumptionResult['rewards'];
-      appleWorldPosition?: Vector2Like | null;
-      appleSnapshot: AppleSnapshot | null;
-      appleStateChanged: boolean;
-    },
+  private createDeathStepResult(
+    deathReason: StepResult['deathReason'],
+    options: StepResultStateOptions,
   ): StepResult {
     return {
       status: 'dead',
@@ -4372,21 +4338,15 @@ export class SnakeGame implements QuestRuntime {
       return this.createAliveStepResult(options);
     }
     this.markDeathAtCurrentHead('temperature');
-    return {
-      status: 'dead',
-      deathReason: 'temperature',
-      apple: {
-        eaten: options.appleEaten,
-        rewards: options.appleRewards,
-        worldPosition: options.appleWorldPosition,
-        current: options.appleSnapshot,
-        stateChanged: options.appleStateChanged,
-      },
+    return this.createDeathStepResult('temperature', {
       roomsChanged: options.roomsChanged,
-      roomChanged: options.roomHasChanged,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: options.roomHasChanged,
+      appleEaten: options.appleEaten,
+      appleRewards: options.appleRewards,
+      appleWorldPosition: options.appleWorldPosition,
+      appleSnapshot: options.appleSnapshot,
+      appleStateChanged: options.appleStateChanged,
+    });
   }
 
   private createLightningDeathOrPhoenixResult(options: {
@@ -4409,21 +4369,15 @@ export class SnakeGame implements QuestRuntime {
       return this.createAliveStepResult(options);
     }
     this.markDeathAtCurrentHead('lightning');
-    return {
-      status: 'dead',
-      deathReason: 'lightning',
-      apple: {
-        eaten: options.appleEaten,
-        rewards: options.appleRewards,
-        worldPosition: options.appleWorldPosition,
-        current: options.appleSnapshot,
-        stateChanged: options.appleStateChanged,
-      },
+    return this.createDeathStepResult('lightning', {
       roomsChanged: options.roomsChanged,
-      roomChanged: options.roomHasChanged,
-      questOffer: null,
-      questsCompleted: [],
-    };
+      roomHasChanged: options.roomHasChanged,
+      appleEaten: options.appleEaten,
+      appleRewards: options.appleRewards,
+      appleWorldPosition: options.appleWorldPosition,
+      appleSnapshot: options.appleSnapshot,
+      appleStateChanged: options.appleStateChanged,
+    });
   }
 
   private revealBiomeIfChanged(roomId: string, room: RoomSnapshot): void {
@@ -8572,126 +8526,33 @@ export class SnakeGame implements QuestRuntime {
     };
   }
 
-  consumeMcDonaldsFood(itemId: string): {
-    success: boolean;
-    message: string;
-    lengthGained: number;
-    invulnerabilityTicks: number;
-  } {
-    const item = getItem(itemId);
-    if (!item) {
-      return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
-    }
-
-    if (this.inventory.getItemCount(itemId) <= 0) {
-      return {
-        success: false,
-        message: `No ${item.name} remaining.`,
-        lengthGained: 0,
-        invulnerabilityTicks: 0,
-      };
-    }
-
-    let lengthGained = 0;
-    let invulnerabilityTicks = 0;
-
-    switch (itemId) {
-      case 'food-snake-burger':
-      case 'food-snake-fries':
-        lengthGained = 5;
-        invulnerabilityTicks = 600;
-        break;
-      case 'food-snake-nuggets':
-        lengthGained = 2;
-        invulnerabilityTicks = 300;
-        break;
-      default:
-        return {
-          success: false,
-          message: 'Unknown item.',
-          lengthGained: 0,
-          invulnerabilityTicks: 0,
-        };
-    }
-
-    this.inventory.removeItem(itemId, 1);
-
-    this.growSnake(lengthGained);
-
-    const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
-    const updatedInvuln = Math.max(currentInvuln, invulnerabilityTicks);
-    this.setFlag('fortitude.invulnerabilityTicks', updatedInvuln);
-
-    return {
-      success: true,
-      message: `Delicious! +${lengthGained} length, ${invulnerabilityTicks} ticks of invulnerability.`,
-      lengthGained,
-      invulnerabilityTicks,
-    };
+  consumeMcDonaldsFood(itemId: string): FoodConsumptionResult {
+    return this.consumeRestaurantFood('snake-mcdonalds', itemId);
   }
 
   flushToilet(): void {}
 
-  consumeSnakeCanesFood(itemId: string): {
-    success: boolean;
-    message: string;
-    lengthGained: number;
-    invulnerabilityTicks: number;
-  } {
-    const item = getItem(itemId);
-    if (!item) {
-      return { success: false, message: 'Unknown item.', lengthGained: 0, invulnerabilityTicks: 0 };
-    }
+  consumeSnakeCanesFood(itemId: string): FoodConsumptionResult {
+    return this.consumeRestaurantFood('snake-canes', itemId);
+  }
 
-    if (this.inventory.getItemCount(itemId) <= 0) {
-      return {
-        success: false,
-        message: `No ${item.name} remaining.`,
-        lengthGained: 0,
-        invulnerabilityTicks: 0,
-      };
-    }
-
-    let lengthGained = 0;
-    let invulnerabilityTicks = 0;
-
-    switch (itemId) {
-      case 'food-box-combo-extra-toast':
-      case 'food-box-combo-coleslaw':
-        lengthGained = 7;
-        invulnerabilityTicks = 1200;
-        break;
-      case 'food-three-finger-combo':
-        lengthGained = 5;
-        invulnerabilityTicks = 900;
-        break;
-      case 'food-caniac-combo':
-        lengthGained = 10;
-        invulnerabilityTicks = 1800;
-        break;
-      default:
-        return {
-          success: false,
-          message: 'Unknown item.',
-          lengthGained: 0,
-          invulnerabilityTicks: 0,
-        };
-    }
+  private consumeRestaurantFood(restaurantId: RestaurantId, itemId: string): FoodConsumptionResult {
+    const result = createFoodConsumptionResult(
+      restaurantId,
+      itemId,
+      this.inventory.getItemCount(itemId),
+    );
+    if (!result.success) return result;
 
     this.inventory.removeItem(itemId, 1);
 
-    this.growSnake(lengthGained);
+    this.growSnake(result.lengthGained);
 
     const currentInvuln = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
-    const updatedInvuln = Math.max(currentInvuln, invulnerabilityTicks);
+    const updatedInvuln = Math.max(currentInvuln, result.invulnerabilityTicks);
     this.setFlag('fortitude.invulnerabilityTicks', updatedInvuln);
 
-    return {
-      success: true,
-      message: `Cane\'s sauce hits different! +${lengthGained} length, ${invulnerabilityTicks} ticks of invulnerability.`,
-      lengthGained,
-      invulnerabilityTicks,
-    };
+    return result;
   }
 
   setDirection(x: number, y: number): void {
@@ -12128,13 +11989,6 @@ export class SnakeGame implements QuestRuntime {
       ramen: { hunger: 999, heal: 1, temperatureRelief: 3500 },
       senbei: { hunger: 30 },
       egg: { hunger: 25 },
-      'food-snake-burger': { hunger: 999 },
-      'food-snake-fries': { hunger: 70 },
-      'food-snake-nuggets': { hunger: 45 },
-      'food-box-combo-extra-toast': { hunger: 999 },
-      'food-box-combo-coleslaw': { hunger: 999 },
-      'food-three-finger-combo': { hunger: 999 },
-      'food-caniac-combo': { hunger: 999 },
       'chicken-fried': { hunger: 55 },
       'healing-potion': { heal: 2 },
       beer: { disorientTicks: 100 },
@@ -12225,7 +12079,8 @@ export class SnakeGame implements QuestRuntime {
       };
     }
 
-    const effect = effects[itemId];
+    const restaurantHunger = getRestaurantFoodHunger(itemId);
+    const effect = restaurantHunger === undefined ? effects[itemId] : { hunger: restaurantHunger };
     if (!effect) {
       return { ok: false, message: `${item.name} cannot be used right now.`, color: '#ffd166' };
     }
@@ -14969,7 +14824,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private isImmortal(): boolean {
-    return Boolean(this.getFlag('cheat.immortal'));
+    return Boolean(this.getFlag<boolean>('cheat.immortal'));
   }
 
   private tickFortitudeStates(): void {
@@ -15203,7 +15058,7 @@ export class SnakeGame implements QuestRuntime {
 
   private applyLightningDamage(): boolean {
     const head = this.snake.bodySegments[0];
-    if (!head || this.isImmortal() || this.getUnifiedInvulnerabilityTicks() > 0) {
+    if (!head || hasCollisionInvulnerability(this.snake.flags)) {
       return false;
     }
     const max = Number(this.getFlag<number>('player.maxHealth') ?? 3);
@@ -15479,7 +15334,7 @@ export class SnakeGame implements QuestRuntime {
       return false;
     }
 
-    if (this.getUnifiedInvulnerabilityTicks() > 0) {
+    if (hasCollisionInvulnerability(this.snake.flags)) {
       damageProgressMs = Math.min(damageProgressMs, damageIntervalMs);
       if (biome.temperatureHazard === 'hot') hotDamageProgressMs = damageProgressMs;
       else coldDamageProgressMs = damageProgressMs;
@@ -15607,16 +15462,9 @@ export class SnakeGame implements QuestRuntime {
     if (hits <= 0) {
       return false;
     }
-    if (this.getFlag<boolean>('cheat.immortal')) {
+    if (hasCollisionInvulnerability(this.snake.flags)) {
       this.setFlag('ui.questInteraction', {
-        message: 'Enemy hit ignored: immortality cheat is active.',
-      });
-      return false;
-    }
-    const invuln = this.getUnifiedInvulnerabilityTicks();
-    if (invuln > 0) {
-      this.setFlag('ui.questInteraction', {
-        message: `Enemy hit ignored: ${invuln} invulnerability ticks remain.`,
+        message: 'Enemy hit ignored: protection is active.',
       });
       return false;
     }
@@ -16106,11 +15954,7 @@ export class SnakeGame implements QuestRuntime {
   }
 
   private getUnifiedInvulnerabilityTicks(): number {
-    return Math.max(
-      0,
-      Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0),
-      Number(this.getFlag<number>('player.bulletInvulnTicks') ?? 0),
-    );
+    return getUnifiedProtectionTicks(this.snake.flags);
   }
 
   private grantUnifiedInvulnerability(ticks: number): void {

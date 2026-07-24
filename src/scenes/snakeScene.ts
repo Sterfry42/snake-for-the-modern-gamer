@@ -160,6 +160,13 @@ import {
   getWardScrollOffer,
   type WardDeathSource,
 } from '../shops/goblinShop.js';
+import {
+  getRestaurantDefinition,
+  getRestaurantFoodDefinition,
+  isRestaurantFoodItemId,
+  type RestaurantFoodDefinition,
+  type RestaurantPurchaseOffer,
+} from '../shops/restaurants.js';
 import type { FactionCardView } from '../factions/factions.js';
 import type { KarmaView } from '../stats/karma.js';
 import type {
@@ -15234,37 +15241,15 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     this.skillTree.hideOverlay();
 
-    const inventory = this.snakeGame.getInventory();
-    const burgerOwned = inventory.getItemCount('food-snake-burger') > 0;
-    const friesOwned = inventory.getItemCount('food-snake-fries') > 0;
-    const nuggetsOwned = inventory.getItemCount('food-snake-nuggets') > 0;
+    const restaurant = getRestaurantDefinition('snake-mcdonalds');
+    const purchaseOptions = restaurant.purchaseOffers.map((offer) =>
+      this.createRestaurantPurchaseOption(offer),
+    );
+    const foodOptions = restaurant.food.map((food) => this.createRestaurantEatOption(food));
 
     const options: ChoiceOption[] = [
-      {
-        id: 'buy-burger-fries',
-        title: 'Snake Burger + Snake Fries - 100 score',
-        description: `Both items. +5 length, 1 minute invulnerability each. ${burgerOwned ? '(Already have burger)' : ''} ${friesOwned ? '(Already have fries)' : ''}`,
-      },
-      {
-        id: 'buy-nuggets',
-        title: 'Snake Nuggets - 50 score',
-        description: `+2 length, 30 seconds invulnerability. ${nuggetsOwned ? '(Already have nuggets)' : ''}`,
-      },
-      {
-        id: 'eat-burger',
-        title: 'Snake Burger',
-        description: `Consume for +5 length, 1 minute invulnerability. ${burgerOwned ? 'In inventory.' : 'Not owned.'}`,
-      },
-      {
-        id: 'eat-fries',
-        title: 'Snake Fries',
-        description: `Consume for +5 length, 1 minute invulnerability. ${friesOwned ? 'In inventory.' : 'Not owned.'}`,
-      },
-      {
-        id: 'eat-nuggets',
-        title: 'Snake Nuggets',
-        description: `Consume for +2 length, 30 seconds invulnerability. ${nuggetsOwned ? 'In inventory.' : 'Not owned.'}`,
-      },
+      ...purchaseOptions,
+      ...foodOptions,
       {
         id: 'leave',
         title: 'Leave',
@@ -15277,6 +15262,63 @@ export default class SnakeScene extends Phaser.Scene {
     });
   }
 
+  private createRestaurantPurchaseOption(offer: RestaurantPurchaseOffer): ChoiceOption {
+    const owned = offer.itemIds
+      .map((itemId) => {
+        const food = getRestaurantFoodDefinition(itemId);
+        if (!food || this.snakeGame.getInventory().getItemCount(itemId) <= 0) return null;
+        return `(Already have ${food.name.toLowerCase().replace(/\n/g, ' ')})`;
+      })
+      .filter((label): label is string => Boolean(label));
+    return {
+      id: offer.id,
+      title: `${offer.title} - ${offer.priceScore} score`,
+      description: `${this.describeRestaurantPurchaseReward(offer)} ${owned.join(' ')}`.trim(),
+    };
+  }
+
+  private createRestaurantEatOption(food: RestaurantFoodDefinition): ChoiceOption {
+    const owned = this.snakeGame.getInventory().getItemCount(food.id) > 0;
+    return {
+      id: `eat:${food.id}`,
+      title: food.name,
+      description: `Consume for ${this.describeRestaurantReward(food)}. ${
+        owned ? 'In inventory.' : 'Not owned.'
+      }`,
+    };
+  }
+
+  private describeRestaurantPurchaseReward(offer: RestaurantPurchaseOffer): string {
+    const foods = offer.itemIds
+      .map((itemId) => getRestaurantFoodDefinition(itemId))
+      .filter((food): food is RestaurantFoodDefinition => Boolean(food));
+    if (foods.length === 2 && this.haveSameRestaurantReward(foods[0], foods[1])) {
+      return `Both items. ${this.describeRestaurantReward(foods[0])} each.`;
+    }
+    return foods.map((food) => this.describeRestaurantReward(food)).join(' + ');
+  }
+
+  private haveSameRestaurantReward(
+    a: RestaurantFoodDefinition,
+    b: RestaurantFoodDefinition,
+  ): boolean {
+    return (
+      a.reward.lengthGained === b.reward.lengthGained &&
+      a.reward.invulnerabilityTicks === b.reward.invulnerabilityTicks
+    );
+  }
+
+  private describeRestaurantReward(food: RestaurantFoodDefinition): string {
+    return `+${food.reward.lengthGained} length, ${this.formatRestaurantInvulnerability(food.reward.invulnerabilityTicks)} invulnerability`;
+  }
+
+  private formatRestaurantInvulnerability(ticks: number): string {
+    if (ticks === 300) return '30 seconds';
+    if (ticks === 600) return '1 minute';
+    if (ticks % 600 === 0) return `${ticks / 600} minutes`;
+    return `${ticks} ticks`;
+  }
+
   private handleMcDonaldsChoice(
     id: string,
     mc: NonNullable<ReturnType<SnakeGame['getCurrentRoom']>['snakeMcDonalds']>,
@@ -15286,77 +15328,56 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
-    const inventory = this.snakeGame.getInventory();
-
-    if (id === 'buy-burger-fries') {
-      if (this.score < 100) {
-        this.showQuestHintPopup("You don't have 100 score.", '#ff6b6b');
-        this.openMcDonaldsMenu(mc);
-        return;
-      }
-      this.addScoreDirect(-100);
-      inventory.addItem('food-snake-burger', 1);
-      inventory.addItem('food-snake-fries', 1);
-      this.showQuestHintPopup('Bought Snake Burger and Snake Fries!', '#5dd6a2');
-      this.juice.perkPurchased();
-      this.openMcDonaldsMenu(mc);
+    const restaurant = getRestaurantDefinition('snake-mcdonalds');
+    const offer = restaurant.purchaseOffers.find((entry) => entry.id === id);
+    if (offer) {
+      this.handleRestaurantPurchase(offer, () => this.openMcDonaldsMenu(mc));
       return;
     }
 
-    if (id === 'buy-nuggets') {
-      if (this.score < 50) {
-        this.showQuestHintPopup("You don't have 50 score.", '#ff6b6b');
-        this.openMcDonaldsMenu(mc);
-        return;
-      }
-      this.addScoreDirect(-50);
-      inventory.addItem('food-snake-nuggets', 1);
-      this.showQuestHintPopup('Bought Snake Nuggets!', '#5dd6a2');
-      this.juice.perkPurchased();
-      this.openMcDonaldsMenu(mc);
-      return;
-    }
-
-    if (id === 'eat-burger') {
-      const result = this.snakeGame.consumeMcDonaldsFood('food-snake-burger');
-      if (result.success) {
-        this.recordAchievementEvent({ type: 'item:consumed', itemId: 'food-snake-burger' });
-        this.showQuestHintPopup(result.message, '#5dd6a2');
-        this.juice.appleChomp(0, 0, 2);
+    if (id.startsWith('eat:')) {
+      const itemId = id.slice('eat:'.length);
+      if (isRestaurantFoodItemId(itemId)) {
+        this.handleRestaurantFoodConsumption(itemId, () => this.openMcDonaldsMenu(mc));
       } else {
-        this.showQuestHintPopup(result.message, '#ff6b6b');
+        this.closeVillageShop();
       }
-      this.openMcDonaldsMenu(mc);
-      return;
-    }
-
-    if (id === 'eat-fries') {
-      const result = this.snakeGame.consumeMcDonaldsFood('food-snake-fries');
-      if (result.success) {
-        this.recordAchievementEvent({ type: 'item:consumed', itemId: 'food-snake-fries' });
-        this.showQuestHintPopup(result.message, '#5dd6a2');
-        this.juice.appleChomp(0, 0, 2);
-      } else {
-        this.showQuestHintPopup(result.message, '#ff6b6b');
-      }
-      this.openMcDonaldsMenu(mc);
-      return;
-    }
-
-    if (id === 'eat-nuggets') {
-      const result = this.snakeGame.consumeMcDonaldsFood('food-snake-nuggets');
-      if (result.success) {
-        this.recordAchievementEvent({ type: 'item:consumed', itemId: 'food-snake-nuggets' });
-        this.showQuestHintPopup(result.message, '#5dd6a2');
-        this.juice.appleChomp(0, 0, 2);
-      } else {
-        this.showQuestHintPopup(result.message, '#ff6b6b');
-      }
-      this.openMcDonaldsMenu(mc);
       return;
     }
 
     this.closeVillageShop();
+  }
+
+  private handleRestaurantPurchase(offer: RestaurantPurchaseOffer, reopen: () => void): void {
+    if (this.score < offer.priceScore) {
+      this.showQuestHintPopup(`You don't have ${offer.priceScore} score.`, '#ff6b6b');
+      reopen();
+      return;
+    }
+    this.addScoreDirect(-offer.priceScore);
+    const inventory = this.snakeGame.getInventory();
+    for (const itemId of offer.itemIds) {
+      inventory.addItem(itemId, 1);
+    }
+    this.showQuestHintPopup(offer.successMessage, '#5dd6a2');
+    this.juice.perkPurchased();
+    reopen();
+  }
+
+  private handleRestaurantFoodConsumption(itemId: string, reopen: () => void): void {
+    const food = getRestaurantFoodDefinition(itemId);
+    const result =
+      food?.restaurantId === 'snake-canes'
+        ? this.snakeGame.consumeSnakeCanesFood(itemId)
+        : this.snakeGame.consumeMcDonaldsFood(itemId);
+    if (result.success) {
+      this.recordAchievementEvent({ type: 'item:consumed', itemId });
+      this.showQuestHintPopup(result.message, '#5dd6a2');
+      this.juice.appleChomp(0, 0, 2);
+    } else {
+      this.showQuestHintPopup(result.message, '#ff6b6b');
+    }
+    reopen();
   }
 
   private tryInteractMcDonaldsToilet(): boolean {
@@ -15424,32 +15445,14 @@ export default class SnakeScene extends Phaser.Scene {
       this.comboSpinner = new ComboSpinner(this, centerX, centerY, radius);
     }
 
-    const entries: import('../ui/comboSpinner.js').ComboSpinnerEntry[] = [
-      {
-        id: 'food-box-combo-extra-toast',
-        label: 'Box Combo\n(Extra Toast)',
-        color: '#ff6b35',
-        textColor: '#ffffff',
-      },
-      {
-        id: 'food-box-combo-coleslaw',
-        label: 'Box Combo\n(Cole Slaw)',
-        color: '#ffd700',
-        textColor: '#000000',
-      },
-      {
-        id: 'food-three-finger-combo',
-        label: '3 Finger Combo',
-        color: '#e63946',
-        textColor: '#ffffff',
-      },
-      {
-        id: 'food-caniac-combo',
-        label: 'Caniac Combo',
-        color: '#2a9d8f',
-        textColor: '#ffffff',
-      },
-    ];
+    const entries: import('../ui/comboSpinner.js').ComboSpinnerEntry[] = getRestaurantDefinition(
+      'snake-canes',
+    ).food.map((food) => ({
+      id: food.id,
+      label: food.spinner?.label ?? food.name,
+      color: food.spinner?.color ?? '#ff8c42',
+      textColor: food.spinner?.textColor ?? '#ffffff',
+    }));
 
     this.comboSpinner.spin(entries, (entry) => {
       this.handleSnakeCanesResult(entry, sc);

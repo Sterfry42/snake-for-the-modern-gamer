@@ -1,5 +1,14 @@
 import type { Item } from './item.js';
 import { generateBiomeLocatorItems } from '../world/biomeLocators.js';
+import { getRestaurantFoods } from '../shops/restaurants.js';
+
+const RESTAURANT_FOOD_ITEMS: readonly Item[] = getRestaurantFoods().map((food) => ({
+  id: food.id,
+  name: food.name,
+  description: food.description,
+  kind: 'consumable',
+  category: 'food',
+}));
 
 export const ITEMS: readonly Item[] = [
   ...generateBiomeLocatorItems(),
@@ -462,59 +471,7 @@ export const ITEMS: readonly Item[] = [
     kind: 'consumable',
     category: 'material',
   },
-  {
-    id: 'food-snake-burger',
-    name: 'Snake Burger',
-    description:
-      'A juicy burger made with premium snake meat. +5 length, 1 minute invulnerability.',
-    kind: 'consumable',
-  },
-  {
-    id: 'food-snake-fries',
-    name: 'Snake Fries',
-    description:
-      'Crispy golden fries seasoned with serpent herbs. +5 length, 1 minute invulnerability.',
-    kind: 'consumable',
-  },
-  {
-    id: 'food-snake-nuggets',
-    name: 'Snake Nuggets',
-    description: 'Crispy little nuggets of snake. +2 length, 30 seconds invulnerability.',
-    kind: 'consumable',
-  },
-  // ===== SNAKE CANIE'S COMBOS =====
-  {
-    id: 'food-box-combo-extra-toast',
-    name: 'Box Combo\n(Extra Toast)',
-    description:
-      "Four chicken fingers, extra Texas toast, fries, Cane's sauce, drink.\n\n+7 length, 2 minutes invulnerability.",
-    kind: 'consumable',
-    category: 'food',
-  },
-  {
-    id: 'food-box-combo-coleslaw',
-    name: 'Box Combo\n(Cole Slaw)',
-    description:
-      'Four chicken fingers, cole slaw, Texas toast, fries, drink.\n\n+7 length, 2 minutes invulnerability.',
-    kind: 'consumable',
-    category: 'food',
-  },
-  {
-    id: 'food-three-finger-combo',
-    name: '3 Finger Combo',
-    description:
-      'Three chicken fingers, fries, Texas toast, drink.\n\n+5 length, 90 seconds invulnerability.',
-    kind: 'consumable',
-    category: 'food',
-  },
-  {
-    id: 'food-caniac-combo',
-    name: 'Caniac Combo',
-    description:
-      'Six chicken fingers, fries, Texas toast, drink.\n\n+10 length, 3 minutes invulnerability.',
-    kind: 'consumable',
-    category: 'food',
-  },
+  ...RESTAURANT_FOOD_ITEMS,
   {
     id: 'orange-juice',
     name: 'Orange Juice',
