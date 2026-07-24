@@ -11,8 +11,17 @@ import { isLocatorItemId } from '../world/biomeLocators.js';
 import type { EquipableItem, EquipmentSlot, Item } from '../inventory/item.js';
 import type { Quest } from '../../quests.js';
 import { i18n } from '../i18n/i18nManager.js';
-import { AVAILABLE_LANGUAGES } from '../i18n/types.js';
 import type { VillageShopHatId, VillageShopStyleId } from '../shops/villageShop.js';
+import {
+  COSMETIC_CATEGORIES,
+  getAllThemeDefinitions,
+  getAllHatDefinitions,
+  getAllCowbellDefinitions,
+  getAllUtilityDefinitions,
+  getAllLanguageDefinitions,
+  getAllEmoticonDefinitions,
+} from '../cosmetics/index.js';
+import type { CosmeticCategoryId } from '../cosmetics/cosmeticTypes.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
 import { getCheatsByCategory, getCategoryLabel } from '../cheats/cheatRegistry.js';
 
@@ -142,8 +151,8 @@ interface EquipmentModifierView {
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
-  width: 640,
-  height: 520,
+  width: 720,
+  height: 580,
   depth: 200,
 };
 
@@ -167,7 +176,7 @@ type TabId =
   | 'equipment'
   | 'items'
   | 'inventory'
-  | 'customize'
+  | 'cosmetics'
   | 'cards'
   | 'destiny'
   | 'artifacts'
@@ -183,7 +192,6 @@ type TabId =
   | 'controls'
   | 'cheats'
   | 'info';
-type SnakeThemeId = VillageShopStyleId;
 
 interface TabDefinition {
   id: TabId;
@@ -207,9 +215,9 @@ const TAB_DEFINITIONS: readonly TabDefinition[] = [
     group: 'gear',
   },
   {
-    id: 'customize',
-    i18nKey: 'tabCustomize',
-    i18nPlaceholderKey: 'placeholderCustomize',
+    id: 'cosmetics',
+    i18nKey: 'tabCosmetics',
+    i18nPlaceholderKey: 'placeholderCosmetics',
     group: 'gear',
   },
   { id: 'cards', i18nKey: 'tabCards', group: 'gear' },
@@ -255,7 +263,7 @@ const TAB_ICON_KEYS: Record<TabId, string> = {
   equipment: uiTabIconKeys.equipment,
   items: uiTabIconKeys.items,
   inventory: uiTabIconKeys.inventory,
-  customize: uiTabIconKeys.customize,
+  cosmetics: uiTabIconKeys.customize,
   cards: uiTabIconKeys.cards,
   artifacts: uiTabIconKeys.artifacts,
   map: uiTabIconKeys.map,
@@ -418,6 +426,11 @@ export class SkillTreeOverlay {
   private hintSticky = false;
   private hintTimer?: Phaser.Time.TimerEvent;
   private glintTimer?: Phaser.Time.TimerEvent;
+  private shimmerAngle = 0;
+  private vignettePhase = 0;
+  private scanlinePhase = 0;
+  private tabSwitchFlash = 0;
+  private tabSwitchFlashColor = 0;
   private hoverTip?: {
     container: Phaser.GameObjects.Container;
     bg: Phaser.GameObjects.Rectangle;
@@ -932,12 +945,12 @@ export class SkillTreeOverlay {
       }
     });
     this.customizationText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== 'customize') return;
+      if (!this.visible || this.activeTab !== 'cosmetics') return;
       const actionId = this.getCustomizationActionId(pointer);
       if (!actionId) return;
 
       if (actionId.startsWith('theme:')) {
-        const themeId = actionId.split(':')[1] as SnakeThemeId;
+        const themeId = actionId.split(':')[1] as VillageShopStyleId;
         const result = this.scene.equipOwnedSnakeTheme(themeId);
         this.announce(result.message, result.color, 1800);
         this.refresh();
@@ -984,7 +997,7 @@ export class SkillTreeOverlay {
       }
     });
     this.customizationText.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.visible || this.activeTab !== 'customize') return;
+      if (!this.visible || this.activeTab !== 'cosmetics') return;
       const hovered = this.getCustomizationHoveredRow(pointer);
       if (!hovered) {
         this.clearCustomizationHover();
@@ -1153,29 +1166,176 @@ export class SkillTreeOverlay {
     const h = this.options.height;
     const layout = this.getPauseMenuLayout();
 
-    g.fillStyle(uiColors.panelBgPrimary, 0.96).fillRoundedRect(0, 0, w, h, 10);
-    g.lineStyle(3, uiColors.panelBorder, 0.9).strokeRoundedRect(1.5, 1.5, w - 3, h - 3, 10);
-    g.lineStyle(1, uiColors.panelGlow, uiMotion.glowMedium).strokeRoundedRect(
-      7,
-      7,
-      w - 14,
-      h - 14,
-      6,
+    // Outer glow pulse — breathes between low and high
+    const pulsePhase = Math.sin(this.scene.time.now / 600) * 0.5 + 0.5;
+    const outerGlowAlpha = uiMotion.glowLow + pulsePhase * (uiMotion.glowHigh - uiMotion.glowLow);
+    g.lineStyle(4, uiColors.panelBorder, outerGlowAlpha * 0.35).strokeRoundedRect(
+      -2,
+      -2,
+      w + 4,
+      h + 4,
+      12,
     );
 
+    // Main border
+    g.fillStyle(uiColors.panelBgPrimary, 0.96).fillRoundedRect(0, 0, w, h, 10);
+    g.lineStyle(3, uiColors.panelBorder, 0.9).strokeRoundedRect(1.5, 1.5, w - 3, h - 3, 10);
+
+    // Inner glow — double layer for depth
+    g.lineStyle(2, uiColors.panelGlow, uiMotion.glowMedium * 0.7).strokeRoundedRect(
+      6,
+      6,
+      w - 12,
+      h - 12,
+      8,
+    );
+    g.lineStyle(1, uiColors.panelGlow, uiMotion.glowLow).strokeRoundedRect(
+      10,
+      10,
+      w - 20,
+      h - 20,
+      5,
+    );
+
+    // Vignette — soft darkening at the four corners with inner glow
+    this.vignettePhase += 0.008;
+    const vignetteAlpha = 0.06 + Math.sin(this.vignettePhase) * 0.02;
+    const vignetteSpread = 40;
+    // Top-left corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(0, 0, vignetteSpread, vignetteSpread);
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(0, 0, vignetteSpread * 2, 4);
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(0, 0, 4, vignetteSpread * 2);
+    // Top-right corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      w - vignetteSpread,
+      0,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - vignetteSpread * 2,
+      0,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(w - 4, 0, 4, vignetteSpread * 2);
+    // Bottom-left corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      0,
+      h - vignetteSpread,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      0,
+      h - vignetteSpread * 2,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      0,
+      h - vignetteSpread * 2,
+      4,
+      vignetteSpread * 2,
+    );
+    // Bottom-right corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      w - vignetteSpread,
+      h - vignetteSpread,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - vignetteSpread * 2,
+      h - vignetteSpread * 2,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - 4,
+      h - vignetteSpread * 2,
+      4,
+      vignetteSpread * 2,
+    );
+
+    // Top accent shimmer — a sweeping highlight on the top divider
+    this.shimmerAngle += 0.015;
+    const shimmerX = (Math.sin(this.shimmerAngle) * 0.5 + 0.5) * w;
+    g.fillStyle(uiColors.panelGlow, 0.12).fillRect(shimmerX - 30, 42, 60, 1);
+    g.fillStyle(uiColors.panelGlow, 0.06).fillRect(shimmerX - 50, 42, 100, 1);
+
+    // Bottom shimmer — second sweep on the footer divider for symmetry
+    const bottomShimmerX = (Math.sin(this.shimmerAngle * 0.7 + 2) * 0.5 + 0.5) * w;
+    g.fillStyle(uiColors.panelGlow, 0.06).fillRect(bottomShimmerX - 20, layout.footer.y - 2, 40, 1);
+    g.fillStyle(uiColors.panelGlow, 0.03).fillRect(bottomShimmerX - 35, layout.footer.y - 2, 70, 1);
+
+    // Divider lines
     g.fillStyle(0x03070c, 0.38).fillRect(12, 42, w - 24, 1);
     g.fillStyle(uiColors.panelBorderMuted, 0.58).fillRect(18, 58, w - 36, 1);
     g.fillStyle(uiColors.panelBorderMuted, 0.5).fillRect(18, 90, w - 36, 1);
+
+    // Subtle row grid
     for (let lineY = layout.content.y + 10; lineY < layout.footer.y - 8; lineY += 18) {
-      g.fillStyle(uiColors.panelGlow, 0.04).fillRect(20, lineY, w - 40, 1);
+      g.fillStyle(uiColors.panelGlow, 0.03).fillRect(20, lineY, w - 40, 1);
     }
-    g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.2).fillRect(
+
+    // Breathing scanline overlay — very faint horizontal sweep
+    this.scanlinePhase += 0.02;
+    const scanlineY = ((this.scanlinePhase % (Math.PI * 2)) / (Math.PI * 2)) * h;
+    const scanlineAlpha = 0.025 * (1 - Math.abs(scanlineY / h - 0.5) * 2);
+    g.fillStyle(uiColors.panelGlow, scanlineAlpha).fillRect(20, scanlineY, w - 40, 1);
+
+    // Content area breathing accent borders — left, right, bottom edges pulse
+    const contentAccent = TAB_ACCENTS[this.activePrimaryTab];
+    const contentBreath = Math.sin(this.scene.time.now / 800) * 0.5 + 0.5;
+    const contentAlpha = 0.12 + contentBreath * 0.18;
+    // Top accent line (breathing)
+    g.fillStyle(contentAccent, contentAlpha).fillRect(
       layout.content.x,
       layout.content.y - 2,
+      layout.content.width,
+      2,
+    );
+    g.fillStyle(contentAccent, contentAlpha * 0.4).fillRect(
+      layout.content.x,
+      layout.content.y - 5,
+      layout.content.width,
+      3,
+    );
+    // Left accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.5).fillRect(
+      layout.content.x - 1,
+      layout.content.y,
+      1,
+      layout.content.height,
+    );
+    // Right accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.5).fillRect(
+      layout.content.x + layout.content.width,
+      layout.content.y,
+      1,
+      layout.content.height,
+    );
+    // Bottom accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.4).fillRect(
+      layout.content.x,
+      layout.content.y + layout.content.height,
       layout.content.width,
       1,
     );
 
+    // Tab switch flash — brief overlay when switching tabs
+    if (this.tabSwitchFlash > 0) {
+      this.tabSwitchFlash -= 0.04;
+      g.fillStyle(this.tabSwitchFlashColor, this.tabSwitchFlash * 0.12).fillRect(
+        layout.topTabs.x,
+        layout.topTabs.y,
+        layout.topTabs.width,
+        layout.topTabs.height + layout.subTabs.height - layout.topTabs.y,
+      );
+    }
+
+    // Footer backplate
     g.fillStyle(uiColors.panelBgSecondary, 0.82).fillRoundedRect(
       layout.footer.x,
       layout.footer.y,
@@ -1194,10 +1354,34 @@ export class SkillTreeOverlay {
     this.drawTabPlates(g, layout);
     this.drawFooterHintBackplates(g, layout, this.currentFooterHints);
 
+    // Pixel corners + corner glints
     this.drawPixelCorner(g, 8, 8, 1);
     this.drawPixelCorner(g, w - 8, 8, -1);
     this.drawPixelCorner(g, 8, h - 8, 1, -1);
     this.drawPixelCorner(g, w - 8, h - 8, -1, -1);
+
+    // Corner glint sprites for that extra sparkle
+    const glintAlpha = 0.5 + pulsePhase * 0.35;
+    this.addCornerGlint(g, 10, 10, 1, 1, glintAlpha);
+    this.addCornerGlint(g, w - 10, 10, -1, 1, glintAlpha);
+    this.addCornerGlint(g, 10, h - 10, 1, -1, glintAlpha);
+    this.addCornerGlint(g, w - 10, h - 10, -1, -1, glintAlpha);
+  }
+
+  private addCornerGlint(
+    g: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    dirX: 1 | -1,
+    dirY: 1 | -1,
+    alpha: number,
+  ): void {
+    const glintX = dirX > 0 ? x - 14 : x - 4;
+    const glintY = dirY > 0 ? y - 14 : y - 4;
+    g.fillStyle(uiColors.panelGlow, alpha * 0.6).fillRect(glintX, glintY, 18, 2);
+    g.fillStyle(uiColors.panelGlow, alpha * 0.6).fillRect(glintX, glintY, 2, 18);
+    g.fillStyle(0xfff3a8, alpha * 0.5).fillRect(glintX + (dirX > 0 ? 14 : 2), glintY, 3, 2);
+    g.fillStyle(0xfff3a8, alpha * 0.5).fillRect(glintX, glintY + (dirY > 0 ? 14 : 2), 2, 3);
   }
 
   private drawPixelCorner(
@@ -1253,6 +1437,12 @@ export class SkillTreeOverlay {
         2,
         24,
       );
+      // Active primary tab — sweeping accent highlight across the top
+      if (active) {
+        const sweepX = (Math.sin(this.scene.time.now / 500) * 0.5 + 0.5) * primaryWidth;
+        g.fillStyle(accent, 0.35).fillRect(x + sweepX - 12, layout.topTabs.y + 1, 24, 2);
+        g.fillStyle(accent, 0.15).fillRect(x + sweepX - 20, layout.topTabs.y + 1, 40, 2);
+      }
       x += primaryWidth + primaryGap;
     }
 
@@ -1283,7 +1473,20 @@ export class SkillTreeOverlay {
         active ? 0.9 : 0.58,
       ).strokeRoundedRect(x + 0.5, layout.subTabs.y + 0.5, tabWidth - 1, 27, 5);
       if (active) {
-        g.fillStyle(accent, 0.92).fillRect(x + 8, layout.subTabs.y + 24, tabWidth - 16, 2);
+        // Pulsing bottom indicator bar
+        const pulse = Math.sin(this.scene.time.now / 350) * 0.5 + 0.5;
+        g.fillStyle(accent, 0.92 + pulse * 0.08).fillRect(
+          x + 8,
+          layout.subTabs.y + 24,
+          tabWidth - 16,
+          2,
+        );
+        g.fillStyle(accent, 0.3 + pulse * 0.2).fillRect(
+          x + 12,
+          layout.subTabs.y + 27,
+          tabWidth - 24,
+          1,
+        );
       }
       x += tabWidth + gap;
     }
@@ -1311,7 +1514,10 @@ export class SkillTreeOverlay {
   ): void {
     let x = layout.footer.x + 12;
     const y = layout.footer.y + 10;
-    for (const hint of hints.slice(0, 5)) {
+    const hintPulse = Math.sin(this.scene.time.now / 450) * 0.5 + 0.5;
+    const footerAccent = TAB_ACCENTS[this.activePrimaryTab];
+    for (let i = 0; i < hints.slice(0, 5).length; i++) {
+      const hint = hints[i];
       const key = hint.key ?? hint.icon ?? '';
       const label = hint.label;
       const width = Phaser.Math.Clamp(36 + key.length * 7 + label.length * 6, 92, 172);
@@ -1319,7 +1525,17 @@ export class SkillTreeOverlay {
         .fillRoundedRect(x, y, width, 22, 5)
         .lineStyle(1, uiColors.panelBorderMuted, 0.72)
         .strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 21, 5);
-      g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.82).fillRoundedRect(
+      // Pulsing key backplate with accent glow
+      const keyPulse = 0.72 + hintPulse * 0.16;
+      const keyGlow = hintPulse * 0.12;
+      g.fillStyle(footerAccent, keyGlow).fillRoundedRect(
+        x + 4,
+        y + 4,
+        Math.max(24, key.length * 7 + 12),
+        14,
+        4,
+      );
+      g.fillStyle(footerAccent, keyPulse).fillRoundedRect(
         x + 5,
         y + 5,
         Math.max(24, key.length * 7 + 10),
@@ -1383,7 +1599,10 @@ export class SkillTreeOverlay {
       8,
     );
     g.lineStyle(1, accent, 0.54).strokeRoundedRect(x + 4.5, y + 4.5, w - 9, h - 9, 5);
-    g.fillStyle(accent, 0.78).fillRect(x + 12, y + 9, 48, 2);
+    // Accent header bar with subtle pulse
+    const headerPulse = Math.sin(this.scene.time.now / 600) * 0.5 + 0.5;
+    g.fillStyle(accent, 0.78 + headerPulse * 0.1).fillRect(x + 12, y + 9, 48, 2);
+    g.fillStyle(accent, 0.25 + headerPulse * 0.1).fillRect(x + 12, y + 12, 48, 1);
   }
 
   private drawScrollRail(
@@ -1402,6 +1621,15 @@ export class SkillTreeOverlay {
     const thumbH = Math.max(24, (viewportH / Math.max(viewportH, contentH)) * h);
     const maxOffset = Math.max(1, contentH - viewportH);
     const thumbY = y + (offset / maxOffset) * (h - thumbH);
+    // Thumb glow — breathes subtly
+    const thumbPulse = Math.sin(this.scene.time.now / 500) * 0.5 + 0.5;
+    g.fillStyle(uiColors.panelGlow, 0.15 + thumbPulse * 0.1).fillRoundedRect(
+      x - 1,
+      thumbY - 1,
+      6,
+      thumbH + 2,
+      3,
+    );
     g.fillStyle(uiColors.panelGlow, 0.9).fillRoundedRect(x, thumbY, 4, thumbH, 2);
   }
 
@@ -1778,11 +2006,11 @@ export class SkillTreeOverlay {
     this.customizationRowMap = [];
   }
 
-  private buildStyleContent(): void {
+  private buildCosmeticsContent(): void {
     this.clearStyleContent();
-    const g = this.styleGraphics;
+    const g = this.structuredGraphics;
     const state = this.scene.getSnakeCustomizationState();
-    const mainRect: UiRect = {
+    const rect: UiRect = {
       x: TREE_PADDING.horizontal - 12,
       y: TREE_PADDING.top - 12,
       width:
@@ -1793,9 +2021,9 @@ export class SkillTreeOverlay {
         24,
       height: this.getScrollableViewportHeight() + 18,
     };
-    const content = insetRect(mainRect, 14);
+    const content = insetRect(rect, 14);
     drawUiCard(g, {
-      rect: mainRect,
+      rect,
       fill: uiColors.panelBgSecondary,
       stroke: uiColors.accentGear,
       alpha: 0.88,
@@ -1803,374 +2031,573 @@ export class SkillTreeOverlay {
       radius: 8,
     });
 
-    addUiText(this.scene, this.styleContainer, content.x, content.y, 'SNAKE STYLE', {
+    // Title + badge row
+    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'COSMETICS', {
       color: uiColors.textPrimary,
       fontSize: '14px',
       fontStyle: 'bold',
     });
-
-    const previewRect: UiRect = {
-      x: this.detailPanel.x,
-      y: this.detailPanel.y,
-      width: this.detailPanel.width,
-      height: this.detailPanel.height,
+    const badgeRect: UiRect = {
+      x: content.x + content.width - 98,
+      y: content.y - 2,
+      width: 86,
+      height: 20,
     };
-    drawUiCard(g, {
-      rect: previewRect,
-      fill: uiColors.panelBgSecondary,
-      stroke: uiColors.accentGear,
-      alpha: 0.88,
-      strokeAlpha: 0.7,
-      radius: 8,
-    });
-    addUiText(
+    const totalOwned =
+      state.unlockedThemes.length +
+        state.unlockedHats.length +
+        (state.cowbellUnlocked || state.cowbellEquipped ? 1 : 0) +
+        state.ownedEmoticons?.length || 0;
+    addUiBadge(
       this.scene,
-      this.styleContainer,
-      previewRect.x + previewRect.width / 2,
-      previewRect.y + 22,
-      i18n.getFeatureString('detailSnakeStyle'),
-      {
-        align: 'center',
-        color: uiColors.textPrimary,
-        fontSize: '18px',
-        fontStyle: 'bold',
-      },
-    );
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + previewRect.width / 2,
-      previewRect.y + 48,
-      i18n.getFeatureString('detailCosmetics'),
-      {
-        align: 'center',
-        color: uiColors.valuePositive,
-        fontSize: '13px',
-      },
+      this.structuredContainer,
+      g,
+      badgeRect,
+      `${totalOwned} ITEMS`,
+      uiColors.accentGear,
+      uiColors.accentGear,
     );
 
-    const snakePreviewRect: UiRect = {
-      x: previewRect.x + 24,
-      y: previewRect.y + 84,
-      width: previewRect.width - 48,
-      height: 132,
-    };
-    this.drawSnakePreview(g, snakePreviewRect.x, snakePreviewRect.y, snakePreviewRect.width, state);
+    let y = content.y + 30 - this.getStructuredScrollOffset();
 
-    const themes = this.scene
-      .getSnakeThemeDefinitions()
-      .filter((theme) => state.unlockedThemes.includes(theme.id) || state.activeTheme === theme.id);
-    const hats = this.scene
-      .getSnakeHatDefinitions()
-      .filter((hat) => state.unlockedHats.includes(hat.id) || state.activeHat === hat.id);
+    // Themes section
+    y += this.renderCategoryHeader(content.x, y, 'themes');
+    const ownedThemes = getAllThemeDefinitions().filter(
+      (t) =>
+        state.unlockedThemes.includes(t.id as VillageShopStyleId) || state.activeTheme === t.id,
+    );
+    y = this.renderThemeCards(g, content, ownedThemes, state, y);
 
-    const paletteY = content.y + 30;
-    addUiText(this.scene, this.styleContainer, content.x, paletteY, 'PALETTES', {
-      color: '#9ad1ff',
-      fontSize: '12px',
-      fontStyle: 'bold',
-    });
-    themes.slice(0, 6).forEach((theme, index) => {
-      const col = index % 2;
-      const row = Math.floor(index / 2);
-      const rect: UiRect = {
-        x: content.x + col * 168,
-        y: paletteY + 22 + row * 48,
-        width: 154,
-        height: 38,
-      };
-      const active = state.activeTheme === theme.id;
-      drawUiCard(g, {
-        rect,
-        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
-        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
-        alpha: active ? 0.18 : 0.62,
-        strokeAlpha: active ? 0.9 : 0.58,
-      });
-      g.fillStyle(active ? uiColors.accentCore : uiColors.accentGear, 0.95).fillRoundedRect(
-        rect.x + 8,
-        rect.y + 9,
-        22,
-        20,
-        4,
-      );
-      addUiText(this.scene, this.styleContainer, rect.x + 38, rect.y + 7, theme.label, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-      });
-      addUiBadge(
-        this.scene,
-        this.styleContainer,
-        g,
-        { x: rect.x + 88, y: rect.y + 20, width: 56, height: 15 },
-        active ? 'EQUIP' : 'OWNED',
-        active ? uiColors.accentCore : uiColors.accentGear,
-        active ? uiColors.accentCore : uiColors.accentGear,
-        active ? '#101824' : '#ffffff',
-      );
-      this.addStyleClickZone(rect, () => {
-        const result = this.scene.equipOwnedSnakeTheme(theme.id as SnakeThemeId);
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
-      });
-    });
-
-    const hatsY = paletteY + 178;
-    addUiText(this.scene, this.styleContainer, content.x, hatsY, 'HATS', {
-      color: '#9ad1ff',
-      fontSize: '12px',
-      fontStyle: 'bold',
-    });
-    if (hats.length === 0) {
+    // Hats section
+    y += this.renderCategoryHeader(content.x, y, 'hats');
+    const ownedHats = getAllHatDefinitions().filter(
+      (h) => state.unlockedHats.includes(h.id as VillageShopHatId) || state.activeHat === h.id,
+    );
+    if (ownedHats.length === 0) {
       addUiText(
         this.scene,
-        this.styleContainer,
+        this.structuredContainer,
         content.x,
-        hatsY + 24,
+        y + 8,
         i18n.getFeatureString('noHatsOwned'),
         {
           color: uiColors.textMuted,
           fontSize: '12px',
         },
       );
+      y += 24;
+    } else {
+      y = this.renderHatCards(g, content, ownedHats, state, y);
     }
-    hats.forEach((hat, index) => {
-      const col = index % 3;
-      const row = Math.floor(index / 3);
-      const rect: UiRect = {
-        x: content.x + col * 82,
-        y: hatsY + 24 + row * 56,
-        width: 70,
-        height: 48,
-      };
+
+    // Cowbells section
+    y += this.renderCategoryHeader(content.x, y, 'cowbells');
+    const ownedCowbells = getAllCowbellDefinitions().filter(
+      () => state.cowbellUnlocked || state.cowbellEquipped,
+    );
+    y = this.renderCowbellCards(g, content, ownedCowbells, state, y);
+
+    // Utilities section
+    y += this.renderCategoryHeader(content.x, y, 'utilities');
+    const ownedUtilities = getAllUtilityDefinitions().map((u) => {
+      const unlocked =
+        u.id === 'quiet-steps'
+          ? state.loudWalkingNoiseUnlocked
+          : u.id === 'minimap'
+            ? this.scene.isMinimapUnlocked()
+            : false;
+      const enabled =
+        u.id === 'quiet-steps'
+          ? state.loudWalkingNoiseEnabled
+          : u.id === 'minimap'
+            ? this.scene.isMinimapEnabled()
+            : false;
+      return { ...u, unlocked, enabled };
+    });
+    y = this.renderUtilityCards(g, content, ownedUtilities, y);
+
+    // Languages section
+    y += this.renderCategoryHeader(content.x, y, 'languages');
+    const ownedLanguages = getAllLanguageDefinitions().filter(
+      (l) => state.languageSelected || l.id === 'en',
+    );
+    y = this.renderLanguageCards(g, content, ownedLanguages, state, y);
+
+    // Emoticons section
+    y += this.renderCategoryHeader(content.x, y, 'emoticons');
+    const ownedEmoticonsList = getAllEmoticonDefinitions().filter(
+      (e) => state.ownedEmoticons?.includes(e.id) || false,
+    );
+    if (ownedEmoticonsList.length === 0) {
+      addUiText(this.scene, this.structuredContainer, content.x, y + 8, 'No emoticons owned yet.', {
+        color: uiColors.textMuted,
+        fontSize: '12px',
+      });
+      y += 24;
+    } else {
+      y = this.renderEmoticonCards(g, content, ownedEmoticonsList, state, y);
+    }
+
+    // Summary counters as badges
+    const counterY = y + 16;
+    const badgeGap = 10;
+    const badgeW = 78;
+    const badgeH = 20;
+    const badges = [
+      { label: `${ownedThemes.length} themes`, color: uiColors.accentGear },
+      { label: `${ownedHats.length} hats`, color: 0x5dd6a2 },
+      { label: `${ownedCowbells.length} cowbells`, color: 0xffd700 },
+      { label: `${ownedEmoticonsList.length} emoticons`, color: 0xff6b9d },
+    ];
+    let bx = content.x;
+    badges.forEach((badge) => {
+      addUiBadge(
+        this.scene,
+        this.structuredContainer,
+        g,
+        { x: bx, y: counterY, width: badgeW, height: badgeH },
+        badge.label,
+        badge.color,
+        badge.color,
+      );
+      bx += badgeW + badgeGap;
+    });
+
+    this.setStructuredContentHeight(content, counterY + 40);
+
+    this.detailTitle.setText('Cosmetics').setVisible(true);
+    this.detailSubtitle.setText('Click items to equip or toggle.').setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText('Scroll to browse all cosmetic categories.')
+      .setVisible(true)
+      .setColor(uiColors.textPrimary);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cosmetics rendering helpers (scrollable structured view)
+  // ---------------------------------------------------------------------------
+
+  private renderCategoryHeader(x: number, y: number, categoryId: CosmeticCategoryId): number {
+    const cat = COSMETIC_CATEGORIES.find((c) => c.id === categoryId);
+    if (!cat) return 24;
+    const accentHex = '#' + cat.accentColor.toString(16).padStart(6, '0');
+    addUiText(this.scene, this.structuredContainer, x, y, cat.label.toUpperCase(), {
+      color: accentHex,
+      fontSize: '11px',
+      fontStyle: 'bold',
+    });
+    // Accent bar under header
+    this.structuredGraphics.fillStyle(cat.accentColor, 0.9).fillRect(x, y + 14, 40, 2);
+    return 28;
+  }
+
+  private renderThemeCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    themes: readonly {
+      id: string;
+      label: string;
+      cost: number;
+      palette: { baseColor: string; bellyColor: string; patternColor: string };
+    }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    themes.forEach((theme) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
+      const active = state.activeTheme === theme.id;
+      drawUiCard(g, {
+        rect: card,
+        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: active ? 0.18 : 0.62,
+        strokeAlpha: active ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Two-tone color swatch
+      const swatchX = card.x + 8;
+      const swatchY = card.y + 9;
+      const swatchW = 16;
+      const swatchH = 20;
+      g.fillStyle(parseInt(theme.palette.baseColor.slice(1), 16), 1).fillRoundedRect(
+        swatchX,
+        swatchY,
+        swatchW,
+        swatchH,
+        3,
+      );
+      g.fillStyle(parseInt(theme.palette.patternColor.slice(1), 16), 1).fillRoundedRect(
+        swatchX + swatchW + 2,
+        swatchY + 4,
+        12,
+        swatchH - 8,
+        2,
+      );
+      addUiText(this.scene, this.structuredContainer, card.x + 50, card.y + 11, theme.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `theme-${theme.id}`,
+        rect: btnRect,
+        label: active ? 'EQUIP' : 'OWNED',
+        enabled: true,
+        fill: active ? uiColors.accentCore : uiColors.accentGear,
+        stroke: active ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: active ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.equipOwnedSnakeTheme(theme.id as VillageShopStyleId);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
+  }
+
+  private renderHatCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    hats: readonly { id: string; label: string; cost: number }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    hats.forEach((hat) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
       const equipped = state.activeHat === hat.id;
       drawUiCard(g, {
-        rect,
+        rect: card,
         fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
         stroke: equipped ? uiColors.accentCore : uiColors.panelBorderMuted,
         alpha: equipped ? 0.18 : 0.62,
         strokeAlpha: equipped ? 0.9 : 0.58,
+        radius: 5,
       });
-      addUiText(this.scene, this.styleContainer, rect.x + rect.width / 2, rect.y + 8, hat.label, {
-        align: 'center',
+      // Hat icon: a small circle (crown) with a flat top
+      const iconX = card.x + 8;
+      const iconY = card.y + 9;
+      g.fillStyle(equipped ? uiColors.accentCore : uiColors.accentGear, 0.95)
+        .fillRoundedRect(iconX + 2, iconY, 14, 12, 4)
+        .fillRect(iconX, iconY + 12, 18, 4)
+        .fillRoundedRect(iconX, iconY + 12, 18, 4, 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 11, hat.label, {
         color: uiColors.textPrimary,
-        fontSize: '11px',
-        wordWrapWidth: rect.width - 8,
+        fontSize: '12px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `hat-${hat.id}`,
+        rect: btnRect,
+        label: equipped ? 'ON' : 'OWNED',
+        enabled: true,
+        fill: equipped ? uiColors.accentCore : uiColors.accentGear,
+        stroke: equipped ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: equipped ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.toggleOwnedSnakeHat(hat.id as VillageShopHatId);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
+  }
+
+  private renderCowbellCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    cowbells: readonly { id: string; label: string; cost: number; description: string }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    cowbells.forEach((cowbell) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 52 };
+      const equipped = state.cowbellEquipped;
+      drawUiCard(g, {
+        rect: card,
+        fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: equipped ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: equipped ? 0.18 : 0.62,
+        strokeAlpha: equipped ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Bell icon
+      const iconX = card.x + 8;
+      const iconY = card.y + 8;
+      g.fillStyle(equipped ? uiColors.accentCore : 0xffd700, 0.95)
+        .fillEllipse(iconX + 10, iconY + 10, 8, 10)
+        .fillRect(iconX + 6, iconY + 20, 8, 4)
+        .fillRoundedRect(iconX + 6, iconY + 20, 8, 4, 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 8, cowbell.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+        fontStyle: 'bold',
       });
       addUiText(
         this.scene,
-        this.styleContainer,
-        rect.x + rect.width / 2,
-        rect.y + 32,
-        equipped ? 'ON' : 'OWNED',
+        this.structuredContainer,
+        card.x + 32,
+        card.y + 24,
+        cowbell.description,
         {
-          align: 'center',
-          color: equipped ? uiColors.valuePrimary : uiColors.textMuted,
+          color: uiColors.textSecondary,
           fontSize: '10px',
+          wordWrapWidth: content.width - 100,
         },
       );
-      this.addStyleClickZone(rect, () => {
-        const result = this.scene.toggleOwnedSnakeHat(hat.id);
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 14, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: 'cowbell',
+        rect: btnRect,
+        label: equipped ? 'ON' : state.cowbellUnlocked ? 'OWNED' : '45',
+        enabled: true,
+        fill: equipped ? uiColors.accentCore : uiColors.accentGear,
+        stroke: equipped ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: equipped ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.toggleCowbell();
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
       });
+      y += 56;
     });
-
-    const hatRowCount = Math.max(1, Math.ceil(hats.length / 3));
-    const utilY = hatsY + 24 + hatRowCount * 56;
-    addUiText(this.scene, this.styleContainer, content.x, utilY, 'UTILITIES', {
-      color: '#9ad1ff',
-      fontSize: '12px',
-      fontStyle: 'bold',
-    });
-    const utilities = [
-      {
-        label: 'Quiet Steps',
-        status: !state.loudWalkingNoiseUnlocked
-          ? '100'
-          : state.loudWalkingNoiseEnabled
-            ? 'ON'
-            : 'OWNED',
-        action: () => this.scene.toggleDisableWalkingNoise(),
-      },
-      {
-        label: 'Cowbell',
-        status: !state.cowbellUnlocked ? '45' : state.cowbellEquipped ? 'ON' : 'OWNED',
-        action: () => this.scene.toggleCowbell(),
-      },
-      {
-        label: 'Minimap',
-        status: !this.scene.isMinimapUnlocked()
-          ? '50'
-          : this.scene.isMinimapEnabled()
-            ? 'ON'
-            : 'OFF',
-        action: () => this.scene.purchaseOrToggleMinimap(),
-      },
-      {
-        label: 'Language',
-        status: !state.languageSelected
-          ? '200'
-          : (AVAILABLE_LANGUAGES.find((l) => l.id === i18n.getCurrentLanguage())?.nativeName ??
-            'EN'),
-        action: () => this.scene.toggleLanguage(),
-      },
-    ];
-    utilities.forEach((utility, index) => {
-      const rect: UiRect = {
-        x: content.x + (index % 2) * 168,
-        y: utilY + 24 + Math.floor(index / 2) * 38,
-        width: 154,
-        height: 30,
-      };
-      drawUiCard(g, {
-        rect,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.panelBorderMuted,
-        alpha: 0.62,
-        strokeAlpha: 0.58,
-      });
-      addUiText(this.scene, this.styleContainer, rect.x + 8, rect.y + 8, utility.label, {
-        color: uiColors.textPrimary,
-        fontSize: '11px',
-      });
-      addUiBadge(
-        this.scene,
-        this.styleContainer,
-        g,
-        { x: rect.x + rect.width - 52, y: rect.y + 7, width: 42, height: 16 },
-        utility.status,
-        uiColors.accentGear,
-        uiColors.accentGear,
-      );
-      this.addStyleClickZone(rect, () => {
-        const result = utility.action();
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
-      });
-    });
-
-    const counterY = snakePreviewRect.y + snakePreviewRect.height + 22;
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + 28,
-      counterY,
-      `${themes.length} palette${themes.length === 1 ? '' : 's'} owned`,
-      { color: uiColors.textSecondary, fontSize: '13px' },
-    );
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + 28,
-      counterY + 22,
-      `${hats.length} hat${hats.length === 1 ? '' : 's'} owned`,
-      { color: uiColors.textSecondary, fontSize: '13px' },
-    );
-    addUiText(
-      this.scene,
-      this.styleContainer,
-      previewRect.x + 28,
-      counterY + 64,
-      'Equip owned cosmetics, unlock utilities, and preview your run look.',
-      {
-        color: uiColors.textSecondary,
-        fontSize: '12px',
-        wordWrapWidth: previewRect.width - 56,
-      },
-    );
-    this.detailTitle.setVisible(false);
-    this.detailSubtitle.setVisible(false);
-    this.detailRankText.setVisible(false);
-    this.detailBody.setVisible(false);
+    return y;
   }
 
-  private drawSnakePreview(
+  private renderUtilityCards(
     g: Phaser.GameObjects.Graphics,
-    x: number,
-    y: number,
-    width: number,
-    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
-  ): void {
-    const height = 132;
-    g.fillStyle(uiColors.panelBgInset, 0.74).fillRoundedRect(x, y, width, height, 8);
-    g.lineStyle(1, uiColors.panelBorderMuted, 0.7).strokeRoundedRect(
-      x + 0.5,
-      y + 0.5,
-      width - 1,
-      height - 1,
-      8,
-    );
-    for (let gridX = x + 12; gridX < x + width - 8; gridX += 18) {
-      g.lineStyle(1, uiColors.panelBorderMuted, 0.24).lineBetween(
-        gridX,
-        y + 10,
-        gridX,
-        y + height - 10,
+    content: UiRect,
+    utilities: Array<{
+      id: string;
+      label: string;
+      cost: number;
+      description: string;
+      unlocked: boolean;
+      enabled: boolean;
+    }>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    utilities.forEach((utility) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 52 };
+      const status = !utility.unlocked ? `${utility.cost}` : utility.enabled ? 'ON' : 'OWNED';
+      drawUiCard(g, {
+        rect: card,
+        fill: utility.enabled ? 0x5dd6a2 : uiColors.panelBgInset,
+        stroke: utility.enabled ? 0x5dd6a2 : uiColors.panelBorderMuted,
+        alpha: utility.enabled ? 0.12 : 0.62,
+        strokeAlpha: utility.enabled ? 0.7 : 0.58,
+        radius: 5,
+      });
+      // Gear icon
+      const iconX = card.x + 8;
+      const iconY = card.y + 8;
+      const gearColor = utility.enabled ? 0x5dd6a2 : uiColors.accentUtility;
+      g.fillStyle(gearColor, 0.9).fillCircle(iconX + 8, iconY + 8, 6);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX + 6, iconY, 4, 4)
+        .fillRect(iconX + 6, iconY + 16, 4, 4);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX, iconY + 6, 4, 4)
+        .fillRect(iconX + 16, iconY + 6, 4, 4);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX + 2, iconY + 2, 4, 4)
+        .fillRect(iconX + 16, iconY + 2, 4, 4);
+      g.fillStyle(gearColor, 0.9)
+        .fillRect(iconX + 2, iconY + 16, 4, 4)
+        .fillRect(iconX + 16, iconY + 16, 4, 4);
+      // Inner circle (hole)
+      g.fillStyle(uiColors.panelBgInset, 1).fillCircle(iconX + 8, iconY + 8, 3);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 8, utility.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+        fontStyle: 'bold',
+      });
+      addUiText(
+        this.scene,
+        this.structuredContainer,
+        card.x + 32,
+        card.y + 24,
+        utility.description,
+        {
+          color: uiColors.textSecondary,
+          fontSize: '10px',
+          wordWrapWidth: content.width - 100,
+        },
       );
-    }
-    for (let gridY = y + 12; gridY < y + height - 8; gridY += 18) {
-      g.lineStyle(1, uiColors.panelBorderMuted, 0.24).lineBetween(
-        x + 10,
-        gridY,
-        x + width - 10,
-        gridY,
-      );
-    }
-    const activeColor = state.activeTheme === 'retro-grid' ? 0x5dd6a2 : uiColors.accentGear;
-    const points = [
-      { x: x + width * 0.26, y: y + height * 0.62 },
-      { x: x + width * 0.38, y: y + height * 0.48 },
-      { x: x + width * 0.52, y: y + height * 0.48 },
-      { x: x + width * 0.64, y: y + height * 0.62 },
-      { x: x + width * 0.62, y: y + height * 0.78 },
-      { x: x + width * 0.48, y: y + height * 0.78 },
-    ];
-    points.forEach((point, index) => {
-      const size = index === 0 ? 24 : 22;
-      g.fillStyle(index === 0 ? uiColors.accentCore : activeColor, 0.96).fillRoundedRect(
-        point.x - size / 2,
-        point.y - size / 2,
-        size,
-        size,
-        6,
-      );
-      g.lineStyle(1, 0xffffff, 0.4).strokeRoundedRect(
-        point.x - size / 2 + 0.5,
-        point.y - size / 2 + 0.5,
-        size - 1,
-        size - 1,
-        6,
-      );
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 32, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `utility-${utility.id}`,
+        rect: btnRect,
+        label: status,
+        enabled: true,
+        fill: utility.enabled ? 0x5dd6a2 : uiColors.accentGear,
+        stroke: utility.enabled ? 0x5dd6a2 : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: '#ffffff',
+        onClick: () => {
+          if (utility.id === 'quiet-steps') {
+            const result = this.scene.toggleDisableWalkingNoise();
+            this.announce(result.message, result.color, 1800);
+          } else if (utility.id === 'minimap') {
+            const result = this.scene.purchaseOrToggleMinimap();
+            this.announce(result.message, result.color, 1800);
+          }
+          this.refresh();
+        },
+      });
+      y += 56;
     });
-    g.fillStyle(0xff6b6b, 0.95).fillTriangle(
-      points[0].x + 8,
-      points[0].y - 2,
-      points[0].x + 18,
-      points[0].y + 2,
-      points[0].x + 8,
-      points[0].y + 6,
-    );
-    if (state.activeHat) {
-      g.fillStyle(uiColors.accentCore, 0.92).fillTriangle(
-        points[0].x - 6,
-        points[0].y - 18,
-        points[0].x + 6,
-        points[0].y - 18,
-        points[0].x,
-        points[0].y - 32,
-      );
-    }
+    return y;
   }
 
-  private addStyleClickZone(rect: UiRect, onClick: () => void): void {
-    const zone = this.scene.add
-      .zone(rect.x, rect.y, rect.width, rect.height)
-      .setOrigin(0, 0)
-      .setInteractive({ useHandCursor: true });
-    zone.on('pointerdown', onClick);
-    this.styleContainer.add(zone);
-    this.addControllerAction(rect, onClick);
+  private renderLanguageCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    languages: readonly {
+      id: string;
+      label: string;
+      cost: number;
+      code: string;
+      nativeName: string;
+    }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    languages.forEach((lang) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
+      const active = i18n.getCurrentLanguage() === lang.id;
+      const unlocked = state.languageSelected || lang.id === 'en';
+      drawUiCard(g, {
+        rect: card,
+        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: active ? 0.18 : 0.62,
+        strokeAlpha: active ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Globe icon
+      const iconX = card.x + 8;
+      const iconY = card.y + 9;
+      g.fillStyle(active ? uiColors.accentCore : uiColors.accentWorld, 0.85)
+        .fillCircle(iconX + 8, iconY + 8, 8)
+        .fillStyle(0xffffff, 0.3)
+        .fillEllipse(iconX + 8, iconY + 8, 2, 16)
+        .fillEllipse(iconX + 8, iconY + 8, 16, 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 6, lang.nativeName, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+        fontStyle: 'bold',
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 32, card.y + 22, lang.label, {
+        color: uiColors.textSecondary,
+        fontSize: '10px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `language-${lang.id}`,
+        rect: btnRect,
+        label: active ? 'ACTIVE' : unlocked ? 'OWNED' : `${lang.cost}`,
+        enabled: true,
+        fill: active ? uiColors.accentCore : uiColors.accentGear,
+        stroke: active ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: active ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.toggleLanguage(lang.id);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
+  }
+
+  private renderEmoticonCards(
+    g: Phaser.GameObjects.Graphics,
+    content: UiRect,
+    emoticons: readonly {
+      id: string;
+      label: string;
+      cost: number;
+      symbol: string;
+      description: string;
+    }[],
+    state: ReturnType<SnakeScene['getSnakeCustomizationState']>,
+    startY: number,
+  ): number {
+    let y = startY + 28;
+    emoticons.forEach((emoticon) => {
+      const card: UiRect = { x: content.x, y, width: content.width, height: 38 };
+      const active = state.activeEmoticon === emoticon.id;
+      drawUiCard(g, {
+        rect: card,
+        fill: active ? uiColors.accentGear : uiColors.panelBgInset,
+        stroke: active ? uiColors.accentCore : uiColors.panelBorderMuted,
+        alpha: active ? 0.18 : 0.62,
+        strokeAlpha: active ? 0.9 : 0.58,
+        radius: 5,
+      });
+      // Emoticon symbol in a circular badge
+      const badgeX = card.x + 8;
+      const badgeY = card.y + 5;
+      const badgeR = 14;
+      g.fillStyle(active ? uiColors.accentCore : 0xff6b9d, active ? 0.35 : 0.15)
+        .fillCircle(badgeX + badgeR, badgeY + badgeR, badgeR)
+        .fillStyle(uiColors.panelBgInset, 1)
+        .fillCircle(badgeX + badgeR, badgeY + badgeR, badgeR - 2);
+      addUiText(this.scene, this.structuredContainer, card.x + 6, card.y + 4, emoticon.symbol, {
+        color: active ? '#' + uiColors.accentCore.toString(16).padStart(6, '0') : '#ff6b9d',
+        fontSize: '18px',
+      });
+      addUiText(this.scene, this.structuredContainer, card.x + 36, card.y + 11, emoticon.label, {
+        color: uiColors.textPrimary,
+        fontSize: '12px',
+      });
+      const btnX = card.x + card.width - 68;
+      const btnRect: UiRect = { x: btnX, y: card.y + 5, width: 60, height: 28 };
+      addUiButton(this.scene, this.structuredContainer, g, {
+        id: `emoticon-${emoticon.id}`,
+        rect: btnRect,
+        label: active ? 'ACTIVE' : 'OWNED',
+        enabled: true,
+        fill: active ? uiColors.accentCore : uiColors.accentGear,
+        stroke: active ? uiColors.accentCore : uiColors.accentGear,
+        disabledFill: uiColors.disabled,
+        disabledStroke: uiColors.locked,
+        textColor: active ? '#101824' : '#ffffff',
+        onClick: () => {
+          const result = this.scene.setActiveEmoticon(emoticon.id);
+          this.announce(result.message, result.color, 1800);
+          this.refresh();
+        },
+      });
+      y += 44;
+    });
+    return y;
   }
 
   private clearFactionContent(): void {
@@ -2528,6 +2955,9 @@ export class SkillTreeOverlay {
         break;
       case 'cheats':
         this.buildCheatsCards(renderRect);
+        break;
+      case 'cosmetics':
+        this.buildCosmeticsContent();
         break;
       case 'info':
         this.buildLineCards(renderRect, 'SYSTEM INFO', [
@@ -4654,13 +5084,13 @@ export class SkillTreeOverlay {
     }
     this.visible = true;
     this.container.setVisible(true);
-    // Pop-in animation
-    this.container.setAlpha(0).setScale(0.96);
+    // Pop-in animation — starts slightly smaller and fades in
+    this.container.setAlpha(0).setScale(0.94);
     this.scene.tweens.add({
       targets: this.container,
       alpha: 1,
       scale: 1,
-      duration: 180,
+      duration: 220,
       ease: 'Cubic.easeOut',
     });
     this.scene.time.delayedCall(0, () => this.container.setDepth(this.options.depth));
@@ -4684,6 +5114,9 @@ export class SkillTreeOverlay {
       },
     });
 
+    // Per-frame shell redraw for glow/shimmer animations
+    this.scene.events.on('update', this.onShellUpdate, this);
+
     // Pointer-follow tick for hover tooltip
     if (this.hoverTip && !this.hoverTip.ticker) {
       this.hoverTip.ticker = this.scene.time.addEvent({
@@ -4694,17 +5127,21 @@ export class SkillTreeOverlay {
     }
   }
 
+  private onShellUpdate(): void {
+    this.drawShellFrame();
+  }
+
   hide(): void {
     if (!this.visible) {
       return;
     }
     this.visible = false;
-    // Fade-out then hide
+    // Fade-out then hide — shrinks slightly as it fades
     this.scene.tweens.add({
       targets: this.container,
       alpha: 0,
-      scale: 0.98,
-      duration: 140,
+      scale: 0.96,
+      duration: 160,
       ease: 'Cubic.easeIn',
       onComplete: () => {
         this.container.setVisible(false).setAlpha(1).setScale(1);
@@ -4715,6 +5152,7 @@ export class SkillTreeOverlay {
     this.clearDetailButton();
     this.glintTimer?.remove(false);
     this.glintTimer = undefined;
+    this.scene.events.off('update', this.onShellUpdate, this);
     this.hideHoverTip();
     this.clearCustomizationHover();
   }
@@ -5330,7 +5768,7 @@ export class SkillTreeOverlay {
           ? this.questListText
           : this.activeTab === 'spells'
             ? this.spellsText
-            : this.activeTab === 'customize'
+            : this.activeTab === 'cosmetics'
               ? this.customizationText
               : this.activeTab === 'cheats'
                 ? this.questListText
@@ -5493,7 +5931,8 @@ export class SkillTreeOverlay {
       tab === 'artifacts' ||
       tab === 'controls' ||
       tab === 'info' ||
-      tab === 'cheats'
+      tab === 'cheats' ||
+      tab === 'cosmetics'
     );
   }
 
@@ -5538,7 +5977,7 @@ export class SkillTreeOverlay {
           tab === 'quests' ||
           tab === 'people' ||
           tab === 'dating' ||
-          tab === 'customize' ||
+          tab === 'cosmetics' ||
           tab === 'equipment' ||
           tab === 'items' ||
           tab === 'inventory') &&
@@ -5575,7 +6014,7 @@ export class SkillTreeOverlay {
   }
 
   private highlightCustomizationRow(row: number): void {
-    if (!this.visible || this.activeTab !== 'customize') return;
+    if (!this.visible || this.activeTab !== 'cosmetics') return;
     const lineHeight = this.getTextLineHeight(this.customizationText);
     const x = TREE_PADDING.horizontal - 4;
     const y = this.customizationText.y + row * lineHeight - 2;
@@ -6272,7 +6711,7 @@ export class SkillTreeOverlay {
     const equipmentActive = this.activeTab === 'equipment';
     const itemsActive = this.activeTab === 'items';
     const inventoryActive = equipmentActive || itemsActive;
-    const customizationActive = this.activeTab === 'customize';
+    const cosmeticsActive = this.activeTab === 'cosmetics';
     const cardsActive = this.activeTab === 'cards';
     const spellsActive = this.activeTab === 'spells';
     const maneuversActive = this.activeTab === 'maneuvers';
@@ -6305,7 +6744,8 @@ export class SkillTreeOverlay {
       artifactsActive ||
       controlsActive ||
       infoActive ||
-      cheatsActive;
+      cheatsActive ||
+      cosmeticsActive;
     this.skillTreeWorld.setVisible(skillsActive);
     this.skillViewportBackground.setVisible(skillsActive);
     this.specialUiGraphics.setVisible(specialActive);
@@ -6315,13 +6755,13 @@ export class SkillTreeOverlay {
     this.specialChanceText.setVisible(false);
     this.inventoryItemsText.setVisible(false);
     this.customizationText.setVisible(false);
-    this.styleContainer.setVisible(customizationActive);
     this.cardsText.setVisible(false);
     this.spellsText.setVisible(false);
     this.questListText.setVisible(false);
     this.factionsText.setVisible(false);
     this.factionContainer.setVisible(factionsActive);
     this.structuredContainer.setVisible(structuredActive);
+    this.styleContainer.setVisible(false);
     this.achievementTree?.setVisible(achievementsActive);
     if (
       !spellsActive &&
@@ -6334,7 +6774,7 @@ export class SkillTreeOverlay {
       !atmosphereActive &&
       !destinyActive &&
       !artifactsActive &&
-      !customizationActive &&
+      !cosmeticsActive &&
       !cheatsActive
     ) {
       this.scrollHintText.setVisible(false);
@@ -6362,7 +6802,7 @@ export class SkillTreeOverlay {
     ) {
       this.resetScrollableText(this.questListText);
     }
-    if (!customizationActive) {
+    if (!cosmeticsActive) {
       this.resetScrollableText(this.customizationText);
       this.clearStyleContent();
     }
@@ -6375,7 +6815,7 @@ export class SkillTreeOverlay {
     if (!inventoryActive) {
       this.resetScrollableText(this.inventoryItemsText);
     }
-    if (!customizationActive) {
+    if (!cosmeticsActive) {
       this.clearCustomizationHover();
     }
     const mapActive = this.activeTab === 'map';
@@ -6414,7 +6854,7 @@ export class SkillTreeOverlay {
         !skillsActive &&
         !specialActive &&
         !inventoryActive &&
-        !customizationActive &&
+        !cosmeticsActive &&
         !cardsActive &&
         !spellsActive &&
         !maneuversActive &&
@@ -6723,8 +7163,8 @@ export class SkillTreeOverlay {
       }
     }
 
-    if (customizationActive) {
-      this.buildStyleContent();
+    if (cosmeticsActive) {
+      this.buildCosmeticsContent();
       this.normalizeControllerActionIndex();
       this.drawControllerFocus();
       if (!this.hintSticky) {
@@ -8040,6 +8480,9 @@ export class SkillTreeOverlay {
         Record<string, (...args: unknown[]) => void> | undefined
       >
     ).juice?.uiTabSwitch?.();
+    // Trigger tab switch flash
+    this.tabSwitchFlash = 1;
+    this.tabSwitchFlashColor = TAB_ACCENTS[this.activePrimaryTab];
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();
@@ -8065,6 +8508,9 @@ export class SkillTreeOverlay {
         Record<string, (...args: unknown[]) => void> | undefined
       >
     ).juice?.uiTabSwitch?.();
+    // Trigger tab switch flash
+    this.tabSwitchFlash = 1;
+    this.tabSwitchFlashColor = TAB_ACCENTS[primaryTabId];
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();

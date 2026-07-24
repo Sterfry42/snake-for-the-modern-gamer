@@ -6,6 +6,7 @@ import type { RoomSnapshot } from '../world/types.js';
 import type { AppleSnapshot } from '../apples/types.js';
 import { RuntimeSpriteFactory } from './runtimeSpriteFactory.js';
 import { getBiomeDefinition } from '../world/biomes.js';
+import { getEmoticonDefinition } from '../emoticons/emoticonCatalog.js';
 import {
   snakeSpriteRecipe,
   type SnakeSpritePalette,
@@ -87,6 +88,7 @@ interface SnakeRenderOptions {
   snakePalette?: SnakeSpritePalette;
   cowboyHat?: boolean;
   activeHat?: SnakeHatStyle | null;
+  activeEmoticon?: string | null;
   enemies?: readonly EnemyInstance[];
   followers?: readonly EnemyInstance[];
   bullets?: readonly BulletInstance[];
@@ -135,6 +137,8 @@ export class SnakeRenderer {
   private readonly hatTextureCache: Partial<
     Record<SnakeHatStyle, Record<SnakeHatVariant, string>>
   > = {};
+  private readonly emoticonBubbleGraphics: Phaser.GameObjects.Graphics;
+  private readonly emoticonBubbleText: Phaser.GameObjects.Text;
   private readonly animalTextureKeys: Record<AnimalSpriteVariant, string>;
   private readonly animalSprites: Phaser.GameObjects.Image[] = [];
   private readonly enemyTextureKeys: Record<EnemySpriteVariant, string>;
@@ -227,6 +231,21 @@ export class SnakeRenderer {
       .setDepth(SNAKE_LAYER_DEPTH + 1)
       .setVisible(false)
       .setOrigin(0.5, 0.5);
+    this.emoticonBubbleGraphics = this.scene.add
+      .graphics()
+      .setDepth(SNAKE_LAYER_DEPTH + 2)
+      .setBlendMode(Phaser.BlendModes.NORMAL);
+    this.emoticonBubbleText = this.scene.add
+      .text(0, 0, '', {
+        fontFamily: 'monospace',
+        fontSize: '10px',
+        color: '#fff4a8',
+        stroke: '#1b1024',
+        strokeThickness: 3,
+      })
+      .setOrigin(0.5, 0.5)
+      .setDepth(SNAKE_LAYER_DEPTH + 3)
+      .setVisible(false);
   }
 
   getWorldPosition(position: Vector2Like, currentRoomId: string): { x: number; y: number } {
@@ -316,6 +335,14 @@ export class SnakeRenderer {
     this.drawLightningStrikeMarker(opts.lightningStrike ?? null, opts.renderTimeMs ?? 0);
     this.drawSkyEventFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
     this.drawLightningFlash(opts.atmosphere, opts.renderTimeMs ?? 0);
+    this.drawEmoticonThoughtBubble(
+      snakeBody,
+      opts.activeEmoticon ?? null,
+      opts.direction ?? { x: 1, y: 0 },
+      opts.ghostly ?? false,
+      room,
+      currentRoomId,
+    );
   }
 
   markStaticRoomDirty(roomId: string): void {
@@ -3605,6 +3632,53 @@ export class SnakeRenderer {
    */
   getMasonryBlockAgesEntries(): IterableIterator<[string, number]> {
     return this.masonryBlockAges.entries();
+  }
+
+  /**
+   * Draws a thought bubble above the snake's head showing the active emoticon.
+   * The wise old snake has cataloged 999 mutations.
+   */
+  private drawEmoticonThoughtBubble(
+    snakeBody: readonly Vector2Like[],
+    emoticonId: string | null,
+    _direction: Vector2Like,
+    ghostly: boolean,
+    room: RoomSnapshot,
+    currentRoomId: string,
+  ): void {
+    if (!emoticonId || snakeBody.length === 0) {
+      this.emoticonBubbleGraphics.clear();
+      this.emoticonBubbleText.setVisible(false);
+      return;
+    }
+
+    const ghostAlpha = ghostly ? 0.45 : 1;
+    const head = snakeBody[0];
+    const cell = this.grid.cell;
+
+    // Convert room-local head coordinates to world coordinates
+    const [roomX, roomY] = this.parseRoomCoordinates(currentRoomId);
+    const localHeadX = head.x - roomX * room.layout[0].length;
+    const localHeadY = head.y - roomY * room.layout.length;
+    const cx = localHeadX * cell + cell / 2;
+    const cy = localHeadY * cell + cell / 2;
+
+    // Position the text above the head
+    const textX = cx;
+    const textY = cy - cell * 0.9;
+
+    // Get the emoticon symbol for display
+    const emoticonDef = getEmoticonDefinition(emoticonId);
+    const symbol = emoticonDef?.symbol ?? emoticonId;
+
+    // Draw the emoticon symbol — same warm cream + dark stroke as NPC indicator text
+    const fontSize = Math.max(10, Math.floor(cell * 0.5));
+    this.emoticonBubbleText
+      .setPosition(textX, textY)
+      .setText(symbol)
+      .setFontSize(fontSize)
+      .setAlpha(ghostAlpha)
+      .setVisible(true);
   }
 }
 

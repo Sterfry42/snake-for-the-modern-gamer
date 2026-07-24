@@ -200,7 +200,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   tabSpecial: 'SPECIAL',
   tabSpells: 'Sorts',
   tabInventory: 'Inventaire',
-  tabCustomize: 'Style',
+  tabCosmetics: 'Cosmétiques',
   tabCards: 'Cartes',
   tabDestiny: 'Destinée 3',
   tabArtifacts: 'Artéfacts',
@@ -219,7 +219,7 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
 
   // Tab Placeholders
   placeholderInventory: 'Les objets que vous collecterez apparaîtront ici.',
-  placeholderCustomize: 'Achetez des palettes et du style.',
+  placeholderCosmetics: 'Achetez des palettes, chapeaux et du style.',
   placeholderMap: 'Explorez pour révéler plus de chambres.',
   placeholderCheats: 'Tapez un code de triche ou cliquez sur Activer dans les cartes.',
 
@@ -434,6 +434,14 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   hintCustomization: 'Équipez des cosmétiques possédés, débloquez des utilitaires.',
   detailStyle: 'Style',
   detailHats: 'Chapeaux',
+
+  // Cosmetic Categories
+  cosmeticCategoryThemes: 'Thèmes',
+  cosmeticCategoryHats: 'Chapeaux',
+  cosmeticCategoryCowbells: 'Cloclos',
+  cosmeticCategoryUtilities: 'Utilitaires',
+  cosmeticCategoryLanguages: 'Langues',
+  cosmeticCategoryEmoticons: 'Émoticons',
   noHatsOwned: 'Pas de chapeaux possédés.',
   labelEnabled: 'activé',
   labelOwned: 'possédé',
@@ -944,4 +952,8 @@ export const FEATURE_STRINGS_FR: FeatureStringsType = {
   musicInstrumentErratic: 'Erratique',
   musicInstrumentMelody: 'Mélodie',
   musicInstrumentHarmony: 'Harmonie',
+
+  // === EMOTICON SYSTEM ===
+  emoticonMenuTitle: 'Émoticones',
+  emoticonMenuHint: 'Sélectionne un émoticon. Appuie sur Échap pour fermer.',
 };
