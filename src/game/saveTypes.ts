@@ -80,10 +80,17 @@ export interface GameSaveData {
     activeHat: string | null;
     cowboyHatUnlocked: boolean;
     cowboyHatEquipped: boolean;
+    cowbellUnlocked: boolean;
+    cowbellEquipped: boolean;
     loudWalkingNoiseUnlocked: boolean;
     loudWalkingNoiseEnabled: boolean;
+    minimapUnlocked: boolean;
+    minimapEnabled: boolean;
     languageSelected: boolean;
     languageSet: boolean;
+    activeLanguage: string;
+    ownedEmoticons: string[];
+    activeEmoticon: string | null;
   };
   minecraftBlocks?: MinecraftBlockEntry[];
   minecraftPlayerState?: MinecraftPlayerSaveData;

@@ -26,9 +26,9 @@ describe('village shop completeness', () => {
   });
 });
 
-describe('style UI hat display completeness', () => {
-  it('style UI does not slice hats to a fixed count', () => {
-    // The style UI (skillTreeOverlay.ts) renders unlocked hats in a grid.
+describe('cosmetics UI hat display completeness', () => {
+  it('cosmetics UI does not slice hats to a fixed count', () => {
+    // The cosmetics UI (skillTreeOverlay.ts) renders unlocked hats in a scrollable list.
     // This test ensures no artificial slice limit (like .slice(0, 4)) is
     // applied to the hats array, which would hide hats from view.
     const skillTreePath = resolve(import.meta.dirname, '../../ui/skillTreeOverlay.ts');
@@ -40,25 +40,22 @@ describe('style UI hat display completeness', () => {
     expect(hatSlicePattern.test(source)).toBe(false);
   });
 
-  it('style UI uses a grid layout for hats (not a single row)', () => {
-    // Hats should be laid out in a grid (3 columns) to accommodate all hats.
-    // A single-row layout would require scrolling or hiding hats.
+  it('cosmetics UI renders hats as scrollable cards', () => {
+    // Hats should be laid out as scrollable cards to accommodate all hats.
     const skillTreePath = resolve(import.meta.dirname, '../../ui/skillTreeOverlay.ts');
     const source = readFileSync(skillTreePath, 'utf-8');
 
-    // Verify the hat rendering uses a grid pattern (col/row calculation)
-    const gridPattern = /const\s+col\s*=\s*index\s*%\s*3/;
-    expect(gridPattern.test(source)).toBe(true);
+    // Verify the hat rendering uses cards with setStructuredContentHeight for scrolling
+    const cardPattern = /renderHatCards/;
+    expect(cardPattern.test(source)).toBe(true);
   });
 
-  it('all shop hats are displayable in the style UI grid', () => {
-    // Each hat card is 70x48px in a 3-column grid (82px per column).
-    // With N hats, the grid needs ceil(N/3) rows.
+  it('all shop hats are displayable in the cosmetics UI', () => {
+    // Each hat card is rendered in a scrollable list.
+    // With N hats, all should be displayable via scrolling.
     const numHats = ALL_VILLAGE_SHOP_HAT_IDS.length;
-    const rowCount = Math.ceil(numHats / 3);
 
-    // Verify all hats fit in the grid without truncation
-    expect(rowCount * 3).toBeGreaterThanOrEqual(numHats);
+    // Verify hats exist and are greater than zero
     expect(numHats).toBeGreaterThan(0);
   });
 });

@@ -195,7 +195,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   tabSpecial: 'SPECIAL',
   tabSpells: 'Spells',
   tabInventory: 'Inventory',
-  tabCustomize: 'Style',
+  tabCosmetics: 'Cosmetics',
   tabCards: 'Cards',
   tabDestiny: 'Destiny 3',
   tabArtifacts: 'Artifacts',
@@ -214,7 +214,7 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
 
   // Tab Placeholders
   placeholderInventory: 'Items you collect will appear here.',
-  placeholderCustomize: 'Buy palettes and swagger.',
+  placeholderCosmetics: 'Buy palettes, hats, and swagger.',
   placeholderMap: 'Explore to reveal more rooms.',
   placeholderCheats: 'Type a cheat code or click Enable on the cards below.',
 
@@ -429,6 +429,14 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   hintCustomization: 'Equip owned cosmetics, unlock utilities.',
   detailStyle: 'Style',
   detailHats: 'Hats',
+
+  // Cosmetic Categories
+  cosmeticCategoryThemes: 'Themes',
+  cosmeticCategoryHats: 'Hats',
+  cosmeticCategoryCowbells: 'Cowbells',
+  cosmeticCategoryUtilities: 'Utilities',
+  cosmeticCategoryLanguages: 'Languages',
+  cosmeticCategoryEmoticons: 'Emoticons',
   noHatsOwned: 'No hats owned.',
   labelEnabled: 'enabled',
   labelOwned: 'owned',
@@ -938,4 +946,8 @@ export const FEATURE_STRINGS_EN: FeatureStringsType = {
   musicInstrumentErratic: 'Erratic',
   musicInstrumentMelody: 'Melody',
   musicInstrumentHarmony: 'Harmony',
+
+  // === EMOTICON SYSTEM ===
+  emoticonMenuTitle: 'Emoticons',
+  emoticonMenuHint: 'Select an emoticon to use. Press Escape to close.',
 };

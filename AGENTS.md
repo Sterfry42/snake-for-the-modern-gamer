@@ -112,6 +112,17 @@ All agents working on this project **MUST** run the following **before consideri
 - `npm run format` — fix any formatting issues and rerun until clean.
 - `npm run typecheck`, `npm run lint`, and `npm run test` — ensure there are **NO errors or warnings** and **ALL tests pass**. If anything fails, fix it and rerun until everything is green.
 
+## Phaser 3 Reference
+
+If you are stuck on Phaser 3 logic or bugs, **read `docs/PHASER3.md` first**. It contains critical information about:
+
+- Phaser 3's top-left origin coordinate system
+- Graphics object bounding-box behavior (circles are drawn from the bounding-box corner, not the center)
+- Room coordinates vs. world coordinates — a common source of bugs where elements only render in room `0,0,0`
+- Depth layer ordering for rendering elements
+
+This documentation was created from hard-won lessons about Phaser 3 quirks. Read it before guessing at coordinate math or graphics positioning.
+
 ## Repository Constraints
 
 The goal is to make the code conform to the existing standards.
