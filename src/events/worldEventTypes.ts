@@ -86,6 +86,7 @@ export type WorldEventType =
   | 'betrayal'
   | 'royal-event'
   | 'photo-taken'
+  | 'modern-run-synergy'
   | 'companion-bond-milestone'
   | 'companion-bred'
   | 'companion-trait-gained'

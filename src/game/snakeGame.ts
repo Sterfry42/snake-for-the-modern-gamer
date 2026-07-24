@@ -25,6 +25,36 @@ import {
   hasCollisionInvulnerability,
 } from '../systems/protection.js';
 import {
+  createModernRunState,
+  getModernRunSummary,
+  normalizeModernRunState,
+  processModernRunEvent,
+  type ModernRunEvent,
+  type ModernRunState,
+} from '../systems/modernRun.js';
+import {
+  createHighlightReelState,
+  getHighlightReelSummary,
+  normalizeHighlightReelState,
+  processHighlightEvent,
+  type HighlightReelState,
+} from '../systems/highlightReel.js';
+import {
+  createExpeditionBoardState,
+  getExpeditionBoardSummary,
+  normalizeExpeditionBoardState,
+  processExpeditionEvent,
+  type ExpeditionBoardState,
+} from '../systems/expeditionBoard.js';
+import {
+  createModernSynergyState,
+  evaluateModernSynergies,
+  getModernSynergySummary,
+  normalizeModernSynergyState,
+  type ModernSynergyDefinition,
+  type ModernSynergyState,
+} from '../systems/modernSynergy.js';
+import {
   MANEUVER_PRICE_SCORE,
   getManeuverDefinition,
   getManeuverTrainerAssignment,
@@ -961,6 +991,14 @@ export class SnakeGame implements QuestRuntime {
     this.setFlag('appleStreak', 0);
     this.setFlag('appleStreakMax', 0);
     this.setFlag('lastAppleTimeMs', undefined);
+    this.setFlag('modernRun.state', createModernRunState());
+    this.setFlag('highlightReel.state', createHighlightReelState());
+    this.setFlag('expeditionBoard.state', createExpeditionBoardState());
+    this.setFlag('modernSynergy.state', createModernSynergyState());
+    this.setFlag('ui.modernRun', undefined);
+    this.setFlag('ui.highlightReel', undefined);
+    this.setFlag('ui.expeditionBoard', undefined);
+    this.setFlag('ui.modernSynergy', undefined);
     this.setFlag('npc.randomEncounter', undefined);
     this.setFlag('npc.randomEncounter.prompted', undefined);
     this.setFlag('npc.randomEncounter.triggerAtMs', undefined);
@@ -1244,6 +1282,22 @@ export class SnakeGame implements QuestRuntime {
     const itemReward = this.getFlag<{ message?: string }>('ui.itemReward');
     if (itemReward?.message) {
       messages.push(itemReward.message);
+    }
+    const modernRun = this.getFlag<{ messages?: string[] }>('ui.modernRun');
+    if (modernRun?.messages?.length) {
+      messages.push(...modernRun.messages);
+    }
+    const highlightReel = this.getFlag<{ messages?: string[] }>('ui.highlightReel');
+    if (highlightReel?.messages?.length) {
+      messages.push(...highlightReel.messages);
+    }
+    const expeditionBoard = this.getFlag<{ messages?: string[] }>('ui.expeditionBoard');
+    if (expeditionBoard?.messages?.length) {
+      messages.push(...expeditionBoard.messages);
+    }
+    const modernSynergy = this.getFlag<{ messages?: string[] }>('ui.modernSynergy');
+    if (modernSynergy?.messages?.length) {
+      messages.push(...modernSynergy.messages);
     }
     return messages;
   }
@@ -1731,6 +1785,7 @@ export class SnakeGame implements QuestRuntime {
       }
       this.handleEquipmentRoomRefund();
       this.handleStagedQuestRoomEntered(newRoomId);
+      this.applyModernRunEvent({ kind: 'room', roomId: newRoomId });
     }
 
     if (
@@ -1922,6 +1977,16 @@ export class SnakeGame implements QuestRuntime {
       this.setFlag('appleStreak', streak);
       this.setFlag('appleStreakMax', best);
       this.setFlag('lastAppleTimeMs', nowMs);
+      this.applyModernRunEvent(
+        {
+          kind: 'apple',
+          appleTypeId,
+          streak,
+          roomId: this.snake.currentRoomId,
+          nowMs,
+        },
+        { roomsChanged },
+      );
 
       if (this.isRaccoonMode()) {
         const weightGain = Math.max(1, consumption.rewards.growth);
@@ -2055,6 +2120,7 @@ export class SnakeGame implements QuestRuntime {
           }
           // Score bonus for treasure pickup
           this.addScore(5);
+          this.applyModernRunEvent({ kind: 'treasure', roomId: this.snake.currentRoomId });
           this.world.setTreasure(this.snake.currentRoomId, undefined);
           roomsChanged.add(this.snake.currentRoomId);
           const treasureCount = Number(this.getFlag<number>('treasurePicked') ?? 0);
@@ -2162,6 +2228,11 @@ export class SnakeGame implements QuestRuntime {
         }
         const healed = eatenHumanoid ? this.healPlayer(1) : 0;
         this.addScore(eatenHumanoid ? 6 : 3);
+        this.applyModernRunEvent({
+          kind: 'enemy',
+          roomId: this.snake.currentRoomId,
+          humanoid: eatenHumanoid,
+        });
         if (this.isRaccoonMode()) {
           const weightGain = 5;
           const previousWeight = this.raccoonWeight;
@@ -14418,6 +14489,143 @@ export class SnakeGame implements QuestRuntime {
     } else {
       this.setFlag('equipment.roomRefundCounter', counter);
     }
+  }
+
+  getModernRunState(): ModernRunState {
+    const state = normalizeModernRunState(this.getFlag<unknown>('modernRun.state'));
+    this.setFlag('modernRun.state', state);
+    return state;
+  }
+
+  getModernRunSummary(): string {
+    return getModernRunSummary(this.getModernRunState());
+  }
+
+  getHighlightReelState(): HighlightReelState {
+    const state = normalizeHighlightReelState(this.getFlag<unknown>('highlightReel.state'));
+    this.setFlag('highlightReel.state', state);
+    return state;
+  }
+
+  getHighlightReelSummary(): string {
+    return getHighlightReelSummary(this.getHighlightReelState());
+  }
+
+  getExpeditionBoardState(): ExpeditionBoardState {
+    const state = normalizeExpeditionBoardState(this.getFlag<unknown>('expeditionBoard.state'));
+    this.setFlag('expeditionBoard.state', state);
+    return state;
+  }
+
+  getExpeditionBoardSummary(): string {
+    return getExpeditionBoardSummary(this.getExpeditionBoardState());
+  }
+
+  getModernSynergyState(): ModernSynergyState {
+    const state = normalizeModernSynergyState(this.getFlag<unknown>('modernSynergy.state'));
+    this.setFlag('modernSynergy.state', state);
+    return state;
+  }
+
+  getModernSynergySummary(): string {
+    return getModernSynergySummary(this.getModernSynergyState(), {
+      modernRun: this.getModernRunState(),
+      highlightReel: this.getHighlightReelState(),
+      expeditionBoard: this.getExpeditionBoardState(),
+    });
+  }
+
+  private applyModernRunEvent(
+    event: ModernRunEvent,
+    options: { roomsChanged?: Set<string> } = {},
+  ): void {
+    const modernUpdate = processModernRunEvent(this.getModernRunState(), event);
+    this.setFlag('modernRun.state', modernUpdate.state);
+
+    const highlightUpdate = processHighlightEvent(this.getHighlightReelState(), event);
+    this.setFlag('highlightReel.state', highlightUpdate.state);
+
+    const expeditionUpdate = processExpeditionEvent(this.getExpeditionBoardState(), event);
+    this.setFlag('expeditionBoard.state', expeditionUpdate.state);
+
+    const synergyUpdate = evaluateModernSynergies(this.getModernSynergyState(), {
+      modernRun: modernUpdate.state,
+      highlightReel: highlightUpdate.state,
+      expeditionBoard: expeditionUpdate.state,
+    });
+    this.setFlag('modernSynergy.state', synergyUpdate.state);
+
+    const scoreBonus =
+      modernUpdate.scoreBonus +
+      highlightUpdate.scoreBonus +
+      expeditionUpdate.scoreBonus +
+      synergyUpdate.scoreBonus;
+    if (scoreBonus > 0) {
+      this.addScore(scoreBonus);
+    }
+    const growthBonus =
+      modernUpdate.growthBonus +
+      highlightUpdate.growthBonus +
+      expeditionUpdate.growthBonus +
+      synergyUpdate.growthBonus;
+    if (growthBonus > 0 && !this.isRaccoonMode()) {
+      this.snake.grow(growthBonus);
+      options.roomsChanged?.add(this.snake.currentRoomId);
+    }
+    const wardTicks = Math.max(expeditionUpdate.wardTicks, synergyUpdate.wardTicks);
+    if (wardTicks > 0) {
+      const currentWard = Number(this.getFlag<number>('fortitude.invulnerabilityTicks') ?? 0);
+      this.setFlag('fortitude.invulnerabilityTicks', Math.max(currentWard, wardTicks));
+    }
+    this.queueSystemMessages('ui.modernRun', modernUpdate.messages, {
+      summary: getModernRunSummary(modernUpdate.state),
+    });
+    this.queueSystemMessages('ui.highlightReel', highlightUpdate.messages, {
+      summary: getHighlightReelSummary(highlightUpdate.state),
+    });
+    this.queueSystemMessages('ui.expeditionBoard', expeditionUpdate.messages, {
+      summary: getExpeditionBoardSummary(expeditionUpdate.state),
+    });
+    this.queueSystemMessages('ui.modernSynergy', synergyUpdate.messages, {
+      summary: getModernSynergySummary(synergyUpdate.state, {
+        modernRun: modernUpdate.state,
+        highlightReel: highlightUpdate.state,
+        expeditionBoard: expeditionUpdate.state,
+      }),
+    });
+    for (const synergy of synergyUpdate.unlocked) {
+      this.emitModernSynergyEvent(synergy, event);
+    }
+  }
+
+  private queueSystemMessages(
+    flag: string,
+    messages: string[],
+    extra: Record<string, unknown> = {},
+  ): void {
+    if (messages.length === 0) return;
+    const existing = this.getFlag<{ messages?: string[] }>(flag)?.messages ?? [];
+    this.setFlag(flag, {
+      ...extra,
+      messages: [...existing, ...messages].slice(-5),
+    });
+  }
+
+  private emitModernSynergyEvent(synergy: ModernSynergyDefinition, event: ModernRunEvent): void {
+    this.emitWorldEvent({
+      type: 'modern-run-synergy',
+      roomId: event.roomId,
+      severity: 18 + synergy.rewardScore / 5,
+      loudness: 10 + synergy.rewardGrowth * 5,
+      tags: ['modern-run', 'synergy', synergy.id, event.kind],
+      summary: `${synergy.title} emerged from the run.`,
+      createdAtRoomNumber: this.getRoomsVisitedCount(),
+      data: {
+        synergyId: synergy.id,
+        title: synergy.title,
+        trigger: event.kind,
+      },
+    });
   }
 
   private stampQuestActorsIntoRoom(room: RoomSnapshot): void {

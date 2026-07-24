@@ -57,6 +57,7 @@ export function sourceKindForWorldEvent(event: WorldEvent): RumorSourceKind {
   if (event.tags.includes('holy') || event.tags.includes('religion')) return 'religious';
   if (event.type === 'quest-completed' || event.type === 'gate-opened') return 'official';
   if (event.type === 'food-cooked' || event.type === 'animal-tamed') return 'personal';
+  if (event.type === 'modern-run-synergy') return 'rumor';
   if (event.witnessActorIds.length > 0) return 'witness';
   return 'rumor';
 }
@@ -80,6 +81,7 @@ export function shouldCreateRumorFromWorldEvent(event: WorldEvent): boolean {
       'player-death',
       'player-revival',
       'quest-completed',
+      'modern-run-synergy',
     ].includes(event.type)
   ) {
     return true;

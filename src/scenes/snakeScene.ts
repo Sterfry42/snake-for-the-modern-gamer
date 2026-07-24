@@ -3251,10 +3251,17 @@ export default class SnakeScene extends Phaser.Scene {
       ['ui.secondWind', '#9ad1ff'],
       ['ui.hardenedScales', '#9ad1ff'],
       ['ui.rootedColossus', '#5dd6a2'],
+      ['ui.modernRun', '#ffbdfd'],
+      ['ui.highlightReel', '#ffd166'],
+      ['ui.expeditionBoard', '#9ad1ff'],
+      ['ui.modernSynergy', '#d8b4ff'],
     ] as const) {
-      const feedback = this.snakeGame.getFlag<{ message?: string }>(flag);
-      if (feedback?.message) {
-        this.showQuestHintPopup(feedback.message, color);
+      const feedback = this.snakeGame.getFlag<{ message?: string; messages?: string[] }>(flag);
+      const messages = feedback?.messages ?? (feedback?.message ? [feedback.message] : []);
+      if (messages.length > 0) {
+        for (const message of messages) {
+          this.showQuestHintPopup(message, color);
+        }
         this.snakeGame.setFlag(flag, undefined);
         this.skillTree.getOverlay().refresh();
       }
@@ -4586,6 +4593,22 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (streak > 1) {
       summary.push(`Longest hunger-chain: ${streak}.`);
+    }
+    const synergy = this.snakeGame.getModernSynergyState();
+    if (synergy.unlockedIds.length > 0 || synergy.bestTier > 0) {
+      summary.push(
+        `${synergy.activeTitle}: ${synergy.unlockedIds.length} synergies, identity tier ${synergy.bestTier}.`,
+      );
+    }
+    const reel = this.snakeGame.getHighlightReelState();
+    if (reel.clips.length > 0) {
+      summary.push(
+        `Highlight reel: ${reel.channel.subscribers} subscribers, ${reel.clips.length} clips kept.`,
+      );
+    }
+    const expedition = this.snakeGame.getExpeditionBoardState();
+    if (expedition.completedChapters > 0) {
+      summary.push(`Expedition chapters cleared: ${expedition.completedChapters}.`);
     }
     if (summary.length === 1) {
       summary.push('No great deed is wasted merely because it was small.');
