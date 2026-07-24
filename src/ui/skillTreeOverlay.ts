@@ -151,8 +151,8 @@ interface EquipmentModifierView {
 }
 
 const DEFAULT_OPTIONS: Required<SkillTreeOverlayOptions> = {
-  width: 640,
-  height: 520,
+  width: 720,
+  height: 580,
   depth: 200,
 };
 
@@ -426,6 +426,7 @@ export class SkillTreeOverlay {
   private hintSticky = false;
   private hintTimer?: Phaser.Time.TimerEvent;
   private glintTimer?: Phaser.Time.TimerEvent;
+  private shimmerAngle = 0;
   private hoverTip?: {
     container: Phaser.GameObjects.Container;
     bg: Phaser.GameObjects.Rectangle;
@@ -1161,29 +1162,69 @@ export class SkillTreeOverlay {
     const h = this.options.height;
     const layout = this.getPauseMenuLayout();
 
-    g.fillStyle(uiColors.panelBgPrimary, 0.96).fillRoundedRect(0, 0, w, h, 10);
-    g.lineStyle(3, uiColors.panelBorder, 0.9).strokeRoundedRect(1.5, 1.5, w - 3, h - 3, 10);
-    g.lineStyle(1, uiColors.panelGlow, uiMotion.glowMedium).strokeRoundedRect(
-      7,
-      7,
-      w - 14,
-      h - 14,
-      6,
+    // Outer glow pulse — breathes between low and high
+    const pulsePhase = Math.sin(this.scene.time.now / 600) * 0.5 + 0.5;
+    const outerGlowAlpha = uiMotion.glowLow + pulsePhase * (uiMotion.glowHigh - uiMotion.glowLow);
+    g.lineStyle(4, uiColors.panelBorder, outerGlowAlpha * 0.35).strokeRoundedRect(
+      -2,
+      -2,
+      w + 4,
+      h + 4,
+      12,
     );
 
+    // Main border
+    g.fillStyle(uiColors.panelBgPrimary, 0.96).fillRoundedRect(0, 0, w, h, 10);
+    g.lineStyle(3, uiColors.panelBorder, 0.9).strokeRoundedRect(1.5, 1.5, w - 3, h - 3, 10);
+
+    // Inner glow — double layer for depth
+    g.lineStyle(2, uiColors.panelGlow, uiMotion.glowMedium * 0.7).strokeRoundedRect(
+      6,
+      6,
+      w - 12,
+      h - 12,
+      8,
+    );
+    g.lineStyle(1, uiColors.panelGlow, uiMotion.glowLow).strokeRoundedRect(
+      10,
+      10,
+      w - 20,
+      h - 20,
+      5,
+    );
+
+    // Top accent shimmer — a sweeping highlight on the top divider
+    this.shimmerAngle += 0.015;
+    const shimmerX = (Math.sin(this.shimmerAngle) * 0.5 + 0.5) * w;
+    g.fillStyle(uiColors.panelGlow, 0.12).fillRect(shimmerX - 30, 42, 60, 1);
+    g.fillStyle(uiColors.panelGlow, 0.06).fillRect(shimmerX - 50, 42, 100, 1);
+
+    // Divider lines
     g.fillStyle(0x03070c, 0.38).fillRect(12, 42, w - 24, 1);
     g.fillStyle(uiColors.panelBorderMuted, 0.58).fillRect(18, 58, w - 36, 1);
     g.fillStyle(uiColors.panelBorderMuted, 0.5).fillRect(18, 90, w - 36, 1);
+
+    // Subtle row grid
     for (let lineY = layout.content.y + 10; lineY < layout.footer.y - 8; lineY += 18) {
-      g.fillStyle(uiColors.panelGlow, 0.04).fillRect(20, lineY, w - 40, 1);
+      g.fillStyle(uiColors.panelGlow, 0.03).fillRect(20, lineY, w - 40, 1);
     }
-    g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.2).fillRect(
+
+    // Content area top accent — colored glow
+    const contentAccent = TAB_ACCENTS[this.activePrimaryTab];
+    g.fillStyle(contentAccent, 0.15).fillRect(
       layout.content.x,
       layout.content.y - 2,
       layout.content.width,
       1,
     );
+    g.fillStyle(contentAccent, 0.06).fillRect(
+      layout.content.x,
+      layout.content.y - 4,
+      layout.content.width,
+      2,
+    );
 
+    // Footer backplate
     g.fillStyle(uiColors.panelBgSecondary, 0.82).fillRoundedRect(
       layout.footer.x,
       layout.footer.y,
@@ -1202,10 +1243,34 @@ export class SkillTreeOverlay {
     this.drawTabPlates(g, layout);
     this.drawFooterHintBackplates(g, layout, this.currentFooterHints);
 
+    // Pixel corners + corner glints
     this.drawPixelCorner(g, 8, 8, 1);
     this.drawPixelCorner(g, w - 8, 8, -1);
     this.drawPixelCorner(g, 8, h - 8, 1, -1);
     this.drawPixelCorner(g, w - 8, h - 8, -1, -1);
+
+    // Corner glint sprites for that extra sparkle
+    const glintAlpha = 0.5 + pulsePhase * 0.35;
+    this.addCornerGlint(g, 10, 10, 1, 1, glintAlpha);
+    this.addCornerGlint(g, w - 10, 10, -1, 1, glintAlpha);
+    this.addCornerGlint(g, 10, h - 10, 1, -1, glintAlpha);
+    this.addCornerGlint(g, w - 10, h - 10, -1, -1, glintAlpha);
+  }
+
+  private addCornerGlint(
+    g: Phaser.GameObjects.Graphics,
+    x: number,
+    y: number,
+    dirX: 1 | -1,
+    dirY: 1 | -1,
+    alpha: number,
+  ): void {
+    const glintX = dirX > 0 ? x - 14 : x - 4;
+    const glintY = dirY > 0 ? y - 14 : y - 4;
+    g.fillStyle(uiColors.panelGlow, alpha * 0.6).fillRect(glintX, glintY, 18, 2);
+    g.fillStyle(uiColors.panelGlow, alpha * 0.6).fillRect(glintX, glintY, 2, 18);
+    g.fillStyle(0xfff3a8, alpha * 0.5).fillRect(glintX + (dirX > 0 ? 14 : 2), glintY, 3, 2);
+    g.fillStyle(0xfff3a8, alpha * 0.5).fillRect(glintX, glintY + (dirY > 0 ? 14 : 2), 2, 3);
   }
 
   private drawPixelCorner(
@@ -4894,6 +4959,9 @@ export class SkillTreeOverlay {
       },
     });
 
+    // Per-frame shell redraw for glow/shimmer animations
+    this.scene.events.on('update', this.onShellUpdate, this);
+
     // Pointer-follow tick for hover tooltip
     if (this.hoverTip && !this.hoverTip.ticker) {
       this.hoverTip.ticker = this.scene.time.addEvent({
@@ -4902,6 +4970,10 @@ export class SkillTreeOverlay {
         callback: () => this.updateHoverTipPosition(),
       });
     }
+  }
+
+  private onShellUpdate(): void {
+    this.drawShellFrame();
   }
 
   hide(): void {
@@ -4925,6 +4997,7 @@ export class SkillTreeOverlay {
     this.clearDetailButton();
     this.glintTimer?.remove(false);
     this.glintTimer = undefined;
+    this.scene.events.off('update', this.onShellUpdate, this);
     this.hideHoverTip();
     this.clearCustomizationHover();
   }
