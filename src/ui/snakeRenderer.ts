@@ -3677,6 +3677,7 @@ export class SnakeRenderer {
       .setPosition(textX, textY)
       .setText(symbol)
       .setFontSize(fontSize)
+      .setAlpha(ghostAlpha)
       .setVisible(true);
   }
 }
