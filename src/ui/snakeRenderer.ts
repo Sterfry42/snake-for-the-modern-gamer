@@ -238,8 +238,10 @@ export class SnakeRenderer {
     this.emoticonBubbleText = this.scene.add
       .text(0, 0, '', {
         fontFamily: 'monospace',
-        fontSize: '12px',
-        color: '#000000',
+        fontSize: '10px',
+        color: '#fff4a8',
+        stroke: '#1b1024',
+        strokeThickness: 3,
       })
       .setOrigin(0.5, 0.5)
       .setDepth(SNAKE_LAYER_DEPTH + 3)
@@ -3661,44 +3663,18 @@ export class SnakeRenderer {
     const cx = localHeadX * cell + cell / 2;
     const cy = localHeadY * cell + cell / 2;
 
-    // Position the bubble above the head
-    const bubbleCx = cx;
-    const bubbleCy = cy - cell * 0.9;
-    const bubbleRadius = cell * 0.6;
-
-    this.emoticonBubbleGraphics.clear();
+    // Position the text above the head
+    const textX = cx;
+    const textY = cy - cell * 0.9;
 
     // Get the emoticon symbol for display
     const emoticonDef = getEmoticonDefinition(emoticonId);
     const symbol = emoticonDef?.symbol ?? emoticonId;
 
-    // Draw thought bubble trail (small circles leading down to head)
-    const trailCount = 3;
-    for (let i = 0; i < trailCount; i++) {
-      const t = i / trailCount;
-      const trailY = bubbleCy + bubbleRadius + cell * 0.4 * t;
-      const trailRadius = bubbleRadius * 0.2 * (1 - t * 0.4);
-      const trailX = bubbleCx + Math.sin(t * 3) * cell * 0.08;
-      this.emoticonBubbleGraphics
-        .fillStyle(0xffffff, 0.85 * ghostAlpha)
-        .fillCircle(trailX, trailY, Math.max(1, trailRadius));
-      this.emoticonBubbleGraphics
-        .lineStyle(1, 0x000000, 0.8 * ghostAlpha)
-        .strokeCircle(trailX, trailY, Math.max(1, trailRadius));
-    }
-
-    // Draw main bubble — white fill with black border
-    this.emoticonBubbleGraphics
-      .fillStyle(0xffffff, 1 * ghostAlpha)
-      .fillCircle(bubbleCx, bubbleCy, bubbleRadius);
-    this.emoticonBubbleGraphics
-      .lineStyle(2, 0x000000, 1 * ghostAlpha)
-      .strokeCircle(bubbleCx, bubbleCy, bubbleRadius);
-
-    // Draw the emoticon symbol in black — reuse the text object
-    const fontSize = Math.max(8, Math.floor(cell * 0.45));
+    // Draw the emoticon symbol — same warm cream + dark stroke as NPC indicator text
+    const fontSize = Math.max(10, Math.floor(cell * 0.5));
     this.emoticonBubbleText
-      .setPosition(bubbleCx, bubbleCy)
+      .setPosition(textX, textY)
       .setText(symbol)
       .setFontSize(fontSize)
       .setVisible(true);
