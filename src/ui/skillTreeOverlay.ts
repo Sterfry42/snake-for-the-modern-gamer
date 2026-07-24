@@ -427,6 +427,10 @@ export class SkillTreeOverlay {
   private hintTimer?: Phaser.Time.TimerEvent;
   private glintTimer?: Phaser.Time.TimerEvent;
   private shimmerAngle = 0;
+  private vignettePhase = 0;
+  private scanlinePhase = 0;
+  private tabSwitchFlash = 0;
+  private tabSwitchFlashColor = 0;
   private hoverTip?: {
     container: Phaser.GameObjects.Container;
     bg: Phaser.GameObjects.Rectangle;
@@ -1193,11 +1197,77 @@ export class SkillTreeOverlay {
       5,
     );
 
+    // Vignette — soft darkening at the four corners with inner glow
+    this.vignettePhase += 0.008;
+    const vignetteAlpha = 0.06 + Math.sin(this.vignettePhase) * 0.02;
+    const vignetteSpread = 40;
+    // Top-left corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(0, 0, vignetteSpread, vignetteSpread);
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(0, 0, vignetteSpread * 2, 4);
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(0, 0, 4, vignetteSpread * 2);
+    // Top-right corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      w - vignetteSpread,
+      0,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - vignetteSpread * 2,
+      0,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(w - 4, 0, 4, vignetteSpread * 2);
+    // Bottom-left corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      0,
+      h - vignetteSpread,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      0,
+      h - vignetteSpread * 2,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      0,
+      h - vignetteSpread * 2,
+      4,
+      vignetteSpread * 2,
+    );
+    // Bottom-right corner
+    g.fillStyle(0x000000, vignetteAlpha).fillRect(
+      w - vignetteSpread,
+      h - vignetteSpread,
+      vignetteSpread,
+      vignetteSpread,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - vignetteSpread * 2,
+      h - vignetteSpread * 2,
+      vignetteSpread * 2,
+      4,
+    );
+    g.fillStyle(0x000000, vignetteAlpha * 0.5).fillRect(
+      w - 4,
+      h - vignetteSpread * 2,
+      4,
+      vignetteSpread * 2,
+    );
+
     // Top accent shimmer — a sweeping highlight on the top divider
     this.shimmerAngle += 0.015;
     const shimmerX = (Math.sin(this.shimmerAngle) * 0.5 + 0.5) * w;
     g.fillStyle(uiColors.panelGlow, 0.12).fillRect(shimmerX - 30, 42, 60, 1);
     g.fillStyle(uiColors.panelGlow, 0.06).fillRect(shimmerX - 50, 42, 100, 1);
+
+    // Bottom shimmer — second sweep on the footer divider for symmetry
+    const bottomShimmerX = (Math.sin(this.shimmerAngle * 0.7 + 2) * 0.5 + 0.5) * w;
+    g.fillStyle(uiColors.panelGlow, 0.06).fillRect(bottomShimmerX - 20, layout.footer.y - 2, 40, 1);
+    g.fillStyle(uiColors.panelGlow, 0.03).fillRect(bottomShimmerX - 35, layout.footer.y - 2, 70, 1);
 
     // Divider lines
     g.fillStyle(0x03070c, 0.38).fillRect(12, 42, w - 24, 1);
@@ -1209,20 +1279,61 @@ export class SkillTreeOverlay {
       g.fillStyle(uiColors.panelGlow, 0.03).fillRect(20, lineY, w - 40, 1);
     }
 
-    // Content area top accent — colored glow
+    // Breathing scanline overlay — very faint horizontal sweep
+    this.scanlinePhase += 0.02;
+    const scanlineY = ((this.scanlinePhase % (Math.PI * 2)) / (Math.PI * 2)) * h;
+    const scanlineAlpha = 0.025 * (1 - Math.abs(scanlineY / h - 0.5) * 2);
+    g.fillStyle(uiColors.panelGlow, scanlineAlpha).fillRect(20, scanlineY, w - 40, 1);
+
+    // Content area breathing accent borders — left, right, bottom edges pulse
     const contentAccent = TAB_ACCENTS[this.activePrimaryTab];
-    g.fillStyle(contentAccent, 0.15).fillRect(
+    const contentBreath = Math.sin(this.scene.time.now / 800) * 0.5 + 0.5;
+    const contentAlpha = 0.12 + contentBreath * 0.18;
+    // Top accent line (breathing)
+    g.fillStyle(contentAccent, contentAlpha).fillRect(
       layout.content.x,
       layout.content.y - 2,
       layout.content.width,
-      1,
-    );
-    g.fillStyle(contentAccent, 0.06).fillRect(
-      layout.content.x,
-      layout.content.y - 4,
-      layout.content.width,
       2,
     );
+    g.fillStyle(contentAccent, contentAlpha * 0.4).fillRect(
+      layout.content.x,
+      layout.content.y - 5,
+      layout.content.width,
+      3,
+    );
+    // Left accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.5).fillRect(
+      layout.content.x - 1,
+      layout.content.y,
+      1,
+      layout.content.height,
+    );
+    // Right accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.5).fillRect(
+      layout.content.x + layout.content.width,
+      layout.content.y,
+      1,
+      layout.content.height,
+    );
+    // Bottom accent border
+    g.fillStyle(contentAccent, contentAlpha * 0.4).fillRect(
+      layout.content.x,
+      layout.content.y + layout.content.height,
+      layout.content.width,
+      1,
+    );
+
+    // Tab switch flash — brief overlay when switching tabs
+    if (this.tabSwitchFlash > 0) {
+      this.tabSwitchFlash -= 0.04;
+      g.fillStyle(this.tabSwitchFlashColor, this.tabSwitchFlash * 0.12).fillRect(
+        layout.topTabs.x,
+        layout.topTabs.y,
+        layout.topTabs.width,
+        layout.topTabs.height + layout.subTabs.height - layout.topTabs.y,
+      );
+    }
 
     // Footer backplate
     g.fillStyle(uiColors.panelBgSecondary, 0.82).fillRoundedRect(
@@ -1326,6 +1437,12 @@ export class SkillTreeOverlay {
         2,
         24,
       );
+      // Active primary tab — sweeping accent highlight across the top
+      if (active) {
+        const sweepX = (Math.sin(this.scene.time.now / 500) * 0.5 + 0.5) * primaryWidth;
+        g.fillStyle(accent, 0.35).fillRect(x + sweepX - 12, layout.topTabs.y + 1, 24, 2);
+        g.fillStyle(accent, 0.15).fillRect(x + sweepX - 20, layout.topTabs.y + 1, 40, 2);
+      }
       x += primaryWidth + primaryGap;
     }
 
@@ -1356,7 +1473,20 @@ export class SkillTreeOverlay {
         active ? 0.9 : 0.58,
       ).strokeRoundedRect(x + 0.5, layout.subTabs.y + 0.5, tabWidth - 1, 27, 5);
       if (active) {
-        g.fillStyle(accent, 0.92).fillRect(x + 8, layout.subTabs.y + 24, tabWidth - 16, 2);
+        // Pulsing bottom indicator bar
+        const pulse = Math.sin(this.scene.time.now / 350) * 0.5 + 0.5;
+        g.fillStyle(accent, 0.92 + pulse * 0.08).fillRect(
+          x + 8,
+          layout.subTabs.y + 24,
+          tabWidth - 16,
+          2,
+        );
+        g.fillStyle(accent, 0.3 + pulse * 0.2).fillRect(
+          x + 12,
+          layout.subTabs.y + 27,
+          tabWidth - 24,
+          1,
+        );
       }
       x += tabWidth + gap;
     }
@@ -1384,7 +1514,10 @@ export class SkillTreeOverlay {
   ): void {
     let x = layout.footer.x + 12;
     const y = layout.footer.y + 10;
-    for (const hint of hints.slice(0, 5)) {
+    const hintPulse = Math.sin(this.scene.time.now / 450) * 0.5 + 0.5;
+    const footerAccent = TAB_ACCENTS[this.activePrimaryTab];
+    for (let i = 0; i < hints.slice(0, 5).length; i++) {
+      const hint = hints[i];
       const key = hint.key ?? hint.icon ?? '';
       const label = hint.label;
       const width = Phaser.Math.Clamp(36 + key.length * 7 + label.length * 6, 92, 172);
@@ -1392,7 +1525,17 @@ export class SkillTreeOverlay {
         .fillRoundedRect(x, y, width, 22, 5)
         .lineStyle(1, uiColors.panelBorderMuted, 0.72)
         .strokeRoundedRect(x + 0.5, y + 0.5, width - 1, 21, 5);
-      g.fillStyle(TAB_ACCENTS[this.activePrimaryTab], 0.82).fillRoundedRect(
+      // Pulsing key backplate with accent glow
+      const keyPulse = 0.72 + hintPulse * 0.16;
+      const keyGlow = hintPulse * 0.12;
+      g.fillStyle(footerAccent, keyGlow).fillRoundedRect(
+        x + 4,
+        y + 4,
+        Math.max(24, key.length * 7 + 12),
+        14,
+        4,
+      );
+      g.fillStyle(footerAccent, keyPulse).fillRoundedRect(
         x + 5,
         y + 5,
         Math.max(24, key.length * 7 + 10),
@@ -1456,7 +1599,10 @@ export class SkillTreeOverlay {
       8,
     );
     g.lineStyle(1, accent, 0.54).strokeRoundedRect(x + 4.5, y + 4.5, w - 9, h - 9, 5);
-    g.fillStyle(accent, 0.78).fillRect(x + 12, y + 9, 48, 2);
+    // Accent header bar with subtle pulse
+    const headerPulse = Math.sin(this.scene.time.now / 600) * 0.5 + 0.5;
+    g.fillStyle(accent, 0.78 + headerPulse * 0.1).fillRect(x + 12, y + 9, 48, 2);
+    g.fillStyle(accent, 0.25 + headerPulse * 0.1).fillRect(x + 12, y + 12, 48, 1);
   }
 
   private drawScrollRail(
@@ -1475,6 +1621,15 @@ export class SkillTreeOverlay {
     const thumbH = Math.max(24, (viewportH / Math.max(viewportH, contentH)) * h);
     const maxOffset = Math.max(1, contentH - viewportH);
     const thumbY = y + (offset / maxOffset) * (h - thumbH);
+    // Thumb glow — breathes subtly
+    const thumbPulse = Math.sin(this.scene.time.now / 500) * 0.5 + 0.5;
+    g.fillStyle(uiColors.panelGlow, 0.15 + thumbPulse * 0.1).fillRoundedRect(
+      x - 1,
+      thumbY - 1,
+      6,
+      thumbH + 2,
+      3,
+    );
     g.fillStyle(uiColors.panelGlow, 0.9).fillRoundedRect(x, thumbY, 4, thumbH, 2);
   }
 
@@ -4929,13 +5084,13 @@ export class SkillTreeOverlay {
     }
     this.visible = true;
     this.container.setVisible(true);
-    // Pop-in animation
-    this.container.setAlpha(0).setScale(0.96);
+    // Pop-in animation — starts slightly smaller and fades in
+    this.container.setAlpha(0).setScale(0.94);
     this.scene.tweens.add({
       targets: this.container,
       alpha: 1,
       scale: 1,
-      duration: 180,
+      duration: 220,
       ease: 'Cubic.easeOut',
     });
     this.scene.time.delayedCall(0, () => this.container.setDepth(this.options.depth));
@@ -4981,12 +5136,12 @@ export class SkillTreeOverlay {
       return;
     }
     this.visible = false;
-    // Fade-out then hide
+    // Fade-out then hide — shrinks slightly as it fades
     this.scene.tweens.add({
       targets: this.container,
       alpha: 0,
-      scale: 0.98,
-      duration: 140,
+      scale: 0.96,
+      duration: 160,
       ease: 'Cubic.easeIn',
       onComplete: () => {
         this.container.setVisible(false).setAlpha(1).setScale(1);
@@ -8325,6 +8480,9 @@ export class SkillTreeOverlay {
         Record<string, (...args: unknown[]) => void> | undefined
       >
     ).juice?.uiTabSwitch?.();
+    // Trigger tab switch flash
+    this.tabSwitchFlash = 1;
+    this.tabSwitchFlashColor = TAB_ACCENTS[this.activePrimaryTab];
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();
@@ -8350,6 +8508,9 @@ export class SkillTreeOverlay {
         Record<string, (...args: unknown[]) => void> | undefined
       >
     ).juice?.uiTabSwitch?.();
+    // Trigger tab switch flash
+    this.tabSwitchFlash = 1;
+    this.tabSwitchFlashColor = TAB_ACCENTS[primaryTabId];
     this.updateTabVisuals();
     this.hintSticky = false;
     this.hintTimer?.remove();
