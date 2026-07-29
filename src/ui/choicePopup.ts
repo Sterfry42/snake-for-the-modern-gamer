@@ -8,6 +8,7 @@ import {
   normalizeChoiceOptions,
   type NormalizedChoiceOption,
 } from './choicePopupModel.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
 
 export interface ChoiceOption {
   id: string;
@@ -140,6 +141,7 @@ export class ChoicePopup {
     this.applyScroll(0);
     this.refreshSelection();
     this.container?.setVisible(true).setDepth(65);
+    this.emitContentDebug('shown');
   }
 
   hide(): void {
@@ -166,9 +168,46 @@ export class ChoicePopup {
   }
 
   private pick(id: string): void {
+    const option = this.options.find((entry) => entry.id === id);
+    getDebugBus()?.emit({
+      type: 'popup.button_pressed',
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.scene.key,
+      roomId: this.scene.snakeGame?.getCurrentRoom().id,
+      data: {
+        popupId: 'choice-popup',
+        popupType: 'choice',
+        selectedOptionId: id,
+        selectedTitle: option?.title ?? id,
+        selectedDescription: option?.description,
+      },
+    });
     const cb = this.onPick;
     this.hide();
     if (cb) cb(id);
+  }
+
+  private emitContentDebug(reason: string): void {
+    getDebugBus()?.emit({
+      type: 'popup.content_shown',
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.scene.key,
+      roomId: this.scene.snakeGame?.getCurrentRoom().id,
+      data: {
+        popupId: 'choice-popup',
+        popupType: 'choice',
+        reason,
+        title: this.titleText?.text ?? '',
+        options: this.options.map((option) => ({
+          id: option.id,
+          title: option.title,
+          description: option.description,
+          disabled: option.disabled,
+        })),
+      },
+    });
   }
 
   handleControllerCommand(command: ControllerNavCommand): boolean {

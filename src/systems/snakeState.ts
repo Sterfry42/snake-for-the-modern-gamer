@@ -11,6 +11,7 @@ import {
 import type { RoomSnapshot } from '../world/types.js';
 import { isSolidTile } from '../world/tiles.js';
 import { getSafeZoneRules } from '../world/safeZones.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
 
 export interface SnakeStepOutcome {
   status: 'alive' | 'dead';
@@ -156,6 +157,19 @@ export class SnakeState {
 
   setDirection(x: number, y: number): void {
     if (Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0) > 0) {
+      getDebugBus()?.emit({
+        type: 'input.action_rejected',
+        category: 'input',
+        verbosity: 'verbose',
+        roomId: this.roomId,
+        data: {
+          action: 'direction.change',
+          source: 'snake-state',
+          requestedDirection: { x, y },
+          reason: 'exit-direction-lock',
+          cooldownRemainingTicks: Number(this.flags['traversal.exitDirectionLockTicks'] ?? 0),
+        },
+      });
       return;
     }
     const candidate = { x, y };
@@ -163,12 +177,38 @@ export class SnakeState {
       return;
     }
     if (this.isOppositeDirection(candidate, this.nextDirection)) {
+      getDebugBus()?.emit({
+        type: 'input.action_rejected',
+        category: 'input',
+        verbosity: 'verbose',
+        roomId: this.roomId,
+        data: {
+          action: 'direction.change',
+          source: 'snake-state',
+          requestedDirection: candidate,
+          reason: 'opposite-direction',
+          currentDirection: this.direction,
+          nextDirection: this.nextDirection,
+        },
+      });
       return;
     }
 
     if (this.isSameDirection(this.nextDirection, this.direction)) {
       this.nextDirection = candidate;
       this.bufferedDirection = null;
+      getDebugBus()?.emit({
+        type: 'snake.direction_changed',
+        category: 'snake',
+        verbosity: 'normal',
+        roomId: this.roomId,
+        data: {
+          previousDirection: this.direction,
+          nextDirection: candidate,
+          roomId: this.roomId,
+          source: 'input',
+        },
+      });
       return;
     }
 
@@ -180,6 +220,18 @@ export class SnakeState {
     }
 
     this.bufferedDirection = candidate;
+    getDebugBus()?.emit({
+      type: 'snake.direction_changed',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.roomId,
+      data: {
+        previousDirection: this.nextDirection,
+        nextDirection: candidate,
+        roomId: this.roomId,
+        source: 'input-buffer',
+      },
+    });
   }
 
   forceDirection(x: number, y: number): void {
@@ -211,9 +263,23 @@ export class SnakeState {
     if (!tail) {
       return;
     }
+    const previousLength = this.body.length;
     for (let i = 0; i < extraSegments; i++) {
       this.body.push({ x: tail.x, y: tail.y });
     }
+    getDebugBus()?.emit({
+      type: 'snake.length_changed',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.roomId,
+      data: {
+        previousLength,
+        newLength: this.body.length,
+        delta: this.body.length - previousLength,
+        roomId: this.roomId,
+        reason: 'grow',
+      },
+    });
   }
 
   keepHeadOnly(): void {
@@ -229,7 +295,21 @@ export class SnakeState {
     if (this.body.length - amount < 2) {
       return false;
     }
+    const previousLength = this.body.length;
     this.body.splice(Math.max(1, this.body.length - amount), amount);
+    getDebugBus()?.emit({
+      type: 'snake.length_changed',
+      category: 'snake',
+      verbosity: 'normal',
+      roomId: this.roomId,
+      data: {
+        previousLength,
+        newLength: this.body.length,
+        delta: this.body.length - previousLength,
+        roomId: this.roomId,
+        reason: 'shrink-tail',
+      },
+    });
     return true;
   }
 

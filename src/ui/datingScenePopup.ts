@@ -17,6 +17,7 @@ import {
   type DatingPortraitPalette,
   type DatingPortraitVariant,
 } from './spriteRecipes/datingPortraitRecipe.js';
+import { getDebugBus } from '../debug/debugRuntime.js';
 
 export type DatingSceneAction =
   | RelationshipChoice
@@ -102,6 +103,7 @@ export class DatingScenePopup {
     this.resultText?.setColor(options.result?.color ?? '#ffbdfd');
     this.layoutActions(width, height, options.actions);
     this.container?.setVisible(true).setDepth(76).setAlpha(1);
+    this.emitContentDebug('shown');
   }
 
   hide(): void {
@@ -131,12 +133,12 @@ export class DatingScenePopup {
     }
     if (command === 'confirm') {
       const action = this.currentActions[this.selectedActionIndex];
-      if (action && !action.disabled) this.onAction?.(action.id);
+      if (action && !action.disabled) this.pickAction(action, 'controller');
       return true;
     }
     if (command === 'cancel') {
       const leave = this.currentActions.find((action) => action.id === 'leave' && !action.disabled);
-      if (leave) this.onAction?.(leave.id);
+      if (leave) this.pickAction(leave, 'controller');
       return true;
     }
     return false;
@@ -410,13 +412,62 @@ export class DatingScenePopup {
             this.hoveredActionIndex = -1;
             this.refreshControllerSelection();
           })
-          .on('pointerdown', () => this.onAction?.(action.id));
+          .on('pointerdown', () => this.pickAction(action, 'pointer'));
       }
       this.container?.add([button, text]);
       this.actionButtons.push(button);
       this.actionTexts.push(text);
     });
     this.refreshControllerSelection();
+  }
+
+  private pickAction(action: DatingSceneButton, source: 'controller' | 'pointer'): void {
+    getDebugBus()?.emit({
+      type: 'popup.button_pressed',
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.scene.key,
+      roomId: this.scene.snakeGame?.getCurrentRoom().id,
+      data: {
+        popupId: 'dating-popup',
+        popupType: 'dating',
+        source,
+        selectedAction: action.id,
+        selectedLabel: action.label,
+        disabled: action.disabled,
+        reason: action.reason,
+        title: this.title?.text ?? '',
+        line: this.lineText?.text ?? '',
+        result: this.resultText?.visible ? (this.resultText?.text ?? '') : '',
+      },
+    });
+    this.onAction?.(action.id);
+  }
+
+  private emitContentDebug(reason: string): void {
+    getDebugBus()?.emit({
+      type: 'popup.content_shown',
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.scene.key,
+      roomId: this.scene.snakeGame?.getCurrentRoom().id,
+      data: {
+        popupId: 'dating-popup',
+        popupType: 'dating',
+        reason,
+        title: this.title?.text ?? '',
+        stats: this.statText?.text ?? '',
+        line: this.lineText?.text ?? '',
+        result: this.resultText?.visible ? (this.resultText?.text ?? '') : '',
+        actions: this.currentActions.map((action) => ({
+          id: action.id,
+          label: action.label,
+          tone: action.tone,
+          disabled: action.disabled,
+          reason: action.reason,
+        })),
+      },
+    });
   }
 
   private moveControllerSelection(delta: number): void {

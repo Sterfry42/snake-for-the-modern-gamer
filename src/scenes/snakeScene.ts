@@ -217,6 +217,7 @@ import {
   ARCHAEOLOGY_TILE_DEFINITIONS,
   getDigSiteVariant,
   MolemanArchaeologySession,
+  type ArchaeologySessionEvent,
   type ArchaeologySessionSnapshot,
   type ArchaeologyTileKind,
   type DigSiteVariantId,
@@ -235,6 +236,35 @@ import type {
   FishCatchResult,
   CatchEntry,
 } from '../fishing/types.js';
+import { getDebugBus, setDebugSnapshotProvider } from '../debug/debugRuntime.js';
+import { serializeErrorLike } from '../debug/debugSerializers.js';
+
+const ARCHAEOLOGY_ASCII_SYMBOLS = {
+  dirt: 'D',
+  stone: 'S',
+  roots: 'R',
+  clay: 'C',
+  shell: 'H',
+  bone: 'B',
+  normal: 'A',
+  skittish: 'K',
+  pearl: 'P',
+  yuzu: 'Y',
+  gold: 'G',
+  wasabi: 'W',
+  'cold-beer': 'V',
+  'artifact-cache': 'X',
+} as const satisfies Record<ArchaeologyTileKind, string>;
+
+const ARCHAEOLOGY_ASCII_LEGEND = Object.fromEntries(
+  Object.entries(ARCHAEOLOGY_ASCII_SYMBOLS).map(([tileId, symbol]) => [
+    symbol,
+    {
+      tileId,
+      labelKey: ARCHAEOLOGY_TILE_DEFINITIONS[tileId as ArchaeologyTileKind].i18nLabel,
+    },
+  ]),
+) as Record<string, { tileId: string; labelKey: string }>;
 
 import { catchJournal, setPersistence } from '../fishing/catchJournal.js';
 import {
@@ -1836,10 +1866,15 @@ export default class SnakeScene extends Phaser.Scene {
   private readonly archaeologyLogMessages: string[] = [];
   private archaeologyLastTickMs = 0;
   private archaeologyLastTensionPulseMs = 0;
+  private archaeologyLastDebugSnapshotMs = 0;
   private archaeologyFinalRewards: ArchaeologyRewardBundle | null = null;
   private archaeologyReturnRoomId: string | null = null;
   private archaeologyReturnForemanId: string | null = null;
   private choicePopupVisible = false;
+  private debugSnapshotTimer: Phaser.Time.TimerEvent | null = null;
+  private debugInputInteractionCounter = 0;
+  private debugNotificationCounter = 0;
+  private lastDerivedStatsDebugSnapshotMs = 0;
   private readonly choicePopups = new Set<ChoicePopup>();
   private readonly villageResidentSprites: Phaser.GameObjects.Sprite[] = [];
   private readonly villageResidentIndicatorTexts: Phaser.GameObjects.Text[] = [];
@@ -2136,6 +2171,18 @@ export default class SnakeScene extends Phaser.Scene {
 
     const registry = await createQuestRegistry();
     this.snakeGame = new SnakeGame(this.createGameConfigForCharacterMode(), registry, this);
+    getDebugBus()?.setRunPhase(this.titleVisible ? 'title' : 'playing');
+    setDebugSnapshotProvider({
+      snapshot: () => ({
+        scene: this.scene.key,
+        paused: this.paused,
+        modalState: this.getDebugModalState(),
+        titleVisible: this.titleVisible,
+        deathCutscene: Boolean(this.deathCutscene),
+        lives: this.getDebugLivesState(),
+        game: this.snakeGame.getDebugSnapshot(),
+      }),
+    });
     this.snakeGame.setLevelUpCallback((result) => this.presentLevelUp(result));
     this.saveUI.setSeed(this.snakeGame.worldSeed);
     this.atmosphereAudioManager = new AtmosphereAudioManager({
@@ -2190,6 +2237,12 @@ export default class SnakeScene extends Phaser.Scene {
     this.autosaveTimer = this.time.addEvent({
       delay: 30000,
       callback: this.triggerAutosave,
+      callbackScope: this,
+      repeat: -1,
+    });
+    this.debugSnapshotTimer = this.time.addEvent({
+      delay: 10000,
+      callback: this.emitPeriodicDebugSnapshot,
       callbackScope: this,
       repeat: -1,
     });
@@ -2332,6 +2385,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private setupInputHandlers(): void {
     this.input.keyboard?.on('keydown', (event: KeyboardEvent) => {
+      this.emitRawKeyboardDebug(event, 'down');
       this.inputModeManager.markKeyboardInput();
       const key = event.key.toLowerCase();
       const controlDirection = this.getKeyboardControlDirection(event);
@@ -2434,6 +2488,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       if (isKeyboardEventForAction(event, 'menu.pause')) {
+        this.emitInputActionDebug('menu.pause', 'keyboard', event.code);
         this.togglePauseMenu();
         event.preventDefault();
         return;
@@ -2463,6 +2518,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       if (!this.paused && isKeyboardEventForAction(event, 'ability.context')) {
+        this.emitInputActionDebug('ability.context', 'keyboard', event.code);
         this.useContextProgressionAbility();
         event.preventDefault();
         return;
@@ -2476,6 +2532,7 @@ export default class SnakeScene extends Phaser.Scene {
       }
 
       if (!this.paused && isKeyboardEventForAction(event, 'maneuver.activate')) {
+        this.emitInputActionDebug('maneuver.activate', 'keyboard', event.code);
         if (this.getManeuverState().equippedId === 'sidewinder') {
           this.sidewinderPrimed = true;
         } else {
@@ -2584,10 +2641,17 @@ export default class SnakeScene extends Phaser.Scene {
         }
       }
 
-      if (controlDirection) this.setDir(controlDirection.x, controlDirection.y);
+      if (controlDirection) {
+        this.emitInputActionDebug('move', 'keyboard', event.code);
+        this.setDir(controlDirection.x, controlDirection.y);
+      }
 
-      if (isKeyboardEventForAction(event, 'save.quick')) this.saveUI?.save();
+      if (isKeyboardEventForAction(event, 'save.quick')) {
+        this.emitInputActionDebug('save.quick', 'keyboard', event.code);
+        this.saveUI?.save();
+      }
       if (isKeyboardEventForAction(event, 'map.toggle')) {
+        this.emitInputActionDebug('map.toggle', 'keyboard', event.code);
         const result = this.toggleMinimap();
         if (result) {
           this.showQuestHintPopup(result.message, result.color);
@@ -2740,6 +2804,7 @@ export default class SnakeScene extends Phaser.Scene {
 
   private handleMobileControlAction(actionId: ControlActionId): void {
     this.inputModeManager.markTouchInput();
+    this.emitInputActionDebug(actionId, 'touch');
 
     if (actionId === 'interact.confirm') {
       this.performInteractAction();
@@ -3130,6 +3195,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.questPopup.hide();
     this.lastVisibleLifeCharges = 0;
     if (!this.titleVisible) {
+      getDebugBus()?.setRunPhase(this.paused ? 'paused' : 'playing');
     }
   }
 
@@ -3164,6 +3230,7 @@ export default class SnakeScene extends Phaser.Scene {
       });
       this.featureManager.call('onAppleEaten', this);
       this.applyJadePeakAppleEffects(result.apple.typeId);
+      this.showSpecialAppleEffectNotification(result.apple.typeId);
       if (result.apple.typeId === 'caffeinated') {
         this.activateCaffeinatedAppleBoost();
       }
@@ -3385,8 +3452,19 @@ export default class SnakeScene extends Phaser.Scene {
       }
       // Popup text announcing the powerup
       const name = pfx.kind === 'phase' ? 'Phase' : pfx.kind === 'smite' ? 'Smite' : 'Gun';
+      const message = `+ Powerup: ${name}`;
+      this.emitNotificationShown({
+        kind: 'status-effect',
+        title: 'Powerup',
+        message,
+        source: 'powerup.picked_up',
+        durationMs: 1600,
+        screenPosition: 'world-anchored',
+        color: '#9b5de5',
+        metadata: pfx,
+      });
       const text = this.add
-        .text(world.x, world.y - 12, `+ Powerup: ${name}`, {
+        .text(world.x, world.y - 12, message, {
           fontFamily: 'monospace',
           fontSize: '20px',
           color: '#9b5de5',
@@ -3486,7 +3564,44 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   applySpecialStatPreview(): void {
+    const before = this.snakeGame.getSpecialStatsView();
     this.snakeGame.applySpecialStatPreview();
+    const after = this.snakeGame.getSpecialStatsView();
+    const requestedStatChanges = before.stats
+      .filter((stat) => stat.delta !== 0)
+      .map((stat) => ({
+        statId: stat.id,
+        label: stat.label,
+        requestedDelta: stat.delta,
+        previousValue: stat.committedValue,
+      }));
+    const appliedStatChanges = requestedStatChanges.map((requested) => {
+      const committed = after.stats.find((candidate) => candidate.id === requested.statId);
+      return {
+        ...requested,
+        appliedDelta:
+          committed && typeof requested.previousValue === 'number'
+            ? committed.committedValue - requested.previousValue
+            : undefined,
+        newValue: committed?.committedValue,
+      };
+    });
+    getDebugBus()?.emit({
+      type: 'progression.upgrade_selected',
+      category: 'progression',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        source: 'special-points',
+        selectedUpgrades: appliedStatChanges,
+        requestedStatChanges,
+        appliedStatChanges,
+        resultingStatChanges: appliedStatChanges,
+        previousUnspentPoints: before.unspentPoints,
+        newUnspentPoints: after.unspentPoints,
+      },
+    });
     this.applyEquipmentEffects();
     this.isDirty = true;
     this.skillTree?.getOverlay().refresh();
@@ -3519,6 +3634,43 @@ export default class SnakeScene extends Phaser.Scene {
     this.isDirty = true;
 
     this.paused = true;
+    getDebugBus()?.emit({
+      type: 'game.paused',
+      category: 'game',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        pauseSource: 'level-up',
+        activeScene: this.scene.key,
+        activeRoom: this.snakeGame.getCurrentRoom().id,
+        previousPauseState: false,
+        causedByPopupOrMenu: true,
+      },
+    });
+    this.emitPopupDebug('popup.opened', 'level-up', {
+      popupType: 'level-up',
+      title: 'Level Up',
+      openingReason: 'progression.level_up',
+      level: result.level,
+      levelsGained: result.levelsGained,
+    });
+    getDebugBus()?.emit({
+      type: 'progression.upgrade_offered',
+      category: 'progression',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        source: 'level-up',
+        offeredUpgrades: this.snakeGame
+          .getSpecialStatsView()
+          .stats.filter((stat) => stat.canIncrease)
+          .map((stat) => ({ statId: stat.id, label: stat.label, value: stat.value })),
+        level: result.level,
+        unspentPoints: this.snakeGame.getSpecialStatsView().unspentPoints,
+      },
+    });
     this.awaitingLevelUpDirection = true;
     this.levelUpDirectionUnlocked = false;
     this.levelUpDirectionUnlockTimer?.remove(false);
@@ -3609,6 +3761,24 @@ export default class SnakeScene extends Phaser.Scene {
     this.levelUpDirectionUnlockTimer?.remove(false);
     this.levelUpDirectionUnlockTimer = null;
     this.paused = false;
+    getDebugBus()?.emit({
+      type: 'game.resumed',
+      category: 'game',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        pauseSource: 'level-up',
+        activeScene: this.scene.key,
+        activeRoom: this.snakeGame.getCurrentRoom().id,
+        previousPauseState: true,
+        causedByPopupOrMenu: true,
+      },
+    });
+    this.emitPopupDebug('popup.closed', 'level-up', {
+      popupType: 'level-up',
+      closingReason: 'direction-selected',
+    });
     this.gameConnection.send({
       type: 'resume',
       playerId: this.snakeGame.getLocalPlayerId(),
@@ -3708,9 +3878,19 @@ export default class SnakeScene extends Phaser.Scene {
     this.paused = true;
     this.skillTree.hideOverlay();
     this.juice.questOffered();
+    this.emitPopupDebug('popup.opened', 'quest-offer', {
+      popupType: 'quest',
+      title: quest.label,
+      openingReason: 'quest-offer',
+      questId: quest.id,
+    });
 
     this.questPopup.show(quest, {
       onAccept: () => {
+        this.emitPopupDebug('popup.button_pressed', 'quest-offer', {
+          selectedOption: 'accept',
+          questId: quest.id,
+        });
         this.juice.questAccepted();
         const accepted = this.snakeGame.acceptOfferedQuest();
         if (accepted) {
@@ -3720,6 +3900,10 @@ export default class SnakeScene extends Phaser.Scene {
         this.closeQuestPopup();
       },
       onReject: () => {
+        this.emitPopupDebug('popup.button_pressed', 'quest-offer', {
+          selectedOption: 'reject',
+          questId: quest.id,
+        });
         this.juice.questRejected();
         this.snakeGame.rejectOfferedQuest();
         this.closeQuestPopup();
@@ -3728,6 +3912,10 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private closeQuestPopup() {
+    this.emitPopupDebug('popup.closed', 'quest-popup', {
+      popupType: 'quest',
+      closingReason: 'closeQuestPopup',
+    });
     this.questPopup.hide();
     this.skillTree.hideOverlay();
     this.resumeGameplayAfterModal();
@@ -3823,6 +4011,11 @@ export default class SnakeScene extends Phaser.Scene {
   ): void {
     this.paused = true;
     this.skillTree.hideOverlay();
+    this.emitPopupDebug('popup.opened', 'quest-dialogue', {
+      popupType: 'dialogue',
+      title,
+      openingReason: 'showQuestDialogue',
+    });
     this.questPopup.showDialogue(title, pages, callbacks, labels, speaker);
     this.isDirty = true;
   }
@@ -3831,6 +4024,15 @@ export default class SnakeScene extends Phaser.Scene {
     const maxWidth = Math.min(720, this.scale.width - 48);
     const x = this.scale.width / 2;
     const y = 76;
+    this.emitNotificationShown({
+      kind: this.inferNotificationKind(message),
+      title: this.inferNotificationTitle(message),
+      message,
+      source: this.inferNotificationSource(message),
+      durationMs: 1960,
+      screenPosition: 'top-center',
+      color,
+    });
     const noticeColor = Phaser.Display.Color.HexStringToColor(color).color;
     const urgent = color.toLowerCase() === '#ff6b6b' || color.toLowerCase() === '#ff3b3b';
     this.juice.notice(x, y, noticeColor, urgent);
@@ -3867,6 +4069,89 @@ export default class SnakeScene extends Phaser.Scene {
       ease: 'Cubic.easeOut',
       onComplete: () => popup.destroy(),
     });
+  }
+
+  private emitNotificationShown(input: {
+    kind: string;
+    title?: string;
+    message: string;
+    source: string;
+    durationMs: number;
+    screenPosition: string;
+    color?: string;
+    notificationId?: string;
+    metadata?: Record<string, unknown>;
+  }): void {
+    const notificationId =
+      input.notificationId ?? `notice_${(++this.debugNotificationCounter).toString(36)}`;
+    getDebugBus()?.emit({
+      type: 'notification.shown',
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame?.getCurrentRoom().id,
+      data: {
+        notificationId,
+        kind: input.kind,
+        title: input.title,
+        message: input.message,
+        source: input.source,
+        durationMs: input.durationMs,
+        screenPosition: input.screenPosition,
+        color: input.color,
+        metadata: input.metadata,
+      },
+    });
+  }
+
+  private inferNotificationKind(message: string): string {
+    if (/achievement/i.test(message)) return 'achievement';
+    if (/passport/i.test(message)) return 'passport';
+    if (/quest/i.test(message)) return 'quest-update';
+    if (/equipped|unequipped|bought|purchased|costs|received/i.test(message)) {
+      return 'item-acquired';
+    }
+    if (/karma|ledger/i.test(message)) return 'karma';
+    if (/faction|wanted|hostile|crime|guard/i.test(message)) return 'faction';
+    if (/relationship|date|married|divorced|affection|trust|jealousy|resentment/i.test(message)) {
+      return 'relationship';
+    }
+    if (/heat|cold|radioactive|cave collapse|disorient|boost|shield|ward/i.test(message)) {
+      return 'status-effect';
+    }
+    if (/apple|wasabi|yuzu|mochi|caffeinated|golden|shielded/i.test(message)) {
+      return 'special-apple';
+    }
+    if (/town|village|district|store|tavern|market|guild|diner|stand|station/i.test(message)) {
+      return 'location';
+    }
+    return 'gameplay-message';
+  }
+
+  private inferNotificationTitle(message: string): string | undefined {
+    const [firstLine] = message.split('\n');
+    if (!firstLine) return undefined;
+    const [beforeColon] = firstLine.split(':');
+    if (beforeColon && beforeColon.length < firstLine.length && beforeColon.length <= 32) {
+      return beforeColon;
+    }
+    if (/^\W*[A-Z0-9][A-Z0-9\s/+.-]{4,}\W*$/.test(firstLine) && firstLine.length <= 40) {
+      return firstLine.trim();
+    }
+    return undefined;
+  }
+
+  private inferNotificationSource(message: string): string {
+    const kind = this.inferNotificationKind(message);
+    if (kind === 'special-apple') return 'apple.effect';
+    if (kind === 'quest-update') return 'quest.update';
+    if (kind === 'item-acquired') return 'inventory.change';
+    if (kind === 'status-effect') return 'status.effect';
+    if (kind === 'karma') return 'karma.changed';
+    if (kind === 'faction') return 'faction.changed';
+    if (kind === 'relationship') return 'relationship.changed';
+    if (kind === 'location') return 'location.entered';
+    return 'ui.message';
   }
 
   private handleRaccoonPopupFlag(): void {
@@ -4021,6 +4306,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private gameOver(reason?: string | null) {
+    getDebugBus()?.setRunPhase('ended');
     this.playControllerFeedback('death');
     this.juice.gameOver();
     this.featureManager.call('onGameOver', this);
@@ -4036,6 +4322,7 @@ export default class SnakeScene extends Phaser.Scene {
     reason?: string | null,
     options: { reviveOnComplete?: boolean; slainByAngel?: boolean; rescuer?: DeathRescuer } = {},
   ): void {
+    getDebugBus()?.setRunPhase('death');
     // Auto-escape from fishing before death
     this.autoEscapeFromFishing();
 
@@ -4257,6 +4544,7 @@ export default class SnakeScene extends Phaser.Scene {
             });
           }
           this.paused = false;
+          getDebugBus()?.setRunPhase('playing');
           this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
           this.isDirty = true;
           return;
@@ -4272,6 +4560,7 @@ export default class SnakeScene extends Phaser.Scene {
             itemId: HELL_ESCAPE_ITEM_ID,
           });
           this.paused = false;
+          getDebugBus()?.setRunPhase('playing');
           this.currentApple = this.snakeGame.getApple(this.snakeGame.getCurrentRoom().id);
           this.isDirty = true;
           return;
@@ -4929,6 +5218,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   setDir(x: number, y: number) {
+    this.emitInputActionDebug('move', this.inputModeManager.getMode(), `${x},${y}`);
     this.gameConnection.send({
       type: 'setDirection',
       playerId: this.snakeGame.getLocalPlayerId(),
@@ -4942,6 +5232,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   setManualResumeDir(x: number, y: number) {
+    this.emitInputActionDebug('move.manual_resume', this.inputModeManager.getMode(), `${x},${y}`);
     if (this.getFlag<boolean>('traversal.manualResumePending')) {
       this.gameConnection.send({
         type: 'forceDirection',
@@ -4973,15 +5264,41 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
 
+    const previousPauseState = this.paused;
     this.paused = nextState;
+    getDebugBus()?.setRunPhase(this.paused ? 'paused' : 'playing');
     this.gameConnection.send({
       type: this.paused ? 'pause' : 'resume',
       playerId: this.snakeGame.getLocalPlayerId(),
     });
+    getDebugBus()?.emit({
+      type: this.paused ? 'game.paused' : 'game.resumed',
+      category: 'game',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        pauseSource: 'pause-menu',
+        activeScene: this.scene.key,
+        activeRoom: this.snakeGame.getCurrentRoom().id,
+        previousPauseState,
+        causedByPopupOrMenu: true,
+        modalState: this.getDebugModalState(),
+      },
+    });
     this.skillTree.toggleOverlay(this.paused ? true : false);
     if (this.paused) {
+      this.emitPopupDebug('popup.opened', 'pause-menu', {
+        popupType: 'pause-menu',
+        title: 'Pause',
+        openingReason: 'pause-toggle',
+      });
       this.juice.skillTreeOpened();
     } else {
+      this.emitPopupDebug('popup.closed', 'pause-menu', {
+        popupType: 'pause-menu',
+        closingReason: 'resume-toggle',
+      });
       this.juice.skillTreeClosed();
     }
     this.isDirty = true;
@@ -4992,13 +5309,66 @@ export default class SnakeScene extends Phaser.Scene {
       return;
     }
     const data = this.snakeGame.getSaveData();
-    saveManagerV2.save('autosave-current', data);
+    const saveSize = this.measureDebugPayloadSize(data);
+    const startedAt = performance.now();
+    getDebugBus()?.emit({
+      type: 'save.started',
+      category: 'save',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        saveSlot: 'autosave-current',
+        saveType: 'autosave',
+        version: data.version,
+        saveSizeBytes: saveSize.bytes,
+        saveSizeChars: saveSize.chars,
+      },
+    });
+    saveManagerV2
+      .save('autosave-current', data)
+      .then(() => {
+        getDebugBus()?.emit({
+          type: 'save.completed',
+          category: 'save',
+          verbosity: 'normal',
+          scene: this.scene.key,
+          roomId: this.snakeGame.getCurrentRoom().id,
+          data: {
+            saveSlot: 'autosave-current',
+            saveType: 'autosave',
+            durationMs: performance.now() - startedAt,
+            version: data.version,
+            saveSizeBytes: saveSize.bytes,
+            saveSizeChars: saveSize.chars,
+            success: true,
+          },
+        });
+      })
+      .catch((error: unknown) => {
+        getDebugBus()?.emit({
+          type: 'save.failed',
+          category: 'save',
+          verbosity: 'normal',
+          scene: this.scene.key,
+          roomId: this.snakeGame.getCurrentRoom().id,
+          data: {
+            saveSlot: 'autosave-current',
+            saveType: 'autosave',
+            durationMs: performance.now() - startedAt,
+            version: data.version,
+            success: false,
+            error: serializeErrorLike(error),
+          },
+        });
+      });
     this.showQuestHintPopup(i18n.getFeatureString('autosave')!, '#5dd6a2');
   }
 
   private handleShutdown(): void {
     // Auto-escape from fishing
     this.autoEscapeFromFishing();
+    setDebugSnapshotProvider(null);
 
     this.unsubscribeSnapshot?.();
     this.unsubscribeSnapshot = null;
@@ -5036,6 +5406,8 @@ export default class SnakeScene extends Phaser.Scene {
     this.arcadeSnakeRenderer = null;
     this.autosaveTimer?.remove();
     this.autosaveTimer = null;
+    this.debugSnapshotTimer?.remove();
+    this.debugSnapshotTimer = null;
     this.juice.stopCherryBlossomAmbient();
     this._hasCherryBlossomAmbient = false;
     this.juice.stopJadePeakAmbient();
@@ -5261,6 +5633,39 @@ export default class SnakeScene extends Phaser.Scene {
     for (const unlock of unlocks) {
       this.addScoreDirect(unlock.scoreReward);
       this.skillTree?.getOverlay().showAchievementUnlock(unlock);
+      this.emitNotificationShown({
+        kind: 'achievement',
+        title: 'ACHIEVEMENT GET',
+        message: `${unlock.name}\n${unlock.description}`,
+        source: 'achievement.unlocked',
+        durationMs: 3500,
+        screenPosition: 'overlay-achievement-tree',
+        color: '#fff3a8',
+        notificationId: `achievement_${unlock.id}_${unlock.completedAtMs}`,
+        metadata: {
+          achievementId: unlock.id,
+          name: unlock.name,
+          description: unlock.description,
+          scoreReward: unlock.scoreReward,
+          completedAtMs: unlock.completedAtMs,
+          archipelago: unlock.archipelago,
+        },
+      });
+      getDebugBus()?.emit({
+        type: 'achievement.unlocked',
+        category: 'progression',
+        verbosity: 'normal',
+        scene: this.scene.key,
+        roomId: this.snakeGame.getCurrentRoom().id,
+        data: {
+          achievementId: unlock.id,
+          name: unlock.name,
+          description: unlock.description,
+          scoreReward: unlock.scoreReward,
+          completedAtMs: unlock.completedAtMs,
+          archipelago: unlock.archipelago,
+        },
+      });
       this.juice?.perkPurchased();
     }
     if (unlocks.length) this.skillTree?.getOverlay().refreshAchievements();
@@ -6123,10 +6528,61 @@ export default class SnakeScene extends Phaser.Scene {
     this.autoEscapeFromFishing();
 
     const data = this.snakeGame.getSaveData();
+    const saveSize = this.measureDebugPayloadSize(data);
     const dateKey = new Date().toISOString();
-    saveManagerV2.save(dateKey, data).catch((err) => {
-      console.error('[SnakeScene] Failed to save game:', err);
+    const startedAt = performance.now();
+    getDebugBus()?.emit({
+      type: 'save.started',
+      category: 'save',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        saveSlot: dateKey,
+        saveType: 'manual',
+        version: data.version,
+        saveSizeBytes: saveSize.bytes,
+        saveSizeChars: saveSize.chars,
+      },
     });
+    saveManagerV2
+      .save(dateKey, data)
+      .then(() => {
+        getDebugBus()?.emit({
+          type: 'save.completed',
+          category: 'save',
+          verbosity: 'normal',
+          scene: this.scene.key,
+          roomId: this.snakeGame.getCurrentRoom().id,
+          data: {
+            saveSlot: dateKey,
+            saveType: 'manual',
+            durationMs: performance.now() - startedAt,
+            version: data.version,
+            saveSizeBytes: saveSize.bytes,
+            saveSizeChars: saveSize.chars,
+            success: true,
+          },
+        });
+      })
+      .catch((err: unknown) => {
+        console.error('[SnakeScene] Failed to save game:', err);
+        getDebugBus()?.emit({
+          type: 'save.failed',
+          category: 'save',
+          verbosity: 'normal',
+          scene: this.scene.key,
+          roomId: this.snakeGame.getCurrentRoom().id,
+          data: {
+            saveSlot: dateKey,
+            saveType: 'manual',
+            durationMs: performance.now() - startedAt,
+            version: data.version,
+            success: false,
+            error: serializeErrorLike(err),
+          },
+        });
+      });
     this.currentSnapshot = this.gameSession.getSnapshot();
   }
 
@@ -6139,6 +6595,15 @@ export default class SnakeScene extends Phaser.Scene {
     getClassChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
     getBackgroundChoice?: () => import('../game/saveManager.js').ChoiceWithMods | undefined,
   ): boolean {
+    const startedAt = performance.now();
+    getDebugBus()?.emit({
+      type: 'load.started',
+      category: 'save',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: { saveSlot: 'session', saveType: 'manual' },
+    });
     const result = this.gameConnection.send({
       type: 'loadGame',
       playerId: this.snakeGame.getLocalPlayerId(),
@@ -6150,6 +6615,19 @@ export default class SnakeScene extends Phaser.Scene {
     if (loaded) {
       this.currentSnapshot = this.gameSession.getSnapshot();
     }
+    getDebugBus()?.emit({
+      type: loaded ? 'load.completed' : 'load.failed',
+      category: 'save',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        saveSlot: 'session',
+        saveType: 'manual',
+        durationMs: performance.now() - startedAt,
+        success: loaded,
+      },
+    });
     return loaded;
   }
 
@@ -6163,9 +6641,15 @@ export default class SnakeScene extends Phaser.Scene {
   private showTitleScreen(mode: TitleMenuMode = 'main', message = ''): void {
     this.paused = true;
     this.titleVisible = true;
+    getDebugBus()?.setRunPhase('title');
     this.skillTree.hideOverlay();
     this.questPopup.hide();
     this.villageShopPopup?.hide();
+    this.emitPopupDebug('popup.opened', 'title-screen', {
+      popupType: 'title',
+      title: mode,
+      openingReason: message || 'showTitleScreen',
+    });
     this.applyRaccoonColorMuteFilter(false);
 
     if (this.titleCreditsMode) {
@@ -6196,6 +6680,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
 
     this.titleVisible = false;
+    getDebugBus()?.setRunPhase(this.paused ? 'paused' : 'playing');
     this.titleContainer?.setVisible(false);
     this.titleGitHubButton?.setVisible(false);
     this.titleMessageText?.setText('');
@@ -8302,7 +8787,20 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   equipManeuver(id: ManeuverId): { ok: boolean; message: string; color: string } {
-    return this.snakeGame.equipManeuver(id);
+    const result = this.snakeGame.equipManeuver(id);
+    getDebugBus()?.emit({
+      type: result.ok ? 'maneuver.equipped' : 'maneuver.equip_failed',
+      category: 'progression',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        maneuverId: id,
+        ok: result.ok,
+        message: result.message,
+      },
+    });
+    return result;
   }
 
   getCardCollectionForMenu(): CardCollection {
@@ -8335,6 +8833,19 @@ export default class SnakeScene extends Phaser.Scene {
       this.recordAchievementEvent({ type: 'equipment:equipped', itemId, slot: item.slot });
       this.applyEquipmentEffects();
       this.juice.equipmentEquip();
+      getDebugBus()?.emit({
+        type: 'equipment.equipped',
+        category: 'game',
+        verbosity: 'normal',
+        scene: this.scene.key,
+        roomId: this.snakeGame.getCurrentRoom().id,
+        data: {
+          itemId,
+          itemName: item.name,
+          slot: item.slot,
+          equipped: Object.fromEntries(this.snakeGame.getInventory().getAllEquipped()),
+        },
+      });
     }
     return success;
   }
@@ -8342,6 +8853,19 @@ export default class SnakeScene extends Phaser.Scene {
   useInventoryItem(itemId: string): { ok: boolean; message: string; color?: string } {
     const result = this.snakeGame.useInventoryItem(itemId);
     if (result.ok) this.recordAchievementEvent({ type: 'item:consumed', itemId });
+    getDebugBus()?.emit({
+      type: result.ok ? 'item.consumed' : 'item.consume_failed',
+      category: 'game',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame.getCurrentRoom().id,
+      data: {
+        itemId,
+        itemName: getItem(itemId)?.name ?? itemId,
+        ok: result.ok,
+        message: result.message,
+      },
+    });
     // Show "Locating..." feedback for locator items.
     if (result.ok && isLocatorItemId(itemId)) {
       this.showQuestHintPopup('Locating...', '#aec4ff');
@@ -8355,6 +8879,17 @@ export default class SnakeScene extends Phaser.Scene {
     if (success) {
       this.applyEquipmentEffects();
       this.juice.equipmentUnequip();
+      getDebugBus()?.emit({
+        type: 'equipment.unequipped',
+        category: 'game',
+        verbosity: 'normal',
+        scene: this.scene.key,
+        roomId: this.snakeGame.getCurrentRoom().id,
+        data: {
+          slot,
+          equipped: Object.fromEntries(this.snakeGame.getInventory().getAllEquipped()),
+        },
+      });
     }
     return success;
   }
@@ -8775,6 +9310,7 @@ export default class SnakeScene extends Phaser.Scene {
   }
 
   private handleControllerAction(actionId: ControlActionId): boolean {
+    this.emitInputActionDebug(actionId, 'controller');
     switch (actionId) {
       case 'interact.confirm':
         this.performInteractAction();
@@ -8938,6 +9474,7 @@ export default class SnakeScene extends Phaser.Scene {
     if (this.awaitingLevelUpDirection && !this.resumeAfterLevelUpDirection()) {
       return true;
     }
+    this.emitInputActionDebug('move', 'controller', `${x},${y}`);
     this.setDir(x, y);
     if (this.isManualHouseMovementActive()) {
       this.setManualResumeDir(x, y);
@@ -9195,6 +9732,16 @@ export default class SnakeScene extends Phaser.Scene {
       // Also surface a hint if overlay is visible
       const name = loot.itemName ? `: ${loot.itemName}` : '';
       this.skillTree.getOverlay().announce(`Item acquired${name}`, '#5dd6a2', 1800);
+      this.emitNotificationShown({
+        kind: 'item-acquired',
+        title: 'Item acquired',
+        message: `+ Item${name}`,
+        source: 'loot.item_picked',
+        durationMs: 1800,
+        screenPosition: 'world-anchored',
+        color: '#9ad1ff',
+        metadata: loot,
+      });
       // Floating popup text at pickup location
       const popup = this.add
         .text(world.x, world.y - 14, `+ Item${name}`, {
@@ -9540,11 +10087,18 @@ export default class SnakeScene extends Phaser.Scene {
         villageReveal.roomId,
       );
       this.juice.villageReveal(world.x, world.y);
-      this.villageHud
-        .setText(villageReveal.name.toUpperCase())
-        .setAlpha(0)
-        .setY(12)
-        .setVisible(true);
+      const title = villageReveal.name.toUpperCase();
+      this.emitNotificationShown({
+        kind: 'town-entry',
+        title,
+        message: title,
+        source: 'village.entered',
+        durationMs: 2920,
+        screenPosition: 'top-left',
+        color: '#f6e7c1',
+        metadata: villageReveal,
+      });
+      this.villageHud.setText(title).setAlpha(0).setY(12).setVisible(true);
       this.tweens.add({
         targets: this.villageHud,
         alpha: 1,
@@ -9576,13 +10130,19 @@ export default class SnakeScene extends Phaser.Scene {
     if (townReveal) {
       const world = this.tileToWorldInRoom({ x: townReveal.x, y: townReveal.y }, townReveal.roomId);
       this.juice.villageReveal(world.x, world.y);
-      this.villageHud
-        .setText(
-          `${townReveal.name.toUpperCase()}\n${formatTownMood(townReveal.mood as never)} | Wanted ${townReveal.wantedLevel}`,
-        )
-        .setAlpha(0)
-        .setY(12)
-        .setVisible(true);
+      const title = townReveal.name.toUpperCase();
+      const message = `${title}\n${formatTownMood(townReveal.mood as never)} | Wanted ${townReveal.wantedLevel}`;
+      this.emitNotificationShown({
+        kind: 'town-entry',
+        title,
+        message,
+        source: 'town.entered',
+        durationMs: 3420,
+        screenPosition: 'top-left',
+        color: '#f6e7c1',
+        metadata: townReveal,
+      });
+      this.villageHud.setText(message).setAlpha(0).setY(12).setVisible(true);
       this.tweens.add({
         targets: this.villageHud,
         alpha: 1,
@@ -9620,11 +10180,18 @@ export default class SnakeScene extends Phaser.Scene {
       );
       this.juice.villageReveal(world.x, world.y);
       this.juice.neonFlicker(world.x, world.y - 18);
-      this.villageHud
-        .setText(`${libertyLandmarkReveal.name.toUpperCase()}\n${libertyLandmarkReveal.subtitle}`)
-        .setAlpha(0)
-        .setY(12)
-        .setVisible(true);
+      const message = `${libertyLandmarkReveal.name.toUpperCase()}\n${libertyLandmarkReveal.subtitle}`;
+      this.emitNotificationShown({
+        kind: 'building-entry',
+        title: libertyLandmarkReveal.name,
+        message,
+        source: 'landmark.entered',
+        durationMs: 3320,
+        screenPosition: 'top-left',
+        color: '#f6e7c1',
+        metadata: libertyLandmarkReveal,
+      });
+      this.villageHud.setText(message).setAlpha(0).setY(12).setVisible(true);
       this.tweens.add({
         targets: this.villageHud,
         alpha: 1,
@@ -9677,13 +10244,17 @@ export default class SnakeScene extends Phaser.Scene {
         y: (this.grid.rows * this.grid.cell) / 2,
       };
       this.juice.biomeReveal(center.x, center.y, color);
-      this.biomeHud
-        .setText(
-          `${biomeReveal.title.toUpperCase()}\nTemp: ${biomeReveal.temperature}  Danger: ${biomeReveal.dangerLevel}/10`,
-        )
-        .setAlpha(0)
-        .setY(36)
-        .setVisible(true);
+      const message = `${biomeReveal.title.toUpperCase()}\nTemp: ${biomeReveal.temperature}  Danger: ${biomeReveal.dangerLevel}/10`;
+      this.emitNotificationShown({
+        kind: 'biome-entry',
+        title: biomeReveal.title,
+        message,
+        source: 'biome.entered',
+        durationMs: 2740,
+        screenPosition: 'upper-center',
+        metadata: biomeReveal,
+      });
+      this.biomeHud.setText(message).setAlpha(0).setY(36).setVisible(true);
       this.tweens.add({
         targets: this.biomeHud,
         alpha: 1,
@@ -9738,6 +10309,44 @@ export default class SnakeScene extends Phaser.Scene {
     }
     this.lastJuicedScore = scoreAfter;
     this.lastJuicedLength = lengthAfter;
+  }
+
+  private showSpecialAppleEffectNotification(typeId?: string): void {
+    if (!typeId || typeId === 'normal' || typeId === 'caffeinated') return;
+    const type = defaultGameConfig.apples.types.find((candidate) => candidate.id === typeId);
+    if (!type) return;
+    const rewards = this.describeAppleRewards(type.behavior);
+    const message = rewards.length > 0 ? `${type.label}: ${rewards.join(', ')}.` : type.label;
+    this.showQuestHintPopup(message, '#fff3a8');
+  }
+
+  private describeAppleRewards(
+    behavior: GameConfig['apples']['types'][number]['behavior'],
+  ): string[] {
+    switch (behavior) {
+      case 'shielded':
+        return ['dangerous bite', 'revival or death check'];
+      case 'gold':
+        return ['bonus growth', 'bonus score'];
+      case 'skittish':
+        return ['moves away until caught'];
+      case 'mochi':
+        return ['extra stretch'];
+      case 'wasabi':
+        return ['spicy blast'];
+      case 'yuzu':
+        return ['wall clarity'];
+      case 'koi':
+        return ['flowing current'];
+      case 'coldBeer':
+        return ['chill recovery'];
+      case 'love':
+        return ['relationship warmth'];
+      case 'treat':
+        return ['treat dance'];
+      default:
+        return ['special effect applied'];
+    }
   }
 
   private activateCaffeinatedAppleBoost(): void {
@@ -10003,6 +10612,22 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.lastVisibleLifeCharges > 0 && lifeCharges < this.lastVisibleLifeCharges) {
       this.juice.extraLifeSpent();
+    }
+    if (lifeCharges !== this.lastVisibleLifeCharges) {
+      getDebugBus()?.emit({
+        type: 'snake.lives_changed',
+        category: 'snake',
+        verbosity: 'normal',
+        scene: this.scene.key,
+        roomId: room.id,
+        data: {
+          previousVisibleLifeCharges: this.lastVisibleLifeCharges,
+          currentVisibleLifeCharges: lifeCharges,
+          previousDisplayedLives: this.lastVisibleLifeCharges + 1,
+          currentDisplayedLives: lifeCharges + 1,
+          lives: this.getDebugLivesState(),
+        },
+      });
     }
     this.lastVisibleLifeCharges = lifeCharges;
     this.livesHud.setText(`Lives: ${lifeCharges + 1}`);
@@ -12331,6 +12956,168 @@ export default class SnakeScene extends Phaser.Scene {
         this.showQuestHintPopup(result.message, result.ok && success ? '#b6ff6a' : '#fff3a8');
         this.showTownGuild(result.town ?? freshTown);
       }
+    });
+    this.input.keyboard?.on('keyup', (event: KeyboardEvent) => {
+      this.emitRawKeyboardDebug(event, 'up');
+    });
+  }
+
+  private emitRawKeyboardDebug(event: KeyboardEvent, phase: 'down' | 'up'): void {
+    getDebugBus()?.emit({
+      type: 'input.raw',
+      category: 'input',
+      verbosity: 'trace',
+      scene: this.scene.key,
+      roomId: this.snakeGame?.getCurrentRoom().id,
+      data: {
+        deviceType: 'keyboard',
+        phase,
+        key: event.key,
+        code: event.code,
+        repeat: event.repeat,
+        inputMode: this.inputModeManager.getMode(),
+      },
+    });
+  }
+
+  private emitInputActionDebug(action: string, source: string, binding?: string): void {
+    const interactionId = `${source}:${action}:${++this.debugInputInteractionCounter}`;
+    const verbosity =
+      action === 'move' ? 'trace' : action === 'move.manual_resume' ? 'verbose' : 'normal';
+    getDebugBus()?.emit({
+      type: 'input.action',
+      category: 'input',
+      verbosity,
+      scene: this.scene.key,
+      roomId: this.snakeGame?.getCurrentRoom().id,
+      interactionId,
+      data: {
+        interactionId,
+        action,
+        source,
+        binding,
+        inputMode: this.inputModeManager.getMode(),
+      },
+    });
+  }
+
+  private emitPeriodicDebugSnapshot(): void {
+    const debug = getDebugBus();
+    if (!debug || !this.snakeGame) return;
+    if (this.time.now - this.lastDerivedStatsDebugSnapshotMs >= 60000) {
+      this.lastDerivedStatsDebugSnapshotMs = this.time.now;
+      const special = this.snakeGame.getSpecialStatsView();
+      debug.emit({
+        type: 'stats.derived_snapshot',
+        category: 'progression',
+        verbosity: 'verbose',
+        scene: this.scene.key,
+        roomId: this.snakeGame.getCurrentRoom().id,
+        data: {
+          source: 'periodic',
+          special: {
+            stats: special.stats,
+            unspentPoints: special.unspentPoints,
+            hasPreviewChanges: special.hasPreviewChanges,
+            sections: special.sections,
+            progression: special.progression,
+          },
+          gameplayModifiers: this.snakeGame.getSpecialGameplayModifiers(),
+          health: this.snakeGame.getPlayerHealth(),
+          lives: this.getDebugLivesState(),
+          score: this.snakeGame.getScore(),
+          length: this.snakeGame.getSnakeLength(),
+        },
+      });
+    }
+    debug.emitLazy(
+      {
+        type: 'debug.authoritative_snapshot',
+        category: 'debug',
+        verbosity: 'verbose',
+        scene: this.scene.key,
+        roomId: this.snakeGame.getCurrentRoom().id,
+      },
+      () => ({
+        scene: this.scene.key,
+        paused: this.paused,
+        titleVisible: this.titleVisible,
+        deathCutscene: Boolean(this.deathCutscene),
+        modalState: this.getDebugModalState(),
+        lives: this.getDebugLivesState(),
+        game: this.snakeGame.getDebugSnapshot(),
+        archaeology: this.archaeologySession
+          ? this.serializeArchaeologyDebugSnapshot(this.archaeologySession.getSnapshot())
+          : null,
+      }),
+    );
+  }
+
+  private getDebugModalState(): {
+    stack: string[];
+    panel: string | null;
+    pauseOwner: string | null;
+  } {
+    const stack: string[] = [];
+    if (this.titleVisible) stack.push('title');
+    if (this.deathCutscene) stack.push('death-cutscene');
+    if (this.levelUpPrompt) stack.push('level-up');
+    if (this.questPopup?.isVisible()) stack.push('quest-popup');
+    if (this.villageShopPopup?.isVisible()) stack.push('choice-popup');
+    if (this.datingScenePopup?.isVisible()) stack.push('dating-popup');
+    if (this.saveLoadMenu) stack.push('save-load-menu');
+    if (this.skillTree?.isOverlayVisible()) stack.push('skill-tree');
+    if (this.pauseUI?.isVisible()) stack.push('pause-menu');
+    const panel = stack[stack.length - 1] ?? null;
+    const pauseOwner = this.deathCutscene
+      ? 'death-cutscene'
+      : this.titleVisible
+        ? 'title'
+        : this.paused
+          ? (panel ?? 'pause-menu')
+          : null;
+    return { stack, panel, pauseOwner };
+  }
+
+  private getDebugLivesState(): Record<string, unknown> {
+    const visibleCharges = this.getVisibleLifeCharges();
+    return {
+      visibleLifeCharges: visibleCharges,
+      displayedLives: visibleCharges + 1,
+      phoenixSkillCharges:
+        this.snakeGame?.getFlag<{ charges?: number }>('fortitude.phoenix')?.charges ?? 0,
+      phoenixEquipmentCharges: this.snakeGame?.getFlag<number>('equipment.phoenixCharges') ?? 0,
+      extraLifeSkillCharges: this.skillTree?.getStats().extraLives ?? 0,
+    };
+  }
+
+  private measureDebugPayloadSize(value: unknown): { bytes: number; chars: number } {
+    const serialized = JSON.stringify(value);
+    return {
+      bytes: new TextEncoder().encode(serialized).length,
+      chars: serialized.length,
+    };
+  }
+
+  private emitPopupDebug(
+    type: 'popup.opened' | 'popup.closed' | 'popup.button_pressed',
+    popupId: string,
+    data: Record<string, unknown> = {},
+  ): void {
+    getDebugBus()?.emit({
+      type,
+      category: 'ui',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.snakeGame?.getCurrentRoom().id,
+      data: {
+        popupId,
+        activeRoom: this.snakeGame?.getCurrentRoom().id,
+        activeScene: this.scene.key,
+        gameplayPaused: this.paused,
+        modalState: this.getDebugModalState(),
+        ...data,
+      },
     });
   }
 
@@ -16332,11 +17119,14 @@ export default class SnakeScene extends Phaser.Scene {
     this.archaeologyReturnForemanId = room.molemanDigSite?.foreman.id ?? null;
     this.archaeologyLogMessages.length = 0;
     this.archaeologyLastTickMs = this.time.now;
+    this.archaeologyLastDebugSnapshotMs = this.time.now;
     this.paused = true;
+    getDebugBus()?.setRunPhase('modal');
     this.ensureArchaeologyOverlay();
     this.archaeologyOverlay?.setVisible(true);
     this.juice.startArchaeologyMusic();
     this.showQuestHintPopup(this.tArchaeology('started'), '#d8b4ff');
+    this.emitArchaeologyDebugState('archaeology.started', 'session-started', 'normal');
   }
 
   private handleArchaeologyKey(key: string): boolean {
@@ -16354,6 +17144,7 @@ export default class SnakeScene extends Phaser.Scene {
     else return false;
     if (this.archaeologySession) {
       this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
+      this.emitArchaeologyDebugState('archaeology.state', `keyboard:${key}`, 'verbose');
     }
     return true;
   }
@@ -16373,6 +17164,7 @@ export default class SnakeScene extends Phaser.Scene {
     }
     if (this.archaeologySession) {
       this.renderArchaeologyOverlay(this.archaeologySession.getSnapshot());
+      this.emitArchaeologyDebugState('archaeology.state', `controller:${command}`, 'verbose');
     }
     return true;
   }
@@ -16391,6 +17183,7 @@ export default class SnakeScene extends Phaser.Scene {
     this.archaeologyLogMessages.splice(0, Math.max(0, this.archaeologyLogMessages.length - 6));
     const eventSnapshot = this.archaeologySession.getSnapshot();
     for (const event of this.archaeologySession.consumeEvents()) {
+      this.emitArchaeologySessionEventDebug(event, eventSnapshot);
       if (event.kind === 'swap') this.juice.archaeologySwap();
       else if (event.kind === 'match') {
         this.juice.archaeologyMatch(event.chain, event.cells.length);
@@ -16426,9 +17219,119 @@ export default class SnakeScene extends Phaser.Scene {
     const snapshot = this.archaeologySession.getSnapshot();
     this.updateArchaeologyTension(snapshot);
     this.renderArchaeologyOverlay(snapshot);
+    if (now - this.archaeologyLastDebugSnapshotMs >= 2000) {
+      this.archaeologyLastDebugSnapshotMs = now;
+      this.emitArchaeologyDebugState('archaeology.state', 'periodic', 'verbose');
+    }
     if (snapshot.gameOver) {
       this.finishMolemanExcavation('failure');
     }
+  }
+
+  private emitArchaeologySessionEventDebug(
+    event: ArchaeologySessionEvent,
+    snapshot: ArchaeologySessionSnapshot,
+  ): void {
+    getDebugBus()?.emit({
+      type: 'archaeology.event',
+      category: 'archaeology',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.archaeologyReturnRoomId ?? this.snakeGame.getCurrentRoom().id,
+      data: {
+        event: this.serializeArchaeologySessionEvent(event),
+        state: this.serializeArchaeologyDebugSnapshot(snapshot),
+      },
+    });
+  }
+
+  private emitArchaeologyDebugState(
+    type: 'archaeology.started' | 'archaeology.state',
+    reason: string,
+    verbosity: 'normal' | 'verbose',
+  ): void {
+    if (!this.archaeologySession) return;
+    const snapshot = this.archaeologySession.getSnapshot();
+    getDebugBus()?.emit({
+      type,
+      category: 'archaeology',
+      verbosity,
+      scene: this.scene.key,
+      roomId: this.archaeologyReturnRoomId ?? this.snakeGame.getCurrentRoom().id,
+      data: {
+        reason,
+        state: this.serializeArchaeologyDebugSnapshot(snapshot),
+      },
+    });
+  }
+
+  private serializeArchaeologySessionEvent(
+    event: ArchaeologySessionEvent,
+  ): Record<string, unknown> {
+    if (event.kind === 'match') {
+      return {
+        kind: event.kind,
+        chain: event.chain,
+        score: event.score,
+        cells: event.cells,
+      };
+    }
+    if (event.kind === 'blast') {
+      return {
+        kind: event.kind,
+        cells: event.cells,
+        origins: event.origins,
+      };
+    }
+    if (event.kind === 'pop') {
+      return {
+        kind: event.kind,
+        cell: event.cell,
+        index: event.index,
+        total: event.total,
+        chain: event.chain,
+      };
+    }
+    if (event.kind === 'gravity') {
+      return { kind: event.kind, moves: event.moves };
+    }
+    return { ...event };
+  }
+
+  private serializeArchaeologyDebugSnapshot(
+    snapshot: ArchaeologySessionSnapshot,
+  ): Record<string, unknown> {
+    return {
+      variantId: snapshot.variant.id,
+      boardAscii: this.formatArchaeologyBoardAscii(snapshot.board),
+      incomingRowAscii: this.formatArchaeologyRowAscii(snapshot.incomingRow),
+      tileLegendVersion: 1,
+      tileLegend: ARCHAEOLOGY_ASCII_LEGEND,
+      cursor: snapshot.cursor,
+      score: snapshot.score,
+      depth: snapshot.depth,
+      chain: snapshot.chain,
+      maxChain: snapshot.maxChain,
+      resolving: snapshot.resolving,
+      gameOver: snapshot.gameOver,
+      riseProgress: snapshot.riseProgress,
+      stackDanger: snapshot.stackDanger,
+      topGraceActive: snapshot.topGraceActive,
+      topGraceProgress: snapshot.topGraceProgress,
+      rewards: snapshot.rewards,
+      highlightedCells: snapshot.highlightedCells,
+      poppingCell: snapshot.poppingCell,
+      fallingMoves: snapshot.fallingMoves,
+      gravityProgress: snapshot.gravityProgress,
+    };
+  }
+
+  private formatArchaeologyBoardAscii(board: readonly (ArchaeologyTileKind | null)[][]): string[] {
+    return board.map((row) => this.formatArchaeologyRowAscii(row));
+  }
+
+  private formatArchaeologyRowAscii(row: readonly (ArchaeologyTileKind | null)[]): string {
+    return row.map((tile) => (tile ? ARCHAEOLOGY_ASCII_SYMBOLS[tile] : '.')).join('');
   }
 
   private showArchaeologyMatchFlare(
@@ -16965,6 +17868,28 @@ export default class SnakeScene extends Phaser.Scene {
     this.handleRunDeltaFeedback(scoreBefore, lengthBefore);
     this.isDirty = true;
     this.paused = true;
+    getDebugBus()?.emit({
+      type: 'archaeology.ended',
+      category: 'archaeology',
+      verbosity: 'normal',
+      scene: this.scene.key,
+      roomId: this.archaeologyReturnRoomId ?? this.snakeGame.getCurrentRoom().id,
+      data: {
+        reason,
+        state: this.serializeArchaeologyDebugSnapshot(snapshot),
+        rewards,
+        appliedRewards: localRewards,
+        payout,
+        rewardTransaction: {
+          scoreBefore,
+          scoreAfter: this.snakeGame.getScore(),
+          scoreDelta: this.snakeGame.getScore() - scoreBefore,
+          lengthBefore,
+          lengthAfter: this.snakeGame.getSnakeLength(),
+          lengthDelta: this.snakeGame.getSnakeLength() - lengthBefore,
+        },
+      },
+    });
     this.showMolemanExcavationSummary(reason, snapshot, localRewards, payout);
   }
 
