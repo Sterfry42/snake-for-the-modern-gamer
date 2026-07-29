@@ -308,56 +308,56 @@ const LUCK_GRAPH_POINTS: readonly { outOf10: number; luck: number }[] = [
 ];
 
 export class SkillTreeOverlay {
-  private readonly options: Required<SkillTreeOverlayOptions>;
-  private readonly container: Phaser.GameObjects.Container;
-  private readonly shellGraphics: Phaser.GameObjects.Graphics;
-  private readonly specialUiGraphics: Phaser.GameObjects.Graphics;
-  private readonly specialMainContainer: Phaser.GameObjects.Container;
-  private readonly specialMainGraphics: Phaser.GameObjects.Graphics;
+  private options!: Required<SkillTreeOverlayOptions>;
+  private container!: Phaser.GameObjects.Container;
+  private shellGraphics!: Phaser.GameObjects.Graphics;
+  private specialUiGraphics!: Phaser.GameObjects.Graphics;
+  private specialMainContainer!: Phaser.GameObjects.Container;
+  private specialMainGraphics!: Phaser.GameObjects.Graphics;
   private readonly specialMainObjects: Phaser.GameObjects.GameObject[] = [];
-  private readonly specialDerivedContainer: Phaser.GameObjects.Container;
-  private readonly specialDerivedGraphics: Phaser.GameObjects.Graphics;
+  private specialDerivedContainer!: Phaser.GameObjects.Container;
+  private specialDerivedGraphics!: Phaser.GameObjects.Graphics;
   private specialDerivedContentHeight = 0;
   private readonly footerHintObjects: Phaser.GameObjects.GameObject[] = [];
   private currentFooterHints: readonly FooterHint[] = [];
   private readonly skillTreeChromeObjects: Phaser.GameObjects.GameObject[] = [];
-  private readonly styleContainer: Phaser.GameObjects.Container;
-  private readonly styleGraphics: Phaser.GameObjects.Graphics;
-  private readonly factionContainer: Phaser.GameObjects.Container;
-  private readonly factionGraphics: Phaser.GameObjects.Graphics;
-  private readonly structuredContainer: Phaser.GameObjects.Container;
-  private readonly structuredGraphics: Phaser.GameObjects.Graphics;
-  private readonly controllerFocusGraphics: Phaser.GameObjects.Graphics;
+  private styleGraphics!: Phaser.GameObjects.Graphics;
+  private styleContainer!: Phaser.GameObjects.Container;
+  private factionGraphics!: Phaser.GameObjects.Graphics;
+  private factionContainer!: Phaser.GameObjects.Container;
+  private structuredContainer!: Phaser.GameObjects.Container;
+  private structuredGraphics!: Phaser.GameObjects.Graphics;
+  private controllerFocusGraphics!: Phaser.GameObjects.Graphics;
   private controllerActions: Array<{ rect: UiRect; onClick: () => void }> = [];
   private controllerActionIndex = 0;
   private controllerSkillIndex = 0;
   private currentInputMode: InputModeId = 'keyboardMouse';
-  private readonly background: Phaser.GameObjects.Rectangle;
-  private readonly title: Phaser.GameObjects.Text;
-  private readonly scoreText: Phaser.GameObjects.Text;
-  private readonly manaText: Phaser.GameObjects.Text;
-  private readonly hintText: Phaser.GameObjects.Text;
-  private readonly connectionGraphics: Phaser.GameObjects.Graphics;
-  private readonly connectionHighlight: Phaser.GameObjects.Graphics;
-  private readonly skillViewportBackground: Phaser.GameObjects.Rectangle;
-  private readonly skillTreeWorld: Phaser.GameObjects.Container;
-  private readonly skillViewport: TreeViewportController;
+  private background!: Phaser.GameObjects.Rectangle;
+  private title!: Phaser.GameObjects.Text;
+  private scoreText!: Phaser.GameObjects.Text;
+  private manaText!: Phaser.GameObjects.Text;
+  private hintText!: Phaser.GameObjects.Text;
+  private connectionGraphics!: Phaser.GameObjects.Graphics;
+  private connectionHighlight!: Phaser.GameObjects.Graphics;
+  private skillViewportBackground!: Phaser.GameObjects.Rectangle;
+  private skillTreeWorld!: Phaser.GameObjects.Container;
+  private skillViewport!: TreeViewportController;
   private readonly skillWorldPositions = new Map<string, TreePoint>();
   private skillViewportInitialized = false;
-  private readonly mapGraphics: Phaser.GameObjects.Graphics;
-  private readonly mapBackground: Phaser.GameObjects.Rectangle;
-  private readonly mapTitle: Phaser.GameObjects.Text;
-  private readonly mapContainer: Phaser.GameObjects.Container;
-  private readonly graphGraphics: Phaser.GameObjects.Graphics;
-  private readonly graphBackground: Phaser.GameObjects.Rectangle;
-  private readonly graphTitle: Phaser.GameObjects.Text;
-  private readonly graphLabels: Phaser.GameObjects.Text;
-  private readonly graphContainer: Phaser.GameObjects.Container;
-  private readonly cheatContainer: Phaser.GameObjects.Container;
-  private readonly cheatBackground: Phaser.GameObjects.Rectangle;
-  private readonly cheatTitle: Phaser.GameObjects.Text;
-  private readonly cheatInputText: Phaser.GameObjects.Text;
-  private readonly cheatApplyButton: Phaser.GameObjects.Text;
+  private mapGraphics!: Phaser.GameObjects.Graphics;
+  private mapBackground!: Phaser.GameObjects.Rectangle;
+  private mapTitle!: Phaser.GameObjects.Text;
+  private mapContainer!: Phaser.GameObjects.Container;
+  private graphGraphics!: Phaser.GameObjects.Graphics;
+  private graphBackground!: Phaser.GameObjects.Rectangle;
+  private graphTitle!: Phaser.GameObjects.Text;
+  private graphLabels!: Phaser.GameObjects.Text;
+  private graphContainer!: Phaser.GameObjects.Container;
+  private cheatContainer!: Phaser.GameObjects.Container;
+  private cheatBackground!: Phaser.GameObjects.Rectangle;
+  private cheatTitle!: Phaser.GameObjects.Text;
+  private cheatInputText!: Phaser.GameObjects.Text;
+  private cheatApplyButton!: Phaser.GameObjects.Text;
   private cheatInputFocused = false;
   private cheatCode = '';
   private readonly nodeVisuals: Map<string, NodeVisual> = new Map();
@@ -365,24 +365,24 @@ export class SkillTreeOverlay {
   private readonly primaryTabIcons: Map<PrimaryTabId, Phaser.GameObjects.Image> = new Map();
   private readonly tabLabels: Map<TabId, Phaser.GameObjects.Text> = new Map();
   private readonly tabIcons: Map<TabId, Phaser.GameObjects.Image> = new Map();
-  private readonly stubText: Phaser.GameObjects.Text | null;
-  private readonly detailPanel: Phaser.GameObjects.Rectangle;
-  private readonly detailTitle: Phaser.GameObjects.Text;
-  private readonly detailSubtitle: Phaser.GameObjects.Text;
-  private readonly detailRankText: Phaser.GameObjects.Text;
-  private readonly detailBody: Phaser.GameObjects.Text;
+  private stubText: Phaser.GameObjects.Text | null = null;
+  private detailPanel!: Phaser.GameObjects.Rectangle;
+  private detailTitle!: Phaser.GameObjects.Text;
+  private detailSubtitle!: Phaser.GameObjects.Text;
+  private detailRankText!: Phaser.GameObjects.Text;
+  private detailBody!: Phaser.GameObjects.Text;
   private detailButtonObjects: Phaser.GameObjects.GameObject[] = [];
-  private readonly inventoryItemsText: Phaser.GameObjects.Text;
+  private inventoryItemsText!: Phaser.GameObjects.Text;
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
   private equipmentSlotFilter: EquipmentSlot | 'all' = 'all';
   private inventoryHighlight?: Phaser.GameObjects.Rectangle;
   private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
-  private readonly customizationText: Phaser.GameObjects.Text;
-  private readonly questListText: Phaser.GameObjects.Text;
+  private customizationText!: Phaser.GameObjects.Text;
+  private questListText!: Phaser.GameObjects.Text;
   private questRowMap: Array<{ startRow: number; endRow: number; questId: string }> = [];
-  private readonly specialStatsText: Phaser.GameObjects.Text;
-  private readonly specialChanceText: Phaser.GameObjects.Text;
+  private specialStatsText!: Phaser.GameObjects.Text;
+  private specialChanceText!: Phaser.GameObjects.Text;
   private specialRowMap: Array<{
     startRow: number;
     endRow: number;
@@ -392,23 +392,27 @@ export class SkillTreeOverlay {
     minX?: number;
     maxX?: number;
   }> = [];
-  private readonly cardsText: Phaser.GameObjects.Text;
-  private readonly factionsText: Phaser.GameObjects.Text;
-  private readonly spellsText: Phaser.GameObjects.Text;
+  private cardsText!: Phaser.GameObjects.Text;
+  private factionsText!: Phaser.GameObjects.Text;
+  private spellsText!: Phaser.GameObjects.Text;
   private spellRowMap: Array<{
     startRow: number;
     endRow: number;
     abilityId: string;
     canBind: boolean;
   }> = [];
-  private readonly scrollMaskGraphics: Phaser.GameObjects.Graphics;
-  private readonly equipmentListMaskGraphics: Phaser.GameObjects.Graphics;
-  private readonly equipmentListMask: Phaser.Display.Masks.GeometryMask;
-  private readonly overlayX: number;
-  private readonly overlayY: number;
-  private readonly specialChanceMaskGraphics: Phaser.GameObjects.Graphics;
-  private readonly scrollHintText: Phaser.GameObjects.Text;
-  private readonly achievementTree: AchievementTreeOverlay | null;
+  private scrollMaskGraphics!: Phaser.GameObjects.Graphics;
+  private equipmentListMaskGraphics!: Phaser.GameObjects.Graphics;
+  private equipmentListMask!: Phaser.Display.Masks.GeometryMask;
+  private overlayX = 0;
+  private overlayY = 0;
+  private detailTextX = 0;
+  private detailTextWidth = 0;
+  private detailPanelY = 0;
+  private detailPanelHeight = 0;
+  private specialChanceMaskGraphics!: Phaser.GameObjects.Graphics;
+  private scrollHintText!: Phaser.GameObjects.Text;
+  private achievementTree: AchievementTreeOverlay | null = null;
   private readonly scrollOffsets: Partial<Record<TabId, number>> = {};
   private structuredContentHeight = 0;
   private specialChanceScrollOffset = 0;
@@ -446,6 +450,26 @@ export class SkillTreeOverlay {
     private readonly handlers: OverlayHandlers,
     options: SkillTreeOverlayOptions = {},
   ) {
+    this.setupOptions(options);
+    this.setupViewportController();
+    ensurePauseMenuGeneratedAssets(this.scene);
+    this.setupPosition();
+    this.setupShell();
+    this.setupSkillTree();
+    this.setupMapPanel();
+    this.setupGraphPanel();
+    this.setupCheatPanel();
+    this.setupDetailPanel();
+    this.setupTextElements();
+    this.setupInputHandlers();
+    this.setupContainers();
+    this.setupAchievementTree();
+    this.buildTabs();
+    this.buildNodes();
+    this.updateTabVisuals();
+  }
+
+  private setupOptions(options: SkillTreeOverlayOptions): void {
     const responsiveWidth = Math.floor(
       Math.min(DEFAULT_OPTIONS.width, Math.max(420, this.scene.scale.width - 24)),
     );
@@ -457,6 +481,9 @@ export class SkillTreeOverlay {
       height: options.height ?? responsiveHeight,
       depth: options.depth ?? DEFAULT_OPTIONS.depth,
     };
+  }
+
+  private setupViewportController(): void {
     const initialTreeBounds = this.getSkillTreeBounds();
     const initialTreeContent = insetRect(initialTreeBounds, 16);
     this.skillViewport = new TreeViewportController({
@@ -467,13 +494,16 @@ export class SkillTreeOverlay {
       initialZoom: 0.95,
       padding: 80,
     });
-    ensurePauseMenuGeneratedAssets(this.scene);
+  }
 
+  private setupPosition(): void {
     const x = (this.scene.scale.width - this.options.width) / 2;
     const y = (this.scene.scale.height - this.options.height) / 2;
     this.overlayX = x;
     this.overlayY = y;
+  }
 
+  private setupShell(): void {
     this.background = this.scene.add
       .rectangle(0, 0, this.options.width, this.options.height, 0x071019, 0.94)
       .setStrokeStyle(2, 0x4da3ff)
@@ -500,9 +530,12 @@ export class SkillTreeOverlay {
       .container(0, 0, [this.structuredGraphics])
       .setVisible(false);
     this.drawShellFrame();
+  }
 
+  private setupSkillTree(): void {
     this.connectionGraphics = this.scene.add.graphics();
     this.connectionHighlight = this.scene.add.graphics();
+    const initialTreeBounds = this.getSkillTreeBounds();
     this.skillViewportBackground = this.scene.add
       .rectangle(
         initialTreeBounds.x,
@@ -518,7 +551,9 @@ export class SkillTreeOverlay {
       this.connectionGraphics,
       this.connectionHighlight,
     ]);
-    // Map container and elements
+  }
+
+  private setupMapPanel(): void {
     const mapX = TREE_PADDING.horizontal;
     const mapY = TREE_PADDING.top - 8;
     const mapW =
@@ -540,7 +575,9 @@ export class SkillTreeOverlay {
     this.mapContainer = this.scene.add
       .container(0, 0, [this.mapBackground, this.mapTitle, this.mapGraphics])
       .setVisible(false);
+  }
 
+  private setupGraphPanel(): void {
     const graphX = TREE_PADDING.horizontal;
     const graphY = TREE_PADDING.top - 8;
     const graphW =
@@ -575,7 +612,9 @@ export class SkillTreeOverlay {
         this.graphLabels,
       ])
       .setVisible(false);
+  }
 
+  private setupCheatPanel(): void {
     const cheatX = TREE_PADDING.horizontal;
     const cheatY = TREE_PADDING.top - 8;
     const cheatW =
@@ -632,7 +671,74 @@ export class SkillTreeOverlay {
         this.cheatApplyButton,
       ])
       .setVisible(false);
+  }
 
+  private setupDetailPanel(): void {
+    const detailPanelX = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN;
+    this.detailPanelY = this.getPauseMenuLayout().detail.y;
+    this.detailPanelHeight = this.getPauseMenuLayout().detail.height;
+    this.detailTextX = detailPanelX + DETAIL_PANEL_PADDING;
+    this.detailTextWidth = DETAIL_PANEL_WIDTH - DETAIL_PANEL_PADDING * 2;
+
+    this.detailPanel = this.scene.add
+      .rectangle(
+        detailPanelX,
+        this.detailPanelY,
+        DETAIL_PANEL_WIDTH,
+        this.detailPanelHeight,
+        0x0b1622,
+        0.92,
+      )
+      .setStrokeStyle(1, 0x244155)
+      .setOrigin(0, 0);
+
+    const titleY = this.detailPanelY + 14;
+    const subtitleY = titleY + 22;
+    const rankY = subtitleY + 20;
+    const bodyY = rankY + 22;
+
+    this.detailTitle = this.scene.add
+      .text(this.detailTextX, titleY, '', {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: '#ffffff',
+        wordWrap: { width: this.detailTextWidth },
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+
+    this.detailSubtitle = this.scene.add
+      .text(this.detailTextX, subtitleY, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#5dd6a2',
+        wordWrap: { width: this.detailTextWidth },
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+
+    this.detailRankText = this.scene.add
+      .text(this.detailTextX, rankY, '', {
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        color: '#9ad1ff',
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+
+    this.detailBody = this.scene.add
+      .text(this.detailTextX, bodyY, '', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#c8ffe1',
+        wordWrap: { width: this.detailTextWidth },
+        lineSpacing: 4,
+      })
+      .setOrigin(0, 0)
+      .setVisible(false);
+  }
+
+  private setupTextElements(): void {
     this.title = this.scene.add
       .text(this.options.width / 2, 24, '', {
         fontFamily: 'monospace',
@@ -666,62 +772,6 @@ export class SkillTreeOverlay {
         align: 'center',
       })
       .setOrigin(0.5, 0.5);
-
-    const detailPanelX = this.options.width - DETAIL_PANEL_WIDTH - DETAIL_PANEL_MARGIN;
-    const detailPanelY = this.getPauseMenuLayout().detail.y;
-    const detailPanelHeight = this.getPauseMenuLayout().detail.height;
-    const detailTextX = detailPanelX + DETAIL_PANEL_PADDING;
-    const detailTextWidth = DETAIL_PANEL_WIDTH - DETAIL_PANEL_PADDING * 2;
-
-    this.detailPanel = this.scene.add
-      .rectangle(detailPanelX, detailPanelY, DETAIL_PANEL_WIDTH, detailPanelHeight, 0x0b1622, 0.92)
-      .setStrokeStyle(1, 0x244155)
-      .setOrigin(0, 0);
-
-    const titleY = detailPanelY + 14;
-    const subtitleY = titleY + 22;
-    const rankY = subtitleY + 20;
-    const bodyY = rankY + 22;
-
-    this.detailTitle = this.scene.add
-      .text(detailTextX, titleY, '', {
-        fontFamily: 'monospace',
-        fontSize: '18px',
-        color: '#ffffff',
-        wordWrap: { width: detailTextWidth },
-      })
-      .setOrigin(0, 0)
-      .setVisible(false);
-
-    this.detailSubtitle = this.scene.add
-      .text(detailTextX, subtitleY, '', {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#5dd6a2',
-        wordWrap: { width: detailTextWidth },
-      })
-      .setOrigin(0, 0)
-      .setVisible(false);
-
-    this.detailRankText = this.scene.add
-      .text(detailTextX, rankY, '', {
-        fontFamily: 'monospace',
-        fontSize: '13px',
-        color: '#9ad1ff',
-      })
-      .setOrigin(0, 0)
-      .setVisible(false);
-
-    this.detailBody = this.scene.add
-      .text(detailTextX, bodyY, '', {
-        fontFamily: 'monospace',
-        fontSize: '14px',
-        color: '#c8ffe1',
-        wordWrap: { width: detailTextWidth },
-        lineSpacing: 4,
-      })
-      .setOrigin(0, 0)
-      .setVisible(false);
 
     this.stubText =
       TAB_DEFINITIONS.length > 1
@@ -796,12 +846,12 @@ export class SkillTreeOverlay {
       .setInteractive({ useHandCursor: true })
       .setVisible(false);
     this.specialChanceText = this.scene.add
-      .text(detailTextX, detailPanelY + 14, '', {
+      .text(this.detailTextX, this.detailPanelY + 14, '', {
         fontFamily: 'monospace',
         fontSize: '12px',
         color: '#e6f3ff',
         lineSpacing: 3,
-        wordWrap: { width: detailTextWidth },
+        wordWrap: { width: this.detailTextWidth },
       })
       .setVisible(false);
     this.cardsText = this.scene.add
@@ -854,8 +904,8 @@ export class SkillTreeOverlay {
     this.scrollMaskGraphics.fillStyle(0xffffff, 1);
     const scrollMaskRect = this.getSkillTreeBounds();
     this.scrollMaskGraphics.fillRect(
-      x + scrollMaskRect.x,
-      y + scrollMaskRect.y,
+      this.overlayX + scrollMaskRect.x,
+      this.overlayY + scrollMaskRect.y,
       scrollMaskRect.width,
       scrollMaskRect.height,
     );
@@ -872,10 +922,10 @@ export class SkillTreeOverlay {
     this.specialChanceMaskGraphics = this.scene.add.graphics().setVisible(false);
     this.specialChanceMaskGraphics.fillStyle(0xffffff, 1);
     this.specialChanceMaskGraphics.fillRect(
-      x + detailTextX,
-      y + detailPanelY + 14,
-      detailTextWidth,
-      detailPanelHeight - 28,
+      this.overlayX + this.detailTextX,
+      this.overlayY + this.detailPanelY + 14,
+      this.detailTextWidth,
+      this.detailPanelHeight - 28,
     );
     this.specialChanceText.setMask(this.specialChanceMaskGraphics.createGeometryMask());
     this.scrollHintText = this.scene.add
@@ -891,7 +941,9 @@ export class SkillTreeOverlay {
       )
       .setOrigin(1, 0)
       .setVisible(false);
+  }
 
+  private setupInputHandlers(): void {
     this.inventoryItemsText.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (!this.visible || this.activeTab !== 'inventory') return;
       const index = this.getTextRowIndex(
@@ -1099,7 +1151,9 @@ export class SkillTreeOverlay {
       }
     });
     this.scene.input.on('pointerup', () => this.skillViewport.endDrag());
+  }
 
+  private setupContainers(): void {
     const children: Phaser.GameObjects.GameObject[] = [
       this.background,
       this.shellGraphics,
@@ -1138,10 +1192,12 @@ export class SkillTreeOverlay {
     }
 
     this.container = this.scene.add
-      .container(x, y, children)
+      .container(this.overlayX, this.overlayY, children)
       .setDepth(this.options.depth)
       .setVisible(false);
+  }
 
+  private setupAchievementTree(): void {
     const achievementManager = this.handlers.getAchievementManager?.();
     const achievementLayout = this.getPauseMenuLayout();
     this.achievementTree = achievementManager
@@ -1149,14 +1205,10 @@ export class SkillTreeOverlay {
           parent: this.container,
           viewport: achievementLayout.main,
           detail: achievementLayout.detail,
-          worldOffset: { x, y },
+          worldOffset: { x: this.overlayX, y: this.overlayY },
           onUserZoomExtreme: (extreme) => this.handlers.onAchievementZoomExtreme?.(extreme),
         })
       : null;
-
-    this.buildTabs();
-    this.buildNodes();
-    this.updateTabVisuals();
   }
 
   private drawShellFrame(): void {
@@ -6658,6 +6710,17 @@ export class SkillTreeOverlay {
     const stats = this.system.getStats();
     const perks = this.system.getPerks();
 
+    this.refreshCommonUI(stats);
+    this.refreshTabVisibility(perks);
+    this.refreshMapPanel();
+    this.refreshGraphPanel();
+    this.refreshStubText();
+    this.refreshStructuredTab();
+    this.refreshSpecialTab();
+    this.refreshSkillsTab(perks);
+  }
+
+  private refreshCommonUI(stats: SkillTreeStats): void {
     this.scoreText.setText(i18n.getFeatureString('hudScore') + ': ' + this.scene.score);
     const nutrition = this.scene.getFlag<{ stored?: number }>('growth.reserveNutrition');
     const digestive = this.scene.getFlag<{ mode?: 'growth' | 'reserve' | 'recovery' }>(
@@ -6705,7 +6768,9 @@ export class SkillTreeOverlay {
     if (!this.hintSticky) {
       this.updateDefaultHint(stats);
     }
+  }
 
+  private refreshTabVisibility(perks: readonly SkillPerkDefinition[]): void {
     const skillsActive = this.activeTab === 'skills';
     const specialActive = this.activeTab === 'special';
     const equipmentActive = this.activeTab === 'equipment';
@@ -6725,7 +6790,6 @@ export class SkillTreeOverlay {
     const destinyActive = this.activeTab === 'destiny';
     const artifactsActive = this.activeTab === 'artifacts';
     const infoActive = this.activeTab === 'info';
-    const graphActive = this.activeTab === 'graph';
     const achievementsActive = this.activeTab === 'achievements';
     const controlsActive = this.activeTab === 'controls';
     const structuredActive =
@@ -6746,6 +6810,7 @@ export class SkillTreeOverlay {
       infoActive ||
       cheatsActive ||
       cosmeticsActive;
+
     this.skillTreeWorld.setVisible(skillsActive);
     this.skillViewportBackground.setVisible(skillsActive);
     this.specialUiGraphics.setVisible(specialActive);
@@ -6763,6 +6828,7 @@ export class SkillTreeOverlay {
     this.structuredContainer.setVisible(structuredActive);
     this.styleContainer.setVisible(false);
     this.achievementTree?.setVisible(achievementsActive);
+
     if (
       !spellsActive &&
       !maneuversActive &&
@@ -6818,6 +6884,30 @@ export class SkillTreeOverlay {
     if (!cosmeticsActive) {
       this.clearCustomizationHover();
     }
+
+    this.refreshMapPanel();
+    this.refreshGraphPanel();
+    this.refreshStubText();
+    this.refreshAchievementsTab();
+    this.refreshSpecialTab();
+    this.refreshStructuredTab();
+    this.refreshInventoryContent();
+    this.refreshCardsContent();
+    this.refreshSpellsContent();
+    this.refreshQuestsContent();
+    this.refreshDatingContent();
+    this.refreshPeopleContent();
+    this.refreshFactionsContent();
+    this.refreshDestinyContent();
+    this.refreshArtifactsContent();
+    this.refreshInfoContent();
+    this.refreshCheatsContent();
+    this.refreshGraphDetail();
+    this.refreshCosmeticsContent();
+    this.refreshSkillsTab(perks);
+  }
+
+  private refreshMapPanel(): void {
     const mapActive = this.activeTab === 'map';
     this.mapContainer.setVisible(mapActive);
     this.mapBackground.setVisible(mapActive);
@@ -6829,6 +6919,10 @@ export class SkillTreeOverlay {
     } else {
       this.mapGraphics.clear();
     }
+  }
+
+  private refreshGraphPanel(): void {
+    const graphActive = this.activeTab === 'graph';
     this.graphContainer.setVisible(graphActive);
     this.graphBackground.setVisible(graphActive);
     this.graphTitle.setVisible(graphActive);
@@ -6840,361 +6934,366 @@ export class SkillTreeOverlay {
       this.graphGraphics.clear();
       this.graphLabels.setText('');
     }
-    if (cheatsActive) {
-      // Cheat input elements are no longer used; the new UI has Enable buttons on each card.
+  }
+
+  private refreshStubText(): void {
+    if (!this.stubText) return;
+    const cheatsActive = this.activeTab === 'cheats';
+    const showStub =
+      this.activeTab !== 'skills' &&
+      this.activeTab !== 'special' &&
+      this.activeTab !== 'inventory' &&
+      this.activeTab !== 'cosmetics' &&
+      this.activeTab !== 'cards' &&
+      this.activeTab !== 'spells' &&
+      this.activeTab !== 'maneuvers' &&
+      this.activeTab !== 'map' &&
+      this.activeTab !== 'graph' &&
+      !cheatsActive &&
+      this.activeTab !== 'people' &&
+      this.activeTab !== 'companions' &&
+      this.activeTab !== 'atmosphere' &&
+      this.activeTab !== 'dating' &&
+      this.activeTab !== 'destiny' &&
+      this.activeTab !== 'artifacts' &&
+      this.activeTab !== 'quests' &&
+      this.activeTab !== 'factions' &&
+      this.activeTab !== 'controls' &&
+      this.activeTab !== 'info' &&
+      this.activeTab !== 'achievements';
+    this.stubText.setVisible(showStub);
+    if (showStub) {
+      const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
+      if (tab && tab.i18nPlaceholderKey) {
+        this.stubText.setText(i18n.getFeatureString(tab.i18nPlaceholderKey));
+      } else {
+        this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
+      }
+    }
+  }
+
+  private refreshAchievementsTab(): void {
+    const achievementsActive = this.activeTab === 'achievements';
+    if (!achievementsActive) return;
+    this.detailPanel.setVisible(false);
+    this.detailTitle.setVisible(false);
+    this.detailSubtitle.setVisible(false);
+    this.detailRankText.setVisible(false);
+    this.detailBody.setVisible(false);
+    this.achievementTree?.refresh();
+    if (!this.hintSticky) {
+      this.hintText.setText(
+        this.currentInputMode === 'controller'
+          ? 'Achievements: right stick pans the tree. Use the highlighted achievement for details.'
+          : 'Achievements: drag to pan, mouse wheel to zoom, click portraits for details.',
+      );
+      this.hintText.setColor('#fff3a8');
+    }
+  }
+
+  private refreshSpecialTab(): void {
+    const specialActive = this.activeTab === 'special';
+    if (!specialActive) return;
+    this.detailPanel.setVisible(false);
+    this.refreshSpecialPanel();
+    this.detailTitle.setVisible(false);
+    this.detailSubtitle.setVisible(false);
+    this.detailRankText.setVisible(false);
+    this.detailBody.setVisible(false);
+    if (!this.hintSticky) {
+      this.hintText.setText(
+        this.currentInputMode === 'controller'
+          ? `SPECIAL: left stick selects a stat control; ${this.confirmKeyLabel()} activates it.`
+          : 'SPECIAL: click +/- to preview, then apply or reset.',
+      );
+      this.hintText.setColor('#9ad1ff');
+    }
+  }
+
+  private refreshStructuredTab(): void {
+    const structuredActive =
+      this.activeTab !== 'skills' &&
+      this.activeTab !== 'special' &&
+      this.activeTab !== 'map' &&
+      this.activeTab !== 'graph' &&
+      this.activeTab !== 'achievements';
+    if (!structuredActive) return;
+    this.detailPanel.setVisible(true);
+    this.buildStructuredTabContent(this.activeTab);
+    if (!this.hintSticky) {
+      const hintByTab: Partial<Record<TabId, string>> = {
+        inventory: i18n.getFeatureString('hintInventory'),
+        equipment: `Equipment: select gear, compare modifiers, press ${this.confirmKeyLabel()} to equip or unequip.`,
+        items: 'Items: click rows for details. Press U to use selected consumables.',
+        cards: i18n.getFeatureString('cardHintCards'),
+        spells: `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}`,
+        maneuvers: `Maneuvers: equip one learned technique; use ${getPrimaryBindingLabelForDisplay('maneuver.activate', this.currentInputMode)} during play.`,
+        people: i18n.getFeatureString('hintPeople'),
+        companions: 'Herd: feed companions to raise bond tiers and hunting bonuses.',
+        atmosphere:
+          'Atmosphere: inspect the current sky, season, local weather translation, and gameplay modifiers.',
+        dating: i18n.getFeatureString('hintDating'),
+        quests: i18n.getFeatureString('hintQuests'),
+        destiny: i18n.getFeatureString('hintDestiny'),
+        artifacts: i18n.getFeatureString('hintArtifacts'),
+        controls: 'Controls: browse canonical actions and defaults by input mode.',
+        cheats: 'Cheats: click to view codes, then type and apply.',
+        info: 'Browse grouped menu systems and current run tools.',
+      };
+      this.hintText.setText(
+        hintByTab[this.activeTab] ?? i18n.getFeatureString('skillTreeStubText'),
+      );
+      this.hintText.setColor('#9ad1ff');
+    }
+  }
+
+  private refreshInventoryContent(): void {
+    const inventoryActive = this.activeTab === 'inventory' || this.activeTab === 'items';
+    if (!inventoryActive) return;
+    const items = this.scene.inventory.getAllItems();
+    if (items.length === 0) {
+      this.inventoryItemsText.setText(i18n.getFeatureString('noItemsInInventory'));
+      this.inventoryIndex = [];
+    } else {
+      const lines: string[] = [];
+      const index: string[] = [];
+      const slots: EquipmentSlot[] = [
+        'weapon',
+        'boots',
+        'helm',
+        'ring',
+        'gloves',
+        'cloak',
+        'belt',
+        'amulet',
+      ] as unknown as EquipmentSlot[];
+      for (const slot of slots) {
+        const current = this.scene.inventory.getEquipped(slot as EquipmentSlot);
+        if (current) {
+          const label = (slot as string).charAt(0).toUpperCase() + (slot as string).slice(1);
+          lines.push(`[Unequip ${label}]`);
+          index.push(`unequip:${slot}`);
+        }
+      }
+      for (const [itemId, count] of items) {
+        const item = getItem(itemId) as Item | undefined;
+        const name = item?.name ?? itemId;
+        let suffix = '';
+        if (item && item.kind === 'equipment') {
+          const isEq = this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
+          if (isEq) suffix = ` (${i18n.getFeatureString('labelEquipped')})`;
+        }
+        const category = item?.category ? String(item.category) : 'item';
+        const prefix =
+          item?.kind === 'equipment'
+            ? `[${this.confirmKeyLabel()}] `
+            : `[${category.charAt(0).toUpperCase()}] `;
+        lines.push(`${prefix}${name} x${count}${suffix}`);
+        index.push(itemId);
+      }
+      this.inventoryItemsText.setText(lines.join('\n'));
+      this.inventoryIndex = index;
+      if (!this.hintSticky) {
+        this.hintText.setText(i18n.getFeatureString('hintInventory'));
+        this.hintText.setColor('#9ad1ff');
+      }
+    }
+  }
+
+  private refreshCardsContent(): void {
+    if (this.activeTab !== 'cards') return;
+    this.cardsText.setText(this.formatCardCollection(this.scene.getCardCollectionForMenu()));
+    this.detailTitle.setText(i18n.getFeatureString('cardDetailCollection')).setVisible(true);
+    this.detailSubtitle.setText('Collection').setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody.setText(i18n.getFeatureString('cardCollectionInfo')).setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('cardHintCards'));
+      this.hintText.setColor('#9ad1ff');
+    }
+  }
+
+  private refreshSpellsContent(): void {
+    if (this.activeTab !== 'spells') return;
+    this.refreshSpellsText();
+    this.applyScrollableTextOffset('spells', this.spellsText);
+    this.detailTitle.setText(i18n.getFeatureString('detailQSlot')).setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('detailSpellsTitle')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        `${this.primaryAbilityKeyLabel()} now resolves through a bindable action slot. Spell casts can share this tab with future follower commands.`,
+      )
+      .setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(
+        `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}`,
+      );
+      this.hintText.setColor('#ffbdfd');
+    }
+  }
+
+  private refreshQuestsContent(): void {
+    if (this.activeTab !== 'quests') return;
+    this.questListText.setText(this.formatQuestInfo(this.scene.getAcceptedQuestList()));
+    this.applyScrollableTextOffset('quests', this.questListText);
+    this.detailTitle.setText('Quests').setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('detailAcceptedTasks')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'Only quests accepted during this run appear here. Accepted or completed quests are not offered again.',
+      )
+      .setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintQuests'));
+      this.hintText.setColor('#9ad1ff');
+    }
+  }
+
+  private refreshDatingContent(): void {
+    if (this.activeTab !== 'dating') return;
+    this.questListText.setText(this.formatDatingInfo(this.handlers.getDatingView?.() ?? []));
+    this.applyScrollableTextOffset('dating', this.questListText);
+    this.detailTitle.setText(i18n.getFeatureString('datingTitle')).setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('detailRelationships')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'Romance is opt-in. Flirt, gift, or ask someone out in dialogue to create a route. Jealousy and neglect only matter after that.',
+      )
+      .setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintDating'));
+      this.hintText.setColor('#ffbdfd');
+    }
+  }
+
+  private refreshPeopleContent(): void {
+    if (this.activeTab !== 'people') return;
+    this.questListText.setText(this.formatPeopleInfo(this.handlers.getPeopleView?.() ?? []));
+    this.applyScrollableTextOffset('people', this.questListText);
+    this.detailTitle.setText(i18n.getFeatureString('peopleTitle')).setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('detailActorJournal')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'People collects actor memories, social ties, revealed secrets, and current moods. Ask NPCs about rumors, family, the King, or themselves to fill it.',
+      )
+      .setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintPeople'));
+      this.hintText.setColor('#9ad1ff');
+    }
+  }
+
+  private refreshFactionsContent(): void {
+    if (this.activeTab !== 'factions') return;
+    this.buildFactionContent();
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintFactions'));
+      this.hintText.setColor('#9ad1ff');
+    }
+  }
+
+  private refreshDestinyContent(): void {
+    if (this.activeTab !== 'destiny') return;
+    const lines = this.handlers.getDestinyView?.() ?? [];
+    this.questListText.setText(lines.length > 0 ? lines.join('\n') : 'DESTINY 3 systems offline.');
+    this.applyScrollableTextOffset('destiny', this.questListText);
+    this.detailTitle.setText(i18n.getFeatureString('destinyTitle')).setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('destinyGuardianState')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'Tracks current Starforged activity, power, equipment, ability charge, super charge, active surges, and recent rewards.',
+      )
+      .setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintDestiny'));
+      this.hintText.setColor('#9df7ff');
+    }
+  }
+
+  private refreshArtifactsContent(): void {
+    if (this.activeTab !== 'artifacts') return;
+    const artifacts = this.handlers.getArtifactView?.() ?? [];
+    this.questListText.setText(this.formatArtifactsInfo(artifacts));
+    this.applyScrollableTextOffset('artifacts', this.questListText);
+    this.detailTitle.setText(i18n.getFeatureString('artifactsTitle')).setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('detailRunModifiers')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'Artifacts are passive run modifiers recovered from Moleman excavation caches. No inventory management required.',
+      )
+      .setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintArtifacts'));
+      this.hintText.setColor('#d8b4ff');
+    }
+  }
+
+  private refreshInfoContent(): void {
+    if (this.activeTab !== 'info') return;
+    this.questListText.setVisible(true);
+    this.questListText.setText(
+      'Use the grouped tabs above to manage growth, gear, world state, and system tools.',
+    );
+    this.detailTitle.setText('Info').setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('detailMenu')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'Growth holds skills. Gear holds items, style, and cards. World holds map, quests, and factions.',
+      )
+      .setVisible(true);
+  }
+
+  private refreshCheatsContent(): void {
+    if (this.activeTab !== 'cheats') return;
+    if (this.cheatInputFocused) {
       this.cheatContainer.setVisible(false);
     } else {
       this.cheatInputFocused = false;
       this.cheatContainer.setVisible(false);
     }
-
-    if (this.stubText) {
-      const mapActive = this.activeTab === 'map';
-      const showStub =
-        !skillsActive &&
-        !specialActive &&
-        !inventoryActive &&
-        !cosmeticsActive &&
-        !cardsActive &&
-        !spellsActive &&
-        !maneuversActive &&
-        !mapActive &&
-        !graphActive &&
-        !cheatsActive &&
-        !peopleActive &&
-        !companionsActive &&
-        !atmosphereActive &&
-        !datingActive &&
-        !destinyActive &&
-        !artifactsActive &&
-        !questsActive &&
-        !factionsActive &&
-        !controlsActive &&
-        !infoActive &&
-        !achievementsActive;
-      this.stubText.setVisible(showStub);
-      if (showStub) {
-        const tab = TAB_DEFINITIONS.find((def) => def.id === this.activeTab);
-        if (tab && tab.i18nPlaceholderKey) {
-          const placeholderKey = tab.i18nPlaceholderKey;
-          this.stubText.setText(i18n.getFeatureString(placeholderKey));
-        } else {
-          this.stubText.setText(i18n.getFeatureString('skillTreeStubText'));
-        }
-      }
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintCheats'));
+      this.hintText.setColor('#9ad1ff');
     }
+  }
 
-    if (achievementsActive) {
-      this.detailPanel.setVisible(false);
-      this.detailTitle.setVisible(false);
-      this.detailSubtitle.setVisible(false);
-      this.detailRankText.setVisible(false);
-      this.detailBody.setVisible(false);
-      this.achievementTree?.refresh();
-      if (!this.hintSticky) {
-        this.hintText.setText(
-          this.currentInputMode === 'controller'
-            ? 'Achievements: right stick pans the tree. Use the highlighted achievement for details.'
-            : 'Achievements: drag to pan, mouse wheel to zoom, click portraits for details.',
-        );
-        this.hintText.setColor('#fff3a8');
-      }
-    } else if (specialActive) {
-      this.detailPanel.setVisible(false);
-      this.refreshSpecialPanel();
-      this.detailTitle.setVisible(false);
-      this.detailSubtitle.setVisible(false);
-      this.detailRankText.setVisible(false);
-      this.detailBody.setVisible(false);
-      if (!this.hintSticky) {
-        this.hintText.setText(
-          this.currentInputMode === 'controller'
-            ? `SPECIAL: left stick selects a stat control; ${this.confirmKeyLabel()} activates it.`
-            : 'SPECIAL: click +/- to preview, then apply or reset.',
-        );
-        this.hintText.setColor('#9ad1ff');
-      }
-    } else {
-      this.detailPanel.setVisible(true);
+  private refreshGraphDetail(): void {
+    if (this.activeTab !== 'graph') return;
+    this.detailTitle.setText(i18n.getFeatureString('luckGraphTitle')).setVisible(true);
+    this.detailSubtitle.setText(i18n.getFeatureString('luckGraphSubtitle')).setVisible(true);
+    this.detailRankText.setText('').setVisible(false);
+    this.detailBody
+      .setText(
+        'Plots the provided table. X uses a log scale so the 130 outlier can share the same graph with the smaller values.',
+      )
+      .setVisible(true);
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintGraph'));
+      this.hintText.setColor('#9ad1ff');
     }
+  }
 
-    if (structuredActive) {
-      this.buildStructuredTabContent(this.activeTab);
-      if (!this.hintSticky) {
-        const hintByTab: Partial<Record<TabId, string>> = {
-          inventory: i18n.getFeatureString('hintInventory'),
-          equipment: `Equipment: select gear, compare modifiers, press ${this.confirmKeyLabel()} to equip or unequip.`,
-          items: 'Items: click rows for details. Press U to use selected consumables.',
-          cards: i18n.getFeatureString('cardHintCards'),
-          spells: `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`,
-          maneuvers: `Maneuvers: equip one learned technique; use ${getPrimaryBindingLabelForDisplay('maneuver.activate', this.currentInputMode)} during play.`,
-          people: i18n.getFeatureString('hintPeople'),
-          companions: 'Herd: feed companions to raise bond tiers and hunting bonuses.',
-          atmosphere:
-            'Atmosphere: inspect the current sky, season, local weather translation, and gameplay modifiers.',
-          dating: i18n.getFeatureString('hintDating'),
-          quests: i18n.getFeatureString('hintQuests'),
-          destiny: i18n.getFeatureString('hintDestiny'),
-          artifacts: i18n.getFeatureString('hintArtifacts'),
-          controls: 'Controls: browse canonical actions and defaults by input mode.',
-          cheats: 'Cheats: click to view codes, then type and apply.',
-          info: 'Browse grouped menu systems and current run tools.',
-        };
-        this.hintText.setText(
-          hintByTab[this.activeTab] ?? i18n.getFeatureString('skillTreeStubText'),
-        );
-        this.hintText.setColor('#9ad1ff');
-      }
+  private refreshCosmeticsContent(): void {
+    if (this.activeTab !== 'cosmetics') return;
+    this.buildCosmeticsContent();
+    this.normalizeControllerActionIndex();
+    this.drawControllerFocus();
+    if (!this.hintSticky) {
+      this.hintText.setText(i18n.getFeatureString('hintCustomization'));
+      this.hintText.setColor('#9ad1ff');
     }
+  }
 
-    if (!structuredActive && inventoryActive) {
-      const items = this.scene.inventory.getAllItems();
-      if (items.length === 0) {
-        this.inventoryItemsText.setText(i18n.getFeatureString('noItemsInInventory'));
-        this.inventoryIndex = [];
-      } else {
-        const lines: string[] = [];
-        const index: string[] = [];
-        const slots: EquipmentSlot[] = [
-          'weapon',
-          'boots',
-          'helm',
-          'ring',
-          'gloves',
-          'cloak',
-          'belt',
-          'amulet',
-        ] as unknown as EquipmentSlot[];
-        for (const slot of slots) {
-          const current = this.scene.inventory.getEquipped(slot as EquipmentSlot);
-          if (current) {
-            const label = (slot as string).charAt(0).toUpperCase() + (slot as string).slice(1);
-            lines.push(`[Unequip ${label}]`);
-            index.push(`unequip:${slot}`);
-          }
-        }
-        for (const [itemId, count] of items) {
-          const item = getItem(itemId) as Item | undefined;
-          const name = item?.name ?? itemId;
-          let suffix = '';
-          if (item && item.kind === 'equipment') {
-            const isEq = this.scene.inventory.getEquipped(item.slot as EquipmentSlot) === itemId;
-            if (isEq) suffix = ` (${i18n.getFeatureString('labelEquipped')})`;
-          }
-          const category = item?.category ? String(item.category) : 'item';
-          const prefix =
-            item?.kind === 'equipment'
-              ? `[${this.confirmKeyLabel()}] `
-              : `[${category.charAt(0).toUpperCase()}] `;
-          lines.push(`${prefix}${name} x${count}${suffix}`);
-          index.push(itemId);
-        }
-        this.inventoryItemsText.setText(lines.join('\n'));
-        this.inventoryIndex = index;
-        if (!this.hintSticky) {
-          this.hintText.setText(i18n.getFeatureString('hintInventory'));
-          this.hintText.setColor('#9ad1ff');
-        }
-      }
-    }
-
-    if (!structuredActive && cardsActive) {
-      this.cardsText.setText(this.formatCardCollection(this.scene.getCardCollectionForMenu()));
-      this.detailTitle.setText(i18n.getFeatureString('cardDetailCollection')).setVisible(true);
-      this.detailSubtitle.setText('Collection').setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody.setText(i18n.getFeatureString('cardCollectionInfo')).setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('cardHintCards'));
-        this.hintText.setColor('#9ad1ff');
-      }
-    }
-
-    if (!structuredActive && spellsActive) {
-      this.refreshSpellsText();
-      this.applyScrollableTextOffset('spells', this.spellsText);
-      this.detailTitle.setText(i18n.getFeatureString('detailQSlot')).setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('detailSpellsTitle')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          `${this.primaryAbilityKeyLabel()} now resolves through a bindable action slot. Spell casts can share this tab with future follower commands.`,
-        )
-        .setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(
-          `Spells: click an available row to bind ${this.primaryAbilityKeyLabel()}.`,
-        );
-        this.hintText.setColor('#ffbdfd');
-      }
-    }
-
-    if (!structuredActive && questsActive) {
-      this.questListText.setText(this.formatQuestInfo(this.scene.getAcceptedQuestList()));
-      this.applyScrollableTextOffset('quests', this.questListText);
-      this.detailTitle.setText('Quests').setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('detailAcceptedTasks')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          'Only quests accepted during this run appear here. Accepted or completed quests are not offered again.',
-        )
-        .setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintQuests'));
-        this.hintText.setColor('#9ad1ff');
-      }
-    }
-
-    if (!structuredActive && datingActive) {
-      this.questListText.setText(this.formatDatingInfo(this.handlers.getDatingView?.() ?? []));
-      this.applyScrollableTextOffset('dating', this.questListText);
-      this.detailTitle.setText(i18n.getFeatureString('datingTitle')).setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('detailRelationships')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          'Romance is opt-in. Flirt, gift, or ask someone out in dialogue to create a route. Jealousy and neglect only matter after that.',
-        )
-        .setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintDating'));
-        this.hintText.setColor('#ffbdfd');
-      }
-    }
-
-    if (!structuredActive && peopleActive) {
-      this.questListText.setText(this.formatPeopleInfo(this.handlers.getPeopleView?.() ?? []));
-      this.applyScrollableTextOffset('people', this.questListText);
-      this.detailTitle.setText(i18n.getFeatureString('peopleTitle')).setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('detailActorJournal')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          'People collects actor memories, social ties, revealed secrets, and current moods. Ask NPCs about rumors, family, the King, or themselves to fill it.',
-        )
-        .setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintPeople'));
-        this.hintText.setColor('#9ad1ff');
-      }
-    }
-
-    if (factionsActive) {
-      this.buildFactionContent();
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintFactions'));
-        this.hintText.setColor('#9ad1ff');
-      }
-    }
-
-    if (!structuredActive && destinyActive) {
-      const lines = this.handlers.getDestinyView?.() ?? [];
-      this.questListText.setText(
-        lines.length > 0 ? lines.join('\n') : 'DESTINY 3 systems offline.',
-      );
-      this.applyScrollableTextOffset('destiny', this.questListText);
-      this.detailTitle.setText(i18n.getFeatureString('destinyTitle')).setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('destinyGuardianState')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          'Tracks current Starforged activity, power, equipment, ability charge, super charge, active surges, and recent rewards.',
-        )
-        .setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintDestiny'));
-        this.hintText.setColor('#9df7ff');
-      }
-    }
-
-    if (!structuredActive && artifactsActive) {
-      const artifacts = this.handlers.getArtifactView?.() ?? [];
-      this.questListText.setText(this.formatArtifactsInfo(artifacts));
-      this.applyScrollableTextOffset('artifacts', this.questListText);
-      this.detailTitle.setText(i18n.getFeatureString('artifactsTitle')).setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('detailRunModifiers')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          'Artifacts are passive run modifiers recovered from Moleman excavation caches. No inventory management required.',
-        )
-        .setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintArtifacts'));
-        this.hintText.setColor('#d8b4ff');
-      }
-    }
-
-    if (!structuredActive && infoActive) {
-      this.questListText.setVisible(true);
-      this.questListText.setText(
-        'Use the grouped tabs above to manage growth, gear, world state, and system tools.',
-      );
-      this.detailTitle.setText('Info').setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('detailMenu')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          'Growth holds skills. Gear holds items, style, and cards. World holds map, quests, and factions.',
-        )
-        .setVisible(true);
-    }
-
-    if (cheatsActive) {
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintCheats'));
-        this.hintText.setColor('#9ad1ff');
-      }
-    }
-
-    if (graphActive) {
-      this.detailTitle.setText(i18n.getFeatureString('luckGraphTitle')).setVisible(true);
-      this.detailSubtitle.setText(i18n.getFeatureString('luckGraphSubtitle')).setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText(
-          'Plots the provided table. X uses a log scale so the 130 outlier can share the same graph with the smaller values.',
-        )
-        .setVisible(true);
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintGraph'));
-        this.hintText.setColor('#9ad1ff');
-      }
-    }
-
-    if (cosmeticsActive) {
-      this.buildCosmeticsContent();
-      this.normalizeControllerActionIndex();
-      this.drawControllerFocus();
-      if (!this.hintSticky) {
-        this.hintText.setText(i18n.getFeatureString('hintCustomization'));
-        this.hintText.setColor('#9ad1ff');
-      }
-    } else if (
-      this.activeTab !== 'equipment' &&
-      this.activeTab !== 'items' &&
-      this.activeTab !== 'skills' &&
-      this.activeTab !== 'special' &&
-      this.activeTab !== 'spells' &&
-      this.activeTab !== 'cards' &&
-      this.activeTab !== 'people' &&
-      this.activeTab !== 'atmosphere' &&
-      this.activeTab !== 'dating' &&
-      this.activeTab !== 'destiny' &&
-      this.activeTab !== 'quests' &&
-      this.activeTab !== 'factions' &&
-      this.activeTab !== 'map' &&
-      this.activeTab !== 'info' &&
-      this.activeTab !== 'controls' &&
-      this.activeTab !== 'cheats' &&
-      this.activeTab !== 'graph' &&
-      this.activeTab !== 'achievements'
-    ) {
-      this.customizationRowMap = [];
-      this.clearPerkDetails(true);
-    }
-
+  private refreshSkillsTab(perks: readonly SkillPerkDefinition[]): void {
+    const perksArr = perks as SkillPerkDefinition[];
+    const skillsActive = this.activeTab === 'skills';
     if (!skillsActive) {
       this.connectionGraphics.clear();
       for (const child of this.skillTreeChromeObjects.splice(0)) {
@@ -7208,9 +7307,8 @@ export class SkillTreeOverlay {
     }
 
     this.skillTreeWorld.setVisible(true);
-
-    this.updateSkillTreeNodeLayout(perks);
-    this.drawConnections(perks);
+    this.updateSkillTreeNodeLayout(perksArr);
+    this.drawConnections(perksArr);
 
     for (const [perkId, visual] of this.nodeVisuals) {
       visual.container.setVisible(true);
@@ -7280,7 +7378,6 @@ export class SkillTreeOverlay {
           costColor = '#546881';
           break;
         case 'maxed':
-          // already covered by rank > 0
           break;
       }
 
