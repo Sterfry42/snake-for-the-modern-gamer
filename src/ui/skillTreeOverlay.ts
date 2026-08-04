@@ -23,7 +23,6 @@ import {
 } from '../cosmetics/index.js';
 import type { CosmeticCategoryId } from '../cosmetics/cosmeticTypes.js';
 import { CARD_DEFINITIONS, type CardCollection } from '../cards/cardGame.js';
-import { getCheatsByCategory, getCategoryLabel } from '../cheats/cheatRegistry.js';
 
 import type { ActionAbilityView } from '../systems/actionSlots.js';
 import type { DatingCandidateView } from '../relationships/relationshipTypes.js';
@@ -56,18 +55,10 @@ import type { AchievementUnlockResult } from '../achievements/achievementTypes.j
 import { AchievementTreeOverlay } from './achievementTreeOverlay.js';
 import type { AchievementZoomExtreme } from '../achievements/achievementZoomTracker.js';
 import {
-  CONTROL_CATEGORIES,
-  INPUT_MODES,
-  formatBindingsForDisplay,
-  getBindingsForMode,
-  getControlActionsByCategory,
   getKeyboardEventBindingLabel,
   getPrimaryBindingLabelForDisplay,
-  resetAllBindingsForMode,
-  resetBindingsForMode,
   setExclusiveControllerBinding,
   setBindingsForMode,
-  type ControlCategoryId,
   type ControlActionId,
   type InputModeId,
 } from '../input/controlActions.js';
@@ -76,12 +67,24 @@ import type { ResolvedAtmosphereView } from '../world/atmosphereTypes.js';
 import { DAY_PHASE_DURATIONS_MS } from '../world/atmosphereTypes.js';
 import { TreeViewportController, type TreePoint } from './core/TreeViewportController.js';
 import { buildSkillTreeWorldLayout, getSkillTreeFoundationPoint } from './skillTreeWorldLayout.js';
-import {
-  MANEUVER_DEFINITIONS,
-  MANEUVER_SHARED_COOLDOWN_STEPS,
-  getManeuverDefinition,
-} from '../maneuvers/maneuverCatalog.js';
 import type { ManeuverId, ManeuverSaveState } from '../maneuvers/maneuverTypes.js';
+import {
+  type PauseMenuContext,
+  renderSpells,
+  renderManeuvers,
+  renderEquipment,
+  renderItems,
+  renderCards,
+  renderDestiny,
+  renderArtifacts,
+  renderDating,
+  renderQuests,
+  renderPeople,
+  renderCompanions,
+  renderControls,
+  renderCheats,
+  renderInfo,
+} from './pauseMenu/index.js';
 
 interface SkillTreeOverlayOptions {
   width?: number;
@@ -375,7 +378,7 @@ export class SkillTreeOverlay {
   private inventoryItemsText!: Phaser.GameObjects.Text;
   private inventoryIndex: string[] = [];
   private selectedInventoryItemId: string | null = null;
-  private equipmentSlotFilter: EquipmentSlot | 'all' = 'all';
+
   private inventoryHighlight?: Phaser.GameObjects.Rectangle;
   private customizationHoverHighlight?: Phaser.GameObjects.Rectangle;
   private customizationText!: Phaser.GameObjects.Text;
@@ -402,8 +405,7 @@ export class SkillTreeOverlay {
     canBind: boolean;
   }> = [];
   private scrollMaskGraphics!: Phaser.GameObjects.Graphics;
-  private equipmentListMaskGraphics!: Phaser.GameObjects.Graphics;
-  private equipmentListMask!: Phaser.Display.Masks.GeometryMask;
+
   private overlayX = 0;
   private overlayY = 0;
   private detailTextX = 0;
@@ -917,8 +919,6 @@ export class SkillTreeOverlay {
     this.specialStatsText.setMask(scrollMask);
     this.structuredContainer.setMask(scrollMask);
     this.skillTreeWorld.setMask(scrollMask);
-    this.equipmentListMaskGraphics = this.scene.add.graphics().setVisible(false);
-    this.equipmentListMask = this.equipmentListMaskGraphics.createGeometryMask();
     this.specialChanceMaskGraphics = this.scene.add.graphics().setVisible(false);
     this.specialChanceMaskGraphics.fillStyle(0xffffff, 1);
     this.specialChanceMaskGraphics.fillRect(
@@ -2962,68 +2962,163 @@ export class SkillTreeOverlay {
         ? rect
         : { ...rect, y: rect.y - this.getStructuredScrollOffset() };
 
+    // Build a PauseMenuContext for delegated tab rendering.
+    const ctx: PauseMenuContext = {
+      scene: this.scene,
+      structuredContainer: this.structuredContainer,
+      structuredGraphics: this.structuredGraphics,
+      detailTitle: this.detailTitle,
+      detailSubtitle: this.detailSubtitle,
+      detailRankText: this.detailRankText,
+      detailBody: this.detailBody,
+      setStructuredContentHeight: (content, bottomY) =>
+        this.setStructuredContentHeight(content, bottomY),
+      addStructuredZone: (r, onClick) => this.addStructuredZone(r, onClick),
+      getStructuredScrollOffset: () => this.getStructuredScrollOffset(),
+      announce: (message, color, duration) => this.announce(message, color, duration),
+    };
+
     switch (tab) {
       case 'equipment':
-        this.buildEquipmentCards(renderRect);
+        renderEquipment(
+          ctx,
+          renderRect,
+          () => this.getEquipmentSlots(),
+          () => this.getAllEquipmentForMenu(),
+          (s) => this.formatSlotLabel(s),
+          (s) => this.getEquipmentSlotAccent(s),
+          (g, s, x, y, sz) => this.drawEquipmentSlotGlyph(g, s, x, y, sz),
+          () => this.toggleSelectedEquipment(),
+          (id) => {
+            this.selectedInventoryItemId = id;
+          },
+          () => this.showInventoryItemDetails(),
+        );
         break;
       case 'items':
-        this.buildItemCards(renderRect);
-        break;
       case 'inventory':
-        this.buildItemCards(renderRect);
+        renderItems(
+          ctx,
+          renderRect,
+          () =>
+            this.scene.inventory
+              .getAllItems()
+              .filter(([id]) => (getItem(id) as Item | undefined)?.kind !== 'equipment'),
+          (id) => {
+            this.selectedInventoryItemId = id;
+          },
+          () => this.showInventoryItemDetails(),
+        );
         break;
       case 'spells':
-        this.buildSpellCards(renderRect);
+        renderSpells(
+          ctx,
+          renderRect,
+          () => this.handlers.getSpellSlotView?.() ?? [],
+          () => this.primaryAbilityKeyLabel(),
+          (id) => {
+            this.handlers.onBindSpellSlot?.(id);
+          },
+        );
         break;
       case 'maneuvers':
-        this.buildManeuverCards(renderRect);
+        renderManeuvers(
+          ctx,
+          renderRect,
+          () =>
+            this.handlers.getManeuverState?.() ?? {
+              version: 1,
+              learnedIds: [],
+              equippedId: null,
+              cooldownRemaining: 0,
+              discoveredTrainerIds: [],
+            },
+          (id) =>
+            this.handlers.onEquipManeuver?.(id as ManeuverId) ?? {
+              ok: false,
+              message: 'Failed.',
+              color: '#ff6b6b',
+            },
+          () => this.confirmKeyLabel(),
+        );
         break;
       case 'cards':
-        this.buildCardCollectionCards(renderRect);
+        renderCards(ctx, renderRect, () => this.scene.getCardCollectionForMenu());
         break;
       case 'quests':
-        this.buildQuestCards(renderRect);
+        renderQuests(
+          ctx,
+          renderRect,
+          () => this.scene.getAcceptedQuestList(),
+          (id) => {
+            const setter = (
+              this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
+            ).setActiveQuestMarkerQuestId;
+            return typeof setter === 'function' ? (setter.call(this.scene, id) as boolean) : false;
+          },
+        );
         break;
       case 'dating':
-        this.buildDatingCards(renderRect);
+        renderDating(ctx, renderRect, () => this.handlers.getDatingView?.() ?? []);
         break;
       case 'people':
-        this.buildPeopleCards(renderRect);
+        renderPeople(ctx, renderRect, () => this.handlers.getPeopleView?.() ?? []);
         break;
       case 'companions':
-        this.buildCompanionCards(renderRect);
+        renderCompanions(
+          ctx,
+          renderRect,
+          () => this.handlers.getAnimalCompanionView?.() ?? [],
+          (id) => this.handlers.onFeedAnimalCompanion?.(id) ?? false,
+          (id) => this.handlers.onReleaseAnimalCompanion?.(id) ?? false,
+        );
         break;
       case 'destiny':
-        this.buildLineCards(renderRect, 'DESTINY', this.handlers.getDestinyView?.() ?? []);
+        renderDestiny(ctx, renderRect, () => this.handlers.getDestinyView?.() ?? []);
         break;
       case 'atmosphere':
         this.buildAtmospherePanel(renderRect, this.handlers.getAtmosphereView?.());
         break;
       case 'artifacts':
-        this.buildArtifactCards(renderRect);
+        renderArtifacts(ctx, renderRect, () => this.handlers.getArtifactView?.() ?? []);
         break;
       case 'controls':
-        this.buildControlsCards(renderRect);
+        renderControls(
+          ctx,
+          renderRect,
+          this.activeControlsMode,
+          (mode) => {
+            this.activeControlsMode = mode;
+            this.rebindingControlActionId = null;
+            this.scrollOffsets.controls = 0;
+          },
+          this.rebindingControlActionId,
+          () => this.getStructuredScrollOffset(),
+        );
         break;
       case 'cheats':
-        this.buildCheatsCards(renderRect);
+        renderCheats(
+          ctx,
+          renderRect,
+          (code) => this.scene.applyCheatCode(code),
+          uiColors.accentSystem,
+        );
         break;
       case 'cosmetics':
         this.buildCosmeticsContent();
         break;
       case 'info':
-        this.buildLineCards(renderRect, 'SYSTEM INFO', [
-          'Growth manages skills, SPECIAL, and spells.',
-          'Gear manages inventory, cosmetics, cards, and artifacts.',
-          'World manages map, relationships, quests, and factions.',
-          'System stores technical and meta tools.',
-        ]);
-        this.detailTitle.setText('Info').setVisible(true);
-        this.detailSubtitle.setText(i18n.getFeatureString('detailMenu')).setVisible(true);
-        this.detailRankText.setText('').setVisible(false);
-        this.detailBody
-          .setText('The pause menu is the command center for the current run.')
-          .setVisible(true);
+        renderInfo(
+          ctx,
+          renderRect,
+          [
+            'Growth manages skills, SPECIAL, and spells.',
+            'Gear manages inventory, cosmetics, cards, and artifacts.',
+            'World manages map, relationships, quests, and factions.',
+            'System stores technical and meta tools.',
+          ],
+          'SYSTEM INFO',
+        );
         break;
       default:
         this.buildLineCards(
@@ -3079,10 +3174,6 @@ export class SkillTreeOverlay {
     return this.scrollOffsets[this.activeTab] ?? 0;
   }
 
-  private isStructuredRectVisible(rect: UiRect, viewport: UiRect): boolean {
-    return rect.y + rect.height >= viewport.y && rect.y <= viewport.y + viewport.height;
-  }
-
   private setStructuredContentHeight(content: UiRect, bottomY: number): void {
     this.structuredContentHeight = Math.max(0, bottomY - content.y + 14);
     this.drawStructuredScrollRail();
@@ -3126,6 +3217,17 @@ export class SkillTreeOverlay {
       'belt',
       'amulet',
     ] as unknown as EquipmentSlot[];
+  }
+
+  private getAllEquipmentForMenu(): readonly { item: Item; equipped: boolean }[] {
+    return this.scene.inventory
+      .getAllItems()
+      .filter(([itemId]) => (getItem(itemId) as Item | undefined)?.kind === 'equipment')
+      .map(([itemId]) => {
+        const item = getItem(itemId) as EquipableItem | undefined;
+        const equipped = !!item && this.scene.inventory.getEquipped(item.slot) === item.id;
+        return { item: item!, equipped };
+      });
   }
 
   private formatSlotLabel(slot: EquipmentSlot | string): string {
@@ -3365,1128 +3467,6 @@ export class SkillTreeOverlay {
     }
 
     return rows;
-  }
-
-  private buildEquipmentCards(rect: UiRect): void {
-    const content = insetRect(rect, 14);
-    const offset = this.getStructuredScrollOffset();
-    const slots = this.getEquipmentSlots();
-    const allEquipment = this.scene.inventory
-      .getAllItems()
-      .map(([id, count]) => ({ id, item: getItem(id) as EquipableItem | undefined, count }))
-      .filter((entry): entry is { id: string; item: EquipableItem; count: number } => {
-        return entry.item?.kind === 'equipment';
-      })
-      .sort((a, b) => {
-        const aEquipped = this.scene.inventory.getEquipped(a.item.slot) === a.id ? 0 : 1;
-        const bEquipped = this.scene.inventory.getEquipped(b.item.slot) === b.id ? 0 : 1;
-        const slotDelta = slots.indexOf(a.item.slot) - slots.indexOf(b.item.slot);
-        return aEquipped - bEquipped || slotDelta || a.item.name.localeCompare(b.item.name);
-      });
-    const filteredEquipment =
-      this.equipmentSlotFilter === 'all'
-        ? allEquipment
-        : allEquipment.filter((entry) => entry.item.slot === this.equipmentSlotFilter);
-    const selectedEntry = allEquipment.find((entry) => entry.id === this.selectedInventoryItemId);
-    if (
-      this.equipmentSlotFilter !== 'all' &&
-      selectedEntry &&
-      selectedEntry.item.slot !== this.equipmentSlotFilter
-    ) {
-      this.selectedInventoryItemId = filteredEquipment[0]?.id ?? null;
-    } else if (!selectedEntry && allEquipment.length > 0) {
-      this.selectedInventoryItemId = filteredEquipment[0]?.id ?? allEquipment[0]?.id ?? null;
-    }
-
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'EQUIPMENT', {
-      color: uiColors.textPrimary,
-      fontSize: '13px',
-      fontStyle: 'bold',
-    });
-    addUiBadge(
-      this.scene,
-      this.structuredContainer,
-      this.structuredGraphics,
-      { x: content.x + content.width - 98, y: content.y - 2, width: 86, height: 20 },
-      `${allEquipment.length} GEAR`,
-      uiColors.accentGear,
-      uiColors.accentGear,
-    );
-
-    const slotTop = content.y + 28;
-    addUiText(this.scene, this.structuredContainer, content.x + 2, slotTop, 'EQUIPPED SLOTS', {
-      color: '#4da3ff',
-      fontSize: '11px',
-      fontStyle: 'bold',
-    });
-    addUiText(
-      this.scene,
-      this.structuredContainer,
-      content.x + content.width - 54,
-      slotTop,
-      `${this.scene.inventory.getAllEquipped().length} / ${slots.length}`,
-      { align: 'right', color: uiColors.textPrimary, fontSize: '11px', fontStyle: 'bold' },
-    );
-
-    const slotCardW = Math.floor((content.width - 18) / 4);
-    const slotCardH = 38;
-    slots.forEach((slot, index) => {
-      const equippedId = this.scene.inventory.getEquipped(slot);
-      const equipped = equippedId ? (getItem(equippedId) as EquipableItem | undefined) : undefined;
-      const firstMatchingOwned = allEquipment.find((entry) => entry.item.slot === slot);
-      const accent = this.getEquipmentSlotAccent(slot);
-      const col = index % 4;
-      const row = Math.floor(index / 4);
-      const card: UiRect = {
-        x: content.x + col * (slotCardW + 6),
-        y: slotTop + 20 + row * (slotCardH + 7),
-        width: slotCardW,
-        height: slotCardH,
-      };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: equipped ? uiColors.accentGear : uiColors.panelBgInset,
-        stroke:
-          this.equipmentSlotFilter === slot
-            ? uiColors.accentCore
-            : equipped
-              ? accent
-              : uiColors.panelBorderMuted,
-        alpha: equipped ? 0.18 : 0.58,
-        strokeAlpha: this.equipmentSlotFilter === slot ? 0.95 : equipped ? 0.78 : 0.52,
-        radius: 5,
-      });
-      this.drawEquipmentSlotGlyph(this.structuredGraphics, slot, card.x + 15, card.y + 19, accent);
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 30,
-        card.y + 6,
-        this.formatSlotLabel(slot),
-        {
-          color: uiColors.textMuted,
-          fontSize: '9px',
-          fontStyle: 'bold',
-        },
-      );
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 30,
-        card.y + 21,
-        equipped?.name ?? 'Empty',
-        {
-          color: equipped ? uiColors.textPrimary : uiColors.textMuted,
-          fontSize: '10px',
-          fontStyle: equipped ? 'bold' : 'normal',
-          wordWrapWidth: card.width - 34,
-        },
-      );
-      this.addStructuredZone(card, () => {
-        this.equipmentSlotFilter = slot;
-        this.selectedInventoryItemId = equippedId ?? firstMatchingOwned?.id ?? null;
-        this.refresh();
-      });
-    });
-
-    const filterY = slotTop + 20 + 2 * (slotCardH + 7) + 10;
-    addUiText(this.scene, this.structuredContainer, content.x + 2, filterY, 'OWNED GEAR', {
-      color: '#4da3ff',
-      fontSize: '11px',
-      fontStyle: 'bold',
-    });
-    const allFilterRect: UiRect = {
-      x: content.x + content.width - 82,
-      y: filterY - 4,
-      width: 70,
-      height: 20,
-    };
-    addUiBadge(
-      this.scene,
-      this.structuredContainer,
-      this.structuredGraphics,
-      allFilterRect,
-      this.equipmentSlotFilter === 'all' ? 'ALL' : this.formatSlotLabel(this.equipmentSlotFilter),
-      this.equipmentSlotFilter === 'all' ? uiColors.accentCore : uiColors.accentGear,
-      this.equipmentSlotFilter === 'all' ? uiColors.accentCore : uiColors.accentGear,
-      this.equipmentSlotFilter === 'all' ? '#101824' : '#ffffff',
-    );
-    this.addStructuredZone(allFilterRect, () => {
-      this.equipmentSlotFilter = 'all';
-      this.refresh();
-    });
-
-    const listTop = filterY + 24;
-    const listViewport: UiRect = {
-      x: content.x,
-      y: listTop,
-      width: content.width,
-      height: Math.max(0, content.y + content.height - listTop - 4),
-    };
-    this.equipmentListMaskGraphics
-      .clear()
-      .fillStyle(0xffffff, 1)
-      .fillRect(
-        this.overlayX + listViewport.x,
-        this.overlayY + listViewport.y,
-        listViewport.width,
-        listViewport.height,
-      );
-    let y = listTop - offset;
-    let unscrolledBottom = listTop;
-    if (filteredEquipment.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x + 4,
-        y + 8,
-        'No owned gear matches this slot yet.',
-        { color: uiColors.textMuted, fontSize: '12px' },
-      );
-      unscrolledBottom += 42;
-    }
-
-    for (const entry of filteredEquipment) {
-      const { id: itemId, item, count } = entry;
-      const equipped = this.scene.inventory.getEquipped(item.slot) === itemId;
-      const selected = this.selectedInventoryItemId === itemId;
-      const modifiers = this.getEquipmentModifierViews(item);
-      const accent = this.getEquipmentSlotAccent(item.slot);
-      const card: UiRect = { x: content.x, y, width: content.width, height: 58 };
-      const clippedCard: UiRect = {
-        x: Math.max(card.x, listViewport.x),
-        y: Math.max(card.y, listViewport.y),
-        width:
-          Math.min(card.x + card.width, listViewport.x + listViewport.width) -
-          Math.max(card.x, listViewport.x),
-        height:
-          Math.min(card.y + card.height, listViewport.y + listViewport.height) -
-          Math.max(card.y, listViewport.y),
-      };
-      const visible =
-        clippedCard.width > 0 &&
-        clippedCard.height > 0 &&
-        this.isStructuredRectVisible(clippedCard, rect);
-      if (visible) {
-        const rowGraphics = this.scene.add.graphics();
-        const rowContainer = this.scene.add.container(0, 0, [rowGraphics]);
-        rowContainer.setMask(this.equipmentListMask);
-        this.structuredContainer.add(rowContainer);
-        drawUiCard(rowGraphics, {
-          rect: card,
-          fill: selected
-            ? uiColors.panelGlow
-            : equipped
-              ? uiColors.accentGear
-              : uiColors.panelBgInset,
-          stroke: selected ? uiColors.accentCore : equipped ? accent : uiColors.panelBorderMuted,
-          alpha: selected ? 0.14 : equipped ? 0.16 : 0.62,
-          strokeAlpha: selected ? 0.95 : equipped ? 0.8 : 0.56,
-          radius: 5,
-        });
-        rowGraphics.fillStyle(accent, 0.2).fillRoundedRect(card.x + 8, card.y + 8, 34, 34, 5);
-        this.drawEquipmentSlotGlyph(rowGraphics, item.slot, card.x + 25, card.y + 25, accent);
-        addUiText(this.scene, rowContainer, card.x + 52, card.y + 8, item.name, {
-          color: equipped
-            ? uiColors.valuePositive
-            : selected
-              ? uiColors.valuePrimary
-              : uiColors.textPrimary,
-          fontSize: '13px',
-          fontStyle: 'bold',
-          wordWrapWidth: card.width - 190,
-        });
-        addUiText(
-          this.scene,
-          rowContainer,
-          card.x + 52,
-          card.y + 29,
-          `${this.formatSlotLabel(item.slot)} // x${count}`,
-          { color: uiColors.textMuted, fontSize: '10px' },
-        );
-        let modX = card.x + Math.max(170, card.width - 190);
-        for (const modifier of modifiers.slice(0, 2)) {
-          addUiText(this.scene, rowContainer, modX, card.y + 18, modifier.value, {
-            color: `#${modifier.accent.toString(16).padStart(6, '0')}`,
-            fontSize: '11px',
-            fontStyle: 'bold',
-          });
-          modX += 48;
-        }
-        const actionRect: UiRect = {
-          x: card.x + card.width - 72,
-          y: card.y + 18,
-          width: 60,
-          height: 20,
-        };
-        addUiBadge(
-          this.scene,
-          rowContainer,
-          rowGraphics,
-          actionRect,
-          equipped ? 'UNEQUIP' : 'EQUIP',
-          equipped ? uiColors.warning : uiColors.accentGear,
-          equipped ? uiColors.warning : uiColors.accentGear,
-          equipped ? '#101824' : '#ffffff',
-        );
-      }
-      if (visible) {
-        this.addStructuredZone(clippedCard, () => {
-          this.selectedInventoryItemId = itemId;
-          this.showInventoryItemDetails();
-          this.refresh();
-        });
-        const actionRect: UiRect = {
-          x: card.x + card.width - 72,
-          y: card.y + 18,
-          width: 60,
-          height: 20,
-        };
-        const clippedActionRect: UiRect = {
-          x: Math.max(actionRect.x, listViewport.x),
-          y: Math.max(actionRect.y, listViewport.y),
-          width:
-            Math.min(actionRect.x + actionRect.width, listViewport.x + listViewport.width) -
-            Math.max(actionRect.x, listViewport.x),
-          height:
-            Math.min(actionRect.y + actionRect.height, listViewport.y + listViewport.height) -
-            Math.max(actionRect.y, listViewport.y),
-        };
-        if (clippedActionRect.width > 0 && clippedActionRect.height > 0)
-          this.addStructuredZone(clippedActionRect, () => {
-            this.selectedInventoryItemId = itemId;
-            this.toggleSelectedEquipment();
-          });
-      }
-      y += 66;
-      unscrolledBottom += 66;
-    }
-
-    if (
-      this.selectedInventoryItemId &&
-      getItem(this.selectedInventoryItemId)?.kind === 'equipment'
-    ) {
-      this.showInventoryItemDetails();
-    } else {
-      this.detailTitle.setText('Equipment').setVisible(true);
-      this.detailSubtitle.setText('Build slots and owned gear').setVisible(true);
-      this.detailRankText.setText('').setVisible(false);
-      this.detailBody
-        .setText('Select owned gear to inspect modifiers, compare slots, equip, or unequip.')
-        .setVisible(true);
-    }
-    this.setStructuredContentHeight(content, unscrolledBottom);
-  }
-
-  private buildItemCards(rect: UiRect): void {
-    const content = insetRect(rect, 14);
-    const offset = this.getStructuredScrollOffset();
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'ITEMS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    const items = this.scene.inventory
-      .getAllItems()
-      .filter(([itemId]) => (getItem(itemId) as Item | undefined)?.kind !== 'equipment');
-    addUiBadge(
-      this.scene,
-      this.structuredContainer,
-      this.structuredGraphics,
-      { x: content.x + content.width - 98, y: content.y - 2, width: 86, height: 20 },
-      `${items.length} STACKS`,
-      uiColors.accentGear,
-      uiColors.accentGear,
-    );
-    let y = content.y + 30 - offset;
-    let unscrolledBottom = content.y + 30;
-    if (items.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noItemsInInventory'),
-        { color: uiColors.textMuted, fontSize: '13px' },
-      );
-    }
-    for (const [itemId, count] of items.slice(0, 12)) {
-      const item = getItem(itemId) as Item | undefined;
-      const card: UiRect = { x: content.x, y, width: content.width, height: 48 };
-      const visible = this.isStructuredRectVisible(card, rect);
-      if (visible) {
-        drawUiCard(this.structuredGraphics, {
-          rect: card,
-          fill: uiColors.panelBgInset,
-          stroke: uiColors.panelBorderMuted,
-          alpha: 0.62,
-          strokeAlpha: 0.58,
-        });
-        addUiText(
-          this.scene,
-          this.structuredContainer,
-          card.x + 10,
-          card.y + 8,
-          item?.name ?? itemId,
-          {
-            color: uiColors.textPrimary,
-            fontSize: '12px',
-            fontStyle: 'bold',
-          },
-        );
-        addUiText(
-          this.scene,
-          this.structuredContainer,
-          card.x + 10,
-          card.y + 27,
-          `${item?.category ?? item?.kind ?? 'misc'} // x${count}`,
-          { color: uiColors.textMuted, fontSize: '10px' },
-        );
-        addUiBadge(
-          this.scene,
-          this.structuredContainer,
-          this.structuredGraphics,
-          { x: card.x + card.width - 62, y: card.y + 14, width: 50, height: 20 },
-          item?.category === 'food' || item?.kind === 'consumable' ? 'USE' : 'VIEW',
-          uiColors.accentGear,
-          uiColors.accentGear,
-        );
-        this.addStructuredZone(card, () => {
-          this.selectedInventoryItemId = itemId;
-          this.showInventoryItemDetails();
-        });
-      }
-      y += 56;
-      unscrolledBottom += 56;
-    }
-    this.detailTitle.setText('Items').setVisible(true);
-    this.detailSubtitle.setText('Food, materials, quest goods').setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Click an item row for details. Food and consumables can still use U.')
-      .setVisible(true);
-    this.setStructuredContentHeight(content, unscrolledBottom);
-  }
-
-  private buildSpellCards(rect: UiRect): void {
-    const views = this.handlers.getSpellSlotView?.() ?? [];
-    const content = insetRect(rect, 14);
-    const bound = views.find((view) => view.bound);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'SPELLS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    addUiBadge(
-      this.scene,
-      this.structuredContainer,
-      this.structuredGraphics,
-      { x: content.x + content.width - 138, y: content.y - 2, width: 126, height: 20 },
-      `${this.primaryAbilityKeyLabel()}: ${bound?.label ?? 'Empty'}`,
-      uiColors.accentArcana,
-      uiColors.accentArcana,
-    );
-    let y = content.y + 30;
-    for (const view of views) {
-      const card: UiRect = { x: content.x, y, width: content.width, height: 58 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: view.bound ? uiColors.accentArcana : uiColors.panelBgInset,
-        stroke: view.bound ? uiColors.accentCore : uiColors.panelBorderMuted,
-        alpha: view.bound ? 0.15 : 0.62,
-        strokeAlpha: view.bound ? 0.85 : 0.58,
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 8, view.label, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-        fontStyle: 'bold',
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 27, view.description, {
-        color: uiColors.textMuted,
-        fontSize: '10px',
-        wordWrapWidth: card.width - 110,
-      });
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: card.x + card.width - 82, y: card.y + 16, width: 70, height: 20 },
-        view.bound ? 'BOUND' : view.canBind ? 'BIND' : 'LOCKED',
-        view.canBind || view.bound ? uiColors.accentArcana : uiColors.locked,
-        view.canBind || view.bound ? uiColors.accentArcana : uiColors.locked,
-      );
-      this.addStructuredZone(card, () => {
-        if (view.canBind) {
-          this.handlers.onBindSpellSlot?.(view.id);
-        } else {
-          this.announce(
-            view.disabledReason ?? i18n.getFeatureString('skillTreeQOptionUnavailable'),
-            '#ff6b6b',
-            1800,
-          );
-        }
-      });
-      y += 66;
-    }
-    if (views.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noSpellAvailable'),
-        {
-          color: uiColors.textMuted,
-          fontSize: '13px',
-        },
-      );
-    }
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle.setText(i18n.getFeatureString('detailQSlot')).setVisible(true);
-    this.detailSubtitle.setText(i18n.getFeatureString('detailSpellsTitle')).setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText(`Click an available ability to bind it to ${this.primaryAbilityKeyLabel()}.`)
-      .setVisible(true);
-  }
-
-  private buildManeuverCards(rect: UiRect): void {
-    const state = this.handlers.getManeuverState?.();
-    const learnedIds = new Set<ManeuverId>(state?.learnedIds ?? []);
-    const equippedId = state?.equippedId ?? null;
-    const cooldownRemaining = Math.max(0, Number(state?.cooldownRemaining ?? 0));
-    const activeGhostSteps = Math.max(
-      0,
-      Number(this.scene.getFlag<number>('maneuvers.activeGhostSteps') ?? 0),
-    );
-    const control = getPrimaryBindingLabelForDisplay('maneuver.activate', this.currentInputMode);
-    const content = insetRect(rect, 14);
-
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'MANEUVERS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    addUiBadge(
-      this.scene,
-      this.structuredContainer,
-      this.structuredGraphics,
-      { x: content.x + content.width - 170, y: content.y - 2, width: 158, height: 20 },
-      `${control}: ${equippedId ? getManeuverDefinition(equippedId).shortLabel : 'NONE'}`,
-      uiColors.accentFlow,
-      uiColors.accentFlow,
-    );
-
-    const statusLine =
-      activeGhostSteps > 0
-        ? `Ghost active: ${activeGhostSteps} steps`
-        : cooldownRemaining > 0
-          ? `Shared cooldown: ${cooldownRemaining}/${MANEUVER_SHARED_COOLDOWN_STEPS} steps`
-          : equippedId
-            ? 'Ready'
-            : 'No maneuver equipped';
-    addUiText(this.scene, this.structuredContainer, content.x, content.y + 24, statusLine, {
-      color: cooldownRemaining > 0 ? '#fff3a8' : '#9ad1ff',
-      fontSize: '11px',
-    });
-
-    let y = content.y + 48;
-    for (const definition of MANEUVER_DEFINITIONS) {
-      const learned = learnedIds.has(definition.id);
-      const equipped = equippedId === definition.id;
-      const card: UiRect = { x: content.x, y, width: content.width, height: 70 };
-      const accent = equipped
-        ? uiColors.accentCore
-        : learned
-          ? uiColors.accentFlow
-          : uiColors.panelBorderMuted;
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: equipped ? uiColors.accentFlow : uiColors.panelBgInset,
-        stroke: accent,
-        alpha: equipped ? 0.16 : 0.62,
-        strokeAlpha: learned ? 0.82 : 0.42,
-        radius: 7,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 8,
-        `${definition.name} ${equipped ? '(equipped)' : learned ? '(learned)' : '(locked)'}`,
-        {
-          color: uiColors.textPrimary,
-          fontSize: '12px',
-          fontStyle: 'bold',
-        },
-      );
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 27,
-        definition.description,
-        {
-          color: learned ? uiColors.textSecondary : uiColors.textMuted,
-          fontSize: '10px',
-          wordWrapWidth: card.width - 116,
-        },
-      );
-      const actionRect: UiRect = {
-        x: card.x + card.width - 86,
-        y: card.y + 13,
-        width: 74,
-        height: 20,
-      };
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        actionRect,
-        equipped ? 'ACTIVE' : learned ? 'EQUIP' : 'TRAIN',
-        learned ? uiColors.accentFlow : uiColors.locked,
-        learned ? uiColors.accentFlow : uiColors.locked,
-      );
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: card.x + card.width - 86, y: card.y + 39, width: 74, height: 18 },
-        `${definition.cooldownSteps} STEP`,
-        uiColors.panelBorderMuted,
-        uiColors.panelBorderMuted,
-        uiColors.textSecondary,
-      );
-      this.addStructuredZone(
-        { x: card.x, y: card.y, width: card.width - 96, height: card.height },
-        () => {
-          this.populateManeuverDetails(definition.id, learned, equipped, control);
-        },
-      );
-      this.addStructuredZone(actionRect, () => {
-        if (!learned) {
-          this.populateManeuverDetails(definition.id, learned, equipped, control);
-          this.announce(
-            'Find a Physical Trainer in a human town to learn this maneuver.',
-            '#ffd166',
-          );
-          return;
-        }
-        const result = this.handlers.onEquipManeuver?.(definition.id) ?? {
-          ok: false,
-          message: 'Maneuver equipment is unavailable.',
-          color: '#ff6b6b',
-        };
-        this.announce(result.message, result.color, 1800);
-        this.refresh();
-      });
-      y += 78;
-    }
-
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle
-      .setText(equippedId ? getManeuverDefinition(equippedId).name : 'Maneuvers')
-      .setVisible(true);
-    this.detailSubtitle
-      .setText(equippedId ? 'Equipped movement technique' : 'No maneuver equipped')
-      .setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText(
-        [
-          'Learn maneuvers from Physical Trainers in human towns.',
-          'Click a maneuver for detailed controls and rules.',
-          `Only one can be equipped. Use ${control} to activate the equipped maneuver.`,
-          `All maneuvers share a ${MANEUVER_SHARED_COOLDOWN_STEPS}-ordinary-step cooldown that survives equipment swaps.`,
-        ].join('\n\n'),
-      )
-      .setVisible(true);
-  }
-
-  private populateManeuverDetails(
-    id: ManeuverId,
-    learned: boolean,
-    equipped: boolean,
-    control: string,
-  ): void {
-    const definition = getManeuverDefinition(id);
-    this.detailTitle.setText(definition.name).setVisible(true);
-    this.detailSubtitle
-      .setText(equipped ? 'Equipped maneuver' : learned ? 'Learned maneuver' : 'Locked maneuver')
-      .setVisible(true);
-    this.detailRankText
-      .setText(
-        `${definition.priceScore} SCORE TRAINING / ${definition.cooldownSteps} STEP COOLDOWN`,
-      )
-      .setVisible(true);
-    this.detailBody.setText(this.buildManeuverDetailText(id, control)).setVisible(true);
-  }
-
-  private buildManeuverDetailText(id: ManeuverId, control: string): string {
-    const shared = `All maneuvers share a ${MANEUVER_SHARED_COOLDOWN_STEPS}-ordinary-step cooldown.`;
-    switch (id) {
-      case 'dash':
-        return [
-          'Burst straight ahead seven tiles.',
-          'Dash ignores water, enemies, bullets, and your own body while checking the lane.',
-          'It only fails if the lane crosses a room boundary or a barrier tile.',
-          `${control} activates Dash immediately.`,
-          shared,
-        ].join('\n\n');
-      case 'ghost':
-        return [
-          'Phase for eight normal movement steps with the same transparent snake look as revival.',
-          'Ghost uses phase-style protection while active, then starts the shared cooldown when it ends.',
-          `${control} activates Ghost immediately.`,
-          shared,
-        ].join('\n\n');
-      case 'sidewinder':
-        return [
-          'Shift three tiles to your relative left or right while keeping your current facing.',
-          `Press ${control} first to prime Sidewinder, then press a left or right direction relative to your current travel direction.`,
-          'Example: while moving up, left shifts west and right shifts east.',
-          'The side lane ignores water, enemies, bullets, and your own body, but not barrier tiles.',
-          shared,
-        ].join('\n\n');
-      case 'rewind':
-        return [
-          'Restore your body, facing, room, and hearts from the stable same-length snapshot ten movement steps back.',
-          `${control} activates Rewind immediately when enough history exists.`,
-          shared,
-        ].join('\n\n');
-    }
-  }
-
-  private buildCardCollectionCards(rect: UiRect): void {
-    const collection = this.scene.getCardCollectionForMenu();
-    const owned = CARD_DEFINITIONS.map((card) => ({
-      card,
-      count: Number(collection[card.id] ?? 0),
-    })).filter((entry) => entry.count > 0);
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CARDS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    let y = content.y + 30;
-    if (owned.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noCardsOwned'),
-        {
-          color: uiColors.textMuted,
-          fontSize: '13px',
-        },
-      );
-    }
-    for (const { card, count } of owned.slice(0, 8)) {
-      const cardRect: UiRect = { x: content.x, y, width: content.width, height: 42 };
-      drawUiCard(this.structuredGraphics, {
-        rect: cardRect,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.accentGear,
-        alpha: 0.62,
-        strokeAlpha: 0.58,
-      });
-      addUiText(this.scene, this.structuredContainer, cardRect.x + 10, cardRect.y + 7, card.name, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        cardRect.x + 10,
-        cardRect.y + 24,
-        `${card.suit} // ${card.chips} chips // ${card.rarity}`,
-        { color: uiColors.textMuted, fontSize: '10px' },
-      );
-      addUiBadge(
-        this.scene,
-        this.structuredContainer,
-        this.structuredGraphics,
-        { x: cardRect.x + cardRect.width - 58, y: cardRect.y + 11, width: 46, height: 18 },
-        `x${count}`,
-        uiColors.accentGear,
-        uiColors.accentGear,
-      );
-      y += 48;
-    }
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle.setText(i18n.getFeatureString('cardDetailCollection')).setVisible(true);
-    this.detailSubtitle.setText('Collection').setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody.setText(i18n.getFeatureString('cardCollectionInfo')).setVisible(true);
-  }
-
-  private buildQuestCards(rect: UiRect): void {
-    const quests = this.scene.getAcceptedQuestList();
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'QUESTS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    let y = content.y + 30;
-    if (quests.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noAcceptedQuests'),
-        {
-          color: uiColors.textMuted,
-          fontSize: '13px',
-        },
-      );
-    }
-    for (const quest of quests.slice(0, 5)) {
-      const questStrings = i18n.getQuestString(quest.id) ?? {
-        label: quest.label,
-        description: quest.description,
-      };
-      const card: UiRect = { x: content.x, y, width: content.width, height: 62 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.accentWorld,
-        alpha: 0.62,
-        strokeAlpha: 0.58,
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 8, questStrings.label, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-        fontStyle: 'bold',
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 27,
-        questStrings.description,
-        {
-          color: uiColors.textMuted,
-          fontSize: '10px',
-          wordWrapWidth: card.width - 28,
-        },
-      );
-      this.addStructuredZone(card, () => {
-        const setter = (
-          this.scene as unknown as Record<string, (...args: unknown[]) => unknown | undefined>
-        ).setActiveQuestMarkerQuestId;
-        const ok = typeof setter === 'function' ? setter.call(this.scene, quest.id) : false;
-        this.announce(
-          ok ? 'Tracking quest marker.' : 'Quest marker unavailable.',
-          ok ? '#9ad1ff' : '#ff6b6b',
-          1600,
-        );
-        this.refresh();
-      });
-      y += 70;
-    }
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle.setText('Quests').setVisible(true);
-    this.detailSubtitle.setText(i18n.getFeatureString('detailAcceptedTasks')).setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Click a quest card to track its marker when available.')
-      .setVisible(true);
-  }
-
-  private buildDatingCards(rect: UiRect): void {
-    const views = this.handlers.getDatingView?.() ?? [];
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'DATING', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    let y = content.y + 30;
-    if (views.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noActiveRelationships'),
-        {
-          color: uiColors.textMuted,
-          fontSize: '13px',
-        },
-      );
-    }
-    for (const view of views.slice(0, 5)) {
-      const card: UiRect = { x: content.x, y, width: content.width, height: 58 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.accentSocial,
-        alpha: 0.62,
-        strokeAlpha: 0.58,
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 8, view.displayName, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-        fontStyle: 'bold',
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 28,
-        `Aff ${view.affection} // Trust ${view.trust} // Jealousy ${view.jealousy}`,
-        { color: uiColors.textMuted, fontSize: '10px' },
-      );
-      y += 66;
-    }
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle.setText(i18n.getFeatureString('datingTitle')).setVisible(true);
-    this.detailSubtitle.setText(i18n.getFeatureString('detailRelationships')).setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Relationships appear here after opt-in romance choices.')
-      .setVisible(true);
-  }
-
-  private buildPeopleCards(rect: UiRect): void {
-    const views = this.handlers.getPeopleView?.() ?? [];
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'PEOPLE', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    let y = content.y + 30;
-    if (views.length === 0) {
-      addUiText(this.scene, this.structuredContainer, content.x, y, 'No people known yet.', {
-        color: uiColors.textMuted,
-        fontSize: '13px',
-      });
-    }
-    for (const view of views.slice(0, 30)) {
-      const details = [
-        view.faction ? `Faction: ${view.faction}` : '',
-        view.memories[0] ? `Remembers: ${view.memories[0]}` : '',
-        view.knownFacts[0] ? `Knows: ${view.knownFacts[0]}` : '',
-      ].filter(Boolean);
-      const cardHeight = details.length > 0 ? 64 : 48;
-      const card: UiRect = { x: content.x, y, width: content.width, height: cardHeight };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.accentWorld,
-        alpha: 0.62,
-        strokeAlpha: 0.58,
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, view.name, {
-        color: uiColors.textPrimary,
-        fontSize: '12px',
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 25,
-        `${view.role} // ${view.mood}`,
-        {
-          color: uiColors.textMuted,
-          fontSize: '10px',
-        },
-      );
-      if (details.length > 0) {
-        addUiText(
-          this.scene,
-          this.structuredContainer,
-          card.x + 10,
-          card.y + 42,
-          details.join(' // '),
-          {
-            color: '#7895b4',
-            fontSize: '9px',
-            wordWrapWidth: card.width - 20,
-          },
-        );
-      }
-      y += cardHeight + 6;
-    }
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle.setText(i18n.getFeatureString('peopleTitle')).setVisible(true);
-    this.detailSubtitle.setText(i18n.getFeatureString('detailActorJournal')).setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('NPC memories, social ties, reveals, and mood summaries.')
-      .setVisible(true);
-  }
-
-  private buildCompanionCards(rect: UiRect): void {
-    const companions = this.handlers.getAnimalCompanionView?.() ?? [];
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'COMPANION HERD', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    addUiText(
-      this.scene,
-      this.structuredContainer,
-      content.x + content.width,
-      content.y + 2,
-      `${companions.length}/5`,
-      { color: '#ffbdfd', fontSize: '10px', align: 'right' },
-    );
-    let y = content.y + 30;
-    if (companions.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        'No companions yet.\nApproach foxes, deer, jackalopes, wolves, or coyotes with the required rope or lead.',
-        {
-          color: uiColors.textMuted,
-          fontSize: '12px',
-          wordWrapWidth: content.width,
-        },
-      );
-      y += 70;
-    }
-
-    for (const companion of companions) {
-      const card: UiRect = { x: content.x, y, width: content.width, height: 82 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: companion.bond >= 20 ? uiColors.accentArcana : uiColors.accentSocial,
-        alpha: 0.68,
-        strokeAlpha: 0.75,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 8,
-        `${companion.name.toUpperCase()} // ${companion.bondTier}`,
-        { color: uiColors.textPrimary, fontSize: '11px', fontStyle: 'bold' },
-      );
-      const progress = companion.nextBondAt
-        ? `Bond ${companion.bond}/${companion.nextBondAt}`
-        : `Bond ${companion.bond} MAX`;
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 30,
-        `${progress} // Fed ${companion.timesFed} // Hunting +${companion.huntingBonusPercent}%`,
-        { color: uiColors.textMuted, fontSize: '9px' },
-      );
-      addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
-        id: `feed-companion:${companion.id}`,
-        rect: { x: card.x + 10, y: card.y + 52, width: 112, height: 22 },
-        label: 'Feed',
-        enabled: true,
-        fill: uiColors.accentSocial,
-        stroke: uiColors.accentSocial,
-        disabledFill: uiColors.panelBgSecondary,
-        disabledStroke: uiColors.panelBorderMuted,
-        onClick: () => {
-          this.handlers.onFeedAnimalCompanion?.(companion.id);
-          this.buildStructuredTabContent('companions');
-        },
-      });
-      addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
-        id: `release-companion:${companion.id}`,
-        rect: { x: card.x + 130, y: card.y + 52, width: 112, height: 22 },
-        label: 'Release',
-        enabled: true,
-        fill: uiColors.warning,
-        stroke: uiColors.warning,
-        disabledFill: uiColors.panelBgSecondary,
-        disabledStroke: uiColors.panelBorderMuted,
-        onClick: () => {
-          this.handlers.onReleaseAnimalCompanion?.(companion.id);
-          this.buildStructuredTabContent('companions');
-        },
-      });
-      y += 88;
-    }
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle.setText('Companion Herd').setVisible(true);
-    this.detailSubtitle.setText('Tame, feed, bond, and hunt together').setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText(
-        'Tamed animals follow between rooms. Feeding raises bond tiers; stronger bonds increase animal-drop chances for the entire herd.',
-      )
-      .setVisible(true);
-  }
-
-  private buildArtifactCards(rect: UiRect): void {
-    const artifacts = this.handlers.getArtifactView?.() ?? [];
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'ARTIFACTS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    let y = content.y + 30;
-    if (artifacts.length === 0) {
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x,
-        y,
-        i18n.getFeatureString('noArtifactsRecovery'),
-        {
-          color: uiColors.textMuted,
-          fontSize: '13px',
-        },
-      );
-    }
-    for (const artifact of artifacts.slice(0, 6)) {
-      const card: UiRect = { x: content.x, y, width: content.width, height: 52 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgInset,
-        stroke: uiColors.accentExploration,
-        alpha: 0.62,
-        strokeAlpha: 0.58,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 7,
-        `${artifact.icon} ${artifact.name}`,
-        {
-          color: uiColors.textPrimary,
-          fontSize: '12px',
-        },
-      );
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 25,
-        artifact.description,
-        {
-          color: uiColors.textMuted,
-          fontSize: '10px',
-          wordWrapWidth: card.width - 20,
-        },
-      );
-      y += 60;
-    }
-    this.setStructuredContentHeight(content, y);
-    this.detailTitle.setText(i18n.getFeatureString('artifactsTitle')).setVisible(true);
-    this.detailSubtitle.setText(i18n.getFeatureString('detailRunModifiers')).setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Passive run modifiers recovered from Moleman excavation caches.')
-      .setVisible(true);
   }
 
   private buildLineCards(rect: UiRect, title: string, lines: readonly string[]): void {
@@ -4780,354 +3760,6 @@ export class SkillTreeOverlay {
       return;
     }
     cloud();
-  }
-
-  private buildCheatsCards(rect: UiRect): void {
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CHEATS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-
-    const cardWidth = content.width - 80; // Reserve space for enable button
-    let y = content.y + 30 - this.getStructuredScrollOffset();
-
-    const grouped = getCheatsByCategory();
-    for (const category of grouped.keys()) {
-      const cheats = grouped.get(category)!;
-      if (cheats.length === 0) continue;
-
-      // Category section header
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        content.x + 6,
-        y,
-        getCategoryLabel(category),
-        {
-          color: uiColors.textPrimary,
-          fontSize: '11px',
-          fontStyle: 'bold',
-        },
-      );
-      y += 18;
-
-      for (const cheat of cheats) {
-        const card: UiRect = { x: content.x, y, width: content.width, height: 30 };
-        drawUiCard(this.structuredGraphics, {
-          rect: card,
-          fill: uiColors.panelBgInset,
-          stroke: TAB_ACCENTS[this.activePrimaryTab],
-          alpha: 0.56,
-          strokeAlpha: 0.5,
-        });
-        addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, cheat.name, {
-          color: uiColors.textPrimary,
-          fontSize: '12px',
-          fontStyle: 'bold',
-        });
-        addUiText(
-          this.scene,
-          this.structuredContainer,
-          card.x + 10,
-          card.y + 20,
-          cheat.description,
-          {
-            color: uiColors.textSecondary,
-            fontSize: '10px',
-            wordWrapWidth: cardWidth - 20,
-          },
-        );
-
-        // Card click zone (only the left portion, button area excluded)
-        const zoneWidth = card.width - 72;
-        const zone = this.scene.add
-          .zone(card.x, card.y, zoneWidth, card.height)
-          .setOrigin(0, 0)
-          .setInteractive({ useHandCursor: true });
-        zone.on('pointerdown', () => {
-          this.announce(`Cheat: ${cheat.name}`, '#9ad1ff', 1600);
-          this.detailTitle.setText(cheat.name).setVisible(true);
-          this.detailSubtitle.setText('Cheat Code').setVisible(true);
-          this.detailRankText.setText(cheat.code).setVisible(true);
-          this.detailBody.setText(cheat.description).setVisible(true);
-          this.detailBody.setColor(uiColors.textPrimary);
-        });
-        this.structuredContainer.add(zone);
-
-        // Enable button on the right side of each card
-        const btnX = card.x + zoneWidth;
-        const btnRect: UiRect = { x: btnX, y: card.y + 2, width: 64, height: 26 };
-        addUiButton(this.scene, this.structuredContainer, this.structuredGraphics, {
-          id: `cheat-${cheat.primaryCode}`,
-          rect: btnRect,
-          label: 'Enable',
-          enabled: true,
-          fill: uiColors.success,
-          stroke: uiColors.success,
-          disabledFill: uiColors.disabled,
-          disabledStroke: uiColors.locked,
-          textColor: '#ffffff',
-          disabledTextColor: uiColors.textMuted,
-          onClick: () => {
-            const result = this.scene.applyCheatCode(cheat.primaryCode);
-            this.announce(result.message, result.color, 2000);
-            this.detailTitle.setText(cheat.name).setVisible(true);
-            this.detailSubtitle.setText('Cheat Code').setVisible(true);
-            this.detailRankText.setText(cheat.code).setVisible(true);
-            this.detailBody.setText(result.message).setVisible(true);
-            this.detailBody.setColor(result.color);
-          },
-        });
-        y += 36;
-      }
-
-      y += 6; // Extra gap between categories
-    }
-
-    this.setStructuredContentHeight(content, y + 10);
-
-    this.detailTitle.setText('Cheats').setVisible(true);
-    this.detailSubtitle.setText('Click a cheat to view details.').setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText('Press the Enable button to activate a cheat. Press Back to close.')
-      .setVisible(true);
-    this.detailBody.setColor(uiColors.textPrimary);
-  }
-
-  private buildControlsCards(rect: UiRect): void {
-    const content = insetRect(rect, 14);
-    addUiText(this.scene, this.structuredContainer, content.x, content.y, 'CONTROLS', {
-      color: uiColors.textPrimary,
-      fontSize: '14px',
-      fontStyle: 'bold',
-    });
-    this.buildControlsModeButtons(content);
-
-    const mode =
-      INPUT_MODES.find((entry) => entry.id === this.activeControlsMode) ?? INPUT_MODES[0];
-    addUiText(this.scene, this.structuredContainer, content.x, content.y + 46, mode.description, {
-      color: uiColors.textSecondary,
-      fontSize: '10px',
-      wordWrapWidth: content.width - 8,
-    });
-
-    const categories: readonly ControlCategoryId[] = ['movement', 'actions', 'system'];
-    let y = content.y + 72 - this.getStructuredScrollOffset();
-    for (const category of categories) {
-      y = this.buildControlsCategoryRows(content, y, this.activeControlsMode, category);
-    }
-    this.setStructuredContentHeight(content, y + this.getStructuredScrollOffset());
-
-    this.detailTitle.setText('Controls').setVisible(true);
-    this.detailSubtitle
-      .setText(
-        this.rebindingControlActionId
-          ? this.activeControlsMode === 'controller'
-            ? 'Press a controller button to bind'
-            : 'Press a key to bind'
-          : 'Custom bindings',
-      )
-      .setVisible(true);
-    this.detailRankText.setText('').setVisible(false);
-    this.detailBody
-      .setText(
-        [
-          'Move actions also cover arcade, fishing, and manual room movement.',
-          'Confirm handles interaction and UI selection. Back closes screens and cancels minigames.',
-          'Controller: A selects, B backs out, LB/RB move primary tabs, LT/RT move subtabs, Start opens menu.',
-          'Inspect is intentionally contextual through hover, focus, or touch-hold.',
-        ].join('\n\n'),
-      )
-      .setVisible(true);
-  }
-
-  private buildControlsModeButtons(content: UiRect): void {
-    const gap = 8;
-    const resetWidth = 56;
-    const modeWidth = Math.floor((content.width - resetWidth - gap * INPUT_MODES.length) / 3);
-    let x = content.x;
-    const y = content.y + 21;
-    for (const mode of INPUT_MODES) {
-      const active = mode.id === this.activeControlsMode;
-      const rect: UiRect = { x, y, width: modeWidth, height: 26 };
-      drawUiCard(this.structuredGraphics, {
-        rect,
-        fill: active ? TAB_ACCENTS.system : uiColors.panelBgInset,
-        stroke: TAB_ACCENTS.system,
-        alpha: active ? 0.76 : 0.52,
-        strokeAlpha: active ? 0.88 : 0.42,
-        radius: 6,
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        rect.x + rect.width / 2,
-        rect.y + 7,
-        mode.label,
-        {
-          align: 'center',
-          color: active ? uiColors.textPrimary : uiColors.textSecondary,
-          fontSize: '10px',
-          fontStyle: active ? 'bold' : 'normal',
-        },
-      ).setOrigin(0.5, 0);
-      this.addStructuredZone(rect, () => {
-        this.activeControlsMode = mode.id;
-        this.rebindingControlActionId = null;
-        this.scrollOffsets.controls = 0;
-        this.refresh();
-      });
-      x += modeWidth + gap;
-    }
-
-    const resetRect: UiRect = { x, y, width: resetWidth, height: 26 };
-    drawUiCard(this.structuredGraphics, {
-      rect: resetRect,
-      fill: uiColors.panelBgInset,
-      stroke: uiColors.warning,
-      alpha: 0.48,
-      strokeAlpha: 0.5,
-      radius: 6,
-    });
-    addUiText(
-      this.scene,
-      this.structuredContainer,
-      resetRect.x + resetRect.width / 2,
-      resetRect.y + 7,
-      'Reset',
-      {
-        align: 'center',
-        color: uiColors.textSecondary,
-        fontSize: '10px',
-      },
-    ).setOrigin(0.5, 0);
-    this.addStructuredZone(resetRect, () => {
-      resetAllBindingsForMode(this.activeControlsMode);
-      this.rebindingControlActionId = null;
-      this.refresh();
-    });
-  }
-
-  private buildControlsCategoryRows(
-    content: UiRect,
-    y: number,
-    mode: InputModeId,
-    category: ControlCategoryId,
-  ): number {
-    addUiText(
-      this.scene,
-      this.structuredContainer,
-      content.x + 2,
-      y,
-      CONTROL_CATEGORIES[category].toUpperCase(),
-      {
-        color: uiColors.textMuted,
-        fontSize: '10px',
-        fontStyle: 'bold',
-      },
-    );
-    let nextY = y + 18;
-    for (const action of getControlActionsByCategory(category)) {
-      const card: UiRect = { x: content.x, y: nextY, width: content.width, height: 42 };
-      drawUiCard(this.structuredGraphics, {
-        rect: card,
-        fill: uiColors.panelBgPrimary,
-        stroke: TAB_ACCENTS.system,
-        alpha: 0.5,
-        strokeAlpha: 0.38,
-        radius: 6,
-      });
-      addUiText(this.scene, this.structuredContainer, card.x + 10, card.y + 7, action.label, {
-        color: uiColors.textPrimary,
-        fontSize: '11px',
-        fontStyle: 'bold',
-      });
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + 10,
-        card.y + 22,
-        action.description,
-        {
-          color: uiColors.textMuted,
-          fontSize: '9px',
-          wordWrapWidth: Math.floor(card.width * 0.42),
-        },
-      );
-      const bindingLabel =
-        this.rebindingControlActionId === action.id && mode === this.activeControlsMode
-          ? mode === 'controller'
-            ? 'Press any button...'
-            : 'Press any key...'
-          : formatBindingsForDisplay(getBindingsForMode(action.id, mode));
-      addUiText(
-        this.scene,
-        this.structuredContainer,
-        card.x + Math.floor(card.width * 0.47),
-        card.y + 13,
-        bindingLabel,
-        {
-          color: this.rebindingControlActionId === action.id ? '#fff3a8' : uiColors.textSecondary,
-          fontSize: '10px',
-          wordWrapWidth: Math.floor(card.width * 0.28),
-        },
-      );
-      const canCapture = mode === 'keyboardMouse' || mode === 'controller';
-      const bindRect: UiRect = {
-        x: card.x + card.width - 92,
-        y: card.y + 8,
-        width: 46,
-        height: 24,
-      };
-      const resetRect: UiRect = {
-        x: card.x + card.width - 42,
-        y: card.y + 8,
-        width: 34,
-        height: 24,
-      };
-      this.drawControlsActionButton(bindRect, canCapture ? 'Bind' : 'View', canCapture);
-      this.drawControlsActionButton(resetRect, 'X', true);
-      this.addStructuredZone(bindRect, () => {
-        if (!canCapture) {
-          this.announce(
-            'Live capture for this mode is coming in a later input pass.',
-            '#fff3a8',
-            2200,
-          );
-          return;
-        }
-        this.rebindingControlActionId = action.id;
-        this.refresh();
-      });
-      this.addStructuredZone(resetRect, () => {
-        resetBindingsForMode(action.id, mode);
-        if (this.rebindingControlActionId === action.id) {
-          this.rebindingControlActionId = null;
-        }
-        this.refresh();
-      });
-      nextY += 48;
-    }
-    return nextY + 8;
-  }
-
-  private drawControlsActionButton(rect: UiRect, label: string, enabled: boolean): void {
-    drawUiCard(this.structuredGraphics, {
-      rect,
-      fill: enabled ? uiColors.panelBgInset : uiColors.panelBgPrimary,
-      stroke: enabled ? TAB_ACCENTS.system : uiColors.panelBorderMuted,
-      alpha: enabled ? 0.72 : 0.42,
-      strokeAlpha: enabled ? 0.58 : 0.28,
-      radius: 5,
-    });
-    addUiText(this.scene, this.structuredContainer, rect.x + rect.width / 2, rect.y + 6, label, {
-      align: 'center',
-      color: enabled ? uiColors.textSecondary : uiColors.textMuted,
-      fontSize: '9px',
-    }).setOrigin(0.5, 0);
   }
 
   show(): void {
